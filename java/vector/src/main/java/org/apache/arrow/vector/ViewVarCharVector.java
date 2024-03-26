@@ -182,7 +182,6 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
       this.output = output;
     }
 
-
     /**
     * Get data from the buffer.
     */
@@ -219,19 +218,7 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
    * @param holder  data holder to be populated by this function
    */
   public void get(int index, NullableViewVarCharHolder holder) {
-    assert index >= 0;
-    if (isSet(index) == 0) {
-      holder.isSet = 0;
-      return;
-    }
-    holder.isSet = 1;
-    holder.start = getStartOffset(index);
-    holder.end = getEndOffset(index);
-    holder.buffer = valueBuffer;
-    holder.dataBuffers = dataBuffers;
-    holder.outputBuffer = allocator.buffer(holder.end - holder.start);
-    holder.callBack = new HolderCallback(index, holder.end - holder.start, valueBuffer, dataBuffers,
-        holder.outputBuffer);
+    throw new UnsupportedOperationException("NullableViewVarCharHolder get operation not supported");
   }
 
 
@@ -250,22 +237,7 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
    * @param holder  holder that carries data buffer.
    */
   public void set(int index, ViewVarCharHolder holder) {
-    // TODO: fix this
-    assert index >= 0;
-    fillHoles(index);
-    BitVectorHelper.setBit(validityBuffer, index);
-    final int startOffset = getStartOffset(index);
-    if (holder.isSet != 0) {
-      final int dataLength = holder.end - holder.start;
-      byte[] data = new byte[dataLength];
-      holder.buffer.getBytes(holder.start, data, 0, dataLength);
-      setBytes(index, data, 0, dataLength);
-    } else {
-      byte[] data = new byte[0];
-      setBytes(index, data, 0, 0);
-      offsetBuffer.setInt((index + 1) * ((long) OFFSET_WIDTH), startOffset);
-    }
-    lastSet = index;
+    throw new UnsupportedOperationException("ViewVarCharHolder set operation not supported");
   }
 
   /**
@@ -277,20 +249,7 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
    * @param holder  holder that carries data buffer.
    */
   public void setSafe(int index, ViewVarCharHolder holder) {
-    // TODO: fix this
-    assert index >= 0;
-    if (holder.isSet != 0) {
-      final int dataLength = holder.end - holder.start;
-      handleSafe(index, dataLength);
-      fillHoles(index);
-      byte[] data = new byte[dataLength];
-      holder.buffer.getBytes(holder.start, data, 0, dataLength);
-      setBytes(index, data, 0, dataLength);
-    } else {
-      fillEmpties(index + 1);
-    }
-    BitVectorHelper.setValidityBit(validityBuffer, index, holder.isSet);
-    lastSet = index;
+    throw new UnsupportedOperationException("ViewVarCharHolder setSafe operation not supported");
   }
 
   /**
@@ -301,23 +260,7 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
    * @param holder  holder that carries data buffer.
    */
   public void set(int index, NullableViewVarCharHolder holder) {
-    assert index >= 0;
-    fillHoles(index);
-    BitVectorHelper.setValidityBit(validityBuffer, index, holder.isSet);
-    final int startOffset = getStartOffset(index);
-    if (holder.isSet != 0) {
-      final int dataLength = holder.end - holder.start;
-      byte[] data = new byte[dataLength];
-      holder.callBack.getData();
-      // holder.buffer.getBytes(holder.start, data, 0, dataLength);
-      holder.outputBuffer.getBytes(0, data, 0, dataLength);
-      setBytes(index, data, holder.start, dataLength);
-    } else {
-      byte[] data = new byte[0];
-      setBytes(index, data, 0, 0);
-      offsetBuffer.setInt((index + 1) * ((long) OFFSET_WIDTH), startOffset);
-    }
-    lastSet = index;
+    throw new UnsupportedOperationException("NullableViewVarCharHolder set operation not supported");
   }
 
   /**
@@ -329,21 +272,7 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
    * @param holder  holder that carries data buffer.
    */
   public void setSafe(int index, NullableViewVarCharHolder holder) {
-    assert index >= 0;
-    if (holder.isSet != 0) {
-      final int dataLength = holder.end - holder.start;
-      handleSafe(index, dataLength);
-      fillHoles(index);
-      byte[] data = new byte[dataLength];
-      holder.callBack.getData();
-      // holder.buffer.getBytes(holder.start, data, 0, dataLength);
-      holder.outputBuffer.getBytes(0, data, 0, dataLength);
-      setBytes(index, data, holder.start, dataLength);
-    } else {
-      fillEmpties(index + 1);
-    }
-    BitVectorHelper.setValidityBit(validityBuffer, index, holder.isSet);
-    lastSet = index;
+    throw new UnsupportedOperationException("NullableViewVarCharHolder setSafe operation not supported");
   }
 
   /**

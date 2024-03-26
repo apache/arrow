@@ -24,7 +24,6 @@ import java.util.Random;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.holders.NullableViewVarCharHolder;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -244,65 +243,6 @@ public class TestVarCharViewVector {
       viewVarCharVector.set(1, STR2);
       viewVarCharVector.set(2, STR2);
       viewVarCharVector.setValueCount(valueCount);
-    }
-  }
-
-  private void holderRetrievalHelper(ViewVarCharVector viewVarCharVector, byte[] str, int index) {
-    NullableViewVarCharHolder holder = new NullableViewVarCharHolder();
-    viewVarCharVector.get(index, holder);
-    holder.callBack.getData();
-    byte[] data = new byte[holder.end - holder.start];
-    holder.outputBuffer.getBytes(0, data);
-
-    Assert.assertEquals(holder.isSet, viewVarCharVector.isSet(index));
-    Assert.assertEquals(holder.start, viewVarCharVector.getStartOffset(index));
-    Assert.assertEquals(holder.end, viewVarCharVector.getEndOffset(index));
-    Assert.assertArrayEquals(str, data);
-    holder.outputBuffer.close();
-  }
-
-  @Test
-  public void testHolderRetrieval() {
-    try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator)) {
-      viewVarCharVector.allocateNew(48, 3);
-      final int valueCount = 3;
-      viewVarCharVector.set(0, STR1);
-      viewVarCharVector.set(1, STR2);
-      viewVarCharVector.set(2, STR3);
-      viewVarCharVector.setValueCount(valueCount);
-
-      holderRetrievalHelper(viewVarCharVector, STR1, 0);
-      holderRetrievalHelper(viewVarCharVector, STR2, 1);
-      holderRetrievalHelper(viewVarCharVector, STR3, 2);
-    }
-  }
-
-  @Test
-  public void testHolderSet() {
-    try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator)) {
-      viewVarCharVector.allocateNew(128, 5);
-      final int valueCount = 5;
-      viewVarCharVector.set(0, STR1);
-      viewVarCharVector.set(1, STR2);
-      viewVarCharVector.set(2, STR3);
-      viewVarCharVector.setValueCount(valueCount);
-
-      NullableViewVarCharHolder holder = new NullableViewVarCharHolder();
-      viewVarCharVector.get(0, holder);
-
-      viewVarCharVector.set(3, holder);
-      System.out.println(new String(viewVarCharVector.get(3), StandardCharsets.UTF_8));
-      holder.outputBuffer.close();
-      Assert.assertArrayEquals(viewVarCharVector.get(3), STR1);
-
-      // set safe
-      NullableViewVarCharHolder holderSafe = new NullableViewVarCharHolder();
-      viewVarCharVector.get(1, holderSafe);
-
-      viewVarCharVector.set(4, holderSafe);
-      System.out.println(new String(viewVarCharVector.get(4), StandardCharsets.UTF_8));
-      holderSafe.outputBuffer.close();
-      Assert.assertArrayEquals(viewVarCharVector.get(4), STR2);
     }
   }
 
