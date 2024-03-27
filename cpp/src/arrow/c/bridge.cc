@@ -2399,8 +2399,8 @@ class ArrayStreamArrayReader : public ArrayStreamReader<StreamTraits, ArrayTrait
   using ArrayType = typename ArrayTraits::CType;
 
  public:
-  explicit ArrayStreamArrayReader(StreamType* stream,
-                                  const DeviceMemoryMapper& mapper = DefaultDeviceMemoryMapper)
+  explicit ArrayStreamArrayReader(
+      StreamType* stream, const DeviceMemoryMapper& mapper = DefaultDeviceMemoryMapper)
       : ArrayStreamReader<StreamTraits, ArrayTraits>(stream, mapper) {}
 
   Status Init() {
