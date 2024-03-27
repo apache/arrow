@@ -321,8 +321,7 @@ DeviceMapperRegistryImpl* GetDeviceRegistry() {
 
 }  // namespace
 
-Status RegisterDeviceMapper(DeviceAllocationType device_type,
-                                   DeviceMapper mapper) {
+Status RegisterDeviceMapper(DeviceAllocationType device_type, DeviceMapper mapper) {
   auto registry = GetDeviceRegistry();
   return registry->RegisterDevice(device_type, std::move(mapper));
 }
