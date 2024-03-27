@@ -787,6 +787,31 @@ TEST_F(TestRecordBatch, ToTensorSupportedNullToNan) {
   EXPECT_TRUE(tensor_expected->Equals(*tensor1, EqualOptions().nans_equal(true)));
 
   CheckTensor<DoubleType>(tensor1, 18, shape, f_strides);
+
+  // int8 -> float32
+  auto f3 = field("f3", int8());
+  auto f4 = field("f4", int8());
+
+  std::vector<std::shared_ptr<Field>> fields2 = {f3, f4};
+  auto schema2 = ::arrow::schema(fields2);
+
+  auto a3 = ArrayFromJSON(int8(), "[null, 2, 3, 4, 5, 6, 7, 8, 9]");
+  auto a4 = ArrayFromJSON(int8(), "[10, 20, 30, 40, null, 60, 70, 80, 90]");
+  auto batch2 = RecordBatch::Make(schema2, length, {a3, a4});
+
+  ASSERT_OK_AND_ASSIGN(auto tensor2, batch2->ToTensor(/*null_to_nan=*/true));
+  ASSERT_OK(tensor2->Validate());
+
+  const int64_t f32_size = sizeof(float);
+  std::vector<int64_t> f_strides_2 = {f32_size, f32_size * shape[0]};
+  std::shared_ptr<Tensor> tensor_expected_2 = TensorFromJSON(
+      float32(), "[NaN, 2,  3,  4,  5, 6, 7, 8, 9, 10, 20, 30, 40, NaN, 60, 70, 80, 90]",
+      shape, f_strides_2);
+
+  EXPECT_FALSE(tensor_expected_2->Equals(*tensor2));
+  EXPECT_TRUE(tensor_expected_2->Equals(*tensor2, EqualOptions().nans_equal(true)));
+
+  CheckTensor<FloatType>(tensor2, 18, shape, f_strides_2);
 }
 
 TEST_F(TestRecordBatch, ToTensorSupportedTypesMixed) {

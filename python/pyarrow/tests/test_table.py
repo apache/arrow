@@ -1098,6 +1098,25 @@ def test_recordbatch_to_tensor_null():
     assert result.shape == expected.shape
     assert result.strides == expected.strides
 
+    # int8 -> float32
+    batch = pa.RecordBatch.from_arrays(
+        [
+            pa.array(arr1, type=pa.int8()),
+            pa.array(arr2, type=pa.int8()),
+        ], ["a", "b"]
+    )
+
+    result = batch.to_tensor(null_to_nan=True)
+
+    x = np.array([arr1, arr2], np.float32).transpose()
+    expected = pa.Tensor.from_numpy(x)
+
+    np.testing.assert_equal(result.to_numpy(), x)
+    assert result.size == 18
+    assert result.type == pa.float32()
+    assert result.shape == expected.shape
+    assert result.strides == expected.strides
+
 
 def test_recordbatch_to_tensor_empty():
     batch = pa.RecordBatch.from_arrays(
