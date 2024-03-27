@@ -69,8 +69,6 @@
             <artifactId>spotless-maven-plugin</artifactId>
             <version>${spotless.version.jdk11}</version>
             <configuration>
-              <!-- optional: limit format enforcement to just the files changed by this feature branch -->
-              <!--          <ratchetFrom>HEAD</ratchetFrom>-->
               <formats>
                 <format>
                   <!-- configure license for xml files -->
