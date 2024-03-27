@@ -350,8 +350,8 @@ Arrow repository, and update the following settings:
 * To enable debugging JNI-based modules like ``dataset``,
   activate specific profiles in the Maven tab under "Profiles".
   Ensure the profiles ``arrow-c-data``, ``arrow-jni``, ``generate-libs-cdata-all-os``,
-  ``generate-libs-jni-macos-linux``, and ``jdk11+`` are enabled, which equips the IDE
-  with the necessary debugging utilities for test classes.
+  ``generate-libs-jni-macos-linux``, and ``jdk11+`` are enabled, so that the 
+  IDE can build them and enable debugging.
 
 You may not need to update all of these settings if you build/test with the
 IntelliJ Maven integration instead of with IntelliJ directly.
