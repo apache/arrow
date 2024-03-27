@@ -133,8 +133,8 @@
                 <groupId>org.xolstice.maven.plugins</groupId>
                 <artifactId>protobuf-maven-plugin</artifactId>
                 <executions>
-                    <id>src</id>
                     <execution>
+                        <id>src</id>
                         <goals>
                             <goal>compile</goal>
                         </goals>
