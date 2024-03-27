@@ -566,14 +566,42 @@ Conversion of RecordBatch do Tensor
 
 RecordBatch is a collection of equal-length arrays and each array has it's own
 contiguous memory. For use in machine learning libraries a contiguous memory for
-RecordBatch as a teo dimensional array (also called a 2-dim tensor or a matrix)
+RecordBatch as a two dimensional array (also called a 2-dim tensor or a matrix)
 is needed.
 
 For this reason there is a function ``pyarrow.RecordBatch.to_tensor()`` to be used
-to efficiently convert tabular data into a matrix with a contiguous memory.
+to efficiently convert tabular columnar data into a matrix with a contiguous memory.
 
 Data types supported in this conversion are unsigned, signed integer and float
 types of all widths.
+
+   >>>  import pyarrow as pa
+   >>>  arr1 = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+   >>>  arr2 = [10, 20, 30, 40, 50, 60, 70, 80, 90]
+   >>>  batch = pa.RecordBatch.from_arrays(
+   ...      [
+   ...          pa.array(arr1, type=pa.uint16()),
+   ...          pa.array(arr2, type=pa.int16()),
+   ...      ], ["a", "b"]
+   ...  )
+   >>>  batch.to_tensor()
+   <pyarrow.Tensor>
+   type: int32
+   shape: (9, 2)
+   strides: (4, 36)
+   >>>  batch.to_tensor().to_numpy()
+   array([[ 1, 10],
+         [ 2, 20],
+         [ 3, 30],
+         [ 4, 40],
+         [ 5, 50],
+         [ 6, 60],
+         [ 7, 70],
+         [ 8, 80],
+         [ 9, 90]], dtype=int32)
+
+   With ``null_to_nan`` set to ``True`` one can also convert data with
+   nulls. They will be converted to ``NaN``:
 
    >>> import pyarrow as pa
    >>> batch = pa.record_batch(
@@ -582,24 +610,6 @@ types of all widths.
    ...         pa.array([10, 20, 30, 40, None], type=pa.float32()),
    ...     ], names = ["a", "b"]
    ... )
-
-   >>> batch
-   pyarrow.RecordBatch
-   a: int32
-   b: float
-   ----
-   a: [1,2,3,4,null]
-   b: [10,20,30,40,null]
-
-With ``null_to_nan`` set to ``True`` one can also convert data with
-nulls. They will be converted to ``NaN``:
-
-   >>> batch.to_tensor(null_to_nan=True)
-   <pyarrow.Tensor>
-   type: double
-   shape: (5, 2)
-   strides: (8, 40)
-
    >>> batch.to_tensor(null_to_nan=True).to_numpy()
    array([[ 1., 10.],
          [ 2., 20.],
