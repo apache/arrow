@@ -106,7 +106,7 @@ class ARROW_ACERO_EXPORT SourceNodeOptions : public ExecNodeOptions {
 ///
 /// The table source node will slice off chunks, defined by `max_batch_size`
 /// for parallel processing.  The source node extends source node and so these
-/// chunks will be iteratively processed in small batches.  \see SourceNode
+/// chunks will be iteratively processed in small batches.  \see SourceNodeOptions
 /// for details.
 class ARROW_ACERO_EXPORT TableSourceNodeOptions : public ExecNodeOptions {
  public:
