@@ -18,15 +18,17 @@
 #pragma once
 #include "arrow/extension/tensor_internal.h"
 
-#include "arrow/array/array_nested.h"
 #include <cstdint>
 #include <vector>
+
+#include "arrow/array/array_nested.h"
 #include "arrow/tensor.h"
 #include "arrow/status.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/sort_internal.h"
 #include "arrow/util/print_internal.h"
+#include "arrow/de"
 
 namespace arrow::internal {
 
@@ -83,7 +85,7 @@ inline Status ComputeStrides(const std::shared_ptr<DataType>& value_type,
       strides->push_back(remaining);
     }
   }
-  internal::Permute(permutation, strides);
+  Permute(permutation, strides);
 
   return Status::OK();
 }
