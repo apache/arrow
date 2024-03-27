@@ -42,8 +42,8 @@ class ARROW_EXPORT VariableShapeTensorType : public ExtensionType {
                           const std::vector<int64_t> permutation = {},
                           const std::vector<std::string> dim_names = {},
                           const std::vector<std::optional<int64_t>> uniform_shape = {})
-      : ExtensionType(struct_({::arrow::field("shape", fixed_size_list(int32(), ndim)),
-                               ::arrow::field("data", list(value_type))})),
+      : ExtensionType(struct_({::arrow::field("data", list(value_type)),
+                               ::arrow::field("shape", fixed_size_list(int32(), ndim))})),
         value_type_(value_type),
         ndim_(std::move(ndim)),
         permutation_(std::move(permutation)),
