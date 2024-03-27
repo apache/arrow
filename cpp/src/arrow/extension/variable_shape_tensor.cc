@@ -168,7 +168,7 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Deserialize(
   std::vector<int64_t> permutation;
   if (document.HasMember("permutation")) {
     permutation.reserve(ndim);
-    for (auto& x : document["permutation"].GetArray()) {
+    for (const auto& x : document["permutation"].GetArray()) {
       permutation.emplace_back(x.GetInt64());
     }
     if (permutation.size() != ndim) {
