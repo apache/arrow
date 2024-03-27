@@ -1005,4 +1005,108 @@ INSTANTIATE_TYPED_TEST_SUITE_P(Float16, TestBatchToTensor, HalfFloatType);
 INSTANTIATE_TYPED_TEST_SUITE_P(Float32, TestBatchToTensor, FloatType);
 INSTANTIATE_TYPED_TEST_SUITE_P(Float64, TestBatchToTensor, DoubleType);
 
+template <typename DataType>
+void CheckTensorRowMajor(const std::shared_ptr<Tensor>& tensor, const int size,
+                         const std::vector<int64_t> shape,
+                         const std::vector<int64_t> strides) {
+  EXPECT_EQ(size, tensor->size());
+  EXPECT_EQ(TypeTraits<DataType>::type_singleton(), tensor->type());
+  EXPECT_EQ(shape, tensor->shape());
+  EXPECT_EQ(strides, tensor->strides());
+  EXPECT_TRUE(tensor->is_row_major());
+  EXPECT_FALSE(tensor->is_column_major());
+  EXPECT_TRUE(tensor->is_contiguous());
+}
+
+template <typename DataType>
+class TestBatchToTensorRowMajor : public ::testing::Test {};
+
+TYPED_TEST_SUITE_P(TestBatchToTensorRowMajor);
+
+TYPED_TEST_P(TestBatchToTensorRowMajor, SupportedTypes) {
+  using DataType = TypeParam;
+  using c_data_type = typename DataType::c_type;
+  const int unit_size = sizeof(c_data_type);
+
+  const int length = 9;
+
+  auto f0 = field("f0", TypeTraits<DataType>::type_singleton());
+  auto f1 = field("f1", TypeTraits<DataType>::type_singleton());
+  auto f2 = field("f2", TypeTraits<DataType>::type_singleton());
+
+  std::vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
+  auto schema = ::arrow::schema(fields);
+
+  auto a0 = ArrayFromJSON(TypeTraits<DataType>::type_singleton(),
+                          "[1, 2, 3, 4, 5, 6, 7, 8, 9]");
+  auto a1 = ArrayFromJSON(TypeTraits<DataType>::type_singleton(),
+                          "[10, 20, 30, 40, 50, 60, 70, 80, 90]");
+  auto a2 = ArrayFromJSON(TypeTraits<DataType>::type_singleton(),
+                          "[100, 100, 100, 100, 100, 100, 100, 100, 100]");
+
+  auto batch = RecordBatch::Make(schema, length, {a0, a1, a2});
+
+  ASSERT_OK_AND_ASSIGN(auto tensor,
+                       batch->ToTensor(/*null_to_nan=*/false, /*row_major=*/true));
+  ASSERT_OK(tensor->Validate());
+
+  std::vector<int64_t> shape = {9, 3};
+  std::vector<int64_t> strides = {unit_size * shape[1], unit_size};
+  std::shared_ptr<Tensor> tensor_expected =
+      TensorFromJSON(TypeTraits<DataType>::type_singleton(),
+                     "[1,   10, 100, 2, 20, 100, 3, 30, 100, 4, 40, 100, 5, 50, 100, 6, "
+                     "60, 100, 7, 70, 100, 8, 80, 100, 9, 90, 100]",
+                     shape, strides);
+
+  EXPECT_TRUE(tensor_expected->Equals(*tensor));
+  CheckTensorRowMajor<DataType>(tensor, 27, shape, strides);
+
+  // Test offsets
+  auto batch_slice = batch->Slice(1);
+
+  ASSERT_OK_AND_ASSIGN(auto tensor_sliced, batch_slice->ToTensor());
+  ASSERT_OK(tensor_sliced->Validate());
+
+  std::vector<int64_t> shape_sliced = {8, 3};
+  std::vector<int64_t> strides_sliced = {unit_size * shape[1], unit_size};
+  std::shared_ptr<Tensor> tensor_expected_sliced =
+      TensorFromJSON(TypeTraits<DataType>::type_singleton(),
+                     "[2, 20, 100, 3, 30, 100, 4, 40, 100, 5, 50, 100, 6, "
+                     "60, 100, 7, 70, 100, 8, 80, 100, 9, 90, 100]",
+                     shape_sliced, strides_sliced);
+
+  EXPECT_TRUE(tensor_expected_sliced->Equals(*tensor_sliced));
+  CheckTensorRowMajor<DataType>(tensor_expected_sliced, 24, shape_sliced, strides_sliced);
+
+  auto batch_slice_1 = batch->Slice(1, 5);
+
+  ASSERT_OK_AND_ASSIGN(auto tensor_sliced_1, batch_slice_1->ToTensor());
+  ASSERT_OK(tensor_sliced_1->Validate());
+
+  std::vector<int64_t> shape_sliced_1 = {5, 3};
+  std::vector<int64_t> strides_sliced_1 = {unit_size * shape_sliced_1[1], unit_size};
+  std::shared_ptr<Tensor> tensor_expected_sliced_1 =
+      TensorFromJSON(TypeTraits<DataType>::type_singleton(),
+                     "[2, 20, 100, 3, 30, 100, 4, 40, 100, 5, 50, 100, 6, 60, 100]",
+                     shape_sliced_1, strides_sliced_1);
+
+  EXPECT_TRUE(tensor_expected_sliced_1->Equals(*tensor_sliced_1));
+  CheckTensorRowMajor<DataType>(tensor_expected_sliced_1, 15, shape_sliced_1,
+  strides_sliced_1);
+}
+
+REGISTER_TYPED_TEST_SUITE_P(TestBatchToTensorRowMajor, SupportedTypes);
+
+INSTANTIATE_TYPED_TEST_SUITE_P(UInt8, TestBatchToTensorRowMajor, UInt8Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(UInt16, TestBatchToTensorRowMajor, UInt16Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(UInt32, TestBatchToTensorRowMajor, UInt32Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(UInt64, TestBatchToTensorRowMajor, UInt64Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(Int8, TestBatchToTensorRowMajor, Int8Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(Int16, TestBatchToTensorRowMajor, Int16Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(Int32, TestBatchToTensorRowMajor, Int32Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(Int64, TestBatchToTensorRowMajor, Int64Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(Float16, TestBatchToTensorRowMajor, HalfFloatType);
+INSTANTIATE_TYPED_TEST_SUITE_P(Float32, TestBatchToTensorRowMajor, FloatType);
+INSTANTIATE_TYPED_TEST_SUITE_P(Float64, TestBatchToTensorRowMajor, DoubleType);
+
 }  // namespace arrow
