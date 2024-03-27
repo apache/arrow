@@ -203,7 +203,9 @@ static inline bool ListTypeSupported(const DataType& type) {
       return true;
     case Type::FIXED_SIZE_LIST:
     case Type::LIST:
-    case Type::LARGE_LIST: {
+    case Type::LARGE_LIST:
+    case Type::LIST_VIEW:
+    case Type::LARGE_LIST_VIEW: {
       const auto& list_type = checked_cast<const BaseListType&>(type);
       return ListTypeSupported(*list_type.value_type());
     }
@@ -752,9 +754,11 @@ Status DecodeDictionaries(MemoryPool* pool, const std::shared_ptr<DataType>& den
   return Status::OK();
 }
 
-template <typename ListArrayT>
-Status ConvertListsLike(PandasOptions options, const ChunkedArray& data,
-                        PyObject** out_values) {
+template <typename T>
+enable_if_list_like<T, Status> ConvertListsLike(PandasOptions options,
+                                                const ChunkedArray& data,
+                                                PyObject** out_values) {
+  using ListArrayT = typename TypeTraits<T>::ArrayType;
   // Get column of underlying value arrays
   ArrayVector value_arrays;
   for (int c = 0; c < data.num_chunks(); c++) {
@@ -826,6 +830,26 @@ Status ConvertListsLike(PandasOptions options, const ChunkedArray& data,
   }
 
   return Status::OK();
+}
+
+// TODO GH-40579: optimize ListView conversion to avoid unnecessary copies
+template <typename T>
+enable_if_list_view<T, Status> ConvertListsLike(PandasOptions options,
+                                                const ChunkedArray& data,
+                                                PyObject** out_values) {
+  using ListViewArrayType = typename TypeTraits<T>::ArrayType;
+  using NonViewType =
+      std::conditional_t<T::type_id == Type::LIST_VIEW, ListType, LargeListType>;
+  using NonViewClass = typename TypeTraits<NonViewType>::ArrayType;
+  ArrayVector list_arrays;
+  for (int c = 0; c < data.num_chunks(); c++) {
+    const auto& arr = checked_cast<const ListViewArrayType&>(*data.chunk(c));
+    ARROW_ASSIGN_OR_RAISE(auto non_view_array,
+                          NonViewClass::FromListView(arr, options.pool));
+    list_arrays.emplace_back(non_view_array);
+  }
+  auto chunked_array = std::make_shared<ChunkedArray>(list_arrays);
+  return ConvertListsLike<NonViewType>(options, *chunked_array, out_values);
 }
 
 template <typename F1, typename F2, typename F3>
@@ -1344,16 +1368,14 @@ struct ObjectWriterVisitor {
   }
 
   template <typename T>
-  enable_if_t<is_fixed_size_list_type<T>::value || is_var_length_list_type<T>::value,
-              Status>
-  Visit(const T& type) {
-    using ArrayType = typename TypeTraits<T>::ArrayType;
+  enable_if_t<is_list_like_type<T>::value || is_list_view_type<T>::value, Status> Visit(
+      const T& type) {
     if (!ListTypeSupported(*type.value_type())) {
       return Status::NotImplemented(
           "Not implemented type for conversion from List to Pandas: ",
           type.value_type()->ToString());
     }
-    return ConvertListsLike<ArrayType>(options, data, out_values);
+    return ConvertListsLike<T>(options, data, out_values);
   }
 
   Status Visit(const MapType& type) { return ConvertMap(options, data, out_values); }
@@ -1367,8 +1389,6 @@ struct ObjectWriterVisitor {
                   std::is_same<DictionaryType, Type>::value ||
                   std::is_same<DurationType, Type>::value ||
                   std::is_same<RunEndEncodedType, Type>::value ||
-                  std::is_same<ListViewType, Type>::value ||
-                  std::is_same<LargeListViewType, Type>::value ||
                   std::is_same<ExtensionType, Type>::value ||
                   (std::is_base_of<IntervalType, Type>::value &&
                    !std::is_same<MonthDayNanoIntervalType, Type>::value) ||
@@ -2207,6 +2227,8 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
     case Type::FIXED_SIZE_LIST:
     case Type::LIST:
     case Type::LARGE_LIST:
+    case Type::LIST_VIEW:
+    case Type::LARGE_LIST_VIEW:
     case Type::MAP: {
       auto list_type = std::static_pointer_cast<BaseListType>(data.type());
       if (!ListTypeSupported(*list_type->value_type())) {
