@@ -600,8 +600,8 @@ types of all widths.
          [ 8, 80],
          [ 9, 90]], dtype=int32)
 
-   With ``null_to_nan`` set to ``True`` one can also convert data with
-   nulls. They will be converted to ``NaN``:
+With ``null_to_nan`` set to ``True`` one can also convert data with
+nulls. They will be converted to ``NaN``:
 
    >>> import pyarrow as pa
    >>> batch = pa.record_batch(
