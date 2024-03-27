@@ -150,7 +150,7 @@ def _ensure_cuda_loaded():
     global __cuda_loaded
     if not __cuda_loaded:
         try:
-            import pyarrow.cuda  # noqa
+            import pyarrow.cuda  # no-cython-lint
         except ImportError:
             pass
         __cuda_loaded = True
