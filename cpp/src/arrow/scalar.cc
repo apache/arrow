@@ -542,6 +542,30 @@ struct ScalarValidateImpl {
   }
 };
 
+// // Helper function to fill scratch space, base case for recursion
+// void FillScratchSpaceX() {}
+
+// // Recursive variadic function to fill scratch space
+// template <size_t offset, typename T, typename... Args>
+// void FillScratchSpaceX(T first, Args... args) {
+//   // Ensure that the argument does not exceed the bounds of the scratch space
+//   static_assert(offset + sizeof(T) <=
+//                     sizeof(internal::ArraySpanFillFromScalarScratchSpace::scratch_space_),
+//                 "Total size of arguments exceeds scratch space size.");
+
+//   // Cast the scratch space at the given offset to the type of the current argument and
+//   // assign it
+//   *reinterpret_cast<T*>(scratch_space_ + offset) = first;
+
+//   // Calculate the next offset based on the size of the current type T
+//   constexpr size_t next_offset = offset + sizeof(T);
+
+//   // Recursively fill the scratch space with the remaining arguments
+//   if constexpr (sizeof...(args) > 0) {  // Use if constexpr to stop recursion when
+//                                         // there are no more arguments
+//     FillScratchSpaceX<next_offset>(args...);
+//   }
+// }
 }  // namespace
 
 size_t Scalar::hash() const { return ScalarHashImpl(*this).hash_; }
@@ -554,8 +578,38 @@ Status Scalar::ValidateFull() const {
   return ScalarValidateImpl(/*full_validation=*/true).Validate(*this);
 }
 
-BaseBinaryScalar::BaseBinaryScalar(std::string s, std::shared_ptr<DataType> type)
-    : BaseBinaryScalar(Buffer::FromString(std::move(s)), std::move(type)) {}
+// template <typename... Args>
+// BaseBinaryScalar::BaseBinaryScalar(std::string s, std::shared_ptr<DataType> type,
+//                                    Args... args)
+//     : BaseBinaryScalar(Buffer::FromString(std::move(s)), std::move(type),
+//                        std::forward<Args>(args)...) {}
+
+BaseBinaryScalar::BaseBinaryScalar(std::string s, std::shared_ptr<DataType> type,
+                                   FillScratchSpaceByValueFn fn)
+    : BaseBinaryScalar(Buffer::FromString(std::move(s)), std::move(type),
+                       std::move(fn)) {}
+
+BinaryScalar::BinaryScalar(std::string s, std::shared_ptr<DataType> type)
+    : BinaryScalar(Buffer::FromString(std::move(s)), std::move(type)) {}
+
+BinaryViewScalar::BinaryViewScalar(std::string s, std::shared_ptr<DataType> type)
+    : BinaryViewScalar(Buffer::FromString(std::move(s)), std::move(type)) {}
+
+LargeBinaryScalar::LargeBinaryScalar(std::string s, std::shared_ptr<DataType> type)
+    : LargeBinaryScalar(Buffer::FromString(std::move(s)), std::move(type)) {}
+
+// BinaryViewType::c_type* BinaryViewScalar::FillScratchSpace(uint8_t* scratch_space_,
+//                                                            bool is_valid,
+//                                                            const Buffer* value) {
+//   static_assert(sizeof(BinaryViewType::c_type) <=
+//                 sizeof(internal::ArraySpanFillFromScalarScratchSpace::scratch_space_));
+//   auto* view = new (&scratch_space_) BinaryViewType::c_type;
+//   if (is_valid) {
+//     *view = util::ToBinaryView(std::string_view{*value}, 0, 0);
+//   } else {
+//     *view = {};
+//   }
+// }
 
 FixedSizeBinaryScalar::FixedSizeBinaryScalar(std::shared_ptr<Buffer> value,
                                              std::shared_ptr<DataType> type,
@@ -730,7 +784,7 @@ Result<TimestampScalar> TimestampScalar::FromISO8601(std::string_view iso8601,
 
 SparseUnionScalar::SparseUnionScalar(ValueType value, int8_t type_code,
                                      std::shared_ptr<DataType> type)
-    : UnionScalar(std::move(type), type_code, /*is_valid=*/true),
+    : UnionScalar(std::move(type), type_code, /*is_valid=*/true, FillScratchSpace),
       value(std::move(value)) {
   this->child_id =
       checked_cast<const SparseUnionType&>(*this->type).child_ids()[type_code];
