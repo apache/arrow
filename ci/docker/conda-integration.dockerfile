@@ -20,7 +20,7 @@ ARG arch=amd64
 FROM ${repo}:${arch}-conda-cpp
 
 ARG arch=amd64
-ARG maven=3.5
+ARG maven=3.8.7
 ARG node=16
 ARG yarn=1.22
 ARG jdk=8

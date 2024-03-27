@@ -530,3 +530,39 @@ def test_encrypted_parquet_loop(tempdir, data_table, basic_encryption_config):
             path, decryption_properties=file_decryption_properties)
         result_table = result.read(use_threads=True)
         assert data_table.equals(result_table)
+
+
+def test_read_with_deleted_crypto_factory(tempdir, data_table, basic_encryption_config):
+    """
+    Test that decryption properties can be used if the crypto factory is no longer alive
+    """
+    path = tempdir / PARQUET_NAME
+    encryption_config = basic_encryption_config
+    kms_connection_config = pe.KmsConnectionConfig(
+        custom_kms_conf={
+            FOOTER_KEY_NAME: FOOTER_KEY.decode("UTF-8"),
+            COL_KEY_NAME: COL_KEY.decode("UTF-8"),
+        }
+    )
+
+    def kms_factory(kms_connection_configuration):
+        return InMemoryKmsClient(kms_connection_configuration)
+
+    encryption_crypto_factory = pe.CryptoFactory(kms_factory)
+    write_encrypted_parquet(path, data_table, encryption_config,
+                            kms_connection_config, encryption_crypto_factory)
+    verify_file_encrypted(path)
+
+    # Use a local function to get decryption properties, so the crypto factory that
+    # creates the properties will be deleted after it returns.
+    def get_decryption_properties():
+        decryption_crypto_factory = pe.CryptoFactory(kms_factory)
+        decryption_config = pe.DecryptionConfiguration(
+            cache_lifetime=timedelta(minutes=5.0))
+        return decryption_crypto_factory.file_decryption_properties(
+            kms_connection_config, decryption_config)
+
+    result = pq.ParquetFile(
+        path, decryption_properties=get_decryption_properties())
+    result_table = result.read(use_threads=True)
+    assert data_table.equals(result_table)

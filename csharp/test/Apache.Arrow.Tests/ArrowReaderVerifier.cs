@@ -38,6 +38,9 @@ namespace Apache.Arrow.Tests
 
         public static async Task VerifyReaderAsync(ArrowStreamReader reader, RecordBatch originalBatch)
         {
+            Schema schema = await reader.GetSchema();
+            Assert.NotNull(schema);
+
             RecordBatch readBatch = await reader.ReadNextRecordBatchAsync();
             CompareBatches(originalBatch, readBatch);
 

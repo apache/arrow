@@ -1975,6 +1975,26 @@ cdef class _Tabular(_PandasConvertible):
         raise NotImplementedError
 
     @property
+    def shape(self):
+        """
+        Dimensions of the table or record batch: (#rows, #columns).
+
+        Returns
+        -------
+        (int, int)
+            Number of rows and number of columns.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> table = pa.table({'n_legs': [None, 4, 5, None],
+        ...                   'animals': ["Flamingo", "Horse", None, "Centipede"]})
+        >>> table.shape
+        (4, 2)
+        """
+        return (self.num_rows, self.num_columns)
+
+    @property
     def schema(self):
         raise NotImplementedError
 
@@ -3372,6 +3392,9 @@ cdef class RecordBatch(_Tabular):
     def to_tensor(self):
         """
         Convert to a :class:`~pyarrow.Tensor`.
+
+        RecordBatches that can be converted have fields of type signed or unsigned
+        integer or float, including all bit-widths, with no validity bitmask.
         """
         cdef:
             shared_ptr[CRecordBatch] c_record_batch
@@ -4862,28 +4885,6 @@ cdef class Table(_Tabular):
         4
         """
         return self.table.num_rows()
-
-    @property
-    def shape(self):
-        """
-        Dimensions of the table: (#rows, #columns).
-
-        Returns
-        -------
-        (int, int)
-            Number of rows and number of columns.
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [None, 4, 5, None],
-        ...                    'animals': ["Flamingo", "Horse", None, "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
-        >>> table.shape
-        (4, 2)
-        """
-        return (self.num_rows, self.num_columns)
 
     @property
     def nbytes(self):
