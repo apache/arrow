@@ -22,39 +22,6 @@ import warnings
 from cython import sizeof
 
 
-def _import_device_array_cpu(in_ptr, type):
-    cdef:
-        void* c_ptr = _as_c_pointer(in_ptr)
-        void* c_type_ptr
-        shared_ptr[CArray] c_array
-
-    c_type = pyarrow_unwrap_data_type(type)
-    if c_type == nullptr:
-        # Not a DataType object, perhaps a raw ArrowSchema pointer
-        c_type_ptr = _as_c_pointer(type)
-        with nogil:
-            c_array = GetResultValue(
-                ImportDeviceArray(<ArrowDeviceArray*> c_ptr,
-                                    <ArrowSchema*> c_type_ptr,
-                                    DefaultDeviceMapper)
-            )
-    else:
-        with nogil:
-            c_array = GetResultValue(
-                ImportDeviceArray(<ArrowDeviceArray*> c_ptr, c_type,
-                                    DefaultDeviceMapper)
-            )
-    return pyarrow_wrap_array(c_array)
-
-
-try:
-    from pyarrow._cuda import _import_device_array_cuda
-
-    _import_device_array = _import_device_array_cuda
-except ImportError:
-    _import_device_array = _import_device_array_cpu
-
-
 cdef _sequence_to_array(object sequence, object mask, object size,
                         DataType type, CMemoryPool* pool, c_bool from_pandas):
     cdef:
@@ -1867,7 +1834,26 @@ cdef class Array(_PandasConvertible):
 
         This is a low-level function intended for expert users.
         """
-        return _import_device_array(in_ptr, type)
+        cdef:
+            void* c_ptr = _as_c_pointer(in_ptr)
+            void* c_type_ptr
+            shared_ptr[CArray] c_array
+
+        c_type = pyarrow_unwrap_data_type(type)
+        if c_type == nullptr:
+            # Not a DataType object, perhaps a raw ArrowSchema pointer
+            c_type_ptr = _as_c_pointer(type)
+            with nogil:
+                c_array = GetResultValue(
+                    ImportDeviceArray(<ArrowDeviceArray*> c_ptr,
+                                      <ArrowSchema*> c_type_ptr)
+                )
+        else:
+            with nogil:
+                c_array = GetResultValue(
+                    ImportDeviceArray(<ArrowDeviceArray*> c_ptr, c_type)
+                )
+        return pyarrow_wrap_array(c_array)
 
     def __dlpack__(self, stream=None):
         """Export a primitive array as a DLPack capsule.

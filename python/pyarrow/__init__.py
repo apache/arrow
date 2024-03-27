@@ -281,6 +281,13 @@ import pyarrow.ipc as ipc
 
 import pyarrow.types as types
 
+try:
+    # Try importing the cuda module to ensure libarrow_cuda gets loaded
+    # to register the CUDA device for the C Data Interface import
+    import pyarrow.cuda
+except ImportError:
+    pass
+
 
 # ----------------------------------------------------------------------
 # Deprecations
