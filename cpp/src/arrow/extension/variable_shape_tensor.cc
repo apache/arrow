@@ -137,28 +137,27 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Deserialize(
     return Status::Invalid("Expected Struct storage type, got ",
                            storage_type->ToString());
   }
-
   if (storage_type->num_fields() != 2) {
     return Status::Invalid("Expected Struct storage type with 2 fields, got ",
                            storage_type->num_fields());
   }
-  if (storage_type->field(0)->type()->id() != Type::FIXED_SIZE_LIST) {
-    return Status::Invalid("Expected FixedSizeList storage type, got ",
-                           storage_type->field(0)->type()->ToString());
-  }
-  if (storage_type->field(1)->type()->id() != Type::LIST) {
+  if (storage_type->field(0)->type()->id() != Type::LIST) {
     return Status::Invalid("Expected List storage type, got ",
                            storage_type->field(1)->type()->ToString());
   }
-  if (internal::checked_cast<const FixedSizeListType&>(*storage_type->field(0)->type())
-          .value_type() != int32()) {
-    return Status::Invalid("Expected FixedSizeList value type int32, got ",
+  if (storage_type->field(1)->type()->id() != Type::FIXED_SIZE_LIST) {
+    return Status::Invalid("Expected FixedSizeList storage type, got ",
                            storage_type->field(0)->type()->ToString());
   }
+  if (internal::checked_cast<const FixedSizeListType&>(*storage_type->field(1)->type())
+          .value_type() != int32()) {
+    return Status::Invalid("Expected FixedSizeList value type int32, got ",
+                           storage_type->field(1)->type()->ToString());
+  }
 
-  const auto value_type = storage_type->field(1)->type()->field(0)->type();
+  const auto value_type = storage_type->field(0)->type()->field(0)->type();
   const uint32_t ndim =
-      internal::checked_cast<const FixedSizeListType&>(*storage_type->field(0)->type())
+      internal::checked_cast<const FixedSizeListType&>(*storage_type->field(1)->type())
           .list_size();
 
   rj::Document document;
@@ -172,18 +171,12 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Deserialize(
     for (const auto& x : document["permutation"].GetArray()) {
       permutation.emplace_back(x.GetInt64());
     }
-    if (permutation.size() != ndim) {
-      return Status::Invalid("Invalid permutation");
-    }
   }
   std::vector<std::string> dim_names;
   if (document.HasMember("dim_names")) {
     dim_names.reserve(ndim);
     for (const auto& x : document["dim_names"].GetArray()) {
       dim_names.emplace_back(x.GetString());
-    }
-    if (dim_names.size() != ndim) {
-      return Status::Invalid("Invalid dim_names");
     }
   }
 
@@ -197,15 +190,10 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Deserialize(
         uniform_shape.emplace_back(x.GetInt64());
       }
     }
-    if (uniform_shape.size() != ndim) {
-      return Status::Invalid("uniform_shape size must match ndim. Expected: ", ndim,
-                             " Got: ", uniform_shape.size());
-    }
   }
 
-  return variable_shape_tensor(value_type, static_cast<int32_t>(ndim),
-                               std::move(permutation), std::move(dim_names),
-                               std::move(uniform_shape));
+  return VariableShapeTensorType::Make(value_type, ndim, permutation, dim_names,
+                                       uniform_shape);
 }
 
 std::shared_ptr<Array> VariableShapeTensorType::MakeArray(
@@ -218,13 +206,13 @@ std::shared_ptr<Array> VariableShapeTensorType::MakeArray(
 
 Result<std::shared_ptr<Tensor>> VariableShapeTensorType::MakeTensor(
     const std::shared_ptr<ExtensionScalar>& scalar) {
-  const auto ext_scalar = internal::checked_pointer_cast<ExtensionScalar>(scalar);
   const auto tensor_scalar = internal::checked_pointer_cast<StructScalar>(scalar->value);
   const auto ext_type =
       internal::checked_pointer_cast<VariableShapeTensorType>(scalar->type);
 
-  ARROW_ASSIGN_OR_RAISE(const auto shape_scalar, tensor_scalar->field(0));
   ARROW_ASSIGN_OR_RAISE(const auto data_scalar, tensor_scalar->field(1));
+  ARROW_ASSIGN_OR_RAISE(const auto shape_scalar, tensor_scalar->field(0));
+  ARROW_CHECK(tensor_scalar->is_valid);
   const auto shape_array = internal::checked_pointer_cast<Int32Array>(
       internal::checked_pointer_cast<FixedSizeListScalar>(shape_scalar)->value);
   const auto data_array =
@@ -233,24 +221,21 @@ Result<std::shared_ptr<Tensor>> VariableShapeTensorType::MakeTensor(
   const auto value_type =
       internal::checked_pointer_cast<FixedWidthType>(ext_type->value_type());
 
-  if (!is_fixed_width(*value_type)) {
-    return Status::Invalid("Cannot convert non-fixed-width values to Tensor.");
-  }
   if (data_array->null_count() > 0) {
     return Status::Invalid("Cannot convert data with nulls to Tensor.");
   }
 
   auto permutation = ext_type->permutation();
   if (permutation.empty()) {
-    // permutation.resize(ndim);
+    permutation.resize(ext_type->ndim());
     std::iota(permutation.begin(), permutation.end(), 0);
   }
 
+  ARROW_CHECK_EQ(shape_array->length(), ext_type->ndim());
   std::vector<int64_t> shape;
-  // shape.reserve(ndim);
+  shape.reserve(ext_type->ndim());
   for (int64_t j = 0; j < static_cast<int64_t>(ext_type->ndim()); ++j) {
-    ARROW_ASSIGN_OR_RAISE(const auto size, shape_array->GetScalar(j));
-    auto size_value = internal::checked_pointer_cast<Int32Scalar>(size)->value;
+    const auto size_value = shape_array->Value(j);
     if (size_value < 0) {
       return Status::Invalid("shape must have non-negative values");
     }
@@ -263,14 +248,14 @@ Result<std::shared_ptr<Tensor>> VariableShapeTensorType::MakeTensor(
     internal::Permute<std::string>(permutation, &dim_names);
   }
 
-  std::vector<int64_t> strides;
-  ARROW_CHECK_OK(internal::ComputeStrides(value_type, shape, permutation, &strides));
+  ARROW_ASSIGN_OR_RAISE(std::vector<int64_t> strides,
+                        internal::ComputeStrides(value_type, shape, permutation));
 
   const auto byte_width = value_type->byte_width();
   const auto start_position = data_array->offset() * byte_width;
   const auto size = std::accumulate(shape.begin(), shape.end(), static_cast<int64_t>(1),
                                     std::multiplies<>());
-
+  ARROW_CHECK_EQ(size * byte_width, data_array->length() * byte_width);
   ARROW_ASSIGN_OR_RAISE(
       const auto buffer,
       SliceBufferSafe(data_array->data()->buffers[1], start_position, size * byte_width));
@@ -283,6 +268,10 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Make(
     const std::shared_ptr<DataType>& value_type, const int32_t ndim,
     const std::vector<int64_t>& permutation, const std::vector<std::string>& dim_names,
     const std::vector<std::optional<int64_t>>& uniform_shape) {
+  if (!is_fixed_width(*value_type)) {
+    return Status::Invalid("Cannot convert non-fixed-width values to Tensor.");
+  }
+
   if (!dim_names.empty() && dim_names.size() != static_cast<size_t>(ndim)) {
     return Status::Invalid("dim_names size must match ndim. Expected: ", ndim,
                            " Got: ", dim_names.size());
@@ -303,26 +292,7 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Make(
       return Status::Invalid("permutation size must match ndim. Expected: ", ndim,
                              " Got: ", permutation.size());
     }
-
-    std::vector<int64_t> sorted_permutation = permutation;
-    std::sort(sorted_permutation.begin(), sorted_permutation.end());
-    const auto max_index = std::max<int64_t>(static_cast<int64_t>(ndim - 1), 0);
-
-    if (sorted_permutation[0] != 0) {
-      return Status::Invalid(
-          "Permutation indices for ", ndim,
-          " dimensional tensors must be unique and within [0, ", max_index,
-          "] range. Got: ", ::arrow::internal::PrintVector{sorted_permutation, ","});
-    }
-
-    for (size_t i = 1; i < sorted_permutation.size(); ++i) {
-      if (sorted_permutation[i - 1] + 1 != sorted_permutation[i]) {
-        return Status::Invalid(
-            "Permutation indices for ", ndim,
-            " dimensional tensors must be unique and within [0, ", max_index,
-            "] range. Got: ", ::arrow::internal::PrintVector{sorted_permutation, ","});
-      }
-    }
+    RETURN_NOT_OK(internal::IsPermutationValid(permutation));
   }
 
   return std::make_shared<VariableShapeTensorType>(

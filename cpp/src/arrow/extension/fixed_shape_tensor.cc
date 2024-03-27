@@ -193,8 +193,8 @@ Result<std::shared_ptr<Tensor>> FixedShapeTensorType::MakeTensor(
     internal::Permute<std::string>(permutation, &dim_names);
   }
 
-  std::vector<int64_t> strides;
-  RETURN_NOT_OK(internal::ComputeStrides(value_type, shape, permutation, &strides));
+  ARROW_ASSIGN_OR_RAISE(std::vector<int64_t> strides,
+                        internal::ComputeStrides(value_type, shape, permutation));
   const auto start_position = array->offset() * byte_width;
   const auto size = std::accumulate(shape.begin(), shape.end(), static_cast<int64_t>(1),
                                     std::multiplies<>());
@@ -330,9 +330,8 @@ const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
   shape.insert(shape.begin(), 1, this->length());
   internal::Permute<int64_t>(permutation, &shape);
 
-  std::vector<int64_t> tensor_strides;
-  ARROW_RETURN_NOT_OK(
-      internal::ComputeStrides(value_type, shape, permutation, &tensor_strides));
+  ARROW_ASSIGN_OR_RAISE(std::vector<int64_t> tensor_strides,
+                        internal::ComputeStrides(value_type, shape, permutation));
 
   const auto raw_buffer = this->storage()->data()->child_data[0]->buffers[1];
   ARROW_ASSIGN_OR_RAISE(
@@ -366,10 +365,10 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Make(
 
 const std::vector<int64_t>& FixedShapeTensorType::strides() {
   if (strides_.empty()) {
-    std::vector<int64_t> tensor_strides;
-    ARROW_CHECK_OK(internal::ComputeStrides(this->value_type_, this->shape(),
-                                            this->permutation(), &tensor_strides));
-    strides_ = tensor_strides;
+    Result<std::vector<int64_t>> maybe_tensor_strides =
+        internal::ComputeStrides(this->value_type_, this->shape(), this->permutation());
+    ARROW_DCHECK_OK(maybe_tensor_strides.status());
+    strides_ = maybe_tensor_strides.MoveValueUnsafe();
   }
   return strides_;
 }
