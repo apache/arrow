@@ -3462,7 +3462,7 @@ cdef DataType primitive_type(Type type):
 # Type factory functions
 
 
-def field(name, type, bint nullable=True, metadata=None):
+def field(name, type=None, bint nullable=True, metadata=None):
     """
     Create a pyarrow.Field instance.
 
@@ -3504,6 +3504,14 @@ def field(name, type, bint nullable=True, metadata=None):
     >>> pa.struct([field])
     StructType(struct<key: int32>)
     """
+    if hasattr(name, "__arrow_c_schema__"):
+        if not (type is None and metadata is None):
+            raise ValueError(
+                "cannot specify 'type' or 'metadata' when creating a Field "
+                "from an ArrowSchema"
+            )
+        return Field._import_from_c_capsule(name.__arrow_c_schema__())
+
     cdef:
         Field result = Field.__new__(Field)
         DataType _type = ensure_type(type, allow_none=False)
