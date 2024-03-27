@@ -327,9 +327,6 @@ Status ExportChunkedArray(std::shared_ptr<ChunkedArray> chunked_array,
 /// alive until its release callback is called by the consumer. The device
 /// type is determined by calling device_type() on the RecordBatchReader.
 ///
-/// \note it is assumed that the output pointer has already be zeroed out before
-/// calling this function.
-///
 /// \param[in] reader RecordBatchReader object to export
 /// \param[out] out C struct to export the stream to
 ARROW_EXPORT
@@ -340,9 +337,6 @@ Status ExportDeviceRecordBatchReader(std::shared_ptr<RecordBatchReader> reader,
 ///
 /// The resulting ArrowDeviceArrayStream keeps the chunked array data and buffers
 /// alive until its release callback is called by the consumer.
-///
-/// \note it is assumed that the output pointer has already been zeroed before
-/// calling this function.
 ///
 /// \param[in] chunked_array ChunkedArray object to export
 /// \param[in] device_type the device type the data is located on
@@ -374,11 +368,37 @@ Result<std::shared_ptr<RecordBatchReader>> ImportRecordBatchReader(
 ARROW_EXPORT
 Result<std::shared_ptr<ChunkedArray>> ImportChunkedArray(struct ArrowArrayStream* stream);
 
+/// \brief Import C++ RecordBatchReader from the C device stream interface
+///
+/// The ArrowDeviceArrayStream struct has its contents moved to a private object
+/// held alive by the resulting record batch reader.
+///
+/// \note If there was a required sync event, sync events are accessible by individual
+/// buffers of columns. We are not yet bubbling the sync events from the buffers up to 
+/// the `GetSyncEvent` method of an imported RecordBatch. This will be added in a future 
+/// update.
+///
+/// \param[in,out] stream C device stream interface struct
+/// \param[in] mapper mapping from device type and ID to memory manager
+/// \return Imported RecordBatchReader object
 ARROW_EXPORT
 Result<std::shared_ptr<RecordBatchReader>> ImportDeviceRecordBatchReader(
     struct ArrowDeviceArrayStream* stream,
     const DeviceMemoryMapper& mapper = DefaultDeviceMapper);
 
+/// \brief Import C++ ChunkedArray from the C device stream interface
+///
+/// The ArrowDeviceArrayStream struct has its contents moved to a private object,
+/// is consumed in its entirety, and released before returning all chunks as a
+/// ChunkedArray.
+///
+/// \note Any chunks that require synchronization for their device memory will have
+/// the SyncEvent objects available by checking the individual buffers of each chunk.
+/// These SyncEvents should be checked before accessing the data in those buffers.
+///
+/// \param[in,out] stream C device stream interface struct
+/// \param[in] mapper mapping from device type and ID to memory manager
+/// \return Imported ChunkedArray object
 ARROW_EXPORT
 Result<std::shared_ptr<ChunkedArray>> ImportDeviceChunkedArray(
     struct ArrowDeviceArrayStream* stream,

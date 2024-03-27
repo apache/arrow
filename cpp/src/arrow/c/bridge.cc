@@ -2194,18 +2194,21 @@ class ExportedArrayStream {
 
 Status ExportRecordBatchReader(std::shared_ptr<RecordBatchReader> reader,
                                struct ArrowArrayStream* out) {
+  memset(out, 0, sizeof(struct ArrowArrayStream));
   return ExportedArrayStream<RecordBatchReader, struct ArrowArrayStream,
                              struct ArrowArray>::Make(std::move(reader), out);
 }
 
 Status ExportChunkedArray(std::shared_ptr<ChunkedArray> chunked_array,
                           struct ArrowArrayStream* out) {
+  memset(out, 0, sizeof(struct ArrowArrayStream));
   return ExportedArrayStream<ChunkedArray, struct ArrowArrayStream,
                              struct ArrowArray>::Make(std::move(chunked_array), out);
 }
 
 Status ExportDeviceRecordBatchReader(std::shared_ptr<RecordBatchReader> reader,
                                      struct ArrowDeviceArrayStream* out) {
+  memset(out, 0, sizeof(struct ArrowDeviceArrayStream));
   out->device_type = static_cast<ArrowDeviceType>(reader->device_type());
   return ExportedArrayStream<RecordBatchReader, struct ArrowDeviceArrayStream,
                              struct ArrowDeviceArray>::Make(std::move(reader), out);
@@ -2214,6 +2217,7 @@ Status ExportDeviceRecordBatchReader(std::shared_ptr<RecordBatchReader> reader,
 Status ExportDeviceChunkedArray(std::shared_ptr<ChunkedArray> chunked_array,
                                 DeviceAllocationType device_type,
                                 struct ArrowDeviceArrayStream* out) {
+  memset(out, 0, sizeof(struct ArrowDeviceArrayStream));
   out->device_type = static_cast<ArrowDeviceType>(device_type);
   return ExportedArrayStream<ChunkedArray, struct ArrowDeviceArrayStream,
                              struct ArrowDeviceArray>::Make(std::move(chunked_array),
@@ -2260,21 +2264,23 @@ class ArrayStreamReader {
   }
 
   Result<std::shared_ptr<RecordBatch>> ImportRecordBatchInternal(
-      ArrayType* array, std::shared_ptr<Schema> schema) {
-    if constexpr (std::is_same_v<ArrayType, struct ArrowDeviceArray>) {
-      return ImportDeviceRecordBatch(array, schema, mapper_);
-    } else {
-      return ImportRecordBatch(array, schema);
-    }
+      struct ArrowArray* array, std::shared_ptr<Schema> schema) {
+    return ImportRecordBatch(array, schema);
+  }
+
+  Result<std::shared_ptr<RecordBatch>> ImportRecordBatchInternal(
+      struct ArrowDeviceArray* array, std::shared_ptr<Schema> schema) {
+    return ImportDeviceRecordBatch(array, schema, mapper_);
   }
 
   Result<std::shared_ptr<Array>> ImportArrayInternal(
-      ArrayType* array, std::shared_ptr<arrow::DataType> type) {
-    if constexpr (std::is_same_v<ArrayType, struct ArrowDeviceArray>) {
-      return ImportDeviceArray(array, type, mapper_);
-    } else {
-      return ImportArray(array, type);
-    }
+      struct ArrowArray* array, std::shared_ptr<arrow::DataType> type) {
+    return ImportArray(array, type);
+  }
+
+  Result<std::shared_ptr<Array>> ImportArrayInternal(
+      struct ArrowDeviceArray* array, std::shared_ptr<arrow::DataType> type) {
+    return ImportDeviceArray(array, type, mapper_);
   }
 
   Result<std::shared_ptr<Schema>> ReadSchema() {
