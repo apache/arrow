@@ -619,37 +619,37 @@ TEST_F(TestRecordBatch, ConcatenateRecordBatches) {
   ASSERT_BATCHES_EQUAL(*batch, *null_batch);
 }
 
-TEST_F(TestRecordBatch, ToTensorUnsupported) {
+TEST_F(TestRecordBatch, ToTensorUnsupportedType) {
   const int length = 9;
 
-  // Mixed data type
   auto f0 = field("f0", int32());
-  auto f1 = field("f1", int64());
+  // Unsupported data type
+  auto f1 = field("f1", utf8());
 
   std::vector<std::shared_ptr<Field>> fields = {f0, f1};
   auto schema = ::arrow::schema(fields);
 
   auto a0 = ArrayFromJSON(int32(), "[1, 2, 3, 4, 5, 6, 7, 8, 9]");
-  auto a1 = ArrayFromJSON(int64(), "[10, 20, 30, 40, 50, 60, 70, 80, 90]");
+  auto a1 = ArrayFromJSON(utf8(), R"(["a", "b", "c", "a", "b", "c", "a", "b", "c"])");
 
   auto batch = RecordBatch::Make(schema, length, {a0, a1});
 
   ASSERT_RAISES_WITH_MESSAGE(
-      TypeError, "Type error: Can only convert a RecordBatch with uniform data type.",
+      TypeError, "Type error: DataType is not supported: " + a1->type()->ToString(),
       batch->ToTensor());
 
-  // Unsupported data type
-  auto f2 = field("f2", utf8());
+  // Unsupported boolean data type
+  auto f2 = field("f2", boolean());
 
-  std::vector<std::shared_ptr<Field>> fields_1 = {f2};
-  auto schema_2 = ::arrow::schema(fields_1);
-
-  auto a2 = ArrayFromJSON(utf8(), R"(["a", "b", "c", "a", "b", "c", "a", "b", "c"])");
-  auto batch_2 = RecordBatch::Make(schema_2, length, {a2});
+  std::vector<std::shared_ptr<Field>> fields2 = {f0, f2};
+  auto schema2 = ::arrow::schema(fields2);
+  auto a2 = ArrayFromJSON(boolean(),
+                          "[true, false, true, true, false, true, false, true, true]");
+  auto batch2 = RecordBatch::Make(schema2, length, {a0, a2});
 
   ASSERT_RAISES_WITH_MESSAGE(
       TypeError, "Type error: DataType is not supported: " + a2->type()->ToString(),
-      batch_2->ToTensor());
+      batch2->ToTensor());
 }
 
 TEST_F(TestRecordBatch, ToTensorUnsupportedMissing) {
@@ -738,6 +738,108 @@ TEST_F(TestRecordBatch, ToTensorSupportedNaN) {
   EXPECT_FALSE(tensor_expected->Equals(*tensor));
   EXPECT_TRUE(tensor_expected->Equals(*tensor, EqualOptions().nans_equal(true)));
   CheckTensor<FloatType>(tensor, 18, shape, f_strides);
+}
+
+TEST_F(TestRecordBatch, ToTensorSupportedTypesMixed) {
+  const int length = 9;
+
+  auto f0 = field("f0", uint16());
+  auto f1 = field("f1", int16());
+  auto f2 = field("f2", float32());
+
+  auto a0 = ArrayFromJSON(uint16(), "[1, 2, 3, 4, 5, 6, 7, 8, 9]");
+  auto a1 = ArrayFromJSON(int16(), "[10, 20, 30, 40, 50, 60, 70, 80, 90]");
+  auto a2 = ArrayFromJSON(float32(), "[100, 200, 300, NaN, 500, 600, 700, 800, 900]");
+
+  // Single column
+  std::vector<std::shared_ptr<Field>> fields = {f0};
+  auto schema = ::arrow::schema(fields);
+  auto batch = RecordBatch::Make(schema, length, {a0});
+
+  ASSERT_OK_AND_ASSIGN(auto tensor, batch->ToTensor());
+  ASSERT_OK(tensor->Validate());
+
+  std::vector<int64_t> shape = {9, 1};
+  const int64_t uint16_size = sizeof(uint16_t);
+  std::vector<int64_t> f_strides = {uint16_size, uint16_size * shape[0]};
+  std::shared_ptr<Tensor> tensor_expected =
+      TensorFromJSON(uint16(), "[1, 2, 3, 4, 5, 6, 7, 8, 9]", shape, f_strides);
+
+  EXPECT_TRUE(tensor_expected->Equals(*tensor));
+  CheckTensor<UInt16Type>(tensor, 9, shape, f_strides);
+
+  // uint16 + int16 = int32
+  std::vector<std::shared_ptr<Field>> fields1 = {f0, f1};
+  auto schema1 = ::arrow::schema(fields1);
+  auto batch1 = RecordBatch::Make(schema1, length, {a0, a1});
+
+  ASSERT_OK_AND_ASSIGN(auto tensor1, batch1->ToTensor());
+  ASSERT_OK(tensor1->Validate());
+
+  std::vector<int64_t> shape1 = {9, 2};
+  const int64_t int32_size = sizeof(int32_t);
+  std::vector<int64_t> f_strides_1 = {int32_size, int32_size * shape1[0]};
+  std::shared_ptr<Tensor> tensor_expected_1 = TensorFromJSON(
+      int32(), "[1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 20, 30, 40, 50, 60, 70, 80, 90]",
+      shape1, f_strides_1);
+
+  EXPECT_TRUE(tensor_expected_1->Equals(*tensor1));
+
+  CheckTensor<Int32Type>(tensor1, 18, shape1, f_strides_1);
+
+  ASSERT_EQ(tensor1->type()->bit_width(), tensor_expected_1->type()->bit_width());
+
+  ASSERT_EQ(1, tensor_expected_1->Value<Int32Type>({0, 0}));
+  ASSERT_EQ(2, tensor_expected_1->Value<Int32Type>({1, 0}));
+  ASSERT_EQ(10, tensor_expected_1->Value<Int32Type>({0, 1}));
+
+  // uint16 + int16 + float32 = float64
+  std::vector<std::shared_ptr<Field>> fields2 = {f0, f1, f2};
+  auto schema2 = ::arrow::schema(fields2);
+  auto batch2 = RecordBatch::Make(schema2, length, {a0, a1, a2});
+
+  ASSERT_OK_AND_ASSIGN(auto tensor2, batch2->ToTensor());
+  ASSERT_OK(tensor2->Validate());
+
+  std::vector<int64_t> shape2 = {9, 3};
+  const int64_t f64_size = sizeof(double);
+  std::vector<int64_t> f_strides_2 = {f64_size, f64_size * shape2[0]};
+  std::shared_ptr<Tensor> tensor_expected_2 =
+      TensorFromJSON(float64(),
+                     "[1,   2,   3,   4,   5,  6,  7,  8,   9,   10,  20, 30,  40,  50,  "
+                     "60,  70, 80, 90, 100, 200, 300, NaN, 500, 600, 700, 800, 900]",
+                     shape2, f_strides_2);
+
+  EXPECT_FALSE(tensor_expected_2->Equals(*tensor2));
+  EXPECT_TRUE(tensor_expected_2->Equals(*tensor2, EqualOptions().nans_equal(true)));
+
+  CheckTensor<DoubleType>(tensor2, 27, shape2, f_strides_2);
+}
+
+TEST_F(TestRecordBatch, ToTensorUnsupportedMixedFloat16) {
+  const int length = 9;
+
+  auto f0 = field("f0", float16());
+  auto f1 = field("f1", float64());
+
+  auto a0 = ArrayFromJSON(float16(), "[1, 2, 3, 4, 5, 6, 7, 8, 9]");
+  auto a1 = ArrayFromJSON(float64(), "[10, 20, 30, 40, 50, 60, 70, 80, 90]");
+
+  std::vector<std::shared_ptr<Field>> fields = {f0, f1};
+  auto schema = ::arrow::schema(fields);
+  auto batch = RecordBatch::Make(schema, length, {a0, a1});
+
+  ASSERT_RAISES_WITH_MESSAGE(
+      NotImplemented, "NotImplemented: Casting from or to halffloat is not supported.",
+      batch->ToTensor());
+
+  std::vector<std::shared_ptr<Field>> fields1 = {f1, f0};
+  auto schema1 = ::arrow::schema(fields1);
+  auto batch1 = RecordBatch::Make(schema1, length, {a1, a0});
+
+  ASSERT_RAISES_WITH_MESSAGE(
+      NotImplemented, "NotImplemented: Casting from or to halffloat is not supported.",
+      batch1->ToTensor());
 }
 
 template <typename DataType>

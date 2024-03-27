@@ -60,5 +60,10 @@ namespace Apache.Arrow.Flight.Server
         {
             throw new NotImplementedException();
         }
+
+        public virtual Task DoExchange(FlightServerRecordBatchStreamReader requestStream, FlightServerRecordBatchStreamWriter responseStream, ServerCallContext context)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

@@ -104,14 +104,6 @@ namespace Apache.Arrow
 
         public static IArrowArray Slice(IArrowArray array, int offset, int length)
         {
-            if (offset > array.Length)
-            {
-                throw new ArgumentException($"Offset {offset} cannot be greater than Length {array.Length} for Array.Slice");
-            }
-
-            length = Math.Min(array.Data.Length - offset, length);
-            offset += array.Data.Offset;
-
             ArrayData newData = array.Data.Slice(offset, length);
             return BuildArray(newData);
         }
