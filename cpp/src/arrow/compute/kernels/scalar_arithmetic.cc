@@ -1064,6 +1064,20 @@ const FunctionDoc div_checked_doc{
      "integer overflow is encountered."),
     {"dividend", "divisor"}};
 
+const FunctionDoc floordiv_doc{
+    "Divide the arguments element-wise",
+    ("Integer division by zero returns an error. However, integer overflow\n"
+     "wraps around, and floating-point division by zero returns an infinite.\n"
+     "Use function \"divide_checked\" if you want to get an error\n"
+     "in all the aforementioned cases."),
+    {"dividend", "divisor"}};
+
+const FunctionDoc floordiv_checked_doc{
+    "Divide the arguments element-wise",
+    ("An error is returned when trying to divide by zero, or when\n"
+     "integer overflow is encountered."),
+    {"dividend", "divisor"}};
+
 const FunctionDoc negate_doc{"Negate the argument element-wise",
                              ("Results will wrap around on integer overflow.\n"
                               "Use function \"negate_checked\" if you want overflow\n"
@@ -1571,6 +1585,47 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   }
 
   DCHECK_OK(registry->AddFunction(std::move(divide_checked)));
+
+  // ----------------------------------------------------------------------
+  auto floordiv = MakeArithmeticFunctionNotNull<Floordiv>("floordiv", floordiv_doc);
+
+  // Add floordiv(duration, int64) -> duration
+  for (auto unit : TimeUnit::values()) {
+    auto exec = ScalarBinaryNotNull<Int64Type, Int64Type, Int64Type, Floordiv>::Exec;
+    DCHECK_OK(
+        floordiv->AddKernel({duration(unit), int64()}, duration(unit), std::move(exec)));
+  }
+
+  // Add floordiv(duration, duration) -> float64
+  for (auto unit : TimeUnit::values()) {
+    auto exec =
+        ScalarBinaryNotNull<DoubleType, Int64Type, Int64Type, FloatingFloordiv>::Exec;
+    DCHECK_OK(floordiv->AddKernel({duration(unit), duration(unit)}, float64(),
+                                  std::move(exec)));
+  }
+  DCHECK_OK(registry->AddFunction(std::move(floordiv)));
+
+  // ----------------------------------------------------------------------
+  auto floordiv_checked = MakeArithmeticFunctionNotNull<FloordivChecked>(
+      "floordiv_checked", floordiv_checked_doc);
+
+  // Add floordiv_checked(duration, int64) -> duration
+  for (auto unit : TimeUnit::values()) {
+    auto exec =
+        ScalarBinaryNotNull<Int64Type, Int64Type, Int64Type, FloordivChecked>::Exec;
+    DCHECK_OK(floordiv_checked->AddKernel({duration(unit), int64()}, duration(unit),
+                                          std::move(exec)));
+  }
+
+  // Add floordiv_checked(duration, duration) -> float64
+  for (auto unit : TimeUnit::values()) {
+    auto exec = ScalarBinaryNotNull<DoubleType, Int64Type, Int64Type,
+                                    FloatingFloordivChecked>::Exec;
+    DCHECK_OK(floordiv_checked->AddKernel({duration(unit), duration(unit)}, float64(),
+                                          std::move(exec)));
+  }
+
+  DCHECK_OK(registry->AddFunction(std::move(floordiv_checked)));
 
   // ----------------------------------------------------------------------
   auto negate = MakeUnaryArithmeticFunction<Negate>("negate", negate_doc);
