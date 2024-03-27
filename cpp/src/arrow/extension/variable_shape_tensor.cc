@@ -43,7 +43,7 @@ bool VariableShapeTensorType::ExtensionEquals(const ExtensionType& other) const 
   if (extension_name() != other.extension_name()) {
     return false;
   }
-  const auto& other_ext = static_cast<const VariableShapeTensorType&>(other);
+  const auto& other_ext = checked_cast<const VariableShapeTensorType&>(other);
   if (this->ndim() != other_ext.ndim()) {
     return false;
   }
@@ -150,16 +150,15 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Deserialize(
     return Status::Invalid("Expected List storage type, got ",
                            storage_type->field(1)->type()->ToString());
   }
-  if (std::static_pointer_cast<FixedSizeListType>(storage_type->field(0)->type())
+  if (checked_cast<const FixedSizeListType&>(*storage_type->field(0)->type())
           ->value_type() != int32()) {
     return Status::Invalid("Expected FixedSizeList value type int32, got ",
                            storage_type->field(0)->type()->ToString());
   }
 
   const auto value_type = storage_type->field(1)->type()->field(0)->type();
-  const size_t ndim =
-      std::static_pointer_cast<FixedSizeListType>(storage_type->field(0)->type())
-          ->list_size();
+  const int32_t ndim =
+      checked_cast<const FixedSizeListType&>(*storage_type->field(0)->type()).list_size();
 
   rj::Document document;
   if (document.Parse(serialized_data.data(), serialized_data.length()).HasParseError()) {
@@ -168,6 +167,7 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Deserialize(
 
   std::vector<int64_t> permutation;
   if (document.HasMember("permutation")) {
+    permutation.reserve(ndim);
     for (auto& x : document["permutation"].GetArray()) {
       permutation.emplace_back(x.GetInt64());
     }
@@ -177,7 +177,8 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Deserialize(
   }
   std::vector<std::string> dim_names;
   if (document.HasMember("dim_names")) {
-    for (auto& x : document["dim_names"].GetArray()) {
+    dim_names.reserve(ndim);
+    for (const auto& x : document["dim_names"].GetArray()) {
       dim_names.emplace_back(x.GetString());
     }
     if (dim_names.size() != ndim) {
@@ -187,7 +188,8 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Deserialize(
 
   std::vector<std::optional<int64_t>> uniform_shape;
   if (document.HasMember("uniform_shape")) {
-    for (auto& x : document["uniform_shape"].GetArray()) {
+    uniform_shape.reserve(ndim);
+    for (const auto& x : document["uniform_shape"].GetArray()) {
       if (x.IsNull()) {
         uniform_shape.emplace_back(std::nullopt);
       } else {
@@ -200,8 +202,8 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Deserialize(
     }
   }
 
-  return variable_shape_tensor(value_type, static_cast<int32_t>(ndim), permutation,
-                               dim_names, uniform_shape);
+  return variable_shape_tensor(value_type, static_cast<int32_t>(ndim), std::move(permutation),
+                               std::move(dim_names), std::move(uniform_shape));
 }
 
 std::shared_ptr<Array> VariableShapeTensorType::MakeArray(
@@ -233,17 +235,17 @@ Result<std::shared_ptr<Tensor>> VariableShapeTensorType::MakeTensor(
     return Status::Invalid("Cannot convert non-fixed-width values to Tensor.");
   }
   if (data_array->null_count() > 0) {
-    return Status::Invalid("Cannot convert data with nulls values to Tensor.");
+    return Status::Invalid("Cannot convert data with nulls to Tensor.");
   }
 
   auto permutation = ext_type->permutation();
   if (permutation.empty()) {
-    for (int64_t j = 0; j < static_cast<int64_t>(ext_type->ndim()); ++j) {
-      permutation.emplace_back(j);
-    }
+    permutation.resize(ndim);
+    std::iota(permutation.begin(), permutation.end(), 0);
   }
 
   std::vector<int64_t> shape;
+  shape.reserve(ndim);
   for (int64_t j = 0; j < static_cast<int64_t>(ext_type->ndim()); ++j) {
     ARROW_ASSIGN_OR_RAISE(const auto size, shape_array->GetScalar(j));
     auto size_value = internal::checked_pointer_cast<Int32Scalar>(size)->value;
