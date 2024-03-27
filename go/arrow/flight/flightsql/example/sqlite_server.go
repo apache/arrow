@@ -618,21 +618,21 @@ func getParamsForStatement(rdr flight.MessageReader) (params [][]interface{}, er
 	return params, rdr.Err()
 }
 
-func (s *SQLiteFlightSQLServer) DoPutPreparedStatementQuery(_ context.Context, cmd flightsql.PreparedStatementQuery, rdr flight.MessageReader, _ flight.MetadataWriter) error {
+func (s *SQLiteFlightSQLServer) DoPutPreparedStatementQuery(_ context.Context, cmd flightsql.PreparedStatementQuery, rdr flight.MessageReader, _ flight.MetadataWriter) ([]byte, error) {
 	val, ok := s.prepared.Load(string(cmd.GetPreparedStatementHandle()))
 	if !ok {
-		return status.Error(codes.InvalidArgument, "prepared statement not found")
+		return nil, status.Error(codes.InvalidArgument, "prepared statement not found")
 	}
 
 	stmt := val.(Statement)
 	args, err := getParamsForStatement(rdr)
 	if err != nil {
-		return status.Errorf(codes.Internal, "error gathering parameters for prepared statement query: %s", err.Error())
+		return nil, status.Errorf(codes.Internal, "error gathering parameters for prepared statement query: %s", err.Error())
 	}
 
 	stmt.params = args
 	s.prepared.Store(string(cmd.GetPreparedStatementHandle()), stmt)
-	return nil
+	return cmd.GetPreparedStatementHandle(), nil
 }
 
 func (s *SQLiteFlightSQLServer) DoPutPreparedStatementUpdate(ctx context.Context, cmd flightsql.PreparedStatementUpdate, rdr flight.MessageReader) (int64, error) {

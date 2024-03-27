@@ -1055,7 +1055,9 @@ public class FlightSqlClient implements AutoCloseable {
               .toByteArray());
 
       if (parameterBindingRoot != null && parameterBindingRoot.getRowCount() > 0) {
-        putParameters(descriptor, options);
+        try (final SyncPutListener listener = putParameters(descriptor, options)) {
+          listener.getResult();
+        }
       }
 
       return client.getInfo(descriptor, options);
