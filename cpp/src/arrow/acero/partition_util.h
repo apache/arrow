@@ -62,7 +62,7 @@ class PartitionSort {
   template <class INPUT_PRTN_ID_FN, class OUTPUT_POS_FN>
   static void Eval(int64_t num_rows, int num_prtns, uint16_t* prtn_ranges,
                    INPUT_PRTN_ID_FN prtn_id_impl, OUTPUT_POS_FN output_pos_impl) {
-    ARROW_DCHECK(num_rows > 0 && num_rows <= (1 << 15));
+    ARROW_DCHECK(num_rows > 0 && num_rows <= ((1 << 16) - 1));
     ARROW_DCHECK(num_prtns >= 1 && num_prtns <= (1 << 15));
 
     memset(prtn_ranges, 0, (num_prtns + 1) * sizeof(uint16_t));
