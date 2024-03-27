@@ -3613,6 +3613,8 @@ cdef class RecordBatch(_Tabular):
             void* c_schema_ptr
             shared_ptr[CRecordBatch] c_batch
 
+        _ensure_cuda_loaded()
+
         c_schema = pyarrow_unwrap_schema(schema)
         if c_schema == nullptr:
             # Not a Schema object, perhaps a raw ArrowSchema pointer

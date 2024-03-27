@@ -1839,6 +1839,8 @@ cdef class Array(_PandasConvertible):
             void* c_type_ptr
             shared_ptr[CArray] c_array
 
+        _ensure_cuda_loaded()
+
         c_type = pyarrow_unwrap_data_type(type)
         if c_type == nullptr:
             # Not a DataType object, perhaps a raw ArrowSchema pointer

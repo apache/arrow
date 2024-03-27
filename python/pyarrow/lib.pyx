@@ -125,6 +125,7 @@ UnionMode_DENSE = _UnionMode_DENSE
 
 __pc = None
 __pac = None
+__cuda_loaded = False
 
 
 def _pc():
@@ -141,6 +142,18 @@ def _pac():
         import pyarrow.acero as pac
         __pac = pac
     return __pac
+
+
+def _ensure_cuda_loaded():
+    # Try importing the cuda module to ensure libarrow_cuda gets loaded
+    # to register the CUDA device for the C Data Interface import
+    global __cuda_loaded
+    if not __cuda_loaded:
+        try:
+            import pyarrow.cuda
+        except ImportError:
+            pass
+        __cuda_loaded = True
 
 
 def _gdb_test_session():
