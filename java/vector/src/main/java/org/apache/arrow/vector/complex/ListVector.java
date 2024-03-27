@@ -856,6 +856,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
       offsetBuffer.setInt((i + 1) * OFFSET_WIDTH, currentOffset);
     }
     BitVectorHelper.unsetBit(validityBuffer, index);
+    lastSet = index;
   }
 
   /**

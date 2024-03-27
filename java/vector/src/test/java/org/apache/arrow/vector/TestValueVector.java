@@ -2860,6 +2860,29 @@ public class TestValueVector {
   }
 
   @Test
+  public void testListVectorSetNull() {
+    try (final ListVector vector = ListVector.empty("list", allocator)) {
+      UnionListWriter writer = vector.getWriter();
+      writer.allocate();
+
+      writeListVector(writer, new int[] {1, 2});
+      writeListVector(writer, new int[] {3, 4});
+      writeListVector(writer, new int[] {5, 6});
+      vector.setNull(3);
+      vector.setNull(4);
+      vector.setNull(5);
+      writer.setValueCount(6);
+
+      assertEquals(vector.getObject(0), Arrays.asList(1, 2));
+      assertEquals(vector.getObject(1), Arrays.asList(3, 4));
+      assertEquals(vector.getObject(2), Arrays.asList(5, 6));
+      assertTrue(vector.isNull(3));
+      assertTrue(vector.isNull(4));
+      assertTrue(vector.isNull(5));
+    }
+  }
+
+  @Test
   public void testStructVectorEqualsWithNull() {
 
     try (final StructVector vector1 = StructVector.empty("struct", allocator);
