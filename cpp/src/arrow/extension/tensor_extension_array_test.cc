@@ -197,7 +197,7 @@ TEST_F(TestExtensionType, MakeArrayCanGetCorrectScalarType) {
 
 template <typename T>
 void CheckSerializationRoundtrip(const std::shared_ptr<DataType>& ext_type) {
-  auto type = internal::checked_pointer_cast<T>(ext_type);
+  auto type = internal::checked_pointer_cast<ExtensionType>(ext_type);
   auto serialized = type->Serialize();
   ASSERT_OK_AND_ASSIGN(auto deserialized,
                        type->Deserialize(type->storage_type(), serialized));
@@ -720,7 +720,7 @@ class TestVariableShapeTensorType : public ::testing::Test {
 TEST_F(TestVariableShapeTensorType, CheckDummyRegistration) {
   // We need a registered dummy type at runtime to allow for IPC deserialization
   auto registered_type = GetExtensionType("arrow.variable_shape_tensor");
-  ASSERT_TRUE(registered_type->type_id == Type::EXTENSION);
+  ASSERT_EQ(registered_type->type_id, Type::EXTENSION);
 }
 
 TEST_F(TestVariableShapeTensorType, CreateExtensionType) {
