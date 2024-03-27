@@ -351,7 +351,7 @@ Result<std::shared_ptr<Tensor>> RecordBatch::ToTensor(bool null_to_nan,
   if (is_integer(result_type->id()) && null_to_nan) {
     ARROW_ASSIGN_OR_RAISE(
         result_field,
-        result_field->MergeWith(field(result_field->name(), float16()), options));
+        result_field->MergeWith(field(result_field->name(), float32()), options));
     result_type = result_field->type();
   }
 
