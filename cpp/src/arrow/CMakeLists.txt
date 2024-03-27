@@ -1175,6 +1175,7 @@ add_arrow_benchmark(builder_benchmark)
 add_arrow_benchmark(compare_benchmark)
 add_arrow_benchmark(memory_pool_benchmark)
 add_arrow_benchmark(type_benchmark)
+add_arrow_benchmark(tensor_benchmark)
 
 #
 # Recurse into sub-directories

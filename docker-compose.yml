@@ -1208,15 +1208,17 @@ services:
       LANG: "C.UTF-8"
       BUILD_DOCS_CPP: "ON"
       BUILD_DOCS_PYTHON: "ON"
-      # GH-31506/GH-33609: Remove --disable-warnings once
-      # https://github.com/lgpage/pytest-cython/issues/24 is resolved
-      # and a new version that includes the fix is released.
-      PYTEST_ARGS: "--doctest-modules --doctest-cython --disable-warnings"
+      PYTEST_ARGS: "--doctest-modules --doctest-cython"
     volumes: *conda-volumes
+    # pytest is installed with an upper pin of 8.0.0 because
+    # newer version breaks cython doctesting, see:
+    # https://github.com/lgpage/pytest-cython/issues/58
+    # Remove pip install pytest~=7 when upstream issue is resolved
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         pip install -e /arrow/dev/archery[numpydoc] &&
+        pip install pytest~=7.4 &&
         archery numpydoc --allow-rule GL10,PR01,PR03,PR04,PR05,PR10,RT03,YD01 &&
         /arrow/ci/scripts/python_test.sh /arrow"]
 

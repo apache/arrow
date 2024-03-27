@@ -36,7 +36,7 @@
     <dep.netty-bom.version>4.1.106.Final</dep.netty-bom.version>
     <dep.grpc-bom.version>1.61.1</dep.grpc-bom.version>
     <dep.protobuf-bom.version>3.23.1</dep.protobuf-bom.version>
-    <dep.jackson-bom.version>2.16.1</dep.jackson-bom.version>
+    <dep.jackson-bom.version>2.17.0</dep.jackson-bom.version>
     <dep.hadoop.version>3.3.6</dep.hadoop.version>
     <dep.fbs.version>23.5.26</dep.fbs.version>
     <dep.avro.version>1.11.3</dep.avro.version>
@@ -604,6 +604,38 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-site-plugin</artifactId>
           <version>3.12.1</version>
+        </plugin>
+        <plugin>
+          <groupId>com.gradle</groupId>
+          <artifactId>gradle-enterprise-maven-extension</artifactId>
+          <configuration>
+            <gradleEnterprise>
+              <normalization>
+                <runtimeClassPath>
+                  <ignoredFiles>
+                    <ignoredFile>arrow-git.properties</ignoredFile>
+                    <ignoredFile>properties/flight.properties</ignoredFile>
+                  </ignoredFiles>
+                </runtimeClassPath>
+              </normalization>
+              <plugins>
+                <plugin>
+                  <groupId>org.apache.maven.plugins</groupId>
+                  <artifactId>maven-surefire-plugin</artifactId>
+                  <inputs>
+                    <fileSets>
+                      <fileSet>
+                        <name>testingData</name>
+                        <paths>
+                          <path>${arrow.test.dataRoot}</path>
+                        </paths>
+                      </fileSet>
+                    </fileSets>
+                  </inputs>
+              </plugin>
+            </plugins>
+            </gradleEnterprise>
+          </configuration>
         </plugin>
       </plugins>
     </pluginManagement>

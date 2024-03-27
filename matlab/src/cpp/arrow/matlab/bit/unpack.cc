@@ -20,30 +20,35 @@
 #include "arrow/util/bitmap_visit.h"
 
 namespace arrow::matlab::bit {
-    ::matlab::data::TypedArray<bool> unpack(const std::shared_ptr<arrow::Buffer>& packed_buffer, int64_t length, int64_t start_offset) {
-        const auto packed_buffer_ptr = packed_buffer->data();
+::matlab::data::TypedArray<bool> unpack(
+    const std::shared_ptr<arrow::Buffer>& packed_buffer, int64_t length,
+    int64_t start_offset) {
+  const auto packed_buffer_ptr = packed_buffer->data();
 
-        ::matlab::data::ArrayFactory factory;
-        
-        const auto array_length = static_cast<size_t>(length);
-        
-        auto unpacked_buffer = factory.createBuffer<bool>(array_length);
-        auto unpacked_buffer_ptr = unpacked_buffer.get();
-        auto visitFcn = [&](const bool is_valid) { *unpacked_buffer_ptr++ = is_valid; };
+  ::matlab::data::ArrayFactory factory;
 
-        arrow::internal::VisitBitsUnrolled(packed_buffer_ptr, start_offset, length, visitFcn);
+  const auto array_length = static_cast<size_t>(length);
 
-        ::matlab::data::TypedArray<bool> unpacked_matlab_logical_Array = factory.createArrayFromBuffer({array_length, 1}, std::move(unpacked_buffer));
+  auto unpacked_buffer = factory.createBuffer<bool>(array_length);
+  auto unpacked_buffer_ptr = unpacked_buffer.get();
+  auto visitFcn = [&](const bool is_valid) { *unpacked_buffer_ptr++ = is_valid; };
 
-        return unpacked_matlab_logical_Array;
-    }
+  arrow::internal::VisitBitsUnrolled(packed_buffer_ptr, start_offset, length, visitFcn);
 
-    const uint8_t* extract_ptr(const ::matlab::data::TypedArray<bool>& unpacked_validity_bitmap) {
-        if (unpacked_validity_bitmap.getNumberOfElements() > 0) {
-            const auto unpacked_validity_bitmap_iterator(unpacked_validity_bitmap.cbegin());
-            return reinterpret_cast<const uint8_t*>(unpacked_validity_bitmap_iterator.operator->());
-        } else {
-            return nullptr;
-        }
-    }
+  ::matlab::data::TypedArray<bool> unpacked_matlab_logical_Array =
+      factory.createArrayFromBuffer({array_length, 1}, std::move(unpacked_buffer));
+
+  return unpacked_matlab_logical_Array;
 }
+
+const uint8_t* extract_ptr(
+    const ::matlab::data::TypedArray<bool>& unpacked_validity_bitmap) {
+  if (unpacked_validity_bitmap.getNumberOfElements() > 0) {
+    const auto unpacked_validity_bitmap_iterator(unpacked_validity_bitmap.cbegin());
+    return reinterpret_cast<const uint8_t*>(
+        unpacked_validity_bitmap_iterator.operator->());
+  } else {
+    return nullptr;
+  }
+}
+}  // namespace arrow::matlab::bit

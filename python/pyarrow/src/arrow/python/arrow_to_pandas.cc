@@ -203,7 +203,9 @@ static inline bool ListTypeSupported(const DataType& type) {
       return true;
     case Type::FIXED_SIZE_LIST:
     case Type::LIST:
-    case Type::LARGE_LIST: {
+    case Type::LARGE_LIST:
+    case Type::LIST_VIEW:
+    case Type::LARGE_LIST_VIEW: {
       const auto& list_type = checked_cast<const BaseListType&>(type);
       return ListTypeSupported(*list_type.value_type());
     }
@@ -622,40 +624,40 @@ inline Status ConvertAsPyObjects(const PandasOptions& options, const ChunkedArra
   using ArrayType = typename TypeTraits<Type>::ArrayType;
   using Scalar = typename MemoizationTraits<Type>::Scalar;
 
-  ::arrow::internal::ScalarMemoTable<Scalar> memo_table(options.pool);
-  std::vector<PyObject*> unique_values;
-  int32_t memo_size = 0;
-
-  auto WrapMemoized = [&](const Scalar& value, PyObject** out_values) {
-    int32_t memo_index;
-    RETURN_NOT_OK(memo_table.GetOrInsert(value, &memo_index));
-    if (memo_index == memo_size) {
-      // New entry
-      RETURN_NOT_OK(wrap_func(value, out_values));
-      unique_values.push_back(*out_values);
-      ++memo_size;
-    } else {
-      // Duplicate entry
-      Py_INCREF(unique_values[memo_index]);
-      *out_values = unique_values[memo_index];
+  auto convert_chunks = [&](auto&& wrap_func) -> Status {
+    for (int c = 0; c < data.num_chunks(); c++) {
+      const auto& arr = arrow::internal::checked_cast<const ArrayType&>(*data.chunk(c));
+      RETURN_NOT_OK(internal::WriteArrayObjects(arr, wrap_func, out_values));
+      out_values += arr.length();
     }
     return Status::OK();
   };
 
-  auto WrapUnmemoized = [&](const Scalar& value, PyObject** out_values) {
-    return wrap_func(value, out_values);
-  };
+  if (options.deduplicate_objects) {
+    // GH-40316: only allocate a memo table if deduplication is enabled.
+    ::arrow::internal::ScalarMemoTable<Scalar> memo_table(options.pool);
+    std::vector<PyObject*> unique_values;
+    int32_t memo_size = 0;
 
-  for (int c = 0; c < data.num_chunks(); c++) {
-    const auto& arr = arrow::internal::checked_cast<const ArrayType&>(*data.chunk(c));
-    if (options.deduplicate_objects) {
-      RETURN_NOT_OK(internal::WriteArrayObjects(arr, WrapMemoized, out_values));
-    } else {
-      RETURN_NOT_OK(internal::WriteArrayObjects(arr, WrapUnmemoized, out_values));
-    }
-    out_values += arr.length();
+    auto WrapMemoized = [&](const Scalar& value, PyObject** out_values) {
+      int32_t memo_index;
+      RETURN_NOT_OK(memo_table.GetOrInsert(value, &memo_index));
+      if (memo_index == memo_size) {
+        // New entry
+        RETURN_NOT_OK(wrap_func(value, out_values));
+        unique_values.push_back(*out_values);
+        ++memo_size;
+      } else {
+        // Duplicate entry
+        Py_INCREF(unique_values[memo_index]);
+        *out_values = unique_values[memo_index];
+      }
+      return Status::OK();
+    };
+    return convert_chunks(std::move(WrapMemoized));
+  } else {
+    return convert_chunks(std::forward<WrapFunction>(wrap_func));
   }
-  return Status::OK();
 }
 
 Status ConvertStruct(PandasOptions options, const ChunkedArray& data,
@@ -752,9 +754,11 @@ Status DecodeDictionaries(MemoryPool* pool, const std::shared_ptr<DataType>& den
   return Status::OK();
 }
 
-template <typename ListArrayT>
-Status ConvertListsLike(PandasOptions options, const ChunkedArray& data,
-                        PyObject** out_values) {
+template <typename T>
+enable_if_list_like<T, Status> ConvertListsLike(PandasOptions options,
+                                                const ChunkedArray& data,
+                                                PyObject** out_values) {
+  using ListArrayT = typename TypeTraits<T>::ArrayType;
   // Get column of underlying value arrays
   ArrayVector value_arrays;
   for (int c = 0; c < data.num_chunks(); c++) {
@@ -826,6 +830,26 @@ Status ConvertListsLike(PandasOptions options, const ChunkedArray& data,
   }
 
   return Status::OK();
+}
+
+// TODO GH-40579: optimize ListView conversion to avoid unnecessary copies
+template <typename T>
+enable_if_list_view<T, Status> ConvertListsLike(PandasOptions options,
+                                                const ChunkedArray& data,
+                                                PyObject** out_values) {
+  using ListViewArrayType = typename TypeTraits<T>::ArrayType;
+  using NonViewType =
+      std::conditional_t<T::type_id == Type::LIST_VIEW, ListType, LargeListType>;
+  using NonViewClass = typename TypeTraits<NonViewType>::ArrayType;
+  ArrayVector list_arrays;
+  for (int c = 0; c < data.num_chunks(); c++) {
+    const auto& arr = checked_cast<const ListViewArrayType&>(*data.chunk(c));
+    ARROW_ASSIGN_OR_RAISE(auto non_view_array,
+                          NonViewClass::FromListView(arr, options.pool));
+    list_arrays.emplace_back(non_view_array);
+  }
+  auto chunked_array = std::make_shared<ChunkedArray>(list_arrays);
+  return ConvertListsLike<NonViewType>(options, *chunked_array, out_values);
 }
 
 template <typename F1, typename F2, typename F3>
@@ -1344,16 +1368,14 @@ struct ObjectWriterVisitor {
   }
 
   template <typename T>
-  enable_if_t<is_fixed_size_list_type<T>::value || is_var_length_list_type<T>::value,
-              Status>
-  Visit(const T& type) {
-    using ArrayType = typename TypeTraits<T>::ArrayType;
+  enable_if_t<is_list_like_type<T>::value || is_list_view_type<T>::value, Status> Visit(
+      const T& type) {
     if (!ListTypeSupported(*type.value_type())) {
       return Status::NotImplemented(
           "Not implemented type for conversion from List to Pandas: ",
           type.value_type()->ToString());
     }
-    return ConvertListsLike<ArrayType>(options, data, out_values);
+    return ConvertListsLike<T>(options, data, out_values);
   }
 
   Status Visit(const MapType& type) { return ConvertMap(options, data, out_values); }
@@ -1367,8 +1389,6 @@ struct ObjectWriterVisitor {
                   std::is_same<DictionaryType, Type>::value ||
                   std::is_same<DurationType, Type>::value ||
                   std::is_same<RunEndEncodedType, Type>::value ||
-                  std::is_same<ListViewType, Type>::value ||
-                  std::is_same<LargeListViewType, Type>::value ||
                   std::is_same<ExtensionType, Type>::value ||
                   (std::is_base_of<IntervalType, Type>::value &&
                    !std::is_same<MonthDayNanoIntervalType, Type>::value) ||
@@ -2207,6 +2227,8 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
     case Type::FIXED_SIZE_LIST:
     case Type::LIST:
     case Type::LARGE_LIST:
+    case Type::LIST_VIEW:
+    case Type::LARGE_LIST_VIEW:
     case Type::MAP: {
       auto list_type = std::static_pointer_cast<BaseListType>(data.type());
       if (!ListTypeSupported(*list_type->value_type())) {
@@ -2291,6 +2313,14 @@ std::shared_ptr<ChunkedArray> GetStorageChunkedArray(std::shared_ptr<ChunkedArra
   return std::make_shared<ChunkedArray>(std::move(storage_arrays), value_type);
 };
 
+// Helper function to decode RunEndEncodedArray
+Result<std::shared_ptr<ChunkedArray>> GetDecodedChunkedArray(
+    std::shared_ptr<ChunkedArray> arr) {
+  ARROW_ASSIGN_OR_RAISE(Datum decoded, compute::RunEndDecode(arr));
+  DCHECK(decoded.is_chunked_array());
+  return decoded.chunked_array();
+};
+
 class ConsolidatedBlockCreator : public PandasBlockCreator {
  public:
   using PandasBlockCreator::PandasBlockCreator;
@@ -2319,6 +2349,11 @@ class ConsolidatedBlockCreator : public PandasBlockCreator {
       // In case of an extension array default to the storage type
       if (arrays_[column_index]->type()->id() == Type::EXTENSION) {
         arrays_[column_index] = GetStorageChunkedArray(arrays_[column_index]);
+      }
+      // In case of a RunEndEncodedArray default to the values type
+      else if (arrays_[column_index]->type()->id() == Type::RUN_END_ENCODED) {
+        ARROW_ASSIGN_OR_RAISE(arrays_[column_index],
+                              GetDecodedChunkedArray(arrays_[column_index]));
       }
       return GetPandasWriterType(*arrays_[column_index], options_, out);
     }
@@ -2553,6 +2588,18 @@ Status ConvertChunkedArrayToPandas(const PandasOptions& options,
   // In case of an extension array default to the storage type
   if (arr->type()->id() == Type::EXTENSION) {
     arr = GetStorageChunkedArray(arr);
+  }
+  // In case of a RunEndEncodedArray decode the array
+  else if (arr->type()->id() == Type::RUN_END_ENCODED) {
+    if (options.zero_copy_only) {
+      return Status::Invalid("Need to dencode a RunEndEncodedArray, but ",
+                             "only zero-copy conversions allowed");
+    }
+    ARROW_ASSIGN_OR_RAISE(arr, GetDecodedChunkedArray(arr));
+
+    // Because we built a new array when we decoded the RunEndEncodedArray
+    // the final resulting numpy array should own the memory through a Capsule
+    py_ref = nullptr;
   }
 
   PandasWriter::type output_type;
