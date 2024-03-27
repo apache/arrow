@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <vector>
+
 #include "arrow/array/array_nested.h"
 #include "arrow/tensor.h"
 #include "arrow/util/checked_cast.h"
@@ -84,6 +85,7 @@ inline Status ComputeStrides(const std::shared_ptr<DataType>& value_type,
       strides->push_back(remaining);
     }
   }
+  DCHECK_EQ(strides.back(), byte_width);
   Permute(permutation, strides);
 
   return Status::OK();
