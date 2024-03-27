@@ -384,7 +384,7 @@ Result<std::shared_ptr<ChunkedArray>> ImportChunkedArray(struct ArrowArrayStream
 ARROW_EXPORT
 Result<std::shared_ptr<RecordBatchReader>> ImportDeviceRecordBatchReader(
     struct ArrowDeviceArrayStream* stream,
-    const DeviceMemoryMapper& mapper = DefaultDeviceMapper);
+    const DeviceMemoryMapper& mapper = DefaultDeviceMemoryMapper);
 
 /// \brief Import C++ ChunkedArray from the C device stream interface
 ///
@@ -402,7 +402,7 @@ Result<std::shared_ptr<RecordBatchReader>> ImportDeviceRecordBatchReader(
 ARROW_EXPORT
 Result<std::shared_ptr<ChunkedArray>> ImportDeviceChunkedArray(
     struct ArrowDeviceArrayStream* stream,
-    const DeviceMemoryMapper& mapper = DefaultDeviceMapper);
+    const DeviceMemoryMapper& mapper = DefaultDeviceMemoryMapper);
 
 /// @}
 

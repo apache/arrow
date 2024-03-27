@@ -2237,7 +2237,7 @@ class ArrayStreamReader {
 
  public:
   explicit ArrayStreamReader(StreamType* stream,
-                             const DeviceMemoryMapper& mapper = DefaultDeviceMapper)
+                             const DeviceMemoryMapper& mapper = DefaultDeviceMemoryMapper)
       : mapper_{mapper} {
     StreamTraits::MoveFunc(stream, &stream_);
     DCHECK(!StreamTraits::IsReleasedFunc(&stream_));
@@ -2356,8 +2356,8 @@ class ArrayStreamBatchReader : public RecordBatchReader,
   using ArrayType = typename ArrayTraits::CType;
 
  public:
-  explicit ArrayStreamBatchReader(StreamType* stream,
-                                  const DeviceMemoryMapper& mapper = DefaultDeviceMapper)
+  explicit ArrayStreamBatchReader(
+      StreamType* stream, const DeviceMemoryMapper& mapper = DefaultDeviceMemoryMapper)
       : ArrayStreamReader<StreamTraits, ArrayTraits>(stream, mapper) {}
 
   Status Init() {
@@ -2432,7 +2432,7 @@ class ArrayStreamArrayReader : public ArrayStreamReader<StreamTraits, ArrayTrait
 template <typename StreamTraits, typename ArrayTraits>
 Result<std::shared_ptr<RecordBatchReader>> ImportReader(
     typename StreamTraits::CType* stream,
-    const DeviceMemoryMapper& mapper = DefaultDeviceMapper) {
+    const DeviceMemoryMapper& mapper = DefaultDeviceMemoryMapper) {
   if (StreamTraits::IsReleasedFunc(stream)) {
     return Status::Invalid("Cannot import released Arrow Stream");
   }
@@ -2446,7 +2446,7 @@ Result<std::shared_ptr<RecordBatchReader>> ImportReader(
 template <typename StreamTraits, typename ArrayTraits>
 Result<std::shared_ptr<ChunkedArray>> ImportChunked(
     typename StreamTraits::CType* stream,
-    const DeviceMemoryMapper& mapper = DefaultDeviceMapper) {
+    const DeviceMemoryMapper& mapper = DefaultDeviceMemoryMapper) {
   if (StreamTraits::IsReleasedFunc(stream)) {
     return Status::Invalid("Cannot import released Arrow Stream");
   }
