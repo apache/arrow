@@ -27,6 +27,7 @@
 #include "arrow/util/sort.h"
 
 #include "arrow/status.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/print.h"
 
 namespace arrow::internal {
@@ -85,7 +86,7 @@ inline Status ComputeStrides(const std::shared_ptr<DataType>& value_type,
       strides->push_back(remaining);
     }
   }
-  DCHECK_EQ(strides.back(), byte_width);
+  DCHECK_EQ(strides->back(), byte_width);
   Permute(permutation, strides);
 
   return Status::OK();
