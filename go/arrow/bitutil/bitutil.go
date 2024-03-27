@@ -19,7 +19,6 @@ package bitutil
 import (
 	"math"
 	"math/bits"
-	"reflect"
 	"unsafe"
 
 	"github.com/apache/arrow/go/v16/arrow/memory"
@@ -148,15 +147,6 @@ const (
 	uint64SizeBytes = int(unsafe.Sizeof(uint64(0)))
 	uint64SizeBits  = uint64SizeBytes * 8
 )
-
-func bytesToUint64(b []byte) []uint64 {
-	if cap(b) < uint64SizeBytes {
-		return nil
-	}
-
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-	return unsafe.Slice((*uint64)(unsafe.Pointer(h.Data)), cap(b)/uint64SizeBytes)[:len(b)/uint64SizeBytes]
-}
 
 var (
 	// PrecedingBitmask is a convenience set of values as bitmasks for checking

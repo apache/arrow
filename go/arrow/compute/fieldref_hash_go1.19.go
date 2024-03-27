@@ -16,32 +16,28 @@
 
 //go:build !go1.20 && !tinygo
 
-package hashing
+package compute
 
 import (
+	"hash/maphash"
+	"math/bits"
 	"reflect"
 	"unsafe"
+
+	"github.com/apache/arrow/go/v16/arrow"
 )
 
-func hashString(val string, alg uint64) uint64 {
-	if val == "" {
-		return Hash([]byte{}, alg)
-	}
-	// highly efficient way to get byte slice without copy before
-	// the introduction of unsafe.StringData in go1.20
-	// (https://stackoverflow.com/questions/59209493/how-to-use-unsafe-get-a-byte-slice-from-a-string-without-memory-copy)
-	const MaxInt32 = 1<<31 - 1
-	buf := (*[MaxInt32]byte)(unsafe.Pointer((*reflect.StringHeader)(
-		unsafe.Pointer(&val)).Data))[: len(val)&MaxInt32 : len(val)&MaxInt32]
-	return Hash(buf, alg)
-}
+func (f FieldPath) hash(h *maphash.Hash) {
+	raw := (*reflect.SliceHeader)(unsafe.Pointer(&f)).Data
 
-func strToBytes(v string) []byte {
-	var out []byte
-	h := (*reflect.StringHeader)(unsafe.Pointer(&v))
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&out))
-	s.Data = h.Data
-	s.Len = h.Len
-	s.Cap = h.Len
-	return out
+	var b []byte
+	s := (*reflect.SliceHeader)(unsafe.Pointer(&b))
+	s.Data = raw
+	if bits.UintSize == 32 {
+		s.Len = arrow.Int32Traits.BytesRequired(len(f))
+	} else {
+		s.Len = arrow.Int64Traits.BytesRequired(len(f))
+	}
+	s.Cap = s.Len
+	h.Write(b)
 }

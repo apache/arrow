@@ -16,32 +16,25 @@
 
 //go:build !go1.20 && !tinygo
 
-package hashing
+package exec
 
 import (
 	"reflect"
 	"unsafe"
 )
 
-func hashString(val string, alg uint64) uint64 {
-	if val == "" {
-		return Hash([]byte{}, alg)
-	}
-	// highly efficient way to get byte slice without copy before
-	// the introduction of unsafe.StringData in go1.20
-	// (https://stackoverflow.com/questions/59209493/how-to-use-unsafe-get-a-byte-slice-from-a-string-without-memory-copy)
-	const MaxInt32 = 1<<31 - 1
-	buf := (*[MaxInt32]byte)(unsafe.Pointer((*reflect.StringHeader)(
-		unsafe.Pointer(&val)).Data))[: len(val)&MaxInt32 : len(val)&MaxInt32]
-	return Hash(buf, alg)
-}
+// convenience function for populating the offsets buffer from a scalar
+// value's size.
+func setOffsetsForScalar[T int32 | int64](span *ArraySpan, buf []T, valueSize int64, bufidx int) {
+	buf[0] = 0
+	buf[1] = T(valueSize)
 
-func strToBytes(v string) []byte {
-	var out []byte
-	h := (*reflect.StringHeader)(unsafe.Pointer(&v))
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&out))
-	s.Data = h.Data
-	s.Len = h.Len
-	s.Cap = h.Len
-	return out
+	b := (*reflect.SliceHeader)(unsafe.Pointer(&buf))
+	s := (*reflect.SliceHeader)(unsafe.Pointer(&span.Buffers[bufidx].Buf))
+	s.Data = b.Data
+	s.Len = 2 * int(unsafe.Sizeof(T(0)))
+	s.Cap = s.Len
+
+	span.Buffers[bufidx].Owner = nil
+	span.Buffers[bufidx].SelfAlloc = false
 }

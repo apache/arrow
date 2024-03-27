@@ -14,34 +14,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build !go1.20 && !tinygo
+//go:build go1.20 || tinygo
 
-package hashing
+package compute
 
 import (
-	"reflect"
+	"hash/maphash"
+	"math/bits"
 	"unsafe"
+
+	"github.com/apache/arrow/go/v16/arrow"
 )
 
-func hashString(val string, alg uint64) uint64 {
-	if val == "" {
-		return Hash([]byte{}, alg)
+func (f FieldPath) hash(h *maphash.Hash) {
+	raw := unsafe.Pointer(unsafe.SliceData(f))
+	var byteLen int
+	if bits.UintSize == 32 {
+		byteLen = arrow.Int32Traits.BytesRequired(len(f))
+	} else {
+		byteLen = arrow.Int64Traits.BytesRequired(len(f))
 	}
-	// highly efficient way to get byte slice without copy before
-	// the introduction of unsafe.StringData in go1.20
-	// (https://stackoverflow.com/questions/59209493/how-to-use-unsafe-get-a-byte-slice-from-a-string-without-memory-copy)
-	const MaxInt32 = 1<<31 - 1
-	buf := (*[MaxInt32]byte)(unsafe.Pointer((*reflect.StringHeader)(
-		unsafe.Pointer(&val)).Data))[: len(val)&MaxInt32 : len(val)&MaxInt32]
-	return Hash(buf, alg)
-}
 
-func strToBytes(v string) []byte {
-	var out []byte
-	h := (*reflect.StringHeader)(unsafe.Pointer(&v))
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&out))
-	s.Data = h.Data
-	s.Len = h.Len
-	s.Cap = h.Len
-	return out
+	h.Write(unsafe.Slice((*byte)(raw), byteLen))
 }
