@@ -73,6 +73,12 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
         map(child.getName(), arrowType.getKeysSorted());
         break;
       }
+      case DENSEUNION: {
+        FieldType fieldType = new FieldType(addVectorAsNullable, MinorType.DENSEUNION.getType(), null, null);
+        DenseUnionWriter writer = new DenseUnionWriter(container.addOrGet(child.getName(), fieldType, DenseUnionVector.class), getNullableStructWriterFactory());
+        fields.put(handleCase(child.getName()), writer);
+        break;
+      }
       case UNION:
         FieldType fieldType = new FieldType(addVectorAsNullable, MinorType.UNION.getType(), null, null);
         UnionWriter writer = new UnionWriter(container.addOrGet(child.getName(), fieldType, UnionVector.class), getNullableStructWriterFactory());

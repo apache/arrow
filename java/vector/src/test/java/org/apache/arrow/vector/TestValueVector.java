@@ -60,6 +60,7 @@ import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.UnionMode;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -2971,6 +2972,20 @@ public class TestValueVector {
 
       VectorEqualsVisitor visitor = new VectorEqualsVisitor();
       assertFalse(visitor.vectorEquals(vector1, vector2));
+    }
+  }
+
+  @Test
+  public void testStructVectorAcceptsDenseUnionChild() {
+    Field childField = new Field("child",
+             FieldType.notNullable(new ArrowType.Union(UnionMode.Dense, new int[] {})),
+             Collections.emptyList());
+    Field structField = new Field("struct",
+             FieldType.notNullable(ArrowType.Struct.INSTANCE),
+             Collections.singletonList(childField));
+
+    try (FieldVector structVec = structField.createVector(allocator)) {
+      assertEquals(structField, structVec.getField());
     }
   }
 
