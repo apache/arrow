@@ -103,7 +103,7 @@ static void CompressedInputStreamBenchmark(::benchmark::State& state,
   const int64_t input_size = state.range(0);
   const int64_t batch_size = state.range(1);
 
-  const std::vector<uint8_t> data = MakeCompressibleData(input_size);
+  const std::vector<uint8_t> data = MakeCompressibleData(static_cast<int>(input_size));
   auto codec = ::arrow::util::Codec::Create(compression).ValueOrDie();
   int64_t max_compress_len =
       codec->MaxCompressedLen(static_cast<int64_t>(data.size()), data.data());
