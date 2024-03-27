@@ -374,8 +374,8 @@ Result<std::shared_ptr<ChunkedArray>> ImportChunkedArray(struct ArrowArrayStream
 /// held alive by the resulting record batch reader.
 ///
 /// \note If there was a required sync event, sync events are accessible by individual
-/// buffers of columns. We are not yet bubbling the sync events from the buffers up to 
-/// the `GetSyncEvent` method of an imported RecordBatch. This will be added in a future 
+/// buffers of columns. We are not yet bubbling the sync events from the buffers up to
+/// the `GetSyncEvent` method of an imported RecordBatch. This will be added in a future
 /// update.
 ///
 /// \param[in,out] stream C device stream interface struct
