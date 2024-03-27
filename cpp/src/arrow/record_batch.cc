@@ -308,7 +308,7 @@ Result<std::shared_ptr<Tensor>> RecordBatch::ToTensor(bool null_to_nan,
     if (column(i)->null_count() > 0 && !null_to_nan) {
       return Status::TypeError(
           "Can only convert a RecordBatch with no nulls. Set null_to_nan to true to "
-          "convert nulls to nan");
+          "convert nulls to NaN");
     }
   }
 

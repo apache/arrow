@@ -3397,12 +3397,12 @@ cdef class RecordBatch(_Tabular):
         integer or float, including all bit-widths. RecordBatches with validity bitmask
         for any of the arrays can be converted with ``null_to_nan``turned to ``True``.
         In this case null values are converted to NaN and signed or unsigned integer
-        type arrays are promoted to appropriate float instance.
+        type arrays are promoted to appropriate float type.
 
         Parameters
         ----------
         null_to_nan : bool, default False
-            Whether to overwrite null values in the data with ``NaN``.
+            Whether to write null values in the result as ``NaN``.
         memory_pool : MemoryPool, default None
             For memory allocations, if required, otherwise use default pool
 

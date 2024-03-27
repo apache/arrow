@@ -668,7 +668,7 @@ TEST_F(TestRecordBatch, ToTensorUnsupportedMissing) {
 
   ASSERT_RAISES_WITH_MESSAGE(TypeError,
                              "Type error: Can only convert a RecordBatch with no nulls. "
-                             "Set null_to_nan to true to convert nulls to nan",
+                             "Set null_to_nan to true to convert nulls to NaN",
                              batch->ToTensor());
 }
 
