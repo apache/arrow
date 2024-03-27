@@ -2400,7 +2400,7 @@ class ArrayStreamArrayReader : public ArrayStreamReader<StreamTraits, ArrayTrait
 
  public:
   explicit ArrayStreamArrayReader(StreamType* stream,
-                                  const DeviceMemoryMapper& mapper = DefaultDeviceMapper)
+                                  const DeviceMemoryMapper& mapper = DefaultDeviceMemoryMapper)
       : ArrayStreamReader<StreamTraits, ArrayTraits>(stream, mapper) {}
 
   Status Init() {
