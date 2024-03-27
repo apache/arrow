@@ -28,7 +28,6 @@
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/sort_internal.h"
 #include "arrow/util/print_internal.h"
-#include "arrow/de"
 
 namespace arrow::internal {
 
