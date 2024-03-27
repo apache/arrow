@@ -219,8 +219,8 @@ using DeviceMemoryMapper =
     std::function<Result<std::shared_ptr<MemoryManager>>(ArrowDeviceType, int64_t)>;
 
 ARROW_EXPORT
-Result<std::shared_ptr<MemoryManager>> DefaultDeviceMapper(ArrowDeviceType device_type,
-                                                           int64_t device_id);
+Result<std::shared_ptr<MemoryManager>> DefaultDeviceMemoryMapper(
+    ArrowDeviceType device_type, int64_t device_id);
 
 /// \brief EXPERIMENTAL: Import C++ device array from the C data interface.
 ///
@@ -236,7 +236,7 @@ Result<std::shared_ptr<MemoryManager>> DefaultDeviceMapper(ArrowDeviceType devic
 ARROW_EXPORT
 Result<std::shared_ptr<Array>> ImportDeviceArray(
     struct ArrowDeviceArray* array, std::shared_ptr<DataType> type,
-    const DeviceMemoryMapper& mapper = DefaultDeviceMapper);
+    const DeviceMemoryMapper& mapper = DefaultDeviceMemoryMapper);
 
 /// \brief EXPERIMENTAL: Import C++ device array and its type from the C data interface.
 ///
@@ -253,7 +253,7 @@ Result<std::shared_ptr<Array>> ImportDeviceArray(
 ARROW_EXPORT
 Result<std::shared_ptr<Array>> ImportDeviceArray(
     struct ArrowDeviceArray* array, struct ArrowSchema* type,
-    const DeviceMemoryMapper& mapper = DefaultDeviceMapper);
+    const DeviceMemoryMapper& mapper = DefaultDeviceMemoryMapper);
 
 /// \brief EXPERIMENTAL: Import C++ record batch with buffers on a device from the C data
 /// interface.
@@ -271,7 +271,7 @@ Result<std::shared_ptr<Array>> ImportDeviceArray(
 ARROW_EXPORT
 Result<std::shared_ptr<RecordBatch>> ImportDeviceRecordBatch(
     struct ArrowDeviceArray* array, std::shared_ptr<Schema> schema,
-    const DeviceMemoryMapper& mapper = DefaultDeviceMapper);
+    const DeviceMemoryMapper& mapper = DefaultDeviceMemoryMapper);
 
 /// \brief EXPERIMENTAL: Import C++ record batch with buffers on a device and its schema
 /// from the C data interface.
@@ -291,7 +291,7 @@ Result<std::shared_ptr<RecordBatch>> ImportDeviceRecordBatch(
 ARROW_EXPORT
 Result<std::shared_ptr<RecordBatch>> ImportDeviceRecordBatch(
     struct ArrowDeviceArray* array, struct ArrowSchema* schema,
-    const DeviceMemoryMapper& mapper = DefaultDeviceMapper);
+    const DeviceMemoryMapper& mapper = DefaultDeviceMemoryMapper);
 
 /// @}
 
