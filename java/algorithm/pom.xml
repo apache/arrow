@@ -1,4 +1,4 @@
-<?xml version="1.0"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!-- Licensed to the Apache Software Foundation (ASF) under one or more contributor
   license agreements. See the NOTICE file distributed with this work for additional
   information regarding copyright ownership. The ASF licenses this file to
@@ -19,6 +19,11 @@
   <artifactId>arrow-algorithm</artifactId>
   <name>Arrow Algorithms</name>
   <description>(Experimental/Contrib) A collection of algorithms for working with ValueVectors.</description>
+
+  <properties>
+    <spotless.version.jdk11>2.42.0</spotless.version.jdk11>
+    <spotless.version.jdk8>2.30.0</spotless.version.jdk8>
+  </properties>
 
   <dependencies>
     <dependency>
@@ -50,4 +55,70 @@
 
   <build>
   </build>
+
+  <profiles>
+    <profile>
+      <id>spotless-jdk11+</id>
+      <activation>
+        <jdk>[11,]</jdk>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>com.diffplug.spotless</groupId>
+            <artifactId>spotless-maven-plugin</artifactId>
+            <version>${spotless.version.jdk11}</version>
+            <configuration>
+              <!-- optional: limit format enforcement to just the files changed by this feature branch -->
+              <!--          <ratchetFrom>HEAD</ratchetFrom>-->
+              <formats>
+                <format>
+                  <!-- configure license for xml files -->
+                  <includes>
+                    <include>pom.xml</include>
+                  </includes>
+                  <licenseHeader>
+                    <file>${maven.multiModuleProjectDirectory}/java/spotless/asf-xml.license</file>
+                    <delimiter>(&lt;configuration|&lt;project)</delimiter>
+                  </licenseHeader>
+                </format>
+                <format>
+  <!-- configure license for java files -->
+  <includes>
+    <include>**/*.java</include>
+  </includes>
+  <licenseHeader>
+    <file>${maven.multiModuleProjectDirectory}/java/spotless/asf-java.license</file>
+    <delimiter>package</delimiter>
+  </licenseHeader>
+</format>
+              </formats>
+              <pom>
+                <indent>
+                  <tabs>true</tabs>
+                  <spacesPerTab>2</spacesPerTab>
+                </indent>
+                <indent>
+                  <spaces>true</spaces>
+                  <spacesPerTab>2</spacesPerTab>
+                </indent>
+                <sortPom>
+                  <expandEmptyElements>false</expandEmptyElements>
+                </sortPom>
+              </pom>
+            </configuration>
+            <executions>
+              <execution>
+                <id>spotless-check</id>
+                <goals>
+                  <goal>check</goal>
+                </goals>
+                <phase>validate</phase>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>
