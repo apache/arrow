@@ -3401,7 +3401,7 @@ cdef class RecordBatch(_Tabular):
 
         Parameters
         ----------
-        null_to_nan: bool, default False
+        null_to_nan : bool, default False
             Whether to overwrite null values in the data with ``NaN``.
         memory_pool : MemoryPool, default None
             For memory allocations, if required, otherwise use default pool
