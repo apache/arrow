@@ -376,7 +376,7 @@ using DeviceMapper =
 /// arrow::ImportDeviceArray/ImportDeviceRecordBatch).
 ///
 /// \param[in] device_type the device type for which to register a MemoryManager
-/// \param[in] memory_mapper function that takes a device id and returns the appropriate
+/// \param[in] mapper function that takes a device id and returns the appropriate
 /// MemoryManager for the registered device type and given device id
 /// \return Status
 ARROW_EXPORT
