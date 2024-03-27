@@ -504,14 +504,13 @@ Result<std::shared_ptr<MemoryManager>> DefaultMemoryMapper(ArrowDeviceType devic
 
 namespace {
 
-Result<std::shared_ptr<MemoryManager>> DefaultCUDAMemoryMapper(int64_t device_id) {
+Result<std::shared_ptr<MemoryManager>> DefaultCUDADeviceMapper(int64_t device_id) {
   ARROW_ASSIGN_OR_RAISE(auto device, arrow::cuda::CudaDevice::Make(device_id));
   return device->default_memory_manager();
 }
 
 bool RegisterCUDADeviceInternal() {
-  DCHECK_OK(
-      RegisterDeviceMemoryManager(DeviceAllocationType::kCUDA, DefaultCUDAMemoryMapper));
+  DCHECK_OK(RegisterDeviceMapper(DeviceAllocationType::kCUDA, DefaultCUDADeviceMapper));
   // TODO add the CUDA_HOST and CUDA_MANAGED allocation types when they are supported in
   // the CudaDevice
   return true;
