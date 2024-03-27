@@ -318,7 +318,7 @@ TEST(HashBatch, AllocTempStackAsNeeded) {
   auto ctx = arrow::compute::default_exec_context();
   std::vector<arrow::compute::KeyColumnArray> temp_column_arrays;
 
-  // alloc stack by HashBatch internal
+  // HashBatch using internally allocated buffer.
   std::vector<uint32_t> h1(batch_size);
   ASSERT_OK(arrow::compute::Hashing32::HashBatch(
       exec_batch, h1.data(), temp_column_arrays, ctx->cpu_info()->hardware_flags(),
@@ -327,13 +327,13 @@ TEST(HashBatch, AllocTempStackAsNeeded) {
   util::TempVectorStack stack;
   std::vector<uint32_t> h2(batch_size);
 
-  // alloc stack overflow in HashBatch
+  // HashBatch using pre-allocated buffer of insufficient size raises stack overflow.
   ASSERT_OK(stack.Init(default_memory_pool(), batch_size));
   ASSERT_NOT_OK(arrow::compute::Hashing32::HashBatch(
       exec_batch, h2.data(), temp_column_arrays, ctx->cpu_info()->hardware_flags(),
       &stack, 0, batch_size));
 
-  // alloc stack normally in HashBatch
+  // HashBatch using big enough pre-allocated buffer.
   ASSERT_OK(stack.Init(default_memory_pool(), 1024));
   ASSERT_OK(arrow::compute::Hashing32::HashBatch(
       exec_batch, h2.data(), temp_column_arrays, ctx->cpu_info()->hardware_flags(),

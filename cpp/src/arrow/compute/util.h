@@ -89,7 +89,7 @@ class ARROW_EXPORT TempVectorStack {
   Status Init(MemoryPool* pool, int64_t size) {
     num_vectors_ = 0;
     top_ = 0;
-    buffer_size_ = EstimateAllocSize(size);
+    buffer_size_ = EstimateAllocationSize(size);
     ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateResizableBuffer(size, pool));
     // Ensure later operations don't accidentally read uninitialized memory.
     std::memset(buffer->mutable_data(), 0xFF, size);
@@ -97,11 +97,11 @@ class ARROW_EXPORT TempVectorStack {
     return Status::OK();
   }
 
-  static int64_t EstimateAllocSize(int64_t size) {
+  static int64_t EstimateAllocationSize(int64_t size) {
     return PaddedAllocationSize(size) + 2 * sizeof(uint64_t);
   }
 
-  Status CheckAllocOverflow(int64_t alloc_size);
+  Status CheckAllocationOverflow(int64_t alloc_size);
 
  private:
   static int64_t PaddedAllocationSize(int64_t num_bytes) {

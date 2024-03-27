@@ -379,42 +379,43 @@ void Hashing32::HashFixed(int64_t hardware_flags, bool combine_hashes, uint32_t 
 }
 
 Status Hashing32::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
-                                LightContext* ctx, uint32_t* hashes) {
-  uint32_t num_rows = static_cast<uint32_t>(cols[0].length());
-
-  constexpr uint32_t max_batch_size = util::MiniBatch::kMiniBatchLength;
-  const auto alloc_batch_size = std::min(num_rows, max_batch_size);
+                                  LightContext* ctx, uint32_t* hashes) {
+  auto num_rows = static_cast<uint32_t>(cols[0].length());
+  // The max_batch_size represents the number of rows to be processed in each iteration,
+  // and it is used to allocate enough space for the allocated TempVectorStack.
+  const auto max_batch_size =
+      std::min(num_rows, static_cast<uint32_t>(util::MiniBatch::kMiniBatchLength));
 
   // pre calculate alloc size in TempVectorStack for hash_temp_buf, null_hash_temp_buf
   // and null_indices_buf
   const auto alloc_hash_temp_buf =
-      util::TempVectorStack::EstimateAllocSize(alloc_batch_size * sizeof(uint32_t));
+      util::TempVectorStack::EstimateAllocationSize(max_batch_size * sizeof(uint32_t));
   const auto alloc_for_null_indices_buf =
-      util::TempVectorStack::EstimateAllocSize(alloc_batch_size * sizeof(uint16_t));
+      util::TempVectorStack::EstimateAllocationSize(max_batch_size * sizeof(uint16_t));
   const auto alloc_size = alloc_hash_temp_buf * 2 + alloc_for_null_indices_buf;
 
-  std::shared_ptr<util::TempVectorStack> temp_stack(nullptr);
-  if (!ctx->stack) {
-    temp_stack = std::make_shared<util::TempVectorStack>();
+  std::unique_ptr<util::TempVectorStack> temp_stack(nullptr);
+  auto stack = ctx->stack;
+  if (!stack) {
+    temp_stack = std::make_unique<util::TempVectorStack>();
     RETURN_NOT_OK(temp_stack->Init(default_memory_pool(), alloc_size));
-    ctx->stack = temp_stack.get();
+    stack = temp_stack.get();
   } else {
-    RETURN_NOT_OK(ctx->stack->CheckAllocOverflow(alloc_size));
+    RETURN_NOT_OK(stack->CheckAllocationOverflow(alloc_size));
   }
 
-  auto hash_temp_buf = util::TempVectorHolder<uint32_t>(ctx->stack, alloc_batch_size);
+  auto hash_temp_buf = util::TempVectorHolder<uint32_t>(stack, max_batch_size);
   uint32_t* hash_temp = hash_temp_buf.mutable_data();
 
-  auto null_indices_buf = util::TempVectorHolder<uint16_t>(ctx->stack, alloc_batch_size);
+  auto null_indices_buf = util::TempVectorHolder<uint16_t>(stack, max_batch_size);
   uint16_t* null_indices = null_indices_buf.mutable_data();
   int num_null_indices;
 
-  auto null_hash_temp_buf =
-      util::TempVectorHolder<uint32_t>(ctx->stack, alloc_batch_size);
+  auto null_hash_temp_buf = util::TempVectorHolder<uint32_t>(stack, max_batch_size);
   uint32_t* null_hash_temp = null_hash_temp_buf.mutable_data();
 
   for (uint32_t first_row = 0; first_row < num_rows;) {
-    uint32_t batch_size_next = std::min(num_rows - first_row, alloc_batch_size);
+    uint32_t batch_size_next = std::min(num_rows - first_row, max_batch_size);
 
     for (size_t icol = 0; icol < cols.size(); ++icol) {
       if (cols[icol].metadata().is_null_type) {
@@ -478,10 +479,6 @@ Status Hashing32::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
     }
 
     first_row += batch_size_next;
-  }
-
-  if (temp_stack) {
-    ctx->stack = nullptr;
   }
   return Status::OK();
 }
@@ -846,37 +843,38 @@ void Hashing64::HashFixed(bool combine_hashes, uint32_t num_keys, uint64_t key_l
 
 Status Hashing64::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
                                   LightContext* ctx, uint64_t* hashes) {
-  uint32_t num_rows = static_cast<uint32_t>(cols[0].length());
-
-  constexpr uint32_t max_batch_size = util::MiniBatch::kMiniBatchLength;
-  const auto alloc_batch_size = std::min(num_rows, max_batch_size);
+  auto num_rows = static_cast<uint32_t>(cols[0].length());
+  // The max_batch_size represents the number of rows to be processed in each iteration,
+  // and it is used to allocate enough space for the allocated TempVectorStack.
+  const auto max_batch_size =
+      std::min(num_rows, static_cast<uint32_t>(util::MiniBatch::kMiniBatchLength));
 
   // pre calculate alloc size in TempVectorStack for null_indices_buf, null_hash_temp_buf
   const auto alloc_for_null_hash_temp_buf =
-      util::TempVectorStack::EstimateAllocSize(alloc_batch_size * sizeof(uint64_t));
+      util::TempVectorStack::EstimateAllocationSize(max_batch_size * sizeof(uint64_t));
   const auto alloc_for_null_indices_buf =
-      util::TempVectorStack::EstimateAllocSize(alloc_batch_size * sizeof(uint16_t));
+      util::TempVectorStack::EstimateAllocationSize(max_batch_size * sizeof(uint16_t));
   const auto alloc_size = alloc_for_null_hash_temp_buf + alloc_for_null_indices_buf;
 
-  std::shared_ptr<util::TempVectorStack> temp_stack(nullptr);
-  if (!ctx->stack) {
-    temp_stack = std::make_shared<util::TempVectorStack>();
+  std::unique_ptr<util::TempVectorStack> temp_stack(nullptr);
+  auto stack = ctx->stack;
+  if (!stack) {
+    temp_stack = std::make_unique<util::TempVectorStack>();
     RETURN_NOT_OK(temp_stack->Init(default_memory_pool(), alloc_size));
-    ctx->stack = temp_stack.get();
+    stack = temp_stack.get();
   } else {
-    RETURN_NOT_OK(ctx->stack->CheckAllocOverflow(alloc_size));
+    RETURN_NOT_OK(stack->CheckAllocationOverflow(alloc_size));
   }
 
-  auto null_indices_buf = util::TempVectorHolder<uint16_t>(ctx->stack, alloc_batch_size);
+  auto null_indices_buf = util::TempVectorHolder<uint16_t>(stack, max_batch_size);
   uint16_t* null_indices = null_indices_buf.mutable_data();
   int num_null_indices;
 
-  auto null_hash_temp_buf =
-      util::TempVectorHolder<uint64_t>(ctx->stack, alloc_batch_size);
+  auto null_hash_temp_buf = util::TempVectorHolder<uint64_t>(stack, max_batch_size);
   uint64_t* null_hash_temp = null_hash_temp_buf.mutable_data();
 
   for (uint32_t first_row = 0; first_row < num_rows;) {
-    uint32_t batch_size_next = std::min(num_rows - first_row, alloc_batch_size);
+    uint32_t batch_size_next = std::min(num_rows - first_row, max_batch_size);
 
     for (size_t icol = 0; icol < cols.size(); ++icol) {
       if (cols[icol].metadata().is_null_type) {
@@ -937,10 +935,6 @@ Status Hashing64::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
     }
 
     first_row += batch_size_next;
-  }
-
-  if (temp_stack) {
-    ctx->stack = nullptr;
   }
   return Status::OK();
 }
