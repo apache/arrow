@@ -20,15 +20,22 @@
 #include <cstdint>
 #include <memory>
 
+#include "arrow/array.h"
 #include "arrow/array/array_base.h"
+#include "arrow/array/array_primitive.h"
 #include "arrow/array/data.h"
 #include "arrow/result.h"
+#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+using ViewType = std::variant<std::string_view, int32_t>;
 
 // ----------------------------------------------------------------------
 // DictionaryArray
@@ -111,6 +118,8 @@ class ARROW_EXPORT DictionaryArray : public Array {
   /// value is null or out-of-bounds.
   int64_t GetValueIndex(int64_t i) const;
 
+  ViewType GetView(int64_t i) const;
+
   const DictionaryType* dict_type() const { return dict_type_; }
 
  private:
@@ -120,6 +129,35 @@ class ARROW_EXPORT DictionaryArray : public Array {
 
   // Lazily initialized when invoking dictionary()
   mutable std::shared_ptr<Array> dictionary_;
+};
+
+class GetViewVisitor : public TypeVisitor {
+  using DictionaryArray = ::arrow::DictionaryArray;
+
+ public:
+  GetViewVisitor(int64_t index, const DictionaryArray& dict_array)
+      : index_(index), dict_array_(dict_array) {}
+
+  Status Visit(const StringType& type) override {
+    const auto& dict =
+        internal::checked_cast<const StringArray&>(*dict_array_.dictionary());
+    view_ = dict.GetView(index_);
+    return Status::OK();
+  }
+
+  Status Visit(const Int32Type& type) override {
+    const auto& array =
+        internal::checked_cast<const Int32Array&>(*dict_array_.dictionary());
+    view_ = array.GetView(index_);
+    return Status::OK();
+  }
+
+  ViewType view() const { return view_; }
+
+ private:
+  int64_t index_;
+  const DictionaryArray& dict_array_;
+  ViewType view_;
 };
 
 /// \brief Helper class for incremental dictionary unification
