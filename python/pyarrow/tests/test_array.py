@@ -3368,16 +3368,27 @@ def test_array_protocol():
     assert result.equals(expected)
 
 
-def test_c_array_protocol():
-    class ArrayWrapper:
-        def __init__(self, data):
-            self.data = data
+class ArrayWrapper:
+    def __init__(self, data):
+        self.data = data
 
-        def __arrow_c_array__(self, requested_schema=None):
-            return self.data.__arrow_c_array__(requested_schema)
+    def __arrow_c_array__(self, requested_schema=None):
+        return self.data.__arrow_c_array__(requested_schema)
+
+
+class ArrayDeviceWrapper:
+    def __init__(self, data):
+        self.data = data
+
+    def __arrow_c_device_array__(self, requested_schema=None):
+        return self.data.__arrow_c_device_array__(requested_schema)
+
+
+@pytest.mark.parametrize("wrapper_class", [ArrayWrapper, ArrayDeviceWrapper])
+def test_c_array_protocol(wrapper_class):
 
     # Can roundtrip through the C array protocol
-    arr = ArrayWrapper(pa.array([1, 2, 3], type=pa.int64()))
+    arr = wrapper_class(pa.array([1, 2, 3], type=pa.int64()))
     result = pa.array(arr)
     assert result == arr.data
 

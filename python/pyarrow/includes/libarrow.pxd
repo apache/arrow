@@ -2917,7 +2917,7 @@ cdef extern from "arrow/c/abi.h":
         void (*release)(ArrowArrayStream*) noexcept nogil
 
     cdef struct ArrowDeviceArray:
-        pass
+        ArrowArray array
 
 cdef extern from "arrow/c/bridge.h" namespace "arrow" nogil:
     CStatus ExportType(CDataType&, ArrowSchema* out)
