@@ -1100,6 +1100,14 @@ def test_map_from_arrays():
         pa.MapArray.from_arrays(offsets, keys_with_null, items)
 
     # Check if offset in offsets > 0
+    offsets = pa.array(offsets, pa.int32())
+    result = pa.MapArray.from_arrays(offsets.slice(1), keys, items)
+    expected = pa.MapArray.from_arrays([1, 3, 5], keys, items)
+
+    assert result.equals(expected)
+    assert result.offset == 1
+    assert expected.offset == 0
+
     offsets = pa.array([0, 0, 0, 0, 0, 0], pa.int32())
     result = pa.MapArray.from_arrays(
         offsets.slice(1),
@@ -1112,6 +1120,8 @@ def test_map_from_arrays():
         pa.array([], pa.string()),
     )
     assert result.equals(expected)
+    assert result.offset == 1
+    assert expected.offset == 0
 
 
 def test_fixed_size_list_from_arrays():
