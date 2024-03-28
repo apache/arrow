@@ -642,8 +642,8 @@ test_package_java() {
         normalized_arch=x86_64
         ;;
     esac
-    mkdir -p ${dist_dir}/${normalized_arch}/
-    mv ${install_dir}/lib/* ${dist_dir}/${normalized_arch}/
+    mkdir -p ${dist_dir}
+    mv ${install_dir}/lib/* ${dist_dir}
     mvn install \
         -Darrow.c.jni.dist.dir=${dist_dir} \
         -Parrow-c-data
