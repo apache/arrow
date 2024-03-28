@@ -16,7 +16,7 @@
 // under the License.
 
 import { Type } from './enum.js';
-import { clampRange } from './util/vector.js';
+import { clampRange, wrapIndex } from './util/vector.js';
 import { DataType, strideForType } from './type.js';
 import { Data, makeData, DataProps } from './data.js';
 import { BigIntArray, TypedArray, TypedArrayDataType } from './interfaces.js';
@@ -176,6 +176,14 @@ export class Vector<T extends DataType = any> {
      */
     // @ts-ignore
     public get(index: number): T['TValue'] | null { return null; }
+
+    /**
+     * Get an element value by position.
+     * @param index The index of the element to read. A negative index will count back from the last element.
+     */
+    public at(index: number): T['TValue'] | null {
+        return this.get(wrapIndex(index, this.length));
+    }
 
     /**
      * Set an element value by position.
