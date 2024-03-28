@@ -389,9 +389,9 @@ Status Hashing32::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
   // pre calculate alloc size in TempVectorStack for hash_temp_buf, null_hash_temp_buf
   // and null_indices_buf
   const auto alloc_hash_temp_buf =
-      util::TempVectorStack::EstimateAllocationSize(max_batch_size * sizeof(uint32_t));
+      util::TempVectorStack::EstimatedAllocationSize(max_batch_size * sizeof(uint32_t));
   const auto alloc_for_null_indices_buf =
-      util::TempVectorStack::EstimateAllocationSize(max_batch_size * sizeof(uint16_t));
+      util::TempVectorStack::EstimatedAllocationSize(max_batch_size * sizeof(uint16_t));
   const auto alloc_size = alloc_hash_temp_buf * 2 + alloc_for_null_indices_buf;
 
   std::unique_ptr<util::TempVectorStack> temp_stack(nullptr);
@@ -851,9 +851,9 @@ Status Hashing64::HashMultiColumn(const std::vector<KeyColumnArray>& cols,
 
   // pre calculate alloc size in TempVectorStack for null_indices_buf, null_hash_temp_buf
   const auto alloc_for_null_hash_temp_buf =
-      util::TempVectorStack::EstimateAllocationSize(max_batch_size * sizeof(uint64_t));
+      util::TempVectorStack::EstimatedAllocationSize(max_batch_size * sizeof(uint64_t));
   const auto alloc_for_null_indices_buf =
-      util::TempVectorStack::EstimateAllocationSize(max_batch_size * sizeof(uint16_t));
+      util::TempVectorStack::EstimatedAllocationSize(max_batch_size * sizeof(uint16_t));
   const auto alloc_size = alloc_for_null_hash_temp_buf + alloc_for_null_indices_buf;
 
   std::unique_ptr<util::TempVectorStack> temp_stack(nullptr);

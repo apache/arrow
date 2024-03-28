@@ -319,42 +319,42 @@ TEST(HashBatch, AllocTempStackAsNeeded) {
   std::vector<arrow::compute::KeyColumnArray> temp_column_arrays;
 
   // HashBatch using internally allocated buffer.
-  std::vector<uint32_t> hashes32(batch_size);
-  std::vector<uint64_t> hashes64(batch_size);
+  std::vector<uint32_t> internal_allocated_hashes32(batch_size);
+  std::vector<uint64_t> internal_allocated_hashes64(batch_size);
   ASSERT_OK(arrow::compute::Hashing32::HashBatch(
-      exec_batch, hashes32.data(), temp_column_arrays, ctx->cpu_info()->hardware_flags(),
-      nullptr, 0, batch_size));
+      exec_batch, internal_allocated_hashes32.data(), temp_column_arrays,
+      ctx->cpu_info()->hardware_flags(), nullptr, 0, batch_size));
   ASSERT_OK(arrow::compute::Hashing64::HashBatch(
-      exec_batch, hashes64.data(), temp_column_arrays, ctx->cpu_info()->hardware_flags(),
-      nullptr, 0, batch_size));
+      exec_batch, internal_allocated_hashes64.data(), temp_column_arrays,
+      ctx->cpu_info()->hardware_flags(), nullptr, 0, batch_size));
 
   util::TempVectorStack hash32_stack, hash64_stack;
-  std::vector<uint32_t> new_hashes32(batch_size);
-  std::vector<uint64_t> new_hashes64(batch_size);
+  std::vector<uint32_t> pre_allocated_hashes32(batch_size);
+  std::vector<uint64_t> pre_allocated_hashes64(batch_size);
 
   // HashBatch using pre-allocated buffer of insufficient size raises stack overflow.
   ASSERT_OK(hash32_stack.Init(default_memory_pool(), batch_size));
   ASSERT_NOT_OK(arrow::compute::Hashing32::HashBatch(
-      exec_batch, new_hashes32.data(), temp_column_arrays,
+      exec_batch, pre_allocated_hashes32.data(), temp_column_arrays,
       ctx->cpu_info()->hardware_flags(), &hash32_stack, 0, batch_size));
   ASSERT_OK(hash64_stack.Init(default_memory_pool(), batch_size));
   ASSERT_NOT_OK(arrow::compute::Hashing64::HashBatch(
-      exec_batch, new_hashes64.data(), temp_column_arrays,
+      exec_batch, pre_allocated_hashes64.data(), temp_column_arrays,
       ctx->cpu_info()->hardware_flags(), &hash64_stack, 0, batch_size));
 
   // HashBatch using big enough pre-allocated buffer.
   ASSERT_OK(hash32_stack.Init(default_memory_pool(), 1024));
   ASSERT_OK(arrow::compute::Hashing32::HashBatch(
-      exec_batch, new_hashes32.data(), temp_column_arrays,
+      exec_batch, pre_allocated_hashes32.data(), temp_column_arrays,
       ctx->cpu_info()->hardware_flags(), &hash32_stack, 0, batch_size));
   ASSERT_OK(hash64_stack.Init(default_memory_pool(), 1024));
   ASSERT_OK(arrow::compute::Hashing64::HashBatch(
-      exec_batch, new_hashes64.data(), temp_column_arrays,
+      exec_batch, pre_allocated_hashes64.data(), temp_column_arrays,
       ctx->cpu_info()->hardware_flags(), &hash64_stack, 0, batch_size));
 
   for (int i = 0; i < batch_size; i++) {
-    EXPECT_EQ(hashes32[i], new_hashes32[i]);
-    EXPECT_EQ(hashes64[i], new_hashes64[i]);
+    EXPECT_EQ(internal_allocated_hashes32[i], pre_allocated_hashes32[i]);
+    EXPECT_EQ(internal_allocated_hashes64[i], pre_allocated_hashes64[i]);
   }
 }
 
