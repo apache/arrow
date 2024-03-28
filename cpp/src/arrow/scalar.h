@@ -22,6 +22,7 @@
 
 #include <iosfwd>
 #include <memory>
+#include <mutex>
 #include <ratio>
 #include <string>
 #include <string_view>
@@ -136,6 +137,27 @@ struct ARROW_EXPORT ArraySpanFillFromScalarScratchSpace {
   //  Scalar- including binary scalars where we need to create a buffer
   //  that looks like two 32-bit or 64-bit offsets.
   alignas(int64_t) mutable uint8_t scratch_space_[sizeof(int64_t) * 2];
+
+  using FillScratchSpaceFn = std::function<void(uint8_t* scratch_space)>;
+  // Race-free filling of the scratch space.
+  void FillScratchSpace(FillScratchSpaceFn fn) const;
+
+ private:
+  // Structure using DCLP to assists the avoidance of the race conditions in
+  // reading/writing the scratch space.
+  struct ScratchSpaceFill {
+    std::atomic<bool> filled_{false};
+    std::mutex mutex_;
+
+    // Boilerplate code to make this structure default-constructible/copyable/movable, so
+    // that it doesn't affect the default-constructibility/copyability/movability of the
+    // containing class.
+    ScratchSpaceFill() = default;
+    ScratchSpaceFill(const ScratchSpaceFill&) {}
+    ScratchSpaceFill(ScratchSpaceFill&& other) {}
+    ScratchSpaceFill& operator=(const ScratchSpaceFill&) { return *this; }
+    ScratchSpaceFill& operator=(ScratchSpaceFill&&) { return *this; }
+  } mutable scratch_space_fill_;
 };
 
 struct ARROW_EXPORT PrimitiveScalarBase : public Scalar {

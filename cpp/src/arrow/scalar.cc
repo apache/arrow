@@ -554,6 +554,18 @@ Status Scalar::ValidateFull() const {
   return ScalarValidateImpl(/*full_validation=*/true).Validate(*this);
 }
 
+namespace internal {
+void ArraySpanFillFromScalarScratchSpace::FillScratchSpace(FillScratchSpaceFn fn) const {
+  if (!scratch_space_fill_.filled_.load(std::memory_order_acquire)) {
+    std::lock_guard<std::mutex> lock(scratch_space_fill_.mutex_);
+    if (!scratch_space_fill_.filled_.load(std::memory_order_relaxed)) {
+      fn(scratch_space_);
+      scratch_space_fill_.filled_.store(true, std::memory_order_release);
+    }
+  }
+}
+}  // namespace internal
+
 BaseBinaryScalar::BaseBinaryScalar(std::string s, std::shared_ptr<DataType> type)
     : BaseBinaryScalar(Buffer::FromString(std::move(s)), std::move(type)) {}
 
