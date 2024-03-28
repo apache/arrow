@@ -75,7 +75,7 @@ func CountSetBits(buf []byte, offset, n int) int {
 
 	count := 0
 
-	uint64Bytes := n / (uint64SizeBits * 8)
+	uint64Bytes := n / uint64SizeBits * 8
 	for _, v := range bytesToUint64(buf[:uint64Bytes]) {
 		count += bits.OnesCount64(v)
 	}
@@ -98,8 +98,6 @@ func countSetBitsWithOffset(buf []byte, offset, n int) int {
 	count := 0
 
 	beg := offset
-	end := offset + n
-
 	begU8 := roundUp(beg, uint64SizeBits)
 
 	init := min(n, begU8-beg)
@@ -109,27 +107,8 @@ func countSetBitsWithOffset(buf []byte, offset, n int) int {
 		}
 	}
 
-	nU64 := (n - init) / uint64SizeBits
-	begU64 := begU8 / uint64SizeBits
-	endU64 := begU64 + nU64
-	bufU64 := bytesToUint64(buf)
-	if begU64 < len(bufU64) {
-		for _, v := range bufU64[begU64:endU64] {
-			count += bits.OnesCount64(v)
-		}
-	}
-
-	// FIXME: use a fallback to bits.OnesCount8
-	// before counting the tail bits.
-
-	tail := beg + init + nU64*uint64SizeBits
-	for i := tail; i < end; i++ {
-		if BitIsSet(buf, i) {
-			count++
-		}
-	}
-
-	return count
+	begU64 := BytesForBits(int64(beg + init))
+	return count + CountSetBits(buf[begU64:], 0, n-init)
 }
 
 func roundUp(v, f int) int {

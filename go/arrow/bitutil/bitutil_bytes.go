@@ -23,6 +23,10 @@ import (
 )
 
 func bytesToUint64(b []byte) []uint64 {
+	if len(b) < uint64SizeBytes {
+		return nil
+	}
+
 	ptr := unsafe.SliceData(b)
 	if ptr == nil {
 		return nil
