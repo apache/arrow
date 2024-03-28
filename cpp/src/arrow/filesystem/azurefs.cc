@@ -1821,36 +1821,58 @@ class AzureFileSystem::Impl {
     DCHECK(!location.container.empty());
     DCHECK(!location.path.empty());
     if (recursive) {
-      std::vector<AzureLocation> target_locations;
-      // Recursive CreateDir calls require there is no file in parents.
-      auto parent = location;
-      while (!parent.path.empty()) {
-        ARROW_ASSIGN_OR_RAISE(auto info, GetFileInfo(container_client, parent));
+      // Recursive CreateDir calls require that all path segments be
+      // either a directory or not found.
+
+      // Check each path segment is a directory or not
+      // found. Nonexistent segments are collected to
+      // nonexistent_locations. We'll create directories for
+      // nonexistent segments later.
+      std::vector<AzureLocation> nonexistent_locations;
+      for (auto prefix = location; !prefix.path.empty(); prefix = prefix.parent()) {
+        ARROW_ASSIGN_OR_RAISE(auto info, GetFileInfo(container_client, prefix));
         if (info.type() == FileType::File) {
-          return NotADir(parent);
+          return NotADir(prefix);
         }
         if (info.type() == FileType::NotFound) {
-          target_locations.push_back(parent);
-        }
-        parent = parent.parent();
-        if (parent.path.empty() && info.type() == FileType::NotFound) {
-          // parent is container and may not exist
-          ARROW_ASSIGN_OR_RAISE(info,
-                                GetContainerPropsAsFileInfo(parent, container_client));
-          if (info.type() == FileType::NotFound) {
-            try {
-              container_client.CreateIfNotExists();
-            } catch (const Storage::StorageException& exception) {
-              return ExceptionToStatus(exception, "Failed to create directory '",
-                                       location.all, "': ", container_client.GetUrl());
-            }
-          }
+          nonexistent_locations.push_back(prefix);
         }
       }
-      for (size_t i = target_locations.size(); i > 0; --i) {
-        const auto& target_location = target_locations[i - 1];
+      // Ensure container exists
+      ARROW_ASSIGN_OR_RAISE(auto container,
+                            AzureLocation::FromString(location.container));
+      ARROW_ASSIGN_OR_RAISE(auto container_info,
+                            GetContainerPropsAsFileInfo(container, container_client));
+      if (container_info.type() == FileType::NotFound) {
         try {
-          create_if_not_exists(container_client, target_location);
+          container_client.CreateIfNotExists();
+        } catch (const Storage::StorageException& exception) {
+          return ExceptionToStatus(exception, "Failed to create directory '",
+                                   location.all, "': ", container_client.GetUrl());
+        }
+      }
+      // Create nonexistent directories from shorter to longer:
+      //
+      // Example:
+      //
+      // * location: /container/a/b/c/d/
+      // * Nonexistent path segments:
+      //   * /container/a/
+      //   * /container/a/c/
+      //   * /container/a/c/d/
+      // * target_locations:
+      //   1. /container/a/c/d/
+      //   2. /container/a/c/
+      //   3. /container/a/
+      //
+      // Create order:
+      //   1. /container/a/
+      //   2. /container/a/c/
+      //   3. /container/a/c/d/
+      for (size_t i = nonexistent_locations.size(); i > 0; --i) {
+        const auto& nonexistent_location = nonexistent_locations[i - 1];
+        try {
+          create_if_not_exists(container_client, nonexistent_location);
         } catch (const Storage::StorageException& exception) {
           return ExceptionToStatus(exception, "Failed to create directory '",
                                    location.all, "': ", container_client.GetUrl());
