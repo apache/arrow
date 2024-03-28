@@ -98,15 +98,7 @@ final class ArrayExporter {
       if (buffers != null) {
         data.buffers = new ArrayList<>(buffers.size());
         data.buffers_ptrs = allocator.buffer((long) buffers.size() * Long.BYTES);
-        for (ArrowBuf arrowBuf : buffers) {
-          if (arrowBuf != null) {
-            arrowBuf.getReferenceManager().retain();
-            data.buffers_ptrs.writeLong(arrowBuf.memoryAddress());
-          } else {
-            data.buffers_ptrs.writeLong(NULL);
-          }
-          data.buffers.add(arrowBuf);
-        }
+        vector.exportCDataBuffers(data.buffers, data.buffers_ptrs, NULL);
       }
 
       if (dictionaryEncoding != null) {
