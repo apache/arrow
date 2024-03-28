@@ -399,6 +399,10 @@ TEST(TestAsyncUtil, MapParallelStress) {
 }
 
 TEST(TestAsyncUtil, MapQueuingFailStress) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   constexpr int NTASKS = 10;
   constexpr int NITEMS = 10;
   for (bool slow : {true, false}) {
@@ -1872,6 +1876,10 @@ TEST(PushGenerator, DanglingProducer) {
 }
 
 TEST(PushGenerator, Stress) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   const int NTHREADS = 20;
   const int NVALUES = 2000;
   const int NFUTURES = NVALUES + 100;

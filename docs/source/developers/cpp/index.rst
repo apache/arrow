@@ -27,5 +27,6 @@ C++ Development
    building
    development
    windows
+   emscripten
    conventions
    fuzzing

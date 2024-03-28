@@ -214,7 +214,14 @@ TEST(BitUtil, RoundTripIntValues) {
 void ValidateRle(const std::vector<int>& values, int bit_width,
                  uint8_t* expected_encoding, int expected_len) {
   const int len = 64 * 1024;
+#ifdef __EMSCRIPTEN__
+  // don't make this on the stack as it is
+  // too big for emscripten
+  std::vector<uint8_t> buffer_vec(static_cast<size_t>(len));
+  uint8_t* buffer = buffer_vec.data();
+#else
   uint8_t buffer[len];
+#endif
   EXPECT_LE(expected_len, len);
 
   RleEncoder encoder(buffer, len, bit_width);
@@ -227,7 +234,7 @@ void ValidateRle(const std::vector<int>& values, int bit_width,
   if (expected_len != -1) {
     EXPECT_EQ(encoded_len, expected_len);
   }
-  if (expected_encoding != NULL) {
+  if (expected_encoding != NULL && encoded_len == expected_len) {
     EXPECT_EQ(memcmp(buffer, expected_encoding, encoded_len), 0);
   }
 
@@ -256,7 +263,14 @@ void ValidateRle(const std::vector<int>& values, int bit_width,
 // the returned values are not all the same
 bool CheckRoundTrip(const std::vector<int>& values, int bit_width) {
   const int len = 64 * 1024;
+#ifdef __EMSCRIPTEN__
+  // don't make this on the stack as it is
+  // too big for emscripten
+  std::vector<uint8_t> buffer_vec(static_cast<size_t>(len));
+  uint8_t* buffer = buffer_vec.data();
+#else
   uint8_t buffer[len];
+#endif
   RleEncoder encoder(buffer, len, bit_width);
   for (size_t i = 0; i < values.size(); ++i) {
     bool result = encoder.Put(values[i]);

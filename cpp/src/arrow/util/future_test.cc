@@ -415,6 +415,10 @@ TEST(FutureRefTest, HeadRemoved) {
 }
 
 TEST(FutureStressTest, Callback) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
 #ifdef ARROW_VALGRIND
   const int NITERS = 2;
 #else
@@ -471,6 +475,10 @@ TEST(FutureStressTest, Callback) {
 }
 
 TEST(FutureStressTest, TryAddCallback) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   for (unsigned int n = 0; n < 1; n++) {
     auto fut = Future<>::Make();
     std::atomic<unsigned int> callbacks_added(0);
@@ -527,6 +535,10 @@ TEST(FutureStressTest, TryAddCallback) {
 }
 
 TEST(FutureStressTest, DeleteAfterWait) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   constexpr int kNumTasks = 100;
   for (int i = 0; i < kNumTasks; i++) {
     {
@@ -1543,6 +1555,10 @@ TEST(FnOnceTest, MoveOnlyDataType) {
 }
 
 TEST(FutureTest, MatcherExamples) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   EXPECT_THAT(Future<int>::MakeFinished(Status::Invalid("arbitrary error")),
               Finishes(Raises(StatusCode::Invalid)));
 

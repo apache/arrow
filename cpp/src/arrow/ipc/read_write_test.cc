@@ -1046,6 +1046,9 @@ class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
 };
 
 TEST_F(RecursionLimits, WriteLimit) {
+#ifdef __EMSCRIPTEN__
+  GTEST_SKIP() << "This crashes the Emscripten runtime.";
+#endif
   int32_t metadata_length = -1;
   int64_t body_length = -1;
   std::shared_ptr<Schema> schema;
@@ -1078,6 +1081,10 @@ TEST_F(RecursionLimits, ReadLimit) {
 // Test fails with a structured exception on Windows + Debug
 #if !defined(_WIN32) || defined(NDEBUG)
 TEST_F(RecursionLimits, StressLimit) {
+#ifdef __EMSCRIPTEN__
+  GTEST_SKIP() << "This crashes the Emscripten runtime.";
+#endif
+
   auto CheckDepth = [this](int recursion_depth, bool* it_works) {
     int32_t metadata_length = -1;
     int64_t body_length = -1;
