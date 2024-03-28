@@ -682,7 +682,8 @@ TEST_F(TestRecordBatch, ToTensorEmptyBatch) {
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<RecordBatch> empty,
                        RecordBatch::MakeEmpty(schema));
 
-  ASSERT_OK_AND_ASSIGN(auto tensor, empty->ToTensor());
+  ASSERT_OK_AND_ASSIGN(auto tensor,
+                       empty->ToTensor(/*null_to_nan=*/false, /*row_major=*/false));
   ASSERT_OK(tensor->Validate());
 
   const std::vector<int64_t> strides = {4, 4};
@@ -726,7 +727,8 @@ TEST_F(TestRecordBatch, ToTensorSupportedNaN) {
 
   auto batch = RecordBatch::Make(schema, length, {a0, a1});
 
-  ASSERT_OK_AND_ASSIGN(auto tensor, batch->ToTensor());
+  ASSERT_OK_AND_ASSIGN(auto tensor,
+                       batch->ToTensor(/*null_to_nan=*/false, /*row_major=*/false));
   ASSERT_OK(tensor->Validate());
 
   std::vector<int64_t> shape = {9, 2};
@@ -756,7 +758,8 @@ TEST_F(TestRecordBatch, ToTensorSupportedNullToNan) {
 
   auto batch = RecordBatch::Make(schema, length, {a0, a1});
 
-  ASSERT_OK_AND_ASSIGN(auto tensor, batch->ToTensor(/*null_to_nan=*/true));
+  ASSERT_OK_AND_ASSIGN(auto tensor,
+                       batch->ToTensor(/*null_to_nan=*/true, /*row_major=*/false));
   ASSERT_OK(tensor->Validate());
 
   std::vector<int64_t> shape = {9, 2};
@@ -780,7 +783,8 @@ TEST_F(TestRecordBatch, ToTensorSupportedNullToNan) {
   auto a2 = ArrayFromJSON(int32(), "[10, 20, 30, 40, null, 60, 70, 80, 90]");
   auto batch1 = RecordBatch::Make(schema1, length, {a0, a2});
 
-  ASSERT_OK_AND_ASSIGN(auto tensor1, batch1->ToTensor(/*null_to_nan=*/true));
+  ASSERT_OK_AND_ASSIGN(auto tensor1,
+                       batch1->ToTensor(/*null_to_nan=*/true, /*row_major=*/false));
   ASSERT_OK(tensor1->Validate());
 
   EXPECT_FALSE(tensor_expected->Equals(*tensor1));
@@ -830,7 +834,8 @@ TEST_F(TestRecordBatch, ToTensorSupportedTypesMixed) {
   auto schema = ::arrow::schema(fields);
   auto batch = RecordBatch::Make(schema, length, {a0});
 
-  ASSERT_OK_AND_ASSIGN(auto tensor, batch->ToTensor());
+  ASSERT_OK_AND_ASSIGN(auto tensor,
+                       batch->ToTensor(/*null_to_nan=*/false, /*row_major=*/false));
   ASSERT_OK(tensor->Validate());
 
   std::vector<int64_t> shape = {9, 1};
@@ -847,7 +852,8 @@ TEST_F(TestRecordBatch, ToTensorSupportedTypesMixed) {
   auto schema1 = ::arrow::schema(fields1);
   auto batch1 = RecordBatch::Make(schema1, length, {a0, a1});
 
-  ASSERT_OK_AND_ASSIGN(auto tensor1, batch1->ToTensor());
+  ASSERT_OK_AND_ASSIGN(auto tensor1,
+                       batch1->ToTensor(/*null_to_nan=*/false, /*row_major=*/false));
   ASSERT_OK(tensor1->Validate());
 
   std::vector<int64_t> shape1 = {9, 2};
@@ -872,7 +878,8 @@ TEST_F(TestRecordBatch, ToTensorSupportedTypesMixed) {
   auto schema2 = ::arrow::schema(fields2);
   auto batch2 = RecordBatch::Make(schema2, length, {a0, a1, a2});
 
-  ASSERT_OK_AND_ASSIGN(auto tensor2, batch2->ToTensor());
+  ASSERT_OK_AND_ASSIGN(auto tensor2,
+                       batch2->ToTensor(/*null_to_nan=*/false, /*row_major=*/false));
   ASSERT_OK(tensor2->Validate());
 
   std::vector<int64_t> shape2 = {9, 3};
@@ -917,11 +924,11 @@ TEST_F(TestRecordBatch, ToTensorUnsupportedMixedFloat16) {
 }
 
 template <typename DataType>
-class TestBatchToTensor : public ::testing::Test {};
+class TestBatchToTensorColumnMajor : public ::testing::Test {};
 
-TYPED_TEST_SUITE_P(TestBatchToTensor);
+TYPED_TEST_SUITE_P(TestBatchToTensorColumnMajor);
 
-TYPED_TEST_P(TestBatchToTensor, SupportedTypes) {
+TYPED_TEST_P(TestBatchToTensorColumnMajor, SupportedTypes) {
   using DataType = TypeParam;
   using c_data_type = typename DataType::c_type;
   const int unit_size = sizeof(c_data_type);
@@ -944,7 +951,8 @@ TYPED_TEST_P(TestBatchToTensor, SupportedTypes) {
 
   auto batch = RecordBatch::Make(schema, length, {a0, a1, a2});
 
-  ASSERT_OK_AND_ASSIGN(auto tensor, batch->ToTensor());
+  ASSERT_OK_AND_ASSIGN(auto tensor,
+                       batch->ToTensor(/*null_to_nan=*/false, /*row_major=*/false));
   ASSERT_OK(tensor->Validate());
 
   std::vector<int64_t> shape = {9, 3};
@@ -961,7 +969,8 @@ TYPED_TEST_P(TestBatchToTensor, SupportedTypes) {
   // Test offsets
   auto batch_slice = batch->Slice(1);
 
-  ASSERT_OK_AND_ASSIGN(auto tensor_sliced, batch_slice->ToTensor());
+  ASSERT_OK_AND_ASSIGN(auto tensor_sliced,
+                       batch_slice->ToTensor(/*null_to_nan=*/false, /*row_major=*/false));
   ASSERT_OK(tensor_sliced->Validate());
 
   std::vector<int64_t> shape_sliced = {8, 3};
@@ -977,7 +986,9 @@ TYPED_TEST_P(TestBatchToTensor, SupportedTypes) {
 
   auto batch_slice_1 = batch->Slice(1, 5);
 
-  ASSERT_OK_AND_ASSIGN(auto tensor_sliced_1, batch_slice_1->ToTensor());
+  ASSERT_OK_AND_ASSIGN(
+      auto tensor_sliced_1,
+      batch_slice_1->ToTensor(/*null_to_nan=*/false, /*row_major=*/false));
   ASSERT_OK(tensor_sliced_1->Validate());
 
   std::vector<int64_t> shape_sliced_1 = {5, 3};
@@ -991,19 +1002,19 @@ TYPED_TEST_P(TestBatchToTensor, SupportedTypes) {
   CheckTensor<DataType>(tensor_expected_sliced_1, 15, shape_sliced_1, f_strides_sliced_1);
 }
 
-REGISTER_TYPED_TEST_SUITE_P(TestBatchToTensor, SupportedTypes);
+REGISTER_TYPED_TEST_SUITE_P(TestBatchToTensorColumnMajor, SupportedTypes);
 
-INSTANTIATE_TYPED_TEST_SUITE_P(UInt8, TestBatchToTensor, UInt8Type);
-INSTANTIATE_TYPED_TEST_SUITE_P(UInt16, TestBatchToTensor, UInt16Type);
-INSTANTIATE_TYPED_TEST_SUITE_P(UInt32, TestBatchToTensor, UInt32Type);
-INSTANTIATE_TYPED_TEST_SUITE_P(UInt64, TestBatchToTensor, UInt64Type);
-INSTANTIATE_TYPED_TEST_SUITE_P(Int8, TestBatchToTensor, Int8Type);
-INSTANTIATE_TYPED_TEST_SUITE_P(Int16, TestBatchToTensor, Int16Type);
-INSTANTIATE_TYPED_TEST_SUITE_P(Int32, TestBatchToTensor, Int32Type);
-INSTANTIATE_TYPED_TEST_SUITE_P(Int64, TestBatchToTensor, Int64Type);
-INSTANTIATE_TYPED_TEST_SUITE_P(Float16, TestBatchToTensor, HalfFloatType);
-INSTANTIATE_TYPED_TEST_SUITE_P(Float32, TestBatchToTensor, FloatType);
-INSTANTIATE_TYPED_TEST_SUITE_P(Float64, TestBatchToTensor, DoubleType);
+INSTANTIATE_TYPED_TEST_SUITE_P(UInt8, TestBatchToTensorColumnMajor, UInt8Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(UInt16, TestBatchToTensorColumnMajor, UInt16Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(UInt32, TestBatchToTensorColumnMajor, UInt32Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(UInt64, TestBatchToTensorColumnMajor, UInt64Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(Int8, TestBatchToTensorColumnMajor, Int8Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(Int16, TestBatchToTensorColumnMajor, Int16Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(Int32, TestBatchToTensorColumnMajor, Int32Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(Int64, TestBatchToTensorColumnMajor, Int64Type);
+INSTANTIATE_TYPED_TEST_SUITE_P(Float16, TestBatchToTensorColumnMajor, HalfFloatType);
+INSTANTIATE_TYPED_TEST_SUITE_P(Float32, TestBatchToTensorColumnMajor, FloatType);
+INSTANTIATE_TYPED_TEST_SUITE_P(Float64, TestBatchToTensorColumnMajor, DoubleType);
 
 template <typename DataType>
 void CheckTensorRowMajor(const std::shared_ptr<Tensor>& tensor, const int size,
@@ -1046,8 +1057,7 @@ TYPED_TEST_P(TestBatchToTensorRowMajor, SupportedTypes) {
 
   auto batch = RecordBatch::Make(schema, length, {a0, a1, a2});
 
-  ASSERT_OK_AND_ASSIGN(auto tensor,
-                       batch->ToTensor(/*null_to_nan=*/false, /*row_major=*/true));
+  ASSERT_OK_AND_ASSIGN(auto tensor, batch->ToTensor());
   ASSERT_OK(tensor->Validate());
 
   std::vector<int64_t> shape = {9, 3};
@@ -1076,7 +1086,7 @@ TYPED_TEST_P(TestBatchToTensorRowMajor, SupportedTypes) {
                      shape_sliced, strides_sliced);
 
   EXPECT_TRUE(tensor_expected_sliced->Equals(*tensor_sliced));
-  CheckTensorRowMajor<DataType>(tensor_expected_sliced, 24, shape_sliced, strides_sliced);
+  CheckTensorRowMajor<DataType>(tensor_sliced, 24, shape_sliced, strides_sliced);
 
   auto batch_slice_1 = batch->Slice(1, 5);
 
@@ -1091,8 +1101,7 @@ TYPED_TEST_P(TestBatchToTensorRowMajor, SupportedTypes) {
                      shape_sliced_1, strides_sliced_1);
 
   EXPECT_TRUE(tensor_expected_sliced_1->Equals(*tensor_sliced_1));
-  CheckTensorRowMajor<DataType>(tensor_expected_sliced_1, 15, shape_sliced_1,
-  strides_sliced_1);
+  CheckTensorRowMajor<DataType>(tensor_sliced_1, 15, shape_sliced_1, strides_sliced_1);
 }
 
 REGISTER_TYPED_TEST_SUITE_P(TestBatchToTensorRowMajor, SupportedTypes);

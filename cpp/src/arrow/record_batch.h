@@ -91,7 +91,7 @@ class ARROW_EXPORT RecordBatch {
   /// \param[in] pool the memory pool to allocate the tensor buffer
   /// \return the resulting Tensor
   Result<std::shared_ptr<Tensor>> ToTensor(
-      bool null_to_nan = false, bool row_major = false,
+      bool null_to_nan = false, bool row_major = true,
       MemoryPool* pool = default_memory_pool()) const;
 
   /// \brief Construct record batch from struct array
