@@ -1415,7 +1415,7 @@ tasks:
         R_PRUNE_DEPS: TRUE
       image: fedora-r-clang-sanitizer
 
-  {% for go_version, staticcheck in [("1.19", "v0.4.5"), ("1.21", "latest")] %}
+  {% for go_version, staticcheck in [("1.21", "v0.4.7"), ("1.22", "latest")] %}
   test-debian-12-go-{{ go_version }}:
     ci: azure
     template: docker-tests/azure.linux.yml

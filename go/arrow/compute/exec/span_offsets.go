@@ -16,15 +16,21 @@
 
 //go:build go1.20 || tinygo
 
-package hashing
+package exec
 
-import "unsafe"
+import (
+	"unsafe"
+)
 
-func hashString(val string, alg uint64) uint64 {
-	buf := unsafe.Slice(unsafe.StringData(val), len(val))
-	return Hash(buf, alg)
-}
+// convenience function for populating the offsets buffer from a scalar
+// value's size.
+func setOffsetsForScalar[T int32 | int64](span *ArraySpan, buf []T, valueSize int64, bufidx int) {
+	buf[0] = 0
+	buf[1] = T(valueSize)
 
-func strToBytes(v string) []byte {
-	return unsafe.Slice(unsafe.StringData(v), len(v))
+	span.Buffers[bufidx].Buf = unsafe.Slice((*byte)(unsafe.Pointer(unsafe.SliceData(buf))),
+		2*int(unsafe.Sizeof(T(0))))
+
+	span.Buffers[bufidx].Owner = nil
+	span.Buffers[bufidx].SelfAlloc = false
 }
