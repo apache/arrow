@@ -3389,7 +3389,7 @@ cdef class RecordBatch(_Tabular):
                 <CResult[shared_ptr[CArray]]>deref(c_record_batch).ToStructArray())
         return pyarrow_wrap_array(c_array)
 
-    def to_tensor(self, c_bool null_to_nan=False, MemoryPool memory_pool=None):
+    def to_tensor(self, c_bool null_to_nan=False, c_bool row_major=True, MemoryPool memory_pool=None):
         """
         Convert to a :class:`~pyarrow.Tensor`.
 
@@ -3403,6 +3403,8 @@ cdef class RecordBatch(_Tabular):
         ----------
         null_to_nan : bool, default False
             Whether to write null values in the result as ``NaN``.
+        row_major : bool, default True
+            Whether resulting Tensor is row-major or column-major
         memory_pool : MemoryPool, default None
             For memory allocations, if required, otherwise use default pool
 
@@ -3424,11 +3426,14 @@ cdef class RecordBatch(_Tabular):
         a: [1,2,3,4,null]
         b: [10,20,30,40,null]
 
+        Convert a RecordBatch to row-major Tensor with null values
+        written as ``NaN``s
+
         >>> batch.to_tensor(null_to_nan=True)
         <pyarrow.Tensor>
         type: double
         shape: (5, 2)
-        strides: (8, 40)
+        strides: (16, 8)
 
         >>> batch.to_tensor(null_to_nan=True).to_numpy()
         array([[ 1., 10.],
@@ -3436,6 +3441,20 @@ cdef class RecordBatch(_Tabular):
                [ 3., 30.],
                [ 4., 40.],
                [nan, nan]])
+
+        Convert a RecordBatch to column-major Tensor
+
+        >>> batch.to_tensor(null_to_nan=True, row_major=False)
+        <pyarrow.Tensor>
+        type: double
+        shape: (5, 2)
+        strides: (8, 40)
+        >>> batch.to_tensor(null_to_nan=True, row_major=False).to_numpy()
+        array([[ 1., 10.],
+            [ 2., 20.],
+            [ 3., 30.],
+            [ 4., 40.],
+            [nan, nan]])
         """
         cdef:
             shared_ptr[CRecordBatch] c_record_batch
@@ -3446,7 +3465,7 @@ cdef class RecordBatch(_Tabular):
         with nogil:
             c_tensor = GetResultValue(
                 <CResult[shared_ptr[CTensor]]>deref(c_record_batch).ToTensor(null_to_nan,
-                                                                             pool))
+                                                                             row_major, pool))
         return pyarrow_wrap_tensor(c_tensor)
 
     def _export_to_c(self, out_ptr, out_schema_ptr=0):
