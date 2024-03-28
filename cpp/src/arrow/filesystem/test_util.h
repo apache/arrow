@@ -168,6 +168,8 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   virtual bool allow_write_file_over_dir() const { return false; }
   // - Whether the filesystem allows reading a directory
   virtual bool allow_read_dir_as_file() const { return false; }
+  // - Whether the filesystem allows moving a file
+  virtual bool allow_move_file() const { return true; }
   // - Whether the filesystem allows moving a directory
   virtual bool allow_move_dir() const { return true; }
   // - Whether the filesystem allows moving a directory "over" a non-empty destination
