@@ -874,7 +874,7 @@ Result<Expression> FoldConstants(Expression expr) {
           }
         }
 
-        if (call->function_name == "and_kleene") {
+        if (call->function_name == "and_kleene" || call->function_name == "and") {
           for (auto args : ArgumentsAndFlippedArguments(*call)) {
             // true and x == x
             if (args.first == literal(true)) return args.second;
@@ -888,7 +888,7 @@ Result<Expression> FoldConstants(Expression expr) {
           return expr;
         }
 
-        if (call->function_name == "or_kleene") {
+        if (call->function_name == "or_kleene" || call->function_name == "or") {
           for (auto args : ArgumentsAndFlippedArguments(*call)) {
             // false or x == x
             if (args.first == literal(false)) return args.second;
@@ -911,7 +911,8 @@ namespace {
 std::vector<Expression> GuaranteeConjunctionMembers(
     const Expression& guaranteed_true_predicate) {
   auto guarantee = guaranteed_true_predicate.call();
-  if (!guarantee || guarantee->function_name != "and_kleene") {
+  if (!guarantee ||
+      (guarantee->function_name != "and_kleene" && guarantee->function_name != "and")) {
     return {guaranteed_true_predicate};
   }
   return FlattenedAssociativeChain(guaranteed_true_predicate).fringe;
