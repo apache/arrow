@@ -98,6 +98,7 @@ class BaseAzureEnv : public ::testing::Environment {
 
   virtual AzureBackend backend() const = 0;
 
+  virtual bool HasSubmitBatchBug() const { return false; }
   virtual bool WithHierarchicalNamespace() const { return false; }
 
   virtual Result<int64_t> GetDebugLogSize() { return 0; }
@@ -205,6 +206,18 @@ class AzuriteEnv : public AzureEnvImpl<AzuriteEnv> {
     }
     self->server_process_ = std::move(server_process);
     return self;
+  }
+
+  /// Azurite has a bug that causes BlobContainerClient::SubmitBatch to fail on macOS.
+  /// SubmitBatch is used by:
+  ///  - AzureFileSystem::DeleteDir
+  ///  - AzureFileSystem::DeleteDirContents
+  bool HasSubmitBatchBug() const {
+#ifdef __APPLE__
+    return true;
+#else
+    return false;
+#endif
   }
 
   Result<int64_t> GetDebugLogSize() override {
@@ -362,9 +375,10 @@ class TestGeneric : public ::testing::Test, public GenericFileSystemTest {
 
  protected:
   void SetUpInternal(BaseAzureEnv* env) {
+    env_ = env;
     random::pcg32_fast rng((std::random_device()()));
     container_name_ = PreexistingData::RandomContainerName(rng);
-    ASSERT_OK_AND_ASSIGN(auto options, MakeOptions(env));
+    ASSERT_OK_AND_ASSIGN(auto options, MakeOptions(env_));
     ASSERT_OK_AND_ASSIGN(azure_fs_, AzureFileSystem::Make(options));
     ASSERT_OK(azure_fs_->CreateDir(container_name_, true));
     fs_ = std::make_shared<SubTreeFileSystem>(container_name_, azure_fs_);
@@ -382,6 +396,7 @@ class TestGeneric : public ::testing::Test, public GenericFileSystemTest {
   bool have_flaky_directory_tree_deletion() const override { return false; }
   bool have_file_metadata() const override { return true; }
 
+  BaseAzureEnv* env_;
   std::shared_ptr<AzureFileSystem> azure_fs_;
   std::shared_ptr<FileSystem> fs_;
 
@@ -399,6 +414,10 @@ class TestAzuriteGeneric : public TestGeneric {
  protected:
   // Azurite doesn't support moving files over containers.
   bool allow_move_file() const override { return false; }
+  // DeleteDir() doesn't work with Azurite on macOS
+  bool have_flaky_directory_tree_deletion() const override {
+    return env_->HasSubmitBatchBug();
+  }
 };
 
 class TestAzureFlatNSGeneric : public TestGeneric {
@@ -907,19 +926,6 @@ class TestAzureFileSystem : public ::testing::Test {
       "This test is affected by an Azurite issue: "
       "https://github.com/Azure/Azurite/pull/2302";
 
-  /// Azurite has a bug that causes BlobContainerClient::SubmitBatch to fail on macOS.
-  /// SubmitBatch is used by:
-  ///  - AzureFileSystem::DeleteDir
-  ///  - AzureFileSystem::DeleteDirContents
-  bool HasSubmitBatchBug() const {
-#ifdef __APPLE__
-    EXPECT_OK_AND_ASSIGN(auto env, GetAzureEnv());
-    return env->backend() == AzureBackend::kAzurite;
-#else
-    return false;
-#endif
-  }
-
   static bool WithErrno(const Status& status, int expected_errno) {
     auto* detail = status.detail().get();
     return detail &&
@@ -1151,7 +1157,8 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 
   void TestDeleteDirSuccessEmpty() {
-    if (HasSubmitBatchBug()) {
+    ASSERT_OK_AND_ASSIGN(auto env, GetAzureEnv());
+    if (env->HasSubmitBatchBug()) {
       GTEST_SKIP() << kSubmitBatchBugMessage;
     }
     auto data = SetUpPreexistingData();
@@ -1171,7 +1178,8 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 
   void TestDeleteDirSuccessHaveBlob() {
-    if (HasSubmitBatchBug()) {
+    ASSERT_OK_AND_ASSIGN(auto env, GetAzureEnv());
+    if (env->HasSubmitBatchBug()) {
       GTEST_SKIP() << kSubmitBatchBugMessage;
     }
     auto data = SetUpPreexistingData();
@@ -1186,7 +1194,8 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 
   void TestNonEmptyDirWithTrailingSlash() {
-    if (HasSubmitBatchBug()) {
+    ASSERT_OK_AND_ASSIGN(auto env, GetAzureEnv());
+    if (env->HasSubmitBatchBug()) {
       GTEST_SKIP() << kSubmitBatchBugMessage;
     }
     auto data = SetUpPreexistingData();
@@ -1201,7 +1210,8 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 
   void TestDeleteDirSuccessHaveDirectory() {
-    if (HasSubmitBatchBug()) {
+    ASSERT_OK_AND_ASSIGN(auto env, GetAzureEnv());
+    if (env->HasSubmitBatchBug()) {
       GTEST_SKIP() << kSubmitBatchBugMessage;
     }
     auto data = SetUpPreexistingData();
@@ -1216,7 +1226,8 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 
   void TestDeleteDirContentsSuccessExist() {
-    if (HasSubmitBatchBug()) {
+    ASSERT_OK_AND_ASSIGN(auto env, GetAzureEnv());
+    if (env->HasSubmitBatchBug()) {
       GTEST_SKIP() << kSubmitBatchBugMessage;
     }
     auto preexisting_data = SetUpPreexistingData();
@@ -1230,7 +1241,8 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 
   void TestDeleteDirContentsSuccessExistWithTrailingSlash() {
-    if (HasSubmitBatchBug()) {
+    ASSERT_OK_AND_ASSIGN(auto env, GetAzureEnv());
+    if (env->HasSubmitBatchBug()) {
       GTEST_SKIP() << kSubmitBatchBugMessage;
     }
     auto preexisting_data = SetUpPreexistingData();
@@ -1244,7 +1256,8 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 
   void TestDeleteDirContentsSuccessNonexistent() {
-    if (HasSubmitBatchBug()) {
+    ASSERT_OK_AND_ASSIGN(auto env, GetAzureEnv());
+    if (env->HasSubmitBatchBug()) {
       GTEST_SKIP() << kSubmitBatchBugMessage;
     }
     auto data = SetUpPreexistingData();
@@ -2255,7 +2268,8 @@ TEST_F(TestAzuriteFileSystem, DeleteDirSuccessContainer) {
 }
 
 TEST_F(TestAzuriteFileSystem, DeleteDirSuccessNonexistent) {
-  if (HasSubmitBatchBug()) {
+  ASSERT_OK_AND_ASSIGN(auto env, GetAzureEnv());
+  if (env->HasSubmitBatchBug()) {
     GTEST_SKIP() << kSubmitBatchBugMessage;
   }
   auto data = SetUpPreexistingData();
@@ -2266,7 +2280,8 @@ TEST_F(TestAzuriteFileSystem, DeleteDirSuccessNonexistent) {
 }
 
 TEST_F(TestAzuriteFileSystem, DeleteDirSuccessHaveBlobs) {
-  if (HasSubmitBatchBug()) {
+  ASSERT_OK_AND_ASSIGN(auto env, GetAzureEnv());
+  if (env->HasSubmitBatchBug()) {
     GTEST_SKIP() << kSubmitBatchBugMessage;
   }
   auto data = SetUpPreexistingData();
@@ -2294,7 +2309,8 @@ TEST_F(TestAzuriteFileSystem, DeleteDirUri) {
 }
 
 TEST_F(TestAzuriteFileSystem, DeleteDirContentsSuccessContainer) {
-  if (HasSubmitBatchBug()) {
+  ASSERT_OK_AND_ASSIGN(auto env, GetAzureEnv());
+  if (env->HasSubmitBatchBug()) {
     GTEST_SKIP() << kSubmitBatchBugMessage;
   }
   auto data = SetUpPreexistingData();
@@ -2309,7 +2325,8 @@ TEST_F(TestAzuriteFileSystem, DeleteDirContentsSuccessContainer) {
 }
 
 TEST_F(TestAzuriteFileSystem, DeleteDirContentsSuccessDirectory) {
-  if (HasSubmitBatchBug()) {
+  ASSERT_OK_AND_ASSIGN(auto env, GetAzureEnv());
+  if (env->HasSubmitBatchBug()) {
     GTEST_SKIP() << kSubmitBatchBugMessage;
   }
   auto data = SetUpPreexistingData();

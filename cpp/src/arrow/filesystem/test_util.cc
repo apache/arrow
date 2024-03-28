@@ -252,8 +252,7 @@ void GenericFileSystemTest::TestCreateDir(FileSystem* fs) {
 }
 
 void GenericFileSystemTest::TestDeleteDir(FileSystem* fs) {
-  if (have_flaky_directory_tree_deletion())
-    GTEST_SKIP() << "Flaky directory deletion on Windows";
+  if (have_flaky_directory_tree_deletion()) GTEST_SKIP() << "Flaky directory deletion";
 
   ASSERT_OK(fs->CreateDir("AB/CD/EF"));
   ASSERT_OK(fs->CreateDir("AB/GH/IJ"));
@@ -281,8 +280,7 @@ void GenericFileSystemTest::TestDeleteDir(FileSystem* fs) {
 }
 
 void GenericFileSystemTest::TestDeleteDirContents(FileSystem* fs) {
-  if (have_flaky_directory_tree_deletion())
-    GTEST_SKIP() << "Flaky directory deletion on Windows";
+  if (have_flaky_directory_tree_deletion()) GTEST_SKIP() << "Flaky directory deletion";
 
   ASSERT_OK(fs->CreateDir("AB/CD/EF"));
   ASSERT_OK(fs->CreateDir("AB/GH/IJ"));
@@ -313,6 +311,8 @@ void GenericFileSystemTest::TestDeleteDirContents(FileSystem* fs) {
 }
 
 void GenericFileSystemTest::TestDeleteRootDirContents(FileSystem* fs) {
+  if (have_flaky_directory_tree_deletion()) GTEST_SKIP() << "Flaky directory deletion";
+
   ASSERT_OK(fs->CreateDir("AB/CD"));
   CreateFile(fs, "AB/abc", "");
 
@@ -323,9 +323,7 @@ void GenericFileSystemTest::TestDeleteRootDirContents(FileSystem* fs) {
     AssertAllDirs(fs, {"AB", "AB/CD"});
     AssertAllFiles(fs, {"AB/abc"});
   } else {
-    if (!have_flaky_directory_tree_deletion()) {
-      AssertAllDirs(fs, {});
-    }
+    AssertAllDirs(fs, {});
     AssertAllFiles(fs, {});
   }
 }
