@@ -613,6 +613,17 @@ if(ARROW_WITH_ZSTD)
   endforeach()
 endif()
 
+if(ARROW_TELEMETRY)
+  arrow_add_object_library(ARROW_TELEMETRY telemetry/logging.cc)
+
+  foreach(ARROW_TELEMETRY_TARGET ${ARROW_TELEMETRY_TARGETS})
+    target_link_libraries(${ARROW_TELEMETRY_TARGET} PRIVATE ${ARROW_OPENTELEMETRY_LIBS})
+  endforeach()
+else()
+  set(ARROW_TELEMETRY_TARGET_SHARED)
+  set(ARROW_TELEMETRY_TARGET_STATIC)
+endif()
+
 set(ARROW_TESTING_SHARED_LINK_LIBS arrow_shared ${ARROW_GTEST_GTEST})
 set(ARROW_TESTING_SHARED_PRIVATE_LINK_LIBS arrow::flatbuffers RapidJSON)
 set(ARROW_TESTING_STATIC_LINK_LIBS arrow::flatbuffers RapidJSON arrow_static
@@ -996,6 +1007,7 @@ add_arrow_lib(arrow
               ${ARROW_JSON_TARGET_SHARED}
               ${ARROW_MEMORY_POOL_TARGET_SHARED}
               ${ARROW_ORC_TARGET_SHARED}
+              ${ARROW_TELEMETRY_TARGET_SHARED}
               ${ARROW_UTIL_TARGET_SHARED}
               ${ARROW_VENDORED_TARGET_SHARED}
               ${ARROW_SHARED_PRIVATE_LINK_LIBS}
@@ -1011,6 +1023,7 @@ add_arrow_lib(arrow
               ${ARROW_JSON_TARGET_STATIC}
               ${ARROW_MEMORY_POOL_TARGET_STATIC}
               ${ARROW_ORC_TARGET_STATIC}
+              ${ARROW_TELEMETRY_TARGET_STATIC}
               ${ARROW_UTIL_TARGET_STATIC}
               ${ARROW_VENDORED_TARGET_STATIC}
               ${ARROW_SYSTEM_LINK_LIBS}
@@ -1238,6 +1251,10 @@ endif()
 
 if(ARROW_SUBSTRAIT)
   add_subdirectory(engine)
+endif()
+
+if(ARROW_TELEMETRY)
+  add_subdirectory(telemetry)
 endif()
 
 if(ARROW_TENSORFLOW)
