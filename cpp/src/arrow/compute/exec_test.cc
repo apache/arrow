@@ -22,6 +22,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
 
 #include "arrow/array/array_base.h"
@@ -1423,6 +1424,24 @@ TEST(Ordering, IsSuborderOf) {
   CheckOrdering(d, {false, false, false, true, false, false});
   CheckOrdering(imp, {false, false, false, false, false, false});
   CheckOrdering(unordered, {true, true, true, true, true, true});
+}
+
+TEST(CallFunction, ScalarFunctionWithZeroLengthBatch) {
+  // Ensure a scalar function called with a zero length input batch
+  // does not get skipped if it is called with zero arguments
+  auto func = std::make_shared<ScalarFunction>("my_scalar_function", Arity::Nullary(),
+                                               FunctionDoc::Empty());
+
+  auto func_exec = [](KernelContext*, const ExecSpan&, ExecResult* out) {
+    out->value = ArrayFromJSON(utf8(), R"(["I am a scalar"])")->data();
+    return Status::OK();
+  };
+
+  EXPECT_THAT(func->AddKernel({}, utf8(), func_exec), Ok());
+  EXPECT_THAT(GetFunctionRegistry()->AddFunction(std::move(func)), Ok());
+
+  EXPECT_THAT(CallFunction("my_scalar_function", ExecBatch({})),
+              ResultWith(MakeScalar("I am a scalar")));
 }
 
 }  // namespace detail

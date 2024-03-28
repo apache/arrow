@@ -571,6 +571,14 @@ Result<TypeHolder> MakeStructResolve(KernelContext* ctx,
 }
 
 Status MakeStructExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  if (batch.num_values() == 0) {
+    ARROW_ASSIGN_OR_RAISE(
+        std::shared_ptr<Array> arr,
+        MakeArrayOfNull(out->type()->GetSharedPtr(), 1, ctx->memory_pool()));
+    out->value = std::move(arr->data());
+    return Status::OK();
+  }
+
   ARROW_ASSIGN_OR_RAISE(TypeHolder type, MakeStructResolve(ctx, batch.GetTypes()));
 
   for (int i = 0; i < batch.num_values(); ++i) {
