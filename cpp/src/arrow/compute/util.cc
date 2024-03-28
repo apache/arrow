@@ -32,10 +32,10 @@ using internal::CpuInfo;
 namespace util {
 
 void TempVectorStack::alloc(uint32_t num_bytes, uint8_t** data, int* id) {
-  int64_t new_top = top_ + PaddedAllocationSize(num_bytes) + 2 * sizeof(uint64_t);
-  // Stack overflow check (see GH-39582).
+  const auto estimated_size = EstimatedAllocationSize(num_bytes);
   // XXX cannot return a regular Status because most consumers do not either.
-  ARROW_CHECK_LE(new_top, buffer_size_) << "TempVectorStack::alloc overflow";
+  ARROW_CHECK_OK(CheckAllocationOverflow(estimated_size));
+  int64_t new_top = top_ + estimated_size;
   *data = buffer_->mutable_data() + top_ + sizeof(uint64_t);
   // We set 8 bytes before the beginning of the allocated range and
   // 8 bytes after the end to check for stack overflow (which would
@@ -56,6 +56,15 @@ void TempVectorStack::release(int id, uint32_t num_bytes) {
   ARROW_DCHECK(reinterpret_cast<const uint64_t*>(buffer_->mutable_data() + top_)[0] ==
                kGuard1);
   --num_vectors_;
+}
+
+Status TempVectorStack::CheckAllocationOverflow(int64_t alloc_size) {
+  // Stack overflow check (see GH-39582).
+  if ((alloc_size + top_) > buffer_size_) {
+    return Status::Invalid("TempVectorStack alloc overflow: capacity ", buffer_size_,
+                           ", current size ", top_, ", attempt allocating ", alloc_size);
+  }
+  return Status::OK();
 }
 
 namespace bit_util {
