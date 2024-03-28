@@ -729,9 +729,7 @@ if(NOT MSVC)
         string(APPEND C_RELWITHDEBINFO_FLAGS " -ggdb")
         string(APPEND CXX_RELWITHDEBINFO_FLAGS " -ggdb")
       endif()
-
     endif()
-
   endif()
 
   string(APPEND CMAKE_C_FLAGS_RELEASE "${C_RELEASE_FLAGS} ${ARROW_C_FLAGS_RELEASE}")

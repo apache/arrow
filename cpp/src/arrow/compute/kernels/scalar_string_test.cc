@@ -21,7 +21,6 @@
 #include <vector>
 
 #include <gmock/gmock.h>
-#include <gtest/gtest-spi.h>
 #include <gtest/gtest.h>
 
 #include "arrow/compute/api_scalar.h"
