@@ -346,17 +346,13 @@ def test_pytz_tzinfo_to_string():
 
 
 def test_dateutil_tzinfo_to_string():
-    if sys.platform == 'win32':
-        # Skip due to new release of python-dateutil
-        # https://github.com/apache/arrow/issues/40485
-        pytest.skip('Skip on Win due to new release of python-dateutil')
-
     pytest.importorskip("dateutil")
     import dateutil.tz
 
     tz = dateutil.tz.UTC
     assert pa.lib.tzinfo_to_string(tz) == 'UTC'
     tz = dateutil.tz.gettz('Europe/Paris')
+    print(tz)
     assert pa.lib.tzinfo_to_string(tz) == 'Europe/Paris'
 
 
