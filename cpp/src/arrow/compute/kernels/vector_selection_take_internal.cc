@@ -39,12 +39,15 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/ree_util.h"
+#include "arrow/util/scatter_gather_internal.h"
+#include "arrow/util/validity_internal.h"
 
 namespace arrow {
 
 using internal::BinaryBitBlockCounter;
 using internal::BitBlockCount;
 using internal::BitBlockCounter;
+using internal::BitmapTag;
 using internal::CheckIndexBounds;
 using internal::OptionalBitBlockCounter;
 
@@ -324,234 +327,66 @@ using TakeState = OptionsWrapper<TakeOptions>;
 
 // ----------------------------------------------------------------------
 // Implement optimized take for primitive types from boolean to 1/2/4/8-byte
-// C-type based types. Use common implementation for every byte width and only
+// C-type based types. Use common implementation for every bit width and only
 // generate code for unsigned integer indices, since after boundschecking to
 // check for negative numbers in the indices we can safely reinterpret_cast
 // signed integers as unsigned.
 
 /// \brief The Take implementation for primitive (fixed-width) types does not
 /// use the logical Arrow type but rather the physical C type. This way we
-/// only generate one take function for each byte width.
+/// only generate one take function for each bit width.
 ///
 /// This function assumes that the indices have been boundschecked.
-template <typename IndexCType, typename ValueWidthConstant>
+template <typename IndexCType, typename ValueBitWidthConstant>
 struct PrimitiveTakeImpl {
-  static constexpr int kValueWidth = ValueWidthConstant::value;
+  static constexpr int kValueWidthInBits = ValueBitWidthConstant::value;
 
-  static void Exec(const ArraySpan& values, const ArraySpan& indices,
-                   ArrayData* out_arr) {
-    DCHECK_EQ(values.type->byte_width(), kValueWidth);
-    const auto* values_data =
-        values.GetValues<uint8_t>(1, 0) + kValueWidth * values.offset;
-    const uint8_t* values_is_valid = values.buffers[0].data;
-    auto values_offset = values.offset;
+  static Status Exec(KernelContext* ctx, const ArraySpan& values,
+                     const ArraySpan& indices, ArrayData* out_arr) {
+    DCHECK_EQ(values.type->bit_width(), kValueWidthInBits);
+    // When we know for sure that values nor indices contain nulls, we can skip
+    // allocating the validity bitmap altogether and save time and space.
+    const bool allocate_validity = values.null_count != 0 || indices.null_count != 0;
+    RETURN_NOT_OK(PreallocatePrimitiveArrayData(ctx, indices.length, kValueWidthInBits,
+                                                allocate_validity, out_arr));
+    DCHECK_EQ(out_arr->offset, 0);
 
-    const auto* indices_data = indices.GetValues<IndexCType>(1);
-    const uint8_t* indices_is_valid = indices.buffers[0].data;
-    auto indices_offset = indices.offset;
-
-    auto out = out_arr->GetMutableValues<uint8_t>(1, 0) + kValueWidth * out_arr->offset;
-    auto out_is_valid = out_arr->buffers[0]->mutable_data();
-    auto out_offset = out_arr->offset;
-    DCHECK_EQ(out_offset, 0);
-
-    // If either the values or indices have nulls, we preemptively zero out the
-    // out validity bitmap so that we don't have to use ClearBit in each
-    // iteration for nulls.
-    if (values.null_count != 0 || indices.null_count != 0) {
-      bit_util::SetBitsTo(out_is_valid, out_offset, indices.length, false);
-    }
-
-    auto WriteValue = [&](int64_t position) {
-      memcpy(out + position * kValueWidth,
-             values_data + indices_data[position] * kValueWidth, kValueWidth);
-    };
-
-    auto WriteZero = [&](int64_t position) {
-      memset(out + position * kValueWidth, 0, kValueWidth);
-    };
-
-    auto WriteZeroSegment = [&](int64_t position, int64_t length) {
-      memset(out + position * kValueWidth, 0, kValueWidth * length);
-    };
-
-    OptionalBitBlockCounter indices_bit_counter(indices_is_valid, indices_offset,
-                                                indices.length);
-    int64_t position = 0;
     int64_t valid_count = 0;
-    while (position < indices.length) {
-      BitBlockCount block = indices_bit_counter.NextBlock();
-      if (values.null_count == 0) {
-        // Values are never null, so things are easier
-        valid_count += block.popcount;
-        if (block.popcount == block.length) {
-          // Fastest path: neither values nor index nulls
-          bit_util::SetBitsTo(out_is_valid, out_offset + position, block.length, true);
-          for (int64_t i = 0; i < block.length; ++i) {
-            WriteValue(position);
-            ++position;
-          }
-        } else if (block.popcount > 0) {
-          // Slow path: some indices but not all are null
-          for (int64_t i = 0; i < block.length; ++i) {
-            if (bit_util::GetBit(indices_is_valid, indices_offset + position)) {
-              // index is not null
-              bit_util::SetBit(out_is_valid, out_offset + position);
-              WriteValue(position);
-            } else {
-              WriteZero(position);
-            }
-            ++position;
-          }
-        } else {
-          WriteZeroSegment(position, block.length);
-          position += block.length;
-        }
-      } else {
-        // Values have nulls, so we must do random access into the values bitmap
-        if (block.popcount == block.length) {
-          // Faster path: indices are not null but values may be
-          for (int64_t i = 0; i < block.length; ++i) {
-            if (bit_util::GetBit(values_is_valid,
-                                 values_offset + indices_data[position])) {
-              // value is not null
-              WriteValue(position);
-              bit_util::SetBit(out_is_valid, out_offset + position);
-              ++valid_count;
-            } else {
-              WriteZero(position);
-            }
-            ++position;
-          }
-        } else if (block.popcount > 0) {
-          // Slow path: some but not all indices are null. Since we are doing
-          // random access in general we have to check the value nullness one by
-          // one.
-          for (int64_t i = 0; i < block.length; ++i) {
-            if (bit_util::GetBit(indices_is_valid, indices_offset + position) &&
-                bit_util::GetBit(values_is_valid,
-                                 values_offset + indices_data[position])) {
-              // index is not null && value is not null
-              WriteValue(position);
-              bit_util::SetBit(out_is_valid, out_offset + position);
-              ++valid_count;
-            } else {
-              WriteZero(position);
-            }
-            ++position;
-          }
-        } else {
-          WriteZeroSegment(position, block.length);
-          position += block.length;
-        }
+    arrow::internal::Gather<kValueWidthInBits, IndexCType> gather{
+        /*src_length=*/values.length,
+        /*       src=*/values.GetValues<uint8_t>(1, 0),
+        /*src_offset=*/values.offset,
+        /*idx_length=*/indices.length,
+        /*       idx=*/indices.GetValues<IndexCType>(1),
+        /*       out=*/out_arr->GetMutableValues<uint8_t>(1, 0)};
+    if (allocate_validity) {
+      // Zero-initialize the data buffer for the output array when the bit-width is 1
+      // (e.g. Boolean array) to avoid having to ClearBit on every null element.
+      // This might be profitable for other types as well, but this is the most
+      // conservative approach for now.
+      constexpr bool kOutputIsZeroInititalized = kValueWidthInBits == 1;
+      if constexpr (kOutputIsZeroInititalized) {
+        memset(out_arr->buffers[1]->mutable_data(), 0, out_arr->buffers[1]->size());
       }
+      arrow::internal::OptionalValidity src_validity(values);
+      arrow::internal::OptionalValidity idx_validity(indices);
+      // out_is_valid must be zero-initiliazed, because Gather::Execute
+      // saves time by not having to ClearBit on every null element.
+      auto out_is_valid = out_arr->GetMutableValues<uint8_t>(0);
+      bit_util::SetBitsTo(out_is_valid, 0, out_arr->length, false);
+      valid_count = gather.template Execute<kOutputIsZeroInititalized>(
+          src_validity, idx_validity, out_is_valid);
+    } else {
+      valid_count = gather.Execute();
     }
     out_arr->null_count = out_arr->length - valid_count;
-  }
-};
-
-template <typename IndexCType>
-struct BooleanTakeImpl {
-  static void Exec(const ArraySpan& values, const ArraySpan& indices,
-                   ArrayData* out_arr) {
-    const uint8_t* values_data = values.buffers[1].data;
-    const uint8_t* values_is_valid = values.buffers[0].data;
-    auto values_offset = values.offset;
-
-    const auto* indices_data = indices.GetValues<IndexCType>(1);
-    const uint8_t* indices_is_valid = indices.buffers[0].data;
-    auto indices_offset = indices.offset;
-
-    auto out = out_arr->buffers[1]->mutable_data();
-    auto out_is_valid = out_arr->buffers[0]->mutable_data();
-    auto out_offset = out_arr->offset;
-
-    // If either the values or indices have nulls, we preemptively zero out the
-    // out validity bitmap so that we don't have to use ClearBit in each
-    // iteration for nulls.
-    if (values.null_count != 0 || indices.null_count != 0) {
-      bit_util::SetBitsTo(out_is_valid, out_offset, indices.length, false);
-    }
-    // Avoid uninitialized data in values array
-    bit_util::SetBitsTo(out, out_offset, indices.length, false);
-
-    auto PlaceDataBit = [&](int64_t loc, IndexCType index) {
-      bit_util::SetBitTo(out, out_offset + loc,
-                         bit_util::GetBit(values_data, values_offset + index));
-    };
-
-    OptionalBitBlockCounter indices_bit_counter(indices_is_valid, indices_offset,
-                                                indices.length);
-    int64_t position = 0;
-    int64_t valid_count = 0;
-    while (position < indices.length) {
-      BitBlockCount block = indices_bit_counter.NextBlock();
-      if (values.null_count == 0) {
-        // Values are never null, so things are easier
-        valid_count += block.popcount;
-        if (block.popcount == block.length) {
-          // Fastest path: neither values nor index nulls
-          bit_util::SetBitsTo(out_is_valid, out_offset + position, block.length, true);
-          for (int64_t i = 0; i < block.length; ++i) {
-            PlaceDataBit(position, indices_data[position]);
-            ++position;
-          }
-        } else if (block.popcount > 0) {
-          // Slow path: some but not all indices are null
-          for (int64_t i = 0; i < block.length; ++i) {
-            if (bit_util::GetBit(indices_is_valid, indices_offset + position)) {
-              // index is not null
-              bit_util::SetBit(out_is_valid, out_offset + position);
-              PlaceDataBit(position, indices_data[position]);
-            }
-            ++position;
-          }
-        } else {
-          position += block.length;
-        }
-      } else {
-        // Values have nulls, so we must do random access into the values bitmap
-        if (block.popcount == block.length) {
-          // Faster path: indices are not null but values may be
-          for (int64_t i = 0; i < block.length; ++i) {
-            if (bit_util::GetBit(values_is_valid,
-                                 values_offset + indices_data[position])) {
-              // value is not null
-              bit_util::SetBit(out_is_valid, out_offset + position);
-              PlaceDataBit(position, indices_data[position]);
-              ++valid_count;
-            }
-            ++position;
-          }
-        } else if (block.popcount > 0) {
-          // Slow path: some but not all indices are null. Since we are doing
-          // random access in general we have to check the value nullness one by
-          // one.
-          for (int64_t i = 0; i < block.length; ++i) {
-            if (bit_util::GetBit(indices_is_valid, indices_offset + position)) {
-              // index is not null
-              if (bit_util::GetBit(values_is_valid,
-                                   values_offset + indices_data[position])) {
-                // value is not null
-                PlaceDataBit(position, indices_data[position]);
-                bit_util::SetBit(out_is_valid, out_offset + position);
-                ++valid_count;
-              }
-            }
-            ++position;
-          }
-        } else {
-          position += block.length;
-        }
-      }
-    }
-    out_arr->null_count = out_arr->length - valid_count;
+    return Status::OK();
   }
 };
 
 template <template <typename...> class TakeImpl, typename... Args>
-void TakeIndexDispatch(const ArraySpan& values, const ArraySpan& indices,
-                       ArrayData* out) {
+Status TakeIndexDispatch(KernelContext* ctx, const ArraySpan& values,
+                         const ArraySpan& indices, ArrayData* out) {
   // With the simplifying assumption that boundschecking has taken place
   // already at a higher level, we can now assume that the index values are all
   // non-negative. Thus, we can interpret signed integers as unsigned and avoid
@@ -559,17 +394,16 @@ void TakeIndexDispatch(const ArraySpan& values, const ArraySpan& indices,
   // width.
   switch (indices.type->byte_width()) {
     case 1:
-      return TakeImpl<uint8_t, Args...>::Exec(values, indices, out);
+      return TakeImpl<uint8_t, Args...>::Exec(ctx, values, indices, out);
     case 2:
-      return TakeImpl<uint16_t, Args...>::Exec(values, indices, out);
+      return TakeImpl<uint16_t, Args...>::Exec(ctx, values, indices, out);
     case 4:
-      return TakeImpl<uint32_t, Args...>::Exec(values, indices, out);
+      return TakeImpl<uint32_t, Args...>::Exec(ctx, values, indices, out);
     case 8:
-      return TakeImpl<uint64_t, Args...>::Exec(values, indices, out);
-    default:
-      DCHECK(false) << "Invalid indices byte width";
-      break;
+      return TakeImpl<uint64_t, Args...>::Exec(ctx, values, indices, out);
   }
+  DCHECK(false) << "Invalid indices byte width";
+  return Status::OK();
 }
 
 }  // namespace
@@ -583,44 +417,37 @@ Status PrimitiveTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
   }
 
   ArrayData* out_arr = out->array_data().get();
-
   const int bit_width = values.type->bit_width();
-
-  // TODO: When neither values nor indices contain nulls, we can skip
-  // allocating the validity bitmap altogether and save time and space. A
-  // streamlined PrimitiveTakeImpl would need to be written that skips all
-  // interactions with the output validity bitmap, though.
-  RETURN_NOT_OK(PreallocatePrimitiveArrayData(ctx, indices.length, bit_width,
-                                              /*allocate_validity=*/true, out_arr));
   switch (bit_width) {
     case 1:
-      TakeIndexDispatch<BooleanTakeImpl>(values, indices, out_arr);
+      return TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 1>>(
+          ctx, values, indices, out_arr);
       break;
     case 8:
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 1>>(
-          values, indices, out_arr);
+      return TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 8>>(
+          ctx, values, indices, out_arr);
       break;
     case 16:
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 2>>(
-          values, indices, out_arr);
+      return TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 16>>(
+          ctx, values, indices, out_arr);
       break;
     case 32:
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 4>>(
-          values, indices, out_arr);
+      return TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 32>>(
+          ctx, values, indices, out_arr);
       break;
     case 64:
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 8>>(
-          values, indices, out_arr);
+      return TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 64>>(
+          ctx, values, indices, out_arr);
       break;
     case 128:
       // For INTERVAL_MONTH_DAY_NANO, DECIMAL128
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 16>>(
-          values, indices, out_arr);
+      return TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 128>>(
+          ctx, values, indices, out_arr);
       break;
     case 256:
       // For DECIMAL256
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 32>>(
-          values, indices, out_arr);
+      return TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 256>>(
+          ctx, values, indices, out_arr);
       break;
     default:
       return Status::NotImplemented("Unsupported primitive type for take: ",
