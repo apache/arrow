@@ -109,7 +109,10 @@ export class Data<T extends DataType = DataType> {
         let nullCount = this._nullCount;
         let nullBitmap: Uint8Array | undefined;
         if (nullCount <= kUnknownNullCount && (nullBitmap = this.nullBitmap)) {
-            this._nullCount = nullCount = this.length - popcnt_bit_range(nullBitmap, this.offset, this.offset + this.length);
+            this._nullCount = nullCount = nullBitmap.length === 0 ?
+                // no null bitmap, so all values are valid
+                0 :
+                this.length - popcnt_bit_range(nullBitmap, this.offset, this.offset + this.length);
         }
         return nullCount;
     }
@@ -177,16 +180,16 @@ export class Data<T extends DataType = DataType> {
                 // if we have a nullBitmap, truncate + slice and set it over the pre-filled 1s
                 if (this.nullCount > 0) {
                     nullBitmap.set(truncateBitmap(offset, length, this.nullBitmap), 0);
+                    Object.assign(this, { nullBitmap });
+                } else {
+                    Object.assign(this, { nullBitmap, _nullCount: 0 });
                 }
-                Object.assign(this, { nullBitmap, _nullCount: -1 });
             }
 
             const byte = nullBitmap[byteOffset];
 
             prev = (byte & mask) !== 0;
-            value ?
-                (nullBitmap[byteOffset] = byte | mask) :
-                (nullBitmap[byteOffset] = byte & ~mask);
+            nullBitmap[byteOffset] = value ? (byte | mask) : (byte & ~mask);
         }
 
         if (prev !== !!value) {

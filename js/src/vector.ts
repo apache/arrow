@@ -445,7 +445,7 @@ export function makeVector(init: any) {
             if (init instanceof DataView) {
                 init = new Uint8Array(init.buffer);
             }
-            const props = { offset: 0, length: init.length, nullCount: 0, data: init };
+            const props = { offset: 0, length: init.length, nullCount: -1, data: init };
             if (init instanceof Int8Array) { return new Vector([makeData({ ...props, type: new dtypes.Int8 })]); }
             if (init instanceof Int16Array) { return new Vector([makeData({ ...props, type: new dtypes.Int16 })]); }
             if (init instanceof Int32Array) { return new Vector([makeData({ ...props, type: new dtypes.Int32 })]); }
