@@ -48,8 +48,8 @@ from pyarrow.lib import (is_boolean_value,  # noqa
                          is_list_view_type,
                          is_nested_type,
                          is_union_type,
-                         is_bit_width_type,
-                         is_offset_bit_width_type)
+                         bit_width_type,
+                         offset_bit_width_type)
 
 import pyarrow.lib as lib
 from pyarrow.util import doc
@@ -82,7 +82,7 @@ def is_boolean(t):
 
 @doc(is_null, datatype="any integer")
 def is_integer(t):
-    return is_integer_type(t)
+    return is_integer_type(t) and bit_width_type(t)
 
 
 @doc(is_null, datatype="signed integer")

@@ -676,7 +676,7 @@ def is_union_type(data_type):
     return is_union(data_type.id)
 
 
-def is_bit_width_type(data_type):
+def bit_width_type(data_type):
     """
     Determine the bit width of the data type.
 
@@ -698,7 +698,7 @@ def is_bit_width_type(data_type):
     return bit_width(data_type.id)
 
 
-def is_offset_bit_width_type(data_type):
+def offset_bit_width_type(data_type):
     """
     Determine the offset bit width of the data type.
 
