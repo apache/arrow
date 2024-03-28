@@ -482,6 +482,9 @@ void AddFirstOrLastAggKernel(ScalarAggregateFunction* func,
 // ----------------------------------------------------------------------
 // MinMax implementation
 
+using arrow::compute::match::Not;
+using arrow::compute::match::SameTypeId;
+
 Result<std::unique_ptr<KernelState>> MinMaxInit(KernelContext* ctx,
                                                 const KernelInitArgs& args) {
   ARROW_ASSIGN_OR_RAISE(TypeHolder out_type,
@@ -494,9 +497,10 @@ Result<std::unique_ptr<KernelState>> MinMaxInit(KernelContext* ctx,
 
 // For "min" and "max" functions: override finalize and return the actual value
 template <MinOrMax min_or_max>
-void AddMinOrMaxAggKernel(ScalarAggregateFunction* func,
-                          ScalarAggregateFunction* min_max_func) {
-  auto sig = KernelSignature::Make({InputType::Any()}, FirstType);
+void AddMinOrMaxAggKernels(ScalarAggregateFunction* func,
+                           ScalarAggregateFunction* min_max_func) {
+  std::shared_ptr<arrow::compute::KernelSignature> sig =
+      KernelSignature::Make({InputType(Not(SameTypeId(Type::DICTIONARY)))}, FirstType);
   auto init = [min_max_func](
                   KernelContext* ctx,
                   const KernelInitArgs& args) -> Result<std::unique_ptr<KernelState>> {
@@ -516,6 +520,9 @@ void AddMinOrMaxAggKernel(ScalarAggregateFunction* func,
 
   // Note SIMD level is always NONE, but the convenience kernel will
   // dispatch to an appropriate implementation
+  AddAggKernel(std::move(sig), init, finalize, func);
+
+  sig = KernelSignature::Make({InputType(Type::DICTIONARY)}, DictionaryValueType);
   AddAggKernel(std::move(sig), std::move(init), std::move(finalize), func);
 }
 
@@ -873,6 +880,15 @@ Result<TypeHolder> MinMaxType(KernelContext*, const std::vector<TypeHolder>& typ
   return struct_({field("min", ty), field("max", ty)});
 }
 
+Result<TypeHolder> DictionaryMinMaxType(KernelContext*,
+                                        const std::vector<TypeHolder>& types) {
+  // T -> struct<min: T.value_type, max: T.value_type>
+  auto ty = types.front();
+  const DictionaryType& ty_dict = checked_cast<const DictionaryType&>(*ty);
+  return struct_(
+      {field("min", ty_dict.value_type()), field("max", ty_dict.value_type())});
+}
+
 }  // namespace
 
 Result<TypeHolder> FirstLastType(KernelContext*, const std::vector<TypeHolder>& types) {
@@ -896,7 +912,12 @@ void AddFirstLastKernels(KernelInit init,
 
 void AddMinMaxKernel(KernelInit init, internal::detail::GetTypeId get_id,
                      ScalarAggregateFunction* func, SimdLevel::type simd_level) {
-  auto sig = KernelSignature::Make({InputType(get_id.id)}, MinMaxType);
+  std::shared_ptr<arrow::compute::KernelSignature> sig;
+  if (get_id.id == Type::DICTIONARY) {
+    sig = KernelSignature::Make({InputType(get_id.id)}, DictionaryMinMaxType);
+  } else {
+    sig = KernelSignature::Make({InputType(get_id.id)}, MinMaxType);
+  }
   AddAggKernel(std::move(sig), init, func, simd_level);
 }
 
@@ -1118,6 +1139,7 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   AddMinMaxKernels(MinMaxInit, NumericTypes(), func.get());
   AddMinMaxKernels(MinMaxInit, TemporalTypes(), func.get());
   AddMinMaxKernels(MinMaxInit, BaseBinaryTypes(), func.get());
+  AddMinMaxKernel(MinMaxInit, Type::DICTIONARY, func.get());
   AddMinMaxKernel(MinMaxInit, Type::FIXED_SIZE_BINARY, func.get());
   AddMinMaxKernel(MinMaxInit, Type::INTERVAL_MONTHS, func.get());
   AddMinMaxKernel(MinMaxInit, Type::DECIMAL128, func.get());
@@ -1140,12 +1162,12 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   // Add min/max as convenience functions
   func = std::make_shared<ScalarAggregateFunction>("min", Arity::Unary(), min_or_max_doc,
                                                    &default_scalar_aggregate_options);
-  AddMinOrMaxAggKernel<MinOrMax::Min>(func.get(), min_max_func);
+  AddMinOrMaxAggKernels<MinOrMax::Min>(func.get(), min_max_func);
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   func = std::make_shared<ScalarAggregateFunction>("max", Arity::Unary(), min_or_max_doc,
                                                    &default_scalar_aggregate_options);
-  AddMinOrMaxAggKernel<MinOrMax::Max>(func.get(), min_max_func);
+  AddMinOrMaxAggKernels<MinOrMax::Max>(func.get(), min_max_func);
   DCHECK_OK(registry->AddFunction(std::move(func)));
 
   func = std::make_shared<ScalarAggregateFunction>("product", Arity::Unary(), product_doc,
