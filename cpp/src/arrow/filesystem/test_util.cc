@@ -1179,10 +1179,12 @@ void GenericFileSystemTest::TestSpecialChars(FileSystem* fs) {
   AssertFileContents(fs, "Special and%different.txt", "data");
 
   ASSERT_OK(fs->DeleteFile("Special and%different.txt"));
-  if (!have_flaky_directory_tree_deletion()) {
+  if (have_flaky_directory_tree_deletion()) {
+    ASSERT_OK(fs->DeleteFile("Blank Char/Special%Char.txt"));
+  } else {
     ASSERT_OK(fs->DeleteDir("Blank Char"));
+    AssertAllDirs(fs, {});
   }
-  AssertAllDirs(fs, {});
   AssertAllFiles(fs, {});
 }
 
