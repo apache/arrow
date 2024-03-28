@@ -573,7 +573,7 @@ For this reason there is a function ``pyarrow.RecordBatch.to_tensor()`` availabl
 to efficiently convert tabular columnar data into a tensor.
 
 Data types supported in this conversion are unsigned, signed integer and float
-types of all widths. Currently only column-major conversion is supported.
+types. Currently only column-major conversion is supported.
 
    >>>  import pyarrow as pa
    >>>  arr1 = [1, 2, 3, 4, 5]
@@ -594,11 +594,7 @@ types of all widths. Currently only column-major conversion is supported.
          [ 2, 20],
          [ 3, 30],
          [ 4, 40],
-         [ 5, 50],
-         [ 6, 60],
-         [ 7, 70],
-         [ 8, 80],
-         [ 9, 90]], dtype=int32)
+         [ 5, 50]], dtype=int32)
 
 With ``null_to_nan`` set to ``True`` one can also convert data with
 nulls. They will be converted to ``NaN``:

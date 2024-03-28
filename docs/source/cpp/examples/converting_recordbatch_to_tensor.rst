@@ -31,9 +31,9 @@ with two dimensions:
    ASSERT_OK_AND_ASSIGN(auto tensor, batch->ToTensor());
    ASSERT_OK(tensor->Validate());
 
-The conversion supports signed and unsigned integer types plus float types,
-all widths included. In case the ``RecordBatch`` has null values the conversion
-succeeds if ``null_to_nan`` parameter is set to ``true``. In this case all
+The conversion supports signed and unsigned integer types plus float types.
+In case the ``RecordBatch`` has null values the conversion succeeds if
+``null_to_nan`` parameter is set to ``true``. In this case all
 types will be promoted to a floating-point data type.
 
 .. code::
