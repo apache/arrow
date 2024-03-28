@@ -96,7 +96,7 @@ auto RoundtripBatch = [](const std::shared_ptr<RecordBatch>& batch,
 TEST_F(TestFixedShapeTensorType, CheckDummyRegistration) {
   // We need a registered dummy type at runtime to allow for IPC deserialization
   auto registered_type = GetExtensionType("arrow.fixed_shape_tensor");
-  ASSERT_TRUE(registered_type->type_id == Type::EXTENSION);
+  ASSERT_EQ(registered_type->id(), Type::EXTENSION);
 }
 
 TEST_F(TestFixedShapeTensorType, CreateExtensionType) {
@@ -720,7 +720,7 @@ class TestVariableShapeTensorType : public ::testing::Test {
 TEST_F(TestVariableShapeTensorType, CheckDummyRegistration) {
   // We need a registered dummy type at runtime to allow for IPC deserialization
   auto registered_type = GetExtensionType("arrow.variable_shape_tensor");
-  ASSERT_EQ(registered_type->type_id, Type::EXTENSION);
+  ASSERT_EQ(registered_type->id(), Type::EXTENSION);
 }
 
 TEST_F(TestVariableShapeTensorType, CreateExtensionType) {
