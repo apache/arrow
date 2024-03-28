@@ -234,16 +234,8 @@ ExecPlan <- R6Class("ExecPlan",
       }
       out
     },
-    Write = function(node, ...) {
-      # TODO(ARROW-16200): take FileSystemDatasetWriteOptions not ...
-      final_metadata <- prepare_key_value_metadata(node$final_metadata())
-
-      ExecPlan_Write(
-        self,
-        node,
-        node$schema$WithMetadata(final_metadata),
-        ...
-      )
+    DoWrite = function() {
+      ExecPlan_DoWrite(self)
     },
     ToString = function() {
       ExecPlan_ToString(self)
@@ -333,6 +325,16 @@ ExecNode <- R6Class("ExecNode",
     OrderBy = function(sorting) {
       self$preserve_extras(
         ExecNode_OrderBy(self, sorting)
+      )
+    },
+    Write = function(...) {
+      # TODO(ARROW-16200): take FileSystemDatasetWriteOptions not ...
+      final_metadata <- prepare_key_value_metadata(self$final_metadata())
+
+      ExecNode_Write(
+        self,
+        self$schema$WithMetadata(final_metadata),
+        ...
       )
     }
   ),
