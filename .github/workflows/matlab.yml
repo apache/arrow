@@ -42,7 +42,23 @@ jobs:
 
   ubuntu:
     name: AMD64 Ubuntu 20.04 MATLAB
-    runs-on: ubuntu-latest
+    # Explicitly pin the Ubuntu version to 20.04 for the time being because:
+    #
+    #     1. The version of GLIBCXX shipped with Ubuntu 22.04 is not binary compatible
+    #        with the GLIBCXX bundled with MATLAB R2023a. This is a relatively common
+    #        issue.
+    #
+    #        For example, see:
+    #
+    #        https://www.mathworks.com/matlabcentral/answers/1907290-how-to-manually-select-the-libstdc-library-to-use-to-resolve-a-version-glibcxx_-not-found
+    #
+    #     2. The version of GLIBCXX shipped with Ubuntu 22.04 is not binary compatible with
+    #        the version of GLIBCXX shipped with Debian 11. Several of the Arrow community
+    #        members who work on the MATLAB bindings use Debian 11 locally for qualification.
+    #        Using Ubuntu 20.04 eases development workflows for these community members.
+    #
+    # In the future, we can investigate adding support for building against more Linux (e.g. `ubuntu-22.04`) and MATLAB versions (e.g. R2023b).
+    runs-on: ubuntu-20.04
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
       - name: Check out repository
@@ -74,14 +90,6 @@ jobs:
         run: ci/scripts/matlab_build.sh $(pwd)
       - name: Run MATLAB Tests
         env:
-          # libarrow.so requires a more recent version of libstdc++.so
-          # than is bundled with MATLAB under <matlabroot>/sys/os/glnxa64.
-          # Therefore, if a MEX function that depends on libarrow.so
-          # is executed within the MATLAB address space, runtime linking
-          # errors will occur. To work around this issue, we can explicitly
-          # force MATLAB to use the system libstdc++.so via LD_PRELOAD.
-          LD_PRELOAD: /usr/lib/x86_64-linux-gnu/libstdc++.so.6
-
           # Add the installation directory to the MATLAB Search Path by
           # setting the MATLABPATH environment variable.
           MATLABPATH: matlab/install/arrow_matlab
@@ -89,7 +97,7 @@ jobs:
         with:
           select-by-folder: matlab/test
   macos:
-    name: AMD64 macOS 11 MATLAB
+    name: AMD64 macOS 12 MATLAB
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
