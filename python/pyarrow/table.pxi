@@ -3434,7 +3434,6 @@ cdef class RecordBatch(_Tabular):
         type: double
         shape: (5, 2)
         strides: (16, 8)
-
         >>> batch.to_tensor(null_to_nan=True).to_numpy()
         array([[ 1., 10.],
                [ 2., 20.],
@@ -3451,10 +3450,10 @@ cdef class RecordBatch(_Tabular):
         strides: (8, 40)
         >>> batch.to_tensor(null_to_nan=True, row_major=False).to_numpy()
         array([[ 1., 10.],
-            [ 2., 20.],
-            [ 3., 30.],
-            [ 4., 40.],
-            [nan, nan]])
+               [ 2., 20.],
+               [ 3., 30.],
+               [ 4., 40.],
+               [nan, nan]])
         """
         cdef:
             shared_ptr[CRecordBatch] c_record_batch
