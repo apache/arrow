@@ -224,6 +224,12 @@ namespace Apache.Arrow
             return this as TBuilder;
         }
 
+        public TBuilder SetNull(int index)
+        {
+            InnerBuilder.SetNull(index);
+            return this as TBuilder;
+        }
+
         /// <summary>
         /// Set the value of a date in the form of a <see cref="DateTimeOffset"/> object at the specified index.
         /// </summary>

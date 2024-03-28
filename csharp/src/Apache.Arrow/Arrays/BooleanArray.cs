@@ -134,6 +134,14 @@ namespace Apache.Arrow
                 ValidityBuffer.Set(index);
                 return this;
             }
+            
+            public Builder SetNull(int index)
+            {
+                CheckIndex(index);
+                ValueBuffer.Set(index, false);
+                ValidityBuffer.Set(index, false);
+                return this;
+            }
 
             public Builder Set(int index, bool value)
             {

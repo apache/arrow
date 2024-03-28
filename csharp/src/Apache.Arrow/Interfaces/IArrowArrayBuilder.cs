@@ -50,5 +50,6 @@ namespace Apache.Arrow
         TBuilder AppendRange(IEnumerable<T> values);
         TBuilder Swap(int i, int j);
         TBuilder Set(int index, T value);
+        TBuilder SetNull(int index);
     }
 }
