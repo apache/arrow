@@ -454,7 +454,7 @@
         </plugin>
         <plugin>
           <artifactId>maven-surefire-plugin</artifactId>
-          <version>3.2.3</version>
+          <version>3.2.5</version>
           <dependencies>
             <dependency>
               <groupId>org.junit.jupiter</groupId>
