@@ -790,7 +790,7 @@ MapArray::MapArray(const std::shared_ptr<DataType>& type, int64_t length,
                    const std::shared_ptr<Array>& items, int64_t null_count,
                    int64_t offset) {
   auto pair_data = ArrayData::Make(type->fields()[0]->type(), keys->data()->length,
-                                   {nullptr}, {keys->data(), items->data()}, 0, offset);
+                                   {nullptr}, {keys->data(), items->data()}, 0);
   auto map_data =
       ArrayData::Make(type, length, std::move(buffers), {pair_data}, null_count, offset);
   SetData(map_data);
