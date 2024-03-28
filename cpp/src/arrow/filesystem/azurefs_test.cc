@@ -352,10 +352,16 @@ culpa qui officia deserunt mollit anim id est laborum.
   }
 };
 
-class TestAzureFileSystemGeneric : public ::testing::Test, public GenericFileSystemTest {
+class TestGeneric : public ::testing::Test, public GenericFileSystemTest {
  public:
-  void SetUp() override {
-    ASSERT_OK_AND_ASSIGN(auto env, AzuriteEnv::GetInstance());
+  void TearDown() override {
+    if (azure_fs_) {
+      ASSERT_OK(azure_fs_->DeleteDir(container_name_));
+    }
+  }
+
+ protected:
+  void SetUpInternal(BaseAzureEnv* env) {
     random::pcg32_fast rng((std::random_device()()));
     container_name_ = PreexistingData::RandomContainerName(rng);
     ASSERT_OK_AND_ASSIGN(auto options, MakeOptions(env));
@@ -364,21 +370,13 @@ class TestAzureFileSystemGeneric : public ::testing::Test, public GenericFileSys
     fs_ = std::make_shared<SubTreeFileSystem>(container_name_, azure_fs_);
   }
 
-  void TearDown() override {
-    if (azure_fs_) {
-      ASSERT_OK(azure_fs_->DeleteDir(container_name_));
-    }
-  }
-
- protected:
   std::shared_ptr<FileSystem> GetEmptyFileSystem() override { return fs_; }
 
   bool have_implicit_directories() const override { return true; }
   bool allow_write_file_over_dir() const override { return true; }
   bool allow_read_dir_as_file() const override { return true; }
   bool allow_move_dir() const override { return false; }
-  // Azurite doesn't support moving files over containers.
-  bool allow_move_file() const override { return false; }
+  bool allow_move_file() const override { return true; }
   bool allow_append_to_file() const override { return true; }
   bool have_directory_mtimes() const override { return false; }
   bool have_flaky_directory_tree_deletion() const override { return false; }
@@ -391,7 +389,49 @@ class TestAzureFileSystemGeneric : public ::testing::Test, public GenericFileSys
   std::string container_name_;
 };
 
-GENERIC_FS_TEST_FUNCTIONS(TestAzureFileSystemGeneric);
+class TestAzuriteGeneric : public TestGeneric {
+ public:
+  void SetUp() override {
+    ASSERT_OK_AND_ASSIGN(auto env, AzuriteEnv::GetInstance());
+    SetUpInternal(env);
+  }
+
+ protected:
+  // Azurite doesn't support moving files over containers.
+  bool allow_move_file() const override { return false; }
+};
+
+class TestAzureFlatNSGeneric : public TestGeneric {
+ public:
+  void SetUp() override {
+    auto env_result = AzureFlatNSEnv::GetInstance();
+    if (env_result.status().IsCancelled()) {
+      GTEST_SKIP() << env_result.status().message();
+    }
+    ASSERT_OK_AND_ASSIGN(auto env, env_result);
+    SetUpInternal(env);
+  }
+
+ protected:
+  // Flat namespace account doesn't support moving files over containers.
+  bool allow_move_file() const override { return false; }
+};
+
+class TestAzureHierarchicalNSGeneric : public TestGeneric {
+ public:
+  void SetUp() override {
+    auto env_result = AzureHierarchicalNSEnv::GetInstance();
+    if (env_result.status().IsCancelled()) {
+      GTEST_SKIP() << env_result.status().message();
+    }
+    ASSERT_OK_AND_ASSIGN(auto env, env_result);
+    SetUpInternal(env);
+  }
+};
+
+GENERIC_FS_TEST_FUNCTIONS(TestAzuriteGeneric);
+GENERIC_FS_TEST_FUNCTIONS(TestAzureFlatNSGeneric);
+GENERIC_FS_TEST_FUNCTIONS(TestAzureHierarchicalNSGeneric);
 
 TEST(AzureFileSystem, InitializingFilesystemWithoutAccountNameFails) {
   AzureOptions options;
