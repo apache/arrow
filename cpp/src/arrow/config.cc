@@ -58,6 +58,8 @@ std::string MakeSimdLevelString(QueryFlagFunction&& query_flag) {
     return "avx";
   } else if (query_flag(CpuInfo::SSE4_2)) {
     return "sse4_2";
+  } else if (query_flag(CpuInfo::ASIMD)) {
+    return "neon";
   } else {
     return "none";
   }
