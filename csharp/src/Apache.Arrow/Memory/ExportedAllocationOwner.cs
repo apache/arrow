@@ -21,7 +21,7 @@ using System.Threading;
 
 namespace Apache.Arrow.Memory
 {
-    internal sealed class ExportedAllocationOwner : INativeAllocationOwner, IDisposable
+    internal sealed class ExportedAllocationOwner : IDisposable
     {
         private readonly List<IntPtr> _pointers = new List<IntPtr>();
         private int _allocationSize;
@@ -44,11 +44,6 @@ namespace Apache.Arrow.Memory
             _pointers.Add(ptr);
             _allocationSize += length;
             return ptr;
-        }
-
-        public void Release(IntPtr ptr, int offset, int length)
-        {
-            throw new InvalidOperationException();
         }
 
         public void IncRef()
