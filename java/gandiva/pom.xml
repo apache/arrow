@@ -132,18 +132,15 @@
             <plugin>
                 <groupId>org.xolstice.maven.plugins</groupId>
                 <artifactId>protobuf-maven-plugin</artifactId>
-                <version>0.6.1</version>
-                <configuration>
-                    <protocArtifact>com.google.protobuf:protoc:${protobuf.version}:exe:${os.detected.classifier}
-                    </protocArtifact>
-                    <protoSourceRoot>proto</protoSourceRoot>
-                </configuration>
                 <executions>
                     <execution>
+                        <id>src</id>
                         <goals>
                             <goal>compile</goal>
-                            <goal>test-compile</goal>
                         </goals>
+                        <configuration>
+                            <protoSourceRoot>proto</protoSourceRoot>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>
