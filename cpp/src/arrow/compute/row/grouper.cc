@@ -681,7 +681,7 @@ struct GrouperFastImpl : public Grouper {
 
       // Compute hash
       RETURN_NOT_OK(Hashing32::HashMultiColumn(encoder_.batch_all_cols(), &encode_ctx_,
-                                 minibatch_hashes_.data()));
+                                               minibatch_hashes_.data()));
 
       // Map
       auto match_bitvector =
