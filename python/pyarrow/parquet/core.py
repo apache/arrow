@@ -1299,8 +1299,8 @@ Examples
                 f"local file systems, not {type(filesystem)}"
             )
 
-        # check for single fragment dataset
-        single_file = None
+        # check for BufferReader object
+        buffer_reader = None
         self._base_dir = None
         if not isinstance(path_or_paths, list):
             if _is_path_like(path_or_paths):
@@ -1313,17 +1313,15 @@ Examples
                     except ValueError:
                         filesystem = LocalFileSystem(use_mmap=memory_map)
                 finfo = filesystem.get_file_info(path_or_paths)
-                if finfo.is_file:
-                    single_file = path_or_paths
                 if finfo.type == FileType.Directory:
                     self._base_dir = path_or_paths
             else:
-                single_file = path_or_paths
+                buffer_reader = path_or_paths
 
         parquet_format = ds.ParquetFileFormat(**read_options)
 
-        if single_file is not None:
-            fragment = parquet_format.make_fragment(single_file, filesystem)
+        if buffer_reader is not None:
+            fragment = parquet_format.make_fragment(buffer_reader, filesystem)
 
             self._dataset = ds.FileSystemDataset(
                 [fragment], schema=schema or fragment.physical_schema,
@@ -1771,6 +1769,7 @@ def read_table(source, *, columns=None, use_threads=True,
             ignore_prefixes=ignore_prefixes,
             pre_buffer=pre_buffer,
             coerce_int96_timestamp_unit=coerce_int96_timestamp_unit,
+            decryption_properties=decryption_properties,
             thrift_string_size_limit=thrift_string_size_limit,
             thrift_container_size_limit=thrift_container_size_limit,
             page_checksum_verification=page_checksum_verification,
