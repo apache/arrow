@@ -570,14 +570,14 @@ libraries is a two dimensional array (also called a 2-dim tensor or a matrix) wh
 only one contiguous block of memory.
 
 For this reason there is a function ``pyarrow.RecordBatch.to_tensor()`` available
-to efficiently convert tabular columnar data into a matrix.
+to efficiently convert tabular columnar data into a tensor.
 
 Data types supported in this conversion are unsigned, signed integer and float
 types of all widths. Currently only column-major conversion is supported.
 
    >>>  import pyarrow as pa
-   >>>  arr1 = [1, 2, 3, 4, 5, 6, 7, 8, 9]
-   >>>  arr2 = [10, 20, 30, 40, 50, 60, 70, 80, 90]
+   >>>  arr1 = [1, 2, 3, 4, 5]
+   >>>  arr2 = [10, 20, 30, 40, 50]
    >>>  batch = pa.RecordBatch.from_arrays(
    ...      [
    ...          pa.array(arr1, type=pa.uint16()),
