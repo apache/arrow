@@ -42,3 +42,5 @@ types will be promoted to float-point data type.
 
    ASSERT_OK_AND_ASSIGN(auto tensor, batch->ToTensor(/*null_to_nan=*/true));
    ASSERT_OK(tensor->Validate());
+
+Currently only column-major conversion is supported.

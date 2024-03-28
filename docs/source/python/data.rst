@@ -573,7 +573,7 @@ For this reason there is a function ``pyarrow.RecordBatch.to_tensor()`` availabl
 to efficiently convert tabular columnar data into a matrix.
 
 Data types supported in this conversion are unsigned, signed integer and float
-types of all widths.
+types of all widths. Currently only column-major conversion is supported.
 
    >>>  import pyarrow as pa
    >>>  arr1 = [1, 2, 3, 4, 5, 6, 7, 8, 9]
