@@ -3052,5 +3052,5 @@ cdef extern from "arrow/type_traits.h" namespace "arrow":
     c_bool is_list_view(Type type_id)
     c_bool is_nested(Type type_id)
     c_bool is_union(Type type_id)
-    c_bool bit_width(Type type_id)
-    c_bool offset_bit_width(Type type_id)
+    int bit_width(Type type_id)
+    int offset_bit_width(Type type_id)
