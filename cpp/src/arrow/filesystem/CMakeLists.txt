@@ -28,7 +28,9 @@ add_arrow_test(filesystem-test
                EXTRA_LABELS
                filesystem
                DEFINITIONS
-               ARROW_FILESYSTEM_EXAMPLE_LIBPATH="$<TARGET_FILE:arrow_filesystem_example>")
+               ARROW_FILESYSTEM_EXAMPLE_LIBPATH="$<TARGET_FILE:arrow_filesystem_example>"
+               EXTRA_DEPENDENCIES
+               arrow_filesystem_example)
 
 if(ARROW_BUILD_BENCHMARKS)
   add_arrow_benchmark(localfs_benchmark

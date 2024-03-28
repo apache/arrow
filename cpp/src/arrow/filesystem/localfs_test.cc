@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cerrno>
-#include <chrono>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -309,6 +307,7 @@ class TestLocalFS : public LocalFSTestMixin {
     std::string path;
     ASSERT_OK_AND_ASSIGN(fs_, fs_from_uri(uri, &path));
     ASSERT_EQ(fs_->type_name(), "local");
+    local_fs_ = ::arrow::internal::checked_pointer_cast<LocalFileSystem>(fs_);
     ASSERT_EQ(path, expected_path);
     ASSERT_OK_AND_ASSIGN(path, fs_->PathFromUri(uri));
     ASSERT_EQ(path, expected_path);
@@ -420,8 +419,15 @@ TYPED_TEST(TestLocalFS, FileSystemFromUriFile) {
 
   // Variations
   this->TestLocalUri("file:/foo/bar", "/foo/bar");
+  ASSERT_FALSE(this->local_fs_->options().use_mmap);
   this->TestLocalUri("file:///foo/bar", "/foo/bar");
   this->TestLocalUri("file:///some%20path/%25percent", "/some path/%percent");
+
+  this->TestLocalUri("file:///_?use_mmap", "/_");
+  ASSERT_TRUE(this->local_fs_->options().use_mmap);
+  ASSERT_OK_AND_ASSIGN(auto uri, this->fs_->MakeUri("/_"));
+  EXPECT_EQ(uri, "file:///_?use_mmap");
+
 #ifdef _WIN32
   this->TestLocalUri("file:/C:/foo/bar", "C:/foo/bar");
   this->TestLocalUri("file:///C:/foo/bar", "C:/foo/bar");
