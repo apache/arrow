@@ -411,10 +411,10 @@
           <artifactId>maven-dependency-plugin</artifactId>
           <!--
             This appears to report a false positive with versions
-            greater than 3.1.2 (tested up to 3.6.0) when compiling
+            greater than 3.6.1 (tested up to 3.6.0) when compiling
             arrow-tools about Jackson being only used for tests.
           -->
-          <version>3.1.2</version>
+          <version>3.6.1</version>
         </plugin>
         <plugin>
           <groupId>org.apache.rat</groupId>
