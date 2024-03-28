@@ -93,6 +93,7 @@ public abstract class AbstractVariableWidthVector extends BaseValueVector
   /**
    * Set the variable length element at the specified index to the supplied ByteBuffer, and it
    * handles the case where index and length of new element are beyond the existing capacity.
+   *
    * @param index position of the element to set
    * @param value ByteBuffer with data
    * @param start start position in the ByteBuffer
@@ -110,6 +111,7 @@ public abstract class AbstractVariableWidthVector extends BaseValueVector
 
   /**
    * Get the variable length element at the specified index using a ReusableBuffer.
+   *
    * @param index position of the element to get
    * @param buffer ReusableBuffer to write the data to
    */
