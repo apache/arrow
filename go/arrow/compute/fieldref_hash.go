@@ -16,15 +16,24 @@
 
 //go:build go1.20 || tinygo
 
-package hashing
+package compute
 
-import "unsafe"
+import (
+	"hash/maphash"
+	"math/bits"
+	"unsafe"
 
-func hashString(val string, alg uint64) uint64 {
-	buf := unsafe.Slice(unsafe.StringData(val), len(val))
-	return Hash(buf, alg)
-}
+	"github.com/apache/arrow/go/v16/arrow"
+)
 
-func strToBytes(v string) []byte {
-	return unsafe.Slice(unsafe.StringData(v), len(v))
+func (f FieldPath) hash(h *maphash.Hash) {
+	raw := unsafe.Pointer(unsafe.SliceData(f))
+	var byteLen int
+	if bits.UintSize == 32 {
+		byteLen = arrow.Int32Traits.BytesRequired(len(f))
+	} else {
+		byteLen = arrow.Int64Traits.BytesRequired(len(f))
+	}
+
+	h.Write(unsafe.Slice((*byte)(raw), byteLen))
 }

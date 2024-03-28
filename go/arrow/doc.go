@@ -30,8 +30,6 @@ array is valid (not null). If the array has no null entries, it is possible to o
 
 # Requirements
 
-Despite the go.mod stating go1.20, everything is able to be built with go1.19 or higher.
-
 To build with tinygo include the noasm build tag.
 */
 package arrow
