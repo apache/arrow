@@ -26,15 +26,24 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VariableWidthVector;
 import org.apache.arrow.vector.VectorDefinitionSetter;
 
+/**
+* A base class for common functionalities in variable width vectors.
+*/
 public abstract class AbstractVariableWidthVector extends BaseValueVector
     implements VariableWidthVector, FieldVector, VectorDefinitionSetter {
 
+  /**
+   * Instantiate a AbstractVariableWidthVector.
+   *
+   * @param allocator The allocator to use for creating/reallocating buffers
+   */
   protected AbstractVariableWidthVector(BufferAllocator allocator) {
     super(allocator);
   }
 
   /**
    * Set the variable length element at the specified index to the supplied byte array.
+   *
    * @param index position of the element to set
    * @param value array of bytes with data
   */
@@ -42,6 +51,7 @@ public abstract class AbstractVariableWidthVector extends BaseValueVector
 
   /**
    * Set the variable length element at the specified index to the supplied byte array.
+   *
    * @param index position of the element to set
    * @param value array of bytes with data
    * @param start start position in the array
@@ -51,6 +61,7 @@ public abstract class AbstractVariableWidthVector extends BaseValueVector
 
   /**
    * Set the variable length element at the specified index to the supplied ByteBuffer.
+   *
    * @param index position of the element to set
    * @param value ByteBuffer with data
    * @param start start position in the ByteBuffer
@@ -71,6 +82,7 @@ public abstract class AbstractVariableWidthVector extends BaseValueVector
   /**
    * Set the variable length element at the specified index to the supplied byte array, and it
    * handles the case where index and length of new element are beyond the existing capacity.
+   *
    * @param index position of the element to set
    * @param value array of bytes with data
    * @param start start position in the array
@@ -90,16 +102,17 @@ public abstract class AbstractVariableWidthVector extends BaseValueVector
 
   /**
    * Get the variable length element at the specified index.
+   *
    * @param index position of the element to get
    * @return byte array with the data
   */
   public abstract byte[] get(int index);
 
   /**
-  * Get the variable length element at the specified index using a ReusableBuffer.
+   * Get the variable length element at the specified index using a ReusableBuffer.
    * @param index position of the element to get
    * @param buffer ReusableBuffer to write the data to
-  */
+   */
   public abstract void read(int index, ReusableBuffer<?> buffer);
 
   /**
@@ -111,6 +124,7 @@ public abstract class AbstractVariableWidthVector extends BaseValueVector
 
   /**
    * Set the index of last non-null element in the vector.
+   *
    * @param value desired index of last non-null element
    */
   public abstract void setLastSet(int value);
@@ -118,7 +132,7 @@ public abstract class AbstractVariableWidthVector extends BaseValueVector
   /**
    * Get the variable length element at specified index as Text.
    *
-   * @param index   position of element to get
+   * @param index position of element to get
    * @return greater than 0 length for non-null element, 0 otherwise
    */
   public abstract int getValueLength(int index);
@@ -135,8 +149,8 @@ public abstract class AbstractVariableWidthVector extends BaseValueVector
   /**
    * Sets the value length for an element.
    *
-   * @param index   position of the element to set
-   * @param length  length of the element
+   * @param index position of the element to set
+   * @param length length of the element
    */
   public abstract void setValueLengthSafe(int index, int length);
 }
