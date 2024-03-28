@@ -75,7 +75,7 @@ func CountSetBits(buf []byte, offset, n int) int {
 
 	count := 0
 
-	uint64Bytes := n / uint64SizeBits * 8
+	uint64Bytes := n / (uint64SizeBits * 8)
 	for _, v := range bytesToUint64(buf[:uint64Bytes]) {
 		count += bits.OnesCount64(v)
 	}
