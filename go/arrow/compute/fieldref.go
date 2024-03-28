@@ -20,12 +20,10 @@ import (
 	"errors"
 	"fmt"
 	"hash/maphash"
-	"math/bits"
 	"reflect"
 	"strconv"
 	"strings"
 	"unicode"
-	"unsafe"
 
 	"github.com/apache/arrow/go/v16/arrow"
 	"github.com/apache/arrow/go/v16/arrow/array"
@@ -166,21 +164,6 @@ func (f FieldPath) GetField(field arrow.Field) (*arrow.Field, error) {
 // going to the nested arrays of the columns in the record batch.
 func (f FieldPath) GetColumn(batch arrow.Record) (arrow.Array, error) {
 	return f.getArray(batch.Columns())
-}
-
-func (f FieldPath) hash(h *maphash.Hash) {
-	raw := (*reflect.SliceHeader)(unsafe.Pointer(&f)).Data
-
-	var b []byte
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-	s.Data = raw
-	if bits.UintSize == 32 {
-		s.Len = arrow.Int32Traits.BytesRequired(len(f))
-	} else {
-		s.Len = arrow.Int64Traits.BytesRequired(len(f))
-	}
-	s.Cap = s.Len
-	h.Write(b)
 }
 
 func (f FieldPath) findAll(fields []arrow.Field) []FieldPath {

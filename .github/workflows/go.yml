@@ -59,13 +59,13 @@ jobs:
           {
             "arch-label": "AMD64",
             "arch": "amd64",
-            "go": "1.19",
+            "go": "1.21",
             "runs-on": "ubuntu-latest"
           },
           {
             "arch-label": "AMD64",
             "arch": "amd64",
-            "go": "1.20",
+            "go": "1.22",
             "runs-on": "ubuntu-latest"
           }
           JSON
@@ -75,13 +75,13 @@ jobs:
           {
             "arch-label": "ARM64",
             "arch": "arm64v8",
-            "go": "1.19",
+            "go": "1.21",
             "runs-on": ["self-hosted", "arm", "linux"]
           },
           {
             "arch-label": "ARM64",
             "arch": "arm64v8",
-            "go": "1.20",
+            "go": "1.22",
             "runs-on": ["self-hosted", "arm", "linux"]
           }
           JSON
@@ -169,10 +169,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Get required Go version
+        run: |
+          (. .env && echo "GO_VERSION=${GO}") >> $GITHUB_ENV
       - name: Install Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.19
+          go-version: "${{ env.GO_VERSION }}"
           cache: true
           cache-dependency-path: go/go.sum
       - name: Run build
@@ -188,7 +191,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.19, '1.20']
+        go: ['1.21', '1.22']
     env:
       GO: ${{ matrix.go }}
     steps:
@@ -229,7 +232,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.19, '1.20']
+        go: ['1.21', '1.22']
     env:
       GO: ${{ matrix.go }}
     steps:
@@ -268,7 +271,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.19, '1.20']
+        go: ['1.21', '1.22']
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
@@ -301,7 +304,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.19, '1.20']
+        go: ['1.21', '1.22']
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
@@ -359,7 +362,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.19, '1.20']
+        go: ['1.21', '1.22']
     env:
       ARROW_GO_TESTCGO: "1"
     steps:
@@ -428,6 +431,9 @@ jobs:
         shell: msys2 {0}
         run: |
           ci/scripts/msys2_setup.sh cgo
+      - name: Get required Go version
+        run: |
+          (. .env && echo "GO_VERSION=${GO}") >> $GITHUB_ENV  
       - name: Update CGO Env vars
         shell: msys2 {0}
         run: |
@@ -437,7 +443,7 @@ jobs:
       - name: Install go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.19'
+          go-version: "${{ env.GO_VERSION }}"
           cache: true
           cache-dependency-path: go/go.sum
       - name: Install staticcheck

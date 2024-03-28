@@ -95,27 +95,13 @@ type int96Traits struct{}
 func (int96Traits) BytesRequired(n int) int { return Int96SizeBytes * n }
 
 func (int96Traits) CastFromBytes(b []byte) []Int96 {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	var res []Int96
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&res))
-	s.Data = h.Data
-	s.Len = h.Len / Int96SizeBytes
-	s.Cap = h.Cap / Int96SizeBytes
-
-	return res
+	return unsafe.Slice((*Int96)(unsafe.Pointer(unsafe.SliceData(b))),
+		len(b)/Int96SizeBytes)
 }
 
 func (int96Traits) CastToBytes(b []Int96) []byte {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	var res []byte
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&res))
-	s.Data = h.Data
-	s.Len = h.Len * Int96SizeBytes
-	s.Cap = h.Cap * Int96SizeBytes
-
-	return res
+	return unsafe.Slice((*byte)(unsafe.Pointer(unsafe.SliceData(b))),
+		len(b)*Int96SizeBytes)
 }
 
 // ByteArray is a type to be utilized for representing the Parquet ByteArray physical type, represented as a byte slice
@@ -142,15 +128,8 @@ func (byteArrayTraits) BytesRequired(n int) int {
 }
 
 func (byteArrayTraits) CastFromBytes(b []byte) []ByteArray {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	var res []ByteArray
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&res))
-	s.Data = h.Data
-	s.Len = h.Len / ByteArraySizeBytes
-	s.Cap = h.Cap / ByteArraySizeBytes
-
-	return res
+	return unsafe.Slice((*ByteArray)(unsafe.Pointer(unsafe.SliceData(b))),
+		len(b)/ByteArraySizeBytes)
 }
 
 // FixedLenByteArray is a go type to represent a FixedLengthByteArray as a byte slice
@@ -177,15 +156,8 @@ func (fixedLenByteArrayTraits) BytesRequired(n int) int {
 }
 
 func (fixedLenByteArrayTraits) CastFromBytes(b []byte) []FixedLenByteArray {
-	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-
-	var res []FixedLenByteArray
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&res))
-	s.Data = h.Data
-	s.Len = h.Len / FixedLenByteArraySizeBytes
-	s.Cap = h.Cap / FixedLenByteArraySizeBytes
-
-	return res
+	return unsafe.Slice((*FixedLenByteArray)(unsafe.Pointer(unsafe.SliceData(b))),
+		len(b)/FixedLenByteArraySizeBytes)
 }
 
 // Creating our own enums allows avoiding the transitive dependency on the

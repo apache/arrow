@@ -30,7 +30,6 @@ package mallocator
 import "C"
 
 import (
-	"reflect"
 	"sync/atomic"
 	"unsafe"
 )
@@ -70,18 +69,18 @@ func (alloc *Mallocator) Allocate(size int) []byte {
 }
 
 func (alloc *Mallocator) Free(b []byte) {
-	sh := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-	C.free(unsafe.Pointer(sh.Data))
+	sz := len(b)
+	C.free(getPtr(b))
 	// Subtract sh.Len via two's complement (since atomic doesn't offer subtract)
-	atomic.AddUint64(&alloc.allocatedBytes, ^(uint64(sh.Len) - 1))
+	atomic.AddUint64(&alloc.allocatedBytes, ^(uint64(sz) - 1))
 }
 
 func (alloc *Mallocator) Reallocate(size int, b []byte) []byte {
 	if size < 0 {
 		panic("mallocator: negative size")
 	}
-	sh := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-	ptr, err := C.realloc_and_initialize(unsafe.Pointer(sh.Data), C.size_t(sh.Cap), C.size_t(size))
+	cp := cap(b)
+	ptr, err := C.realloc_and_initialize(getPtr(b), C.size_t(cp), C.size_t(size))
 	if err != nil {
 		panic(err)
 	} else if ptr == nil && size != 0 {
