@@ -14,7 +14,7 @@
 // limitations under the License.
 
 using System;
-using System.Diagnostics;
+using System.Buffers;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -24,6 +24,7 @@ namespace Apache.Arrow.Memory
     internal sealed class ExportedAllocationOwner : IDisposable
     {
         private readonly List<IntPtr> _pointers = new List<IntPtr>();
+        private readonly List<MemoryHandle> _handles = new List<MemoryHandle>();
         private int _allocationSize;
         private long _referenceCount;
         private bool _disposed;
@@ -44,6 +45,12 @@ namespace Apache.Arrow.Memory
             _pointers.Add(ptr);
             _allocationSize += length;
             return ptr;
+        }
+
+        public unsafe IntPtr Reference(MemoryHandle handle)
+        {
+            _handles.Add(handle);
+            return new IntPtr(handle.Pointer);
         }
 
         public void IncRef()
@@ -73,6 +80,12 @@ namespace Apache.Arrow.Memory
                     _pointers[i] = IntPtr.Zero;
                 }
             }
+
+            for (int i = 0; i < _handles.Count; ++i)
+            {
+                _handles[i].Dispose();
+            }
+
             GC.RemoveMemoryPressure(_allocationSize);
             GC.SuppressFinalize(this);
             _disposed = true;
