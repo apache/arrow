@@ -564,13 +564,13 @@ It can also be sent between languages using the :ref:`C stream interface <c-stre
 Conversion of RecordBatch do Tensor
 -----------------------------------
 
-RecordBatch is a collection of equal-length arrays and each array has it's own
-contiguous memory. For use in machine learning libraries a contiguous memory for
-RecordBatch as a two dimensional array (also called a 2-dim tensor or a matrix)
-is needed.
+Each array of the RecordBatch has it's own contiguous memory that is not necessarily
+adjacent to other arrays from the RecordBatch. A different memory structure that is
+used in machine learning libraries is a two dimensional array (also called a 2-dim
+tensor or a matrix) which takes only one contiguous block of memory.
 
-For this reason there is a function ``pyarrow.RecordBatch.to_tensor()`` to be used
-to efficiently convert tabular columnar data into a matrix with a contiguous memory.
+For this reason there is a function ``pyarrow.RecordBatch.to_tensor()`` available
+to efficiently convert tabular columnar data into a matrix.
 
 Data types supported in this conversion are unsigned, signed integer and float
 types of all widths.
