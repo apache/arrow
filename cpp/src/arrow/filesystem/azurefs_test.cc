@@ -212,7 +212,7 @@ class AzuriteEnv : public AzureEnvImpl<AzuriteEnv> {
   /// SubmitBatch is used by:
   ///  - AzureFileSystem::DeleteDir
   ///  - AzureFileSystem::DeleteDirContents
-  bool HasSubmitBatchBug() const {
+  bool HasSubmitBatchBug() const override {
 #ifdef __APPLE__
     return true;
 #else
