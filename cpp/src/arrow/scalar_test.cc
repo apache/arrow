@@ -16,6 +16,7 @@
 // under the License.
 
 #include <chrono>
+#include <future>
 #include <limits>
 #include <memory>
 #include <ostream>
@@ -1982,6 +1983,36 @@ TEST_F(TestExtensionScalar, ValidateErrors) {
   AssertValidationFails(*invalid_storage);
   scalar = ExtensionScalar(invalid_storage, type_);
   AssertValidationFails(scalar);
+}
+
+TEST(TestScalarFillArraySpan, ParallelFill) {
+  for (auto scalar : {
+           ScalarFromJSON(utf8(), R"("test data")"),
+           //  ScalarFromJSON(utf8_view(), R"("test data")"),
+           //  ScalarFromJSON(list(int8()), "[1, 2, 3]"),
+           //  ScalarFromJSON(list_view(int8()), "[1, 2, 3]"),
+           // TODO: more coming.
+       }) {
+    ARROW_SCOPED_TRACE("Scalar: ", scalar->ToString());
+
+    // Lambda to fill an ArraySpan with the scalar (and consequently fill the scratch
+    // space of the scalar), and use the ArraySpan a bit.
+    auto array_span_from_scalar = [&scalar]() {
+      ArraySpan span;
+      span.FillFromScalar(*scalar);
+      ASSERT_TRUE(span.type->Equals(scalar->type));
+      ASSERT_EQ(span.length, 1);
+      auto values = span.GetValues<int32_t>(1);
+      ASSERT_EQ(values[0], 0);
+    };
+
+    // Two concurrent calls to the lambda are just enough for TSAN to report a race
+    // condition.
+    auto fut1 = std::async(std::launch::async, array_span_from_scalar);
+    auto fut2 = std::async(std::launch::async, array_span_from_scalar);
+    fut1.get();
+    fut2.get();
+  }
 }
 
 }  // namespace arrow

@@ -285,9 +285,13 @@ namespace {
 
 template <typename offset_type>
 BufferSpan OffsetsForScalar(uint8_t* scratch_space, offset_type value_size) {
-  auto* offsets = reinterpret_cast<offset_type*>(scratch_space);
-  offsets[0] = 0;
-  offsets[1] = static_cast<offset_type>(value_size);
+  // The scalar scratch space could be filled concurrently (with the same content), thus
+  // we use relaxed atomic stores. This consequently requires the size of the atomic to
+  // match the size of the offset type.
+  static_assert(sizeof(std::atomic<offset_type>) == sizeof(offset_type));
+  auto* offsets = reinterpret_cast<std::atomic<offset_type>*>(scratch_space);
+  offsets[0].store(0, std::memory_order_relaxed);
+  offsets[1].store(value_size, std::memory_order_relaxed);
   static_assert(2 * sizeof(offset_type) <= 16);
   return {scratch_space, sizeof(offset_type) * 2};
 }
@@ -295,13 +299,18 @@ BufferSpan OffsetsForScalar(uint8_t* scratch_space, offset_type value_size) {
 template <typename offset_type>
 std::pair<BufferSpan, BufferSpan> OffsetsAndSizesForScalar(uint8_t* scratch_space,
                                                            offset_type value_size) {
-  auto* offsets = scratch_space;
-  auto* sizes = scratch_space + sizeof(offset_type);
-  reinterpret_cast<offset_type*>(offsets)[0] = 0;
-  reinterpret_cast<offset_type*>(sizes)[0] = value_size;
+  // The scalar scratch space could be filled concurrently (with the same content), thus
+  // we use relaxed atomic stores. This consequently requires the size of the atomic to
+  // match the size of the offset type.
+  static_assert(sizeof(std::atomic<offset_type>) == sizeof(offset_type));
+  auto* offsets = reinterpret_cast<std::atomic<offset_type>*>(scratch_space);
+  auto* sizes = offsets + 1;
+  offsets[0].store(0, std::memory_order_relaxed);
+  sizes[0].store(value_size, std::memory_order_relaxed);
   static_assert(2 * sizeof(offset_type) <= 16);
-  return {BufferSpan{offsets, sizeof(offset_type)},
-          BufferSpan{sizes, sizeof(offset_type)}};
+  return {
+      BufferSpan{scratch_space, sizeof(offset_type)},
+      BufferSpan{scratch_space + sizeof(offset_type), sizeof(offset_type)}};  // namespace
 }
 
 int GetNumBuffers(const DataType& type) {
