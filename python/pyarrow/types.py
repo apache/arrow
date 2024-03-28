@@ -20,29 +20,39 @@
 
 from pyarrow.lib import (is_boolean_value,  # noqa
                          is_integer_value,
-                         is_float_value)
+                         is_float_value,
+                         is_integer_type,
+                         is_signed_integer_type,
+                         is_unsigned_integer_type,
+                         is_floating_type,
+                         is_numeric_type,
+                         is_decimal_type,
+                         is_run_end_type_py,
+                         is_primitive_type,
+                         is_base_binary_like_type,
+                         is_binary_like_type,
+                         is_large_binary_like_type,
+                         is_binary_type,
+                         is_string_type,
+                         is_temporal_type,
+                         is_time_type,
+                         is_date_type,
+                         is_interval_type,
+                         is_dictionary_type,
+                         is_fixed_size_binary_type,
+                         is_fixed_width_type,
+                         is_var_length_list_type,
+                         is_list_type,
+                         is_list_like_type,
+                         is_var_length_list_like_type,
+                         is_list_view_type,
+                         is_nested_type,
+                         is_union_type,
+                         bit_width_type,
+                         offset_bit_width_type)
 
 import pyarrow.lib as lib
 from pyarrow.util import doc
-
-
-_SIGNED_INTEGER_TYPES = {lib.Type_INT8, lib.Type_INT16, lib.Type_INT32,
-                         lib.Type_INT64}
-_UNSIGNED_INTEGER_TYPES = {lib.Type_UINT8, lib.Type_UINT16, lib.Type_UINT32,
-                           lib.Type_UINT64}
-_INTEGER_TYPES = _SIGNED_INTEGER_TYPES | _UNSIGNED_INTEGER_TYPES
-_FLOATING_TYPES = {lib.Type_HALF_FLOAT, lib.Type_FLOAT, lib.Type_DOUBLE}
-_DECIMAL_TYPES = {lib.Type_DECIMAL128, lib.Type_DECIMAL256}
-_DATE_TYPES = {lib.Type_DATE32, lib.Type_DATE64}
-_TIME_TYPES = {lib.Type_TIME32, lib.Type_TIME64}
-_INTERVAL_TYPES = {lib.Type_INTERVAL_MONTH_DAY_NANO}
-_TEMPORAL_TYPES = ({lib.Type_TIMESTAMP,
-                    lib.Type_DURATION} | _TIME_TYPES | _DATE_TYPES |
-                   _INTERVAL_TYPES)
-_UNION_TYPES = {lib.Type_SPARSE_UNION, lib.Type_DENSE_UNION}
-_NESTED_TYPES = {lib.Type_LIST, lib.Type_FIXED_SIZE_LIST, lib.Type_LARGE_LIST,
-                 lib.Type_LIST_VIEW, lib.Type_LARGE_LIST_VIEW,
-                 lib.Type_STRUCT, lib.Type_MAP} | _UNION_TYPES
 
 
 @doc(datatype="null")
@@ -59,92 +69,92 @@ def is_null(t):
 
 @doc(is_null, datatype="boolean")
 def is_boolean(t):
-    return t.id == lib.Type_BOOL
+    return is_primitive_type(t) and bit_width_type(t) == 1
 
 
 @doc(is_null, datatype="any integer")
 def is_integer(t):
-    return t.id in _INTEGER_TYPES
+    return is_integer_type(t) and bit_width_type(t)
 
 
 @doc(is_null, datatype="signed integer")
 def is_signed_integer(t):
-    return t.id in _SIGNED_INTEGER_TYPES
+    return is_signed_integer_type(t)
 
 
 @doc(is_null, datatype="unsigned integer")
 def is_unsigned_integer(t):
-    return t.id in _UNSIGNED_INTEGER_TYPES
+    return is_unsigned_integer_type(t)
 
 
 @doc(is_null, datatype="int8")
 def is_int8(t):
-    return t.id == lib.Type_INT8
+    return is_integer_type(t) and bit_width_type(t) == 8
 
 
 @doc(is_null, datatype="int16")
 def is_int16(t):
-    return t.id == lib.Type_INT16
+    return is_integer_type(t) and bit_width_type(t) == 16
 
 
 @doc(is_null, datatype="int32")
 def is_int32(t):
-    return t.id == lib.Type_INT32
+    return is_integer_type(t) and bit_width_type(t) == 32
 
 
 @doc(is_null, datatype="int64")
 def is_int64(t):
-    return t.id == lib.Type_INT64
+    return is_integer_type(t) and bit_width_type(t) == 64
 
 
 @doc(is_null, datatype="uint8")
 def is_uint8(t):
-    return t.id == lib.Type_UINT8
+    return is_unsigned_integer_type(t) and bit_width_type(t) == 8
 
 
 @doc(is_null, datatype="uint16")
 def is_uint16(t):
-    return t.id == lib.Type_UINT16
+    return is_unsigned_integer_type(t) and bit_width_type(t) == 16
 
 
 @doc(is_null, datatype="uint32")
 def is_uint32(t):
-    return t.id == lib.Type_UINT32
+    return is_unsigned_integer_type(t) and bit_width_type(t) == 32
 
 
 @doc(is_null, datatype="uint64")
 def is_uint64(t):
-    return t.id == lib.Type_UINT64
+    return is_unsigned_integer_type(t) and bit_width_type(t) == 64
 
 
 @doc(is_null, datatype="floating point numeric")
 def is_floating(t):
-    return t.id in _FLOATING_TYPES
+    return is_floating_type(t)
 
 
 @doc(is_null, datatype="float16 (half-precision)")
 def is_float16(t):
-    return t.id == lib.Type_HALF_FLOAT
+    return is_floating_type(t) and bit_width_type(t) == 16
 
 
 @doc(is_null, datatype="float32 (single precision)")
 def is_float32(t):
-    return t.id == lib.Type_FLOAT
+    return is_floating_type(t) and bit_width_type(t) == 32
 
 
 @doc(is_null, datatype="float64 (double precision)")
 def is_float64(t):
-    return t.id == lib.Type_DOUBLE
+    return is_floating_type(t) and bit_width_type(t) == 64
 
 
 @doc(is_null, datatype="list")
 def is_list(t):
-    return t.id == lib.Type_LIST
+    return is_list_type(t) and offset_bit_width_type(t) == 32
 
 
 @doc(is_null, datatype="large list")
 def is_large_list(t):
-    return t.id == lib.Type_LARGE_LIST
+    return is_list_type(t) and offset_bit_width_type(t) == 64
 
 
 @doc(is_null, datatype="fixed size list")
@@ -154,12 +164,12 @@ def is_fixed_size_list(t):
 
 @doc(is_null, datatype="list view")
 def is_list_view(t):
-    return t.id == lib.Type_LIST_VIEW
+    return is_list_view_type(t) and offset_bit_width_type(t) == 32
 
 
 @doc(is_null, datatype="large list view")
 def is_large_list_view(t):
-    return t.id == lib.Type_LARGE_LIST_VIEW
+    return is_list_view_type(t) and offset_bit_width_type(t) == 64
 
 
 @doc(is_null, datatype="struct")
@@ -169,12 +179,12 @@ def is_struct(t):
 
 @doc(is_null, datatype="union")
 def is_union(t):
-    return t.id in _UNION_TYPES
+    return is_union_type(t)
 
 
 @doc(is_null, datatype="nested type")
 def is_nested(t):
-    return t.id in _NESTED_TYPES
+    return is_nested_type(t)
 
 
 @doc(is_null, datatype="run-end encoded")
@@ -184,42 +194,45 @@ def is_run_end_encoded(t):
 
 @doc(is_null, datatype="date, time, timestamp or duration")
 def is_temporal(t):
-    return t.id in _TEMPORAL_TYPES
+    return is_primitive_type(t) and not is_integer_type(t) and \
+        not is_floating_type(t)
 
 
 @doc(is_null, datatype="timestamp")
 def is_timestamp(t):
-    return t.id == lib.Type_TIMESTAMP
+    return is_temporal_type(t) and not is_time_type(t) and not is_date_type(t)
 
 
 @doc(is_null, datatype="duration")
 def is_duration(t):
-    return t.id == lib.Type_DURATION
+    return is_primitive_type(t) and not is_integer_type(t) and \
+        not is_floating_type(t) and not is_temporal_type(t) and \
+        not is_interval_type(t)
 
 
 @doc(is_null, datatype="time")
 def is_time(t):
-    return t.id in _TIME_TYPES
+    return is_time_type(t)
 
 
 @doc(is_null, datatype="time32")
 def is_time32(t):
-    return t.id == lib.Type_TIME32
+    return is_time_type(t) and bit_width_type(t) == 32
 
 
 @doc(is_null, datatype="time64")
 def is_time64(t):
-    return t.id == lib.Type_TIME64
+    return is_time_type(t) and bit_width_type(t) == 64
 
 
 @doc(is_null, datatype="variable-length binary")
 def is_binary(t):
-    return t.id == lib.Type_BINARY
+    return is_binary_type(t) and offset_bit_width_type(t) == 32
 
 
 @doc(is_null, datatype="large variable-length binary")
 def is_large_binary(t):
-    return t.id == lib.Type_LARGE_BINARY
+    return is_binary_type(t) and offset_bit_width_type(t) == 64
 
 
 @doc(method="is_string")
@@ -236,7 +249,7 @@ def is_unicode(t):
 
 @doc(is_null, datatype="string (utf8 unicode)")
 def is_string(t):
-    return t.id == lib.Type_STRING
+    return is_string_type(t) and offset_bit_width_type(t) == 32
 
 
 @doc(is_unicode, method="is_large_string")
@@ -246,12 +259,12 @@ def is_large_unicode(t):
 
 @doc(is_null, datatype="large string (utf8 unicode)")
 def is_large_string(t):
-    return t.id == lib.Type_LARGE_STRING
+    return is_string_type(t) and offset_bit_width_type(t) == 64
 
 
 @doc(is_null, datatype="fixed size binary")
 def is_fixed_size_binary(t):
-    return t.id == lib.Type_FIXED_SIZE_BINARY
+    return is_fixed_size_binary_type(t)
 
 
 @doc(is_null, datatype="variable-length binary view")
@@ -266,49 +279,49 @@ def is_string_view(t):
 
 @doc(is_null, datatype="date")
 def is_date(t):
-    return t.id in _DATE_TYPES
+    return is_date_type(t)
 
 
 @doc(is_null, datatype="date32 (days)")
 def is_date32(t):
-    return t.id == lib.Type_DATE32
+    return is_date_type(t) and bit_width_type(t) == 32
 
 
 @doc(is_null, datatype="date64 (milliseconds)")
 def is_date64(t):
-    return t.id == lib.Type_DATE64
+    return is_date_type(t) and bit_width_type(t) == 64
 
 
 @doc(is_null, datatype="map")
 def is_map(t):
-    return t.id == lib.Type_MAP
+    return is_var_length_list_type(t) and not is_list_type(t)
 
 
 @doc(is_null, datatype="decimal")
 def is_decimal(t):
-    return t.id in _DECIMAL_TYPES
+    return is_decimal_type(t)
 
 
 @doc(is_null, datatype="decimal128")
 def is_decimal128(t):
-    return t.id == lib.Type_DECIMAL128
+    return is_decimal_type(t) and bit_width_type(t) == 128
 
 
 @doc(is_null, datatype="decimal256")
 def is_decimal256(t):
-    return t.id == lib.Type_DECIMAL256
+    return is_decimal_type(t) and bit_width_type(t) == 256
 
 
 @doc(is_null, datatype="dictionary-encoded")
 def is_dictionary(t):
-    return t.id == lib.Type_DICTIONARY
+    return is_dictionary_type(t)
 
 
 @doc(is_null, datatype="interval")
 def is_interval(t):
-    return t.id == lib.Type_INTERVAL_MONTH_DAY_NANO
+    return is_interval_type(t)
 
 
 @doc(is_null, datatype="primitive type")
 def is_primitive(t):
-    return lib._is_primitive(t.id)
+    return is_primitive_type(t)

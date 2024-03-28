@@ -172,8 +172,6 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CDataTypeLayout layout()
         c_string ToString()
 
-    c_bool is_primitive(Type type)
-
     cdef cppclass CArrayData" arrow::ArrayData":
         shared_ptr[CDataType] type
         int64_t length
@@ -3019,3 +3017,34 @@ cdef extern from "arrow/python/udf.h" namespace "arrow::py" nogil:
 
 cdef extern from "arrow/compute/cast.h" namespace "arrow::compute":
     CResult[CDatum] Cast(const CDatum& value, const CCastOptions& options)
+
+cdef extern from "arrow/type_traits.h" namespace "arrow":
+    c_bool is_integer(Type type_id)
+    c_bool is_signed_integer(Type type_id)
+    c_bool is_unsigned_integer(Type type_id)
+    c_bool is_floating(Type type_id)
+    c_bool is_numeric(Type type_id)
+    c_bool is_decimal(Type type_id)
+    c_bool is_run_end_type(Type type_id)
+    c_bool is_primitive(Type type_id)
+    c_bool is_base_binary_like(Type type_id)
+    c_bool is_binary_like(Type type_id)
+    c_bool is_large_binary_like(Type type_id)
+    c_bool is_binary(Type type_id)
+    c_bool is_string(Type type_id)
+    c_bool is_temporal(Type type_id)
+    c_bool is_time(Type type_id)
+    c_bool is_date(Type type_id)
+    c_bool is_interval(Type type_id)
+    c_bool is_dictionary(Type type_id)
+    c_bool is_fixed_size_binary(Type type_id)
+    c_bool is_fixed_width(Type type_id)
+    c_bool is_var_length_list(Type type_id)
+    c_bool is_list(Type type_id)
+    c_bool is_list_like(Type type_id)
+    c_bool is_var_length_list_like(Type type_id)
+    c_bool is_list_view(Type type_id)
+    c_bool is_nested(Type type_id)
+    c_bool is_union(Type type_id)
+    int bit_width(Type type_id)
+    int offset_bit_width(Type type_id)
