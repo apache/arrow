@@ -4995,7 +4995,8 @@ garrow_binary_dictionary_array_builder_append_indices(
   auto append_function = [&arrow_builder](const gint64 *values,
                                           gint64 values_length,
                                           const uint8_t *valid_bytes) -> arrow::Status {
-    return arrow_builder->AppendIndices(values, values_length, valid_bytes);
+    auto int64_t_values = reinterpret_cast<const int64_t *>(values);
+    return arrow_builder->AppendIndices(int64_t_values, values_length, valid_bytes);
   };
   return garrow_array_builder_append_values(values,
                                             values_length,
@@ -5226,7 +5227,8 @@ garrow_string_dictionary_array_builder_append_indices(
   auto append_function = [&arrow_builder](const gint64 *values,
                                           gint64 values_length,
                                           const uint8_t *valid_bytes) -> arrow::Status {
-    return arrow_builder->AppendIndices(values, values_length, valid_bytes);
+    auto int64_t_values = reinterpret_cast<const int64_t *>(values);
+    return arrow_builder->AppendIndices(int64_t_values, values_length, valid_bytes);
   };
   return garrow_array_builder_append_values(values,
                                             values_length,
