@@ -23,10 +23,8 @@ FROM ${repo}:${arch}-conda-python-${python}
 ARG pandas=latest
 ARG numpy=latest
 
-# the doc builds are using the conda-python-pandas image,
-# so ensure to install doc requirements
-COPY ci/conda_env_sphinx.txt /arrow/ci/
-RUN mamba install -q -y --file arrow/ci/conda_env_sphinx.txt && \
+COPY ci/conda_env_python.txt /arrow/ci/
+RUN mamba install -q -y --file arrow/ci/conda_env_python.txt && \
     mamba clean --all
 
 COPY ci/scripts/install_pandas.sh /arrow/ci/scripts/

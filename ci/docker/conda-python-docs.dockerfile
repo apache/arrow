@@ -15,19 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Requirements for building the documentation
-breathe
-doxygen
-ipython
-linkify-it-py
-myst-parser
-numpydoc
-pydata-sphinx-theme=0.15.2
-sphinx-autobuild
-sphinx-design
-sphinx-copybutton
-sphinxcontrib-jquery
-sphinx==6.2
-# Requirement for doctest-cython
-pytest-cython
-pandas
+ARG repo
+ARG arch=amd64
+ARG python=3.8
+ARG pandas=latest
+FROM ${repo}:${arch}-conda-python-${python}-pandas-${pandas}
+
+COPY ci/conda_env_sphinx.txt /arrow/ci/
+RUN mamba install -q -y --file arrow/ci/conda_env_sphinx.txt && \
+    mamba clean --all
