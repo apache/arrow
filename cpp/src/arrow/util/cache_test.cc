@@ -26,6 +26,7 @@
 
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/cache_internal.h"
+#include "arrow/util/future.h"
 
 namespace arrow {
 namespace internal {

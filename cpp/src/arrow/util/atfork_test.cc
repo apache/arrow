@@ -35,6 +35,7 @@
 
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/atfork_internal.h"
+#include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 

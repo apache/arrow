@@ -21,6 +21,7 @@
 #include <thread>
 #include <vector>
 
+#include "arrow/util/future.h"
 #include "arrow/testing/gtest_util.h"
 #include "gtest/gtest.h"
 
