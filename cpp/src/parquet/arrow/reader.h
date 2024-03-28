@@ -23,6 +23,7 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/util/thread_pool.h"
 #include "parquet/file_reader.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
@@ -249,6 +250,67 @@ class PARQUET_EXPORT FileReader {
   virtual ::arrow::Status ReadRowGroups(const std::vector<int>& row_groups,
                                         std::shared_ptr<::arrow::Table>* out) = 0;
 
+  using AsyncBatchGenerator =
+      std::function<::arrow::Future<std::shared_ptr<::arrow::RecordBatch>>()>;
+
+  /// \brief Read row groups from the file
+  ///
+  /// \see ReadRowGroupsAsync for operation details
+  ///
+  /// \param row_groups indices of the row groups to read
+  /// \param cpu_executor an executor to use to run CPU tasks
+  /// \param allow_sliced_batches if false, an error is raised if a batch has too much
+  ///                             data for the given batch size.  If true, smaller
+  ///                             batches will be returned instead.
+  virtual AsyncBatchGenerator ReadRowGroupsAsync(
+      const std::vector<int>& row_groups, ::arrow::internal::Executor* cpu_executor,
+      bool allow_sliced_batches = true) = 0;
+
+  /// \brief Read some columns from the given rows groups from the file
+  ///
+  /// If pre-buffering is enabled then all of the data will be read using the pre-buffer
+  /// cache. See ParquetFileReader::PreBuffer for details on how this affects memory and
+  /// performance.
+  ///
+  /// This operation is not perfectly async.  The read from disk will be done on an I/O
+  /// thread, which is correct.  However, decompression is also done on the I/O thread
+  /// which may not be ideal.
+  ///
+  /// This method ignores the use_threads property of the ArrowReaderProperties.  It will
+  /// always create a task for each column.  To run without threads you should use a
+  /// serial executor as the CPU executor.
+  ///
+  /// The returned generator will respect the batch size set in the ArrowReaderProperties.
+  /// Batches will not be larger than the given batch size.  However, batches may be
+  /// smaller.  This can happen, for example, when there is not enough data or when a
+  /// string column is too large to fit into a single batch.  The parameter
+  /// `allow_sliced_batches` can be set to false to disallow this later case.  This can be
+  /// useful when you need to know exactly how many batches you will get from the
+  /// operation before you start.
+  ///
+  /// The returned generator is not async-reentrant.  You must not fetch another future
+  /// from it until the previously fetched future has completed.
+  ///
+  /// Note: When reading multiple row groups there is no guarantee you will get one
+  /// record batch per row group.  Data from multiple row groups could get combined into
+  /// a single batch.
+  ///
+  /// Note: If a row group has 0 rows it will effectively be ignored.  If you are only
+  /// reading empty row groups then the returned generator will immediately finish.  This
+  /// method should never generate an empty record batch.
+  ///
+  /// The I/O executor is obtained from the I/O context in the reader properties.
+  ///
+  /// \param row_groups indices of the row groups to read
+  /// \param column_indices indices of the columns to read
+  /// \param cpu_executor an executor to use to run CPU tasks
+  /// \param allow_sliced_batches if false, an error is raised if a batch has too much
+  ///                             data for the given batch size.  If false, smaller
+  ///                             batches will be returned instead.
+  virtual AsyncBatchGenerator ReadRowGroupsAsync(
+      const std::vector<int>& row_groups, const std::vector<int>& column_indices,
+      ::arrow::internal::Executor* cpu_executor, bool allow_sliced_batches = true) = 0;
+
   /// \brief Scan file contents with one thread, return number of rows
   virtual ::arrow::Status ScanContents(std::vector<int> columns,
                                        const int32_t column_batch_size,
@@ -316,6 +378,14 @@ class PARQUET_EXPORT ColumnReader {
   // the data available in the file.
   virtual ::arrow::Status NextBatch(int64_t batch_size,
                                     std::shared_ptr<::arrow::ChunkedArray>* out) = 0;
+
+  // Overload of NextBatch that returns a Result
+  virtual ::arrow::Result<std::shared_ptr<::arrow::ChunkedArray>> NextBatch(
+      int64_t batch_size) = 0;
+
+  virtual ::arrow::Future<std::shared_ptr<::arrow::ChunkedArray>> NextBatchAsync(
+      int64_t batch_size, ::arrow::internal::Executor* io_executor,
+      ::arrow::internal::Executor* cpu_executor) = 0;
 };
 
 /// \brief Experimental helper class for bindings (like Python) that struggle
