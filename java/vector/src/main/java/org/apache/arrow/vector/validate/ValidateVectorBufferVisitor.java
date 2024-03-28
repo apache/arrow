@@ -23,6 +23,7 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseLargeVariableWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
+import org.apache.arrow.vector.BaseVariableWidthViewVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.ExtensionTypeVector;
 import org.apache.arrow.vector.FieldVector;
@@ -131,6 +132,11 @@ public class ValidateVectorBufferVisitor implements VectorVisitor<Void, Void> {
         vector.getOffsetBuffer().getLong((long) valueCount * BaseLargeVariableWidthVector.OFFSET_WIDTH);
     validateDataBuffer(vector, lastOffset);
     return null;
+  }
+
+  @Override
+  public Void visit(BaseVariableWidthViewVector vector, Void value) {
+    throw new UnsupportedOperationException("View vectors are not supported.");
   }
 
   @Override

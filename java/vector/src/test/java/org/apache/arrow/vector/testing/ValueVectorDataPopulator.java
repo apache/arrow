@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.apache.arrow.vector.AbstractVariableWidthVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.BitVectorHelper;
@@ -61,6 +62,7 @@ import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.ViewVarCharVector;
 import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.LargeListVector;
@@ -576,6 +578,31 @@ public class ValueVectorDataPopulator {
    * Populate values for VarCharVector.
    */
   public static void setVector(VarCharVector vector, byte[]... values) {
+    final int length = values.length;
+    vector.allocateNewSafe();
+    for (int i = 0; i < length; i++) {
+      if (values[i] != null) {
+        vector.set(i, values[i]);
+      }
+    }
+    vector.setValueCount(length);
+  }
+
+  public static void setVector(AbstractVariableWidthVector vector, byte[]... values) {
+    final int length = values.length;
+    vector.allocateNewSafe();
+    for (int i = 0; i < length; i++) {
+      if (values[i] != null) {
+        vector.set(i, values[i]);
+      }
+    }
+    vector.setValueCount(length);
+  }
+
+  /**
+   * Populate values for ViewVarCharVector.
+   */
+  public static void setVector(ViewVarCharVector vector, byte[]... values) {
     final int length = values.length;
     vector.allocateNewSafe();
     for (int i = 0; i < length; i++) {

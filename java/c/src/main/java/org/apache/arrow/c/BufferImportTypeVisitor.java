@@ -210,6 +210,11 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
   }
 
   @Override
+  public List<ArrowBuf> visit(ArrowType.Utf8View type) {
+    throw new UnsupportedOperationException("Importing buffers for view type: " + type + " not supported");
+  }
+
+  @Override
   public List<ArrowBuf> visit(ArrowType.LargeUtf8 type) {
     try (ArrowBuf offsets = importOffsets(type, LargeVarCharVector.OFFSET_WIDTH)) {
       final long start = offsets.getLong(0);
@@ -235,6 +240,11 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
       offsets.getReferenceManager().retain();
       return Arrays.asList(maybeImportBitmap(type), offsets, importData(type, len));
     }
+  }
+
+  @Override
+  public List<ArrowBuf> visit(ArrowType.BinaryView type) {
+    throw new UnsupportedOperationException("Importing buffers for view type: " + type + " not supported");
   }
 
   @Override

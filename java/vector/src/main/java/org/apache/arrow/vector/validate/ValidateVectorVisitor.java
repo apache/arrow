@@ -23,6 +23,7 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseLargeVariableWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
+import org.apache.arrow.vector.BaseVariableWidthViewVector;
 import org.apache.arrow.vector.ExtensionTypeVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullVector;
@@ -96,6 +97,11 @@ public class ValidateVectorVisitor implements VectorVisitor<Void, Void> {
   @Override
   public Void visit(BaseLargeVariableWidthVector left, Void value) {
     return null;
+  }
+
+  @Override
+  public Void visit(BaseVariableWidthViewVector left, Void value) {
+    throw new UnsupportedOperationException("View vectors are not supported.");
   }
 
   @Override

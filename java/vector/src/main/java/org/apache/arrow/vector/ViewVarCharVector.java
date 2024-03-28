@@ -19,13 +19,16 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
+import java.util.List;
+
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReusableBuffer;
-import org.apache.arrow.vector.complex.impl.LargeVarCharReaderImpl;
+import org.apache.arrow.vector.complex.impl.ViewVarCharReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
-import org.apache.arrow.vector.holders.LargeVarCharHolder;
-import org.apache.arrow.vector.holders.NullableLargeVarCharHolder;
-import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.holders.NullableViewVarCharHolder;
+import org.apache.arrow.vector.holders.ViewVarCharHolder;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.Text;
@@ -33,50 +36,47 @@ import org.apache.arrow.vector.util.TransferPair;
 import org.apache.arrow.vector.validate.ValidateUtil;
 
 /**
- * LargeVarCharVector implements a variable width vector of VARCHAR
+ * VarCharVector implements a variable width vector of VARCHAR
  * values which could be NULL. A validity buffer (bit vector) is maintained
  * to track which elements in the vector are null.
- * <p>
- *   The offset width of this vector is 8, so the underlying buffer can be larger than 2GB.
- * </p>
  */
-public final class LargeVarCharVector extends BaseLargeVariableWidthVector {
+public final class ViewVarCharVector extends BaseVariableWidthViewVector {
 
   /**
-   * Instantiate a LargeVarCharVector. This doesn't allocate any memory for
+   * Instantiate a VarCharVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param allocator allocator for memory management.
    */
-  public LargeVarCharVector(String name, BufferAllocator allocator) {
-    this(name, FieldType.nullable(Types.MinorType.LARGEVARCHAR.getType()), allocator);
+  public ViewVarCharVector(String name, BufferAllocator allocator) {
+    this(name, FieldType.nullable(MinorType.VARCHAR.getType()), allocator);
   }
 
   /**
-   * Instantiate a LargeVarCharVector. This doesn't allocate any memory for
+   * Instantiate a VarCharVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
    * @param allocator allocator for memory management.
    */
-  public LargeVarCharVector(String name, FieldType fieldType, BufferAllocator allocator) {
+  public ViewVarCharVector(String name, FieldType fieldType, BufferAllocator allocator) {
     this(new Field(name, fieldType, null), allocator);
   }
 
   /**
-   * Instantiate a LargeVarCharVector. This doesn't allocate any memory for
+   * Instantiate a VarCharVector. This doesn't allocate any memory for
    * the data in vector.
    *
    * @param field field materialized by this vector
    * @param allocator allocator for memory management.
    */
-  public LargeVarCharVector(Field field, BufferAllocator allocator) {
+  public ViewVarCharVector(Field field, BufferAllocator allocator) {
     super(field, allocator);
   }
 
   @Override
   protected FieldReader getReaderImpl() {
-    return new LargeVarCharReaderImpl(LargeVarCharVector.this);
+    return new ViewVarCharReaderImpl(ViewVarCharVector.this);
   }
 
   /**
@@ -85,17 +85,15 @@ public final class LargeVarCharVector extends BaseLargeVariableWidthVector {
    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
    */
   @Override
-  public Types.MinorType getMinorType() {
-    return Types.MinorType.LARGEVARCHAR;
+  public MinorType getMinorType() {
+    return MinorType.VIEWVARCHAR;
   }
 
-
   /*----------------------------------------------------------------*
-   |                                                                |
-   |          vector value retrieval methods                        |
-   |                                                                |
-   *----------------------------------------------------------------*/
-
+  |                                                                |
+  |          vector value retrieval methods                        |
+  |                                                                |
+  *----------------------------------------------------------------*/
 
   /**
    * Get the variable length element at specified index as byte array.
@@ -103,17 +101,14 @@ public final class LargeVarCharVector extends BaseLargeVariableWidthVector {
    * @param index   position of element to get
    * @return array of bytes for non-null element, null otherwise
    */
-  @Override
   public byte[] get(int index) {
     assert index >= 0;
-    if (isSet(index) == 0) {
+    if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       return null;
     }
-    final long startOffset = getStartOffset(index);
-    final long dataLength = getEndOffset(index) - startOffset;
-    final byte[] result = new byte[(int) dataLength];
-    valueBuffer.getBytes(startOffset, result, 0, (int) dataLength);
-    return result;
+    final int startOffset = getStartOffset(index);
+    final int dataLength = getEndOffset(index) - startOffset;
+    return getData(index, dataLength);
   }
 
   /**
@@ -143,9 +138,56 @@ public final class LargeVarCharVector extends BaseLargeVariableWidthVector {
    */
   @Override
   public void read(int index, ReusableBuffer<?> buffer) {
-    final long startOffset = getStartOffset(index);
-    final long dataLength = getEndOffset(index) - startOffset;
-    buffer.set(valueBuffer, startOffset, dataLength);
+    final int startOffset = getStartOffset(index);
+    final int dataLength = getEndOffset(index) - startOffset;
+    byte[] data = getData(index, dataLength);
+    buffer.set(data, 0, data.length);
+  }
+
+  public static class HolderCallback {
+
+    /**
+     * Create Holder callback with given parameters.
+     * @param index position of element.
+     * @param dataLength length of the buffer.
+     * @param input input buffer.
+     * @param dataBufs list of data buffers.
+     * @param output output buffer.
+     */
+    public HolderCallback(int index, int dataLength, ArrowBuf input, List<ArrowBuf> dataBufs, ArrowBuf output) {
+      this.index = index;
+      this.dataLength = dataLength;
+      this.input = input;
+      this.dataBufs = dataBufs;
+      this.output = output;
+    }
+
+    /**
+    * Get data from the buffer.
+    */
+    public void getData() {
+      if (dataLength > INLINE_SIZE) {
+        // data is in the inline buffer
+        // get buffer index
+        final int bufferIndex =
+            input.getInt(((long) index * VIEW_BUFFER_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH);
+        // get data offset
+        final int dataOffset =
+            input.getInt(
+                ((long) index * VIEW_BUFFER_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH + BUF_INDEX_WIDTH);
+        dataBufs.get(bufferIndex).getBytes(dataOffset, output, 0, dataLength);
+      } else {
+        // data is in the value buffer
+        input.getBytes(
+            (long) index * VIEW_BUFFER_SIZE + BUF_INDEX_WIDTH, output, 0, dataLength);
+      }
+    }
+
+    private int index;
+    private int dataLength;
+    private ArrowBuf input;
+    private List<ArrowBuf> dataBufs;
+    private ArrowBuf output;
   }
 
   /**
@@ -155,16 +197,8 @@ public final class LargeVarCharVector extends BaseLargeVariableWidthVector {
    * @param index   position of element to get
    * @param holder  data holder to be populated by this function
    */
-  public void get(int index, NullableLargeVarCharHolder holder) {
-    assert index >= 0;
-    if (isSet(index) == 0) {
-      holder.isSet = 0;
-      return;
-    }
-    holder.isSet = 1;
-    holder.start = getStartOffset(index);
-    holder.end = getEndOffset(index);
-    holder.buffer = valueBuffer;
+  public void get(int index, NullableViewVarCharHolder holder) {
+    throw new UnsupportedOperationException("NullableViewVarCharHolder get operation not supported");
   }
 
 
@@ -182,35 +216,20 @@ public final class LargeVarCharVector extends BaseLargeVariableWidthVector {
    * @param index   position of the element to set
    * @param holder  holder that carries data buffer.
    */
-  public void set(int index, LargeVarCharHolder holder) {
-    assert index >= 0;
-    fillHoles(index);
-    BitVectorHelper.setBit(validityBuffer, index);
-    final int dataLength = (int) (holder.end - holder.start);
-    final long startOffset = getStartOffset(index);
-    offsetBuffer.setLong((long) (index + 1) * OFFSET_WIDTH, startOffset + dataLength);
-    valueBuffer.setBytes(startOffset, holder.buffer, holder.start, dataLength);
-    lastSet = index;
+  public void set(int index, ViewVarCharHolder holder) {
+    throw new UnsupportedOperationException("ViewVarCharHolder set operation not supported");
   }
 
   /**
-   * Same as {@link #set(int, LargeVarCharHolder)} except that it handles the
+   * Same as {@link #set(int, ViewVarCharHolder)} except that it handles the
    * case where index and length of new element are beyond the existing
    * capacity of the vector.
    *
    * @param index   position of the element to set
    * @param holder  holder that carries data buffer.
    */
-  public void setSafe(int index, LargeVarCharHolder holder) {
-    assert index >= 0;
-    final int dataLength = (int) (holder.end - holder.start);
-    handleSafe(index, dataLength);
-    fillHoles(index);
-    BitVectorHelper.setBit(validityBuffer, index);
-    final long startOffset = getStartOffset(index);
-    offsetBuffer.setLong((long) (index + 1) * OFFSET_WIDTH, startOffset + dataLength);
-    valueBuffer.setBytes(startOffset, holder.buffer, holder.start, dataLength);
-    lastSet = index;
+  public void setSafe(int index, ViewVarCharHolder holder) {
+    throw new UnsupportedOperationException("ViewVarCharHolder setSafe operation not supported");
   }
 
   /**
@@ -220,43 +239,20 @@ public final class LargeVarCharVector extends BaseLargeVariableWidthVector {
    * @param index   position of the element to set
    * @param holder  holder that carries data buffer.
    */
-  public void set(int index, NullableLargeVarCharHolder holder) {
-    assert index >= 0;
-    fillHoles(index);
-    BitVectorHelper.setValidityBit(validityBuffer, index, holder.isSet);
-    final long startOffset = getStartOffset(index);
-    if (holder.isSet != 0) {
-      final int dataLength = (int) (holder.end - holder.start);
-      offsetBuffer.setLong((long) (index + 1) * OFFSET_WIDTH, startOffset + dataLength);
-      valueBuffer.setBytes(startOffset, holder.buffer, holder.start, dataLength);
-    } else {
-      offsetBuffer.setLong((long) (index + 1) * OFFSET_WIDTH, startOffset);
-    }
-    lastSet = index;
+  public void set(int index, NullableViewVarCharHolder holder) {
+    throw new UnsupportedOperationException("NullableViewVarCharHolder set operation not supported");
   }
 
   /**
-   * Same as {@link #set(int, NullableLargeVarCharHolder)} except that it handles the
+   * Same as {@link #set(int, NullableViewVarCharHolder)} except that it handles the
    * case where index and length of new element are beyond the existing
    * capacity of the vector.
    *
    * @param index   position of the element to set
    * @param holder  holder that carries data buffer.
    */
-  public void setSafe(int index, NullableLargeVarCharHolder holder) {
-    assert index >= 0;
-    if (holder.isSet != 0) {
-      final int dataLength = (int) (holder.end - holder.start);
-      handleSafe(index, dataLength);
-      fillHoles(index);
-      final long startOffset = getStartOffset(index);
-      offsetBuffer.setLong((long) (index + 1) * OFFSET_WIDTH, startOffset + dataLength);
-      valueBuffer.setBytes(startOffset, holder.buffer, holder.start, dataLength);
-    } else {
-      fillHoles(index + 1);
-    }
-    BitVectorHelper.setValidityBit(validityBuffer, index, holder.isSet);
-    lastSet = index;
+  public void setSafe(int index, NullableViewVarCharHolder holder) {
+    throw new UnsupportedOperationException("NullableViewVarCharHolder setSafe operation not supported");
   }
 
   /**
@@ -271,7 +267,7 @@ public final class LargeVarCharVector extends BaseLargeVariableWidthVector {
   }
 
   /**
-   * Same as {@link #set(int, NullableLargeVarCharHolder)} except that it handles the
+   * Same as {@link #set(int, NullableViewVarCharHolder)} except that it handles the
    * case where index and length of new element are beyond the existing
    * capacity of the vector.
    *
@@ -294,73 +290,46 @@ public final class LargeVarCharVector extends BaseLargeVariableWidthVector {
   }
 
   /*----------------------------------------------------------------*
-   |                                                                |
-   |                      vector transfer                           |
-   |                                                                |
-   *----------------------------------------------------------------*/
+  |                                                                |
+  |                      vector transfer                           |
+  |                                                                |
+  *----------------------------------------------------------------*/
 
   /**
-   * Construct a TransferPair comprising this and a target vector of
-   * the same type.
+   * Construct a TransferPair comprising this and a target vector of the same type.
    *
    * @param ref name of the target vector
    * @param allocator allocator for the target vector
-   * @return {@link TransferPair}
+   * @return {@link TransferPair} (UnsupportedOperationException)
    */
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-    return new LargeVarCharVector.TransferImpl(ref, allocator);
-  }
-
-  @Override
-  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
-    return new LargeVarCharVector.TransferImpl(field, allocator);
+    throw new UnsupportedOperationException(
+        "ViewVarCharVector does not support getTransferPair(String, BufferAllocator)");
   }
 
   /**
    * Construct a TransferPair with a desired target vector of the same type.
    *
-   * @param to target vector
-   * @return {@link TransferPair}
+   * @param field The field materialized by this vector.
+   * @param allocator allocator for the target vector
+   * @return {@link TransferPair} (UnsupportedOperationException)
    */
   @Override
-  public TransferPair makeTransferPair(ValueVector to) {
-    return new LargeVarCharVector.TransferImpl((LargeVarCharVector) to);
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    throw new UnsupportedOperationException(
+        "ViewVarCharVector does not support getTransferPair(Field, BufferAllocator)");
   }
 
-  private class TransferImpl implements TransferPair {
-    LargeVarCharVector to;
-
-    public TransferImpl(String ref, BufferAllocator allocator) {
-      to = new LargeVarCharVector(ref, field.getFieldType(), allocator);
-    }
-
-    public TransferImpl(Field field, BufferAllocator allocator) {
-      to = new LargeVarCharVector(field, allocator);
-    }
-
-    public TransferImpl(LargeVarCharVector to) {
-      this.to = to;
-    }
-
-    @Override
-    public LargeVarCharVector getTo() {
-      return to;
-    }
-
-    @Override
-    public void transfer() {
-      transferTo(to);
-    }
-
-    @Override
-    public void splitAndTransfer(int startIndex, int length) {
-      splitAndTransferTo(startIndex, length, to);
-    }
-
-    @Override
-    public void copyValueSafe(int fromIndex, int toIndex) {
-      to.copyFromSafe(fromIndex, toIndex, LargeVarCharVector.this);
-    }
+  /**
+   * Construct a TransferPair with a desired target vector of the same type.
+   *
+   * @param target the target for the transfer
+   * @return {@link TransferPair} (UnsupportedOperationException)
+   */
+  @Override
+  public TransferPair makeTransferPair(ValueVector target) {
+    throw new UnsupportedOperationException(
+        "ViewVarCharVector does not support makeTransferPair(ValueVector)");
   }
 }
