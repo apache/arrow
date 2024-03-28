@@ -2520,11 +2520,11 @@ macro(build_zlib)
     if(NOT EXISTS ${EMSCRIPTEN_SYSROOT}/lib/wasm32-emscripten/pic/libz.a)
       execute_process(COMMAND embuilder --pic --force build zlib)
     endif()
-    add_library(ZLIB::ZLIB INTERFACE IMPORTED)
-    # We need -sRELOCATABLE=1 in target_compile_options() too
-    # to stop it using non-PIC libz.a in linking.
-    target_compile_options(ZLIB::ZLIB INTERFACE -sUSE_ZLIB=1 -sRELOCATABLE=1)
-    target_link_options(ZLIB::ZLIB INTERFACE -sUSE_ZLIB=1 -sRELOCATABLE=1)
+    add_library(ZLIB::ZLIB STATIC IMPORTED)
+    set_property(TARGET ZLIB::ZLIB
+                 PROPERTY IMPORTED_LOCATION
+                          "${EMSCRIPTEN_SYSROOT}/lib/wasm32-emscripten/pic/libz.a")
+    list(APPEND ARROW_BUNDLED_STATIC_LIBS ZLIB::ZLIB)
   else()
     set(ZLIB_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/zlib_ep/src/zlib_ep-install")
     if(MSVC)
