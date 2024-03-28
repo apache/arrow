@@ -66,6 +66,8 @@
 #include "parquet/arrow/schema.h"
 #include "parquet/arrow/test_util.h"
 #include "parquet/arrow/writer.h"
+#include "parquet/bloom_filter.h"
+#include "parquet/bloom_filter_reader.h"
 #include "parquet/column_writer.h"
 #include "parquet/file_writer.h"
 #include "parquet/page_index.h"
@@ -5395,7 +5397,7 @@ auto encode_double = [](double value) {
 
 }  // namespace
 
-class ParquetPageIndexRoundTripTest : public ::testing::Test {
+class ParquetIndexRoundTripTest {
  public:
   void WriteFile(const std::shared_ptr<WriterProperties>& writer_properties,
                  const std::shared_ptr<::arrow::Table>& table) {
@@ -5419,10 +5421,17 @@ class ParquetPageIndexRoundTripTest : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(buffer_, sink->Finish());
   }
 
+ protected:
+  std::shared_ptr<Buffer> buffer_;
+};
+
+class ParquetPageIndexRoundTripTest : public ::testing::Test,
+                                      public ParquetIndexRoundTripTest {
+ public:
   void ReadPageIndexes(int expect_num_row_groups, int expect_num_pages,
                        const std::set<int>& expect_columns_without_index = {}) {
     auto read_properties = default_arrow_reader_properties();
-    auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer_));
+    auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(this->buffer_));
 
     auto metadata = reader->metadata();
     ASSERT_EQ(expect_num_row_groups, metadata->num_row_groups());
@@ -5487,7 +5496,6 @@ class ParquetPageIndexRoundTripTest : public ::testing::Test {
   }
 
  protected:
-  std::shared_ptr<Buffer> buffer_;
   std::vector<ColumnIndexObject> column_indexes_;
 };
 
@@ -5721,6 +5729,214 @@ TEST_F(ParquetPageIndexRoundTripTest, EnablePerColumn) {
           ColumnIndexObject{/*null_pages=*/{false}, /*min_values=*/{encode_int64(2)},
                             /*max_values=*/{encode_int64(2)}, BoundaryOrder::Ascending,
                             /*null_counts=*/{0}}));
+}
+
+class ParquetBloomFilterRoundTripTest : public ::testing::Test,
+                                        public ParquetIndexRoundTripTest {
+ public:
+  void ReadBloomFilters(int expect_num_row_groups,
+                        const std::set<int>& expect_columns_without_filter = {}) {
+    auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer_));
+
+    auto metadata = reader->metadata();
+    ASSERT_EQ(expect_num_row_groups, metadata->num_row_groups());
+
+    auto& bloom_filter_reader = reader->GetBloomFilterReader();
+
+    for (int rg = 0; rg < metadata->num_row_groups(); ++rg) {
+      auto row_group_reader = bloom_filter_reader.RowGroup(rg);
+      ASSERT_NE(row_group_reader, nullptr);
+
+      for (int col = 0; col < metadata->num_columns(); ++col) {
+        bool expect_no_bloom_filter = expect_columns_without_filter.find(col) !=
+                                      expect_columns_without_filter.cend();
+
+        auto bloom_filter = row_group_reader->GetColumnBloomFilter(col);
+        if (expect_no_bloom_filter) {
+          ASSERT_EQ(nullptr, bloom_filter);
+        } else {
+          ASSERT_NE(nullptr, bloom_filter);
+          bloom_filters_.push_back(std::move(bloom_filter));
+        }
+      }
+    }
+  }
+
+  template <typename ArrowType>
+  void VerifyBloomFilter(const BloomFilter* bloom_filter,
+                         const ::arrow::ChunkedArray& chunked_array) {
+    for (auto value : ::arrow::stl::Iterate<ArrowType>(chunked_array)) {
+      if (value == std::nullopt) {
+        continue;
+      }
+      EXPECT_TRUE(bloom_filter->FindHash(bloom_filter->Hash(value.value())));
+    }
+  }
+
+ protected:
+  std::vector<std::unique_ptr<BloomFilter>> bloom_filters_;
+};
+
+TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTrip) {
+  auto schema = ::arrow::schema(
+      {::arrow::field("c0", ::arrow::int64()), ::arrow::field("c1", ::arrow::utf8())});
+  BloomFilterOptions options;
+  options.ndv = 100;
+  auto writer_properties = WriterProperties::Builder()
+                               .enable_bloom_filter_options(options, "c0")
+                               ->enable_bloom_filter_options(options, "c1")
+                               ->max_row_group_length(4)
+                               ->build();
+  auto table = ::arrow::TableFromJSON(schema, {R"([
+        [1,     "a"],
+        [2,     "b"],
+        [3,     "c"],
+        [null,  "d"],
+        [5,     null],
+        [6,     "f"]
+  ])"});
+  WriteFile(writer_properties, table);
+
+  ReadBloomFilters(/*expect_num_row_groups=*/2);
+  ASSERT_EQ(4, bloom_filters_.size());
+  std::vector<int64_t> row_group_row_count{4, 2};
+  int64_t current_row = 0;
+  int64_t bloom_filter_idx = 0;  // current index in `bloom_filters_`
+  for (int64_t row_group_id = 0; row_group_id < 2; ++row_group_id) {
+    {
+      ASSERT_NE(nullptr, bloom_filters_[bloom_filter_idx]);
+      auto col = table->column(0)->Slice(current_row, row_group_row_count[row_group_id]);
+      VerifyBloomFilter<::arrow::Int64Type>(bloom_filters_[bloom_filter_idx].get(), *col);
+      ++bloom_filter_idx;
+    }
+    {
+      ASSERT_NE(nullptr, bloom_filters_[bloom_filter_idx]);
+      auto col = table->column(1)->Slice(current_row, row_group_row_count[row_group_id]);
+      VerifyBloomFilter<::arrow::StringType>(bloom_filters_[bloom_filter_idx].get(),
+                                             *col);
+      ++bloom_filter_idx;
+    }
+    current_row += row_group_row_count[row_group_id];
+  }
+}
+
+TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTripDictionary) {
+  auto origin_schema = ::arrow::schema(
+      {::arrow::field("c0", ::arrow::int64()), ::arrow::field("c1", ::arrow::utf8())});
+  auto schema = ::arrow::schema(
+      {::arrow::field("c0", ::arrow::dictionary(::arrow::int64(), ::arrow::int64())),
+       ::arrow::field("c1", ::arrow::dictionary(::arrow::int64(), ::arrow::utf8()))});
+  bloom_filters_.clear();
+  BloomFilterOptions options;
+  options.ndv = 100;
+  auto writer_properties = WriterProperties::Builder()
+                               .enable_bloom_filter_options(options, "c0")
+                               ->enable_bloom_filter_options(options, "c1")
+                               ->max_row_group_length(4)
+                               ->build();
+  std::vector<std::string> contents = {R"([
+        [1,     "a"],
+        [2,     "b"],
+        [3,     "c"],
+        [null,  "d"],
+        [5,     null],
+        [6,     "f"]
+  ])"};
+  auto table = ::arrow::TableFromJSON(schema, contents);
+  auto non_dict_table = ::arrow::TableFromJSON(origin_schema, contents);
+  WriteFile(writer_properties, table);
+
+  ReadBloomFilters(/*expect_num_row_groups=*/2);
+  ASSERT_EQ(4, bloom_filters_.size());
+  std::vector<int64_t> row_group_row_count{4, 2};
+  int64_t current_row = 0;
+  int64_t bloom_filter_idx = 0;  // current index in `bloom_filters_`
+  for (int64_t row_group_id = 0; row_group_id < 2; ++row_group_id) {
+    {
+      ASSERT_NE(nullptr, bloom_filters_[bloom_filter_idx]);
+      auto col = non_dict_table->column(0)->Slice(current_row,
+                                                  row_group_row_count[row_group_id]);
+      VerifyBloomFilter<::arrow::Int64Type>(bloom_filters_[bloom_filter_idx].get(), *col);
+      ++bloom_filter_idx;
+    }
+    {
+      ASSERT_NE(nullptr, bloom_filters_[bloom_filter_idx]);
+      auto col = non_dict_table->column(1)->Slice(current_row,
+                                                  row_group_row_count[row_group_id]);
+      VerifyBloomFilter<::arrow::StringType>(bloom_filters_[bloom_filter_idx].get(),
+                                             *col);
+      ++bloom_filter_idx;
+    }
+    current_row += row_group_row_count[row_group_id];
+  }
+}
+
+TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTripWithOneFilter) {
+  auto schema = ::arrow::schema(
+      {::arrow::field("c0", ::arrow::int64()), ::arrow::field("c1", ::arrow::utf8())});
+  BloomFilterOptions options;
+  options.ndv = 100;
+  auto writer_properties = WriterProperties::Builder()
+                               .enable_bloom_filter_options(options, "c0")
+                               ->disable_bloom_filter("c1")
+                               ->max_row_group_length(4)
+                               ->build();
+  auto table = ::arrow::TableFromJSON(schema, {R"([
+        [1,     "a"],
+        [2,     "b"],
+        [3,     "c"],
+        [null,  "d"],
+        [5,     null],
+        [6,     "f"]
+  ])"});
+  WriteFile(writer_properties, table);
+
+  ReadBloomFilters(/*expect_num_row_groups=*/2, /*expect_columns_without_filter=*/{1});
+  ASSERT_EQ(2, bloom_filters_.size());
+  std::vector<int64_t> row_group_row_count{4, 2};
+  int64_t current_row = 0;
+  int64_t bloom_filter_idx = 0;  // current index in `bloom_filters_`
+  for (int64_t row_group_id = 0; row_group_id < 2; ++row_group_id) {
+    {
+      ASSERT_NE(nullptr, bloom_filters_[bloom_filter_idx]);
+      auto col = table->column(0)->Slice(current_row, row_group_row_count[row_group_id]);
+      VerifyBloomFilter<::arrow::Int64Type>(bloom_filters_[bloom_filter_idx].get(), *col);
+      ++bloom_filter_idx;
+    }
+    current_row += row_group_row_count[row_group_id];
+  }
+}
+
+TEST_F(ParquetBloomFilterRoundTripTest, ThrowForBoolean) {
+  auto schema = ::arrow::schema({::arrow::field("boolean_col", ::arrow::boolean())});
+  BloomFilterOptions options;
+  options.ndv = 100;
+  auto writer_properties = WriterProperties::Builder()
+                               .enable_bloom_filter_options(options, "boolean_col")
+                               ->max_row_group_length(4)
+                               ->build();
+  auto table = ::arrow::TableFromJSON(schema, {R"([
+        [true],
+        [null],
+        [false]
+  ])"});
+  std::shared_ptr<SchemaDescriptor> parquet_schema;
+  auto arrow_writer_properties = default_arrow_writer_properties();
+  ASSERT_OK_NO_THROW(ToParquetSchema(schema.get(), *writer_properties,
+                                     *arrow_writer_properties, &parquet_schema));
+  auto schema_node = std::static_pointer_cast<GroupNode>(parquet_schema->schema_root());
+
+  // Write table to buffer.
+  auto sink = CreateOutputStream();
+  auto pool = ::arrow::default_memory_pool();
+  auto writer = ParquetFileWriter::Open(sink, schema_node, writer_properties);
+  std::unique_ptr<FileWriter> arrow_writer;
+  ASSERT_OK(FileWriter::Make(pool, std::move(writer), schema, arrow_writer_properties,
+                             &arrow_writer));
+  auto s = arrow_writer->WriteTable(*table);
+  EXPECT_TRUE(s.IsIOError());
+  EXPECT_THAT(s.message(),
+              ::testing::HasSubstr("BloomFilterBuilder does not support boolean type"));
 }
 
 }  // namespace arrow

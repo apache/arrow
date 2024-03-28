@@ -43,7 +43,10 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_encoding.h"
 #include "arrow/util/type_traits.h"
+#include "arrow/util/unreachable.h"
 #include "arrow/visit_array_inline.h"
+#include "arrow/visit_data_inline.h"
+#include "parquet/bloom_filter.h"
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
 #include "parquet/encryption/encryption_internal.h"
@@ -153,6 +156,8 @@ inline const T* AddIfNotNull(const T* base, int64_t offset) {
   }
   return nullptr;
 }
+
+constexpr int64_t kHashBatchSize = 256;
 
 }  // namespace
 
@@ -746,7 +751,8 @@ class ColumnWriterImpl {
  public:
   ColumnWriterImpl(ColumnChunkMetaDataBuilder* metadata,
                    std::unique_ptr<PageWriter> pager, const bool use_dictionary,
-                   Encoding::type encoding, const WriterProperties* properties)
+                   Encoding::type encoding, const WriterProperties* properties,
+                   BloomFilter* bloom_filter)
       : metadata_(metadata),
         descr_(metadata->descr()),
         level_info_(internal::LevelInfo::ComputeLevelInfo(metadata->descr())),
@@ -765,7 +771,8 @@ class ColumnWriterImpl {
         closed_(false),
         fallback_(false),
         definition_levels_sink_(allocator_),
-        repetition_levels_sink_(allocator_) {
+        repetition_levels_sink_(allocator_),
+        bloom_filter_(bloom_filter) {
     definition_levels_rle_ =
         std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(allocator_, 0));
     repetition_levels_rle_ =
@@ -895,6 +902,8 @@ class ColumnWriterImpl {
   std::shared_ptr<ResizableBuffer> compressor_temp_buffer_;
 
   std::vector<std::unique_ptr<DataPage>> data_pages_;
+
+  BloomFilter* bloom_filter_;
 
  private:
   void InitSinks() {
@@ -1216,9 +1225,10 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
 
   TypedColumnWriterImpl(ColumnChunkMetaDataBuilder* metadata,
                         std::unique_ptr<PageWriter> pager, const bool use_dictionary,
-                        Encoding::type encoding, const WriterProperties* properties)
-      : ColumnWriterImpl(metadata, std::move(pager), use_dictionary, encoding,
-                         properties) {
+                        Encoding::type encoding, const WriterProperties* properties,
+                        BloomFilter* bloom_filter)
+      : ColumnWriterImpl(metadata, std::move(pager), use_dictionary, encoding, properties,
+                         bloom_filter) {
     current_encoder_ = MakeEncoder(DType::type_num, encoding, use_dictionary, descr_,
                                    properties->memory_pool());
     // We have to dynamic_cast as some compilers don't want to static_cast
@@ -1603,6 +1613,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     if (page_statistics_ != nullptr) {
       page_statistics_->Update(values, num_values, num_nulls);
     }
+    UpdateBloomFilter(values, num_values);
   }
 
   /// \brief Write values with spaces and update page statistics accordingly.
@@ -1624,14 +1635,21 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     if (num_values != num_spaced_values) {
       current_value_encoder_->PutSpaced(values, static_cast<int>(num_spaced_values),
                                         valid_bits, valid_bits_offset);
+      UpdateBloomFilterSpaced(values, num_spaced_values, valid_bits, valid_bits_offset);
     } else {
       current_value_encoder_->Put(values, static_cast<int>(num_values));
+      UpdateBloomFilter(values, num_values);
     }
     if (page_statistics_ != nullptr) {
       page_statistics_->UpdateSpaced(values, valid_bits, valid_bits_offset,
                                      num_spaced_values, num_values, num_nulls);
     }
   }
+
+  void UpdateBloomFilter(const T* values, int64_t num_values);
+  void UpdateBloomFilterSpaced(const T* values, int64_t num_values,
+                               const uint8_t* valid_bits, int64_t valid_bits_offset);
+  void UpdateBloomFilterArray(const ::arrow::Array& values);
 };
 
 template <typename DType>
@@ -1705,9 +1723,14 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
     }
 
     int64_t non_null_count = chunk_indices->length() - chunk_indices->null_count();
-    page_statistics_->IncrementNullCount(num_chunk_levels - non_null_count);
-    page_statistics_->IncrementNumValues(non_null_count);
-    page_statistics_->Update(*referenced_dictionary, /*update_counts=*/false);
+    if (page_statistics_ != nullptr) {
+      page_statistics_->IncrementNullCount(num_chunk_levels - non_null_count);
+      page_statistics_->IncrementNumValues(non_null_count);
+      page_statistics_->Update(*referenced_dictionary, /*update_counts=*/false);
+    }
+    if (bloom_filter_ != nullptr) {
+      UpdateBloomFilterArray(*referenced_dictionary);
+    }
   };
 
   int64_t value_offset = 0;
@@ -1724,7 +1747,7 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
                       AddIfNotNull(rep_levels, offset));
     std::shared_ptr<Array> writeable_indices =
         indices->Slice(value_offset, batch_num_spaced_values);
-    if (page_statistics_) {
+    if (page_statistics_ || bloom_filter_) {
       update_stats(/*num_chunk_levels=*/batch_size, writeable_indices);
     }
     PARQUET_ASSIGN_OR_THROW(
@@ -2179,6 +2202,9 @@ Status TypedColumnWriterImpl<DoubleType>::WriteArrowDense(
 
 // ----------------------------------------------------------------------
 // Write Arrow to BYTE_ARRAY
+template <>
+void TypedColumnWriterImpl<ByteArrayType>::UpdateBloomFilterArray(
+    const ::arrow::Array& values);
 
 template <>
 Status TypedColumnWriterImpl<ByteArrayType>::WriteArrowDense(
@@ -2211,6 +2237,7 @@ Status TypedColumnWriterImpl<ByteArrayType>::WriteArrowDense(
       page_statistics_->IncrementNullCount(batch_size - non_null);
       page_statistics_->IncrementNumValues(non_null);
     }
+    UpdateBloomFilterArray(*data_slice);
     CommitWriteAndCheckPageLimit(batch_size, batch_num_values, batch_size - non_null,
                                  check_page);
     CheckDictionarySizeLimit();
@@ -2363,12 +2390,151 @@ Status TypedColumnWriterImpl<FLBAType>::WriteArrowDense(
   return Status::OK();
 }
 
+template <typename DType>
+void TypedColumnWriterImpl<DType>::UpdateBloomFilter(const T* values,
+                                                     int64_t num_values) {
+  if (bloom_filter_) {
+    std::array<uint64_t, kHashBatchSize> hashes;
+    for (int64_t i = 0; i < num_values; i += kHashBatchSize) {
+      int64_t current_hash_batch_size = std::min(kHashBatchSize, num_values - i);
+      bloom_filter_->Hashes(values, static_cast<int>(current_hash_batch_size),
+                            hashes.data());
+      bloom_filter_->InsertHashes(hashes.data(),
+                                  static_cast<int>(current_hash_batch_size));
+    }
+  }
+}
+
+template <>
+void TypedColumnWriterImpl<FLBAType>::UpdateBloomFilter(const FLBA* values,
+                                                        int64_t num_values) {
+  if (bloom_filter_) {
+    std::array<uint64_t, kHashBatchSize> hashes;
+    for (int64_t i = 0; i < num_values; i += kHashBatchSize) {
+      int64_t current_hash_batch_size = std::min(kHashBatchSize, num_values - i);
+      bloom_filter_->Hashes(values, descr_->type_length(),
+                            static_cast<int>(current_hash_batch_size), hashes.data());
+      bloom_filter_->InsertHashes(hashes.data(),
+                                  static_cast<int>(current_hash_batch_size));
+    }
+  }
+}
+
+template <>
+void TypedColumnWriterImpl<BooleanType>::UpdateBloomFilter(const bool*, int64_t) {
+  DCHECK(bloom_filter_ == nullptr);
+}
+
+template <typename DType>
+void TypedColumnWriterImpl<DType>::UpdateBloomFilterSpaced(const T* values,
+                                                           int64_t num_values,
+                                                           const uint8_t* valid_bits,
+                                                           int64_t valid_bits_offset) {
+  if (bloom_filter_) {
+    std::array<uint64_t, kHashBatchSize> hashes;
+    ::arrow::internal::VisitSetBitRunsVoid(
+        valid_bits, valid_bits_offset, num_values, [&](int64_t position, int64_t length) {
+          for (int64_t i = 0; i < length; i += kHashBatchSize) {
+            auto current_hash_batch_size = std::min(kHashBatchSize, length - i);
+            bloom_filter_->Hashes(values + i + position,
+                                  static_cast<int>(current_hash_batch_size),
+                                  hashes.data());
+            bloom_filter_->InsertHashes(hashes.data(),
+                                        static_cast<int>(current_hash_batch_size));
+          }
+        });
+  }
+}
+
+template <>
+void TypedColumnWriterImpl<BooleanType>::UpdateBloomFilterSpaced(const bool*, int64_t,
+                                                                 const uint8_t*,
+                                                                 int64_t) {
+  DCHECK(bloom_filter_ == nullptr);
+}
+
+template <>
+void TypedColumnWriterImpl<FLBAType>::UpdateBloomFilterSpaced(const FLBA* values,
+                                                              int64_t num_values,
+                                                              const uint8_t* valid_bits,
+                                                              int64_t valid_bits_offset) {
+  if (bloom_filter_) {
+    std::array<uint64_t, kHashBatchSize> hashes;
+    ::arrow::internal::VisitSetBitRunsVoid(
+        valid_bits, valid_bits_offset, num_values, [&](int64_t position, int64_t length) {
+          for (int64_t i = 0; i < length; i += kHashBatchSize) {
+            auto current_hash_batch_size = std::min(kHashBatchSize, length - i);
+            bloom_filter_->Hashes(values + i + position, descr_->type_length(),
+                                  static_cast<int>(current_hash_batch_size),
+                                  hashes.data());
+            bloom_filter_->InsertHashes(hashes.data(),
+                                        static_cast<int>(current_hash_batch_size));
+          }
+        });
+  }
+}
+
+template <typename ArrayType>
+void UpdateBinaryBloomFilter(BloomFilter* bloom_filter, const ArrayType& array) {
+  // Using a smaller size because an extra `byte_arrays` are used.
+  constexpr int64_t kBinaryHashBatchSize = 64;
+  std::array<ByteArray, kBinaryHashBatchSize> byte_arrays;
+  std::array<uint64_t, kBinaryHashBatchSize> hashes;
+  int hashes_idx = 0;
+  auto flush_hashes = [&]() {
+    DCHECK_NE(0, hashes_idx);
+    bloom_filter->Hashes(byte_arrays.data(), static_cast<int>(hashes_idx), hashes.data());
+    bloom_filter->InsertHashes(hashes.data(), static_cast<int>(hashes_idx));
+    hashes_idx = 0;
+  };
+  PARQUET_THROW_NOT_OK(::arrow::VisitArraySpanInline<typename ArrayType::TypeClass>(
+      *array.data(),
+      [&](const std::string_view& view) {
+        if (hashes_idx == kHashBatchSize) {
+          flush_hashes();
+        }
+        byte_arrays[hashes_idx] = view;
+        ++hashes_idx;
+        return Status::OK();
+      },
+      []() { return Status::OK(); }));
+  if (hashes_idx != 0) {
+    flush_hashes();
+  }
+}
+
+template <>
+void TypedColumnWriterImpl<ByteArrayType>::UpdateBloomFilterArray(
+    const ::arrow::Array& values) {
+  if (bloom_filter_) {
+    if (!::arrow::is_base_binary_like(values.type_id())) {
+      throw ParquetException("Only BaseBinaryArray and subclasses supported");
+    }
+
+    if (::arrow::is_binary_like(values.type_id())) {
+      UpdateBinaryBloomFilter(bloom_filter_,
+                              checked_cast<const ::arrow::BinaryArray&>(values));
+    } else {
+      DCHECK(::arrow::is_large_binary_like(values.type_id()));
+      UpdateBinaryBloomFilter(bloom_filter_,
+                              checked_cast<const ::arrow::LargeBinaryArray&>(values));
+    }
+  }
+}
+
+template <typename DType>
+void TypedColumnWriterImpl<DType>::UpdateBloomFilterArray(const ::arrow::Array& values) {
+  // Only ByteArray type would write ::arrow::Array directly.
+  ::arrow::Unreachable("UpdateBloomFilterArray for non ByteArray type is unreachable");
+}
+
 // ----------------------------------------------------------------------
 // Dynamic column writer constructor
 
 std::shared_ptr<ColumnWriter> ColumnWriter::Make(ColumnChunkMetaDataBuilder* metadata,
                                                  std::unique_ptr<PageWriter> pager,
-                                                 const WriterProperties* properties) {
+                                                 const WriterProperties* properties,
+                                                 BloomFilter* bloom_filter) {
   const ColumnDescriptor* descr = metadata->descr();
   const bool use_dictionary = properties->dictionary_enabled(descr->path()) &&
                               descr->physical_type() != Type::BOOLEAN;
@@ -2384,32 +2550,37 @@ std::shared_ptr<ColumnWriter> ColumnWriter::Make(ColumnChunkMetaDataBuilder* met
     encoding = properties->dictionary_index_encoding();
   }
   switch (descr->physical_type()) {
-    case Type::BOOLEAN:
+    case Type::BOOLEAN: {
+      if (bloom_filter != nullptr) {
+        throw ParquetException("Bloom filter is not supported for boolean type");
+      }
       return std::make_shared<TypedColumnWriterImpl<BooleanType>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties);
+          metadata, std::move(pager), use_dictionary, encoding, properties,
+          /*bloom_filter=*/nullptr);
+    }
     case Type::INT32:
       return std::make_shared<TypedColumnWriterImpl<Int32Type>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties);
+          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter);
     case Type::INT64:
       return std::make_shared<TypedColumnWriterImpl<Int64Type>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties);
+          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter);
     case Type::INT96:
       return std::make_shared<TypedColumnWriterImpl<Int96Type>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties);
+          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter);
     case Type::FLOAT:
       return std::make_shared<TypedColumnWriterImpl<FloatType>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties);
+          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter);
     case Type::DOUBLE:
       return std::make_shared<TypedColumnWriterImpl<DoubleType>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties);
+          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter);
     case Type::BYTE_ARRAY:
       return std::make_shared<TypedColumnWriterImpl<ByteArrayType>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties);
+          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter);
     case Type::FIXED_LEN_BYTE_ARRAY:
       return std::make_shared<TypedColumnWriterImpl<FLBAType>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties);
+          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter);
     default:
-      ParquetException::NYI("type reader not implemented");
+      ParquetException::NYI("column writer not implemented for this Parquet type");
   }
   // Unreachable code, but suppress compiler warning
   return std::shared_ptr<ColumnWriter>(nullptr);
