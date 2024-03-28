@@ -19,10 +19,13 @@
 #include "arrow/compute/cast_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/extension_type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/float16.h"
 
 namespace arrow {
 
+using arrow::util::Float16;
 using internal::checked_cast;
 using internal::PrimitiveScalarBase;
 
@@ -47,12 +50,75 @@ struct CastPrimitive {
   }
 };
 
+// Converting floating types to half float.
+template <typename InType>
+struct CastPrimitive<HalfFloatType, InType, enable_if_physical_floating_point<InType>> {
+  static void Exec(const ArraySpan& arr, ArraySpan* out) {
+    using InT = typename InType::c_type;
+    const InT* in_values = arr.GetValues<InT>(1);
+    uint16_t* out_values = out->GetValues<uint16_t>(1);
+    for (int64_t i = 0; i < arr.length; ++i) {
+      *out_values++ = Float16(*in_values++).bits();
+    }
+  }
+};
+
+// Converting from half float to other floating types.
+template <>
+struct CastPrimitive<FloatType, HalfFloatType, enable_if_t<true>> {
+  static void Exec(const ArraySpan& arr, ArraySpan* out) {
+    const uint16_t* in_values = arr.GetValues<uint16_t>(1);
+    float* out_values = out->GetValues<float>(1);
+    for (int64_t i = 0; i < arr.length; ++i) {
+      *out_values++ = Float16::FromBits(*in_values++).ToFloat();
+    }
+  }
+};
+
+template <>
+struct CastPrimitive<DoubleType, HalfFloatType, enable_if_t<true>> {
+  static void Exec(const ArraySpan& arr, ArraySpan* out) {
+    const uint16_t* in_values = arr.GetValues<uint16_t>(1);
+    double* out_values = out->GetValues<double>(1);
+    for (int64_t i = 0; i < arr.length; ++i) {
+      *out_values++ = Float16::FromBits(*in_values++).ToDouble();
+    }
+  }
+};
+
 template <typename OutType, typename InType>
 struct CastPrimitive<OutType, InType, enable_if_t<std::is_same<OutType, InType>::value>> {
   // memcpy output
   static void Exec(const ArraySpan& arr, ArraySpan* out) {
     using T = typename InType::c_type;
     std::memcpy(out->GetValues<T>(1), arr.GetValues<T>(1), arr.length * sizeof(T));
+  }
+};
+
+// Cast int to half float
+template <typename InType>
+struct CastPrimitive<HalfFloatType, InType, enable_if_integer<InType>> {
+  static void Exec(const ArraySpan& arr, ArraySpan* out) {
+    using InT = typename InType::c_type;
+    const InT* in_values = arr.GetValues<InT>(1);
+    uint16_t* out_values = out->GetValues<uint16_t>(1);
+    for (int64_t i = 0; i < arr.length; ++i) {
+      float temp = static_cast<float>(*in_values++);
+      *out_values++ = Float16(temp).bits();
+    }
+  }
+};
+
+// Cast half float to int
+template <typename OutType>
+struct CastPrimitive<OutType, HalfFloatType, enable_if_integer<OutType>> {
+  static void Exec(const ArraySpan& arr, ArraySpan* out) {
+    using OutT = typename OutType::c_type;
+    const uint16_t* in_values = arr.GetValues<uint16_t>(1);
+    OutT* out_values = out->GetValues<OutT>(1);
+    for (int64_t i = 0; i < arr.length; ++i) {
+      *out_values++ = static_cast<OutT>(Float16::FromBits(*in_values++).ToFloat());
+    }
   }
 };
 
@@ -79,6 +145,8 @@ void CastNumberImpl(Type::type out_type, const ArraySpan& input, ArraySpan* out)
       return CastPrimitive<FloatType, InType>::Exec(input, out);
     case Type::DOUBLE:
       return CastPrimitive<DoubleType, InType>::Exec(input, out);
+    case Type::HALF_FLOAT:
+      return CastPrimitive<HalfFloatType, InType>::Exec(input, out);
     default:
       break;
   }
@@ -109,6 +177,8 @@ void CastNumberToNumberUnsafe(Type::type in_type, Type::type out_type,
       return CastNumberImpl<FloatType>(out_type, input, out);
     case Type::DOUBLE:
       return CastNumberImpl<DoubleType>(out_type, input, out);
+    case Type::HALF_FLOAT:
+      return CastNumberImpl<HalfFloatType>(out_type, input, out);
     default:
       DCHECK(false);
       break;

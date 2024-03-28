@@ -22,7 +22,10 @@
 #include <string>
 #include <utility>
 
+#include "arrow/util/float16.h"
 #include "arrow/vendored/fast_float/fast_float.h"
+
+using arrow::util::Float16;
 
 namespace arrow {
 namespace internal {
@@ -40,6 +43,17 @@ bool StringToFloat(const char* s, size_t length, char decimal_point, double* out
       ::arrow_vendored::fast_float::chars_format::general, decimal_point};
   const auto res =
       ::arrow_vendored::fast_float::from_chars_advanced(s, s + length, *out, options);
+  return res.ec == std::errc() && res.ptr == s + length;
+}
+
+// Half float
+bool StringToFloat(const char* s, size_t length, char decimal_point, uint16_t* out) {
+  ::arrow_vendored::fast_float::parse_options options{
+      ::arrow_vendored::fast_float::chars_format::general, decimal_point};
+  float temp_out;
+  const auto res =
+      ::arrow_vendored::fast_float::from_chars_advanced(s, s + length, temp_out, options);
+  *out = Float16::FromFloat(temp_out).bits();
   return res.ec == std::errc() && res.ptr == s + length;
 }
 

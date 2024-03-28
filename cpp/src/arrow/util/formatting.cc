@@ -18,10 +18,12 @@
 #include "arrow/util/formatting.h"
 #include "arrow/util/config.h"
 #include "arrow/util/double_conversion.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
 
+using util::Float16;
 using util::double_conversion::DoubleToStringConverter;
 
 static constexpr int kMinBufferSize = DoubleToStringConverter::kBase10MaximalLength + 1;
@@ -82,6 +84,15 @@ int FloatToStringFormatter::FormatFloat(double v, char* out_buffer, int out_size
   DCHECK_GE(out_size, kMinBufferSize);
   util::double_conversion::StringBuilder builder(out_buffer, out_size);
   bool result = impl_->converter_.ToShortest(v, &builder);
+  DCHECK(result);
+  ARROW_UNUSED(result);
+  return builder.position();
+}
+
+int FloatToStringFormatter::FormatFloat(uint16_t v, char* out_buffer, int out_size) {
+  DCHECK_GE(out_size, kMinBufferSize);
+  util::double_conversion::StringBuilder builder(out_buffer, out_size);
+  bool result = impl_->converter_.ToShortest(Float16::FromBits(v).ToFloat(), &builder);
   DCHECK(result);
   ARROW_UNUSED(result);
   return builder.position();

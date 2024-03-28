@@ -40,7 +40,7 @@ Data Types
 +-------------------+-------+-------+-------+------------+-------+-------+-------+-------+
 | UInt8/16/32/64    | ✓     | ✓     | ✓     | ✓          |  ✓    |  ✓    | ✓     | ✓     |
 +-------------------+-------+-------+-------+------------+-------+-------+-------+-------+
-| Float16           | ✓ (1) | ✓ (2) | ✓     | ✓          |  ✓ (3)|  ✓    | ✓     |       |
+| Float16           | ✓     | ✓ (1) | ✓     | ✓          |  ✓ (2)|  ✓    | ✓     |       |
 +-------------------+-------+-------+-------+------------+-------+-------+-------+-------+
 | Float32/64        | ✓     | ✓     | ✓     | ✓          |  ✓    |  ✓    | ✓     | ✓     |
 +-------------------+-------+-------+-------+------------+-------+-------+-------+-------+
@@ -104,7 +104,7 @@ Data Types
 | Data type         | C++   | Java  | Go    | JavaScript | C#    | Rust  | Julia | Swift |
 | (special)         |       |       |       |            |       |       |       |       |
 +===================+=======+=======+=======+============+=======+=======+=======+=======+
-| Dictionary        | ✓     | ✓ (4) | ✓     | ✓          | ✓     | ✓ (3) | ✓     |       |
+| Dictionary        | ✓     | ✓ (3) | ✓     | ✓          | ✓     | ✓ (3) | ✓     |       |
 +-------------------+-------+-------+-------+------------+-------+-------+-------+-------+
 | Extension         | ✓     | ✓     | ✓     |            |       | ✓     | ✓     |       |
 +-------------------+-------+-------+-------+------------+-------+-------+-------+-------+
@@ -113,10 +113,9 @@ Data Types
 
 Notes:
 
-* \(1) Casting to/from Float16 in C++ is not supported.
-* \(2) Casting to/from Float16 in Java is not supported.
-* \(3) Float16 support in C# is only available when targeting .NET 6+.
-* \(4) Nested dictionaries not supported
+* \(1) Casting to/from Float16 in Java is not supported.
+* \(2) Float16 support in C# is only available when targeting .NET 6+.
+* \(3) Nested dictionaries not supported
 
 .. seealso::
    The :ref:`format_columnar` specification.
