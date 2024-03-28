@@ -382,8 +382,7 @@ class TestAzureFileSystemGeneric : public ::testing::Test, public GenericFileSys
   bool allow_append_to_file() const override { return true; }
   bool have_directory_mtimes() const override { return false; }
   bool have_flaky_directory_tree_deletion() const override { return false; }
-  bool have_file_metadata() const override { return false; }
-  bool have_default_file_metadata() const override { return true; }
+  bool have_file_metadata() const override { return true; }
 
   std::shared_ptr<AzureFileSystem> azure_fs_;
   std::shared_ptr<FileSystem> fs_;

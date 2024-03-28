@@ -926,11 +926,7 @@ void GenericFileSystemTest::TestOpenOutputStream(FileSystem* fs) {
     ASSERT_OK_AND_EQ("x-arrow/filesystem-test", got_metadata->Get("Content-Type"));
   } else {
     if (got_metadata) {
-      if (have_default_file_metadata()) {
-        ASSERT_GT(got_metadata->size(), 0);
-      } else {
-        ASSERT_EQ(got_metadata->size(), 0);
-      }
+      ASSERT_EQ(got_metadata->size(), 0);
     }
   }
 

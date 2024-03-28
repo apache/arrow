@@ -184,8 +184,6 @@ class ARROW_TESTING_EXPORT GenericFileSystemTest {
   virtual bool have_flaky_directory_tree_deletion() const { return false; }
   // - Whether the filesystem stores some metadata alongside files
   virtual bool have_file_metadata() const { return false; }
-  // - Whether the filesystem returns some default metadata alongside files
-  virtual bool have_default_file_metadata() const { return false; }
 
   void TestEmpty(FileSystem* fs);
   void TestNormalizePath(FileSystem* fs);
