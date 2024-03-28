@@ -2522,4 +2522,9 @@ TEST(DeltaByteArrayEncodingAdHoc, ArrowDirectPut) {
     CheckEncodeDecode(values, prefix_lengths, suffix_lengths, suffix_data);
   }
 }
+
+TEST(TestFallbackEncodingSuite, TestChooseFallbackEncoding) {
+  auto encoding = ChooseFallbackEncoding();
+  ASSERT_EQ(encoding, Encoding::PLAIN);
+}
 }  // namespace parquet::test
