@@ -432,12 +432,27 @@ namespace Apache.Arrow.Tests
                 {
                     Assert.True(expectedValidityBuffer.Span.SequenceEqual(actualValidityBuffer.Span));
                 }
-                else if (nullCount != 0)
+                else if (nullCount != 0 && arrayLength > 0)
                 {
                     int validityBitmapByteCount = BitUtility.ByteCount(arrayLength);
+                    ReadOnlySpan<byte> expectedSpanPartial = expectedValidityBuffer.Span.Slice(0, validityBitmapByteCount - 1);
+                    ReadOnlySpan<byte> actualSpanPartial = actualValidityBuffer.Span.Slice(0, validityBitmapByteCount - 1);
+
+                    // Compare the first validityBitmapByteCount - 1 bytes
                     Assert.True(
-                        expectedValidityBuffer.Span.Slice(0, validityBitmapByteCount).SequenceEqual(actualValidityBuffer.Span.Slice(0, validityBitmapByteCount)),
-                        "Validity buffers do not match.");
+                        expectedSpanPartial.SequenceEqual(actualSpanPartial),
+                        string.Format("First {0} bytes of validity buffer do not match", validityBitmapByteCount - 1));
+
+                    // Compare the last byte bitwise (because there is no guarantee about the value of
+                    // bits outside the range [0, arrayLength])
+                    ReadOnlySpan<byte> expectedSpanFull = expectedValidityBuffer.Span.Slice(0, validityBitmapByteCount);
+                    ReadOnlySpan<byte> actualSpanFull = actualValidityBuffer.Span.Slice(0, validityBitmapByteCount);
+                    for (int i = 8 * (validityBitmapByteCount - 1); i < arrayLength; i++)
+                    {
+                        Assert.True(
+                            BitUtility.GetBit(expectedSpanFull, i) == BitUtility.GetBit(actualSpanFull, i),
+                            string.Format("Bit at index {0}/{1} is not equal", i, arrayLength));
+                    }
                 }
             }
         }
