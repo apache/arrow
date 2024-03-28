@@ -445,8 +445,8 @@ namespace Apache.Arrow.Tests
 
                     // Compare the last byte bitwise (because there is no guarantee about the value of
                     // bits outside the range [0, arrayLength])
-                    ReadOnlySpan<byte> expectedSpanFull = expectedValidityBuffer.Span.Slice(0, validityBitmapByteCount - 1);
-                    ReadOnlySpan<byte> actualSpanFull = actualValidityBuffer.Span.Slice(0, validityBitmapByteCount - 1);
+                    ReadOnlySpan<byte> expectedSpanFull = expectedValidityBuffer.Span.Slice(0, validityBitmapByteCount);
+                    ReadOnlySpan<byte> actualSpanFull = actualValidityBuffer.Span.Slice(0, validityBitmapByteCount);
                     for (int i = 8 * (validityBitmapByteCount - 1); i < arrayLength; i++)
                     {
                         Assert.True(
