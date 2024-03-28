@@ -434,6 +434,7 @@ namespace Apache.Arrow.Tests
                 }
                 else if (nullCount != 0)
                 {
+                    int validityBitmapByteCount = BitUtility.ByteCount(arrayLength);
                     Assert.True(
                         expectedValidityBuffer.Span.Slice(0, validityBitmapByteCount).SequenceEqual(actualValidityBuffer.Span.Slice(0, validityBitmapByteCount)),
                         "Validity buffers do not match.");
