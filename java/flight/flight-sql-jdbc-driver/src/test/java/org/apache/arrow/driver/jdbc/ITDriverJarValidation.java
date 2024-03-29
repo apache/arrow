@@ -40,7 +40,8 @@ import com.google.common.collect.ImmutableSet;
 /**
  * Check the content of the JDBC driver jar
  *
- * After shading everything should be under com.dremio.jdbc package
+ * After shading everything should be either under org.apache.arrow.driver.jdbc.,
+ * org.slf4j., or cfjd. packages
  */
 public class ITDriverJarValidation {
 
@@ -50,7 +51,7 @@ public class ITDriverJarValidation {
   public static final Set<String> ALLOWED_PREFIXES = ImmutableSet.of(
       "org/apache/arrow/driver/jdbc/",
       "cfjd/",
-      "org/slf4j",
+      "org/slf4j/",
       "META-INF/");
 
   /**
