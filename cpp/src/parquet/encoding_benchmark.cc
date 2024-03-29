@@ -1118,7 +1118,8 @@ BENCHMARK(BM_DictDecodingByteArray)->Apply(ByteArrayCustomArguments);
 using ::arrow::BinaryBuilder;
 using ::arrow::BinaryDictionary32Builder;
 
-class BenchmarkDecodeArrow : public ::benchmark::Fixture {
+template <typename ParquetType>
+class BenchmarkDecodeArrowBase : public ::benchmark::Fixture {
  public:
   void SetUp(const ::benchmark::State& state) override {
     num_values_ = static_cast<int>(state.range());
@@ -1132,31 +1133,11 @@ class BenchmarkDecodeArrow : public ::benchmark::Fixture {
     values_.clear();
   }
 
-  void InitDataInputs() {
-    // Generate a random string dictionary without any nulls so that this dataset can
-    // be used for benchmarking the DecodeArrowNonNull API
-    constexpr int repeat_factor = 8;
-    constexpr int64_t min_length = 2;
-    constexpr int64_t max_length = 10;
-    ::arrow::random::RandomArrayGenerator rag(0);
-    input_array_ = rag.StringWithRepeats(num_values_, num_values_ / repeat_factor,
-                                         min_length, max_length, /*null_probability=*/0);
-    valid_bits_ = input_array_->null_bitmap_data();
-    total_size_ = input_array_->data()->buffers[2]->size();
-
-    values_.reserve(num_values_);
-    const auto& binary_array = static_cast<const ::arrow::BinaryArray&>(*input_array_);
-    for (int64_t i = 0; i < binary_array.length(); i++) {
-      auto view = binary_array.GetView(i);
-      values_.emplace_back(static_cast<uint32_t>(view.length()),
-                           reinterpret_cast<const uint8_t*>(view.data()));
-    }
-  }
-
+  virtual void InitDataInputs() = 0;
   virtual void DoEncodeArrow() = 0;
   virtual void DoEncodeLowLevel() = 0;
-
-  virtual std::unique_ptr<ByteArrayDecoder> InitializeDecoder() = 0;
+  virtual std::unique_ptr<TypedDecoder<ParquetType>> InitializeDecoder() = 0;
+  virtual typename EncodingTraits<ParquetType>::Accumulator CreateAccumulator() = 0;
 
   void EncodeArrowBenchmark(benchmark::State& state) {
     for (auto _ : state) {
@@ -1175,8 +1156,7 @@ class BenchmarkDecodeArrow : public ::benchmark::Fixture {
   void DecodeArrowDenseBenchmark(benchmark::State& state) {
     for (auto _ : state) {
       auto decoder = InitializeDecoder();
-      typename EncodingTraits<ByteArrayType>::Accumulator acc;
-      acc.builder.reset(new BinaryBuilder);
+      auto acc = CreateAccumulator();
       decoder->DecodeArrow(num_values_, 0, valid_bits_, 0, &acc);
     }
     state.SetBytesProcessed(state.iterations() * total_size_);
@@ -1185,8 +1165,7 @@ class BenchmarkDecodeArrow : public ::benchmark::Fixture {
   void DecodeArrowNonNullDenseBenchmark(benchmark::State& state) {
     for (auto _ : state) {
       auto decoder = InitializeDecoder();
-      typename EncodingTraits<ByteArrayType>::Accumulator acc;
-      acc.builder.reset(new BinaryBuilder);
+      auto acc = CreateAccumulator();
       decoder->DecodeArrowNonNull(num_values_, &acc);
     }
     state.SetBytesProcessed(state.iterations() * total_size_);
@@ -1213,17 +1192,52 @@ class BenchmarkDecodeArrow : public ::benchmark::Fixture {
   }
 
  protected:
-  int num_values_;
+  int num_values_{0};
   std::shared_ptr<::arrow::Array> input_array_;
-  std::vector<ByteArray> values_;
-  uint64_t total_size_;
-  const uint8_t* valid_bits_;
+  uint64_t total_size_{0};
+  const uint8_t* valid_bits_{nullptr};
   std::shared_ptr<Buffer> buffer_;
+  std::vector<typename ParquetType::c_type> values_;
+};
+
+class BenchmarkDecodeArrowByteArray : public BenchmarkDecodeArrowBase<ByteArrayType> {
+ public:
+  using ByteArrayAccumulator = typename EncodingTraits<ByteArrayType>::Accumulator;
+
+  ByteArrayAccumulator CreateAccumulator() final {
+    ByteArrayAccumulator acc;
+    acc.builder = std::make_unique<BinaryBuilder>(default_memory_pool());
+    return acc;
+  }
+
+  void InitDataInputs() final {
+    // Generate a random string dictionary without any nulls so that this dataset can
+    // be used for benchmarking the DecodeArrowNonNull API
+    constexpr int repeat_factor = 8;
+    constexpr int64_t min_length = 2;
+    constexpr int64_t max_length = 10;
+    ::arrow::random::RandomArrayGenerator rag(0);
+    input_array_ = rag.StringWithRepeats(num_values_, num_values_ / repeat_factor,
+                                         min_length, max_length, /*null_probability=*/0);
+    valid_bits_ = input_array_->null_bitmap_data();
+    total_size_ = input_array_->data()->buffers[2]->size();
+
+    values_.reserve(num_values_);
+    const auto& binary_array = static_cast<const ::arrow::BinaryArray&>(*input_array_);
+    for (int64_t i = 0; i < binary_array.length(); i++) {
+      auto view = binary_array.GetView(i);
+      values_.emplace_back(static_cast<uint32_t>(view.length()),
+                           reinterpret_cast<const uint8_t*>(view.data()));
+    }
+  }
+
+ protected:
+  std::vector<ByteArray> values_;
 };
 
 // ----------------------------------------------------------------------
 // Benchmark Decoding from Plain Encoding
-class BM_ArrowBinaryPlain : public BenchmarkDecodeArrow {
+class BM_ArrowBinaryPlain : public BenchmarkDecodeArrowByteArray {
  public:
   void DoEncodeArrow() override {
     auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN);
@@ -1272,7 +1286,7 @@ BENCHMARK_REGISTER_F(BM_ArrowBinaryPlain, DecodeArrowNonNull_Dict)
 
 // ----------------------------------------------------------------------
 // Benchmark Decoding from Dictionary Encoding
-class BM_ArrowBinaryDict : public BenchmarkDecodeArrow {
+class BM_ArrowBinaryDict : public BenchmarkDecodeArrowByteArray {
  public:
   template <typename PutValuesFunc>
   void DoEncode(PutValuesFunc&& put_values) {
@@ -1340,7 +1354,7 @@ class BM_ArrowBinaryDict : public BenchmarkDecodeArrow {
   }
 
   void TearDown(const ::benchmark::State& state) override {
-    BenchmarkDecodeArrow::TearDown(state);
+    BenchmarkDecodeArrowByteArray::TearDown(state);
     dict_buffer_.reset();
     descr_.reset();
   }
@@ -1348,7 +1362,7 @@ class BM_ArrowBinaryDict : public BenchmarkDecodeArrow {
  protected:
   std::unique_ptr<ColumnDescriptor> descr_;
   std::shared_ptr<Buffer> dict_buffer_;
-  int num_dict_entries_;
+  int num_dict_entries_{0};
 };
 
 BENCHMARK_DEFINE_F(BM_ArrowBinaryDict, EncodeArrow)
@@ -1392,6 +1406,74 @@ BENCHMARK_REGISTER_F(BM_ArrowBinaryDict, DecodeArrow_Dict)->Range(MIN_RANGE, MAX
 BENCHMARK_DEFINE_F(BM_ArrowBinaryDict, DecodeArrowNonNull_Dict)
 (benchmark::State& state) { DecodeArrowNonNullDictBenchmark(state); }
 BENCHMARK_REGISTER_F(BM_ArrowBinaryDict, DecodeArrowNonNull_Dict)
+    ->Range(MIN_RANGE, MAX_RANGE);
+
+class BenchmarkDecodeArrowBoolean : public BenchmarkDecodeArrowBase<BooleanType> {
+ public:
+  void InitDataInputs() final {
+    // Generate a random string dictionary without any nulls so that this dataset can
+    // be used for benchmarking the DecodeArrowNonNull API
+    constexpr int repeat_factor = 8;
+    ::arrow::random::RandomArrayGenerator rag(0);
+    input_array_ =
+        rag.Boolean(num_values_, num_values_ / repeat_factor, /*null_probability=*/0);
+    valid_bits_ = input_array_->null_bitmap_data();
+
+    values_.reserve(num_values_);
+    const auto& boolean_array = static_cast<const ::arrow::BooleanArray&>(*input_array_);
+    for (int64_t i = 0; i < boolean_array.length(); i++) {
+      values_.push_back(boolean_array.Value(i));
+    }
+  }
+
+  typename EncodingTraits<BooleanType>::Accumulator CreateAccumulator() final {
+    return typename EncodingTraits<BooleanType>::Accumulator();
+  }
+
+  void DoEncodeLowLevel() final { ParquetException::NYI(); }
+};
+
+class BM_DecodeArrowBooleanPlain : public BenchmarkDecodeArrowBoolean {
+ public:
+  void DoEncodeArrow() final {
+    auto encoder = MakeTypedEncoder<BooleanType>(Encoding::PLAIN);
+    encoder->Put(*input_array_);
+    buffer_ = encoder->FlushValues();
+  }
+
+  std::unique_ptr<TypedDecoder<BooleanType>> InitializeDecoder() override {
+    auto decoder = MakeTypedDecoder<BooleanType>(Encoding::PLAIN);
+    decoder->SetData(num_values_, buffer_->data(), static_cast<int>(buffer_->size()));
+    return decoder;
+  }
+};
+
+class BM_DecodeArrowBooleanRle : public BenchmarkDecodeArrowBoolean {
+ public:
+  void DoEncodeArrow() final {
+    auto encoder = MakeTypedEncoder<BooleanType>(Encoding::RLE);
+    encoder->Put(*input_array_);
+    buffer_ = encoder->FlushValues();
+  }
+
+  std::unique_ptr<TypedDecoder<BooleanType>> InitializeDecoder() override {
+    auto decoder = MakeTypedDecoder<BooleanType>(Encoding::RLE);
+    decoder->SetData(num_values_, buffer_->data(), static_cast<int>(buffer_->size()));
+    return decoder;
+  }
+};
+
+BENCHMARK_DEFINE_F(BM_DecodeArrowBooleanRle, DecodeArrow_Dense)(benchmark::State& state) {
+  DecodeArrowDenseBenchmark(state);
+}
+BENCHMARK_REGISTER_F(BM_DecodeArrowBooleanRle, DecodeArrow_Dense)
+    ->Range(MIN_RANGE, MAX_RANGE);
+
+BENCHMARK_DEFINE_F(BM_DecodeArrowBooleanPlain, DecodeArrow_Dense)
+(benchmark::State& state) {
+  DecodeArrowDenseBenchmark(state);
+}
+BENCHMARK_REGISTER_F(BM_DecodeArrowBooleanPlain, DecodeArrow_Dense)
     ->Range(MIN_RANGE, MAX_RANGE);
 
 }  // namespace parquet
