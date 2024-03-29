@@ -47,43 +47,18 @@ Status IsPermutationValid(const std::vector<int64_t>& permutation) {
 Result<std::vector<int64_t>> ComputeStrides(const std::shared_ptr<DataType>& value_type,
                                             const std::vector<int64_t>& shape,
                                             const std::vector<int64_t>& permutation) {
-  const auto fixed_width_type =
-      internal::checked_pointer_cast<FixedWidthType>(value_type);
-
+  const auto& fw_type = checked_cast<const FixedWidthType&>(*value_type);
   std::vector<int64_t> strides;
+
   if (permutation.empty()) {
-    ARROW_DCHECK_OK(
-        internal::ComputeRowMajorStrides(*fixed_width_type.get(), shape, &strides));
-    return strides;
-  }
-  const int byte_width = value_type->byte_width();
-
-  int64_t remaining = 0;
-  if (!shape.empty() && shape.front() > 0) {
-    remaining = byte_width;
-    for (auto i : permutation) {
-      if (i > 0) {
-        if (internal::MultiplyWithOverflow(remaining, shape[i], &remaining)) {
-          return Status::Invalid(
-              "Strides computed from shape would not fit in 64-bit integer");
-        }
-      }
-    }
-  }
-
-  if (remaining == 0) {
-    strides.assign(shape.size(), byte_width);
+    ARROW_DCHECK_OK(internal::ComputeRowMajorStrides(fw_type, shape, &strides));
     return strides;
   }
 
-  strides.push_back(remaining);
-  for (auto i : permutation) {
-    if (i > 0) {
-      remaining /= shape[i];
-      strides.push_back(remaining);
-    }
-  }
-  DCHECK_EQ(strides.back(), byte_width);
+  auto permuted_shape = std::move(shape);
+  auto reverse_permutation = internal::ArgSort(permutation, std::less<>());
+  Permute(reverse_permutation, &permuted_shape);
+  ARROW_DCHECK_OK(internal::ComputeRowMajorStrides(fw_type, permuted_shape, &strides));
   Permute(permutation, &strides);
 
   return strides;
