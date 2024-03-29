@@ -104,6 +104,8 @@ func fromArrowType(arr arrow.Array, idx int) (interface{}, error) {
 		return v.ToTime(ts.TimeUnit()), nil
 	case *array.Date64:
 		return c.Value(idx).ToTime(), nil
+	case *array.Duration:
+		return c.Value(idx), nil
 	case *array.DayTimeInterval:
 		durationDays := time.Duration(c.Value(idx).Days*24) * time.Hour
 		duration := time.Duration(c.Value(idx).Milliseconds) * time.Millisecond
