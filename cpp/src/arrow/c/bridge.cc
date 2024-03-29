@@ -1967,12 +1967,11 @@ Result<std::shared_ptr<RecordBatch>> ImportRecordBatch(struct ArrowArray* array,
   return ImportRecordBatch(array, *maybe_schema);
 }
 
-Result<std::shared_ptr<MemoryManager>> DefaultDeviceMapper(ArrowDeviceType device_type,
-                                                           int64_t device_id) {
-  if (device_type != ARROW_DEVICE_CPU) {
-    return Status::NotImplemented("Only importing data on CPU is supported");
-  }
-  return default_cpu_memory_manager();
+Result<std::shared_ptr<MemoryManager>> DefaultDeviceMemoryMapper(
+    ArrowDeviceType device_type, int64_t device_id) {
+  ARROW_ASSIGN_OR_RAISE(auto mapper,
+                        GetDeviceMapper(static_cast<DeviceAllocationType>(device_type)));
+  return mapper(device_id);
 }
 
 Result<std::shared_ptr<Array>> ImportDeviceArray(struct ArrowDeviceArray* array,

@@ -716,17 +716,6 @@ class TestCudaDeviceArrayRoundtrip : public ::testing::Test {
  public:
   using ArrayFactory = std::function<Result<std::shared_ptr<Array>>()>;
 
-  static Result<std::shared_ptr<MemoryManager>> DeviceMapper(ArrowDeviceType type,
-                                                             int64_t id) {
-    if (type != ARROW_DEVICE_CUDA) {
-      return Status::NotImplemented("should only be CUDA device");
-    }
-
-    ARROW_ASSIGN_OR_RAISE(auto manager, cuda::CudaDeviceManager::Instance());
-    ARROW_ASSIGN_OR_RAISE(auto device, manager->GetDevice(id));
-    return device->default_memory_manager();
-  }
-
   static ArrayFactory JSONArrayFactory(std::shared_ptr<DataType> type, const char* json) {
     return [=]() { return ArrayFromJSON(type, json); };
   }
@@ -759,7 +748,7 @@ class TestCudaDeviceArrayRoundtrip : public ::testing::Test {
 
     std::shared_ptr<Array> device_array_roundtripped;
     ASSERT_OK_AND_ASSIGN(device_array_roundtripped,
-                         ImportDeviceArray(&c_array, &c_schema, DeviceMapper));
+                         ImportDeviceArray(&c_array, &c_schema));
     ASSERT_TRUE(ArrowSchemaIsReleased(&c_schema));
     ASSERT_TRUE(ArrowArrayIsReleased(&c_array.array));
 
@@ -779,7 +768,7 @@ class TestCudaDeviceArrayRoundtrip : public ::testing::Test {
     ASSERT_OK(ExportDeviceArray(*device_array, sync, &c_array, &c_schema));
     device_array_roundtripped.reset();
     ASSERT_OK_AND_ASSIGN(device_array_roundtripped,
-                         ImportDeviceArray(&c_array, &c_schema, DeviceMapper));
+                         ImportDeviceArray(&c_array, &c_schema));
     ASSERT_TRUE(ArrowSchemaIsReleased(&c_schema));
     ASSERT_TRUE(ArrowArrayIsReleased(&c_array.array));
 

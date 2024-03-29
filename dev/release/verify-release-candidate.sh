@@ -24,7 +24,7 @@
 # - JDK >=8
 # - gcc >= 4.8
 # - Node.js >= 18
-# - Go >= 1.19
+# - Go >= 1.21
 # - Docker
 #
 # If using a non-system Boost, set BOOST_ROOT and add Boost libraries to
@@ -405,7 +405,7 @@ install_go() {
     return 0
   fi
 
-  local version=1.19.13
+  local version=1.21.8
   show_info "Installing go version ${version}..."
 
   local arch="$(uname -m)"
@@ -642,8 +642,8 @@ test_package_java() {
         normalized_arch=x86_64
         ;;
     esac
-    mkdir -p ${dist_dir}/${normalized_arch}/
-    mv ${install_dir}/lib/* ${dist_dir}/${normalized_arch}/
+    mkdir -p ${dist_dir}
+    mv ${install_dir}/lib/* ${dist_dir}
     mvn install \
         -Darrow.c.jni.dist.dir=${dist_dir} \
         -Parrow-c-data
@@ -953,7 +953,7 @@ test_go() {
   show_header "Build and test Go libraries"
 
   maybe_setup_go
-  maybe_setup_conda compilers go=1.19
+  maybe_setup_conda compilers go=1.21
 
   pushd go
   go get -v ./...

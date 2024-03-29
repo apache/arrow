@@ -15,25 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifdef _WIN32
+//go:build go1.20 || tinygo
 
-// Windows defines min and max macros that mess up std::min/max
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
+package mallocator
 
-#define WIN32_LEAN_AND_MEAN
+import "unsafe"
 
-// Set Windows 7 as a conservative minimum for Apache Arrow
-#if defined(_WIN32_WINNT) && _WIN32_WINNT < 0x601
-#undef _WIN32_WINNT
-#endif
-#ifndef _WIN32_WINNT
-#define _WIN32_WINNT 0x601
-#endif
-
-#include <winsock2.h>
-
-#include "arrow/util/windows_fixup.h"
-
-#endif  // _WIN32
+func getPtr(b []byte) unsafe.Pointer {
+	return unsafe.Pointer(unsafe.SliceData(b))
+}

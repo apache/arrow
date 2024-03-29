@@ -619,6 +619,7 @@ func (s *SqlTestSuite) TestRowsPrematureCloseDuringNextLoop() {
 	require.NoError(t, err)
 	require.Equal(t, int64(rowCount), insertedRows)
 
+	time.Sleep(200 * time.Millisecond)
 	// Do query
 	const sqlSelectAll = `SELECT id, name, value FROM ` + tableName
 
