@@ -28,6 +28,7 @@
 #include "arrow/status.h"
 #include "arrow/util/config.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/logging_v2.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -106,11 +107,19 @@ struct LogDescriptor {
   const AttributeHolder* attributes = NULLPTR;
 };
 
-class ARROW_EXPORT Logger {
+class ARROW_EXPORT Logger : public util::Logger {
  public:
   virtual ~Logger() = default;
 
   virtual void Log(const LogDescriptor&) = 0;
+
+  void Log(const util::LogDetails& details) override {
+    LogDescriptor desc;
+    desc.body = details.message;
+    desc.severity = details.severity;
+    desc.timestamp = details.timestamp;
+    this->Log(desc);
+  }
 
   void Log(LogLevel severity, std::string_view body, const AttributeHolder& attributes,
            EventId event_id = EventId::Invalid()) {
@@ -147,13 +156,8 @@ class ARROW_EXPORT Logger {
     this->Log(desc);
   }
 
-  virtual bool Flush(std::chrono::microseconds timeout) = 0;
-  bool Flush() { return this->Flush(std::chrono::microseconds::max()); }
-
   virtual std::string_view name() const = 0;
 };
-
-ARROW_EXPORT std::unique_ptr<Logger> MakeNoopLogger();
 
 class ARROW_EXPORT GlobalLoggerProvider {
  public:
@@ -164,49 +168,11 @@ class ARROW_EXPORT GlobalLoggerProvider {
 
   static bool Flush(std::chrono::microseconds timeout = std::chrono::microseconds::max());
 
-  static Result<std::unique_ptr<Logger>> MakeLogger(
+  static Result<std::shared_ptr<Logger>> MakeLogger(
       std::string_view name, const LoggingOptions& options = LoggingOptions::Defaults());
-  static Result<std::unique_ptr<Logger>> MakeLogger(std::string_view name,
+  static Result<std::shared_ptr<Logger>> MakeLogger(std::string_view name,
                                                     const LoggingOptions& options,
                                                     const AttributeHolder& attributes);
-};
-
-class ARROW_EXPORT GlobalLogger {
- public:
-  static Logger* Get() {
-    if (!logger_) {
-      logger_ = MakeNoopLogger();
-    }
-    return logger_.get();
-  }
-
-  static void Set(std::unique_ptr<Logger> logger) {
-    if (logger) {
-      logger_ = std::move(logger);
-    } else {
-      logger_ = MakeNoopLogger();
-    }
-  }
-
- private:
-  static std::unique_ptr<Logger> logger_;
-};
-
-class ARROW_EXPORT LogMessage {
- public:
-  explicit LogMessage(LogLevel, Logger*);
-
-  std::ostream& Stream();
-
-  template <typename T>
-  LogMessage& operator<<(const T& t) {
-    Stream() << t;
-    return *this;
-  }
-
- private:
-  class Impl;
-  std::shared_ptr<Impl> impl_;
 };
 
 }  // namespace telemetry

@@ -37,6 +37,8 @@ namespace telemetry {
 
 class OtelEnvironment : public ::testing::Environment {
  public:
+  static constexpr std::string_view kLoggerName = "arrow-telemetry-test";
+
   void SetUp() override {
     std::vector<std::unique_ptr<otel::sdk::trace::SpanProcessor>> processors;
     auto tracer_provider = otel::nostd::shared_ptr<otel::sdk::trace::TracerProvider>(
@@ -55,9 +57,9 @@ class OtelEnvironment : public ::testing::Environment {
     ASSERT_OK_AND_ASSIGN(
         auto logger,
         GlobalLoggerProvider::MakeLogger(
-            "arrow-telemetry-test", logging_options,
+            kLoggerName, logging_options,
             AttributeList{Attribute{"fooInt", 42}, Attribute{"barStr", "fourty two"}}));
-    GlobalLogger::Set(std::move(logger));
+    ASSERT_OK(util::LoggerRegistry::RegisterLogger(logger->name(), logger));
   }
 
   void TearDown() override { EXPECT_TRUE(GlobalLoggerProvider::ShutDown()); }
@@ -68,7 +70,10 @@ static ::testing::Environment* kOtelEnvironment =
 
 template <typename... Args>
 void Log(Args&&... args) {
-  GlobalLogger::Get()->Log(std::forward<Args>(args)...);
+  auto logger = std::dynamic_pointer_cast<telemetry::Logger>(
+      util::LoggerRegistry::GetLogger(OtelEnvironment::kLoggerName));
+  ASSERT_NE(logger, nullptr);
+  logger->Log(std::forward<Args>(args)...);
 }
 
 class TestLogging : public ::testing::Test {
@@ -91,8 +96,6 @@ TEST_F(TestLogging, Basics) {
   Log(LogLevel::ARROW_WARNING, "baz bal",
       AttributeList{Attribute{"intAttr", 24}, Attribute{"boolAttr", true},
                     Attribute{"strAttr", std::string("ab") + "c"}});
-  LogMessage(LogLevel::ARROW_INFO, GlobalLogger::Get()) << "This is a "
-                                                        << "log message";
 }
 
 }  // namespace telemetry

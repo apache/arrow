@@ -226,13 +226,6 @@ otel_shared_ptr<otel::logs::LoggerProvider> MakeLoggerProvider(
       new otel::logs::NoopLoggerProvider{});
 }
 
-class NoopLogger : public Logger {
- public:
-  void Log(const LogDescriptor&) override {}
-  bool Flush(std::chrono::microseconds) override { return true; }
-  std::string_view name() const override { return "noop"; }
-};
-
 class OtelLogger : public Logger {
  public:
   OtelLogger(LoggingOptions options, otel_shared_ptr<otel::logs::Logger> ot_logger)
@@ -276,12 +269,18 @@ class OtelLogger : public Logger {
     logger_->EmitLogRecord(std::move(log));
 
     if (desc.severity >= options_.flush_severity) {
-      Logger::Flush();
+      util::Logger::Flush();
     }
   }
 
   bool Flush(std::chrono::microseconds timeout) override {
     return GlobalLoggerProvider::Flush(timeout);
+  }
+
+  bool is_enabled() const override { return true; }
+
+  util::ArrowLogLevel severity_threshold() const override {
+    return options_.severity_threshold;
   }
 
   std::string_view name() const override {
@@ -319,47 +318,19 @@ bool GlobalLoggerProvider::Flush(std::chrono::microseconds timeout) {
   return false;
 }
 
-Result<std::unique_ptr<Logger>> GlobalLoggerProvider::MakeLogger(
+Result<std::shared_ptr<Logger>> GlobalLoggerProvider::MakeLogger(
     std::string_view name, const LoggingOptions& options,
     const AttributeHolder& attributes) {
   auto ot_logger = otel::logs::Provider::GetLoggerProvider()->GetLogger(
       ToOtel(name), /*library_name=*/"", /*library_version=*/"", /*schema_url=*/"",
       OtelAttributeHolder(attributes));
-  return std::make_unique<OtelLogger>(options, std::move(ot_logger));
+  return std::make_shared<OtelLogger>(options, std::move(ot_logger));
 }
 
-Result<std::unique_ptr<Logger>> GlobalLoggerProvider::MakeLogger(
+Result<std::shared_ptr<Logger>> GlobalLoggerProvider::MakeLogger(
     std::string_view name, const LoggingOptions& options) {
   return MakeLogger(name, options, EmptyAttributeHolder{});
 }
-
-std::unique_ptr<Logger> GlobalLogger::logger_ = nullptr;
-
-std::unique_ptr<Logger> MakeNoopLogger() { return std::make_unique<NoopLogger>(); }
-
-class LogMessage::Impl {
- public:
-  Impl(LogLevel severity, Logger* logger) : logger(logger), severity(severity) {}
-
-  ~Impl() {
-    if (logger) {
-      auto body = stream.str();
-      LogDescriptor desc;
-      desc.body = body;
-      desc.severity = severity;
-      logger->Log(desc);
-    }
-  }
-
-  Logger* logger;
-  LogLevel severity;
-  std::stringstream stream;
-};
-
-LogMessage::LogMessage(LogLevel severity, Logger* logger)
-    : impl_(std::make_shared<Impl>(severity, logger)) {}
-
-std::ostream& LogMessage::Stream() { return impl_->stream; }
 
 }  // namespace telemetry
 }  // namespace arrow
