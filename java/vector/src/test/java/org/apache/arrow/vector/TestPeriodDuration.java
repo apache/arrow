@@ -43,4 +43,30 @@ public class TestPeriodDuration {
     assertNotEquals(pd1.hashCode(), pd3.hashCode());
   }
 
+  @Test
+  public void testToISO8601IntervalString() {
+    assertEquals("P0D",
+            new PeriodDuration(Period.ZERO, Duration.ZERO).toISO8601IntervalString());
+    assertEquals("P1Y2M3D",
+            new PeriodDuration(Period.of(1, 2, 3), Duration.ZERO).toISO8601IntervalString());
+    assertEquals("PT0.000000123S",
+            new PeriodDuration(Period.ZERO, Duration.ofNanos(123)).toISO8601IntervalString());
+    assertEquals("PT1.000000123S",
+            new PeriodDuration(Period.ZERO, Duration.ofSeconds(1).withNanos(123)).toISO8601IntervalString());
+    assertEquals("PT1H1.000000123S",
+            new PeriodDuration(Period.ZERO, Duration.ofSeconds(3601).withNanos(123)).toISO8601IntervalString());
+    assertEquals("PT24H1M1.000000123S",
+            new PeriodDuration(Period.ZERO, Duration.ofSeconds(86461).withNanos(123)).toISO8601IntervalString());
+    assertEquals("P1Y2M3DT24H1M1.000000123S",
+            new PeriodDuration(Period.of(1, 2, 3), Duration.ofSeconds(86461).withNanos(123)).toISO8601IntervalString());
+
+    assertEquals("P-1Y-2M-3D",
+            new PeriodDuration(Period.of(-1, -2, -3), Duration.ZERO).toISO8601IntervalString());
+    assertEquals("PT-0.000000123S",
+            new PeriodDuration(Period.ZERO, Duration.ofNanos(-123)).toISO8601IntervalString());
+    assertEquals("PT-24H-1M-0.999999877S",
+            new PeriodDuration(Period.ZERO, Duration.ofSeconds(-86461).withNanos(123)).toISO8601IntervalString());
+    assertEquals("P-1Y-2M-3DT-0.999999877S",
+            new PeriodDuration(Period.of(-1, -2, -3), Duration.ofSeconds(-1).withNanos(123)).toISO8601IntervalString());
+  }
 }

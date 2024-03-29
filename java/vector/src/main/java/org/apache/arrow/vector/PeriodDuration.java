@@ -43,6 +43,24 @@ public class PeriodDuration {
     return duration;
   }
 
+  /**
+   * Format this PeriodDuration as an ISO-8601 interval.
+   *
+   * @return An ISO-8601 formatted string representing the interval.
+   */
+  public String toISO8601IntervalString() {
+    if (duration.isZero()) {
+      return period.toString();
+    }
+    String durationString = duration.toString();
+    if (period.isZero()) {
+      return durationString;
+    }
+
+    // Remove 'P' from duration string and concatenate to produce an ISO-8601 representation
+    return period + durationString.substring(1);
+  }
+
   @Override
   public String toString() {
     return period.toString() + " " + duration.toString();

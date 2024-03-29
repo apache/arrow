@@ -24,6 +24,7 @@ import static org.hamcrest.CoreMatchers.is;
 
 import java.time.Duration;
 import java.time.Period;
+import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.function.Supplier;
@@ -161,8 +162,23 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
     } else if (vector instanceof IntervalYearVector) {
       return formatIntervalYear(Period.parse(object));
     } else if (vector instanceof IntervalMonthDayNanoVector) {
-      String[] periodAndDuration = object.split(" ");
-      return new PeriodDuration(Period.parse(periodAndDuration[0]), Duration.parse(periodAndDuration[1])).toString();
+      // This is the inverse of PeriodDuration#toISO8601IntervalString
+      String[] periodAndDuration = object.split("T");
+      if (periodAndDuration.length == 1) {
+        // If there is no 'T', then either Period or Duration is zero, and the other one will successfully parse it
+        String periodOrDuration = periodAndDuration[0];
+        try {
+          return new PeriodDuration(Period.parse(periodOrDuration), Duration.ZERO).toISO8601IntervalString();
+        } catch (DateTimeParseException e) {
+          return new PeriodDuration(Period.ZERO, Duration.parse(periodOrDuration)).toISO8601IntervalString();
+        }
+      } else {
+        // If there is a 'T', both Period and Duration are non-zero, and we just need to prepend the 'P' to the duration
+        // for both to parse successfully
+        Period parse = Period.parse(periodAndDuration[0]);
+        Duration duration = Duration.parse("P" + periodAndDuration[1]);
+        return new PeriodDuration(parse, duration).toISO8601IntervalString();
+      }
     }
     return null;
   }
