@@ -584,9 +584,11 @@ Status Scalar::ValidateFull() const {
   return ScalarValidateImpl(/*full_validation=*/true).Validate(*this);
 }
 
+template <typename FillScalarScratchSpaceFactoryT>
 BaseBinaryScalar::BaseBinaryScalar(std::string s, std::shared_ptr<DataType> type,
-                                   const FillScalarScratchSpace& fill)
-    : BaseBinaryScalar(Buffer::FromString(std::move(s)), std::move(type), fill) {}
+                                   FillScalarScratchSpaceFactoryT factory)
+    : BaseBinaryScalar(Buffer::FromString(std::move(s)), std::move(type),
+                       std::move(factory)) {}
 
 BinaryScalar::BinaryScalar(std::string s, std::shared_ptr<DataType> type)
     : BinaryScalar(Buffer::FromString(std::move(s)), std::move(type)) {}
@@ -641,11 +643,12 @@ FixedSizeBinaryScalar::FixedSizeBinaryScalar(const std::shared_ptr<Buffer>& valu
 FixedSizeBinaryScalar::FixedSizeBinaryScalar(std::string s, bool is_valid)
     : FixedSizeBinaryScalar(Buffer::FromString(std::move(s)), is_valid) {}
 
+template <typename FillScalarScratchSpaceFactoryT>
 BaseListScalar::BaseListScalar(std::shared_ptr<Array> value,
                                std::shared_ptr<DataType> type, bool is_valid,
-                               const FillScalarScratchSpace& fill)
+                               FillScalarScratchSpaceFactoryT factory)
     : Scalar{std::move(type), is_valid},
-      ArraySpanFillFromScalarScratchSpace(fill),
+      ArraySpanFillFromScalarScratchSpace(factory(value.get())),
       value(std::move(value)) {
   ARROW_CHECK(this->type->field(0)->type()->Equals(this->value->type()));
 }
@@ -653,10 +656,10 @@ BaseListScalar::BaseListScalar(std::shared_ptr<Array> value,
 ListScalar::ListScalar(std::shared_ptr<Array> value, std::shared_ptr<DataType> type,
                        bool is_valid)
     : BaseListScalar(std::move(value), std::move(type), is_valid,
-                     ListScalar::FillScalarScratchSpace(value.get())) {}
+                     FillScalarScratchSpaceFactory<FillScalarScratchSpace>) {}
 
 ListScalar::ListScalar(std::shared_ptr<Array> value, bool is_valid)
-    : ListScalar(std::move(value), list(value->type()), is_valid) {}
+    : ListScalar(value, list(value->type()), is_valid) {}
 
 void ListScalar::FillScalarScratchSpace::Fill(
     const internal::ArraySpanFillFromScalarScratchSpace& scratch_space) const {
@@ -668,10 +671,10 @@ void ListScalar::FillScalarScratchSpace::Fill(
 LargeListScalar::LargeListScalar(std::shared_ptr<Array> value,
                                  std::shared_ptr<DataType> type, bool is_valid)
     : BaseListScalar(std::move(value), std::move(type), is_valid,
-                     LargeListScalar::FillScalarScratchSpace(value.get())) {}
+                     FillScalarScratchSpaceFactory<FillScalarScratchSpace>) {}
 
 LargeListScalar::LargeListScalar(std::shared_ptr<Array> value, bool is_valid)
-    : LargeListScalar(std::move(value), large_list(value->type()), is_valid) {}
+    : LargeListScalar(value, large_list(value->type()), is_valid) {}
 
 void LargeListScalar::FillScalarScratchSpace::Fill(
     const internal::ArraySpanFillFromScalarScratchSpace& scratch_space) const {
@@ -682,10 +685,10 @@ void LargeListScalar::FillScalarScratchSpace::Fill(
 ListViewScalar::ListViewScalar(std::shared_ptr<Array> value,
                                std::shared_ptr<DataType> type, bool is_valid)
     : BaseListScalar(std::move(value), std::move(type), is_valid,
-                     ListViewScalar::FillScalarScratchSpace(value.get())) {}
+                     FillScalarScratchSpaceFactory<FillScalarScratchSpace>) {}
 
 ListViewScalar::ListViewScalar(std::shared_ptr<Array> value, bool is_valid)
-    : ListViewScalar(std::move(value), list_view(value->type()), is_valid) {}
+    : ListViewScalar(value, list_view(value->type()), is_valid) {}
 
 void ListViewScalar::FillScalarScratchSpace::Fill(
     const internal::ArraySpanFillFromScalarScratchSpace& scratch_space) const {
@@ -697,10 +700,10 @@ void ListViewScalar::FillScalarScratchSpace::Fill(
 LargeListViewScalar::LargeListViewScalar(std::shared_ptr<Array> value,
                                          std::shared_ptr<DataType> type, bool is_valid)
     : BaseListScalar(std::move(value), std::move(type), is_valid,
-                     LargeListViewScalar::FillScalarScratchSpace(value.get())) {}
+                     FillScalarScratchSpaceFactory<FillScalarScratchSpace>) {}
 
 LargeListViewScalar::LargeListViewScalar(std::shared_ptr<Array> value, bool is_valid)
-    : LargeListViewScalar(std::move(value), large_list_view(value->type()), is_valid) {}
+    : LargeListViewScalar(value, large_list_view(value->type()), is_valid) {}
 
 void LargeListViewScalar::FillScalarScratchSpace::Fill(
     const internal::ArraySpanFillFromScalarScratchSpace& scratch_space) const {
@@ -717,10 +720,10 @@ inline std::shared_ptr<DataType> MakeMapType(const std::shared_ptr<DataType>& pa
 MapScalar::MapScalar(std::shared_ptr<Array> value, std::shared_ptr<DataType> type,
                      bool is_valid)
     : BaseListScalar(std::move(value), std::move(type), is_valid,
-                     MapScalar::FillScalarScratchSpace(value.get())) {}
+                     FillScalarScratchSpaceFactory<FillScalarScratchSpace>) {}
 
 MapScalar::MapScalar(std::shared_ptr<Array> value, bool is_valid)
-    : MapScalar(std::move(value), MakeMapType(value->type()), is_valid) {}
+    : MapScalar(value, MakeMapType(value->type()), is_valid) {}
 
 void MapScalar::FillScalarScratchSpace::Fill(
     const internal::ArraySpanFillFromScalarScratchSpace& scratch_space) const {
@@ -732,15 +735,14 @@ void MapScalar::FillScalarScratchSpace::Fill(
 FixedSizeListScalar::FixedSizeListScalar(std::shared_ptr<Array> value,
                                          std::shared_ptr<DataType> type, bool is_valid)
     : BaseListScalar(std::move(value), std::move(type), is_valid,
-                     FixedSizeListScalar::FillScalarScratchSpace(value.get())) {
+                     FillScalarScratchSpaceFactory<FillScalarScratchSpace>) {
   ARROW_CHECK_EQ(this->value->length(),
                  checked_cast<const FixedSizeListType&>(*this->type).list_size());
 }
 
 FixedSizeListScalar::FixedSizeListScalar(std::shared_ptr<Array> value, bool is_valid)
     : FixedSizeListScalar(
-          std::move(value),
-          fixed_size_list(value->type(), static_cast<int32_t>(value->length())),
+          value, fixed_size_list(value->type(), static_cast<int32_t>(value->length())),
           is_valid) {}
 
 Result<std::shared_ptr<StructScalar>> StructScalar::Make(
@@ -775,7 +777,8 @@ Result<std::shared_ptr<Scalar>> StructScalar::field(FieldRef ref) const {
 RunEndEncodedScalar::RunEndEncodedScalar(std::shared_ptr<Scalar> value,
                                          std::shared_ptr<DataType> type)
     : Scalar{std::move(type), value->is_valid},
-      ArraySpanFillFromScalarScratchSpace(FillScalarScratchSpace(ree_type(this->type))),
+      ArraySpanFillFromScalarScratchSpace(
+          FillScalarScratchSpace(*ree_type(this->type)->run_end_type())),
       value{std::move(value)} {
   ARROW_CHECK_EQ(this->type->id(), Type::RUN_END_ENCODED);
 }
@@ -789,7 +792,7 @@ RunEndEncodedScalar::~RunEndEncodedScalar() = default;
 
 void RunEndEncodedScalar::FillScalarScratchSpace::Fill(
     const internal::ArraySpanFillFromScalarScratchSpace& scratch_space) const {
-  switch (ree_type_->id()) {
+  switch (run_end_type_.id()) {
     case Type::INT16:
       FillScalarScratchSpaceHelper(scratch_space.scratch_space_, int16_t(1));
       break;
@@ -797,7 +800,7 @@ void RunEndEncodedScalar::FillScalarScratchSpace::Fill(
       FillScalarScratchSpaceHelper(scratch_space.scratch_space_, int32_t(1));
       break;
     default:
-      DCHECK_EQ(ree_type_->id(), Type::INT64);
+      DCHECK_EQ(run_end_type_.id(), Type::INT64);
       FillScalarScratchSpaceHelper(scratch_space.scratch_space_, int64_t(1));
   }
 }

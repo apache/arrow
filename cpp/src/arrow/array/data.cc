@@ -430,12 +430,12 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
     this->buffers[1].data = scalar.scratch_space_;
     // static_assert(sizeof(BinaryViewType::c_type) <= sizeof(scalar.scratch_space_));
     // auto* view = new (&scalar.scratch_space_) BinaryViewType::c_type;
-    // if (scalar.is_valid) {
-    //   *view = util::ToBinaryView(std::string_view{*scalar.value}, 0, 0);
-    //   this->buffers[2] = internal::PackVariadicBuffers({&scalar.value, 1});
-    // } else {
-    //   *view = {};
-    // }
+    if (scalar.is_valid) {
+      //   *view = util::ToBinaryView(std::string_view{*scalar.value}, 0, 0);
+      this->buffers[2] = internal::PackVariadicBuffers({&scalar.value, 1});
+    } else {
+      //   *view = {};
+    }
   } else if (type_id == Type::FIXED_SIZE_BINARY) {
     const auto& scalar = checked_cast<const BaseBinaryScalar&>(value);
     this->buffers[1].data = const_cast<uint8_t*>(scalar.value->data());
