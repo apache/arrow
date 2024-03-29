@@ -41,6 +41,9 @@ std::shared_ptr<Scalar> ninety_nine_dict =
     DictionaryScalar::Make(MakeScalar(0), ArrayFromJSON(int64(), "[99]"));
 
 static void BindAndEvaluate(benchmark::State& state, Expression expr) {
+  const auto rows_per_batch = static_cast<int32_t>(state.range(0));
+  const auto num_batches = 1000000 / rows_per_batch;
+
   ExecContext ctx;
   auto struct_type = struct_({
       field("int", int64()),
@@ -66,17 +69,34 @@ static void BindAndEvaluate(benchmark::State& state, Expression expr) {
     ASSIGN_OR_ABORT(auto bound, expr.Bind(*dataset_schema));
     ABORT_NOT_OK(ExecuteScalarExpression(bound, input, &ctx).status());
   }
+
+  state.counters["rows_per_second"] = benchmark::Counter(
+      static_cast<double>(state.iterations() * num_batches * rows_per_batch),
+      benchmark::Counter::kIsRate);
+
+  state.counters["batches_per_second"] = benchmark::Counter(
+      static_cast<double>(state.iterations() * num_batches), benchmark::Counter::kIsRate);
 }
 
 // A benchmark of SimplifyWithGuarantee using expressions arising from partitioning.
 static void SimplifyFilterWithGuarantee(benchmark::State& state, Expression filter,
                                         Expression guarantee) {
+  const auto rows_per_batch = static_cast<int32_t>(state.range(0));
+  const auto num_batches = 1000000 / rows_per_batch;
+
   auto dataset_schema = schema({field("a", int64()), field("b", int64())});
   ASSIGN_OR_ABORT(filter, filter.Bind(*dataset_schema));
 
   for (auto _ : state) {
     ABORT_NOT_OK(SimplifyWithGuarantee(filter, guarantee));
   }
+
+  state.counters["rows_per_second"] = benchmark::Counter(
+      static_cast<double>(state.iterations() * num_batches * rows_per_batch),
+      benchmark::Counter::kIsRate);
+
+  state.counters["batches_per_second"] = benchmark::Counter(
+      static_cast<double>(state.iterations() * num_batches), benchmark::Counter::kIsRate);
 }
 
 static void ExecuteScalarExpressionOverhead(benchmark::State& state, Expression expr) {
@@ -163,31 +183,103 @@ auto ref_only_expression = field_ref("x");
 
 // Negative queries (partition expressions that fail the filter)
 BENCHMARK_CAPTURE(SimplifyFilterWithGuarantee, negative_filter_simple_guarantee_simple,
-                  filter_simple_negative, guarantee);
+                  filter_simple_negative, guarantee)
+    ->ArgNames({"rows_per_batch"})
+    ->RangeMultiplier(10)
+    ->Range(1000, 1000000)
+    ->DenseThreadRange(1, std::thread::hardware_concurrency(),
+                       std::thread::hardware_concurrency())
+    ->UseRealTime();
 BENCHMARK_CAPTURE(SimplifyFilterWithGuarantee, negative_filter_cast_guarantee_simple,
-                  filter_cast_negative, guarantee);
+                  filter_cast_negative, guarantee)
+    ->ArgNames({"rows_per_batch"})
+    ->RangeMultiplier(10)
+    ->Range(1000, 1000000)
+    ->DenseThreadRange(1, std::thread::hardware_concurrency(),
+                       std::thread::hardware_concurrency())
+    ->UseRealTime();
 BENCHMARK_CAPTURE(SimplifyFilterWithGuarantee,
                   negative_filter_simple_guarantee_dictionary, filter_simple_negative,
-                  guarantee_dictionary);
+                  guarantee_dictionary)
+    ->ArgNames({"rows_per_batch"})
+    ->RangeMultiplier(10)
+    ->Range(1000, 1000000)
+    ->DenseThreadRange(1, std::thread::hardware_concurrency(),
+                       std::thread::hardware_concurrency())
+    ->UseRealTime();
 BENCHMARK_CAPTURE(SimplifyFilterWithGuarantee, negative_filter_cast_guarantee_dictionary,
-                  filter_cast_negative, guarantee_dictionary);
+                  filter_cast_negative, guarantee_dictionary)
+    ->ArgNames({"rows_per_batch"})
+    ->RangeMultiplier(10)
+    ->Range(1000, 1000000)
+    ->DenseThreadRange(1, std::thread::hardware_concurrency(),
+                       std::thread::hardware_concurrency())
+    ->UseRealTime();
 // Positive queries (partition expressions that pass the filter)
 BENCHMARK_CAPTURE(SimplifyFilterWithGuarantee, positive_filter_simple_guarantee_simple,
-                  filter_simple_positive, guarantee);
+                  filter_simple_positive, guarantee)
+    ->ArgNames({"rows_per_batch"})
+    ->RangeMultiplier(10)
+    ->Range(1000, 1000000)
+    ->DenseThreadRange(1, std::thread::hardware_concurrency(),
+                       std::thread::hardware_concurrency())
+    ->UseRealTime();
 BENCHMARK_CAPTURE(SimplifyFilterWithGuarantee, positive_filter_cast_guarantee_simple,
-                  filter_cast_positive, guarantee);
+                  filter_cast_positive, guarantee)
+    ->ArgNames({"rows_per_batch"})
+    ->RangeMultiplier(10)
+    ->Range(1000, 1000000)
+    ->DenseThreadRange(1, std::thread::hardware_concurrency(),
+                       std::thread::hardware_concurrency())
+    ->UseRealTime();
 BENCHMARK_CAPTURE(SimplifyFilterWithGuarantee,
                   positive_filter_simple_guarantee_dictionary, filter_simple_positive,
-                  guarantee_dictionary);
+                  guarantee_dictionary)
+    ->ArgNames({"rows_per_batch"})
+    ->RangeMultiplier(10)
+    ->Range(1000, 1000000)
+    ->DenseThreadRange(1, std::thread::hardware_concurrency(),
+                       std::thread::hardware_concurrency())
+    ->UseRealTime();
 BENCHMARK_CAPTURE(SimplifyFilterWithGuarantee, positive_filter_cast_guarantee_dictionary,
-                  filter_cast_positive, guarantee_dictionary);
+                  filter_cast_positive, guarantee_dictionary)
+    ->ArgNames({"rows_per_batch"})
+    ->RangeMultiplier(10)
+    ->Range(1000, 1000000)
+    ->DenseThreadRange(1, std::thread::hardware_concurrency(),
+                       std::thread::hardware_concurrency())
+    ->UseRealTime();
 
-BENCHMARK_CAPTURE(BindAndEvaluate, simple_array, field_ref("int_arr"));
-BENCHMARK_CAPTURE(BindAndEvaluate, simple_scalar, field_ref("int_scalar"));
+BENCHMARK_CAPTURE(BindAndEvaluate, simple_array, field_ref("int_arr"))
+    ->ArgNames({"rows_per_batch"})
+    ->RangeMultiplier(10)
+    ->Range(1000, 1000000)
+    ->DenseThreadRange(1, std::thread::hardware_concurrency(),
+                       std::thread::hardware_concurrency())
+    ->UseRealTime();
+BENCHMARK_CAPTURE(BindAndEvaluate, simple_scalar, field_ref("int_scalar"))
+    ->ArgNames({"rows_per_batch"})
+    ->RangeMultiplier(10)
+    ->Range(1000, 1000000)
+    ->DenseThreadRange(1, std::thread::hardware_concurrency(),
+                       std::thread::hardware_concurrency())
+    ->UseRealTime();
 BENCHMARK_CAPTURE(BindAndEvaluate, nested_array,
-                  field_ref(FieldRef("struct_arr", "float")));
+                  field_ref(FieldRef("struct_arr", "float")))
+    ->ArgNames({"rows_per_batch"})
+    ->RangeMultiplier(10)
+    ->Range(1000, 1000000)
+    ->DenseThreadRange(1, std::thread::hardware_concurrency(),
+                       std::thread::hardware_concurrency())
+    ->UseRealTime();
 BENCHMARK_CAPTURE(BindAndEvaluate, nested_scalar,
-                  field_ref(FieldRef("struct_scalar", "float")));
+                  field_ref(FieldRef("struct_scalar", "float")))
+    ->ArgNames({"rows_per_batch"})
+    ->RangeMultiplier(10)
+    ->Range(1000, 1000000)
+    ->DenseThreadRange(1, std::thread::hardware_concurrency(),
+                       std::thread::hardware_concurrency())
+    ->UseRealTime();
 
 /// \brief Baseline benchmark for complex_expression implemented without arrow
 struct ComplexExpressionBaseline {
