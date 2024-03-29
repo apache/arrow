@@ -18,6 +18,7 @@
 #include "arrow/record_batch.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <memory>
 #include <sstream>
@@ -261,12 +262,19 @@ struct ConvertColumnsToTensorVisitor {
       using In = typename T::c_type;
       auto in_values = ArraySpan(in_data).GetSpan<In>(1, in_data.length);
 
-      if constexpr (std::is_same_v<In, Out>) {
-        memcpy(out_values, in_values.data(), in_values.size_bytes());
-        out_values += in_values.size();
+      if (in_data.null_count == 0) {
+        if constexpr (std::is_same_v<In, Out>) {
+          memcpy(out_values, in_values.data(), in_values.size_bytes());
+          out_values += in_values.size();
+        } else {
+          for (In in_value : in_values) {
+            *out_values++ = static_cast<Out>(in_value);
+          }
+        }
       } else {
-        for (In in_value : in_values) {
-          *out_values++ = static_cast<Out>(in_value);
+        for (int64_t i = 0; i < in_data.length; ++i) {
+          *out_values++ =
+              in_data.IsNull(i) ? static_cast<Out>(NAN) : static_cast<Out>(in_values[i]);
         }
       }
       return Status::OK();
@@ -286,16 +294,20 @@ inline void ConvertColumnsToTensor(const RecordBatch& batch, uint8_t* out) {
   }
 }
 
-Result<std::shared_ptr<Tensor>> RecordBatch::ToTensor(MemoryPool* pool) const {
+Result<std::shared_ptr<Tensor>> RecordBatch::ToTensor(bool null_to_nan,
+                                                      MemoryPool* pool) const {
   if (num_columns() == 0) {
     return Status::TypeError(
         "Conversion to Tensor for RecordBatches without columns/schema is not "
         "supported.");
   }
   // Check for no validity bitmap of each field
+  // if null_to_nan conversion is set to false
   for (int i = 0; i < num_columns(); ++i) {
-    if (column(i)->null_count() > 0) {
-      return Status::TypeError("Can only convert a RecordBatch with no nulls.");
+    if (column(i)->null_count() > 0 && !null_to_nan) {
+      return Status::TypeError(
+          "Can only convert a RecordBatch with no nulls. Set null_to_nan to true to "
+          "convert nulls to NaN");
     }
   }
 
@@ -308,12 +320,12 @@ Result<std::shared_ptr<Tensor>> RecordBatch::ToTensor(MemoryPool* pool) const {
   std::shared_ptr<Field> result_field = schema_->field(0);
   std::shared_ptr<DataType> result_type = result_field->type();
 
-  if (num_columns() > 1) {
-    Field::MergeOptions options;
-    options.promote_integer_to_float = true;
-    options.promote_integer_sign = true;
-    options.promote_numeric_width = true;
+  Field::MergeOptions options;
+  options.promote_integer_to_float = true;
+  options.promote_integer_sign = true;
+  options.promote_numeric_width = true;
 
+  if (num_columns() > 1) {
     for (int i = 1; i < num_columns(); ++i) {
       if (!is_numeric(column(i)->type()->id())) {
         return Status::TypeError("DataType is not supported: ",
@@ -331,6 +343,15 @@ Result<std::shared_ptr<Tensor>> RecordBatch::ToTensor(MemoryPool* pool) const {
           result_field, result_field->MergeWith(
                             schema_->field(i)->WithName(result_field->name()), options));
     }
+    result_type = result_field->type();
+  }
+
+  // Check if result_type is signed or unsigned integer and null_to_nan is set to true
+  // Then all columns should be promoted to float type
+  if (is_integer(result_type->id()) && null_to_nan) {
+    ARROW_ASSIGN_OR_RAISE(
+        result_field,
+        result_field->MergeWith(field(result_field->name(), float32()), options));
     result_type = result_field->type();
   }
 
