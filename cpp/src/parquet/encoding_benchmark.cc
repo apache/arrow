@@ -1419,6 +1419,10 @@ class BenchmarkDecodeArrowBoolean : public BenchmarkDecodeArrowBase<BooleanType>
         rag.Boolean(num_values_, num_values_ / repeat_factor, /*null_probability=*/0);
     valid_bits_ = input_array_->null_bitmap_data();
 
+    // Arrow uses a bitmap representation for boolean arrays,
+    // so, we uses this as "total_size" for the benchmark.
+    total_size_ = ::arrow::bit_util::BytesForBits(num_values_);
+
     values_.reserve(num_values_);
     const auto& boolean_array = static_cast<const ::arrow::BooleanArray&>(*input_array_);
     for (int64_t i = 0; i < boolean_array.length(); i++) {
