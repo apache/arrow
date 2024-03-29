@@ -38,18 +38,20 @@
 
 #define ARROW_UNUSED(x) (void)(x)
 #define ARROW_ARG_UNUSED(x)
-//
-// GCC can be told that a certain branch is not likely to be taken (for
-// instance, a CHECK failure), and use that information in static analysis.
-// Giving it this information can help it optimize for the common case in
-// the absence of better information (ie. -fprofile-arcs).
-//
 #if defined(__GNUC__)
-#define ARROW_PREDICT_FALSE(x) (__builtin_expect(!!(x), 0))
-#define ARROW_PREDICT_TRUE(x) (__builtin_expect(!!(x), 1))
 #define ARROW_NORETURN __attribute__((noreturn))
 #define ARROW_NOINLINE __attribute__((noinline))
 #define ARROW_FORCE_INLINE __attribute__((always_inline))
+// GCC and clang can be told that a certain branch is not likely to be taken
+// (for instance, a CHECK failure), and use that information in static analysis.
+// Giving the compiler this information can affect the generated code layout in
+// the absence of better information (i.e. -fprofile-arcs). [1] explains how
+// this feature can be used to improve code generation. It was written as a
+// positive answer to a negative article about the use of these annotations.
+//
+// [1] https://lobste.rs/s/uwgtkt/don_t_use_likely_unlikely_attributes#c_xi3wmc
+#define ARROW_PREDICT_FALSE(x) (__builtin_expect(!!(x), 0))
+#define ARROW_PREDICT_TRUE(x) (__builtin_expect(!!(x), 1))
 #define ARROW_PREFETCH(addr) __builtin_prefetch(addr)
 #elif defined(_MSC_VER)
 #define ARROW_NORETURN __declspec(noreturn)
