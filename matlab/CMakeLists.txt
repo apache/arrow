@@ -201,9 +201,6 @@ get_filename_component(ARROW_SHARED_LIB_DIR ${ARROW_SHARED_LIB} DIRECTORY)
 get_filename_component(ARROW_SHARED_LIB_FILENAME ${ARROW_SHARED_LIB} NAME_WE)
 
 if(NOT Arrow_FOUND)
-  # If Arrow_FOUND is false, Arrow is built by the arrow_shared target and needs
-  # to be copied to CMAKE_PACKAGED_INSTALL_DIR.
-
   if(APPLE)
     # Install libarrow.dylib (symlink) and the real files it points to.
     # on macOS, we need to match these files: libarrow.dylib
@@ -226,20 +223,6 @@ if(NOT Arrow_FOUND)
     set(SHARED_LIBRARY_VERSION_REGEX
         ${ARROW_SHARED_LIB_FILENAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
   endif()
-
-  # The subfolders cmake and pkgconfig are excluded as they will be empty.
-  # Note: The following CMake Issue suggests enabling an option to exclude all
-  # folders that would be empty after installation:
-  # https://gitlab.kitware.com/cmake/cmake/-/issues/17122
-
-  set(CMAKE_PACKAGED_INSTALL_DIR "${CMAKE_INSTALL_DIR}/+arrow")
-
-  install(DIRECTORY "${ARROW_SHARED_LIB_DIR}/"
-          DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR}
-          FILES_MATCHING
-          REGEX ${SHARED_LIBRARY_VERSION_REGEX}
-          PATTERN "cmake" EXCLUDE
-          PATTERN "pkgconfig" EXCLUDE)
 endif()
 
 # MATLAB_ADD_INSTALL_DIR_TO_STARTUP_FILE toggles whether an addpath command to add the install

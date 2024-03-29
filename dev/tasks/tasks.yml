@@ -59,6 +59,7 @@ groups:
     - conan-*
     - debian-*
     - java-jars
+    - matlab
     - nuget
     - python-sdist
     - r-binary-packages
@@ -664,6 +665,14 @@ tasks:
     template: homebrew-formulae/github.macos.yml
     params:
       formula: apache-arrow.rb
+
+  ############################## MATLAB Packages ################################
+
+  matlab:
+    ci: github
+    template: matlab/github.yml
+    artifacts:
+      - matlab-arrow-{no_rc_version}.mltbx
 
   ############################## Arrow JAR's ##################################
 
