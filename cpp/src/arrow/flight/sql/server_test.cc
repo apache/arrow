@@ -24,6 +24,7 @@
 #include "arrow/array/array_binary.h"
 #include "arrow/array/array_nested.h"
 #include "arrow/array/array_primitive.h"
+#include "arrow/flight/server_tracing_middleware.h"
 #include "arrow/flight/sql/client.h"
 #include "arrow/flight/sql/column_metadata.h"
 #include "arrow/flight/sql/example/sqlite_server.h"
@@ -37,10 +38,58 @@
 #include "arrow/table.h"
 #include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/logging_v2.h"
+
+#ifdef ARROW_TELEMETRY
+#include "arrow/telemetry/logging.h"
+#include "arrow/util/tracing_internal.h"
+
+#include <opentelemetry/context/propagation/global_propagator.h>
+#include <opentelemetry/context/propagation/text_map_propagator.h>
+#include <opentelemetry/sdk/trace/processor.h>
+#include <opentelemetry/sdk/trace/tracer_provider.h>
+#include <opentelemetry/trace/propagation/http_trace_context.h>
+#endif
 
 using arrow::internal::checked_cast;
 
 namespace arrow::flight::sql {
+
+#ifdef ARROW_TELEMETRY
+class OtelEnvironment : public ::testing::Environment {
+ public:
+  void SetUp() override {
+    std::vector<std::unique_ptr<opentelemetry::sdk::trace::SpanProcessor>> processors;
+    auto tracer_provider =
+        opentelemetry::nostd::shared_ptr<opentelemetry::sdk::trace::TracerProvider>(
+            new opentelemetry::sdk::trace::TracerProvider(std::move(processors)));
+    opentelemetry::trace::Provider::SetTracerProvider(std::move(tracer_provider));
+
+    opentelemetry::context::propagation::GlobalTextMapPropagator::SetGlobalPropagator(
+        opentelemetry::nostd::shared_ptr<
+            opentelemetry::context::propagation::TextMapPropagator>(
+            new opentelemetry::trace::propagation::HttpTraceContext()));
+
+    auto provider_options = telemetry::LoggerProviderOptions::Defaults();
+    ASSERT_OK(telemetry::GlobalLoggerProvider::Initialize(provider_options));
+    auto logging_options = telemetry::LoggingOptions::Defaults();
+    logging_options.severity_threshold = telemetry::LogLevel::ARROW_TRACE;
+    logging_options.flush_severity = telemetry::LogLevel::ARROW_TRACE;
+    std::shared_ptr<telemetry::Logger> logger1, logger2;
+    ASSERT_OK_AND_ASSIGN(logger1, telemetry::GlobalLoggerProvider::MakeLogger(
+                                      "FlightGrpcServer", logging_options));
+    ASSERT_OK_AND_ASSIGN(logger2, telemetry::GlobalLoggerProvider::MakeLogger(
+                                      "FlightSqlServer", logging_options));
+    ASSERT_OK(util::LoggerRegistry::RegisterLogger(logger1->name(), logger1));
+    ASSERT_OK(util::LoggerRegistry::RegisterLogger(logger2->name(), logger2));
+  }
+
+  void TearDown() override { EXPECT_TRUE(telemetry::GlobalLoggerProvider::ShutDown()); }
+};
+
+static ::testing::Environment* kOtelEnvironment =
+    ::testing::AddGlobalTestEnvironment(new OtelEnvironment);
+#endif
 
 /// \brief Auxiliary variant visitor used to assert that GetSqlInfo's values are
 /// correctly placed on its DenseUnionArray
@@ -150,6 +199,8 @@ class TestFlightSqlServer : public ::testing::Test {
   void SetUp() override {
     ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("0.0.0.0", 0));
     arrow::flight::FlightServerOptions options(location);
+    options.middleware.push_back({"FlightSqlTracingMiddleware",
+                                  arrow::flight::MakeTracingServerMiddlewareFactory()});
     ASSERT_OK_AND_ASSIGN(server, example::SQLiteFlightSqlServer::Create());
     ASSERT_OK(server->Init(options));
 

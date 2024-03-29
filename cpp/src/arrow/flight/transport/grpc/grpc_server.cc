@@ -37,7 +37,11 @@
 #include "arrow/flight/transport_server.h"
 #include "arrow/flight/types.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/logging_v2.h"
 #include "arrow/util/uri.h"
+
+#define ARROW_FLIGHT_LOG(LEVEL, ...) \
+  ARROW_LOG_WITH("FlightGrpcServer", LEVEL, __VA_ARGS__)
 
 namespace arrow {
 namespace flight {
@@ -335,6 +339,8 @@ class GrpcServiceHandler final : public FlightService::Service {
         return flight_context.FinishRequest(result);
       }
       if (instance != nullptr) {
+        ARROW_FLIGHT_LOG(
+            INFO, "[MakeCallContext] Started call for middleware: ", instance->name());
         flight_context.middleware_.push_back(instance);
         flight_context.middleware_map_.insert({factory.first, instance});
       }
@@ -531,6 +537,7 @@ class GrpcServiceHandler final : public FlightService::Service {
     CHECK_ARG_NOT_NULL(flight_context, request, "Action cannot be null");
     Action action;
     SERVICE_RETURN_NOT_OK(flight_context, internal::FromProto(*request, &action));
+    ARROW_FLIGHT_LOG(INFO, "[DoAction] action.type=", action.type);
 
     std::unique_ptr<ResultStream> results;
     SERVICE_RETURN_NOT_OK(flight_context,
