@@ -803,6 +803,37 @@ def _reconstruct_sub_dataframe(item, columns=None, extension_columns=None):
     return df, placement
 
 
+def _reconstruct_arrays(item, columns=None, extension_columns=None):
+
+    block_arr = item.get('block', None)
+    placement = item['placement']
+    if 'dictionary' in item:
+        arr = _pandas_api.categorical_type.from_codes(
+            block_arr, categories=item['dictionary'],
+            ordered=item['ordered'])
+    elif 'timezone' in item:
+        unit, _ = np.datetime_data(block_arr.dtype)
+        dtype = make_datetimetz(unit, item['timezone'])
+        arr = _pandas_api.pd.array(
+            block_arr.view("int64"), dtype=dtype, copy=False
+        )
+    elif 'py_array' in item:
+        # create ExtensionBlock
+        arr = item['py_array']
+        assert len(placement) == 1
+        name = columns[placement[0]]
+        pandas_dtype = extension_columns[name]
+        if not hasattr(pandas_dtype, '__from_arrow__'):
+            raise ValueError("This column does not support to be converted "
+                             "to a pandas ExtensionArray")
+        arr = pandas_dtype.__from_arrow__(arr)
+    else:
+        # 2d block
+        arr = block_arr[0]
+
+    return arr, placement
+
+
 def make_datetimetz(unit, tz):
     if _pandas_api.is_v1():
         unit = 'ns'  # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
@@ -853,10 +884,16 @@ def table_to_dataframe(
         if not result:
             return DataFrame(index=index, columns=columns)
 
+        # if options["split_blocks"]:
+        #     arrays, placements = zip(*[
+        #         _reconstruct_arrays(item, table_columns, ext_columns_dtypes)
+        #         for item in result])
+        #     return DataFrame._from_arrays(arrays, index=index, columns=columns)
+
         dfs, placements = zip(*[
             _reconstruct_sub_dataframe(item, table_columns, ext_columns_dtypes)
-                for item in result])
-        
+            for item in result])
+
         df = concat(dfs, axis=1, copy=False, ignore_index=True)
         indexer = np.concatenate(placements).argsort()
         df = df.take(indexer, axis=1)
