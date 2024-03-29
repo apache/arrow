@@ -32,7 +32,9 @@ import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
 import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.IntervalDayVector;
+import org.apache.arrow.vector.IntervalMonthDayNanoVector;
 import org.apache.arrow.vector.IntervalYearVector;
+import org.apache.arrow.vector.PeriodDuration;
 import org.apache.arrow.vector.ValueVector;
 import org.junit.After;
 import org.junit.Assert;
@@ -66,6 +68,9 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
         } else if (vector instanceof IntervalYearVector) {
           return new ArrowFlightJdbcIntervalVectorAccessor((IntervalYearVector) vector,
               getCurrentRow, noOpWasNullConsumer);
+        } else if (vector instanceof IntervalMonthDayNanoVector) {
+          return new ArrowFlightJdbcIntervalVectorAccessor((IntervalMonthDayNanoVector) vector,
+                  getCurrentRow, noOpWasNullConsumer);
         }
         return null;
       };
@@ -98,6 +103,17 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
           }
           return vector;
         }, "IntervalYearVector"},
+        {(Supplier<ValueVector>) () -> {
+          IntervalMonthDayNanoVector vector =
+                  new IntervalMonthDayNanoVector("", rootAllocatorTestRule.getRootAllocator());
+
+          int valueCount = 10;
+          vector.setValueCount(valueCount);
+          for (int i = 0; i < valueCount; i++) {
+            vector.set(i, i + 1, (i + 1) * 10, (i + 1) * 100);
+          }
+          return vector;
+        }, "IntervalMonthDayNanoVector"},
     });
   }
 
@@ -144,6 +160,9 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
       return formatIntervalDay(Duration.parse(object));
     } else if (vector instanceof IntervalYearVector) {
       return formatIntervalYear(Period.parse(object));
+    } else if (vector instanceof IntervalMonthDayNanoVector) {
+      String[] periodAndDuration = object.split(" ");
+      return new PeriodDuration(Period.parse(periodAndDuration[0]), Duration.parse(periodAndDuration[1])).toString();
     }
     return null;
   }
@@ -225,6 +244,8 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
       return Duration.class;
     } else if (vector instanceof IntervalYearVector) {
       return Period.class;
+    } else if (vector instanceof IntervalMonthDayNanoVector) {
+      return PeriodDuration.class;
     }
     return null;
   }
@@ -239,6 +260,10 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
       for (int i = 0; i < valueCount; i++) {
         ((IntervalYearVector) vector).setNull(i);
       }
+    } else if (vector instanceof IntervalMonthDayNanoVector) {
+      for (int i = 0; i < valueCount; i++) {
+        ((IntervalMonthDayNanoVector) vector).setNull(i);
+      }
     }
   }
 
@@ -247,6 +272,10 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
       return Duration.ofDays(currentRow + 1).plusMillis((currentRow + 1) * 1000L);
     } else if (vector instanceof IntervalYearVector) {
       return Period.ofMonths(currentRow + 1);
+    } else if (vector instanceof IntervalMonthDayNanoVector) {
+      Period period = Period.ofMonths(currentRow + 1).plusDays((currentRow + 1) * 10L);
+      Duration duration = Duration.ofNanos((currentRow + 1) * 100L);
+      return new PeriodDuration(period, duration);
     }
     return null;
   }
