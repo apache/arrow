@@ -1316,7 +1316,9 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     levels_position_ = 0;
     levels_capacity_ = 0;
     read_dense_for_nullable_ = read_dense_for_nullable;
-    uses_values_ = !(descr->physical_type() == Type::BYTE_ARRAY);
+    // For BYTE_ARRAY type, we don't use values_ buffer,
+    // so we don't need to allocate it.
+    uses_values_ = descr->physical_type() != Type::BYTE_ARRAY;
 
     if (uses_values_) {
       values_ = AllocateBuffer(pool);
@@ -2225,6 +2227,42 @@ class ByteArrayDictionaryRecordReader final : public TypedRecordReader<ByteArray
   std::vector<std::shared_ptr<::arrow::Array>> result_chunks_;
 };
 
+class BitmapBooleanRecordReaderImpl final : public TypedRecordReader<BooleanType>,
+                                            virtual public BitmapBooleanRecordReader {
+ public:
+  BitmapBooleanRecordReaderImpl(const ColumnDescriptor* descr, LevelInfo leaf_info,
+                                ::arrow::MemoryPool* pool, bool read_dense_for_nullable)
+      : TypedRecordReader<BooleanType>(descr, leaf_info, pool, read_dense_for_nullable) {
+    // Hack the usage of `values_` here.
+    // We uses a fixed size buffer to store the bitmap values.
+    this->uses_values_ = false;
+    this->read_boolean_as_bitmap_ = true;
+  }
+
+  std::shared_ptr<::arrow::Array> GetChunkedData() override {
+    PARQUET_ASSIGN_OR_THROW(auto array, this->accumulator_.Finish());
+    return array;
+  }
+
+  void ReadValuesDense(int64_t values_to_read) override {
+    int64_t num_decoded = this->current_decoder_->DecodeArrowNonNull(
+        static_cast<int>(values_to_read), &accumulator_);
+    CheckNumberDecoded(num_decoded, values_to_read);
+    ResetValues();
+  }
+
+  void ReadValuesSpaced(int64_t values_to_read, int64_t null_count) override {
+    int64_t num_decoded = this->current_decoder_->DecodeArrow(
+        static_cast<int>(values_to_read), static_cast<int>(null_count),
+        valid_bits_->mutable_data(), values_written_, &accumulator_);
+    CheckNumberDecoded(num_decoded, values_to_read - null_count);
+    ResetValues();
+  }
+
+ private:
+  ::arrow::BooleanBuilder accumulator_;
+};
+
 // TODO(wesm): Implement these to some satisfaction
 template <>
 void TypedRecordReader<Int96Type>::DebugPrintState() {}
@@ -2249,16 +2287,30 @@ std::shared_ptr<RecordReader> MakeByteArrayRecordReader(const ColumnDescriptor* 
   }
 }
 
+std::shared_ptr<RecordReader> MakeBooleanRecordReader(const ColumnDescriptor* descr,
+                                                      LevelInfo leaf_info,
+                                                      ::arrow::MemoryPool* pool,
+                                                      bool read_dense_for_nullable,
+                                                      bool read_boolean_as_bitmap) {
+  if (read_boolean_as_bitmap) {
+    return std::make_shared<BitmapBooleanRecordReaderImpl>(descr, leaf_info, pool,
+                                                           read_dense_for_nullable);
+  }
+  return std::make_shared<TypedRecordReader<BooleanType>>(descr, leaf_info, pool,
+                                                          read_dense_for_nullable);
+}
+
 }  // namespace
 
 std::shared_ptr<RecordReader> RecordReader::Make(const ColumnDescriptor* descr,
                                                  LevelInfo leaf_info, MemoryPool* pool,
                                                  bool read_dictionary,
-                                                 bool read_dense_for_nullable) {
+                                                 bool read_dense_for_nullable,
+                                                 bool read_boolean_as_bitmap) {
   switch (descr->physical_type()) {
     case Type::BOOLEAN:
-      return std::make_shared<TypedRecordReader<BooleanType>>(descr, leaf_info, pool,
-                                                              read_dense_for_nullable);
+      return MakeBooleanRecordReader(descr, leaf_info, pool, read_dense_for_nullable,
+                                     read_boolean_as_bitmap);
     case Type::INT32:
       return std::make_shared<TypedRecordReader<Int32Type>>(descr, leaf_info, pool,
                                                             read_dense_for_nullable);
