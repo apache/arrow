@@ -50,7 +50,7 @@ func Test_fromArrowType(t *testing.T) {
 		{Name: "f15-ts_us", Type: arrow.FixedWidthTypes.Timestamp_ns},
 		{Name: "f16-d64", Type: arrow.FixedWidthTypes.Date64},
 		{Name: "f17-dti", Type: arrow.FixedWidthTypes.DayTimeInterval},
-		{Name: "f17-duration", Type: arrow.FixedWidthTypes.Duration_ms},
+		{Name: "f17-duration", Type: arrow.FixedWidthTypes.Duration_us},
 	}
 
 	schema := arrow.NewSchema(fields, nil)
