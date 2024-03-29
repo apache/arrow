@@ -541,16 +541,16 @@ TEST_F(TestFixedShapeTensorType, ComputeStrides) {
 
   auto ext_type_5 = internal::checked_pointer_cast<FixedShapeTensorType>(
       fixed_shape_tensor(int64(), {3, 4, 7}, {1, 0, 2}));
-  ASSERT_EQ(ext_type_5->strides(), (std::vector<int64_t>{56, 224, 8}));
+  ASSERT_EQ(ext_type_5->strides(), (std::vector<int64_t>{56, 168, 8}));
   ASSERT_EQ(ext_type_5->Serialize(), R"({"shape":[3,4,7],"permutation":[1,0,2]})");
 
   auto ext_type_6 = internal::checked_pointer_cast<FixedShapeTensorType>(
       fixed_shape_tensor(int64(), {3, 4, 7}, {1, 2, 0}, {}));
-  ASSERT_EQ(ext_type_6->strides(), (std::vector<int64_t>{56, 8, 224}));
+  ASSERT_EQ(ext_type_6->strides(), (std::vector<int64_t>{32, 8, 96}));
   ASSERT_EQ(ext_type_6->Serialize(), R"({"shape":[3,4,7],"permutation":[1,2,0]})");
   auto ext_type_7 = internal::checked_pointer_cast<FixedShapeTensorType>(
       fixed_shape_tensor(int32(), {3, 4, 7}, {2, 0, 1}, {}));
-  ASSERT_EQ(ext_type_7->strides(), (std::vector<int64_t>{4, 112, 16}));
+  ASSERT_EQ(ext_type_7->strides(), (std::vector<int64_t>{4, 84, 12}));
   ASSERT_EQ(ext_type_7->Serialize(), R"({"shape":[3,4,7],"permutation":[2,0,1]})");
 }
 
@@ -621,7 +621,7 @@ TEST_F(TestFixedShapeTensorType, GetTensor) {
     // Get tensor from extension array with non-trivial permutation
     ASSERT_OK_AND_ASSIGN(auto expected_permuted_tensor,
                          Tensor::Make(value_type_, Buffer::Wrap(element_values[i]),
-                                      {4, 3}, {8, 24}, {"y", "x"}));
+                                      {4, 3}, {8, 32}, {"y", "x"}));
     ASSERT_OK_AND_ASSIGN(scalar, permuted_array->GetScalar(i));
     ASSERT_OK_AND_ASSIGN(auto actual_permuted_tensor,
                          exact_permuted_ext_type->MakeTensor(
