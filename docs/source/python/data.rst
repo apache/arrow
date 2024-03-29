@@ -560,3 +560,55 @@ schema without having to get any of the batches.::
    x: int64
 
 It can also be sent between languages using the :ref:`C stream interface <c-stream-interface>`.
+
+Conversion of RecordBatch do Tensor
+-----------------------------------
+
+Each array of the ``RecordBatch`` has it's own contiguous memory that is not necessarily
+adjacent to other arrays. A different memory structure that is used in machine learning
+libraries is a two dimensional array (also called a 2-dim tensor or a matrix) which takes
+only one contiguous block of memory.
+
+For this reason there is a function ``pyarrow.RecordBatch.to_tensor()`` available
+to efficiently convert tabular columnar data into a tensor.
+
+Data types supported in this conversion are unsigned, signed integer and float
+types. Currently only column-major conversion is supported.
+
+   >>>  import pyarrow as pa
+   >>>  arr1 = [1, 2, 3, 4, 5]
+   >>>  arr2 = [10, 20, 30, 40, 50]
+   >>>  batch = pa.RecordBatch.from_arrays(
+   ...      [
+   ...          pa.array(arr1, type=pa.uint16()),
+   ...          pa.array(arr2, type=pa.int16()),
+   ...      ], ["a", "b"]
+   ...  )
+   >>>  batch.to_tensor()
+   <pyarrow.Tensor>
+   type: int32
+   shape: (9, 2)
+   strides: (4, 36)
+   >>>  batch.to_tensor().to_numpy()
+   array([[ 1, 10],
+         [ 2, 20],
+         [ 3, 30],
+         [ 4, 40],
+         [ 5, 50]], dtype=int32)
+
+With ``null_to_nan`` set to ``True`` one can also convert data with
+nulls. They will be converted to ``NaN``:
+
+   >>> import pyarrow as pa
+   >>> batch = pa.record_batch(
+   ...     [
+   ...         pa.array([1, 2, 3, 4, None], type=pa.int32()),
+   ...         pa.array([10, 20, 30, 40, None], type=pa.float32()),
+   ...     ], names = ["a", "b"]
+   ... )
+   >>> batch.to_tensor(null_to_nan=True).to_numpy()
+   array([[ 1., 10.],
+         [ 2., 20.],
+         [ 3., 30.],
+         [ 4., 40.],
+         [nan, nan]])
