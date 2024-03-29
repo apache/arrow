@@ -58,7 +58,7 @@
         <dependency>
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-client-runtime</artifactId>
-            <version>3.3.6</version>
+            <version>${dep.hadoop.version}</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -70,12 +70,12 @@
         <dependency>
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-client-api</artifactId>
-            <version>3.3.6</version>
+            <version>${dep.hadoop.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-common</artifactId>
-            <version>3.3.6</version>
+            <version>${dep.hadoop.version}</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
