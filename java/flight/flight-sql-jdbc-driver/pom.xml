@@ -179,7 +179,9 @@
                                 <excludes>
                                     <!-- Source annotations -->
                                     <exclude>org.checkerframework:checker-qual</exclude>
+                                    <exclude>org.codehaus.mojo:animal-sniffer-annotations</exclude>
                                     <exclude>javax.annotation:javax.annotation-api</exclude>
+                                    <exclude>com.google.android:annotations</exclude>
                                     <exclude>com.google.errorprone:error_prone_annotations</exclude>
                                     <exclude>com.google.code.findbugs:jsr305</exclude>
                                     <exclude>com.google.j2objc:j2objc-annotations</exclude>
