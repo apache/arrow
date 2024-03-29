@@ -21,8 +21,8 @@
 #include <thread>
 #include <vector>
 
-#include "arrow/util/future.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/future.h"
 #include "gtest/gtest.h"
 
 namespace arrow {
