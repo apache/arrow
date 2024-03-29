@@ -91,6 +91,27 @@ static void BM_PlainDecodingBoolean(benchmark::State& state) {
 
 BENCHMARK(BM_PlainDecodingBoolean)->Range(MIN_RANGE, MAX_RANGE);
 
+static void BM_PlainDecodingBooleanToBitmap(benchmark::State& state) {
+  std::vector<bool> values(state.range(0), true);
+  uint8_t* output = new uint8_t[::arrow::bit_util::BytesForBits(state.range(0))];
+  auto encoder = MakeEncoder(Type::BOOLEAN, Encoding::PLAIN);
+  auto typed_encoder = dynamic_cast<BooleanEncoder*>(encoder.get());
+  typed_encoder->Put(values, static_cast<int>(values.size()));
+  std::shared_ptr<Buffer> buf = encoder->FlushValues();
+
+  for (auto _ : state) {
+    auto decoder = MakeTypedDecoder<BooleanType>(Encoding::PLAIN);
+    decoder->SetData(static_cast<int>(values.size()), buf->data(),
+                     static_cast<int>(buf->size()));
+    decoder->Decode(output, static_cast<int>(values.size()));
+  }
+  // Still set `BytesProcessed` to byte level.
+  state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(bool));
+  delete[] output;
+}
+
+BENCHMARK(BM_PlainDecodingBooleanToBitmap)->Range(MIN_RANGE, MAX_RANGE);
+
 static void BM_PlainEncodingInt64(benchmark::State& state) {
   std::vector<int64_t> values(state.range(0), 64);
   auto encoder = MakeTypedEncoder<Int64Type>(Encoding::PLAIN);

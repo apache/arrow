@@ -1709,7 +1709,7 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
   }
 
  protected:
-  Status IndexInBounds(int32_t index) {
+  Status IndexInBounds(int32_t index) const {
     if (ARROW_PREDICT_TRUE(0 <= index && index < dictionary_length_)) {
       return Status::OK();
     }
