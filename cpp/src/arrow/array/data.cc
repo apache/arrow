@@ -285,10 +285,10 @@ namespace {
 
 template <typename offset_type>
 BufferSpan OffsetsForScalar(uint8_t* scratch_space, offset_type value_size) {
-  auto* offsets = reinterpret_cast<offset_type*>(scratch_space);
-  offsets[0] = 0;
-  offsets[1] = static_cast<offset_type>(value_size);
-  static_assert(2 * sizeof(offset_type) <= 16);
+  // auto* offsets = reinterpret_cast<offset_type*>(scratch_space);
+  // offsets[0] = 0;
+  // offsets[1] = static_cast<offset_type>(value_size);
+  // static_assert(2 * sizeof(offset_type) <= 16);
   return {scratch_space, sizeof(offset_type) * 2};
 }
 
@@ -297,9 +297,9 @@ std::pair<BufferSpan, BufferSpan> OffsetsAndSizesForScalar(uint8_t* scratch_spac
                                                            offset_type value_size) {
   auto* offsets = scratch_space;
   auto* sizes = scratch_space + sizeof(offset_type);
-  reinterpret_cast<offset_type*>(offsets)[0] = 0;
-  reinterpret_cast<offset_type*>(sizes)[0] = value_size;
-  static_assert(2 * sizeof(offset_type) <= 16);
+  // reinterpret_cast<offset_type*>(offsets)[0] = 0;
+  // reinterpret_cast<offset_type*>(sizes)[0] = value_size;
+  // static_assert(2 * sizeof(offset_type) <= 16);
   return {BufferSpan{offsets, sizeof(offset_type)},
           BufferSpan{sizes, sizeof(offset_type)}};
 }
@@ -428,14 +428,14 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
 
     this->buffers[1].size = BinaryViewType::kSize;
     this->buffers[1].data = scalar.scratch_space_;
-    static_assert(sizeof(BinaryViewType::c_type) <= sizeof(scalar.scratch_space_));
-    auto* view = new (&scalar.scratch_space_) BinaryViewType::c_type;
-    if (scalar.is_valid) {
-      *view = util::ToBinaryView(std::string_view{*scalar.value}, 0, 0);
-      this->buffers[2] = internal::PackVariadicBuffers({&scalar.value, 1});
-    } else {
-      *view = {};
-    }
+    // static_assert(sizeof(BinaryViewType::c_type) <= sizeof(scalar.scratch_space_));
+    // auto* view = new (&scalar.scratch_space_) BinaryViewType::c_type;
+    // if (scalar.is_valid) {
+    //   *view = util::ToBinaryView(std::string_view{*scalar.value}, 0, 0);
+    //   this->buffers[2] = internal::PackVariadicBuffers({&scalar.value, 1});
+    // } else {
+    //   *view = {};
+    // }
   } else if (type_id == Type::FIXED_SIZE_BINARY) {
     const auto& scalar = checked_cast<const BaseBinaryScalar&>(value);
     this->buffers[1].data = const_cast<uint8_t*>(scalar.value->data());
@@ -492,7 +492,7 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
     // First buffer is kept null since unions have no validity vector
     this->buffers[0] = {};
 
-    union_scratch_space->type_code = checked_cast<const UnionScalar&>(value).type_code;
+    // union_scratch_space->type_code = checked_cast<const UnionScalar&>(value).type_code;
     this->buffers[1].data = reinterpret_cast<uint8_t*>(&union_scratch_space->type_code);
     this->buffers[1].size = 1;
 
@@ -541,7 +541,7 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
       e.null_count = 0;
       e.buffers[1].data = scalar.scratch_space_;
       e.buffers[1].size = sizeof(run_end);
-      reinterpret_cast<decltype(run_end)*>(scalar.scratch_space_)[0] = run_end;
+      // reinterpret_cast<decltype(run_end)*>(scalar.scratch_space_)[0] = run_end;
     };
 
     switch (scalar.run_end_type()->id()) {
