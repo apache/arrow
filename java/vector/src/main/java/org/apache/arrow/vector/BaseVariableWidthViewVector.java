@@ -40,7 +40,7 @@ import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
- * BaseVariableWidthVector is a base class providing functionality for strings/bytes types.
+ * BaseVariableWidthViewVector is a base class providing functionality for strings/bytes types in view format.
  *
  */
 public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthVector {
@@ -50,15 +50,13 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   private int lastValueCapacity;
   private long lastValueAllocationSizeInBytes;
 
-  /* protected members */
   public static final int OFFSET_WIDTH = 4; /* 4 byte unsigned int to track offsets */
-  protected static final int INLINE_SIZE = 12;
-  protected static final int VIEW_BUFFER_SIZE = 16;
-  protected static final int LENGTH_WIDTH = 4;
-  protected static final int INLINE_BUF_DATA_WIDTH = 12;
-  protected static final int PREFIX_WIDTH = 4;
-  protected static final int BUF_INDEX_WIDTH = 4;
-  protected static final int BUF_OFFSET_WIDTH = 4;
+  /* protected members */
+  protected static final int INLINE_SIZE = 12; /* 12 byte unsigned int to track inline views*/
+  protected static final int VIEW_BUFFER_SIZE = 16; /* 16 byte default size for each view*/
+  protected static final int LENGTH_WIDTH = 4; /* the first 4 bytes of view are allocated for length*/
+  protected static final int PREFIX_WIDTH = 4; /* the second 4 bytes of view are allocated for prefix width*/
+  protected static final int BUF_INDEX_WIDTH = 4; /* third 4 bytes of view are allocated for buffer index*/
   protected static final byte[] emptyByteArray = new byte[]{};
   protected ArrowBuf validityBuffer;
   protected ArrowBuf valueBuffer;
@@ -66,13 +64,12 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   protected int valueCount;
   protected int lastSet;
   protected final Field field;
-
   protected List<ArrowBuf> dataBuffers;
 
   /**
    * Constructs a new instance.
    *
-   * @param field The field materialized by this vector.
+   * @param field The field materialized by this vector
    * @param allocator The allocator to use for creating/resizing buffers
    */
   public BaseVariableWidthViewVector(Field field, final BufferAllocator allocator) {
@@ -116,6 +113,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
    * Get buffer that manages the validity (NULL or NON-NULL nature) of
    * elements in the vector. Consider it as a buffer for internal bit vector
    * data structure.
+   *
    * @return buffer
    */
   @Override
@@ -125,17 +123,18 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
 
   /**
    * Get the buffer that stores the data for elements in the vector.
+   *
    * @return buffer
    */
   @Override
   public ArrowBuf getDataBuffer() {
-    // TODO: fixme
     return valueBuffer;
   }
 
   /**
    * buffer that stores the offsets for elements
    * in the vector. This operation is not supported for fixed-width vectors.
+   *
    * @return buffer
    */
   @Override
@@ -146,6 +145,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   /**
    * Get the memory address of buffer that stores the offsets for elements
    * in the vector.
+   *
    * @return starting address of the buffer
    */
   @Override
@@ -156,6 +156,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   /**
    * Get the memory address of buffer that manages the validity
    * (NULL or NON-NULL nature) of elements in the vector.
+   *
    * @return starting address of the buffer
    */
   @Override
@@ -166,6 +167,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   /**
    * Get the memory address of buffer that stores the data for elements
    * in the vector.
+   *
    * @return starting address of the buffer
    */
   @Override
@@ -176,6 +178,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   /**
    * Sets the desired value capacity for the vector. This function doesn't
    * allocate any memory for the vector.
+   *
    * @param valueCount desired number of elements in the vector
    */
   @Override
@@ -190,6 +193,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   /**
    * Sets the desired value capacity for the vector. This function doesn't
    * allocate any memory for the vector.
+   *
    * @param valueCount desired number of elements in the vector
    * @param density average number of bytes per variable width element
    */
@@ -219,6 +223,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   /**
    * Get the current capacity which does not exceed either validity buffer or offset buffer.
    * Note: Here the `getValueCapacity` has no relationship with the value buffer.
+   *
    * @return number of elements that vector can hold.
    */
   @Override
@@ -467,7 +472,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
    * within bounds.
    */
   private long computeAndCheckOffsetsBufferSize(int valueCount) {
-    /* to track the end offset of last data element in vector, we need
+    /* to track the end offset of the last data element in vector, we need
      * an additional slot in offset buffer.
      */
     final long size = computeCombinedBufferSize(valueCount + 1, OFFSET_WIDTH);
@@ -495,22 +500,6 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
 
     lastValueCapacity = getValueCapacity();
     lastValueAllocationSizeInBytes = capAtMaxInt(valueBuffer.capacity());
-  }
-
-  /* allocate offset buffer */
-  private void allocateOffsetBuffer(final long size) {
-    final int curSize = (int) size;
-    offsetBuffer = allocator.buffer(curSize);
-    offsetBuffer.readerIndex(0);
-    initOffsetBuffer();
-  }
-
-  /* allocate validity buffer */
-  private void allocateValidityBuffer(final long size) {
-    final int curSize = (int) size;
-    validityBuffer = allocator.buffer(curSize);
-    validityBuffer.readerIndex(0);
-    initValidityBuffer();
   }
 
   /**
@@ -552,7 +541,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
 
   /**
    * Reallocate the data buffer to given size. Data Buffer stores the actual data for
-   * VARCHAR or VARBINARY elements in the vector. The actual allocate size may be larger
+   * VARCHAR or VARBINARY elements in the vector. The actual allocated size may be larger
    * than the request one because it will round up the provided value to the nearest
    * power of two.
    *
@@ -570,7 +559,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
 
     checkDataBufferSize(newAllocationSize);
     // for each set operation, we have to allocate 16 bytes
-    // here we are adjusting the desired allocation based allocation size
+    // here we are adjusting the desired allocation-based allocation size
     // to align with the 16bytes requirement.
     newAllocationSize += VIEW_BUFFER_SIZE;
 
@@ -583,12 +572,16 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   }
 
   /**
-  * Reallocate the data buffer for reference buffer.
+   * Reallocate the data buffer for reference buffer.
+   *
    * @param desiredAllocSize allocation size in bytes
-  */
+   */
   public void reallocViewReferenceBuffer(long desiredAllocSize) {
-    // TODO: validate this logic
     if (desiredAllocSize == 0) {
+      return;
+    }
+
+    if (dataBuffers.isEmpty()) {
       return;
     }
 
@@ -609,17 +602,17 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   /**
    * Reallocate the validity and offset buffers for this vector. Validity
    * buffer is used to track the NULL or NON-NULL nature of elements in
-   * the vector and offset buffer is used to store the lengths of variable
+   * the vector, and offset buffer is used to store the lengths of variable
    * width elements in the vector.
    *
    * <p>Note that data buffer for variable length vectors moves independent
    * of the companion validity and offset buffers. This is in
    * contrast to what we have for fixed width vectors.
    *
-   * <p>So even though we may have setup an initial capacity of 1024
+   * <p>So even though we may have set up an initial capacity of 1024
    * elements in the vector, it is quite possible
    * that we need to reAlloc() the data buffer when we are setting
-   * the 5th element in the vector simply because previous
+   * the fifth element in the vector simply because previous
    * variable length elements have exhausted the buffer capacity.
    * However, we really don't need to reAlloc() validity and
    * offset buffers until we try to set the 1025th element
@@ -713,11 +706,16 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
 
   /**
    * Return the underlying buffers associated with this vector. Note that this doesn't
-   * impact the reference counts for this buffer so it only should be used for in-context
-   * access. Also note that this buffer changes regularly thus
+   * impact the reference counts for this buffer, so it only should be used for in-context
+   * access. Also note that this buffer changes regularly, thus
    * external classes shouldn't hold a reference to it (unless they change it).
+   * <p>
+   * Note: This method only returns validityBuffer, offsetBuffer and valueBuffer.
+   * But it doesn't return the reference buffers.
+   * <p>
+   * TODO: Introduce a separate method to get the reference buffers.
    *
-   * @param clear Whether to clear vector before returning; the buffers will still be refcounted
+   * @param clear Whether to clear vector before returning, the buffers will still be refcounted
    *              but the returned array will be the only reference to them
    * @return The underlying {@link ArrowBuf buffers} that is used by this
    *         vector instance.
@@ -751,7 +749,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   }
 
   /**
-   * Construct a transfer pair of this vector and another vector of same type.
+   * Construct a transfer pair of this vector and another vector of the same type.
    * @param field The field materialized by this vector.
    * @param allocator allocator for the target vector
    * @param callBack not used
@@ -763,7 +761,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   }
 
   /**
-   * Construct a transfer pair of this vector and another vector of same type.
+   * Construct a transfer pair of this vector and another vector of the same type.
    * @param ref name of the target vector
    * @param allocator allocator for the target vector
    * @param callBack not used
@@ -775,7 +773,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   }
 
   /**
-   * Construct a transfer pair of this vector and another vector of same type.
+   * Construct a transfer pair of this vector and another vector of the same type.
    * @param allocator allocator for the target vector
    * @return TransferPair
    */
@@ -785,7 +783,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   }
 
   /**
-   * Construct a transfer pair of this vector and another vector of same type.
+   * Construct a transfer pair of this vector and another vector of the same type.
    * @param ref name of the target vector
    * @param allocator allocator for the target vector
    * @return TransferPair
@@ -794,7 +792,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   public abstract TransferPair getTransferPair(String ref, BufferAllocator allocator);
 
   /**
-   * Construct a transfer pair of this vector and another vector of same type.
+   * Construct a transfer pair of this vector and another vector of the same type.
    * @param field The field materialized by this vector.
    * @param allocator allocator for the target vector
    * @return TransferPair
@@ -803,22 +801,13 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   public abstract TransferPair getTransferPair(Field field, BufferAllocator allocator);
 
   /**
-   * Transfer this vector'data to another vector. The memory associated
-   * with this vector is transferred to the allocator of target vector
+   * Transfer this vector's data to another vector.
+   * The memory associated with this vector is transferred to the allocator of target vector
    * for accounting and management purposes.
    * @param target destination vector for transfer
    */
   public void transferTo(BaseVariableWidthViewVector target) {
-    compareTypes(target, "transferTo");
-    target.clear();
-    target.validityBuffer = transferBuffer(validityBuffer, target.allocator);
-    target.valueBuffer = transferBuffer(valueBuffer, target.allocator);
-    target.offsetBuffer = transferBuffer(offsetBuffer, target.allocator);
-    target.setLastSet(this.lastSet);
-    if (this.valueCount > 0) {
-      target.setValueCount(this.valueCount);
-    }
-    clear();
+    throw new UnsupportedOperationException("trasferTo function not supported!");
   }
 
   /**
@@ -830,107 +819,8 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
    */
   public void splitAndTransferTo(int startIndex, int length,
                                  BaseVariableWidthViewVector target) {
-    Preconditions.checkArgument(startIndex >= 0 && length >= 0 && startIndex + length <= valueCount,
-        "Invalid parameters startIndex: %s, length: %s for valueCount: %s", startIndex, length, valueCount);
-    compareTypes(target, "splitAndTransferTo");
-    target.clear();
-    splitAndTransferValidityBuffer(startIndex, length, target);
-    splitAndTransferOffsetBuffer(startIndex, length, target);
-    target.setLastSet(length - 1);
-    if (length > 0) {
-      target.setValueCount(length);
-    }
+    throw new UnsupportedOperationException("splitAndTransferTo function not supported!");
   }
-
-  /**
-   * Transfer the offsets along with data. Unlike the data buffer, we cannot simply
-   * slice the offset buffer for split and transfer. The reason is that offsets
-   * in the target vector have to be adjusted and made relative to the staring
-   * offset in source vector from the start index of split. This is why, we
-   * need to explicitly allocate the offset buffer and set the adjusted offsets
-   * in the target vector.
-   */
-  private void splitAndTransferOffsetBuffer(int startIndex, int length, BaseVariableWidthViewVector target) {
-    final int start = getStartOffset(startIndex);
-    final int end = getStartOffset(startIndex + length);
-    final int dataLength = end - start;
-
-    if (start == 0) {
-      final ArrowBuf slicedOffsetBuffer = offsetBuffer.slice(startIndex * ((long) OFFSET_WIDTH),
-          (1 + length) * ((long) OFFSET_WIDTH));
-      target.offsetBuffer = transferBuffer(slicedOffsetBuffer, target.allocator);
-    } else {
-      target.allocateOffsetBuffer((long) (length + 1) * OFFSET_WIDTH);
-      for (int i = 0; i < length + 1; i++) {
-        final int relativeSourceOffset = getStartOffset(startIndex + i) - start;
-        target.offsetBuffer.setInt((long) i * OFFSET_WIDTH, relativeSourceOffset);
-      }
-    }
-    final ArrowBuf slicedBuffer = valueBuffer.slice(start, dataLength);
-    target.valueBuffer = transferBuffer(slicedBuffer, target.allocator);
-  }
-
-  /*
-   * Transfer the validity.
-   */
-  private void splitAndTransferValidityBuffer(int startIndex, int length,
-                                              BaseVariableWidthViewVector target) {
-    if (length <= 0) {
-      return;
-    }
-
-    final int firstByteSource = BitVectorHelper.byteIndex(startIndex);
-    final int lastByteSource = BitVectorHelper.byteIndex(valueCount - 1);
-    final int byteSizeTarget = getValidityBufferSizeFromCount(length);
-    final int offset = startIndex % 8;
-
-    if (offset == 0) {
-      // slice
-      if (target.validityBuffer != null) {
-        target.validityBuffer.getReferenceManager().release();
-      }
-      final ArrowBuf slicedValidityBuffer = validityBuffer.slice(firstByteSource, byteSizeTarget);
-      target.validityBuffer = transferBuffer(slicedValidityBuffer, target.allocator);
-      return;
-    }
-
-    /* Copy data
-     * When the first bit starts from the middle of a byte (offset != 0),
-     * copy data from src BitVector.
-     * Each byte in the target is composed by a part in i-th byte,
-     * another part in (i+1)-th byte.
-     */
-    target.allocateValidityBuffer(byteSizeTarget);
-
-    for (int i = 0; i < byteSizeTarget - 1; i++) {
-      byte b1 = BitVectorHelper.getBitsFromCurrentByte(this.validityBuffer, firstByteSource + i, offset);
-      byte b2 = BitVectorHelper.getBitsFromNextByte(this.validityBuffer, firstByteSource + i + 1, offset);
-
-      target.validityBuffer.setByte(i, (b1 + b2));
-    }
-    /* Copying the last piece is done in the following manner:
-     * if the source vector has 1 or more bytes remaining, we copy
-     * the last piece as a byte formed by shifting data
-     * from the current byte and the next byte.
-     *
-     * if the source vector has no more bytes remaining
-     * (we are at the last byte), we copy the last piece as a byte
-     * by shifting data from the current byte.
-     */
-    if ((firstByteSource + byteSizeTarget - 1) < lastByteSource) {
-      byte b1 = BitVectorHelper.getBitsFromCurrentByte(this.validityBuffer,
-          firstByteSource + byteSizeTarget - 1, offset);
-      byte b2 = BitVectorHelper.getBitsFromNextByte(this.validityBuffer,
-          firstByteSource + byteSizeTarget, offset);
-
-      target.validityBuffer.setByte(byteSizeTarget - 1, b1 + b2);
-    } else {
-      byte b1 = BitVectorHelper.getBitsFromCurrentByte(this.validityBuffer,
-          firstByteSource + byteSizeTarget - 1, offset);
-      target.validityBuffer.setByte(byteSizeTarget - 1, b1);
-    }
-  }
-
 
   /*----------------------------------------------------------------*
    |                                                                |
@@ -954,17 +844,17 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
    * of the vector.
    *
    * @param index  position to check
-   * @return true if index is within the current value capacity
+   * @return true if the index is within the current value capacity
    */
   public boolean isSafe(int index) {
     return index < getValueCapacity();
   }
 
   /**
-   * Check if element at given index is null.
+   * Check if an element at given index is null.
    *
-   * @param index  position of element
-   * @return true if element at given index is null
+   * @param index  position of an element
+   * @return true if an element at given index is null
    */
   @Override
   public boolean isNull(int index) {
@@ -974,7 +864,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   /**
    * Same as {@link #isNull(int)}.
    *
-   * @param index  position of element
+   * @param index  position of an element
    * @return 1 if element at given index is not null, 0 otherwise
    */
   public int isSet(int index) {
@@ -1014,7 +904,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
 
   /**
    * Create holes in the vector upto the given index (exclusive).
-   * Holes will be created from the current last set position in
+   * Holes will be created from the current last-set position in
    * the vector.
    *
    * @param index target index
@@ -1027,7 +917,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   }
 
   /**
-   * Set the index of last non-null element in the vector.
+   * Set the index of the last non-null element in the vector.
    * It is important to call this method with appropriate value
    * before calling {@link #setValueCount(int)}.
    *
@@ -1039,7 +929,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   }
 
   /**
-   * Get the index of last non-null element in the vector.
+   * Get the index of the last non-null element in the vector.
    *
    * @return index of the last non-null element
    */
@@ -1066,7 +956,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
    */
   @Override
   public void setIndexDefined(int index) {
-    // We need to check and realloc both validity and offset buffer
+    // We need to check and reallocate both validity and offset buffer
     while (index >= getValueCapacity()) {
       reallocValidityAndOffsetBuffers();
     }
@@ -1092,8 +982,8 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   /**
    * Get the variable length element at specified index as Text.
    *
-   * @param index   position of element to get
-   * @return greater than 0 length for non-null element, 0 otherwise
+   * @param index position of an element to get
+   * @return greater than length 0 for a non-null element, 0 otherwise
    */
   @Override
   public int getValueLength(int index) {
@@ -1109,7 +999,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   /**
    * Set the variable length element at the specified index to the supplied
    * byte array. This is same as using {@link #set(int, byte[], int, int)}
-   * with start as 0 and length as value.length
+   * with start as Zero and length as #value.length
    *
    * @param index   position of the element to set
    * @param value   array of bytes to write
@@ -1124,7 +1014,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
 
   /**
    * Same as {@link #set(int, byte[])} except that it handles the
-   * case where index and length of new element are beyond the existing
+   * case where index and length of a new element are beyond the existing
    * capacity of the vector.
    *
    * @param index   position of the element to set
@@ -1133,7 +1023,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   @Override
   public void setSafe(int index, byte[] value) {
     assert index >= 0;
-    // check if current index can be populated
+    // check if the current index can be populated
     handleSafe(index, value.length);
     fillHoles(index);
     BitVectorHelper.setBit(validityBuffer, index);
@@ -1147,8 +1037,8 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
    *
    * @param index   position of the element to set
    * @param value   array of bytes to write
-   * @param start   start index in array of bytes
-   * @param length  length of data in array of bytes
+   * @param start   start index in an array of bytes
+   * @param length  length of data in an array of bytes
    */
   public void set(int index, byte[] value, int start, int length) {
     assert index >= 0;
@@ -1160,22 +1050,18 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
 
   /**
    * Same as {@link #set(int, byte[], int, int)} except that it handles the
-   * case where index and length of new element are beyond the existing
+   * case where index and length of a new element are beyond the existing
    * capacity of the vector.
    *
    * @param index   position of the element to set
    * @param value   array of bytes to write
-   * @param start   start index in array of bytes
-   * @param length  length of data in array of bytes
+   * @param start   start index in an array of bytes
+   * @param length  length of data in an array of bytes
    */
   public void setSafe(int index, byte[] value, int start, int length) {
     assert index >= 0;
     handleSafe(index, length);
     fillHoles(index);
-    // in fillHoles we are separately setting 16 byte for each index
-    // as the view buffer requires that space.
-    // TODO: verify if handleSafe needs to be recalled after fillHoles
-    handleSafe(index, value.length);
     BitVectorHelper.setBit(validityBuffer, index);
     setBytes(index, value, start, length);
     lastSet = index;
@@ -1200,7 +1086,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
 
   /**
    * Same as {@link #set(int, ByteBuffer, int, int)} except that it handles the
-   * case where index and length of new element are beyond the existing
+   * case where index and length of a new element are beyond the existing
    * capacity of the vector.
    *
    * @param index   position of the element to set
@@ -1220,11 +1106,11 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   /**
    * Set the element at the given index to null.
    *
-   * @param index   position of element
+   * @param index position of an element
    */
   @Override
   public void setNull(int index) {
-    // We need to check and realloc both validity and offset buffer
+    // We need to check and reallocate both validity and offset buffer
     while (index >= getValueCapacity()) {
       reallocValidityAndOffsetBuffers();
     }
@@ -1235,7 +1121,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
    * Store the given value at a particular position in the vector. isSet indicates
    * whether the value is NULL or not.
    * @param index position of the new value
-   * @param isSet 0 for NULL value, 1 otherwise
+   * @param isSet Zero for NULL value, 1 otherwise
    * @param start start position of data in buffer
    * @param end end position of data in buffer
    * @param buffer data buffer containing the variable width element to be stored
@@ -1257,7 +1143,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
    * when index is greater than or equal to current value capacity of the
    * vector.
    * @param index position of the new value
-   * @param isSet 0 for NULL value, 1 otherwise
+   * @param isSet Zero for NULL value, 1 otherwise
    * @param start start position of data in buffer
    * @param end end position of data in buffer
    * @param buffer data buffer containing the variable width element to be stored
@@ -1330,8 +1216,34 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
     lastSet = index - 1;
   }
 
-  protected void createViewBuffer(BufferAllocator allocator, int index, byte[] value, int start, int length,
-      ArrowBuf valueBuffer, List<ArrowBuf> dataBuffers) {
+  /**
+   * This method is used to create a view buffer for a variable width vector.
+   * It handles both inline and reference buffers.
+   * <p>
+   * If the length of the value is less than or equal to {@link #INLINE_SIZE}, the value is stored in the valueBuffer
+   * directly as an inline buffer.
+   * The valueBuffer stores the length of the value followed by the value itself.
+   * If the length of the value is greater than {@link #INLINE_SIZE}, a new buffer is allocated and added to dataBuffers
+   * to hold the value.
+   * The valueBuffer in this case stores the length of the value, a prefix of the value, the index of the
+   * new buffer in dataBuffers, and the offset of the value in the new buffer.
+   *
+   * @param allocator The allocator used to create new ArrowBuf instances.
+   * @param index The index at which the new value will be inserted.
+   * @param value The byte array that contains the data to be inserted.
+   * @param start The start index in the byte array from where the data for the new value begins.
+   * @param length The length of the data in the byte array that belongs to the new value.
+   * @param valueBuffer The ArrowBuf instance that will hold the data of the new value.
+   * @param dataBuffers The list of ArrowBuf instances that hold the data of all values in the vector.
+   */
+  protected void createViewBuffer(
+      BufferAllocator allocator,
+      int index,
+      byte[] value,
+      int start,
+      int length,
+      ArrowBuf valueBuffer,
+      List<ArrowBuf> dataBuffers) {
     int writePosition = index * VIEW_BUFFER_SIZE;
     if (value.length <= INLINE_SIZE) {
       // inline buffer
@@ -1343,7 +1255,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
     } else {
       // reference buffer
       if (dataBuffers.isEmpty()) {
-        // first data buffer needs to be added
+        // the first data buffer needs to be added
         ArrowBuf newDataBuf = allocator.buffer(lastValueAllocationSizeInBytes);
         // set length
         valueBuffer.setInt(writePosition, length);
@@ -1361,7 +1273,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
         dataBuffers.add(newDataBuf);
       } else {
         // insert to the last buffer in the data buffers or allocate new if the last buffer isn't enough
-        // set length
+        // set lengths
         valueBuffer.setInt(writePosition, length);
         writePosition += LENGTH_WIDTH;
         // set prefix
@@ -1372,14 +1284,14 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
         ArrowBuf currentBuf = dataBuffers.get(currentBufId);
         if (currentBuf.capacity() - currentBuf.writerIndex() >= length) {
           // current buffer is enough
-          // set buf index
+          // set buf indexes
           valueBuffer.setInt(writePosition, currentBufId);
           writePosition += BUF_INDEX_WIDTH;
           // set offset
           valueBuffer.setInt(writePosition, (int) currentBuf.writerIndex());
           currentBuf.setBytes(currentBuf.writerIndex(), value, start, length);
           currentBuf.writerIndex(currentBuf.writerIndex() + length);
-          dataBuffers.set(currentBufId, currentBuf); // is this needed?
+          dataBuffers.set(currentBufId, currentBuf);
         } else {
           // current buffer is not enough
           // allocate new buffer
@@ -1394,13 +1306,12 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
           dataBuffers.add(newBuf);
         }
       }
-
     }
   }
 
   protected final void setBytes(int index, byte[] value, int start, int length) {
-    /* end offset of current last element in the vector. this will
-     * be the start offset of new element we are trying to store.
+    /* End offset of the current last element in the vector.
+     * This will be the start offset of a new element we are trying to store.
      */
     final int startOffset = getStartOffset(index);
     /* set new end offset */
@@ -1414,6 +1325,10 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
     return offsetBuffer.getInt((long) index * OFFSET_WIDTH);
   }
 
+  private static long roundUpToMultipleOf16(long num) {
+    return (num + 15) & ~15;
+  }
+
   protected final void handleSafe(int index, int dataLength) {
     /*
      * IMPORTANT:
@@ -1425,7 +1340,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
      * data stream. getValueCapacity() is applicable only to validity
      * and offset buffers.
      *
-     * So even though we may have setup an initial capacity of 1024
+     * So even though we may have set up an initial capacity of 1024
      * elements in the vector, it is quite possible
      * that we need to reAlloc() the data buffer when we are setting
      * the 5th element in the vector simply because previous
@@ -1439,16 +1354,18 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
       reallocValidityAndOffsetBuffers();
     }
     final long startOffset = lastSet < 0 ? 0 : getStartOffset(lastSet + 1);
-    final long targetCapacity = startOffset + dataLength;
+    final long targetCapacity = roundUpToMultipleOf16(startOffset + dataLength);
     // for views, we need each buffer with 16 byte alignment, so we need to check the last written index
     // in the valueBuffer and allocate a new buffer which has 16 byte alignment for adding new values.
     long writePosition = (long) index * VIEW_BUFFER_SIZE;
     if (valueBuffer.capacity() <= writePosition || valueBuffer.capacity() < targetCapacity) {
-      // TODO: verify this logic
-      // Everytime we want increase the capacity of the valueBuffer, we need to make sure that the new capacity
-      // meets 16 byte alignment. If the targetCapacity is larger than the writePosition, we may not necessarily
-      // want to allocate the targetCapacity to valueBuffer since the when it is >=12 either way we are writing
-      // to the dataBuffer. Validate this logic.
+      /*
+      * Everytime we want to increase the capacity of the valueBuffer, we need to make sure that the new capacity
+      * meets 16 byte alignment.
+      * If the targetCapacity is larger than the writePosition, we may not necessarily
+      * want to allocate the targetCapacity to valueBuffer since when it is >={@link #INLINE_SIZE} either way
+      * we are writing to the dataBuffer.
+      */
       reallocDataBuffer(Math.max(writePosition, targetCapacity));
     }
   }
@@ -1465,7 +1382,6 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
    * @return array of bytes
    */
   public static byte[] get(final ArrowBuf data, final ArrowBuf offset, int index) {
-    // TODO: fixme
     final int currentStartOffset = offset.getInt((long) index * OFFSET_WIDTH);
     final int dataLength =
             offset.getInt((long) (index + 1) * OFFSET_WIDTH) - currentStartOffset;
@@ -1490,7 +1406,6 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
    */
   public static ArrowBuf set(ArrowBuf buffer, BufferAllocator allocator,
                              int valueCount, int index, int value) {
-    // TODO: fixme
     if (buffer == null) {
       buffer = allocator.buffer((long) valueCount * OFFSET_WIDTH);
     }
@@ -1503,8 +1418,8 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   }
 
   /**
-   * Copy a cell value from a particular index in source vector to a particular
-   * position in this vector.
+   * Copy a cell value from a particular index in source vector to a particular position in this
+   * vector.
    *
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
@@ -1512,7 +1427,6 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
    */
   @Override
   public void copyFrom(int fromIndex, int thisIndex, ValueVector from) {
-    // TODO: fixme
     Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
     if (from.isNull(fromIndex)) {
       fillHoles(thisIndex);
@@ -1533,9 +1447,8 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   }
 
   /**
-   * Same as {@link #copyFrom(int, int, ValueVector)} except that
-   * it handles the case when the capacity of the vector needs to be expanded
-   * before copy.
+   * Same as {@link #copyFrom(int, int, ValueVector)} except that it handles the case when the
+   * capacity of the vector needs to be expanded before copy.
    *
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
@@ -1601,7 +1514,6 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
 
   @Override
   public int hashCode(int index, ArrowBufHasher hasher) {
-    // TODO: fixme
     if (isNull(index)) {
       return ArrowBufPointer.NULL_HASH_CODE;
     }
@@ -1622,10 +1534,26 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
     }
   }
 
+  /**
+   * Retrieves the data of a variable-width element at a given index in the vector.
+   *
+   * <p>
+   * If the length of the data is greater than {@link #INLINE_SIZE}, the data is stored in an inline buffer.
+   * The method retrieves the buffer index and data offset from the valueBuffer, and then retrieves the data from the
+   * corresponding buffer in the dataBuffers list.
+   * <p>
+   * If the length of the data is less than or equal to {@link #INLINE_SIZE}, the data is stored directly in the
+   * valueBuffer.
+   * The method retrieves the data directly from the valueBuffer.
+   *
+   * @param index position of the element in the vector
+   * @param dataLength length of the data to be retrieved
+   * @return byte array containing the data of the element
+   */
   protected byte[] getData(int index, int dataLength) {
     byte[] result = new byte[dataLength];
     if (dataLength > INLINE_SIZE) {
-      // data is in the inline buffer
+      // data is in the reference buffer
       // get buffer index
       final int bufferIndex =
               valueBuffer.getInt(((long) index * VIEW_BUFFER_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH);

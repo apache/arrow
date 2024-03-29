@@ -126,7 +126,7 @@ public final class ViewVarBinaryVector extends BaseVariableWidthViewVector {
 
     /**
      * Create Holder callback with given parameters.
-     * @param index position of element.
+     * @param index position of an element.
      * @param dataLength length of the buffer.
      * @param input input buffer.
      * @param dataBufs list of data buffers.
@@ -171,8 +171,8 @@ public final class ViewVarBinaryVector extends BaseVariableWidthViewVector {
   /**
    * Get the variable length element at specified index as Text.
    *
-   * @param index position of element to get
-   * @return byte array for non-null element, null otherwise
+   * @param index position of an element to get
+   * @return byte array for a non-null element, null otherwise
    */
   @Override
   public byte[] getObject(int index) {
@@ -182,7 +182,7 @@ public final class ViewVarBinaryVector extends BaseVariableWidthViewVector {
   /**
    * Get the variable length element at specified index and sets the state in provided holder.
    *
-   * @param index position of element to get
+   * @param index position of an element to get
    * @param holder data holder to be populated by this function
    */
   public void get(int index, NullableViewVarBinaryHolder holder) {
