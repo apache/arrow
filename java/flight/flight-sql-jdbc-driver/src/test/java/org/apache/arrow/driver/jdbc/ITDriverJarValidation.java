@@ -70,7 +70,7 @@ public class ITDriverJarValidation {
 
   // This method is designed to work with Maven failsafe plugin and expects the
   // JDBC driver jar to be present in the test classpath (instead of the individual classes)
-  private static JarFile getJdbcJarFile() throws ReflectiveOperationException, IOException {
+  private static JarFile getJdbcJarFile() throws IOException {
     // Check if an override has been set
     if (JDBC_DRIVER_PATH_OVERRIDE != null) {
       return new JarFile(new File(JDBC_DRIVER_PATH_OVERRIDE));
@@ -94,7 +94,7 @@ public class ITDriverJarValidation {
   public ErrorCollector collector = new ErrorCollector();
 
   @Test
-  public void validateShadedJar() throws ReflectiveOperationException, IOException {
+  public void validateShadedJar() throws IOException {
     // Validate the content of the jar to enforce all 3rd party dependencies have
     // been shaded
     try (JarFile jar = getJdbcJarFile()) {
