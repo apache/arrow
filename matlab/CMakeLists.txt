@@ -232,14 +232,14 @@ if(NOT Arrow_FOUND)
   # folders that would be empty after installation:
   # https://gitlab.kitware.com/cmake/cmake/-/issues/17122
 
-  set(CMAKE_PACKAGED_INSTALL_DIR "${CMAKE_INSTALL_DIR}/+arrow")
+#   set(CMAKE_PACKAGED_INSTALL_DIR "${CMAKE_INSTALL_DIR}/+arrow")
 
-  install(DIRECTORY "${ARROW_SHARED_LIB_DIR}/"
-          DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR}
-          FILES_MATCHING
-          REGEX ${SHARED_LIBRARY_VERSION_REGEX}
-          PATTERN "cmake" EXCLUDE
-          PATTERN "pkgconfig" EXCLUDE)
+#   install(DIRECTORY "${ARROW_SHARED_LIB_DIR}/"
+#           DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR}
+#           FILES_MATCHING
+#           REGEX ${SHARED_LIBRARY_VERSION_REGEX}
+#           PATTERN "cmake" EXCLUDE
+#           PATTERN "pkgconfig" EXCLUDE)
 endif()
 
 # MATLAB_ADD_INSTALL_DIR_TO_STARTUP_FILE toggles whether an addpath command to add the install
