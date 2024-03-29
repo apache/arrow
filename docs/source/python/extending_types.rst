@@ -74,6 +74,10 @@ can be used to create the various PyArrow objects:
 | :class:`Schema`            | :func:`pyarrow.record_batch`                  | schema             |
 +----------------------------+-----------------------------------------------+--------------------+
 
+A :class:`DataType` can be created by consuming the schema-compatible object
+using :func:`pyarrow.field` and then accessing the ``.type`` of the resulting
+Field.
+
 .. _arrow_array_protocol:
 
 Controlling conversion to pyarrow.Array with the ``__arrow_array__`` protocol
