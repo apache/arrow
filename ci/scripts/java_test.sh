@@ -58,4 +58,49 @@ if [ "${ARROW_JAVA_CDATA}" = "ON" ]; then
   ${mvn} clean test -Parrow-c-data -pl c -Darrow.c.jni.dist.dir=${java_jni_dist_dir}
 fi
 
+echo "=== Checking third-party licenses ==="
+
+${mvn} \
+  license:add-third-party \
+  -Dlicense.excludedScopes=provided,test \
+  -Dlicense.excludeTransitiveDependencies=true \
+  -Dlicense.failOnMissing=true \
+  -Dlicense.failIfWarning=true
+
+set +x
+
+# Ignore grep returning 1 on no match
+function safegrep { grep "$@" || test $? = 1; }
+
+fail=0
+for report in $(find . -type f -name THIRD-PARTY.txt | sort); do
+  echo "=== Checking ${report} ==="
+  # Include-list of safe licenses.  Allow javax.annotation since it is
+  # effectively a build-only dependency (annotations have no retention). This
+  # is used by gRPC and cannot yet be disabled, though this is coming
+  # (https://github.com/grpc/grpc-java/issues/9179)
+  bad_deps=$(cat "${report}" |
+               safegrep -v -e '^$' |
+               safegrep -v -E "Lists of.*dependencies" |
+               safegrep -v -E "The project has no dependencies" |
+               safegrep -v "javax.annotation:javax.annotation-api:1.3.2" |
+               safegrep -v "The Apache Software License, Version 2.0" |
+               safegrep -v "Apache License, Version 2.0" |
+               safegrep -v "Apache License V2.0" |
+               safegrep -v "Apache 2.0" |
+               safegrep -v "Apache-2.0" |
+               safegrep -v --fixed-strings "BSD 2-Clause License" |
+               safegrep -v --fixed-strings "BSD-3-Clause" |
+               safegrep -v "Bouncy Castle Licence" |
+               safegrep -i -v "MIT license" |
+               safegrep -v "Public Domain")
+  if [ -n "${bad_deps}" ]; then
+    echo "Found bad dependencies in ${report}:"
+    echo "${bad_deps}"
+    fail=$((fail + 1))
+  fi
+done
+
 popd
+
+exit ${fail}
