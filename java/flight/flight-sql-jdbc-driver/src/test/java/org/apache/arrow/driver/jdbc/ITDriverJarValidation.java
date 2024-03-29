@@ -18,7 +18,9 @@
 package org.apache.arrow.driver.jdbc;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.JarURLConnection;
 import java.net.URL;
@@ -44,6 +46,11 @@ import com.google.common.collect.ImmutableSet;
  * org.slf4j., or cfjd. packages
  */
 public class ITDriverJarValidation {
+  /**
+   * Use this property to provide path to the JDBC driver jar. Can be used to run the test from an IDE
+   */
+  public static final String JDBC_DRIVER_PATH_OVERRIDE =
+      System.getProperty("arrow-flight-jdbc-driver.jar.override");
 
   /**
    * List of allowed prefixes a jar entry may match.
@@ -57,20 +64,24 @@ public class ITDriverJarValidation {
   /**
    * List of allowed files a jar entry may match.
    */
-  private static final Set<String> ALLOWED_FILES = ImmutableSet.of(
+  public static final Set<String> ALLOWED_FILES = ImmutableSet.of(
       "arrow-git.properties",
       "properties/flight.properties");
 
   // This method is designed to work with Maven failsafe plugin and expects the
-  // JDBC driver
-  // jar to be present in the test classpath (instead of the individual classes)
+  // JDBC driver jar to be present in the test classpath (instead of the individual classes)
   private static JarFile getJdbcJarFile() throws ReflectiveOperationException, IOException {
+    // Check if an override has been set
+    if (JDBC_DRIVER_PATH_OVERRIDE != null) {
+      return new JarFile(new File(JDBC_DRIVER_PATH_OVERRIDE));
+    }
 
-    //
+    // Check classpath to find the driver jar
     URL driverClassURL = ITDriverJarValidation.class.getClassLoader()
         .getResource("org/apache/arrow/driver/jdbc/ArrowFlightJdbcDriver.class");
 
-    assertEquals("jar", driverClassURL.getProtocol());
+    assertNotNull(driverClassURL, "Driver jar was not detected in the classpath");
+    assertEquals("Driver jar was not detected in the classpath", "jar", driverClassURL.getProtocol());
 
     JarURLConnection connection = (JarURLConnection) driverClassURL.openConnection();
     return connection.getJarFile();
