@@ -1202,6 +1202,7 @@ int PlainBooleanDecoder::DecodeArrow(
     PARQUET_THROW_NOT_OK(builder->AppendValues(data_, values_decoded, NULLPTR,
                                                total_num_values_ - num_values_));
   } else {
+    PARQUET_THROW_NOT_OK(builder->Reserve(values_decoded));
     int64_t previous_offset = 0;
     int64_t previous_value_offset = 0;
     PARQUET_THROW_NOT_OK(::arrow::internal::VisitSetBitRuns(

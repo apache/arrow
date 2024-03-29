@@ -1468,10 +1468,18 @@ BENCHMARK_DEFINE_F(BM_DecodeArrowBooleanRle, DecodeArrow_Dense)(benchmark::State
 }
 BENCHMARK_REGISTER_F(BM_DecodeArrowBooleanRle, DecodeArrow_Dense)
     ->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK_DEFINE_F(BM_DecodeArrowBooleanRle, DecodeArrowNonNull_Dense)
+(benchmark::State& state) { DecodeArrowNonNullDenseBenchmark(state); }
+BENCHMARK_REGISTER_F(BM_DecodeArrowBooleanRle, DecodeArrowNonNull_Dense)
+    ->Range(MIN_RANGE, MAX_RANGE);
 
 BENCHMARK_DEFINE_F(BM_DecodeArrowBooleanPlain, DecodeArrow_Dense)
 (benchmark::State& state) { DecodeArrowDenseBenchmark(state); }
 BENCHMARK_REGISTER_F(BM_DecodeArrowBooleanPlain, DecodeArrow_Dense)
+    ->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK_DEFINE_F(BM_DecodeArrowBooleanPlain, DecodeArrowNonNull_Dense)
+(benchmark::State& state) { DecodeArrowNonNullDenseBenchmark(state); }
+BENCHMARK_REGISTER_F(BM_DecodeArrowBooleanPlain, DecodeArrowNonNull_Dense)
     ->Range(MIN_RANGE, MAX_RANGE);
 
 }  // namespace parquet
