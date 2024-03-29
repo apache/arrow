@@ -54,6 +54,25 @@
 #define ARROW_PREDICT_TRUE(x) (__builtin_expect(!!(x), 1))
 #define ARROW_PREFETCH(addr) __builtin_prefetch(addr)
 #define ARROW_RESTRICT __restrict
+// ARROW_COMPILER_ASSUME allows the compiler to assume that a given expression
+// is true, without evaluating it, and to optimise based on this assumption [2].
+// If this condition is violated at runtime, the behavior is undefined. This can
+// be useful to generate both faster and smaller code in compute kernels. Different
+// optimisers are likely to react differently to this annotation. It should be used
+// with care [3].
+//
+// [2] "Portable assumptions"
+//     https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p1774r4.pdf
+// [3] "Assertions Are Pessimistic, Assumptions Are Optimistic"
+//     https://blog.regehr.org/archives/1096
+#if defined(__clang__)  // clang-specific
+#define ARROW_COMPILER_ASSUME(expr) __builtin_assume(expr)
+#else
+#define ARROW_COMPILER_ASSUME(expr) \
+  if (!(expr)) {                    \
+    __builtin_unreachable();        \
+  }
+#endif
 #elif defined(_MSC_VER)  // MSVC
 #define ARROW_NORETURN __declspec(noreturn)
 #define ARROW_NOINLINE __declspec(noinline)
@@ -62,6 +81,7 @@
 #define ARROW_PREDICT_TRUE(x) (x)
 #define ARROW_PREFETCH(addr)
 #define ARROW_RESTRICT __restrict
+#define ARROW_COMPILER_ASSUME(expr) __assume(expr)
 #else
 #define ARROW_NORETURN
 #define ARROW_NOINLINE
@@ -70,6 +90,7 @@
 #define ARROW_PREDICT_TRUE(x) (x)
 #define ARROW_PREFETCH(addr)
 #define ARROW_RESTRICT
+#define ARROW_COMPILER_ASSUME(expr)
 #endif
 
 // ----------------------------------------------------------------------
