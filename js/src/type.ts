@@ -406,7 +406,7 @@ type Timestamps = Type.Timestamp | Type.TimestampSecond | Type.TimestampMillisec
 /** @ignore */
 interface Timestamp_<T extends Timestamps = Timestamps> extends DataType<T> {
     TArray: Int32Array;
-    TValue: number;
+    TValue: number | Date;
     ArrayType: TypedArrayConstructor<Int32Array>;
 }
 

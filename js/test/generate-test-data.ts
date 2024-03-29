@@ -415,7 +415,10 @@ function generateTimestamp<T extends Timestamp>(this: TestDataVectorGenerator, t
         type.unit === TimeUnit.MICROSECOND ? 1000000 :
             type.unit === TimeUnit.MILLISECOND ? 1000 : 1;
     const data = createTimestamp(length, nullBitmap, multiple, values);
-    return { values: () => values, vector: new Vector([makeData({ type, length, nullCount, nullBitmap, data })]) };
+    return {
+        values: () => type.unit === TimeUnit.MILLISECOND && !type.timezone ? values.map((x) => x == null ? null : new Date(x)) : values,
+        vector: new Vector([makeData({ type, length, nullCount, nullBitmap, data })])
+    };
 }
 
 function generateTime<T extends Time>(this: TestDataVectorGenerator, type: T, length = 100, nullCount = Math.trunc(length * 0.2)): GeneratedVector<T> {
