@@ -38,7 +38,7 @@
 
 #define ARROW_UNUSED(x) (void)(x)
 #define ARROW_ARG_UNUSED(x)
-#if defined(__GNUC__)
+#if defined(__GNUC__)  // GCC and clang
 #define ARROW_NORETURN __attribute__((noreturn))
 #define ARROW_NOINLINE __attribute__((noinline))
 #define ARROW_FORCE_INLINE __attribute__((always_inline))
@@ -53,13 +53,15 @@
 #define ARROW_PREDICT_FALSE(x) (__builtin_expect(!!(x), 0))
 #define ARROW_PREDICT_TRUE(x) (__builtin_expect(!!(x), 1))
 #define ARROW_PREFETCH(addr) __builtin_prefetch(addr)
-#elif defined(_MSC_VER)
+#define ARROW_RESTRICT __restrict
+#elif defined(_MSC_VER)  // MSVC
 #define ARROW_NORETURN __declspec(noreturn)
 #define ARROW_NOINLINE __declspec(noinline)
 #define ARROW_FORCE_INLINE __declspec(forceinline)
 #define ARROW_PREDICT_FALSE(x) (x)
 #define ARROW_PREDICT_TRUE(x) (x)
 #define ARROW_PREFETCH(addr)
+#define ARROW_RESTRICT __restrict
 #else
 #define ARROW_NORETURN
 #define ARROW_NOINLINE
@@ -67,11 +69,6 @@
 #define ARROW_PREDICT_FALSE(x) (x)
 #define ARROW_PREDICT_TRUE(x) (x)
 #define ARROW_PREFETCH(addr)
-#endif
-
-#if defined(__GNUC__) || defined(__clang__) || defined(_MSC_VER)
-#define ARROW_RESTRICT __restrict
-#else
 #define ARROW_RESTRICT
 #endif
 
