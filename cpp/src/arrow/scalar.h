@@ -279,7 +279,7 @@ struct ARROW_EXPORT BaseBinaryScalar
   template <typename FillScalarScratchSpaceFactoryT>
   BaseBinaryScalar(std::shared_ptr<DataType> type, FillScalarScratchSpaceFactoryT factory)
       : PrimitiveScalarBase(std::move(type)),
-        ArraySpanFillFromScalarScratchSpace(factory(false, nullptr)) {}
+        ArraySpanFillFromScalarScratchSpace(factory(false, NULLPTR)) {}
 
   template <typename FillScalarScratchSpaceFactoryT>
   BaseBinaryScalar(std::shared_ptr<Buffer> value, std::shared_ptr<DataType> type,
