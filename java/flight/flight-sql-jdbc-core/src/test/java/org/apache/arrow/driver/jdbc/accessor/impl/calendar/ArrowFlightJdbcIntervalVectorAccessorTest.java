@@ -154,16 +154,16 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
   }
 
   private String getStringOnVector(ValueVector vector, int index) {
-    String object = getExpectedObject(vector, index).toString();
+    Object object = getExpectedObject(vector, index);
     if (object == null) {
       return null;
     } else if (vector instanceof IntervalDayVector) {
-      return formatIntervalDay(Duration.parse(object));
+      return formatIntervalDay(Duration.parse(object.toString()));
     } else if (vector instanceof IntervalYearVector) {
-      return formatIntervalYear(Period.parse(object));
+      return formatIntervalYear(Period.parse(object.toString()));
     } else if (vector instanceof IntervalMonthDayNanoVector) {
-      // This is the inverse of PeriodDuration#toISO8601IntervalString
-      String[] periodAndDuration = object.split("T");
+      String iso8601IntervalString = ((PeriodDuration) object).toISO8601IntervalString();
+      String[] periodAndDuration = iso8601IntervalString.split("T");
       if (periodAndDuration.length == 1) {
         // If there is no 'T', then either Period or Duration is zero, and the other one will successfully parse it
         String periodOrDuration = periodAndDuration[0];
@@ -173,10 +173,10 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
           return new PeriodDuration(Period.ZERO, Duration.parse(periodOrDuration)).toISO8601IntervalString();
         }
       } else {
-        // If there is a 'T', both Period and Duration are non-zero, and we just need to prepend the 'P' to the duration
-        // for both to parse successfully
+        // If there is a 'T', both Period and Duration are non-zero, and we just need to prepend the 'PT' to the
+        // duration for both to parse successfully
         Period parse = Period.parse(periodAndDuration[0]);
-        Duration duration = Duration.parse("P" + periodAndDuration[1]);
+        Duration duration = Duration.parse("PT" + periodAndDuration[1]);
         return new PeriodDuration(parse, duration).toISO8601IntervalString();
       }
     }
