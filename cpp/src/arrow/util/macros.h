@@ -36,35 +36,36 @@
   TypeName& operator=(TypeName&&) = default
 #endif
 
+// With ARROW_PREDICT_FALSE, GCC and clang can be told that a certain branch is
+// not likely to be taken (for instance, a CHECK failure), and use that information in
+// static analysis. Giving the compiler this information can affect the generated code
+// layout in the absence of better information (i.e. -fprofile-arcs). [1] explains how
+// this feature can be used to improve code generation. It was written as a positive
+// comment to a negative article about the use of these annotations.
+//
+// ARROW_COMPILER_ASSUME allows the compiler to assume that a given expression
+// is true, without evaluating it, and to optimise based on this assumption [2].
+// If this condition is violated at runtime, the behavior is undefined. This can
+// be useful to generate both faster and smaller code in compute kernels. Different
+// optimisers are likely to react differently to this annotation. It should be used
+// with care [3] when we can prove by some means that the assumption is guaranteed
+// to always hold.
+//
+// [1] https://lobste.rs/s/uwgtkt/don_t_use_likely_unlikely_attributes#c_xi3wmc
+// [2] "Portable assumptions"
+//     https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p1774r4.pdf
+// [3] "Assertions Are Pessimistic, Assumptions Are Optimistic"
+//     https://blog.regehr.org/archives/1096
 #define ARROW_UNUSED(x) (void)(x)
 #define ARROW_ARG_UNUSED(x)
 #if defined(__GNUC__)  // GCC and clang
 #define ARROW_NORETURN __attribute__((noreturn))
 #define ARROW_NOINLINE __attribute__((noinline))
 #define ARROW_FORCE_INLINE __attribute__((always_inline))
-// GCC and clang can be told that a certain branch is not likely to be taken
-// (for instance, a CHECK failure), and use that information in static analysis.
-// Giving the compiler this information can affect the generated code layout in
-// the absence of better information (i.e. -fprofile-arcs). [1] explains how
-// this feature can be used to improve code generation. It was written as a
-// positive answer to a negative article about the use of these annotations.
-//
-// [1] https://lobste.rs/s/uwgtkt/don_t_use_likely_unlikely_attributes#c_xi3wmc
 #define ARROW_PREDICT_FALSE(x) (__builtin_expect(!!(x), 0))
 #define ARROW_PREDICT_TRUE(x) (__builtin_expect(!!(x), 1))
 #define ARROW_PREFETCH(addr) __builtin_prefetch(addr)
 #define ARROW_RESTRICT __restrict
-// ARROW_COMPILER_ASSUME allows the compiler to assume that a given expression
-// is true, without evaluating it, and to optimise based on this assumption [2].
-// If this condition is violated at runtime, the behavior is undefined. This can
-// be useful to generate both faster and smaller code in compute kernels. Different
-// optimisers are likely to react differently to this annotation. It should be used
-// with care [3].
-//
-// [2] "Portable assumptions"
-//     https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p1774r4.pdf
-// [3] "Assertions Are Pessimistic, Assumptions Are Optimistic"
-//     https://blog.regehr.org/archives/1096
 #if defined(__clang__)  // clang-specific
 #define ARROW_COMPILER_ASSUME(expr) __builtin_assume(expr)
 #else
