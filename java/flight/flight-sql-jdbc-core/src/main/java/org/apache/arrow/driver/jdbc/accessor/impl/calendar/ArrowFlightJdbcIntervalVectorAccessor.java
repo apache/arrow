@@ -122,7 +122,7 @@ public class ArrowFlightJdbcIntervalVectorAccessor extends ArrowFlightJdbcAccess
         final long nanos = holder.nanoseconds;
         final Period period = Period.ofMonths(months).plusDays(days);
         final Duration duration = Duration.ofNanos(nanos);
-        return new PeriodDuration(period, duration).toString();
+        return new PeriodDuration(period, duration).toISO8601IntervalString();
       }
     };
     objectClass = PeriodDuration.class;
