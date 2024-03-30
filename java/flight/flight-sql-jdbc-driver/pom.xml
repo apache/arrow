@@ -97,6 +97,11 @@
             <artifactId>slf4j-api</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-jdk14</artifactId>
+            <scope>runtime</scope>
+        </dependency>
 
         <dependency>
             <groupId>io.netty</groupId>
@@ -190,17 +195,16 @@
                             <relocations>
                                 <relocation>
                                     <pattern>com.</pattern>
-                                    <shadedPattern>cfjd.com.</shadedPattern>
+                                    <shadedPattern>org.apache.arrow.driver.jdbc.shaded.com.</shadedPattern>
                                     <excludes>
                                         <exclude>com.sun.**</exclude>
                                     </excludes>
                                 </relocation>
                                 <relocation>
                                     <pattern>org.</pattern>
-                                    <shadedPattern>cfjd.org.</shadedPattern>
+                                    <shadedPattern>org.apache.arrow.driver.jdbc.shaded.org.</shadedPattern>
                                     <excludes>
                                         <exclude>org.apache.arrow.driver.jdbc.**</exclude>
-                                        <exclude>org.slf4j.**</exclude>
                                         <!-- Avoid shading Flight JDBC Properties -->
                                         <exclude>org.apache.arrow.flight.name</exclude>
                                         <exclude>org.apache.arrow.flight.version</exclude>
@@ -210,24 +214,24 @@
                                 </relocation>
                                 <relocation>
                                     <pattern>io.</pattern>
-                                    <shadedPattern>cfjd.io.</shadedPattern>
+                                    <shadedPattern>org.apache.arrow.driver.jdbc.shaded.io.</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>net.</pattern>
-                                    <shadedPattern>cfjd.net.</shadedPattern>
+                                    <shadedPattern>org.apache.arrow.driver.jdbc.shaded.net.</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>mozilla.</pattern>
-                                    <shadedPattern>cfjd.mozilla.</shadedPattern>
+                                    <shadedPattern>org.apache.arrow.driver.jdbc.shaded.mozilla.</shadedPattern>
                                 </relocation>
                                 <!-- Entries to relocate netty native libraries  -->
                                 <relocation>
                                     <pattern>META-INF.native.libnetty_</pattern>
-                                    <shadedPattern>META-INF.native.libcfjd_netty_</shadedPattern>
+                                    <shadedPattern>META-INF.native.liboaadj_netty_</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>META-INF.native.netty_</pattern>
-                                    <shadedPattern>META-INF.native.cfjd_netty_</shadedPattern>
+                                    <shadedPattern>META-INF.native.oaadj_netty_</shadedPattern>
                                 </relocation>
                             </relocations>
                             <transformers>
