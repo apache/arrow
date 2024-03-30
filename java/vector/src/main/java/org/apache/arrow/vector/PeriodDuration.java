@@ -17,8 +17,22 @@
 
 package org.apache.arrow.vector;
 
+import static java.time.temporal.ChronoUnit.DAYS;
+import static java.time.temporal.ChronoUnit.MONTHS;
+import static java.time.temporal.ChronoUnit.NANOS;
+import static java.time.temporal.ChronoUnit.SECONDS;
+import static java.time.temporal.ChronoUnit.YEARS;
+
 import java.time.Duration;
 import java.time.Period;
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.Temporal;
+import java.time.temporal.TemporalAmount;
+import java.time.temporal.TemporalUnit;
+import java.time.temporal.UnsupportedTemporalTypeException;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 import org.apache.arrow.util.Preconditions;
 
@@ -26,7 +40,10 @@ import org.apache.arrow.util.Preconditions;
  * Combination of Period and Duration for representing this interval type
  * as a POJO.
  */
-public class PeriodDuration {
+public class PeriodDuration implements TemporalAmount {
+
+  private static final List<TemporalUnit> SUPPORTED_UNITS =
+          Collections.unmodifiableList(Arrays.<TemporalUnit>asList(YEARS, MONTHS, DAYS, SECONDS, NANOS));
   private final Period period;
   private final Duration duration;
 
@@ -41,6 +58,42 @@ public class PeriodDuration {
 
   public Duration getDuration() {
     return duration;
+  }
+
+  @Override
+  public long get(TemporalUnit unit) {
+    if (unit instanceof ChronoUnit) {
+      switch ((ChronoUnit) unit) {
+        case YEARS:
+          return period.getYears();
+        case MONTHS:
+          return period.getMonths();
+        case DAYS:
+          return period.getDays();
+        case SECONDS:
+          return duration.getSeconds();
+        case NANOS:
+          return duration.getNano();
+        default:
+          break;
+      }
+    }
+    throw new UnsupportedTemporalTypeException("Unsupported TemporalUnit: " + unit);
+  }
+
+  @Override
+  public List<TemporalUnit> getUnits() {
+    return SUPPORTED_UNITS;
+  }
+
+  @Override
+  public Temporal addTo(Temporal temporal) {
+    return temporal.plus(period).plus(duration);
+  }
+
+  @Override
+  public Temporal subtractFrom(Temporal temporal) {
+    return temporal.minus(period).minus(duration);
   }
 
   /**
