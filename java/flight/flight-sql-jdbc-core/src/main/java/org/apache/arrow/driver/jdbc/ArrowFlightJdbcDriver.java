@@ -72,7 +72,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
   public Logger getParentLogger() {
     // Return the logger associated with the driver package ('org.apache.arrow.driver.jdbc')
     // When packaged in flight-sql-jdbc-driver, it will also apply to all shaded dependencies
-    return Logger.getLogger(getClass().getPackageName());
+    return Logger.getLogger(getClass().getPackage().getName());
   }
 
   @Override
