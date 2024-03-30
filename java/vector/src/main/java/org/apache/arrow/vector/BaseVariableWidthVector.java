@@ -372,6 +372,9 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     if (offsetBuffer.capacity() == 0) {
       // Empty offset buffer is allowed for historical reason.
       // To export it through C Data interface, we need to allocate a buffer with one offset.
+      // We set `retain = false` to explicitly not increase the ref count for the exported buffer.
+      // The ref count of the newly created buffer (i.e., 1) already represents the usage
+      // at imported side.
       exportBuffer(allocateOffsetBuffer(OFFSET_WIDTH), buffers, buffersPtr, nullValue, false);
     } else {
       exportBuffer(offsetBuffer, buffers, buffersPtr, nullValue, true);
