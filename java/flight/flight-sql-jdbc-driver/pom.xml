@@ -148,13 +148,16 @@
     <build>
         <plugins>
             <plugin>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <configuration>
-                    <enableAssertions>false</enableAssertions>
-                    <systemPropertyVariables>
-                        <arrow.test.dataRoot>${project.basedir}/../../../testing/data</arrow.test.dataRoot>
-                    </systemPropertyVariables>
-                </configuration>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <executions>
+                  <execution>
+                    <goals>
+                      <goal>integration-test</goal>
+                      <goal>verify</goal>
+                    </goals>
+                  </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -167,12 +170,22 @@
                         </goals>
                         <configuration>
                             <shadedArtifactAttached>false</shadedArtifactAttached>
-                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <createDependencyReducedPom>true</createDependencyReducedPom>
                             <minimizeJar>false</minimizeJar>
                             <artifactSet>
                                 <includes>
                                     <include>*:*</include>
                                 </includes>
+                                <excludes>
+                                    <!-- Source annotations -->
+                                    <exclude>org.checkerframework:checker-qual</exclude>
+                                    <exclude>org.codehaus.mojo:animal-sniffer-annotations</exclude>
+                                    <exclude>javax.annotation:javax.annotation-api</exclude>
+                                    <exclude>com.google.android:annotations</exclude>
+                                    <exclude>com.google.errorprone:error_prone_annotations</exclude>
+                                    <exclude>com.google.code.findbugs:jsr305</exclude>
+                                    <exclude>com.google.j2objc:j2objc-annotations</exclude>
+                                </excludes>
                             </artifactSet>
                             <relocations>
                                 <relocation>
@@ -199,6 +212,14 @@
                                     <pattern>io.</pattern>
                                     <shadedPattern>cfjd.io.</shadedPattern>
                                 </relocation>
+                                <relocation>
+                                    <pattern>net.</pattern>
+                                    <shadedPattern>cfjd.net.</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>mozilla.</pattern>
+                                    <shadedPattern>cfjd.mozilla.</shadedPattern>
+                                </relocation>
                                 <!-- Entries to relocate netty native libraries  -->
                                 <relocation>
                                     <pattern>META-INF.native.libnetty_</pattern>
@@ -214,9 +235,22 @@
                             </transformers>
                             <filters>
                                 <filter>
+                                    <artifact>org.apache.arrow:arrow-vector</artifact>
+                                    <excludes>
+                                        <exclude>codegen/**</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
                                     <artifact>org.apache.calcite.avatica:*</artifact>
                                     <excludes>
                                         <exclude>META-INF/services/java.sql.Driver</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>org.eclipse.collections:*</artifact>
+                                    <excludes>
+                                        <exclude>about.html</exclude>
+                                        <exclude>LICENSE-*-1.0.txt</exclude>
                                     </excludes>
                                 </filter>
                                 <filter>
@@ -227,6 +261,7 @@
                                         <exclude>**/*.DSA</exclude>
                                         <exclude>META-INF/native/libio_grpc_netty*</exclude>
                                         <exclude>META-INF/native/io_grpc_netty_shaded*</exclude>
+                                        <exclude>**/*.proto</exclude>
                                     </excludes>
                                 </filter>
                             </filters>
