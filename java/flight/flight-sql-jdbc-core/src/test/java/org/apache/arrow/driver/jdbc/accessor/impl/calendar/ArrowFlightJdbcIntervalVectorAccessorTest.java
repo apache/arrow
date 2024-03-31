@@ -24,6 +24,7 @@ import static org.hamcrest.CoreMatchers.is;
 
 import java.time.Duration;
 import java.time.Period;
+import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.function.Supplier;
@@ -32,7 +33,9 @@ import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
 import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.IntervalDayVector;
+import org.apache.arrow.vector.IntervalMonthDayNanoVector;
 import org.apache.arrow.vector.IntervalYearVector;
+import org.apache.arrow.vector.PeriodDuration;
 import org.apache.arrow.vector.ValueVector;
 import org.junit.After;
 import org.junit.Assert;
@@ -66,6 +69,9 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
         } else if (vector instanceof IntervalYearVector) {
           return new ArrowFlightJdbcIntervalVectorAccessor((IntervalYearVector) vector,
               getCurrentRow, noOpWasNullConsumer);
+        } else if (vector instanceof IntervalMonthDayNanoVector) {
+          return new ArrowFlightJdbcIntervalVectorAccessor((IntervalMonthDayNanoVector) vector,
+                  getCurrentRow, noOpWasNullConsumer);
         }
         return null;
       };
@@ -98,6 +104,17 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
           }
           return vector;
         }, "IntervalYearVector"},
+        {(Supplier<ValueVector>) () -> {
+          IntervalMonthDayNanoVector vector =
+                  new IntervalMonthDayNanoVector("", rootAllocatorTestRule.getRootAllocator());
+
+          int valueCount = 10;
+          vector.setValueCount(valueCount);
+          for (int i = 0; i < valueCount; i++) {
+            vector.set(i, i + 1, (i + 1) * 10, (i + 1) * 100);
+          }
+          return vector;
+        }, "IntervalMonthDayNanoVector"},
     });
   }
 
@@ -137,13 +154,31 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
   }
 
   private String getStringOnVector(ValueVector vector, int index) {
-    String object = getExpectedObject(vector, index).toString();
+    Object object = getExpectedObject(vector, index);
     if (object == null) {
       return null;
     } else if (vector instanceof IntervalDayVector) {
-      return formatIntervalDay(Duration.parse(object));
+      return formatIntervalDay(Duration.parse(object.toString()));
     } else if (vector instanceof IntervalYearVector) {
-      return formatIntervalYear(Period.parse(object));
+      return formatIntervalYear(Period.parse(object.toString()));
+    } else if (vector instanceof IntervalMonthDayNanoVector) {
+      String iso8601IntervalString = ((PeriodDuration) object).toISO8601IntervalString();
+      String[] periodAndDuration = iso8601IntervalString.split("T");
+      if (periodAndDuration.length == 1) {
+        // If there is no 'T', then either Period or Duration is zero, and the other one will successfully parse it
+        String periodOrDuration = periodAndDuration[0];
+        try {
+          return new PeriodDuration(Period.parse(periodOrDuration), Duration.ZERO).toISO8601IntervalString();
+        } catch (DateTimeParseException e) {
+          return new PeriodDuration(Period.ZERO, Duration.parse(periodOrDuration)).toISO8601IntervalString();
+        }
+      } else {
+        // If there is a 'T', both Period and Duration are non-zero, and we just need to prepend the 'PT' to the
+        // duration for both to parse successfully
+        Period parse = Period.parse(periodAndDuration[0]);
+        Duration duration = Duration.parse("PT" + periodAndDuration[1]);
+        return new PeriodDuration(parse, duration).toISO8601IntervalString();
+      }
     }
     return null;
   }
@@ -225,6 +260,8 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
       return Duration.class;
     } else if (vector instanceof IntervalYearVector) {
       return Period.class;
+    } else if (vector instanceof IntervalMonthDayNanoVector) {
+      return PeriodDuration.class;
     }
     return null;
   }
@@ -239,6 +276,10 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
       for (int i = 0; i < valueCount; i++) {
         ((IntervalYearVector) vector).setNull(i);
       }
+    } else if (vector instanceof IntervalMonthDayNanoVector) {
+      for (int i = 0; i < valueCount; i++) {
+        ((IntervalMonthDayNanoVector) vector).setNull(i);
+      }
     }
   }
 
@@ -247,6 +288,10 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
       return Duration.ofDays(currentRow + 1).plusMillis((currentRow + 1) * 1000L);
     } else if (vector instanceof IntervalYearVector) {
       return Period.ofMonths(currentRow + 1);
+    } else if (vector instanceof IntervalMonthDayNanoVector) {
+      Period period = Period.ofMonths(currentRow + 1).plusDays((currentRow + 1) * 10L);
+      Duration duration = Duration.ofNanos((currentRow + 1) * 100L);
+      return new PeriodDuration(period, duration);
     }
     return null;
   }

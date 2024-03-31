@@ -41,6 +41,7 @@ import org.apache.arrow.driver.jdbc.accessor.impl.text.ArrowFlightJdbcVarCharVec
 import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.DurationVector;
 import org.apache.arrow.vector.IntervalDayVector;
+import org.apache.arrow.vector.IntervalMonthDayNanoVector;
 import org.apache.arrow.vector.IntervalYearVector;
 import org.apache.arrow.vector.LargeVarCharVector;
 import org.apache.arrow.vector.ValueVector;
@@ -395,6 +396,19 @@ public class ArrowFlightJdbcAccessorFactoryTest {
   @Test
   public void createAccessorForIntervalYearVector() {
     try (ValueVector valueVector = new IntervalYearVector("",
+        rootAllocatorTestRule.getRootAllocator())) {
+      ArrowFlightJdbcAccessor accessor =
+          ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
+              (boolean wasNull) -> {
+              });
+
+      Assert.assertTrue(accessor instanceof ArrowFlightJdbcIntervalVectorAccessor);
+    }
+  }
+
+  @Test
+  public void createAccessorForIntervalMonthDayNanoVector() {
+    try (ValueVector valueVector = new IntervalMonthDayNanoVector("",
         rootAllocatorTestRule.getRootAllocator())) {
       ArrowFlightJdbcAccessor accessor =
           ArrowFlightJdbcAccessorFactory.createAccessor(valueVector, GET_CURRENT_ROW,
