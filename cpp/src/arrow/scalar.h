@@ -159,7 +159,7 @@ struct ARROW_EXPORT PrimitiveScalarBase : public Scalar {
   /// \brief Get a const pointer to the value of this scalar. May be null.
   virtual const void* data() const = 0;
   /// \brief Get a mutable pointer to the value of this scalar. May be null.
-  virtual void* mutable_data() = 0;
+  // virtual void* mutable_data() = 0;
   /// \brief Get an immutable view of the value of this scalar as bytes.
   virtual std::string_view view() const = 0;
 };
@@ -180,7 +180,7 @@ struct ARROW_EXPORT PrimitiveScalar : public PrimitiveScalarBase {
   ValueType value{};
 
   const void* data() const override { return &value; }
-  void* mutable_data() override { return &value; }
+  // void* mutable_data() override { return &value; }
   std::string_view view() const override {
     return std::string_view(reinterpret_cast<const char*>(&value), sizeof(ValueType));
   };
@@ -263,14 +263,14 @@ struct ARROW_EXPORT BaseBinaryScalar
       private internal::ArraySpanFillFromScalarScratchSpace {
   using ValueType = std::shared_ptr<Buffer>;
 
-  std::shared_ptr<Buffer> value;
+  const std::shared_ptr<Buffer> value;
 
   const void* data() const override {
     return value ? reinterpret_cast<const void*>(value->data()) : NULLPTR;
   }
-  void* mutable_data() override {
-    return value ? reinterpret_cast<void*>(value->mutable_data()) : NULLPTR;
-  }
+  // void* mutable_data() override {
+  //   return value ? reinterpret_cast<void*>(value->mutable_data()) : NULLPTR;
+  // }
   std::string_view view() const override {
     return value ? std::string_view(*value) : std::string_view();
   }
@@ -572,9 +572,9 @@ struct ARROW_EXPORT DecimalScalar : public internal::PrimitiveScalarBase {
     return reinterpret_cast<const void*>(value.native_endian_bytes());
   }
 
-  void* mutable_data() override {
-    return reinterpret_cast<void*>(value.mutable_native_endian_bytes());
-  }
+  // void* mutable_data() override {
+  //   return reinterpret_cast<void*>(value.mutable_native_endian_bytes());
+  // }
 
   std::string_view view() const override {
     return std::string_view(reinterpret_cast<const char*>(value.native_endian_bytes()),
@@ -880,10 +880,10 @@ struct ARROW_EXPORT DictionaryScalar : public internal::PrimitiveScalarBase {
   const void* data() const override {
     return internal::checked_cast<internal::PrimitiveScalarBase&>(*value.index).data();
   }
-  void* mutable_data() override {
-    return internal::checked_cast<internal::PrimitiveScalarBase&>(*value.index)
-        .mutable_data();
-  }
+  // void* mutable_data() override {
+  //   return internal::checked_cast<internal::PrimitiveScalarBase&>(*value.index)
+  //       .mutable_data();
+  // }
   std::string_view view() const override {
     return internal::checked_cast<const internal::PrimitiveScalarBase&>(*value.index)
         .view();

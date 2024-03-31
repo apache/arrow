@@ -557,13 +557,10 @@ void FillScalarScratchSpaceHelperInternal(uint8_t* scratch_space, T first, Args.
   // assign it
   *reinterpret_cast<T*>(scratch_space + offset) = first;
 
-  // Calculate the next offset based on the size of the current type T
-  constexpr size_t next_offset = offset + sizeof(T);
-
   // Recursively fill the scratch space with the remaining arguments
   if constexpr (sizeof...(args) > 0) {  // Use if constexpr to stop recursion when
                                         // there are no more arguments
-    FillScalarScratchSpaceHelperInternal<next_offset>(scratch_space,
+    FillScalarScratchSpaceHelperInternal<offset + sizeof(T)>(scratch_space,
                                                       std::forward<Args>(args)...);
   }
 }
@@ -1450,13 +1447,10 @@ struct ToTypeVisitor : CastImplVisitor {
 }  // namespace
 
 Result<std::shared_ptr<Scalar>> Scalar::CastTo(std::shared_ptr<DataType> to) const {
-  std::shared_ptr<Scalar> out = MakeNullScalar(to);
   if (is_valid) {
-    out->is_valid = true;
-    ToTypeVisitor unpack_to_type{*this, to, out.get()};
-    RETURN_NOT_OK(VisitTypeInline(*to, &unpack_to_type));
+    return ToTypeVisitor{*this, std::move(to)}.Finish();
   }
-  return out;
+  return MakeNullScalar(std::move(to));
 }
 
 void PrintTo(const Scalar& scalar, std::ostream* os) { *os << scalar.ToString(); }
