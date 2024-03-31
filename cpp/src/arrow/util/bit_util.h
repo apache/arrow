@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <_types/_uint64_t.h>
 #if defined(_MSC_VER)
 #if defined(_M_AMD64) || defined(_M_X64)
 #include <intrin.h>  // IWYU pragma: keep
@@ -364,6 +365,19 @@ void PackBits(const uint32_t* values, uint8_t* out) {
                                   values[6] << 6 | values[7] << 7);
     values += 8;
   }
+}
+
+/// Determine if a word has a zero byte
+/// The subexpression (v - 0x01010101UL), evaluates to a high bit set in any byte whenever
+/// the corresponding byte in v is zero or greater than 0x80. The sub-expression ~v &
+/// 0x80808080UL evaluates to high bits set in bytes where the byte of v doesn't have its
+/// high bit set (so the byte was less than 0x80). Finally, by ANDing these two
+/// sub-expressions the result is the high bits set where the bytes in v were zero, since
+/// the high bits set due to a value greater than 0x80 in the first sub-expression are
+/// masked off by the second.
+uint64_t HasZeroByte(uint64_t value) {
+  // https://graphics.stanford.edu/~seander/bithacks.html##ValueInWord
+  return ((value - (0x0101010101010101)) & (~value)) & 0x8080808080808080;
 }
 
 }  // namespace bit_util
