@@ -50,6 +50,10 @@ func Test_fromArrowType(t *testing.T) {
 		{Name: "f15-ts_us", Type: arrow.FixedWidthTypes.Timestamp_ns},
 		{Name: "f16-d64", Type: arrow.FixedWidthTypes.Date64},
 		{Name: "f17-dti", Type: arrow.FixedWidthTypes.DayTimeInterval},
+		{Name: "f18-duration_s", Type: arrow.FixedWidthTypes.Duration_s},
+		{Name: "f19-duration_ms", Type: arrow.FixedWidthTypes.Duration_ms},
+		{Name: "f20-duration_us", Type: arrow.FixedWidthTypes.Duration_us},
+		{Name: "f21-duration_ns", Type: arrow.FixedWidthTypes.Duration_ns},
 	}
 
 	schema := arrow.NewSchema(fields, nil)
@@ -90,6 +94,10 @@ func Test_fromArrowType(t *testing.T) {
 	testTime := time.Now()
 	b.Field(15).(*array.Date64Builder).Append(arrow.Date64FromTime(testTime))
 	b.Field(16).(*array.DayTimeIntervalBuilder).Append(arrow.DayTimeInterval{Days: 1, Milliseconds: 1000})
+	b.Field(17).(*array.DurationBuilder).Append(1)
+	b.Field(18).(*array.DurationBuilder).Append(1)
+	b.Field(19).(*array.DurationBuilder).Append(1)
+	b.Field(20).(*array.DurationBuilder).Append(1)
 
 	rec := b.NewRecord()
 	defer rec.Release()
@@ -123,4 +131,8 @@ func Test_fromArrowType(t *testing.T) {
 	tf(t, 14, time.Date(1970, 1, 1, 12, 0, 0, 0, time.UTC))  // "f15-ts_us"
 	tf(t, 15, testTime.In(time.UTC).Truncate(24*time.Hour))  // "f16-d64"
 	tf(t, 16, time.Duration(24*time.Hour+time.Second))       // "f17-dti"
+	tf(t, 17, time.Duration(1000000000))                     // "f18-duration_s"
+	tf(t, 18, time.Duration(1000000))                        // "f19-duration_ms"
+	tf(t, 19, time.Duration(1000))                           // "f20-duration_us"
+	tf(t, 20, time.Duration(1))                              // "f21-duration_ns"
 }
