@@ -415,16 +415,18 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
       data_size = scalar.value->size();
     }
     if (is_binary_like(type_id)) {
+      const auto& binary_scalar = checked_cast<const BinaryScalar&>(value);
       this->buffers[1] =
-          OffsetsForScalar(scalar.scratch_space_, static_cast<int32_t>(data_size));
+          OffsetsForScalar(binary_scalar.scratch_space_, static_cast<int32_t>(data_size));
     } else {
       // is_large_binary_like
-      this->buffers[1] = OffsetsForScalar(scalar.scratch_space_, data_size);
+      const auto& large_binary_scalar = checked_cast<const LargeBinaryScalar&>(value);
+      this->buffers[1] = OffsetsForScalar(large_binary_scalar.scratch_space_, data_size);
     }
     this->buffers[2].data = const_cast<uint8_t*>(data_buffer);
     this->buffers[2].size = data_size;
   } else if (type_id == Type::BINARY_VIEW || type_id == Type::STRING_VIEW) {
-    const auto& scalar = checked_cast<const BaseBinaryScalar&>(value);
+    const auto& scalar = checked_cast<const BinaryViewScalar&>(value);
 
     this->buffers[1].size = BinaryViewType::kSize;
     this->buffers[1].data = scalar.scratch_space_;
@@ -456,17 +458,26 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
                                     &this->child_data[0]);
     }
 
-    if (type_id == Type::LIST || type_id == Type::MAP) {
+    if (type_id == Type::LIST) {
+      const auto& list_scalar = checked_cast<const ListScalar&>(value);
+      this->buffers[1] = OffsetsForScalar(list_scalar.scratch_space_,
+                                          static_cast<int32_t>(value_length));
+    } else if (type_id == Type::MAP) {
+      const auto& map_scalar = checked_cast<const MapScalar&>(value);
       this->buffers[1] =
-          OffsetsForScalar(scalar.scratch_space_, static_cast<int32_t>(value_length));
+          OffsetsForScalar(map_scalar.scratch_space_, static_cast<int32_t>(value_length));
     } else if (type_id == Type::LARGE_LIST) {
-      this->buffers[1] = OffsetsForScalar(scalar.scratch_space_, value_length);
+      const auto& large_list_scalar = checked_cast<const LargeListScalar&>(value);
+      this->buffers[1] = OffsetsForScalar(large_list_scalar.scratch_space_, value_length);
     } else if (type_id == Type::LIST_VIEW) {
+      const auto& list_view_scalar = checked_cast<const ListViewScalar&>(value);
       std::tie(this->buffers[1], this->buffers[2]) = OffsetsAndSizesForScalar(
-          scalar.scratch_space_, static_cast<int32_t>(value_length));
+          list_view_scalar.scratch_space_, static_cast<int32_t>(value_length));
     } else if (type_id == Type::LARGE_LIST_VIEW) {
+      const auto& large_list_view_scalar =
+          checked_cast<const LargeListViewScalar&>(value);
       std::tie(this->buffers[1], this->buffers[2]) =
-          OffsetsAndSizesForScalar(scalar.scratch_space_, value_length);
+          OffsetsAndSizesForScalar(large_list_view_scalar.scratch_space_, value_length);
     } else {
       DCHECK_EQ(type_id, Type::FIXED_SIZE_LIST);
       // FIXED_SIZE_LIST: does not have a second buffer
@@ -485,20 +496,22 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
       alignas(int64_t) int8_t type_code;
       alignas(int64_t) uint8_t offsets[sizeof(int32_t) * 2];
     };
-    static_assert(sizeof(UnionScratchSpace) <= sizeof(UnionScalar::scratch_space_));
-    auto* union_scratch_space = reinterpret_cast<UnionScratchSpace*>(
-        &checked_cast<const UnionScalar&>(value).scratch_space_);
+    // static_assert(sizeof(UnionScratchSpace) <= sizeof(UnionScalar::scratch_space_));
 
     // First buffer is kept null since unions have no validity vector
     this->buffers[0] = {};
 
-    // union_scratch_space->type_code = checked_cast<const UnionScalar&>(value).type_code;
-    this->buffers[1].data = reinterpret_cast<uint8_t*>(&union_scratch_space->type_code);
-    this->buffers[1].size = 1;
-
     this->child_data.resize(this->type->num_fields());
     if (type_id == Type::DENSE_UNION) {
       const auto& scalar = checked_cast<const DenseUnionScalar&>(value);
+      auto* union_scratch_space =
+          reinterpret_cast<UnionScratchSpace*>(&scalar.scratch_space_);
+
+      // union_scratch_space->type_code = checked_cast<const
+      // UnionScalar&>(value).type_code;
+      this->buffers[1].data = reinterpret_cast<uint8_t*>(&union_scratch_space->type_code);
+      this->buffers[1].size = 1;
+
       this->buffers[2] =
           OffsetsForScalar(union_scratch_space->offsets, static_cast<int32_t>(1));
       // We can't "see" the other arrays in the union, but we put the "active"
@@ -517,6 +530,14 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
       }
     } else {
       const auto& scalar = checked_cast<const SparseUnionScalar&>(value);
+      auto* union_scratch_space =
+          reinterpret_cast<UnionScratchSpace*>(&scalar.scratch_space_);
+
+      // union_scratch_space->type_code = checked_cast<const
+      // UnionScalar&>(value).type_code;
+      this->buffers[1].data = reinterpret_cast<uint8_t*>(&union_scratch_space->type_code);
+      this->buffers[1].size = 1;
+
       // Sparse union scalars have a full complement of child values even
       // though only one of them is relevant, so we just fill them in here
       for (int i = 0; i < static_cast<int>(this->child_data.size()); ++i) {

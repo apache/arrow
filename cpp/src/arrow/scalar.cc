@@ -542,33 +542,23 @@ struct ScalarValidateImpl {
   }
 };
 
-// // Helper function to fill scratch space, base case for recursion
-// void FillScalarScratchSpaceHelperInternal(uint8_t* scratch_space) {}
-
-// Recursive variadic function to fill scratch space
 template <size_t offset, typename T, typename... Args>
-void FillScalarScratchSpaceHelperInternal(uint8_t* scratch_space, T first, Args... args) {
-  // Ensure that the argument does not exceed the bounds of the scratch space
-  static_assert(offset + sizeof(T) <=
-                    sizeof(internal::ArraySpanFillFromScalarScratchSpace::scratch_space_),
-                "Total size of arguments exceeds scratch space size.");
-
-  // Cast the scratch space at the given offset to the type of the current argument and
-  // assign it
+void FillScalarScratchSpaceHelper(uint8_t* scratch_space, T first, Args... args) {
+  // static_assert(offset + sizeof(T) <=
+  //                   sizeof(internal::ArraySpanFillFromScalarScratchSpace::scratch_space_),
+  //               "Total size of arguments exceeds scratch space size.");
   *reinterpret_cast<T*>(scratch_space + offset) = first;
-
-  // Recursively fill the scratch space with the remaining arguments
-  if constexpr (sizeof...(args) > 0) {  // Use if constexpr to stop recursion when
-                                        // there are no more arguments
-    FillScalarScratchSpaceHelperInternal<offset + sizeof(T)>(scratch_space,
-                                                             std::forward<Args>(args)...);
+  if constexpr (sizeof...(args) > 0) {
+    FillScalarScratchSpaceHelper<offset + sizeof(T)>(scratch_space,
+                                                     std::forward<Args>(args)...);
   }
 }
 
 template <typename... Args>
-void FillScalarScratchSpaceHelper(Args... args) {
-  FillScalarScratchSpaceHelperInternal<0>(std::forward<Args>(args)...);
+void FillScalarScratchSpace(Args... args) {
+  FillScalarScratchSpaceHelper<0>(std::forward<Args>(args)...);
 }
+
 }  // namespace
 
 size_t Scalar::hash() const { return ScalarHashImpl(*this).hash_; }
@@ -581,45 +571,28 @@ Status Scalar::ValidateFull() const {
   return ScalarValidateImpl(/*full_validation=*/true).Validate(*this);
 }
 
-template <typename FillScalarScratchSpaceFactoryT>
-BaseBinaryScalar::BaseBinaryScalar(std::string s, std::shared_ptr<DataType> type,
-                                   FillScalarScratchSpaceFactoryT factory)
-    : BaseBinaryScalar(Buffer::FromString(std::move(s)), std::move(type),
-                       std::move(factory)) {}
+BaseBinaryScalar::BaseBinaryScalar(std::string s, std::shared_ptr<DataType> type)
+    : BaseBinaryScalar(Buffer::FromString(std::move(s)), std::move(type)) {}
 
-BinaryScalar::BinaryScalar(std::string s, std::shared_ptr<DataType> type)
-    : BinaryScalar(Buffer::FromString(std::move(s)), std::move(type)) {}
-
-void BinaryScalar::FillScalarScratchSpace::Fill(
-    const internal::ArraySpanFillFromScalarScratchSpace& scratch_space) const {
-  FillScalarScratchSpaceHelper(
-      scratch_space.scratch_space_, int32_t(0),
-      is_valid_ ? static_cast<int32_t>(value_->size()) : int32_t(0));
+void BinaryScalar::FillScratchSpace() {
+  FillScalarScratchSpace(scratch_space_, int32_t(0),
+                         is_valid ? static_cast<int32_t>(value->size()) : int32_t(0));
 }
 
-BinaryViewScalar::BinaryViewScalar(std::string s, std::shared_ptr<DataType> type)
-    : BinaryViewScalar(Buffer::FromString(std::move(s)), std::move(type)) {}
-
-void BinaryViewScalar::FillScalarScratchSpace::Fill(
-    const internal::ArraySpanFillFromScalarScratchSpace& scratch_space) const {
+void BinaryViewScalar::FillScratchSpace() {
   static_assert(sizeof(BinaryViewType::c_type) <=
-                sizeof(internal::ArraySpanFillFromScalarScratchSpace::scratch_space_));
-  auto* view = new (&scratch_space.scratch_space_) BinaryViewType::c_type;
-  if (is_valid_) {
-    *view = util::ToBinaryView(std::string_view{*value_}, 0, 0);
+                sizeof(ArraySpanFillFromScalarScratchSpace::scratch_space_));
+  auto* view = new (&scratch_space_) BinaryViewType::c_type;
+  if (is_valid) {
+    *view = util::ToBinaryView(std::string_view{*value}, 0, 0);
   } else {
     *view = {};
   }
 }
 
-LargeBinaryScalar::LargeBinaryScalar(std::string s, std::shared_ptr<DataType> type)
-    : LargeBinaryScalar(Buffer::FromString(std::move(s)), std::move(type)) {}
-
-void LargeBinaryScalar::FillScalarScratchSpace::Fill(
-    const internal::ArraySpanFillFromScalarScratchSpace& scratch_space) const {
-  FillScalarScratchSpaceHelper(
-      scratch_space.scratch_space_, int64_t(0),
-      is_valid_ ? static_cast<int64_t>(value_->size()) : int64_t(0));
+void LargeBinaryScalar::FillScratchSpace() {
+  FillScalarScratchSpace(scratch_space_, int64_t(0),
+                         is_valid ? static_cast<int64_t>(value->size()) : int64_t(0));
 }
 
 FixedSizeBinaryScalar::FixedSizeBinaryScalar(std::shared_ptr<Buffer> value,
@@ -640,72 +613,42 @@ FixedSizeBinaryScalar::FixedSizeBinaryScalar(const std::shared_ptr<Buffer>& valu
 FixedSizeBinaryScalar::FixedSizeBinaryScalar(std::string s, bool is_valid)
     : FixedSizeBinaryScalar(Buffer::FromString(std::move(s)), is_valid) {}
 
-template <typename FillScalarScratchSpaceFactoryT>
 BaseListScalar::BaseListScalar(std::shared_ptr<Array> value,
-                               std::shared_ptr<DataType> type, bool is_valid,
-                               FillScalarScratchSpaceFactoryT factory)
-    : Scalar{std::move(type), is_valid},
-      ArraySpanFillFromScalarScratchSpace(factory(value.get())),
-      value(std::move(value)) {
+                               std::shared_ptr<DataType> type, bool is_valid)
+    : Scalar{std::move(type), is_valid}, value(std::move(value)) {
   ARROW_CHECK(this->type->field(0)->type()->Equals(this->value->type()));
 }
 
-ListScalar::ListScalar(std::shared_ptr<Array> value, std::shared_ptr<DataType> type,
-                       bool is_valid)
-    : BaseListScalar(std::move(value), std::move(type), is_valid,
-                     FillScalarScratchSpaceFactory<FillScalarScratchSpace>) {}
-
 ListScalar::ListScalar(std::shared_ptr<Array> value, bool is_valid)
-    : ListScalar(value, list(value->type()), is_valid) {}
+    : BaseListScalar(value, list(value->type()), is_valid) {}
 
-void ListScalar::FillScalarScratchSpace::Fill(
-    const internal::ArraySpanFillFromScalarScratchSpace& scratch_space) const {
-  FillScalarScratchSpaceHelper(
-      scratch_space.scratch_space_, int32_t(0),
-      value_ ? static_cast<int32_t>(value_->length()) : int32_t(0));
+void ListScalar::FillScratchSpace() {
+  FillScalarScratchSpace(scratch_space_, int32_t(0),
+                         value ? static_cast<int32_t>(value->length()) : int32_t(0));
 }
-
-LargeListScalar::LargeListScalar(std::shared_ptr<Array> value,
-                                 std::shared_ptr<DataType> type, bool is_valid)
-    : BaseListScalar(std::move(value), std::move(type), is_valid,
-                     FillScalarScratchSpaceFactory<FillScalarScratchSpace>) {}
 
 LargeListScalar::LargeListScalar(std::shared_ptr<Array> value, bool is_valid)
     : LargeListScalar(value, large_list(value->type()), is_valid) {}
 
-void LargeListScalar::FillScalarScratchSpace::Fill(
-    const internal::ArraySpanFillFromScalarScratchSpace& scratch_space) const {
-  FillScalarScratchSpaceHelper(scratch_space.scratch_space_, int64_t(0),
-                               value_ ? value_->length() : int64_t(0));
+void LargeListScalar::FillScratchSpace() {
+  FillScalarScratchSpace(scratch_space_, int64_t(0),
+                         value ? value->length() : int64_t(0));
 }
-
-ListViewScalar::ListViewScalar(std::shared_ptr<Array> value,
-                               std::shared_ptr<DataType> type, bool is_valid)
-    : BaseListScalar(std::move(value), std::move(type), is_valid,
-                     FillScalarScratchSpaceFactory<FillScalarScratchSpace>) {}
 
 ListViewScalar::ListViewScalar(std::shared_ptr<Array> value, bool is_valid)
     : ListViewScalar(value, list_view(value->type()), is_valid) {}
 
-void ListViewScalar::FillScalarScratchSpace::Fill(
-    const internal::ArraySpanFillFromScalarScratchSpace& scratch_space) const {
-  FillScalarScratchSpaceHelper(
-      scratch_space.scratch_space_, int32_t(0),
-      value_ ? static_cast<int32_t>(value_->length()) : int32_t(0));
+void ListViewScalar::FillScratchSpace() {
+  FillScalarScratchSpace(scratch_space_, int32_t(0),
+                         value ? static_cast<int32_t>(value->length()) : int32_t(0));
 }
-
-LargeListViewScalar::LargeListViewScalar(std::shared_ptr<Array> value,
-                                         std::shared_ptr<DataType> type, bool is_valid)
-    : BaseListScalar(std::move(value), std::move(type), is_valid,
-                     FillScalarScratchSpaceFactory<FillScalarScratchSpace>) {}
 
 LargeListViewScalar::LargeListViewScalar(std::shared_ptr<Array> value, bool is_valid)
     : LargeListViewScalar(value, large_list_view(value->type()), is_valid) {}
 
-void LargeListViewScalar::FillScalarScratchSpace::Fill(
-    const internal::ArraySpanFillFromScalarScratchSpace& scratch_space) const {
-  FillScalarScratchSpaceHelper(scratch_space.scratch_space_, int64_t(0),
-                               value_ ? value_->length() : int64_t(0));
+void LargeListViewScalar::FillScratchSpace() {
+  FillScalarScratchSpace(scratch_space_, int64_t(0),
+                         value ? value->length() : int64_t(0));
 }
 
 inline std::shared_ptr<DataType> MakeMapType(const std::shared_ptr<DataType>& pair_type) {
@@ -714,31 +657,23 @@ inline std::shared_ptr<DataType> MakeMapType(const std::shared_ptr<DataType>& pa
   return map(pair_type->field(0)->type(), pair_type->field(1)->type());
 }
 
-MapScalar::MapScalar(std::shared_ptr<Array> value, std::shared_ptr<DataType> type,
-                     bool is_valid)
-    : BaseListScalar(std::move(value), std::move(type), is_valid,
-                     FillScalarScratchSpaceFactory<FillScalarScratchSpace>) {}
-
 MapScalar::MapScalar(std::shared_ptr<Array> value, bool is_valid)
     : MapScalar(value, MakeMapType(value->type()), is_valid) {}
 
-void MapScalar::FillScalarScratchSpace::Fill(
-    const internal::ArraySpanFillFromScalarScratchSpace& scratch_space) const {
-  FillScalarScratchSpaceHelper(
-      scratch_space.scratch_space_, int32_t(0),
-      value_ ? static_cast<int32_t>(value_->length()) : int32_t(0));
+void MapScalar::FillScratchSpace() {
+  FillScalarScratchSpace(scratch_space_, int32_t(0),
+                         value ? static_cast<int32_t>(value->length()) : int32_t(0));
 }
 
 FixedSizeListScalar::FixedSizeListScalar(std::shared_ptr<Array> value,
                                          std::shared_ptr<DataType> type, bool is_valid)
-    : BaseListScalar(std::move(value), std::move(type), is_valid,
-                     FillScalarScratchSpaceFactory<FillScalarScratchSpace>) {
+    : BaseListScalar(std::move(value), std::move(type), is_valid) {
   ARROW_CHECK_EQ(this->value->length(),
                  checked_cast<const FixedSizeListType&>(*this->type).list_size());
 }
 
 FixedSizeListScalar::FixedSizeListScalar(std::shared_ptr<Array> value, bool is_valid)
-    : FixedSizeListScalar(
+    : BaseListScalar(
           value, fixed_size_list(value->type(), static_cast<int32_t>(value->length())),
           is_valid) {}
 
@@ -773,10 +708,7 @@ Result<std::shared_ptr<Scalar>> StructScalar::field(FieldRef ref) const {
 
 RunEndEncodedScalar::RunEndEncodedScalar(std::shared_ptr<Scalar> value,
                                          std::shared_ptr<DataType> type)
-    : Scalar{std::move(type), value->is_valid},
-      ArraySpanFillFromScalarScratchSpace(
-          FillScalarScratchSpace(*ree_type(this->type)->run_end_type())),
-      value{std::move(value)} {
+    : Scalar{std::move(type), value->is_valid}, value{std::move(value)} {
   ARROW_CHECK_EQ(this->type->id(), Type::RUN_END_ENCODED);
 }
 
@@ -787,18 +719,18 @@ RunEndEncodedScalar::RunEndEncodedScalar(const std::shared_ptr<DataType>& type)
 
 RunEndEncodedScalar::~RunEndEncodedScalar() = default;
 
-void RunEndEncodedScalar::FillScalarScratchSpace::Fill(
-    const internal::ArraySpanFillFromScalarScratchSpace& scratch_space) const {
-  switch (run_end_type_.id()) {
+void RunEndEncodedScalar::FillScratchSpace() {
+  auto run_end = run_end_type()->id();
+  switch (run_end) {
     case Type::INT16:
-      FillScalarScratchSpaceHelper(scratch_space.scratch_space_, int16_t(1));
+      FillScalarScratchSpace(scratch_space_, int16_t(1));
       break;
     case Type::INT32:
-      FillScalarScratchSpaceHelper(scratch_space.scratch_space_, int32_t(1));
+      FillScalarScratchSpace(scratch_space_, int32_t(1));
       break;
     default:
-      DCHECK_EQ(run_end_type_.id(), Type::INT64);
-      FillScalarScratchSpaceHelper(scratch_space.scratch_space_, int64_t(1));
+      DCHECK_EQ(run_end, Type::INT64);
+      FillScalarScratchSpace(scratch_space_, int64_t(1));
   }
 }
 
@@ -876,8 +808,7 @@ Result<TimestampScalar> TimestampScalar::FromISO8601(std::string_view iso8601,
 
 SparseUnionScalar::SparseUnionScalar(ValueType value, int8_t type_code,
                                      std::shared_ptr<DataType> type)
-    : UnionScalar(std::move(type), type_code, /*is_valid=*/true,
-                  FillScalarScratchSpace(type_code)),
+    : UnionScalar(std::move(type), type_code, /*is_valid=*/true),
       value(std::move(value)) {
   this->child_id =
       checked_cast<const SparseUnionType&>(*this->type).child_ids()[type_code];
@@ -908,24 +839,20 @@ struct UnionScratchSpace {
   alignas(int64_t) int8_t type_code;
   alignas(int64_t) uint8_t offsets[sizeof(int32_t) * 2];
 };
-static_assert(sizeof(UnionScratchSpace) <=
-              sizeof(internal::ArraySpanFillFromScalarScratchSpace::scratch_space_));
+// static_assert(sizeof(UnionScratchSpace) <=
+//               sizeof(internal::ArraySpanFillFromScalarScratchSpace::scratch_space_));
 
 }  // namespace
 
-void SparseUnionScalar::FillScalarScratchSpace::Fill(
-    const internal::ArraySpanFillFromScalarScratchSpace& scratch_space) const {
-  auto* union_scratch_space =
-      reinterpret_cast<UnionScratchSpace*>(&scratch_space.scratch_space_);
-  union_scratch_space->type_code = type_code_;
+void SparseUnionScalar::FillScratchSpace() {
+  auto* union_scratch_space = reinterpret_cast<UnionScratchSpace*>(&scratch_space_);
+  union_scratch_space->type_code = type_code;
 }
 
-void DenseUnionScalar::FillScalarScratchSpace::Fill(
-    const internal::ArraySpanFillFromScalarScratchSpace& scratch_space) const {
-  auto* union_scratch_space =
-      reinterpret_cast<UnionScratchSpace*>(&scratch_space.scratch_space_);
-  union_scratch_space->type_code = type_code_;
-  FillScalarScratchSpaceHelper(union_scratch_space->offsets, int32_t(0), int32_t(1));
+void DenseUnionScalar::FillScratchSpace() {
+  auto* union_scratch_space = reinterpret_cast<UnionScratchSpace*>(&scratch_space_);
+  union_scratch_space->type_code = type_code;
+  FillScalarScratchSpace(union_scratch_space->offsets, int32_t(0), int32_t(1));
 }
 
 namespace {
