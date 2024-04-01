@@ -1162,7 +1162,7 @@ enable_if_number<To, Result<std::shared_ptr<Scalar>>> CastImpl(
 template <typename To, typename From>
 enable_if_boolean<To, Result<std::shared_ptr<Scalar>>> CastImpl(
     const NumericScalar<From>& from, std::shared_ptr<DataType> to_type) {
-  constexpr auto zero = static_cast<typename To::c_type>(0);
+  constexpr auto zero = static_cast<typename From::c_type>(0);
   return std::make_shared<BooleanScalar>(from.value != zero, std::move(to_type));
 }
 
