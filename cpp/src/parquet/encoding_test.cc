@@ -2524,7 +2524,34 @@ TEST(DeltaByteArrayEncodingAdHoc, ArrowDirectPut) {
 }
 
 TEST(TestFallbackEncodingSuite, TestChooseFallbackEncoding) {
-  auto encoding = ChooseFallbackEncoding();
-  ASSERT_EQ(encoding, Encoding::PLAIN);
+  struct TestCase {
+    Type::type data_type;
+    ParquetVersion::type parquet_version;
+    ParquetDataPageVersion datapage_version;
+    Encoding::type expected_encoding;
+  };
+  TestCase cases[] = {
+      {Type::BOOLEAN, ParquetVersion::PARQUET_1_0, ParquetDataPageVersion::V2,
+       Encoding::PLAIN},
+      {Type::BOOLEAN, ParquetVersion::PARQUET_2_4, ParquetDataPageVersion::V1,
+       Encoding::PLAIN},
+      {Type::BOOLEAN, ParquetVersion::PARQUET_2_4, ParquetDataPageVersion::V2,
+       Encoding::RLE},
+      {Type::BOOLEAN, ParquetVersion::PARQUET_2_6, ParquetDataPageVersion::V2,
+       Encoding::RLE},
+      // Only BYTE_ARRAY type matters for producing Encoding::DELTA_LENGTH_BYTE_ARRAY
+      {Type::BYTE_ARRAY, ParquetVersion::PARQUET_1_0, ParquetDataPageVersion::V1,
+       Encoding::DELTA_LENGTH_BYTE_ARRAY},
+      {Type::BYTE_ARRAY, ParquetVersion::PARQUET_1_0, ParquetDataPageVersion::V2,
+       Encoding::DELTA_LENGTH_BYTE_ARRAY},
+      {Type::BYTE_ARRAY, ParquetVersion::PARQUET_2_4, ParquetDataPageVersion::V2,
+       Encoding::DELTA_LENGTH_BYTE_ARRAY},
+  };
+
+  for (auto test_case : cases) {
+    auto encoding = ChooseFallbackEncoding(test_case.data_type, test_case.parquet_version,
+                                           test_case.datapage_version);
+    ASSERT_EQ(encoding, test_case.expected_encoding);
+  }
 }
 }  // namespace parquet::test

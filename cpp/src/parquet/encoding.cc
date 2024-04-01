@@ -4056,6 +4056,28 @@ std::unique_ptr<Decoder> MakeDictDecoder(Type::type type_num,
 
 }  // namespace detail
 
-Encoding::type ChooseFallbackEncoding() { return Encoding::PLAIN; }
+// Informed heavily by https://github.com/apache/parquet-format/blob/master/Encodings.md
+Encoding::type ChooseFallbackEncoding(Type::type data_type,
+                                      ParquetVersion::type parquet_version,
+                                      ParquetDataPageVersion datapage_version) {
+  // WriterProperties data used to make encoding decision
+  //  physical type - some encodings don't support certain types.
+  //  current encoding - not sure if we actually need this.
+  //  parquet version
+  //  data page version
+  //
+  if (data_type == Type::BOOLEAN && parquet_version != ParquetVersion::PARQUET_1_0 &&
+      datapage_version == ParquetDataPageVersion::V2) {
+    return Encoding::RLE;
+  } else if (data_type == Type::BYTE_ARRAY) {
+    // BYTE_ARRAYs should always default to DELTA_LENGTH_BYTE_ARRAY
+    return Encoding::DELTA_LENGTH_BYTE_ARRAY;
+  }
+  return Encoding::PLAIN;
+}
+
+//  IsDictionaryEncoding - I think we should handle this separately
+//  differences between data page and dictionary page
+//
 
 }  // namespace parquet
