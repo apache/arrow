@@ -930,6 +930,57 @@ namespace Apache.Arrow.Tests
             }
         }
 
+        [SkippableFact]
+        public async Task ExportBatchReadFromIpc()
+        {
+            // Reading IPC data from a Stream creates Arrow buffers backed by ReadOnlyMemory that point
+            // to slices of a single memory buffer owned by the RecordBach (unless compression is used).
+            // Using the exported data after the RecordBatch has been disposed can cause
+            // memory corruption or access violations.
+
+            var originalBatch = GetTestRecordBatch();
+            dynamic pyBatch = GetPythonRecordBatch();
+
+            using (var stream = new MemoryStream())
+            {
+                var writer = new ArrowStreamWriter(stream, originalBatch.Schema);
+                await writer.WriteRecordBatchAsync(originalBatch);
+                await writer.WriteEndAsync();
+
+                stream.Seek(0, SeekOrigin.Begin);
+
+                var reader = new ArrowStreamReader(stream);
+                var batch = await reader.ReadNextRecordBatchAsync();
+
+                Assert.NotNull(batch);
+                Assert.Equal(originalBatch.Length, batch.Length);
+
+                unsafe
+                {
+                    CArrowArray* cArray = CArrowArray.Create();
+                    CArrowArrayExporter.ExportRecordBatch(batch, cArray);
+
+                    CArrowSchema* cSchema = CArrowSchema.Create();
+                    CArrowSchemaExporter.ExportSchema(batch.Schema, cSchema);
+
+                    long arrayPtr = ((IntPtr)cArray).ToInt64();
+                    long schemaPtr = ((IntPtr)cSchema).ToInt64();
+
+                    batch.Dispose();
+
+                    using (Py.GIL())
+                    {
+                        dynamic pa = Py.Import("pyarrow");
+                        dynamic exportedPyArray = pa.RecordBatch._import_from_c(arrayPtr, schemaPtr);
+                        Assert.True(exportedPyArray == pyBatch);
+                    }
+
+                    CArrowArray.Free(cArray);
+                    CArrowSchema.Free(cSchema);
+                }
+            }
+        }
+
         private static PyObject List(params int?[] values)
         {
             return new PyList(values.Select(i => i == null ? PyObject.None : new PyInt(i.Value)).ToArray());
