@@ -149,6 +149,6 @@ if [ ${UPLOAD_MATLAB} -gt 0 ]; then
     ${mltbx_file} \
     --prerelease \
     --target ${target_branch}  \
-    --notes ${release_notes} \
+    --notes "${release_notes}" \
     --repo ${repository}
 fi
