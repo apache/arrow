@@ -137,9 +137,21 @@ docker_run \
     VERSION=${version} \
     YUM_TARGETS=$(IFS=,; echo "${yum_targets[*]}")
 
+# Upload the MATLAB MLTBX Release Candidate to the GitHub Releases
+# area of the Apache Arrow GitHub project.
+mltbx_file="${ARROW_ARTIFACTS_DIR}/matlab-dist/matlab-arrow-${version_with_rc}.mltbx"
+mltbx_signature_gpg_ascii_armor=${mltbx_file}.asc
+mltbx_checksum_sha512=${mltbx_file}.sha512
 
+# Sign the MLTBX file and create a detached (--deatch-sign) ASCII armor (--armor) GPG signature file.
+gpg --detach-sign --local-user "${GPG_KEY_ID}" --armor ${mltbx_file}
+
+# Compute the SHA512 checksum of the MLTBX file.
+shasum --algorithm 512 ${mltbx_file} > ${mltbx_checksum_sha512}
+
+# Upload artifacts to the Apache Arrow
+# GitHub Releases area and mark as a "Prerelease".
 if [ ${UPLOAD_MATLAB} -gt 0 ]; then
-  mltbx_file="${ARROW_ARTIFACTS_DIR}/matlab-dist/matlab-arrow-${version_with_rc}.mltbx"
   release_tag=${version_with_rc}
   target_branch=${version_with_rc}
   release_notes="Release Candidate: ${version_with_rc}"
@@ -147,6 +159,8 @@ if [ ${UPLOAD_MATLAB} -gt 0 ]; then
   gh release create \
     ${release_tag} \
     ${mltbx_file} \
+    ${mltbx_signature_gpg_ascii_armor} \
+    ${mltbx_checksum_sha512} \
     --prerelease \
     --target ${target_branch}  \
     --notes "${release_notes}" \
