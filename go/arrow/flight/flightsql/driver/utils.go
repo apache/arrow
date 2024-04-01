@@ -105,11 +105,8 @@ func fromArrowType(arr arrow.Array, idx int) (interface{}, error) {
 	case *array.Date64:
 		return c.Value(idx).ToTime(), nil
 	case *array.Duration:
-    // according to
-    // https://github.com/apache/arrow/blob/50ca7a76d38e6ecf19589bc44f46bffd1db0d4c8/format/Schema.fbs#L420-L435
-    // the default "TimeUnit" for an arrow.Duration is in microseconds but
-    // golang Durations are int64 nanoseconds
-		duration := time.Duration(int64(c.Value(idx) * 1000))
+		dt := arr.DataType().(*arrow.DurationType)
+		duration := time.Duration(c.Value(idx)) * dt.Unit.Multiplier()
 		return duration, nil
 	case *array.DayTimeInterval:
 		durationDays := time.Duration(c.Value(idx).Days*24) * time.Hour

@@ -50,7 +50,10 @@ func Test_fromArrowType(t *testing.T) {
 		{Name: "f15-ts_us", Type: arrow.FixedWidthTypes.Timestamp_ns},
 		{Name: "f16-d64", Type: arrow.FixedWidthTypes.Date64},
 		{Name: "f17-dti", Type: arrow.FixedWidthTypes.DayTimeInterval},
-		{Name: "f17-duration", Type: arrow.FixedWidthTypes.Duration_us},
+		{Name: "f18-duration_s", Type: arrow.FixedWidthTypes.Duration_s},
+		{Name: "f19-duration_ms", Type: arrow.FixedWidthTypes.Duration_ms},
+		{Name: "f20-duration_us", Type: arrow.FixedWidthTypes.Duration_us},
+		{Name: "f21-duration_ns", Type: arrow.FixedWidthTypes.Duration_ns},
 	}
 
 	schema := arrow.NewSchema(fields, nil)
@@ -92,6 +95,9 @@ func Test_fromArrowType(t *testing.T) {
 	b.Field(15).(*array.Date64Builder).Append(arrow.Date64FromTime(testTime))
 	b.Field(16).(*array.DayTimeIntervalBuilder).Append(arrow.DayTimeInterval{Days: 1, Milliseconds: 1000})
 	b.Field(17).(*array.DurationBuilder).Append(1)
+	b.Field(18).(*array.DurationBuilder).Append(1)
+	b.Field(19).(*array.DurationBuilder).Append(1)
+	b.Field(20).(*array.DurationBuilder).Append(1)
 
 	rec := b.NewRecord()
 	defer rec.Release()
@@ -125,10 +131,8 @@ func Test_fromArrowType(t *testing.T) {
 	tf(t, 14, time.Date(1970, 1, 1, 12, 0, 0, 0, time.UTC))  // "f15-ts_us"
 	tf(t, 15, testTime.In(time.UTC).Truncate(24*time.Hour))  // "f16-d64"
 	tf(t, 16, time.Duration(24*time.Hour+time.Second))       // "f17-dti"
-	// according to
-	// https://github.com/apache/arrow/blob/50ca7a76d38e6ecf19589bc44f46bffd1db0d4c8/format/Schema.fbs#L420-L435
-	// the default "TimeUnit" for an arrow.Duration is in microseconds but golang
-	// Durations are int64 nanoseconds so we verify here that the
-	// array.Duration(1) we create above shows up as a 1000 nanoseconds
-	tf(t, 17, time.Duration(1000)) // "f18-duration_ms"
+	tf(t, 17, time.Duration(1000000000))                     // "f17-duration_s"
+	tf(t, 18, time.Duration(1000000))                        // "f17-duration_ms"
+	tf(t, 19, time.Duration(1000))                           // "f17-duration_us"
+	tf(t, 20, time.Duration(1))                              // "f17-duration_ns"
 }
