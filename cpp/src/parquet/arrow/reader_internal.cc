@@ -86,9 +86,9 @@ using ::arrow::internal::SafeLeftShift;
 using ::arrow::util::Float16;
 using ::arrow::util::SafeLoadAs;
 
-using parquet::internal::BinaryRecordReader;
-using parquet::internal::DictionaryRecordReader;
-using parquet::internal::RecordReader;
+using parquet::BinaryRecordReader;
+using parquet::DictionaryRecordReader;
+using parquet::RecordReader;
 using parquet::schema::GroupNode;
 using parquet::schema::Node;
 using parquet::schema::PrimitiveNode;

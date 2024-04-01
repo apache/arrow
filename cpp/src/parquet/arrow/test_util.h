@@ -39,7 +39,7 @@
 
 namespace parquet {
 
-using internal::RecordReader;
+using RecordReader;
 
 namespace arrow {
 

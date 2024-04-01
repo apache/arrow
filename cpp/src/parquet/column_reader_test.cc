@@ -679,9 +679,9 @@ class RecordReaderPrimitiveTypeTest
     NodePtr root = GroupNode::Make("root", Repetition::REQUIRED, {column});
     schema_descriptor_.Init(root);
     descr_ = schema_descriptor_.Column(0);
-    record_reader_ = internal::RecordReader::Make(descr_, ComputeLevelInfo(descr_),
-                                                  ::arrow::default_memory_pool(),
-                                                  /*read_dictionary=*/false, GetParam());
+    record_reader_ = RecordReader::Make(descr_, ComputeLevelInfo(descr_),
+                                        ::arrow::default_memory_pool(),
+                                        /*read_dictionary=*/false, GetParam());
   }
 
   void CheckReadValues(std::vector<int32_t> expected_values,
@@ -722,7 +722,7 @@ class RecordReaderPrimitiveTypeTest
 
  protected:
   SchemaDescriptor schema_descriptor_;
-  std::shared_ptr<internal::RecordReader> record_reader_;
+  std::shared_ptr<RecordReader> record_reader_;
   const ColumnDescriptor* descr_;
 };
 
@@ -1418,9 +1418,9 @@ class FLBARecordReaderTest : public ::testing::TestWithParam<bool> {
     MakePages<FLBAType>(descr_.get(), num_pages, levels_per_page, def_levels_,
                         rep_levels_, values_, buffer_, pages_, Encoding::PLAIN);
     auto pager = std::make_unique<MockPageReader>(pages_);
-    record_reader_ = internal::RecordReader::Make(
-        descr_.get(), level_info, ::arrow::default_memory_pool(),
-        /*read_dictionary=*/false, read_dense_for_nullable());
+    record_reader_ =
+        RecordReader::Make(descr_.get(), level_info, ::arrow::default_memory_pool(),
+                           /*read_dictionary=*/false, read_dense_for_nullable());
     record_reader_->SetPageReader(std::move(pager));
   }
 
@@ -1480,7 +1480,7 @@ class FLBARecordReaderTest : public ::testing::TestWithParam<bool> {
   }
 
  protected:
-  std::shared_ptr<internal::RecordReader> record_reader_;
+  std::shared_ptr<RecordReader> record_reader_;
 
  private:
   int levels_per_page_;
@@ -1512,9 +1512,9 @@ class ByteArrayRecordReaderTest : public ::testing::TestWithParam<bool> {
 
     auto pager = std::make_unique<MockPageReader>(pages_);
 
-    record_reader_ = internal::RecordReader::Make(
-        descr_.get(), level_info, ::arrow::default_memory_pool(),
-        /*read_dictionary=*/false, read_dense_for_nullable());
+    record_reader_ =
+        RecordReader::Make(descr_.get(), level_info, ::arrow::default_memory_pool(),
+                           /*read_dictionary=*/false, read_dense_for_nullable());
     record_reader_->SetPageReader(std::move(pager));
   }
 
@@ -1574,7 +1574,7 @@ class ByteArrayRecordReaderTest : public ::testing::TestWithParam<bool> {
   }
 
  protected:
-  std::shared_ptr<internal::RecordReader> record_reader_;
+  std::shared_ptr<RecordReader> record_reader_;
 
  private:
   int levels_per_page_;
@@ -1703,8 +1703,7 @@ TEST_P(RecordReaderStressTest, StressTest) {
   pager.reset(new test::MockPageReader(pages));
 
   // Set up the RecordReader.
-  std::shared_ptr<internal::RecordReader> record_reader =
-      internal::RecordReader::Make(&descr, level_info);
+  std::shared_ptr<RecordReader> record_reader = RecordReader::Make(&descr, level_info);
   record_reader->SetPageReader(std::move(pager));
 
   // Figure out how many total records.

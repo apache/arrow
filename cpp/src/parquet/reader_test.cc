@@ -598,7 +598,7 @@ TEST(TestFileReader, RecordReaderReadDenseForNullable) {
     std::unique_ptr<ParquetFileReader> file_reader = ParquetFileReader::OpenFile(
         alltypes_plain(), /* memory_map = */ false, reader_props);
     std::shared_ptr<RowGroupReader> group = file_reader->RowGroup(0);
-    std::shared_ptr<internal::RecordReader> col_record_reader = group->RecordReader(0);
+    std::shared_ptr<RecordReader> col_record_reader = group->RecordReader(0);
     ASSERT_EQ(reader_props.read_dense_for_nullable(),
               col_record_reader->read_dense_for_nullable());
   }
@@ -611,7 +611,7 @@ TEST(TestFileReader, GetRecordReader) {
       alltypes_plain(), /* memory_map = */ false, reader_props);
   std::shared_ptr<RowGroupReader> group = file_reader->RowGroup(0);
 
-  std::shared_ptr<internal::RecordReader> col_record_reader_ = group->RecordReader(0);
+  std::shared_ptr<RecordReader> col_record_reader_ = group->RecordReader(0);
 
   ASSERT_TRUE(col_record_reader_->HasMoreData());
   auto records_read = col_record_reader_->ReadRecords(4);
