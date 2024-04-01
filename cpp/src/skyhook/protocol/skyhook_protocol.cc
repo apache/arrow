@@ -106,7 +106,8 @@ arrow::Status SerializeTable(const std::shared_ptr<arrow::Table>& table,
   ARROW_RETURN_NOT_OK(writer->Close());
 
   ARROW_ASSIGN_OR_RAISE(auto buffer, buffer_output_stream->Finish());
-  bl->append(reinterpret_cast<const char*>(buffer->data()), buffer->size());
+  bl->append(reinterpret_cast<const char*>(buffer->data()),
+             static_cast<unsigned int>(buffer->size()));
   return arrow::Status::OK();
 }
 
