@@ -73,7 +73,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         object obj, object mask, const PyConversionOptions& options,
         CMemoryPool* pool)
 
-    CStatus NumPyDtypeToArrow(object dtype, shared_ptr[CDataType]* type)
+    CResult[shared_ptr[CDataType]] NumPyDtypeToArrow(object dtype)
 
     CStatus NdarrayToArrow(CMemoryPool* pool, object ao, object mo,
                            c_bool from_pandas,
@@ -263,7 +263,7 @@ cdef extern from "arrow/python/common.h" namespace "arrow::py":
 
 cdef extern from "arrow/python/common.h" namespace "arrow::py" nogil:
     cdef cppclass SharedPtrNoGIL[T](shared_ptr[T]):
-        # This looks like the only way to satsify both Cython 2 and Cython 3
+        # This looks like the only way to satisfy both Cython 2 and Cython 3
         SharedPtrNoGIL& operator=(...)
     cdef cppclass UniquePtrNoGIL[T, DELETER=*](unique_ptr[T, DELETER]):
         UniquePtrNoGIL& operator=(...)
@@ -281,6 +281,14 @@ cdef extern from "arrow/python/ipc.h" namespace "arrow::py":
         @staticmethod
         CResult[shared_ptr[CRecordBatchReader]] Make(shared_ptr[CSchema],
                                                      object)
+
+
+cdef extern from "arrow/python/ipc.h" namespace "arrow::py" nogil:
+    cdef cppclass CCastingRecordBatchReader" arrow::py::CastingRecordBatchReader" \
+            (CRecordBatchReader):
+        @staticmethod
+        CResult[shared_ptr[CRecordBatchReader]] Make(shared_ptr[CRecordBatchReader],
+                                                     shared_ptr[CSchema])
 
 
 cdef extern from "arrow/python/extension_type.h" namespace "arrow::py":

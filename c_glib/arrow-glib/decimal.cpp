@@ -20,12 +20,12 @@
 #include <arrow-glib/decimal.hpp>
 #include <arrow-glib/error.hpp>
 
-template <typename Decimal>
-struct DecimalConverter {
+template <typename Decimal> struct DecimalConverter
+{
 };
 
-template <>
-struct DecimalConverter<arrow::Decimal128> {
+template <> struct DecimalConverter<arrow::Decimal128>
+{
   using ArrowType = arrow::Decimal128;
   using GArrowType = GArrowDecimal128;
 
@@ -42,27 +42,27 @@ struct DecimalConverter<arrow::Decimal128> {
   }
 };
 
-template <>
-struct DecimalConverter<arrow::Decimal256> {
+template <> struct DecimalConverter<arrow::Decimal256>
+{
   using ArrowType = arrow::Decimal256;
   using GArrowType = GArrowDecimal256;
 
   GArrowType *
-  new_raw(std::shared_ptr<ArrowType> *arrow_decimal256) {
+  new_raw(std::shared_ptr<ArrowType> *arrow_decimal256)
+  {
     return garrow_decimal256_new_raw(arrow_decimal256);
   }
 
   std::shared_ptr<ArrowType>
-  get_raw(GArrowType *decimal256) {
+  get_raw(GArrowType *decimal256)
+  {
     return garrow_decimal256_get_raw(decimal256);
   }
 };
 
 template <typename Decimal>
 typename DecimalConverter<Decimal>::GArrowType *
-garrow_decimal_new_string(const gchar *data,
-                          GError **error,
-                          const gchar *tag)
+garrow_decimal_new_string(const gchar *data, GError **error, const gchar *tag)
 {
   auto arrow_decimal_result = Decimal::FromString(data);
   if (garrow::check(error, arrow_decimal_result, tag)) {
@@ -128,8 +128,9 @@ garrow_decimal_less_than(typename DecimalConverter<Decimal>::GArrowType *decimal
 
 template <typename Decimal>
 gboolean
-garrow_decimal_less_than_or_equal(typename DecimalConverter<Decimal>::GArrowType *decimal,
-                                  typename DecimalConverter<Decimal>::GArrowType *other_decimal)
+garrow_decimal_less_than_or_equal(
+  typename DecimalConverter<Decimal>::GArrowType *decimal,
+  typename DecimalConverter<Decimal>::GArrowType *other_decimal)
 {
   DecimalConverter<Decimal> converter;
   const auto arrow_decimal = converter.get_raw(decimal);
@@ -150,8 +151,9 @@ garrow_decimal_greater_than(typename DecimalConverter<Decimal>::GArrowType *deci
 
 template <typename Decimal>
 gboolean
-garrow_decimal_greater_than_or_equal(typename DecimalConverter<Decimal>::GArrowType *decimal,
-                                     typename DecimalConverter<Decimal>::GArrowType *other_decimal)
+garrow_decimal_greater_than_or_equal(
+  typename DecimalConverter<Decimal>::GArrowType *decimal,
+  typename DecimalConverter<Decimal>::GArrowType *other_decimal)
 {
   DecimalConverter<Decimal> converter;
   const auto arrow_decimal = converter.get_raw(decimal);
@@ -294,7 +296,6 @@ garrow_decimal_rescale(typename DecimalConverter<Decimal>::GArrowType *decimal,
   }
 }
 
-
 G_BEGIN_DECLS
 
 /**
@@ -310,7 +311,8 @@ G_BEGIN_DECLS
  * Since: 0.10.0
  */
 
-typedef struct GArrowDecimal128Private_ {
+typedef struct GArrowDecimal128Private_
+{
   std::shared_ptr<arrow::Decimal128> decimal128;
 } GArrowDecimal128Private;
 
@@ -318,14 +320,11 @@ enum {
   PROP_DECIMAL128 = 1
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowDecimal128,
-                           garrow_decimal128,
-                           G_TYPE_OBJECT)
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowDecimal128, garrow_decimal128, G_TYPE_OBJECT)
 
-#define GARROW_DECIMAL128_GET_PRIVATE(obj)         \
-  static_cast<GArrowDecimal128Private *>(          \
-     garrow_decimal128_get_instance_private(       \
-       GARROW_DECIMAL128(obj)))
+#define GARROW_DECIMAL128_GET_PRIVATE(obj)                                               \
+  static_cast<GArrowDecimal128Private *>(                                                \
+    garrow_decimal128_get_instance_private(GARROW_DECIMAL128(obj)))
 
 static void
 garrow_decimal128_finalize(GObject *object)
@@ -360,7 +359,7 @@ static void
 garrow_decimal128_init(GArrowDecimal128 *object)
 {
   auto priv = GARROW_DECIMAL128_GET_PRIVATE(object);
-  new(&priv->decimal128) std::shared_ptr<arrow::Decimal128>;
+  new (&priv->decimal128) std::shared_ptr<arrow::Decimal128>;
 }
 
 static void
@@ -370,14 +369,14 @@ garrow_decimal128_class_init(GArrowDecimal128Class *klass)
 
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->finalize     = garrow_decimal128_finalize;
+  gobject_class->finalize = garrow_decimal128_finalize;
   gobject_class->set_property = garrow_decimal128_set_property;
 
-  spec = g_param_spec_pointer("decimal128",
-                              "Decimal128",
-                              "The raw std::shared<arrow::Decimal128> *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer(
+    "decimal128",
+    "Decimal128",
+    "The raw std::shared<arrow::Decimal128> *",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_DECIMAL128, spec);
 }
 
@@ -394,8 +393,9 @@ garrow_decimal128_class_init(GArrowDecimal128Class *klass)
 GArrowDecimal128 *
 garrow_decimal128_new_string(const gchar *data, GError **error)
 {
-  return garrow_decimal_new_string<arrow::Decimal128>(
-    data, error, "[decimal128][new][string]");
+  return garrow_decimal_new_string<arrow::Decimal128>(data,
+                                                      error,
+                                                      "[decimal128][new][string]");
 }
 
 /**
@@ -437,8 +437,7 @@ garrow_decimal128_copy(GArrowDecimal128 *decimal)
  * Since: 0.12.0
  */
 gboolean
-garrow_decimal128_equal(GArrowDecimal128 *decimal,
-                        GArrowDecimal128 *other_decimal)
+garrow_decimal128_equal(GArrowDecimal128 *decimal, GArrowDecimal128 *other_decimal)
 {
   return garrow_decimal_equal<arrow::Decimal128>(decimal, other_decimal);
 }
@@ -454,8 +453,7 @@ garrow_decimal128_equal(GArrowDecimal128 *decimal,
  * Since: 0.12.0
  */
 gboolean
-garrow_decimal128_not_equal(GArrowDecimal128 *decimal,
-                            GArrowDecimal128 *other_decimal)
+garrow_decimal128_not_equal(GArrowDecimal128 *decimal, GArrowDecimal128 *other_decimal)
 {
   return garrow_decimal_not_equal<arrow::Decimal128>(decimal, other_decimal);
 }
@@ -471,8 +469,7 @@ garrow_decimal128_not_equal(GArrowDecimal128 *decimal,
  * Since: 0.12.0
  */
 gboolean
-garrow_decimal128_less_than(GArrowDecimal128 *decimal,
-                            GArrowDecimal128 *other_decimal)
+garrow_decimal128_less_than(GArrowDecimal128 *decimal, GArrowDecimal128 *other_decimal)
 {
   return garrow_decimal_less_than<arrow::Decimal128>(decimal, other_decimal);
 }
@@ -505,8 +502,7 @@ garrow_decimal128_less_than_or_equal(GArrowDecimal128 *decimal,
  * Since: 0.12.0
  */
 gboolean
-garrow_decimal128_greater_than(GArrowDecimal128 *decimal,
-                               GArrowDecimal128 *other_decimal)
+garrow_decimal128_greater_than(GArrowDecimal128 *decimal, GArrowDecimal128 *other_decimal)
 {
   return garrow_decimal_greater_than<arrow::Decimal128>(decimal, other_decimal);
 }
@@ -628,8 +624,7 @@ garrow_decimal128_to_integer(GArrowDecimal128 *decimal)
  * Since: 0.11.0
  */
 GArrowDecimal128 *
-garrow_decimal128_plus(GArrowDecimal128 *left,
-                       GArrowDecimal128 *right)
+garrow_decimal128_plus(GArrowDecimal128 *left, GArrowDecimal128 *right)
 {
   return garrow_decimal_plus<arrow::Decimal128>(left, right);
 }
@@ -644,8 +639,7 @@ garrow_decimal128_plus(GArrowDecimal128 *left,
  * Since: 0.11.0
  */
 GArrowDecimal128 *
-garrow_decimal128_minus(GArrowDecimal128 *left,
-                        GArrowDecimal128 *right)
+garrow_decimal128_minus(GArrowDecimal128 *left, GArrowDecimal128 *right)
 {
   return garrow_decimal_minus<arrow::Decimal128>(left, right);
 }
@@ -660,8 +654,7 @@ garrow_decimal128_minus(GArrowDecimal128 *left,
  * Since: 0.11.0
  */
 GArrowDecimal128 *
-garrow_decimal128_multiply(GArrowDecimal128 *left,
-                           GArrowDecimal128 *right)
+garrow_decimal128_multiply(GArrowDecimal128 *left, GArrowDecimal128 *right)
 {
   return garrow_decimal_multiply<arrow::Decimal128>(left, right);
 }
@@ -717,8 +710,8 @@ garrow_decimal128_rescale(GArrowDecimal128 *decimal,
                                                    "[decimal128][rescale]");
 }
 
-
-typedef struct GArrowDecimal256Private_ {
+typedef struct GArrowDecimal256Private_
+{
   std::shared_ptr<arrow::Decimal256> decimal256;
 } GArrowDecimal256Private;
 
@@ -726,14 +719,11 @@ enum {
   PROP_DECIMAL256 = 1
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowDecimal256,
-                           garrow_decimal256,
-                           G_TYPE_OBJECT)
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowDecimal256, garrow_decimal256, G_TYPE_OBJECT)
 
-#define GARROW_DECIMAL256_GET_PRIVATE(obj)         \
-  static_cast<GArrowDecimal256Private *>(          \
-     garrow_decimal256_get_instance_private(       \
-       GARROW_DECIMAL256(obj)))
+#define GARROW_DECIMAL256_GET_PRIVATE(obj)                                               \
+  static_cast<GArrowDecimal256Private *>(                                                \
+    garrow_decimal256_get_instance_private(GARROW_DECIMAL256(obj)))
 
 static void
 garrow_decimal256_finalize(GObject *object)
@@ -768,7 +758,7 @@ static void
 garrow_decimal256_init(GArrowDecimal256 *object)
 {
   auto priv = GARROW_DECIMAL256_GET_PRIVATE(object);
-  new(&priv->decimal256) std::shared_ptr<arrow::Decimal256>;
+  new (&priv->decimal256) std::shared_ptr<arrow::Decimal256>;
 }
 
 static void
@@ -778,14 +768,14 @@ garrow_decimal256_class_init(GArrowDecimal256Class *klass)
 
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->finalize     = garrow_decimal256_finalize;
+  gobject_class->finalize = garrow_decimal256_finalize;
   gobject_class->set_property = garrow_decimal256_set_property;
 
-  spec = g_param_spec_pointer("decimal256",
-                              "Decimal256",
-                              "The raw std::shared<arrow::Decimal256> *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer(
+    "decimal256",
+    "Decimal256",
+    "The raw std::shared<arrow::Decimal256> *",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_DECIMAL256, spec);
 }
 
@@ -802,8 +792,9 @@ garrow_decimal256_class_init(GArrowDecimal256Class *klass)
 GArrowDecimal256 *
 garrow_decimal256_new_string(const gchar *data, GError **error)
 {
-  return garrow_decimal_new_string<arrow::Decimal256>(
-    data, error, "[decimal256][new][string]");
+  return garrow_decimal_new_string<arrow::Decimal256>(data,
+                                                      error,
+                                                      "[decimal256][new][string]");
 }
 
 /**
@@ -845,8 +836,7 @@ garrow_decimal256_copy(GArrowDecimal256 *decimal)
  * Since: 3.0.0
  */
 gboolean
-garrow_decimal256_equal(GArrowDecimal256 *decimal,
-                        GArrowDecimal256 *other_decimal)
+garrow_decimal256_equal(GArrowDecimal256 *decimal, GArrowDecimal256 *other_decimal)
 {
   return garrow_decimal_equal<arrow::Decimal256>(decimal, other_decimal);
 }
@@ -862,8 +852,7 @@ garrow_decimal256_equal(GArrowDecimal256 *decimal,
  * Since: 3.0.0
  */
 gboolean
-garrow_decimal256_not_equal(GArrowDecimal256 *decimal,
-                            GArrowDecimal256 *other_decimal)
+garrow_decimal256_not_equal(GArrowDecimal256 *decimal, GArrowDecimal256 *other_decimal)
 {
   return garrow_decimal_not_equal<arrow::Decimal256>(decimal, other_decimal);
 }
@@ -879,8 +868,7 @@ garrow_decimal256_not_equal(GArrowDecimal256 *decimal,
  * Since: 3.0.0
  */
 gboolean
-garrow_decimal256_less_than(GArrowDecimal256 *decimal,
-                            GArrowDecimal256 *other_decimal)
+garrow_decimal256_less_than(GArrowDecimal256 *decimal, GArrowDecimal256 *other_decimal)
 {
   return garrow_decimal_less_than<arrow::Decimal256>(decimal, other_decimal);
 }
@@ -913,8 +901,7 @@ garrow_decimal256_less_than_or_equal(GArrowDecimal256 *decimal,
  * Since: 3.0.0
  */
 gboolean
-garrow_decimal256_greater_than(GArrowDecimal256 *decimal,
-                               GArrowDecimal256 *other_decimal)
+garrow_decimal256_greater_than(GArrowDecimal256 *decimal, GArrowDecimal256 *other_decimal)
 {
   return garrow_decimal_greater_than<arrow::Decimal256>(decimal, other_decimal);
 }
@@ -1021,8 +1008,7 @@ garrow_decimal256_negate(GArrowDecimal256 *decimal)
  * Since: 3.0.0
  */
 GArrowDecimal256 *
-garrow_decimal256_plus(GArrowDecimal256 *left,
-                       GArrowDecimal256 *right)
+garrow_decimal256_plus(GArrowDecimal256 *left, GArrowDecimal256 *right)
 {
   return garrow_decimal_plus<arrow::Decimal256>(left, right);
 }
@@ -1037,8 +1023,7 @@ garrow_decimal256_plus(GArrowDecimal256 *left,
  * Since: 3.0.0
  */
 GArrowDecimal256 *
-garrow_decimal256_multiply(GArrowDecimal256 *left,
-                           GArrowDecimal256 *right)
+garrow_decimal256_multiply(GArrowDecimal256 *left, GArrowDecimal256 *right)
 {
   return garrow_decimal_multiply<arrow::Decimal256>(left, right);
 }
@@ -1094,15 +1079,13 @@ garrow_decimal256_rescale(GArrowDecimal256 *decimal,
                                                    "[decimal256][rescale]");
 }
 
-
 G_END_DECLS
 
 GArrowDecimal128 *
 garrow_decimal128_new_raw(std::shared_ptr<arrow::Decimal128> *arrow_decimal128)
 {
-  auto decimal128 = g_object_new(garrow_decimal128_get_type(),
-                                 "decimal128", arrow_decimal128,
-                                 NULL);
+  auto decimal128 =
+    g_object_new(garrow_decimal128_get_type(), "decimal128", arrow_decimal128, NULL);
   return GARROW_DECIMAL128(decimal128);
 }
 
@@ -1116,9 +1099,8 @@ garrow_decimal128_get_raw(GArrowDecimal128 *decimal128)
 GArrowDecimal256 *
 garrow_decimal256_new_raw(std::shared_ptr<arrow::Decimal256> *arrow_decimal256)
 {
-  auto decimal256 = g_object_new(garrow_decimal256_get_type(),
-                                 "decimal256", arrow_decimal256,
-                                 NULL);
+  auto decimal256 =
+    g_object_new(garrow_decimal256_get_type(), "decimal256", arrow_decimal256, NULL);
   return GARROW_DECIMAL256(decimal256);
 }
 

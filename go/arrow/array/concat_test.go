@@ -23,11 +23,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/array"
-	"github.com/apache/arrow/go/v15/arrow/bitutil"
-	"github.com/apache/arrow/go/v15/arrow/internal/testing/gen"
-	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/bitutil"
+	"github.com/apache/arrow/go/v16/arrow/internal/testing/gen"
+	"github.com/apache/arrow/go/v16/arrow/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -694,7 +694,7 @@ func TestConcatAlmostOverflowRunEndEncoding(t *testing.T) {
 			defer bldr.Release()
 			valBldr := bldr.ValueBuilder().(*array.StringBuilder)
 
-			// max is not evently divisible by 4, so we add one to each
+			// max is not evenly divisible by 4, so we add one to each
 			// to account for that so our final concatenate will overflow
 			bldr.Append((tt.max / 4) + 1)
 			valBldr.Append("foo")
@@ -741,7 +741,7 @@ func TestConcatOverflowRunEndEncoding(t *testing.T) {
 			defer bldr.Release()
 			valBldr := bldr.ValueBuilder().(*array.StringBuilder)
 
-			// max is not evently divisible by 4, so we add one to each
+			// max is not evenly divisible by 4, so we add one to each
 			// to account for that so our final concatenate will overflow
 			bldr.Append((tt.max / 4) + 1)
 			valBldr.Append("foo")

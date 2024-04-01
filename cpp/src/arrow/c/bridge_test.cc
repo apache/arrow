@@ -38,11 +38,13 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/binary_view_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/range.h"
 
 // TODO(GH-37221): Remove these ifdef checks when compute dependency is removed
 #ifdef ARROW_COMPUTE
@@ -58,6 +60,7 @@ using internal::ArrayStreamExportTraits;
 using internal::checked_cast;
 using internal::SchemaExportGuard;
 using internal::SchemaExportTraits;
+using internal::Zip;
 
 template <typename T>
 struct ExportTraits {};
@@ -91,7 +94,7 @@ class ReleaseCallback {
  public:
   using CType = typename Traits::CType;
 
-  explicit ReleaseCallback(CType* c_struct) : called_(false) {
+  explicit ReleaseCallback(CType* c_struct) {
     orig_release_ = c_struct->release;
     orig_private_data_ = c_struct->private_data;
     c_struct->release = StaticRelease;
@@ -123,7 +126,7 @@ class ReleaseCallback {
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(ReleaseCallback);
 
-  bool called_;
+  bool called_{false};
   void (*orig_release_)(CType*);
   void* orig_private_data_;
 };
@@ -238,8 +241,7 @@ struct SchemaExportChecker {
             flattened_flags.empty()
                 ? std::vector<int64_t>(flattened_formats_.size(), kDefaultFlags)
                 : std::move(flattened_flags)),
-        flattened_metadata_(std::move(flattened_metadata)),
-        flattened_index_(0) {}
+        flattened_metadata_(std::move(flattened_metadata)) {}
 
   void operator()(struct ArrowSchema* c_export, bool inner = false) {
     ASSERT_LT(flattened_index_, flattened_formats_.size());
@@ -288,7 +290,7 @@ struct SchemaExportChecker {
   const std::vector<std::string> flattened_names_;
   std::vector<int64_t> flattened_flags_;
   const std::vector<std::string> flattened_metadata_;
-  size_t flattened_index_;
+  size_t flattened_index_{0};
 };
 
 class TestSchemaExport : public ::testing::Test {
@@ -354,6 +356,8 @@ TEST_F(TestSchemaExport, Primitive) {
   TestPrimitive(large_binary(), "Z");
   TestPrimitive(utf8(), "u");
   TestPrimitive(large_utf8(), "U");
+  TestPrimitive(binary_view(), "vz");
+  TestPrimitive(utf8_view(), "vu");
 
   TestPrimitive(decimal(16, 4), "d:16,4");
   TestPrimitive(decimal256(16, 4), "d:16,4,256");
@@ -565,11 +569,23 @@ struct ArrayExportChecker {
       --expected_n_buffers;
       ++expected_buffers;
     }
-    ASSERT_EQ(c_export->n_buffers, expected_n_buffers);
+    bool has_variadic_buffer_sizes = expected_data.type->id() == Type::STRING_VIEW ||
+                                     expected_data.type->id() == Type::BINARY_VIEW;
+    ASSERT_EQ(c_export->n_buffers, expected_n_buffers + has_variadic_buffer_sizes);
     ASSERT_NE(c_export->buffers, nullptr);
-    for (int64_t i = 0; i < c_export->n_buffers; ++i) {
+
+    for (int64_t i = 0; i < expected_n_buffers; ++i) {
       auto expected_ptr = expected_buffers[i] ? expected_buffers[i]->data() : nullptr;
       ASSERT_EQ(c_export->buffers[i], expected_ptr);
+    }
+    if (has_variadic_buffer_sizes) {
+      auto variadic_buffers = util::span(expected_data.buffers).subspan(2);
+      auto variadic_buffer_sizes = util::span(
+          static_cast<const int64_t*>(c_export->buffers[c_export->n_buffers - 1]),
+          variadic_buffers.size());
+      for (auto [buf, size] : Zip(variadic_buffers, variadic_buffer_sizes)) {
+        ASSERT_EQ(buf->size(), size);
+      }
     }
 
     if (expected_data.dictionary != nullptr) {
@@ -883,6 +899,8 @@ TEST_F(TestArrayExport, Primitive) {
   TestPrimitive(large_binary(), R"(["foo", "bar", null])");
   TestPrimitive(utf8(), R"(["foo", "bar", null])");
   TestPrimitive(large_utf8(), R"(["foo", "bar", null])");
+  TestPrimitive(binary_view(), R"(["foo", "bar", null])");
+  TestPrimitive(utf8_view(), R"(["foo", "bar", null])");
 
   TestPrimitive(decimal(16, 4), R"(["1234.5670", null])");
   TestPrimitive(decimal256(16, 4), R"(["1234.5670", null])");
@@ -894,6 +912,39 @@ TEST_F(TestArrayExport, PrimitiveSliced) {
   auto factory = []() { return ArrayFromJSON(int16(), "[1, 2, null, -3]")->Slice(1, 2); };
 
   TestPrimitive(factory);
+}
+
+constexpr std::string_view binary_view_buffer_content0 = "12345foo bar baz quux",
+                           binary_view_buffer_content1 = "BinaryViewMultipleBuffers";
+
+static const BinaryViewType::c_type binary_view_buffer1[] = {
+    util::ToBinaryView(binary_view_buffer_content0, 0, 0),
+    util::ToInlineBinaryView("foo"),
+    util::ToBinaryView(binary_view_buffer_content1, 1, 0),
+    util::ToInlineBinaryView("bar"),
+    util::ToBinaryView(binary_view_buffer_content0.substr(5), 0, 5),
+    util::ToInlineBinaryView("baz"),
+    util::ToBinaryView(binary_view_buffer_content1.substr(6, 13), 1, 6),
+    util::ToInlineBinaryView("quux"),
+};
+
+static auto MakeBinaryViewArrayWithMultipleDataBuffers() {
+  static const auto kLength = static_cast<int64_t>(std::size(binary_view_buffer1));
+  return std::make_shared<BinaryViewArray>(
+      binary_view(), kLength,
+      Buffer::FromVector(std::vector(binary_view_buffer1, binary_view_buffer1 + kLength)),
+      BufferVector{
+          Buffer::FromString(std::string{binary_view_buffer_content0}),
+          Buffer::FromString(std::string{binary_view_buffer_content1}),
+      });
+}
+
+TEST_F(TestArrayExport, BinaryViewMultipleBuffers) {
+  TestPrimitive(MakeBinaryViewArrayWithMultipleDataBuffers);
+  TestPrimitive([&] {
+    auto arr = MakeBinaryViewArrayWithMultipleDataBuffers();
+    return arr->Slice(1, arr->length() - 2);
+  });
 }
 
 TEST_F(TestArrayExport, Null) {
@@ -1220,15 +1271,20 @@ TEST_F(TestArrayExport, ExportRecordBatch) {
 
 static const char kMyDeviceTypeName[] = "arrowtest::MyDevice";
 static const ArrowDeviceType kMyDeviceType = ARROW_DEVICE_EXT_DEV;
-static const void* kMyEventPtr = reinterpret_cast<void*>(uintptr_t(0xBAADF00D));
+static const void* kMyEventPtr =
+    reinterpret_cast<void*>(static_cast<uintptr_t>(0xBAADF00D));
 
 class MyBuffer final : public MutableBuffer {
  public:
   using MutableBuffer::MutableBuffer;
 
-  ~MyBuffer() { default_memory_pool()->Free(const_cast<uint8_t*>(data_), size_); }
+  ~MyBuffer() override {
+    default_memory_pool()->Free(const_cast<uint8_t*>(data_), size_);
+  }
 
-  std::shared_ptr<Device::SyncEvent> device_sync_event() override { return device_sync_; }
+  std::shared_ptr<Device::SyncEvent> device_sync_event() const override {
+    return device_sync_;
+  }
 
  protected:
   std::shared_ptr<Device::SyncEvent> device_sync_;
@@ -1256,7 +1312,7 @@ class MyDevice : public Device {
     explicit MySyncEvent(void* sync_event, release_fn_t release_sync_event)
         : Device::SyncEvent(sync_event, release_sync_event) {}
 
-    virtual ~MySyncEvent() = default;
+    ~MySyncEvent() override = default;
     Status Wait() override { return Status::OK(); }
     Status Record(const Device::Stream&) override { return Status::OK(); }
   };
@@ -1816,7 +1872,7 @@ class TestSchemaImport : public ::testing::Test, public SchemaStructBuilder {
     ASSERT_TRUE(ArrowSchemaIsReleased(&c_struct_));
     Reset();            // for further tests
     cb.AssertCalled();  // was released
-    AssertTypeEqual(*expected, *type);
+    AssertTypeEqual(*expected, *type, /*check_metadata=*/true);
   }
 
   void CheckImport(const std::shared_ptr<Field>& expected) {
@@ -1836,7 +1892,7 @@ class TestSchemaImport : public ::testing::Test, public SchemaStructBuilder {
     ASSERT_TRUE(ArrowSchemaIsReleased(&c_struct_));
     Reset();            // for further tests
     cb.AssertCalled();  // was released
-    AssertSchemaEqual(*expected, *schema);
+    AssertSchemaEqual(*expected, *schema, /*check_metadata=*/true);
   }
 
   void CheckImportError() {
@@ -1966,6 +2022,10 @@ TEST_F(TestSchemaImport, String) {
   CheckImport(large_utf8());
   FillPrimitive("Z");
   CheckImport(large_binary());
+  FillPrimitive("vu");
+  CheckImport(utf8_view());
+  FillPrimitive("vz");
+  CheckImport(binary_view());
 
   FillPrimitive("w:3");
   CheckImport(fixed_size_binary(3));
@@ -2419,6 +2479,16 @@ static const void* large_string_buffers_no_nulls1[3] = {
 static const void* large_string_buffers_omitted[3] = {
     nullptr, large_string_offsets_buffer1, nullptr};
 
+constexpr int64_t binary_view_buffer_sizes1[] = {binary_view_buffer_content0.size(),
+                                                 binary_view_buffer_content1.size()};
+static const void* binary_view_buffers_no_nulls1[] = {
+    nullptr,
+    binary_view_buffer1,
+    binary_view_buffer_content0.data(),
+    binary_view_buffer_content1.data(),
+    binary_view_buffer_sizes1,
+};
+
 static const int32_t list_offsets_buffer1[] = {0, 2, 2, 5, 6, 8};
 static const void* list_buffers_no_nulls1[2] = {nullptr, list_offsets_buffer1};
 static const void* list_buffers_nulls1[2] = {bits_buffer1, list_offsets_buffer1};
@@ -2510,6 +2580,16 @@ class TestArrayImport : public ::testing::Test {
     c->buffers = buffers;
   }
 
+  void FillStringViewLike(struct ArrowArray* c, int64_t length, int64_t null_count,
+                          int64_t offset, const void** buffers,
+                          int32_t data_buffer_count) {
+    c->length = length;
+    c->null_count = null_count;
+    c->offset = offset;
+    c->n_buffers = 2 + data_buffer_count + 1;
+    c->buffers = buffers;
+  }
+
   void FillListLike(struct ArrowArray* c, int64_t length, int64_t null_count,
                     int64_t offset, const void** buffers) {
     c->length = length;
@@ -2581,6 +2661,12 @@ class TestArrayImport : public ::testing::Test {
   void FillStringLike(int64_t length, int64_t null_count, int64_t offset,
                       const void** buffers) {
     FillStringLike(&c_struct_, length, null_count, offset, buffers);
+  }
+
+  void FillStringViewLike(int64_t length, int64_t null_count, int64_t offset,
+                          const void** buffers, int32_t data_buffer_count) {
+    FillStringViewLike(&c_struct_, length, null_count, offset, buffers,
+                       data_buffer_count);
   }
 
   void FillListLike(int64_t length, int64_t null_count, int64_t offset,
@@ -2834,6 +2920,10 @@ TEST_F(TestArrayImport, String) {
   FillStringLike(4, 0, 0, large_string_buffers_no_nulls1);
   CheckImport(ArrayFromJSON(large_binary(), R"(["foo", "", "bar", "quux"])"));
 
+  auto length = static_cast<int64_t>(std::size(binary_view_buffer1));
+  FillStringViewLike(length, 0, 0, binary_view_buffers_no_nulls1, 2);
+  CheckImport(MakeBinaryViewArrayWithMultipleDataBuffers());
+
   // Empty array with null data pointers
   FillStringLike(0, 0, 0, string_buffers_omitted);
   CheckImport(ArrayFromJSON(utf8(), "[]"));
@@ -3043,7 +3133,7 @@ TEST_F(TestArrayImport, RunEndEncodedWithOffset) {
                        REEFromJSON(ree_type, "[-2.0, -2.0, -2.0, -2.0, 3.0, 3.0, 3.0]"));
   CheckImport(expected);
 
-  // Ofsset in parent
+  // Offset in parent
   FillPrimitive(AddChild(), 5, 0, 0, run_ends_buffers5);
   FillPrimitive(AddChild(), 5, 0, 0, primitive_buffers_no_nulls5);
   FillRunEndEncoded(5, 2);
@@ -3295,7 +3385,7 @@ TEST_F(TestArrayImport, ListError) {
 }
 
 TEST_F(TestArrayImport, ListViewNoError) {
-  // Unlike with lists, importing a length-0 list-view with all buffers ommitted is
+  // Unlike with lists, importing a length-0 list-view with all buffers omitted is
   // not an error. List-views don't need an extra offset value, so an empty offsets
   // buffer is valid in this case.
 
@@ -3481,7 +3571,7 @@ class TestSchemaRoundtrip : public ::testing::Test {
     // Recreate the type
     ASSERT_OK_AND_ASSIGN(actual, ImportType(&c_schema));
     type = factory_expected();
-    AssertTypeEqual(*type, *actual);
+    AssertTypeEqual(*type, *actual, /*check_metadata=*/true);
     type.reset();
     actual.reset();
 
@@ -3512,7 +3602,7 @@ class TestSchemaRoundtrip : public ::testing::Test {
     // Recreate the schema
     ASSERT_OK_AND_ASSIGN(actual, ImportSchema(&c_schema));
     schema = factory();
-    AssertSchemaEqual(*schema, *actual);
+    AssertSchemaEqual(*schema, *actual, /*check_metadata=*/true);
     schema.reset();
     actual.reset();
 
@@ -3530,15 +3620,16 @@ TEST_F(TestSchemaRoundtrip, Primitive) {
   TestWithTypeFactory(boolean);
   TestWithTypeFactory(float16);
 
-  TestWithTypeFactory(std::bind(decimal128, 19, 4));
-  TestWithTypeFactory(std::bind(decimal256, 19, 4));
-  TestWithTypeFactory(std::bind(decimal128, 19, 0));
-  TestWithTypeFactory(std::bind(decimal256, 19, 0));
-  TestWithTypeFactory(std::bind(decimal128, 19, -5));
-  TestWithTypeFactory(std::bind(decimal256, 19, -5));
-  TestWithTypeFactory(std::bind(fixed_size_binary, 3));
+  TestWithTypeFactory([] { return decimal128(19, 4); });
+  TestWithTypeFactory([] { return decimal256(19, 4); });
+  TestWithTypeFactory([] { return decimal128(19, 0); });
+  TestWithTypeFactory([] { return decimal256(19, 0); });
+  TestWithTypeFactory([] { return decimal128(19, -5); });
+  TestWithTypeFactory([] { return decimal256(19, -5); });
+  TestWithTypeFactory([] { return fixed_size_binary(3); });
   TestWithTypeFactory(binary);
   TestWithTypeFactory(large_utf8);
+  TestWithTypeFactory(binary_view);
 }
 
 TEST_F(TestSchemaRoundtrip, Temporal) {
@@ -3546,8 +3637,8 @@ TEST_F(TestSchemaRoundtrip, Temporal) {
   TestWithTypeFactory(day_time_interval);
   TestWithTypeFactory(month_interval);
   TestWithTypeFactory(month_day_nano_interval);
-  TestWithTypeFactory(std::bind(time64, TimeUnit::NANO));
-  TestWithTypeFactory(std::bind(duration, TimeUnit::MICRO));
+  TestWithTypeFactory([] { return time64(TimeUnit::NANO); });
+  TestWithTypeFactory([] { return duration(TimeUnit::MICRO); });
   TestWithTypeFactory([]() { return arrow::timestamp(TimeUnit::MICRO, "Europe/Paris"); });
 }
 
@@ -3604,13 +3695,27 @@ TEST_F(TestSchemaRoundtrip, Dictionary) {
   }
 }
 
+// Given an extension type, return a field of its storage type + the
+// serialized extension metadata.
+std::shared_ptr<Field> GetStorageWithMetadata(const std::string& field_name,
+                                              const std::shared_ptr<DataType>& type) {
+  const auto& ext_type = checked_cast<const ExtensionType&>(*type);
+  auto storage_type = ext_type.storage_type();
+  auto md = KeyValueMetadata::Make({kExtensionTypeKeyName, kExtensionMetadataKeyName},
+                                   {ext_type.extension_name(), ext_type.Serialize()});
+  return field(field_name, storage_type, /*nullable=*/true, md);
+}
+
 TEST_F(TestSchemaRoundtrip, UnregisteredExtension) {
   TestWithTypeFactory(uuid, []() { return fixed_size_binary(16); });
   TestWithTypeFactory(dict_extension_type, []() { return dictionary(int8(), utf8()); });
 
-  // Inside nested type
-  TestWithTypeFactory([]() { return list(dict_extension_type()); },
-                      []() { return list(dictionary(int8(), utf8())); });
+  // Inside nested type.
+  // When an extension type is not known by the importer, it is imported
+  // as its storage type and the extension metadata is preserved on the field.
+  TestWithTypeFactory(
+      []() { return list(dict_extension_type()); },
+      []() { return list(GetStorageWithMetadata("item", dict_extension_type())); });
 }
 
 TEST_F(TestSchemaRoundtrip, RegisteredExtension) {
@@ -3619,7 +3724,9 @@ TEST_F(TestSchemaRoundtrip, RegisteredExtension) {
   TestWithTypeFactory(dict_extension_type);
   TestWithTypeFactory(complex128);
 
-  // Inside nested type
+  // Inside nested type.
+  // When the extension type is registered, the extension metadata is removed
+  // from the storage type's field to ensure roundtripping (GH-39865).
   TestWithTypeFactory([]() { return list(uuid()); });
   TestWithTypeFactory([]() { return list(dict_extension_type()); });
   TestWithTypeFactory([]() { return list(complex128()); });
@@ -3719,7 +3826,7 @@ class TestArrayRoundtrip : public ::testing::Test {
     {
       std::shared_ptr<Array> expected;
       ASSERT_OK_AND_ASSIGN(expected, ToResult(factory_expected()));
-      AssertTypeEqual(*expected->type(), *array->type());
+      AssertTypeEqual(*expected->type(), *array->type(), /*check_metadata=*/true);
       AssertArraysEqual(*expected, *array, true);
     }
     array.reset();
@@ -3759,7 +3866,7 @@ class TestArrayRoundtrip : public ::testing::Test {
     {
       std::shared_ptr<RecordBatch> expected;
       ASSERT_OK_AND_ASSIGN(expected, ToResult(factory()));
-      AssertSchemaEqual(*expected->schema(), *batch->schema());
+      AssertSchemaEqual(*expected->schema(), *batch->schema(), /*check_metadata=*/true);
       AssertBatchesEqual(*expected, *batch);
     }
     batch.reset();
@@ -3801,6 +3908,14 @@ TEST_F(TestArrayRoundtrip, Primitive) {
   TestWithJSONSliced(decimal256(16, 4), R"(["0.4759", "1234.5670", null])");
   TestWithJSONSliced(month_day_nano_interval(),
                      R"([[4, 5, 6], [1, -600, 5000], null, null])");
+}
+
+TEST_F(TestArrayRoundtrip, BinaryViewMultipleBuffers) {
+  TestWithArrayFactory(MakeBinaryViewArrayWithMultipleDataBuffers);
+  TestWithArrayFactory([&] {
+    auto arr = MakeBinaryViewArrayWithMultipleDataBuffers();
+    return arr->Slice(1, arr->length() - 2);
+  });
 }
 
 TEST_F(TestArrayRoundtrip, UnknownNullCount) {
@@ -4131,7 +4246,7 @@ class TestDeviceArrayRoundtrip : public ::testing::Test {
     {
       std::shared_ptr<Array> expected;
       ASSERT_OK_AND_ASSIGN(expected, ToResult(factory_expected()));
-      AssertTypeEqual(*expected->type(), *array->type());
+      AssertTypeEqual(*expected->type(), *array->type(), /*check_metadata=*/true);
       AssertArraysEqual(*expected, *array, true);
     }
     array.reset();
@@ -4177,7 +4292,7 @@ class TestDeviceArrayRoundtrip : public ::testing::Test {
     {
       std::shared_ptr<RecordBatch> expected;
       ASSERT_OK_AND_ASSIGN(expected, ToResult(factory()));
-      AssertSchemaEqual(*expected->schema(), *batch->schema());
+      AssertSchemaEqual(*expected->schema(), *batch->schema(), /*check_metadata=*/true);
       AssertBatchesEqual(*expected, *batch);
     }
     batch.reset();
@@ -4205,7 +4320,15 @@ TEST_F(TestDeviceArrayRoundtrip, Primitive) {
   TestWithJSON(mm, int32(), "[4, 5, null]");
 }
 
-// TODO C -> C++ -> C roundtripping tests?
+TEST_F(TestDeviceArrayRoundtrip, Struct) {
+  std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
+  auto mm = device->default_memory_manager();
+  auto type = struct_({field("ints", int16()), field("strs", utf8())});
+
+  TestWithJSON(mm, type, "[]");
+  TestWithJSON(mm, type, R"([[4, "foo"], [5, "bar"]])");
+  TestWithJSON(mm, type, R"([[4, null], null, [5, "foo"]])");
+}
 
 ////////////////////////////////////////////////////////////////////////////
 // Array stream export tests
@@ -4256,7 +4379,7 @@ class TestArrayStreamExport : public BaseArrayStreamTest {
     SchemaExportGuard schema_guard(&c_schema);
     ASSERT_FALSE(ArrowSchemaIsReleased(&c_schema));
     ASSERT_OK_AND_ASSIGN(auto schema, ImportSchema(&c_schema));
-    AssertSchemaEqual(expected, *schema);
+    AssertSchemaEqual(expected, *schema, /*check_metadata=*/true);
   }
 
   void AssertStreamEnd(struct ArrowArrayStream* c_stream) {
@@ -4276,6 +4399,17 @@ class TestArrayStreamExport : public BaseArrayStreamTest {
 
     ASSERT_OK_AND_ASSIGN(auto batch, ImportRecordBatch(&c_array, expected.schema()));
     AssertBatchesEqual(expected, *batch);
+  }
+
+  void AssertStreamNext(struct ArrowArrayStream* c_stream, const Array& expected) {
+    struct ArrowArray c_array;
+    ASSERT_EQ(0, c_stream->get_next(c_stream, &c_array));
+
+    ArrayExportGuard guard(&c_array);
+    ASSERT_FALSE(ArrowArrayIsReleased(&c_array));
+
+    ASSERT_OK_AND_ASSIGN(auto array, ImportArray(&c_array, expected.type()));
+    AssertArraysEqual(expected, *array);
   }
 };
 
@@ -4340,7 +4474,7 @@ TEST_F(TestArrayStreamExport, ArrayLifetime) {
   {
     SchemaExportGuard schema_guard(&c_schema);
     ASSERT_OK_AND_ASSIGN(auto got_schema, ImportSchema(&c_schema));
-    AssertSchemaEqual(*schema, *got_schema);
+    AssertSchemaEqual(*schema, *got_schema, /*check_metadata=*/true);
   }
 
   ASSERT_GT(pool_->bytes_allocated(), orig_allocated_);
@@ -4365,11 +4499,72 @@ TEST_F(TestArrayStreamExport, Errors) {
   {
     SchemaExportGuard schema_guard(&c_schema);
     ASSERT_OK_AND_ASSIGN(auto schema, ImportSchema(&c_schema));
-    AssertSchemaEqual(schema, arrow::schema({}));
+    AssertSchemaEqual(schema, arrow::schema({}), /*check_metadata=*/true);
   }
 
   struct ArrowArray c_array;
   ASSERT_EQ(EINVAL, c_stream.get_next(&c_stream, &c_array));
+}
+
+TEST_F(TestArrayStreamExport, ChunkedArrayExportEmpty) {
+  ASSERT_OK_AND_ASSIGN(auto chunked_array, ChunkedArray::Make({}, int32()));
+
+  struct ArrowArrayStream c_stream;
+  struct ArrowSchema c_schema;
+
+  ASSERT_OK(ExportChunkedArray(chunked_array, &c_stream));
+  ArrayStreamExportGuard guard(&c_stream);
+
+  {
+    ArrayStreamExportGuard guard(&c_stream);
+    ASSERT_FALSE(ArrowArrayStreamIsReleased(&c_stream));
+
+    ASSERT_EQ(0, c_stream.get_schema(&c_stream, &c_schema));
+    AssertStreamEnd(&c_stream);
+  }
+
+  {
+    SchemaExportGuard schema_guard(&c_schema);
+    ASSERT_OK_AND_ASSIGN(auto got_type, ImportType(&c_schema));
+    AssertTypeEqual(*chunked_array->type(), *got_type);
+  }
+}
+
+TEST_F(TestArrayStreamExport, ChunkedArrayExport) {
+  ASSERT_OK_AND_ASSIGN(auto chunked_array,
+                       ChunkedArray::Make({ArrayFromJSON(int32(), "[1, 2]"),
+                                           ArrayFromJSON(int32(), "[4, 5, null]")}));
+
+  struct ArrowArrayStream c_stream;
+  struct ArrowSchema c_schema;
+  struct ArrowArray c_array0, c_array1;
+
+  ASSERT_OK(ExportChunkedArray(chunked_array, &c_stream));
+  ArrayStreamExportGuard guard(&c_stream);
+
+  {
+    ArrayStreamExportGuard guard(&c_stream);
+    ASSERT_FALSE(ArrowArrayStreamIsReleased(&c_stream));
+
+    ASSERT_EQ(0, c_stream.get_schema(&c_stream, &c_schema));
+    ASSERT_EQ(0, c_stream.get_next(&c_stream, &c_array0));
+    ASSERT_EQ(0, c_stream.get_next(&c_stream, &c_array1));
+    AssertStreamEnd(&c_stream);
+  }
+
+  ArrayExportGuard guard0(&c_array0), guard1(&c_array1);
+
+  {
+    SchemaExportGuard schema_guard(&c_schema);
+    ASSERT_OK_AND_ASSIGN(auto got_type, ImportType(&c_schema));
+    AssertTypeEqual(*chunked_array->type(), *got_type);
+  }
+
+  ASSERT_GT(pool_->bytes_allocated(), orig_allocated_);
+  ASSERT_OK_AND_ASSIGN(auto array, ImportArray(&c_array0, chunked_array->type()));
+  AssertArraysEqual(*chunked_array->chunk(0), *array);
+  ASSERT_OK_AND_ASSIGN(array, ImportArray(&c_array1, chunked_array->type()));
+  AssertArraysEqual(*chunked_array->chunk(1), *array);
 }
 
 ////////////////////////////////////////////////////////////////////////////
@@ -4411,6 +4606,29 @@ class TestArrayStreamRoundtrip : public BaseArrayStreamTest {
     ASSERT_TRUE(weak_reader.expired());
   }
 
+  void Roundtrip(std::shared_ptr<ChunkedArray> src,
+                 std::function<void(const std::shared_ptr<ChunkedArray>&)> check_func) {
+    ArrowArrayStream c_stream;
+
+    // One original copy which to compare the result, one copy held by the stream
+    std::weak_ptr<ChunkedArray> weak_src(src);
+    int64_t initial_use_count = weak_src.use_count();
+
+    ASSERT_OK(ExportChunkedArray(std::move(src), &c_stream));
+    ASSERT_FALSE(ArrowArrayStreamIsReleased(&c_stream));
+
+    {
+      ASSERT_OK_AND_ASSIGN(auto dst, ImportChunkedArray(&c_stream));
+      // Stream was moved, consumed, and released
+      ASSERT_TRUE(ArrowArrayStreamIsReleased(&c_stream));
+
+      // Stream was released by ImportChunkedArray but original copy remains
+      ASSERT_EQ(weak_src.use_count(), initial_use_count - 1);
+
+      check_func(dst);
+    }
+  }
+
   void AssertReaderNext(const std::shared_ptr<RecordBatchReader>& reader,
                         const RecordBatch& expected) {
     ASSERT_OK_AND_ASSIGN(auto batch, reader->Next());
@@ -4442,7 +4660,7 @@ TEST_F(TestArrayStreamRoundtrip, Simple) {
   ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make(batches, orig_schema));
 
   Roundtrip(std::move(reader), [&](const std::shared_ptr<RecordBatchReader>& reader) {
-    AssertSchemaEqual(*orig_schema, *reader->schema());
+    AssertSchemaEqual(*orig_schema, *reader->schema(), /*check_metadata=*/true);
     AssertReaderNext(reader, *batches[0]);
     AssertReaderNext(reader, *batches[1]);
     AssertReaderEnd(reader);
@@ -4506,6 +4724,26 @@ TEST_F(TestArrayStreamRoundtrip, SchemaError) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(IOError, ::testing::HasSubstr("Expected error"),
                                   ImportRecordBatchReader(&stream));
   ASSERT_TRUE(state.released);
+}
+
+TEST_F(TestArrayStreamRoundtrip, ChunkedArrayRoundtrip) {
+  ASSERT_OK_AND_ASSIGN(auto src,
+                       ChunkedArray::Make({ArrayFromJSON(int32(), "[1, 2]"),
+                                           ArrayFromJSON(int32(), "[4, 5, null]")}));
+
+  Roundtrip(src, [&](const std::shared_ptr<ChunkedArray>& dst) {
+    AssertTypeEqual(*dst->type(), *src->type());
+    AssertChunkedEqual(*dst, *src);
+  });
+}
+
+TEST_F(TestArrayStreamRoundtrip, ChunkedArrayRoundtripEmpty) {
+  ASSERT_OK_AND_ASSIGN(auto src, ChunkedArray::Make({}, int32()));
+
+  Roundtrip(src, [&](const std::shared_ptr<ChunkedArray>& dst) {
+    AssertTypeEqual(*dst->type(), *src->type());
+    AssertChunkedEqual(*dst, *src);
+  });
 }
 
 }  // namespace arrow

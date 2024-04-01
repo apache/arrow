@@ -174,7 +174,7 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
                    'locally. Examples: https://github.com/apache/arrow or '
                    'https://github.com/raulcd/arrow.')
 @click.option('--rc', default=None,
-              help='Relase Candidate number.')
+              help='Release Candidate number.')
 @click.option('--version', default=None,
               help='Release version.')
 @click.option('--verify-binaries', is_flag=True, default=False,

@@ -275,7 +275,8 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
     auto altrep_data =
         reinterpret_cast<ArrowAltrepData*>(R_ExternalPtrAddr(R_altrep_data1(alt)));
     auto resolve = altrep_data->locate(i);
-    const auto& array = altrep_data->chunked_array()->chunk(resolve.chunk_index);
+    const auto& array =
+        altrep_data->chunked_array()->chunk(static_cast<int>(resolve.chunk_index));
     auto j = resolve.index_in_chunk;
 
     return array->IsNull(j) ? cpp11::na<c_type>()
@@ -466,10 +467,10 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
       std::unique_ptr<arrow::DictionaryUnifier> unifier_ =
           ValueOrStop(DictionaryUnifier::Make(arr_type.value_type()));
 
-      size_t n_arrays = chunked_array->num_chunks();
+      int n_arrays = chunked_array->num_chunks();
       BufferVector arrays_transpose(n_arrays);
 
-      for (size_t i = 0; i < n_arrays; i++) {
+      for (int i = 0; i < n_arrays; i++) {
         const auto& dict_i =
             *internal::checked_cast<const DictionaryArray&>(*chunked_array->chunk(i))
                  .dictionary();
@@ -559,17 +560,14 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
     return dup;
   }
 
-  // The value at position i
-  static int Elt(SEXP alt, R_xlen_t i) {
-    if (Base::IsMaterialized(alt)) {
-      return INTEGER_ELT(Representation(alt), i);
-    }
-
+  // The value at position i as an int64_t (to make bounds checking less verbose)
+  static int64_t Elt64(SEXP alt, R_xlen_t i) {
     auto altrep_data =
         reinterpret_cast<ArrowAltrepData*>(R_ExternalPtrAddr(R_altrep_data1(alt)));
     auto resolve = altrep_data->locate(i);
 
-    const auto& array = altrep_data->chunked_array()->chunk(resolve.chunk_index);
+    const auto& array =
+        altrep_data->chunked_array()->chunk(static_cast<int>(resolve.chunk_index));
     auto j = resolve.index_in_chunk;
 
     if (!array->IsNull(j)) {
@@ -578,7 +576,7 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
 
       if (WasUnified(alt)) {
         const auto* transpose_data = reinterpret_cast<const int32_t*>(
-            GetArrayTransposed(alt, resolve.chunk_index)->data());
+            GetArrayTransposed(alt, static_cast<int>(resolve.chunk_index))->data());
 
         switch (indices->type_id()) {
           case Type::UINT8:
@@ -617,7 +615,7 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
           case Type::INT64:
             return indices->data()->GetValues<int64_t>(1)[j] + 1;
           case Type::UINT64:
-            return indices->data()->GetValues<uint64_t>(1)[j] + 1;
+            return static_cast<int64_t>(indices->data()->GetValues<uint64_t>(1)[j] + 1);
           default:
             break;
         }
@@ -626,6 +624,18 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
 
     // not reached
     return NA_INTEGER;
+  }
+
+  // The value at position i as an int (which R needs because this is a factor)
+  static int Elt(SEXP alt, R_xlen_t i) {
+    if (Base::IsMaterialized(alt)) {
+      return INTEGER_ELT(Representation(alt), i);
+    }
+
+    int64_t elt64 = Elt64(alt, i);
+    ARROW_R_DCHECK(elt64 == NA_INTEGER || elt64 >= 1);
+    ARROW_R_DCHECK(elt64 <= std::numeric_limits<int>::max());
+    return static_cast<int>(elt64);
   }
 
   static R_xlen_t Get_region(SEXP alt, R_xlen_t start, R_xlen_t n, int* buf) {
@@ -667,7 +677,7 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
         // using the transpose data for this chunk
         const auto* transpose_data =
             reinterpret_cast<const int32_t*>(GetArrayTransposed(alt, j)->data());
-        auto transpose = [transpose_data](int x) { return transpose_data[x]; };
+        auto transpose = [transpose_data](int64_t x) { return transpose_data[x]; };
 
         GetRegionDispatch(array, indices, transpose, out);
 
@@ -677,7 +687,7 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
 
     } else {
       // simpler case, identity transpose
-      auto transpose = [](int x) { return x; };
+      auto transpose = [](int64_t x) { return static_cast<int>(x); };
 
       int* out = buf;
       for (const auto& array : slice->chunks()) {
@@ -718,7 +728,13 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
 
     VisitArraySpanInline<Type>(
         *array->data(),
-        /*valid_func=*/[&](index_type index) { *out++ = transpose(index) + 1; },
+        /*valid_func=*/
+        [&](index_type index) {
+          int64_t transposed = transpose(index) + 1;
+          ARROW_R_DCHECK(transposed >= 1);
+          ARROW_R_DCHECK(transposed <= std::numeric_limits<int>::max());
+          *out++ = static_cast<int>(transposed);
+        },
         /*null_func=*/[&]() { *out++ = cpp11::na<int>(); });
   }
 
@@ -747,7 +763,7 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
   // Helper class to convert to R strings. We declare one of these for the
   // class to avoid having to stack-allocate one for every STRING_ELT call.
   // This class does not own a reference to any arrays: it is the caller's
-  // responsibility to ensure the Array lifetime exeeds that of the viewer.
+  // responsibility to ensure the Array lifetime exceeds that of the viewer.
   struct RStringViewer {
     RStringViewer() : strip_out_nuls_(false), nul_was_stripped_(false) {}
 
@@ -765,7 +781,8 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
       bool no_nul = std::find(view_.begin(), view_.end(), '\0') == view_.end();
 
       if (no_nul) {
-        return Rf_mkCharLenCE(view_.data(), view_.size(), CE_UTF8);
+        ARROW_R_DCHECK(view_.size() <= std::numeric_limits<int>::max());
+        return Rf_mkCharLenCE(view_.data(), static_cast<int>(view_.size()), CE_UTF8);
       } else if (strip_out_nuls_) {
         return ConvertStripNul();
       } else {
@@ -802,7 +819,9 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
       }
 
       nul_was_stripped_ = true;
-      return Rf_mkCharLenCE(stripped_string_.data(), stripped_len, CE_UTF8);
+      ARROW_R_DCHECK(stripped_len <= std::numeric_limits<int>::max());
+      return Rf_mkCharLenCE(stripped_string_.data(), static_cast<int>(stripped_len),
+                            CE_UTF8);
     }
 
     bool nul_was_stripped() const { return nul_was_stripped_; }
@@ -847,7 +866,8 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
     auto altrep_data =
         reinterpret_cast<ArrowAltrepData*>(R_ExternalPtrAddr(R_altrep_data1(alt)));
     auto resolve = altrep_data->locate(i);
-    const auto& array = altrep_data->chunked_array()->chunk(resolve.chunk_index);
+    const auto& array =
+        altrep_data->chunked_array()->chunk(static_cast<int>(resolve.chunk_index));
     auto j = resolve.index_in_chunk;
 
     SEXP s = NA_STRING;

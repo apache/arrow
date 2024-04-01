@@ -116,26 +116,52 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
               sqlClient.getStream(endpoint.getTicket(), getOptions()), null));
         } else {
           // Clone the builder and then set the new endpoint on it.
-          // GH-38573: This code currently only tries the first Location and treats a failure as fatal.
-          // This should be changed to try other Locations that are available.
-          
+
           // GH-38574: Currently a new FlightClient will be made for each partition that returns a non-empty Location
           // then disposed of. It may be better to cache clients because a server may report the same Locations.
           // It would also be good to identify when the reported location is the same as the original connection's
           // Location and skip creating a FlightClient in that scenario.
-          final URI endpointUri = endpoint.getLocations().get(0).getUri();
-          final Builder builderForEndpoint = new Builder(ArrowFlightSqlClientHandler.this.builder)
-              .withHost(endpointUri.getHost())
-              .withPort(endpointUri.getPort())
-              .withEncryption(endpointUri.getScheme().equals(LocationSchemes.GRPC_TLS));
+          List<Exception> exceptions = new ArrayList<>();
+          CloseableEndpointStreamPair stream = null;
+          for (Location location : endpoint.getLocations()) {
+            final URI endpointUri = location.getUri();
+            if (endpointUri.getScheme().equals(LocationSchemes.REUSE_CONNECTION)) {
+              stream = new CloseableEndpointStreamPair(
+                      sqlClient.getStream(endpoint.getTicket(), getOptions()), null);
+              break;
+            }
+            final Builder builderForEndpoint = new Builder(ArrowFlightSqlClientHandler.this.builder)
+                    .withHost(endpointUri.getHost())
+                    .withPort(endpointUri.getPort())
+                    .withEncryption(endpointUri.getScheme().equals(LocationSchemes.GRPC_TLS));
 
-          final ArrowFlightSqlClientHandler endpointHandler = builderForEndpoint.build();
-          try {
-            endpoints.add(new CloseableEndpointStreamPair(
-                endpointHandler.sqlClient.getStream(endpoint.getTicket(),
-                    endpointHandler.getOptions()), endpointHandler.sqlClient));
-          } catch (Exception ex) {
-            AutoCloseables.close(endpointHandler);
+            ArrowFlightSqlClientHandler endpointHandler = null;
+            try {
+              endpointHandler = builderForEndpoint.build();
+              stream = new CloseableEndpointStreamPair(
+                      endpointHandler.sqlClient.getStream(endpoint.getTicket(),
+                              endpointHandler.getOptions()), endpointHandler.sqlClient);
+              // Make sure we actually get data from the server
+              stream.getStream().getSchema();
+            } catch (Exception ex) {
+              if (endpointHandler != null) {
+                AutoCloseables.close(endpointHandler);
+              }
+              exceptions.add(ex);
+              continue;
+            }
+            break;
+          }
+          if (stream != null) {
+            endpoints.add(stream);
+          } else if (exceptions.isEmpty()) {
+            // This should never happen...
+            throw new IllegalStateException("Could not connect to endpoint and no errors occurred");
+          } else {
+            Exception ex = exceptions.remove(0);
+            while (!exceptions.isEmpty()) {
+              ex.addSuppressed(exceptions.remove(exceptions.size() - 1));
+            }
             throw ex;
           }
         }
@@ -469,8 +495,8 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
     @VisibleForTesting
     boolean retainAuth = true;
 
-    // These two middlewares are for internal use within build() and should not be exposed by builder APIs.
-    // Note that these middlewares may not necessarily be registered.
+    // These two middleware are for internal use within build() and should not be exposed by builder APIs.
+    // Note that these middleware may not necessarily be registered.
     @VisibleForTesting
     ClientIncomingAuthHeaderMiddleware.Factory authFactory
         = new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
@@ -742,7 +768,7 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
      * @throws SQLException on error.
      */
     public ArrowFlightSqlClientHandler build() throws SQLException {
-      // Copy middlewares so that the build method doesn't change the state of the builder fields itself.
+      // Copy middleware so that the build method doesn't change the state of the builder fields itself.
       Set<FlightClientMiddleware.Factory> buildTimeMiddlewareFactories = new HashSet<>(this.middlewareFactories);
       FlightClient client = null;
       boolean isUsingUserPasswordAuth = username != null && token == null;

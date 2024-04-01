@@ -18,6 +18,7 @@
 
 package org.apache.arrow.flatbuf;
 
+@SuppressWarnings("unused")
 public final class IntervalUnit {
   private IntervalUnit() { }
   public static final short YEAR_MONTH = 0;

@@ -16,8 +16,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
-using Apache.Arrow.Memory;
+using Apache.Arrow.Scalars;
 using Apache.Arrow.Types;
 using Xunit;
 
@@ -65,13 +64,16 @@ namespace Apache.Arrow.Tests
                     FloatType.Default,
                     DoubleType.Default,
                     BinaryType.Default,
+                    BinaryViewType.Default,
                     StringType.Default,
+                    StringViewType.Default,
                     Date32Type.Default,
                     Date64Type.Default,
                     TimestampType.Default,
                     new Decimal128Type(14, 10),
                     new Decimal256Type(14,10),
                     new ListType(Int64Type.Default),
+                    new ListViewType(Int64Type.Default),
                     new StructType(new List<Field>{
                         new Field.Builder().Name("Strings").DataType(StringType.Default).Nullable(true).Build(),
                         new Field.Builder().Name("Ints").DataType(Int32Type.Default).Nullable(true).Build()
@@ -97,6 +99,9 @@ namespace Apache.Arrow.Tests
                         new Field.Builder().Name("key").DataType(StringType.Default).Nullable(false).Build(),
                         new Field.Builder().Name("value").DataType(Int32Type.Default).Nullable(true).Build(),
                         keySorted: false),
+                    IntervalType.YearMonth,
+                    IntervalType.DayTime,
+                    IntervalType.MonthDayNanosecond,
                 };
 
             foreach (IArrowType type in targetTypes)
@@ -120,14 +125,18 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<FloatType>,
             IArrowTypeVisitor<DoubleType>,
             IArrowTypeVisitor<BinaryType>,
+            IArrowTypeVisitor<BinaryViewType>,
             IArrowTypeVisitor<StringType>,
+            IArrowTypeVisitor<StringViewType>,
             IArrowTypeVisitor<Decimal128Type>,
             IArrowTypeVisitor<Decimal256Type>,
             IArrowTypeVisitor<Date32Type>,
             IArrowTypeVisitor<Date64Type>,
             IArrowTypeVisitor<DurationType>,
+            IArrowTypeVisitor<IntervalType>,
             IArrowTypeVisitor<TimestampType>,
             IArrowTypeVisitor<ListType>,
+            IArrowTypeVisitor<ListViewType>,
             IArrowTypeVisitor<FixedSizeListType>,
             IArrowTypeVisitor<StructType>,
             IArrowTypeVisitor<UnionType>,
@@ -256,7 +265,6 @@ namespace Apache.Arrow.Tests
             public void Visit(DurationType type)
             {
                 DurationArray.Builder resultBuilder = new DurationArray.Builder(type).Reserve(_baseDataTotalElementCount);
-                DateTimeOffset basis = DateTimeOffset.UtcNow;
 
                 for (int i = 0; i < _baseDataListCount; i++)
                 {
@@ -281,6 +289,63 @@ namespace Apache.Arrow.Tests
                 ExpectedArray = resultBuilder.Build();
             }
 
+            public void Visit(IntervalType type)
+            {
+                switch (type.Unit)
+                {
+                    case IntervalUnit.YearMonth:
+                        YearMonthIntervalArray.Builder yearMonthBuilder = new YearMonthIntervalArray.Builder().Reserve(_baseDataTotalElementCount);
+                        foreach (List<int?> dataList in _baseData)
+                        {
+                            YearMonthIntervalArray.Builder yearMonthBuilder1 = new YearMonthIntervalArray.Builder().Reserve(dataList.Count);
+                            foreach (int? value in dataList)
+                            {
+                                YearMonthInterval? ymi = value != null ? new YearMonthInterval(value.Value) : null;
+                                yearMonthBuilder.Append(ymi);
+                                yearMonthBuilder1.Append(ymi);
+                            }
+                            TestTargetArrayList.Add(yearMonthBuilder1.Build());
+                        }
+                        ExpectedArray = yearMonthBuilder.Build();
+                        break;
+
+                    case IntervalUnit.DayTime:
+                        DayTimeIntervalArray.Builder dayTimeBuilder = new DayTimeIntervalArray.Builder().Reserve(_baseDataTotalElementCount);
+                        foreach (List<int?> dataList in _baseData)
+                        {
+                            DayTimeIntervalArray.Builder dayTimeBuilder1 = new DayTimeIntervalArray.Builder().Reserve(dataList.Count);
+                            foreach (int? value in dataList)
+                            {
+                                DayTimeInterval? dti = value != null ? new DayTimeInterval(100 - 50 * value.Value, 100 * value.Value) : null;
+                                dayTimeBuilder.Append(dti);
+                                dayTimeBuilder1.Append(dti);
+                            }
+                            TestTargetArrayList.Add(dayTimeBuilder1.Build());
+                        }
+                        ExpectedArray = dayTimeBuilder.Build();
+                        break;
+
+                    case IntervalUnit.MonthDayNanosecond:
+                        MonthDayNanosecondIntervalArray.Builder monthDayNanoBuilder = new MonthDayNanosecondIntervalArray.Builder().Reserve(_baseDataTotalElementCount);
+                        foreach (List<int?> dataList in _baseData)
+                        {
+                            MonthDayNanosecondIntervalArray.Builder monthDayNanoBuilder1 = new MonthDayNanosecondIntervalArray.Builder().Reserve(dataList.Count);
+                            foreach (int? value in dataList)
+                            {
+                                MonthDayNanosecondInterval? mdni = value != null ? new MonthDayNanosecondInterval(value.Value, 5 - value.Value, 100 * value.Value) : null;
+                                monthDayNanoBuilder.Append(mdni);
+                                monthDayNanoBuilder1.Append(mdni);
+                            }
+                            TestTargetArrayList.Add(monthDayNanoBuilder1.Build());
+                        }
+                        ExpectedArray = monthDayNanoBuilder.Build();
+                        break;
+
+                    default:
+                        throw new InvalidOperationException($"unsupported interval unit <{type.Unit}>");
+                }
+            }
+
             public void Visit(BinaryType type)
             {
                 BinaryArray.Builder resultBuilder = new BinaryArray.Builder().Reserve(_baseDataTotalElementCount);
@@ -289,6 +354,34 @@ namespace Apache.Arrow.Tests
                 {
                     List<int?> dataList = _baseData[i];
                     BinaryArray.Builder builder = new BinaryArray.Builder().Reserve(dataList.Count);
+
+                    foreach (byte? value in dataList)
+                    {
+                        if (value.HasValue)
+                        {
+                            builder.Append(value.Value);
+                            resultBuilder.Append(value.Value);
+                        }
+                        else
+                        {
+                            builder.AppendNull();
+                            resultBuilder.AppendNull();
+                        }
+                    }
+                    TestTargetArrayList.Add(builder.Build());
+                }
+
+                ExpectedArray = resultBuilder.Build();
+            }
+
+            public void Visit(BinaryViewType type)
+            {
+                BinaryViewArray.Builder resultBuilder = new BinaryViewArray.Builder().Reserve(_baseDataTotalElementCount);
+
+                for (int i = 0; i < _baseDataListCount; i++)
+                {
+                    List<int?> dataList = _baseData[i];
+                    BinaryViewArray.Builder builder = new BinaryViewArray.Builder().Reserve(dataList.Count);
 
                     foreach (byte? value in dataList)
                     {
@@ -329,6 +422,26 @@ namespace Apache.Arrow.Tests
                 ExpectedArray = resultBuilder.Build();
             }
 
+            public void Visit(StringViewType type)
+            {
+                StringViewArray.Builder resultBuilder = new StringViewArray.Builder().Reserve(_baseDataTotalElementCount);
+
+                for (int i = 0; i < _baseDataListCount; i++)
+                {
+                    List<int?> dataList = _baseData[i];
+                    StringViewArray.Builder builder = new StringViewArray.Builder().Reserve(dataList.Count);
+
+                    foreach (string value in dataList.Select(_ => _.ToString() ?? null))
+                    {
+                        builder.Append(value);
+                        resultBuilder.Append(value);
+                    }
+                    TestTargetArrayList.Add(builder.Build());
+                }
+
+                ExpectedArray = resultBuilder.Build();
+            }
+
             public void Visit(ListType type)
             {
                 ListArray.Builder resultBuilder = new ListArray.Builder(type.ValueDataType).Reserve(_baseDataTotalElementCount);
@@ -339,6 +452,41 @@ namespace Apache.Arrow.Tests
                     List<int?> dataList = _baseData[i];
 
                     ListArray.Builder builder = new ListArray.Builder(type.ValueField).Reserve(dataList.Count);
+                    Int64Array.Builder valueBuilder = (Int64Array.Builder)builder.ValueBuilder.Reserve(dataList.Count);
+
+                    foreach (long? value in dataList)
+                    {
+                        if (value.HasValue)
+                        {
+                            builder.Append();
+                            resultBuilder.Append();
+
+                            valueBuilder.Append(value.Value);
+                            resultValueBuilder.Append(value.Value);
+                        }
+                        else
+                        {
+                            builder.AppendNull();
+                            resultBuilder.AppendNull();
+                        }
+                    }
+
+                    TestTargetArrayList.Add(builder.Build());
+                }
+
+                ExpectedArray = resultBuilder.Build();
+            }
+
+            public void Visit(ListViewType type)
+            {
+                ListViewArray.Builder resultBuilder = new ListViewArray.Builder(type.ValueDataType).Reserve(_baseDataTotalElementCount);
+                Int64Array.Builder resultValueBuilder = (Int64Array.Builder)resultBuilder.ValueBuilder.Reserve(_baseDataTotalElementCount);
+
+                for (int i = 0; i < _baseDataListCount; i++)
+                {
+                    List<int?> dataList = _baseData[i];
+
+                    ListViewArray.Builder builder = new ListViewArray.Builder(type.ValueField).Reserve(dataList.Count);
                     Int64Array.Builder valueBuilder = (Int64Array.Builder)builder.ValueBuilder.Reserve(dataList.Count);
 
                     foreach (long? value in dataList)

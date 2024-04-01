@@ -25,7 +25,7 @@ import org.apache.arrow.dataset.jni.JniLoader;
  * Class that contains Native methods to call Acero C++ Substrait API. It internally depends on C++ function
  * arrow::engine::ExecuteSerializedPlan. Currently supported input parameters supported are:
  * <pre>
- * - arrow::Buffer: Susbtrait Plan (JSON or Binary format).
+ * - arrow::Buffer: Substrait Plan (JSON or Binary format).
  * - arrow::engine::ConversionOptions: Mapping for arrow::engine::NamedTableProvider.
  * </pre>
  */

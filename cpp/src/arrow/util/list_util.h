@@ -40,7 +40,7 @@ ARROW_EXPORT Result<std::pair<int64_t, int64_t>> RangeOfValuesUsed(
 ///
 /// This is usually the same as the length of the RangeOfValuesUsed() range, but
 /// it can be:
-/// - Smaller: when the child array constains many values that are not
+/// - Smaller: when the child array contains many values that are not
 /// referenced by the lists or list-views in the parent array
 /// - Greater: when the list-views share child array ranges
 ///

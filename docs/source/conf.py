@@ -114,6 +114,7 @@ extensions = [
     'breathe',
     'IPython.sphinxext.ipython_console_highlighting',
     'IPython.sphinxext.ipython_directive',
+    'myst_parser',
     'numpydoc',
     'sphinx_design',
     'sphinx_copybutton',
@@ -139,7 +140,7 @@ autodoc_default_options = {
 breathe_projects = {"arrow_cpp": "../../cpp/apidoc/xml"}
 breathe_default_project = "arrow_cpp"
 
-# Overriden conditionally below
+# Overridden conditionally below
 autodoc_mock_imports = []
 
 # copybutton configuration
@@ -149,6 +150,24 @@ copybutton_line_continuation_character = "\\"
 
 # ipython directive options
 ipython_mplbackend = ''
+
+# MyST-Parser configuration
+myst_enable_extensions = [
+    'amsmath',
+    'attrs_inline',
+    # 'colon_fence',
+    'deflist',
+    'dollarmath',
+    'fieldlist',
+    'html_admonition',
+    'html_image',
+    'linkify',
+    # 'replacements',
+    # 'smartquotes',
+    'strikethrough',
+    'substitution',
+    'tasklist',
+]
 
 # numpydoc configuration
 numpydoc_xref_param_type = True
@@ -188,7 +207,16 @@ templates_path = ['_templates']
 # You can specify multiple suffix as a list of string:
 #
 
-source_suffix = ['.rst']
+source_suffix = {
+    # We need to keep "'.rst': 'restructuredtext'" as the first item.
+    # This is a workaround of
+    # https://github.com/sphinx-doc/sphinx/issues/12147 .
+    #
+    # We can sort these items in alphabetical order with Sphinx 7.3.0
+    # or later that will include the fix of this problem.
+    '.rst': 'restructuredtext',
+    '.md': 'markdown',
+}
 
 autosummary_generate = True
 
@@ -201,7 +229,12 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Apache Arrow'
-copyright = f'2016-{datetime.datetime.now().year} Apache Software Foundation'
+copyright = (
+    f"2016-{datetime.datetime.now().year} Apache Software Foundation.\n"
+    "Apache Arrow, Arrow, Apache, the Apache feather logo, and the Apache Arrow "
+    "project logo are either registered trademarks or trademarks of The Apache "
+    "Software Foundation in the United States and other countries"
+)
 author = u'Apache Software Foundation'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -409,7 +442,7 @@ html_baseurl = "https://arrow.apache.org/docs/"
 
 # If true, links to the reST sources are added to the pages.
 #
-# html_show_sourcelink = True
+html_show_sourcelink = False
 
 # If true, "Created using Sphinx" is shown in the HTML footer. Default is True.
 #

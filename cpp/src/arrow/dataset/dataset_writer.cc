@@ -87,7 +87,7 @@ class Throttle {
 
  private:
   Future<> backpressure_ = Future<>::MakeFinished();
-  uint64_t max_value_;
+  const uint64_t max_value_;
   uint64_t in_waiting_ = 0;
   uint64_t current_value_ = 0;
   std::mutex mutex_;
@@ -610,7 +610,16 @@ class DatasetWriter::DatasetWriterImpl {
       bool will_open_file = false;
       ARROW_ASSIGN_OR_RAISE(auto next_chunk, dir_queue->NextWritableChunk(
                                                  batch, &remainder, &will_open_file));
-
+      // GH-39965: `NextWritableChunk` may return an empty batch to signal
+      // that the current file has reached `max_rows_per_file` and should be
+      // finished.
+      if (next_chunk->num_rows() == 0) {
+        batch = std::move(remainder);
+        if (batch) {
+          RETURN_NOT_OK(dir_queue->FinishCurrentFile());
+        }
+        continue;
+      }
       backpressure =
           writer_state_.rows_in_flight_throttle.Acquire(next_chunk->num_rows());
       if (!backpressure.is_finished()) {
@@ -621,11 +630,21 @@ class DatasetWriter::DatasetWriterImpl {
         backpressure = writer_state_.open_files_throttle.Acquire(1);
         if (!backpressure.is_finished()) {
           EVENT_ON_CURRENT_SPAN("DatasetWriter::Backpressure::TooManyOpenFiles");
+          writer_state_.rows_in_flight_throttle.Release(next_chunk->num_rows());
           RETURN_NOT_OK(TryCloseLargestFile());
           break;
         }
       }
-      RETURN_NOT_OK(dir_queue->StartWrite(next_chunk));
+      auto s = dir_queue->StartWrite(next_chunk);
+      if (!s.ok()) {
+        // If `StartWrite` succeeded, it will Release the
+        // `rows_in_flight_throttle` when the write task is finished.
+        //
+        // `open_files_throttle` will be handed by `DatasetWriterDirectoryQueue`
+        // so we don't need to release it here.
+        writer_state_.rows_in_flight_throttle.Release(next_chunk->num_rows());
+        return s;
+      }
       batch = std::move(remainder);
       if (batch) {
         RETURN_NOT_OK(dir_queue->FinishCurrentFile());
@@ -647,6 +666,7 @@ class DatasetWriter::DatasetWriterImpl {
   DatasetWriterState writer_state_;
   std::function<void()> pause_callback_;
   std::function<void()> resume_callback_;
+  // Map from directory + prefix to the queue for that directory
   std::unordered_map<std::string, std::shared_ptr<DatasetWriterDirectoryQueue>>
       directory_queues_;
   std::mutex mutex_;

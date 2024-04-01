@@ -20,9 +20,9 @@ function dimnames = makeValidDimensionNames(varnames)
     dimnames = ["Row" "Variables"];
     
     numvars = numel(varnames);
-    indicesToUniqify = [numvars + 1 numvars + 2];
+    indicesToUniquify = [numvars + 1 numvars + 2];
 
-    strs = matlab.lang.makeUniqueStrings([varnames dimnames], indicesToUniqify);
-    dimnames = strs(indicesToUniqify);
+    strs = matlab.lang.makeUniqueStrings([varnames dimnames], indicesToUniquify);
+    dimnames = strs(indicesToUniquify);
 end
 

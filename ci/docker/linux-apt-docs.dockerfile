@@ -35,8 +35,8 @@ RUN apt-get update -y && \
         automake \
         curl \
         doxygen \
+        gi-docgen \
         gobject-introspection \
-        gtk-doc-tools \
         libcurl4-openssl-dev \
         libfontconfig1-dev \
         libfribidi-dev \
@@ -46,6 +46,7 @@ RUN apt-get update -y && \
         libtiff-dev \
         libtool \
         libxml2-dev \
+        meson \
         ninja-build \
         nvidia-cuda-toolkit \
         openjdk-${jdk}-jdk-headless \
@@ -60,7 +61,7 @@ RUN apt-get update -y && \
 
 ENV JAVA_HOME=/usr/lib/jvm/java-${jdk}-openjdk-amd64
 
-ARG maven=3.5.4
+ARG maven=3.8.7
 COPY ci/scripts/util_download_apache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/util_download_apache.sh \
     "maven/maven-3/${maven}/binaries/apache-maven-${maven}-bin.tar.gz" /opt
@@ -77,7 +78,9 @@ RUN apt-get purge -y npm && \
     npm install -g yarn
 
 COPY docs/requirements.txt /arrow/docs/
-RUN pip install -r arrow/docs/requirements.txt meson
+RUN python3 -m venv ${ARROW_PYTHON_VENV} && \
+    . ${ARROW_PYTHON_VENV}/bin/activate && \
+    pip install -r arrow/docs/requirements.txt
 
 COPY c_glib/Gemfile /arrow/c_glib/
 RUN gem install --no-document bundler && \
@@ -96,6 +99,7 @@ RUN /arrow/ci/scripts/r_deps.sh /arrow && \
     R -e "install.packages('pkgdown')"
 
 ENV ARROW_ACERO=ON \
+    ARROW_AZURE=OFF \
     ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
     ARROW_BUILD_UTILITIES=OFF \
@@ -110,4 +114,5 @@ ENV ARROW_ACERO=ON \
     ARROW_JSON=ON \
     ARROW_S3=ON \
     ARROW_USE_GLOG=OFF \
-    CMAKE_UNITY_BUILD=ON
+    CMAKE_UNITY_BUILD=ON \
+    RETICULATE_PYTHON_ENV=${ARROW_PYTHON_VENV}

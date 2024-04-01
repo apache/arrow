@@ -199,8 +199,8 @@ bypass this wrapper.
    implement the same protocol to try to reuse each other's work,
    e.g. several databases implement the Postgres wire protocol to
    benefit from its driver implementations.  But the protocol itself
-   was not designed with multiple databases in mind, nor are they
-   generally meant to be used directly by applications.
+   was not designed with multiple databases in mind, nor are the
+   protocols generally meant to be used directly by applications.
 
    Some database-specific protocols are Arrow-native, like those of
    BigQuery and ClickHouse.  Flight SQL additionally is meant to be

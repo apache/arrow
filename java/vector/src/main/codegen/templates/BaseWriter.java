@@ -117,7 +117,11 @@ public interface BaseWriter extends AutoCloseable, Positionable {
     void start();
     void end();
     StructOrListWriter struct(String name);
+    /**
+     * @deprecated use {@link #listOfStruct()} instead.
+     */
     StructOrListWriter listoftstruct(String name);
+    StructOrListWriter listOfStruct(String name);
     StructOrListWriter list(String name);
     boolean isStructWriter();
     boolean isListWriter();

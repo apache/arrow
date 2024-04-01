@@ -25,6 +25,7 @@ public final class LocationSchemes {
   public static final String GRPC_INSECURE = "grpc+tcp";
   public static final String GRPC_DOMAIN_SOCKET = "grpc+unix";
   public static final String GRPC_TLS = "grpc+tls";
+  public static final String REUSE_CONNECTION = "arrow-flight-reuse-connection";
 
   private LocationSchemes() {
     throw new AssertionError("Do not instantiate this class.");

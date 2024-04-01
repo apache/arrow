@@ -23,11 +23,11 @@ import (
 	"io"
 	"sort"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/endian"
-	"github.com/apache/arrow/go/v15/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v15/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/endian"
+	"github.com/apache/arrow/go/v16/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v16/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v16/arrow/memory"
 	flatbuffers "github.com/google/flatbuffers/go"
 )
 
@@ -373,7 +373,7 @@ func (fv *fieldVisitor) visit(field arrow.Field) {
 
 	case *arrow.StructType:
 		fv.dtype = flatbuf.TypeStruct_
-		offsets := make([]flatbuffers.UOffsetT, len(dt.Fields()))
+		offsets := make([]flatbuffers.UOffsetT, dt.NumFields())
 		for i, field := range dt.Fields() {
 			offsets[i] = fieldToFB(fv.b, fv.pos.Child(int32(i)), field, fv.memo)
 		}
@@ -472,7 +472,7 @@ func (fv *fieldVisitor) visit(field arrow.Field) {
 
 	case arrow.UnionType:
 		fv.dtype = flatbuf.TypeUnion
-		offsets := make([]flatbuffers.UOffsetT, len(dt.Fields()))
+		offsets := make([]flatbuffers.UOffsetT, dt.NumFields())
 		for i, field := range dt.Fields() {
 			offsets[i] = fieldToFB(fv.b, fv.pos.Child(int32(i)), field, fv.memo)
 		}
@@ -1100,10 +1100,10 @@ func schemaFromFB(schema *flatbuf.Schema, memo *dictutils.Memo) (*arrow.Schema, 
 }
 
 func schemaToFB(b *flatbuffers.Builder, schema *arrow.Schema, memo *dictutils.Mapper) flatbuffers.UOffsetT {
-	fields := make([]flatbuffers.UOffsetT, len(schema.Fields()))
+	fields := make([]flatbuffers.UOffsetT, schema.NumFields())
 	pos := dictutils.NewFieldPos()
-	for i, field := range schema.Fields() {
-		fields[i] = fieldToFB(b, pos.Child(int32(i)), field, memo)
+	for i := 0; i < schema.NumFields(); i++ {
+		fields[i] = fieldToFB(b, pos.Child(int32(i)), schema.Field(i), memo)
 	}
 
 	flatbuf.SchemaStartFieldsVector(b, len(fields))

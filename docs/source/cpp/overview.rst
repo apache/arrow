@@ -36,7 +36,7 @@ The one-dimensional layer
 -------------------------
 
 **Data types** govern the *logical* interpretation of *physical* data.
-Many operations in Arrow are parametered, at compile-time or at runtime,
+Many operations in Arrow are parameterized, at compile-time or at runtime,
 by a data type.
 
 **Arrays** assemble one or several buffers with a data type, allowing to

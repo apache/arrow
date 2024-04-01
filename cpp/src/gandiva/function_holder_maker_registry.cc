@@ -41,9 +41,7 @@ arrow::Status FunctionHolderMakerRegistry::Register(const std::string& name,
 
 template <typename HolderType>
 static arrow::Result<FunctionHolderPtr> HolderMaker(const FunctionNode& node) {
-  std::shared_ptr<HolderType> derived_instance;
-  ARROW_RETURN_NOT_OK(HolderType::Make(node, &derived_instance));
-  return derived_instance;
+  return HolderType::Make(node);
 }
 
 arrow::Result<FunctionHolderPtr> FunctionHolderMakerRegistry::Make(
@@ -60,6 +58,7 @@ arrow::Result<FunctionHolderPtr> FunctionHolderMakerRegistry::Make(
 FunctionHolderMakerRegistry::MakerMap FunctionHolderMakerRegistry::DefaultHolderMakers() {
   static const MakerMap maker_map = {
       {"like", HolderMaker<LikeHolder>},
+      {"ilike", HolderMaker<LikeHolder>},
       {"to_date", HolderMaker<ToDateHolder>},
       {"random", HolderMaker<RandomGeneratorHolder>},
       {"rand", HolderMaker<RandomGeneratorHolder>},

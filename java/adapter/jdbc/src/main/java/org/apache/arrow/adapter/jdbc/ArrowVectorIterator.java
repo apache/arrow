@@ -26,6 +26,7 @@ import java.util.Iterator;
 
 import org.apache.arrow.adapter.jdbc.consumer.CompositeJdbcConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.JdbcConsumer;
+import org.apache.arrow.adapter.jdbc.consumer.exceptions.JdbcConsumerException;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.FieldVector;
@@ -53,7 +54,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
 
   private final int targetBatchSize;
 
-  // This is used to track whether the ResultSet has been fully read, and is needed spcifically for cases where there
+  // This is used to track whether the ResultSet has been fully read, and is needed specifically for cases where there
   // is a ResultSet having zero rows (empty):
   private boolean readComplete = false;
 
@@ -114,7 +115,11 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
       root.setRowCount(readRowCount);
     } catch (Throwable e) {
       compositeConsumer.close();
-      throw new RuntimeException("Error occurred while consuming data.", e);
+      if (e instanceof JdbcConsumerException) {
+        throw (JdbcConsumerException) e;
+      } else {
+        throw new RuntimeException("Error occurred while consuming data.", e);
+      }
     }
   }
 
@@ -168,6 +173,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
    * Gets the next vector.
    * If {@link JdbcToArrowConfig#isReuseVectorSchemaRoot()} is false,
    * the client is responsible for freeing its resources.
+   * @throws JdbcConsumerException on error from VectorConsumer
    */
   @Override
   public VectorSchemaRoot next() {
@@ -178,7 +184,11 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
       return ret;
     } catch (Exception e) {
       close();
-      throw new RuntimeException("Error occurred while getting next schema root.", e);
+      if (e instanceof JdbcConsumerException) {
+        throw (JdbcConsumerException) e;
+      } else {
+        throw new RuntimeException("Error occurred while getting next schema root.", e);
+      }
     }
   }
 

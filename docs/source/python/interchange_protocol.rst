@@ -37,7 +37,7 @@ libraries in the Python ecosystem. See more about the
 standard in the
 `protocol documentation <https://data-apis.org/dataframe-protocol/latest/index.html>`_.
 
-From pyarrow to other libraries: ``__dataframe__()`` method
+From PyArrow to other libraries: ``__dataframe__()`` method
 -----------------------------------------------------------
 
 The ``__dataframe__()`` method creates a new exchange object that
@@ -46,7 +46,7 @@ the consumer library can take and construct an object of it's own.
 .. code-block::
 
     >>> import pyarrow as pa
-    >>> table = pa.table({"n_atendees": [100, 10, 1]})
+    >>> table = pa.table({"n_attendees": [100, 10, 1]})
     >>> table.__dataframe__()
     <pyarrow.interchange.dataframe._PyArrowDataFrame object at ...>
 
@@ -54,7 +54,7 @@ This is meant to be used by the consumer library when calling
 the ``from_dataframe()`` function and is not meant to be used manually
 by the user.
 
-From other libraries to pyarrow: ``from_dataframe()``
+From other libraries to PyArrow: ``from_dataframe()``
 -----------------------------------------------------
 
 With the ``from_dataframe()`` function, we can construct a :class:`pyarrow.Table`
@@ -63,7 +63,7 @@ from any dataframe object that implements the
 protocol.
 
 We can for example take a pandas dataframe and construct a
-pyarrow table with the use of the interchange protocol:
+PyArrow table with the use of the interchange protocol:
 
 .. code-block::
 
@@ -72,20 +72,20 @@ pyarrow table with the use of the interchange protocol:
 
     >>> import pandas as pd
     >>> df = pd.DataFrame({
-    ...         "n_atendees": [100, 10, 1],
+    ...         "n_attendees": [100, 10, 1],
     ...         "country": ["Italy", "Spain", "Slovenia"],
     ...     })
     >>> df
-       n_atendees   country
-    0         100     Italy
-    1          10     Spain
-    2           1  Slovenia
+       n_attendees   country
+    0          100     Italy
+    1           10     Spain
+    2            1  Slovenia
     >>> from_dataframe(df)
     pyarrow.Table
-    n_atendees: int64
+    n_attendees: int64
     country: large_string
     ----
-    n_atendees: [[100,10,1]]
+    n_attendees: [[100,10,1]]
     country: [["Italy","Spain","Slovenia"]]
 
 We can do the same with a polars dataframe:

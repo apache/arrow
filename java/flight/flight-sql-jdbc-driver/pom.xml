@@ -16,23 +16,23 @@
     <parent>
         <artifactId>arrow-flight</artifactId>
         <groupId>org.apache.arrow</groupId>
-        <version>15.0.0-SNAPSHOT</version>
+        <version>16.0.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>flight-sql-jdbc-driver</artifactId>
     <name>Arrow Flight SQL JDBC Driver</name>
-    <description>(Contrib/Experimental) A JDBC driver based on Arrow Flight SQL.</description>
+    <description>A JDBC driver based on Arrow Flight SQL.</description>
     <packaging>jar</packaging>
     <url>https://arrow.apache.org</url>
 
     <dependencies>
-        <!-- https://mvnrepository.com/artifact/org.hamcrest/hamcrest-core -->
+        <!-- https://mvnrepository.com/artifact/org.hamcrest/hamcrest -->
         <dependency>
             <groupId>org.hamcrest</groupId>
-            <artifactId>hamcrest-core</artifactId>
-            <version>1.3</version>
+            <artifactId>hamcrest</artifactId>
+            <version>2.2</version>
             <scope>test</scope>
         </dependency>
 
@@ -45,7 +45,7 @@
         <dependency>
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcpkix-jdk15on</artifactId>
-            <version>1.61</version>
+            <version>1.70</version>
             <scope>runtime</scope>
         </dependency>
 
@@ -107,14 +107,14 @@
         <dependency>
             <groupId>joda-time</groupId>
             <artifactId>joda-time</artifactId>
-            <version>2.10.14</version>
+            <version>2.12.6</version>
             <scope>runtime</scope>
         </dependency>
 
         <dependency>
             <groupId>org.apache.calcite.avatica</groupId>
             <artifactId>avatica</artifactId>
-            <version>1.18.0</version>
+            <version>1.24.0</version>
             <scope>runtime</scope>
         </dependency>
 
@@ -140,7 +140,7 @@
         <dependency>
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
-            <version>2.7</version>
+            <version>2.15.1</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -148,18 +148,20 @@
     <build>
         <plugins>
             <plugin>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <configuration>
-                    <enableAssertions>false</enableAssertions>
-                    <systemPropertyVariables>
-                        <arrow.test.dataRoot>${project.basedir}/../../../testing/data</arrow.test.dataRoot>
-                    </systemPropertyVariables>
-                </configuration>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <executions>
+                  <execution>
+                    <goals>
+                      <goal>integration-test</goal>
+                      <goal>verify</goal>
+                    </goals>
+                  </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.4.1</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -168,12 +170,22 @@
                         </goals>
                         <configuration>
                             <shadedArtifactAttached>false</shadedArtifactAttached>
-                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <createDependencyReducedPom>true</createDependencyReducedPom>
                             <minimizeJar>false</minimizeJar>
                             <artifactSet>
                                 <includes>
                                     <include>*:*</include>
                                 </includes>
+                                <excludes>
+                                    <!-- Source annotations -->
+                                    <exclude>org.checkerframework:checker-qual</exclude>
+                                    <exclude>org.codehaus.mojo:animal-sniffer-annotations</exclude>
+                                    <exclude>javax.annotation:javax.annotation-api</exclude>
+                                    <exclude>com.google.android:annotations</exclude>
+                                    <exclude>com.google.errorprone:error_prone_annotations</exclude>
+                                    <exclude>com.google.code.findbugs:jsr305</exclude>
+                                    <exclude>com.google.j2objc:j2objc-annotations</exclude>
+                                </excludes>
                             </artifactSet>
                             <relocations>
                                 <relocation>
@@ -200,6 +212,14 @@
                                     <pattern>io.</pattern>
                                     <shadedPattern>cfjd.io.</shadedPattern>
                                 </relocation>
+                                <relocation>
+                                    <pattern>net.</pattern>
+                                    <shadedPattern>cfjd.net.</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>mozilla.</pattern>
+                                    <shadedPattern>cfjd.mozilla.</shadedPattern>
+                                </relocation>
                                 <!-- Entries to relocate netty native libraries  -->
                                 <relocation>
                                     <pattern>META-INF.native.libnetty_</pattern>
@@ -215,9 +235,22 @@
                             </transformers>
                             <filters>
                                 <filter>
+                                    <artifact>org.apache.arrow:arrow-vector</artifact>
+                                    <excludes>
+                                        <exclude>codegen/**</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
                                     <artifact>org.apache.calcite.avatica:*</artifact>
                                     <excludes>
                                         <exclude>META-INF/services/java.sql.Driver</exclude>
+                                    </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>org.eclipse.collections:*</artifact>
+                                    <excludes>
+                                        <exclude>about.html</exclude>
+                                        <exclude>LICENSE-*-1.0.txt</exclude>
                                     </excludes>
                                 </filter>
                                 <filter>
@@ -228,6 +261,7 @@
                                         <exclude>**/*.DSA</exclude>
                                         <exclude>META-INF/native/libio_grpc_netty*</exclude>
                                         <exclude>META-INF/native/io_grpc_netty_shaded*</exclude>
+                                        <exclude>**/*.proto</exclude>
                                     </excludes>
                                 </filter>
                             </filters>

@@ -30,6 +30,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
+#include "arrow/util/config.h"
 #include "arrow/util/io_util.h"
 
 namespace arrow {

@@ -39,7 +39,7 @@ corresponding C FFI declarations.
 Applications and libraries can therefore work with Arrow memory without
 necessarily using Arrow libraries or reinventing the wheel. Developers can
 choose between tight integration
-with the Arrow *software project* (benefitting from the growing array of
+with the Arrow *software project* (benefiting from the growing array of
 facilities exposed by e.g. the C++ or Java implementations of Apache Arrow,
 but with the cost of a dependency) or minimal integration with the Arrow
 *format* only.
@@ -140,9 +140,13 @@ strings:
 +-----------------+---------------------------------------------------+------------+
 | ``Z``           | large binary                                      |            |
 +-----------------+---------------------------------------------------+------------+
+| ``vz``          | binary view                                       |            |
++-----------------+---------------------------------------------------+------------+
 | ``u``           | utf-8 string                                      |            |
 +-----------------+---------------------------------------------------+------------+
 | ``U``           | large utf-8 string                                |            |
++-----------------+---------------------------------------------------+------------+
+| ``vu``          | utf-8 view                                        |            |
 +-----------------+---------------------------------------------------+------------+
 | ``d:19,10``     | decimal128 [precision 19, scale 10]               |            |
 +-----------------+---------------------------------------------------+------------+
@@ -207,9 +211,9 @@ names and types of child fields are read from the child arrays.
 +------------------------+---------------------------------------------------+------------+
 | ``+L``                 | large list                                        |            |
 +------------------------+---------------------------------------------------+------------+
-| ``+lv``                | list-view                                         |            |
+| ``+vl``                | list-view                                         |            |
 +------------------------+---------------------------------------------------+------------+
-| ``+Lv``                | large list-view                                   |            |
+| ``+vL``                | large list-view                                   |            |
 +------------------------+---------------------------------------------------+------------+
 | ``+w:123``             | fixed-sized list [123 items]                      |            |
 +------------------------+---------------------------------------------------+------------+
@@ -247,7 +251,7 @@ Examples
   array has format string ``d:12,5``.
 * A ``list<uint64>`` array has format string ``+l``, and its single child
   has format string ``L``.
-* A ``large_list_view<uint64>`` array has format string ``+Lv``, and its single
+* A ``large_list_view<uint64>`` array has format string ``+vL``, and its single
   child has format string ``L``.
 * A ``struct<ints: int32, floats: float32>`` has format string ``+s``; its two
   children have names ``ints`` and ``floats``, and format strings ``i`` and
@@ -463,7 +467,10 @@ It has the following fields:
 
    Mandatory.  The number of physical buffers backing this array.  The
    number of buffers is a function of the data type, as described in the
-   :ref:`Columnar format specification <format_columnar>`.
+   :ref:`Columnar format specification <format_columnar>`, except for the
+   the binary or utf-8 view type, which has one additional buffer compared
+   to the Columnar format specification (see
+   :ref:`c-data-interface-binary-view-arrays`).
 
    Buffers of children arrays are not included.
 
@@ -547,6 +554,16 @@ parameterized extension types).
 
 The ``ArrowArray`` structure exported from an extension array simply points
 to the storage data of the extension array.
+
+.. _c-data-interface-binary-view-arrays:
+
+Binary view arrays
+------------------
+
+For binary or utf-8 view arrays, an extra buffer is appended which stores
+the lengths of each variadic data buffer as ``int64_t``. This buffer is
+necessary since these buffer lengths are not trivially extractable from
+other data in an array of binary or utf-8 view type.
 
 .. _c-data-interface-semantics:
 

@@ -33,6 +33,13 @@ namespace Apache.Arrow.Ipc
             _buffer = buffer;
         }
 
+        public override ValueTask ReadSchemaAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ReadSchema();
+            return default;
+        }
+
         public override ValueTask<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -43,30 +50,17 @@ namespace Apache.Arrow.Ipc
         {
             ReadSchema();
 
-            if (_buffer.Length <= _bufferPosition + sizeof(int))
+            RecordBatch batch = null;
+            while (batch == null)
             {
-                // reached the end
-                return null;
-            }
-
-            // Get Length of record batch for message header.
-            int messageLength = BinaryPrimitives.ReadInt32LittleEndian(_buffer.Span.Slice(_bufferPosition));
-            _bufferPosition += sizeof(int);
-
-            if (messageLength == 0)
-            {
-                //reached the end
-                return null;
-            }
-            else if (messageLength == MessageSerializer.IpcContinuationToken)
-            {
-                // ARROW-6313, if the first 4 bytes are continuation message, read the next 4 for the length
                 if (_buffer.Length <= _bufferPosition + sizeof(int))
                 {
-                    throw new InvalidDataException("Corrupted IPC message. Received a continuation token at the end of the message.");
+                    // reached the end
+                    return null;
                 }
 
-                messageLength = BinaryPrimitives.ReadInt32LittleEndian(_buffer.Span.Slice(_bufferPosition));
+                // Get Length of record batch for message header.
+                int messageLength = BinaryPrimitives.ReadInt32LittleEndian(_buffer.Span.Slice(_bufferPosition));
                 _bufferPosition += sizeof(int);
 
                 if (messageLength == 0)
@@ -74,20 +68,39 @@ namespace Apache.Arrow.Ipc
                     //reached the end
                     return null;
                 }
+                else if (messageLength == MessageSerializer.IpcContinuationToken)
+                {
+                    // ARROW-6313, if the first 4 bytes are continuation message, read the next 4 for the length
+                    if (_buffer.Length <= _bufferPosition + sizeof(int))
+                    {
+                        throw new InvalidDataException("Corrupted IPC message. Received a continuation token at the end of the message.");
+                    }
+
+                    messageLength = BinaryPrimitives.ReadInt32LittleEndian(_buffer.Span.Slice(_bufferPosition));
+                    _bufferPosition += sizeof(int);
+
+                    if (messageLength == 0)
+                    {
+                        //reached the end
+                        return null;
+                    }
+                }
+
+                Message message = Message.GetRootAsMessage(
+                    CreateByteBuffer(_buffer.Slice(_bufferPosition, messageLength)));
+                _bufferPosition += messageLength;
+
+                int bodyLength = (int)message.BodyLength;
+                ByteBuffer bodybb = CreateByteBuffer(_buffer.Slice(_bufferPosition, bodyLength));
+                _bufferPosition += bodyLength;
+
+                batch = CreateArrowObjectFromMessage(message, bodybb, memoryOwner: null);
             }
 
-            Message message = Message.GetRootAsMessage(
-                CreateByteBuffer(_buffer.Slice(_bufferPosition, messageLength)));
-            _bufferPosition += messageLength;
-
-            int bodyLength = (int)message.BodyLength;
-            ByteBuffer bodybb = CreateByteBuffer(_buffer.Slice(_bufferPosition, bodyLength));
-            _bufferPosition += bodyLength;
-
-            return CreateArrowObjectFromMessage(message, bodybb, memoryOwner: null);
+            return batch;
         }
 
-        private void ReadSchema()
+        public override void ReadSchema()
         {
             if (HasReadSchema)
             {
@@ -111,7 +124,7 @@ namespace Apache.Arrow.Ipc
             }
 
             ByteBuffer schemaBuffer = CreateByteBuffer(_buffer.Slice(_bufferPosition));
-            Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemaBuffer), ref _dictionaryMemo);
+            _schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemaBuffer), ref _dictionaryMemo);
             _bufferPosition += schemaMessageLength;
         }
     }

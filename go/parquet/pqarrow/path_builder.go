@@ -21,11 +21,11 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/array"
-	"github.com/apache/arrow/go/v15/arrow/memory"
-	"github.com/apache/arrow/go/v15/internal/bitutils"
-	"github.com/apache/arrow/go/v15/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/internal/bitutils"
+	"github.com/apache/arrow/go/v16/parquet/internal/encoding"
 	"golang.org/x/xerrors"
 )
 
@@ -665,7 +665,7 @@ func fillRepLevels(count int, repLvl int16, ctx *pathWriteCtx) {
 
 	fillCount := count
 	// this condition occurs (rep and def levels equals), in one of a few cases:
-	// 1. before any list is encounted
+	// 1. before any list is encountered
 	// 2. after rep-level has been filled in due to null/empty values above
 	// 3. after finishing a list
 	if !ctx.equalRepDeflevlsLen() {

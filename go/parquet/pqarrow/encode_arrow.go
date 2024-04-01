@@ -25,16 +25,16 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/array"
-	"github.com/apache/arrow/go/v15/arrow/bitutil"
-	"github.com/apache/arrow/go/v15/arrow/decimal128"
-	"github.com/apache/arrow/go/v15/arrow/decimal256"
-	"github.com/apache/arrow/go/v15/arrow/memory"
-	"github.com/apache/arrow/go/v15/internal/utils"
-	"github.com/apache/arrow/go/v15/parquet"
-	"github.com/apache/arrow/go/v15/parquet/file"
-	"github.com/apache/arrow/go/v15/parquet/internal/debug"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/bitutil"
+	"github.com/apache/arrow/go/v16/arrow/decimal128"
+	"github.com/apache/arrow/go/v16/arrow/decimal256"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/internal/utils"
+	"github.com/apache/arrow/go/v16/parquet"
+	"github.com/apache/arrow/go/v16/parquet/file"
+	"github.com/apache/arrow/go/v16/parquet/internal/debug"
 )
 
 // get the count of the number of leaf arrays for the type
@@ -141,7 +141,7 @@ func newArrowColumnWriter(data *arrow.Chunked, offset, size int64, manifest *Sch
 				return arrowColumnWriter{}, nil
 			}
 			if leafCount != bldr.leafCount() {
-				return arrowColumnWriter{}, fmt.Errorf("data type leaf_count != builder leafcount: %d - %d", leafCount, bldr.leafCount())
+				return arrowColumnWriter{}, fmt.Errorf("data type leaf_count != builder leaf_count: %d - %d", leafCount, bldr.leafCount())
 			}
 			builders = append(builders, bldr)
 		}
@@ -392,7 +392,7 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 					return err
 				}
 			} else {
-				// no data conversion neccessary
+				// no data conversion necessary
 				if leafArr.Data().Buffers()[1] != nil {
 					data = arrow.Int64Traits.CastFromBytes(leafArr.Data().Buffers()[1].Bytes())
 					data = data[leafArr.Data().Offset() : leafArr.Data().Offset()+leafArr.Len()]

@@ -23,13 +23,13 @@ import (
 	"math/bits"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/bitutil"
-	"github.com/apache/arrow/go/v15/arrow/encoded"
-	"github.com/apache/arrow/go/v15/arrow/internal/debug"
-	"github.com/apache/arrow/go/v15/arrow/memory"
-	"github.com/apache/arrow/go/v15/internal/bitutils"
-	"github.com/apache/arrow/go/v15/internal/utils"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/bitutil"
+	"github.com/apache/arrow/go/v16/arrow/encoded"
+	"github.com/apache/arrow/go/v16/arrow/internal/debug"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/internal/bitutils"
+	"github.com/apache/arrow/go/v16/internal/utils"
 )
 
 // Concatenate creates a new arrow.Array which is the concatenation of the
@@ -695,7 +695,7 @@ func concat(data []arrow.ArrayData, mem memory.Allocator) (arr arrow.ArrayData, 
 		}
 		out.childData = []arrow.ArrayData{children}
 	case *arrow.StructType:
-		out.childData = make([]arrow.ArrayData, len(dt.Fields()))
+		out.childData = make([]arrow.ArrayData, dt.NumFields())
 		for i := range dt.Fields() {
 			children := gatherChildren(data, i)
 			for _, c := range children {

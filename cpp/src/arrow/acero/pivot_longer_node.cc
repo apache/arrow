@@ -135,7 +135,7 @@ class PivotLongerNode : public ExecNode, public TracedNode {
     for (std::size_t i = 0; i < measurement_types.size(); i++) {
       if (!measurement_types[i]) {
         return Status::Invalid(
-            "All row templates had nullopt for the meausrement column at index ", i, " (",
+            "All row templates had nullopt for the measurement column at index ", i, " (",
             options.measurement_field_names[i], ")");
       }
       fields.push_back(

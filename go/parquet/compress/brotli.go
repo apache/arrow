@@ -21,7 +21,7 @@ import (
 	"io"
 
 	"github.com/andybalholm/brotli"
-	"github.com/apache/arrow/go/v15/parquet/internal/debug"
+	"github.com/apache/arrow/go/v16/parquet/internal/debug"
 )
 
 type brotliCodec struct{}
@@ -110,5 +110,5 @@ func (brotliCodec) NewWriterLevel(w io.Writer, level int) (io.WriteCloser, error
 }
 
 func init() {
-	codecs[Codecs.Brotli] = brotliCodec{}
+	RegisterCodec(Codecs.Brotli, brotliCodec{})
 }

@@ -19,11 +19,11 @@ package gen
 import (
 	"math"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/array"
-	"github.com/apache/arrow/go/v15/arrow/bitutil"
-	"github.com/apache/arrow/go/v15/arrow/internal/debug"
-	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/bitutil"
+	"github.com/apache/arrow/go/v16/arrow/internal/debug"
+	"github.com/apache/arrow/go/v16/arrow/memory"
 	"golang.org/x/exp/rand"
 	"gonum.org/v1/gonum/stat/distuv"
 )
@@ -52,7 +52,7 @@ func (r *RandomArrayGenerator) GenerateBitmap(buffer []byte, n int64, prob float
 	count := int64(0)
 	r.extra++
 
-	// bernoulli distribution uses P to determine the probabitiliy of a 0 or a 1,
+	// bernoulli distribution uses P to determine the probability of a 0 or a 1,
 	// which we'll use to generate the bitmap.
 	dist := distuv.Bernoulli{P: 1 - prob, Src: rand.NewSource(r.seed + r.extra)}
 	for i := 0; int64(i) < n; i++ {

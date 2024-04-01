@@ -84,7 +84,7 @@ const char* gdv_fn_regexp_extract_utf8_utf8_int32(int64_t ptr, int64_t holder_pt
   const char* gdv_fn_cast##CAST_NAME##_##IN_TYPE##_int64(                         \
       int64_t context, gdv_##IN_TYPE value, int64_t len, int32_t * out_len) {     \
     if (len < 0) {                                                                \
-      gdv_fn_context_set_error_msg(context, "Buffer length can not be negative"); \
+      gdv_fn_context_set_error_msg(context, "Buffer length cannot be negative");  \
       *out_len = 0;                                                               \
       return "";                                                                  \
     }                                                                             \
@@ -120,7 +120,7 @@ const char* gdv_fn_regexp_extract_utf8_utf8_int32(int64_t ptr, int64_t holder_pt
   const char* gdv_fn_cast##CAST_NAME##_##IN_TYPE##_int64(                         \
       int64_t context, gdv_##IN_TYPE value, int64_t len, int32_t * out_len) {     \
     if (len < 0) {                                                                \
-      gdv_fn_context_set_error_msg(context, "Buffer length can not be negative"); \
+      gdv_fn_context_set_error_msg(context, "Buffer length cannot be negative");  \
       *out_len = 0;                                                               \
       return "";                                                                  \
     }                                                                             \

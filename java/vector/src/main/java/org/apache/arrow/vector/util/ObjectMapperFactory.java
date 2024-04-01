@@ -26,7 +26,8 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
  */
 public final class ObjectMapperFactory {
 
-  private ObjectMapperFactory() {}
+  private ObjectMapperFactory() {
+  }
 
   /**
    * Creates a new {@link ObjectMapper} instance.

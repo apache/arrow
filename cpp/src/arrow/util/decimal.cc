@@ -312,7 +312,7 @@ struct Decimal128RealConversion
     return x;
   }
 
-  /// An appoximate conversion from Decimal128 to Real that guarantees:
+  /// An approximate conversion from Decimal128 to Real that guarantees:
   /// 1. If the decimal is an integer, the conversion is exact.
   /// 2. If the number of fractional digits is <= RealTraits<Real>::kMantissaDigits (e.g.
   ///    8 for float and 16 for double), the conversion is within 1 ULP of the exact
@@ -1006,7 +1006,7 @@ struct Decimal256RealConversion
     return x;
   }
 
-  /// An appoximate conversion from Decimal256 to Real that guarantees:
+  /// An approximate conversion from Decimal256 to Real that guarantees:
   /// 1. If the decimal is an integer, the conversion is exact.
   /// 2. If the number of fractional digits is <= RealTraits<Real>::kMantissaDigits (e.g.
   ///    8 for float and 16 for double), the conversion is within 1 ULP of the exact

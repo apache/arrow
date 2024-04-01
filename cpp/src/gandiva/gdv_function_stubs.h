@@ -342,11 +342,12 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
                                      int32_t to_len, int32_t* out_len);
 
 GANDIVA_EXPORT
-gdv_timestamp to_utc_timezone_timestamp(int64_t context, gdv_timestamp time_miliseconds,
+gdv_timestamp to_utc_timezone_timestamp(int64_t context, gdv_timestamp time_milliseconds,
                                         const char* timezone, int32_t length);
 
 GANDIVA_EXPORT
-gdv_timestamp from_utc_timezone_timestamp(int64_t context, gdv_timestamp time_miliseconds,
+gdv_timestamp from_utc_timezone_timestamp(int64_t context,
+                                          gdv_timestamp time_milliseconds,
                                           const char* timezone, int32_t length);
 
 GANDIVA_EXPORT

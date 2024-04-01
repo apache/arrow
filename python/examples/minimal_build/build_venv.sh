@@ -62,7 +62,7 @@ popd
 # Build and test Python library
 pushd $ARROW_ROOT/python
 
-rm -rf build/  # remove any pesky pre-existing build directory
+rm -rf build/  # remove any pesky preexisting build directory
 
 export CMAKE_PREFIX_PATH=${ARROW_HOME}${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}
 export PYARROW_BUILD_TYPE=Debug

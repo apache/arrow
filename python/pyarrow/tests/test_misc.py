@@ -57,7 +57,7 @@ def test_io_thread_count():
 
 
 def test_env_var_io_thread_count():
-    # Test that the number of IO threads can be overriden with the
+    # Test that the number of IO threads can be overridden with the
     # ARROW_IO_THREADS environment variable.
     code = """if 1:
         import pyarrow as pa
@@ -154,6 +154,8 @@ def test_set_timezone_db_path_non_windows():
     pa.ListType,
     pa.LargeListType,
     pa.FixedSizeListType,
+    pa.ListViewType,
+    pa.LargeListViewType,
     pa.UnionType,
     pa.SparseUnionType,
     pa.DenseUnionType,
@@ -185,6 +187,8 @@ def test_set_timezone_db_path_non_windows():
     pa.UnionArray,
     pa.BinaryArray,
     pa.StringArray,
+    pa.BinaryViewArray,
+    pa.StringViewArray,
     pa.FixedSizeBinaryArray,
     pa.DictionaryArray,
     pa.Date32Array,
@@ -221,8 +225,12 @@ def test_set_timezone_db_path_non_windows():
     pa.StringScalar,
     pa.BinaryScalar,
     pa.FixedSizeBinaryScalar,
+    pa.BinaryViewScalar,
+    pa.StringViewScalar,
     pa.ListScalar,
     pa.LargeListScalar,
+    pa.ListViewScalar,
+    pa.LargeListViewScalar,
     pa.MapScalar,
     pa.FixedSizeListScalar,
     pa.UnionScalar,

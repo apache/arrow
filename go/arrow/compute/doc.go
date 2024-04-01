@@ -23,7 +23,7 @@
 // is an attempt to provide for those users, and in general create a
 // native-go arrow compute engine.
 //
-// The overwhemling majority of things in this package require go1.18 as
+// The overwhelming majority of things in this package require go1.18 as
 // it utilizes generics. The files in this package and its sub-packages
 // are all excluded from being built by go versions lower than 1.18 so
 // that the larger Arrow module itself is still compatible with go1.17.

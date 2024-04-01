@@ -20,9 +20,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/bitutil"
-	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/bitutil"
+	"github.com/apache/arrow/go/v16/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -705,7 +705,7 @@ func TestBinaryViewStringRoundTrip(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
 
-	values := []string{"a", "bc", "", "", "supercalifragilistic", "", "expeallodocious"}
+	values := []string{"a", "bc", "", "", "supercalifragilistic", "", "expialidocious"}
 	valid := []bool{true, true, false, false, true, true, true}
 
 	b := NewBinaryViewBuilder(mem)

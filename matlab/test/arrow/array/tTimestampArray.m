@@ -234,7 +234,7 @@ classdef tTimestampArray < matlab.unittest.TestCase
             tc.verifyFalse(isequal(array1, array1, array3, array4, array5)); 
         end
 
-        function TestIsEqualFalseTimeZoneMistmatch(tc)
+        function TestIsEqualFalseTimeZoneMismatch(tc)
             % Verify two TimestampArrays are not considered equal if one
             % has a TimeZone and one does not. 
             dates1 = datetime(2023, 6, 22, TimeZone="America/Anchorage") + days(0:4);
@@ -263,7 +263,7 @@ classdef tTimestampArray < matlab.unittest.TestCase
             tc.verifyFalse(isequal(array1, array2));
         end
 
-        function TestIsEqualFalseTimeUnitMistmatch(tc, TimeZone)
+        function TestIsEqualFalseTimeUnitMismatch(tc, TimeZone)
             % Verify two TimestampArrays are not considered equal if their
             % TimeUnit values differ.
             dates1 = datetime(2023, 6, 22, TimeZone=TimeZone) + days(0:4);

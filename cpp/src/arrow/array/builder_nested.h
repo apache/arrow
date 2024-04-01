@@ -515,10 +515,9 @@ class ARROW_EXPORT LargeListViewBuilder final
 /// \class MapBuilder
 /// \brief Builder class for arrays of variable-size maps
 ///
-/// To use this class, you must append values to the key and item array builders
-/// and use the Append function to delimit each distinct map (once the keys and items
-/// have been appended) or use the bulk API to append a sequence of offsets and null
-/// maps.
+/// To use this class, you must use the Append function to delimit each distinct
+/// map before appending values to the key and item array builders, or use the
+/// bulk API to append a sequence of offsets and null maps.
 ///
 /// Key uniqueness and ordering are not validated.
 class ARROW_EXPORT MapBuilder : public ArrayBuilder {
@@ -677,7 +676,7 @@ class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
 
   /// \brief Vector append
   ///
-  /// If passed, valid_bytes wil be read and any zero byte
+  /// If passed, valid_bytes will be read and any zero byte
   /// will cause the corresponding slot to be null
   ///
   /// This function affects only the validity bitmap; the child values must be appended

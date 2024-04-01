@@ -128,10 +128,10 @@ classdef tTime64Array < matlab.unittest.TestCase
         function TestValid(testCase, Unit)
             % Verify the Valid property returns the expected logical vector.
             times = seconds([100 200 NaN 355 NaN 400]);
-            arrray = testCase.ArrowArrayConstructorFcn(times, TImeUnit=Unit);
-            testCase.verifyEqual(arrray.Valid, [true; true; false; true; false; true]);
-            testCase.verifyEqual(toMATLAB(arrray), times');
-            testCase.verifyEqual(duration(arrray), times');
+            array = testCase.ArrowArrayConstructorFcn(times, TimeUnit=Unit);
+            testCase.verifyEqual(array.Valid, [true; true; false; true; false; true]);
+            testCase.verifyEqual(toMATLAB(array), times');
+            testCase.verifyEqual(duration(array), times');
         end
 
         function InferNullsTrueNVPair(testCase, Unit)
@@ -299,7 +299,7 @@ classdef tTime64Array < matlab.unittest.TestCase
             tc.verifyFalse(isequal(array1, array1, array3, array4, array5)); 
         end
 
-        function TestIsEqualFalseTimeUnitMistmatch(tc)
+        function TestIsEqualFalseTimeUnitMismatch(tc)
             % Verify two Time64Arrays are not considered equal if they have
             % different TimeUnit values.
             times1 = seconds([1 2 3 4]);

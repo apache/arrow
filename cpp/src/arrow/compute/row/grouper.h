@@ -29,12 +29,12 @@ namespace arrow {
 namespace compute {
 
 /// \brief A segment
-/// A segment group is a chunk of continous rows that have the same segment key. (For
+/// A segment group is a chunk of continuous rows that have the same segment key. (For
 /// example, in ordered time series processing, segment key can be "date", and a segment
 /// group can be all the rows that belong to the same date.) A segment group can span
-/// across multiple exec batches. A segment is a chunk of continous rows that has the same
-/// segment key within a given batch. When a segment group span cross batches, it will
-/// have multiple segments. A segment never spans cross batches. The segment data
+/// across multiple exec batches. A segment is a chunk of continuous rows that has the
+/// same segment key within a given batch. When a segment group span cross batches, it
+/// will have multiple segments. A segment never spans cross batches. The segment data
 /// structure only makes sense when used along with a exec batch.
 struct ARROW_EXPORT Segment {
   /// \brief the offset into the batch where the segment starts
@@ -92,7 +92,7 @@ class ARROW_EXPORT RowSegmenter {
   /// \brief Reset this segmenter
   ///
   /// A segmenter normally extends (see `Segment`) a segment from one batch to the next.
-  /// If segment-extenion is undesirable, for example when each batch is processed
+  /// If segment-extension is undesirable, for example when each batch is processed
   /// independently, then `Reset` should be invoked before processing the next batch.
   virtual Status Reset() = 0;
 

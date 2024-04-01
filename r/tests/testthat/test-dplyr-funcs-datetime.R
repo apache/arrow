@@ -1550,7 +1550,7 @@ test_that("as.difftime()", {
   )
 
   # only integer (or integer-like) -> duration conversion supported in Arrow.
-  # double -> duration not supported. we're not testing the content of the
+  # double -> duration not supported. We aren't testing the content of the
   # error message as it is being generated in the C++ code and it might change,
   # but we want to make sure that this error is raised in our binding implementation
   expect_error(
@@ -1961,7 +1961,7 @@ test_that("`as.Date()` and `as_date()`", {
   # `as.Date()` ignores the `tzone` attribute and uses the value of the `tz` arg
   # to `as.Date()`
   # `as_date()` does the opposite: uses the tzone attribute of the POSIXct object
-  # passsed if`tz` is NULL
+  # passed if`tz` is NULL
   compare_dplyr_binding(
     .input %>%
       transmute(
@@ -2831,7 +2831,7 @@ test_that("parse_date_time with truncated formats", {
 })
 
 test_that("parse_date_time with `locale != NULL` not supported", {
-  # parse_date_time currently doesn't take locale paramete which will be
+  # parse_date_time currently doesn't take locale parameter which will be
   # addressed in https://issues.apache.org/jira/browse/ARROW-17147
   skip_if_not_available("re2")
 
@@ -3038,7 +3038,7 @@ test_that("build_formats() and build_format_from_order()", {
 
 # an "easy" date to avoid conflating tests of different things (i.e., it's
 # UTC time, and not one of the edge cases on or extremely close to the
-# rounding boundaty)
+# rounding boundary)
 easy_date <- as.POSIXct("2022-10-11 12:00:00", tz = "UTC")
 easy_df <- tibble::tibble(datetime = easy_date)
 
@@ -3703,7 +3703,7 @@ test_that("with_tz() and force_tz() works", {
         roll_dst = "post")
       ) %>%
       collect(),
-    "roll_dst` value must be 'error' or 'boundary' for non-existent times"
+    "roll_dst` value must be 'error' or 'boundary' for nonexistent times"
   )
 
   expect_warning(
@@ -3716,7 +3716,7 @@ test_that("with_tz() and force_tz() works", {
         )
       ) %>%
       collect(),
-    "`roll_dst` value must be 'error', 'pre', or 'post' for non-existent times"
+    "`roll_dst` value must be 'error', 'pre', or 'post' for nonexistent times"
   )
 
   # Raise error when the timezone falls into the DST-break

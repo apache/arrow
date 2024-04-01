@@ -109,6 +109,7 @@ class LZ4Decompressor : public Decompressor {
     auto dst_capacity = static_cast<size_t>(output_len);
     size_t ret;
 
+    DCHECK_NE(src, nullptr);
     ret =
         LZ4F_decompress(ctx_, dst, &dst_capacity, src, &src_size, nullptr /* options */);
     if (LZ4F_isError(ret)) {

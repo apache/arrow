@@ -27,7 +27,7 @@ import { BitIterator, getBit, getBool } from '../util/bit.js';
 import {
     DataType,
     Float, Int, Date_, Interval, Time, Timestamp, Union, Duration,
-    Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct, IntArray,
+    Bool, Null, Utf8, LargeUtf8, Binary, LargeBinary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct, IntArray,
 } from '../type.js';
 
 /** @ignore */
@@ -42,7 +42,9 @@ export interface JSONVectorAssembler extends Visitor {
     visitInt<T extends Int>(data: Data<T>): { DATA: number[] | string[] };
     visitFloat<T extends Float>(data: Data<T>): { DATA: number[] };
     visitUtf8<T extends Utf8>(data: Data<T>): { DATA: string[]; OFFSET: number[] };
+    visitLargeUtf8<T extends LargeUtf8>(data: Data<T>): { DATA: string[]; OFFSET: string[] };
     visitBinary<T extends Binary>(data: Data<T>): { DATA: string[]; OFFSET: number[] };
+    visitLargeBinary<T extends LargeBinary>(data: Data<T>): { DATA: string[]; OFFSET: string[] };
     visitFixedSizeBinary<T extends FixedSizeBinary>(data: Data<T>): { DATA: string[] };
     visitDate<T extends Date_>(data: Data<T>): { DATA: number[] };
     visitTimestamp<T extends Timestamp>(data: Data<T>): { DATA: string[] };
@@ -100,8 +102,14 @@ export class JSONVectorAssembler extends Visitor {
     public visitUtf8<T extends Utf8>(data: Data<T>) {
         return { 'DATA': [...new Vector([data])], 'OFFSET': [...data.valueOffsets] };
     }
+    public visitLargeUtf8<T extends LargeUtf8>(data: Data<T>) {
+        return { 'DATA': [...new Vector([data])], 'OFFSET': [...bigNumsToStrings(data.valueOffsets, 2)] };
+    }
     public visitBinary<T extends Binary>(data: Data<T>) {
-        return { 'DATA': [...binaryToString(new Vector([data]))], OFFSET: [...data.valueOffsets] };
+        return { 'DATA': [...binaryToString(new Vector([data]))], 'OFFSET': [...data.valueOffsets] };
+    }
+    public visitLargeBinary<T extends LargeBinary>(data: Data<T>) {
+        return { 'DATA': [...binaryToString(new Vector([data]))], 'OFFSET': [...bigNumsToStrings(data.valueOffsets, 2)] };
     }
     public visitFixedSizeBinary<T extends FixedSizeBinary>(data: Data<T>) {
         return { 'DATA': [...binaryToString(new Vector([data]))] };
@@ -148,7 +156,7 @@ export class JSONVectorAssembler extends Visitor {
         return { 'DATA': [...data.values] };
     }
     public visitDuration<T extends Duration>(data: Data<T>) {
-        return { 'DATA': [...bigNumsToStrings(data.values, 2)]};
+        return { 'DATA': [...bigNumsToStrings(data.values, 2)] };
     }
     public visitFixedSizeList<T extends FixedSizeList>(data: Data<T>) {
         return {
@@ -164,7 +172,7 @@ export class JSONVectorAssembler extends Visitor {
 }
 
 /** @ignore */
-function* binaryToString(vector: Vector<Binary> | Vector<FixedSizeBinary>) {
+function* binaryToString(vector: Vector<Binary> | Vector<LargeBinary> | Vector<FixedSizeBinary>) {
     for (const octets of vector as Iterable<Uint8Array>) {
         yield octets.reduce((str, byte) => {
             return `${str}${('0' + (byte & 0xFF).toString(16)).slice(-2)}`;

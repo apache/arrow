@@ -159,7 +159,7 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
    * @param updatedRows the number of rows affected.
    */
   public void addUpdateQuery(final String sqlCommand, final long updatedRows) {
-    addUpdateQuery(sqlCommand, ((flightStream, putResultStreamListener) -> {
+    addUpdateQuery(sqlCommand, (flightStream, putResultStreamListener) -> {
       final DoPutUpdateResult result =
           DoPutUpdateResult.newBuilder().setRecordCount(updatedRows).build();
       try (final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
@@ -171,7 +171,7 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
       } finally {
         putResultStreamListener.onCompleted();
       }
-    }));
+    });
   }
 
   /**
@@ -195,7 +195,7 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
                       final BiConsumer<FlightStream, StreamListener<PutResult>> resultsProvider) {
     Preconditions.checkState(
         updateResultProviders.putIfAbsent(sqlCommand, resultsProvider) == null,
-        format("Attempted to overwrite pre-existing query: <%s>.", sqlCommand));
+        format("Attempted to overwrite preexisting query: <%s>.", sqlCommand));
   }
 
   /** Registers parameters expected to be provided with a prepared statement. */
@@ -272,7 +272,9 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
             .map(TicketConversionUtils::getTicketStatementQueryFromHandle)
             .map(TicketConversionUtils::getEndpointFromMessage)
             .collect(toList());
-    return new FlightInfo(queryInfo.getKey(), flightDescriptor, endpoints, -1, -1);
+    return FlightInfo.builder(queryInfo.getKey(), flightDescriptor, endpoints)
+            .setAppMetadata("foo".getBytes(StandardCharsets.UTF_8))
+            .build();
   }
 
   @Override
@@ -295,7 +297,9 @@ public final class MockFlightSqlProducer implements FlightSqlProducer {
             .map(TicketConversionUtils::getCommandPreparedStatementQueryFromHandle)
             .map(TicketConversionUtils::getEndpointFromMessage)
             .collect(toList());
-    return new FlightInfo(queryInfo.getKey(), flightDescriptor, endpoints, -1, -1);
+    return FlightInfo.builder(queryInfo.getKey(), flightDescriptor, endpoints)
+            .setAppMetadata("foo".getBytes(StandardCharsets.UTF_8))
+            .build();
   }
 
   @Override

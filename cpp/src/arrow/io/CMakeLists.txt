@@ -28,6 +28,7 @@ if(ARROW_HDFS)
                  PREFIX
                  "arrow-io"
                  EXTRA_LINK_LIBS
+                 arrow::hadoop
                  Boost::filesystem
                  Boost::system)
 endif()
@@ -41,6 +42,8 @@ if(NOT (${ARROW_SIMD_LEVEL} STREQUAL "NONE") AND NOT (${ARROW_SIMD_LEVEL} STREQU
   # This benchmark either requires SSE4.2 or ARMV8 SIMD to be enabled
   add_arrow_benchmark(memory_benchmark PREFIX "arrow-io")
 endif()
+
+add_arrow_benchmark(compressed_benchmark PREFIX "arrow-io")
 
 # Headers: top level
 arrow_install_all_headers("arrow/io")

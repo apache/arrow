@@ -18,20 +18,32 @@
 
 package org.apache.arrow.flatbuf;
 
-import java.nio.*;
-import java.lang.*;
-import java.util.*;
-import com.google.flatbuffers.*;
+import com.google.flatbuffers.BaseVector;
+import com.google.flatbuffers.BooleanVector;
+import com.google.flatbuffers.ByteVector;
+import com.google.flatbuffers.Constants;
+import com.google.flatbuffers.DoubleVector;
+import com.google.flatbuffers.FlatBufferBuilder;
+import com.google.flatbuffers.FloatVector;
+import com.google.flatbuffers.IntVector;
+import com.google.flatbuffers.LongVector;
+import com.google.flatbuffers.ShortVector;
+import com.google.flatbuffers.StringVector;
+import com.google.flatbuffers.Struct;
+import com.google.flatbuffers.Table;
+import com.google.flatbuffers.UnionVector;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
-@SuppressWarnings("unused")
 /**
  * A union is a complex type with children in Field
  * By default ids in the type vector refer to the offsets in the children
  * optionally typeIds provides an indirection between the child offset and the type id
  * for each child `typeIds[offset]` is the id used in the type vector
  */
+@SuppressWarnings("unused")
 public final class Union extends Table {
-  public static void ValidateVersion() { Constants.FLATBUFFERS_1_12_0(); }
+  public static void ValidateVersion() { Constants.FLATBUFFERS_23_5_26(); }
   public static Union getRootAsUnion(ByteBuffer _bb) { return getRootAsUnion(_bb, new Union()); }
   public static Union getRootAsUnion(ByteBuffer _bb, Union obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb)); }
   public void __init(int _i, ByteBuffer _bb) { __reset(_i, _bb); }

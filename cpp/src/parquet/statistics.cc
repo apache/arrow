@@ -438,9 +438,9 @@ class TypedComparatorImpl
     return Helper::Compare(type_length_, a, b);
   }
 
-  bool Compare(const T& a, const T& b) override { return CompareInline(a, b); }
+  bool Compare(const T& a, const T& b) const override { return CompareInline(a, b); }
 
-  std::pair<T, T> GetMinMax(const T* values, int64_t length) override {
+  std::pair<T, T> GetMinMax(const T* values, int64_t length) const override {
     DCHECK_GT(length, 0);
 
     T min = Helper::DefaultMin();
@@ -457,7 +457,7 @@ class TypedComparatorImpl
 
   std::pair<T, T> GetMinMaxSpaced(const T* values, int64_t length,
                                   const uint8_t* valid_bits,
-                                  int64_t valid_bits_offset) override {
+                                  int64_t valid_bits_offset) const override {
     DCHECK_GT(length, 0);
 
     T min = Helper::DefaultMin();
@@ -477,7 +477,7 @@ class TypedComparatorImpl
     return {min, max};
   }
 
-  std::pair<T, T> GetMinMax(const ::arrow::Array& values) override {
+  std::pair<T, T> GetMinMax(const ::arrow::Array& values) const override {
     ParquetException::NYI(values.type()->ToString());
   }
 
@@ -491,7 +491,7 @@ class TypedComparatorImpl
 template <>
 std::pair<int32_t, int32_t>
 TypedComparatorImpl</*is_signed=*/false, Int32Type>::GetMinMax(const int32_t* values,
-                                                               int64_t length) {
+                                                               int64_t length) const {
   DCHECK_GT(length, 0);
 
   const uint32_t* unsigned_values = reinterpret_cast<const uint32_t*>(values);
@@ -537,13 +537,13 @@ std::pair<ByteArray, ByteArray> GetMinMaxBinaryHelper(
 
 template <>
 std::pair<ByteArray, ByteArray> TypedComparatorImpl<true, ByteArrayType>::GetMinMax(
-    const ::arrow::Array& values) {
+    const ::arrow::Array& values) const {
   return GetMinMaxBinaryHelper<true>(*this, values);
 }
 
 template <>
 std::pair<ByteArray, ByteArray> TypedComparatorImpl<false, ByteArrayType>::GetMinMax(
-    const ::arrow::Array& values) {
+    const ::arrow::Array& values) const {
   return GetMinMaxBinaryHelper<false>(*this, values);
 }
 

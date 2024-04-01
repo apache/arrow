@@ -17,8 +17,8 @@
 package internal
 
 import (
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/internal/flatbuf"
 )
 
 const CurMetadataVersion = flatbuf.MetadataVersionV5
@@ -44,4 +44,16 @@ func HasValidityBitmap(id arrow.Type, version flatbuf.MetadataVersion) bool {
 		return false
 	}
 	return true
+}
+
+// HasBufferSizesBuffer returns whether a given type has an extra buffer
+// in the C ABI to store the sizes of other buffers. Currently this is only
+// StringView and BinaryView.
+func HasBufferSizesBuffer(id arrow.Type) bool {
+	switch id {
+	case arrow.STRING_VIEW, arrow.BINARY_VIEW:
+		return true
+	default:
+		return false
+	}
 }

@@ -18,12 +18,23 @@
 
 package org.apache.arrow.flatbuf;
 
-import java.nio.*;
-import java.lang.*;
-import java.util.*;
-import com.google.flatbuffers.*;
+import com.google.flatbuffers.BaseVector;
+import com.google.flatbuffers.BooleanVector;
+import com.google.flatbuffers.ByteVector;
+import com.google.flatbuffers.Constants;
+import com.google.flatbuffers.DoubleVector;
+import com.google.flatbuffers.FlatBufferBuilder;
+import com.google.flatbuffers.FloatVector;
+import com.google.flatbuffers.IntVector;
+import com.google.flatbuffers.LongVector;
+import com.google.flatbuffers.ShortVector;
+import com.google.flatbuffers.StringVector;
+import com.google.flatbuffers.Struct;
+import com.google.flatbuffers.Table;
+import com.google.flatbuffers.UnionVector;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
-@SuppressWarnings("unused")
 /**
  * Timestamp is a 64-bit signed integer representing an elapsed time since a
  * fixed epoch, stored in either of four units: seconds, milliseconds,
@@ -124,15 +135,16 @@ import com.google.flatbuffers.*;
  * no indication of how to map this information to a physical point in time.
  * Naive date-times must be handled with care because of this missing
  * information, and also because daylight saving time (DST) may make
- * some values ambiguous or non-existent. A naive date-time may be
+ * some values ambiguous or nonexistent. A naive date-time may be
  * stored as a struct with Date and Time fields. However, it may also be
  * encoded into a Timestamp column with an empty timezone. The timestamp
  * values should be computed "as if" the timezone of the date-time values
  * was UTC; for example, the naive date-time "January 1st 1970, 00h00" would
  * be encoded as timestamp value 0.
  */
+@SuppressWarnings("unused")
 public final class Timestamp extends Table {
-  public static void ValidateVersion() { Constants.FLATBUFFERS_1_12_0(); }
+  public static void ValidateVersion() { Constants.FLATBUFFERS_23_5_26(); }
   public static Timestamp getRootAsTimestamp(ByteBuffer _bb) { return getRootAsTimestamp(_bb, new Timestamp()); }
   public static Timestamp getRootAsTimestamp(ByteBuffer _bb, Timestamp obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb)); }
   public void __init(int _i, ByteBuffer _bb) { __reset(_i, _bb); }

@@ -26,10 +26,9 @@
 #include <gandiva-glib/projector.h>
 
 GGandivaProjector *
-ggandiva_projector_new_raw(
-  std::shared_ptr<gandiva::Projector> *gandiva_projector,
-  GArrowSchema *schema,
-  GList *expressions);
+ggandiva_projector_new_raw(std::shared_ptr<gandiva::Projector> *gandiva_projector,
+                           GArrowSchema *schema,
+                           GList *expressions);
 GGandivaSelectableProjector *
 ggandiva_selectable_projector_new_raw(
   std::shared_ptr<gandiva::Projector> *gandiva_projector,

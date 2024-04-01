@@ -22,15 +22,15 @@ import (
 	"math"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/float16"
-	"github.com/apache/arrow/go/v15/arrow/memory"
-	"github.com/apache/arrow/go/v15/internal/utils"
-	"github.com/apache/arrow/go/v15/parquet"
-	"github.com/apache/arrow/go/v15/parquet/internal/debug"
-	"github.com/apache/arrow/go/v15/parquet/internal/encoding"
-	format "github.com/apache/arrow/go/v15/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v15/parquet/schema"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/float16"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/internal/utils"
+	"github.com/apache/arrow/go/v16/parquet"
+	"github.com/apache/arrow/go/v16/parquet/internal/debug"
+	"github.com/apache/arrow/go/v16/parquet/internal/encoding"
+	format "github.com/apache/arrow/go/v16/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v16/parquet/schema"
 )
 
 //go:generate go run ../../arrow/_tools/tmpl/main.go -i -data=statistics_types.tmpldata statistics_types.gen.go.tmpl
@@ -271,7 +271,7 @@ func signedByteLess(a, b []byte) bool {
 	sa := *(*[]int8)(unsafe.Pointer(&a))
 	sb := *(*[]int8)(unsafe.Pointer(&b))
 
-	// we can short circuit for different signd numbers or for equal length byte
+	// we can short circuit for different signed numbers or for equal length byte
 	// arrays that have different first bytes. The equality requirement is necessary
 	// for sign extension cases. 0xFF10 should be equal to 0x10 (due to big endian sign extension)
 	if int8(0x80&uint8(sa[0])) != int8(0x80&uint8(sb[0])) || (len(sa) == len(sb) && sa[0] != sb[0]) {

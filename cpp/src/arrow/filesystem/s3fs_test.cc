@@ -75,8 +75,8 @@ namespace fs {
 using ::arrow::internal::checked_pointer_cast;
 using ::arrow::internal::PlatformFilename;
 using ::arrow::internal::ToChars;
-using ::arrow::internal::UriEscape;
 using ::arrow::internal::Zip;
+using ::arrow::util::UriEscape;
 
 using ::arrow::fs::internal::ConnectRetryStrategy;
 using ::arrow::fs::internal::ErrorToStatus;
@@ -150,7 +150,7 @@ class ShortRetryStrategy : public S3RetryStrategy {
 class AwsTestMixin : public ::testing::Test {
  public:
   void SetUp() override {
-#ifdef AWS_CPP_SDK_S3_NOT_SHARED
+#ifdef AWS_CPP_SDK_S3_PRIVATE_STATIC
     auto aws_log_level = Aws::Utils::Logging::LogLevel::Fatal;
     aws_options_.loggingOptions.logLevel = aws_log_level;
     aws_options_.loggingOptions.logger_create_fn = [&aws_log_level] {
@@ -161,13 +161,13 @@ class AwsTestMixin : public ::testing::Test {
   }
 
   void TearDown() override {
-#ifdef AWS_CPP_SDK_S3_NOT_SHARED
+#ifdef AWS_CPP_SDK_S3_PRIVATE_STATIC
     Aws::ShutdownAPI(aws_options_);
 #endif
   }
 
  private:
-#ifdef AWS_CPP_SDK_S3_NOT_SHARED
+#ifdef AWS_CPP_SDK_S3_PRIVATE_STATIC
   Aws::SDKOptions aws_options_;
 #endif
 };
@@ -190,8 +190,11 @@ class S3TestMixin : public AwsTestMixin {
   }
 
   void TearDown() override {
-    client_.reset();  // Aws::S3::S3Client destruction relies on AWS SDK, so it must be
-                      // reset before Aws::ShutdownAPI
+    // Aws::S3::S3Client destruction relies on AWS SDK, so it must be
+    // reset before Aws::ShutdownAPI
+    client_.reset();
+    client_config_.reset();
+
     AwsTestMixin::TearDown();
   }
 
@@ -304,6 +307,11 @@ TEST_F(S3OptionsTest, FromUri) {
 
   // Endpoint from environment variable
   {
+    EnvVarGuard endpoint_guard("AWS_ENDPOINT_URL_S3", "http://127.0.0.1:9000");
+    ASSERT_OK_AND_ASSIGN(options, S3Options::FromUri("s3://mybucket/", &path));
+    ASSERT_EQ(options.endpoint_override, "http://127.0.0.1:9000");
+  }
+  {
     EnvVarGuard endpoint_guard("AWS_ENDPOINT_URL", "http://127.0.0.1:9000");
     ASSERT_OK_AND_ASSIGN(options, S3Options::FromUri("s3://mybucket/", &path));
     ASSERT_EQ(options.endpoint_override, "http://127.0.0.1:9000");
@@ -365,10 +373,10 @@ TEST_F(S3RegionResolutionTest, RestrictedBucket) {
 }
 
 TEST_F(S3RegionResolutionTest, NonExistentBucket) {
-  auto maybe_region = ResolveS3BucketRegion("ursa-labs-non-existent-bucket");
+  auto maybe_region = ResolveS3BucketRegion("ursa-labs-nonexistent-bucket");
   ASSERT_RAISES(IOError, maybe_region);
   ASSERT_THAT(maybe_region.status().message(),
-              ::testing::HasSubstr("Bucket 'ursa-labs-non-existent-bucket' not found"));
+              ::testing::HasSubstr("Bucket 'ursa-labs-nonexistent-bucket' not found"));
 }
 
 TEST_F(S3RegionResolutionTest, InvalidBucketName) {
@@ -461,6 +469,13 @@ class TestS3FS : public S3TestMixin {
       req.SetBody(std::make_shared<std::stringstream>("other data"));
       ASSERT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
     }
+  }
+
+  void TearDown() override {
+    // Aws::S3::S3Client destruction relies on AWS SDK, so it must be
+    // reset before Aws::ShutdownAPI
+    fs_.reset();
+    S3TestMixin::TearDown();
   }
 
   Result<std::shared_ptr<S3FileSystem>> MakeNewFileSystem(
@@ -645,13 +660,13 @@ TEST_F(TestS3FS, GetFileInfoObject) {
   // Nonexistent
   AssertFileInfo(fs_.get(), "bucket/emptyd", FileType::NotFound);
   AssertFileInfo(fs_.get(), "bucket/somed", FileType::NotFound);
-  AssertFileInfo(fs_.get(), "non-existent-bucket/somed", FileType::NotFound);
+  AssertFileInfo(fs_.get(), "nonexistent-bucket/somed", FileType::NotFound);
 
   // Trailing slashes
   AssertFileInfo(fs_.get(), "bucket/emptydir/", FileType::Directory, kNoSize);
   AssertFileInfo(fs_.get(), "bucket/somefile/", FileType::File, 9);
   AssertFileInfo(fs_.get(), "bucket/emptyd/", FileType::NotFound);
-  AssertFileInfo(fs_.get(), "non-existent-bucket/somed/", FileType::NotFound);
+  AssertFileInfo(fs_.get(), "nonexistent-bucket/somed/", FileType::NotFound);
 
   // URIs
   ASSERT_RAISES(Invalid, fs_->GetFileInfo("s3:bucket/emptydir"));
@@ -920,6 +935,10 @@ TEST_F(TestS3FS, CreateDir) {
 
   // URI
   ASSERT_RAISES(Invalid, fs_->CreateDir("s3:bucket/newdir2"));
+
+  // Extraneous slashes
+  ASSERT_RAISES(Invalid, fs_->CreateDir("bucket//somedir"));
+  ASSERT_RAISES(Invalid, fs_->CreateDir("bucket/somedir//newdir"));
 }
 
 TEST_F(TestS3FS, DeleteFile) {
@@ -979,6 +998,10 @@ TEST_F(TestS3FS, DeleteDir) {
 
   // URI
   ASSERT_RAISES(Invalid, fs_->DeleteDir("s3:empty-bucket"));
+
+  // Extraneous slashes
+  ASSERT_RAISES(Invalid, fs_->DeleteDir("bucket//newdir"));
+  ASSERT_RAISES(Invalid, fs_->DeleteDir("bucket/newdir//newsub"));
 }
 
 TEST_F(TestS3FS, DeleteDirContents) {
@@ -1057,7 +1080,7 @@ TEST_F(TestS3FS, Move) {
   ASSERT_OK(fs_->Move("bucket/a=2/newfile", "bucket/a=3/newfile"));
 
   // Nonexistent
-  ASSERT_RAISES(IOError, fs_->Move("bucket/non-existent", "bucket/newfile2"));
+  ASSERT_RAISES(IOError, fs_->Move("bucket/nonexistent", "bucket/newfile2"));
   ASSERT_RAISES(IOError, fs_->Move("nonexistent-bucket/somefile", "bucket/newfile2"));
   ASSERT_RAISES(IOError, fs_->Move("bucket/somefile", "nonexistent-bucket/newfile2"));
   AssertFileInfo(fs_.get(), "bucket/newfile2", FileType::NotFound);
@@ -1352,6 +1375,14 @@ class TestS3FSGeneric : public S3TestMixin, public GenericFileSystemTest {
     options_.retry_strategy = std::make_shared<ShortRetryStrategy>();
     ASSERT_OK_AND_ASSIGN(s3fs_, S3FileSystem::Make(options_));
     fs_ = std::make_shared<SubTreeFileSystem>("s3fs-test-bucket", s3fs_);
+  }
+
+  void TearDown() override {
+    // Aws::S3::S3Client destruction relies on AWS SDK, so it must be
+    // reset before Aws::ShutdownAPI
+    s3fs_.reset();
+    fs_.reset();
+    S3TestMixin::TearDown();
   }
 
  protected:
