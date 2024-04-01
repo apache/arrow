@@ -139,10 +139,10 @@ docker_run \
 
 
 if [ ${UPLOAD_MATLAB} -gt 0 ]; then
-    mltbx_file="${ARROW_ARTIFACTS_DIR}/matlab-dist/matlab-arrow-${version_with_rc}.mltbx"
-    release_tag=${version_with_rc}
-    target_branch=${version_with_rc}
-    release_notes="Release Candidate: ${version_with_rc}"
-    repository="https://github.com/apache/arrow"
-    gh release create ${release_tag} ${mltbx_file} --prerelease --target ${target_branch} --notes ${release_notes} --repo ${repository}
+  mltbx_file="${ARROW_ARTIFACTS_DIR}/matlab-dist/matlab-arrow-${version_with_rc}.mltbx"
+  release_tag=${version_with_rc}
+  target_branch=${version_with_rc}
+  release_notes="Release Candidate: ${version_with_rc}"
+  repository="https://github.com/apache/arrow"
+  gh release create ${release_tag} ${mltbx_file} --prerelease --target ${target_branch} --notes ${release_notes} --repo ${repository}
 fi
