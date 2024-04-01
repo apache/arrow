@@ -1301,7 +1301,7 @@ Result<std::shared_ptr<Scalar>> CastImpl(const StringScalar& from,
 
 // binary/large binary/large string to string
 template <typename To, typename From>
-enable_if_t<std::is_same<To, StringScalar>::value &&
+enable_if_t<std::is_same<To, StringType>::value &&
                 std::is_base_of_v<BaseBinaryScalar, From> &&
                 !std::is_same<From, StringScalar>::value,
             Result<std::shared_ptr<Scalar>>>
