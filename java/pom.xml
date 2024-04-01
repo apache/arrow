@@ -304,7 +304,7 @@
           <dependency>
             <groupId>com.puppycrawl.tools</groupId>
             <artifactId>checkstyle</artifactId>
-            <version>8.29</version>
+            <version>10.15.0</version>
           </dependency>
           <dependency>
             <groupId>org.slf4j</groupId>
