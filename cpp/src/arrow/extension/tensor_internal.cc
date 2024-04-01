@@ -56,10 +56,11 @@ Result<std::vector<int64_t>> ComputeStrides(const std::shared_ptr<DataType>& val
   }
 
   auto permuted_shape = std::move(shape);
-  auto reverse_permutation = internal::ArgSort(permutation, std::less<>());
-  Permute(reverse_permutation, &permuted_shape);
+  auto reverse_permutation = internal::ArgSort(permutation, std::greater<>());
+  Permute(permutation, &permuted_shape);
   ARROW_DCHECK_OK(internal::ComputeRowMajorStrides(fw_type, permuted_shape, &strides));
-  Permute(permutation, &strides);
+  Permute(reverse_permutation, &strides);
+  std::reverse(strides.begin(), strides.end());
 
   return strides;
 }
