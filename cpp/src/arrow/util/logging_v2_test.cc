@@ -45,9 +45,9 @@ class MockLogger : public Logger {
   std::function<void(const LogDetails&)> callback;
 };
 
-struct LoggingTracer {
+struct OstreamableTracer {
   mutable bool was_evaluated = false;
-  friend std::ostream& operator<<(std::ostream& os, const LoggingTracer& tracer) {
+  friend std::ostream& operator<<(std::ostream& os, const OstreamableTracer& tracer) {
     tracer.was_evaluated = true;
     return os;
   }
@@ -68,7 +68,7 @@ TEST(LoggingV2Test, Basics) {
 
   {
     auto logger = std::make_shared<MockLogger>(ArrowLogLevel::ARROW_WARNING);
-    LoggingTracer tracers[5]{};
+    OstreamableTracer tracers[5]{};
     ARROW_LOG_WITH(logger, TRACE, "foo", tracers[0], "bar");
     ARROW_LOG_WITH(logger, DEBUG, "foo", tracers[1], "bar");
     ARROW_LOG_WITH(logger, INFO, "foo", tracers[2], "bar");
@@ -87,7 +87,7 @@ TEST(LoggingV2Test, Basics) {
   {
     auto logger = std::make_shared<MockLogger>(ArrowLogLevel::ARROW_WARNING);
     logger->enabled = false;
-    LoggingTracer tracer;
+    OstreamableTracer tracer;
     // If the underlying logger is disabled, the LogMessage stream shouldn't be appended
     // to (regardless of severity)
     ARROW_LOG_WITH(logger, WARNING, tracer);

@@ -91,7 +91,7 @@ class ARROW_EXPORT LoggerRegistry {
 };
 
 /// \brief Represents a single log record to be emitted by an underlying logger
-class LogMessage {
+class ARROW_EXPORT LogMessage {
  public:
   /// \brief Construct a LogMessage with the provided underlying logger
   LogMessage(ArrowLogLevel severity, std::shared_ptr<Logger> logger,
