@@ -491,11 +491,11 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
       this->child_data[i].FillFromScalar(*scalar.value[i]);
     }
   } else if (is_union(type_id)) {
-    // Dense union needs scratch space to store both offsets and a type code
-    struct UnionScratchSpace {
-      alignas(int64_t) int8_t type_code;
-      alignas(int64_t) uint8_t offsets[sizeof(int32_t) * 2];
-    };
+    // // Dense union needs scratch space to store both offsets and a type code
+    // struct UnionScratchSpace {
+    //   alignas(int64_t) int8_t type_code;
+    //   alignas(int64_t) uint8_t offsets[sizeof(int32_t) * 2];
+    // };
     // static_assert(sizeof(UnionScratchSpace) <= sizeof(UnionScalar::scratch_space_));
 
     // First buffer is kept null since unions have no validity vector
@@ -505,7 +505,7 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
     if (type_id == Type::DENSE_UNION) {
       const auto& scalar = checked_cast<const DenseUnionScalar&>(value);
       auto* union_scratch_space =
-          reinterpret_cast<UnionScratchSpace*>(&scalar.scratch_space_);
+          reinterpret_cast<UnionScalar::UnionScratchSpace*>(&scalar.scratch_space_);
 
       // union_scratch_space->type_code = checked_cast<const
       // UnionScalar&>(value).type_code;
@@ -531,7 +531,7 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
     } else {
       const auto& scalar = checked_cast<const SparseUnionScalar&>(value);
       auto* union_scratch_space =
-          reinterpret_cast<UnionScratchSpace*>(&scalar.scratch_space_);
+          reinterpret_cast<UnionScalar::UnionScratchSpace*>(&scalar.scratch_space_);
 
       // union_scratch_space->type_code = checked_cast<const
       // UnionScalar&>(value).type_code;

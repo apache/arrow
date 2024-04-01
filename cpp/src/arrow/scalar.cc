@@ -544,9 +544,7 @@ struct ScalarValidateImpl {
 
 template <size_t offset, typename T, typename... Args>
 void FillScalarScratchSpaceHelper(uint8_t* scratch_space, T first, Args... args) {
-  // static_assert(offset + sizeof(T) <=
-  //                   sizeof(internal::ArraySpanFillFromScalarScratchSpace::scratch_space_),
-  //               "Total size of arguments exceeds scratch space size.");
+  static_assert(offset + sizeof(T) <= internal::kScalarScratchSpaceSize);
   *reinterpret_cast<T*>(scratch_space + offset) = first;
   if constexpr (sizeof...(args) > 0) {
     FillScalarScratchSpaceHelper<offset + sizeof(T)>(scratch_space,
@@ -580,8 +578,7 @@ void BinaryScalar::FillScratchSpace() {
 }
 
 void BinaryViewScalar::FillScratchSpace() {
-  static_assert(sizeof(BinaryViewType::c_type) <=
-                sizeof(ArraySpanFillFromScalarScratchSpace::scratch_space_));
+  static_assert(sizeof(BinaryViewType::c_type) <= internal::kScalarScratchSpaceSize);
   auto* view = new (&scratch_space_) BinaryViewType::c_type;
   if (is_valid) {
     *view = util::ToBinaryView(std::string_view{*value}, 0, 0);
@@ -832,17 +829,6 @@ std::shared_ptr<Scalar> SparseUnionScalar::FromValue(std::shared_ptr<Scalar> val
   }
   return std::make_shared<SparseUnionScalar>(field_values, type_code, std::move(type));
 }
-
-namespace {
-
-struct UnionScratchSpace {
-  alignas(int64_t) int8_t type_code;
-  alignas(int64_t) uint8_t offsets[sizeof(int32_t) * 2];
-};
-// static_assert(sizeof(UnionScratchSpace) <=
-//               sizeof(internal::ArraySpanFillFromScalarScratchSpace::scratch_space_));
-
-}  // namespace
 
 void SparseUnionScalar::FillScratchSpace() {
   auto* union_scratch_space = reinterpret_cast<UnionScratchSpace*>(&scratch_space_);

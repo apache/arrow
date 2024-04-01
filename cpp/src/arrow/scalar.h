@@ -131,12 +131,14 @@ struct ARROW_EXPORT NullScalar : public Scalar {
 
 namespace internal {
 
+constexpr auto kScalarScratchSpaceSize = sizeof(int64_t) * 2;
+
 template <typename Impl>
 struct ARROW_EXPORT ArraySpanFillFromScalarScratchSpace {
   //  16 bytes of scratch space to enable ArraySpan to be a view onto any
   //  Scalar- including binary scalars where we need to create a buffer
   //  that looks like two 32-bit or 64-bit offsets.
-  alignas(int64_t) mutable uint8_t scratch_space_[sizeof(int64_t) * 2];
+  alignas(int64_t) mutable uint8_t scratch_space_[kScalarScratchSpaceSize];
 
  private:
   ArraySpanFillFromScalarScratchSpace() { static_cast<Impl*>(this)->FillScratchSpace(); }
@@ -661,6 +663,14 @@ struct ARROW_EXPORT UnionScalar : public Scalar {
  protected:
   UnionScalar(std::shared_ptr<DataType> type, int8_t type_code, bool is_valid)
       : Scalar(std::move(type), is_valid), type_code(type_code) {}
+
+  struct UnionScratchSpace {
+    alignas(int64_t) int8_t type_code;
+    alignas(int64_t) uint8_t offsets[sizeof(int32_t) * 2];
+  };
+  static_assert(sizeof(UnionScratchSpace) <= internal::kScalarScratchSpaceSize);
+
+  friend ArraySpan;
 };
 
 struct ARROW_EXPORT SparseUnionScalar
