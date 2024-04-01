@@ -98,6 +98,7 @@ class BaseAzureEnv : public ::testing::Environment {
 
   virtual AzureBackend backend() const = 0;
 
+  virtual bool HasSubmitBatchBug() const { return false; }
   virtual bool WithHierarchicalNamespace() const { return false; }
 
   virtual Result<int64_t> GetDebugLogSize() { return 0; }
@@ -207,6 +208,18 @@ class AzuriteEnv : public AzureEnvImpl<AzuriteEnv> {
     return self;
   }
 
+  /// Azurite has a bug that causes BlobContainerClient::SubmitBatch to fail on macOS.
+  /// SubmitBatch is used by:
+  ///  - AzureFileSystem::DeleteDir
+  ///  - AzureFileSystem::DeleteDirContents
+  bool HasSubmitBatchBug() const override {
+#ifdef __APPLE__
+    return true;
+#else
+    return false;
+#endif
+  }
+
   Result<int64_t> GetDebugLogSize() override {
     ARROW_ASSIGN_OR_RAISE(auto exists, arrow::internal::FileExists(debug_log_path_));
     if (!exists) {
@@ -273,6 +286,186 @@ class AzureHierarchicalNSEnv : public AzureEnvImpl<AzureHierarchicalNSEnv> {
 
   bool WithHierarchicalNamespace() const final { return true; }
 };
+
+namespace {
+Result<AzureOptions> MakeOptions(BaseAzureEnv* env) {
+  AzureOptions options;
+  options.account_name = env->account_name();
+  switch (env->backend()) {
+    case AzureBackend::kAzurite:
+      options.blob_storage_authority = "127.0.0.1:10000";
+      options.dfs_storage_authority = "127.0.0.1:10000";
+      options.blob_storage_scheme = "http";
+      options.dfs_storage_scheme = "http";
+      break;
+    case AzureBackend::kAzure:
+      // Use the default values
+      break;
+  }
+  ARROW_EXPECT_OK(options.ConfigureAccountKeyCredential(env->account_key()));
+  return options;
+}
+}  // namespace
+
+struct PreexistingData {
+ public:
+  using RNG = random::pcg32_fast;
+
+ public:
+  const std::string container_name;
+  static constexpr char const* kObjectName = "test-object-name";
+
+  static constexpr char const* kLoremIpsum = R"""(
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
+incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis
+nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu
+fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
+culpa qui officia deserunt mollit anim id est laborum.
+)""";
+
+ public:
+  explicit PreexistingData(RNG& rng) : container_name{RandomContainerName(rng)} {}
+
+  // Creates a path by concatenating the container name and the stem.
+  std::string ContainerPath(std::string_view stem) const { return Path(stem); }
+
+  // Short alias to ContainerPath()
+  std::string Path(std::string_view stem) const {
+    return ConcatAbstractPath(container_name, stem);
+  }
+
+  std::string ObjectPath() const { return ContainerPath(kObjectName); }
+  std::string NotFoundObjectPath() const { return ContainerPath("not-found"); }
+
+  std::string RandomDirectoryPath(RNG& rng) const {
+    return ContainerPath(RandomChars(32, rng));
+  }
+
+  // Utilities
+  static std::string RandomContainerName(RNG& rng) { return RandomChars(32, rng); }
+
+  static std::string RandomChars(int count, RNG& rng) {
+    auto const fillers = std::string("abcdefghijlkmnopqrstuvwxyz0123456789");
+    std::uniform_int_distribution<int> d(0, static_cast<int>(fillers.size()) - 1);
+    std::string s;
+    std::generate_n(std::back_inserter(s), count, [&] { return fillers[d(rng)]; });
+    return s;
+  }
+
+  static int RandomIndex(int end, RNG& rng) {
+    return std::uniform_int_distribution<int>(0, end - 1)(rng);
+  }
+
+  static std::string RandomLine(int lineno, int width, RNG& rng) {
+    auto line = std::to_string(lineno) + ":    ";
+    line += RandomChars(width - static_cast<int>(line.size()) - 1, rng);
+    line += '\n';
+    return line;
+  }
+};
+
+class TestGeneric : public ::testing::Test, public GenericFileSystemTest {
+ public:
+  void TearDown() override {
+    if (azure_fs_) {
+      ASSERT_OK(azure_fs_->DeleteDir(container_name_));
+    }
+  }
+
+ protected:
+  void SetUpInternal(BaseAzureEnv* env) {
+    env_ = env;
+    random::pcg32_fast rng((std::random_device()()));
+    container_name_ = PreexistingData::RandomContainerName(rng);
+    ASSERT_OK_AND_ASSIGN(auto options, MakeOptions(env_));
+    ASSERT_OK_AND_ASSIGN(azure_fs_, AzureFileSystem::Make(options));
+    ASSERT_OK(azure_fs_->CreateDir(container_name_, true));
+    fs_ = std::make_shared<SubTreeFileSystem>(container_name_, azure_fs_);
+  }
+
+  std::shared_ptr<FileSystem> GetEmptyFileSystem() override { return fs_; }
+
+  bool have_implicit_directories() const override { return true; }
+  bool allow_write_file_over_dir() const override { return true; }
+  bool allow_read_dir_as_file() const override { return true; }
+  bool allow_move_dir() const override { return false; }
+  bool allow_move_file() const override { return true; }
+  bool allow_append_to_file() const override { return true; }
+  bool have_directory_mtimes() const override { return false; }
+  bool have_flaky_directory_tree_deletion() const override { return false; }
+  bool have_file_metadata() const override { return true; }
+  // calloc() used in libxml2's xmlNewGlobalState() is detected as a
+  // memory leak like the following. But it's a false positive. It's
+  // used in ListBlobsByHierarchy() for GetFileInfo() and it's freed
+  // in the call. This is detected as a memory leak only with
+  // generator API (GetFileInfoGenerator()) and not detected with
+  // non-generator API (GetFileInfo()). So this is a false positive.
+  //
+  // ==2875409==ERROR: LeakSanitizer: detected memory leaks
+  //
+  // Direct leak of 968 byte(s) in 1 object(s) allocated from:
+  //     #0 0x55d02c967bdc in calloc (build/debug/arrow-azurefs-test+0x17bbdc) (BuildId:
+  //     520690d1b20e860cc1feef665dce8196e64f955e) #1 0x7fa914b1cd1e in xmlNewGlobalState
+  //     builddir/main/../../threads.c:580:10 #2 0x7fa914b1cd1e in xmlGetGlobalState
+  //     builddir/main/../../threads.c:666:31
+  bool have_false_positive_memory_leak_with_generator() const override { return true; }
+
+  BaseAzureEnv* env_;
+  std::shared_ptr<AzureFileSystem> azure_fs_;
+  std::shared_ptr<FileSystem> fs_;
+
+ private:
+  std::string container_name_;
+};
+
+class TestAzuriteGeneric : public TestGeneric {
+ public:
+  void SetUp() override {
+    ASSERT_OK_AND_ASSIGN(auto env, AzuriteEnv::GetInstance());
+    SetUpInternal(env);
+  }
+
+ protected:
+  // Azurite doesn't support moving files over containers.
+  bool allow_move_file() const override { return false; }
+  // DeleteDir() doesn't work with Azurite on macOS
+  bool have_flaky_directory_tree_deletion() const override {
+    return env_->HasSubmitBatchBug();
+  }
+};
+
+class TestAzureFlatNSGeneric : public TestGeneric {
+ public:
+  void SetUp() override {
+    auto env_result = AzureFlatNSEnv::GetInstance();
+    if (env_result.status().IsCancelled()) {
+      GTEST_SKIP() << env_result.status().message();
+    }
+    ASSERT_OK_AND_ASSIGN(auto env, env_result);
+    SetUpInternal(env);
+  }
+
+ protected:
+  // Flat namespace account doesn't support moving files over containers.
+  bool allow_move_file() const override { return false; }
+};
+
+class TestAzureHierarchicalNSGeneric : public TestGeneric {
+ public:
+  void SetUp() override {
+    auto env_result = AzureHierarchicalNSEnv::GetInstance();
+    if (env_result.status().IsCancelled()) {
+      GTEST_SKIP() << env_result.status().message();
+    }
+    ASSERT_OK_AND_ASSIGN(auto env, env_result);
+    SetUpInternal(env);
+  }
+};
+
+GENERIC_FS_TEST_FUNCTIONS(TestAzuriteGeneric);
+GENERIC_FS_TEST_FUNCTIONS(TestAzureFlatNSGeneric);
+GENERIC_FS_TEST_FUNCTIONS(TestAzureHierarchicalNSGeneric);
 
 TEST(AzureFileSystem, InitializingFilesystemWithoutAccountNameFails) {
   AzureOptions options;
@@ -532,64 +725,6 @@ TEST_F(TestAzureOptions, FromUriInvalidQueryParameter) {
   TestFromUriInvalidQueryParameter();
 }
 
-struct PreexistingData {
- public:
-  using RNG = random::pcg32_fast;
-
- public:
-  const std::string container_name;
-  static constexpr char const* kObjectName = "test-object-name";
-
-  static constexpr char const* kLoremIpsum = R"""(
-Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
-incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis
-nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
-Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu
-fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
-culpa qui officia deserunt mollit anim id est laborum.
-)""";
-
- public:
-  explicit PreexistingData(RNG& rng) : container_name{RandomContainerName(rng)} {}
-
-  // Creates a path by concatenating the container name and the stem.
-  std::string ContainerPath(std::string_view stem) const { return Path(stem); }
-
-  // Short alias to ContainerPath()
-  std::string Path(std::string_view stem) const {
-    return ConcatAbstractPath(container_name, stem);
-  }
-
-  std::string ObjectPath() const { return ContainerPath(kObjectName); }
-  std::string NotFoundObjectPath() const { return ContainerPath("not-found"); }
-
-  std::string RandomDirectoryPath(RNG& rng) const {
-    return ContainerPath(RandomChars(32, rng));
-  }
-
-  // Utilities
-  static std::string RandomContainerName(RNG& rng) { return RandomChars(32, rng); }
-
-  static std::string RandomChars(int count, RNG& rng) {
-    auto const fillers = std::string("abcdefghijlkmnopqrstuvwxyz0123456789");
-    std::uniform_int_distribution<int> d(0, static_cast<int>(fillers.size()) - 1);
-    std::string s;
-    std::generate_n(std::back_inserter(s), count, [&] { return fillers[d(rng)]; });
-    return s;
-  }
-
-  static int RandomIndex(int end, RNG& rng) {
-    return std::uniform_int_distribution<int>(0, end - 1)(rng);
-  }
-
-  static std::string RandomLine(int lineno, int width, RNG& rng) {
-    auto line = std::to_string(lineno) + ":    ";
-    line += RandomChars(width - static_cast<int>(line.size()) - 1, rng);
-    line += '\n';
-    return line;
-  }
-};
-
 class TestAzureFileSystem : public ::testing::Test {
  protected:
   // Set in constructor
@@ -619,24 +754,6 @@ class TestAzureFileSystem : public ::testing::Test {
   FileSystem* fs() const {
     EXPECT_OK_AND_ASSIGN(auto env, GetAzureEnv());
     return fs(CachedHNSSupport(*env));
-  }
-
-  static Result<AzureOptions> MakeOptions(BaseAzureEnv* env) {
-    AzureOptions options;
-    options.account_name = env->account_name();
-    switch (env->backend()) {
-      case AzureBackend::kAzurite:
-        options.blob_storage_authority = "127.0.0.1:10000";
-        options.dfs_storage_authority = "127.0.0.1:10000";
-        options.blob_storage_scheme = "http";
-        options.dfs_storage_scheme = "http";
-        break;
-      case AzureBackend::kAzure:
-        // Use the default values
-        break;
-    }
-    ARROW_EXPECT_OK(options.ConfigureAccountKeyCredential(env->account_key()));
-    return options;
   }
 
   void SetUp() override {
@@ -823,19 +940,6 @@ class TestAzureFileSystem : public ::testing::Test {
   constexpr static const char* const kSubmitBatchBugMessage =
       "This test is affected by an Azurite issue: "
       "https://github.com/Azure/Azurite/pull/2302";
-
-  /// Azurite has a bug that causes BlobContainerClient::SubmitBatch to fail on macOS.
-  /// SubmitBatch is used by:
-  ///  - AzureFileSystem::DeleteDir
-  ///  - AzureFileSystem::DeleteDirContents
-  bool HasSubmitBatchBug() const {
-#ifdef __APPLE__
-    EXPECT_OK_AND_ASSIGN(auto env, GetAzureEnv());
-    return env->backend() == AzureBackend::kAzurite;
-#else
-    return false;
-#endif
-  }
 
   static bool WithErrno(const Status& status, int expected_errno) {
     auto* detail = status.detail().get();
@@ -1059,9 +1163,7 @@ class TestAzureFileSystem : public ::testing::Test {
 
     auto path2 = data.Path("directory2");
     ASSERT_OK(fs()->OpenOutputStream(path2));
-    // CreateDir returns OK even if there is already a file or directory at this
-    // location. Whether or not this is the desired behaviour is debatable.
-    ASSERT_OK(fs()->CreateDir(path2));
+    ASSERT_RAISES(IOError, fs()->CreateDir(path2));
     AssertFileInfo(fs(), path2, FileType::File);
   }
 
@@ -1070,7 +1172,8 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 
   void TestDeleteDirSuccessEmpty() {
-    if (HasSubmitBatchBug()) {
+    ASSERT_OK_AND_ASSIGN(auto env, GetAzureEnv());
+    if (env->HasSubmitBatchBug()) {
       GTEST_SKIP() << kSubmitBatchBugMessage;
     }
     auto data = SetUpPreexistingData();
@@ -1090,7 +1193,8 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 
   void TestDeleteDirSuccessHaveBlob() {
-    if (HasSubmitBatchBug()) {
+    ASSERT_OK_AND_ASSIGN(auto env, GetAzureEnv());
+    if (env->HasSubmitBatchBug()) {
       GTEST_SKIP() << kSubmitBatchBugMessage;
     }
     auto data = SetUpPreexistingData();
@@ -1105,7 +1209,8 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 
   void TestNonEmptyDirWithTrailingSlash() {
-    if (HasSubmitBatchBug()) {
+    ASSERT_OK_AND_ASSIGN(auto env, GetAzureEnv());
+    if (env->HasSubmitBatchBug()) {
       GTEST_SKIP() << kSubmitBatchBugMessage;
     }
     auto data = SetUpPreexistingData();
@@ -1120,7 +1225,8 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 
   void TestDeleteDirSuccessHaveDirectory() {
-    if (HasSubmitBatchBug()) {
+    ASSERT_OK_AND_ASSIGN(auto env, GetAzureEnv());
+    if (env->HasSubmitBatchBug()) {
       GTEST_SKIP() << kSubmitBatchBugMessage;
     }
     auto data = SetUpPreexistingData();
@@ -1135,7 +1241,8 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 
   void TestDeleteDirContentsSuccessExist() {
-    if (HasSubmitBatchBug()) {
+    ASSERT_OK_AND_ASSIGN(auto env, GetAzureEnv());
+    if (env->HasSubmitBatchBug()) {
       GTEST_SKIP() << kSubmitBatchBugMessage;
     }
     auto preexisting_data = SetUpPreexistingData();
@@ -1149,7 +1256,8 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 
   void TestDeleteDirContentsSuccessExistWithTrailingSlash() {
-    if (HasSubmitBatchBug()) {
+    ASSERT_OK_AND_ASSIGN(auto env, GetAzureEnv());
+    if (env->HasSubmitBatchBug()) {
       GTEST_SKIP() << kSubmitBatchBugMessage;
     }
     auto preexisting_data = SetUpPreexistingData();
@@ -1163,7 +1271,8 @@ class TestAzureFileSystem : public ::testing::Test {
   }
 
   void TestDeleteDirContentsSuccessNonexistent() {
-    if (HasSubmitBatchBug()) {
+    ASSERT_OK_AND_ASSIGN(auto env, GetAzureEnv());
+    if (env->HasSubmitBatchBug()) {
       GTEST_SKIP() << kSubmitBatchBugMessage;
     }
     auto data = SetUpPreexistingData();
@@ -2174,7 +2283,8 @@ TEST_F(TestAzuriteFileSystem, DeleteDirSuccessContainer) {
 }
 
 TEST_F(TestAzuriteFileSystem, DeleteDirSuccessNonexistent) {
-  if (HasSubmitBatchBug()) {
+  ASSERT_OK_AND_ASSIGN(auto env, GetAzureEnv());
+  if (env->HasSubmitBatchBug()) {
     GTEST_SKIP() << kSubmitBatchBugMessage;
   }
   auto data = SetUpPreexistingData();
@@ -2185,7 +2295,8 @@ TEST_F(TestAzuriteFileSystem, DeleteDirSuccessNonexistent) {
 }
 
 TEST_F(TestAzuriteFileSystem, DeleteDirSuccessHaveBlobs) {
-  if (HasSubmitBatchBug()) {
+  ASSERT_OK_AND_ASSIGN(auto env, GetAzureEnv());
+  if (env->HasSubmitBatchBug()) {
     GTEST_SKIP() << kSubmitBatchBugMessage;
   }
   auto data = SetUpPreexistingData();
@@ -2213,7 +2324,8 @@ TEST_F(TestAzuriteFileSystem, DeleteDirUri) {
 }
 
 TEST_F(TestAzuriteFileSystem, DeleteDirContentsSuccessContainer) {
-  if (HasSubmitBatchBug()) {
+  ASSERT_OK_AND_ASSIGN(auto env, GetAzureEnv());
+  if (env->HasSubmitBatchBug()) {
     GTEST_SKIP() << kSubmitBatchBugMessage;
   }
   auto data = SetUpPreexistingData();
@@ -2228,7 +2340,8 @@ TEST_F(TestAzuriteFileSystem, DeleteDirContentsSuccessContainer) {
 }
 
 TEST_F(TestAzuriteFileSystem, DeleteDirContentsSuccessDirectory) {
-  if (HasSubmitBatchBug()) {
+  ASSERT_OK_AND_ASSIGN(auto env, GetAzureEnv());
+  if (env->HasSubmitBatchBug()) {
     GTEST_SKIP() << kSubmitBatchBugMessage;
   }
   auto data = SetUpPreexistingData();
