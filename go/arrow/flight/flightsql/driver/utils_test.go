@@ -131,8 +131,8 @@ func Test_fromArrowType(t *testing.T) {
 	tf(t, 14, time.Date(1970, 1, 1, 12, 0, 0, 0, time.UTC))  // "f15-ts_us"
 	tf(t, 15, testTime.In(time.UTC).Truncate(24*time.Hour))  // "f16-d64"
 	tf(t, 16, time.Duration(24*time.Hour+time.Second))       // "f17-dti"
-	tf(t, 17, time.Duration(1000000000))                     // "f17-duration_s"
-	tf(t, 18, time.Duration(1000000))                        // "f17-duration_ms"
-	tf(t, 19, time.Duration(1000))                           // "f17-duration_us"
-	tf(t, 20, time.Duration(1))                              // "f17-duration_ns"
+	tf(t, 17, time.Duration(1000000000))                     // "f18-duration_s"
+	tf(t, 18, time.Duration(1000000))                        // "f19-duration_ms"
+	tf(t, 19, time.Duration(1000))                           // "f20-duration_us"
+	tf(t, 20, time.Duration(1))                              // "f21-duration_ns"
 }
