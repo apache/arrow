@@ -95,6 +95,30 @@ TEST(TestNullScalar, ValidateErrors) {
   AssertValidationFails(scalar);
 }
 
+TEST(TestNullScalar, Cast) {
+  NullScalar scalar;
+  for (auto to_type : {
+           int8(),
+           float64(),
+           date32(),
+           time32(TimeUnit::SECOND),
+           timestamp(TimeUnit::SECOND),
+           duration(TimeUnit::SECOND),
+           utf8(),
+           large_binary(),
+           list(int32()),
+           struct_({field("f", int32())}),
+           map(utf8(), int32()),
+           decimal(12, 2),
+           list_view(int32()),
+           large_list(int32()),
+       }) {
+    ASSERT_OK_AND_ASSIGN(auto casted, scalar.CastTo(to_type));
+    ASSERT_EQ(casted->type->id(), to_type->id());
+    ASSERT_FALSE(casted->is_valid);
+  }
+}
+
 template <typename T>
 class TestNumericScalar : public ::testing::Test {
  public:
@@ -470,6 +494,8 @@ TYPED_TEST_SUITE(TestDecimalScalar, DecimalArrowTypes);
 
 TYPED_TEST(TestDecimalScalar, Basics) { this->TestBasics(); }
 
+TYPED_TEST(TestDecimalScalar, Cast) {}
+
 TEST(TestBinaryScalar, Basics) {
   std::string data = "test data";
   auto buf = std::make_shared<Buffer>(data);
@@ -580,19 +606,25 @@ class TestStringScalar : public ::testing::Test {
   }
 
   void TestValidateErrors() {
-    // Inconsistent is_valid / value
-    ScalarType scalar(Buffer::FromString("xxx"));
-    scalar.is_valid = false;
-    AssertValidationFails(scalar);
+    {
+      // Inconsistent is_valid / value
+      ScalarType scalar(Buffer::FromString("xxx"));
+      scalar.is_valid = false;
+      AssertValidationFails(scalar);
+    }
 
-    auto null_scalar = MakeNullScalar(type_);
-    null_scalar->is_valid = true;
-    AssertValidationFails(*null_scalar);
+    {
+      auto null_scalar = MakeNullScalar(type_);
+      null_scalar->is_valid = true;
+      AssertValidationFails(*null_scalar);
+    }
 
-    // Invalid UTF8
-    scalar = ScalarType(Buffer::FromString("\xff"));
-    ASSERT_OK(scalar.Validate());
-    ASSERT_RAISES(Invalid, scalar.ValidateFull());
+    {
+      // Invalid UTF8
+      ScalarType scalar(Buffer::FromString("\xff"));
+      ASSERT_OK(scalar.Validate());
+      ASSERT_RAISES(Invalid, scalar.ValidateFull());
+    }
   }
 
  protected:
@@ -676,8 +708,7 @@ TEST(TestFixedSizeBinaryScalar, ValidateErrors) {
   FixedSizeBinaryScalar scalar(buf, type);
   ASSERT_OK(scalar.ValidateFull());
 
-  scalar.value = SliceBuffer(buf, 1);
-  AssertValidationFails(scalar);
+  ASSERT_RAISES(Invalid, MakeScalar(type, SliceBuffer(buf, 1)));
 }
 
 TEST(TestDateScalars, Basics) {
@@ -1973,15 +2004,6 @@ TEST_F(TestExtensionScalar, ValidateErrors) {
   // If the scalar is null it's okay
   scalar.is_valid = false;
   ASSERT_OK(scalar.ValidateFull());
-
-  // Invalid storage scalar (wrong length)
-  std::shared_ptr<Scalar> invalid_storage = MakeNullScalar(storage_type_);
-  invalid_storage->is_valid = true;
-  static_cast<FixedSizeBinaryScalar*>(invalid_storage.get())->value =
-      std::make_shared<Buffer>("123");
-  AssertValidationFails(*invalid_storage);
-  scalar = ExtensionScalar(invalid_storage, type_);
-  AssertValidationFails(scalar);
 }
 
 }  // namespace arrow

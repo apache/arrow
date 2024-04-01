@@ -540,7 +540,7 @@ struct ScalarMinMax {
     if (scalar_count > 0) {
       ARROW_ASSIGN_OR_RAISE(
           std::shared_ptr<Scalar> temp_scalar,
-          ExecScalar(batch, options, out->type()->GetSharedPtr(), temp_scalar.get()));
+          ExecScalar(batch, options, out->type()->GetSharedPtr()));
       if (temp_scalar->is_valid) {
         const auto value = UnboxScalar<OutType>::Unbox(*temp_scalar);
         initialize_output = false;
