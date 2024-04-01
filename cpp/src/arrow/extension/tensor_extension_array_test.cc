@@ -546,11 +546,11 @@ TEST_F(TestFixedShapeTensorType, ComputeStrides) {
 
   auto ext_type_6 = internal::checked_pointer_cast<FixedShapeTensorType>(
       fixed_shape_tensor(int64(), {3, 4, 7}, {1, 2, 0}, {}));
-  ASSERT_EQ(ext_type_6->strides(), (std::vector<int64_t>{32, 8, 96}));
+  ASSERT_EQ(ext_type_6->strides(), (std::vector<int64_t>{8, 168, 24}));
   ASSERT_EQ(ext_type_6->Serialize(), R"({"shape":[3,4,7],"permutation":[1,2,0]})");
   auto ext_type_7 = internal::checked_pointer_cast<FixedShapeTensorType>(
       fixed_shape_tensor(int32(), {3, 4, 7}, {2, 0, 1}, {}));
-  ASSERT_EQ(ext_type_7->strides(), (std::vector<int64_t>{4, 84, 12}));
+  ASSERT_EQ(ext_type_7->strides(), (std::vector<int64_t>{16, 4, 48}));
   ASSERT_EQ(ext_type_7->Serialize(), R"({"shape":[3,4,7],"permutation":[2,0,1]})");
 }
 
