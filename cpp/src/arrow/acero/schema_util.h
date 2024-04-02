@@ -22,7 +22,6 @@
 #include <string>
 #include <vector>
 
-#include "arrow/compute/light_array_internal.h"  // for KeyColumnMetadata
 #include "arrow/type.h"  // for DataType, FieldRef, Field and Schema
 
 namespace arrow {
