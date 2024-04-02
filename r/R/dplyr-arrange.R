@@ -24,7 +24,7 @@ arrange.arrow_dplyr_query <- function(.data, ..., .by_group = FALSE) {
   exprs <- expand_across(.data, quos(...))
 
   if (.by_group) {
-    # when the data is is grouped and .by_group is TRUE, order the result by
+    # when the data is grouped and .by_group is TRUE, order the result by
     # the grouping columns first
     exprs <- c(quos(!!!dplyr::groups(.data)), exprs)
   }
