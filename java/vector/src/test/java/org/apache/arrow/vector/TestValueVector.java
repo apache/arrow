@@ -318,35 +318,28 @@ public class TestValueVector {
     }
   }
 
+  private void testSizeOfValueBufferHelper(AbstractVariableWidthVector vector) {
+    int valueCount = 100;
+    int currentSize = 0;
+    vector.setInitialCapacity(valueCount);
+    vector.allocateNew();
+    vector.setValueCount(valueCount);
+    for (int i = 0; i < valueCount; i++) {
+      currentSize += i;
+      vector.setSafe(i, new byte[i]);
+    }
+
+    assertEquals(currentSize, vector.sizeOfValueBuffer());
+  }
+
   @Test /* VarCharVector and ViewVarCharVector */
   public void testSizeOfValueBuffer() {
-    // TODO: fix this test properly
     try (final VarCharVector vector = new VarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
-      int valueCount = 100;
-      int currentSize = 0;
-      vector.setInitialCapacity(valueCount);
-      vector.allocateNew();
-      vector.setValueCount(valueCount);
-      for (int i = 0; i < valueCount; i++) {
-        currentSize += i;
-        vector.setSafe(i, new byte[i]);
-      }
-
-      assertEquals(currentSize, vector.sizeOfValueBuffer());
+      testSizeOfValueBufferHelper(vector);
     }
 
     try (final ViewVarCharVector vector = new ViewVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
-      int valueCount = 3;
-      int currentSize = 0;
-      vector.setInitialCapacity(valueCount);
-      vector.allocateNew();
-      vector.setValueCount(valueCount);
-      for (int i = 0; i < valueCount; i++) {
-        currentSize += i;
-        vector.setSafe(i, new byte[i]);
-      }
-
-      assertEquals(currentSize, vector.sizeOfValueBuffer());
+      testSizeOfValueBufferHelper(vector);
     }
   }
 
@@ -1920,7 +1913,10 @@ public class TestValueVector {
 
   @Test
   public void testSetSafeWithArrowBufNoExcessAllocs() {
-    // TODO: fix this test properly
+    // NOTE: getStartOffset method is defined as public in BaseVariabledWidthVector,
+    //  and BaseVariableWidthViewVector. But in the BaseLargeVariableWidthVector it is protected.
+    //  since abstracting this test util won't be feasible. In addition, the return types is long
+    //  in BaseLargeVariableWidthVector while in the other two interfaces it is int.
     final int numValues = BaseFixedWidthVector.INITIAL_VALUE_ALLOCATION * 2;
     final byte[] valueBytes = "hello world".getBytes(StandardCharsets.UTF_8);
     final int valueBytesLength = valueBytes.length;
