@@ -176,8 +176,7 @@ public class TypeLayout {
 
       @Override
       public TypeLayout visit(ArrowType.BinaryView type) {
-        // TODO: update this logic to match Utf8View
-        return newVariableWidthTypeLayout();
+        throw new UnsupportedOperationException("BinaryView not supported");
       }
 
       @Override
@@ -187,8 +186,7 @@ public class TypeLayout {
 
       @Override
       public TypeLayout visit(Utf8View type) {
-        // TODO: update this logic to match Utf8View
-        return newVariableWidthTypeLayout();
+        throw new UnsupportedOperationException("Utf8View not supported");
       }
 
       @Override
