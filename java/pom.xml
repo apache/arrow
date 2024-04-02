@@ -32,6 +32,7 @@
     <dep.junit.platform.version>1.9.0</dep.junit.platform.version>
     <dep.junit.jupiter.version>5.10.2</dep.junit.jupiter.version>
     <dep.slf4j.version>2.0.11</dep.slf4j.version>
+    <dep.ch.qos.logback.version>1.5.3</dep.ch.qos.logback.version>
     <dep.guava-bom.version>33.0.0-jre</dep.guava-bom.version>
     <dep.netty-bom.version>4.1.106.Final</dep.netty-bom.version>
     <dep.grpc-bom.version>1.61.1</dep.grpc-bom.version>

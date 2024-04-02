@@ -85,6 +85,7 @@
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
+            <version>${dep.ch.qos.logback.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
