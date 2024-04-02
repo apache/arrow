@@ -180,11 +180,7 @@ const getDate = <T extends Date_>(data: Data<T>, index: number): T['TValue'] => 
 /** @ignore */
 const getTimestampSecond = <T extends TimestampSecond>({ values }: Data<T>, index: number): T['TValue'] => 1000 * epochMillisecondsLongToMs(values, index * 2);
 /** @ignore */
-const getTimestampMillisecond = <T extends TimestampMillisecond>({ values, type }: Data<T>, index: number): T['TValue'] => {
-    const value = epochMillisecondsLongToMs(values, index * 2);
-    // js dates are timezone agnostic so we only convert to date if there is no timezome
-    return type.timezone ? value : epochMillisecondsToDate(value);
-};
+const getTimestampMillisecond = <T extends TimestampMillisecond>({ values }: Data<T>, index: number): T['TValue'] => epochMillisecondsLongToMs(values, index * 2);
 /** @ignore */
 const getTimestampMicrosecond = <T extends TimestampMicrosecond>({ values }: Data<T>, index: number): T['TValue'] => epochMicrosecondsLongToMs(values, index * 2);
 /** @ignore */

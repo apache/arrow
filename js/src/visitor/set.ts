@@ -178,13 +178,13 @@ export const setDate = <T extends Date_>(data: Data<T>, index: number, value: T[
 };
 
 /** @ignore */
-export const setTimestampSecond = <T extends TimestampSecond>({ values }: Data<T>, index: number, value: T['TValue']): void => setEpochMsToMillisecondsLong(values, index * 2, (value as number) / 1000);
+export const setTimestampSecond = <T extends TimestampSecond>({ values }: Data<T>, index: number, value: T['TValue']): void => setEpochMsToMillisecondsLong(values, index * 2, value / 1000);
 /** @ignore */
-export const setTimestampMillisecond = <T extends TimestampMillisecond>({ values }: Data<T>, index: number, value: T['TValue']): void => setEpochMsToMillisecondsLong(values, index * 2, value instanceof Date ? value.getTime() : value);
+export const setTimestampMillisecond = <T extends TimestampMillisecond>({ values }: Data<T>, index: number, value: T['TValue']): void => setEpochMsToMillisecondsLong(values, index * 2, value);
 /** @ignore */
-export const setTimestampMicrosecond = <T extends TimestampMicrosecond>({ values }: Data<T>, index: number, value: T['TValue']): void => setEpochMsToMicrosecondsLong(values, index * 2, value as number);
+export const setTimestampMicrosecond = <T extends TimestampMicrosecond>({ values }: Data<T>, index: number, value: T['TValue']): void => setEpochMsToMicrosecondsLong(values, index * 2, value);
 /** @ignore */
-export const setTimestampNanosecond = <T extends TimestampNanosecond>({ values }: Data<T>, index: number, value: T['TValue']): void => setEpochMsToNanosecondsLong(values, index * 2, value as number);
+export const setTimestampNanosecond = <T extends TimestampNanosecond>({ values }: Data<T>, index: number, value: T['TValue']): void => setEpochMsToNanosecondsLong(values, index * 2, value);
 /* istanbul ignore next */
 /** @ignore */
 export const setTimestamp = <T extends Timestamp>(data: Data<T>, index: number, value: T['TValue']): void => {

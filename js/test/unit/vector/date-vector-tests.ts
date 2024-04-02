@@ -17,12 +17,12 @@
 
 import { DateDay, DateMillisecond, TimestampMillisecond, RecordBatchReader, Table, vectorFromArray } from 'apache-arrow';
 
-describe(`TimeStampVector`, () => {
+describe(`TimestampVector`, () => {
     test(`Dates are stored in TimestampMillisecond`, () => {
         const date = new Date('2023-02-01T12:34:56Z');
         const vec = vectorFromArray([date]);
         expect(vec.type).toBeInstanceOf(TimestampMillisecond);
-        expect(vec.get(0)).toBeInstanceOf(Date);
+        expect(vec.get(0)).toBe(date.valueOf());
     });
 });
 
