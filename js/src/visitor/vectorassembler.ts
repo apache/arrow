@@ -222,7 +222,8 @@ function assembleListVector<T extends Map_ | List | LargeList | FixedSizeList>(t
     const { length, valueOffsets } = data;
     // If we have valueOffsets (MapVector, ListVector), push that buffer first
     if (valueOffsets) {
-        const { [0]: begin, [length]: end } = valueOffsets;
+        const begin = bigIntToNumber(valueOffsets[0]);
+        const end = bigIntToNumber(valueOffsets[length]);
         addBuffer.call(this, rebaseValueOffsets(-begin, length + 1, valueOffsets));
         // Then insert the List's values child
         return this.visit(data.children[0].slice(begin, end - begin));
