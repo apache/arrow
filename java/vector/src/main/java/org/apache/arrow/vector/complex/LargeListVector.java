@@ -288,6 +288,26 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
   }
 
   /**
+   * Export the buffers of the fields for C Data Interface. This method traverse the buffers and
+   * export buffer and buffer's memory address into a list of buffers and a pointer to the list of buffers.
+   */
+  @Override
+  public void exportCDataBuffers(List<ArrowBuf> buffers, ArrowBuf buffersPtr, long nullValue) {
+    exportBuffer(validityBuffer, buffers, buffersPtr, nullValue, true);
+
+    if (offsetBuffer.capacity() == 0) {
+      // Empty offset buffer is allowed for historical reason.
+      // To export it through C Data interface, we need to allocate a buffer with one offset.
+      // We set `retain = false` to explicitly not increase the ref count for the exported buffer.
+      // The ref count of the newly created buffer (i.e., 1) already represents the usage
+      // at imported side.
+      exportBuffer(allocateOffsetBuffer(OFFSET_WIDTH), buffers, buffersPtr, nullValue, false);
+    } else {
+      exportBuffer(offsetBuffer, buffers, buffersPtr, nullValue, true);
+    }
+  }
+
+  /**
    * Set the reader and writer indexes for the inner buffers.
    */
   private void setReaderAndWriterIndex() {
@@ -343,7 +363,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
       /* allocate offset and data buffer */
       boolean dataAlloc = false;
       try {
-        allocateOffsetBuffer(offsetAllocationSizeInBytes);
+        offsetBuffer = allocateOffsetBuffer(offsetAllocationSizeInBytes);
         dataAlloc = vector.allocateNewSafe();
       } catch (Exception e) {
         e.printStackTrace();
@@ -371,11 +391,12 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
     validityBuffer.setZero(0, validityBuffer.capacity());
   }
 
-  protected void allocateOffsetBuffer(final long size) {
-    offsetBuffer = allocator.buffer(size);
+  protected ArrowBuf allocateOffsetBuffer(final long size) {
+    ArrowBuf offsetBuffer = allocator.buffer(size);
     offsetBuffer.readerIndex(0);
     offsetAllocationSizeInBytes = size;
     offsetBuffer.setZero(0, offsetBuffer.capacity());
+    return offsetBuffer;
   }
 
   /**
@@ -656,7 +677,7 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
       final long startPoint = offsetBuffer.getLong((long) startIndex * OFFSET_WIDTH);
       final long sliceLength = offsetBuffer.getLong((long) (startIndex + length) * OFFSET_WIDTH) - startPoint;
       to.clear();
-      to.allocateOffsetBuffer((length + 1) * OFFSET_WIDTH);
+      to.offsetBuffer = to.allocateOffsetBuffer((length + 1) * OFFSET_WIDTH);
       /* splitAndTransfer offset buffer */
       for (int i = 0; i < length + 1; i++) {
         final long relativeOffset = offsetBuffer.getLong((long) (startIndex + i) * OFFSET_WIDTH) - startPoint;

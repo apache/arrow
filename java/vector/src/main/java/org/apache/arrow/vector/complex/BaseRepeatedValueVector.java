@@ -83,7 +83,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
   public boolean allocateNewSafe() {
     boolean dataAlloc = false;
     try {
-      allocateOffsetBuffer(offsetAllocationSizeInBytes);
+      offsetBuffer = allocateOffsetBuffer(offsetAllocationSizeInBytes);
       dataAlloc = vector.allocateNewSafe();
     } catch (Exception e) {
       e.printStackTrace();
@@ -97,12 +97,13 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
     return dataAlloc;
   }
 
-  protected void allocateOffsetBuffer(final long size) {
+  protected ArrowBuf allocateOffsetBuffer(final long size) {
     final int curSize = (int) size;
-    offsetBuffer = allocator.buffer(curSize);
+    ArrowBuf offsetBuffer = allocator.buffer(curSize);
     offsetBuffer.readerIndex(0);
     offsetAllocationSizeInBytes = curSize;
     offsetBuffer.setZero(0, offsetBuffer.capacity());
+    return offsetBuffer;
   }
 
   @Override
