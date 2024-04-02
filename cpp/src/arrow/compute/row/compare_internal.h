@@ -19,7 +19,7 @@
 
 #include <cstdint>
 
-#include "arrow/compute/light_array.h"
+#include "arrow/compute/light_array_internal.h"
 #include "arrow/compute/row/encode_internal.h"
 #include "arrow/compute/row/row_internal.h"
 #include "arrow/compute/util.h"
