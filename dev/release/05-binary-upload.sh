@@ -152,9 +152,10 @@ shasum --algorithm 512 ${mltbx_file} > ${mltbx_checksum_sha512}
 # Upload artifacts to the Apache Arrow
 # GitHub Releases area and mark as a "Prerelease".
 if [ ${UPLOAD_MATLAB} -gt 0 ]; then
-  release_tag=${version_with_rc}
-  target_branch=${version_with_rc}
-  release_notes="Release Candidate: ${version_with_rc}"
+  release_tag=apache-arrow-${version_with_rc}
+  target_branch=release-${version_with_rc}
+  release_notes="Release Candidate: ${version} RC${rc}"
+  title="Apache Arrow ${version} RC${rc}"
   repository="https://github.com/apache/arrow"
   gh release create \
     ${release_tag} \
@@ -164,5 +165,6 @@ if [ ${UPLOAD_MATLAB} -gt 0 ]; then
     --prerelease \
     --target ${target_branch}  \
     --notes "${release_notes}" \
+    --title "${title}" \
     --repo ${repository}
 fi
