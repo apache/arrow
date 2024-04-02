@@ -17,34 +17,34 @@
 
 #pragma once
 
-#include <arrow/flight/sql/client.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/connection.h>
 #include <atomic>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
+#include "arrow/flight/sql/client.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/connection.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 class GetInfoCache {
  private:
-  std::unordered_map<uint16_t, driver::odbcabstraction::Connection::Info> info_;
+  std::unordered_map<uint16_t, arrow::flight::sql::odbc::Connection::Info> info_;
+  arrow::flight::FlightClientOptions& client_options_;
   arrow::flight::FlightCallOptions& call_options_;
   std::unique_ptr<arrow::flight::sql::FlightSqlClient>& sql_client_;
   std::mutex mutex_;
   std::atomic<bool> has_server_info_;
 
  public:
-  GetInfoCache(arrow::flight::FlightCallOptions& call_options,
+  GetInfoCache(arrow::flight::FlightClientOptions& client_options,
+               arrow::flight::FlightCallOptions& call_options,
                std::unique_ptr<arrow::flight::sql::FlightSqlClient>& client,
                const std::string& driver_version);
-  void SetProperty(uint16_t property, driver::odbcabstraction::Connection::Info value);
-  driver::odbcabstraction::Connection::Info GetInfo(uint16_t info_type);
+  void SetProperty(uint16_t property, arrow::flight::sql::odbc::Connection::Info value);
+  arrow::flight::sql::odbc::Connection::Info GetInfo(uint16_t info_type);
 
  private:
   bool LoadInfoFromServer();
   void LoadDefaultsForMissingEntries();
 };
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

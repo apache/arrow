@@ -20,38 +20,36 @@
 #include "arrow/flight/types.h"
 #include "gtest/gtest.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 using arrow::flight::Location;
 using arrow::flight::TimeoutDuration;
-using odbcabstraction::Connection;
 
 TEST(AttributeTests, SetAndGetAttribute) {
-  FlightSqlConnection connection(odbcabstraction::V_3);
+  FlightSqlConnection connection(OdbcVersion::V_3);
   connection.SetClosed(false);
 
   connection.SetAttribute(Connection::CONNECTION_TIMEOUT, static_cast<uint32_t>(200));
-  const boost::optional<Connection::Attribute> firstValue =
+  const boost::optional<Connection::Attribute> first_value =
       connection.GetAttribute(Connection::CONNECTION_TIMEOUT);
 
-  EXPECT_TRUE(firstValue);
+  EXPECT_TRUE(first_value);
 
-  EXPECT_EQ(boost::get<uint32_t>(*firstValue), static_cast<uint32_t>(200));
+  EXPECT_EQ(boost::get<uint32_t>(*first_value), static_cast<uint32_t>(200));
 
   connection.SetAttribute(Connection::CONNECTION_TIMEOUT, static_cast<uint32_t>(300));
 
-  const boost::optional<Connection::Attribute> changeValue =
+  const boost::optional<Connection::Attribute> change_value =
       connection.GetAttribute(Connection::CONNECTION_TIMEOUT);
 
-  EXPECT_TRUE(changeValue);
-  EXPECT_EQ(boost::get<uint32_t>(*changeValue), static_cast<uint32_t>(300));
+  EXPECT_TRUE(change_value);
+  EXPECT_EQ(boost::get<uint32_t>(*change_value), static_cast<uint32_t>(300));
 
   connection.Close();
 }
 
 TEST(AttributeTests, GetAttributeWithoutSetting) {
-  FlightSqlConnection connection(odbcabstraction::V_3);
+  FlightSqlConnection connection(OdbcVersion::V_3);
 
   const boost::optional<Connection::Attribute> optional =
       connection.GetAttribute(Connection::CONNECTION_TIMEOUT);
@@ -63,16 +61,18 @@ TEST(AttributeTests, GetAttributeWithoutSetting) {
 }
 
 TEST(MetadataSettingsTest, StringColumnLengthTest) {
-  FlightSqlConnection connection(odbcabstraction::V_3);
+  FlightSqlConnection connection(OdbcVersion::V_3);
   connection.SetClosed(false);
 
   const int32_t expected_string_column_length = 100000;
 
   const Connection::ConnPropertyMap properties = {
-      {FlightSqlConnection::HOST, std::string("localhost")},        // expect not used
-      {FlightSqlConnection::PORT, std::string("32010")},            // expect not used
-      {FlightSqlConnection::USE_ENCRYPTION, std::string("false")},  // expect not used
-      {FlightSqlConnection::STRING_COLUMN_LENGTH,
+      {std::string(FlightSqlConnection::HOST),
+       std::string("localhost")},                                      // expect not used
+      {std::string(FlightSqlConnection::PORT), std::string("32010")},  // expect not used
+      {std::string(FlightSqlConnection::USE_ENCRYPTION),
+       std::string("false")},  // expect not used
+      {std::string(FlightSqlConnection::STRING_COLUMN_LENGTH),
        std::to_string(expected_string_column_length)},
   };
 
@@ -86,14 +86,14 @@ TEST(MetadataSettingsTest, StringColumnLengthTest) {
 }
 
 TEST(MetadataSettingsTest, UseWideCharTest) {
-  FlightSqlConnection connection(odbcabstraction::V_3);
+  FlightSqlConnection connection(OdbcVersion::V_3);
   connection.SetClosed(false);
 
   const Connection::ConnPropertyMap properties1 = {
-      {FlightSqlConnection::USE_WIDE_CHAR, std::string("true")},
+      {std::string(FlightSqlConnection::USE_WIDE_CHAR), std::string("true")},
   };
   const Connection::ConnPropertyMap properties2 = {
-      {FlightSqlConnection::USE_WIDE_CHAR, std::string("false")},
+      {std::string(FlightSqlConnection::USE_WIDE_CHAR), std::string("false")},
   };
 
   EXPECT_EQ(true, connection.GetUseWideChar(properties1));
@@ -105,9 +105,9 @@ TEST(MetadataSettingsTest, UseWideCharTest) {
 TEST(BuildLocationTests, ForTcp) {
   std::vector<std::string_view> missing_attr;
   Connection::ConnPropertyMap properties = {
-      {FlightSqlConnection::HOST, std::string("localhost")},
-      {FlightSqlConnection::PORT, std::string("32010")},
-      {FlightSqlConnection::USE_ENCRYPTION, std::string("false")},
+      {std::string(FlightSqlConnection::HOST), std::string("localhost")},
+      {std::string(FlightSqlConnection::PORT), std::string("32010")},
+      {std::string(FlightSqlConnection::USE_ENCRYPTION), std::string("false")},
   };
 
   const std::shared_ptr<FlightSqlSslConfig>& ssl_config =
@@ -117,8 +117,8 @@ TEST(BuildLocationTests, ForTcp) {
       FlightSqlConnection::BuildLocation(properties, missing_attr, ssl_config);
   const Location& actual_location2 = FlightSqlConnection::BuildLocation(
       {
-          {FlightSqlConnection::HOST, std::string("localhost")},
-          {FlightSqlConnection::PORT, std::string("32011")},
+          {std::string(FlightSqlConnection::HOST), std::string("localhost")},
+          {std::string(FlightSqlConnection::PORT), std::string("32011")},
       },
       missing_attr, ssl_config);
 
@@ -131,9 +131,9 @@ TEST(BuildLocationTests, ForTcp) {
 TEST(BuildLocationTests, ForTls) {
   std::vector<std::string_view> missing_attr;
   Connection::ConnPropertyMap properties = {
-      {FlightSqlConnection::HOST, std::string("localhost")},
-      {FlightSqlConnection::PORT, std::string("32010")},
-      {FlightSqlConnection::USE_ENCRYPTION, std::string("1")},
+      {std::string(FlightSqlConnection::HOST), std::string("localhost")},
+      {std::string(FlightSqlConnection::PORT), std::string("32010")},
+      {std::string(FlightSqlConnection::USE_ENCRYPTION), std::string("1")},
   };
 
   const std::shared_ptr<FlightSqlSslConfig>& ssl_config =
@@ -143,9 +143,9 @@ TEST(BuildLocationTests, ForTls) {
       FlightSqlConnection::BuildLocation(properties, missing_attr, ssl_config);
 
   Connection::ConnPropertyMap second_properties = {
-      {FlightSqlConnection::HOST, std::string("localhost")},
-      {FlightSqlConnection::PORT, std::string("32011")},
-      {FlightSqlConnection::USE_ENCRYPTION, std::string("1")},
+      {std::string(FlightSqlConnection::HOST), std::string("localhost")},
+      {std::string(FlightSqlConnection::PORT), std::string("32011")},
+      {std::string(FlightSqlConnection::USE_ENCRYPTION), std::string("1")},
   };
 
   const std::shared_ptr<FlightSqlSslConfig>& second_ssl_config =
@@ -161,7 +161,7 @@ TEST(BuildLocationTests, ForTls) {
 }
 
 TEST(PopulateCallOptionsTest, ConnectionTimeout) {
-  FlightSqlConnection connection(odbcabstraction::V_3);
+  FlightSqlConnection connection(OdbcVersion::V_3);
   connection.SetClosed(false);
 
   // Expect default timeout to be -1
@@ -174,7 +174,7 @@ TEST(PopulateCallOptionsTest, ConnectionTimeout) {
 }
 
 TEST(PopulateCallOptionsTest, GenericOption) {
-  FlightSqlConnection connection(odbcabstraction::V_3);
+  FlightSqlConnection connection(OdbcVersion::V_3);
   connection.SetClosed(false);
 
   Connection::ConnPropertyMap properties;
@@ -191,7 +191,7 @@ TEST(PopulateCallOptionsTest, GenericOption) {
 }
 
 TEST(PopulateCallOptionsTest, GenericOptionWithSpaces) {
-  FlightSqlConnection connection(odbcabstraction::V_3);
+  FlightSqlConnection connection(OdbcVersion::V_3);
   connection.SetClosed(false);
 
   Connection::ConnPropertyMap properties;
@@ -202,10 +202,4 @@ TEST(PopulateCallOptionsTest, GenericOptionWithSpaces) {
   ASSERT_TRUE(headers.empty());
 }
 
-}  // namespace flight_sql
-}  // namespace driver
-
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}
+}  // namespace arrow::flight::sql::odbc

@@ -19,8 +19,7 @@
 
 #include "ui/window.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 namespace config {
 /**
  * Application execution result.
@@ -62,10 +61,10 @@ class CustomWindow : public Window {
    * Constructor.
    *
    * @param parent Parent window.
-   * @param className Window class name.
+   * @param class_name Window class name.
    * @param title Window title.
    */
-  CustomWindow(Window* parent, const char* className, const char* title);
+  CustomWindow(Window* parent, const wchar_t* class_name, const wchar_t* title);
 
   /**
    * Destructor.
@@ -77,12 +76,12 @@ class CustomWindow : public Window {
    * Pure virtual. Should be defined by user.
    *
    * @param msg Message.
-   * @param wParam Word-sized parameter.
-   * @param lParam Long parameter.
+   * @param wparam Word-sized parameter.
+   * @param lparam Long parameter.
    * @return Should return true if the message has been
    *     processed by the handler and false otherwise.
    */
-  virtual bool OnMessage(UINT msg, WPARAM wParam, LPARAM lParam) = 0;
+  virtual bool OnMessage(UINT msg, WPARAM wparam, LPARAM lparam) = 0;
 
   /**
    * Callback that is called upon window creation.
@@ -97,13 +96,12 @@ class CustomWindow : public Window {
    *
    * @param hwnd Window handle.
    * @param msg Message.
-   * @param wParam Word-sized parameter.
-   * @param lParam Long parameter.
+   * @param wparam Word-sized parameter.
+   * @param lparam Long parameter.
    * @return Operation result.
    */
-  static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+  static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
 };
 
 }  // namespace config
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

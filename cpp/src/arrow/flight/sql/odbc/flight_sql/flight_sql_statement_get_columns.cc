@@ -19,14 +19,15 @@
 #include "arrow/flight/sql/column_metadata.h"
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_connection.h"
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_get_tables_reader.h"
-#include "arrow/flight/sql/odbc/flight_sql/utils.h"
+#include "arrow/flight/sql/odbc/flight_sql/util.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 using arrow::Schema;
 using arrow::flight::sql::ColumnMetadata;
+using util::AppendToBuilder;
+
 using std::make_optional;
 using std::nullopt;
 using std::optional;
@@ -78,9 +79,8 @@ std::shared_ptr<Schema> GetColumns_V2_Schema() {
   });
 }
 
-Result<std::shared_ptr<RecordBatch>> Transform_inner(
-    const odbcabstraction::OdbcVersion odbc_version,
-    const std::shared_ptr<RecordBatch>& original,
+Result<std::shared_ptr<RecordBatch>> TransformInner(
+    const OdbcVersion odbc_version, const std::shared_ptr<RecordBatch>& original,
     const optional<std::string>& column_name_pattern,
     const MetadataSettings& metadata_settings) {
   GetColumns_RecordBatchBuilder builder(odbc_version);
@@ -89,8 +89,9 @@ Result<std::shared_ptr<RecordBatch>> Transform_inner(
   GetTablesReader reader(original);
 
   optional<boost::xpressive::sregex> column_name_regex =
-      column_name_pattern ? make_optional(ConvertSqlPatternToRegex(*column_name_pattern))
-                          : nullopt;
+      column_name_pattern
+          ? make_optional(util::ConvertSqlPatternToRegex(*column_name_pattern))
+          : nullopt;
 
   while (reader.Next()) {
     const auto& table_catalog = reader.GetCatalogName();
@@ -98,10 +99,10 @@ Result<std::shared_ptr<RecordBatch>> Transform_inner(
     const auto& table_name = reader.GetTableName();
     const std::shared_ptr<Schema>& schema = reader.GetSchema();
     if (schema == nullptr) {
-      // TODO: Remove this if after fixing TODO on GetTablesReader::GetSchema()
-      // This is because of a problem on Dremio server, where complex types columns
-      // are being returned without the children types, so we are simply ignoring
-      // it by now.
+      // TODO: Test and build the driver against a server that returns
+      // complex types columns with the children
+      // types and handle the failure properly.
+      // https://github.com/apache/arrow/issues/46561
       continue;
     }
     for (int i = 0; i < schema->num_fields(); ++i) {
@@ -112,8 +113,8 @@ Result<std::shared_ptr<RecordBatch>> Transform_inner(
         continue;
       }
 
-      odbcabstraction::SqlDataType data_type_v3 =
-          GetDataTypeFromArrowField_V3(field, metadata_settings.use_wide_char_);
+      SqlDataType data_type_v3 =
+          util::GetDataTypeFromArrowFieldV3(field, metadata_settings.use_wide_char);
 
       ColumnMetadata metadata(field->metadata());
 
@@ -121,31 +122,32 @@ Result<std::shared_ptr<RecordBatch>> Transform_inner(
       data.table_schem = table_schema;
       data.table_name = table_name;
       data.column_name = field->name();
-      data.data_type = odbc_version == odbcabstraction::V_3
+      data.data_type = odbc_version == OdbcVersion::V_3
                            ? data_type_v3
-                           : ConvertSqlDataTypeFromV3ToV2(data_type_v3);
+                           : util::ConvertSqlDataTypeFromV3ToV2(data_type_v3);
 
-      // TODO: Use `metadata.GetTypeName()` when ARROW-16064 is merged.
-      const auto& type_name_result = field->metadata()->Get("ARROW:FLIGHT:SQL:TYPE_NAME");
-      data.type_name = type_name_result.ok() ? type_name_result.ValueOrDie()
-                                             : GetTypeNameFromSqlDataType(data_type_v3);
+      const auto& type_name_result = metadata.GetTypeName();
+
+      data.type_name = type_name_result.ok()
+                           ? type_name_result.ValueOrDie()
+                           : util::GetTypeNameFromSqlDataType(data_type_v3);
 
       const Result<int32_t>& precision_result = metadata.GetPrecision();
       data.column_size =
           precision_result.ok() ? make_optional(precision_result.ValueOrDie()) : nullopt;
-      data.char_octet_length = GetCharOctetLength(data_type_v3, precision_result);
+      data.char_octet_length = util::GetCharOctetLength(data_type_v3, precision_result);
 
-      data.buffer_length = GetBufferLength(data_type_v3, data.column_size);
+      data.buffer_length = util::GetBufferLength(data_type_v3, data.column_size);
 
       const Result<int32_t>& scale_result = metadata.GetScale();
       data.decimal_digits =
           scale_result.ok() ? make_optional(scale_result.ValueOrDie()) : nullopt;
-      data.num_prec_radix = GetRadixFromSqlDataType(data_type_v3);
+      data.num_prec_radix = util::GetRadixFromSqlDataType(data_type_v3);
       data.nullable = field->nullable();
       data.remarks = nullopt;
       data.column_def = nullopt;
-      data.sql_data_type = GetNonConciseDataType(data_type_v3);
-      data.sql_datetime_sub = GetSqlDateTimeSubCode(data_type_v3);
+      data.sql_data_type = util::GetNonConciseDataType(data_type_v3);
+      data.sql_datetime_sub = util::GetSqlDateTimeSubCode(data_type_v3);
       data.ordinal_position = i + 1;
       data.is_nullable = field->nullable() ? "YES" : "NO";
 
@@ -157,8 +159,7 @@ Result<std::shared_ptr<RecordBatch>> Transform_inner(
 }
 }  // namespace
 
-GetColumns_RecordBatchBuilder::GetColumns_RecordBatchBuilder(
-    odbcabstraction::OdbcVersion odbc_version)
+GetColumns_RecordBatchBuilder::GetColumns_RecordBatchBuilder(OdbcVersion odbc_version)
     : odbc_version_(odbc_version) {}
 
 Result<std::shared_ptr<RecordBatch>> GetColumns_RecordBatchBuilder::Build() {
@@ -189,9 +190,8 @@ Result<std::shared_ptr<RecordBatch>> GetColumns_RecordBatchBuilder::Build() {
       COLUMN_DEF_Array,        SQL_DATA_TYPE_Array,    SQL_DATETIME_SUB_Array,
       CHAR_OCTET_LENGTH_Array, ORDINAL_POSITION_Array, IS_NULLABLE_Array};
 
-  const std::shared_ptr<Schema>& schema = odbc_version_ == odbcabstraction::V_3
-                                              ? GetColumns_V3_Schema()
-                                              : GetColumns_V2_Schema();
+  const std::shared_ptr<Schema>& schema =
+      odbc_version_ == OdbcVersion::V_3 ? GetColumns_V3_Schema() : GetColumns_V2_Schema();
   return RecordBatch::Make(schema, num_rows_, arrays);
 }
 
@@ -221,10 +221,9 @@ Status GetColumns_RecordBatchBuilder::Append(
   return Status::OK();
 }
 
-GetColumns_Transformer::GetColumns_Transformer(
-    const MetadataSettings& metadata_settings,
-    const odbcabstraction::OdbcVersion odbc_version,
-    const std::string* column_name_pattern)
+GetColumns_Transformer::GetColumns_Transformer(const MetadataSettings& metadata_settings,
+                                               const OdbcVersion odbc_version,
+                                               const std::string* column_name_pattern)
     : metadata_settings_(metadata_settings),
       odbc_version_(odbc_version),
       column_name_pattern_(column_name_pattern ? make_optional(*column_name_pattern)
@@ -233,16 +232,15 @@ GetColumns_Transformer::GetColumns_Transformer(
 std::shared_ptr<RecordBatch> GetColumns_Transformer::Transform(
     const std::shared_ptr<RecordBatch>& original) {
   const Result<std::shared_ptr<RecordBatch>>& result =
-      Transform_inner(odbc_version_, original, column_name_pattern_, metadata_settings_);
-  ThrowIfNotOK(result.status());
+      TransformInner(odbc_version_, original, column_name_pattern_, metadata_settings_);
+  util::ThrowIfNotOK(result.status());
 
   return result.ValueOrDie();
 }
 
 std::shared_ptr<Schema> GetColumns_Transformer::GetTransformedSchema() {
-  return odbc_version_ == odbcabstraction::V_3 ? GetColumns_V3_Schema()
-                                               : GetColumns_V2_Schema();
+  return odbc_version_ == OdbcVersion::V_3 ? GetColumns_V3_Schema()
+                                           : GetColumns_V2_Schema();
 }
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

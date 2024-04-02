@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/diagnostics.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h>
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/diagnostics.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h"
 
 #include <utility>
 
@@ -30,8 +30,7 @@ void RewriteSQLStateForODBC2(std::string& sql_state) {
 }
 }  // namespace
 
-namespace driver {
-namespace odbcabstraction {
+namespace arrow::flight::sql::odbc {
 
 Diagnostics::Diagnostics(std::string vendor, std::string data_source_component,
                          OdbcVersion version)
@@ -47,30 +46,30 @@ std::string Diagnostics::GetDataSourceComponent() const { return data_source_com
 
 std::string Diagnostics::GetVendor() const { return vendor_; }
 
-void driver::odbcabstraction::Diagnostics::AddError(
-    const driver::odbcabstraction::DriverException& exception) {
+void arrow::flight::sql::odbc::Diagnostics::AddError(
+    const arrow::flight::sql::odbc::DriverException& exception) {
   auto record = std::unique_ptr<DiagnosticsRecord>(new DiagnosticsRecord{
       exception.GetMessageText(), exception.GetSqlState(), exception.GetNativeError()});
   if (version_ == OdbcVersion::V_2) {
-    RewriteSQLStateForODBC2(record->sql_state_);
+    RewriteSQLStateForODBC2(record->sql_state);
   }
   TrackRecord(*record);
   owned_records_.push_back(std::move(record));
 }
 
-void driver::odbcabstraction::Diagnostics::AddWarning(std::string message,
-                                                      std::string sql_state,
-                                                      int32_t native_error) {
+void arrow::flight::sql::odbc::Diagnostics::AddWarning(std::string message,
+                                                       std::string sql_state,
+                                                       int32_t native_error) {
   auto record = std::unique_ptr<DiagnosticsRecord>(
       new DiagnosticsRecord{std::move(message), std::move(sql_state), native_error});
   if (version_ == OdbcVersion::V_2) {
-    RewriteSQLStateForODBC2(record->sql_state_);
+    RewriteSQLStateForODBC2(record->sql_state);
   }
   TrackRecord(*record);
   owned_records_.push_back(std::move(record));
 }
 
-std::string driver::odbcabstraction::Diagnostics::GetMessageText(
+std::string arrow::flight::sql::odbc::Diagnostics::GetMessageText(
     uint32_t record_index) const {
   std::string message;
   if (!vendor_.empty()) {
@@ -78,10 +77,9 @@ std::string driver::odbcabstraction::Diagnostics::GetMessageText(
   }
   const DiagnosticsRecord* rec = GetRecordAtIndex(record_index);
   return message + "[" + data_source_component_ + "] (" +
-         std::to_string(rec->native_error_) + ") " + rec->msg_text_;
+         std::to_string(rec->native_error) + ") " + rec->msg_text;
 }
 
 OdbcVersion Diagnostics::GetOdbcVersion() const { return version_; }
 
-}  // namespace odbcabstraction
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

@@ -15,12 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/result.h"
+#include "arrow/util/utf8.h"
+
 #include "arrow/flight/sql/odbc/flight_sql/system_trust_store.h"
 
 #if defined _WIN32 || defined _WIN64
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 bool SystemTrustStore::HasNext() {
   p_context_ = CertEnumCertificatesInStore(h_store_, p_context_);
 
@@ -32,18 +34,20 @@ std::string SystemTrustStore::GetNext() const {
   CryptBinaryToString(p_context_->pbCertEncoded, p_context_->cbCertEncoded,
                       CRYPT_STRING_BASE64HEADER, nullptr, &size);
 
-  std::string cert;
-  cert.resize(size);
+  std::wstring wcert;
+  wcert.resize(size);
   CryptBinaryToString(p_context_->pbCertEncoded, p_context_->cbCertEncoded,
-                      CRYPT_STRING_BASE64HEADER, &cert[0], &size);
-  cert.resize(size);
+                      CRYPT_STRING_BASE64HEADER, &wcert[0], &size);
+  wcert.resize(size);
+
+  std::string cert = arrow::util::WideStringToUTF8(wcert).ValueOr("");
 
   return cert;
 }
 
 bool SystemTrustStore::SystemHasStore() { return h_store_ != nullptr; }
 
-SystemTrustStore::SystemTrustStore(const char* store)
+SystemTrustStore::SystemTrustStore(const wchar_t* store)
     : stores_(store), h_store_(CertOpenSystemStore(NULL, store)), p_context_(nullptr) {}
 
 SystemTrustStore::~SystemTrustStore() {
@@ -54,7 +58,6 @@ SystemTrustStore::~SystemTrustStore() {
     CertCloseStore(h_store_, 0);
   }
 }
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc
 
 #endif

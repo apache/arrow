@@ -17,6 +17,8 @@
 
 add_library(arrow_odbc_spi_impl
             include/flight_sql/flight_sql_driver.h
+            include/flight_sql/config/configuration.h
+            include/flight_sql/config/connection_string_parser.h
             accessors/binary_array_accessor.cc
             accessors/binary_array_accessor.h
             accessors/boolean_array_accessor.cc
@@ -76,7 +78,10 @@ add_library(arrow_odbc_spi_impl
             scalar_function_reporter.h
             system_trust_store.cc
             system_trust_store.h
-            utils.cc)
+            config/configuration.cc
+            config/connection_string_parser.cc
+            util.cc
+            util.h)
 target_include_directories(arrow_odbc_spi_impl
                            PUBLIC include include/flight_sql
                                   ${CMAKE_SOURCE_DIR}/odbcabstraction/include)
@@ -84,25 +89,25 @@ target_include_directories(arrow_odbc_spi_impl PUBLIC ${CMAKE_CURRENT_LIST_DIR})
 
 if(WIN32)
   target_sources(arrow_odbc_spi_impl
-                 PRIVATE include/flight_sql/config/configuration.h
-                         include/flight_sql/config/connection_string_parser.h
-                         include/flight_sql/ui/add_property_window.h
+                 PRIVATE include/flight_sql/ui/add_property_window.h
                          include/flight_sql/ui/custom_window.h
                          include/flight_sql/ui/dsn_configuration_window.h
                          include/flight_sql/ui/window.h
-                         config/configuration.cc
-                         config/connection_string_parser.cc
                          ui/custom_window.cc
                          ui/window.cc
                          ui/dsn_configuration_window.cc
                          ui/add_property_window.cc
-                         system_dsn.cc)
+                         win_system_dsn.cc
+                         system_dsn.cc
+                         system_dsn.h)
 endif()
 
-target_link_libraries(arrow_odbc_spi_impl PUBLIC odbcabstraction arrow_flight_sql_shared)
+target_link_libraries(arrow_odbc_spi_impl PUBLIC odbcabstraction arrow_flight_sql_shared
+                                                 arrow_compute_shared Boost::locale)
 
-if(MSVC)
-  target_link_libraries(arrow_odbc_spi_impl PUBLIC Boost::locale)
+# Link libraries on MINGW64 only
+if((MINGW AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU") OR APPLE)
+  target_link_libraries(arrow_odbc_spi_impl PUBLIC ${ODBCINST})
 endif()
 
 set_target_properties(arrow_odbc_spi_impl
@@ -121,7 +126,7 @@ set_target_properties(arrow_odbc_spi_impl_cli
 target_link_libraries(arrow_odbc_spi_impl_cli arrow_odbc_spi_impl)
 
 # Unit tests
-add_arrow_test(arrow_odbc_spi_impl_test
+add_arrow_test(odbc_spi_impl_test
                SOURCES
                accessors/boolean_array_accessor_test.cc
                accessors/binary_array_accessor_test.cc
@@ -132,9 +137,11 @@ add_arrow_test(arrow_odbc_spi_impl_test
                accessors/time_array_accessor_test.cc
                accessors/timestamp_array_accessor_test.cc
                flight_sql_connection_test.cc
+               flight_sql_stream_chunk_buffer_test.cc
                parse_table_types_test.cc
                json_converter_test.cc
                record_batch_transformer_test.cc
-               utils_test.cc
+               util_test.cc
                EXTRA_LINK_LIBS
-               arrow_odbc_spi_impl)
+               arrow_odbc_spi_impl
+               arrow_flight_testing_shared)

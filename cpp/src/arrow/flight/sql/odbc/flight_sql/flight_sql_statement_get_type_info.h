@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#pragma once
+
 #include <optional>
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_primitive.h"
@@ -22,8 +24,7 @@
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h"
 #include "arrow/status.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 using arrow::Int16Builder;
 using arrow::Int32Builder;
@@ -31,12 +32,9 @@ using arrow::Result;
 using arrow::Status;
 using arrow::StringBuilder;
 
-using odbcabstraction::MetadataSettings;
-using std::optional;
-
-class GetTypeInfo_RecordBatchBuilder {
+class GetTypeInfoRecordBatchBuilder {
  private:
-  odbcabstraction::OdbcVersion odbc_version_;
+  OdbcVersion odbc_version_;
 
   StringBuilder TYPE_NAME_Builder_;
   Int16Builder DATA_TYPE_Builder_;
@@ -63,42 +61,41 @@ class GetTypeInfo_RecordBatchBuilder {
   struct Data {
     std::string type_name;
     int16_t data_type;
-    optional<int32_t> column_size;
-    optional<std::string> literal_prefix;
-    optional<std::string> literal_suffix;
-    optional<std::string> create_params;
+    std::optional<int32_t> column_size;
+    std::optional<std::string> literal_prefix;
+    std::optional<std::string> literal_suffix;
+    std::optional<std::string> create_params;
     int16_t nullable;
     int16_t case_sensitive;
     int16_t searchable;
-    optional<int16_t> unsigned_attribute;
+    std::optional<int16_t> unsigned_attribute;
     int16_t fixed_prec_scale;
-    optional<int16_t> auto_unique_value;
-    optional<std::string> local_type_name;
-    optional<int16_t> minimum_scale;
-    optional<int16_t> maximum_scale;
+    std::optional<int16_t> auto_unique_value;
+    std::optional<std::string> local_type_name;
+    std::optional<int16_t> minimum_scale;
+    std::optional<int16_t> maximum_scale;
     int16_t sql_data_type;
-    optional<int16_t> sql_datetime_sub;
-    optional<int32_t> num_prec_radix;
-    optional<int16_t> interval_precision;
+    std::optional<int16_t> sql_datetime_sub;
+    std::optional<int32_t> num_prec_radix;
+    std::optional<int16_t> interval_precision;
   };
 
-  explicit GetTypeInfo_RecordBatchBuilder(odbcabstraction::OdbcVersion odbc_version);
+  explicit GetTypeInfoRecordBatchBuilder(OdbcVersion odbc_version);
 
   Result<std::shared_ptr<RecordBatch>> Build();
 
   Status Append(const Data& data);
 };
 
-class GetTypeInfo_Transformer : public RecordBatchTransformer {
+class GetTypeInfoTransformer : public RecordBatchTransformer {
  private:
   const MetadataSettings& metadata_settings_;
-  odbcabstraction::OdbcVersion odbc_version_;
+  OdbcVersion odbc_version_;
   int data_type_;
 
  public:
-  explicit GetTypeInfo_Transformer(const MetadataSettings& metadata_settings,
-                                   odbcabstraction::OdbcVersion odbc_version,
-                                   int data_type);
+  explicit GetTypeInfoTransformer(const MetadataSettings& metadata_settings,
+                                  OdbcVersion odbc_version, int data_type);
 
   std::shared_ptr<RecordBatch> Transform(
       const std::shared_ptr<RecordBatch>& original) override;
@@ -106,5 +103,4 @@ class GetTypeInfo_Transformer : public RecordBatchTransformer {
   std::shared_ptr<Schema> GetTransformedSchema() override;
 };
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

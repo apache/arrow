@@ -24,26 +24,28 @@
 #  include <wincrypt.h>
 
 #  include <bcrypt.h>
+
+#  include <prsht.h>
+
 #  include <cryptuiapi.h>
 
 #  include <tchar.h>
 #  include <string>
 #  include <vector>
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 /// Load the certificates from the windows system trust store. Part of the logic
 /// was based in the drill connector
 /// https://github.com/apache/drill/blob/master/contrib/native/client/src/clientlib/wincert.ipp.
 class SystemTrustStore {
  private:
-  const char* stores_;
+  const wchar_t* stores_;
   HCERTSTORE h_store_;
   PCCERT_CONTEXT p_context_;
 
  public:
-  explicit SystemTrustStore(const char* store);
+  explicit SystemTrustStore(const wchar_t* store);
 
   ~SystemTrustStore();
 
@@ -59,14 +61,11 @@ class SystemTrustStore {
   /// \return  If the specific store exist in the system.
   bool SystemHasStore();
 };
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc
 
 #else  // Not Windows
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 class SystemTrustStore;
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc
 
 #endif

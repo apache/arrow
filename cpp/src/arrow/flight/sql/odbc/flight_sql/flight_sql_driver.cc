@@ -16,7 +16,9 @@
 // under the License.
 
 #include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/flight_sql_driver.h"
+#include "arrow/compute/api.h"
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_connection.h"
+#include "arrow/flight/sql/odbc/flight_sql/util.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
@@ -24,16 +26,13 @@
 
 using arrow::util::ArrowLogLevel;
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 static constexpr const char* kODBCLogLevel = "ARROW_ODBC_LOG_LEVEL";
-
-using odbcabstraction::Connection;
-using odbcabstraction::OdbcVersion;
 
 FlightSqlDriver::FlightSqlDriver()
     : diagnostics_("Apache Arrow", "Flight SQL", OdbcVersion::V_3), version_("0.9.0.0") {
   RegisterLog();
+  RegisterComputeKernels();
 }
 
 FlightSqlDriver::~FlightSqlDriver() {
@@ -48,9 +47,20 @@ std::shared_ptr<Connection> FlightSqlDriver::CreateConnection(OdbcVersion odbc_v
   return std::make_shared<FlightSqlConnection>(odbc_version, version_);
 }
 
-odbcabstraction::Diagnostics& FlightSqlDriver::GetDiagnostics() { return diagnostics_; }
+Diagnostics& FlightSqlDriver::GetDiagnostics() { return diagnostics_; }
 
 void FlightSqlDriver::SetVersion(std::string version) { version_ = std::move(version); }
+
+void FlightSqlDriver::RegisterComputeKernels() {
+  auto registry = arrow::compute::GetFunctionRegistry();
+
+  // strptime is one of the required compute functions
+  auto strptime_func = registry->GetFunction("strptime");
+  if (!strptime_func.ok()) {
+    // Register Kernel functions to library
+    util::ThrowIfNotOK(arrow::compute::Initialize());
+  }
+}
 
 void FlightSqlDriver::RegisterLog() {
   std::string log_level_str = arrow::internal::GetEnvVar(kODBCLogLevel)
@@ -84,6 +94,4 @@ void FlightSqlDriver::RegisterLog() {
     arrow::util::ArrowLog::StartArrowLog("arrow-flight-sql-odbc", log_level);
   }
 }
-
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

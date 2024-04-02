@@ -19,8 +19,7 @@
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 #include "gtest/gtest.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 void AssertParseTest(const std::string& input_string,
                      const std::vector<std::string>& assert_vector) {
@@ -49,5 +48,17 @@ TEST(TableTypeParser, ParsingWithSingleQuotesWithoutLeadingWhiteSpace) {
 TEST(TableTypeParser, ParsingWithCommaInsideSingleQuotes) {
   AssertParseTest("'TABLE, TEST', 'VIEW, TEMPORARY'", {"TABLE, TEST", "VIEW, TEMPORARY"});
 }
-}  // namespace flight_sql
-}  // namespace driver
+
+TEST(TableTypeParser, ParsingWithManyLeadingAndTrailingWhiteSpaces) {
+  AssertParseTest("         TABLE   ,    VIEW     ", {"TABLE", "VIEW"});
+}
+
+TEST(TableTypeParser, ParsingWithOnlyWhiteSpaceBetweenCommas) {
+  AssertParseTest("TABLE,  ,VIEW", {"TABLE", "VIEW"});
+}
+
+TEST(TableTypeParser, ParsingWithWhiteSpaceInsideValue) {
+  AssertParseTest("BASE TABLE", {"BASE TABLE"});
+}
+
+}  // namespace arrow::flight::sql::odbc

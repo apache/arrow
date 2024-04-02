@@ -178,10 +178,12 @@ function(arrow_install_cmake_package PACKAGE_NAME EXPORT_NAME)
   write_basic_package_version_file("${BUILT_CONFIG_VERSION_CMAKE}"
                                    COMPATIBILITY SameMajorVersion)
   install(FILES "${BUILT_CONFIG_CMAKE}" "${BUILT_CONFIG_VERSION_CMAKE}"
-          DESTINATION "${ARROW_CMAKE_DIR}/${PACKAGE_NAME}")
+          DESTINATION "${ARROW_CMAKE_DIR}/${PACKAGE_NAME}"
+          COMPONENT config_cmake_file)
   set(TARGETS_CMAKE "${PACKAGE_NAME}Targets.cmake")
   install(EXPORT ${EXPORT_NAME}
           DESTINATION "${ARROW_CMAKE_DIR}/${PACKAGE_NAME}"
+          COMPONENT config_cmake_export
           NAMESPACE "${PACKAGE_NAME}::"
           FILE "${TARGETS_CMAKE}")
 endfunction()
@@ -403,8 +405,11 @@ function(ADD_ARROW_LIB LIB_NAME)
     install(TARGETS ${LIB_NAME}_shared ${INSTALL_IS_OPTIONAL}
             EXPORT ${LIB_NAME}_targets
             ARCHIVE DESTINATION ${INSTALL_ARCHIVE_DIR}
+                    COMPONENT ${LIB_NAME}_shared_archive
             LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR}
+                    COMPONENT ${LIB_NAME}_shared_library
             RUNTIME DESTINATION ${INSTALL_RUNTIME_DIR}
+                    COMPONENT ${LIB_NAME}_shared_runtime
             INCLUDES
             DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
   endif()
@@ -471,8 +476,11 @@ function(ADD_ARROW_LIB LIB_NAME)
     install(TARGETS ${LIB_NAME}_static ${INSTALL_IS_OPTIONAL}
             EXPORT ${LIB_NAME}_targets
             ARCHIVE DESTINATION ${INSTALL_ARCHIVE_DIR}
+                    COMPONENT ${LIB_NAME}_static_library
             LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR}
+                    COMPONENT ${LIB_NAME}_static_library
             RUNTIME DESTINATION ${INSTALL_RUNTIME_DIR}
+                    COMPONENT ${LIB_NAME}_static_library
             INCLUDES
             DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
   endif()
@@ -934,7 +942,9 @@ function(ARROW_INSTALL_ALL_HEADERS PATH)
     endif()
     list(APPEND PUBLIC_HEADERS ${HEADER})
   endforeach()
-  install(FILES ${PUBLIC_HEADERS} DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${PATH}")
+  install(FILES ${PUBLIC_HEADERS}
+          DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/${PATH}"
+          COMPONENT ${HEADER}_header)
 endfunction()
 
 function(ARROW_ADD_PKG_CONFIG MODULE)
@@ -944,7 +954,8 @@ function(ARROW_ADD_PKG_CONFIG MODULE)
        OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/${MODULE}.pc"
        INPUT "${CMAKE_CURRENT_BINARY_DIR}/${MODULE}.pc.generate.in")
   install(FILES "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/${MODULE}.pc"
-          DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
+          DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/"
+          COMPONENT ${MODULE}_pkg_config)
 endfunction()
 
 # Implementations of lisp "car" and "cdr" functions

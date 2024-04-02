@@ -19,10 +19,9 @@
 
 #include "arrow/array.h"
 #include "arrow/flight/sql/odbc/flight_sql/accessors/types.h"
-#include "arrow/flight/sql/odbc/flight_sql/utils.h"
+#include "arrow/flight/sql/odbc/flight_sql/util.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 using arrow::Array;
 
@@ -40,15 +39,15 @@ class FlightSqlResultSetColumn {
   FlightSqlResultSetColumn() = default;
   explicit FlightSqlResultSetColumn(bool use_wide_char);
 
-  ColumnBinding binding_;
-  bool use_wide_char_;
-  bool is_bound_;
+  ColumnBinding binding;
+  bool use_wide_char;
+  bool is_bound;
 
   inline Accessor* GetAccessorForBinding() { return cached_accessor_.get(); }
 
   inline Accessor* GetAccessorForGetData(CDataType target_type) {
-    if (target_type == odbcabstraction::CDataType_DEFAULT) {
-      target_type = ConvertArrowTypeToC(original_array_->type_id(), use_wide_char_);
+    if (target_type == CDataType_DEFAULT) {
+      target_type = util::ConvertArrowTypeToC(original_array_->type_id(), use_wide_char);
     }
 
     if (cached_accessor_ && cached_accessor_->target_type_ == target_type) {
@@ -65,13 +64,12 @@ class FlightSqlResultSetColumn {
     original_array_ = std::move(array);
     if (cached_accessor_) {
       cached_accessor_ = CreateAccessor(cached_accessor_->target_type_);
-    } else if (is_bound_) {
-      cached_accessor_ = CreateAccessor(binding_.target_type);
+    } else if (is_bound) {
+      cached_accessor_ = CreateAccessor(binding.target_type);
     } else {
       cached_casted_array_.reset();
       cached_accessor_.reset();
     }
   }
 };
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

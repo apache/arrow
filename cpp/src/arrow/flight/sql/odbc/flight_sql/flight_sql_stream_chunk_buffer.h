@@ -17,25 +17,26 @@
 
 #pragma once
 
-#include <arrow/flight/client.h>
-#include <arrow/flight/sql/client.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/blocking_queue.h>
+#include "arrow/flight/client.h"
+#include "arrow/flight/sql/client.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/blocking_queue.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 using arrow::Result;
 using arrow::flight::FlightInfo;
 using arrow::flight::FlightStreamChunk;
 using arrow::flight::FlightStreamReader;
 using arrow::flight::sql::FlightSqlClient;
-using driver::odbcabstraction::BlockingQueue;
+using arrow::flight::sql::odbc::BlockingQueue;
 
 class FlightStreamChunkBuffer {
-  BlockingQueue<Result<FlightStreamChunk>> queue_;
+  BlockingQueue<std::pair<Result<FlightStreamChunk>, std::shared_ptr<FlightSqlClient>>>
+      queue_;
 
  public:
   FlightStreamChunkBuffer(FlightSqlClient& flight_sql_client,
+                          const arrow::flight::FlightClientOptions& client_options,
                           const arrow::flight::FlightCallOptions& call_options,
                           const std::shared_ptr<FlightInfo>& flight_info,
                           size_t queue_capacity = 5);
@@ -47,5 +48,4 @@ class FlightStreamChunkBuffer {
   bool GetNext(FlightStreamChunk* chunk);
 };
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

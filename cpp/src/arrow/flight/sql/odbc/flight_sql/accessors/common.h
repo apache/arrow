@@ -19,34 +19,34 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstring>
 #include "arrow/array.h"
 #include "arrow/flight/sql/odbc/flight_sql/accessors/types.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/diagnostics.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h"
 #include "arrow/scalar.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 template <typename ARRAY_TYPE>
 inline size_t CopyFromArrayValuesToBinding(ARRAY_TYPE* array, ColumnBinding* binding,
                                            int64_t starting_row, int64_t cells) {
   constexpr ssize_t element_size = sizeof(typename ARRAY_TYPE::value_type);
 
-  if (binding->strlen_buffer) {
+  if (binding->str_len_buffer) {
     for (int64_t i = 0; i < cells; ++i) {
       int64_t current_row = starting_row + i;
       if (array->IsNull(current_row)) {
-        binding->strlen_buffer[i] = odbcabstraction::NULL_DATA;
+        binding->str_len_buffer[i] = NULL_DATA;
       } else {
-        binding->strlen_buffer[i] = element_size;
+        binding->str_len_buffer[i] = element_size;
       }
     }
   } else {
-    // Duplicate this loop to avoid null checks within the loop.
+    // Duplicate above for-loop to exit early when null value is found
     for (int64_t i = starting_row; i < starting_row + cells; ++i) {
       if (array->IsNull(i)) {
-        throw odbcabstraction::NullWithoutIndicatorException();
+        throw NullWithoutIndicatorException();
       }
     }
   }
@@ -55,10 +55,9 @@ inline size_t CopyFromArrayValuesToBinding(ARRAY_TYPE* array, ColumnBinding* bin
   // Note that the array should already have been sliced down to the same number
   // of elements in the ODBC data array by the point in which this function is called.
   const auto* values = array->raw_values();
-  memcpy(binding->buffer, &values[starting_row], element_size * cells);
+  std::memcpy(binding->buffer, &values[starting_row], element_size * cells);
 
   return cells;
 }
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

@@ -20,10 +20,8 @@
 #include <cstdint>
 #include <ctime>
 
-namespace driver {
-namespace odbcabstraction {
+namespace arrow::flight::sql::odbc {
 int64_t GetTodayTimeFromEpoch();
 
 void GetTimeForSecondsSinceEpoch(const int64_t seconds_since_epoch, std::tm& out_tm);
-}  // namespace odbcabstraction
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

@@ -21,8 +21,7 @@
 #include <string>
 #include <vector>
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 namespace config {
 
 /**
@@ -41,10 +40,10 @@ class Window {
    * Constructor for a new window that is going to be created.
    *
    * @param parent Parent window handle.
-   * @param className Window class name.
+   * @param class_name Window class name.
    * @param title Window title.
    */
-  Window(Window* parent, const char* className, const char* title);
+  Window(Window* parent, const wchar_t* class_name, const wchar_t* title);
 
   /**
    * Constructor for the existing window.
@@ -62,13 +61,13 @@ class Window {
    * Create window.
    *
    * @param style Window style.
-   * @param posX Window x position.
-   * @param posY Window y position.
+   * @param pos_x Window x position.
+   * @param pos_y Window y position.
    * @param width Window width.
    * @param height Window height.
    * @param id ID for child window.
    */
-  void Create(DWORD style, int posX, int posY, int width, int height, int id);
+  void Create(DWORD style, int pos_x, int pos_y, int width, int height, int id);
 
   /**
    * Create child tab controlwindow.
@@ -81,101 +80,102 @@ class Window {
   /**
    * Create child list view window.
    *
-   * @param posX Position by X coordinate.
-   * @param posY Position by Y coordinate.
-   * @param sizeX Size by X coordinate.
-   * @param sizeY Size by Y coordinate.
+   * @param pos_x Position by X coordinate.
+   * @param pos_y Position by Y coordinate.
+   * @param size_x Size by X coordinate.
+   * @param size_y Size by Y coordinate.
    * @param id ID to be assigned to the created window.
    * @return Auto pointer containing new window.
    */
-  std::unique_ptr<Window> CreateList(int posX, int posY, int sizeX, int sizeY, int id);
+  std::unique_ptr<Window> CreateList(int pos_x, int pos_y, int size_x, int size_y,
+                                     int id);
 
   /**
    * Create child group box window.
    *
-   * @param posX Position by X coordinate.
-   * @param posY Position by Y coordinate.
-   * @param sizeX Size by X coordinate.
-   * @param sizeY Size by Y coordinate.
+   * @param pos_x Position by X coordinate.
+   * @param pos_y Position by Y coordinate.
+   * @param size_x Size by X coordinate.
+   * @param size_y Size by Y coordinate.
    * @param title Title.
    * @param id ID to be assigned to the created window.
    * @return Auto pointer containing new window.
    */
-  std::unique_ptr<Window> CreateGroupBox(int posX, int posY, int sizeX, int sizeY,
-                                         const char* title, int id);
+  std::unique_ptr<Window> CreateGroupBox(int pos_x, int pos_y, int size_x, int size_y,
+                                         const wchar_t* title, int id);
 
   /**
    * Create child label window.
    *
-   * @param posX Position by X coordinate.
-   * @param posY Position by Y coordinate.
-   * @param sizeX Size by X coordinate.
-   * @param sizeY Size by Y coordinate.
+   * @param pos_x Position by X coordinate.
+   * @param pos_y Position by Y coordinate.
+   * @param size_x Size by X coordinate.
+   * @param size_y Size by Y coordinate.
    * @param title Title.
    * @param id ID to be assigned to the created window.
    * @return Auto pointer containing new window.
    */
-  std::unique_ptr<Window> CreateLabel(int posX, int posY, int sizeX, int sizeY,
-                                      const char* title, int id);
+  std::unique_ptr<Window> CreateLabel(int pos_x, int pos_y, int size_x, int size_y,
+                                      const wchar_t* title, int id);
 
   /**
    * Create child Edit window.
    *
-   * @param posX Position by X coordinate.
-   * @param posY Position by Y coordinate.
-   * @param sizeX Size by X coordinate.
-   * @param sizeY Size by Y coordinate.
+   * @param pos_x Position by X coordinate.
+   * @param pos_y Position by Y coordinate.
+   * @param size_x Size by X coordinate.
+   * @param size_y Size by Y coordinate.
    * @param title Title.
    * @param id ID to be assigned to the created window.
    * @param style Window style.
    * @return Auto pointer containing new window.
    */
-  std::unique_ptr<Window> CreateEdit(int posX, int posY, int sizeX, int sizeY,
-                                     const char* title, int id, int style = 0);
+  std::unique_ptr<Window> CreateEdit(int pos_x, int pos_y, int size_x, int size_y,
+                                     const wchar_t* title, int id, int style = 0);
 
   /**
    * Create child button window.
    *
-   * @param posX Position by X coordinate.
-   * @param posY Position by Y coordinate.
-   * @param sizeX Size by X coordinate.
-   * @param sizeY Size by Y coordinate.
+   * @param pos_x Position by X coordinate.
+   * @param pos_y Position by Y coordinate.
+   * @param size_x Size by X coordinate.
+   * @param size_y Size by Y coordinate.
    * @param title Title.
    * @param id ID to be assigned to the created window.
    * @param style Window style.
    * @return Auto pointer containing new window.
    */
-  std::unique_ptr<Window> CreateButton(int posX, int posY, int sizeX, int sizeY,
-                                       const char* title, int id, int style = 0);
+  std::unique_ptr<Window> CreateButton(int pos_x, int pos_y, int size_x, int size_y,
+                                       const wchar_t* title, int id, int style = 0);
 
   /**
    * Create child CheckBox window.
    *
-   * @param posX Position by X coordinate.
-   * @param posY Position by Y coordinate.
-   * @param sizeX Size by X coordinate.
-   * @param sizeY Size by Y coordinate.
+   * @param pos_x Position by X coordinate.
+   * @param pos_y Position by Y coordinate.
+   * @param size_x Size by X coordinate.
+   * @param size_y Size by Y coordinate.
    * @param title Title.
    * @param id ID to be assigned to the created window.
    * @param state Checked state of checkbox
    * @return Auto pointer containing new window.
    */
-  std::unique_ptr<Window> CreateCheckBox(int posX, int posY, int sizeX, int sizeY,
-                                         const char* title, int id, bool state);
+  std::unique_ptr<Window> CreateCheckBox(int pos_x, int pos_y, int size_x, int size_y,
+                                         const wchar_t* title, int id, bool state);
 
   /**
    * Create child ComboBox window.
    *
-   * @param posX Position by X coordinate.
-   * @param posY Position by Y coordinate.
-   * @param sizeX Size by X coordinate.
-   * @param sizeY Size by Y coordinate.
+   * @param pos_x Position by X coordinate.
+   * @param pos_y Position by Y coordinate.
+   * @param size_x Size by X coordinate.
+   * @param size_y Size by Y coordinate.
    * @param title Title.
    * @param id ID to be assigned to the created window.
    * @return Auto pointer containing new window.
    */
-  std::unique_ptr<Window> CreateComboBox(int posX, int posY, int sizeX, int sizeY,
-                                         const char* title, int id);
+  std::unique_ptr<Window> CreateComboBox(int pos_x, int pos_y, int size_x, int size_y,
+                                         const wchar_t* title, int id);
 
   /**
    * Show window.
@@ -197,19 +197,19 @@ class Window {
    *
    * @return Window handle.
    */
-  HWND GetHandle() const { return handle; }
+  HWND GetHandle() const { return handle_; }
 
   void SetVisible(bool isVisible);
 
-  void ListAddColumn(const std::string& name, int index, int width);
+  void ListAddColumn(const std::wstring& name, int index, int width);
 
-  void ListAddItem(const std::vector<std::string>& items);
+  void ListAddItem(const std::vector<std::wstring>& items);
 
   void ListDeleteSelectedItem();
 
-  std::vector<std::vector<std::string> > ListGetAll();
+  std::vector<std::vector<std::wstring> > ListGetAll();
 
-  void AddTab(const std::string& name, int index);
+  void AddTab(const std::wstring& name, int index);
 
   bool IsTextEmpty() const;
 
@@ -218,14 +218,14 @@ class Window {
    *
    * @param text Text.
    */
-  void GetText(std::string& text) const;
+  void GetText(std::wstring& text) const;
 
   /**
    * Set window text.
    *
    * @param text Text.
    */
-  void SetText(const std::string& text) const;
+  void SetText(const std::wstring& text) const;
 
   /**
    * Get CheckBox state.
@@ -246,7 +246,7 @@ class Window {
    *
    * @param str String.
    */
-  void AddString(const std::string& str);
+  void AddString(const std::wstring& str);
 
   /**
    * Set current ComboBox selection.
@@ -282,27 +282,26 @@ class Window {
    *
    * @param value Window handle.
    */
-  void SetHandle(HWND value) { handle = value; }
+  void SetHandle(HWND value) { handle_ = value; }
 
   /** Window class name. */
-  std::string className;
+  std::wstring class_name_;
 
   /** Window title. */
-  std::string title;
+  std::wstring title_;
 
   /** Window handle. */
-  HWND handle;
+  HWND handle_;
 
   /** Window parent. */
-  Window* parent;
+  Window* parent_;
 
   /** Specifies whether window has been created by the thread and needs destruction. */
-  bool created;
+  bool created_;
 
  private:
   Window(const Window& window) = delete;
 };
 
 }  // namespace config
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

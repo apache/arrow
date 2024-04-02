@@ -17,12 +17,14 @@
 
 #pragma once
 
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/diagnostics.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h>
+// platform.h includes windows.h, so it needs to be included first
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
+
 #include <sql.h>
 #include <sqltypes.h>
 #include <functional>
 #include <mutex>
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/diagnostics.h"
 
 /**
  * @brief An abstraction over a generic ODBC handle.
@@ -32,29 +34,29 @@ namespace ODBC {
 template <typename Derived>
 class ODBCHandle {
  public:
-  inline driver::odbcabstraction::Diagnostics& GetDiagnostics() {
-    return static_cast<Derived*>(this)->GetDiagnostics_Impl();
+  inline arrow::flight::sql::odbc::Diagnostics& GetDiagnostics() {
+    return static_cast<Derived*>(this)->GetDiagnosticsImpl();
   }
 
-  inline driver::odbcabstraction::Diagnostics& GetDiagnostics_Impl() {
+  inline arrow::flight::sql::odbc::Diagnostics& GetDiagnosticsImpl() {
     throw std::runtime_error("Illegal state -- diagnostics requested on invalid handle");
   }
 
   template <typename Function>
-  inline SQLRETURN execute(SQLRETURN rc, Function function) {
+  inline SQLRETURN Execute(SQLRETURN rc, Function function) {
     try {
       GetDiagnostics().Clear();
       rc = function();
-    } catch (const driver::odbcabstraction::DriverException& ex) {
+    } catch (const arrow::flight::sql::odbc::DriverException& ex) {
       GetDiagnostics().AddError(ex);
-    } catch (const std::bad_alloc& ex) {
-      GetDiagnostics().AddError(driver::odbcabstraction::DriverException(
+    } catch (const std::bad_alloc&) {
+      GetDiagnostics().AddError(arrow::flight::sql::odbc::DriverException(
           "A memory allocation error occurred.", "HY001"));
     } catch (const std::exception& ex) {
-      GetDiagnostics().AddError(driver::odbcabstraction::DriverException(ex.what()));
+      GetDiagnostics().AddError(arrow::flight::sql::odbc::DriverException(ex.what()));
     } catch (...) {
       GetDiagnostics().AddError(
-          driver::odbcabstraction::DriverException("An unknown error occurred."));
+          arrow::flight::sql::odbc::DriverException("An unknown error occurred."));
     }
 
     if (GetDiagnostics().HasError()) {
@@ -67,9 +69,9 @@ class ODBCHandle {
   }
 
   template <typename Function>
-  inline SQLRETURN executeWithLock(SQLRETURN rc, Function function) {
+  inline SQLRETURN ExecuteWithLock(SQLRETURN rc, Function function) {
     const std::lock_guard<std::mutex> lock(mtx_);
-    return execute(rc, function);
+    return Execute(rc, function);
   }
 
   template <typename Function, bool SHOULD_LOCK = true>
@@ -79,13 +81,13 @@ class ODBCHandle {
       return SQL_INVALID_HANDLE;
     }
     if (SHOULD_LOCK) {
-      return reinterpret_cast<Derived*>(handle)->executeWithLock(rc, func);
+      return reinterpret_cast<Derived*>(handle)->ExecuteWithLock(rc, func);
     } else {
-      return reinterpret_cast<Derived*>(handle)->execute(rc, func);
+      return reinterpret_cast<Derived*>(handle)->Execute(rc, func);
     }
   }
 
-  static Derived* of(SQLHANDLE handle) { return reinterpret_cast<Derived*>(handle); }
+  static Derived* Of(SQLHANDLE handle) { return reinterpret_cast<Derived*>(handle); }
 
  private:
   std::mutex mtx_;

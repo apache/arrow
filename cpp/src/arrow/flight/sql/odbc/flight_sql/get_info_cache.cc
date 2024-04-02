@@ -30,7 +30,7 @@
 
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_stream_chunk_buffer.h"
 #include "arrow/flight/sql/odbc/flight_sql/scalar_function_reporter.h"
-#include "arrow/flight/sql/odbc/flight_sql/utils.h"
+#include "arrow/flight/sql/odbc/flight_sql/util.h"
 
 // Aliases for entries in SqlInfoOptions::SqlInfo that are defined here
 // due to causing compilation errors conflicting with ODBC definitions.
@@ -193,28 +193,32 @@ inline std::string ScalarToBoolString(arrow::UnionScalar* scalar) {
 }
 
 inline void SetDefaultIfMissing(
-    std::unordered_map<uint16_t, driver::odbcabstraction::Connection::Info>& cache,
-    uint16_t info_type, driver::odbcabstraction::Connection::Info default_value) {
+    std::unordered_map<uint16_t, arrow::flight::sql::odbc::Connection::Info>& cache,
+    uint16_t info_type, arrow::flight::sql::odbc::Connection::Info default_value) {
   // Note: emplace() only writes if the key isn't found.
   cache.emplace(info_type, std::move(default_value));
 }
 
 }  // namespace
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 using arrow::flight::FlightCallOptions;
+using arrow::flight::FlightClientOptions;
 using arrow::flight::sql::FlightSqlClient;
 using arrow::flight::sql::SqlInfoOptions;
-using driver::odbcabstraction::Connection;
-using driver::odbcabstraction::DriverException;
+using arrow::flight::sql::odbc::Connection;
+using arrow::flight::sql::odbc::DriverException;
 
-GetInfoCache::GetInfoCache(FlightCallOptions& call_options,
+GetInfoCache::GetInfoCache(FlightClientOptions& client_options,
+                           FlightCallOptions& call_options,
                            std::unique_ptr<FlightSqlClient>& client,
                            const std::string& driver_version)
-    : call_options_(call_options), sql_client_(client), has_server_info_(false) {
+    : client_options_(client_options),
+      call_options_(call_options),
+      sql_client_(client),
+      has_server_info_(false) {
   info_[SQL_DRIVER_NAME] = "Arrow Flight ODBC Driver";
-  info_[SQL_DRIVER_VER] = ConvertToDBMSVer(driver_version);
+  info_[SQL_DRIVER_VER] = util::ConvertToDBMSVer(driver_version);
 
   info_[SQL_GETDATA_EXTENSIONS] =
       static_cast<uint32_t>(SQL_GD_ANY_COLUMN | SQL_GD_ANY_ORDER);
@@ -270,7 +274,7 @@ GetInfoCache::GetInfoCache(FlightCallOptions& call_options,
 }
 
 void GetInfoCache::SetProperty(uint16_t property,
-                               driver::odbcabstraction::Connection::Info value) {
+                               arrow::flight::sql::odbc::Connection::Info value) {
   info_[property] = value;
 }
 
@@ -293,8 +297,9 @@ bool GetInfoCache::LoadInfoFromServer() {
     std::unique_lock<std::mutex> lock(mutex_);
     arrow::Result<std::shared_ptr<FlightInfo>> result =
         sql_client_->GetSqlInfo(call_options_, {});
-    ThrowIfNotOK(result.status());
-    FlightStreamChunkBuffer chunk_iter(*sql_client_, call_options_, result.ValueOrDie());
+    util::ThrowIfNotOK(result.status());
+    FlightStreamChunkBuffer chunk_iter(*sql_client_, client_options_, call_options_,
+                                       result.ValueOrDie());
 
     FlightStreamChunk chunk;
     bool supports_correlation_name = false;
@@ -315,7 +320,7 @@ bool GetInfoCache::LoadInfoFromServer() {
           auto info_type = static_cast<arrow::flight::sql::SqlInfoOptions::SqlInfo>(
               info_type_array->Value(i));
           auto result_scalar = value_union_array->GetScalar(i);
-          ThrowIfNotOK(result_scalar.status());
+          util::ThrowIfNotOK(result_scalar.status());
           std::shared_ptr<arrow::Scalar> scalar_ptr = result_scalar.ValueOrDie();
           arrow::UnionScalar* scalar =
               reinterpret_cast<arrow::UnionScalar*>(scalar_ptr.get());
@@ -338,7 +343,7 @@ bool GetInfoCache::LoadInfoFromServer() {
               break;
             }
             case SqlInfoOptions::FLIGHT_SQL_SERVER_VERSION: {
-              info_[SQL_DBMS_VER] = ConvertToDBMSVer(std::string(
+              info_[SQL_DBMS_VER] = util::ConvertToDBMSVer(std::string(
                   reinterpret_cast<arrow::StringScalar*>(scalar->child_value().get())
                       ->view()));
               break;
@@ -948,21 +953,21 @@ bool GetInfoCache::LoadInfoFromServer() {
               break;
             }
             case SqlInfoOptions::SQL_SUPPORTED_RESULT_SET_TYPES:
-              // Ignored. Warpdrive supports forward-only only.
+              // Ignored. Arrow ODBC supports forward-only only.
               break;
             case SqlInfoOptions::SQL_SUPPORTED_CONCURRENCIES_FOR_RESULT_SET_UNSPECIFIED:
-              // Ignored. Warpdrive supports forward-only only.
+              // Ignored. Arrow ODBC supports forward-only only.
               break;
             case SqlInfoOptions::SQL_SUPPORTED_CONCURRENCIES_FOR_RESULT_SET_FORWARD_ONLY:
-              // Ignored. Warpdrive supports forward-only only.
+              // Ignored. Arrow ODBC supports forward-only only.
               break;
             case SqlInfoOptions::
                 SQL_SUPPORTED_CONCURRENCIES_FOR_RESULT_SET_SCROLL_SENSITIVE:
-              // Ignored. Warpdrive supports forward-only only.
+              // Ignored. Arrow ODBC supports forward-only only.
               break;
             case SqlInfoOptions::
                 SQL_SUPPORTED_CONCURRENCIES_FOR_RESULT_SET_SCROLL_INSENSITIVE:
-              // Ignored. Warpdrive supports forward-only only.
+              // Ignored. Arrow ODBC supports forward-only only.
               break;
 
             // List<string> properties
@@ -1173,6 +1178,7 @@ void GetInfoCache::LoadDefaultsForMissingEntries() {
   SetDefaultIfMissing(info_, SQL_CONVERT_DECIMAL, static_cast<uint32_t>(0));
   SetDefaultIfMissing(info_, SQL_CONVERT_DOUBLE, static_cast<uint32_t>(0));
   SetDefaultIfMissing(info_, SQL_CONVERT_FLOAT, static_cast<uint32_t>(0));
+  SetDefaultIfMissing(info_, SQL_CONVERT_FUNCTIONS, static_cast<uint32_t>(0));
   SetDefaultIfMissing(info_, SQL_CONVERT_GUID, static_cast<uint32_t>(0));
   SetDefaultIfMissing(info_, SQL_CONVERT_INTEGER, static_cast<uint32_t>(0));
   SetDefaultIfMissing(info_, SQL_CONVERT_INTERVAL_YEAR_MONTH, static_cast<uint32_t>(0));
@@ -1251,6 +1257,7 @@ void GetInfoCache::LoadDefaultsForMissingEntries() {
   SetDefaultIfMissing(info_, SQL_MAX_COLUMNS_IN_ORDER_BY, static_cast<uint16_t>(0));
   SetDefaultIfMissing(info_, SQL_MAX_COLUMNS_IN_SELECT, static_cast<uint16_t>(0));
   SetDefaultIfMissing(info_, SQL_MAX_COLUMNS_IN_TABLE, static_cast<uint16_t>(0));
+  SetDefaultIfMissing(info_, SQL_MAX_CONCURRENT_ACTIVITIES, static_cast<uint16_t>(0));
   SetDefaultIfMissing(info_, SQL_MAX_CURSOR_NAME_LEN, static_cast<uint16_t>(0));
   SetDefaultIfMissing(info_, SQL_MAX_DRIVER_CONNECTIONS, static_cast<uint16_t>(0));
   SetDefaultIfMissing(info_, SQL_MAX_IDENTIFIER_LEN, static_cast<uint16_t>(65535));
@@ -1270,6 +1277,7 @@ void GetInfoCache::LoadDefaultsForMissingEntries() {
   SetDefaultIfMissing(info_, SQL_OJ_CAPABILITIES,
                       static_cast<uint32_t>(SQL_OJ_LEFT | SQL_OJ_RIGHT | SQL_OJ_FULL));
   SetDefaultIfMissing(info_, SQL_ORDER_BY_COLUMNS_IN_SELECT, "Y");
+  SetDefaultIfMissing(info_, SQL_OUTER_JOINS, "N");
   SetDefaultIfMissing(info_, SQL_PROCEDURE_TERM, "");
   SetDefaultIfMissing(info_, SQL_PROCEDURES, "N");
   SetDefaultIfMissing(info_, SQL_QUOTED_IDENTIFIER_CASE,
@@ -1278,6 +1286,7 @@ void GetInfoCache::LoadDefaultsForMissingEntries() {
   SetDefaultIfMissing(info_, SQL_SCHEMA_USAGE,
                       static_cast<uint32_t>(SQL_SU_DML_STATEMENTS));
   SetDefaultIfMissing(info_, SQL_SEARCH_PATTERN_ESCAPE, "\\");
+  SetDefaultIfMissing(info_, SQL_SPECIAL_CHARACTERS, "");
   SetDefaultIfMissing(
       info_, SQL_SERVER_NAME,
       "Arrow Flight SQL Server");  // This might actually need to be the hostname.
@@ -1332,6 +1341,16 @@ void GetInfoCache::LoadDefaultsForMissingEntries() {
                           SQL_FN_TSI_FRAC_SECOND | SQL_FN_TSI_SECOND | SQL_FN_TSI_MINUTE |
                           SQL_FN_TSI_HOUR | SQL_FN_TSI_DAY | SQL_FN_TSI_WEEK |
                           SQL_FN_TSI_MONTH | SQL_FN_TSI_QUARTER | SQL_FN_TSI_YEAR));
+  SetDefaultIfMissing(
+      info_, SQL_TIMEDATE_FUNCTIONS,
+      static_cast<uint32_t>(
+          SQL_FN_TD_CURRENT_DATE | SQL_FN_TD_CURRENT_TIME | SQL_FN_TD_CURRENT_TIMESTAMP |
+          SQL_FN_TD_CURDATE | SQL_FN_TD_CURTIME | SQL_FN_TD_DAYNAME |
+          SQL_FN_TD_DAYOFMONTH | SQL_FN_TD_DAYOFWEEK | SQL_FN_TD_DAYOFYEAR |
+          SQL_FN_TD_EXTRACT | SQL_FN_TD_HOUR | SQL_FN_TD_MINUTE | SQL_FN_TD_MONTH |
+          SQL_FN_TD_MONTHNAME | SQL_FN_TD_NOW | SQL_FN_TD_QUARTER | SQL_FN_TD_SECOND |
+          SQL_FN_TD_TIMESTAMPADD | SQL_FN_TD_TIMESTAMPDIFF | SQL_FN_TD_WEEK |
+          SQL_FN_TD_YEAR));
   SetDefaultIfMissing(info_, SQL_UNION,
                       static_cast<uint32_t>(SQL_U_UNION | SQL_U_UNION_ALL));
   SetDefaultIfMissing(info_, SQL_XOPEN_CLI_YEAR, "1995");
@@ -1341,5 +1360,4 @@ void GetInfoCache::LoadDefaultsForMissingEntries() {
                       static_cast<uint16_t>(SQL_OSCC_COMPLIANT));
 }
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

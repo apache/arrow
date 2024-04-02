@@ -18,15 +18,14 @@
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_get_tables_reader.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_primitive.h"
-#include "arrow/flight/sql/odbc/flight_sql/utils.h"
+#include "arrow/flight/sql/odbc/flight_sql/util.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 #include "arrow/io/memory.h"
 #include "arrow/status.h"
 
 #include <utility>
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 using arrow::BinaryArray;
 using arrow::StringArray;
@@ -80,14 +79,14 @@ std::shared_ptr<Schema> GetTablesReader::GetSchema() {
   const arrow::Result<std::shared_ptr<Schema>>& result =
       arrow::ipc::ReadSchema(&dataset_schema_reader, &in_memo);
   if (!result.ok()) {
-    // TODO: Ignoring this error until we fix the problem on Dremio server
-    // The problem is that complex types columns are being returned without the children
-    // types.
+    // TODO: Test and build the driver against a server that returns
+    // complex types columns with the children
+    // types and handle the failure properly
+    // https://github.com/apache/arrow/issues/46561
     return nullptr;
   }
 
   return result.ValueOrDie();
 }
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

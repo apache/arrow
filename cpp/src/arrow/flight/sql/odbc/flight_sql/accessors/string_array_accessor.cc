@@ -18,39 +18,35 @@
 #include "arrow/flight/sql/odbc/flight_sql/accessors/string_array_accessor.h"
 
 #include <boost/locale.hpp>
+#include <cstring>
 #include "arrow/array.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/encoding.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 using arrow::Array;
 using arrow::StringArray;
-using odbcabstraction::RowStatus;
 
 namespace {
 
 #if defined _WIN32 || defined _WIN64
-std::string utf8_to_clocale(const char* utf8str, int len) {
+std::string Utf8ToCLocale(const char* utf8_str, int len) {
   thread_local boost::locale::generator g;
   g.locale_cache_enabled(true);
   std::locale loc = g(boost::locale::util::get_system_locale());
-  return boost::locale::conv::from_utf<char>(utf8str, utf8str + len, loc);
+  return boost::locale::conv::from_utf<char>(utf8_str, utf8_str + len, loc);
 }
 #endif
 
 template <typename CHAR_TYPE>
-inline RowStatus MoveSingleCellToCharBuffer(std::vector<uint8_t>& buffer,
-                                            int64_t& last_retrieved_arrow_row,
+inline RowStatus MoveSingleCellToCharBuffer(
+    std::vector<uint8_t>& buffer, int64_t& last_retrieved_arrow_row,
 #if defined _WIN32 || defined _WIN64
-                                            std::string& clocale_str,
+    std::string& clocale_str,
 #endif
-                                            ColumnBinding* binding, StringArray* array,
-                                            int64_t arrow_row, int64_t i,
-                                            int64_t& value_offset,
-                                            bool update_value_offset,
-                                            odbcabstraction::Diagnostics& diagnostics) {
-  RowStatus result = odbcabstraction::RowStatus_SUCCESS;
+    ColumnBinding* binding, StringArray* array, int64_t arrow_row, int64_t i,
+    int64_t& value_offset, bool update_value_offset, Diagnostics& diagnostics) {
+  RowStatus result = RowStatus_SUCCESS;
 
   // Arrow strings come as UTF-8
   const char* raw_value = array->Value(arrow_row).data();
@@ -60,7 +56,7 @@ inline RowStatus MoveSingleCellToCharBuffer(std::vector<uint8_t>& buffer,
   size_t size_in_bytes;
   if (sizeof(CHAR_TYPE) > sizeof(char)) {
     if (last_retrieved_arrow_row != arrow_row) {
-      odbcabstraction::Utf8ToWcs(raw_value, raw_value_length, &buffer);
+      Utf8ToWcs(raw_value, raw_value_length, &buffer);
       last_retrieved_arrow_row = arrow_row;
     }
     value = buffer.data();
@@ -69,7 +65,7 @@ inline RowStatus MoveSingleCellToCharBuffer(std::vector<uint8_t>& buffer,
 #if defined _WIN32 || defined _WIN64
     // Convert to C locale string
     if (last_retrieved_arrow_row != arrow_row) {
-      clocale_str = utf8_to_clocale(raw_value, raw_value_length);
+      clocale_str = Utf8ToCLocale(raw_value, raw_value_length);
       last_retrieved_arrow_row = arrow_row;
     }
     const char* clocale_data = clocale_str.data();
@@ -88,7 +84,7 @@ inline RowStatus MoveSingleCellToCharBuffer(std::vector<uint8_t>& buffer,
 
   auto* byte_buffer = static_cast<char*>(binding->buffer) + i * binding->buffer_length;
   auto* char_buffer = (CHAR_TYPE*)byte_buffer;
-  memcpy(char_buffer, ((char*)value) + value_offset, value_length);
+  std::memcpy(char_buffer, ((char*)value) + value_offset, value_length);
 
   // Write a NUL terminator
   if (binding->buffer_length >= remaining_length + sizeof(CHAR_TYPE)) {
@@ -99,7 +95,7 @@ inline RowStatus MoveSingleCellToCharBuffer(std::vector<uint8_t>& buffer,
       value_offset = -1;
     }
   } else {
-    result = odbcabstraction::RowStatus_SUCCESS_WITH_INFO;
+    result = RowStatus_SUCCESS_WITH_INFO;
     diagnostics.AddTruncationWarning();
     size_t chars_written = binding->buffer_length / sizeof(CHAR_TYPE);
     // If we failed to even write one char, the buffer is too small to hold a
@@ -112,8 +108,8 @@ inline RowStatus MoveSingleCellToCharBuffer(std::vector<uint8_t>& buffer,
     }
   }
 
-  if (binding->strlen_buffer) {
-    binding->strlen_buffer[i] = static_cast<ssize_t>(remaining_length);
+  if (binding->str_len_buffer) {
+    binding->str_len_buffer[i] = static_cast<ssize_t>(remaining_length);
   }
 
   return result;
@@ -129,9 +125,9 @@ StringArrayFlightSqlAccessor<TARGET_TYPE, CHAR_TYPE>::StringArrayFlightSqlAccess
       last_arrow_row_(-1) {}
 
 template <CDataType TARGET_TYPE, typename CHAR_TYPE>
-RowStatus StringArrayFlightSqlAccessor<TARGET_TYPE, CHAR_TYPE>::MoveSingleCell_impl(
+RowStatus StringArrayFlightSqlAccessor<TARGET_TYPE, CHAR_TYPE>::MoveSingleCellImpl(
     ColumnBinding* binding, int64_t arrow_row, int64_t i, int64_t& value_offset,
-    bool update_value_offset, odbcabstraction::Diagnostics& diagnostics) {
+    bool update_value_offset, Diagnostics& diagnostics) {
   return MoveSingleCellToCharBuffer<CHAR_TYPE>(buffer_, last_arrow_row_,
 #if defined _WIN32 || defined _WIN64
                                                clocale_str_,
@@ -142,14 +138,13 @@ RowStatus StringArrayFlightSqlAccessor<TARGET_TYPE, CHAR_TYPE>::MoveSingleCell_i
 }
 
 template <CDataType TARGET_TYPE, typename CHAR_TYPE>
-size_t StringArrayFlightSqlAccessor<TARGET_TYPE, CHAR_TYPE>::GetCellLength_impl(
+size_t StringArrayFlightSqlAccessor<TARGET_TYPE, CHAR_TYPE>::GetCellLengthImpl(
     ColumnBinding* binding) const {
   return binding->buffer_length;
 }
 
-template class StringArrayFlightSqlAccessor<odbcabstraction::CDataType_CHAR, char>;
-template class StringArrayFlightSqlAccessor<odbcabstraction::CDataType_WCHAR, char16_t>;
-template class StringArrayFlightSqlAccessor<odbcabstraction::CDataType_WCHAR, char32_t>;
+template class StringArrayFlightSqlAccessor<CDataType_CHAR, char>;
+template class StringArrayFlightSqlAccessor<CDataType_WCHAR, char16_t>;
+template class StringArrayFlightSqlAccessor<CDataType_WCHAR, char32_t>;
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

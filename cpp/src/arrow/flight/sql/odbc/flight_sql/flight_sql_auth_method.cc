@@ -28,16 +28,15 @@
 
 #include <utility>
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 using arrow::Result;
 using arrow::flight::FlightCallOptions;
 using arrow::flight::FlightClient;
 using arrow::flight::TimeoutDuration;
-using driver::odbcabstraction::AuthenticationException;
-using driver::odbcabstraction::CommunicationException;
-using driver::odbcabstraction::Connection;
+using arrow::flight::sql::odbc::AuthenticationException;
+using arrow::flight::sql::odbc::CommunicationException;
+using arrow::flight::sql::odbc::Connection;
 
 namespace {
 class NoOpAuthMethod : public FlightSqlAuthMethod {
@@ -45,6 +44,10 @@ class NoOpAuthMethod : public FlightSqlAuthMethod {
   void Authenticate(FlightSqlConnection& connection,
                     FlightCallOptions& call_options) override {
     // Do nothing
+
+    // TODO: implement NoOpAuthMethod to validate server address.
+    // Can use NoOpClientAuthHandler.
+    // https://github.com/apache/arrow/issues/46733
   }
 };
 
@@ -54,8 +57,8 @@ class NoOpClientAuthHandler : public arrow::flight::ClientAuthHandler {
 
   arrow::Status Authenticate(arrow::flight::ClientAuthSender* outgoing,
                              arrow::flight::ClientAuthReader* incoming) override {
-    // Write a blank string. The server should ignore this and just accept any Handshake
-    // request.
+    // The server should ignore this and just accept any Handshake
+    // request. Some servers do not allow authentication with no handshakes.
     return outgoing->Write(std::string());
   }
 
@@ -88,22 +91,25 @@ class UserPasswordAuthMethod : public FlightSqlAuthMethod {
         client_.AuthenticateBasicToken(auth_call_options, user_, password_);
 
     if (!bearer_result.ok()) {
-      const auto& flightStatus =
+      const auto& flight_status =
           arrow::flight::FlightStatusDetail::UnwrapStatus(bearer_result.status());
-      if (flightStatus != nullptr) {
-        if (flightStatus->code() == arrow::flight::FlightStatusCode::Unauthenticated) {
+      if (flight_status != nullptr) {
+        if (flight_status->code() == arrow::flight::FlightStatusCode::Unauthenticated) {
           throw AuthenticationException(
               "Failed to authenticate with user and password: " +
               bearer_result.status().ToString());
-        } else if (flightStatus->code() == arrow::flight::FlightStatusCode::Unavailable) {
+        } else if (flight_status->code() ==
+                   arrow::flight::FlightStatusCode::Unavailable) {
           throw CommunicationException(bearer_result.status().message());
         }
       }
 
-      throw odbcabstraction::DriverException(bearer_result.status().message());
+      throw DriverException(bearer_result.status().message());
     }
 
-    call_options.headers.push_back(bearer_result.ValueOrDie());
+    // call_options may have already been populated with data from the connection string
+    // or DSN. Ensure auth-generated headers are placed at the front of the header list.
+    call_options.headers.insert(call_options.headers.begin(), bearer_result.ValueOrDie());
   }
 
   std::string GetUser() override { return user_; }
@@ -125,25 +131,27 @@ class TokenAuthMethod : public FlightSqlAuthMethod {
 
   void Authenticate(FlightSqlConnection& connection,
                     FlightCallOptions& call_options) override {
-    // add the token to the headers
+    // add the token to the front of the headers. For consistency auth headers should be
+    // at the front.
     const std::pair<std::string, std::string> token_header("authorization",
                                                            "Bearer " + token_);
-    call_options.headers.push_back(token_header);
+    call_options.headers.insert(call_options.headers.begin(), token_header);
 
     const arrow::Status status = client_.Authenticate(
         call_options,
         std::unique_ptr<arrow::flight::ClientAuthHandler>(new NoOpClientAuthHandler()));
     if (!status.ok()) {
-      const auto& flightStatus = arrow::flight::FlightStatusDetail::UnwrapStatus(status);
-      if (flightStatus != nullptr) {
-        if (flightStatus->code() == arrow::flight::FlightStatusCode::Unauthenticated) {
+      const auto& flight_status = arrow::flight::FlightStatusDetail::UnwrapStatus(status);
+      if (flight_status != nullptr) {
+        if (flight_status->code() == arrow::flight::FlightStatusCode::Unauthenticated) {
           throw AuthenticationException("Failed to authenticate with token: " + token_ +
                                         " Message: " + status.message());
-        } else if (flightStatus->code() == arrow::flight::FlightStatusCode::Unavailable) {
+        } else if (flight_status->code() ==
+                   arrow::flight::FlightStatusCode::Unavailable) {
           throw CommunicationException(status.message());
         }
       }
-      throw odbcabstraction::DriverException(status.message());
+      throw DriverException(status.message());
     }
   }
 };
@@ -153,22 +161,22 @@ std::unique_ptr<FlightSqlAuthMethod> FlightSqlAuthMethod::FromProperties(
     const std::unique_ptr<FlightClient>& client,
     const Connection::ConnPropertyMap& properties) {
   // Check if should use user-password authentication
-  auto it_user = properties.find(FlightSqlConnection::USER);
+  auto it_user = properties.find(std::string(FlightSqlConnection::USER));
   if (it_user == properties.end()) {
     // The Microsoft OLE DB to ODBC bridge provider (MSDASQL) will write
     // "User ID" and "Password" properties instead of mapping
     // to ODBC compliant UID/PWD keys.
-    it_user = properties.find(FlightSqlConnection::USER_ID);
+    it_user = properties.find(std::string(FlightSqlConnection::USER_ID));
   }
 
-  auto it_password = properties.find(FlightSqlConnection::PASSWORD);
-  auto it_token = properties.find(FlightSqlConnection::TOKEN);
+  auto it_password = properties.find(std::string(FlightSqlConnection::PASSWORD));
+  auto it_token = properties.find(std::string(FlightSqlConnection::TOKEN));
 
   if (it_user == properties.end() || it_password == properties.end()) {
     // Accept UID/PWD as aliases for User/Password. These are suggested as
     // standard properties in the documentation for SQLDriverConnect.
-    it_user = properties.find(FlightSqlConnection::UID);
-    it_password = properties.find(FlightSqlConnection::PWD);
+    it_user = properties.find(std::string(FlightSqlConnection::UID));
+    it_password = properties.find(std::string(FlightSqlConnection::PWD));
   }
   if (it_user != properties.end() || it_password != properties.end()) {
     const std::string& user = it_user != properties.end() ? it_user->second : "";
@@ -185,5 +193,4 @@ std::unique_ptr<FlightSqlAuthMethod> FlightSqlAuthMethod::FromProperties(
   return std::unique_ptr<FlightSqlAuthMethod>(new NoOpAuthMethod);
 }
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

@@ -17,9 +17,9 @@
 
 #pragma once
 
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_handle.h>
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/odbc_impl/odbc_handle.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/connection.h"
 
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/connection.h>
 #include <sql.h>
 #include <map>
 #include <memory>
@@ -41,57 +41,70 @@ class ODBCConnection : public ODBCHandle<ODBCConnection> {
   ODBCConnection(const ODBCConnection&) = delete;
   ODBCConnection& operator=(const ODBCConnection&) = delete;
 
+  /// \brief Constructor for ODBCConnection.
+  /// \param[in] environment the parent environment.
+  /// \param[in] spi_connection the underlying spi connection.
   ODBCConnection(ODBCEnvironment& environment,
-                 std::shared_ptr<driver::odbcabstraction::Connection> spiConnection);
+                 std::shared_ptr<arrow::flight::sql::odbc::Connection> spi_connection);
 
-  driver::odbcabstraction::Diagnostics& GetDiagnostics_Impl();
+  arrow::flight::sql::odbc::Diagnostics& GetDiagnosticsImpl();
 
   const std::string& GetDSN() const;
-  bool isConnected() const;
-  void connect(std::string dsn,
-               const driver::odbcabstraction::Connection::ConnPropertyMap& properties,
+  bool IsConnected() const;
+
+  /// \brief Connect to Arrow Flight SQL server.
+  /// \param[in] dsn the dsn name.
+  /// \param[in] properties the connection property map extracted from connection string.
+  /// \param[out] missing_properties report the properties that are missing
+  void Connect(std::string dsn,
+               const arrow::flight::sql::odbc::Connection::ConnPropertyMap& properties,
                std::vector<std::string_view>& missing_properties);
 
-  void GetInfo(SQLUSMALLINT infoType, SQLPOINTER value, SQLSMALLINT bufferLength,
-               SQLSMALLINT* outputLength, bool isUnicode);
-  void SetConnectAttr(SQLINTEGER attribute, SQLPOINTER value, SQLINTEGER stringLength,
-                      bool isUnicode);
-  void GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value, SQLINTEGER bufferLength,
-                      SQLINTEGER* outputLength, bool isUnicode);
+  SQLRETURN GetInfo(SQLUSMALLINT info_type, SQLPOINTER value, SQLSMALLINT buffer_length,
+                    SQLSMALLINT* output_length, bool is_unicode);
+  void SetConnectAttr(SQLINTEGER attribute, SQLPOINTER value, SQLINTEGER string_length,
+                      bool is_unicode);
+  SQLRETURN GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
+                           SQLINTEGER buffer_length, SQLINTEGER* output_length,
+                           bool is_unicode);
 
   ~ODBCConnection() = default;
 
-  inline ODBCStatement& GetTrackingStatement() { return *m_attributeTrackingStatement; }
+  inline ODBCStatement& GetTrackingStatement() { return *attribute_tracking_statement_; }
 
-  void disconnect();
+  void Disconnect();
 
-  void releaseConnection();
+  void ReleaseConnection();
 
-  std::shared_ptr<ODBCStatement> createStatement();
-  void dropStatement(ODBCStatement* statement);
+  std::shared_ptr<ODBCStatement> CreateStatement();
+  void DropStatement(ODBCStatement* statement);
 
-  std::shared_ptr<ODBCDescriptor> createDescriptor();
-  void dropDescriptor(ODBCDescriptor* descriptor);
+  std::shared_ptr<ODBCDescriptor> CreateDescriptor();
+  void DropDescriptor(ODBCDescriptor* descriptor);
 
-  inline bool IsOdbc2Connection() const { return m_is2xConnection; }
+  inline bool IsOdbc2Connection() const { return is_2x_connection_; }
 
-  /// @return the DSN or empty string if Driver was used.
-  static std::string getPropertiesFromConnString(
-      const std::string& connStr,
-      driver::odbcabstraction::Connection::ConnPropertyMap& properties);
+  /// @return the DSN or an empty string if the DSN is not found or is found after the
+  /// driver
+  static std::string GetDsnIfExists(const std::string& conn_str);
+
+  /// Read properties from connection string, but does not read values from DSN
+  static void GetPropertiesFromConnString(
+      const std::string& conn_str,
+      arrow::flight::sql::odbc::Connection::ConnPropertyMap& properties);
 
  private:
-  ODBCEnvironment& m_environment;
-  std::shared_ptr<driver::odbcabstraction::Connection> m_spiConnection;
+  ODBCEnvironment& environment_;
+  std::shared_ptr<arrow::flight::sql::odbc::Connection> spi_connection_;
   // Extra ODBC statement that's used to track and validate when statement attributes are
   // set through the connection handle. These attributes get copied to new ODBC statements
   // when they are allocated.
-  std::shared_ptr<ODBCStatement> m_attributeTrackingStatement;
-  std::vector<std::shared_ptr<ODBCStatement> > m_statements;
-  std::vector<std::shared_ptr<ODBCDescriptor> > m_descriptors;
-  std::string m_dsn;
-  const bool m_is2xConnection;
-  bool m_isConnected;
+  std::shared_ptr<ODBCStatement> attribute_tracking_statement_;
+  std::vector<std::shared_ptr<ODBCStatement> > statements_;
+  std::vector<std::shared_ptr<ODBCDescriptor> > descriptors_;
+  std::string dsn_;
+  const bool is_2x_connection_;
+  bool is_connected_;
 };
 
 }  // namespace ODBC

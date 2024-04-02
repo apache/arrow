@@ -17,14 +17,13 @@
 
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_get_type_info_reader.h"
 #include "arrow/array.h"
-#include "arrow/flight/sql/odbc/flight_sql/utils.h"
+#include "arrow/flight/sql/odbc/flight_sql/util.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 #include "arrow/io/memory.h"
 
 #include <utility>
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 using arrow::BooleanArray;
 using arrow::Int32Array;
@@ -186,5 +185,4 @@ optional<int32_t> GetTypeInfoReader::GetIntervalPrecision() {
   return array->GetView(current_row_);
 }
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

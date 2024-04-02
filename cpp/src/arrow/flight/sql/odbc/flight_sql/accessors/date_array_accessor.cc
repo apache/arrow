@@ -33,7 +33,7 @@ int64_t convertDate(typename T::value_type value) {
 /// \return         the converted value in seconds.
 template <>
 int64_t convertDate<Date64Array>(int64_t value) {
-  return value / driver::odbcabstraction::MILLI_TO_SECONDS_DIVISOR;
+  return value / arrow::flight::sql::odbc::MILLI_TO_SECONDS_DIVISOR;
 }
 
 /// Converts the value from the array, which is in days, to seconds.
@@ -41,17 +41,11 @@ int64_t convertDate<Date64Array>(int64_t value) {
 /// \return         the converted value in seconds.
 template <>
 int64_t convertDate<Date32Array>(int32_t value) {
-  return value * driver::odbcabstraction::DAYS_TO_SECONDS_MULTIPLIER;
+  return value * arrow::flight::sql::odbc::DAYS_TO_SECONDS_MULTIPLIER;
 }
 }  // namespace
 
-namespace driver {
-namespace flight_sql {
-
-using odbcabstraction::DATE_STRUCT;
-using odbcabstraction::RowStatus;
-
-using odbcabstraction::GetTimeForSecondsSinceEpoch;
+namespace arrow::flight::sql::odbc {
 
 template <CDataType TARGET_TYPE, typename ARROW_ARRAY>
 DateArrayFlightSqlAccessor<TARGET_TYPE, ARROW_ARRAY>::DateArrayFlightSqlAccessor(
@@ -60,10 +54,9 @@ DateArrayFlightSqlAccessor<TARGET_TYPE, ARROW_ARRAY>::DateArrayFlightSqlAccessor
                         DateArrayFlightSqlAccessor<TARGET_TYPE, ARROW_ARRAY>>(array) {}
 
 template <CDataType TARGET_TYPE, typename ARROW_ARRAY>
-RowStatus DateArrayFlightSqlAccessor<TARGET_TYPE, ARROW_ARRAY>::MoveSingleCell_impl(
+RowStatus DateArrayFlightSqlAccessor<TARGET_TYPE, ARROW_ARRAY>::MoveSingleCellImpl(
     ColumnBinding* binding, int64_t arrow_row, int64_t cell_counter,
-    int64_t& value_offset, bool update_value_offset,
-    odbcabstraction::Diagnostics& diagnostics) {
+    int64_t& value_offset, bool update_value_offset, Diagnostics& diagnostics) {
   auto* buffer = static_cast<DATE_STRUCT*>(binding->buffer);
   auto value = convertDate<ARROW_ARRAY>(this->GetArray()->Value(arrow_row));
   tm date{};
@@ -74,22 +67,21 @@ RowStatus DateArrayFlightSqlAccessor<TARGET_TYPE, ARROW_ARRAY>::MoveSingleCell_i
   buffer[cell_counter].month = date.tm_mon + 1;
   buffer[cell_counter].day = date.tm_mday;
 
-  if (binding->strlen_buffer) {
-    binding->strlen_buffer[cell_counter] =
-        static_cast<ssize_t>(GetCellLength_impl(binding));
+  if (binding->str_len_buffer) {
+    binding->str_len_buffer[cell_counter] =
+        static_cast<ssize_t>(GetCellLengthImpl(binding));
   }
 
-  return odbcabstraction::RowStatus_SUCCESS;
+  return RowStatus_SUCCESS;
 }
 
 template <CDataType TARGET_TYPE, typename ARROW_ARRAY>
-size_t DateArrayFlightSqlAccessor<TARGET_TYPE, ARROW_ARRAY>::GetCellLength_impl(
+size_t DateArrayFlightSqlAccessor<TARGET_TYPE, ARROW_ARRAY>::GetCellLengthImpl(
     ColumnBinding* binding) const {
   return sizeof(DATE_STRUCT);
 }
 
-template class DateArrayFlightSqlAccessor<odbcabstraction::CDataType_DATE, Date32Array>;
-template class DateArrayFlightSqlAccessor<odbcabstraction::CDataType_DATE, Date64Array>;
+template class DateArrayFlightSqlAccessor<CDataType_DATE, Date32Array>;
+template class DateArrayFlightSqlAccessor<CDataType_DATE, Date64Array>;
 
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

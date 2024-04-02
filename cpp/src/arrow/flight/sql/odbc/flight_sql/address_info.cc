@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/flight/sql/odbc/flight_sql/address_info.h"
+#include <cstdint>
 
 namespace driver {
 
@@ -34,7 +35,7 @@ bool AddressInfo::GetAddressInfo(const std::string& host, char* host_name_info,
   }
 
   error = getnameinfo(addrinfo_result_->ai_addr, addrinfo_result_->ai_addrlen,
-                      host_name_info, static_cast<DWORD>(max_host), NULL, 0, 0);
+                      host_name_info, static_cast<uint32_t>(max_host), NULL, 0, 0);
   return error == 0;
 }
 

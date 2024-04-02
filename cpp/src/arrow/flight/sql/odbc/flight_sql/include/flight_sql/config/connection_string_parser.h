@@ -21,8 +21,7 @@
 
 #include "config/configuration.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 namespace config {
 
 /**
@@ -70,9 +69,8 @@ class ConnectionStringParser {
   ConnectionStringParser& operator=(const ConnectionStringParser&) = delete;
 
   /** Configuration. */
-  Configuration& cfg;
+  Configuration& cfg_;
 };
 
 }  // namespace config
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

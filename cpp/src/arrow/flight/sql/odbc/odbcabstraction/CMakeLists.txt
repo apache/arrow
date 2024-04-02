@@ -17,9 +17,6 @@
 
 include_directories(include)
 
-# Ensure fmt is loaded as header only
-add_compile_definitions(FMT_HEADER_ONLY)
-
 add_library(odbcabstraction
             include/odbcabstraction/calendar_utils.h
             include/odbcabstraction/diagnostics.h
@@ -27,7 +24,6 @@ add_library(odbcabstraction
             include/odbcabstraction/exceptions.h
             include/odbcabstraction/platform.h
             include/odbcabstraction/types.h
-            include/odbcabstraction/utils.h
             include/odbcabstraction/odbc_impl/attribute_utils.h
             include/odbcabstraction/odbc_impl/encoding_utils.h
             include/odbcabstraction/odbc_impl/odbc_connection.h
@@ -45,8 +41,6 @@ add_library(odbcabstraction
             diagnostics.cc
             encoding.cc
             exceptions.cc
-            utils.cc
-            ../../../../vendored/whereami/whereami.cc
             odbc_impl/odbc_connection.cc
             odbc_impl/odbc_descriptor.cc
             odbc_impl/odbc_environment.cc

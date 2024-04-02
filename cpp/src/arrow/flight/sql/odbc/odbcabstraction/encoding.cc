@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/encoding.h>
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/encoding.h"
 
 #if defined(__APPLE__)
 #  include <dlfcn.h>
@@ -23,8 +23,7 @@
 #  include <mutex>
 #endif
 
-namespace driver {
-namespace odbcabstraction {
+namespace arrow::flight::sql::odbc {
 
 #if defined(__APPLE__)
 std::atomic<size_t> SqlWCharSize{0};
@@ -61,5 +60,4 @@ void ComputeSqlWCharSize() {
 }
 #endif
 
-}  // namespace odbcabstraction
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

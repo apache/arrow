@@ -159,7 +159,7 @@ WAI_NOINLINE WAI_FUNCSPEC int WAI_PREFIX(getModulePath)(char* out, int capacity,
   return length;
 }
 
-#elif defined(__linux__) || defined(__CYGWIN__) || defined(__sun) || \
+#elif defined(__APPLE__) || defined(__linux__) || defined(__CYGWIN__) || defined(__sun) || \
     defined(WAI_USE_PROC_SELF_EXE)
 
 #  include <stdio.h>

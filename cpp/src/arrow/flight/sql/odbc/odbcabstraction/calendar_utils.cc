@@ -22,8 +22,7 @@
 #include <cstring>
 #include <ctime>
 
-namespace driver {
-namespace odbcabstraction {
+namespace arrow::flight::sql::odbc {
 int64_t GetTodayTimeFromEpoch() {
   tm date{};
   int64_t t = std::time(0);
@@ -41,6 +40,9 @@ int64_t GetTodayTimeFromEpoch() {
 #endif
 }
 
+// GH-47631: add support for non-UTC time zone data.
+// Read the time zone value from Arrow::Timestamp, and use the time zone value to convert
+// seconds_since_epoch instead of converting to UTC time zone by default
 void GetTimeForSecondsSinceEpoch(const int64_t seconds_since_epoch, std::tm& out_tm) {
   std::memset(&out_tm, 0, sizeof(std::tm));
 
@@ -58,5 +60,4 @@ void GetTimeForSecondsSinceEpoch(const int64_t seconds_since_epoch, std::tm& out
   out_tm.tm_min = static_cast<int>(timeofday.minutes().count());
   out_tm.tm_sec = static_cast<int>(timeofday.seconds().count());
 }
-}  // namespace odbcabstraction
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

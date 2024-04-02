@@ -26,31 +26,37 @@
 #include "arrow/flight/sql/odbc/flight_sql/get_info_cache.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
+
+/// \brief Case insensitive comparator that takes string_view
+struct CaseInsensitiveComparatorStrView {
+  bool operator()(const std::string_view& s1, const std::string_view& s2) const {
+    return boost::lexicographical_compare(s1, s2, boost::is_iless());
+  }
+};
 
 class FlightSqlSslConfig;
 
 /// \brief Create an instance of the FlightSqlSslConfig class, from the properties passed
 ///        into the map.
-/// \param connPropertyMap the map with the Connection properties.
+/// \param conn_property_map the map with the Connection properties.
 /// \return                An instance of the FlightSqlSslConfig.
 std::shared_ptr<FlightSqlSslConfig> LoadFlightSslConfigs(
-    const odbcabstraction::Connection::ConnPropertyMap& connPropertyMap);
+    const Connection::ConnPropertyMap& conn_property_map);
 
-class FlightSqlConnection : public odbcabstraction::Connection {
+class FlightSqlConnection : public Connection {
  private:
-  odbcabstraction::MetadataSettings metadata_settings_;
+  MetadataSettings metadata_settings_;
   std::map<AttributeId, Attribute> attribute_;
   arrow::flight::FlightClientOptions client_options_;
   arrow::flight::FlightCallOptions call_options_;
   std::unique_ptr<arrow::flight::sql::FlightSqlClient> sql_client_;
   GetInfoCache info_;
-  odbcabstraction::Diagnostics diagnostics_;
-  odbcabstraction::OdbcVersion odbc_version_;
+  Diagnostics diagnostics_;
+  OdbcVersion odbc_version_;
   bool closed_;
 
-  void PopulateMetadataSettings(const Connection::ConnPropertyMap& connPropertyMap);
+  void PopulateMetadataSettings(const Connection::ConnPropertyMap& conn_property_map);
 
  public:
   static const std::vector<std::string_view> ALL_KEYS;
@@ -73,7 +79,7 @@ class FlightSqlConnection : public odbcabstraction::Connection {
   static constexpr std::string_view USE_WIDE_CHAR = "UseWideChar";
   static constexpr std::string_view CHUNK_BUFFER_CAPACITY = "ChunkBufferCapacity";
 
-  explicit FlightSqlConnection(odbcabstraction::OdbcVersion odbc_version,
+  explicit FlightSqlConnection(OdbcVersion odbc_version,
                                const std::string& driver_version = "0.9.0.0");
 
   void Connect(const ConnPropertyMap& properties,
@@ -81,7 +87,7 @@ class FlightSqlConnection : public odbcabstraction::Connection {
 
   void Close() override;
 
-  std::shared_ptr<odbcabstraction::Statement> CreateStatement() override;
+  std::shared_ptr<Statement> CreateStatement() override;
 
   bool SetAttribute(AttributeId attribute, const Attribute& value) override;
 
@@ -107,17 +113,17 @@ class FlightSqlConnection : public odbcabstraction::Connection {
   const arrow::flight::FlightCallOptions& PopulateCallOptions(
       const ConnPropertyMap& properties);
 
-  odbcabstraction::Diagnostics& GetDiagnostics() override;
+  Diagnostics& GetDiagnostics() override;
 
   /// \brief A setter to the field closed_.
   /// \note Visible for testing
   void SetClosed(bool is_closed);
 
-  boost::optional<int32_t> GetStringColumnLength(const ConnPropertyMap& connPropertyMap);
+  boost::optional<int32_t> GetStringColumnLength(
+      const ConnPropertyMap& conn_property_map);
 
-  bool GetUseWideChar(const ConnPropertyMap& connPropertyMap);
+  bool GetUseWideChar(const ConnPropertyMap& conn_property_map);
 
-  size_t GetChunkBufferCapacity(const ConnPropertyMap& connPropertyMap);
+  size_t GetChunkBufferCapacity(const ConnPropertyMap& conn_property_map);
 };
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

@@ -1,0 +1,4 @@
+Prior to running the tests, set environment variable `ARROW_FLIGHT_SQL_ODBC_CONN` 
+to a valid connection string.
+A valid connection string looks like:
+driver={Apache Arrow Flight SQL ODBC Driver};HOST=localhost;port=32010;pwd=myPassword;uid=myName;useEncryption=false;

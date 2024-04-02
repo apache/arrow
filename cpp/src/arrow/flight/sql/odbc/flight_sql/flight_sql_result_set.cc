@@ -18,17 +18,18 @@
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_result_set.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 
+#include <sql.h>
+
 #include <utility>
 #include "arrow/flight/types.h"
 #include "arrow/scalar.h"
 
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_result_set_column.h"
 #include "arrow/flight/sql/odbc/flight_sql/flight_sql_result_set_metadata.h"
-#include "arrow/flight/sql/odbc/flight_sql/utils.h"
+#include "arrow/flight/sql/odbc/flight_sql/util.h"
 #include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/types.h"
 
-namespace driver {
-namespace flight_sql {
+namespace arrow::flight::sql::odbc {
 
 using arrow::Array;
 using arrow::RecordBatch;
@@ -37,19 +38,17 @@ using arrow::Status;
 using arrow::flight::FlightEndpoint;
 using arrow::flight::FlightStreamChunk;
 using arrow::flight::FlightStreamReader;
-using odbcabstraction::CDataType;
-using odbcabstraction::DriverException;
 
 FlightSqlResultSet::FlightSqlResultSet(
     FlightSqlClient& flight_sql_client,
+    const arrow::flight::FlightClientOptions& client_options,
     const arrow::flight::FlightCallOptions& call_options,
     const std::shared_ptr<FlightInfo>& flight_info,
-    const std::shared_ptr<RecordBatchTransformer>& transformer,
-    odbcabstraction::Diagnostics& diagnostics,
-    const odbcabstraction::MetadataSettings& metadata_settings)
+    const std::shared_ptr<RecordBatchTransformer>& transformer, Diagnostics& diagnostics,
+    const MetadataSettings& metadata_settings)
     : metadata_settings_(metadata_settings),
-      chunk_buffer_(flight_sql_client, call_options, flight_info,
-                    metadata_settings_.chunk_buffer_capacity_),
+      chunk_buffer_(flight_sql_client, client_options, call_options, flight_info,
+                    metadata_settings_.chunk_buffer_capacity),
       transformer_(transformer),
       metadata_(transformer
                     ? new FlightSqlResultSetMetadata(transformer->GetTransformedSchema(),
@@ -65,11 +64,11 @@ FlightSqlResultSet::FlightSqlResultSet(
   if (transformer_) {
     schema_ = transformer_->GetTransformedSchema();
   } else {
-    ThrowIfNotOK(flight_info->GetSchema(nullptr).Value(&schema_));
+    util::ThrowIfNotOK(flight_info->GetSchema(nullptr).Value(&schema_));
   }
 
   for (size_t i = 0; i < columns_.size(); ++i) {
-    columns_[i] = FlightSqlResultSetColumn(metadata_settings.use_wide_char_);
+    columns_[i] = FlightSqlResultSetColumn(metadata_settings.use_wide_char);
   }
 }
 
@@ -121,16 +120,16 @@ size_t FlightSqlResultSet::Move(size_t rows, size_t bind_offset, size_t bind_typ
 
     for (auto& column : columns_) {
       // There can be unbound columns.
-      if (!column.is_bound_) continue;
+      if (!column.is_bound) continue;
 
       auto* accessor = column.GetAccessorForBinding();
-      ColumnBinding shifted_binding = column.binding_;
+      ColumnBinding shifted_binding = column.binding;
       uint16_t* shifted_row_status_array =
           row_status_array ? &row_status_array[fetched_rows] : nullptr;
 
       if (shifted_row_status_array) {
         std::fill(shifted_row_status_array, &shifted_row_status_array[rows_to_fetch],
-                  odbcabstraction::RowStatus_SUCCESS);
+                  RowStatus_SUCCESS);
       }
 
       size_t accessor_rows = 0;
@@ -143,9 +142,10 @@ size_t FlightSqlResultSet::Move(size_t rows, size_t bind_offset, size_t bind_typ
                 accessor->GetCellLength(&shifted_binding) * fetched_rows + bind_offset;
           }
 
-          if (shifted_binding.strlen_buffer) {
-            shifted_binding.strlen_buffer = reinterpret_cast<ssize_t*>(
-                reinterpret_cast<uint8_t*>(&shifted_binding.strlen_buffer[fetched_rows]) +
+          if (shifted_binding.str_len_buffer) {
+            shifted_binding.str_len_buffer = reinterpret_cast<ssize_t*>(
+                reinterpret_cast<uint8_t*>(
+                    &shifted_binding.str_len_buffer[fetched_rows]) +
                 bind_offset);
           }
 
@@ -162,9 +162,9 @@ size_t FlightSqlResultSet::Move(size_t rows, size_t bind_offset, size_t bind_typ
                                      bind_offset + bind_type * fetched_rows;
           }
 
-          if (shifted_binding.strlen_buffer) {
-            shifted_binding.strlen_buffer = reinterpret_cast<ssize_t*>(
-                reinterpret_cast<uint8_t*>(shifted_binding.strlen_buffer) + bind_offset +
+          if (shifted_binding.str_len_buffer) {
+            shifted_binding.str_len_buffer = reinterpret_cast<ssize_t*>(
+                reinterpret_cast<uint8_t*>(shifted_binding.str_len_buffer) + bind_offset +
                 bind_type * fetched_rows);
           }
 
@@ -182,9 +182,9 @@ size_t FlightSqlResultSet::Move(size_t rows, size_t bind_offset, size_t bind_typ
                   static_cast<uint8_t*>(shifted_binding.buffer) + bind_type;
             }
 
-            if (shifted_binding.strlen_buffer) {
-              shifted_binding.strlen_buffer = reinterpret_cast<ssize_t*>(
-                  reinterpret_cast<uint8_t*>(shifted_binding.strlen_buffer) + bind_type);
+            if (shifted_binding.str_len_buffer) {
+              shifted_binding.str_len_buffer = reinterpret_cast<ssize_t*>(
+                  reinterpret_cast<uint8_t*>(shifted_binding.str_len_buffer) + bind_type);
             }
 
             if (shifted_row_status_array) {
@@ -195,7 +195,7 @@ size_t FlightSqlResultSet::Move(size_t rows, size_t bind_offset, size_t bind_typ
       } catch (...) {
         if (shifted_row_status_array) {
           std::fill(shifted_row_status_array, &shifted_row_status_array[rows_to_fetch],
-                    odbcabstraction::RowStatus_ERROR);
+                    RowStatus_ERROR);
         }
         throw;
       }
@@ -210,8 +210,7 @@ size_t FlightSqlResultSet::Move(size_t rows, size_t bind_offset, size_t bind_typ
   }
 
   if (rows > fetched_rows && row_status_array) {
-    std::fill(&row_status_array[fetched_rows], &row_status_array[rows],
-              odbcabstraction::RowStatus_NOROW);
+    std::fill(&row_status_array[fetched_rows], &row_status_array[rows], RowStatus_NOROW);
   }
   return fetched_rows;
 }
@@ -226,18 +225,18 @@ void FlightSqlResultSet::Cancel() {
   current_chunk_.data = nullptr;
 }
 
-bool FlightSqlResultSet::GetData(int column_n, int16_t target_type, int precision,
-                                 int scale, void* buffer, size_t buffer_length,
-                                 ssize_t* strlen_buffer) {
+SQLRETURN FlightSqlResultSet::GetData(int column_n, int16_t target_type, int precision,
+                                      int scale, void* buffer, size_t buffer_length,
+                                      ssize_t* str_len_buffer) {
   reset_get_data_ = true;
   // Check if the offset is already at the end.
   int64_t& value_offset = get_data_offsets_[column_n - 1];
   if (value_offset == -1) {
-    return false;
+    return SQL_NO_DATA;
   }
 
-  ColumnBinding binding(ConvertCDataTypeFromV2ToV3(target_type), precision, scale, buffer,
-                        buffer_length, strlen_buffer);
+  ColumnBinding binding(util::ConvertCDataTypeFromV2ToV3(target_type), precision, scale,
+                        buffer, buffer_length, str_len_buffer);
 
   auto& column = columns_[column_n - 1];
   Accessor* accessor = column.GetAccessorForGetData(binding.target_type);
@@ -249,32 +248,35 @@ bool FlightSqlResultSet::GetData(int column_n, int16_t target_type, int precisio
                             diagnostics_, nullptr);
 
   // If there was truncation, the converter would have reported it to the diagnostics.
-  return diagnostics_.HasWarning();
+  if (diagnostics_.HasWarning()) {
+    return SQL_SUCCESS_WITH_INFO;
+  } else {
+    return SQL_SUCCESS;
+  }
 }
 
 std::shared_ptr<ResultSetMetadata> FlightSqlResultSet::GetMetadata() { return metadata_; }
 
 void FlightSqlResultSet::BindColumn(int column_n, int16_t target_type, int precision,
                                     int scale, void* buffer, size_t buffer_length,
-                                    ssize_t* strlen_buffer) {
+                                    ssize_t* str_len_buffer) {
   auto& column = columns_[column_n - 1];
   if (buffer == nullptr) {
-    if (column.is_bound_) {
+    if (column.is_bound) {
       num_binding_--;
     }
     column.ResetBinding();
     return;
   }
 
-  if (!column.is_bound_) {
+  if (!column.is_bound) {
     num_binding_++;
   }
 
-  ColumnBinding binding(ConvertCDataTypeFromV2ToV3(target_type), precision, scale, buffer,
-                        buffer_length, strlen_buffer);
+  ColumnBinding binding(util::ConvertCDataTypeFromV2ToV3(target_type), precision, scale,
+                        buffer, buffer_length, str_len_buffer);
   column.SetBinding(binding, schema_->field(column_n - 1)->type()->id());
 }
 
 FlightSqlResultSet::~FlightSqlResultSet() = default;
-}  // namespace flight_sql
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc

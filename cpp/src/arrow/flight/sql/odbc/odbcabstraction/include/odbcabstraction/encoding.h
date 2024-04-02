@@ -29,8 +29,7 @@
 #  include <atomic>
 #endif
 
-namespace driver {
-namespace odbcabstraction {
+namespace arrow::flight::sql::odbc {
 
 #if defined(__APPLE__)
 extern std::atomic<size_t> SqlWCharSize;
@@ -48,11 +47,10 @@ inline size_t GetSqlWCharSize() {
 constexpr inline size_t GetSqlWCharSize() { return sizeof(char16_t); }
 #endif
 
-}  // namespace odbcabstraction
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc
 
-using driver::odbcabstraction::DriverException;
-using driver::odbcabstraction::GetSqlWCharSize;
+using arrow::flight::sql::odbc::DriverException;
+using arrow::flight::sql::odbc::GetSqlWCharSize;
 
 template <typename CHAR_TYPE>
 inline size_t wcsstrlen(const void* wcs_string) {
@@ -75,8 +73,7 @@ inline size_t wcsstrlen(const void* wcs_string) {
   }
 }
 
-namespace driver {
-namespace odbcabstraction {
+namespace arrow::flight::sql::odbc {
 
 // GH-46576: suppress unicode warnings
 ARROW_SUPPRESS_DEPRECATION_WARNING
@@ -147,5 +144,4 @@ inline void WcsToUtf8(const void* wcs_string, std::vector<uint8_t>* result) {
   return WcsToUtf8(wcs_string, wcsstrlen(wcs_string), result);
 }
 
-}  // namespace odbcabstraction
-}  // namespace driver
+}  // namespace arrow::flight::sql::odbc
