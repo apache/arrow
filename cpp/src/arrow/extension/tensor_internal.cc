@@ -49,19 +49,9 @@ Result<std::vector<int64_t>> ComputeStrides(const std::shared_ptr<DataType>& val
                                             const std::vector<int64_t>& permutation) {
   const auto& fw_type = checked_cast<const FixedWidthType&>(*value_type);
   std::vector<int64_t> strides;
-
-  if (permutation.empty()) {
-    ARROW_DCHECK_OK(internal::ComputeRowMajorStrides(fw_type, shape, &strides));
-    return strides;
-  }
-
-  auto permuted_shape = std::move(shape);
-  auto reverse_permutation = internal::ArgSort(permutation, std::greater<>());
-  Permute(permutation, &permuted_shape);
-  ARROW_DCHECK_OK(internal::ComputeRowMajorStrides(fw_type, permuted_shape, &strides));
-  Permute(reverse_permutation, &strides);
-  std::reverse(strides.begin(), strides.end());
-
+  ARROW_DCHECK_OK(internal::ComputeRowMajorStrides(fw_type, shape, &strides));
+  // If the permutation is empty, the strides are already in the correct order.
+  internal::Permute<int64_t>(permutation, &strides);
   return strides;
 }
 }  // namespace arrow::internal

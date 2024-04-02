@@ -541,16 +541,16 @@ TEST_F(TestFixedShapeTensorType, ComputeStrides) {
 
   auto ext_type_5 = internal::checked_pointer_cast<FixedShapeTensorType>(
       fixed_shape_tensor(int64(), {3, 4, 7}, {1, 0, 2}));
-  ASSERT_EQ(ext_type_5->strides(), (std::vector<int64_t>{56, 168, 8}));
+  ASSERT_EQ(ext_type_5->strides(), (std::vector<int64_t>{56, 224, 8}));
   ASSERT_EQ(ext_type_5->Serialize(), R"({"shape":[3,4,7],"permutation":[1,0,2]})");
 
   auto ext_type_6 = internal::checked_pointer_cast<FixedShapeTensorType>(
       fixed_shape_tensor(int64(), {3, 4, 7}, {1, 2, 0}, {}));
-  ASSERT_EQ(ext_type_6->strides(), (std::vector<int64_t>{8, 168, 24}));
+  ASSERT_EQ(ext_type_6->strides(), (std::vector<int64_t>{56, 8, 224}));
   ASSERT_EQ(ext_type_6->Serialize(), R"({"shape":[3,4,7],"permutation":[1,2,0]})");
   auto ext_type_7 = internal::checked_pointer_cast<FixedShapeTensorType>(
       fixed_shape_tensor(int32(), {3, 4, 7}, {2, 0, 1}, {}));
-  ASSERT_EQ(ext_type_7->strides(), (std::vector<int64_t>{16, 4, 48}));
+  ASSERT_EQ(ext_type_7->strides(), (std::vector<int64_t>{4, 112, 28}));
   ASSERT_EQ(ext_type_7->Serialize(), R"({"shape":[3,4,7],"permutation":[2,0,1]})");
 }
 
@@ -841,9 +841,9 @@ TEST_F(TestVariableShapeTensorType, ComputeStrides) {
   auto shapes = ArrayFromJSON(shape_type_, "[[2,3,1],[2,1,2],[3,1,3],null]");
   auto data = ArrayFromJSON(
       data_type_, "[[1,1,2,3,4,5],[2,7,8,9],[10,11,12,13,14,15,16,17,18],null]");
-  std::vector<std::shared_ptr<Field>> fields = {field("shapes", shape_type_),
-                                                field("data", data_type_)};
-  ASSERT_OK_AND_ASSIGN(auto storage_arr, StructArray::Make({shapes, data}, fields));
+  std::vector<std::shared_ptr<Field>> fields = {field("data", data_type_),
+                                                field("shapes", shape_type_)};
+  ASSERT_OK_AND_ASSIGN(auto storage_arr, StructArray::Make({data, shapes}, fields));
   auto ext_arr = ExtensionType::WrapArray(ext_type_, storage_arr);
   auto exact_ext_type =
       internal::checked_pointer_cast<VariableShapeTensorType>(ext_type_);

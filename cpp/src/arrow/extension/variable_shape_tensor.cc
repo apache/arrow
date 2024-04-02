@@ -143,11 +143,11 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Deserialize(
   }
   if (storage_type->field(0)->type()->id() != Type::LIST) {
     return Status::Invalid("Expected List storage type, got ",
-                           storage_type->field(1)->type()->ToString());
+                           storage_type->field(0)->type()->ToString());
   }
   if (storage_type->field(1)->type()->id() != Type::FIXED_SIZE_LIST) {
     return Status::Invalid("Expected FixedSizeList storage type, got ",
-                           storage_type->field(0)->type()->ToString());
+                           storage_type->field(1)->type()->ToString());
   }
   if (internal::checked_cast<const FixedSizeListType&>(*storage_type->field(1)->type())
           .value_type() != int32()) {
@@ -210,13 +210,13 @@ Result<std::shared_ptr<Tensor>> VariableShapeTensorType::MakeTensor(
   const auto ext_type =
       internal::checked_pointer_cast<VariableShapeTensorType>(scalar->type);
 
-  ARROW_ASSIGN_OR_RAISE(const auto data_scalar, tensor_scalar->field(1));
-  ARROW_ASSIGN_OR_RAISE(const auto shape_scalar, tensor_scalar->field(0));
+  ARROW_ASSIGN_OR_RAISE(const auto data_scalar, tensor_scalar->field(0));
+  ARROW_ASSIGN_OR_RAISE(const auto shape_scalar, tensor_scalar->field(1));
   ARROW_CHECK(tensor_scalar->is_valid);
-  const auto shape_array = internal::checked_pointer_cast<Int32Array>(
-      internal::checked_pointer_cast<FixedSizeListScalar>(shape_scalar)->value);
   const auto data_array =
       internal::checked_pointer_cast<BaseListScalar>(data_scalar)->value;
+  const auto shape_array = internal::checked_pointer_cast<Int32Array>(
+      internal::checked_pointer_cast<FixedSizeListScalar>(shape_scalar)->value);
 
   const auto value_type =
       internal::checked_pointer_cast<FixedWidthType>(ext_type->value_type());
@@ -241,7 +241,6 @@ Result<std::shared_ptr<Tensor>> VariableShapeTensorType::MakeTensor(
     }
     shape.push_back(std::move(size_value));
   }
-  internal::Permute<int64_t>(permutation, &shape);
 
   std::vector<std::string> dim_names = ext_type->dim_names();
   if (!dim_names.empty()) {
@@ -250,6 +249,7 @@ Result<std::shared_ptr<Tensor>> VariableShapeTensorType::MakeTensor(
 
   ARROW_ASSIGN_OR_RAISE(std::vector<int64_t> strides,
                         internal::ComputeStrides(value_type, shape, permutation));
+  internal::Permute<int64_t>(permutation, &shape);
 
   const auto byte_width = value_type->byte_width();
   const auto start_position = data_array->offset() * byte_width;
