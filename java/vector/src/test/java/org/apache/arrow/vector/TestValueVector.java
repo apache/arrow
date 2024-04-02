@@ -1856,8 +1856,8 @@ public class TestValueVector {
   }
 
   private void testReAllocVariableWidthVectorHelper(AbstractVariableWidthVector vector) {
-    final int capacityLimit = 3; // 4095
-    final int overLimitIndex = 3; // 200
+    final int capacityLimit = 4095;
+    final int overLimitIndex = 200;
     vector.setInitialCapacity(capacityLimit);
     vector.allocateNew();
 
