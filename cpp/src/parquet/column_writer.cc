@@ -1564,18 +1564,21 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     }
   }
 
-  void FallbackToPlainEncoding() {
+  void FallbackToSupportedEncoding() {
     if (IsDictionaryEncoding(current_encoder_->encoding())) {
       WriteDictionaryPage();
       // Serialize the buffered Dictionary Indices
       FlushBufferedDataPages();
       fallback_ = true;
-      // Only PLAIN encoding is supported for fallback in V1
-      current_encoder_ = MakeEncoder(DType::type_num, Encoding::PLAIN, false, descr_,
+
+      Encoding::type fallback_encoding = ChooseFallbackEncoding(
+          DType::type_num, properties_->version(), properties_->data_page_version());
+
+      current_encoder_ = MakeEncoder(DType::type_num, fallback_encoding, false, descr_,
                                      properties_->memory_pool());
       current_value_encoder_ = dynamic_cast<ValueEncoderType*>(current_encoder_.get());
       current_dict_encoder_ = nullptr;  // not using dict
-      encoding_ = Encoding::PLAIN;
+      encoding_ = fallback_encoding;
     }
   }
 
@@ -1594,7 +1597,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
 
     if (current_dict_encoder_->dict_encoded_size() >=
         properties_->dictionary_pagesize_limit()) {
-      FallbackToPlainEncoding();
+      FallbackToSupportedEncoding();
     }
   }
 
@@ -1744,14 +1747,14 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
     // will be out of sync with the indices in the Arrow array.
     // The easiest solution for this uncommon case is to fallback to plain encoding.
     if (dict_encoder->num_entries() != dictionary->length()) {
-      PARQUET_CATCH_NOT_OK(FallbackToPlainEncoding());
+      PARQUET_CATCH_NOT_OK(FallbackToSupportedEncoding());
       return WriteDense();
     }
 
     preserved_dictionary_ = dictionary;
   } else if (!dictionary->Equals(*preserved_dictionary_)) {
     // Dictionary has changed
-    PARQUET_CATCH_NOT_OK(FallbackToPlainEncoding());
+    PARQUET_CATCH_NOT_OK(FallbackToSupportedEncoding());
     return WriteDense();
   }
 
@@ -2374,11 +2377,8 @@ std::shared_ptr<ColumnWriter> ColumnWriter::Make(ColumnChunkMetaDataBuilder* met
                               descr->physical_type() != Type::BOOLEAN;
   Encoding::type encoding = properties->encoding(descr->path());
   if (encoding == Encoding::UNKNOWN) {
-    encoding = (descr->physical_type() == Type::BOOLEAN &&
-                properties->version() != ParquetVersion::PARQUET_1_0 &&
-                properties->data_page_version() == ParquetDataPageVersion::V2)
-                   ? Encoding::RLE
-                   : Encoding::PLAIN;
+    encoding = ChooseFallbackEncoding(descr->physical_type(), properties->version(),
+                                      properties->data_page_version());
   }
   if (use_dictionary) {
     encoding = properties->dictionary_index_encoding();
