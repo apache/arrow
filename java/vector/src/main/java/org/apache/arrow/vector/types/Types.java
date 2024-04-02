@@ -510,7 +510,6 @@ public class Types {
       }
     },
     VIEWVARCHAR(Utf8View.INSTANCE) {
-      // TODO: check this logic for Utf8View
       @Override
       public FieldVector getNewVector(
               Field field,
@@ -959,7 +958,6 @@ public class Types {
 
       @Override
       public MinorType visit(Utf8View type) {
-        // TODO: probably needs renming VARCHARVIEW
         return MinorType.VIEWVARCHAR;
       }
 
