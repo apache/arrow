@@ -23,7 +23,7 @@
 #include <unordered_set>
 
 #include "arrow/array/builder_binary.h"
-#include "arrow/compute/key_hash.h"
+#include "arrow/compute/key_hash_internal.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/cpu_info.h"

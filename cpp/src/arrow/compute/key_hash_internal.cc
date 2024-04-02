@@ -15,14 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/key_hash.h"
+#include "arrow/compute/key_hash_internal.h"
 
 #include <memory.h>
 
 #include <algorithm>
 #include <cstdint>
 
-#include "arrow/compute/light_array.h"
+#include "arrow/compute/light_array_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/ubsan.h"
 

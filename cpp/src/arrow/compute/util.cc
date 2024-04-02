@@ -32,7 +32,7 @@ using internal::CpuInfo;
 namespace util {
 
 void TempVectorStack::alloc(uint32_t num_bytes, uint8_t** data, int* id) {
-  int64_t new_top = top_ + PaddedAllocationSize(num_bytes) + 2 * sizeof(uint64_t);
+  int64_t new_top = top_ + EstimatedAllocationSize(num_bytes);
   // Stack overflow check (see GH-39582).
   // XXX cannot return a regular Status because most consumers do not either.
   ARROW_CHECK_LE(new_top, buffer_size_) << "TempVectorStack::alloc overflow";
@@ -48,7 +48,7 @@ void TempVectorStack::alloc(uint32_t num_bytes, uint8_t** data, int* id) {
 
 void TempVectorStack::release(int id, uint32_t num_bytes) {
   ARROW_DCHECK(num_vectors_ == id + 1);
-  int64_t size = PaddedAllocationSize(num_bytes) + 2 * sizeof(uint64_t);
+  int64_t size = EstimatedAllocationSize(num_bytes);
   ARROW_DCHECK(reinterpret_cast<const uint64_t*>(buffer_->mutable_data() + top_)[-1] ==
                kGuard2);
   ARROW_DCHECK(top_ >= size);

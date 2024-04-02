@@ -27,7 +27,7 @@
 #include "arrow/acero/options.h"
 #include "arrow/acero/schema_util.h"
 #include "arrow/acero/util.h"
-#include "arrow/compute/key_hash.h"
+#include "arrow/compute/key_hash_internal.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/thread_pool.h"

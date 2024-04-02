@@ -45,8 +45,8 @@
 #include "arrow/compute/function_internal.h"
 #endif
 #include "arrow/acero/time_series_util.h"
-#include "arrow/compute/key_hash.h"
-#include "arrow/compute/light_array.h"
+#include "arrow/compute/key_hash_internal.h"
+#include "arrow/compute/light_array_internal.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/status.h"

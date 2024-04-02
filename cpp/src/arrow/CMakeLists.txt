@@ -689,9 +689,9 @@ set(ARROW_COMPUTE_SRCS
     compute/function.cc
     compute/function_internal.cc
     compute/kernel.cc
-    compute/key_hash.cc
-    compute/key_map.cc
-    compute/light_array.cc
+    compute/key_hash_internal.cc
+    compute/key_map_internal.cc
+    compute/light_array_internal.cc
     compute/ordering.cc
     compute/registry.cc
     compute/kernels/codegen_internal.cc
@@ -717,8 +717,8 @@ set(ARROW_COMPUTE_SRCS
     compute/row/row_internal.cc
     compute/util.cc)
 
-append_runtime_avx2_src(ARROW_COMPUTE_SRCS compute/key_hash_avx2.cc)
-append_runtime_avx2_bmi2_src(ARROW_COMPUTE_SRCS compute/key_map_avx2.cc)
+append_runtime_avx2_src(ARROW_COMPUTE_SRCS compute/key_hash_internal_avx2.cc)
+append_runtime_avx2_bmi2_src(ARROW_COMPUTE_SRCS compute/key_map_internal_avx2.cc)
 append_runtime_avx2_src(ARROW_COMPUTE_SRCS compute/row/compare_internal_avx2.cc)
 append_runtime_avx2_src(ARROW_COMPUTE_SRCS compute/row/encode_internal_avx2.cc)
 append_runtime_avx2_bmi2_src(ARROW_COMPUTE_SRCS compute/util_avx2.cc)
