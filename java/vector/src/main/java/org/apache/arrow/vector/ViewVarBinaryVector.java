@@ -186,6 +186,7 @@ public final class ViewVarBinaryVector extends BaseVariableWidthViewVector {
    * @param holder data holder to be populated by this function
    */
   public void get(int index, NullableViewVarBinaryHolder holder) {
+    // TODO: https://github.com/apache/arrow/issues/40936
     throw new UnsupportedOperationException("Unsupported operation");
   }
 
@@ -203,6 +204,7 @@ public final class ViewVarBinaryVector extends BaseVariableWidthViewVector {
    * @param holder holder that carries data buffer.
    */
   public void set(int index, ViewVarBinaryHolder holder) {
+    // TODO: https://github.com/apache/arrow/issues/40936
     throw new UnsupportedOperationException("Unsupported operation");
   }
 
@@ -214,6 +216,7 @@ public final class ViewVarBinaryVector extends BaseVariableWidthViewVector {
    * @param holder holder that carries data buffer.
    */
   public void setSafe(int index, ViewVarBinaryHolder holder) {
+    // TODO: https://github.com/apache/arrow/issues/40936
     throw new UnsupportedOperationException("Unsupported operation");
   }
 
@@ -225,6 +228,7 @@ public final class ViewVarBinaryVector extends BaseVariableWidthViewVector {
    * @param holder holder that carries data buffer.
    */
   public void set(int index, NullableViewVarBinaryHolder holder) {
+    // TODO: https://github.com/apache/arrow/issues/40936
     throw new UnsupportedOperationException("Unsupported operation");
   }
 
@@ -236,6 +240,7 @@ public final class ViewVarBinaryVector extends BaseVariableWidthViewVector {
    * @param holder holder that carries data buffer.
    */
   public void setSafe(int index, NullableViewVarBinaryHolder holder) {
+    // TODO: https://github.com/apache/arrow/issues/40936
     throw new UnsupportedOperationException("Unsupported operation");
   }
 
@@ -254,11 +259,13 @@ public final class ViewVarBinaryVector extends BaseVariableWidthViewVector {
    */
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
+    // TODO: https://github.com/apache/arrow/issues/40932
     throw new UnsupportedOperationException("Unsupported operation");
   }
 
   @Override
   public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    // TODO: https://github.com/apache/arrow/issues/40932
     throw new UnsupportedOperationException("Unsupported operation");
   }
 
@@ -270,6 +277,7 @@ public final class ViewVarBinaryVector extends BaseVariableWidthViewVector {
    */
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
+    // TODO: https://github.com/apache/arrow/issues/40932
     throw new UnsupportedOperationException("Unsupported operation");
   }
 }
