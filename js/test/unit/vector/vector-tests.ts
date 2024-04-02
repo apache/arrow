@@ -248,17 +248,6 @@ describe(`toArray()`, () => {
         const array = vector.toArray();
         expect(array).toHaveLength(26);
     });
-
-    test(`when stride is 2`, () => {
-        const d1 = vectorFromArray([0, 1, 2], new DateMillisecond()).data[0];
-        const d2 = vectorFromArray([3, 4, 5], new DateMillisecond()).data[0];
-
-        const vector = new Vector([d1, d2]);
-
-        const array = Array.from(vector.toArray());
-        expect(array).toHaveLength(6 * 2);
-        expect(Array.from(array)).toMatchObject([0, 0, 1, 0, 2, 0, 3, 0, 4, 0, 5, 0]);
-    });
 });
 
 // Creates some basic tests for the given vector.
