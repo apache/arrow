@@ -61,6 +61,47 @@ public interface FieldVector extends ValueVector {
   List<ArrowBuf> getFieldBuffers();
 
   /**
+   * Export a given buffer and its memory address into a list of buffers and a pointer to the list of buffers.
+   *
+   * @param buffer the buffer to export
+   * @param buffers the list of buffers
+   * @param buffersPtr the pointer to the list of buffers
+   * @param nullValue the null value to use for null buffer
+   * @param retain whether to retain the buffer when exporting
+   */
+  default void exportBuffer(
+          ArrowBuf buffer,
+          List<ArrowBuf> buffers,
+          ArrowBuf buffersPtr,
+          long nullValue,
+          boolean retain) {
+    if (buffer != null) {
+      if (retain) {
+        buffer.getReferenceManager().retain();
+      }
+      buffersPtr.writeLong(buffer.memoryAddress());
+    } else {
+      buffersPtr.writeLong(nullValue);
+    }
+    buffers.add(buffer);
+  }
+
+  /**
+   * Export the buffers of the fields for C Data Interface. This method traverse the buffers and
+   * export buffer and buffer's memory address into a list of buffers and a pointer to the list of buffers.
+   *
+   * By default, when exporting a buffer, it will increase ref count for exported buffer that counts
+   * the usage at imported side.
+   */
+  default void exportCDataBuffers(List<ArrowBuf> buffers, ArrowBuf buffersPtr, long nullValue) {
+    List<ArrowBuf> fieldBuffers = getFieldBuffers();
+
+    for (ArrowBuf arrowBuf : fieldBuffers) {
+      exportBuffer(arrowBuf, buffers, buffersPtr, nullValue, true);
+    }
+  }
+
+  /**
    * Get the inner vectors.
    *
    * @deprecated This API will be removed as the current implementations no longer support inner vectors.

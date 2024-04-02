@@ -60,6 +60,9 @@ ARROW_EXPORT Status WriteBatch(const ChunkedArray& chunked_array, int64_t length
                                int* arrow_chunk_offset, int64_t* arrow_index_offset,
                                liborc::ColumnVectorBatch* column_vector_batch);
 
+/// \brief Get the major version provided by the official ORC C++ library.
+ARROW_EXPORT int GetOrcMajorVersion();
+
 }  // namespace orc
 }  // namespace adapters
 }  // namespace arrow
