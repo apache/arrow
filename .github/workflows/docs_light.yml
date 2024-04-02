@@ -33,6 +33,8 @@ permissions:
   contents: read
   
 env:
+  ARCHERY_DEBUG: 1
+  ARCHERY_USE_DOCKER_CLI: 1
   ARROW_ENABLE_TIMING_TESTS: OFF
   DOCKER_VOLUME_PREFIX: ".docker/"
 

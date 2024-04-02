@@ -94,8 +94,8 @@ jobs:
             echo "," >> "$GITHUB_OUTPUT"
             cat <<JSON >> "$GITHUB_OUTPUT"
           {
-            "archery-use-docker-cli": "0",
             "arch": "arm64v8",
+            "archery-use-docker-cli": "0",
             "clang-tools": "10",
             "image": "ubuntu-cpp",
             "llvm": "10",
