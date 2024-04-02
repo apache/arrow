@@ -444,12 +444,6 @@ int64_t MemoryPool::max_memory() const { return -1; }
 // MemoryPool implementation that delegates its core duty
 // to an Allocator class.
 
-#ifndef NDEBUG
-static constexpr uint8_t kAllocPoison = 0xBC;
-static constexpr uint8_t kReallocPoison = 0xBD;
-static constexpr uint8_t kDeallocPoison = 0xBE;
-#endif
-
 template <typename Allocator>
 class BaseMemoryPoolImpl : public MemoryPool {
  public:
@@ -463,14 +457,6 @@ class BaseMemoryPoolImpl : public MemoryPool {
       return Status::OutOfMemory("malloc size overflows size_t");
     }
     RETURN_NOT_OK(Allocator::AllocateAligned(size, alignment, out));
-#ifndef NDEBUG
-    // Poison data
-    if (size > 0) {
-      DCHECK_NE(*out, nullptr);
-      (*out)[0] = kAllocPoison;
-      (*out)[size - 1] = kAllocPoison;
-    }
-#endif
 
     stats_.DidAllocateBytes(size);
     return Status::OK();
@@ -485,28 +471,12 @@ class BaseMemoryPoolImpl : public MemoryPool {
       return Status::OutOfMemory("realloc overflows size_t");
     }
     RETURN_NOT_OK(Allocator::ReallocateAligned(old_size, new_size, alignment, ptr));
-#ifndef NDEBUG
-    // Poison data
-    if (new_size > old_size) {
-      DCHECK_NE(*ptr, nullptr);
-      (*ptr)[old_size] = kReallocPoison;
-      (*ptr)[new_size - 1] = kReallocPoison;
-    }
-#endif
 
     stats_.DidReallocateBytes(old_size, new_size);
     return Status::OK();
   }
 
   void Free(uint8_t* buffer, int64_t size, int64_t alignment) override {
-#ifndef NDEBUG
-    // Poison data
-    if (size > 0) {
-      DCHECK_NE(buffer, nullptr);
-      buffer[0] = kDeallocPoison;
-      buffer[size - 1] = kDeallocPoison;
-    }
-#endif
     Allocator::DeallocateAligned(buffer, size, alignment);
 
     stats_.DidFreeBytes(size);
