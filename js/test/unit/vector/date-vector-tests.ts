@@ -22,7 +22,7 @@ describe(`TimestampVector`, () => {
         const date = new Date('2023-02-01T12:34:56Z');
         const vec = vectorFromArray([date]);
         expect(vec.type).toBeInstanceOf(TimestampMillisecond);
-        expect(vec.get(0)).toBe(date.valueOf());
+        expect(vec.get(0)).toBe(date.getTime());
     });
 });
 

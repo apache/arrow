@@ -415,7 +415,7 @@ function generateTimestamp<T extends Timestamp>(this: TestDataVectorGenerator, t
         type.unit === TimeUnit.MICROSECOND ? 1000000 :
             type.unit === TimeUnit.MILLISECOND ? 1000 : 1;
     const data = createTimestamp(length, nullBitmap, multiple, values);
-    return { values: () => values, vector: new Vector([makeData({ type, length, nullCount, nullBitmap, data })]) };
+    return { values: () => values.map(v => v !== null ? BigInt(v) : v), vector: new Vector([makeData({ type, length, nullCount, nullBitmap, data })]) };
 }
 
 function generateTime<T extends Time>(this: TestDataVectorGenerator, type: T, length = 100, nullCount = Math.trunc(length * 0.2)): GeneratedVector<T> {
@@ -767,15 +767,11 @@ function createDate64(length: number, nullBitmap: Uint8Array, values: (number | 
 
 function createTimestamp(length: number, nullBitmap: Uint8Array, multiple: number, values: (number | null)[] = []) {
     const mult = 86400 * multiple;
-    const data = new Int32Array(length * 2).fill(0);
+    const data = new BigInt64Array(length);
     const data32 = createDate32(length, nullBitmap, values);
     iterateBitmap(length, nullBitmap, (i, valid) => {
         if (valid) {
-            const value = data32[i] * mult;
-            const hi = Math.trunc(value / 4294967296);
-            const lo = Math.trunc(value - 4294967296 * hi);
-            data[i * 2 + 0] = lo;
-            data[i * 2 + 1] = hi;
+            data[i] = BigInt(data32[i] * mult);
         }
     });
     return data;

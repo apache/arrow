@@ -114,16 +114,6 @@ export const setEpochMsToMillisecondsLong = (data: Int32Array, index: number, ep
     data[index] = Math.floor(epochMs % 4294967296);
     data[index + 1] = Math.floor(epochMs / 4294967296);
 };
-/** @ignore */
-export const setEpochMsToMicrosecondsLong = (data: Int32Array, index: number, epochMs: number) => {
-    data[index] = Math.floor((epochMs * 1000) % 4294967296);
-    data[index + 1] = Math.floor((epochMs * 1000) / 4294967296);
-};
-/** @ignore */
-export const setEpochMsToNanosecondsLong = (data: Int32Array, index: number, epochMs: number) => {
-    data[index] = Math.floor((epochMs * 1000000) % 4294967296);
-    data[index + 1] = Math.floor((epochMs * 1000000) / 4294967296);
-};
 
 /** @ignore */
 export const setVariableWidthBytes = <T extends Int32Array | BigInt64Array>(values: Uint8Array, valueOffsets: T, index: number, value: Uint8Array) => {
@@ -178,16 +168,16 @@ export const setDate = <T extends Date_>(data: Data<T>, index: number, value: T[
 };
 
 /** @ignore */
-export const setTimestampSecond = <T extends TimestampSecond>({ values }: Data<T>, index: number, value: T['TValue']): void => setEpochMsToMillisecondsLong(values, index * 2, value / 1000);
+export const setTimestampSecond = <T extends TimestampSecond>({ values }: Data<T>, index: number, value: T['TValue'] | number): void => { values[index] = BigInt(value) / 1000n; };
 /** @ignore */
-export const setTimestampMillisecond = <T extends TimestampMillisecond>({ values }: Data<T>, index: number, value: T['TValue']): void => setEpochMsToMillisecondsLong(values, index * 2, value);
+export const setTimestampMillisecond = <T extends TimestampMillisecond>({ values }: Data<T>, index: number, value: T['TValue'] | number): void => { values[index] = BigInt(value); };
 /** @ignore */
-export const setTimestampMicrosecond = <T extends TimestampMicrosecond>({ values }: Data<T>, index: number, value: T['TValue']): void => setEpochMsToMicrosecondsLong(values, index * 2, value);
+export const setTimestampMicrosecond = <T extends TimestampMicrosecond>({ values }: Data<T>, index: number, value: T['TValue'] | number): void => { values[index] = BigInt(value) * 1000n; };
 /** @ignore */
-export const setTimestampNanosecond = <T extends TimestampNanosecond>({ values }: Data<T>, index: number, value: T['TValue']): void => setEpochMsToNanosecondsLong(values, index * 2, value);
+export const setTimestampNanosecond = <T extends TimestampNanosecond>({ values }: Data<T>, index: number, value: T['TValue'] | number): void => { values[index] = BigInt(value) * 1000000n; };
 /* istanbul ignore next */
 /** @ignore */
-export const setTimestamp = <T extends Timestamp>(data: Data<T>, index: number, value: T['TValue']): void => {
+export const setTimestamp = <T extends Timestamp>(data: Data<T>, index: number, value: T['TValue'] | number): void => {
     switch (data.type.unit) {
         case TimeUnit.SECOND: return setTimestampSecond(data as Data<TimestampSecond>, index, value);
         case TimeUnit.MILLISECOND: return setTimestampMillisecond(data as Data<TimestampMillisecond>, index, value);
