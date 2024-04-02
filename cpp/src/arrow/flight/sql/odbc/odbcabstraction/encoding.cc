@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/encoding.h>
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/encoding.h"
 
 #if defined(__APPLE__)
 #  include <dlfcn.h>

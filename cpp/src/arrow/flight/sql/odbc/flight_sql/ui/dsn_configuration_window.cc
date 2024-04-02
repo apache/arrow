@@ -20,11 +20,11 @@
 
 #include <Shlwapi.h>
 #include <Windowsx.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/utils.h>
 #include <commctrl.h>
 #include <commdlg.h>
 #include <sql.h>
 #include <sstream>
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/utils.h"
 
 #include "arrow/flight/sql/odbc/flight_sql/include/flight_sql/ui/add_property_window.h"
 

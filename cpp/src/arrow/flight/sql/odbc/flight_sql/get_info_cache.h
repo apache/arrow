@@ -17,12 +17,12 @@
 
 #pragma once
 
-#include <arrow/flight/sql/client.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/connection.h>
 #include <atomic>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
+#include "arrow/flight/sql/client.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/spi/connection.h"
 
 namespace driver {
 namespace flight_sql {

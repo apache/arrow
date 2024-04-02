@@ -38,17 +38,15 @@ std::string ReadDsnString(const std::string& dsn, const std::string_view& key,
                           const std::string& dflt = "") {
 #define BUFFER_SIZE (1024)
   std::vector<char> buf(BUFFER_SIZE);
-
-  std::string key_str = std::string(key);
   int ret =
-      SQLGetPrivateProfileString(dsn.c_str(), key_str.c_str(), dflt.c_str(), buf.data(),
+      SQLGetPrivateProfileString(dsn.c_str(), key.data(), dflt.c_str(), buf.data(),
                                  static_cast<int>(buf.size()), "ODBC.INI");
 
   if (ret > BUFFER_SIZE) {
     // If there wasn't enough space, try again with the right size buffer.
     buf.resize(ret + 1);
     ret =
-        SQLGetPrivateProfileString(dsn.c_str(), key_str.c_str(), dflt.c_str(), buf.data(),
+        SQLGetPrivateProfileString(dsn.c_str(), key.data(), dflt.c_str(), buf.data(),
                                    static_cast<int>(buf.size()), "ODBC.INI");
   }
 

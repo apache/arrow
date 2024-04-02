@@ -16,9 +16,9 @@
 // under the License.
 
 #pragma once
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/encoding.h"
+#include "arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h"
 
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/encoding.h>
-#include <arrow/flight/sql/odbc/odbcabstraction/include/odbcabstraction/platform.h>
 #include <sql.h>
 #include <sqlext.h>
 #include <algorithm>

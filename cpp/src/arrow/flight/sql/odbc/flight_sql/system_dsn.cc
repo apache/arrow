@@ -125,8 +125,7 @@ bool RegisterDsn(const Configuration& config, LPCSTR driver) {
       continue;
     }
 
-    std::string key_str = std::string(key);
-    if (!SQLWritePrivateProfileString(dsn.c_str(), key_str.c_str(), it->second.c_str(),
+    if (!SQLWritePrivateProfileString(dsn.c_str(), key.data(), it->second.c_str(),
                                       "ODBC.INI")) {
       PostLastInstallerError();
       return false;
