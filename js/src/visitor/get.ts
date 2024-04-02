@@ -21,7 +21,7 @@ import { Vector } from '../vector.js';
 import { Visitor } from '../visitor.js';
 import { MapRow } from '../row/map.js';
 import { StructRow, StructRowProxy } from '../row/struct.js';
-import { bigIntToNumber } from '../util/bigint.js';
+import { bigIntToNumber, divideBigInts } from '../util/bigint.js';
 import { decodeUtf8 } from '../util/utf8.js';
 import { TypeToDataType } from '../interfaces.js';
 import { uint16ToFloat64 } from '../util/math.js';
@@ -177,13 +177,13 @@ const getDate = <T extends Date_>(data: Data<T>, index: number): T['TValue'] => 
 );
 
 /** @ignore */
-const getTimestampSecond = <T extends TimestampSecond>({ values }: Data<T>, index: number): T['TValue'] => 1000n * values[index];
+const getTimestampSecond = <T extends TimestampSecond>({ values }: Data<T>, index: number): T['TValue'] => 1000 * bigIntToNumber(values[index]);
 /** @ignore */
-const getTimestampMillisecond = <T extends TimestampMillisecond>({ values }: Data<T>, index: number): T['TValue'] => values[index];
+const getTimestampMillisecond = <T extends TimestampMillisecond>({ values }: Data<T>, index: number): T['TValue'] => bigIntToNumber(values[index]);
 /** @ignore */
-const getTimestampMicrosecond = <T extends TimestampMicrosecond>({ values }: Data<T>, index: number): T['TValue'] => values[index] / 1000n;
+const getTimestampMicrosecond = <T extends TimestampMicrosecond>({ values }: Data<T>, index: number): T['TValue'] => divideBigInts(values[index], 1000n);
 /** @ignore */
-const getTimestampNanosecond = <T extends TimestampNanosecond>({ values }: Data<T>, index: number): T['TValue'] => values[index] / 1000000n;
+const getTimestampNanosecond = <T extends TimestampNanosecond>({ values }: Data<T>, index: number): T['TValue'] => divideBigInts(values[index], 1000000n);
 /* istanbul ignore next */
 /** @ignore */
 const getTimestamp = <T extends Timestamp>(data: Data<T>, index: number): T['TValue'] => {

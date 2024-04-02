@@ -168,16 +168,16 @@ export const setDate = <T extends Date_>(data: Data<T>, index: number, value: T[
 };
 
 /** @ignore */
-export const setTimestampSecond = <T extends TimestampSecond>({ values }: Data<T>, index: number, value: T['TValue'] | number): void => { values[index] = BigInt(value) / 1000n; };
+export const setTimestampSecond = <T extends TimestampSecond>({ values }: Data<T>, index: number, value: T['TValue']): void => { values[index] = BigInt(value / 1000); };
 /** @ignore */
-export const setTimestampMillisecond = <T extends TimestampMillisecond>({ values }: Data<T>, index: number, value: T['TValue'] | number): void => { values[index] = BigInt(value); };
+export const setTimestampMillisecond = <T extends TimestampMillisecond>({ values }: Data<T>, index: number, value: T['TValue']): void => { values[index] = BigInt(value); };
 /** @ignore */
-export const setTimestampMicrosecond = <T extends TimestampMicrosecond>({ values }: Data<T>, index: number, value: T['TValue'] | number): void => { values[index] = BigInt(value) * 1000n; };
+export const setTimestampMicrosecond = <T extends TimestampMicrosecond>({ values }: Data<T>, index: number, value: T['TValue']): void => { values[index] = BigInt(value * 1000); };
 /** @ignore */
-export const setTimestampNanosecond = <T extends TimestampNanosecond>({ values }: Data<T>, index: number, value: T['TValue'] | number): void => { values[index] = BigInt(value) * 1000000n; };
+export const setTimestampNanosecond = <T extends TimestampNanosecond>({ values }: Data<T>, index: number, value: T['TValue']): void => { values[index] = BigInt(value * 1000000); };
 /* istanbul ignore next */
 /** @ignore */
-export const setTimestamp = <T extends Timestamp>(data: Data<T>, index: number, value: T['TValue'] | number): void => {
+export const setTimestamp = <T extends Timestamp>(data: Data<T>, index: number, value: T['TValue']): void => {
     switch (data.type.unit) {
         case TimeUnit.SECOND: return setTimestampSecond(data as Data<TimestampSecond>, index, value);
         case TimeUnit.MILLISECOND: return setTimestampMillisecond(data as Data<TimestampMillisecond>, index, value);

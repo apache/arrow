@@ -418,7 +418,7 @@ type Timestamps = Type.Timestamp | Type.TimestampSecond | Type.TimestampMillisec
 /** @ignore */
 interface Timestamp_<T extends Timestamps = Timestamps> extends DataType<T> {
     TArray: BigInt64Array;
-    TValue: bigint;
+    TValue: number;
     ArrayType: BigIntArrayConstructor<BigInt64Array>;
 }
 
