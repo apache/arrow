@@ -15,7 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { DateDay, DateMillisecond, TimestampMillisecond, RecordBatchReader, Table, vectorFromArray } from 'apache-arrow';
+import {
+    DateDay, DateMillisecond, TimestampMillisecond, TimestampMicrosecond, TimestampNanosecond, RecordBatchReader,
+    Table, vectorFromArray
+} from 'apache-arrow';
 
 describe(`TimestampVector`, () => {
     test(`Dates are stored in TimestampMillisecond`, () => {
@@ -23,6 +26,22 @@ describe(`TimestampVector`, () => {
         const vec = vectorFromArray([date]);
         expect(vec.type).toBeInstanceOf(TimestampMillisecond);
         expect(vec.get(0)).toBe(date.getTime());
+    });
+
+    test(`Correctly get back TimestampMicrosecond from Date`, () => {
+        const date = new Date('2023-02-01T12:34:56Z');
+        const vec = vectorFromArray([date, 0.5], new TimestampMicrosecond);
+        expect(vec.type).toBeInstanceOf(TimestampMicrosecond);
+        expect(vec.get(0)).toBe(date.getTime());
+        expect(vec.get(1)).toBe(0.5);
+    });
+
+    test(`Correctly get back TimestampNanosecond from Date`, () => {
+        const date = new Date('2023-02-01T12:34:56Z');
+        const vec = vectorFromArray([date, 0.5], new TimestampNanosecond);
+        expect(vec.type).toBeInstanceOf(TimestampNanosecond);
+        expect(vec.get(0)).toBe(date.getTime());
+        expect(vec.get(1)).toBe(0.5);
     });
 });
 
