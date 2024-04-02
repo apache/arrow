@@ -109,6 +109,12 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
    * the top class as of now is not a good idea.
    */
 
+  /* TODO:
+   * Implement TransferPair functionality
+   * https://github.com/apache/arrow/issues/40932
+   *
+   */
+
   /**
    * Get buffer that manages the validity (NULL or NON-NULL nature) of
    * elements in the vector. Consider it as a buffer for internal bit vector
@@ -346,19 +352,8 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
    */
   @Override
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
-    ArrowBuf bitBuffer = ownBuffers.get(0);
-    ArrowBuf offBuffer = ownBuffers.get(1);
-    ArrowBuf dataBuffer = ownBuffers.get(2);
-
-    validityBuffer.getReferenceManager().release();
-    validityBuffer = BitVectorHelper.loadValidityBuffer(fieldNode, bitBuffer, allocator);
-    offsetBuffer.getReferenceManager().release();
-    offsetBuffer = offBuffer.getReferenceManager().retain(offBuffer, allocator);
-    valueBuffer.getReferenceManager().release();
-    valueBuffer = dataBuffer.getReferenceManager().retain(dataBuffer, allocator);
-
-    lastSet = fieldNode.getLength() - 1;
-    valueCount = fieldNode.getLength();
+    // TODO: https://github.com/apache/arrow/issues/40931
+    throw new UnsupportedOperationException("loadFieldBuffers is not supported for BaseVariableWidthViewVector");
   }
 
   /**
@@ -378,6 +373,8 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
     result.add(validityBuffer);
     result.add(offsetBuffer);
     result.add(valueBuffer);
+    // append data buffers
+    result.addAll(dataBuffers);
 
     return result;
   }
@@ -713,7 +710,8 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
    * Note: This method only returns validityBuffer, offsetBuffer and valueBuffer.
    * But it doesn't return the reference buffers.
    * <p>
-   * TODO: Introduce a separate method to get the reference buffers.
+   * TODO: Implement a strategy to retrieve the reference buffers.
+   * <a href="https://github.com/apache/arrow/issues/40930">Reference buffer retrieval.</a>
    *
    * @param clear Whether to clear vector before returning, the buffers will still be refcounted
    *              but the returned array will be the only reference to them
@@ -1420,6 +1418,8 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   /**
    * Copy a cell value from a particular index in source vector to a particular position in this
    * vector.
+   * TODO: Improve functionality to support copying views.
+   * <a href="https://github.com/apache/arrow/issues/40933">Enhance CopyFrom</a>
    *
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
@@ -1449,7 +1449,8 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   /**
    * Same as {@link #copyFrom(int, int, ValueVector)} except that it handles the case when the
    * capacity of the vector needs to be expanded before copy.
-   *
+   * TODO: Improve functionality to support copying views.
+   * <a href="https://github.com/apache/arrow/issues/40933">Enhance CopyFrom</a>
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from source vector

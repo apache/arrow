@@ -176,6 +176,7 @@ public class TypeLayout {
 
       @Override
       public TypeLayout visit(ArrowType.BinaryView type) {
+        // TODO: https://github.com/apache/arrow/issues/40934
         throw new UnsupportedOperationException("BinaryView not supported");
       }
 
@@ -186,6 +187,7 @@ public class TypeLayout {
 
       @Override
       public TypeLayout visit(Utf8View type) {
+        // TODO: https://github.com/apache/arrow/issues/40934
         throw new UnsupportedOperationException("Utf8View not supported");
       }
 
@@ -360,7 +362,7 @@ public class TypeLayout {
 
       @Override
       public Integer visit(ArrowType.BinaryView type) {
-        // TODO: fix this to match views
+        // TODO: https://github.com/apache/arrow/issues/40935
         return VARIABLE_WIDTH_BUFFER_COUNT;
       }
 
@@ -371,7 +373,7 @@ public class TypeLayout {
 
       @Override
       public Integer visit(Utf8View type) {
-        // TODO: fix this to match views
+        // TODO: https://github.com/apache/arrow/issues/40935
         return VARIABLE_WIDTH_BUFFER_COUNT;
       }
 
