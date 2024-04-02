@@ -101,7 +101,8 @@ function vectorIterator<T extends DataType>(vector: Vector<T>): IterableIterator
 
     // Fast case, defer to native iterators if possible
     if (vector.nullCount === 0 && vector.stride === 1 && (
-        (DataType.isTimestamp(type)) && type.unit === TimeUnit.MILLISECOND ||
+        // Don't defer to native iterator for timestamps since Numbers are expected
+        // (DataType.isTimestamp(type)) && type.unit === TimeUnit.MILLISECOND ||
         (DataType.isInt(type) && type.bitWidth !== 64) ||
         (DataType.isTime(type) && type.bitWidth !== 64) ||
         (DataType.isFloat(type) && type.precision !== Precision.HALF)
