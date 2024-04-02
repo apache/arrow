@@ -38,18 +38,16 @@ G_BEGIN_DECLS
  * Since: 8.0.0
  */
 
-typedef struct GArrowDayMillisecondPrivate_ {
+typedef struct GArrowDayMillisecondPrivate_
+{
   arrow::DayTimeIntervalType::DayMilliseconds day_millisecond;
 } GArrowDayMillisecondPrivate;
 
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowDayMillisecond,
-                           garrow_day_millisecond,
-                           G_TYPE_OBJECT)
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowDayMillisecond, garrow_day_millisecond, G_TYPE_OBJECT)
 
-#define GARROW_DAY_MILLISECOND_GET_PRIVATE(object)  \
-  static_cast<GArrowDayMillisecondPrivate *>(       \
-    garrow_day_millisecond_get_instance_private(    \
-      GARROW_DAY_MILLISECOND(object)))
+#define GARROW_DAY_MILLISECOND_GET_PRIVATE(object)                                       \
+  static_cast<GArrowDayMillisecondPrivate *>(                                            \
+    garrow_day_millisecond_get_instance_private(GARROW_DAY_MILLISECOND(object)))
 
 enum {
   PROP_DAY_MILLISECOND_DAY = 1,
@@ -129,9 +127,7 @@ garrow_day_millisecond_class_init(GArrowDayMillisecondClass *klass)
                           G_MAXINT32,
                           day_millisecond.days,
                           static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class,
-                                  PROP_DAY_MILLISECOND_DAY,
-                                  spec);
+  g_object_class_install_property(gobject_class, PROP_DAY_MILLISECOND_DAY, spec);
 
   /**
    * GArrowDayMillisecond:millisecond:
@@ -147,9 +143,7 @@ garrow_day_millisecond_class_init(GArrowDayMillisecondClass *klass)
                           G_MAXINT32,
                           day_millisecond.milliseconds,
                           static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class,
-                                  PROP_DAY_MILLISECOND_MILLISECOND,
-                                  spec);
+  g_object_class_install_property(gobject_class, PROP_DAY_MILLISECOND_MILLISECOND, spec);
 }
 
 /**
@@ -165,8 +159,7 @@ garrow_day_millisecond_class_init(GArrowDayMillisecondClass *klass)
 GArrowDayMillisecond *
 garrow_day_millisecond_new(gint32 day, gint32 millisecond)
 {
-  arrow::DayTimeIntervalType::DayMilliseconds
-    arrow_day_millisecond(day, millisecond);
+  arrow::DayTimeIntervalType::DayMilliseconds arrow_day_millisecond(day, millisecond);
   return garrow_day_millisecond_new_raw(&arrow_day_millisecond);
 }
 
@@ -208,19 +201,16 @@ garrow_day_millisecond_less_than(GArrowDayMillisecond *day_millisecond,
   return priv->day_millisecond < other_priv->day_millisecond;
 }
 
-
-typedef struct GArrowMonthDayNanoPrivate_ {
+typedef struct GArrowMonthDayNanoPrivate_
+{
   arrow::MonthDayNanoIntervalType::MonthDayNanos month_day_nano;
 } GArrowMonthDayNanoPrivate;
 
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowMonthDayNano,
-                           garrow_month_day_nano,
-                           G_TYPE_OBJECT)
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowMonthDayNano, garrow_month_day_nano, G_TYPE_OBJECT)
 
-#define GARROW_MONTH_DAY_NANO_GET_PRIVATE(object)  \
-  static_cast<GArrowMonthDayNanoPrivate *>(        \
-    garrow_month_day_nano_get_instance_private(    \
-      GARROW_MONTH_DAY_NANO(object)))
+#define GARROW_MONTH_DAY_NANO_GET_PRIVATE(object)                                        \
+  static_cast<GArrowMonthDayNanoPrivate *>(                                              \
+    garrow_month_day_nano_get_instance_private(GARROW_MONTH_DAY_NANO(object)))
 
 enum {
   PROP_MONTH_DAY_NANO_MONTH = 1,
@@ -308,9 +298,7 @@ garrow_month_day_nano_class_init(GArrowMonthDayNanoClass *klass)
                           G_MAXINT32,
                           month_day_nano.months,
                           static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class,
-                                  PROP_MONTH_DAY_NANO_MONTH,
-                                  spec);
+  g_object_class_install_property(gobject_class, PROP_MONTH_DAY_NANO_MONTH, spec);
 
   /**
    * GArrowMonthDayNano:day:
@@ -326,9 +314,7 @@ garrow_month_day_nano_class_init(GArrowMonthDayNanoClass *klass)
                           G_MAXINT32,
                           month_day_nano.days,
                           static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class,
-                                  PROP_MONTH_DAY_NANO_DAY,
-                                  spec);
+  g_object_class_install_property(gobject_class, PROP_MONTH_DAY_NANO_DAY, spec);
 
   /**
    * GArrowMonthDayNano:nanosecond:
@@ -344,9 +330,7 @@ garrow_month_day_nano_class_init(GArrowMonthDayNanoClass *klass)
                             G_MAXINT64,
                             month_day_nano.nanoseconds,
                             static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class,
-                                  PROP_MONTH_DAY_NANO_NANOSECOND,
-                                  spec);
+  g_object_class_install_property(gobject_class, PROP_MONTH_DAY_NANO_NANOSECOND, spec);
 }
 
 /**
@@ -389,18 +373,18 @@ garrow_month_day_nano_equal(GArrowMonthDayNano *month_nano_day,
   return priv->month_day_nano == other_priv->month_day_nano;
 }
 
-
 G_END_DECLS
 
 GArrowDayMillisecond *
 garrow_day_millisecond_new_raw(
   arrow::DayTimeIntervalType::DayMilliseconds *arrow_day_millisecond)
 {
-  auto day_millisecond =
-    g_object_new(garrow_day_millisecond_get_type(),
-                 "day", arrow_day_millisecond->days,
-                 "millisecond", arrow_day_millisecond->milliseconds,
-                 NULL);
+  auto day_millisecond = g_object_new(garrow_day_millisecond_get_type(),
+                                      "day",
+                                      arrow_day_millisecond->days,
+                                      "millisecond",
+                                      arrow_day_millisecond->milliseconds,
+                                      NULL);
   return GARROW_DAY_MILLISECOND(day_millisecond);
 }
 
@@ -419,17 +403,18 @@ garrow_day_millisecond_get_raw(const GArrowDayMillisecond *day_millisecond)
   return &priv->day_millisecond;
 }
 
-
 GArrowMonthDayNano *
 garrow_month_day_nano_new_raw(
   arrow::MonthDayNanoIntervalType::MonthDayNanos *arrow_month_day_nano)
 {
-  auto month_day_nano =
-    g_object_new(garrow_month_day_nano_get_type(),
-                 "month", arrow_month_day_nano->months,
-                 "day", arrow_month_day_nano->days,
-                 "nanosecond", arrow_month_day_nano->nanoseconds,
-                 NULL);
+  auto month_day_nano = g_object_new(garrow_month_day_nano_get_type(),
+                                     "month",
+                                     arrow_month_day_nano->months,
+                                     "day",
+                                     arrow_month_day_nano->days,
+                                     "nanosecond",
+                                     arrow_month_day_nano->nanoseconds,
+                                     NULL);
   return GARROW_MONTH_DAY_NANO(month_day_nano);
 }
 
@@ -441,10 +426,9 @@ garrow_month_day_nano_get_raw(GArrowMonthDayNano *month_day_nano)
 }
 
 const arrow::MonthDayNanoIntervalType::MonthDayNanos *
-garrow_month_day_nano_get_raw(
-  const GArrowMonthDayNano *month_day_nano)
+garrow_month_day_nano_get_raw(const GArrowMonthDayNano *month_day_nano)
 {
-  auto priv = GARROW_MONTH_DAY_NANO_GET_PRIVATE(
-    const_cast<GArrowMonthDayNano *>(month_day_nano));
+  auto priv =
+    GARROW_MONTH_DAY_NANO_GET_PRIVATE(const_cast<GArrowMonthDayNano *>(month_day_nano));
   return &priv->month_day_nano;
 }

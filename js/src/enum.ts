@@ -15,119 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-////
-//
-// A few enums copied from `fb/Schema.ts` and `fb/Message.ts` because Webpack
-// v4 doesn't seem to be able to tree-shake the rest of those exports.
-//
-// We will have to keep these enums in sync when we re-generate the flatbuffers
-// code from the schemas. See js/DEVELOP.md for info on how to run flatbuffers
-// code generation.
-//
-////
-
-/**
- * Logical types, vector layouts, and schemas
- *
- * @enum {number}
- */
-export enum MetadataVersion {
-    /**
-     * 0.1.0 (October 2016).
-     */
-    V1 = 0,
-
-    /**
-     * 0.2.0 (February 2017). Non-backwards compatible with V1.
-     */
-    V2 = 1,
-
-    /**
-     * 0.3.0 -> 0.7.1 (May - December 2017). Non-backwards compatible with V2.
-     */
-    V3 = 2,
-
-    /**
-     * >= 0.8.0 (December 2017). Non-backwards compatible with V3.
-     */
-    V4 = 3,
-
-    /**
-     * >= 1.0.0 (July 2020. Backwards compatible with V4 (V5 readers can read V4
-     * metadata and IPC messages). Implementations are recommended to provide a
-     * V4 compatibility mode with V5 format changes disabled.
-     *
-     * Incompatible changes between V4 and V5:
-     * - Union buffer layout has changed. In V5, Unions don't have a validity
-     *   bitmap buffer.
-     */
-    V5 = 4
-}
-
-/**
- * @enum {number}
- */
-export enum UnionMode {
-    Sparse = 0,
-    Dense = 1
-}
-
-/**
- * @enum {number}
- */
-export enum Precision {
-    HALF = 0,
-    SINGLE = 1,
-    DOUBLE = 2
-}
-
-/**
- * @enum {number}
- */
-export enum DateUnit {
-    DAY = 0,
-    MILLISECOND = 1
-}
-
-/**
- * @enum {number}
- */
-export enum TimeUnit {
-    SECOND = 0,
-    MILLISECOND = 1,
-    MICROSECOND = 2,
-    NANOSECOND = 3
-}
-
-/**
- * @enum {number}
- */
-export enum IntervalUnit {
-    YEAR_MONTH = 0,
-    DAY_TIME = 1,
-    MONTH_DAY_NANO = 2
-}
-
-/**
- * ----------------------------------------------------------------------
- * The root Message type
- * This union enables us to easily send different message types without
- * redundant storage, and in the future we can easily add new message types.
- *
- * Arrow implementations do not need to implement all of the message types,
- * which may include experimental metadata types. For maximum compatibility,
- * it is best to send data using RecordBatch
- *
- * @enum {number}
- */
-export enum MessageHeader {
-    NONE = 0,
-    Schema = 1,
-    DictionaryBatch = 2,
-    RecordBatch = 3,
-    Tensor = 4,
-    SparseTensor = 5
-}
+export { MetadataVersion } from './fb/metadata-version.js';
+export { UnionMode } from './fb/union-mode.js';
+export { Precision } from './fb/precision.js';
+export { DateUnit } from './fb/date-unit.js';
+export { TimeUnit } from './fb/time-unit.js';
+export { IntervalUnit } from './fb/interval-unit.js';
+export { MessageHeader } from './fb/message-header.js';
 
 /**
  * Main data type enumeration.

@@ -31,15 +31,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/array"
-	"github.com/apache/arrow/go/v15/arrow/flight"
-	"github.com/apache/arrow/go/v15/arrow/flight/flightsql"
-	"github.com/apache/arrow/go/v15/arrow/flight/flightsql/schema_ref"
-	"github.com/apache/arrow/go/v15/arrow/internal/arrjson"
-	"github.com/apache/arrow/go/v15/arrow/ipc"
-	"github.com/apache/arrow/go/v15/arrow/memory"
-	"github.com/apache/arrow/go/v15/internal/types"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/flight"
+	"github.com/apache/arrow/go/v16/arrow/flight/flightsql"
+	"github.com/apache/arrow/go/v16/arrow/flight/flightsql/schema_ref"
+	"github.com/apache/arrow/go/v16/arrow/flight/session"
+	"github.com/apache/arrow/go/v16/arrow/internal/arrjson"
+	"github.com/apache/arrow/go/v16/arrow/ipc"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/internal/types"
 	"golang.org/x/xerrors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -69,6 +70,8 @@ func GetScenario(name string, args ...string) Scenario {
 		return &expirationTimeCancelFlightInfoScenarioTester{}
 	case "expiration_time:renew_flight_endpoint":
 		return &expirationTimeRenewFlightEndpointScenarioTester{}
+	case "location:reuse_connection":
+		return &locationReuseConnectionScenarioTester{}
 	case "poll_flight_info":
 		return &pollFlightInfoScenarioTester{}
 	case "app_metadata_flight_info_endpoint":
@@ -77,6 +80,8 @@ func GetScenario(name string, args ...string) Scenario {
 		return &flightSqlScenarioTester{}
 	case "flight_sql:extension":
 		return &flightSqlExtensionScenarioTester{}
+	case "session_options":
+		return &sessionOptionsScenarioTester{}
 	case "":
 		if len(args) > 0 {
 			return &defaultIntegrationTester{path: args[0]}
@@ -1131,6 +1136,56 @@ func (tester *expirationTimeRenewFlightEndpointScenarioTester) RunClient(addr st
 				"Original: %s\nRenewed: %s",
 				ep, renewedEndpoint)
 		}
+	}
+
+	return nil
+}
+
+type locationReuseConnectionScenarioTester struct {
+	flight.BaseFlightServer
+}
+
+func (m *locationReuseConnectionScenarioTester) GetFlightInfo(ctx context.Context, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+	return &flight.FlightInfo{
+		Schema:           flight.SerializeSchema(arrow.NewSchema([]arrow.Field{}, nil), memory.DefaultAllocator),
+		FlightDescriptor: desc,
+		Endpoint: []*flight.FlightEndpoint{{
+			Ticket:   &flight.Ticket{Ticket: []byte("reuse")},
+			Location: []*flight.Location{{Uri: flight.LocationReuseConnection}},
+		}},
+		TotalRecords: -1,
+		TotalBytes:   -1,
+	}, nil
+}
+
+func (tester *locationReuseConnectionScenarioTester) MakeServer(port int) flight.Server {
+	srv := flight.NewServerWithMiddleware(nil)
+	srv.RegisterFlightService(tester)
+	initServer(port, srv)
+	return srv
+}
+
+func (tester *locationReuseConnectionScenarioTester) RunClient(addr string, opts ...grpc.DialOption) error {
+	client, err := flight.NewClientWithMiddleware(addr, nil, nil, opts...)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+	info, err := client.GetFlightInfo(ctx, &flight.FlightDescriptor{Type: flight.DescriptorCMD, Cmd: []byte("reuse")})
+	if err != nil {
+		return err
+	}
+
+	if len(info.Endpoint) != 1 {
+		return fmt.Errorf("expected 1 endpoint, got %d", len(info.Endpoint))
+	}
+	endpoint := info.Endpoint[0]
+	if len(endpoint.Location) != 1 {
+		return fmt.Errorf("expected 1 location, got %d", len(endpoint.Location))
+	} else if endpoint.Location[0].Uri != flight.LocationReuseConnection {
+		return fmt.Errorf("expected %s, got %s", flight.LocationReuseConnection, endpoint.Location[0].Uri)
 	}
 
 	return nil
@@ -2634,4 +2689,262 @@ func (m *flightSqlExtensionScenarioTester) ValidateTransactions(client *flightsq
 	}
 
 	return txn.Rollback(ctx)
+}
+
+type sessionOptionsScenarioTester struct {
+	flightsql.BaseServer
+}
+
+func (tester *sessionOptionsScenarioTester) MakeServer(port int) flight.Server {
+	srv := flight.NewServerWithMiddleware([]flight.ServerMiddleware{
+		flight.CreateServerMiddleware(session.NewServerSessionMiddleware(nil)),
+	})
+
+	srv.RegisterFlightService(flightsql.NewFlightServer(tester))
+	initServer(port, srv)
+	return srv
+}
+
+func (tester *sessionOptionsScenarioTester) SetSessionOptions(ctx context.Context, req *flight.SetSessionOptionsRequest) (*flight.SetSessionOptionsResult, error) {
+	session, err := session.GetSessionFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	errors := make(map[string]*flight.SetSessionOptionsResultError)
+	for key, val := range req.GetSessionOptions() {
+		if key == "lol_invalid" {
+			errors[key] = &flight.SetSessionOptionsResultError{Value: flight.SetSessionOptionsResultErrorInvalidName}
+			continue
+		}
+		if val.GetStringValue() == "lol_invalid" {
+			errors[key] = &flight.SetSessionOptionsResultError{Value: flight.SetSessionOptionsResultErrorInvalidValue}
+			continue
+		}
+
+		session.SetSessionOption(key, val)
+	}
+
+	return &flight.SetSessionOptionsResult{Errors: errors}, nil
+}
+
+func (tester *sessionOptionsScenarioTester) GetSessionOptions(ctx context.Context, req *flight.GetSessionOptionsRequest) (*flight.GetSessionOptionsResult, error) {
+	session, err := session.GetSessionFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &flight.GetSessionOptionsResult{SessionOptions: session.GetSessionOptions()}, nil
+}
+
+func (tester *sessionOptionsScenarioTester) CloseSession(ctx context.Context, req *flight.CloseSessionRequest) (*flight.CloseSessionResult, error) {
+	session, err := session.GetSessionFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = session.Close(); err != nil {
+		return nil, err
+	}
+
+	return &flight.CloseSessionResult{Status: flight.CloseSessionResultClosed}, nil
+}
+
+func (tester *sessionOptionsScenarioTester) RunClient(addr string, opts ...grpc.DialOption) error {
+	middleware := []flight.ClientMiddleware{
+		flight.NewClientCookieMiddleware(),
+	}
+	client, err := flight.NewClientWithMiddleware(addr, nil, middleware, opts...)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	// Run validations in order. We are changing session state in each step, so order is made explicit.
+	ctx := context.Background()
+	if err = tester.ValidateFirstGetSessionOptions(ctx, client); err != nil {
+		return err
+	}
+
+	if err = tester.ValidateSecondSetSessionOptions(ctx, client); err != nil {
+		return err
+	}
+
+	if err = tester.ValidateThirdGetSessionOptions(ctx, client); err != nil {
+		return err
+	}
+
+	if err = tester.ValidateFourthRemoveOption(ctx, client); err != nil {
+		return err
+	}
+
+	if err = tester.ValidateFifthGetSessionOptions(ctx, client); err != nil {
+		return err
+	}
+
+	if err = tester.ValidateSixthCloseSession(ctx, client); err != nil {
+		return err
+	}
+
+	// C++ impl currently fails with "Invalid or expired arrow_flight_session_id cookie", likely related to GH-39791
+	// if err = tester.ValidateSeventhGetSessionOptions(ctx, client); err != nil {
+	// 	return err
+	// }
+
+	return nil
+}
+
+func (tester *sessionOptionsScenarioTester) ValidateFirstGetSessionOptions(ctx context.Context, client flight.Client) error {
+	res, err := client.GetSessionOptions(ctx, &flight.GetSessionOptionsRequest{})
+	if err != nil {
+		return err
+	}
+
+	opts := res.GetSessionOptions()
+	if len(opts) != 0 {
+		return fmt.Errorf("expected new session to be empty, but found %d options already set", len(opts))
+	}
+
+	return nil
+}
+
+func (tester *sessionOptionsScenarioTester) ValidateSecondSetSessionOptions(ctx context.Context, client flight.Client) error {
+	opts, err := flight.NewSessionOptionValues(map[string]any{
+		"foolong":                int64(123),
+		"bardouble":              456.0,
+		"lol_invalid":            "this won't get set",
+		"key_with_invalid_value": "lol_invalid",
+		"big_ol_string_list":     []string{"a", "b", "sea", "dee", " ", "  ", "geee", "(づ｡◕‿‿◕｡)づ"},
+	})
+	if err != nil {
+		return err
+	}
+
+	res, err := client.SetSessionOptions(ctx, &flight.SetSessionOptionsRequest{SessionOptions: opts})
+	if err != nil {
+		return err
+	}
+
+	expectedErrs := map[string]*flight.SetSessionOptionsResultError{
+		"lol_invalid":            {Value: flight.SetSessionOptionsResultErrorInvalidName},
+		"key_with_invalid_value": {Value: flight.SetSessionOptionsResultErrorInvalidValue},
+	}
+
+	errs := res.GetErrors()
+	if len(errs) != len(expectedErrs) {
+		return fmt.Errorf("errors expected: %d, got: %d", len(expectedErrs), len(errs))
+	}
+
+	for key, val := range errs {
+		if !reflect.DeepEqual(val, expectedErrs[key]) {
+			return fmt.Errorf("error mismatch for key %s. expected: %s, got: %s", key, expectedErrs[key], val)
+		}
+	}
+
+	return nil
+}
+
+func (tester *sessionOptionsScenarioTester) ValidateThirdGetSessionOptions(ctx context.Context, client flight.Client) error {
+	res, err := client.GetSessionOptions(ctx, &flight.GetSessionOptionsRequest{})
+	if err != nil {
+		return err
+	}
+
+	expectedOpts, err := flight.NewSessionOptionValues(map[string]any{
+		"foolong":            int64(123),
+		"bardouble":          456.0,
+		"big_ol_string_list": []string{"a", "b", "sea", "dee", " ", "  ", "geee", "(づ｡◕‿‿◕｡)づ"},
+	})
+	if err != nil {
+		return err
+	}
+
+	opts := res.GetSessionOptions()
+	if len(opts) != len(expectedOpts) {
+		return fmt.Errorf("options expected: %d, got: %d", len(expectedOpts), len(opts))
+	}
+
+	for key, val := range opts {
+		if !reflect.DeepEqual(val, expectedOpts[key]) {
+			return fmt.Errorf("session options mismatch for key %s. expected: %s, got: %s", key, expectedOpts[key], val)
+		}
+	}
+
+	return nil
+}
+
+func (tester *sessionOptionsScenarioTester) ValidateFourthRemoveOption(ctx context.Context, client flight.Client) error {
+	opts, err := flight.NewSessionOptionValues(map[string]any{
+		"foolong": nil,
+	})
+	if err != nil {
+		return err
+	}
+
+	res, err := client.SetSessionOptions(ctx, &flight.SetSessionOptionsRequest{SessionOptions: opts})
+	if err != nil {
+		return err
+	}
+
+	errs := res.GetErrors()
+	if len(errs) != 0 {
+		return fmt.Errorf("errors expected: %d, got: %d", 0, len(errs))
+	}
+
+	return nil
+}
+
+func (tester *sessionOptionsScenarioTester) ValidateFifthGetSessionOptions(ctx context.Context, client flight.Client) error {
+	res, err := client.GetSessionOptions(ctx, &flight.GetSessionOptionsRequest{})
+	if err != nil {
+		return err
+	}
+
+	expectedOpts, err := flight.NewSessionOptionValues(map[string]any{
+		"bardouble":          456.0,
+		"big_ol_string_list": []string{"a", "b", "sea", "dee", " ", "  ", "geee", "(づ｡◕‿‿◕｡)づ"},
+	})
+	if err != nil {
+		return err
+	}
+
+	opts := res.GetSessionOptions()
+	if len(opts) != len(expectedOpts) {
+		return fmt.Errorf("options expected: %d, got: %d", len(expectedOpts), len(opts))
+	}
+
+	for key, val := range opts {
+		if !reflect.DeepEqual(val, expectedOpts[key]) {
+			return fmt.Errorf("session options mismatch for key %s. expected: %s, got: %s", key, expectedOpts[key], val)
+		}
+	}
+
+	return nil
+}
+
+func (tester *sessionOptionsScenarioTester) ValidateSixthCloseSession(ctx context.Context, client flight.Client) error {
+	res, err := client.CloseSession(ctx, &flight.CloseSessionRequest{})
+	if err != nil {
+		return err
+	}
+
+	if res.GetStatus() != flight.CloseSessionResultClosed {
+		return fmt.Errorf("expected session to successfully close, but found status: %s", res.GetStatus())
+	}
+
+	return nil
+}
+
+func (tester *sessionOptionsScenarioTester) ValidateSeventhGetSessionOptions(ctx context.Context, client flight.Client) error {
+	res, err := client.GetSessionOptions(ctx, &flight.GetSessionOptionsRequest{})
+	if err != nil {
+		return err
+	}
+
+	opts := res.GetSessionOptions()
+	if len(opts) != 0 {
+		return fmt.Errorf("expected new session to be empty, but found %d options already set", len(opts))
+	}
+
+	return nil
 }

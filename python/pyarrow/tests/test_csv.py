@@ -667,6 +667,31 @@ class BaseTestCSV(abc.ABC):
             'b': ["e", "j"],
         }
 
+    def test_chunker_out_of_sync(self):
+        # GH-39892: if there are newlines in values, the parser may become
+        # out of sync with the chunker. In this case, we try to produce an
+        # informative error message.
+        rows = b"""a,b,c\nd,e,"f\n"\ng,h,i\n"""
+        expected = {
+            'a': ["d", "g"],
+            'b': ["e", "h"],
+            'c': ["f\n", "i"],
+        }
+        for block_size in range(8, 15):
+            # Sanity check: parsing works with newlines_in_values=True
+            d = self.read_bytes(
+                rows, parse_options=ParseOptions(newlines_in_values=True),
+                read_options=ReadOptions(block_size=block_size)).to_pydict()
+            assert d == expected
+        # With these block sizes, a block would end on the physical newline
+        # inside the quoted cell value, leading to a mismatch between
+        # CSV chunker and parser.
+        for block_size in range(8, 11):
+            with pytest.raises(ValueError,
+                               match="cell values spanning multiple lines"):
+                self.read_bytes(
+                    rows, read_options=ReadOptions(block_size=block_size))
+
 
 class BaseCSVTableRead(BaseTestCSV):
 

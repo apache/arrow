@@ -100,7 +100,6 @@ def assert_dataset_fragment_convenience_methods(dataset):
 
 
 @pytest.fixture
-@pytest.mark.parquet
 def mockfs():
     mockfs = fs._MockFileSystem()
 
@@ -178,12 +177,14 @@ def multisourcefs(request):
 
     # simply split the dataframe into four chunks to construct a data source
     # from each chunk into its own directory
-    df_a, df_b, df_c, df_d = np.array_split(df, 4)
+    n = len(df)
+    df_a, df_b, df_c, df_d = [df.iloc[i:i+n//4] for i in range(0, n, n//4)]
 
     # create a directory containing a flat sequence of parquet files without
     # any partitioning involved
     mockfs.create_dir('plain')
-    for i, chunk in enumerate(np.array_split(df_a, 10)):
+    n = len(df_a)
+    for i, chunk in enumerate([df_a.iloc[i:i+n//10] for i in range(0, n, n//10)]):
         path = 'plain/chunk-{}.parquet'.format(i)
         with mockfs.open_output_stream(path) as out:
             pq.write_table(_table_from_pandas(chunk), out)
@@ -219,7 +220,6 @@ def multisourcefs(request):
 
 
 @pytest.fixture
-@pytest.mark.parquet
 def dataset(mockfs):
     format = ds.ParquetFileFormat()
     selector = fs.FileSelector('subdir', recursive=True)
@@ -698,6 +698,17 @@ def test_partitioning():
                                    partitioning=partitioning)
             load_back_table = load_back.to_table()
             assert load_back_table.equals(table)
+
+    # test invalid partitioning input
+    with tempfile.TemporaryDirectory() as tempdir:
+        partitioning = ds.DirectoryPartitioning(partitioning_schema)
+        ds.write_dataset(table, tempdir,
+                         format='ipc', partitioning=partitioning)
+        load_back = None
+        with pytest.raises(ValueError,
+                           match="Expected Partitioning or PartitioningFactory"):
+            load_back = ds.dataset(tempdir, format='ipc', partitioning=int(0))
+        assert load_back is None
 
 
 def test_partitioning_pickling(pickle_module):
@@ -1646,6 +1657,42 @@ def test_fragments_parquet_subset_invalid(tempdir):
 
     with pytest.raises(ValueError):
         fragment.subset()
+
+
+@pytest.mark.parquet
+def test_fragments_parquet_subset_with_nested_fields(tempdir):
+    # ensure row group filtering with nested field works
+    f1 = pa.array([0, 1, 2, 3])
+    f21 = pa.array([0.1, 0.2, 0.3, 0.4])
+    f22 = pa.array([1, 2, 3, 4])
+    f2 = pa.StructArray.from_arrays([f21, f22], names=["f21", "f22"])
+    struct_col = pa.StructArray.from_arrays([f1, f2], names=["f1", "f2"])
+    table = pa.table({"col": struct_col})
+    pq.write_table(table, tempdir / "data_struct.parquet", row_group_size=2)
+
+    dataset = ds.dataset(tempdir / "data_struct.parquet", format="parquet")
+    fragment = list(dataset.get_fragments())[0]
+    assert fragment.num_row_groups == 2
+
+    subfrag = fragment.subset(ds.field("col", "f1") > 2)
+    assert subfrag.num_row_groups == 1
+    subfrag = fragment.subset(ds.field("col", "f1") > 5)
+    assert subfrag.num_row_groups == 0
+
+    subfrag = fragment.subset(ds.field("col", "f2", "f21") > 0)
+    assert subfrag.num_row_groups == 2
+    subfrag = fragment.subset(ds.field("col", "f2", "f22") <= 2)
+    assert subfrag.num_row_groups == 1
+
+    # nonexisting field ref
+    with pytest.raises(pa.ArrowInvalid, match="No match for FieldRef.Nested"):
+        fragment.subset(ds.field("col", "f3") > 0)
+
+    # comparison with struct field is not implemented
+    with pytest.raises(
+        NotImplementedError, match="Function 'greater' has no kernel matching"
+    ):
+        fragment.subset(ds.field("col", "f2") > 0)
 
 
 @pytest.mark.pandas
@@ -2643,7 +2690,6 @@ def test_dataset_partitioned_dictionary_type_reconstruct(tempdir, pickle_module)
 
 
 @pytest.fixture
-@pytest.mark.parquet
 def s3_example_simple(s3_server):
     from pyarrow.fs import FileSystem
 
@@ -2676,6 +2722,16 @@ def test_open_dataset_from_uri_s3(s3_example_simple, dataset_reader):
 
     # passing filesystem object
     dataset = ds.dataset(path, format="parquet", filesystem=fs)
+    assert dataset_reader.to_table(dataset).equals(table)
+
+
+@pytest.mark.parquet
+@pytest.mark.s3
+def test_open_dataset_from_fileinfos(s3_example_simple, dataset_reader):
+    table, path, filesystem, uri, _, _, _, _ = s3_example_simple
+    selector = fs.FileSelector("mybucket")
+    finfos = filesystem.get_file_info(selector)
+    dataset = ds.dataset(finfos, format="parquet", filesystem=filesystem)
     assert dataset_reader.to_table(dataset).equals(table)
 
 
@@ -5017,6 +5073,120 @@ def test_dataset_join_collisions(tempdir):
         [10, 20, None, 99],
         ["A", "B", None, "Z"],
     ], names=["colA", "colB", "colVals", "colB_r", "colVals_r"])
+
+
+@pytest.mark.dataset
+def test_dataset_join_asof(tempdir):
+    t1 = pa.Table.from_pydict({
+        "colA": [1, 1, 5, 6, 7],
+        "col2": ["a", "b", "a", "b", "f"]
+    })
+    ds.write_dataset(t1, tempdir / "t1", format="ipc")
+    ds1 = ds.dataset(tempdir / "t1", format="ipc")
+
+    t2 = pa.Table.from_pydict({
+        "colB": [2, 9, 15],
+        "col3": ["a", "b", "g"],
+        "colC": [1., 3., 5.]
+    })
+    ds.write_dataset(t2, tempdir / "t2", format="ipc")
+    ds2 = ds.dataset(tempdir / "t2", format="ipc")
+
+    result = ds1.join_asof(
+        ds2, on="colA", by="col2", tolerance=1,
+        right_on="colB", right_by="col3",
+    )
+    assert result.to_table().sort_by("colA") == pa.table({
+        "colA": [1, 1, 5, 6, 7],
+        "col2": ["a", "b", "a", "b", "f"],
+        "colC": [1., None, None, None, None],
+    })
+
+
+@pytest.mark.dataset
+def test_dataset_join_asof_multiple_by(tempdir):
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "colB": [10, 20, 60],
+        "on": [1, 2, 3],
+    })
+    ds.write_dataset(t1, tempdir / "t1", format="ipc")
+    ds1 = ds.dataset(tempdir / "t1", format="ipc")
+
+    t2 = pa.table({
+        "colB": [99, 20, 10],
+        "colVals": ["Z", "B", "A"],
+        "colA": [99, 2, 1],
+        "on": [2, 3, 4],
+    })
+    ds.write_dataset(t2, tempdir / "t2", format="ipc")
+    ds2 = ds.dataset(tempdir / "t2", format="ipc")
+
+    result = ds1.join_asof(
+        ds2, on="on", by=["colA", "colB"], tolerance=1
+    )
+    assert result.to_table().sort_by("colA") == pa.table({
+        "colA": [1, 2, 6],
+        "colB": [10, 20, 60],
+        "on": [1, 2, 3],
+        "colVals": [None, "B", None],
+    })
+
+
+@pytest.mark.dataset
+def test_dataset_join_asof_empty_by(tempdir):
+    t1 = pa.table({
+        "on": [1, 2, 3],
+    })
+    ds.write_dataset(t1, tempdir / "t1", format="ipc")
+    ds1 = ds.dataset(tempdir / "t1", format="ipc")
+
+    t2 = pa.table({
+        "colVals": ["Z", "B", "A"],
+        "on": [2, 3, 4],
+    })
+    ds.write_dataset(t2, tempdir / "t2", format="ipc")
+    ds2 = ds.dataset(tempdir / "t2", format="ipc")
+
+    result = ds1.join_asof(
+        ds2, on="on", by=[], tolerance=1
+    )
+    assert result.to_table() == pa.table({
+        "on": [1, 2, 3],
+        "colVals": ["Z", "Z", "B"],
+    })
+
+
+@pytest.mark.dataset
+def test_dataset_join_asof_collisions(tempdir):
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "colB": [10, 20, 60],
+        "on": [1, 2, 3],
+        "colVals": ["a", "b", "f"]
+    })
+    ds.write_dataset(t1, tempdir / "t1", format="ipc")
+    ds1 = ds.dataset(tempdir / "t1", format="ipc")
+
+    t2 = pa.table({
+        "colB": [99, 20, 10],
+        "colVals": ["Z", "B", "A"],
+        "colUniq": [100, 200, 300],
+        "colA": [99, 2, 1],
+        "on": [2, 3, 4],
+    })
+    ds.write_dataset(t2, tempdir / "t2", format="ipc")
+    ds2 = ds.dataset(tempdir / "t2", format="ipc")
+
+    msg = (
+        "Columns {'colVals'} present in both tables. "
+        "AsofJoin does not support column collisions."
+    )
+    with pytest.raises(ValueError, match=msg):
+        ds1.join_asof(
+            ds2, on="on", by=["colA", "colB"], tolerance=1,
+            right_on="on", right_by=["colA", "colB"],
+        )
 
 
 @pytest.mark.parametrize('dstype', [

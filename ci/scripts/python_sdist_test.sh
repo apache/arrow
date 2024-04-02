@@ -28,6 +28,7 @@ export PARQUET_TEST_DATA=${arrow_dir}/cpp/submodules/parquet-testing/data
 export PYARROW_CMAKE_GENERATOR=${CMAKE_GENERATOR:-Ninja}
 export PYARROW_BUILD_TYPE=${CMAKE_BUILD_TYPE:-debug}
 export PYARROW_WITH_ACERO=${ARROW_ACERO:-ON}
+export PYARROW_WITH_AZURE=${ARROW_AZURE:-OFF}
 export PYARROW_WITH_S3=${ARROW_S3:-OFF}
 export PYARROW_WITH_ORC=${ARROW_ORC:-OFF}
 export PYARROW_WITH_CUDA=${ARROW_CUDA:-OFF}
@@ -54,6 +55,11 @@ if [ -n "${PYARROW_VERSION:-}" ]; then
 else
   sdist=$(ls ${arrow_dir}/python/dist/pyarrow-*.tar.gz | sort -r | head -n1)
 fi
+
+if [ -n "${ARROW_PYTHON_VENV:-}" ]; then
+  . "${ARROW_PYTHON_VENV}/bin/activate"
+fi
+
 ${PYTHON:-python} -m pip install ${sdist}
 
 pytest -r s ${PYTEST_ARGS:-} --pyargs pyarrow

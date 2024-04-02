@@ -16,6 +16,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 using Xunit;
 
@@ -120,6 +121,22 @@ namespace Apache.Arrow.Tests
             Assert.Equal(array.Length, readOnlyList.Count);
             Assert.Equal(readOnlyList[0], 1);
             Assert.Equal(readOnlyList[1], 2);
+        }
+
+        [Fact]
+        public void RecursiveArraySlice()
+        {
+            var initialValues = Enumerable.Range(0, 100).ToArray();
+            var array = new Int32Array.Builder().AppendRange(initialValues).Build();
+
+            var sliced = (Int32Array) array.Slice(20, 30);
+            var slicedAgain = (Int32Array) sliced.Slice(5, 10);
+
+            Assert.Equal(25, slicedAgain.Offset);
+            Assert.Equal(10, slicedAgain.Length);
+            Assert.Equal(
+                initialValues.Skip(25).Take(10).Select(val => (int?) val).ToArray(),
+                (IReadOnlyList<int?>) slicedAgain);
         }
 
 #if NET5_0_OR_GREATER

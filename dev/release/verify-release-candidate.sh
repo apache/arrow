@@ -20,11 +20,11 @@
 
 # Requirements
 # - Ruby >= 2.3
-# - Maven >= 3.3.9
-# - JDK >=7
+# - Maven >= 3.8.7
+# - JDK >=8
 # - gcc >= 4.8
 # - Node.js >= 18
-# - Go >= 1.19
+# - Go >= 1.21
 # - Docker
 #
 # If using a non-system Boost, set BOOST_ROOT and add Boost libraries to
@@ -173,7 +173,7 @@ test_binary() {
   show_header "Testing binary artifacts"
   maybe_setup_conda
 
-  local download_dir=binaries
+  local download_dir=${ARROW_TMPDIR}/binaries
   mkdir -p ${download_dir}
 
   ${PYTHON:-python3} $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
@@ -195,8 +195,8 @@ test_apt() {
                 "arm64v8/ubuntu:focal" \
                 "ubuntu:jammy" \
                 "arm64v8/ubuntu:jammy" \
-                "ubuntu:mantic" \
-                "arm64v8/ubuntu:mantic"; do \
+                "ubuntu:noble" \
+                "arm64v8/ubuntu:noble"; do \
     case "${target}" in
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
@@ -405,7 +405,7 @@ install_go() {
     return 0
   fi
 
-  local version=1.19.13
+  local version=1.21.8
   show_info "Installing go version ${version}..."
 
   local arch="$(uname -m)"
@@ -499,6 +499,44 @@ maybe_setup_conda() {
   fi
 }
 
+install_maven() {
+  MAVEN_VERSION=3.8.7
+  if command -v mvn > /dev/null; then
+    SYSTEM_MAVEN_VERSION=$(mvn -v | head -n 1 | awk '{print $3}')
+    show_info "Found Maven version ${SYSTEM_MAVEN_VERSION} at $(command -v mvn)."
+  else
+    SYSTEM_MAVEN_VERSION=0.0.0
+    show_info "Maven installation not found."
+  fi
+
+  if [[ "$MAVEN_VERSION" == "$SYSTEM_MAVEN_VERSION" ]]; then
+    show_info "System Maven version ${SYSTEM_MAVEN_VERSION} matches required Maven version ${MAVEN_VERSION}. Skipping installation."
+  else
+    # Append pipe character to make preview release versions like "X.Y.Z-beta-1" sort
+    # as older than their corresponding release version "X.Y.Z". This works because 
+    # `sort -V` orders the pipe character lower than any version number character.
+    older_version=$(printf '%s\n%s\n' "$SYSTEM_MAVEN_VERSION" "$MAVEN_VERSION" | sed 's/$/|/' | sort -V | sed 's/|$//' | head -n1)
+    if [[ "$older_version" == "$SYSTEM_MAVEN_VERSION" ]]; then
+      show_info "Installing Maven version ${MAVEN_VERSION}..."
+      APACHE_MIRROR="https://www.apache.org/dyn/closer.lua?action=download&filename="
+      curl -sL -o apache-maven-${MAVEN_VERSION}-bin.tar.gz \
+        ${APACHE_MIRROR}/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz
+      tar xzf apache-maven-${MAVEN_VERSION}-bin.tar.gz
+      export PATH=$(pwd)/apache-maven-${MAVEN_VERSION}/bin:$PATH
+      show_info "Installed Maven version $(mvn -v | head -n 1 | awk '{print $3}')"
+    else
+      show_info "System Maven version ${SYSTEM_MAVEN_VERSION} is newer than minimum version ${MAVEN_VERSION}. Skipping installation."
+    fi
+  fi
+}
+
+maybe_setup_maven() {
+  show_info "Ensuring that Maven is installed..."
+  if [ "${USE_CONDA}" -eq 0 ]; then
+    install_maven
+  fi
+}
+
 maybe_setup_virtualenv() {
   # Optionally setup pip virtualenv with the passed dependencies
   local env="venv-${VENV_ENV:-source}"
@@ -565,13 +603,59 @@ maybe_setup_nodejs() {
 test_package_java() {
   show_header "Build and test Java libraries"
 
+  maybe_setup_maven
   maybe_setup_conda maven openjdk
 
   pushd java
+
+  if [ ${TEST_INTEGRATION_JAVA} -gt 0 ]; then
+    # Build JNI for C data interface
+    local -a cmake_options=()
+    # Enable only C data interface.
+    cmake_options+=(-DARROW_JAVA_JNI_ENABLE_C=ON)
+    cmake_options+=(-DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF)
+    # Disable Testing because GTest might not be present.
+    cmake_options+=(-DBUILD_TESTING=OFF)
+    if [ ! -z "${CMAKE_GENERATOR}" ]; then
+      cmake_options+=(-G "${CMAKE_GENERATOR}")
+    fi
+    local build_dir="${ARROW_TMPDIR}/java-jni-build"
+    local install_dir="${ARROW_TMPDIR}/java-jni-install"
+    local dist_dir="${ARROW_TMPDIR}/java-jni-dist"
+    cmake \
+      -S . \
+      -B "${build_dir}" \
+      -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-release} \
+      -DCMAKE_INSTALL_LIBDIR=lib \
+      -DCMAKE_INSTALL_PREFIX="${install_dir}" \
+      -DCMAKE_PREFIX_PATH="${ARROW_HOME}" \
+      "${cmake_options[@]}"
+    cmake --build "${build_dir}"
+    cmake --install "${build_dir}"
+
+    local normalized_arch=$(arch)
+    case ${normalized_arch} in
+      aarch64|arm64)
+        normalized_arch=aarch_64
+        ;;
+      i386)
+        normalized_arch=x86_64
+        ;;
+    esac
+    mkdir -p ${dist_dir}
+    mv ${install_dir}/lib/* ${dist_dir}
+    mvn install \
+        -Darrow.c.jni.dist.dir=${dist_dir} \
+        -Parrow-c-data
+  fi
+
   if [ ${TEST_JAVA} -gt 0 ]; then
     mvn test
   fi
+
+  # Build jars
   mvn package
+
   popd
 }
 
@@ -632,6 +716,7 @@ test_and_install_cpp() {
     -DARROW_JSON=ON \
     -DARROW_ORC=ON \
     -DARROW_PARQUET=ON \
+    -DARROW_SUBSTRAIT=ON \
     -DARROW_S3=${ARROW_S3} \
     -DARROW_USE_CCACHE=${ARROW_USE_CCACHE:-ON} \
     -DARROW_VERBOSE_THIRDPARTY_BUILD=ON \
@@ -832,10 +917,10 @@ test_csharp() {
   fi
 
   if [ "${SOURCE_KIND}" = "local" ]; then
-    echo "Skipping sourelink verification on local build"
+    echo "Skipping sourcelink verification on local build"
   else
-    dotnet tool run sourcelink test artifacts/Apache.Arrow/Release/netstandard1.3/Apache.Arrow.pdb
-    dotnet tool run sourcelink test artifacts/Apache.Arrow/Release/netcoreapp3.1/Apache.Arrow.pdb
+    dotnet tool run sourcelink test artifacts/Apache.Arrow/Release/netstandard2.0/Apache.Arrow.pdb
+    dotnet tool run sourcelink test artifacts/Apache.Arrow/Release/net6.0/Apache.Arrow.pdb
   fi
 
   popd
@@ -868,7 +953,7 @@ test_go() {
   show_header "Build and test Go libraries"
 
   maybe_setup_go
-  maybe_setup_conda compilers go=1.19
+  maybe_setup_conda compilers go=1.21
 
   pushd go
   go get -v ./...
@@ -889,7 +974,7 @@ test_go() {
         go_lib="arrow_go_integration.dll"
         ;;
     esac
-    go build -buildvcs=false -tags cdata_integration,assert -buildmode=c-shared -o ${go_lib} .
+    CGO_ENABLED=1 go build -buildvcs=false -tags cdata_integration,assert -buildmode=c-shared -o ${go_lib} .
     popd
   fi
   go clean -modcache
@@ -904,6 +989,7 @@ test_integration() {
   maybe_setup_virtualenv
 
   pip install -e dev/archery[integration]
+  pip install -e dev/archery[integration-java]
 
   JAVA_DIR=$ARROW_SOURCE_DIR/java
   CPP_BUILD_DIR=$ARROW_TMPDIR/cpp-build
@@ -1089,7 +1175,7 @@ test_macos_wheels() {
     local check_flight=OFF
   else
     local python_versions="3.8 3.9 3.10 3.11 3.12"
-    local platform_tags="macosx_10_14_x86_64"
+    local platform_tags="macosx_10_15_x86_64"
   fi
 
   # verify arch-native wheels inside an arch-native conda environment
@@ -1155,6 +1241,8 @@ test_wheels() {
 
 test_jars() {
   show_header "Testing Java JNI jars"
+
+  maybe_setup_maven
   maybe_setup_conda maven python
 
   local download_dir=${ARROW_TMPDIR}/jars

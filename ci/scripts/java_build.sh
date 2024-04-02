@@ -32,7 +32,7 @@ java_jni_dist_dir=${3}
 if [[ "$(uname -s)" == "Linux" ]] && [[ "$(uname -m)" == "s390x" ]]; then
   # Since some files for s390_64 are not available at maven central,
   # download pre-build files from Artifactory and install them explicitly
-  mvn_install="mvn install:install-file"
+  mvn_install="mvn clean install:install-file"
   wget="wget"
   artifactory_base_url="https://apache.jfrog.io/artifactory/arrow"
 
@@ -89,12 +89,12 @@ if [ "${ARROW_JAVA_JNI}" = "ON" ]; then
   mvn="${mvn} -Darrow.cpp.build.dir=${java_jni_dist_dir} -Parrow-jni"
 fi
 
-${mvn} install
+${mvn} clean install
 
 if [ "${BUILD_DOCS_JAVA}" == "ON" ]; then
   # HTTP pooling is turned of to avoid download issues https://issues.apache.org/jira/browse/ARROW-11633
   mkdir -p ${build_dir}/docs/java/reference
-  ${mvn} -Dcheckstyle.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false install site
+  ${mvn} -Dcheckstyle.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false clean install site
   rsync -a ${arrow_dir}/java/target/site/apidocs/ ${build_dir}/docs/java/reference
 fi
 

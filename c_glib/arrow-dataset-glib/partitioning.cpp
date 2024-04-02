@@ -56,7 +56,8 @@ G_BEGIN_DECLS
  * Since: 6.0.0
  */
 
-struct GADatasetPartitioningFactoryOptionsPrivate {
+struct GADatasetPartitioningFactoryOptionsPrivate
+{
   gboolean infer_dictionary;
   GArrowSchema *schema;
   GADatasetSegmentEncoding segment_encoding;
@@ -72,9 +73,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GADatasetPartitioningFactoryOptions,
                            gadataset_partitioning_factory_options,
                            G_TYPE_OBJECT)
 
-#define GADATASET_PARTITIONING_FACTORY_OPTIONS_GET_PRIVATE(obj)         \
-  static_cast<GADatasetPartitioningFactoryOptionsPrivate *>(            \
-    gadataset_partitioning_factory_options_get_instance_private(        \
+#define GADATASET_PARTITIONING_FACTORY_OPTIONS_GET_PRIVATE(obj)                          \
+  static_cast<GADatasetPartitioningFactoryOptionsPrivate *>(                             \
+    gadataset_partitioning_factory_options_get_instance_private(                         \
       GADATASET_PARTITIONING_FACTORY_OPTIONS(obj)))
 
 static void
@@ -155,8 +156,7 @@ gadataset_partitioning_factory_options_get_property(GObject *object,
 }
 
 static void
-gadataset_partitioning_factory_options_init(
-  GADatasetPartitioningFactoryOptions *object)
+gadataset_partitioning_factory_options_init(GADatasetPartitioningFactoryOptions *object)
 {
 }
 
@@ -167,10 +167,8 @@ gadataset_partitioning_factory_options_class_init(
   auto gobject_class = G_OBJECT_CLASS(klass);
 
   gobject_class->dispose = gadataset_partitioning_factory_options_dispose;
-  gobject_class->set_property =
-    gadataset_partitioning_factory_options_set_property;
-  gobject_class->get_property =
-    gadataset_partitioning_factory_options_get_property;
+  gobject_class->set_property = gadataset_partitioning_factory_options_set_property;
+  gobject_class->get_property = gadataset_partitioning_factory_options_get_property;
 
   arrow::dataset::PartitioningFactoryOptions default_options;
   GParamSpec *spec;
@@ -210,9 +208,7 @@ gadataset_partitioning_factory_options_class_init(
                              "against the schema and update internal state",
                              GARROW_TYPE_SCHEMA,
                              static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class,
-                                  PROP_FACTORY_OPTIONS_SCHEMA,
-                                  spec);
+  g_object_class_install_property(gobject_class, PROP_FACTORY_OPTIONS_SCHEMA, spec);
 
   /**
    * GADatasetPartitioningFactoryOptions:segment-encoding:
@@ -222,15 +218,15 @@ gadataset_partitioning_factory_options_class_init(
    *
    * Since: 11.0.0
    */
-  spec = g_param_spec_enum("segment-encoding",
-                           "Segment encoding",
-                           "After splitting a path into components, "
-                           "decode the path components before "
-                           "parsing according to this scheme",
-                           GADATASET_TYPE_SEGMENT_ENCODING,
-                           static_cast<GADatasetSegmentEncoding>(
-                             default_options.segment_encoding),
-                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  spec = g_param_spec_enum(
+    "segment-encoding",
+    "Segment encoding",
+    "After splitting a path into components, "
+    "decode the path components before "
+    "parsing according to this scheme",
+    GADATASET_TYPE_SEGMENT_ENCODING,
+    static_cast<GADatasetSegmentEncoding>(default_options.segment_encoding),
+    static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class,
                                   PROP_FACTORY_OPTIONS_SEGMENT_ENCODING,
                                   spec);
@@ -247,12 +243,11 @@ GADatasetPartitioningFactoryOptions *
 gadataset_partitioning_factory_options_new(void)
 {
   return GADATASET_PARTITIONING_FACTORY_OPTIONS(
-    g_object_new(GADATASET_TYPE_PARTITIONING_FACTORY_OPTIONS,
-                 nullptr));
+    g_object_new(GADATASET_TYPE_PARTITIONING_FACTORY_OPTIONS, nullptr));
 }
 
-
-struct GADatasetPartitioningPrivate {
+struct GADatasetPartitioningPrivate
+{
   std::shared_ptr<arrow::dataset::Partitioning> partitioning;
 };
 
@@ -264,10 +259,9 @@ G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GADatasetPartitioning,
                                     gadataset_partitioning,
                                     G_TYPE_OBJECT)
 
-#define GADATASET_PARTITIONING_GET_PRIVATE(obj)         \
-  static_cast<GADatasetPartitioningPrivate *>(          \
-    gadataset_partitioning_get_instance_private(        \
-      GADATASET_PARTITIONING(obj)))
+#define GADATASET_PARTITIONING_GET_PRIVATE(obj)                                          \
+  static_cast<GADatasetPartitioningPrivate *>(                                           \
+    gadataset_partitioning_get_instance_private(GADATASET_PARTITIONING(obj)))
 
 static void
 gadataset_partitioning_finalize(GObject *object)
@@ -287,9 +281,8 @@ gadataset_partitioning_set_property(GObject *object,
 
   switch (prop_id) {
   case PROP_PARTITIONING:
-    priv->partitioning =
-      *static_cast<std::shared_ptr<arrow::dataset::Partitioning> *>(
-        g_value_get_pointer(value));
+    priv->partitioning = *static_cast<std::shared_ptr<arrow::dataset::Partitioning> *>(
+      g_value_get_pointer(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -301,7 +294,7 @@ static void
 gadataset_partitioning_init(GADatasetPartitioning *object)
 {
   auto priv = GADATASET_PARTITIONING_GET_PRIVATE(object);
-  new(&priv->partitioning) std::shared_ptr<arrow::dataset::Partitioning>;
+  new (&priv->partitioning) std::shared_ptr<arrow::dataset::Partitioning>;
 }
 
 static void
@@ -309,16 +302,16 @@ gadataset_partitioning_class_init(GADatasetPartitioningClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->finalize     = gadataset_partitioning_finalize;
+  gobject_class->finalize = gadataset_partitioning_finalize;
   gobject_class->set_property = gadataset_partitioning_set_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_pointer("partitioning",
-                              "Partitioning",
-                              "The raw "
-                              "std::shared<arrow::dataset::Partitioning> *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer(
+    "partitioning",
+    "Partitioning",
+    "The raw "
+    "std::shared<arrow::dataset::Partitioning> *",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_PARTITIONING, spec);
 }
 
@@ -337,10 +330,8 @@ gadataset_partitioning_get_type_name(GADatasetPartitioning *partitioning)
 {
   auto arrow_partitioning = gadataset_partitioning_get_raw(partitioning);
   auto arrow_type_name = arrow_partitioning->type_name();
-  return g_strndup(arrow_type_name.c_str(),
-                   arrow_type_name.size());
+  return g_strndup(arrow_type_name.c_str(), arrow_type_name.size());
 }
-
 
 /**
  * gadataset_partitioning_create_default:
@@ -357,8 +348,8 @@ gadataset_partitioning_create_default(void)
   return gadataset_partitioning_new_raw(&arrow_partitioning);
 }
 
-
-struct GADatasetKeyValuePartitioningOptionsPrivate {
+struct GADatasetKeyValuePartitioningOptionsPrivate
+{
   GADatasetSegmentEncoding segment_encoding;
 };
 
@@ -370,9 +361,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GADatasetKeyValuePartitioningOptions,
                            gadataset_key_value_partitioning_options,
                            G_TYPE_OBJECT)
 
-#define GADATASET_KEY_VALUE_PARTITIONING_OPTIONS_GET_PRIVATE(obj)       \
-  static_cast<GADatasetKeyValuePartitioningOptionsPrivate *>(           \
-    gadataset_key_value_partitioning_options_get_instance_private(      \
+#define GADATASET_KEY_VALUE_PARTITIONING_OPTIONS_GET_PRIVATE(obj)                        \
+  static_cast<GADatasetKeyValuePartitioningOptionsPrivate *>(                            \
+    gadataset_key_value_partitioning_options_get_instance_private(                       \
       GADATASET_KEY_VALUE_PARTITIONING_OPTIONS(obj)))
 
 static void
@@ -424,10 +415,8 @@ gadataset_key_value_partitioning_options_class_init(
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->set_property =
-    gadataset_key_value_partitioning_options_set_property;
-  gobject_class->get_property =
-    gadataset_key_value_partitioning_options_get_property;
+  gobject_class->set_property = gadataset_key_value_partitioning_options_set_property;
+  gobject_class->get_property = gadataset_key_value_partitioning_options_get_property;
 
   arrow::dataset::KeyValuePartitioningOptions default_options;
   GParamSpec *spec;
@@ -439,18 +428,16 @@ gadataset_key_value_partitioning_options_class_init(
    *
    * Since: 11.0.0
    */
-  spec = g_param_spec_enum("segment-encoding",
-                           "Segment encoding",
-                           "After splitting a path into components, "
-                           "decode the path components before "
-                           "parsing according to this scheme",
-                           GADATASET_TYPE_SEGMENT_ENCODING,
-                           static_cast<GADatasetSegmentEncoding>(
-                             default_options.segment_encoding),
-                           static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class,
-                                  PROP_OPTIONS_SEGMENT_ENCODING,
-                                  spec);
+  spec = g_param_spec_enum(
+    "segment-encoding",
+    "Segment encoding",
+    "After splitting a path into components, "
+    "decode the path components before "
+    "parsing according to this scheme",
+    GADATASET_TYPE_SEGMENT_ENCODING,
+    static_cast<GADatasetSegmentEncoding>(default_options.segment_encoding),
+    static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_OPTIONS_SEGMENT_ENCODING, spec);
 }
 
 /**
@@ -464,10 +451,8 @@ GADatasetKeyValuePartitioningOptions *
 gadataset_key_value_partitioning_options_new(void)
 {
   return GADATASET_KEY_VALUE_PARTITIONING_OPTIONS(
-    g_object_new(GADATASET_TYPE_KEY_VALUE_PARTITIONING_OPTIONS,
-                 nullptr));
+    g_object_new(GADATASET_TYPE_KEY_VALUE_PARTITIONING_OPTIONS, nullptr));
 }
-
 
 G_DEFINE_ABSTRACT_TYPE(GADatasetKeyValuePartitioning,
                        gadataset_key_value_partitioning,
@@ -479,19 +464,17 @@ gadataset_key_value_partitioning_init(GADatasetKeyValuePartitioning *object)
 }
 
 static void
-gadataset_key_value_partitioning_class_init(
-  GADatasetKeyValuePartitioningClass *klass)
+gadataset_key_value_partitioning_class_init(GADatasetKeyValuePartitioningClass *klass)
 {
 }
 
 G_END_DECLS
 template <typename Partitioning, typename PartitioningOptions>
 GADatasetPartitioning *
-garrow_key_value_partitioning_new(
-  GArrowSchema *schema,
-  GList *dictionaries,
-  PartitioningOptions &arrow_options,
-  GError **error)
+garrow_key_value_partitioning_new(GArrowSchema *schema,
+                                  GList *dictionaries,
+                                  PartitioningOptions &arrow_options,
+                                  GError **error)
 {
   auto arrow_schema = garrow_schema_get_raw(schema);
   std::vector<std::shared_ptr<arrow::Array>> arrow_dictionaries;
@@ -503,12 +486,8 @@ garrow_key_value_partitioning_new(
       arrow_dictionaries.push_back(nullptr);
     }
   }
-  auto arrow_partitioning =
-    std::static_pointer_cast<arrow::dataset::Partitioning>(
-      std::make_shared<Partitioning>(
-        arrow_schema,
-        arrow_dictionaries,
-        arrow_options));
+  auto arrow_partitioning = std::static_pointer_cast<arrow::dataset::Partitioning>(
+    std::make_shared<Partitioning>(arrow_schema, arrow_dictionaries, arrow_options));
   return gadataset_partitioning_new_raw(&arrow_partitioning);
 }
 G_BEGIN_DECLS
@@ -523,8 +502,7 @@ gadataset_directory_partitioning_init(GADatasetDirectoryPartitioning *object)
 }
 
 static void
-gadataset_directory_partitioning_class_init(
-  GADatasetDirectoryPartitioningClass *klass)
+gadataset_directory_partitioning_class_init(GADatasetDirectoryPartitioningClass *klass)
 {
 }
 
@@ -542,11 +520,10 @@ gadataset_directory_partitioning_class_init(
  * Since: 6.0.0
  */
 GADatasetDirectoryPartitioning *
-gadataset_directory_partitioning_new(
-  GArrowSchema *schema,
-  GList *dictionaries,
-  GADatasetKeyValuePartitioningOptions *options,
-  GError **error)
+gadataset_directory_partitioning_new(GArrowSchema *schema,
+                                     GList *dictionaries,
+                                     GADatasetKeyValuePartitioningOptions *options,
+                                     GError **error)
 {
   arrow::dataset::KeyValuePartitioningOptions arrow_options;
   if (options) {
@@ -554,11 +531,14 @@ gadataset_directory_partitioning_new(
   }
   return GADATASET_DIRECTORY_PARTITIONING(
     garrow_key_value_partitioning_new<arrow::dataset::DirectoryPartitioning>(
-      schema, dictionaries, arrow_options, error));
+      schema,
+      dictionaries,
+      arrow_options,
+      error));
 }
 
-
-struct GADatasetHivePartitioningOptionsPrivate {
+struct GADatasetHivePartitioningOptionsPrivate
+{
   gchar *null_fallback;
 };
 
@@ -570,9 +550,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GADatasetHivePartitioningOptions,
                            gadataset_hive_partitioning_options,
                            GADATASET_TYPE_KEY_VALUE_PARTITIONING_OPTIONS)
 
-#define GADATASET_HIVE_PARTITIONING_OPTIONS_GET_PRIVATE(obj)        \
-  static_cast<GADatasetHivePartitioningOptionsPrivate *>(           \
-    gadataset_hive_partitioning_options_get_instance_private(       \
+#define GADATASET_HIVE_PARTITIONING_OPTIONS_GET_PRIVATE(obj)                             \
+  static_cast<GADatasetHivePartitioningOptionsPrivate *>(                                \
+    gadataset_hive_partitioning_options_get_instance_private(                            \
       GADATASET_HIVE_PARTITIONING_OPTIONS(obj)))
 
 static void
@@ -631,8 +611,7 @@ gadataset_hive_partitioning_options_get_property(GObject *object,
 }
 
 static void
-gadataset_hive_partitioning_options_init(
-  GADatasetHivePartitioningOptions *object)
+gadataset_hive_partitioning_options_init(GADatasetHivePartitioningOptions *object)
 {
 }
 
@@ -661,9 +640,7 @@ gadataset_hive_partitioning_options_class_init(
                              "The fallback string for null",
                              default_options.null_fallback.c_str(),
                              static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class,
-                                  PROP_OPTIONS_NULL_FALLBACK,
-                                  spec);
+  g_object_class_install_property(gobject_class, PROP_OPTIONS_NULL_FALLBACK, spec);
 }
 
 /**
@@ -677,10 +654,8 @@ GADatasetHivePartitioningOptions *
 gadataset_hive_partitioning_options_new(void)
 {
   return GADATASET_HIVE_PARTITIONING_OPTIONS(
-    g_object_new(GADATASET_TYPE_HIVE_PARTITIONING_OPTIONS,
-                 nullptr));
+    g_object_new(GADATASET_TYPE_HIVE_PARTITIONING_OPTIONS, nullptr));
 }
-
 
 G_DEFINE_TYPE(GADatasetHivePartitioning,
               gadataset_hive_partitioning,
@@ -692,8 +667,7 @@ gadataset_hive_partitioning_init(GADatasetHivePartitioning *object)
 }
 
 static void
-gadataset_hive_partitioning_class_init(
-  GADatasetHivePartitioningClass *klass)
+gadataset_hive_partitioning_class_init(GADatasetHivePartitioningClass *klass)
 {
 }
 
@@ -721,8 +695,10 @@ gadataset_hive_partitioning_new(GArrowSchema *schema,
     arrow_options = gadataset_hive_partitioning_options_get_raw(options);
   }
   return GADATASET_HIVE_PARTITIONING(
-    garrow_key_value_partitioning_new<arrow::dataset::HivePartitioning>(
-      schema, dictionaries, arrow_options, error));
+    garrow_key_value_partitioning_new<arrow::dataset::HivePartitioning>(schema,
+                                                                        dictionaries,
+                                                                        arrow_options,
+                                                                        error));
 }
 
 /**
@@ -735,8 +711,7 @@ gadataset_hive_partitioning_new(GArrowSchema *schema,
  * Since: 11.0.0
  */
 gchar *
-gadataset_hive_partitioning_get_null_fallback(
-  GADatasetHivePartitioning *partitioning)
+gadataset_hive_partitioning_get_null_fallback(GADatasetHivePartitioning *partitioning)
 {
   const auto arrow_partitioning =
     std::static_pointer_cast<arrow::dataset::HivePartitioning>(
@@ -744,7 +719,6 @@ gadataset_hive_partitioning_get_null_fallback(
   const auto null_fallback = arrow_partitioning->null_fallback();
   return g_strdup(null_fallback.c_str());
 }
-
 
 G_END_DECLS
 
@@ -775,13 +749,11 @@ gadataset_key_value_partitioning_options_get_raw(
 }
 
 arrow::dataset::HivePartitioningOptions
-gadataset_hive_partitioning_options_get_raw(
-  GADatasetHivePartitioningOptions *options)
+gadataset_hive_partitioning_options_get_raw(GADatasetHivePartitioningOptions *options)
 {
   auto priv = GADATASET_HIVE_PARTITIONING_OPTIONS_GET_PRIVATE(options);
-  auto arrow_key_value_options =
-    gadataset_key_value_partitioning_options_get_raw(
-      GADATASET_KEY_VALUE_PARTITIONING_OPTIONS(options));
+  auto arrow_key_value_options = gadataset_key_value_partitioning_options_get_raw(
+    GADATASET_KEY_VALUE_PARTITIONING_OPTIONS(options));
   arrow::dataset::HivePartitioningOptions arrow_options;
   arrow_options.segment_encoding = arrow_key_value_options.segment_encoding;
   arrow_options.null_fallback = priv->null_fallback;
@@ -799,9 +771,8 @@ gadataset_partitioning_new_raw(
   } else if (arrow_type_name == "hive") {
     type = GADATASET_TYPE_HIVE_PARTITIONING;
   }
-  return GADATASET_PARTITIONING(g_object_new(type,
-                                             "partitioning", arrow_partitioning,
-                                             nullptr));
+  return GADATASET_PARTITIONING(
+    g_object_new(type, "partitioning", arrow_partitioning, nullptr));
 }
 
 std::shared_ptr<arrow::dataset::Partitioning>

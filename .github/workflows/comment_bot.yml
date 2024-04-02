@@ -41,9 +41,9 @@ jobs:
           # fetch the tags for version number generation
           fetch-depth: 0
       - name: Set up Python
-        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
+        uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d # v5.1.0
         with:
-          python-version: 3.8
+          python-version: 3.12
       - name: Install Archery and Crossbow dependencies
         run: pip install -e arrow/dev/archery[bot]
       - name: Handle GitHub comment event
@@ -51,7 +51,7 @@ jobs:
           ARROW_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CROSSBOW_GITHUB_TOKEN: ${{ secrets.CROSSBOW_GITHUB_TOKEN }}
         run: |
-          archery trigger-bot \
+          archery --debug trigger-bot \
             --event-name ${{ github.event_name }} \
             --event-payload ${{ github.event_path }}
 

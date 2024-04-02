@@ -25,7 +25,6 @@ hypothesis
 numpy>=1.16.6
 pytest
 pytest-faulthandler
-pytest-lazy-fixture
 s3fs>=2023.10.0
 setuptools
-setuptools_scm<8.0.0
+setuptools_scm

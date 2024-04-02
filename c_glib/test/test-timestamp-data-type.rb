@@ -26,6 +26,23 @@ class TestTimestampDataType < Test::Unit::TestCase
     assert_equal("timestamp", data_type.name)
   end
 
+  sub_test_case("time_zone") do
+    def test_nil
+      data_type = Arrow::TimestampDataType.new(:micro)
+      assert_nil(data_type.time_zone)
+    end
+
+    def test_time_zone
+      data_type = Arrow::TimestampDataType.new(:micro, GLib::TimeZone.new("UTC"))
+      time_zone = data_type.time_zone
+      assert_not_nil(time_zone)
+      # glib2 gem 4.2.1 or later is required
+      if time_zone.respond_to?(:identifier)
+        assert_equal("UTC", time_zone.identifier)
+      end
+    end
+  end
+
   sub_test_case("second") do
     def setup
       @data_type = Arrow::TimestampDataType.new(:second)

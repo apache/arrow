@@ -99,10 +99,19 @@
 #define ARROW_S3_HAS_CRT
 #endif
 
+#if ARROW_AWS_SDK_VERSION_CHECK(1, 10, 0)
+#define ARROW_S3_HAS_S3CLIENT_CONFIGURATION
+#endif
+
 #ifdef ARROW_S3_HAS_CRT
 #include <aws/crt/io/Bootstrap.h>
 #include <aws/crt/io/EventLoopGroup.h>
 #include <aws/crt/io/HostResolver.h>
+#endif
+
+#ifdef ARROW_S3_HAS_S3CLIENT_CONFIGURATION
+#include <aws/s3/S3ClientConfiguration.h>
+#include <aws/s3/S3EndpointProvider.h>
 #endif
 
 #include "arrow/util/windows_fixup.h"
@@ -128,18 +137,16 @@
 #include "arrow/util/task_group.h"
 #include "arrow/util/thread_pool.h"
 
-namespace arrow {
-
-using internal::TaskGroup;
-using internal::ToChars;
-using internal::Uri;
-using io::internal::SubmitIO;
-
-namespace fs {
+namespace arrow::fs {
 
 using ::Aws::Client::AWSError;
 using ::Aws::S3::S3Errors;
 namespace S3Model = Aws::S3::Model;
+
+using ::arrow::internal::TaskGroup;
+using ::arrow::internal::ToChars;
+using ::arrow::io::internal::SubmitIO;
+using ::arrow::util::Uri;
 
 using internal::ConnectRetryStrategy;
 using internal::DetectS3Backend;
@@ -154,8 +161,10 @@ using internal::S3Backend;
 using internal::ToAwsString;
 using internal::ToURLEncodedAwsString;
 
-static const char kSep = '/';
-constexpr char kAwsEndpointUrlEnvVar[] = "AWS_ENDPOINT_URL";
+static constexpr const char kSep = '/';
+static constexpr const char kAwsEndpointUrlEnvVar[] = "AWS_ENDPOINT_URL";
+static constexpr const char kAwsEndpointUrlS3EnvVar[] = "AWS_ENDPOINT_URL_S3";
+static constexpr const char kAwsDirectoryContentType[] = "application/x-directory";
 
 // -----------------------------------------------------------------------
 // S3ProxyOptions implementation
@@ -366,9 +375,15 @@ Result<S3Options> S3Options::FromUri(const Uri& uri, std::string* out_path) {
   } else {
     options.ConfigureDefaultCredentials();
   }
-  auto endpoint_env = arrow::internal::GetEnvVar(kAwsEndpointUrlEnvVar);
-  if (endpoint_env.ok()) {
-    options.endpoint_override = *endpoint_env;
+  // Prefer AWS service-specific endpoint url
+  auto s3_endpoint_env = arrow::internal::GetEnvVar(kAwsEndpointUrlS3EnvVar);
+  if (s3_endpoint_env.ok()) {
+    options.endpoint_override = *s3_endpoint_env;
+  } else {
+    auto endpoint_env = arrow::internal::GetEnvVar(kAwsEndpointUrlEnvVar);
+    if (endpoint_env.ok()) {
+      options.endpoint_override = *endpoint_env;
+    }
   }
 
   bool region_set = false;
@@ -474,12 +489,11 @@ struct S3Path {
   }
 
   static Status Validate(const S3Path& path) {
-    auto result = internal::ValidateAbstractPathParts(path.key_parts);
-    if (!result.ok()) {
-      return Status::Invalid(result.message(), " in path ", path.full_path);
-    } else {
-      return result;
+    auto st = internal::ValidateAbstractPath(path.full_path);
+    if (!st.ok()) {
+      return Status::Invalid(st.message(), " in path ", path.full_path);
     }
+    return Status::OK();
   }
 
   Aws::String ToAwsString() const {
@@ -906,6 +920,134 @@ Result<std::shared_ptr<S3ClientHolder>> GetClientHolder(
 // -----------------------------------------------------------------------
 // S3 client factory: build S3Client from S3Options
 
+#ifdef ARROW_S3_HAS_S3CLIENT_CONFIGURATION
+
+// GH-40279: standard initialization of S3Client creates a new `S3EndpointProvider`
+// every time. Its construction takes 1ms, which makes instantiating every S3Client
+// very costly (see upstream bug report
+// at https://github.com/aws/aws-sdk-cpp/issues/2880).
+// To work around this, we build and cache `S3EndpointProvider` instances
+// for each distinct endpoint configuration, and reuse them whenever possible.
+// Since most applications tend to use a single endpoint configuration, this
+// makes the 1ms setup cost a once-per-process overhead, making it much more
+// bearable - if not ideal.
+
+struct EndpointConfigKey {
+  explicit EndpointConfigKey(const Aws::S3::S3ClientConfiguration& config)
+      : region(config.region),
+        scheme(config.scheme),
+        endpoint_override(config.endpointOverride),
+        use_virtual_addressing(config.useVirtualAddressing) {}
+
+  Aws::String region;
+  Aws::Http::Scheme scheme;
+  Aws::String endpoint_override;
+  bool use_virtual_addressing;
+
+  bool operator==(const EndpointConfigKey& other) const noexcept {
+    return region == other.region && scheme == other.scheme &&
+           endpoint_override == other.endpoint_override &&
+           use_virtual_addressing == other.use_virtual_addressing;
+  }
+};
+
+}  // namespace
+}  // namespace arrow::fs
+
+template <>
+struct std::hash<arrow::fs::EndpointConfigKey> {
+  std::size_t operator()(const arrow::fs::EndpointConfigKey& key) const noexcept {
+    // A crude hash is sufficient since we expect the cache to remain very small.
+    auto h = std::hash<Aws::String>{};
+    return h(key.region) ^ h(key.endpoint_override);
+  }
+};
+
+namespace arrow::fs {
+namespace {
+
+// EndpointProvider configuration happens in a non-thread-safe way, even
+// when the updates are idempotent. This is a problem when trying to reuse
+// a single EndpointProvider from several clients.
+// To work around this, this class ensures reconfiguration of an existing
+// EndpointProvider is a no-op.
+class InitOnceEndpointProvider : public Aws::S3::S3EndpointProviderBase {
+ public:
+  explicit InitOnceEndpointProvider(
+      std::shared_ptr<Aws::S3::S3EndpointProviderBase> wrapped)
+      : wrapped_(std::move(wrapped)) {}
+
+  void InitBuiltInParameters(const Aws::S3::S3ClientConfiguration& config) override {}
+
+  void OverrideEndpoint(const Aws::String& endpoint) override {
+    ARROW_LOG(ERROR) << "unexpected call to InitOnceEndpointProvider::OverrideEndpoint";
+  }
+  Aws::S3::Endpoint::S3ClientContextParameters& AccessClientContextParameters() override {
+    ARROW_LOG(ERROR)
+        << "unexpected call to InitOnceEndpointProvider::AccessClientContextParameters";
+    // Need to return a reference to something...
+    return wrapped_->AccessClientContextParameters();
+  }
+
+  const Aws::S3::Endpoint::S3ClientContextParameters& GetClientContextParameters()
+      const override {
+    return wrapped_->GetClientContextParameters();
+  }
+  Aws::Endpoint::ResolveEndpointOutcome ResolveEndpoint(
+      const Aws::Endpoint::EndpointParameters& params) const override {
+    return wrapped_->ResolveEndpoint(params);
+  }
+
+ protected:
+  std::shared_ptr<Aws::S3::S3EndpointProviderBase> wrapped_;
+};
+
+// A class that instantiates a single EndpointProvider per distinct endpoint
+// configuration and initializes it in a thread-safe way. See earlier comments
+// for rationale.
+class EndpointProviderCache {
+ public:
+  std::shared_ptr<Aws::S3::S3EndpointProviderBase> Lookup(
+      const Aws::S3::S3ClientConfiguration& config) {
+    auto key = EndpointConfigKey(config);
+    CacheValue* value;
+    {
+      std::unique_lock lock(mutex_);
+      value = &cache_[std::move(key)];
+    }
+    std::call_once(value->once, [&]() {
+      auto endpoint_provider = std::make_shared<Aws::S3::S3EndpointProvider>();
+      endpoint_provider->InitBuiltInParameters(config);
+      value->endpoint_provider =
+          std::make_shared<InitOnceEndpointProvider>(std::move(endpoint_provider));
+    });
+    return value->endpoint_provider;
+  }
+
+  void Reset() {
+    std::unique_lock lock(mutex_);
+    cache_.clear();
+  }
+
+  static EndpointProviderCache* Instance() {
+    static EndpointProviderCache instance;
+    return &instance;
+  }
+
+ private:
+  EndpointProviderCache() = default;
+
+  struct CacheValue {
+    std::once_flag once;
+    std::shared_ptr<Aws::S3::S3EndpointProviderBase> endpoint_provider;
+  };
+
+  std::mutex mutex_;
+  std::unordered_map<EndpointConfigKey, CacheValue> cache_;
+};
+
+#endif  // ARROW_S3_HAS_S3CLIENT_CONFIGURATION
+
 class ClientBuilder {
  public:
   explicit ClientBuilder(S3Options options) : options_(std::move(options)) {}
@@ -951,9 +1093,6 @@ class ClientBuilder {
       client_config_.caPath = ToAwsString(internal::global_options.tls_ca_dir_path);
     }
 
-    const bool use_virtual_addressing =
-        options_.endpoint_override.empty() || options_.force_virtual_addressing;
-
     // Set proxy options if provided
     if (!options_.proxy_options.scheme.empty()) {
       if (options_.proxy_options.scheme == "http") {
@@ -983,10 +1122,20 @@ class ClientBuilder {
       client_config_.maxConnections = std::max(io_context->executor()->GetCapacity(), 25);
     }
 
+    const bool use_virtual_addressing =
+        options_.endpoint_override.empty() || options_.force_virtual_addressing;
+
+#ifdef ARROW_S3_HAS_S3CLIENT_CONFIGURATION
+    client_config_.useVirtualAddressing = use_virtual_addressing;
+    auto endpoint_provider = EndpointProviderCache::Instance()->Lookup(client_config_);
+    auto client = std::make_shared<S3Client>(credentials_provider_, endpoint_provider,
+                                             client_config_);
+#else
     auto client = std::make_shared<S3Client>(
         credentials_provider_, client_config_,
         Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,
         use_virtual_addressing);
+#endif
     client->s3_retry_strategy_ = options_.retry_strategy;
     return GetClientHolder(std::move(client));
   }
@@ -995,7 +1144,11 @@ class ClientBuilder {
 
  protected:
   S3Options options_;
+#ifdef ARROW_S3_HAS_S3CLIENT_CONFIGURATION
+  Aws::S3::S3ClientConfiguration client_config_;
+#else
   Aws::Client::ClientConfiguration client_config_;
+#endif
   std::shared_ptr<Aws::Auth::AWSCredentialsProvider> credentials_provider_;
 };
 
@@ -1205,6 +1358,26 @@ Status SetObjectMetadata(const std::shared_ptr<const KeyValueMetadata>& metadata
     }
   }
   return Status::OK();
+}
+
+bool IsDirectory(std::string_view key, const S3Model::HeadObjectResult& result) {
+  // If it has a non-zero length, it's a regular file. We do this even if
+  // the key has a trailing slash, as directory markers should never have
+  // any data associated to them.
+  if (result.GetContentLength() > 0) {
+    return false;
+  }
+  // Otherwise, if it has a trailing slash, it's a directory
+  if (internal::HasTrailingSlash(key)) {
+    return true;
+  }
+  // Otherwise, if its content type starts with "application/x-directory",
+  // it's a directory
+  if (::arrow::internal::StartsWith(result.GetContentType(), kAwsDirectoryContentType)) {
+    return true;
+  }
+  // Otherwise, it's a regular file.
+  return false;
 }
 
 // A RandomAccessFile that reads from a S3 object
@@ -1736,8 +1909,13 @@ class ObjectOutputStream final : public io::OutputStream {
 };
 
 // This function assumes info->path() is already set
-void FileObjectToInfo(const S3Model::HeadObjectResult& obj, FileInfo* info) {
-  info->set_type(FileType::File);
+void FileObjectToInfo(std::string_view key, const S3Model::HeadObjectResult& obj,
+                      FileInfo* info) {
+  if (IsDirectory(key, obj)) {
+    info->set_type(FileType::Directory);
+  } else {
+    info->set_type(FileType::File);
+  }
   info->set_size(static_cast<int64_t>(obj.GetContentLength()));
   info->set_mtime(FromAwsDatetime(obj.GetLastModified()));
 }
@@ -1847,22 +2025,19 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     return Status::OK();
   }
 
-  // Create an object with empty contents.  Successful if object already exists.
-  Status CreateEmptyObject(const std::string& bucket, const std::string& key) {
+  // Create a directory-like object with empty contents.  Successful if already exists.
+  Status CreateEmptyDir(const std::string& bucket, std::string_view key_view) {
     ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
 
+    auto key = internal::EnsureTrailingSlash(key_view);
     S3Model::PutObjectRequest req;
     req.SetBucket(ToAwsString(bucket));
     req.SetKey(ToAwsString(key));
+    req.SetContentType(kAwsDirectoryContentType);
     req.SetBody(std::make_shared<std::stringstream>(""));
     return OutcomeToStatus(
         std::forward_as_tuple("When creating key '", key, "' in bucket '", bucket, "': "),
         "PutObject", client_lock.Move()->PutObject(req));
-  }
-
-  Status CreateEmptyDir(const std::string& bucket, const std::string& key) {
-    DCHECK(!key.empty());
-    return CreateEmptyObject(bucket, key + kSep);
   }
 
   Status DeleteObject(const std::string& bucket, const std::string& key) {
@@ -2138,7 +2313,10 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
           child_path_ss << bucket << kSep << child_key;
           child_key = child_path_ss.str();
           if (obj.GetSize() > 0 || !had_trailing_slash) {
-            // We found a real file
+            // We found a real file.
+            // XXX Ideally, for 0-sized files we would also check the Content-Type
+            // against kAwsDirectoryContentType, but ListObjectsV2 does not give
+            // that information.
             FileInfo info;
             info.set_path(child_key);
             FileObjectToInfo(obj, &info);
@@ -2353,10 +2531,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
           ARROW_ASSIGN_OR_RAISE(auto client_lock, self->holder_->Lock());
           auto outcome = client_lock.Move()->HeadObject(req);
           if (outcome.IsSuccess()) {
-            const auto& result = outcome.GetResult();
-            // A directory should be empty and have a trailing slash.  Anything else
-            // we can consider a file
-            return result.GetContentLength() <= 0 && key[key.size() - 1] == '/';
+            return IsDirectory(key, outcome.GetResult());
           }
           if (IsNotFound(outcome.GetError())) {
             // If we can't find it then it isn't a file.
@@ -2634,7 +2809,7 @@ Result<FileInfo> S3FileSystem::GetFileInfo(const std::string& s) {
     auto outcome = client_lock.Move()->HeadObject(req);
     if (outcome.IsSuccess()) {
       // "File" object found
-      FileObjectToInfo(outcome.GetResult(), &info);
+      FileObjectToInfo(path.key, outcome.GetResult(), &info);
       return info;
     }
     if (!IsNotFound(outcome.GetError())) {
@@ -2696,7 +2871,7 @@ Status S3FileSystem::CreateDir(const std::string& s, bool recursive) {
     for (const auto& part : path.key_parts) {
       parent_key += part;
       parent_key += kSep;
-      RETURN_NOT_OK(impl_->CreateEmptyObject(path.bucket, parent_key));
+      RETURN_NOT_OK(impl_->CreateEmptyDir(path.bucket, parent_key));
     }
     return Status::OK();
   } else {
@@ -2891,12 +3066,16 @@ struct AwsInstance {
     if (is_finalized_.load()) {
       return Status::Invalid("Attempt to initialize S3 after it has been finalized");
     }
-    if (!is_initialized_.exchange(true)) {
-      // Not already initialized
+    bool newly_initialized = false;
+    // EnsureInitialized() can be called concurrently by FileSystemFromUri,
+    // therefore we need to serialize initialization (GH-39897).
+    std::call_once(initialize_flag_, [&]() {
+      bool was_initialized = is_initialized_.exchange(true);
+      DCHECK(!was_initialized);
       DoInitialize(options);
-      return true;
-    }
-    return false;
+      newly_initialized = true;
+    });
+    return newly_initialized;
   }
 
   bool IsInitialized() { return !is_finalized_ && is_initialized_; }
@@ -2916,6 +3095,9 @@ struct AwsInstance {
                "This could lead to a segmentation fault at exit";
       }
       GetClientFinalizer()->Finalize();
+#ifdef ARROW_S3_HAS_S3CLIENT_CONFIGURATION
+      EndpointProviderCache::Instance()->Reset();
+#endif
       Aws::ShutdownAPI(aws_options_);
     }
   }
@@ -2972,6 +3154,7 @@ struct AwsInstance {
   Aws::SDKOptions aws_options_;
   std::atomic<bool> is_initialized_;
   std::atomic<bool> is_finalized_;
+  std::once_flag initialize_flag_;
 };
 
 AwsInstance* GetAwsInstance() {
@@ -3056,5 +3239,4 @@ Result<std::string> ResolveS3BucketRegion(const std::string& bucket) {
   return resolver->ResolveRegion(bucket);
 }
 
-}  // namespace fs
-}  // namespace arrow
+}  // namespace arrow::fs

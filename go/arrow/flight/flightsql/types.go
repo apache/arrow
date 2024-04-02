@@ -17,7 +17,7 @@
 package flightsql
 
 import (
-	pb "github.com/apache/arrow/go/v15/arrow/flight/gen/flight"
+	pb "github.com/apache/arrow/go/v16/arrow/flight/gen/flight"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 )
@@ -852,3 +852,5 @@ const (
 	// cancellation request.
 	CancelResultNotCancellable = pb.ActionCancelQueryResult_CANCEL_RESULT_NOT_CANCELLABLE
 )
+
+type CreatePreparedStatementResult = pb.ActionCreatePreparedStatementResult

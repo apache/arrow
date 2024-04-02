@@ -21,7 +21,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(pyarrow)
 
-set(PYARROW_VERSION "15.0.0-SNAPSHOT")
+set(PYARROW_VERSION "16.0.0-SNAPSHOT")
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" PYARROW_BASE_VERSION "${PYARROW_VERSION}")
 
 # Running from a Python sdist tarball
@@ -260,6 +260,9 @@ set(EXECUTABLE_OUTPUT_PATH "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 
 # Python and Numpy libraries
 find_package(Python3Alt REQUIRED)
+message(STATUS "Found NumPy version: ${Python3_NumPy_VERSION}")
+message(STATUS "NumPy include dir: ${NUMPY_INCLUDE_DIRS}")
+
 include(UseCython)
 
 # PyArrow C++
@@ -545,12 +548,15 @@ set(CYTHON_EXTENSIONS
     _csv
     _feather
     _fs
-    _hdfsio
     _json
     _pyarrow_cpp_tests)
 set_source_files_properties(pyarrow/lib.pyx PROPERTIES CYTHON_API TRUE)
 
 set(LINK_LIBS arrow_python)
+
+if(PYARROW_BUILD_AZURE)
+  list(APPEND CYTHON_EXTENSIONS _azurefs)
+endif()
 
 if(PYARROW_BUILD_GCS)
   list(APPEND CYTHON_EXTENSIONS _gcsfs)
@@ -722,6 +728,9 @@ endif()
 
 # Error on any warnings not already explicitly ignored.
 set(CYTHON_FLAGS "${CYTHON_FLAGS}" "--warning-errors")
+# GH-40236: make generated C++ code easier to compile by disabling an
+# undocumented Cython feature.
+set(CYTHON_FLAGS "${CYTHON_FLAGS}" "--no-c-in-traceback")
 
 foreach(module ${CYTHON_EXTENSIONS})
   string(REPLACE "." ";" directories ${module})

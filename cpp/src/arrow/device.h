@@ -363,4 +363,32 @@ class ARROW_EXPORT CPUMemoryManager : public MemoryManager {
 ARROW_EXPORT
 std::shared_ptr<MemoryManager> default_cpu_memory_manager();
 
+using DeviceMapper =
+    std::function<Result<std::shared_ptr<MemoryManager>>(int64_t device_id)>;
+
+/// \brief Register a function to retrieve a MemoryManager for a Device type
+///
+/// This registers the device type globally. A specific device type can only
+/// be registered once. This method is thread-safe.
+///
+/// Currently, this registry is only used for importing data through the C Device
+/// Data Interface (for the default Device to MemoryManager mapper in
+/// arrow::ImportDeviceArray/ImportDeviceRecordBatch).
+///
+/// \param[in] device_type the device type for which to register a MemoryManager
+/// \param[in] mapper function that takes a device id and returns the appropriate
+/// MemoryManager for the registered device type and given device id
+/// \return Status
+ARROW_EXPORT
+Status RegisterDeviceMapper(DeviceAllocationType device_type, DeviceMapper mapper);
+
+/// \brief Get the registered function to retrieve a MemoryManager for the
+/// given Device type
+///
+/// \param[in] device_type the device type
+/// \return function that takes a device id and returns the appropriate
+/// MemoryManager for the registered device type and given device id
+ARROW_EXPORT
+Result<DeviceMapper> GetDeviceMapper(DeviceAllocationType device_type);
+
 }  // namespace arrow

@@ -30,13 +30,25 @@ namespace Apache.Arrow.Ipc
 {
     internal abstract class ArrowReaderImplementation : IDisposable
     {
-        public Schema Schema { get; protected set; }
-        protected bool HasReadSchema => Schema != null;
+        public Schema Schema
+        {
+            get
+            {
+                if (!HasReadSchema)
+                {
+                    ReadSchema();
+                }
+                return _schema;
+            }
+        }
+
+        protected internal bool HasReadSchema => _schema != null;
 
         private protected DictionaryMemo _dictionaryMemo;
         private protected DictionaryMemo DictionaryMemo => _dictionaryMemo ??= new DictionaryMemo();
         private protected readonly MemoryAllocator _allocator;
         private readonly ICompressionCodecFactory _compressionCodecFactory;
+        private protected Schema _schema;
 
         private protected ArrowReaderImplementation() : this(null, null)
         { }
@@ -56,6 +68,9 @@ namespace Apache.Arrow.Ipc
         protected virtual void Dispose(bool disposing)
         {
         }
+
+        public abstract ValueTask ReadSchemaAsync(CancellationToken cancellationToken);
+        public abstract void ReadSchema();
 
         public abstract ValueTask<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken);
         public abstract RecordBatch ReadNextRecordBatch();

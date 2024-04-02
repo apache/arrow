@@ -69,7 +69,7 @@ template <typename Type>
 class TestIfElsePrimitive : public ::testing::Test {};
 
 // There are a lot of tests here if we cover all the types and it gets slow on valgrind
-// so we overrdie the standard type sets with a smaller range
+// so we override the standard type sets with a smaller range
 #ifdef ARROW_VALGRIND
 using IfElseNumericBasedTypes =
     ::testing::Types<UInt32Type, FloatType, Date32Type, Time32Type, TimestampType,

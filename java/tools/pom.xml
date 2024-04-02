@@ -14,7 +14,7 @@
     <parent>
         <groupId>org.apache.arrow</groupId>
         <artifactId>arrow-java-root</artifactId>
-        <version>15.0.0-SNAPSHOT</version>
+        <version>16.0.0-SNAPSHOT</version>
     </parent>
     <artifactId>arrow-tools</artifactId>
     <name>Arrow Tools</name>
@@ -35,6 +35,10 @@
             <artifactId>arrow-compression</artifactId>
         </dependency>
         <dependency>
+          <groupId>org.immutables</groupId>
+          <artifactId>value</artifactId>
+        </dependency>
+        <dependency>
           <groupId>com.google.guava</groupId>
           <artifactId>guava</artifactId>
           <scope>test</scope>
@@ -48,7 +52,7 @@
           <groupId>ch.qos.logback</groupId>
           <artifactId>logback-classic</artifactId>
           <version>1.3.14</version>
-          <scope>runtime</scope>
+          <scope>test</scope>
         </dependency>
         <dependency>
           <groupId>com.fasterxml.jackson.core</groupId>

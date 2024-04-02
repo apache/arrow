@@ -24,10 +24,10 @@
 #ifdef _WIN32
 #include "arrow/util/windows_compatibility.h"
 #else
-#include <errno.h>
 #include <fcntl.h>
-#include <stdio.h>
 #include <sys/stat.h>
+#include <cerrno>
+#include <cstdio>
 #endif
 
 #include "arrow/filesystem/filesystem.h"
@@ -42,8 +42,7 @@
 #include "arrow/util/uri.h"
 #include "arrow/util/windows_fixup.h"
 
-namespace arrow {
-namespace fs {
+namespace arrow::fs {
 
 using ::arrow::internal::IOErrorFromErrno;
 #ifdef _WIN32
@@ -217,9 +216,7 @@ Status StatSelector(const PlatformFilename& dir_fn, const FileSelector& select,
 
 }  // namespace
 
-LocalFileSystemOptions LocalFileSystemOptions::Defaults() {
-  return LocalFileSystemOptions();
-}
+LocalFileSystemOptions LocalFileSystemOptions::Defaults() { return {}; }
 
 bool LocalFileSystemOptions::Equals(const LocalFileSystemOptions& other) const {
   return use_mmap == other.use_mmap && directory_readahead == other.directory_readahead &&
@@ -227,7 +224,7 @@ bool LocalFileSystemOptions::Equals(const LocalFileSystemOptions& other) const {
 }
 
 Result<LocalFileSystemOptions> LocalFileSystemOptions::FromUri(
-    const ::arrow::internal::Uri& uri, std::string* out_path) {
+    const ::arrow::util::Uri& uri, std::string* out_path) {
   if (!uri.username().empty() || !uri.password().empty()) {
     return Status::Invalid("Unsupported username or password in local URI: '",
                            uri.ToString(), "'");
@@ -260,7 +257,7 @@ LocalFileSystem::LocalFileSystem(const LocalFileSystemOptions& options,
                                  const io::IOContext& io_context)
     : FileSystem(io_context), options_(options) {}
 
-LocalFileSystem::~LocalFileSystem() {}
+LocalFileSystem::~LocalFileSystem() = default;
 
 Result<std::string> LocalFileSystem::NormalizePath(std::string path) {
   return DoNormalizePath(std::move(path));
@@ -595,7 +592,7 @@ Status LocalFileSystem::Move(const std::string& src, const std::string& dest) {
                                "' to '", dfn.ToString(), "'");
   }
 #else
-  if (rename(sfn.ToNative().c_str(), dfn.ToNative().c_str()) == -1) {
+  if (rename(sfn.ToNative().c_str(), dfn.ToNative().c_str()) != 0) {
     return IOErrorFromErrno(errno, "Failed renaming '", sfn.ToString(), "' to '",
                             dfn.ToString(), "'");
   }
@@ -689,5 +686,4 @@ Result<std::shared_ptr<io::OutputStream>> LocalFileSystem::OpenAppendStream(
   return OpenOutputStreamGeneric(path, truncate, append);
 }
 
-}  // namespace fs
-}  // namespace arrow
+}  // namespace arrow::fs

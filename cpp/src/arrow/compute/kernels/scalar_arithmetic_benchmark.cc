@@ -33,7 +33,7 @@ constexpr auto kSeed = 0x94378165;
 using BinaryOp = Result<Datum>(const Datum&, const Datum&, ArithmeticOptions,
                                ExecContext*);
 
-// Add explicit overflow-checked shortcuts, for easy benchmark parametering.
+// Add explicit overflow-checked shortcuts, for easy benchmark parameterizing.
 static Result<Datum> AddChecked(const Datum& left, const Datum& right,
                                 ArithmeticOptions options = ArithmeticOptions(),
                                 ExecContext* ctx = NULLPTR) {

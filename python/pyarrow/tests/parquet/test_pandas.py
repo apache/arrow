@@ -404,6 +404,10 @@ carat        cut  color  clarity  depth  table  price     x     y     z
 
 @pytest.mark.pandas
 def test_backwards_compatible_column_metadata_handling(datadir):
+    if Version("2.2.0") <= Version(pd.__version__):
+        # TODO: regression in pandas
+        # https://github.com/pandas-dev/pandas/issues/56775
+        pytest.skip("Regression in pandas 2.2.0")
     expected = pd.DataFrame(
         {'a': [1, 2, 3], 'b': [.1, .2, .3],
          'c': pd.date_range("2017-01-01", periods=3, tz='Europe/Brussels')})
@@ -504,9 +508,9 @@ def test_categories_with_string_pyarrow_dtype(tempdir):
     df2 = df2.astype("category")
 
     # categories should be converted to pa.Array
-    assert pa.array(df1["x"]) == pa.array(df2["x"])
-    assert pa.array(df1["x"].cat.categories.values) == pa.array(
-        df2["x"].cat.categories.values)
+    assert pa.array(df1["x"]).to_pylist() == pa.array(df2["x"]).to_pylist()
+    assert pa.array(df1["x"].cat.categories.values).to_pylist() == pa.array(
+        df2["x"].cat.categories.values).to_pylist()
 
     path = str(tempdir / 'cat.parquet')
     pq.write_table(pa.table(df1), path)

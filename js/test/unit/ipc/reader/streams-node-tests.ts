@@ -100,7 +100,6 @@ import {
     }
 
     it('readAll() should pipe to separate NodeJS WritableStreams', async () => {
-        // @ts-ignore
         const { default: MultiStream } = await import('multistream');
         const { PassThrough } = await import('stream');
 
@@ -138,7 +137,6 @@ import {
     });
 
     it('should not close the underlying NodeJS ReadableStream when reading multiple tables to completion', async () => {
-        // @ts-ignore
         const { default: MultiStream } = await import('multistream');
 
         expect.hasAssertions();
@@ -168,7 +166,6 @@ import {
     });
 
     it('should close the underlying NodeJS ReadableStream when reading multiple tables and we break early', async () => {
-        // @ts-ignore
         const { default: MultiStream } = await import('multistream');
 
         expect.hasAssertions();
