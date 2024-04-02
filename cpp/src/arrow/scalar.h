@@ -268,7 +268,7 @@ struct ARROW_EXPORT BaseBinaryScalar : public internal::PrimitiveScalarBase {
     return value ? std::string_view(*value) : std::string_view();
   }
 
-  BaseBinaryScalar(std::shared_ptr<DataType> type)
+  explicit BaseBinaryScalar(std::shared_ptr<DataType> type)
       : internal::PrimitiveScalarBase(std::move(type)) {}
 
   BaseBinaryScalar(std::shared_ptr<Buffer> value, std::shared_ptr<DataType> type)
