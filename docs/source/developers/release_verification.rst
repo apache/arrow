@@ -44,20 +44,36 @@ Linux and macOS
 In order to run the verification script either for the source release or the
 binary artifacts see the following guidelines:
 
+Required source verification
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Individuals are REQUIRED to download all signed source code packages onto their
+own hardware, validate all cryptographic signatures, compile as provided,
+and test the result on their own platform in order to cast a +1 vote.
+
 .. code-block::
 
    # this will create and automatically clean up a temporary directory for the verification environment and will run the source verification
    TEST_DEFAULT=0 TEST_SOURCE=1 verify-release-candidate.sh $VERSION $RC_NUM
-   
-   # this will create and automatically clean up a temporary directory for the verification environment and will run the binary verification
-   TEST_DEFAULT=0 TEST_BINARIES=1 dev/release/verify-release-candidate.sh $VERSION $RC_NUM
    
    # to verify only certain implementations use the TEST_DEFAULT=0 and TEST_* variables
    # here are a couple of examples, but see the source code for the available options
    TEST_DEFAULT=0 TEST_CPP=1 verify-release-candidate.sh $VERSION $RC_NUM  # only C++ tests
    TEST_DEFAULT=0 TEST_CPP=1 TEST_PYTHON=1 verify-release-candidate.sh $VERSION $RC_NUM  # C++ and Python tests
    TEST_DEFAULT=0 TEST_INTEGRATION_CPP=1 TEST_INTEGRATION_JAVA=1 verify-release-candidate.sh $VERSION $RC_NUM  # C++ and Java integration tests
-   
+
+Binary verification
+^^^^^^^^^^^^^^^^^^^
+
+The binaries are generated from the source that has been verified. Those binaries are
+tested on CI but can be tested locally for further validation. It is not necessary to
+test them in order to cast a positive vote.
+
+.. code-block::
+
+   # this will create and automatically clean up a temporary directory for the verification environment and will run the binary verification
+   TEST_DEFAULT=0 TEST_BINARIES=1 dev/release/verify-release-candidate.sh $VERSION $RC_NUM
+
    # to verify certain binaries use the TEST_* variables as:
    TEST_DEFAULT=0 TEST_WHEELS=1 verify-release-candidate.sh $VERSION $RC_NUM  # only Wheels
    TEST_DEFAULT=0 TEST_APT=1 verify-release-candidate.sh $VERSION $RC_NUM  # only APT packages
@@ -130,7 +146,6 @@ As an example:
    I've verified successfully the sources and binaries with:
 
    TEST_DEFAULT=0 TEST_SOURCE=1 dev/release/verify-release-candidate.sh 15.0.0 1
-   TEST_DEFAULT=0 TEST_BINARIES=1 dev/release/verify-release-candidate.sh 15.0.0 1
    with:
    * Python 3.10.12
    * gcc (Ubuntu 11.4.0-1ubuntu1~22.04) 11.4.0
