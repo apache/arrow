@@ -110,7 +110,7 @@ There is one essential difference between manipulating a `data.frame` or a `tibb
 
 __The big difference between manipulating a `data.frame` and manipulating an `Arrow Table` lies in the execution engine__: if you manipulate a `data.frame` with the dplyr syntax, then computations are performed by the `dplyr` execution engine; if you manipulate an `Arrow Table` with the dplyr syntax, then computations are performed by a completely different execution engine: the `arrow` execution engine named `acero` and written in C++. It's precisely because `acero` is much more efficient than `dplyr` execution engine that `arrow` is so much faster than `dplyr`.
 
-__This difference in execution engines has an important technical consequence__: when you manipulate an `Arrow Table` with the dplyr syntax, your code needs to be converted into C++ so that the `acero` engine can perform the computations. This conversion is performed automatically and invisibly by the R arrow package, because this package contains the C++ translation of several hundred `tidyverse` functions. For example, the arrow contains the C++ translation of the `filter()` function from `dplyr`, so that `filter()` instructions written in `tidyverse` syntax can be automatically converted into equivalent C++ instructions. The list of _tidyverse_ functions supported by `acero` is available on [this page](https://arrow.apache.org/docs/dev/r/reference/acero.html). Occasionally, however, you may wish to use a function not supported by `acero`. This situation is described in the paragraph "How to use a function not supported by `acero`".
+__This hidden difference on execution engines has an important technical consequence__: when you manipulate an `Arrow Table` with the dplyr syntax, your code needs to be converted into C++ so that the `acero` engine can perform the computations. This conversion is performed automatically and invisibly by the R arrow package, because this package contains the C++ translation of several hundred `tidyverse` functions. For example, the arrow contains the C++ translation of the `filter()` function from `dplyr`, so that `filter()` instructions written in `tidyverse` syntax can be automatically converted into equivalent C++ instructions. The list of _tidyverse_ functions supported by `acero` is available on [this page](https://arrow.apache.org/docs/dev/r/reference/acero.html). Occasionally, however, you may wish to use a function not supported by `acero`. This situation is described in the paragraph "How to use a function not supported by `acero`".
 
 __This is the magic trick you should keep in mind__: it _looks like_ you are writing and running R code, but in fact your code is _invisibly translated into C++ code_ and sent to the `acero` execution engine.
 
@@ -123,10 +123,60 @@ Arrow has a specific behavior called  _lazy evaluation_: calculations are only p
 You might wonder what the point of *lazy evaluation* is. Why not execute each instruction immediately
 (this is called *eager evaluation*)? *Lazy evaluation* is useful for performance purposes: when you ask Arrow to execute a series of instructions, Arrow first analyzes this series of instructions, optimizes it (for instance by removing some useless columns) and does all the data processing all at once, often faster than on an instruction-by-instruction basis. This kind of optimization can be very useful, particularly when you process large datasets.
 
+## How do I use Arrow properly?
 
+At first sight, it looks like Arrow can be used in exactly the same way as dplyr (and in fact, this is deliberate!). However, there are a few important differences that you should know about to understand what is going on. This section details three recommendations to use Arrow efficiently:
 
+- Use lazy evaluation correctly;
+- Use `compute()` rather than `collect()`;
+- Use `open_dataset()` rather than `read_parquet()`.
 
+### How to use lazy evaluation properly
 
+The previous section explained what lazy evaluation is and why it is useful to optimize performance. However, lazy evaluation is not always easy to use, and has limitations that you need to know about.
+
+#### The limitations of lazy evaluation
+
+Lazy evaluation improves performance by minimizing the amount of computations actually needed to execute a series of instructions. With that in mind, you might think that the best way to use Arrow is to write all your data processing in _lazy_ mode (without any `compute()` or `collect()` in the intermediate steps), and do a single `compute()` or `collect()` at the very end of the process, so that all operations are optimized in a single step. If that was true, an ideal process would then look like this:
+
+```{r, eval=FALSE}
+# Connect to raw data
+data1 <- open_dataset("data1.parquet")
+data2 <- open_dataset("data2.parquet")
+
+# A first lazy processing step
+intermediate_results1 <- data1 |>
+  select(...) |>
+  filter(...) |>
+  mutate(...)
+
+# A second lazy processing step
+intermediate_results2 <- data2 |>
+  select(...) |>
+  filter(...) |>
+  mutate(...)
+
+# Et many other lazy processing steps with many instructions...
+# ...
+# ...
+# ...
+
+# The last processing step
+final_results <- intermediate_results8 |>
+  left_join(
+    intermediate_results9, 
+    by = "id"
+  ) |>
+  compute()
+  
+write_parquet(final_results, "final_results.parquet")
+```
+
+Unfortunately, __reality is not that simple because deferred evaluation has limitations__. 
+
+Indeed, when producing the final result of the previous example, the `compute()` function instructs the `acero` engine to analyze and then execute _all processing at once_ (the previous paragraph gives a detailed example). The `acero` engine may be powerful, but it has its limits and is unable to carry out complex processing in a single operation. For example, `acero` encounters difficulties when linking multiple joins of large tables.
+
+__These limits of deferred evaluation can lead to violent bugs__. When the `acero` engine fails to execute a query that is too complex, the consequences are brutal: `R` prints no error message, the `R` session crashes and you simply have to restart `R` and start all over again. It's therefore essential to structure processing correctly, to take advantage of the benefits of deferred evaluation without touching its limits.
 
 
 
