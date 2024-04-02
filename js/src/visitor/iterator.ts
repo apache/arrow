@@ -17,7 +17,7 @@
 
 import { Vector } from '../vector.js';
 import { Visitor } from '../visitor.js';
-import { Type, Precision } from '../enum.js';
+import { Type, Precision, TimeUnit } from '../enum.js';
 import { TypeToDataType } from '../interfaces.js';
 import {
     DataType, Dictionary,
@@ -101,10 +101,10 @@ function vectorIterator<T extends DataType>(vector: Vector<T>): IterableIterator
 
     // Fast case, defer to native iterators if possible
     if (vector.nullCount === 0 && vector.stride === 1 && (
-        (type.typeId === Type.Timestamp) ||
-        (type instanceof Int && (type as Int).bitWidth !== 64) ||
-        (type instanceof Time && (type as Time).bitWidth !== 64) ||
-        (type instanceof Float && (type as Float).precision !== Precision.HALF)
+        (DataType.isTimestamp(type)) && type.unit === TimeUnit.MILLISECOND ||
+        (DataType.isInt(type) && type.bitWidth !== 64) ||
+        (DataType.isTime(type) && type.bitWidth !== 64) ||
+        (DataType.isFloat(type) && type.precision !== Precision.HALF)
     )) {
         return new ChunkedIterator(vector.data.length, (chunkIndex) => {
             const data = vector.data[chunkIndex];
