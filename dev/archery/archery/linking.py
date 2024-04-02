@@ -101,6 +101,7 @@ class DynamicLibrary:
                             paths[lib].append(match.group(1))
             elif system == 'Darwin':
                 result = _otool.run("-L", lib, stdout=subprocess.PIPE)
+                lines = result.stdout.decode('utf-8').splitlines()
                 for line in lines[1:]:
                     match = re.search(r'\s*(\S*)', line)
                     if match:
@@ -124,7 +125,6 @@ def check_dynamic_library_dependencies(path, allowed, disallowed):
             )
     # Check for undefined symbols
     undefined_symbols = dylib.list_undefined_symbols_for_dependency(path, True)
-    print("Allowed: ", allowed)
     expected_lib_paths = dylib.find_library_paths(allowed)
     all_paths = []
 
