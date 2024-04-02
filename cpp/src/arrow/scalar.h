@@ -538,12 +538,13 @@ struct ARROW_EXPORT Decimal256Scalar : public DecimalScalar<Decimal256Type, Deci
 };
 
 struct ARROW_EXPORT BaseListScalar : public Scalar {
+  using Scalar::Scalar;
   using ValueType = std::shared_ptr<Array>;
-
-  std::shared_ptr<Array> value;
 
   BaseListScalar(std::shared_ptr<Array> value, std::shared_ptr<DataType> type,
                  bool is_valid = true);
+
+  std::shared_ptr<Array> value;
 };
 
 struct ARROW_EXPORT ListScalar
