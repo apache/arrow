@@ -257,13 +257,12 @@
           <headerLocation>../dev/checkstyle/checkstyle.license</headerLocation>
           <suppressionsLocation>../dev/checkstyle/suppressions.xml</suppressionsLocation>
           <includeTestSourceDirectory>true</includeTestSourceDirectory>
-          <encoding>UTF-8</encoding>
+          <inputEncoding>UTF-8</inputEncoding>
           <consoleOutput>true</consoleOutput>
           <failsOnError>${checkstyle.failOnViolation}</failsOnError>
           <failOnViolation>${checkstyle.failOnViolation}</failOnViolation>
           <violationSeverity>warning</violationSeverity>
-          <format>xml</format>
-          <format>html</format>
+          <outputFileFormat>xml</outputFileFormat>
           <outputFile>${project.build.directory}/test/checkstyle-errors.xml</outputFile>
           <linkXRef>false</linkXRef>
         </configuration>
