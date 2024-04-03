@@ -178,11 +178,8 @@ def is_run_end_type_py(data_type):
 def is_primitive_type(data_type):
     """
     This function checks whether the `data_type` is a primitive type, which includes
-    integers, floating point numbers, dates (days since the UNIX epoch and milliseconds
-    since the UNIX epoch), times (seconds and milliseconds since midnight),
-    timestamp (milliseconds since the UNIX epoch), and duration (elapsed time in
-    seconds, milliseconds, microseconds, and nanoseconds), and intervals (months,
-    days plus nanoseconds, and day-time intervals) types.
+    boolean, integers, floating point numbers, dates, times, timestamp, duration
+    and intervals types.
 
     Parameters
     ----------
