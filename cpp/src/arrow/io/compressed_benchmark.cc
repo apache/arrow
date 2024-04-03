@@ -170,6 +170,7 @@ static void CompressedInputStreamNonZeroCopyBufferReturnedByCallee(
                                  BufferReadMode::ReturnedByCallee>(state, kCompression);
 }
 
+#ifdef ARROW_WITH_LZ4
 static void CompressedInputArguments(::benchmark::internal::Benchmark* b) {
   b->ArgNames({"num_bytes", "batch_size"})
       ->Args({8 * 1024, 8 * 1024})
@@ -180,7 +181,6 @@ static void CompressedInputArguments(::benchmark::internal::Benchmark* b) {
       ->Args({1024 * 1024, 1024 * 1024});
 }
 
-#ifdef ARROW_WITH_LZ4
 // Benchmark LZ4 because it's lightweight, which makes benchmarking focused on the
 // overhead of the compression input stream.
 BENCHMARK_TEMPLATE(CompressedInputStreamZeroCopyBufferProvidedByCaller,
