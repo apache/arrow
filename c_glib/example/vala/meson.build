@@ -18,11 +18,15 @@
 # under the License.
 
 if generate_vapi
+  c_flags = [
+    '-Wunused-but-set-variable',
+  ]
+  c_flags = meson.get_compiler('c').get_supported_arguments(c_flags)
   vala_example_executable_kwargs = {
     'c_args': [
       '-I' + project_build_root,
       '-I' + project_source_root,
-    ],
+    ] + c_flags,
     'dependencies': [
       arrow_glib_vapi,
       dependency('gio-2.0'),
