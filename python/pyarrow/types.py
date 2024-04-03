@@ -21,35 +21,35 @@
 from pyarrow.lib import (is_boolean_value,  # noqa
                          is_integer_value,
                          is_float_value,
-                         is_integer_type,
-                         is_signed_integer_type,
-                         is_unsigned_integer_type,
-                         is_floating_type,
-                         is_numeric_type,
-                         is_decimal_type,
-                         is_run_end_type_py,
-                         is_primitive_type,
-                         is_base_binary_like_type,
-                         is_binary_like_type,
-                         is_large_binary_like_type,
-                         is_binary_type,
-                         is_string_type,
-                         is_temporal_type,
-                         is_time_type,
-                         is_date_type,
-                         is_interval_type,
-                         is_dictionary_type,
-                         is_fixed_size_binary_type,
-                         is_fixed_width_type,
-                         is_var_length_list_type,
-                         is_list_type,
-                         is_list_like_type,
-                         is_var_length_list_like_type,
-                         is_list_view_type,
-                         is_nested_type,
-                         is_union_type,
-                         bit_width_type,
-                         offset_bit_width_type)
+                         _is_integer,
+                         _is_signed_integer,
+                         _is_unsigned_integer,
+                         _is_floating,
+                         _is_numeric,
+                         _is_decimal,
+                         _is_run_end_type,
+                         _is_primitive,
+                         _is_base_binary_like,
+                         _is_binary_like,
+                         _is_large_binary_like,
+                         _is_binary,
+                         _is_string,
+                         _is_temporal,
+                         _is_time,
+                         _is_date,
+                         _is_interval,
+                         _is_dictionary,
+                         _is_fixed_size_binary,
+                         _is_fixed_width,
+                         _is_var_length_list,
+                         _is_list,
+                         _is_list_like,
+                         _is_var_length_list_like,
+                         _is_list_view,
+                         _is_nested,
+                         _is_union,
+                         _bit_width,
+                         _offset_bit_width)
 
 import pyarrow.lib as lib
 from pyarrow.util import doc
@@ -69,92 +69,92 @@ def is_null(t):
 
 @doc(is_null, datatype="boolean")
 def is_boolean(t):
-    return is_primitive_type(t) and bit_width_type(t) == 1
+    return _is_primitive(t) and _bit_width(t) == 1
 
 
 @doc(is_null, datatype="any integer")
 def is_integer(t):
-    return is_integer_type(t) and bit_width_type(t)
+    return _is_integer(t) and _bit_width(t)
 
 
 @doc(is_null, datatype="signed integer")
 def is_signed_integer(t):
-    return is_signed_integer_type(t)
+    return _is_signed_integer(t)
 
 
 @doc(is_null, datatype="unsigned integer")
 def is_unsigned_integer(t):
-    return is_unsigned_integer_type(t)
+    return _is_unsigned_integer(t)
 
 
 @doc(is_null, datatype="int8")
 def is_int8(t):
-    return is_integer_type(t) and bit_width_type(t) == 8
+    return _is_integer(t) and _bit_width(t) == 8
 
 
 @doc(is_null, datatype="int16")
 def is_int16(t):
-    return is_integer_type(t) and bit_width_type(t) == 16
+    return _is_integer(t) and _bit_width(t) == 16
 
 
 @doc(is_null, datatype="int32")
 def is_int32(t):
-    return is_integer_type(t) and bit_width_type(t) == 32
+    return _is_integer(t) and _bit_width(t) == 32
 
 
 @doc(is_null, datatype="int64")
 def is_int64(t):
-    return is_integer_type(t) and bit_width_type(t) == 64
+    return _is_integer(t) and _bit_width(t) == 64
 
 
 @doc(is_null, datatype="uint8")
 def is_uint8(t):
-    return is_unsigned_integer_type(t) and bit_width_type(t) == 8
+    return _is_unsigned_integer(t) and _bit_width(t) == 8
 
 
 @doc(is_null, datatype="uint16")
 def is_uint16(t):
-    return is_unsigned_integer_type(t) and bit_width_type(t) == 16
+    return _is_unsigned_integer(t) and _bit_width(t) == 16
 
 
 @doc(is_null, datatype="uint32")
 def is_uint32(t):
-    return is_unsigned_integer_type(t) and bit_width_type(t) == 32
+    return _is_unsigned_integer(t) and _bit_width(t) == 32
 
 
 @doc(is_null, datatype="uint64")
 def is_uint64(t):
-    return is_unsigned_integer_type(t) and bit_width_type(t) == 64
+    return _is_unsigned_integer(t) and _bit_width(t) == 64
 
 
 @doc(is_null, datatype="floating point numeric")
 def is_floating(t):
-    return is_floating_type(t)
+    return _is_floating(t)
 
 
 @doc(is_null, datatype="float16 (half-precision)")
 def is_float16(t):
-    return is_floating_type(t) and bit_width_type(t) == 16
+    return _is_floating(t) and _bit_width(t) == 16
 
 
 @doc(is_null, datatype="float32 (single precision)")
 def is_float32(t):
-    return is_floating_type(t) and bit_width_type(t) == 32
+    return _is_floating(t) and _bit_width(t) == 32
 
 
 @doc(is_null, datatype="float64 (double precision)")
 def is_float64(t):
-    return is_floating_type(t) and bit_width_type(t) == 64
+    return _is_floating(t) and _bit_width(t) == 64
 
 
 @doc(is_null, datatype="list")
 def is_list(t):
-    return is_list_type(t) and offset_bit_width_type(t) == 32
+    return _is_list(t) and _offset_bit_width(t) == 32
 
 
 @doc(is_null, datatype="large list")
 def is_large_list(t):
-    return is_list_type(t) and offset_bit_width_type(t) == 64
+    return _is_list(t) and _offset_bit_width(t) == 64
 
 
 @doc(is_null, datatype="fixed size list")
@@ -164,12 +164,12 @@ def is_fixed_size_list(t):
 
 @doc(is_null, datatype="list view")
 def is_list_view(t):
-    return is_list_view_type(t) and offset_bit_width_type(t) == 32
+    return _is_list_view(t) and _offset_bit_width(t) == 32
 
 
 @doc(is_null, datatype="large list view")
 def is_large_list_view(t):
-    return is_list_view_type(t) and offset_bit_width_type(t) == 64
+    return _is_list_view(t) and _offset_bit_width(t) == 64
 
 
 @doc(is_null, datatype="struct")
@@ -179,12 +179,12 @@ def is_struct(t):
 
 @doc(is_null, datatype="union")
 def is_union(t):
-    return is_union_type(t)
+    return _is_union(t)
 
 
 @doc(is_null, datatype="nested type")
 def is_nested(t):
-    return is_nested_type(t)
+    return _is_nested(t)
 
 
 @doc(is_null, datatype="run-end encoded")
@@ -194,48 +194,48 @@ def is_run_end_encoded(t):
 
 @doc(is_null, datatype="date, time, timestamp or duration")
 def is_temporal(t):
-    return is_primitive_type(t) and not is_integer_type(t) and \
-        not is_floating_type(t)
+    return _is_primitive(t) and not _is_integer(t) and \
+        not _is_floating(t)
 
 
 @doc(is_null, datatype="timestamp")
 def is_timestamp(t):
-    return is_temporal_type(t) and not is_time_type(t) and not is_date_type(t)
+    return _is_temporal(t) and not _is_time(t) and not _is_date(t)
 
 
 @doc(is_null, datatype="duration")
 def is_duration(t):
-    return is_primitive_type(t) and not is_integer_type(t) and \
-        not is_floating_type(t) and not is_temporal_type(t) and \
-        not is_interval_type(t)
+    return _is_primitive(t) and not _is_integer(t) and \
+        not _is_floating(t) and not _is_temporal(t) and \
+        not _is_interval(t)
 
 
 @doc(is_null, datatype="time")
 def is_time(t):
-    return is_time_type(t)
+    return _is_time(t)
 
 
 @doc(is_null, datatype="time32")
 def is_time32(t):
-    return is_time_type(t) and bit_width_type(t) == 32
+    return _is_time(t) and _bit_width(t) == 32
 
 
 @doc(is_null, datatype="time64")
 def is_time64(t):
-    return is_time_type(t) and bit_width_type(t) == 64
+    return _is_time(t) and _bit_width(t) == 64
 
 
 @doc(is_null, datatype="variable-length binary")
 def is_binary(t):
-    return is_binary_type(t) and offset_bit_width_type(t) == 32
+    return _is_binary(t) and _offset_bit_width(t) == 32
 
 
 @doc(is_null, datatype="large variable-length binary")
 def is_large_binary(t):
-    return is_binary_type(t) and offset_bit_width_type(t) == 64
+    return _is_binary(t) and _offset_bit_width(t) == 64
 
 
-@doc(method="is_string")
+@doc(method="_is_string")
 def is_unicode(t):
     """
     Alias for {method}.
@@ -244,27 +244,27 @@ def is_unicode(t):
     ----------
     t : DataType
     """
-    return is_string(t)
+    return _is_string(t)
 
 
 @doc(is_null, datatype="string (utf8 unicode)")
 def is_string(t):
-    return is_string_type(t) and offset_bit_width_type(t) == 32
+    return _is_string(t) and _offset_bit_width(t) == 32
 
 
-@doc(is_unicode, method="is_large_string")
+@doc(is_unicode, method="_is_large_string")
 def is_large_unicode(t):
     return is_large_string(t)
 
 
 @doc(is_null, datatype="large string (utf8 unicode)")
 def is_large_string(t):
-    return is_string_type(t) and offset_bit_width_type(t) == 64
+    return _is_string(t) and _offset_bit_width(t) == 64
 
 
 @doc(is_null, datatype="fixed size binary")
 def is_fixed_size_binary(t):
-    return is_fixed_size_binary_type(t)
+    return _is_fixed_size_binary(t)
 
 
 @doc(is_null, datatype="variable-length binary view")
@@ -279,49 +279,49 @@ def is_string_view(t):
 
 @doc(is_null, datatype="date")
 def is_date(t):
-    return is_date_type(t)
+    return _is_date(t)
 
 
 @doc(is_null, datatype="date32 (days)")
 def is_date32(t):
-    return is_date_type(t) and bit_width_type(t) == 32
+    return _is_date(t) and _bit_width(t) == 32
 
 
 @doc(is_null, datatype="date64 (milliseconds)")
 def is_date64(t):
-    return is_date_type(t) and bit_width_type(t) == 64
+    return _is_date(t) and _bit_width(t) == 64
 
 
 @doc(is_null, datatype="map")
 def is_map(t):
-    return is_var_length_list_type(t) and not is_list_type(t)
+    return _is_var_length_list(t) and not _is_list(t)
 
 
 @doc(is_null, datatype="decimal")
 def is_decimal(t):
-    return is_decimal_type(t)
+    return _is_decimal(t)
 
 
 @doc(is_null, datatype="decimal128")
 def is_decimal128(t):
-    return is_decimal_type(t) and bit_width_type(t) == 128
+    return _is_decimal(t) and _bit_width(t) == 128
 
 
 @doc(is_null, datatype="decimal256")
 def is_decimal256(t):
-    return is_decimal_type(t) and bit_width_type(t) == 256
+    return _is_decimal(t) and _bit_width(t) == 256
 
 
 @doc(is_null, datatype="dictionary-encoded")
 def is_dictionary(t):
-    return is_dictionary_type(t)
+    return _is_dictionary(t)
 
 
 @doc(is_null, datatype="interval")
 def is_interval(t):
-    return is_interval_type(t)
+    return _is_interval(t)
 
 
 @doc(is_null, datatype="primitive type")
 def is_primitive(t):
-    return is_primitive_type(t)
+    return _is_primitive(t)

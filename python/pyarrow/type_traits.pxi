@@ -46,7 +46,7 @@ from pyarrow.includes.libarrow cimport (is_integer,
                                         offset_bit_width)
 
 
-def is_integer_type(data_type):
+def _is_integer(data_type):
     """
     This function checks whether the `data_type` is an integer type, which
     includes signed and unsigned integers of various bit widths (8, 16, 32, 64 bits).
@@ -64,7 +64,7 @@ def is_integer_type(data_type):
     return is_integer(data_type.id)
 
 
-def is_signed_integer_type(data_type):
+def _is_signed_integer(data_type):
     """
     This function checks whether the `data_type` is a signed integer type,
     which includes signed integers of various bit widths (8, 16, 32, 64 bits).
@@ -82,7 +82,7 @@ def is_signed_integer_type(data_type):
     return is_signed_integer(data_type.id)
 
 
-def is_unsigned_integer_type(data_type):
+def _is_unsigned_integer(data_type):
     """
     This function checks whether the `data_type` is an unsigned integer type,
     which includes unsigned integers of various bit widths (8, 16, 32, 64 bits).
@@ -100,7 +100,7 @@ def is_unsigned_integer_type(data_type):
     return is_unsigned_integer(data_type.id)
 
 
-def is_floating_type(data_type):
+def _is_floating(data_type):
     """
     This function checks whether the `data_type` is a floating type, which includes
     floating point numbers of various bit widths (16, 32, 64 bits).
@@ -118,7 +118,7 @@ def is_floating_type(data_type):
     return is_floating(data_type.id)
 
 
-def is_numeric_type(data_type):
+def _is_numeric(data_type):
     """
     This function checks whether the `data_type` is a numeric type, which includes
     integers and floating point numbers with specific bit widths. Integer types
@@ -139,7 +139,7 @@ def is_numeric_type(data_type):
     return is_numeric(data_type.id)
 
 
-def is_decimal_type(data_type):
+def _is_decimal(data_type):
     """
     This function checks whether the `data_type` is a decimal type, which includes
     fixed-point decimal numbers with specific precision and scale.
@@ -157,7 +157,7 @@ def is_decimal_type(data_type):
     return is_decimal(data_type.id)
 
 
-def is_run_end_type_py(data_type):
+def _is_run_end_type(data_type):
     """
     This function checks whether the `data_type` is a run end type, which includes
     integers of various bit widths (16, 32, 64 bits).
@@ -175,7 +175,7 @@ def is_run_end_type_py(data_type):
     return is_run_end_type(data_type.id)
 
 
-def is_primitive_type(data_type):
+def _is_primitive(data_type):
     """
     This function checks whether the `data_type` is a primitive type, which includes
     boolean, integers, floating point numbers, dates, times, timestamp, duration
@@ -194,7 +194,7 @@ def is_primitive_type(data_type):
     return is_primitive(data_type.id)
 
 
-def is_base_binary_like_type(data_type):
+def _is_base_binary_like(data_type):
     """
     This function checks whether the `data_type` is a base binary-like type, which
     includes binary, string, large binary, and large string types.
@@ -212,7 +212,7 @@ def is_base_binary_like_type(data_type):
     return is_base_binary_like(data_type.id)
 
 
-def is_binary_like_type(data_type):
+def _is_binary_like(data_type):
     """
     This function checks whether the `data_type` is a binary-like type, which includes
     binary and string types.
@@ -230,7 +230,7 @@ def is_binary_like_type(data_type):
     return is_binary_like(data_type.id)
 
 
-def is_large_binary_like_type(data_type):
+def _is_large_binary_like(data_type):
     """
     This function checks whether the `data_type` is a large binary-like type, which
     includes large binary and large string types.
@@ -248,7 +248,7 @@ def is_large_binary_like_type(data_type):
     return is_large_binary_like(data_type.id)
 
 
-def is_binary_type(data_type):
+def _is_binary(data_type):
     """
     This function checks whether the `data_type` is a binary type, which includes
     binary and large binary types.
@@ -266,7 +266,7 @@ def is_binary_type(data_type):
     return is_binary(data_type.id)
 
 
-def is_string_type(data_type):
+def _is_string(data_type):
     """
     This function checks whether the `data_type` is a string type, which includes
     string and large string types.
@@ -284,7 +284,7 @@ def is_string_type(data_type):
     return is_string(data_type.id)
 
 
-def is_temporal_type(data_type):
+def _is_temporal(data_type):
     """
     This function checks whether the `data_type` is a temporal type, which includes
     dates (days since the UNIX epoch and milliseconds since the UNIX epoch), times
@@ -304,7 +304,7 @@ def is_temporal_type(data_type):
     return is_temporal(data_type.id)
 
 
-def is_time_type(data_type):
+def _is_time(data_type):
     """
     This function checks whether the `data_type` is a time type, which includes
     times (seconds and milliseconds since midnight) types.
@@ -322,7 +322,7 @@ def is_time_type(data_type):
     return is_time(data_type.id)
 
 
-def is_date_type(data_type):
+def _is_date(data_type):
     """
     This function checks whether the `data_type` is a date type, which includes
     dates (days since the UNIX epoch and milliseconds since the UNIX epoch) types.
@@ -340,7 +340,7 @@ def is_date_type(data_type):
     return is_date(data_type.id)
 
 
-def is_interval_type(data_type):
+def _is_interval(data_type):
     """
     This function checks whether the `data_type` is a interval type, which includes
     intervals (months, days plus nanoseconds, and day-time intervals) types.
@@ -358,7 +358,7 @@ def is_interval_type(data_type):
     return is_interval(data_type.id)
 
 
-def is_dictionary_type(data_type):
+def _is_dictionary(data_type):
     """
     This function checks whether the `data_type` is a dictionary type.
 
@@ -375,7 +375,7 @@ def is_dictionary_type(data_type):
     return is_dictionary(data_type.id)
 
 
-def is_fixed_size_binary_type(data_type):
+def _is_fixed_size_binary(data_type):
     """
     This function checks whether the `data_type` is a fixed size binary type
     which includes decimal and fixed size binary types.
@@ -393,7 +393,7 @@ def is_fixed_size_binary_type(data_type):
     return is_fixed_size_binary(data_type.id)
 
 
-def is_fixed_width_type(data_type):
+def _is_fixed_width(data_type):
     """
     This function checks whether the `data_type` is a fixed width type which includes
     is_primitive, is_dictionary, is_fixed_size_binary types.
@@ -411,7 +411,7 @@ def is_fixed_width_type(data_type):
     return is_fixed_width(data_type.id)
 
 
-def is_var_length_list_type(data_type):
+def _is_var_length_list(data_type):
     """
     This function checks whether the `data_type` is a variable length list type
     which includes list, large list, and map types.
@@ -429,7 +429,7 @@ def is_var_length_list_type(data_type):
     return is_var_length_list(data_type.id)
 
 
-def is_list_type(data_type):
+def _is_list(data_type):
     """
     This function checks whether the `data_type` is a list type which includes
     list, large list, fixed size list types.
@@ -447,7 +447,7 @@ def is_list_type(data_type):
     return is_list(data_type.id)
 
 
-def is_list_like_type(data_type):
+def _is_list_like(data_type):
     """
     This function checks whether the `data_type` is a list_like type which includes
     list, large list, fixed size list, and map types.
@@ -465,7 +465,7 @@ def is_list_like_type(data_type):
     return is_list_like(data_type.id)
 
 
-def is_var_length_list_like_type(data_type):
+def _is_var_length_list_like(data_type):
     """
     This function checks whether the `data_type` is a variable length list like
     type which includes list, large list, list view, large list view, and map types.
@@ -483,7 +483,7 @@ def is_var_length_list_like_type(data_type):
     return is_var_length_list_like(data_type.id)
 
 
-def is_list_view_type(data_type):
+def _is_list_view(data_type):
     """
     This function checks whether the `data_type` is a list view type which includes
     list view and large list view types.
@@ -501,7 +501,7 @@ def is_list_view_type(data_type):
     return is_list_view(data_type.id)
 
 
-def is_nested_type(data_type):
+def _is_nested(data_type):
     """
     This function checks whether the `data_type` is a nested type which includes
     list, large list, list view, large list view, fixed size list, map, struct,
@@ -520,7 +520,7 @@ def is_nested_type(data_type):
     return is_nested(data_type.id)
 
 
-def is_union_type(data_type):
+def _is_union(data_type):
     """
     This function checks whether the `data_type` is a union type which includes
     sparse union and dense union types.
@@ -538,7 +538,7 @@ def is_union_type(data_type):
     return is_union(data_type.id)
 
 
-def bit_width_type(data_type):
+def _bit_width(data_type):
     """
     Determine the bit width of the data type.
 
@@ -560,7 +560,7 @@ def bit_width_type(data_type):
     return bit_width(data_type.id)
 
 
-def offset_bit_width_type(data_type):
+def _offset_bit_width(data_type):
     """
     Determine the offset bit width of the data type.
 

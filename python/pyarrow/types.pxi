@@ -142,11 +142,6 @@ cdef void* _as_c_pointer(v, allow_null=False) except *:
     return c_ptr
 
 
-def _is_primitive(Type type):
-    # This is simply a redirect, the official API is in pyarrow.types.
-    return is_primitive(type)
-
-
 def _get_pandas_type(arrow_type, coerce_to_ns=False):
     cdef Type type_id = arrow_type.id
     if type_id not in _pandas_type_map:
