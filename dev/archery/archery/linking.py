@@ -99,32 +99,14 @@ class DynamicLibrary:
                         match = re.search(r' => (.*)', line)
                         if match:
                             paths[lib].append(match.group(1))
-            elif system == 'Darwin':
-                result = _otool.run("-L", lib, stdout=subprocess.PIPE)
-                lines = result.stdout.decode('utf-8').splitlines()
-                for line in lines[1:]:
-                    match = re.search(r'\s*(\S*)', line)
-                    if match:
-                        paths[lib].append(match.group(1))
             else:
                 raise ValueError(f"{platform} is not supported")
         return paths
 
 
-def check_dynamic_library_dependencies(path, allowed, disallowed):
-    dylib = DynamicLibrary(path)
-
-    for dep in dylib.list_dependency_names():
-        if allowed and dep not in allowed:
-            raise DependencyError(
-                f"Unexpected shared dependency found in {dylib.path}: `{dep}`"
-            )
-        if disallowed and dep in disallowed:
-            raise DependencyError(
-                f"Disallowed shared dependency found in {dylib.path}: `{dep}`"
-            )
+def _check_undefined_symbols(dylib, allowed):
     # Check for undefined symbols
-    undefined_symbols = dylib.list_undefined_symbols_for_dependency(path, True)
+    undefined_symbols = dylib.list_undefined_symbols_for_dependency(dylib.path, True)
     expected_lib_paths = dylib.find_library_paths(allowed)
     all_paths = []
 
@@ -142,3 +124,32 @@ def check_dynamic_library_dependencies(path, allowed, disallowed):
         raise DependencyError(
             f"Undefined symbols found in {dylib.path}:\n{undefined_symbols_str}"
         )
+
+
+def check_dynamic_library_dependencies(path, allowed, disallowed):
+    dylib = DynamicLibrary(path)
+
+    for dep in dylib.list_dependency_names():
+        if allowed and dep not in allowed:
+            raise DependencyError(
+                f"Unexpected shared dependency found in {dylib.path}: `{dep}`"
+            )
+        if disallowed and dep in disallowed:
+            raise DependencyError(
+                f"Disallowed shared dependency found in {dylib.path}: `{dep}`"
+            )
+
+    system = platform.system()
+
+    if system == 'Linux':
+        _check_undefined_symbols(dylib, allowed)
+    elif system == 'Darwin':
+        # TODO: Implement undefined symbol checking for macOS
+        # https://github.com/apache/arrow/issues/40965
+        pass
+    elif system == 'Windows':
+        # TODO: Implement undefined symbol checking for Windows
+        # https://github.com/apache/arrow/issues/40966
+        pass
+    else:
+        raise ValueError(f"{system} is not supported for checking undefined symbols.")
