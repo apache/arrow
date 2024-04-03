@@ -2523,7 +2523,7 @@ TEST(DeltaByteArrayEncodingAdHoc, ArrowDirectPut) {
   }
 }
 
-TEST(TestFallbackEncodingSuite, TestChooseFallbackEncoding) {
+TEST(TestFallbackEncodingSuite, TestChooseNonDictEncoding) {
   struct TestCase {
     Type::type data_type;
     ParquetVersion::type parquet_version;
@@ -2549,8 +2549,8 @@ TEST(TestFallbackEncodingSuite, TestChooseFallbackEncoding) {
   };
 
   for (auto test_case : cases) {
-    auto encoding = ChooseFallbackEncoding(test_case.data_type, test_case.parquet_version,
-                                           test_case.datapage_version);
+    auto encoding = ChooseNonDictEncoding(test_case.data_type, test_case.parquet_version,
+                                          test_case.datapage_version);
     ASSERT_EQ(encoding, test_case.expected_encoding);
   }
 }

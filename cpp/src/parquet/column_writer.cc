@@ -1571,7 +1571,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       FlushBufferedDataPages();
       fallback_ = true;
 
-      Encoding::type fallback_encoding = ChooseFallbackEncoding(
+      Encoding::type fallback_encoding = ChooseNonDictEncoding(
           DType::type_num, properties_->version(), properties_->data_page_version());
 
       current_encoder_ = MakeEncoder(DType::type_num, fallback_encoding, false, descr_,
@@ -2377,8 +2377,8 @@ std::shared_ptr<ColumnWriter> ColumnWriter::Make(ColumnChunkMetaDataBuilder* met
                               descr->physical_type() != Type::BOOLEAN;
   Encoding::type encoding = properties->encoding(descr->path());
   if (encoding == Encoding::UNKNOWN) {
-    encoding = ChooseFallbackEncoding(descr->physical_type(), properties->version(),
-                                      properties->data_page_version());
+    encoding = ChooseNonDictEncoding(descr->physical_type(), properties->version(),
+                                     properties->data_page_version());
   }
   if (use_dictionary) {
     encoding = properties->dictionary_index_encoding();

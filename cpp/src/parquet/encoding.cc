@@ -4059,9 +4059,9 @@ std::unique_ptr<Decoder> MakeDictDecoder(Type::type type_num,
 // Informed heavily by https://github.com/apache/parquet-format/blob/master/Encodings.md
 // Should we also consider if we're in dictionary encoding mode? or assume no for the
 // moment?
-Encoding::type ChooseFallbackEncoding(Type::type data_type,
-                                      ParquetVersion::type parquet_version,
-                                      ParquetDataPageVersion datapage_version) {
+Encoding::type ChooseNonDictEncoding(Type::type data_type,
+                                     ParquetVersion::type parquet_version,
+                                     ParquetDataPageVersion datapage_version) {
   if (data_type == Type::BOOLEAN && parquet_version != ParquetVersion::PARQUET_1_0 &&
       datapage_version == ParquetDataPageVersion::V2) {
     return Encoding::RLE;
