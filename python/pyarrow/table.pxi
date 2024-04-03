@@ -2935,16 +2935,17 @@ cdef class RecordBatch(_Tabular):
 
         Parameters
         ----------
-        mask : Array or array-like
+        mask : Array, ChunkedArray or array-like
             The boolean mask to filter the record batch with.
         null_selection_behavior : str, default "drop"
             How nulls in the mask should be handled.
 
         Returns
         -------
-        filtered : RecordBatch
+        filtered : RecordBatch or Table
             A record batch of the same schema, with only the rows selected
-            by the boolean mask.
+            by the boolean mask. If mask is a chunked array the object returned
+            is a table.
 
         Examples
         --------
@@ -2977,7 +2978,10 @@ cdef class RecordBatch(_Tabular):
         2     4.0     Horse
         3     NaN      None
         """
-        return _pc().filter(self, mask, null_selection_behavior)
+        if isinstance(mask, ChunkedArray):
+            return Table.from_batches([self]).filter(mask, null_selection_behavior)
+        else:
+            return _pc().filter(self, mask, null_selection_behavior)
 
     def equals(self, object other, bint check_metadata=False):
         """
