@@ -469,6 +469,7 @@ std::unique_ptr<typename EncodingTraits<DType>::Decoder> MakeTypedDecoder(
   return std::unique_ptr<OutType>(dynamic_cast<OutType*>(base.release()));
 }
 
+PARQUET_EXPORT
 Encoding::type ChooseNonDictEncoding(Type::type data_type,
                                      ParquetVersion::type parquet_version,
                                      ParquetDataPageVersion datapage_version);
