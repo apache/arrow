@@ -264,15 +264,35 @@ class ARROW_EXPORT AzureFileSystem : public FileSystem {
 
   Status CreateDir(const std::string& path, bool recursive) override;
 
+  /// \brief Delete a directory and its contents recursively.
+  ///
+  /// Atomicity is guaranteed only on Hierarchical Namespace Storage accounts.
   Status DeleteDir(const std::string& path) override;
 
+  /// \brief Non-atomically deletes the contents of a directory.
+  ///
+  /// This function can return a bad Status after only partially deleting the
+  /// contents of the directory.
   Status DeleteDirContents(const std::string& path, bool missing_dir_ok) override;
 
+  /// \brief Deletion of all the containers in the storage account (not
+  /// implemented for safety reasons).
+  ///
+  /// \return Status::NotImplemented
   Status DeleteRootDirContents() override;
 
+  /// \brief Deletes a file.
+  ///
+  /// Supported on both flat namespace and Hierarchical Namespace storage
+  /// accounts. A check is made to guarantee the parent directory doesn't
+  /// disappear after the blob is deleted and while this operation is running,
+  /// no other client can delete the parent directory due to the use of leases.
+  ///
+  /// This means applications can safely retry this operation without coordination to
+  /// guarantee only one client/process is trying to delete the same file.
   Status DeleteFile(const std::string& path) override;
 
-  /// \brief Move / rename a file or directory.
+  /// \brief Move/rename a file or directory.
   ///
   /// There are no files immediately at the root directory, so paths like
   /// "/segment" always refer to a container of the storage account and are
@@ -282,6 +302,7 @@ class ARROW_EXPORT AzureFileSystem : public FileSystem {
   /// guarantees `dest` is not lost.
   ///
   /// Conditions for a successful move:
+  ///
   /// 1. `src` must exist.
   /// 2. `dest` can't contain a strict path prefix of `src`. More generally,
   ///    a directory can't be made a subdirectory of itself.
@@ -291,6 +312,25 @@ class ARROW_EXPORT AzureFileSystem : public FileSystem {
   /// 5. If `dest` already exists and it's a directory, `src` must also be a
   ///    directory and `dest` must be empty. `dest` is then replaced by `src`
   ///    and its contents.
+  ///
+  /// Leases are used to guarantee the pre-condition checks and the rename
+  /// operation are atomic: other clients can't invalidate the pre-condition in
+  /// the time between the checks and the actual rename operation.
+  ///
+  /// This is possible because Move() is only support on storage accounts with
+  /// Hierarchical Namespace Support enabled.
+  ///
+  /// ## Limitations
+  ///
+  /// - Moves are not supported on storage accounts without
+  ///   Hierarchical Namespace support enabled
+  /// - Moves across different containers are not supported
+  /// - Moving a path of the form `/container` is not supported as it would
+  ///   require moving all the files in a container to another container.
+  ///   The only exception is a `Move("/container_a", "/container_b")` where
+  ///   both containers are empty or `container_b` doesn't even exist.
+  ///   The atomicity of the emptiness checks followed by the renaming operation
+  ///   is guaranteed by the use of leases.
   Status Move(const std::string& src, const std::string& dest) override;
 
   Status CopyFile(const std::string& src, const std::string& dest) override;
