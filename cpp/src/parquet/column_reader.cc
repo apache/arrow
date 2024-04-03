@@ -1316,7 +1316,8 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     levels_position_ = 0;
     levels_capacity_ = 0;
     read_dense_for_nullable_ = read_dense_for_nullable;
-    uses_values_ = !(descr->physical_type() == Type::BYTE_ARRAY);
+    // BYTE_ARRAY values are not stored in the `values_` buffer.
+    uses_values_ = descr->physical_type() != Type::BYTE_ARRAY;
 
     if (uses_values_) {
       values_ = AllocateBuffer(pool);
