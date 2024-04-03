@@ -59,6 +59,7 @@ using arrow::internal::checked_cast;
 using arrow::internal::MultiplyWithOverflow;
 using arrow::internal::SafeSignedSubtract;
 using arrow::internal::SubtractWithOverflow;
+using arrow::internal::BitBlockCounter;
 using arrow::util::SafeLoad;
 using arrow::util::SafeLoadAs;
 using std::string_view;
@@ -1202,24 +1203,36 @@ int PlainBooleanDecoder::DecodeArrow(
     PARQUET_THROW_NOT_OK(builder->AppendValues(data_, values_decoded, NULLPTR,
                                                total_num_values_ - num_values_));
   } else {
-    PARQUET_THROW_NOT_OK(builder->Reserve(values_decoded));
-    int64_t previous_offset = 0;
+    // Handle nulls by BitBlockCounter
+    PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
+    BitBlockCounter bit_counter(valid_bits, valid_bits_offset, num_values);
+    int64_t value_position = 0;
+    int64_t valid_bits_offset_position = valid_bits_offset;
     int64_t previous_value_offset = 0;
-    PARQUET_THROW_NOT_OK(::arrow::internal::VisitSetBitRuns(
-        valid_bits, valid_bits_offset, num_values, [&](int64_t position, int64_t length) {
-          if (position > previous_offset) {
-            RETURN_NOT_OK(builder->AppendNulls(position - previous_offset));
+    while (value_position < num_values) {
+      auto block = bit_counter.NextWord();
+      if (block.AllSet()) {
+        // Note: We don't have UnsafeAppendValues for booleans currently,
+        // so using `AppendValues` here.
+        PARQUET_THROW_NOT_OK(builder->AppendValues(data_, block.length, NULLPTR, previous_value_offset));
+        previous_value_offset += block.length;
+      } else if (block.NoneSet()) {
+        // Note: We don't have UnsafeAppendNulls for booleans currently,
+        // so using `AppendNulls` here.
+        PARQUET_THROW_NOT_OK(builder->AppendNulls(block.length));
+      } else {
+        for (int64_t i = 0; i < block.length; ++i) {
+          if (bit_util::GetBit(valid_bits, valid_bits_offset_position + i)) {
+            bool value = bit_util::GetBit(data_, total_num_values_ - num_values_ + previous_value_offset);
+            builder->UnsafeAppend(value);
+            previous_value_offset += 1;
+          } else {
+            builder->UnsafeAppendNull();
           }
-          RETURN_NOT_OK(builder->AppendValues(
-              data_, length, NULLPTR,
-              total_num_values_ - num_values_ + previous_value_offset));
-          previous_offset = position + length;
-          previous_value_offset += length;
-          return Status::OK();
-        }));
-    // Epilogue: handle trailing nulls
-    if (previous_offset < num_values) {
-      PARQUET_THROW_NOT_OK(builder->AppendNulls(num_values - previous_offset));
+        }
+      }
+      value_position += block.length;
+      valid_bits_offset_position += block.length;
     }
   }
 
