@@ -944,6 +944,41 @@ TEST(Expression, ExecuteDictionaryTransparent) {
   ])"));
 }
 
+TEST(Expression, ExecuteDecimalDivide) {
+  // GH-40911 Decimal divide promotion rule output wrong precision and scale
+  // in expression Bind when scale1 >= scale2
+  //
+  // scale1 < scale2
+  ExpectExecute(
+      call("divide", {field_ref("a"), field_ref("b")}),
+      ArrayFromJSON(struct_({field("a", decimal128(6, 1)), field("b", decimal128(7, 2))}),
+                    R"([
+        {"a": "0.7", "b": "-2.17"},
+        {"a": "2.9", "b": "9.11"},
+        {"a": "3.1", "b" : "12.31"}
+      ])"));
+
+  // scale1 == scale2
+  ExpectExecute(
+      call("divide", {field_ref("a"), field_ref("b")}),
+      ArrayFromJSON(struct_({field("a", decimal128(6, 1)), field("b", decimal128(6, 1))}),
+                    R"([
+        {"a": "0.7", "b": "-2.1"},
+        {"a": "2.9", "b": "9.1"},
+        {"a": "3.1", "b" : "12.3"}
+      ])"));
+
+  // scale1 > scale2
+  ExpectExecute(
+      call("divide", {field_ref("a"), field_ref("b")}),
+      ArrayFromJSON(struct_({field("a", decimal128(6, 2)), field("b", decimal128(6, 1))}),
+                    R"([
+        {"a": "0.71", "b": "-2.1"},
+        {"a": "2.92", "b": "9.1"},
+        {"a": "3.17", "b" : "12.3"}
+      ])"));
+}
+
 void ExpectIdenticalIfUnchanged(Expression modified, Expression original) {
   if (modified == original) {
     // no change -> must be identical

@@ -428,13 +428,9 @@ Status CastBinaryDecimalArgs(DecimalPromotion promotion, std::vector<TypeHolder>
       right_scaleup = std::max(s1, s2) - s2;
       break;
     }
-    case DecimalPromotion::kMultiply: {
-      left_scaleup = right_scaleup = 0;
-      break;
-    }
+    case DecimalPromotion::kMultiply:
     case DecimalPromotion::kDivide: {
-      left_scaleup = std::max(4, s1 + p2 - s2 + 1) + s2 - s1;
-      right_scaleup = 0;
+      left_scaleup = right_scaleup = 0;
       break;
     }
     default:
