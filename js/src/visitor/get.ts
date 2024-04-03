@@ -107,12 +107,6 @@ function wrapGet<T extends DataType>(fn: (data: Data<T>, _1: any) => any) {
 
 /** @ignore */const epochDaysToMs = (data: Int32Array, index: number) => 86400000 * data[index];
 
-/** @ignore */const epochMillisecondsLongToMs = (data: Int32Array, index: number) => 4294967296 * (data[index + 1]) + (data[index] >>> 0);
-
-/** @ignore */const epochMillisecondsToDate = (epochMs: number) => new Date(epochMs);
-/** @ignore */const epochDaysToDate = (data: Int32Array, index: number) => epochMillisecondsToDate(epochDaysToMs(data, index));
-/** @ignore */const epochMillisecondsLongToDate = (data: Int32Array, index: number) => epochMillisecondsToDate(epochMillisecondsLongToMs(data, index));
-
 /** @ignore */
 const getNull = <T extends Null>(_data: Data<T>, _index: number): T['TValue'] => null;
 /** @ignore */
@@ -138,9 +132,9 @@ type Numeric1X = Int8 | Int16 | Int32 | Uint8 | Uint16 | Uint32 | Float32 | Floa
 type Numeric2X = Int64 | Uint64;
 
 /** @ignore */
-const getDateDay = <T extends DateDay>({ values }: Data<T>, index: number): T['TValue'] => epochDaysToDate(values, index);
+const getDateDay = <T extends DateDay>({ values }: Data<T>, index: number): T['TValue'] => epochDaysToMs(values, index);
 /** @ignore */
-const getDateMillisecond = <T extends DateMillisecond>({ values }: Data<T>, index: number): T['TValue'] => epochMillisecondsLongToDate(values, index * 2);
+const getDateMillisecond = <T extends DateMillisecond>({ values }: Data<T>, index: number): T['TValue'] => bigIntToNumber(values[index]);
 /** @ignore */
 const getNumeric = <T extends Numeric1X>({ stride, values }: Data<T>, index: number): T['TValue'] => values[stride * index];
 /** @ignore */

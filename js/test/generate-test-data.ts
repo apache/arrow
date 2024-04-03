@@ -402,10 +402,7 @@ function generateDate<T extends Date_>(this: TestDataVectorGenerator, type: T, l
     const data = type.unit === DateUnit.DAY
         ? createDate32(length, nullBitmap, values)
         : createDate64(length, nullBitmap, values);
-    return {
-        values: () => values.map((x) => x == null ? null : new Date(x)),
-        vector: new Vector([makeData({ type, length, nullCount, nullBitmap, data })])
-    };
+    return { values: () => values, vector: new Vector([makeData({ type, length, nullCount, nullBitmap, data })]) };
 }
 
 function generateTimestamp<T extends Timestamp>(this: TestDataVectorGenerator, type: T, length = 100, nullCount = Math.trunc(length * 0.2)): GeneratedVector<T> {
@@ -750,16 +747,11 @@ function createDate32(length: number, nullBitmap: Uint8Array, values: (number | 
 }
 
 function createDate64(length: number, nullBitmap: Uint8Array, values: (number | null)[] = []) {
-    const data = new Int32Array(length * 2).fill(0);
+    const data = new BigInt64Array(length).fill(0n);
     const data32 = createDate32(length, nullBitmap, values);
     iterateBitmap(length, nullBitmap, (i, valid) => {
         if (valid) {
-            const value = data32[i] * 86400000;
-            const hi = Math.trunc(value / 4294967296);
-            const lo = Math.trunc(value - 4294967296 * hi);
-            values[i] = value;
-            data[i * 2 + 0] = lo;
-            data[i * 2 + 1] = hi;
+            data[i] = BigInt(data32[i] * 86400000);
         }
     });
     return data;
@@ -767,7 +759,7 @@ function createDate64(length: number, nullBitmap: Uint8Array, values: (number | 
 
 function createTimestamp(length: number, nullBitmap: Uint8Array, multiple: number, values: (number | null)[] = []) {
     const mult = 86400 * multiple;
-    const data = new BigInt64Array(length);
+    const data = new BigInt64Array(length).fill(0n);
     const data32 = createDate32(length, nullBitmap, values);
     iterateBitmap(length, nullBitmap, (i, valid) => {
         if (valid) {

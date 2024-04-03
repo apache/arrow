@@ -109,11 +109,6 @@ function wrapSet<T extends DataType>(fn: (data: Data<T>, _1: any, _2: any) => vo
 
 /** @ignore */
 export const setEpochMsToDays = (data: Int32Array, index: number, epochMs: number) => { data[index] = Math.floor(epochMs / 86400000); };
-/** @ignore */
-export const setEpochMsToMillisecondsLong = (data: Int32Array, index: number, epochMs: number) => {
-    data[index] = Math.floor(epochMs % 4294967296);
-    data[index + 1] = Math.floor(epochMs / 4294967296);
-};
 
 /** @ignore */
 export const setVariableWidthBytes = <T extends Int32Array | BigInt64Array>(values: Uint8Array, valueOffsets: T, index: number, value: Uint8Array) => {
@@ -151,7 +146,7 @@ export const setAnyFloat = <T extends Float>(data: Data<T>, index: number, value
 /** @ignore */
 export const setDateDay = <T extends DateDay>({ values }: Data<T>, index: number, value: T['TValue']): void => { setEpochMsToDays(values, index, value.valueOf()); };
 /** @ignore */
-export const setDateMillisecond = <T extends DateMillisecond>({ values }: Data<T>, index: number, value: T['TValue']): void => { setEpochMsToMillisecondsLong(values, index * 2, value.valueOf()); };
+export const setDateMillisecond = <T extends DateMillisecond>({ values }: Data<T>, index: number, value: T['TValue']): void => { values[index] = BigInt(value); };
 /** @ignore */
 export const setFixedSizeBinary = <T extends FixedSizeBinary>({ stride, values }: Data<T>, index: number, value: T['TValue']): void => { values.set(value.subarray(0, stride), stride * index); };
 

@@ -52,7 +52,7 @@ describe(`DateVector`, () => {
         const date32 = table.getChildAt<DateDay>(0)!;
         for (const date of date32) {
             const millis = expectedMillis.shift();
-            expect(date).toEqual(millis === null ? null : new Date(millis!));
+            expect(date).toEqual(millis);
         }
     });
 
@@ -62,7 +62,7 @@ describe(`DateVector`, () => {
         const date64 = table.getChildAt<DateMillisecond>(1)!;
         for (const date of date64) {
             const millis = expectedMillis.shift();
-            expect(date).toEqual(millis === null ? null : new Date(millis!));
+            expect(date).toEqual(millis);
         }
     });
 
@@ -70,7 +70,7 @@ describe(`DateVector`, () => {
         const dates = [new Date(1950, 1, 0)];
         const vec = vectorFromArray(dates, new DateMillisecond());
         for (const date of vec) {
-            expect(date).toEqual(dates.shift());
+            expect(date).toEqual(dates.shift()?.getTime());
         }
     });
 });

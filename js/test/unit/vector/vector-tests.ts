@@ -89,7 +89,7 @@ describe(`DateVector`, () => {
             new Date(1988, 3, 25, 4, 5, 6),
             new Date(1987, 2, 24, 7, 8, 9),
             new Date(2018, 4, 12, 17, 30, 0)
-        ];
+        ].map(v => v.getTime());
         const vector = vectorFromArray(values, new DateMillisecond);
         basicVectorTests(vector, values, extras);
     });
@@ -100,7 +100,7 @@ describe(`DateVector`, () => {
             new Date(Date.UTC(1988, 3, 25)),
             new Date(Date.UTC(1987, 2, 24)),
             new Date(Date.UTC(2018, 4, 12))
-        ];
+        ].map(v => v.getTime());
         const vector = vectorFromArray(values, new DateDay);
 
         basicVectorTests(vector, values, extras);

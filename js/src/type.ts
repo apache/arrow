@@ -333,16 +333,28 @@ export class Decimal extends DataType<Type.Decimal> {
 /** @ignore */
 export type Dates = Type.Date | Type.DateDay | Type.DateMillisecond;
 /** @ignore */
-export interface Date_<T extends Dates = Dates> extends DataType<T> { TArray: Int32Array; TValue: Date; ArrayType: TypedArrayConstructor<Int32Array> }
+type DateType = {
+    [Type.Date]: { TArray: Int32Array | BigInt64Array };
+    [Type.DateDay]: { TArray: Int32Array };
+    [Type.DateMillisecond]: { TArray: BigInt64Array };
+};
+/** @ignore */
+export interface Date_<T extends Dates = Dates> extends DataType<T> {
+    TArray: DateType[T]['TArray'];
+    TValue: number;
+}
 /** @ignore */
 export class Date_<T extends Dates = Dates> extends DataType<T> {
     constructor(public readonly unit: DateUnit) {
         super(Type.Date as T);
     }
     public toString() { return `Date${(this.unit + 1) * 32}<${DateUnit[this.unit]}>`; }
+
+    public get ArrayType() {
+        return this.unit === DateUnit.DAY ? Int32Array : BigInt64Array;
+    }
     protected static [Symbol.toStringTag] = ((proto: Date_) => {
         (<any>proto).unit = null;
-        (<any>proto).ArrayType = Int32Array;
         return proto[Symbol.toStringTag] = 'Date';
     })(Date_.prototype);
 }
@@ -737,7 +749,6 @@ export function strideForType(type: DataType) {
     const t: any = type;
     switch (type.typeId) {
         case Type.Decimal: return (type as Decimal).bitWidth / 32;
-        case Type.Date: return 1 + (t as Date_).unit;
         case Type.Interval: return 1 + (t as Interval_).unit;
         // case Type.Int: return 1 + +((t as Int_).bitWidth > 32);
         // case Type.Time: return 1 + +((t as Time_).bitWidth > 32);

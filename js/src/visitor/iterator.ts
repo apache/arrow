@@ -17,7 +17,7 @@
 
 import { Vector } from '../vector.js';
 import { Visitor } from '../visitor.js';
-import { Type, Precision, TimeUnit } from '../enum.js';
+import { Type, Precision } from '../enum.js';
 import { TypeToDataType } from '../interfaces.js';
 import {
     DataType, Dictionary,
