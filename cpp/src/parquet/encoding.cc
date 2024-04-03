@@ -1212,13 +1212,13 @@ int PlainBooleanDecoder::DecodeArrow(
     while (value_position < num_values) {
       auto block = bit_counter.NextWord();
       if (block.AllSet()) {
-        // Note: We don't have UnsafeAppendValues for booleans currently,
+        // GH-40978: We don't have UnsafeAppendValues for booleans currently,
         // so using `AppendValues` here.
         PARQUET_THROW_NOT_OK(
             builder->AppendValues(data_, block.length, NULLPTR, previous_value_offset));
         previous_value_offset += block.length;
       } else if (block.NoneSet()) {
-        // Note: We don't have UnsafeAppendNulls for booleans currently,
+        // GH-40978: We don't have UnsafeAppendNulls for booleans currently,
         // so using `AppendNulls` here.
         PARQUET_THROW_NOT_OK(builder->AppendNulls(block.length));
       } else {

@@ -93,7 +93,8 @@ BENCHMARK(BM_PlainDecodingBoolean)->Range(MIN_RANGE, MAX_RANGE);
 
 static void BM_PlainDecodingBooleanToBitmap(benchmark::State& state) {
   std::vector<bool> values(state.range(0), true);
-  uint8_t* output = new uint8_t[::arrow::bit_util::BytesForBits(state.range(0))];
+  int64_t bitmap_bytes = ::arrow::bit_util::BytesForBits(state.range(0));
+  std::vector<uint8_t> output(bitmap_bytes, 0);
   auto encoder = MakeEncoder(Type::BOOLEAN, Encoding::PLAIN);
   auto typed_encoder = dynamic_cast<BooleanEncoder*>(encoder.get());
   typed_encoder->Put(values, static_cast<int>(values.size()));
@@ -103,11 +104,11 @@ static void BM_PlainDecodingBooleanToBitmap(benchmark::State& state) {
     auto decoder = MakeTypedDecoder<BooleanType>(Encoding::PLAIN);
     decoder->SetData(static_cast<int>(values.size()), buf->data(),
                      static_cast<int>(buf->size()));
-    decoder->Decode(output, static_cast<int>(values.size()));
+    decoder->Decode(output.data(), static_cast<int>(values.size()));
   }
   // Still set `BytesProcessed` to byte level.
-  state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(bool));
-  delete[] output;
+  state.SetBytesProcessed(state.iterations() * bitmap_bytes);
+  state.SetItemsProcessed(state.iterations() * state.range(0));
 }
 
 BENCHMARK(BM_PlainDecodingBooleanToBitmap)->Range(MIN_RANGE, MAX_RANGE);
@@ -1121,6 +1122,8 @@ using ::arrow::BinaryDictionary32Builder;
 template <typename ParquetType>
 class BenchmarkDecodeArrowBase : public ::benchmark::Fixture {
  public:
+  virtual ~BenchmarkDecodeArrowBase() = default;
+
   void SetUp(const ::benchmark::State& state) override {
     num_values_ = static_cast<int>(state.range());
     InitDataInputs();
@@ -1411,12 +1414,9 @@ BENCHMARK_REGISTER_F(BM_ArrowBinaryDict, DecodeArrowNonNull_Dict)
 class BenchmarkDecodeArrowBoolean : public BenchmarkDecodeArrowBase<BooleanType> {
  public:
   void InitDataInputs() final {
-    // Generate a random string dictionary without any nulls so that this dataset can
-    // be used for benchmarking the DecodeArrowNonNull API
-    constexpr int repeat_factor = 8;
+    // Generate a random boolean array with `null_probability_`.
     ::arrow::random::RandomArrayGenerator rag(0);
-    input_array_ =
-        rag.Boolean(num_values_, num_values_ / repeat_factor, null_probability_);
+    input_array_ = rag.Boolean(num_values_, /*true_probability=*/0.5, null_probability_);
     valid_bits_ = input_array_->null_bitmap_data();
 
     // Arrow uses a bitmap representation for boolean arrays,
@@ -1439,13 +1439,27 @@ class BenchmarkDecodeArrowBoolean : public BenchmarkDecodeArrowBase<BooleanType>
   void DecodeArrowWithNullDenseBenchmark(benchmark::State& state);
 
  protected:
+  void DoEncodeArrowImpl(Encoding::type encoding) {
+    auto encoder = MakeTypedEncoder<BooleanType>(encoding);
+    encoder->Put(*input_array_);
+    buffer_ = encoder->FlushValues();
+  }
+
+  std::unique_ptr<TypedDecoder<BooleanType>> InitializeDecoderImpl(
+      Encoding::type encoding) const {
+    auto decoder = MakeTypedDecoder<BooleanType>(encoding);
+    decoder->SetData(num_values_, buffer_->data(), static_cast<int>(buffer_->size()));
+    return decoder;
+  }
+
+ protected:
   double null_probability_ = 0.0;
 };
 
 void BenchmarkDecodeArrowBoolean::DecodeArrowWithNullDenseBenchmark(
     benchmark::State& state) {
   // Change null_probability
-  null_probability_ = static_cast<double>(state.range(1)) / 100;
+  null_probability_ = static_cast<double>(state.range(1)) / 10000;
   InitDataInputs();
   this->DoEncodeArrow();
   int num_values_with_nulls = this->num_values_;
@@ -1459,72 +1473,60 @@ void BenchmarkDecodeArrowBoolean::DecodeArrowWithNullDenseBenchmark(
         this->valid_bits_, 0, &acc);
   }
   state.SetBytesProcessed(state.iterations() * static_cast<int64_t>(total_size_));
+  state.SetItemsProcessed(state.iterations() * state.range(0));
 }
 
 class BM_DecodeArrowBooleanPlain : public BenchmarkDecodeArrowBoolean {
  public:
-  void DoEncodeArrow() final {
-    auto encoder = MakeTypedEncoder<BooleanType>(Encoding::PLAIN);
-    encoder->Put(*input_array_);
-    buffer_ = encoder->FlushValues();
-  }
+  void DoEncodeArrow() final { DoEncodeArrowImpl(Encoding::PLAIN); }
 
   std::unique_ptr<TypedDecoder<BooleanType>> InitializeDecoder() override {
-    auto decoder = MakeTypedDecoder<BooleanType>(Encoding::PLAIN);
-    decoder->SetData(num_values_, buffer_->data(), static_cast<int>(buffer_->size()));
-    return decoder;
+    return InitializeDecoderImpl(Encoding::PLAIN);
   }
 };
 
 class BM_DecodeArrowBooleanRle : public BenchmarkDecodeArrowBoolean {
  public:
-  void DoEncodeArrow() final {
-    auto encoder = MakeTypedEncoder<BooleanType>(Encoding::RLE);
-    encoder->Put(*input_array_);
-    buffer_ = encoder->FlushValues();
-  }
+  void DoEncodeArrow() final { DoEncodeArrowImpl(Encoding::RLE); }
 
   std::unique_ptr<TypedDecoder<BooleanType>> InitializeDecoder() override {
-    auto decoder = MakeTypedDecoder<BooleanType>(Encoding::RLE);
-    decoder->SetData(num_values_, buffer_->data(), static_cast<int>(buffer_->size()));
-    return decoder;
+    return InitializeDecoderImpl(Encoding::RLE);
   }
 };
 
 static void BooleanWithNullCustomArguments(benchmark::internal::Benchmark* b) {
   b->ArgsProduct({
-                     benchmark::CreateRange(MIN_RANGE, MAX_RANGE, /*multi=*/2),
-                     {10, 50},
+                     benchmark::CreateRange(MIN_RANGE, MAX_RANGE, /*multi=*/4),
+                     {1, 100, 1000, 5000, 10000},
                  })
-      ->ArgNames({"num-values", "null-prob"});
+      ->ArgNames({"num_values", "null_in_ten_thousand"});
 }
 
-BENCHMARK_DEFINE_F(BM_DecodeArrowBooleanRle, DecodeArrow_Dense)(benchmark::State& state) {
+BENCHMARK_DEFINE_F(BM_DecodeArrowBooleanRle, DecodeArrow)(benchmark::State& state) {
   DecodeArrowDenseBenchmark(state);
 }
-BENCHMARK_REGISTER_F(BM_DecodeArrowBooleanRle, DecodeArrow_Dense)
-    ->Range(MIN_RANGE, MAX_RANGE);
-BENCHMARK_DEFINE_F(BM_DecodeArrowBooleanRle, DecodeArrowNonNull_Dense)
+BENCHMARK_REGISTER_F(BM_DecodeArrowBooleanRle, DecodeArrow)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK_DEFINE_F(BM_DecodeArrowBooleanRle, DecodeArrowNonNull)
 (benchmark::State& state) { DecodeArrowNonNullDenseBenchmark(state); }
-BENCHMARK_REGISTER_F(BM_DecodeArrowBooleanRle, DecodeArrowNonNull_Dense)
+BENCHMARK_REGISTER_F(BM_DecodeArrowBooleanRle, DecodeArrowNonNull)
     ->Range(MIN_RANGE, MAX_RANGE);
 // TODO(mwish): RleBoolean not implemented DecodeArrow with null slots yet.
-// BENCHMARK_DEFINE_F(BM_DecodeArrowBooleanRle, DecodeArrowWithNull_Dense)
+// BENCHMARK_DEFINE_F(BM_DecodeArrowBooleanRle, DecodeArrowWithNull)
 //(benchmark::State& state) { DecodeArrowWithNullDenseBenchmark(state); }
-// BENCHMARK_REGISTER_F(BM_DecodeArrowBooleanRle, DecodeArrowWithNull_Dense)
+// BENCHMARK_REGISTER_F(BM_DecodeArrowBooleanRle, DecodeArrowWithNull)
 //    ->Apply(BooleanWithNullCustomArguments);
 
-BENCHMARK_DEFINE_F(BM_DecodeArrowBooleanPlain, DecodeArrow_Dense)
+BENCHMARK_DEFINE_F(BM_DecodeArrowBooleanPlain, DecodeArrow)
 (benchmark::State& state) { DecodeArrowDenseBenchmark(state); }
-BENCHMARK_REGISTER_F(BM_DecodeArrowBooleanPlain, DecodeArrow_Dense)
+BENCHMARK_REGISTER_F(BM_DecodeArrowBooleanPlain, DecodeArrow)
     ->Range(MIN_RANGE, MAX_RANGE);
-BENCHMARK_DEFINE_F(BM_DecodeArrowBooleanPlain, DecodeArrowNonNull_Dense)
+BENCHMARK_DEFINE_F(BM_DecodeArrowBooleanPlain, DecodeArrowNonNull)
 (benchmark::State& state) { DecodeArrowNonNullDenseBenchmark(state); }
-BENCHMARK_REGISTER_F(BM_DecodeArrowBooleanPlain, DecodeArrowNonNull_Dense)
+BENCHMARK_REGISTER_F(BM_DecodeArrowBooleanPlain, DecodeArrowNonNull)
     ->Range(MIN_RANGE, MAX_RANGE);
-BENCHMARK_DEFINE_F(BM_DecodeArrowBooleanPlain, DecodeArrowWithNull_Dense)
+BENCHMARK_DEFINE_F(BM_DecodeArrowBooleanPlain, DecodeArrowWithNull)
 (benchmark::State& state) { DecodeArrowWithNullDenseBenchmark(state); }
-BENCHMARK_REGISTER_F(BM_DecodeArrowBooleanPlain, DecodeArrowWithNull_Dense)
+BENCHMARK_REGISTER_F(BM_DecodeArrowBooleanPlain, DecodeArrowWithNull)
     ->Apply(BooleanWithNullCustomArguments);
 
 }  // namespace parquet
