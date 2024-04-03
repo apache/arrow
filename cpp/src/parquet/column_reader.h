@@ -318,10 +318,12 @@ class PARQUET_EXPORT RecordReader {
   /// @param read_dictionary True if reading directly as Arrow dictionary-encoded
   /// @param read_dense_for_nullable True if reading dense and not leaving space for null
   /// values
+  /// @param read_boolean_as_bitmap True if reading boolean as bitmap.
   static std::shared_ptr<RecordReader> Make(
       const ColumnDescriptor* descr, LevelInfo leaf_info,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
-      bool read_dictionary = false, bool read_dense_for_nullable = false);
+      bool read_dictionary = false, bool read_dense_for_nullable = false,
+      bool read_boolean_as_bitmap = false);
 
   virtual ~RecordReader() = default;
 
@@ -424,6 +426,9 @@ class PARQUET_EXPORT RecordReader {
   /// \brief True if reading dense for nullable columns.
   bool read_dense_for_nullable() const { return read_dense_for_nullable_; }
 
+  /// \brief True if reading boolean values as bitmap.
+  bool read_boolean_as_bitmap() const { return read_boolean_as_bitmap_; }
+
  protected:
   /// \brief Indicates if we can have nullable values. Note that repeated fields
   /// may or may not be nullable.
@@ -473,6 +478,8 @@ class PARQUET_EXPORT RecordReader {
   // If true, we will not leave any space for the null values in the values_
   // vector.
   bool read_dense_for_nullable_ = false;
+  // If true, we will read boolean values as bitmap rather than C `bool`.
+  bool read_boolean_as_bitmap_ = false;
 };
 
 class BinaryRecordReader : virtual public RecordReader {
@@ -485,6 +492,11 @@ class BinaryRecordReader : virtual public RecordReader {
 class DictionaryRecordReader : virtual public RecordReader {
  public:
   virtual std::shared_ptr<::arrow::ChunkedArray> GetResult() = 0;
+};
+
+class BitmapBooleanRecordReader : virtual public RecordReader {
+ public:
+  virtual std::shared_ptr<::arrow::Array> GetChunkedData() = 0;
 };
 
 }  // namespace internal

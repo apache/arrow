@@ -359,6 +359,21 @@ std::shared_ptr<Array> TransferZeroCopy(RecordReader* reader,
 }
 
 Status TransferBool(RecordReader* reader, bool nullable, MemoryPool* pool, Datum* out) {
+  if (reader->read_boolean_as_bitmap()) {
+    auto bitmap_record_reader =
+        dynamic_cast<parquet::internal::BitmapBooleanRecordReader*>(reader);
+    DCHECK(bitmap_record_reader != nullptr);
+    auto arr = bitmap_record_reader->GetChunkedData();
+    if (!nullable) {
+      std::shared_ptr<::arrow::ArrayData> data = arr->data();
+      data->null_count = 0;
+      data->buffers[0] = nullptr;
+      *out = MakeArray(data);
+    } else {
+      *out = std::move(arr);
+    }
+    return Status::OK();
+  }
   int64_t length = reader->values_written();
 
   const int64_t buffer_size = bit_util::BytesForBits(length);
