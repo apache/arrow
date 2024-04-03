@@ -79,6 +79,7 @@ import org.apache.commons.codec.binary.Hex;
 
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.json.JsonWriteFeature;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter.NopIndenter;
 import com.fasterxml.jackson.databind.MappingJsonFactory;
@@ -136,7 +137,7 @@ public class JsonFileWriter implements AutoCloseable {
       this.generator.setPrettyPrinter(prettyPrinter);
     }
     // Allow writing of floating point NaN values not as strings
-    this.generator.configure(JsonGenerator.Feature.QUOTE_NON_NUMERIC_NUMBERS, false);
+    this.generator.configure(JsonWriteFeature.WRITE_NAN_AS_STRINGS.mappedFeature(), false);
   }
 
   /**
