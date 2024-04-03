@@ -55,11 +55,11 @@ namespace bit_util = arrow::bit_util;
 using arrow::Status;
 using arrow::VisitNullBitmapInline;
 using arrow::internal::AddWithOverflow;
+using arrow::internal::BitBlockCounter;
 using arrow::internal::checked_cast;
 using arrow::internal::MultiplyWithOverflow;
 using arrow::internal::SafeSignedSubtract;
 using arrow::internal::SubtractWithOverflow;
-using arrow::internal::BitBlockCounter;
 using arrow::util::SafeLoad;
 using arrow::util::SafeLoadAs;
 using std::string_view;
@@ -1214,7 +1214,8 @@ int PlainBooleanDecoder::DecodeArrow(
       if (block.AllSet()) {
         // Note: We don't have UnsafeAppendValues for booleans currently,
         // so using `AppendValues` here.
-        PARQUET_THROW_NOT_OK(builder->AppendValues(data_, block.length, NULLPTR, previous_value_offset));
+        PARQUET_THROW_NOT_OK(
+            builder->AppendValues(data_, block.length, NULLPTR, previous_value_offset));
         previous_value_offset += block.length;
       } else if (block.NoneSet()) {
         // Note: We don't have UnsafeAppendNulls for booleans currently,
@@ -1223,7 +1224,8 @@ int PlainBooleanDecoder::DecodeArrow(
       } else {
         for (int64_t i = 0; i < block.length; ++i) {
           if (bit_util::GetBit(valid_bits, valid_bits_offset_position + i)) {
-            bool value = bit_util::GetBit(data_, total_num_values_ - num_values_ + previous_value_offset);
+            bool value = bit_util::GetBit(
+                data_, total_num_values_ - num_values_ + previous_value_offset);
             builder->UnsafeAppend(value);
             previous_value_offset += 1;
           } else {

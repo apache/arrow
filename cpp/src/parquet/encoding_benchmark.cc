@@ -1445,7 +1445,7 @@ class BenchmarkDecodeArrowBoolean : public BenchmarkDecodeArrowBase<BooleanType>
 void BenchmarkDecodeArrowBoolean::DecodeArrowWithNullDenseBenchmark(
     benchmark::State& state) {
   // Change null_probability
-  null_probability_ = 0.5;
+  null_probability_ = static_cast<double>(state.range(1)) / 100;
   InitDataInputs();
   this->DoEncodeArrow();
   int num_values_with_nulls = this->num_values_;
@@ -1490,6 +1490,14 @@ class BM_DecodeArrowBooleanRle : public BenchmarkDecodeArrowBoolean {
   }
 };
 
+static void BooleanWithNullCustomArguments(benchmark::internal::Benchmark* b) {
+  b->ArgsProduct({
+                     benchmark::CreateRange(MIN_RANGE, MAX_RANGE, /*multi=*/2),
+                     {10, 50},
+                 })
+      ->ArgNames({"num-values", "null-prob"});
+}
+
 BENCHMARK_DEFINE_F(BM_DecodeArrowBooleanRle, DecodeArrow_Dense)(benchmark::State& state) {
   DecodeArrowDenseBenchmark(state);
 }
@@ -1503,7 +1511,7 @@ BENCHMARK_REGISTER_F(BM_DecodeArrowBooleanRle, DecodeArrowNonNull_Dense)
 // BENCHMARK_DEFINE_F(BM_DecodeArrowBooleanRle, DecodeArrowWithNull_Dense)
 //(benchmark::State& state) { DecodeArrowWithNullDenseBenchmark(state); }
 // BENCHMARK_REGISTER_F(BM_DecodeArrowBooleanRle, DecodeArrowWithNull_Dense)
-//    ->Range(MIN_RANGE, MAX_RANGE);
+//    ->Apply(BooleanWithNullCustomArguments);
 
 BENCHMARK_DEFINE_F(BM_DecodeArrowBooleanPlain, DecodeArrow_Dense)
 (benchmark::State& state) { DecodeArrowDenseBenchmark(state); }
@@ -1516,6 +1524,6 @@ BENCHMARK_REGISTER_F(BM_DecodeArrowBooleanPlain, DecodeArrowNonNull_Dense)
 BENCHMARK_DEFINE_F(BM_DecodeArrowBooleanPlain, DecodeArrowWithNull_Dense)
 (benchmark::State& state) { DecodeArrowWithNullDenseBenchmark(state); }
 BENCHMARK_REGISTER_F(BM_DecodeArrowBooleanPlain, DecodeArrowWithNull_Dense)
-    ->Range(MIN_RANGE, MAX_RANGE);
+    ->Apply(BooleanWithNullCustomArguments);
 
 }  // namespace parquet
