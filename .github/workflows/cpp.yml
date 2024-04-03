@@ -53,6 +53,7 @@ permissions:
   contents: read
 
 env:
+  ARCHERY_DEBUG: 1
   ARROW_ENABLE_TIMING_TESTS: OFF
   DOCKER_VOLUME_PREFIX: ".docker/"
 
@@ -94,6 +95,7 @@ jobs:
             cat <<JSON >> "$GITHUB_OUTPUT"
           {
             "arch": "arm64v8",
+            "archery-use-docker-cli": "0",
             "clang-tools": "10",
             "image": "ubuntu-cpp",
             "llvm": "10",
@@ -118,6 +120,9 @@ jobs:
         include: ${{ fromJson(needs.docker-targets.outputs.targets) }}
     env:
       ARCH: ${{ matrix.arch }}
+      # By default, use Docker CLI because docker-compose v1 is obsolete,
+      # except where the Docker client version is too old.
+      ARCHERY_USE_DOCKER_CLI: ${{ matrix.archery-use-docker-cli || '1' }}
       ARROW_SIMD_LEVEL: ${{ matrix.simd-level }}
       CLANG_TOOLS: ${{ matrix.clang-tools }}
       LLVM: ${{ matrix.llvm }}

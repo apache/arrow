@@ -41,6 +41,10 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  ARCHERY_DEBUG: 1
+  ARCHERY_USE_DOCKER_CLI: 1
+
 jobs:
 
   docker-targets:
@@ -75,12 +79,14 @@ jobs:
           {
             "arch-label": "ARM64",
             "arch": "arm64v8",
+            "archery-use-docker-cli": "0",
             "go": "1.21",
             "runs-on": ["self-hosted", "arm", "linux"]
           },
           {
             "arch-label": "ARM64",
             "arch": "arm64v8",
+            "archery-use-docker-cli": "0",
             "go": "1.22",
             "runs-on": ["self-hosted", "arm", "linux"]
           }
@@ -101,6 +107,9 @@ jobs:
         include: ${{ fromJson(needs.docker-targets.outputs.targets) }}
     env:
       ARCH: ${{ matrix.arch }}
+      # By default, use Docker CLI because docker-compose v1 is obsolete,
+      # except where the Docker client version is too old.
+      ARCHERY_USE_DOCKER_CLI: ${{ matrix.archery-use-docker-cli || '1' }}
       GO: ${{ matrix.go }}
     steps:
       - name: Checkout Arrow
