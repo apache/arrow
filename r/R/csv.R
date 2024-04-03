@@ -78,8 +78,9 @@
 #' `col_names`, and the CSV file has a header row that would otherwise be used
 #' to identify column names, you'll need to add `skip = 1` to skip that row.
 #'
-#' @param file A character file name or URI, literal data (either a single string or a [raw] vector),
-#' an Arrow input stream, or a `FileSystem` with path (`SubTreeFileSystem`).
+#' @param file A character file name or URI, connection, literal data (either a
+#' single string or a [raw] vector), an Arrow input stream, or a `FileSystem`
+#' with path (`SubTreeFileSystem`).
 #'
 #' If a file name, a memory-mapped Arrow [InputStream] will be opened and
 #' closed when finished; compression will be detected from the file extension
@@ -894,7 +895,7 @@ readr_to_csv_convert_options <- function(na,
 #' Write CSV file to disk
 #'
 #' @param x `data.frame`, [RecordBatch], or [Table]
-#' @param sink A string file path, URI, or [OutputStream], or path in a file
+#' @param sink A string file path, connection, URI, or [OutputStream], or path in a file
 #' system (`SubTreeFileSystem`)
 #' @param file file name. Specify this or `sink`, not both.
 #' @param include_header Whether to write an initial header line with column names

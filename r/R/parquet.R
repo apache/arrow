@@ -90,7 +90,7 @@ read_parquet <- function(file,
 #' article} for examples of this.
 #'
 #' @param x `data.frame`, [RecordBatch], or [Table]
-#' @param sink A string file path, URI, or [OutputStream], or path in a file
+#' @param sink A string file path, connection, URI, or [OutputStream], or path in a file
 #' system (`SubTreeFileSystem`)
 #' @param chunk_size how many rows of data to write to disk at once. This
 #'    directly corresponds to how many rows will be in each row group in
