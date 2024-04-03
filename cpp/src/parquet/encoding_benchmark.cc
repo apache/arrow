@@ -66,6 +66,7 @@ static void BM_PlainEncodingBoolean(benchmark::State& state) {
     typed_encoder->FlushValues();
   }
   state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(bool));
+  state.SetItemsProcessed(state.iterations() * state.range(0));
 }
 
 BENCHMARK(BM_PlainEncodingBoolean)->Range(MIN_RANGE, MAX_RANGE);
@@ -86,6 +87,7 @@ static void BM_PlainDecodingBoolean(benchmark::State& state) {
   }
 
   state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(bool));
+  state.SetItemsProcessed(state.iterations() * state.range(0));
   delete[] output;
 }
 
@@ -1147,6 +1149,7 @@ class BenchmarkDecodeArrowBase : public ::benchmark::Fixture {
       DoEncodeArrow();
     }
     state.SetBytesProcessed(state.iterations() * total_size_);
+    state.SetItemsProcessed(state.iterations() * num_values_);
   }
 
   void EncodeLowLevelBenchmark(benchmark::State& state) {
@@ -1154,6 +1157,7 @@ class BenchmarkDecodeArrowBase : public ::benchmark::Fixture {
       DoEncodeLowLevel();
     }
     state.SetBytesProcessed(state.iterations() * total_size_);
+    state.SetItemsProcessed(state.iterations() * num_values_);
   }
 
   void DecodeArrowDenseBenchmark(benchmark::State& state) {
@@ -1163,6 +1167,7 @@ class BenchmarkDecodeArrowBase : public ::benchmark::Fixture {
       decoder->DecodeArrow(num_values_, 0, valid_bits_, 0, &acc);
     }
     state.SetBytesProcessed(state.iterations() * total_size_);
+    state.SetItemsProcessed(state.iterations() * num_values_);
   }
 
   void DecodeArrowNonNullDenseBenchmark(benchmark::State& state) {
@@ -1172,6 +1177,7 @@ class BenchmarkDecodeArrowBase : public ::benchmark::Fixture {
       decoder->DecodeArrowNonNull(num_values_, &acc);
     }
     state.SetBytesProcessed(state.iterations() * total_size_);
+    state.SetItemsProcessed(state.iterations() * num_values_);
   }
 
   void DecodeArrowDictBenchmark(benchmark::State& state) {
@@ -1182,6 +1188,7 @@ class BenchmarkDecodeArrowBase : public ::benchmark::Fixture {
     }
 
     state.SetBytesProcessed(state.iterations() * total_size_);
+    state.SetItemsProcessed(state.iterations() * num_values_);
   }
 
   void DecodeArrowNonNullDictBenchmark(benchmark::State& state) {
@@ -1192,6 +1199,7 @@ class BenchmarkDecodeArrowBase : public ::benchmark::Fixture {
     }
 
     state.SetBytesProcessed(state.iterations() * total_size_);
+    state.SetItemsProcessed(state.iterations() * num_values_);
   }
 
  protected:
