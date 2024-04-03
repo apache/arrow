@@ -198,6 +198,9 @@ cdef class ParquetFileFormat(FileFormat):
         -------
         pyarrow.dataset.FileWriteOptions
         """
+        if not isinstance(self, ParquetFileFormat):
+            raise TypeError("pyarrow.dataset.ParquetFileFormat() must be initiated"
+                            " before calling make_write_options()")
         opts = FileFormat.make_write_options(self)
         (<ParquetFileWriteOptions> opts).update(**kwargs)
         return opts
