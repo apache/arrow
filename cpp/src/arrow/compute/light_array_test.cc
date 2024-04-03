@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/light_array.h"
+#include "arrow/compute/light_array_internal.h"
 
 #include <gtest/gtest.h>
 #include <numeric>

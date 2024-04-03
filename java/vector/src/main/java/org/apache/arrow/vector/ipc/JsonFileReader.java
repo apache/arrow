@@ -21,7 +21,6 @@ import static com.fasterxml.jackson.core.JsonToken.END_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.END_OBJECT;
 import static com.fasterxml.jackson.core.JsonToken.START_ARRAY;
 import static com.fasterxml.jackson.core.JsonToken.START_OBJECT;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.arrow.vector.BufferLayout.BufferType.DATA;
 import static org.apache.arrow.vector.BufferLayout.BufferType.OFFSET;
 import static org.apache.arrow.vector.BufferLayout.BufferType.TYPE;
@@ -31,6 +30,7 @@ import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -538,7 +538,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
       long bufferSize = 0L;
       for (int i = 0; i < count; i++) {
         parser.nextToken();
-        final byte[] value = parser.getValueAsString().getBytes(UTF_8);
+        final byte[] value = parser.getValueAsString().getBytes(StandardCharsets.UTF_8);
         values.add(value);
         bufferSize += value.length;
       }

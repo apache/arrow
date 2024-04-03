@@ -55,6 +55,11 @@ if [ -n "${PYARROW_VERSION:-}" ]; then
 else
   sdist=$(ls ${arrow_dir}/python/dist/pyarrow-*.tar.gz | sort -r | head -n1)
 fi
+
+if [ -n "${ARROW_PYTHON_VENV:-}" ]; then
+  . "${ARROW_PYTHON_VENV}/bin/activate"
+fi
+
 ${PYTHON:-python} -m pip install ${sdist}
 
 pytest -r s ${PYTEST_ARGS:-} --pyargs pyarrow

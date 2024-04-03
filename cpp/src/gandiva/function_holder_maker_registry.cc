@@ -58,6 +58,7 @@ arrow::Result<FunctionHolderPtr> FunctionHolderMakerRegistry::Make(
 FunctionHolderMakerRegistry::MakerMap FunctionHolderMakerRegistry::DefaultHolderMakers() {
   static const MakerMap maker_map = {
       {"like", HolderMaker<LikeHolder>},
+      {"ilike", HolderMaker<LikeHolder>},
       {"to_date", HolderMaker<ToDateHolder>},
       {"random", HolderMaker<RandomGeneratorHolder>},
       {"rand", HolderMaker<RandomGeneratorHolder>},

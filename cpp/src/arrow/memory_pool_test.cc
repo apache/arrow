@@ -106,11 +106,6 @@ TEST(DefaultMemoryPool, Identity) {
             specific_pools.end());
 }
 
-// Death tests and valgrind are known to not play well 100% of the time. See
-// googletest documentation
-#if !(defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER))
-
-// TODO: is this still a death test?
 TEST(DefaultMemoryPoolDeathTest, Statistics) {
   MemoryPool* pool = default_memory_pool();
   uint8_t* data1;
@@ -137,17 +132,15 @@ TEST(DefaultMemoryPoolDeathTest, Statistics) {
   ASSERT_EQ(150, pool->max_memory());
   ASSERT_EQ(200, pool->total_bytes_allocated());
   ASSERT_EQ(50, pool->bytes_allocated());
-  ASSERT_EQ(4, pool->num_allocations());
+  ASSERT_EQ(3, pool->num_allocations());
 
   pool->Free(data1, 50);
 
   ASSERT_EQ(150, pool->max_memory());
   ASSERT_EQ(200, pool->total_bytes_allocated());
   ASSERT_EQ(0, pool->bytes_allocated());
-  ASSERT_EQ(4, pool->num_allocations());
+  ASSERT_EQ(3, pool->num_allocations());
 }
-
-#endif  // ARROW_VALGRIND
 
 TEST(LoggingMemoryPool, Logging) {
   auto pool = MemoryPool::CreateDefault();

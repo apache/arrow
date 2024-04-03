@@ -24,3 +24,7 @@ func hashString(val string, alg uint64) uint64 {
 	buf := unsafe.Slice(unsafe.StringData(val), len(val))
 	return Hash(buf, alg)
 }
+
+func strToBytes(v string) []byte {
+	return unsafe.Slice(unsafe.StringData(v), len(v))
+}

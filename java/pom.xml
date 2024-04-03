@@ -33,11 +33,11 @@
     <dep.junit.jupiter.version>5.10.2</dep.junit.jupiter.version>
     <dep.slf4j.version>2.0.11</dep.slf4j.version>
     <dep.guava-bom.version>33.0.0-jre</dep.guava-bom.version>
-    <dep.netty-bom.version>4.1.106.Final</dep.netty-bom.version>
-    <dep.grpc-bom.version>1.61.1</dep.grpc-bom.version>
+    <dep.netty-bom.version>4.1.108.Final</dep.netty-bom.version>
+    <dep.grpc-bom.version>1.62.2</dep.grpc-bom.version>
     <dep.protobuf-bom.version>3.23.1</dep.protobuf-bom.version>
-    <dep.jackson-bom.version>2.16.1</dep.jackson-bom.version>
-    <dep.hadoop.version>3.3.6</dep.hadoop.version>
+    <dep.jackson-bom.version>2.17.0</dep.jackson-bom.version>
+    <dep.hadoop.version>3.4.0</dep.hadoop.version>
     <dep.fbs.version>23.5.26</dep.fbs.version>
     <dep.avro.version>1.11.3</dep.avro.version>
     <arrow.vector.classifier />
@@ -327,13 +327,12 @@
           <headerLocation>dev/checkstyle/checkstyle.license</headerLocation>
           <suppressionsLocation>dev/checkstyle/suppressions.xml</suppressionsLocation>
           <includeTestSourceDirectory>true</includeTestSourceDirectory>
-          <encoding>UTF-8</encoding>
+          <inputEncoding>UTF-8</inputEncoding>
           <consoleOutput>true</consoleOutput>
           <failsOnError>${checkstyle.failOnViolation}</failsOnError>
           <failOnViolation>${checkstyle.failOnViolation}</failOnViolation>
           <violationSeverity>warning</violationSeverity>
-          <format>xml</format>
-          <format>html</format>
+          <outputFileFormat>xml</outputFileFormat>
           <outputFile>${project.build.directory}/test/checkstyle-errors.xml</outputFile>
           <linkXRef>false</linkXRef>
         </configuration>
@@ -454,7 +453,7 @@
         </plugin>
         <plugin>
           <artifactId>maven-surefire-plugin</artifactId>
-          <version>3.2.3</version>
+          <version>3.2.5</version>
           <dependencies>
             <dependency>
               <groupId>org.junit.jupiter</groupId>
@@ -605,6 +604,48 @@
           <artifactId>maven-site-plugin</artifactId>
           <version>3.12.1</version>
         </plugin>
+        <plugin>
+          <groupId>com.gradle</groupId>
+          <artifactId>gradle-enterprise-maven-extension</artifactId>
+          <configuration>
+            <gradleEnterprise>
+              <normalization>
+                <runtimeClassPath>
+                  <ignoredFiles>
+                    <ignoredFile>arrow-git.properties</ignoredFile>
+                    <ignoredFile>properties/flight.properties</ignoredFile>
+                  </ignoredFiles>
+                </runtimeClassPath>
+              </normalization>
+              <plugins>
+                <plugin>
+                  <groupId>org.apache.maven.plugins</groupId>
+                  <artifactId>maven-surefire-plugin</artifactId>
+                  <inputs>
+                    <fileSets>
+                      <fileSet>
+                        <name>testingData</name>
+                        <paths>
+                          <path>${arrow.test.dataRoot}</path>
+                        </paths>
+                      </fileSet>
+                    </fileSets>
+                  </inputs>
+              </plugin>
+            </plugins>
+            </gradleEnterprise>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.xolstice.maven.plugins</groupId>
+          <artifactId>protobuf-maven-plugin</artifactId>
+          <version>0.6.1</version>
+          <configuration>
+            <protocArtifact>com.google.protobuf:protoc:${dep.protobuf-bom.version}:exe:${os.detected.classifier}</protocArtifact>
+            <pluginId>grpc-java</pluginId>
+            <pluginArtifact>io.grpc:protoc-gen-grpc-java:${dep.grpc-bom.version}:exe:${os.detected.classifier}</pluginArtifact>
+          </configuration>
+        </plugin>
       </plugins>
     </pluginManagement>
   </build>
@@ -637,6 +678,11 @@
       <dependency>
         <groupId>org.slf4j</groupId>
         <artifactId>slf4j-api</artifactId>
+        <version>${dep.slf4j.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-jdk14</artifactId>
         <version>${dep.slf4j.version}</version>
       </dependency>
       <dependency>

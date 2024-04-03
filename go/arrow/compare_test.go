@@ -43,6 +43,9 @@ func TestTypeEqual(t *testing.T) {
 			Null, Null, true, false,
 		},
 		{
+			Null, new(NullType), true, false,
+		},
+		{
 			&BinaryType{}, &StringType{}, false, false,
 		},
 		{
