@@ -125,13 +125,13 @@ You might wonder what the point of *lazy evaluation* is. Why not execute each in
 
 ## How do I use Arrow properly?
 
-At first sight, it looks like Arrow can be used in exactly the same way as dplyr (and in fact, this is deliberate!). However, there are a few important differences that you should know about to understand what is going on. This section details three recommendations to use Arrow efficiently:
+At first sight, it looks like Arrow can be used in exactly the same way as dplyr (and in fact, this is done on purpose!). However, there are a few important differences that you should know about to understand what is going on under the hood. This section details three recommendations to use Arrow efficiently:
 
 - Use lazy evaluation correctly;
+- Use `open_dataset()` rather than `read_parquet()`;
 - Use `compute()` rather than `collect()`;
-- Use `open_dataset()` rather than `read_parquet()`.
 
-### How to use lazy evaluation properly
+### Overcoming the limitations of lazy evaluation
 
 The previous section explained what lazy evaluation is and why it is useful to optimize performance. However, lazy evaluation is not always easy to use, and has limitations that you need to know about.
 
@@ -174,13 +174,12 @@ write_parquet(final_results, "final_results.parquet")
 
 Unfortunately, __reality is not that simple because lazy evaluation has limitations__. Although Arrow is powerful, its ability to analyze, optimize and execute long series of instructions is not unlimited. If you ask Arrow to execute an extremely long and complex series of instructions in one step, it might be unable to do it. For instance, Arrow is likely to crash if you want to do a long series of joins on large tables.
 
-__The limitations of lazy evaluation can lead to session crashes__. When the `acero` engine fails to execute a series of instructions because it is too long or too complex, your R session will crash abruptly, without any error message. R prints no error message because there was actually no error in R (the cause of the crash is in the underlying C++ code). All you can do is restart `R` and start all over again. 
+__The limitations of lazy evaluation can lead to session crashes__. When the `acero` engine fails to execute a series of instructions because it is too long or too complex, your R session will crash abruptly, without any error message. R prints no error message because there was actually no error in R (the cause of the crash is in the underlying C++ code). All you can do is restart `R` and start all over again. As you can see, it is essential that you structure your code so that you take advantage of the benefits of lazy evaluation without running into problems.
 
 
+#### The solution: structure your code into consistent and not-too-long steps
 
-#### The solution: decompose your code into consistent and not-too-long steps
-
-__The obvious way to avoid the limitations of lazy evaluation is to break down your data processing into steps__, and execute each step separately, by calling `compute()` at the end of each step. This way, `acero` will execute sequentially several somewhat complex series of instructions, rather than failing to execute one single very complex series of instructions.
+__The obvious way to avoid the limitations of lazy evaluation is to break down your code into steps__, and execute each step separately, by calling `compute()` at the end of each step. This way, `acero` will execute sequentially several somewhat complex series of instructions, rather than failing to execute one single very complex series of instructions.
 
 Here comes the tricky question: what is the appropriate length of these intermediate steps? If they are too long, you are at risk of a session crash. If they are too short, your code is basically executed on an instruction-by-instruction basis and you lose the benefits of lazy evaluation. Unfortunately, there is no rule that would work in all cases. You should try, fail and determine what is reasonable. This being said, here are a few tips that might help you:
 
@@ -191,6 +190,36 @@ Here comes the tricky question: what is the appropriate length of these intermed
 - __The larger the datasets you work on, the more cautious you should be when defining long intermediate steps__.
 
 - __Intermediate processing steps with complex instructions should be shorter__: for example, if your code consists only of `filter()`, `select()` and easy `mutate()`, you can have quite a lot of them in one processing step, because these operations are simple. Conversely, one processing step should not include more than three or four joins (because joins are complex operations), especially if the tables are large.
+
+
+### Use `open_dataset()` rather than `read_parquet()` to read Parquet files
+
+In case the data you work with is stored in Parquet files, you should use the `open_dataset()` function to access the data, rather than the `read_parquet()` function. There are two reasons for this recommendation:
+
+- __More general use__: the `open_dataset()` function can be used to connect to a single Parquet file, but also to partitioned Parquet files, whereas `read_parquet()` can read only single files.
+
+- __Lazy behavior__: the `read_parquet()` function immediately loads all the data from the Parquet file into memory, including data that may not be needed in later steps. Conversely, the `open_dataset()` function has a lazy behavior: it creates a connection to the Parquet file, but does not import the data itself, unless you ask for it with `compute()` or `collect()`. This behavior induces faster execution and lower memory consumption. The following example explains why in detail.
+
+```{r, eval = FALSE}
+library(arrow)
+
+# Connect to a single Parquet file
+rawdata <- open_dataset("path/to/data/my_data.parquet")
+
+# Processing the data
+results <- rawdata |>
+  select(firstname, wage) |>
+  filter(firstname %in% c("Bob", "Bill", "Fred")) |>
+  group_by(firstname) |>
+  summarise(mean_wage = mean(wage)) |>
+  compute()
+```
+
+- The first step creates a connection to `my_data.parquet`, but does not import any data (there is no `collect()` or `compute()`);
+- The second step selects some variables from the data, selects some observations and finally computes some descriptive statistic by group. Note that this step ends with `compute()`, meaning that Arrow will execute the code.
+- When the code is executed by Arrow, Arrow analyzes the series of instructions and sees that only some columns are necessary (`firstname` and `wage`) and that only some rows are necessary (those where `firstname` is Bob, Bill or Fred). Arrow then scans the Parquet file, and does its best to import only the data needed for the computations.
+
+
 
 
 
