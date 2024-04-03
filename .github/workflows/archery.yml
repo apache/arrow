@@ -61,7 +61,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5.1.0
         with:
-          python-version: '3.12'
+          python-version: '3.9'
       - name: Install pygit2 binary wheel
         run: pip install pygit2 --only-binary pygit2
       - name: Install Archery, Crossbow- and Test Dependencies
