@@ -99,7 +99,7 @@ Result<std::shared_ptr<LikeHolder>> LikeHolder::Make(const FunctionNode& node) {
           "'like' function requires a string literal as the second parameter"));
 
   RE2::Options regex_op;
-  regex_op.set_dot_nl(true); // set dotall mode for the regex.
+  regex_op.set_dot_nl(true);  // set dotall mode for the regex.
   if (node.descriptor()->name() == "ilike") {
     regex_op.set_case_sensitive(false);  // set case-insensitive for ilike function.
 

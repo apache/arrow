@@ -85,7 +85,8 @@ TEST_F(TestLikeHolder, TestPcreSpecialWithNewLine) {
   EXPECT_OK_AND_ASSIGN(auto const like_holder, LikeHolder::Make("%Space1.%", regex_op));
 
   auto& like = *like_holder;
-  EXPECT_TRUE(like("[name: \"Space1.protect\"\nargs: \"count\"\ncolumn_name: \"pass_count\"]"));
+  EXPECT_TRUE(
+      like("[name: \"Space1.protect\"\nargs: \"count\"\ncolumn_name: \"pass_count\"]"));
 }
 
 TEST_F(TestLikeHolder, TestRegexEscape) {
@@ -111,7 +112,8 @@ TEST_F(TestLikeHolder, TestMatchSubString) {
   EXPECT_TRUE(like("abc"));
   EXPECT_FALSE(like("xxabdc"));
 
-  EXPECT_OK_AND_ASSIGN(like_holder, LikeHolder::Make("%ab-.^$*+?()[]{}|—/c\\%%", "\\", regex_op));
+  EXPECT_OK_AND_ASSIGN(like_holder, 
+                       LikeHolder::Make("%ab-.^$*+?()[]{}|—/c\\%%", "\\", regex_op));
 
   auto& like_reserved_char = *like_holder;
   EXPECT_TRUE(like_reserved_char("XXab-.^$*+?()[]{}|—/c%d"));
@@ -217,7 +219,8 @@ TEST_F(TestLikeHolder, TestMatchManyEscape) {
 
 TEST_F(TestLikeHolder, TestMatchEscape) {
   regex_op.set_dot_nl(true);
-  EXPECT_OK_AND_ASSIGN(auto const like_holder, LikeHolder::Make("ab\\\\", "\\", regex_op));
+  EXPECT_OK_AND_ASSIGN(auto const like_holder, 
+                       LikeHolder::Make("ab\\\\", "\\", regex_op));
 
   auto& like = *like_holder;
 
