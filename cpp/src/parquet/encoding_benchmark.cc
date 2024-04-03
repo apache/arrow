@@ -1416,7 +1416,7 @@ class BenchmarkDecodeArrowBoolean : public BenchmarkDecodeArrowBase<BooleanType>
     constexpr int repeat_factor = 8;
     ::arrow::random::RandomArrayGenerator rag(0);
     input_array_ =
-        rag.Boolean(num_values_, num_values_ / repeat_factor, /*null_probability=*/0);
+        rag.Boolean(num_values_, num_values_ / repeat_factor, null_probability_);
     valid_bits_ = input_array_->null_bitmap_data();
 
     // Arrow uses a bitmap representation for boolean arrays,
@@ -1435,7 +1435,30 @@ class BenchmarkDecodeArrowBoolean : public BenchmarkDecodeArrowBase<BooleanType>
   }
 
   void DoEncodeLowLevel() final { ParquetException::NYI(); }
+
+  void DecodeArrowWithNullDenseBenchmark(benchmark::State& state);
+
+ protected:
+  double null_probability_ = 0.0;
 };
+
+void BenchmarkDecodeArrowBoolean::DecodeArrowWithNullDenseBenchmark(
+    benchmark::State& state) {
+  // Change null_probability
+  null_probability_ = 0.5;
+  InitDataInputs();
+  this->DoEncodeArrow();
+  int num_values_with_nulls = this->num_values_;
+
+  for (auto _ : state) {
+    auto decoder = this->InitializeDecoder();
+    auto acc = this->CreateAccumulator();
+    decoder->DecodeArrow(num_values_with_nulls,
+                         /*null_count=*/this->input_array_->null_count(),
+                         this->valid_bits_, 0, &acc);
+  }
+  state.SetBytesProcessed(state.iterations() * total_size_);
+}
 
 class BM_DecodeArrowBooleanPlain : public BenchmarkDecodeArrowBoolean {
  public:
@@ -1476,6 +1499,11 @@ BENCHMARK_DEFINE_F(BM_DecodeArrowBooleanRle, DecodeArrowNonNull_Dense)
 (benchmark::State& state) { DecodeArrowNonNullDenseBenchmark(state); }
 BENCHMARK_REGISTER_F(BM_DecodeArrowBooleanRle, DecodeArrowNonNull_Dense)
     ->Range(MIN_RANGE, MAX_RANGE);
+// TODO(mwish): RleBoolean not implemented DecodeArrow with null slots yet.
+// BENCHMARK_DEFINE_F(BM_DecodeArrowBooleanRle, DecodeArrowWithNull_Dense)
+//(benchmark::State& state) { DecodeArrowWithNullDenseBenchmark(state); }
+// BENCHMARK_REGISTER_F(BM_DecodeArrowBooleanRle, DecodeArrowWithNull_Dense)
+//    ->Range(MIN_RANGE, MAX_RANGE);
 
 BENCHMARK_DEFINE_F(BM_DecodeArrowBooleanPlain, DecodeArrow_Dense)
 (benchmark::State& state) { DecodeArrowDenseBenchmark(state); }
@@ -1484,6 +1512,10 @@ BENCHMARK_REGISTER_F(BM_DecodeArrowBooleanPlain, DecodeArrow_Dense)
 BENCHMARK_DEFINE_F(BM_DecodeArrowBooleanPlain, DecodeArrowNonNull_Dense)
 (benchmark::State& state) { DecodeArrowNonNullDenseBenchmark(state); }
 BENCHMARK_REGISTER_F(BM_DecodeArrowBooleanPlain, DecodeArrowNonNull_Dense)
+    ->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK_DEFINE_F(BM_DecodeArrowBooleanPlain, DecodeArrowWithNull_Dense)
+(benchmark::State& state) { DecodeArrowWithNullDenseBenchmark(state); }
+BENCHMARK_REGISTER_F(BM_DecodeArrowBooleanPlain, DecodeArrowWithNull_Dense)
     ->Range(MIN_RANGE, MAX_RANGE);
 
 }  // namespace parquet
