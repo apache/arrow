@@ -112,7 +112,7 @@ TEST_F(TestLikeHolder, TestMatchSubString) {
   EXPECT_TRUE(like("abc"));
   EXPECT_FALSE(like("xxabdc"));
 
-  EXPECT_OK_AND_ASSIGN(like_holder, 
+  EXPECT_OK_AND_ASSIGN(like_holder,
                        LikeHolder::Make("%ab-.^$*+?()[]{}|—/c\\%%", "\\", regex_op));
 
   auto& like_reserved_char = *like_holder;
@@ -219,7 +219,7 @@ TEST_F(TestLikeHolder, TestMatchManyEscape) {
 
 TEST_F(TestLikeHolder, TestMatchEscape) {
   regex_op.set_dot_nl(true);
-  EXPECT_OK_AND_ASSIGN(auto const like_holder, 
+  EXPECT_OK_AND_ASSIGN(auto const like_holder,
                        LikeHolder::Make("ab\\\\", "\\", regex_op));
 
   auto& like = *like_holder;
