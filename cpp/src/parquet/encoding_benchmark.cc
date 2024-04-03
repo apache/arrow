@@ -1453,11 +1453,12 @@ void BenchmarkDecodeArrowBoolean::DecodeArrowWithNullDenseBenchmark(
   for (auto _ : state) {
     auto decoder = this->InitializeDecoder();
     auto acc = this->CreateAccumulator();
-    decoder->DecodeArrow(num_values_with_nulls,
-                         /*null_count=*/this->input_array_->null_count(),
-                         this->valid_bits_, 0, &acc);
+    decoder->DecodeArrow(
+        num_values_with_nulls,
+        /*null_count=*/static_cast<int>(this->input_array_->null_count()),
+        this->valid_bits_, 0, &acc);
   }
-  state.SetBytesProcessed(state.iterations() * total_size_);
+  state.SetBytesProcessed(state.iterations() * static_cast<int64_t>(total_size_));
 }
 
 class BM_DecodeArrowBooleanPlain : public BenchmarkDecodeArrowBoolean {
