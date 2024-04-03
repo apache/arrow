@@ -1135,7 +1135,7 @@ def test_recordbatch_to_tensor_null():
         ], ["a", "b"]
     )
 
-    result = batch.to_tensor(null_to_nan=True)
+    result = batch.to_tensor(null_to_nan=True, row_major=False)
 
     x = np.array([arr1, arr2], np.float32).transpose()
     expected = pa.Tensor.from_numpy(x)

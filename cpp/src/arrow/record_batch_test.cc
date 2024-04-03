@@ -803,7 +803,7 @@ TEST_F(TestRecordBatch, ToTensorSupportedNullToNan) {
   auto a4 = ArrayFromJSON(int8(), "[10, 20, 30, 40, null, 60, 70, 80, 90]");
   auto batch2 = RecordBatch::Make(schema2, length, {a3, a4});
 
-  ASSERT_OK_AND_ASSIGN(auto tensor2, batch2->ToTensor(/*null_to_nan=*/true));
+  ASSERT_OK_AND_ASSIGN(auto tensor2, batch2->ToTensor(/*null_to_nan=*/true, /*row_major=*/false));
   ASSERT_OK(tensor2->Validate());
 
   const int64_t f32_size = sizeof(float);
