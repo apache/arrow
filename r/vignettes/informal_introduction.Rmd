@@ -192,6 +192,7 @@ Here comes the tricky question: what is the appropriate length of these intermed
 - __Intermediate processing steps with complex instructions should be shorter__: for example, if your code consists only of `filter()`, `select()` and easy `mutate()`, you can have quite a lot of them in one processing step, because these operations are simple. Conversely, one processing step should not include more than three or four joins (because joins are complex operations), especially if the tables are large.
 
 
+
 ### Use `open_dataset()` rather than `read_parquet()` to read Parquet files
 
 In case the data you work with is stored in Parquet files, you should use the `open_dataset()` function to access the data, rather than the `read_parquet()` function. There are two reasons for this recommendation:
@@ -202,12 +203,13 @@ In case the data you work with is stored in Parquet files, you should use the `o
 
 ```{r, eval = FALSE}
 library(arrow)
+library(dplyr)
 
 # Connect to a single Parquet file
-rawdata <- open_dataset("path/to/data/my_data.parquet")
+wage_data <- open_dataset("path/to/data/wage_data.parquet")
 
 # Processing the data
-results <- rawdata |>
+results <- wage_data |>
   select(firstname, wage) |>
   filter(firstname %in% c("Bob", "Bill", "Fred")) |>
   group_by(firstname) |>
@@ -218,6 +220,76 @@ results <- rawdata |>
 - The first step creates a connection to `my_data.parquet`, but does not import any data (there is no `collect()` or `compute()`);
 - The second step selects some variables from the data, selects some observations and finally computes some descriptive statistic by group. Note that this step ends with `compute()`, meaning that Arrow will execute the code.
 - When the code is executed by Arrow, Arrow analyzes the series of instructions and sees that only some columns are necessary (`firstname` and `wage`) and that only some rows are necessary (those where `firstname` is Bob, Bill or Fred). Arrow then scans the Parquet file, and does its best to import only the data needed for the computations.
+
+
+### Use `Arrow Table` objects rather than `data.frames` objects
+
+When handling large data sets, it is essential to __manipulate only `Arrow Table` objects__, rather than standard `data.frames` (or `tibbles`). This is due to the fact that the (very fast) `acero` execution engine can handle only `Arrow Table` objects, but cannot manipulate `data.frame` objects. If at some point in your pipeline, the data is converted to a data.frame, then the following steps of data processing will be carried out by the (slow) dplyr execution engine, resulting in poor performance.
+
+
+This implies two things:
+
+- You should import data directly into `Arrow Table` objects, or convert data to `Arrow Table` with the `as_arrow_table()` function. For example, when importing a csv file with the `read_csv_arrow()` function, you should use the `as_data_frame = FALSE` option so that the data is imported as an `Arrow Table`.
+- You should __systematically use `compute()` rather than `collect()` in intermediate processing steps__. This recommendation is particularly important. The examples below explain why.
+
+#### What you should not do: use `collect()` in intermediate steps
+
+In the code below, the execution of the first step is triggered by `collect()`, so the intermediate table `intermediate_results` is a data.frame. Because this object is a data.frame, the second step is executed by the `dplyr` execution engine, resulting in low performance particularly if the data is large.
+
+```{r eval=FALSE,message=FALSE}
+library(arrow)
+library(dplyr)
+
+# Connect to the data
+wage_data <- open_dataset("path/to/data/wage_data.parquet")
+
+# First step
+# intermediate_results is a data.frame because collect() is used
+intermediate_results <- wage_data |>
+  group_by(firstname) |>
+  summarise(
+    mean_wage = mean(wage)
+  ) |>
+  collect()
+
+# Second step
+# This step is executed by the dplyr execution engine
+# because intermediate_results is a data.frame => low performance
+final_results <- intermediate_results |> 
+  filter(firstname == "Bob") |> 
+  collect()
+```
+
+#### What you should do: use `compute()` in intermediate steps
+
+In the code below, the execution of the first step is triggered by `compute()`, so the intermediate table `intermediate_results` is an `Arrow Table`. Because this object is a `Arrow Table`, the second step is executed by the `acero` execution engine, ensuring high performance particularly if the data is large.
+
+```{r eval=FALSE,message=FALSE}
+library(arrow)
+library(dplyr)
+
+# Connect to the data
+wage_data <- open_dataset("path/to/data/wage_data.parquet")
+
+# First step
+# intermediate_results is an Arrow Table because compute() is used
+intermediate_results <- wage_data |>
+  group_by(firstname) |>
+  summarise(
+    mean_wage = mean(wage)
+  ) |>
+  compute()
+
+# Second step
+# This step is executed by the acero execution engine
+# because intermediate_results is a Arrow Frame => high performance
+final_results <- intermediate_results |> 
+  filter(firstname == "Bob") |> 
+  collect()
+```
+
+
+
 
 
 
