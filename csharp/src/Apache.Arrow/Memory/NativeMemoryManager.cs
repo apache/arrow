@@ -80,6 +80,7 @@ namespace Apache.Arrow.Memory
                     // If disposed from the finalizer, that means there can be no MemoryHandles to this memory.
                     if (_pinCount > 0)
                     {
+                        _ptr = ptr;
                         throw new InvalidOperationException("Cannot free native memory while it is pinned");
                     }
                 }
