@@ -16,7 +16,7 @@
 // under the License.
 
 import {
-    Bool, DateDay, DateMillisecond, Dictionary, Float64, Int32, List, makeVector, Struct, Timestamp, TimeUnit, Utf8, LargeUtf8, util, Vector, vectorFromArray
+    Bool, DateDay, DateMillisecond, Dictionary, Float64, Int32, List, makeVector, Struct, Timestamp, TimeUnit, Utf8, LargeUtf8, util, Vector, vectorFromArray, makeData
 } from 'apache-arrow';
 
 describe(`makeVectorFromArray`, () => {
@@ -30,6 +30,47 @@ describe(`makeVectorFromArray`, () => {
         test(`toJSON retains null`, () => {
             expect(vector.toJSON()).toEqual(values);
         });
+    });
+});
+
+describe(`basic vector methods`, () => {
+    test(`not nullable`, () => {
+        const vector = makeVector([makeData({ data: new Int32Array([1, 2, 3]), nullCount: -1, type: new Int32() })]);
+        expect(vector.nullable).toBe(false);
+        expect(vector.nullCount).toBe(0);
+    });
+
+    test(`nullable`, () => {
+        const vector = makeVector([makeData({ data: new Int32Array([1, 2, 3]), nullCount: 0, type: new Int32() })]);
+        expect(vector.nullable).toBe(true);
+        expect(vector.nullCount).toBe(0);
+        expect(vector.isValid(0)).toBe(true);
+
+        // set a value to null
+        vector.set(0, null);
+        expect(vector.nullable).toBe(true);
+        expect(vector.nullCount).toBe(1);
+        expect(vector.isValid(0)).toBe(false);
+
+        // set the same value to null which should not change anything
+        vector.set(0, null);
+        expect(vector.nullable).toBe(true);
+        expect(vector.nullCount).toBe(1);
+
+        // set a different value to null
+        vector.set(1, null);
+        expect(vector.nullable).toBe(true);
+        expect(vector.nullCount).toBe(2);
+
+        // set first value to non-null
+        vector.set(0, 1);
+        expect(vector.nullable).toBe(true);
+        expect(vector.nullCount).toBe(1);
+
+        // set last null to non-null
+        vector.set(1, 2);
+        expect(vector.nullable).toBe(true);
+        expect(vector.nullCount).toBe(0);
     });
 });
 
@@ -108,7 +149,6 @@ describe(`DateVector`, () => {
 });
 
 describe(`DictionaryVector`, () => {
-
     const dictionary = ['foo', 'bar', 'baz'];
     const extras = ['abc', '123']; // values to search for that should NOT be found
     const dictionary_vec = vectorFromArray(dictionary, new Utf8).memoize();
@@ -117,7 +157,6 @@ describe(`DictionaryVector`, () => {
     const validity = Array.from({ length: indices.length }, () => Math.random() > 0.2);
 
     describe(`index with nullCount == 0`, () => {
-
         const values = indices.map((d) => dictionary[d]);
         const vector = makeVector({
             data: indices,
@@ -133,7 +172,6 @@ describe(`DictionaryVector`, () => {
     });
 
     describe(`index with nullCount > 0`, () => {
-
         const nullBitmap = util.packBools(validity);
         const nullCount = validity.reduce((acc, d) => acc + (d ? 0 : 1), 0);
         const values = indices.map((d, i) => validity[i] ? dictionary[d] : null);
