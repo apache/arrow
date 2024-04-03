@@ -137,7 +137,7 @@ The previous section explained what lazy evaluation is and why it is useful to o
 
 #### The limitations of lazy evaluation
 
-Lazy evaluation improves performance by minimizing the amount of computations actually needed to execute a series of instructions. With that in mind, you might think that the best way to use Arrow is to write all your data processing in _lazy_ mode (without any `compute()` or `collect()` in the intermediate steps), and do a single `compute()` or `collect()` at the very end of the process, so that all operations are optimized in a single step. If that was true, an ideal process would then look like this:
+Lazy evaluation improves performance by minimizing the amount of computations actually needed to execute a series of instructions. With that in mind, you might think that the best way to use Arrow is to write all your data processing in _lazy_ mode (without any `compute()` or `collect()` in the intermediate steps), and do a single `compute()` or `collect()` at the very end of the process, so that all operations are optimized in a single step. If that was true (and unfortunately it is not!), an ideal process would then look like this:
 
 ```{r, eval=FALSE}
 # Connect to raw data
@@ -172,12 +172,25 @@ final_results <- intermediate_results8 |>
 write_parquet(final_results, "final_results.parquet")
 ```
 
-Unfortunately, __reality is not that simple because deferred evaluation has limitations__. 
+Unfortunately, __reality is not that simple because lazy evaluation has limitations__. Although Arrow is powerful, its ability to analyze, optimize and execute long series of instructions is not unlimited. If you ask Arrow to execute an extremely long and complex series of instructions in one step, it might be unable to do it. For instance, Arrow is likely to crash if you want to do a long series of joins on large tables.
 
-Indeed, when producing the final result of the previous example, the `compute()` function instructs the `acero` engine to analyze and then execute _all processing at once_ (the previous paragraph gives a detailed example). The `acero` engine may be powerful, but it has its limits and is unable to carry out complex processing in a single operation. For example, `acero` encounters difficulties when linking multiple joins of large tables.
+__The limitations of lazy evaluation can lead to session crashes__. When the `acero` engine fails to execute a series of instructions because it is too long or too complex, your R session will crash abruptly, without any error message. R prints no error message because there was actually no error in R (the cause of the crash is in the underlying C++ code). All you can do is restart `R` and start all over again. 
 
-__These limits of deferred evaluation can lead to violent bugs__. When the `acero` engine fails to execute a query that is too complex, the consequences are brutal: `R` prints no error message, the `R` session crashes and you simply have to restart `R` and start all over again. It's therefore essential to structure processing correctly, to take advantage of the benefits of deferred evaluation without touching its limits.
 
+
+#### The solution: decompose your code into consistent and not-too-long steps
+
+__The obvious way to avoid the limitations of lazy evaluation is to break down your data processing into steps__, and execute each step separately, by calling `compute()` at the end of each step. This way, `acero` will execute sequentially several somewhat complex series of instructions, rather than failing to execute one single very complex series of instructions.
+
+Here comes the tricky question: what is the appropriate length of these intermediate steps? If they are too long, you are at risk of a session crash. If they are too short, your code is basically executed on an instruction-by-instruction basis and you lose the benefits of lazy evaluation. Unfortunately, there is no rule that would work in all cases. You should try, fail and determine what is reasonable. This being said, here are a few tips that might help you:
+
+- __A reasonable starting point might be to organize your code in data processing steps that do not exceed 30 or 40 lines of code__. A 200-line processing step is likely to run you into trouble (and it might not be very readable).
+
+- __Intermediate processing steps should be consistent with the objective of your data processing.__ For example, if the overall code consists of processing two tables separately, and then joining them, it would be reasonable  to organize the code in three steps, each ending with a `compute()`: processing the first table, processing the second table, and joining the two tables.
+
+- __The larger the datasets you work on, the more cautious you should be when defining long intermediate steps__.
+
+- __Intermediate processing steps with complex instructions should be shorter__: for example, if your code consists only of `filter()`, `select()` and easy `mutate()`, you can have quite a lot of them in one processing step, because these operations are simple. Conversely, one processing step should not include more than three or four joins (because joins are complex operations), especially if the tables are large.
 
 
 
