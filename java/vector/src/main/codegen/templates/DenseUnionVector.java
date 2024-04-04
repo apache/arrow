@@ -124,7 +124,7 @@ public class DenseUnionVector extends AbstractContainerVector implements FieldVe
           ArrowType.Struct.INSTANCE, /*dictionary*/ null, /*metadata*/ null);
 
   public static DenseUnionVector empty(String name, BufferAllocator allocator) {
-    FieldType fieldType = FieldType.nullable(new ArrowType.Union(
+    FieldType fieldType = FieldType.notNullable(new ArrowType.Union(
             UnionMode.Dense, null));
     return new DenseUnionVector(name, allocator, fieldType, null);
   }
