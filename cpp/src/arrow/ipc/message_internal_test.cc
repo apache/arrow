@@ -19,8 +19,8 @@
 #include <gtest/gtest.h>
 #include <memory>
 
+#include "arrow/buffer.h"
 #include "arrow/ipc/dictionary.h"
-#include "arrow/ipc/metadata_internal.cc"
 #include "arrow/memory_pool.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/key_value_metadata.h"
