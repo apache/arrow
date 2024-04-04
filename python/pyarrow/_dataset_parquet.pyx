@@ -198,6 +198,7 @@ cdef class ParquetFileFormat(FileFormat):
         -------
         pyarrow.dataset.FileWriteOptions
         """
+        # Safeguard from calling make_write_options as a static class method
         if not isinstance(self, ParquetFileFormat):
             raise TypeError("pyarrow.dataset.ParquetFileFormat() must be initiated"
                             " before calling make_write_options()")
