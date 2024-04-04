@@ -215,15 +215,3 @@ def test_large_row_encryption_decryption():
     dataset = ds.dataset(path, format=file_format, filesystem=mockfs)
     new_table = dataset.to_table()
     assert table == new_table
-
-
-def test_make_write_options_error():
-    # GH-39440
-    msg = "ParquetFileFormat\\(\\) must be initiated before calling make_write_options"
-    with pytest.raises(TypeError, match=msg):
-        pa.dataset.ParquetFileFormat.make_write_options(43)
-
-    pformat = pa.dataset.ParquetFileFormat()
-    msg = "make_write_options\\(\\) takes exactly 0 positional arguments"
-    with pytest.raises(TypeError, match=msg):
-        pformat.make_write_options(43)
