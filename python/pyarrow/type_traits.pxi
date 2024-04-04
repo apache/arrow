@@ -45,6 +45,7 @@ from pyarrow.includes.libarrow cimport (is_integer,
                                         bit_width,
                                         offset_bit_width)
 
+# These functions are simply a redirect, the official APIs are in pyarrow.types. 
 
 def _is_integer(data_type):
     """
