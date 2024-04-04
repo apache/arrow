@@ -1154,9 +1154,9 @@ def test_recordbatch_to_tensor_empty():
             pa.array([], type=pa.float32()),
         ], ["a", "b"]
     )
-    result = batch.to_tensor(row_major=False)
+    result = batch.to_tensor()
 
-    x = np.array([[], []], np.float32).transpose()
+    x = np.array([[], []], np.float32)
     expected = pa.Tensor.from_numpy(x)
 
     assert result.size == expected.size
