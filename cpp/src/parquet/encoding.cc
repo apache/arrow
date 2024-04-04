@@ -3151,20 +3151,20 @@ class RleBooleanDecoder : public DecoderImpl, virtual public BooleanDecoder {
     std::array<bool, kBatchSize> values;
     // Reserve all values including nulls first
     PARQUET_THROW_NOT_OK(out->Reserve(num_values));
-    const int num_boolean_values_sum = num_values - null_count;
+    const int num_non_null_values = num_values - null_count;
     // Remaining boolean values to read
-    int num_boolean_values = num_boolean_values_sum;
+    int num_remain_non_null_values = num_non_null_values;
     int current_index_in_batch = 0;
     int current_batch_size = 0;
     auto next_boolean_batch = [&]() {
-      DCHECK_GT(num_boolean_values, 0);
+      DCHECK_GT(num_remain_non_null_values, 0);
       DCHECK_EQ(current_index_in_batch, current_batch_size);
-      current_batch_size = std::min(num_boolean_values, kBatchSize);
+      current_batch_size = std::min(num_remain_non_null_values, kBatchSize);
       int decoded_count = decoder_->GetBatch(values.data(), current_batch_size);
       if (decoded_count != current_batch_size) {
         ParquetException::EofException();
       }
-      num_boolean_values -= current_batch_size;
+      num_remain_non_null_values -= current_batch_size;
       current_index_in_batch = 0;
     };
     if (null_count == 0) {
@@ -3192,7 +3192,7 @@ class RleBooleanDecoder : public DecoderImpl, virtual public BooleanDecoder {
     VisitNullBitmapInline(
         valid_bits, valid_bits_offset, num_values, null_count,
         [&]() { out->UnsafeAppend(next_value()); }, [&]() { out->UnsafeAppendNull(); });
-    return num_boolean_values_sum;
+    return num_non_null_values;
   }
 
   int DecodeArrow(
