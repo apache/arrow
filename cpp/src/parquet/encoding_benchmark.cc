@@ -1518,11 +1518,10 @@ BENCHMARK_DEFINE_F(BM_DecodeArrowBooleanRle, DecodeArrowNonNull)
 (benchmark::State& state) { DecodeArrowNonNullDenseBenchmark(state); }
 BENCHMARK_REGISTER_F(BM_DecodeArrowBooleanRle, DecodeArrowNonNull)
     ->Range(MIN_RANGE, MAX_RANGE);
-// TODO(mwish): RleBoolean not implemented DecodeArrow with null slots yet.
-// BENCHMARK_DEFINE_F(BM_DecodeArrowBooleanRle, DecodeArrowWithNull)
-//(benchmark::State& state) { DecodeArrowWithNullDenseBenchmark(state); }
-// BENCHMARK_REGISTER_F(BM_DecodeArrowBooleanRle, DecodeArrowWithNull)
-//    ->Apply(BooleanWithNullCustomArguments);
+BENCHMARK_DEFINE_F(BM_DecodeArrowBooleanRle, DecodeArrowWithNull)
+(benchmark::State& state) { DecodeArrowWithNullDenseBenchmark(state); }
+BENCHMARK_REGISTER_F(BM_DecodeArrowBooleanRle, DecodeArrowWithNull)
+    ->Apply(BooleanWithNullCustomArguments);
 
 BENCHMARK_DEFINE_F(BM_DecodeArrowBooleanPlain, DecodeArrow)
 (benchmark::State& state) { DecodeArrowDenseBenchmark(state); }
