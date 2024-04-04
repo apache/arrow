@@ -3149,10 +3149,9 @@ class RleBooleanDecoder : public DecoderImpl, virtual public BooleanDecoder {
     }
     constexpr int kBatchSize = 1024;
     std::array<bool, kBatchSize> values;
-    // Reserve all values including nulls first
-    PARQUET_THROW_NOT_OK(out->Reserve(num_values));
     const int num_non_null_values = num_values - null_count;
-    // Remaining boolean values to read
+    // Remaining non-null boolean values to read from decoder.
+    // We decode from `decoder_` with maximum 1024 size batches.
     int num_remain_non_null_values = num_non_null_values;
     int current_index_in_batch = 0;
     int current_batch_size = 0;
@@ -3168,17 +3167,19 @@ class RleBooleanDecoder : public DecoderImpl, virtual public BooleanDecoder {
       num_remain_non_null_values -= current_batch_size;
       current_index_in_batch = 0;
     };
+
+    // Reserve all values including nulls first
+    PARQUET_THROW_NOT_OK(out->Reserve(num_values));
     if (null_count == 0) {
-      int sum_decode_count = 0;
+      // Fast-path for not having nulls.
       do {
         next_boolean_batch();
-        sum_decode_count += current_batch_size;
         PARQUET_THROW_NOT_OK(
             out->AppendValues(values.begin(), values.begin() + current_batch_size));
         num_values -= current_batch_size;
         current_index_in_batch = 0;
       } while (num_values > 0);
-      return sum_decode_count;
+      return num_non_null_values;
     }
     auto next_value = [&]() -> bool {
       if (current_index_in_batch == current_batch_size) {
