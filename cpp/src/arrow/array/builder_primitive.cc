@@ -89,9 +89,14 @@ Status BooleanBuilder::AppendValues(const uint8_t* values, int64_t length,
 Status BooleanBuilder::AppendValues(const uint8_t* values, int64_t length,
                                     const uint8_t* validity, int64_t offset) {
   RETURN_NOT_OK(Reserve(length));
+  UnsafeAppendValues(values, length, validity, offset);
+  return Status::OK();
+}
+
+void BooleanBuilder::UnsafeAppendValues(const uint8_t* values, int64_t length,
+                                        const uint8_t* validity, int64_t offset) {
   data_builder_.UnsafeAppend(values, offset, length);
   ArrayBuilder::UnsafeAppendToBitmap(validity, offset, length);
-  return Status::OK();
 }
 
 Status BooleanBuilder::AppendValues(const uint8_t* values, int64_t length,

@@ -373,6 +373,12 @@ class ARROW_EXPORT BooleanBuilder
     return Status::OK();
   }
 
+  /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
+  void UnsafeAppendNulls(int64_t length) {
+    data_builder_.UnsafeAppend(length, false);
+    UnsafeSetNotNull(length);
+  }
+
   Status AppendNull() final {
     ARROW_RETURN_NOT_OK(Reserve(1));
     UnsafeAppendNull();
@@ -433,6 +439,14 @@ class ARROW_EXPORT BooleanBuilder
   Status AppendValues(const uint8_t* values, int64_t length, const uint8_t* validity,
                       int64_t offset);
 
+  /// \brief Append a sequence of elements in one shot with pre-allocated contents.
+  /// \param[in] values a bitmap of values
+  /// \param[in] length the number of values to append
+  /// \param[in] validity a validity bitmap to copy (may be null)
+  /// \param[in] offset an offset into the values and validity bitmaps
+  void UnsafeAppendValues(const uint8_t* values, int64_t length, const uint8_t* validity,
+                          int64_t offset);
+
   /// \brief Append a sequence of elements in one shot
   /// \param[in] values a contiguous C array of values
   /// \param[in] length the number of values to append
@@ -467,6 +481,19 @@ class ARROW_EXPORT BooleanBuilder
   /// \return Status
   Status AppendValues(const std::vector<bool>& values);
 
+  /// \brief Append a sequence of elements in one shot with pre-allocated builder.
+  /// \param[in] values_begin InputIterator to the beginning of the values
+  /// \param[in] values_end InputIterator pointing to the end of the values
+  ///  or null(0) values
+  template <typename ValuesIter>
+  void UnsafeAppendValues(ValuesIter values_begin, ValuesIter values_end) {
+    int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
+    data_builder_.UnsafeAppend<false>(
+        length, [&values_begin]() -> bool { return *values_begin++; });
+    // this updates length_
+    UnsafeSetNotNull(length);
+  }
+
   /// \brief Append a sequence of elements in one shot
   /// \param[in] values_begin InputIterator to the beginning of the values
   /// \param[in] values_end InputIterator pointing to the end of the values
@@ -476,10 +503,7 @@ class ARROW_EXPORT BooleanBuilder
   Status AppendValues(ValuesIter values_begin, ValuesIter values_end) {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
     ARROW_RETURN_NOT_OK(Reserve(length));
-    data_builder_.UnsafeAppend<false>(
-        length, [&values_begin]() -> bool { return *values_begin++; });
-    // this updates length_
-    UnsafeSetNotNull(length);
+    UnsafeAppendValues(values_begin, values_end);
     return Status::OK();
   }
 
