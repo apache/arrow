@@ -3180,8 +3180,10 @@ class RleBooleanDecoder : public DecoderImpl, virtual public BooleanDecoder {
     auto next_value = [&]() -> bool {
       if (current_index_in_batch == current_batch_size) {
         next_boolean_batch();
+        DCHECK_GT(current_batch_size, 0);
       }
-      bool value = values.at(current_index_in_batch);
+      DCHECK_LT(current_index_in_batch, current_batch_size);
+      bool value = values[current_index_in_batch];
       ++current_index_in_batch;
       return value;
     };
