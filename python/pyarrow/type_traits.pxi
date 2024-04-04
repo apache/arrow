@@ -16,8 +16,8 @@
 # under the License.
 
 from pyarrow.includes.libarrow cimport (is_null,
-is_binary_view,
-is_string_view)
+                                        is_binary_view,
+                                        is_string_view)
 
 def _is_null(data_type):
     """
@@ -35,6 +35,7 @@ def _is_null(data_type):
     """
     return is_null(data_type.id)
 
+
 def _is_binary_view(data_type):
     """
     This function checks whether the data type is binary view type.
@@ -50,6 +51,7 @@ def _is_binary_view(data_type):
         True if the data type is binary view type, False otherwise.
     """
     return is_binary_view(data_type.id)
+
 
 def _is_string_view(data_type):
     """
