@@ -106,9 +106,7 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
     if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
       return null;
     }
-    final int startOffset = getStartOffset(index);
-    final int dataLength = getEndOffset(index) - startOffset;
-    return getData(index, dataLength);
+    return getData(index);
   }
 
   /**
@@ -138,9 +136,7 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
    */
   @Override
   public void read(int index, ReusableBuffer<?> buffer) {
-    final int startOffset = getStartOffset(index);
-    final int dataLength = getEndOffset(index) - startOffset;
-    byte[] data = getData(index, dataLength);
+    byte[] data = getData(index);
     buffer.set(data, 0, data.length);
   }
 

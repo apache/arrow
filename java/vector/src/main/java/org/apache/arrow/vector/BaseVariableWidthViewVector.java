@@ -1551,7 +1551,8 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
    * @param dataLength length of the data to be retrieved
    * @return byte array containing the data of the element
    */
-  protected byte[] getData(int index, int dataLength) {
+  protected byte[] getData(int index) {
+    final int dataLength = valueBuffer.getInt(((long) index * VIEW_BUFFER_SIZE));
     byte[] result = new byte[dataLength];
     if (dataLength > INLINE_SIZE) {
       // data is in the reference buffer

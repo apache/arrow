@@ -3431,14 +3431,10 @@ public class TestValueVector {
   @Test
   public void testVariableVectorGetEndOffset() {
     try (final VarCharVector vector1 = new VarCharVector("v1", allocator);
-         final VarBinaryVector vector2 = new VarBinaryVector("v2", allocator);
-         final ViewVarCharVector vector3 = new ViewVarCharVector("v3", allocator);
-         final ViewVarBinaryVector vector4 = new ViewVarBinaryVector("v4", allocator)) {
+         final VarBinaryVector vector2 = new VarBinaryVector("v2", allocator)) {
 
       setVector(vector1, STR1, null, STR2);
       setVector(vector2, STR1, STR2, STR3);
-      setVector(vector3, STR1, null, STR2);
-      setVector(vector4, STR1, STR2, STR3);
 
       assertEquals(0, vector1.getStartOffset(0));
       assertEquals(STR1.length, vector1.getEndOffset(0));
@@ -3453,20 +3449,6 @@ public class TestValueVector {
       assertEquals(STR1.length + STR2.length, vector2.getEndOffset(1));
       assertEquals(STR1.length + STR2.length, vector2.getStartOffset(2));
       assertEquals(STR1.length + STR2.length + STR3.length, vector2.getEndOffset(2));
-
-      assertEquals(0, vector3.getStartOffset(0));
-      assertEquals(STR1.length, vector3.getEndOffset(0));
-      assertEquals(STR1.length, vector3.getStartOffset(1));
-      assertEquals(STR1.length, vector3.getEndOffset(1));
-      assertEquals(STR1.length, vector3.getStartOffset(2));
-      assertEquals(STR1.length + STR2.length, vector3.getEndOffset(2));
-
-      assertEquals(0, vector4.getStartOffset(0));
-      assertEquals(STR1.length, vector4.getEndOffset(0));
-      assertEquals(STR1.length, vector4.getStartOffset(1));
-      assertEquals(STR1.length + STR2.length, vector4.getEndOffset(1));
-      assertEquals(STR1.length + STR2.length, vector4.getStartOffset(2));
-      assertEquals(STR1.length + STR2.length + STR3.length, vector4.getEndOffset(2));
     }
   }
 
