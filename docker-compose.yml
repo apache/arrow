@@ -842,14 +842,9 @@ services:
       PYTEST_ARGS:  # inherit
     volumes: *conda-volumes
     command: &python-conda-command
-    # pytest-cython needs an upper pin of 0.3.0 due
-    # to an issue with typing annotiations
-    # https://github.com/lgpage/pytest-cython/issues/67
-    # With 0.3.* bug fix release, the pin can be removed
       ["
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
-        pip install pytest-cython~=0.2.2 &&
         /arrow/ci/scripts/python_test.sh /arrow"]
 
   ubuntu-cuda-python:
