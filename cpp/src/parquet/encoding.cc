@@ -3169,8 +3169,7 @@ class RleBooleanDecoder : public DecoderImpl, virtual public BooleanDecoder {
       // Fast-path for not having nulls.
       do {
         next_boolean_batch();
-        PARQUET_THROW_NOT_OK(
-            out->AppendValues(values.begin(), values.begin() + current_batch_size));
+        out->UnsafeAppendValues(values.begin(), values.begin() + current_batch_size);
         num_values -= current_batch_size;
         current_index_in_batch = 0;
       } while (num_values > 0);
