@@ -682,15 +682,20 @@ TEST_F(TestRecordBatch, ToTensorEmptyBatch) {
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<RecordBatch> empty,
                        RecordBatch::MakeEmpty(schema));
 
-  ASSERT_OK_AND_ASSIGN(auto tensor,
+  ASSERT_OK_AND_ASSIGN(auto tensor_column,
                        empty->ToTensor(/*null_to_nan=*/false, /*row_major=*/false));
-  ASSERT_OK(tensor->Validate());
+  ASSERT_OK(tensor_column->Validate());
+
+  ASSERT_OK_AND_ASSIGN(auto tensor_row, empty->ToTensor());
+  ASSERT_OK(tensor_row->Validate());
 
   const std::vector<int64_t> strides = {4, 4};
   const std::vector<int64_t> shape = {0, 2};
 
-  EXPECT_EQ(strides, tensor->strides());
-  EXPECT_EQ(shape, tensor->shape());
+  EXPECT_EQ(strides, tensor_column->strides());
+  EXPECT_EQ(shape, tensor_column->shape());
+  EXPECT_EQ(strides, tensor_row->strides());
+  EXPECT_EQ(shape, tensor_row->shape());
 
   auto batch_no_columns =
       RecordBatch::Make(::arrow::schema({}), 10, std::vector<std::shared_ptr<Array>>{});
