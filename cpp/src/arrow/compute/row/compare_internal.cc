@@ -51,7 +51,7 @@ void KeyCompare::NullUpdateColumnToRow(uint32_t id_col, uint32_t num_rows_to_com
 #endif
 
   const uint32_t null_bit_id =
-      cols_id_in_encoding_order(rows, id_col, are_cols_in_encoding_order);
+      ColIdInEncodingOrder(rows, id_col, are_cols_in_encoding_order);
 
   if (!col.data(0)) {
     // Remove rows from the result for which the column value is a null
@@ -364,7 +364,7 @@ void KeyCompare::CompareColumnsToRows(
     }
 
     uint32_t offset_within_row =
-        rows.metadata().encoded_field_offset(cols_id_in_encoding_order(
+        rows.metadata().encoded_field_offset(ColIdInEncodingOrder(
             rows, static_cast<uint32_t>(icol), are_cols_in_encoding_order));
     if (col.metadata().is_fixed_length) {
       if (sel_left_maybe_null) {

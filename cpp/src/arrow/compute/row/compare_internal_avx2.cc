@@ -46,7 +46,7 @@ uint32_t KeyCompare::NullUpdateColumnToRowImp_avx2(
   }
 
   const uint32_t null_bit_id =
-      cols_id_in_encoding_order(rows, id_col, are_cols_in_encoding_order);
+      ColIdInEncodingOrder(rows, id_col, are_cols_in_encoding_order);
 
   if (!col.data(0)) {
     // Remove rows from the result for which the column value is a null

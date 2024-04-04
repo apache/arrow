@@ -43,7 +43,7 @@ class ARROW_EXPORT KeyCompare {
       uint8_t* out_match_bitvector_maybe_null = NULLPTR);
 
  private:
-  static uint32_t cols_id_in_encoding_order(const RowTableImpl& rows,
+  static uint32_t ColIdInEncodingOrder(const RowTableImpl& rows,
                                                   uint32_t id_col,
                                                   bool are_cols_in_encoding_order) {
     return are_cols_in_encoding_order ? id_col
