@@ -924,6 +924,10 @@ Result<std::shared_ptr<RecordBatch>> FilterRecordBatch(const RecordBatch& batch,
     return Status::Invalid("Filter inputs must all be the same length");
   }
 
+  if (filter.is_chunked_array()) {
+    return Status::Invalid("Chunked filter not supported for RecordBatches.");
+  }
+
   // Convert filter to selection vector/indices and use Take
   const auto& filter_opts = *static_cast<const FilterOptions*>(options);
   ARROW_ASSIGN_OR_RAISE(
