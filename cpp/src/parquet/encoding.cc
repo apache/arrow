@@ -3161,7 +3161,8 @@ class RleBooleanDecoder : public DecoderImpl, virtual public BooleanDecoder {
       DCHECK_EQ(current_index_in_batch, current_batch_size);
       current_batch_size = std::min(num_remain_non_null_values, kBatchSize);
       int decoded_count = decoder_->GetBatch(values.data(), current_batch_size);
-      if (decoded_count != current_batch_size) {
+      if (ARROW_PREDICT_FALSE(decoded_count != current_batch_size)) {
+        // required values is more than values in decoder.
         ParquetException::EofException();
       }
       num_remain_non_null_values -= current_batch_size;
