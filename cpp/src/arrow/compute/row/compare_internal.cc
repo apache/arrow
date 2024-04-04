@@ -44,14 +44,14 @@ void KeyCompare::NullUpdateColumnToRow(uint32_t id_col, uint32_t num_rows_to_com
   uint32_t num_processed = 0;
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
   if (ctx->has_avx2()) {
-    num_processed = NullUpdateColumnToRow_avx2(use_selection, id_col, num_rows_to_compare,
-                                               sel_left_maybe_null, left_to_right_map,
-                                               ctx, col, rows, match_bytevector);
+    num_processed = NullUpdateColumnToRow_avx2(
+        use_selection, id_col, num_rows_to_compare, sel_left_maybe_null,
+        left_to_right_map, ctx, col, rows, match_bytevector, are_cols_in_encoding_order);
   }
 #endif
 
-  uint32_t null_bit_id =
-      are_cols_in_encoding_order ? id_col : rows.metadata().pos_after_encoding(id_col);
+  const uint32_t null_bit_id =
+      cols_id_in_encoding_order(rows, id_col, are_cols_in_encoding_order);
 
   if (!col.data(0)) {
     // Remove rows from the result for which the column value is a null
@@ -363,10 +363,9 @@ void KeyCompare::CompareColumnsToRows(
       continue;
     }
 
-    uint32_t offset_within_row = rows.metadata().encoded_field_offset(
-        are_cols_in_encoding_order
-            ? static_cast<uint32_t>(icol)
-            : rows.metadata().pos_after_encoding(static_cast<uint32_t>(icol)));
+    uint32_t offset_within_row =
+        rows.metadata().encoded_field_offset(cols_id_in_encoding_order(
+            rows, static_cast<uint32_t>(icol), are_cols_in_encoding_order));
     if (col.metadata().is_fixed_length) {
       if (sel_left_maybe_null) {
         CompareBinaryColumnToRow<true>(
