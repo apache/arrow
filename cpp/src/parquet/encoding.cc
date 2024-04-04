@@ -3143,27 +3143,52 @@ class RleBooleanDecoder : public DecoderImpl, virtual public BooleanDecoder {
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
                   typename EncodingTraits<BooleanType>::Accumulator* out) override {
-    if (null_count != 0) {
-      // TODO(ARROW-34660): implement DecodeArrow with null slots.
-      ParquetException::NYI("RleBoolean DecodeArrow with null slots");
+    if (null_count == num_values) {
+      PARQUET_THROW_NOT_OK(out->AppendNulls(null_count));
+      return 0;
     }
     constexpr int kBatchSize = 1024;
     std::array<bool, kBatchSize> values;
-    int sum_decode_count = 0;
-    do {
-      int current_batch = std::min(kBatchSize, num_values);
-      int decoded_count = decoder_->GetBatch(values.data(), current_batch);
-      if (decoded_count == 0) {
-        break;
+    // Reserve all values including nulls first
+    PARQUET_THROW_NOT_OK(out->Reserve(num_values));
+    const int num_boolean_values_sum = num_values - null_count;
+    const int num_boolean_values = num_boolean_values_sum;
+    int current_index_in_batch = 0;
+    int current_batch_size = 0;
+    auto next_boolean_batch = [&]() {
+      DCHECK_GT(num_boolean_values, 0);
+      DCHECK_EQ(current_index_in_batch, current_batch_size);
+      current_batch_size = std::min(num_boolean_values, kBatchSize);
+      int decoded_count = decoder_->GetBatch(values.data(), current_batch_size);
+      if (decoded_count != current_batch_size) {
+        ParquetException::EofException();
       }
-      sum_decode_count += decoded_count;
-      PARQUET_THROW_NOT_OK(out->Reserve(sum_decode_count));
-      for (int i = 0; i < decoded_count; ++i) {
-        PARQUET_THROW_NOT_OK(out->Append(values[i]));
+      current_index_in_batch = 0;
+    };
+    if (null_count == 0) {
+      int sum_decode_count = 0;
+      do {
+        next_boolean_batch();
+        sum_decode_count += current_batch_size;
+        PARQUET_THROW_NOT_OK(
+            out->AppendValues(values.begin(), values.begin() + current_batch_size));
+        num_values -= current_batch_size;
+        current_index_in_batch = 0;
+      } while (num_values > 0);
+      return sum_decode_count;
+    }
+    auto next_value = [&]() -> bool {
+      if (current_index_in_batch == current_batch_size) {
+        next_boolean_batch();
       }
-      num_values -= decoded_count;
-    } while (num_values > 0);
-    return sum_decode_count;
+      bool value = values.at(current_index_in_batch);
+      ++current_index_in_batch;
+      return value;
+    };
+    VisitNullBitmapInline(
+        valid_bits, valid_bits_offset, num_values, null_count,
+        [&]() { out->UnsafeAppend(next_value()); }, [&]() { out->UnsafeAppendNull(); });
+    return num_boolean_values_sum;
   }
 
   int DecodeArrow(

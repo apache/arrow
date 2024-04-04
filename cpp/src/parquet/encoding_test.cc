@@ -963,16 +963,12 @@ TYPED_TEST(EncodingAdHocTyped, ByteStreamSplitArrowDirectPut) {
 }
 
 TYPED_TEST(EncodingAdHocTyped, RleArrowDirectPut) {
-  // TODO: test with nulls once RleBooleanDecoder::DecodeArrow supports them
-  this->null_probability_ = 0;
   for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
     this->Rle(seed);
   }
 }
 
 TYPED_TEST(EncodingAdHocTyped, DeltaBitPackArrowDirectPut) {
-  // TODO: test with nulls once DeltaBitPackDecoder::DecodeArrow supports them
-  this->null_probability_ = 0;
   for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
     this->DeltaBitPack(seed);
   }
