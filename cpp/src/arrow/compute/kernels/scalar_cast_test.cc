@@ -389,7 +389,7 @@ TEST(Cast, ToIntDowncastUnsafe) {
 }
 
 TEST(Cast, FloatingToInt) {
-  for (auto from : {float32(), float64()}) {
+  for (auto from : {float16(), float32(), float64()}) {
     for (auto to : {int32(), int64()}) {
       // float to int no truncation
       CheckCast(ArrayFromJSON(from, "[1.0, null, 0.0, -1.0, 5.0]"),
@@ -403,6 +403,15 @@ TEST(Cast, FloatingToInt) {
       opts.allow_float_truncate = true;
       CheckCast(ArrayFromJSON(from, "[1.5, 0.0, null, 0.5, -1.5, 5.5]"),
                 ArrayFromJSON(to, "[1, 0, null, 0, -1, 5]"), opts);
+    }
+  }
+}
+
+TEST(Cast, FloatingToFloating) {
+  for (auto from : {float16(), float32(), float64()}) {
+    for (auto to : {float16(), float32(), float64()}) {
+      CheckCast(ArrayFromJSON(from, "[1.0, 0.0, -1.0, 5.0]"),
+                ArrayFromJSON(to, "[1.0, 0.0, -1.0, 5.0]"));
     }
   }
 }
@@ -2220,14 +2229,12 @@ TEST(Cast, IntToString) {
 }
 
 TEST(Cast, FloatingToString) {
-  for (auto string_type : {utf8(), large_utf8()}) {
-    CheckCast(
-        ArrayFromJSON(float32(), "[0.0, -0.0, 1.5, -Inf, Inf, NaN, null]"),
-        ArrayFromJSON(string_type, R"(["0", "-0", "1.5", "-inf", "inf", "nan", null])"));
-
-    CheckCast(
-        ArrayFromJSON(float64(), "[0.0, -0.0, 1.5, -Inf, Inf, NaN, null]"),
-        ArrayFromJSON(string_type, R"(["0", "-0", "1.5", "-inf", "inf", "nan", null])"));
+  for (auto float_type : {float16(), float32(), float64()}) {
+    for (auto string_type : {utf8(), large_utf8()}) {
+      CheckCast(ArrayFromJSON(float_type, "[0.0, -0.0, 1.5, -Inf, Inf, NaN, null]"),
+                ArrayFromJSON(string_type,
+                              R"(["0", "-0", "1.5", "-inf", "inf", "nan", null])"));
+    }
   }
 }
 

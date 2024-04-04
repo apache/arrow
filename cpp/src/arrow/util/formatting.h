@@ -268,6 +268,7 @@ class ARROW_EXPORT FloatToStringFormatter {
   // Returns the number of characters written
   int FormatFloat(float v, char* out_buffer, int out_size);
   int FormatFloat(double v, char* out_buffer, int out_size);
+  int FormatFloat(uint16_t v, char* out_buffer, int out_size);
 
  protected:
   struct Impl;
@@ -299,6 +300,12 @@ class FloatToStringFormatterMixin : public FloatToStringFormatter {
     int size = FormatFloat(value, buffer, buffer_size);
     return append(std::string_view(buffer, size));
   }
+};
+
+template <>
+class StringFormatter<HalfFloatType> : public FloatToStringFormatterMixin<HalfFloatType> {
+ public:
+  using FloatToStringFormatterMixin::FloatToStringFormatterMixin;
 };
 
 template <>
