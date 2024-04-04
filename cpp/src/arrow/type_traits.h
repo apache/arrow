@@ -955,6 +955,12 @@ using enable_if_physical_floating_point =
 /// \addtogroup runtime-type-predicates
 /// @{
 
+/// \brief Check for a null type
+///
+/// \param[in] type_id the type-id to check
+/// \return whether type-id is a null type one
+constexpr bool is_null(Type::type type_id) { return type_id == Type::NA; }
+
 /// \brief Check for an integer type (signed or unsigned)
 ///
 /// \param[in] type_id the type-id to check
@@ -1193,6 +1199,34 @@ constexpr bool is_string(Type::type type_id) {
   switch (type_id) {
     case Type::STRING:
     case Type::LARGE_STRING:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+/// \brief Check for a binary-view type
+///
+/// \param[in] type_id the type-id to check
+/// \return whether type-id is a binary-view type one
+constexpr bool is_binary_view(Type::type type_id) {
+  switch (type_id) {
+    case Type::BINARY_VIEW:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+/// \brief Check for a string-view type
+///
+/// \param[in] type_id the type-id to check
+/// \return whether type-id is a string-view type one
+constexpr bool is_string_view(Type::type type_id) {
+  switch (type_id) {
+    case Type::STRING_VIEW:
       return true;
     default:
       break;
@@ -1517,6 +1551,14 @@ static inline int offset_bit_width(Type::type type_id) {
 /// \return the required value alignment in bytes (1 if no alignment required)
 int RequiredValueAlignmentForBuffer(Type::type type_id, int buffer_index);
 
+/// \brief Check for a null type
+///
+/// \param[in] type the type to check
+/// \return whether type is a null type
+///
+/// Convenience for checking using the type's id
+static inline bool is_null(const DataType& type) { return is_null(type.id()); }
+
 /// \brief Check for an integer type (signed or unsigned)
 ///
 /// \param[in] type the type to check
@@ -1622,6 +1664,26 @@ static inline bool is_binary(const DataType& type) { return is_binary(type.id())
 ///
 /// Convenience for checking using the type's id
 static inline bool is_string(const DataType& type) { return is_string(type.id()); }
+
+/// \brief Check for a binary-view type
+///
+/// \param[in] type the type to check
+/// \return whether type is a binary-view type
+///
+/// Convenience for checking using the type's id
+static inline bool is_binary_view(const DataType& type) {
+  return is_binary_view(type.id());
+}
+
+/// \brief Check for a string-view type
+///
+/// \param[in] type the type to check
+/// \return whether type is a string-view type
+///
+/// Convenience for checking using the type's id
+static inline bool is_string_view(const DataType& type) {
+  return is_string_view(type.id());
+}
 
 /// \brief Check for a temporal type, including time and timestamps for each unit
 ///

@@ -20,7 +20,10 @@
 
 from pyarrow.lib import (is_boolean_value,  # noqa
                          is_integer_value,
-                         is_float_value)
+                         is_float_value,
+                         _is_null,
+                         _is_binary_view,
+                         _is_string_view)
 
 import pyarrow.lib as lib
 from pyarrow.util import doc
@@ -47,14 +50,7 @@ _NESTED_TYPES = {lib.Type_LIST, lib.Type_FIXED_SIZE_LIST, lib.Type_LARGE_LIST,
 
 @doc(datatype="null")
 def is_null(t):
-    """
-    Return True if value is an instance of type: {datatype}.
-
-    Parameters
-    ----------
-    t : DataType
-    """
-    return t.id == lib.Type_NA
+    return _is_null(t)
 
 
 @doc(is_null, datatype="boolean")
@@ -256,12 +252,12 @@ def is_fixed_size_binary(t):
 
 @doc(is_null, datatype="variable-length binary view")
 def is_binary_view(t):
-    return t.id == lib.Type_BINARY_VIEW
+    return _is_binary_view(t)
 
 
 @doc(is_null, datatype="variable-length string (utf-8) view")
 def is_string_view(t):
-    return t.id == lib.Type_STRING_VIEW
+    return _is_string_view(t)
 
 
 @doc(is_null, datatype="date")

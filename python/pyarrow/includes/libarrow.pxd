@@ -3019,3 +3019,9 @@ cdef extern from "arrow/python/udf.h" namespace "arrow::py" nogil:
 
 cdef extern from "arrow/compute/cast.h" namespace "arrow::compute":
     CResult[CDatum] Cast(const CDatum& value, const CCastOptions& options)
+
+cdef extern from "arrow/type_traits.h" namespace "arrow":
+    c_bool is_null(Type type_id)
+    c_bool is_binary_view(Type type_id)
+    c_bool is_string_view(Type type_id)
+

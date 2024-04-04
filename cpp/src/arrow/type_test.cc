@@ -2418,6 +2418,7 @@ TEST(TypesTest, TestMembership) {
   for (auto type : PrimitiveTypes()) {
     all_types.push_back(type);
   }
+  TEST_PREDICATE(all_types, is_null);
   TEST_PREDICATE(all_types, is_integer);
   TEST_PREDICATE(all_types, is_signed_integer);
   TEST_PREDICATE(all_types, is_unsigned_integer);
@@ -2430,6 +2431,8 @@ TEST(TypesTest, TestMembership) {
   TEST_PREDICATE(all_types, is_large_binary_like);
   TEST_PREDICATE(all_types, is_binary);
   TEST_PREDICATE(all_types, is_string);
+  TEST_PREDICATE(all_types, is_binary_view)
+  TEST_PREDICATE(all_types, is_string_view);
   TEST_PREDICATE(all_types, is_temporal);
   TEST_PREDICATE(all_types, is_interval);
   TEST_PREDICATE(all_types, is_dictionary);
