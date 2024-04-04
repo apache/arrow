@@ -305,6 +305,7 @@ struct TypeTraits<HalfFloatType> {
   using BuilderType = HalfFloatBuilder;
   using ScalarType = HalfFloatScalar;
   using TensorType = HalfFloatTensor;
+  using CType = uint16_t;
 
   static constexpr int64_t bytes_required(int64_t elements) {
     return elements * static_cast<int64_t>(sizeof(uint16_t));
