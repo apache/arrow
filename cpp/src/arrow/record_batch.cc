@@ -288,7 +288,7 @@ struct ConvertColumnsToTensorRowMajorVisitor {
   Out*& out_values;
   const ArrayData& in_data;
   int num_cols;
-  int i;
+  int col_idx;
 
   template <typename T>
   Status Visit(const T&) {
@@ -298,11 +298,11 @@ struct ConvertColumnsToTensorRowMajorVisitor {
 
       if (in_data.null_count == 0) {
         for (int64_t j = 0; j < in_data.length; ++j) {
-          out_values[j * num_cols + i] = static_cast<Out>(in_values[j]);
+          out_values[j * num_cols + col_idx] = static_cast<Out>(in_values[j]);
         }
       } else {
         for (int64_t j = 0; j < in_data.length; ++j) {
-          out_values[j * num_cols + i] =
+          out_values[j * num_cols + col_idx] =
               in_data.IsNull(j) ? static_cast<Out>(NAN) : static_cast<Out>(in_values[j]);
         }
       }
