@@ -908,6 +908,14 @@ public class DenseUnionVector extends AbstractContainerVector implements FieldVe
     return (int) typeBuffer.capacity() / TYPE_WIDTH;
   }
 
+  public void setOffset(int index, int offset) {
+    while (index >= getOffsetBufferValueCapacity()) {
+      reallocOffsetBuffer();
+    }
+
+    offsetBuffer.setInt((long) index * OFFSET_WIDTH, offset);
+  }
+
   private long getOffsetBufferValueCapacity() {
     return offsetBuffer.capacity() / OFFSET_WIDTH;
   }
