@@ -71,7 +71,8 @@ example_uuid_data_type_equal(GArrowExtensionDataType *data_type,
 }
 
 static const gchar *example_uuid_data_type_serialize_id = "uuid-serialized";
-static ExampleUUIDDataType *example_uuid_data_type_new(void);
+static ExampleUUIDDataType *
+example_uuid_data_type_new(void);
 
 static GArrowDataType *
 example_uuid_data_type_deserialize(GArrowExtensionDataType *data_type,
@@ -220,9 +221,9 @@ main(int argc, char **argv)
 
     /* Create a record batch to serialize the created UUID extension array. */
     GList *fields = NULL;
-    fields = g_list_append(fields,
-                           garrow_field_new("example.uuid",
-                                            GARROW_DATA_TYPE(uuid_data_type)));
+    fields =
+      g_list_append(fields,
+                    garrow_field_new("example.uuid", GARROW_DATA_TYPE(uuid_data_type)));
     GArrowSchema *schema = garrow_schema_new(fields);
     g_list_free_full(fields, g_object_unref);
     GList *columns = NULL;
