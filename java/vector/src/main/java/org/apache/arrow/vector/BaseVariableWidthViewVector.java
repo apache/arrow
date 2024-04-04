@@ -484,8 +484,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   /* allocate the inner buffers */
   private void allocateBytes(final long valueBufferSize, final int valueCount) {
     /* allocate data buffer */
-    long curSize = valueBufferSize;
-    valueBuffer = allocator.buffer(curSize);
+    valueBuffer = allocator.buffer(valueBufferSize);
     valueBuffer.readerIndex(0);
 
     /* allocate offset buffer and validity buffer */
@@ -937,17 +936,6 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   }
 
   /**
-   * Get the starting position (offset) in the data stream for a given
-   * element in the vector.
-   *
-   * @param index position of the element in the vector
-   * @return starting offset for the element
-   */
-  public long getStartEnd(int index) {
-    return offsetBuffer.getLong((long) index * OFFSET_WIDTH);
-  }
-
-  /**
    * Mark the particular position in the vector as non-null.
    *
    * @param index position of the element.
@@ -989,9 +977,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
     if (isSet(index) == 0) {
       return 0;
     }
-    final int startOffset = getStartOffset(index);
-    final int dataLength = getEndOffset(index) - startOffset;
-    return dataLength;
+    return getLength(index);
   }
 
   /**
@@ -1212,6 +1198,18 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
       setBytes(i, emptyByteArray, 0, emptyByteArray.length);
     }
     lastSet = index - 1;
+  }
+
+  /**
+   * Get length of the view.
+   * @param index The index of the element in the vector.
+   * @return The length of the element at the given index.
+   */
+  public final int getLength(int index) {
+    if (index < 0 || index >= valueBuffer.capacity() / VIEW_BUFFER_SIZE) {
+      throw new IndexOutOfBoundsException("Index out of bounds: " + index);
+    }
+    return valueBuffer.getInt(((long) index * VIEW_BUFFER_SIZE));
   }
 
   /**
@@ -1489,17 +1487,13 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
     if (isNull(index)) {
       reuse.set(null, 0, 0);
     } else {
-      int offset = getStartOffset(index);
-      int length = getEndOffset(index) - offset;
+      int length = getLength(index);
       if (length < INLINE_SIZE) {
         int start = index * VIEW_BUFFER_SIZE + LENGTH_WIDTH;
         reuse.set(valueBuffer, start, length);
       } else {
         final int bufIndex =
             valueBuffer.getInt(((long) index * VIEW_BUFFER_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH);
-        final int dataOffset =
-            valueBuffer.getInt(
-                ((long) index * VIEW_BUFFER_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH + BUF_INDEX_WIDTH);
         ArrowBuf dataBuf = dataBuffers.get(bufIndex);
         reuse.set(dataBuf, 0, length);
       }
@@ -1518,9 +1512,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
     if (isNull(index)) {
       return ArrowBufPointer.NULL_HASH_CODE;
     }
-    final int startOffset = getStartOffset(index);
-    final int endOffset = getEndOffset(index);
-    final int length = endOffset - startOffset;
+    final int length = getLength(index);
     if (length < INLINE_SIZE) {
       int start = index * VIEW_BUFFER_SIZE + LENGTH_WIDTH;
       return ByteFunctionHelpers.hash(hasher, this.getDataBuffer(), start, start + length);
@@ -1548,11 +1540,10 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
    * The method retrieves the data directly from the valueBuffer.
    *
    * @param index position of the element in the vector
-   * @param dataLength length of the data to be retrieved
    * @return byte array containing the data of the element
    */
   protected byte[] getData(int index) {
-    final int dataLength = valueBuffer.getInt(((long) index * VIEW_BUFFER_SIZE));
+    final int dataLength = getLength(index);
     byte[] result = new byte[dataLength];
     if (dataLength > INLINE_SIZE) {
       // data is in the reference buffer
@@ -1575,12 +1566,5 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   @Override
   public <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value) {
     return visitor.visit(this, value);
-  }
-
-  /**
-   * Gets the ending offset of a record, given its index.
-   */
-  public final int getEndOffset(int index) {
-    return offsetBuffer.getInt((long) (index + 1) * OFFSET_WIDTH);
   }
 }
