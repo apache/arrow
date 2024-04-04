@@ -3152,7 +3152,8 @@ class RleBooleanDecoder : public DecoderImpl, virtual public BooleanDecoder {
     // Reserve all values including nulls first
     PARQUET_THROW_NOT_OK(out->Reserve(num_values));
     const int num_boolean_values_sum = num_values - null_count;
-    const int num_boolean_values = num_boolean_values_sum;
+    // Remaining boolean values to read
+    int num_boolean_values = num_boolean_values_sum;
     int current_index_in_batch = 0;
     int current_batch_size = 0;
     auto next_boolean_batch = [&]() {
@@ -3163,6 +3164,7 @@ class RleBooleanDecoder : public DecoderImpl, virtual public BooleanDecoder {
       if (decoded_count != current_batch_size) {
         ParquetException::EofException();
       }
+      num_boolean_values -= current_batch_size;
       current_index_in_batch = 0;
     };
     if (null_count == 0) {
