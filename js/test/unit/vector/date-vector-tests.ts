@@ -16,7 +16,7 @@
 // under the License.
 
 import {
-    DateDay, DateMillisecond, TimestampMillisecond, TimestampMicrosecond, TimestampNanosecond, RecordBatchReader,
+    DateDay, TimestampSecond, DateMillisecond, TimestampMillisecond, TimestampMicrosecond, TimestampNanosecond, RecordBatchReader,
     Table, vectorFromArray
 } from 'apache-arrow';
 
@@ -25,6 +25,13 @@ describe(`TimestampVector`, () => {
         const date = new Date('2023-02-01T12:34:56Z');
         const vec = vectorFromArray([date]);
         expect(vec.type).toBeInstanceOf(TimestampMillisecond);
+        expect(vec.get(0)).toBe(date.getTime());
+    });
+
+    test(`Correctly get back TimestampSecond from Date`, () => {
+        const date = new Date('2023-02-01T12:34:56Z');
+        const vec = vectorFromArray([date], new TimestampSecond);
+        expect(vec.type).toBeInstanceOf(TimestampSecond);
         expect(vec.get(0)).toBe(date.getTime());
     });
 
