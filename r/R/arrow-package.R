@@ -182,37 +182,50 @@ configure_tzdb <- function() {
 .onAttach <- function(libname, pkgname) {
   # Just to be extra safe, let's wrap this in a try();
   # we don't want a failed startup message to prevent the package from loading
-  try({
-    # On macOS only, Check if we are running in under emulation, and warn this will not work
-    if (on_rosetta()) {
-      packageStartupMessage(
-        paste(
-          "Warning:",
-          "  It appears that you are running R and Arrow in emulation (i.e. you're",
-          "  running an Intel version of R on a non-Intel mac). This configuration is",
-          "  not supported by arrow, you should install a native (arm64) build of R",
-          "  and use arrow with that. See https://cran.r-project.org/bin/macosx/",
-          "",
-          sep = "\n"
+  try(
+    {
+      # On macOS only, Check if we are running in under emulation, and warn this will not work
+      if (on_rosetta()) {
+        packageStartupMessage(
+          paste(
+            "Warning:",
+            "  It appears that you are running R and Arrow in emulation (i.e. you're",
+            "  running an Intel version of R on a non-Intel mac). This configuration is",
+            "  not supported by arrow, you should install a native (arm64) build of R",
+            "  and use arrow with that. See https://cran.r-project.org/bin/macosx/",
+            "",
+            sep = "\n"
+          )
         )
-      )
-    }
+      }
 
 
-    features <- arrow_info()$capabilities
-    # That has all of the #ifdef features, plus the compression libs and the
-    # string libraries (but not the memory allocators, they're added elsewhere)
-    #
-    # Let's print a message if some are off
-    if (some_features_are_off(features)) {
-      packageStartupMessage(
-        paste(
-          "Some features are not enabled in this build of Arrow.",
-          "Run `arrow_info()` for more information."
+      features <- arrow_info()$capabilities
+      # That has all of the #ifdef features, plus the compression libs and the
+      # string libraries (but not the memory allocators, they're added elsewhere)
+      #
+      # Let's print a message if some are off
+      if (some_features_are_off(features)) {
+        packageStartupMessage(
+          paste(
+            "Some features are not enabled in this build of Arrow.",
+            "Run `arrow_info()` for more information."
+          )
         )
-      )
-    }
-  }, silent = TRUE)
+        # On macOS binaries from CRAN can be hobbled. If on macOS, and features
+        # are disabled, advise that reinstalling might help
+        if (identical(tolower(Sys.info()[["sysname"]]), "darwin")) {
+          packageStartupMessage(
+            paste(
+              "The repository you retrieved Arrow from did not include all of Arrow's features.",
+              "You can install a fully-featured version by running `arrow::install_arrow()`."
+            )
+          )
+        }
+      }
+    },
+    silent = TRUE
+  )
 }
 
 # Clean up the StopSource that was registered in .onLoad() so that if the

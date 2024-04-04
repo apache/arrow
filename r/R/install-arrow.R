@@ -47,6 +47,8 @@
 #' is `FALSE`. This sets the `ARROW_R_DEV` environment variable.
 #' @param repos character vector of base URLs of the repositories to install
 #' from (passed to `install.packages()`)
+#' @param prefer_runiverse logical: Should the apache.r-universe repo be preferred
+#' if it is up to date. Default is `TRUE`.
 #' @param ... Additional arguments passed to `install.packages()`
 #' @export
 #' @importFrom utils install.packages
@@ -60,6 +62,7 @@ install_arrow <- function(nightly = FALSE,
                           minimal = Sys.getenv("LIBARROW_MINIMAL", FALSE),
                           verbose = Sys.getenv("ARROW_R_DEV", FALSE),
                           repos = getOption("repos"),
+                          prefer_runiverse = TRUE,
                           ...) {
   conda <- isTRUE(grepl("conda", R.Version()$platform))
 
@@ -76,22 +79,15 @@ install_arrow <- function(nightly = FALSE,
       ARROW_R_DEV = verbose,
       ARROW_USE_PKG_CONFIG = use_system
     )
-    # On the M1, we can't use the usual autobrew, which pulls Intel dependencies
-    apple_m1 <- grepl("arm-apple|aarch64.*darwin", R.Version()$platform)
     # On Rosetta, we have to build without JEMALLOC, so we also can't autobrew
     rosetta <- on_rosetta()
     if (rosetta) {
       Sys.setenv(ARROW_JEMALLOC = "OFF")
-    }
-    if (apple_m1 || rosetta) {
       Sys.setenv(FORCE_BUNDLED_BUILD = "true")
     }
 
     opts <- list()
-    if (apple_m1 || rosetta) {
-      # Skip binaries (esp. for rosetta)
-      opts$pkgType <- "source"
-    } else if (isTRUE(binary)) {
+    if (isTRUE(binary)) {
       # Unless otherwise directed, don't consider newer source packages when
       # options(pkgType) == "both" (default on win/mac)
       opts$install.packages.check.source <- "no"
@@ -101,7 +97,7 @@ install_arrow <- function(nightly = FALSE,
       old <- options(opts)
       on.exit(options(old))
     }
-    install.packages("arrow", repos = arrow_repos(repos, nightly), ...)
+    install.packages("arrow", repos = arrow_repos(repos, nightly, prefer_runiverse), ...)
   }
   if ("arrow" %in% loadedNamespaces()) {
     # If you've just sourced this file, "arrow" won't be (re)loaded
@@ -109,7 +105,7 @@ install_arrow <- function(nightly = FALSE,
   }
 }
 
-arrow_repos <- function(repos = getOption("repos"), nightly = FALSE) {
+arrow_repos <- function(repos = getOption("repos"), nightly = FALSE, prefer_runiverse = TRUE) {
   if (length(repos) == 0 || identical(repos, c(CRAN = "@CRAN@"))) {
     # Set the default/CDN
     repos <- "https://cloud.r-project.org/"
@@ -117,6 +113,9 @@ arrow_repos <- function(repos = getOption("repos"), nightly = FALSE) {
   dev_repo <- getOption("arrow.dev_repo", "https://nightlies.apache.org/arrow/r")
   # Remove it if it's there (so nightly=FALSE won't accidentally pull from it)
   repos <- setdiff(repos, dev_repo)
+  if (prefer_runiverse) {
+    repos <- c("https://apache.r-universe.dev", repos)
+  }
   if (nightly) {
     # Add it first
     repos <- c(dev_repo, repos)
