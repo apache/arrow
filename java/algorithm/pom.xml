@@ -21,8 +21,7 @@
   <description>(Experimental/Contrib) A collection of algorithms for working with ValueVectors.</description>
 
   <properties>
-    <spotless.version.jdk11>2.42.0</spotless.version.jdk11>
-    <spotless.version.jdk8>2.30.0</spotless.version.jdk8>
+    <spotless.version>2.42.0</spotless.version>
   </properties>
 
   <dependencies>
@@ -58,16 +57,16 @@
 
   <profiles>
     <profile>
-      <id>spotless-jdk11+</id>
+      <id>spotless</id>
       <activation>
-        <jdk>[11,]</jdk>
+        <activeByDefault>true</activeByDefault>
       </activation>
       <build>
         <plugins>
           <plugin>
             <groupId>com.diffplug.spotless</groupId>
             <artifactId>spotless-maven-plugin</artifactId>
-            <version>${spotless.version.jdk11}</version>
+            <version>${spotless.version}</version>
             <configuration>
               <formats>
                 <format>
@@ -81,16 +80,22 @@
                   </licenseHeader>
                 </format>
                 <format>
-  <!-- configure license for java files -->
-  <includes>
-    <include>**/*.java</include>
-  </includes>
-  <licenseHeader>
-    <file>${maven.multiModuleProjectDirectory}/java/spotless/asf-java.license</file>
-    <delimiter>package</delimiter>
-  </licenseHeader>
-</format>
+                  <!-- configure license for java files -->
+                  <includes>
+                    <include>**/*.java</include>
+                  </includes>
+                  <licenseHeader>
+                    <file>${maven.multiModuleProjectDirectory}/java/spotless/asf-java.license</file>
+                    <delimiter>package</delimiter>
+                  </licenseHeader>
+                </format>
               </formats>
+              <java>
+                <googleJavaFormat>
+                  <version>1.9</version>
+                  <style>GOOGLE</style>
+                </googleJavaFormat>
+              </java>
               <pom>
                 <indent>
                   <tabs>true</tabs>

@@ -119,26 +119,6 @@ The current Java code styles are configured as follows:
 Java code style is checked by `Spotless`_ during the build, and the continuous integration build will verify
 that changes adhere to the style guide.
 
-.. code-block:: xml
-
-    <java>
-      <indent>
-        ...
-      </indent>
-      <googleJavaFormat/>
-      <licenseHeader>
-        ...
-      </licenseHeader>
-    </java>
-    <pom>
-      <indent>
-        ...
-      </indent>
-      <sortPom>
-        ...
-      </sortPom>
-    </pom>
-
 Automatically fixing code style issues
 --------------------------------------
 
@@ -147,16 +127,17 @@ Automatically fixing code style issues
 
 .. code-block:: bash
 
-    user@machine repo % mvn spotless:check
-    [ERROR]  > The following files had format violations:
-    [ERROR]  src\main\java\com\diffplug\gradle\spotless\FormatExtension.java
-    [ERROR]    -\t\t····if·(targets.length·==·0)·{
-    [ERROR]    +\t\tif·(targets.length·==·0)·{
-    [ERROR]  Run 'mvn spotless:apply' to fix these violations.
-    user@machine repo % mvn spotless:apply
-    [INFO] BUILD SUCCESS
-    user@machine repo % mvn spotless:check
-    [INFO] BUILD SUCCESS
+    The following files had format violations:
+        src/main/java/org/apache/arrow/algorithm/rank/VectorRank.java
+            @@ -15,7 +15,6 @@
+            ·*·limitations·under·the·License.
+            ·*/
+
+            -
+            package·org.apache.arrow.algorithm.rank;
+
+            import·java.util.stream.IntStream;
+    Run 'mvn spotless:apply' to fix these violations.
 
 Code Formatter for Intellij IDEA and Eclipse
 --------------------------------------------
