@@ -92,8 +92,9 @@ fi
 ${mvn} clean install
 
 if [ "${BUILD_DOCS_JAVA}" == "ON" ]; then
+  # HTTP pooling is turned of to avoid download issues https://issues.apache.org/jira/browse/ARROW-11633
   mkdir -p ${build_dir}/docs/java/reference
-  ${mvn} -Dcheckstyle.skip=true clean install site
+  ${mvn} -Dcheckstyle.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false clean install site
   rsync -a ${arrow_dir}/java/target/site/apidocs/ ${build_dir}/docs/java/reference
 fi
 
