@@ -67,7 +67,7 @@ class MavenDefinition:
             "-B", "-DskipTests", "-Drat.skip=true",
             "-Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer."
             "Slf4jMavenTransferListener=warn",
-            "-T", "2C", "clean", "install"
+            "-T", "2C", "install"
         ]
         return arguments
 
