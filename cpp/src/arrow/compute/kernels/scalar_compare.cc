@@ -385,6 +385,23 @@ struct VarArgsCompareFunction : ScalarFunction {
   }
 };
 
+Result<TypeHolder> ResolveDecimalCompareOutputType(KernelContext*,
+                                                   const std::vector<TypeHolder>& types) {
+  // casted types should be same size decimals
+  const auto& left_type = checked_cast<const DecimalType&>(*types[0]);
+  const auto& right_type = checked_cast<const DecimalType&>(*types[1]);
+  DCHECK_EQ(left_type.id(), right_type.id());
+
+  // check the casted decimal scales according kAdd promotion rule
+  const int32_t s1 = left_type.scale();
+  const int32_t s2 = right_type.scale();
+  if (s1 != s2) {
+    return Status::Invalid("Comparison of two decimal  ", "types s1 != s2. (", s1, s2,
+                           ").");
+  }
+  return boolean();
+}
+
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name, FunctionDoc doc) {
   auto func = std::make_shared<CompareFunction>(name, Arity::Binary(), std::move(doc));
@@ -433,9 +450,9 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name, FunctionDo
   }
 
   for (const auto id : {Type::DECIMAL128, Type::DECIMAL256}) {
+    OutputType out_type(ResolveDecimalCompareOutputType);
     auto exec = GenerateDecimal<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(id);
-    DCHECK_OK(
-        func->AddKernel({InputType(id), InputType(id)}, boolean(), std::move(exec)));
+    DCHECK_OK(func->AddKernel({InputType(id), InputType(id)}, out_type, std::move(exec)));
   }
 
   {
