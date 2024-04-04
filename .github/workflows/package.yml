@@ -47,4 +47,29 @@ jobs:
       - name: Download artifacts
         run: |
           archery crossbow download-artifacts -f matlab -t release-artifacts $CROSSBOW_JOB_ID
+      - name: Cut Pre-Release
+        run: |
+          mltbx_file=$(find release-artifacts/$CROSSBOW_JOB_ID -name '*.mltbx' -type f | xargs basename)
+          mltbx_path=release-artifacts/$CROSSBOW_JOB_ID/$mltbx_file
+          version_with_rc=${GIT_TAG_NAME#apache-arrow-}
+          version=${version_with_rc%-rc*}
+          rc=${version_with_rc#${version}-rc}
+          
+          target_branch=release-${version_with_rc}
+          title="Apache Arrow {version} RC${rc}"
+          repository=${{github.repository}}
+          release_notes="Release Candidate: ${version} RC${rc}"
+          
+          gh release create \
+            ${GIT_TAG_NAME} \
+            ${mltbx_path} \
+            --prerelease \
+            --target ${target_branch} \
+            --notes "${release_notes}" \
+            --title "${title}" \
+            --repo ${repository}
+
+        env:
+          GIT_TAG_NAME: ${{github.ref_name}}
+
 
