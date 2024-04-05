@@ -5630,3 +5630,16 @@ def test_checksum_write_dataset_read_dataset_to_table(tempdir):
             corrupted_dir_path,
             format=pq_read_format_crc
         ).to_table()
+
+
+def test_make_write_options_error():
+    # GH-39440
+    msg = ("make_write_options\\(\\) should be called on an "
+           "instance of ParquetFileFormat")
+    with pytest.raises(TypeError, match=msg):
+        pa.dataset.ParquetFileFormat.make_write_options(43)
+
+    pformat = pa.dataset.ParquetFileFormat()
+    msg = "make_write_options\\(\\) takes exactly 0 positional arguments"
+    with pytest.raises(TypeError, match=msg):
+        pformat.make_write_options(43)
