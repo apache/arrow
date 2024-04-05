@@ -138,6 +138,9 @@ TEST(FileSystemFromUri, LinkedRegisteredFactory) {
 }
 
 TEST(FileSystemFromUri, LoadedRegisteredFactory) {
+#ifdef __EMSCRIPTEN__
+  GTEST_SKIP() << "Emscripten dynamic library testing disabled";
+#endif
   // Since the registrar's definition is in libarrow_filesystem_example.so,
   // its factory will be registered only after the library is dynamically loaded.
   std::string path;
