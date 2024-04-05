@@ -81,6 +81,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   protected ArrowBuf viewBuffer;
   // The external buffer which stores the long strings
   protected List<ArrowBuf> dataBuffers;
+  protected int initialDataBufferSize;
   protected int valueCount;
   protected int lastSet;
   protected final Field field;
@@ -216,19 +217,12 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
    * allocate any memory for the vector.
    *
    * @param valueCount desired number of elements in the vector
-   * @param density average number of bytes per variable width element
+   * @param density average number of bytes per variable width view element
    */
   @Override
   public void setInitialCapacity(int valueCount, double density) {
-    // TODO: fix this method as suggested in the review comments
-    // round up density to the nearest multiple of VIEW_BUFFER_SIZE
-    density = Math.ceil(density / VIEW_BUFFER_SIZE) * VIEW_BUFFER_SIZE;
-
-    // a minimum size of 16 bytes required to add an element
-    long size = (long) (valueCount * density);
-    // round up to the nearest multiple of VIEW_BUFFER_SIZE
-    size = (size + VIEW_BUFFER_SIZE - 1) & -VIEW_BUFFER_SIZE;
-    size = Math.max(size, VIEW_BUFFER_SIZE);
+    final long size = (long) valueCount * VIEW_BUFFER_SIZE;
+    initialDataBufferSize = (int) (valueCount * density);
     checkDataBufferSize(size);
     lastValueAllocationSizeInBytes = (int) size;
     lastValueCapacity = valueCount;
@@ -380,7 +374,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
     // for details, please see TestValueVector#testUnloadVariableWidthVector.
     fillHoles(valueCount);
 
-    List<ArrowBuf> result = new ArrayList<>(3);
+    List<ArrowBuf> result = new ArrayList<>(2);
     setReaderAndWriterIndex();
     result.add(validityBuffer);
     result.add(viewBuffer);
@@ -503,13 +497,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
    * @throws OutOfMemoryException if the internal memory allocation fails
    */
   public void reallocViewBuffer() {
-    // TODO: here we should only allocate the views buffer not the reference buffer
-    //  if we are to decide the allocation size, we must consider the valueBuffer (viewBuffer)
-    //  instead of considering the dataBuffers last element's capacity.
     long currentViewBufferCapacity = viewBuffer.capacity();
-    // if (!dataBuffers.isEmpty()) {
-    //   currentViewBufferCapacity = dataBuffers.get(dataBuffers.size() - 1).capacity();
-    // }
 
     long newAllocationSize = currentViewBufferCapacity * 2;
     if (newAllocationSize == 0) {
@@ -521,7 +509,6 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
     }
 
     reallocViewBuffer(newAllocationSize);
-    // reallocViewReferenceBuffer(newAllocationSize);
   }
 
   /**
