@@ -2571,7 +2571,7 @@ class TestConvertListTypes:
         )
 
         actual = arr.to_pandas()
-        expected = pd.Series([[1, None], [], None])
+        expected = pd.Series([[1, np.nan], [], None])
 
         tm.assert_series_equal(actual, expected)
 
@@ -2593,7 +2593,7 @@ class TestConvertListTypes:
         arr = pa.chunked_array([arr1, arr2])
 
         actual = arr.to_pandas()
-        expected = pd.Series([[3, 4], [2, 3], [1, 2], [5, 6, 7], [6, 7, None], None])
+        expected = pd.Series([[3, 4], [2, 3], [1, 2], [5, 6, 7], [6, 7, np.nan], None])
 
         tm.assert_series_equal(actual, expected)
 
