@@ -92,7 +92,7 @@ esac
 mkdir -p ${build_dir}
 pushd ${build_dir}
 
-if [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then  
+if [ "${ARROW_EMSCRIPTEN:-OFF}" = "ON" ]; then
   if [ "${UBUNTU}" = "20.04" ]; then
     echo "arrow emscripten build is not supported on Ubuntu 20.04, run with UBUNTU=22.04"
     exit -1
