@@ -42,7 +42,7 @@ import org.apache.arrow.vector.util.TransferPair;
  * BaseVariableWidthViewVector is a base class providing functionality for strings/bytes types in view format.
  *
  */
-public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthVector {
+public abstract class BaseVariableWidthViewVector extends BaseValueVector implements AbstractVariableWidthVector {
   // A single element of a view comprises 16 bytes
   protected static final int VIEW_BUFFER_SIZE = 16;
   public static final int INITIAL_VIEW_VALUE_ALLOCATION = 4096;
@@ -97,7 +97,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
     super(allocator);
     this.field = field;
     lastValueAllocationSizeInBytes = INITIAL_BYTE_COUNT;
-    lastValueCapacity = INITIAL_VIEW_VALUE_ALLOCATION; // INITIAL_VALUE_ALLOCATION - 1;
+    lastValueCapacity = INITIAL_VIEW_VALUE_ALLOCATION;
     valueCount = 0;
     lastSet = -1;
     validityBuffer = allocator.getEmpty();
@@ -1230,17 +1230,25 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
       List<ArrowBuf> dataBuffers) {
     int writePosition = index * VIEW_BUFFER_SIZE;
     if (value.length <= INLINE_SIZE) {
-      // inline buffer
+      // allocate inline buffer
       // set length
       valueBuffer.setInt(writePosition, length);
       writePosition += LENGTH_WIDTH;
       // set data
       valueBuffer.setBytes(writePosition, value, start, length);
     } else {
-      // reference buffer
+      // allocate reference buffer
+
+      // pre-allocate the reference buffer depending on initial capacity setup
+      long referenceBufferSize;
+      if (initialDataBufferSize > 0) {
+        referenceBufferSize = initialDataBufferSize;
+      } else {
+        referenceBufferSize = lastValueAllocationSizeInBytes;
+      }
       if (dataBuffers.isEmpty()) {
         // the first data buffer needs to be added
-        ArrowBuf newDataBuf = allocator.buffer(lastValueAllocationSizeInBytes);
+        ArrowBuf newDataBuf = allocator.buffer(referenceBufferSize);
         // set length
         valueBuffer.setInt(writePosition, length);
         writePosition += LENGTH_WIDTH;
@@ -1279,7 +1287,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
         } else {
           // current buffer is not enough
           // allocate new buffer
-          ArrowBuf newBuf = allocator.buffer(lastValueAllocationSizeInBytes);
+          ArrowBuf newBuf = allocator.buffer(referenceBufferSize);
           // set buf index
           valueBuffer.setInt(writePosition, dataBuffers.size());
           writePosition += BUF_INDEX_WIDTH;
