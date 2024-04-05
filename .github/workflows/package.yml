@@ -35,52 +35,46 @@ jobs:
       - name: Update tags
         run: |
           git fetch --tags --force origin
-      - name: Store release tag name as environment variable
+      - name: Store release tag name as an environment variable
         run: |
           echo "RELEASE_TAG_NAME=${{github.ref_name}}" >> "$GITHUB_ENV"
-      - name: Prepare Version
+      - name: Extract version strings
         # Extract the version string, version with the release-candidate
-        # number string, and release-candidate number from the git tag name
-        # (i.e. RELEASE_TAG_NAME). Store extracted values as environment
-        # variables in GITHUB_ENV for use in subsequent steps. 
+        # number string, and release-candidate number from the name of
+        # the git tag. (i.e. RELEASE_TAG_NAME).
         run: |
           version_with_rc=${RELEASE_TAG_NAME#apache-arrow-}
           version=${version_with_rc%-rc*}
-          rc=${version_with_rc#${version}-rc}
-          echo "ARROW_VERSION_WITH_RC=$version_with_rc" >> "$GITHUB_ENV"
-          echo "ARROW_VERSION=$version" >> $GITHUB_ENV
-          echo "ARROW_RC=$rc" >> $GITHUB_ENV
+          rc_num=${version_with_rc#${version}-rc}
+          echo "ARROW_VERSION_WITH_RC=${version_with_rc}" >> "${GITHUB_ENV}"
+          echo "ARROW_VERSION=${version}" >> ${GITHUB_ENV}
+          echo "ARROW_RC_NUM=${rc_num}" >> ${GITHUB_ENV}
       - name: Extract crossbow job id
-        # Extract the crossbow job ID from the subject associated with the git
-        # tag message. Store the extracted ID as an environment variable in 
-        # GITHUB_ENV for use in subsequent steps. 
+        # Extract the crossbow job ID from the subject field of the git tag subject.
         run: |
-          crossbow_job_id=$(git for-each-ref refs/tags/$RELEASE_TAG_NAME --format='%(contents:subject)')
-          echo "CROSSBOW_JOB_ID=$crossbow_job_id" >> "$GITHUB_ENV"
+          crossbow_job_id=$(git for-each-ref refs/tags/${RELEASE_TAG_NAME} --format='%(contents:subject)')
+          echo "CROSSBOW_JOB_ID=${crossbow_job_id}" >> "${GITHUB_ENV}"
       - name: Setup Archery
         run: |
           python3 -m pip install -e dev/archery[crossbow]
       - name: Download artifacts
         # Download the MLTBX file associated with the crossbow job ID.
-        # Store the path to the downloaded file as an environment variable
-        # in GITHUB_ENV for use in subsequent steps. 
         run: |
-          archery crossbow download-artifacts -f matlab -t release-artifacts $CROSSBOW_JOB_ID
-          basefilename=$(find release-artifacts/$CROSSBOW_JOB_ID -name '*.mltbx' -type f | xargs basename)
-          mltbx_file=release-artifacts/$CROSSBOW_JOB_ID/$basefilename
-          echo "ARROW_MLTBX_FILE=$mltbx_file" >> $GITHUB_ENV
+          ./dev/release/04-binary-download.sh ${ARROW_VERSION} ${ARROW_RC_NUM} --task-filter matlab
+          base_filename=$(find packages/${CROSSBOW_JOB_ID} -name '*.mltbx' -type f | xargs basename)
+          mltbx_file=packages/$CROSSBOW_JOB_ID/${base_filename}
+          echo "ARROW_MLTBX_FILE=${mltbx_file}" >> $GITHUB_ENV
       - name: Cut Pre-Release
         run: |
-          target_branch=release-$ARROW_VERSION_WITH_RC
-          title="Apache Arrow $ARROW_VERSION RC$ARROW_RC"
+          target_branch=release-${ARROW_VERSION_WITH_RC}
+          title="Apache Arrow ${ARROW_VERSION} RC${ARROW_RC_NUM}"
           repository=${{github.repository}}
-          release_notes="Release Candidate: $ARROW_VERSION RC$ARROW_RC"
+          release_notes="Release Candidate: ${ARROW_VERSION} RC${ARROW_RC_NUM}"
           gh release create \
-            $RELEASE_TAG_NAME \
-            $ARROW_MLTBX_FILE \
+            ${RELEASE_TAG_NAME} \
+            ${ARROW_MLTBX_FILE} \
             --prerelease \
-            --target $target_branch \
-            --notes "$release_notes" \
-            --title "$title" \
-            --repo $repository
-
+            --target ${target_branch} \
+            --notes "${release_notes}" \
+            --title "${title}" \
+            --repo ${repository}
