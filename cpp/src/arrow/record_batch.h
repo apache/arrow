@@ -261,7 +261,7 @@ class ARROW_EXPORT RecordBatch {
   /// \return Status
   virtual Status ValidateFull() const;
 
-  /// \brief Return a top-level sync event object for this record batch
+  /// \brief EXPERIMENTAL: Return a top-level sync event object for this record batch
   ///
   /// If all of the data for this record batch is in CPU memory, then this
   /// will return null. If the data for this batch is
@@ -317,9 +317,9 @@ class ARROW_EXPORT RecordBatchReader {
   /// \brief finalize reader
   virtual Status Close() { return Status::OK(); }
 
-  /// \brief Get the device type for record batches this reader produces
+  /// \brief EXPERIMENTAL: Get the device type for record batches this reader produces
   ///
-  /// default implementation is to return ARROW_DEVICE_CPU
+  /// default implementation is to return DeviceAllocationType::kCPU
   virtual DeviceAllocationType device_type() const { return DeviceAllocationType::kCPU; }
 
   class RecordBatchReaderIterator {

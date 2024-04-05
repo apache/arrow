@@ -2073,7 +2073,7 @@ Status ExportDeviceStreamNext(const std::shared_ptr<ChunkedArray>& src, int64_t 
     ArrowArrayMarkReleased(&out_array->array);
     return Status::OK();
   } else {
-    return ExportDeviceArray(*src->chunk(static_cast<int>(i)), sync, out_array);
+    return ExportDeviceArray(*src->chunk(static_cast<int>(i)), std::move(sync), out_array);
   }
 }
 
