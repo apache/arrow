@@ -137,34 +137,17 @@ docker_run \
     VERSION=${version} \
     YUM_TARGETS=$(IFS=,; echo "${yum_targets[*]}")
 
-# Upload the MATLAB MLTBX Release Candidate to the GitHub Releases
-# area of the Apache Arrow GitHub project.
-mltbx_file="${ARROW_ARTIFACTS_DIR}/matlab-dist/matlab-arrow-${version_with_rc}.mltbx"
-mltbx_signature_gpg_ascii_armor=${mltbx_file}.asc
-mltbx_checksum_sha512=${mltbx_file}.sha512
-
-# Sign the MLTBX file and create a detached (--deatch-sign) ASCII armor (--armor) GPG signature file.
-gpg --detach-sign --local-user "${GPG_KEY_ID}" --armor ${mltbx_file}
-
-# Compute the SHA512 checksum of the MLTBX file.
-shasum --algorithm 512 ${mltbx_file} > ${mltbx_checksum_sha512}
-
-# Upload artifacts to the Apache Arrow
-# GitHub Releases area and mark as a "Prerelease".
+# Create a git tag to associate with a GitHub Release that will
+# have the release candidate MLTBX file as an asset. 
+# 
+# Push this tag (e.g. apache-arrow-15.0.2-rc0) to the remote
+# apache/arrow repository to trigger the GitHub Actions Workflow 
+# that creates the GitHub Release and uploads the MLTBX file.
+#
+# See .github/workflows/package.yml for details.
 if [ ${UPLOAD_MATLAB} -gt 0 ]; then
-  release_tag=apache-arrow-${version_with_rc}
-  target_branch=release-${version_with_rc}
-  release_notes="Release Candidate: ${version} RC${rc}"
-  title="Apache Arrow ${version} RC${rc}"
-  repository="https://github.com/apache/arrow"
-  gh release create \
-    ${release_tag} \
-    ${mltbx_file} \
-    ${mltbx_signature_gpg_ascii_armor} \
-    ${mltbx_checksum_sha512} \
-    --prerelease \
-    --target ${target_branch}  \
-    --notes "${release_notes}" \
-    --title "${title}" \
-    --repo ${repository}
+  release_tag="apache-arrow-${version_with_rc}"
+  tag_message="Release candidate: ${version_with_rc}"
+  git tag -a ${release_tag} -m ${tag_message}
+  git push apache ${release_tag}
 fi
