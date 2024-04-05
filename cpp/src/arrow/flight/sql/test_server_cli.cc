@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/util/config.h"
+
 #include <gflags/gflags.h>
 
 #include <csignal>
@@ -23,16 +25,57 @@
 #include <string>
 
 #include "arrow/flight/server.h"
+#include "arrow/flight/server_tracing_middleware.h"
 #include "arrow/flight/sql/example/sqlite_server.h"
 #include "arrow/io/test_common.h"
 #include "arrow/util/logging.h"
 
+#ifdef ARROW_TELEMETRY
+#include "arrow/telemetry/logging.h"
+
+#include <opentelemetry/context/propagation/global_propagator.h>
+#include <opentelemetry/context/propagation/text_map_propagator.h>
+#include <opentelemetry/trace/propagation/http_trace_context.h>
+#endif
+
 DEFINE_int32(port, 31337, "Server port to listen on");
 
+#ifdef ARROW_TELEMETRY
+arrow::Status SetupOTel() {
+  opentelemetry::context::propagation::GlobalTextMapPropagator::SetGlobalPropagator(
+      opentelemetry::nostd::shared_ptr<
+          opentelemetry::context::propagation::TextMapPropagator>(
+          new opentelemetry::trace::propagation::HttpTraceContext()));
+
+  ARROW_RETURN_NOT_OK(arrow::telemetry::internal::InitializeOtelLoggerProvider());
+
+  auto logging_options = arrow::telemetry::LoggingOptions::Defaults();
+  logging_options.severity_threshold = arrow::telemetry::LogLevel::ARROW_TRACE;
+  // Flush after every log message
+  logging_options.flush_severity = arrow::telemetry::LogLevel::ARROW_TRACE;
+  ARROW_ASSIGN_OR_RAISE(auto logger1, arrow::telemetry::OtelLoggerProvider::MakeLogger(
+                                          "FlightGrpcServer", logging_options));
+  ARROW_ASSIGN_OR_RAISE(auto logger2, arrow::telemetry::OtelLoggerProvider::MakeLogger(
+                                          "FlightSqlServer", logging_options));
+  ARROW_RETURN_NOT_OK(
+      arrow::util::LoggerRegistry::RegisterLogger(logger1->name(), logger1));
+  ARROW_RETURN_NOT_OK(
+      arrow::util::LoggerRegistry::RegisterLogger(logger2->name(), logger2));
+
+  return arrow::Status::OK();
+}
+#else
+arrow::Status SetupOTel() { return arrow::Status::OK(); }
+#endif
+
 arrow::Status RunMain() {
+  ARROW_RETURN_NOT_OK(SetupOTel());
+
   ARROW_ASSIGN_OR_RAISE(auto location,
                         arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port));
   arrow::flight::FlightServerOptions options(location);
+  options.middleware.emplace_back("tracing",
+                                  arrow::flight::MakeTracingServerMiddlewareFactory());
 
   std::shared_ptr<arrow::flight::sql::example::SQLiteFlightSqlServer> server;
   ARROW_ASSIGN_OR_RAISE(server,
