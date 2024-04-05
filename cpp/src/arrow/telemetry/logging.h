@@ -20,13 +20,11 @@
 #include <chrono>
 #include <iosfwd>
 #include <memory>
-#include <optional>
 #include <string>
 #include <string_view>
 
 #include "arrow/result.h"
 #include "arrow/status.h"
-#include "arrow/util/config.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/logging_v2.h"
 #include "arrow/util/macros.h"
@@ -39,41 +37,9 @@ class AttributeHolder;
 
 using LogLevel = util::ArrowLogLevel;
 
-/// \brief Attributes to be set in an OpenTelemetry resource
-///
-/// The OTEL_RESOURCE_ATTRIBUTES envvar can be used to set additional attributes
-struct ServiceAttributes {
-  static constexpr char kDefaultName[] = "arrow.unknown_service";
-  static constexpr char kDefaultNamespace[] = "org.apache";
-  static constexpr char kDefaultInstanceId[] = "arrow.unknown_id";
-  static constexpr char kDefaultVersion[] = ARROW_VERSION_STRING;
-
-  std::optional<std::string> name = kDefaultName;
-  std::optional<std::string> name_space = kDefaultNamespace;
-  std::optional<std::string> instance_id = kDefaultInstanceId;
-  std::optional<std::string> version = kDefaultVersion;
-
-  static ServiceAttributes Defaults() { return ServiceAttributes{}; }
-};
-
-struct LoggerProviderOptions {
-  /// \brief Attributes to set for the LoggerProvider's Resource
-  ServiceAttributes service_attributes = ServiceAttributes::Defaults();
-
-  /// \brief Default stream to use for the ostream/arrow_otlp_ostream log record exporters
-  ///
-  /// If null, stderr will be used
-  std::ostream* default_export_stream = NULLPTR;
-
-  static LoggerProviderOptions Defaults() { return LoggerProviderOptions{}; }
-};
-
-constexpr LogLevel kDefaultSeverityThreshold = LogLevel::ARROW_WARNING;
-constexpr LogLevel kDefaultSeverity = LogLevel::ARROW_INFO;
-
 struct LoggingOptions {
   /// \brief Minimum severity required to emit an OpenTelemetry log record
-  LogLevel severity_threshold = kDefaultSeverityThreshold;
+  LogLevel severity_threshold = LogLevel::ARROW_INFO;
 
   /// \brief Minimum severity required to immediately attempt to flush pending log records
   LogLevel flush_severity = LogLevel::ARROW_ERROR;
@@ -96,7 +62,7 @@ struct EventId {
 };
 
 struct LogDescriptor {
-  LogLevel severity = kDefaultSeverity;
+  LogLevel severity = LogLevel::ARROW_INFO;
 
   std::chrono::system_clock::time_point timestamp = std::chrono::system_clock::now();
 
@@ -159,13 +125,15 @@ class ARROW_EXPORT Logger : public util::Logger {
   virtual std::string_view name() const = 0;
 };
 
-class ARROW_EXPORT GlobalLoggerProvider {
+/// \brief A wrapper interface for `opentelemetry::logs::Provider`
+/// \details Application authors will typically want to set the global OpenTelemetry
+/// logger provider themselves after configuring an exporter, processor, resource etc.
+/// This API will then defer to the provider returned by
+/// `opentelemetry::logs::Provider::GetLoggerProvider`
+class ARROW_EXPORT OtelLoggerProvider {
  public:
-  static Status Initialize(
-      const LoggerProviderOptions& = LoggerProviderOptions::Defaults());
-
-  static bool ShutDown();
-
+  /// \brief Attempt to flush the log record processor associated with the provider
+  /// \return `true` if the flush occured
   static bool Flush(std::chrono::microseconds timeout = std::chrono::microseconds::max());
 
   static Result<std::shared_ptr<Logger>> MakeLogger(
@@ -174,6 +142,29 @@ class ARROW_EXPORT GlobalLoggerProvider {
                                                     const LoggingOptions& options,
                                                     const AttributeHolder& attributes);
 };
+
+namespace internal {
+
+// These utilities are primarily intended for Arrow developers
+
+struct LogExporterOptions {
+  /// \brief Default stream to use for the ostream/arrow_otlp_ostream log record exporters
+  /// \details If null, stderr will be used
+  std::ostream* default_stream = NULLPTR;
+
+  static LogExporterOptions Defaults() { return LogExporterOptions{}; }
+};
+
+/// \brief Initialize the global OpenTelemetry logger provider with a default exporter
+/// (based on the ARROW_LOGGING_BACKEND envvar) and batch processor
+ARROW_EXPORT Status InitializeOtelLoggerProvider(
+    const LogExporterOptions& exporter_options = LogExporterOptions::Defaults());
+
+/// \brief Attempt to shut down the global OpenTelemetry logger provider
+/// \return `true` if shutdown was successful
+ARROW_EXPORT bool ShutdownOtelLoggerProvider();
+
+}  // namespace internal
 
 }  // namespace telemetry
 }  // namespace arrow

@@ -38,9 +38,6 @@
 #include <opentelemetry/sdk/logs/batch_log_record_processor_options.h>
 #include <opentelemetry/sdk/logs/exporter.h>
 #include <opentelemetry/sdk/logs/logger_provider.h>
-#include <opentelemetry/sdk/resource/resource.h>
-#include <opentelemetry/sdk/resource/resource_detector.h>
-#include <opentelemetry/sdk/resource/semantic_conventions.h>
 #include <opentelemetry/trace/tracer.h>
 
 #include <opentelemetry/exporters/otlp/protobuf_include_prefix.h>
@@ -57,7 +54,7 @@ namespace telemetry {
 
 namespace {
 
-namespace SemanticConventions = otel::sdk::resource::SemanticConventions;
+using internal::LogExporterOptions;
 
 constexpr const char kLoggingBackendEnvVar[] = "ARROW_LOGGING_BACKEND";
 
@@ -150,12 +147,12 @@ std::unique_ptr<otel::sdk::logs::LogRecordExporter> MakeExporter(
 }
 
 std::unique_ptr<otel::sdk::logs::LogRecordExporter> MakeExporterFromEnv(
-    const LoggerProviderOptions& options) {
+    const LogExporterOptions& exporter_options) {
   auto maybe_env_var = arrow::internal::GetEnvVar(kLoggingBackendEnvVar);
   if (maybe_env_var.ok()) {
     auto env_var = maybe_env_var.ValueOrDie();
     auto* default_ostream =
-        options.default_export_stream ? options.default_export_stream : &std::cerr;
+        exporter_options.default_stream ? exporter_options.default_stream : &std::cerr;
     if (env_var == "ostream") {
       // TODO: Currently disabled as the log records returned by otel's ostream exporter
       // don't maintain copies of their attributes, leading to lifetime issues. If/when
@@ -191,36 +188,13 @@ std::unique_ptr<otel::sdk::logs::LogRecordProcessor> MakeLogRecordProcessor(
                                                                     options);
 }
 
-otel::sdk::resource::Resource MakeResource(const ServiceAttributes& service_attributes) {
-  // TODO: We could also include process info...
-  //  - SemanticConventions::kProcessPid
-  //  - SemanticConventions::kProcessExecutableName
-  //  - SemanticConventions::kProcessExecutablePath
-  //  - SemanticConventions::kProcessOwner
-  //  - SemanticConventions::kProcessCommandArgs
-  otel::sdk::resource::ResourceAttributes resource_attributes{};
-
-  auto set_attr = [&](const char* key, const std::optional<std::string>& val) {
-    if (val.has_value()) resource_attributes.SetAttribute(key, val.value());
-  };
-  set_attr(SemanticConventions::kServiceName, service_attributes.name);
-  set_attr(SemanticConventions::kServiceNamespace, service_attributes.name_space);
-  set_attr(SemanticConventions::kServiceInstanceId, service_attributes.instance_id);
-  set_attr(SemanticConventions::kServiceVersion, service_attributes.version);
-
-  auto resource = otel::sdk::resource::Resource::Create(resource_attributes);
-  auto env_resource = otel::sdk::resource::OTELResourceDetector().Detect();
-  return resource.Merge(env_resource);
-}
-
 otel_shared_ptr<otel::logs::LoggerProvider> MakeLoggerProvider(
-    const LoggerProviderOptions& options) {
-  auto exporter = MakeExporterFromEnv(options);
+    const LogExporterOptions& exporter_options) {
+  auto exporter = MakeExporterFromEnv(exporter_options);
   if (exporter) {
     auto processor = MakeLogRecordProcessor(std::move(exporter));
-    auto resource = MakeResource(options.service_attributes);
     return otel_shared_ptr<otel::sdk::logs::LoggerProvider>(
-        new otel::sdk::logs::LoggerProvider(std::move(processor), resource));
+        new otel::sdk::logs::LoggerProvider(std::move(processor)));
   }
   return otel_shared_ptr<otel::logs::LoggerProvider>(
       new otel::logs::NoopLoggerProvider{});
@@ -274,7 +248,7 @@ class OtelLogger : public Logger {
   }
 
   bool Flush(std::chrono::microseconds timeout) override {
-    return GlobalLoggerProvider::Flush(timeout);
+    return OtelLoggerProvider::Flush(timeout);
   }
 
   bool is_enabled() const override { return true; }
@@ -295,21 +269,7 @@ class OtelLogger : public Logger {
 
 }  // namespace
 
-Status GlobalLoggerProvider::Initialize(const LoggerProviderOptions& options) {
-  otel::logs::Provider::SetLoggerProvider(MakeLoggerProvider(options));
-  return Status::OK();
-}
-
-bool GlobalLoggerProvider::ShutDown() {
-  auto provider = otel::logs::Provider::GetLoggerProvider();
-  if (auto sdk_provider =
-          dynamic_cast<otel::sdk::logs::LoggerProvider*>(provider.get())) {
-    return sdk_provider->Shutdown();
-  }
-  return false;
-}
-
-bool GlobalLoggerProvider::Flush(std::chrono::microseconds timeout) {
+bool OtelLoggerProvider::Flush(std::chrono::microseconds timeout) {
   auto provider = otel::logs::Provider::GetLoggerProvider();
   if (auto sdk_provider =
           dynamic_cast<otel::sdk::logs::LoggerProvider*>(provider.get())) {
@@ -318,7 +278,7 @@ bool GlobalLoggerProvider::Flush(std::chrono::microseconds timeout) {
   return false;
 }
 
-Result<std::shared_ptr<Logger>> GlobalLoggerProvider::MakeLogger(
+Result<std::shared_ptr<Logger>> OtelLoggerProvider::MakeLogger(
     std::string_view name, const LoggingOptions& options,
     const AttributeHolder& attributes) {
   auto ot_logger = otel::logs::Provider::GetLoggerProvider()->GetLogger(
@@ -327,10 +287,28 @@ Result<std::shared_ptr<Logger>> GlobalLoggerProvider::MakeLogger(
   return std::make_shared<OtelLogger>(options, std::move(ot_logger));
 }
 
-Result<std::shared_ptr<Logger>> GlobalLoggerProvider::MakeLogger(
+Result<std::shared_ptr<Logger>> OtelLoggerProvider::MakeLogger(
     std::string_view name, const LoggingOptions& options) {
   return MakeLogger(name, options, EmptyAttributeHolder{});
 }
+
+namespace internal {
+
+Status InitializeOtelLoggerProvider(const LogExporterOptions& exporter_options) {
+  otel::logs::Provider::SetLoggerProvider(MakeLoggerProvider(exporter_options));
+  return Status::OK();
+}
+
+bool ShutdownOtelLoggerProvider() {
+  auto provider = otel::logs::Provider::GetLoggerProvider();
+  if (auto sdk_provider =
+          dynamic_cast<otel::sdk::logs::LoggerProvider*>(provider.get())) {
+    return sdk_provider->Shutdown();
+  }
+  return false;
+}
+
+}  // namespace internal
 
 }  // namespace telemetry
 }  // namespace arrow

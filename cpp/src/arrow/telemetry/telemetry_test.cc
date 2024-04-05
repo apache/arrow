@@ -49,20 +49,19 @@ class OtelEnvironment : public ::testing::Environment {
         otel::nostd::shared_ptr<otel::context::propagation::TextMapPropagator>(
             new otel::trace::propagation::HttpTraceContext()));
 
-    auto provider_options = LoggerProviderOptions::Defaults();
-    ASSERT_OK(GlobalLoggerProvider::Initialize(provider_options));
+    ASSERT_OK(internal::InitializeOtelLoggerProvider());
     auto logging_options = LoggingOptions::Defaults();
     logging_options.severity_threshold = LogLevel::ARROW_TRACE;
     logging_options.flush_severity = LogLevel::ARROW_TRACE;
     ASSERT_OK_AND_ASSIGN(
         auto logger,
-        GlobalLoggerProvider::MakeLogger(
+        OtelLoggerProvider::MakeLogger(
             kLoggerName, logging_options,
             AttributeList{Attribute{"fooInt", 42}, Attribute{"barStr", "fourty two"}}));
     ASSERT_OK(util::LoggerRegistry::RegisterLogger(logger->name(), logger));
   }
 
-  void TearDown() override { EXPECT_TRUE(GlobalLoggerProvider::ShutDown()); }
+  void TearDown() override { EXPECT_TRUE(internal::ShutdownOtelLoggerProvider()); }
 };
 
 static ::testing::Environment* kOtelEnvironment =
@@ -79,7 +78,7 @@ void Log(Args&&... args) {
 class TestLogging : public ::testing::Test {
  public:
   void SetUp() override {
-    tracer_ = internal::tracing::GetTracer();
+    tracer_ = arrow::internal::tracing::GetTracer();
     span_ = tracer_->StartSpan("test-logging");
   }
 
