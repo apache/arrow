@@ -62,7 +62,7 @@ jobs:
       - name: Download Release Candidate MLTBX
         # Download the MLTBX file from the crossbow GitHub Release's area.
         run: |
-          .arrow/dev/release/04-binary-download.sh ${ARROW_VERSION} ${ARROW_RC_NUM} --task-filter matlab
+          ./arrow/dev/release/04-binary-download.sh ${ARROW_VERSION} ${ARROW_RC_NUM} --task-filter matlab
           mltbx_file=$(find arrow/packages -name '*.mltbx' -type f)
           echo "ARROW_MLTBX_FILE=${mltbx_file}" >> $GITHUB_ENV
       - name: Create GitHub Release for Release Candidate
