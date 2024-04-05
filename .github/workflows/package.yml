@@ -41,9 +41,6 @@ jobs:
           repository: ursacomputing/crossbow
           path: crossbow
           fetch-depth: 0
-      - name: Update tags
-        run: |
-          git fetch --tags --force origin
       - name: Store release tag name as an environment variable
         run: |
           echo "RELEASE_TAG_NAME=${{github.ref_name}}" >> "$GITHUB_ENV"
