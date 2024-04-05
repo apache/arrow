@@ -76,7 +76,7 @@ install_arrow <- function(nightly = FALSE,
       ARROW_R_DEV = verbose,
       ARROW_USE_PKG_CONFIG = use_system
     )
-    # On Rosetta, we have to build without JEMALLOC, so we also can't autobrew
+    # On Rosetta, we have to build without JEMALLOC
     rosetta <- on_rosetta()
     if (rosetta) {
       Sys.setenv(ARROW_JEMALLOC = "OFF")
