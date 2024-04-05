@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector;
 
+import java.nio.charset.StandardCharsets;
+
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.ListVector;
@@ -44,7 +46,7 @@ public class TestVarCharListVector {
 
   @Test
   public void testVarCharListWithNulls() {
-    byte[] bytes = "a".getBytes();
+    byte[] bytes = "a".getBytes(StandardCharsets.UTF_8);
     try (ListVector vector = new ListVector("VarList", allocator, FieldType.nullable(Types
             .MinorType.VARCHAR.getType()), null);
          ArrowBuf tempBuf = allocator.buffer(bytes.length)) {
@@ -63,15 +65,15 @@ public class TestVarCharListVector {
 
       writer.setPosition(2);
       writer.startList();
-      bytes = "b".getBytes();
+      bytes = "b".getBytes(StandardCharsets.UTF_8);
       tempBuf.setBytes(0, bytes);
       writer.writeVarChar(0, bytes.length, tempBuf);
       writer.endList();
 
       writer.setValueCount(2);
 
-      Assert.assertTrue(vector.getValueCount() == 2);
-      Assert.assertTrue(vector.getDataVector().getValueCount() == 2);
+      Assert.assertEquals(2, vector.getValueCount());
+      Assert.assertEquals(2, vector.getDataVector().getValueCount());
     }
   }
 }

@@ -110,6 +110,17 @@ macro(resolve_option_dependencies)
   if(MSVC_TOOLCHAIN)
     set(ARROW_USE_GLOG OFF)
   endif()
+  # Tests are crashed with mold + sanitizer checks.
+  if(ARROW_USE_ASAN
+     OR ARROW_USE_TSAN
+     OR ARROW_USE_UBSAN)
+    if(ARROW_USE_MOLD)
+      message(WARNING "ARROW_USE_MOLD is disabled when one of "
+                      "ARROW_USE_ASAN, ARROW_USE_TSAN or ARROW_USE_UBSAN is specified "
+                      "because it causes some problems.")
+      set(ARROW_USE_MOLD OFF)
+    endif()
+  endif()
 
   tsort_bool_option_dependencies()
   foreach(option_name ${ARROW_BOOL_OPTION_DEPENDENCIES_TSORTED})
@@ -158,6 +169,8 @@ if(ARROW_DEFINE_OPTIONS)
 takes precedence over ccache if a storage backend is configured" ON)
 
   define_option(ARROW_USE_LD_GOLD "Use ld.gold for linking on Linux (if available)" OFF)
+
+  define_option(ARROW_USE_MOLD "Use mold for linking on Linux (if available)" OFF)
 
   define_option(ARROW_USE_PRECOMPILED_HEADERS "Use precompiled headers when compiling"
                 OFF)
@@ -340,12 +353,16 @@ takes precedence over ccache if a storage backend is configured" ON)
   define_option(ARROW_IPC "Build the Arrow IPC extensions" ON)
 
   set(ARROW_JEMALLOC_DESCRIPTION "Build the Arrow jemalloc-based allocator")
-  if(WIN32 OR "${CMAKE_SYSTEM_NAME}" STREQUAL "FreeBSD")
+  if(WIN32
+     OR "${CMAKE_SYSTEM_NAME}" STREQUAL "FreeBSD"
+     OR NOT ARROW_ENABLE_THREADING)
     # jemalloc is not supported on Windows.
     #
     # jemalloc is the default malloc implementation on FreeBSD and can't
     # be built with --disable-libdl on FreeBSD. Because lazy-lock feature
     # is required on FreeBSD. Lazy-lock feature requires libdl.
+    #
+    # jemalloc requires thread.
     define_option(ARROW_JEMALLOC ${ARROW_JEMALLOC_DESCRIPTION} OFF)
   else()
     define_option(ARROW_JEMALLOC ${ARROW_JEMALLOC_DESCRIPTION} ON)
@@ -747,7 +764,7 @@ if(NOT ARROW_GIT_ID)
                   OUTPUT_STRIP_TRAILING_WHITESPACE)
 endif()
 if(NOT ARROW_GIT_DESCRIPTION)
-  execute_process(COMMAND "git" "describe" "--tags" "--dirty"
+  execute_process(COMMAND "git" "describe" "--tags"
                   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
                   ERROR_QUIET
                   OUTPUT_VARIABLE ARROW_GIT_DESCRIPTION

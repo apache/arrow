@@ -19,7 +19,7 @@
 ADBC: Arrow Database Connectivity
 =================================
 
-Full Documentation on ADBC can be found at `https://arrow.apache.org/adbc/`_.
+Full Documentation on ADBC can be found at https://arrow.apache.org/adbc/.
 
 Rationale
 =========
@@ -92,7 +92,7 @@ implemented directly by a vendor-specific "driver" or a vendor-neutral
 
 Version 1.0.0 of the standard corresponds to tag adbc-1.0.0 of the
 repository ``apache/arrow-adbc``, which is commit
-f044edf5256abfb4c091b0ad2acc73afea2c93c0_.  Note that is is separate
+f044edf5256abfb4c091b0ad2acc73afea2c93c0_.  Note that is separate
 from releases of the actual implementations.
 
 See the language-specific pages for details:
@@ -199,8 +199,8 @@ bypass this wrapper.
    implement the same protocol to try to reuse each other's work,
    e.g. several databases implement the Postgres wire protocol to
    benefit from its driver implementations.  But the protocol itself
-   was not designed with multiple databases in mind, nor are they
-   generally meant to be used directly by applications.
+   was not designed with multiple databases in mind, nor are the
+   protocols generally meant to be used directly by applications.
 
    Some database-specific protocols are Arrow-native, like those of
    BigQuery and ClickHouse.  Flight SQL additionally is meant to be

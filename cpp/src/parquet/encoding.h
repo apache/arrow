@@ -233,7 +233,7 @@ class DictEncoder : virtual public TypedEncoder<DType> {
 
   /// \brief EXPERIMENTAL: Append dictionary indices into the encoder. It is
   /// assumed (without any boundschecking) that the indices reference
-  /// pre-existing dictionary values
+  /// preexisting dictionary values
   /// \param[in] indices the dictionary index values. Only Int32Array currently
   /// supported
   virtual void PutIndices(const ::arrow::Array& indices) = 0;
@@ -400,7 +400,9 @@ class BooleanDecoder : virtual public TypedDecoder<BooleanType> {
   /// \brief Decode and bit-pack values into a buffer
   ///
   /// \param[in] buffer destination for decoded values
-  /// This buffer will contain bit-packed values.
+  /// This buffer will contain bit-packed values. If
+  /// max_values is not a multiple of 8, the trailing bits
+  /// of the last byte will be undefined.
   /// \param[in] max_values max values to decode.
   /// \return The number of values decoded. Should be identical to max_values except
   /// at the end of the current data page.

@@ -250,7 +250,7 @@ module Arrow
             "[array][resolve] need to implement " +
             "a feature that building #{value_data_type} array " +
             "from raw Ruby Array"
-          raise NotImpelemented, message
+          raise NotImplemented, message
         end
         other_array
       elsif other_array.respond_to?(:value_data_type)

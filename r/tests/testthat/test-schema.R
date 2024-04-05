@@ -295,8 +295,17 @@ test_that("schema name assignment", {
 
 test_that("schema extraction", {
   skip_if_not_available("dataset")
+
   tbl <- arrow_table(example_data)
+  expect_equal(schema(example_data), tbl$schema)
   expect_equal(schema(tbl), tbl$schema)
+
+  expect_equal(
+    schema(data.frame(a = 1, a = "x", check.names = FALSE, stringsAsFactors = FALSE)),
+    schema(a = double(), a = string())
+  )
+
+  expect_equal(schema(data.frame()), schema())
 
   ds <- InMemoryDataset$create(example_data)
   expect_equal(schema(ds), ds$schema)
@@ -306,5 +315,20 @@ test_that("schema extraction", {
 
   adq <- as_adq(example_data)
   expect_equal(schema(adq), adq$.data$schema)
+})
+
+test_that("schema print truncation", {
+  tbl <- arrow_table(example_data)
+  out <- print_schema_fields(schema(tbl), truncate = TRUE, max_fields = 1)
+  expect_output(
+    cat(out),
+    "int: int32\n...\n6 more columns\nUse `schema()` to see entire schema",
+    fixed = TRUE
+  )
+
+  expect_error(
+    print_schema_fields(schema(tbl), truncate = TRUE, max_fields = 0),
+    regexp = "max_fields not greater than 0"
+  )
 
 })

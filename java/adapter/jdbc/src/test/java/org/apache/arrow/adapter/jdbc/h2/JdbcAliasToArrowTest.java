@@ -63,7 +63,7 @@ public class JdbcAliasToArrowTest {
 
   /**
    * Test h2 database query with alias for column name and column label.
-   * To vetify reading field alias from an H2 database works as expected.
+   * To verify reading field alias from an H2 database works as expected.
    * If this test fails, something is either wrong with the setup,
    * or the H2 SQL behavior changed.
    */

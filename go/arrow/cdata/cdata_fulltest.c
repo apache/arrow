@@ -27,7 +27,19 @@
 #include "arrow/c/helpers.h"
 #include "utils.h"
 
+int is_little_endian()
+{
+  unsigned int x = 1;
+  char *c = (char*) &x;
+  return (int)*c;
+}
+
 static const int64_t kDefaultFlags = ARROW_FLAG_NULLABLE;
+
+extern void releaseTestArr(struct ArrowArray* array);
+void goReleaseTestArray(struct ArrowArray* array) {
+  releaseTestArr(array);
+}
 
 static void release_int32_type(struct ArrowSchema* schema) {
     // mark released

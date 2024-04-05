@@ -28,11 +28,13 @@
 #include "arrow/array/array_nested.h"
 #include "arrow/array/array_primitive.h"
 #include "arrow/array/builder_primitive.h"
+#include "arrow/flight/client_cookie_middleware.h"
 #include "arrow/flight/client_middleware.h"
 #include "arrow/flight/server_middleware.h"
 #include "arrow/flight/sql/client.h"
 #include "arrow/flight/sql/column_metadata.h"
 #include "arrow/flight/sql/server.h"
+#include "arrow/flight/sql/server_session_middleware.h"
 #include "arrow/flight/sql/types.h"
 #include "arrow/flight/test_util.h"
 #include "arrow/flight/types.h"
@@ -215,7 +217,7 @@ class MiddlewareServer : public FlightServerBase {
       // Return a fake location - the test doesn't read it
       ARROW_ASSIGN_OR_RAISE(auto location, Location::ForGrpcTcp("localhost", 10010));
       std::vector<FlightEndpoint> endpoints{
-          FlightEndpoint{{"foo"}, {location}, std::nullopt}};
+          FlightEndpoint{{"foo"}, {location}, std::nullopt, ""}};
       ARROW_ASSIGN_OR_RAISE(
           auto info, FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false));
       *result = std::make_unique<FlightInfo>(info);
@@ -296,13 +298,13 @@ class OrderedServer : public FlightServerBase {
     auto schema = BuildSchema();
     std::vector<FlightEndpoint> endpoints;
     if (ordered) {
-      endpoints.push_back(FlightEndpoint{{"1"}, {}, std::nullopt});
-      endpoints.push_back(FlightEndpoint{{"2"}, {}, std::nullopt});
-      endpoints.push_back(FlightEndpoint{{"3"}, {}, std::nullopt});
+      endpoints.push_back(FlightEndpoint{{"1"}, {}, std::nullopt, ""});
+      endpoints.push_back(FlightEndpoint{{"2"}, {}, std::nullopt, ""});
+      endpoints.push_back(FlightEndpoint{{"3"}, {}, std::nullopt, ""});
     } else {
-      endpoints.push_back(FlightEndpoint{{"1"}, {}, std::nullopt});
-      endpoints.push_back(FlightEndpoint{{"3"}, {}, std::nullopt});
-      endpoints.push_back(FlightEndpoint{{"2"}, {}, std::nullopt});
+      endpoints.push_back(FlightEndpoint{{"1"}, {}, std::nullopt, ""});
+      endpoints.push_back(FlightEndpoint{{"3"}, {}, std::nullopt, ""});
+      endpoints.push_back(FlightEndpoint{{"2"}, {}, std::nullopt, ""});
     }
     ARROW_ASSIGN_OR_RAISE(
         auto info, FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, ordered));
@@ -557,7 +559,7 @@ class ExpirationTimeServer : public FlightServerBase {
   void AddEndpoint(std::vector<FlightEndpoint>& endpoints, std::string ticket,
                    std::optional<Timestamp> expiration_time) {
     endpoints.push_back(FlightEndpoint{
-        {std::to_string(statuses_.size()) + ": " + ticket}, {}, expiration_time});
+        {std::to_string(statuses_.size()) + ": " + ticket}, {}, expiration_time, ""});
     statuses_.emplace_back(expiration_time);
   }
 
@@ -744,6 +746,155 @@ class ExpirationTimeRenewFlightEndpointScenario : public Scenario {
   }
 };
 
+/// \brief The server used for testing Session Options.
+///
+/// SetSessionOptions has a blacklisted option name and string option value,
+/// both "lol_invalid", which will result in errors attempting to set either.
+class SessionOptionsServer : public sql::FlightSqlServerBase {
+  static inline const std::string invalid_option_name = "lol_invalid";
+  static inline const SessionOptionValue invalid_option_value = "lol_invalid";
+
+  const std::string session_middleware_key;
+  // These will never be threaded so using a plain map and no lock
+  std::map<std::string, SessionOptionValue> session_store_;
+
+ public:
+  explicit SessionOptionsServer(std::string session_middleware_key)
+      : FlightSqlServerBase(),
+        session_middleware_key(std::move(session_middleware_key)) {}
+
+  arrow::Result<SetSessionOptionsResult> SetSessionOptions(
+      const ServerCallContext& context,
+      const SetSessionOptionsRequest& request) override {
+    SetSessionOptionsResult res;
+
+    auto* middleware = static_cast<sql::ServerSessionMiddleware*>(
+        context.GetMiddleware(session_middleware_key));
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<sql::FlightSession> session,
+                          middleware->GetSession());
+
+    for (const auto& [name, value] : request.session_options) {
+      // Blacklisted value name
+      if (name == invalid_option_name) {
+        res.errors.emplace(name, SetSessionOptionsResult::Error{
+                                     SetSessionOptionErrorValue::kInvalidName});
+        continue;
+      }
+      // Blacklisted option value
+      if (value == invalid_option_value) {
+        res.errors.emplace(name, SetSessionOptionsResult::Error{
+                                     SetSessionOptionErrorValue::kInvalidValue});
+        continue;
+      }
+      if (std::holds_alternative<std::monostate>(value)) {
+        session->EraseSessionOption(name);
+        continue;
+      }
+      session->SetSessionOption(name, value);
+    }
+
+    return res;
+  }
+
+  arrow::Result<GetSessionOptionsResult> GetSessionOptions(
+      const ServerCallContext& context,
+      const GetSessionOptionsRequest& request) override {
+    auto* middleware = static_cast<sql::ServerSessionMiddleware*>(
+        context.GetMiddleware(session_middleware_key));
+    if (!middleware->HasSession()) {
+      return Status::Invalid("No existing session to get options from.");
+    }
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<sql::FlightSession> session,
+                          middleware->GetSession());
+
+    return GetSessionOptionsResult{session->GetSessionOptions()};
+  }
+
+  arrow::Result<CloseSessionResult> CloseSession(
+      const ServerCallContext& context, const CloseSessionRequest& request) override {
+    // Broken (does not expire cookie) until C++ middleware handling (GH-39791) fixed:
+    auto* middleware = static_cast<sql::ServerSessionMiddleware*>(
+        context.GetMiddleware(session_middleware_key));
+    ARROW_RETURN_NOT_OK(middleware->CloseSession());
+    return CloseSessionResult{CloseSessionStatus::kClosed};
+  }
+};
+
+/// \brief The Session Options scenario.
+///
+/// This tests Session Options functionality as well as ServerSessionMiddleware.
+class SessionOptionsScenario : public Scenario {
+  static inline const std::string server_middleware_key = "sessionmiddleware";
+
+  Status MakeServer(std::unique_ptr<FlightServerBase>* server,
+                    FlightServerOptions* options) override {
+    *server = std::make_unique<SessionOptionsServer>(server_middleware_key);
+
+    auto id_gen_int = std::make_shared<std::atomic_int>(1000);
+    options->middleware.emplace_back(
+        server_middleware_key,
+        sql::MakeServerSessionMiddlewareFactory(
+            [=]() -> std::string { return std::to_string((*id_gen_int)++); }));
+
+    return Status::OK();
+  }
+
+  Status MakeClient(FlightClientOptions* options) override {
+    options->middleware.emplace_back(GetCookieFactory());
+    return Status::OK();
+  }
+
+  Status RunClient(std::unique_ptr<FlightClient> flight_client) override {
+    sql::FlightSqlClient client{std::move(flight_client)};
+
+    // Set
+    auto req1 = SetSessionOptionsRequest{
+        {{"foolong", 123L},
+         {"bardouble", 456.0},
+         {"lol_invalid", "this won't get set"},
+         {"key_with_invalid_value", "lol_invalid"},
+         {"big_ol_string_list", std::vector<std::string>{"a", "b", "sea", "dee", " ",
+                                                         "  ", "geee", "(づ｡◕‿‿◕｡)づ"}}}};
+    ARROW_ASSIGN_OR_RAISE(auto res1, client.SetSessionOptions({}, req1));
+    // Some errors
+    if (res1.errors !=
+        std::map<std::string, SetSessionOptionsResult::Error>{
+            {"lol_invalid",
+             SetSessionOptionsResult::Error{SetSessionOptionErrorValue::kInvalidName}},
+            {"key_with_invalid_value", SetSessionOptionsResult::Error{
+                                           SetSessionOptionErrorValue::kInvalidValue}}}) {
+      return Status::Invalid("res1 incorrect: " + res1.ToString());
+    }
+    // Some set, some omitted due to above errors
+    ARROW_ASSIGN_OR_RAISE(auto res2, client.GetSessionOptions({}, {}));
+    if (res2.session_options !=
+        std::map<std::string, SessionOptionValue>{
+            {"foolong", 123L},
+            {"bardouble", 456.0},
+            {"big_ol_string_list",
+             std::vector<std::string>{"a", "b", "sea", "dee", " ", "  ", "geee",
+                                      "(づ｡◕‿‿◕｡)づ"}}}) {
+      return Status::Invalid("res2 incorrect: " + res2.ToString());
+    }
+    // Update
+    ARROW_ASSIGN_OR_RAISE(
+        auto res3,
+        client.SetSessionOptions(
+            {}, SetSessionOptionsRequest{
+                    {{"foolong", std::monostate{}},
+                     {"big_ol_string_list", "a,b,sea,dee, ,  ,geee,(づ｡◕‿‿◕｡)づ"}}}));
+    ARROW_ASSIGN_OR_RAISE(auto res4, client.GetSessionOptions({}, {}));
+    if (res4.session_options !=
+        std::map<std::string, SessionOptionValue>{
+            {"bardouble", 456.0},
+            {"big_ol_string_list", "a,b,sea,dee, ,  ,geee,(づ｡◕‿‿◕｡)づ"}}) {
+      return Status::Invalid("res4 incorrect: " + res4.ToString());
+    }
+
+    return Status::OK();
+  }
+};
+
 /// \brief The server used for testing PollFlightInfo().
 class PollFlightInfoServer : public FlightServerBase {
  public:
@@ -754,7 +905,7 @@ class PollFlightInfoServer : public FlightServerBase {
                         std::unique_ptr<PollInfo>* result) override {
     auto schema = arrow::schema({arrow::field("number", arrow::uint32(), false)});
     std::vector<FlightEndpoint> endpoints = {
-        FlightEndpoint{{"long-running query"}, {}, std::nullopt}};
+        FlightEndpoint{{"long-running query"}, {}, std::nullopt, ""}};
     ARROW_ASSIGN_OR_RAISE(
         auto info, FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false));
     if (descriptor == FlightDescriptor::Command("poll")) {
@@ -810,6 +961,64 @@ class PollFlightInfoScenario : public Scenario {
     if (info->expiration_time.has_value()) {
       return Status::Invalid("Expiration time must not be set for finished query: ",
                              info->ToString());
+    }
+    return Status::OK();
+  }
+};
+
+/// \brief The server used for testing app_metadata in FlightInfo and FlightEndpoint
+class AppMetadataFlightInfoEndpointServer : public FlightServerBase {
+ public:
+  AppMetadataFlightInfoEndpointServer() : FlightServerBase() {}
+
+  Status GetFlightInfo(const ServerCallContext& context, const FlightDescriptor& request,
+                       std::unique_ptr<FlightInfo>* info) override {
+    if (request.type != FlightDescriptor::CMD) {
+      return Status::Invalid("request descriptor should be of type CMD");
+    }
+
+    auto schema = arrow::schema({arrow::field("number", arrow::uint32(), false)});
+    std::vector<FlightEndpoint> endpoints = {
+        FlightEndpoint{{}, {}, std::nullopt, request.cmd}};
+    ARROW_ASSIGN_OR_RAISE(auto result, FlightInfo::Make(*schema, request, endpoints, -1,
+                                                        -1, false, request.cmd));
+    *info = std::make_unique<FlightInfo>(std::move(result));
+    return Status::OK();
+  }
+};
+
+/// \brief The AppMetadataFlightInfoEndpoint scenario.
+///
+/// This tests that the client can receive and use the `app_metadata` field in
+/// the FlightInfo and FlightEndpoint messages.
+///
+/// The server only implements GetFlightInfo and will return a FlightInfo with a non-
+/// empty app_metadata value that should match the app_metadata field in the
+/// included FlightEndpoint. The value should be the same as the cmd bytes passed
+/// in the call to GetFlightInfo by the client.
+class AppMetadataFlightInfoEndpointScenario : public Scenario {
+  Status MakeServer(std::unique_ptr<FlightServerBase>* server,
+                    FlightServerOptions* options) override {
+    *server = std::make_unique<AppMetadataFlightInfoEndpointServer>();
+    return Status::OK();
+  }
+
+  Status MakeClient(FlightClientOptions* options) override { return Status::OK(); }
+
+  Status RunClient(std::unique_ptr<FlightClient> client) override {
+    ARROW_ASSIGN_OR_RAISE(auto info,
+                          client->GetFlightInfo(FlightDescriptor::Command("foobar")));
+    if (info->app_metadata() != "foobar") {
+      return Status::Invalid("app_metadata should have been 'foobar', got: ",
+                             info->app_metadata());
+    }
+    if (info->endpoints().size() != 1) {
+      return Status::Invalid("should have gotten exactly one FlightEndpoint back, got: ",
+                             info->endpoints().size());
+    }
+    if (info->endpoints()[0].app_metadata != "foobar") {
+      return Status::Invalid("FlightEndpoint app_metadata should be 'foobar', got: ",
+                             info->endpoints()[0].app_metadata);
     }
     return Status::OK();
   }
@@ -925,7 +1134,7 @@ class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
       schema = GetQueryWithTransactionSchema().get();
     }
     ARROW_ASSIGN_OR_RAISE(auto handle, sql::CreateStatementQueryTicket(ticket));
-    std::vector<FlightEndpoint> endpoints{FlightEndpoint{{handle}, {}, std::nullopt}};
+    std::vector<FlightEndpoint> endpoints{FlightEndpoint{{handle}, {}, std::nullopt, ""}};
     ARROW_ASSIGN_OR_RAISE(
         auto result, FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false));
     return std::make_unique<FlightInfo>(result);
@@ -950,7 +1159,7 @@ class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
       schema = GetQueryWithTransactionSchema().get();
     }
     ARROW_ASSIGN_OR_RAISE(auto handle, sql::CreateStatementQueryTicket(ticket));
-    std::vector<FlightEndpoint> endpoints{FlightEndpoint{{handle}, {}, std::nullopt}};
+    std::vector<FlightEndpoint> endpoints{FlightEndpoint{{handle}, {}, std::nullopt, ""}};
     ARROW_ASSIGN_OR_RAISE(
         auto result, FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false));
     return std::make_unique<FlightInfo>(result);
@@ -1394,7 +1603,7 @@ class FlightSqlScenarioServer : public sql::FlightSqlServerBase {
   arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoForCommand(
       const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema) {
     std::vector<FlightEndpoint> endpoints{
-        FlightEndpoint{{descriptor.cmd}, {}, std::nullopt}};
+        FlightEndpoint{{descriptor.cmd}, {}, std::nullopt, ""}};
     ARROW_ASSIGN_OR_RAISE(auto result,
                           FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false))
 
@@ -1870,6 +2079,50 @@ class FlightSqlExtensionScenario : public FlightSqlScenario {
     return Status::OK();
   }
 };
+
+/// \brief The server for testing arrow-flight-reuse-connection://.
+class ReuseConnectionServer : public FlightServerBase {
+ public:
+  Status GetFlightInfo(const ServerCallContext& context,
+                       const FlightDescriptor& descriptor,
+                       std::unique_ptr<FlightInfo>* info) override {
+    auto location = Location::ReuseConnection();
+    auto endpoint = FlightEndpoint{{"reuse"}, {location}, std::nullopt, ""};
+    ARROW_ASSIGN_OR_RAISE(auto info_data, FlightInfo::Make(arrow::Schema({}), descriptor,
+                                                           {endpoint}, -1, -1));
+    *info = std::make_unique<FlightInfo>(std::move(info_data));
+    return Status::OK();
+  }
+};
+
+/// \brief A scenario for testing arrow-flight-reuse-connection://?.
+class ReuseConnectionScenario : public Scenario {
+  Status MakeServer(std::unique_ptr<FlightServerBase>* server,
+                    FlightServerOptions* options) override {
+    *server = std::make_unique<ReuseConnectionServer>();
+    return Status::OK();
+  }
+
+  Status MakeClient(FlightClientOptions* options) override { return Status::OK(); }
+
+  Status RunClient(std::unique_ptr<FlightClient> client) override {
+    auto descriptor = FlightDescriptor::Command("reuse");
+    ARROW_ASSIGN_OR_RAISE(auto info, client->GetFlightInfo(descriptor));
+    if (info->endpoints().size() != 1) {
+      return Status::Invalid("Expected 1 endpoint, got ", info->endpoints().size());
+    }
+    const auto& endpoint = info->endpoints().front();
+    if (endpoint.locations.size() != 1) {
+      return Status::Invalid("Expected 1 location, got ",
+                             info->endpoints().front().locations.size());
+    } else if (endpoint.locations.front().ToString() !=
+               "arrow-flight-reuse-connection://?") {
+      return Status::Invalid("Expected arrow-flight-reuse-connection://?, got ",
+                             endpoint.locations.front().ToString());
+    }
+    return Status::OK();
+  }
+};
 }  // namespace
 
 Status GetScenario(const std::string& scenario_name, std::shared_ptr<Scenario>* out) {
@@ -1894,8 +2147,17 @@ Status GetScenario(const std::string& scenario_name, std::shared_ptr<Scenario>* 
   } else if (scenario_name == "expiration_time:renew_flight_endpoint") {
     *out = std::make_shared<ExpirationTimeRenewFlightEndpointScenario>();
     return Status::OK();
+  } else if (scenario_name == "location:reuse_connection") {
+    *out = std::make_shared<ReuseConnectionScenario>();
+    return Status::OK();
+  } else if (scenario_name == "session_options") {
+    *out = std::make_shared<SessionOptionsScenario>();
+    return Status::OK();
   } else if (scenario_name == "poll_flight_info") {
     *out = std::make_shared<PollFlightInfoScenario>();
+    return Status::OK();
+  } else if (scenario_name == "app_metadata_flight_info_endpoint") {
+    *out = std::make_shared<AppMetadataFlightInfoEndpointScenario>();
     return Status::OK();
   } else if (scenario_name == "flight_sql") {
     *out = std::make_shared<FlightSqlScenario>();

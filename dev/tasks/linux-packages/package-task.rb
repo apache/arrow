@@ -271,12 +271,14 @@ class PackageTask
       # "debian-bullseye-arm64",
       "debian-bookworm",
       # "debian-bookworm-arm64",
+      "debian-trixie",
+      # "debian-trixie-arm64",
       "ubuntu-focal",
       # "ubuntu-focal-arm64",
       "ubuntu-jammy",
       # "ubuntu-jammy-arm64",
-      "ubuntu-lunar",
-      # "ubuntu-lunar-arm64",
+      "ubuntu-noble",
+      # "ubuntu-noble-arm64",
     ]
   end
 

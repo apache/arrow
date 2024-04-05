@@ -999,7 +999,8 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
     for (int row_group : row_groups) {
       int64_t num_rows = parquet_reader()->metadata()->RowGroup(row_group)->num_rows();
 
-      batches.insert(batches.end(), num_rows / batch_size, max_sized_batch);
+      batches.insert(batches.end(), static_cast<size_t>(num_rows / batch_size),
+                     max_sized_batch);
 
       if (int64_t trailing_rows = num_rows % batch_size) {
         batches.push_back(max_sized_batch->Slice(0, trailing_rows));
@@ -1122,10 +1123,10 @@ class RowGroupGenerator {
       auto ready = reader->parquet_reader()->WhenBuffered({row_group}, column_indices);
       if (cpu_executor_) ready = cpu_executor_->TransferAlways(ready);
       row_group_read =
-          ready.Then([this, reader, row_group,
+          ready.Then([cpu_executor = cpu_executor_, reader, row_group,
                       column_indices = std::move(
                           column_indices)]() -> ::arrow::Future<RecordBatchGenerator> {
-            return ReadOneRowGroup(cpu_executor_, reader, row_group, column_indices);
+            return ReadOneRowGroup(cpu_executor, reader, row_group, column_indices);
           });
     }
     in_flight_reads_.push({std::move(row_group_read), num_rows});
@@ -1181,7 +1182,7 @@ FileReaderImpl::GetRecordBatchGenerator(std::shared_ptr<FileReader> reader,
                                         int64_t rows_to_readahead) {
   RETURN_NOT_OK(BoundsCheck(row_group_indices, column_indices));
   if (rows_to_readahead < 0) {
-    return Status::Invalid("rows_to_readahead must be > 0");
+    return Status::Invalid("rows_to_readahead must be >= 0");
   }
   if (reader_properties_.pre_buffer()) {
     BEGIN_PARQUET_CATCH_EXCEPTIONS

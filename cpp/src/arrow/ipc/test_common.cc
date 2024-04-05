@@ -189,6 +189,32 @@ Status MakeRandomListArray(const std::shared_ptr<Array>& child_array, int num_li
   return MakeListArray<ListType>(child_array, num_lists, include_nulls, pool, out);
 }
 
+Status MakeRandomListViewArray(const std::shared_ptr<Array>& child_array, int num_lists,
+                               bool include_nulls, MemoryPool* pool,
+                               std::shared_ptr<Array>* out) {
+  const auto seed = static_cast<uint32_t>(child_array->length());
+  random::RandomArrayGenerator rand(seed);
+
+  const double null_probability = include_nulls ? 0.5 : 0.0;
+  *out = rand.ListView(*child_array, /*length=*/num_lists, null_probability,
+                       /*force_empty_nulls=*/false, /*coverage=*/0.9,
+                       kDefaultBufferAlignment, pool);
+  return Status::OK();
+}
+
+Status MakeRandomLargeListViewArray(const std::shared_ptr<Array>& child_array,
+                                    int num_lists, bool include_nulls, MemoryPool* pool,
+                                    std::shared_ptr<Array>* out) {
+  const auto seed = static_cast<uint32_t>(child_array->length());
+  random::RandomArrayGenerator rand(seed);
+
+  const double null_probability = include_nulls ? 0.5 : 0.0;
+  *out = rand.LargeListView(*child_array, /*length=*/num_lists, null_probability,
+                            /*force_empty_nulls=*/false,
+                            /*force_empty_nulls=*/0.9, kDefaultBufferAlignment, pool);
+  return Status::OK();
+}
+
 Status MakeRandomLargeListArray(const std::shared_ptr<Array>& child_array, int num_lists,
                                 bool include_nulls, MemoryPool* pool,
                                 std::shared_ptr<Array>* out) {
@@ -351,39 +377,32 @@ static Status MakeBinaryArrayWithUniqueValues(int64_t length, bool include_nulls
   return builder.Finish(out);
 }
 
-Status MakeStringTypesRecordBatch(std::shared_ptr<RecordBatch>* out, bool with_nulls) {
+Status MakeStringTypesRecordBatch(std::shared_ptr<RecordBatch>* out, bool with_nulls,
+                                  bool with_view_types) {
   const int64_t length = 500;
-  auto f0 = field("strings", utf8());
-  auto f1 = field("binaries", binary());
-  auto f2 = field("large_strings", large_utf8());
-  auto f3 = field("large_binaries", large_binary());
-  auto schema = ::arrow::schema({f0, f1, f2, f3});
 
-  std::shared_ptr<Array> a0, a1, a2, a3;
-  MemoryPool* pool = default_memory_pool();
+  ArrayVector arrays;
+  FieldVector fields;
 
-  // Quirk with RETURN_NOT_OK macro and templated functions
-  {
-    auto s =
-        MakeBinaryArrayWithUniqueValues<StringBuilder>(length, with_nulls, pool, &a0);
-    RETURN_NOT_OK(s);
+  auto AppendColumn = [&](auto& MakeArray) {
+    arrays.emplace_back();
+    RETURN_NOT_OK(MakeArray(length, with_nulls, default_memory_pool(), &arrays.back()));
+
+    const auto& type = arrays.back()->type();
+    fields.push_back(field(type->ToString(), type));
+    return Status::OK();
+  };
+
+  RETURN_NOT_OK(AppendColumn(MakeBinaryArrayWithUniqueValues<StringBuilder>));
+  RETURN_NOT_OK(AppendColumn(MakeBinaryArrayWithUniqueValues<BinaryBuilder>));
+  RETURN_NOT_OK(AppendColumn(MakeBinaryArrayWithUniqueValues<LargeStringBuilder>));
+  RETURN_NOT_OK(AppendColumn(MakeBinaryArrayWithUniqueValues<LargeBinaryBuilder>));
+  if (with_view_types) {
+    RETURN_NOT_OK(AppendColumn(MakeBinaryArrayWithUniqueValues<StringViewBuilder>));
+    RETURN_NOT_OK(AppendColumn(MakeBinaryArrayWithUniqueValues<BinaryViewBuilder>));
   }
-  {
-    auto s =
-        MakeBinaryArrayWithUniqueValues<BinaryBuilder>(length, with_nulls, pool, &a1);
-    RETURN_NOT_OK(s);
-  }
-  {
-    auto s = MakeBinaryArrayWithUniqueValues<LargeStringBuilder>(length, with_nulls, pool,
-                                                                 &a2);
-    RETURN_NOT_OK(s);
-  }
-  {
-    auto s = MakeBinaryArrayWithUniqueValues<LargeBinaryBuilder>(length, with_nulls, pool,
-                                                                 &a3);
-    RETURN_NOT_OK(s);
-  }
-  *out = RecordBatch::Make(schema, length, {a0, a1, a2, a3});
+
+  *out = RecordBatch::Make(schema(std::move(fields)), length, std::move(arrays));
   return Status::OK();
 }
 
@@ -420,6 +439,31 @@ Status MakeListRecordBatch(std::shared_ptr<RecordBatch>* out) {
       MakeRandomListArray(list_array, length, include_nulls, pool, &list_list_array));
   RETURN_NOT_OK(MakeRandomLargeListArray(leaf_values, length, include_nulls, pool,
                                          &large_list_array));
+  *out =
+      RecordBatch::Make(schema, length, {list_array, list_list_array, large_list_array});
+  return Status::OK();
+}
+
+Status MakeListViewRecordBatch(std::shared_ptr<RecordBatch>* out) {
+  // Make the schema
+  auto f0 = field("f0", list_view(int32()));
+  auto f1 = field("f1", list_view(list_view(int32())));
+  auto f2 = field("f2", large_list_view(int32()));
+  auto schema = ::arrow::schema({f0, f1, f2});
+
+  // Example data
+
+  MemoryPool* pool = default_memory_pool();
+  const int length = 200;
+  std::shared_ptr<Array> leaf_values, list_array, list_list_array, large_list_array;
+  const bool include_nulls = true;
+  RETURN_NOT_OK(MakeRandomInt32Array(1000, include_nulls, pool, &leaf_values));
+  RETURN_NOT_OK(
+      MakeRandomListViewArray(leaf_values, length, include_nulls, pool, &list_array));
+  RETURN_NOT_OK(
+      MakeRandomListViewArray(list_array, length, include_nulls, pool, &list_list_array));
+  RETURN_NOT_OK(MakeRandomLargeListViewArray(leaf_values, length, include_nulls, pool,
+                                             &large_list_array));
   *out =
       RecordBatch::Make(schema, length, {list_array, list_list_array, large_list_array});
   return Status::OK();
@@ -503,6 +547,27 @@ Status MakeDeeplyNestedList(std::shared_ptr<RecordBatch>* out) {
   for (int i = 0; i < 63; ++i) {
     type = std::static_pointer_cast<DataType>(list(type));
     RETURN_NOT_OK(MakeRandomListArray(array, batch_length, include_nulls, pool, &array));
+  }
+
+  auto f0 = field("f0", type);
+  auto schema = ::arrow::schema({f0});
+  std::vector<std::shared_ptr<Array>> arrays = {array};
+  *out = RecordBatch::Make(schema, batch_length, arrays);
+  return Status::OK();
+}
+
+Status MakeDeeplyNestedListView(std::shared_ptr<RecordBatch>* out) {
+  const int batch_length = 5;
+  auto type = int32();
+
+  MemoryPool* pool = default_memory_pool();
+  std::shared_ptr<Array> array;
+  const bool include_nulls = true;
+  RETURN_NOT_OK(MakeRandomInt32Array(1000, include_nulls, pool, &array));
+  for (int i = 0; i < 63; ++i) {
+    type = std::static_pointer_cast<DataType>(list_view(type));
+    RETURN_NOT_OK(
+        MakeRandomListViewArray(array, batch_length, include_nulls, pool, &array));
   }
 
   auto f0 = field("f0", type);

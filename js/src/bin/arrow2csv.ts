@@ -21,12 +21,10 @@
 
 import * as fs from 'fs';
 import * as stream from 'stream';
-import { valueToString } from '../util/pretty.js';
-import { Schema, RecordBatch, RecordBatchReader, AsyncByteQueue } from '../Arrow.node.js';
+import { Schema, RecordBatch, RecordBatchReader, AsyncByteQueue, util } from '../Arrow.js';
 
-import commandLineUsage from 'command-line-usage';
-import commandLineArgs from 'command-line-args';
-import padLeft from 'pad-left';
+import * as commandLineUsage from 'command-line-usage';
+import * as commandLineArgs from 'command-line-args';
 // @ts-ignore
 import { parse as bignumJSONParse } from 'json-bignum';
 
@@ -58,9 +56,10 @@ type ToStringState = {
         if (state.closed) { break; }
         for await (reader of recordBatchReaders(source)) {
             hasReaders = true;
-            const transformToString = batchesToString(state, reader.schema);
+            const batches = stream.Readable.from(reader);
+            const toString = batchesToString(state, reader.schema);
             await pipeTo(
-                reader.pipe(transformToString),
+                batches.pipe(toString),
                 process.stdout, { end: false }
             ).catch(() => state.closed = true); // Handle EPIPE errors
         }
@@ -129,7 +128,7 @@ function batchesToString(state: ToStringState, schema: Schema) {
     let maxColWidths = [10];
     const { hr, sep, metadata } = state;
 
-    const header = ['row_id', ...schema.fields.map((f) => `${f}`)].map(val => valueToString(val));
+    const header = ['row_id', ...schema.fields.map((f) => `${f}`)].map(val => util.valueToString(val));
 
     state.maxColWidths = header.map((x, i) => Math.max(maxColWidths[i] || 0, x.length));
 
@@ -181,7 +180,7 @@ function batchesToString(state: ToStringState, schema: Schema) {
                     if (rowId % 350 === 0) {
                         this.push(`${formatRow(header, maxColWidths, sep)}\n`);
                     }
-                    this.push(`${formatRow([rowId++, ...row.toArray()].map(v => valueToString(v)), maxColWidths, sep)}\n`);
+                    this.push(`${formatRow([rowId++, ...row.toArray()].map(v => util.valueToString(v)), maxColWidths, sep)}\n`);
                 }
             }
             cb();
@@ -190,11 +189,11 @@ function batchesToString(state: ToStringState, schema: Schema) {
 }
 
 function horizontalRule(maxColWidths: number[], hr = '', sep = ' | ') {
-    return ` ${padLeft('', maxColWidths.reduce((x, y) => x + y, -2 + maxColWidths.length * sep.length), hr)}`;
+    return ` ${''.padStart(maxColWidths.reduce((x, y) => x + y, -2 + maxColWidths.length * sep.length), hr)}`;
 }
 
 function formatRow(row: string[] = [], maxColWidths: number[] = [], sep = ' | ') {
-    return `${row.map((x, j) => padLeft(x, maxColWidths[j])).join(sep)}`;
+    return row.map((x, j) => x.padStart(maxColWidths[j])).join(sep);
 }
 
 function formatMetadataValue(value = '') {
@@ -202,7 +201,7 @@ function formatMetadataValue(value = '') {
     try {
         parsed = JSON.stringify(JSON.parse(value), null, 2);
     } catch { parsed = value; }
-    return valueToString(parsed).split('\n').join('\n  ');
+    return util.valueToString(parsed).split('\n').join('\n  ');
 }
 
 function formatMetadata(metadata: Map<string, string>) {
@@ -236,7 +235,7 @@ function measureColumnWidths(rowId: number, batch: RecordBatch, maxColWidths: nu
                     (val.length * elementWidth) // width of stringified 2^N-1
                 );
             } else {
-                maxColWidths[j + 1] = Math.max(maxColWidths[j + 1] || 0, valueToString(val).length);
+                maxColWidths[j + 1] = Math.max(maxColWidths[j + 1] || 0, util.valueToString(val).length);
             }
             ++j;
         }

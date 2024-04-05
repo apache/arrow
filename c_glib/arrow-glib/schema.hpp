@@ -23,5 +23,7 @@
 
 #include <arrow-glib/schema.h>
 
-GArrowSchema *garrow_schema_new_raw(std::shared_ptr<arrow::Schema> *arrow_schema);
-std::shared_ptr<arrow::Schema> garrow_schema_get_raw(GArrowSchema *schema);
+GArrowSchema *
+garrow_schema_new_raw(std::shared_ptr<arrow::Schema> *arrow_schema);
+std::shared_ptr<arrow::Schema>
+garrow_schema_get_raw(GArrowSchema *schema);

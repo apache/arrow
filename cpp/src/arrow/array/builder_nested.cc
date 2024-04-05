@@ -31,6 +31,20 @@
 namespace arrow {
 
 // ----------------------------------------------------------------------
+// VarLengthListLikeBuilder / BaseListBuilder / BaseListViewBuilder
+
+template class VarLengthListLikeBuilder<ListType>;
+template class VarLengthListLikeBuilder<LargeListType>;
+template class VarLengthListLikeBuilder<ListViewType>;
+template class VarLengthListLikeBuilder<LargeListViewType>;
+
+template class BaseListBuilder<ListType>;
+template class BaseListBuilder<LargeListType>;
+
+template class BaseListViewBuilder<ListViewType>;
+template class BaseListViewBuilder<LargeListViewType>;
+
+// ----------------------------------------------------------------------
 // MapBuilder
 
 MapBuilder::MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& key_builder,

@@ -41,45 +41,86 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  ARCHERY_DEBUG: 1
+  ARCHERY_USE_DOCKER_CLI: 1
+
 jobs:
 
+  docker-targets:
+    name: Docker targets
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    outputs:
+      targets: ${{ steps.detect-targets.outputs.targets }}
+    steps:
+      - name: Detect targets
+        id: detect-targets
+        run: |
+          echo "targets<<JSON" >> "$GITHUB_OUTPUT"
+          echo "[" >> "$GITHUB_OUTPUT"
+          cat <<JSON >> "$GITHUB_OUTPUT"
+          {
+            "arch-label": "AMD64",
+            "arch": "amd64",
+            "go": "1.21",
+            "runs-on": "ubuntu-latest"
+          },
+          {
+            "arch-label": "AMD64",
+            "arch": "amd64",
+            "go": "1.22",
+            "runs-on": "ubuntu-latest"
+          }
+          JSON
+          if [ "$GITHUB_REPOSITORY_OWNER" = "apache" ]; then
+            echo "," >> "$GITHUB_OUTPUT"
+            cat <<JSON >> "$GITHUB_OUTPUT"
+          {
+            "arch-label": "ARM64",
+            "arch": "arm64v8",
+            "archery-use-docker-cli": "0",
+            "go": "1.21",
+            "runs-on": ["self-hosted", "arm", "linux"]
+          },
+          {
+            "arch-label": "ARM64",
+            "arch": "arm64v8",
+            "archery-use-docker-cli": "0",
+            "go": "1.22",
+            "runs-on": ["self-hosted", "arm", "linux"]
+          }
+          JSON
+          fi
+          echo "]" >> "$GITHUB_OUTPUT"
+          echo "JSON" >> "$GITHUB_OUTPUT"
+
   docker:
-    name: ${{ matrix.arch-label }} Debian 11 Go ${{ matrix.go }}
+    name: ${{ matrix.arch-label }} Debian 12 Go ${{ matrix.go }}
+    needs: docker-targets
     runs-on: ${{ matrix.runs-on }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - arch-label: AMD64
-            arch: amd64
-            go: 1.19
-            runs-on: ubuntu-latest
-          - arch-label: AMD64
-            arch: amd64
-            go: '1.20'
-            runs-on: ubuntu-latest
-          - arch-label: ARM64
-            arch: arm64v8
-            go: 1.19
-            runs-on: ["self-hosted", "arm", "linux"]
-          - arch-label: ARM64
-            arch: arm64v8
-            go: '1.20'
-            runs-on: ["self-hosted", "arm", "linux"]
+        include: ${{ fromJson(needs.docker-targets.outputs.targets) }}
     env:
       ARCH: ${{ matrix.arch }}
+      # By default, use Docker CLI because docker-compose v1 is obsolete,
+      # except where the Docker client version is too old.
+      ARCHERY_USE_DOCKER_CLI: ${{ matrix.archery-use-docker-cli || '1' }}
       GO: ${{ matrix.go }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v4
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           fetch-depth: 0
           submodules: recursive
       - name: Setup Python
         run: |
-          sudo apt install -y --no-install-recommends python3 python3-pip
+          sudo apt update
+          sudo apt install -y --no-install-recommends python3 python3-dev python3-pip
       - name: Setup Archery
         run: python3 -m pip install -e dev/archery[docker]
       - name: Execute Docker Build
@@ -105,7 +146,7 @@ jobs:
           github.event_name == 'push' &&
           github.repository == 'apache/arrow' &&
           github.ref_name == 'main'
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
         with:
           go-version: ${{ matrix.go }}
           cache: true
@@ -122,7 +163,7 @@ jobs:
           CONBENCH_EMAIL: ${{ secrets.CONBENCH_EMAIL }}
           CONBENCH_PASSWORD: ${{ secrets.CONBENCH_PASS }}
           CONBENCH_REF: ${{ github.ref_name }}
-          CONBENCH_MACHINE_INFO_NAME: ${{ matrix.arch }}-debian-11
+          CONBENCH_MACHINE_INFO_NAME: ${{ matrix.arch }}-debian-12
         run: |
           python3 -m pip install benchadapt@git+https://github.com/conbench/conbench.git@main#subdirectory=benchadapt/python
           python3 ci/scripts/go_bench_adapt.py
@@ -137,10 +178,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Get required Go version
+        run: |
+          (. .env && echo "GO_VERSION=${GO}") >> $GITHUB_ENV
       - name: Install Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: 1.19
+          go-version: "${{ env.GO_VERSION }}"
           cache: true
           cache-dependency-path: go/go.sum
       - name: Run build
@@ -149,24 +193,24 @@ jobs:
           GOARCH=386 go build ./...
 
   docker_cgo:
-    name: AMD64 Debian 11 Go ${{ matrix.go }} - CGO
+    name: AMD64 Debian 12 Go ${{ matrix.go }} - CGO
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        go: [1.19, '1.20']
+        go: ['1.21', '1.22']
     env:
       GO: ${{ matrix.go }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v4
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           fetch-depth: 0
           submodules: recursive
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d # v5.1.0
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -190,23 +234,23 @@ jobs:
 
 
   docker_cgo_python:
-    name: AMD64 Debian 11 Go ${{ matrix.go }} - CGO Python
+    name: AMD64 Debian 12 Go ${{ matrix.go }} - CGO Python
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        go: [1.19, '1.20']
+        go: ['1.21', '1.22']
     env:
       GO: ${{ matrix.go }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v4
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           fetch-depth: 0
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d # v5.1.0
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -232,19 +276,19 @@ jobs:
     name: AMD64 Windows 2019 Go ${{ matrix.go }}
     runs-on: windows-2019
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 15
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
-        go: [1.19, '1.20']
+        go: ['1.21', '1.22']
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v4
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           fetch-depth: 0
           submodules: recursive
       - name: Install go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
         with:
           go-version: ${{ matrix.go }}
           cache: true
@@ -269,15 +313,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.19, '1.20']
+        go: ['1.21', '1.22']
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v4
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           fetch-depth: 0
           submodules: recursive
       - name: Install go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
         with:
           go-version: ${{ matrix.go }}
           cache: true
@@ -298,7 +342,7 @@ jobs:
           github.event_name == 'push' &&
           github.repository == 'apache/arrow' &&
           github.ref_name == 'main'
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d # v5.1.0
         with:
           python-version: '3.10'
       - name: Run Benchmarks
@@ -327,7 +371,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.19, '1.20']
+        go: ['1.21', '1.22']
     env:
       ARROW_GO_TESTCGO: "1"
     steps:
@@ -337,7 +381,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Install go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go }}
           cache: true
@@ -396,6 +440,9 @@ jobs:
         shell: msys2 {0}
         run: |
           ci/scripts/msys2_setup.sh cgo
+      - name: Get required Go version
+        run: |
+          (. .env && echo "GO_VERSION=${GO}") >> $GITHUB_ENV  
       - name: Update CGO Env vars
         shell: msys2 {0}
         run: |
@@ -403,9 +450,9 @@ jobs:
           echo "CGO_LDFLAGS=-g -O2 -L$(cygpath --windows ${MINGW_PREFIX}/lib) -L$(cygpath --windows ${MINGW_PREFIX}/bin)" >> $GITHUB_ENV
           echo "MINGW_PREFIX=$(cygpath --windows ${MINGW_PREFIX})" >> $GITHUB_ENV
       - name: Install go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: '1.19'
+          go-version: "${{ env.GO_VERSION }}"
           cache: true
           cache-dependency-path: go/go.sum
       - name: Install staticcheck

@@ -43,6 +43,9 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/sort.h"
+#include "arrow/util/span.h"
+#include "arrow/visit_data_inline.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow {
@@ -131,7 +134,6 @@ class ArrayDataEndianSwapper {
       out_->buffers[index] = data_->buffers[index];
       return Status::OK();
     }
-    // Except union, offset has one more element rather than data->length
     ARROW_ASSIGN_OR_RAISE(out_->buffers[index],
                           ByteSwapBuffer<VALUE_TYPE>(data_->buffers[index]));
     return Status::OK();
@@ -271,12 +273,30 @@ class ArrayDataEndianSwapper {
     return Status::OK();
   }
 
+  Status Visit(const BinaryViewType& type) {
+    // TODO(GH-37879): This requires knowledge of whether the array is being swapped to
+    // native endian or from it so that we know what size to trust when deciding whether
+    // something is an inline view.
+    return Status::NotImplemented("Swapping endianness of ", type);
+  }
+
   Status Visit(const ListType& type) {
     RETURN_NOT_OK(SwapOffsets<int32_t>(1));
     return Status::OK();
   }
   Status Visit(const LargeListType& type) {
     RETURN_NOT_OK(SwapOffsets<int64_t>(1));
+    return Status::OK();
+  }
+
+  Status Visit(const ListViewType& type) {
+    RETURN_NOT_OK(SwapOffsets<int32_t>(1));
+    RETURN_NOT_OK(SwapOffsets<int32_t>(2));
+    return Status::OK();
+  }
+  Status Visit(const LargeListViewType& type) {
+    RETURN_NOT_OK(SwapOffsets<int64_t>(1));
+    RETURN_NOT_OK(SwapOffsets<int64_t>(2));
     return Status::OK();
   }
 
@@ -366,15 +386,28 @@ class NullArrayFactory {
     }
 
     template <typename T>
-    enable_if_var_size_list<T, Status> Visit(const T&) {
+    enable_if_var_size_list<T, Status> Visit(const T& type) {
       // values array may be empty, but there must be at least one offset of 0
-      return MaxOf(sizeof(typename T::offset_type) * (length_ + 1));
+      RETURN_NOT_OK(MaxOf(sizeof(typename T::offset_type) * (length_ + 1)));
+      RETURN_NOT_OK(MaxOf(GetBufferLength(type.value_type(), /*length=*/0)));
+      return Status::OK();
+    }
+
+    template <typename T>
+    enable_if_list_view<T, Status> Visit(const T& type) {
+      RETURN_NOT_OK(MaxOf(sizeof(typename T::offset_type) * length_));
+      RETURN_NOT_OK(MaxOf(GetBufferLength(type.value_type(), /*length=*/0)));
+      return Status::OK();
     }
 
     template <typename T>
     enable_if_base_binary<T, Status> Visit(const T&) {
       // values buffer may be empty, but there must be at least one offset of 0
       return MaxOf(sizeof(typename T::offset_type) * (length_ + 1));
+    }
+
+    Status Visit(const BinaryViewType& type) {
+      return MaxOf(sizeof(BinaryViewType::c_type) * length_);
     }
 
     Status Visit(const FixedSizeListType& type) {
@@ -496,9 +529,14 @@ class NullArrayFactory {
     return Status::OK();
   }
 
-  template <typename T>
-  enable_if_var_size_list<T, Status> Visit(const T& type) {
+  Status Visit(const BinaryViewType&) {
     out_->buffers.resize(2, buffer_);
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_var_length_list_like<T, Status> Visit(const T& type) {
+    out_->buffers.resize(is_list_view(T::type_id) ? 3 : 2, buffer_);
     ARROW_ASSIGN_OR_RAISE(out_->child_data[0], CreateChild(type, 0, /*length=*/0));
     return Status::OK();
   }
@@ -598,6 +636,11 @@ class RepeatedArrayFactory {
   RepeatedArrayFactory(MemoryPool* pool, const Scalar& scalar, int64_t length)
       : pool_(pool), scalar_(scalar), length_(length) {}
 
+  template <typename T>
+  const auto& scalar() const {
+    return checked_cast<const typename TypeTraits<T>::ScalarType&>(scalar_);
+  }
+
   Result<std::shared_ptr<Array>> Create() {
     RETURN_NOT_OK(VisitTypeInline(*scalar_.type, this));
     return out_;
@@ -619,7 +662,7 @@ class RepeatedArrayFactory {
   template <typename T>
   enable_if_t<is_number_type<T>::value || is_temporal_type<T>::value, Status> Visit(
       const T&) {
-    auto value = checked_cast<const typename TypeTraits<T>::ScalarType&>(scalar_).value;
+    auto value = scalar<T>().value;
     return FinishFixedWidth(&value, sizeof(value));
   }
 
@@ -630,8 +673,7 @@ class RepeatedArrayFactory {
 
   template <typename T>
   enable_if_decimal<T, Status> Visit(const T&) {
-    using ScalarType = typename TypeTraits<T>::ScalarType;
-    auto value = checked_cast<const ScalarType&>(scalar_).value.ToBytes();
+    auto value = scalar<T>().value.ToBytes();
     return FinishFixedWidth(value.data(), value.size());
   }
 
@@ -642,33 +684,56 @@ class RepeatedArrayFactory {
 
   template <typename T>
   enable_if_base_binary<T, Status> Visit(const T&) {
-    std::shared_ptr<Buffer> value =
-        checked_cast<const typename TypeTraits<T>::ScalarType&>(scalar_).value;
+    const std::shared_ptr<Buffer>& value = scalar<T>().value;
     std::shared_ptr<Buffer> values_buffer, offsets_buffer;
     RETURN_NOT_OK(CreateBufferOf(value->data(), value->size(), &values_buffer));
     auto size = static_cast<typename T::offset_type>(value->size());
     RETURN_NOT_OK(CreateOffsetsBuffer(size, &offsets_buffer));
-    out_ = std::make_shared<typename TypeTraits<T>::ArrayType>(length_, offsets_buffer,
-                                                               values_buffer);
+    out_ = std::make_shared<typename TypeTraits<T>::ArrayType>(
+        length_, std::move(offsets_buffer), std::move(values_buffer));
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_binary_view_like<T, Status> Visit(const T& type) {
+    std::string_view value{*scalar<T>().value};
+    auto s = util::ToBinaryView(value, 0, 0);
+    RETURN_NOT_OK(FinishFixedWidth(&s, sizeof(s)));
+    if (!s.is_inline()) {
+      out_->data()->buffers.push_back(scalar<T>().value);
+    }
     return Status::OK();
   }
 
   template <typename T>
   enable_if_var_size_list<T, Status> Visit(const T& type) {
+    using ArrayType = typename TypeTraits<T>::ArrayType;
+
+    ArrayVector values(length_, scalar<T>().value);
+    ARROW_ASSIGN_OR_RAISE(auto value_array, Concatenate(values, pool_));
+
+    std::shared_ptr<Buffer> offsets_buffer;
+    auto size = static_cast<typename T::offset_type>(scalar<T>().value->length());
+    RETURN_NOT_OK(CreateOffsetsBuffer(size, &offsets_buffer));
+    out_ =
+        std::make_shared<ArrayType>(scalar_.type, length_, offsets_buffer, value_array);
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_list_view<T, Status> Visit(const T& type) {
     using ScalarType = typename TypeTraits<T>::ScalarType;
     using ArrayType = typename TypeTraits<T>::ArrayType;
 
     auto value = checked_cast<const ScalarType&>(scalar_).value;
 
-    ArrayVector values(length_, value);
-    ARROW_ASSIGN_OR_RAISE(auto value_array, Concatenate(values, pool_));
-
-    std::shared_ptr<Buffer> offsets_buffer;
     auto size = static_cast<typename T::offset_type>(value->length());
-    RETURN_NOT_OK(CreateOffsetsBuffer(size, &offsets_buffer));
-
-    out_ =
-        std::make_shared<ArrayType>(scalar_.type, length_, offsets_buffer, value_array);
+    ARROW_ASSIGN_OR_RAISE(auto offsets_buffer,
+                          CreateIntBuffer<typename T::offset_type>(0));
+    ARROW_ASSIGN_OR_RAISE(auto sizes_buffer,
+                          CreateIntBuffer<typename T::offset_type>(size));
+    out_ = std::make_shared<ArrayType>(scalar_.type, length_, std::move(offsets_buffer),
+                                       std::move(sizes_buffer), value);
     return Status::OK();
   }
 
@@ -819,6 +884,15 @@ class RepeatedArrayFactory {
       builder.UnsafeAppend(offset);
     }
     return builder.Finish(out);
+  }
+
+  template <typename IntType>
+  Result<std::shared_ptr<Buffer>> CreateIntBuffer(IntType value) {
+    std::shared_ptr<Buffer> buffer;
+    TypedBufferBuilder<IntType> builder(pool_);
+    RETURN_NOT_OK(builder.Append(/*num_copies=*/length_, value));
+    RETURN_NOT_OK(builder.Finish(&buffer));
+    return buffer;
   }
 
   Status CreateBufferOf(const void* data, size_t data_length,

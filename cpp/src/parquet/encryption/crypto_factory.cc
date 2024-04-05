@@ -30,7 +30,7 @@ namespace parquet::encryption {
 
 void CryptoFactory::RegisterKmsClientFactory(
     std::shared_ptr<KmsClientFactory> kms_client_factory) {
-  key_toolkit_.RegisterKmsClientFactory(kms_client_factory);
+  key_toolkit_->RegisterKmsClientFactory(std::move(kms_client_factory));
 }
 
 std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionProperties(
@@ -58,8 +58,8 @@ std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionProper
     }
   }
 
-  FileKeyWrapper key_wrapper(&key_toolkit_, kms_connection_config, key_material_store,
-                             encryption_config.cache_lifetime_seconds,
+  FileKeyWrapper key_wrapper(key_toolkit_.get(), kms_connection_config,
+                             key_material_store, encryption_config.cache_lifetime_seconds,
                              encryption_config.double_wrapping);
 
   int32_t dek_length_bits = encryption_config.data_key_length_bits;
@@ -173,7 +173,7 @@ std::shared_ptr<FileDecryptionProperties> CryptoFactory::GetFileDecryptionProper
     const DecryptionConfiguration& decryption_config, const std::string& file_path,
     const std::shared_ptr<::arrow::fs::FileSystem>& file_system) {
   auto key_retriever = std::make_shared<FileKeyUnwrapper>(
-      &key_toolkit_, kms_connection_config, decryption_config.cache_lifetime_seconds,
+      key_toolkit_, kms_connection_config, decryption_config.cache_lifetime_seconds,
       file_path, file_system);
 
   return FileDecryptionProperties::Builder()
@@ -187,8 +187,8 @@ void CryptoFactory::RotateMasterKeys(
     const std::string& parquet_file_path,
     const std::shared_ptr<::arrow::fs::FileSystem>& file_system, bool double_wrapping,
     double cache_lifetime_seconds) {
-  key_toolkit_.RotateMasterKeys(kms_connection_config, parquet_file_path, file_system,
-                                double_wrapping, cache_lifetime_seconds);
+  key_toolkit_->RotateMasterKeys(kms_connection_config, parquet_file_path, file_system,
+                                 double_wrapping, cache_lifetime_seconds);
 }
 
 }  // namespace parquet::encryption

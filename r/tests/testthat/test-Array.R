@@ -371,19 +371,19 @@ test_that("support for NaN (ARROW-3615)", {
   expect_equal(y$null_count, 1L)
 })
 
-test_that("is.nan() evalutes to FALSE on NA (for consistency with base R)", {
+test_that("is.nan() evaluates to FALSE on NA (for consistency with base R)", {
   x <- c(1.0, NA, NaN, -1.0)
   compare_expression(is.nan(.input), x)
 })
 
-test_that("is.nan() evalutes to FALSE on non-floats (for consistency with base R)", {
+test_that("is.nan() evaluates to FALSE on non-floats (for consistency with base R)", {
   x <- c(1L, 2L, 3L)
   y <- c("foo", "bar")
   compare_expression(is.nan(.input), x)
   compare_expression(is.nan(.input), y)
 })
 
-test_that("is.na() evalutes to TRUE on NaN (for consistency with base R)", {
+test_that("is.na() evaluates to TRUE on NaN (for consistency with base R)", {
   x <- c(1, NA, NaN, -1)
   compare_expression(is.na(.input), x)
 })

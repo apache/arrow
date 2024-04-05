@@ -251,7 +251,7 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
     VectorSchemaRoot root = new VectorSchemaRoot(
         Collections.singletonList(vector.getField()),
         Collections.singletonList(vector), 0);
-    VectorLoader loader = new VectorLoader(root);
+    VectorLoader loader = new VectorLoader(root, this.compressionFactory);
     try {
       loader.load(dictionaryBatch.getDictionary());
     } finally {

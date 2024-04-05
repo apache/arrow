@@ -14,6 +14,9 @@
 // limitations under the License.
 
 using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 using Xunit;
 
@@ -91,6 +94,49 @@ namespace Apache.Arrow.Tests
                     }
                 }
             }
+        }
+
+        [Fact]
+        public void EnumerateArray()
+        {
+            var array = new Int64Array.Builder().Append(1).Append(2).Build();
+
+            foreach(long? foo in (IEnumerable<long?>)array)
+            {
+                Assert.InRange(foo.Value, 1, 2);
+            }
+
+            foreach (object foo in (IEnumerable)array)
+            {
+                Assert.InRange((long)foo, 1, 2);
+            }
+        }
+
+        [Fact]
+        public void ArrayAsReadOnlyList()
+        {
+            Int64Array array = new Int64Array.Builder().Append(1).Append(2).Build();
+            var readOnlyList = (IReadOnlyList<long?>)array;
+
+            Assert.Equal(array.Length, readOnlyList.Count);
+            Assert.Equal(readOnlyList[0], 1);
+            Assert.Equal(readOnlyList[1], 2);
+        }
+
+        [Fact]
+        public void RecursiveArraySlice()
+        {
+            var initialValues = Enumerable.Range(0, 100).ToArray();
+            var array = new Int32Array.Builder().AppendRange(initialValues).Build();
+
+            var sliced = (Int32Array) array.Slice(20, 30);
+            var slicedAgain = (Int32Array) sliced.Slice(5, 10);
+
+            Assert.Equal(25, slicedAgain.Offset);
+            Assert.Equal(10, slicedAgain.Length);
+            Assert.Equal(
+                initialValues.Skip(25).Take(10).Select(val => (int?) val).ToArray(),
+                (IReadOnlyList<int?>) slicedAgain);
         }
 
 #if NET5_0_OR_GREATER
@@ -200,6 +246,7 @@ namespace Apache.Arrow.Tests
             IArrowArrayVisitor<Date64Array>,
             IArrowArrayVisitor<Time32Array>,
             IArrowArrayVisitor<Time64Array>,
+            IArrowArrayVisitor<DurationArray>,
 #if NET5_0_OR_GREATER
             IArrowArrayVisitor<HalfFloatArray>,
 #endif
@@ -243,6 +290,7 @@ namespace Apache.Arrow.Tests
             }
             public void Visit(Time32Array array) => ValidateArrays(array);
             public void Visit(Time64Array array) => ValidateArrays(array);
+            public void Visit(DurationArray array) => ValidateArrays(array);
 
 #if NET5_0_OR_GREATER
             public void Visit(HalfFloatArray array) => ValidateArrays(array);

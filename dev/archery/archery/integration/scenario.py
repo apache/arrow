@@ -23,7 +23,10 @@ class Scenario:
     Does not correspond to a particular IPC JSON file.
     """
 
-    def __init__(self, name, description, skip=None):
+    def __init__(self, name, description, skip_testers=None):
         self.name = name
         self.description = description
-        self.skip = skip or set()
+        self.skipped_testers = skip_testers or set()
+
+    def should_skip(self, tester, format):
+        return tester in self.skipped_testers

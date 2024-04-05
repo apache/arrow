@@ -65,7 +65,7 @@ update_versions() {
   popd
 
   pushd "${ARROW_DIR}/java"
-  mvn versions:set -DnewVersion=${version}
+  mvn versions:set -DnewVersion=${version} -DprocessAllModules
   find . -type f -name pom.xml.versionsBackup -delete
   git add "pom.xml"
   git add "**/pom.xml"
@@ -80,11 +80,6 @@ update_versions() {
   popd
 
   pushd "${ARROW_DIR}/dev/tasks/homebrew-formulae"
-  sed -i.bak -E -e \
-    "s/arrow-[0-9.]+[0-9]+/arrow-${r_version}/g" \
-    autobrew/apache-arrow.rb
-  rm -f autobrew/apache-arrow.rb.bak
-  git add autobrew/apache-arrow.rb
   sed -i.bak -E -e \
     "s/arrow-[0-9.\-]+[0-9SNAPHOT]+/arrow-${version}/g" \
     apache-arrow-glib.rb \
@@ -132,6 +127,7 @@ update_versions() {
     DESCRIPTION
   rm -f DESCRIPTION.bak
   git add DESCRIPTION
+  
   # Replace dev version with release version
   sed -i.bak -E -e \
     "/^<!--/,/^# arrow /s/^# arrow .+/# arrow ${base_version}/" \
@@ -144,6 +140,13 @@ update_versions() {
   fi
   rm -f NEWS.md.bak
   git add NEWS.md
+
+  # godoc link must reference current version, will reference v0.0.0 (2018) otherwise
+  sed -i.bak -E -e \
+    "s|(github\\.com/apache/arrow/go)/v[0-9]+|\1/v${major_version}|g" \
+    _pkgdown.yml
+  rm -f _pkgdown.yml.bak
+  git add _pkgdown.yml
   popd
 
   pushd "${ARROW_DIR}/ruby"
@@ -155,8 +158,8 @@ update_versions() {
   popd
 
   pushd "${ARROW_DIR}/go"
-  find . "(" -name "*.go*" -o -name "go.mod" ")" -exec sed -i.bak -E -e \
-    "s|(github\\.com/apache/arrow/go)/v[0-9]+|\1/v${major_version}|" {} \;
+  find . "(" -name "*.go*" -o -name "go.mod" -o -name README.md ")" -exec sed -i.bak -E -e \
+    "s|(github\\.com/apache/arrow/go)/v[0-9]+|\1/v${major_version}|g" {} \;
   # update parquet writer version
   sed -i.bak -E -e \
     "s/\"parquet-go version .+\"/\"parquet-go version ${version}\"/" \
@@ -167,6 +170,15 @@ update_versions() {
 
   find . -name "*.bak" -exec rm {} \;
   git add .
+  popd
+
+  pushd "${ARROW_DIR}/docs/source"
+  # godoc link must reference current version, will reference v0.0.0 (2018) otherwise
+  sed -i.bak -E -e \
+    "s|(github\\.com/apache/arrow/go)/v[0-9]+|\1/v${major_version}|g" \
+    index.rst
+  rm -f index.rst.bak
+  git add index.rst
   popd
 
   pushd "${ARROW_DIR}"

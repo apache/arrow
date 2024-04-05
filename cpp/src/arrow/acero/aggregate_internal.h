@@ -224,7 +224,7 @@ class ScalarAggregateNode : public ExecNode, public TracedNode {
   // Field indices corresponding to the segment-keys
   const std::vector<int> segment_field_ids_;
   // Holds the value of segment keys of the most recent input batch
-  // The values are updated everytime an input batch is processed
+  // The values are updated every time an input batch is processed
   std::vector<Datum> segmenter_values_;
 
   const std::vector<std::vector<int>> target_fieldsets_;

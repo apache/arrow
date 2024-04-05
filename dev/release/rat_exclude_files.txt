@@ -12,6 +12,7 @@ ci/etc/*.patch
 ci/vcpkg/*.patch
 CHANGELOG.md
 cpp/CHANGELOG_PARQUET.md
+cpp/src/arrow/c/dlpack_abi.h
 cpp/src/arrow/io/mman.h
 cpp/src/arrow/util/random.h
 cpp/src/arrow/status.cc
@@ -22,8 +23,6 @@ cpp/build-support/cpplint.py
 cpp/build-support/lint_exclusions.txt
 cpp/build-support/iwyu/*
 cpp/cmake_modules/FindPythonLibsNew.cmake
-cpp/cmake_modules/SnappyCMakeLists.txt
-cpp/cmake_modules/SnappyConfig.h
 cpp/examples/parquet/parquet-arrow/cmake_modules/FindArrow.cmake
 cpp/src/parquet/.parquetcppversion
 cpp/src/generated/parquet_constants.cpp
@@ -81,6 +80,8 @@ go/parquet/internal/gen-go/parquet/GoUnusedProtection__.go
 go/parquet/internal/gen-go/parquet/parquet-consts.go
 go/parquet/internal/gen-go/parquet/parquet.go
 go/parquet/version_string.go
+java/vector/src/main/java/org/apache/arrow/vector/util/IntObjectMap.java
+java/vector/src/main/java/org/apache/arrow/vector/util/IntObjectHashMap.java
 js/.npmignore
 js/closure-compiler-scripts/*
 js/src/fb/*.ts
@@ -88,8 +89,6 @@ js/yarn.lock
 js/.eslintignore
 python/cmake_modules
 python/cmake_modules/FindPythonLibsNew.cmake
-python/cmake_modules/SnappyCMakeLists.txt
-python/cmake_modules/SnappyConfig.h
 python/MANIFEST.in
 python/manylinux1/.dockerignore
 python/pyarrow/includes/__init__.pxd

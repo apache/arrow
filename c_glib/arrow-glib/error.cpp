@@ -33,14 +33,12 @@ G_BEGIN_DECLS
  * values.
  */
 
-G_DEFINE_QUARK(garrow-error-quark, garrow_error)
+G_DEFINE_QUARK(garrow - error - quark, garrow_error)
 
 G_END_DECLS
 
 gboolean
-garrow_error_check(GError **error,
-                   const arrow::Status &status,
-                   const char *context)
+garrow_error_check(GError **error, const arrow::Status &status, const char *context)
 {
   return garrow::check(error, status, context);
 }
@@ -85,8 +83,7 @@ garrow_error_from_status(const arrow::Status &status)
 }
 
 arrow::StatusCode
-garrow_error_to_status_code(GError *error,
-                            arrow::StatusCode default_code)
+garrow_error_to_status_code(GError *error, arrow::StatusCode default_code)
 {
   if (error->domain != GARROW_ERROR) {
     return default_code;
@@ -127,9 +124,7 @@ garrow_error_to_status_code(GError *error,
 }
 
 arrow::Status
-garrow_error_to_status(GError *error,
-                       arrow::StatusCode default_code,
-                       const char *context)
+garrow_error_to_status(GError *error, arrow::StatusCode default_code, const char *context)
 {
   std::stringstream message;
   message << context << ": " << g_quark_to_string(error->domain);
@@ -141,9 +136,9 @@ garrow_error_to_status(GError *error,
 }
 
 namespace garrow {
-  gboolean check(GError **error,
-                 const arrow::Status &status,
-                 const char *context) {
+  gboolean
+  check(GError **error, const arrow::Status &status, const char *context)
+  {
     if (status.ok()) {
       return TRUE;
     } else {
@@ -156,4 +151,4 @@ namespace garrow {
       return FALSE;
     }
   }
-}
+} // namespace garrow

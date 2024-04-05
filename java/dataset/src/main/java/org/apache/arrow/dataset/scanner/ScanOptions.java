@@ -17,6 +17,7 @@
 
 package org.apache.arrow.dataset.scanner;
 
+import java.nio.ByteBuffer;
 import java.util.Optional;
 
 import org.apache.arrow.util.Preconditions;
@@ -25,8 +26,10 @@ import org.apache.arrow.util.Preconditions;
  * Options used during scanning.
  */
 public class ScanOptions {
-  private final Optional<String[]> columns;
   private final long batchSize;
+  private final Optional<String[]> columns;
+  private final Optional<ByteBuffer> substraitProjection;
+  private final Optional<ByteBuffer> substraitFilter;
 
   /**
    * Constructor.
@@ -56,6 +59,8 @@ public class ScanOptions {
     Preconditions.checkNotNull(columns);
     this.batchSize = batchSize;
     this.columns = columns;
+    this.substraitProjection = Optional.empty();
+    this.substraitFilter = Optional.empty();
   }
 
   public ScanOptions(long batchSize) {
@@ -68,5 +73,78 @@ public class ScanOptions {
 
   public long getBatchSize() {
     return batchSize;
+  }
+
+  public Optional<ByteBuffer> getSubstraitProjection() {
+    return substraitProjection;
+  }
+
+  public Optional<ByteBuffer> getSubstraitFilter() {
+    return substraitFilter;
+  }
+
+  /**
+   * Builder for Options used during scanning.
+   */
+  public static class Builder {
+    private final long batchSize;
+    private Optional<String[]> columns;
+    private ByteBuffer substraitProjection;
+    private ByteBuffer substraitFilter;
+
+    /**
+     * Constructor.
+     * @param batchSize Maximum row number of each returned {@link org.apache.arrow.vector.ipc.message.ArrowRecordBatch}
+     */
+    public Builder(long batchSize) {
+      this.batchSize = batchSize;
+    }
+
+    /**
+     * Set the Projected columns. Empty for scanning all columns.
+     *
+     * @param columns Projected columns. Empty for scanning all columns.
+     * @return the ScanOptions configured.
+     */
+    public Builder columns(Optional<String[]> columns) {
+      Preconditions.checkNotNull(columns);
+      this.columns = columns;
+      return this;
+    }
+
+    /**
+     * Set the Substrait extended expression for Projection new columns.
+     *
+     * @param substraitProjection Expressions to evaluate for project new columns.
+     * @return the ScanOptions configured.
+     */
+    public Builder substraitProjection(ByteBuffer substraitProjection) {
+      Preconditions.checkNotNull(substraitProjection);
+      this.substraitProjection = substraitProjection;
+      return this;
+    }
+
+    /**
+     * Set the Substrait extended expression for Filter.
+     *
+     * @param substraitFilter Expressions to evaluate for apply Filter.
+     * @return the ScanOptions configured.
+     */
+    public Builder substraitFilter(ByteBuffer substraitFilter) {
+      Preconditions.checkNotNull(substraitFilter);
+      this.substraitFilter = substraitFilter;
+      return this;
+    }
+
+    public ScanOptions build() {
+      return new ScanOptions(this);
+    }
+  }
+
+  private ScanOptions(Builder builder) {
+    batchSize = builder.batchSize;
+    columns = builder.columns;
+    substraitProjection = Optional.ofNullable(builder.substraitProjection);
+    substraitFilter = Optional.ofNullable(builder.substraitFilter);
   }
 }

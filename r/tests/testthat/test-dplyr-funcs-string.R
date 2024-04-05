@@ -425,6 +425,23 @@ test_that("sub and gsub with namespacing", {
 })
 
 test_that("str_replace and str_replace_all", {
+  x <- Expression$field_ref("x")
+
+  expect_error(
+    call_binding("str_replace_all", x, c("F" = "_", "b" = "")),
+    regexp = "`pattern` must be a length 1 character vector"
+  )
+
+  expect_error(
+    call_binding("str_replace_all", x, c("F", "b"), c("_", "")),
+    regexp = "`pattern` must be a length 1 character vector"
+  )
+
+  expect_error(
+    call_binding("str_replace_all", x, c("F"), c("_", "")),
+    regexp = "`replacement` must be a length 1 character vector"
+  )
+
   df <- tibble(x = c("Foo", "bar"))
 
   compare_dplyr_binding(

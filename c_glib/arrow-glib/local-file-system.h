@@ -25,7 +25,8 @@ G_BEGIN_DECLS
 
 /* arrow::fs::LocalFileSystemOptions */
 
-#define GARROW_TYPE_LOCAL_FILE_SYSTEM_OPTIONS (garrow_local_file_system_options_get_type())
+#define GARROW_TYPE_LOCAL_FILE_SYSTEM_OPTIONS                                            \
+  (garrow_local_file_system_options_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowLocalFileSystemOptions,
                          garrow_local_file_system_options,
                          GARROW,

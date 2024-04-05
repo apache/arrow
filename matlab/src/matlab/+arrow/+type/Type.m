@@ -19,6 +19,7 @@ classdef (Abstract) Type < matlab.mixin.CustomDisplay & ...
 
     properties (Dependent, GetAccess=public, SetAccess=private)
         ID
+        Fields
         NumFields
     end
 
@@ -41,6 +42,29 @@ classdef (Abstract) Type < matlab.mixin.CustomDisplay & ...
         function typeID = get.ID(obj)
             typeID = arrow.type.ID(obj.Proxy.getTypeID());
         end
+
+        function F = field(obj, idx)
+            import arrow.internal.validate.*
+
+            idx = index.numeric(idx, "int32", AllowNonScalar=false);
+            args = struct(Index=idx);
+            proxyID = obj.Proxy.getFieldByIndex(args);
+            proxy = libmexclass.proxy.Proxy(Name="arrow.type.proxy.Field", ID=proxyID);
+            F = arrow.type.Field(proxy);
+        end
+
+        function fields = get.Fields(obj)
+            numFields = obj.NumFields;
+            if numFields == 0
+                fields = arrow.type.Field.empty(0, 0);
+            else
+                fields = cell(1, numFields);
+                for ii = 1:numFields
+                    fields{ii} = obj.field(ii);
+                end
+                fields = horzcat(fields{:});
+            end
+        end
     end
 
     methods(Access = protected)
@@ -58,7 +82,7 @@ classdef (Abstract) Type < matlab.mixin.CustomDisplay & ...
             else
                 % Check if every type in the array has the same class type.
                 % If so, call getDisplayPropertyGroups() so that all
-                % properties assoicated with that class are displayed.
+                % properties associated with that class are displayed.
                 classnames = arrayfun(@(type) string(class(type)), obj);
                 if numel(unique(classnames)) == 1
                     groups = getDisplayPropertyGroups(obj(1));

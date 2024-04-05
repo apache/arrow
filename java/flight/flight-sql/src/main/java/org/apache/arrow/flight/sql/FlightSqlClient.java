@@ -61,15 +61,21 @@ import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.CancelFlightInfoRequest;
 import org.apache.arrow.flight.CancelFlightInfoResult;
+import org.apache.arrow.flight.CloseSessionRequest;
+import org.apache.arrow.flight.CloseSessionResult;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
+import org.apache.arrow.flight.GetSessionOptionsRequest;
+import org.apache.arrow.flight.GetSessionOptionsResult;
 import org.apache.arrow.flight.PutResult;
 import org.apache.arrow.flight.RenewFlightEndpointRequest;
 import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.SchemaResult;
+import org.apache.arrow.flight.SetSessionOptionsRequest;
+import org.apache.arrow.flight.SetSessionOptionsResult;
 import org.apache.arrow.flight.SyncPutListener;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementResult;
@@ -917,6 +923,18 @@ public class FlightSqlClient implements AutoCloseable {
     return client.renewFlightEndpoint(request, options);
   }
 
+  public SetSessionOptionsResult setSessionOptions(SetSessionOptionsRequest request, CallOption... options) {
+    return client.setSessionOptions(request, options);
+  }
+
+  public GetSessionOptionsResult getSessionOptions(GetSessionOptionsRequest request, CallOption... options) {
+    return client.getSessionOptions(request, options);
+  }
+
+  public CloseSessionResult closeSession(CloseSessionRequest request, CallOption... options) {
+    return client.closeSession(request, options);
+  }
+
   @Override
   public void close() throws Exception {
     AutoCloseables.close(client);
@@ -951,12 +969,11 @@ public class FlightSqlClient implements AutoCloseable {
      *                             {@code PreparedStatement} setters.
      */
     public void setParameters(final VectorSchemaRoot parameterBindingRoot) {
-      if (this.parameterBindingRoot != null) {
-        if (this.parameterBindingRoot.equals(parameterBindingRoot)) {
-          return;
-        }
-        this.parameterBindingRoot.close();
+      if (parameterBindingRoot == this.parameterBindingRoot) {
+        // Nothing to do if we're attempting to set the same parameters again.
+        return;
       }
+      clearParameters();
       this.parameterBindingRoot = parameterBindingRoot;
     }
 
@@ -1038,17 +1055,23 @@ public class FlightSqlClient implements AutoCloseable {
               .toByteArray());
 
       if (parameterBindingRoot != null && parameterBindingRoot.getRowCount() > 0) {
-        final SyncPutListener putListener = new SyncPutListener();
-
-        FlightClient.ClientStreamListener listener =
-            client.startPut(descriptor, parameterBindingRoot, putListener, options);
-
-        listener.putNext();
-        listener.completed();
-        listener.getResult();
+        putParameters(descriptor, options);
       }
 
       return client.getInfo(descriptor, options);
+    }
+
+    private SyncPutListener putParameters(FlightDescriptor descriptor, CallOption... options) {
+      final SyncPutListener putListener = new SyncPutListener();
+
+      FlightClient.ClientStreamListener listener =
+              client.startPut(descriptor, parameterBindingRoot, putListener, options);
+
+      listener.putNext();
+      listener.completed();
+      listener.getResult();
+
+      return putListener;
     }
 
     /**
@@ -1074,11 +1097,8 @@ public class FlightSqlClient implements AutoCloseable {
                   .build())
               .toByteArray());
       setParameters(parameterBindingRoot == null ? VectorSchemaRoot.of() : parameterBindingRoot);
-      final SyncPutListener putListener = new SyncPutListener();
-      final FlightClient.ClientStreamListener listener =
-          client.startPut(descriptor, parameterBindingRoot, putListener, options);
-      listener.putNext();
-      listener.completed();
+      SyncPutListener putListener = putParameters(descriptor, options);
+
       try {
         final PutResult read = putListener.read();
         try (final ArrowBuf metadata = read.getApplicationMetadata()) {
@@ -1112,9 +1132,7 @@ public class FlightSqlClient implements AutoCloseable {
       final Iterator<Result> closePreparedStatementResults = client.doAction(action, options);
       closePreparedStatementResults.forEachRemaining(result -> {
       });
-      if (parameterBindingRoot != null) {
-        parameterBindingRoot.close();
-      }
+      clearParameters();
     }
 
     @Override

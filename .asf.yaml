@@ -23,9 +23,8 @@ github:
     - benibus
     - danepitkin
     - davisusanibar
-    - felipecrv
     - js8544
-    - mapleFU
+    - vibhatha
 
 notifications:
   commits:      commits@arrow.apache.org

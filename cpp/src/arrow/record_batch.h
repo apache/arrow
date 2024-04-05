@@ -80,6 +80,18 @@ class ARROW_EXPORT RecordBatch {
   /// in the resulting struct array.
   Result<std::shared_ptr<StructArray>> ToStructArray() const;
 
+  /// \brief Convert record batch with one data type to Tensor
+  ///
+  /// Create a Tensor object with shape (number of rows, number of columns) and
+  /// strides (type size in bytes, type size in bytes * number of rows).
+  /// Generated Tensor will have column-major layout.
+  ///
+  /// \param[in] null_to_nan if true, convert nulls to NaN
+  /// \param[in] pool the memory pool to allocate the tensor buffer
+  /// \return the resulting Tensor
+  Result<std::shared_ptr<Tensor>> ToTensor(
+      bool null_to_nan = false, MemoryPool* pool = default_memory_pool()) const;
+
   /// \brief Construct record batch from struct array
   ///
   /// This constructs a record batch using the child arrays of the given
@@ -186,6 +198,25 @@ class ARROW_EXPORT RecordBatch {
   /// \return the number of rows (the corresponding length of each column)
   int64_t num_rows() const { return num_rows_; }
 
+  /// \brief Copy the entire RecordBatch to destination MemoryManager
+  ///
+  /// This uses Array::CopyTo on each column of the record batch to create
+  /// a new record batch where all underlying buffers for the columns have
+  /// been copied to the destination MemoryManager. This uses
+  /// MemoryManager::CopyBuffer under the hood.
+  Result<std::shared_ptr<RecordBatch>> CopyTo(
+      const std::shared_ptr<MemoryManager>& to) const;
+
+  /// \brief View or Copy the entire RecordBatch to destination MemoryManager
+  ///
+  /// This uses Array::ViewOrCopyTo on each column of the record batch to create
+  /// a new record batch where all underlying buffers for the columns have
+  /// been zero-copy viewed on the destination MemoryManager, falling back
+  /// to performing a copy if it can't be viewed as a zero-copy buffer. This uses
+  /// Buffer::ViewOrCopy under the hood.
+  Result<std::shared_ptr<RecordBatch>> ViewOrCopyTo(
+      const std::shared_ptr<MemoryManager>& to) const;
+
   /// \brief Slice each of the arrays in the record batch
   /// \param[in] offset the starting offset to slice, through end of batch
   /// \return new record batch
@@ -199,6 +230,13 @@ class ARROW_EXPORT RecordBatch {
 
   /// \return PrettyPrint representation suitable for debugging
   std::string ToString() const;
+
+  /// \brief Return names of all columns
+  std::vector<std::string> ColumnNames() const;
+
+  /// \brief Rename columns with provided names
+  Result<std::shared_ptr<RecordBatch>> RenameColumns(
+      const std::vector<std::string>& names) const;
 
   /// \brief Return new record batch with specified columns
   Result<std::shared_ptr<RecordBatch>> SelectColumns(
@@ -349,5 +387,19 @@ class ARROW_EXPORT RecordBatchReader {
   static Result<std::shared_ptr<RecordBatchReader>> MakeFromIterator(
       Iterator<std::shared_ptr<RecordBatch>> batches, std::shared_ptr<Schema> schema);
 };
+
+/// \brief Concatenate record batches
+///
+/// The columns of the new batch are formed by concatenate the same columns of each input
+/// batch. Concatenate multiple batches into a new batch requires that the schema must be
+/// consistent. It supports merging batches without columns (only length, scenarios such
+/// as count(*)).
+///
+/// \param[in] batches a vector of record batches to be concatenated
+/// \param[in] pool memory to store the result will be allocated from this memory pool
+/// \return the concatenated record batch
+ARROW_EXPORT
+Result<std::shared_ptr<RecordBatch>> ConcatenateRecordBatches(
+    const RecordBatchVector& batches, MemoryPool* pool = default_memory_pool());
 
 }  // namespace arrow

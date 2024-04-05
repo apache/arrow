@@ -18,14 +18,26 @@
 
 package org.apache.arrow.flatbuf;
 
-import java.nio.*;
-import java.lang.*;
-import java.util.*;
-import com.google.flatbuffers.*;
+import com.google.flatbuffers.BaseVector;
+import com.google.flatbuffers.BooleanVector;
+import com.google.flatbuffers.ByteVector;
+import com.google.flatbuffers.Constants;
+import com.google.flatbuffers.DoubleVector;
+import com.google.flatbuffers.FlatBufferBuilder;
+import com.google.flatbuffers.FloatVector;
+import com.google.flatbuffers.IntVector;
+import com.google.flatbuffers.LongVector;
+import com.google.flatbuffers.ShortVector;
+import com.google.flatbuffers.StringVector;
+import com.google.flatbuffers.Struct;
+import com.google.flatbuffers.Table;
+import com.google.flatbuffers.UnionVector;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 @SuppressWarnings("unused")
 public final class Int extends Table {
-  public static void ValidateVersion() { Constants.FLATBUFFERS_1_12_0(); }
+  public static void ValidateVersion() { Constants.FLATBUFFERS_23_5_26(); }
   public static Int getRootAsInt(ByteBuffer _bb) { return getRootAsInt(_bb, new Int()); }
   public static Int getRootAsInt(ByteBuffer _bb, Int obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb)); }
   public void __init(int _i, ByteBuffer _bb) { __reset(_i, _bb); }
@@ -36,10 +48,10 @@ public final class Int extends Table {
 
   public static int createInt(FlatBufferBuilder builder,
       int bitWidth,
-      boolean is_signed) {
+      boolean isSigned) {
     builder.startTable(2);
     Int.addBitWidth(builder, bitWidth);
-    Int.addIsSigned(builder, is_signed);
+    Int.addIsSigned(builder, isSigned);
     return Int.endInt(builder);
   }
 

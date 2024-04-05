@@ -45,9 +45,11 @@ Classes
    CsvFileFormat
    CsvFragmentScanOptions
    IpcFileFormat
+   JsonFileFormat
    ParquetFileFormat
    ParquetReadOptions
    ParquetFragmentScanOptions
+   ParquetFileFragment
    OrcFileFormat
    Partitioning
    PartitioningFactory

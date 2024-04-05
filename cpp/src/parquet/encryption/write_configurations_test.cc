@@ -33,7 +33,7 @@
  * This file contains unit-tests for writing encrypted Parquet files with
  * different encryption configurations.
  * The files are saved in temporary folder and will be deleted after reading
- * them in encryption-read-configurations-test.cc test.
+ * them in read_configurations_test.cc test.
  *
  * A detailed description of the Parquet Modular Encryption specification can be found
  * here:

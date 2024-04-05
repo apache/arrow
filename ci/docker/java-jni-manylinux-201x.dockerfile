@@ -18,7 +18,7 @@
 ARG base
 FROM ${base}
 
-# Install the libaries required by the Gandiva to run
+# Install the libraries required by the Gandiva to run
 # Use enable llvm[enable-rtti] in the vcpkg.json to avoid link problems in Gandiva
 RUN vcpkg install \
         --clean-after-build \

@@ -37,6 +37,11 @@ set_property(TARGET arrow_java_jni_orc PROPERTY OUTPUT_NAME "arrow_orc_jni")
 target_link_libraries(arrow_java_jni_orc arrow_java_jni_orc_headers jni
                       Arrow::arrow_static)
 
+set(ARROW_JAVA_JNI_ORC_LIBDIR
+    "${CMAKE_INSTALL_PREFIX}/lib/arrow_orc_jni/${ARROW_JAVA_JNI_ARCH_DIR}")
+set(ARROW_JAVA_JNI_ORC_BINDIR
+    "${CMAKE_INSTALL_PREFIX}/bin/arrow_orc_jni/${ARROW_JAVA_JNI_ARCH_DIR}")
+
 install(TARGETS arrow_java_jni_orc
-        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+        LIBRARY DESTINATION ${ARROW_JAVA_JNI_ORC_LIBDIR}
+        RUNTIME DESTINATION ${ARROW_JAVA_JNI_ORC_BINDIR})

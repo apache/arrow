@@ -24,6 +24,7 @@
 #include "arrow/array/validate.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/binary_view_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
@@ -88,6 +89,33 @@ LargeStringArray::LargeStringArray(int64_t length,
 }
 
 Status LargeStringArray::ValidateUTF8() const { return internal::ValidateUTF8(*data_); }
+
+BinaryViewArray::BinaryViewArray(std::shared_ptr<ArrayData> data) {
+  ARROW_CHECK_EQ(data->type->id(), Type::BINARY_VIEW);
+  SetData(std::move(data));
+}
+
+BinaryViewArray::BinaryViewArray(std::shared_ptr<DataType> type, int64_t length,
+                                 std::shared_ptr<Buffer> views, BufferVector buffers,
+                                 std::shared_ptr<Buffer> null_bitmap, int64_t null_count,
+                                 int64_t offset) {
+  buffers.insert(buffers.begin(), std::move(views));
+  buffers.insert(buffers.begin(), std::move(null_bitmap));
+  SetData(
+      ArrayData::Make(std::move(type), length, std::move(buffers), null_count, offset));
+}
+
+std::string_view BinaryViewArray::GetView(int64_t i) const {
+  const std::shared_ptr<Buffer>* data_buffers = data_->buffers.data() + 2;
+  return util::FromBinaryView(raw_values_[i], data_buffers);
+}
+
+StringViewArray::StringViewArray(std::shared_ptr<ArrayData> data) {
+  ARROW_CHECK_EQ(data->type->id(), Type::STRING_VIEW);
+  SetData(std::move(data));
+}
+
+Status StringViewArray::ValidateUTF8() const { return internal::ValidateUTF8(*data_); }
 
 FixedSizeBinaryArray::FixedSizeBinaryArray(const std::shared_ptr<ArrayData>& data) {
   SetData(data);

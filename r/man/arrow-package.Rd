@@ -29,6 +29,7 @@ Authors:
   \item Jonathan Keane \email{jkeane@gmail.com}
   \item Dragoș Moldovan-Grünfeld \email{dragos.mold@gmail.com}
   \item Jeroen Ooms \email{jeroen@berkeley.edu}
+  \item Jacob Wujciak-Jens \email{jacob@wujciak.de}
   \item Apache Arrow \email{dev@arrow.apache.org} [copyright holder]
 }
 

@@ -205,7 +205,10 @@ class ArrayLoader {
     }
   }
 
-  Status LoadType(const DataType& type) { return VisitTypeInline(type, this); }
+  Status LoadType(const DataType& type) {
+    DCHECK_NE(out_, nullptr);
+    return VisitTypeInline(type, this);
+  }
 
   Status Load(const Field* field, ArrayData* out) {
     if (max_recursion_depth_ <= 0) {
@@ -223,6 +226,9 @@ class ArrayLoader {
     skip_io_ = true;
     Status status = Load(field, &dummy);
     skip_io_ = false;
+    // GH-37851: Reset state. Load will set `out_` to `&dummy`, which would
+    // be a dangling pointer.
+    out_ = nullptr;
     return status;
   }
 
@@ -242,6 +248,20 @@ class ArrayLoader {
     }
   }
 
+  Result<size_t> GetVariadicCount(int i) {
+    auto* variadic_counts = metadata_->variadicBufferCounts();
+    CHECK_FLATBUFFERS_NOT_NULL(variadic_counts, "RecordBatch.variadicBufferCounts");
+    if (i >= static_cast<int>(variadic_counts->size())) {
+      return Status::IOError("variadic_count_index out of range.");
+    }
+    int64_t count = variadic_counts->Get(i);
+    if (count < 0 || count > std::numeric_limits<int32_t>::max()) {
+      return Status::IOError(
+          "variadic_count must be representable as a positive int32_t, got ", count, ".");
+    }
+    return static_cast<size_t>(count);
+  }
+
   Status GetFieldMetadata(int field_index, ArrayData* out) {
     auto nodes = metadata_->nodes();
     CHECK_FLATBUFFERS_NOT_NULL(nodes, "Table.nodes");
@@ -258,6 +278,7 @@ class ArrayLoader {
   }
 
   Status LoadCommon(Type::type type_id) {
+    DCHECK_NE(out_, nullptr);
     // This only contains the length and null count, which we need to figure
     // out what to do with the buffers. For example, if null_count == 0, then
     // we can skip that buffer without reading from shared memory
@@ -276,6 +297,7 @@ class ArrayLoader {
 
   template <typename TYPE>
   Status LoadPrimitive(Type::type type_id) {
+    DCHECK_NE(out_, nullptr);
     out_->buffers.resize(2);
 
     RETURN_NOT_OK(LoadCommon(type_id));
@@ -288,8 +310,8 @@ class ArrayLoader {
     return Status::OK();
   }
 
-  template <typename TYPE>
   Status LoadBinary(Type::type type_id) {
+    DCHECK_NE(out_, nullptr);
     out_->buffers.resize(3);
 
     RETURN_NOT_OK(LoadCommon(type_id));
@@ -299,6 +321,7 @@ class ArrayLoader {
 
   template <typename TYPE>
   Status LoadList(const TYPE& type) {
+    DCHECK_NE(out_, nullptr);
     out_->buffers.resize(2);
 
     RETURN_NOT_OK(LoadCommon(type.id()));
@@ -312,7 +335,24 @@ class ArrayLoader {
     return LoadChildren(type.fields());
   }
 
+  template <typename TYPE>
+  Status LoadListView(const TYPE& type) {
+    out_->buffers.resize(3);
+
+    RETURN_NOT_OK(LoadCommon(type.id()));
+    RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[1]));
+    RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[2]));
+
+    const int num_children = type.num_fields();
+    if (num_children != 1) {
+      return Status::Invalid("Wrong number of children: ", num_children);
+    }
+
+    return LoadChildren(type.fields());
+  }
+
   Status LoadChildren(const std::vector<std::shared_ptr<Field>>& child_fields) {
+    DCHECK_NE(out_, nullptr);
     ArrayData* parent = out_;
 
     parent->child_data.resize(child_fields.size());
@@ -344,7 +384,22 @@ class ArrayLoader {
 
   template <typename T>
   enable_if_base_binary<T, Status> Visit(const T& type) {
-    return LoadBinary<T>(type.id());
+    return LoadBinary(type.id());
+  }
+
+  Status Visit(const BinaryViewType& type) {
+    out_->buffers.resize(2);
+
+    RETURN_NOT_OK(LoadCommon(type.id()));
+    RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[1]));
+
+    ARROW_ASSIGN_OR_RAISE(auto data_buffer_count,
+                          GetVariadicCount(variadic_count_index_++));
+    out_->buffers.resize(data_buffer_count + 2);
+    for (size_t i = 0; i < data_buffer_count; ++i) {
+      RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[i + 2]));
+    }
+    return Status::OK();
   }
 
   Status Visit(const FixedSizeBinaryType& type) {
@@ -356,6 +411,11 @@ class ArrayLoader {
   template <typename T>
   enable_if_var_size_list<T, Status> Visit(const T& type) {
     return LoadList(type);
+  }
+
+  template <typename T>
+  enable_if_list_view<T, Status> Visit(const T& type) {
+    return LoadListView(type);
   }
 
   Status Visit(const MapType& type) {
@@ -439,6 +499,7 @@ class ArrayLoader {
   int buffer_index_ = 0;
   int field_index_ = 0;
   bool skip_io_ = false;
+  int variadic_count_index_ = 0;
 
   BatchDataReadRequest read_request_;
   const Field* field_ = nullptr;
@@ -569,10 +630,9 @@ Result<std::shared_ptr<RecordBatch>> LoadRecordBatchSubset(
 
   // swap endian in a set of ArrayData if necessary (swap_endian == true)
   if (context.swap_endian) {
-    for (int i = 0; i < static_cast<int>(filtered_columns.size()); ++i) {
-      ARROW_ASSIGN_OR_RAISE(filtered_columns[i],
-                            arrow::internal::SwapEndianArrayData(
-                                filtered_columns[i], context.options.memory_pool));
+    for (auto& filtered_column : filtered_columns) {
+      ARROW_ASSIGN_OR_RAISE(filtered_column,
+                            arrow::internal::SwapEndianArrayData(filtered_column));
     }
   }
   return RecordBatch::Make(std::move(filtered_schema), metadata->length(),
@@ -898,13 +958,17 @@ class StreamDecoderInternal : public MessageDecoderListener {
     return listener_->OnEOS();
   }
 
+  std::shared_ptr<Listener> listener() const { return listener_; }
+
   Listener* raw_listener() const { return listener_.get(); }
+
+  IpcReadOptions options() const { return options_; }
+
+  State state() const { return state_; }
 
   std::shared_ptr<Schema> schema() const { return filtered_schema_; }
 
   ReadStats stats() const { return stats_; }
-
-  State state() const { return state_; }
 
   int num_required_initial_dictionaries() const {
     return num_required_initial_dictionaries_;
@@ -2005,21 +2069,88 @@ class StreamDecoder::StreamDecoderImpl : public StreamDecoderInternal {
 
   int64_t next_required_size() const { return message_decoder_.next_required_size(); }
 
+  const MessageDecoder* message_decoder() const { return &message_decoder_; }
+
  private:
   MessageDecoder message_decoder_;
 };
 
 StreamDecoder::StreamDecoder(std::shared_ptr<Listener> listener, IpcReadOptions options) {
-  impl_.reset(new StreamDecoderImpl(std::move(listener), options));
+  impl_ = std::make_unique<StreamDecoderImpl>(std::move(listener), options);
 }
 
 StreamDecoder::~StreamDecoder() {}
 
 Status StreamDecoder::Consume(const uint8_t* data, int64_t size) {
-  return impl_->Consume(data, size);
+  while (size > 0) {
+    const auto next_required_size = impl_->next_required_size();
+    if (next_required_size == 0) {
+      break;
+    }
+    if (size < next_required_size) {
+      break;
+    }
+    ARROW_RETURN_NOT_OK(impl_->Consume(data, next_required_size));
+    data += next_required_size;
+    size -= next_required_size;
+  }
+  if (size > 0) {
+    return impl_->Consume(data, size);
+  } else {
+    return arrow::Status::OK();
+  }
 }
+
 Status StreamDecoder::Consume(std::shared_ptr<Buffer> buffer) {
-  return impl_->Consume(std::move(buffer));
+  if (buffer->size() == 0) {
+    return arrow::Status::OK();
+  }
+  if (impl_->next_required_size() == 0 || buffer->size() <= impl_->next_required_size()) {
+    return impl_->Consume(std::move(buffer));
+  } else {
+    int64_t offset = 0;
+    while (true) {
+      const auto next_required_size = impl_->next_required_size();
+      if (next_required_size == 0) {
+        break;
+      }
+      if (buffer->size() - offset <= next_required_size) {
+        break;
+      }
+      if (buffer->is_cpu()) {
+        switch (impl_->message_decoder()->state()) {
+          case MessageDecoder::State::INITIAL:
+          case MessageDecoder::State::METADATA_LENGTH:
+            // We don't need to pass a sliced buffer because
+            // MessageDecoder doesn't keep reference of the given
+            // buffer on these states.
+            ARROW_RETURN_NOT_OK(
+                impl_->Consume(buffer->data() + offset, next_required_size));
+            break;
+          default:
+            ARROW_RETURN_NOT_OK(
+                impl_->Consume(SliceBuffer(buffer, offset, next_required_size)));
+            break;
+        }
+      } else {
+        ARROW_RETURN_NOT_OK(
+            impl_->Consume(SliceBuffer(buffer, offset, next_required_size)));
+      }
+      offset += next_required_size;
+    }
+    if (buffer->size() - offset == 0) {
+      return arrow::Status::OK();
+    } else if (offset == 0) {
+      return impl_->Consume(std::move(buffer));
+    } else {
+      return impl_->Consume(SliceBuffer(std::move(buffer), offset));
+    }
+  }
+}
+
+Status StreamDecoder::Reset() {
+  impl_ = std::make_unique<StreamDecoderImpl>(impl_->listener(), impl_->options());
+  return Status::OK();
 }
 
 std::shared_ptr<Schema> StreamDecoder::schema() const { return impl_->schema(); }

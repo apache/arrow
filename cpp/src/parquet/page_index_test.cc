@@ -21,6 +21,7 @@
 #include <memory>
 
 #include "arrow/io/file.h"
+#include "arrow/util/float16.h"
 #include "parquet/file_reader.h"
 #include "parquet/metadata.h"
 #include "parquet/schema.h"
@@ -575,6 +576,27 @@ TEST(PageIndex, WriteFLBAColumnIndex) {
   auto node =
       schema::PrimitiveNode::Make("c1", Repetition::OPTIONAL, Type::FIXED_LEN_BYTE_ARRAY,
                                   ConvertedType::NONE, /*length=*/3);
+  TestWriteTypedColumnIndex(std::move(node), page_stats, BoundaryOrder::Ascending,
+                            /*has_null_counts=*/false);
+}
+
+TEST(PageIndex, WriteFloat16ColumnIndex) {
+  using ::arrow::util::Float16;
+  auto encode = [](auto value) {
+    auto bytes = Float16(value).ToLittleEndian();
+    return std::string(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+  };
+
+  // Float16 (FLBA) values in the ascending order and without null count.
+  std::vector<EncodedStatistics> page_stats(4);
+  page_stats.at(0).set_min(encode(-1.3)).set_max(encode(+3.6));
+  page_stats.at(1).set_min(encode(-0.2)).set_max(encode(+4.5));
+  page_stats.at(2).set_min(encode(+1.1)).set_max(encode(+5.4));
+  page_stats.at(3).set_min(encode(+2.0)).set_max(encode(+6.3));
+
+  auto node = schema::PrimitiveNode::Make(
+      "c1", Repetition::OPTIONAL, LogicalType::Float16(), Type::FIXED_LEN_BYTE_ARRAY,
+      /*length=*/2);
   TestWriteTypedColumnIndex(std::move(node), page_stats, BoundaryOrder::Ascending,
                             /*has_null_counts=*/false);
 }

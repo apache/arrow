@@ -38,7 +38,7 @@
 
 namespace gandiva {
 
-void ExportedDecimalFunctions::AddMappings(Engine* engine) const {
+arrow::Status ExportedDecimalFunctions::AddMappings(Engine* engine) const {
   std::vector<llvm::Type*> args;
   auto types = engine->types();
 
@@ -93,6 +93,7 @@ void ExportedDecimalFunctions::AddMappings(Engine* engine) const {
 
   engine->AddGlobalMappingForFunc("gdv_xlarge_compare", types->i32_type() /*return_type*/,
                                   args, reinterpret_cast<void*>(gdv_xlarge_compare));
+  return arrow::Status::OK();
 }
 
 }  // namespace gandiva

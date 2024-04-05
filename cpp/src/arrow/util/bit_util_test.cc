@@ -924,7 +924,7 @@ TEST(FirstTimeBitmapWriter, AppendWordOffsetOverwritesCorrectBitsOnExistingByte)
     writer.Finish();
     EXPECT_EQ(BitmapToString(valid_bits, kBitsAfterAppend), expected_bits);
   };
-  // 0ffset zero would not be a valid mask.
+  // Offset zero would not be a valid mask.
   check_with_set("11111111", 1);
   check_with_set("10111111", 2);
   check_with_set("10011111", 3);

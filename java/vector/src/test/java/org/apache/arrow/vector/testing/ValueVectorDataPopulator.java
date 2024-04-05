@@ -19,6 +19,7 @@ package org.apache.arrow.vector.testing;
 
 import static org.junit.Assert.assertEquals;
 
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
@@ -29,9 +30,11 @@ import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DateMilliVector;
+import org.apache.arrow.vector.Decimal256Vector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.DurationVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
+import org.apache.arrow.vector.Float2Vector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
@@ -73,7 +76,8 @@ import org.apache.arrow.vector.types.pojo.FieldType;
  */
 public class ValueVectorDataPopulator {
 
-  private ValueVectorDataPopulator(){}
+  private ValueVectorDataPopulator() {
+  }
 
   /**
    * Populate values for BigIntVector.
@@ -148,6 +152,34 @@ public class ValueVectorDataPopulator {
   }
 
   /**
+   * Populate values for Decimal256Vector.
+   */
+  public static void setVector(Decimal256Vector vector, Long... values) {
+    final int length = values.length;
+    vector.allocateNew(length);
+    for (int i = 0; i < length; i++) {
+      if (values[i] != null) {
+        vector.set(i, values[i]);
+      }
+    }
+    vector.setValueCount(length);
+  }
+
+  /**
+   * Populate values for Decimal256Vector.
+   */
+  public static void setVector(Decimal256Vector vector, BigDecimal... values) {
+    final int length = values.length;
+    vector.allocateNew(length);
+    for (int i = 0; i < length; i++) {
+      if (values[i] != null) {
+        vector.set(i, values[i]);
+      }
+    }
+    vector.setValueCount(length);
+  }
+
+  /**
    * Populate values for DurationVector.
    * @param values values of elapsed time in either seconds, milliseconds, microseconds or nanoseconds.
    */
@@ -171,6 +203,20 @@ public class ValueVectorDataPopulator {
     for (int i = 0; i < length; i++) {
       if (values[i] != null) {
         vector.set(i, values[i]);
+      }
+    }
+    vector.setValueCount(length);
+  }
+
+  /**
+   * Populate values for Float2Vector.
+   */
+  public static void setVector(Float2Vector vector, Float... values) {
+    final int length = values.length;
+    vector.allocateNew(length);
+    for (int i = 0; i < length; i++) {
+      if (values[i] != null) {
+        vector.setWithPossibleTruncate(i, values[i]);
       }
     }
     vector.setValueCount(length);

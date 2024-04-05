@@ -211,8 +211,8 @@ TEST(Cast, CanCast) {
     ExpectCannotCast(from_base_binary, {null()});
   }
 
-  ExpectCanCast(utf8(), {timestamp(TimeUnit::MILLI)});
-  ExpectCanCast(large_utf8(), {timestamp(TimeUnit::NANO)});
+  ExpectCanCast(utf8(), {timestamp(TimeUnit::MILLI), date32(), date64()});
+  ExpectCanCast(large_utf8(), {timestamp(TimeUnit::NANO), date32(), date64()});
   ExpectCannotCast(timestamp(TimeUnit::MICRO),
                    {binary(), large_binary()});  // no formatting supported
 
@@ -389,7 +389,7 @@ TEST(Cast, ToIntDowncastUnsafe) {
 }
 
 TEST(Cast, FloatingToInt) {
-  for (auto from : {float32(), float64()}) {
+  for (auto from : {float16(), float32(), float64()}) {
     for (auto to : {int32(), int64()}) {
       // float to int no truncation
       CheckCast(ArrayFromJSON(from, "[1.0, null, 0.0, -1.0, 5.0]"),
@@ -403,6 +403,15 @@ TEST(Cast, FloatingToInt) {
       opts.allow_float_truncate = true;
       CheckCast(ArrayFromJSON(from, "[1.5, 0.0, null, 0.5, -1.5, 5.5]"),
                 ArrayFromJSON(to, "[1, 0, null, 0, -1, 5]"), opts);
+    }
+  }
+}
+
+TEST(Cast, FloatingToFloating) {
+  for (auto from : {float16(), float32(), float64()}) {
+    for (auto to : {float16(), float32(), float64()}) {
+      CheckCast(ArrayFromJSON(from, "[1.0, 0.0, -1.0, 5.0]"),
+                ArrayFromJSON(to, "[1.0, 0.0, -1.0, 5.0]"));
     }
   }
 }
@@ -2016,6 +2025,23 @@ TEST(Cast, StringToTimestamp) {
   }
 }
 
+TEST(Cast, StringToDate) {
+  for (auto string_type : {utf8(), large_utf8()}) {
+    auto strings = ArrayFromJSON(string_type, R"(["1970-01-01", null, "2000-02-29"])");
+
+    CheckCast(strings, ArrayFromJSON(date32(), "[0, null, 11016]"));
+    CheckCast(strings, ArrayFromJSON(date64(), "[0, null, 951782400000]"));
+
+    for (auto date_type : {date32(), date64()}) {
+      for (std::string not_ts : {"", "2012-01-xx", "2012-01-01 09:00:00"}) {
+        auto options = CastOptions::Safe(date_type);
+        CheckCastFails(ArrayFromJSON(string_type, "[\"" + not_ts + "\"]"), options);
+      }
+    }
+    // NOTE: YYYY-MM-DD parsing is tested comprehensively in value_parsing_test.cc
+  }
+}
+
 static void AssertBinaryZeroCopy(std::shared_ptr<Array> lhs, std::shared_ptr<Array> rhs) {
   // null bitmap and data buffers are always zero-copied
   AssertBufferSame(*lhs, *rhs, 0);
@@ -2154,6 +2180,22 @@ TEST(Cast, StringToString) {
   }
 }
 
+TEST(Cast, BinaryOrStringToFixedSizeBinary) {
+  for (auto in_type : {utf8(), large_utf8(), binary(), large_binary()}) {
+    auto valid_input = ArrayFromJSON(in_type, R"(["foo", null, "bar", "baz", "quu"])");
+    auto invalid_input = ArrayFromJSON(in_type, R"(["foo", null, "bar", "baz", "quux"])");
+
+    CheckCast(valid_input, ArrayFromJSON(fixed_size_binary(3), R"(["foo", null, "bar",
+          "baz", "quu"])"));
+    CheckCastFails(invalid_input, CastOptions::Safe(fixed_size_binary(3)));
+    CheckCastFails(valid_input, CastOptions::Safe(fixed_size_binary(5)));
+
+    auto empty_input = ArrayFromJSON(in_type, "[]");
+    CheckCast(empty_input, ArrayFromJSON(fixed_size_binary(3), "[]"));
+    CheckCast(empty_input, ArrayFromJSON(fixed_size_binary(5), "[]"));
+  }
+}
+
 TEST(Cast, IntToString) {
   for (auto string_type : {utf8(), large_utf8()}) {
     CheckCast(ArrayFromJSON(int8(), "[0, 1, 127, -128, null]"),
@@ -2187,14 +2229,12 @@ TEST(Cast, IntToString) {
 }
 
 TEST(Cast, FloatingToString) {
-  for (auto string_type : {utf8(), large_utf8()}) {
-    CheckCast(
-        ArrayFromJSON(float32(), "[0.0, -0.0, 1.5, -Inf, Inf, NaN, null]"),
-        ArrayFromJSON(string_type, R"(["0", "-0", "1.5", "-inf", "inf", "nan", null])"));
-
-    CheckCast(
-        ArrayFromJSON(float64(), "[0.0, -0.0, 1.5, -Inf, Inf, NaN, null]"),
-        ArrayFromJSON(string_type, R"(["0", "-0", "1.5", "-inf", "inf", "nan", null])"));
+  for (auto float_type : {float16(), float32(), float64()}) {
+    for (auto string_type : {utf8(), large_utf8()}) {
+      CheckCast(ArrayFromJSON(float_type, "[0.0, -0.0, 1.5, -Inf, Inf, NaN, null]"),
+                ArrayFromJSON(string_type,
+                              R"(["0", "-0", "1.5", "-inf", "inf", "nan", null])"));
+    }
   }
 }
 
@@ -2809,19 +2849,19 @@ TEST(Cast, StructToDifferentNullabilityStruct) {
         ::testing::HasSubstr("cannot cast nullable field to non-nullable field"),
         Cast(src_nullable, options1_non_nullable));
 
-    std::vector<std::shared_ptr<Field>> fields_dest2_non_nullble = {
+    std::vector<std::shared_ptr<Field>> fields_dest2_non_nullable = {
         std::make_shared<Field>("a", int64(), false),
         std::make_shared<Field>("c", int64(), false)};
-    const auto dest2_non_nullable = arrow::struct_(fields_dest2_non_nullble);
+    const auto dest2_non_nullable = arrow::struct_(fields_dest2_non_nullable);
     const auto options2_non_nullable = CastOptions::Safe(dest2_non_nullable);
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         TypeError,
         ::testing::HasSubstr("cannot cast nullable field to non-nullable field"),
         Cast(src_nullable, options2_non_nullable));
 
-    std::vector<std::shared_ptr<Field>> fields_dest3_non_nullble = {
+    std::vector<std::shared_ptr<Field>> fields_dest3_non_nullable = {
         std::make_shared<Field>("c", int64(), false)};
-    const auto dest3_non_nullable = arrow::struct_(fields_dest3_non_nullble);
+    const auto dest3_non_nullable = arrow::struct_(fields_dest3_non_nullable);
     const auto options3_non_nullable = CastOptions::Safe(dest3_non_nullable);
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         TypeError,

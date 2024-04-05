@@ -48,6 +48,11 @@ namespace Apache.Arrow.Types
         Dictionary,
         Map,
         FixedSizeList,
+        Duration,
+        RecordBatch,
+        BinaryView,
+        StringView,
+        ListView,
     }
 
     public interface IArrowType

@@ -62,6 +62,19 @@ classdef tRecordBatch < matlab.unittest.TestCase
             tc.verifyEqual(arrowRecordBatch.ColumnNames, columnNames);
         end
 
+        function NumRows(testCase)
+            % Verify that the NumRows property of arrow.tabular.RecordBatch
+            % returns the expected number of rows.
+            numRows = int64([1, 5, 100]);
+
+            for expectedNumRows = numRows
+                matlabTable = array2table(ones(expectedNumRows, 1));
+                arrowRecordBatch = arrow.recordBatch(matlabTable);
+                testCase.verifyEqual(arrowRecordBatch.NumRows, expectedNumRows);
+            end
+
+        end
+
         function NumColumns(tc)
             numColumns = int32([1, 5, 100]);
 
@@ -84,11 +97,27 @@ classdef tRecordBatch < matlab.unittest.TestCase
             tc.verifyEqual(TOriginal, TConverted);
         end
 
-        function EmptyTable(tc)
-            TOriginal = table();
-            arrowRecordBatch = arrow.recordBatch(TOriginal);
-            TConverted = arrowRecordBatch.toMATLAB();
-            tc.verifyEqual(TOriginal, TConverted);
+        function EmptyRecordBatch(testCase)
+            % Verify that an arrow.tabular.RecordBatch can be created from
+            % an empty MATLAB table.
+            matlabTable = table.empty(0, 0);
+            arrowRecordBatch = arrow.recordBatch(matlabTable);
+            testCase.verifyEqual(arrowRecordBatch.NumRows, int64(0));
+            testCase.verifyEqual(arrowRecordBatch.NumColumns, int32(0));
+            testCase.verifyEqual(arrowRecordBatch.ColumnNames, string.empty(1, 0));
+            testCase.verifyEqual(toMATLAB(arrowRecordBatch), matlabTable);
+
+            matlabTable = table.empty(1, 0);
+            arrowRecordBatch = arrow.recordBatch(matlabTable);
+            testCase.verifyEqual(arrowRecordBatch.NumRows, int64(0));
+            testCase.verifyEqual(arrowRecordBatch.NumColumns, int32(0));
+            testCase.verifyEqual(arrowRecordBatch.ColumnNames, string.empty(1, 0));
+
+            matlabTable = table.empty(0, 1);
+            arrowRecordBatch = arrow.recordBatch(matlabTable);
+            testCase.verifyEqual(arrowRecordBatch.NumRows, int64(0));
+            testCase.verifyEqual(arrowRecordBatch.NumColumns, int32(1));
+            testCase.verifyEqual(arrowRecordBatch.ColumnNames, "Var1");
         end
 
         function EmptyRecordBatchColumnIndexError(tc)
@@ -196,8 +225,17 @@ classdef tRecordBatch < matlab.unittest.TestCase
             tc.verifyError(fcn, "MATLAB:validators:mustBeNonmissing");
         end
 
+        function FromArraysNoInputs(testCase)
+            % Verify that an empty RecordBatch is returned when calling
+            % fromArrays with no input arguments.
+            arrowRecordBatch = arrow.tabular.RecordBatch.fromArrays();
+            testCase.verifyEqual(arrowRecordBatch.NumRows, int64(0));
+            testCase.verifyEqual(arrowRecordBatch.NumColumns, int32(0));
+            testCase.verifyEqual(arrowRecordBatch.ColumnNames, string.empty(1, 0));
+        end
+
         function Schema(tc)
-        % Verify that the public Schema property returns an approprate
+        % Verify that the public Schema property returns an appropriate
         % instance of arrow.tabular.Schema.
             t = table(["A"; "B"; "C"], ...
                       [1; 2; 3], ...
@@ -293,7 +331,7 @@ classdef tRecordBatch < matlab.unittest.TestCase
                 ColumnNames=["A", "B", "C"] ...
             );
 
-            % Matching should be case sensitive.
+            % Matching should be case-sensitive.
             name = "a";
             testCase.verifyError(@() recordBatch.column(name), "arrow:tabular:schema:AmbiguousFieldName");
 

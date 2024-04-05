@@ -19,37 +19,39 @@ import Foundation
 import Arrow
 
 public class FlightInfo {
-    let flight_info: Arrow_Flight_Protocol_FlightInfo
+    let flightInfo: Arrow_Flight_Protocol_FlightInfo
     public var flightDescriptor: FlightDescriptor? {
-        get { return flight_info.hasFlightDescriptor ? FlightDescriptor(flight_info.flightDescriptor) : nil }
+        return flightInfo.hasFlightDescriptor ? FlightDescriptor(flightInfo.flightDescriptor) : nil
     }
-    
+
     public var endpoints: [FlightEndpoint] {
-        return self.flight_info.endpoint.map { FlightEndpoint($0) }
+        return self.flightInfo.endpoint.map { FlightEndpoint($0) }
     }
-    public var schema: Data { flight_info.schema }
-    
+    public var schema: ArrowSchema? {
+        return schemaFromMessage(self.flightInfo.schema)
+    }
+
     var endpoint: [Arrow_Flight_Protocol_FlightEndpoint] = []
-    init(_ flight_info: Arrow_Flight_Protocol_FlightInfo) {
-        self.flight_info = flight_info
+    init(_ flightInfo: Arrow_Flight_Protocol_FlightInfo) {
+        self.flightInfo = flightInfo
     }
-    
+
     public init(_ schema: Data, endpoints: [FlightEndpoint] = [FlightEndpoint](), descriptor: FlightDescriptor? = nil) {
         if let localDescriptor = descriptor {
-            self.flight_info = Arrow_Flight_Protocol_FlightInfo.with {
+            self.flightInfo = Arrow_Flight_Protocol_FlightInfo.with {
                 $0.schema = schema
                 $0.flightDescriptor = localDescriptor.toProtocol()
                 $0.endpoint = endpoints.map { $0.toProtocol() }
             }
         } else {
-            self.flight_info = Arrow_Flight_Protocol_FlightInfo.with {
+            self.flightInfo = Arrow_Flight_Protocol_FlightInfo.with {
                 $0.schema = schema
                 $0.endpoint = endpoints.map { $0.toProtocol() }
             }
         }
     }
-    
+
     func toProtocol() -> Arrow_Flight_Protocol_FlightInfo {
-        return self.flight_info
+        return self.flightInfo
     }
 }

@@ -24,10 +24,10 @@ import time
 import urllib.request
 
 import pytest
-from pytest_lazyfixture import lazy_fixture
 import hypothesis as h
 from ..conftest import groups, defaults
 
+from pyarrow import set_timezone_db_path
 from pyarrow.util import find_free_port
 
 
@@ -46,6 +46,12 @@ h.settings.load_profile(os.environ.get('HYPOTHESIS_PROFILE', 'dev'))
 # Set this at the beginning before the AWS SDK was loaded to avoid reading in
 # user configuration values.
 os.environ['AWS_CONFIG_FILE'] = "/dev/null"
+
+
+if sys.platform == 'win32':
+    tzdata_set_path = os.environ.get('PYARROW_TZDATA_PATH', None)
+    if tzdata_set_path:
+        set_timezone_db_path(tzdata_set_path)
 
 
 def pytest_addoption(parser):
@@ -250,15 +256,46 @@ def gcs_server():
             proc.wait()
 
 
+@pytest.fixture(scope='session')
+def azure_server(tmpdir_factory):
+    port = find_free_port()
+    env = os.environ.copy()
+    tmpdir = tmpdir_factory.getbasetemp()
+    # We only need blob service emulator, not queue or table.
+    args = ['azurite-blob', "--location", tmpdir, "--blobPort", str(port)]
+    proc = None
+    try:
+        proc = subprocess.Popen(args, env=env)
+        # Make sure the server is alive.
+        if proc.poll() is not None:
+            pytest.skip(f"Command {args} did not start server successfully!")
+    except (ModuleNotFoundError, OSError) as e:
+        pytest.skip(f"Command {args} failed to execute: {e}")
+    else:
+        yield {
+            # Use the standard azurite account_name and account_key.
+            # https://learn.microsoft.com/en-us/azure/storage/common/storage-use-emulator#authorize-with-shared-key-credentials
+            'connection': ('127.0.0.1', port, 'devstoreaccount1',
+                           'Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2'
+                           'UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=='),
+            'process': proc,
+            'tempdir': tmpdir,
+        }
+    finally:
+        if proc is not None:
+            proc.kill()
+            proc.wait()
+
+
 @pytest.fixture(
     params=[
-        lazy_fixture('builtin_pickle'),
-        lazy_fixture('cloudpickle')
+        'builtin_pickle',
+        'cloudpickle'
     ],
     scope='session'
 )
 def pickle_module(request):
-    return request.param
+    return request.getfixturevalue(request.param)
 
 
 @pytest.fixture(scope='session')

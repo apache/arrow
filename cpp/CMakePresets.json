@@ -47,6 +47,32 @@
       }
     },
     {
+      "name": "features-emscripten",
+      "hidden": true,
+      "cacheVariables": {
+        "ARROW_ACERO": "ON",
+        "ARROW_BUILD_SHARED": "OFF",
+        "ARROW_BUILD_STATIC": "ON",
+        "ARROW_CUDA": "OFF",
+        "ARROW_DEPENDENCY_SOURCE": "BUNDLED",
+        "ARROW_DEPENDENCY_USE_SHARED": "OFF",
+        "ARROW_ENABLE_THREADING": "OFF",
+        "ARROW_FLIGHT": "OFF",
+        "ARROW_IPC": "ON",
+        "ARROW_JEMALLOC": "OFF",
+        "ARROW_MIMALLOC": "OFF",
+        "ARROW_ORC": "ON",
+        "ARROW_RUNTIME_SIMD_LEVEL": "NONE",
+        "ARROW_S3": "OFF",
+        "ARROW_SIMD_LEVEL": "NONE",
+        "ARROW_SUBSTRAIT": "ON",
+        "ARROW_WITH_BROTLI": "ON",
+        "ARROW_WITH_OPENTELEMETRY": "OFF",
+        "ARROW_WITH_SNAPPY": "ON",
+        "CMAKE_C_BYTE_ORDER": "LITTLE_ENDIAN"
+      }
+    },
+    {
       "name": "features-minimal",
       "hidden": true,
       "cacheVariables": {
@@ -342,6 +368,24 @@
       "cacheVariables": {}
     },
     {
+      "name": "ninja-debug-emscripten",
+      "inherits": [
+        "features-emscripten",
+        "base-debug"
+      ],
+      "displayName": "Debug build which builds an Emscripten library",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-release-emscripten",
+      "inherits": [
+        "features-emscripten",
+        "base-release"
+      ],
+      "displayName": "Release build which builds an Emscripten library",
+      "cacheVariables": {}
+    },
+    {
       "name": "ninja-release-flight",
       "inherits": [
         "base-release",
@@ -428,8 +472,23 @@
         "base-benchmarks",
         "features-maximal"
       ],
-      "displayName": "Benchmarking build with with everything enabled",
+      "displayName": "Benchmarking build with everything enabled",
       "cacheVariables": {}
+    },
+    {
+      "name": "fuzzing",
+      "inherits": "base",
+      "displayName": "Debug build with IPC and Parquet fuzzing targets",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "ARROW_USE_ASAN": "ON",
+        "ARROW_USE_UBSAN": "ON",
+        "ARROW_IPC": "ON",
+        "ARROW_PARQUET": "ON",
+        "ARROW_FUZZING": "ON"
+      }
     }
   ]
 }

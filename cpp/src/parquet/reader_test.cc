@@ -21,6 +21,8 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <type_traits>
+#include <utility>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -32,6 +34,8 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/config.h"
+#include "arrow/util/range.h"
 
 #include "parquet/column_reader.h"
 #include "parquet/column_scanner.h"
@@ -44,6 +48,7 @@
 #include "parquet/test_util.h"
 
 using arrow::internal::checked_pointer_cast;
+using arrow::internal::Zip;
 
 namespace parquet {
 using schema::GroupNode;
@@ -88,7 +93,7 @@ std::string lz4_raw_compressed_larger() {
   return data_file("lz4_raw_compressed_larger.parquet");
 }
 
-std::string overflow_i16_page_oridinal() {
+std::string overflow_i16_page_ordinal() {
   return data_file("overflow_i16_page_cnt.parquet");
 }
 
@@ -116,11 +121,52 @@ std::string rle_dict_uncompressed_corrupt_checksum() {
   return data_file("rle-dict-uncompressed-corrupt-checksum.parquet");
 }
 
+std::string concatenated_gzip_members() {
+  return data_file("concatenated_gzip_members.parquet");
+}
+
+std::string byte_stream_split() { return data_file("byte_stream_split.zstd.parquet"); }
+
+std::string byte_stream_split_extended() {
+  return data_file("byte_stream_split_extended.gzip.parquet");
+}
+
+template <typename DType, typename ValueType = typename DType::c_type>
+std::vector<ValueType> ReadColumnValues(ParquetFileReader* file_reader, int row_group,
+                                        int column, int64_t expected_values_read) {
+  auto column_reader = checked_pointer_cast<TypedColumnReader<DType>>(
+      file_reader->RowGroup(row_group)->Column(column));
+  std::vector<ValueType> values(expected_values_read);
+  int64_t values_read;
+  auto levels_read = column_reader->ReadBatch(expected_values_read, nullptr, nullptr,
+                                              values.data(), &values_read);
+  EXPECT_EQ(expected_values_read, levels_read);
+  EXPECT_EQ(expected_values_read, values_read);
+  return values;
+}
+
+template <typename ValueType>
+void AssertColumnValuesEqual(const ColumnDescriptor* descr,
+                             const std::vector<ValueType>& left_values,
+                             const std::vector<ValueType>& right_values) {
+  if constexpr (std::is_same_v<ValueType, FLBA>) {
+    // operator== for FLBA in test_util.h is unusable (it hard-codes length to 12)
+    const auto length = descr->type_length();
+    for (const auto& [left, right] : Zip(left_values, right_values)) {
+      std::string_view left_view(reinterpret_cast<const char*>(left.ptr), length);
+      std::string_view right_view(reinterpret_cast<const char*>(right.ptr), length);
+      ASSERT_EQ(left_view, right_view);
+    }
+  } else {
+    ASSERT_EQ(left_values, right_values);
+  }
+}
+
 // TODO: Assert on definition and repetition levels
-template <typename DType, typename ValueType>
+template <typename DType, typename ValueType = typename DType::c_type>
 void AssertColumnValues(std::shared_ptr<TypedColumnReader<DType>> col, int64_t batch_size,
                         int64_t expected_levels_read,
-                        std::vector<ValueType>& expected_values,
+                        const std::vector<ValueType>& expected_values,
                         int64_t expected_values_read) {
   std::vector<ValueType> values(batch_size);
   int64_t values_read;
@@ -128,9 +174,46 @@ void AssertColumnValues(std::shared_ptr<TypedColumnReader<DType>> col, int64_t b
   auto levels_read =
       col->ReadBatch(batch_size, nullptr, nullptr, values.data(), &values_read);
   ASSERT_EQ(expected_levels_read, levels_read);
-
-  ASSERT_EQ(expected_values, values);
   ASSERT_EQ(expected_values_read, values_read);
+  AssertColumnValuesEqual(col->descr(), expected_values, values);
+}
+
+template <typename DType, typename ValueType = typename DType::c_type>
+void AssertColumnValuesEqual(std::shared_ptr<TypedColumnReader<DType>> left_col,
+                             std::shared_ptr<TypedColumnReader<DType>> right_col,
+                             int64_t batch_size, int64_t expected_levels_read,
+                             int64_t expected_values_read) {
+  std::vector<ValueType> left_values(batch_size);
+  std::vector<ValueType> right_values(batch_size);
+  int64_t values_read, levels_read;
+
+  levels_read =
+      left_col->ReadBatch(batch_size, nullptr, nullptr, left_values.data(), &values_read);
+  ASSERT_EQ(expected_levels_read, levels_read);
+  ASSERT_EQ(expected_values_read, values_read);
+
+  levels_read = right_col->ReadBatch(batch_size, nullptr, nullptr, right_values.data(),
+                                     &values_read);
+  ASSERT_EQ(expected_levels_read, levels_read);
+  ASSERT_EQ(expected_values_read, values_read);
+
+  AssertColumnValuesEqual(left_col->descr(), left_values, right_values);
+}
+
+template <typename DType, typename ValueType = typename DType::c_type>
+void AssertColumnValuesEqual(ParquetFileReader* file_reader, const std::string& left_col,
+                             const std::string& right_col, int64_t num_rows,
+                             int row_group = 0) {
+  ARROW_SCOPED_TRACE("left_col = '", left_col, "', right_col = '", right_col, "'");
+
+  auto left_col_index = file_reader->metadata()->schema()->ColumnIndex(left_col);
+  auto right_col_index = file_reader->metadata()->schema()->ColumnIndex(right_col);
+  auto row_group_reader = file_reader->RowGroup(row_group);
+  auto left_reader = checked_pointer_cast<TypedColumnReader<DType>>(
+      row_group_reader->Column(left_col_index));
+  auto right_reader = checked_pointer_cast<TypedColumnReader<DType>>(
+      row_group_reader->Column(right_col_index));
+  AssertColumnValuesEqual(left_reader, right_reader, num_rows, num_rows, num_rows);
 }
 
 void CheckRowGroupMetadata(const RowGroupMetaData* rg_metadata,
@@ -425,7 +508,7 @@ TEST_F(TestAllTypesPlain, TestBatchRead) {
   ASSERT_FALSE(col->HasNext());
 }
 
-TEST_F(TestAllTypesPlain, RowGroupColumnBoundchecking) {
+TEST_F(TestAllTypesPlain, RowGroupColumnBoundsChecking) {
   // Part of PARQUET-1857
   ASSERT_THROW(reader_->RowGroup(reader_->metadata()->num_row_groups()),
                ParquetException);
@@ -500,6 +583,119 @@ TEST_F(TestAllTypesPlain, ColumnSelectionOutOfRange) {
   columns.push_back(-1);
   ParquetFilePrinter printer2(reader_.get());
   ASSERT_THROW(printer2.DebugPrint(ss, columns), ParquetException);
+}
+
+// Tests that read_dense_for_nullable is passed down to the record
+// reader. The functionality of read_dense_for_nullable is tested
+// elsewhere.
+TEST(TestFileReader, RecordReaderReadDenseForNullable) {
+  // We test the default which is false, and also test enabling and disabling
+  // read_dense_for_nullable.
+  std::vector<ReaderProperties> reader_properties(3);
+  reader_properties[1].enable_read_dense_for_nullable();
+  reader_properties[2].disable_read_dense_for_nullable();
+  for (const auto& reader_props : reader_properties) {
+    std::unique_ptr<ParquetFileReader> file_reader = ParquetFileReader::OpenFile(
+        alltypes_plain(), /* memory_map = */ false, reader_props);
+    std::shared_ptr<RowGroupReader> group = file_reader->RowGroup(0);
+    std::shared_ptr<internal::RecordReader> col_record_reader = group->RecordReader(0);
+    ASSERT_EQ(reader_props.read_dense_for_nullable(),
+              col_record_reader->read_dense_for_nullable());
+  }
+}
+
+// Tests getting a record reader from a row group reader.
+TEST(TestFileReader, GetRecordReader) {
+  ReaderProperties reader_props;
+  std::unique_ptr<ParquetFileReader> file_reader = ParquetFileReader::OpenFile(
+      alltypes_plain(), /* memory_map = */ false, reader_props);
+  std::shared_ptr<RowGroupReader> group = file_reader->RowGroup(0);
+
+  std::shared_ptr<internal::RecordReader> col_record_reader_ = group->RecordReader(0);
+
+  ASSERT_TRUE(col_record_reader_->HasMoreData());
+  auto records_read = col_record_reader_->ReadRecords(4);
+  ASSERT_EQ(records_read, 4);
+  ASSERT_EQ(4, col_record_reader_->values_written());
+  ASSERT_EQ(4, col_record_reader_->levels_position());
+  ASSERT_EQ(8, col_record_reader_->levels_written());
+}
+
+TEST(TestFileReader, RecordReaderWithExposingDictionary) {
+  const int num_rows = 1000;
+
+  // Make schema
+  schema::NodeVector fields;
+  fields.push_back(PrimitiveNode::Make("field", Repetition::REQUIRED, Type::BYTE_ARRAY,
+                                       ConvertedType::NONE));
+  auto schema = std::static_pointer_cast<GroupNode>(
+      GroupNode::Make("schema", Repetition::REQUIRED, fields));
+
+  // Write small batches and small data pages
+  std::shared_ptr<WriterProperties> writer_props = WriterProperties::Builder()
+                                                       .write_batch_size(64)
+                                                       ->data_pagesize(128)
+                                                       ->enable_dictionary()
+                                                       ->build();
+
+  ASSERT_OK_AND_ASSIGN(auto out_file, ::arrow::io::BufferOutputStream::Create());
+  std::shared_ptr<ParquetFileWriter> file_writer =
+      ParquetFileWriter::Open(out_file, schema, writer_props);
+
+  RowGroupWriter* rg_writer = file_writer->AppendRowGroup();
+
+  // write one column
+  ::arrow::random::RandomArrayGenerator rag(0);
+  ByteArrayWriter* writer = static_cast<ByteArrayWriter*>(rg_writer->NextColumn());
+  std::vector<std::string> raw_unique_data = {"a", "bc", "defg"};
+  std::vector<ByteArray> col_typed;
+  for (int i = 0; i < num_rows; i++) {
+    std::string_view chosed_data = raw_unique_data[i % raw_unique_data.size()];
+    col_typed.emplace_back(chosed_data);
+  }
+  writer->WriteBatch(num_rows, nullptr, nullptr, col_typed.data());
+  rg_writer->Close();
+  file_writer->Close();
+
+  // Open the reader
+  ASSERT_OK_AND_ASSIGN(auto file_buf, out_file->Finish());
+  auto in_file = std::make_shared<::arrow::io::BufferReader>(file_buf);
+
+  ReaderProperties reader_props;
+  reader_props.enable_buffered_stream();
+  reader_props.set_buffer_size(64);
+  std::unique_ptr<ParquetFileReader> file_reader =
+      ParquetFileReader::Open(in_file, reader_props);
+
+  auto row_group = file_reader->RowGroup(0);
+  auto record_reader = std::dynamic_pointer_cast<internal::DictionaryRecordReader>(
+      row_group->RecordReaderWithExposeEncoding(0, ExposedEncoding::DICTIONARY));
+  ASSERT_NE(record_reader, nullptr);
+  ASSERT_TRUE(record_reader->read_dictionary());
+
+  int32_t dict_len = 0;
+  auto dict =
+      reinterpret_cast<const ByteArray*>(record_reader->ReadDictionary(&dict_len));
+  ASSERT_NE(dict, nullptr);
+  ASSERT_EQ(dict_len, raw_unique_data.size());
+  ASSERT_EQ(record_reader->ReadRecords(num_rows), num_rows);
+  std::shared_ptr<::arrow::ChunkedArray> result_array = record_reader->GetResult();
+  ASSERT_EQ(result_array->num_chunks(), 1);
+  const std::shared_ptr<::arrow::Array> chunk = result_array->chunk(0);
+  auto dictionary_array = std::dynamic_pointer_cast<::arrow::DictionaryArray>(chunk);
+  const int32_t* indices =
+      (std::dynamic_pointer_cast<::arrow::Int32Array>(dictionary_array->indices()))
+          ->raw_values();
+
+  // Verify values based on the dictionary from ReadDictionary().
+  int64_t indices_read = chunk->length();
+  ASSERT_EQ(indices_read, num_rows);
+  for (int i = 0; i < indices_read; ++i) {
+    ASSERT_LT(indices[i], dict_len);
+    ASSERT_EQ(std::string_view(reinterpret_cast<const char* const>(dict[indices[i]].ptr),
+                               dict[indices[i]].len),
+              col_typed[i]);
+  }
 }
 
 class TestLocalFile : public ::testing::Test {
@@ -739,6 +935,28 @@ TEST_F(TestCheckDataPageCrc, CorruptDict) {
 
     CheckNextPageCorrupt(page_readers_[1].get());
     EXPECT_NE(nullptr, page_readers_[1]->NextPage());
+  }
+}
+
+TEST(TestGzipMembersRead, TwoConcatenatedMembers) {
+#ifndef ARROW_WITH_ZLIB
+  GTEST_SKIP() << "Test requires Zlib compression";
+#endif
+  auto file_reader = ParquetFileReader::OpenFile(concatenated_gzip_members(),
+                                                 /*memory_map=*/false);
+  auto col_reader = std::dynamic_pointer_cast<TypedColumnReader<Int64Type>>(
+      file_reader->RowGroup(0)->Column(0));
+  int64_t num_values = 0;
+  int64_t num_repdef = 0;
+  std::vector<int16_t> reps(1024);
+  std::vector<int16_t> defs(1024);
+  std::vector<int64_t> vals(1024);
+
+  num_repdef =
+      col_reader->ReadBatch(1024, defs.data(), reps.data(), vals.data(), &num_values);
+  EXPECT_EQ(num_repdef, 513);
+  for (int64_t i = 0; i < num_repdef; i++) {
+    EXPECT_EQ(i + 1, vals[i]);
   }
 }
 
@@ -1002,6 +1220,56 @@ TEST(TestFileReader, BufferedReadsWithDictionary) {
   }
 }
 
+TEST(TestFileReader, PartiallyDictionaryEncodingNotExposed) {
+  const int num_rows = 1000;
+
+  // Make schema
+  schema::NodeVector fields;
+  fields.push_back(PrimitiveNode::Make("field", Repetition::REQUIRED, Type::DOUBLE,
+                                       ConvertedType::NONE));
+  auto schema = std::static_pointer_cast<GroupNode>(
+      GroupNode::Make("schema", Repetition::REQUIRED, fields));
+
+  // Write small batches and small data pages. Explicitly set the dictionary page size
+  // limit such that the column chunk will not be fully dictionary encoded.
+  std::shared_ptr<WriterProperties> writer_props = WriterProperties::Builder()
+                                                       .write_batch_size(64)
+                                                       ->data_pagesize(128)
+                                                       ->enable_dictionary()
+                                                       ->dictionary_pagesize_limit(4)
+                                                       ->build();
+
+  ASSERT_OK_AND_ASSIGN(auto out_file, ::arrow::io::BufferOutputStream::Create());
+  std::shared_ptr<ParquetFileWriter> file_writer =
+      ParquetFileWriter::Open(out_file, schema, writer_props);
+
+  RowGroupWriter* rg_writer = file_writer->AppendRowGroup();
+
+  // write one column
+  ::arrow::random::RandomArrayGenerator rag(0);
+  DoubleWriter* writer = static_cast<DoubleWriter*>(rg_writer->NextColumn());
+  std::shared_ptr<::arrow::Array> col = rag.Float64(num_rows, 0, 100);
+  const auto& col_typed = static_cast<const ::arrow::DoubleArray&>(*col);
+  writer->WriteBatch(num_rows, nullptr, nullptr, col_typed.raw_values());
+  rg_writer->Close();
+  file_writer->Close();
+
+  // Open the reader
+  ASSERT_OK_AND_ASSIGN(auto file_buf, out_file->Finish());
+  auto in_file = std::make_shared<::arrow::io::BufferReader>(file_buf);
+
+  ReaderProperties reader_props;
+  reader_props.enable_buffered_stream();
+  reader_props.set_buffer_size(64);
+  std::unique_ptr<ParquetFileReader> file_reader =
+      ParquetFileReader::Open(in_file, reader_props);
+
+  auto row_group = file_reader->RowGroup(0);
+  auto col_reader = std::static_pointer_cast<DoubleReader>(
+      row_group->ColumnWithExposeEncoding(0, ExposedEncoding::DICTIONARY));
+  EXPECT_NE(col_reader->GetExposedEncoding(), ExposedEncoding::DICTIONARY);
+}
+
 TEST(TestFileReader, BufferedReads) {
   // PARQUET-1636: Buffered reads were broken before introduction of
   // RandomAccessFile::GetStream
@@ -1223,7 +1491,6 @@ TEST_P(TestCodec, LargeFileValues) {
 
   // column 0 ("a")
   auto col = checked_pointer_cast<ByteArrayReader>(group->Column(0));
-
   std::vector<ByteArray> values(kNumRows);
   int64_t values_read;
   auto levels_read =
@@ -1249,7 +1516,7 @@ INSTANTIATE_TEST_SUITE_P(Lz4CodecTests, TestCodec, ::testing::ValuesIn(test_code
 // INT16_MAX pages. (GH-15074).
 TEST(TestFileReader, TestOverflowInt16PageOrdinal) {
   ReaderProperties reader_props;
-  auto file_reader = ParquetFileReader::OpenFile(overflow_i16_page_oridinal(),
+  auto file_reader = ParquetFileReader::OpenFile(overflow_i16_page_ordinal(),
                                                  /*memory_map=*/false, reader_props);
   auto metadata_ptr = file_reader->metadata();
   EXPECT_EQ(1, metadata_ptr->num_row_groups());
@@ -1284,6 +1551,66 @@ TEST(TestFileReader, TestOverflowInt16PageOrdinal) {
     EXPECT_EQ(40000, page_ordinal);
   }
 }
+
+#ifdef ARROW_WITH_ZSTD
+TEST(TestByteStreamSplit, FloatIntegrationFile) {
+  auto file_path = byte_stream_split();
+  auto file = ParquetFileReader::OpenFile(file_path);
+
+  const int64_t kNumRows = 300;
+
+  ASSERT_EQ(kNumRows, file->metadata()->num_rows());
+  ASSERT_EQ(2, file->metadata()->num_columns());
+  ASSERT_EQ(1, file->metadata()->num_row_groups());
+
+  // column 0 ("f32")
+  {
+    auto values =
+        ReadColumnValues<FloatType>(file.get(), /*row_group=*/0, /*column=*/0, kNumRows);
+    ASSERT_EQ(values[0], 1.7640524f);
+    ASSERT_EQ(values[1], 0.4001572f);
+    ASSERT_EQ(values[kNumRows - 2], -0.39944902f);
+    ASSERT_EQ(values[kNumRows - 1], 0.37005588f);
+  }
+  // column 1 ("f64")
+  {
+    auto values =
+        ReadColumnValues<DoubleType>(file.get(), /*row_group=*/0, /*column=*/1, kNumRows);
+    ASSERT_EQ(values[0], -1.3065268517353166);
+    ASSERT_EQ(values[1], 1.658130679618188);
+    ASSERT_EQ(values[kNumRows - 2], -0.9301565025243212);
+    ASSERT_EQ(values[kNumRows - 1], -0.17858909208732915);
+  }
+}
+#endif  // ARROW_WITH_ZSTD
+
+#ifdef ARROW_WITH_ZLIB
+TEST(TestByteStreamSplit, ExtendedIntegrationFile) {
+  auto file_path = byte_stream_split_extended();
+  auto file = ParquetFileReader::OpenFile(file_path);
+
+  const int64_t kNumRows = 200;
+
+  ASSERT_EQ(kNumRows, file->metadata()->num_rows());
+  ASSERT_EQ(14, file->metadata()->num_columns());
+  ASSERT_EQ(1, file->metadata()->num_row_groups());
+
+  AssertColumnValuesEqual<FloatType>(file.get(), "float_plain", "float_byte_stream_split",
+                                     kNumRows);
+  AssertColumnValuesEqual<DoubleType>(file.get(), "double_plain",
+                                      "double_byte_stream_split", kNumRows);
+  AssertColumnValuesEqual<Int32Type>(file.get(), "int32_plain", "int32_byte_stream_split",
+                                     kNumRows);
+  AssertColumnValuesEqual<Int64Type>(file.get(), "int64_plain", "int64_byte_stream_split",
+                                     kNumRows);
+  AssertColumnValuesEqual<FLBAType>(file.get(), "float16_plain",
+                                    "float16_byte_stream_split", kNumRows);
+  AssertColumnValuesEqual<FLBAType>(file.get(), "flba5_plain", "flba5_byte_stream_split",
+                                    kNumRows);
+  AssertColumnValuesEqual<FLBAType>(file.get(), "decimal_plain",
+                                    "decimal_byte_stream_split", kNumRows);
+}
+#endif  // ARROW_WITH_ZLIB
 
 struct PageIndexReaderParam {
   std::vector<int32_t> row_group_indices;

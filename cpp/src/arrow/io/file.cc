@@ -36,6 +36,7 @@
 #include <cerrno>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <sstream>
@@ -397,8 +398,14 @@ class MemoryMappedFile::MemoryMap
 
     ~Region() {
       if (data_ != nullptr) {
+#ifndef __EMSCRIPTEN__
         int result = munmap(data(), static_cast<size_t>(size_));
+        // emscripten erroneously reports failures in munmap
+        // https://github.com/emscripten-core/emscripten/issues/20459
         ARROW_CHECK_EQ(result, 0) << "munmap failed";
+#else
+        munmap(data(), static_cast<size_t>(size_));
+#endif
       }
     }
 
@@ -560,17 +567,22 @@ class MemoryMappedFile::MemoryMap
       RETURN_NOT_OK(::arrow::internal::FileTruncate(file_->fd(), initial_size));
     }
 
-    size_t mmap_length = static_cast<size_t>(initial_size);
-    if (length > initial_size) {
-      return Status::Invalid("mapping length is beyond file size");
-    }
-    if (length >= 0 && length < initial_size) {
+    int64_t mmap_length = initial_size;
+    if (length >= 0) {
       // memory mapping a file region
-      mmap_length = static_cast<size_t>(length);
+      if (length > initial_size) {
+        return Status::Invalid("mapping length is beyond file size");
+      }
+      mmap_length = length;
+    }
+    if (static_cast<int64_t>(static_cast<size_t>(mmap_length)) != mmap_length) {
+      return Status::CapacityError("Requested memory map length ", mmap_length,
+                                   " does not fit in a C size_t "
+                                   "(are you using a 32-bit build of Arrow?)");
     }
 
-    void* result = mmap(nullptr, mmap_length, prot_flags_, map_mode_, file_->fd(),
-                        static_cast<off_t>(offset));
+    void* result = mmap(nullptr, static_cast<size_t>(mmap_length), prot_flags_, map_mode_,
+                        file_->fd(), static_cast<off_t>(offset));
     if (result == MAP_FAILED) {
       return Status::IOError("Memory mapping file failed: ",
                              ::arrow::internal::ErrnoMessage(errno));

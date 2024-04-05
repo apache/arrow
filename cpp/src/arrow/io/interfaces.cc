@@ -123,7 +123,8 @@ Result<std::shared_ptr<const KeyValueMetadata>> InputStream::ReadMetadata() {
 // executor
 Future<std::shared_ptr<const KeyValueMetadata>> InputStream::ReadMetadataAsync(
     const IOContext& ctx) {
-  auto self = shared_from_this();
+  std::shared_ptr<InputStream> self =
+      std::dynamic_pointer_cast<InputStream>(shared_from_this());
   return DeferNotOk(internal::SubmitIO(ctx, [self] { return self->ReadMetadata(); }));
 }
 
@@ -165,7 +166,7 @@ Result<std::shared_ptr<Buffer>> RandomAccessFile::ReadAt(int64_t position,
 Future<std::shared_ptr<Buffer>> RandomAccessFile::ReadAsync(const IOContext& ctx,
                                                             int64_t position,
                                                             int64_t nbytes) {
-  auto self = checked_pointer_cast<RandomAccessFile>(shared_from_this());
+  auto self = std::dynamic_pointer_cast<RandomAccessFile>(shared_from_this());
   return DeferNotOk(internal::SubmitIO(
       ctx, [self, position, nbytes] { return self->ReadAt(position, nbytes); }));
 }
@@ -424,7 +425,7 @@ ThreadPool* GetIOThreadPool() {
 namespace {
 
 struct ReadRangeCombiner {
-  std::vector<ReadRange> Coalesce(std::vector<ReadRange> ranges) {
+  Result<std::vector<ReadRange>> Coalesce(std::vector<ReadRange> ranges) {
     if (ranges.empty()) {
       return ranges;
     }
@@ -453,7 +454,9 @@ struct ReadRangeCombiner {
       const auto& left = ranges[i];
       const auto& right = ranges[i + 1];
       DCHECK_LE(left.offset, right.offset);
-      DCHECK_LE(left.offset + left.length, right.offset) << "Some read ranges overlap";
+      if (left.offset + left.length > right.offset) {
+        return Status::IOError("Some read ranges overlap");
+      }
     }
 #endif
 
@@ -508,9 +511,9 @@ struct ReadRangeCombiner {
 
 };  // namespace
 
-std::vector<ReadRange> CoalesceReadRanges(std::vector<ReadRange> ranges,
-                                          int64_t hole_size_limit,
-                                          int64_t range_size_limit) {
+Result<std::vector<ReadRange>> CoalesceReadRanges(std::vector<ReadRange> ranges,
+                                                  int64_t hole_size_limit,
+                                                  int64_t range_size_limit) {
   DCHECK_GT(range_size_limit, hole_size_limit);
 
   ReadRangeCombiner combiner{hole_size_limit, range_size_limit};

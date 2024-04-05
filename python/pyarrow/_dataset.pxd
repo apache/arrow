@@ -22,16 +22,15 @@
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.lib cimport *
-from pyarrow._fs cimport FileSystem
+from pyarrow._fs cimport FileSystem, FileInfo
 
 
-cdef CFileSource _make_file_source(object file, FileSystem filesystem=*)
-
+cdef CFileSource _make_file_source(object file, FileSystem filesystem=*, object file_size=*)
 
 cdef class DatasetFactory(_Weakrefable):
 
     cdef:
-        shared_ptr[CDatasetFactory] wrapped
+        SharedPtrNoGIL[CDatasetFactory] wrapped
         CDatasetFactory* factory
 
     cdef init(self, const shared_ptr[CDatasetFactory]& sp)
@@ -45,7 +44,7 @@ cdef class DatasetFactory(_Weakrefable):
 cdef class Dataset(_Weakrefable):
 
     cdef:
-        shared_ptr[CDataset] wrapped
+        SharedPtrNoGIL[CDataset] wrapped
         CDataset* dataset
         public dict _scan_options
 
@@ -59,7 +58,7 @@ cdef class Dataset(_Weakrefable):
 
 cdef class Scanner(_Weakrefable):
     cdef:
-        shared_ptr[CScanner] wrapped
+        SharedPtrNoGIL[CScanner] wrapped
         CScanner* scanner
 
     cdef void init(self, const shared_ptr[CScanner]& sp)
@@ -122,7 +121,7 @@ cdef class FileWriteOptions(_Weakrefable):
 cdef class Fragment(_Weakrefable):
 
     cdef:
-        shared_ptr[CFragment] wrapped
+        SharedPtrNoGIL[CFragment] wrapped
         CFragment* fragment
 
     cdef void init(self, const shared_ptr[CFragment]& sp)

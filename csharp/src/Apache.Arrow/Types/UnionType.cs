@@ -24,20 +24,21 @@ namespace Apache.Arrow.Types
         Dense
     }
 
-    public sealed class UnionType : ArrowType
+    public sealed class UnionType : NestedType
     {
         public override ArrowTypeId TypeId => ArrowTypeId.Union;
         public override string Name => "union";
 
         public UnionMode Mode { get; }
-        
-        public IEnumerable<byte> TypeCodes { get; }
+
+        public int[] TypeIds { get; }
 
         public UnionType(
-            IEnumerable<Field> fields, IEnumerable<byte> typeCodes,
+            IEnumerable<Field> fields, IEnumerable<int> typeIds,
             UnionMode mode = UnionMode.Sparse)
+            : base(fields.ToArray())
         {
-            TypeCodes = typeCodes.ToList();
+            TypeIds = typeIds.ToArray();
             Mode = mode;
         }
 

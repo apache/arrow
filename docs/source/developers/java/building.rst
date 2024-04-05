@@ -32,8 +32,11 @@ Arrow Java uses the `Maven <https://maven.apache.org/>`_ build system.
 
 Building requires:
 
-* JDK 8, 9, 10, 11, 17, or 18, but only JDK 8, 11 and 17 are tested in CI.
+* JDK 8+
 * Maven 3+
+
+.. note::
+    CI will test all supported JDK LTS versions, plus the latest non-LTS version.
 
 Building
 ========
@@ -76,7 +79,7 @@ Docker compose
     $ cd arrow/java
     $ export JAVA_HOME=<absolute path to your java home>
     $ java --version
-    $ docker-compose run debian-java
+    $ docker-compose run java
 
 Archery
 ~~~~~~~
@@ -86,7 +89,7 @@ Archery
     $ cd arrow/java
     $ export JAVA_HOME=<absolute path to your java home>
     $ java --version
-    $ archery docker run debian-java
+    $ archery docker run java
 
 Building JNI Libraries (\*.dylib / \*.so / \*.dll)
 --------------------------------------------------
@@ -104,7 +107,7 @@ We can build these manually or we can use `Archery`_ to build them using a Docke
 Maven
 ~~~~~
 
-- To build only the JNI C Data Interface library (MacOS / Linux):
+- To build only the JNI C Data Interface library (macOS / Linux):
 
   .. code-block:: text
 
@@ -112,9 +115,8 @@ Maven
       $ export JAVA_HOME=<absolute path to your java home>
       $ java --version
       $ mvn generate-resources -Pgenerate-libs-cdata-all-os -N
-      $ ls -latr ../java-dist/lib/<your system's architecture>
-      |__ libarrow_cdata_jni.dylib
-      |__ libarrow_cdata_jni.so
+      $ ls -latr ../java-dist/lib
+      |__ arrow_cdata_jni/
 
 - To build only the JNI C Data Interface library (Windows):
 
@@ -122,10 +124,10 @@ Maven
 
       $ cd arrow/java
       $ mvn generate-resources -Pgenerate-libs-cdata-all-os -N
-      $ dir "../java-dist/bin/x86_64"
-      |__ arrow_cdata_jni.dll
+      $ dir "../java-dist/bin"
+      |__ arrow_cdata_jni/
 
-- To build all JNI libraries (MacOS / Linux) except the JNI C Data Interface library:
+- To build all JNI libraries (macOS / Linux) except the JNI C Data Interface library:
 
   .. code-block:: text
 
@@ -133,10 +135,10 @@ Maven
       $ export JAVA_HOME=<absolute path to your java home>
       $ java --version
       $ mvn generate-resources -Pgenerate-libs-jni-macos-linux -N
-      $ ls -latr java-dist/lib/<your system's architecture>/*_{jni,java}.*
-      |__ libarrow_dataset_jni.dylib
-      |__ libarrow_orc_jni.dylib
-      |__ libgandiva_jni.dylib
+      $ ls -latr java-dist/lib
+      |__ arrow_dataset_jni/
+      |__ arrow_orc_jni/
+      |__ gandiva_jni/
 
 - To build all JNI libraries (Windows) except the JNI C Data Interface library:
 
@@ -144,13 +146,13 @@ Maven
 
       $ cd arrow/java
       $ mvn generate-resources -Pgenerate-libs-jni-windows -N
-      $ dir "../java-dist/bin/x86_64"
-      |__ arrow_dataset_jni.dll
+      $ dir "../java-dist/bin"
+      |__ arrow_dataset_jni/
 
 CMake
 ~~~~~
 
-- To build only the JNI C Data Interface library (MacOS / Linux):
+- To build only the JNI C Data Interface library (macOS / Linux):
 
   .. code-block:: text
 
@@ -163,12 +165,10 @@ CMake
           -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF \
           -DBUILD_TESTING=OFF \
           -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_INSTALL_LIBDIR=lib/<your system's architecture> \
           -DCMAKE_INSTALL_PREFIX=java-dist
       $ cmake --build java-cdata --target install --config Release
       $ ls -latr java-dist/lib
-      |__ libarrow_cdata_jni.dylib
-      |__ libarrow_cdata_jni.so
+      |__ arrow_cdata_jni/
 
 - To build only the JNI C Data Interface library (Windows):
 
@@ -183,13 +183,12 @@ CMake
           -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF ^
           -DBUILD_TESTING=OFF ^
           -DCMAKE_BUILD_TYPE=Release ^
-          -DCMAKE_INSTALL_LIBDIR=lib/x86_64 ^
           -DCMAKE_INSTALL_PREFIX=java-dist
       $ cmake --build java-cdata --target install --config Release
       $ dir "java-dist/bin"
-      |__ arrow_cdata_jni.dll
+      |__ arrow_cdata_jni/
 
-- To build all JNI libraries (MacOS / Linux) except the JNI C Data Interface library:
+- To build all JNI libraries (macOS / Linux) except the JNI C Data Interface library:
 
   .. code-block::
 
@@ -219,7 +218,6 @@ CMake
           -DARROW_SUBSTRAIT=ON \
           -DARROW_USE_CCACHE=ON \
           -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_INSTALL_LIBDIR=lib/<your system's architecture> \
           -DCMAKE_INSTALL_PREFIX=java-dist \
           -DCMAKE_UNITY_BUILD=ON
       $ cmake --build cpp-jni --target install --config Release
@@ -230,16 +228,15 @@ CMake
           -DARROW_JAVA_JNI_ENABLE_DEFAULT=ON \
           -DBUILD_TESTING=OFF \
           -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_INSTALL_LIBDIR=lib/<your system's architecture> \
           -DCMAKE_INSTALL_PREFIX=java-dist \
           -DCMAKE_PREFIX_PATH=$PWD/java-dist \
           -DProtobuf_ROOT=$PWD/../cpp-jni/protobuf_ep-install \
           -DProtobuf_USE_STATIC_LIBS=ON
       $ cmake --build java-jni --target install --config Release
-      $ ls -latr java-dist/lib/<your system's architecture>/*_{jni,java}.*
-      |__ libarrow_dataset_jni.dylib
-      |__ libarrow_orc_jni.dylib
-      |__ libgandiva_jni.dylib
+      $ ls -latr java-dist/lib/
+      |__ arrow_dataset_jni/
+      |__ arrow_orc_jni/
+      |__ gandiva_jni/
 
 - To build all JNI libraries (Windows) except the JNI C Data Interface library:
 
@@ -268,7 +265,6 @@ CMake
           -DARROW_WITH_ZLIB=ON ^
           -DARROW_WITH_ZSTD=ON ^
           -DCMAKE_BUILD_TYPE=Release ^
-          -DCMAKE_INSTALL_LIBDIR=lib/x86_64 ^
           -DCMAKE_INSTALL_PREFIX=java-dist ^
           -DCMAKE_UNITY_BUILD=ON ^
           -GNinja
@@ -285,13 +281,12 @@ CMake
           -DARROW_JAVA_JNI_ENABLE_ORC=ON ^
           -DBUILD_TESTING=OFF ^
           -DCMAKE_BUILD_TYPE=Release ^
-          -DCMAKE_INSTALL_LIBDIR=lib/x86_64 ^
           -DCMAKE_INSTALL_PREFIX=java-dist ^
           -DCMAKE_PREFIX_PATH=$PWD/java-dist
       $ cmake --build java-jni --target install --config Release
       $ dir "java-dist/bin"
-      |__ arrow_orc_jni.dll
-      |__ arrow_dataset_jni.dll
+      |__ arrow_orc_jni/
+      |__ arrow_dataset_jni/
 
 Archery
 ~~~~~~~
@@ -300,11 +295,11 @@ Archery
 
     $ cd arrow
     $ archery docker run java-jni-manylinux-2014
-    $ ls -latr java-dist/<your system's architecture>/
-    |__ libarrow_cdata_jni.so
-    |__ libarrow_dataset_jni.so
-    |__ libarrow_orc_jni.so
-    |__ libgandiva_jni.so
+    $ ls -latr java-dist
+    |__ arrow_cdata_jni/
+    |__ arrow_dataset_jni/
+    |__ arrow_orc_jni/
+    |__ gandiva_jni/
 
 Building Java JNI Modules
 -------------------------
@@ -352,6 +347,11 @@ Arrow repository, and update the following settings:
 * If using IntelliJ's Maven integration to build, you may need to change
   ``<fork>`` to ``false`` in the pom.xml files due to an `IntelliJ bug
   <https://youtrack.jetbrains.com/issue/IDEA-278903>`__.
+* To enable debugging JNI-based modules like ``dataset``,
+  activate specific profiles in the Maven tab under "Profiles".
+  Ensure the profiles ``arrow-c-data``, ``arrow-jni``, ``generate-libs-cdata-all-os``,
+  ``generate-libs-jni-macos-linux``, and ``jdk11+`` are enabled, so that the 
+  IDE can build them and enable debugging.
 
 You may not need to update all of these settings if you build/test with the
 IntelliJ Maven integration instead of with IntelliJ directly.
@@ -390,7 +390,7 @@ Installing Nightly Packages
     These packages are not official releases. Use them at your own risk.
 
 Arrow nightly builds are posted on the mailing list at `builds@arrow.apache.org`_.
-The artifacts are uploaded to GitHub. For example, for 2022/07/30, they can be found at `Github Nightly`_.
+The artifacts are uploaded to GitHub. For example, for 2022/07/30, they can be found at `GitHub Nightly`_.
 
 
 Installing from Apache Nightlies
@@ -426,7 +426,7 @@ Installing Manually
 -------------------
 
 1. Decide nightly packages repository to use, for example: https://github.com/ursacomputing/crossbow/releases/tag/nightly-packaging-2022-07-30-0-github-java-jars
-2. Add packages to your pom.xml, for example: flight-core (it depends on: arrow-format, arrow-vector, arrow-memeory-core and arrow-memory-netty).
+2. Add packages to your pom.xml, for example: flight-core (it depends on: arrow-format, arrow-vector, arrow-memory-core and arrow-memory-netty).
 
    .. code-block:: xml
 
@@ -537,4 +537,4 @@ Installing Manually
 6. Compile your project like usual with ``mvn clean install``.
 
 .. _builds@arrow.apache.org: https://lists.apache.org/list.html?builds@arrow.apache.org
-.. _Github Nightly: https://github.com/ursacomputing/crossbow/releases/tag/nightly-packaging-2022-07-30-0-github-java-jars
+.. _GitHub Nightly: https://github.com/ursacomputing/crossbow/releases/tag/nightly-packaging-2022-07-30-0-github-java-jars

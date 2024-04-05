@@ -21,17 +21,18 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/apache/arrow/go/v14/parquet"
-	"github.com/apache/arrow/go/v14/parquet/internal/encryption"
-	"github.com/apache/arrow/go/v14/parquet/internal/utils"
-	"github.com/apache/arrow/go/v14/parquet/metadata"
-	"github.com/apache/arrow/go/v14/parquet/schema"
+	"github.com/apache/arrow/go/v16/parquet"
+	"github.com/apache/arrow/go/v16/parquet/internal/encryption"
+	"github.com/apache/arrow/go/v16/parquet/internal/utils"
+	"github.com/apache/arrow/go/v16/parquet/metadata"
+	"github.com/apache/arrow/go/v16/parquet/schema"
 )
 
 // Writer is the primary interface for writing a parquet file
 type Writer struct {
 	sink           utils.WriteCloserTell
 	open           bool
+	footerFlushed  bool
 	props          *parquet.WriterProperties
 	rowGroups      int
 	nrows          int
@@ -41,23 +42,24 @@ type Writer struct {
 
 	// The Schema of this writer
 	Schema *schema.Schema
-	// The current FileMetadata to write
-	FileMetadata *metadata.FileMetaData
-	// The current keyvalue metadata
-	KeyValueMetadata metadata.KeyValueMetadata
 }
 
-type WriteOption func(*Writer)
+type writerConfig struct {
+	props            *parquet.WriterProperties
+	keyValueMetadata metadata.KeyValueMetadata
+}
+
+type WriteOption func(*writerConfig)
 
 func WithWriterProps(props *parquet.WriterProperties) WriteOption {
-	return func(w *Writer) {
-		w.props = props
+	return func(c *writerConfig) {
+		c.props = props
 	}
 }
 
 func WithWriteMetadata(meta metadata.KeyValueMetadata) WriteOption {
-	return func(w *Writer) {
-		w.KeyValueMetadata = meta
+	return func(c *writerConfig) {
+		c.keyValueMetadata = meta
 	}
 }
 
@@ -66,19 +68,23 @@ func WithWriteMetadata(meta metadata.KeyValueMetadata) WriteOption {
 // If props is nil, then the default Writer Properties will be used. If the key value metadata is not nil,
 // it will be added to the file.
 func NewParquetWriter(w io.Writer, sc *schema.GroupNode, opts ...WriteOption) *Writer {
+	config := &writerConfig{}
+	for _, o := range opts {
+		o(config)
+	}
+	if config.props == nil {
+		config.props = parquet.NewWriterProperties()
+	}
+
 	fileSchema := schema.NewSchema(sc)
 	fw := &Writer{
+		props:  config.props,
 		sink:   &utils.TellWrapper{Writer: w},
 		open:   true,
 		Schema: fileSchema,
 	}
-	for _, o := range opts {
-		o(fw)
-	}
-	if fw.props == nil {
-		fw.props = parquet.NewWriterProperties()
-	}
-	fw.metadata = *metadata.NewFileMetadataBuilder(fw.Schema, fw.props, fw.KeyValueMetadata)
+
+	fw.metadata = *metadata.NewFileMetadataBuilder(fw.Schema, fw.props, config.keyValueMetadata)
 	fw.startFile()
 	return fw
 }
@@ -116,9 +122,11 @@ func (fw *Writer) AppendRowGroup() SerialRowGroupWriter {
 
 func (fw *Writer) appendRowGroup(buffered bool) *rowGroupWriter {
 	if fw.rowGroupWriter != nil {
+		fw.nrows += fw.rowGroupWriter.nrows
 		fw.rowGroupWriter.Close()
 	}
 	fw.rowGroups++
+	fw.footerFlushed = false
 	rgMeta := fw.metadata.AppendRowGroup()
 	fw.rowGroupWriter = newRowGroupWriter(fw.sink, rgMeta, int16(fw.rowGroups)-1, fw.props, buffered, fw.fileEncryptor)
 	return fw.rowGroupWriter
@@ -154,6 +162,11 @@ func (fw *Writer) startFile() {
 	}
 }
 
+// AppendKeyValueMetadata appends a key/value pair to the existing key/value metadata
+func (fw *Writer) AppendKeyValueMetadata(key string, value string) error {
+	return fw.metadata.AppendKeyValueMetadata(key, value)
+}
+
 // Close closes any open row group writer and writes the file footer. Subsequent
 // calls to close will have no effect.
 func (fw *Writer) Close() (err error) {
@@ -161,12 +174,9 @@ func (fw *Writer) Close() (err error) {
 		// if any functions here panic, we set open to be false so
 		// that this doesn't get called again
 		fw.open = false
-		if fw.rowGroupWriter != nil {
-			fw.nrows += fw.rowGroupWriter.nrows
-			fw.rowGroupWriter.Close()
-		}
-		fw.rowGroupWriter = nil
+
 		defer func() {
+			fw.closeEncryptor()
 			ierr := fw.sink.Close()
 			if err != nil {
 				if ierr != nil {
@@ -178,29 +188,48 @@ func (fw *Writer) Close() (err error) {
 			err = ierr
 		}()
 
-		fileEncryptProps := fw.props.FileEncryptionProperties()
-		if fileEncryptProps == nil { // non encrypted file
-			if fw.FileMetadata, err = fw.metadata.Finish(); err != nil {
-				return err
-			}
-
-			_, err = writeFileMetadata(fw.FileMetadata, fw.sink)
-			return err
-		}
-
-		return fw.closeEncryptedFile(fileEncryptProps)
+		err = fw.FlushWithFooter()
+		fw.metadata.Clear()
 	}
 	return nil
 }
 
-func (fw *Writer) closeEncryptedFile(props *parquet.FileEncryptionProperties) (err error) {
-	// encrypted file with encrypted footer
-	if props.EncryptedFooter() {
-		fw.FileMetadata, err = fw.metadata.Finish()
+// FlushWithFooter closes any open row group writer and writes the file footer, leaving
+// the writer open for additional row groups.  Additional footers written by later
+// calls to FlushWithFooter or Close will be cumulative, so that only the last footer
+// written need ever be read by a reader.
+func (fw *Writer) FlushWithFooter() error {
+	if !fw.footerFlushed {
+		if fw.rowGroupWriter != nil {
+			fw.nrows += fw.rowGroupWriter.nrows
+			fw.rowGroupWriter.Close()
+		}
+		fw.rowGroupWriter = nil
+
+		fileMetadata, err := fw.metadata.Snapshot()
 		if err != nil {
-			return
+			return err
 		}
 
+		fileEncryptProps := fw.props.FileEncryptionProperties()
+		if fileEncryptProps == nil { // non encrypted file
+			if _, err = writeFileMetadata(fileMetadata, fw.sink); err != nil {
+				return err
+			}
+		} else {
+			if err := fw.flushEncryptedFile(fileMetadata, fileEncryptProps); err != nil {
+				return err
+			}
+		}
+
+		fw.footerFlushed = true
+	}
+	return nil
+}
+
+func (fw *Writer) flushEncryptedFile(fileMetadata *metadata.FileMetaData, props *parquet.FileEncryptionProperties) error {
+	// encrypted file with encrypted footer
+	if props.EncryptedFooter() {
 		footerLen := int64(0)
 
 		cryptoMetadata := fw.metadata.GetFileCryptoMetaData()
@@ -211,7 +240,7 @@ func (fw *Writer) closeEncryptedFile(props *parquet.FileEncryptionProperties) (e
 
 		footerLen += n
 		footerEncryptor := fw.fileEncryptor.GetFooterEncryptor()
-		n, err = writeEncryptedFileMetadata(fw.FileMetadata, fw.sink, footerEncryptor, true)
+		n, err = writeEncryptedFileMetadata(fileMetadata, fw.sink, footerEncryptor, true)
 		if err != nil {
 			return err
 		}
@@ -224,18 +253,18 @@ func (fw *Writer) closeEncryptedFile(props *parquet.FileEncryptionProperties) (e
 			return err
 		}
 	} else {
-		if fw.FileMetadata, err = fw.metadata.Finish(); err != nil {
-			return
-		}
 		footerSigningEncryptor := fw.fileEncryptor.GetFooterSigningEncryptor()
-		if _, err = writeEncryptedFileMetadata(fw.FileMetadata, fw.sink, footerSigningEncryptor, false); err != nil {
+		if _, err := writeEncryptedFileMetadata(fileMetadata, fw.sink, footerSigningEncryptor, false); err != nil {
 			return err
 		}
 	}
+	return nil
+}
+
+func (fw *Writer) closeEncryptor() {
 	if fw.fileEncryptor != nil {
 		fw.fileEncryptor.WipeOutEncryptionKeys()
 	}
-	return nil
 }
 
 func writeFileMetadata(fileMetadata *metadata.FileMetaData, w io.Writer) (n int64, err error) {

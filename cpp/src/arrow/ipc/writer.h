@@ -57,6 +57,7 @@ struct IpcPayload {
   MessageType type = MessageType::NONE;
   std::shared_ptr<Buffer> metadata;
   std::vector<std::shared_ptr<Buffer>> body_buffers;
+  std::vector<int64_t> variadic_buffer_counts;
   int64_t body_length = 0;      // serialized body length (padded, maybe compressed)
   int64_t raw_body_length = 0;  // initial uncompressed body length
 };
@@ -112,8 +113,8 @@ class ARROW_EXPORT RecordBatchWriter {
 
   /// \brief Write Table with a particular chunksize
   /// \param[in] table table to write
-  /// \param[in] max_chunksize maximum length of table chunks. To indicate
-  /// that no maximum should be enforced, pass -1.
+  /// \param[in] max_chunksize maximum number of rows for table chunks. To
+  /// indicate that no maximum should be enforced, pass -1.
   /// \return Status
   virtual Status WriteTable(const Table& table, int64_t max_chunksize);
 

@@ -114,8 +114,8 @@ extensions = [
     'breathe',
     'IPython.sphinxext.ipython_console_highlighting',
     'IPython.sphinxext.ipython_directive',
+    'myst_parser',
     'numpydoc',
-    "sphinxcontrib.jquery",
     'sphinx_design',
     'sphinx_copybutton',
     'sphinx.ext.autodoc',
@@ -140,7 +140,7 @@ autodoc_default_options = {
 breathe_projects = {"arrow_cpp": "../../cpp/apidoc/xml"}
 breathe_default_project = "arrow_cpp"
 
-# Overriden conditionally below
+# Overridden conditionally below
 autodoc_mock_imports = []
 
 # copybutton configuration
@@ -150,6 +150,24 @@ copybutton_line_continuation_character = "\\"
 
 # ipython directive options
 ipython_mplbackend = ''
+
+# MyST-Parser configuration
+myst_enable_extensions = [
+    'amsmath',
+    'attrs_inline',
+    # 'colon_fence',
+    'deflist',
+    'dollarmath',
+    'fieldlist',
+    'html_admonition',
+    'html_image',
+    'linkify',
+    # 'replacements',
+    # 'smartquotes',
+    'strikethrough',
+    'substitution',
+    'tasklist',
+]
 
 # numpydoc configuration
 numpydoc_xref_param_type = True
@@ -189,7 +207,16 @@ templates_path = ['_templates']
 # You can specify multiple suffix as a list of string:
 #
 
-source_suffix = ['.rst']
+source_suffix = {
+    # We need to keep "'.rst': 'restructuredtext'" as the first item.
+    # This is a workaround of
+    # https://github.com/sphinx-doc/sphinx/issues/12147 .
+    #
+    # We can sort these items in alphabetical order with Sphinx 7.3.0
+    # or later that will include the fix of this problem.
+    '.rst': 'restructuredtext',
+    '.md': 'markdown',
+}
 
 autosummary_generate = True
 
@@ -202,7 +229,12 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Apache Arrow'
-copyright = f'2016-{datetime.datetime.now().year} Apache Software Foundation'
+copyright = (
+    f"2016-{datetime.datetime.now().year} Apache Software Foundation.\n"
+    "Apache Arrow, Arrow, Apache, the Apache feather logo, and the Apache Arrow "
+    "project logo are either registered trademarks or trademarks of The Apache "
+    "Software Foundation in the United States and other countries"
+)
 author = u'Apache Software Foundation'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -288,16 +320,45 @@ html_theme = 'pydata_sphinx_theme'
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
+
+switcher_version = version
+if ".dev" in version:
+    switcher_version = "dev/"
+else:
+    # If we are not building dev version of the docs, we are building
+    # docs for the stable version
+    switcher_version = ""
+
 html_theme_options = {
     "show_toc_level": 2,
     "use_edit_page_button": True,
+    "logo": {
+      "image_light": "_static/arrow.png",
+      "image_dark": "_static/arrow-dark.png",
+    },
+    "header_links_before_dropdown": 2,
+    "header_dropdown_text": "Implementations",
+    "navbar_end": ["version-switcher", "theme-switcher", "navbar-icon-links"],
+    "icon_links": [
+        {
+            "name": "GitHub",
+            "url": "https://github.com/apache/arrow",
+            "icon": "fa-brands fa-square-github",
+        },
+        {
+            "name": "Twitter",
+            "url": "https://twitter.com/ApacheArrow",
+            "icon": "fa-brands fa-square-twitter",
+        },
+    ],
+    "show_version_warning_banner": True,
+    "switcher": {
+        "json_url": "/docs/_static/versions.json",
+        "version_match": switcher_version,
+    },
 }
 
 html_context = {
-    "switcher_json_url": "/docs/_static/versions.json",
-    "switcher_template_url": "https://arrow.apache.org/docs/{version}",
-    # for local testing
-    # "switcher_template_url": "http://0.0.0.0:8000/docs/{version}",
     "github_user": "apache",
     "github_repo": "arrow",
     "github_version": "main",
@@ -319,7 +380,7 @@ html_title = u'Apache Arrow v{}'.format(version)
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
 #
-html_logo = "_static/arrow.png"
+# html_logo = "_static/arrow.png"
 
 # The name of an image file (relative to this directory) to use as a favicon of
 # the docs.  This file should be a Windows icon file (.ico) being 16x16 or
@@ -354,10 +415,9 @@ html_css_files = ['theme_overrides.css']
 
 # Custom sidebar templates, maps document names to template names.
 #
-html_sidebars = {
+# html_sidebars = {
 #    '**': ['sidebar-logo.html', 'sidebar-search-bs.html', 'sidebar-nav-bs.html'],
-    '**': ['docs-sidebar.html'],
-}
+# }
 
 # The base URL which points to the root of the HTML documentation,
 # used for canonical url
@@ -382,7 +442,7 @@ html_baseurl = "https://arrow.apache.org/docs/"
 
 # If true, links to the reST sources are added to the pages.
 #
-# html_show_sourcelink = True
+html_show_sourcelink = False
 
 # If true, "Created using Sphinx" is shown in the HTML footer. Default is True.
 #

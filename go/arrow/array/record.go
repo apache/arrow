@@ -22,10 +22,10 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v14/arrow"
-	"github.com/apache/arrow/go/v14/arrow/internal/debug"
-	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/apache/arrow/go/v14/internal/json"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/internal/debug"
+	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v16/internal/json"
 )
 
 // RecordReader reads a stream of records.
@@ -50,7 +50,7 @@ type simpleRecords struct {
 }
 
 // NewRecordReader returns a simple iterator over the given slice of records.
-func NewRecordReader(schema *arrow.Schema, recs []arrow.Record) (*simpleRecords, error) {
+func NewRecordReader(schema *arrow.Schema, recs []arrow.Record) (RecordReader, error) {
 	rs := &simpleRecords{
 		refCount: 1,
 		schema:   schema,
@@ -124,7 +124,7 @@ type simpleRecord struct {
 //
 // NewRecord panics if the columns and schema are inconsistent.
 // NewRecord panics if rows is larger than the height of the columns.
-func NewRecord(schema *arrow.Schema, cols []arrow.Array, nrows int64) *simpleRecord {
+func NewRecord(schema *arrow.Schema, cols []arrow.Array, nrows int64) arrow.Record {
 	rec := &simpleRecord{
 		refCount: 1,
 		schema:   schema,
@@ -185,7 +185,7 @@ func (rec *simpleRecord) validate() error {
 		return nil
 	}
 
-	if len(rec.arrs) != len(rec.schema.Fields()) {
+	if len(rec.arrs) != rec.schema.NumFields() {
 		return fmt.Errorf("arrow/array: number of columns/fields mismatch")
 	}
 
@@ -285,11 +285,11 @@ func NewRecordBuilder(mem memory.Allocator, schema *arrow.Schema) *RecordBuilder
 		refCount: 1,
 		mem:      mem,
 		schema:   schema,
-		fields:   make([]Builder, len(schema.Fields())),
+		fields:   make([]Builder, schema.NumFields()),
 	}
 
-	for i, f := range schema.Fields() {
-		b.fields[i] = NewBuilder(b.mem, f.Type)
+	for i := 0; i < schema.NumFields(); i++ {
+		b.fields[i] = NewBuilder(b.mem, schema.Field(i).Type)
 	}
 
 	return b
@@ -397,8 +397,8 @@ func (b *RecordBuilder) UnmarshalJSON(data []byte) error {
 		}
 	}
 
-	for i, f := range b.schema.Fields() {
-		if !keylist[f.Name] {
+	for i := 0; i < b.schema.NumFields(); i++ {
+		if !keylist[b.schema.Field(i).Name] {
 			b.fields[i].AppendNull()
 		}
 	}

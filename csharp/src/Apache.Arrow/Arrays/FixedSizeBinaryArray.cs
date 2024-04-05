@@ -14,13 +14,14 @@
 // limitations under the License.
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow.Arrays
 {
-    public class FixedSizeBinaryArray : Array
+    public class FixedSizeBinaryArray : Array, IReadOnlyList<byte[]>
     {
         public FixedSizeBinaryArray(ArrayData data)
             : base(data)
@@ -70,6 +71,19 @@ namespace Apache.Arrow.Arrays
             return ValueBuffer.Span.Slice(index * size, size);
         }
 
+        int IReadOnlyCollection<byte[]>.Count => Length;
+        byte[] IReadOnlyList<byte[]>.this[int index] => GetBytes(index).ToArray();
+
+        IEnumerator<byte[]> IEnumerable<byte[]>.GetEnumerator()
+        {
+            for (int index = 0; index < Length; index++)
+            {
+                yield return GetBytes(index).ToArray();
+            }
+        }
+
+        IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable<byte[]>)this).GetEnumerator();
+
         public abstract class BuilderBase<TArray, TBuilder> : IArrowArrayBuilder<byte[], TArray, TBuilder>
             where TArray : IArrowArray
             where TBuilder : class, IArrowArrayBuilder<byte[], TArray, TBuilder>
@@ -111,14 +125,14 @@ namespace Apache.Arrow.Arrays
             public TBuilder Reserve(int capacity)
             {
                 ValueBuffer.Reserve(capacity * ByteWidth);
-                ValidityBuffer.Reserve(capacity + 1);
+                ValidityBuffer.Reserve(capacity);
                 return Instance;
             }
 
             public TBuilder Resize(int length)
             {
                 ValueBuffer.Resize(length * ByteWidth);
-                ValidityBuffer.Resize(length + 1);
+                ValidityBuffer.Resize(length);
                 return Instance;
             }
 
@@ -220,7 +234,6 @@ namespace Apache.Arrow.Arrays
                 ValidityBuffer.Set(index, false);
                 return Instance;
             }
-
         }
     }
 }

@@ -35,24 +35,23 @@ namespace Apache.Arrow
 
         public Field(string name, IArrowType dataType, bool nullable,
             IEnumerable<KeyValuePair<string, string>> metadata = default)
-            : this(name, dataType, nullable, false)
+            : this(name, dataType, nullable)
         {
             Metadata = metadata?.ToDictionary(kv => kv.Key, kv => kv.Value);
-
         }
 
         internal Field(string name, IArrowType dataType, bool nullable,
-            IReadOnlyDictionary<string, string> metadata, bool copyCollections, bool allowBlankName)
-            : this(name, dataType, nullable, allowBlankName)
+            IReadOnlyDictionary<string, string> metadata, bool copyCollections)
+            : this(name, dataType, nullable)
         {
             Debug.Assert(copyCollections == false, "This internal constructor is to not copy the collections.");
 
             Metadata = metadata;
         }
 
-        private Field(string name, IArrowType dataType, bool nullable, bool allowBlankName)
+        private Field(string name, IArrowType dataType, bool nullable)
         {
-            if (name == null || (!allowBlankName && string.IsNullOrWhiteSpace(name)))
+            if (name == null)
             {
                 throw new ArgumentNullException(nameof(name));
             }
@@ -61,5 +60,7 @@ namespace Apache.Arrow
             DataType = dataType ?? NullType.Default;
             IsNullable = nullable;
         }
+
+        public override string ToString() => $"{nameof(Field)}: Name={Name}, DataType={DataType.Name}, IsNullable={IsNullable}, Metadata count={Metadata?.Count ?? 0}";
     }
 }

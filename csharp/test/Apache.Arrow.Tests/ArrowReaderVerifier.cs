@@ -20,6 +20,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Apache.Arrow.Arrays;
 using Xunit;
+using System.Diagnostics;
 
 namespace Apache.Arrow.Tests
 {
@@ -37,6 +38,9 @@ namespace Apache.Arrow.Tests
 
         public static async Task VerifyReaderAsync(ArrowStreamReader reader, RecordBatch originalBatch)
         {
+            Schema schema = await reader.GetSchema();
+            Assert.NotNull(schema);
+
             RecordBatch readBatch = await reader.ReadNextRecordBatchAsync();
             CompareBatches(originalBatch, readBatch);
 
@@ -85,12 +89,20 @@ namespace Apache.Arrow.Tests
             IArrowArrayVisitor<Date64Array>,
             IArrowArrayVisitor<Time32Array>,
             IArrowArrayVisitor<Time64Array>,
+            IArrowArrayVisitor<DurationArray>,
+            IArrowArrayVisitor<YearMonthIntervalArray>,
+            IArrowArrayVisitor<DayTimeIntervalArray>,
+            IArrowArrayVisitor<MonthDayNanosecondIntervalArray>,
             IArrowArrayVisitor<ListArray>,
+            IArrowArrayVisitor<ListViewArray>,
             IArrowArrayVisitor<FixedSizeListArray>,
             IArrowArrayVisitor<StringArray>,
+            IArrowArrayVisitor<StringViewArray>,
             IArrowArrayVisitor<FixedSizeBinaryArray>,
             IArrowArrayVisitor<BinaryArray>,
+            IArrowArrayVisitor<BinaryViewArray>,
             IArrowArrayVisitor<StructArray>,
+            IArrowArrayVisitor<UnionArray>,
             IArrowArrayVisitor<Decimal128Array>,
             IArrowArrayVisitor<Decimal256Array>,
             IArrowArrayVisitor<DictionaryArray>,
@@ -126,19 +138,44 @@ namespace Apache.Arrow.Tests
             public void Visit(Date64Array array) => CompareArrays(array);
             public void Visit(Time32Array array) => CompareArrays(array);
             public void Visit(Time64Array array) => CompareArrays(array);
+            public void Visit(DurationArray array) => CompareArrays(array);
+            public void Visit(YearMonthIntervalArray array) => CompareArrays(array);
+            public void Visit(DayTimeIntervalArray array) => CompareArrays(array);
+            public void Visit(MonthDayNanosecondIntervalArray array) => CompareArrays(array);
             public void Visit(ListArray array) => CompareArrays(array);
+            public void Visit(ListViewArray array) => CompareArrays(array);
             public void Visit(FixedSizeListArray array) => CompareArrays(array);
             public void Visit(FixedSizeBinaryArray array) => CompareArrays(array);
             public void Visit(Decimal128Array array) => CompareArrays(array);
             public void Visit(Decimal256Array array) => CompareArrays(array);
             public void Visit(StringArray array) => CompareBinaryArrays<StringArray>(array);
+            public void Visit(StringViewArray array) => CompareVariadicArrays<StringViewArray>(array);
             public void Visit(BinaryArray array) => CompareBinaryArrays<BinaryArray>(array);
+            public void Visit(BinaryViewArray array) => CompareVariadicArrays<BinaryViewArray>(array);
 
             public void Visit(StructArray array)
             {
                 Assert.IsAssignableFrom<StructArray>(_expectedArray);
                 StructArray expectedArray = (StructArray)_expectedArray;
 
+                Assert.Equal(expectedArray.Length, array.Length);
+                Assert.Equal(expectedArray.NullCount, array.NullCount);
+                Assert.Equal(expectedArray.Offset, array.Offset);
+                Assert.Equal(expectedArray.Data.Children.Length, array.Data.Children.Length);
+                Assert.Equal(expectedArray.Fields.Count, array.Fields.Count);
+
+                for (int i = 0; i < array.Fields.Count; i++)
+                {
+                    array.Fields[i].Accept(new ArrayComparer(expectedArray.Fields[i], _strictCompare));
+                }
+            }
+
+            public void Visit(UnionArray array)
+            {
+                Assert.IsAssignableFrom<UnionArray>(_expectedArray);
+                UnionArray expectedArray = (UnionArray)_expectedArray;
+
+                Assert.Equal(expectedArray.Mode, array.Mode);
                 Assert.Equal(expectedArray.Length, array.Length);
                 Assert.Equal(expectedArray.NullCount, array.NullCount);
                 Assert.Equal(expectedArray.Offset, array.Offset);
@@ -203,6 +240,32 @@ namespace Apache.Arrow.Tests
                 }
             }
 
+            private void CompareVariadicArrays<T>(BinaryViewArray actualArray)
+                where T : IArrowArray
+            {
+                Assert.IsAssignableFrom<T>(_expectedArray);
+                Assert.IsAssignableFrom<T>(actualArray);
+
+                var expectedArray = (BinaryViewArray)_expectedArray;
+
+                actualArray.Data.DataType.Accept(_arrayTypeComparer);
+
+                Assert.Equal(expectedArray.Length, actualArray.Length);
+                Assert.Equal(expectedArray.NullCount, actualArray.NullCount);
+                Assert.Equal(expectedArray.Offset, actualArray.Offset);
+
+                CompareValidityBuffer(expectedArray.NullCount, _expectedArray.Length, expectedArray.NullBitmapBuffer, actualArray.NullBitmapBuffer);
+
+                Assert.True(expectedArray.Views.SequenceEqual(actualArray.Views));
+
+                for (int i = 0; i < expectedArray.Length; i++)
+                {
+                    Assert.True(
+                        expectedArray.GetBytes(i).SequenceEqual(actualArray.GetBytes(i)),
+                        $"BinaryArray values do not match at index {i}.");
+                }
+            }
+
             private void CompareArrays(FixedSizeBinaryArray actualArray)
             {
                 Assert.IsAssignableFrom<FixedSizeBinaryArray>(_expectedArray);
@@ -255,7 +318,13 @@ namespace Apache.Arrow.Tests
                 {
                     for (int i = 0; i < expectedArray.Length; i++)
                     {
-                        Assert.Equal(expectedArray.GetValue(i), actualArray.GetValue(i));
+                        T? expected = expectedArray.GetValue(i);
+                        T? actual = actualArray.GetValue(i);
+                        Assert.Equal(expected.HasValue, actual.HasValue);
+                        if (expected.HasValue)
+                        {
+                            Assert.Equal(expected.Value, actual.Value);
+                        }
                     }
                 }
             }
@@ -313,6 +382,34 @@ namespace Apache.Arrow.Tests
                 actualArray.Values.Accept(new ArrayComparer(expectedArray.Values, _strictCompare));
             }
 
+            private void CompareArrays(ListViewArray actualArray)
+            {
+                Assert.IsAssignableFrom<ListViewArray>(_expectedArray);
+                ListViewArray expectedArray = (ListViewArray)_expectedArray;
+
+                actualArray.Data.DataType.Accept(_arrayTypeComparer);
+
+                Assert.Equal(expectedArray.Length, actualArray.Length);
+                Assert.Equal(expectedArray.NullCount, actualArray.NullCount);
+                Assert.Equal(expectedArray.Offset, actualArray.Offset);
+
+                CompareValidityBuffer(expectedArray.NullCount, _expectedArray.Length, expectedArray.NullBitmapBuffer, actualArray.NullBitmapBuffer);
+
+                if (_strictCompare)
+                {
+                    Assert.True(expectedArray.ValueOffsetsBuffer.Span.SequenceEqual(actualArray.ValueOffsetsBuffer.Span));
+                    Assert.True(expectedArray.SizesBuffer.Span.SequenceEqual(actualArray.SizesBuffer.Span));
+                }
+                else
+                {
+                    int length = expectedArray.Length * sizeof(int);
+                    Assert.True(expectedArray.ValueOffsetsBuffer.Span.Slice(0, length).SequenceEqual(actualArray.ValueOffsetsBuffer.Span.Slice(0, length)));
+                    Assert.True(expectedArray.SizesBuffer.Span.Slice(0, length).SequenceEqual(actualArray.SizesBuffer.Span.Slice(0, length)));
+                }
+
+                actualArray.Values.Accept(new ArrayComparer(expectedArray.Values, _strictCompare));
+            }
+
             private void CompareArrays(FixedSizeListArray actualArray)
             {
                 Assert.IsAssignableFrom<FixedSizeListArray>(_expectedArray);
@@ -335,12 +432,27 @@ namespace Apache.Arrow.Tests
                 {
                     Assert.True(expectedValidityBuffer.Span.SequenceEqual(actualValidityBuffer.Span));
                 }
-                else if (nullCount != 0)
+                else if (nullCount != 0 && arrayLength > 0)
                 {
                     int validityBitmapByteCount = BitUtility.ByteCount(arrayLength);
+                    ReadOnlySpan<byte> expectedSpanPartial = expectedValidityBuffer.Span.Slice(0, validityBitmapByteCount - 1);
+                    ReadOnlySpan<byte> actualSpanPartial = actualValidityBuffer.Span.Slice(0, validityBitmapByteCount - 1);
+
+                    // Compare the first validityBitmapByteCount - 1 bytes
                     Assert.True(
-                        expectedValidityBuffer.Span.Slice(0, validityBitmapByteCount).SequenceEqual(actualValidityBuffer.Span.Slice(0, validityBitmapByteCount)),
-                        "Validity buffers do not match.");
+                        expectedSpanPartial.SequenceEqual(actualSpanPartial),
+                        string.Format("First {0} bytes of validity buffer do not match", validityBitmapByteCount - 1));
+
+                    // Compare the last byte bitwise (because there is no guarantee about the value of
+                    // bits outside the range [0, arrayLength])
+                    ReadOnlySpan<byte> expectedSpanFull = expectedValidityBuffer.Span.Slice(0, validityBitmapByteCount);
+                    ReadOnlySpan<byte> actualSpanFull = actualValidityBuffer.Span.Slice(0, validityBitmapByteCount);
+                    for (int i = 8 * (validityBitmapByteCount - 1); i < arrayLength; i++)
+                    {
+                        Assert.True(
+                            BitUtility.GetBit(expectedSpanFull, i) == BitUtility.GetBit(actualSpanFull, i),
+                            string.Format("Bit at index {0}/{1} is not equal", i, arrayLength));
+                    }
                 }
             }
         }

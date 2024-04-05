@@ -71,7 +71,17 @@ TEST(FlightIntegration, ExpirationTimeRenewFlightEndpoint) {
   ASSERT_OK(RunScenario("expiration_time:renew_flight_endpoint"));
 }
 
+TEST(FlightIntegration, LocationReuseConnection) {
+  ASSERT_OK(RunScenario("location:reuse_connection"));
+}
+
+TEST(FlightIntegration, SessionOptions) { ASSERT_OK(RunScenario("session_options")); }
+
 TEST(FlightIntegration, PollFlightInfo) { ASSERT_OK(RunScenario("poll_flight_info")); }
+
+TEST(FlightIntegration, AppMetadataFlightInfoEndpoint) {
+  ASSERT_OK(RunScenario("app_metadata_flight_info_endpoint"));
+}
 
 TEST(FlightIntegration, FlightSql) { ASSERT_OK(RunScenario("flight_sql")); }
 

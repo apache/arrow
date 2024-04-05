@@ -34,21 +34,21 @@ classdef tTimestampArray < matlab.unittest.TestCase
             tc.verifyEqual(className, "arrow.array.TimestampArray");
         end
 
-        function TestLength(testCase, TimeZone)
-        % Verify the Length property.
+        function TestNumElements(testCase, TimeZone)
+        % Verify the NumElements property.
 
             dates = datetime.empty(0, 1);
             dates.TimeZone = TimeZone;
             arrowArray = testCase.ArrowArrayConstructorFcn(dates);
-            testCase.verifyEqual(arrowArray.Length, int64(0));
+            testCase.verifyEqual(arrowArray.NumElements, int64(0));
 
             dates = datetime(2023, 6, 22, TimeZone=TimeZone);
             arrowArray = testCase.ArrowArrayConstructorFcn(dates);
-            testCase.verifyEqual(arrowArray.Length, int64(1));
+            testCase.verifyEqual(arrowArray.NumElements, int64(1));
 
             dates = datetime(2023, 6, 22, TimeZone=TimeZone) + days(0:4);
             arrowArray = testCase.ArrowArrayConstructorFcn(dates);
-            testCase.verifyEqual(arrowArray.Length, int64(5));
+            testCase.verifyEqual(arrowArray.NumElements, int64(5));
         end
 
         function TestDefaultTimestampType(testCase, TimeZone)
@@ -169,14 +169,14 @@ classdef tTimestampArray < matlab.unittest.TestCase
 
             dates = datetime.empty(0, 0);
             arrowArray = testCase.ArrowArrayConstructorFcn(dates);
-            testCase.verifyEqual(arrowArray.Length, int64(0));
+            testCase.verifyEqual(arrowArray.NumElements, int64(0));
             testCase.verifyEqual(arrowArray.Valid, logical.empty(0, 1));
             testCase.verifyEqual(toMATLAB(arrowArray), datetime.empty(0, 1));
 
             % test with NDimensional empty array
             dates = datetime.empty(0, 1, 0);
             arrowArray = testCase.ArrowArrayConstructorFcn(dates);
-            testCase.verifyEqual(arrowArray.Length, int64(0));
+            testCase.verifyEqual(arrowArray.NumElements, int64(0));
             testCase.verifyEqual(arrowArray.Valid, logical.empty(0, 1));
             testCase.verifyEqual(toMATLAB(arrowArray), datetime.empty(0, 1));
         end
@@ -185,7 +185,7 @@ classdef tTimestampArray < matlab.unittest.TestCase
             % Verifies arrays are considered equal if:
             %
             %  1. Their Type properties are equal
-            %  2. They have the same length (i.e. their Length properties are equal)
+            %  2. They have the same number of elements (i.e. their NumElements properties are equal)
             %  3. They have the same validity bitmap (i.e. their Valid properties are equal)
             %  4. All corresponding valid elements have the same values
             
@@ -224,7 +224,7 @@ classdef tTimestampArray < matlab.unittest.TestCase
             % Their Type properties are not equal
             tc.verifyFalse(isequal(array1, array4));
 
-            % Their Length properties are not equal
+            % Their NumElements properties are not equal
             tc.verifyFalse(isequal(array1, array5));
 
             % Comparing an arrow.array.Array to a MATLAB double
@@ -234,7 +234,7 @@ classdef tTimestampArray < matlab.unittest.TestCase
             tc.verifyFalse(isequal(array1, array1, array3, array4, array5)); 
         end
 
-        function TestIsEqualFalseTimeZoneMistmatch(tc)
+        function TestIsEqualFalseTimeZoneMismatch(tc)
             % Verify two TimestampArrays are not considered equal if one
             % has a TimeZone and one does not. 
             dates1 = datetime(2023, 6, 22, TimeZone="America/Anchorage") + days(0:4);
@@ -263,7 +263,7 @@ classdef tTimestampArray < matlab.unittest.TestCase
             tc.verifyFalse(isequal(array1, array2));
         end
 
-        function TestIsEqualFalseTimeUnitMistmatch(tc, TimeZone)
+        function TestIsEqualFalseTimeUnitMismatch(tc, TimeZone)
             % Verify two TimestampArrays are not considered equal if their
             % TimeUnit values differ.
             dates1 = datetime(2023, 6, 22, TimeZone=TimeZone) + days(0:4);

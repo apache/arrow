@@ -18,6 +18,7 @@
 #include "arrow/record_batch.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <memory>
 #include <sstream>
@@ -25,14 +26,18 @@
 #include <utility>
 
 #include "arrow/array.h"
+#include "arrow/array/concatenate.h"
 #include "arrow/array/validate.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
+#include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/unreachable.h"
 #include "arrow/util/vector.h"
+#include "arrow/visit_type_inline.h"
 
 namespace arrow {
 
@@ -246,6 +251,164 @@ Result<std::shared_ptr<StructArray>> RecordBatch::ToStructArray() const {
                                        /*offset=*/0);
 }
 
+template <typename Out>
+struct ConvertColumnsToTensorVisitor {
+  Out*& out_values;
+  const ArrayData& in_data;
+
+  template <typename T>
+  Status Visit(const T&) {
+    if constexpr (is_numeric(T::type_id)) {
+      using In = typename T::c_type;
+      auto in_values = ArraySpan(in_data).GetSpan<In>(1, in_data.length);
+
+      if (in_data.null_count == 0) {
+        if constexpr (std::is_same_v<In, Out>) {
+          memcpy(out_values, in_values.data(), in_values.size_bytes());
+          out_values += in_values.size();
+        } else {
+          for (In in_value : in_values) {
+            *out_values++ = static_cast<Out>(in_value);
+          }
+        }
+      } else {
+        for (int64_t i = 0; i < in_data.length; ++i) {
+          *out_values++ =
+              in_data.IsNull(i) ? static_cast<Out>(NAN) : static_cast<Out>(in_values[i]);
+        }
+      }
+      return Status::OK();
+    }
+    Unreachable();
+  }
+};
+
+template <typename DataType>
+inline void ConvertColumnsToTensor(const RecordBatch& batch, uint8_t* out) {
+  using CType = typename arrow::TypeTraits<DataType>::CType;
+  auto* out_values = reinterpret_cast<CType*>(out);
+
+  for (const auto& column : batch.columns()) {
+    ConvertColumnsToTensorVisitor<CType> visitor{out_values, *column->data()};
+    DCHECK_OK(VisitTypeInline(*column->type(), &visitor));
+  }
+}
+
+Result<std::shared_ptr<Tensor>> RecordBatch::ToTensor(bool null_to_nan,
+                                                      MemoryPool* pool) const {
+  if (num_columns() == 0) {
+    return Status::TypeError(
+        "Conversion to Tensor for RecordBatches without columns/schema is not "
+        "supported.");
+  }
+  // Check for no validity bitmap of each field
+  // if null_to_nan conversion is set to false
+  for (int i = 0; i < num_columns(); ++i) {
+    if (column(i)->null_count() > 0 && !null_to_nan) {
+      return Status::TypeError(
+          "Can only convert a RecordBatch with no nulls. Set null_to_nan to true to "
+          "convert nulls to NaN");
+    }
+  }
+
+  // Check for supported data types and merge fields
+  // to get the resulting uniform data type
+  if (!is_integer(column(0)->type()->id()) && !is_floating(column(0)->type()->id())) {
+    return Status::TypeError("DataType is not supported: ",
+                             column(0)->type()->ToString());
+  }
+  std::shared_ptr<Field> result_field = schema_->field(0);
+  std::shared_ptr<DataType> result_type = result_field->type();
+
+  Field::MergeOptions options;
+  options.promote_integer_to_float = true;
+  options.promote_integer_sign = true;
+  options.promote_numeric_width = true;
+
+  if (num_columns() > 1) {
+    for (int i = 1; i < num_columns(); ++i) {
+      if (!is_numeric(column(i)->type()->id())) {
+        return Status::TypeError("DataType is not supported: ",
+                                 column(i)->type()->ToString());
+      }
+
+      // Casting of float16 is not supported, throw an error in this case
+      if ((column(i)->type()->id() == Type::HALF_FLOAT ||
+           result_field->type()->id() == Type::HALF_FLOAT) &&
+          column(i)->type()->id() != result_field->type()->id()) {
+        return Status::NotImplemented("Casting from or to halffloat is not supported.");
+      }
+
+      ARROW_ASSIGN_OR_RAISE(
+          result_field, result_field->MergeWith(
+                            schema_->field(i)->WithName(result_field->name()), options));
+    }
+    result_type = result_field->type();
+  }
+
+  // Check if result_type is signed or unsigned integer and null_to_nan is set to true
+  // Then all columns should be promoted to float type
+  if (is_integer(result_type->id()) && null_to_nan) {
+    ARROW_ASSIGN_OR_RAISE(
+        result_field,
+        result_field->MergeWith(field(result_field->name(), float32()), options));
+    result_type = result_field->type();
+  }
+
+  // Allocate memory
+  ARROW_ASSIGN_OR_RAISE(
+      std::shared_ptr<Buffer> result,
+      AllocateBuffer(result_type->bit_width() * num_columns() * num_rows(), pool));
+  // Copy data
+  switch (result_type->id()) {
+    case Type::UINT8:
+      ConvertColumnsToTensor<UInt8Type>(*this, result->mutable_data());
+      break;
+    case Type::UINT16:
+    case Type::HALF_FLOAT:
+      ConvertColumnsToTensor<UInt16Type>(*this, result->mutable_data());
+      break;
+    case Type::UINT32:
+      ConvertColumnsToTensor<UInt32Type>(*this, result->mutable_data());
+      break;
+    case Type::UINT64:
+      ConvertColumnsToTensor<UInt64Type>(*this, result->mutable_data());
+      break;
+    case Type::INT8:
+      ConvertColumnsToTensor<Int8Type>(*this, result->mutable_data());
+      break;
+    case Type::INT16:
+      ConvertColumnsToTensor<Int16Type>(*this, result->mutable_data());
+      break;
+    case Type::INT32:
+      ConvertColumnsToTensor<Int32Type>(*this, result->mutable_data());
+      break;
+    case Type::INT64:
+      ConvertColumnsToTensor<Int64Type>(*this, result->mutable_data());
+      break;
+    case Type::FLOAT:
+      ConvertColumnsToTensor<FloatType>(*this, result->mutable_data());
+      break;
+    case Type::DOUBLE:
+      ConvertColumnsToTensor<DoubleType>(*this, result->mutable_data());
+      break;
+    default:
+      return Status::TypeError("DataType is not supported: ", result_type->ToString());
+  }
+
+  // Construct Tensor object
+  const auto& fixed_width_type =
+      internal::checked_cast<const FixedWidthType&>(*result_type);
+  std::vector<int64_t> shape = {num_rows(), num_columns()};
+  std::vector<int64_t> strides;
+  ARROW_RETURN_NOT_OK(
+      internal::ComputeColumnMajorStrides(fixed_width_type, shape, &strides));
+  ARROW_ASSIGN_OR_RAISE(auto tensor,
+                        Tensor::Make(result_type, std::move(result), shape, strides));
+
+  return tensor;
+}
+
 const std::string& RecordBatch::column_name(int i) const {
   return schema_->field(i)->name();
 }
@@ -302,6 +465,35 @@ Result<std::shared_ptr<RecordBatch>> RecordBatch::ReplaceSchema(
   return RecordBatch::Make(std::move(schema), num_rows(), columns());
 }
 
+std::vector<std::string> RecordBatch::ColumnNames() const {
+  std::vector<std::string> names(num_columns());
+  for (int i = 0; i < num_columns(); ++i) {
+    names[i] = schema()->field(i)->name();
+  }
+  return names;
+}
+
+Result<std::shared_ptr<RecordBatch>> RecordBatch::RenameColumns(
+    const std::vector<std::string>& names) const {
+  int n = num_columns();
+
+  if (static_cast<int>(names.size()) != n) {
+    return Status::Invalid("tried to rename a record batch of ", n, " columns but only ",
+                           names.size(), " names were provided");
+  }
+
+  ArrayVector columns(n);
+  FieldVector fields(n);
+
+  for (int i = 0; i < n; ++i) {
+    columns[i] = column(i);
+    fields[i] = schema()->field(i)->WithName(names[i]);
+  }
+
+  return RecordBatch::Make(::arrow::schema(std::move(fields)), num_rows(),
+                           std::move(columns));
+}
+
 Result<std::shared_ptr<RecordBatch>> RecordBatch::SelectColumns(
     const std::vector<int>& indices) const {
   int n = static_cast<int>(indices.size());
@@ -355,6 +547,30 @@ Status ValidateBatch(const RecordBatch& batch, bool full_validation) {
 }
 
 }  // namespace
+
+Result<std::shared_ptr<RecordBatch>> RecordBatch::CopyTo(
+    const std::shared_ptr<MemoryManager>& to) const {
+  ArrayVector copied_columns;
+  copied_columns.reserve(num_columns());
+  for (const auto& col : columns()) {
+    ARROW_ASSIGN_OR_RAISE(auto c, col->CopyTo(to));
+    copied_columns.push_back(std::move(c));
+  }
+
+  return Make(schema_, num_rows(), std::move(copied_columns));
+}
+
+Result<std::shared_ptr<RecordBatch>> RecordBatch::ViewOrCopyTo(
+    const std::shared_ptr<MemoryManager>& to) const {
+  ArrayVector copied_columns;
+  copied_columns.reserve(num_columns());
+  for (const auto& col : columns()) {
+    ARROW_ASSIGN_OR_RAISE(auto c, col->ViewOrCopyTo(to));
+    copied_columns.push_back(std::move(c));
+  }
+
+  return Make(schema_, num_rows(), std::move(copied_columns));
+}
 
 Status RecordBatch::Validate() const {
   return ValidateBatch(*this, /*full_validation=*/false);
@@ -430,6 +646,38 @@ Result<std::shared_ptr<RecordBatchReader>> RecordBatchReader::MakeFromIterator(
 
 RecordBatchReader::~RecordBatchReader() {
   ARROW_WARN_NOT_OK(this->Close(), "Implicitly called RecordBatchReader::Close failed");
+}
+
+Result<std::shared_ptr<RecordBatch>> ConcatenateRecordBatches(
+    const RecordBatchVector& batches, MemoryPool* pool) {
+  int64_t length = 0;
+  size_t n = batches.size();
+  if (n == 0) {
+    return Status::Invalid("Must pass at least one recordbatch");
+  }
+  int cols = batches[0]->num_columns();
+  auto schema = batches[0]->schema();
+  for (size_t i = 0; i < batches.size(); ++i) {
+    length += batches[i]->num_rows();
+    if (!schema->Equals(batches[i]->schema())) {
+      return Status::Invalid(
+          "Schema of RecordBatch index ", i, " is ", batches[i]->schema()->ToString(),
+          ", which does not match index 0 recordbatch schema: ", schema->ToString());
+    }
+  }
+
+  std::vector<std::shared_ptr<Array>> concatenated_columns;
+  concatenated_columns.reserve(cols);
+  for (int col = 0; col < cols; ++col) {
+    ArrayVector column_arrays;
+    column_arrays.reserve(batches.size());
+    for (const auto& batch : batches) {
+      column_arrays.emplace_back(batch->column(col));
+    }
+    ARROW_ASSIGN_OR_RAISE(auto concatenated_column, Concatenate(column_arrays, pool))
+    concatenated_columns.emplace_back(std::move(concatenated_column));
+  }
+  return RecordBatch::Make(std::move(schema), length, std::move(concatenated_columns));
 }
 
 }  // namespace arrow

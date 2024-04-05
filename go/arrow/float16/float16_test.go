@@ -238,10 +238,53 @@ func TestSign(t *testing.T) {
 	}{
 		{Num{bits: 0x4580}, 1},  // 5.5
 		{Num{bits: 0x0000}, 0},  // 0
+		{Num{bits: 0x8000}, 0},  // -0
 		{Num{bits: 0xC580}, -1}, // -5.5
 	} {
 		t.Run("sign", func(t *testing.T) {
 			n := tc.n.Sign()
+			if got, want := n, tc.want; got != want {
+				t.Fatalf("invalid value. got=%v, want=%v", got, want)
+			}
+		})
+	}
+}
+
+func TestSignbit(t *testing.T) {
+	for _, tc := range []struct {
+		n    Num
+		want bool
+	}{
+		{Num{bits: 0x4580}, false}, // 5.5
+		{Num{bits: 0x0000}, false}, // 0
+		{Num{bits: 0x8000}, true},  // -0
+		{Num{bits: 0xC580}, true},  // -5.5
+	} {
+		t.Run("signbit", func(t *testing.T) {
+			n := tc.n.Signbit()
+			if got, want := n, tc.want; got != want {
+				t.Fatalf("invalid value. got=%v, want=%v", got, want)
+			}
+		})
+	}
+}
+
+func TestIsNaN(t *testing.T) {
+	for _, tc := range []struct {
+		n    Num
+		want bool
+	}{
+		{NaN(), true},
+		{NaN().Negate(), true},
+		{Inf(), false},
+		{Inf().Negate(), false},
+		{Num{bits: 0x7c01}, true}, // nan
+		{Num{bits: 0xfc01}, true}, // -nan
+		{Num{bits: 0x7e00}, true}, // nan
+		{Num{bits: 0xfe00}, true}, // -nan
+	} {
+		t.Run("isnan", func(t *testing.T) {
+			n := tc.n.IsNaN()
 			if got, want := n, tc.want; got != want {
 				t.Fatalf("invalid value. got=%v, want=%v", got, want)
 			}

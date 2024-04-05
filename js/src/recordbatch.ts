@@ -25,7 +25,6 @@ import { instance as getVisitor } from './visitor/get.js';
 import { instance as setVisitor } from './visitor/set.js';
 import { instance as indexOfVisitor } from './visitor/indexof.js';
 import { instance as iteratorVisitor } from './visitor/iterator.js';
-import { instance as byteLengthVisitor } from './visitor/bytelength.js';
 
 /** @ignore */
 export interface RecordBatch<T extends TypeMap = any> {
@@ -151,14 +150,6 @@ export class RecordBatch<T extends TypeMap = any> {
     }
 
     /**
-     * Get the size (in bytes) of a row by index.
-     * @param index The row index for which to compute the byteLength.
-     */
-    public getByteLength(index: number): number {
-        return byteLengthVisitor.visit(this.data, index);
-    }
-
-    /**
      * Iterator for rows in this RecordBatch.
      */
     public [Symbol.iterator]() {
@@ -203,7 +194,7 @@ export class RecordBatch<T extends TypeMap = any> {
      * Returns a child Vector by index, or null if this Vector has no child at the supplied index.
      * @param index The index of the child to retrieve.
      */
-    public getChildAt<R extends DataType = any>(index: number): Vector<R> | null {
+    public getChildAt<R extends T[keyof T] = any>(index: number): Vector<R> | null {
         if (index > -1 && index < this.schema.fields.length) {
             return new Vector([this.data.children[index]]) as Vector<R>;
         }

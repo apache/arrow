@@ -248,16 +248,19 @@ test_that("to_duckdb with a table", {
         int_mean = mean(int, na.rm = TRUE),
         dbl_mean = mean(dbl, na.rm = TRUE)
       ) %>%
-      collect(),
+      collect() %>%
+      arrange(int_mean),
     tibble::tibble(
-      "int > 4" = c(FALSE, NA, TRUE),
-      int_mean = c(2, NA, 7.5),
-      dbl_mean = c(2.1, 4.1, 7.3)
+      "int > 4" = c(FALSE, TRUE, NA),
+      int_mean = c(2, 7.5, NA),
+      dbl_mean = c(2.1, 7.3, 4.1)
     )
   )
 })
 
 test_that("to_duckdb passing a connection", {
+  skip_if_not_installed("stringr")
+
   ds <- InMemoryDataset$create(example_data)
 
   con_separate <- dbConnect(duckdb::duckdb())
@@ -276,8 +279,11 @@ test_that("to_duckdb passing a connection", {
   table_four <- ds %>%
     select(int, lgl, dbl) %>%
     to_duckdb(con = con_separate, auto_disconnect = FALSE)
-  # dbplyr 2.2.0 renames this internal attribute to lazy_query
-  table_four_name <- table_four$ops$x %||% table_four$lazy_query$x
+
+  # Generates a query like SELECT * FROM arrow_xxx
+  table_four_query <- paste(dbplyr::sql_build(table_four), collapse = "\n")
+  table_four_name <- stringr::str_extract(table_four_query, "arrow_[0-9]{3}")
+  expect_false(is.na(table_four_name))
 
   result <- DBI::dbGetQuery(
     con_separate,

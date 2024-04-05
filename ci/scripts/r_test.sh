@@ -27,7 +27,7 @@ pushd ${source_dir}
 printenv
 
 # Run the nixlibs.R test suite, which is not included in the installed package
-${R_BIN} -e 'setwd("tools"); testthat::test_dir(".")'
+${R_BIN} -e 'setwd("tools"); testthat::test_dir(".", stop_on_warning = TRUE)'
 
 # Before release, we always copy the relevant parts of the cpp source into the
 # package. In some CI checks, we will use this version of the source:
@@ -72,8 +72,10 @@ export _R_CHECK_STOP_ON_INVALID_NUMERIC_VERSION_INPUTS_=TRUE
 # to retrieve metadata. Disable this so that S3FileSystem tests run faster.
 export AWS_EC2_METADATA_DISABLED=TRUE
 
-# Enable memory debug checks.
-export ARROW_DEBUG_MEMORY_POOL=trap
+# Enable memory debug checks if the env is not set already
+if [ -z "${ARROW_DEBUG_MEMORY_POOL}" ]; then
+  export ARROW_DEBUG_MEMORY_POOL=trap
+fi
 
 # Hack so that texlive2020 doesn't pollute the home dir
 export TEXMFCONFIG=/tmp/texmf-config

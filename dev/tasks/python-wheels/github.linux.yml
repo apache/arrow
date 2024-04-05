@@ -31,8 +31,10 @@ jobs:
       # archery uses these environment variables
       {% if arch == "amd64" %}
       ARCH: amd64
+      ARCHERY_USE_DOCKER_CLI: 1
       {% else %}
       ARCH: arm64v8
+      ARCHERY_USE_DOCKER_CLI: 0
       {% endif %}
       PYTHON: "{{ python_version }}"
 

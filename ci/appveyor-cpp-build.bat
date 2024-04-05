@@ -26,7 +26,10 @@ git submodule update --init || exit /B
 set ARROW_TEST_DATA=%CD%\testing\data
 set PARQUET_TEST_DATA=%CD%\cpp\submodules\parquet-testing\data
 
-set ARROW_DEBUG_MEMORY_POOL=trap
+@rem Enable memory debug checks if the env is not set already
+IF "%ARROW_DEBUG_MEMORY_POOL%"=="" (
+  set ARROW_DEBUG_MEMORY_POOL=trap
+)
 
 set CMAKE_BUILD_PARALLEL_LEVEL=%NUMBER_OF_PROCESSORS%
 set CTEST_PARALLEL_LEVEL=%NUMBER_OF_PROCESSORS%
@@ -77,7 +80,7 @@ cmake -G "%GENERATOR%" %ARROW_CMAKE_ARGS% ^
       -DARROW_HDFS=ON ^
       -DARROW_JSON=ON ^
       -DARROW_MIMALLOC=ON ^
-      -DARROW_ORC=ON ^
+      -DARROW_ORC=%ARROW_ORC% ^
       -DARROW_PARQUET=ON ^
       -DARROW_S3=%ARROW_S3% ^
       -DARROW_SUBSTRAIT=ON ^
@@ -122,6 +125,7 @@ set PYARROW_WITH_DATASET=ON
 set PYARROW_WITH_FLIGHT=%ARROW_BUILD_FLIGHT%
 set PYARROW_WITH_GANDIVA=%ARROW_BUILD_GANDIVA%
 set PYARROW_WITH_GCS=%ARROW_GCS%
+set PYARROW_WITH_ORC=%ARROW_ORC%
 set PYARROW_WITH_PARQUET=ON
 set PYARROW_WITH_PARQUET_ENCRYPTION=ON
 set PYARROW_WITH_S3=%ARROW_S3%
@@ -131,6 +135,19 @@ set PYARROW_WITH_SUBSTRAIT=ON
 set ARROW_HOME=%CONDA_PREFIX%\Library
 @rem ARROW-3075; pkgconfig is broken for Parquet for now
 set PARQUET_HOME=%CONDA_PREFIX%\Library
+
+@rem Download IANA Timezone Database to a non-standard location to
+@rem test the configurability of the timezone database path
+curl https://data.iana.org/time-zones/releases/tzdata2021e.tar.gz --output tzdata.tar.gz || exit /B
+mkdir %USERPROFILE%\Downloads\test\tzdata
+tar --extract --file tzdata.tar.gz --directory %USERPROFILE%\Downloads\test\tzdata
+curl https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml ^
+  --output %USERPROFILE%\Downloads\test\tzdata\windowsZones.xml || exit /B
+@rem Remove the database from the default location
+rmdir /s /q %USERPROFILE%\Downloads\tzdata
+@rem Set the env var for the non-standard location of the database
+@rem (only needed for testing purposes)
+set PYARROW_TZDATA_PATH=%USERPROFILE%\Downloads\test\tzdata
 
 python setup.py develop -q || exit /B
 

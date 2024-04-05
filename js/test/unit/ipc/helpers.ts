@@ -15,11 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import '../../jest-extensions.js';
-
 import * as fs from 'fs';
 import { fs as memfs } from 'memfs';
-import randomatic from 'randomatic';
 import { PassThrough, Readable } from 'stream';
 
 import {
@@ -29,6 +26,9 @@ import {
     RecordBatchWriter,
     Table
 } from 'apache-arrow';
+
+import '../../jest-extensions.js';
+import { LOWER, NUMBER, randomString } from '../../random-string.js';
 
 export abstract class ArrowIOTestHelper {
 
@@ -40,7 +40,7 @@ export abstract class ArrowIOTestHelper {
 
     protected abstract writer(table: Table): RecordBatchWriter;
     protected async filepath(table: Table): Promise<fs.PathLike> {
-        const path = `/${randomatic('a0', 20)}.arrow`;
+        const path = `/${randomString(20, LOWER + NUMBER)}.arrow`;
         const data = await this.writer(table).toUint8Array();
         await memfs.promises.writeFile(path, data);
         return path;

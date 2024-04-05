@@ -522,6 +522,34 @@ TEST(Formatting, Timestamp) {
     AssertFormatting(formatter, -2203932304LL * 1000000000LL + 8,
                      "1900-02-28 12:34:56.000000008");
   }
+
+  {
+    auto timestamp_types = {timestamp(TimeUnit::SECOND, "US/Eastern"),
+                            timestamp(TimeUnit::SECOND, "+01:00")};
+    for (auto ty : timestamp_types) {
+      StringFormatter<TimestampType> formatter(ty.get());
+
+      AssertFormatting(formatter, 0, "1970-01-01 00:00:00Z");
+    }
+  }
+
+  {
+    auto ty = timestamp(TimeUnit::MILLI, "Pacific/Maruesas");
+    StringFormatter<TimestampType> formatter(ty.get());
+    AssertFormatting(formatter, 0, "1970-01-01 00:00:00.000Z");
+  }
+
+  {
+    auto ty = timestamp(TimeUnit::MICRO, "-42:00");
+    StringFormatter<TimestampType> formatter(ty.get());
+    AssertFormatting(formatter, 0, "1970-01-01 00:00:00.000000Z");
+  }
+
+  {
+    auto ty = timestamp(TimeUnit::NANO, "Mars/Mariner_Valley");
+    StringFormatter<TimestampType> formatter(ty.get());
+    AssertFormatting(formatter, 0, "1970-01-01 00:00:00.000000000Z");
+  }
 }
 
 TEST(Formatting, Interval) {

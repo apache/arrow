@@ -143,7 +143,10 @@ class ARROW_EXPORT BufferBuilder {
     memcpy(data_ + size_, data, static_cast<size_t>(length));
     size_ += length;
   }
-  void UnsafeAppend(std::string_view v) { UnsafeAppend(v.data(), v.size()); }
+
+  void UnsafeAppend(std::string_view v) {
+    UnsafeAppend(v.data(), static_cast<int64_t>(v.size()));
+  }
 
   void UnsafeAppend(const int64_t num_copies, uint8_t value) {
     memset(data_ + size_, value, static_cast<size_t>(num_copies));
@@ -268,7 +271,7 @@ class TypedBufferBuilder<
 
   template <typename Iter>
   void UnsafeAppend(Iter values_begin, Iter values_end) {
-    int64_t num_elements = static_cast<int64_t>(std::distance(values_begin, values_end));
+    auto num_elements = static_cast<int64_t>(std::distance(values_begin, values_end));
     auto data = mutable_data() + length();
     bytes_builder_.UnsafeAdvance(num_elements * sizeof(T));
     std::copy(values_begin, values_end, data);

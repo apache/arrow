@@ -23,6 +23,8 @@
 
 namespace arrow {
 
+static constexpr int64_t kCacheLineSize = 64;
+
 struct SystemAlloc {
   static Result<MemoryPool*> GetAllocator() { return system_memory_pool(); }
 };
@@ -51,8 +53,8 @@ static void TouchCacheLines(uint8_t* data, int64_t nbytes) {
   uint8_t total = 0;
   while (nbytes > 0) {
     total += *data;
-    data += 64;
-    nbytes -= 64;
+    data += kCacheLineSize;
+    nbytes -= kCacheLineSize;
   }
   benchmark::DoNotOptimize(total);
 }
@@ -71,6 +73,8 @@ static void TouchArea(benchmark::State& state) {  // NOLINT non-const reference
   }
 
   pool->Free(data, nbytes);
+  state.SetItemsProcessed(state.iterations());
+  state.SetBytesProcessed(state.iterations() * nbytes);
 }
 
 // Benchmark the raw cost of allocating memory.
@@ -88,6 +92,9 @@ static void AllocateDeallocate(benchmark::State& state) {  // NOLINT non-const r
     ARROW_CHECK_OK(pool->Allocate(nbytes, &data));
     pool->Free(data, nbytes);
   }
+  state.SetItemsProcessed(state.iterations());
+  // SetBytesProcessed() would give nonsensical figures since the data is not
+  // actually processed.
 }
 
 // Benchmark the cost of allocating memory plus accessing it.
@@ -103,10 +110,16 @@ static void AllocateTouchDeallocate(
     TouchCacheLines(data, nbytes);
     pool->Free(data, nbytes);
   }
+  state.SetItemsProcessed(state.iterations());
+  state.SetBytesProcessed(state.iterations() * nbytes);
 }
 
-#define BENCHMARK_ALLOCATE_ARGS \
-  ->RangeMultiplier(16)->Range(4096, 16 * 1024 * 1024)->ArgName("size")->UseRealTime()
+#define BENCHMARK_ALLOCATE_ARGS       \
+  ->RangeMultiplier(16)               \
+      ->Range(4096, 16 * 1024 * 1024) \
+      ->ArgName("size")               \
+      ->UseRealTime()                 \
+      ->ThreadRange(1, 32)
 
 #define BENCHMARK_ALLOCATE(benchmark_func, template_param) \
   BENCHMARK_TEMPLATE(benchmark_func, template_param) BENCHMARK_ALLOCATE_ARGS
