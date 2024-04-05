@@ -69,9 +69,12 @@ public class TestNettyAllocator {
           break;
         }
       }
-      assertTrue("Log messages are:\n" +
+      synchronized (memoryLogsAppender.list) {
+        assertTrue("Log messages are:\n" +
               memoryLogsAppender.list.stream().map(ILoggingEvent::toString).collect(Collectors.joining("\n")),
-          result);
+            result);
+      }
+
     } finally {
       memoryLogsAppender.stop();
       logger.detachAppender(memoryLogsAppender);
