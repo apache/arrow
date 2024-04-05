@@ -501,7 +501,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   public void reAlloc() {
     reallocViewBuffer();
     reallocViewReferenceBuffer();
-    reallocValidityAndOffsetBuffers();
+    reallocValidityBufferOnly();
   }
 
   /**
@@ -613,56 +613,6 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
 
     final ArrowBuf newBuf = allocator.buffer(newAllocationSize);
     dataBuffers.add(newBuf);
-  }
-
-  /**
-   * Reallocate the validity and offset buffers for this vector. Validity
-   * buffer is used to track the NULL or NON-NULL nature of elements in
-   * the vector, and offset buffer is used to store the lengths of variable
-   * width elements in the vector.
-   *
-   * <p>Note that data buffer for variable length vectors moves independent
-   * of the companion validity and offset buffers. This is in
-   * contrast to what we have for fixed width vectors.
-   *
-   * <p>So even though we may have set up an initial capacity of 1024
-   * elements in the vector, it is quite possible
-   * that we need to reAlloc() the data buffer when we are setting
-   * the fifth element in the vector simply because previous
-   * variable length elements have exhausted the buffer capacity.
-   * However, we really don't need to reAlloc() validity and
-   * offset buffers until we try to set the 1025th element
-   * This is why we do a separate check for safe methods to
-   * determine which buffer needs reallocation.
-   * @throws OversizedAllocationException if the desired new size is more than
-   *                                      max allowed
-   * @throws OutOfMemoryException if the internal memory allocation fails
-   */
-  public void reallocValidityAndOffsetBuffers() {
-    int targetOffsetCount = capAtMaxInt((offsetBuffer.capacity() / OFFSET_WIDTH) * 2);
-    if (targetOffsetCount == 0) {
-      if (lastValueCapacity > 0) {
-        targetOffsetCount = (lastValueCapacity + 1);
-      } else {
-        targetOffsetCount = 2 * (INITIAL_VALUE_ALLOCATION + 1);
-      }
-    }
-    computeAndCheckOffsetsBufferSize(targetOffsetCount);
-
-    DataAndValidityBuffers buffers = allocFixedDataAndValidityBufs(targetOffsetCount, OFFSET_WIDTH);
-    final ArrowBuf newOffsetBuffer = buffers.getDataBuf();
-    newOffsetBuffer.setBytes(0, offsetBuffer, 0, offsetBuffer.capacity());
-    newOffsetBuffer.setZero(offsetBuffer.capacity(), newOffsetBuffer.capacity() - offsetBuffer.capacity());
-    offsetBuffer.getReferenceManager().release();
-    offsetBuffer = newOffsetBuffer;
-
-    final ArrowBuf newValidityBuffer = buffers.getValidityBuf();
-    newValidityBuffer.setBytes(0, validityBuffer, 0, validityBuffer.capacity());
-    newValidityBuffer.setZero(validityBuffer.capacity(), newValidityBuffer.capacity() - validityBuffer.capacity());
-    validityBuffer.getReferenceManager().release();
-    validityBuffer = newValidityBuffer;
-
-    lastValueCapacity = getValueCapacity();
   }
 
   /**
@@ -998,7 +948,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   public void setIndexDefined(int index) {
     // We need to check and reallocate both validity and offset buffer
     while (index >= getValueCapacity()) {
-      reallocValidityAndOffsetBuffers();
+      reallocValidityBufferOnly();
     }
     BitVectorHelper.setBit(validityBuffer, index);
   }
@@ -1150,7 +1100,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   public void setNull(int index) {
     // We need to check and reallocate both validity and offset buffer
     while (index >= getValueCapacity()) {
-      reallocValidityAndOffsetBuffers();
+      reallocValidityBufferOnly();
     }
     BitVectorHelper.unsetBit(validityBuffer, index);
   }
