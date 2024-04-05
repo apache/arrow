@@ -46,10 +46,9 @@ jobs:
           # variable for use in subsequent steps.
           run: |
             echo "ARROW_RELEASE_TAG_NAME=${{github.ref_name}}" >> "$GITHUB_ENV"
-      - name: Extract version strings
-        # Extract the version string, version with the release-candidate
-        # number string, and release-candidate number from the name of
-        # the git tag. (i.e. RELEASE_TAG_NAME).
+      - name: Store Version and Release Candidate Number as Environment Variables
+        # From environment variable ARROW_RELEASE_TAG_NAME, extract the version and
+        # release candidate number. Store these values as environment variables.
         run: |
           version_with_rc=${RELEASE_TAG_NAME#apache-arrow-}
           version=${version_with_rc%-rc*}
