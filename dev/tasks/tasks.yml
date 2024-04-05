@@ -1090,6 +1090,7 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
+        ARCHERY_USE_DOCKER_CLI: 0
         UBUNTU: 20.04
       flags: -e ARROW_SKYHOOK=ON
       image: ubuntu-cpp
@@ -1534,8 +1535,9 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
-        PYTHON: "3.10"
+        ARCHERY_USE_DOCKER_CLI: 0
         HDFS: "{{ hdfs_version }}"
+        PYTHON: "3.10"
       image: conda-python-hdfs
 {% endfor %}
 
