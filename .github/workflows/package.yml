@@ -41,9 +41,11 @@ jobs:
           repository: ursacomputing/crossbow
           path: crossbow
           fetch-depth: 0
-      - name: Store release tag name as an environment variable
-        run: |
-          echo "RELEASE_TAG_NAME=${{github.ref_name}}" >> "$GITHUB_ENV"
+      - name: Store Release Tag Name as Environment Variable
+          # For convenience, store the release tag name as an environment
+          # variable for use in subsequent steps.
+          run: |
+            echo "ARROW_RELEASE_TAG_NAME=${{github.ref_name}}" >> "$GITHUB_ENV"
       - name: Extract version strings
         # Extract the version string, version with the release-candidate
         # number string, and release-candidate number from the name of
