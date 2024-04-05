@@ -102,12 +102,12 @@ namespace Apache.Arrow
 
         public void Materialize(Encoding encoding = default)
         {
+            encoding ??= DefaultEncoding;
+
             if (IsMaterialized(encoding))
             {
                 return;
             }
-
-            encoding ??= DefaultEncoding;
 
             var stringStore = new List<string>(Length);
             for (int i = 0; i < Length; i++)
