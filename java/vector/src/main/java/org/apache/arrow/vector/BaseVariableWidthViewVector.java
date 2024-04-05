@@ -687,10 +687,18 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
     }
 
     final int validityBufferSize = getValidityBufferSizeFromCount(valueCount);
-    final int offsetBufferSize = (valueCount + 1) * OFFSET_WIDTH;
-    /* get the end offset for this valueCount */
-    final int dataBufferSize = offsetBuffer.getInt((long) valueCount * OFFSET_WIDTH);
-    return validityBufferSize + offsetBufferSize + dataBufferSize;
+    final int viewBufferSize = valueCount * VIEW_BUFFER_SIZE;
+    final int referenceBufferSize = getReferenceBufferSize();
+    final int dataBufferSize = viewBufferSize + referenceBufferSize;
+    return validityBufferSize + dataBufferSize;
+  }
+
+  private int getReferenceBufferSize() {
+    int referenceBufferSize = 0;
+    for (ArrowBuf buf : dataBuffers) {
+      referenceBufferSize += (int) buf.writerIndex();
+    }
+    return referenceBufferSize;
   }
 
   /**
@@ -726,10 +734,9 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
     if (getBufferSize() == 0) {
       buffers = new ArrowBuf[0];
     } else {
-      buffers = new ArrowBuf[3];
+      buffers = new ArrowBuf[2];
       buffers[0] = validityBuffer;
-      buffers[1] = offsetBuffer;
-      buffers[2] = valueBuffer;
+      buffers[1] = valueBuffer;
     }
     if (clear) {
       for (final ArrowBuf buffer : buffers) {
@@ -894,7 +901,6 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
     assert valueCount >= 0;
     this.valueCount = valueCount;
     while (valueCount > getValueCapacity()) {
-      // reallocValidityAndOffsetBuffers();
       reallocViewBuffer();
       reallocValidityBufferOnly();
     }
@@ -1360,7 +1366,6 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
     }
 
     while (index >= getValueCapacity()) {
-      // reallocValidityAndOffsetBuffers();
       reallocValidityBufferOnly();
     }
   }
