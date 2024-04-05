@@ -1528,6 +1528,7 @@ tasks:
       env:
         PYTHON: "3.10"
         HDFS: "{{ hdfs_version }}"
+        ARCHERY_USE_DOCKER_CLI: 0
       image: conda-python-hdfs
 {% endfor %}
 
