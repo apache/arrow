@@ -23,8 +23,8 @@ on:
       - "apache-arrow-*-rc*"
 
 jobs:
-  release:
-    name: Release Candidate
+  publish-release-candidate:
+    name: Publish Release Candidate to GitHub Releases
     runs-on: ubuntu-latest
     if: github.ref_type == 'tag'
     steps:
