@@ -658,6 +658,9 @@ cdef class NativeFile(_Weakrefable):
             int64_t bytes_read = 0
             uint8_t* buf
 
+        if not is_threading_enabled():
+            return self._download_nothreads(stream_or_path,buffer_size)
+
         handle = self.get_input_stream()
 
         buffer_size = buffer_size or DEFAULT_BUFFER_SIZE
@@ -693,10 +696,7 @@ cdef class NativeFile(_Weakrefable):
 
         self.seek(0)
 
-        if is_threading_enabled():
-            writer_thread = threading.Thread(target=bg_write)
-        else:
-            writer_thread = None
+        writer_thread = threading.Thread(target=bg_write)
 
         # This isn't ideal -- PyBytes_FromStringAndSize copies the data from
         # the passed buffer, so it's hard for us to avoid doubling the memory
@@ -704,8 +704,7 @@ cdef class NativeFile(_Weakrefable):
         if buf == NULL:
             raise MemoryError("Failed to allocate {0} bytes"
                               .format(buffer_size))
-        if writer_thread:
-            writer_thread.start()
+        writer_thread.start()
 
         cdef int64_t total_bytes = 0
         cdef int32_t c_buffer_size = buffer_size
@@ -725,25 +724,71 @@ cdef class NativeFile(_Weakrefable):
                 pybuf = cp.PyBytes_FromStringAndSize(<const char*>buf,
                                                      bytes_read)
 
-                if writer_thread is not None:
-                    if writer_thread.is_alive():
-                        while write_queue.full():
-                            time.sleep(0.01)
-                    else:
-                        break
-
-                    write_queue.put_nowait(pybuf)
-
+                if writer_thread.is_alive():
+                    while write_queue.full():
+                        time.sleep(0.01)
                 else:
-                    # no background thread
-                    stream.write(pybuf)
+                    break
+
+                write_queue.put_nowait(pybuf)
         finally:
             free(buf)
             done = True
-        if writer_thread is not None:
-            writer_thread.join()
+        writer_thread.join()
         if exc_info is not None:
             raise exc_info[0], exc_info[1], exc_info[2]
+
+    def _download_nothreads(self, stream_or_path, buffer_size=None):
+        """
+            Internal method to do a download without separate threads, queues etc.
+            Called by download above if is_threading_enabled() == False
+        """
+        handle = self.get_input_stream()
+
+        buffer_size = buffer_size or DEFAULT_BUFFER_SIZE
+
+        if not hasattr(stream_or_path, 'read'):
+            stream = open(stream_or_path, 'wb')
+
+            def cleanup():
+                stream.close()
+        else:
+            stream = stream_or_path
+
+            def cleanup():
+                pass
+
+        self.seek(0)
+
+        # This isn't ideal -- PyBytes_FromStringAndSize copies the data from
+        # the passed buffer, so it's hard for us to avoid doubling the memory
+        buf = <uint8_t*> malloc(buffer_size)
+        if buf == NULL:
+            raise MemoryError("Failed to allocate {0} bytes"
+                              .format(buffer_size))
+
+        cdef int64_t total_bytes = 0
+        cdef int32_t c_buffer_size = buffer_size
+
+        try:
+            while True:
+                with nogil:
+                    bytes_read = GetResultValue(
+                        handle.get().Read(c_buffer_size, buf))
+
+                total_bytes += bytes_read
+
+                # EOF
+                if bytes_read == 0:
+                    break
+
+                pybuf = cp.PyBytes_FromStringAndSize(<const char*>buf,
+                                                     bytes_read)
+
+                # no background thread - write on main thread
+                stream.write(pybuf)
+        finally:
+            free(buf)
 
     def upload(self, stream, buffer_size=None):
         """
@@ -756,6 +801,9 @@ cdef class NativeFile(_Weakrefable):
         buffer_size : int, optional
             The buffer size to use for data transfers.
         """
+        if not is_threading_enabled():
+            return self._upload_nothreads(stream_or_path,buffer_size)
+
         write_queue = Queue(50)
         self._assert_writable()
 
@@ -777,11 +825,8 @@ cdef class NativeFile(_Weakrefable):
             except Exception as e:
                 exc_info = sys.exc_info()
 
-        if is_threading_enabled():
-            writer_thread = threading.Thread(target=bg_write)
-            writer_thread.start()
-        else:
-            writer_thread = None
+        writer_thread = threading.Thread(target=bg_write)
+        writer_thread.start()
 
         try:
             while True:
@@ -789,23 +834,36 @@ cdef class NativeFile(_Weakrefable):
                 if not buf:
                     break
 
-                if writer_thread is not None:
-                    if writer_thread.is_alive():
-                        while write_queue.full():
-                            time.sleep(0.01)
-                    else:
-                        break
-
-                    write_queue.put_nowait(buf)
+                if writer_thread.is_alive():
+                    while write_queue.full():
+                        time.sleep(0.01)
                 else:
-                    # no threading
-                    self.write(buf)
+                    break
+
+                write_queue.put_nowait(buf)
         finally:
             done = True
-        if writer_thread is not None:
-            writer_thread.join()
+        writer_thread.join()
         if exc_info is not None:
             raise exc_info[0], exc_info[1], exc_info[2]
+
+    def _upload_nothreads(self, stream, buffer_size=None):
+        """
+            Internal method to do an upload without separate threads, queues etc.
+            Called by upload above if is_threading_enabled() == False
+        """
+        self._assert_writable()
+
+        buffer_size = buffer_size or DEFAULT_BUFFER_SIZE
+
+        while True:
+            buf = stream.read(buffer_size)
+            if not buf:
+                break
+
+            # no threading - just write
+            self.write(buf)
+
 
 BufferedIOBase.register(NativeFile)
 
