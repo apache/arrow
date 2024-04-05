@@ -219,7 +219,7 @@ configure_tzdb <- function() {
         # If on macOS, and features are disabled, advise that reinstalling might help
         if (identical(tolower(Sys.info()[["sysname"]]), "darwin")) {
           packageStartupMessage(
-            paste(
+            paste0(
               "The repository you retrieved Arrow from did not include all of Arrow's features.\n",
               "You can install a fully-featured version by running:\n",
               "`install.packages('arrow', repos = 'https://apache.r-universe.dev')`."
