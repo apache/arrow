@@ -263,7 +263,7 @@ class ARROW_EXPORT RecordBatch {
 
   /// \brief Return a top-level sync event object for this record batch
   ///
-  /// If all of the data for this record batch is in host memory, then this
+  /// If all of the data for this record batch is in CPU memory, then this
   /// should return null (the default impl). If the data for this batch is
   /// on a device, then if synchronization is needed before accessing the
   /// data the returned sync event will allow for it.
