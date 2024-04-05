@@ -190,7 +190,7 @@
       minor: [
         { class: "VarBinary" , friendlyType: "byte[]" },
         { class: "VarChar" , friendlyType: "Text" },
-        { class: "ViewVarBinary" , friendlyType: "byte[]" }
+        { class: "ViewVarBinary" , friendlyType: "byte[]" },
         { class: "ViewVarChar" , friendlyType: "Text" }
       ]
     },
