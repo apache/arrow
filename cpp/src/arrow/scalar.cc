@@ -566,6 +566,7 @@ Status Scalar::Validate() const {
 }
 
 Status Scalar::ValidateFull() const {
+  // TODO: Validate scratch space content?
   return ScalarValidateImpl(/*full_validation=*/true).Validate(*this);
 }
 
@@ -573,14 +574,16 @@ BaseBinaryScalar::BaseBinaryScalar(std::string s, std::shared_ptr<DataType> type
     : BaseBinaryScalar(Buffer::FromString(std::move(s)), std::move(type)) {}
 
 void BinaryScalar::FillScratchSpace() {
+  // TODO: Test value being nullptr.
   FillScalarScratchSpace(scratch_space_, int32_t(0),
-                         is_valid ? static_cast<int32_t>(value->size()) : int32_t(0));
+                         value ? static_cast<int32_t>(value->size()) : int32_t(0));
 }
 
 void BinaryViewScalar::FillScratchSpace() {
+  // TODO: Test value being nullptr.
   static_assert(sizeof(BinaryViewType::c_type) <= internal::kScalarScratchSpaceSize);
   auto* view = new (&scratch_space_) BinaryViewType::c_type;
-  if (is_valid) {
+  if (value) {
     *view = util::ToBinaryView(std::string_view{*value}, 0, 0);
   } else {
     *view = {};
@@ -588,8 +591,9 @@ void BinaryViewScalar::FillScratchSpace() {
 }
 
 void LargeBinaryScalar::FillScratchSpace() {
+  // TODO: Test value being nullptr.
   FillScalarScratchSpace(scratch_space_, int64_t(0),
-                         is_valid ? static_cast<int64_t>(value->size()) : int64_t(0));
+                         value ? static_cast<int64_t>(value->size()) : int64_t(0));
 }
 
 FixedSizeBinaryScalar::FixedSizeBinaryScalar(std::shared_ptr<Buffer> value,

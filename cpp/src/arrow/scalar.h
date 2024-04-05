@@ -256,7 +256,7 @@ struct ARROW_EXPORT DoubleScalar : public NumericScalar<DoubleType> {
 struct ARROW_EXPORT BaseBinaryScalar : public internal::PrimitiveScalarBase {
   using ValueType = std::shared_ptr<Buffer>;
 
-  const std::shared_ptr<Buffer> value;
+  const std::shared_ptr<Buffer> value = NULLPTR;
 
   const void* data() const override {
     return value ? reinterpret_cast<const void*>(value->data()) : NULLPTR;
