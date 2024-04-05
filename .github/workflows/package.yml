@@ -50,7 +50,7 @@ jobs:
         # From environment variable ARROW_RELEASE_TAG_NAME, extract the version and
         # release candidate number. Store these values as environment variables.
         run: |
-          version_with_rc=${RELEASE_TAG_NAME#apache-arrow-}
+          version_with_rc=${ARROW_RELEASE_TAG_NAME#apache-arrow-}
           version=${version_with_rc%-rc*}
           rc_num=${version_with_rc#${version}-rc}
           echo "ARROW_VERSION_WITH_RC=${version_with_rc}" >> "${GITHUB_ENV}"
@@ -74,7 +74,7 @@ jobs:
           repository=${{github.repository}}
           release_notes="Release Candidate: ${ARROW_VERSION} RC${ARROW_RC_NUM}"
           gh release create \
-            ${RELEASE_TAG_NAME} \
+            ${ARROW_RELEASE_TAG_NAME} \
             ${ARROW_MLTBX_FILE} \
             --prerelease \
             --target ${target_branch} \
