@@ -637,6 +637,9 @@ TEST(BooleanArrayEncoding, AdHocRoundTrip) {
 
 class TestBooleanArrowDecoding : public ::testing::Test {
  public:
+  // number of values including nulls
+  constexpr static int kNumValues = 10000;
+
   void SetUp() override {
     null_probabilities_ = {0.0, 0.001, 0.5, 0.999, 1.0};
     read_batch_sizes_ = {1024, 4096, 10000};
@@ -651,10 +654,8 @@ class TestBooleanArrowDecoding : public ::testing::Test {
   }
 
   void GenerateInputData(double null_probability, double true_probability) {
-    constexpr int num_values = 10000;
     ::arrow::random::RandomArrayGenerator rag(0);
-    expected_dense_ = rag.Boolean(num_values, true_probability, null_probability);
-    num_values_ = static_cast<int>(expected_dense_->length());
+    expected_dense_ = rag.Boolean(kNumValues, true_probability, null_probability);
     null_count_ = static_cast<int>(expected_dense_->null_count());
     valid_bits_ = expected_dense_->null_bitmap_data();
 
@@ -674,16 +675,16 @@ class TestBooleanArrowDecoding : public ::testing::Test {
     decoder_ = MakeTypedDecoder<BooleanType>(encoding);
     const auto* data_ptr = reinterpret_cast<const bool*>(input_data_.data());
     if (valid_bits_ != nullptr) {
-      ASSERT_NO_THROW(encoder_->PutSpaced(data_ptr, num_values_, valid_bits_, 0));
+      ASSERT_NO_THROW(encoder_->PutSpaced(data_ptr, kNumValues, valid_bits_, 0));
     } else {
-      ASSERT_NO_THROW(encoder_->Put(data_ptr, num_values_));
+      ASSERT_NO_THROW(encoder_->Put(data_ptr, kNumValues));
     }
     buffer_ = encoder_->FlushValues();
-    decoder_->SetData(num_values_, buffer_->data(), static_cast<int>(buffer_->size()));
+    decoder_->SetData(kNumValues, buffer_->data(), static_cast<int>(buffer_->size()));
   }
 
   void CheckDense(int actual_num_values, const ::arrow::Array& chunk) {
-    ASSERT_EQ(actual_num_values, num_values_ - null_count_);
+    ASSERT_EQ(actual_num_values, kNumValues - null_count_);
     ASSERT_ARRAYS_EQUAL(chunk, *expected_dense_);
   }
 
@@ -694,7 +695,7 @@ class TestBooleanArrowDecoding : public ::testing::Test {
           // Resume the state of decoder
           InitTestCase(encoding, np, true_prob);
 
-          int num_values_left = this->num_values_;
+          int num_values_left = kNumValues;
           ::arrow::BooleanBuilder acc;
           int actual_num_not_null_values = 0;
           while (num_values_left > 0) {
@@ -704,13 +705,12 @@ class TestBooleanArrowDecoding : public ::testing::Test {
             int64_t batch_null_count = 0;
             if (null_count_ != 0) {
               batch_null_count =
-                  batch_size -
-                  ::arrow::internal::CountSetBits(
-                      valid_bits_, num_values_ - num_values_left, batch_size);
+                  batch_size - ::arrow::internal::CountSetBits(
+                                   valid_bits_, kNumValues - num_values_left, batch_size);
             }
-            int batch_num_values = decoder_->DecodeArrow(
-                batch_size, static_cast<int>(batch_null_count), valid_bits_,
-                this->num_values_ - num_values_left, &acc);
+            int batch_num_values =
+                decoder_->DecodeArrow(batch_size, static_cast<int>(batch_null_count),
+                                      valid_bits_, kNumValues - num_values_left, &acc);
             actual_num_not_null_values += batch_num_values;
             num_values_left -= batch_size;
           }
@@ -730,7 +730,7 @@ class TestBooleanArrowDecoding : public ::testing::Test {
         InitTestCase(encoding, /*null_probability=*/0, true_prob);
         ::arrow::BooleanBuilder acc;
         int actual_num_values = 0;
-        int num_values_left = this->num_values_;
+        int num_values_left = kNumValues;
         while (num_values_left > 0) {
           int batch_size = std::min(num_values_left, read_batch_size);
           int batch_num_values = decoder_->DecodeArrowNonNull(batch_size, &acc);
@@ -749,8 +749,6 @@ class TestBooleanArrowDecoding : public ::testing::Test {
   std::vector<double> true_probabilities_;
   std::vector<int> read_batch_sizes_;
   std::shared_ptr<::arrow::Array> expected_dense_;
-  // sum of values including nulls
-  int num_values_{0};
   int null_count_{0};
   std::vector<uint8_t> input_data_;
   const uint8_t* valid_bits_ = NULLPTR;
