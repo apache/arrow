@@ -402,6 +402,10 @@ class DockerCompose(Command):
                     # on the docker-compose yaml file.
                     if isinstance(cmd, list):
                         cmd = shlex.join(cmd)
+                    # Match behaviour from docker compose
+                    # to interpolate environment variables
+                    # https://docs.docker.com/compose/compose-file/12-interpolation/
+                    cmd = cmd.replace("$$", "$")
                     args.extend(shlex.split(cmd))
 
             # execute as a plain docker cli command
