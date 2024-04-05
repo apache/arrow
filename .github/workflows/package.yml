@@ -42,10 +42,10 @@ jobs:
           path: crossbow
           fetch-depth: 0
       - name: Store Release Tag Name as Environment Variable
-          # For convenience, store the release tag name as an environment
-          # variable for use in subsequent steps.
-          run: |
-            echo "ARROW_RELEASE_TAG_NAME=${{github.ref_name}}" >> "$GITHUB_ENV"
+        # For convenience, store the release tag name as an environment
+        # variable for use in subsequent steps.
+        run: |
+          echo "ARROW_RELEASE_TAG_NAME=${{github.ref_name}}" >> "$GITHUB_ENV"
       - name: Store Version and Release Candidate Number as Environment Variables
         # From environment variable ARROW_RELEASE_TAG_NAME, extract the version and
         # release candidate number. Store these values as environment variables.
