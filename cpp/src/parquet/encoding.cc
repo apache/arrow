@@ -1211,7 +1211,7 @@ int PlainBooleanDecoder::DecodeArrow(
     BitBlockCounter bit_counter(valid_bits, valid_bits_offset, num_values);
     int64_t value_position = 0;
     int64_t valid_bits_offset_position = valid_bits_offset;
-    int64_t previous_value_offset = 0;
+    int64_t previous_value_offset = total_num_values_ - num_values_;
     while (value_position < num_values) {
       auto block = bit_counter.NextWord();
       if (block.AllSet()) {
@@ -1227,8 +1227,7 @@ int PlainBooleanDecoder::DecodeArrow(
       } else {
         for (int64_t i = 0; i < block.length; ++i) {
           if (bit_util::GetBit(valid_bits, valid_bits_offset_position + i)) {
-            bool value = bit_util::GetBit(
-                data_, total_num_values_ - num_values_ + previous_value_offset);
+            bool value = bit_util::GetBit(data_, previous_value_offset);
             builder->UnsafeAppend(value);
             previous_value_offset += 1;
           } else {
@@ -3180,7 +3179,9 @@ class RleBooleanDecoder : public DecoderImpl, virtual public BooleanDecoder {
         PARQUET_THROW_NOT_OK(
             out->AppendValues(values.begin(), values.begin() + current_batch_size));
         num_values -= current_batch_size;
-        current_index_in_batch = 0;
+        // set current_index_in_batch to current_batch_size means
+        // the whole batch is totally consumed.
+        current_index_in_batch = current_batch_size;
       } while (num_values > 0);
       return num_non_null_values;
     }
