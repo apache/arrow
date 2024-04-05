@@ -109,10 +109,6 @@ arrow_repos <- function(repos = getOption("repos"), nightly = FALSE) {
   }
   dev_repo <- getOption("arrow.dev_repo", "https://nightlies.apache.org/arrow/r")
   # Remove it if it's there (so nightly=FALSE won't accidentally pull from it)
-  repos <- setdiff(repos, dev_repo)
-  if (prefer_runiverse) {
-    repos <- c("https://apache.r-universe.dev", repos)
-  }
   if (nightly) {
     # Add it first
     repos <- c(dev_repo, repos)
