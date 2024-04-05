@@ -22,7 +22,7 @@ import {
     DataType, strideForType,
     Float, Int, Decimal, FixedSizeBinary,
     Date_, Time, Timestamp, Interval, Duration,
-    Utf8, LargeUtf8, Binary, LargeBinary, List, Map_,
+    Utf8, LargeUtf8, Binary, LargeBinary, List, LargeList, Map_,
 } from './type.js';
 import { createIsValidFunction } from './builder/valid.js';
 import { BufferBuilder, BitmapBufferBuilder, DataBufferBuilder, OffsetsBufferBuilder } from './builder/buffer.js';
@@ -285,7 +285,7 @@ export abstract class Builder<T extends DataType = any, TNull = any> {
 
         if (typeIds = _typeIds?.flush(length)) { // Unions, DenseUnions
             valueOffsets = _offsets?.flush(length);
-        } else if (valueOffsets = _offsets?.flush(length)) { // Variable-width primitives (Binary, LargeBinary, Utf8, LargeUtf8), and Lists
+        } else if (valueOffsets = _offsets?.flush(length)) { // Variable-width primitives (Binary, LargeBinary, Utf8, LargeUtf8), and Lists and LargeLists
             data = _values?.flush(_offsets.last());
         } else { // Fixed-width primitives (Int, Float, Decimal, Time, Timestamp, Duration and Interval)
             data = _values?.flush(length);
@@ -352,7 +352,7 @@ export abstract class FixedWidthBuilder<T extends Int | Float | FixedSizeBinary 
 }
 
 /** @ignore */
-export abstract class VariableWidthBuilder<T extends Binary | LargeBinary | Utf8 | LargeUtf8 | List | Map_, TNull = any> extends Builder<T, TNull> {
+export abstract class VariableWidthBuilder<T extends Binary | LargeBinary | Utf8 | LargeUtf8 | List | LargeList | Map_, TNull = any> extends Builder<T, TNull> {
     protected _pendingLength = 0;
     protected _offsets: OffsetsBufferBuilder<T>;
     protected _pending: Map<number, any> | undefined;

@@ -45,6 +45,7 @@ export abstract class Visitor {
     public visitTime(_node: any, ..._args: any[]): any { return null; }
     public visitDecimal(_node: any, ..._args: any[]): any { return null; }
     public visitList(_node: any, ..._args: any[]): any { return null; }
+    public visitLargeList(_node: any, ..._args: any[]): any { return null; }
     public visitStruct(_node: any, ..._args: any[]): any { return null; }
     public visitUnion(_node: any, ..._args: any[]): any { return null; }
     public visitDictionary(_node: any, ..._args: any[]): any { return null; }
@@ -110,6 +111,7 @@ function getVisitFnByTypeId(visitor: Visitor, dtype: Type, throwIfNotFound = tru
         case Type.TimeNanosecond: fn = visitor.visitTimeNanosecond || visitor.visitTime; break;
         case Type.Decimal: fn = visitor.visitDecimal; break;
         case Type.List: fn = visitor.visitList; break;
+        case Type.LargeList: fn = visitor.visitLargeList; break;
         case Type.Struct: fn = visitor.visitStruct; break;
         case Type.Union: fn = visitor.visitUnion; break;
         case Type.DenseUnion: fn = visitor.visitDenseUnion || visitor.visitUnion; break;
@@ -203,6 +205,7 @@ function inferDType<T extends DataType>(type: T): Type {
             return Type.Duration;
         case Type.Map: return Type.Map;
         case Type.List: return Type.List;
+        case Type.LargeList: return Type.LargeList;
         case Type.Struct: return Type.Struct;
         case Type.Union:
             switch ((type as any as Union).mode) {
@@ -254,6 +257,7 @@ export interface Visitor {
     visitTimeNanosecond?(node: any, ...args: any[]): any;
     visitDecimal(node: any, ...args: any[]): any;
     visitList(node: any, ...args: any[]): any;
+    visitLargeList(node: any, ...args: any[]): any;
     visitStruct(node: any, ...args: any[]): any;
     visitUnion(node: any, ...args: any[]): any;
     visitDenseUnion?(node: any, ...args: any[]): any;
