@@ -579,6 +579,9 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
             nthreads = pa.cpu_count()
         else:
             nthreads = 1
+    # if we don't have threading in libarrow, don't use threading here either
+    if is_threading_enabled():
+        nthreads = 1
 
     def convert_column(col, field):
         if field is None:
@@ -607,7 +610,7 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
                 arr.flags.contiguous and
                 issubclass(arr.dtype.type, np.integer))
 
-    if nthreads == 1 or not is_threading_enabled():
+    if nthreads == 1:
         arrays = [convert_column(c, f)
                   for c, f in zip(columns_to_convert, convert_fields)]
     else:
