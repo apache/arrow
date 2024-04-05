@@ -49,11 +49,6 @@ jobs:
           echo "ARROW_VERSION_WITH_RC=${version_with_rc}" >> "${GITHUB_ENV}"
           echo "ARROW_VERSION=${version}" >> ${GITHUB_ENV}
           echo "ARROW_RC_NUM=${rc_num}" >> ${GITHUB_ENV}
-      - name: Extract crossbow job id
-        # Extract the crossbow job ID from the subject field of the git tag subject.
-        run: |
-          crossbow_job_id=$(git for-each-ref refs/tags/${RELEASE_TAG_NAME} --format='%(contents:subject)')
-          echo "CROSSBOW_JOB_ID=${crossbow_job_id}" >> "${GITHUB_ENV}"
       - name: Setup Archery
         run: |
           python3 -m pip install -e dev/archery[crossbow]
