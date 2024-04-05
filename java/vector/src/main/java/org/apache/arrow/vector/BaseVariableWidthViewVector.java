@@ -77,7 +77,6 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
     super(allocator);
     this.field = field;
     lastValueAllocationSizeInBytes = INITIAL_BYTE_COUNT;
-    // -1 because we require one extra slot for the offset array.
     lastValueCapacity = INITIAL_VIEW_VALUE_ALLOCATION; // INITIAL_VALUE_ALLOCATION - 1;
     valueCount = 0;
     lastSet = -1;
@@ -235,22 +234,20 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   }
 
   /**
-   * Get the current capacity which does not exceed either validity buffer or offset buffer.
-   * Note: Here the `getValueCapacity` has no relationship with the value buffer.
+   * Get the current capacity which does not exceed either validity buffer or value buffer.
+   * Note: Here the `getValueCapacity` has a relationship with the value buffer.
    *
    * @return number of elements that vector can hold.
    */
   @Override
   public int getValueCapacity() {
-    return Math.max(capAtMaxInt(valueBuffer.capacity() / VIEW_BUFFER_SIZE), 0);
+    final int validityCapacity = getValidityBufferValueCapacity();
+    final int valueBufferCapacity = Math.max(capAtMaxInt(valueBuffer.capacity() / VIEW_BUFFER_SIZE), 0);
+    return Math.min(valueBufferCapacity, validityCapacity);
   }
 
   private int getValidityBufferValueCapacity() {
     return capAtMaxInt(validityBuffer.capacity() * 8);
-  }
-
-  private int getOffsetBufferValueCapacity() {
-    return capAtMaxInt(offsetBuffer.capacity() / OFFSET_WIDTH);
   }
 
   /**
@@ -378,7 +375,6 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
     List<ArrowBuf> result = new ArrayList<>(3);
     setReaderAndWriterIndex();
     result.add(validityBuffer);
-    result.add(offsetBuffer);
     result.add(valueBuffer);
     // append data buffers
     result.addAll(dataBuffers);
@@ -391,15 +387,12 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
    */
   private void setReaderAndWriterIndex() {
     validityBuffer.readerIndex(0);
-    offsetBuffer.readerIndex(0);
     valueBuffer.readerIndex(0);
     if (valueCount == 0) {
       validityBuffer.writerIndex(0);
-      offsetBuffer.writerIndex(0);
       valueBuffer.writerIndex(0);
     } else {
       validityBuffer.writerIndex(getValidityBufferSizeFromCount(valueCount));
-      offsetBuffer.writerIndex((long) (valueCount + 1) * OFFSET_WIDTH);
       valueBuffer.writerIndex(valueCount * VIEW_BUFFER_SIZE);
     }
   }
@@ -493,12 +486,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
     valueBuffer = allocator.buffer(valueBufferSize);
     valueBuffer.readerIndex(0);
 
-    // remove offset buffer section
-    /* allocate offset buffer and validity buffer */
-    DataAndValidityBuffers buffers = allocFixedDataAndValidityBufs(valueCount + 1, OFFSET_WIDTH);
-    offsetBuffer = buffers.getDataBuf();
-    validityBuffer = buffers.getValidityBuf();
-    initOffsetBuffer();
+    validityBuffer = allocator.buffer((valueCount + 7) / 8);
     initValidityBuffer();
 
     lastValueCapacity = getValueCapacity();
