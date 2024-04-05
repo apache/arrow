@@ -1091,6 +1091,7 @@ tasks:
     params:
       env:
         UBUNTU: 20.04
+        ARCHERY_USE_DOCKER_CLI: 0
       flags: -e ARROW_SKYHOOK=ON
       image: ubuntu-cpp
 
