@@ -1192,10 +1192,13 @@ int PlainBooleanDecoder::DecodeArrow(
   int values_decoded = num_values - null_count;
   if (ARROW_PREDICT_FALSE(num_values_ < values_decoded)) {
     // A too large `num_values` was requested.
-    ParquetException::EofException();
+    ParquetException::EofException(
+        "A too large `num_values` was requested in PlainBooleanDecoder: remain " +
+        std::to_string(num_values_) + ", requested: " + std::to_string(values_decoded));
   }
   if (ARROW_PREDICT_FALSE(!bit_reader_->Advance(values_decoded))) {
-    ParquetException::EofException();
+    ParquetException::EofException(
+        "PlainDecoder doesn't have enough values in bit_reader_");
   }
 
   if (null_count == 0) {

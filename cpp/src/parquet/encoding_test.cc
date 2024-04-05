@@ -635,6 +635,162 @@ TEST(BooleanArrayEncoding, AdHocRoundTrip) {
   }
 }
 
+class TestBooleanArrowDecoding : public ::testing::Test {
+ public:
+  void SetUp() override {
+    null_probabilities_ = {0.0, 0.5, 1.0};
+    read_batch_sizes_ = {1024, 4096, 10000};
+    true_probabilities_ = {0.0, 0.5, 1.0};
+  }
+  void TearDown() override {}
+
+  void InitTestCase(double null_probability, double true_probability) {
+    GenerateInputData(null_probability, true_probability);
+    SetupEncoderDecoder();
+  }
+
+  void GenerateInputData(double null_probability, double true_probability) {
+    constexpr int num_values = 10000;
+    ::arrow::random::RandomArrayGenerator rag(0);
+    expected_dense_ =
+        rag.Boolean(num_values, /*true_probability=*/true_probability, null_probability);
+    num_values_ = static_cast<int>(expected_dense_->length());
+    null_count_ = static_cast<int>(expected_dense_->null_count());
+    valid_bits_ = expected_dense_->null_bitmap_data();
+
+    // Initialize input_data_ for the encoder from the expected_array_ values
+    const auto& boolean_array =
+        static_cast<const ::arrow::BooleanArray&>(*expected_dense_);
+    input_data_.resize(boolean_array.length());
+
+    for (int64_t i = 0; i < boolean_array.length(); ++i) {
+      input_data_[i] = boolean_array.Value(i);
+    }
+  }
+
+  // Setup encoder/decoder pair for testing with
+  virtual void SetupEncoderDecoder() = 0;
+
+  void CheckDense(int actual_num_values, const ::arrow::Array& chunk) {
+    ASSERT_EQ(actual_num_values, num_values_ - null_count_);
+    ASSERT_ARRAYS_EQUAL(chunk, *expected_dense_);
+  }
+
+  void CheckDecodeArrowUsingDenseBuilder() {
+    for (double np : null_probabilities_) {
+      for (double true_prob : true_probabilities_) {
+        for (int read_batch_size : this->read_batch_sizes_) {
+          // Resume the state of decoder
+          InitTestCase(np, true_prob);
+
+          int num_values_left = this->num_values_;
+          ::arrow::BooleanBuilder acc;
+          int actual_num_not_null_values = 0;
+          while (num_values_left > 0) {
+            int batch_size = std::min(num_values_left, read_batch_size);
+            ASSERT_NE(0, batch_size);
+            // Counting nulls
+            int64_t batch_null_count = 0;
+            if (null_count_ != 0) {
+              batch_null_count =
+                  batch_size -
+                  ::arrow::internal::CountSetBits(
+                      valid_bits_, num_values_ - num_values_left, batch_size);
+            }
+            std::cout << "request batch_size: " << batch_size
+                      << ", null_count:" << batch_null_count
+                      << ", valid bits offset:" << this->num_values_ - num_values_left
+                      << '\n';
+            int batch_num_values = decoder_->DecodeArrow(
+                batch_size, static_cast<int>(batch_null_count), valid_bits_,
+                this->num_values_ - num_values_left, &acc);
+            actual_num_not_null_values += batch_num_values;
+            num_values_left -= batch_size;
+          }
+          std::shared_ptr<::arrow::Array> chunk;
+          ASSERT_OK(acc.Finish(&chunk));
+          CheckDense(actual_num_not_null_values, *chunk);
+        }
+      }
+    }
+  }
+
+  void CheckDecodeArrowNonNullUsingDenseBuilder() {
+    for (auto np : null_probabilities_) {
+      InitTestCase(np, 0.5);
+      if (null_count_ > 0) {
+        continue;
+      }
+      ::arrow::BooleanBuilder acc;
+      int actual_num_values = 0;
+      int num_values_left = this->num_values_;
+      for (int read_batch_size : this->read_batch_sizes_) {
+        int batch_size = std::min(num_values_left, read_batch_size);
+        int batch_num_values = decoder_->DecodeArrowNonNull(batch_size, &acc);
+        actual_num_values += batch_num_values;
+        num_values_left -= batch_num_values;
+      }
+      std::shared_ptr<::arrow::Array> chunk;
+      ASSERT_OK(acc.Finish(&chunk));
+      CheckDense(actual_num_values, *chunk);
+    }
+  }
+
+ protected:
+  void SetupEncoderDecoderImpl(Encoding::type encoding) {
+    encoder_ = MakeTypedEncoder<BooleanType>(encoding);
+    decoder_ = MakeTypedDecoder<BooleanType>(encoding);
+    const auto* data_ptr = reinterpret_cast<const bool*>(input_data_.data());
+    if (valid_bits_ != nullptr) {
+      ASSERT_NO_THROW(encoder_->PutSpaced(data_ptr, num_values_, valid_bits_, 0));
+    } else {
+      ASSERT_NO_THROW(encoder_->Put(data_ptr, num_values_));
+    }
+    buffer_ = encoder_->FlushValues();
+    decoder_->SetData(num_values_, buffer_->data(), static_cast<int>(buffer_->size()));
+  }
+
+ protected:
+  std::vector<double> null_probabilities_;
+  std::vector<double> true_probabilities_;
+  std::vector<int> read_batch_sizes_;
+  std::shared_ptr<::arrow::Array> expected_dense_;
+  // sum of values including nulls
+  int num_values_{0};
+  int null_count_{0};
+  std::vector<uint8_t> input_data_;
+  const uint8_t* valid_bits_ = NULLPTR;
+  std::unique_ptr<BooleanEncoder> encoder_;
+  std::unique_ptr<BooleanDecoder> decoder_;
+  std::shared_ptr<Buffer> buffer_;
+};
+
+class PlainBooleanEncodingArrowTest : public TestBooleanArrowDecoding {
+ public:
+  void SetupEncoderDecoder() override { SetupEncoderDecoderImpl(Encoding::PLAIN); }
+};
+
+TEST_F(PlainBooleanEncodingArrowTest, CheckDecodeArrowUsingDenseBuilder) {
+  this->CheckDecodeArrowUsingDenseBuilder();
+}
+
+TEST_F(PlainBooleanEncodingArrowTest, CheckDecodeArrowNonNullDenseBuilder) {
+  this->CheckDecodeArrowNonNullUsingDenseBuilder();
+}
+
+class RleBooleanEncodingArrowTest : public TestBooleanArrowDecoding {
+ public:
+  void SetupEncoderDecoder() override { SetupEncoderDecoderImpl(Encoding::RLE); }
+};
+
+TEST_F(RleBooleanEncodingArrowTest, CheckDecodeArrowUsingDenseBuilder) {
+  this->CheckDecodeArrowUsingDenseBuilder();
+}
+
+TEST_F(RleBooleanEncodingArrowTest, CheckDecodeArrowNonNullDenseBuilder) {
+  this->CheckDecodeArrowNonNullUsingDenseBuilder();
+}
+
 template <typename T>
 void GetDictDecoder(DictEncoder<T>* encoder, int64_t num_values,
                     std::shared_ptr<Buffer>* out_values,
