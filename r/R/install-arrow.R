@@ -77,8 +77,7 @@ install_arrow <- function(nightly = FALSE,
       ARROW_USE_PKG_CONFIG = use_system
     )
     # On Rosetta, we have to build without JEMALLOC
-    rosetta <- on_rosetta()
-    if (rosetta) {
+    if (on_rosetta()) {
       Sys.setenv(ARROW_JEMALLOC = "OFF")
       Sys.setenv(FORCE_BUNDLED_BUILD = "true")
     }
