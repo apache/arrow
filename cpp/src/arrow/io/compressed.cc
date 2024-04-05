@@ -405,7 +405,9 @@ class CompressedInputStream::Impl {
     ARROW_ASSIGN_OR_RAISE(auto buf, AllocateResizableBuffer(nbytes, pool_));
     ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, Read(nbytes, buf->mutable_data()));
     RETURN_NOT_OK(buf->Resize(bytes_read));
-    return buf;
+    // Using std::move because the some compiler might has issue below:
+    // https://wg21.cmeerw.net/cwg/issue1579
+    return std::move(buf);
   }
 
   const std::shared_ptr<InputStream>& raw() const { return raw_; }
