@@ -101,6 +101,7 @@ RUN apt-get update -y -q && \
         libutf8proc-dev \
         libxml2-dev \
         libzstd-dev \
+        lld \
         make \
         ninja-build \
         nlohmann-json3-dev \
