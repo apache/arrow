@@ -743,6 +743,10 @@ cdef class NativeFile(_Weakrefable):
             Internal method to do a download without separate threads, queues etc.
             Called by download above if is_threading_enabled() == False
         """
+        cdef:
+            int64_t bytes_read = 0
+            uint8_t* buf
+
         handle = self.get_input_stream()
 
         buffer_size = buffer_size or DEFAULT_BUFFER_SIZE
@@ -802,7 +806,7 @@ cdef class NativeFile(_Weakrefable):
             The buffer size to use for data transfers.
         """
         if not is_threading_enabled():
-            return self._upload_nothreads(stream_or_path,buffer_size)
+            return self._upload_nothreads(stream,buffer_size)
 
         write_queue = Queue(50)
         self._assert_writable()
