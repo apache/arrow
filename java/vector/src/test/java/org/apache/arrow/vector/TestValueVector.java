@@ -1915,8 +1915,8 @@ public class TestValueVector {
   public void testSetSafeWithArrowBufNoExcessAllocs() {
     // NOTE: getStartOffset method is defined as public in BaseVariabledWidthVector,
     //  and BaseVariableWidthViewVector. But in the BaseLargeVariableWidthVector it is protected.
-    //  since abstracting this test util won't be feasible. In addition, the return types is long
-    //  in BaseLargeVariableWidthVector while in the other two interfaces it is int.
+    //  Since abstracting this test, util won't be possible. In addition, the return types are long
+    //  in BaseLargeVariableWidthVector while in the other two interfaces it is an int.
     final int numValues = BaseFixedWidthVector.INITIAL_VALUE_ALLOCATION * 2;
     final byte[] valueBytes = "hello world".getBytes(StandardCharsets.UTF_8);
     final int valueBytesLength = valueBytes.length;
@@ -1999,134 +1999,68 @@ public class TestValueVector {
     }
   }
 
-  private void testCopyFromWithNullsHelper(AbstractVariableWidthVector vector, AbstractVariableWidthVector vector2) {
-    vector.setInitialCapacity(4095);
-    vector.allocateNew();
-    int capacity = vector.getValueCapacity();
-    assertTrue(capacity >= 4095);
-
-    for (int i = 0; i < capacity; i++) {
-      if (i % 3 == 0) {
-        continue;
-      }
-      byte[] b = Integer.toString(i).getBytes(StandardCharsets.UTF_8);
-      vector.setSafe(i, b, 0, b.length);
-    }
-
-    /* NO reAlloc() should have happened in setSafe() */
-    assertEquals(capacity, vector.getValueCapacity());
-
-    vector.setValueCount(capacity);
-
-    for (int i = 0; i < capacity; i++) {
-      if (i % 3 == 0) {
-        assertNull(vector.getObject(i));
-      } else {
-        assertEquals("unexpected value at index: " + i, Integer.toString(i), vector.getObject(i).toString());
-      }
-    }
-
-    vector2.setInitialCapacity(4095);
-    vector2.allocateNew();
-    int capacity2 = vector2.getValueCapacity();
-    assertEquals(capacity2, capacity);
-
-    for (int i = 0; i < capacity; i++) {
-      vector2.copyFromSafe(i, i, vector);
-      if (i % 3 == 0) {
-        assertNull(vector2.getObject(i));
-      } else {
-        assertEquals("unexpected value at index: " + i, Integer.toString(i), vector2.getObject(i).toString());
-      }
-    }
-
-    /* NO reAlloc() should have happened in copyFrom */
-    assertEquals(capacity, vector2.getValueCapacity());
-
-    vector2.setValueCount(capacity);
-
-    for (int i = 0; i < capacity; i++) {
-      if (i % 3 == 0) {
-        assertNull(vector2.getObject(i));
-      } else {
-        assertEquals("unexpected value at index: " + i, Integer.toString(i), vector2.getObject(i).toString());
-      }
-    }
-  }
-
   @Test
   public void testCopyFromWithNulls() {
     try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator);
          final VarCharVector vector2 =
              newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
-      testCopyFromWithNullsHelper(vector, vector2);
-    }
+      vector.setInitialCapacity(4095);
+      vector.allocateNew();
+      int capacity = vector.getValueCapacity();
+      assertTrue(capacity >= 4095);
 
-    try (final ViewVarCharVector vector = newVector(ViewVarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VIEWVARCHAR,
-        allocator);
-        final ViewVarCharVector vector2 =
-            newVector(ViewVarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VIEWVARCHAR, allocator)) {
-      testCopyFromWithNullsHelper(vector, vector2);
+      for (int i = 0; i < capacity; i++) {
+        if (i % 3 == 0) {
+          continue;
+        }
+        byte[] b = Integer.toString(i).getBytes(StandardCharsets.UTF_8);
+        vector.setSafe(i, b, 0, b.length);
+      }
+
+      /* NO reAlloc() should have happened in setSafe() */
+      assertEquals(capacity, vector.getValueCapacity());
+
+      vector.setValueCount(capacity);
+
+      for (int i = 0; i < capacity; i++) {
+        if (i % 3 == 0) {
+          assertNull(vector.getObject(i));
+        } else {
+          assertEquals("unexpected value at index: " + i, Integer.toString(i), vector.getObject(i).toString());
+        }
+      }
+
+      vector2.setInitialCapacity(4095);
+      vector2.allocateNew();
+      int capacity2 = vector2.getValueCapacity();
+      assertEquals(capacity2, capacity);
+
+      for (int i = 0; i < capacity; i++) {
+        vector2.copyFromSafe(i, i, vector);
+        if (i % 3 == 0) {
+          assertNull(vector2.getObject(i));
+        } else {
+          assertEquals("unexpected value at index: " + i, Integer.toString(i), vector2.getObject(i).toString());
+        }
+      }
+
+      /* NO reAlloc() should have happened in copyFrom */
+      assertEquals(capacity, vector2.getValueCapacity());
+
+      vector2.setValueCount(capacity);
+
+      for (int i = 0; i < capacity; i++) {
+        if (i % 3 == 0) {
+          assertNull(vector2.getObject(i));
+        } else {
+          assertEquals("unexpected value at index: " + i, Integer.toString(i), vector2.getObject(i).toString());
+        }
+      }
     }
   }
 
   private void testCopyFromWithNulls1Helper(AbstractVariableWidthVector vector, AbstractVariableWidthVector vector2) {
-    vector.setInitialCapacity(4095);
-    vector.allocateNew();
-    int capacity = vector.getValueCapacity();
-    assertTrue(capacity >= 4095);
 
-    for (int i = 0; i < capacity; i++) {
-      if (i % 3 == 0) {
-        continue;
-      }
-      byte[] b = Integer.toString(i).getBytes(StandardCharsets.UTF_8);
-      vector.setSafe(i, b, 0, b.length);
-    }
-
-    /* NO reAlloc() should have happened in setSafe() */
-    assertEquals(capacity, vector.getValueCapacity());
-
-    vector.setValueCount(capacity);
-
-    for (int i = 0; i < capacity; i++) {
-      if (i % 3 == 0) {
-        assertNull(vector.getObject(i));
-      } else {
-        assertEquals("unexpected value at index: " + i, Integer.toString(i), vector.getObject(i).toString());
-      }
-    }
-
-    /* set lesser initial capacity than actually needed
-     * to trigger reallocs in copyFromSafe()
-     */
-    vector2.allocateNew(1024 * 10, 1024);
-
-    int capacity2 = vector2.getValueCapacity();
-    assertTrue(capacity2 >= 1024);
-    assertTrue(capacity2 <= capacity);
-
-    for (int i = 0; i < capacity; i++) {
-      vector2.copyFromSafe(i, i, vector);
-      if (i % 3 == 0) {
-        assertNull(vector2.getObject(i));
-      } else {
-        assertEquals("unexpected value at index: " + i, Integer.toString(i), vector2.getObject(i).toString());
-      }
-    }
-
-    /* 2 reAllocs should have happened in copyFromSafe() */
-    assertEquals(capacity, vector2.getValueCapacity());
-
-    vector2.setValueCount(capacity);
-
-    for (int i = 0; i < capacity; i++) {
-      if (i % 3 == 0) {
-        assertNull(vector2.getObject(i));
-      } else {
-        assertEquals("unexpected value at index: " + i, Integer.toString(i), vector2.getObject(i).toString());
-      }
-    }
   }
 
   @Test
@@ -2134,14 +2068,65 @@ public class TestValueVector {
     try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator);
          final VarCharVector vector2 =
              newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
-      testCopyFromWithNulls1Helper(vector, vector2);
-    }
+      final int initialCapacity = 4095;
+      vector.setInitialCapacity(initialCapacity);
+      vector.allocateNew();
+      int capacity = vector.getValueCapacity();
+      assertTrue(capacity >= initialCapacity);
 
-    try (final ViewVarCharVector vector = newVector(ViewVarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VIEWVARCHAR,
-        allocator);
-        final ViewVarCharVector vector2 =
-            newVector(ViewVarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VIEWVARCHAR, allocator)) {
-      testCopyFromWithNulls1Helper(vector, vector2);
+      for (int i = 0; i < capacity; i++) {
+        if (i % 3 == 0) {
+          continue;
+        }
+        byte[] b = Integer.toString(i).getBytes(StandardCharsets.UTF_8);
+        vector.setSafe(i, b, 0, b.length);
+      }
+
+      /* NO reAlloc() should have happened in setSafe() */
+      assertEquals(capacity, vector.getValueCapacity());
+
+      vector.setValueCount(capacity);
+
+      for (int i = 0; i < capacity; i++) {
+        if (i % 3 == 0) {
+          assertNull(vector.getObject(i));
+        } else {
+          assertEquals("unexpected value at index: " + i, Integer.toString(i), vector.getObject(i).toString());
+        }
+      }
+
+      /* set lesser initial capacity than actually needed
+       * to trigger reallocs in copyFromSafe()
+       */
+      final int totalBytes = 1024 * 10;
+      final int valueCount = 1024;
+      vector2.allocateNew(totalBytes, valueCount);
+
+      int capacity2 = vector2.getValueCapacity();
+      assertTrue(capacity2 >= valueCount);
+      assertTrue(capacity2 <= capacity);
+
+      for (int i = 0; i < capacity; i++) {
+        vector2.copyFromSafe(i, i, vector);
+        if (i % 3 == 0) {
+          assertNull(vector2.getObject(i));
+        } else {
+          assertEquals("unexpected value at index: " + i, Integer.toString(i), vector2.getObject(i).toString());
+        }
+      }
+
+      /* 2 reAllocs should have happened in copyFromSafe() */
+      assertEquals(capacity, vector2.getValueCapacity());
+
+      vector2.setValueCount(capacity);
+
+      for (int i = 0; i < capacity; i++) {
+        if (i % 3 == 0) {
+          assertNull(vector2.getObject(i));
+        } else {
+          assertEquals("unexpected value at index: " + i, Integer.toString(i), vector2.getObject(i).toString());
+        }
+      }
     }
   }
 
@@ -2201,31 +2186,36 @@ public class TestValueVector {
     assertEquals(0, vector.getValueLength(19));
 
     /* Check offsets */
-    assertEquals(0, vector.getOffsetBuffer().getInt(0 * BaseVariableWidthVector.OFFSET_WIDTH));
-    assertEquals(6, vector.getOffsetBuffer().getInt(1 * BaseVariableWidthVector.OFFSET_WIDTH));
-    assertEquals(16, vector.getOffsetBuffer().getInt(2 * BaseVariableWidthVector.OFFSET_WIDTH));
-    assertEquals(21, vector.getOffsetBuffer().getInt(3 * BaseVariableWidthVector.OFFSET_WIDTH));
-    assertEquals(30, vector.getOffsetBuffer().getInt(4 * BaseVariableWidthVector.OFFSET_WIDTH));
-    assertEquals(34, vector.getOffsetBuffer().getInt(5 * BaseVariableWidthVector.OFFSET_WIDTH));
-    assertEquals(40, vector.getOffsetBuffer().getInt(6 * BaseVariableWidthVector.OFFSET_WIDTH));
-    assertEquals(40, vector.getOffsetBuffer().getInt(7 * BaseVariableWidthVector.OFFSET_WIDTH));
-    assertEquals(40, vector.getOffsetBuffer().getInt(8 * BaseVariableWidthVector.OFFSET_WIDTH));
-    assertEquals(40, vector.getOffsetBuffer().getInt(9 * BaseVariableWidthVector.OFFSET_WIDTH));
-    assertEquals(40, vector.getOffsetBuffer().getInt(10 * BaseVariableWidthVector.OFFSET_WIDTH));
-    assertEquals(40, vector.getOffsetBuffer().getInt(11 * BaseVariableWidthVector.OFFSET_WIDTH));
-    assertEquals(40, vector.getOffsetBuffer().getInt(12 * BaseVariableWidthVector.OFFSET_WIDTH));
-    assertEquals(40, vector.getOffsetBuffer().getInt(13 * BaseVariableWidthVector.OFFSET_WIDTH));
-    assertEquals(40, vector.getOffsetBuffer().getInt(14 * BaseVariableWidthVector.OFFSET_WIDTH));
-    assertEquals(40, vector.getOffsetBuffer().getInt(15 * BaseVariableWidthVector.OFFSET_WIDTH));
-    assertEquals(40, vector.getOffsetBuffer().getInt(16 * BaseVariableWidthVector.OFFSET_WIDTH));
-    assertEquals(40, vector.getOffsetBuffer().getInt(17 * BaseVariableWidthVector.OFFSET_WIDTH));
-    assertEquals(40, vector.getOffsetBuffer().getInt(18 * BaseVariableWidthVector.OFFSET_WIDTH));
-    assertEquals(40, vector.getOffsetBuffer().getInt(19 * BaseVariableWidthVector.OFFSET_WIDTH));
+    if (vector instanceof BaseVariableWidthVector) {
+      assertEquals(0, vector.getOffsetBuffer().getInt(0 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(6, vector.getOffsetBuffer().getInt(1 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(16, vector.getOffsetBuffer().getInt(2 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(21, vector.getOffsetBuffer().getInt(3 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(30, vector.getOffsetBuffer().getInt(4 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(34, vector.getOffsetBuffer().getInt(5 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(40, vector.getOffsetBuffer().getInt(6 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(40, vector.getOffsetBuffer().getInt(7 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(40, vector.getOffsetBuffer().getInt(8 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(40, vector.getOffsetBuffer().getInt(9 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(40, vector.getOffsetBuffer().getInt(10 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(40, vector.getOffsetBuffer().getInt(11 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(40, vector.getOffsetBuffer().getInt(12 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(40, vector.getOffsetBuffer().getInt(13 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(40, vector.getOffsetBuffer().getInt(14 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(40, vector.getOffsetBuffer().getInt(15 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(40, vector.getOffsetBuffer().getInt(16 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(40, vector.getOffsetBuffer().getInt(17 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(40, vector.getOffsetBuffer().getInt(18 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(40, vector.getOffsetBuffer().getInt(19 * BaseVariableWidthVector.OFFSET_WIDTH));
+    }
 
     vector.set(19, STR6);
     assertArrayEquals(STR6, vector.get(19));
-    assertEquals(40, vector.getOffsetBuffer().getInt(19 * BaseVariableWidthVector.OFFSET_WIDTH));
-    assertEquals(46, vector.getOffsetBuffer().getInt(20 * BaseVariableWidthVector.OFFSET_WIDTH));
+
+    if (vector instanceof BaseVariableWidthVector) {
+      assertEquals(40, vector.getOffsetBuffer().getInt(19 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(46, vector.getOffsetBuffer().getInt(20 * BaseVariableWidthVector.OFFSET_WIDTH));
+    }
   }
 
   @Test
@@ -2369,41 +2359,43 @@ public class TestValueVector {
     assertEquals(0, vector.getValueLength(14));
 
     /* Check offsets */
-    assertEquals(0,
-        vector.getOffsetBuffer().getInt(0 * BaseVariableWidthVector.OFFSET_WIDTH));
-    assertEquals(6,
-        vector.getOffsetBuffer().getInt(1 * BaseVariableWidthVector.OFFSET_WIDTH));
-    assertEquals(16,
-        vector.getOffsetBuffer().getInt(2 * BaseVariableWidthVector.OFFSET_WIDTH));
-    assertEquals(21,
-        vector.getOffsetBuffer().getInt(3 * BaseVariableWidthVector.OFFSET_WIDTH));
-    assertEquals(30,
-        vector.getOffsetBuffer().getInt(4 * BaseVariableWidthVector.OFFSET_WIDTH));
-    assertEquals(34,
-        vector.getOffsetBuffer().getInt(5 * BaseVariableWidthVector.OFFSET_WIDTH));
+    if (vector instanceof BaseVariableWidthVector) {
+      assertEquals(0,
+              vector.getOffsetBuffer().getInt(0 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(6,
+              vector.getOffsetBuffer().getInt(1 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(16,
+              vector.getOffsetBuffer().getInt(2 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(21,
+              vector.getOffsetBuffer().getInt(3 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(30,
+              vector.getOffsetBuffer().getInt(4 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(34,
+              vector.getOffsetBuffer().getInt(5 * BaseVariableWidthVector.OFFSET_WIDTH));
 
-    assertEquals(40,
-        vector.getOffsetBuffer().getInt(6 * BaseVariableWidthVector.OFFSET_WIDTH));
-    assertEquals(40,
-        vector.getOffsetBuffer().getInt(7 * BaseVariableWidthVector.OFFSET_WIDTH));
-    assertEquals(40,
-        vector.getOffsetBuffer().getInt(8 * BaseVariableWidthVector.OFFSET_WIDTH));
-    assertEquals(40,
-        vector.getOffsetBuffer().getInt(9 * BaseVariableWidthVector.OFFSET_WIDTH));
-    assertEquals(40,
-        vector.getOffsetBuffer().getInt(10 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(40,
+              vector.getOffsetBuffer().getInt(6 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(40,
+              vector.getOffsetBuffer().getInt(7 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(40,
+              vector.getOffsetBuffer().getInt(8 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(40,
+              vector.getOffsetBuffer().getInt(9 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(40,
+              vector.getOffsetBuffer().getInt(10 * BaseVariableWidthVector.OFFSET_WIDTH));
 
-    assertEquals(46,
-        vector.getOffsetBuffer().getInt(11 * BaseVariableWidthVector.OFFSET_WIDTH));
-    assertEquals(56,
-        vector.getOffsetBuffer().getInt(12 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(46,
+              vector.getOffsetBuffer().getInt(11 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(56,
+              vector.getOffsetBuffer().getInt(12 * BaseVariableWidthVector.OFFSET_WIDTH));
 
-    assertEquals(56,
-        vector.getOffsetBuffer().getInt(13 * BaseVariableWidthVector.OFFSET_WIDTH));
-    assertEquals(56,
-        vector.getOffsetBuffer().getInt(14 * BaseVariableWidthVector.OFFSET_WIDTH));
-    assertEquals(56,
-        vector.getOffsetBuffer().getInt(15 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(56,
+              vector.getOffsetBuffer().getInt(13 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(56,
+              vector.getOffsetBuffer().getInt(14 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(56,
+              vector.getOffsetBuffer().getInt(15 * BaseVariableWidthVector.OFFSET_WIDTH));
+    }
   }
 
   @Test
@@ -2528,48 +2520,80 @@ public class TestValueVector {
         vector.dataBuffers);
   }
 
-  private void testSetInitialCapacityHelper(AbstractVariableWidthVector vector, int defaultRecordByteCount) {
-    int defaultCapacity = BaseValueVector.INITIAL_VALUE_ALLOCATION - 1;
-    vector.setInitialCapacity(defaultCapacity);
-    vector.allocateNew();
-    assertEquals(defaultCapacity, vector.getValueCapacity());
-    assertEquals(CommonUtil.nextPowerOfTwo(defaultCapacity * defaultRecordByteCount),
-        vector.getDataBuffer().capacity());
+  @Test /* VarCharVector */
+  public void testSetInitialCapacity() {
+    try (final VarCharVector vector = new VarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
 
-    vector.setInitialCapacity(defaultCapacity, 1);
-    vector.allocateNew();
-    assertEquals(defaultCapacity, vector.getValueCapacity());
-    assertEquals(CommonUtil.nextPowerOfTwo(defaultCapacity), vector.getDataBuffer().capacity());
+      /* use the default 8 data bytes on average per element */
+      int defaultCapacity = BaseValueVector.INITIAL_VALUE_ALLOCATION - 1;
+      vector.setInitialCapacity(defaultCapacity);
+      vector.allocateNew();
+      assertEquals(defaultCapacity, vector.getValueCapacity());
+      assertEquals(CommonUtil.nextPowerOfTwo(defaultCapacity * 8), vector.getDataBuffer().capacity());
 
-    vector.setInitialCapacity(defaultCapacity, 0.1);
-    vector.allocateNew();
-    assertEquals(defaultCapacity, vector.getValueCapacity());
-    assertEquals(CommonUtil.nextPowerOfTwo((int) (defaultCapacity * 0.1)), vector.getDataBuffer().capacity());
+      vector.setInitialCapacity(defaultCapacity, 1);
+      vector.allocateNew();
+      assertEquals(defaultCapacity, vector.getValueCapacity());
+      assertEquals(CommonUtil.nextPowerOfTwo(defaultCapacity), vector.getDataBuffer().capacity());
 
-    vector.setInitialCapacity(defaultCapacity, 0.01);
-    vector.allocateNew();
-    assertEquals(defaultCapacity, vector.getValueCapacity());
-    assertEquals(CommonUtil.nextPowerOfTwo((int) (defaultCapacity * 0.01)), vector.getDataBuffer().capacity());
+      vector.setInitialCapacity(defaultCapacity, 0.1);
+      vector.allocateNew();
+      assertEquals(defaultCapacity, vector.getValueCapacity());
+      assertEquals(CommonUtil.nextPowerOfTwo((int) (defaultCapacity * 0.1)), vector.getDataBuffer().capacity());
 
-    vector.setInitialCapacity(5, 0.01);
-    vector.allocateNew();
-    assertEquals(5, vector.getValueCapacity());
-    assertEquals(2, vector.getDataBuffer().capacity());
+      vector.setInitialCapacity(defaultCapacity, 0.01);
+      vector.allocateNew();
+      assertEquals(defaultCapacity, vector.getValueCapacity());
+      assertEquals(CommonUtil.nextPowerOfTwo((int) (defaultCapacity * 0.01)), vector.getDataBuffer().capacity());
+
+      vector.setInitialCapacity(5, 0.01);
+      vector.allocateNew();
+      assertEquals(5, vector.getValueCapacity());
+      assertEquals(2, vector.getDataBuffer().capacity());
+    }
   }
 
   @Test /* VarCharVector */
-  public void testSetInitialCapacity() {
-
-    try (final VarCharVector vector = new VarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
-      /* use the default `DEFAULT_RECORD_BYTE_COUNT` data bytes on average per element */
-      testSetInitialCapacityHelper(vector, /*BaseVariableWidthVector.DEFAULT_RECORD_BYTE_COUNT*/8);
-    }
-
+  public void testSetInitialCapacityInViews() {
     try (final ViewVarCharVector vector = new ViewVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
-      /* use the default `DEFAULT_RECORD_BYTE_COUNT` data bytes on average per element */
-      testSetInitialCapacityHelper(vector, /*BaseVariableWidthViewVector.DEFAULT_RECORD_BYTE_COUNT*/16);
+
+      /* use the default 16 data bytes on average per element */
+      final int viewSize = BaseVariableWidthViewVector.VIEW_BUFFER_SIZE;
+      int defaultCapacity = BaseVariableWidthViewVector.INITIAL_VIEW_VALUE_ALLOCATION / viewSize;
+      vector.setInitialCapacity(defaultCapacity);
+      vector.allocateNew();
+      assertEquals(defaultCapacity, vector.getValueCapacity());
+      assertEquals(CommonUtil.nextPowerOfTwo(defaultCapacity * viewSize), vector.getDataBuffer().capacity());
+
+      double density = 1;
+      vector.setInitialCapacity(defaultCapacity, density);
+      vector.allocateNew();
+      assertEquals(defaultCapacity, vector.getValueCapacity());
+      assertEquals(CommonUtil.nextPowerOfTwo(defaultCapacity * viewSize), vector.getDataBuffer().capacity());
+
+      density = 0.1;
+      vector.setInitialCapacity(defaultCapacity, density);
+      vector.allocateNew();
+      assertEquals(defaultCapacity, vector.getValueCapacity());
+      density = Math.ceil(density / viewSize) * viewSize;
+      int feasibleCapacity = (int) (defaultCapacity * density);
+      assertEquals(CommonUtil.nextPowerOfTwo(feasibleCapacity), vector.getDataBuffer().capacity());
+
+      density = 0.01;
+      vector.setInitialCapacity(defaultCapacity, density);
+      vector.allocateNew();
+      assertEquals(defaultCapacity, vector.getValueCapacity());
+      density = Math.ceil(density / viewSize) * viewSize;
+      feasibleCapacity = (int) (defaultCapacity * density);
+      assertEquals(CommonUtil.nextPowerOfTwo(feasibleCapacity), vector.getDataBuffer().capacity());
+
+      vector.setInitialCapacity(5, 0.01);
+      vector.allocateNew();
+      assertEquals(8, vector.getValueCapacity());
+      assertEquals(128, vector.getDataBuffer().capacity());
     }
   }
+
 
   @Test
   public void testDefaultAllocNewAll() {
@@ -3382,34 +3406,24 @@ public class TestValueVector {
     }
   }
 
-  private void testUnloadVariableWidthVectorHelper(AbstractVariableWidthVector vector) {
-    vector.set(0, "abcd".getBytes(StandardCharsets.UTF_8));
-
-    List<ArrowBuf> bufs = vector.getFieldBuffers();
-    assertEquals(3, bufs.size());
-
-    ArrowBuf offsetBuf = bufs.get(1);
-    ArrowBuf dataBuf = bufs.get(2);
-
-    assertEquals(12, offsetBuf.writerIndex());
-    assertEquals(4, offsetBuf.getInt(4));
-    assertEquals(4, offsetBuf.getInt(8));
-
-    assertEquals(4, dataBuf.writerIndex());
-  }
-
   @Test
   public void testUnloadVariableWidthVector() {
     try (final VarCharVector varCharVector = new VarCharVector("var char", allocator)) {
       varCharVector.allocateNew(5, 2);
       varCharVector.setValueCount(2);
-      testUnloadVariableWidthVectorHelper(varCharVector);
-    }
+      varCharVector.set(0, "abcd".getBytes(StandardCharsets.UTF_8));
 
-    try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("view var char", allocator)) {
-      viewVarCharVector.allocateNew(/*required length for record in ViewVarCharVector * 2*/32, 2);
-      viewVarCharVector.setValueCount(2);
-      testUnloadVariableWidthVectorHelper(viewVarCharVector);
+      List<ArrowBuf> bufs = varCharVector.getFieldBuffers();
+      assertEquals(3, bufs.size());
+
+      ArrowBuf offsetBuf = bufs.get(1);
+      ArrowBuf dataBuf = bufs.get(2);
+
+      assertEquals(12, offsetBuf.writerIndex());
+      assertEquals(4, offsetBuf.getInt(4));
+      assertEquals(4, offsetBuf.getInt(8));
+
+      assertEquals(4, dataBuf.writerIndex());
     }
   }
 

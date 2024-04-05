@@ -31,7 +31,6 @@ import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
-import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -45,7 +44,9 @@ import org.apache.arrow.vector.util.TransferPair;
  */
 public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthVector {
   private static final int DEFAULT_RECORD_BYTE_COUNT = 16;
-  private static final int INITIAL_BYTE_COUNT = INITIAL_VALUE_ALLOCATION * DEFAULT_RECORD_BYTE_COUNT;
+  public static final int INITIAL_VIEW_VALUE_ALLOCATION = 4096;
+  // INITIAL_VALUE_ALLOCATION * DEFAULT_RECORD_BYTE_COUNT
+  private static final int INITIAL_BYTE_COUNT = INITIAL_VIEW_VALUE_ALLOCATION * DEFAULT_RECORD_BYTE_COUNT;
   private static final int MAX_BUFFER_SIZE = (int) Math.min(MAX_ALLOCATION_SIZE, Integer.MAX_VALUE);
   private int lastValueCapacity;
   private long lastValueAllocationSizeInBytes;
@@ -77,7 +78,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
     this.field = field;
     lastValueAllocationSizeInBytes = INITIAL_BYTE_COUNT;
     // -1 because we require one extra slot for the offset array.
-    lastValueCapacity = INITIAL_VALUE_ALLOCATION - 1;
+    lastValueCapacity = INITIAL_VIEW_VALUE_ALLOCATION; // INITIAL_VALUE_ALLOCATION - 1;
     valueCount = 0;
     lastSet = -1;
     offsetBuffer = allocator.getEmpty();
@@ -205,7 +206,14 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
    */
   @Override
   public void setInitialCapacity(int valueCount, double density) {
-    long size = Math.max((long) (valueCount * density), 1L);
+    // round up density to the nearest multiple of VIEW_BUFFER_SIZE
+    density = Math.ceil(density / VIEW_BUFFER_SIZE) * VIEW_BUFFER_SIZE;
+
+    // a minimum size of 16 bytes required to add an element
+    long size = (long) (valueCount * density);
+    // round up to the nearest multiple of VIEW_BUFFER_SIZE
+    size = (size + VIEW_BUFFER_SIZE - 1) & -VIEW_BUFFER_SIZE;
+    size = Math.max(size, VIEW_BUFFER_SIZE);
     checkDataBufferSize(size);
     computeAndCheckOffsetsBufferSize(valueCount);
     lastValueAllocationSizeInBytes = (int) size;
@@ -234,8 +242,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
    */
   @Override
   public int getValueCapacity() {
-    final int offsetValueCapacity = Math.max(getOffsetBufferValueCapacity() - 1, 0);
-    return Math.min(offsetValueCapacity, getValidityBufferValueCapacity());
+    return Math.max(capAtMaxInt(valueBuffer.capacity() / VIEW_BUFFER_SIZE), 0);
   }
 
   private int getValidityBufferValueCapacity() {
@@ -391,10 +398,9 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
       offsetBuffer.writerIndex(0);
       valueBuffer.writerIndex(0);
     } else {
-      final int lastDataOffset = getStartOffset(valueCount);
       validityBuffer.writerIndex(getValidityBufferSizeFromCount(valueCount));
       offsetBuffer.writerIndex((long) (valueCount + 1) * OFFSET_WIDTH);
-      valueBuffer.writerIndex(lastDataOffset);
+      valueBuffer.writerIndex(valueCount * VIEW_BUFFER_SIZE);
     }
   }
 
@@ -487,6 +493,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
     valueBuffer = allocator.buffer(valueBufferSize);
     valueBuffer.readerIndex(0);
 
+    // remove offset buffer section
     /* allocate offset buffer and validity buffer */
     DataAndValidityBuffers buffers = allocFixedDataAndValidityBufs(valueCount + 1, OFFSET_WIDTH);
     offsetBuffer = buffers.getDataBuf();
@@ -504,7 +511,8 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
    */
   @Override
   public void reAlloc() {
-    reallocDataBuffer();
+    reallocViewBuffer();
+    reallocViewReferenceBuffer();
     reallocValidityAndOffsetBuffers();
   }
 
@@ -516,13 +524,16 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
    *                                      max allowed
    * @throws OutOfMemoryException if the internal memory allocation fails
    */
-  public void reallocDataBuffer() {
-    long currentBufferCapacity = 0;
-    if (!dataBuffers.isEmpty()) {
-      currentBufferCapacity = dataBuffers.get(dataBuffers.size() - 1).capacity();
-    }
+  public void reallocViewBuffer() {
+    // TODO: here we should only allocate the views buffer not the reference buffer
+    //  if we are to decide the allocation size, we must consider the valueBuffer (viewBuffer)
+    //  instead of considering the dataBuffers last element's capacity.
+    long currentViewBufferCapacity = valueBuffer.capacity();
+    // if (!dataBuffers.isEmpty()) {
+    //   currentViewBufferCapacity = dataBuffers.get(dataBuffers.size() - 1).capacity();
+    // }
 
-    long newAllocationSize = currentBufferCapacity * 2;
+    long newAllocationSize = currentViewBufferCapacity * 2;
     if (newAllocationSize == 0) {
       if (lastValueAllocationSizeInBytes > 0) {
         newAllocationSize = lastValueAllocationSizeInBytes;
@@ -531,7 +542,28 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
       }
     }
 
-    reallocDataBuffer(newAllocationSize);
+    reallocViewBuffer(newAllocationSize);
+    // reallocViewReferenceBuffer(newAllocationSize);
+  }
+
+  /**
+   * Reallocate the data buffer for reference buffer.
+   */
+  public void reallocViewReferenceBuffer() {
+    long currentReferenceBufferCapacity = 0;
+    if (!dataBuffers.isEmpty()) {
+      currentReferenceBufferCapacity = dataBuffers.get(dataBuffers.size() - 1).capacity();
+    }
+
+    long newAllocationSize = currentReferenceBufferCapacity * 2;
+    if (newAllocationSize == 0) {
+      if (lastValueAllocationSizeInBytes > 0) {
+        newAllocationSize = lastValueAllocationSizeInBytes;
+      } else {
+        newAllocationSize = INITIAL_BYTE_COUNT * 2L;
+      }
+    }
+
     reallocViewReferenceBuffer(newAllocationSize);
   }
 
@@ -546,7 +578,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
    *                                      max allowed
    * @throws OutOfMemoryException if the internal memory allocation fails
    */
-  public void reallocDataBuffer(long desiredAllocSize) {
+  public void reallocViewBuffer(long desiredAllocSize) {
     if (desiredAllocSize == 0) {
       return;
     }
@@ -646,6 +678,34 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   }
 
   /**
+  *  Reallocate Validity buffer.
+  */
+  public void reallocValidityBufferOnly() {
+    int targetValidityCount = capAtMaxInt((validityBuffer.capacity() * 8) * 2);
+    if (targetValidityCount == 0) {
+      if (lastValueCapacity > 0) {
+        targetValidityCount = lastValueCapacity;
+      } else {
+        targetValidityCount = 2 * INITIAL_VALUE_ALLOCATION;
+      }
+    }
+
+    long validityBufferSize = computeValidityBufferSize(targetValidityCount);
+
+    final ArrowBuf newValidityBuffer = allocator.buffer(validityBufferSize);
+    newValidityBuffer.setBytes(0, validityBuffer, 0, validityBuffer.capacity());
+    newValidityBuffer.setZero(validityBuffer.capacity(), newValidityBuffer.capacity() - validityBuffer.capacity());
+    validityBuffer.getReferenceManager().release();
+    validityBuffer = newValidityBuffer;
+
+    lastValueCapacity = getValueCapacity();
+  }
+
+  private long computeValidityBufferSize(int valueCount) {
+    return (valueCount + 7) / 8;
+  }
+
+  /**
    * Get the size (number of bytes) of underlying data buffer.
    * @return number of bytes in the data buffer
    */
@@ -659,7 +719,11 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
     if (valueCount == 0) {
       return 0;
     }
-    return offsetBuffer.getInt((long) valueCount * OFFSET_WIDTH);
+    int totalLength = 0;
+    for (int i = 0; i < valueCount; i++) {
+      totalLength += getLength(i);
+    }
+    return totalLength;
   }
 
   /**
@@ -892,7 +956,9 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
     assert valueCount >= 0;
     this.valueCount = valueCount;
     while (valueCount > getValueCapacity()) {
-      reallocValidityAndOffsetBuffers();
+      // reallocValidityAndOffsetBuffers();
+      reallocViewBuffer();
+      reallocValidityBufferOnly();
     }
     fillHoles(valueCount);
     lastSet = valueCount - 1;
@@ -1201,13 +1267,16 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   }
 
   /**
-   * Get length of the view.
+   * Get the length of the view.
    * @param index The index of the element in the vector.
    * @return The length of the element at the given index.
    */
   public final int getLength(int index) {
     if (index < 0 || index >= valueBuffer.capacity() / VIEW_BUFFER_SIZE) {
       throw new IndexOutOfBoundsException("Index out of bounds: " + index);
+    }
+    if (isSet(index) == 0) {
+      return 0;
     }
     return valueBuffer.getInt(((long) index * VIEW_BUFFER_SIZE));
   }
@@ -1309,16 +1378,26 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
     /* End offset of the current last element in the vector.
      * This will be the start offset of a new element we are trying to store.
      */
-    final int startOffset = getStartOffset(index);
+    // final int startOffset = getStartOffset(index);
     /* set new end offset */
-    offsetBuffer.setInt((long) (index + 1) * OFFSET_WIDTH, startOffset + length);
+    // offsetBuffer.setInt((long) (index + 1) * OFFSET_WIDTH, startOffset + length);
     /* store the var length data in value buffer */
     /*check whether the buffer is inline or reference buffer*/
     createViewBuffer(allocator, index, value, start, length, valueBuffer, dataBuffers);
   }
 
+  /**
+   * Get the start offset of the element at the given index.
+   * @param index The index of the element in the vector.
+   * @return The start offset of the element at the given index.
+   */
   public final int getStartOffset(int index) {
-    return offsetBuffer.getInt((long) index * OFFSET_WIDTH);
+    // return offsetBuffer.getInt((long) index * OFFSET_WIDTH);
+    int totalLength = 0;
+    for (int i = 0; i < index - 1; i++) {
+      totalLength += getLength(i);
+    }
+    return totalLength;
   }
 
   private static long roundUpToMultipleOf16(long num) {
@@ -1326,29 +1405,6 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
   }
 
   protected final void handleSafe(int index, int dataLength) {
-    /*
-     * IMPORTANT:
-     * value buffer for variable length vectors moves independent
-     * of the companion validity and offset buffers. This is in
-     * contrast to what we have for fixed width vectors.
-     *
-     * Here there is no concept of getValueCapacity() in the
-     * data stream. getValueCapacity() is applicable only to validity
-     * and offset buffers.
-     *
-     * So even though we may have set up an initial capacity of 1024
-     * elements in the vector, it is quite possible
-     * that we need to reAlloc() the data buffer when we are setting
-     * the 5th element in the vector simply because previous
-     * variable length elements have exhausted the buffer capacity.
-     * However, we really don't need to reAlloc() validity and
-     * offset buffers until we try to set the 1025th element
-     * This is why we do a separate check for safe methods to
-     * determine which buffer needs reallocation.
-     */
-    while (index >= getValueCapacity()) {
-      reallocValidityAndOffsetBuffers();
-    }
     final long startOffset = lastSet < 0 ? 0 : getStartOffset(lastSet + 1);
     final long targetCapacity = roundUpToMultipleOf16(startOffset + dataLength);
     // for views, we need each buffer with 16 byte alignment, so we need to check the last written index
@@ -1362,7 +1418,12 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
       * want to allocate the targetCapacity to valueBuffer since when it is >={@link #INLINE_SIZE} either way
       * we are writing to the dataBuffer.
       */
-      reallocDataBuffer(Math.max(writePosition, targetCapacity));
+      reallocViewBuffer(Math.max(writePosition, targetCapacity));
+    }
+
+    while (index >= getValueCapacity()) {
+      // reallocValidityAndOffsetBuffers();
+      reallocValidityBufferOnly();
     }
   }
 
@@ -1425,23 +1486,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
    */
   @Override
   public void copyFrom(int fromIndex, int thisIndex, ValueVector from) {
-    Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
-    if (from.isNull(fromIndex)) {
-      fillHoles(thisIndex);
-      BitVectorHelper.unsetBit(this.validityBuffer, thisIndex);
-      final int copyStart = offsetBuffer.getInt((long) thisIndex * OFFSET_WIDTH);
-      offsetBuffer.setInt((long) (thisIndex + 1) * OFFSET_WIDTH, copyStart);
-    } else {
-      final int start = from.getOffsetBuffer().getInt((long) fromIndex * OFFSET_WIDTH);
-      final int end = from.getOffsetBuffer().getInt((long) (fromIndex + 1) * OFFSET_WIDTH);
-      final int length = end - start;
-      fillHoles(thisIndex);
-      BitVectorHelper.setBit(this.validityBuffer, thisIndex);
-      final int copyStart = getStartOffset(thisIndex);
-      from.getDataBuffer().getBytes(start, this.valueBuffer, copyStart, length);
-      offsetBuffer.setInt((long) (thisIndex + 1) * OFFSET_WIDTH, copyStart + length);
-    }
-    lastSet = thisIndex;
+    throw new UnsupportedOperationException("copyFrom is not supported for VariableWidthVector");
   }
 
   /**
@@ -1455,26 +1500,7 @@ public abstract class BaseVariableWidthViewVector extends AbstractVariableWidthV
    */
   @Override
   public void copyFromSafe(int fromIndex, int thisIndex, ValueVector from) {
-    Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
-    if (from.isNull(fromIndex)) {
-      handleSafe(thisIndex, 0);
-      fillHoles(thisIndex);
-      BitVectorHelper.unsetBit(this.validityBuffer, thisIndex);
-      final int copyStart = getStartOffset(thisIndex);
-      offsetBuffer.setInt((long) (thisIndex + 1) * OFFSET_WIDTH, copyStart);
-    } else {
-      final int start = from.getOffsetBuffer().getInt((long) fromIndex * OFFSET_WIDTH);
-      final int end = from.getOffsetBuffer().getInt((long) (fromIndex + 1) * OFFSET_WIDTH);
-      final int length = end - start;
-      handleSafe(thisIndex, length);
-      fillHoles(thisIndex);
-      BitVectorHelper.setBit(this.validityBuffer, thisIndex);
-      final int copyStart = getStartOffset(thisIndex);
-      int viewStart = fromIndex * VIEW_BUFFER_SIZE;
-      from.getDataBuffer().getBytes(viewStart, this.valueBuffer, viewStart, VIEW_BUFFER_SIZE);
-      offsetBuffer.setInt((long) (thisIndex + 1) * OFFSET_WIDTH, copyStart + length);
-    }
-    lastSet = thisIndex;
+    throw new UnsupportedOperationException("copyFromSafe is not supported for VariableWidthVector");
   }
 
   @Override
