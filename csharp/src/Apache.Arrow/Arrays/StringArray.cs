@@ -26,6 +26,8 @@ namespace Apache.Arrow
     {
         public static readonly Encoding DefaultEncoding = Encoding.UTF8;
 
+        private Dictionary<Encoding, List<string>> materializedStringStore = new Dictionary<Encoding, List<string>>();
+
         public new class Builder : BuilderBase<StringArray, Builder>
         {
             public Builder() : base(StringType.Default) { }
@@ -75,6 +77,11 @@ namespace Apache.Arrow
         {
             encoding ??= DefaultEncoding;
 
+            if (materializedStringStore.TryGetValue(encoding, out List<string> materializedStrings))
+            {
+                return materializedStrings[index];
+            }
+
             ReadOnlySpan<byte> bytes = GetBytes(index, out bool isNull);
 
             if (isNull)
@@ -91,6 +98,30 @@ namespace Apache.Arrow
                 fixed (byte* data = &MemoryMarshal.GetReference(bytes))
                     return encoding.GetString(data, bytes.Length);
             }
+        }
+
+        public void Materialize(Encoding encoding = default)
+        {
+            if (IsMaterialized(encoding))
+            {
+                return;
+            }
+
+            encoding ??= DefaultEncoding;
+
+            var stringStore = new List<string>(Length);
+            for (int i = 0; i < Length; i++)
+            {
+                stringStore.Add(GetString(i, encoding));
+            }
+
+            materializedStringStore[encoding] = stringStore;
+        }
+
+        public bool IsMaterialized(Encoding encoding = default)
+        {
+            encoding ??= DefaultEncoding;
+            return materializedStringStore.ContainsKey(encoding);
         }
 
         int IReadOnlyCollection<string>.Count => Length;
