@@ -30,9 +30,16 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref_type == 'tag'
     steps:
-      - name: Check out repository 
+      - name: Checkout apache/arrow
         uses: actions/checkout@v4
         with:
+          path: arrow
+          fetch-depth: 0
+      - name: Checkout ursacomputing/crossbow
+        uses: actions/checkout@v4
+        with:
+          repository: ursacomputing/crossbow
+          path: crossbow
           fetch-depth: 0
       - name: Update tags
         run: |
