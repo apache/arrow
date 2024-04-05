@@ -976,6 +976,23 @@ set(EP_COMMON_CMAKE_ARGS
     -DCMAKE_OSX_SYSROOT=${CMAKE_OSX_SYSROOT}
     -DCMAKE_VERBOSE_MAKEFILE=${CMAKE_VERBOSE_MAKEFILE})
 
+# if building with a toolchain file, pass that through
+if(CMAKE_TOOLCHAIN_FILE)
+  list(APPEND EP_COMMON_CMAKE_ARGS -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE})
+endif()
+
+# and crosscompiling emulator (for try_run() )
+if(CMAKE_CROSSCOMPILING_EMULATOR)
+  string(REPLACE ";" ${EP_LIST_SEPARATOR} EP_CMAKE_CROSSCOMPILING_EMULATOR
+                 "${CMAKE_CROSSCOMPILING_EMULATOR}")
+  list(APPEND EP_COMMON_CMAKE_ARGS
+       -DCMAKE_CROSSCOMPILING_EMULATOR=${EP_CMAKE_CROSSCOMPILING_EMULATOR})
+endif()
+
+if(CMAKE_PROJECT_INCLUDE)
+  list(APPEND EP_COMMON_CMAKE_ARGS -DCMAKE_PROJECT_INCLUDE=${CMAKE_PROJECT_INCLUDE})
+endif()
+
 # Enable s/ccache if set by parent.
 if(CMAKE_C_COMPILER_LAUNCHER AND CMAKE_CXX_COMPILER_LAUNCHER)
   list(APPEND EP_COMMON_CMAKE_ARGS
@@ -1349,6 +1366,14 @@ macro(build_snappy)
     set(SNAPPY_PATCH_COMMAND)
   endif()
 
+  if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    # ignore linker flag errors, as Snappy sets
+    # -Werror -Wall, and Emscripten doesn't support -soname
+    list(APPEND SNAPPY_CMAKE_ARGS
+         "-DCMAKE_SHARED_LINKER_FLAGS=${CMAKE_SHARED_LINKER_FLAGS}"
+         "-Wno-error=linkflags")
+  endif()
+
   externalproject_add(snappy_ep
                       ${EP_COMMON_OPTIONS}
                       BUILD_IN_SOURCE 1
@@ -1394,6 +1419,7 @@ macro(build_brotli)
   message(STATUS "Building brotli from source")
   set(BROTLI_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/brotli_ep/src/brotli_ep-install")
   set(BROTLI_INCLUDE_DIR "${BROTLI_PREFIX}/include")
+  set(BROTLI_LIB_DIR "${BROTLI_PREFIX}/lib")
   set(BROTLI_STATIC_LIBRARY_ENC
       "${BROTLI_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}brotlienc-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
@@ -1405,6 +1431,26 @@ macro(build_brotli)
   )
   set(BROTLI_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${BROTLI_PREFIX}")
 
+  set(BROTLI_EP_OPTIONS)
+  if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    # "cmake install" is disabled for Brotli on Emscripten, so the
+    # default INSTALL_COMMAND fails. We need to disable the default
+    # INSTALL_COMMAND.
+    list(APPEND
+         BROTLI_EP_OPTIONS
+         INSTALL_COMMAND
+         ${CMAKE_COMMAND}
+         -E
+         true)
+
+    set(BROTLI_BUILD_DIR ${CMAKE_CURRENT_BINARY_DIR}/brotli_ep-prefix/src/brotli_ep-build)
+    set(BROTLI_BUILD_LIBS
+        "${BROTLI_BUILD_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlienc-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
+        "${BROTLI_BUILD_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlidec-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
+        "${BROTLI_BUILD_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}brotlicommon-static${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
+  endif()
+
   externalproject_add(brotli_ep
                       ${EP_COMMON_OPTIONS}
                       URL ${BROTLI_SOURCE_URL}
@@ -1414,7 +1460,20 @@ macro(build_brotli)
                                        "${BROTLI_STATIC_LIBRARY_COMMON}"
                                        ${BROTLI_BUILD_BYPRODUCTS}
                       CMAKE_ARGS ${BROTLI_CMAKE_ARGS}
-                      STEP_TARGETS headers_copy)
+                      STEP_TARGETS headers_copy ${BROTLI_EP_OPTIONS})
+
+  if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    # Copy the libraries to our install directory manually.
+    set(BROTLI_BUILD_INCLUDE_DIR
+        ${CMAKE_CURRENT_BINARY_DIR}/brotli_ep-prefix/src/brotli_ep/c/include/brotli)
+    add_custom_command(TARGET brotli_ep
+                       POST_BUILD
+                       COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                               ${BROTLI_BUILD_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}*${CMAKE_STATIC_LIBRARY_SUFFIX}
+                               ${BROTLI_LIB_DIR}
+                       COMMAND ${CMAKE_COMMAND} -E copy_directory
+                               ${BROTLI_BUILD_INCLUDE_DIR} ${BROTLI_INCLUDE_DIR}/brotli)
+  endif()
 
   file(MAKE_DIRECTORY "${BROTLI_INCLUDE_DIR}")
 
@@ -1657,6 +1716,9 @@ macro(build_thrift)
   if(DEFINED BOOST_ROOT)
     list(APPEND THRIFT_CMAKE_ARGS "-DBOOST_ROOT=${BOOST_ROOT}")
   endif()
+  if(DEFINED Boost_INCLUDE_DIR)
+    list(APPEND THRIFT_CMAKE_ARGS "-DBoost_INCLUDE_DIR=${Boost_INCLUDE_DIR}")
+  endif()
   if(DEFINED Boost_NAMESPACE)
     list(APPEND THRIFT_CMAKE_ARGS "-DBoost_NAMESPACE=${Boost_NAMESPACE}")
   endif()
@@ -1798,6 +1860,36 @@ macro(build_protobuf)
   add_dependencies(arrow::protobuf::protoc protobuf_ep)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS arrow::protobuf::libprotobuf)
+
+  if(CMAKE_CROSSCOMPILING)
+    # If we are cross compiling, we need to build protoc for the host
+    # system also, as it is used when building Arrow
+    # We do this by calling CMake as a child process
+    # with CXXFLAGS / CFLAGS and CMake flags cleared.
+    set(PROTOBUF_HOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/protobuf_ep_host-install")
+    set(PROTOBUF_HOST_COMPILER "${PROTOBUF_HOST_PREFIX}/bin/protoc")
+
+    set(PROTOBUF_HOST_CMAKE_ARGS
+        "-DCMAKE_CXX_FLAGS="
+        "-DCMAKE_C_FLAGS="
+        "-DCMAKE_INSTALL_PREFIX=${PROTOBUF_HOST_PREFIX}"
+        -Dprotobuf_BUILD_TESTS=OFF
+        -Dprotobuf_DEBUG_POSTFIX=)
+
+    externalproject_add(protobuf_ep_host
+                        ${EP_COMMON_OPTIONS}
+                        CMAKE_ARGS ${PROTOBUF_HOST_CMAKE_ARGS}
+                        BUILD_BYPRODUCTS "${PROTOBUF_HOST_COMPILER}"
+                        BUILD_IN_SOURCE 1
+                        URL ${PROTOBUF_SOURCE_URL}
+                        URL_HASH "SHA256=${ARROW_PROTOBUF_BUILD_SHA256_CHECKSUM}")
+
+    add_executable(arrow::protobuf::host_protoc IMPORTED)
+    set_target_properties(arrow::protobuf::host_protoc
+                          PROPERTIES IMPORTED_LOCATION "${PROTOBUF_HOST_COMPILER}")
+
+    add_dependencies(arrow::protobuf::host_protoc protobuf_ep_host)
+  endif()
 endmacro()
 
 if(ARROW_WITH_PROTOBUF)
@@ -1862,7 +1954,11 @@ if(ARROW_WITH_PROTOBUF)
   else()
     set(ARROW_PROTOBUF_LIBPROTOC protobuf::libprotoc)
   endif()
-  if(TARGET arrow::protobuf::protoc)
+  if(TARGET arrow::protobuf::host_protoc)
+    # make sure host protoc is used for compiling protobuf files
+    # during build of e.g. orc
+    set(ARROW_PROTOBUF_PROTOC arrow::protobuf::host_protoc)
+  elseif(TARGET arrow::protobuf::protoc)
     set(ARROW_PROTOBUF_PROTOC arrow::protobuf::protoc)
   else()
     if(NOT TARGET protobuf::protoc)
@@ -2164,8 +2260,15 @@ function(build_gtest)
   if(APPLE)
     string(APPEND CMAKE_CXX_FLAGS " -Wno-unused-value" " -Wno-ignored-attributes")
   endif()
-  set(BUILD_SHARED_LIBS ON)
-  set(BUILD_STATIC_LIBS OFF)
+  # If we're building static libs for Emscripten, we need to build *everything* as
+  # static libs.
+  if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    set(BUILD_SHARED_LIBS OFF)
+    set(BUILD_STATIC_LIBS ON)
+  else()
+    set(BUILD_SHARED_LIBS ON)
+    set(BUILD_STATIC_LIBS OFF)
+  endif()
   # We need to use "cache" variable to override the default
   # INSTALL_GTEST option by this value. See also:
   # https://cmake.org/cmake/help/latest/policy/CMP0077.html
@@ -2403,37 +2506,58 @@ endif()
 
 macro(build_zlib)
   message(STATUS "Building ZLIB from source")
-  set(ZLIB_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/zlib_ep/src/zlib_ep-install")
-  if(MSVC)
-    if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
-      set(ZLIB_STATIC_LIB_NAME zlibstaticd.lib)
-    else()
-      set(ZLIB_STATIC_LIB_NAME zlibstatic.lib)
+
+  # ensure zlib is built with -fpic
+  # and make sure that the build finds the version in Emscripten ports
+  # - n.b. the actual linking happens because -sUSE_ZLIB=1 is
+  # set in the compiler variables, but cmake expects
+  # it to exist at configuration time if we aren't building it as
+  # bundled. We need to do this for all packages
+  # not just zlib as some depend on zlib, but we don't rebuild
+  # if it exists already
+  if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    # build zlib using Emscripten ports
+    if(NOT EXISTS ${EMSCRIPTEN_SYSROOT}/lib/wasm32-emscripten/pic/libz.a)
+      execute_process(COMMAND embuilder --pic --force build zlib)
     endif()
+    add_library(ZLIB::ZLIB STATIC IMPORTED)
+    set_property(TARGET ZLIB::ZLIB
+                 PROPERTY IMPORTED_LOCATION
+                          "${EMSCRIPTEN_SYSROOT}/lib/wasm32-emscripten/pic/libz.a")
+    list(APPEND ARROW_BUNDLED_STATIC_LIBS ZLIB::ZLIB)
   else()
-    set(ZLIB_STATIC_LIB_NAME libz.a)
+    set(ZLIB_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/zlib_ep/src/zlib_ep-install")
+    if(MSVC)
+      if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
+        set(ZLIB_STATIC_LIB_NAME zlibstaticd.lib)
+      else()
+        set(ZLIB_STATIC_LIB_NAME zlibstatic.lib)
+      endif()
+    else()
+      set(ZLIB_STATIC_LIB_NAME libz.a)
+    endif()
+    set(ZLIB_STATIC_LIB "${ZLIB_PREFIX}/lib/${ZLIB_STATIC_LIB_NAME}")
+    set(ZLIB_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${ZLIB_PREFIX}")
+
+    externalproject_add(zlib_ep
+                        ${EP_COMMON_OPTIONS}
+                        URL ${ZLIB_SOURCE_URL}
+                        URL_HASH "SHA256=${ARROW_ZLIB_BUILD_SHA256_CHECKSUM}"
+                        BUILD_BYPRODUCTS "${ZLIB_STATIC_LIB}"
+                        CMAKE_ARGS ${ZLIB_CMAKE_ARGS})
+
+    file(MAKE_DIRECTORY "${ZLIB_PREFIX}/include")
+
+    add_library(ZLIB::ZLIB STATIC IMPORTED)
+    set(ZLIB_LIBRARIES ${ZLIB_STATIC_LIB})
+    set(ZLIB_INCLUDE_DIRS "${ZLIB_PREFIX}/include")
+    set_target_properties(ZLIB::ZLIB PROPERTIES IMPORTED_LOCATION ${ZLIB_LIBRARIES})
+    target_include_directories(ZLIB::ZLIB BEFORE INTERFACE "${ZLIB_INCLUDE_DIRS}")
+
+    add_dependencies(ZLIB::ZLIB zlib_ep)
+    list(APPEND ARROW_BUNDLED_STATIC_LIBS ZLIB::ZLIB)
   endif()
-  set(ZLIB_STATIC_LIB "${ZLIB_PREFIX}/lib/${ZLIB_STATIC_LIB_NAME}")
-  set(ZLIB_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${ZLIB_PREFIX}")
 
-  externalproject_add(zlib_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${ZLIB_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_ZLIB_BUILD_SHA256_CHECKSUM}"
-                      BUILD_BYPRODUCTS "${ZLIB_STATIC_LIB}"
-                      CMAKE_ARGS ${ZLIB_CMAKE_ARGS})
-
-  file(MAKE_DIRECTORY "${ZLIB_PREFIX}/include")
-
-  add_library(ZLIB::ZLIB STATIC IMPORTED)
-  set(ZLIB_LIBRARIES ${ZLIB_STATIC_LIB})
-  set(ZLIB_INCLUDE_DIRS "${ZLIB_PREFIX}/include")
-  set_target_properties(ZLIB::ZLIB PROPERTIES IMPORTED_LOCATION ${ZLIB_LIBRARIES})
-  target_include_directories(ZLIB::ZLIB BEFORE INTERFACE "${ZLIB_INCLUDE_DIRS}")
-
-  add_dependencies(ZLIB::ZLIB zlib_ep)
-
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS ZLIB::ZLIB)
   set(ZLIB_VENDORED TRUE)
 endmacro()
 
@@ -4390,6 +4514,10 @@ macro(build_orc)
       "-DPROTOBUF_LIBRARY=$<TARGET_FILE:${ARROW_PROTOBUF_LIBPROTOBUF}>"
       "-DPROTOC_LIBRARY=$<TARGET_FILE:${ARROW_PROTOBUF_LIBPROTOC}>"
       "-DSNAPPY_HOME=${ORC_SNAPPY_ROOT}"
+      "-DSNAPPY_LIBRARY=$<TARGET_FILE:${Snappy_TARGET}>"
+      "-DLZ4_LIBRARY=$<TARGET_FILE:LZ4::lz4>"
+      "-DLZ4_STATIC_LIBRARY=$<TARGET_FILE:LZ4::lz4>"
+      "-DLZ4_INCLUDE_DIR=${ORC_LZ4_ROOT}/include"
       "-DSNAPPY_INCLUDE_DIR=${ORC_SNAPPY_INCLUDE_DIR}"
       "-DZSTD_HOME=${ORC_ZSTD_ROOT}"
       "-DZSTD_INCLUDE_DIR=$<TARGET_PROPERTY:${ARROW_ZSTD_LIBZSTD},INTERFACE_INCLUDE_DIRECTORIES>"
