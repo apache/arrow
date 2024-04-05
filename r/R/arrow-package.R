@@ -212,13 +212,17 @@ configure_tzdb <- function() {
             "Run `arrow_info()` for more information."
           )
         )
-        # On macOS binaries from CRAN can be hobbled. If on macOS, and features
-        # are disabled, advise that reinstalling might help
+        # On macOS binaries from CRAN can be hobbled. They sometimes restrict access to our
+        # dependency source downloading even though we can build from source on their machines.
+        # They also refuse to allow libarrow binaries to be downloaded, so instead distribute
+        # hobbled arrow binaries
+        # If on macOS, and features are disabled, advise that reinstalling might help
         if (identical(tolower(Sys.info()[["sysname"]]), "darwin")) {
           packageStartupMessage(
             paste(
-              "The repository you retrieved Arrow from did not include all of Arrow's features.",
-              "You can install a fully-featured version by running `arrow::install_arrow()`."
+              "The repository you retrieved Arrow from did not include all of Arrow's features.\n",
+              "You can install a fully-featured version by running:\n",
+              "`install.packages('arrow', repos = 'https://apache.r-universe.dev')`."
             )
           )
         }

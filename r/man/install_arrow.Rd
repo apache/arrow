@@ -11,7 +11,6 @@ install_arrow(
   minimal = Sys.getenv("LIBARROW_MINIMAL", FALSE),
   verbose = Sys.getenv("ARROW_R_DEV", FALSE),
   repos = getOption("repos"),
-  prefer_runiverse = TRUE,
   ...
 )
 }
@@ -43,9 +42,6 @@ is \code{FALSE}. This sets the \code{ARROW_R_DEV} environment variable.}
 
 \item{repos}{character vector of base URLs of the repositories to install
 from (passed to \code{install.packages()})}
-
-\item{prefer_runiverse}{logical: Should the apache.r-universe repo be preferred
-if it is up to date. Default is \code{TRUE}.}
 
 \item{...}{Additional arguments passed to \code{install.packages()}}
 }

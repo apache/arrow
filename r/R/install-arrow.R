@@ -47,8 +47,6 @@
 #' is `FALSE`. This sets the `ARROW_R_DEV` environment variable.
 #' @param repos character vector of base URLs of the repositories to install
 #' from (passed to `install.packages()`)
-#' @param prefer_runiverse logical: Should the apache.r-universe repo be preferred
-#' if it is up to date. Default is `TRUE`.
 #' @param ... Additional arguments passed to `install.packages()`
 #' @export
 #' @importFrom utils install.packages
@@ -62,7 +60,6 @@ install_arrow <- function(nightly = FALSE,
                           minimal = Sys.getenv("LIBARROW_MINIMAL", FALSE),
                           verbose = Sys.getenv("ARROW_R_DEV", FALSE),
                           repos = getOption("repos"),
-                          prefer_runiverse = TRUE,
                           ...) {
   conda <- isTRUE(grepl("conda", R.Version()$platform))
 
@@ -97,7 +94,7 @@ install_arrow <- function(nightly = FALSE,
       old <- options(opts)
       on.exit(options(old))
     }
-    install.packages("arrow", repos = arrow_repos(repos, nightly, prefer_runiverse), ...)
+    install.packages("arrow", repos = arrow_repos(repos, nightly), ...)
   }
   if ("arrow" %in% loadedNamespaces()) {
     # If you've just sourced this file, "arrow" won't be (re)loaded
@@ -105,7 +102,7 @@ install_arrow <- function(nightly = FALSE,
   }
 }
 
-arrow_repos <- function(repos = getOption("repos"), nightly = FALSE, prefer_runiverse = TRUE) {
+arrow_repos <- function(repos = getOption("repos"), nightly = FALSE) {
   if (length(repos) == 0 || identical(repos, c(CRAN = "@CRAN@"))) {
     # Set the default/CDN
     repos <- "https://cloud.r-project.org/"

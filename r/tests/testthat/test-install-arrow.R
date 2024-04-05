@@ -17,7 +17,6 @@
 
 test_that("arrow_repos", {
   cran <- "https://cloud.r-project.org/"
-  runiverse <- "https://apache.r-universe.dev"
   ours <- "https://dl.example.com/ursalabs/fake_repo"
   other <- "https://cran.fiocruz.br/"
 
@@ -26,15 +25,12 @@ test_that("arrow_repos", {
     arrow.dev_repo = ours
   )
   withr::with_options(opts, {
-    expect_identical(arrow_repos(), c(runiverse, cran))
-    expect_identical(arrow_repos(c(cran, ours)), c(runiverse, cran))
-    expect_identical(arrow_repos(c(ours, other)), c(runiverse, other))
-    expect_identical(arrow_repos(nightly = TRUE), c(ours, runiverse, cran))
-    expect_identical(arrow_repos(c(cran, ours), nightly = TRUE), c(ours, runiverse, cran))
-    expect_identical(arrow_repos(c(ours, other), nightly = TRUE), c(ours, runivderse, other))
-    expect_identical(arrow_repos(nightly = TRUE, prefer_runiverse = FALSE), c(ours, cran))
-    expect_identical(arrow_repos(c(cran, ours), nightly = TRUE, prefer_runiverse = FALSE), c(ours, cran))
-    expect_identical(arrow_repos(c(ours, other), nightly = TRUE, prefer_runiverse = FALSE), c(ours, other))
+    expect_identical(arrow_repos(), cran)
+    expect_identical(arrow_repos(c(cran, ours)), cran)
+    expect_identical(arrow_repos(c(ours, other)), other)
+    expect_identical(arrow_repos(nightly = TRUE), c(ours, cran))
+    expect_identical(arrow_repos(c(cran, ours), nightly = TRUE), c(ours, cran))
+    expect_identical(arrow_repos(c(ours, other), nightly = TRUE), c(ours, other))
   })
 })
 
