@@ -56,9 +56,9 @@ jobs:
           echo "ARROW_VERSION_WITH_RC=${version_with_rc}" >> "${GITHUB_ENV}"
           echo "ARROW_VERSION=${version}" >> ${GITHUB_ENV}
           echo "ARROW_RC_NUM=${rc_num}" >> ${GITHUB_ENV}
-      - name: Setup Archery
+      - name: Install Archery
         run: |
-          python3 -m pip install -e dev/archery[crossbow]
+          python3 -m pip install -e arrow/dev/archery[crossbow]
       - name: Download artifacts
         # Download the MLTBX file associated with the crossbow job ID.
         run: |
