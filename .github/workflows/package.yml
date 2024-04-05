@@ -59,12 +59,11 @@ jobs:
       - name: Install Archery
         run: |
           python3 -m pip install -e arrow/dev/archery[crossbow]
-      - name: Download artifacts
-        # Download the MLTBX file associated with the crossbow job ID.
+      - name: Download MLTBX Release Candidate
+        # Download the MLTBX file from the crossbow GitHub Release's area.
         run: |
-          ./dev/release/04-binary-download.sh ${ARROW_VERSION} ${ARROW_RC_NUM} --task-filter matlab
-          base_filename=$(find packages/${CROSSBOW_JOB_ID} -name '*.mltbx' -type f | xargs basename)
-          mltbx_file=packages/$CROSSBOW_JOB_ID/${base_filename}
+          .arrow/dev/release/04-binary-download.sh ${ARROW_VERSION} ${ARROW_RC_NUM} --task-filter matlab
+          mltbx_file=$(find arrow/packages -name '*.mltbx' -type f)
           echo "ARROW_MLTBX_FILE=${mltbx_file}" >> $GITHUB_ENV
       - name: Cut Pre-Release
         run: |
