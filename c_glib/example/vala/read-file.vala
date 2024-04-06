@@ -119,8 +119,8 @@ void print_array(GArrow.Array array) {
 
 void print_record_batch(GArrow.RecordBatch record_batch) {
     var n_columns = record_batch.get_n_columns();
-    for (var nth_column = 0; nth_column < n_columns; nth_column++) {
-        stdout.printf("columns[%" + int64.FORMAT + "](%s): ",
+    for (int nth_column = 0; nth_column < n_columns; nth_column++) {
+        stdout.printf("columns[%d](%s): ",
                       nth_column,
                       record_batch.get_column_name(nth_column));
         var array = record_batch.get_column_data(nth_column);

@@ -19,8 +19,6 @@
 
 #pragma once
 
-#include <_types/_uint16_t.h>
-#include <_types/_uint64_t.h>
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -351,7 +349,7 @@ class HashTable {
     ARROW_ASSIGN_OR_RAISE(auto previous, entries_builder_.FinishWithLength(capacity_));
     // Allocate new buffer
     RETURN_NOT_OK(UpsizeBuffer(new_capacity));
-
+    uint64_t reinsert_entries = 0;
     for (uint64_t i = 0; i < capacity_; i++) {
       const auto& entry = old_entries[i];
       if (entry) {
@@ -361,9 +359,11 @@ class HashTable {
         // Lookup<NoCompare> (and CompareEntry<NoCompare>) ensure that an
         // empty slots is always returned
         assert(!p.second);
+        reinsert_entries++;
         entries_[p.first] = entry;
       }
     }
+    DCHECK(reinsert_entries == size_);
     capacity_ = new_capacity;
     capacity_mask_ = new_mask;
 
@@ -388,7 +388,9 @@ template <typename Payload>
 class SwissHashTable {
  public:
   static constexpr hash_t kSentinel = 0ULL;
-  static constexpr uint64_t kGroupSize = 8;
+  static constexpr uint8_t kGroupSizeShiftWidth = 3;
+  static constexpr uint64_t kGroupSize = 1 << kGroupSizeShiftWidth;
+  static_assert((kGroupSize & (kGroupSize - 1)) == 0);
   static constexpr uint64_t kMaxAvgGroupLoad = 7;
   static_assert(kMaxAvgGroupLoad < kGroupSize);
 
@@ -405,16 +407,17 @@ class SwissHashTable {
   struct Entry {
     hash_t h;
     Payload payload;
-    uint64_t entry_index;
-
     // An entry is valid if the hash is different from the sentinel value
     explicit operator bool() const { return h != kSentinel; }
   };
+
+  hash_t FixHash(hash_t h) const { return (h == kSentinel) ? 42U : h; }
 
   // TODO(SGZW): support kGroupSize = 16 by simd
   struct Group {
     Entry entries[kGroupSize];
   };
+  static_assert(sizeof(Group) == kGroupSize * sizeof(Entry));
 
   // metadata is the h2 metadata array for a group.
   // find operations first probe the controls bytes
@@ -422,6 +425,7 @@ class SwissHashTable {
   struct GroupMeta {
     uint8_t control_bytes[kGroupSize];
   };
+  static_assert(sizeof(GroupMeta) == kGroupSize * sizeof(uint8_t));
 
   SwissHashTable(MemoryPool* pool, uint64_t capacity)
       : group_builder_(pool), group_meta_builder_(pool) {
@@ -437,12 +441,12 @@ class SwissHashTable {
   // Return a (Entry*, found) pair.
   template <typename CmpFunc>
   std::pair<Entry*, bool> Lookup(hash_t h, CmpFunc&& cmp_func) {
-    return DoLookup<DoCompare, CmpFunc>(h);
+    return DoLookup<DoCompare, CmpFunc>(h, std::forward<CmpFunc>(cmp_func));
   }
 
   template <typename CmpFunc>
   std::pair<const Entry*, bool> Lookup(hash_t h, CmpFunc&& cmp_func) const {
-    return DoLookup<DoCompare, CmpFunc>(h);
+    return DoLookup<DoCompare, CmpFunc>(h, std::forward<CmpFunc>(cmp_func));
   }
 
   Status Insert(Entry* entry, hash_t h, const Payload& payload) {
@@ -472,18 +476,20 @@ class SwissHashTable {
 
   Status DoInsert(Entry* entry, hash_t h, Payload payload) {
     // Ensure entry is empty before inserting
-    assert(!*entry);
-    assert(entry->entry_index != 0);
+    DCHECK(!*entry);
+    h = FixHash(h);
     entry->h = h;
     entry->payload = std::move(payload);
     ++size_;
 
-    auto p = UnPackEntryIndex(entry->index);
-    auto group_index = p.first;
-    auto group_internal_index = p.second;
-
     // update meta
-    group_metas_[group_index].control_bytes[group_internal_index] = h & kH2Mask;
+    auto p = GetGroupIndexAndGroupInternalIndex(entry);
+    auto group_index = p.first;
+    DCHECK(group_index < groups_count_);
+    auto group_internal_index = p.second;
+    DCHECK(group_internal_index < kGroupSize);
+    auto hash_pair = SplitHash(h);
+    group_metas_[group_index].control_bytes[group_internal_index] = hash_pair.second;
 
     if (ARROW_PREDICT_FALSE(NeedUpsizing())) {
       // Resize less frequently since it is expensive
@@ -494,22 +500,24 @@ class SwissHashTable {
 
   // The workhorse lookup function
   template <CompareKind CKind, typename CmpFunc>
-  std::pair<const Entry*, bool> DoLookup(hash_t h, CmpFunc&& cmp_func) const {
+  std::pair<Entry*, bool> DoLookup(hash_t h, CmpFunc&& cmp_func) const {
+    h = FixHash(h);
     auto hash_pair = SplitHash(h);
     auto h1 = hash_pair.first;
     auto h2 = hash_pair.second;
 
     auto group_index = ProbeStart(h1);
     while (true) {
-      const auto& group = groups_[group_index];
+      DCHECK(group_index < groups_count_);
+      auto& group = groups_[group_index];
       // probe
       auto match_value = GroupMetaMatchH2(group_metas_[group_index], h2);
       while (match_value != 0) {
         auto group_internal_index = NextMatchGroupInternalIndex(&match_value);
+        DCHECK(group_internal_index < kGroupSize);
         auto* entry = &group.entries[group_internal_index];
         if (CompareEntry<CKind, CmpFunc>(h, entry, std::forward<CmpFunc>(cmp_func))) {
           // Found
-          entry->index = PackEntryIndex(group_index, group_internal_index);
           return {entry, true};
         }
       }
@@ -518,9 +526,9 @@ class SwissHashTable {
       auto match_empty_value = GroupMetaMatchEmpty(group_metas_[group_index]);
       if (match_empty_value != 0) {
         auto group_internal_index = NextMatchGroupInternalIndex(&match_empty_value);
+        DCHECK(group_internal_index < kGroupSize);
         auto* entry = &group.entries[group_internal_index];
         // Not Found
-        entry->index = PackEntryIndex(group_index, group_internal_index);
         return {entry, false};
       }
 
@@ -552,9 +560,9 @@ class SwissHashTable {
     RETURN_NOT_OK(group_meta_builder_.Resize(groups_count));
     groups_ = group_builder_.mutable_data();
     group_metas_ = group_meta_builder_.mutable_data();
-    memset(static_cast<void*>(groups_), 0, groups_count * sizeof(Entry));
+    memset(static_cast<void*>(groups_), 0, groups_count * sizeof(Group));
     memset(static_cast<void*>(group_metas_), kEmptyControlByte,
-           groups_count * sizeof(Entry));
+           groups_count * sizeof(GroupMeta));
     return Status::OK();
   }
 
@@ -575,25 +583,25 @@ class SwissHashTable {
     RETURN_NOT_OK(UpsizeBuffer(groups_count_));
 
     uint64_t reinsert_count = 0;
-    for (uint64_t i = 0; i < old_groups; i++) {
+    for (uint64_t i = 0; i < old_groups_count; i++) {
       auto& old_group = old_groups[i];
-      for (uint16_t j = 0; j < kGroupSize; j++) {
-        auto* old_entry = *old_group.entries[j];
+      for (uint64_t j = 0; j < kGroupSize; j++) {
+        auto& old_entry = old_group.entries[j];
         if (old_entry) {
           ++reinsert_count;
-          auto p = DoLookup<CompareKind::NoCompare>(old_entry->h,
+          auto p = DoLookup<CompareKind::NoCompare>(old_entry.h,
                                                     [](const Payload*) { return false; });
-          assert(!p.second);
-          RETURN_NOT_OK(DoInsert(p.first, old_entry->h, std::move(old_entry->payload)));
+          DCHECK(!p.second);
+          RETURN_NOT_OK(DoInsert(p.first, old_entry.h, std::move(old_entry.payload)));
         }
       }
     }
-    assert(reinsert_count == old_size);
+    DCHECK(reinsert_count == old_size);
     return Status::OK();
   }
 
   // numGroups returns the minimum number of groups needed to store |n| elems.
-  uint64_t NumGroups(uint64_t n) const noexcept {
+  uint64_t NumGroups(uint64_t n) const {
     auto groups = (n + kMaxAvgGroupLoad - 1) / kMaxAvgGroupLoad;
     if (groups == 0) {
       groups = 1;
@@ -601,34 +609,49 @@ class SwissHashTable {
     return groups;
   }
 
-  std::pair<H1, H2> SplitHash(uint64_t hash_value) const noexcept {
+  std::pair<H1, H2> SplitHash(uint64_t hash_value) const {
     return {(hash_value & kH1Mask) >> 7, hash_value & kH2Mask};
   }
 
-  uint64_t ProbeStart(H1 h1) const noexcept { return h1 % groups_count_; }
+  uint64_t ProbeStart(H1 h1) const { return h1 % groups_count_; }
 
-  uint64_t GroupMetaMatchH2(const GroupMeta& meta, H2 h2) const noexcept {
-    auto u64_meta = *static_cast<uint64_t*>(meta.control_bits);
-    return arrow::bit_util::HasZeroByte(u64_meta ^ (kLoBits * h2));
+  uint64_t GroupMetaMatchH2(const GroupMeta& meta, H2 h2) const {
+    auto u64_meta =
+        *reinterpret_cast<uint64_t*>(const_cast<uint8_t*>(meta.control_bytes));
+    return GetZeroByteMask(u64_meta ^ (kLoBits * h2));
   }
 
-  uint64_t GroupMetaMatchEmpty(const GroupMeta& meta) {
-    auto u64_meta = *static_cast<uint64_t*>(meta.control_bits);
-    return arrow::bit_util::HasZeroByte(u64_meta ^ kHiBits);
+  uint64_t GroupMetaMatchEmpty(const GroupMeta& meta) const {
+    auto u64_meta =
+        *reinterpret_cast<uint64_t*>(const_cast<uint8_t*>(meta.control_bytes));
+    return GetZeroByteMask(u64_meta ^ kHiBits);
   }
 
-  uint64_t NextMatchGroupInternalIndex(uint64_t* match_value) {
+  uint64_t NextMatchGroupInternalIndex(uint64_t* match_value) const {
     uint64_t s = arrow::bit_util::CountTrailingZeros(*match_value);
-    *match_value &= ~(1 << s);  // clear bit |s|
-    return s >> 3;              // div by 8
+    *match_value &= ~(1ULL << s);  // clear bit |s|
+    return s >> 3;                 // div by 8
   }
 
-  uint64_t PackEntryIndex(uint64_t group_index, uint64_t group_internal_index) {
-    return (group_index << 8) | group_internal_index;
+  /// Determine if a word has a zero byte
+  /// The subexpression (v - 0x01010101UL), evaluates to a high bit set in any byte
+  /// whenever the corresponding byte in v is zero or greater than 0x80. The
+  /// sub-expression ~v & 0x80808080UL evaluates to high bits set in bytes where the byte
+  /// of v doesn't have its high bit set (so the byte was less than 0x80). Finally, by
+  /// ANDing these two sub-expressions the result is the high bits set where the bytes in
+  /// v were zero, since the high bits set due to a value greater than 0x80 in the first
+  /// sub-expression are masked off by the second.
+  uint64_t GetZeroByteMask(uint64_t value) const {
+    // https://graphics.stanford.edu/~seander/bithacks.html##ValueInWord
+    return ((value - (0x0101010101010101)) & (~value)) & 0x8080808080808080;
   }
 
-  std::pair<uint64_t, uint64_t> UnPackEntryIndex(uint64_t entry_index) {
-    return {entry_index >> 8, entry_index & 0xff};
+  std::pair<uint64_t, uint64_t> GetGroupIndexAndGroupInternalIndex(
+      const Entry* entry) const {
+    auto offset = static_cast<uint64_t>(entry - reinterpret_cast<const Entry*>(groups_));
+    uint64_t group_index = offset >> kGroupSizeShiftWidth;
+    uint64_t group_internal_index = offset & (kGroupSize - 1);
+    return {group_index, group_internal_index};
   }
 
   // The number of groups available in the hash table array.
@@ -805,7 +828,7 @@ struct SmallScalarTraits<Scalar, enable_if_t<std::is_integral<Scalar>::value>> {
   static uint32_t AsIndex(Scalar value) { return static_cast<Unsigned>(value); }
 };
 
-template <typename Scalar, template <class> class HashTableTemplateType = HashTable>
+template <typename Scalar>
 class SmallScalarMemoTable : public MemoTable {
  public:
   explicit SmallScalarMemoTable(MemoryPool* pool, int64_t entries = 0) {
@@ -901,7 +924,8 @@ class SmallScalarMemoTable : public MemoTable {
 // ----------------------------------------------------------------------
 // A memoization table for variable-sized binary data.
 
-template <typename BinaryBuilderT>
+template <typename BinaryBuilderT,
+          template <class> class HashTableTemplateType = HashTable>
 class BinaryMemoTable : public MemoTable {
  public:
   using builder_offset_type = typename BinaryBuilderT::offset_type;
@@ -1113,8 +1137,8 @@ class BinaryMemoTable : public MemoTable {
     int32_t memo_index;
   };
 
-  using HashTableType = HashTable<Payload>;
-  using HashTableEntry = typename HashTable<Payload>::Entry;
+  using HashTableType = HashTableTemplateType<Payload>;
+  using HashTableEntry = typename HashTableType::Entry;
   HashTableType hash_table_;
   BinaryBuilderT binary_builder_;
 

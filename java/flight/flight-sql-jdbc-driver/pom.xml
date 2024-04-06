@@ -28,14 +28,6 @@
     <url>https://arrow.apache.org</url>
 
     <dependencies>
-        <!-- https://mvnrepository.com/artifact/org.hamcrest/hamcrest -->
-        <dependency>
-            <groupId>org.hamcrest</groupId>
-            <artifactId>hamcrest</artifactId>
-            <version>2.2</version>
-            <scope>test</scope>
-        </dependency>
-
         <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>flight-sql-jdbc-core</artifactId>
@@ -43,105 +35,16 @@
         </dependency>
 
         <dependency>
-            <groupId>org.bouncycastle</groupId>
-            <artifactId>bcpkix-jdk15on</artifactId>
-            <version>1.70</version>
-            <scope>runtime</scope>
-        </dependency>
-
-        <!-- https://mvnrepository.com/artifact/org.apache.arrow/arrow-memory-core -->
-        <dependency>
-            <groupId>org.apache.arrow</groupId>
-            <artifactId>arrow-memory-core</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.arrow</groupId>
-            <artifactId>flight-sql</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-core</artifactId>
-            <version>${mockito.core.version}</version>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-inline</artifactId>
-            <version>${mockito.inline.version}</version>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.arrow</groupId>
-            <artifactId>flight-core</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>io.netty</groupId>
-                    <artifactId>netty-transport-native-kqueue</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>io.netty</groupId>
-                    <artifactId>netty-transport-native-epoll</artifactId>
-                </exclusion>
-            </exclusions>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
             <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-common</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>joda-time</groupId>
-            <artifactId>joda-time</artifactId>
-            <version>2.12.6</version>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.calcite.avatica</groupId>
-            <artifactId>avatica</artifactId>
-            <version>1.24.0</version>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.protobuf</groupId>
-            <artifactId>protobuf-java</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.arrow</groupId>
-            <artifactId>arrow-vector</artifactId>
-            <classifier>${arrow.vector.classifier}</classifier>
+            <artifactId>slf4j-jdk14</artifactId>
             <scope>runtime</scope>
         </dependency>
 
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
+            <!-- Used for tests but need runtime scope. See MNG-4156 -->
             <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>commons-io</groupId>
-            <artifactId>commons-io</artifactId>
-            <version>2.15.1</version>
-            <scope>test</scope>
         </dependency>
     </dependencies>
 
@@ -190,17 +93,16 @@
                             <relocations>
                                 <relocation>
                                     <pattern>com.</pattern>
-                                    <shadedPattern>cfjd.com.</shadedPattern>
+                                    <shadedPattern>org.apache.arrow.driver.jdbc.shaded.com.</shadedPattern>
                                     <excludes>
                                         <exclude>com.sun.**</exclude>
                                     </excludes>
                                 </relocation>
                                 <relocation>
                                     <pattern>org.</pattern>
-                                    <shadedPattern>cfjd.org.</shadedPattern>
+                                    <shadedPattern>org.apache.arrow.driver.jdbc.shaded.org.</shadedPattern>
                                     <excludes>
                                         <exclude>org.apache.arrow.driver.jdbc.**</exclude>
-                                        <exclude>org.slf4j.**</exclude>
                                         <!-- Avoid shading Flight JDBC Properties -->
                                         <exclude>org.apache.arrow.flight.name</exclude>
                                         <exclude>org.apache.arrow.flight.version</exclude>
@@ -210,24 +112,24 @@
                                 </relocation>
                                 <relocation>
                                     <pattern>io.</pattern>
-                                    <shadedPattern>cfjd.io.</shadedPattern>
+                                    <shadedPattern>org.apache.arrow.driver.jdbc.shaded.io.</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>net.</pattern>
-                                    <shadedPattern>cfjd.net.</shadedPattern>
+                                    <shadedPattern>org.apache.arrow.driver.jdbc.shaded.net.</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>mozilla.</pattern>
-                                    <shadedPattern>cfjd.mozilla.</shadedPattern>
+                                    <shadedPattern>org.apache.arrow.driver.jdbc.shaded.mozilla.</shadedPattern>
                                 </relocation>
                                 <!-- Entries to relocate netty native libraries  -->
                                 <relocation>
                                     <pattern>META-INF.native.libnetty_</pattern>
-                                    <shadedPattern>META-INF.native.libcfjd_netty_</shadedPattern>
+                                    <shadedPattern>META-INF.native.liboaadj_netty_</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>META-INF.native.netty_</pattern>
-                                    <shadedPattern>META-INF.native.cfjd_netty_</shadedPattern>
+                                    <shadedPattern>META-INF.native.oaadj_netty_</shadedPattern>
                                 </relocation>
                             </relocations>
                             <transformers>
@@ -244,13 +146,6 @@
                                     <artifact>org.apache.calcite.avatica:*</artifact>
                                     <excludes>
                                         <exclude>META-INF/services/java.sql.Driver</exclude>
-                                    </excludes>
-                                </filter>
-                                <filter>
-                                    <artifact>org.eclipse.collections:*</artifact>
-                                    <excludes>
-                                        <exclude>about.html</exclude>
-                                        <exclude>LICENSE-*-1.0.txt</exclude>
                                     </excludes>
                                 </filter>
                                 <filter>

@@ -41,6 +41,10 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  ARCHERY_DEBUG: 1
+  ARCHERY_USE_DOCKER_CLI: 1
+
 jobs:
 
   docker-targets:
@@ -75,12 +79,14 @@ jobs:
           {
             "arch-label": "ARM64",
             "arch": "arm64v8",
+            "archery-use-docker-cli": "0",
             "go": "1.21",
             "runs-on": ["self-hosted", "arm", "linux"]
           },
           {
             "arch-label": "ARM64",
             "arch": "arm64v8",
+            "archery-use-docker-cli": "0",
             "go": "1.22",
             "runs-on": ["self-hosted", "arm", "linux"]
           }
@@ -101,6 +107,9 @@ jobs:
         include: ${{ fromJson(needs.docker-targets.outputs.targets) }}
     env:
       ARCH: ${{ matrix.arch }}
+      # By default, use Docker CLI because docker-compose v1 is obsolete,
+      # except where the Docker client version is too old.
+      ARCHERY_USE_DOCKER_CLI: ${{ matrix.archery-use-docker-cli || '1' }}
       GO: ${{ matrix.go }}
     steps:
       - name: Checkout Arrow
@@ -201,7 +210,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Setup Python
-        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
+        uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d # v5.1.0
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -241,7 +250,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup Python
-        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
+        uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d # v5.1.0
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -333,7 +342,7 @@ jobs:
           github.event_name == 'push' &&
           github.repository == 'apache/arrow' &&
           github.ref_name == 'main'
-        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
+        uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d # v5.1.0
         with:
           python-version: '3.10'
       - name: Run Benchmarks

@@ -124,7 +124,7 @@ public class DenseUnionVector extends AbstractContainerVector implements FieldVe
           ArrowType.Struct.INSTANCE, /*dictionary*/ null, /*metadata*/ null);
 
   public static DenseUnionVector empty(String name, BufferAllocator allocator) {
-    FieldType fieldType = FieldType.nullable(new ArrowType.Union(
+    FieldType fieldType = FieldType.notNullable(new ArrowType.Union(
             UnionMode.Dense, null));
     return new DenseUnionVector(name, allocator, fieldType, null);
   }
@@ -906,6 +906,14 @@ public class DenseUnionVector extends AbstractContainerVector implements FieldVe
 
   private int getTypeBufferValueCapacity() {
     return (int) typeBuffer.capacity() / TYPE_WIDTH;
+  }
+
+  public void setOffset(int index, int offset) {
+    while (index >= getOffsetBufferValueCapacity()) {
+      reallocOffsetBuffer();
+    }
+
+    offsetBuffer.setInt((long) index * OFFSET_WIDTH, offset);
   }
 
   private long getOffsetBufferValueCapacity() {
