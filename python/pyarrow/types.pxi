@@ -5268,6 +5268,38 @@ def type_for_alias(name):
 
 
 cpdef DataType ensure_type(object ty, bint allow_none=False):
+    """
+    Ensures that the input is converted to a valid DataType object.
+
+    Parameters
+    ----------
+    ty : object
+        The input to validate and convert. Can be a DataType object, a string 
+        alias for a DataType, or None if 'allow_none' is True.
+    allow_none : bool, default False
+        Allows 'ty' to be None. If True and 'ty' is None, returns None.
+
+    Returns
+    -------
+    DataType or None
+        A DataType object corresponding to 'ty', or None if 'ty' is None and 
+        'allow_none' is True.
+
+    Raises
+    ------
+    TypeError
+        If 'ty' is not a valid input for conversion.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> pa.types.ensure_type('int32')
+    DataType(int32)
+    >>> pa.types.ensure_type(pa.int32())
+    DataType(int32)
+    >>> pa.types.ensure_type(None, allow_none=True)
+
+    """
     if allow_none and ty is None:
         return None
     elif isinstance(ty, DataType):
