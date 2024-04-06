@@ -24,7 +24,6 @@ import sys
 import pytest
 import hypothesis as h
 import hypothesis.strategies as st
-
 try:
     import hypothesis.extra.pytz as tzst
 except ImportError:

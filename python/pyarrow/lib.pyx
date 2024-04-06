@@ -162,7 +162,6 @@ include "pandas-shim.pxi"
 # Memory pools and allocation
 include "memory.pxi"
 
-
 # DataType, Field, Schema
 include "types.pxi"
 
