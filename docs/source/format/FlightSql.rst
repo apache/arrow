@@ -180,7 +180,8 @@ in the ``app_metadata`` field of the Flight RPC ``PutResult`` returned.
     Execute a bulk ingestion.
 
     When used with DoPut: load the stream of Arrow record batches into
-    the specified target table and return the number of rows ingested.
+    the specified target table and return the number of rows ingested
+    via a `DoPutUpdateResult` message.
 
 Flight Server Session Management
 --------------------------------
