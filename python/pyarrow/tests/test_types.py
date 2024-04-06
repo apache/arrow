@@ -224,9 +224,9 @@ def test_is_nested_or_struct():
 def test_is_union():
     for mode in [pa.lib.UnionMode_SPARSE, pa.lib.UnionMode_DENSE]:
         assert pa.types.is_union(pa.union([pa.field('a', pa.int32()),
-                                        pa.field('b', pa.int8()),
-                                        pa.field('c', pa.string())],
-                                       mode=mode))
+                                           pa.field('b', pa.int8()),
+                                           pa.field('c', pa.string())],
+                                          mode=mode))
     assert not pa.types.is_union(pa.list_(pa.int32()))
 
 
