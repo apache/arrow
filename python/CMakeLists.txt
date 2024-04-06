@@ -289,22 +289,6 @@ include(GNUInstallDirs)
 
 find_package(Arrow REQUIRED)
 
-if(DUMP_ARROW_ARGUMENTS)
-  message(STATUS "----- ARROW_SETTINGS_DUMP -----")
-  get_cmake_property(_variableNames VARIABLES)
-  list(SORT _variableNames)
-  foreach(_variableName ${_variableNames})
-    unset(MATCHED)
-    string(REGEX MATCH ^ARROW_.* MATCHED ${_variableName})
-    if(NOT MATCHED)
-      continue()
-    endif()
-    message(STATUS "${_variableName}=${${_variableName}}")
-  endforeach()
-  message(STATUS "----- ARROW_SETTINGS_END -----")
-  return()
-endif()
-
 set(PYARROW_CPP_ROOT_DIR pyarrow/src)
 set(PYARROW_CPP_SOURCE_DIR ${PYARROW_CPP_ROOT_DIR}/arrow/python)
 set(PYARROW_CPP_SRCS
@@ -656,7 +640,7 @@ if(PYARROW_BUILD_DATASET)
 
     set(DATASET_LINK_LIBS ArrowDataset::arrow_dataset_shared)
   else()
-    # dataset is sttically linked into libarrow_python already
+    # dataset is statically linked into libarrow_python already
     set(DATASET_LINK_LIBS)
   endif()
   list(APPEND CYTHON_EXTENSIONS _dataset)
@@ -734,14 +718,21 @@ if(PYARROW_BUILD_SUBSTRAIT)
     message(FATAL_ERROR "You must build Arrow C++ with ARROW_SUBSTRAIT=ON")
   endif()
   find_package(ArrowSubstrait REQUIRED)
-  if(PYARROW_BUNDLE_ARROW_CPP)
-    bundle_arrow_lib(${ARROW_SUBSTRAIT_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
-    if(MSVC)
-      bundle_arrow_import_lib(${ARROW_SUBSTRAIT_IMPORT_LIB})
+
+  if(ARROW_BUILD_SHARED)
+    if(PYARROW_BUNDLE_ARROW_CPP)
+      bundle_arrow_lib(${ARROW_SUBSTRAIT_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
+      if(MSVC)
+        bundle_arrow_import_lib(${ARROW_SUBSTRAIT_IMPORT_LIB})
+      endif()
     endif()
+    set(SUBSTRAIT_LINK_LIBS ArrowSubstrait::arrow_substrait_shared)
+  else()
+    # substrait is linked into libarrow_python already
+    # so isn't needed in the extension
+    set(SUBSTRAIT_LINK_LIBS "")
   endif()
 
-  set(SUBSTRAIT_LINK_LIBS ArrowSubstrait::arrow_substrait_shared)
   list(APPEND CYTHON_EXTENSIONS _substrait)
 endif()
 

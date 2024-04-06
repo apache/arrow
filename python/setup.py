@@ -18,9 +18,11 @@
 # under the License.
 
 import contextlib
+import json
 import os
 import os.path
 from os.path import join as pjoin
+import pathlib
 import re
 import shlex
 import subprocess
@@ -152,29 +154,27 @@ class build_ext(_build_ext):
         if hasattr(self, "_arrow_build_options"):
             return self._arrow_build_options
         self._arrow_build_options = {}
-        # first find the cmake file
-        source = os.path.dirname(os.path.abspath(__file__))
         # now make a temp folder to run cmake in
         with tempfile.TemporaryDirectory() as td:
             old_dir = os.getcwd()
             os.chdir(td)
-            cmake_cmdline = ["cmake", source, "-DDUMP_ARROW_ARGUMENTS=ON"]
+            (pathlib.Path(td) / "CMakeLists.txt").write_text("""
+                cmake_minimum_required(VERSION 3.16)
+                project(dumpvars)
+                find_package(Arrow REQUIRED)
+                include(DefineOptions)
+                config_summary_json()
+                """)
+            cmake_cmdline = ["cmake", ".",
+                             f"-DCMAKE_MODULE_PATH={old_dir}/cmake_modules"]
             if is_emscripten:
-                cmake_cmdline = ["emcmake"]+cmake_cmdline
-            result = subprocess.run(cmake_cmdline, capture_output=True, text=True)
+                cmake_cmdline = ["emcmake"] + cmake_cmdline
+            subprocess.run(cmake_cmdline, capture_output=True, text=True)
+            options_json = (pathlib.Path(td) / "cmake_summary.json").read_text()
+            options = json.loads(options_json)
+            self._arrow_build_options = options
             os.chdir(old_dir)
-            in_dump = False
-            for line in result.stdout.splitlines():
-                if line.find("----- ARROW_SETTINGS_DUMP -----") != -1:
-                    in_dump = True
-                if line.find("----- ARROW_SETTINGS_END -----") != -1:
-                    break
-                if in_dump:
-                    m = re.match(r"-- ([^=]*)=(.*)", line)
-                    if m:
-                        key = m.group(1)
-                        value = m.group(2)
-                        self._arrow_build_options[key] = value
+        print("Loaded build options:", self._arrow_build_options)
         return self._arrow_build_options
 
     def get_env_option(self, name, default):
