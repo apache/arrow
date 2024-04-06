@@ -3437,6 +3437,27 @@ public class TestValueVector {
 
       assertEquals(4, dataBuf.writerIndex());
     }
+
+    try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("view var char", allocator)) {
+      viewVarCharVector.allocateNew(16, 2);
+      viewVarCharVector.setValueCount(2);
+      viewVarCharVector.set(0, "abcd".getBytes(StandardCharsets.UTF_8));
+
+      List<ArrowBuf> bufs = viewVarCharVector.getFieldBuffers();
+      assertEquals(2, bufs.size());
+
+      ArrowBuf viewBuf = bufs.get(1);
+
+      assertEquals(32, viewBuf.writerIndex());
+      final String longString = "012345678901234";
+      viewVarCharVector.set(1, longString.getBytes(StandardCharsets.UTF_8));
+
+      bufs = viewVarCharVector.getFieldBuffers();
+      assertEquals(3, bufs.size());
+
+      ArrowBuf referenceBuf = bufs.get(2);
+      assertEquals(longString.length(), referenceBuf.writerIndex());
+    }
   }
 
   private void writeStructVector(NullableStructWriter writer, int value1, long value2) {

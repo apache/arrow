@@ -233,6 +233,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    * @return density
    */
   public double getDensity() {
+    // TODO: fix me
     if (valueCount == 0) {
       return 0.0D;
     }

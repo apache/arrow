@@ -25,7 +25,7 @@ import org.apache.arrow.vector.VariableWidthVector;
 import org.apache.arrow.vector.VectorDefinitionSetter;
 
 /**
-* A base class for common functionalities in variable width vectors.
+* A base interface for common functionalities in variable width vectors.
 */
 public interface AbstractVariableWidthVector extends VariableWidthVector, FieldVector, VectorDefinitionSetter {
 
