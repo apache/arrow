@@ -262,8 +262,8 @@ namespace Apache.Arrow.C
             {
                 if (lengthBytes > 0)
                 {
-                    Debug.Assert(cArray->buffers[0] != null);
-                    return new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[0], 0, lengthBytes));
+                    Debug.Assert(cArray->buffers[i] != null);
+                    return new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[i], 0, lengthBytes));
                 }
                 else
                 {
