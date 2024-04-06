@@ -1905,10 +1905,6 @@ public class TestValueVector {
 
   @Test
   public void testSetSafeWithArrowBufNoExcessAllocs() {
-    // NOTE: getStartOffset method is defined as public in BaseVariabledWidthVector,
-    //  and BaseVariableWidthViewVector. But in the BaseLargeVariableWidthVector it is protected.
-    //  Since abstracting this test, util won't be possible. In addition, the return types are long
-    //  in BaseLargeVariableWidthVector while in the other two interfaces it is an int.
     final int numValues = BaseFixedWidthVector.INITIAL_VALUE_ALLOCATION * 2;
     final byte[] valueBytes = "hello world".getBytes(StandardCharsets.UTF_8);
     final int valueBytesLength = valueBytes.length;
@@ -1975,10 +1971,10 @@ public class TestValueVector {
       toVector.setInitialCapacity(numValues);
       toVector.allocateNew();
       for (int i = 0; i < numValues; i++) {
-        int start = fromVector.getStartOffset(i); // `getStartOffSet` cannot be generalized since it has 2 definitions
+        int start = fromVector.getTotalLengthUptoIndex(i);
         // across variable
         // width implementations
-        int end = fromVector.getStartOffset(i + 1);
+        int end = fromVector.getTotalLengthUptoIndex(i + 1);
         toVector.setSafe(i, isSet, start, end, fromDataBuffer);
       }
 

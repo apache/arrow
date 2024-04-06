@@ -233,13 +233,10 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    * @return density
    */
   public double getDensity() {
-    // TODO: fix me
     if (valueCount == 0) {
       return 0.0D;
     }
-    final int startOffset = getStartOffset(0);
-    final int endOffset = getStartOffset(valueCount);
-    final double totalListSize = endOffset - startOffset;
+    final double totalListSize = getTotalLengthUptoIndex(valueCount);
     return totalListSize / valueCount;
   }
 
@@ -1307,12 +1304,11 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   }
 
   /**
-   * Get the start offset of the element at the given index.
+   * Get the total length of the elements up to the given index.
    * @param index The index of the element in the vector.
-   * @return The start offset of the element at the given index.
+   * @return The total length up to the element at the given index.
    */
-  public final int getStartOffset(int index) {
-    // TODO: rename this method properly
+  public final int getTotalLengthUptoIndex(int index) {
     int totalLength = 0;
     for (int i = 0; i < index - 1; i++) {
       totalLength += getLength(i);
@@ -1325,8 +1321,8 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   }
 
   protected final void handleSafe(int index, int dataLength) {
-    final long startOffset = lastSet < 0 ? 0 : getStartOffset(lastSet + 1);
-    final long targetCapacity = roundUpToMultipleOf16(startOffset + dataLength);
+    final long lastSetCapacity = lastSet < 0 ? 0 : getTotalLengthUptoIndex(lastSet + 1);
+    final long targetCapacity = roundUpToMultipleOf16(lastSetCapacity + dataLength);
     // for views, we need each buffer with 16 byte alignment, so we need to check the last written index
     // in the valueBuffer and allocate a new buffer which has 16 byte alignment for adding new values.
     long writePosition = (long) index * VIEW_BUFFER_SIZE;
