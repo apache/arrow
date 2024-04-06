@@ -534,6 +534,14 @@ TEST(Formatting, Timestamp) {
   }
 
   {
+    constexpr int64_t kMillisInDay = 24 * 60 * 60 * 1000;
+    auto ty = timestamp(TimeUnit::MILLI, "+01:00");
+    StringFormatter<TimestampType> formatter(ty.get());
+    AssertFormatting(formatter, -15000 * 365 * kMillisInDay + 1,
+                     "-13021-12-17 00:00:00.001Z");
+  }
+
+  {
     auto ty = timestamp(TimeUnit::MILLI, "Pacific/Maruesas");
     StringFormatter<TimestampType> formatter(ty.get());
     AssertFormatting(formatter, 0, "1970-01-01 00:00:00.000Z");
