@@ -76,7 +76,7 @@ public final class ViewVarBinaryVector extends BaseVariableWidthViewVector {
   }
 
   /**
-   * Get minor type for this vector. The vector holds values belonging to a particular type.
+   * Get a minor type for this vector. The vector holds values belonging to a particular type.
    *
    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
    */
@@ -92,10 +92,10 @@ public final class ViewVarBinaryVector extends BaseVariableWidthViewVector {
   *----------------------------------------------------------------*/
 
   /**
-   * Get the variable length element at specified index as byte array.
+   * Get the variable length element at specified index as a byte array.
    *
-   * @param index position of element to get
-   * @return array of bytes for non-null element, null otherwise
+   * @param index position of an element to get
+   * @return array of bytes for a non-null element, null otherwise
    */
   public byte[] get(int index) {
     assert index >= 0;
@@ -109,7 +109,7 @@ public final class ViewVarBinaryVector extends BaseVariableWidthViewVector {
    * Read the value at the given position to the given output buffer. The caller is responsible for
    * checking for nullity first.
    *
-   * @param index position of element.
+   * @param index position of an element.
    * @param buffer the buffer to write into.
    */
   @Override
@@ -206,7 +206,7 @@ public final class ViewVarBinaryVector extends BaseVariableWidthViewVector {
 
   /**
    * Same as {@link #set(int, ViewVarBinaryHolder)} except that it handles the case where index and
-   * length of new element are beyond the existing capacity of the vector.
+   * length of a new element are beyond the existing capacity of the vector.
    *
    * @param index position of the element to set
    * @param holder holder that carries data buffer.
@@ -230,7 +230,7 @@ public final class ViewVarBinaryVector extends BaseVariableWidthViewVector {
 
   /**
    * Same as {@link #set(int, NullableViewVarBinaryHolder)} except that it handles the case where index
-   * and length of new element are beyond the existing capacity of the vector.
+   * and length of a new element are beyond the existing capacity of the vector.
    *
    * @param index position of the element to set
    * @param holder holder that carries data buffer.

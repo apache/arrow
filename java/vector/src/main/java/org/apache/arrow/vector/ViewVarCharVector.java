@@ -36,14 +36,16 @@ import org.apache.arrow.vector.util.TransferPair;
 import org.apache.arrow.vector.validate.ValidateUtil;
 
 /**
- * VarCharVector implements a variable width vector of VARCHAR
+ * ViewVarCharVector implements a view of a variable width vector of VARCHAR
  * values which could be NULL. A validity buffer (bit vector) is maintained
- * to track which elements in the vector are null.
+ * to track which elements in the vector are null. A viewBuffer keeps track
+ * of all values in the vector, and an external data buffer is kept to keep longer
+ * strings (>12).
  */
 public final class ViewVarCharVector extends BaseVariableWidthViewVector {
 
   /**
-   * Instantiate a VarCharVector. This doesn't allocate any memory for
+   * Instantiate a ViewVarCharVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param allocator allocator for memory management.
@@ -53,7 +55,7 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
   }
 
   /**
-   * Instantiate a VarCharVector. This doesn't allocate any memory for
+   * Instantiate a ViewVarCharVector. This doesn't allocate any memory for
    * the data in vector.
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
@@ -64,7 +66,7 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
   }
 
   /**
-   * Instantiate a VarCharVector. This doesn't allocate any memory for
+   * Instantiate a ViewVarCharVector. This doesn't allocate any memory for
    * the data in vector.
    *
    * @param field field materialized by this vector
@@ -80,7 +82,7 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
   }
 
   /**
-   * Get minor type for this vector. The vector holds values belonging
+   * Get a minor type for this vector. The vector holds values belonging
    * to a particular type.
    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
    */
@@ -96,10 +98,10 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
   *----------------------------------------------------------------*/
 
   /**
-   * Get the variable length element at specified index as byte array.
+   * Get the variable length element at specified index as a byte array.
    *
-   * @param index   position of element to get
-   * @return array of bytes for non-null element, null otherwise
+   * @param index   position of an element to get
+   * @return array of bytes for a non-null element, null otherwise
    */
   public byte[] get(int index) {
     assert index >= 0;
@@ -112,8 +114,8 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
   /**
    * Get the variable length element at specified index as Text.
    *
-   * @param index   position of element to get
-   * @return Text object for non-null element, null otherwise
+   * @param index   position of an element to get
+   * @return Text object for a non-null element, null otherwise
    */
   @Override
   public Text getObject(int index) {
@@ -131,7 +133,7 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
    * Read the value at the given position to the given output buffer.
    * The caller is responsible for checking for nullity first.
    *
-   * @param index position of element.
+   * @param index position of an element.
    * @param buffer the buffer to write into.
    */
   @Override
@@ -144,7 +146,7 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
 
     /**
      * Create Holder callback with given parameters.
-     * @param index position of element.
+     * @param index position of an element.
      * @param dataLength length of the buffer.
      * @param input input buffer.
      * @param dataBufs list of data buffers.
@@ -190,7 +192,7 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
    * Get the variable length element at specified index and sets the state
    * in provided holder.
    *
-   * @param index   position of element to get
+   * @param index   position of an element to get
    * @param holder  data holder to be populated by this function
    */
   public void get(int index, NullableViewVarCharHolder holder) {
@@ -220,7 +222,7 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
 
   /**
    * Same as {@link #set(int, ViewVarCharHolder)} except that it handles the
-   * case where index and length of new element are beyond the existing
+   * case where index and length of a new element are beyond the existing
    * capacity of the vector.
    *
    * @param index   position of the element to set
@@ -245,7 +247,7 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
 
   /**
    * Same as {@link #set(int, NullableViewVarCharHolder)} except that it handles the
-   * case where index and length of new element are beyond the existing
+   * case where index and length of a new element are beyond the existing
    * capacity of the vector.
    *
    * @param index   position of the element to set
@@ -269,7 +271,7 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
 
   /**
    * Same as {@link #set(int, NullableViewVarCharHolder)} except that it handles the
-   * case where index and length of new element are beyond the existing
+   * case where index and length of a new element are beyond the existing
    * capacity of the vector.
    *
    * @param index   position of the element to set.

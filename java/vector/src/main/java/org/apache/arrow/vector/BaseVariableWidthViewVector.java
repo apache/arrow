@@ -483,12 +483,12 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   public void reAlloc() {
     reallocViewBuffer();
     reallocViewReferenceBuffer();
-    reallocValidityBufferOnly();
+    reallocValidityBuffer();
   }
 
   /**
    * Reallocate the data buffer. Data Buffer stores the actual data for
-   * VARCHAR or VARBINARY elements in the vector. The behavior is to double
+   * VIEWVARCHAR or VIEWVARBINARY elements in the vector. The behavior is to double
    * the size of buffer.
    * @throws OversizedAllocationException if the desired new size is more than
    *                                      max allowed
@@ -593,7 +593,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   /**
   *  Reallocate Validity buffer.
   */
-  public void reallocValidityBufferOnly() {
+  public void reallocValidityBuffer() {
     int targetValidityCount = capAtMaxInt((validityBuffer.capacity() * 8) * 2);
     if (targetValidityCount == 0) {
       if (lastValueCapacity > 0) {
@@ -877,7 +877,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
     this.valueCount = valueCount;
     while (valueCount > getValueCapacity()) {
       reallocViewBuffer();
-      reallocValidityBufferOnly();
+      reallocValidityBuffer();
     }
     fillHoles(valueCount);
     lastSet = valueCount - 1;
@@ -927,9 +927,9 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    */
   @Override
   public void setIndexDefined(int index) {
-    // We need to check and reallocate both validity and offset buffer
+    // We need to check and reallocate the validity buffer
     while (index >= getValueCapacity()) {
-      reallocValidityBufferOnly();
+      reallocValidityBuffer();
     }
     BitVectorHelper.setBit(validityBuffer, index);
   }
@@ -1077,9 +1077,9 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    */
   @Override
   public void setNull(int index) {
-    // We need to check and reallocate both validity and offset buffer
+    // We need to check and reallocate the validity buffer
     while (index >= getValueCapacity()) {
-      reallocValidityBufferOnly();
+      reallocValidityBuffer();
     }
     BitVectorHelper.unsetBit(validityBuffer, index);
   }
@@ -1188,7 +1188,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    * @param index The index of the element in the vector.
    * @return The length of the element at the given index.
    */
-  public final int getLength(int index) {
+  protected final int getLength(int index) {
     if (index < 0 || index >= viewBuffer.capacity() / VIEW_BUFFER_SIZE) {
       throw new IndexOutOfBoundsException("Index out of bounds: " + index);
     }
@@ -1338,7 +1338,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
     }
 
     while (index >= getValueCapacity()) {
-      reallocValidityBufferOnly();
+      reallocValidityBuffer();
     }
   }
 

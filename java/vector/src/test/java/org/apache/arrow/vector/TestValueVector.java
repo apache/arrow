@@ -2561,7 +2561,7 @@ public class TestValueVector {
     }
   }
 
-  @Test /* VarCharVector */
+  @Test /* ViewVarCharVector */
   public void testSetInitialCapacityInViews() {
     try (final ViewVarCharVector vector = new ViewVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
 
