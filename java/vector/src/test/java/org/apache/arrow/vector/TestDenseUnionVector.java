@@ -364,6 +364,34 @@ public class TestDenseUnionVector {
   }
 
   @Test
+  public void testSplitAndTransferDuvInStruct() {
+    try (StructVector struct = StructVector.empty("struct", allocator)) {
+      DenseUnionVector duv = struct.addOrGet("duv",
+          FieldType.notNullable(MinorType.DENSEUNION.getType()),
+          DenseUnionVector.class);
+      byte i32TypeId = duv.registerNewTypeId(Field.notNullable("i32", MinorType.INT.getType()));
+      duv.addVector(i32TypeId, new IntVector("i32", allocator));
+
+      struct.setIndexDefined(0);
+      duv.setTypeId(0, i32TypeId);
+      duv.setSafe(0, newIntHolder(42));
+
+      struct.setNull(1);
+      struct.setValueCount(2);
+
+      try (StructVector dest = StructVector.empty("dest", allocator)) {
+        TransferPair pair = struct.makeTransferPair(dest);
+        pair.splitAndTransfer(0, 2);
+
+        assertEquals(2, dest.getValueCount());
+        assertFalse(dest.isNull(0));
+        assertEquals(42, dest.getObject(0).get("duv"));
+        assertTrue(dest.isNull(1));
+      }
+    }
+  }
+
+  @Test
   public void testGetFieldTypeInfo() throws Exception {
     Map<String, String> metadata = new HashMap<>();
     metadata.put("key1", "value1");
