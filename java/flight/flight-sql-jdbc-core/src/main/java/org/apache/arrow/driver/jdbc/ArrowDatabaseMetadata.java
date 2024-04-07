@@ -49,6 +49,7 @@ import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -197,31 +198,36 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
   @Override
   public String getSQLKeywords() throws SQLException {
     return convertListSqlInfoToString(
-        getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_KEYWORDS, List.class));
+        getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_KEYWORDS, List.class))
+        .orElse("");
   }
 
   @Override
   public String getNumericFunctions() throws SQLException {
     return convertListSqlInfoToString(
-        getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_NUMERIC_FUNCTIONS, List.class));
+        getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_NUMERIC_FUNCTIONS, List.class))
+        .orElse("");
   }
 
   @Override
   public String getStringFunctions() throws SQLException {
     return convertListSqlInfoToString(
-        getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_STRING_FUNCTIONS, List.class));
+        getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_STRING_FUNCTIONS, List.class))
+        .orElse("");
   }
 
   @Override
   public String getSystemFunctions() throws SQLException {
     return convertListSqlInfoToString(
-        getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_SYSTEM_FUNCTIONS, List.class));
+        getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_SYSTEM_FUNCTIONS, List.class))
+        .orElse("");
   }
 
   @Override
   public String getTimeDateFunctions() throws SQLException {
     return convertListSqlInfoToString(
-        getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_DATETIME_FUNCTIONS, List.class));
+        getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_DATETIME_FUNCTIONS, List.class))
+        .orElse("");
   }
 
   @Override
@@ -753,8 +759,12 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
     return desiredType.cast(cachedSqlInfo.get(sqlInfoCommand));
   }
 
-  private String convertListSqlInfoToString(final List<?> sqlInfoList) {
-    return sqlInfoList.stream().map(Object::toString).collect(Collectors.joining(", "));
+  private Optional<String> convertListSqlInfoToString(final List<?> sqlInfoList) {
+    if (sqlInfoList == null) {
+      return Optional.empty();
+    } else {
+      return Optional.of(sqlInfoList.stream().map(Object::toString).collect(Collectors.joining(", ")));
+    }
   }
 
   private boolean getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(
