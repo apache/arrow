@@ -1197,8 +1197,7 @@ int PlainBooleanDecoder::DecodeArrow(
         std::to_string(num_values_) + ", requested: " + std::to_string(values_decoded));
   }
   if (ARROW_PREDICT_FALSE(!bit_reader_->Advance(values_decoded))) {
-    ParquetException::EofException(
-        "PlainDecoder doesn't have enough values in bit_reader_");
+    ParquetException::EofException("PlainDecoder doesn't have enough values in page");
   }
 
   if (null_count == 0) {
