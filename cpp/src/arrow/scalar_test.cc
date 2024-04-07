@@ -1286,6 +1286,17 @@ TEST(TestMapScalar, Cast) {
   CheckListCastError(scalar, invalid_cast_type);
 }
 
+TEST(TestMapScalar, ToString) {
+  auto key_value_type = struct_({field("key", utf8(), false), field("value", int8())});
+  auto value = ArrayFromJSON(key_value_type,
+                             R"([{"key": "a", "value": 1}, {"key": "b", "value": 2}])");
+  auto scalar = MapScalar(value);
+
+  ASSERT_EQ(
+      scalar.ToString(),
+      R"(map<string, int8>[{key:string = a, value:int8 = 1}, {key:string = b, value:int8 = 2}])");
+}
+
 TEST(TestStructScalar, FieldAccess) {
   StructScalar abc({MakeScalar(true), MakeNullScalar(int32()), MakeScalar("hello"),
                     MakeNullScalar(int64())},
