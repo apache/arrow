@@ -1711,6 +1711,16 @@ class TestUnionScalar : public ::testing::Test {
     }
   }
 
+  void TestToString() {
+    ASSERT_EQ(union_alpha_->ToString(), "union{string: string = alpha}");
+    ASSERT_EQ(union_beta_->ToString(), "union{string: string = beta}");
+    ASSERT_EQ(union_two_->ToString(), "union{number: uint64 = 2}");
+    ASSERT_EQ(union_other_two_->ToString(), "union{other_number: uint64 = 2}");
+    ASSERT_EQ(union_three_->ToString(), "union{number: uint64 = 3}");
+    ASSERT_EQ(union_string_null_->ToString(), "null");
+    ASSERT_EQ(union_number_null_->ToString(), "null");
+  }
+
  protected:
   std::shared_ptr<DataType> type_;
   const UnionType* union_type_;
@@ -1728,6 +1738,8 @@ TYPED_TEST(TestUnionScalar, ValidateErrors) { this->TestValidateErrors(); }
 TYPED_TEST(TestUnionScalar, Equals) { this->TestEquals(); }
 
 TYPED_TEST(TestUnionScalar, MakeNullScalar) { this->TestMakeNullScalar(); }
+
+TYPED_TEST(TestUnionScalar, ToString) { this->TestToString(); }
 
 class TestSparseUnionScalar : public TestUnionScalar<SparseUnionType> {};
 

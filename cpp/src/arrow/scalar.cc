@@ -1313,8 +1313,8 @@ CastImpl(const BaseListScalar& from, std::shared_ptr<DataType> to_type) {
 }
 
 // union types to string
-template <typename ToScalar>
-typename std::enable_if_t<std::is_same<ToScalar, StringScalar>::value,
+template <typename To>
+typename std::enable_if_t<std::is_same<To, StringType>::value,
                           Result<std::shared_ptr<Scalar>>>
 CastImpl(const UnionScalar& from, std::shared_ptr<DataType> to_type) {
   const auto& union_ty = checked_cast<const UnionType&>(*from.type);
