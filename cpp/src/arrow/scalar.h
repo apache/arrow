@@ -153,8 +153,6 @@ struct ARROW_EXPORT PrimitiveScalarBase : public Scalar {
   using Scalar::Scalar;
   /// \brief Get a const pointer to the value of this scalar. May be null.
   virtual const void* data() const = 0;
-  /// \brief Get a mutable pointer to the value of this scalar. May be null.
-  // virtual void* mutable_data() = 0;
   /// \brief Get an immutable view of the value of this scalar as bytes.
   virtual std::string_view view() const = 0;
 };
@@ -175,7 +173,6 @@ struct ARROW_EXPORT PrimitiveScalar : public PrimitiveScalarBase {
   ValueType value{};
 
   const void* data() const override { return &value; }
-  // void* mutable_data() override { return &value; }
   std::string_view view() const override {
     return std::string_view(reinterpret_cast<const char*>(&value), sizeof(ValueType));
   };
@@ -256,14 +253,15 @@ struct ARROW_EXPORT DoubleScalar : public NumericScalar<DoubleType> {
 struct ARROW_EXPORT BaseBinaryScalar : public internal::PrimitiveScalarBase {
   using ValueType = std::shared_ptr<Buffer>;
 
+  // The value is not supposed to be modified after construction, because subclasses have
+  // a scratch space whose content need to be kept consistent with the value. It is also
+  // the user of this class's responsibility to ensure that the buffer is not written to
+  // accidentally.
   const std::shared_ptr<Buffer> value = NULLPTR;
 
   const void* data() const override {
     return value ? reinterpret_cast<const void*>(value->data()) : NULLPTR;
   }
-  // void* mutable_data() override {
-  //   return value ? reinterpret_cast<void*>(value->mutable_data()) : NULLPTR;
-  // }
   std::string_view view() const override {
     return value ? std::string_view(*value) : std::string_view();
   }
@@ -519,10 +517,6 @@ struct ARROW_EXPORT DecimalScalar : public internal::PrimitiveScalarBase {
     return reinterpret_cast<const void*>(value.native_endian_bytes());
   }
 
-  // void* mutable_data() override {
-  //   return reinterpret_cast<void*>(value.mutable_native_endian_bytes());
-  // }
-
   std::string_view view() const override {
     return std::string_view(reinterpret_cast<const char*>(value.native_endian_bytes()),
                             ValueType::kByteWidth);
@@ -545,6 +539,10 @@ struct ARROW_EXPORT BaseListScalar : public Scalar {
   BaseListScalar(std::shared_ptr<Array> value, std::shared_ptr<DataType> type,
                  bool is_valid = true);
 
+  // The value is not supposed to be modified after construction, because subclasses have
+  // a scratch space whose content need to be kept consistent with the value. It is also
+  // the user of this class's responsibility to ensure that the array is not modified
+  // accidentally.
   const std::shared_ptr<Array> value;
 };
 
@@ -658,6 +656,8 @@ struct ARROW_EXPORT StructScalar : public Scalar {
 };
 
 struct ARROW_EXPORT UnionScalar : public Scalar {
+  // The type code is not supposed to be modified after construction, because the scratch
+  // space's content need to be kept consistent with it.
   const int8_t type_code;
 
   virtual const std::shared_ptr<Scalar>& child_value() const = 0;
@@ -686,6 +686,10 @@ struct ARROW_EXPORT SparseUnionScalar
   // nonetheless construct a vector of scalars, one per union value, to have
   // enough data to reconstruct a valid ArraySpan of length 1 from this scalar
   using ValueType = std::vector<std::shared_ptr<Scalar>>;
+  // The value is not supposed to be modified after construction, because the scratch
+  // space's content need to be kept consistent with the value. It is also the user of
+  // this class's responsibility to ensure that the scalars of the vector is not modified
+  // to accidentally.
   const ValueType value;
 
   // The value index corresponding to the active type code
@@ -719,6 +723,10 @@ struct ARROW_EXPORT DenseUnionScalar
   // For DenseUnionScalar, we can make a valid ArraySpan of length 1 from this
   // scalar
   using ValueType = std::shared_ptr<Scalar>;
+  // The value is not supposed to be modified after construction, because the scratch
+  // space's content need to be kept consistent with the value. It is also the user of
+  // this class's responsibility to ensure that the elements of the vector is not modified
+  // accidentally.
   const ValueType value;
 
   const std::shared_ptr<Scalar>& child_value() const override { return this->value; }
@@ -742,6 +750,10 @@ struct ARROW_EXPORT RunEndEncodedScalar
   using ArraySpanFillFromScalarScratchSpace =
       internal::ArraySpanFillFromScalarScratchSpace<RunEndEncodedScalar>;
 
+  // The value is not supposed to be modified after construction, because the scratch
+  // space's content need to be kept consistent with the value. It is also the user of
+  // this class's responsibility to ensure that the wrapped scalar is not modified
+  // accidentally.
   const ValueType value;
 
   RunEndEncodedScalar(std::shared_ptr<Scalar> value, std::shared_ptr<DataType> type);
@@ -791,10 +803,6 @@ struct ARROW_EXPORT DictionaryScalar : public internal::PrimitiveScalarBase {
   const void* data() const override {
     return internal::checked_cast<internal::PrimitiveScalarBase&>(*value.index).data();
   }
-  // void* mutable_data() override {
-  //   return internal::checked_cast<internal::PrimitiveScalarBase&>(*value.index)
-  //       .mutable_data();
-  // }
   std::string_view view() const override {
     return internal::checked_cast<const internal::PrimitiveScalarBase&>(*value.index)
         .view();

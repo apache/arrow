@@ -670,7 +670,7 @@ void MapScalar::FillScratchSpace() {
 FixedSizeListScalar::FixedSizeListScalar(std::shared_ptr<Array> value,
                                          std::shared_ptr<DataType> type, bool is_valid)
     : BaseListScalar(std::move(value), std::move(type), is_valid) {
-  if (value) {
+  if (this->value) {
     ARROW_CHECK_EQ(this->value->length(),
                    checked_cast<const FixedSizeListType&>(*this->type).list_size());
   }
@@ -1261,18 +1261,18 @@ CastImpl(const StructScalar& from, std::shared_ptr<DataType> to_type) {
 }
 
 // casts between variable-length and fixed-length list types
-template <typename ToScalar>
-enable_if_list_type<typename ToScalar::TypeClass, Result<std::shared_ptr<Scalar>>>
-CastImpl(const BaseListScalar& from, std::shared_ptr<DataType> to_type) {
-  if constexpr (sizeof(typename ToScalar::TypeClass::offset_type) < sizeof(int64_t)) {
-    if (from.value->length() >
-        std::numeric_limits<typename ToScalar::TypeClass::offset_type>::max()) {
+template <typename To, typename From>
+std::enable_if_t<is_list_type<To>::value && is_list_type<From>::value,
+                 Result<std::shared_ptr<Scalar>>>
+CastImpl(const From& from, std::shared_ptr<DataType> to_type) {
+  if constexpr (sizeof(typename To::offset_type) < sizeof(int64_t)) {
+    if (from.value->length() > std::numeric_limits<typename To::offset_type>::max()) {
       return Status::Invalid(from.type->ToString(), " too large to cast to ",
                              to_type->ToString());
     }
   }
 
-  if constexpr (is_fixed_size_list_type<typename ToScalar::TypeClass>::value) {
+  if constexpr (is_fixed_size_list_type<To>::value) {
     const auto& fixed_size_list_type = checked_cast<const FixedSizeListType&>(*to_type);
     if (from.value->length() != fixed_size_list_type.list_size()) {
       return Status::Invalid("Cannot cast ", from.type->ToString(), " of length ",
@@ -1281,12 +1281,13 @@ CastImpl(const BaseListScalar& from, std::shared_ptr<DataType> to_type) {
     }
   }
 
+  using ToScalar = typename TypeTraits<To>::ScalarType;
   return std::make_shared<ToScalar>(from.value, std::move(to_type), from.is_valid);
 }
 
 // list based types (list, large list and map (fixed sized list too)) to string
-template <typename ToScalar>
-typename std::enable_if_t<std::is_same<ToScalar, StringScalar>::value,
+template <typename To>
+typename std::enable_if_t<std::is_same<To, StringType>::value,
                           Result<std::shared_ptr<Scalar>>>
 CastImpl(const BaseListScalar& from, std::shared_ptr<DataType> to_type) {
   std::stringstream ss;
@@ -1353,33 +1354,6 @@ struct FromTypeVisitor : CastImplVisitor {
                                            checked_cast<const ToScalar&>(from_).value));
     return Status::OK();
   }
-
-  Status CastFromListLike(const BaseListType& base_list_type) {
-    ARROW_ASSIGN_OR_RAISE(out_,
-                          CastImpl<ToScalar>(checked_cast<const BaseListScalar&>(from_),
-                                             std::move(to_type_)));
-    return Status::OK();
-  }
-
-  Status Visit(const ListType& list_type) { return CastFromListLike(list_type); }
-
-  Status Visit(const LargeListType& large_list_type) {
-    return CastFromListLike(large_list_type);
-  }
-
-  Status Visit(const FixedSizeListType& fixed_size_list_type) {
-    return CastFromListLike(fixed_size_list_type);
-  }
-
-  Status Visit(const ListViewType& list_view_type) {
-    return CastFromListLike(list_view_type);
-  }
-
-  Status Visit(const LargeListViewType& large_list_view_type) {
-    return CastFromListLike(large_list_view_type);
-  }
-
-  Status Visit(const MapType& map_type) { return CastFromListLike(map_type); }
 
   Status Visit(const NullType&) { return NotImplemented(); }
   Status Visit(const DictionaryType&) { return NotImplemented(); }
