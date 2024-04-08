@@ -111,9 +111,10 @@ def _check_undefined_symbols(dylib, allowed):
     print("All Paths")
     print(all_paths)
     for lib_path in all_paths:
-        expected_symbols = dylib.list_symbols_for_dependency(lib_path, True)
-        undefined_symbols = [
-            symbol for symbol in undefined_symbols if symbol not in expected_symbols]
+        if lib_path:
+            expected_symbols = dylib.list_symbols_for_dependency(lib_path, True)
+            undefined_symbols = [
+                symbol for symbol in undefined_symbols if symbol not in expected_symbols]
 
     if undefined_symbols:
         undefined_symbols_str = '\n'.join(undefined_symbols)
