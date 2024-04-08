@@ -284,7 +284,7 @@ void ArraySpan::SetMembers(const ArrayData& data) {
 namespace {
 
 BufferSpan OffsetsForScalar(uint8_t* scratch_space, int64_t offset_width) {
-  return {scratch_space, offset_width};
+  return {scratch_space, offset_width * 2};
 }
 
 std::pair<BufferSpan, BufferSpan> OffsetsAndSizesForScalar(uint8_t* scratch_space,
