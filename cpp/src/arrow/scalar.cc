@@ -566,7 +566,6 @@ Status Scalar::Validate() const {
 }
 
 Status Scalar::ValidateFull() const {
-  // TODO: Validate scratch space content?
   return ScalarValidateImpl(/*full_validation=*/true).Validate(*this);
 }
 
@@ -1245,24 +1244,6 @@ CastImpl(const From& from, std::shared_ptr<DataType> to_type) {
   return std::make_shared<StringScalar>(FormatToBuffer(Formatter{from.type.get()}, from),
                                         std::move(to_type));
 }
-
-// template <typename To>
-// typename std::enable_if_t<std::is_same<To, StringType>::value,
-//                           Result<std::shared_ptr<Scalar>>>
-// CastImpl(const Decimal128Scalar& from, std::shared_ptr<DataType> to_type) {
-//   auto from_type = checked_cast<const Decimal128Type*>(from.type.get());
-//   return std::make_shared<StringScalar>(
-//       Buffer::FromString(from.value.ToString(from_type->scale())), std::move(to_type));
-// }
-
-// template <typename To>
-// typename std::enable_if_t<std::is_same<To, StringType>::value,
-//                           Result<std::shared_ptr<Scalar>>>
-// CastImpl(const Decimal256Scalar& from, std::shared_ptr<DataType> to_type) {
-//   auto from_type = checked_cast<const Decimal256Type*>(from.type.get());
-//   return std::make_shared<StringScalar>(
-//       Buffer::FromString(from.value.ToString(from_type->scale())), std::move(to_type));
-// }
 
 template <typename To>
 typename std::enable_if_t<std::is_same<To, StringType>::value,
