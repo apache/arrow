@@ -25,7 +25,6 @@ from .utils.command import Command
 _ldd = Command("ldd")
 _otool = Command("otool")
 _nm = Command("nm")
-_ldconfig = Command('ldconfig')
 
 
 class DependencyError(Exception):
@@ -67,57 +66,53 @@ class DynamicLibrary:
     def _extract_symbols(self, symbol_info):
         return [re.search(r'\S+$', line).group() for line in symbol_info if line]
 
-    def _remove_weak_symbols(self, lines):
-        return [line for line in lines if not re.search(r'\s[Ww]\s', line)]
+    def _remove_weak_symbols(self, symbol_info):
+        return [line for line in symbol_info if not re.search(r'\s[Ww]\s', line)]
+
+    def _capture_symbols(self, remove_symbol_versions, symbol_info):
+        if remove_symbol_versions:
+            symbol_info = [re.split('@@', line)[0] for line in symbol_info]
+        return symbol_info
 
     def list_symbols_for_dependency(self, dependency, remove_symbol_versions=False):
         result = _nm.run('-D', dependency, stdout=subprocess.PIPE)
         lines = result.stdout.decode('utf-8').splitlines()
-        if remove_symbol_versions:
-            lines = [re.split('@@', line)[0] for line in lines]
+        lines = self._capture_symbols(remove_symbol_versions, lines)
         return self._extract_symbols(lines)
 
     def list_undefined_symbols_for_dependency(self, dependency,
                                               remove_symbol_versions=False):
         result = _nm.run('-u', dependency, stdout=subprocess.PIPE)
         lines = result.stdout.decode('utf-8').splitlines()
-        if remove_symbol_versions:
-            lines = [re.split('@@', line)[0] for line in lines]
+        lines = self._capture_symbols(remove_symbol_versions, lines)
         lines = self._remove_weak_symbols(lines)
         return self._extract_symbols(lines)
 
-    def find_library_paths(self, libraries):
-        paths = {}
+    def extract_library_paths(self, file_path):
         system = platform.system()
-        for lib in libraries:
-            paths[lib] = []
-            if system == 'Linux':
-                result = _ldconfig.run('-p', stdout=subprocess.PIPE)
-                lines = result.stdout.decode('utf-8').splitlines()
-                for line in lines:
-                    if lib in line:
-                        match = re.search(r' => (.*)', line)
-                        if match:
-                            paths[lib].append(match.group(1))
-            else:
-                raise ValueError(f"{platform} is not supported")
+        paths = {}
+        if system == 'Linux':
+            result = _ldd.run(file_path, stdout=subprocess.PIPE)
+            lines = result.stdout.decode('utf-8').splitlines()
+            for line in lines:
+                match = re.search(r'(\S*) => (\S*)', line)
+                if match:
+                    paths[match.group(1)] = match.group(2)
+        else:
+            raise ValueError(f"{system} is not supported")
         return paths
 
 
 def _check_undefined_symbols(dylib, allowed):
     # Check for undefined symbols
     undefined_symbols = dylib.list_undefined_symbols_for_dependency(dylib.path, True)
-    expected_lib_paths = dylib.find_library_paths(allowed)
-    all_paths = []
+    expected_lib_paths = dylib.extract_library_paths(dylib.path)
+    all_paths = list(expected_lib_paths.values())
 
-    for paths in expected_lib_paths.values():
-        all_paths.extend(paths)
-
-    for lb_path in all_paths:
-        expected_symbols = dylib.list_symbols_for_dependency(lb_path, True)
-        for exp_sym in expected_symbols:
-            if exp_sym in undefined_symbols:
-                undefined_symbols.remove(exp_sym)
+    for lib_path in all_paths:
+        expected_symbols = dylib.list_symbols_for_dependency(lib_path, True)
+        undefined_symbols = [
+            symbol for symbol in undefined_symbols if symbol not in expected_symbols]
 
     if undefined_symbols:
         undefined_symbols_str = '\n'.join(undefined_symbols)
