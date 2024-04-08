@@ -99,7 +99,7 @@ class DynamicLibrary:
             lines = result.stdout.decode('utf-8').splitlines()
             for line in lines:
                 # Input:
-                #    librt.so.1 => /lib/x86_64-linux-gnu/librt.so.1 (0x00007f8c9dd90000)
+                #   librt.so.1 => /lib/x86_64-linux-gnu/librt.so.1 (0x00007f8c9dd90000)
                 # Match:
                 #   group(1): librt.so.1
                 #   group(2): /lib/x86_64-linux-gnu/librt.so.1
@@ -109,9 +109,9 @@ class DynamicLibrary:
                 else:
                     match = re.search(r'(\S*) \(.*\)', line)
                     # Input:
-                    #    /lib64/ld-linux-x86-64.so.2 (0x00007c1af3a26000)
+                    #   /lib64/ld-linux-x86-64.so.2 (0x00007c1af3a26000)
                     # Match:
-                    #  group(1): /lib64/ld-linux-x86-64.so.2
+                    #   group(1): /lib64/ld-linux-x86-64.so.2
                     if match:
                         paths[match.group(1)] = match.group(1)
         else:
