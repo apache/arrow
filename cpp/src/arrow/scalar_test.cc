@@ -709,11 +709,6 @@ TEST(TestStringScalar, MakeScalarString) {
   ASSERT_EQ(StringScalar("three"), *three);
 }
 
-TEST(TestStringScalar, Cast) {
-  std::string s = "test data";
-  // TODO: all others.
-}
-
 TEST(TestFixedSizeBinaryScalar, Basics) {
   std::string data = "test data";
   auto buf = std::make_shared<Buffer>(data);
