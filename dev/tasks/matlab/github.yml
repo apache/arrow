@@ -1,0 +1,162 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+{% import 'macros.jinja' as macros with context %}
+
+{{ macros.github_header() }}
+
+jobs:
+
+  ubuntu:
+    name: AMD64 Ubuntu 20.04 MATLAB
+    runs-on: ubuntu-20.04
+    steps:
+      {{ macros.github_checkout_arrow()|indent }}
+      - name: Install ninja-build
+        run: sudo apt-get update && sudo apt-get install ninja-build
+      - name: Install MATLAB
+        uses: matlab-actions/setup-matlab@v1
+        with:
+          release: R2023a
+      - name: Build MATLAB Interface
+        env:
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
+        run: arrow/ci/scripts/matlab_build.sh $(pwd)/arrow
+      - name: Change shared library dependency name
+        # MATLAB's programmatic packaging interface does not properly 
+        # include symbolic link files in the package MLTBX - this is a
+        # bug. As a temporary workaround, change the expected name of the 
+        # Arrow C++ library which libarrowproxy.so depends on. For example,
+        # change libarrow.so.1500 to libarrow.so.1500.0.0.
+        run: |
+          pushd arrow/matlab/install/arrow_matlab/+libmexclass/+proxy/ 
+          SYMLINK_ARROW_LIB="$(find . -name 'libarrow.so.*' -type l | xargs basename)"
+          REGULAR_ARROW_LIB="$(echo libarrow.so.*.*)"
+          echo "SYMLINK_ARROW_LIB = ${SYMLINK_ARROW_LIB}"
+          echo "REGULAR_ARROW_LIB = ${REGULAR_ARROW_LIB}"
+          patchelf --replace-needed $SYMLINK_ARROW_LIB $REGULAR_ARROW_LIB libarrowproxy.so
+          popd
+      - name: Compress into single artifact
+        run: tar -cvzf matlab-arrow-ubuntu.tar.gz arrow/matlab/install/arrow_matlab
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: matlab-arrow-ubuntu.tar.gz
+          path: matlab-arrow-ubuntu.tar.gz
+
+  macos:
+    name: AMD64 macOS 12 MATLAB
+    runs-on: macos-latest
+    steps:
+      {{ macros.github_checkout_arrow()|indent }}
+      - name: Install ninja-build
+        run: brew install ninja
+      - name: Install MATLAB
+        uses: matlab-actions/setup-matlab@v1
+        with:
+          release: R2023a
+      - name: Build MATLAB Interface
+        env:
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
+        run: arrow/ci/scripts/matlab_build.sh $(pwd)/arrow
+      - name: Change shared library dependency name
+        # MATLAB's programmatic packaging interface does not properly 
+        # include symbolic link files in the package MLTBX - this is a
+        # bug. As a temporary workaround, change the expected name of the 
+        # Arrow C++ library which libarrowproxy.dylib depends on.
+        # For example, change libarrow.1500.dylib to libarrow.1500.0.0.dylib.
+        run: |
+           pushd arrow/matlab/install/arrow_matlab/+libmexclass/+proxy
+           SYMLINK_ARROW_LIB="$(find . -name 'libarrow.*.dylib' -type l | xargs basename)"
+           REGULAR_ARROW_LIB="$(echo libarrow.*.*.dylib)"
+           echo "SYMLINK_ARROW_LIB = ${SYMLINK_ARROW_LIB}"
+           echo "REGULAR_ARROW_LIB = ${REGULAR_ARROW_LIB}"
+           install_name_tool -change @rpath/$SYMLINK_ARROW_LIB @rpath/$REGULAR_ARROW_LIB libarrowproxy.dylib
+           popd
+      - name: Compress into single artifact
+        run: tar -cvzf matlab-arrow-macos.tar.gz arrow/matlab/install/arrow_matlab
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: matlab-arrow-macos.tar.gz
+          path: matlab-arrow-macos.tar.gz
+
+  windows:
+    name: AMD64 Windows 2022 MATLAB
+    runs-on: windows-2022
+    steps:
+      {{ macros.github_checkout_arrow()|indent }}
+      - name: Install MATLAB
+        uses: matlab-actions/setup-matlab@v1
+        with:
+          release: R2023a
+      - name: Install sccache
+        shell: bash
+        run: arrow/ci/scripts/install_sccache.sh pc-windows-msvc $(pwd)/sccache
+      - name: Build MATLAB Interface
+        shell: cmd
+        env:
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          bash -c "arrow/ci/scripts/matlab_build.sh $(pwd)/arrow"
+      - name: Compress into single artifact
+        shell: bash
+        run: tar -cvzf matlab-arrow-windows.tar.gz arrow/matlab/install/arrow_matlab
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: matlab-arrow-windows.tar.gz
+          path: matlab-arrow-windows.tar.gz
+
+  package-mltbx:
+    name: Package MATLAB Toolbox (MLTBX) Files
+    runs-on: ubuntu-latest
+    needs:
+      - ubuntu
+      - macos
+      - windows
+    steps:
+      {{ macros.github_checkout_arrow(fetch_depth=0)|indent }}
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts-downloaded
+      - name: Decompress Artifacts
+        run: |
+          mv artifacts-downloaded/*/*.tar.gz .
+          tar -xzvf matlab-arrow-ubuntu.tar.gz
+          tar -xzvf matlab-arrow-macos.tar.gz
+          tar -xzvf matlab-arrow-windows.tar.gz
+      - name: Copy LICENSE.txt and NOTICE.txt for packaging 
+        run: |
+          cp arrow/LICENSE.txt arrow/matlab/install/arrow_matlab/LICENSE.txt
+          cp arrow/NOTICE.txt arrow/matlab/install/arrow_matlab/NOTICE.txt
+      - name: Install MATLAB
+        uses: matlab-actions/setup-matlab@v1
+        with:
+          release: R2023a
+      - name: Run commands
+        env:
+          MATLABPATH: arrow/matlab/tools
+          ARROW_MATLAB_TOOLBOX_FOLDER: arrow/matlab/install/arrow_matlab
+          ARROW_MATLAB_TOOLBOX_OUTPUT_FOLDER: artifacts/matlab-dist
+          ARROW_MATLAB_TOOLBOX_VERSION: {{ arrow.no_rc_version }}
+        uses: matlab-actions/run-command@v1
+        with:
+          command: packageMatlabInterface
+      {{ macros.github_upload_releases(["artifacts/matlab-dist/*.mltbx"])|indent }}

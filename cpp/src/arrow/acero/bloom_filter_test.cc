@@ -27,7 +27,7 @@
 #include "arrow/acero/task_util.h"
 #include "arrow/acero/test_util_internal.h"
 #include "arrow/acero/util.h"
-#include "arrow/compute/key_hash.h"
+#include "arrow/compute/key_hash_internal.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/config.h"
 #include "arrow/util/cpu_info.h"

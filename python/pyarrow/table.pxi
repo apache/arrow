@@ -3389,21 +3389,64 @@ cdef class RecordBatch(_Tabular):
                 <CResult[shared_ptr[CArray]]>deref(c_record_batch).ToStructArray())
         return pyarrow_wrap_array(c_array)
 
-    def to_tensor(self):
+    def to_tensor(self, c_bool null_to_nan=False, MemoryPool memory_pool=None):
         """
         Convert to a :class:`~pyarrow.Tensor`.
 
         RecordBatches that can be converted have fields of type signed or unsigned
-        integer or float, including all bit-widths, with no validity bitmask.
+        integer or float, including all bit-widths. RecordBatches with validity bitmask
+        for any of the arrays can be converted with ``null_to_nan``turned to ``True``.
+        In this case null values are converted to NaN and signed or unsigned integer
+        type arrays are promoted to appropriate float type.
+
+        Parameters
+        ----------
+        null_to_nan : bool, default False
+            Whether to write null values in the result as ``NaN``.
+        memory_pool : MemoryPool, default None
+            For memory allocations, if required, otherwise use default pool
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> batch = pa.record_batch(
+        ...    [
+        ...         pa.array([1, 2, 3, 4, None], type=pa.int32()),
+        ...         pa.array([10, 20, 30, 40, None], type=pa.float32()),
+        ...     ], names = ["a", "b"]
+        ... )
+
+        >>> batch
+        pyarrow.RecordBatch
+        a: int32
+        b: float
+        ----
+        a: [1,2,3,4,null]
+        b: [10,20,30,40,null]
+
+        >>> batch.to_tensor(null_to_nan=True)
+        <pyarrow.Tensor>
+        type: double
+        shape: (5, 2)
+        strides: (8, 40)
+
+        >>> batch.to_tensor(null_to_nan=True).to_numpy()
+        array([[ 1., 10.],
+               [ 2., 20.],
+               [ 3., 30.],
+               [ 4., 40.],
+               [nan, nan]])
         """
         cdef:
             shared_ptr[CRecordBatch] c_record_batch
             shared_ptr[CTensor] c_tensor
+            CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
 
         c_record_batch = pyarrow_unwrap_batch(self)
         with nogil:
             c_tensor = GetResultValue(
-                <CResult[shared_ptr[CTensor]]>deref(c_record_batch).ToTensor())
+                <CResult[shared_ptr[CTensor]]>deref(c_record_batch).ToTensor(null_to_nan,
+                                                                             pool))
         return pyarrow_wrap_tensor(c_tensor)
 
     def _export_to_c(self, out_ptr, out_schema_ptr=0):

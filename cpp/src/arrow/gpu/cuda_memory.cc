@@ -494,7 +494,8 @@ Result<std::shared_ptr<MemoryManager>> DefaultMemoryMapper(ArrowDeviceType devic
     case ARROW_DEVICE_CUDA:
     case ARROW_DEVICE_CUDA_HOST:
     case ARROW_DEVICE_CUDA_MANAGED: {
-      ARROW_ASSIGN_OR_RAISE(auto device, arrow::cuda::CudaDevice::Make(device_id));
+      ARROW_ASSIGN_OR_RAISE(auto device,
+                            arrow::cuda::CudaDevice::Make(static_cast<int>(device_id)));
       return device->default_memory_manager();
     }
     default:
@@ -505,7 +506,8 @@ Result<std::shared_ptr<MemoryManager>> DefaultMemoryMapper(ArrowDeviceType devic
 namespace {
 
 Result<std::shared_ptr<MemoryManager>> DefaultCUDADeviceMapper(int64_t device_id) {
-  ARROW_ASSIGN_OR_RAISE(auto device, arrow::cuda::CudaDevice::Make(device_id));
+  ARROW_ASSIGN_OR_RAISE(auto device,
+                        arrow::cuda::CudaDevice::Make(static_cast<int>(device_id)));
   return device->default_memory_manager();
 }
 

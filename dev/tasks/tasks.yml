@@ -59,6 +59,7 @@ groups:
     - conan-*
     - debian-*
     - java-jars
+    - matlab
     - nuget
     - python-sdist
     - r-binary-packages
@@ -665,6 +666,14 @@ tasks:
     params:
       formula: apache-arrow.rb
 
+  ############################## MATLAB Packages ################################
+
+  matlab:
+    ci: github
+    template: matlab/github.yml
+    artifacts:
+      - matlab-arrow-{no_rc_version}.mltbx
+
   ############################## Arrow JAR's ##################################
 
   java-jars:
@@ -1081,6 +1090,7 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
+        ARCHERY_USE_DOCKER_CLI: 0
         UBUNTU: 20.04
       flags: -e ARROW_SKYHOOK=ON
       image: ubuntu-cpp
@@ -1154,6 +1164,14 @@ tasks:
         UBUNTU: 20.04
       flags: "-e ARROW_CSV=ON -e ARROW_PARQUET=ON"
       image: ubuntu-cpp-minimal
+
+  test-ubuntu-22.04-cpp-emscripten:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 22.04
+      image: ubuntu-cpp-emscripten
 
 {% for python_version in ["3.8", "3.9", "3.10", "3.11", "3.12"] %}
   test-conda-python-{{ python_version }}:
@@ -1415,7 +1433,7 @@ tasks:
         R_PRUNE_DEPS: TRUE
       image: fedora-r-clang-sanitizer
 
-  {% for go_version, staticcheck in [("1.19", "v0.4.5"), ("1.21", "latest")] %}
+  {% for go_version, staticcheck in [("1.21", "v0.4.7"), ("1.22", "latest")] %}
   test-debian-12-go-{{ go_version }}:
     ci: azure
     template: docker-tests/azure.linux.yml
@@ -1447,12 +1465,16 @@ tasks:
     ci: github
     template: docker-tests/github.cuda.yml
     params:
+      env:
+        ARCHERY_USE_DOCKER_CLI: 0
       image: ubuntu-cuda-cpp
 
   test-cuda-python:
     ci: github
     template: docker-tests/github.cuda.yml
     params:
+      env:
+        ARCHERY_USE_DOCKER_CLI: 0
       image: ubuntu-cuda-python
 
   ############################## Fuzz tests #################################
@@ -1513,8 +1535,9 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
-        PYTHON: "3.10"
+        ARCHERY_USE_DOCKER_CLI: 0
         HDFS: "{{ hdfs_version }}"
+        PYTHON: "3.10"
       image: conda-python-hdfs
 {% endfor %}
 
