@@ -1736,7 +1736,6 @@ TestBloomFilterWriter<TestType>::BuildWriterWithBloomFilter(
     wp_builder.disable_dictionary();
     wp_builder.encoding(column_properties.encoding());
   }
-  wp_builder.max_statistics_size(column_properties.max_statistics_size());
   auto path = this->schema_.Column(0)->path();
   if (column_properties.bloom_filter_enabled()) {
     wp_builder.enable_bloom_filter_options(
@@ -1750,7 +1749,7 @@ TestBloomFilterWriter<TestType>::BuildWriterWithBloomFilter(
       ColumnChunkMetaDataBuilder::Make(this->writer_properties_, this->descr_);
   std::unique_ptr<PageWriter> pager = PageWriter::Open(
       this->sink_, column_properties.compression(), this->metadata_.get());
-  builder_ = BloomFilterBuilder::Make(&this->schema_, *this->writer_properties_);
+  builder_ = BloomFilterBuilder::Make(&this->schema_, this->writer_properties_.get());
   // Initial RowGroup
   builder_->AppendRowGroup();
   bloom_filter_ = builder_->GetOrCreateBloomFilter(0);

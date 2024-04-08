@@ -34,19 +34,20 @@
 
 namespace parquet {
 
+/// Column encryption for bloom filter is not implemented yet.
 class BloomFilterBuilderImpl : public BloomFilterBuilder {
  public:
   explicit BloomFilterBuilderImpl(const SchemaDescriptor* schema,
-                                  WriterProperties properties)
-      : schema_(schema), properties_(std::move(properties)) {}
+                                  const WriterProperties* properties)
+      : schema_(schema), properties_(properties) {}
   /// Append a new row group to host all incoming bloom filters.
   void AppendRowGroup() override;
 
   BloomFilter* GetOrCreateBloomFilter(int32_t column_ordinal) override;
 
   /// Serialize all bloom filters with header and bitset in the order of row group and
-  /// column id. Column encryption is not implemented yet. The side effect is that it
-  /// deletes all bloom filters after they have been flushed.
+  /// column id. The side effect is that it deletes all bloom filters after they have
+  /// been flushed.
   void WriteTo(::arrow::io::OutputStream* sink, BloomFilterLocation* location) override;
 
   BloomFilterBuilderImpl(const BloomFilterBuilderImpl&) = delete;
@@ -70,7 +71,7 @@ class BloomFilterBuilderImpl : public BloomFilterBuilder {
   }
 
   const SchemaDescriptor* schema_;
-  WriterProperties properties_;
+  const WriterProperties* properties_;
   bool finished_ = false;
 
   using RowGroupBloomFilters = std::map<int32_t, std::unique_ptr<BloomFilter>>;
@@ -81,7 +82,7 @@ class BloomFilterBuilderImpl : public BloomFilterBuilder {
 };
 
 std::unique_ptr<BloomFilterBuilder> BloomFilterBuilder::Make(
-    const SchemaDescriptor* schema, const WriterProperties& properties) {
+    const SchemaDescriptor* schema, const WriterProperties* properties) {
   return std::make_unique<BloomFilterBuilderImpl>(schema, properties);
 }
 
@@ -97,7 +98,7 @@ BloomFilter* BloomFilterBuilderImpl::GetOrCreateBloomFilter(int32_t column_ordin
   CheckState(column_ordinal);
   const ColumnDescriptor* column_descr = schema_->Column(column_ordinal);
   DCHECK_NE(column_descr->physical_type(), Type::BOOLEAN);
-  auto bloom_filter_options_opt = properties_.bloom_filter_options(column_descr->path());
+  auto bloom_filter_options_opt = properties_->bloom_filter_options(column_descr->path());
   if (bloom_filter_options_opt == std::nullopt) {
     return nullptr;
   }
@@ -106,12 +107,12 @@ BloomFilter* BloomFilterBuilderImpl::GetOrCreateBloomFilter(int32_t column_ordin
   auto iter = row_group_bloom_filter.find(column_ordinal);
   if (iter == row_group_bloom_filter.end()) {
     auto block_split_bloom_filter =
-        std::make_unique<BlockSplitBloomFilter>(properties_.memory_pool());
+        std::make_unique<BlockSplitBloomFilter>(properties_->memory_pool());
     block_split_bloom_filter->Init(BlockSplitBloomFilter::OptimalNumOfBytes(
         bloom_filter_options.ndv, bloom_filter_options.fpp));
     auto insert_result = row_group_bloom_filter.emplace(
         column_ordinal, std::move(block_split_bloom_filter));
-    ARROW_CHECK(insert_result.second);
+    DCHECK(insert_result.second);
     iter = insert_result.first;
   }
   ARROW_CHECK(iter->second != nullptr);
