@@ -2519,8 +2519,8 @@ def test_round_temporal_ambiguous_nonexistent(unit):
 
     def _get_nonexistent(t, timezone):
         do_fix = t.dt.tz_localize(timezone, nonexistent="NaT") is None
-        t = t.dt.tz_localize(timezone, nonexistent=-pd.Timedelta("1H"))
-        t = np.where(do_fix, t + pd.Timedelta("1H"), t)
+        t = t.dt.tz_localize(timezone, nonexistent=-pd.Timedelta("1h"))
+        t = np.where(do_fix, t + pd.Timedelta("1h"), t)
         return pd.Series(t)
 
     def _get_fold_0(ts, timezone):
@@ -2552,10 +2552,10 @@ def test_round_temporal_ambiguous_nonexistent(unit):
     unit_shorthand = {
         "nanosecond": "ns",
         "microsecond": "us",
-        "millisecond": "L",
+        "millisecond": "ms",
         "second": "s",
         "minute": "min",
-        "hour": "H",
+        "hour": "h",
         "day": "D"
     }
     values = (1, 2, 3, 4, 5, 6, 7, 10, 15, 24, 60, 250, 500, 750)
