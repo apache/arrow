@@ -69,9 +69,9 @@ can be used to create the various PyArrow objects:
 +----------------------------+-----------------------------------------------+--------------------+
 | :class:`RecordBatchReader` | :meth:`pyarrow.RecordBatchReader.from_stream` | stream             |
 +----------------------------+-----------------------------------------------+--------------------+
-| :class:`Field`             | :func:`pyarrow.record_batch`                  | schema             |
+| :class:`Field`             | :func:`pyarrow.field`                         | schema             |
 +----------------------------+-----------------------------------------------+--------------------+
-| :class:`Schema`            | :func:`pyarrow.record_batch`                  | schema             |
+| :class:`Schema`            | :func:`pyarrow.schema`                        | schema             |
 +----------------------------+-----------------------------------------------+--------------------+
 
 A :class:`DataType` can be created by consuming the schema-compatible object
