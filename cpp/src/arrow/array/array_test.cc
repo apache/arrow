@@ -824,6 +824,8 @@ TEST_F(TestArray, TestFillFromScalar) {
   }
 }
 
+// GH-40069: Data-race when concurrent calling ArraySpan::FillFromScalar of the same
+// scalar instance.
 TEST_F(TestArray, TestConcurrentFillFromScalar) {
   for (auto type : TestArrayUtilitiesAgainstTheseTypes()) {
     ARROW_SCOPED_TRACE("type = ", type->ToString());
