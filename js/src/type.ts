@@ -349,7 +349,19 @@ export class Date_<T extends Dates = Dates> extends DataType<T> {
 
 /** @ignore */
 export class DateDay extends Date_<Type.DateDay> { constructor() { super(DateUnit.DAY); } }
-/** @ignore */
+/**
+ * A signed 64-bit date representing the elapsed time since UNIX epoch (1970-01-01) in milliseconds.
+ * According to the specification, this should be treated as the number of days, in milliseconds,  since the UNIX epoch.
+ * Therefore, values must be evenly divisible by `86_400_000` (the number of milliseconds in a standard day).
+ *
+ * Practically, validation that values of this type are evenly divisible by `86_400_000` is not enforced by this library
+ * for performance and usability reasons.
+ *
+ * Users should prefer to use {@link DateDay} to cleanly represent the number of days. For JS dates,
+ * {@link TimestampMillisecond} is the preferred type.
+ *
+ * @ignore
+ */
 export class DateMillisecond extends Date_<Type.DateMillisecond> { constructor() { super(DateUnit.MILLISECOND); } }
 
 /** @ignore */

@@ -118,7 +118,7 @@
 #include <vector>
 #include <sys/stat.h>
 
-// unistd.h is used on some platforms as part of the the means to get
+// unistd.h is used on some platforms as part of the means to get
 // the current time zone. On Win32 windows.h provides a means to do it.
 // gcc/mingw supports unistd.h on Win32 but MSVC does not.
 
