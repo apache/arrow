@@ -111,6 +111,15 @@ Data Types
 | Run-End Encoded   | ✓     |       | ✓     |            |       |       |       |       |
 +-------------------+-------+-------+-------+------------+-------+-------+-------+-------+
 
++-----------------------+-------+-------+-------+------------+-------+-------+-------+-------+
+| Canonical             | C++   | Java  | Go    | JavaScript | C#    | Rust  | Julia | Swift |
+| Extension types       |       |       |       |            |       |       |       |       |
++=======================+=======+=======+=======+============+=======+=======+=======+=======+
+| Fixed shape tensor    | ✓     |       |       |            |       |       |       |       |
++-----------------------+-------+-------+-------+------------+-------+-------+-------+-------+
+| Variable shape tensor |       |       |       |            |       |       |       |       |
++-----------------------+-------+-------+-------+------------+-------+-------+-------+-------+
+
 Notes:
 
 * \(1) Casting to/from Float16 in Java is not supported.
@@ -118,7 +127,8 @@ Notes:
 * \(3) Nested dictionaries not supported
 
 .. seealso::
-   The :ref:`format_columnar` specification.
+   The :ref:`format_columnar` and the
+   :ref:`format_canonical_extensions` specification.
 
 
 IPC Format
