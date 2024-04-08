@@ -37,7 +37,7 @@ under the hood, you can implement the following methods on those objects:
 
 - ``__arrow_c_schema__`` for schema or type-like objects.
 - ``__arrow_c_array__`` for arrays and record batches (contiguous tables).
-- ``__arrow_c_stream__`` for chunked arrays or tables, or streams of data.
+- ``__arrow_c_stream__`` for chunked arrays, tables and streams of data.
 
 Those methods return `PyCapsule <https://docs.python.org/3/c-api/capsule.html>`__
 objects, and more details on the exact semantics can be found in the
@@ -57,7 +57,7 @@ For consuming data through this protocol with PyArrow, the following constructor
 can be used to create the various PyArrow objects:
 
 +----------------------------+-----------------------------------------------+--------------------+
-| Result class               | Mapped Arrow type                             | Supported protocol |
+| Result class               | PyArrow constructor                           | Supported protocol |
 +============================+===============================================+====================+
 | :class:`Array`             | :func:`pyarrow.array`                         | array              |
 +----------------------------+-----------------------------------------------+--------------------+

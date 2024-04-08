@@ -701,5 +701,7 @@ def test_roundtrip_chunked_array_capsule_requested_schema():
 
     requested_type = pa.int64()
     requested_capsule = requested_type.__arrow_c_schema__()
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError, match="Could not cast string to requested type int64"
+    ):
         chunked.__arrow_c_stream__(requested_capsule)

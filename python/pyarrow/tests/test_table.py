@@ -493,6 +493,14 @@ def test_recordbatch_dunder_init():
         pa.RecordBatch()
 
 
+class SchemaWrapper:
+    def __init__(self, schema):
+        self.schema = schema
+
+    def __arrow_c_schema__(self):
+        return self.schema.__arrow_c_schema__()
+
+
 def test_chunked_array_c_array_interface():
     class ArrayWrapper:
         def __init__(self, array):
@@ -513,6 +521,9 @@ def test_chunked_array_c_array_interface():
     result = pa.chunked_array(wrapper, type=pa.int16())
     assert result == chunked.cast(pa.int16())
 
+    result = pa.chunked_array(wrapper, type=SchemaWrapper(pa.int16()))
+    assert result == chunked.cast(pa.int16())
+
 
 def test_chunked_array_c_stream_interface():
     class ChunkedArrayWrapper:
@@ -531,6 +542,9 @@ def test_chunked_array_c_stream_interface():
 
     # Can also import with a type that implementer can cast to.
     result = pa.chunked_array(wrapper, type=pa.int16())
+    assert result == data.cast(pa.int16())
+
+    result = pa.chunked_array(wrapper, type=SchemaWrapper(pa.int16()))
     assert result == data.cast(pa.int16())
 
 
@@ -559,6 +573,9 @@ def test_recordbatch_c_array_interface():
     expected = pa.record_batch([
         pa.array([1, 2, 3], type=pa.int32())
     ], names=['a'])
+    assert result == expected
+
+    result = pa.record_batch(wrapper, schema=SchemaWrapper(castable_schema))
     assert result == expected
 
 
@@ -590,6 +607,9 @@ def test_table_c_array_interface():
     })
     assert result == expected
 
+    result = pa.table(wrapper, schema=SchemaWrapper(castable_schema))
+    assert result == expected
+
 
 def test_table_c_stream_interface():
     class StreamWrapper:
@@ -619,6 +639,9 @@ def test_table_c_stream_interface():
     # Passing a different schema will cast
     good_schema = pa.schema([pa.field('a', pa.int32())])
     result = pa.table(wrapper, schema=good_schema)
+    assert result == expected.cast(good_schema)
+
+    result = pa.table(wrapper, schema=SchemaWrapper(good_schema))
     assert result == expected.cast(good_schema)
 
     # If schema doesn't match, raises NotImplementedError
