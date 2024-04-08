@@ -661,7 +661,7 @@ class TestBooleanArrowDecoding : public ::testing::Test {
 
     // Initialize input_data_ for the encoder from the expected_array_ values
     const auto& boolean_array =
-        static_cast<const ::arrow::BooleanArray&>(*expected_dense_);
+        checked_cast<const ::arrow::BooleanArray&>(*expected_dense_);
     input_data_.resize(boolean_array.length());
 
     for (int64_t i = 0; i < boolean_array.length(); ++i) {
@@ -680,6 +680,11 @@ class TestBooleanArrowDecoding : public ::testing::Test {
       ASSERT_NO_THROW(encoder_->Put(data_ptr, kNumValues));
     }
     buffer_ = encoder_->FlushValues();
+    ResetTheDecoder();
+  }
+
+  void ResetTheDecoder() {
+    ASSERT_NE(nullptr, buffer_);
     decoder_->SetData(kNumValues, buffer_->data(), static_cast<int>(buffer_->size()));
   }
 
@@ -688,12 +693,12 @@ class TestBooleanArrowDecoding : public ::testing::Test {
     ASSERT_ARRAYS_EQUAL(chunk, *expected_dense_);
   }
 
-  void CheckDecodeArrowUsingDenseBuilder(Encoding::type encoding) {
+  void CheckDecodeArrow(Encoding::type encoding) {
     for (double np : null_probabilities_) {
       for (double true_prob : true_probabilities_) {
+        InitTestCase(encoding, np, true_prob);
         for (int read_batch_size : this->read_batch_sizes_) {
-          // Resume the state of decoder
-          InitTestCase(encoding, np, true_prob);
+          ResetTheDecoder();
 
           int num_values_left = kNumValues;
           ::arrow::BooleanBuilder acc;
@@ -722,12 +727,13 @@ class TestBooleanArrowDecoding : public ::testing::Test {
     }
   }
 
-  void CheckDecodeArrowNonNullUsingDenseBuilder(Encoding::type encoding) {
+  void CheckDecodeArrowNonNull(Encoding::type encoding) {
     // NonNull skips tests for null_prob != 0.
     for (auto true_prob : true_probabilities_) {
+      InitTestCase(encoding, /*null_probability=*/0, true_prob);
       for (int read_batch_size : this->read_batch_sizes_) {
         // Resume the decoder
-        InitTestCase(encoding, /*null_probability=*/0, true_prob);
+        ResetTheDecoder();
         ::arrow::BooleanBuilder acc;
         int actual_num_values = 0;
         int num_values_left = kNumValues;
@@ -757,20 +763,20 @@ class TestBooleanArrowDecoding : public ::testing::Test {
   std::shared_ptr<Buffer> buffer_;
 };
 
-TEST_F(TestBooleanArrowDecoding, CheckDecodeArrowUsingDenseBuilderPlain) {
-  this->CheckDecodeArrowUsingDenseBuilder(Encoding::PLAIN);
+TEST_F(TestBooleanArrowDecoding, CheckDecodeArrowUsingPlain) {
+  this->CheckDecodeArrow(Encoding::PLAIN);
 }
 
-TEST_F(TestBooleanArrowDecoding, CheckDecodeArrowNonNullDenseBuilderPlain) {
-  this->CheckDecodeArrowNonNullUsingDenseBuilder(Encoding::PLAIN);
+TEST_F(TestBooleanArrowDecoding, CheckDecodeArrowNonNullPlain) {
+  this->CheckDecodeArrowNonNull(Encoding::PLAIN);
 }
 
-TEST_F(TestBooleanArrowDecoding, CheckDecodeArrowUsingDenseBuilderRle) {
-  this->CheckDecodeArrowUsingDenseBuilder(Encoding::RLE);
+TEST_F(TestBooleanArrowDecoding, CheckDecodeArrowRle) {
+  this->CheckDecodeArrow(Encoding::RLE);
 }
 
-TEST_F(TestBooleanArrowDecoding, CheckDecodeArrowNonNullDenseBuilder) {
-  this->CheckDecodeArrowNonNullUsingDenseBuilder(Encoding::RLE);
+TEST_F(TestBooleanArrowDecoding, CheckDecodeArrowNonNullRle) {
+  this->CheckDecodeArrowNonNull(Encoding::RLE);
 }
 
 template <typename T>
