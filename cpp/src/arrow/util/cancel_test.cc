@@ -232,6 +232,10 @@ class SignalCancelTest : public CancelTest {
 };
 
 TEST_F(SignalCancelTest, Register) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   RegisterHandler();
 
   TriggerSignal();
@@ -239,6 +243,10 @@ TEST_F(SignalCancelTest, Register) {
 }
 
 TEST_F(SignalCancelTest, RegisterUnregister) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   // The signal stop source was set up but no handler was registered,
   // so the token shouldn't be signalled.
   TriggerSignal();
@@ -261,6 +269,10 @@ TEST_F(SignalCancelTest, RegisterUnregister) {
 #if !(defined(_WIN32) || defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER) || \
       defined(THREAD_SANITIZER))
 TEST_F(SignalCancelTest, ForkSafetyUnregisteredHandlers) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   RunInChild([&]() {
     // Child
     TriggerSignal();
@@ -284,6 +296,10 @@ TEST_F(SignalCancelTest, ForkSafetyUnregisteredHandlers) {
 }
 
 TEST_F(SignalCancelTest, ForkSafetyRegisteredHandlers) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   RegisterHandler();
 
   RunInChild([&]() {
@@ -307,6 +323,10 @@ TEST_F(SignalCancelTest, ForkSafetyRegisteredHandlers) {
 #endif
 
 TEST_F(CancelTest, ThreadedPollSuccess) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   constexpr int kNumThreads = 10;
 
   std::vector<Status> results(kNumThreads);
@@ -339,6 +359,10 @@ TEST_F(CancelTest, ThreadedPollSuccess) {
 }
 
 TEST_F(CancelTest, ThreadedPollCancel) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   constexpr int kNumThreads = 10;
 
   std::vector<Status> results(kNumThreads);

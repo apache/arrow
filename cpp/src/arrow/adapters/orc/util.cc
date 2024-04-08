@@ -37,6 +37,7 @@
 
 #include "orc/MemoryPool.hh"
 #include "orc/OrcFile.hh"
+#include "orc/orc-config.hh"
 
 // alias to not interfere with nested orc namespace
 namespace liborc = orc;
@@ -1218,6 +1219,13 @@ Result<std::shared_ptr<Field>> GetArrowField(const std::string& name,
   ARROW_ASSIGN_OR_RAISE(auto arrow_type, GetArrowType(type));
   ARROW_ASSIGN_OR_RAISE(auto metadata, GetFieldMetadata(type));
   return field(name, std::move(arrow_type), nullable, std::move(metadata));
+}
+
+int GetOrcMajorVersion() {
+  std::stringstream orc_version(ORC_VERSION);
+  std::string major_version;
+  std::getline(orc_version, major_version, '.');
+  return std::stoi(major_version);
 }
 
 }  // namespace orc

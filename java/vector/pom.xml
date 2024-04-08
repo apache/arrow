@@ -74,11 +74,6 @@
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
     </dependency>
-    <dependency>
-      <groupId>org.eclipse.collections</groupId>
-      <artifactId>eclipse-collections</artifactId>
-      <version>11.1.0</version>
-    </dependency>
   </dependencies>
 
   <pluginRepositories>
@@ -184,7 +179,7 @@
           issues in the arrow-tools tests looking up FlatBuffer
           dependencies.
          -->
-        <version>3.5.2</version>
+        <version>3.2.4</version>
         <executions>
           <execution>
             <phase>package</phase>

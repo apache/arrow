@@ -100,6 +100,44 @@ public class TestDenseUnionVector {
   }
 
   @Test
+  public void testSetOffset() {
+    try (DenseUnionVector duv = DenseUnionVector.empty("foo", allocator)) {
+      duv.allocateNew();
+      byte i32TypeId = duv.registerNewTypeId(Field.notNullable("i32", MinorType.INT.getType()));
+      byte f64TypeId = duv.registerNewTypeId(Field.notNullable("f64", MinorType.FLOAT8.getType()));
+
+      IntVector i32Vector = ((IntVector) duv.addVector(i32TypeId, new IntVector("i32", allocator)));
+      Float8Vector f64Vector = ((Float8Vector) duv.addVector(f64TypeId, new Float8Vector("f64", allocator)));
+
+      i32Vector.allocateNew(3);
+      f64Vector.allocateNew(1);
+
+      duv.setTypeId(0, i32TypeId);
+      duv.setOffset(0, 0);
+      i32Vector.set(0, 42);
+
+      duv.setTypeId(1, i32TypeId);
+      duv.setOffset(1, 1);
+      i32Vector.set(1, 43);
+
+      duv.setTypeId(2, f64TypeId);
+      duv.setOffset(2, 0);
+      f64Vector.set(0, 3.14);
+
+      duv.setTypeId(3, i32TypeId);
+      duv.setOffset(3, 2);
+      i32Vector.set(2, 44);
+
+      duv.setValueCount(4);
+
+      assertEquals(42, duv.getObject(0));
+      assertEquals(43, duv.getObject(1));
+      assertEquals(3.14, duv.getObject(2));
+      assertEquals(44, duv.getObject(3));
+    }
+  }
+
+  @Test
   public void testTransfer() throws Exception {
     try (DenseUnionVector srcVector = new DenseUnionVector(EMPTY_SCHEMA_PATH, allocator, null, null)) {
       srcVector.allocateNew();
@@ -321,6 +359,34 @@ public class TestDenseUnionVector {
             assertEquals("Different values at index: " + i, sourceVector.getObject(start + i), toVector.getObject(i));
           }
         }
+      }
+    }
+  }
+
+  @Test
+  public void testSplitAndTransferDuvInStruct() {
+    try (StructVector struct = StructVector.empty("struct", allocator)) {
+      DenseUnionVector duv = struct.addOrGet("duv",
+          FieldType.notNullable(MinorType.DENSEUNION.getType()),
+          DenseUnionVector.class);
+      byte i32TypeId = duv.registerNewTypeId(Field.notNullable("i32", MinorType.INT.getType()));
+      duv.addVector(i32TypeId, new IntVector("i32", allocator));
+
+      struct.setIndexDefined(0);
+      duv.setTypeId(0, i32TypeId);
+      duv.setSafe(0, newIntHolder(42));
+
+      struct.setNull(1);
+      struct.setValueCount(2);
+
+      try (StructVector dest = StructVector.empty("dest", allocator)) {
+        TransferPair pair = struct.makeTransferPair(dest);
+        pair.splitAndTransfer(0, 2);
+
+        assertEquals(2, dest.getValueCount());
+        assertFalse(dest.isNull(0));
+        assertEquals(42, dest.getObject(0).get("duv"));
+        assertTrue(dest.isNull(1));
       }
     }
   }

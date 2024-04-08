@@ -173,6 +173,7 @@ class PARQUET_EXPORT BloomFilter {
   ///
   /// @param value the value to hash.
   uint64_t Hash(const ByteArray& value) const { return Hash(&value); }
+
   /// Compute hash for fixed byte array value by using its plain encoding result.
   ///
   /// @param value the value to hash.
@@ -186,7 +187,7 @@ class PARQUET_EXPORT BloomFilter {
   /// Compute hash for std::string_view value by using its plain encoding result.
   ///
   /// @param value the value to hash.
-  uint64_t Hash(const std::string_view& value) const {
+  uint64_t Hash(std::string_view value) const {
     ByteArray ba(value);
     return Hash(&ba);
   }

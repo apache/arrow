@@ -94,7 +94,7 @@ TEST(BloomFilterBuilderTest, BasicRoundTrip) {
   bloom_filter_options.ndv = 100;
   properties_builder.enable_bloom_filter_options(bloom_filter_options, "c1");
   auto writer_properties = properties_builder.build();
-  auto builder = BloomFilterBuilder::Make(&schema, *writer_properties);
+  auto builder = BloomFilterBuilder::Make(&schema, writer_properties.get());
 
   auto append_values_to_bloom_filter = [&](const std::vector<uint64_t>& insert_hashes) {
     builder->AppendRowGroup();
@@ -164,15 +164,25 @@ TEST(BloomFilterBuilderTest, InvalidOperations) {
   properties_builder.enable_bloom_filter_options(bloom_filter_options, "c1");
   properties_builder.enable_bloom_filter_options(bloom_filter_options, "c2");
   auto properties = properties_builder.build();
-  auto builder = BloomFilterBuilder::Make(&schema, *properties);
+  auto builder = BloomFilterBuilder::Make(&schema, properties.get());
   // AppendRowGroup() is not called and expect throw.
-  ASSERT_THROW(builder->GetOrCreateBloomFilter(0), ParquetException);
+  EXPECT_THROW_THAT(
+      [&]() { builder->GetOrCreateBloomFilter(0); }, ParquetException,
+      ::testing::Property(
+          &ParquetException::what,
+          ::testing::HasSubstr("No row group appended to BloomFilterBuilder")));
 
   builder->AppendRowGroup();
   // GetOrCreateBloomFilter() with wrong column ordinal expect throw.
-  ASSERT_THROW(builder->GetOrCreateBloomFilter(2), ParquetException);
+  EXPECT_THROW_THAT([&]() { builder->GetOrCreateBloomFilter(2); }, ParquetException,
+                    ::testing::Property(&ParquetException::what,
+                                        ::testing::HasSubstr("Invalid column ordinal")));
   // GetOrCreateBloomFilter() with boolean expect throw.
-  ASSERT_THROW(builder->GetOrCreateBloomFilter(1), ParquetException);
+  EXPECT_THROW_THAT(
+      [&]() { builder->GetOrCreateBloomFilter(1); }, ParquetException,
+      ::testing::Property(
+          &ParquetException::what,
+          ::testing::HasSubstr("BloomFilterBuilder does not support boolean type")));
   auto filter = builder->GetOrCreateBloomFilter(0);
   // Call GetOrCreateBloomFilter the second time it is actually a cached version.
   EXPECT_EQ(filter, builder->GetOrCreateBloomFilter(0));
@@ -181,7 +191,10 @@ TEST(BloomFilterBuilderTest, InvalidOperations) {
   builder->WriteTo(sink.get(), &location);
   EXPECT_EQ(1, location.bloom_filter_location.size());
   // Multiple WriteTo() expect throw.
-  ASSERT_THROW(builder->WriteTo(sink.get(), &location), ParquetException);
+  EXPECT_THROW_THAT(
+      [&]() { builder->WriteTo(sink.get(), &location); }, ParquetException,
+      ::testing::Property(&ParquetException::what,
+                          ::testing::HasSubstr("Cannot call WriteTo() multiple times")));
 }
 
 TEST(BloomFilterBuilderTest, GetOrCreate) {
@@ -195,7 +208,7 @@ TEST(BloomFilterBuilderTest, GetOrCreate) {
   properties_builder.enable_bloom_filter_options(bloom_filter_options, "c1");
   properties_builder.enable_bloom_filter_options(bloom_filter_options, "c2");
   auto properties = properties_builder.build();
-  auto builder = BloomFilterBuilder::Make(&schema, *properties);
+  auto builder = BloomFilterBuilder::Make(&schema, properties.get());
   // AppendRowGroup() is not called and expect throw.
   ASSERT_THROW(builder->GetOrCreateBloomFilter(0), ParquetException);
 

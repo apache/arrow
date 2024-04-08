@@ -84,10 +84,6 @@ class ArrowWriterPropertiesBuilder;
 
 class BloomFilter;
 
-namespace schema {
-class ColumnPath;
-}  // namespace schema
-
 namespace arrow {
 
 class FileWriter;

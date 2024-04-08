@@ -170,6 +170,8 @@ takes precedence over ccache if a storage backend is configured" ON)
 
   define_option(ARROW_USE_LD_GOLD "Use ld.gold for linking on Linux (if available)" OFF)
 
+  define_option(ARROW_USE_LLD "Use the LLVM lld for linking (if available)" OFF)
+
   define_option(ARROW_USE_MOLD "Use mold for linking on Linux (if available)" OFF)
 
   define_option(ARROW_USE_PRECOMPILED_HEADERS "Use precompiled headers when compiling"

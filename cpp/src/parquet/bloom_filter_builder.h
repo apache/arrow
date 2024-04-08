@@ -44,15 +44,13 @@ class PARQUET_EXPORT BloomFilterBuilder {
  public:
   /// \brief API to create a BloomFilterBuilder.
   static std::unique_ptr<BloomFilterBuilder> Make(const SchemaDescriptor* schema,
-                                                  const WriterProperties& properties);
+                                                  const WriterProperties* properties);
 
   /// Append a new row group to host all incoming bloom filters.
   ///
-  /// This method must be called before `GetOrCreateBloomFilter`
-  /// in a row group.
+  /// This method must be called before `GetOrCreateBloomFilter` for a new row group.
   ///
-  /// \throws ParquetException It will throw an exception if the BloomFilter already
-  /// called `WriteTo`.
+  /// \throws ParquetException if WriteTo() has been called to flush bloom filters.
   virtual void AppendRowGroup() = 0;
 
   /// \brief Get the BloomFilter from column ordinal.
@@ -63,9 +61,10 @@ class PARQUET_EXPORT BloomFilterBuilder {
   /// BloomFilterBuilder. It will return nullptr if bloom filter is not enabled for the
   /// column.
   ///
-  /// \throws ParquetException It will throw an exception if the BloomFilter already
-  /// called `WriteTo`, column_ordinal is out of bound, or without calling
-  /// `AppendRowGroup` before `GetOrCreateBloomFilter`.
+  /// \throws ParquetException if any of following conditions applies:
+  /// 1) column_ordinal is out of bound.
+  /// 2) `WriteTo()` has been called already.
+  /// 3) `AppendRowGroup()` is not called before `GetOrCreateBloomFilter()`.
   virtual BloomFilter* GetOrCreateBloomFilter(int32_t column_ordinal) = 0;
 
   /// \brief Write the bloom filter to sink.
@@ -75,8 +74,7 @@ class PARQUET_EXPORT BloomFilterBuilder {
   /// \param[out] sink The output stream to write the bloom filter.
   /// \param[out] location The location of all bloom filter relative to the start of sink.
   ///
-  /// \throws ParquetException It will throw an exception if the BloomFilter already
-  /// called `WriteTo`.
+  /// \throws ParquetException if WriteTo() has been called to flush bloom filters.
   virtual void WriteTo(::arrow::io::OutputStream* sink,
                        BloomFilterLocation* location) = 0;
 

@@ -47,6 +47,10 @@ jobs:
           brew install bash bison coreutils ninja
           echo "$(brew --prefix bison)/bin" >> $GITHUB_PATH
 
+      - name: Homebrew packages
+        run: |
+          brew list
+
       - name: Retrieve VCPKG version from arrow/.env
         run: |
           vcpkg_version=$(cat "arrow/.env" | grep "VCPKG" | cut -d "=" -f2 | tr -d '"')
