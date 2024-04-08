@@ -75,6 +75,8 @@ class DynamicLibrary:
         return symbol_info
 
     def list_symbols_for_dependency(self, dependency, remove_symbol_versions=False):
+        if dependency == 'linux-vdso.so.1':
+            return []
         result = _nm.run('-D', dependency, stdout=subprocess.PIPE)
         lines = result.stdout.decode('utf-8').splitlines()
         lines = self._capture_symbols(remove_symbol_versions, lines)
@@ -95,9 +97,14 @@ class DynamicLibrary:
             result = _ldd.run(file_path, stdout=subprocess.PIPE)
             lines = result.stdout.decode('utf-8').splitlines()
             for line in lines:
+                print(line)
                 match = re.search(r'(\S*) => (\S*)', line)
                 if match:
                     paths[match.group(1)] = match.group(2)
+                else:
+                    match = re.search(r'(\S*) \(.*\)', line)
+                    if match:
+                        paths[match.group(1)] = match.group(1)
         else:
             raise ValueError(f"{system} is not supported")
         return paths
