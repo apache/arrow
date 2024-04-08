@@ -1245,6 +1245,7 @@ CastImpl(const From& from, std::shared_ptr<DataType> to_type) {
                                         std::move(to_type));
 }
 
+// struct to string
 template <typename To>
 typename std::enable_if_t<std::is_same<To, StringType>::value,
                           Result<std::shared_ptr<Scalar>>>
