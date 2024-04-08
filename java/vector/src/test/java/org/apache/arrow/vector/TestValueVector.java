@@ -2047,10 +2047,6 @@ public class TestValueVector {
     }
   }
 
-  private void testCopyFromWithNulls1Helper(AbstractVariableWidthVector vector, AbstractVariableWidthVector vector2) {
-
-  }
-
   @Test
   public void testCopyFromWithNulls1() {
     try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator);
