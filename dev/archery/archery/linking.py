@@ -97,12 +97,20 @@ class DynamicLibrary:
             result = _ldd.run(file_path, stdout=subprocess.PIPE)
             lines = result.stdout.decode('utf-8').splitlines()
             for line in lines:
-                print(line)
+                # Input:
+                #    librt.so.1 => /lib/x86_64-linux-gnu/librt.so.1 (0x00007f8c9dd90000)
+                # Match:
+                #   group(1): librt.so.1
+                #   group(2): /lib/x86_64-linux-gnu/librt.so.1
                 match = re.search(r'(\S*) => (\S*)', line)
                 if match:
                     paths[match.group(1)] = match.group(2)
                 else:
                     match = re.search(r'(\S*) \(.*\)', line)
+                    # Input:
+                    #    /lib64/ld-linux-x86-64.so.2 (0x00007c1af3a26000)
+                    # Match:
+                    #  group(1): /lib64/ld-linux-x86-64.so.2
                     if match:
                         paths[match.group(1)] = match.group(1)
         else:
@@ -115,8 +123,7 @@ def _check_undefined_symbols(dylib, allowed):
     undefined_symbols = dylib.list_undefined_symbols_for_dependency(dylib.path, True)
     expected_lib_paths = dylib.extract_library_paths(dylib.path)
     all_paths = list(expected_lib_paths.values())
-    print("All Paths")
-    print(all_paths)
+
     for lib_path in all_paths:
         if lib_path:
             expected_symbols = dylib.list_symbols_for_dependency(lib_path, True)
