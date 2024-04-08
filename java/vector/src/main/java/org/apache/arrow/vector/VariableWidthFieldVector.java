@@ -20,14 +20,11 @@ package org.apache.arrow.vector;
 import java.nio.ByteBuffer;
 
 import org.apache.arrow.memory.ReusableBuffer;
-import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.VariableWidthVector;
-import org.apache.arrow.vector.VectorDefinitionSetter;
 
 /**
 * A base interface for common functionalities in variable width vectors.
 */
-public interface AbstractVariableWidthVector extends VariableWidthVector, FieldVector, VectorDefinitionSetter {
+public interface VariableWidthFieldVector extends VariableWidthVector, FieldVector, VectorDefinitionSetter {
 
   /**
    * Set the variable length element at the specified index to the supplied byte array.

@@ -42,7 +42,7 @@ import org.apache.arrow.vector.util.TransferPair;
 /**
  * BaseVariableWidthVector is a base class providing functionality for strings/bytes types.
  */
-public abstract class BaseVariableWidthVector extends BaseValueVector implements AbstractVariableWidthVector {
+public abstract class BaseVariableWidthVector extends BaseValueVector implements VariableWidthFieldVector {
   private static final int DEFAULT_RECORD_BYTE_COUNT = 8;
   private static final int INITIAL_BYTE_COUNT = INITIAL_VALUE_ALLOCATION * DEFAULT_RECORD_BYTE_COUNT;
   private static final int MAX_BUFFER_SIZE = (int) Math.min(MAX_ALLOCATION_SIZE, Integer.MAX_VALUE);

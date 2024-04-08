@@ -25,7 +25,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import org.apache.arrow.vector.AbstractVariableWidthVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.BitVectorHelper;
@@ -62,6 +61,7 @@ import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.VariableWidthFieldVector;
 import org.apache.arrow.vector.ViewVarCharVector;
 import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
@@ -588,7 +588,7 @@ public class ValueVectorDataPopulator {
     vector.setValueCount(length);
   }
 
-  public static void setVector(AbstractVariableWidthVector vector, byte[]... values) {
+  public static void setVector(VariableWidthFieldVector vector, byte[]... values) {
     final int length = values.length;
     vector.allocateNewSafe();
     for (int i = 0; i < length; i++) {

@@ -144,16 +144,16 @@ public final class ViewVarBinaryVector extends BaseVariableWidthViewVector {
         // data is in the inline buffer
         // get buffer index
         final int bufferIndex =
-                input.getInt(((long) index * VIEW_BUFFER_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH);
+                input.getInt(((long) index * ELEMENT_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH);
         // get data offset
         final int dataOffset =
                 input.getInt(
-                        ((long) index * VIEW_BUFFER_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH + BUF_INDEX_WIDTH);
+                        ((long) index * ELEMENT_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH + BUF_INDEX_WIDTH);
         dataBufs.get(bufferIndex).getBytes(dataOffset, output, 0, dataLength);
       } else {
         // data is in the value buffer
         input.getBytes(
-                (long) index * VIEW_BUFFER_SIZE + BUF_INDEX_WIDTH, output, 0, dataLength);
+                (long) index * ELEMENT_SIZE + BUF_INDEX_WIDTH, output, 0, dataLength);
       }
     }
 
@@ -165,7 +165,7 @@ public final class ViewVarBinaryVector extends BaseVariableWidthViewVector {
   }
 
   /**
-   * Get the variable length element at specified index as Text.
+   * Get the variable length element at a specified index as a byte array.
    *
    * @param index position of an element to get
    * @return byte array for a non-null element, null otherwise

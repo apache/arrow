@@ -42,11 +42,11 @@ import org.apache.arrow.vector.util.TransferPair;
  * BaseVariableWidthViewVector is a base class providing functionality for strings/bytes types in view format.
  *
  */
-public abstract class BaseVariableWidthViewVector extends BaseValueVector implements AbstractVariableWidthVector {
+public abstract class BaseVariableWidthViewVector extends BaseValueVector implements VariableWidthFieldVector {
   // A single element of a view comprises 16 bytes
-  protected static final int VIEW_BUFFER_SIZE = 16;
+  protected static final int ELEMENT_SIZE = 16;
   public static final int INITIAL_VIEW_VALUE_ALLOCATION = 4096;
-  private static final int INITIAL_BYTE_COUNT = INITIAL_VIEW_VALUE_ALLOCATION * VIEW_BUFFER_SIZE;
+  private static final int INITIAL_BYTE_COUNT = INITIAL_VIEW_VALUE_ALLOCATION * ELEMENT_SIZE;
   private static final int MAX_BUFFER_SIZE = (int) Math.min(MAX_ALLOCATION_SIZE, Integer.MAX_VALUE);
   private int lastValueCapacity;
   private long lastValueAllocationSizeInBytes;
@@ -74,7 +74,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   // The second 4 bytes of view are allocated for prefix width
   protected static final int PREFIX_WIDTH = 4;
   // The third 4 bytes of view are allocated for buffer index
-  protected static final int BUF_INDEX_WIDTH = 4; /* third 4 bytes of view are allocated for buffer index*/
+  protected static final int BUF_INDEX_WIDTH = 4;
   protected static final byte[] emptyByteArray = new byte[]{};
   protected ArrowBuf validityBuffer;
   // The view buffer is used to store the variable width view elements
@@ -206,7 +206,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    */
   @Override
   public void setInitialCapacity(int valueCount) {
-    final long size = (long) valueCount * VIEW_BUFFER_SIZE;
+    final long size = (long) valueCount * ELEMENT_SIZE;
     checkDataBufferSize(size);
     lastValueAllocationSizeInBytes = (int) size;
     lastValueCapacity = valueCount;
@@ -221,7 +221,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    */
   @Override
   public void setInitialCapacity(int valueCount, double density) {
-    final long size = (long) valueCount * VIEW_BUFFER_SIZE;
+    final long size = (long) valueCount * ELEMENT_SIZE;
     initialDataBufferSize = (int) (valueCount * density);
     checkDataBufferSize(size);
     lastValueAllocationSizeInBytes = (int) size;
@@ -249,7 +249,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   @Override
   public int getValueCapacity() {
     final int validityCapacity = getValidityBufferValueCapacity();
-    final int valueBufferCapacity = Math.max(capAtMaxInt(viewBuffer.capacity() / VIEW_BUFFER_SIZE), 0);
+    final int valueBufferCapacity = Math.max(capAtMaxInt(viewBuffer.capacity() / ELEMENT_SIZE), 0);
     return Math.min(valueBufferCapacity, validityCapacity);
   }
 
@@ -393,7 +393,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
       viewBuffer.writerIndex(0);
     } else {
       validityBuffer.writerIndex(getValidityBufferSizeFromCount(valueCount));
-      viewBuffer.writerIndex(valueCount * VIEW_BUFFER_SIZE);
+      viewBuffer.writerIndex(valueCount * ELEMENT_SIZE);
     }
   }
 
@@ -552,7 +552,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
     // for each set operation, we have to allocate 16 bytes
     // here we are adjusting the desired allocation-based allocation size
     // to align with the 16bytes requirement.
-    newAllocationSize += VIEW_BUFFER_SIZE;
+    newAllocationSize += ELEMENT_SIZE;
 
     final ArrowBuf newBuf = allocator.buffer(newAllocationSize);
     newBuf.setBytes(0, viewBuffer, 0, viewBuffer.capacity());
@@ -662,7 +662,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
     }
 
     final int validityBufferSize = getValidityBufferSizeFromCount(valueCount);
-    final int viewBufferSize = valueCount * VIEW_BUFFER_SIZE;
+    final int viewBufferSize = valueCount * ELEMENT_SIZE;
     final int referenceBufferSize = getReferenceBufferSize();
     final int dataBufferSize = viewBufferSize + referenceBufferSize;
     return validityBufferSize + dataBufferSize;
@@ -1189,13 +1189,13 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    * @return The length of the element at the given index.
    */
   protected final int getLength(int index) {
-    if (index < 0 || index >= viewBuffer.capacity() / VIEW_BUFFER_SIZE) {
+    if (index < 0 || index >= viewBuffer.capacity() / ELEMENT_SIZE) {
       throw new IndexOutOfBoundsException("Index out of bounds: " + index);
     }
     if (isSet(index) == 0) {
       return 0;
     }
-    return viewBuffer.getInt(((long) index * VIEW_BUFFER_SIZE));
+    return viewBuffer.getInt(((long) index * ELEMENT_SIZE));
   }
 
   /**
@@ -1226,7 +1226,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
       int length,
       ArrowBuf valueBuffer,
       List<ArrowBuf> dataBuffers) {
-    int writePosition = index * VIEW_BUFFER_SIZE;
+    int writePosition = index * ELEMENT_SIZE;
     if (value.length <= INLINE_SIZE) {
       // allocate inline buffer
       // set length
@@ -1325,7 +1325,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
     final long targetCapacity = roundUpToMultipleOf16(lastSetCapacity + dataLength);
     // for views, we need each buffer with 16 byte alignment, so we need to check the last written index
     // in the valueBuffer and allocate a new buffer which has 16 byte alignment for adding new values.
-    long writePosition = (long) index * VIEW_BUFFER_SIZE;
+    long writePosition = (long) index * ELEMENT_SIZE;
     if (viewBuffer.capacity() <= writePosition || viewBuffer.capacity() < targetCapacity) {
       /*
       * Everytime we want to increase the capacity of the valueBuffer, we need to make sure that the new capacity
@@ -1383,11 +1383,11 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
     } else {
       int length = getLength(index);
       if (length < INLINE_SIZE) {
-        int start = index * VIEW_BUFFER_SIZE + LENGTH_WIDTH;
+        int start = index * ELEMENT_SIZE + LENGTH_WIDTH;
         reuse.set(viewBuffer, start, length);
       } else {
         final int bufIndex =
-            viewBuffer.getInt(((long) index * VIEW_BUFFER_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH);
+            viewBuffer.getInt(((long) index * ELEMENT_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH);
         ArrowBuf dataBuf = dataBuffers.get(bufIndex);
         reuse.set(dataBuf, 0, length);
       }
@@ -1408,14 +1408,14 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
     }
     final int length = getLength(index);
     if (length < INLINE_SIZE) {
-      int start = index * VIEW_BUFFER_SIZE + LENGTH_WIDTH;
+      int start = index * ELEMENT_SIZE + LENGTH_WIDTH;
       return ByteFunctionHelpers.hash(hasher, this.getDataBuffer(), start, start + length);
     } else {
       final int bufIndex =
-          viewBuffer.getInt(((long) index * VIEW_BUFFER_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH);
+          viewBuffer.getInt(((long) index * ELEMENT_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH);
       final int dataOffset =
           viewBuffer.getInt(
-              ((long) index * VIEW_BUFFER_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH + BUF_INDEX_WIDTH);
+              ((long) index * ELEMENT_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH + BUF_INDEX_WIDTH);
       ArrowBuf dataBuf = dataBuffers.get(bufIndex);
       return ByteFunctionHelpers.hash(hasher, dataBuf, dataOffset, dataOffset + length);
     }
@@ -1443,16 +1443,16 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
       // data is in the reference buffer
       // get buffer index
       final int bufferIndex =
-              viewBuffer.getInt(((long) index * VIEW_BUFFER_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH);
+              viewBuffer.getInt(((long) index * ELEMENT_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH);
       // get data offset
       final int dataOffset =
               viewBuffer.getInt(
-                      ((long) index * VIEW_BUFFER_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH + BUF_INDEX_WIDTH);
+                      ((long) index * ELEMENT_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH + BUF_INDEX_WIDTH);
       dataBuffers.get(bufferIndex).getBytes(dataOffset, result, 0, dataLength);
     } else {
       // data is in the value buffer
       viewBuffer.getBytes(
-              (long) index * VIEW_BUFFER_SIZE + BUF_INDEX_WIDTH, result, 0, dataLength);
+              (long) index * ELEMENT_SIZE + BUF_INDEX_WIDTH, result, 0, dataLength);
     }
     return result;
   }

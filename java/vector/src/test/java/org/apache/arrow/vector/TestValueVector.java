@@ -318,7 +318,7 @@ public class TestValueVector {
     }
   }
 
-  private void testSizeOfValueBufferHelper(AbstractVariableWidthVector vector) {
+  private void testSizeOfValueBufferHelper(VariableWidthFieldVector vector) {
     int valueCount = 100;
     int currentSize = 0;
     vector.setInitialCapacity(valueCount);
@@ -1274,7 +1274,7 @@ public class TestValueVector {
     }
   }
 
-  private void testNullableVarType1Helper(AbstractVariableWidthVector vector) {
+  private void testNullableVarType1Helper(VariableWidthFieldVector vector) {
     vector.allocateNew(1024 * 10, 1024);
 
     vector.set(0, STR1);
@@ -1322,7 +1322,7 @@ public class TestValueVector {
     }
   }
 
-  private void testGetTextRepeatedlyHelper(AbstractVariableWidthVector vector) {
+  private void testGetTextRepeatedlyHelper(VariableWidthFieldVector vector) {
     vector.setValueCount(2);
 
     /* check the vector output */
@@ -1346,7 +1346,7 @@ public class TestValueVector {
     }
   }
 
-  private void testNullableVarType2Helper(AbstractVariableWidthVector vector) {
+  private void testNullableVarType2Helper(VariableWidthFieldVector vector) {
     vector.allocateNew(1024 * 10, 1024);
     vector.set(0, STR1);
     vector.set(1, STR2);
@@ -1402,7 +1402,7 @@ public class TestValueVector {
     }
   }
 
-  private void testGetBytesRepeatedlyHelper(AbstractVariableWidthVector vector) {
+  private void testGetBytesRepeatedlyHelper(VariableWidthFieldVector vector) {
     vector.allocateNew(5, 1);
 
     final String str = "hello world";
@@ -1840,7 +1840,7 @@ public class TestValueVector {
     }
   }
 
-  private void testReAllocVariableWidthVectorHelper(AbstractVariableWidthVector vector) {
+  private void testReAllocVariableWidthVectorHelper(VariableWidthFieldVector vector) {
     final int capacityLimit = 4095;
     final int overLimitIndex = 200;
     vector.setInitialCapacity(capacityLimit);
@@ -2114,7 +2114,7 @@ public class TestValueVector {
     }
   }
 
-  private void testSetLastSetUsageHelper(AbstractVariableWidthVector vector) {
+  private void testSetLastSetUsageHelper(VariableWidthFieldVector vector) {
     vector.allocateNew(1024 * 10, 1024);
 
     setBytes(0, STR1, vector);
@@ -2275,7 +2275,7 @@ public class TestValueVector {
     }
   }
 
-  private void testFillEmptiesUsageHelper(AbstractVariableWidthVector vector) {
+  private void testFillEmptiesUsageHelper(VariableWidthFieldVector vector) {
     vector.allocateNew(1024 * 10, 1024);
 
     setBytes(0, STR1, vector);
@@ -2500,7 +2500,7 @@ public class TestValueVector {
    * in a way that lastSet is not set automatically.
    */
 
-  public static void setBytes(int index, byte[] bytes, AbstractVariableWidthVector vector) {
+  public static void setBytes(int index, byte[] bytes, VariableWidthFieldVector vector) {
     if (vector instanceof VarCharVector) {
       setBytes(index, bytes, (VarCharVector) vector);
     } else if (vector instanceof ViewVarCharVector) {
@@ -2562,7 +2562,7 @@ public class TestValueVector {
     try (final ViewVarCharVector vector = new ViewVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
 
       /* use the default 16 data bytes on average per element */
-      final int viewSize = BaseVariableWidthViewVector.VIEW_BUFFER_SIZE;
+      final int viewSize = BaseVariableWidthViewVector.ELEMENT_SIZE;
       int defaultCapacity = BaseVariableWidthViewVector.INITIAL_VIEW_VALUE_ALLOCATION / viewSize;
       vector.setInitialCapacity(defaultCapacity);
       vector.allocateNew();
@@ -2812,7 +2812,7 @@ public class TestValueVector {
     }
   }
 
-  private void testGetPointerVariableWidthHelper(AbstractVariableWidthVector vec1, AbstractVariableWidthVector vec2,
+  private void testGetPointerVariableWidthHelper(VariableWidthFieldVector vec1, VariableWidthFieldVector vec2,
       String[] sampleData, int vectorLength) {
     vec1.allocateNew((long) sampleData.length * vectorLength, sampleData.length);
     vec2.allocateNew((long) sampleData.length * vectorLength, sampleData.length);
