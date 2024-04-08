@@ -2157,6 +2157,17 @@ class AzureFileSystem::Impl {
                                Azure::Nullable<std::string> lease_id = {}) {
     DCHECK(!location.container.empty());
     DCHECK(!location.path.empty());
+    ARROW_ASSIGN_OR_RAISE(auto file_info, GetFileInfo(adlfs_client, location));
+    if (file_info.type() == FileType::NotFound) {
+      if (require_dir_to_exist) {
+        return PathNotFound(location);
+      } else {
+        return Status::OK();
+      }
+    }
+    if (file_info.type() != FileType::Directory) {
+      return NotADir(location);
+    }
     auto directory_client = adlfs_client.GetDirectoryClient(
         std::string(internal::RemoveTrailingSlash(location.path)));
     DataLake::DeleteDirectoryOptions options;
@@ -2168,13 +2179,6 @@ class AzureFileSystem::Impl {
       // All the others either succeed or throw an exception.
       DCHECK(response.Value.Deleted);
     } catch (const Storage::StorageException& exception) {
-      if (exception.ErrorCode == "FilesystemNotFound" ||
-          exception.ErrorCode == "PathNotFound") {
-        if (require_dir_to_exist) {
-          return PathNotFound(location);
-        }
-        return Status::OK();
-      }
       return ExceptionToStatus(exception, "Failed to delete a directory: ", location.path,
                                ": ", directory_client.GetUrl());
     }
@@ -2200,6 +2204,9 @@ class AzureFileSystem::Impl {
                   kDelimiter, path.Name, ": ", sub_directory_client.GetUrl());
             }
           } else {
+            if (path.Name == location.path) {
+              return NotADir(location);
+            }
             auto sub_file_client = adlfs_client.GetFileClient(path.Name);
             try {
               sub_file_client.Delete();
