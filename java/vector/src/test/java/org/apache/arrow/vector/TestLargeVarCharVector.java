@@ -166,7 +166,7 @@ public class TestLargeVarCharVector {
           IllegalArgumentException.class,
           () -> tp.splitAndTransfer(valueCount, 10));
 
-      assertEquals("Invalid startIndex: 500", e.getMessage());
+      assertEquals("Invalid parameters startIndex: 500, length: 10 for valueCount: 500", e.getMessage());
     }
   }
 
@@ -185,7 +185,7 @@ public class TestLargeVarCharVector {
           IllegalArgumentException.class,
           () -> tp.splitAndTransfer(0, valueCount * 2));
 
-      assertEquals("Invalid length: 1000", e.getMessage());
+      assertEquals("Invalid parameters startIndex: 0, length: 1000 for valueCount: 500", e.getMessage());
     }
   }
 
