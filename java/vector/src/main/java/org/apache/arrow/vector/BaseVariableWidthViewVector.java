@@ -18,6 +18,7 @@
 package org.apache.arrow.vector;
 
 import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
+import static org.apache.arrow.vector.util.DataSizeRoundingUtil.roundUpToMultipleOf16;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -75,7 +76,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   protected static final int PREFIX_WIDTH = 4;
   // The third 4 bytes of view are allocated for buffer index
   protected static final int BUF_INDEX_WIDTH = 4;
-  protected static final byte[] emptyByteArray = new byte[]{};
+  protected static final byte[] EMPTY_BYTE_ARRAY = new byte[]{};
   protected ArrowBuf validityBuffer;
   // The view buffer is used to store the variable width view elements
   protected ArrowBuf viewBuffer;
@@ -263,6 +264,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   public void zeroVector() {
     initValidityBuffer();
     viewBuffer.setZero(0, viewBuffer.capacity());
+    clearDataBuffers();
   }
 
   /* zero out the validity buffer */
@@ -306,7 +308,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   */
   public void clearDataBuffers() {
     for (ArrowBuf buffer : dataBuffers) {
-      buffer.getReferenceManager().release();
+      releaseBuffer(buffer);
     }
     dataBuffers.clear();
   }
@@ -372,7 +374,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
     // for details, please see TestValueVector#testUnloadVariableWidthVector.
     fillHoles(valueCount);
 
-    List<ArrowBuf> result = new ArrayList<>(2);
+    List<ArrowBuf> result = new ArrayList<>(2 + dataBuffers.size());
     setReaderAndWriterIndex();
     result.add(validityBuffer);
     result.add(viewBuffer);
@@ -482,12 +484,12 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   @Override
   public void reAlloc() {
     reallocViewBuffer();
-    reallocViewReferenceBuffer();
+    reallocViewDataBuffer();
     reallocValidityBuffer();
   }
 
   /**
-   * Reallocate the data buffer. Data Buffer stores the actual data for
+   * Reallocate the view buffer. View Buffer stores the views for
    * VIEWVARCHAR or VIEWVARBINARY elements in the vector. The behavior is to double
    * the size of buffer.
    * @throws OversizedAllocationException if the desired new size is more than
@@ -510,15 +512,15 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   }
 
   /**
-   * Reallocate the data buffer for reference buffer.
+   * Reallocate the data buffer associated with view buffer.
    */
-  public void reallocViewReferenceBuffer() {
-    long currentReferenceBufferCapacity = 0;
+  public void reallocViewDataBuffer() {
+    long currentDataBufferCapacity = 0;
     if (!dataBuffers.isEmpty()) {
-      currentReferenceBufferCapacity = dataBuffers.get(dataBuffers.size() - 1).capacity();
+      currentDataBufferCapacity = dataBuffers.get(dataBuffers.size() - 1).capacity();
     }
 
-    long newAllocationSize = currentReferenceBufferCapacity * 2;
+    long newAllocationSize = currentDataBufferCapacity * 2;
     if (newAllocationSize == 0) {
       if (lastValueAllocationSizeInBytes > 0) {
         newAllocationSize = lastValueAllocationSizeInBytes;
@@ -527,12 +529,12 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
       }
     }
 
-    reallocViewReferenceBuffer(newAllocationSize);
+    reallocViewDataBuffer(newAllocationSize);
   }
 
   /**
-   * Reallocate the data buffer to given size. Data Buffer stores the actual data for
-   * VARCHAR or VARBINARY elements in the vector. The actual allocated size may be larger
+   * Reallocate the view buffer to given size. View Buffer stores the views for
+   * VIEWVARCHAR or VIEWVARBINARY elements in the vector. The actual allocated size may be larger
    * than the request one because it will round up the provided value to the nearest
    * power of two.
    *
@@ -552,7 +554,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
     // for each set operation, we have to allocate 16 bytes
     // here we are adjusting the desired allocation-based allocation size
     // to align with the 16bytes requirement.
-    newAllocationSize += ELEMENT_SIZE;
+    newAllocationSize = roundUpToMultipleOf16(newAllocationSize);
 
     final ArrowBuf newBuf = allocator.buffer(newAllocationSize);
     newBuf.setBytes(0, viewBuffer, 0, viewBuffer.capacity());
@@ -563,11 +565,11 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   }
 
   /**
-   * Reallocate the data buffer for reference buffer.
+   * Reallocate the data buffer for views.
    *
    * @param desiredAllocSize allocation size in bytes
    */
-  public void reallocViewReferenceBuffer(long desiredAllocSize) {
+  public void reallocViewDataBuffer(long desiredAllocSize) {
     if (desiredAllocSize == 0) {
       return;
     }
@@ -619,8 +621,8 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   }
 
   /**
-   * Get the size (number of bytes) of underlying data buffer.
-   * @return number of bytes in the data buffer
+   * Get the size (number of bytes) of underlying view buffer.
+   * @return number of bytes in the view buffer
    */
   @Override
   public int getByteCapacity() {
@@ -663,17 +665,16 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
 
     final int validityBufferSize = getValidityBufferSizeFromCount(valueCount);
     final int viewBufferSize = valueCount * ELEMENT_SIZE;
-    final int referenceBufferSize = getReferenceBufferSize();
-    final int dataBufferSize = viewBufferSize + referenceBufferSize;
-    return validityBufferSize + dataBufferSize;
+    final int dataBufferSize = getDataBufferSize();
+    return validityBufferSize + viewBufferSize + dataBufferSize;
   }
 
-  private int getReferenceBufferSize() {
-    int referenceBufferSize = 0;
+  private int getDataBufferSize() {
+    int dataBufferSize = 0;
     for (ArrowBuf buf : dataBuffers) {
-      referenceBufferSize += (int) buf.writerIndex();
+      dataBufferSize += (int) buf.writerIndex();
     }
-    return referenceBufferSize;
+    return dataBufferSize;
   }
 
   /**
@@ -692,10 +693,10 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    * external classes shouldn't hold a reference to it (unless they change it).
    * <p>
    * Note: This method only returns validityBuffer and valueBuffer.
-   * But it doesn't return the reference buffers.
+   * But it doesn't return the data buffers.
    * <p>
-   * TODO: Implement a strategy to retrieve the reference buffers.
-   * <a href="https://github.com/apache/arrow/issues/40930">Reference buffer retrieval.</a>
+   * TODO: Implement a strategy to retrieve the data buffers.
+   * <a href="https://github.com/apache/arrow/issues/40930">data buffer retrieval.</a>
    *
    * @param clear Whether to clear vector before returning, the buffers will still be refcounted
    *              but the returned array will be the only reference to them
@@ -893,7 +894,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    */
   @Override
   public void fillEmpties(int index) {
-    handleSafe(index, emptyByteArray.length);
+    handleSafe(index, EMPTY_BYTE_ARRAY.length);
     fillHoles(index);
     lastSet = index - 1;
   }
@@ -1178,7 +1179,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
 
   protected final void fillHoles(int index) {
     for (int i = lastSet + 1; i < index; i++) {
-      setBytes(i, emptyByteArray, 0, emptyByteArray.length);
+      setBytes(i, EMPTY_BYTE_ARRAY, 0, EMPTY_BYTE_ARRAY.length);
     }
     lastSet = index - 1;
   }
@@ -1200,7 +1201,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
 
   /**
    * This method is used to create a view buffer for a variable width vector.
-   * It handles both inline and reference buffers.
+   * It handles both inline and data buffers.
    * <p>
    * If the length of the value is less than or equal to {@link #INLINE_SIZE}, the value is stored in the valueBuffer
    * directly as an inline buffer.
@@ -1235,18 +1236,18 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
       // set data
       valueBuffer.setBytes(writePosition, value, start, length);
     } else {
-      // allocate reference buffer
+      // allocate data buffer
 
-      // pre-allocate the reference buffer depending on initial capacity setup
-      long referenceBufferSize;
+      // pre-allocate the data buffer depending on initial capacity setup
+      long dataBufferSize;
       if (initialDataBufferSize > 0) {
-        referenceBufferSize = initialDataBufferSize;
+        dataBufferSize = initialDataBufferSize;
       } else {
-        referenceBufferSize = lastValueAllocationSizeInBytes;
+        dataBufferSize = lastValueAllocationSizeInBytes;
       }
       if (dataBuffers.isEmpty()) {
         // the first data buffer needs to be added
-        ArrowBuf newDataBuf = allocator.buffer(referenceBufferSize);
+        ArrowBuf newDataBuf = allocator.buffer(dataBufferSize);
         // set length
         valueBuffer.setInt(writePosition, length);
         writePosition += LENGTH_WIDTH;
@@ -1285,7 +1286,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
         } else {
           // current buffer is not enough
           // allocate new buffer
-          ArrowBuf newBuf = allocator.buffer(referenceBufferSize);
+          ArrowBuf newBuf = allocator.buffer(dataBufferSize);
           // set buf index
           valueBuffer.setInt(writePosition, dataBuffers.size());
           writePosition += BUF_INDEX_WIDTH;
@@ -1316,12 +1317,8 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
     return totalLength;
   }
 
-  private static long roundUpToMultipleOf16(long num) {
-    return (num + 15) & ~15;
-  }
-
   protected final void handleSafe(int index, int dataLength) {
-    final long lastSetCapacity = lastSet < 0 ? 0 : getTotalLengthUptoIndex(lastSet + 1);
+    final long lastSetCapacity = lastSet < 0 ? 0 : (long) index * ELEMENT_SIZE;
     final long targetCapacity = roundUpToMultipleOf16(lastSetCapacity + dataLength);
     // for views, we need each buffer with 16 byte alignment, so we need to check the last written index
     // in the valueBuffer and allocate a new buffer which has 16 byte alignment for adding new values.
@@ -1440,7 +1437,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
     final int dataLength = getLength(index);
     byte[] result = new byte[dataLength];
     if (dataLength > INLINE_SIZE) {
-      // data is in the reference buffer
+      // data is in the data buffer
       // get buffer index
       final int bufferIndex =
               viewBuffer.getInt(((long) index * ELEMENT_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH);

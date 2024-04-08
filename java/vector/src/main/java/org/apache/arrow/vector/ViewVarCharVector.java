@@ -19,9 +19,6 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
-import java.util.List;
-
-import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReusableBuffer;
 import org.apache.arrow.vector.complex.impl.ViewVarCharReaderImpl;
@@ -140,52 +137,6 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
   public void read(int index, ReusableBuffer<?> buffer) {
     byte[] data = getData(index);
     buffer.set(data, 0, data.length);
-  }
-
-  public static class HolderCallback {
-
-    /**
-     * Create Holder callback with given parameters.
-     * @param index position of an element.
-     * @param dataLength length of the buffer.
-     * @param input input buffer.
-     * @param dataBufs list of data buffers.
-     * @param output output buffer.
-     */
-    public HolderCallback(int index, int dataLength, ArrowBuf input, List<ArrowBuf> dataBufs, ArrowBuf output) {
-      this.index = index;
-      this.dataLength = dataLength;
-      this.input = input;
-      this.dataBufs = dataBufs;
-      this.output = output;
-    }
-
-    /**
-    * Get data from the buffer.
-    */
-    public void getData() {
-      if (dataLength > INLINE_SIZE) {
-        // data is in the inline buffer
-        // get buffer index
-        final int bufferIndex =
-            input.getInt(((long) index * ELEMENT_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH);
-        // get data offset
-        final int dataOffset =
-            input.getInt(
-                ((long) index * ELEMENT_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH + BUF_INDEX_WIDTH);
-        dataBufs.get(bufferIndex).getBytes(dataOffset, output, 0, dataLength);
-      } else {
-        // data is in the value buffer
-        input.getBytes(
-            (long) index * ELEMENT_SIZE + BUF_INDEX_WIDTH, output, 0, dataLength);
-      }
-    }
-
-    private int index;
-    private int dataLength;
-    private ArrowBuf input;
-    private List<ArrowBuf> dataBufs;
-    private ArrowBuf output;
   }
 
   /**
