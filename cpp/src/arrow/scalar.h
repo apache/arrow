@@ -540,13 +540,12 @@ struct ARROW_EXPORT Decimal256Scalar : public DecimalScalar<Decimal256Type, Deci
 };
 
 struct ARROW_EXPORT BaseListScalar : public Scalar {
-  using Scalar::Scalar;
   using ValueType = std::shared_ptr<Array>;
 
   BaseListScalar(std::shared_ptr<Array> value, std::shared_ptr<DataType> type,
                  bool is_valid = true);
 
-  std::shared_ptr<Array> value;
+  const std::shared_ptr<Array> value;
 };
 
 struct ARROW_EXPORT ListScalar
@@ -659,7 +658,7 @@ struct ARROW_EXPORT StructScalar : public Scalar {
 };
 
 struct ARROW_EXPORT UnionScalar : public Scalar {
-  int8_t type_code;
+  const int8_t type_code;
 
   virtual const std::shared_ptr<Scalar>& child_value() const = 0;
 
@@ -687,7 +686,7 @@ struct ARROW_EXPORT SparseUnionScalar
   // nonetheless construct a vector of scalars, one per union value, to have
   // enough data to reconstruct a valid ArraySpan of length 1 from this scalar
   using ValueType = std::vector<std::shared_ptr<Scalar>>;
-  ValueType value;
+  const ValueType value;
 
   // The value index corresponding to the active type code
   int child_id;
@@ -720,7 +719,7 @@ struct ARROW_EXPORT DenseUnionScalar
   // For DenseUnionScalar, we can make a valid ArraySpan of length 1 from this
   // scalar
   using ValueType = std::shared_ptr<Scalar>;
-  ValueType value;
+  const ValueType value;
 
   const std::shared_ptr<Scalar>& child_value() const override { return this->value; }
 
@@ -743,7 +742,7 @@ struct ARROW_EXPORT RunEndEncodedScalar
   using ArraySpanFillFromScalarScratchSpace =
       internal::ArraySpanFillFromScalarScratchSpace<RunEndEncodedScalar>;
 
-  ValueType value;
+  const ValueType value;
 
   RunEndEncodedScalar(std::shared_ptr<Scalar> value, std::shared_ptr<DataType> type);
 

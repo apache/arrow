@@ -1984,7 +1984,8 @@ garrow_base_list_scalar_get_value(GArrowBaseListScalar *scalar)
   if (!priv->value) {
     const auto arrow_scalar = std::static_pointer_cast<arrow::BaseListScalar>(
       garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
-    priv->value = garrow_array_new_raw(&(arrow_scalar->value));
+    priv->value = garrow_array_new_raw(
+      const_cast<std::shared_ptr<arrow::Array> *>(&(arrow_scalar->value)));
   }
   return priv->value;
 }

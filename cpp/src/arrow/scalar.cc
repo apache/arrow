@@ -617,7 +617,9 @@ FixedSizeBinaryScalar::FixedSizeBinaryScalar(std::string s, bool is_valid)
 BaseListScalar::BaseListScalar(std::shared_ptr<Array> value,
                                std::shared_ptr<DataType> type, bool is_valid)
     : Scalar{std::move(type), is_valid}, value(std::move(value)) {
-  ARROW_CHECK(this->type->field(0)->type()->Equals(this->value->type()));
+  if (this->value) {
+    ARROW_CHECK(this->type->field(0)->type()->Equals(this->value->type()));
+  }
 }
 
 ListScalar::ListScalar(std::shared_ptr<Array> value, bool is_valid)
@@ -669,8 +671,10 @@ void MapScalar::FillScratchSpace() {
 FixedSizeListScalar::FixedSizeListScalar(std::shared_ptr<Array> value,
                                          std::shared_ptr<DataType> type, bool is_valid)
     : BaseListScalar(std::move(value), std::move(type), is_valid) {
-  ARROW_CHECK_EQ(this->value->length(),
-                 checked_cast<const FixedSizeListType&>(*this->type).list_size());
+  if (value) {
+    ARROW_CHECK_EQ(this->value->length(),
+                   checked_cast<const FixedSizeListType&>(*this->type).list_size());
+  }
 }
 
 FixedSizeListScalar::FixedSizeListScalar(std::shared_ptr<Array> value, bool is_valid)
@@ -811,11 +815,14 @@ SparseUnionScalar::SparseUnionScalar(ValueType value, int8_t type_code,
                                      std::shared_ptr<DataType> type)
     : UnionScalar(std::move(type), type_code, /*is_valid=*/true),
       value(std::move(value)) {
-  this->child_id =
-      checked_cast<const SparseUnionType&>(*this->type).child_ids()[type_code];
+  const auto child_ids = checked_cast<const SparseUnionType&>(*this->type).child_ids();
+  if (type_code >= 0 && static_cast<size_t>(type_code) < child_ids.size() &&
+      child_ids[type_code] != UnionType::kInvalidChildId) {
+    this->child_id = child_ids[type_code];
 
-  // Fix nullness based on whether the selected child is null
-  this->is_valid = this->value[this->child_id]->is_valid;
+    // Fix nullness based on whether the selected child is null
+    this->is_valid = this->value[this->child_id]->is_valid;
+  }
 }
 
 std::shared_ptr<Scalar> SparseUnionScalar::FromValue(std::shared_ptr<Scalar> value,

@@ -1167,24 +1167,25 @@ class TestListLikeScalar : public ::testing::Test {
   }
 
   void TestValidateErrors() {
-    ScalarType scalar(value_);
-    scalar.is_valid = false;
-    ASSERT_OK(scalar.ValidateFull());
+    {
+      ScalarType scalar(value_);
+      scalar.is_valid = false;
+      ASSERT_OK(scalar.ValidateFull());
+    }
 
-    // Value must be defined
-    scalar = ScalarType(value_);
-    scalar.value = nullptr;
-    AssertValidationFails(scalar);
+    {
+      // Value must be defined
+      ScalarType scalar(nullptr, type_);
+      scalar.is_valid = true;
+      AssertValidationFails(scalar);
+    }
 
-    // Inconsistent child type
-    scalar = ScalarType(value_);
-    scalar.value = ArrayFromJSON(int32(), "[1, 2, null]");
-    AssertValidationFails(scalar);
-
-    // Invalid UTF8 in child data
-    scalar = ScalarType(ArrayFromJSON(utf8(), "[null, null, \"\xff\"]"));
-    ASSERT_OK(scalar.Validate());
-    ASSERT_RAISES(Invalid, scalar.ValidateFull());
+    {
+      // Invalid UTF8 in child data
+      ScalarType scalar(ArrayFromJSON(utf8(), "[null, null, \"\xff\"]"));
+      ASSERT_OK(scalar.Validate());
+      ASSERT_RAISES(Invalid, scalar.ValidateFull());
+    }
   }
 
   void TestHashing() {
@@ -1576,17 +1577,41 @@ void CheckGetNullUnionScalar(const Array& arr, int64_t index) {
   ASSERT_FALSE(checked_cast<const UnionScalar&>(*scalar).child_value()->is_valid);
 }
 
+std::shared_ptr<Scalar> MakeUnionScalar(const SparseUnionType& type, int8_t type_code,
+                                        std::shared_ptr<Scalar> field_value,
+                                        int field_index) {
+  ScalarVector field_values;
+  for (int i = 0; i < type.num_fields(); ++i) {
+    if (i == field_index) {
+      field_values.emplace_back(std::move(field_value));
+    } else {
+      field_values.emplace_back(MakeNullScalar(type.field(i)->type()));
+    }
+  }
+  return std::make_shared<SparseUnionScalar>(std::move(field_values), type_code,
+                                             type.GetSharedPtr());
+}
+
 std::shared_ptr<Scalar> MakeUnionScalar(const SparseUnionType& type,
                                         std::shared_ptr<Scalar> field_value,
                                         int field_index) {
-  return SparseUnionScalar::FromValue(field_value, field_index, type.GetSharedPtr());
+  return SparseUnionScalar::FromValue(std::move(field_value), field_index,
+                                      type.GetSharedPtr());
+}
+
+std::shared_ptr<Scalar> MakeUnionScalar(const DenseUnionType& type, int8_t type_code,
+                                        std::shared_ptr<Scalar> field_value,
+                                        int field_index) {
+  return std::make_shared<DenseUnionScalar>(std::move(field_value), type_code,
+                                            type.GetSharedPtr());
 }
 
 std::shared_ptr<Scalar> MakeUnionScalar(const DenseUnionType& type,
                                         std::shared_ptr<Scalar> field_value,
                                         int field_index) {
   int8_t type_code = type.type_codes()[field_index];
-  return std::make_shared<DenseUnionScalar>(field_value, type_code, type.GetSharedPtr());
+  return std::make_shared<DenseUnionScalar>(std::move(field_value), type_code,
+                                            type.GetSharedPtr());
 }
 
 std::shared_ptr<Scalar> MakeSpecificNullScalar(const DenseUnionType& type,
@@ -1634,7 +1659,13 @@ class TestUnionScalar : public ::testing::Test {
 
   std::shared_ptr<Scalar> ScalarFromValue(int field_index,
                                           std::shared_ptr<Scalar> field_value) {
-    return MakeUnionScalar(*union_type_, field_value, field_index);
+    return MakeUnionScalar(*union_type_, std::move(field_value), field_index);
+  }
+
+  std::shared_ptr<Scalar> ScalarFromTypeCodeAndValue(int8_t type_code,
+                                                     std::shared_ptr<Scalar> field_value,
+                                                     int field_index) {
+    return MakeUnionScalar(*union_type_, type_code, std::move(field_value), field_index);
   }
 
   std::shared_ptr<Scalar> SpecificNull(int field_index) {
@@ -1652,40 +1683,48 @@ class TestUnionScalar : public ::testing::Test {
   }
 
   void TestValidateErrors() {
-    // Type code doesn't exist
-    auto scalar = ScalarFromValue(0, alpha_);
-    UnionScalar* union_scalar = static_cast<UnionScalar*>(scalar.get());
+    {
+      // Invalid type code
+      auto scalar = ScalarFromTypeCodeAndValue(0, alpha_, 0);
+      AssertValidationFails(*scalar);
+    }
 
-    // Invalid type code
-    union_scalar->type_code = 0;
-    AssertValidationFails(*union_scalar);
+    {
+      auto scalar = ScalarFromTypeCodeAndValue(0, alpha_, 0);
+      scalar->is_valid = false;
+      AssertValidationFails(*scalar);
+    }
 
-    union_scalar->is_valid = false;
-    AssertValidationFails(*union_scalar);
+    {
+      auto scalar = ScalarFromTypeCodeAndValue(-42, alpha_, 0);
+      AssertValidationFails(*scalar);
+    }
 
-    union_scalar->type_code = -42;
-    union_scalar->is_valid = true;
-    AssertValidationFails(*union_scalar);
-
-    union_scalar->is_valid = false;
-    AssertValidationFails(*union_scalar);
+    {
+      auto scalar = ScalarFromTypeCodeAndValue(-42, alpha_, 0);
+      scalar->is_valid = false;
+      AssertValidationFails(*scalar);
+    }
 
     // Type code doesn't correspond to child type
     if (type_->id() == ::arrow::Type::DENSE_UNION) {
-      union_scalar->type_code = 42;
-      union_scalar->is_valid = true;
-      AssertValidationFails(*union_scalar);
+      {
+        auto scalar = ScalarFromTypeCodeAndValue(42, alpha_, 0);
+        AssertValidationFails(*scalar);
+      }
 
-      scalar = ScalarFromValue(2, two_);
-      union_scalar = static_cast<UnionScalar*>(scalar.get());
-      union_scalar->type_code = 3;
-      AssertValidationFails(*union_scalar);
+      {
+        auto scalar = ScalarFromTypeCodeAndValue(3, two_, 2);
+        AssertValidationFails(*scalar);
+      }
     }
 
-    // underlying value has invalid UTF8
-    scalar = ScalarFromValue(0, std::make_shared<StringScalar>("\xff"));
-    ASSERT_OK(scalar->Validate());
-    ASSERT_RAISES(Invalid, scalar->ValidateFull());
+    {
+      // underlying value has invalid UTF8
+      auto scalar = ScalarFromValue(0, std::make_shared<StringScalar>("\xff"));
+      ASSERT_OK(scalar->Validate());
+      ASSERT_RAISES(Invalid, scalar->ValidateFull());
+    }
   }
 
   void TestEquals() {
