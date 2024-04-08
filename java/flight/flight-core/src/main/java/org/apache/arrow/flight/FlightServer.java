@@ -42,6 +42,7 @@ import org.apache.arrow.flight.auth.ServerAuthInterceptor;
 import org.apache.arrow.flight.auth2.Auth2Constants;
 import org.apache.arrow.flight.auth2.CallHeaderAuthenticator;
 import org.apache.arrow.flight.auth2.ServerCallHeaderAuthMiddleware;
+import org.apache.arrow.flight.grpc.ServerBackpressureThresholdInterceptor;
 import org.apache.arrow.flight.grpc.ServerInterceptorAdapter;
 import org.apache.arrow.flight.grpc.ServerInterceptorAdapter.KeyFactory;
 import org.apache.arrow.memory.BufferAllocator;
@@ -78,6 +79,9 @@ public class FlightServer implements AutoCloseable {
 
   /** The maximum size of an individual gRPC message. This effectively disables the limit. */
   static final int MAX_GRPC_MESSAGE_SIZE = Integer.MAX_VALUE;
+
+  /** The default number of bytes that can be queued on an output stream before blocking. */
+  public static final int DEFAULT_BACKPRESSURE_THRESHOLD = 10 * 1024 * 1024; // 10MB
 
   /** Create a new instance from a gRPC server. For internal use only. */
   private FlightServer(Location location, Server server, ExecutorService grpcExecutor) {
@@ -179,6 +183,7 @@ public class FlightServer implements AutoCloseable {
     private CallHeaderAuthenticator headerAuthenticator = CallHeaderAuthenticator.NO_OP;
     private ExecutorService executor = null;
     private int maxInboundMessageSize = MAX_GRPC_MESSAGE_SIZE;
+    private int backpressureThreshold = DEFAULT_BACKPRESSURE_THRESHOLD;
     private InputStream certChain;
     private InputStream key;
     private InputStream mTlsCACert;
@@ -300,6 +305,7 @@ public class FlightServer implements AutoCloseable {
           .addService(
               ServerInterceptors.intercept(
                   flightService,
+                  new ServerBackpressureThresholdInterceptor(backpressureThreshold),
                   new ServerAuthInterceptor(authHandler)));
 
       // Allow hooking into the gRPC builder. This is not guaranteed to be available on all Arrow versions or
@@ -333,6 +339,15 @@ public class FlightServer implements AutoCloseable {
      */
     public Builder maxInboundMessageSize(int maxMessageSize) {
       this.maxInboundMessageSize = maxMessageSize;
+      return this;
+    }
+
+    /**
+     * Set the number of bytes that may be queued on a server output stream before writes are blocked.
+     */
+    public Builder backpressureThreshold(int backpressureThreshold) {
+      Preconditions.checkArgument(backpressureThreshold > 0);
+      this.backpressureThreshold = backpressureThreshold;
       return this;
     }
 
