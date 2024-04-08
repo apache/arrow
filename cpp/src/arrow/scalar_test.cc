@@ -2066,6 +2066,15 @@ TEST_F(TestExtensionScalar, ValidateErrors) {
   // If the scalar is null it's okay
   scalar.is_valid = false;
   ASSERT_OK(scalar.ValidateFull());
+
+  // Invalid storage scalar (invalid UTF8)
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Scalar> invalid_storage,
+                       MakeScalar(utf8(), std::make_shared<Buffer>("\xff")));
+  ASSERT_OK(invalid_storage->Validate());
+  ASSERT_RAISES(Invalid, invalid_storage->ValidateFull());
+  scalar = ExtensionScalar(invalid_storage, type_);
+  ASSERT_OK(scalar.Validate());
+  ASSERT_RAISES(Invalid, scalar.ValidateFull());
 }
 
 }  // namespace arrow
