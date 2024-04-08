@@ -3301,6 +3301,18 @@ def test_array_from_large_pyints():
         pa.array([int(2 ** 63)])
 
 
+def test_numpy_array_protocol():
+    # test the __array__ method on pyarrow.Array
+    arr = pa.array([1, 2, 3])
+    result = np.asarray(arr)
+    expected = np.array([1, 2, 3], dtype="int64")
+    np.testing.assert_array_equal(result, expected)
+
+    # this should not raise a deprecation warning with numpy 2.0+
+    result = np.asarray(arr, copy=False)
+    np.testing.assert_array_equal(result, expected)
+
+
 def test_array_protocol():
 
     class MyArray:

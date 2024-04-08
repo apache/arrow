@@ -1543,7 +1543,8 @@ cdef class Array(_PandasConvertible):
     def _to_pandas(self, options, types_mapper=None, **kwargs):
         return _array_like_to_pandas(self, options, types_mapper=types_mapper)
 
-    def __array__(self, dtype=None):
+    def __array__(self, dtype=None, copy=None):
+        # TODO honor the copy keyword
         values = self.to_numpy(zero_copy_only=False)
         if dtype is None:
             return values

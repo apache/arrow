@@ -525,7 +525,8 @@ cdef class ChunkedArray(_PandasConvertible):
 
         return values
 
-    def __array__(self, dtype=None):
+    def __array__(self, dtype=None, copy=None):
+        # copy keyword can be ignored because to_numpy() already returns a copy
         values = self.to_numpy()
         if dtype is None:
             return values
@@ -1533,7 +1534,8 @@ cdef class _Tabular(_PandasConvertible):
         raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, use "
                         f"one of the `{self.__class__.__name__}.from_*` functions instead.")
 
-    def __array__(self, dtype=None):
+    def __array__(self, dtype=None, copy=None):
+        # copy keyword can be ignored as this always already returns a copy
         column_arrays = [
             np.asarray(self.column(i), dtype=dtype) for i in range(self.num_columns)
         ]
