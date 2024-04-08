@@ -23,8 +23,8 @@
 #include "arrow/acero/schema_util.h"
 #include "arrow/acero/task_util.h"
 #include "arrow/compute/kernels/row_encoder_internal.h"
-#include "arrow/compute/key_map.h"
-#include "arrow/compute/light_array.h"
+#include "arrow/compute/key_map_internal.h"
+#include "arrow/compute/light_array_internal.h"
 #include "arrow/compute/row/encode_internal.h"
 
 namespace arrow {

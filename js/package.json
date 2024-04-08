@@ -11,7 +11,7 @@
     "build": "cross-env NODE_NO_WARNINGS=1 gulp build",
     "clean": "cross-env NODE_NO_WARNINGS=1 gulp clean",
     "debug": "cross-env NODE_NO_WARNINGS=1 gulp debug",
-    "perf": "perf/index.ts",
+    "perf": "node --no-warnings --loader ts-node/esm/transpile-only perf/index.ts",
     "test:integration": "bin/integration.ts --mode validate",
     "release": "./npm-release.sh",
     "clean:all": "yarn clean && yarn clean:testdata",

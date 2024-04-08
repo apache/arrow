@@ -131,7 +131,7 @@ branch from main.
 Follow up Release Candidates will update the maintenance branch by cherry-picking
 specific commits.
 
-For the the initial Release Candidate for a minor or a patch release we will create
+For the initial Release Candidate for a minor or a patch release we will create
 a maintenance branch from the previous corresponding release. For example,
 for a 15.0.1 patch we will create a maint-15.0.1 branch from maint-15.0.0 and for
 a maint-15.0.2 we will create it from maint-15.0.1. Once the maintenance branch is

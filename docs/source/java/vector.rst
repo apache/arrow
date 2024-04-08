@@ -342,7 +342,7 @@ This is where the ``DictionaryEncoding``'s 'id' attribute comes in. This value i
     // now we want to decode our vector, so we retrieve its dictionary from the provider
     Field f = vsr.getField(encoded.getName());
     DictionaryEncoding encoding = f.getDictionary();
-    Dictionary dictionary = provider.get(encoding.getId());
+    Dictionary dictionary = provider.lookup(encoding.getId());
 
 As you can see, a ``DictionaryProvider`` is handy for managing the dictionaries associated with a ``VectorSchemaRoot``. More importantly, it helps package the dictionaries for a ``VectorSchemaRoot`` when it's written. The classes ``ArrowFileWriter`` and ``ArrowStreamWriter`` both accept an optional ``DictionaryProvider`` argument for that purpose. You can find example code for writing dictionaries in the documentation for (:doc:`ipc`). ``ArrowReader`` and its subclasses also implement the ``DictionaryProvider`` interface, so you can retrieve the actual dictionaries when reading a file.
 
