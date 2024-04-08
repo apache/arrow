@@ -71,11 +71,12 @@ class DynamicLibrary:
 
     def _capture_symbols(self, remove_symbol_versions, symbol_info):
         if remove_symbol_versions:
-            symbol_info = [re.split('@@', line)[0] for line in symbol_info]
+            symbol_info = [line.split('@')[0] for line in symbol_info]
         return symbol_info
 
     def list_symbols_for_dependency(self, dependency, remove_symbol_versions=False):
         if dependency == 'linux-vdso.so.1':
+            # this is a virtual library, thus symbols cannot be listed
             return []
         result = _nm.run('-D', dependency, stdout=subprocess.PIPE)
         lines = result.stdout.decode('utf-8').splitlines()
@@ -114,19 +115,21 @@ class DynamicLibrary:
                     if match:
                         paths[match.group(1)] = match.group(1)
         else:
-            raise ValueError(f"{system} is not supported")
+            raise NotImplementedError(f"{system} is not supported")
         return paths
 
 
-def _check_undefined_symbols(dylib, allowed):
+def _check_undefined_symbols(dylib):
     # Check for undefined symbols
-    undefined_symbols = dylib.list_undefined_symbols_for_dependency(dylib.path, True)
+    undefined_symbols = dylib.list_undefined_symbols_for_dependency(
+        dylib.path, remove_symbol_versions=True)
     expected_lib_paths = dylib.extract_library_paths(dylib.path)
     all_paths = list(expected_lib_paths.values())
 
     for lib_path in all_paths:
         if lib_path:
-            expected_symbols = dylib.list_symbols_for_dependency(lib_path, True)
+            expected_symbols = dylib.list_symbols_for_dependency(
+                lib_path, remove_symbol_versions=True)
             undefined_symbols = [
                 symbol for symbol in undefined_symbols
                 if symbol not in expected_symbols]
@@ -154,7 +157,7 @@ def check_dynamic_library_dependencies(path, allowed, disallowed):
     system = platform.system()
 
     if system == 'Linux':
-        _check_undefined_symbols(dylib, allowed)
+        _check_undefined_symbols(dylib)
     elif system == 'Darwin':
         # TODO: Implement undefined symbol checking for macOS
         # https://github.com/apache/arrow/issues/40965
@@ -164,4 +167,5 @@ def check_dynamic_library_dependencies(path, allowed, disallowed):
         # https://github.com/apache/arrow/issues/40966
         pass
     else:
-        raise ValueError(f"{system} is not supported for checking undefined symbols.")
+        raise NotImplementedError(
+            f"{system} is not supported for checking undefined symbols.")
