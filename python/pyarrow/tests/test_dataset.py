@@ -5643,7 +5643,7 @@ def test_make_write_options_error():
              "doesn't apply to a 'int'")
     with pytest.raises(TypeError) as excinfo:
         pa.dataset.ParquetFileFormat.make_write_options(43)
-    assert (msg_1 or msg_2) in str(excinfo.value)
+    assert msg_1 in str(excinfo.value) or msg_2 in str(excinfo.value)
 
     pformat = pa.dataset.ParquetFileFormat()
     msg = "make_write_options\\(\\) takes exactly 0 positional arguments"
