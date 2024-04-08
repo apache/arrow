@@ -27,9 +27,6 @@
 package org.apache.arrow.vector.holders;
 
 <#include "/@includes/vv_imports.ftl" />
-<#if minor.class == "ViewVarChar" || minor.class == "ViewVarBinary">
-import org.apache.arrow.vector.${minor.class}Vector.HolderCallback;
-</#if>
 /**
  * Source code generated using FreeMarker template ${.template_name}
  */
@@ -49,7 +46,6 @@ public final class ${className} implements ValueHolder{
     <#else>
 
     <#if minor.class == "ViewVarChar" || minor.class == "ViewVarBinary">
-    public HolderCallback callBack;
     public List<ArrowBuf> dataBuffers;
     public ArrowBuf outputBuffer;
     </#if>
