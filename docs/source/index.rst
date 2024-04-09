@@ -109,6 +109,7 @@ Implementations
    JavaScript <js/index>
    Julia <https://arrow.apache.org/julia/>
    MATLAB <https://github.com/apache/arrow/blob/main/matlab/README.md>
+   nanoarrow <https://arrow.apache.org/nanoarrow/>
    Python <python/index>
    R <r/index>
    Ruby <https://github.com/apache/arrow/blob/main/ruby/README.md>
