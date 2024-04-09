@@ -222,6 +222,28 @@ Result<std::shared_ptr<Array>> FlattenListArray(const ListArrayT& list_array,
   const int64_t list_array_length = list_array.length();
   std::shared_ptr<arrow::Array> value_array = list_array.values();
 
+  // If the list array is nested list-array like 'list(list(int32))', then just
+  // flatten recursively.
+  if (is_list_like(value_array->type_id())) {
+    auto flatten_nested_list =
+        [&](const std::shared_ptr<arrow::Array>& varr) -> Result<std::shared_ptr<Array>> {
+      switch (varr->type_id()) {
+        case Type::LIST:
+          return FlattenListArray(checked_cast<const ListArray&>(*varr), memory_pool);
+        case Type::LARGE_LIST:
+          return FlattenListArray(checked_cast<const LargeListArray&>(*varr),
+                                  memory_pool);
+        case Type::FIXED_SIZE_LIST:
+          return FlattenListArray(checked_cast<const FixedSizeListArray&>(*varr),
+                                  memory_pool);
+        default:
+          return Status::Invalid("Unknown or unsupported arrow nested type: ",
+                                 varr->type()->ToString());
+      }
+    };
+    return flatten_nested_list(value_array);
+  }
+
   // Shortcut: if a ListArray does not contain nulls, then simply slice its
   // value array with the first and the last offsets.
   if (list_array.null_count() == 0) {
@@ -270,6 +292,39 @@ Result<std::shared_ptr<Array>> FlattenListViewArray(const ListViewArrayT& list_v
   const int64_t list_view_array_offset = list_view_array.offset();
   const int64_t list_view_array_length = list_view_array.length();
   std::shared_ptr<arrow::Array> value_array = list_view_array.values();
+
+  // If it's a nested list-view, flatten recursively.
+  if (is_list_view(value_array->type()->id())) {
+    auto flatten_nested_list_view =
+        [&](const std::shared_ptr<arrow::Array>& varr) -> Result<std::shared_ptr<Array>> {
+      const bool has_nulls = varr->null_count() > 0;
+
+      switch (varr->type_id()) {
+        case Type::LIST_VIEW: {
+          if (has_nulls) {
+            return FlattenListViewArray<ListViewArray, true>(
+                checked_cast<const ListViewArray&>(*varr), memory_pool);
+          } else {
+            return FlattenListViewArray<ListViewArray, false>(
+                checked_cast<const ListViewArray&>(*varr), memory_pool);
+          }
+        }
+        case Type::LARGE_LIST_VIEW: {
+          if (has_nulls) {
+            return FlattenListViewArray<LargeListViewArray, true>(
+                checked_cast<const LargeListViewArray&>(*varr), memory_pool);
+          } else {
+            return FlattenListViewArray<LargeListViewArray, false>(
+                checked_cast<const LargeListViewArray&>(*varr), memory_pool);
+          }
+        }
+        default:
+          return Status::Invalid("Unknown or unsupported arrow nested type: ",
+                                 varr->type()->ToString());
+      }
+    };
+    return flatten_nested_list_view(value_array);
+  }
 
   if (list_view_array_length == 0) {
     return SliceArrayWithOffsets(*value_array, 0, 0);
