@@ -486,6 +486,7 @@ def test_array_slice_negative_step():
         slice(None, None, 2),
         slice(0, 10, 2),
         slice(15, -25, -1),  # GH-38768
+        slice(-22, -22, -1),  # GH-40642
     ]
 
     for case in cases:
