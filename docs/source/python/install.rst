@@ -39,6 +39,13 @@ Install the latest version of PyArrow from
 
     conda install -c conda-forge pyarrow
 
+.. note::
+
+    While the ``pyarrow`` `conda-forge <https://conda-forge.org/>`_ package is
+    the right choice for most users, both a minimal and maximal variant of the
+    package exist, either of which may be better for your use case. See
+    :ref:`python-conda-differences`.
+
 Using Pip
 ---------
 
@@ -93,3 +100,41 @@ a custom path to the database from Python:
 
    >>> import pyarrow as pa
    >>> pa.set_timezone_db_path("custom_path")
+
+
+.. _python-conda-differences:
+
+Differences between conda-forge packages
+----------------------------------------
+
+PyArrow is packaged on `conda-forge <https://conda-forge.org/>`_ as three
+separate packages, each providing varying levels of functionality. This is in
+contrast to PyPi, where only a single PyArrow package is provided.
+
+The purpose of this split is to minimize the size of the installed package for
+most users (``pyarrow``), provide a smaller, minimal package for specialized use
+cases (``pyarrow-core``), while still providing a complete package for users who
+require it (``pyarrow-all``).
+
+The table below lists the functionality provided by each package and may be
+useful when deciding to use one package over another:
+
++------------+------------------------------+------------------------------+------------------------------+
+| Component  | pyarrow                      | pyarrow-core                 | pyarrow-all                  |
++============+==============================+==============================+==============================+
+| Core       | :fas:`check;sd-text-success` | :fas:`check;sd-text-success` | :fas:`check;sd-text-success` |
++------------+------------------------------+------------------------------+------------------------------+
+| Parquet    | :fas:`check;sd-text-success` |                              | :fas:`check;sd-text-success` |
++------------+------------------------------+------------------------------+------------------------------+
+| Datasets   | :fas:`check;sd-text-success` |                              | :fas:`check;sd-text-success` |
++------------+------------------------------+------------------------------+------------------------------+
+| Acero      | :fas:`check;sd-text-success` |                              | :fas:`check;sd-text-success` |
++------------+------------------------------+------------------------------+------------------------------+
+| Substrait  | :fas:`check;sd-text-success` |                              | :fas:`check;sd-text-success` |
++------------+------------------------------+------------------------------+------------------------------+
+| Flight     |                              |                              | :fas:`check;sd-text-success` |
++------------+------------------------------+------------------------------+------------------------------+
+| Flight SQL |                              |                              | :fas:`check;sd-text-success` |
++------------+------------------------------+------------------------------+------------------------------+
+| Gandiva    |                              |                              | :fas:`check;sd-text-success` |
++------------+------------------------------+------------------------------+------------------------------+
