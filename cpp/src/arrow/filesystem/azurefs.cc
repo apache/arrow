@@ -2181,7 +2181,7 @@ class AzureFileSystem::Impl {
                                Azure::Nullable<std::string> lease_id = {}) {
     DCHECK(!location.container.empty());
     DCHECK(!location.path.empty());
-    ARROW_ASSIGN_OR_RAISE(auto file_info, GetFileInfo(adlfs_client, location));
+    ARROW_ASSIGN_OR_RAISE(auto file_info, GetFileInfo(adlfs_client, location, lease_id));
     if (file_info.type() == FileType::NotFound) {
       if (require_dir_to_exist) {
         return PathNotFound(location);
