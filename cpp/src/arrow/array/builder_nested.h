@@ -251,7 +251,8 @@ class ARROW_EXPORT VarLengthListLikeBuilder : public ArrayBuilder {
   ///
   /// ListViewBuilder overrides this to also append the size.
   virtual void UnsafeAppendDimensions(int64_t offset, int64_t size) {
-    offsets_builder_.UnsafeAppend(static_cast<offset_type>(offset), size);
+    ARROW_UNUSED(size);
+    offsets_builder_.UnsafeAppend(static_cast<offset_type>(offset));
   }
 
   TypedBufferBuilder<offset_type> offsets_builder_;
