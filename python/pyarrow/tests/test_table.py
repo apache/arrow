@@ -928,12 +928,12 @@ def test_recordbatch_to_tensor_uniform_type(typ):
     )
 
     result = batch.to_tensor(row_major=False)
-    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order=F")
+    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="F")
     expected = pa.Tensor.from_numpy(x)
     check_tensors(result, expected, pa.from_numpy_dtype(typ), 27)
 
     result = batch.to_tensor()
-    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order=C")
+    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="C")
     expected = pa.Tensor.from_numpy(x)
     check_tensors(result, expected, pa.from_numpy_dtype(typ), 27)
 
@@ -944,12 +944,12 @@ def test_recordbatch_to_tensor_uniform_type(typ):
     arr3 = [100, 100, 100, 100, 100, 100, 100, 100]
 
     result = batch1.to_tensor(row_major=False)
-    x = np.array([arr1, arr2, arr3], typ).transpose()
+    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="F")
     expected = pa.Tensor.from_numpy(x)
     check_tensors(result, expected, pa.from_numpy_dtype(typ), 24)
 
     result = batch1.to_tensor()
-    x = np.array([arr1, arr2, arr3], typ, order='F').transpose()
+    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="C")
     expected = pa.Tensor.from_numpy(x)
     check_tensors(result, expected, pa.from_numpy_dtype(typ), 24)
 
@@ -959,12 +959,12 @@ def test_recordbatch_to_tensor_uniform_type(typ):
     arr3 = [100, 100, 100, 100, 100]
 
     result = batch2.to_tensor(row_major=False)
-    x = np.array([arr1, arr2, arr3], typ).transpose()
+    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="F")
     expected = pa.Tensor.from_numpy(x)
     check_tensors(result, expected, pa.from_numpy_dtype(typ), 15)
 
     result = batch2.to_tensor()
-    x = np.array([arr1, arr2, arr3], typ, order='F').transpose()
+    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="C")
     expected = pa.Tensor.from_numpy(x)
     check_tensors(result, expected, pa.from_numpy_dtype(typ), 15)
 
@@ -982,12 +982,12 @@ def test_recordbatch_to_tensor_uniform_float_16():
     )
 
     result = batch.to_tensor(row_major=False)
-    x = np.array([arr1, arr2, arr3], np.float16).transpose()
+    x = np.column_stack([arr1, arr2, arr3]).astype(np.float16, order="F")
     expected = pa.Tensor.from_numpy(x)
     check_tensors(result, expected, pa.float16(), 27)
 
     result = batch.to_tensor()
-    x = np.array([arr1, arr2, arr3], np.float16, order='F').transpose()
+    x = np.column_stack([arr1, arr2, arr3]).astype(np.float16, order="C")
     expected = pa.Tensor.from_numpy(x)
     check_tensors(result, expected, pa.float16(), 27)
 
@@ -1005,12 +1005,12 @@ def test_recordbatch_to_tensor_mixed_type():
     )
 
     result = batch.to_tensor(row_major=False)
-    x = np.array([arr1, arr2], np.int32).transpose()
+    x = np.column_stack([arr1, arr2]).astype(np.int32, order="F")
     expected = pa.Tensor.from_numpy(x)
     check_tensors(result, expected, pa.int32(), 18)
 
     result = batch.to_tensor()
-    x = np.array([arr1, arr2], np.int32, order='F').transpose()
+    x = np.column_stack([arr1, arr2]).astype(np.int32, order="C")
     expected = pa.Tensor.from_numpy(x)
     check_tensors(result, expected, pa.int32(), 18)
 
@@ -1023,8 +1023,7 @@ def test_recordbatch_to_tensor_mixed_type():
         ], ["a", "b", "c"]
     )
     result = batch.to_tensor(row_major=False)
-
-    x = np.array([arr1, arr2, arr3], np.float64).transpose()
+    x = np.column_stack([arr1, arr2, arr3]).astype(np.float64, order="F")
     expected = pa.Tensor.from_numpy(x)
 
     np.testing.assert_equal(result.to_numpy(), x)
@@ -1034,8 +1033,7 @@ def test_recordbatch_to_tensor_mixed_type():
     assert result.strides == expected.strides
 
     result = batch.to_tensor()
-
-    x = np.array([arr1, arr2, arr3], order='F').transpose()
+    x = np.column_stack([arr1, arr2, arr3]).astype(np.float64, order="C")
     expected = pa.Tensor.from_numpy(x)
 
     np.testing.assert_equal(result.to_numpy(), x)
@@ -1074,8 +1072,7 @@ def test_recordbatch_to_tensor_nan():
         ], ["a", "b"]
     )
     result = batch.to_tensor(row_major=False)
-
-    x = np.array([arr1, arr2], np.float32).transpose()
+    x = np.column_stack([arr1, arr2]).astype(np.float32, order="F")
     expected = pa.Tensor.from_numpy(x)
 
     np.testing.assert_equal(result.to_numpy(), x)
@@ -1101,8 +1098,7 @@ def test_recordbatch_to_tensor_null():
         batch.to_tensor()
 
     result = batch.to_tensor(null_to_nan=True, row_major=False)
-
-    x = np.array([arr1, arr2], np.float64).transpose()
+    x = np.column_stack([arr1, arr2]).astype(np.float64, order="F")
     expected = pa.Tensor.from_numpy(x)
 
     np.testing.assert_equal(result.to_numpy(), x)
@@ -1136,8 +1132,7 @@ def test_recordbatch_to_tensor_null():
     )
 
     result = batch.to_tensor(null_to_nan=True, row_major=False)
-
-    x = np.array([arr1, arr2], np.float32).transpose()
+    x = np.column_stack([arr1, arr2]).astype(np.float32, order="F")
     expected = pa.Tensor.from_numpy(x)
 
     np.testing.assert_equal(result.to_numpy(), x)
@@ -1156,7 +1151,7 @@ def test_recordbatch_to_tensor_empty():
     )
     result = batch.to_tensor()
 
-    x = np.array([[], []], np.float32).transpose()
+    x = np.column_stack([[], []]).astype(np.float32, order="F")
     expected = pa.Tensor.from_numpy(x)
 
     assert result.size == expected.size
