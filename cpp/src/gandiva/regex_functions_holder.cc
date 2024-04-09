@@ -123,6 +123,20 @@ Result<std::shared_ptr<LikeHolder>> LikeHolder::Make(const FunctionNode& node) {
   }
 }
 
+Result<std::shared_ptr<LikeHolder>> LikeHolder::Make(const std::string& sql_pattern) {
+  std::string pcre_pattern;
+  ARROW_RETURN_NOT_OK(RegexUtil::SqlLikePatternToPcre(sql_pattern, pcre_pattern));
+
+  RE2::Options regex_op;
+  regex_op.set_dot_nl(true);  // set dotall mode for the regex.
+  auto lholder = std::shared_ptr<LikeHolder>(new LikeHolder(pcre_pattern, regex_op));
+  ARROW_RETURN_IF(!lholder->regex_.ok(),
+                  Status::Invalid("Building RE2 pattern '", pcre_pattern,
+                                  "' failed with: ", lholder->regex_.error()));
+
+  return lholder;
+}
+
 Result<std::shared_ptr<LikeHolder>> LikeHolder::Make(const std::string& sql_pattern,
                                                      const std::string& escape_char,
                                                      RE2::Options regex_op) {
