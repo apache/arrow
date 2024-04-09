@@ -22,7 +22,7 @@ class SourceTest < Test::Unit::TestCase
   def setup
     @current_commit = git_current_commit
     detect_versions
-    @tag_name = "apache-arrow-#{@release_version}"
+    @tag_name = "apache-arrow-#{@release_version}-rc0"
     @script = File.expand_path("dev/release/02-source.sh")
 
     Dir.mktmpdir do |dir|
