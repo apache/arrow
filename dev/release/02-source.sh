@@ -37,11 +37,10 @@ fi
 version=$1
 rc=$2
 
-tag=apache-arrow-${version}
+tag=apache-arrow-${version}-rc${rc}
 maint_branch=maint-${version}
 rc_branch="release-${version}-rc${rc}"
-tagrc=${tag}-rc${rc}
-rc_url="https://dist.apache.org/repos/dist/dev/arrow/${tagrc}"
+rc_url="https://dist.apache.org/repos/dist/dev/arrow/${tag}"
 
 echo "Preparing source for tag ${tag}"
 
@@ -109,14 +108,14 @@ if [ ${SOURCE_UPLOAD} -gt 0 ]; then
   svn co --depth=empty https://dist.apache.org/repos/dist/dev/arrow tmp
 
   # add the release candidate for the tag
-  mkdir -p tmp/${tagrc}
+  mkdir -p tmp/${tag}
 
   # copy the rc tarball into the tmp dir
-  cp ${tarball}* tmp/${tagrc}
+  cp ${tarball}* tmp/${tag}
 
   # commit to svn
-  svn add tmp/${tagrc}
-  svn ci -m "Apache Arrow ${version} RC${rc}" tmp/${tagrc}
+  svn add tmp/${tag}
+  svn ci -m "Apache Arrow ${version} RC${rc}" tmp/${tag}
 
   # clean up
   rm -rf tmp
