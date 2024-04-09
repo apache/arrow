@@ -89,8 +89,7 @@ RUN choco install -r -y --no-progress python --version=%PYTHON_VERSION%
 RUN python -m pip install -U pip setuptools
 
 COPY python/requirements-wheel-build.txt arrow/python/
-# TODO(GH-39848) Remove the `--pre --extra-index-url` for numpy nightly again before the 16.0 release 
-RUN python -m pip install -r arrow/python/requirements-wheel-build.txt --pre --extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple"
+RUN python -m pip install -r arrow/python/requirements-wheel-build.txt
 
 # ENV CLCACHE_DIR="C:\clcache"
 # ENV CLCACHE_COMPRESS=1
