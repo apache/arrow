@@ -291,10 +291,10 @@ TEST(Formatting, HalfFloat) {
 
   // Slightly adapted from values present here
   // https://blogs.mathworks.com/cleve/2017/05/08/half-precision-16-bit-floating-point-arithmetic/
-  AssertFormatting(formatter, Float16::FromBits(0x3c00).bits(), "1");
-  AssertFormatting(formatter, Float16::FromBits(0x3c01).bits(), "1.0009765625");
-  AssertFormatting(formatter, Float16::FromBits(0x0400).bits(), "0.00006103515625");
-  AssertFormatting(formatter, Float16::FromBits(0x0001).bits(), "5.960464477539063e-8");
+  AssertFormatting(formatter, 0x3c00, "1");
+  AssertFormatting(formatter, 0x3c01, "1.0009765625");
+  AssertFormatting(formatter, 0x0400, "0.00006103515625");
+  AssertFormatting(formatter, 0x0001, "5.960464477539063e-8");
 
   // Can't avoid loss of precision here.
   AssertFormatting(formatter, Float16(1234.567f).bits(), "1235");
