@@ -346,9 +346,9 @@ html_theme_options = {
             "icon": "fa-brands fa-square-github",
         },
         {
-            "name": "Twitter",
+            "name": "X",
             "url": "https://twitter.com/ApacheArrow",
-            "icon": "fa-brands fa-square-twitter",
+            "icon": "fa-brands fa-square-x-twitter",
         },
     ],
     "show_version_warning_banner": True,
