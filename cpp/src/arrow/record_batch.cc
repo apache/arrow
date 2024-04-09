@@ -297,13 +297,13 @@ struct ConvertColumnsToTensorRowMajorVisitor {
       auto in_values = ArraySpan(in_data).GetSpan<In>(1, in_data.length);
 
       if (in_data.null_count == 0) {
-        for (int64_t j = 0; j < in_data.length; ++j) {
-          out_values[j * num_cols + col_idx] = static_cast<Out>(in_values[j]);
+        for (int64_t i = 0; i < in_data.length; ++i) {
+          out_values[i * num_cols + col_idx] = static_cast<Out>(in_values[i]);
         }
       } else {
-        for (int64_t j = 0; j < in_data.length; ++j) {
-          out_values[j * num_cols + col_idx] =
-              in_data.IsNull(j) ? static_cast<Out>(NAN) : static_cast<Out>(in_values[j]);
+        for (int64_t i = 0; i < in_data.length; ++i) {
+          out_values[i * num_cols + col_idx] =
+              in_data.IsNull(i) ? static_cast<Out>(NAN) : static_cast<Out>(in_values[i]);
         }
       }
       return Status::OK();
