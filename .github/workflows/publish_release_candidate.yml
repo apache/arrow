@@ -1,0 +1,69 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: Package
+
+on:
+  push:
+    tags:
+    # A release candidate should be published whenever a tag with
+    # the name below is pushed to the apache/arrow repository.
+      - "apache-arrow-*-rc*"
+
+jobs:
+  publish-release-candidate:
+    name: Publish Release Candidate to GitHub Releases
+    runs-on: ubuntu-latest
+    if: github.ref_type == 'tag'
+    steps:
+      - name: Checkout apache/arrow
+        uses: actions/checkout@v4
+        with:
+          path: arrow
+          fetch-depth: 0
+      - name: Store Release Tag Name as Environment Variable
+        # For convenience, store the release tag name as an environment
+        # variable for use in subsequent steps.
+        run: |
+          echo "ARROW_RELEASE_TAG_NAME=${{github.ref_name}}" >> "$GITHUB_ENV"
+      - name: Store Version and Release Candidate Number as Environment Variables
+        # From environment variable ARROW_RELEASE_TAG_NAME, extract the version and
+        # release candidate number. Store these values as environment variables.
+        run: |
+          version_with_rc=${ARROW_RELEASE_TAG_NAME#apache-arrow-}
+          version=${version_with_rc%-rc*}
+          rc_num=${version_with_rc#${version}-rc}
+          echo "ARROW_VERSION_WITH_RC=${version_with_rc}" >> "${GITHUB_ENV}"
+          echo "ARROW_VERSION=${version}" >> ${GITHUB_ENV}
+          echo "ARROW_RC_NUM=${rc_num}" >> ${GITHUB_ENV}
+      - name: Create GitHub Release for Release Candidate
+        # Create a pre-release in apache/arrow's GitHub Releases area.
+        # Attach the release candidate MLTBX file as an asset.
+        run: |
+          target_branch=release-${ARROW_VERSION_WITH_RC}
+          title="Apache Arrow ${ARROW_VERSION} RC${ARROW_RC_NUM}"
+          repository=${{github.repository}}
+          release_notes="Release Candidate: ${ARROW_VERSION} RC${ARROW_RC_NUM}"
+          gh release create \
+            ${ARROW_RELEASE_TAG_NAME} \
+            --prerelease \
+            --target ${target_branch} \
+            --notes "${release_notes}" \
+            --title "${title}" \
+            --repo ${repository}
+        env:
+          GH_TOKEN: ${{ github.token }}
