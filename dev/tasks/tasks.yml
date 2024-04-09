@@ -80,6 +80,7 @@ groups:
 
   java:
     - "*java*"
+    - test-*spark*
 
   python:
     - test-*python*
