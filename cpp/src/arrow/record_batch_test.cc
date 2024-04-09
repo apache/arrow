@@ -718,6 +718,19 @@ void CheckTensor(const std::shared_ptr<Tensor>& tensor, const int size,
   EXPECT_TRUE(tensor->is_contiguous());
 }
 
+template <typename DataType>
+void CheckTensorRowMajor(const std::shared_ptr<Tensor>& tensor, const int size,
+                         const std::vector<int64_t> shape,
+                         const std::vector<int64_t> strides) {
+  EXPECT_EQ(size, tensor->size());
+  EXPECT_EQ(TypeTraits<DataType>::type_singleton(), tensor->type());
+  EXPECT_EQ(shape, tensor->shape());
+  EXPECT_EQ(strides, tensor->strides());
+  EXPECT_TRUE(tensor->is_row_major());
+  EXPECT_FALSE(tensor->is_column_major());
+  EXPECT_TRUE(tensor->is_contiguous());
+}
+
 TEST_F(TestRecordBatch, ToTensorSupportedNaN) {
   const int length = 9;
 
@@ -779,6 +792,19 @@ TEST_F(TestRecordBatch, ToTensorSupportedNullToNan) {
 
   CheckTensor<DoubleType>(tensor, 18, shape, f_strides);
 
+  ASSERT_OK_AND_ASSIGN(auto tensor_row, batch->ToTensor(/*null_to_nan=*/true));
+  ASSERT_OK(tensor_row->Validate());
+
+  std::vector<int64_t> strides = {f64_size * shape[1], f64_size};
+  std::shared_ptr<Tensor> tensor_expected_row = TensorFromJSON(
+      float64(), "[NaN, 10, 2,  20, 3, 30,  4, 40, 5, NaN, 6, 60, 7, 70, 8, 80, 9, 90]",
+      shape, strides);
+
+  EXPECT_FALSE(tensor_expected_row->Equals(*tensor_row));
+  EXPECT_TRUE(tensor_expected_row->Equals(*tensor_row, EqualOptions().nans_equal(true)));
+
+  CheckTensorRowMajor<DoubleType>(tensor_row, 18, shape, strides);
+
   // int32 -> float64
   auto f2 = field("f2", int32());
 
@@ -796,6 +822,14 @@ TEST_F(TestRecordBatch, ToTensorSupportedNullToNan) {
   EXPECT_TRUE(tensor_expected->Equals(*tensor1, EqualOptions().nans_equal(true)));
 
   CheckTensor<DoubleType>(tensor1, 18, shape, f_strides);
+
+  ASSERT_OK_AND_ASSIGN(auto tensor1_row, batch1->ToTensor(/*null_to_nan=*/true));
+  ASSERT_OK(tensor1_row->Validate());
+
+  EXPECT_FALSE(tensor_expected_row->Equals(*tensor1_row));
+  EXPECT_TRUE(tensor_expected_row->Equals(*tensor1_row, EqualOptions().nans_equal(true)));
+
+  CheckTensorRowMajor<DoubleType>(tensor1_row, 18, shape, strides);
 
   // int8 -> float32
   auto f3 = field("f3", int8());
@@ -822,6 +856,20 @@ TEST_F(TestRecordBatch, ToTensorSupportedNullToNan) {
   EXPECT_TRUE(tensor_expected_2->Equals(*tensor2, EqualOptions().nans_equal(true)));
 
   CheckTensor<FloatType>(tensor2, 18, shape, f_strides_2);
+
+  ASSERT_OK_AND_ASSIGN(auto tensor2_row, batch2->ToTensor(/*null_to_nan=*/true));
+  ASSERT_OK(tensor2_row->Validate());
+
+  std::vector<int64_t> strides_2 = {f32_size * shape[1], f32_size};
+  std::shared_ptr<Tensor> tensor2_expected_row = TensorFromJSON(
+      float32(), "[NaN, 10, 2,  20, 3, 30,  4, 40, 5, NaN, 6, 60, 7, 70, 8, 80, 9, 90]",
+      shape, strides_2);
+
+  EXPECT_FALSE(tensor2_expected_row->Equals(*tensor2_row));
+  EXPECT_TRUE(
+      tensor2_expected_row->Equals(*tensor2_row, EqualOptions().nans_equal(true)));
+
+  CheckTensorRowMajor<FloatType>(tensor2_row, 18, shape, strides_2);
 }
 
 TEST_F(TestRecordBatch, ToTensorSupportedTypesMixed) {
@@ -1021,19 +1069,6 @@ INSTANTIATE_TYPED_TEST_SUITE_P(Int64, TestBatchToTensorColumnMajor, Int64Type);
 INSTANTIATE_TYPED_TEST_SUITE_P(Float16, TestBatchToTensorColumnMajor, HalfFloatType);
 INSTANTIATE_TYPED_TEST_SUITE_P(Float32, TestBatchToTensorColumnMajor, FloatType);
 INSTANTIATE_TYPED_TEST_SUITE_P(Float64, TestBatchToTensorColumnMajor, DoubleType);
-
-template <typename DataType>
-void CheckTensorRowMajor(const std::shared_ptr<Tensor>& tensor, const int size,
-                         const std::vector<int64_t> shape,
-                         const std::vector<int64_t> strides) {
-  EXPECT_EQ(size, tensor->size());
-  EXPECT_EQ(TypeTraits<DataType>::type_singleton(), tensor->type());
-  EXPECT_EQ(shape, tensor->shape());
-  EXPECT_EQ(strides, tensor->strides());
-  EXPECT_TRUE(tensor->is_row_major());
-  EXPECT_FALSE(tensor->is_column_major());
-  EXPECT_TRUE(tensor->is_contiguous());
-}
 
 template <typename DataType>
 class TestBatchToTensorRowMajor : public ::testing::Test {};
