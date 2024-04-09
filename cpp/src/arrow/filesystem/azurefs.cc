@@ -1642,10 +1642,26 @@ class AzureFileSystem::Impl {
       options.Prefix = {};
       found = true;  // Unless the container itself is not found later!
     } else {
-      options.Prefix = internal::EnsureTrailingSlash(base_location.path);
+      ARROW_ASSIGN_OR_RAISE(
+          auto prefix, AzureLocation::FromString(
+                           std::string(internal::EnsureTrailingSlash(select.base_dir))));
+      ARROW_ASSIGN_OR_RAISE(auto info, GetFileInfo(container_client, prefix));
+      if (info.type() == FileType::NotFound) {
+        if (select.allow_not_found) {
+          return Status::OK();
+        } else {
+          return PathNotFound(base_location);
+        }
+      } else if (info.type() != FileType::Directory) {
+        return NotADir(base_location);
+      }
+      options.Prefix = prefix.path;
     }
     options.PageSizeHint = page_size_hint;
     options.Include = Blobs::Models::ListBlobsIncludeFlags::Metadata;
+
+    auto adlfs_client = GetFileSystemClient(base_location.container);
+    ARROW_ASSIGN_OR_RAISE(auto hns_support, HierarchicalNamespaceSupport(adlfs_client));
 
     auto recurse = [&](const std::string& blob_prefix) noexcept -> Status {
       if (select.recursive && select.max_recursion > 0) {
@@ -1671,7 +1687,15 @@ class AzureFileSystem::Impl {
     };
     auto process_prefix = [&](const std::string& prefix) noexcept -> Status {
       const auto path = internal::ConcatAbstractPath(base_location.container, prefix);
-      acc_results->push_back(DirectoryFileInfoFromPath(path));
+      if (hns_support == HNSSupport::kEnabled) {
+        ARROW_ASSIGN_OR_RAISE(
+            auto location,
+            AzureLocation::FromString(std::string(internal::RemoveTrailingSlash(path))));
+        ARROW_ASSIGN_OR_RAISE(auto info, GetFileInfo(adlfs_client, location));
+        acc_results->push_back(std::move(info));
+      } else {
+        acc_results->push_back(DirectoryFileInfoFromPath(path));
+      }
       return recurse(prefix);
     };
 
