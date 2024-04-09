@@ -1311,10 +1311,10 @@ TEST(TestBooleanArray, TrueCountFalseCount) {
   // GH-41016 true_count() with array without validity buffer with null_count of -1
   auto data = ArrayFromJSON(boolean(), "[true, false, true]")->data();
   data->null_count = -1;
-  std::shared_ptr<BooleanArray> arr2(new BooleanArray(data));
-  ASSERT_EQ(arr2->data()->null_count.load(), -1);
-  ASSERT_EQ(arr2->null_bitmap(), nullptr);
-  ASSERT_EQ(arr2->true_count(), 2);
+  auto arr_unknown_null_count = std::make_shared<BooleanArray>(data);
+  ASSERT_EQ(arr_unknown_null_count->data()->null_count.load(), -1);
+  ASSERT_EQ(arr_unknown_null_count->null_bitmap(), nullptr);
+  ASSERT_EQ(arr_unknown_null_count->true_count(), 2);
 }
 
 TEST(TestPrimitiveAdHoc, TestType) {
