@@ -57,8 +57,7 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
 
   /// Constructor overload that takes a raw pointer to the KeyToolkit and
   /// accepts an existing key_material_store rather than using
-  /// the file path and file system to create one when needed. This is useful for key
-  /// rotation to allow accessing the key material store after it is used.
+  /// the file path and file system to create one when needed.
   FileKeyUnwrapper(KeyToolkit* key_toolkit,
                    const KmsConnectionConfig& kms_connection_config,
                    double cache_lifetime_seconds,
@@ -73,7 +72,9 @@ class PARQUET_EXPORT FileKeyUnwrapper : public DecryptionKeyRetriever {
  private:
   FileKeyUnwrapper(std::shared_ptr<KeyToolkit> key_toolkit_owner, KeyToolkit* key_toolkit,
                    const KmsConnectionConfig& kms_connection_config,
-                   double cache_lifetime_seconds, const std::string& file_path,
+                   double cache_lifetime_seconds,
+                   std::shared_ptr<FileKeyMaterialStore> key_material_store,
+                   const std::string& file_path,
                    const std::shared_ptr<::arrow::fs::FileSystem>& file_system);
 
   std::shared_ptr<KmsClient> GetKmsClientFromConfigOrKeyMaterial(

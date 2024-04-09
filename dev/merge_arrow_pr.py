@@ -253,7 +253,10 @@ class GitHubIssue(object):
 
     @property
     def current_fix_versions(self):
-        return self.issue.get("milestone", {}).get("title")
+        try:
+            return self.issue.get("milestone", {}).get("title")
+        except AttributeError:
+            pass
 
     @property
     def current_versions(self):
@@ -679,6 +682,19 @@ def prompt_for_fix_version(cmd, issue, maintenance_branches=()):
         mainline_versions=issue.current_versions,
         maintenance_branches=maintenance_branches
     )
+
+    current_fix_versions = issue.current_fix_versions
+    if (current_fix_versions and
+            current_fix_versions != default_fix_version):
+        print("\n=== The assigned milestone is not the default ===")
+        print(f"Assigned milestone: {current_fix_versions}")
+        print(f"Current milestone: {default_fix_version}")
+        if issue.issue["milestone"].get("state") == 'closed':
+            print("The assigned milestone state is closed. Contact the ")
+            print("Release Manager if it has to be added to a closed Release")
+        print("Please ensure to assign the correct milestone.")
+        # Default to existing assigned milestone
+        default_fix_version = current_fix_versions
 
     issue_fix_version = cmd.prompt("Enter fix version [%s]: "
                                    % default_fix_version)

@@ -208,8 +208,14 @@ templates_path = ['_templates']
 #
 
 source_suffix = {
-    '.md': 'markdown',
+    # We need to keep "'.rst': 'restructuredtext'" as the first item.
+    # This is a workaround of
+    # https://github.com/sphinx-doc/sphinx/issues/12147 .
+    #
+    # We can sort these items in alphabetical order with Sphinx 7.3.0
+    # or later that will include the fix of this problem.
     '.rst': 'restructuredtext',
+    '.md': 'markdown',
 }
 
 autosummary_generate = True
@@ -340,9 +346,9 @@ html_theme_options = {
             "icon": "fa-brands fa-square-github",
         },
         {
-            "name": "Twitter",
+            "name": "X",
             "url": "https://twitter.com/ApacheArrow",
-            "icon": "fa-brands fa-square-twitter",
+            "icon": "fa-brands fa-square-x-twitter",
         },
     ],
     "show_version_warning_banner": True,

@@ -33,8 +33,10 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
 
 namespace liborc = orc;
@@ -634,6 +636,23 @@ TEST(TestAdapterReadWrite, FieldAttributesRoundTrip) {
   // Check schema equality with metadata.
   EXPECT_OK_AND_ASSIGN(auto read_schema, reader->ReadSchema());
   AssertSchemaEqual(schema, read_schema, /*check_metadata=*/true);
+}
+
+TEST(TestAdapterReadWrite, ThrowWhenTZDBUnavaiable) {
+  if (adapters::orc::GetOrcMajorVersion() >= 2) {
+    GTEST_SKIP() << "Only ORC pre-2.0.0 versions have the time zone database check";
+  }
+
+  EnvVarGuard tzdir_guard("TZDIR", "/wrong/path");
+  const char* expect_str = "IANA time zone database is unavailable but required by ORC";
+  EXPECT_OK_AND_ASSIGN(auto out_stream, io::BufferOutputStream::Create(1024));
+  EXPECT_THAT(
+      adapters::orc::ORCFileWriter::Open(out_stream.get(), adapters::orc::WriteOptions()),
+      Raises(StatusCode::Invalid, testing::HasSubstr(expect_str)));
+  EXPECT_OK_AND_ASSIGN(auto buffer, out_stream->Finish());
+  EXPECT_THAT(adapters::orc::ORCFileReader::Open(
+                  std::make_shared<io::BufferReader>(buffer), default_memory_pool()),
+              Raises(StatusCode::Invalid, testing::HasSubstr(expect_str)));
 }
 
 // Trivial

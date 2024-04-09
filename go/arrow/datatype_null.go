@@ -27,7 +27,5 @@ func (*NullType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecAlwaysNull()}}
 }
 
-var (
-	Null *NullType
-	_    DataType = Null
-)
+// Null gives us both the compile-time assertion of DataType interface as well as serving a good element for use in schemas.
+var Null DataType = new(NullType)

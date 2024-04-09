@@ -29,12 +29,11 @@ repos:
         entry: bash -c "git archive HEAD --prefix=apache-arrow/ --output=arrow-src.tar && ./dev/release/run-rat.sh arrow-src.tar"
         always_run: true
         pass_filenames: false
-      - id: hadolint
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.12.0
+    hooks:
+      - id: hadolint-docker
         name: Docker Format
-        language: docker_image
-        types:
-          - dockerfile
-        entry: --entrypoint /bin/hadolint hadolint/hadolint:latest -
         exclude: ^dev/.*$
   - repo: https://github.com/pycqa/flake8
     rev: 6.1.0
@@ -56,6 +55,26 @@ repos:
     rev: v14.0.6
     hooks:
       - id: clang-format
+        name: C++ Format
+        types_or:
+          - c++
+          # - json
+          # - proto
+        files: >-
+          ^cpp/
+        exclude: >-
+          (
+          ?\.grpc\.fb\.(cc|h)$|
+          ?\.pb\.(cc|h)$|
+          ?_generated.*\.(cc|h)$|
+          ?^cpp/src/arrow/vendored/|
+          ?^cpp/src/generated/|
+          ?^cpp/thirdparty/|
+          )
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v14.0.6
+    hooks:
+      - id: clang-format
         name: C/GLib Format
         files: >-
           ^c_glib/
@@ -66,6 +85,30 @@ repos:
         name: MATLAB (C++) Format
         files: >-
           ^matlab/src/cpp/
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v14.0.6
+    hooks:
+      - id: clang-format
+        name: Python (C++) Format
+        files: >-
+          ^python/pyarrow/src/
+        exclude: >-
+          (
+          ?\.grpc\.fb\.(cc|h)$|
+          ?.pb\.(cc|h)$|
+          ?^cpp/src/generated/|
+          )
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v14.0.6
+    hooks:
+      - id: clang-format
+        name: R (C++) Format
+        files: >-
+          ^r/src/
+        exclude: >-
+          (
+          ?^r/src/arrowExports\.cpp$|
+          )
   - repo: https://github.com/cheshirekow/cmake-format-precommit
     rev: v0.6.13
     hooks:

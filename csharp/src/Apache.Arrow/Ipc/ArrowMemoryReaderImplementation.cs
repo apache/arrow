@@ -33,6 +33,13 @@ namespace Apache.Arrow.Ipc
             _buffer = buffer;
         }
 
+        public override ValueTask ReadSchemaAsync(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ReadSchema();
+            return default;
+        }
+
         public override ValueTask<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -93,7 +100,7 @@ namespace Apache.Arrow.Ipc
             return batch;
         }
 
-        private void ReadSchema()
+        public override void ReadSchema()
         {
             if (HasReadSchema)
             {
@@ -117,7 +124,7 @@ namespace Apache.Arrow.Ipc
             }
 
             ByteBuffer schemaBuffer = CreateByteBuffer(_buffer.Slice(_bufferPosition));
-            Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemaBuffer), ref _dictionaryMemo);
+            _schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemaBuffer), ref _dictionaryMemo);
             _bufferPosition += schemaMessageLength;
         }
     }

@@ -30,7 +30,7 @@ namespace parquet::encryption {
 
 void CryptoFactory::RegisterKmsClientFactory(
     std::shared_ptr<KmsClientFactory> kms_client_factory) {
-  key_toolkit_->RegisterKmsClientFactory(kms_client_factory);
+  key_toolkit_->RegisterKmsClientFactory(std::move(kms_client_factory));
 }
 
 std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionProperties(
