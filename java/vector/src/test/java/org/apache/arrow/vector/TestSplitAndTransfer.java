@@ -28,6 +28,7 @@ import java.util.Map;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
@@ -49,7 +50,7 @@ public class TestSplitAndTransfer {
   public void init() {
     allocator = new RootAllocator(Long.MAX_VALUE);
   }
-  
+
   @After
   public void terminate() throws Exception {
     allocator.close();
@@ -65,7 +66,116 @@ public class TestSplitAndTransfer {
     }
     vector.setValueCount(valueCount);
   }
-  
+
+  private void populateIntVector(final IntVector vector, int valueCount) {
+    for (int i = 0; i < valueCount; i++) {
+      vector.set(i, i);
+    }
+    vector.setValueCount(valueCount);
+  }
+
+  private void populateDenseUnionVector(final DenseUnionVector vector, int valueCount) {
+    VarCharVector varCharVector = vector.addOrGet("varchar", FieldType.nullable(new ArrowType.Utf8()),
+            VarCharVector.class);
+    BigIntVector intVector = vector.addOrGet("int",
+            FieldType.nullable(new ArrowType.Int(64, true)), BigIntVector.class);
+
+    for (int i = 0; i < valueCount; i++) {
+      vector.setTypeId(i, (byte) (i % 2));
+      if (i % 2 == 0) {
+        final String s = String.format("%010d", i);
+        varCharVector.setSafe(i / 2, s.getBytes(StandardCharsets.UTF_8));
+      } else {
+        intVector.setSafe(i / 2, i);
+      }
+    }
+    vector.setValueCount(valueCount);
+  }
+
+  @Test
+  public void testWithEmptyVector() {
+    // MapVector use TransferImpl from ListVector
+    ListVector listVector = ListVector.empty("", allocator);
+    TransferPair transferPair = listVector.getTransferPair(allocator);
+    transferPair.splitAndTransfer(0, 0);
+    assertEquals(0, transferPair.getTo().getValueCount());
+    // BaseFixedWidthVector
+    IntVector intVector = new IntVector("", allocator);
+    transferPair = intVector.getTransferPair(allocator);
+    transferPair.splitAndTransfer(0, 0);
+    assertEquals(0, transferPair.getTo().getValueCount());
+    // BaseVariableWidthVector
+    VarCharVector varCharVector = new VarCharVector("", allocator);
+    transferPair = varCharVector.getTransferPair(allocator);
+    transferPair.splitAndTransfer(0, 0);
+    assertEquals(0, transferPair.getTo().getValueCount());
+    // BaseLargeVariableWidthVector
+    LargeVarCharVector largeVarCharVector = new LargeVarCharVector("", allocator);
+    transferPair = largeVarCharVector.getTransferPair(allocator);
+    transferPair.splitAndTransfer(0, 0);
+    assertEquals(0, transferPair.getTo().getValueCount());
+    // StructVector
+    StructVector structVector = StructVector.empty("", allocator);
+    transferPair = structVector.getTransferPair(allocator);
+    transferPair.splitAndTransfer(0, 0);
+    assertEquals(0, transferPair.getTo().getValueCount());
+    // FixedSizeListVector
+    FixedSizeListVector fixedSizeListVector = FixedSizeListVector.empty("", 0, allocator);
+    transferPair = fixedSizeListVector.getTransferPair(allocator);
+    transferPair.splitAndTransfer(0, 0);
+    assertEquals(0, transferPair.getTo().getValueCount());
+    // FixedSizeBinaryVector
+    FixedSizeBinaryVector fixedSizeBinaryVector = new FixedSizeBinaryVector("", allocator, 4);
+    transferPair = fixedSizeBinaryVector.getTransferPair(allocator);
+    transferPair.splitAndTransfer(0, 0);
+    assertEquals(0, transferPair.getTo().getValueCount());
+    // UnionVector
+    UnionVector unionVector = UnionVector.empty("", allocator);
+    transferPair = unionVector.getTransferPair(allocator);
+    transferPair.splitAndTransfer(0, 0);
+    assertEquals(0, transferPair.getTo().getValueCount());
+    // DenseUnionVector
+    DenseUnionVector duv = DenseUnionVector.empty("", allocator);
+    transferPair = duv.getTransferPair(allocator);
+    transferPair.splitAndTransfer(0, 0);
+    assertEquals(0, transferPair.getTo().getValueCount());
+
+    // non empty from vector
+
+    // BaseFixedWidthVector
+    IntVector fromIntVector = new IntVector("", allocator);
+    fromIntVector.allocateNew(100);
+    populateIntVector(fromIntVector, 100);
+    transferPair = fromIntVector.getTransferPair(allocator);
+    IntVector toIntVector = (IntVector) transferPair.getTo();
+    transferPair.splitAndTransfer(0, 0);
+    assertEquals(0, toIntVector.getValueCount());
+
+    transferPair.splitAndTransfer(50, 0);
+    assertEquals(0, toIntVector.getValueCount());
+
+    transferPair.splitAndTransfer(100, 0);
+    assertEquals(0, toIntVector.getValueCount());
+    fromIntVector.clear();
+    toIntVector.clear();
+
+    // DenseUnionVector
+    DenseUnionVector fromDuv = DenseUnionVector.empty("", allocator);
+    populateDenseUnionVector(fromDuv, 100);
+    transferPair = fromDuv.getTransferPair(allocator);
+    DenseUnionVector toDUV = (DenseUnionVector) transferPair.getTo();
+    transferPair.splitAndTransfer(0, 0);
+    assertEquals(0, toDUV.getValueCount());
+
+    transferPair.splitAndTransfer(50, 0);
+    assertEquals(0, toDUV.getValueCount());
+
+    transferPair.splitAndTransfer(100, 0);
+    assertEquals(0, toDUV.getValueCount());
+    fromDuv.clear();
+    toDUV.clear();
+  }
+
   @Test /* VarCharVector */
   public void test() throws Exception {
     try (final VarCharVector varCharVector = new VarCharVector("myvector", allocator)) {
@@ -73,13 +183,13 @@ public class TestSplitAndTransfer {
   
       final int valueCount = 500;
       final String[] compareArray = new String[valueCount];
-  
+
       populateVarcharVector(varCharVector, valueCount, compareArray);
-  
+
       final TransferPair tp = varCharVector.getTransferPair(allocator);
       final VarCharVector newVarCharVector = (VarCharVector) tp.getTo();
       final int[][] startLengths = {{0, 201}, {201, 0}, {201, 200}, {401, 99}};
-  
+
       for (final int[] startLength : startLengths) {
         final int start = startLength[0];
         final int length = startLength[1];
@@ -429,5 +539,4 @@ public class TestSplitAndTransfer {
       newMapVector.clear();
     }
   }
-
 }
