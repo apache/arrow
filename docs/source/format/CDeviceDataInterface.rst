@@ -256,7 +256,7 @@ has the following fields:
     type are on the system. The semantics of the id will be hardware dependent,
     but we use an ``int64_t`` to future-proof the id as devices change over time.
 
-    For devices that do not have an intrinsic notion of a device identifier (e.g.,
+    For device types that do not have an intrinsic notion of a device identifier (e.g.,
     ``ARROW_DEVICE_CPU``), it is recommended to use a ``device_id`` of -1 as a
     convention.
 
