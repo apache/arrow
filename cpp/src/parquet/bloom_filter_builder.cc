@@ -34,6 +34,7 @@
 
 namespace parquet {
 
+namespace {
 /// Column encryption for bloom filter is not implemented yet.
 class BloomFilterBuilderImpl : public BloomFilterBuilder {
  public:
@@ -80,11 +81,6 @@ class BloomFilterBuilderImpl : public BloomFilterBuilder {
   // So we use `std::unique_ptr<std::map<>>` to avoid the issue.
   std::vector<std::unique_ptr<RowGroupBloomFilters>> file_bloom_filters_;
 };
-
-std::unique_ptr<BloomFilterBuilder> BloomFilterBuilder::Make(
-    const SchemaDescriptor* schema, const WriterProperties* properties) {
-  return std::make_unique<BloomFilterBuilderImpl>(schema, properties);
-}
 
 void BloomFilterBuilderImpl::AppendRowGroup() {
   if (finished_) {
@@ -151,6 +147,12 @@ void BloomFilterBuilderImpl::WriteTo(::arrow::io::OutputStream* sink,
       location->bloom_filter_location.emplace(row_group_ordinal, std::move(locations));
     }
   }
+}
+}  // namespace
+
+std::unique_ptr<BloomFilterBuilder> BloomFilterBuilder::Make(
+    const SchemaDescriptor* schema, const WriterProperties* properties) {
+  return std::make_unique<BloomFilterBuilderImpl>(schema, properties);
 }
 
 }  // namespace parquet
