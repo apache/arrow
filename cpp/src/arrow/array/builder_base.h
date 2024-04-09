@@ -177,6 +177,9 @@ class ARROW_EXPORT ArrayBuilder {
   /// The given array must be the same type as the builder.
   virtual Status AppendArraySlice(const ArraySpan& array, int64_t offset,
                                   int64_t length) {
+    ARROW_UNUSED(array);
+    ARROW_UNUSED(offset);
+    ARROW_UNUSED(length);
     return Status::NotImplemented("AppendArraySlice for builder for ", *type());
   }
 

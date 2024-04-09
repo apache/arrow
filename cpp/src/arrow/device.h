@@ -140,6 +140,7 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
   /// derived from Device::Stream to allow for stream ordered events
   /// and memory allocations.
   virtual Result<std::shared_ptr<Stream>> MakeStream(unsigned int flags) {
+    ARROW_UNUSED(flags);
     return NULLPTR;
   }
 
@@ -151,6 +152,8 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
   ///        externally
   virtual Result<std::shared_ptr<Stream>> WrapStream(void* device_stream,
                                                      Stream::release_fn_t release_fn) {
+    ARROW_UNUSED(device_stream);
+    ARROW_UNUSED(release_fn);
     return NULLPTR;
   }
 

@@ -33,11 +33,15 @@ class ARROW_EXPORT NullBuilder : public ArrayBuilder {
  public:
   explicit NullBuilder(MemoryPool* pool = default_memory_pool(),
                        int64_t alignment = kDefaultBufferAlignment)
-      : ArrayBuilder(pool) {}
+      : ArrayBuilder(pool) {
+    ARROW_UNUSED(alignment);
+  }
   explicit NullBuilder(const std::shared_ptr<DataType>& type,
                        MemoryPool* pool = default_memory_pool(),
                        int64_t alignment = kDefaultBufferAlignment)
-      : NullBuilder(pool, alignment) {}
+      : NullBuilder(pool, alignment) {
+    ARROW_UNUSED(type);
+  }
 
   /// \brief Append the specified number of null elements
   Status AppendNulls(int64_t length) final {
