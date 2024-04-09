@@ -2203,6 +2203,13 @@ class AzureFileSystem::Impl {
       // All the others either succeed or throw an exception.
       DCHECK(response.Value.Deleted);
     } catch (const Storage::StorageException& exception) {
+      if (exception.ErrorCode == "FilesystemNotFound" ||
+          exception.ErrorCode == "PathNotFound") {
+        if (require_dir_to_exist) {
+          return PathNotFound(location);
+        }
+        return Status::OK();
+      }
       return ExceptionToStatus(exception, "Failed to delete a directory: ", location.path,
                                ": ", directory_client.GetUrl());
     }
