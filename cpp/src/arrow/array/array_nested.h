@@ -183,11 +183,13 @@ class ARROW_EXPORT ListArray : public BaseListArray<ListType> {
 
   /// \brief Return an Array that is a concatenation of the lists in this array.
   ///
+  /// \param[in] with_recursion Flatten recursively until reach non-list type
+  ///
   /// Note that it's different from `values()` in that it takes into
   /// consideration of this array's offsets as well as null elements backed
   /// by non-empty lists (they are skipped, thus copying may be needed).
   Result<std::shared_ptr<Array>> Flatten(
-      MemoryPool* memory_pool = default_memory_pool()) const;
+      bool with_recursion = false, MemoryPool* memory_pool = default_memory_pool()) const;
 
   /// \brief Return list offsets as an Int32Array
   ///
@@ -251,11 +253,13 @@ class ARROW_EXPORT LargeListArray : public BaseListArray<LargeListType> {
 
   /// \brief Return an Array that is a concatenation of the lists in this array.
   ///
+  /// \param[in] with_recursion Flatten recursively until reach non-list type
+  ///
   /// Note that it's different from `values()` in that it takes into
   /// consideration of this array's offsets as well as null elements backed
   /// by non-empty lists (they are skipped, thus copying may be needed).
   Result<std::shared_ptr<Array>> Flatten(
-      MemoryPool* memory_pool = default_memory_pool()) const;
+      bool with_recursion = false, MemoryPool* memory_pool = default_memory_pool()) const;
 
   /// \brief Return list offsets as an Int64Array
   std::shared_ptr<Array> offsets() const;
@@ -353,6 +357,8 @@ class ARROW_EXPORT ListViewArray : public BaseListViewArray<ListViewType> {
 
   /// \brief Return an Array that is a concatenation of the list-views in this array.
   ///
+  /// \param[in] with_recursion Flatten recursively until reach non-list type
+  ///
   /// Note that it's different from `values()` in that it takes into
   /// consideration this array's offsets (which can be in any order)
   /// and sizes. Nulls are skipped.
@@ -362,7 +368,7 @@ class ARROW_EXPORT ListViewArray : public BaseListViewArray<ListViewType> {
   /// maximizing the size of each slice (containing as many contiguous
   /// list-views as possible).
   Result<std::shared_ptr<Array>> Flatten(
-      MemoryPool* memory_pool = default_memory_pool()) const;
+      bool with_recursion = false, MemoryPool* memory_pool = default_memory_pool()) const;
 
   /// \brief Return list-view offsets as an Int32Array
   ///
@@ -442,11 +448,13 @@ class ARROW_EXPORT LargeListViewArray : public BaseListViewArray<LargeListViewTy
   /// \brief Return an Array that is a concatenation of the large list-views in this
   /// array.
   ///
+  /// \param[in] with_recursion Flatten recursively until reach non-list type
+  ///
   /// Note that it's different from `values()` in that it takes into
   /// consideration this array's offsets (which can be in any order)
   /// and sizes. Nulls are skipped.
   Result<std::shared_ptr<Array>> Flatten(
-      MemoryPool* memory_pool = default_memory_pool()) const;
+      bool with_recursion = false, MemoryPool* memory_pool = default_memory_pool()) const;
 
   /// \brief Return list-view offsets as an Int64Array
   ///
@@ -590,10 +598,12 @@ class ARROW_EXPORT FixedSizeListArray : public Array {
 
   /// \brief Return an Array that is a concatenation of the lists in this array.
   ///
+  /// \param[in] with_recursion Flatten recursively until reach non-list type
+  ///
   /// Note that it's different from `values()` in that it takes into
   /// consideration null elements (they are skipped, thus copying may be needed).
   Result<std::shared_ptr<Array>> Flatten(
-      MemoryPool* memory_pool = default_memory_pool()) const;
+      bool with_recursion = false, MemoryPool* memory_pool = default_memory_pool()) const;
 
   /// \brief Construct FixedSizeListArray from child value array and value_length
   ///

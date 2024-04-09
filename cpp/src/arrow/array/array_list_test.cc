@@ -773,7 +773,8 @@ class TestListArray : public ::testing::Test {
             [null],
             [[2, 9], [4], [], [6, 5]]
             ])"));
-    ASSERT_OK_AND_ASSIGN(auto flattened, nested_list_array->Flatten());
+    ASSERT_OK_AND_ASSIGN(auto flattened,
+                         nested_list_array->Flatten(/*with_recursion=*/true));
     ASSERT_OK(flattened->ValidateFull());
     ASSERT_EQ(9, flattened->length());
     ASSERT_TRUE(flattened->Equals(ArrayFromJSON(int32(), "[0, 1, 2, 3, 2, 9, 4, 6, 5]")));
@@ -781,7 +782,7 @@ class TestListArray : public ::testing::Test {
     // Empty nested list should flatten until reach it's non-list type
     nested_list_array =
         std::dynamic_pointer_cast<ArrayType>(ArrayFromJSON(type, R"([null])"));
-    ASSERT_OK_AND_ASSIGN(flattened, nested_list_array->Flatten());
+    ASSERT_OK_AND_ASSIGN(flattened, nested_list_array->Flatten(/*with_recursion=*/true));
     ASSERT_TRUE(flattened->type()->Equals(int32()));
 
     // List type with three nested level: list(list(list(int32)))
@@ -800,7 +801,7 @@ class TestListArray : public ::testing::Test {
         null
       ]
     ])"));
-    ASSERT_OK_AND_ASSIGN(flattened, nested_list_array->Flatten());
+    ASSERT_OK_AND_ASSIGN(flattened, nested_list_array->Flatten(/*with_recursion=*/true));
     ASSERT_OK(flattened->ValidateFull());
     ASSERT_EQ(7, flattened->length());
     ASSERT_EQ(2, flattened->null_count());
@@ -1771,7 +1772,7 @@ TEST_F(TestFixedSizeListArray, FlattenNested) {
     [null, null]
   ])"));
   ASSERT_OK(values->ValidateFull());
-  ASSERT_OK_AND_ASSIGN(auto flattened, values->Flatten());
+  ASSERT_OK_AND_ASSIGN(auto flattened, values->Flatten(/*with_recursion=*/true));
   ASSERT_OK(flattened->ValidateFull());
   ASSERT_EQ(8, flattened->length());
   ASSERT_EQ(2, flattened->null_count());
