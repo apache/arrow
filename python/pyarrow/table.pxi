@@ -3396,11 +3396,11 @@ cdef class RecordBatch(_Tabular):
         RecordBatches that can be converted have fields of type signed or unsigned
         integer or float, including all bit-widths.
 
-        ``null_to_nan`` is ``False`` by default and will raise an error in case
-        validity bitmask exists. RecordBatches with validity bitmask for any of the
-        arrays can be converted with ``null_to_nan`` turned to ``True``. In this case
-        null values are converted to ``NaN`` and signed or unsigned integer type arrays
-        are promoted to appropriate float type.
+        ``null_to_nan`` is ``False`` by default and this method will raise an error in case
+        any nulls are present. RecordBatches with nulls
+        arrays can be converted with ``null_to_nan`` set to ``True``. In this case
+        null values are converted to ``NaN`` and integer type arrays
+        are promoted to the appropriate float type.
 
         Parameters
         ----------

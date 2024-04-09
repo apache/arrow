@@ -928,12 +928,12 @@ def test_recordbatch_to_tensor_uniform_type(typ):
     )
 
     result = batch.to_tensor(row_major=False)
-    x = np.array([arr1, arr2, arr3], typ).transpose()
+    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order=F")
     expected = pa.Tensor.from_numpy(x)
     check_tensors(result, expected, pa.from_numpy_dtype(typ), 27)
 
     result = batch.to_tensor()
-    x = np.array([arr1, arr2, arr3], typ, order='F').transpose()
+    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order=C")
     expected = pa.Tensor.from_numpy(x)
     check_tensors(result, expected, pa.from_numpy_dtype(typ), 27)
 
