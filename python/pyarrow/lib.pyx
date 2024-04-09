@@ -125,7 +125,7 @@ UnionMode_DENSE = _UnionMode_DENSE
 
 __pc = None
 __pac = None
-__cuda_loaded = False
+__cuda_loaded = None
 
 
 def _pc():
@@ -148,12 +148,18 @@ def _ensure_cuda_loaded():
     # Try importing the cuda module to ensure libarrow_cuda gets loaded
     # to register the CUDA device for the C Data Interface import
     global __cuda_loaded
-    if not __cuda_loaded:
+    if __cuda_loaded is None:
         try:
             import pyarrow.cuda  # no-cython-lint
-        except ImportError:
-            pass
-        __cuda_loaded = True
+            __cuda_loaded = True
+        except ImportError as exc:
+            __cuda_loaded = str(exc)
+
+    if __cuda_loaded is not True:
+        raise ImportError(
+            "Trying to import data on a CUDA device, but PyArrow is not built with "
+            f"CUDA support.\n(importing 'pyarrow.cuda' resulted in \"{__cuda_loaded}\")."
+        )
 
 
 def _gdb_test_session():

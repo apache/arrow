@@ -2916,6 +2916,9 @@ cdef extern from "arrow/c/abi.h":
     cdef struct ArrowArrayStream:
         void (*release)(ArrowArrayStream*) noexcept nogil
 
+    ctypedef int32_t ArrowDeviceType
+    cdef ArrowDeviceType ARROW_DEVICE_CUDA
+
     cdef struct ArrowDeviceArray:
         ArrowArray array
         int64_t device_id

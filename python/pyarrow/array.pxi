@@ -1839,7 +1839,7 @@ cdef class Array(_PandasConvertible):
             void* c_type_ptr
             shared_ptr[CArray] c_array
 
-        if c_device_array.device_type == 2:
+        if c_device_array.device_type == ARROW_DEVICE_CUDA:
             _ensure_cuda_loaded()
 
         c_type = pyarrow_unwrap_data_type(type)

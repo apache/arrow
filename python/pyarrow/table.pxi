@@ -3656,7 +3656,7 @@ cdef class RecordBatch(_Tabular):
             void* c_schema_ptr
             shared_ptr[CRecordBatch] c_batch
 
-        if c_device_array.device_type == 2:
+        if c_device_array.device_type == ARROW_DEVICE_CUDA:
             _ensure_cuda_loaded()
 
         c_schema = pyarrow_unwrap_schema(schema)
