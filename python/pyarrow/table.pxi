@@ -3398,7 +3398,7 @@ cdef class RecordBatch(_Tabular):
 
         ``null_to_nan`` is ``False`` by default and this method will raise an error in case
         any nulls are present. RecordBatches with nulls
-        arrays can be converted with ``null_to_nan`` set to ``True``. In this case
+        can be converted with ``null_to_nan`` set to ``True``. In this case
         null values are converted to ``NaN`` and integer type arrays
         are promoted to the appropriate float type.
 
