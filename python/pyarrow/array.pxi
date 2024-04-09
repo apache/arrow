@@ -246,18 +246,6 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
 
     if hasattr(obj, '__arrow_array__'):
         return _handle_arrow_array_protocol(obj, type, mask, size)
-    elif hasattr(obj, '__arrow_c_array__'):
-        if type is not None:
-            requested_type = type.__arrow_c_schema__()
-        else:
-            requested_type = None
-        schema_capsule, array_capsule = obj.__arrow_c_array__(requested_type)
-        out_array = Array._import_from_c_capsule(schema_capsule, array_capsule)
-        if type is not None and out_array.type != type:
-            # PyCapsule interface type coercion is best effort, so we need to
-            # check the type of the returned array and cast if necessary
-            out_array = array.cast(type, safe=safe, memory_pool=memory_pool)
-        return out_array
     elif hasattr(obj, '__arrow_c_device_array__'):
         if type is not None:
             requested_type = type.__arrow_c_schema__()
@@ -265,6 +253,18 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
             requested_type = None
         schema_capsule, array_capsule = obj.__arrow_c_device_array__(requested_type)
         out_array = Array._import_from_c_device_capsule(schema_capsule, array_capsule)
+        if type is not None and out_array.type != type:
+            # PyCapsule interface type coercion is best effort, so we need to
+            # check the type of the returned array and cast if necessary
+            out_array = array.cast(type, safe=safe, memory_pool=memory_pool)
+        return out_array
+    elif hasattr(obj, '__arrow_c_array__'):
+        if type is not None:
+            requested_type = type.__arrow_c_schema__()
+        else:
+            requested_type = None
+        schema_capsule, array_capsule = obj.__arrow_c_array__(requested_type)
+        out_array = Array._import_from_c_capsule(schema_capsule, array_capsule)
         if type is not None and out_array.type != type:
             # PyCapsule interface type coercion is best effort, so we need to
             # check the type of the returned array and cast if necessary

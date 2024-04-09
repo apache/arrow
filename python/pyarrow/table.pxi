@@ -5715,18 +5715,6 @@ def record_batch(data, names=None, schema=None, metadata=None):
             raise ValueError(
                 "The 'names' argument is not valid when passing a dictionary")
         return RecordBatch.from_pydict(data, schema=schema, metadata=metadata)
-    elif hasattr(data, "__arrow_c_array__"):
-        if schema is not None:
-            requested_schema = schema.__arrow_c_schema__()
-        else:
-            requested_schema = None
-        schema_capsule, array_capsule = data.__arrow_c_array__(requested_schema)
-        batch = RecordBatch._import_from_c_capsule(schema_capsule, array_capsule)
-        if schema is not None and batch.schema != schema:
-            # __arrow_c_array__ coerces schema with best effort, so we might
-            # need to cast it if the producer wasn't able to cast to exact schema.
-            batch = batch.cast(schema)
-        return batch
     elif hasattr(data, "__arrow_c_device_array__"):
         if schema is not None:
             requested_schema = schema.__arrow_c_schema__()
@@ -5736,6 +5724,18 @@ def record_batch(data, names=None, schema=None, metadata=None):
         batch = RecordBatch._import_from_c_device_capsule(schema_capsule, array_capsule)
         if schema is not None and batch.schema != schema:
             # __arrow_c_device_array__ coerces schema with best effort, so we might
+            # need to cast it if the producer wasn't able to cast to exact schema.
+            batch = batch.cast(schema)
+        return batch
+    elif hasattr(data, "__arrow_c_array__"):
+        if schema is not None:
+            requested_schema = schema.__arrow_c_schema__()
+        else:
+            requested_schema = None
+        schema_capsule, array_capsule = data.__arrow_c_array__(requested_schema)
+        batch = RecordBatch._import_from_c_capsule(schema_capsule, array_capsule)
+        if schema is not None and batch.schema != schema:
+            # __arrow_c_array__ coerces schema with best effort, so we might
             # need to cast it if the producer wasn't able to cast to exact schema.
             batch = batch.cast(schema)
         return batch
