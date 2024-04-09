@@ -1548,8 +1548,8 @@ cdef class Array(_PandasConvertible):
         if copy is False:
             try:
                 values = self.to_numpy(zero_copy_only=True)
-            except ArrowInvalid as exc:
-                raise ArrowInvalid(
+            except ArrowInvalid:
+                raise ValueError(
                     "Unable to avoid a copy while creating a numpy array as requested.\n"
                     "If using `np.array(obj, copy=False)` replace it with "
                     "`np.asarray(obj)` to allow a copy when needed"
