@@ -27,6 +27,7 @@
 #include <cuda.h>
 
 #include "arrow/buffer.h"
+#include "arrow/device.h"
 #include "arrow/io/memory.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
@@ -493,13 +494,33 @@ Result<std::shared_ptr<MemoryManager>> DefaultMemoryMapper(ArrowDeviceType devic
     case ARROW_DEVICE_CUDA:
     case ARROW_DEVICE_CUDA_HOST:
     case ARROW_DEVICE_CUDA_MANAGED: {
-      ARROW_ASSIGN_OR_RAISE(auto device, arrow::cuda::CudaDevice::Make(device_id));
+      ARROW_ASSIGN_OR_RAISE(auto device,
+                            arrow::cuda::CudaDevice::Make(static_cast<int>(device_id)));
       return device->default_memory_manager();
     }
     default:
       return Status::NotImplemented("memory manager not implemented for device");
   }
 }
+
+namespace {
+
+Result<std::shared_ptr<MemoryManager>> DefaultCUDADeviceMapper(int64_t device_id) {
+  ARROW_ASSIGN_OR_RAISE(auto device,
+                        arrow::cuda::CudaDevice::Make(static_cast<int>(device_id)));
+  return device->default_memory_manager();
+}
+
+bool RegisterCUDADeviceInternal() {
+  DCHECK_OK(RegisterDeviceMapper(DeviceAllocationType::kCUDA, DefaultCUDADeviceMapper));
+  // TODO add the CUDA_HOST and CUDA_MANAGED allocation types when they are supported in
+  // the CudaDevice
+  return true;
+}
+
+static auto cuda_registered = RegisterCUDADeviceInternal();
+
+}  // namespace
 
 }  // namespace cuda
 }  // namespace arrow

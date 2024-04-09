@@ -19,7 +19,6 @@ package array
 import (
 	"bytes"
 	"fmt"
-	"math"
 	"math/big"
 	"reflect"
 	"strings"
@@ -91,10 +90,15 @@ func (a *Decimal256) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}
-
 	typ := a.DataType().(*arrow.Decimal256Type)
-	f := (&big.Float{}).SetInt(a.Value(i).BigInt())
-	f.Quo(f, big.NewFloat(math.Pow10(int(typ.Scale))))
+	n := a.Value(i)
+	scale := typ.Scale
+	f := (&big.Float{}).SetInt(n.BigInt())
+	if scale < 0 {
+		f.SetPrec(256).Mul(f, (&big.Float{}).SetInt(decimal256.GetScaleMultiplier(int(-scale)).BigInt()))
+	} else {
+		f.SetPrec(256).Quo(f, (&big.Float{}).SetInt(decimal256.GetScaleMultiplier(int(scale)).BigInt()))
+	}
 	return f.Text('g', int(typ.Precision))
 }
 

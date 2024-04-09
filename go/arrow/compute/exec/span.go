@@ -19,7 +19,6 @@
 package exec
 
 import (
-	"reflect"
 	"sync/atomic"
 	"unsafe"
 
@@ -248,22 +247,6 @@ func (a *ArraySpan) resizeChildren(i int) {
 	} else {
 		a.Children = make([]ArraySpan, i)
 	}
-}
-
-// convenience function for populating the offsets buffer from a scalar
-// value's size.
-func setOffsetsForScalar[T int32 | int64](span *ArraySpan, buf []T, valueSize int64, bufidx int) {
-	buf[0] = 0
-	buf[1] = T(valueSize)
-
-	b := (*reflect.SliceHeader)(unsafe.Pointer(&buf))
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&span.Buffers[bufidx].Buf))
-	s.Data = b.Data
-	s.Len = 2 * int(unsafe.Sizeof(T(0)))
-	s.Cap = s.Len
-
-	span.Buffers[bufidx].Owner = nil
-	span.Buffers[bufidx].SelfAlloc = false
 }
 
 // FillFromScalar populates this ArraySpan as if it were a 1 length array
