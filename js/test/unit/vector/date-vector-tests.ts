@@ -15,10 +15,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { DateDay, DateMillisecond, RecordBatchReader, Table, vectorFromArray } from 'apache-arrow';
+import { DateDay, DateMillisecond, TimestampMillisecond, RecordBatchReader, Table, vectorFromArray } from 'apache-arrow';
+
+describe(`TimestampVector`, () => {
+    test(`Dates are stored in TimestampMillisecond`, () => {
+        const date = new Date('2023-02-01T12:34:56Z');
+        const vec = vectorFromArray([date]);
+        expect(vec.type).toBeInstanceOf(TimestampMillisecond);
+        expect(vec.get(0)).toBe(date.valueOf());
+    });
+});
 
 describe(`DateVector`, () => {
-    it('returns days since the epoch as correct JS Dates', () => {
+    test(`returns days since the epoch as correct JS Dates`, () => {
         const table = new Table(RecordBatchReader.from(test_data));
         const expectedMillis = expectedMillis32();
         const date32 = table.getChildAt<DateDay>(0)!;
@@ -28,7 +37,7 @@ describe(`DateVector`, () => {
         }
     });
 
-    it('returns millisecond longs since the epoch as correct JS Dates', () => {
+    test(`returns millisecond longs since the epoch as correct JS Dates`, () => {
         const table = new Table(RecordBatchReader.from(test_data));
         const expectedMillis = expectedMillis64();
         const date64 = table.getChildAt<DateMillisecond>(1)!;
@@ -38,9 +47,9 @@ describe(`DateVector`, () => {
         }
     });
 
-    it('returns the same date that was in the vector', () => {
+    test(`returns the same date that was in the vector`, () => {
         const dates = [new Date(1950, 1, 0)];
-        const vec = vectorFromArray(dates);
+        const vec = vectorFromArray(dates, new DateMillisecond());
         for (const date of vec) {
             expect(date).toEqual(dates.shift());
         }

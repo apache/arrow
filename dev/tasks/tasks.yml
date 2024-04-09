@@ -80,6 +80,7 @@ groups:
 
   java:
     - "*java*"
+    - test-*spark*
 
   python:
     - test-*python*
@@ -1090,6 +1091,7 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
+        ARCHERY_USE_DOCKER_CLI: 0
         UBUNTU: 20.04
       flags: -e ARROW_SKYHOOK=ON
       image: ubuntu-cpp
@@ -1163,6 +1165,14 @@ tasks:
         UBUNTU: 20.04
       flags: "-e ARROW_CSV=ON -e ARROW_PARQUET=ON"
       image: ubuntu-cpp-minimal
+
+  test-ubuntu-22.04-cpp-emscripten:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 22.04
+      image: ubuntu-cpp-emscripten
 
 {% for python_version in ["3.8", "3.9", "3.10", "3.11", "3.12"] %}
   test-conda-python-{{ python_version }}:
@@ -1456,12 +1466,16 @@ tasks:
     ci: github
     template: docker-tests/github.cuda.yml
     params:
+      env:
+        ARCHERY_USE_DOCKER_CLI: 0
       image: ubuntu-cuda-cpp
 
   test-cuda-python:
     ci: github
     template: docker-tests/github.cuda.yml
     params:
+      env:
+        ARCHERY_USE_DOCKER_CLI: 0
       image: ubuntu-cuda-python
 
   ############################## Fuzz tests #################################
@@ -1522,8 +1536,9 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
-        PYTHON: "3.10"
+        ARCHERY_USE_DOCKER_CLI: 0
         HDFS: "{{ hdfs_version }}"
+        PYTHON: "3.10"
       image: conda-python-hdfs
 {% endfor %}
 
