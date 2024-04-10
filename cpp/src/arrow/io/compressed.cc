@@ -297,11 +297,11 @@ class CompressedInputStream::Impl {
     return Status::OK();
   }
 
-  // Decompress some data from the compressed_ buffer.
+  // Decompress some data from the compressed_ buffer and decompressor_.
   // Call this function only if the decompressed_ buffer is fully consumed.
   Status DecompressData() {
-    // Currently, CompressedBufferAvailable() could be 0 in DecompressData()
-    // because `decompressor_` might have it's own internal buffer.
+    // Currently, compressed_buffer_available() could be 0 in DecompressData()
+    // because `decompressor_` might have its own internal buffer.
     DCHECK_NE(compressed_->data(), nullptr);
     DCHECK_EQ(0, decompressed_buffer_available());
 
@@ -357,9 +357,8 @@ class CompressedInputStream::Impl {
   // Try to feed more data into the decompressed_ buffer.
   Status RefillDecompressed(bool* has_data) {
     // First try to read data from the decompressor.
-    // This doesn't use `CompressedBufferAvailable()` because when compressed_
-    // exists and available == 0, the decompressor might still have data to
-    // be read.
+    // This doesn't use `compressed_buffer_available()` because when compressed_
+    // exists, even the decompressor might still have data to be read.
     if (compressed_ && compressed_->size() != 0) {
       if (decompressor_->IsFinished()) {
         // We just went over the end of a previous compressed stream.
@@ -370,8 +369,8 @@ class CompressedInputStream::Impl {
     }
     int64_t decompress_avail = decompressed_buffer_available();
     if (decompress_avail == 0) {
-      // Got nothing from existing `compressed_`, need to read
-      // more compressed data
+      // Got nothing from existing `compressed_` and `decompressor_`,
+      // need to read more compressed data.
       RETURN_NOT_OK(EnsureCompressedData());
       if (compressed_buffer_available() == 0) {
         // No more data to decompress
