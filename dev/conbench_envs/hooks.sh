@@ -49,8 +49,9 @@ set_arrow_build_and_run_env_vars() {
 }
 
 build_arrow_cpp() {
+  export ARROW_BUILD_DIR="/tmp/$(uuidgen)"
   # Ignore the error when a cache can't be created
-  if ! ci/scripts/cpp_build.sh $(pwd) $(pwd) 2> error.log; then
+  if ! ci/scripts/cpp_build.sh $(pwd) $ARROW_BUILD_DIR 2> error.log; then
       if ! grep -q -F "Can\'t create temporary cache file" error.log; then
          cat error.log
       fi
