@@ -665,9 +665,7 @@ if(PYARROW_BUILD_PARQUET)
     endif()
     set(PARQUET_LINK_LIBS Parquet::parquet_shared)
   else()
-    # parquet is linked into libarrow_python already
-    # so isn't needed in the extension
-    set(PARQUET_LINK_LIBS "")
+    set(PARQUET_LINK_LIBS Parquet::parquet_static)
   endif()
   list(APPEND CYTHON_EXTENSIONS _parquet)
   if(PYARROW_BUILD_PARQUET_ENCRYPTION)
@@ -728,9 +726,7 @@ if(PYARROW_BUILD_SUBSTRAIT)
     endif()
     set(SUBSTRAIT_LINK_LIBS ArrowSubstrait::arrow_substrait_shared)
   else()
-    # substrait is linked into libarrow_python already
-    # so isn't needed in the extension
-    set(SUBSTRAIT_LINK_LIBS "")
+    set(SUBSTRAIT_LINK_LIBS ArrowSubstrait::arrow_substrait_static)
   endif()
 
   list(APPEND CYTHON_EXTENSIONS _substrait)
