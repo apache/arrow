@@ -151,7 +151,7 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
   ///        a no-op function can be passed to indicate ownership is maintained
   ///        externally
   virtual Result<std::shared_ptr<Stream>> WrapStream(
-      void* ARROW_ARG_UNUSED(device) _stream,
+      void* ARROW_ARG_UNUSED(device_stream),
       Stream::release_fn_t ARROW_ARG_UNUSED(release_fn)) {
     return NULLPTR;
   }
