@@ -97,5 +97,5 @@ fi
 ############################## Tag the Release ##############################
 
 if [ ${PREPARE_TAG} -gt 0 ]; then
-  git tag -a "${release_candidate_tag}" -m "[Release] Apache Arrow Release ${version}"
+  git tag -a "${release_candidate_tag}" -m "[Release] Apache Arrow Release ${version} RC${rc_number}"
 fi
