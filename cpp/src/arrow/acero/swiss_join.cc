@@ -2160,6 +2160,9 @@ Status JoinResidualFilter::FilterOneBatch(const ExecBatch& keypayload_batch,
                                           bool output_key_ids, bool output_payload_ids,
                                           arrow::util::TempVectorStack* temp_stack,
                                           int* num_passing_rows) const {
+  if (num_batch_rows == 0) {
+    return Status::OK();
+  }
   // Caller must do shortcuts for trivial filter.
   ARROW_DCHECK(!filter_.IsNullLiteral() && filter_ != literal(true) &&
                filter_ != literal(false));
