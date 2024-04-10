@@ -224,6 +224,8 @@ class ARROW_EXPORT Array {
   /// \return Status
   Status ValidateFull() const;
 
+  DeviceAllocationType device_type() const { return data_->device_type(); }
+
  protected:
   Array() = default;
   ARROW_DEFAULT_MOVE_AND_ASSIGN(Array);

@@ -1448,6 +1448,7 @@ namespace {
 // The ArrowArray is released on destruction.
 struct ImportedArrayData {
   struct ArrowArray array_;
+  DeviceAllocationType device_type_;
   std::shared_ptr<Device::SyncEvent> device_sync_;
 
   ImportedArrayData() {
@@ -1495,7 +1496,7 @@ struct ArrayImporter {
 
   Status Import(struct ArrowDeviceArray* src, const DeviceMemoryMapper& mapper) {
     ARROW_ASSIGN_OR_RAISE(memory_mgr_, mapper(src->device_type, src->device_id));
-    device_type_ = static_cast<DeviceAllocationType>(src->device_type);
+    device_type_ = static_cast<DeviceAllocationType>(src->device_type);    
     RETURN_NOT_OK(Import(&src->array));
     if (src->sync_event != nullptr) {
       ARROW_ASSIGN_OR_RAISE(import_->device_sync_, memory_mgr_->WrapDeviceSyncEvent(
@@ -1514,6 +1515,7 @@ struct ArrayImporter {
     recursion_level_ = 0;
     import_ = std::make_shared<ImportedArrayData>();
     c_struct_ = &import_->array_;
+    import_->device_type_ = device_type_;
     ArrowArrayMove(src, c_struct_);
     return DoImport();
   }
@@ -1541,7 +1543,8 @@ struct ArrayImporter {
           "cannot be imported as RecordBatch");
     }
     return RecordBatch::Make(std::move(schema), data_->length,
-                             std::move(data_->child_data));
+                             std::move(data_->child_data), import_->device_type_,
+                             import_->device_sync_);
   }
 
   Status ImportChild(const ArrayImporter* parent, struct ArrowArray* src) {
@@ -2238,8 +2241,8 @@ class ArrayStreamReader {
 
  public:
   explicit ArrayStreamReader(StreamType* stream,
-                             const DeviceMemoryMapper& mapper = DefaultDeviceMemoryMapper)
-      : mapper_{mapper} {
+                             const DeviceMemoryMapper mapper = DefaultDeviceMemoryMapper)
+      : mapper_{std::move(mapper)} {
     StreamTraits::MoveFunc(stream, &stream_);
     DCHECK(!StreamTraits::IsReleasedFunc(&stream_));
   }
@@ -2347,7 +2350,7 @@ class ArrayStreamReader {
 
  private:
   mutable StreamType stream_;
-  const DeviceMemoryMapper& mapper_;
+  const DeviceMemoryMapper mapper_;
 };
 
 template <typename StreamTraits, typename ArrayTraits>

@@ -46,9 +46,10 @@ class ARROW_EXPORT RecordBatch {
   /// \param[in] num_rows length of fields in the record batch. Each array
   /// should have the same length as num_rows
   /// \param[in] columns the record batch fields as vector of arrays
-  static std::shared_ptr<RecordBatch> Make(std::shared_ptr<Schema> schema,
-                                           int64_t num_rows,
-                                           std::vector<std::shared_ptr<Array>> columns);
+  static std::shared_ptr<RecordBatch> Make(
+      std::shared_ptr<Schema> schema, int64_t num_rows,
+      std::vector<std::shared_ptr<Array>> columns,
+      std::shared_ptr<Device::SyncEvent> sync_event = nullptr);
 
   /// \brief Construct record batch from vector of internal data structures
   /// \since 0.5.0
@@ -61,7 +62,9 @@ class ARROW_EXPORT RecordBatch {
   /// \param columns the data for the batch's columns
   static std::shared_ptr<RecordBatch> Make(
       std::shared_ptr<Schema> schema, int64_t num_rows,
-      std::vector<std::shared_ptr<ArrayData>> columns);
+      std::vector<std::shared_ptr<ArrayData>> columns,
+      DeviceAllocationType device_type = DeviceAllocationType::kCPU,
+      std::shared_ptr<Device::SyncEvent> sync_event = nullptr);
 
   /// \brief Create an empty RecordBatch of a given schema
   ///
@@ -269,7 +272,9 @@ class ARROW_EXPORT RecordBatch {
   /// data the returned sync event will allow for it.
   ///
   /// \return null or a Device::SyncEvent
-  virtual std::shared_ptr<Device::SyncEvent> GetSyncEvent();
+  virtual std::shared_ptr<Device::SyncEvent> GetSyncEvent() const;
+
+  virtual DeviceAllocationType device_type() const;
 
  protected:
   RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows);
@@ -396,14 +401,16 @@ class ARROW_EXPORT RecordBatchReader {
   /// \param[in] schema schema to conform to. Will be inferred from the first
   ///            element if not provided.
   static Result<std::shared_ptr<RecordBatchReader>> Make(
-      RecordBatchVector batches, std::shared_ptr<Schema> schema = NULLPTR);
+      RecordBatchVector batches, std::shared_ptr<Schema> schema = NULLPTR,
+      DeviceAllocationType device_type = DeviceAllocationType::kCPU);
 
   /// \brief Create a RecordBatchReader from an Iterator of RecordBatch.
   ///
   /// \param[in] batches an iterator of RecordBatch to read from.
   /// \param[in] schema schema that each record batch in iterator will conform to.
   static Result<std::shared_ptr<RecordBatchReader>> MakeFromIterator(
-      Iterator<std::shared_ptr<RecordBatch>> batches, std::shared_ptr<Schema> schema);
+      Iterator<std::shared_ptr<RecordBatch>> batches, std::shared_ptr<Schema> schema,
+      DeviceAllocationType device_type = DeviceAllocationType::kCPU);
 };
 
 /// \brief Concatenate record batches

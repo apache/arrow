@@ -224,6 +224,28 @@ int64_t ArrayData::ComputeLogicalNullCount() const {
   return ArraySpan(*this).ComputeLogicalNullCount();
 }
 
+DeviceAllocationType ArrayData::device_type() const {
+  int type = 0;
+  for (const auto& buf : buffers) {
+    if (!buf) continue;
+    if (type == 0) {
+      type = static_cast<int>(buf->device_type());
+    } else {
+      DCHECK_EQ(type, static_cast<int>(buf->device_type()));
+    }
+  }
+
+  for (const auto& child : child_data) {
+    if (type == 0) {
+      type = static_cast<int>(child->device_type());
+    } else {
+      DCHECK_EQ(type, static_cast<int>(child->device_type()));
+    }
+  }
+
+  return type == 0 ? DeviceAllocationType::kCPU : static_cast<DeviceAllocationType>(type);
+}
+
 // ----------------------------------------------------------------------
 // Methods for ArraySpan
 

@@ -358,6 +358,8 @@ struct ARROW_EXPORT ArrayData {
   /// \see GetNullCount
   int64_t ComputeLogicalNullCount() const;
 
+  DeviceAllocationType device_type() const;
+
   std::shared_ptr<DataType> type;
   int64_t length = 0;
   mutable std::atomic<int64_t> null_count{0};
