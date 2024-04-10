@@ -47,18 +47,6 @@ ARROW_EXPORT bool UnionMayHaveLogicalNulls(const ArrayData& data);
 ARROW_EXPORT bool RunEndEncodedMayHaveLogicalNulls(const ArrayData& data);
 ARROW_EXPORT bool DictionaryMayHaveLogicalNulls(const ArrayData& data);
 
-constexpr bool is_validity_defined_by_bitmap(Type::type id) {
-  switch (id) {
-    case Type::NA:
-    case Type::SPARSE_UNION:
-    case Type::DENSE_UNION:
-    case Type::RUN_END_ENCODED:
-      return false;
-    default:
-      return true;
-  }
-}
-
 }  // namespace internal
 
 // When slicing, we do not know the null count of the sliced range without
