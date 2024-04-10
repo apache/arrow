@@ -3389,20 +3389,24 @@ cdef class RecordBatch(_Tabular):
                 <CResult[shared_ptr[CArray]]>deref(c_record_batch).ToStructArray())
         return pyarrow_wrap_array(c_array)
 
-    def to_tensor(self, c_bool null_to_nan=False, MemoryPool memory_pool=None):
+    def to_tensor(self, c_bool null_to_nan=False, c_bool row_major=True, MemoryPool memory_pool=None):
         """
         Convert to a :class:`~pyarrow.Tensor`.
 
         RecordBatches that can be converted have fields of type signed or unsigned
-        integer or float, including all bit-widths. RecordBatches with validity bitmask
-        for any of the arrays can be converted with ``null_to_nan``turned to ``True``.
-        In this case null values are converted to NaN and signed or unsigned integer
-        type arrays are promoted to appropriate float type.
+        integer or float, including all bit-widths.
+
+        ``null_to_nan`` is ``False`` by default and this method will raise an error in case
+        any nulls are present. RecordBatches with nulls can be converted with ``null_to_nan``
+        set to ``True``. In this case null values are converted to ``NaN`` and integer type
+        arrays are promoted to the appropriate float type.
 
         Parameters
         ----------
         null_to_nan : bool, default False
             Whether to write null values in the result as ``NaN``.
+        row_major : bool, default True
+            Whether resulting Tensor is row-major or column-major
         memory_pool : MemoryPool, default None
             For memory allocations, if required, otherwise use default pool
 
@@ -3424,13 +3428,29 @@ cdef class RecordBatch(_Tabular):
         a: [1,2,3,4,null]
         b: [10,20,30,40,null]
 
+        Convert a RecordBatch to row-major Tensor with null values
+        written as ``NaN``s
+
         >>> batch.to_tensor(null_to_nan=True)
         <pyarrow.Tensor>
         type: double
         shape: (5, 2)
-        strides: (8, 40)
-
+        strides: (16, 8)
         >>> batch.to_tensor(null_to_nan=True).to_numpy()
+        array([[ 1., 10.],
+               [ 2., 20.],
+               [ 3., 30.],
+               [ 4., 40.],
+               [nan, nan]])
+
+        Convert a RecordBatch to column-major Tensor
+
+        >>> batch.to_tensor(null_to_nan=True, row_major=False)
+        <pyarrow.Tensor>
+        type: double
+        shape: (5, 2)
+        strides: (8, 40)
+        >>> batch.to_tensor(null_to_nan=True, row_major=False).to_numpy()
         array([[ 1., 10.],
                [ 2., 20.],
                [ 3., 30.],
@@ -3446,7 +3466,7 @@ cdef class RecordBatch(_Tabular):
         with nogil:
             c_tensor = GetResultValue(
                 <CResult[shared_ptr[CTensor]]>deref(c_record_batch).ToTensor(null_to_nan,
-                                                                             pool))
+                                                                             row_major, pool))
         return pyarrow_wrap_tensor(c_tensor)
 
     def _export_to_c(self, out_ptr, out_schema_ptr=0):

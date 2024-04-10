@@ -926,36 +926,46 @@ def test_recordbatch_to_tensor_uniform_type(typ):
             pa.array(arr3, type=pa.from_numpy_dtype(typ)),
         ], ["a", "b", "c"]
     )
-    result = batch.to_tensor()
 
-    x = np.array([arr1, arr2, arr3], typ).transpose()
+    result = batch.to_tensor(row_major=False)
+    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="F")
     expected = pa.Tensor.from_numpy(x)
+    check_tensors(result, expected, pa.from_numpy_dtype(typ), 27)
 
+    result = batch.to_tensor()
+    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="C")
+    expected = pa.Tensor.from_numpy(x)
     check_tensors(result, expected, pa.from_numpy_dtype(typ), 27)
 
     # Test offset
     batch1 = batch.slice(1)
-    result = batch1.to_tensor()
-
     arr1 = [2, 3, 4, 5, 6, 7, 8, 9]
     arr2 = [20, 30, 40, 50, 60, 70, 80, 90]
     arr3 = [100, 100, 100, 100, 100, 100, 100, 100]
 
-    x = np.array([arr1, arr2, arr3], typ).transpose()
+    result = batch1.to_tensor(row_major=False)
+    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="F")
     expected = pa.Tensor.from_numpy(x)
+    check_tensors(result, expected, pa.from_numpy_dtype(typ), 24)
 
+    result = batch1.to_tensor()
+    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="C")
+    expected = pa.Tensor.from_numpy(x)
     check_tensors(result, expected, pa.from_numpy_dtype(typ), 24)
 
     batch2 = batch.slice(1, 5)
-    result = batch2.to_tensor()
-
     arr1 = [2, 3, 4, 5, 6]
     arr2 = [20, 30, 40, 50, 60]
     arr3 = [100, 100, 100, 100, 100]
 
-    x = np.array([arr1, arr2, arr3], typ).transpose()
+    result = batch2.to_tensor(row_major=False)
+    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="F")
     expected = pa.Tensor.from_numpy(x)
+    check_tensors(result, expected, pa.from_numpy_dtype(typ), 15)
 
+    result = batch2.to_tensor()
+    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="C")
+    expected = pa.Tensor.from_numpy(x)
     check_tensors(result, expected, pa.from_numpy_dtype(typ), 15)
 
 
@@ -970,11 +980,15 @@ def test_recordbatch_to_tensor_uniform_float_16():
             pa.array(np.array(arr3, dtype=np.float16), type=pa.float16()),
         ], ["a", "b", "c"]
     )
-    result = batch.to_tensor()
 
-    x = np.array([arr1, arr2, arr3], np.float16).transpose()
+    result = batch.to_tensor(row_major=False)
+    x = np.column_stack([arr1, arr2, arr3]).astype(np.float16, order="F")
     expected = pa.Tensor.from_numpy(x)
+    check_tensors(result, expected, pa.float16(), 27)
 
+    result = batch.to_tensor()
+    x = np.column_stack([arr1, arr2, arr3]).astype(np.float16, order="C")
+    expected = pa.Tensor.from_numpy(x)
     check_tensors(result, expected, pa.float16(), 27)
 
 
@@ -989,11 +1003,15 @@ def test_recordbatch_to_tensor_mixed_type():
             pa.array(arr2, type=pa.int16()),
         ], ["a", "b"]
     )
-    result = batch.to_tensor()
 
-    x = np.array([arr1, arr2], np.int32).transpose()
+    result = batch.to_tensor(row_major=False)
+    x = np.column_stack([arr1, arr2]).astype(np.int32, order="F")
     expected = pa.Tensor.from_numpy(x)
+    check_tensors(result, expected, pa.int32(), 18)
 
+    result = batch.to_tensor()
+    x = np.column_stack([arr1, arr2]).astype(np.int32, order="C")
+    expected = pa.Tensor.from_numpy(x)
     check_tensors(result, expected, pa.int32(), 18)
 
     # uint16 + int16 + float32 = float64
@@ -1004,9 +1022,18 @@ def test_recordbatch_to_tensor_mixed_type():
             pa.array(arr3, type=pa.float32()),
         ], ["a", "b", "c"]
     )
-    result = batch.to_tensor()
+    result = batch.to_tensor(row_major=False)
+    x = np.column_stack([arr1, arr2, arr3]).astype(np.float64, order="F")
+    expected = pa.Tensor.from_numpy(x)
 
-    x = np.array([arr1, arr2, arr3], np.float64).transpose()
+    np.testing.assert_equal(result.to_numpy(), x)
+    assert result.size == 27
+    assert result.type == pa.float64()
+    assert result.shape == expected.shape
+    assert result.strides == expected.strides
+
+    result = batch.to_tensor()
+    x = np.column_stack([arr1, arr2, arr3]).astype(np.float64, order="C")
     expected = pa.Tensor.from_numpy(x)
 
     np.testing.assert_equal(result.to_numpy(), x)
@@ -1044,9 +1071,8 @@ def test_recordbatch_to_tensor_nan():
             pa.array(arr2, type=pa.float32()),
         ], ["a", "b"]
     )
-    result = batch.to_tensor()
-
-    x = np.array([arr1, arr2], np.float32).transpose()
+    result = batch.to_tensor(row_major=False)
+    x = np.column_stack([arr1, arr2]).astype(np.float32, order="F")
     expected = pa.Tensor.from_numpy(x)
 
     np.testing.assert_equal(result.to_numpy(), x)
@@ -1071,9 +1097,8 @@ def test_recordbatch_to_tensor_null():
     ):
         batch.to_tensor()
 
-    result = batch.to_tensor(null_to_nan=True)
-
-    x = np.array([arr1, arr2], np.float64).transpose()
+    result = batch.to_tensor(null_to_nan=True, row_major=False)
+    x = np.column_stack([arr1, arr2]).astype(np.float64, order="F")
     expected = pa.Tensor.from_numpy(x)
 
     np.testing.assert_equal(result.to_numpy(), x)
@@ -1090,7 +1115,7 @@ def test_recordbatch_to_tensor_null():
         ], ["a", "b"]
     )
 
-    result = batch.to_tensor(null_to_nan=True)
+    result = batch.to_tensor(null_to_nan=True, row_major=False)
 
     np.testing.assert_equal(result.to_numpy(), x)
     assert result.size == 18
@@ -1106,9 +1131,8 @@ def test_recordbatch_to_tensor_null():
         ], ["a", "b"]
     )
 
-    result = batch.to_tensor(null_to_nan=True)
-
-    x = np.array([arr1, arr2], np.float32).transpose()
+    result = batch.to_tensor(null_to_nan=True, row_major=False)
+    x = np.column_stack([arr1, arr2]).astype(np.float32, order="F")
     expected = pa.Tensor.from_numpy(x)
 
     np.testing.assert_equal(result.to_numpy(), x)
@@ -1127,7 +1151,7 @@ def test_recordbatch_to_tensor_empty():
     )
     result = batch.to_tensor()
 
-    x = np.array([[], []], np.float32).transpose()
+    x = np.column_stack([[], []]).astype(np.float32, order="F")
     expected = pa.Tensor.from_numpy(x)
 
     assert result.size == expected.size
