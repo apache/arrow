@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <iostream>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -355,7 +356,10 @@ class CompressedInputStream::Impl {
   // Try to feed more data into the decompressed_ buffer.
   Status RefillDecompressed(bool* has_data) {
     // First try to read data from the decompressor
-    if (CompressedBufferAvailable() != 0) {
+    // This doesn't use `CompressedBufferAvailable()` because when compressed_
+    // exists, and it doesn't contain any available data, it might trigger
+    // an empty decompress and set fresh_decompressor_ to true.
+    if (compressed_ && compressed_->size() != 0) {
       if (decompressor_->IsFinished()) {
         // We just went over the end of a previous compressed stream.
         RETURN_NOT_OK(decompressor_->Reset());
