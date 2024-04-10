@@ -269,7 +269,7 @@ class CompressedInputStream::Impl {
 
   // Read compressed data if necessary
   Status EnsureCompressedData() {
-    int64_t compressed_avail = CompressedBufferAvailable();
+    int64_t compressed_avail = compressed_buffer_available();
     if (compressed_avail == 0) {
       // Ensure compressed_ buffer is allocated with kChunkSize.
       if (!supports_zero_copy_from_raw_) {
@@ -300,9 +300,10 @@ class CompressedInputStream::Impl {
   // Decompress some data from the compressed_ buffer.
   // Call this function only if the decompressed_ buffer is fully consumed.
   Status DecompressData() {
-    // Currently, CompressedBufferAvailable() could be 0 in DecompressData().
+    // Currently, CompressedBufferAvailable() could be 0 in DecompressData()
+    // because `decompressor_` might have it's own internal buffer.
     DCHECK_NE(compressed_->data(), nullptr);
-    DCHECK_EQ(0, DecompressedBufferAvailable());
+    DCHECK_EQ(0, decompressed_buffer_available());
 
     int64_t decompress_size = kDecompressSize;
 
@@ -357,8 +358,8 @@ class CompressedInputStream::Impl {
   Status RefillDecompressed(bool* has_data) {
     // First try to read data from the decompressor.
     // This doesn't use `CompressedBufferAvailable()` because when compressed_
-    // exists and available == 0, it might trigger  an empty decompress and set
-    // `decompressor_->IsFinished()` to true.
+    // exists and available == 0, the decompressor might still have data to
+    // be read.
     if (compressed_ && compressed_->size() != 0) {
       if (decompressor_->IsFinished()) {
         // We just went over the end of a previous compressed stream.
@@ -367,12 +368,12 @@ class CompressedInputStream::Impl {
       }
       RETURN_NOT_OK(DecompressData());
     }
-    int64_t decompress_avail = DecompressedBufferAvailable();
+    int64_t decompress_avail = decompressed_buffer_available();
     if (decompress_avail == 0) {
       // Got nothing from existing `compressed_`, need to read
       // more compressed data
       RETURN_NOT_OK(EnsureCompressedData());
-      if (CompressedBufferAvailable() == 0) {
+      if (compressed_buffer_available() == 0) {
         // No more data to decompress
         if (!fresh_decompressor_ && !decompressor_->IsFinished()) {
           return Status::IOError("Truncated compressed stream");
@@ -420,11 +421,11 @@ class CompressedInputStream::Impl {
   const std::shared_ptr<InputStream>& raw() const { return raw_; }
 
  private:
-  int64_t CompressedBufferAvailable() const {
+  int64_t compressed_buffer_available() const {
     return compressed_ ? compressed_->size() - compressed_pos_ : 0;
   }
 
-  int64_t DecompressedBufferAvailable() const {
+  int64_t decompressed_buffer_available() const {
     return decompressed_ ? decompressed_->size() - decompressed_pos_ : 0;
   }
 
