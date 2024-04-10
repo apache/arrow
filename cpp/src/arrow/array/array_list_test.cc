@@ -763,7 +763,7 @@ class TestListArray : public ::testing::Test {
         << flattened->ToString();
   }
 
-  void TestFlattenRecursion() {
+  void TestFlattenRecursively() {
     auto inner_type = std::make_shared<T>(int32());
     auto type = std::make_shared<T>(inner_type);
 
@@ -773,7 +773,7 @@ class TestListArray : public ::testing::Test {
             [null],
             [[2, 9], [4], [], [6, 5]]
             ])"));
-    ASSERT_OK_AND_ASSIGN(auto flattened, nested_list_array->FlattenRecursion());
+    ASSERT_OK_AND_ASSIGN(auto flattened, nested_list_array->FlattenRecursively());
     ASSERT_OK(flattened->ValidateFull());
     ASSERT_EQ(9, flattened->length());
     ASSERT_TRUE(flattened->Equals(ArrayFromJSON(int32(), "[0, 1, 2, 3, 2, 9, 4, 6, 5]")));
@@ -781,7 +781,7 @@ class TestListArray : public ::testing::Test {
     // Empty nested list should flatten until reach it's non-list type
     nested_list_array =
         std::dynamic_pointer_cast<ArrayType>(ArrayFromJSON(type, R"([null])"));
-    ASSERT_OK_AND_ASSIGN(flattened, nested_list_array->FlattenRecursion());
+    ASSERT_OK_AND_ASSIGN(flattened, nested_list_array->FlattenRecursively());
     ASSERT_TRUE(flattened->type()->Equals(int32()));
 
     // List type with three nested level: list(list(list(int32)))
@@ -800,7 +800,7 @@ class TestListArray : public ::testing::Test {
         null
       ]
     ])"));
-    ASSERT_OK_AND_ASSIGN(flattened, nested_list_array->FlattenRecursion());
+    ASSERT_OK_AND_ASSIGN(flattened, nested_list_array->FlattenRecursively());
     ASSERT_OK(flattened->ValidateFull());
     ASSERT_EQ(7, flattened->length());
     ASSERT_EQ(2, flattened->null_count());
@@ -974,7 +974,7 @@ TYPED_TEST(TestListArray, FlattenZeroLength) { this->TestFlattenZeroLength(); }
 TYPED_TEST(TestListArray, TestFlattenNonEmptyBackingNulls) {
   this->TestFlattenNonEmptyBackingNulls();
 }
-TYPED_TEST(TestListArray, FlattenRecursion) { this->TestFlattenRecursion(); }
+TYPED_TEST(TestListArray, FlattenRecursively) { this->TestFlattenRecursively(); }
 
 TYPED_TEST(TestListArray, ValidateDimensions) { this->TestValidateDimensions(); }
 
@@ -1760,7 +1760,7 @@ TEST_F(TestFixedSizeListArray, Flatten) {
   }
 }
 
-TEST_F(TestFixedSizeListArray, FlattenRecursion) {
+TEST_F(TestFixedSizeListArray, FlattenRecursively) {
   // Nested fixed-size list-array: fixed_size_list(fixed_size_list(int32, 2), 2)
   auto inner_type = fixed_size_list(value_type_, 2);
   type_ = fixed_size_list(inner_type, 2);
@@ -1771,7 +1771,7 @@ TEST_F(TestFixedSizeListArray, FlattenRecursion) {
     [null, null]
   ])"));
   ASSERT_OK(values->ValidateFull());
-  ASSERT_OK_AND_ASSIGN(auto flattened, values->FlattenRecursion());
+  ASSERT_OK_AND_ASSIGN(auto flattened, values->FlattenRecursively());
   ASSERT_OK(flattened->ValidateFull());
   ASSERT_EQ(8, flattened->length());
   ASSERT_EQ(2, flattened->null_count());

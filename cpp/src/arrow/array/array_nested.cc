@@ -216,25 +216,11 @@ static std::shared_ptr<Array> SliceArrayWithOffsets(const Array& array, int64_t 
   return array.Slice(begin, end - begin);
 }
 
-namespace {
-struct FlattenWithRecursion {
-  // Flatten all list-like types array recursively
-  static Result<std::shared_ptr<Array>> Flatten(const Array& array, bool with_recursion,
-                                                MemoryPool* memory_pool);
-};
-}  // namespace
-
 template <typename ListArrayT>
 Result<std::shared_ptr<Array>> FlattenListArray(const ListArrayT& list_array,
-                                                bool with_recursion,
                                                 MemoryPool* memory_pool) {
   const int64_t list_array_length = list_array.length();
   std::shared_ptr<arrow::Array> value_array = list_array.values();
-
-  // If it's a nested-list related array, flatten recursively.
-  if (is_list_like(value_array->type_id()) && with_recursion) {
-    return FlattenWithRecursion::Flatten(*value_array, with_recursion, memory_pool);
-  }
 
   // Shortcut: if a ListArray does not contain nulls, then simply slice its
   // value array with the first and the last offsets.
@@ -279,17 +265,11 @@ Result<std::shared_ptr<Array>> FlattenListArray(const ListArrayT& list_array,
 
 template <typename ListViewArrayT, bool HasNulls>
 Result<std::shared_ptr<Array>> FlattenListViewArray(const ListViewArrayT& list_view_array,
-                                                    bool with_recursion,
                                                     MemoryPool* memory_pool) {
   using offset_type = typename ListViewArrayT::offset_type;
   const int64_t list_view_array_offset = list_view_array.offset();
   const int64_t list_view_array_length = list_view_array.length();
   std::shared_ptr<arrow::Array> value_array = list_view_array.values();
-
-  // If it's a nested list-view, flatten recursively.
-  if (is_list_view(value_array->type()->id()) && with_recursion) {
-    return FlattenWithRecursion::Flatten(*value_array, with_recursion, memory_pool);
-  }
 
   if (list_view_array_length == 0) {
     return SliceArrayWithOffsets(*value_array, 0, 0);
@@ -369,44 +349,6 @@ Result<std::shared_ptr<Array>> FlattenListViewArray(const ListViewArrayT& list_v
   }
 
   return Concatenate(slices, memory_pool);
-}
-
-Result<std::shared_ptr<Array>> FlattenWithRecursion::Flatten(const Array& array,
-                                                             bool with_recursion,
-                                                             MemoryPool* memory_pool) {
-  const bool has_nulls = array.null_count() > 0;
-  switch (array.type_id()) {
-    case Type::LIST:
-      return FlattenListArray(checked_cast<const ListArray&>(array), with_recursion,
-                              memory_pool);
-    case Type::LARGE_LIST:
-      return FlattenListArray(checked_cast<const LargeListArray&>(array), with_recursion,
-                              memory_pool);
-    case Type::FIXED_SIZE_LIST:
-      return FlattenListArray(checked_cast<const FixedSizeListArray&>(array),
-                              with_recursion, memory_pool);
-    case Type::LIST_VIEW: {
-      if (has_nulls) {
-        return FlattenListViewArray<ListViewArray, true>(
-            checked_cast<const ListViewArray&>(array), with_recursion, memory_pool);
-      } else {
-        return FlattenListViewArray<ListViewArray, false>(
-            checked_cast<const ListViewArray&>(array), with_recursion, memory_pool);
-      }
-    }
-    case Type::LARGE_LIST_VIEW: {
-      if (has_nulls) {
-        return FlattenListViewArray<LargeListViewArray, true>(
-            checked_cast<const LargeListViewArray&>(array), with_recursion, memory_pool);
-      } else {
-        return FlattenListViewArray<LargeListViewArray, false>(
-            checked_cast<const LargeListViewArray&>(array), with_recursion, memory_pool);
-      }
-    }
-    default:
-      return Status::Invalid("Unknown or unsupported arrow nested type: ",
-                             array.type()->ToString());
-  }
 }
 
 std::shared_ptr<Array> BoxOffsets(const std::shared_ptr<DataType>& boxed_type,
@@ -527,6 +469,69 @@ inline void SetListData(VarLengthListLikeArray<TYPE>* self,
   self->values_ = MakeArray(self->data_->child_data[0]);
 }
 
+Result<std::shared_ptr<Array>> FlattenLogicalListRecursively(const Array& array,
+                                                             MemoryPool* memory_pool) {
+  Type::type kind = array.type_id();
+  std::shared_ptr<Array> in_array = array.Slice(0, array.length());
+  while (is_list_like(kind) || is_list_view(kind)) {
+    const bool has_nulls = array.null_count() > 0;
+    std::shared_ptr<Array> out;
+    switch (kind) {
+      case Type::LIST: {
+        ARROW_ASSIGN_OR_RAISE(
+            out,
+            FlattenListArray(checked_cast<const ListArray&>(*in_array), memory_pool));
+        break;
+      }
+      case Type::LARGE_LIST: {
+        ARROW_ASSIGN_OR_RAISE(
+            out, FlattenListArray(checked_cast<const LargeListArray&>(*in_array),
+                                  memory_pool));
+        break;
+      }
+      case Type::FIXED_SIZE_LIST: {
+        ARROW_ASSIGN_OR_RAISE(
+            out, FlattenListArray(checked_cast<const FixedSizeListArray&>(*in_array),
+                                  memory_pool));
+        break;
+      }
+      case Type::LIST_VIEW: {
+        if (has_nulls) {
+          ARROW_ASSIGN_OR_RAISE(
+              out, (FlattenListViewArray<ListViewArray, true>(
+                       checked_cast<const ListViewArray&>(*in_array), memory_pool)));
+          break;
+        } else {
+          ARROW_ASSIGN_OR_RAISE(
+              out, (FlattenListViewArray<ListViewArray, false>(
+                       checked_cast<const ListViewArray&>(*in_array), memory_pool)));
+          break;
+        }
+      }
+      case Type::LARGE_LIST_VIEW: {
+        if (has_nulls) {
+          ARROW_ASSIGN_OR_RAISE(
+              out, (FlattenListViewArray<LargeListViewArray, true>(
+                       checked_cast<const LargeListViewArray&>(*in_array), memory_pool)));
+          break;
+        } else {
+          ARROW_ASSIGN_OR_RAISE(
+              out, (FlattenListViewArray<LargeListViewArray, false>(
+                       checked_cast<const LargeListViewArray&>(*in_array), memory_pool)));
+          break;
+        }
+      }
+      default:
+        return Status::Invalid("Unknown or unsupported arrow nested type: ",
+                               in_array->type()->ToString());
+    }
+
+    in_array = out;
+    kind = in_array->type_id();
+  }
+  return std::move(in_array);
+}
+
 }  // namespace internal
 
 // ----------------------------------------------------------------------
@@ -581,12 +586,7 @@ Result<std::shared_ptr<ListArray>> ListArray::FromArrays(
 }
 
 Result<std::shared_ptr<Array>> ListArray::Flatten(MemoryPool* memory_pool) const {
-  return FlattenListArray(*this, /*with_recursion=*/false, memory_pool);
-}
-
-Result<std::shared_ptr<Array>> ListArray::FlattenRecursion(
-    MemoryPool* memory_pool) const {
-  return FlattenListArray(*this, /*with_recursion=*/true, memory_pool);
+  return FlattenListArray(*this, memory_pool);
 }
 
 std::shared_ptr<Array> ListArray::offsets() const { return BoxOffsets(int32(), *data_); }
@@ -645,12 +645,7 @@ Result<std::shared_ptr<LargeListArray>> LargeListArray::FromArrays(
 }
 
 Result<std::shared_ptr<Array>> LargeListArray::Flatten(MemoryPool* memory_pool) const {
-  return FlattenListArray(*this, /*with_recursion=*/false, memory_pool);
-}
-
-Result<std::shared_ptr<Array>> LargeListArray::FlattenRecursion(
-    MemoryPool* memory_pool) const {
-  return FlattenListArray(*this, /*with_recursion=*/true, memory_pool);
+  return FlattenListArray(*this, memory_pool);
 }
 
 std::shared_ptr<Array> LargeListArray::offsets() const {
@@ -721,21 +716,9 @@ Result<std::shared_ptr<LargeListViewArray>> LargeListViewArray::FromList(
 
 Result<std::shared_ptr<Array>> ListViewArray::Flatten(MemoryPool* memory_pool) const {
   if (null_count() > 0) {
-    return FlattenListViewArray<ListViewArray, true>(*this, /*with_recursion=*/false,
-                                                     memory_pool);
+    return FlattenListViewArray<ListViewArray, true>(*this, memory_pool);
   }
-  return FlattenListViewArray<ListViewArray, false>(*this, /*with_recursion=*/false,
-                                                    memory_pool);
-}
-
-Result<std::shared_ptr<Array>> ListViewArray::FlattenRecursion(
-    MemoryPool* memory_pool) const {
-  if (null_count() > 0) {
-    return FlattenListViewArray<ListViewArray, true>(*this, /*with_recursion=*/true,
-                                                     memory_pool);
-  }
-  return FlattenListViewArray<ListViewArray, false>(*this, /*with_recursion=*/true,
-                                                    memory_pool);
+  return FlattenListViewArray<ListViewArray, false>(*this, memory_pool);
 }
 
 std::shared_ptr<Array> ListViewArray::offsets() const {
@@ -794,21 +777,9 @@ Result<std::shared_ptr<LargeListViewArray>> LargeListViewArray::FromArrays(
 Result<std::shared_ptr<Array>> LargeListViewArray::Flatten(
     MemoryPool* memory_pool) const {
   if (null_count() > 0) {
-    return FlattenListViewArray<LargeListViewArray, true>(*this, /*with_recursion=*/false,
-                                                          memory_pool);
+    return FlattenListViewArray<LargeListViewArray, true>(*this, memory_pool);
   }
-  return FlattenListViewArray<LargeListViewArray, false>(*this, /*with_recursion=*/false,
-                                                         memory_pool);
-}
-
-Result<std::shared_ptr<Array>> LargeListViewArray::FlattenRecursion(
-    MemoryPool* memory_pool) const {
-  if (null_count() > 0) {
-    return FlattenListViewArray<LargeListViewArray, true>(*this, /*with_recursion=*/true,
-                                                          memory_pool);
-  }
-  return FlattenListViewArray<LargeListViewArray, false>(*this, /*with_recursion=*/true,
-                                                         memory_pool);
+  return FlattenListViewArray<LargeListViewArray, false>(*this, memory_pool);
 }
 
 std::shared_ptr<Array> LargeListViewArray::offsets() const {
@@ -1026,12 +997,12 @@ Result<std::shared_ptr<Array>> FixedSizeListArray::FromArrays(
 
 Result<std::shared_ptr<Array>> FixedSizeListArray::Flatten(
     MemoryPool* memory_pool) const {
-  return FlattenListArray(*this, /*with_recursion=*/false, memory_pool);
+  return FlattenListArray(*this, memory_pool);
 }
 
-Result<std::shared_ptr<Array>> FixedSizeListArray::FlattenRecursion(
+Result<std::shared_ptr<Array>> FixedSizeListArray::FlattenRecursively(
     MemoryPool* memory_pool) const {
-  return FlattenListArray(*this, /*with_recursion=*/true, memory_pool);
+  return internal::FlattenLogicalListRecursively(*this, memory_pool);
 }
 
 // ----------------------------------------------------------------------
