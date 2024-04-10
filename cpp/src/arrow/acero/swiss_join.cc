@@ -2160,9 +2160,6 @@ Status JoinResidualFilter::FilterOneBatch(const ExecBatch& keypayload_batch,
                                           bool output_key_ids, bool output_payload_ids,
                                           arrow::util::TempVectorStack* temp_stack,
                                           int* num_passing_rows) const {
-  if (num_batch_rows == 0) {
-    return Status::OK();
-  }
   // Caller must do shortcuts for trivial filter.
   ARROW_DCHECK(!filter_.IsNullLiteral() && filter_ != literal(true) &&
                filter_ != literal(false));
@@ -2170,6 +2167,11 @@ Status JoinResidualFilter::FilterOneBatch(const ExecBatch& keypayload_batch,
   ARROW_DCHECK(!output_payload_ids || payload_ids_maybe_null);
 
   *num_passing_rows = 0;
+
+  if (num_batch_rows == 0) {
+    return Status::OK();
+  }
+
   ARROW_ASSIGN_OR_RAISE(Datum mask,
                         EvalFilter(keypayload_batch, num_batch_rows, batch_row_ids,
                                    key_ids_maybe_null, payload_ids_maybe_null));

@@ -2038,14 +2038,17 @@ TEST(HashJoin, ResidualFilter) {
 
 TEST(HashJoin, FilterEmptyRows) {
   BatchesWithSchema input_left;
-  input_left.batches = {ExecBatchFromJSON({int32(), utf8(), int32()}, R"([[2, "Jarry", 28]])")};
-  input_left.schema = schema({field("id", int32()), field("name", utf8()), field("age", int32())});
+  input_left.batches = {
+      ExecBatchFromJSON({int32(), utf8(), int32()}, R"([[2, "Jarry", 28]])")};
+  input_left.schema =
+      schema({field("id", int32()), field("name", utf8()), field("age", int32())});
 
   BatchesWithSchema input_right;
   input_right.batches = {ExecBatchFromJSON(
       {int32(), int32(), utf8()},
       R"([[2, 10, "Jack"], [3, 12, "Mark"], [4, 15, "Tom"], [1, 10, "Jack"]])")};
-  input_right.schema = schema({field("id", int32()), field("stu_id", int32()), field("subject", utf8())});
+  input_right.schema =
+      schema({field("id", int32()), field("stu_id", int32()), field("subject", utf8())});
 
   const ResidualFilterCaseRunner runner{std::move(input_left), std::move(input_right)};
 
