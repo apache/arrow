@@ -852,4 +852,6 @@ TEST_F(PageIndexBuilderTest, TwoRowGroups) {
   CheckOffsetIndex(/*row_group=*/1, /*column=*/1, page_locations[1][1], final_position);
 }
 
+// TODO: add test for size stats
+
 }  // namespace parquet
