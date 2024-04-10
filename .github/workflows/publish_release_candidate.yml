@@ -52,7 +52,6 @@ jobs:
           echo "ARROW_RC_NUM=${rc_num}" >> ${GITHUB_ENV}
       - name: Create GitHub Release for Release Candidate
         # Create a pre-release in apache/arrow's GitHub Releases area.
-        # Attach the release candidate MLTBX file as an asset.
         run: |
           target_branch=release-${ARROW_VERSION_WITH_RC}
           title="Apache Arrow ${ARROW_VERSION} RC${ARROW_RC_NUM}"
