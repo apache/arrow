@@ -306,7 +306,7 @@ namespace Apache.Arrow.Tests
 
                 Assert.Equal(expectedArray.Length, actualArray.Length);
                 Assert.Equal(expectedArray.NullCount, actualArray.NullCount);
-                Assert.Equal(expectedArray.Offset, actualArray.Offset);
+                Assert.Equal(0, actualArray.Offset);
 
                 CompareValidityBuffer(expectedArray.NullCount, _expectedArray.Length, expectedArray.NullBitmapBuffer, actualArray.NullBitmapBuffer);
 

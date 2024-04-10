@@ -15,8 +15,11 @@
 
 using Apache.Arrow.Ipc;
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
+using Apache.Arrow.Types;
 using Xunit;
 
 namespace Apache.Arrow.Tests
@@ -104,6 +107,36 @@ namespace Apache.Arrow.Tests
             stream.Position = 0;
 
             await ValidateRecordBatchFile(stream, originalBatch);
+        }
+
+        [Fact]
+        public async Task WriteSlicedArrays()
+        {
+            // Temporarily only test some types
+            var includedTypes = new HashSet<ArrowTypeId>
+            {
+                ArrowTypeId.Int32,
+            };
+            var excludedTypes = new HashSet<ArrowTypeId>(
+                Enum.GetValues<ArrowTypeId>().Where(typeId => !includedTypes.Contains(typeId)));
+
+            var originalBatch = TestData.CreateSampleRecordBatch(length: 100, excludedTypes: excludedTypes);
+            const int sliceOffset = 3;
+            const int sliceLength = 45;
+            var slicedArrays = originalBatch.Arrays
+                .Select(array => ArrowArrayFactory.Slice(array, sliceOffset, sliceLength))
+                .ToList();
+            var slicedBatch = new RecordBatch(originalBatch.Schema, slicedArrays, sliceLength);
+
+            var stream = new MemoryStream();
+            var writer = new ArrowFileWriter(stream, slicedBatch.Schema, leaveOpen: true);
+
+            await writer.WriteRecordBatchAsync(slicedBatch);
+            await writer.WriteEndAsync();
+
+            stream.Position = 0;
+
+            await ValidateRecordBatchFile(stream, slicedBatch);
         }
 
         private async Task ValidateRecordBatchFile(Stream stream, RecordBatch recordBatch)
