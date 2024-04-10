@@ -1496,7 +1496,7 @@ struct ArrayImporter {
 
   Status Import(struct ArrowDeviceArray* src, const DeviceMemoryMapper& mapper) {
     ARROW_ASSIGN_OR_RAISE(memory_mgr_, mapper(src->device_type, src->device_id));
-    device_type_ = static_cast<DeviceAllocationType>(src->device_type);    
+    device_type_ = static_cast<DeviceAllocationType>(src->device_type);
     RETURN_NOT_OK(Import(&src->array));
     if (src->sync_event != nullptr) {
       ARROW_ASSIGN_OR_RAISE(import_->device_sync_, memory_mgr_->WrapDeviceSyncEvent(
