@@ -22,8 +22,8 @@ on:
     branches:
       - "!**"
     tags:
-    # Only trigger workflow when a tag whose name matches
-    # the pattern "apache-arrow-{MAJOR}.{MINOR}.{PATCH}" is pushed.
+    # Trigger workflow when a tag whose name matches the pattern
+    # "apache-arrow-{MAJOR}.{MINOR}.{PATCH}" is pushed.
       - "*"
       - "!*-rc*"
 

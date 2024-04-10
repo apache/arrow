@@ -20,8 +20,8 @@ name: Publish Release Candidate
 on:
   push:
     tags:
-    # A release candidate should be published whenever a tag with
-    # the name below is pushed to the apache/arrow repository.
+    # Rrigger workflow when a tag whose name matches the pattern
+    # "apache-arrow-{MAJOR}.{MINOR}.{PATCH}-rc{RC_NUM}" is pushed.
       - "apache-arrow-*-rc*"
 
 jobs:
