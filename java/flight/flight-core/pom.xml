@@ -164,7 +164,7 @@
           issues in the arrow-tools tests looking up FlatBuffer
           dependencies.
          -->
-        <version>3.5.2</version>
+        <version>3.2.4</version>
         <executions>
           <execution>
             <id>shade-main</id>
@@ -288,7 +288,7 @@
       </plugin>
       <plugin>
         <artifactId>maven-assembly-plugin</artifactId>
-        <version>3.0.0</version>
+        <version>3.7.1</version>
         <configuration>
           <descriptorRefs>
             <descriptorRef>jar-with-dependencies</descriptorRef>

@@ -25,7 +25,7 @@ write_ipc_file(
 \arguments{
 \item{x}{\code{data.frame}, \link{RecordBatch}, or \link{Table}}
 
-\item{sink}{A string file path, URI, or \link{OutputStream}, or path in a file
+\item{sink}{A string file path, connection, URI, or \link{OutputStream}, or path in a file
 system (\code{SubTreeFileSystem})}
 
 \item{version}{integer Feather file version, Version 1 or Version 2. Version 2 is the default.}

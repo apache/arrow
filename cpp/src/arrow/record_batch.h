@@ -87,10 +87,12 @@ class ARROW_EXPORT RecordBatch {
   /// Generated Tensor will have column-major layout.
   ///
   /// \param[in] null_to_nan if true, convert nulls to NaN
+  /// \param[in] row_major if true, create row-major Tensor else column-major Tensor
   /// \param[in] pool the memory pool to allocate the tensor buffer
   /// \return the resulting Tensor
   Result<std::shared_ptr<Tensor>> ToTensor(
-      bool null_to_nan = false, MemoryPool* pool = default_memory_pool()) const;
+      bool null_to_nan = false, bool row_major = true,
+      MemoryPool* pool = default_memory_pool()) const;
 
   /// \brief Construct record batch from struct array
   ///
