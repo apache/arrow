@@ -19,12 +19,9 @@
 
 #include "arrow/memory_pool.h"
 #include "arrow/util/config.h"
+#include "arrow/util/macros.h"
 
-namespace arrow {
-
-namespace memory_pool {
-
-namespace internal {
+namespace arrow::memory_pool::internal {
 
 static constexpr int64_t kDebugXorSuffix = -0x181fe80e0b464188LL;
 
@@ -48,8 +45,16 @@ class JemallocAllocator {
 
 #endif  // defined(ARROW_JEMALLOC)
 
-}  // namespace internal
+}  // namespace arrow::memory_pool::internal
 
-}  // namespace memory_pool
+#ifdef ARROW_MIMALLOC
 
-}  // namespace arrow
+extern "C" {
+
+ARROW_NOINLINE void* arrow_mi_malloc_aligned(size_t size, size_t alignment);
+ARROW_NOINLINE void* arrow_mi_realloc_aligned(void* p, size_t new_size, size_t alignment);
+ARROW_NOINLINE void arrow_mi_free(void* p);
+ARROW_NOINLINE void arrow_mi_collect(bool force);
+}
+
+#endif  // defined(ARROW_MIMALLOC)

@@ -77,7 +77,10 @@ TYPED_TEST_P(TestMemoryPool, Reallocate) { this->TestReallocate(); }
 
 TYPED_TEST_P(TestMemoryPool, Alignment) { this->TestAlignment(); }
 
-REGISTER_TYPED_TEST_SUITE_P(TestMemoryPool, MemoryTracking, OOM, Reallocate, Alignment);
+TYPED_TEST_P(TestMemoryPool, ReleaseUnused) { this->TestReleaseUnused(); }
+
+REGISTER_TYPED_TEST_SUITE_P(TestMemoryPool, MemoryTracking, OOM, Reallocate, Alignment,
+                            ReleaseUnused);
 
 INSTANTIATE_TYPED_TEST_SUITE_P(Default, TestMemoryPool, DefaultMemoryPoolFactory);
 INSTANTIATE_TYPED_TEST_SUITE_P(System, TestMemoryPool, SystemMemoryPoolFactory);

@@ -54,16 +54,11 @@
 #endif
 
 namespace arrow {
-
-namespace memory_pool {
-
-namespace internal {
+namespace memory_pool::internal {
 
 alignas(kDefaultBufferAlignment) int64_t zero_size_area[1] = {kDebugXorSuffix};
 
-}  // namespace internal
-
-}  // namespace memory_pool
+}  // namespace memory_pool::internal
 
 namespace {
 
@@ -394,15 +389,15 @@ class MimallocAllocator {
       *out = memory_pool::internal::kZeroSizeArea;
       return Status::OK();
     }
-    *out = reinterpret_cast<uint8_t*>(
-        mi_malloc_aligned(static_cast<size_t>(size), static_cast<size_t>(alignment)));
+    *out = reinterpret_cast<uint8_t*>(arrow_mi_malloc_aligned(
+        static_cast<size_t>(size), static_cast<size_t>(alignment)));
     if (*out == NULL) {
       return Status::OutOfMemory("malloc of size ", size, " failed");
     }
     return Status::OK();
   }
 
-  static void ReleaseUnused() { mi_collect(true); }
+  static void ReleaseUnused() { arrow_mi_collect(true); }
 
   static Status ReallocateAligned(int64_t old_size, int64_t new_size, int64_t alignment,
                                   uint8_t** ptr) {
@@ -417,7 +412,7 @@ class MimallocAllocator {
       return Status::OK();
     }
     *ptr = reinterpret_cast<uint8_t*>(
-        mi_realloc_aligned(previous_ptr, static_cast<size_t>(new_size), alignment));
+        arrow_mi_realloc_aligned(previous_ptr, static_cast<size_t>(new_size), alignment));
     if (*ptr == NULL) {
       *ptr = previous_ptr;
       return Status::OutOfMemory("realloc of size ", new_size, " failed");
@@ -429,7 +424,7 @@ class MimallocAllocator {
     if (ptr == memory_pool::internal::kZeroSizeArea) {
       DCHECK_EQ(size, 0);
     } else {
-      mi_free(ptr);
+      arrow_mi_free(ptr);
     }
   }
 };

@@ -428,7 +428,15 @@ if(ARROW_JEMALLOC)
                               PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                          SKIP_UNITY_BUILD_INCLUSION ON)
 endif()
+if(ARROW_MIMALLOC)
+  list(APPEND ARROW_MEMORY_POOL_SRCS memory_pool_mimalloc.cc)
+  set_source_files_properties(memory_pool_mimalloc.cc
+                              PROPERTIES SKIP_PRECOMPILE_HEADERS ON
+                                         SKIP_UNITY_BUILD_INCLUSION ON)
+endif()
+
 arrow_add_object_library(ARROW_MEMORY_POOL ${ARROW_MEMORY_POOL_SRCS})
+
 if(ARROW_JEMALLOC)
   foreach(ARROW_MEMORY_POOL_TARGET ${ARROW_MEMORY_POOL_TARGETS})
     target_link_libraries(${ARROW_MEMORY_POOL_TARGET} PRIVATE jemalloc::jemalloc)
