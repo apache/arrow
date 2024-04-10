@@ -17,7 +17,7 @@
 
 {% import 'macros.jinja' as macros with context %}
 
-{{ macros.github_header() }}
+{{ macros.github_header(archery_debug=False) }}
 
 jobs:
   build:
