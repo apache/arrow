@@ -36,25 +36,42 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     if: github.ref_type == 'tag'
-     steps: 
-      - name: Create GitHub Release
+    steps: 
+      - name: Checkout Arrow
         uses: actions/checkout@v4
+        with:
+          path: arrow
+          fetch-depth: 0
+      - name: Get Tag of Latest Release Candidate
         run: |
           rc_tag=$(gh release list --repo ${{github.repository}} | \
                     cut -f3 | \
                     grep -F "${GITHUB_REF_NAME}-rc" | \
                     head -n1)
-          title=$(gh release view ${ARROW_RC_TAG} --json name --jq .name | \
-                    sed -E -e 's/ RC[0-9]+$//')
+          echo "Latest Release Candidate Tag: ${rc_tag}"
+          echo "ARROW_RELEASE_CANDIDATE_TAG=${rc_tag}" >> ${GITHUB_ENV} 
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Create Relese Title
+        run: |
+          title=$(gh release view ${ARROW_RELEASE_CANDIDATE_TAG} --json name --jq .name | \
+                      sed -E -e 's/ RC[0-9]+$//')
+          echo "Release Title: ${title}"
+          echo "ARROW_RELEASE_TITLE=${title}" >> ${GITHUB_ENV} 
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Create Release Notes URL
+        run: |
           version=${GITHUB_REF_NAME#apache-arrow-}
           release_note_url="https://arrow.apache.org/release/${version}.html"
-          mkdir release_candidate_artifacts
-          gh release download ${rc_tag} --dir release_candidate_artifacts
+          echo "Release Notes URL: ${release_note_url}"
+          echo "ARROW_RELEASE_NOTES_URL=${release_note_url}" >> ${GITHUB_ENV} 
+      - name: Create GitHub Release
+        run: |
           gh release create ${GITHUB_REF_NAME} \
-            --title "${title}" \
+            --title "${ARROW_RELEASE_TITLE}" \
             --verify-tag \
-            --notes "Release Notes: ${release_note_url}" \
-            --repo ${{github.repository}} \
-            release_candidate_artifacts/*
+            --notes "Release Notes: ${ARROW_RELEASE_NOTES_URL}" \
+            --repo ${{github.repository}}
         env:
           GH_TOKEN: ${{ github.token }}
