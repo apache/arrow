@@ -1117,7 +1117,9 @@ class AsofJoinNode : public ExecNode {
 
   virtual ~AsofJoinNode() {
     process_.Push(false);  // poison pill
+#ifdef ARROW_ENABLE_THREADING
     process_thread_.join();
+#endif
   }
 
   const std::vector<col_index_t>& indices_of_on_key() { return indices_of_on_key_; }
@@ -1396,6 +1398,13 @@ class AsofJoinNode : public ExecNode {
 
     ARROW_RETURN_NOT_OK(state_.at(k)->Push(rb));
     process_.Push(true);
+
+#ifndef ARROW_THREADING_ENABLED
+    // if we can't have a worker thread then
+    // process some data now
+    ProcessNonThreaded();
+#endif
+
     return Status::OK();
   }
 
@@ -1411,21 +1420,71 @@ class AsofJoinNode : public ExecNode {
     // know whether the RHS of the join is up-to-date until we know that the table is
     // finished.
     process_.Push(true);
+
+#ifndef ARROW_THREADING_ENABLED
+    // if we can't have a worker thread then
+    // process any data left now
+    ProcessNonThreaded();
+#endif
+
     return Status::OK();
   }
 
-  Status StartProducing() override {
-#ifndef ARROW_ENABLE_THREADING
-    return Status::NotImplemented("ASOF join requires threading enabled");
+#ifndef ARROW_THREADING_ENABLED
+  bool ProcessNonThreaded() {
+    while (!process_task_.is_finished()) {
+      Result<std::shared_ptr<RecordBatch>> result = ProcessInner();
+
+      if (result.ok()) {
+        auto out_rb = *result;
+        if (!out_rb) break;
+        ExecBatch out_b(*out_rb);
+        out_b.index = batches_produced_++;
+        DEBUG_SYNC(this, "produce batch ", out_b.index, ":", DEBUG_MANIP(std::endl),
+                   out_rb->ToString(), DEBUG_MANIP(std::endl));
+        Status st = output_->InputReceived(this, std::move(out_b));
+        if (!st.ok()) {
+          // this isn't really from a thread,
+          // but we call through to this for consistency
+          EndFromSingleThread(std::move(st));
+          return false;
+        }
+      } else {
+        // this isn't really from a thread,
+        // but we call through to this for consistency
+        EndFromSingleThread(result.status());
+        return false;
+      }
+    }
+    auto& lhs = *state_.at(0);
+    if (lhs.Finished() && !process_task_.is_finished()) {
+      EndFromSingleThread(Status::OK());
+    }
+    return true;
+  }
+
+  void EndFromSingleThread(Status st = Status::OK()) {
+    process_task_.MarkFinished(st);
+    if (st.ok()) {
+      st = output_->InputFinished(this, batches_produced_);
+    }
+    for (const auto& s : state_) {
+      st &= s->ForceShutdown();
+    }
+  }
+
 #endif
 
+  Status StartProducing() override {
     ARROW_ASSIGN_OR_RAISE(process_task_, plan_->query_context()->BeginExternalTask(
                                              "AsofJoinNode::ProcessThread"));
     if (!process_task_.is_valid()) {
       // Plan has already aborted.  Do not start process thread
       return Status::OK();
     }
+#ifdef ARROW_ENABLE_THREADING
     process_thread_ = std::thread(&AsofJoinNode::ProcessThreadWrapper, this);
+#endif
     return Status::OK();
   }
 
