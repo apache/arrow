@@ -111,7 +111,25 @@ namespace Apache.Arrow
             length = Math.Min(Length - offset, length);
             offset += Offset;
 
-            return new ArrayData(DataType, length, RecalculateNullCount, offset, Buffers, Children, Dictionary);
+            int nullCount;
+            if (NullCount == 0)
+            {
+                nullCount = 0;
+            }
+            else if (NullCount == Length)
+            {
+                nullCount = length;
+            }
+            else if (offset == Offset && length == Length)
+            {
+                nullCount = NullCount;
+            }
+            else
+            {
+                nullCount = RecalculateNullCount;
+            }
+
+            return new ArrayData(DataType, length, nullCount, offset, Buffers, Children, Dictionary);
         }
 
         public ArrayData Clone(MemoryAllocator allocator = default)
