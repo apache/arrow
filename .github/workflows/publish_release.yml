@@ -45,7 +45,7 @@ jobs:
         with:
           path: arrow
           fetch-depth: 0
-      - name: Get Tag of Latest Release Candidate
+      - name: Get Latest Release Candidate's Git Tag
         run: |
           rc_tag=$(gh release list --repo ${{github.repository}} | \
                     cut -f3 | \
