@@ -300,7 +300,8 @@ class CompressedInputStream::Impl {
   // Decompress some data from the compressed_ buffer.
   // Call this function only if the decompressed_ buffer is fully consumed.
   Status DecompressData() {
-    DCHECK_NE(0, CompressedBufferAvailable());
+    // Currently, CompressedBufferAvailable() could be 0 in DecompressData().
+    DCHECK_NE(compressed_->data(), nullptr);
     DCHECK_EQ(0, DecompressedBufferAvailable());
 
     int64_t decompress_size = kDecompressSize;
