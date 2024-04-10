@@ -1723,8 +1723,7 @@ class ARROW_EXPORT MonthIntervalType : public IntervalType {
 
   MonthIntervalType() : IntervalType(type_id) {}
 
-  std::string ToString(bool show_metadata = false) const override {
-    ARROW_UNUSED(show_metadata);
+  std::string ToString(bool ARROW_ARG_UNUSED(show_metadata) = false) const override {
     return name();
   }
   std::string name() const override { return "month_interval"; }
@@ -1762,8 +1761,7 @@ class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
 
-  std::string ToString(bool show_metadata = false) const override {
-    ARROW_UNUSED(show_metadata);
+  std::string ToString(bool ARROW_ARG_UNUSED(show_metadata) = false) const override {
     return name();
   }
   std::string name() const override { return "day_time_interval"; }
@@ -1805,8 +1803,7 @@ class ARROW_EXPORT MonthDayNanoIntervalType : public IntervalType {
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
 
-  std::string ToString(bool show_metadata = false) const override {
-    ARROW_UNUSED(show_metadata);
+  std::string ToString(bool ARROW_ARG_UNUSED(show_metadata) = false) const override {
     return name();
   }
   std::string name() const override { return "month_day_nano_interval"; }
