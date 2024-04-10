@@ -5633,11 +5633,17 @@ def test_checksum_write_dataset_read_dataset_to_table(tempdir):
 
 
 def test_make_write_options_error():
-    # GH-39440
-    msg = ("make_write_options\\(\\) should be called on an "
-           "instance of ParquetFileFormat")
-    with pytest.raises(TypeError, match=msg):
+    # GH-39440: calling make_write_options as a static class method
+    msg_1 = ("make_write_options() should be called on an "
+             "instance of ParquetFileFormat")
+    # GH-41043: In Cython2 all Cython methods were "regular" C extension methods
+    # see: https://github.com/cython/cython/issues/6127#issuecomment-2038153359
+    msg_2 = ("descriptor 'make_write_options' for "
+             "'pyarrow._dataset_parquet.ParquetFileFormat' objects "
+             "doesn't apply to a 'int'")
+    with pytest.raises(TypeError) as excinfo:
         pa.dataset.ParquetFileFormat.make_write_options(43)
+    assert msg_1 in str(excinfo.value) or msg_2 in str(excinfo.value)
 
     pformat = pa.dataset.ParquetFileFormat()
     msg = "make_write_options\\(\\) takes exactly 0 positional arguments"
