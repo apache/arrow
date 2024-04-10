@@ -118,4 +118,4 @@ git push origin ${release_tag}
 # Wait for the Publish Release workflow to finish.
 sleep 2s
 workflow_id=$(gh run list --repo apache/arrow --workflow "Publish Release" | cut -f7 | head -n1)
-gh run watch 8633539220 --repo apache/arrow
+gh run watch ${workflow_id} --repo apache/arrow
