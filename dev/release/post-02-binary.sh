@@ -108,3 +108,10 @@ docker_run \
     VERBOSE=${VERBOSE:-no} \
     VERSION=${version} \
     YUM_TARGETS=$(IFS=,; echo "${yum_targets[*]}")
+
+# Create the release tag and trigger the 
+# workflow to create the GitHub Release.
+release_candidate_tag=apache-arrow-${version}-rc${num}
+release_tag=apache-arrow-${version}
+git tag -a ${release_tag} ${release_candidate_tag}^{} -m "[Release] Apache Arrow Release ${version}"
+git push origin ${release_tag}
