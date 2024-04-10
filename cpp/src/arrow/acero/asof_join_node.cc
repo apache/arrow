@@ -1399,7 +1399,7 @@ class AsofJoinNode : public ExecNode {
     ARROW_RETURN_NOT_OK(state_.at(k)->Push(rb));
     process_.Push(true);
 
-#ifndef ARROW_THREADING_ENABLED
+#ifndef ARROW_ENABLE_THREADING
     // if we can't have a worker thread then
     // process some data now
     ProcessNonThreaded();
@@ -1421,7 +1421,7 @@ class AsofJoinNode : public ExecNode {
     // finished.
     process_.Push(true);
 
-#ifndef ARROW_THREADING_ENABLED
+#ifndef ARROW_ENABLE_THREADING
     // if we can't have a worker thread then
     // process any data left now
     ProcessNonThreaded();
@@ -1430,7 +1430,7 @@ class AsofJoinNode : public ExecNode {
     return Status::OK();
   }
 
-#ifndef ARROW_THREADING_ENABLED
+#ifndef ARROW_ENABLE_THREADING
   bool ProcessNonThreaded() {
     while (!process_task_.is_finished()) {
       Result<std::shared_ptr<RecordBatch>> result = ProcessInner();
