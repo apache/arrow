@@ -169,7 +169,8 @@ class build_ext(_build_ext):
                              f"-DCMAKE_MODULE_PATH={old_dir}/cmake_modules"]
             if is_emscripten:
                 cmake_cmdline = ["emcmake"] + cmake_cmdline
-            subprocess.run(cmake_cmdline, capture_output=True, text=True)
+            print("Running cmake to get Arrow options")
+            subprocess.check_call(cmake_cmdline)
             options_json = (pathlib.Path(td) / "cmake_summary.json").read_text()
             options = json.loads(options_json)
             self._arrow_build_options = options
