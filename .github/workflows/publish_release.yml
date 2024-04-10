@@ -30,6 +30,9 @@ on:
 permissions:
   contents: write
 
+env:
+  GH_TOKEN: ${{ github.token }}
+
 jobs:
   publish-release:
     name: Publish Release 
@@ -50,16 +53,12 @@ jobs:
                     head -n1)
           echo "Latest Release Candidate Tag: ${rc_tag}"
           echo "ARROW_RELEASE_CANDIDATE_TAG=${rc_tag}" >> ${GITHUB_ENV} 
-        env:
-          GH_TOKEN: ${{ github.token }}
-      - name: Create Relese Title
+      - name: Create Release Title
         run: |
           title=$(gh release view ${ARROW_RELEASE_CANDIDATE_TAG} --json name --jq .name | \
                       sed -E -e 's/ RC[0-9]+$//')
           echo "Release Title: ${title}"
           echo "ARROW_RELEASE_TITLE=${title}" >> ${GITHUB_ENV} 
-        env:
-          GH_TOKEN: ${{ github.token }}
       - name: Create Release Notes URL
         run: |
           version=${GITHUB_REF_NAME#apache-arrow-}
@@ -73,5 +72,3 @@ jobs:
             --verify-tag \
             --notes "Release Notes: ${ARROW_RELEASE_NOTES_URL}" \
             --repo ${{github.repository}}
-        env:
-          GH_TOKEN: ${{ github.token }}
