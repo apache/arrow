@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-{%- macro github_header(archery_debug=True) -%}
+{%- macro github_header() -%}
 # NOTE: must set "Crossbow" as name to have the badge links working in the
 # github comment reports!
 name: Crossbow
@@ -25,9 +25,7 @@ on:
       - "*-github-*"
 
 env:
-  {% if archery_debug %}
   ARCHERY_DEBUG: 1
-  {% endif %}
   ARCHERY_USE_DOCKER_CLI: 1
 {% endmacro %}
 
