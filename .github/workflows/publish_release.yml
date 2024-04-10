@@ -55,7 +55,7 @@ jobs:
           echo "ARROW_RELEASE_CANDIDATE_TAG=${rc_tag}" >> ${GITHUB_ENV} 
       - name: Create Release Title
         run: |
-          title=$(gh release view ${ARROW_RELEASE_CANDIDATE_TAG} --json name --jq .name | \
+          title=$(gh release view ${ARROW_RELEASE_CANDIDATE_TAG} --repo ${{github.repository}} --json name --jq .name | \
                       sed -E -e 's/ RC[0-9]+$//')
           echo "Release Title: ${title}"
           echo "ARROW_RELEASE_TITLE=${title}" >> ${GITHUB_ENV} 
