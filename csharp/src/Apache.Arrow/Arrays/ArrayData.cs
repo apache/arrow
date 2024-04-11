@@ -158,18 +158,66 @@ namespace Apache.Arrow
 
         private int ComputeNullCount()
         {
+            if (DataType.TypeId == ArrowTypeId.Union)
+            {
+                return ((UnionType)DataType).Mode switch
+                {
+                    UnionMode.Sparse => ComputeSparseUnionNullCount(),
+                    UnionMode.Dense => ComputeDenseUnionNullCount(),
+                    _ => throw new InvalidOperationException("unknown union mode in null count computation")
+                };
+            }
+
             if (Buffers == null || Buffers.Length == 0 || Buffers[0].IsEmpty)
             {
                 return 0;
             }
 
-            if (DataType.TypeId == ArrowTypeId.Union)
-            {
-                // Union arrays store the type ids in buffer[0] rather than a validity bitmap
-                return 0;
-            }
+            // Note: Dictionary arrays may be logically null if there is a null in the dictionary values,
+            // but this isn't accounted for by the IArrowArray.IsNull implementation,
+            // so we maintain consistency with that behaviour here.
 
             return Length - BitUtility.CountBits(Buffers[0].Span, Offset, Length);
+        }
+
+        private int ComputeSparseUnionNullCount()
+        {
+            var typeIds = Buffers[0].Span.Slice(Offset, Length);
+            var childArrays = new IArrowArray[Children.Length];
+            for (var childIdx = 0; childIdx < Children.Length; ++childIdx)
+            {
+                childArrays[childIdx] = ArrowArrayFactory.BuildArray(Children[childIdx]);
+            }
+
+            var nullCount = 0;
+            for (var i = 0; i < Length; ++i)
+            {
+                var typeId = typeIds[i];
+                nullCount += childArrays[typeId].IsNull(Offset + i) ? 1 : 0;
+            }
+
+            return nullCount;
+        }
+
+        private int ComputeDenseUnionNullCount()
+        {
+            var typeIds = Buffers[0].Span.Slice(Offset, Length);
+            var valueOffsets = Buffers[1].Span.CastTo<int>().Slice(Offset, Length);
+            var childArrays = new IArrowArray[Children.Length];
+            for (var childIdx = 0; childIdx < Children.Length; ++childIdx)
+            {
+                childArrays[childIdx] = ArrowArrayFactory.BuildArray(Children[childIdx]);
+            }
+
+            var nullCount = 0;
+            for (var i = 0; i < Length; ++i)
+            {
+                var typeId = typeIds[i];
+                var valueOffset = valueOffsets[i];
+                nullCount += childArrays[typeId].IsNull(valueOffset) ? 1 : 0;
+            }
+
+            return nullCount;
         }
     }
 }
