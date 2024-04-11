@@ -48,7 +48,7 @@ namespace Apache.Arrow
             return fieldArray.IsValid(index);
         }
 
-        internal static int ComputeNullCount(ArrayData data)
+        internal new static int ComputeNullCount(ArrayData data)
         {
             var offset = data.Offset;
             var length = data.Length;
