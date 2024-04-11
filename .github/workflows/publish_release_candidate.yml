@@ -58,7 +58,6 @@ jobs:
             --prerelease \
             --notes "${release_notes}" \
             --title "${title}" \
-            --repo ${repository} \
             --verify-tag
         env:
           GH_TOKEN: ${{ github.token }}
