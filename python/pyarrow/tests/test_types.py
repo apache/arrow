@@ -33,6 +33,7 @@ import weakref
 import numpy as np
 import pyarrow as pa
 import pyarrow.tests.strategies as past
+from pyarrow import types
 
 
 def get_many_types():
@@ -93,8 +94,8 @@ def get_many_types():
 
 
 def test_is_boolean():
-    assert pa.types.is_boolean(pa.bool_())
-    assert not pa.types.is_boolean(pa.int8())
+    assert types.is_boolean(pa.bool_())
+    assert not types.is_boolean(pa.int8())
 
 
 def test_is_integer():
@@ -102,30 +103,30 @@ def test_is_integer():
     unsigned_ints = [pa.uint8(), pa.uint16(), pa.uint32(), pa.uint64()]
 
     for t in signed_ints + unsigned_ints:
-        assert pa.types.is_integer(t)
+        assert types.is_integer(t)
 
     for t in signed_ints:
-        assert pa.types.is_signed_integer(t)
-        assert not pa.types.is_unsigned_integer(t)
+        assert types.is_signed_integer(t)
+        assert not types.is_unsigned_integer(t)
 
     for t in unsigned_ints:
-        assert pa.types.is_unsigned_integer(t)
-        assert not pa.types.is_signed_integer(t)
+        assert types.is_unsigned_integer(t)
+        assert not types.is_signed_integer(t)
 
-    assert not pa.types.is_integer(pa.float32())
-    assert not pa.types.is_signed_integer(pa.float32())
+    assert not types.is_integer(pa.float32())
+    assert not types.is_signed_integer(pa.float32())
 
 
 def test_is_floating():
     for t in [pa.float16(), pa.float32(), pa.float64()]:
-        assert pa.types.is_floating(t)
+        assert types.is_floating(t)
 
-    assert not pa.types.is_floating(pa.int32())
+    assert not types.is_floating(pa.int32())
 
 
 def test_is_null():
-    assert pa.types.is_null(pa.null())
-    assert not pa.types.is_null(pa.list_(pa.int32()))
+    assert types.is_null(pa.null())
+    assert not types.is_null(pa.list_(pa.int32()))
 
 
 def test_null_field_may_not_be_non_nullable():
@@ -139,17 +140,17 @@ def test_is_decimal():
     decimal256 = pa.decimal256(76, 38)
     int32 = pa.int32()
 
-    assert pa.types.is_decimal(decimal128)
-    assert pa.types.is_decimal(decimal256)
-    assert not pa.types.is_decimal(int32)
+    assert types.is_decimal(decimal128)
+    assert types.is_decimal(decimal256)
+    assert not types.is_decimal(int32)
 
-    assert pa.types.is_decimal128(decimal128)
-    assert not pa.types.is_decimal128(decimal256)
-    assert not pa.types.is_decimal128(int32)
+    assert types.is_decimal128(decimal128)
+    assert not types.is_decimal128(decimal256)
+    assert not types.is_decimal128(int32)
 
-    assert not pa.types.is_decimal256(decimal128)
-    assert pa.types.is_decimal256(decimal256)
-    assert not pa.types.is_decimal256(int32)
+    assert not types.is_decimal256(decimal128)
+    assert types.is_decimal256(decimal256)
+    assert not types.is_decimal256(int32)
 
 
 def test_is_list():
@@ -157,50 +158,50 @@ def test_is_list():
     b = pa.large_list(pa.int32())
     c = pa.list_(pa.int32(), 3)
 
-    assert pa.types.is_list(a)
-    assert not pa.types.is_large_list(a)
-    assert not pa.types.is_fixed_size_list(a)
-    assert pa.types.is_large_list(b)
-    assert not pa.types.is_list(b)
-    assert not pa.types.is_fixed_size_list(b)
-    assert pa.types.is_fixed_size_list(c)
-    assert not pa.types.is_list(c)
-    assert not pa.types.is_large_list(c)
+    assert types.is_list(a)
+    assert not types.is_large_list(a)
+    assert not types.is_fixed_size_list(a)
+    assert types.is_large_list(b)
+    assert not types.is_list(b)
+    assert not types.is_fixed_size_list(b)
+    assert types.is_fixed_size_list(c)
+    assert not types.is_list(c)
+    assert not types.is_large_list(c)
 
-    assert not pa.types.is_list(pa.int32())
+    assert not types.is_list(pa.int32())
 
 
 def test_is_list_view():
     a = pa.list_view(pa.int32())
     b = pa.large_list_view(pa.int32())
 
-    assert pa.types.is_list_view(a)
-    assert not pa.types.is_large_list_view(a)
-    assert not pa.types.is_list(a)
-    assert pa.types.is_large_list_view(b)
-    assert not pa.types.is_list_view(b)
-    assert not pa.types.is_large_list(b)
+    assert types.is_list_view(a)
+    assert not types.is_large_list_view(a)
+    assert not types.is_list(a)
+    assert types.is_large_list_view(b)
+    assert not types.is_list_view(b)
+    assert not types.is_large_list(b)
 
 
 def test_is_map():
     m = pa.map_(pa.utf8(), pa.int32())
 
-    assert pa.types.is_map(m)
-    assert not pa.types.is_map(pa.int32())
+    assert types.is_map(m)
+    assert not types.is_map(pa.int32())
 
     fields = pa.map_(pa.field('key_name', pa.utf8(), nullable=False),
                      pa.field('value_name', pa.int32()))
-    assert pa.types.is_map(fields)
+    assert types.is_map(fields)
 
     entries_type = pa.struct([pa.field('key', pa.int8()),
                               pa.field('value', pa.int8())])
     list_type = pa.list_(entries_type)
-    assert not pa.types.is_map(list_type)
+    assert not types.is_map(list_type)
 
 
 def test_is_dictionary():
-    assert pa.types.is_dictionary(pa.dictionary(pa.int32(), pa.string()))
-    assert not pa.types.is_dictionary(pa.int32())
+    assert types.is_dictionary(pa.dictionary(pa.int32(), pa.string()))
+    assert not types.is_dictionary(pa.int32())
 
 
 def test_is_nested_or_struct():
@@ -208,65 +209,65 @@ def test_is_nested_or_struct():
                            pa.field('b', pa.int8()),
                            pa.field('c', pa.string())])
 
-    assert pa.types.is_struct(struct_ex)
-    assert not pa.types.is_struct(pa.list_(pa.int32()))
+    assert types.is_struct(struct_ex)
+    assert not types.is_struct(pa.list_(pa.int32()))
 
-    assert pa.types.is_nested(struct_ex)
-    assert pa.types.is_nested(pa.list_(pa.int32()))
-    assert pa.types.is_nested(pa.list_(pa.int32(), 3))
-    assert pa.types.is_nested(pa.large_list(pa.int32()))
-    assert pa.types.is_nested(pa.list_view(pa.int32()))
-    assert pa.types.is_nested(pa.large_list_view(pa.int32()))
-    assert not pa.types.is_nested(pa.int32())
+    assert types.is_nested(struct_ex)
+    assert types.is_nested(pa.list_(pa.int32()))
+    assert types.is_nested(pa.list_(pa.int32(), 3))
+    assert types.is_nested(pa.large_list(pa.int32()))
+    assert types.is_nested(pa.list_view(pa.int32()))
+    assert types.is_nested(pa.large_list_view(pa.int32()))
+    assert not types.is_nested(pa.int32())
 
 
 def test_is_union():
     for mode in [pa.lib.UnionMode_SPARSE, pa.lib.UnionMode_DENSE]:
-        assert pa.types.is_union(pa.union([pa.field('a', pa.int32()),
-                                           pa.field('b', pa.int8()),
-                                           pa.field('c', pa.string())],
-                                          mode=mode))
-    assert not pa.types.is_union(pa.list_(pa.int32()))
+        assert types.is_union(pa.union([pa.field('a', pa.int32()),
+                                        pa.field('b', pa.int8()),
+                                        pa.field('c', pa.string())],
+                                       mode=mode))
+    assert not types.is_union(pa.list_(pa.int32()))
 
 
 def test_is_run_end_encoded():
-    assert pa.types.is_run_end_encoded(pa.run_end_encoded(pa.int32(), pa.int64()))
-    assert not pa.types.is_run_end_encoded(pa.utf8())
+    assert types.is_run_end_encoded(pa.run_end_encoded(pa.int32(), pa.int64()))
+    assert not types.is_run_end_encoded(pa.utf8())
 
 
 # TODO(wesm): is_map, once implemented
 
 
 def test_is_binary_string():
-    assert pa.types.is_binary(pa.binary())
-    assert not pa.types.is_binary(pa.string())
-    assert not pa.types.is_binary(pa.large_binary())
-    assert not pa.types.is_binary(pa.large_string())
+    assert types.is_binary(pa.binary())
+    assert not types.is_binary(pa.string())
+    assert not types.is_binary(pa.large_binary())
+    assert not types.is_binary(pa.large_string())
 
-    assert pa.types.is_string(pa.string())
-    assert pa.types.is_unicode(pa.string())
-    assert not pa.types.is_string(pa.binary())
-    assert not pa.types.is_string(pa.large_string())
-    assert not pa.types.is_string(pa.large_binary())
+    assert types.is_string(pa.string())
+    assert types.is_unicode(pa.string())
+    assert not types.is_string(pa.binary())
+    assert not types.is_string(pa.large_string())
+    assert not types.is_string(pa.large_binary())
 
-    assert pa.types.is_large_binary(pa.large_binary())
-    assert not pa.types.is_large_binary(pa.large_string())
-    assert not pa.types.is_large_binary(pa.binary())
-    assert not pa.types.is_large_binary(pa.string())
+    assert types.is_large_binary(pa.large_binary())
+    assert not types.is_large_binary(pa.large_string())
+    assert not types.is_large_binary(pa.binary())
+    assert not types.is_large_binary(pa.string())
 
-    assert pa.types.is_large_string(pa.large_string())
-    assert not pa.types.is_large_string(pa.large_binary())
-    assert not pa.types.is_large_string(pa.string())
-    assert not pa.types.is_large_string(pa.binary())
+    assert types.is_large_string(pa.large_string())
+    assert not types.is_large_string(pa.large_binary())
+    assert not types.is_large_string(pa.string())
+    assert not types.is_large_string(pa.binary())
 
-    assert pa.types.is_fixed_size_binary(pa.binary(5))
-    assert not pa.types.is_fixed_size_binary(pa.binary())
+    assert types.is_fixed_size_binary(pa.binary(5))
+    assert not types.is_fixed_size_binary(pa.binary())
 
-    assert pa.types.is_string_view(pa.string_view())
-    assert not pa.types.is_string_view(pa.string())
-    assert pa.types.is_binary_view(pa.binary_view())
-    assert not pa.types.is_binary_view(pa.binary())
-    assert not pa.types.is_binary_view(pa.string_view())
+    assert types.is_string_view(pa.string_view())
+    assert not types.is_string_view(pa.string())
+    assert types.is_binary_view(pa.binary_view())
+    assert not types.is_binary_view(pa.binary())
+    assert not types.is_binary_view(pa.string_view())
 
 
 def test_is_temporal_date_time_timestamp():
@@ -278,48 +279,48 @@ def test_is_temporal_date_time_timestamp():
 
     for case in (date_types + time_types + timestamp_types + duration_types +
                  interval_types):
-        assert pa.types.is_temporal(case)
+        assert types.is_temporal(case)
 
     for case in date_types:
-        assert pa.types.is_date(case)
-        assert not pa.types.is_time(case)
-        assert not pa.types.is_timestamp(case)
-        assert not pa.types.is_duration(case)
-        assert not pa.types.is_interval(case)
+        assert types.is_date(case)
+        assert not types.is_time(case)
+        assert not types.is_timestamp(case)
+        assert not types.is_duration(case)
+        assert not types.is_interval(case)
 
     for case in time_types:
-        assert pa.types.is_time(case)
-        assert not pa.types.is_date(case)
-        assert not pa.types.is_timestamp(case)
-        assert not pa.types.is_duration(case)
-        assert not pa.types.is_interval(case)
+        assert types.is_time(case)
+        assert not types.is_date(case)
+        assert not types.is_timestamp(case)
+        assert not types.is_duration(case)
+        assert not types.is_interval(case)
 
     for case in timestamp_types:
-        assert pa.types.is_timestamp(case)
-        assert not pa.types.is_date(case)
-        assert not pa.types.is_time(case)
-        assert not pa.types.is_duration(case)
-        assert not pa.types.is_interval(case)
+        assert types.is_timestamp(case)
+        assert not types.is_date(case)
+        assert not types.is_time(case)
+        assert not types.is_duration(case)
+        assert not types.is_interval(case)
 
     for case in duration_types:
-        assert pa.types.is_duration(case)
-        assert not pa.types.is_date(case)
-        assert not pa.types.is_time(case)
-        assert not pa.types.is_timestamp(case)
-        assert not pa.types.is_interval(case)
+        assert types.is_duration(case)
+        assert not types.is_date(case)
+        assert not types.is_time(case)
+        assert not types.is_timestamp(case)
+        assert not types.is_interval(case)
 
     for case in interval_types:
-        assert pa.types.is_interval(case)
-        assert not pa.types.is_date(case)
-        assert not pa.types.is_time(case)
-        assert not pa.types.is_timestamp(case)
+        assert types.is_interval(case)
+        assert not types.is_date(case)
+        assert not types.is_time(case)
+        assert not types.is_timestamp(case)
 
-    assert not pa.types.is_temporal(pa.int32())
+    assert not types.is_temporal(pa.int32())
 
 
 def test_is_primitive():
-    assert pa.types.is_primitive(pa.int32())
-    assert not pa.types.is_primitive(pa.list_(pa.int32()))
+    assert types.is_primitive(pa.int32())
+    assert not types.is_primitive(pa.list_(pa.int32()))
 
 
 @pytest.mark.parametrize(('tz', 'expected'), [
@@ -923,21 +924,21 @@ def test_run_end_encoded_type():
 
 
 @pytest.mark.parametrize('t,check_func', [
-    (pa.date32(), pa.types.is_date32),
-    (pa.date64(), pa.types.is_date64),
-    (pa.time32('s'), pa.types.is_time32),
-    (pa.time64('ns'), pa.types.is_time64),
-    (pa.int8(), pa.types.is_int8),
-    (pa.int16(), pa.types.is_int16),
-    (pa.int32(), pa.types.is_int32),
-    (pa.int64(), pa.types.is_int64),
-    (pa.uint8(), pa.types.is_uint8),
-    (pa.uint16(), pa.types.is_uint16),
-    (pa.uint32(), pa.types.is_uint32),
-    (pa.uint64(), pa.types.is_uint64),
-    (pa.float16(), pa.types.is_float16),
-    (pa.float32(), pa.types.is_float32),
-    (pa.float64(), pa.types.is_float64)
+    (pa.date32(), types.is_date32),
+    (pa.date64(), types.is_date64),
+    (pa.time32('s'), types.is_time32),
+    (pa.time64('ns'), types.is_time64),
+    (pa.int8(), types.is_int8),
+    (pa.int16(), types.is_int16),
+    (pa.int32(), types.is_int32),
+    (pa.int64(), types.is_int64),
+    (pa.uint8(), types.is_uint8),
+    (pa.uint16(), types.is_uint16),
+    (pa.uint32(), types.is_uint32),
+    (pa.uint64(), types.is_uint64),
+    (pa.float16(), types.is_float16),
+    (pa.float32(), types.is_float32),
+    (pa.float64(), types.is_float64)
 ])
 def test_exact_primitive_types(t, check_func):
     assert check_func(t)
@@ -1259,24 +1260,24 @@ def test_field_modified_copies():
 
 
 def test_is_integer_value():
-    assert pa.types.is_integer_value(1)
-    assert pa.types.is_integer_value(np.int64(1))
-    assert not pa.types.is_integer_value('1')
+    assert types.is_integer_value(1)
+    assert types.is_integer_value(np.int64(1))
+    assert not types.is_integer_value('1')
 
 
 def test_is_float_value():
-    assert not pa.types.is_float_value(1)
-    assert pa.types.is_float_value(1.)
-    assert pa.types.is_float_value(np.float64(1))
-    assert not pa.types.is_float_value('1.0')
+    assert not types.is_float_value(1)
+    assert types.is_float_value(1.)
+    assert types.is_float_value(np.float64(1))
+    assert not types.is_float_value('1.0')
 
 
 def test_is_boolean_value():
-    assert not pa.types.is_boolean_value(1)
-    assert pa.types.is_boolean_value(True)
-    assert pa.types.is_boolean_value(False)
-    assert pa.types.is_boolean_value(np.bool_(True))
-    assert pa.types.is_boolean_value(np.bool_(False))
+    assert not types.is_boolean_value(1)
+    assert types.is_boolean_value(True)
+    assert types.is_boolean_value(False)
+    assert types.is_boolean_value(np.bool_(True))
+    assert types.is_boolean_value(np.bool_(False))
 
 
 @h.settings(suppress_health_check=(h.HealthCheck.too_slow,))
