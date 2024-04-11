@@ -1350,8 +1350,9 @@ def test_filter_record_batch():
 
     # GH-38770: mask is chunked array
     mask = pa.chunked_array([[True, False], [None], [False, True]])
-    with pytest.raises(pa.ArrowInvalid, match="Chunked filter not supported"):
-        batch.filter(mask)
+    result = batch.filter(mask)
+    expected = pa.table([pa.array(["a", "e"])], names=["a'"])
+    assert result.equals(expected)
 
 
 def test_filter_table():
