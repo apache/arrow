@@ -23,7 +23,8 @@ declare -A archs
 archs=([amd64]=x86_64
        [arch64]=aarch64
        [arm64]=aarch64
-       [arm64v8]=aarch64)
+       [arm64v8]=aarch64
+       [x86_64]=x86_64)
 
 declare -A platforms
 platforms=([linux]=linux
@@ -42,4 +43,4 @@ prefix=$4
 
 mkdir -p ${prefix}
 url="https://github.com/Kitware/CMake/releases/download/v${version}/cmake-${version}-${platform}-${arch}.tar.gz"
-curl -O - ${url} | tar -xzf - --directory ${prefix} --strip-components=1
+curl -L ${url} | tar -xzf - --directory ${prefix} --strip-components=1
