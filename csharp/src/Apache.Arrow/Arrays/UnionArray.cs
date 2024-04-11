@@ -91,6 +91,16 @@ namespace Apache.Arrow
             }
         }
 
+        internal static int ComputeNullCount(ArrayData data)
+        {
+            return ((UnionType)data.DataType).Mode switch
+            {
+                UnionMode.Sparse => SparseUnionArray.ComputeNullCount(data),
+                UnionMode.Dense => DenseUnionArray.ComputeNullCount(data),
+                _ => throw new InvalidOperationException("unknown union mode in null count computation")
+            };
+        }
+
         private IReadOnlyList<IArrowArray> InitializeFields()
         {
             IArrowArray[] result = new IArrowArray[Data.Children.Length];
