@@ -40,5 +40,6 @@ platform=${platforms[$2]}
 version=$3
 prefix=$4
 
+mkdir -p ${prefix}
 url="https://github.com/Kitware/CMake/releases/download/v${version}/cmake-${version}-${platform}-${arch}.tar.gz"
-wget -q ${url} -O - | tar -xzf - --directory ${prefix} --strip-components=1
+curl -O - ${url} | tar -xzf - --directory ${prefix} --strip-components=1
