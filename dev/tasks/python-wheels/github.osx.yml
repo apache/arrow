@@ -57,7 +57,7 @@ jobs:
         run: |
           arrow/ci/scripts/install_cmake.sh $(arch) macos 3.29.0 ${PWD}/local
           echo "${PWD}/local/bin" >> $GITHUB_PATH
-          ${PWD/local/bin/cmake --version
+          ${PWD}/local/bin/cmake --version
 
       - name: Retrieve VCPKG version from arrow/.env
         run: |
