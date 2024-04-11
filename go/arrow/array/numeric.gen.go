@@ -594,13 +594,11 @@ func (a *Float32) MarshalJSON() ([]byte, error) {
 		}
 
 		f := a.Value(i)
-		switch {
-		case strconv.FormatFloat(float64(f), 'g', -1, 32) == "NaN":
-            vals[i] = "NaN"
-		case strconv.FormatFloat(float64(f), 'g', -1, 32) == "+Inf":
-            vals[i] = "+Inf"
-		case strconv.FormatFloat(float64(f), 'g', -1, 32) == "-Inf":
-            vals[i] = "-Inf"
+		v := strconv.FormatFloat(float64(f), 'g', -1, 32)
+
+		switch v {
+		case "NaN", "+Inf", "-Inf":
+			vals[i] = v
 		default:
 			vals[i] = f
 		}

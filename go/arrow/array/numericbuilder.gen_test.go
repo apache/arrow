@@ -634,7 +634,7 @@ func TestFloat64Builder_Resize(t *testing.T) {
 	assert.Equal(t, 5, ab.Len())
 }
 
-func TestFloatBuilder64UnmarshalJSON(t *testing.T) {
+func TestFloat64BuilderUnmarshalJSON(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
@@ -1262,7 +1262,7 @@ func TestFloat32Builder_Resize(t *testing.T) {
 	assert.Equal(t, 5, ab.Len())
 }
 
-func TestFloatBuilder32UnmarshalJSON(t *testing.T) {
+func TestFloat32BuilderUnmarshalJSON(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 

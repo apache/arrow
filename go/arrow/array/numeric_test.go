@@ -145,7 +145,7 @@ func TestFloat16MarshalJSON(t *testing.T) {
 	bldr := array.NewFloat16Builder(pool)
 	defer bldr.Release()
 	
-	jsonstr := `[0, 1, 2, 3, "NaN", "NaN", 4, 5]`
+	jsonstr := `[0, 1, 2, 3, "NaN", "NaN", 4, 5, "Inf"]`
 
 	bldr.Append(float16.New(0))
 	bldr.Append(float16.New(1))
@@ -155,6 +155,7 @@ func TestFloat16MarshalJSON(t *testing.T) {
 	bldr.Append(float16.NaN())
 	bldr.Append(float16.New(4))
 	bldr.Append(float16.New(5))
+	bldr.Append(float16.Inf())
 
 
 	expected := bldr.NewFloat16Array()
