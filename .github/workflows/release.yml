@@ -45,28 +45,61 @@ jobs:
         with:
           fetch-depth: 0
       - name: Get Latest Release Candidate's Git Tag
+        # Only run when a release tag is pushed
+        if: !contains(${GITHUB_REF_NAME}, 'rc')
         run: |
           rc_tag=$(gh release list | \
                     cut -f3 | \
                     grep -F "${GITHUB_REF_NAME}-rc" | \
                     head -n1)
           echo "Latest Release Candidate Tag: ${rc_tag}"
-          echo "ARROW_RELEASE_CANDIDATE_TAG=${rc_tag}" >> ${GITHUB_ENV} 
+          echo "ARROW_RELEASE_CANDIDATE_TAG_NAME=${rc_tag}" >> ${GITHUB_ENV}
+      - name: Store Release Candidate Tag Name as Environment Variable
+        # Only run when a release candidate tag is pushed
+        if: contains(${GITHUB_REF_NAME}, 'rc')
+        run: |
+          echo "ARROW_RELEASE_CANDIDATE_TAG_NAME=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+      - name: Store Version and Release Candidate Number as Environment Variables
+        run: |
+          version_with_rc=${ARROW_RELEASE_CANDIDATE_TAG_NAME#apache-arrow-}
+          version=${version_with_rc%-rc*}
+          rc_num=${version_with_rc#${version}-rc}
+          echo "ARROW_VERSION_WITH_RC=${version_with_rc}" >> "${GITHUB_ENV}"
+          echo "ARROW_VERSION=${version}" >> ${GITHUB_ENV}
+          echo "ARROW_RC_NUM=${rc_num}" >> ${GITHUB_ENV}
       - name: Create Release Title
+        # Only run when a release tag is pushed
+        if: !contains(${GITHUB_REF_NAME}, 'rc')
         run: |
-          title=$(gh release view ${ARROW_RELEASE_CANDIDATE_TAG} --json name --jq .name | \
-                      sed -E -e 's/ RC[0-9]+$//')
-          echo "Release Title: ${title}"
+          title="Apache Arrow ${ARROW_VERSION}"
           echo "ARROW_RELEASE_TITLE=${title}" >> ${GITHUB_ENV} 
-      - name: Create Release Notes URL
+      - name: Create Release Candidate Title
+        # Only run when a release candidate tag is pushed
+        if: contains(${GITHUB_REF_NAME}, 'rc')
         run: |
-          version=${GITHUB_REF_NAME#apache-arrow-}
-          release_note_url="https://arrow.apache.org/release/${version}.html"
-          echo "Release Notes URL: ${release_note_url}"
-          echo "ARROW_RELEASE_NOTES_URL=${release_note_url}" >> ${GITHUB_ENV} 
+          title="Apache Arrow ${ARROW_VERSION} RC${ARROW_RC_NUM}"
+      - name: Create Release Notes
+        # Only run when a release tag is pushed
+        if: !contains(${GITHUB_REF_NAME}, 'rc')
+        run: |
+          release_notes="https://arrow.apache.org/release/${ARROW_VERSION}.html"
+          echo "Release Notes URL: ${release_notes}"
+          echo "ARROW_RELEASE_NOTES=${release_notes}" >> ${GITHUB_ENV}
+      - name: Create Release Candidate Notes
+        # Only run when a release candidate tag is pushed
+        if: contains(${GITHUB_REF_NAME}, 'rc')
+        run: |
+          release_notes="Release Candidate: ${ARROW_VERSION} RC${ARROW_RC_NUM}"
+          echo "ARROW_RELEASE_NOTES=${release_notes}" >> ${GITHUB_ENV}
       - name: Create GitHub Release
         run: |
-          gh release create ${GITHUB_REF_NAME} \
+          is_prerelease=$(echo ${GITHUB_REF_NAME} | grep -E "rc[0-9]+$")
+          if [ -n $is_prerelease ] then
+            prerelease_flag=--prerelease
+          else
+            prerelease_flag=
+          fi
+          gh release create ${GITHUB_REF_NAME} ${prerelease_flag} \
             --title "${ARROW_RELEASE_TITLE}" \
-            --verify-tag \
-            --notes "Release Notes: ${ARROW_RELEASE_NOTES_URL}"
+            --notes "Release Notes: ${ARROW_RELEASE_NOTES_URL}" \
+            --verify-tag
