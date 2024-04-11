@@ -712,7 +712,7 @@ services:
     #   docker-compose run --rm conan
     # Parameters:
     #   CONAN_BASE: gcc11, gcc11-armv7, ...
-    #   CONAN_VERSION: 1.64.0
+    #   CONAN_VERSION: 1.62.0
     #   See https://github.com/conan-io/conan-docker-tools#readme for
     #   available images.
     image: conanio/${CONAN_BASE}:${CONAN_VERSION}
