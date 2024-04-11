@@ -21,6 +21,8 @@ set -e
 
 declare -A archs
 archs=([amd64]=x86_64
+       [arch64]=aarch64
+       [arm64]=aarch64
        [arm64v8]=aarch64)
 
 declare -A platforms

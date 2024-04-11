@@ -31,7 +31,9 @@ jobs:
       # See also: https://github.com/microsoft/vcpkg/issues/37968
       - name: Install CMake 3.29.0
         shell: bash
-        run: arrow/ci/scripts/install_cmake.sh 3.29.0
+        run: |
+          arrow/ci/scripts/install_cmake.sh amd64 windows 3.29.0 /c/cmake
+          echo "c:\\cmake\\bin" >> $GITHUB_PATH
       - name: Download Timezone Database
         shell: bash
         run: arrow/ci/scripts/download_tz_database.sh
