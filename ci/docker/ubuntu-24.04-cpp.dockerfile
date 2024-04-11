@@ -29,7 +29,7 @@ RUN echo "debconf debconf/frontend select Noninteractive" | \
 # while debugging package list with docker build.
 ARG clang_tools
 ARG llvm
-RUN latest_system_llvm=14 && \
+RUN latest_system_llvm=18 && \
     if [ ${llvm} -gt ${latest_system_llvm} -o \
          ${clang_tools} -gt ${latest_system_llvm} ]; then \
       apt-get update -y -q && \
@@ -127,7 +127,7 @@ RUN if [ "${gcc_version}" = "" ]; then \
           g++ \
           gcc; \
     else \
-      if [ "${gcc_version}" -gt "12" ]; then \
+      if [ "${gcc_version}" -gt "14" ]; then \
           apt-get update -y -q && \
           apt-get install -y -q --no-install-recommends software-properties-common && \
           add-apt-repository ppa:ubuntu-toolchain-r/volatile; \
