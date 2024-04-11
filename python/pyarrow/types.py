@@ -21,7 +21,6 @@
 from pyarrow.lib import (is_boolean_value,  # noqa
                          is_integer_value,
                          is_float_value,
-                         ensure_type,
                          _is_integer as is_integer,
                          _is_signed_integer as is_signed_integer,
                          _is_unsigned_integer as is_unsigned_integer,
