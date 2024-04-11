@@ -279,7 +279,6 @@ Be sure to go through on the following checklist:
 #. Publish release blog posts
 #. Announce the release on Twitter
 #. Remove old artifacts
-#. Remove old release candidates
 
 .. dropdown:: Mark the released version as "RELEASED" on JIRA
    :animate: fade-in-slide-down
@@ -690,17 +689,3 @@ Be sure to go through on the following checklist:
    .. code-block:: Bash
 
       dev/release/post-07-remove-old-artifacts.sh
-
-.. dropdown:: Remove old release candidates
-   :animate: fade-in-slide-down
-   :class-title: sd-fs-5
-   :class-container: sd-shadow-md
-
-  Delete the release candidate artifacts from apache/arrow's GitHub Releases area:
-
-   .. code-block:: Bash
-
-      # dev/release/post-16-delete-release-candidates.sh 15.0.2
-      dev/release/post-16-delete-release-candidates.sh <version>
-  
-  Note: You must have GitHub CLI installed locally.
