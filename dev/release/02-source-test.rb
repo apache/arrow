@@ -23,6 +23,7 @@ class SourceTest < Test::Unit::TestCase
     @current_commit = git_current_commit
     detect_versions
     @tag_name = "apache-arrow-#{@release_version}-rc0"
+    @archive_name = "apache-arrow-#{@release_version}.tar.gz"
     @script = File.expand_path("dev/release/02-source.sh")
 
     Dir.mktmpdir do |dir|
@@ -41,7 +42,7 @@ class SourceTest < Test::Unit::TestCase
       env["SOURCE_#{target}"] = "1"
     end
     output = sh(env, @script, @release_version, "0")
-    sh("tar", "xf", "#{@tag_name}.tar.gz")
+    sh("tar", "xf", @archive_name)
     output
   end
 
