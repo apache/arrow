@@ -3339,6 +3339,15 @@ def test_numpy_array_protocol():
         with pytest.raises(ValueError):
             np.array(arr, dtype="float64", copy=False)
 
+    # copy=True -> not yet passed by numpy, so we have to call this directly to test
+    arr = pa.array([1, 2, 3])
+    result = arr.__array__(copy=True)
+    assert result.flags.writeable
+
+    arr = pa.array([1, 2, 3])
+    result = arr.__array__(dtype=np.dtype("float64"), copy=True)
+    assert result.dtype == "float64"
+
 
 def test_array_protocol():
 
