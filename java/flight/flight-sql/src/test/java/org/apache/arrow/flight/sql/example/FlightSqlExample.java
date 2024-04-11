@@ -21,7 +21,6 @@ import static com.google.common.base.Strings.emptyToNull;
 import static com.google.protobuf.Any.pack;
 import static com.google.protobuf.ByteString.copyFrom;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.isNull;
 import static java.util.UUID.randomUUID;
@@ -43,6 +42,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
@@ -69,6 +69,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -237,7 +238,10 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
                   SqlSupportedCaseSensitivity.SQL_CASE_SENSITIVITY_UPPERCASE :
                   metaData.storesLowerCaseQuotedIdentifiers() ?
                       SqlSupportedCaseSensitivity.SQL_CASE_SENSITIVITY_LOWERCASE :
-                      SqlSupportedCaseSensitivity.SQL_CASE_SENSITIVITY_UNKNOWN);
+                      SqlSupportedCaseSensitivity.SQL_CASE_SENSITIVITY_UNKNOWN)
+          .withSqlAllTablesAreSelectable(true)
+          .withSqlNullOrdering(SqlNullOrdering.SQL_NULLS_SORTED_AT_END)
+          .withSqlMaxColumnsInTable(42);
     } catch (SQLException e) {
       throw new RuntimeException(e);
     }
@@ -379,6 +383,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     return saveToVectors(vectorToColumnName, data, emptyToNull, alwaysTrue);
   }
 
+  @SuppressWarnings("StringSplitter")
   private static <T extends FieldVector> int saveToVectors(final Map<T, String> vectorToColumnName,
                                                            final ResultSet data, boolean emptyToNull,
                                                            Predicate<ResultSet> resultSetPredicate)
@@ -423,7 +428,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
 
             range(0, split.length)
                 .forEach(i -> {
-                  byte[] bytes = split[i].getBytes(UTF_8);
+                  byte[] bytes = split[i].getBytes(StandardCharsets.UTF_8);
                   Preconditions.checkState(bytes.length < 1024,
                       "The amount of bytes is greater than what the ArrowBuf supports");
                   buf.setBytes(0, bytes);
@@ -509,7 +514,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
         }
       };
     } else {
-      predicate = (resultSet -> true);
+      predicate = resultSet -> true;
     }
 
     int rows = saveToVectors(mapper, typeInfo, true, predicate);
@@ -682,7 +687,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   public void closePreparedStatement(final ActionClosePreparedStatementRequest request, final CallContext context,
                                      final StreamListener<Result> listener) {
     // Running on another thread
-    executorService.submit(() -> {
+    Future<?> unused = executorService.submit(() -> {
       try {
         preparedStatementLoadingCache.invalidate(request.getPreparedStatementHandle());
       } catch (final Exception e) {
@@ -696,7 +701,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   @Override
   public FlightInfo getFlightInfoStatement(final CommandStatementQuery request, final CallContext context,
                                            final FlightDescriptor descriptor) {
-    ByteString handle = copyFrom(randomUUID().toString().getBytes(UTF_8));
+    ByteString handle = copyFrom(randomUUID().toString().getBytes(StandardCharsets.UTF_8));
 
     try {
       // Ownership of the connection will be passed to the context. Do NOT close!
@@ -771,9 +776,9 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   public void createPreparedStatement(final ActionCreatePreparedStatementRequest request, final CallContext context,
                                       final StreamListener<Result> listener) {
     // Running on another thread
-    executorService.submit(() -> {
+    Future<?> unused = executorService.submit(() -> {
       try {
-        final ByteString preparedStatementHandle = copyFrom(randomUUID().toString().getBytes(UTF_8));
+        final ByteString preparedStatementHandle = copyFrom(randomUUID().toString().getBytes(StandardCharsets.UTF_8));
         // Ownership of the connection will be passed to the context. Do NOT close!
         final Connection connection = dataSource.getConnection();
         final PreparedStatement preparedStatement = connection.prepareStatement(request.getQuery(),

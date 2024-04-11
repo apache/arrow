@@ -37,8 +37,7 @@ typedef enum {
   GADATASET_SEGMENT_ENCODING_URI,
 } GADatasetSegmentEncoding;
 
-
-#define GADATASET_TYPE_PARTITIONING_FACTORY_OPTIONS   \
+#define GADATASET_TYPE_PARTITIONING_FACTORY_OPTIONS                                      \
   (gadataset_partitioning_factory_options_get_type())
 G_DECLARE_DERIVABLE_TYPE(GADatasetPartitioningFactoryOptions,
                          gadataset_partitioning_factory_options,
@@ -54,13 +53,9 @@ GARROW_AVAILABLE_IN_11_0
 GADatasetPartitioningFactoryOptions *
 gadataset_partitioning_factory_options_new(void);
 
-
 #define GADATASET_TYPE_PARTITIONING (gadataset_partitioning_get_type())
-G_DECLARE_DERIVABLE_TYPE(GADatasetPartitioning,
-                         gadataset_partitioning,
-                         GADATASET,
-                         PARTITIONING,
-                         GObject)
+G_DECLARE_DERIVABLE_TYPE(
+  GADatasetPartitioning, gadataset_partitioning, GADATASET, PARTITIONING, GObject)
 struct _GADatasetPartitioningClass
 {
   GObjectClass parent_class;
@@ -70,13 +65,11 @@ GARROW_AVAILABLE_IN_6_0
 gchar *
 gadataset_partitioning_get_type_name(GADatasetPartitioning *partitioning);
 
-
 GARROW_AVAILABLE_IN_12_0
 GADatasetPartitioning *
 gadataset_partitioning_create_default(void);
 
-
-#define GADATASET_TYPE_KEY_VALUE_PARTITIONING_OPTIONS   \
+#define GADATASET_TYPE_KEY_VALUE_PARTITIONING_OPTIONS                                    \
   (gadataset_key_value_partitioning_options_get_type())
 G_DECLARE_DERIVABLE_TYPE(GADatasetKeyValuePartitioningOptions,
                          gadataset_key_value_partitioning_options,
@@ -92,8 +85,7 @@ GARROW_AVAILABLE_IN_11_0
 GADatasetKeyValuePartitioningOptions *
 gadataset_key_value_partitioning_options_new(void);
 
-
-#define GADATASET_TYPE_KEY_VALUE_PARTITIONING   \
+#define GADATASET_TYPE_KEY_VALUE_PARTITIONING                                            \
   (gadataset_key_value_partitioning_get_type())
 G_DECLARE_DERIVABLE_TYPE(GADatasetKeyValuePartitioning,
                          gadataset_key_value_partitioning,
@@ -105,8 +97,7 @@ struct _GADatasetKeyValuePartitioningClass
   GADatasetPartitioningClass parent_class;
 };
 
-
-#define GADATASET_TYPE_DIRECTORY_PARTITIONING   \
+#define GADATASET_TYPE_DIRECTORY_PARTITIONING                                            \
   (gadataset_directory_partitioning_get_type())
 G_DECLARE_DERIVABLE_TYPE(GADatasetDirectoryPartitioning,
                          gadataset_directory_partitioning,
@@ -120,14 +111,12 @@ struct _GADatasetDirectoryPartitioningClass
 
 GARROW_AVAILABLE_IN_6_0
 GADatasetDirectoryPartitioning *
-gadataset_directory_partitioning_new(
-  GArrowSchema *schema,
-  GList *dictionaries,
-  GADatasetKeyValuePartitioningOptions *options,
-  GError **error);
+gadataset_directory_partitioning_new(GArrowSchema *schema,
+                                     GList *dictionaries,
+                                     GADatasetKeyValuePartitioningOptions *options,
+                                     GError **error);
 
-
-#define GADATASET_TYPE_HIVE_PARTITIONING_OPTIONS   \
+#define GADATASET_TYPE_HIVE_PARTITIONING_OPTIONS                                         \
   (gadataset_hive_partitioning_options_get_type())
 G_DECLARE_DERIVABLE_TYPE(GADatasetHivePartitioningOptions,
                          gadataset_hive_partitioning_options,
@@ -143,9 +132,7 @@ GARROW_AVAILABLE_IN_11_0
 GADatasetHivePartitioningOptions *
 gadataset_hive_partitioning_options_new(void);
 
-
-#define GADATASET_TYPE_HIVE_PARTITIONING        \
-  (gadataset_hive_partitioning_get_type())
+#define GADATASET_TYPE_HIVE_PARTITIONING (gadataset_hive_partitioning_get_type())
 G_DECLARE_DERIVABLE_TYPE(GADatasetHivePartitioning,
                          gadataset_hive_partitioning,
                          GADATASET,
@@ -164,8 +151,6 @@ gadataset_hive_partitioning_new(GArrowSchema *schema,
                                 GError **error);
 GARROW_AVAILABLE_IN_11_0
 gchar *
-gadataset_hive_partitioning_get_null_fallback(
-  GADatasetHivePartitioning *partitioning);
-
+gadataset_hive_partitioning_get_null_fallback(GADatasetHivePartitioning *partitioning);
 
 G_END_DECLS

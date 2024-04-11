@@ -21,6 +21,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.InvocationTargetException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -41,6 +42,7 @@ import org.apache.arrow.flight.auth.ServerAuthInterceptor;
 import org.apache.arrow.flight.auth2.Auth2Constants;
 import org.apache.arrow.flight.auth2.CallHeaderAuthenticator;
 import org.apache.arrow.flight.auth2.ServerCallHeaderAuthMiddleware;
+import org.apache.arrow.flight.grpc.ServerBackpressureThresholdInterceptor;
 import org.apache.arrow.flight.grpc.ServerInterceptorAdapter;
 import org.apache.arrow.flight.grpc.ServerInterceptorAdapter.KeyFactory;
 import org.apache.arrow.memory.BufferAllocator;
@@ -77,6 +79,9 @@ public class FlightServer implements AutoCloseable {
 
   /** The maximum size of an individual gRPC message. This effectively disables the limit. */
   static final int MAX_GRPC_MESSAGE_SIZE = Integer.MAX_VALUE;
+
+  /** The default number of bytes that can be queued on an output stream before blocking. */
+  public static final int DEFAULT_BACKPRESSURE_THRESHOLD = 10 * 1024 * 1024; // 10MB
 
   /** Create a new instance from a gRPC server. For internal use only. */
   private FlightServer(Location location, Server server, ExecutorService grpcExecutor) {
@@ -134,6 +139,7 @@ public class FlightServer implements AutoCloseable {
   }
 
   /** Shutdown the server, waits for up to 6 seconds for successful shutdown before returning. */
+  @Override
   public void close() throws InterruptedException {
     shutdown();
     final boolean terminated = awaitTermination(3000, TimeUnit.MILLISECONDS);
@@ -146,7 +152,7 @@ public class FlightServer implements AutoCloseable {
     server.shutdownNow();
 
     int count = 0;
-    while (!server.isTerminated() & count < 30) {
+    while (!server.isTerminated() && count < 30) {
       count++;
       logger.debug("Waiting for termination");
       Thread.sleep(100);
@@ -177,6 +183,7 @@ public class FlightServer implements AutoCloseable {
     private CallHeaderAuthenticator headerAuthenticator = CallHeaderAuthenticator.NO_OP;
     private ExecutorService executor = null;
     private int maxInboundMessageSize = MAX_GRPC_MESSAGE_SIZE;
+    private int backpressureThreshold = DEFAULT_BACKPRESSURE_THRESHOLD;
     private InputStream certChain;
     private InputStream key;
     private InputStream mTlsCACert;
@@ -216,22 +223,23 @@ public class FlightServer implements AutoCloseable {
           try {
             try {
               // Linux
-              builder.channelType(
-                  (Class<? extends ServerChannel>) Class
-                      .forName("io.netty.channel.epoll.EpollServerDomainSocketChannel"));
-              final EventLoopGroup elg = (EventLoopGroup) Class.forName("io.netty.channel.epoll.EpollEventLoopGroup")
-                  .newInstance();
+              builder.channelType(Class
+                      .forName("io.netty.channel.epoll.EpollServerDomainSocketChannel")
+                      .asSubclass(ServerChannel.class));
+              final EventLoopGroup elg = Class.forName("io.netty.channel.epoll.EpollEventLoopGroup")
+                      .asSubclass(EventLoopGroup.class).getConstructor().newInstance();
               builder.bossEventLoopGroup(elg).workerEventLoopGroup(elg);
             } catch (ClassNotFoundException e) {
               // BSD
               builder.channelType(
-                  (Class<? extends ServerChannel>) Class
-                      .forName("io.netty.channel.kqueue.KQueueServerDomainSocketChannel"));
-              final EventLoopGroup elg = (EventLoopGroup) Class.forName("io.netty.channel.kqueue.KQueueEventLoopGroup")
-                  .newInstance();
+                      Class.forName("io.netty.channel.kqueue.KQueueServerDomainSocketChannel")
+                              .asSubclass(ServerChannel.class));
+              final EventLoopGroup elg = Class.forName("io.netty.channel.kqueue.KQueueEventLoopGroup")
+                      .asSubclass(EventLoopGroup.class).getConstructor().newInstance();
               builder.bossEventLoopGroup(elg).workerEventLoopGroup(elg);
             }
-          } catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {
+          } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | NoSuchMethodException |
+                   InvocationTargetException e) {
             throw new UnsupportedOperationException(
                 "Could not find suitable Netty native transport implementation for domain socket address.");
           }
@@ -297,6 +305,7 @@ public class FlightServer implements AutoCloseable {
           .addService(
               ServerInterceptors.intercept(
                   flightService,
+                  new ServerBackpressureThresholdInterceptor(backpressureThreshold),
                   new ServerAuthInterceptor(authHandler)));
 
       // Allow hooking into the gRPC builder. This is not guaranteed to be available on all Arrow versions or
@@ -334,6 +343,15 @@ public class FlightServer implements AutoCloseable {
     }
 
     /**
+     * Set the number of bytes that may be queued on a server output stream before writes are blocked.
+     */
+    public Builder backpressureThreshold(int backpressureThreshold) {
+      Preconditions.checkArgument(backpressureThreshold > 0);
+      this.backpressureThreshold = backpressureThreshold;
+      return this;
+    }
+
+    /**
      * A small utility function to ensure that InputStream attributes.
      * are closed if they are not null
      * @param stream The InputStream to close (if it is not null).
@@ -342,7 +360,8 @@ public class FlightServer implements AutoCloseable {
       if (stream != null) {
         try {
           stream.close();
-        } catch (IOException ignored) {
+        } catch (IOException expected) {
+          // stream closes gracefully, doesn't expect an exception.
         }
       }
     }

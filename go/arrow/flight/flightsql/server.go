@@ -20,14 +20,14 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/apache/arrow/go/v15/arrow"
-	"github.com/apache/arrow/go/v15/arrow/array"
-	"github.com/apache/arrow/go/v15/arrow/flight"
-	"github.com/apache/arrow/go/v15/arrow/flight/flightsql/schema_ref"
-	pb "github.com/apache/arrow/go/v15/arrow/flight/gen/flight"
-	"github.com/apache/arrow/go/v15/arrow/internal/debug"
-	"github.com/apache/arrow/go/v15/arrow/ipc"
-	"github.com/apache/arrow/go/v15/arrow/memory"
+	"github.com/apache/arrow/go/v16/arrow"
+	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/flight"
+	"github.com/apache/arrow/go/v16/arrow/flight/flightsql/schema_ref"
+	pb "github.com/apache/arrow/go/v16/arrow/flight/gen/flight"
+	"github.com/apache/arrow/go/v16/arrow/internal/debug"
+	"github.com/apache/arrow/go/v16/arrow/ipc"
+	"github.com/apache/arrow/go/v16/arrow/memory"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -524,12 +524,40 @@ func (BaseServer) RenewFlightEndpoint(context.Context, *flight.RenewFlightEndpoi
 	return nil, status.Error(codes.Unimplemented, "RenewFlightEndpoint not implemented")
 }
 
+func (BaseServer) PollFlightInfo(context.Context, *flight.FlightDescriptor) (*flight.PollInfo, error) {
+	return nil, status.Error(codes.Unimplemented, "PollFlightInfo not implemented")
+}
+
+func (BaseServer) PollFlightInfoStatement(context.Context, StatementQuery, *flight.FlightDescriptor) (*flight.PollInfo, error) {
+	return nil, status.Error(codes.Unimplemented, "PollFlightInfoStatement not implemented")
+}
+
+func (BaseServer) PollFlightInfoSubstraitPlan(context.Context, StatementSubstraitPlan, *flight.FlightDescriptor) (*flight.PollInfo, error) {
+	return nil, status.Error(codes.Unimplemented, "PollFlightInfoSubstraitPlan not implemented")
+}
+
+func (BaseServer) PollFlightInfoPreparedStatement(context.Context, PreparedStatementQuery, *flight.FlightDescriptor) (*flight.PollInfo, error) {
+	return nil, status.Error(codes.Unimplemented, "PollFlightInfoPreparedStatement not implemented")
+}
+
 func (BaseServer) EndTransaction(context.Context, ActionEndTransactionRequest) error {
 	return status.Error(codes.Unimplemented, "EndTransaction not implemented")
 }
 
 func (BaseServer) EndSavepoint(context.Context, ActionEndSavepointRequest) error {
 	return status.Error(codes.Unimplemented, "EndSavepoint not implemented")
+}
+
+func (BaseServer) SetSessionOptions(context.Context, *flight.SetSessionOptionsRequest) (*flight.SetSessionOptionsResult, error) {
+	return nil, status.Error(codes.Unimplemented, "SetSessionOptions not implemented")
+}
+
+func (BaseServer) GetSessionOptions(context.Context, *flight.GetSessionOptionsRequest) (*flight.GetSessionOptionsResult, error) {
+	return nil, status.Error(codes.Unimplemented, "GetSessionOptions not implemented")
+}
+
+func (BaseServer) CloseSession(context.Context, *flight.CloseSessionRequest) (*flight.CloseSessionResult, error) {
+	return nil, status.Error(codes.Unimplemented, "CloseSession not implemented")
 }
 
 // Server is the required interface for a FlightSQL server. It is implemented by
@@ -652,6 +680,20 @@ type Server interface {
 	CancelFlightInfo(context.Context, *flight.CancelFlightInfoRequest) (flight.CancelFlightInfoResult, error)
 	// RenewFlightEndpoint attempts to extend the expiration of a FlightEndpoint
 	RenewFlightEndpoint(context.Context, *flight.RenewFlightEndpointRequest) (*flight.FlightEndpoint, error)
+	// PollFlightInfo is a generic handler for PollFlightInfo requests.
+	PollFlightInfo(context.Context, *flight.FlightDescriptor) (*flight.PollInfo, error)
+	// PollFlightInfoStatement handles polling for query execution.
+	PollFlightInfoStatement(context.Context, StatementQuery, *flight.FlightDescriptor) (*flight.PollInfo, error)
+	// PollFlightInfoSubstraitPlan handles polling for query execution.
+	PollFlightInfoSubstraitPlan(context.Context, StatementSubstraitPlan, *flight.FlightDescriptor) (*flight.PollInfo, error)
+	// PollFlightInfoPreparedStatement handles polling for query execution.
+	PollFlightInfoPreparedStatement(context.Context, PreparedStatementQuery, *flight.FlightDescriptor) (*flight.PollInfo, error)
+	// SetSessionOptions sets option(s) for the current server session.
+	SetSessionOptions(context.Context, *flight.SetSessionOptionsRequest) (*flight.SetSessionOptionsResult, error)
+	// GetSessionOptions gets option(s) for the current server session.
+	GetSessionOptions(context.Context, *flight.GetSessionOptionsRequest) (*flight.GetSessionOptionsResult, error)
+	// CloseSession closes/invalidates the current server session.
+	CloseSession(context.Context, *flight.CloseSessionRequest) (*flight.CloseSessionResult, error)
 
 	mustEmbedBaseServer()
 }
@@ -727,6 +769,36 @@ func (f *flightSqlServer) GetFlightInfo(ctx context.Context, request *flight.Fli
 	}
 
 	return nil, status.Error(codes.InvalidArgument, "requested command is invalid")
+}
+
+func (f *flightSqlServer) PollFlightInfo(ctx context.Context, request *flight.FlightDescriptor) (*flight.PollInfo, error) {
+	var (
+		anycmd anypb.Any
+		cmd    proto.Message
+		err    error
+	)
+	// If we can't parse things, be friendly and defer to the server
+	// implementation. This is especially important for this method since
+	// the server returns a custom FlightDescriptor for future requests.
+	if err = proto.Unmarshal(request.Cmd, &anycmd); err != nil {
+		return f.srv.PollFlightInfo(ctx, request)
+	}
+
+	if cmd, err = anycmd.UnmarshalNew(); err != nil {
+		return f.srv.PollFlightInfo(ctx, request)
+	}
+
+	switch cmd := cmd.(type) {
+	case *pb.CommandStatementQuery:
+		return f.srv.PollFlightInfoStatement(ctx, cmd, request)
+	case *pb.CommandStatementSubstraitPlan:
+		return f.srv.PollFlightInfoSubstraitPlan(ctx, &statementSubstraitPlan{cmd}, request)
+	case *pb.CommandPreparedStatementQuery:
+		return f.srv.PollFlightInfoPreparedStatement(ctx, cmd, request)
+	}
+	// XXX: for now we won't support the other methods
+
+	return f.srv.PollFlightInfo(ctx, request)
 }
 
 func (f *flightSqlServer) GetSchema(ctx context.Context, request *flight.FlightDescriptor) (*flight.SchemaResult, error) {
@@ -1208,6 +1280,69 @@ func (f *flightSqlServer) DoAction(cmd *flight.Action, stream flight.FlightServi
 		}
 
 		return stream.Send(&pb.Result{})
+	case flight.SetSessionOptionsActionType:
+		var (
+			request flight.SetSessionOptionsRequest
+			err     error
+		)
+
+		if err = proto.Unmarshal(cmd.Body, &request); err != nil {
+			return status.Errorf(codes.InvalidArgument, "unable to unmarshal SetSessionOptionsRequest: %s", err.Error())
+		}
+
+		response, err := f.srv.SetSessionOptions(stream.Context(), &request)
+		if err != nil {
+			return err
+		}
+
+		out := &pb.Result{}
+		out.Body, err = proto.Marshal(response)
+		if err != nil {
+			return err
+		}
+		return stream.Send(out)
+	case flight.GetSessionOptionsActionType:
+		var (
+			request flight.GetSessionOptionsRequest
+			err     error
+		)
+
+		if err = proto.Unmarshal(cmd.Body, &request); err != nil {
+			return status.Errorf(codes.InvalidArgument, "unable to unmarshal GetSessionOptionsRequest: %s", err.Error())
+		}
+
+		response, err := f.srv.GetSessionOptions(stream.Context(), &request)
+		if err != nil {
+			return err
+		}
+
+		out := &pb.Result{}
+		out.Body, err = proto.Marshal(response)
+		if err != nil {
+			return err
+		}
+		return stream.Send(out)
+	case flight.CloseSessionActionType:
+		var (
+			request flight.CloseSessionRequest
+			err     error
+		)
+
+		if err = proto.Unmarshal(cmd.Body, &request); err != nil {
+			return status.Errorf(codes.InvalidArgument, "unable to unmarshal CloseSessionRequest: %s", err.Error())
+		}
+
+		response, err := f.srv.CloseSession(stream.Context(), &request)
+		if err != nil {
+			return err
+		}
+
+		out := &pb.Result{}
+		out.Body, err = proto.Marshal(response)
+		if err != nil {
+			return err
+		}
+		return stream.Send(out)
 	default:
 		return status.Error(codes.InvalidArgument, "the defined request is invalid.")
 	}

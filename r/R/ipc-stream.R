@@ -82,8 +82,8 @@ write_to_raw <- function(x, format = c("stream", "file")) {
 #' a "stream" format and a "file" format, known as Feather. `read_ipc_stream()`
 #' and [read_feather()] read those formats, respectively.
 #'
-#' @param file A character file name or URI, `raw` vector, an Arrow input stream,
-#' or a `FileSystem` with path (`SubTreeFileSystem`).
+#' @param file A character file name or URI, connection, `raw` vector, an
+#' Arrow input stream, or a `FileSystem` with path (`SubTreeFileSystem`).
 #' If a file name or URI, an Arrow [InputStream] will be opened and
 #' closed when finished. If an input stream is provided, it will be left
 #' open.

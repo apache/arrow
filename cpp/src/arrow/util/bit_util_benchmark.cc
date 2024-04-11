@@ -449,7 +449,7 @@ static void CopyBitmap(benchmark::State& state) {  // NOLINT non-const reference
   const uint8_t* src = buffer->data();
   const int64_t length = bits_size - OffsetSrc;
 
-  auto copy = *AllocateEmptyBitmap(length);
+  auto copy = *AllocateEmptyBitmap(length + OffsetDest);
 
   for (auto _ : state) {
     internal::CopyBitmap(src, OffsetSrc, length, copy->mutable_data(), OffsetDest);

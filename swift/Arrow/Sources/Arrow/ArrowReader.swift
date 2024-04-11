@@ -57,15 +57,17 @@ public class ArrowReader {
     private func loadPrimitiveData(_ loadInfo: DataLoadInfo) -> Result<ArrowArrayHolder, ArrowError> {
         do {
             let node = loadInfo.recordBatch.nodes(at: loadInfo.nodeIndex)!
+            let nullLength = UInt(ceil(Double(node.length) / 8))
             try validateBufferIndex(loadInfo.recordBatch, index: loadInfo.bufferIndex)
             let nullBuffer = loadInfo.recordBatch.buffers(at: loadInfo.bufferIndex)!
             let arrowNullBuffer = makeBuffer(nullBuffer, fileData: loadInfo.fileData,
-                                             length: UInt(node.nullCount), messageOffset: loadInfo.messageOffset)
+                                             length: nullLength, messageOffset: loadInfo.messageOffset)
             try validateBufferIndex(loadInfo.recordBatch, index: loadInfo.bufferIndex + 1)
             let valueBuffer = loadInfo.recordBatch.buffers(at: loadInfo.bufferIndex + 1)!
             let arrowValueBuffer = makeBuffer(valueBuffer, fileData: loadInfo.fileData,
                                               length: UInt(node.length), messageOffset: loadInfo.messageOffset)
-            return makeArrayHolder(loadInfo.field, buffers: [arrowNullBuffer, arrowValueBuffer])
+            return makeArrayHolder(loadInfo.field, buffers: [arrowNullBuffer, arrowValueBuffer],
+                                   nullCount: UInt(node.nullCount))
         } catch let error as ArrowError {
             return .failure(error)
         } catch {
@@ -76,10 +78,11 @@ public class ArrowReader {
     private func loadVariableData(_ loadInfo: DataLoadInfo) -> Result<ArrowArrayHolder, ArrowError> {
         let node = loadInfo.recordBatch.nodes(at: loadInfo.nodeIndex)!
         do {
+            let nullLength = UInt(ceil(Double(node.length) / 8))
             try validateBufferIndex(loadInfo.recordBatch, index: loadInfo.bufferIndex)
             let nullBuffer = loadInfo.recordBatch.buffers(at: loadInfo.bufferIndex)!
             let arrowNullBuffer = makeBuffer(nullBuffer, fileData: loadInfo.fileData,
-                                             length: UInt(node.nullCount), messageOffset: loadInfo.messageOffset)
+                                             length: nullLength, messageOffset: loadInfo.messageOffset)
             try validateBufferIndex(loadInfo.recordBatch, index: loadInfo.bufferIndex + 1)
             let offsetBuffer = loadInfo.recordBatch.buffers(at: loadInfo.bufferIndex + 1)!
             let arrowOffsetBuffer = makeBuffer(offsetBuffer, fileData: loadInfo.fileData,
@@ -88,7 +91,8 @@ public class ArrowReader {
             let valueBuffer = loadInfo.recordBatch.buffers(at: loadInfo.bufferIndex + 2)!
             let arrowValueBuffer = makeBuffer(valueBuffer, fileData: loadInfo.fileData,
                                               length: UInt(node.length), messageOffset: loadInfo.messageOffset)
-            return makeArrayHolder(loadInfo.field, buffers: [arrowNullBuffer, arrowOffsetBuffer, arrowValueBuffer])
+            return makeArrayHolder(loadInfo.field, buffers: [arrowNullBuffer, arrowOffsetBuffer, arrowValueBuffer],
+                                   nullCount: UInt(node.nullCount))
         } catch let error as ArrowError {
             return .failure(error)
         } catch {

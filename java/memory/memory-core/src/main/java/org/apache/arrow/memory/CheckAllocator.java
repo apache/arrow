@@ -31,19 +31,34 @@ import org.slf4j.LoggerFactory;
  */
 final class CheckAllocator {
   private static final Logger logger = LoggerFactory.getLogger(CheckAllocator.class);
-  private static final String ALLOCATOR_PATH = "org/apache/arrow/memory/DefaultAllocationManagerFactory.class";
+  // unique package names needed by JPMS module naming
+  private static final String ALLOCATOR_PATH_CORE =
+      "org/apache/arrow/memory/DefaultAllocationManagerFactory.class";
+  private static final String ALLOCATOR_PATH_UNSAFE =
+      "org/apache/arrow/memory/unsafe/DefaultAllocationManagerFactory.class";
+  private static final String ALLOCATOR_PATH_NETTY =
+      "org/apache/arrow/memory/netty/DefaultAllocationManagerFactory.class";
 
   private CheckAllocator() {
-
   }
 
   static String check() {
     Set<URL> urls = scanClasspath();
     URL rootAllocator = assertOnlyOne(urls);
     reportResult(rootAllocator);
-    return "org.apache.arrow.memory.DefaultAllocationManagerFactory";
+    if (rootAllocator.getPath().contains("memory-core") ||
+        rootAllocator.getPath().contains("/org/apache/arrow/memory/core/")) {
+      return "org.apache.arrow.memory.DefaultAllocationManagerFactory";
+    } else if (rootAllocator.getPath().contains("memory-unsafe") ||
+        rootAllocator.getPath().contains("/org/apache/arrow/memory/unsafe/")) {
+      return "org.apache.arrow.memory.unsafe.DefaultAllocationManagerFactory";
+    } else if (rootAllocator.getPath().contains("memory-netty") ||
+        rootAllocator.getPath().contains("/org/apache/arrow/memory/netty/")) {
+      return "org.apache.arrow.memory.netty.DefaultAllocationManagerFactory";
+    } else {
+      throw new IllegalStateException("Unknown allocation manager type to infer. Current: " + rootAllocator.getPath());
+    }
   }
-
 
   private static Set<URL> scanClasspath() {
     // LinkedHashSet appropriate here because it preserves insertion order
@@ -53,9 +68,21 @@ final class CheckAllocator {
       ClassLoader allocatorClassLoader = CheckAllocator.class.getClassLoader();
       Enumeration<URL> paths;
       if (allocatorClassLoader == null) {
-        paths = ClassLoader.getSystemResources(ALLOCATOR_PATH);
+        paths = ClassLoader.getSystemResources(ALLOCATOR_PATH_CORE);
+        if (!paths.hasMoreElements()) {
+          paths = ClassLoader.getSystemResources(ALLOCATOR_PATH_UNSAFE);
+        }
+        if (!paths.hasMoreElements()) {
+          paths = ClassLoader.getSystemResources(ALLOCATOR_PATH_NETTY);
+        }
       } else {
-        paths = allocatorClassLoader.getResources(ALLOCATOR_PATH);
+        paths = allocatorClassLoader.getResources(ALLOCATOR_PATH_CORE);
+        if (!paths.hasMoreElements()) {
+          paths = allocatorClassLoader.getResources(ALLOCATOR_PATH_UNSAFE);
+        }
+        if (!paths.hasMoreElements()) {
+          paths = allocatorClassLoader.getResources(ALLOCATOR_PATH_NETTY);
+        }
       }
       while (paths.hasMoreElements()) {
         URL path = paths.nextElement();

@@ -187,11 +187,12 @@ def python_linter(src, fix=False):
         return
 
     # Gather files for autopep8
-    patterns = ["python/pyarrow/**/*.py",
+    patterns = ["python/benchmarks/**/*.py",
+                "python/examples/**/*.py",
+                "python/pyarrow/**/*.py",
                 "python/pyarrow/**/*.pyx",
                 "python/pyarrow/**/*.pxd",
                 "python/pyarrow/**/*.pxi",
-                "python/examples/**/*.py",
                 "dev/*.py",
                 "dev/archery/**/*.py",
                 "dev/release/**/*.py"]
@@ -232,8 +233,8 @@ def python_linter(src, fix=False):
     yield LintResult.from_cmd(
         flake8("--extend-exclude=" + ','.join(flake8_exclude),
                "--config=" + os.path.join(src.python, "setup.cfg"),
-               setup_py, src.pyarrow, os.path.join(src.python, "examples"),
-               src.dev, check=False))
+               setup_py, src.pyarrow, os.path.join(src.python, "benchmarks"),
+               os.path.join(src.python, "examples"), src.dev, check=False))
 
     logger.info("Running Cython linter (cython-lint)")
 

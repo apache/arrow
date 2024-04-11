@@ -38,10 +38,14 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  ARCHERY_DEBUG: 1
+  ARCHERY_USE_DOCKER_CLI: 1
+
 jobs:
 
   docker:
-    name: AMD64 Debian 11 NodeJS 18
+    name: AMD64 Debian 12 NodeJS 18
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
@@ -51,7 +55,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup Python
-        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
+        uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d # v5.1.0
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -91,7 +95,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Jest Cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: js/.jest-cache
           key: js-jest-cache-${{ runner.os }}-${{ hashFiles('js/src/**/*.ts', 'js/test/**/*.ts', 'js/yarn.lock') }}
@@ -121,7 +125,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Jest Cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: js/.jest-cache
           key: js-jest-cache-${{ runner.os }}-${{ hashFiles('js/src/**/*.ts', 'js/test/**/*.ts', 'js/yarn.lock') }}

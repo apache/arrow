@@ -23,8 +23,8 @@
 #include "arrow/acero/schema_util.h"
 #include "arrow/acero/task_util.h"
 #include "arrow/compute/kernels/row_encoder_internal.h"
-#include "arrow/compute/key_map.h"
-#include "arrow/compute/light_array.h"
+#include "arrow/compute/key_map_internal.h"
+#include "arrow/compute/light_array_internal.h"
 #include "arrow/compute/row/encode_internal.h"
 
 namespace arrow {
@@ -367,7 +367,13 @@ class SwissTableForJoin {
   friend class SwissTableForJoinBuild;
 
  public:
+  // Update all payloads corresponding to the given keys as having a match.
+  //
   void UpdateHasMatchForKeys(int64_t thread_id, int num_rows, const uint32_t* key_ids);
+  // Update the given payloads as having a match.
+  //
+  void UpdateHasMatchForPayloads(int64_t thread_id, int num_rows,
+                                 const uint32_t* payload_ids);
   void MergeHasMatch();
 
   const SwissTableWithKeys* keys() const { return &map_; }
@@ -385,10 +391,6 @@ class SwissTableForJoin {
   }
 
   uint32_t payload_id_to_key_id(uint32_t payload_id) const;
-  // Input payload ids must form an increasing sequence.
-  //
-  void payload_ids_to_key_ids(int num_rows, const uint32_t* payload_ids,
-                              uint32_t* key_ids) const;
 
  private:
   uint8_t* local_has_match(int64_t thread_id);
@@ -397,8 +399,10 @@ class SwissTableForJoin {
   int dop_;
 
   struct ThreadLocalState {
+    // Bit-vector for keeping track of whether each payload in the hash table had a match.
     std::vector<uint8_t> has_match;
   };
+  // Bit-vector for keeping track of whether each payload in the hash table had a match.
   std::vector<ThreadLocalState> local_states_;
   std::vector<uint8_t> has_match_;
 
@@ -714,8 +718,20 @@ class JoinMatchIterator {
   void SetLookupResult(int num_batch_rows, int start_batch_row,
                        const uint8_t* batch_has_match, const uint32_t* key_ids,
                        bool no_duplicate_keys, const uint32_t* key_to_payload);
+  // Get the next batch of matching rows by outputting the batch row ids, key ids and
+  // payload ids. If the row_id_to_skip is not kInvalidRowId, then the row with that id
+  // will be skipped. This is useful for left-anti and left-semi joins, where we can
+  // safely skip the subsequent matchings of the row that already has a match in the
+  // previous batch.
+  //
   bool GetNextBatch(int num_rows_max, int* out_num_rows, uint16_t* batch_row_ids,
-                    uint32_t* key_ids, uint32_t* payload_ids);
+                    uint32_t* key_ids, uint32_t* payload_ids,
+                    int row_id_to_skip = kInvalidRowId);
+
+  // The row id that will never exist in an ExecBatch. Used to indicate that there is no
+  // row to skip.
+  //
+  static constexpr uint32_t kInvalidRowId = std::numeric_limits<uint16_t>::max() + 1;
 
  private:
   int num_batch_rows_;
@@ -736,6 +752,135 @@ class JoinMatchIterator {
   int current_match_for_row_;
 };
 
+// Implement the residual filter support used when processing the probe side exec batches.
+// There are four filtering patterns, each with a corresponding public FilterXXX method:
+// - LeftSemi and LeftAnti, each for its co-naming join type, opposite to each other.
+// - RightSemiAnti for both right-semi and right-anti joins: they have the same filtering
+// logic and differ only in the scanning phase.
+// - Inner for inner joins and the inner part of outer joins: caller should take care of
+// filtering the outer part.
+// All the public Filter* methods have zero-cost shortcut for trivial filter.
+//
+class JoinResidualFilter {
+ public:
+  void Init(Expression filter, QueryContext* ctx, MemoryPool* pool,
+            int64_t hardware_flags, const HashJoinProjectionMaps* probe_schemas,
+            const HashJoinProjectionMaps* build_schemas, SwissTableForJoin* hash_table);
+
+  void OnBuildFinished();
+
+  int NumBuildKeysReferred() const { return num_build_keys_referred_; }
+  int NumBuildPayloadsReferred() const { return num_build_payloads_referred_; }
+
+  // Left-outer and full-outer joins can result in a different bit-vector than the one of
+  // probing the hash table if the residual filter is not a literal true. If so, caller
+  // should setup a bit-vector for filtering properly and call `UpdateFilterBitVector`
+  // accordingly.
+  //
+  bool NeedFilterBitVector(JoinType join_type) const {
+    return (join_type == JoinType::LEFT_OUTER || join_type == JoinType::FULL_OUTER) &&
+           filter_ != literal(true);
+  }
+
+  // Init the bit-vector for filtering. Caller should make sure the bit-vector has enough
+  // size for a particular probe side batch.
+  //
+  void InitFilterBitVector(int num_batch_rows, uint8_t* filter_bitvector);
+
+  // Update the bit-vector for filtering according to the given batch row ids.
+  //
+  void UpdateFilterBitVector(int batch_start_row, int num_batch_rows,
+                             const uint16_t* batch_row_ids, uint8_t* filter_bitvector);
+
+  // Left row is passing if filter evaluates true. Output all the passing row ids in
+  // the input batch. Like the left-semi join semantic, each passing row is output only
+  // once.
+  // Zero-overhead shortcut guarantee for trivial filter.
+  //
+  Status FilterLeftSemi(const ExecBatch& keypayload_batch, int batch_start_row,
+                        int num_batch_rows, const uint8_t* match_bitvector,
+                        const uint32_t* key_ids, bool no_duplicate_keys,
+                        arrow::util::TempVectorStack* temp_stack, int* num_passing_ids,
+                        uint16_t* passing_batch_row_ids) const;
+
+  // Logically the opposite of FilterLeftSemi. Output all the passing row ids in the input
+  // batch. Like the left-anti join semantic, each passing row is output only once.
+  // Zero-overhead shortcut guarantee for trivial filter.
+  //
+  Status FilterLeftAnti(const ExecBatch& keypayload_batch, int batch_start_row,
+                        int num_batch_rows, const uint8_t* match_bitvector,
+                        const uint32_t* key_ids, bool no_duplicate_keys,
+                        arrow::util::TempVectorStack* temp_stack, int* num_passing_ids,
+                        uint16_t* passing_batch_row_ids) const;
+
+  // Right row is passing if filter evaluates true. Mark a match for all the passing
+  // payload ids in the hash table. This applies for both right-semi and right-anti joins:
+  // they differ in scanning phase.
+  // Zero-overhead shortcut guarantee for trivial filter.
+  //
+  Status FilterRightSemiAnti(int64_t thread_id, const ExecBatch& keypayload_batch,
+                             int batch_start_row, int num_batch_rows,
+                             const uint8_t* match_bitvector, const uint32_t* key_ids,
+                             bool no_duplicate_keys,
+                             arrow::util::TempVectorStack* temp_stack) const;
+
+  // For a given batch of an inner match (an inner-join or the inner part of an
+  // outer-join), row is passing if filter evaluates true. Does not do any outer filtering
+  // because this method is usually called within a inner match loop, which doesn't have
+  // the full scope of outer join. This requires caller to handle the outer part properly.
+  // All batch_row_ids, key_ids and payload_ids_maybe_null are input and output, this is
+  // for efficient shortcut.
+  // Zero-overhead shortcut guarantee for trivial filter.
+  //
+  Status FilterInner(const ExecBatch& keypayload_batch, int num_batch_rows,
+                     uint16_t* batch_row_ids, uint32_t* key_ids,
+                     uint32_t* payload_ids_maybe_null, bool output_payload_ids,
+                     arrow::util::TempVectorStack* temp_stack,
+                     int* num_passing_rows) const;
+
+ private:
+  // Evaluates the filter for a given batch of matching rows, and outputs the passing
+  // rows. Always introduces overhead of materialization and evaluation, so caller must do
+  // shortcut properly for trivial filters.
+  //
+  Status FilterOneBatch(const ExecBatch& keypayload_batch, int num_batch_rows,
+                        uint16_t* batch_row_ids, uint32_t* key_ids_maybe_null,
+                        uint32_t* payload_ids_maybe_null, bool output_key_ids,
+                        bool output_payload_ids, arrow::util::TempVectorStack* temp_stack,
+                        int* num_passing_rows) const;
+
+  Result<Datum> EvalFilter(const ExecBatch& keypayload_batch, int num_batch_rows,
+                           const uint16_t* batch_row_ids,
+                           const uint32_t* key_ids_maybe_null,
+                           const uint32_t* payload_ids_maybe_null) const;
+
+  Result<ExecBatch> MaterializeFilterInput(const ExecBatch& keypayload_batch,
+                                           int num_batch_rows,
+                                           const uint16_t* batch_row_ids,
+                                           const uint32_t* key_ids_maybe_null,
+                                           const uint32_t* payload_ids_maybe_null) const;
+
+ private:
+  Expression filter_;
+
+  QueryContext* ctx_;
+  MemoryPool* pool_;
+  int64_t hardware_flags_;
+
+  const HashJoinProjectionMaps* probe_schemas_;
+  const HashJoinProjectionMaps* build_schemas_;
+
+  SwissTableForJoin* hash_table_;
+  std::vector<int> probe_filter_to_key_and_payload_;
+  int num_build_keys_referred_ = 0;
+  int num_build_payloads_referred_ = 0;
+
+  int minibatch_size_;
+  const RowArray* build_keys_;
+  const RowArray* build_payloads_;
+  const uint32_t* key_to_payload_;
+};
+
 // Implements entire processing of a probe side exec batch,
 // provided the join hash table is already built and available.
 //
@@ -744,6 +889,7 @@ class JoinProbeProcessor {
   using OutputBatchFn = std::function<Status(int64_t, ExecBatch)>;
 
   void Init(int num_key_columns, JoinType join_type, SwissTableForJoin* hash_table,
+            JoinResidualFilter* residual_filter,
             std::vector<JoinResultMaterialize*> materialize,
             const std::vector<JoinKeyCmp>* cmp, OutputBatchFn output_batch_fn);
   Status OnNextBatch(int64_t thread_id, const ExecBatch& keypayload_batch,
@@ -760,6 +906,7 @@ class JoinProbeProcessor {
   JoinType join_type_;
 
   SwissTableForJoin* hash_table_;
+  JoinResidualFilter* residual_filter_;
   // One element per thread
   //
   std::vector<JoinResultMaterialize*> materialize_;

@@ -84,6 +84,10 @@ class FakeJIRA:
             v for v in all_versions if not v.raw.get("released")
         ] + ['0.11.0']
 
+    @property
+    def current_fix_versions(self):
+        return 'JS-0.4.0'
+
     def project_versions(self, project):
         return self._project_versions
 

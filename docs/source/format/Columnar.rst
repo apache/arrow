@@ -23,7 +23,10 @@ Arrow Columnar Format
 
 *Version: 1.4*
 
-The "Arrow Columnar Format" includes a language-agnostic in-memory
+.. seealso:: :ref:`Additions to the Arrow columnar format since version 1.0.0
+   <post-1-0-0-format-versions>`
+
+The **Arrow columnar format** includes a language-agnostic in-memory
 data structure specification, metadata serialization, and a protocol
 for serialization and generic data transport.
 
@@ -359,6 +362,8 @@ will be represented as follows: ::
     |----------------|-----------------------|
     | joemark        | unspecified (padding) |
 
+.. _variable-size-binary-view-layout:
+
 Variable-size Binary View Layout
 --------------------------------
 
@@ -388,7 +393,8 @@ length of the string and can be used to determine how the rest of the view
 should be interpreted.
 
 In the short string case the string's bytes are inlined — stored inside the
-view itself, in the twelve bytes which follow the length.
+view itself, in the twelve bytes which follow the length. Any remaining bytes
+after the string itself are padded with `0`.
 
 In the long string case, a buffer index indicates which data buffer
 stores the data bytes and an offset indicates where in that buffer the
@@ -403,6 +409,9 @@ within the first four bytes.
 All integers (length, buffer index, and offset) are signed.
 
 This layout is adapted from TU Munich's `UmbraDB`_.
+
+Note that this layout uses one additional buffer to store the variadic buffer
+lengths in the :ref:`Arrow C data interface <c-data-interface-binary-view-arrays>`.
 
 .. _variable-size-list-layout:
 
@@ -499,8 +508,12 @@ will be represented as follows: ::
           |-------------------------------|-----------------------|
           | 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 | unspecified (padding) |
 
+.. _listview-layout:
+
 ListView Layout
 ~~~~~~~~~~~~~~~
+
+.. versionadded:: Arrow Columnar Format 1.4
 
 The ListView layout is defined by three buffers: a validity bitmap, an offsets
 buffer, and an additional sizes buffer. Sizes and offsets have the identical bit
@@ -664,7 +677,9 @@ type.
 
 **Example Layout: ``Struct<VarBinary, Int32>``**
 
-The layout for ``[{'joe', 1}, {null, 2}, null, {'mark', 4}]`` would be: ::
+The layout for ``[{'joe', 1}, {null, 2}, null, {'mark', 4}]``, having
+child arrays ``['joe', null, 'alice', 'mark']`` and ``[1, 2, null, 4]``
+would be: ::
 
     * Length: 4, Null count: 1
     * Validity bitmap buffer:
@@ -675,24 +690,24 @@ The layout for ``[{'joe', 1}, {null, 2}, null, {'mark', 4}]`` would be: ::
 
     * Children arrays:
       * field-0 array (`VarBinary`):
-        * Length: 4, Null count: 2
+        * Length: 4, Null count: 1
         * Validity bitmap buffer:
 
           | Byte 0 (validity bitmap) | Bytes 1-63            |
           |--------------------------|-----------------------|
-          | 00001001                 | 0 (padding)           |
+          | 00001101                 | 0 (padding)           |
 
         * Offsets buffer:
 
           | Bytes 0-19     | Bytes 20-63           |
           |----------------|-----------------------|
-          | 0, 3, 3, 3, 7  | unspecified (padding) |
+          | 0, 3, 3, 8, 12 | unspecified (padding) |
 
          * Value buffer:
 
-          | Bytes 0-6      | Bytes 7-63            |
+          | Bytes 0-11     | Bytes 12-63           |
           |----------------|-----------------------|
-          | joemark        | unspecified (padding) |
+          | joealicemark   | unspecified (padding) |
 
       * field-1 array (int32 array):
         * Length: 4, Null count: 1
@@ -722,10 +737,10 @@ Therefore, to know whether a particular child entry is valid, one must
 take the logical AND of the corresponding bits in the two validity bitmaps
 (the struct array's and the child array's).
 
-This is illustrated in the example above, the child arrays have valid entries
-for the null struct but they are "hidden" by the struct array's validity
-bitmap. However, when treated independently, corresponding entries of the
-children array will be non-null.
+This is illustrated in the example above, one of the child arrays has a
+valid entry ``'alice'`` for the null struct but it is "hidden" by the
+struct array's validity bitmap. However, when treated independently,
+corresponding entries of the children array will be non-null.
 
 Union Layout
 ------------
@@ -954,6 +969,8 @@ below.
 
 Run-End Encoded Layout
 ----------------------
+
+.. versionadded:: Arrow Columnar Format 1.3
 
 Run-end encoding (REE) is a variation of run-length encoding (RLE). These
 encodings are well-suited for representing data containing sequences of the
@@ -1230,8 +1247,12 @@ bytes. Since this metadata can be used to communicate in-memory pointer
 addresses between libraries, it is recommended to set ``size`` to the actual
 memory size rather than the padded size.
 
+.. _variadic-buffers:
+
 Variadic buffers
 ----------------
+
+.. versionadded:: Arrow Columnar Format 1.4
 
 Some types such as Utf8View are represented using a variable number of buffers.
 For each such Field in the pre-ordered flattened logical schema, there will be

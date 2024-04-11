@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import org.apache.arrow.memory.ArrowBuf;
@@ -48,6 +49,7 @@ import org.apache.arrow.vector.DurationVector;
 import org.apache.arrow.vector.ExtensionTypeVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
+import org.apache.arrow.vector.Float2Vector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
@@ -164,10 +166,25 @@ public class RoundtripTest {
   }
 
   boolean roundtrip(FieldVector vector, Class<?> clazz) {
+    List<ArrowBuf> fieldBuffers = vector.getFieldBuffers();
+    List<Integer> orgRefCnts = fieldBuffers.stream().map(buf -> buf.refCnt()).collect(Collectors.toList());
+    long orgMemorySize = allocator.getAllocatedMemory();
+
+    boolean result = false;
     try (ValueVector imported = vectorRoundtrip(vector)) {
       assertTrue(clazz.isInstance(imported), String.format("expected %s but was %s", clazz, imported.getClass()));
-      return VectorEqualsVisitor.vectorEquals(vector, imported);
+      result = VectorEqualsVisitor.vectorEquals(vector, imported);
     }
+
+    // Check that the ref counts of the buffers are the same after the roundtrip
+    IntStream.range(0, orgRefCnts.size()).forEach(i -> {
+      ArrowBuf buf = fieldBuffers.get(i);
+      assertEquals(buf.refCnt(), orgRefCnts.get(i));
+    });
+
+    assertEquals(orgMemorySize, allocator.getAllocatedMemory());
+
+    return result;
   }
 
   @Test
@@ -294,6 +311,14 @@ public class RoundtripTest {
     try (final FixedSizeBinaryVector vector = new FixedSizeBinaryVector("v", allocator, 2)) {
       setVector(vector, new byte[] { 0b0000, 0b0001 }, new byte[] { 0b0010, 0b0011 });
       assertTrue(roundtrip(vector, FixedSizeBinaryVector.class));
+    }
+  }
+
+  @Test
+  public void testFloat2Vector() {
+    try (final Float2Vector vector = new Float2Vector("v", allocator)) {
+      setVector(vector, 0.1f, 0.2f, 0.3f, null);
+      assertTrue(roundtrip(vector, Float2Vector.class));
     }
   }
 

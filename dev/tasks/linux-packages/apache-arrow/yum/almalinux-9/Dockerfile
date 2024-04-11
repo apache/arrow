@@ -41,7 +41,6 @@ RUN \
     gflags-devel \
     git \
     gobject-introspection-devel \
-    gtk-doc \
     json-devel \
     libarchive \
     libzstd-devel \
@@ -63,5 +62,6 @@ RUN \
     thrift-devel \
     utf8proc-devel \
     vala \
+    which \
     zlib-devel && \
   dnf clean ${quiet} all

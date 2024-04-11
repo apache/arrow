@@ -20,6 +20,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Apache.Arrow.Memory;
 
 namespace Apache.Arrow.Ipc
 {
@@ -37,12 +38,17 @@ namespace Apache.Arrow.Ipc
         }
 
         public ArrowFileWriter(Stream stream, Schema schema, bool leaveOpen)
-            : this(stream, schema, leaveOpen, options: null)
+            : this(stream, schema, leaveOpen, options: null, allocator: null)
         {
         }
 
         public ArrowFileWriter(Stream stream, Schema schema, bool leaveOpen, IpcOptions options)
-            : base(stream, schema, leaveOpen, options)
+            : this(stream, schema, leaveOpen, options, allocator: null)
+        {
+        }
+
+        public ArrowFileWriter(Stream stream, Schema schema, bool leaveOpen, IpcOptions options, MemoryAllocator allocator)
+            : base(stream, schema, leaveOpen, options, allocator)
         {
             if (!stream.CanWrite)
             {

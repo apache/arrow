@@ -127,6 +127,7 @@ update_versions() {
     DESCRIPTION
   rm -f DESCRIPTION.bak
   git add DESCRIPTION
+  
   # Replace dev version with release version
   sed -i.bak -E -e \
     "/^<!--/,/^# arrow /s/^# arrow .+/# arrow ${base_version}/" \
@@ -139,6 +140,13 @@ update_versions() {
   fi
   rm -f NEWS.md.bak
   git add NEWS.md
+
+  # godoc link must reference current version, will reference v0.0.0 (2018) otherwise
+  sed -i.bak -E -e \
+    "s|(github\\.com/apache/arrow/go)/v[0-9]+|\1/v${major_version}|g" \
+    _pkgdown.yml
+  rm -f _pkgdown.yml.bak
+  git add _pkgdown.yml
   popd
 
   pushd "${ARROW_DIR}/ruby"
@@ -162,6 +170,15 @@ update_versions() {
 
   find . -name "*.bak" -exec rm {} \;
   git add .
+  popd
+
+  pushd "${ARROW_DIR}/docs/source"
+  # godoc link must reference current version, will reference v0.0.0 (2018) otherwise
+  sed -i.bak -E -e \
+    "s|(github\\.com/apache/arrow/go)/v[0-9]+|\1/v${major_version}|g" \
+    index.rst
+  rm -f index.rst.bak
+  git add index.rst
   popd
 
   pushd "${ARROW_DIR}"

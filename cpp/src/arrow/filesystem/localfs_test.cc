@@ -35,14 +35,12 @@
 #include "arrow/util/io_util.h"
 #include "arrow/util/uri.h"
 
-namespace arrow {
-namespace fs {
-namespace internal {
+namespace arrow::fs::internal {
 
 using ::arrow::internal::FileDescriptor;
 using ::arrow::internal::PlatformFilename;
 using ::arrow::internal::TemporaryDir;
-using ::arrow::internal::UriFromAbsolutePath;
+using ::arrow::util::UriFromAbsolutePath;
 
 class LocalFSTestMixin : public ::testing::Test {
  public:
@@ -83,6 +81,111 @@ Result<std::shared_ptr<FileSystem>> FSFromUriOrPath(const std::string& uri,
   return FileSystemFromUriOrPath(uri, out_path);
 }
 
+////////////////////////////////////////////////////////////////////////////
+// Registered FileSystemFactory tests
+
+class SlowFileSystemPublicProps : public SlowFileSystem {
+ public:
+  SlowFileSystemPublicProps(std::shared_ptr<FileSystem> base_fs, double average_latency,
+                            int32_t seed)
+      : SlowFileSystem(base_fs, average_latency, seed),
+        average_latency{average_latency},
+        seed{seed} {}
+  double average_latency;
+  int32_t seed;
+};
+
+Result<std::shared_ptr<FileSystem>> SlowFileSystemFactory(const Uri& uri,
+                                                          const io::IOContext& io_context,
+                                                          std::string* out_path) {
+  auto local_uri = "file" + uri.ToString().substr(uri.scheme().size());
+  ARROW_ASSIGN_OR_RAISE(auto base_fs, FileSystemFromUri(local_uri, io_context, out_path));
+  double average_latency = 1;
+  int32_t seed = 0xDEADBEEF;
+  ARROW_ASSIGN_OR_RAISE(auto params, uri.query_items());
+  for (const auto& [key, value] : params) {
+    if (key == "average_latency") {
+      average_latency = std::stod(value);
+    }
+    if (key == "seed") {
+      seed = std::stoi(value, nullptr, /*base=*/16);
+    }
+  }
+  return std::make_shared<SlowFileSystemPublicProps>(base_fs, average_latency, seed);
+}
+FileSystemRegistrar kSlowFileSystemModule{
+    "slowfile",
+    SlowFileSystemFactory,
+};
+
+TEST(FileSystemFromUri, LinkedRegisteredFactory) {
+  // Since the registrar's definition is in this translation unit (which is linked to the
+  // unit test executable), its factory will be registered be loaded automatically before
+  // main() is entered.
+  std::string path;
+  ASSERT_OK_AND_ASSIGN(auto fs, FileSystemFromUri("slowfile:///hey/yo", &path));
+  EXPECT_EQ(path, "/hey/yo");
+  EXPECT_EQ(fs->type_name(), "slow");
+
+  ASSERT_OK_AND_ASSIGN(
+      fs, FileSystemFromUri("slowfile:///hey/yo?seed=42&average_latency=0.5", &path));
+  EXPECT_EQ(path, "/hey/yo");
+  EXPECT_EQ(fs->type_name(), "slow");
+  const auto& slow_fs =
+      ::arrow::internal::checked_cast<const SlowFileSystemPublicProps&>(*fs);
+  EXPECT_EQ(slow_fs.seed, 0x42);
+  EXPECT_EQ(slow_fs.average_latency, 0.5);
+}
+
+TEST(FileSystemFromUri, LoadedRegisteredFactory) {
+#ifdef __EMSCRIPTEN__
+  GTEST_SKIP() << "Emscripten dynamic library testing disabled";
+#endif
+  // Since the registrar's definition is in libarrow_filesystem_example.so,
+  // its factory will be registered only after the library is dynamically loaded.
+  std::string path;
+  EXPECT_THAT(FileSystemFromUri("example:///hey/yo", &path), Raises(StatusCode::Invalid));
+
+  EXPECT_THAT(LoadFileSystemFactories(ARROW_FILESYSTEM_EXAMPLE_LIBPATH), Ok());
+
+  ASSERT_OK_AND_ASSIGN(auto fs, FileSystemFromUri("example:///hey/yo", &path));
+  EXPECT_EQ(path, "/hey/yo");
+  EXPECT_EQ(fs->type_name(), "local");
+}
+
+TEST(FileSystemFromUri, RuntimeRegisteredFactory) {
+  std::string path;
+  EXPECT_THAT(FileSystemFromUri("slowfile2:///hey/yo", &path),
+              Raises(StatusCode::Invalid));
+
+  EXPECT_THAT(RegisterFileSystemFactory("slowfile2", SlowFileSystemFactory), Ok());
+
+  ASSERT_OK_AND_ASSIGN(auto fs, FileSystemFromUri("slowfile2:///hey/yo", &path));
+  EXPECT_EQ(path, "/hey/yo");
+  EXPECT_EQ(fs->type_name(), "slow");
+
+  EXPECT_THAT(
+      RegisterFileSystemFactory("slowfile2", SlowFileSystemFactory),
+      Raises(StatusCode::KeyError,
+             testing::HasSubstr("Attempted to register factory for scheme 'slowfile2' "
+                                "but that scheme is already registered")));
+}
+
+FileSystemRegistrar kSegfaultFileSystemModule[]{
+    {"segfault", nullptr},
+    {"segfault", nullptr},
+    {"segfault", nullptr},
+};
+TEST(FileSystemFromUri, LinkedRegisteredFactoryNameCollision) {
+  // Since multiple registrars are defined in this translation unit which all
+  // register factories for the 'segfault' scheme, using that scheme in FileSystemFromUri
+  // is invalidated and raises KeyError.
+  std::string path;
+  EXPECT_THAT(FileSystemFromUri("segfault:///hey/yo", &path),
+              Raises(StatusCode::KeyError));
+  // other schemes are not affected by the collision
+  EXPECT_THAT(FileSystemFromUri("slowfile:///hey/yo", &path), Ok());
+}
 ////////////////////////////////////////////////////////////////////////////
 // Misc tests
 
@@ -164,7 +267,7 @@ GENERIC_FS_TEST_FUNCTIONS(TestLocalFSGenericMMap);
 template <typename PathFormatter>
 class TestLocalFS : public LocalFSTestMixin {
  public:
-  void SetUp() {
+  void SetUp() override {
     LocalFSTestMixin::SetUp();
     path_formatter_ = PathFormatter();
     local_path_ = EnsureTrailingSlash(path_formatter_(temp_dir_->path().ToString()));
@@ -494,9 +597,4 @@ TYPED_TEST(TestLocalFS, StressGetFileInfoGenerator) {
   }
 }
 
-// TODO Should we test backslash paths on Windows?
-// SubTreeFileSystem isn't compatible with them.
-
-}  // namespace internal
-}  // namespace fs
-}  // namespace arrow
+}  // namespace arrow::fs::internal

@@ -248,13 +248,13 @@ public class ConnectionWrapper implements Connection {
   }
 
   @Override
-  public PreparedStatement prepareStatement(final String sqlQuery, final int... columnIndices)
+  public PreparedStatement prepareStatement(final String sqlQuery, final int[] columnIndices)
       throws SQLException {
     return realConnection.prepareStatement(sqlQuery, columnIndices);
   }
 
   @Override
-  public PreparedStatement prepareStatement(final String sqlQuery, final String... columnNames)
+  public PreparedStatement prepareStatement(final String sqlQuery, final String[] columnNames)
       throws SQLException {
     return realConnection.prepareStatement(sqlQuery, columnNames);
   }
@@ -306,12 +306,12 @@ public class ConnectionWrapper implements Connection {
   }
 
   @Override
-  public Array createArrayOf(final String typeName, final Object... elements) throws SQLException {
+  public Array createArrayOf(final String typeName, final Object[] elements) throws SQLException {
     return realConnection.createArrayOf(typeName, elements);
   }
 
   @Override
-  public Struct createStruct(final String typeName, final Object... attributes)
+  public Struct createStruct(final String typeName, final Object[] attributes)
       throws SQLException {
     return realConnection.createStruct(typeName, attributes);
   }

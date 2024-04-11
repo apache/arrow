@@ -120,6 +120,16 @@ cdef class LargeListType(DataType):
         const CLargeListType* list_type
 
 
+cdef class ListViewType(DataType):
+    cdef:
+        const CListViewType* list_view_type
+
+
+cdef class LargeListViewType(DataType):
+    cdef:
+        const CLargeListViewType* list_view_type
+
+
 cdef class MapType(DataType):
     cdef:
         const CMapType* map_type
@@ -285,6 +295,8 @@ cdef class Tensor(_Weakrefable):
 
     cdef readonly:
         DataType type
+        bytes _ssize_t_shape
+        bytes _ssize_t_strides
 
     cdef void init(self, const shared_ptr[CTensor]& sp_tensor)
 
@@ -425,6 +437,14 @@ cdef class LargeListArray(BaseListArray):
     pass
 
 
+cdef class ListViewArray(Array):
+    pass
+
+
+cdef class LargeListViewArray(Array):
+    pass
+
+
 cdef class MapArray(ListArray):
     pass
 
@@ -442,6 +462,14 @@ cdef class StringArray(Array):
 
 
 cdef class BinaryArray(Array):
+    pass
+
+
+cdef class StringViewArray(Array):
+    pass
+
+
+cdef class BinaryViewArray(Array):
     pass
 
 
@@ -559,6 +587,18 @@ cdef class _CRecordBatchWriter(_Weakrefable):
 cdef class RecordBatchReader(_Weakrefable):
     cdef:
         SharedPtrNoGIL[CRecordBatchReader] reader
+
+
+cdef class CacheOptions(_Weakrefable):
+    cdef:
+        CCacheOptions wrapped
+
+    cdef void init(self, CCacheOptions options)
+
+    cdef inline CCacheOptions unwrap(self)
+
+    @staticmethod
+    cdef wrap(const CCacheOptions options)
 
 
 cdef class Codec(_Weakrefable):

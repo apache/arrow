@@ -29,16 +29,12 @@ gadataset_file_write_options_new_raw(
 std::shared_ptr<arrow::dataset::FileWriteOptions>
 gadataset_file_write_options_get_raw(GADatasetFileWriteOptions *options);
 
-
 GADatasetFileWriter *
-gadataset_file_writer_new_raw(
-  std::shared_ptr<arrow::dataset::FileWriter> *arrow_writer);
+gadataset_file_writer_new_raw(std::shared_ptr<arrow::dataset::FileWriter> *arrow_writer);
 std::shared_ptr<arrow::dataset::FileWriter>
 gadataset_file_writer_get_raw(GADatasetFileWriter *writer);
 
-
 GADatasetFileFormat *
-gadataset_file_format_new_raw(
-  std::shared_ptr<arrow::dataset::FileFormat> *arrow_format);
+gadataset_file_format_new_raw(std::shared_ptr<arrow::dataset::FileFormat> *arrow_format);
 std::shared_ptr<arrow::dataset::FileFormat>
 gadataset_file_format_get_raw(GADatasetFileFormat *format);

@@ -98,6 +98,8 @@ static inline ArrayPtr MakeArrowTypeArray(const std::shared_ptr<arrow::DataType>
 
 std::shared_ptr<Configuration> TestConfiguration();
 
+std::shared_ptr<Configuration> TestConfigWithIrDumping();
+
 // helper function to create a Configuration with an external function registered to the
 // given function registry
 std::shared_ptr<Configuration> TestConfigWithFunctionRegistry(

@@ -36,6 +36,7 @@ from pyarrow.includes.libgandiva cimport (
     CNode, CProjector, CFilter,
     CSelectionVector,
     _ensure_selection_mode,
+    CConfiguration,
     CConfigurationBuilder,
     TreeExprBuilder_MakeExpression,
     TreeExprBuilder_MakeFunction,
@@ -583,9 +584,47 @@ cdef class TreeExprBuilder(_Weakrefable):
             condition.node)
         return Condition.create(r)
 
+cdef class Configuration(_Weakrefable):
+    cdef:
+        shared_ptr[CConfiguration] configuration
+
+    def __cinit__(self, bint optimize=True, bint dump_ir=False):
+        """
+        Initialize the configuration with specified options.
+
+        Parameters
+        ----------
+        optimize : bool, default True
+            Whether to enable optimizations.
+        dump_ir : bool, default False
+            Whether to dump LLVM IR.
+        """
+        self.configuration = CConfigurationBuilder().build()
+        self.configuration.get().set_optimize(optimize)
+        self.configuration.get().set_dump_ir(dump_ir)
+
+    @staticmethod
+    cdef create(shared_ptr[CConfiguration] configuration):
+        """
+        Create a Configuration instance from an existing CConfiguration pointer.
+
+        Parameters
+        ----------
+        configuration : shared_ptr[CConfiguration]
+            Existing CConfiguration pointer.
+
+        Returns
+        -------
+        Configuration instance
+        """
+        cdef Configuration self = Configuration.__new__(Configuration)
+        self.configuration = configuration
+        return self
+
 
 cpdef make_projector(Schema schema, children, MemoryPool pool,
-                     str selection_mode="NONE"):
+                     str selection_mode="NONE",
+                     Configuration configuration=None):
     """
     Construct a projection using expressions.
 
@@ -602,6 +641,8 @@ cpdef make_projector(Schema schema, children, MemoryPool pool,
         Memory pool used to allocate output arrays.
     selection_mode : str, default "NONE"
         Possible values are NONE, UINT16, UINT32, UINT64.
+    configuration : pyarrow.gandiva.Configuration, default None
+        Configuration for the projector.
 
     Returns
     -------
@@ -612,6 +653,9 @@ cpdef make_projector(Schema schema, children, MemoryPool pool,
         c_vector[shared_ptr[CGandivaExpression]] c_children
         shared_ptr[CProjector] result
 
+    if configuration is None:
+        configuration = Configuration()
+
     for child in children:
         if child is None:
             raise TypeError("Expressions must not be None")
@@ -620,12 +664,13 @@ cpdef make_projector(Schema schema, children, MemoryPool pool,
     check_status(
         Projector_Make(schema.sp_schema, c_children,
                        _ensure_selection_mode(selection_mode),
-                       CConfigurationBuilder.DefaultConfiguration(),
+                       configuration.configuration,
                        &result))
     return Projector.create(result, pool)
 
 
-cpdef make_filter(Schema schema, Condition condition):
+cpdef make_filter(Schema schema, Condition condition,
+                  Configuration configuration=None):
     """
     Construct a filter based on a condition.
 
@@ -638,6 +683,8 @@ cpdef make_filter(Schema schema, Condition condition):
         Schema for the record batches, and the condition.
     condition : pyarrow.gandiva.Condition
         Filter condition.
+    configuration : pyarrow.gandiva.Configuration, default None
+        Configuration for the filter.
 
     Returns
     -------
@@ -646,8 +693,12 @@ cpdef make_filter(Schema schema, Condition condition):
     cdef shared_ptr[CFilter] result
     if condition is None:
         raise TypeError("Condition must not be None")
+
+    if configuration is None:
+        configuration = Configuration()
+
     check_status(
-        Filter_Make(schema.sp_schema, condition.condition, &result))
+        Filter_Make(schema.sp_schema, condition.condition, configuration.configuration, &result))
     return Filter.create(result)
 
 

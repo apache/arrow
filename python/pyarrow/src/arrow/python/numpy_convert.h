@@ -49,9 +49,11 @@ class ARROW_PYTHON_EXPORT NumPyBuffer : public Buffer {
 };
 
 ARROW_PYTHON_EXPORT
-Status NumPyDtypeToArrow(PyObject* dtype, std::shared_ptr<DataType>* out);
+Result<std::shared_ptr<DataType>> NumPyDtypeToArrow(PyObject* dtype);
 ARROW_PYTHON_EXPORT
-Status NumPyDtypeToArrow(PyArray_Descr* descr, std::shared_ptr<DataType>* out);
+Result<std::shared_ptr<DataType>> NumPyDtypeToArrow(PyArray_Descr* descr);
+ARROW_PYTHON_EXPORT
+Result<std::shared_ptr<DataType>> NumPyScalarToArrowDataType(PyObject* scalar);
 
 ARROW_PYTHON_EXPORT Status NdarrayToTensor(MemoryPool* pool, PyObject* ao,
                                            const std::vector<std::string>& dim_names,

@@ -23,27 +23,28 @@
 
 namespace arrow::matlab::tabular::proxy {
 
-    class Table : public libmexclass::proxy::Proxy {
-        public:
-            Table(std::shared_ptr<arrow::Table> table);
+class Table : public libmexclass::proxy::Proxy {
+ public:
+  Table(std::shared_ptr<arrow::Table> table);
 
-            virtual ~Table() {}
+  virtual ~Table() {}
 
-            std::shared_ptr<arrow::Table> unwrap();
+  std::shared_ptr<arrow::Table> unwrap();
 
-            static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
+  static libmexclass::proxy::MakeResult make(
+      const libmexclass::proxy::FunctionArguments& constructor_arguments);
 
-        protected:
-            void toString(libmexclass::proxy::method::Context& context);
-            void getNumRows(libmexclass::proxy::method::Context& context);
-            void getNumColumns(libmexclass::proxy::method::Context& context);
-            void getColumnNames(libmexclass::proxy::method::Context& context);
-            void getSchema(libmexclass::proxy::method::Context& context);
-            void getColumnByIndex(libmexclass::proxy::method::Context& context);
-            void getColumnByName(libmexclass::proxy::method::Context& context);
-            void getRowAsString(libmexclass::proxy::method::Context& context);
+ protected:
+  void toString(libmexclass::proxy::method::Context& context);
+  void getNumRows(libmexclass::proxy::method::Context& context);
+  void getNumColumns(libmexclass::proxy::method::Context& context);
+  void getColumnNames(libmexclass::proxy::method::Context& context);
+  void getSchema(libmexclass::proxy::method::Context& context);
+  void getColumnByIndex(libmexclass::proxy::method::Context& context);
+  void getColumnByName(libmexclass::proxy::method::Context& context);
+  void getRowAsString(libmexclass::proxy::method::Context& context);
 
-            std::shared_ptr<arrow::Table> table;
-    };
+  std::shared_ptr<arrow::Table> table;
+};
 
-}
+}  // namespace arrow::matlab::tabular::proxy

@@ -1129,8 +1129,8 @@ TEST(TestDictionary, Validate) {
   arr = std::make_shared<DictionaryArray>(dict_type, indices, MakeArray(invalid_data));
   ASSERT_RAISES(Invalid, arr->ValidateFull());
 
-#if !defined(__APPLE__) && !defined(ARROW_VALGRIND)
-  // GH-35712: ASSERT_DEATH would make testing slow on MacOS.
+#if !defined(__APPLE__) && !defined(ARROW_VALGRIND) && !defined(__EMSCRIPTEN__)
+  // GH-35712: ASSERT_DEATH would make testing slow on macOS.
   ASSERT_DEATH(
       {
         std::shared_ptr<Array> null_dict_arr =

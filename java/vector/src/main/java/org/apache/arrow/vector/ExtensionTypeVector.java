@@ -50,7 +50,7 @@ public abstract class ExtensionTypeVector<T extends ValueVector & FieldVector> e
    */
   public ExtensionTypeVector(String name, BufferAllocator allocator, T underlyingVector) {
     super(allocator);
-    Preconditions.checkNotNull(underlyingVector, "underlyingVector can not be null.");
+    Preconditions.checkNotNull(underlyingVector, "underlyingVector cannot be null.");
     this.name = name;
     this.underlyingVector = underlyingVector;
   }

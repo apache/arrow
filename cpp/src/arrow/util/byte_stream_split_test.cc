@@ -16,6 +16,7 @@
 // under the License.
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <functional>
@@ -35,7 +36,8 @@
 
 namespace arrow::util::internal {
 
-using ByteStreamSplitTypes = ::testing::Types<float, double>;
+using ByteStreamSplitTypes =
+    ::testing::Types<int8_t, int16_t, int32_t, int64_t, std::array<uint8_t, 3>>;
 
 template <typename Func>
 struct NamedFunc {
@@ -61,19 +63,14 @@ void ReferenceByteStreamSplitEncode(const uint8_t* src, int width,
 template <typename T>
 class TestByteStreamSplitSpecialized : public ::testing::Test {
  public:
-  using EncodeFunc = NamedFunc<std::function<decltype(ByteStreamSplitEncode<T>)>>;
-  using DecodeFunc = NamedFunc<std::function<decltype(ByteStreamSplitDecode<T>)>>;
-
   static constexpr int kWidth = static_cast<int>(sizeof(T));
 
+  using EncodeFunc = NamedFunc<std::function<decltype(ByteStreamSplitEncode)>>;
+  using DecodeFunc = NamedFunc<std::function<decltype(ByteStreamSplitDecode)>>;
+
   void SetUp() override {
-    encode_funcs_.push_back({"reference", &ReferenceEncode});
-    encode_funcs_.push_back({"scalar", &ByteStreamSplitEncodeScalar<T>});
-    decode_funcs_.push_back({"scalar", &ByteStreamSplitDecodeScalar<T>});
-#if defined(ARROW_HAVE_SIMD_SPLIT)
-    encode_funcs_.push_back({"simd", &ByteStreamSplitEncodeSimd<T>});
-    decode_funcs_.push_back({"simd", &ByteStreamSplitDecodeSimd<T>});
-#endif
+    decode_funcs_ = MakeDecodeFuncs();
+    encode_funcs_ = MakeEncodeFuncs();
   }
 
   void TestRoundtrip(int64_t num_values) {
@@ -86,13 +83,13 @@ class TestByteStreamSplitSpecialized : public ::testing::Test {
     for (const auto& encode_func : encode_funcs_) {
       ARROW_SCOPED_TRACE("encode_func = ", encode_func);
       encoded.assign(encoded.size(), 0);
-      encode_func.func(reinterpret_cast<const uint8_t*>(input.data()), num_values,
+      encode_func.func(reinterpret_cast<const uint8_t*>(input.data()), kWidth, num_values,
                        encoded.data());
       for (const auto& decode_func : decode_funcs_) {
         ARROW_SCOPED_TRACE("decode_func = ", decode_func);
         decoded.assign(decoded.size(), T{});
-        decode_func.func(encoded.data(), num_values, /*stride=*/num_values,
-                         decoded.data());
+        decode_func.func(encoded.data(), kWidth, num_values, /*stride=*/num_values,
+                         reinterpret_cast<uint8_t*>(decoded.data()));
         ASSERT_EQ(decoded, input);
       }
     }
@@ -117,8 +114,9 @@ class TestByteStreamSplitSpecialized : public ::testing::Test {
       int64_t offset = 0;
       while (offset < num_values) {
         auto chunk_size = std::min<int64_t>(num_values - offset, chunk_size_dist(gen));
-        decode_func.func(encoded.data() + offset, chunk_size, /*stride=*/num_values,
-                         decoded.data() + offset);
+        decode_func.func(encoded.data() + offset, kWidth, chunk_size,
+                         /*stride=*/num_values,
+                         reinterpret_cast<uint8_t*>(decoded.data() + offset));
         offset += chunk_size;
       }
       ASSERT_EQ(offset, num_values);
@@ -135,20 +133,48 @@ class TestByteStreamSplitSpecialized : public ::testing::Test {
   static std::vector<T> MakeRandomInput(int64_t num_values) {
     std::vector<T> input(num_values);
     random_bytes(kWidth * num_values, seed_++, reinterpret_cast<uint8_t*>(input.data()));
-    // Avoid NaNs to ease comparison
-    for (auto& value : input) {
-      if (std::isnan(value)) {
-        value = nan_replacement_++;
-      }
-    }
     return input;
+  }
+
+  template <bool kSimdImplemented = (kWidth == 4 || kWidth == 8)>
+  static std::vector<DecodeFunc> MakeDecodeFuncs() {
+    std::vector<DecodeFunc> funcs;
+    funcs.push_back({"scalar_dynamic", &ByteStreamSplitDecodeScalarDynamic});
+    funcs.push_back({"scalar", &ByteStreamSplitDecodeScalar<kWidth>});
+#if defined(ARROW_HAVE_SIMD_SPLIT)
+    if constexpr (kSimdImplemented) {
+      funcs.push_back({"simd", &ByteStreamSplitDecodeSimd<kWidth>});
+      funcs.push_back({"simd128", &ByteStreamSplitDecodeSimd128<kWidth>});
+#if defined(ARROW_HAVE_AVX2)
+      funcs.push_back({"avx2", &ByteStreamSplitDecodeAvx2<kWidth>});
+#endif
+    }
+#endif  // defined(ARROW_HAVE_SIMD_SPLIT)
+    return funcs;
+  }
+
+  template <bool kSimdImplemented = (kWidth == 4 || kWidth == 8)>
+  static std::vector<EncodeFunc> MakeEncodeFuncs() {
+    std::vector<EncodeFunc> funcs;
+    funcs.push_back({"reference", &ReferenceByteStreamSplitEncode});
+    funcs.push_back({"scalar_dynamic", &ByteStreamSplitEncodeScalarDynamic});
+    funcs.push_back({"scalar", &ByteStreamSplitEncodeScalar<kWidth>});
+#if defined(ARROW_HAVE_SIMD_SPLIT)
+    if constexpr (kSimdImplemented) {
+      funcs.push_back({"simd", &ByteStreamSplitEncodeSimd<kWidth>});
+      funcs.push_back({"simd128", &ByteStreamSplitEncodeSimd128<kWidth>});
+#if defined(ARROW_HAVE_AVX2)
+      funcs.push_back({"avx2", &ByteStreamSplitEncodeAvx2<kWidth>});
+#endif
+    }
+#endif  // defined(ARROW_HAVE_SIMD_SPLIT)
+    return funcs;
   }
 
   std::vector<EncodeFunc> encode_funcs_;
   std::vector<DecodeFunc> decode_funcs_;
 
   static inline uint32_t seed_ = 42;
-  static inline T nan_replacement_ = 0;
 };
 
 TYPED_TEST_SUITE(TestByteStreamSplitSpecialized, ByteStreamSplitTypes);

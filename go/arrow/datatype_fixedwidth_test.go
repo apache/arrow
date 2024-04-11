@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/apache/arrow/go/v15/arrow"
+	"github.com/apache/arrow/go/v16/arrow"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -427,4 +427,14 @@ func TestMonthIntervalType(t *testing.T) {
 	if got, want := dt.String(), "month_interval"; got != want {
 		t.Fatalf("invalid type stringer: got=%q, want=%q", got, want)
 	}
+}
+
+func TestDateFromTime(t *testing.T) {
+	loc, _ := time.LoadLocation("Asia/Hong_Kong")
+	tm := time.Date(2024, time.January, 18, 3, 0, 0, 0, loc)
+
+	wantD32 := time.Date(2024, time.January, 17, 0, 0, 0, 0, time.UTC).Truncate(24*time.Hour).Unix() / int64((time.Hour * 24).Seconds())
+	wantD64 := time.Date(2024, time.January, 17, 0, 0, 0, 0, time.UTC).UnixMilli()
+	assert.EqualValues(t, wantD64, arrow.Date64FromTime(tm))
+	assert.EqualValues(t, wantD32, arrow.Date32FromTime(tm))
 }

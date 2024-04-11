@@ -29,7 +29,8 @@ import org.apache.arrow.memory.util.MemoryUtil;
  * Utility methods for configurable precision Decimal values (e.g. {@link BigDecimal}).
  */
 public class DecimalUtility {
-  private DecimalUtility() {}
+  private DecimalUtility() {
+  }
 
   public static final byte [] zeroes = new byte[] {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -94,7 +95,7 @@ public class DecimalUtility {
           value.scale() + " != " + vectorScale);
     }
     if (value.precision() > vectorPrecision) {
-      throw new UnsupportedOperationException("BigDecimal precision can not be greater than that in the Arrow " +
+      throw new UnsupportedOperationException("BigDecimal precision cannot be greater than that in the Arrow " +
           "vector: " + value.precision() + " > " + vectorPrecision);
     }
     return true;
@@ -120,7 +121,7 @@ public class DecimalUtility {
           decimalScale + " != " + vectorScale);
     }
     if (decimalPrecision > vectorPrecision) {
-      throw new UnsupportedOperationException("BigDecimal precision can not be greater than that in the Arrow " +
+      throw new UnsupportedOperationException("BigDecimal precision cannot be greater than that in the Arrow " +
           "vector: " + decimalPrecision + " > " + vectorPrecision);
     }
     return true;

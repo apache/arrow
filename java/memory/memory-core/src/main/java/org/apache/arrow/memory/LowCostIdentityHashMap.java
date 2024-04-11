@@ -19,6 +19,9 @@ package org.apache.arrow.memory;
 
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.util.VisibleForTesting;
+import org.checkerframework.checker.initialization.qual.Initialized;
+import org.checkerframework.checker.initialization.qual.UnderInitialization;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Highly specialized IdentityHashMap that implements only partial
@@ -35,7 +38,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
   /*
    * The internal data structure to hold values.
    */
-  private Object[] elementData;
+  private @Nullable Object [] elementData; // elementData[index] = null;
 
   /* Actual number of values. */
   private int size;
@@ -69,19 +72,20 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
     if (maxSize >= 0) {
       this.size = 0;
       threshold = getThreshold(maxSize);
-      elementData = newElementArray(computeElementArraySize());
+      elementData = newElementArrayUnderInitialized(computeElementArraySize());
     } else {
       throw new IllegalArgumentException();
     }
   }
 
-  private int getThreshold(int maxSize) {
+  private int getThreshold(@UnderInitialization LowCostIdentityHashMap<K, V> this,
+                           int maxSize) {
     // assign the threshold to maxSize initially, this will change to a
     // higher value if rehashing occurs.
     return maxSize > 2 ? maxSize : 2;
   }
 
-  private int computeElementArraySize() {
+  private int computeElementArraySize(@UnderInitialization LowCostIdentityHashMap<K, V> this) {
     int arraySize = (int) (((long) threshold * 10000) / LOAD_FACTOR);
     // ensure arraySize is positive, the above cast from long to int type
     // leads to overflow and negative arraySize if threshold is too big
@@ -95,7 +99,18 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
    *            the number of elements
    * @return Reference to the element array
    */
-  private Object[] newElementArray(int s) {
+  private Object[] newElementArrayInitialized(@Initialized LowCostIdentityHashMap<K, V> this, int s) {
+    return new Object[s];
+  }
+
+  /**
+   * Create a new element array.
+   *
+   * @param s
+   *            the number of elements
+   * @return Reference to the element array
+   */
+  private Object[] newElementArrayUnderInitialized(@UnderInitialization LowCostIdentityHashMap<K, V> this, int s) {
     return new Object[s];
   }
 
@@ -152,7 +167,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
    * @param key the key.
    * @return the value of the mapping with the specified key.
    */
-  public V get(K key) {
+  public @Nullable V get(K key) {
     Preconditions.checkNotNull(key);
 
     int index = findIndex(key, elementData);
@@ -166,7 +181,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
    * empty spot if the key is not found in this table.
    */
   @VisibleForTesting
-  int findIndex(Object key, Object[] array) {
+  int findIndex(@Nullable Object key, @Nullable Object[] array) {
     int length = array.length;
     int index = getModuloHash(key, length);
     int last = (index + length - 1) % length;
@@ -184,7 +199,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
   }
 
   @VisibleForTesting
-  static int getModuloHash(Object key, int length) {
+  static int getModuloHash(@Nullable Object key, int length) {
     return ((System.identityHashCode(key) & 0x7FFFFFFF) % length);
   }
 
@@ -226,7 +241,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
     if (newlength == 0) {
       newlength = 1;
     }
-    Object[] newData = newElementArray(newlength);
+    @Nullable Object[] newData = newElementArrayInitialized(newlength);
     for (int i = 0; i < elementData.length; i++) {
       Object key = (elementData[i] == null) ? null : ((V) elementData[i]).getKey();
       if (key != null) {
@@ -250,7 +265,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
    * @return the value of the removed mapping, or {@code null} if no mapping
    *         for the specified key was found.
    */
-  public V remove(K key) {
+  public @Nullable V remove(K key) {
     Preconditions.checkNotNull(key);
 
     boolean hashedOk;
@@ -325,7 +340,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
    *
    * @return next available value or null if none available
    */
-  public V getNextValue() {
+  public @Nullable V getNextValue() {
     for (int i = 0; i < elementData.length; i++) {
       if (elementData[i] != null) {
         return (V) elementData[i];

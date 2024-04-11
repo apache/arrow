@@ -27,6 +27,7 @@ import java.util.Optional;
 import org.apache.arrow.flight.impl.Flight;
 
 import com.google.protobuf.Timestamp;
+import com.google.protobuf.util.Timestamps;
 
 /**
  * A POJO representation of the execution of a long-running query.
@@ -57,7 +58,7 @@ public class PollInfo {
     this.flightDescriptor = flt.hasFlightDescriptor() ? new FlightDescriptor(flt.getFlightDescriptor()) : null;
     this.progress = flt.hasProgress() ? flt.getProgress() : null;
     this.expirationTime = flt.hasExpirationTime() ?
-        Instant.ofEpochSecond(flt.getExpirationTime().getSeconds(), flt.getExpirationTime().getNanos()) :
+        Instant.ofEpochSecond(flt.getExpirationTime().getSeconds(), Timestamps.toNanos(flt.getExpirationTime())) :
         null;
   }
 
@@ -133,7 +134,8 @@ public class PollInfo {
     if (this == o) {
       return true;
     }
-    if (o == null || getClass() != o.getClass()) {
+
+    if (!(o instanceof PollInfo)) {
       return false;
     }
     PollInfo pollInfo = (PollInfo) o;

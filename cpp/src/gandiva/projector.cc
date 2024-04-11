@@ -80,8 +80,8 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   GandivaObjectCache obj_cache(cache, cache_key);
 
   // Build LLVM generator, and generate code for the specified expressions
-  std::unique_ptr<LLVMGenerator> llvm_gen;
-  ARROW_RETURN_NOT_OK(LLVMGenerator::Make(configuration, is_cached, &llvm_gen));
+  ARROW_ASSIGN_OR_RAISE(auto llvm_gen,
+                        LLVMGenerator::Make(configuration, is_cached, obj_cache));
 
   // Run the validation on the expressions.
   // Return if any of the expression is invalid since
@@ -95,7 +95,7 @@ Status Projector::Make(SchemaPtr schema, const ExpressionVector& exprs,
   }
 
   // Set the object cache for LLVM
-  llvm_gen->SetLLVMObjectCache(obj_cache);
+  ARROW_RETURN_NOT_OK(llvm_gen->SetLLVMObjectCache(obj_cache));
 
   ARROW_RETURN_NOT_OK(llvm_gen->Build(exprs, selection_vector_mode));
 
@@ -281,7 +281,7 @@ Status Projector::ValidateArrayDataCapacity(const arrow::ArrayData& array_data,
   return Status::OK();
 }
 
-std::string Projector::DumpIR() { return llvm_generator_->DumpIR(); }
+const std::string& Projector::DumpIR() { return llvm_generator_->ir(); }
 
 void Projector::SetBuiltFromCache(bool flag) { built_from_cache_ = flag; }
 

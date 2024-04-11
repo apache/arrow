@@ -18,6 +18,7 @@
 #pragma once
 
 #include <atomic>  // IWYU pragma: export
+#include <cassert>
 #include <cstdint>
 #include <memory>
 #include <utility>
@@ -26,15 +27,13 @@
 #include "arrow/buffer.h"
 #include "arrow/result.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/span.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class Array;
-struct ArrayData;
 
 namespace internal {
 // ----------------------------------------------------------------------
@@ -181,6 +180,21 @@ struct ARROW_EXPORT ArrayData {
   }
 
   std::shared_ptr<ArrayData> Copy() const { return std::make_shared<ArrayData>(*this); }
+
+  /// \brief Copy all buffers and children recursively to destination MemoryManager
+  ///
+  /// This utilizes MemoryManager::CopyBuffer to create a new ArrayData object
+  /// recursively copying the buffers and all child buffers to the destination
+  /// memory manager. This includes dictionaries if applicable.
+  Result<std::shared_ptr<ArrayData>> CopyTo(
+      const std::shared_ptr<MemoryManager>& to) const;
+  /// \brief View or Copy this ArrayData to destination memory manager.
+  ///
+  /// Tries to view the buffer contents on the given memory manager's device
+  /// if possible (to avoid a copy) but falls back to copying if a no-copy view
+  /// isn't supported.
+  Result<std::shared_ptr<ArrayData>> ViewOrCopyTo(
+      const std::shared_ptr<MemoryManager>& to) const;
 
   bool IsNull(int64_t i) const { return !IsValid(i); }
 
@@ -436,6 +450,38 @@ struct ARROW_EXPORT ArraySpan {
   template <typename T>
   inline const T* GetValues(int i) const {
     return GetValues<T>(i, this->offset);
+  }
+
+  /// \brief Access a buffer's data as a span
+  ///
+  /// \param i The buffer index
+  /// \param length The required length (in number of typed values) of the requested span
+  /// \pre i > 0
+  /// \pre length <= the length of the buffer (in number of values) that's expected for
+  /// this array type
+  /// \return A span<const T> of the requested length
+  template <typename T>
+  util::span<const T> GetSpan(int i, int64_t length) const {
+    const int64_t buffer_length = buffers[i].size / static_cast<int64_t>(sizeof(T));
+    assert(i > 0 && length + offset <= buffer_length);
+    ARROW_UNUSED(buffer_length);
+    return util::span<const T>(buffers[i].data_as<T>() + this->offset, length);
+  }
+
+  /// \brief Access a buffer's data as a span
+  ///
+  /// \param i The buffer index
+  /// \param length The required length (in number of typed values) of the requested span
+  /// \pre i > 0
+  /// \pre length <= the length of the buffer (in number of values) that's expected for
+  /// this array type
+  /// \return A span<T> of the requested length
+  template <typename T>
+  util::span<T> GetSpan(int i, int64_t length) {
+    const int64_t buffer_length = buffers[i].size / static_cast<int64_t>(sizeof(T));
+    assert(i > 0 && length + offset <= buffer_length);
+    ARROW_UNUSED(buffer_length);
+    return util::span<T>(buffers[i].mutable_data_as<T>() + this->offset, length);
   }
 
   inline bool IsNull(int64_t i) const { return !IsValid(i); }

@@ -40,6 +40,7 @@
 #include "arrow/buffer.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/config.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
@@ -146,8 +147,8 @@ TEST(MemoryAdviseWillNeed, Basics) {
   ASSERT_OK(MemoryAdviseWillNeed({{addr1, 0}, {addr2 + 1, 0}}));
 
   // Should probably fail
-  // (but on Windows, MemoryAdviseWillNeed can be a no-op)
-#ifndef _WIN32
+  // (but on Windows or Emscripten, MemoryAdviseWillNeed can be a no-op)
+#if !defined(_WIN32) && !defined(__EMSCRIPTEN__)
   ASSERT_RAISES(IOError,
                 MemoryAdviseWillNeed({{nullptr, std::numeric_limits<size_t>::max()}}));
 #endif
@@ -368,6 +369,10 @@ TestSelfPipe* TestSelfPipe::instance_;
 TEST_F(TestSelfPipe, MakeAndShutdown) {}
 
 TEST_F(TestSelfPipe, WaitAndSend) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   StartReading();
   SleepABit();
   AssertPayloadsEventually({});
@@ -380,6 +385,10 @@ TEST_F(TestSelfPipe, WaitAndSend) {
 }
 
 TEST_F(TestSelfPipe, SendAndWait) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   self_pipe_->Send(123456789123456789ULL);
   StartReading();
   SleepABit();
@@ -390,6 +399,10 @@ TEST_F(TestSelfPipe, SendAndWait) {
 }
 
 TEST_F(TestSelfPipe, WaitAndShutdown) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   StartReading();
   SleepABit();
   ASSERT_OK(self_pipe_->Shutdown());
@@ -401,6 +414,9 @@ TEST_F(TestSelfPipe, WaitAndShutdown) {
 }
 
 TEST_F(TestSelfPipe, ShutdownAndWait) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
   self_pipe_->Send(123456789123456789ULL);
   ASSERT_OK(self_pipe_->Shutdown());
   StartReading();
@@ -413,6 +429,10 @@ TEST_F(TestSelfPipe, ShutdownAndWait) {
 }
 
 TEST_F(TestSelfPipe, WaitAndSendFromSignal) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   signal_received_.store(0);
   SignalHandlerGuard guard(SIGINT, &HandleSignal);
 
@@ -431,6 +451,10 @@ TEST_F(TestSelfPipe, WaitAndSendFromSignal) {
 }
 
 TEST_F(TestSelfPipe, SendFromSignalAndWait) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   signal_received_.store(0);
   SignalHandlerGuard guard(SIGINT, &HandleSignal);
 
@@ -450,6 +474,10 @@ TEST_F(TestSelfPipe, SendFromSignalAndWait) {
 #if !(defined(_WIN32) || defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER) || \
       defined(THREAD_SANITIZER))
 TEST_F(TestSelfPipe, ForkSafety) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   self_pipe_->Send(123456789123456789ULL);
 
   auto child_pid = fork();
@@ -1025,6 +1053,9 @@ TEST_F(TestSendSignal, Generic) {
 }
 
 TEST_F(TestSendSignal, ToThread) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "SendSignalToThread requires threading";
+#endif
 #ifdef _WIN32
   uint64_t dummy_thread_id = 42;
   ASSERT_RAISES(NotImplemented, SendSignalToThread(SIGINT, dummy_thread_id));
@@ -1065,7 +1096,7 @@ TEST(CpuInfo, Basic) {
   const auto l2 = ci->CacheSize(CpuInfo::CacheLevel::L2);
   const auto l3 = ci->CacheSize(CpuInfo::CacheLevel::L3);
   ASSERT_TRUE(l1 >= 4 * 1024 && l1 <= 512 * 1024) << "unexpected L1 size: " << l1;
-  ASSERT_TRUE(l2 >= 32 * 1024 && l2 <= 8 * 1024 * 1024) << "unexpected L2 size: " << l2;
+  ASSERT_TRUE(l2 >= 32 * 1024 && l2 <= 12 * 1024 * 1024) << "unexpected L2 size: " << l2;
   ASSERT_TRUE(l3 >= 256 * 1024 && l3 <= 1024 * 1024 * 1024)
       << "unexpected L3 size: " << l3;
   ASSERT_LE(l1, l2) << "L1 cache size " << l1 << " larger than L2 " << l2;

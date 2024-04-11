@@ -18,10 +18,14 @@
 #include "arrow/device.h"
 
 #include <cstring>
+#include <mutex>
+#include <unordered_map>
 #include <utility>
 
+#include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/io/memory.h"
+#include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/util/logging.h"
 
@@ -193,6 +197,13 @@ Result<std::shared_ptr<Buffer>> CPUMemoryManager::ViewBufferFrom(
   if (!from->is_cpu()) {
     return nullptr;
   }
+  // in this case the memory manager we're coming from is visible on the CPU,
+  // but uses an allocation type other than CPU. Since we know the data is visible
+  // to the CPU a "View" of this should use the CPUMemoryManager as the listed memory
+  // manager.
+  if (buf->device_type() != DeviceAllocationType::kCPU) {
+    return std::make_shared<Buffer>(buf->address(), buf->size(), shared_from_this(), buf);
+  }
   return buf;
 }
 
@@ -218,6 +229,13 @@ Result<std::shared_ptr<Buffer>> CPUMemoryManager::ViewBufferTo(
   if (!to->is_cpu()) {
     return nullptr;
   }
+  // in this case the memory manager we're coming from is visible on the CPU,
+  // but uses an allocation type other than CPU. Since we know the data is visible
+  // to the CPU a "View" of this should use the CPUMemoryManager as the listed memory
+  // manager.
+  if (buf->device_type() != DeviceAllocationType::kCPU) {
+    return std::make_shared<Buffer>(buf->address(), buf->size(), to, buf);
+  }
   return buf;
 }
 
@@ -241,11 +259,76 @@ bool CPUDevice::Equals(const Device& other) const {
 }
 
 std::shared_ptr<MemoryManager> CPUDevice::memory_manager(MemoryPool* pool) {
-  return CPUMemoryManager::Make(Instance(), pool);
+  if (pool == default_memory_pool()) {
+    return default_cpu_memory_manager();
+  } else {
+    return CPUMemoryManager::Make(Instance(), pool);
+  }
 }
 
 std::shared_ptr<MemoryManager> CPUDevice::default_memory_manager() {
   return default_cpu_memory_manager();
+}
+
+namespace {
+
+class DeviceMapperRegistryImpl {
+ public:
+  DeviceMapperRegistryImpl() {}
+
+  Status RegisterDevice(DeviceAllocationType device_type, DeviceMapper memory_mapper) {
+    std::lock_guard<std::mutex> lock(lock_);
+    auto [_, inserted] = registry_.try_emplace(device_type, std::move(memory_mapper));
+    if (!inserted) {
+      return Status::KeyError("Device type ", static_cast<int>(device_type),
+                              " is already registered");
+    }
+    return Status::OK();
+  }
+
+  Result<DeviceMapper> GetMapper(DeviceAllocationType device_type) {
+    std::lock_guard<std::mutex> lock(lock_);
+    auto it = registry_.find(device_type);
+    if (it == registry_.end()) {
+      return Status::KeyError("Device type ", static_cast<int>(device_type),
+                              "is not registered");
+    }
+    return it->second;
+  }
+
+ private:
+  std::mutex lock_;
+  std::unordered_map<DeviceAllocationType, DeviceMapper> registry_;
+};
+
+Result<std::shared_ptr<MemoryManager>> DefaultCPUDeviceMapper(int64_t device_id) {
+  return default_cpu_memory_manager();
+}
+
+static std::unique_ptr<DeviceMapperRegistryImpl> CreateDeviceRegistry() {
+  auto registry = std::make_unique<DeviceMapperRegistryImpl>();
+
+  // Always register the CPU device
+  DCHECK_OK(registry->RegisterDevice(DeviceAllocationType::kCPU, DefaultCPUDeviceMapper));
+
+  return registry;
+}
+
+DeviceMapperRegistryImpl* GetDeviceRegistry() {
+  static auto g_registry = CreateDeviceRegistry();
+  return g_registry.get();
+}
+
+}  // namespace
+
+Status RegisterDeviceMapper(DeviceAllocationType device_type, DeviceMapper mapper) {
+  auto registry = GetDeviceRegistry();
+  return registry->RegisterDevice(device_type, std::move(mapper));
+}
+
+Result<DeviceMapper> GetDeviceMapper(DeviceAllocationType device_type) {
+  auto registry = GetDeviceRegistry();
+  return registry->GetMapper(device_type);
 }
 
 }  // namespace arrow

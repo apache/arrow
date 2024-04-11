@@ -251,7 +251,7 @@ Examples
   array has format string ``d:12,5``.
 * A ``list<uint64>`` array has format string ``+l``, and its single child
   has format string ``L``.
-* A ``large_list_view<uint64>`` array has format string ``+Lv``, and its single
+* A ``large_list_view<uint64>`` array has format string ``+vL``, and its single
   child has format string ``L``.
 * A ``struct<ints: int32, floats: float32>`` has format string ``+s``; its two
   children have names ``ints`` and ``floats``, and format strings ``i`` and
@@ -467,7 +467,10 @@ It has the following fields:
 
    Mandatory.  The number of physical buffers backing this array.  The
    number of buffers is a function of the data type, as described in the
-   :ref:`Columnar format specification <format_columnar>`.
+   :ref:`Columnar format specification <format_columnar>`, except for the
+   the binary or utf-8 view type, which has one additional buffer compared
+   to the Columnar format specification (see
+   :ref:`c-data-interface-binary-view-arrays`).
 
    Buffers of children arrays are not included.
 
@@ -551,6 +554,8 @@ parameterized extension types).
 
 The ``ArrowArray`` structure exported from an extension array simply points
 to the storage data of the extension array.
+
+.. _c-data-interface-binary-view-arrays:
 
 Binary view arrays
 ------------------

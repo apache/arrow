@@ -243,6 +243,26 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
   }
 
   /**
+   * Export the buffers of the fields for C Data Interface. This method traverse the buffers and
+   * export buffer and buffer's memory address into a list of buffers and a pointer to the list of buffers.
+   */
+  @Override
+  public void exportCDataBuffers(List<ArrowBuf> buffers, ArrowBuf buffersPtr, long nullValue) {
+    exportBuffer(validityBuffer, buffers, buffersPtr, nullValue, true);
+
+    if (offsetBuffer.capacity() == 0) {
+      // Empty offset buffer is allowed for historical reason.
+      // To export it through C Data interface, we need to allocate a buffer with one offset.
+      // We set `retain = false` to explicitly not increase the ref count for the exported buffer.
+      // The ref count of the newly created buffer (i.e., 1) already represents the usage
+      // at imported side.
+      exportBuffer(allocateOffsetBuffer(OFFSET_WIDTH), buffers, buffersPtr, nullValue, false);
+    } else {
+      exportBuffer(offsetBuffer, buffers, buffersPtr, nullValue, true);
+    }
+  }
+
+  /**
    * Set the reader and writer indexes for the inner buffers.
    */
   private void setReaderAndWriterIndex() {
@@ -291,6 +311,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
    *
    * @return false if memory allocation fails, true otherwise.
    */
+  @Override
   public boolean allocateNewSafe() {
     boolean success = false;
     try {
@@ -303,10 +324,9 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
     } finally {
       if (!success) {
         clear();
-        return false;
       }
     }
-    return true;
+    return success;
   }
 
   protected void allocateValidityBuffer(final long size) {
@@ -336,12 +356,23 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
 
   private void reallocValidityBuffer() {
     final int currentBufferCapacity = checkedCastToInt(validityBuffer.capacity());
-    long newAllocationSize = currentBufferCapacity * 2;
+    long newAllocationSize = getNewAllocationSize(currentBufferCapacity);
+
+    final ArrowBuf newBuf = allocator.buffer(newAllocationSize);
+    newBuf.setBytes(0, validityBuffer, 0, currentBufferCapacity);
+    newBuf.setZero(currentBufferCapacity, newBuf.capacity() - currentBufferCapacity);
+    validityBuffer.getReferenceManager().release(1);
+    validityBuffer = newBuf;
+    validityAllocationSizeInBytes = (int) newAllocationSize;
+  }
+
+  private long getNewAllocationSize(int currentBufferCapacity) {
+    long newAllocationSize = currentBufferCapacity * 2L;
     if (newAllocationSize == 0) {
       if (validityAllocationSizeInBytes > 0) {
         newAllocationSize = validityAllocationSizeInBytes;
       } else {
-        newAllocationSize = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION) * 2;
+        newAllocationSize = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION) * 2L;
       }
     }
     newAllocationSize = CommonUtil.nextPowerOfTwo(newAllocationSize);
@@ -350,13 +381,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
     if (newAllocationSize > MAX_ALLOCATION_SIZE) {
       throw new OversizedAllocationException("Unable to expand the buffer");
     }
-
-    final ArrowBuf newBuf = allocator.buffer((int) newAllocationSize);
-    newBuf.setBytes(0, validityBuffer, 0, currentBufferCapacity);
-    newBuf.setZero(currentBufferCapacity, newBuf.capacity() - currentBufferCapacity);
-    validityBuffer.getReferenceManager().release(1);
-    validityBuffer = newBuf;
-    validityAllocationSizeInBytes = (int) newAllocationSize;
+    return newAllocationSize;
   }
 
   /**
@@ -425,7 +450,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
 
   @Override
   public long getValidityBufferAddress() {
-    return (validityBuffer.memoryAddress());
+    return validityBuffer.memoryAddress();
   }
 
   @Override
@@ -435,7 +460,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
 
   @Override
   public long getOffsetBufferAddress() {
-    return (offsetBuffer.memoryAddress());
+    return offsetBuffer.memoryAddress();
   }
 
   @Override
@@ -527,21 +552,23 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
     public void splitAndTransfer(int startIndex, int length) {
       Preconditions.checkArgument(startIndex >= 0 && length >= 0 && startIndex + length <= valueCount,
           "Invalid parameters startIndex: %s, length: %s for valueCount: %s", startIndex, length, valueCount);
-      final int startPoint = offsetBuffer.getInt(startIndex * OFFSET_WIDTH);
-      final int sliceLength = offsetBuffer.getInt((startIndex + length) * OFFSET_WIDTH) - startPoint;
       to.clear();
-      to.allocateOffsetBuffer((length + 1) * OFFSET_WIDTH);
-      /* splitAndTransfer offset buffer */
-      for (int i = 0; i < length + 1; i++) {
-        final int relativeOffset = offsetBuffer.getInt((startIndex + i) * OFFSET_WIDTH) - startPoint;
-        to.offsetBuffer.setInt(i * OFFSET_WIDTH, relativeOffset);
+      if (length > 0) {
+        final int startPoint = offsetBuffer.getInt(startIndex * OFFSET_WIDTH);
+        final int sliceLength = offsetBuffer.getInt((startIndex + length) * OFFSET_WIDTH) - startPoint;
+        to.offsetBuffer = to.allocateOffsetBuffer((length + 1) * OFFSET_WIDTH);
+        /* splitAndTransfer offset buffer */
+        for (int i = 0; i < length + 1; i++) {
+          final int relativeOffset = offsetBuffer.getInt((startIndex + i) * OFFSET_WIDTH) - startPoint;
+          to.offsetBuffer.setInt(i * OFFSET_WIDTH, relativeOffset);
+        }
+        /* splitAndTransfer validity buffer */
+        splitAndTransferValidityBuffer(startIndex, length, to);
+        /* splitAndTransfer data buffer */
+        dataTransferPair.splitAndTransfer(startPoint, sliceLength);
+        to.lastSet = length - 1;
+        to.setValueCount(length);
       }
-      /* splitAndTransfer validity buffer */
-      splitAndTransferValidityBuffer(startIndex, length, to);
-      /* splitAndTransfer data buffer */
-      dataTransferPair.splitAndTransfer(startPoint, sliceLength);
-      to.lastSet = length - 1;
-      to.setValueCount(length);
     }
 
     /*
@@ -625,6 +652,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
   }
 
   /** Initialize the child data vector to field type.  */
+  @Override
   public <T extends ValueVector> AddOrGetResult<T> addOrGetVector(FieldType fieldType) {
     AddOrGetResult<T> result = super.addOrGetVector(fieldType);
     invalidateReader();
@@ -837,6 +865,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
    * Sets list at index to be null.
    * @param index position in vector
    */
+  @Override
   public void setNull(int index) {
     while (index >= getValidityAndOffsetValueCapacity()) {
       reallocValidityAndOffsetBuffers();
@@ -849,6 +878,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
       offsetBuffer.setInt((i + 1) * OFFSET_WIDTH, currentOffset);
     }
     BitVectorHelper.unsetBit(validityBuffer, index);
+    lastSet = index;
   }
 
   /**
