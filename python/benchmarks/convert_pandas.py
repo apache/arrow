@@ -99,8 +99,3 @@ class TableFromPandasMicroperformance(object):
     def time_Table_from_pandas(self):
         for _ in range(50):
             pa.Table.from_pandas(self.df, nthreads=1)
-
-
-class ArrowTableToPandasDataframe():
-
-    

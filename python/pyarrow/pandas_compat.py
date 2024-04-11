@@ -778,7 +778,18 @@ def table_to_dataframe(
     column_names = table.column_names
     result = pa.lib.table_to_blocks(options, table, categories,
                                     list(ext_columns_dtypes.keys()))
-    if options["use_blocks"]:
+    if _pandas_api.is_ge_v3():
+        print("using new API")
+        from pandas.api.internals import create_dataframe_from_blocks
+
+        blocks = [
+            _reconstruct_block(
+                item, column_names, ext_columns_dtypes, return_block=False)
+            for item in result
+        ]
+        df = create_dataframe_from_blocks(blocks, index=index, columns=columns)
+        return df
+    else:
         from pandas.core.internals import BlockManager
         from pandas import DataFrame
 
@@ -792,16 +803,6 @@ def table_to_dataframe(
             df = DataFrame._from_mgr(mgr, mgr.axes)
         else:
             df = DataFrame(mgr)
-        return df
-    else:
-        from pandas.api.internals import create_dataframe_from_blocks
-
-        blocks = [
-            _reconstruct_block(
-                item, column_names, ext_columns_dtypes, return_block=False)
-            for item in result
-        ]
-        df = create_dataframe_from_blocks(blocks, index=index, columns=columns)
         return df
 
 

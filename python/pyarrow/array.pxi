@@ -706,8 +706,7 @@ cdef class _PandasConvertible(_Weakrefable):
             bint self_destruct=False,
             str maps_as_pydicts=None,
             types_mapper=None,
-            bint coerce_temporal_nanoseconds=False,
-            bint use_blocks=True,
+            bint coerce_temporal_nanoseconds=False
     ):
         """
         Convert to a pandas-compatible NumPy array or DataFrame, as appropriate
@@ -868,8 +867,7 @@ cdef class _PandasConvertible(_Weakrefable):
             split_blocks=split_blocks,
             self_destruct=self_destruct,
             maps_as_pydicts=maps_as_pydicts,
-            coerce_temporal_nanoseconds=coerce_temporal_nanoseconds,
-            use_blocks=use_blocks,
+            coerce_temporal_nanoseconds=coerce_temporal_nanoseconds
         )
         return self._to_pandas(options, categories=categories,
                                ignore_metadata=ignore_metadata,
