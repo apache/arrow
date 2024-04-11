@@ -15,9 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <benchmark/benchmark.h>
+
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/string.h"
-#include "benchmark/benchmark.h"
 
 #include "arrow/compute/row/grouper.h"
 #include "arrow/testing/gtest_util.h"
@@ -28,7 +29,8 @@ namespace arrow {
 namespace compute {
 
 constexpr auto kSeed = 0x0ff1ce;
-constexpr int64_t kRound = 256;
+constexpr int64_t kRound = 16;
+constexpr double true_and_unique_probability = 0.2;
 
 static ExecBatch MakeRandomExecBatch(const DataTypeVector& types, int64_t num_rows,
                                      double null_probability,
@@ -38,16 +40,22 @@ static ExecBatch MakeRandomExecBatch(const DataTypeVector& types, int64_t num_ro
   auto num_types = static_cast<int>(types.size());
 
   // clang-format off
+  // For unique probability:
+  // The proportion of Unique determines the number of groups.
+  // 1. In most scenarios, unique has a small proportion and exists
+  // 2. In GroupBy/HashJoin are sometimes used for deduplication and
+  // in that use case the key is mostly unique
   auto metadata = key_value_metadata(
       {
         "null_probability",
-        "true_probability",
-        "unique"
+        "true_probability",  // for boolean type
+        "unique"             // for string type
       },
       {
           internal::ToChars(null_probability),
-          internal::ToChars(null_probability),                     // for boolean type
-          internal::ToChars(static_cast<int32_t>(num_rows * 0.5))  // for string type
+          internal::ToChars(true_and_unique_probability),
+          internal::ToChars(static_cast<int32_t>(num_rows *
+                            true_and_unique_probability))
       });
   // clang-format on
 
@@ -63,14 +71,18 @@ static ExecBatch MakeRandomExecBatch(const DataTypeVector& types, int64_t num_ro
 
 static void GrouperBenchmark(benchmark::State& state, const ExecSpan& span,
                              ExecContext* ctx = nullptr) {
+  uint32_t num_groups = 0;
   for (auto _ : state) {
     ASSIGN_OR_ABORT(auto grouper, Grouper::Make(span.GetTypes(), ctx));
     for (int i = 0; i < kRound; ++i) {
       ASSIGN_OR_ABORT(auto group_ids, grouper->Consume(span));
     }
+    num_groups = grouper->num_groups();
   }
 
   state.SetItemsProcessed(state.iterations() * kRound * span.length);
+  state.counters["num_groups"] = num_groups;
+  state.counters["uniqueness"] = static_cast<double>(num_groups) / (kRound * span.length);
 }
 
 static void GrouperWithMultiTypes(benchmark::State& state, const DataTypeVector& types) {
@@ -91,27 +103,44 @@ void SetArgs(benchmark::internal::Benchmark* bench) {
   BenchmarkSetArgsWithSizes(bench, {1 << 10, 1 << 12});
 }
 
-// basic type column
+// This benchmark is mainly to ensure that the construction of our underlying
+// RowTable and the performance of the comparison operations in the lower-level
+// compare_internal can be tracked (we have not systematically tested these
+// underlying operations before).
+//
+// It mainly covers:
+// 1. Basics types, including the impact of null ratio on performance (comparison
+//    operations will compare null values separately.)
+//
+// 2. Combination types which will break the CPU-pipeline in column comparision.
+//    Examples: https://github.com/apache/arrow/pull/41036#issuecomment-2048721547
+//
+// 3. Combination types requiring column resorted. These combinations are
+//    essentially to test the impact of RowTableEncoder's sorting function on
+//    input columns on the performance of CompareColumnsToRows
+//    Examples: https://github.com/apache/arrow/pull/40998#issuecomment-2039204161
+
+// basic types
 BENCHMARK_CAPTURE(GrouperWithMultiTypes, "{boolean}", {boolean()})->Apply(SetArgs);
 BENCHMARK_CAPTURE(GrouperWithMultiTypes, "{int32}", {int32()})->Apply(SetArgs);
 BENCHMARK_CAPTURE(GrouperWithMultiTypes, "{int64}", {int64()})->Apply(SetArgs);
 BENCHMARK_CAPTURE(GrouperWithMultiTypes, "{utf8}", {utf8()})->Apply(SetArgs);
-BENCHMARK_CAPTURE(GrouperWithMultiTypes, "{fixed_size_binary(128)}",
-                  {fixed_size_binary(128)})
+BENCHMARK_CAPTURE(GrouperWithMultiTypes, "{fixed_size_binary(32)}",
+                  {fixed_size_binary(32)})
     ->Apply(SetArgs);
 
-// multi types' columns
+// combination types
 BENCHMARK_CAPTURE(GrouperWithMultiTypes, "{boolean, utf8}", {boolean(), utf8()})
     ->Apply(SetArgs);
 BENCHMARK_CAPTURE(GrouperWithMultiTypes, "{int32, int32}", {int32(), int32()})
     ->Apply(SetArgs);
-BENCHMARK_CAPTURE(GrouperWithMultiTypes, "{int32, int64}", {int32(), int64()})
+BENCHMARK_CAPTURE(GrouperWithMultiTypes, "{int64, int32}", {int64(), int32()})
     ->Apply(SetArgs);
 BENCHMARK_CAPTURE(GrouperWithMultiTypes, "{boolean, int64, utf8}",
                   {boolean(), int64(), utf8()})
     ->Apply(SetArgs);
 
-// multi types' columns with column resorted
+// combination types requiring column resorted
 BENCHMARK_CAPTURE(GrouperWithMultiTypes, "{int32, boolean, utf8}",
                   {int32(), boolean(), utf8()})
     ->Apply(SetArgs);
@@ -119,8 +148,8 @@ BENCHMARK_CAPTURE(GrouperWithMultiTypes, "{int32, int64, boolean, utf8}",
                   {int32(), int64(), boolean(), utf8()})
     ->Apply(SetArgs);
 BENCHMARK_CAPTURE(GrouperWithMultiTypes,
-                  "{utf8, int32, int64, fixed_size_binary(128), boolean}",
-                  {utf8(), int32(), int64(), fixed_size_binary(128), boolean()})
+                  "{utf8, int32, int64, fixed_size_binary(32), boolean}",
+                  {utf8(), int32(), int64(), fixed_size_binary(32), boolean()})
     ->Apply(SetArgs);
 
 }  // namespace compute
