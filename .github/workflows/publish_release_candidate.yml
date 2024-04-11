@@ -52,7 +52,6 @@ jobs:
         # Create a pre-release in apache/arrow's GitHub Releases area.
         run: |
           title="Apache Arrow ${ARROW_VERSION} RC${ARROW_RC_NUM}"
-          repository=${{github.repository}}
           release_notes="Release Candidate: ${ARROW_VERSION} RC${ARROW_RC_NUM}"
           gh release create \
             ${ARROW_RELEASE_TAG_NAME} \
