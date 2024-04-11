@@ -32,7 +32,6 @@ jobs:
       - name: Checkout apache/arrow
         uses: actions/checkout@v4
         with:
-          path: arrow
           fetch-depth: 0
       - name: Store Release Tag Name as Environment Variable
         # For convenience, store the release tag name as an environment
