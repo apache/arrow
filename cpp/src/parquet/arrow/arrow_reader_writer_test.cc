@@ -4192,10 +4192,10 @@ TEST_P(TestArrowWriteDictionary, Statistics) {
   // row groups are identical for ease of testing.
   std::vector<int32_t> expected_valid_counts = {2, 2, 3, 0};
   std::vector<int32_t> expected_null_counts = {1, 1, 0, 3};
-  std::vector<int> expected_num_data_pages = {2, 2, 2, 1};
+  std::vector<int> expected_num_data_pages = {2, 2, 2, 2};
   std::vector<std::vector<int32_t>> expected_valid_by_page = {
-      {1, 1}, {2, 0}, {2, 1}, {0}};
-  std::vector<std::vector<int64_t>> expected_null_by_page = {{1, 0}, {0, 1}, {0, 0}, {3}};
+      {1, 1}, {2, 0}, {2, 1}, {0, 0}};
+  std::vector<std::vector<int64_t>> expected_null_by_page = {{1, 0}, {0, 1}, {0, 0}, {2, 1}};
   std::vector<int32_t> expected_dict_counts = {4, 4, 4, 3};
   // Pairs of (min, max)
   std::vector<std::vector<std::string>> expected_min_max_ = {
