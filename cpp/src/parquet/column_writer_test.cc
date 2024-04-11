@@ -258,7 +258,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
       for (size_t i = 1; i < encoding_stats.size(); i++) {
         actual = {encoding_stats[i].encoding};
         // It seems like having DELTA_LENGTH_BYTE_ARRAY as a fallback option
-        // can cause this test to *not* fallback and stick with PLAIN_DICTIONARY. 
+        // can cause this test to *not* fallback and stick with PLAIN_DICTIONARY.
         ASSERT_THAT(actual, testing::IsSubsetOf(expected[i]));
         ASSERT_EQ(encoding_stats[i].page_type, PageType::DATA_PAGE);
       }
