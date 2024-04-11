@@ -38,7 +38,6 @@ jobs:
     name: Publish 
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    if: github.ref_type == 'tag'
     steps: 
       - name: Checkout Arrow
         uses: actions/checkout@v4
