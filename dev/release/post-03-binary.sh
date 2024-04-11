@@ -108,14 +108,3 @@ docker_run \
     VERBOSE=${VERBOSE:-no} \
     VERSION=${version} \
     YUM_TARGETS=$(IFS=,; echo "${yum_targets[*]}")
-
-# Create the release tag and trigger the Publish Release workflow.
-release_candidate_tag=apache-arrow-${version}-rc${num}
-release_tag=apache-arrow-${version}
-git tag -a ${release_tag} ${release_candidate_tag}^{} -m "[Release] Apache Arrow Release ${version}"
-git push origin ${release_tag}
-
-# Wait for the Publish Release workflow to finish.
-sleep 2s
-workflow_id=$(gh run list --repo apache/arrow --workflow "Publish Release" | cut -f7 | head -n1)
-gh run watch ${workflow_id} --repo apache/arrow
