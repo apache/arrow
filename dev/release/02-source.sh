@@ -55,7 +55,7 @@ fi
 
 echo "Using commit $release_hash"
 
-tarball=${tag}.tar.gz
+tarball=apache-arrow-${version}.tar.gz
 
 rm -rf ${tag}
 # be conservative and use the release hash, even though git produces the same
