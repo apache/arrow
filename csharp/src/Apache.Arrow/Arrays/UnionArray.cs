@@ -43,7 +43,7 @@ namespace Apache.Arrow
 
         public int NullCount => Data.NullCount;
 
-        public bool IsValid(int index) => NullCount == 0 || Fields[TypeIds[index]].IsValid(index);
+        public bool IsValid(int index) => NullCount == 0 || FieldIsValid(Fields[TypeIds[index]], index);
 
         public bool IsNull(int index) => !IsValid(index);
 
@@ -64,6 +64,8 @@ namespace Apache.Arrow
         }
 
         public void Accept(IArrowArrayVisitor visitor) => Array.Accept(this, visitor);
+
+        protected abstract bool FieldIsValid(IArrowArray field, int index);
 
         public void Dispose()
         {

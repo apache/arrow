@@ -42,5 +42,10 @@ namespace Apache.Arrow
             ValidateMode(UnionMode.Sparse, Type.Mode);
             data.EnsureBufferCount(1);
         }
+
+        protected override bool FieldIsValid(IArrowArray fieldArray, int index)
+        {
+            return fieldArray.IsValid(index);
+        }
     }
 }
