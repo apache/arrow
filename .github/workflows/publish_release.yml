@@ -42,7 +42,6 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v4
         with:
-          path: arrow
           fetch-depth: 0
       - name: Get Latest Release Candidate's Git Tag
         run: |
