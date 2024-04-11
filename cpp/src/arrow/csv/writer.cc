@@ -257,9 +257,8 @@ class UnquotedColumnPopulator : public ColumnPopulator {
       return Status::OK();
     };
 
-    auto casted_array = checked_pointer_cast<StringArrayType>(array_);
     return VisitArraySpanInline<typename StringArrayType::TypeClass>(
-        *casted_array->data(), valid_function, null_function);
+        *array_->data(), valid_function, null_function);
   }
 
  private:
@@ -381,9 +380,8 @@ class QuotedColumnPopulator : public ColumnPopulator {
   template <typename StringArrayType>
   Status PopulateRows(char* output, int64_t* offsets) const {
     auto needs_escaping = row_needs_escaping_.begin();
-    auto casted_array = checked_pointer_cast<StringArrayType>(array_);
     VisitArraySpanInline<typename StringArrayType::TypeClass>(
-        *(casted_array->data()),
+        *array_->data(),
         [&](std::string_view s) {
           // still needs string content length to be added
           char* row = output + *offsets;
