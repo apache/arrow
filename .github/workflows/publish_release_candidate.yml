@@ -20,8 +20,8 @@ name: Release Candidate
 on:
   push:
     tags:
-    # Rrigger workflow when a tag whose name matches the pattern
-    # "apache-arrow-{MAJOR}.{MINOR}.{PATCH}-rc{RC_NUM}" is pushed.
+      # Trigger workflow when a tag whose name matches the pattern
+      # "apache-arrow-{MAJOR}.{MINOR}.{PATCH}-rc{RC_NUM}" is pushed.
       - "apache-arrow-*-rc*"
 
 jobs:
