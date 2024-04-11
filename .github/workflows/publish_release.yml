@@ -68,5 +68,4 @@ jobs:
           gh release create ${GITHUB_REF_NAME} \
             --title "${ARROW_RELEASE_TITLE}" \
             --verify-tag \
-            --notes "Release Notes: ${ARROW_RELEASE_NOTES_URL}" \
-            --repo ${{github.repository}}
+            --notes "Release Notes: ${ARROW_RELEASE_NOTES_URL}"
