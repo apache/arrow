@@ -28,7 +28,6 @@ jobs:
   publish:
     name: Publish to GitHub Releases
     runs-on: ubuntu-latest
-    if: github.ref_type == 'tag'
     steps:
       - name: Checkout apache/arrow
         uses: actions/checkout@v4
