@@ -60,6 +60,8 @@ jobs:
 
       - name: Retrieve VCPKG version from arrow/.env
         run: |
+          which cmake
+          cmake --version
           vcpkg_version=$(cat "arrow/.env" | grep "VCPKG" | cut -d "=" -f2 | tr -d '"')
           echo "VCPKG_VERSION=$vcpkg_version" >> $GITHUB_ENV
 

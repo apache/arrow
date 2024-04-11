@@ -42,5 +42,25 @@ version=$3
 prefix=$4
 
 mkdir -p ${prefix}
-url="https://github.com/Kitware/CMake/releases/download/v${version}/cmake-${version}-${platform}-${arch}.tar.gz"
-curl -L ${url} | tar -xzf - --directory ${prefix} --strip-components=1
+url="https://github.com/Kitware/CMake/releases/download/v${version}/cmake-${version}-${platform}-"
+case ${platform} in
+  macos)
+    url+="universal.tar.gz"
+    ;;
+  windows)
+    url+="${arch}.zip"
+    ;;
+  *)
+    url+="${arch}.tar.gz"
+    ;;
+esac
+if [ ${platform} = windows ]; then
+  archive_name=$(basename ${url})
+  curl -L -o ${archive_name} ${url}
+  unzip ${archive_name}
+  base_name=$(basename ${archive_name} .zip)
+  mv ${base_name}/* ${prefix}
+  rm -rf ${base_name} ${archive_name}
+else
+  curl -L ${url} | tar -xzf - --directory ${prefix} --strip-components=1
+fi
