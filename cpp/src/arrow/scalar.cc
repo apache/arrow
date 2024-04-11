@@ -542,19 +542,10 @@ struct ScalarValidateImpl {
   }
 };
 
-template <size_t offset, typename T, typename... Args>
-void FillScalarScratchSpaceHelper(uint8_t* scratch_space, T first, Args... args) {
-  static_assert(offset + sizeof(T) <= internal::kScalarScratchSpaceSize);
-  *reinterpret_cast<T*>(scratch_space + offset) = first;
-  if constexpr (sizeof...(args) > 0) {
-    FillScalarScratchSpaceHelper<offset + sizeof(T)>(scratch_space,
-                                                     std::forward<Args>(args)...);
-  }
-}
-
-template <typename... Args>
-void FillScalarScratchSpace(Args... args) {
-  FillScalarScratchSpaceHelper<0>(std::forward<Args>(args)...);
+template <typename T, size_t N>
+void FillScalarScratchSpace(void* scratch_space, T const (&arr)[N]) {
+  static_assert(sizeof(arr) <= internal::kScalarScratchSpaceSize);
+  std::memcpy(scratch_space, arr, sizeof(arr));
 }
 
 }  // namespace
@@ -573,13 +564,12 @@ BaseBinaryScalar::BaseBinaryScalar(std::string s, std::shared_ptr<DataType> type
     : BaseBinaryScalar(Buffer::FromString(std::move(s)), std::move(type)) {}
 
 void BinaryScalar::FillScratchSpace() {
-  // TODO: Test value being nullptr.
-  FillScalarScratchSpace(scratch_space_, int32_t(0),
-                         value ? static_cast<int32_t>(value->size()) : int32_t(0));
+  FillScalarScratchSpace(
+      scratch_space_,
+      {int32_t(0), value ? static_cast<int32_t>(value->size()) : int32_t(0)});
 }
 
 void BinaryViewScalar::FillScratchSpace() {
-  // TODO: Test value being nullptr.
   static_assert(sizeof(BinaryViewType::c_type) <= internal::kScalarScratchSpaceSize);
   auto* view = new (&scratch_space_) BinaryViewType::c_type;
   if (value) {
@@ -590,9 +580,9 @@ void BinaryViewScalar::FillScratchSpace() {
 }
 
 void LargeBinaryScalar::FillScratchSpace() {
-  // TODO: Test value being nullptr.
-  FillScalarScratchSpace(scratch_space_, int64_t(0),
-                         value ? static_cast<int64_t>(value->size()) : int64_t(0));
+  FillScalarScratchSpace(
+      scratch_space_,
+      {int64_t(0), value ? static_cast<int64_t>(value->size()) : int64_t(0)});
 }
 
 FixedSizeBinaryScalar::FixedSizeBinaryScalar(std::shared_ptr<Buffer> value,
@@ -625,32 +615,34 @@ ListScalar::ListScalar(std::shared_ptr<Array> value, bool is_valid)
     : BaseListScalar(value, list(value->type()), is_valid) {}
 
 void ListScalar::FillScratchSpace() {
-  FillScalarScratchSpace(scratch_space_, int32_t(0),
-                         value ? static_cast<int32_t>(value->length()) : int32_t(0));
+  FillScalarScratchSpace(
+      scratch_space_,
+      {int32_t(0), value ? static_cast<int32_t>(value->length()) : int32_t(0)});
 }
 
 LargeListScalar::LargeListScalar(std::shared_ptr<Array> value, bool is_valid)
     : BaseListScalar(value, large_list(value->type()), is_valid) {}
 
 void LargeListScalar::FillScratchSpace() {
-  FillScalarScratchSpace(scratch_space_, int64_t(0),
-                         value ? value->length() : int64_t(0));
+  FillScalarScratchSpace(scratch_space_,
+                         {int64_t(0), value ? value->length() : int64_t(0)});
 }
 
 ListViewScalar::ListViewScalar(std::shared_ptr<Array> value, bool is_valid)
     : BaseListScalar(value, list_view(value->type()), is_valid) {}
 
 void ListViewScalar::FillScratchSpace() {
-  FillScalarScratchSpace(scratch_space_, int32_t(0),
-                         value ? static_cast<int32_t>(value->length()) : int32_t(0));
+  FillScalarScratchSpace(
+      scratch_space_,
+      {int32_t(0), value ? static_cast<int32_t>(value->length()) : int32_t(0)});
 }
 
 LargeListViewScalar::LargeListViewScalar(std::shared_ptr<Array> value, bool is_valid)
     : BaseListScalar(value, large_list_view(value->type()), is_valid) {}
 
 void LargeListViewScalar::FillScratchSpace() {
-  FillScalarScratchSpace(scratch_space_, int64_t(0),
-                         value ? value->length() : int64_t(0));
+  FillScalarScratchSpace(scratch_space_,
+                         {int64_t(0), value ? value->length() : int64_t(0)});
 }
 
 inline std::shared_ptr<DataType> MakeMapType(const std::shared_ptr<DataType>& pair_type) {
@@ -663,8 +655,9 @@ MapScalar::MapScalar(std::shared_ptr<Array> value, bool is_valid)
     : BaseListScalar(value, MakeMapType(value->type()), is_valid) {}
 
 void MapScalar::FillScratchSpace() {
-  FillScalarScratchSpace(scratch_space_, int32_t(0),
-                         value ? static_cast<int32_t>(value->length()) : int32_t(0));
+  FillScalarScratchSpace(
+      scratch_space_,
+      {int32_t(0), value ? static_cast<int32_t>(value->length()) : int32_t(0)});
 }
 
 FixedSizeListScalar::FixedSizeListScalar(std::shared_ptr<Array> value,
@@ -727,14 +720,14 @@ void RunEndEncodedScalar::FillScratchSpace() {
   auto run_end = run_end_type()->id();
   switch (run_end) {
     case Type::INT16:
-      FillScalarScratchSpace(scratch_space_, int16_t(1));
+      FillScalarScratchSpace(scratch_space_, {int16_t(1)});
       break;
     case Type::INT32:
-      FillScalarScratchSpace(scratch_space_, int32_t(1));
+      FillScalarScratchSpace(scratch_space_, {int32_t(1)});
       break;
     default:
       DCHECK_EQ(run_end, Type::INT64);
-      FillScalarScratchSpace(scratch_space_, int64_t(1));
+      FillScalarScratchSpace(scratch_space_, {int64_t(1)});
   }
 }
 
@@ -848,7 +841,7 @@ void SparseUnionScalar::FillScratchSpace() {
 void DenseUnionScalar::FillScratchSpace() {
   auto* union_scratch_space = reinterpret_cast<UnionScratchSpace*>(&scratch_space_);
   union_scratch_space->type_code = type_code;
-  FillScalarScratchSpace(union_scratch_space->offsets, int32_t(0), int32_t(1));
+  FillScalarScratchSpace(union_scratch_space->offsets, {int32_t(0), int32_t(1)});
 }
 
 namespace {
