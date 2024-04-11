@@ -4210,7 +4210,7 @@ TEST_P(TestArrowWriteDictionary, Statistics) {
       {{true, true}, {true, true}},
       {{true, false}, {true, false}},
       {{true, true}, {true, true}},
-      {{false}, {false}}};
+      {{false, false}, {false, false}}};
 
   for (std::size_t case_index = 0; case_index < test_dictionaries.size(); case_index++) {
     SCOPED_TRACE(test_dictionaries[case_index]->type()->ToString());
