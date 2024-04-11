@@ -54,6 +54,7 @@
 #include "arrow/engine/substrait/options.h"
 #include "arrow/engine/substrait/serde.h"
 #include "arrow/engine/substrait/test_util.h"
+#include "arrow/engine/substrait/type_internal.h"
 #include "arrow/engine/substrait/util.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/localfs.h"
@@ -299,6 +300,8 @@ TEST(Substrait, SupportedTypes) {
            map(utf8(), field("", utf8()), false));
 }
 
+// These types don't exist in Substrait.  However, we have user defined types
+// defined for them and they should be able to round-trip
 TEST(Substrait, SupportedExtensionTypes) {
   ExtensionSet ext_set;
 
@@ -308,6 +311,12 @@ TEST(Substrait, SupportedExtensionTypes) {
            uint16(),
            uint32(),
            uint64(),
+           large_utf8(),
+           large_binary(),
+           date64(),
+           time32(TimeUnit::SECOND),
+           time32(TimeUnit::MILLI),
+           time64(TimeUnit::NANO),
        }) {
     auto anchor = ext_set.num_types();
 
@@ -329,6 +338,53 @@ TEST(Substrait, SupportedExtensionTypes) {
 
     ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeType(*serialized, ext_set));
     EXPECT_EQ(*roundtripped, *expected_type);
+  }
+}
+
+// Encodings are not considered distinct types in Substrait.  The encoding information
+// is lost during a round-trip.
+TEST(Substrait, OneWayTypes) {
+  ExtensionSet ext_set;
+
+  for (auto [source_type, return_type] :
+       {std::pair{binary_view(), binary()},
+        {utf8_view(), utf8()},
+        {dictionary(int32(), utf8()), utf8()},
+        {run_end_encoded(int32(), int32()), int32()},
+        {dictionary(int32(), dictionary(int32(), utf8())), utf8()}}) {
+    ASSERT_OK_AND_ASSIGN(auto substrait_type, SerializeType(*source_type, &ext_set, {}));
+
+    ASSERT_OK_AND_ASSIGN(auto actual_return,
+                         DeserializeType(*substrait_type, ext_set, {}));
+
+    EXPECT_EQ(*actual_return, *return_type);
+  }
+}
+
+// Substrait does not store the time zone as part of the type.  That information is stored
+// on the function instead.  As a result, that information is lost on a round-trip.
+TEST(Substrait, TimestampTypes) {
+  ExtensionSet ext_set;
+
+  for (auto time_unit :
+       {TimeUnit::NANO, TimeUnit::MICRO, TimeUnit::MILLI, TimeUnit::SECOND}) {
+    for (auto time_zone : {"UTC", "America/New_York"}) {
+      auto input_type = timestamp(time_unit, time_zone);
+      ASSERT_OK_AND_ASSIGN(auto substrait_type, SerializeType(*input_type, &ext_set, {}));
+
+      auto expected_return = timestamp(time_unit, TimestampTzTimezoneString());
+      ASSERT_OK_AND_ASSIGN(auto actual_return,
+                           DeserializeType(*substrait_type, ext_set, {}));
+
+      EXPECT_EQ(*actual_return, *expected_return);
+    }
+    auto input_type = timestamp(time_unit);
+    ASSERT_OK_AND_ASSIGN(auto substrait_type, SerializeType(*input_type, &ext_set, {}));
+
+    ASSERT_OK_AND_ASSIGN(auto actual_return,
+                         DeserializeType(*substrait_type, ext_set, {}));
+
+    EXPECT_EQ(*actual_return, *input_type);
   }
 }
 
@@ -415,26 +471,11 @@ TEST(Substrait, NoEquivalentArrowType) {
 
 TEST(Substrait, NoEquivalentSubstraitType) {
   for (auto type : {
-           date64(),
-           timestamp(TimeUnit::SECOND),
-           timestamp(TimeUnit::NANO),
-           timestamp(TimeUnit::MICRO, "New York"),
-           time32(TimeUnit::SECOND),
-           time32(TimeUnit::MILLI),
-           time64(TimeUnit::NANO),
-
            decimal256(76, 67),
-
            sparse_union({field("i8", int8()), field("f32", float32())}),
            dense_union({field("i8", int8()), field("f32", float32())}),
-           dictionary(int32(), utf8()),
-
            fixed_size_list(float16(), 3),
-
            duration(TimeUnit::MICRO),
-
-           large_utf8(),
-           large_binary(),
            large_list(utf8()),
        }) {
     ARROW_SCOPED_TRACE(type->ToString());
@@ -561,6 +602,56 @@ TEST(Substrait, SupportedLiterals) {
     ASSERT_OK_AND_ASSIGN(auto json, internal::SubstraitToJSON("Type", *buf));
     ExpectEq("{\"null\": " + json + "}", MakeNullScalar(type));
   }
+}
+
+template <typename ScalarType>
+void CheckArrowSpecificLiteral(ScalarType scalar) {
+  compute::Expression lit = compute::literal(scalar);
+  ExtensionSet ext_set;
+  ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(lit, &ext_set));
+  ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeExpression(*serialized, ext_set));
+  ASSERT_EQ(lit, roundtripped);
+}
+
+TEST(Substrait, ArrowSpecificLiterals) {
+  CheckArrowSpecificLiteral(UInt8Scalar(7));
+  CheckArrowSpecificLiteral(UInt16Scalar(7));
+  CheckArrowSpecificLiteral(UInt32Scalar(7));
+  CheckArrowSpecificLiteral(UInt64Scalar(7));
+  CheckArrowSpecificLiteral(Date64Scalar(86400000));
+  CheckArrowSpecificLiteral(Time64Scalar(7, TimeUnit::NANO));
+  CheckArrowSpecificLiteral(Time32Scalar(7, TimeUnit::SECOND));
+  CheckArrowSpecificLiteral(Time32Scalar(7, TimeUnit::MILLI));
+  CheckArrowSpecificLiteral(Time32Scalar(7, TimeUnit::SECOND));
+  // We serialize as a signed integer, which doesn't make sense for Time scalars but
+  // Arrow supports it so we might as well round-trip it.
+  CheckArrowSpecificLiteral(Time32Scalar(-7, TimeUnit::MILLI));
+  CheckArrowSpecificLiteral(Time32Scalar(-7, TimeUnit::SECOND));
+  CheckArrowSpecificLiteral(Time64Scalar(-7, TimeUnit::NANO));
+  // Negative date scalars DO make sense and we should make sure they work
+  CheckArrowSpecificLiteral(Date64Scalar(-86400000));
+  CheckArrowSpecificLiteral(HalfFloatScalar(0));
+  CheckArrowSpecificLiteral(LargeStringScalar("hello"));
+  CheckArrowSpecificLiteral(LargeBinaryScalar("hello"));
+  CheckArrowSpecificLiteral(MakeNullScalar(null()));
+}
+
+template <typename SourceScalarType, typename DestScalarType>
+void CheckOneWayLiteral(SourceScalarType source, DestScalarType expected) {
+  compute::Expression lit = compute::literal(source);
+  ExtensionSet ext_set;
+  ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(lit, &ext_set));
+  ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeExpression(*serialized, ext_set));
+  compute::Expression expected_lit = compute::literal(expected);
+  ASSERT_EQ(expected_lit, roundtripped);
+}
+
+TEST(Substrait, OneWayLiterals) {
+  CheckOneWayLiteral(StringViewScalar("test"), StringScalar("test"));
+  CheckOneWayLiteral(BinaryViewScalar("test"), BinaryScalar("test"));
+  CheckOneWayLiteral(RunEndEncodedScalar(std::make_shared<UInt32Scalar>(7),
+                                         run_end_encoded(int16(), uint32())),
+                     UInt32Scalar(7));
 }
 
 TEST(Substrait, CannotDeserializeLiteral) {
@@ -823,8 +914,8 @@ TEST(Substrait, Cast) {
   std::shared_ptr<compute::CastOptions> cast_opts =
       std::dynamic_pointer_cast<compute::CastOptions>(call_opts);
   ASSERT_TRUE(!!cast_opts);
-  // It is unclear whether a Substrait cast should be safe or not.  In the meantime we are
-  // assuming it is unsafe based on the behavior of many SQL engines.
+  // It is unclear whether a Substrait cast should be safe or not.  In the meantime we
+  // are assuming it is unsafe based on the behavior of many SQL engines.
   ASSERT_TRUE(cast_opts->allow_int_overflow);
   ASSERT_TRUE(cast_opts->allow_float_truncate);
   ASSERT_TRUE(cast_opts->allow_decimal_truncate);
