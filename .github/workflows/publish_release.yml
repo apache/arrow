@@ -34,8 +34,8 @@ env:
   GH_TOKEN: ${{ github.token }}
 
 jobs:
-  publish-release:
-    name: Publish Release 
+  publish:
+    name: Publish 
     runs-on: ubuntu-latest
     timeout-minutes: 5
     if: github.ref_type == 'tag'
