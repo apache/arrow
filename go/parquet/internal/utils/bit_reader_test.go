@@ -59,6 +59,15 @@ func TestBitWriter(t *testing.T) {
 
 	assert.Equal(t, byte(0xAA), buf[0])
 	assert.Equal(t, byte(0xCC), buf[1])
+
+	for i := 0; i < 3; i++ {
+		assert.True(t, bw.WriteVlqInt(uint64(i)))
+	}
+	assert.Equal(t, byte(0xAA), buf[0])
+	assert.Equal(t, byte(0xCC), buf[1])
+	assert.Equal(t, byte(0), buf[2])
+	assert.Equal(t, byte(1), buf[3])
+	assert.Equal(t, byte(2), buf[4])
 }
 
 func TestBitReader(t *testing.T) {
