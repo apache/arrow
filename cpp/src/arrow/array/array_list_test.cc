@@ -767,33 +767,34 @@ class TestListArray : public ::testing::Test {
     auto inner_type = std::make_shared<T>(int32());
     auto type = std::make_shared<T>(inner_type);
 
-    // List type with two nested level: list(list(int32))
+    // List types with two nested level: list<list<int32>>
     auto nested_list_array = std::dynamic_pointer_cast<ArrayType>(ArrayFromJSON(type, R"([
-            [[0, 1, 2], null, [3]],
-            [null],
-            [[2, 9], [4], [], [6, 5]]
-            ])"));
+      [[0, 1, 2], null, [3, null]],
+      [null],
+      [[2, 9], [4], [], [6, 5]]
+    ])"));
     ASSERT_OK_AND_ASSIGN(auto flattened, nested_list_array->FlattenRecursively());
     ASSERT_OK(flattened->ValidateFull());
-    ASSERT_EQ(9, flattened->length());
-    ASSERT_TRUE(flattened->Equals(ArrayFromJSON(int32(), "[0, 1, 2, 3, 2, 9, 4, 6, 5]")));
+    ASSERT_EQ(10, flattened->length());
+    ASSERT_TRUE(
+        flattened->Equals(ArrayFromJSON(int32(), "[0, 1, 2, 3, null, 2, 9, 4, 6, 5]")));
 
-    // Empty nested list should flatten until reach it's non-list type
+    // Empty nested list should flatten until non-list type is reached
     nested_list_array =
         std::dynamic_pointer_cast<ArrayType>(ArrayFromJSON(type, R"([null])"));
     ASSERT_OK_AND_ASSIGN(flattened, nested_list_array->FlattenRecursively());
     ASSERT_TRUE(flattened->type()->Equals(int32()));
 
-    // List type with three nested level: list(list(list(int32)))
-    type = std::make_shared<T>(std::make_shared<T>(std::make_shared<T>(int32())));
+    // List types with three nested level: list<list<fixed_size_list<int32, 2>>>
+    type = std::make_shared<T>(std::make_shared<T>(fixed_size_list(int32(), 2)));
     nested_list_array = std::dynamic_pointer_cast<ArrayType>(ArrayFromJSON(type, R"([
       [
-        [[0],[null]],
-        [[2,3], null]
+        [[null, 0]],
+        [[3, 7], null]
       ],
       [
-        [[null], [5]],
-        [[8]],
+        [[4, null], [5, 8]],
+        [[8, null]],
         null
       ],
       [
@@ -802,9 +803,10 @@ class TestListArray : public ::testing::Test {
     ])"));
     ASSERT_OK_AND_ASSIGN(flattened, nested_list_array->FlattenRecursively());
     ASSERT_OK(flattened->ValidateFull());
-    ASSERT_EQ(7, flattened->length());
-    ASSERT_EQ(2, flattened->null_count());
-    ASSERT_TRUE(flattened->Equals(ArrayFromJSON(int32(), "[0, null, 2, 3, null, 5, 8]")));
+    ASSERT_EQ(10, flattened->length());
+    ASSERT_EQ(3, flattened->null_count());
+    ASSERT_TRUE(flattened->Equals(
+        ArrayFromJSON(int32(), "[null, 0, 3, 7, 4, null, 5, 8, 8, null]")));
   }
 
   Status ValidateOffsetsAndSizes(int64_t length, std::vector<offset_type> offsets,
