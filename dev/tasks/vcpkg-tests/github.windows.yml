@@ -45,6 +45,8 @@ jobs:
         # to remove and reinstall it.
         shell: cmd
         run: |
+          echo %PATH%
+          cmake --version
           CALL vcpkg integrate remove 2>NUL
           CALL C:
           CALL cd \
