@@ -42,6 +42,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/list_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/unreachable.h"
 
 namespace arrow {
 
@@ -469,67 +470,47 @@ inline void SetListData(VarLengthListLikeArray<TYPE>* self,
   self->values_ = MakeArray(self->data_->child_data[0]);
 }
 
-Result<std::shared_ptr<Array>> FlattenLogicalListRecursively(const Array& array,
+Result<std::shared_ptr<Array>> FlattenLogicalListRecursively(const Array& in_array,
                                                              MemoryPool* memory_pool) {
-  Type::type kind = array.type_id();
-  std::shared_ptr<Array> in_array = array.Slice(0, array.length());
-  while (is_list_like(kind) || is_list_view(kind)) {
-    const bool has_nulls = array.null_count() > 0;
-    std::shared_ptr<Array> out;
+  std::shared_ptr<Array> array = in_array.Slice(0, in_array.length());
+  for (auto kind = array->type_id(); is_list(kind) || is_list_view(kind);
+       kind = array->type_id()) {
     switch (kind) {
       case Type::LIST: {
         ARROW_ASSIGN_OR_RAISE(
-            out,
-            FlattenListArray(checked_cast<const ListArray&>(*in_array), memory_pool));
+            array, (checked_cast<const ListArray*>(array.get())->Flatten(memory_pool)));
         break;
       }
       case Type::LARGE_LIST: {
         ARROW_ASSIGN_OR_RAISE(
-            out, FlattenListArray(checked_cast<const LargeListArray&>(*in_array),
-                                  memory_pool));
+            array,
+            (checked_cast<const LargeListArray*>(array.get())->Flatten(memory_pool)));
+        break;
+      }
+      case Type::LIST_VIEW: {
+        ARROW_ASSIGN_OR_RAISE(
+            array,
+            (checked_cast<const ListViewArray*>(array.get())->Flatten(memory_pool)));
+        break;
+      }
+      case Type::LARGE_LIST_VIEW: {
+        ARROW_ASSIGN_OR_RAISE(
+            array,
+            (checked_cast<const LargeListViewArray*>(array.get())->Flatten(memory_pool)));
         break;
       }
       case Type::FIXED_SIZE_LIST: {
         ARROW_ASSIGN_OR_RAISE(
-            out, FlattenListArray(checked_cast<const FixedSizeListArray&>(*in_array),
-                                  memory_pool));
+            array,
+            (checked_cast<const FixedSizeListArray*>(array.get())->Flatten(memory_pool)));
         break;
       }
-      case Type::LIST_VIEW: {
-        if (has_nulls) {
-          ARROW_ASSIGN_OR_RAISE(
-              out, (FlattenListViewArray<ListViewArray, true>(
-                       checked_cast<const ListViewArray&>(*in_array), memory_pool)));
-          break;
-        } else {
-          ARROW_ASSIGN_OR_RAISE(
-              out, (FlattenListViewArray<ListViewArray, false>(
-                       checked_cast<const ListViewArray&>(*in_array), memory_pool)));
-          break;
-        }
-      }
-      case Type::LARGE_LIST_VIEW: {
-        if (has_nulls) {
-          ARROW_ASSIGN_OR_RAISE(
-              out, (FlattenListViewArray<LargeListViewArray, true>(
-                       checked_cast<const LargeListViewArray&>(*in_array), memory_pool)));
-          break;
-        } else {
-          ARROW_ASSIGN_OR_RAISE(
-              out, (FlattenListViewArray<LargeListViewArray, false>(
-                       checked_cast<const LargeListViewArray&>(*in_array), memory_pool)));
-          break;
-        }
-      }
       default:
-        return Status::Invalid("Unknown or unsupported arrow nested type: ",
-                               in_array->type()->ToString());
+        Unreachable("unexpected non-list type");
+        break;
     }
-
-    in_array = out;
-    kind = in_array->type_id();
   }
-  return std::move(in_array);
+  return array;
 }
 
 }  // namespace internal
@@ -998,11 +979,6 @@ Result<std::shared_ptr<Array>> FixedSizeListArray::FromArrays(
 Result<std::shared_ptr<Array>> FixedSizeListArray::Flatten(
     MemoryPool* memory_pool) const {
   return FlattenListArray(*this, memory_pool);
-}
-
-Result<std::shared_ptr<Array>> FixedSizeListArray::FlattenRecursively(
-    MemoryPool* memory_pool) const {
-  return internal::FlattenLogicalListRecursively(*this, memory_pool);
 }
 
 // ----------------------------------------------------------------------

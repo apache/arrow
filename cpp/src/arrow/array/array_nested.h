@@ -58,10 +58,20 @@ void SetListData(VarLengthListLikeArray<TYPE>* self,
                  const std::shared_ptr<ArrayData>& data,
                  Type::type expected_type_id = TYPE::type_id);
 
-// Private flatten helper for logical lists: [Large]List[View]Array, FixedSizeListArray
-// and MapArray
+/// \brief A version of Flatten that keeps recursively flattening until an array of
+/// non-list values is reached.
+///
+/// Array types considered to be lists by this function:
+///  - list
+///  - large_list
+///  - list_view
+///  - large_list_view
+///  - fixed_size_list
+///
+/// \see ListArray::Flatten
 ARROW_EXPORT Result<std::shared_ptr<Array>> FlattenLogicalListRecursively(
-    const Array& array, MemoryPool* memory_pool);
+    const Array& in_array, MemoryPool* memory_pool);
+
 }  // namespace internal
 
 /// Base class for variable-sized list and list-view arrays, regardless of offset size.
@@ -107,8 +117,10 @@ class VarLengthListLikeArray : public Array {
     return values_->Slice(value_offset(i), value_length(i));
   }
 
-  /// \brief Flatten all level recursively until reach a non-list type, and return a
-  /// non-list type Array.
+  /// \brief Flatten all level recursively until reach a non-list type, and return
+  /// a non-list type Array.
+  ///
+  /// \see internal::FlattenLogicalListRecursively
   Result<std::shared_ptr<Array>> FlattenRecursively(
       MemoryPool* memory_pool = default_memory_pool()) const {
     return internal::FlattenLogicalListRecursively(*this, memory_pool);
@@ -606,10 +618,14 @@ class ARROW_EXPORT FixedSizeListArray : public Array {
   Result<std::shared_ptr<Array>> Flatten(
       MemoryPool* memory_pool = default_memory_pool()) const;
 
-  /// \brief Flatten all level recursively until reach a non-list type, and return a
-  /// non-list type Array.
+  /// \brief Flatten all level recursively until reach a non-list type, and return
+  /// a non-list type Array.
+  ///
+  /// \see internal::FlattenLogicalListRecursively
   Result<std::shared_ptr<Array>> FlattenRecursively(
-      MemoryPool* memory_pool = default_memory_pool()) const;
+      MemoryPool* memory_pool = default_memory_pool()) const {
+    return internal::FlattenLogicalListRecursively(*this, memory_pool);
+  }
 
   /// \brief Construct FixedSizeListArray from child value array and value_length
   ///
