@@ -356,7 +356,10 @@ class CompressedInputStream::Impl {
   }
 
   // Try to feed more data into the decompressed_ buffer.
+  // Returns whether there is more data to read.
   Result<bool> RefillDecompressed() {
+    // First try to read data from the decompressor, unless we haven't read any
+    // compressed data yet.
     if (compressed_ && compressed_->size() != 0) {
       if (decompressor_->IsFinished()) {
         // We just went over the end of a previous compressed stream.
