@@ -31,6 +31,7 @@ on:
       - 'cpp/**'
       - 'docker-compose.yml'
       - 'format/Flight.proto'
+      - 'testing'
   pull_request:
     paths:
       - '.github/workflows/cpp.yml'
@@ -44,6 +45,7 @@ on:
       - 'cpp/**'
       - 'docker-compose.yml'
       - 'format/Flight.proto'
+      - 'testing'
 
 concurrency:
   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
