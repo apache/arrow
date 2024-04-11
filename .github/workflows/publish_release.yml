@@ -45,7 +45,7 @@ jobs:
           fetch-depth: 0
       - name: Get Latest Release Candidate's Git Tag
         run: |
-          rc_tag=$(gh release list --repo ${{github.repository}} | \
+          rc_tag=$(gh release list | \
                     cut -f3 | \
                     grep -F "${GITHUB_REF_NAME}-rc" | \
                     head -n1)
