@@ -27,23 +27,28 @@ namespace Apache.Arrow
 
         public readonly IArrowType DataType;
         public readonly int Length;
-        private int _nullCount;
+
+        /// <summary>
+        /// The number of null values in the Array. May be -1 if the null count has not been computed.
+        /// </summary>
+        public int NullCount;
+
         public readonly int Offset;
         public readonly ArrowBuffer[] Buffers;
         public readonly ArrayData[] Children;
         public readonly ArrayData Dictionary; // Only used for dictionary type
 
-        public int NullCount
+        /// <summary>
+        /// Get the number of null values in the Array, computing the count if required.
+        /// </summary>
+        public int GetNullCount()
         {
-            get
+            if (NullCount == RecalculateNullCount)
             {
-                if (_nullCount == RecalculateNullCount)
-                {
-                    _nullCount = ComputeNullCount();
-                }
-
-                return _nullCount;
+                NullCount = ComputeNullCount();
             }
+
+            return NullCount;
         }
 
         // This is left for compatibility with lower version binaries
@@ -71,7 +76,7 @@ namespace Apache.Arrow
         {
             DataType = dataType ?? NullType.Default;
             Length = length;
-            _nullCount = nullCount;
+            NullCount = nullCount;
             Offset = offset;
             Buffers = buffers?.ToArray();
             Children = children?.ToArray();
@@ -85,7 +90,7 @@ namespace Apache.Arrow
         {
             DataType = dataType ?? NullType.Default;
             Length = length;
-            _nullCount = nullCount;
+            NullCount = nullCount;
             Offset = offset;
             Buffers = buffers;
             Children = children;

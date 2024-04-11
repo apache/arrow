@@ -41,7 +41,7 @@ namespace Apache.Arrow
 
         public int Offset => Data.Offset;
 
-        public int NullCount => Data.NullCount;
+        public int NullCount => Data.GetNullCount();
 
         public bool IsValid(int index) => NullCount == 0 || FieldIsValid(Fields[TypeIds[index]], index);
 
