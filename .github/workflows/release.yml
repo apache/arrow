@@ -20,7 +20,9 @@ name: Release
 on:
   push:
     branches:
-      - "!**"
+      - "maint-[0-9]+.[0-9]+.[0-9]+"
+      - "release-[0-9]+.[0-9]+.[0-9]+"
+      - "release-[0-9]+.[0-9]+.[0-9]+-rc[0-9]+"
     tags:
       # Trigger workflow when a tag whose name matches either
       # pattern "apache-arrow-{MAJOR}.{MINOR}.{PATCH}" or pattern
