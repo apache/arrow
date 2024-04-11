@@ -356,9 +356,7 @@ class CompressedInputStream::Impl {
   }
 
   // Try to feed more data into the decompressed_ buffer.
-  Status RefillDecompressed(bool* has_data) {
-    // First try to read data from the decompressor, unless we haven't read any
-    // compressed data yet.
+  Result<bool> RefillDecompressed() {
     if (compressed_ && compressed_->size() != 0) {
       if (decompressor_->IsFinished()) {
         // We just went over the end of a previous compressed stream.
@@ -377,13 +375,11 @@ class CompressedInputStream::Impl {
         if (!fresh_decompressor_ && !decompressor_->IsFinished()) {
           return Status::IOError("Truncated compressed stream");
         }
-        *has_data = false;
-        return Status::OK();
+        return false;
       }
       RETURN_NOT_OK(DecompressData());
     }
-    *has_data = true;
-    return Status::OK();
+    return true;
   }
 
   Result<int64_t> Read(int64_t nbytes, void* out) {
@@ -401,7 +397,7 @@ class CompressedInputStream::Impl {
 
       // At this point, no more decompressed data remains, so we need to
       // decompress more
-      RETURN_NOT_OK(RefillDecompressed(&decompressor_has_data));
+      ARROW_ASSIGN_OR_RAISE(decompressor_has_data, RefillDecompressed());
     }
 
     total_pos_ += total_read;
