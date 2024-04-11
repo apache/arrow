@@ -24,8 +24,8 @@ on:
     tags:
     # Trigger workflow when a tag whose name matches the pattern
     # "apache-arrow-{MAJOR}.{MINOR}.{PATCH}" is pushed.
-      - "*"
-      - "!*-rc*"
+      - "apache-arrow-*"
+      - "!apache-arrow-*-rc*"
 
 permissions:
   contents: write
