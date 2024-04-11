@@ -300,49 +300,39 @@ struct DataTypeToProtoImpl {
   }
   Status Visit(const Date64Type& t) { return EncodeUserDefined(t); }
 
+  template <typename Sub>
+  Status VisitTimestamp(const TimestampType& t,
+                        void (substrait::Type::*set_allocated_sub)(Sub*)) {
+    auto ts = SetWithThen(set_allocated_sub);
+    switch (t.unit()) {
+      case TimeUnit::SECOND:
+        ts->set_precision(0);
+        break;
+      case TimeUnit::MILLI:
+        ts->set_precision(3);
+        break;
+      case TimeUnit::MICRO:
+        ts->set_precision(6);
+        break;
+      case TimeUnit::NANO:
+        ts->set_precision(9);
+        break;
+      default:
+        return NotImplemented(t);
+    }
+    return Status::OK();
+  }
+
   Status Visit(const TimestampType& t) {
     if (t.timezone() == "") {
-      auto ts = SetWithThen(&substrait::Type::set_allocated_precision_timestamp);
-      switch (t.unit()) {
-        case TimeUnit::SECOND:
-          ts->set_precision(0);
-          break;
-        case TimeUnit::MILLI:
-          ts->set_precision(3);
-          break;
-        case TimeUnit::MICRO:
-          ts->set_precision(6);
-          break;
-        case TimeUnit::NANO:
-          ts->set_precision(9);
-          break;
-        default:
-          return NotImplemented(t);
-      }
+      return VisitTimestamp(t, &substrait::Type::set_allocated_precision_timestamp);
     } else {
       // Note: The timezone information is discarded here.  In Substrait the time zone
       // information is part of the function and not part of the type.  For example, to
       // convert a timestamp to a string, the time zone is passed as an argument to the
       // function.
-      auto ts = SetWithThen(&substrait::Type::set_allocated_precision_timestamp_tz);
-      switch (t.unit()) {
-        case TimeUnit::SECOND:
-          ts->set_precision(0);
-          break;
-        case TimeUnit::MILLI:
-          ts->set_precision(3);
-          break;
-        case TimeUnit::MICRO:
-          ts->set_precision(6);
-          break;
-        case TimeUnit::NANO:
-          ts->set_precision(9);
-          break;
-        default:
-          return NotImplemented(t);
-      }
+      return VisitTimestamp(t, &substrait::Type::set_allocated_precision_timestamp_tz);
     }
-    return Status::OK();
   }
 
   Status Visit(const Time32Type& t) { return EncodeUserDefined(t); }
