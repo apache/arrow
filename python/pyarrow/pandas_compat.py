@@ -779,7 +779,6 @@ def table_to_dataframe(
     result = pa.lib.table_to_blocks(options, table, categories,
                                     list(ext_columns_dtypes.keys()))
     if _pandas_api.is_ge_v3():
-        print("using new API")
         from pandas.api.internals import create_dataframe_from_blocks
 
         blocks = [
