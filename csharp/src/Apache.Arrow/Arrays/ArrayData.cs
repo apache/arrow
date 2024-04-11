@@ -15,7 +15,6 @@
 
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
-using Google.FlatBuffers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -28,11 +27,24 @@ namespace Apache.Arrow
 
         public readonly IArrowType DataType;
         public readonly int Length;
-        public readonly int NullCount;
+        private int _nullCount;
         public readonly int Offset;
         public readonly ArrowBuffer[] Buffers;
         public readonly ArrayData[] Children;
         public readonly ArrayData Dictionary; // Only used for dictionary type
+
+        public int NullCount
+        {
+            get
+            {
+                if (_nullCount == RecalculateNullCount)
+                {
+                    _nullCount = ComputeNullCount();
+                }
+
+                return _nullCount;
+            }
+        }
 
         // This is left for compatibility with lower version binaries
         // before the dictionary type was supported.
@@ -59,7 +71,7 @@ namespace Apache.Arrow
         {
             DataType = dataType ?? NullType.Default;
             Length = length;
-            NullCount = nullCount;
+            _nullCount = nullCount;
             Offset = offset;
             Buffers = buffers?.ToArray();
             Children = children?.ToArray();
@@ -73,7 +85,7 @@ namespace Apache.Arrow
         {
             DataType = dataType ?? NullType.Default;
             Length = length;
-            NullCount = nullCount;
+            _nullCount = nullCount;
             Offset = offset;
             Buffers = buffers;
             Children = children;
@@ -142,6 +154,22 @@ namespace Apache.Arrow
                 Buffers?.Select(b => b.Clone(allocator))?.ToArray(),
                 Children?.Select(b => b.Clone(allocator))?.ToArray(),
                 Dictionary?.Clone(allocator));
+        }
+
+        private int ComputeNullCount()
+        {
+            if (Buffers == null || Buffers.Length == 0 || Buffers[0].IsEmpty)
+            {
+                return 0;
+            }
+
+            if (DataType.TypeId == ArrowTypeId.Union)
+            {
+                // Union arrays store the type ids in buffer[0] rather than a validity bitmap
+                return 0;
+            }
+
+            return Length - BitUtility.CountBits(Buffers[0].Span, Offset, Length);
         }
     }
 }
