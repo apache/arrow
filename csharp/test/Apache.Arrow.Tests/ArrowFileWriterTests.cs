@@ -109,20 +109,33 @@ namespace Apache.Arrow.Tests
             await ValidateRecordBatchFile(stream, originalBatch);
         }
 
-        [Fact]
-        public async Task WriteSlicedArrays()
+        [Theory]
+        [InlineData(0, 45)]
+        [InlineData(3, 45)]
+        [InlineData(16, 45)]
+        public async Task WriteSlicedArrays(int sliceOffset, int sliceLength)
         {
             // Temporarily only test some types
-            var includedTypes = new HashSet<ArrowTypeId>
+            var excludedTypes = new HashSet<ArrowTypeId>
             {
-                ArrowTypeId.Int32,
+                ArrowTypeId.Boolean,
+                ArrowTypeId.Binary,
+                ArrowTypeId.BinaryView,
+                ArrowTypeId.FixedSizedBinary,
+                ArrowTypeId.List,
+                ArrowTypeId.ListView,
+                ArrowTypeId.FixedSizeList,
+                ArrowTypeId.Map,
+                ArrowTypeId.Dictionary,
+                ArrowTypeId.String,
+                ArrowTypeId.StringView,
+                ArrowTypeId.Struct,
+                ArrowTypeId.Decimal128,
+                ArrowTypeId.Decimal256,
+                ArrowTypeId.Union,
             };
-            var excludedTypes = new HashSet<ArrowTypeId>(
-                Enum.GetValues<ArrowTypeId>().Where(typeId => !includedTypes.Contains(typeId)));
 
             var originalBatch = TestData.CreateSampleRecordBatch(length: 100, excludedTypes: excludedTypes);
-            const int sliceOffset = 3;
-            const int sliceLength = 45;
             var slicedArrays = originalBatch.Arrays
                 .Select(array => ArrowArrayFactory.Slice(array, sliceOffset, sliceLength))
                 .ToList();

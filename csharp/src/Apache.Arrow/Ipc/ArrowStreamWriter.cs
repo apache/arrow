@@ -19,6 +19,7 @@ using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Apache.Arrow.Arrays;
@@ -71,10 +72,10 @@ namespace Apache.Arrow.Ipc
         {
             public readonly struct Buffer
             {
-                public readonly ArrowBuffer DataBuffer;
+                public readonly ReadOnlyMemory<byte> DataBuffer;
                 public readonly int Offset;
 
-                public Buffer(ArrowBuffer buffer, int offset)
+                public Buffer(ReadOnlyMemory<byte> buffer, int offset)
                 {
                     DataBuffer = buffer;
                     Offset = offset;
@@ -239,16 +240,62 @@ namespace Apache.Arrow.Ipc
             private void CreateBuffers<T>(PrimitiveArray<T> array)
                 where T : struct
             {
-                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
-                _buffers.Add(CreateBuffer(array.ValueBuffer));
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
+                _buffers.Add(CreateSlicedBuffer<T>(array.ValueBuffer, array.Offset, array.Length));
+            }
+
+            private Buffer CreateBitmapBuffer(ArrowBuffer buffer, int offset, int length)
+            {
+                if (buffer.IsEmpty)
+                {
+                    return CreateBuffer(buffer.Memory);
+                }
+
+                var paddedLength = (int)CalculatePaddedLength(BitUtility.ByteCount(length));
+                if (offset % 8 == 0)
+                {
+                    var byteOffset = offset / 8;
+                    var sliceLength = Math.Min(paddedLength, buffer.Length - byteOffset);
+
+                    return CreateBuffer(buffer.Memory.Slice(byteOffset, sliceLength));
+                }
+                else
+                {
+                    // Need to copy bitmap so the first bit is aligned with the first byte
+                    var memoryOwner = _allocator.Allocate(paddedLength);
+                    var outputSpan = memoryOwner.Memory.Span;
+                    var inputSpan = buffer.Span;
+                    for (var i = 0; i < length; ++i)
+                    {
+                        BitUtility.SetBit(outputSpan, i, BitUtility.GetBit(inputSpan, offset + i));
+                    }
+
+                    return CreateBuffer(memoryOwner.Memory.Slice(0, paddedLength));
+                }
+            }
+
+            private Buffer CreateSlicedBuffer<T>(ArrowBuffer buffer, int offset, int length)
+                where T : struct
+            {
+                var size = Unsafe.SizeOf<T>();
+                var byteOffset = offset * size;
+                var byteLength = length * size;
+                var paddedLength = (int)CalculatePaddedLength(byteLength);
+                var sliceLength = Math.Min(paddedLength, buffer.Length - byteOffset);
+                return CreateBuffer(buffer.Memory.Slice(byteOffset, sliceLength));
             }
 
             private Buffer CreateBuffer(ArrowBuffer buffer)
             {
+                return CreateBuffer(buffer.Memory);
+            }
+
+            private Buffer CreateBuffer(ReadOnlyMemory<byte> buffer)
+            {
                 int offset = TotalLength;
                 const int UncompressedLengthSize = 8;
 
-                ArrowBuffer bufferToWrite;
+                ReadOnlyMemory<byte> bufferToWrite;
                 if (_compressionCodec == null)
                 {
                     bufferToWrite = buffer;
@@ -258,7 +305,7 @@ namespace Apache.Arrow.Ipc
                     // Write zero length and skip compression
                     var uncompressedLengthBytes = _allocator.Allocate(UncompressedLengthSize);
                     BinaryPrimitives.WriteInt64LittleEndian(uncompressedLengthBytes.Memory.Span, 0);
-                    bufferToWrite = new ArrowBuffer(uncompressedLengthBytes);
+                    bufferToWrite = uncompressedLengthBytes.Memory;
                 }
                 else
                 {
@@ -266,14 +313,14 @@ namespace Apache.Arrow.Ipc
                     // compressed buffers are stored.
                     _compressionStream.Seek(0, SeekOrigin.Begin);
                     _compressionStream.SetLength(0);
-                    _compressionCodec.Compress(buffer.Memory, _compressionStream);
+                    _compressionCodec.Compress(buffer, _compressionStream);
                     if (_compressionStream.Length < buffer.Length)
                     {
                         var newBuffer = _allocator.Allocate((int) _compressionStream.Length + UncompressedLengthSize);
                         BinaryPrimitives.WriteInt64LittleEndian(newBuffer.Memory.Span, buffer.Length);
                         _compressionStream.Seek(0, SeekOrigin.Begin);
                         _compressionStream.ReadFullBuffer(newBuffer.Memory.Slice(UncompressedLengthSize));
-                        bufferToWrite = new ArrowBuffer(newBuffer);
+                        bufferToWrite = newBuffer.Memory;
                     }
                     else
                     {
@@ -281,8 +328,8 @@ namespace Apache.Arrow.Ipc
                         // buffer instead, and indicate this by setting the uncompressed length to -1
                         var newBuffer = _allocator.Allocate(buffer.Length + UncompressedLengthSize);
                         BinaryPrimitives.WriteInt64LittleEndian(newBuffer.Memory.Span, -1);
-                        buffer.Memory.CopyTo(newBuffer.Memory.Slice(UncompressedLengthSize));
-                        bufferToWrite = new ArrowBuffer(newBuffer);
+                        buffer.CopyTo(newBuffer.Memory.Slice(UncompressedLengthSize));
+                        bufferToWrite = newBuffer.Memory;
                     }
                 }
 
@@ -461,8 +508,6 @@ namespace Apache.Arrow.Ipc
         private protected async Task WriteRecordBatchInternalAsync(RecordBatch recordBatch,
             CancellationToken cancellationToken = default)
         {
-            // TODO: Truncate buffers with extraneous padding / unused capacity
-
             if (!HasWrittenSchema)
             {
                 await WriteSchemaAsync(Schema, cancellationToken).ConfigureAwait(false);
@@ -506,11 +551,11 @@ namespace Apache.Arrow.Ipc
 
             for (int i = 0; i < buffers.Count; i++)
             {
-                ArrowBuffer buffer = buffers[i].DataBuffer;
+                ReadOnlyMemory<byte> buffer = buffers[i].DataBuffer;
                 if (buffer.IsEmpty)
                     continue;
 
-                WriteBuffer(buffer);
+                BaseStream.Write(buffer);
 
                 int paddedLength = checked((int)BitUtility.RoundUpToMultipleOf8(buffer.Length));
                 int padding = paddedLength - buffer.Length;
@@ -537,11 +582,11 @@ namespace Apache.Arrow.Ipc
 
             for (int i = 0; i < buffers.Count; i++)
             {
-                ArrowBuffer buffer = buffers[i].DataBuffer;
+                ReadOnlyMemory<byte> buffer = buffers[i].DataBuffer;
                 if (buffer.IsEmpty)
                     continue;
 
-                await WriteBufferAsync(buffer, cancellationToken).ConfigureAwait(false);
+                await BaseStream.WriteAsync(buffer, cancellationToken).ConfigureAwait(false);
 
                 int paddedLength = checked((int)BitUtility.RoundUpToMultipleOf8(buffer.Length));
                 int padding = paddedLength - buffer.Length;
@@ -781,16 +826,6 @@ namespace Apache.Arrow.Ipc
                 await WriteEndInternalAsync(cancellationToken);
                 HasWrittenEnd = true;
             }
-        }
-
-        private void WriteBuffer(ArrowBuffer arrowBuffer)
-        {
-            BaseStream.Write(arrowBuffer.Memory);
-        }
-
-        private ValueTask WriteBufferAsync(ArrowBuffer arrowBuffer, CancellationToken cancellationToken = default)
-        {
-            return BaseStream.WriteAsync(arrowBuffer.Memory, cancellationToken);
         }
 
         private protected Offset<Flatbuf.Schema> SerializeSchema(Schema schema)
@@ -1049,11 +1084,16 @@ namespace Apache.Arrow.Ipc
 
         protected int CalculatePadding(long offset, int alignment = 8)
         {
-            long result = BitUtility.RoundUpToMultiplePowerOfTwo(offset, alignment) - offset;
+            long result = CalculatePaddedLength(offset, alignment) - offset;
             checked
             {
                 return (int)result;
             }
+        }
+
+        private static long CalculatePaddedLength(long offset, int alignment = 8)
+        {
+            return BitUtility.RoundUpToMultiplePowerOfTwo(offset, alignment);
         }
 
         private protected void WritePadding(int length)
