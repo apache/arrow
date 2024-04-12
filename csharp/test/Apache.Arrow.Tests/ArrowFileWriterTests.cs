@@ -118,20 +118,6 @@ namespace Apache.Arrow.Tests
             // Temporarily only test some types
             var excludedTypes = new HashSet<ArrowTypeId>
             {
-                ArrowTypeId.Boolean,
-                ArrowTypeId.Binary,
-                ArrowTypeId.BinaryView,
-                ArrowTypeId.FixedSizedBinary,
-                ArrowTypeId.List,
-                ArrowTypeId.ListView,
-                ArrowTypeId.FixedSizeList,
-                ArrowTypeId.Map,
-                ArrowTypeId.Dictionary,
-                ArrowTypeId.String,
-                ArrowTypeId.StringView,
-                ArrowTypeId.Struct,
-                ArrowTypeId.Decimal128,
-                ArrowTypeId.Decimal256,
                 ArrowTypeId.Union,
             };
 

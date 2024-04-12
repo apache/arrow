@@ -128,24 +128,24 @@ namespace Apache.Arrow.Ipc
 
             public void Visit(ListArray array)
             {
-                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
-                _buffers.Add(CreateBuffer(array.ValueOffsetsBuffer));
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
+                _buffers.Add(CreateSlicedBuffer<int>(array.ValueOffsetsBuffer, array.Offset, array.Length + 1));
 
                 array.Values.Accept(this);
             }
 
             public void Visit(ListViewArray array)
             {
-                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
-                _buffers.Add(CreateBuffer(array.ValueOffsetsBuffer));
-                _buffers.Add(CreateBuffer(array.SizesBuffer));
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
+                _buffers.Add(CreateSlicedBuffer<int>(array.ValueOffsetsBuffer, array.Offset, array.Length));
+                _buffers.Add(CreateSlicedBuffer<int>(array.SizesBuffer, array.Offset, array.Length));
 
                 array.Values.Accept(this);
             }
 
             public void Visit(FixedSizeListArray array)
             {
-                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
 
                 array.Values.Accept(this);
             }
@@ -156,15 +156,15 @@ namespace Apache.Arrow.Ipc
 
             public void Visit(BinaryArray array)
             {
-                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
-                _buffers.Add(CreateBuffer(array.ValueOffsetsBuffer));
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
+                _buffers.Add(CreateSlicedBuffer<int>(array.ValueOffsetsBuffer, array.Offset, array.Length + 1));
                 _buffers.Add(CreateBuffer(array.ValueBuffer));
             }
 
             public void Visit(BinaryViewArray array)
             {
-                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
-                _buffers.Add(CreateBuffer(array.ViewsBuffer));
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
+                _buffers.Add(CreateSlicedBuffer<Scalars.BinaryView>(array.ViewsBuffer, array.Offset, array.Length));
                 for (int i = 0; i < array.DataBufferCount; i++)
                 {
                     _buffers.Add(CreateBuffer(array.DataBuffer(i)));
@@ -175,25 +175,18 @@ namespace Apache.Arrow.Ipc
 
             public void Visit(FixedSizeBinaryArray array)
             {
-                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
-                _buffers.Add(CreateBuffer(array.ValueBuffer));
+                var itemSize = ((FixedSizeBinaryType)array.Data.DataType).ByteWidth;
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
+                _buffers.Add(CreateSlicedBuffer(array.ValueBuffer, itemSize, array.Offset, array.Length));
             }
 
-            public void Visit(Decimal128Array array)
-            {
-                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
-                _buffers.Add(CreateBuffer(array.ValueBuffer));
-            }
+            public void Visit(Decimal128Array array) => Visit(array as FixedSizeBinaryArray);
 
-            public void Visit(Decimal256Array array)
-            {
-                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
-                _buffers.Add(CreateBuffer(array.ValueBuffer));
-            }
+            public void Visit(Decimal256Array array) => Visit(array as FixedSizeBinaryArray);
 
             public void Visit(StructArray array)
             {
-                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
 
                 for (int i = 0; i < array.Fields.Count; i++)
                 {
@@ -222,8 +215,7 @@ namespace Apache.Arrow.Ipc
                 // Dictionary is serialized separately in Dictionary serialization.
                 // We are only interested in indices at this context.
 
-                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
-                _buffers.Add(CreateBuffer(array.IndicesBuffer));
+                array.Indices.Accept(this);
             }
 
             public void Visit(NullArray array)
@@ -233,8 +225,8 @@ namespace Apache.Arrow.Ipc
 
             private void CreateBuffers(BooleanArray array)
             {
-                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
-                _buffers.Add(CreateBuffer(array.ValueBuffer));
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
+                _buffers.Add(CreateBitmapBuffer(array.ValueBuffer, array.Offset, array.Length));
             }
 
             private void CreateBuffers<T>(PrimitiveArray<T> array)
@@ -277,9 +269,13 @@ namespace Apache.Arrow.Ipc
             private Buffer CreateSlicedBuffer<T>(ArrowBuffer buffer, int offset, int length)
                 where T : struct
             {
-                var size = Unsafe.SizeOf<T>();
-                var byteOffset = offset * size;
-                var byteLength = length * size;
+                return CreateSlicedBuffer(buffer, Unsafe.SizeOf<T>(), offset, length);
+            }
+
+            private Buffer CreateSlicedBuffer(ArrowBuffer buffer, int itemSize, int offset, int length)
+            {
+                var byteOffset = offset * itemSize;
+                var byteLength = length * itemSize;
                 var paddedLength = (int)CalculatePaddedLength(byteLength);
                 var sliceLength = Math.Min(paddedLength, buffer.Length - byteOffset);
                 return CreateBuffer(buffer.Memory.Slice(byteOffset, sliceLength));
