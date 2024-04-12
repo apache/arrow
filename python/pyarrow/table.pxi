@@ -5816,7 +5816,7 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
             "Expected pandas DataFrame, python dictionary or list of arrays")
 
 
-def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none", **kwargs, int axis=0):
+def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none", int axis=0, **kwargs):
     """
     Concatenate pyarrow.Table objects.
 
@@ -5864,9 +5864,11 @@ def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none
     ----
     n_legs: [[2,4,5,100],[2,4]]
     animals: [["Flamingo","Horse","Brittle stars","Centipede"],["Parrot","Dog"]]
-
     """
-    if axis == 0:
+
+    cdef int axis_c = axis
+
+    if axis_c == 0:
         cdef:
             vector[shared_ptr[CTable]] c_tables
             shared_ptr[CTable] c_result_table
@@ -5900,7 +5902,7 @@ def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none
         return pyarrow_wrap_table(c_result_table)
 
     # mine
-    elif axis == 1:
+    elif axis_c == 1:
 
         cdef Table result
 
