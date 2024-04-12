@@ -70,6 +70,14 @@ func TestBitWriter(t *testing.T) {
 	assert.Equal(t, byte(2), buf[4])
 }
 
+func BenchmarkBitWriter(b *testing.B) {
+	buf := make([]byte, b.N)
+	bw := utils.NewBitWriter(utils.NewWriterAtBuffer(buf))
+	for i := 0; i < b.N; i++ {
+		assert.True(b, bw.WriteVlqInt(uint64(1)))
+	}
+}
+
 func TestBitReader(t *testing.T) {
 	buf := []byte{0xAA, 0xCC} // 0b10101010 0b11001100
 
