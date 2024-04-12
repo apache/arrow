@@ -124,7 +124,6 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
-import org.apache.arrow.vector.ipc.ArrowFileWriter;
 import org.apache.arrow.vector.ipc.WriteChannel;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -159,12 +158,12 @@ import com.google.protobuf.ProtocolStringList;
 public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   private static final String DATABASE_URI = "jdbc:derby:target/derbyDB";
   private static final Logger LOGGER = getLogger(FlightSqlExample.class);
-  private static final Calendar DEFAULT_CALENDAR = JdbcToArrowUtils.getUtcCalendar();
+  protected static final Calendar DEFAULT_CALENDAR = JdbcToArrowUtils.getUtcCalendar();
   // ARROW-15315: Use ExecutorService to simulate an async scenario
   private final ExecutorService executorService = Executors.newFixedThreadPool(10);
   private final Location location;
-  private final PoolingDataSource<PoolableConnection> dataSource;
-  private final BufferAllocator rootAllocator = new RootAllocator();
+  protected final PoolingDataSource<PoolableConnection> dataSource;
+  protected final BufferAllocator rootAllocator = new RootAllocator();
   private final Cache<ByteString, StatementContext<PreparedStatement>> preparedStatementLoadingCache;
   private final Cache<ByteString, StatementContext<Statement>> statementLoadingCache;
   private final SqlInfoBuilder sqlInfoBuilder;
@@ -779,7 +778,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     // Running on another thread
     Future<?> unused = executorService.submit(() -> {
       try {
-        final ByteString preparedStatementHandle = copyFrom(randomUUID().toString().getBytes(StandardCharsets.UTF_8));
+        final ByteString preparedStatementHandle = copyFrom(request.getQuery().getBytes(UTF_8));
         // Ownership of the connection will be passed to the context. Do NOT close!
         final Connection connection = dataSource.getConnection();
         final PreparedStatement preparedStatement = connection.prepareStatement(request.getQuery(),
@@ -912,43 +911,17 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     return () -> {
       assert statementContext != null;
       PreparedStatement preparedStatement = statementContext.getStatement();
-      JdbcParameterBinder binder = null;
 
       try {
         while (flightStream.next()) {
           final VectorSchemaRoot root = flightStream.getRoot();
-          binder = JdbcParameterBinder.builder(preparedStatement, root).bindAll().build();
+          final JdbcParameterBinder binder = JdbcParameterBinder.builder(preparedStatement, root).bindAll().build();
           while (binder.next()) {
             // Do not execute() - will be done in a getStream call
           }
-          final ByteArrayOutputStream out = new ByteArrayOutputStream();
-          try (
-                  ArrowFileWriter writer = new ArrowFileWriter(root, null, Channels.newChannel(out))
-          ) {
-            writer.start();
-            writer.writeBatch();
-          }
-          if (out.size() > 0) {
-            final DoPutPreparedStatementResult doPutPreparedStatementResult =
-                    DoPutPreparedStatementResult.newBuilder()
-                            .setPreparedStatementHandle(ByteString.copyFrom(ByteBuffer.wrap(out.toByteArray())))
-                            .build();
-
-            // Update prepared statement cache by storing with new handle and remove old entry.
-            preparedStatementLoadingCache.put(doPutPreparedStatementResult.getPreparedStatementHandle(),
-                    statementContext);
-            // TODO: If we invalidate old cached entry here this invalidates the statement, which is not what is needed.
-            // We need to re-cache the statementContext with a new key.
-            //            preparedStatementLoadingCache.invalidate(command.getPreparedStatementHandle());
-
-            try (final ArrowBuf buffer = rootAllocator.buffer(doPutPreparedStatementResult.getSerializedSize())) {
-              buffer.writeBytes(doPutPreparedStatementResult.toByteArray());
-              ackStream.onNext(PutResult.metadata(buffer));
-            }
-          }
         }
 
-      } catch (SQLException | IOException e) {
+      } catch (SQLException e) {
         ackStream.onError(CallStatus.INTERNAL
             .withDescription("Failed to bind parameters: " + e.getMessage())
             .withCause(e)
