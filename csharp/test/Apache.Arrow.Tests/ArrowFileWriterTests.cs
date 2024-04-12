@@ -115,13 +115,7 @@ namespace Apache.Arrow.Tests
         [InlineData(16, 45)]
         public async Task WriteSlicedArrays(int sliceOffset, int sliceLength)
         {
-            // Temporarily only test some types
-            var excludedTypes = new HashSet<ArrowTypeId>
-            {
-                ArrowTypeId.Union,
-            };
-
-            var originalBatch = TestData.CreateSampleRecordBatch(length: 100, excludedTypes: excludedTypes);
+            var originalBatch = TestData.CreateSampleRecordBatch(length: 100);
             var slicedArrays = originalBatch.Arrays
                 .Select(array => ArrowArrayFactory.Slice(array, sliceOffset, sliceLength))
                 .ToList();

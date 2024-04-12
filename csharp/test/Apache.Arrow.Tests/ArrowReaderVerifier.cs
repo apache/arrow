@@ -178,7 +178,7 @@ namespace Apache.Arrow.Tests
                 Assert.Equal(expectedArray.Mode, array.Mode);
                 Assert.Equal(expectedArray.Length, array.Length);
                 Assert.Equal(expectedArray.NullCount, array.NullCount);
-                Assert.Equal(expectedArray.Offset, array.Offset);
+                Assert.Equal(0, array.Offset);
                 Assert.Equal(expectedArray.Data.Children.Length, array.Data.Children.Length);
                 Assert.Equal(expectedArray.Fields.Count, array.Fields.Count);
 

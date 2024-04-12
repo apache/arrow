@@ -196,16 +196,17 @@ namespace Apache.Arrow.Ipc
 
             public void Visit(UnionArray array)
             {
-                _buffers.Add(CreateBuffer(array.TypeBuffer));
+                _buffers.Add(CreateSlicedBuffer<byte>(array.TypeBuffer, array.Offset, array.Length));
 
                 ArrowBuffer? offsets = (array as DenseUnionArray)?.ValueOffsetBuffer;
                 if (offsets != null)
                 {
-                    _buffers.Add(CreateBuffer(offsets.Value));
+                    _buffers.Add(CreateSlicedBuffer<int>(offsets.Value, array.Offset, array.Length));
                 }
 
                 for (int i = 0; i < array.Fields.Count; i++)
                 {
+                    // Sparse union arrays will be sliced if required when accessed
                     array.Fields[i].Accept(this);
                 }
             }
@@ -413,10 +414,23 @@ namespace Apache.Arrow.Ipc
         {
             if (data.DataType is NestedType)
             {
-                // flatbuffer struct vectors have to be created in reverse order
-                for (int i = data.Children.Length - 1; i >= 0; i--)
+                // TODO: Tidy this up somehow, check other types, add more tests
+                if (data.DataType is UnionType {Mode: UnionMode.Sparse} || data.DataType is StructType)
                 {
-                    CreateSelfAndChildrenFieldNodes(data.Children[i]);
+                    for (int i = data.Children.Length - 1; i >= 0; i--)
+                    {
+                        var child = data.Children[i];
+                        var slicedChild = child.Slice(data.Offset, data.Length);
+                        CreateSelfAndChildrenFieldNodes(slicedChild);
+                    }
+                }
+                else
+                {
+                    // flatbuffer struct vectors have to be created in reverse order
+                    for (int i = data.Children.Length - 1; i >= 0; i--)
+                    {
+                        CreateSelfAndChildrenFieldNodes(data.Children[i]);
+                    }
                 }
             }
             Flatbuf.FieldNode.CreateFieldNode(Builder, data.Length, data.GetNullCount());
