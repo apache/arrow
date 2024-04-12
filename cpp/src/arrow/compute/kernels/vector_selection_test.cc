@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array/builder_nested.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
@@ -32,6 +33,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/fixed_width_test_util.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -1432,7 +1434,25 @@ TEST_F(TestTakeKernelWithLargeList, TakeLargeListInt32) {
   CheckTake(large_list(int32()), list_json, "[null, 1, 2, 0]", "[null, [1,2], null, []]");
 }
 
-class TestTakeKernelWithFixedSizeList : public TestTakeKernelTyped<FixedSizeListType> {};
+class TestTakeKernelWithFixedSizeList : public TestTakeKernelTyped<FixedSizeListType> {
+ protected:
+  void CheckTakeOnNestedLists(const std::shared_ptr<DataType>& inner_type,
+                              const std::vector<int>& list_sizes, int64_t length) {
+    using NLG = ::arrow::util::internal::NestedListGenerator;
+    // Create two equivalent lists: one as a FixedSizeList and another as a List.
+    ASSERT_OK_AND_ASSIGN(auto fsl_list,
+                         NLG::NestedFSLArray(inner_type, list_sizes, length));
+    ASSERT_OK_AND_ASSIGN(auto list, NLG::NestedListArray(inner_type, list_sizes, length));
+
+    ARROW_SCOPED_TRACE("CheckTakeOnNestedLists of type `", *fsl_list->type(), "`");
+
+    auto indices = ArrayFromJSON(int64(), "[1, 2, 4]");
+    // Use the Take on ListType as the reference implementation.
+    ASSERT_OK_AND_ASSIGN(auto expected_list, Take(*list, *indices));
+    ASSERT_OK_AND_ASSIGN(auto expected_fsl, Cast(*expected_list, fsl_list->type()));
+    DoCheckTake(fsl_list, indices, expected_fsl);
+  }
+};
 
 TEST_F(TestTakeKernelWithFixedSizeList, TakeFixedSizeListInt32) {
   std::string list_json = "[null, [1, null, 3], [4, 5, 6], [7, 8, null]]";
@@ -1452,6 +1472,42 @@ TEST_F(TestTakeKernelWithFixedSizeList, TakeFixedSizeListInt32) {
   this->TestNoValidityBitmapButUnknownNullCount(fixed_size_list(int32(), 3),
                                                 "[[1, null, 3], [4, 5, 6], [7, 8, null]]",
                                                 "[0, 1, 0]");
+}
+
+TEST_F(TestTakeKernelWithFixedSizeList, TakeFixedSizeListVarWidth) {
+  std::string list_json =
+      R"([["zero", "one", ""], ["two", "", "three"], ["four", "five", "six"], ["seven", "eight", ""]])";
+  CheckTake(fixed_size_list(utf8(), 3), list_json, "[]", "[]");
+  CheckTake(fixed_size_list(utf8(), 3), list_json, "[3, 2, 1]",
+            R"([["seven", "eight", ""], ["four", "five", "six"], ["two", "", "three"]])");
+  CheckTake(fixed_size_list(utf8(), 3), list_json, "[null, 2, 0]",
+            R"([null, ["four", "five", "six"], ["zero", "one", ""]])");
+  CheckTake(fixed_size_list(utf8(), 3), list_json, R"([null, null])", "[null, null]");
+  CheckTake(
+      fixed_size_list(utf8(), 3), list_json, "[3, 0, 0,3]",
+      R"([["seven", "eight", ""], ["zero", "one", ""], ["zero", "one", ""], ["seven", "eight", ""]])");
+  CheckTake(fixed_size_list(utf8(), 3), list_json, "[0, 1, 2, 3]", list_json);
+  CheckTake(fixed_size_list(utf8(), 3), list_json, "[2, 2, 2, 2, 2, 2, 1]",
+            R"([
+                 ["four", "five", "six"], ["four", "five", "six"],
+                 ["four", "five", "six"], ["four", "five", "six"],
+                 ["four", "five", "six"], ["four", "five", "six"],
+                 ["two", "", "three"]
+               ])");
+}
+
+TEST_F(TestTakeKernelWithFixedSizeList, TakeFixedSizeListModuloNesting) {
+  using NLG = ::arrow::util::internal::NestedListGenerator;
+  const std::vector<std::shared_ptr<DataType>> value_types = {
+      int16(),
+      int32(),
+      int64(),
+  };
+  NLG::VisitAllNestedListConfigurations(
+      value_types, [this](const std::shared_ptr<DataType>& inner_type,
+                          const std::vector<int>& list_sizes) {
+        this->CheckTakeOnNestedLists(inner_type, list_sizes, /*length=*/5);
+      });
 }
 
 class TestTakeKernelWithMap : public TestTakeKernelTyped<MapType> {};
