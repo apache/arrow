@@ -25,7 +25,7 @@ namespace Apache.Arrow
         protected IReadOnlyList<IArrowArray> _fields;
 
         public IReadOnlyList<IArrowArray> Fields =>
-            LazyInitializer.EnsureInitialized(ref _fields, () => InitializeFields());
+            LazyInitializer.EnsureInitialized(ref _fields, InitializeFields);
 
         public ArrayData Data { get; }
 
@@ -35,7 +35,7 @@ namespace Apache.Arrow
 
         public ArrowBuffer TypeBuffer => Data.Buffers[0];
 
-        public ReadOnlySpan<byte> TypeIds => TypeBuffer.Span;
+        public ReadOnlySpan<byte> TypeIds => TypeBuffer.Span.Slice(Offset, Length);
 
         public int Length => Data.Length;
 
@@ -106,7 +106,14 @@ namespace Apache.Arrow
             IArrowArray[] result = new IArrowArray[Data.Children.Length];
             for (int i = 0; i < Data.Children.Length; i++)
             {
-                result[i] = ArrowArrayFactory.BuildArray(Data.Children[i]);
+                var childData = Data.Children[i];
+                if (Mode == UnionMode.Sparse && (Data.Offset != 0 || childData.Length != Data.Length))
+                {
+                    // We only slice the child data for sparse mode,
+                    // so that the sliced value offsets remain valid in dense mode
+                    childData = childData.Slice(Data.Offset, Data.Length);
+                }
+                result[i] = ArrowArrayFactory.BuildArray(childData);
             }
             return result;
         }

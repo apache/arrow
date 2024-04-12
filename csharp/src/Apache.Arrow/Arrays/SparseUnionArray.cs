@@ -32,7 +32,6 @@ namespace Apache.Arrow
                 dataType, length, nullCount, offset, new[] { typeIds },
                 children.Select(child => child.Data)))
         {
-            _fields = children.ToArray();
             ValidateMode(UnionMode.Sparse, Type.Mode);
         }
 
