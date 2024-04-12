@@ -59,7 +59,8 @@ env:
 
 {%- macro github_install_archery() -%}
   - name: Set up Python by actions/setup-python
-    if: runner.arch == 'X64'
+    if: |
+      !(runner.os == 'Linux' && runner.arch != 'X64')
     uses: actions/setup-python@v4
     with:
       cache: 'pip'
@@ -86,7 +87,8 @@ env:
 
 {%- macro github_upload_releases(pattern) -%}
   - name: Set up Python by actions/setup-python
-    if: runner.arch == 'X64'
+    if: |
+      !(runner.os == 'Linux' && runner.arch != 'X64')
     uses: actions/setup-python@v4
     with:
       python-version: 3.12
