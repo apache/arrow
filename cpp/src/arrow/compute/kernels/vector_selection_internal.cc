@@ -65,24 +65,6 @@ void RegisterSelectionFunction(const std::string& name, FunctionDoc doc,
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
-Status PreallocatePrimitiveArrayData(KernelContext* ctx, int64_t length, int bit_width,
-                                     bool allocate_validity, ArrayData* out) {
-  // Preallocate memory
-  out->length = length;
-  out->buffers.resize(2);
-
-  if (allocate_validity) {
-    ARROW_ASSIGN_OR_RAISE(out->buffers[0], ctx->AllocateBitmap(length));
-  }
-  if (bit_width == 1) {
-    ARROW_ASSIGN_OR_RAISE(out->buffers[1], ctx->AllocateBitmap(length));
-  } else {
-    ARROW_ASSIGN_OR_RAISE(out->buffers[1],
-                          ctx->Allocate(bit_util::BytesForBits(length * bit_width)));
-  }
-  return Status::OK();
-}
-
 namespace {
 
 /// \brief Iterate over a REE filter, emitting ranges of a plain values array that

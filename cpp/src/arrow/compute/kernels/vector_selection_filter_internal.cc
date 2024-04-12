@@ -40,6 +40,7 @@
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/fixed_width_internal.h"
 
 namespace arrow {
 
@@ -469,8 +470,8 @@ Status PrimitiveFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult
   const bool allocate_validity = values.null_count != 0 || !filter_null_count_is_zero;
 
   const int bit_width = values.type->bit_width();
-  RETURN_NOT_OK(PreallocatePrimitiveArrayData(ctx, output_length, bit_width,
-                                              allocate_validity, out_arr));
+  RETURN_NOT_OK(util::internal::PreallocateFixedWidthArrayData(
+      ctx, output_length, /*source=*/values, allocate_validity, out_arr));
 
   switch (bit_width) {
     case 1:
