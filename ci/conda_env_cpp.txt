@@ -26,7 +26,7 @@ boost-cpp>=1.68.0
 brotli
 bzip2
 c-ares
-cmake
+cmake==3.29.0
 gflags
 glog
 gmock>=1.10.0
