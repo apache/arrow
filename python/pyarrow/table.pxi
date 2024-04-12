@@ -16,6 +16,7 @@
 # under the License.
 
 from cpython.pycapsule cimport PyCapsule_CheckExact, PyCapsule_GetPointer, PyCapsule_New
+from pyarrow.lib import ArrayVector, FieldVector
 
 import warnings
 from cython import sizeof
@@ -5926,8 +5927,8 @@ def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none
             names[i] = t1_names[i]
 
         for i in range(t2.num_columns):
-            arrays[t1.num_columns + i] = t2_columns[i]
-            names[t1.num_columns + i] = t2_names[i]
+            arrays[i + t1.num_columns] = t2_columns[i]
+            names[i + t1.num_columns] = t2_names[i]
 
         # Create a new table using the modified arrays and names
         result = Table.from_arrays(arrays=arrays, names=names)
