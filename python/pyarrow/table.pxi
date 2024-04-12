@@ -3389,24 +3389,20 @@ cdef class RecordBatch(_Tabular):
                 <CResult[shared_ptr[CArray]]>deref(c_record_batch).ToStructArray())
         return pyarrow_wrap_array(c_array)
 
-    def to_tensor(self, c_bool null_to_nan=False, c_bool row_major=True, MemoryPool memory_pool=None):
+    def to_tensor(self, c_bool null_to_nan=False, MemoryPool memory_pool=None):
         """
         Convert to a :class:`~pyarrow.Tensor`.
 
         RecordBatches that can be converted have fields of type signed or unsigned
-        integer or float, including all bit-widths.
-
-        ``null_to_nan`` is ``False`` by default and this method will raise an error in case
-        any nulls are present. RecordBatches with nulls can be converted with ``null_to_nan``
-        set to ``True``. In this case null values are converted to ``NaN`` and integer type
-        arrays are promoted to the appropriate float type.
+        integer or float, including all bit-widths. RecordBatches with validity bitmask
+        for any of the arrays can be converted with ``null_to_nan``turned to ``True``.
+        In this case null values are converted to NaN and signed or unsigned integer
+        type arrays are promoted to appropriate float type.
 
         Parameters
         ----------
         null_to_nan : bool, default False
             Whether to write null values in the result as ``NaN``.
-        row_major : bool, default True
-            Whether resulting Tensor is row-major or column-major
         memory_pool : MemoryPool, default None
             For memory allocations, if required, otherwise use default pool
 
@@ -3428,29 +3424,13 @@ cdef class RecordBatch(_Tabular):
         a: [1,2,3,4,null]
         b: [10,20,30,40,null]
 
-        Convert a RecordBatch to row-major Tensor with null values
-        written as ``NaN``s
-
         >>> batch.to_tensor(null_to_nan=True)
         <pyarrow.Tensor>
         type: double
         shape: (5, 2)
-        strides: (16, 8)
-        >>> batch.to_tensor(null_to_nan=True).to_numpy()
-        array([[ 1., 10.],
-               [ 2., 20.],
-               [ 3., 30.],
-               [ 4., 40.],
-               [nan, nan]])
-
-        Convert a RecordBatch to column-major Tensor
-
-        >>> batch.to_tensor(null_to_nan=True, row_major=False)
-        <pyarrow.Tensor>
-        type: double
-        shape: (5, 2)
         strides: (8, 40)
-        >>> batch.to_tensor(null_to_nan=True, row_major=False).to_numpy()
+
+        >>> batch.to_tensor(null_to_nan=True).to_numpy()
         array([[ 1., 10.],
                [ 2., 20.],
                [ 3., 30.],
@@ -3466,7 +3446,7 @@ cdef class RecordBatch(_Tabular):
         with nogil:
             c_tensor = GetResultValue(
                 <CResult[shared_ptr[CTensor]]>deref(c_record_batch).ToTensor(null_to_nan,
-                                                                             row_major, pool))
+                                                                             pool))
         return pyarrow_wrap_tensor(c_tensor)
 
     def _export_to_c(self, out_ptr, out_schema_ptr=0):
@@ -5836,7 +5816,7 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
             "Expected pandas DataFrame, python dictionary or list of arrays")
 
 
-def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none", **kwargs):
+def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none", **kwargs, int axis=0):
     """
     Concatenate pyarrow.Table objects.
 
@@ -5886,37 +5866,75 @@ def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none
     animals: [["Flamingo","Horse","Brittle stars","Centipede"],["Parrot","Dog"]]
 
     """
-    cdef:
-        vector[shared_ptr[CTable]] c_tables
-        shared_ptr[CTable] c_result_table
-        CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
-        Table table
-        CConcatenateTablesOptions options = (
-            CConcatenateTablesOptions.Defaults())
+    if axis == 0:
+        cdef:
+            vector[shared_ptr[CTable]] c_tables
+            shared_ptr[CTable] c_result_table
+            CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+            Table table
+            CConcatenateTablesOptions options = (
+                CConcatenateTablesOptions.Defaults())
 
-    if "promote" in kwargs:
-        warnings.warn(
-            "promote has been superseded by promote_options='default'.",
-            FutureWarning, stacklevel=2)
-        if kwargs['promote'] is True:
-            promote_options = "default"
+        if "promote" in kwargs:
+            warnings.warn(
+                "promote has been superseded by promote_options='default'.",
+                FutureWarning, stacklevel=2)
+            if kwargs['promote'] is True:
+                promote_options = "default"
 
-    for table in tables:
-        c_tables.push_back(table.sp_table)
+        for table in tables:
+            c_tables.push_back(table.sp_table)
 
-    if promote_options == "permissive":
-        options.field_merge_options = CField.CMergeOptions.Permissive()
-    elif promote_options in {"default", "none"}:
-        options.field_merge_options = CField.CMergeOptions.Defaults()
-    else:
-        raise ValueError(f"Invalid promote options: {promote_options}")
+        if promote_options == "permissive":
+            options.field_merge_options = CField.CMergeOptions.Permissive()
+        elif promote_options in {"default", "none"}:
+            options.field_merge_options = CField.CMergeOptions.Defaults()
+        else:
+            raise ValueError(f"Invalid promote options: {promote_options}")
 
-    with nogil:
-        options.unify_schemas = promote_options != "none"
-        c_result_table = GetResultValue(
-            ConcatenateTables(c_tables, options, pool))
+        with nogil:
+            options.unify_schemas = promote_options != "none"
+            c_result_table = GetResultValue(
+                ConcatenateTables(c_tables, options, pool))
 
-    return pyarrow_wrap_table(c_result_table)
+        return pyarrow_wrap_table(c_result_table)
+
+    # mine
+    elif axis == 1:
+
+    cdef Table result
+
+    if t1.num_columns == 0:
+        return t2
+    elif t2.num_columns == 0:
+        return t1
+
+    # Directly modify t1's columns and names
+    cdef ArrayVector t1_columns = t1.columns
+    cdef FieldVector t1_names = t1.schema.names
+
+    # Directly modify t2's columns and names
+    cdef ArrayVector t2_columns = t2.columns
+    cdef FieldVector t2_names = t2.schema.names
+
+    # Concatenate arrays and names
+    cdef ArrayVector arrays = ArrayVector(t1.num_columns + t2.num_columns)
+    cdef FieldVector names = FieldVector(t1.num_columns + t2.num_columns)
+
+    cdef int i
+    for i in range(t1.num_columns):
+        arrays[i] = t1_columns[i]
+        names[i] = t1_names[i]
+
+    for i in range(t2.num_columns):
+        arrays[t1.num_columns + i] = t2_columns[i]
+        names[t1.num_columns + i] = t2_names[i]
+
+    # Create a new table using the modified arrays and names
+    result = Table.from_arrays(arrays=arrays, names=names)
+    
+    return result
+
 
 
 def _from_pydict(cls, mapping, schema, metadata):
