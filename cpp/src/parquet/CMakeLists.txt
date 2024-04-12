@@ -144,12 +144,6 @@ set_source_files_properties("${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.cpp"
                             "${PARQUET_THRIFT_SOURCE_DIR}/parquet_constants.h"
                             PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                        SKIP_UNITY_BUILD_INCLUSION ON)
-
-if(NOT MSVC)
-  set_source_files_properties(src/parquet/parquet_types.cpp
-                              PROPERTIES COMPILE_FLAGS -Wno-unused-variable)
-endif()
-
 #
 # Library config
 
