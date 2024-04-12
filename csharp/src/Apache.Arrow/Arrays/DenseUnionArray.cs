@@ -48,5 +48,33 @@ namespace Apache.Arrow
             ValidateMode(UnionMode.Dense, Type.Mode);
             data.EnsureBufferCount(2);
         }
+
+        protected override bool FieldIsValid(IArrowArray fieldArray, int index)
+        {
+            return fieldArray.IsValid(ValueOffsets[index]);
+        }
+
+        internal new static int ComputeNullCount(ArrayData data)
+        {
+            var offset = data.Offset;
+            var length = data.Length;
+            var typeIds = data.Buffers[0].Span.Slice(offset, length);
+            var valueOffsets = data.Buffers[1].Span.CastTo<int>().Slice(offset, length);
+            var childArrays = new IArrowArray[data.Children.Length];
+            for (var childIdx = 0; childIdx < data.Children.Length; ++childIdx)
+            {
+                childArrays[childIdx] = ArrowArrayFactory.BuildArray(data.Children[childIdx]);
+            }
+
+            var nullCount = 0;
+            for (var i = 0; i < length; ++i)
+            {
+                var typeId = typeIds[i];
+                var valueOffset = valueOffsets[i];
+                nullCount += childArrays[typeId].IsNull(valueOffset) ? 1 : 0;
+            }
+
+            return nullCount;
+        }
     }
 }

@@ -41,9 +41,9 @@ namespace Apache.Arrow
 
         public int Offset => Data.Offset;
 
-        public int NullCount => Data.NullCount;
+        public int NullCount => Data.GetNullCount();
 
-        public bool IsValid(int index) => NullCount == 0 || Fields[TypeIds[index]].IsValid(index);
+        public bool IsValid(int index) => NullCount == 0 || FieldIsValid(Fields[TypeIds[index]], index);
 
         public bool IsNull(int index) => !IsValid(index);
 
@@ -64,6 +64,8 @@ namespace Apache.Arrow
         }
 
         public void Accept(IArrowArrayVisitor visitor) => Array.Accept(this, visitor);
+
+        protected abstract bool FieldIsValid(IArrowArray field, int index);
 
         public void Dispose()
         {
@@ -87,6 +89,16 @@ namespace Apache.Arrow
                     $"Specified union mode <{actual}> does not match expected mode <{expected}>",
                     "Mode");
             }
+        }
+
+        internal static int ComputeNullCount(ArrayData data)
+        {
+            return ((UnionType)data.DataType).Mode switch
+            {
+                UnionMode.Sparse => SparseUnionArray.ComputeNullCount(data),
+                UnionMode.Dense => DenseUnionArray.ComputeNullCount(data),
+                _ => throw new InvalidOperationException("unknown union mode in null count computation")
+            };
         }
 
         private IReadOnlyList<IArrowArray> InitializeFields()

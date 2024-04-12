@@ -808,10 +808,10 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
         "Invalid parameters startIndex: %s, length: %s for valueCount: %s", startIndex, length, valueCount);
     compareTypes(target, "splitAndTransferTo");
     target.clear();
-    splitAndTransferValidityBuffer(startIndex, length, target);
-    splitAndTransferOffsetBuffer(startIndex, length, target);
-    target.setLastSet(length - 1);
     if (length > 0) {
+      splitAndTransferValidityBuffer(startIndex, length, target);
+      splitAndTransferOffsetBuffer(startIndex, length, target);
+      target.setLastSet(length - 1);
       target.setValueCount(length);
     }
   }
