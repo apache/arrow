@@ -42,6 +42,7 @@ if [ -n "${ARROW_CONAN_WITH_BZ2:-}" ]; then
 fi
 if [ -n "${ARROW_CONAN_WITH_FLIGHT_RPC:-}" ]; then
   conan_args+=(--options arrow/*:with_flight_rpc=${ARROW_CONAN_WITH_FLIGHT_RPC})
+  conan_args+=(--options arrow/*:with_grpc=${ARROW_CONAN_WITH_FLIGHT_RPC})
   conan_args+=(--options arrow/*:with_protobuf=${ARROW_CONAN_WITH_FLIGHT_RPC})
   conan_args+=(--options arrow/*:with_re2=${ARROW_CONAN_WITH_FLIGHT_RPC})
 fi
