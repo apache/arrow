@@ -37,6 +37,7 @@
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/fixed_width_internal.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ree_util.h"
@@ -950,6 +951,33 @@ Status LargeListTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
 }
 
 Status FSLTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  const ArraySpan& values = batch[0].array;
+
+  // If a FixedSizeList wraps a fixed-width type we can, in some cases, use
+  // PrimitiveTakeExec for a fixed-size list array.
+  if (util::IsFixedWidthModuloNesting(values,
+                                      /*force_null_count=*/true,
+                                      /*extra_predicate=*/[](auto& fixed_width_type) {
+                                        // DICTIONARY is fixed-width but not supported by
+                                        // PrimitiveTakeExec.
+                                        return fixed_width_type.id() != Type::DICTIONARY;
+                                      })) {
+    const auto byte_width = util::FixedWidthInBytes(*values.type);
+    // Additionally, PrimitiveTakeExec is only implemented for specific byte widths.
+    // TODO(GH-41301): Extend PrimitiveTakeExec for any fixed-width type.
+    switch (byte_width) {
+      case 1:
+      case 2:
+      case 4:
+      case 8:
+      case 16:
+      case 32:
+        return PrimitiveTakeExec(ctx, batch, out);
+      default:
+        break;  // fallback to TakeExec<FSBSelectionImpl>
+    }
+  }
+
   return TakeExec<FSLSelectionImpl>(ctx, batch, out);
 }
 
