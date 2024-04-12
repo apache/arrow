@@ -376,7 +376,7 @@ namespace Apache.Arrow.Ipc
                     CreateSelfAndChildrenFieldNodes(data.Children[i]);
                 }
             }
-            Flatbuf.FieldNode.CreateFieldNode(Builder, data.Length, data.NullCount);
+            Flatbuf.FieldNode.CreateFieldNode(Builder, data.Length, data.GetNullCount());
         }
 
         private static int CountAllNodes(IReadOnlyList<Field> fields)

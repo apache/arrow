@@ -47,5 +47,26 @@ namespace Apache.Arrow
         {
             return fieldArray.IsValid(index);
         }
+
+        internal new static int ComputeNullCount(ArrayData data)
+        {
+            var offset = data.Offset;
+            var length = data.Length;
+            var typeIds = data.Buffers[0].Span.Slice(offset, length);
+            var childArrays = new IArrowArray[data.Children.Length];
+            for (var childIdx = 0; childIdx < data.Children.Length; ++childIdx)
+            {
+                childArrays[childIdx] = ArrowArrayFactory.BuildArray(data.Children[childIdx]);
+            }
+
+            var nullCount = 0;
+            for (var i = 0; i < data.Length; ++i)
+            {
+                var typeId = typeIds[i];
+                nullCount += childArrays[typeId].IsNull(offset + i) ? 1 : 0;
+            }
+
+            return nullCount;
+        }
     }
 }

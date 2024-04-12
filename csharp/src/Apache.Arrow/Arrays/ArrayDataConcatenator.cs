@@ -71,7 +71,7 @@ namespace Apache.Arrow
                 foreach (ArrayData arrayData in _arrayDataList)
                 {
                     _totalLength += arrayData.Length;
-                    _totalNullCount += arrayData.NullCount;
+                    _totalNullCount += arrayData.GetNullCount();
                 }
             }
 

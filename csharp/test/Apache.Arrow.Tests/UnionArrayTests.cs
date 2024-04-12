@@ -26,6 +26,46 @@ public class UnionArrayTests
     [InlineData(UnionMode.Dense)]
     public void UnionArray_IsNull(UnionMode mode)
     {
+        var (array, expectedNull) = BuildUnionArray(mode, 100);
+
+        for (var i = 0; i < array.Length; ++i)
+        {
+            Assert.Equal(expectedNull[i], array.IsNull(i));
+            Assert.Equal(!expectedNull[i], array.IsValid(i));
+        }
+    }
+
+    [Theory]
+    [InlineData(UnionMode.Sparse)]
+    [InlineData(UnionMode.Dense)]
+    public void UnionArray_Slice(UnionMode mode)
+    {
+        var (array, expectedNull) = BuildUnionArray(mode, 10);
+
+        for (var offset = 0; offset < array.Length; ++offset)
+        {
+            for (var length = 0; length < array.Length - offset; ++length)
+            {
+                var slicedArray = ArrowArrayFactory.Slice(array, offset, length);
+
+                var nullCount = 0;
+                for (var i = 0; i < slicedArray.Length; ++i)
+                {
+                    // TODO: Shouldn't need to add offset in IsNull/IsValid calls,
+                    // see https://github.com/apache/arrow/issues/41140
+                    Assert.Equal(expectedNull[offset + i], slicedArray.IsNull(offset + i));
+                    Assert.Equal(!expectedNull[offset + i], slicedArray.IsValid(offset + i));
+                    nullCount += expectedNull[offset + i] ? 1 : 0;
+                }
+
+                Assert.True(nullCount == slicedArray.NullCount, $"offset = {offset}, length = {length}");
+                Assert.Equal(nullCount, slicedArray.NullCount);
+            }
+        }
+    }
+
+    private static (UnionArray array, bool[] isNull) BuildUnionArray(UnionMode mode, int length)
+    {
         var fields = new Field[]
         {
             new Field("field0", new Int32Type(), true),
@@ -34,7 +74,6 @@ public class UnionArrayTests
         var typeIds = fields.Select(f => (int) f.DataType.TypeId).ToArray();
         var type = new UnionType(fields, typeIds, mode);
 
-        const int length = 100;
         var nullCount = 0;
         var field0Builder = new Int32Array.Builder();
         var field1Builder = new FloatArray.Builder();
@@ -44,7 +83,7 @@ public class UnionArrayTests
 
         for (var i = 0; i < length; ++i)
         {
-            var isNull = i % 5 == 0;
+            var isNull = i % 3 == 0;
             expectedNull[i] = isNull;
             nullCount += isNull ? 1 : 0;
 
@@ -104,10 +143,6 @@ public class UnionArrayTests
             ? new DenseUnionArray(type, length, children, typeIdsBuffer, valuesOffsetBuffer, nullCount)
             : new SparseUnionArray(type, length, children, typeIdsBuffer, nullCount);
 
-        for (var i = 0; i < length; ++i)
-        {
-            Assert.Equal(expectedNull[i], array.IsNull(i));
-            Assert.Equal(!expectedNull[i], array.IsValid(i));
-        }
+        return (array, expectedNull);
     }
 }
