@@ -24,7 +24,7 @@ namespace Apache.Arrow
     {
         public ArrowBuffer ValueOffsetBuffer => Data.Buffers[1];
 
-        public ReadOnlySpan<int> ValueOffsets => ValueOffsetBuffer.Span.CastTo<int>();
+        public ReadOnlySpan<int> ValueOffsets => ValueOffsetBuffer.Span.CastTo<int>().Slice(Offset, Length);
 
         public DenseUnionArray(
             IArrowType dataType,
@@ -38,7 +38,6 @@ namespace Apache.Arrow
                 dataType, length, nullCount, offset, new[] { typeIds, valuesOffsetBuffer },
                 children.Select(child => child.Data)))
         {
-            _fields = children.ToArray();
             ValidateMode(UnionMode.Dense, Type.Mode);
         }
 
