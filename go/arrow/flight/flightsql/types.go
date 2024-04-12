@@ -881,10 +881,11 @@ const (
 
 type CreatePreparedStatementResult = pb.ActionCreatePreparedStatementResult
 
-type TableDefinitionOptions = pb.CommandStatementIngest_TableDefinitionOptions
-
-type TableDefinitionOptionsTableNotExistOption = pb.CommandStatementIngest_TableDefinitionOptions_TableNotExistOption
-type TableDefinitionOptionsTableExistsOption = pb.CommandStatementIngest_TableDefinitionOptions_TableExistsOption
+type (
+	TableDefinitionOptions                    = pb.CommandStatementIngest_TableDefinitionOptions
+	TableDefinitionOptionsTableNotExistOption = pb.CommandStatementIngest_TableDefinitionOptions_TableNotExistOption
+	TableDefinitionOptionsTableExistsOption   = pb.CommandStatementIngest_TableDefinitionOptions_TableExistsOption
+)
 
 const (
 	TableDefinitionOptionsTableNotExistOptionUnspecified = pb.CommandStatementIngest_TableDefinitionOptions_TABLE_NOT_EXIST_OPTION_UNSPECIFIED
