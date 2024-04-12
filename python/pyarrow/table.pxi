@@ -3446,7 +3446,7 @@ cdef class RecordBatch(_Tabular):
         with nogil:
             c_tensor = GetResultValue(
                 <CResult[shared_ptr[CTensor]]>deref(c_record_batch).ToTensor(null_to_nan,
-                                                                             pool))
+                                                                             row_major, pool))
         return pyarrow_wrap_tensor(c_tensor)
 
     def _export_to_c(self, out_ptr, out_schema_ptr=0):
