@@ -132,7 +132,7 @@ public class UnionArrayTests
             new Field("field0", new Int32Type(), true),
             new Field("field1", new FloatType(), true),
         };
-        var typeIds = fields.Select(f => (int) f.DataType.TypeId).ToArray();
+        var typeIds = new[] { 0, 1 };
         var type = new UnionType(fields, typeIds, mode);
 
         var nullCount = 0;
