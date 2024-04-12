@@ -5868,37 +5868,38 @@ def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none
 
     cdef int axis_c = axis
 
+    cdef:
+        vector[shared_ptr[CTable]] c_tables
+        shared_ptr[CTable] c_result_table
+        CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+        Table table
+        CConcatenateTablesOptions options = (
+            CConcatenateTablesOptions.Defaults())
+
+    if "promote" in kwargs:
+        warnings.warn(
+            "promote has been superseded by promote_options='default'.",
+            FutureWarning, stacklevel=2)
+        if kwargs['promote'] is True:
+            promote_options = "default"
+
+    for table in tables:
+        c_tables.push_back(table.sp_table)
+
+    if promote_options == "permissive":
+        options.field_merge_options = CField.CMergeOptions.Permissive()
+    elif promote_options in {"default", "none"}:
+        options.field_merge_options = CField.CMergeOptions.Defaults()
+    else:
+        raise ValueError(f"Invalid promote options: {promote_options}")
+
+    with nogil:
+        options.unify_schemas = promote_options != "none"
+        c_result_table = GetResultValue(
+            ConcatenateTables(c_tables, options, pool))
+
+        
     if axis_c == 0:
-        cdef:
-            vector[shared_ptr[CTable]] c_tables
-            shared_ptr[CTable] c_result_table
-            CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
-            Table table
-            CConcatenateTablesOptions options = (
-                CConcatenateTablesOptions.Defaults())
-
-        if "promote" in kwargs:
-            warnings.warn(
-                "promote has been superseded by promote_options='default'.",
-                FutureWarning, stacklevel=2)
-            if kwargs['promote'] is True:
-                promote_options = "default"
-
-        for table in tables:
-            c_tables.push_back(table.sp_table)
-
-        if promote_options == "permissive":
-            options.field_merge_options = CField.CMergeOptions.Permissive()
-        elif promote_options in {"default", "none"}:
-            options.field_merge_options = CField.CMergeOptions.Defaults()
-        else:
-            raise ValueError(f"Invalid promote options: {promote_options}")
-
-        with nogil:
-            options.unify_schemas = promote_options != "none"
-            c_result_table = GetResultValue(
-                ConcatenateTables(c_tables, options, pool))
-
         return pyarrow_wrap_table(c_result_table)
 
     # mine
