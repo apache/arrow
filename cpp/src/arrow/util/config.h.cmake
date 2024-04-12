@@ -57,6 +57,7 @@
 #cmakedefine ARROW_GCS
 #cmakedefine ARROW_HDFS
 #cmakedefine ARROW_S3
+#cmakedefine ARROW_TEST_MEMCHECK
 #cmakedefine ARROW_USE_GLOG
 #cmakedefine ARROW_USE_NATIVE_INT128
 #cmakedefine ARROW_WITH_BROTLI
