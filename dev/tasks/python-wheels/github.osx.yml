@@ -50,7 +50,7 @@ jobs:
         run: |
           brew list
 
-      # CMake 3.29.1 that is pre-installed on the Windows image has a problem.
+      # CMake 3.29.1 that is pre-installed on the macOS image has a problem.
       # See also: https://github.com/microsoft/vcpkg/issues/37968
       - name: Install CMake 3.29.0
         shell: bash
