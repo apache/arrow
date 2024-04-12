@@ -29,7 +29,7 @@ fi
 release_candidate_tag=apache-arrow-${version}-rc${num}
 release_tag=apache-arrow-${version}
 git tag -a ${release_tag} ${release_candidate_tag}^{} -m "[Release] Apache Arrow Release ${version}"
-git push origin ${release_tag}
+git push apache ${release_tag}
 
 # Wait for the Publish Release workflow to finish.
 sleep 2s
