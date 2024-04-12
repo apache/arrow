@@ -5917,15 +5917,15 @@ def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none
 
     # mine
     elif axis_c == 1:
-        if t1.num_columns == 0:
-            return t2
-        elif t2.num_columns == 0:
-            return t1
+        if tables[0].num_columns == 0:
+            return tables[1]
+        elif tables[1].num_columns == 0:
+            return tables[0]
 
         arrays.extend(t1_columns)
         names.extend(t1_names)
 
-        for i in range(t2.num_columns):
+        for i in range(tables[1].num_columns):
             arrays.extend(t2_columns[i])
             names.extend(t2_names[i])
 
