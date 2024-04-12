@@ -16,7 +16,6 @@
 # under the License.
 
 from cpython.pycapsule cimport PyCapsule_CheckExact, PyCapsule_GetPointer, PyCapsule_New
-from pyarrow.lib import ArrayVector, FieldVector
 
 import warnings
 from cython import sizeof
@@ -5900,41 +5899,40 @@ def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none
             ConcatenateTables(c_tables, options, pool))
 
         
-    #### my constants/variables
-    cdef Table result
-    # Directly modify t1's columns and names
-    cdef ArrayVector t1_columns = t1.columns
-    cdef FieldVector t1_names = t1.schema.names
-    # Directly modify t2's columns and names
-    cdef ArrayVector t2_columns = t2.columns
-    cdef FieldVector t2_names = t2.schema.names
-    # Concatenate arrays and names
-    cdef ArrayVector arrays = ArrayVector(t1.num_columns + t2.num_columns)
-    cdef FieldVector names = FieldVector(t1.num_columns + t2.num_columns)
-    cdef int i
-    if axis_c == 0:
-        return pyarrow_wrap_table(c_result_table)
+   #### my constants/variables
+cdef Table result
+# Directly modify t1's columns and names
+cdef list t1_columns = list(t1.columns)
+cdef list t1_names = list(t1.schema.names)
+# Directly modify t2's columns and names
+cdef list t2_columns = list(t2.columns)
+cdef list t2_names = list(t2.schema.names)
+# Concatenate arrays and names
+cdef list arrays = []
+cdef list names = []
+cdef int i
 
-    # mine
-    elif axis_c == 1:
-        if t1.num_columns == 0:
-            return t2
-        elif t2.num_columns == 0:
-            return t1
+if axis_c == 0:
+    return pyarrow_wrap_table(c_result_table)
 
-        for i in range(t1.num_columns):
-            arrays[i] = t1_columns[i]
-            names[i] = t1_names[i]
+# mine
+elif axis_c == 1:
+    if t1.num_columns == 0:
+        return t2
+    elif t2.num_columns == 0:
+        return t1
 
-        for i in range(t2.num_columns):
-            arrays[i + t1.num_columns] = t2_columns[i]
-            names[i + t1.num_columns] = t2_names[i]
+    arrays.extend(t1_columns)
+    names.extend(t1_names)
 
-        # Create a new table using the modified arrays and names
-        result = Table.from_arrays(arrays=arrays, names=names)
-        
-        return result
+    for i in range(t2.num_columns):
+        arrays.extend(t2_columns[i])
+        names.extend(t2_names[i])
 
+    # Create a new table using the modified arrays and names
+    result = Table.from_arrays(arrays=arrays, names=names)
+    
+    return result
 
 
 def _from_pydict(cls, mapping, schema, metadata):
