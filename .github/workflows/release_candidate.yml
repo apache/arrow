@@ -21,8 +21,8 @@ on:
   push:
     tags:
       # Trigger workflow when a tag whose name matches the pattern
-      # pattern "apache-arrow-{MAJOR}.{MINOR}.{PATCH}" is pushed.
-      - "apache-arrow-[0-9]+.[0-9]+.[0-9]+"
+      #"apache-arrow-{MAJOR}.{MINOR}.{PATCH}-rc{RC_NUM}" is pushed.
+      - "apache-arrow-[0-9]+.[0-9]+.[0-9]+-rc[0-9]+"
 
 permissions:
   contents: write
@@ -40,34 +40,26 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Get Tag Name of Latest Release Candidate
-        run: |
-          rc_tag=$(gh release list | \
-                    cut -f3 | \
-                    grep -F "${GITHUB_REF_NAME}-rc" | \
-                    head -n1)
-          echo "Latest Release Candidate Tag: ${rc_tag}"
-          echo "RELEASE_CANDIDATE_TAG_NAME=${rc_tag}" >> ${GITHUB_ENV}
       - name: Store Version and Release Candidate Number
         run: |
-          version_with_rc=${RELEASE_CANDIDATE_TAG_NAME#apache-arrow-}
+          version_with_rc=${GITHUB_REF_NAME#apache-arrow-}
           version=${version_with_rc%-rc*}
           rc_num=${version_with_rc#${version}-rc}
           echo "VERSION_WITH_RC=${version_with_rc}" >> ${GITHUB_ENV}
           echo "VERSION=${version}" >> ${GITHUB_ENV}
           echo "RC_NUM=${rc_num}" >> ${GITHUB_ENV}
-      - name: Create Release Title
+      - name: Create Release Candidate Title
         run: |
-          title="Apache Arrow ${VERSION}"
-          echo "RELEASE_TITLE=${title}" >> ${GITHUB_ENV}
-      - name: Create Release Notes
+          title="Apache Arrow ${VERSION} RC${RC_NUM}"
+          echo "RELEASE_CANDIDATE_TITLE=${title}" >> ${GITHUB_ENV}
+      - name: Create Release Candidate Notes
         run: |
-          release_notes="https://arrow.apache.org/release/${VERSION}.html"
-          echo "Release Notes URL: ${release_notes}"
-          echo "RELEASE_NOTES=${release_notes}" >> ${GITHUB_ENV}
+          release_notes="Release Candidate: ${VERSION} RC${RC_NUM}"
+          echo "RELEASE_CANDIDATE_NOTES=${release_notes}" >> ${GITHUB_ENV}
       - name: Create GitHub Release
         run: |
           gh release create ${GITHUB_REF_NAME} \
             --verify-tag \
-            --title "${RELEASE_TITLE}" \
-            --notes "Release Notes: ${RELEASE_NOTES}" 
+            --prerelease \
+            --title "${RELEASE_CANDIDATE_TITLE}" \
+            --notes "Release Notes: ${RELEASE_CANDIDATE_NOTES}"
