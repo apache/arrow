@@ -1108,6 +1108,8 @@ includes a serialized Flatbuffer type along with an optional message
 body. We define this message format before describing how to serialize
 each constituent IPC message type.
 
+.. _ipc-message-format:
+
 Encapsulated message format
 ---------------------------
 

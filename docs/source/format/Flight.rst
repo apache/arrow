@@ -310,6 +310,8 @@ well, in which case any `authentication method supported by gRPC
 
 .. _Mutual TLS (mTLS): https://grpc.io/docs/guides/auth/#supported-auth-mechanisms
 
+.. _flight-location-uris:
+
 Location URIs
 =============
 
