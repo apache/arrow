@@ -110,7 +110,7 @@ integration tests, you would do:
 Code Style
 ==========
 
-Code style is enforced with Checkstyle. The configuration is located at `checkstyle`_.
+Java code style is enforced with Checkstyle. The configuration is located at `checkstyle`_.
 You can also just check the style without building the project.
 This checks the code style of all source code under the current directory or from within an individual module.
 
@@ -118,7 +118,22 @@ This checks the code style of all source code under the current directory or fro
 
     $ mvn checkstyle:check
 
+Maven `pom.xml` style is enforced with Spotless using `Apache Maven pom.xml guidelines`_
+You can also just check the style without building the project.
+This checks the style of all pom.xml files under the current directory or from within an individual module.
+
+.. code-block::
+
+    $ mvn spotless:check
+
+This applies the style to all pom.xml files under the current directory or from within an individual module.
+
+.. code-block::
+
+    $ mvn spotless:apply
+
 .. _benchmark: https://github.com/ursacomputing/benchmarks
 .. _archery: https://github.com/apache/arrow/blob/main/dev/conbench_envs/README.md#L188
 .. _conbench: https://github.com/conbench/conbench
 .. _checkstyle: https://github.com/apache/arrow/blob/main/java/dev/checkstyle/checkstyle.xml
+.. _Apache Maven pom.xml guidelines: https://maven.apache.org/developers/conventions/code.html#pom-code-convention
