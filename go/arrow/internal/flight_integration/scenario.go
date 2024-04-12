@@ -2979,7 +2979,7 @@ func (m *flightSqlIngestionScenarioTester) RunClient(addr string, opts ...grpc.D
 func (m *flightSqlIngestionScenarioTester) ValidateIngestion(client *flightsql.Client) error {
 	ctx := context.Background()
 	opts := getIngestOptions()
-	ingestResult, err := client.ExecuteIngest(ctx, getIngestRecords(), &opts)
+	ingestResult, err := client.ExecuteIngest(ctx, getIngestRecords(), opts)
 	if err != nil {
 		return err
 	}
@@ -3039,7 +3039,7 @@ func (m *flightSqlIngestionScenarioTester) DoPutCommandStatementIngest(ctx conte
 }
 
 // Options to assert before/after mocked ingest call
-func getIngestOptions() flightsql.ExecuteIngestOpts {
+func getIngestOptions() *flightsql.ExecuteIngestOpts {
 	tableDefinitionOptions := flightsql.TableDefinitionOptions{
 		IfNotExist: flightsql.TableDefinitionOptionsTableNotExistOptionCreate,
 		IfExists:   flightsql.TableDefinitionOptionsTableExistsOptionReplace,
@@ -3054,7 +3054,7 @@ func getIngestOptions() flightsql.ExecuteIngestOpts {
 		"key2": "val2",
 	}
 
-	return flightsql.ExecuteIngestOpts{
+	return &flightsql.ExecuteIngestOpts{
 		TableDefinitionOptions: &tableDefinitionOptions,
 		Table:                  table,
 		Schema:                 &schema,
