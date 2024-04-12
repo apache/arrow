@@ -5899,14 +5899,14 @@ def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none
             ConcatenateTables(c_tables, options, pool))
 
         
-   #### my constants/variables
+    #### my constants/variables
     cdef Table result
     # Directly modify t1's columns and names
-    cdef list t1_columns = list(t1.columns)
-    cdef list t1_names = list(t1.schema.names)
+    cdef list t1_columns = list(tables[0].columns)
+    cdef list t1_names = list(tables[0].schema.names)
     # Directly modify t2's columns and names
-    cdef list t2_columns = list(t2.columns)
-    cdef list t2_names = list(t2.schema.names)
+    cdef list t2_columns = list(tables[1].columns)
+    cdef list t2_names = list(tables[1].schema.names)
     # Concatenate arrays and names
     cdef list arrays = []
     cdef list names = []
