@@ -37,6 +37,7 @@
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/fixed_width_internal.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/ree_util.h"
 
@@ -590,8 +591,9 @@ Status PrimitiveTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
   // allocating the validity bitmap altogether and save time and space. A
   // streamlined PrimitiveTakeImpl would need to be written that skips all
   // interactions with the output validity bitmap, though.
-  RETURN_NOT_OK(PreallocatePrimitiveArrayData(ctx, indices.length, bit_width,
-                                              /*allocate_validity=*/true, out_arr));
+  RETURN_NOT_OK(util::internal::PreallocateFixedWidthArrayData(
+      ctx, indices.length, /*source=*/values,
+      /*allocate_validity=*/true, out_arr));
   switch (bit_width) {
     case 1:
       TakeIndexDispatch<BooleanTakeImpl>(values, indices, out_arr);
