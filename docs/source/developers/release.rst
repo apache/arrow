@@ -333,12 +333,10 @@ Be sure to go through on the following checklist:
 
    .. code-block:: Bash
 
-    A committer push the release tag to GitHub to create the GitHub Release:
+    A committer must push the release tag to GitHub:
 
       # dev/release/post-01-tag.sh 0.1.0 0
       dev/release/post-01-tag.sh <version> <rc>
-
-    Note: You must have GitHub CLI installed locally.
 
 .. dropdown:: Upload source release artifacts to Subversion
    :animate: fade-in-slide-down
