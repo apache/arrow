@@ -256,18 +256,16 @@ func (c *Client) ExecuteIngest(ctx context.Context, rdr array.RecordReader, reqO
 		updateResult pb.DoPutUpdateResult
 	)
 
+	cmd := (*pb.CommandStatementIngest)(reqOptions)
+
 	// Servers cannot infer defaults for these parameters, so we validate the request to ensure they are set.
-	if reqOptions.TableDefinitionOptions == nil {
+	if cmd.GetTableDefinitionOptions() == nil {
 		return 0, fmt.Errorf("cannot ExecuteIngest: invalid ExecuteIngestOpts, TableDefinitionOptions is required")
 	}
-	if reqOptions.Table == "" {
+	if cmd.GetTable() == "" {
 		return 0, fmt.Errorf("cannot ExecuteIngest: invalid ExecuteIngestOpts, Table is required")
 	}
 
-	rdr.Retain()
-	defer rdr.Release()
-
-	cmd := (*pb.CommandStatementIngest)(reqOptions)
 	if desc, err = descForCommand(cmd); err != nil {
 		return 0, err
 	}

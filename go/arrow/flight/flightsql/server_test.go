@@ -301,6 +301,13 @@ func (s *FlightSqlServerSuite) TestExecutePoll() {
 	s.Len(poll.GetInfo().Endpoint, 2)
 }
 
+func (s *FlightSqlServerSuite) TestExecuteIngestNil() {
+	// Ingest with nil options errors, but does not panic
+	nRecords, err := s.cl.ExecuteIngest(context.TODO(), nil, nil)
+	s.Error(err)
+	s.Equal(int64(0), nRecords)
+}
+
 func (s *FlightSqlServerSuite) TestExecuteIngestInvalid() {
 	reclist := []arrow.Record{}
 	rdr, err := array.NewRecordReader(arrow.NewSchema([]arrow.Field{}, nil), reclist)
