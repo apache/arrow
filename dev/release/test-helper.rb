@@ -106,6 +106,8 @@ module VersionDetectable
     @snapshot_major_version = @snapshot_version.split(".")[0]
     @release_version = @snapshot_version.gsub(/-SNAPSHOT\z/, "")
     @release_compatible_version = @release_version.split(".")[0, 2].join(".")
+    @release_python_canonicalized_version =
+      @release_version.gsub(/(?:\.0)+\z/, "")
     @so_version = compute_so_version(@release_version)
     next_version_components = @release_version.split(".")
     case release_type
