@@ -831,7 +831,9 @@ test_glib() {
   show_header "Build and test C GLib libraries"
 
   # Build and test C GLib
-  maybe_setup_conda glib gobject-introspection meson ninja ruby
+  # We can unpin gobject-introspection after
+  # https://github.com/conda-forge/glib-feedstock/pull/174 is merged.
+  maybe_setup_conda glib gobject-introspection=1.78.1 meson ninja ruby
   maybe_setup_virtualenv meson
 
   # Install bundler if doesn't exist
