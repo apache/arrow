@@ -19,6 +19,7 @@ import pytest
 import pyarrow as pa
 from pyarrow import Codec
 from pyarrow import fs
+from pyarrow.lib import is_threading_enabled
 
 import numpy as np
 
@@ -51,6 +52,7 @@ groups = [
     'slow',
     'requires_testing_data',
     'zstd',
+    'threading',
 ]
 
 defaults = {
@@ -81,6 +83,7 @@ defaults = {
     'slow': False,
     'snappy': Codec.is_available('snappy'),
     'substrait': False,
+    'threading': is_threading_enabled(),
     'zstd': Codec.is_available('zstd'),
 }
 

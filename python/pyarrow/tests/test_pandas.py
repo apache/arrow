@@ -5115,6 +5115,7 @@ def test_nested_chunking_valid():
               schema=schema)
 
 
+@pytest.mark.threading
 def test_is_data_frame_race_condition():
     # See https://github.com/apache/arrow/issues/39313
     test_util.invoke_script('arrow_39313.py')

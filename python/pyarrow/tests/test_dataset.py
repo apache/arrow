@@ -4106,6 +4106,7 @@ def test_write_dataset_with_scanner(tempdir):
 
 
 @pytest.mark.parquet
+@pytest.mark.threading
 def test_write_dataset_with_backpressure(tempdir):
     consumer_gate = threading.Event()
 

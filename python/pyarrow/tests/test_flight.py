@@ -960,6 +960,7 @@ def test_server_exit_reraises_exception():
             raise ValueError()
 
 
+@pytest.mark.threading
 @pytest.mark.slow
 def test_client_wait_for_available():
     location = ('localhost', find_free_port())
@@ -1603,6 +1604,7 @@ def test_cancel_do_get():
             reader.read_chunk()
 
 
+@pytest.mark.threading
 @pytest.mark.slow
 def test_cancel_do_get_threaded():
     """Test canceling a DoGet operation from another thread."""
@@ -2067,6 +2069,7 @@ class CancelFlightServer(FlightServerBase):
             time.sleep(0.5)
 
 
+@pytest.mark.threading
 def test_interrupt():
     if threading.current_thread().ident != threading.main_thread().ident:
         pytest.skip("test only works from main Python thread")

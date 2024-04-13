@@ -33,6 +33,9 @@ import pyarrow as pa
 import pyarrow.tests.strategies as past
 
 
+@pytest.mark.skipif(
+    sys.platform == "emscripten", reason="Emscripten can't run processes"
+)
 def test_total_bytes_allocated():
     code = """if 1:
     import pyarrow as pa
