@@ -33,7 +33,6 @@
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/async_generator.h"
-#include "arrow/util/config.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/vector.h"
@@ -753,7 +752,7 @@ void GenericFileSystemTest::TestGetFileInfoSelector(FileSystem* fs) {
 }
 
 void GenericFileSystemTest::TestGetFileInfoGenerator(FileSystem* fs) {
-#if defined(ADDRESS_SANITIZER) || defined(ARROW_TEST_MEMCHECK)
+#if defined(ADDRESS_SANITIZER) || defined(ARROW_VALGRIND)
   if (have_false_positive_memory_leak_with_generator()) {
     GTEST_SKIP() << "Filesystem have false positive memory leak with generator";
   }
