@@ -1236,10 +1236,17 @@ func (p *PreparedStatement) captureDoPutPreparedStatementHandle(pstream pb.Fligh
 	if result, err = pstream.Recv(); err != nil && err != io.EOF {
 		return err
 	}
+	// skip if server does not provide a response (legacy server)
+	if result == nil {
+		return nil
+	}
 	if err = proto.Unmarshal(result.GetAppMetadata(), &preparedStatementResult); err != nil {
 		return err
 	}
-	p.handle = preparedStatementResult.GetPreparedStatementHandle()
+	handle := preparedStatementResult.GetPreparedStatementHandle()
+	if handle != nil {
+		p.handle = handle
+	}
 	return nil
 }
 
