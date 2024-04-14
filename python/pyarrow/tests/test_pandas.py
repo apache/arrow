@@ -2946,6 +2946,7 @@ class TestConvertMisc:
     def test_non_threaded_conversion(self):
         _non_threaded_conversion()
 
+    @pytest.mark.threading
     def test_threaded_conversion_multiprocess(self):
         # Parallel conversion should work from child processes too (ARROW-2963)
         pool = mp.Pool(2)
