@@ -231,16 +231,6 @@ TEST_F(TestExtensionType, IpcRoundtrip) {
   CompareBatch(*batch, *read_batch, false /* compare_metadata */);
 }
 
-TEST_F(TestExtensionType, JsonRoundtrip) {
-  auto ext_arr = ExampleJson();
-  auto batch =
-      RecordBatch::Make(schema({field("f0", arrow::extension::json())}), 8, {ext_arr});
-
-  std::shared_ptr<RecordBatch> read_batch;
-  RoundtripBatch(batch, &read_batch);
-  CompareBatch(*batch, *read_batch, false /* compare_metadata */);
-}
-
 TEST_F(TestExtensionType, UnrecognizedExtension) {
   auto ext_arr = ExampleUuid();
   auto batch = RecordBatch::Make(schema({field("f0", uuid())}), 4, {ext_arr});

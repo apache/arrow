@@ -30,31 +30,34 @@
 namespace arrow {
 namespace extension {
 
-std::once_flag init_flag;
-
-std::shared_ptr<ExtensionType> json() {
-  std::call_once(init_flag, []() {
-    DCHECK_OK(RegisterExtensionType(std::make_shared<JsonExtensionType>()));
-  });
-  return GetExtensionType(JsonExtensionType::type_name());
-}
-
 bool JsonExtensionType::ExtensionEquals(const ExtensionType& other) const {
   const auto& other_ext = static_cast<const ExtensionType&>(other);
   return other_ext.extension_name() == this->extension_name();
 }
 
 Result<std::shared_ptr<DataType>> JsonExtensionType::Deserialize(
-    std::shared_ptr<DataType> storage_type, const std::string& serialized_data) const {
-  if (serialized_data != JsonExtensionType::type_name()) {
-    return Status::Invalid("Type identifier did not match");
+    std::shared_ptr<DataType> storage_type, const std::string& serialized) const {
+  if (!serialized.empty()) {
+    return Status::Invalid("Unexpected serialized metadata: '", serialized, "'");
   }
-  return json();
+  if (!storage_type->Equals(*utf8())) {
+    return Status::Invalid("Invalid storage type for JsonExtensionType: ",
+                           storage_type->ToString());
+  }
+  return std::make_shared<JsonExtensionType>();
 }
 
-std::string JsonExtensionType::Serialize() const {
-  return JsonExtensionType::type_name();
+std::string JsonExtensionType::Serialize() const { return ""; }
+
+std::shared_ptr<Array> JsonExtensionType::MakeArray(
+    std::shared_ptr<ArrayData> data) const {
+  DCHECK_EQ(data->type->id(), Type::EXTENSION);
+  DCHECK_EQ("arrow.json",
+            internal::checked_cast<const ExtensionType&>(*data->type).extension_name());
+  return std::make_shared<ExtensionArray>(data);
 }
+
+std::shared_ptr<DataType> json() { return std::make_shared<JsonExtensionType>(); }
 
 }  // namespace extension
 }  // namespace arrow
