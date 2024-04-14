@@ -71,22 +71,6 @@ endif()
 # this option is used to auto-set defaults for pyarrow build
 option(DUMP_ARROW_ARGUMENTS "Dump the arrow arguments then quit" OFF)
 
-if($ENV{PYODIDE})
-  # these variables are needed for building pyarrow on Emscripten
-  # if they aren't set, cmake cross compiling fails for python
-  # modules (at least under pyodide it does)
-  set(Python3_INCLUDE_DIR $ENV{PYTHONINCLUDE})
-  set(Python3_LIBRARY $ENV{CPYTHONLIB})
-  set(Python3_NumPy_INCLUDE_DIR $ENV{NUMPY_LIB}/core/include)
-  set(Python3_EXECUTABLE)
-  set(ENV{_PYTHON_SYSCONFIGDATA_NAME} $ENV{SYSCONFIG_NAME})
-
-  # remove any c++ standard settings from cflags and let cmake set it.
-  # n.b. this is here because pyodide sets -stdc++=14, which breaks pyarrow builds
-  string(REGEX REPLACE "-std=c\\+\\+[0-9]+" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
-
-endif()
-
 # Use the first Python installation on PATH, not the newest one
 set(Python3_FIND_STRATEGY "LOCATION")
 # On Windows, use registry last, not first
@@ -167,6 +151,8 @@ include(BuildUtils)
 # Cython generated code emits way to many warnings at CHECKIN and EVERYTHING
 set(BUILD_WARNING_LEVEL "PRODUCTION")
 
+
+
 # This must be synchronized with the definition in
 # cpp/cmake_modules/DefineOptions.cmake.
 if(NOT DEFINED ARROW_SIMD_LEVEL)
@@ -180,6 +166,24 @@ if(NOT DEFINED ARROW_RUNTIME_SIMD_LEVEL)
       CACHE STRING "Max runtime SIMD optimization level")
 endif()
 include(SetupCxxFlags)
+
+if($ENV{PYODIDE})
+  # these variables are needed for building pyarrow on Emscripten
+  # if they aren't set, cmake cross compiling fails for python
+  # modules (at least under pyodide it does)
+  set(Python3_INCLUDE_DIR $ENV{PYTHONINCLUDE})
+  set(Python3_LIBRARY $ENV{CPYTHONLIB})
+  set(Python3_NumPy_INCLUDE_DIR $ENV{NUMPY_LIB}/core/include)
+  set(Python3_EXECUTABLE)
+  set(ENV{_PYTHON_SYSCONFIGDATA_NAME} $ENV{SYSCONFIG_NAME})
+  set(CMAKE_C_COMPILER emcc)
+  set(CMAKE_CXX_COMPILER em++)
+
+  # remove any c++ standard settings from cflags and let cmake set it.
+  # n.b. this is here because pyodide sets -stdc++=14, which breaks pyarrow builds
+  string(REGEX REPLACE "-std=c\\+\\+[0-9]+" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
+endif()
+
 
 # Add common flags
 set(CMAKE_CXX_FLAGS "${CXX_COMMON_FLAGS} ${CMAKE_CXX_FLAGS}")
@@ -384,6 +388,9 @@ if(NOT PYARROW_CPP_LINK_LIBS)
 endif()
 
 add_library(arrow_python SHARED ${PYARROW_CPP_SRCS})
+target_compile_options(arrow_python PUBLIC "-fexceptions")
+
+
 target_include_directories(arrow_python PUBLIC ${PYARROW_CPP_ROOT_DIR}
                                                ${CMAKE_CURRENT_BINARY_DIR}/pyarrow/src)
 if(NOT CMAKE_VERSION VERSION_LESS 3.16)
@@ -665,7 +672,9 @@ if(PYARROW_BUILD_PARQUET)
     endif()
     set(PARQUET_LINK_LIBS Parquet::parquet_shared)
   else()
-    set(PARQUET_LINK_LIBS Parquet::parquet_static)
+  # don't link the static lib as it is 
+  # already in arrow_python
+  set(PARQUET_LINK_LIBS )
   endif()
   list(APPEND CYTHON_EXTENSIONS _parquet)
   if(PYARROW_BUILD_PARQUET_ENCRYPTION)
@@ -726,7 +735,10 @@ if(PYARROW_BUILD_SUBSTRAIT)
     endif()
     set(SUBSTRAIT_LINK_LIBS ArrowSubstrait::arrow_substrait_shared)
   else()
-    set(SUBSTRAIT_LINK_LIBS ArrowSubstrait::arrow_substrait_static)
+  # only link to the output of substrait, not to libarrow etc.
+  # if we link to the target directly we end up with multiple copies
+  # of libarrow / parquet etc. 
+  set(SUBSTRAIT_LINK_LIBS $<TARGET_FILE:ArrowSubstrait::arrow_substrait_static> )
   endif()
 
   list(APPEND CYTHON_EXTENSIONS _substrait)
@@ -801,8 +813,12 @@ foreach(module ${CYTHON_EXTENSIONS})
     set_target_properties(${module_name} PROPERTIES COMPILE_DEFINITIONS
                                                     "CYTHON_TRACE=1;CYTHON_TRACE_NOGIL=1")
   endif()
-
-  target_link_libraries(${module_name} PRIVATE ${LINK_LIBS})
+  # user this rather roundabout way of including, otherwise the
+  # in static linking mode the target will depend on libarrow and 
+  # build it into every cython extension
+  target_include_directories(${module_name} PUBLIC $<TARGET_PROPERTY:arrow_python,INTERFACE_INCLUDE_DIRECTORIES>)
+  target_link_libraries(${module_name} PUBLIC $<TARGET_FILE:arrow_python>)
+  add_dependencies(${module_name} arrow_python)
 
   install(TARGETS ${module_name} LIBRARY DESTINATION ".")
   foreach(output ${${module_name}_output})
@@ -868,3 +884,4 @@ if(PYARROW_BUILD_PARQUET)
     target_link_libraries(_parquet_encryption PRIVATE arrow_python_parquet_encryption)
   endif()
 endif()
+
