@@ -20,6 +20,7 @@ import pyarrow as pa
 from pyarrow import Codec
 from pyarrow import fs
 from pyarrow.lib import is_threading_enabled
+import sys
 
 import numpy as np
 
@@ -86,6 +87,9 @@ defaults = {
     'threading': is_threading_enabled(),
     'zstd': Codec.is_available('zstd'),
 }
+
+if sys.platform == "emscripten":
+    defaults['gdb'] = False
 
 try:
     import cython  # noqa

@@ -427,3 +427,18 @@ def get_library_dirs():
         append_library_dir(_os.path.dirname(_os.path.abspath(__file__)))
 
     return library_dirs
+
+# On emscripten we need to load the timezones from tzdata package
+# into where arrow expects them to be, otherwise all time
+# handling will break
+if _sys.platform == 'emscripten':
+    from pathlib import Path
+    from importlib import resources
+    from shutil import copytree
+    if not Path("/usr/share/zoneinfo").exists():
+        Path("/usr/share/").mkdir(parents=True,exist_ok=True)
+        try:
+            tzpath = resources.files("tzdata").joinpath("zoneinfo")
+            copytree(tzpath,"/usr/share/zoneinfo",dirs_exist_ok=True)
+        except (ImportError, IOError):
+            print("Arrow couldn't install timezone db to /usr/share/zoneinfo")
