@@ -147,7 +147,11 @@ namespace Apache.Arrow.Ipc
             {
                 _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
 
-                array.Values.Accept(this);
+                var listSize = ((FixedSizeListType)array.Data.DataType).ListSize;
+                var valuesSlice =
+                    ArrowArrayFactory.Slice(array.Values, array.Offset * listSize, array.Length * listSize);
+
+                valuesSlice.Accept(this);
             }
 
             public void Visit(StringArray array) => Visit(array as BinaryArray);
@@ -423,6 +427,12 @@ namespace Apache.Arrow.Ipc
                         var slicedChild = child.Slice(data.Offset, data.Length);
                         CreateSelfAndChildrenFieldNodes(slicedChild);
                     }
+                }
+                else if (data.DataType is FixedSizeListType fixedSizeListType)
+                {
+                    var listSize = fixedSizeListType.ListSize;
+                    var slicedChild = data.Children[0].Slice(data.Offset * listSize, data.Length * listSize);
+                    CreateSelfAndChildrenFieldNodes(slicedChild);
                 }
                 else
                 {

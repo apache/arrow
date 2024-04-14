@@ -425,7 +425,10 @@ namespace Apache.Arrow.Tests
 
                 CompareValidityBuffer(expectedArray.NullCount, _expectedArray.Length, expectedArray.NullBitmapBuffer, expectedArray.Offset, actualArray.NullBitmapBuffer);
 
-                actualArray.Values.Accept(new ArrayComparer(expectedArray.Values, _strictCompare));
+                var listSize = ((FixedSizeListType)expectedArray.Data.DataType).ListSize;
+                var expectedValuesSlice = ArrowArrayFactory.Slice(
+                    expectedArray.Values, expectedArray.Offset * listSize, expectedArray.Length * listSize);
+                actualArray.Values.Accept(new ArrayComparer(expectedValuesSlice, _strictCompare));
             }
 
             private void CompareValidityBuffer(int nullCount, int arrayLength, ArrowBuffer expectedValidityBuffer, int expectedBufferOffset, ArrowBuffer actualValidityBuffer)
