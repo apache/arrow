@@ -23,6 +23,7 @@
 #include "arrow/extension_type.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -33,21 +34,27 @@ class ARROW_EXPORT JsonExtensionType : public ExtensionType {
  public:
   JsonExtensionType() : ExtensionType(::arrow::utf8()) {}
 
-  static constexpr const char* type_name() { return "arrow.extension.json"; }
+  static constexpr const char* type_name() { return "arrow.json"; }
+
   std::string extension_name() const override { return type_name(); }
 
+  std::string ToString(bool show_metadata = false) const override {
+    return "extension<json>";
+  };
+
   bool ExtensionEquals(const ExtensionType& other) const override;
+
   Result<std::shared_ptr<DataType>> Deserialize(
       std::shared_ptr<DataType> storage_type,
       const std::string& serialized_data) const override;
+
   std::string Serialize() const override;
-  std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override {
-    return std::make_shared<ExtensionArray>(data);
-  }
+
+  std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override;
 };
 
 /// \brief Return a JsonExtensionType instance.
-ARROW_EXPORT std::shared_ptr<ExtensionType> json();
+ARROW_EXPORT std::shared_ptr<DataType> json();
 
 }  // namespace extension
 }  // namespace arrow

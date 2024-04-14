@@ -362,7 +362,6 @@ set(ARROW_SRCS
     device.cc
     extension_type.cc
     extension/json.cc
-    memory_pool.cc
     pretty_print.cc
     record_batch.cc
     result.cc
@@ -1194,6 +1193,7 @@ add_subdirectory(testing)
 add_subdirectory(array)
 add_subdirectory(c)
 add_subdirectory(compute)
+add_subdirectory(extension)
 add_subdirectory(io)
 add_subdirectory(tensor)
 add_subdirectory(util)
@@ -1236,7 +1236,6 @@ endif()
 
 if(ARROW_JSON)
   add_subdirectory(json)
-  add_subdirectory(extension)
 endif()
 
 if(ARROW_ORC)

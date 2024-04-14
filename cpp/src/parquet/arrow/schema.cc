@@ -429,7 +429,9 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
     case ArrowTypeId::EXTENSION: {
       auto ext_type = std::static_pointer_cast<::arrow::ExtensionType>(field->type());
       // Built-in JSON extension is handled differently.
-      if (ext_type->extension_name() == ::arrow::extension::json()->extension_name()) {
+      if (ext_type->extension_name() ==
+          std::static_pointer_cast<::arrow::ExtensionType>(::arrow::extension::json())
+              ->extension_name()) {
         type = ParquetType::BYTE_ARRAY;
         logical_type = LogicalType::JSON();
         break;
@@ -990,6 +992,7 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
   bool modified = false;
 
   auto& origin_type = origin_field.type();
+  auto inferred_type = inferred->field->type();
 
   if (origin_type->id() == ::arrow::Type::EXTENSION) {
     const auto& ex_type = checked_cast<const ::arrow::ExtensionType&>(*origin_type);
