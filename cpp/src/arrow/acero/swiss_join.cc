@@ -197,13 +197,14 @@ void RowArrayAccessor::VisitNulls(const RowTableImpl& rows, int column_id, int n
   }
 }
 
-Status RowArray::InitIfNeeded(MemoryPool* pool, const RowTableMetadata& row_metadata) {
+Status RowArray::InitIfNeeded(MemoryPool* pool,
+                              const std::vector<KeyColumnMetadata>& column_metadatas) {
   if (is_initialized_) {
     return Status::OK();
   }
-  encoder_.Init(row_metadata.column_metadatas, sizeof(uint64_t), sizeof(uint64_t));
-  RETURN_NOT_OK(rows_temp_.Init(pool, row_metadata));
-  RETURN_NOT_OK(rows_.Init(pool, row_metadata));
+  encoder_.Init(column_metadatas, sizeof(uint64_t), sizeof(uint64_t));
+  RETURN_NOT_OK(rows_temp_.Init(pool, encoder_.row_metadata()));
+  RETURN_NOT_OK(rows_.Init(pool, encoder_.row_metadata()));
   is_initialized_ = true;
   return Status::OK();
 }
@@ -214,11 +215,8 @@ Status RowArray::InitIfNeeded(MemoryPool* pool, const ExecBatch& batch) {
   }
   std::vector<KeyColumnMetadata> column_metadatas;
   RETURN_NOT_OK(ColumnMetadatasFromExecBatch(batch, &column_metadatas));
-  RowTableMetadata row_metadata;
-  row_metadata.FromColumnMetadataVector(column_metadatas, sizeof(uint64_t),
-                                        sizeof(uint64_t));
 
-  return InitIfNeeded(pool, row_metadata);
+  return InitIfNeeded(pool, column_metadatas);
 }
 
 Status RowArray::AppendBatchSelection(MemoryPool* pool, const ExecBatch& batch,
@@ -446,7 +444,7 @@ Status RowArrayMerge::PrepareForMerge(RowArray* target,
   ARROW_DCHECK(sources[0]->is_initialized_);
   const RowTableMetadata& metadata = sources[0]->rows_.metadata();
   ARROW_DCHECK(!target->is_initialized_);
-  RETURN_NOT_OK(target->InitIfNeeded(pool, metadata));
+  RETURN_NOT_OK(target->InitIfNeeded(pool, metadata.column_metadatas));
 
   // Sum the number of rows from all input sources and calculate their total
   // size.
@@ -1169,20 +1167,11 @@ Status SwissTableForJoinBuild::Init(SwissTableForJoin* target, int dop, int64_t 
   thread_states_.resize(dop_);
   prtn_locks_.Init(dop_, num_prtns_);
 
-  RowTableMetadata key_row_metadata;
-  key_row_metadata.FromColumnMetadataVector(key_types,
-                                            /*row_alignment=*/sizeof(uint64_t),
-                                            /*string_alignment=*/sizeof(uint64_t));
-  RowTableMetadata payload_row_metadata;
-  payload_row_metadata.FromColumnMetadataVector(payload_types,
-                                                /*row_alignment=*/sizeof(uint64_t),
-                                                /*string_alignment=*/sizeof(uint64_t));
-
   for (int i = 0; i < num_prtns_; ++i) {
     PartitionState& prtn_state = prtn_states_[i];
     RETURN_NOT_OK(prtn_state.keys.Init(hardware_flags_, pool_));
-    RETURN_NOT_OK(prtn_state.keys.keys()->InitIfNeeded(pool, key_row_metadata));
-    RETURN_NOT_OK(prtn_state.payloads.InitIfNeeded(pool, payload_row_metadata));
+    RETURN_NOT_OK(prtn_state.keys.keys()->InitIfNeeded(pool, key_types));
+    RETURN_NOT_OK(prtn_state.payloads.InitIfNeeded(pool, payload_types));
   }
 
   target_->dop_ = dop_;
