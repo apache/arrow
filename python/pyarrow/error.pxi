@@ -26,6 +26,7 @@ import os
 import signal
 import threading
 
+from pyarrow.lib import is_threading_enabled
 from pyarrow.util import _break_traceback_cycle_from_frame
 
 
@@ -215,9 +216,12 @@ cdef class SignalStopHandler:
                 # may have already activated a signal-receiving StopSource.
                 # Just warn instead of erroring out.
                 maybe_source.status().Warn()
-            else:
+            else:                
                 self._stop_token.init(deref(maybe_source).token())
-                self._enabled = True
+                if not is_threading_enabled():
+                    self._enabled = False
+                else:
+                    self._enabled = True
 
     def _init_signals(self):
         if (signal_handlers_enabled and
