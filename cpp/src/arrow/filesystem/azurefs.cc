@@ -1179,6 +1179,15 @@ Status CreateContainerIfNotExists(const std::string& container_name,
   }
 }
 
+FileInfo FileInfoFromPath(std::string_view container,
+                          const DataLake::Models::PathItem& path) {
+  FileInfo info{internal::ConcatAbstractPath(container, path.Name),
+                path.IsDirectory ? FileType::Directory : FileType::File};
+  info.set_size(path.FileSize);
+  info.set_mtime(std::chrono::system_clock::time_point{path.LastModified});
+  return info;
+}
+
 FileInfo DirectoryFileInfoFromPath(std::string_view path) {
   return FileInfo{std::string{internal::RemoveTrailingSlash(path)}, FileType::Directory};
 }
@@ -1576,7 +1585,7 @@ class AzureFileSystem::Impl {
   }
 
  private:
-  /// \pref location.container is not empty.
+  /// \pre location.container is not empty.
   template <typename ContainerClient>
   Status CheckDirExists(const ContainerClient& container_client,
                         const AzureLocation& location) {
@@ -1591,7 +1600,9 @@ class AzureFileSystem::Impl {
     if (info.type() == FileType::NotFound) {
       return PathNotFound(location);
     }
-    DCHECK_EQ(info.type(), FileType::Directory);
+    if (info.type() != FileType::Directory) {
+      return NotADir(location);
+    }
     return Status::OK();
   }
 
@@ -1619,6 +1630,50 @@ class AzureFileSystem::Impl {
     auto result = (offset == std::string_view::npos) ? s : s.substr(offset);
     DCHECK(!result.empty() && result.back() != internal::kSep);
     return result;
+  }
+
+  /// \brief List the paths at the root of a filesystem or some dir in a filesystem.
+  ///
+  /// \pre adlfs_client is the client for the filesystem named like the first
+  /// segment of select.base_dir.
+  Status GetFileInfoWithSelectorFromFileSystem(
+      const DataLake::DataLakeFileSystemClient& adlfs_client,
+      const Core::Context& context, Azure::Nullable<int32_t> page_size_hint,
+      const FileSelector& select, FileInfoVector* acc_results) {
+    ARROW_ASSIGN_OR_RAISE(auto base_location, AzureLocation::FromString(select.base_dir));
+
+    auto directory_client = adlfs_client.GetDirectoryClient(base_location.path);
+    bool found = false;
+    DataLake::ListPathsOptions options;
+    options.PageSizeHint = page_size_hint;
+
+    try {
+      auto list_response = directory_client.ListPaths(select.recursive, options, context);
+      for (; list_response.HasPage(); list_response.MoveToNextPage(context)) {
+        if (list_response.Paths.empty()) {
+          continue;
+        }
+        found = true;
+        for (const auto& path : list_response.Paths) {
+          if (path.Name == base_location.path && !path.IsDirectory) {
+            return NotADir(base_location);
+          }
+          acc_results->push_back(FileInfoFromPath(base_location.container, path));
+        }
+      }
+    } catch (const Storage::StorageException& exception) {
+      if (IsContainerNotFound(exception) || exception.ErrorCode == "PathNotFound") {
+        found = false;
+      } else {
+        return ExceptionToStatus(exception,
+                                 "Failed to list paths in a directory: ", select.base_dir,
+                                 ": ", directory_client.GetUrl());
+      }
+    }
+
+    return found || select.allow_not_found
+               ? Status::OK()
+               : ::arrow::fs::internal::PathNotFound(select.base_dir);
   }
 
   /// \brief List the blobs at the root of a container or some dir in a container.
@@ -1770,6 +1825,20 @@ class AzureFileSystem::Impl {
       return VisitContainers(context, std::move(on_container));
     }
 
+    auto adlfs_client = GetFileSystemClient(base_location.container);
+    ARROW_ASSIGN_OR_RAISE(auto hns_support, HierarchicalNamespaceSupport(adlfs_client));
+    if (hns_support == HNSSupport::kContainerNotFound) {
+      if (select.allow_not_found) {
+        return Status::OK();
+      } else {
+        return ::arrow::fs::internal::PathNotFound(select.base_dir);
+      }
+    }
+    if (hns_support == HNSSupport::kEnabled) {
+      return GetFileInfoWithSelectorFromFileSystem(adlfs_client, context, page_size_hint,
+                                                   select, acc_results);
+    }
+    DCHECK_EQ(hns_support, HNSSupport::kDisabled);
     auto container_client =
         blob_service_client_->GetBlobContainerClient(base_location.container);
     return GetFileInfoWithSelectorFromContainer(container_client, context, page_size_hint,
@@ -1818,8 +1887,67 @@ class AzureFileSystem::Impl {
                            const AzureLocation& location, bool recursive) {
     DCHECK(!location.container.empty());
     DCHECK(!location.path.empty());
-    // Non-recursive CreateDir calls require the parent directory to exist.
-    if (!recursive) {
+    if (recursive) {
+      // Recursive CreateDir calls require that all path segments be
+      // either a directory or not found.
+
+      // Check each path segment is a directory or not
+      // found. Nonexistent segments are collected to
+      // nonexistent_locations. We'll create directories for
+      // nonexistent segments later.
+      std::vector<AzureLocation> nonexistent_locations;
+      for (auto prefix = location; !prefix.path.empty(); prefix = prefix.parent()) {
+        ARROW_ASSIGN_OR_RAISE(auto info, GetFileInfo(container_client, prefix));
+        if (info.type() == FileType::File) {
+          return NotADir(prefix);
+        }
+        if (info.type() == FileType::NotFound) {
+          nonexistent_locations.push_back(prefix);
+        }
+      }
+      // Ensure container exists
+      ARROW_ASSIGN_OR_RAISE(auto container,
+                            AzureLocation::FromString(location.container));
+      ARROW_ASSIGN_OR_RAISE(auto container_info,
+                            GetContainerPropsAsFileInfo(container, container_client));
+      if (container_info.type() == FileType::NotFound) {
+        try {
+          container_client.CreateIfNotExists();
+        } catch (const Storage::StorageException& exception) {
+          return ExceptionToStatus(exception, "Failed to create directory '",
+                                   location.all, "': ", container_client.GetUrl());
+        }
+      }
+      // Create nonexistent directories from shorter to longer:
+      //
+      // Example:
+      //
+      // * location: /container/a/b/c/d/
+      // * Nonexistent path segments:
+      //   * /container/a/
+      //   * /container/a/c/
+      //   * /container/a/c/d/
+      // * target_locations:
+      //   1. /container/a/c/d/
+      //   2. /container/a/c/
+      //   3. /container/a/
+      //
+      // Create order:
+      //   1. /container/a/
+      //   2. /container/a/c/
+      //   3. /container/a/c/d/
+      for (size_t i = nonexistent_locations.size(); i > 0; --i) {
+        const auto& nonexistent_location = nonexistent_locations[i - 1];
+        try {
+          create_if_not_exists(container_client, nonexistent_location);
+        } catch (const Storage::StorageException& exception) {
+          return ExceptionToStatus(exception, "Failed to create directory '",
+                                   location.all, "': ", container_client.GetUrl());
+        }
+      }
+      return Status::OK();
+    } else {
+      // Non-recursive CreateDir calls require the parent directory to exist.
       auto parent = location.parent();
       if (!parent.path.empty()) {
         RETURN_NOT_OK(CheckDirExists(container_client, parent));
@@ -1827,28 +1955,17 @@ class AzureFileSystem::Impl {
       // If the parent location is just the container, we don't need to check if it
       // exists because the operation we perform below will fail if the container
       // doesn't exist and we can handle that error according to the recursive flag.
-    }
-    try {
-      create_if_not_exists(container_client, location);
-      return Status::OK();
-    } catch (const Storage::StorageException& exception) {
-      if (IsContainerNotFound(exception)) {
-        try {
-          if (recursive) {
-            container_client.CreateIfNotExists();
-            create_if_not_exists(container_client, location);
-            return Status::OK();
-          } else {
-            auto parent = location.parent();
-            return PathNotFound(parent);
-          }
-        } catch (const Storage::StorageException& second_exception) {
-          return ExceptionToStatus(second_exception, "Failed to create directory '",
-                                   location.all, "': ", container_client.GetUrl());
+      try {
+        create_if_not_exists(container_client, location);
+        return Status::OK();
+      } catch (const Storage::StorageException& exception) {
+        if (IsContainerNotFound(exception)) {
+          auto parent = location.parent();
+          return PathNotFound(parent);
         }
+        return ExceptionToStatus(exception, "Failed to create directory '", location.all,
+                                 "': ", container_client.GetUrl());
       }
-      return ExceptionToStatus(exception, "Failed to create directory '", location.all,
-                               "': ", container_client.GetUrl());
     }
   }
 
@@ -2016,8 +2133,15 @@ class AzureFileSystem::Impl {
     bool found_dir_marker_blob = false;
     try {
       auto list_response = container_client.ListBlobs(options);
-      if (require_dir_to_exist && list_response.Blobs.empty()) {
-        return PathNotFound(location);
+      if (list_response.Blobs.empty()) {
+        if (require_dir_to_exist) {
+          return PathNotFound(location);
+        } else {
+          ARROW_ASSIGN_OR_RAISE(auto info, GetFileInfo(container_client, location));
+          if (info.type() == FileType::File) {
+            return NotADir(location);
+          }
+        }
       }
       for (; list_response.HasPage(); list_response.MoveToNextPage()) {
         if (list_response.Blobs.empty()) {
@@ -2100,6 +2224,17 @@ class AzureFileSystem::Impl {
                                Azure::Nullable<std::string> lease_id = {}) {
     DCHECK(!location.container.empty());
     DCHECK(!location.path.empty());
+    ARROW_ASSIGN_OR_RAISE(auto file_info, GetFileInfo(adlfs_client, location, lease_id));
+    if (file_info.type() == FileType::NotFound) {
+      if (require_dir_to_exist) {
+        return PathNotFound(location);
+      } else {
+        return Status::OK();
+      }
+    }
+    if (file_info.type() != FileType::Directory) {
+      return NotADir(location);
+    }
     auto directory_client = adlfs_client.GetDirectoryClient(
         std::string(internal::RemoveTrailingSlash(location.path)));
     DataLake::DeleteDirectoryOptions options;
@@ -2143,6 +2278,9 @@ class AzureFileSystem::Impl {
                   kDelimiter, path.Name, ": ", sub_directory_client.GetUrl());
             }
           } else {
+            if (path.Name == location.path) {
+              return NotADir(location);
+            }
             auto sub_file_client = adlfs_client.GetFileClient(path.Name);
             try {
               sub_file_client.Delete();
@@ -2732,6 +2870,16 @@ class AzureFileSystem::Impl {
     }
     auto dest_blob_client = GetBlobClient(dest.container, dest.path);
     auto src_url = GetBlobClient(src.container, src.path).GetUrl();
+    if (!dest.path.empty()) {
+      auto dest_parent = dest.parent();
+      if (!dest_parent.path.empty()) {
+        auto dest_container_client = GetBlobContainerClient(dest_parent.container);
+        ARROW_ASSIGN_OR_RAISE(auto info, GetFileInfo(dest_container_client, dest_parent));
+        if (info.type() == FileType::File) {
+          return NotADir(dest_parent);
+        }
+      }
+    }
     try {
       dest_blob_client.CopyFromUri(src_url);
     } catch (const Storage::StorageException& exception) {

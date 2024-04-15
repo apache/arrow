@@ -27,6 +27,11 @@ ENV R_PRUNE_DEPS=${r_prune_deps}
 ARG r_duckdb_dev=FALSE
 ENV R_DUCKDB_DEV=${r_duckdb_dev}
 
+# This is needed to avoid errors with utf8 characters in some
+# R package's DESCRIPTION files
+# https://github.com/statnmap/HatchedPolygons/issues/4
+ENV LANG=C.UTF-8
+
 # Build R
 # [1] https://www.digitalocean.com/community/tutorials/how-to-install-r-on-ubuntu-18-04
 # [2] https://linuxize.com/post/how-to-install-r-on-ubuntu-18-04/#installing-r-packages-from-cran

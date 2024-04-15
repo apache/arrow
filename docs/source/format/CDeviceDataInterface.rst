@@ -256,6 +256,10 @@ has the following fields:
     type are on the system. The semantics of the id will be hardware dependent,
     but we use an ``int64_t`` to future-proof the id as devices change over time.
 
+    For device types that do not have an intrinsic notion of a device identifier (e.g.,
+    ``ARROW_DEVICE_CPU``), it is recommended to use a ``device_id`` of -1 as a
+    convention.
+
 .. c:member:: ArrowDeviceType ArrowDeviceArray.device_type
 
     *Mandatory.* The type of the device which can access the buffers in the array.

@@ -44,6 +44,7 @@ BOOL = ArrowBool()
 
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
 @click.option("--debug", type=BOOL, is_flag=True, default=False,
+              envvar='ARCHERY_DEBUG',
               help="Increase logging with debugging output.")
 @click.option("--pdb", type=BOOL, is_flag=True, default=False,
               help="Invoke pdb on uncaught exception.")
