@@ -52,7 +52,7 @@ rm -rf ${tag}.tmp
 dummy_git=${tag}/csharp/dummy.git
 mkdir ${dummy_git}
 pushd ${dummy_git}
-echo ${RELEASE_HASH} > HEAD
+echo ${release_hash} > HEAD
 echo '[remote "origin"] url = https://github.com/apache/arrow.git' >> config
 mkdir objects refs
 popd 
