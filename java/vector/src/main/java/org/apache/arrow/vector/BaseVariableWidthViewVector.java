@@ -1196,11 +1196,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    * @param start The start index in the byte array from where the data for the new value begins.
    * @param length The length of the data in the byte array that belongs to the new value.
    */
-  protected void createViewBuffer(
-          int index,
-          byte[] value,
-          int start,
-          int length) {
+  protected final void setBytes(int index, byte[] value, int start, int length) {
     int writePosition = index * ELEMENT_SIZE;
     if (value.length <= INLINE_SIZE) {
       // allocate inline buffer
@@ -1228,10 +1224,6 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
       currentBuf.setBytes(currentBuf.writerIndex(), value, start, length);
       currentBuf.writerIndex(currentBuf.writerIndex() + length);
     }
-  }
-
-  protected final void setBytes(int index, byte[] value, int start, int length) {
-    createViewBuffer(index, value, start, length);
   }
 
   /**
