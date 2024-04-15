@@ -24,6 +24,7 @@ import numpy as np
 import pytest
 import pyarrow as pa
 import pyarrow.compute as pc
+from pyarrow.vendored.version import Version
 
 
 def test_chunked_array_basics():
@@ -491,6 +492,47 @@ def test_chunked_array_unify_dictionaries():
 def test_recordbatch_dunder_init():
     with pytest.raises(TypeError, match='RecordBatch'):
         pa.RecordBatch()
+
+
+def test_chunked_array_c_array_interface():
+    class ArrayWrapper:
+        def __init__(self, array):
+            self.array = array
+
+        def __arrow_c_array__(self, requested_schema=None):
+            return self.array.__arrow_c_array__(requested_schema)
+
+    data = pa.array([1, 2, 3], pa.int64())
+    chunked = pa.chunked_array([data])
+    wrapper = ArrayWrapper(data)
+
+    # Can roundtrip through the wrapper.
+    result = pa.chunked_array(wrapper)
+    assert result == chunked
+
+    # Can also import with a type that implementer can cast to.
+    result = pa.chunked_array(wrapper, type=pa.int16())
+    assert result == chunked.cast(pa.int16())
+
+
+def test_chunked_array_c_stream_interface():
+    class ChunkedArrayWrapper:
+        def __init__(self, chunked):
+            self.chunked = chunked
+
+        def __arrow_c_stream__(self, requested_schema=None):
+            return self.chunked.__arrow_c_stream__(requested_schema)
+
+    data = pa.chunked_array([[1, 2, 3], [4, None, 6]])
+    wrapper = ChunkedArrayWrapper(data)
+
+    # Can roundtrip through the wrapper.
+    result = pa.chunked_array(wrapper)
+    assert result == data
+
+    # Can also import with a type that implementer can cast to.
+    result = pa.chunked_array(wrapper, type=pa.int16())
+    assert result == data.cast(pa.int16())
 
 
 def test_recordbatch_c_array_interface():
@@ -1695,6 +1737,43 @@ def test_table_rename_columns(cls):
 
     expected = cls.from_arrays(data, names=['eh', 'bee', 'sea'])
     assert t2.equals(expected)
+
+    message = "names must be a list or dict not <class 'str'>"
+    with pytest.raises(TypeError, match=message):
+        table.rename_columns('not a list')
+
+
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_rename_columns_mapping(cls):
+    data = [
+        pa.array(range(5)),
+        pa.array([-10, -5, 0, 5, 10]),
+        pa.array(range(5, 10))
+    ]
+    table = cls.from_arrays(data, names=['a', 'b', 'c'])
+    assert table.column_names == ['a', 'b', 'c']
+
+    expected = cls.from_arrays(data, names=['eh', 'b', 'sea'])
+    t1 = table.rename_columns({'a': 'eh', 'c': 'sea'})
+    t1.validate()
+    assert t1 == expected
+
+    # Test renaming duplicate column names
+    table = cls.from_arrays(data, names=['a', 'a', 'c'])
+    expected = cls.from_arrays(data, names=['eh', 'eh', 'sea'])
+    t2 = table.rename_columns({'a': 'eh', 'c': 'sea'})
+    t2.validate()
+    assert t2 == expected
+
+    # Test column not found
+    with pytest.raises(KeyError, match=r"Column 'd' not found"):
+        table.rename_columns({'a': 'eh', 'd': 'sea'})
 
 
 def test_table_flatten():
@@ -3195,6 +3274,21 @@ def test_numpy_asarray(constructor):
     result = np.asarray(table3, dtype="int32")
     np.testing.assert_allclose(result, expected)
     assert result.dtype == "int32"
+
+
+@pytest.mark.parametrize("constructor", [pa.table, pa.record_batch])
+def test_numpy_array_protocol(constructor):
+    table = constructor([[1, 2, 3], [4.0, 5.0, 6.0]], names=["a", "b"])
+    expected = np.array([[1, 4], [2, 5], [3, 6]], dtype="float64")
+
+    if Version(np.__version__) < Version("2.0"):
+        # copy keyword is not strict and not passed down to __array__
+        result = np.array(table, copy=False)
+        np.testing.assert_array_equal(result, expected)
+    else:
+        # starting with numpy 2.0, the copy=False keyword is assumed to be strict
+        with pytest.raises(ValueError, match="Unable to avoid a copy"):
+            np.array(table, copy=False)
 
 
 @pytest.mark.acero

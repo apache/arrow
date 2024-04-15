@@ -692,8 +692,16 @@ def test_roundtrip_chunked_array_capsule_requested_schema():
     imported_chunked = pa.ChunkedArray._import_from_c_capsule(capsule)
     assert imported_chunked == chunked
 
-    # Casting to something else should error
+    # Casting to something else should error if not possible
     requested_type = pa.binary()
     requested_capsule = requested_type.__arrow_c_schema__()
-    with pytest.raises(NotImplementedError):
+    capsule = chunked.__arrow_c_stream__(requested_capsule)
+    imported_chunked = pa.ChunkedArray._import_from_c_capsule(capsule)
+    assert imported_chunked == chunked.cast(pa.binary())
+
+    requested_type = pa.int64()
+    requested_capsule = requested_type.__arrow_c_schema__()
+    with pytest.raises(
+        ValueError, match="Could not cast string to requested type int64"
+    ):
         chunked.__arrow_c_stream__(requested_capsule)
