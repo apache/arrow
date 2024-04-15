@@ -1595,6 +1595,10 @@ def test_table_rename_columns(cls):
     expected = cls.from_arrays(data, names=['eh', 'bee', 'sea'])
     assert t2.equals(expected)
 
+    message = "names must be a list or dict not <class 'str'>"
+    with pytest.raises(TypeError, match=message):
+        table.rename_columns('not a list')
+
 
 @pytest.mark.parametrize(
     ('cls'),

@@ -2814,7 +2814,7 @@ cdef class RecordBatch(_Tabular):
         if isinstance(names, list):
             for name in names:
                 c_names.push_back(tobytes(name))
-        else:
+        elif isinstance(names, dict):
             idx_to_new_name = {}
             for name, new_name in names.items():
                 indices = self.schema.get_all_field_indices(name)
@@ -2828,6 +2828,8 @@ cdef class RecordBatch(_Tabular):
             for i in range(self.num_columns):
                 new_name = idx_to_new_name.get(i, self.column_names[i])
                 c_names.push_back(tobytes(new_name))
+        else:
+            raise TypeError(f"names must be a list or dict not {type(names)!r}")
 
         with nogil:
             c_batch = GetResultValue(self.batch.RenameColumns(move(c_names)))
@@ -5201,7 +5203,7 @@ cdef class Table(_Tabular):
         if isinstance(names, list):
             for name in names:
                 c_names.push_back(tobytes(name))
-        else:
+        elif isinstance(names, dict):
             idx_to_new_name = {}
             for name, new_name in names.items():
                 indices = self.schema.get_all_field_indices(name)
@@ -5214,6 +5216,8 @@ cdef class Table(_Tabular):
 
             for i in range(self.num_columns):
                 c_names.push_back(tobytes(idx_to_new_name.get(i, self.schema[i].name)))
+        else:
+            raise TypeError(f"names must be a list or dict not {type(names)!r}")
 
         with nogil:
             c_table = GetResultValue(self.table.RenameColumns(move(c_names)))
