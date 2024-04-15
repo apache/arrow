@@ -45,11 +45,6 @@ public final class ${className} implements ValueHolder{
 
     <#else>
 
-    <#if minor.class == "ViewVarChar" || minor.class == "ViewVarBinary">
-    public List<ArrowBuf> dataBuffers;
-    public ArrowBuf outputBuffer;
-    </#if>
-
     public static final int WIDTH = ${type.width};
     
     <#if mode.name == "Optional">public int isSet;
