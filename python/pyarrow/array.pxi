@@ -1531,8 +1531,8 @@ cdef class Array(_PandasConvertible):
             return np.array(values, dtype=dtype, copy=False)
 
         values = self.to_numpy(zero_copy_only=False)
-        if copy is True and is_primitive(self.type.id) and self.null_count == 0:
-            # to_numpy did not yet make a copy
+        if copy is True and is_numeric(self.type.id) and self.null_count == 0:
+            # to_numpy did not yet make a copy (is_numeric = integer/floats, no decimal)
             return np.array(values, dtype=dtype, copy=True)
 
         if dtype is None:
