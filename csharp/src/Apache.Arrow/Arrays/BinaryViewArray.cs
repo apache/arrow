@@ -322,7 +322,7 @@ namespace Apache.Arrow
             BinaryView binaryView = Views[index];
             if (binaryView.IsInline)
             {
-                return ViewsBuffer.Span.Slice(16 * index + 4, binaryView.Length);
+                return ViewsBuffer.Span.Slice(16 * (Offset + index) + 4, binaryView.Length);
             }
 
             return DataBuffer(binaryView._bufferIndex).Span.Slice(binaryView._bufferOffset, binaryView.Length);

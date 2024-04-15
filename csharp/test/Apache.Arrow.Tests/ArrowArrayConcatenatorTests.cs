@@ -29,6 +29,12 @@ namespace Apache.Arrow.Tests
         {
             foreach ((List<IArrowArray> testTargetArrayList, IArrowArray expectedArray) in GenerateTestData())
             {
+                if (expectedArray is UnionArray)
+                {
+                    // Union array concatenation is incorrect. See https://github.com/apache/arrow/issues/41198
+                    continue;
+                }
+
                 IArrowArray actualArray = ArrowArrayConcatenator.Concatenate(testTargetArrayList);
                 ArrowReaderVerifier.CompareArrays(expectedArray, actualArray);
             }

@@ -15,8 +15,11 @@
 
 using Apache.Arrow.Ipc;
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
+using Apache.Arrow.Types;
 using Xunit;
 
 namespace Apache.Arrow.Tests
@@ -106,13 +109,38 @@ namespace Apache.Arrow.Tests
             await ValidateRecordBatchFile(stream, originalBatch);
         }
 
-        private async Task ValidateRecordBatchFile(Stream stream, RecordBatch recordBatch)
+        [Theory]
+        [InlineData(0, 45)]
+        [InlineData(3, 45)]
+        [InlineData(16, 45)]
+        public async Task WriteSlicedArrays(int sliceOffset, int sliceLength)
+        {
+            var originalBatch = TestData.CreateSampleRecordBatch(length: 100);
+            var slicedArrays = originalBatch.Arrays
+                .Select(array => ArrowArrayFactory.Slice(array, sliceOffset, sliceLength))
+                .ToList();
+            var slicedBatch = new RecordBatch(originalBatch.Schema, slicedArrays, sliceLength);
+
+            var stream = new MemoryStream();
+            var writer = new ArrowFileWriter(stream, slicedBatch.Schema, leaveOpen: true);
+
+            await writer.WriteRecordBatchAsync(slicedBatch);
+            await writer.WriteEndAsync();
+
+            stream.Position = 0;
+
+            // Disable strict comparison because we don't expect buffers to match exactly
+            // due to writing slices of buffers, and instead need to compare array values
+            await ValidateRecordBatchFile(stream, slicedBatch, strictCompare: false);
+        }
+
+        private async Task ValidateRecordBatchFile(Stream stream, RecordBatch recordBatch, bool strictCompare = true)
         {
             var reader = new ArrowFileReader(stream);
             int count = await reader.RecordBatchCountAsync();
             Assert.Equal(1, count);
             RecordBatch readBatch = await reader.ReadRecordBatchAsync(0);
-            ArrowReaderVerifier.CompareBatches(recordBatch, readBatch);
+            ArrowReaderVerifier.CompareBatches(recordBatch, readBatch, strictCompare);
         }
 
         /// <summary>
