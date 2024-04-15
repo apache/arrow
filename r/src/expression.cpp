@@ -69,7 +69,13 @@ std::vector<std::string> compute___expr__field_names_in_expression(
     const std::shared_ptr<compute::Expression>& x) {
   std::vector<std::string> names;
   for (const auto& ref : compute::FieldsInExpression(*x)) {
-    names.push_back(*ref.name());
+    if (ref.IsNested()) {
+      // Slight hack: this isn't the field's "name", but it's good enough
+      // for my current purposes. A nested field ref doesn't have a name property
+      names.push_back(ref.ToString());
+    } else {
+      names.push_back(*ref.name());
+    }
   }
   return names;
 }
