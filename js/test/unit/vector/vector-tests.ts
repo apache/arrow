@@ -16,7 +16,7 @@
 // under the License.
 
 import {
-    Bool, DateDay, DateMillisecond, Dictionary, Float64, Int32, List, makeVector, Struct, Timestamp, TimeUnit, Utf8, LargeUtf8, util, Vector, vectorFromArray, makeData
+    Bool, DateDay, DateMillisecond, Dictionary, Float64, Int32, List, makeVector, Struct, Utf8, LargeUtf8, util, Vector, vectorFromArray, makeData
 } from 'apache-arrow';
 
 describe(`makeVectorFromArray`, () => {
