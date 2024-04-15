@@ -493,6 +493,47 @@ def test_recordbatch_dunder_init():
         pa.RecordBatch()
 
 
+def test_chunked_array_c_array_interface():
+    class ArrayWrapper:
+        def __init__(self, array):
+            self.array = array
+
+        def __arrow_c_array__(self, requested_schema=None):
+            return self.array.__arrow_c_array__(requested_schema)
+
+    data = pa.array([1, 2, 3], pa.int64())
+    chunked = pa.chunked_array([data])
+    wrapper = ArrayWrapper(data)
+
+    # Can roundtrip through the wrapper.
+    result = pa.chunked_array(wrapper)
+    assert result == chunked
+
+    # Can also import with a type that implementer can cast to.
+    result = pa.chunked_array(wrapper, type=pa.int16())
+    assert result == chunked.cast(pa.int16())
+
+
+def test_chunked_array_c_stream_interface():
+    class ChunkedArrayWrapper:
+        def __init__(self, chunked):
+            self.chunked = chunked
+
+        def __arrow_c_stream__(self, requested_schema=None):
+            return self.chunked.__arrow_c_stream__(requested_schema)
+
+    data = pa.chunked_array([[1, 2, 3], [4, None, 6]])
+    wrapper = ChunkedArrayWrapper(data)
+
+    # Can roundtrip through the wrapper.
+    result = pa.chunked_array(wrapper)
+    assert result == data
+
+    # Can also import with a type that implementer can cast to.
+    result = pa.chunked_array(wrapper, type=pa.int16())
+    assert result == data.cast(pa.int16())
+
+
 def test_recordbatch_c_array_interface():
     class BatchWrapper:
         def __init__(self, batch):

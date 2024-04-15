@@ -1344,17 +1344,28 @@ cdef class ChunkedArray(_PandasConvertible):
             A capsule containing a C ArrowArrayStream struct.
         """
         cdef:
+            ChunkedArray chunked
             ArrowArrayStream* c_stream = NULL
 
         if requested_schema is not None:
-            out_type = DataType._import_from_c_capsule(requested_schema)
-            if self.type != out_type:
-                raise NotImplementedError("Casting to requested_schema")
+            target_type = DataType._import_from_c_capsule(requested_schema)
+
+            if target_type != self.type:
+                try:
+                    chunked = self.cast(target_type, safe=True)
+                except ArrowInvalid as e:
+                    raise ValueError(
+                        f"Could not cast {self.type} to requested type {target_type}: {e}"
+                    )
+            else:
+                chunked = self
+        else:
+            chunked = self
 
         stream_capsule = alloc_c_stream(&c_stream)
 
         with nogil:
-            check_status(ExportChunkedArray(self.sp_chunked_array, c_stream))
+            check_status(ExportChunkedArray(chunked.sp_chunked_array, c_stream))
 
         return stream_capsule
 
@@ -1397,6 +1408,9 @@ def chunked_array(arrays, type=None):
     ----------
     arrays : Array, list of Array, or array-like
         Must all be the same data type. Can be empty only if type also passed.
+        Any Arrow-compatible array that implements the Arrow PyCapsule Protocol
+        (has an ``__arrow_c_array__`` or ``__arrow_c_stream__`` method) can be
+        passed as well.
     type : DataType or string coercible to DataType
 
     Returns
@@ -1437,6 +1451,21 @@ def chunked_array(arrays, type=None):
 
     if isinstance(arrays, Array):
         arrays = [arrays]
+    elif hasattr(arrays, "__arrow_c_stream__"):
+        if type is not None:
+            requested_type = type.__arrow_c_schema__()
+        else:
+            requested_type = None
+        capsule = arrays.__arrow_c_stream__(requested_type)
+        result = ChunkedArray._import_from_c_capsule(capsule)
+        if type is not None and result.type != type:
+            # __arrow_c_stream__ coerces schema with best effort, so we might
+            # need to cast it if the producer wasn't able to cast to exact schema.
+            result = result.cast(type)
+        return result
+    elif hasattr(arrays, "__arrow_c_array__"):
+        arr = array(arrays, type=type)
+        arrays = [arr]
 
     for x in arrays:
         arr = x if isinstance(x, Array) else array(x, type=type)
