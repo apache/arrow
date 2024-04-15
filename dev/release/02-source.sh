@@ -60,7 +60,8 @@ tarball=apache-arrow-${version}.tar.gz
 rm -f ${tarball}
 
 if [ ${TEST_RELEASE_SCRIPT} -gt 0 ]; then
-    ./utils-create-release-tarball ${version} ${rc}
+    # Assume calling from arrow's source directory
+    ./dev/release/utils-create-release-tarball ${version} ${rc}
 else 
      gh release download \
     ${tag} \
