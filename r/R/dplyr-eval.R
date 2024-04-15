@@ -20,6 +20,8 @@ arrow_eval <- function(expr, mask) {
   # with references to Arrays (if .data is Table/RecordBatch) or Fields (if
   # .data is a Dataset).
 
+  add_user_functions_to_mask(expr, mask)
+
   # This yields an Expression as long as the `exprs` are implemented in Arrow.
   # Otherwise, it returns a try-error
   tryCatch(eval_tidy(expr, mask), error = function(e) {
@@ -46,6 +48,43 @@ arrow_eval <- function(expr, mask) {
     }
     invisible(out)
   })
+}
+
+add_user_functions_to_mask <- function(expr, mask) {
+  # Look for user-defined R functions that are not in the mask,
+  # see if we can add them to the mask and set their parent env to the mask
+  # so that they can reference other functions in the mask
+  if (is_quosure(expr)) {
+    # case_when evaluates regular formulas not quosures, which don't have
+    # their own environment, so let's just skip them for now
+    function_env <- parent.env(parent.env(mask))
+    quo_expr <- quo_get_expr(expr)
+    funs_in_expr <- all_funs(quo_expr)
+    quo_env <- quo_get_env(expr)
+    # Enumerate the things we have bindings for, and add anything else that we
+    # explicitly want to block from trying to add to the function environment
+    known_funcs <- c(ls(function_env, all.names = TRUE), "~", "[", ":")
+    unknown <- setdiff(funs_in_expr, known_funcs)
+    for (i in unknown) {
+      if (exists(i, quo_env)) {
+        user_fun <- get(i, quo_env)
+        if (!is.null(environment(user_fun)) && !rlang::is_namespace(environment(user_fun))) {
+          # Primitives don't have an environment
+          if (getOption("arrow.debug", FALSE)) {
+            print(paste("Adding", i, "to the function environment"))
+          }
+          function_env[[i]] <- user_fun
+          # Also set the enclosing environment to be the function environment.
+          # This allows the function to reference other functions in the env.
+          # This may have other undesired side effects?
+          environment(function_env[[i]]) <- function_env
+        }
+      }
+    }
+  }
+  # Don't need to return anything because we assigned into environments,
+  # which pass by reference
+  invisible()
 }
 
 handle_arrow_not_supported <- function(err, lab) {

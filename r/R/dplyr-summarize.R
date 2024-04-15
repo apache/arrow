@@ -471,26 +471,6 @@ summarize_eval <- function(name, quosure, mask, hash) {
     expr <- wrap_hash_quantile(expr)
     quosure <- as_quosure(expr, quo_env)
   }
-  function_env <- parent.env(parent.env(mask))
-  unknown <- setdiff(funs_in_expr, ls(function_env, all.names = TRUE))
-  if (length(unknown)) {
-    for (i in unknown) {
-      if (exists(i, quo_env)) {
-        user_fun <- get(i, quo_env)
-        if (!is.null(environment(user_fun))) {
-          # Primitives don't have an environment
-          if (getOption("arrow.debug", FALSE)) {
-            print(paste("Adding", i, "to the function environment"))
-          }
-          function_env[[i]] <- user_fun
-          # Also set the enclosing environment to be the function environment.
-          # This allows the function to reference other functions in the env.
-          # This may have other undesired side effects?
-          environment(function_env[[i]]) <- function_env
-        }
-      }
-    }
-  }
 
   # Add previous aggregations to the mask
   agg_field_types <- aggregate_types(starting_aggs, hash)
