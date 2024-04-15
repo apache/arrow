@@ -1971,10 +1971,10 @@ public class TestValueVector {
       toVector.setInitialCapacity(numValues);
       toVector.allocateNew();
       for (int i = 0; i < numValues; i++) {
-        int start = fromVector.getTotalLengthUptoIndex(i);
+        int start = fromVector.getTotalValueLengthUpToIndex(i);
         // across variable
         // width implementations
-        int end = fromVector.getTotalLengthUptoIndex(i + 1);
+        int end = fromVector.getTotalValueLengthUpToIndex(i + 1);
         toVector.setSafe(i, isSet, start, end, fromDataBuffer);
       }
 
@@ -2138,7 +2138,7 @@ public class TestValueVector {
     /*
      * If we don't do setLastSe(5) before setValueCount(), then the latter will corrupt
      * the value vector by filling in all positions [0,valuecount-1] will empty byte arrays.
-     * Run the test by commenting out next line and we should see incorrect vector output.
+     * Run the test by commenting on the next line, and we should see incorrect vector output.
      */
     vector.setLastSet(5);
     vector.setValueCount(20);
@@ -2168,9 +2168,13 @@ public class TestValueVector {
     assertEquals(0, vector.getValueLength(17));
     assertEquals(0, vector.getValueLength(18));
     assertEquals(0, vector.getValueLength(19));
+  }
 
-    /* Check offsets */
-    if (vector instanceof BaseVariableWidthVector) {
+  @Test
+  public void testSetLastSetUsage() {
+    try (final VarCharVector vector = new VarCharVector("myvector", allocator)) {
+      testSetLastSetUsageHelper(vector);
+      /* Check offsets */
       assertEquals(0, vector.getOffsetBuffer().getInt(0 * BaseVariableWidthVector.OFFSET_WIDTH));
       assertEquals(6, vector.getOffsetBuffer().getInt(1 * BaseVariableWidthVector.OFFSET_WIDTH));
       assertEquals(16, vector.getOffsetBuffer().getInt(2 * BaseVariableWidthVector.OFFSET_WIDTH));
@@ -2191,21 +2195,13 @@ public class TestValueVector {
       assertEquals(40, vector.getOffsetBuffer().getInt(17 * BaseVariableWidthVector.OFFSET_WIDTH));
       assertEquals(40, vector.getOffsetBuffer().getInt(18 * BaseVariableWidthVector.OFFSET_WIDTH));
       assertEquals(40, vector.getOffsetBuffer().getInt(19 * BaseVariableWidthVector.OFFSET_WIDTH));
-    }
 
-    vector.set(19, STR6);
-    assertArrayEquals(STR6, vector.get(19));
+      vector.set(19, STR6);
+      assertArrayEquals(STR6, vector.get(19));
 
-    if (vector instanceof BaseVariableWidthVector) {
       assertEquals(40, vector.getOffsetBuffer().getInt(19 * BaseVariableWidthVector.OFFSET_WIDTH));
       assertEquals(46, vector.getOffsetBuffer().getInt(20 * BaseVariableWidthVector.OFFSET_WIDTH));
-    }
-  }
 
-  @Test
-  public void testSetLastSetUsage() {
-    try (final VarCharVector vector = new VarCharVector("myvector", allocator)) {
-      testSetLastSetUsageHelper(vector);
     }
 
     try (final ViewVarCharVector vector = new ViewVarCharVector("myvector", allocator)) {
@@ -2520,7 +2516,7 @@ public class TestValueVector {
 
   public static void setBytes(int index, byte[] bytes, ViewVarCharVector vector) {
     BitVectorHelper.setBit(vector.validityBuffer, index);
-    vector.createViewBuffer(vector.allocator, index, bytes, 0, bytes.length, vector.viewBuffer,
+    vector.createViewBuffer(index, bytes, 0, bytes.length, vector.viewBuffer,
         vector.dataBuffers);
   }
 

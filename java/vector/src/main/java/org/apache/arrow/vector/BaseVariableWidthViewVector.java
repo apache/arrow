@@ -237,7 +237,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
     if (valueCount == 0) {
       return 0.0D;
     }
-    final double totalListSize = getTotalLengthUptoIndex(valueCount);
+    final double totalListSize = getTotalValueLengthUpToIndex(valueCount);
     return totalListSize / valueCount;
   }
 
@@ -1228,7 +1228,6 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    * The viewBuffer in this case stores the length of the value, a prefix of the value, the index of the
    * new buffer in dataBuffers, and the offset of the value in the new buffer.
    *
-   * @param allocator The allocator used to create new ArrowBuf instances.
    * @param index The index at which the new value will be inserted.
    * @param value The byte array that contains the data to be inserted.
    * @param start The start index in the byte array from where the data for the new value begins.
@@ -1237,7 +1236,6 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    * @param dataBuffers The list of ArrowBuf instances that hold the data of all long binary values in the vector.
    */
   protected void createViewBuffer(
-          BufferAllocator allocator,
           int index,
           byte[] value,
           int start,
@@ -1274,7 +1272,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   }
 
   protected final void setBytes(int index, byte[] value, int start, int length) {
-    createViewBuffer(allocator, index, value, start, length, viewBuffer, dataBuffers);
+    createViewBuffer(index, value, start, length, viewBuffer, dataBuffers);
   }
 
   /**
@@ -1282,7 +1280,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    * @param index The index of the element in the vector.
    * @return The total length up to the element at the given index.
    */
-  public final int getTotalLengthUptoIndex(int index) {
+  public final int getTotalValueLengthUpToIndex(int index) {
     int totalLength = 0;
     for (int i = 0; i < index - 1; i++) {
       totalLength += getLength(i);
