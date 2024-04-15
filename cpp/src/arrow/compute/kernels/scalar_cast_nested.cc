@@ -160,16 +160,17 @@ struct CastFixedToVarList {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const CastOptions& options = CastState::Get(ctx);
 
-    auto child_type = checked_cast<const DestType&>(*out->type()).value_type();
-
+    // in_array: FixedSizeList<T> -> out_array: List<U>
     const ArraySpan& in_array = batch[0].array;
-
-    ArrayData* out_array = out->array_data().get();
-    ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
-                          GetNullBitmapBuffer(in_array, ctx->memory_pool()));
-
     const auto& in_type = checked_cast<const FixedSizeListType&>(*in_array.type);
     const int32_t list_size = in_type.list_size();
+    ArrayData* out_array = out->array_data().get();
+    DCHECK_EQ(in_array.length, out_array->length);
+    auto out_child_type = checked_cast<const DestType&>(*out_array->type).value_type();
+
+    // Share or copy the validity bitmap
+    ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
+                          GetNullBitmapBuffer(in_array, ctx->memory_pool()));
 
     // Allocate a new offsets buffer
     ARROW_ASSIGN_OR_RAISE(out_array->buffers[1],
@@ -181,13 +182,14 @@ struct CastFixedToVarList {
       offset += list_size;
     }
 
-    // Handle values
-    std::shared_ptr<ArrayData> values = in_array.child_data[0].ToArrayData();
+    // Handle child values
+    std::shared_ptr<ArrayData> child_values = in_array.child_data[0].ToArrayData();
     if (in_array.offset > 0) {
-      values = values->Slice(in_array.offset * list_size, in_array.length * list_size);
+      child_values =
+          child_values->Slice(in_array.offset * list_size, in_array.length * list_size);
     }
-    ARROW_ASSIGN_OR_RAISE(Datum cast_values,
-                          Cast(values, child_type, options, ctx->exec_context()));
+    ARROW_ASSIGN_OR_RAISE(Datum cast_values, Cast(child_values, out_child_type, options,
+                                                  ctx->exec_context()));
     DCHECK(cast_values.is_array());
     out_array->child_data.push_back(cast_values.array());
 
