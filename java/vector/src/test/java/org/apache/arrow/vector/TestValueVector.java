@@ -2498,8 +2498,7 @@ public class TestValueVector {
 
   public static void setBytes(int index, byte[] bytes, ViewVarCharVector vector) {
     BitVectorHelper.setBit(vector.validityBuffer, index);
-    vector.createViewBuffer(index, bytes, 0, bytes.length, vector.viewBuffer,
-        vector.dataBuffers);
+    vector.createViewBuffer(index, bytes, 0, bytes.length);
   }
 
   @Test /* VarCharVector */

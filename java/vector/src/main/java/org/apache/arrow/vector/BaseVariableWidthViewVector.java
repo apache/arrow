@@ -1199,7 +1199,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
     return viewBuffer.getInt(((long) index * ELEMENT_SIZE));
   }
 
-  protected ArrowBuf allocateOrGetLastBuffer(BufferAllocator allocator, int length, List<ArrowBuf> dataBuffers) {
+  protected ArrowBuf allocateOrGetLastDataBuffer(int length) {
     long dataBufferSize;
     if (initialDataBufferSize > 0) {
       dataBufferSize = initialDataBufferSize;
@@ -1232,16 +1232,12 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    * @param value The byte array that contains the data to be inserted.
    * @param start The start index in the byte array from where the data for the new value begins.
    * @param length The length of the data in the byte array that belongs to the new value.
-   * @param viewBuffer The ArrowBuf instance that will hold the data of the new value.
-   * @param dataBuffers The list of ArrowBuf instances that hold the data of all long binary values in the vector.
    */
   protected void createViewBuffer(
           int index,
           byte[] value,
           int start,
-          int length,
-          ArrowBuf viewBuffer,
-          List<ArrowBuf> dataBuffers) {
+          int length) {
     int writePosition = index * ELEMENT_SIZE;
     if (value.length <= INLINE_SIZE) {
       // allocate inline buffer
@@ -1252,7 +1248,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
       viewBuffer.setBytes(writePosition, value, start, length);
     } else {
       // allocate data buffer
-      ArrowBuf currentBuf = allocateOrGetLastBuffer(allocator, length, dataBuffers);
+      ArrowBuf currentBuf = allocateOrGetLastDataBuffer(length);
 
       // set length
       viewBuffer.setInt(writePosition, length);
@@ -1272,7 +1268,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   }
 
   protected final void setBytes(int index, byte[] value, int start, int length) {
-    createViewBuffer(index, value, start, length, viewBuffer, dataBuffers);
+    createViewBuffer(index, value, start, length);
   }
 
   /**
