@@ -83,8 +83,8 @@ class JoinBenchmark {
       build_metadata["null_probability"] = std::to_string(settings.null_percentage);
       build_metadata["min"] = std::to_string(min_build_value);
       build_metadata["max"] = std::to_string(max_build_value);
-      build_metadata["min_length"] = settings.var_length_min;
-      build_metadata["max_length"] = settings.var_length_max;
+      build_metadata["min_length"] = std::to_string(settings.var_length_min);
+      build_metadata["max_length"] = std::to_string(settings.var_length_max);
 
       std::unordered_map<std::string, std::string> probe_metadata;
       probe_metadata["null_probability"] = std::to_string(settings.null_percentage);
