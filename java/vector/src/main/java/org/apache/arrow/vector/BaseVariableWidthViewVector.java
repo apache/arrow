@@ -28,6 +28,7 @@ import java.util.List;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
+import org.apache.arrow.memory.ReusableBuffer;
 import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.memory.util.CommonUtil;
@@ -1376,11 +1377,30 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
                       ((long) index * ELEMENT_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH + BUF_INDEX_WIDTH);
       dataBuffers.get(bufferIndex).getBytes(dataOffset, result, 0, dataLength);
     } else {
-      // data is in the value buffer
+      // data is in the view buffer
       viewBuffer.getBytes(
               (long) index * ELEMENT_SIZE + BUF_INDEX_WIDTH, result, 0, dataLength);
     }
     return result;
+  }
+
+  protected void getData(int index, ReusableBuffer<?> buffer) {
+    final int dataLength = getValueLength(index);
+    if (dataLength > INLINE_SIZE) {
+      // data is in the data buffer
+      // get buffer index
+      final int bufferIndex =
+              viewBuffer.getInt(((long) index * ELEMENT_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH);
+      // get data offset
+      final int dataOffset =
+              viewBuffer.getInt(
+                      ((long) index * ELEMENT_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH + BUF_INDEX_WIDTH);
+      ArrowBuf dataBuf = dataBuffers.get(bufferIndex);
+      buffer.set(dataBuf, dataOffset, dataLength);
+    } else {
+      // data is in the value buffer
+      buffer.set(viewBuffer, ((long) index * ELEMENT_SIZE) + BUF_INDEX_WIDTH, dataLength);
+    }
   }
 
   @Override

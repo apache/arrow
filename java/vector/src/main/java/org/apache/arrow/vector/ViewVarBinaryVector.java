@@ -111,8 +111,7 @@ public final class ViewVarBinaryVector extends BaseVariableWidthViewVector {
    */
   @Override
   public void read(int index, ReusableBuffer<?> buffer) {
-    byte[] data = getData(index);
-    buffer.set(data, 0, data.length);
+    getData(index, buffer);
   }
 
   /**
