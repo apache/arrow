@@ -59,11 +59,9 @@ tarball=apache-arrow-${version}.tar.gz
 
 rm -f ${tarball}
 
-if [${TEST_RELEASE_SCRIPT} -gt 0] ; then
-    gh workflow run -f release_hash=${release_hash} tarball_name=${tarball} -> workflow id
-    gh run watch --exit-status
-    gh run download {id} -- 
-; else 
+if [ ${TEST_RELEASE_SCRIPT} -gt 0 ]; then
+    ./utils-create-release-tarball ${version} ${rc}
+else 
      gh release download \
     ${tag} \
     --repo apache/arrow \
