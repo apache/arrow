@@ -331,9 +331,10 @@ Be sure to go through on the following checklist:
    :class-title: sd-fs-5
    :class-container: sd-shadow-md
 
+   A committer must push the release tag to GitHub:
+
    .. code-block:: Bash
 
-    A committer must push the release tag to GitHub:
 
       # dev/release/post-01-tag.sh 0.1.0 0
       dev/release/post-01-tag.sh <version> <rc>
