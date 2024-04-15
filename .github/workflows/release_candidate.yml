@@ -73,7 +73,7 @@ jobs:
           cd ${curr_dir}
       - name: Create Release Tarball
         run: |
-          tarball=apache-arrow-${version}.tar.gz
+          tarball=apache-arrow-${VERSION}.tar.gz
           tar czf ${tarball} ${GITHUB_REF_NAME}
           rm -rf ${GITHUB_REF_NAME}
           echo "RELEASE_TARBALL=${tarball}" >> ${GITHUB_ENV}
