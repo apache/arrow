@@ -49,7 +49,7 @@ cp -R -L ${tag}.tmp ${tag}
 rm -rf ${tag}.tmp
 
 # Create a dummy .git/ directory to download the source files from GitHub with Source Link in C#.
-dummy_git=${GITHUB_REF_NAME}/csharp/dummy.git
+dummy_git=${tag}/csharp/dummy.git
 mkdir ${dummy_git}
 pushd ${dummy_git}
 cd ${dummy_git}
