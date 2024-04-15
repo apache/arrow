@@ -2547,32 +2547,23 @@ public class TestValueVector {
       assertEquals(defaultCapacity, vector.getValueCapacity());
       assertEquals(CommonUtil.nextPowerOfTwo(defaultCapacity * viewSize), vector.getDataBuffer().capacity());
 
-      double density = 1;
-      vector.setInitialCapacity(defaultCapacity, density);
-      vector.allocateNew();
-      assertEquals(defaultCapacity, vector.getValueCapacity());
-      assertEquals(CommonUtil.nextPowerOfTwo(defaultCapacity * viewSize), vector.getDataBuffer().capacity());
-
-      density = 0.1;
-      vector.setInitialCapacity(defaultCapacity, density);
-      vector.allocateNew();
-      assertEquals(defaultCapacity, vector.getValueCapacity());
-      density = Math.ceil(density / viewSize) * viewSize;
-      int feasibleCapacity = (int) (defaultCapacity * density);
-      assertEquals(CommonUtil.nextPowerOfTwo(feasibleCapacity), vector.getDataBuffer().capacity());
-
-      density = 0.01;
-      vector.setInitialCapacity(defaultCapacity, density);
-      vector.allocateNew();
-      assertEquals(defaultCapacity, vector.getValueCapacity());
-      density = Math.ceil(density / viewSize) * viewSize;
-      feasibleCapacity = (int) (defaultCapacity * density);
-      assertEquals(CommonUtil.nextPowerOfTwo(feasibleCapacity), vector.getDataBuffer().capacity());
-
-      vector.setInitialCapacity(5, 0.01);
+      double density = 4.0;
+      final int valueCount = 5;
+      vector.setInitialCapacity(valueCount, density);
       vector.allocateNew();
       assertEquals(8, vector.getValueCapacity());
       assertEquals(128, vector.getDataBuffer().capacity());
+      int initialDataBufferSize = (int) (valueCount * density);
+      // making sure a databuffer is allocated
+      vector.set(4, "01234567890123456".getBytes(StandardCharsets.UTF_8));
+      assertEquals(vector.dataBuffers.size(), 1);
+      ArrowBuf dataBuf = vector.dataBuffers.get(0);
+      try (ArrowBuf tempBuf = vector.allocator.buffer(initialDataBufferSize)) {
+        // replicating a new buffer allocation process when a new buffer is added to the
+        // data buffer when inserting an element with length > 12
+        assertEquals(tempBuf.capacity(), dataBuf.capacity());
+      }
+
     }
   }
 
