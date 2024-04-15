@@ -70,6 +70,18 @@ namespace Apache.Arrow.Ipc
             IArrowArrayVisitor<DictionaryArray>,
             IArrowArrayVisitor<NullArray>
         {
+            public readonly struct FieldNode
+            {
+                public readonly int Length;
+                public readonly int NullCount;
+
+                public FieldNode(int length, int nullCount)
+                {
+                    Length = length;
+                    NullCount = nullCount;
+                }
+            }
+
             public readonly struct Buffer
             {
                 public readonly ReadOnlyMemory<byte> DataBuffer;
@@ -82,11 +94,13 @@ namespace Apache.Arrow.Ipc
                 }
             }
 
+            private readonly List<FieldNode> _fieldNodes;
             private readonly List<Buffer> _buffers;
             private readonly ICompressionCodec _compressionCodec;
             private readonly MemoryAllocator _allocator;
             private readonly MemoryStream _compressionStream;
 
+            public IReadOnlyList<FieldNode> FieldNodes => _fieldNodes;
             public IReadOnlyList<Buffer> Buffers => _buffers;
 
             public List<long> VariadicCounts { get; private set; } 
@@ -98,40 +112,60 @@ namespace Apache.Arrow.Ipc
                 _compressionCodec = compressionCodec;
                 _compressionStream = compressionStream;
                 _allocator = allocator;
+                _fieldNodes = new List<FieldNode>();
                 _buffers = new List<Buffer>();
                 TotalLength = 0;
             }
 
-            public void Visit(Int8Array array) => CreateBuffers(array);
-            public void Visit(Int16Array array) => CreateBuffers(array);
-            public void Visit(Int32Array array) => CreateBuffers(array);
-            public void Visit(Int64Array array) => CreateBuffers(array);
-            public void Visit(UInt8Array array) => CreateBuffers(array);
-            public void Visit(UInt16Array array) => CreateBuffers(array);
-            public void Visit(UInt32Array array) => CreateBuffers(array);
-            public void Visit(UInt64Array array) => CreateBuffers(array);
+            public void VisitArray(IArrowArray array)
+            {
+                _fieldNodes.Add(new FieldNode(array.Length, array.NullCount));
+
+                array.Accept(this);
+            }
+
+            public void Visit(Int8Array array) => VisitPrimitiveArray(array);
+            public void Visit(Int16Array array) => VisitPrimitiveArray(array);
+            public void Visit(Int32Array array) => VisitPrimitiveArray(array);
+            public void Visit(Int64Array array) => VisitPrimitiveArray(array);
+            public void Visit(UInt8Array array) => VisitPrimitiveArray(array);
+            public void Visit(UInt16Array array) => VisitPrimitiveArray(array);
+            public void Visit(UInt32Array array) => VisitPrimitiveArray(array);
+            public void Visit(UInt64Array array) => VisitPrimitiveArray(array);
 #if NET5_0_OR_GREATER
-            public void Visit(HalfFloatArray array) => CreateBuffers(array);
+            public void Visit(HalfFloatArray array) => VisitPrimitiveArray(array);
 #endif
-            public void Visit(FloatArray array) => CreateBuffers(array);
-            public void Visit(DoubleArray array) => CreateBuffers(array);
-            public void Visit(TimestampArray array) => CreateBuffers(array);
-            public void Visit(BooleanArray array) => CreateBuffers(array);
-            public void Visit(Date32Array array) => CreateBuffers(array);
-            public void Visit(Date64Array array) => CreateBuffers(array);
-            public void Visit(Time32Array array) => CreateBuffers(array);
-            public void Visit(Time64Array array) => CreateBuffers(array);
-            public void Visit(DurationArray array) => CreateBuffers(array);
-            public void Visit(YearMonthIntervalArray array) => CreateBuffers(array);
-            public void Visit(DayTimeIntervalArray array) => CreateBuffers(array);
-            public void Visit(MonthDayNanosecondIntervalArray array) => CreateBuffers(array);
+            public void Visit(FloatArray array) => VisitPrimitiveArray(array);
+            public void Visit(DoubleArray array) => VisitPrimitiveArray(array);
+            public void Visit(TimestampArray array) => VisitPrimitiveArray(array);
+            public void Visit(Date32Array array) => VisitPrimitiveArray(array);
+            public void Visit(Date64Array array) => VisitPrimitiveArray(array);
+            public void Visit(Time32Array array) => VisitPrimitiveArray(array);
+            public void Visit(Time64Array array) => VisitPrimitiveArray(array);
+            public void Visit(DurationArray array) => VisitPrimitiveArray(array);
+            public void Visit(YearMonthIntervalArray array) => VisitPrimitiveArray(array);
+            public void Visit(DayTimeIntervalArray array) => VisitPrimitiveArray(array);
+            public void Visit(MonthDayNanosecondIntervalArray array) => VisitPrimitiveArray(array);
+
+            private void VisitPrimitiveArray<T>(PrimitiveArray<T> array)
+                where T : struct
+            {
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
+                _buffers.Add(CreateSlicedBuffer<T>(array.ValueBuffer, array.Offset, array.Length));
+            }
+
+            public void Visit(BooleanArray array)
+            {
+                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
+                _buffers.Add(CreateBitmapBuffer(array.ValueBuffer, array.Offset, array.Length));
+            }
 
             public void Visit(ListArray array)
             {
                 _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
                 _buffers.Add(CreateSlicedBuffer<int>(array.ValueOffsetsBuffer, array.Offset, array.Length + 1));
 
-                array.Values.Accept(this);
+                VisitArray(array.Values);
             }
 
             public void Visit(ListViewArray array)
@@ -140,7 +174,7 @@ namespace Apache.Arrow.Ipc
                 _buffers.Add(CreateSlicedBuffer<int>(array.ValueOffsetsBuffer, array.Offset, array.Length));
                 _buffers.Add(CreateSlicedBuffer<int>(array.SizesBuffer, array.Offset, array.Length));
 
-                array.Values.Accept(this);
+                VisitArray(array.Values);
             }
 
             public void Visit(FixedSizeListArray array)
@@ -151,7 +185,7 @@ namespace Apache.Arrow.Ipc
                 var valuesSlice =
                     ArrowArrayFactory.Slice(array.Values, array.Offset * listSize, array.Length * listSize);
 
-                valuesSlice.Accept(this);
+                VisitArray(valuesSlice);
             }
 
             public void Visit(StringArray array) => Visit(array as BinaryArray);
@@ -194,7 +228,8 @@ namespace Apache.Arrow.Ipc
 
                 for (int i = 0; i < array.Fields.Count; i++)
                 {
-                    array.Fields[i].Accept(this);
+                    // Fields property accessor handles slicing field arrays if required
+                    VisitArray(array.Fields[i]);
                 }
             }
 
@@ -210,8 +245,8 @@ namespace Apache.Arrow.Ipc
 
                 for (int i = 0; i < array.Fields.Count; i++)
                 {
-                    // Sparse union arrays will be sliced if required when accessed
-                    array.Fields[i].Accept(this);
+                    // Fields property accessor handles slicing field arrays for sparse union arrays if required
+                    VisitArray(array.Fields[i]);
                 }
             }
 
@@ -226,19 +261,6 @@ namespace Apache.Arrow.Ipc
             public void Visit(NullArray array)
             {
                 // There are no buffers for a NullArray
-            }
-
-            private void CreateBuffers(BooleanArray array)
-            {
-                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
-                _buffers.Add(CreateBitmapBuffer(array.ValueBuffer, array.Offset, array.Length));
-            }
-
-            private void CreateBuffers<T>(PrimitiveArray<T> array)
-                where T : struct
-            {
-                _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
-                _buffers.Add(CreateSlicedBuffer<T>(array.ValueBuffer, array.Offset, array.Length));
             }
 
             private Buffer CreateBitmapBuffer(ArrowBuffer buffer, int offset, int length)
@@ -414,48 +436,6 @@ namespace Apache.Arrow.Ipc
             }
         }
 
-        private void CreateSelfAndChildrenFieldNodes(ArrayData data)
-        {
-            if (data.DataType is NestedType)
-            {
-                // TODO: Tidy this up somehow, check other types, add more tests
-                if (data.DataType is UnionType {Mode: UnionMode.Sparse} || data.DataType is StructType)
-                {
-                    for (int i = data.Children.Length - 1; i >= 0; i--)
-                    {
-                        var child = data.Children[i];
-                        var slicedChild = child.Slice(data.Offset, data.Length);
-                        CreateSelfAndChildrenFieldNodes(slicedChild);
-                    }
-                }
-                else if (data.DataType is FixedSizeListType fixedSizeListType)
-                {
-                    var listSize = fixedSizeListType.ListSize;
-                    var slicedChild = data.Children[0].Slice(data.Offset * listSize, data.Length * listSize);
-                    CreateSelfAndChildrenFieldNodes(slicedChild);
-                }
-                else
-                {
-                    // flatbuffer struct vectors have to be created in reverse order
-                    for (int i = data.Children.Length - 1; i >= 0; i--)
-                    {
-                        CreateSelfAndChildrenFieldNodes(data.Children[i]);
-                    }
-                }
-            }
-            Flatbuf.FieldNode.CreateFieldNode(Builder, data.Length, data.GetNullCount());
-        }
-
-        private static int CountAllNodes(IReadOnlyList<Field> fields)
-        {
-            int count = 0;
-            foreach (Field arrowArray in fields)
-            {
-                CountSelfAndChildrenNodes(arrowArray.DataType, ref count);
-            }
-            return count;
-        }
-
         private Offset<Flatbuf.BodyCompression> GetBodyCompression()
         {
             if (_options.CompressionCodec == null)
@@ -471,18 +451,6 @@ namespace Apache.Arrow.Ipc
             };
             return Flatbuf.BodyCompression.CreateBodyCompression(
                 Builder, compressionType, Flatbuf.BodyCompressionMethod.BUFFER);
-        }
-
-        private static void CountSelfAndChildrenNodes(IArrowType type, ref int count)
-        {
-            if (type is NestedType nestedType)
-            {
-                foreach (Field childField in nestedType.Fields)
-                {
-                    CountSelfAndChildrenNodes(childField.DataType, ref count);
-                }
-            }
-            count++;
         }
 
         private protected void WriteRecordBatchInternal(RecordBatch recordBatch)
@@ -636,22 +604,6 @@ namespace Apache.Arrow.Ipc
         {
             Builder.Clear();
 
-            // Serialize field nodes
-
-            int fieldCount = fields.Count;
-
-            Flatbuf.RecordBatch.StartNodesVector(Builder, CountAllNodes(fields));
-
-            // flatbuffer struct vectors have to be created in reverse order
-            for (int i = fieldCount - 1; i >= 0; i--)
-            {
-                CreateSelfAndChildrenFieldNodes(arrays[i].Data);
-            }
-
-            VectorOffset fieldNodesVectorOffset = Builder.EndVector();
-
-            // Serialize buffers
-
             // CompressionCodec can be disposed after all data is visited by the builder,
             // and doesn't need to be alive for the full lifetime of the ArrowRecordBatchFlatBufferBuilder
             using var compressionCodec = _options.CompressionCodec.HasValue
@@ -659,11 +611,25 @@ namespace Apache.Arrow.Ipc
                 : null;
 
             var recordBatchBuilder = new ArrowRecordBatchFlatBufferBuilder(compressionCodec, _allocator, _compressionStream);
-            for (int i = 0; i < fieldCount; i++)
+
+            // Visit all arrays recursively
+            for (int i = 0; i < fields.Count; i++)
             {
                 IArrowArray fieldArray = arrays[i];
-                fieldArray.Accept(recordBatchBuilder);
+                recordBatchBuilder.VisitArray(fieldArray);
             }
+
+            // Serialize field nodes
+            IReadOnlyList<ArrowRecordBatchFlatBufferBuilder.FieldNode> fieldNodes = recordBatchBuilder.FieldNodes;
+            Flatbuf.RecordBatch.StartNodesVector(Builder, fieldNodes.Count);
+
+            // flatbuffer struct vectors have to be created in reverse order
+            for (int i = fieldNodes.Count - 1; i >= 0; i--)
+            {
+                Flatbuf.FieldNode.CreateFieldNode(Builder, fieldNodes[i].Length, fieldNodes[i].NullCount);
+            }
+
+            VectorOffset fieldNodesVectorOffset = Builder.EndVector();
 
             VectorOffset variadicCountOffset = default;
             if (recordBatchBuilder.VariadicCounts != null)
@@ -671,8 +637,8 @@ namespace Apache.Arrow.Ipc
                 variadicCountOffset = Flatbuf.RecordBatch.CreateVariadicCountsVectorBlock(Builder, recordBatchBuilder.VariadicCounts.ToArray());
             }
 
+            // Serialize buffers
             IReadOnlyList<ArrowRecordBatchFlatBufferBuilder.Buffer> buffers = recordBatchBuilder.Buffers;
-
             Flatbuf.RecordBatch.StartBuffersVector(Builder, buffers.Count);
 
             // flatbuffer struct vectors have to be created in reverse order
