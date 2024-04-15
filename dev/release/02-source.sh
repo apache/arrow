@@ -57,33 +57,13 @@ echo "Using commit $release_hash"
 
 tarball=apache-arrow-${version}.tar.gz
 
-rm -rf ${tag}
-# be conservative and use the release hash, even though git produces the same
-# archive (identical hashes) using the scm tag
-(cd "${SOURCE_TOP_DIR}" && \
-  git archive ${release_hash} --prefix ${tag}/) | \
-  tar xf -
+rm -f ${tarball}
 
-# Resolve all hard and symbolic links.
-# If we change this, we must change ArrowSources.archive in
-# dev/archery/archery/utils/source.py too.
-rm -rf ${tag}.tmp
-mv ${tag} ${tag}.tmp
-cp -R -L ${tag}.tmp ${tag}
-rm -rf ${tag}.tmp
-
-# Create a dummy .git/ directory to download the source files from GitHub with Source Link in C#.
-dummy_git=${tag}/csharp/dummy.git
-mkdir ${dummy_git}
-pushd ${dummy_git}
-echo ${release_hash} > HEAD
-echo '[remote "origin"] url = https://github.com/apache/arrow.git' >> config
-mkdir objects refs
-popd
-
-# Create new tarball from modified source directory
-tar czf ${tarball} ${tag}
-rm -rf ${tag}
+gh release download \
+  ${tag} \
+  --repo apache/arrow \
+  --dir . \
+  --pattern "${tarball}"
 
 if [ ${SOURCE_RAT} -gt 0 ]; then
   "${SOURCE_DIR}/run-rat.sh" ${tarball}
