@@ -1266,6 +1266,9 @@ def test_native_file_modes(tmpdir):
         assert f.seekable()
 
 
+@pytest.mark.xfail(
+    sys.platform == "emscripten", reason="umask doesn't work on Emscripten"
+)
 def test_native_file_permissions(tmpdir):
     # ARROW-10124: permissions of created files should follow umask
     cur_umask = os.umask(0o002)
