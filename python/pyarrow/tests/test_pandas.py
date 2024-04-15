@@ -4813,6 +4813,7 @@ def test_timestamp_as_object_fixed_offset():
     assert pa.table(result) == table
 
 
+@pytest.mark.threading
 def test_threaded_pandas_import():
     invoke_script("pandas_threaded_import.py")
 

@@ -241,6 +241,7 @@ def test_empty_stream():
 
 
 @pytest.mark.pandas
+@pytest.mark.threading
 def test_read_year_month_nano_interval(tmpdir):
     """ARROW-15783: Verify to_pandas works for interval types.
 

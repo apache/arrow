@@ -56,6 +56,7 @@ def test_io_thread_count():
         pa.set_io_thread_count(n)
 
 
+@pytest.mark.threading
 def test_env_var_io_thread_count():
     # Test that the number of IO threads can be overridden with the
     # ARROW_IO_THREADS environment variable.
