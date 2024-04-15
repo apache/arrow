@@ -391,7 +391,10 @@ namespace Apache.Arrow
 
                     for (int i = 0; i < typeCount; ++i)
                     {
-                        baseOffsets[i] += arrayData.Children[i].Length;
+                        checked
+                        {
+                            baseOffsets[i] += arrayData.Children[i].Length;
+                        }
                     }
                 }
 
