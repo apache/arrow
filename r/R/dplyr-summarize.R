@@ -36,49 +36,49 @@ ensure_one_arg <- function(args, fun) {
 
 register_bindings_aggregate <- function() {
   register_binding_agg("base::sum", function(..., na.rm = FALSE) {
-    list(
+    set_agg(
       fun = "sum",
       data = ensure_one_arg(list2(...), "sum"),
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
   register_binding_agg("base::prod", function(..., na.rm = FALSE) {
-    list(
+    set_agg(
       fun = "product",
       data = ensure_one_arg(list2(...), "prod"),
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
   register_binding_agg("base::any", function(..., na.rm = FALSE) {
-    list(
+    set_agg(
       fun = "any",
       data = ensure_one_arg(list2(...), "any"),
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
   register_binding_agg("base::all", function(..., na.rm = FALSE) {
-    list(
+    set_agg(
       fun = "all",
       data = ensure_one_arg(list2(...), "all"),
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
   register_binding_agg("base::mean", function(x, na.rm = FALSE) {
-    list(
+    set_agg(
       fun = "mean",
       data = list(x),
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
   register_binding_agg("stats::sd", function(x, na.rm = FALSE, ddof = 1) {
-    list(
+    set_agg(
       fun = "stddev",
       data = list(x),
       options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
     )
   })
   register_binding_agg("stats::var", function(x, na.rm = FALSE, ddof = 1) {
-    list(
+    set_agg(
       fun = "variance",
       data = list(x),
       options = list(skip_nulls = na.rm, min_count = 0L, ddof = ddof)
@@ -98,7 +98,7 @@ register_bindings_aggregate <- function() {
         .frequency_id = "arrow.quantile.approximate",
         class = "arrow.quantile.approximate"
       )
-      list(
+      set_agg(
         fun = "tdigest",
         data = list(x),
         options = list(skip_nulls = na.rm, q = probs)
@@ -120,7 +120,7 @@ register_bindings_aggregate <- function() {
         .frequency_id = "arrow.median.approximate",
         class = "arrow.median.approximate"
       )
-      list(
+      set_agg(
         fun = "approximate_median",
         data = list(x),
         options = list(skip_nulls = na.rm)
@@ -129,33 +129,69 @@ register_bindings_aggregate <- function() {
     notes = "approximate median (t-digest) is computed"
   )
   register_binding_agg("dplyr::n_distinct", function(..., na.rm = FALSE) {
-    list(
+    set_agg(
       fun = "count_distinct",
       data = ensure_one_arg(list2(...), "n_distinct"),
       options = list(na.rm = na.rm)
     )
   })
   register_binding_agg("dplyr::n", function() {
-    list(
+    set_agg(
       fun = "count_all",
       data = list(),
       options = list()
     )
   })
   register_binding_agg("base::min", function(..., na.rm = FALSE) {
-    list(
+    set_agg(
       fun = "min",
       data = ensure_one_arg(list2(...), "min"),
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
   register_binding_agg("base::max", function(..., na.rm = FALSE) {
-    list(
+    set_agg(
       fun = "max",
       data = ensure_one_arg(list2(...), "max"),
       options = list(skip_nulls = na.rm, min_count = 0L)
     )
   })
+}
+
+set_agg <- function(...) {
+  agg_data <- list2(...)
+  # Find the environment where ..aggregations is stored
+  target <- find_aggregations_env()
+  aggs <- get("..aggregations", target)
+  lapply(agg_data[["data"]], function(expr) {
+    # If any of the fields referenced in the expression are in ..aggregations,
+    # then we can't aggregate over them.
+    # This is mainly for combinations of dataset columns and aggregations,
+    # like sum(x - mean(x)), i.e. window functions.
+    # This will reject (sum(sum(x)) as well, but that's not a useful operation.
+    if (any(expr$field_names_in_expression() %in% names(aggs))) {
+      # TODO: support in ARROW-13926
+      arrow_not_supported("aggregate within aggregate expression")
+    }
+  })
+
+  # Record the (fun, data, options) in ..aggregations
+  # and return a FieldRef pointing to it
+  tmpname <- paste0("..temp", length(aggs))
+  aggs[[tmpname]] <- agg_data
+  assign("..aggregations", aggs, envir = target)
+  Expression$field_ref(tmpname)
+}
+
+find_aggregations_env <- function() {
+  # Find the environment where ..aggregations is stored,
+  # it's in parent.env of something in the call stack
+  for (f in sys.frames()) {
+    if (exists("..aggregations", envir = f)) {
+      return(f)
+    }
+  }
+  stop("Could not find ..aggregations")
 }
 
 # we register 2 versions of the "::" binding - one for use with agg_funcs
@@ -221,25 +257,27 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
   # It's more complex than other places because a single summarize() expr
   # may result in multiple query nodes (Aggregate, Project),
   # and we have to walk through the expressions to disentangle them.
-  ctx <- env(
-    mask = arrow_mask(.data, aggregation = TRUE),
-    aggregations = empty_named_list(),
-    post_mutate = empty_named_list()
-  )
+
+  # Agg functions pull out the aggregation info and append it here
+  ..aggregations <- empty_named_list()
+  # And if there are any transformations after the aggregation, they go here
+  ..post_mutate <- empty_named_list()
+  mask <- arrow_mask(.data, aggregation = TRUE)
+
   for (i in seq_along(exprs)) {
     # Iterate over the indices and not the names because names may be repeated
     # (which overwrites the previous name)
     summarize_eval(
       names(exprs)[i],
       exprs[[i]],
-      ctx,
+      mask,
       length(.data$group_by_vars) > 0
     )
   }
 
   # Apply the results to the .data object.
   # First, the aggregations
-  .data$aggregations <- ctx$aggregations
+  .data$aggregations <- ..aggregations
   # Then collapse the query so that the resulting query object can have
   # additional operations applied to it
   out <- collapse.arrow_dplyr_query(.data)
@@ -254,12 +292,36 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
   #   select(-starts_with("..temp"))
   # If this is the case, there will be expressions in post_mutate
   # nolint end
-  if (length(ctx$post_mutate)) {
+  if (length(..post_mutate)) {
+    # One last check: it's possible that an expression like y - mean(y) would
+    # successfully evaluate, but it's not supported. It gets transformed to:
+    # nolint start
+    #   summarize(..temp0 = mean(y)) %>%
+    #   mutate(y - ..temp0)
+    # nolint end
+    # but y is not in the schema of the data after summarize(). To catch this
+    # in the expression evaluation step, we'd have to remove all data variables
+    # from the mask, which would be a bit tortured (even for me).
+    # So we'll check here.
+    for (post in names(..post_mutate)) {
+      # We can tell the expression is invalid if it references fields not in
+      # the schema of the data after summarize(). Evaulating its type will
+      # throw an error if it's invalid.
+      tryCatch(..post_mutate[[post]]$type(out$.data$schema), error = function(e) {
+        # Slightly different error message here so we can tell if we're here
+        msg <- paste(
+          "Expression", as_label(exprs[[post]]),
+          "is not a valid aggregation expression or is"
+        )
+        arrow_not_supported(msg)
+      })
+    }
+
     # Append post_mutate, and make sure order is correct
     # according to input exprs (also dropping ..temp columns)
     out$selected_columns <- c(
       out$selected_columns,
-      ctx$post_mutate
+      ..post_mutate
     )[c(.data$group_by_vars, names(exprs))]
   }
 
@@ -393,154 +455,88 @@ format_aggregation <- function(x) {
 # This function handles each summarize expression and turns it into the
 # appropriate combination of (1) aggregations (possibly temporary) and
 # (2) post-aggregation transformations (mutate)
-# The function returns nothing: it assigns into the `ctx` environment
-summarize_eval <- function(name, quosure, ctx, hash) {
-  expr <- quo_get_expr(quosure)
-  ctx$quo_env <- quo_get_env(quosure)
-
-  funs_in_expr <- all_funs(expr)
-
-  if (length(funs_in_expr) == 0) {
-    # This branch only gets called at the top level, where expr is something
-    # that is not a function call (could be a quosure, a symbol, or atomic
-    # value). This needs to evaluate to a scalar or something that can be
-    # converted to one.
-    value <- arrow_eval_or_stop(quosure, ctx$mask)
-
-    if (!inherits(value, "Expression")) {
-      value <- Expression$scalar(value)
-    }
-
-    # We can't support a bare field reference because this is not
-    # an aggregate expression
-    if (!identical(value$field_name, "")) {
-      abort(
-        paste(
-          "Expression", format_expr(quosure),
-          "is not an aggregate expression or is not supported in Arrow"
-        )
-      )
-    }
-
-    # Scalars need to be added to post_mutate because they don't need
-    # to be sent to the query engine as an aggregation
-    ctx$post_mutate[[name]] <- value
-    return()
-  }
+# The function returns nothing: it assigns into objects in the `mask`
+summarize_eval <- function(name, quosure, mask, hash) {
+  starting_aggs <- get("..aggregations", parent.frame())
+  starting_agg_count <- length(starting_aggs)
 
   # For the quantile() binding in the hash aggregation case, we need to mutate
   # the list output from the Arrow hash_tdigest kernel to flatten it into a
   # column of type float64. We do that by modifying the unevaluated expression
   # to replace quantile(...) with arrow_list_element(quantile(...), 0L)
+  expr <- quo_get_expr(quosure)
+  funs_in_expr <- all_funs(expr)
+  quo_env <- quo_get_env(quosure)
   if (hash && any(c("quantile", "stats::quantile") %in% funs_in_expr)) {
     expr <- wrap_hash_quantile(expr)
-    funs_in_expr <- all_funs(expr)
+    quosure <- as_quosure(expr, quo_env)
   }
-
-  # Start inspecting the expr to see what aggregations it involves
-  agg_funs <- names(agg_funcs)
-  outer_agg <- funs_in_expr[1] %in% agg_funs
-  inner_agg <- funs_in_expr[-1] %in% agg_funs
-
-  # First, pull out any aggregations wrapped in other function calls
-  if (any(inner_agg)) {
-    expr <- extract_aggregations(expr, ctx)
-  }
-
-  # By this point, there are no more aggregation functions in expr
-  # except for possibly the outer function call:
-  # they've all been pulled out to ctx$aggregations, and in their place in expr
-  # there are variable names, which would correspond to field refs in the
-  # query object after aggregation and collapse() or non-field variable
-  # references. So if we want to know if there are any aggregations inside expr,
-  # we have to look for them by their new var names in ctx$aggregations.
-  inner_agg_exprs <- all_vars(expr) %in% names(ctx$aggregations)
-  inner_is_fieldref <- all_vars(expr) %in% names(ctx$mask$.data)
-
-  if (outer_agg) {
-    # This is something like agg(fun(x, y)
-    # It just works by normal arrow_eval, unless there's a mix of aggs and
-    # columns in the original data like agg(fun(x, agg(x)))
-    # (but that will have been caught in extract_aggregations())
-    ctx$aggregations[[name]] <- arrow_eval_or_stop(
-      as_quosure(expr, ctx$quo_env),
-      ctx$mask
-    )
-    return()
-  } else if (all(inner_agg_exprs | !inner_is_fieldref)) {
-    # Something like: fun(agg(x), agg(y))
-    # So based on the aggregations that have been extracted, mutate after
-    agg_field_refs <- make_field_refs(names(ctx$aggregations))
-    agg_field_types <- aggregate_types(ctx$aggregations, hash)
-
-    mutate_mask <- arrow_mask(
-      list(
-        selected_columns = agg_field_refs,
-        .data = list(
-          schema = schema(agg_field_types)
-        )
-      )
-    )
-
-    value <- arrow_eval_or_stop(
-      as_quosure(expr, ctx$quo_env),
-      mutate_mask
-    )
-
-    if (!inherits(value, "Expression")) {
-      value <- Expression$scalar(value)
+  function_env <- parent.env(parent.env(mask))
+  unknown <- setdiff(funs_in_expr, ls(function_env, all.names = TRUE))
+  if (length(unknown)) {
+    for (i in unknown) {
+      if (exists(i, quo_env)) {
+        user_fun <- get(i, quo_env)
+        if (!is.null(environment(user_fun))) {
+          # Primitives don't have an environment
+          if (getOption("arrow.debug", FALSE)) {
+            print(paste("Adding", i, "to the function environment"))
+          }
+          function_env[[i]] <- user_fun
+          # Also set the enclosing environment to be the function environment.
+          # This allows the function to reference other functions in the env.
+          # This may have other undesired side effects?
+          environment(function_env[[i]]) <- function_env
+        }
+      }
     }
-
-    ctx$post_mutate[[name]] <- value
-    return()
   }
 
-  # Backstop for any other odd cases, like fun(x, y) (i.e. no aggregation),
-  # or aggregation functions that aren't supported in Arrow (not in agg_funcs)
-  abort(
-    paste(
-      "Expression", format_expr(quosure),
-      "is not an aggregate expression or is not supported in Arrow"
-    )
-  )
-}
-
-# This function recurses through expr, pulls out any aggregation expressions,
-# and inserts a variable name (field ref) in place of the aggregation
-extract_aggregations <- function(expr, ctx) {
-  # Keep the input in case we need to raise an error message with it
-  original_expr <- expr
-  funs <- all_funs(expr)
-  if (length(funs) == 0) {
-    return(expr)
-  } else if (length(funs) > 1) {
-    # Recurse more
-    expr[-1] <- lapply(expr[-1], extract_aggregations, ctx)
+  # Add previous aggregations to the mask
+  agg_field_types <- aggregate_types(starting_aggs, hash)
+  for (n in names(starting_aggs)) {
+    mask[[n]] <- mask$.data[[n]] <- Expression$field_ref(n)
+    mask$.data$schema[[n]] <- agg_field_types[[n]]
   }
-  if (funs[1] %in% names(agg_funcs)) {
-    inner_agg_exprs <- all_vars(expr) %in% names(ctx$aggregations)
-    if (any(inner_agg_exprs)) {
-      # We can't aggregate over a combination of dataset columns and other
-      # aggregations (e.g. sum(x - mean(x)))
-      # TODO: support in ARROW-13926
-      abort(
-        paste(
-          "Aggregate within aggregate expression",
-          format_expr(original_expr),
-          "not supported in Arrow"
-        )
+  # Evaluate:
+  value <- arrow_eval_or_stop(quosure, mask)
+  post_aggs <- get("..aggregations", parent.frame())
+  if (!inherits(value, "Expression")) {
+    # Must have just been a scalar?
+    # Scalars need to be added to post_mutate because they don't need
+    # to be sent to the query engine as an aggregation
+    value <- Expression$scalar(value)
+  } else {
+    # So it evaluated to an Expression. We need to make sure there's at least
+    # one aggregation in the expression, otherwise it's not an aggregate,
+    # like fun(x, y), or it's a aggregation function that isn't supported in
+    # Arrow (not in agg_funcs) (though that probably errors somewhere else now?)
+    # Check that ctx$aggregations has grown by at least one
+    if (length(post_aggs) == starting_agg_count) {
+      msg <- paste(
+        "Expression", format_expr(quosure), "is not an aggregate expression or is"
       )
+      arrow_not_supported(msg)
     }
-
-    # We have an aggregation expression with no other aggregations inside it,
-    # so arrow_eval the expression on the data and give it a ..temp name prefix,
-    # then insert that name (symbol) back into the expression so that we can
-    # mutate() on the result of the aggregation and reference this field.
-    tmpname <- paste0("..temp", length(ctx$aggregations))
-    ctx$aggregations[[tmpname]] <- arrow_eval_or_stop(as_quosure(expr, ctx$quo_env), ctx$mask)
-    expr <- as.symbol(tmpname)
   }
-  expr
+
+  # Handle case where outer expr is ..temp field ref. This came from an
+  # aggregation at the top level. So the resulting name should be `name`.
+  # not `..tempN`. Rename the corresponding aggregation.
+  field_name <- value$field_name
+  field_in_aggregations <- match(field_name, names(post_aggs))
+  # Assign into the parent environment
+  if (!is.na(field_in_aggregations)) {
+    names(post_aggs)[field_in_aggregations] <- name
+    assign("..aggregations", post_aggs, parent.frame())
+  } else {
+    # If not, add the thing (expression, scalar, whatever) to post_mutate
+    post_mutate <- get("..post_mutate", parent.frame())
+    post_mutate[[name]] <- value
+    assign("..post_mutate", post_mutate, parent.frame())
+  }
+
+  return()
 }
 
 # This function recurses through expr and wraps each call to quantile() with a

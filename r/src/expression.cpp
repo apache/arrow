@@ -65,6 +65,16 @@ std::string compute___expr__get_field_ref_name(
 }
 
 // [[arrow::export]]
+std::vector<std::string> compute___expr__field_names_in_expression(
+    const std::shared_ptr<compute::Expression>& x) {
+  std::vector<std::string> names;
+  for (const auto& ref : compute::FieldsInExpression(*x)) {
+    names.push_back(*ref.name());
+  }
+  return names;
+}
+
+// [[arrow::export]]
 std::shared_ptr<compute::Expression> compute___expr__field_ref(std::string name) {
   return std::make_shared<compute::Expression>(compute::field_ref(std::move(name)));
 }

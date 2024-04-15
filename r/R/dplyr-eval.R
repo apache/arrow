@@ -88,10 +88,14 @@ arrow_mask <- function(.data, aggregation = FALSE) {
   }
 
   if (aggregation) {
+    pf <- parent.frame()
     # This should probably be done with an environment inside an environment
     # but a first attempt at that had scoping problems (ARROW-13499)
     for (f in names(agg_funcs)) {
       f_env[[f]] <- agg_funcs[[f]]
+      # Make sure that ..aggregations and ..post_mutate are in the search path
+      # This assumes being called from summarize
+      environment(f_env[[f]]) <- pf
     }
   }
 
