@@ -636,7 +636,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
     }
     int totalLength = 0;
     for (int i = 0; i < valueCount; i++) {
-      totalLength += getLength(i);
+      totalLength += getValueLength(i);
     }
     return totalLength;
   }
@@ -958,10 +958,13 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   @Override
   public int getValueLength(int index) {
     assert index >= 0;
+    if (index < 0 || index >= viewBuffer.capacity() / ELEMENT_SIZE) {
+      throw new IndexOutOfBoundsException("Index out of bounds: " + index);
+    }
     if (isSet(index) == 0) {
       return 0;
     }
-    return getLength(index);
+    return viewBuffer.getInt(((long) index * ELEMENT_SIZE));
   }
 
   /**
@@ -1184,27 +1187,12 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
     lastSet = index - 1;
   }
 
-  /**
-   * Get the length of the view.
-   * @param index The index of the element in the vector.
-   * @return The length of the element at the given index.
-   */
-  protected final int getLength(int index) {
-    if (index < 0 || index >= viewBuffer.capacity() / ELEMENT_SIZE) {
-      throw new IndexOutOfBoundsException("Index out of bounds: " + index);
-    }
-    if (isSet(index) == 0) {
-      return 0;
-    }
-    return viewBuffer.getInt(((long) index * ELEMENT_SIZE));
-  }
-
   protected ArrowBuf allocateOrGetLastDataBuffer(int length) {
     long dataBufferSize;
     if (initialDataBufferSize > 0) {
-      dataBufferSize = initialDataBufferSize;
+      dataBufferSize = Math.max(initialDataBufferSize, length);
     } else {
-      dataBufferSize = lastValueAllocationSizeInBytes;
+      dataBufferSize = Math.max(lastValueAllocationSizeInBytes, length);
     }
 
     if (dataBuffers.isEmpty() || dataBuffers.get(dataBuffers.size() - 1).capacity() -
@@ -1279,7 +1267,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   public final int getTotalValueLengthUpToIndex(int index) {
     int totalLength = 0;
     for (int i = 0; i < index - 1; i++) {
-      totalLength += getLength(i);
+      totalLength += getValueLength(i);
     }
     return totalLength;
   }
@@ -1345,7 +1333,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
     if (isNull(index)) {
       reuse.set(null, 0, 0);
     } else {
-      int length = getLength(index);
+      int length = getValueLength(index);
       if (length < INLINE_SIZE) {
         int start = index * ELEMENT_SIZE + LENGTH_WIDTH;
         reuse.set(viewBuffer, start, length);
@@ -1370,7 +1358,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
     if (isNull(index)) {
       return ArrowBufPointer.NULL_HASH_CODE;
     }
-    final int length = getLength(index);
+    final int length = getValueLength(index);
     if (length < INLINE_SIZE) {
       int start = index * ELEMENT_SIZE + LENGTH_WIDTH;
       return ByteFunctionHelpers.hash(hasher, this.getDataBuffer(), start, start + length);
@@ -1401,7 +1389,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    * @return byte array containing the data of the element
    */
   protected byte[] getData(int index) {
-    final int dataLength = getLength(index);
+    final int dataLength = getValueLength(index);
     byte[] result = new byte[dataLength];
     if (dataLength > INLINE_SIZE) {
       // data is in the data buffer
