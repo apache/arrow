@@ -2037,6 +2037,7 @@ TEST(HashJoin, ResidualFilter) {
 }
 
 TEST(HashJoin, FilterEmptyRows) {
+  // Regression test for GH-41121.
   BatchesWithSchema input_left;
   input_left.batches = {
       ExecBatchFromJSON({int32(), utf8(), int32()}, R"([[2, "Jarry", 28]])")};
