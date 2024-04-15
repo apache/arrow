@@ -157,9 +157,29 @@ template <typename DestType>
 struct CastFixedToVarList {
   using dest_offset_type = typename DestType::offset_type;
 
-  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  /// \pre values->length >= list_size * num_lists
+  /// \pre values->offset >= 0
+  ///
+  /// \param num_lists The number of fixed-size lists in the input and lists in the
+  ///                  output.
+  /// \param list_validity The byte-aligned validity bitmap of the num_lists lists
+  ///                      or NULLPTR.
+  /// \param list_size The size of the fixed-size lists projected onto the
+  ///                  values array.
+  static Result<std::shared_ptr<ArrayData>> CastChildValues(
+      KernelContext* ctx, int64_t num_lists, const uint8_t* list_validity,
+      int32_t list_size, std::shared_ptr<ArrayData>&& values,
+      const std::shared_ptr<DataType>& to_type) {
+    DCHECK_GE(values->length, list_size * num_lists);
+    // XXX: is it OK to use options recursively without modifying it?
     const CastOptions& options = CastState::Get(ctx);
+    ARROW_ASSIGN_OR_RAISE(Datum cast_values,
+                          Cast(std::move(values), to_type, options, ctx->exec_context()));
+    DCHECK(cast_values.is_array());
+    return cast_values.array();
+  }
 
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     // in_array: FixedSizeList<T> -> out_array: List<U>
     const ArraySpan& in_array = batch[0].array;
     const auto& in_type = checked_cast<const FixedSizeListType&>(*in_array.type);
@@ -188,11 +208,14 @@ struct CastFixedToVarList {
       child_values =
           child_values->Slice(in_array.offset * list_size, in_array.length * list_size);
     }
-    ARROW_ASSIGN_OR_RAISE(Datum cast_values, Cast(child_values, out_child_type, options,
-                                                  ctx->exec_context()));
-    DCHECK(cast_values.is_array());
-    out_array->child_data.push_back(cast_values.array());
-
+    DCHECK_EQ(out_array->offset, 0);
+    const uint8_t* list_validity =
+        in_array.MayHaveNulls() ? out_array->GetValues<uint8_t>(0, 0) : nullptr;
+    ARROW_ASSIGN_OR_RAISE(
+        auto cast_values,
+        CastChildValues(ctx, /*num_lists=*/in_array.length, list_validity, list_size,
+                        std::move(child_values), out_child_type));
+    out_array->child_data.push_back(std::move(cast_values));
     return Status::OK();
   }
 };
