@@ -2337,9 +2337,12 @@ public class TestValueVector {
     assertEquals(0, vector.getValueLength(12));
     assertEquals(0, vector.getValueLength(13));
     assertEquals(0, vector.getValueLength(14));
+  }
 
-    /* Check offsets */
-    if (vector instanceof BaseVariableWidthVector) {
+  @Test
+  public void testFillEmptiesUsage() {
+    try (final VarCharVector vector = new VarCharVector("myvector", allocator)) {
+      testFillEmptiesUsageHelper(vector);
       assertEquals(0,
               vector.getOffsetBuffer().getInt(0 * BaseVariableWidthVector.OFFSET_WIDTH));
       assertEquals(6,
@@ -2376,20 +2379,13 @@ public class TestValueVector {
       assertEquals(56,
               vector.getOffsetBuffer().getInt(15 * BaseVariableWidthVector.OFFSET_WIDTH));
     }
-  }
-
-  @Test
-  public void testFillEmptiesUsage() {
-    try (final VarCharVector vector = new VarCharVector("myvector", allocator)) {
-      testFillEmptiesUsageHelper(vector);
-    }
 
     try (final ViewVarCharVector vector = new ViewVarCharVector("myvector", allocator)) {
       testFillEmptiesUsageHelper(vector);
     }
   }
 
-  private void testGetBufferAddress1VarCharVector(VarCharVector vector) {
+  private void testGetBufferAddress1Helper(VariableWidthFieldVector vector) {
     setVector(vector, STR1, STR2, STR3, STR4, STR5, STR6);
     vector.setValueCount(15);
 
@@ -2400,50 +2396,36 @@ public class TestValueVector {
     assertArrayEquals(STR4, vector.get(3));
     assertArrayEquals(STR5, vector.get(4));
     assertArrayEquals(STR6, vector.get(5));
-
-    List<ArrowBuf> buffers = vector.getFieldBuffers();
-    long bitAddress = vector.getValidityBufferAddress();
-    long offsetAddress = vector.getOffsetBufferAddress();
-    long dataAddress = vector.getDataBufferAddress();
-
-    assertEquals(bitAddress, buffers.get(0).memoryAddress());
-    assertEquals(offsetAddress, buffers.get(1).memoryAddress());
-    assertEquals(dataAddress, buffers.get(2).memoryAddress());
-    assertEquals(3, buffers.size());
-  }
-
-  private void testGetBufferAddress1ViewVarCharVector(ViewVarCharVector vector) {
-    setVector(vector, STR1, STR2, STR3, STR4, STR5, STR6);
-    vector.setValueCount(15);
-
-    /* check the vector output */
-    assertArrayEquals(STR1, vector.get(0));
-    assertArrayEquals(STR2, vector.get(1));
-    assertArrayEquals(STR3, vector.get(2));
-    assertArrayEquals(STR4, vector.get(3));
-    assertArrayEquals(STR5, vector.get(4));
-    assertArrayEquals(STR6, vector.get(5));
-
-    List<ArrowBuf> buffers = vector.getFieldBuffers();
-    long bitAddress = vector.getValidityBufferAddress();
-    long dataAddress = vector.getDataBufferAddress();
-
-    // ViewVarCharVector only have two buffers
-    // ViewVarCharVector does not have an offset buffer
-    assertEquals(2, buffers.size());
-    assertEquals(bitAddress, buffers.get(0).memoryAddress());
-    assertEquals(dataAddress, buffers.get(1).memoryAddress());
   }
 
   @Test /* VarCharVector */
   public void testGetBufferAddress1() {
 
     try (final VarCharVector vector = new VarCharVector("myvector", allocator)) {
-      testGetBufferAddress1VarCharVector(vector);
+      testGetBufferAddress1Helper(vector);
+      List<ArrowBuf> buffers = vector.getFieldBuffers();
+      long bitAddress = vector.getValidityBufferAddress();
+      long offsetAddress = vector.getOffsetBufferAddress();
+      long dataAddress = vector.getDataBufferAddress();
+
+      assertEquals(bitAddress, buffers.get(0).memoryAddress());
+      assertEquals(offsetAddress, buffers.get(1).memoryAddress());
+      assertEquals(dataAddress, buffers.get(2).memoryAddress());
+      assertEquals(3, buffers.size());
     }
 
     try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
-      testGetBufferAddress1ViewVarCharVector(vector);
+      testGetBufferAddress1Helper(vector);
+
+      List<ArrowBuf> buffers = vector.getFieldBuffers();
+      long bitAddress = vector.getValidityBufferAddress();
+      long dataAddress = vector.getDataBufferAddress();
+
+      // ViewVarCharVector only have two buffers
+      // ViewVarCharVector does not have an offset buffer
+      assertEquals(2, buffers.size());
+      assertEquals(bitAddress, buffers.get(0).memoryAddress());
+      assertEquals(dataAddress, buffers.get(1).memoryAddress());
     }
   }
 
