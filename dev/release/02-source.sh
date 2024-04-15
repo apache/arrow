@@ -61,7 +61,7 @@ rm -f ${tarball}
 
 if [ ${TEST_RELEASE_SCRIPT} -gt 0 ]; then
     # Assume calling from arrow's source directory
-    ./dev/release/utils-create-release-tarball ${version} ${rc}
+    "${SOURCE_DIR}/dev/release/utils-create-release-tarball.sh" ${version} ${rc}
 else 
      gh release download \
     ${tag} \
