@@ -129,16 +129,18 @@ namespace Apache.Arrow.Tests
 
             stream.Position = 0;
 
-            await ValidateRecordBatchFile(stream, slicedBatch);
+            // Disable strict comparison because we don't expect buffers to match exactly
+            // due to writing slices of buffers, and instead need to compare array values
+            await ValidateRecordBatchFile(stream, slicedBatch, strictCompare: false);
         }
 
-        private async Task ValidateRecordBatchFile(Stream stream, RecordBatch recordBatch)
+        private async Task ValidateRecordBatchFile(Stream stream, RecordBatch recordBatch, bool strictCompare = true)
         {
             var reader = new ArrowFileReader(stream);
             int count = await reader.RecordBatchCountAsync();
             Assert.Equal(1, count);
             RecordBatch readBatch = await reader.ReadRecordBatchAsync(0);
-            ArrowReaderVerifier.CompareBatches(recordBatch, readBatch);
+            ArrowReaderVerifier.CompareBatches(recordBatch, readBatch, strictCompare);
         }
 
         /// <summary>

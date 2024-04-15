@@ -270,7 +270,7 @@ namespace Apache.Arrow.Ipc
                     return CreateBuffer(buffer.Memory);
                 }
 
-                var paddedLength = (int)CalculatePaddedLength(BitUtility.ByteCount(length));
+                var paddedLength = CalculatePaddedBufferLength(BitUtility.ByteCount(length));
                 if (offset % 8 == 0)
                 {
                     var byteOffset = offset / 8;
@@ -289,7 +289,7 @@ namespace Apache.Arrow.Ipc
                         BitUtility.SetBit(outputSpan, i, BitUtility.GetBit(inputSpan, offset + i));
                     }
 
-                    return CreateBuffer(memoryOwner.Memory.Slice(0, paddedLength));
+                    return CreateBuffer(memoryOwner.Memory);
                 }
             }
 
@@ -301,11 +301,16 @@ namespace Apache.Arrow.Ipc
 
             private Buffer CreateSlicedBuffer(ArrowBuffer buffer, int itemSize, int offset, int length)
             {
-                var byteOffset = offset * itemSize;
                 var byteLength = length * itemSize;
-                var paddedLength = (int)CalculatePaddedLength(byteLength);
-                var sliceLength = Math.Min(paddedLength, buffer.Length - byteOffset);
-                return CreateBuffer(buffer.Memory.Slice(byteOffset, sliceLength));
+                var paddedLength = CalculatePaddedBufferLength(byteLength);
+                if (offset != 0 || paddedLength < buffer.Length)
+                {
+                    var byteOffset = offset * itemSize;
+                    var sliceLength = Math.Min(paddedLength, buffer.Length - byteOffset);
+                    return CreateBuffer(buffer.Memory.Slice(byteOffset, sliceLength));
+                }
+
+                return CreateBuffer(buffer.Memory);
             }
 
             private Buffer CreateBuffer(ArrowBuffer buffer)
@@ -1070,16 +1075,20 @@ namespace Apache.Arrow.Ipc
 
         protected int CalculatePadding(long offset, int alignment = 8)
         {
-            long result = CalculatePaddedLength(offset, alignment) - offset;
+            long result = BitUtility.RoundUpToMultiplePowerOfTwo(offset, alignment) - offset;
             checked
             {
                 return (int)result;
             }
         }
 
-        private static long CalculatePaddedLength(long offset, int alignment = 8)
+        private static int CalculatePaddedBufferLength(int length)
         {
-            return BitUtility.RoundUpToMultiplePowerOfTwo(offset, alignment);
+            long result = BitUtility.RoundUpToMultiplePowerOfTwo(length, MemoryAllocator.DefaultAlignment);
+            checked
+            {
+                return (int)result;
+            }
         }
 
         private protected void WritePadding(int length)

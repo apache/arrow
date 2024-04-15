@@ -49,7 +49,7 @@ namespace Apache.Arrow.Tests
             Assert.Null(await reader.ReadNextRecordBatchAsync());
         }
 
-        public static void CompareBatches(RecordBatch expectedBatch, RecordBatch actualBatch, bool strictCompare = false)
+        public static void CompareBatches(RecordBatch expectedBatch, RecordBatch actualBatch, bool strictCompare = true)
         {
             SchemaComparer.Compare(expectedBatch.Schema, actualBatch.Schema);
             Assert.Equal(expectedBatch.Length, actualBatch.Length);
