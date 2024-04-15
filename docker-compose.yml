@@ -711,10 +711,11 @@ services:
     # Usage:
     #   docker-compose run --rm conan
     # Parameters:
-    #   CONAN: gcc11, gcc11-armv7, ...
+    #   CONAN_BASE: gcc11, gcc11-armv7, ...
+    #   CONAN_VERSION: 1.62.0
     #   See https://github.com/conan-io/conan-docker-tools#readme for
     #   available images.
-    image: conanio/${CONAN}
+    image: conanio/${CONAN_BASE}:${CONAN_VERSION}
     user: root:root
     shm_size: *shm-size
     ulimits: *ulimits
@@ -724,7 +725,7 @@ services:
       - .:/arrow:delegated
     command: >-
       /bin/bash -c "
-        /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin &&
+        sudo /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin &&
         /arrow/ci/scripts/conan_setup.sh &&
         /arrow/ci/scripts/conan_build.sh /arrow /build"
 
