@@ -20,30 +20,16 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-versions:
-  "15.0.0":
-    folder: all
-  "14.0.2":
-    folder: all
-  "14.0.1":
-    folder: all
-  "14.0.0":
-    folder: all
-  "13.0.0":
-    folder: all
-  "12.0.1":
-    folder: all
-  "12.0.0":
-    folder: all
-  "11.0.0":
-    folder: all
-  "10.0.1":
-    folder: all
-  "10.0.0":
-    folder: all
-  "8.0.1":
-    folder: all
-  "8.0.0":
-    folder: all
-  "7.0.0":
-    folder: all
+if(ARROW_S3)
+  find_package(AWSSDK REQUIRED)
+  # Fix issue where scripts expect a variable called "AWSSDK_LINK_LIBRARIES"
+  # which is not defined by the generated AWSSDKConfig.cmake
+  if(NOT DEFINED AWSSDK_LINK_LIBRARIES)
+    set(AWSSDK_LINK_LIBRARIES "${AWSSDK_LIBRARIES}")
+  endif()
+
+  # Causes logic used for generated .pc file to not run
+  # avoiding instropection of target `aws-cpp-sdk::aws-cpp-sdk`
+  # This is fine because the generated .pc file is not of use
+  set(AWSSDK_SOURCE "conan")
+endif()
