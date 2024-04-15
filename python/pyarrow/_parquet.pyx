@@ -1540,7 +1540,11 @@ cdef class ParquetReader(_Weakrefable):
         ----------
         use_threads : bool
         """
-        self.reader.get().set_use_threads(use_threads)
+        if is_threading_enabled():
+            self.reader.get().set_use_threads(use_threads)
+        else:
+            self.reader.get().set_use_threads(False)
+
 
     def set_batch_size(self, int64_t batch_size):
         """
