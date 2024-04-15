@@ -18,7 +18,7 @@
 %% To generate the diagram, use mermaid-cli
 %% Example: docker run --rm -v $(pwd)/DissociatedIPC:/data minlag/mermaid-cli -i /data/ClientFlowchart.mmd
 
-graph TD
+graph LR
 client((Client))-->c1{{Send #60;want_data#gt; Msg}}
 subgraph meta [Meta Message]
   direction LR

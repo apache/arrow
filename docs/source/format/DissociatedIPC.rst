@@ -37,29 +37,31 @@ continuation indicator). Each discrete message consists of two portions:
 
 * A `Flatbuffers`_ header message
 * A series of bytes consisting of the flattened and packed body buffers (some
-message types, like Schema messages, do not have this section)
+  message types, like Schema messages, do not have this section)
   - This is referred to as the *message body* in the IPC format spec.
 
 For most cases, the existing IPC format as it currently exists is extremely efficient:
 
 * Receiving data in the IPC format allows zero-copy utilization of the body
-buffer bytes, no deserialization is required to form Arrow Arrays
+  buffer bytes, no deserialization is required to form Arrow Arrays
 * An IPC (Feather) file can be memory-mapped because it is location agnostic
-and the bytes of the file are exactly what is expected in memory.
+  and the bytes of the file are exactly what is expected in memory.
 
 However, there are use cases that aren't handled by this:
 
 * Constructing the IPC record batch message requires allocating a contiguous
-chunk of bytes and copying all of the data buffers into it, packed together
-back-to-back. You currently cannot zero-copy **create** IPC messages.
+  chunk of bytes and copying all of the data buffers into it, packed together
+  back-to-back. It's exceedingly difficult to zero-copy **create** IPC messages.
 * If the Arrow data is located in a shared-memory location, there is no standard
-way to share the handle to the shared-memory across processes or transports that
-allow for remote memory accessing.
+  way to share the handle to the shared-memory across processes or transports that
+  allow for remote memory accessing.
 * Arrow data located on a non-CPU device (such as a GPU) cannot be sent using
-Arrow IPC without having to copy the data back to the host device or copying
-the flatbuffer metadata bytes into device memory.
+  Arrow IPC without having to copy the data back to the host device or copying
+  the flatbuffer metadata bytes into device memory.
   - By the same token, receiving IPC messages into device memory would require
-  performing a copy of the flatbuffer metadata back to the host CPU device.
+    performing a copy of the flatbuffer metadata back to the host CPU device. This
+    is due to the fact that the IPC stream interleaves data and metadata across a
+    single stream.
 
 This protocol is intended to attempt to solve these use cases in an efficient manner.
 
@@ -67,12 +69,12 @@ Goals
 -----
 
 * Define a generic protocol for passing Arrow IPC data, not tied to any particular
-transport, that also allows for utilizing non-CPU device memory, shared memory, and
-newer "high performance" transports such as `ucx`_ or `libfabric`_.
+  transport, that also allows for utilizing non-CPU device memory, shared memory, and
+  newer "high performance" transports such as `ucx`_ or `libfabric`_.
 * Allow for using :ref:`Flight RPC <flight-rpc>` purely for control flow by separating
-the stream of IPC metadata from IPC body bytes
+  the stream of IPC metadata from IPC body bytes
   - This allows for the data in the body to be kept on non-CPU devices (like GPUs)
-  without expensive Device -> Host copies.
+    without expensive Device -> Host copies.
 
 Definitions
 -----------
@@ -112,8 +114,8 @@ Definitions
        different use cases.
 
        .. note::
-          The current usage and examples have been tested using UCX and libfabric transports
-          so far, but that's all.
+          While the protocol itself is transport agnostic, the current usage and examples 
+          only have been tested using UCX and libfabric transports so far, but that's all.
 
 
 Protocol Description
@@ -129,19 +131,19 @@ A transport implementing this protocol **MUST** provide two pieces of functional
 
 * Message sending
   - Delimited messages (like gRPC) as opposed to non-delimited streams (like plain TCP 
-  without further framing).
+    without further framing).
   - Alternatively, a framing mechanism like the `encapsulated message format <ipc-message-format>`
-  for the IPC protocol can be used while leaving out the body bytes.
+    for the IPC protocol can be used while leaving out the body bytes.
 * Tagged message sending
   - Sending a message that has an attached little-endian, unsigned 64-bit integral tag
-  for control flow. A tag like this allows control flow to operate on a message whose body
-  is on a non-CPU device without requiring the message itself to get copied off of the device.
+    for control flow. A tag like this allows control flow to operate on a message whose body
+    is on a non-CPU device without requiring the message itself to get copied off of the device.
 
 URI Specification
 -----------------
 
 When providing a URI to a consumer to contact for use with this protocol (such as via 
-the `Location URI for Flight <flight-location-uris>`), the URI should specify a scheme
+the `Location URI for Flight <flight-location-uris>`_), the URI should specify a scheme
 like *ucx://* or *fabric://*, that is easily identifiable. In addition, the URI should
 encode the following URI query parameters:
 
@@ -151,33 +153,33 @@ encode the following URI query parameters:
 
 * ``want_data`` - **REQUIRED** - uint64 integer value
   - This value should be used to tag an initial message to the server to initiate a
-  data transfer. The body of the initiating message should be an opaque binary identifier
-  of the data stream being requested (like the ``Ticket`` in the Flight RPC protocol)
+    data transfer. The body of the initiating message should be an opaque binary identifier
+    of the data stream being requested (like the ``Ticket`` in the Flight RPC protocol)
 * ``free_data`` - **OPTIONAL** - uint64 integer value
   - If the server might send messages using offsets / addresses for remote memory accessing
-  or shared memory locations, the URI should include this parameter. This value is used to
-  tag messages sent from the client to the data server, containing specific offsets / addresses
-  which were provided that are no longer required by the client (i.e. any operations that
-  directly reference those memory locations, such as copying the remote data into local memory,
-  have been completed).
+    or shared memory locations, the URI should include this parameter. This value is used to
+    tag messages sent from the client to the data server, containing specific offsets / addresses
+    which were provided that are no longer required by the client (i.e. any operations that
+    directly reference those memory locations, such as copying the remote data into local memory,
+    have been completed).
 * ``remote_handle`` - **OPTIONAL** - base64-encoded string
   - When working with shared memory or remote memory, this value indicates any required
-  handle or identifier that is necessary for accessing the memory.
+    handle or identifier that is necessary for accessing the memory.
     + Using UCX, this would be an *rkey* value
     + With CUDA IPC, this would be the value of the base GPU pointer or memory handle,
-    and subsequent addresses would be offsets from this base pointer.
+      and subsequent addresses would be offsets from this base pointer.
 
 Protocol Description
 ====================
 
 There are two possibilities that can occur:
 
-#. The streams of metadata and body data are across separate connections
+1. The streams of metadata and body data are across separate connections
 
 .. figure:: ./DissociatedIPC/SequenceDiagramSeparate.mmd.svg
 
-#. The streams of metadata and body data are sent simultaneously across the
-same connection
+2. The streams of metadata and body data are sent simultaneously across the
+   same connection
 
 .. figure:: ./DissociatedIPC/SequenceDiagramSame.mmd.svg
 
@@ -208,13 +210,13 @@ of messages consisting of the following:
 
 * A 5-byte prefix
   - The first byte of the message indicates the type of message, currently there are only
-  two allowed message types (more types may get added in the future):
+    two allowed message types (more types may get added in the future):
     0) End of Stream
     1) Flatbuffer IPC Metadata Message
   - the next 4-bytes are a little-endian, 32-bit integer indicating the sequence number of
-  the message. The first message in the stream (**MUST** always be a schema message) **MUST**
-  have a sequence number of ``0``. Each subsequent message **MUST** increment the number by 
-  ``1``.
+    the message. The first message in the stream (**MUST** always be a schema message) **MUST**
+    have a sequence number of ``0``. Each subsequent message **MUST** increment the number by 
+    ``1``.
 * The full Flatbuffer bytes of an Arrow IPC header
 
 After sending the last metadata message, the server **MUST** indicate the end of the stream
@@ -237,21 +239,21 @@ stream if that message has a body (i.e. a Record Batch or Dictionary message). T
 :term:`tag <Tag>` for each message should be structured as follows:
 
 * The *least significant* 4-bytes (bits 0 - 31) of the tag should be the 32-bit, little-endian sequence 
-number of the message.
+  number of the message.
 * The *most significant* byte (bits 56 - 63) of the tag indicates the message body **type** as an 8-bit
-unsigned integer. Currently only two message types are specified, but more can be added as
-needed to expand the protocol:
+  unsigned integer. Currently only two message types are specified, but more can be added as
+  needed to expand the protocol:
   0) The body contains the raw body buffer bytes as a packed buffer (i.e. the standard IPC
-  format body bytes)
+     format body bytes)
   1) The body contains a series of unsigned, little-endian 64-bit integer pairs to represent
-  either shared or remote memory, schematically structured as
+     either shared or remote memory, schematically structured as
     - The first two integers (e.g. the first 16 bytes) represent the *total* size (in bytes)
-    of all buffers and the number of buffers in this message (and thus the number of following
-    pairs of ``uint64``)
+      of all buffers and the number of buffers in this message (and thus the number of following
+      pairs of ``uint64``)
     - Each subsequent pair of ``uint64`` values are an address/offset followed the length of
-    that particular buffer.
+      that particular buffer.
 * All unspecified bits (bits 32 - 55) of the tag are *reserved* for future use by potential updates
-to this protocol. For now they **MUST** be 0.
+  to this protocol. For now they **MUST** be 0.
 
 .. note::
 
@@ -277,46 +279,46 @@ showing how a client might handle the metadata and data streams:
 .. figure:: ./DissociatedIPC/ClientFlowchart.mmd.svg
 
 #. First the client sends a tagged message using the ``<want_data>`` value it was provided in the
-URI as the tag, and the opaque ID as the body.
+   URI as the tag, and the opaque ID as the body.
   * If the metadata and data servers are separate, then a ``<want_data>`` message needs to be sent
-  separately to each. 
+    separately to each. 
   * In either scenario, the metadata and data streams can be processed concurrently and/or asynchronously
-  depending on the nature of the transports.
+    depending on the nature of the transports.
 #. For each **untagged** message the client receives in the metadata stream:
   * The first byte of the message indicates whether it is an *End of Stream* message (value ``0``)
-  or a metadata message (value ``1``).
+    or a metadata message (value ``1``).
   * The next 4 bytes are the sequence number of the message, an unsigned 32-bit integer in 
-  little-endian byte order.
+    little-endian byte order.
   * If it is **not** an *End of Stream* message, the remaining bytes are the IPC Flatbuffer bytes which
-  can be interpreted as normal.    
+    can be interpreted as normal.    
     - If the message has a body (i.e. Record Batch or Dictionary message) then the client should retrieve
-    a tagged message from the Data Stream using the same sequence number.
+      a tagged message from the Data Stream using the same sequence number.
   * If it **is** an *End of Stream* message, then it is safe to close the metadata connection if there are
-  no gaps in the sequence numbers received.
+    no gaps in the sequence numbers received.
 #. When a metadata message that requires a body is received, the tag mask of ``0x00000000FFFFFFFF`` **should** 
-be used alongside the sequence number to match the message regardless of the higher bytes (e.g. we only
-care about matching the lower 4 bytes to the sequence number)
+   be used alongside the sequence number to match the message regardless of the higher bytes (e.g. we only
+   care about matching the lower 4 bytes to the sequence number)
   * Once recieved, the Most Significant Byte's value determines how the client processes the body data:
     - If the most significant byte is 0: Then the body of the message is the raw IPC packed body buffers
-    allowing it to easily be processed with the corresponding metadata header bytes.
+      allowing it to easily be processed with the corresponding metadata header bytes.
     - If the most significant byte is 1: The body of the message will consist of a series of pairs of 
-    unsigned, 64-bit integers in little-endian byte order.
+      unsigned, 64-bit integers in little-endian byte order.
       + The first two integers represent *1)* the total size of all the body buffers together to allow
-      for easy allocation if an intermediate buffer is needed and *2)* the number of buffers being sent (``nbuf``).
+        for easy allocation if an intermediate buffer is needed and *2)* the number of buffers being sent (``nbuf``).
       + The rest of the message will be ``nbuf`` pairs of integers, one for each buffer. Each pair is
-      *1)* the address / offset of the buffer and *2)* the length of that buffer. Memory can then be retrieved
-      via shared or remote memory routines based on the underlying transport. These addresses / offsets **MUST**
-      be retained so they can be sent back in ``<free_data>`` messages later, indicating to the server that
-      the client no longer needs the shared memory.
+        *1)* the address / offset of the buffer and *2)* the length of that buffer. Memory can then be retrieved
+        via shared or remote memory routines based on the underlying transport. These addresses / offsets **MUST**
+        be retained so they can be sent back in ``<free_data>`` messages later, indicating to the server that
+        the client no longer needs the shared memory.
 #. Once an *End of Stream* message is received, the client should process any remaining un-processed
-IPC metadata messages.
+   IPC metadata messages.
 #. After individual memory addresses / offsets are able to be freed by the remote server (in the case where
-it has sent these rather than the full body bytes), the client should send corresponding ``<free_data>`` messages
-to the server.
+   it has sent these rather than the full body bytes), the client should send corresponding ``<free_data>`` messages
+   to the server.
   * A single ``<free_data>`` message consists of an arbitrary number of unsigned 64-bit integer values, representing
-  the addresses / offsets which can be freed. The reason for it being an *arbitrary number* is to allow a client
-  to choose whether to send multiple messages to free multiple addresses or to coalesce multiple addresses into
-  fewer messages to be freed (thus making the protocol less "chatty" if desired)
+    the addresses / offsets which can be freed. The reason for it being an *arbitrary number* is to allow a client
+    to choose whether to send multiple messages to free multiple addresses or to coalesce multiple addresses into
+    fewer messages to be freed (thus making the protocol less "chatty" if desired)
 
 Continuing Development
 ======================
