@@ -776,7 +776,7 @@ struct GrouperFastImpl : public Grouper {
       start_row += batch_size_next;
     }
 
-    if (!rows_.metadata().is_fixed_length) {
+    if (!rows_.metadata()->is_fixed_length) {
       for (size_t i = 0; i < num_columns; ++i) {
         if (!col_metadata_[i].is_fixed_length) {
           auto varlen_size =

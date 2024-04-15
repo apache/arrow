@@ -57,7 +57,7 @@ TEST(KeyCompare, CompareColumnsToRowsCuriousFSB) {
   ASSERT_OK(ColumnArraysFromExecBatch(batch_right, &column_arrays_right));
 
   RowTableImpl row_table;
-  ASSERT_OK(row_table.Init(pool, table_metadata_right));
+  ASSERT_OK(row_table.Init(pool, &table_metadata_right));
 
   RowTableEncoder row_encoder;
   row_encoder.Init(column_metadatas_right, sizeof(uint64_t), sizeof(uint64_t));

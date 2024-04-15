@@ -149,7 +149,7 @@ struct ARROW_EXPORT RowTableMetadata {
   /// \brief True if `other` has the same number of columns
   ///   and each column has the same width (two variable length
   ///   columns are considered to have the same width)
-  bool is_compatible(const RowTableMetadata& other) const;
+  bool is_compatible(const RowTableMetadata* other) const;
 };
 
 /// \brief A table of data stored in row-major order
@@ -165,7 +165,7 @@ class ARROW_EXPORT RowTableImpl {
   /// \brief Initialize a row array for use
   ///
   /// This must be called before any other method
-  Status Init(MemoryPool* pool, const RowTableMetadata& metadata);
+  Status Init(MemoryPool* pool, const RowTableMetadata* metadata);
   /// \brief Clear all rows from the table
   ///
   /// Does not shrink buffers
@@ -183,7 +183,7 @@ class ARROW_EXPORT RowTableImpl {
   Status AppendSelectionFrom(const RowTableImpl& from, uint32_t num_rows_to_append,
                              const uint16_t* source_row_ids);
   /// \brief Metadata describing the data stored in this table
-  const RowTableMetadata& metadata() const { return metadata_; }
+  const RowTableMetadata* metadata() const { return metadata_; }
   /// \brief The number of rows stored in the table
   int64_t length() const { return num_rows_; }
   // Accessors into the table's buffers
@@ -226,7 +226,7 @@ class ARROW_EXPORT RowTableImpl {
   // worrying about tails
   static constexpr int64_t kPaddingForVectors = 64;
   MemoryPool* pool_;
-  RowTableMetadata metadata_;
+  const RowTableMetadata* metadata_;
   // Buffers can only expand during lifetime and never shrink.
   std::unique_ptr<ResizableBuffer> null_masks_;
   // Only used if the table has variable-length columns

@@ -49,7 +49,7 @@ class ARROW_EXPORT RowTableEncoder {
   void Init(const std::vector<KeyColumnMetadata>& cols, int row_alignment,
             int string_alignment);
 
-  const RowTableMetadata& row_metadata() { return row_metadata_; }
+  const RowTableMetadata* row_metadata() { return row_metadata_.get(); }
   // GrouperFastImpl right now needs somewhat intrusive visibility into RowTableEncoder
   // This could be cleaned up at some point
   const std::vector<KeyColumnArray>& batch_all_cols() { return batch_all_cols_; }
@@ -111,7 +111,7 @@ class ARROW_EXPORT RowTableEncoder {
                               const std::vector<KeyColumnArray>& cols_in);
 
   // Data initialized once, based on data types of key columns
-  RowTableMetadata row_metadata_;
+  std::shared_ptr<RowTableMetadata> row_metadata_;
 
   // Data initialized for each input batch.
   // All elements are ordered according to the order of encoded fields in a row.
@@ -164,7 +164,7 @@ class EncoderBinary {
     uint32_t col_width = col_const->metadata().fixed_length;
 
     if (is_row_fixed_length) {
-      uint32_t row_width = rows_const->metadata().fixed_length;
+      uint32_t row_width = rows_const->metadata()->fixed_length;
       for (uint32_t i = 0; i < num_rows; ++i) {
         const uint8_t* src;
         uint8_t* dst;
@@ -264,7 +264,7 @@ class EncoderVarBinary {
                                   KeyColumnArray* col_mutable_maybe_null,
                                   COPY_FN copy_fn) {
     // Column and rows need to be varying length
-    ARROW_DCHECK(!rows_const->metadata().is_fixed_length &&
+    ARROW_DCHECK(!rows_const->metadata()->is_fixed_length &&
                  !col_const->metadata().is_fixed_length);
 
     const uint32_t* row_offsets_for_batch = rows_const->offsets() + start_row;
@@ -281,10 +281,10 @@ class EncoderVarBinary {
       uint32_t offset_within_row;
       uint32_t length;
       if (first_varbinary_col) {
-        rows_const->metadata().first_varbinary_offset_and_length(row, &offset_within_row,
-                                                                 &length);
+        rows_const->metadata()->first_varbinary_offset_and_length(row, &offset_within_row,
+                                                                  &length);
       } else {
-        rows_const->metadata().nth_varbinary_offset_and_length(
+        rows_const->metadata()->nth_varbinary_offset_and_length(
             row, varbinary_col_id, &offset_within_row, &length);
       }
 

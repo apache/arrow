@@ -45,7 +45,7 @@ class RowArrayAccessor {
   // Find the index of this varbinary column within the sequence of all
   // varbinary columns encoded in rows.
   //
-  static int VarbinaryColumnId(const RowTableMetadata& row_metadata, int column_id);
+  static int VarbinaryColumnId(const RowTableMetadata* row_metadata, int column_id);
 
   // Calculate how many rows to skip from the tail of the
   // sequence of selected rows, such that the total size of skipped rows is at

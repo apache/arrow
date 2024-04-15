@@ -33,7 +33,7 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
   constexpr int unroll = 8;
 
   bool is_fixed_length_column =
-      rows.metadata().column_metadatas[column_id].is_fixed_length;
+      rows.metadata()->column_metadatas[column_id].is_fixed_length;
 
   // There are 4 cases, each requiring different steps:
   // 1. Varying length column that is the first varying length column in a row
@@ -50,9 +50,9 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
     if (varbinary_column_id == 0) {
       // Case 1: This is the first varbinary column
       //
-      __m256i field_offset_within_row = _mm256_set1_epi32(rows.metadata().fixed_length);
+      __m256i field_offset_within_row = _mm256_set1_epi32(rows.metadata()->fixed_length);
       __m256i varbinary_end_array_offset =
-          _mm256_set1_epi32(rows.metadata().varbinary_end_array_offset);
+          _mm256_set1_epi32(rows.metadata()->varbinary_end_array_offset);
       for (int i = 0; i < num_rows / unroll; ++i) {
         __m256i row_id =
             _mm256_loadu_si256(reinterpret_cast<const __m256i*>(row_ids) + i);
@@ -71,7 +71,7 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
       // Case 2: This is second or later varbinary column
       //
       __m256i varbinary_end_array_offset =
-          _mm256_set1_epi32(rows.metadata().varbinary_end_array_offset +
+          _mm256_set1_epi32(rows.metadata()->varbinary_end_array_offset +
                             sizeof(uint32_t) * (varbinary_column_id - 1));
       auto row_ptr_base_i64 =
           reinterpret_cast<const arrow::util::int64_for_gather_t*>(row_ptr_base);
@@ -99,7 +99,7 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
             _mm256_andnot_si256(field_offset_within_row, _mm256_set1_epi8(0xff));
         alignment_padding = _mm256_add_epi32(alignment_padding, _mm256_set1_epi32(1));
         alignment_padding = _mm256_and_si256(
-            alignment_padding, _mm256_set1_epi32(rows.metadata().string_alignment - 1));
+            alignment_padding, _mm256_set1_epi32(rows.metadata()->string_alignment - 1));
 
         field_offset_within_row =
             _mm256_add_epi32(field_offset_within_row, alignment_padding);
@@ -119,12 +119,12 @@ int RowArrayAccessor::Visit_avx2(const RowTableImpl& rows, int column_id, int nu
 
   if (is_fixed_length_column) {
     __m256i field_offset_within_row =
-        _mm256_set1_epi32(rows.metadata().encoded_field_offset(
-            rows.metadata().pos_after_encoding(column_id)));
+        _mm256_set1_epi32(rows.metadata()->encoded_field_offset(
+            rows.metadata()->pos_after_encoding(column_id)));
     __m256i field_length =
-        _mm256_set1_epi32(rows.metadata().column_metadatas[column_id].fixed_length);
+        _mm256_set1_epi32(rows.metadata()->column_metadatas[column_id].fixed_length);
 
-    bool is_fixed_length_row = rows.metadata().is_fixed_length;
+    bool is_fixed_length_row = rows.metadata()->is_fixed_length;
     if (is_fixed_length_row) {
       // Case 3: This is a fixed length column in fixed length row
       //
@@ -166,7 +166,7 @@ int RowArrayAccessor::VisitNulls_avx2(const RowTableImpl& rows, int column_id,
 
   const uint8_t* null_masks = rows.null_masks();
   __m256i null_bits_per_row =
-      _mm256_set1_epi32(8 * rows.metadata().null_masks_bytes_per_row);
+      _mm256_set1_epi32(8 * rows.metadata()->null_masks_bytes_per_row);
   for (int i = 0; i < num_rows / unroll; ++i) {
     __m256i row_id = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(row_ids) + i);
     __m256i bit_id = _mm256_mullo_epi32(row_id, null_bits_per_row);
