@@ -37,6 +37,7 @@ class SourceTest < Test::Unit::TestCase
     env = {
       "SOURCE_DEFAULT" => "0",
       "release_hash" => @current_commit,
+      "TEST_RELEASE_SCRIPT" => "1",
     }
     targets.each do |target|
       env["SOURCE_#{target}"] = "1"
