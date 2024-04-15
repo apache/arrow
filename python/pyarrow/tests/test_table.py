@@ -24,6 +24,7 @@ import numpy as np
 import pytest
 import pyarrow as pa
 import pyarrow.compute as pc
+from pyarrow.vendored.version import Version
 
 
 def test_chunked_array_basics():
@@ -3273,6 +3274,21 @@ def test_numpy_asarray(constructor):
     result = np.asarray(table3, dtype="int32")
     np.testing.assert_allclose(result, expected)
     assert result.dtype == "int32"
+
+
+@pytest.mark.parametrize("constructor", [pa.table, pa.record_batch])
+def test_numpy_array_protocol(constructor):
+    table = constructor([[1, 2, 3], [4.0, 5.0, 6.0]], names=["a", "b"])
+    expected = np.array([[1, 4], [2, 5], [3, 6]], dtype="float64")
+
+    if Version(np.__version__) < Version("2.0"):
+        # copy keyword is not strict and not passed down to __array__
+        result = np.array(table, copy=False)
+        np.testing.assert_array_equal(result, expected)
+    else:
+        # starting with numpy 2.0, the copy=False keyword is assumed to be strict
+        with pytest.raises(ValueError, match="Unable to avoid a copy"):
+            np.array(table, copy=False)
 
 
 @pytest.mark.acero

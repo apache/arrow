@@ -1516,11 +1516,28 @@ cdef class Array(_PandasConvertible):
     def _to_pandas(self, options, types_mapper=None, **kwargs):
         return _array_like_to_pandas(self, options, types_mapper=types_mapper)
 
-    def __array__(self, dtype=None):
+    def __array__(self, dtype=None, copy=None):
+        if copy is False:
+            try:
+                values = self.to_numpy(zero_copy_only=True)
+            except ArrowInvalid:
+                raise ValueError(
+                    "Unable to avoid a copy while creating a numpy array as requested.\n"
+                    "If using `np.array(obj, copy=False)` replace it with "
+                    "`np.asarray(obj)` to allow a copy when needed"
+                )
+            # values is already a numpy array at this point, but calling np.array(..)
+            # again to handle the `dtype` keyword with a no-copy guarantee
+            return np.array(values, dtype=dtype, copy=False)
+
         values = self.to_numpy(zero_copy_only=False)
+        if copy is True and is_numeric(self.type.id) and self.null_count == 0:
+            # to_numpy did not yet make a copy (is_numeric = integer/floats, no decimal)
+            return np.array(values, dtype=dtype, copy=True)
+
         if dtype is None:
             return values
-        return values.astype(dtype)
+        return np.asarray(values, dtype=dtype)
 
     def to_numpy(self, zero_copy_only=True, writable=False):
         """
