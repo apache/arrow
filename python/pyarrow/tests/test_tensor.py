@@ -188,6 +188,10 @@ def test_read_tensor(tmpdir):
     path = os.path.join(str(tmpdir), 'pyarrow-tensor-ipc-read-tensor')
     write_mmap = pa.create_memory_map(path, data_size)
     pa.ipc.write_tensor(tensor, write_mmap)
+    if sys.platform == 'emscripten':
+        # emscripten doesn't support multiple
+        # memory maps to same file
+        write_mmap.close()
     # Try to read tensor
     read_mmap = pa.memory_map(path, mode='r')
     array = pa.ipc.read_tensor(read_mmap).to_numpy()
