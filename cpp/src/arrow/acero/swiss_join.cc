@@ -2167,6 +2167,11 @@ Status JoinResidualFilter::FilterOneBatch(const ExecBatch& keypayload_batch,
   ARROW_DCHECK(!output_payload_ids || payload_ids_maybe_null);
 
   *num_passing_rows = 0;
+
+  if (num_batch_rows == 0) {
+    return Status::OK();
+  }
+
   ARROW_ASSIGN_OR_RAISE(Datum mask,
                         EvalFilter(keypayload_batch, num_batch_rows, batch_row_ids,
                                    key_ids_maybe_null, payload_ids_maybe_null));

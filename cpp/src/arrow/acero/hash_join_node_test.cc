@@ -2036,6 +2036,29 @@ TEST(HashJoin, ResidualFilter) {
                   [3, 4, "alpha", 4, 16, "alpha"]])")});
 }
 
+TEST(HashJoin, FilterEmptyRows) {
+  // Regression test for GH-41121.
+  BatchesWithSchema input_left;
+  input_left.batches = {
+      ExecBatchFromJSON({int32(), utf8(), int32()}, R"([[2, "Jarry", 28]])")};
+  input_left.schema =
+      schema({field("id", int32()), field("name", utf8()), field("age", int32())});
+
+  BatchesWithSchema input_right;
+  input_right.batches = {ExecBatchFromJSON(
+      {int32(), int32(), utf8()},
+      R"([[2, 10, "Jack"], [3, 12, "Mark"], [4, 15, "Tom"], [1, 10, "Jack"]])")};
+  input_right.schema =
+      schema({field("id", int32()), field("stu_id", int32()), field("subject", utf8())});
+
+  const ResidualFilterCaseRunner runner{std::move(input_left), std::move(input_right)};
+
+  Expression filter = greater(field_ref("age"), literal(25));
+
+  runner.Run(JoinType::LEFT_ANTI, {"id"}, {"stu_id"}, std::move(filter),
+             {ExecBatchFromJSON({int32(), utf8(), int32()}, R"([[2, "Jarry", 28]])")});
+}
+
 TEST(HashJoin, TrivialResidualFilter) {
   Expression always_true =
       equal(call("add", {field_ref("l1"), field_ref("r1")}), literal(2));  // 1 + 1 == 2
