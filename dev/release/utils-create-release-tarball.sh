@@ -18,10 +18,16 @@
 # under the License.
 #
 
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SOURCE_TOP_DIR="$(cd "${SOURCE_DIR}/../../" && pwd)"
+
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <version> <rc-num>"
   exit
 fi
+
+version=$1
+rc=$2
 
 tag=apache-arrow-${version}-rc${rc}
 tarball=apache-arrow-${version}.tar.gz
@@ -32,7 +38,9 @@ rm -rf ${tag}
 
 # be conservative and use the release hash, even though git produces the same
 # archive (identical hashes) using the scm tag
-git archive ${release_hash} --prefix ${tag}/ | tar xf -
+(cd "${SOURCE_TOP_DIR}" && \
+  git archive ${release_hash} --prefix ${tag}/)  | \
+  tar xf -
 
 # Resolve symbolic and hard links
 rm -rf ${tag}.tmp
