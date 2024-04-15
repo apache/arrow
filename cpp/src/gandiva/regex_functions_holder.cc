@@ -99,13 +99,14 @@ Result<std::shared_ptr<LikeHolder>> LikeHolder::Make(const FunctionNode& node) {
           "'like' function requires a string literal as the second parameter"));
 
   RE2::Options regex_op;
+  regex_op.set_dot_nl(true);  // set dotall mode for the regex.
   if (node.descriptor()->name() == "ilike") {
     regex_op.set_case_sensitive(false);  // set case-insensitive for ilike function.
 
     return Make(std::get<std::string>(literal->holder()), regex_op);
   }
   if (node.children().size() == 2) {
-    return Make(std::get<std::string>(literal->holder()));
+    return Make(std::get<std::string>(literal->holder()), regex_op);
   } else {
     auto escape_char = dynamic_cast<LiteralNode*>(node.children().at(2).get());
     ARROW_RETURN_IF(
@@ -118,7 +119,7 @@ Result<std::shared_ptr<LikeHolder>> LikeHolder::Make(const FunctionNode& node) {
         Status::Invalid(
             "'like' function requires a string literal as the third parameter"));
     return Make(std::get<std::string>(literal->holder()),
-                std::get<std::string>(escape_char->holder()));
+                std::get<std::string>(escape_char->holder()), regex_op);
   }
 }
 
@@ -126,7 +127,9 @@ Result<std::shared_ptr<LikeHolder>> LikeHolder::Make(const std::string& sql_patt
   std::string pcre_pattern;
   ARROW_RETURN_NOT_OK(RegexUtil::SqlLikePatternToPcre(sql_pattern, pcre_pattern));
 
-  auto lholder = std::shared_ptr<LikeHolder>(new LikeHolder(pcre_pattern));
+  RE2::Options regex_op;
+  regex_op.set_dot_nl(true);  // set dotall mode for the regex.
+  auto lholder = std::shared_ptr<LikeHolder>(new LikeHolder(pcre_pattern, regex_op));
   ARROW_RETURN_IF(!lholder->regex_.ok(),
                   Status::Invalid("Building RE2 pattern '", pcre_pattern,
                                   "' failed with: ", lholder->regex_.error()));
@@ -135,7 +138,8 @@ Result<std::shared_ptr<LikeHolder>> LikeHolder::Make(const std::string& sql_patt
 }
 
 Result<std::shared_ptr<LikeHolder>> LikeHolder::Make(const std::string& sql_pattern,
-                                                     const std::string& escape_char) {
+                                                     const std::string& escape_char,
+                                                     RE2::Options regex_op) {
   ARROW_RETURN_IF(escape_char.length() > 1,
                   Status::Invalid("The length of escape char ", escape_char,
                                   " in 'like' function is greater than 1"));
@@ -147,7 +151,7 @@ Result<std::shared_ptr<LikeHolder>> LikeHolder::Make(const std::string& sql_patt
     ARROW_RETURN_NOT_OK(RegexUtil::SqlLikePatternToPcre(sql_pattern, pcre_pattern));
   }
 
-  auto lholder = std::shared_ptr<LikeHolder>(new LikeHolder(pcre_pattern));
+  auto lholder = std::shared_ptr<LikeHolder>(new LikeHolder(pcre_pattern, regex_op));
   ARROW_RETURN_IF(!lholder->regex_.ok(),
                   Status::Invalid("Building RE2 pattern '", pcre_pattern,
                                   "' failed with: ", lholder->regex_.error()));

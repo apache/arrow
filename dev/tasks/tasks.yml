@@ -1049,14 +1049,13 @@ tasks:
       image: {{ image }}
 {% endfor %}
 
-  # Use azure to run valgrind tests to prevent OOM
   test-conda-cpp-valgrind:
-    ci: azure
-    template: docker-tests/azure.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       image: conda-cpp-valgrind
 
-{% for ubuntu_version in ["20.04", "22.04", "24.04"] %}
+{% for ubuntu_version in ["20.04", "22.04"] %}
   test-ubuntu-{{ ubuntu_version }}-cpp:
     ci: github
     template: docker-tests/github.linux.yml
@@ -1074,13 +1073,25 @@ tasks:
         UBUNTU: 20.04
       image: ubuntu-cpp-bundled
 
+  test-ubuntu-24.04-cpp:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        CLANG_TOOLS: 15
+        LLVM: 15
+        UBUNTU: 24.04
+      image: ubuntu-cpp
+
   test-ubuntu-24.04-cpp-gcc-14:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        UBUNTU: "24.04"
+        CLANG_TOOLS: 15
         GCC_VERSION: 14
+        LLVM: 15
+        UBUNTU: 24.04
       # rapidjson 1.1.0 has an error caught by gcc 14.
       # https://github.com/Tencent/rapidjson/issues/718
       flags: -e CC=gcc-14 -e CXX=g++-14 -e RapidJSON_SOURCE=BUNDLED
@@ -1215,8 +1226,8 @@ tasks:
       image: conda-python-cython2
 
   test-debian-12-python-3-amd64:
-    ci: azure
-    template: docker-tests/azure.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         DEBIAN: 12
@@ -1233,8 +1244,8 @@ tasks:
       image: debian-python
 
   test-ubuntu-20.04-python-3:
-    ci: azure
-    template: docker-tests/azure.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         UBUNTU: 20.04
@@ -1249,16 +1260,16 @@ tasks:
       image: ubuntu-python
 
   test-fedora-39-python-3:
-    ci: azure
-    template: docker-tests/azure.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         FEDORA: 39
       image: fedora-python
 
   test-r-linux-valgrind:
-    ci: azure
-    template: docker-tests/azure.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         ARROW_R_DEV: "TRUE"
@@ -1419,16 +1430,16 @@ tasks:
       flags: "-e LIBARROW_MINIMAL=TRUE"
 
   test-ubuntu-r-sanitizer:
-    ci: azure
-    template: docker-tests/azure.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         R_PRUNE_DEPS: TRUE
       image: ubuntu-r-sanitizer
 
   test-fedora-r-clang-sanitizer:
-    ci: azure
-    template: docker-tests/azure.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         R_PRUNE_DEPS: TRUE
@@ -1436,8 +1447,8 @@ tasks:
 
   {% for go_version, staticcheck in [("1.21", "v0.4.7"), ("1.22", "latest")] %}
   test-debian-12-go-{{ go_version }}:
-    ci: azure
-    template: docker-tests/azure.linux.yml
+    ci: github
+    template: docker-tests/github.linux.yml
     params:
       env:
         DEBIAN: 12

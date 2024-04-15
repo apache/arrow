@@ -50,6 +50,14 @@ jobs:
         run: |
           brew list
 
+      # CMake 3.29.1 that is pre-installed on the macOS image has a problem.
+      # See also: https://github.com/microsoft/vcpkg/issues/37968
+      - name: Install CMake 3.29.0
+        shell: bash
+        run: |
+          arrow/ci/scripts/install_cmake.sh $(arch) macos 3.29.0 ${PWD}/local
+          echo "${PWD}/local/bin" >> $GITHUB_PATH
+
       - name: Retrieve VCPKG version from arrow/.env
         run: |
           vcpkg_version=$(cat "arrow/.env" | grep "VCPKG" | cut -d "=" -f2 | tr -d '"')

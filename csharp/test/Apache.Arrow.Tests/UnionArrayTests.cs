@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
 using System.Linq;
 using Apache.Arrow.Types;
 using Xunit;
@@ -24,17 +25,116 @@ public class UnionArrayTests
     [Theory]
     [InlineData(UnionMode.Sparse)]
     [InlineData(UnionMode.Dense)]
-    public void UnionArray_IsNull(UnionMode mode)
+    public void UnionArrayIsNull(UnionMode mode)
+    {
+        var (array, expectedNull) = BuildUnionArray(mode, 100);
+
+        for (var i = 0; i < array.Length; ++i)
+        {
+            Assert.Equal(expectedNull[i], array.IsNull(i));
+            Assert.Equal(!expectedNull[i], array.IsValid(i));
+        }
+    }
+
+    [Theory]
+    [InlineData(UnionMode.Sparse)]
+    [InlineData(UnionMode.Dense)]
+    public void UnionArraySlice(UnionMode mode)
+    {
+        var (array, expectedNull) = BuildUnionArray(mode, 10);
+
+        for (var offset = 0; offset < array.Length; ++offset)
+        {
+            for (var length = 0; length < array.Length - offset; ++length)
+            {
+                var slicedArray = (UnionArray)ArrowArrayFactory.Slice(array, offset, length);
+
+                var nullCount = 0;
+                for (var i = 0; i < slicedArray.Length; ++i)
+                {
+                    Assert.Equal(expectedNull[offset + i], slicedArray.IsNull(i));
+                    Assert.Equal(!expectedNull[offset + i], slicedArray.IsValid(i));
+                    nullCount += expectedNull[offset + i] ? 1 : 0;
+
+                    CompareValue(array, offset + i, slicedArray, i);
+                }
+
+                Assert.Equal(nullCount, slicedArray.NullCount);
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(UnionMode.Sparse)]
+    [InlineData(UnionMode.Dense)]
+    public void UnionArrayConstructedWithOffset(UnionMode mode)
+    {
+        const int length = 10;
+        var (array, expectedNull) = BuildUnionArray(mode, length);
+
+        for (var offset = 0; offset < array.Length; ++offset)
+        {
+            var (slicedArray, _) = BuildUnionArray(mode, length, offset);
+
+            var nullCount = 0;
+            for (var i = 0; i < slicedArray.Length; ++i)
+            {
+                Assert.Equal(expectedNull[offset + i], slicedArray.IsNull(i));
+                Assert.Equal(!expectedNull[offset + i], slicedArray.IsValid(i));
+                nullCount += expectedNull[offset + i] ? 1 : 0;
+
+                CompareValue(array, offset + i, slicedArray, i);
+            }
+
+            Assert.Equal(nullCount, slicedArray.NullCount);
+        }
+    }
+
+    private static void CompareValue(UnionArray originalArray, int originalIndex, UnionArray slicedArray, int sliceIndex)
+    {
+        var typeId = originalArray.TypeIds[originalIndex];
+        var sliceTypeId = slicedArray.TypeIds[sliceIndex];
+        Assert.Equal(typeId, sliceTypeId);
+
+        switch (typeId)
+        {
+            case 0:
+                CompareFieldValue<int, Int32Array>(typeId, originalArray, originalIndex, slicedArray, sliceIndex);
+                break;
+            case 1:
+                CompareFieldValue<float, FloatArray>(typeId, originalArray, originalIndex, slicedArray, sliceIndex);
+                break;
+            default:
+                throw new Exception($"Unexpected type id {typeId}");
+        }
+    }
+
+    private static void CompareFieldValue<T, TArray>(byte typeId, UnionArray originalArray, int originalIndex, UnionArray slicedArray, int sliceIndex)
+        where T: struct
+        where TArray : PrimitiveArray<T>
+    {
+        if (originalArray is DenseUnionArray denseOriginalArray)
+        {
+            Assert.IsType<DenseUnionArray>(slicedArray);
+
+            originalIndex = denseOriginalArray.ValueOffsets[originalIndex];
+            sliceIndex = ((DenseUnionArray)slicedArray).ValueOffsets[sliceIndex];
+        }
+        var originalValue = ((TArray)originalArray.Fields[typeId]).GetValue(originalIndex);
+        var sliceValue = ((TArray)slicedArray.Fields[typeId]).GetValue(sliceIndex);
+        Assert.Equal(originalValue, sliceValue);
+    }
+
+    private static (UnionArray array, bool[] isNull) BuildUnionArray(UnionMode mode, int length, int offset=0)
     {
         var fields = new Field[]
         {
             new Field("field0", new Int32Type(), true),
             new Field("field1", new FloatType(), true),
         };
-        var typeIds = fields.Select(f => (int) f.DataType.TypeId).ToArray();
+        var typeIds = new[] { 0, 1 };
         var type = new UnionType(fields, typeIds, mode);
 
-        const int length = 100;
         var nullCount = 0;
         var field0Builder = new Int32Array.Builder();
         var field1Builder = new FloatArray.Builder();
@@ -44,9 +144,9 @@ public class UnionArrayTests
 
         for (var i = 0; i < length; ++i)
         {
-            var isNull = i % 5 == 0;
+            var isNull = i % 3 == 0;
             expectedNull[i] = isNull;
-            nullCount += isNull ? 1 : 0;
+            nullCount += (isNull && i >= offset) ? 1 : 0;
 
             if (i % 2 == 0)
             {
@@ -101,13 +201,9 @@ public class UnionArrayTests
         };
 
         UnionArray array = mode == UnionMode.Dense
-            ? new DenseUnionArray(type, length, children, typeIdsBuffer, valuesOffsetBuffer, nullCount)
-            : new SparseUnionArray(type, length, children, typeIdsBuffer, nullCount);
+            ? new DenseUnionArray(type, length - offset, children, typeIdsBuffer, valuesOffsetBuffer, nullCount, offset)
+            : new SparseUnionArray(type, length - offset, children, typeIdsBuffer, nullCount, offset);
 
-        for (var i = 0; i < length; ++i)
-        {
-            Assert.Equal(expectedNull[i], array.IsNull(i));
-            Assert.Equal(!expectedNull[i], array.IsValid(i));
-        }
+        return (array, expectedNull);
     }
 }
