@@ -99,5 +99,4 @@ SHELL ["/bin/bash", "-i", "-c"]
 ENTRYPOINT ["/bin/bash", "-i", "-c"]
 
 COPY python/requirements-wheel-build.txt /arrow/python/
-# TODO(GH-39848) Remove the `--pre --extra-index-url` for numpy nightly again before the 16.0 release 
-RUN pip install -r /arrow/python/requirements-wheel-build.txt --pre --extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple"
+RUN pip install -r /arrow/python/requirements-wheel-build.txt
