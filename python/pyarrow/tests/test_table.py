@@ -493,6 +493,47 @@ def test_recordbatch_dunder_init():
         pa.RecordBatch()
 
 
+def test_chunked_array_c_array_interface():
+    class ArrayWrapper:
+        def __init__(self, array):
+            self.array = array
+
+        def __arrow_c_array__(self, requested_schema=None):
+            return self.array.__arrow_c_array__(requested_schema)
+
+    data = pa.array([1, 2, 3], pa.int64())
+    chunked = pa.chunked_array([data])
+    wrapper = ArrayWrapper(data)
+
+    # Can roundtrip through the wrapper.
+    result = pa.chunked_array(wrapper)
+    assert result == chunked
+
+    # Can also import with a type that implementer can cast to.
+    result = pa.chunked_array(wrapper, type=pa.int16())
+    assert result == chunked.cast(pa.int16())
+
+
+def test_chunked_array_c_stream_interface():
+    class ChunkedArrayWrapper:
+        def __init__(self, chunked):
+            self.chunked = chunked
+
+        def __arrow_c_stream__(self, requested_schema=None):
+            return self.chunked.__arrow_c_stream__(requested_schema)
+
+    data = pa.chunked_array([[1, 2, 3], [4, None, 6]])
+    wrapper = ChunkedArrayWrapper(data)
+
+    # Can roundtrip through the wrapper.
+    result = pa.chunked_array(wrapper)
+    assert result == data
+
+    # Can also import with a type that implementer can cast to.
+    result = pa.chunked_array(wrapper, type=pa.int16())
+    assert result == data.cast(pa.int16())
+
+
 def test_recordbatch_c_array_interface():
     class BatchWrapper:
         def __init__(self, batch):
@@ -1695,6 +1736,43 @@ def test_table_rename_columns(cls):
 
     expected = cls.from_arrays(data, names=['eh', 'bee', 'sea'])
     assert t2.equals(expected)
+
+    message = "names must be a list or dict not <class 'str'>"
+    with pytest.raises(TypeError, match=message):
+        table.rename_columns('not a list')
+
+
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_rename_columns_mapping(cls):
+    data = [
+        pa.array(range(5)),
+        pa.array([-10, -5, 0, 5, 10]),
+        pa.array(range(5, 10))
+    ]
+    table = cls.from_arrays(data, names=['a', 'b', 'c'])
+    assert table.column_names == ['a', 'b', 'c']
+
+    expected = cls.from_arrays(data, names=['eh', 'b', 'sea'])
+    t1 = table.rename_columns({'a': 'eh', 'c': 'sea'})
+    t1.validate()
+    assert t1 == expected
+
+    # Test renaming duplicate column names
+    table = cls.from_arrays(data, names=['a', 'a', 'c'])
+    expected = cls.from_arrays(data, names=['eh', 'eh', 'sea'])
+    t2 = table.rename_columns({'a': 'eh', 'c': 'sea'})
+    t2.validate()
+    assert t2 == expected
+
+    # Test column not found
+    with pytest.raises(KeyError, match=r"Column 'd' not found"):
+        table.rename_columns({'a': 'eh', 'd': 'sea'})
 
 
 def test_table_flatten():
