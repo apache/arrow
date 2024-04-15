@@ -368,12 +368,6 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    */
   @Override
   public List<ArrowBuf> getFieldBuffers() {
-    // before flight/IPC, we must bring the vector to a consistent state.
-    // this is because, it is possible that the offset buffers of some trailing values
-    // are not updated. this may cause some data in the data buffer being lost.
-    // for details, please see TestValueVector#testUnloadVariableWidthVector.
-    fillHoles(valueCount);
-
     List<ArrowBuf> result = new ArrayList<>(2 + dataBuffers.size());
     setReaderAndWriterIndex();
     result.add(validityBuffer);
@@ -880,7 +874,6 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
       reallocViewBuffer();
       reallocValidityBuffer();
     }
-    fillHoles(valueCount);
     lastSet = valueCount - 1;
     setReaderAndWriterIndex();
   }
@@ -895,7 +888,6 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   @Override
   public void fillEmpties(int index) {
     handleSafe(index, EMPTY_BYTE_ARRAY.length);
-    fillHoles(index);
     lastSet = index - 1;
   }
 
@@ -945,7 +937,6 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   public void setValueLengthSafe(int index, int length) {
     assert index >= 0;
     handleSafe(index, length);
-    fillHoles(index);
     lastSet = index;
   }
 
@@ -977,7 +968,6 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    */
   public void set(int index, byte[] value) {
     assert index >= 0;
-    fillHoles(index);
     BitVectorHelper.setBit(validityBuffer, index);
     setBytes(index, value, 0, value.length);
     lastSet = index;
@@ -996,7 +986,6 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
     assert index >= 0;
     // check if the current index can be populated
     handleSafe(index, value.length);
-    fillHoles(index);
     BitVectorHelper.setBit(validityBuffer, index);
     setBytes(index, value, 0, value.length);
     lastSet = index;
@@ -1013,7 +1002,6 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    */
   public void set(int index, byte[] value, int start, int length) {
     assert index >= 0;
-    fillHoles(index);
     BitVectorHelper.setBit(validityBuffer, index);
     setBytes(index, value, start, length);
     lastSet = index;
@@ -1032,7 +1020,6 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   public void setSafe(int index, byte[] value, int start, int length) {
     assert index >= 0;
     handleSafe(index, length);
-    fillHoles(index);
     BitVectorHelper.setBit(validityBuffer, index);
     setBytes(index, value, start, length);
     lastSet = index;
@@ -1049,7 +1036,6 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    */
   public void set(int index, ByteBuffer value, int start, int length) {
     assert index >= 0;
-    fillHoles(index);
     BitVectorHelper.setBit(validityBuffer, index);
     setBytes(index, value.array(), start, length);
     lastSet = index;
@@ -1068,7 +1054,6 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   public void setSafe(int index, ByteBuffer value, int start, int length) {
     assert index >= 0;
     handleSafe(index, length);
-    fillHoles(index);
     BitVectorHelper.setBit(validityBuffer, index);
     setBytes(index, value.array(), start, length);
     lastSet = index;
@@ -1101,7 +1086,6 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   public void set(int index, int isSet, int start, int end, ArrowBuf buffer) {
     assert index >= 0;
     final int dataLength = end - start;
-    fillHoles(index);
     BitVectorHelper.setValidityBit(validityBuffer, index, isSet);
     byte[] data = new byte[dataLength];
     buffer.getBytes(start, data, 0, dataLength);
@@ -1124,7 +1108,6 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
     assert index >= 0;
     final int dataLength = end - start;
     handleSafe(index, dataLength);
-    fillHoles(index);
     BitVectorHelper.setValidityBit(validityBuffer, index, isSet);
     byte[] data = new byte[dataLength];
     buffer.getBytes(start, data, 0, dataLength);
@@ -1143,7 +1126,6 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    */
   public void set(int index, int start, int length, ArrowBuf buffer) {
     assert index >= 0;
-    fillHoles(index);
     BitVectorHelper.setBit(validityBuffer, index);
     byte[] data = new byte[length];
     buffer.getBytes(start, data, 0, length);
@@ -1164,7 +1146,6 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   public void setSafe(int index, int start, int length, ArrowBuf buffer) {
     assert index >= 0;
     handleSafe(index, length);
-    fillHoles(index);
     BitVectorHelper.setBit(validityBuffer, index);
     byte[] data = new byte[length];
     buffer.getBytes(start, data, 0, length);
@@ -1179,13 +1160,6 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    |                                                                |
    *----------------------------------------------------------------*/
 
-
-  protected final void fillHoles(int index) {
-    for (int i = lastSet + 1; i < index; i++) {
-      setBytes(i, EMPTY_BYTE_ARRAY, 0, EMPTY_BYTE_ARRAY.length);
-    }
-    lastSet = index - 1;
-  }
 
   protected ArrowBuf allocateOrGetLastDataBuffer(int length) {
     long dataBufferSize;
