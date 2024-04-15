@@ -948,7 +948,6 @@ test_that("Not (yet) supported: implicit join", {
     )
   )
 
-  options(arrow.debug = TRUE)
   compare_dplyr_binding(
     .input %>%
       group_by(x) %>%
@@ -960,7 +959,6 @@ test_that("Not (yet) supported: implicit join", {
       "or is not supported in Arrow; pulling data into R"
     )
   )
-  options(arrow.debug = FALSE)
 
   compare_dplyr_binding(
     .input %>%
