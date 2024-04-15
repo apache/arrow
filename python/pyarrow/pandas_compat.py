@@ -580,7 +580,7 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
         else:
             nthreads = 1
     # if we don't have threading in libarrow, don't use threading here either
-    if is_threading_enabled():
+    if not is_threading_enabled():
         nthreads = 1
 
     def convert_column(col, field):
