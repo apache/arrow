@@ -58,7 +58,7 @@ jobs:
           echo "RELEASE_CANDIDATE_NOTES=${release_notes}" >> ${GITHUB_ENV}
       - name: Create Release tarball
         run: |
-          dev/release/utils-create-release-tarball.sh ${VERSION} ${RC_NUM}
+          cd dev/release/ && ./utils-create-release-tarball.sh ${VERSION} ${RC_NUM}
           echo "RELEASE_TARBALL=apache-arrow-${VERSION}.tar.gz" >> ${GITHUB_ENV}
       - name: Create GitHub Release
         run: |
