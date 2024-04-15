@@ -54,6 +54,7 @@ groups = [
     'requires_testing_data',
     'zstd',
     'threading',
+    'processes',
 ]
 
 defaults = {
@@ -86,10 +87,13 @@ defaults = {
     'substrait': False,
     'threading': is_threading_enabled(),
     'zstd': Codec.is_available('zstd'),
+    'processes': True
 }
 
 if sys.platform == "emscripten":
+    # emscripten doesn't support multiprocessing or gdb
     defaults['gdb'] = False
+    defaults['processes'] = False
 
 try:
     import cython  # noqa
