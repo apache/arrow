@@ -37,14 +37,14 @@ under the hood, you can implement the following methods on those objects:
 
 - ``__arrow_c_schema__`` for schema or type-like objects.
 - ``__arrow_c_array__`` for arrays and record batches (contiguous tables).
-- ``__arrow_c_stream__`` for chunked tables or streams of data.
+- ``__arrow_c_stream__`` for chunked arrays, tables and streams of data.
 
 Those methods return `PyCapsule <https://docs.python.org/3/c-api/capsule.html>`__
 objects, and more details on the exact semantics can be found in the
 :ref:`specification <arrow-pycapsule-interface>`.
 
 When your data structures have those methods defined, the PyArrow constructors
-(such as :func:`pyarrow.array` or :func:`pyarrow.table`) will recognize those objects as
+(see below) will recognize those objects as
 supporting this protocol, and convert them to PyArrow data structures zero-copy. And the
 same can be true for any other library supporting this protocol on ingesting data.
 
@@ -52,6 +52,31 @@ Similarly, if your library has functions that accept user-provided data, you can
 support for this protocol by checking for the presence of those methods, and
 therefore accept any Arrow data (instead of harcoding support for a specific
 Arrow producer such as PyArrow).
+
+For consuming data through this protocol with PyArrow, the following constructors
+can be used to create the various PyArrow objects:
+
++----------------------------+-----------------------------------------------+--------------------+
+| Result class               | PyArrow constructor                           | Supported protocol |
++============================+===============================================+====================+
+| :class:`Array`             | :func:`pyarrow.array`                         | array              |
++----------------------------+-----------------------------------------------+--------------------+
+| :class:`ChunkedArray`      | :func:`pyarrow.chunked_array`                 | array, stream      |
++----------------------------+-----------------------------------------------+--------------------+
+| :class:`RecordBatch`       | :func:`pyarrow.record_batch`                  | array              |
++----------------------------+-----------------------------------------------+--------------------+
+| :class:`Table`             | :func:`pyarrow.table`                         | array, stream      |
++----------------------------+-----------------------------------------------+--------------------+
+| :class:`RecordBatchReader` | :meth:`pyarrow.RecordBatchReader.from_stream` | stream             |
++----------------------------+-----------------------------------------------+--------------------+
+| :class:`Field`             | :func:`pyarrow.field`                         | schema             |
++----------------------------+-----------------------------------------------+--------------------+
+| :class:`Schema`            | :func:`pyarrow.schema`                        | schema             |
++----------------------------+-----------------------------------------------+--------------------+
+
+A :class:`DataType` can be created by consuming the schema-compatible object
+using :func:`pyarrow.field` and then accessing the ``.type`` of the resulting
+Field.
 
 .. _arrow_array_protocol:
 
