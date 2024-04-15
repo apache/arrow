@@ -182,6 +182,38 @@ namespace Apache.Arrow.Tests
                 Assert.Equal(expectedArray.Data.Children.Length, array.Data.Children.Length);
                 Assert.Equal(expectedArray.Fields.Count, array.Fields.Count);
 
+                if (_strictCompare)
+                {
+                    Assert.True(expectedArray.TypeBuffer.Span.SequenceEqual(array.TypeBuffer.Span));
+                }
+                else
+                {
+                    for (int i = 0; i < expectedArray.Length; i++)
+                    {
+                        Assert.Equal(expectedArray.TypeIds[i], array.TypeIds[i]);
+                    }
+                }
+
+                if (_expectedArray is DenseUnionArray expectedDenseArray)
+                {
+                    Assert.IsAssignableFrom<DenseUnionArray>(array);
+                    var denseArray = array as DenseUnionArray;
+                    Assert.NotNull(denseArray);
+
+                    if (_strictCompare)
+                    {
+                        Assert.True(expectedDenseArray.ValueOffsetBuffer.Span.SequenceEqual(denseArray.ValueOffsetBuffer.Span));
+                    }
+                    else
+                    {
+                        for (int i = 0; i < expectedDenseArray.Length; i++)
+                        {
+                            Assert.Equal(
+                                expectedDenseArray.ValueOffsets[i], denseArray.ValueOffsets[i]);
+                        }
+                    }
+                }
+
                 for (int i = 0; i < array.Fields.Count; i++)
                 {
                     array.Fields[i].Accept(new ArrayComparer(expectedArray.Fields[i], _strictCompare));
