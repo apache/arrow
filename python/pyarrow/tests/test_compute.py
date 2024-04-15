@@ -2075,6 +2075,10 @@ def test_strptime():
 @pytest.mark.pandas
 @pytest.mark.skipif(sys.platform == "win32" and not util.windows_has_tzdata(),
                     reason="Timezone database is not installed on Windows")
+@pytest.mark.xfail(
+    sys.platform == "emscripten",
+    reason="Emscripten datetime is implemented in Javascript and works differently"
+)
 def test_strftime():
     times = ["2018-03-10 09:00", "2038-01-31 12:23", None]
     timezones = ["CET", "UTC", "Europe/Ljubljana"]
@@ -2232,6 +2236,10 @@ def _check_datetime_components(timestamps, timezone=None):
     assert pc.week(tsa, options=week_options).equals(pa.array(iso_week))
 
 
+@pytest.mark.xfail(
+    sys.platform == "emscripten",
+    reason="Emscripten datetime is implemented in Javascript and works differently"
+)
 @pytest.mark.pandas
 def test_extract_datetime_components():
     timestamps = ["1970-01-01T00:00:59.123456789",
@@ -2279,6 +2287,10 @@ def test_iso_calendar_longer_array(unit):
 @pytest.mark.pandas
 @pytest.mark.skipif(sys.platform == "win32" and not util.windows_has_tzdata(),
                     reason="Timezone database is not installed on Windows")
+@pytest.mark.xfail(
+    sys.platform == "emscripten",
+    reason="Emscripten datetime is implemented in Javascript and works differently"
+)
 def test_assume_timezone():
     ts_type = pa.timestamp("ns")
     timestamps = pd.to_datetime(["1970-01-01T00:00:59.123456789",
@@ -2475,6 +2487,10 @@ def _check_temporal_rounding(ts, values, unit):
 
 @pytest.mark.skipif(sys.platform == "win32" and not util.windows_has_tzdata(),
                     reason="Timezone database is not installed on Windows")
+@pytest.mark.xfail(
+    sys.platform == "emscripten",
+    reason="Emscripten datetime is implemented in Javascript and works differently"
+)
 @pytest.mark.parametrize('unit', ("nanosecond", "microsecond", "millisecond",
                                   "second", "minute", "hour", "day"))
 @pytest.mark.pandas
