@@ -967,7 +967,7 @@ test_that("Not (yet) supported: implicit join", {
       collect(),
     data.frame(x = 1, y = 2),
     warning = paste(
-      "Expression y is not an aggregate expression",
+      "Expression y is not a valid aggregation expression",
       "or is not supported in Arrow; pulling data into R"
     )
   )
@@ -980,7 +980,7 @@ test_that("Not (yet) supported: implicit join", {
       collect(),
     data.frame(x = 1, y = 2, z = 3),
     warning = paste(
-      "Expression x - y is not an aggregate expression",
+      "Expression x - y is not a valid aggregation expression",
       "or is not supported in Arrow; pulling data into R"
     )
   )
@@ -1222,7 +1222,7 @@ test_that("Can use across() within summarise()", {
       group_by(x) %>%
       summarise(across(everything())) %>%
       collect(),
-    regexp = "Expression y is not an aggregate expression or is not supported in Arrow; pulling data into R"
+    regexp = "Expression y is not a valid aggregation expression or is not supported in Arrow; pulling data into R"
   )
 })
 

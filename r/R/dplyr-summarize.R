@@ -308,7 +308,6 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
       # the schema of the data after summarize(). Evaulating its type will
       # throw an error if it's invalid.
       tryCatch(..post_mutate[[post]]$type(out$.data$schema), error = function(e) {
-        # Slightly different error message here so we can tell if we're here
         msg <- paste(
           "Expression", as_label(exprs[[post]]),
           "is not a valid aggregation expression or is"
@@ -457,54 +456,35 @@ format_aggregation <- function(x) {
 # (2) post-aggregation transformations (mutate)
 # The function returns nothing: it assigns into objects in the `mask`
 summarize_eval <- function(name, quosure, mask, hash) {
-  starting_aggs <- get("..aggregations", parent.frame())
-  starting_agg_count <- length(starting_aggs)
-
   # For the quantile() binding in the hash aggregation case, we need to mutate
   # the list output from the Arrow hash_tdigest kernel to flatten it into a
   # column of type float64. We do that by modifying the unevaluated expression
   # to replace quantile(...) with arrow_list_element(quantile(...), 0L)
   expr <- quo_get_expr(quosure)
-  funs_in_expr <- all_funs(expr)
-  quo_env <- quo_get_env(quosure)
-  if (hash && any(c("quantile", "stats::quantile") %in% funs_in_expr)) {
+  if (hash && any(c("quantile", "stats::quantile") %in% all_funs(expr))) {
     expr <- wrap_hash_quantile(expr)
+    quo_env <- quo_get_env(quosure)
     quosure <- as_quosure(expr, quo_env)
   }
 
   # Add previous aggregations to the mask
-  agg_field_types <- aggregate_types(starting_aggs, hash)
-  for (n in names(starting_aggs)) {
+  for (n in names(get("..aggregations", parent.frame()))) {
     mask[[n]] <- mask$.data[[n]] <- Expression$field_ref(n)
-    mask$.data$schema[[n]] <- agg_field_types[[n]]
   }
   # Evaluate:
   value <- arrow_eval_or_stop(quosure, mask)
-  post_aggs <- get("..aggregations", parent.frame())
   if (!inherits(value, "Expression")) {
-    # Must have just been a scalar?
+    # Must have just been a scalar? (If it's not a scalar, this will error)
     # Scalars need to be added to post_mutate because they don't need
     # to be sent to the query engine as an aggregation
     value <- Expression$scalar(value)
-  } else {
-    # So it evaluated to an Expression. We need to make sure there's at least
-    # one aggregation in the expression, otherwise it's not an aggregate,
-    # like fun(x, y), or it's a aggregation function that isn't supported in
-    # Arrow (not in agg_funcs) (though that probably errors somewhere else now?)
-    # Check that ctx$aggregations has grown by at least one
-    if (length(post_aggs) == starting_agg_count) {
-      msg <- paste(
-        "Expression", format_expr(quosure), "is not an aggregate expression or is"
-      )
-      arrow_not_supported(msg)
-    }
   }
 
   # Handle case where outer expr is ..temp field ref. This came from an
   # aggregation at the top level. So the resulting name should be `name`.
   # not `..tempN`. Rename the corresponding aggregation.
-  field_name <- value$field_name
-  field_in_aggregations <- match(field_name, names(post_aggs))
+  post_aggs <- get("..aggregations", parent.frame())
+  field_in_aggregations <- match(value$field_name, names(post_aggs))
   # Assign into the parent environment
   if (!is.na(field_in_aggregations)) {
     names(post_aggs)[field_in_aggregations] <- name
