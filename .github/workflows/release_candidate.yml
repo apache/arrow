@@ -48,35 +48,6 @@ jobs:
           echo "VERSION_WITH_RC=${version_with_rc}" >> ${GITHUB_ENV}
           echo "VERSION=${version}" >> ${GITHUB_ENV}
           echo "RC_NUM=${rc_num}" >> ${GITHUB_ENV}
-      - name: Get Commit Associated with Release Candidate Tag
-        run: |
-          release_hash=$(git rev-list --max-count=1 ${GITHUB_REF_NAME})
-          echo "Using commit ${release_hash}"
-          echo "RELEASE_HASH=${release_hash}" >> ${GITHUB_ENV}
-      - name: Download Archive From Release Hash
-        run: |
-          git archive ${RELEASE_HASH} --prefix ${GITHUB_REF_NAME}/ | tar xf -
-      - name: Resolve all hard and symbolic links
-        run: |
-          mv ${GITHUB_REF_NAME} ${GITHUB_REF_NAME}.tmp
-          cp -R -L ${GITHUB_REF_NAME}.tmp ${GITHUB_REF_NAME}
-          rm -rf ${GITHUB_REF_NAME}.tmp
-      - name: Add Source Link Support for C# Bindings
-        run: |
-          dummy_git=${GITHUB_REF_NAME}/csharp/dummy.git
-          mkdir ${dummy_git}
-          curr_dir=$(pwd)
-          cd ${dummy_git} && \
-          echo ${RELEASE_HASH} > HEAD && \
-          echo '[remote "origin"] url = https://github.com/apache/arrow.git' >> config && \
-          mkdir objects refs && \
-          cd ${curr_dir}
-      - name: Create Release Tarball
-        run: |
-          tarball=apache-arrow-${VERSION}.tar.gz
-          tar czf ${tarball} ${GITHUB_REF_NAME}
-          rm -rf ${GITHUB_REF_NAME}
-          echo "RELEASE_TARBALL=${tarball}" >> ${GITHUB_ENV}
       - name: Create Release Candidate Title
         run: |
           title="Apache Arrow ${VERSION} RC${RC_NUM}"
@@ -85,6 +56,10 @@ jobs:
         run: |
           release_notes="Release Candidate: ${VERSION} RC${RC_NUM}"
           echo "RELEASE_CANDIDATE_NOTES=${release_notes}" >> ${GITHUB_ENV}
+      - name: Create Release tarball
+        run: |
+          dev/release/utils-create-release-tarball.sh ${VERSION} ${RC_NUM}
+          echo "RELEASE_TARBALL=apache-arrow-${VERSION}.tar.gz" >> ${GITHUB_ENV}
       - name: Create GitHub Release
         run: |
           gh release create ${GITHUB_REF_NAME} \
