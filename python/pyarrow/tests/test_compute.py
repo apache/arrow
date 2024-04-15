@@ -1344,14 +1344,13 @@ def test_filter_record_batch():
     expected = pa.record_batch([pa.array(["a", "e"])], names=["a'"])
     assert result.equals(expected)
 
-    result = batch.filter(mask, null_selection_behavior="emit_null")
-    expected = pa.record_batch([pa.array(["a", None, "e"])], names=["a'"])
+    # GH-38770: mask is chunked array
+    chunked_mask = pa.chunked_array([[True, False], [None], [False, True]])
+    result = batch.filter(chunked_mask)
     assert result.equals(expected)
 
-    # GH-38770: mask is chunked array
-    mask = pa.chunked_array([[True, False], [None], [False, True]])
-    result = batch.filter(mask)
-    expected = pa.table([pa.array(["a", "e"])], names=["a'"])
+    result = batch.filter(mask, null_selection_behavior="emit_null")
+    expected = pa.record_batch([pa.array(["a", None, "e"])], names=["a'"])
     assert result.equals(expected)
 
 

@@ -22,6 +22,7 @@
 #include <type_traits>
 #include <vector>
 
+#include "arrow/array/concatenate.h"
 #include "arrow/array/data.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/chunked_array.h"
@@ -924,12 +925,26 @@ Result<std::shared_ptr<RecordBatch>> FilterRecordBatch(const RecordBatch& batch,
     return Status::Invalid("Filter inputs must all be the same length");
   }
 
-  // Convert filter to selection vector/indices and use Take
+  // Fetch filter
   const auto& filter_opts = *static_cast<const FilterOptions*>(options);
-  ARROW_ASSIGN_OR_RAISE(
-      std::shared_ptr<ArrayData> indices,
-      GetTakeIndices(*filter.array(), filter_opts.null_selection_behavior,
-                     ctx->memory_pool()));
+  ArrayData filter_array;
+  switch (filter.kind()) {
+    case Datum::ARRAY:
+      filter_array = *filter.array();
+      break;
+    case Datum::CHUNKED_ARRAY: {
+      ARROW_ASSIGN_OR_RAISE(auto combined, Concatenate(filter.chunked_array()->chunks()));
+      filter_array = *combined->data();
+      break;
+    }
+    default:
+      return Status::TypeError("Filter should be array-like");
+  }
+
+  // Convert filter to selection vector/indices and use Take
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> indices,
+                        GetTakeIndices(filter_array, filter_opts.null_selection_behavior,
+                                       ctx->memory_pool()));
   std::vector<std::shared_ptr<Array>> columns(batch.num_columns());
   for (int i = 0; i < batch.num_columns(); ++i) {
     ARROW_ASSIGN_OR_RAISE(Datum out, Take(batch.column(i)->data(), Datum(indices),
@@ -1038,18 +1053,10 @@ class FilterMetaFunction : public MetaFunction {
     }
 
     if (args[0].kind() == Datum::RECORD_BATCH) {
-      auto values_batch = args[0].record_batch();
-      if (args[1].kind() == Datum::ARRAY) {
-        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> out_batch,
-                              FilterRecordBatch(*values_batch, args[1], options, ctx));
-        return Datum(out_batch);
-      } else {
-        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Table> table,
-                              arrow::Table::FromRecordBatches({values_batch}));
-        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> out_table,
-                              FilterTable(*table, args[1], options, ctx));
-        return Datum(out_table);
-      }
+      ARROW_ASSIGN_OR_RAISE(
+          std::shared_ptr<RecordBatch> out_batch,
+          FilterRecordBatch(*args[0].record_batch(), args[1], options, ctx));
+      return Datum(out_batch);
     } else if (args[0].kind() == Datum::TABLE) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> out_table,
                             FilterTable(*args[0].table(), args[1], options, ctx));
