@@ -68,7 +68,7 @@ The reference Arrow libraries contain many distinct software components:
 - Self-describing binary wire formats (streaming and batch/file-like) for
   remote procedure calls (RPC) and interprocess communication (IPC)
 - Integration tests for verifying binary compatibility between the
-  implementations (e.g. sending data from Java to C++)
+  implementations (e.g. sending data from `Java` to `C++`)
 - Conversions to and from other in-memory data structures
 - Readers and writers for various widely-used file formats (such as Parquet, CSV)
 
