@@ -59,11 +59,17 @@ tarball=apache-arrow-${version}.tar.gz
 
 rm -f ${tarball}
 
-gh release download \
-  ${tag} \
-  --repo apache/arrow \
-  --dir . \
-  --pattern "${tarball}"
+if [${TEST_RELEASE_SCRIPT} -gt 0] ; then
+    gh workflow run -f release_hash=${release_hash} tarball_name=${tarball} -> workflow id
+    gh run watch --exit-status
+    gh run download {id} -- 
+; else 
+     gh release download \
+    ${tag} \
+    --repo apache/arrow \
+    --dir . \
+    --pattern "${tarball}"
+fi
 
 if [ ${SOURCE_RAT} -gt 0 ]; then
   "${SOURCE_DIR}/run-rat.sh" ${tarball}
