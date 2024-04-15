@@ -3382,7 +3382,7 @@ def test_c_array_protocol():
     result = pa.array(arr)
     assert result == arr.data
 
-    # Will case to requested type
+    # Will cast to requested type
     result = pa.array(arr, type=pa.int32())
     assert result == pa.array([1, 2, 3], type=pa.int32())
 
