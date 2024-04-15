@@ -1307,6 +1307,13 @@ TEST(TestBooleanArray, TrueCountFalseCount) {
   CheckArray(checked_cast<const BooleanArray&>(*arr));
   CheckArray(checked_cast<const BooleanArray&>(*arr->Slice(5)));
   CheckArray(checked_cast<const BooleanArray&>(*arr->Slice(0, 0)));
+
+  // GH-41016 true_count() with array without validity buffer with null_count of -1
+  auto arr_unknown_null_count = ArrayFromJSON(boolean(), "[true, false, true]");
+  arr_unknown_null_count->data()->null_count = kUnknownNullCount;
+  ASSERT_EQ(arr_unknown_null_count->data()->null_count.load(), -1);
+  ASSERT_EQ(arr_unknown_null_count->null_bitmap(), nullptr);
+  ASSERT_EQ(checked_pointer_cast<BooleanArray>(arr_unknown_null_count)->true_count(), 2);
 }
 
 TEST(TestPrimitiveAdHoc, TestType) {
