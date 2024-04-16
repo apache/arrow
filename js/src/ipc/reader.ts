@@ -115,13 +115,13 @@ export class RecordBatchReader<T extends TypeMap = any> extends ReadableInterop<
     public [Symbol.asyncIterator](): AsyncIterableIterator<RecordBatch<T>> {
         return (<AsyncIterableIterator<RecordBatch<T>>>this._impl)[Symbol.asyncIterator]();
     }
-    public toDOMStream() {
+    public toDOMStream(): ReadableStream<RecordBatch<T>> {
         return streamAdapters.toDOMStream<RecordBatch<T>>(
             (this.isSync()
                 ? { [Symbol.iterator]: () => this } as Iterable<RecordBatch<T>>
                 : { [Symbol.asyncIterator]: () => this } as AsyncIterable<RecordBatch<T>>));
     }
-    public toNodeStream() {
+    public toNodeStream(): import('stream').Readable {
         return streamAdapters.toNodeStream<RecordBatch<T>>(
             (this.isSync()
                 ? { [Symbol.iterator]: () => this } as Iterable<RecordBatch<T>>

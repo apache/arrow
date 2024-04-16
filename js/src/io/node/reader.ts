@@ -75,7 +75,7 @@ class RecordBatchReaderDuplex<T extends TypeMap = any> extends Duplex {
     async _pull(size: number, reader: RecordBatchReader<T>) {
         let r: IteratorResult<RecordBatch<T>> | null = null;
         while (this.readable && !(r = await reader.next()).done) {
-            if (!this.push(r.value) || (size != null && --size <= 0)) { break; }
+            if (!this.push(r!.value) || (size != null && --size <= 0)) { break; }
         }
         if (!this.readable || (r?.done && (reader.autoDestroy || (await reader.reset().open()).closed))) {
             this.push(null);
