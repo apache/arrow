@@ -165,8 +165,7 @@ function generateUMDExportAssignment(src, exportedImports) {
             const p = publicModulePath.slice(src.length + 1);
             return (`import * as exports${i} from './${p}';`);
         }).filter(Boolean),
-        `Object.assign(arguments[0], ${exportedImports.map((_, i) => `exports${i}`).join(', ')
-        });`
+        'Object.assign(arguments[0], exports0);'
     ].join('\n');
 }
 
