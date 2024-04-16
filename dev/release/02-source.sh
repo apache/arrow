@@ -25,6 +25,7 @@ set -eu
 : ${SOURCE_UPLOAD:=${SOURCE_DEFAULT}}
 : ${SOURCE_PR:=${SOURCE_DEFAULT}}
 : ${SOURCE_VOTE:=${SOURCE_DEFAULT}}
+: ${SOURCE_DOWNLOAD:=${SOURCE_DEFAULT}}
 
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_TOP_DIR="$(cd "${SOURCE_DIR}/../../" && pwd)"
