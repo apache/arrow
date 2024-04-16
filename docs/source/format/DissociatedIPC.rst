@@ -58,7 +58,7 @@ However, there are use cases that aren't handled by this:
 * Arrow data located on a non-CPU device (such as a GPU) cannot be sent using
   Arrow IPC without having to copy the data back to the host device or copying
   the flatbuffer metadata bytes into device memory.
-  - By the same token, receiving IPC messages into device memory would require
+  * By the same token, receiving IPC messages into device memory would require
     performing a copy of the flatbuffer metadata back to the host CPU device. This
     is due to the fact that the IPC stream interleaves data and metadata across a
     single stream.
