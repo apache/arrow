@@ -157,7 +157,7 @@ template <typename DestType>
 struct CastFixedToVarList {
   using dest_offset_type = typename DestType::offset_type;
 
-  /// \pre values->length >= list_size * num_lists
+  /// \pre values->length == list_size * num_lists
   /// \pre values->offset >= 0
   ///
   /// \param num_lists The number of fixed-size lists in the input and lists in the
@@ -170,7 +170,7 @@ struct CastFixedToVarList {
       KernelContext* ctx, int64_t num_lists, const uint8_t* list_validity,
       int32_t list_size, std::shared_ptr<ArrayData>&& values,
       const std::shared_ptr<DataType>& to_type) {
-    DCHECK_GE(values->length, list_size * num_lists);
+    DCHECK_EQ(values->length, list_size * num_lists);
     // XXX: is it OK to use options recursively without modifying it?
     const CastOptions& options = CastState::Get(ctx);
     ARROW_ASSIGN_OR_RAISE(Datum cast_values,
@@ -204,7 +204,7 @@ struct CastFixedToVarList {
 
     // Handle child values
     std::shared_ptr<ArrayData> child_values = in_array.child_data[0].ToArrayData();
-    if (in_array.offset > 0) {
+    if (in_array.offset > 0 || child_values->length > in_array.length * list_size) {
       child_values =
           child_values->Slice(in_array.offset * list_size, in_array.length * list_size);
     }
