@@ -17,8 +17,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import * as fs from 'fs';
-import * as Path from 'path';
+import * as fs from 'node:fs';
+import * as Path from 'node:path';
 import { glob } from 'glob';
 import { zip } from 'ix/iterable/zip.js';
 import commandLineArgs from 'command-line-args';
@@ -41,8 +41,8 @@ const argv = commandLineArgs(cliOpts(), { partial: true });
 const exists = async (p: string) => {
     try {
         return !!(await fs.promises.stat(p));
-    } catch (e) { return false; }
-}
+    } catch { return false; }
+};
 
 (async () => {
 
@@ -52,17 +52,17 @@ const exists = async (p: string) => {
     let jsonPaths = [...(argv.json || [])];
     let arrowPaths = [...(argv.arrow || [])];
 
-    if (mode === 'VALIDATE' && !jsonPaths.length) {
+    if (mode === 'VALIDATE' && jsonPaths.length === 0) {
         [jsonPaths, arrowPaths] = await loadLocalJSONAndArrowPathsForDebugging(jsonPaths, arrowPaths);
     }
 
-    if (!jsonPaths.length) { return print_usage(); }
+    if (jsonPaths.length === 0) { return print_usage(); }
 
     let threw = false;
 
     switch (mode) {
         case 'VALIDATE':
-            for (let [jsonPath, arrowPath] of zip(jsonPaths, arrowPaths)) {
+            for (const [jsonPath, arrowPath] of zip(jsonPaths, arrowPaths)) {
                 try {
                     await validate(jsonPath, arrowPath);
                 } catch (e: any) {
@@ -232,7 +232,7 @@ function compareVectors(actual: Vector, expected: Vector) {
 
     (() => {
         let i = -1;
-        for (let [x1, x2] of zip(actual, expected)) {
+        for (const [x1, x2] of zip(actual, expected)) {
             ++i;
             if (!createElementComparator(x2)(x1)) {
                 throw new Error(`${i}: ${x1} !== ${x2}`);
@@ -245,14 +245,14 @@ async function loadLocalJSONAndArrowPathsForDebugging(jsonPaths: string[], arrow
 
     const sourceJSONPaths = await glob(Path.resolve(__dirname, `../test/data/json/`, `*.json`));
 
-    if (!arrowPaths.length) {
+    if (arrowPaths.length === 0) {
         await loadJSONAndArrowPaths(sourceJSONPaths, jsonPaths, arrowPaths, 'cpp', 'file');
         await loadJSONAndArrowPaths(sourceJSONPaths, jsonPaths, arrowPaths, 'java', 'file');
         await loadJSONAndArrowPaths(sourceJSONPaths, jsonPaths, arrowPaths, 'cpp', 'stream');
         await loadJSONAndArrowPaths(sourceJSONPaths, jsonPaths, arrowPaths, 'java', 'stream');
     }
 
-    for (let [jsonPath, arrowPath] of zip(jsonPaths, arrowPaths)) {
+    for (const [jsonPath, arrowPath] of zip(jsonPaths, arrowPaths)) {
         console.log(`jsonPath: ${jsonPath}`);
         console.log(`arrowPath: ${arrowPath}`);
     }
