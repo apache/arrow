@@ -277,7 +277,7 @@ test_that("purrr-style lambda functions are supported", {
   )
 })
 
-test_that("ARROW-14071 - user-defined R functions", {
+test_that("ARROW-14071 - R functions from a user's environment", {
   makeWhole <- function(x) round(x, digits = 0)
   compare_dplyr_binding(
     .input %>%

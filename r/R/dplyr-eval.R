@@ -15,11 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# filter(), mutate(), etc. work by evaluating the quoted `exprs` to generate Expressions
 arrow_eval <- function(expr, mask) {
-  # filter(), mutate(), etc. work by evaluating the quoted `exprs` to generate Expressions
-  # with references to Arrays (if .data is Table/RecordBatch) or Fields (if
-  # .data is a Dataset).
-
+  # Look for R functions referenced in expr that are not in the mask and add them
+  # If they call other functions in the mask, this will let them find them
+  # and just work. (If they call things not supported in Arrow, it won't work,
+  # but it wouldn't have worked anyway!)
+  # Note this is *not* true UDFs.
   add_user_functions_to_mask(expr, mask)
 
   # This yields an Expression as long as the `exprs` are implemented in Arrow.
@@ -51,9 +53,9 @@ arrow_eval <- function(expr, mask) {
 }
 
 add_user_functions_to_mask <- function(expr, mask) {
-  # Look for user-defined R functions that are not in the mask,
+  # Look for the user's R functions referenced in expr that are not in the mask,
   # see if we can add them to the mask and set their parent env to the mask
-  # so that they can reference other functions in the mask
+  # so that they can reference other functions in the mask.
   if (is_quosure(expr)) {
     # case_when evaluates regular formulas not quosures, which don't have
     # their own environment, so let's just skip them for now
@@ -65,19 +67,21 @@ add_user_functions_to_mask <- function(expr, mask) {
     # explicitly want to block from trying to add to the function environment
     known_funcs <- c(ls(function_env, all.names = TRUE), "~", "[", ":")
     unknown <- setdiff(funs_in_expr, known_funcs)
-    for (i in unknown) {
-      if (exists(i, quo_env)) {
-        user_fun <- get(i, quo_env)
+    for (func_name in unknown) {
+      if (exists(func_name, quo_env)) {
+        user_fun <- get(func_name, quo_env)
         if (!is.null(environment(user_fun)) && !rlang::is_namespace(environment(user_fun))) {
-          # Primitives don't have an environment
+          # Primitives don't have an environment, and we can't trust that
+          # functions from packages will work in arrow. (If they could be
+          # expressed in arrow, they would be in the mask already.)
           if (getOption("arrow.debug", FALSE)) {
-            print(paste("Adding", i, "to the function environment"))
+            print(paste("Adding", func_name, "to the function environment"))
           }
-          function_env[[i]] <- user_fun
+          function_env[[func_name]] <- user_fun
           # Also set the enclosing environment to be the function environment.
           # This allows the function to reference other functions in the env.
-          # This may have other undesired side effects?
-          environment(function_env[[i]]) <- function_env
+          # This may have other undesired side effects(?)
+          environment(function_env[[func_name]]) <- function_env
         }
       }
     }
@@ -118,28 +122,28 @@ arrow_not_supported <- function(msg) {
 arrow_mask <- function(.data, aggregation = FALSE) {
   f_env <- new_environment(.cache$functions)
 
-  # Add functions that need to error hard and clear.
-  # Some R functions will still try to evaluate on an Expression
-  # and return NA with a warning
-  fail <- function(...) stop("Not implemented")
-  for (f in c("mean", "sd")) {
-    f_env[[f]] <- fail
-  }
-
   if (aggregation) {
+    # Add the aggregation functions to the environment, and set the enclosing
+    # environment to the parent frame so that, when called from summarize_eval(),
+    # they can reference and assign into `..aggregations` and `..post_mutate`
+    # defined there.
     pf <- parent.frame()
-    # This should probably be done with an environment inside an environment
-    # but a first attempt at that had scoping problems (ARROW-13499)
     for (f in names(agg_funcs)) {
       f_env[[f]] <- agg_funcs[[f]]
-      # Make sure that ..aggregations and ..post_mutate are in the search path
-      # This assumes being called from summarize
       environment(f_env[[f]]) <- pf
+    }
+  } else {
+    # Add functions that need to error hard and clear.
+    # Some R functions will still try to evaluate on an Expression
+    # and return NA with a warning :exploding_head:
+    fail <- function(...) stop("Not implemented")
+    for (f in c("mean", "sd")) {
+      f_env[[f]] <- fail
     }
   }
 
-  schema <- .data$.data$schema
   # Assign the schema to the expressions
+  schema <- .data$.data$schema
   walk(.data$selected_columns, ~ (.$schema <- schema))
 
   # Add the column references and make the mask
