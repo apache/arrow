@@ -18,6 +18,7 @@
 package org.apache.arrow.flight.sql.test;
 
 import static org.apache.arrow.flight.sql.util.FlightStreamUtils.getResults;
+import static org.apache.arrow.util.AutoCloseables.close;
 import static org.hamcrest.CoreMatchers.*;
 
 import org.apache.arrow.flight.FlightClient;
@@ -33,6 +34,7 @@ import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.hamcrest.MatcherAssert;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -46,6 +48,11 @@ public class TestFlightSqlStateless extends TestFlightSql {
   public static void setUp() throws Exception {
     setUpClientServer();
     setUpExpectedResultsMap();
+  }
+
+  @AfterAll
+  public static void tearDown() throws Exception {
+    close(sqlClient, server, allocator);
   }
 
   private static void setUpClientServer() throws Exception {
@@ -72,12 +79,14 @@ public class TestFlightSqlStateless extends TestFlightSql {
         insertRoot.setRowCount(1);
 
         prepare.setParameters(insertRoot);
-        FlightInfo flightInfo = prepare.execute();
+        final FlightInfo flightInfo = prepare.execute();
 
-        FlightStream stream = sqlClient.getStream(flightInfo
+        final FlightStream stream = sqlClient.getStream(flightInfo
             .getEndpoints()
             .get(0).getTicket());
 
+        // TODO: root is null and getSchema hangs when run as complete suite.
+        // This works when run as an individual test.
         Assertions.assertAll(
             () -> MatcherAssert.assertThat(stream.getSchema(), is(SCHEMA_INT_TABLE)),
             () -> MatcherAssert.assertThat(getResults(stream), is(EXPECTED_RESULTS_FOR_PARAMETER_BINDING))
