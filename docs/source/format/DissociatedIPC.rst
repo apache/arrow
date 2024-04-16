@@ -132,7 +132,7 @@ A transport implementing this protocol **MUST** provide two pieces of functional
 * Message sending
   * Delimited messages (like gRPC) as opposed to non-delimited streams (like plain TCP 
     without further framing).
-  - Alternatively, a framing mechanism like the `encapsulated message format <ipc-message-format>`
+  * Alternatively, a framing mechanism like the :ref:`encapsulated message format <ipc-message-format>`
     for the IPC protocol can be used while leaving out the body bytes.
 * Tagged message sending
   - Sending a message that has an attached little-endian, unsigned 64-bit integral tag
