@@ -67,4 +67,4 @@ jobs:
             --prerelease \
             --title "${RELEASE_CANDIDATE_TITLE}" \
             --notes "Release Notes: ${RELEASE_CANDIDATE_NOTES}" \
-            ${RELEASE_TARBALL}
+            dev/release/${RELEASE_TARBALL}
