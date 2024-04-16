@@ -25,6 +25,7 @@ class SourceTest < Test::Unit::TestCase
     @tag_name = "apache-arrow-#{@release_version}-rc0"
     @archive_name = "apache-arrow-#{@release_version}.tar.gz"
     @script = File.expand_path("dev/release/02-source.sh")
+    @tarball_script = File.expand_path("dev/release/utils-create-release-tarball.sh")
 
     Dir.mktmpdir do |dir|
       Dir.chdir(dir) do
@@ -41,7 +42,7 @@ class SourceTest < Test::Unit::TestCase
     targets.each do |target|
       env["SOURCE_#{target}"] = "1"
     end
-    sh(env, File.expand_path("dev/release/utils-create-release-tarball.sh"), @release_version, "0") 
+    sh(env, @tarball_script, @release_version, "0") 
     output = sh(env, @script, @release_version, "0")
     sh("tar", "xf", @archive_name)
     output
