@@ -44,7 +44,7 @@ For most cases, the existing IPC format as it currently exists is extremely effi
 
 * Receiving data in the IPC format allows zero-copy utilization of the body
   buffer bytes, no deserialization is required to form Arrow Arrays
-* An IPC (Feather) file can be memory-mapped because it is location agnostic
+* An IPC file format can be memory-mapped because it is location agnostic
   and the bytes of the file are exactly what is expected in memory.
 
 However, there are use cases that aren't handled by this:
