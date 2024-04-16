@@ -752,7 +752,8 @@ class ExpirationTimeRenewFlightEndpointScenario : public Scenario {
 /// both "lol_invalid", which will result in errors attempting to set either.
 class SessionOptionsServer : public sql::FlightSqlServerBase {
   static inline const std::string invalid_option_name = "lol_invalid";
-  static inline const SessionOptionValue invalid_option_value = "lol_invalid";
+  static inline const SessionOptionValue invalid_option_value =
+      std::string("lol_invalid");
 
   const std::string session_middleware_key;
   // These will never be threaded so using a plain map and no lock
@@ -852,7 +853,7 @@ class SessionOptionsScenario : public Scenario {
         {{"foolong", 123L},
          {"bardouble", 456.0},
          {"lol_invalid", "this won't get set"},
-         {"key_with_invalid_value", "lol_invalid"},
+         {"key_with_invalid_value", std::string("lol_invalid")},
          {"big_ol_string_list", std::vector<std::string>{"a", "b", "sea", "dee", " ",
                                                          "  ", "geee", "(づ｡◕‿‿◕｡)づ"}}}};
     ARROW_ASSIGN_OR_RAISE(auto res1, client.SetSessionOptions({}, req1));
@@ -878,16 +879,16 @@ class SessionOptionsScenario : public Scenario {
     }
     // Update
     ARROW_ASSIGN_OR_RAISE(
-        auto res3,
-        client.SetSessionOptions(
-            {}, SetSessionOptionsRequest{
-                    {{"foolong", std::monostate{}},
-                     {"big_ol_string_list", "a,b,sea,dee, ,  ,geee,(づ｡◕‿‿◕｡)づ"}}}));
+        auto res3, client.SetSessionOptions(
+                       {}, SetSessionOptionsRequest{
+                               {{"foolong", std::monostate{}},
+                                {"big_ol_string_list",
+                                 std::string("a,b,sea,dee, ,  ,geee,(づ｡◕‿‿◕｡)づ")}}}));
     ARROW_ASSIGN_OR_RAISE(auto res4, client.GetSessionOptions({}, {}));
     if (res4.session_options !=
         std::map<std::string, SessionOptionValue>{
             {"bardouble", 456.0},
-            {"big_ol_string_list", "a,b,sea,dee, ,  ,geee,(づ｡◕‿‿◕｡)づ"}}) {
+            {"big_ol_string_list", std::string("a,b,sea,dee, ,  ,geee,(づ｡◕‿‿◕｡)づ")}}) {
       return Status::Invalid("res4 incorrect: " + res4.ToString());
     }
 
