@@ -28,7 +28,6 @@ fi
 
 version=$1
 rc=$2
-version_with_rc=${version}-rc${rc}
 
 : ${UPLOAD_DEFAULT=1}
 : ${UPLOAD_FORCE_SIGN=${UPLOAD_DEFAULT}}
@@ -67,9 +66,9 @@ pushd "${ARROW_ARTIFACTS_DIR}"
 if [ ${UPLOAD_FORCE_SIGN} -gt 0 ]; then
   # Upload the MATLAB MLTBX Release Candidate to the GitHub Releases
   # area of the Apache Arrow GitHub project.
-  mltbx_file=matlab-arrow-${version_with_rc}.mltbx
-  mltbx_signature_gpg_ascii_armor=${mltbx_file}.asc
-  mltbx_checksum_sha512=${mltbx_file}.sha512
+  mltbx_file="matlab-arrow-${version}.mltbx"
+  mltbx_signature_gpg_ascii_armor="${mltbx_file}.asc"
+  mltbx_checksum_sha512="${mltbx_file}.sha512"
 
   rm -rf ${mltbx_signature_gpg_ascii_armor}
   rm -rf ${mltbx_checksum_sha512}
@@ -81,6 +80,7 @@ if [ ${UPLOAD_FORCE_SIGN} -gt 0 ]; then
   shasum --algorithm 512 ${mltbx_file} > ${mltbx_checksum_sha512}
 fi
 
+tag="apache-arrow-${version_with_rc}"
 gh release upload ${tag} \
   --clobber \
   --repo apache/arrow \
