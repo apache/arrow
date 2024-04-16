@@ -265,8 +265,10 @@ describe(`ListVector`, () => {
     });
 
     test(`get value`, () => {
-        for (const [i, value] of values.entries()) {
-            expect(vector.get(i)!.toJSON()).toEqual(value);
+        for (let i = 0; i < values.length; i++) {
+            expect(vector.get(i)!.toJSON()).toEqual(values[i]);
+            expect(vector.at(i)!.toJSON()).toEqual(values.at(i));
+            expect(vector.at(-i)!.toJSON()).toEqual(values.at(-i));
         }
     });
 });
@@ -308,9 +310,10 @@ function basicVectorTests(vector: Vector, values: any[], extras: any[]) {
     const n = values.length;
 
     test(`gets expected values`, () => {
-        let i = -1;
-        while (++i < n) {
+        for (let i = 0; i < values.length; i++) {
             expect(vector.get(i)).toEqual(values[i]);
+            expect(vector.at(i)).toEqual(values.at(i));
+            expect(vector.at(-i)).toEqual(values.at(-i));
         }
     });
     test(`iterates expected values`, () => {
