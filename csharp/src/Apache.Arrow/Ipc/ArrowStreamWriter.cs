@@ -163,7 +163,7 @@ namespace Apache.Arrow.Ipc
             public void Visit(ListArray array)
             {
                 _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
-                _buffers.Add(CreateBuffer(GetZeroBasedValueOffsets(array)));
+                _buffers.Add(CreateBuffer(GetZeroBasedValueOffsets(array.ValueOffsetsBuffer, array.Offset, array.Length)));
 
                 int valuesOffset = array.ValueOffsets[0];
                 int valuesLength = array.ValueOffsets[array.Length] - valuesOffset;
@@ -204,8 +204,12 @@ namespace Apache.Arrow.Ipc
             public void Visit(BinaryArray array)
             {
                 _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
-                _buffers.Add(CreateSlicedBuffer<int>(array.ValueOffsetsBuffer, array.Offset, array.Length + 1));
-                _buffers.Add(CreateBuffer(array.ValueBuffer));
+                _buffers.Add(CreateBuffer(GetZeroBasedValueOffsets(array.ValueOffsetsBuffer, array.Offset, array.Length)));
+
+                int valuesOffset = array.ValueOffsets[0];
+                int valuesLength = array.ValueOffsets[array.Length] - valuesOffset;
+
+                _buffers.Add(CreateSlicedBuffer<byte>(array.ValueBuffer, valuesOffset, valuesLength));
             }
 
             public void Visit(BinaryViewArray array)
@@ -272,21 +276,20 @@ namespace Apache.Arrow.Ipc
                 // There are no buffers for a NullArray
             }
 
-            private ArrowBuffer GetZeroBasedValueOffsets(ListArray array)
+            private ArrowBuffer GetZeroBasedValueOffsets(ArrowBuffer valueOffsetsBuffer, int arrayOffset, int arrayLength)
             {
-                var valueOffsetsBuffer = array.ValueOffsetsBuffer;
-                var requiredBytes = CalculatePaddedBufferLength(sizeof(int) * (array.Length + 1));
+                var requiredBytes = CalculatePaddedBufferLength(sizeof(int) * (arrayLength + 1));
 
-                if (array.Offset != 0)
+                if (arrayOffset != 0)
                 {
                     // Array has been sliced, so we need to shift and adjust the offsets
-                    var originalOffsets = array.ValueOffsets;
-                    var firstOffset = array.Length > 0 ? originalOffsets[0] : 0;
+                    var originalOffsets = valueOffsetsBuffer.Span.CastTo<int>().Slice(arrayOffset, arrayLength + 1);
+                    var firstOffset = arrayLength > 0 ? originalOffsets[0] : 0;
 
                     var newValueOffsetsBuffer = _allocator.Allocate(requiredBytes);
                     var newValueOffsets = newValueOffsetsBuffer.Memory.Span.CastTo<int>();
 
-                    for (int i = 0; i < array.Length + 1; ++i)
+                    for (int i = 0; i < arrayLength + 1; ++i)
                     {
                         newValueOffsets[i] = originalOffsets[i] - firstOffset;
                     }
