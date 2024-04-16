@@ -139,8 +139,6 @@ const createClosureArgs = (entry_point, externs, target) => ({
     third_party: true,
     warning_level: `QUIET`,
     dependency_mode: `PRUNE`,
-    // inject_libraries: false,
-    isolate_polyfills: true,
     rewrite_polyfills: false,
     module_resolution: `NODE`,
     // formatting: `PRETTY_PRINT`,
