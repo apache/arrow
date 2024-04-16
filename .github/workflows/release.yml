@@ -77,3 +77,4 @@ jobs:
             --title "${RELEASE_TITLE}" \
             --notes "Release Notes: ${RELEASE_NOTES}"  \
             release_candidate_artifacts/*
+            
