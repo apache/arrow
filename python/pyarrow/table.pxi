@@ -525,11 +525,19 @@ cdef class ChunkedArray(_PandasConvertible):
 
         return values
 
-    def __array__(self, dtype=None):
+    def __array__(self, dtype=None, copy=None):
+        if copy is False:
+            raise ValueError(
+                "Unable to avoid a copy while creating a numpy array as requested "
+                "(converting a pyarrow.ChunkedArray always results in a copy).\n"
+                "If using `np.array(obj, copy=False)` replace it with "
+                "`np.asarray(obj)` to allow a copy when needed"
+            )
+        # 'copy' can further be ignored because to_numpy() already returns a copy
         values = self.to_numpy()
         if dtype is None:
             return values
-        return values.astype(dtype)
+        return values.astype(dtype, copy=False)
 
     def cast(self, object target_type=None, safe=None, options=None):
         """
@@ -1562,7 +1570,16 @@ cdef class _Tabular(_PandasConvertible):
         raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, use "
                         f"one of the `{self.__class__.__name__}.from_*` functions instead.")
 
-    def __array__(self, dtype=None):
+    def __array__(self, dtype=None, copy=None):
+        if copy is False:
+            raise ValueError(
+                "Unable to avoid a copy while creating a numpy array as requested "
+                f"(converting a pyarrow.{self.__class__.__name__} always results "
+                "in a copy).\n"
+                "If using `np.array(obj, copy=False)` replace it with "
+                "`np.asarray(obj)` to allow a copy when needed"
+            )
+        # 'copy' can further be ignored because stacking will result in a copy
         column_arrays = [
             np.asarray(self.column(i), dtype=dtype) for i in range(self.num_columns)
         ]

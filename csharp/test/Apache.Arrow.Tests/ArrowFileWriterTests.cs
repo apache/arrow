@@ -113,6 +113,7 @@ namespace Apache.Arrow.Tests
         [InlineData(0, 45)]
         [InlineData(3, 45)]
         [InlineData(16, 45)]
+        [InlineData(10, 0)]
         public async Task WriteSlicedArrays(int sliceOffset, int sliceLength)
         {
             var originalBatch = TestData.CreateSampleRecordBatch(length: 100);
