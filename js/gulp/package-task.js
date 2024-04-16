@@ -127,8 +127,8 @@ const createScopedPackageJSON = (target, format) => (({ name, ...orig }) =>
             sideEffects: format === 'esm' ? false : undefined,
             // include "esm" settings for https://www.npmjs.com/package/esm if building scoped ESM target
             esm:      format === `esm` ? { mode: `auto`, sourceMap: true } : undefined,
-            // set "types" (for TypeScript/VSCode)
-            types:    format === 'umd' ? undefined : `${mainExport}.node.d.ts`,
+            // set "types" to "Arrow.dom" if building scoped UMD target, otherwise "Arrow.node"
+            types:    format === 'umd' ? `${mainExport}.dom.d.ts`: `${mainExport}.node.d.ts`,
         }
     )
 );
