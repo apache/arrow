@@ -52,9 +52,9 @@ However, there are use cases that aren't handled by this:
 * Constructing the IPC record batch message requires allocating a contiguous
   chunk of bytes and copying all of the data buffers into it, packed together
   back-to-back. It's exceedingly difficult to zero-copy **create** IPC messages.
-* If the Arrow data is located in a shared-memory location, there is no standard
+* If the Arrow data is located in a shared memory location, there is no standard
   way to share the handle to the shared-memory across processes or transports that
-  allow for remote memory accessing.
+  allow for remote memory accessing, such as UCX.
 * Arrow data located on a non-CPU device (such as a GPU) cannot be sent using
   Arrow IPC without having to copy the data back to the host device or copying
   the flatbuffer metadata bytes into device memory.
@@ -82,12 +82,12 @@ Definitions
 .. glossary::
 
    IPC Metadata
-       The flatbuffer message bytes that encompass the header of an Arrow IPC message
+       The Flatbuffers message bytes that encompass the header of an Arrow IPC message
   
    Tag
-       A ``uint64`` value used as an ID for a message. Specific bits can be masked to
-       allow identifying messages by only a portion of the tag, leaving the rest of the
-       bits to be used for control flow or other message metadata.
+       A little-endian ``uint64`` value used as an ID for a message. Specific bits can 
+       be masked to allow identifying messages by only a portion of the tag, leaving the 
+       rest of the bits to be used for control flow or other message metadata.
 
    Sequence Number
        A little-endian, 4-byte unsigned integer starting at 0 for a stream, indicating 
@@ -194,8 +194,11 @@ two pipes if desired.
 Metadata Stream Sequence
 ''''''''''''''''''''''''
 
-The standing state of the server is waiting for a **tagged** message with the specified
-``<want_data>`` tag value to initiate a transfer. The body of that message will contain an
+The standing state of the server is waiting for a **tagged** message with a specific
+``<want_data>`` tag value to initiate a transfer. This ``<want_data>`` value is defined
+by the server and propagated to any clients via the URI they are provided. This protocol
+does not prescribe any particular value so that it will not interfere with any other
+existing protocols that rely on tag values. The body of that message will contain an 
 opaque, binary identifier to indicate a particular dataset / data stream to send.
 
 .. note::
@@ -212,12 +215,15 @@ of messages consisting of the following:
   - The first byte of the message indicates the type of message, currently there are only
     two allowed message types (more types may get added in the future):
     0) End of Stream
-    1) Flatbuffer IPC Metadata Message
+    1) Flatbuffers IPC Metadata Message
   - the next 4-bytes are a little-endian, unsigned 32-bit integer indicating the sequence number of
     the message. The first message in the stream (**MUST** always be a schema message) **MUST**
     have a sequence number of ``0``. Each subsequent message **MUST** increment the number by 
     ``1``.
-* The full Flatbuffer bytes of an Arrow IPC header
+* The full Flatbuffers bytes of an Arrow IPC header
+
+As defined in the Arrow IPC format, each metadata message can represent a chunk of data or
+dictionaries for use by the stream of data. 
 
 After sending the last metadata message, the server **MUST** indicate the end of the stream
 by sending a message consisting of **exactly** 5 bytes:
@@ -264,15 +270,15 @@ stream if that message has a body (i.e. a Record Batch or Dictionary message). T
 
 After sending the last tagged IPC body message, the server should maintain the connection and wait
 for tagged ``<free_data>`` messages. The structure of these ``<free_data>`` messages is simple:
-1 or more unsigned, little-endian 64-bit integers which indicate the addresses/offsets that can
+one or more unsigned, little-endian 64-bit integers which indicate the addresses/offsets that can
 be freed. 
 
-Once there are no more outstanding addresses to be freed, the work for this connection is complete.
+Once there are no more outstanding addresses to be freed, the work for this stream is complete.
 
 Client Sequence
 ---------------
 
-A client for this protocol needs to asynchronously handle both the data and metadata streams of
+A client for this protocol needs to concurrently handle both the data and metadata streams of
 messages which may either both come from the same server or different servers. Below is a flowchart
 showing how a client might handle the metadata and data streams:
 
@@ -280,45 +286,53 @@ showing how a client might handle the metadata and data streams:
 
 #. First the client sends a tagged message using the ``<want_data>`` value it was provided in the
    URI as the tag, and the opaque ID as the body.
-  * If the metadata and data servers are separate, then a ``<want_data>`` message needs to be sent
-    separately to each. 
-  * In either scenario, the metadata and data streams can be processed concurrently and/or asynchronously
-    depending on the nature of the transports.
+  
+   * If the metadata and data servers are separate, then a ``<want_data>`` message needs to be sent
+     separately to each. 
+   * In either scenario, the metadata and data streams can be processed concurrently and/or asynchronously
+     depending on the nature of the transports.
+
 #. For each **untagged** message the client receives in the metadata stream:
-  * The first byte of the message indicates whether it is an *End of Stream* message (value ``0``)
-    or a metadata message (value ``1``).
-  * The next 4 bytes are the sequence number of the message, an unsigned 32-bit integer in 
-    little-endian byte order.
-  * If it is **not** an *End of Stream* message, the remaining bytes are the IPC Flatbuffer bytes which
-    can be interpreted as normal.    
-    - If the message has a body (i.e. Record Batch or Dictionary message) then the client should retrieve
+  
+   * The first byte of the message indicates whether it is an *End of Stream* message (value ``0``)
+     or a metadata message (value ``1``).
+   * The next 4 bytes are the sequence number of the message, an unsigned 32-bit integer in 
+     little-endian byte order.
+   * If it is **not** an *End of Stream* message, the remaining bytes are the IPC Flatbuffer bytes which
+     can be interpreted as normal.    
+    * If the message has a body (i.e. Record Batch or Dictionary message) then the client should retrieve
       a tagged message from the Data Stream using the same sequence number.
   * If it **is** an *End of Stream* message, then it is safe to close the metadata connection if there are
     no gaps in the sequence numbers received.
+
 #. When a metadata message that requires a body is received, the tag mask of ``0x00000000FFFFFFFF`` **should** 
    be used alongside the sequence number to match the message regardless of the higher bytes (e.g. we only
    care about matching the lower 4 bytes to the sequence number)
-  * Once recieved, the Most Significant Byte's value determines how the client processes the body data:
-    - If the most significant byte is 0: Then the body of the message is the raw IPC packed body buffers
-      allowing it to easily be processed with the corresponding metadata header bytes.
-    - If the most significant byte is 1: The body of the message will consist of a series of pairs of 
-      unsigned, 64-bit integers in little-endian byte order.
-      + The first two integers represent *1)* the total size of all the body buffers together to allow
-        for easy allocation if an intermediate buffer is needed and *2)* the number of buffers being sent (``nbuf``).
-      + The rest of the message will be ``nbuf`` pairs of integers, one for each buffer. Each pair is
-        *1)* the address / offset of the buffer and *2)* the length of that buffer. Memory can then be retrieved
-        via shared or remote memory routines based on the underlying transport. These addresses / offsets **MUST**
-        be retained so they can be sent back in ``<free_data>`` messages later, indicating to the server that
-        the client no longer needs the shared memory.
+
+   * Once recieved, the Most Significant Byte's value determines how the client processes the body data:
+     * If the most significant byte is 0: Then the body of the message is the raw IPC packed body buffers
+       allowing it to easily be processed with the corresponding metadata header bytes.
+     * If the most significant byte is 1: The body of the message will consist of a series of pairs of 
+       unsigned, 64-bit integers in little-endian byte order.
+       * The first two integers represent *1)* the total size of all the body buffers together to allow
+         for easy allocation if an intermediate buffer is needed and *2)* the number of buffers being sent (``nbuf``).
+       * The rest of the message will be ``nbuf`` pairs of integers, one for each buffer. Each pair is
+         *1)* the address / offset of the buffer and *2)* the length of that buffer. Memory can then be retrieved
+         via shared or remote memory routines based on the underlying transport. These addresses / offsets **MUST**
+         be retained so they can be sent back in ``<free_data>`` messages later, indicating to the server that
+         the client no longer needs the shared memory.
+
 #. Once an *End of Stream* message is received, the client should process any remaining un-processed
    IPC metadata messages.
+
 #. After individual memory addresses / offsets are able to be freed by the remote server (in the case where
    it has sent these rather than the full body bytes), the client should send corresponding ``<free_data>`` messages
    to the server.
-  * A single ``<free_data>`` message consists of an arbitrary number of unsigned 64-bit integer values, representing
-    the addresses / offsets which can be freed. The reason for it being an *arbitrary number* is to allow a client
-    to choose whether to send multiple messages to free multiple addresses or to coalesce multiple addresses into
-    fewer messages to be freed (thus making the protocol less "chatty" if desired)
+
+   * A single ``<free_data>`` message consists of an arbitrary number of unsigned 64-bit integer values, representing
+     the addresses / offsets which can be freed. The reason for it being an *arbitrary number* is to allow a client
+     to choose whether to send multiple messages to free multiple addresses or to coalesce multiple addresses into
+     fewer messages to be freed (thus making the protocol less "chatty" if desired)
 
 Continuing Development
 ======================
@@ -327,7 +341,7 @@ If you decide to try this protocol in your own environments and system, we'd lov
 your use case. As this is an **experimental** protocol currently, we need real-world usage in order to facilitate
 improving it and finding the right generalizations to standardize on across transports.
 
-Please chime in using the Arrow Developers Mailing list: dev@arrow.apache.org.
+Please chime in using the Arrow Developers Mailing list: https://arrow.apache.org/community/#mailing-lists
 
 .. _Flatbuffers: http://github.com/google/flatbuffers
 .. _UCX: https://openucx.org/
