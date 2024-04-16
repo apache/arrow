@@ -21,7 +21,7 @@ This section introduces the Apache Arrow project.
 [Apache `Arrow`](https://arrow.apache.org/) is an *open-source* project that offers two things: 
 
 - Apache Arrow defines a standardized way to organize data in memory (called _Apache Arrow Columnar Format_). You do not need to know much about this _Columnar Format_ to use Arrow with R, except that it is very efficient (processing is fast) and interoperable (meaning for instance that both R and Python can access the same data, without converting the data from one format to another).
-- Apache Arrow offers implementations of this _Columnar Format_ in several languages (see [here]() for the list). In particular, there is one implementation in `C++`:  the library called `libarrow`.
+- Apache Arrow offers implementations of this _Columnar Format_ in several languages (see [here](https://arrow.apache.org/docs/status.html) for the list). In particular, there is one implementation in `C++`:  the library called `libarrow`.
 
 What about the Arrow R package then? This package simply makes it possible to use the `libarrow` library within `R`. Keep in mind that there are other similar interfaces for using `libarrow` with other programming languages: in Python, Java, Javascript, Julia, and so on. But __no matter what programming language you choose for using Arrow, remember that under the hood you are using exactly the same tool: the C++ libarrow library__.
 
@@ -31,13 +31,13 @@ Arrow has five distinctive features:
 
 - __Columnar Memory Format__: in Arrow, data is organized in columns rather than in rows (hence the "columnar format"). In practice, it means that all values of the first column are stored contiguously in memory, followed by all values of the second column, and so on. This columnar format speeds up data processing. Imagine that you want to calculate the mean of a variable: you can directly access the block of memory containing the entire column and get the result, no matter how many columns you have in your dataset.
 
-- __Easy use with Parquet files__: Arrow is optimized to work well with data stored in Parquet files.
+- __Ability to process very large datasets__: using the `arrow` package, you will be able to process very large amounts of data, even datasets that are too large to fit in the memory of your computer. This is due to the powerful execution engine of arrow (called `acero`, more on this below).
 
-- __Ability to process very large datasets__: Arrow is able to process very large amounts of data, even datasets that are too large to fit in the memory of your computer.
+- __Easy use with Parquet files__: Arrow is optimized to work well with data stored in Parquet files. This is again due to the `acero` execution engine.
 
 - __Interoperability__: Arrow is designed to be interoperable between several programming languages such as `R`, Python, Java, C++, etc. This means that data can be exchanged between different programming languages without converting the data from one format to another, resulting in significant performance gains.
 
-- __*Lazy Evaluation*__: when you give instructions to Arrow, Arrow stores them but does not run them, unless you explicitly ask it to do so (more on this below).
+- __*Lazy Evaluation*__: when you manipulate data using the `arrow` package, your instructions are not executed immediately. They are rather stored and run only when you explicitly ask for it (more on this below). This is once again a feature of the `acero` execution engine.
 
 ## What do you need to know to use Arrow with R?
 
