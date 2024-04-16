@@ -2376,17 +2376,25 @@ void CheckCastList(const std::shared_ptr<DataType>& from_type,
 TEST(Cast, FSLToList) {
   CheckCastList(fixed_size_list(int16(), 2), list(int16()),
                 "[[0, 1], [2, 3], [null, 5], null]");
+  CheckCastList(fixed_size_list(int16(), 2), list(int16()),
+                "[[0, 1], [2, 3],      null, [6, 7]]");
   // Large variant
   CheckCastList(fixed_size_list(int16(), 2), large_list(int16()),
                 "[[0, 1], [2, 3], [null, 5], null]");
+  CheckCastList(fixed_size_list(int16(), 2), large_list(int16()),
+                "[[0, 1], [2, 3],      null, [6, 7]]");
   // Different child types
   CheckCastList(fixed_size_list(int16(), 2), list(int32()),
                 "[[0, 1], [2, 3], [null, 5], null]");
+  CheckCastList(fixed_size_list(int16(), 2), list(int32()),
+                "[[0, 1], [2, 3],      null, [6, 7]]");
   // No nulls
   CheckCastList(fixed_size_list(int16(), 2), list(int32()), "[[0, 1], [2, 3], [4, 5]]");
   // Nested lists
   CheckCastList(fixed_size_list(list(int16()), 2), list(list(int32())),
                 "[[[0, 1], [2, 3]], [[4, 5], null]]");
+  CheckCastList(fixed_size_list(list(int16()), 2), list(list(int32())),
+                "[[[0, 1], [2, 3]],          null, [[6, 7], [8, 9]]]");
   // Sliced children (top-level slicing handled in CheckCast)
   auto children_src = ArrayFromJSON(int32(), "[1, 2, null, 4, 5, null]");
   children_src = children_src->Slice(2);
