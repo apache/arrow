@@ -72,6 +72,7 @@ module.exports = {
         "@typescript-eslint/no-misused-new": "off",
         "@typescript-eslint/ban-ts-comment": "off",
         "@typescript-eslint/no-non-null-assertion": "off",
+        "@typescript-eslint/no-unsafe-declaration-merging": "off",
         "@typescript-eslint/no-unused-vars": "off",  // ts already takes care of this
 
         "prefer-const": ["error", {
