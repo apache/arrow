@@ -155,7 +155,6 @@ static void CreateGlobalRegistry() {
   ext_types.push_back(extension::opaque(null(), "", ""));
 #endif
 
-  // Register canonical extension types
   for (const auto& ext_type : ext_types) {
     ARROW_CHECK_OK(
         g_registry->RegisterType(checked_pointer_cast<ExtensionType>(ext_type)));
