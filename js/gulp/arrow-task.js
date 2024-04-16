@@ -18,9 +18,9 @@
 import { mainExport, targetDir, observableFromStreams } from './util.js';
 
 import gulp from 'gulp';
-import path from 'path';
+import path from 'node:path';
 import { mkdirp } from 'mkdirp';
-import * as fs from 'fs/promises';
+import * as fs from 'node:fs/promises';
 import gulpRename from 'gulp-rename';
 import gulpReplace from 'gulp-replace';
 import { memoizeTask } from './memoize-task.js';

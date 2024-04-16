@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Duplex, DuplexOptions } from 'stream';
+import { Duplex, DuplexOptions } from 'node:stream';
 import { AsyncByteQueue } from '../../io/stream.js';
 import { RecordBatchReader } from '../../ipc/reader.js';
 import { RecordBatch } from '../../recordbatch.js';

@@ -17,12 +17,14 @@
 
 import { ReadableInterop, ArrowJSONLike } from '../io/interfaces.js';
 
-/* eslint-disable unicorn/throw-new-error */
+import type { ByteBuffer } from 'flatbuffers';
+import type { ReadStream } from 'node:fs';
+import type { FileHandle as FileHandle_ } from 'node:fs/promises';
 
 /** @ignore */
-type FSReadStream = import('fs').ReadStream;
+type FSReadStream = ReadStream;
 /** @ignore */
-type FileHandle = import('fs').promises.FileHandle;
+type FileHandle = FileHandle_;
 
 /** @ignore */
 export interface Subscription {
@@ -145,7 +147,7 @@ export const isReadableNodeStream = (x: any): x is NodeJS.ReadableStream => {
 };
 
 /** @ignore */
-export const isFlatbuffersByteBuffer = (x: any): x is import('flatbuffers').ByteBuffer => {
+export const isFlatbuffersByteBuffer = (x: any): x is ByteBuffer => {
     return isObject(x) &&
         isFunction(x['clear']) &&
         isFunction(x['bytes']) &&
