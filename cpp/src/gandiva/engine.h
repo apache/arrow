@@ -164,7 +164,6 @@ class GANDIVA_EXPORT Engine {
   std::string module_ir_;
   std::unique_ptr<llvm::TargetMachine> target_machine_;
   llvm::TargetIRAnalysis target_ir_analysis_;
-  std::unique_ptr<llvm::ObjectCache> object_cache_;
   const std::shared_ptr<Configuration> conf_;
 };
 

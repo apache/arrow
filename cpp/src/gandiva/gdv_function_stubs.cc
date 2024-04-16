@@ -850,19 +850,6 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
                                   types->i32_type() /*return_type*/, args,
                                   reinterpret_cast<void*>(gdv_fn_dec_from_string));
 
-  // gdv_fn_dec_to_string
-  args = {
-      types->i64_type(),      // context
-      types->i64_type(),      // int64_t x_high
-      types->i64_type(),      // int64_t x_low
-      types->i32_type(),      // int32_t x_scale
-      types->i64_ptr_type(),  // int64_t* dec_str_len
-  };
-
-  engine->AddGlobalMappingForFunc("gdv_fn_dec_to_string",
-                                  types->i8_ptr_type() /*return_type*/, args,
-                                  reinterpret_cast<void*>(gdv_fn_dec_to_string));
-
   // gdv_fn_in_expr_lookup_int32
   args = {types->i64_type(),  // int64_t in holder ptr
           types->i32_type(),  // int32 value
