@@ -367,7 +367,7 @@ namespace Apache.Arrow
 
                 foreach (ArrayData arrayData in _arrayDataList)
                 {
-                    builder.Append(arrayData.Buffers[0]);
+                    builder.Append(arrayData.Buffers[0].Span.Slice(arrayData.Offset, arrayData.Length));
                 }
 
                 return builder.Build(_allocator);
@@ -376,18 +376,26 @@ namespace Apache.Arrow
             private ArrowBuffer ConcatenateUnionOffsetBuffer()
             {
                 var builder = new ArrowBuffer.Builder<int>(_totalLength);
-                int baseOffset = 0;
+                var typeCount = _arrayDataList.Count > 0 ? _arrayDataList[0].Children.Length : 0;
+                var baseOffsets = new int[typeCount];
 
                 foreach (ArrayData arrayData in _arrayDataList)
                 {
-                    ReadOnlySpan<int> span = arrayData.Buffers[1].Span.CastTo<int>();
-                    foreach (int offset in span)
+                    ReadOnlySpan<byte> typeSpan = arrayData.Buffers[0].Span.Slice(arrayData.Offset, arrayData.Length);
+                    ReadOnlySpan<int> offsetSpan = arrayData.Buffers[1].Span.CastTo<int>().Slice(arrayData.Offset, arrayData.Length);
+                    for (int i = 0; i < arrayData.Length; ++i)
                     {
-                        builder.Append(baseOffset + offset);
+                        var typeId = typeSpan[i];
+                        builder.Append(checked(baseOffsets[typeId] + offsetSpan[i]));
                     }
 
-                    // The next offset must start from the current last offset.
-                    baseOffset += span[arrayData.Length];
+                    for (int i = 0; i < typeCount; ++i)
+                    {
+                        checked
+                        {
+                            baseOffsets[i] += arrayData.Children[i].Length;
+                        }
+                    }
                 }
 
                 return builder.Build(_allocator);
