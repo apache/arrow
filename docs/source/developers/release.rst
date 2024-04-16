@@ -335,7 +335,6 @@ Be sure to go through on the following checklist:
 
    .. code-block:: Bash
 
-
       # dev/release/post-01-tag.sh 0.1.0 0
       dev/release/post-01-tag.sh <version> <rc>
 
