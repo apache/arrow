@@ -19,7 +19,7 @@
 
 if generate_vapi
   c_flags = [
-    '-Wunused-but-set-variable',
+    '-Wno-unused-but-set-variable',
   ]
   c_flags = meson.get_compiler('c').get_supported_arguments(c_flags)
   vala_example_executable_kwargs = {

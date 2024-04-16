@@ -294,7 +294,18 @@ namespace Apache.Arrow.Tests
 
                 for (var i = 0; i < Length; i++)
                 {
-                    builder.Append(str);
+                    switch (i % 3)
+                    {
+                        case 0:
+                            builder.AppendNull();
+                            break;
+                        case 1:
+                            builder.Append(str);
+                            break;
+                        case 2:
+                            builder.Append(str + str);
+                            break;
+                    }
                 }
 
                 Array = builder.Build();
@@ -328,15 +339,21 @@ namespace Apache.Arrow.Tests
             {
                 var builder = new ListArray.Builder(type.ValueField).Reserve(Length);
 
-                var valueBuilder = (Int64Array.Builder)builder.ValueBuilder.Reserve(Length + 1);
+                var valueBuilder = (Int64Array.Builder)builder.ValueBuilder.Reserve(Length * 3 / 2);
 
                 for (var i = 0; i < Length; i++)
                 {
-                    builder.Append();
-                    valueBuilder.Append(i);
+                    if (i % 10 == 2)
+                    {
+                        builder.AppendNull();
+                    }
+                    else
+                    {
+                        builder.Append();
+                        var listLength = i % 4;
+                        valueBuilder.AppendRange(Enumerable.Range(i, listLength).Select(x => (long)x));
+                    }
                 }
-                //Add a value to check if Values.Length can exceed ListArray.Length
-                valueBuilder.Append(0);
 
                 Array = builder.Build();
             }
@@ -352,8 +369,12 @@ namespace Apache.Arrow.Tests
                     builder.Append();
                     valueBuilder.Append(i);
                 }
-                //Add a value to check if Values.Length can exceed ListArray.Length
-                valueBuilder.Append(0);
+
+                if (Length > 0)
+                {
+                    // Add a value to check if Values.Length can exceed ListArray.Length
+                    valueBuilder.Append(0);
+                }
 
                 Array = builder.Build();
             }
@@ -562,9 +583,13 @@ namespace Apache.Arrow.Tests
                     keyBuilder.Append(i.ToString());
                     valueBuilder.Append(i);
                 }
-                //Add a value to check if Values.Length can exceed MapArray.Length
-                keyBuilder.Append("0");
-                valueBuilder.Append(0);
+
+                if (Length > 0)
+                {
+                    // Add a value to check if Values.Length can exceed MapArray.Length
+                    keyBuilder.Append("0");
+                    valueBuilder.Append(0);
+                }
 
                 Array = builder.Build();
             }

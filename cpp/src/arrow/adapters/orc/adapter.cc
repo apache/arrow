@@ -18,12 +18,15 @@
 #include "arrow/adapters/orc/adapter.h"
 
 #include <algorithm>
-#include <filesystem>
 #include <list>
 #include <memory>
 #include <sstream>
 #include <string>
 #include <vector>
+
+#ifdef ARROW_ORC_NEED_TIME_ZONE_DATABASE_CHECK
+#include <filesystem>
+#endif
 
 #include "arrow/adapters/orc/util.h"
 #include "arrow/builder.h"
@@ -183,11 +186,9 @@ liborc::RowReaderOptions DefaultRowReaderOptions() {
   return options;
 }
 
+#ifdef ARROW_ORC_NEED_TIME_ZONE_DATABASE_CHECK
 // Proactively check timezone database availability for ORC versions older than 2.0.0
 Status CheckTimeZoneDatabaseAvailability() {
-  if (GetOrcMajorVersion() >= 2) {
-    return Status::OK();
-  }
   auto tz_dir = std::getenv("TZDIR");
   bool is_tzdb_avaiable = tz_dir != nullptr
                               ? std::filesystem::exists(tz_dir)
@@ -200,6 +201,7 @@ Status CheckTimeZoneDatabaseAvailability() {
   }
   return Status::OK();
 }
+#endif
 
 }  // namespace
 
@@ -559,7 +561,9 @@ ORCFileReader::~ORCFileReader() {}
 
 Result<std::unique_ptr<ORCFileReader>> ORCFileReader::Open(
     const std::shared_ptr<io::RandomAccessFile>& file, MemoryPool* pool) {
+#ifdef ARROW_ORC_NEED_TIME_ZONE_DATABASE_CHECK
   RETURN_NOT_OK(CheckTimeZoneDatabaseAvailability());
+#endif
   auto result = std::unique_ptr<ORCFileReader>(new ORCFileReader());
   RETURN_NOT_OK(result->impl_->Open(file, pool));
   return std::move(result);
@@ -826,7 +830,9 @@ ORCFileWriter::ORCFileWriter() { impl_.reset(new ORCFileWriter::Impl()); }
 
 Result<std::unique_ptr<ORCFileWriter>> ORCFileWriter::Open(
     io::OutputStream* output_stream, const WriteOptions& writer_options) {
+#ifdef ARROW_ORC_NEED_TIME_ZONE_DATABASE_CHECK
   RETURN_NOT_OK(CheckTimeZoneDatabaseAvailability());
+#endif
   std::unique_ptr<ORCFileWriter> result =
       std::unique_ptr<ORCFileWriter>(new ORCFileWriter());
   Status status = result->impl_->Open(output_stream, writer_options);

@@ -44,6 +44,7 @@
 #include "arrow/util/bitmap_builders.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/float16.h"
 
 #if defined(_MSC_VER)
 // "warning C4307: '+': integral constant overflow"
@@ -51,6 +52,9 @@
 #endif
 
 namespace arrow {
+
+using util::Float16;
+
 namespace ipc {
 namespace internal {
 namespace json {
@@ -269,7 +273,6 @@ INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt8, TestIntegers, UInt8Type);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt16, TestIntegers, UInt16Type);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt32, TestIntegers, UInt32Type);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestUInt64, TestIntegers, UInt64Type);
-INSTANTIATE_TYPED_TEST_SUITE_P(TestHalfFloat, TestIntegers, HalfFloatType);
 
 template <typename T>
 class TestStrings : public ::testing::Test {

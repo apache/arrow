@@ -598,10 +598,11 @@ namespace Apache.Arrow.Tests
 
                     for (int j = 0; j < dataList.Count; j++)
                     {
-                        byte index = (byte)Math.Max(j % 3, 1);
+                        byte index = (byte)Math.Min(j % 3, 1);
                         int? intValue = (index == 1) ? dataList[j] : null;
                         string stringValue = (index == 1) ? null : dataList[j]?.ToString();
                         typeBuilder.Append(index);
+                        typeResultBuilder.Append(index);
 
                         if (isDense)
                         {

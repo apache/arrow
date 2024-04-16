@@ -31,10 +31,10 @@
     <target.gen.source.path>${project.build.directory}/generated-sources</target.gen.source.path>
     <dep.junit.platform.version>1.9.0</dep.junit.platform.version>
     <dep.junit.jupiter.version>5.10.2</dep.junit.jupiter.version>
-    <dep.slf4j.version>2.0.11</dep.slf4j.version>
+    <dep.slf4j.version>2.0.12</dep.slf4j.version>
     <dep.guava-bom.version>33.0.0-jre</dep.guava-bom.version>
     <dep.netty-bom.version>4.1.108.Final</dep.netty-bom.version>
-    <dep.grpc-bom.version>1.62.2</dep.grpc-bom.version>
+    <dep.grpc-bom.version>1.63.0</dep.grpc-bom.version>
     <dep.protobuf-bom.version>3.23.1</dep.protobuf-bom.version>
     <dep.jackson-bom.version>2.17.0</dep.jackson-bom.version>
     <dep.hadoop.version>3.4.0</dep.hadoop.version>
@@ -46,7 +46,7 @@
     <errorprone.javac.version>9+181-r4173-1</errorprone.javac.version>
     <error_prone_core.version>2.24.0</error_prone_core.version>
     <maven-compiler-plugin.version>3.12.1</maven-compiler-plugin.version>
-    <mockito.core.version>5.5.0</mockito.core.version>
+    <mockito.core.version>5.11.0</mockito.core.version>
     <mockito.inline.version>5.2.0</mockito.inline.version>
     <checker.framework.version>3.42.0</checker.framework.version>
   </properties>
@@ -449,7 +449,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-shade-plugin</artifactId>
-          <version>3.5.2</version>
+          <version>3.5.1</version>
         </plugin>
         <plugin>
           <artifactId>maven-surefire-plugin</artifactId>

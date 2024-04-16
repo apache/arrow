@@ -77,7 +77,9 @@ def docker(ctx, src, dry_run, using_docker_cli, using_docker_buildx):
     compose = DockerCompose(config_path, params=os.environ,
                             using_docker=using_docker_cli,
                             using_buildx=using_docker_buildx,
-                            debug=ctx.obj.get('debug', False))
+                            debug=ctx.obj.get('debug', False),
+                            compose_bin=("docker compose" if using_docker_cli
+                                         else "docker-compose"))
     if dry_run:
         _mock_compose_calls(compose)
     ctx.obj['compose'] = compose

@@ -476,5 +476,56 @@ namespace Apache.Arrow.Tests
                 }
             }
         }
+
+        [Fact]
+        public void SliceDecimal256Array()
+        {
+            // Arrange
+            const int originalLength = 50;
+            const int offset = 3;
+            const int sliceLength = 32;
+
+            var builder = new Decimal256Array.Builder(new Decimal256Type(14, 10));
+            var random = new Random();
+
+            for (int i = 0; i < originalLength; i++)
+            {
+                if (random.NextDouble() < 0.2)
+                {
+                    builder.AppendNull();
+                }
+                else
+                {
+                    builder.Append(i * (decimal)Math.Round(random.NextDouble(), 10));
+                }
+            }
+
+            var array = builder.Build();
+
+            // Act
+            var slice = (Decimal256Array)array.Slice(offset, sliceLength);
+
+            // Assert
+            Assert.NotNull(slice);
+            Assert.Equal(sliceLength, slice.Length);
+            for (int i = 0; i < sliceLength; ++i)
+            {
+                Assert.Equal(array.GetValue(offset + i), slice.GetValue(i));
+                if (array.TryGetSqlDecimal(offset + i, out var expectedSqlDecimal))
+                {
+                    Assert.True(slice.TryGetSqlDecimal(i, out var actualSqlDecimal));
+                    Assert.Equal(expectedSqlDecimal, actualSqlDecimal);
+                }
+                else
+                {
+                    Assert.False(slice.TryGetSqlDecimal(i, out _));
+                }
+                Assert.Equal(array.GetString(offset + i), slice.GetString(i));
+            }
+
+            Assert.Equal(
+                array.ToList(includeNulls: true).Skip(offset).Take(sliceLength).ToList(),
+                slice.ToList(includeNulls: true));
+        }
     }
 }
