@@ -35,6 +35,8 @@ import { RecordBatch, _InternalEmptyPlaceholderRecordBatch } from '../recordbatc
 import { Writable, ReadableInterop, ReadableDOMStreamOptions } from '../io/interfaces.js';
 import { isPromise, isAsyncIterable, isWritableDOMStream, isWritableNodeStream, isIterable, isObject } from '../util/compat.js';
 
+import type { DuplexOptions, Duplex, ReadableOptions } from 'node:stream';
+
 export interface RecordBatchStreamWriterOptions {
     /**
      *
@@ -53,7 +55,7 @@ export class RecordBatchWriter<T extends TypeMap = any> extends ReadableInterop<
 
     /** @nocollapse */
     // @ts-ignore
-    public static throughNode(options?: import('stream').DuplexOptions & { autoDestroy: boolean }): import('stream').Duplex {
+    public static throughNode(options?: DuplexOptions & { autoDestroy: boolean }): Duplex {
         throw new Error(`"throughNode" not available in this environment`);
     }
     /** @nocollapse */
@@ -111,7 +113,7 @@ export class RecordBatchWriter<T extends TypeMap = any> extends ReadableInterop<
     public get closed() { return this._sink.closed; }
     public [Symbol.asyncIterator]() { return this._sink[Symbol.asyncIterator](); }
     public toDOMStream(options?: ReadableDOMStreamOptions) { return this._sink.toDOMStream(options); }
-    public toNodeStream(options?: import('stream').ReadableOptions) { return this._sink.toNodeStream(options); }
+    public toNodeStream(options?: ReadableOptions) { return this._sink.toNodeStream(options); }
 
     public close() {
         return this.reset()._sink.close();
