@@ -70,7 +70,7 @@ Goals
 
 * Define a generic protocol for passing Arrow IPC data, not tied to any particular
   transport, that also allows for utilizing non-CPU device memory, shared memory, and
-  newer "high performance" transports such as `ucx`_ or `libfabric`_.
+  newer "high performance" transports such as `UCX`_ or `libfabric`_.
 * Allow for using :ref:`Flight RPC <flight-rpc>` purely for control flow by separating
   the stream of IPC metadata from IPC body bytes
   * This allows for the data in the body to be kept on non-CPU devices (like GPUs)
