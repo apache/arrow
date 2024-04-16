@@ -57,13 +57,9 @@ echo "Using commit $release_hash"
 
 tarball=apache-arrow-${version}.tar.gz
 
-rm -f ${tarball}
-
-if [ ${TEST_RELEASE_SCRIPT} -gt 0 ]; then
-    # Assume calling from arrow's source directory
-    "${SOURCE_DIR}/utils-create-release-tarball.sh" ${version} ${rc}
-else 
-     gh release download \
+if [ ${SOURCE_DOWNLOAD} -gt 0 ]; then
+  rm -f ${tarball}
+  gh release download \
     ${tag} \
     --repo apache/arrow \
     --dir . \
