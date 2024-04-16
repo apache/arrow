@@ -121,7 +121,7 @@ Definitions
 Protocol Description
 ====================
 
-A reference example implementation utilizing `libcudf`_ and `ucx`_ can be found at 
+A reference example implementation utilizing `libcudf`_ and `UCX`_ can be found at 
 https://github.com/zeroshade/cudf-flight-ucx.
 
 Requirements
