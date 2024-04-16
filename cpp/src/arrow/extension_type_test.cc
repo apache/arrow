@@ -26,7 +26,6 @@
 
 #include "arrow/array/array_nested.h"
 #include "arrow/array/util.h"
-#include "arrow/extension/json.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/options.h"

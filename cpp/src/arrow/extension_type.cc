@@ -145,9 +145,11 @@ namespace internal {
 static void CreateGlobalRegistry() {
   g_registry = std::make_shared<ExtensionTypeRegistryImpl>();
 
-  std::vector<std::shared_ptr<DataType>> ext_types{::arrow::extension::json()};
 #ifdef ARROW_JSON
-  ext_types.push_back(extension::fixed_shape_tensor(int64(), {}));
+  std::vector<std::shared_ptr<DataType>> ext_types{
+      extension::fixed_shape_tensor(int64(), {}), ::arrow::extension::json()};
+#else
+  std::vector<std::shared_ptr<DataType>> ext_types{::arrow::extension::json()};
 #endif
 
   // Register canonical extension types
