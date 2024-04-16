@@ -57,7 +57,8 @@ However, there are use cases that aren't handled by this:
   allow for remote memory accessing, such as UCX.
 * Arrow data located on a non-CPU device (such as a GPU) cannot be sent using
   Arrow IPC without having to copy the data back to the host device or copying
-  the flatbuffer metadata bytes into device memory.
+  the Flatbuffers metadata bytes into device memory.
+  
   * By the same token, receiving IPC messages into device memory would require
     performing a copy of the Flatbuffers metadata back to the host CPU device. This
     is due to the fact that the IPC stream interleaves data and metadata across a
@@ -73,6 +74,7 @@ Goals
   newer "high performance" transports such as `UCX`_ or `libfabric`_.
 * Allow for using :ref:`Flight RPC <flight-rpc>` purely for control flow by separating
   the stream of IPC metadata from IPC body bytes
+  
   * This allows for the data in the body to be kept on non-CPU devices (like GPUs)
     without expensive device-to-host copies.
 
@@ -130,11 +132,15 @@ Requirements
 A transport implementing this protocol **MUST** provide two pieces of functionality:
 
 * Message sending
+  
   * Delimited messages (like gRPC) as opposed to non-delimited streams (like plain TCP 
     without further framing).
+  
   * Alternatively, a framing mechanism like the :ref:`encapsulated message format <ipc-message-format>`
     for the IPC protocol can be used while leaving out the body bytes.
+
 * Tagged message sending
+
   * Sending a message that has an attached little-endian, unsigned 64-bit integral tag
     for control flow. A tag like this allows control flow to operate on a message whose body
     is on a non-CPU device without requiring the message itself to get copied off of the device.
@@ -152,20 +158,27 @@ encode the following URI query parameters:
     transport schemes that get used with it.
 
 * ``want_data`` - **REQUIRED** - uint64 integer value
+  
   * This value should be used to tag an initial message to the server to initiate a
     data transfer. The body of the initiating message should be an opaque binary identifier
     of the data stream being requested (like the ``Ticket`` in the Flight RPC protocol)
+
 * ``free_data`` - **OPTIONAL** - uint64 integer value
+
   * If the server might send messages using offsets / addresses for remote memory accessing
     or shared memory locations, the URI should include this parameter. This value is used to
     tag messages sent from the client to the data server, containing specific offsets / addresses
     which were provided that are no longer required by the client (i.e. any operations that
     directly reference those memory locations, such as copying the remote data into local memory,
     have been completed).
+
 * ``remote_handle`` - **OPTIONAL** - base64-encoded string
+
   * When working with shared memory or remote memory, this value indicates any required
     handle or identifier that is necessary for accessing the memory.
+
     * Using UCX, this would be an *rkey* value
+
     * With CUDA IPC, this would be the value of the base GPU pointer or memory handle,
       and subsequent addresses would be offsets from this base pointer.
 
@@ -212,14 +225,18 @@ Upon receiving a ``<want_data>`` request, the server *should* respond by sending
 of messages consisting of the following:
 
 * A 5-byte prefix
+  
   - The first byte of the message indicates the type of message, currently there are only
     two allowed message types (more types may get added in the future):
+  
     0) End of Stream
     1) Flatbuffers IPC Metadata Message
+  
   - the next 4-bytes are a little-endian, unsigned 32-bit integer indicating the sequence number of
     the message. The first message in the stream (**MUST** always be a schema message) **MUST**
     have a sequence number of ``0``. Each subsequent message **MUST** increment the number by 
     ``1``.
+
 * The full Flatbuffers bytes of an Arrow IPC header
 
 As defined in the Arrow IPC format, each metadata message can represent a chunk of data or
@@ -249,15 +266,19 @@ stream if that message has a body (i.e. a Record Batch or Dictionary message). T
 * The *most significant* byte (bits 56 - 63) of the tag indicates the message body **type** as an 8-bit
   unsigned integer. Currently only two message types are specified, but more can be added as
   needed to expand the protocol:
+  
   0) The body contains the raw body buffer bytes as a packed buffer (i.e. the standard IPC
      format body bytes)
   1) The body contains a series of unsigned, little-endian 64-bit integer pairs to represent
      either shared or remote memory, schematically structured as
+  
     - The first two integers (e.g. the first 16 bytes) represent the *total* size (in bytes)
       of all buffers and the number of buffers in this message (and thus the number of following
       pairs of ``uint64``)
+  
     - Each subsequent pair of ``uint64`` values are an address / offset followed the length of
       that particular buffer.
+
 * All unspecified bits (bits 32 - 55) of the tag are *reserved* for future use by potential updates
   to this protocol. For now they **MUST** be 0.
 
@@ -300,8 +321,10 @@ showing how a client might handle the metadata and data streams:
      little-endian byte order.
    * If it is **not** an *End of Stream* message, the remaining bytes are the IPC Flatbuffer bytes which
      can be interpreted as normal.    
+    
     * If the message has a body (i.e. Record Batch or Dictionary message) then the client should retrieve
       a tagged message from the Data Stream using the same sequence number.
+  
   * If it **is** an *End of Stream* message, then it is safe to close the metadata connection if there are
     no gaps in the sequence numbers received.
 
@@ -310,12 +333,16 @@ showing how a client might handle the metadata and data streams:
    care about matching the lower 4 bytes to the sequence number)
 
    * Once recieved, the Most Significant Byte's value determines how the client processes the body data:
+
      * If the most significant byte is 0: Then the body of the message is the raw IPC packed body buffers
        allowing it to easily be processed with the corresponding metadata header bytes.
+
      * If the most significant byte is 1: The body of the message will consist of a series of pairs of 
        unsigned, 64-bit integers in little-endian byte order.
+
        * The first two integers represent *1)* the total size of all the body buffers together to allow
          for easy allocation if an intermediate buffer is needed and *2)* the number of buffers being sent (``nbuf``).
+
        * The rest of the message will be ``nbuf`` pairs of integers, one for each buffer. Each pair is
          *1)* the address / offset of the buffer and *2)* the length of that buffer. Memory can then be retrieved
          via shared or remote memory routines based on the underlying transport. These addresses / offsets **MUST**
