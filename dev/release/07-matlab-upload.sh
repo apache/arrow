@@ -86,4 +86,4 @@ gh release upload ${tag} \
   --repo apache/arrow \
   *
 
-popd 
+popd
