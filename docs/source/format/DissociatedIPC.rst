@@ -330,6 +330,6 @@ improving it and finding the right generalizations to standardize on across tran
 Please chime in using the Arrow Developers Mailing list: dev@arrow.apache.org.
 
 .. _Flatbuffers: http://github.com/google/flatbuffers
-.. _ucx: https://openucx.org/
+.. _UCX: https://openucx.org/
 .. _libfabric: https://ofiwg.github.io/libfabric/
 .. _libcudf: https://docs.rapids.ai/api
