@@ -175,9 +175,9 @@ const getTimestampSecond = <T extends TimestampSecond>({ values }: Data<T>, inde
 /** @ignore */
 const getTimestampMillisecond = <T extends TimestampMillisecond>({ values }: Data<T>, index: number): T['TValue'] => bigIntToNumber(values[index]);
 /** @ignore */
-const getTimestampMicrosecond = <T extends TimestampMicrosecond>({ values }: Data<T>, index: number): T['TValue'] => divideBigInts(values[index], 1000n);
+const getTimestampMicrosecond = <T extends TimestampMicrosecond>({ values }: Data<T>, index: number): T['TValue'] => divideBigInts(values[index], BigInt(1000));
 /** @ignore */
-const getTimestampNanosecond = <T extends TimestampNanosecond>({ values }: Data<T>, index: number): T['TValue'] => divideBigInts(values[index], 1000000n);
+const getTimestampNanosecond = <T extends TimestampNanosecond>({ values }: Data<T>, index: number): T['TValue'] => divideBigInts(values[index], BigInt(1000000));
 /* istanbul ignore next */
 /** @ignore */
 const getTimestamp = <T extends Timestamp>(data: Data<T>, index: number): T['TValue'] => {
