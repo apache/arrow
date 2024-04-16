@@ -46,10 +46,9 @@ namespace compute {
 /// Does not support nested types
 class ARROW_EXPORT RowTableEncoder {
  public:
-  void Init(const std::vector<KeyColumnMetadata>& cols, int row_alignment,
-            int string_alignment);
+  void Init(const RowTableMetadata* row_metadata);
 
-  const RowTableMetadata* row_metadata() { return row_metadata_.get(); }
+  const RowTableMetadata* row_metadata() { return row_metadata_; }
   // GrouperFastImpl right now needs somewhat intrusive visibility into RowTableEncoder
   // This could be cleaned up at some point
   const std::vector<KeyColumnArray>& batch_all_cols() { return batch_all_cols_; }
@@ -111,7 +110,7 @@ class ARROW_EXPORT RowTableEncoder {
                               const std::vector<KeyColumnArray>& cols_in);
 
   // Data initialized once, based on data types of key columns
-  std::shared_ptr<RowTableMetadata> row_metadata_;
+  const RowTableMetadata* row_metadata_;
 
   // Data initialized for each input batch.
   // All elements are ordered according to the order of encoded fields in a row.

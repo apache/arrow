@@ -202,9 +202,12 @@ Status RowArray::InitIfNeeded(MemoryPool* pool,
   if (is_initialized_) {
     return Status::OK();
   }
-  encoder_.Init(column_metadatas, sizeof(uint64_t), sizeof(uint64_t));
-  RETURN_NOT_OK(rows_temp_.Init(pool, encoder_.row_metadata()));
-  RETURN_NOT_OK(rows_.Init(pool, encoder_.row_metadata()));
+  row_metadata_.FromColumnMetadataVector(column_metadatas,
+                                         /* row_alignment = */ sizeof(uint64_t),
+                                         /* string_alignment = */ sizeof(uint64_t));
+  encoder_.Init(&row_metadata_);
+  RETURN_NOT_OK(rows_temp_.Init(pool, &row_metadata_));
+  RETURN_NOT_OK(rows_.Init(pool, &row_metadata_));
   is_initialized_ = true;
   return Status::OK();
 }
@@ -373,7 +376,7 @@ void RowArray::DebugPrintToFile(const char* filename, bool print_sorted) const {
   }
 
   for (int64_t row_id = 0; row_id < rows_.length(); ++row_id) {
-    for (uint32_t column_id = 0; column_id < rows_.metadata()->num_cols(); ++column_id) {
+    for (uint32_t column_id = 0; column_id < row_metadata_.num_cols(); ++column_id) {
       bool is_null;
       uint32_t row_id_cast = static_cast<uint32_t>(row_id);
       RowArrayAccessor::VisitNulls(rows_, column_id, 1, &row_id_cast,
@@ -442,9 +445,9 @@ Status RowArrayMerge::PrepareForMerge(RowArray* target,
   ARROW_DCHECK(!sources.empty());
 
   ARROW_DCHECK(sources[0]->is_initialized_);
-  const RowTableMetadata* metadata = sources[0]->rows_.metadata();
+  const RowTableMetadata& metadata = sources[0]->row_metadata_;
   ARROW_DCHECK(!target->is_initialized_);
-  RETURN_NOT_OK(target->InitIfNeeded(pool, metadata->column_metadatas));
+  RETURN_NOT_OK(target->InitIfNeeded(pool, metadata.column_metadatas));
 
   // Sum the number of rows from all input sources and calculate their total
   // size.
@@ -458,12 +461,12 @@ Status RowArrayMerge::PrepareForMerge(RowArray* target,
     // All input sources must be initialized and have the same row format.
     //
     ARROW_DCHECK(sources[i]->is_initialized_);
-    ARROW_DCHECK(metadata->is_compatible(sources[i]->rows_.metadata()));
+    ARROW_DCHECK(metadata.is_compatible(sources[i]->row_metadata_));
     if (first_target_row_id) {
       (*first_target_row_id)[i] = num_rows;
     }
     num_rows += sources[i]->rows_.length();
-    if (!metadata->is_fixed_length) {
+    if (!metadata.is_fixed_length) {
       num_bytes += sources[i]->rows_.offsets()[sources[i]->rows_.length()];
     }
   }
@@ -487,7 +490,7 @@ Status RowArrayMerge::PrepareForMerge(RowArray* target,
   // initialize the first row offset for each range of rows corresponding to a
   // single source.
   //
-  if (!metadata->is_fixed_length) {
+  if (!metadata.is_fixed_length) {
     num_rows = 0;
     num_bytes = 0;
     for (size_t i = 0; i < sources.size(); ++i) {
@@ -510,10 +513,11 @@ void RowArrayMerge::MergeSingle(RowArray* target, const RowArray& source,
   // - use 64-bit alignment
   //
   ARROW_DCHECK(source.is_initialized_ && target->is_initialized_);
-  ARROW_DCHECK(target->rows_.metadata()->is_compatible(source.rows_.metadata()));
-  ARROW_DCHECK(target->rows_.metadata()->row_alignment == sizeof(uint64_t));
+  const RowTableMetadata& target_row_metadata = target->row_metadata_;
+  ARROW_DCHECK(target_row_metadata.is_compatible(source.row_metadata_));
+  ARROW_DCHECK(target_row_metadata.row_alignment == sizeof(uint64_t));
 
-  if (target->rows_.metadata()->is_fixed_length) {
+  if (target_row_metadata.is_fixed_length) {
     CopyFixedLength(&target->rows_, source.rows_, first_target_row_id,
                     source_rows_permutation);
   } else {

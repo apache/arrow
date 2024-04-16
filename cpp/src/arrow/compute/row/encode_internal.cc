@@ -21,10 +21,8 @@
 namespace arrow {
 namespace compute {
 
-void RowTableEncoder::Init(const std::vector<KeyColumnMetadata>& cols, int row_alignment,
-                           int string_alignment) {
-  row_metadata_ = std::make_shared<RowTableMetadata>();
-  row_metadata_->FromColumnMetadataVector(cols, row_alignment, string_alignment);
+void RowTableEncoder::Init(const RowTableMetadata* row_metadata) {
+  row_metadata_ = row_metadata;
   uint32_t num_cols = row_metadata_->num_cols();
   uint32_t num_varbinary_cols = row_metadata_->num_varbinary_cols();
   batch_all_cols_.resize(num_cols);

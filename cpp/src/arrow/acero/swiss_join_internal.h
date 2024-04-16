@@ -140,6 +140,7 @@ struct RowArray {
   RowTableEncoder encoder_;
   RowTableImpl rows_;
   RowTableImpl rows_temp_;
+  RowTableMetadata row_metadata_;
 };
 
 // Implements concatenating multiple row arrays into a single one, using

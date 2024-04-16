@@ -563,12 +563,13 @@ struct GrouperFastImpl : public Grouper {
       impl->key_types_[icol] = key;
     }
 
-    impl->encoder_.Init(impl->col_metadata_,
-                        /* row_alignment = */ sizeof(uint64_t),
-                        /* string_alignment = */ sizeof(uint64_t));
-    RETURN_NOT_OK(impl->rows_.Init(ctx->memory_pool(), impl->encoder_.row_metadata()));
-    RETURN_NOT_OK(
-        impl->rows_minibatch_.Init(ctx->memory_pool(), impl->encoder_.row_metadata()));
+    impl->row_metadata_.FromColumnMetadataVector(
+        impl->col_metadata_,
+        /* row_alignment = */ sizeof(uint64_t),
+        /* string_alignment = */ sizeof(uint64_t));
+    impl->encoder_.Init(&impl->row_metadata_);
+    RETURN_NOT_OK(impl->rows_.Init(ctx->memory_pool(), &impl->row_metadata_));
+    RETURN_NOT_OK(impl->rows_minibatch_.Init(ctx->memory_pool(), &impl->row_metadata_));
     impl->minibatch_size_ = impl->minibatch_size_min_;
     GrouperFastImpl* impl_ptr = impl.get();
     impl->map_equal_impl_ =
@@ -776,7 +777,7 @@ struct GrouperFastImpl : public Grouper {
       start_row += batch_size_next;
     }
 
-    if (!rows_.metadata()->is_fixed_length) {
+    if (!row_metadata_.is_fixed_length) {
       for (size_t i = 0; i < num_columns; ++i) {
         if (!col_metadata_[i].is_fixed_length) {
           auto varlen_size =
@@ -857,6 +858,7 @@ struct GrouperFastImpl : public Grouper {
   RowTableImpl rows_;
   RowTableImpl rows_minibatch_;
   RowTableEncoder encoder_;
+  RowTableMetadata row_metadata_;
   SwissTable map_;
   SwissTable::EqualImpl map_equal_impl_;
   SwissTable::AppendImpl map_append_impl_;

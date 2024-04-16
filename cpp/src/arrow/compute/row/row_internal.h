@@ -149,7 +149,7 @@ struct ARROW_EXPORT RowTableMetadata {
   /// \brief True if `other` has the same number of columns
   ///   and each column has the same width (two variable length
   ///   columns are considered to have the same width)
-  bool is_compatible(const RowTableMetadata* other) const;
+  bool is_compatible(const RowTableMetadata& other) const;
 };
 
 /// \brief A table of data stored in row-major order

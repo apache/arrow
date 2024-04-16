@@ -32,22 +32,20 @@ uint32_t RowTableMetadata::num_varbinary_cols() const {
   return result;
 }
 
-bool RowTableMetadata::is_compatible(const RowTableMetadata* other) const {
-  DCHECK(other);
-
-  if (other->num_cols() != num_cols()) {
+bool RowTableMetadata::is_compatible(const RowTableMetadata& other) const {
+  if (other.num_cols() != num_cols()) {
     return false;
   }
-  if (row_alignment != other->row_alignment ||
-      string_alignment != other->string_alignment) {
+  if (row_alignment != other.row_alignment ||
+      string_alignment != other.string_alignment) {
     return false;
   }
   for (size_t i = 0; i < column_metadatas.size(); ++i) {
     if (column_metadatas[i].is_fixed_length !=
-        other->column_metadatas[i].is_fixed_length) {
+        other.column_metadatas[i].is_fixed_length) {
       return false;
     }
-    if (column_metadatas[i].fixed_length != other->column_metadatas[i].fixed_length) {
+    if (column_metadatas[i].fixed_length != other.column_metadatas[i].fixed_length) {
       return false;
     }
   }
@@ -318,7 +316,7 @@ Status RowTableImpl::ResizeOptionalVaryingLengthBuffer(int64_t num_extra_bytes) 
 Status RowTableImpl::AppendSelectionFrom(const RowTableImpl& from,
                                          uint32_t num_rows_to_append,
                                          const uint16_t* source_row_ids) {
-  DCHECK(metadata_->is_compatible(from.metadata()));
+  DCHECK(metadata_->is_compatible(*from.metadata()));
 
   RETURN_NOT_OK(ResizeFixedLengthBuffers(num_rows_to_append));
 
