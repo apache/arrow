@@ -228,6 +228,11 @@ Build source and binaries and submit them
     # Start verifications for binaries and wheels
     dev/release/07-binary-verify.sh <version> <rc-number>
 
+    # Sign and upload MATLAB artifacts to the GitHub Releases area.
+    #
+    # NOTE: You must have GitHub CLI installed to run this script.
+    dev/release/08-matlab-upload.sh <version> <rc-number>
+
 Verify the Release
 ------------------
 
