@@ -64,11 +64,11 @@ class DynamicLibrary:
         return names
 
     def _remove_weak_symbols(self, symbol_info):
-        return [line for line in symbol_info if not re.search(r'\s[Ww]\s', line)]
+        return [line for line in symbol_info if not line.endswith(" w")]
 
     def _capture_symbols(self, remove_symbol_versions, symbol_info):
         if remove_symbol_versions:
-            symbol_info = [line.split('@')[0] for line in symbol_info]
+            symbol_info = [line.split('@')[0].strip() for line in symbol_info]
         return symbol_info
 
     def list_symbols_for_dependency(self, dependency, remove_symbol_versions=False):
@@ -77,7 +77,8 @@ class DynamicLibrary:
             return []
         result = _nm.run('-D', '-P', dependency, stdout=subprocess.PIPE)
         lines = result.stdout.decode('utf-8').splitlines()
-        return self._capture_symbols(remove_symbol_versions, lines)
+        lines = self._capture_symbols(remove_symbol_versions, lines)
+        return self._remove_weak_symbols(lines)
 
     def list_undefined_symbols_for_dependency(self, dependency,
                                               remove_symbol_versions=False):
