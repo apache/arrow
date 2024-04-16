@@ -20,6 +20,7 @@ import { Table } from './table.js';
 import { Vector } from './vector.js';
 import { Schema, Field } from './schema.js';
 import { DataType, Struct, Null, TypeMap } from './type.js';
+import { wrapIndex } from './util/vector.js';
 
 import { instance as getVisitor } from './visitor/get.js';
 import { instance as setVisitor } from './visitor/set.js';
@@ -116,7 +117,7 @@ export class RecordBatch<T extends TypeMap = any> {
     }
 
     /**
-     * Check whether an element is null.
+     * Check whether an row is null.
      * @param index The index at which to read the validity bitmap.
      */
     public isValid(index: number) {
@@ -125,15 +126,23 @@ export class RecordBatch<T extends TypeMap = any> {
 
     /**
      * Get a row by position.
-     * @param index The index of the element to read.
+     * @param index The index of the row to read.
      */
     public get(index: number) {
         return getVisitor.visit(this.data, index);
     }
 
     /**
+      * Get a row value by position.
+      * @param index The index of the row to read. A negative index will count back from the last row.
+      */
+    public at(index: number) {
+        return this.get(wrapIndex(index, this.numRows));
+    }
+
+    /**
      * Set a row by position.
-     * @param index The index of the element to write.
+     * @param index The index of the row to write.
      * @param value The value to set.
      */
     public set(index: number, value: Struct<T>['TValue']) {
@@ -175,7 +184,7 @@ export class RecordBatch<T extends TypeMap = any> {
     /**
      * Return a zero-copy sub-section of this RecordBatch.
      * @param start The beginning of the specified portion of the RecordBatch.
-     * @param end The end of the specified portion of the RecordBatch. This is exclusive of the element at the index 'end'.
+     * @param end The end of the specified portion of the RecordBatch. This is exclusive of the row at the index 'end'.
      */
     public slice(begin?: number, end?: number): RecordBatch<T> {
         const [slice] = new Vector([this.data]).slice(begin, end).data;
