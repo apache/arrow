@@ -335,8 +335,12 @@ namespace Apache.Arrow.Tests
                     builder.Append();
                     valueBuilder.Append(i);
                 }
-                //Add a value to check if Values.Length can exceed ListArray.Length
-                valueBuilder.Append(0);
+
+                if (Length > 0)
+                {
+                    // Add a value to check if Values.Length can exceed ListArray.Length
+                    valueBuilder.Append(0);
+                }
 
                 Array = builder.Build();
             }
@@ -352,8 +356,12 @@ namespace Apache.Arrow.Tests
                     builder.Append();
                     valueBuilder.Append(i);
                 }
-                //Add a value to check if Values.Length can exceed ListArray.Length
-                valueBuilder.Append(0);
+
+                if (Length > 0)
+                {
+                    // Add a value to check if Values.Length can exceed ListArray.Length
+                    valueBuilder.Append(0);
+                }
 
                 Array = builder.Build();
             }
@@ -562,9 +570,13 @@ namespace Apache.Arrow.Tests
                     keyBuilder.Append(i.ToString());
                     valueBuilder.Append(i);
                 }
-                //Add a value to check if Values.Length can exceed MapArray.Length
-                keyBuilder.Append("0");
-                valueBuilder.Append(0);
+
+                if (Length > 0)
+                {
+                    // Add a value to check if Values.Length can exceed MapArray.Length
+                    keyBuilder.Append("0");
+                    valueBuilder.Append(0);
+                }
 
                 Array = builder.Build();
             }
