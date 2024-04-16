@@ -402,10 +402,7 @@ function generateDate<T extends Date_>(this: TestDataVectorGenerator, type: T, l
     const data = type.unit === DateUnit.DAY
         ? createDate32(length, nullBitmap, values)
         : createDate64(length, nullBitmap, values);
-    return {
-        values: () => values.map((x) => x == null ? null : new Date(x)),
-        vector: new Vector([makeData({ type, length, nullCount, nullBitmap, data })])
-    };
+    return { values: () => values, vector: new Vector([makeData({ type, length, nullCount, nullBitmap, data })]) };
 }
 
 function generateTimestamp<T extends Timestamp>(this: TestDataVectorGenerator, type: T, length = 100, nullCount = Math.trunc(length * 0.2)): GeneratedVector<T> {
@@ -649,6 +646,7 @@ type TypedArrayConstructor =
 
 
 const rand = Math.random.bind(Math);
+const randSign = () => rand() > 0.5 ? -1 : 1;
 const randomBytes = (length: number) => fillRandom(Uint8Array, length);
 
 const memoize = (fn: () => any) => ((x?: any) => () => x || (x = fn()))();
@@ -661,7 +659,7 @@ function fillRandom<T extends TypedArrayConstructor>(ArrayType: T, length: numbe
     const BPE = ArrayType.BYTES_PER_ELEMENT;
     const array = new ArrayType(length);
     const max = (2 ** (8 * BPE)) - 1;
-    for (let i = -1; ++i < length; array[i] = rand() * max * (rand() > 0.5 ? -1 : 1));
+    for (let i = -1; ++i < length; array[i] = rand() * max * randSign());
     return array as InstanceType<T>;
 }
 
@@ -669,7 +667,7 @@ function fillRandomBigInt<T extends (typeof BigInt64Array) | (typeof BigUint64Ar
     const BPE = ArrayType.BYTES_PER_ELEMENT;
     const array = new ArrayType(length);
     const max = (2 ** (8 * BPE)) - 1;
-    for (let i = -1; ++i < length; array[i] = BigInt(rand() * max * (rand() > 0.5 ? -1 : 1)));
+    for (let i = -1; ++i < length; array[i] = BigInt(rand() * max * randSign()));
     return array as InstanceType<T>;
 }
 
@@ -735,6 +733,9 @@ function createVariableWidthBytes(length: number, nullBitmap: Uint8Array, offset
     return bytes;
 }
 
+/**
+ * Creates timestamps with the accuracy of days (86400000 millisecond).
+ */
 function createDate32(length: number, nullBitmap: Uint8Array, values: (number | null)[] = []) {
     const data = new Int32Array(length).fill(Math.trunc(Date.now() / 86400000));
     iterateBitmap(length, nullBitmap, (i, valid) => {
@@ -742,7 +743,7 @@ function createDate32(length: number, nullBitmap: Uint8Array, values: (number | 
             data[i] = 0;
             values[i] = null;
         } else {
-            data[i] = Math.trunc(data[i] + (rand() * 10000 * (rand() > 0.5 ? -1 : 1)));
+            data[i] = Math.trunc(data[i] + (rand() * 10000 * randSign()));
             values[i] = data[i] * 86400000;
         }
     });
@@ -750,32 +751,26 @@ function createDate32(length: number, nullBitmap: Uint8Array, values: (number | 
 }
 
 function createDate64(length: number, nullBitmap: Uint8Array, values: (number | null)[] = []) {
-    const data = new Int32Array(length * 2).fill(0);
     const data32 = createDate32(length, nullBitmap, values);
-    iterateBitmap(length, nullBitmap, (i, valid) => {
-        if (valid) {
-            const value = data32[i] * 86400000;
-            const hi = Math.trunc(value / 4294967296);
-            const lo = Math.trunc(value - 4294967296 * hi);
-            values[i] = value;
-            data[i * 2 + 0] = lo;
-            data[i * 2 + 1] = hi;
-        }
-    });
-    return data;
+    return BigInt64Array.from(data32, x => BigInt(x * 86400000));
+}
+
+function divideBigInts(number: bigint, divisor: bigint): number {
+    return Number(number / divisor) + Number(number % divisor) / Number(divisor);
 }
 
 function createTimestamp(length: number, nullBitmap: Uint8Array, multiple: number, values: (number | null)[] = []) {
-    const mult = 86400 * multiple;
-    const data = new Int32Array(length * 2).fill(0);
-    const data32 = createDate32(length, nullBitmap, values);
+    const data = new BigInt64Array(length).fill(0n);
+    const tenYears = 10 * 365 * 24 * 60 * 60 * multiple;
+    const now = Math.trunc(Date.now() / 1000 * multiple);
     iterateBitmap(length, nullBitmap, (i, valid) => {
-        if (valid) {
-            const value = data32[i] * mult;
-            const hi = Math.trunc(value / 4294967296);
-            const lo = Math.trunc(value - 4294967296 * hi);
-            data[i * 2 + 0] = lo;
-            data[i * 2 + 1] = hi;
+        if (!valid) {
+            data[i] = 0n;
+            values[i] = null;
+        } else {
+            const value = BigInt(now + Math.trunc(rand() * randSign() * tenYears));
+            data[i] = value;
+            values[i] = divideBigInts(value * 1000n, BigInt(multiple));
         }
     });
     return data;
@@ -788,7 +783,7 @@ function createTime32(length: number, nullBitmap: Uint8Array, multiple: number, 
             data[i] = 0;
             values[i] = null;
         } else {
-            values[i] = data[i] = ((1000 * rand()) | 0 * multiple) * (rand() > 0.5 ? -1 : 1);
+            values[i] = data[i] = ((1000 * rand()) | 0 * multiple) * randSign();
         }
     });
     return data;
