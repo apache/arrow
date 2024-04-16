@@ -32,14 +32,11 @@ const randnulls = <T, TNull = null>(values: T[], n: TNull = <any>null) => values
 export const randomBytes = (length: number) => fillRandom(Uint8Array, length);
 
 export const stringsNoNulls = (length = 20) => Array.from({ length }, (_) => randomString(1 + (Math.trunc(Math.random() * 19))));
-export const timestampNoNulls = (length = 20, now = Math.trunc(Date.now() / 86400000)) =>
-    Array.from({ length }, (_) => (Math.trunc(now + (rand() * 10000 * (rand() > 0.5 ? -1 : 1)))) * 86400000);
-
-export const timestampWithNulls = (length = 20) => randnulls(timestampNoNulls(length), null);
 
 export const boolsNoNulls = (length = 20) => Array.from({ length }, () => rand() > 0.5);
 
-export const dateNoNulls = (length = 20) => timestampNoNulls(length);
+export const dateNoNulls = (length = 20, now = Math.trunc(Date.now() / 86400000)) =>
+    Array.from({ length }, (_) => (Math.trunc(now + (rand() * 100000 * (rand() > 0.5 ? -1 : 1)))) * 86400000);
 export const int8sNoNulls = (length = 20) => Array.from(new Int8Array(randomBytes(length * Int8Array.BYTES_PER_ELEMENT).buffer));
 export const int16sNoNulls = (length = 20) => Array.from(new Int16Array(randomBytes(length * Int16Array.BYTES_PER_ELEMENT).buffer));
 export const int32sNoNulls = (length = 20) => Array.from(new Int32Array(randomBytes(length * Int32Array.BYTES_PER_ELEMENT).buffer));
