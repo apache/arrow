@@ -39,7 +39,7 @@ rm -rf ${tag}
 # be conservative and use the release hash, even though git produces the same
 # archive (identical hashes) using the scm tag
 (cd "${SOURCE_TOP_DIR}" && \
-  git archive ${release_hash} --prefix ${tag}/)  | \
+  git archive ${release_hash} --prefix ${tag}/) | \
   tar xf -
 
 # Resolve symbolic and hard links
