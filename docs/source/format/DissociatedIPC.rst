@@ -40,7 +40,7 @@ continuation indicator). Each discrete message consists of two portions:
   message types, like Schema messages, do not have this section)
   - This is referred to as the *message body* in the IPC format spec.
 
-For most cases, the existing IPC format as it currently exists is extremely efficient:
+For most cases, the existing IPC format as it currently exists is sufficiently efficient:
 
 * Receiving data in the IPC format allows zero-copy utilization of the body
   buffer bytes, no deserialization is required to form Arrow Arrays
@@ -59,11 +59,11 @@ However, there are use cases that aren't handled by this:
   Arrow IPC without having to copy the data back to the host device or copying
   the flatbuffer metadata bytes into device memory.
   * By the same token, receiving IPC messages into device memory would require
-    performing a copy of the flatbuffer metadata back to the host CPU device. This
+    performing a copy of the Flatbuffers metadata back to the host CPU device. This
     is due to the fact that the IPC stream interleaves data and metadata across a
     single stream.
 
-This protocol is intended to attempt to solve these use cases in an efficient manner.
+This protocol attempts to solve these use cases in an efficient manner.
 
 Goals
 -----
@@ -74,7 +74,7 @@ Goals
 * Allow for using :ref:`Flight RPC <flight-rpc>` purely for control flow by separating
   the stream of IPC metadata from IPC body bytes
   * This allows for the data in the body to be kept on non-CPU devices (like GPUs)
-    without expensive Device -> Host copies.
+    without expensive device-to-host copies.
 
 Definitions
 -----------
@@ -135,7 +135,7 @@ A transport implementing this protocol **MUST** provide two pieces of functional
   * Alternatively, a framing mechanism like the :ref:`encapsulated message format <ipc-message-format>`
     for the IPC protocol can be used while leaving out the body bytes.
 * Tagged message sending
-  - Sending a message that has an attached little-endian, unsigned 64-bit integral tag
+  * Sending a message that has an attached little-endian, unsigned 64-bit integral tag
     for control flow. A tag like this allows control flow to operate on a message whose body
     is on a non-CPU device without requiring the message itself to get copied off of the device.
 
@@ -143,8 +143,8 @@ URI Specification
 -----------------
 
 When providing a URI to a consumer to contact for use with this protocol (such as via 
-the `Location URI for Flight <flight-location-uris>`_), the URI should specify a scheme
-like *ucx://* or *fabric://*, that is easily identifiable. In addition, the URI should
+the :ref:`Location URI for Flight <flight-location-uris>`), the URI should specify a scheme
+like *ucx:* or *fabric:*, that is easily identifiable. In addition, the URI should
 encode the following URI query parameters:
 
 .. note::
@@ -152,21 +152,21 @@ encode the following URI query parameters:
     transport schemes that get used with it.
 
 * ``want_data`` - **REQUIRED** - uint64 integer value
-  - This value should be used to tag an initial message to the server to initiate a
+  * This value should be used to tag an initial message to the server to initiate a
     data transfer. The body of the initiating message should be an opaque binary identifier
     of the data stream being requested (like the ``Ticket`` in the Flight RPC protocol)
 * ``free_data`` - **OPTIONAL** - uint64 integer value
-  - If the server might send messages using offsets / addresses for remote memory accessing
+  * If the server might send messages using offsets / addresses for remote memory accessing
     or shared memory locations, the URI should include this parameter. This value is used to
     tag messages sent from the client to the data server, containing specific offsets / addresses
     which were provided that are no longer required by the client (i.e. any operations that
     directly reference those memory locations, such as copying the remote data into local memory,
     have been completed).
 * ``remote_handle`` - **OPTIONAL** - base64-encoded string
-  - When working with shared memory or remote memory, this value indicates any required
+  * When working with shared memory or remote memory, this value indicates any required
     handle or identifier that is necessary for accessing the memory.
-    + Using UCX, this would be an *rkey* value
-    + With CUDA IPC, this would be the value of the base GPU pointer or memory handle,
+    * Using UCX, this would be an *rkey* value
+    * With CUDA IPC, this would be the value of the base GPU pointer or memory handle,
       and subsequent addresses would be offsets from this base pointer.
 
 Protocol Description
@@ -174,7 +174,7 @@ Protocol Description
 
 There are two possibilities that can occur:
 
-1. The streams of metadata and body data are across separate connections
+1. The streams of metadata and body data are sent across separate connections
 
 .. figure:: ./DissociatedIPC/SequenceDiagramSeparate.mmd.svg
 
@@ -213,7 +213,7 @@ of messages consisting of the following:
     two allowed message types (more types may get added in the future):
     0) End of Stream
     1) Flatbuffer IPC Metadata Message
-  - the next 4-bytes are a little-endian, 32-bit integer indicating the sequence number of
+  - the next 4-bytes are a little-endian, unsigned 32-bit integer indicating the sequence number of
     the message. The first message in the stream (**MUST** always be a schema message) **MUST**
     have a sequence number of ``0``. Each subsequent message **MUST** increment the number by 
     ``1``.
@@ -238,7 +238,7 @@ For each IPC message in the stream of data, a **tagged** message **MUST** be sen
 stream if that message has a body (i.e. a Record Batch or Dictionary message). The 
 :term:`tag <Tag>` for each message should be structured as follows:
 
-* The *least significant* 4-bytes (bits 0 - 31) of the tag should be the 32-bit, little-endian sequence 
+* The *least significant* 4-bytes (bits 0 - 31) of the tag should be the unsigned 32-bit, little-endian sequence 
   number of the message.
 * The *most significant* byte (bits 56 - 63) of the tag indicates the message body **type** as an 8-bit
   unsigned integer. Currently only two message types are specified, but more can be added as
@@ -250,7 +250,7 @@ stream if that message has a body (i.e. a Record Batch or Dictionary message). T
     - The first two integers (e.g. the first 16 bytes) represent the *total* size (in bytes)
       of all buffers and the number of buffers in this message (and thus the number of following
       pairs of ``uint64``)
-    - Each subsequent pair of ``uint64`` values are an address/offset followed the length of
+    - Each subsequent pair of ``uint64`` values are an address / offset followed the length of
       that particular buffer.
 * All unspecified bits (bits 32 - 55) of the tag are *reserved* for future use by potential updates
   to this protocol. For now they **MUST** be 0.
