@@ -254,7 +254,43 @@ namespace Apache.Arrow
                     return ArrowBuffer.Empty;
                 }
 
-                return ConcatenateBitmapBuffer(0);
+                var builder = new ArrowBuffer.BitmapBuilder(_totalLength);
+
+                foreach (ArrayData arrayData in _arrayDataList)
+                {
+                    int length = arrayData.Length;
+                    int offset = arrayData.Offset;
+                    ReadOnlySpan<byte> span = arrayData.Buffers[0].Span;
+
+                    if (length > 0 && span.Length == 0)
+                    {
+                        if (arrayData.NullCount == 0)
+                        {
+                            builder.AppendRange(true , length);
+                        }
+                        else if (arrayData.NullCount == length)
+                        {
+                            builder.AppendRange(false , length);
+                        }
+                        else
+                        {
+                            throw new Exception("Array has no validity buffer and null count != 0 or length");
+                        }
+                    }
+                    else if (offset == 0)
+                    {
+                        builder.Append(span, length);
+                    }
+                    else
+                    {
+                        for (int i = 0; i < length; ++i)
+                        {
+                            builder.Append(BitUtility.GetBit(span, offset + i));
+                        }
+                    }
+                }
+
+                return builder.Build(_allocator);
             }
 
             private ArrowBuffer ConcatenateBitmapBuffer(int bufferIndex)
@@ -264,9 +300,20 @@ namespace Apache.Arrow
                 foreach (ArrayData arrayData in _arrayDataList)
                 {
                     int length = arrayData.Length;
+                    int offset = arrayData.Offset;
                     ReadOnlySpan<byte> span = arrayData.Buffers[bufferIndex].Span;
 
-                    builder.Append(span, length);
+                    if (offset == 0)
+                    {
+                        builder.Append(span, length);
+                    }
+                    else
+                    {
+                        for (int i = 0; i < length; ++i)
+                        {
+                            builder.Append(BitUtility.GetBit(span, offset + i));
+                        }
+                    }
                 }
 
                 return builder.Build(_allocator);
