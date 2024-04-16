@@ -56,6 +56,11 @@ jobs:
           echo "VERSION_WITH_RC=${version_with_rc}" >> ${GITHUB_ENV}
           echo "VERSION=${version}" >> ${GITHUB_ENV}
           echo "RC_NUM=${rc_num}" >> ${GITHUB_ENV}
+      - name: Download Release Candidate Artifacts 
+        run: |
+          rc_tag=apache-arrow-${VERSION}-rc${RC_NUM}
+          mkdir release_candidate_artifacts
+          gh release download ${rc_tag} --dir release_candidate_artifacts
       - name: Create Release Title
         run: |
           title="Apache Arrow ${VERSION}"
@@ -70,4 +75,5 @@ jobs:
           gh release create ${GITHUB_REF_NAME} \
             --verify-tag \
             --title "${RELEASE_TITLE}" \
-            --notes "Release Notes: ${RELEASE_NOTES}" 
+            --notes "Release Notes: ${RELEASE_NOTES}"  \
+            release_candidate_artifacts/*
