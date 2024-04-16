@@ -32,7 +32,7 @@ import * as Arrow from '../src/Arrow.ts';
 
 import config, { arrays, typedArrays, vectors } from './config.js';
 import b from 'benny';
-import { CaseResult, Summary } from 'benny/lib/internal/common-types';
+import { CaseResult, Summary } from 'benny/lib/internal/common-types.js';
 import kleur from 'kleur';
 
 const { RecordBatchReader, RecordBatchStreamWriter } = Arrow;

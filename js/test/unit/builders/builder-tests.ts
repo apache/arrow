@@ -19,7 +19,7 @@ import 'web-streams-polyfill';
 
 import '../../jest-extensions.js';
 import { from, fromDOMStream, toArray } from 'ix/asynciterable';
-import { fromNodeStream } from 'ix/asynciterable/fromnodestream';
+import { fromNodeStream } from 'ix/asynciterable/fromnodestream.js';
 
 import { validateVector } from './utils.js';
 import * as generate from '../../generate-test-data.js';
@@ -239,9 +239,9 @@ function fillNADefault(values: any[], nulls: any[]): any[] {
     });
 }
 
-type BuilderOptions<T extends DataType = any, TNull = any> = import('apache-arrow/builder').BuilderOptions<T, TNull>;
-type BuilderDuplexOptions<T extends DataType = any, TNull = any> = import('apache-arrow/io/node/builder').BuilderDuplexOptions<T, TNull>;
-type BuilderTransformOptions<T extends DataType = any, TNull = any> = import('apache-arrow/io/whatwg/builder').BuilderTransformOptions<T, TNull>;
+type BuilderOptions<T extends DataType = any, TNull = any> = import('apache-arrow/builder.js').BuilderOptions<T, TNull>;
+type BuilderDuplexOptions<T extends DataType = any, TNull = any> = import('apache-arrow/io/node/builder.js').BuilderDuplexOptions<T, TNull>;
+type BuilderTransformOptions<T extends DataType = any, TNull = any> = import('apache-arrow/io/whatwg/builder.js').BuilderTransformOptions<T, TNull>;
 
 function encodeSingle<T extends DataType, TNull = any>(values: (T['TValue'] | TNull)[], options: BuilderOptions<T, TNull>) {
     const builder = makeBuilder(options);
