@@ -17,9 +17,9 @@
 
 import { targetDir, mainExport, esmRequire, gCCLanguageNames, publicModulePaths, observableFromStreams, shouldRunInChildProcess, spawnGulpCommandInChildProcess } from "./util.js";
 
-import fs from 'fs';
+import fs from 'node:fs';
 import gulp from 'gulp';
-import path from 'path';
+import path from 'node:path';
 import { mkdirp } from 'mkdirp';
 import sourcemaps from 'gulp-sourcemaps';
 import { memoizeTask } from './memoize-task.js';
