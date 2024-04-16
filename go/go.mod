@@ -42,7 +42,7 @@ require (
 	gonum.org/v1/gonum v0.15.0
 	google.golang.org/grpc v1.63.2
 	google.golang.org/protobuf v1.33.0
-	modernc.org/sqlite v1.29.5
+	modernc.org/sqlite v1.29.6
 )
 
 require (
