@@ -37,12 +37,11 @@ class SourceTest < Test::Unit::TestCase
     env = {
       "SOURCE_DEFAULT" => "0",
       "release_hash" => @current_commit,
-      "TEST_RELEASE_SCRIPT" => "1",
     }
     targets.each do |target|
       env["SOURCE_#{target}"] = "1"
     end
-    sh(env, File.expand_path("dev/release/utils-create-release-tarball.sh", @release_version, "0") 
+    sh(env, File.expand_path("dev/release/utils-create-release-tarball.sh", @release_version, "0")) 
     output = sh(env, @script, @release_version, "0")
     sh("tar", "xf", @archive_name)
     output
