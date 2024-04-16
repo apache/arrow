@@ -1281,7 +1281,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     }
   }
 
-  private <T extends Message> FlightInfo getFlightInfoForSchema(final T request, final FlightDescriptor descriptor,
+  protected <T extends Message> FlightInfo getFlightInfoForSchema(final T request, final FlightDescriptor descriptor,
                                                                 final Schema schema) {
     final Ticket ticket = new Ticket(pack(request).toByteArray());
     // TODO Support multiple endpoints.

@@ -20,8 +20,8 @@ package org.apache.arrow.flight.sql.example;
 import java.io.Serializable;
 
 public class DoPutPreparedStatementResultPOJO implements Serializable {
-  private transient String query;
-  private transient byte[] parameters;
+  private String query;
+  private byte[] parameters;
 
   public DoPutPreparedStatementResultPOJO(String query, byte[] parameters) {
     this.query = query;
@@ -29,10 +29,10 @@ public class DoPutPreparedStatementResultPOJO implements Serializable {
   }
 
   public String getQuery() {
-    return null;
+    return query;
   }
 
   public byte[] getParameters() {
-    return null;
+    return parameters;
   }
 }
