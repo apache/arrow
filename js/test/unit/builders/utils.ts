@@ -32,22 +32,11 @@ const randnulls = <T, TNull = null>(values: T[], n: TNull = <any>null) => values
 export const randomBytes = (length: number) => fillRandom(Uint8Array, length);
 
 export const stringsNoNulls = (length = 20) => Array.from({ length }, (_) => randomString(1 + (Math.trunc(Math.random() * 19))));
-export const timestamp32sNoNulls = (length = 20, now = Math.trunc(Date.now() / 86400000)) =>
-    Array.from({ length }, (_) => (Math.trunc(now + (rand() * 10000 * (rand() > 0.5 ? -1 : 1)))) * 86400000);
-
-export const timestamp64sNoNulls = (length = 20, now = Date.now()) => Array.from({ length }, (_) => {
-    const ms = now + (Math.trunc(rand() * 31557600000 * (rand() > 0.5 ? -1 : 1)));
-    return new Int32Array([Math.trunc(ms % 4294967296), Math.trunc(ms / 4294967296)]);
-});
-
-export const timestamp32sWithNulls = (length = 20) => randnulls(timestamp32sNoNulls(length), null);
-export const timestamp64sWithNulls = (length = 20) => randnulls(timestamp64sNoNulls(length), null);
-export const timestamp32sWithMaxInts = (length = 20) => randnulls(timestamp32sNoNulls(length), 0x7FFFFFFF);
-export const timestamp64sWithMaxInts = (length = 20) => randnulls(timestamp64sNoNulls(length), 9223372034707292159n);
 
 export const boolsNoNulls = (length = 20) => Array.from({ length }, () => rand() > 0.5);
-export const date32sNoNulls = (length = 20) => timestamp32sNoNulls(length).map((x) => new Date(x));
-export const date64sNoNulls = (length = 20) => timestamp64sNoNulls(length).map((x) => new Date(4294967296 * x[1] + (x[0] >>> 0)));
+
+export const dateNoNulls = (length = 20, now = Math.trunc(Date.now() / 86400000)) =>
+    Array.from({ length }, (_) => (Math.trunc(now + (rand() * 100000 * (rand() > 0.5 ? -1 : 1)))) * 86400000);
 export const int8sNoNulls = (length = 20) => Array.from(new Int8Array(randomBytes(length * Int8Array.BYTES_PER_ELEMENT).buffer));
 export const int16sNoNulls = (length = 20) => Array.from(new Int16Array(randomBytes(length * Int16Array.BYTES_PER_ELEMENT).buffer));
 export const int32sNoNulls = (length = 20) => Array.from(new Int32Array(randomBytes(length * Int32Array.BYTES_PER_ELEMENT).buffer));
@@ -66,8 +55,7 @@ export const stringsWithNulls = (length = 20) => randnulls(stringsNoNulls(length
 export const stringsWithEmpties = (length = 20) => randnulls(stringsNoNulls(length), '\0');
 
 export const boolsWithNulls = (length = 20) => randnulls(boolsNoNulls(length), null);
-export const date32sWithNulls = (length = 20) => randnulls(date32sNoNulls(length), null);
-export const date64sWithNulls = (length = 20) => randnulls(date64sNoNulls(length), null);
+export const dateWithNulls = (length = 20) => randnulls(dateNoNulls(length), null);
 export const int8sWithNulls = (length = 20) => randnulls(int8sNoNulls(length), null);
 export const int16sWithNulls = (length = 20) => randnulls(int16sNoNulls(length), null);
 export const int32sWithNulls = (length = 20) => randnulls(int32sNoNulls(length), null);
