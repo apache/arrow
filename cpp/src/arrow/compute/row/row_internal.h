@@ -78,6 +78,11 @@ struct ARROW_EXPORT RowTableMetadata {
   /// Offsets within a row to fields in their encoding order.
   std::vector<uint32_t> column_offsets;
 
+  /// \brief True if columns are sorted based on the size in bytes of
+  /// their fixed-length part. This is to make the memory access of
+  /// each individual column within the encoded row alignment-friendly
+  bool are_cols_sorted;
+
   /// Rounding up offset to the nearest multiple of alignment value.
   /// Alignment must be a power of 2.
   static inline uint32_t padding_for_alignment(uint32_t offset, int required_alignment) {
@@ -144,7 +149,8 @@ struct ARROW_EXPORT RowTableMetadata {
 
   /// \brief Populate this instance to describe `cols` with the given alignment
   void FromColumnMetadataVector(const std::vector<KeyColumnMetadata>& cols,
-                                int in_row_alignment, int in_string_alignment);
+                                int in_row_alignment, int in_string_alignment,
+                                bool in_are_cols_sorted = true);
 
   /// \brief True if `other` has the same number of columns
   ///   and each column has the same width (two variable length

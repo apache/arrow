@@ -569,7 +569,8 @@ struct GrouperFastImpl : public Grouper {
 
     impl->encoder_.Init(impl->col_metadata_,
                         /* row_alignment = */ sizeof(uint64_t),
-                        /* string_alignment = */ sizeof(uint64_t));
+                        /* string_alignment = */ sizeof(uint64_t),
+                        /* are_columns_sorted = */ true);
     RETURN_NOT_OK(impl->rows_.Init(ctx->memory_pool(), impl->encoder_.row_metadata()));
     RETURN_NOT_OK(
         impl->rows_minibatch_.Init(ctx->memory_pool(), impl->encoder_.row_metadata()));
@@ -583,7 +584,7 @@ struct GrouperFastImpl : public Grouper {
               num_keys_to_compare, selection_may_be_null, group_ids,
               &impl_ptr->encode_ctx_, out_num_keys_mismatch, out_selection_mismatch,
               impl_ptr->encoder_.batch_all_cols(), impl_ptr->rows_,
-              /* are_cols_in_encoding_order=*/true);
+              impl_ptr->rows_.metadata().are_cols_sorted);
         };
     impl->map_append_impl_ = [impl_ptr](int num_keys, const uint16_t* selection, void*) {
       RETURN_NOT_OK(impl_ptr->encoder_.EncodeSelected(&impl_ptr->rows_minibatch_,

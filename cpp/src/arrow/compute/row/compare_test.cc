@@ -164,5 +164,69 @@ TEST(KeyCompare, CompareColumnsToRowsTempStackUsage) {
   }
 }
 
+TEST(KeyCompare, CompareColumnsWithEncodingOrder) {
+  const int num_rows = 5;
+
+  for (auto are_cols_sorted : {true, false}) {
+    SCOPED_TRACE("are_cols_sorted = " + std::to_string(are_cols_sorted));
+
+    MemoryPool* pool = default_memory_pool();
+    TempVectorStack stack;
+    ASSERT_OK(stack.Init(pool, KeyCompare::CompareColumnsToRowsTempStackUsage(num_rows)));
+
+    auto i32_col = ArrayFromJSON(int32(), "[0, 1, 2, 3, 4]");
+    auto i64_col = ArrayFromJSON(int64(), "[7, 8, 9, 10, 11]");
+
+    // resorted order in RowTableMetadata will be : i64_col, i32_col
+    ExecBatch batch_right({i32_col, i64_col}, num_rows);
+
+    std::vector<KeyColumnMetadata> r_col_metas;
+    ASSERT_OK(ColumnMetadatasFromExecBatch(batch_right, &r_col_metas));
+
+    RowTableMetadata r_table_meta;
+    r_table_meta.FromColumnMetadataVector(r_col_metas, sizeof(uint64_t), sizeof(uint64_t),
+                                          are_cols_sorted);
+
+    std::vector<KeyColumnArray> r_column_arrays;
+    ASSERT_OK(ColumnArraysFromExecBatch(batch_right, &r_column_arrays));
+
+    RowTableImpl row_table;
+    ASSERT_OK(row_table.Init(pool, r_table_meta));
+
+    RowTableEncoder row_encoder;
+    row_encoder.Init(r_col_metas, sizeof(uint64_t), sizeof(uint64_t), are_cols_sorted);
+    row_encoder.PrepareEncodeSelected(0, num_rows, r_column_arrays);
+
+    std::vector<uint16_t> r_row_ids(num_rows);
+    std::iota(r_row_ids.begin(), r_row_ids.end(), 0);
+    ASSERT_OK(row_encoder.EncodeSelected(&row_table, num_rows, r_row_ids.data()));
+
+    ExecBatch batch_left;
+    if (are_cols_sorted) {
+      batch_left.values = {i64_col, i32_col};
+    } else {
+      batch_left.values = {i32_col, i64_col};
+    }
+    batch_left.length = num_rows;
+
+    std::vector<KeyColumnArray> l_column_arrays;
+    ASSERT_OK(ColumnArraysFromExecBatch(batch_left, &l_column_arrays));
+
+    std::vector<uint32_t> l_row_ids(num_rows);
+    std::iota(l_row_ids.begin(), l_row_ids.end(), 0);
+
+    LightContext ctx{CpuInfo::GetInstance()->hardware_flags(), &stack};
+
+    uint32_t num_rows_no_match;
+    std::vector<uint16_t> row_ids_out(num_rows);
+    KeyCompare::CompareColumnsToRows(
+        num_rows, NULLPTR, l_row_ids.data(), &ctx, &num_rows_no_match, row_ids_out.data(),
+        l_column_arrays, row_table, are_cols_sorted, NULLPTR);
+    // Because the data of batch_left and batch_right are the same, their comparison
+    // results should be the same regardless of whether are_cols_sorted is true or false.
+    ASSERT_EQ(num_rows_no_match, 0);
+  }
+}
+
 }  // namespace compute
 }  // namespace arrow

@@ -47,7 +47,7 @@ namespace compute {
 class ARROW_EXPORT RowTableEncoder {
  public:
   void Init(const std::vector<KeyColumnMetadata>& cols, int row_alignment,
-            int string_alignment);
+            int string_alignment, bool are_columns_sorted = true);
 
   const RowTableMetadata& row_metadata() { return row_metadata_; }
   // GrouperFastImpl right now needs somewhat intrusive visibility into RowTableEncoder
