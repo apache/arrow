@@ -59,7 +59,7 @@ G_DEFINE_TYPE(ExampleUUIDDataType,
 static gchar *
 example_uuid_data_type_get_extension_name(GArrowExtensionDataType *data_type)
 {
-  return g_strdup("example.uuid");
+  return g_strdup("uuid");
 }
 
 static gboolean
@@ -222,8 +222,7 @@ main(int argc, char **argv)
     /* Create a record batch to serialize the created UUID extension array. */
     GList *fields = NULL;
     fields =
-      g_list_append(fields,
-                    garrow_field_new("example.uuid", GARROW_DATA_TYPE(uuid_data_type)));
+      g_list_append(fields, garrow_field_new("uuid", GARROW_DATA_TYPE(uuid_data_type)));
     GArrowSchema *schema = garrow_schema_new(fields);
     g_list_free_full(fields, g_object_unref);
     GList *columns = NULL;

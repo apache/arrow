@@ -145,14 +145,15 @@ namespace internal {
 static void CreateGlobalRegistry() {
   g_registry = std::make_shared<ExtensionTypeRegistryImpl>();
 
+  std::vector<std::shared_ptr<DataType>> ext_types{::arrow::extension::uuid()};
 #ifdef ARROW_JSON
+  ext_types.push_back(extension::fixed_shape_tensor(int64(), {}));
+#endif
   // Register canonical extension types
-  auto ext_types = {extension::fixed_shape_tensor(int64(), {}), extension::uuid()};
   for (const auto& ext_type : ext_types) {
     ARROW_CHECK_OK(
         g_registry->RegisterType(checked_pointer_cast<ExtensionType>(ext_type)));
   }
-#endif
 }
 
 }  // namespace internal

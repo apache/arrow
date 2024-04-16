@@ -2328,12 +2328,12 @@ TEST_F(TestSchemaImport, ExtensionError) {
   c_struct_.metadata = kEncodedUuidMetadata.c_str();
   CheckImportError();
 
-  // // Invalid serialization
-  // std::string bogus_metadata = kEncodedUuidMetadata;
-  // bogus_metadata[bogus_metadata.size() - 5] += 1;
-  // FillPrimitive("w:16");
-  // c_struct_.metadata = bogus_metadata.c_str();
-  // CheckImportError();
+  // Invalid serialization
+  std::string bogus_metadata = kEncodedUuidMetadata;
+  bogus_metadata[bogus_metadata.size() - 2] += 1;
+  FillPrimitive("w:16");
+  c_struct_.metadata = bogus_metadata.c_str();
+  CheckImportError();
 }
 
 TEST_F(TestSchemaImport, RecursionError) {

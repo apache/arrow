@@ -53,7 +53,7 @@ class TestExtensionDataType < Test::Unit::TestCase
   def test_to_s
     omit("gobject-introspection gem doesn't support implementing methods for GLib object yet")
     data_type = UUIDDataType.new
-    assert_equal("extension<arrow.uuid>", data_type.to_s)
+    assert_equal("extension<uuid>", data_type.to_s)
   end
 
   def test_storage_data_type
@@ -65,7 +65,7 @@ class TestExtensionDataType < Test::Unit::TestCase
   def test_extension_name
     omit("gobject-introspection gem doesn't support implementing methods for GLib object yet")
     data_type = UUIDDataType.new
-    assert_equal("arrow.uuid", data_type.extension_name)
+    assert_equal("uuid", data_type.extension_name)
   end
 
   def test_wrap_array
