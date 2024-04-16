@@ -99,7 +99,9 @@ class ExportGuard {
 
 using SchemaExportGuard = ExportGuard<SchemaExportTraits>;
 using ArrayExportGuard = ExportGuard<ArrayExportTraits>;
+using DeviceArrayExportGuard = ExportGuard<ArrayDeviceExportTraits>;
 using ArrayStreamExportGuard = ExportGuard<ArrayStreamExportTraits>;
+using DeviceArrayStreamExportGuard = ExportGuard<ArrayDeviceStreamExportTraits>;
 
 }  // namespace internal
 }  // namespace arrow

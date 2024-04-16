@@ -243,6 +243,14 @@ DeviceAllocationType ArrayData::device_type() const {
     }
   }
 
+  if (dictionary) {
+    if (type == 0) {
+      type = static_cast<int>(dictionary->device_type());
+    } else {
+      DCHECK_EQ(type, static_cast<int>(dictionary->device_type()));
+    }
+  }
+
   return type == 0 ? DeviceAllocationType::kCPU : static_cast<DeviceAllocationType>(type);
 }
 

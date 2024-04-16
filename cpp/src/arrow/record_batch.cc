@@ -498,6 +498,10 @@ bool RecordBatch::Equals(const RecordBatch& other, bool check_metadata,
     return false;
   }
 
+  if (device_type() != other.device_type()) {
+    return false;
+  }
+
   for (int i = 0; i < num_columns(); ++i) {
     if (!column(i)->Equals(other.column(i), opts)) {
       return false;
@@ -509,6 +513,10 @@ bool RecordBatch::Equals(const RecordBatch& other, bool check_metadata,
 
 bool RecordBatch::ApproxEquals(const RecordBatch& other, const EqualOptions& opts) const {
   if (num_columns() != other.num_columns() || num_rows_ != other.num_rows()) {
+    return false;
+  }
+
+  if (device_type() != other.device_type()) {
     return false;
   }
 
