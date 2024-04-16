@@ -1450,6 +1450,40 @@ TEST_F(GcsIntegrationTest, TestFileSystemFromUri) {
              testing::HasSubstr("expected a URI with one of the schemes (gs, gcs)")));
 }
 
+TEST_F(GcsIntegrationTest, TestCloseOutputStreamAsync) {
+  // Smoke test for FileSystemFromUri
+  auto options = TestGcsOptions();
+  options.default_bucket_location = "utopia";
+  options.default_metadata = arrow::key_value_metadata({{"foo", "bar"}});
+  auto fs = GcsFileSystem::Make(options);
+  std::string bucket = "new_bucket_with_default_location";
+  auto file_name = "test_close_output_stream_async";
+  ASSERT_OK(fs->CreateDir(bucket, /*recursive=*/false));
+  const auto path = bucket + "/" + file_name;
+  std::shared_ptr<io::OutputStream> output;
+  ASSERT_OK_AND_ASSIGN(output, fs->OpenOutputStream(path, /*metadata=*/{}));
+  const auto expected = std::string(kLoremIpsum);
+  ASSERT_OK(output->Write(expected.data(), expected.size()));
+  auto closeAsyncFut = output->CloseAsync();
+  ASSERT_OK(closeAsyncFut.MoveResult());
+
+  // Verify we can read the object back.
+  std::shared_ptr<io::InputStream> input;
+  ASSERT_OK_AND_ASSIGN(input, fs->OpenInputStream(path));
+
+  std::array<char, 1024> inbuf{};
+  std::int64_t size;
+  ASSERT_OK_AND_ASSIGN(size, input->Read(inbuf.size(), inbuf.data()));
+
+  EXPECT_EQ(std::string(inbuf.data(), size), expected);
+  auto object = GcsClient().GetObjectMetadata(bucket, file_name);
+  ASSERT_TRUE(object.ok()) << "status=" << object.status();
+  EXPECT_EQ(object->mutable_metadata()["foo"], "bar");
+  auto bucket_info = GcsClient().GetBucketMetadata(bucket);
+  ASSERT_TRUE(bucket_info.ok()) << "status=" << object.status();
+  EXPECT_EQ(bucket_info->location(), "utopia");
+}
+
 }  // namespace
 }  // namespace fs
 }  // namespace arrow

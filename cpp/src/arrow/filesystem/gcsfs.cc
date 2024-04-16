@@ -183,8 +183,9 @@ class GcsInputStream : public arrow::io::InputStream {
 
 class GcsOutputStream : public arrow::io::OutputStream {
  public:
-  explicit GcsOutputStream(gcs::ObjectWriteStream stream) : stream_(std::move(stream)) {}
-  ~GcsOutputStream() {
+  explicit GcsOutputStream(gcs::ObjectWriteStream stream, io::IOContext context)
+      : stream_(std::move(stream)), io_context_(std::move(context)) {}
+  ~GcsOutputStream() override {
     if (!closed_) {
       // The common pattern is to close OutputStreams from destructor in arrow.
       io::internal::CloseFromDestructor(this);
@@ -198,6 +199,16 @@ class GcsOutputStream : public arrow::io::OutputStream {
     stream_.Close();
     closed_ = true;
     return internal::ToArrowStatus(stream_.last_status());
+  }
+
+  Future<> CloseAsync() override {
+    if (closed_) return Status::OK();
+
+    auto self = std::dynamic_pointer_cast<GcsOutputStream>(shared_from_this());
+    auto deferred = [self = std::move(self)]() -> Status { return self->Close(); };
+    ARROW_ASSIGN_OR_RAISE(auto fut,
+                          io::internal::SubmitIO(io_context_, std::move(deferred)));
+    return fut;
   }
 
   Result<int64_t> Tell() const override {
@@ -233,6 +244,7 @@ class GcsOutputStream : public arrow::io::OutputStream {
 
  private:
   gcs::ObjectWriteStream stream_;
+  const io::IOContext io_context_;
   int64_t tell_ = 0;
   bool closed_ = false;
 };
@@ -610,7 +622,8 @@ class GcsFileSystem::Impl {
   }
 
   Result<std::shared_ptr<GcsOutputStream>> OpenOutputStream(
-      const GcsPath& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
+      const GcsPath& path, const std::shared_ptr<const KeyValueMetadata>& metadata,
+      const io::IOContext& io_context) {
     std::shared_ptr<const KeyValueMetadata> resolved_metadata = metadata;
     if (resolved_metadata == nullptr && options_.default_metadata != nullptr) {
       resolved_metadata = options_.default_metadata;
@@ -628,7 +641,7 @@ class GcsFileSystem::Impl {
     auto stream = client_.WriteObject(path.bucket, path.object, encryption_key,
                                       predefined_acl, kms_key_name, with_object_metadata);
     ARROW_GCS_RETURN_NOT_OK(stream.last_status());
-    return std::make_shared<GcsOutputStream>(std::move(stream));
+    return std::make_shared<GcsOutputStream>(std::move(stream), io_context);
   }
 
   google::cloud::StatusOr<gcs::ObjectMetadata> GetObjectMetadata(const GcsPath& path) {
@@ -954,7 +967,7 @@ Result<std::shared_ptr<io::OutputStream>> GcsFileSystem::OpenOutputStream(
     const std::string& path, const std::shared_ptr<const KeyValueMetadata>& metadata) {
   ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(path));
   ARROW_ASSIGN_OR_RAISE(auto p, GcsPath::FromString(path));
-  return impl_->OpenOutputStream(p, metadata);
+  return impl_->OpenOutputStream(p, metadata, this->io_context());
 }
 
 Result<std::shared_ptr<io::OutputStream>> GcsFileSystem::OpenAppendStream(
