@@ -1608,7 +1608,7 @@ TEST_F(ColumnWriterTestSizeEstimated, NonBufferedDictionary) {
   EXPECT_EQ(0, required_writer->total_compressed_bytes());
   EXPECT_EQ(0, required_writer->total_compressed_bytes_written());
   // write a huge batch to trigger page flush
-  for (int32_t i = 0; i < 50; i++) {
+  for (int32_t i = 0; i < 50000; i++) {
     required_writer->WriteBatch(1, nullptr, nullptr, &dict_value);
   }
   // Page flushed, check size
