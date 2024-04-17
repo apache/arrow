@@ -123,16 +123,24 @@ namespace Apache.Arrow
                     var child = arrayData.Children[0];
                     ReadOnlySpan<int> offsets = arrayData.Buffers[1].Span.CastTo<int>().Slice(arrayData.Offset, arrayData.Length);
                     ReadOnlySpan<int> sizes = arrayData.Buffers[2].Span.CastTo<int>().Slice(arrayData.Offset, arrayData.Length);
-                    var firstOffset = offsets[0];
-                    foreach (int offset in offsets)
+                    var minOffset = offsets[0];
+                    var maxEnd = 0;
+
+                    for (int i = 0; i < arrayData.Length; ++i)
                     {
-                        offsetsBuilder.Append(baseOffset + offset - firstOffset);
+                        minOffset = Math.Min(minOffset, offsets[i]);
+                        maxEnd = Math.Max(maxEnd, offsets[i] + sizes[i]);
                     }
 
-                    var childLength = offsets[arrayData.Length - 1] + sizes[arrayData.Length - 1] - firstOffset;
-                    if (firstOffset != 0 || childLength != child.Length)
+                    foreach (int offset in offsets)
                     {
-                        child = child.Slice(firstOffset, childLength);
+                        offsetsBuilder.Append(baseOffset + offset - minOffset);
+                    }
+
+                    var childLength = maxEnd - minOffset;
+                    if (minOffset != 0 || childLength != child.Length)
+                    {
+                        child = child.Slice(minOffset, childLength);
                     }
 
                     baseOffset += childLength;
