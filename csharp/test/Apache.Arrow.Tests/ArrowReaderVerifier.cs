@@ -497,7 +497,7 @@ namespace Apache.Arrow.Tests
                 {
                     Assert.True(expectedValidityBuffer.Span.SequenceEqual(actualValidityBuffer.Span));
                 }
-                else if (actualValidityBuffer.IsEmpty)
+                else if (actualValidityBuffer.IsEmpty || expectedValidityBuffer.IsEmpty || arrayLength == 0)
                 {
                     Assert.True(nullCount == 0 || arrayLength == 0);
                 }
