@@ -506,7 +506,7 @@ namespace Apache.Arrow.Tests
                     int validityBitmapByteCount = BitUtility.ByteCount(arrayLength);
                     int byteOffset = BitUtility.ByteCount(expectedBufferOffset);
                     ReadOnlySpan<byte> expectedSpanPartial = expectedValidityBuffer.Span.Slice(byteOffset, validityBitmapByteCount - 1);
-                    ReadOnlySpan<byte> actualSpanPartial = actualValidityBuffer.Span.Slice(0, validityBitmapByteCount - 1);
+                    ReadOnlySpan<byte> actualSpanPartial = actualValidityBuffer.Span.Slice(byteOffset, validityBitmapByteCount - 1);
 
                     // Compare the first validityBitmapByteCount - 1 bytes
                     Assert.True(
@@ -516,7 +516,7 @@ namespace Apache.Arrow.Tests
                     // Compare the last byte bitwise (because there is no guarantee about the value of
                     // bits outside the range [0, arrayLength])
                     ReadOnlySpan<byte> expectedSpanFull = expectedValidityBuffer.Span.Slice(byteOffset, validityBitmapByteCount);
-                    ReadOnlySpan<byte> actualSpanFull = actualValidityBuffer.Span.Slice(0, validityBitmapByteCount);
+                    ReadOnlySpan<byte> actualSpanFull = actualValidityBuffer.Span.Slice(byteOffset, validityBitmapByteCount);
                     for (int i = 8 * (validityBitmapByteCount - 1); i < arrayLength; i++)
                     {
                         Assert.True(
