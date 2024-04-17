@@ -90,10 +90,8 @@ public class FlightSqlStatelessExample extends FlightSqlExample {
                                                   FlightStream flightStream, StreamListener<PutResult> ackStream) {
 
     return () -> {
-      try {
-        final String query = new String(command.getPreparedStatementHandle().toStringUtf8());
-        final PreparedStatement preparedStatement = createPreparedStatement(query);
-
+      final String query = new String(command.getPreparedStatementHandle().toStringUtf8());
+      try (PreparedStatement preparedStatement = createPreparedStatement(query)) {
         while (flightStream.next()) {
           final VectorSchemaRoot root = flightStream.getRoot();
           final JdbcParameterBinder binder = JdbcParameterBinder.builder(preparedStatement, root).bindAll().build();
@@ -141,16 +139,16 @@ public class FlightSqlStatelessExample extends FlightSqlExample {
   @Override
   public void getStreamPreparedStatement(final CommandPreparedStatementQuery command, final CallContext context,
                                          final ServerStreamListener listener) {
+    final byte[] handle = command.getPreparedStatementHandle().toByteArray();
     try {
       // Case where there are parameters
-      final byte[] handle = command.getPreparedStatementHandle().toByteArray();
       try {
         final DoPutPreparedStatementResultPOJO doPutPreparedStatementResultPOJO =
                 deserializePOJO(handle);
         final String query = doPutPreparedStatementResultPOJO.getQuery();
-        final PreparedStatement statement = createPreparedStatement(query);
 
-        try (ArrowFileReader reader = new ArrowFileReader(new SeekableReadChannel(
+        try (PreparedStatement statement = createPreparedStatement(query);
+             ArrowFileReader reader = new ArrowFileReader(new SeekableReadChannel(
                 new ByteArrayReadableSeekableByteChannel(
                         doPutPreparedStatementResultPOJO.getParameters())), rootAllocator)) {
 
@@ -168,8 +166,9 @@ public class FlightSqlStatelessExample extends FlightSqlExample {
       } catch (StreamCorruptedException e) {
         // Case where there are no parameters
         final String query = new String(command.getPreparedStatementHandle().toStringUtf8());
-        final PreparedStatement preparedStatement = createPreparedStatement(query);
-        executeQuery(preparedStatement, listener);
+        try (PreparedStatement preparedStatement = createPreparedStatement(query)) {
+          executeQuery(preparedStatement, listener);
+        }
       }
     } catch (final SQLException | IOException | ClassNotFoundException e) {
       LOGGER.error(format("Failed to getStreamPreparedStatement: <%s>.", e.getMessage()), e);
@@ -207,24 +206,21 @@ public class FlightSqlStatelessExample extends FlightSqlExample {
   public FlightInfo getFlightInfoPreparedStatement(final CommandPreparedStatementQuery command,
                                                    final CallContext context,
                                                    final FlightDescriptor descriptor) {
-    String query;
+    final byte[] handle = command.getPreparedStatementHandle().toByteArray();
     try {
-      final byte[] handle = command.getPreparedStatementHandle().toByteArray();
-      final DoPutPreparedStatementResultPOJO doPutPreparedStatementResultPOJO = null;
+      String query;
       try {
         query = deserializePOJO(handle).getQuery();
       } catch (StreamCorruptedException e) {
         query = new String(command.getPreparedStatementHandle().toStringUtf8());
       }
-      final PreparedStatement statement = createPreparedStatement(query);
-
-      ResultSetMetaData metaData = statement.getMetaData();
-      return getFlightInfoForSchema(command, descriptor,
-              jdbcToArrowSchema(metaData, DEFAULT_CALENDAR));
+      try (PreparedStatement statement = createPreparedStatement(query)) {
+        ResultSetMetaData metaData = statement.getMetaData();
+        return getFlightInfoForSchema(command, descriptor,
+                jdbcToArrowSchema(metaData, DEFAULT_CALENDAR));
+      }
     } catch (final SQLException | IOException | ClassNotFoundException e) {
-      LOGGER.error(
-              format("There was a problem executing the prepared statement: <%s>.", e.getMessage()),
-              e);
+      LOGGER.error(format("There was a problem executing the prepared statement: <%s>.", e.getMessage()), e);
       throw CallStatus.INTERNAL.withCause(e).toRuntimeException();
     }
   }

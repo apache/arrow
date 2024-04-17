@@ -81,16 +81,16 @@ public class TestFlightSqlStateless extends TestFlightSql {
         prepare.setParameters(insertRoot);
         final FlightInfo flightInfo = prepare.execute();
 
-        final FlightStream stream = sqlClient.getStream(flightInfo
-            .getEndpoints()
-            .get(0).getTicket());
-
-        // TODO: root is null and getSchema hangs when run as complete suite.
-        // This works when run as an individual test.
-        Assertions.assertAll(
-            () -> MatcherAssert.assertThat(stream.getSchema(), is(SCHEMA_INT_TABLE)),
-            () -> MatcherAssert.assertThat(getResults(stream), is(EXPECTED_RESULTS_FOR_PARAMETER_BINDING))
-        );
+        try (FlightStream stream = sqlClient.getStream(flightInfo.getEndpoints().get(0).getTicket())) {
+          // TODO: root is null and getSchema hangs when run as complete suite.
+          // This works when run as an individual test.
+          final VectorSchemaRoot root = stream.getRoot();
+          final Schema schema = root.getSchema();
+          Assertions.assertAll(
+              () -> MatcherAssert.assertThat(schema, is(SCHEMA_INT_TABLE)),
+              () -> MatcherAssert.assertThat(getResults(stream), is(EXPECTED_RESULTS_FOR_PARAMETER_BINDING))
+          );
+        }
       }
     }
   }
