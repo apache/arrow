@@ -162,7 +162,7 @@ namespace Apache.Arrow
 
                 for (int i = 0; i < type.Fields.Count; i++)
                 {
-                    children.Add(Concatenate(SelectChildren(i), _allocator));
+                    children.Add(Concatenate(SelectSlicedChildren(i), _allocator));
                 }
 
                 Result = new ArrayData(type, _totalLength, _totalNullCount, 0, new ArrowBuffer[] { validityBuffer }, children);
@@ -490,6 +490,26 @@ namespace Apache.Arrow
                 foreach (ArrayData arrayData in _arrayDataList)
                 {
                     children.Add(arrayData.Children[index]);
+                }
+
+                return children;
+            }
+
+            private List<ArrayData> SelectSlicedChildren(int index)
+            {
+                var children = new List<ArrayData>(_arrayDataList.Count);
+
+                foreach (ArrayData arrayData in _arrayDataList)
+                {
+                    var offset = arrayData.Offset;
+                    var length = arrayData.Length;
+                    var child = arrayData.Children[index];
+                    if (offset != 0 || child.Length != length)
+                    {
+                        child = child.Slice(offset, length);
+                    }
+
+                    children.Add(child);
                 }
 
                 return children;
