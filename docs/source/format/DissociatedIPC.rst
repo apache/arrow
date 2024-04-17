@@ -81,8 +81,6 @@ Goals
 Definitions
 -----------
 
-.. glossary::
-
    IPC Metadata
        The Flatbuffers message bytes that encompass the header of an Arrow IPC message
   
@@ -104,24 +102,10 @@ Definitions
        The sequence number serves two purposes: To identify corresponding metadata and 
        tagged body data messages and to ensure we do not rely on messages having to arrive
        in order. A client should use the sequence number to correctly order messages as
-       they arrive for processing.
+       they arrive for processing.   
 
-   Backpressure
-       *Currently* this proposal does not specify any way to manage the backpressure of
-       messages to throttle for memory and bandwidth reasons. For now, this will be 
-       **transport-defined** rather than lock into something sub-optimal. 
-
-       As usage among different transports and libraries grows, common patterns will emerge
-       that will allow for a generic, but efficient, way to handle backpressure across
-       different use cases.
-
-       .. note::
-          While the protocol itself is transport agnostic, the current usage and examples 
-          only have been tested using UCX and libfabric transports so far, but that's all.
-
-
-Protocol Description
-====================
+The Protocol
+============
 
 A reference example implementation utilizing `libcudf`_ and `UCX`_ can be found at 
 https://github.com/zeroshade/cudf-flight-ucx.
@@ -181,6 +165,22 @@ encode the following URI query parameters:
 
     * With CUDA IPC, this would be the value of the base GPU pointer or memory handle,
       and subsequent addresses would be offsets from this base pointer.
+
+Handling of Backpressure
+------------------------
+
+*Currently* this proposal does not specify any way to manage the backpressure of
+messages to throttle for memory and bandwidth reasons. For now, this will be 
+**transport-defined** rather than lock into something sub-optimal. 
+
+As usage among different transports and libraries grows, common patterns will emerge
+that will allow for a generic, but efficient, way to handle backpressure across
+different use cases.
+
+.. note::
+  While the protocol itself is transport agnostic, the current usage and examples 
+  only have been tested using UCX and libfabric transports so far, but that's all.
+
 
 Protocol Description
 ====================
