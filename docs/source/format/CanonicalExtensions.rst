@@ -251,6 +251,33 @@ Variable shape tensor
    Values inside each **data** tensor element are stored in row-major/C-contiguous
    order according to the corresponding **shape**.
 
+.. _text_data_format_extension:
+
+Text data format
+=================
+
+* Extension name: `arrow.text_data_format`.
+
+* The storage type of the extension is ``StringArray`` or
+  ``LargeStringArray``or ``StringViewArray``.
+
+* Extension type parameters:
+
+  * **media_type** must be a string specifying the
+    `IANA registered <https://www.iana.org/assignments/media-types/media-types.xhtml#application>`_
+    text data format stored in the array.
+
+* Description of the serialization:
+
+  The metadata must be a valid JSON object providing a **"media_type"** key
+  plus an optional **"metadata"** key for additional application specific
+  information such as schema or notation dialect.
+
+  - Example: ``{ "media_type": "application/json" }``
+  - Example: ``{ "media_type": "application/xml" }``
+  - Example: ``{ "media_type": "application/yaml", "metadata": { "key": "value" } }``
+  - Example: ``{ "media_type": "text/csv" }``
+
 =========================
 Community Extension Types
 =========================
