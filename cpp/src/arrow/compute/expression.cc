@@ -876,7 +876,6 @@ Result<ExecBatch> ExecuteFilterWithIdBatch(const Expression& expr, const ExecBat
   DCHECK(!std::all_of(input.values.begin(), input.values.end(),
                       [](const Datum& value) { return value.is_scalar(); }));
 
-
   std::vector<Datum> values;
   for (const int field : agg_src_fieldset) {
     auto agg_value = input.values[field];

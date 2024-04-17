@@ -81,6 +81,11 @@ struct ScalarUdfAggregator : public compute::KernelState {
   virtual Status Consume(compute::KernelContext* ctx, const compute::ExecSpan& batch) = 0;
   virtual Status MergeFrom(compute::KernelContext* ctx, compute::KernelState&& src) = 0;
   virtual Status Finalize(compute::KernelContext* ctx, Datum* out) = 0;
+  Result<compute::ExecBatch> FilterBatch(KernelContext* ctx,
+                                         const compute::ExecSpan& batch,
+                                         const compute::Expression& expr) {
+    return ExecuteFilterBatch(expr, std::move(batch.ToExecBatch()), ctx->exec_context());
+  }
 };
 
 struct HashUdfAggregator : public compute::KernelState {
@@ -88,8 +93,22 @@ struct HashUdfAggregator : public compute::KernelState {
   virtual Status Consume(KernelContext* ctx, const ExecSpan& batch) = 0;
   virtual Status Merge(KernelContext* ct, KernelState&& other, const ArrayData&) = 0;
   virtual Status Finalize(KernelContext* ctx, Datum* out) = 0;
+
+  Result<compute::ExecBatch> FilterBatch(compute::ExecContext* ctx,
+                                         const compute::ExecSpan& batch,
+                                         const Datum& id_batch,
+                                         const std::vector<int>& agg_src_fieldset,
+                                         const compute::Expression& expr) {
+    return ExecuteFilterWithIdBatch(expr, std::move(batch.ToExecBatch()), id_batch,
+                                    agg_src_fieldset, ctx);
+  }
 };
 
+Result<compute::ExecBatch> AggregateUdfFilter(compute::KernelContext* ctx,
+                                              const compute::ExecSpan& batch,
+                                              const compute::Expression& expr) {
+  return checked_cast<ScalarUdfAggregator*>(ctx->state())->FilterBatch(ctx, batch, expr);
+}
 arrow::Status AggregateUdfConsume(compute::KernelContext* ctx,
                                   const compute::ExecSpan& batch) {
   return checked_cast<ScalarUdfAggregator*>(ctx->state())->Consume(ctx, batch);
@@ -106,6 +125,13 @@ arrow::Status AggregateUdfFinalize(compute::KernelContext* ctx, arrow::Datum* ou
 
 arrow::Status HashAggregateUdfResize(KernelContext* ctx, int64_t size) {
   return checked_cast<HashUdfAggregator*>(ctx->state())->Resize(ctx, size);
+}
+
+Result<compute::ExecBatch> HashAggregateUdfFilter(
+    KernelContext* ctx, const compute::ExecSpan& batch, const arrow::Datum& id_batch,
+    const std::vector<int>& agg_src_fieldset, const compute::Expression& expr) {
+  return checked_cast<HashUdfAggregator*>(ctx->state())
+      ->FilterBatch(ctx->exec_context(), batch, id_batch, agg_src_fieldset, expr);
 }
 
 arrow::Status HashAggregateUdfConsume(KernelContext* ctx, const ExecSpan& batch) {
@@ -588,9 +614,9 @@ Status RegisterScalarAggregateFunction(PyObject* function, UdfWrapperCallback cb
 
   auto sig = compute::KernelSignature::Make(
       std::move(input_types), std::move(output_type), options.arity.is_varargs);
-  compute::ScalarAggregateKernel kernel(std::move(sig), std::move(init),
-                                        AggregateUdfConsume, AggregateUdfMerge,
-                                        AggregateUdfFinalize, /*ordered=*/false);
+  compute::ScalarAggregateKernel kernel(
+      std::move(sig), std::move(init), AggregateUdfFilter, AggregateUdfConsume,
+      AggregateUdfMerge, AggregateUdfFinalize, /*ordered=*/false);
   RETURN_NOT_OK(aggregate_func->AddKernel(std::move(kernel)));
   RETURN_NOT_OK(registry->AddFunction(std::move(aggregate_func)));
   return Status::OK();
@@ -664,9 +690,10 @@ Status RegisterHashAggregateFunction(PyObject* function, UdfWrapperCallback cb,
   auto sig = compute::KernelSignature::Make(
       std::move(input_types), std::move(output_type), hash_options.arity.is_varargs);
 
-  compute::HashAggregateKernel kernel(
-      std::move(sig), std::move(init), HashAggregateUdfResize, HashAggregateUdfConsume,
-      HashAggregateUdfMerge, HashAggregateUdfFinalize, /*ordered=*/false);
+  compute::HashAggregateKernel kernel(std::move(sig), std::move(init),
+                                      HashAggregateUdfResize, HashAggregateUdfFilter,
+                                      HashAggregateUdfConsume, HashAggregateUdfMerge,
+                                      HashAggregateUdfFinalize, /*ordered=*/false);
   RETURN_NOT_OK(hash_aggregate_func->AddKernel(std::move(kernel)));
   RETURN_NOT_OK(registry->AddFunction(std::move(hash_aggregate_func)));
   return Status::OK();
