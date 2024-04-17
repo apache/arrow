@@ -56,7 +56,7 @@ class ARROW_EXPORT FunctionOptions : public util::EqualityComparable<FunctionOpt
 
   const FunctionOptionsType* options_type() const { return options_type_; }
   const char* type_name() const { return options_type()->type_name(); }
-  const Expression& get_filter() const { return filter_; };
+  const Expression& get_filter() const { return filter_; }
   void set_filter(const Expression& filter) { filter_ = filter; }
 
   bool Equals(const FunctionOptions& other) const;

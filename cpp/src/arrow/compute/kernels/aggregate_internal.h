@@ -95,7 +95,7 @@ struct ScalarAggregator : public KernelState {
   virtual Status MergeFrom(KernelContext* ctx, KernelState&& src) = 0;
   virtual Status Finalize(KernelContext* ctx, Datum* out) = 0;
   Result<ExecBatch> FilterBatch(KernelContext* ctx, const ExecSpan& batch,
-                               const Expression& expr) {
+                                const Expression& expr) {
     return ExecuteFilterBatch(expr, std::move(batch.ToExecBatch()), ctx->exec_context());
   }
 };

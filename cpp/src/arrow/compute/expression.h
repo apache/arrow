@@ -252,7 +252,8 @@ ARROW_EXPORT
 Result<Datum> ExecuteScalarExpression(const Expression&, const Schema& full_schema,
                                       const Datum& partial_input, ExecContext* = NULLPTR);
 
-/// Filter the input batch according to the passed filter expression and generate a new batch
+/// Filter the input batch according to the passed filter expression and generate a new
+/// batch
 ARROW_EXPORT
 Result<ExecBatch> ExecuteFilterBatch(const Expression&, const ExecBatch& input,
                                      ExecContext* = NULLPTR);
