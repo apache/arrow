@@ -28,7 +28,6 @@
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/array/builder_time.h"
-#include "arrow/extension/uuid.h"
 #include "arrow/ipc/test_common.h"
 #include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
@@ -51,8 +50,6 @@
 
 namespace arrow {
 
-using extension::uuid;
-using extension::UuidArray;
 using internal::checked_cast;
 
 namespace ipc {
@@ -1091,9 +1088,9 @@ Status MakeUuid(std::shared_ptr<RecordBatch>* out) {
   auto f1 = field("f1", uuid_type, /*nullable=*/false);
   auto schema = ::arrow::schema({f0, f1});
 
-  auto a0 = std::make_shared<UuidArray>(
+  auto a0 = std::make_shared<ExampleUuidArray>(
       uuid_type, ArrayFromJSON(storage_type, R"(["0123456789abcdef", null])"));
-  auto a1 = std::make_shared<UuidArray>(
+  auto a1 = std::make_shared<ExampleUuidArray>(
       uuid_type,
       ArrayFromJSON(storage_type, R"(["ZYXWVUTSRQPONMLK", "JIHGFEDBA9876543"])"));
 

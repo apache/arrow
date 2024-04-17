@@ -27,6 +27,28 @@
 
 namespace arrow {
 
+class ARROW_TESTING_EXPORT ExampleUuidArray : public ExtensionArray {
+ public:
+  using ExtensionArray::ExtensionArray;
+};
+
+class ARROW_TESTING_EXPORT ExampleUuidType : public ExtensionType {
+ public:
+  ExampleUuidType() : ExtensionType(fixed_size_binary(16)) {}
+
+  std::string extension_name() const override { return "uuid"; }
+
+  bool ExtensionEquals(const ExtensionType& other) const override;
+
+  std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override;
+
+  Result<std::shared_ptr<DataType>> Deserialize(
+      std::shared_ptr<DataType> storage_type,
+      const std::string& serialized) const override;
+
+  std::string Serialize() const override { return "uuid-serialized"; }
+};
+
 class ARROW_TESTING_EXPORT SmallintArray : public ExtensionArray {
  public:
   using ExtensionArray::ExtensionArray;
@@ -133,6 +155,9 @@ class ARROW_TESTING_EXPORT Complex128Type : public ExtensionType {
 
   std::string Serialize() const override { return "complex128-serialized"; }
 };
+
+ARROW_TESTING_EXPORT
+std::shared_ptr<DataType> uuid();
 
 ARROW_TESTING_EXPORT
 std::shared_ptr<DataType> smallint();

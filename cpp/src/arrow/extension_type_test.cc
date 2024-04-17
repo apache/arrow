@@ -26,7 +26,6 @@
 
 #include "arrow/array/array_nested.h"
 #include "arrow/array/util.h"
-#include "arrow/extension/uuid.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/options.h"
@@ -41,8 +40,6 @@
 #include "arrow/util/logging.h"
 
 namespace arrow {
-
-using extension::uuid;
 
 class Parametric1Array : public ExtensionArray {
  public:
@@ -179,13 +176,22 @@ class ExtStructType : public ExtensionType {
   std::string Serialize() const override { return "ext-struct-type-unique-code"; }
 };
 
-class TestExtensionType : public ::testing::Test {};
+class TestExtensionType : public ::testing::Test {
+ public:
+  void SetUp() { ASSERT_OK(RegisterExtensionType(std::make_shared<ExampleUuidType>())); }
+
+  void TearDown() {
+    if (GetExtensionType("uuid")) {
+      ASSERT_OK(UnregisterExtensionType("uuid"));
+    }
+  }
+};
 
 TEST_F(TestExtensionType, ExtensionTypeTest) {
   auto type_not_exist = GetExtensionType("uuid-unknown");
   ASSERT_EQ(type_not_exist, nullptr);
 
-  auto registered_type = GetExtensionType("arrow.uuid");
+  auto registered_type = GetExtensionType("uuid");
   ASSERT_NE(registered_type, nullptr);
 
   auto type = uuid();
@@ -235,9 +241,10 @@ TEST_F(TestExtensionType, UnrecognizedExtension) {
 
   ASSERT_OK_AND_ASSIGN(auto complete_ipc_stream, out_stream->Finish());
 
-  ASSERT_OK(UnregisterExtensionType("arrow.uuid"));
-  auto ext_metadata = key_value_metadata(
-      {{"ARROW:extension:name", "arrow.uuid"}, {"ARROW:extension:metadata", ""}});
+  ASSERT_OK(UnregisterExtensionType("uuid"));
+  auto ext_metadata =
+      key_value_metadata({{"ARROW:extension:name", "uuid"},
+                          {"ARROW:extension:metadata", "uuid-serialized"}});
   auto ext_field = field("f0", fixed_size_binary(16), true, ext_metadata);
   auto batch_no_ext = RecordBatch::Make(schema({ext_field}), 4, {storage_arr});
 
