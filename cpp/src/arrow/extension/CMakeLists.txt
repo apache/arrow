@@ -15,19 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
+set(CANONICAL_EXTENSION_TESTS uuid_test.cc)
+
 if(ARROW_JSON)
-  add_arrow_test(test
-                 SOURCES
-                 fixed_shape_tensor_test.cc
-                 uuid_test.cc
-                 PREFIX
-                 "arrow-canonical-extensions")
-else()
-  add_arrow_test(test
-                 SOURCES
-                 uuid_test.cc
-                 PREFIX
-                 "arrow-canonical-extensions")
+  list(APPEND CANONICAL_EXTENSION_TESTS fixed_shape_tensor_test.cc)
 endif()
+
+add_arrow_test(test
+               SOURCES
+               ${CANONICAL_EXTENSION_TESTS}
+               PREFIX
+               "arrow-canonical-extensions")
 
 arrow_install_all_headers("arrow/extension")

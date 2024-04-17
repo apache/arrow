@@ -2330,7 +2330,7 @@ TEST_F(TestSchemaImport, ExtensionError) {
 
   // Invalid serialization
   std::string bogus_metadata = kEncodedUuidMetadata;
-  bogus_metadata[bogus_metadata.size() - 2] += 1;
+  bogus_metadata[bogus_metadata.size() - 4] += 1;
   FillPrimitive("w:16");
   c_struct_.metadata = bogus_metadata.c_str();
   CheckImportError();
