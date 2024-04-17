@@ -185,15 +185,15 @@ static const std::string kEncodedUuidMetadata =  // NOLINT: runtime/string
 #if ARROW_LITTLE_ENDIAN
     std::string {2, 0, 0, 0} +
     std::string {20, 0, 0, 0} + kExtensionTypeKeyName +
-    std::string {10, 0, 0, 0} + "arrow.uuid" +
+    std::string {4, 0, 0, 0} + "uuid" +
     std::string {24, 0, 0, 0} + kExtensionMetadataKeyName +
-    std::string {0, 0, 0, 0} + "";
+    std::string {15, 0, 0, 0} + "uuid-serialized";
 #else
     std::string {0, 0, 0, 2} +
     std::string {0, 0, 0, 20} + kExtensionTypeKeyName +
-    std::string {0, 0, 0, 10} + "arrow.uuid" +
+    std::string {0, 0, 0, 4} + "uuid" +
     std::string {0, 0, 0, 24} + kExtensionMetadataKeyName +
-    std::string {0, 0, 0, 0} + "";
+    std::string {0, 0, 0, 15} + "uuid-serialized";
 #endif
 
 static const std::string kEncodedDictExtensionMetadata =  // NOLINT: runtime/string
