@@ -1069,6 +1069,7 @@ constexpr int64_t kUpdateStatementExpectedRows = 10000L;
 constexpr int64_t kUpdateStatementWithTransactionExpectedRows = 15000L;
 constexpr int64_t kUpdatePreparedStatementExpectedRows = 20000L;
 constexpr int64_t kUpdatePreparedStatementWithTransactionExpectedRows = 25000L;
+constexpr int64_t kIngestStatementExpectedRows = 3L;
 constexpr char kSelectStatement[] = "SELECT STATEMENT";
 constexpr char kSavepointId[] = "savepoint_id";
 constexpr char kSavepointName[] = "savepoint_name";
@@ -2124,6 +2125,127 @@ class ReuseConnectionScenario : public Scenario {
     return Status::OK();
   }
 };
+
+std::shared_ptr<Schema> GetIngestSchema() {
+  return arrow::schema({arrow::field("test_field", arrow::int64(), true)});
+}
+
+arrow::Result<std::shared_ptr<RecordBatchReader>> GetIngestRecords() {
+  auto schema = GetIngestSchema();
+  auto array = arrow::ArrayFromJSON(arrow::int64(), "[null,null,null]");
+  auto record_batch = arrow::RecordBatch::Make(schema, 3, {array});
+  return RecordBatchReader::Make({record_batch});
+}
+
+/// \brief The server used for testing bulk ingestion
+class FlightSqlIngestionServer : public sql::FlightSqlServerBase {
+ public:
+  FlightSqlIngestionServer() : sql::FlightSqlServerBase() {
+    RegisterSqlInfo(sql::SqlInfoOptions::SqlInfo::FLIGHT_SQL_SERVER_BULK_INGESTION,
+                    sql::SqlInfoResult(true));
+    RegisterSqlInfo(
+        sql::SqlInfoOptions::SqlInfo::FLIGHT_SQL_SERVER_INGEST_TRANSACTIONS_SUPPORTED,
+        sql::SqlInfoResult(true));
+  }
+
+  arrow::Result<int64_t> DoPutCommandStatementIngest(
+      const ServerCallContext& context, const sql::StatementIngest& command,
+      FlightMessageReader* reader) override {
+    ARROW_RETURN_NOT_OK(AssertEq<bool>(
+        true,
+        sql::TableDefinitionOptionsTableNotExistOption::kCreate ==
+            command.table_definition_options.if_not_exist,
+        "Wrong TableDefinitionOptionsTableNotExistOption for ExecuteIngest"));
+    ARROW_RETURN_NOT_OK(AssertEq<bool>(
+        true,
+        sql::TableDefinitionOptionsTableExistsOption::kReplace ==
+            command.table_definition_options.if_exists,
+        "Wrong TableDefinitionOptionsTableExistsOption for ExecuteIngest"));
+    ARROW_RETURN_NOT_OK(AssertEq<std::string>("test_table", command.table,
+                                              "Wrong table for ExecuteIngest"));
+    ARROW_RETURN_NOT_OK(AssertEq<std::string>("test_schema", command.schema.value(),
+                                              "Wrong schema for ExecuteIngest"));
+    ARROW_RETURN_NOT_OK(AssertEq<std::string>("test_catalog", command.catalog.value(),
+                                              "Wrong catalog for ExecuteIngest"));
+    ARROW_RETURN_NOT_OK(AssertEq<bool>(true, command.temporary,
+                                       "Wrong temporary setting for ExecuteIngest"));
+    ARROW_RETURN_NOT_OK(AssertEq<std::string>("123", command.transaction_id.value(),
+                                              "Wrong transaction_id for ExecuteIngest"));
+
+    std::unordered_map<std::string, std::string> expected_options = {{"key1", "val1"},
+                                                                     {"key2", "val2"}};
+    ARROW_RETURN_NOT_OK(
+        AssertEq<std::size_t>(expected_options.size(), command.options.size(),
+                              "Wrong number of options set for ExecuteIngest"));
+    for (auto it = expected_options.begin(); it != expected_options.end(); ++it) {
+      auto key = it->first;
+      auto expected_val = it->second;
+      ARROW_RETURN_NOT_OK(
+          AssertEq<std::string>(expected_val, command.options.at(key),
+                                "Wrong option value set for ExecuteIngest"));
+    }
+
+    auto expected_schema = GetIngestSchema();
+    int64_t num_records = 0;
+    while (true) {
+      ARROW_ASSIGN_OR_RAISE(FlightStreamChunk chunk, reader->Next());
+      if (chunk.data == nullptr) break;
+
+      ARROW_RETURN_NOT_OK(
+          AssertEq(true, expected_schema->Equals(chunk.data->schema()),
+                   "Chunk schema does not match expected schema for ExecuteIngest"));
+      num_records += chunk.data->num_rows();
+    }
+
+    return num_records;
+  }
+};
+
+/// \brief The FlightSqlIngestion scenario.
+///
+/// This tests that the client can execute bulk ingestion against the server.
+///
+/// The server implements DoPutCommandStatementIngest and validates that the arguments
+/// it receives are the same as those supplied to the client, or have been successfully
+/// mapped to the equivalent server-side representation. The size and schema of the sent
+/// and received streams are also validated against eachother.
+class FlightSqlIngestionScenario : public Scenario {
+  Status MakeServer(std::unique_ptr<FlightServerBase>* server,
+                    FlightServerOptions* options) override {
+    server->reset(new FlightSqlIngestionServer());
+    return Status::OK();
+  }
+
+  Status MakeClient(FlightClientOptions* options) override { return Status::OK(); }
+
+  Status RunClient(std::unique_ptr<FlightClient> client) override {
+    sql::FlightSqlClient sql_client(std::move(client));
+    ARROW_RETURN_NOT_OK(ValidateIngestion(&sql_client));
+    return Status::OK();
+  }
+
+  Status ValidateIngestion(sql::FlightSqlClient* sql_client) {
+    ARROW_ASSIGN_OR_RAISE(auto record_batch_reader, GetIngestRecords());
+
+    sql::TableDefinitionOptions table_definition_options;
+    table_definition_options.if_not_exist =
+        sql::TableDefinitionOptionsTableNotExistOption::kCreate;
+    table_definition_options.if_exists =
+        sql::TableDefinitionOptionsTableExistsOption::kReplace;
+    bool temporary = true;
+    std::unordered_map<std::string, std::string> options = {{"key1", "val1"},
+                                                            {"key2", "val2"}};
+    ARROW_ASSIGN_OR_RAISE(
+        auto updated_rows,
+        sql_client->ExecuteIngest({}, record_batch_reader, table_definition_options,
+                                  "test_table", "test_schema", "test_catalog", temporary,
+                                  sql::Transaction("123"), options));
+    ARROW_RETURN_NOT_OK(AssertEq(kIngestStatementExpectedRows, updated_rows,
+                                 "Wrong number of updated rows for ExecuteIngest"));
+
+    return Status::OK();
+  }
+};
 }  // namespace
 
 Status GetScenario(const std::string& scenario_name, std::shared_ptr<Scenario>* out) {
@@ -2165,6 +2287,9 @@ Status GetScenario(const std::string& scenario_name, std::shared_ptr<Scenario>* 
     return Status::OK();
   } else if (scenario_name == "flight_sql:extension") {
     *out = std::make_shared<FlightSqlExtensionScenario>();
+    return Status::OK();
+  } else if (scenario_name == "flight_sql:ingestion") {
+    *out = std::make_shared<FlightSqlIngestionScenario>();
     return Status::OK();
   }
   return Status::KeyError("Scenario not found: ", scenario_name);

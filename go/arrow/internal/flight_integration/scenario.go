@@ -82,6 +82,8 @@ func GetScenario(name string, args ...string) Scenario {
 		return &flightSqlExtensionScenarioTester{}
 	case "session_options":
 		return &sessionOptionsScenarioTester{}
+	case "flight_sql:ingestion":
+		return &flightSqlIngestionScenarioTester{}
 	case "":
 		if len(args) > 0 {
 			return &defaultIntegrationTester{path: args[0]}
@@ -1358,6 +1360,7 @@ const (
 	updateStatementWithTransactionExpectedRows         int64 = 15000
 	updatePreparedStatementExpectedRows                int64 = 20000
 	updatePreparedStatementWithTransactionExpectedRows int64 = 25000
+	ingestStatementExpectedRows                        int64 = 3
 )
 
 type flightSqlScenarioTester struct {
@@ -2947,4 +2950,137 @@ func (tester *sessionOptionsScenarioTester) ValidateSeventhGetSessionOptions(ctx
 	}
 
 	return nil
+}
+
+type flightSqlIngestionScenarioTester struct {
+	flightsql.BaseServer
+}
+
+func (m *flightSqlIngestionScenarioTester) MakeServer(port int) flight.Server {
+	srv := flight.NewServerWithMiddleware(nil)
+	m.RegisterSqlInfo(flightsql.SqlInfoFlightSqlServerBulkIngestion, true)
+	m.RegisterSqlInfo(flightsql.SqlInfoFlightSqlServerIngestTransactionsSupported, true)
+
+	srv.RegisterFlightService(flightsql.NewFlightServer(m))
+	initServer(port, srv)
+	return srv
+}
+
+func (m *flightSqlIngestionScenarioTester) RunClient(addr string, opts ...grpc.DialOption) error {
+	client, err := flightsql.NewClient(addr, nil, nil, opts...)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	return m.ValidateIngestion(client)
+}
+
+func (m *flightSqlIngestionScenarioTester) ValidateIngestion(client *flightsql.Client) error {
+	ctx := context.Background()
+	opts := getIngestOptions()
+	ingestResult, err := client.ExecuteIngest(ctx, getIngestRecords(), opts)
+	if err != nil {
+		return err
+	}
+	if ingestResult != ingestStatementExpectedRows {
+		return fmt.Errorf("expected ingest return %d got %d", ingestStatementExpectedRows, ingestResult)
+	}
+	return nil
+}
+
+func (m *flightSqlIngestionScenarioTester) DoPutCommandStatementIngest(ctx context.Context, cmd flightsql.StatementIngest, rdr flight.MessageReader) (int64, error) {
+	expectedSchema := getIngestSchema()
+	expectedOpts := getIngestOptions()
+
+	if err := assertEq(expectedOpts.TableDefinitionOptions.IfExists, cmd.GetTableDefinitionOptions().IfExists); err != nil {
+		return 0, err
+	}
+
+	if err := assertEq(expectedOpts.TableDefinitionOptions.IfNotExist, cmd.GetTableDefinitionOptions().IfNotExist); err != nil {
+		return 0, err
+	}
+
+	if err := assertEq(expectedOpts.Table, cmd.GetTable()); err != nil {
+		return 0, err
+	}
+
+	if err := assertEq(*expectedOpts.Schema, cmd.GetSchema()); err != nil {
+		return 0, err
+	}
+
+	if err := assertEq(*expectedOpts.Catalog, cmd.GetCatalog()); err != nil {
+		return 0, err
+	}
+
+	if err := assertEq(expectedOpts.Temporary, cmd.GetTemporary()); err != nil {
+		return 0, err
+	}
+
+	if err := assertEq(expectedOpts.TransactionId, cmd.GetTransactionId()); err != nil {
+		return 0, err
+	}
+
+	if err := assertEq(expectedOpts.Options, cmd.GetOptions()); err != nil {
+		return 0, err
+	}
+
+	var nRecords int64
+	for rdr.Next() {
+		rec := rdr.Record()
+		nRecords += rec.NumRows()
+
+		if err := assertEq(true, expectedSchema.Equal(rec.Schema())); err != nil {
+			return 0, err
+		}
+	}
+
+	return nRecords, nil
+}
+
+// Options to assert before/after mocked ingest call
+func getIngestOptions() *flightsql.ExecuteIngestOpts {
+	tableDefinitionOptions := flightsql.TableDefinitionOptions{
+		IfNotExist: flightsql.TableDefinitionOptionsTableNotExistOptionCreate,
+		IfExists:   flightsql.TableDefinitionOptionsTableExistsOptionReplace,
+	}
+	table := "test_table"
+	schema := "test_schema"
+	catalog := "test_catalog"
+	temporary := true
+	transactionId := []byte("123")
+	options := map[string]string{
+		"key1": "val1",
+		"key2": "val2",
+	}
+
+	return &flightsql.ExecuteIngestOpts{
+		TableDefinitionOptions: &tableDefinitionOptions,
+		Table:                  table,
+		Schema:                 &schema,
+		Catalog:                &catalog,
+		Temporary:              temporary,
+		TransactionId:          transactionId,
+		Options:                options,
+	}
+}
+
+// Schema for ingest records; asserted on records received by handler
+func getIngestSchema() *arrow.Schema {
+	return arrow.NewSchema([]arrow.Field{{Name: "test_field", Type: arrow.PrimitiveTypes.Int64, Nullable: true}}, nil)
+}
+
+// Prepare records for ingestion with known length and schema
+func getIngestRecords() array.RecordReader {
+	schema := getIngestSchema()
+
+	arr := array.MakeArrayOfNull(memory.DefaultAllocator, arrow.PrimitiveTypes.Int64, int(ingestStatementExpectedRows))
+	defer arr.Release()
+
+	rec := array.NewRecord(schema, []arrow.Array{arr}, ingestStatementExpectedRows)
+	defer rec.Release()
+
+	rdr, _ := array.NewRecordReader(schema, []arrow.Record{rec})
+
+	return rdr
 }
