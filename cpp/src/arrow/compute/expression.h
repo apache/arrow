@@ -252,6 +252,25 @@ ARROW_EXPORT
 Result<Datum> ExecuteScalarExpression(const Expression&, const Schema& full_schema,
                                       const Datum& partial_input, ExecContext* = NULLPTR);
 
+/// Filter the input batch according to the passed filter expression and generate a new batch
+ARROW_EXPORT
+Result<ExecBatch> ExecuteFilterBatch(const Expression&, const ExecBatch& input,
+                                     ExecContext* = NULLPTR);
+
+/// Similar to ExecuteFilterBatch, but the difference is:
+/// 1.id_batch is a grouped batch (only one column). For details, see the return value of
+/// the Grouper.Consume function.
+/// 2.agg_src_fieldsets indicates which column to extract and participate in the agg
+/// calculation of group by.
+/// 3.filter the original batch and use mask to filter the
+/// id_batch of group by. 4.The returned batch is the corresponding input column plus
+/// id_batch.
+ARROW_EXPORT
+Result<ExecBatch> ExecuteFilterWithIdBatch(const Expression& expr, const ExecBatch& input,
+                                           const Datum& id_batch,
+                                           const std::vector<int>& agg_src_fieldset,
+                                           ExecContext* exec_context);
+
 // Serialization
 
 ARROW_EXPORT

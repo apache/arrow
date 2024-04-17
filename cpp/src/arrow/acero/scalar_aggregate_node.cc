@@ -137,6 +137,14 @@ ScalarAggregateNode::MakeAggregateNodeArgs(const std::shared_ptr<Schema>& input_
       }
     }
 
+    if (aggregates[i].options) {
+      auto filter_expression = aggregates[i].options->get_filter();
+      if (!filter_expression.IsBound()) {
+        ARROW_ASSIGN_OR_RAISE(filter_expression, filter_expression.Bind(*input_schema));
+        aggregates[i].options->set_filter(filter_expression);
+      }
+    }
+
     KernelContext kernel_ctx{exec_ctx};
     states[i].resize(concurrency);
     RETURN_NOT_OK(Kernel::InitAll(
@@ -214,11 +222,22 @@ Status ScalarAggregateNode::DoConsume(const ExecSpan& batch, size_t thread_index
     DCHECK_LT(thread_index, states_[i].size());
     batch_ctx.SetState(states_[i][thread_index].get());
 
+    ExecSpan filter_batch;
+    ExecBatch current_batch;
+    if (aggs_[i].options && aggs_[i].options->get_filter() != literal(true)) {
+      ARROW_ASSIGN_OR_RAISE(
+          current_batch,
+          kernels_[i]->filter(&batch_ctx, batch, aggs_[i].options->get_filter()));
+      filter_batch = ExecSpan(current_batch);
+    } else {
+      filter_batch = batch;
+    }
+
     std::vector<ExecValue> column_values;
     for (const int field : target_fieldsets_[i]) {
-      column_values.push_back(batch.values[field]);
+      column_values.push_back(filter_batch.values[field]);
     }
-    ExecSpan column_batch{std::move(column_values), batch.length};
+    ExecSpan column_batch{std::move(column_values), filter_batch.length};
     RETURN_NOT_OK(kernels_[i]->consume(&batch_ctx, column_batch));
   }
   return Status::OK();

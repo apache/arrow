@@ -515,11 +515,11 @@ TEST(ExecPlan, ToString) {
   });
   ASSERT_OK_AND_ASSIGN(std::string plan_str, DeclarationToString(declaration));
   EXPECT_EQ(plan_str, R"a(ExecPlan with 6 nodes:
-custom_sink_label:OrderBySinkNode{by={sort_keys=[FieldRef.Name(sum(multiply(i32, 2))) ASC], null_placement=AtEnd}}
+custom_sink_label:OrderBySinkNode{by={sort_keys=[FieldRef.Name(sum(multiply(i32, 2))) ASC], null_placement=AtEnd}, filter = true}
   :FilterNode{filter=(sum(multiply(i32, 2)) > 10)}
     :GroupByNode{keys=["bool"], aggregates=[
     	hash_sum(multiply(i32, 2)),
-    	hash_count(multiply(i32, 2), {mode=NON_NULL}),
+    	hash_count(multiply(i32, 2), {mode=NON_NULL}, filter = true),
     	hash_count_all(*),
     ]}
       :ProjectNode{projection=[bool, multiply(i32, 2)]}
@@ -551,8 +551,8 @@ custom_sink_label:OrderBySinkNode{by={sort_keys=[FieldRef.Name(sum(multiply(i32,
   EXPECT_EQ(plan_str, R"a(ExecPlan with 5 nodes:
 :SinkNode{}
   :ScalarAggregateNode{aggregates=[
-	count(i32, {mode=NON_NULL}),
-	count_all(*),
+	count(i32, {mode=NON_NULL}, filter = true),
+	count_all(*, {mode=NON_NULL}, filter = true),
 ]}
     :UnionNode{}
       rhs:SourceNode{}

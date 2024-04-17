@@ -71,37 +71,8 @@ class FilterNode : public MapNode {
   const char* kind_name() const override { return "FilterNode"; }
 
   Result<ExecBatch> ProcessBatch(ExecBatch batch) override {
-    ARROW_ASSIGN_OR_RAISE(Expression simplified_filter,
-                          SimplifyWithGuarantee(filter_, batch.guarantee));
-
-    arrow::util::tracing::Span span;
-    START_COMPUTE_SPAN(span, "Filter",
-                       {{"filter.expression", ToStringExtra()},
-                        {"filter.expression.simplified", simplified_filter.ToString()},
-                        {"filter.length", batch.length}});
-
-    ARROW_ASSIGN_OR_RAISE(
-        Datum mask, ExecuteScalarExpression(simplified_filter, batch,
-                                            plan()->query_context()->exec_context()));
-
-    if (mask.is_scalar()) {
-      const auto& mask_scalar = mask.scalar_as<BooleanScalar>();
-      if (mask_scalar.is_valid && mask_scalar.value) {
-        return batch;
-      }
-      return batch.Slice(0, 0);
-    }
-
-    // if the values are all scalar then the mask must also be
-    DCHECK(!std::all_of(batch.values.begin(), batch.values.end(),
-                        [](const Datum& value) { return value.is_scalar(); }));
-
-    auto values = batch.values;
-    for (auto& value : values) {
-      if (value.is_scalar()) continue;
-      ARROW_ASSIGN_OR_RAISE(value, Filter(value, mask, FilterOptions::Defaults()));
-    }
-    return ExecBatch::Make(std::move(values));
+    return ExecuteFilterBatch(filter_, std::move(batch),
+                              plan()->query_context()->exec_context());
   }
 
  protected:

@@ -164,6 +164,14 @@ Result<AggregateNodeArgs<HashAggregateKernel>> GroupByNode::MakeAggregateNodeArg
   base += keys.size();
   for (size_t i = 0; i < aggs.size(); ++i) {
     output_fields[base + i] = agg_result_fields[i]->WithName(aggs[i].name);
+    if (aggs[i].options == nullptr) {
+      continue;
+    }
+    auto filter_expression = aggs[i].options->get_filter();
+    if (!filter_expression.IsBound()) {
+      ARROW_ASSIGN_OR_RAISE(filter_expression, filter_expression.Bind(*input_schema));
+      aggs[i].options->set_filter(filter_expression);
+    }
   }
 
   return AggregateNodeArgs<HashAggregateKernel>{schema(std::move(output_fields)),
@@ -239,12 +247,23 @@ Status GroupByNode::Consume(ExecSpan batch) {
     KernelContext kernel_ctx{ctx};
     kernel_ctx.SetState(state->agg_states[i].get());
 
-    std::vector<ExecValue> column_values;
-    for (const int field : agg_src_fieldsets_[i]) {
-      column_values.push_back(batch[field]);
+    ExecSpan agg_batch;
+    ExecBatch current_batch;
+    if (aggs_[i].options && aggs_[i].options->get_filter() != literal(true)) {
+      ARROW_ASSIGN_OR_RAISE(
+          current_batch,
+          agg_kernels_[i]->filter(&kernel_ctx, batch, id_batch, agg_src_fieldsets_[i],
+                                  aggs_[i].options->get_filter()));
+      agg_batch = ExecSpan(current_batch);
+    } else {
+      std::vector<ExecValue> column_values;
+      for (const int field : agg_src_fieldsets_[i]) {
+        column_values.push_back(batch[field]);
+      }
+      column_values.emplace_back(*id_batch.array());
+      agg_batch = ExecSpan(std::move(column_values), batch.length);
     }
-    column_values.emplace_back(*id_batch.array());
-    ExecSpan agg_batch(std::move(column_values), batch.length);
+
     RETURN_NOT_OK(agg_kernels_[i]->resize(&kernel_ctx, state->grouper->num_groups()));
     RETURN_NOT_OK(agg_kernels_[i]->consume(&kernel_ctx, agg_batch));
   }

@@ -265,7 +265,7 @@ TEST(Expression, ToString) {
 
   EXPECT_EQ(
       in_12.ToString(),
-      "index_in(beta, {value_set=int32:[\n  1,\n  2\n], null_matching_behavior=MATCH})");
+      "index_in(beta, {value_set=int32:[\n  1,\n  2\n], null_matching_behavior=MATCH}, filter = true)");
 
   EXPECT_EQ(and_(field_ref("a"), field_ref("b")).ToString(), "(a and b)");
   EXPECT_EQ(or_(field_ref("a"), field_ref("b")).ToString(), "(a or b)");
@@ -275,17 +275,17 @@ TEST(Expression, ToString) {
       cast(field_ref("a"), int32()).ToString(),
       "cast(a, {to_type=int32, allow_int_overflow=false, allow_time_truncate=false, "
       "allow_time_overflow=false, allow_decimal_truncate=false, "
-      "allow_float_truncate=false, allow_invalid_utf8=false})");
+      "allow_float_truncate=false, allow_invalid_utf8=false}, filter = true)");
   EXPECT_EQ(
       cast(field_ref("a"), nullptr).ToString(),
       "cast(a, {to_type=<NULLPTR>, allow_int_overflow=false, allow_time_truncate=false, "
       "allow_time_overflow=false, allow_decimal_truncate=false, "
-      "allow_float_truncate=false, allow_invalid_utf8=false})");
+      "allow_float_truncate=false, allow_invalid_utf8=false}, filter = true)");
 
   EXPECT_EQ(call("widgetify", {}).ToString(), "widgetify()");
   EXPECT_EQ(
       call("widgetify", {literal(1)}, std::make_shared<WidgetifyOptions>()).ToString(),
-      "widgetify(1, widgetify)");
+      "widgetify(1, widgetify, filter = true)");
 
   EXPECT_EQ(equal(field_ref("a"), literal(1)).ToString(), "(a == 1)");
   EXPECT_EQ(less(field_ref("a"), literal(2)).ToString(), "(a < 2)");
@@ -311,9 +311,9 @@ TEST(Expression, ToString) {
             "{a=a, renamed_a=a, three=3, b=" + in_12.ToString() + "}");
 
   EXPECT_EQ(call("round", {literal(3.14)}, compute::RoundOptions()).ToString(),
-            "round(3.14, {ndigits=0, round_mode=HALF_TO_EVEN})");
+            "round(3.14, {ndigits=0, round_mode=HALF_TO_EVEN}, filter = true)");
   EXPECT_EQ(call("random", {}, compute::RandomOptions()).ToString(),
-            "random({initializer=SystemRandom, seed=0})");
+            "random({initializer=SystemRandom, seed=0}, filter = true)");
 }
 
 TEST(Expression, Equality) {

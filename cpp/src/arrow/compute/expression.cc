@@ -35,6 +35,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
+#include "arrow/util/tracing_internal.h"
 #include "arrow/util/value_parsing.h"
 #include "arrow/util/vector.h"
 
@@ -795,6 +796,104 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
   DCHECK_OK(executor->CheckResultType(out, call->function_name.c_str()));
 #endif
   return out;
+}
+
+Result<ExecBatch> ExecuteFilterBatch(const Expression& expr, const ExecBatch& input,
+                                     ExecContext* exec_context) {
+  if (exec_context == nullptr) {
+    compute::ExecContext exec_context;
+    return ExecuteFilterBatch(expr, input, &exec_context);
+  }
+
+  ARROW_ASSIGN_OR_RAISE(Expression simplified_filter,
+                        SimplifyWithGuarantee(expr, input.guarantee));
+
+  util::tracing::Span span;
+  START_SPAN(span, "Filter",
+             {{"filter.expression", expr.ToString()},
+              {"filter.expression.simplified", simplified_filter.ToString()},
+              {"filter.length", input.length}});
+
+  ARROW_ASSIGN_OR_RAISE(Datum mask,
+                        ExecuteScalarExpression(simplified_filter, input, exec_context));
+
+  if (mask.is_scalar()) {
+    const auto& mask_scalar = mask.scalar_as<BooleanScalar>();
+    if (mask_scalar.is_valid && mask_scalar.value) {
+      return input;
+    }
+    return input.Slice(0, 0);
+  }
+
+  // if the values are all scalar then the mask must also be
+  DCHECK(!std::all_of(input.values.begin(), input.values.end(),
+                      [](const Datum& value) { return value.is_scalar(); }));
+
+  auto values = input.values;
+  for (auto& value : values) {
+    if (value.is_scalar()) continue;
+    ARROW_ASSIGN_OR_RAISE(value, Filter(value, mask, FilterOptions::Defaults()));
+  }
+  return ExecBatch::Make(std::move(values));
+}
+
+Result<ExecBatch> ExecuteFilterWithIdBatch(const Expression& expr, const ExecBatch& input,
+                                           const Datum& id_batch,
+                                           const std::vector<int>& agg_src_fieldset,
+                                           ExecContext* exec_context) {
+  if (exec_context == nullptr) {
+    compute::ExecContext exec_context;
+    return ExecuteFilterWithIdBatch(expr, input, id_batch, agg_src_fieldset,
+                                    &exec_context);
+  }
+
+  ARROW_ASSIGN_OR_RAISE(Expression simplified_filter,
+                        SimplifyWithGuarantee(expr, input.guarantee));
+
+  util::tracing::Span span;
+  START_SPAN(span, "Filter",
+             {{"filter.expression", expr.ToString()},
+              {"filter.expression.simplified", simplified_filter.ToString()},
+              {"filter.length", input.length}});
+
+  ARROW_ASSIGN_OR_RAISE(Datum mask,
+                        ExecuteScalarExpression(simplified_filter, input, exec_context));
+
+  if (mask.is_scalar()) {
+    const auto& mask_scalar = mask.scalar_as<BooleanScalar>();
+    if (mask_scalar.is_valid && mask_scalar.value) {
+      std::vector<Datum> values;
+      for (const int field : agg_src_fieldset) {
+        values.push_back(input[field]);
+      }
+      values.push_back(id_batch);
+      return ExecBatch::Make(values);
+    }
+    return ExecBatch({}, 0);
+  }
+
+  // if the values are all scalar then the mask must also be
+  DCHECK(!std::all_of(input.values.begin(), input.values.end(),
+                      [](const Datum& value) { return value.is_scalar(); }));
+
+
+  std::vector<Datum> values;
+  for (const int field : agg_src_fieldset) {
+    auto agg_value = input.values[field];
+    if (!agg_value.is_scalar()) {
+      ARROW_ASSIGN_OR_RAISE(agg_value,
+                            Filter(agg_value, mask, FilterOptions::Defaults()));
+      values.push_back(agg_value);
+    }
+  }
+
+  auto id_value = id_batch;
+  if (!id_value.is_scalar()) {
+    ARROW_ASSIGN_OR_RAISE(id_value, Filter(id_value, mask, FilterOptions::Defaults()));
+    values.push_back(id_value);
+  }
+
+  return ExecBatch::Make(values);
 }
 
 namespace {

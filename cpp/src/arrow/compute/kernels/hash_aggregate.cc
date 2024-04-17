@@ -76,6 +76,14 @@ struct GroupedAggregator : KernelState {
   virtual Result<Datum> Finalize() = 0;
 
   virtual std::shared_ptr<DataType> out_type() const = 0;
+
+  Result<ExecBatch> FilterBatch(ExecContext* ctx, const ExecSpan& batch,
+                                const Datum& id_batch,
+                                const std::vector<int>& agg_src_fieldset,
+                                const Expression& expr) {
+    return ExecuteFilterWithIdBatch(expr, std::move(batch.ToExecBatch()), id_batch,
+                                    agg_src_fieldset, ctx);
+  }
 };
 
 template <typename Impl>
@@ -88,6 +96,13 @@ Result<std::unique_ptr<KernelState>> HashAggregateInit(KernelContext* ctx,
 
 Status HashAggregateResize(KernelContext* ctx, int64_t num_groups) {
   return checked_cast<GroupedAggregator*>(ctx->state())->Resize(num_groups);
+}
+Result<ExecBatch> HashAggregateFilter(KernelContext* ctx, const ExecSpan& batch,
+                                      const Datum& id_batch,
+                                      const std::vector<int>& agg_src_fieldset,
+                                      const Expression& expr) {
+  return checked_cast<GroupedAggregator*>(ctx->state())
+      ->FilterBatch(ctx->exec_context(), batch, id_batch, agg_src_fieldset, expr);
 }
 Status HashAggregateConsume(KernelContext* ctx, const ExecSpan& batch) {
   return checked_cast<GroupedAggregator*>(ctx->state())->Consume(batch);
@@ -109,8 +124,8 @@ Result<TypeHolder> ResolveGroupOutputType(KernelContext* ctx,
 HashAggregateKernel MakeKernel(std::shared_ptr<KernelSignature> signature,
                                KernelInit init, const bool ordered = false) {
   HashAggregateKernel kernel(std::move(signature), std::move(init), HashAggregateResize,
-                             HashAggregateConsume, HashAggregateMerge,
-                             HashAggregateFinalize, ordered);
+                             HashAggregateFilter, HashAggregateConsume,
+                             HashAggregateMerge, HashAggregateFinalize, ordered);
   return kernel;
 }
 
@@ -1325,6 +1340,7 @@ HashAggregateKernel MakeApproximateMedianKernel(HashAggregateFunction* tdigest_f
   };
   kernel.signature = KernelSignature::Make({InputType::Any(), Type::UINT32}, float64());
   kernel.resize = HashAggregateResize;
+  kernel.filter = HashAggregateFilter;
   kernel.consume = HashAggregateConsume;
   kernel.merge = HashAggregateMerge;
   kernel.finalize = [](KernelContext* ctx, Datum* out) {
@@ -3454,8 +3470,9 @@ void RegisterHashAggregateBasic(FunctionRegistry* registry) {
   }
 
   {
-    auto func = std::make_shared<HashAggregateFunction>("hash_count_all", Arity::Unary(),
-                                                        hash_count_all_doc, NULLPTR);
+    auto func = std::make_shared<HashAggregateFunction>(
+        "hash_count_all", Arity::Unary(), hash_count_all_doc,
+        &default_scalar_aggregate_options);
 
     DCHECK_OK(func->AddKernel(MakeUnaryKernel(HashAggregateInit<GroupedCountAllImpl>)));
     auto status = registry->AddFunction(std::move(func));

@@ -688,6 +688,7 @@ const FunctionOptionsType* GetFunctionOptionsType(const Properties&... propertie
     }
     std::unique_ptr<FunctionOptions> Copy(const FunctionOptions& options) const override {
       auto out = std::make_unique<Options>();
+      out->set_filter(options.get_filter());
       CopyImpl<Options>(out.get(), checked_cast<const Options&>(options), properties_);
       return std::move(out);
     }

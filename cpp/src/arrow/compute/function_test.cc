@@ -314,6 +314,9 @@ Result<std::unique_ptr<KernelState>> NoopInit(KernelContext*, const KernelInitAr
   return nullptr;
 }
 
+Status NoopFilter(KernelContext*, const ExecSpan&, const Expression&) {
+  return Status::OK();
+}
 Status NoopConsume(KernelContext*, const ExecSpan&) { return Status::OK(); }
 Status NoopMerge(KernelContext*, KernelState&&, KernelState*) { return Status::OK(); }
 Status NoopFinalize(KernelContext*, Datum*) { return Status::OK(); }
@@ -322,8 +325,8 @@ TEST(ScalarAggregateFunction, DispatchExact) {
   ScalarAggregateFunction func("agg_test", Arity::Unary(), FunctionDoc::Empty());
 
   std::vector<InputType> in_args = {int8()};
-  ScalarAggregateKernel kernel(std::move(in_args), int64(), NoopInit, NoopConsume,
-                               NoopMerge, NoopFinalize, /*ordered=*/false);
+  ScalarAggregateKernel kernel(std::move(in_args), int64(), NoopInit, NoopFilter,
+                               NoopConsume, NoopMerge, NoopFinalize, /*ordered=*/false);
   ASSERT_OK(func.AddKernel(kernel));
 
   in_args = {float64()};

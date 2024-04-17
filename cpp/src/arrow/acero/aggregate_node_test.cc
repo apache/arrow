@@ -27,8 +27,10 @@
 #include "arrow/result.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/string.h"
+using testing::UnorderedElementsAreArray;
 
 namespace arrow {
 
@@ -210,5 +212,126 @@ TEST(GroupByNode, NoSkipNulls) {
   AssertExecBatchesEqualIgnoringOrder(out_schema, {expected_batch}, out_batches.batches);
 }
 
+TEST(ScalarAggregate, FilterBeforeAgg) {
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
+
+  BatchesWithSchema basic_data;
+  basic_data.batches = {
+      ExecBatchFromJSON({int32(), int32(), boolean()},
+                        "[[1, 3, false], [2, 2, true], [3, 3, true], [4, 15, false]]"),
+      ExecBatchFromJSON({int32(), int32(), boolean()},
+                        "[[5, 1, false], [6, 8, true], [7, 20, false], [8, 11, false]]"),
+  };
+  basic_data.schema =
+      schema({field("i", int32()), field("j", int32()), field("k", boolean())});
+
+  auto count_filter = greater(compute::field_ref("i"), literal(3));
+  auto scalar_filter = greater(compute::field_ref("j"), literal(10));
+  auto count_options = std::make_shared<compute::CountOptions>(
+      compute::CountOptions::ONLY_VALID, count_filter);
+  auto scalar_options =
+      std::make_shared<compute::ScalarAggregateOptions>(true, 1, scalar_filter);
+  auto tdigest_options =
+      std::make_shared<compute::TDigestOptions>(0.5, 100, 500, true, 0, scalar_filter);
+  auto variance_options =
+      std::make_shared<compute::VarianceOptions>(0, true, 0, scalar_filter);
+  ASSERT_OK(
+      Declaration::Sequence(
+          {
+              {"source",
+               SourceNodeOptions{basic_data.schema, basic_data.gen(/*parallel=*/false,
+                                                                   /*slow=*/false)}},
+              {"aggregate", AggregateNodeOptions{/*aggregates=*/{
+                                {"all", scalar_options, "k", "all(k)"},
+                                {"any", scalar_options, "k", "any(k)"},
+                                {"count", count_options, "i", "count(i)"},
+                                {"count_all", "count(*)", count_options},
+                                {"mean", scalar_options, "i", "mean(i)"},
+                                {"product", scalar_options, "i", "product(i)"},
+                                {"stddev", variance_options, "i", "stddev(i)"},
+                                {"sum", scalar_options, "j", "sum(j)"},
+                                {"tdigest", tdigest_options, "i", "tdigest(i)"},
+                                {"variance", variance_options, "i", "variance(i)"}}}},
+              {"sink", SinkNodeOptions{&sink_gen}},
+          })
+          .AddToPlan(plan.get()));
+
+  ASSERT_THAT(
+      StartAndCollect(plan.get(), sink_gen),
+      Finishes(ResultWith(UnorderedElementsAreArray({
+          ExecBatchFromJSON(
+              {boolean(), boolean(), int64(), int64(), float64(), int64(), float64(),
+               int64(), float64(), float64()},
+              {ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR,
+               ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR,
+               ArgShape::ARRAY, ArgShape::SCALAR},
+              R"([[false, false, 5, 5, 6.333333333333333, 224, 1.699673171197595, 46, 7, 2.888888888888889]])"),
+      }))));
+}
+
+TEST(GroupByNode, FilterBeforeHashAgg) {
+  ASSERT_OK_AND_ASSIGN(auto plan, ExecPlan::Make());
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
+
+  BatchesWithSchema basic_data;
+  basic_data.batches = {
+      ExecBatchFromJSON({int32(), int32(), boolean()},
+                        "[[1, 3, false], [2, 2, true], [3, 3, true], [4, 15, false]]"),
+      ExecBatchFromJSON({int32(), int32(), boolean()},
+                        "[[5, 1, false], [6, 8, true], [7, 20, false], [8, 11, false]]"),
+  };
+  basic_data.schema =
+      schema({field("i", int32()), field("j", int32()), field("k", boolean())});
+
+  auto count_filter = greater(compute::field_ref("i"), literal(1));
+  auto scalar_filter = greater(compute::field_ref("j"), literal(2));
+  auto count_options = std::make_shared<compute::CountOptions>(
+      compute::CountOptions::ONLY_VALID, count_filter);
+  auto scalar_options =
+      std::make_shared<compute::ScalarAggregateOptions>(true, 1, scalar_filter);
+  auto tdigest_options =
+      std::make_shared<compute::TDigestOptions>(0.5, 100, 500, true, 0, scalar_filter);
+  auto variance_options =
+      std::make_shared<compute::VarianceOptions>(0, true, 0, scalar_filter);
+  SortOptions options({compute::SortKey("j", compute::SortOrder::Ascending)});
+  ASSERT_OK(
+      Declaration::Sequence(
+          {
+              {"source",
+               SourceNodeOptions{basic_data.schema, basic_data.gen(/*parallel=*/false,
+                                                                   /*slow=*/false)}},
+              {
+                  "aggregate",
+                  AggregateNodeOptions{
+                      /*aggregates=*/{
+                          {"hash_all", scalar_options, "k", "hash_all(k)"},
+                          {"hash_any", scalar_options, "k", "hash_any(k)"},
+                          {"hash_count", count_options, "i", "hash_count(i)"},
+                          {"hash_count_all", "hash_count(*)", count_options},
+                          {"hash_mean", scalar_options, "i", "hash_mean(i)"},
+                          {"hash_product", scalar_options, "i", "hash_product(i)"},
+                          {"hash_stddev", variance_options, "i", "hash_stddev(i)"},
+                          {"hash_sum", scalar_options, "j", "hash_sum(j)"},
+                          {"hash_tdigest", tdigest_options, "i", "hash_tdigest(i)"},
+                          {"hash_variance", variance_options, "i", "hash_variance(i)"}},
+                      /*keys=*/{"j"}},
+              },
+              {"order_by_sink", OrderBySinkNodeOptions{options, &sink_gen}},
+          })
+          .AddToPlan(plan.get()));
+
+  ASSERT_THAT(StartAndCollect(plan.get(), sink_gen),
+              Finishes(ResultWith(UnorderedElementsAreArray({ExecBatchFromJSON(
+                  {int32(), boolean(), boolean(), int64(), int64(), float64(), int64(),
+                   float64(), int64(), fixed_size_list(float64(), 1), float64()},
+                  R"([[1, null, null, 1, 1, null, null, null, null, [null], null], 
+                      [2, null, null, 1, 1, null, null, null, null, [null], null], 
+                      [3, false, true, 1, 1, 2, 3, 1, 6, [1], 1], 
+                      [8, true, true, 1, 1, 6, 6, 0, 8, [6], 0], 
+                      [11, false, false, 1, 1, 8, 8, 0, 11, [8], 0],
+                      [15, false, false, 1, 1, 4, 4, 0, 15, [4], 0], 
+                      [20, false, false, 1, 1, 7, 7, 0, 20, [7], 0]])")}))));
+}
 }  // namespace acero
 }  // namespace arrow

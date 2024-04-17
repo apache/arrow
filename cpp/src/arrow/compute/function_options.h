@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include "arrow/compute/expression.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -55,6 +56,8 @@ class ARROW_EXPORT FunctionOptions : public util::EqualityComparable<FunctionOpt
 
   const FunctionOptionsType* options_type() const { return options_type_; }
   const char* type_name() const { return options_type()->type_name(); }
+  const Expression& get_filter() const { return filter_; };
+  void set_filter(const Expression& filter) { filter_ = filter; }
 
   bool Equals(const FunctionOptions& other) const;
   std::string ToString() const;
@@ -69,8 +72,11 @@ class ARROW_EXPORT FunctionOptions : public util::EqualityComparable<FunctionOpt
       const std::string& type_name, const Buffer& buffer);
 
  protected:
-  explicit FunctionOptions(const FunctionOptionsType* type) : options_type_(type) {}
+  explicit FunctionOptions(const FunctionOptionsType* type,
+                           Expression filter = literal(true))
+      : options_type_(type), filter_(std::move(filter)) {}
   const FunctionOptionsType* options_type_;
+  Expression filter_;
 };
 
 ARROW_EXPORT void PrintTo(const FunctionOptions&, std::ostream*);

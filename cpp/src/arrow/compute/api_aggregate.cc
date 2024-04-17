@@ -106,40 +106,43 @@ static auto kIndexOptionsType =
 }  // namespace
 }  // namespace internal
 
-ScalarAggregateOptions::ScalarAggregateOptions(bool skip_nulls, uint32_t min_count)
-    : FunctionOptions(internal::kScalarAggregateOptionsType),
+ScalarAggregateOptions::ScalarAggregateOptions(bool skip_nulls, uint32_t min_count,
+                                               Expression filter)
+    : FunctionOptions(internal::kScalarAggregateOptionsType, filter),
       skip_nulls(skip_nulls),
       min_count(min_count) {}
 constexpr char ScalarAggregateOptions::kTypeName[];
 
-CountOptions::CountOptions(CountMode mode)
-    : FunctionOptions(internal::kCountOptionsType), mode(mode) {}
+CountOptions::CountOptions(CountMode mode, Expression filter)
+    : FunctionOptions(internal::kCountOptionsType, filter), mode(mode) {}
 constexpr char CountOptions::kTypeName[];
 
-ModeOptions::ModeOptions(int64_t n, bool skip_nulls, uint32_t min_count)
-    : FunctionOptions(internal::kModeOptionsType),
+ModeOptions::ModeOptions(int64_t n, bool skip_nulls, uint32_t min_count,
+                         Expression filter)
+    : FunctionOptions(internal::kModeOptionsType, filter),
       n{n},
       skip_nulls{skip_nulls},
       min_count{min_count} {}
 constexpr char ModeOptions::kTypeName[];
 
-VarianceOptions::VarianceOptions(int ddof, bool skip_nulls, uint32_t min_count)
-    : FunctionOptions(internal::kVarianceOptionsType),
+VarianceOptions::VarianceOptions(int ddof, bool skip_nulls, uint32_t min_count,
+                                 Expression filter)
+    : FunctionOptions(internal::kVarianceOptionsType, filter),
       ddof(ddof),
       skip_nulls(skip_nulls),
       min_count(min_count) {}
 constexpr char VarianceOptions::kTypeName[];
 
 QuantileOptions::QuantileOptions(double q, enum Interpolation interpolation,
-                                 bool skip_nulls, uint32_t min_count)
-    : FunctionOptions(internal::kQuantileOptionsType),
+                                 bool skip_nulls, uint32_t min_count, Expression filter)
+    : FunctionOptions(internal::kQuantileOptionsType, filter),
       q{q},
       interpolation{interpolation},
       skip_nulls{skip_nulls},
       min_count{min_count} {}
 QuantileOptions::QuantileOptions(std::vector<double> q, enum Interpolation interpolation,
-                                 bool skip_nulls, uint32_t min_count)
-    : FunctionOptions(internal::kQuantileOptionsType),
+                                 bool skip_nulls, uint32_t min_count, Expression filter)
+    : FunctionOptions(internal::kQuantileOptionsType, filter),
       q{std::move(q)},
       interpolation{interpolation},
       skip_nulls{skip_nulls},
@@ -147,16 +150,17 @@ QuantileOptions::QuantileOptions(std::vector<double> q, enum Interpolation inter
 constexpr char QuantileOptions::kTypeName[];
 
 TDigestOptions::TDigestOptions(double q, uint32_t delta, uint32_t buffer_size,
-                               bool skip_nulls, uint32_t min_count)
-    : FunctionOptions(internal::kTDigestOptionsType),
+                               bool skip_nulls, uint32_t min_count, Expression filter)
+    : FunctionOptions(internal::kTDigestOptionsType, filter),
       q{q},
       delta{delta},
       buffer_size{buffer_size},
       skip_nulls{skip_nulls},
       min_count{min_count} {}
 TDigestOptions::TDigestOptions(std::vector<double> q, uint32_t delta,
-                               uint32_t buffer_size, bool skip_nulls, uint32_t min_count)
-    : FunctionOptions(internal::kTDigestOptionsType),
+                               uint32_t buffer_size, bool skip_nulls, uint32_t min_count,
+                               Expression filter)
+    : FunctionOptions(internal::kTDigestOptionsType, filter),
       q{std::move(q)},
       delta{delta},
       buffer_size{buffer_size},
@@ -164,8 +168,8 @@ TDigestOptions::TDigestOptions(std::vector<double> q, uint32_t delta,
       min_count{min_count} {}
 constexpr char TDigestOptions::kTypeName[];
 
-IndexOptions::IndexOptions(std::shared_ptr<Scalar> value)
-    : FunctionOptions(internal::kIndexOptionsType), value{std::move(value)} {}
+IndexOptions::IndexOptions(std::shared_ptr<Scalar> value, Expression filter)
+    : FunctionOptions(internal::kIndexOptionsType, filter), value{std::move(value)} {}
 IndexOptions::IndexOptions() : IndexOptions(std::make_shared<NullScalar>()) {}
 constexpr char IndexOptions::kTypeName[];
 
