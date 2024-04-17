@@ -29,7 +29,7 @@ disp("Toolbox Folder: " + toolboxFolder);
 disp("Output Folder: " + outputFolder);
 disp("Toolbox Version Raw: " + toolboxVersionRaw);
 
-versionPattern = regexpPattern("^[0-9]+.[0-9]+.[0-9]+");
+versionPattern = regexpPattern("^[0-9]+\.[0-9]+\.[0-9]+");
 toolboxVersion = extract(toolboxVersionRaw, versionPattern);
 if isempty(toolboxVersion)
     error("Unable to extract MAJOR.MINOR.PATCH version string from " + toolboxVersionRaw);
