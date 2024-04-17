@@ -259,7 +259,7 @@ JSON
 * Extension name: `arrow.json`.
 
 * The storage type of this extension is ``StringArray`` or
-  ``LargeStringArray``or ``StringViewArray``.
+  ``StringViewArray``.
 
 * Extension type parameters:
 
@@ -268,7 +268,6 @@ JSON
 * Description of the serialization:
 
   Metadata is an empty string.
-  - Example: ``""``
 
 =========================
 Community Extension Types
