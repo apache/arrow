@@ -524,7 +524,7 @@ namespace Apache.Arrow.Tests
                     for (int i = 0; i < arrayLength; i++)
                     {
                         Assert.True(
-                            BitUtility.GetBit(expectedSpan, expectedBufferOffset + i) == BitUtility.GetBit(actualSpan, i),
+                            BitUtility.GetBit(expectedSpan, expectedBufferOffset + i) == BitUtility.GetBit(actualSpan, expectedBufferOffset + i),
                             string.Format("Bit at index {0}/{1} is not equal", i, arrayLength));
                     }
                 }
