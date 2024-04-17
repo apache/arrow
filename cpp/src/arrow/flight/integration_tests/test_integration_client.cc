@@ -145,6 +145,7 @@ class IntegrationTestScenario : public Scenario {
 
   Status RunClient(std::unique_ptr<FlightClient> client) override {
     // Make sure the required extension types are registered.
+    ExtensionTypeGuard uuid_ext_guard(uuid());
     ExtensionTypeGuard dict_ext_guard(dict_extension_type());
 
     FlightDescriptor descr{FlightDescriptor::PATH, "", {FLAGS_path}};

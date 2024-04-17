@@ -403,7 +403,7 @@ FixedSizeBinary(16) storage, here is how a "uuid" field would be represented::
       "children" : [],
       "metadata" : [
          {"key": "ARROW:extension:name", "value": "uuid"},
-         {"key": "ARROW:extension:metadata", "value": ""}
+         {"key": "ARROW:extension:metadata", "value": "uuid-serialized"}
       ]
     }
 

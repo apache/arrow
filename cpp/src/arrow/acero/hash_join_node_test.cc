@@ -55,7 +55,6 @@ using compute::SortIndices;
 using compute::SortKey;
 using compute::Take;
 using compute::internal::RowEncoder;
-using extension::uuid;
 
 namespace acero {
 

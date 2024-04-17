@@ -17,7 +17,6 @@
 
 #include "arrow/testing/gtest_util.h"
 
-#include "arrow/extension/uuid.h"
 #include "arrow/testing/extension_type.h"
 
 #ifdef _WIN32
@@ -866,6 +865,28 @@ Future<> SleepABitAsync() {
 ///////////////////////////////////////////////////////////////////////////
 // Extension types
 
+bool ExampleUuidType::ExtensionEquals(const ExtensionType& other) const {
+  return (other.extension_name() == this->extension_name());
+}
+
+std::shared_ptr<Array> ExampleUuidType::MakeArray(std::shared_ptr<ArrayData> data) const {
+  DCHECK_EQ(data->type->id(), Type::EXTENSION);
+  DCHECK_EQ("uuid", static_cast<const ExtensionType&>(*data->type).extension_name());
+  return std::make_shared<ExampleUuidArray>(data);
+}
+
+Result<std::shared_ptr<DataType>> ExampleUuidType::Deserialize(
+    std::shared_ptr<DataType> storage_type, const std::string& serialized) const {
+  if (serialized != "uuid-serialized") {
+    return Status::Invalid("Type identifier did not match: '", serialized, "'");
+  }
+  if (!storage_type->Equals(*fixed_size_binary(16))) {
+    return Status::Invalid("Invalid storage type for UuidType: ",
+                           storage_type->ToString());
+  }
+  return std::make_shared<ExampleUuidType>();
+}
+
 bool SmallintType::ExtensionEquals(const ExtensionType& other) const {
   return (other.extension_name() == this->extension_name());
 }
@@ -979,6 +1000,8 @@ Result<std::shared_ptr<DataType>> Complex128Type::Deserialize(
   return std::make_shared<Complex128Type>();
 }
 
+std::shared_ptr<DataType> uuid() { return std::make_shared<ExampleUuidType>(); }
+
 std::shared_ptr<DataType> smallint() { return std::make_shared<SmallintType>(); }
 
 std::shared_ptr<DataType> tinyint() { return std::make_shared<TinyintType>(); }
@@ -1006,7 +1029,7 @@ std::shared_ptr<Array> ExampleUuid() {
   auto arr = ArrayFromJSON(
       fixed_size_binary(16),
       "[null, \"abcdefghijklmno0\", \"abcdefghijklmno1\", \"abcdefghijklmno2\"]");
-  return ExtensionType::WrapArray(extension::uuid(), arr);
+  return ExtensionType::WrapArray(uuid(), arr);
 }
 
 std::shared_ptr<Array> ExampleSmallint() {
