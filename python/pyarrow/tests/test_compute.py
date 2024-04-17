@@ -225,9 +225,9 @@ def test_option_class_equality():
     for option1, option2 in zip(options, options[1:]):
         assert option1 != option2
 
-    assert repr(pc.IndexOptions(pa.scalar(1))) == "IndexOptions(value=int64:1)"
+    assert repr(pc.IndexOptions(pa.scalar(1))) == "IndexOptions(value=int64:1}, filter = tru)"
     assert repr(pc.ArraySortOptions()) == \
-        "ArraySortOptions(order=Ascending, null_placement=AtEnd)"
+        "ArraySortOptions(order=Ascending, null_placement=AtEnd}, filter = tru)"
 
 
 def test_list_functions():
@@ -3516,7 +3516,7 @@ def test_expression_call_function():
     assert str(pc.round(field)) == "round(field)"
     # specified options
     assert str(pc.round(field, ndigits=1)) == \
-        "round(field, {ndigits=1, round_mode=HALF_TO_EVEN})"
+        "round(field, {ndigits=1, round_mode=HALF_TO_EVEN}, filter = true)"
 
     # Will convert non-expression arguments if possible
     assert str(pc.add(field, 1)) == "add(field, 1)"
