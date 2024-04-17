@@ -257,7 +257,7 @@ namespace Apache.Arrow.Tests
                 Assert.Equal(expectedArray.Length, actualArray.Length);
                 Assert.Equal(expectedArray.NullCount, actualArray.NullCount);
 
-                CompareValidityBuffer(expectedArray.NullCount, _expectedArray.Length, expectedArray.NullBitmapBuffer, expectedArray.Offset, actualArray.NullBitmapBuffer);
+                CompareValidityBuffer(expectedArray.NullCount, _expectedArray.Length, expectedArray.NullBitmapBuffer, expectedArray.Offset, actualArray.NullBitmapBuffer, actualArray.Offset);
 
                 if (_strictCompare)
                 {
@@ -294,7 +294,7 @@ namespace Apache.Arrow.Tests
                     Assert.Equal(expectedArray.Offset, actualArray.Offset);
                 }
 
-                CompareValidityBuffer(expectedArray.NullCount, _expectedArray.Length, expectedArray.NullBitmapBuffer, expectedArray.Offset, actualArray.NullBitmapBuffer);
+                CompareValidityBuffer(expectedArray.NullCount, _expectedArray.Length, expectedArray.NullBitmapBuffer, expectedArray.Offset, actualArray.NullBitmapBuffer, actualArray.Offset);
 
                 Assert.True(expectedArray.Views.SequenceEqual(actualArray.Views));
 
@@ -318,7 +318,7 @@ namespace Apache.Arrow.Tests
                 Assert.Equal(expectedArray.Length, actualArray.Length);
                 Assert.Equal(expectedArray.NullCount, actualArray.NullCount);
 
-                CompareValidityBuffer(expectedArray.NullCount, _expectedArray.Length, expectedArray.NullBitmapBuffer, expectedArray.Offset, actualArray.NullBitmapBuffer);
+                CompareValidityBuffer(expectedArray.NullCount, _expectedArray.Length, expectedArray.NullBitmapBuffer, expectedArray.Offset, actualArray.NullBitmapBuffer, actualArray.Offset);
 
                 if (_strictCompare)
                 {
@@ -347,7 +347,7 @@ namespace Apache.Arrow.Tests
                 Assert.Equal(expectedArray.Length, actualArray.Length);
                 Assert.Equal(expectedArray.NullCount, actualArray.NullCount);
 
-                CompareValidityBuffer(expectedArray.NullCount, _expectedArray.Length, expectedArray.NullBitmapBuffer, expectedArray.Offset, actualArray.NullBitmapBuffer);
+                CompareValidityBuffer(expectedArray.NullCount, _expectedArray.Length, expectedArray.NullBitmapBuffer, expectedArray.Offset, actualArray.NullBitmapBuffer, actualArray.Offset);
 
                 if (_strictCompare)
                 {
@@ -379,7 +379,7 @@ namespace Apache.Arrow.Tests
                 Assert.Equal(expectedArray.Length, actualArray.Length);
                 Assert.Equal(expectedArray.NullCount, actualArray.NullCount);
 
-                CompareValidityBuffer(expectedArray.NullCount, _expectedArray.Length, expectedArray.NullBitmapBuffer, expectedArray.Offset, actualArray.NullBitmapBuffer);
+                CompareValidityBuffer(expectedArray.NullCount, _expectedArray.Length, expectedArray.NullBitmapBuffer, expectedArray.Offset, actualArray.NullBitmapBuffer, actualArray.Offset);
 
                 if (_strictCompare)
                 {
@@ -406,7 +406,7 @@ namespace Apache.Arrow.Tests
                 Assert.Equal(expectedArray.Length, actualArray.Length);
                 Assert.Equal(expectedArray.NullCount, actualArray.NullCount);
 
-                CompareValidityBuffer(expectedArray.NullCount, _expectedArray.Length, expectedArray.NullBitmapBuffer, expectedArray.Offset, actualArray.NullBitmapBuffer);
+                CompareValidityBuffer(expectedArray.NullCount, _expectedArray.Length, expectedArray.NullBitmapBuffer, expectedArray.Offset, actualArray.NullBitmapBuffer, actualArray.Offset);
 
                 if (_strictCompare)
                 {
@@ -442,7 +442,7 @@ namespace Apache.Arrow.Tests
                 Assert.Equal(expectedArray.Length, actualArray.Length);
                 Assert.Equal(expectedArray.NullCount, actualArray.NullCount);
 
-                CompareValidityBuffer(expectedArray.NullCount, _expectedArray.Length, expectedArray.NullBitmapBuffer, expectedArray.Offset, actualArray.NullBitmapBuffer);
+                CompareValidityBuffer(expectedArray.NullCount, _expectedArray.Length, expectedArray.NullBitmapBuffer, expectedArray.Offset, actualArray.NullBitmapBuffer, actualArray.Offset);
 
                 if (_strictCompare)
                 {
@@ -475,7 +475,7 @@ namespace Apache.Arrow.Tests
                     Assert.Equal(expectedArray.Offset, actualArray.Offset);
                 }
 
-                CompareValidityBuffer(expectedArray.NullCount, _expectedArray.Length, expectedArray.NullBitmapBuffer, expectedArray.Offset, actualArray.NullBitmapBuffer);
+                CompareValidityBuffer(expectedArray.NullCount, _expectedArray.Length, expectedArray.NullBitmapBuffer, expectedArray.Offset, actualArray.NullBitmapBuffer, actualArray.Offset);
 
                 var listSize = ((FixedSizeListType)expectedArray.Data.DataType).ListSize;
                 var expectedValuesSlice = ArrowArrayFactory.Slice(
@@ -483,7 +483,7 @@ namespace Apache.Arrow.Tests
                 actualArray.Values.Accept(new ArrayComparer(expectedValuesSlice, _strictCompare));
             }
 
-            private void CompareValidityBuffer(int nullCount, int arrayLength, ArrowBuffer expectedValidityBuffer, int expectedBufferOffset, ArrowBuffer actualValidityBuffer)
+            private void CompareValidityBuffer(int nullCount, int arrayLength, ArrowBuffer expectedValidityBuffer, int expectedBufferOffset, ArrowBuffer actualValidityBuffer, int actualBufferOffset)
             {
                 if (_strictCompare)
                 {
@@ -493,7 +493,7 @@ namespace Apache.Arrow.Tests
                 {
                     Assert.True(nullCount == 0 || arrayLength == 0);
                 }
-                else if (expectedBufferOffset % 8 == 0)
+                else if (expectedBufferOffset % 8 == 0 && expectedBufferOffset == actualBufferOffset)
                 {
                     int validityBitmapByteCount = BitUtility.ByteCount(arrayLength);
                     int byteOffset = BitUtility.ByteCount(expectedBufferOffset);
@@ -524,7 +524,7 @@ namespace Apache.Arrow.Tests
                     for (int i = 0; i < arrayLength; i++)
                     {
                         Assert.True(
-                            BitUtility.GetBit(expectedSpan, expectedBufferOffset + i) == BitUtility.GetBit(actualSpan, i),
+                            BitUtility.GetBit(expectedSpan, expectedBufferOffset + i) == BitUtility.GetBit(actualSpan, actualBufferOffset + i),
                             string.Format("Bit at index {0}/{1} is not equal", i, arrayLength));
                     }
                 }
