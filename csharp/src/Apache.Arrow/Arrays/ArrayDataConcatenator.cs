@@ -326,10 +326,10 @@ namespace Apache.Arrow
 
                 foreach (ArrayData arrayData in _arrayDataList)
                 {
-                    int length = arrayData.Length;
-                    int byteLength = length * typeByteWidth;
+                    int byteLength = arrayData.Length * typeByteWidth;
+                    int byteOffset = arrayData.Offset * typeByteWidth;
 
-                    builder.Append(arrayData.Buffers[bufferIndex].Span.Slice(0, byteLength));
+                    builder.Append(arrayData.Buffers[bufferIndex].Span.Slice(byteOffset, byteLength));
                 }
 
                 return builder.Build(_allocator);
