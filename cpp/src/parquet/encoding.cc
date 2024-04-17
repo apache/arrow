@@ -4055,19 +4055,54 @@ std::unique_ptr<Decoder> MakeDictDecoder(Type::type type_num,
 }
 
 }  // namespace detail
+   //
+   //
+bool IsParquetVersionAtLeast2_0(ParquetVersion::type parquet_version) {
+  switch (parquet_version) {
+    case ParquetVersion::PARQUET_1_0:
+      return false;
+    case ParquetVersion::PARQUET_2_4:
+      return true;
+    case ParquetVersion::PARQUET_2_6:
+      return true;
+    default:
+      return parquet_version > ParquetVersion::PARQUET_1_0;
+  }
+  return false;
+}
 
 // Informed heavily by https://github.com/apache/parquet-format/blob/master/Encodings.md
-// Should we also consider if we're in dictionary encoding mode? or assume no for the
-// moment?
+// and
+// https://github.com/apache/arrow-rs/blob/a15adf66a8212fdb3a0222a32130ce70cfc28cf5/parquet/src/column/writer/mod.rs#L1183
 Encoding::type ChooseNonDictEncoding(Type::type data_type,
                                      ParquetVersion::type parquet_version,
                                      ParquetDataPageVersion datapage_version) {
-  if (data_type == Type::BOOLEAN && parquet_version != ParquetVersion::PARQUET_1_0 &&
-      datapage_version == ParquetDataPageVersion::V2) {
-    return Encoding::RLE;
-  } else if (data_type == Type::BYTE_ARRAY) {
-    // BYTE_ARRAYs should always default to DELTA_LENGTH_BYTE_ARRAY
-    return Encoding::DELTA_LENGTH_BYTE_ARRAY;
+  switch (data_type) {
+    case Type::BOOLEAN:
+      if (IsParquetVersionAtLeast2_0(parquet_version) &&
+          datapage_version == ParquetDataPageVersion::V2) {
+        return Encoding::RLE;
+      }
+      break;
+
+    case Type::INT32:
+    case Type::INT64:
+      if (IsParquetVersionAtLeast2_0(parquet_version)) {
+        return Encoding::DELTA_BINARY_PACKED;
+      }
+      break;
+
+    case Type::INT96:
+    case Type::FLOAT:
+    case Type::DOUBLE:
+      return Encoding::PLAIN;
+
+    case Type::BYTE_ARRAY:
+      return Encoding::DELTA_LENGTH_BYTE_ARRAY;
+
+    case Type::FIXED_LEN_BYTE_ARRAY:
+    default:
+      return Encoding::PLAIN;
   }
   return Encoding::PLAIN;
 }
