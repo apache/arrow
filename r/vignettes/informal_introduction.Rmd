@@ -21,9 +21,9 @@ This section introduces the Apache Arrow project.
 [Apache `Arrow`](https://arrow.apache.org/) is an *open-source* project that offers two things: 
 
 - Apache Arrow defines a standardized way to organize data in memory (called _Apache Arrow Columnar Format_). You do not need to know much about this _Columnar Format_ to use Arrow with R, except that it is very efficient (processing is fast) and interoperable (meaning for instance that both R and Python can access the same data, without converting the data from one format to another).
-- Apache Arrow offers implementations of this _Columnar Format_ in several languages (see [here](https://arrow.apache.org/docs/status.html) for the list). In particular, there is one implementation in `C++`:  the library called `libarrow`.
+- This _Columnar Format_ has been implemented in several languages: C++, Rust, Go, Java... (see [here](https://arrow.apache.org/docs/status.html) for the list). In particular, there is one implementation in `C++`:  the library called `libarrow`.
 
-What about the Arrow R package then? This package simply makes it possible to use the `libarrow` library within `R`. Keep in mind that there are other similar interfaces for using `libarrow` with other programming languages: in Python, Java, Javascript, Julia, and so on. But __no matter what programming language you choose for using Arrow, remember that under the hood you are using exactly the same tool: the C++ libarrow library__.
+What about the Arrow R package then? This package simply makes it possible to use the `libarrow` library within `R`. So keep in mind that when you are manipulating data with the Arrow R package, it _looks like_ you are writing `R` code, but _in fact_ you are working with C++ (more on this below).
 
 ### What's so special about Arrow?
 
