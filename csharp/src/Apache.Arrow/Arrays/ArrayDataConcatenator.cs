@@ -148,10 +148,27 @@ namespace Apache.Arrow
             public void Visit(FixedSizeListType type)
             {
                 CheckData(type, 1);
+                var listSize = type.ListSize;
                 ArrowBuffer validityBuffer = ConcatenateValidityBuffer();
-                ArrayData child = Concatenate(SelectChildren(0), _allocator);
 
-                Result = new ArrayData(type, _totalLength, _totalNullCount, 0, new ArrowBuffer[] { validityBuffer }, new[] { child });
+                var children = new List<ArrayData>(_arrayDataList.Count);
+
+                foreach (ArrayData arrayData in _arrayDataList)
+                {
+                    var offset = arrayData.Offset;
+                    var length = arrayData.Length;
+                    var child = arrayData.Children[0];
+                    if (offset != 0 || child.Length != length * listSize)
+                    {
+                        child = child.Slice(offset * listSize, length * listSize);
+                    }
+
+                    children.Add(child);
+                }
+
+                ArrayData combinedChild = Concatenate(children, _allocator);
+
+                Result = new ArrayData(type, _totalLength, _totalNullCount, 0, new ArrowBuffer[] { validityBuffer }, new[] { combinedChild });
             }
 
             public void Visit(StructType type)
