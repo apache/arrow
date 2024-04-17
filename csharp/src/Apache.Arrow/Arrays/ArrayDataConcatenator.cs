@@ -199,7 +199,11 @@ namespace Apache.Arrow
 
                 for (int i = 0; i < type.Fields.Count; i++)
                 {
-                    children.Add(Concatenate(SelectChildren(i), _allocator));
+                    // For dense mode, the offsets aren't adjusted so are into the non-sliced child arrays
+                    var fieldChildren = type.Mode == UnionMode.Sparse
+                        ? SelectSlicedChildren(i)
+                        : SelectChildren(i);
+                    children.Add(Concatenate(fieldChildren, _allocator));
                 }
 
                 ArrowBuffer[] buffers = new ArrowBuffer[bufferCount];

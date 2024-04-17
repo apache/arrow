@@ -423,8 +423,10 @@ namespace Apache.Arrow.Tests
                                 if (includeInResult)
                                 {
                                     offsetResultBuilder.Append(stringResultBuilder.Length);
-                                    stringResultBuilder.Append(stringValue);
                                 }
+                                // For dense mode, concatenation doesn't slice the child arrays, so always
+                                // add the value to the result.
+                                stringResultBuilder.Append(stringValue);
                             }
                             else
                             {
@@ -433,8 +435,8 @@ namespace Apache.Arrow.Tests
                                 if (includeInResult)
                                 {
                                     offsetResultBuilder.Append(intResultBuilder.Length);
-                                    intResultBuilder.Append(intValue);
                                 }
+                                intResultBuilder.Append(intValue);
                             }
                         }
                         else
