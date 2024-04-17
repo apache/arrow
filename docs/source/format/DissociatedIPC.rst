@@ -272,12 +272,12 @@ stream if that message has a body (i.e. a Record Batch or Dictionary message). T
   1) The body contains a series of unsigned, little-endian 64-bit integer pairs to represent
      either shared or remote memory, schematically structured as
   
-    - The first two integers (e.g. the first 16 bytes) represent the *total* size (in bytes)
-      of all buffers and the number of buffers in this message (and thus the number of following
-      pairs of ``uint64``)
+     * The first two integers (e.g. the first 16 bytes) represent the *total* size (in bytes)
+       of all buffers and the number of buffers in this message (and thus the number of following
+       pairs of ``uint64``)
   
-    - Each subsequent pair of ``uint64`` values are an address / offset followed the length of
-      that particular buffer.
+     * Each subsequent pair of ``uint64`` values are an address / offset followed the length of
+       that particular buffer.
 
 * All unspecified bits (bits 32 - 55) of the tag are *reserved* for future use by potential updates
   to this protocol. For now they **MUST** be 0.
@@ -322,11 +322,11 @@ showing how a client might handle the metadata and data streams:
    * If it is **not** an *End of Stream* message, the remaining bytes are the IPC Flatbuffer bytes which
      can be interpreted as normal.    
     
-    * If the message has a body (i.e. Record Batch or Dictionary message) then the client should retrieve
-      a tagged message from the Data Stream using the same sequence number.
+     * If the message has a body (i.e. Record Batch or Dictionary message) then the client should retrieve
+       a tagged message from the Data Stream using the same sequence number.
   
-  * If it **is** an *End of Stream* message, then it is safe to close the metadata connection if there are
-    no gaps in the sequence numbers received.
+   * If it **is** an *End of Stream* message, then it is safe to close the metadata connection if there are
+     no gaps in the sequence numbers received.
 
 #. When a metadata message that requires a body is received, the tag mask of ``0x00000000FFFFFFFF`` **should** 
    be used alongside the sequence number to match the message regardless of the higher bytes (e.g. we only
