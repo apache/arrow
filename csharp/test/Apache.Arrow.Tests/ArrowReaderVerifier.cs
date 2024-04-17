@@ -497,6 +497,10 @@ namespace Apache.Arrow.Tests
                 {
                     Assert.True(expectedValidityBuffer.Span.SequenceEqual(actualValidityBuffer.Span));
                 }
+                else if (actualValidityBuffer.IsEmpty)
+                {
+                    Assert.True(nullCount == 0 || arrayLength == 0);
+                }
                 else
                 {
                     // Compare all values bitwise
