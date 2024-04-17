@@ -10,12 +10,12 @@
   OF ANY KIND, either express or implied. See the License for the specific
   language governing permissions and limitations under the License. -->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
   <parent>
-    <artifactId>arrow-memory</artifactId>
     <groupId>org.apache.arrow</groupId>
+    <artifactId>arrow-memory</artifactId>
     <version>16.0.0-SNAPSHOT</version>
   </parent>
-  <modelVersion>4.0.0</modelVersion>
 
   <artifactId>arrow-memory-core</artifactId>
 
@@ -96,10 +96,10 @@
             <executions>
               <execution>
                 <id>opens-tests</id>
-                <phase>test</phase>
                 <goals>
                   <goal>test</goal>
                 </goals>
+                <phase>test</phase>
                 <configuration>
                   <!-- Dummy value to stop inheriting the default add-opens flag -->
                   <argLine>-Dfoo=bar</argLine>
@@ -133,12 +133,15 @@
               <target>8</target>
               <encoding>UTF-8</encoding>
               <compilerArgs combine.children="append">
-                <arg>-Xmaxerrs</arg> <!-- javac only reports the first 100 errors or warnings -->
+                <arg>-Xmaxerrs</arg>
+                <!-- javac only reports the first 100 errors or warnings -->
                 <arg>10000</arg>
                 <arg>-Xmaxwarns</arg>
                 <arg>10000</arg>
-                <arg>-AskipDefs=.*Test</arg> <!-- Skip analysis for Testing classes -->
-                <arg>-AatfDoNotCache</arg> <!-- not cache results -->
+                <arg>-AskipDefs=.*Test</arg>
+                <!-- Skip analysis for Testing classes -->
+                <arg>-AatfDoNotCache</arg>
+                <!-- not cache results -->
               </compilerArgs>
               <annotationProcessorPaths combine.children="append">
                 <path>
