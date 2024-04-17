@@ -42,14 +42,11 @@ import org.apache.arrow.adapter.jdbc.JdbcParameterBinder;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightInfo;
-import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.PutResult;
 import org.apache.arrow.flight.sql.FlightSqlProducer;
 import org.apache.arrow.memory.ArrowBuf;
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
@@ -69,17 +66,6 @@ import com.google.protobuf.ByteString;
  */
 public class FlightSqlStatelessExample extends FlightSqlExample {
   private static final Logger LOGGER = getLogger(FlightSqlStatelessExample.class);
-
-  public static void main(String[] args) throws Exception {
-    Location location = Location.forGrpcInsecure("localhost", 55555);
-    final FlightSqlStatelessExample example = new FlightSqlStatelessExample(location);
-    Location listenLocation = Location.forGrpcInsecure("0.0.0.0", 55555);
-    try (final BufferAllocator allocator = new RootAllocator();
-         final FlightServer server = FlightServer.builder(allocator, listenLocation, example).build()) {
-      server.start();
-      server.awaitTermination();
-    }
-  }
 
   public FlightSqlStatelessExample(final Location location) {
     super(location);
