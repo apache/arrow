@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+/** @type {import('eslint').Linter.Config} */
 module.exports = {
     env: {
         browser: true,
@@ -25,7 +26,7 @@ module.exports = {
     parserOptions: {
         project: ["tsconfig.json", "tsconfig/tsconfig.bin.cjs.json"],
         sourceType: "module",
-        ecmaVersion: 2020,
+        ecmaVersion: "latest",
     },
     plugins: ["@typescript-eslint", "jest", "unicorn"],
     extends: [
@@ -71,6 +72,7 @@ module.exports = {
         "@typescript-eslint/no-misused-new": "off",
         "@typescript-eslint/ban-ts-comment": "off",
         "@typescript-eslint/no-non-null-assertion": "off",
+        "@typescript-eslint/no-unsafe-declaration-merging": "off",
         "@typescript-eslint/no-unused-vars": "off",  // ts already takes care of this
 
         "prefer-const": ["error", {
@@ -92,16 +94,13 @@ module.exports = {
         "unicorn/empty-brace-spaces": "off",
         "unicorn/no-zero-fractions": "off",
         "unicorn/prevent-abbreviations": "off",
-        "unicorn/prefer-module": "off",
         "unicorn/numeric-separators-style": "off",
         "unicorn/prefer-spread": "off",
         "unicorn/filename-case": "off",
         "unicorn/prefer-export-from": "off",
         "unicorn/prefer-switch": "off",
-        "unicorn/prefer-node-protocol": "off",
         "unicorn/text-encoding-identifier-case": "off",
         "unicorn/prefer-top-level-await": "off",
-
         "unicorn/consistent-destructuring": "off",
         "unicorn/no-array-reduce": "off",
         "unicorn/no-await-expression-member": "off",

@@ -95,9 +95,14 @@ import com.google.protobuf.Message;
 public class ArrowDatabaseMetadataTest {
   public static final boolean EXPECTED_MAX_ROW_SIZE_INCLUDES_BLOBS = false;
   private static final MockFlightSqlProducer FLIGHT_SQL_PRODUCER = new MockFlightSqlProducer();
+  private static final MockFlightSqlProducer FLIGHT_SQL_PRODUCER_EMPTY_SQLINFO =
+      new MockFlightSqlProducer();
   @ClassRule
   public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE = FlightServerTestRule
       .createStandardTestRule(FLIGHT_SQL_PRODUCER);
+  @ClassRule
+  public static final FlightServerTestRule FLIGHT_SERVER_EMPTY_SQLINFO_TEST_RULE =
+      FlightServerTestRule.createStandardTestRule(FLIGHT_SQL_PRODUCER_EMPTY_SQLINFO);
   private static final int ROW_COUNT = 10;
   private static final List<List<Object>> EXPECTED_GET_CATALOGS_RESULTS =
       range(0, ROW_COUNT)
@@ -604,7 +609,7 @@ public class ArrowDatabaseMetadataTest {
 
   @AfterClass
   public static void tearDown() throws Exception {
-    AutoCloseables.close(connection, FLIGHT_SQL_PRODUCER);
+    AutoCloseables.close(connection, FLIGHT_SQL_PRODUCER, FLIGHT_SQL_PRODUCER_EMPTY_SQLINFO);
   }
 
 
@@ -1419,5 +1424,17 @@ public class ArrowDatabaseMetadataTest {
     Assert.assertEquals(".", ArrowDatabaseMetadata.sqlToRegexLike("_"));
     Assert.assertEquals("\\*", ArrowDatabaseMetadata.sqlToRegexLike("*"));
     Assert.assertEquals("T\\*E.S.*T", ArrowDatabaseMetadata.sqlToRegexLike("T*E_S%T"));
+  }
+
+  @Test
+  public void testEmptySqlInfo() throws Exception {
+    try (final Connection testConnection = FLIGHT_SERVER_EMPTY_SQLINFO_TEST_RULE.getConnection(false)) {
+      final DatabaseMetaData metaData = testConnection.getMetaData();
+      collector.checkThat(metaData.getSQLKeywords(), is(""));
+      collector.checkThat(metaData.getNumericFunctions(), is(""));
+      collector.checkThat(metaData.getStringFunctions(), is(""));
+      collector.checkThat(metaData.getSystemFunctions(), is(""));
+      collector.checkThat(metaData.getTimeDateFunctions(), is(""));
+    }
   }
 }

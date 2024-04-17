@@ -24,6 +24,7 @@ import numpy as np
 import pytest
 import pyarrow as pa
 import pyarrow.compute as pc
+from pyarrow.vendored.version import Version
 
 
 def test_chunked_array_basics():
@@ -493,6 +494,47 @@ def test_recordbatch_dunder_init():
         pa.RecordBatch()
 
 
+def test_chunked_array_c_array_interface():
+    class ArrayWrapper:
+        def __init__(self, array):
+            self.array = array
+
+        def __arrow_c_array__(self, requested_schema=None):
+            return self.array.__arrow_c_array__(requested_schema)
+
+    data = pa.array([1, 2, 3], pa.int64())
+    chunked = pa.chunked_array([data])
+    wrapper = ArrayWrapper(data)
+
+    # Can roundtrip through the wrapper.
+    result = pa.chunked_array(wrapper)
+    assert result == chunked
+
+    # Can also import with a type that implementer can cast to.
+    result = pa.chunked_array(wrapper, type=pa.int16())
+    assert result == chunked.cast(pa.int16())
+
+
+def test_chunked_array_c_stream_interface():
+    class ChunkedArrayWrapper:
+        def __init__(self, chunked):
+            self.chunked = chunked
+
+        def __arrow_c_stream__(self, requested_schema=None):
+            return self.chunked.__arrow_c_stream__(requested_schema)
+
+    data = pa.chunked_array([[1, 2, 3], [4, None, 6]])
+    wrapper = ChunkedArrayWrapper(data)
+
+    # Can roundtrip through the wrapper.
+    result = pa.chunked_array(wrapper)
+    assert result == data
+
+    # Can also import with a type that implementer can cast to.
+    result = pa.chunked_array(wrapper, type=pa.int16())
+    assert result == data.cast(pa.int16())
+
+
 def test_recordbatch_c_array_interface():
     class BatchWrapper:
         def __init__(self, batch):
@@ -926,36 +968,46 @@ def test_recordbatch_to_tensor_uniform_type(typ):
             pa.array(arr3, type=pa.from_numpy_dtype(typ)),
         ], ["a", "b", "c"]
     )
-    result = batch.to_tensor()
 
-    x = np.array([arr1, arr2, arr3], typ).transpose()
+    result = batch.to_tensor(row_major=False)
+    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="F")
     expected = pa.Tensor.from_numpy(x)
+    check_tensors(result, expected, pa.from_numpy_dtype(typ), 27)
 
+    result = batch.to_tensor()
+    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="C")
+    expected = pa.Tensor.from_numpy(x)
     check_tensors(result, expected, pa.from_numpy_dtype(typ), 27)
 
     # Test offset
     batch1 = batch.slice(1)
-    result = batch1.to_tensor()
-
     arr1 = [2, 3, 4, 5, 6, 7, 8, 9]
     arr2 = [20, 30, 40, 50, 60, 70, 80, 90]
     arr3 = [100, 100, 100, 100, 100, 100, 100, 100]
 
-    x = np.array([arr1, arr2, arr3], typ).transpose()
+    result = batch1.to_tensor(row_major=False)
+    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="F")
     expected = pa.Tensor.from_numpy(x)
+    check_tensors(result, expected, pa.from_numpy_dtype(typ), 24)
 
+    result = batch1.to_tensor()
+    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="C")
+    expected = pa.Tensor.from_numpy(x)
     check_tensors(result, expected, pa.from_numpy_dtype(typ), 24)
 
     batch2 = batch.slice(1, 5)
-    result = batch2.to_tensor()
-
     arr1 = [2, 3, 4, 5, 6]
     arr2 = [20, 30, 40, 50, 60]
     arr3 = [100, 100, 100, 100, 100]
 
-    x = np.array([arr1, arr2, arr3], typ).transpose()
+    result = batch2.to_tensor(row_major=False)
+    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="F")
     expected = pa.Tensor.from_numpy(x)
+    check_tensors(result, expected, pa.from_numpy_dtype(typ), 15)
 
+    result = batch2.to_tensor()
+    x = np.column_stack([arr1, arr2, arr3]).astype(typ, order="C")
+    expected = pa.Tensor.from_numpy(x)
     check_tensors(result, expected, pa.from_numpy_dtype(typ), 15)
 
 
@@ -970,11 +1022,15 @@ def test_recordbatch_to_tensor_uniform_float_16():
             pa.array(np.array(arr3, dtype=np.float16), type=pa.float16()),
         ], ["a", "b", "c"]
     )
-    result = batch.to_tensor()
 
-    x = np.array([arr1, arr2, arr3], np.float16).transpose()
+    result = batch.to_tensor(row_major=False)
+    x = np.column_stack([arr1, arr2, arr3]).astype(np.float16, order="F")
     expected = pa.Tensor.from_numpy(x)
+    check_tensors(result, expected, pa.float16(), 27)
 
+    result = batch.to_tensor()
+    x = np.column_stack([arr1, arr2, arr3]).astype(np.float16, order="C")
+    expected = pa.Tensor.from_numpy(x)
     check_tensors(result, expected, pa.float16(), 27)
 
 
@@ -989,11 +1045,15 @@ def test_recordbatch_to_tensor_mixed_type():
             pa.array(arr2, type=pa.int16()),
         ], ["a", "b"]
     )
-    result = batch.to_tensor()
 
-    x = np.array([arr1, arr2], np.int32).transpose()
+    result = batch.to_tensor(row_major=False)
+    x = np.column_stack([arr1, arr2]).astype(np.int32, order="F")
     expected = pa.Tensor.from_numpy(x)
+    check_tensors(result, expected, pa.int32(), 18)
 
+    result = batch.to_tensor()
+    x = np.column_stack([arr1, arr2]).astype(np.int32, order="C")
+    expected = pa.Tensor.from_numpy(x)
     check_tensors(result, expected, pa.int32(), 18)
 
     # uint16 + int16 + float32 = float64
@@ -1004,9 +1064,18 @@ def test_recordbatch_to_tensor_mixed_type():
             pa.array(arr3, type=pa.float32()),
         ], ["a", "b", "c"]
     )
-    result = batch.to_tensor()
+    result = batch.to_tensor(row_major=False)
+    x = np.column_stack([arr1, arr2, arr3]).astype(np.float64, order="F")
+    expected = pa.Tensor.from_numpy(x)
 
-    x = np.array([arr1, arr2, arr3], np.float64).transpose()
+    np.testing.assert_equal(result.to_numpy(), x)
+    assert result.size == 27
+    assert result.type == pa.float64()
+    assert result.shape == expected.shape
+    assert result.strides == expected.strides
+
+    result = batch.to_tensor()
+    x = np.column_stack([arr1, arr2, arr3]).astype(np.float64, order="C")
     expected = pa.Tensor.from_numpy(x)
 
     np.testing.assert_equal(result.to_numpy(), x)
@@ -1044,9 +1113,8 @@ def test_recordbatch_to_tensor_nan():
             pa.array(arr2, type=pa.float32()),
         ], ["a", "b"]
     )
-    result = batch.to_tensor()
-
-    x = np.array([arr1, arr2], np.float32).transpose()
+    result = batch.to_tensor(row_major=False)
+    x = np.column_stack([arr1, arr2]).astype(np.float32, order="F")
     expected = pa.Tensor.from_numpy(x)
 
     np.testing.assert_equal(result.to_numpy(), x)
@@ -1071,9 +1139,8 @@ def test_recordbatch_to_tensor_null():
     ):
         batch.to_tensor()
 
-    result = batch.to_tensor(null_to_nan=True)
-
-    x = np.array([arr1, arr2], np.float64).transpose()
+    result = batch.to_tensor(null_to_nan=True, row_major=False)
+    x = np.column_stack([arr1, arr2]).astype(np.float64, order="F")
     expected = pa.Tensor.from_numpy(x)
 
     np.testing.assert_equal(result.to_numpy(), x)
@@ -1090,7 +1157,7 @@ def test_recordbatch_to_tensor_null():
         ], ["a", "b"]
     )
 
-    result = batch.to_tensor(null_to_nan=True)
+    result = batch.to_tensor(null_to_nan=True, row_major=False)
 
     np.testing.assert_equal(result.to_numpy(), x)
     assert result.size == 18
@@ -1106,9 +1173,8 @@ def test_recordbatch_to_tensor_null():
         ], ["a", "b"]
     )
 
-    result = batch.to_tensor(null_to_nan=True)
-
-    x = np.array([arr1, arr2], np.float32).transpose()
+    result = batch.to_tensor(null_to_nan=True, row_major=False)
+    x = np.column_stack([arr1, arr2]).astype(np.float32, order="F")
     expected = pa.Tensor.from_numpy(x)
 
     np.testing.assert_equal(result.to_numpy(), x)
@@ -1127,7 +1193,7 @@ def test_recordbatch_to_tensor_empty():
     )
     result = batch.to_tensor()
 
-    x = np.array([[], []], np.float32).transpose()
+    x = np.column_stack([[], []]).astype(np.float32, order="F")
     expected = pa.Tensor.from_numpy(x)
 
     assert result.size == expected.size
@@ -1671,6 +1737,43 @@ def test_table_rename_columns(cls):
 
     expected = cls.from_arrays(data, names=['eh', 'bee', 'sea'])
     assert t2.equals(expected)
+
+    message = "names must be a list or dict not <class 'str'>"
+    with pytest.raises(TypeError, match=message):
+        table.rename_columns('not a list')
+
+
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
+def test_table_rename_columns_mapping(cls):
+    data = [
+        pa.array(range(5)),
+        pa.array([-10, -5, 0, 5, 10]),
+        pa.array(range(5, 10))
+    ]
+    table = cls.from_arrays(data, names=['a', 'b', 'c'])
+    assert table.column_names == ['a', 'b', 'c']
+
+    expected = cls.from_arrays(data, names=['eh', 'b', 'sea'])
+    t1 = table.rename_columns({'a': 'eh', 'c': 'sea'})
+    t1.validate()
+    assert t1 == expected
+
+    # Test renaming duplicate column names
+    table = cls.from_arrays(data, names=['a', 'a', 'c'])
+    expected = cls.from_arrays(data, names=['eh', 'eh', 'sea'])
+    t2 = table.rename_columns({'a': 'eh', 'c': 'sea'})
+    t2.validate()
+    assert t2 == expected
+
+    # Test column not found
+    with pytest.raises(KeyError, match=r"Column 'd' not found"):
+        table.rename_columns({'a': 'eh', 'd': 'sea'})
 
 
 def test_table_flatten():
@@ -3171,6 +3274,21 @@ def test_numpy_asarray(constructor):
     result = np.asarray(table3, dtype="int32")
     np.testing.assert_allclose(result, expected)
     assert result.dtype == "int32"
+
+
+@pytest.mark.parametrize("constructor", [pa.table, pa.record_batch])
+def test_numpy_array_protocol(constructor):
+    table = constructor([[1, 2, 3], [4.0, 5.0, 6.0]], names=["a", "b"])
+    expected = np.array([[1, 4], [2, 5], [3, 6]], dtype="float64")
+
+    if Version(np.__version__) < Version("2.0"):
+        # copy keyword is not strict and not passed down to __array__
+        result = np.array(table, copy=False)
+        np.testing.assert_array_equal(result, expected)
+    else:
+        # starting with numpy 2.0, the copy=False keyword is assumed to be strict
+        with pytest.raises(ValueError, match="Unable to avoid a copy"):
+            np.array(table, copy=False)
 
 
 @pytest.mark.acero
