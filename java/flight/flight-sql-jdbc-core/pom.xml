@@ -15,7 +15,6 @@
     <groupId>org.apache.arrow</groupId>
     <artifactId>arrow-flight</artifactId>
     <version>17.0.0-SNAPSHOT</version>
-    <relativePath>../pom.xml</relativePath>
   </parent>
 
   <artifactId>flight-sql-jdbc-core</artifactId>
@@ -47,20 +46,17 @@
       </exclusions>
     </dependency>
 
-    <!-- https://mvnrepository.com/artifact/org.apache.arrow/arrow-memory-core -->
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-memory-core</artifactId>
     </dependency>
 
-    <!-- https://mvnrepository.com/artifact/org.apache.arrow/arrow-memory-netty -->
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-memory-netty</artifactId>
       <scope>runtime</scope>
     </dependency>
 
-    <!-- https://mvnrepository.com/artifact/org.apache.arrow/arrow-vector -->
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-vector</artifactId>
@@ -136,11 +132,6 @@
   </dependencies>
 
   <build>
-    <resources>
-      <resource>
-        <directory>src/main/resources</directory>
-      </resource>
-    </resources>
     <plugins>
       <plugin>
         <artifactId>maven-surefire-plugin</artifactId>
@@ -154,7 +145,6 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>properties-maven-plugin</artifactId>
-        <version>1.2.1</version>
         <executions>
           <execution>
             <id>write-project-properties-to-file</id>

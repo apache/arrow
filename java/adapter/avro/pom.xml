@@ -25,36 +25,27 @@
   <url>http://maven.apache.org</url>
 
   <dependencies>
-
-    <!-- https://mvnrepository.com/artifact/org.apache.arrow/arrow-memory-core -->
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-memory-core</artifactId>
     </dependency>
-
-    <!-- https://mvnrepository.com/artifact/org.apache.arrow/arrow-memory-netty -->
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-memory-netty</artifactId>
       <scope>runtime</scope>
     </dependency>
-
-    <!-- https://mvnrepository.com/artifact/org.apache.arrow/arrow-vector -->
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-vector</artifactId>
     </dependency>
-
     <dependency>
       <groupId>org.immutables</groupId>
       <artifactId>value</artifactId>
     </dependency>
-
     <dependency>
       <groupId>org.apache.avro</groupId>
       <artifactId>avro</artifactId>
       <version>${dep.avro.version}</version>
     </dependency>
   </dependencies>
-
 </project>

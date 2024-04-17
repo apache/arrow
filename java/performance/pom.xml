@@ -22,9 +22,7 @@
   <description>JMH Performance benchmarks for other Arrow libraries.</description>
 
   <properties>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <jmh.version>1.37</jmh.version>
-    <javac.target>1.8</javac.target>
     <uberjar.name>benchmarks</uberjar.name>
     <skip.perf.benchmarks>true</skip.perf.benchmarks>
     <benchmark.filter>.*</benchmark.filter>
@@ -96,52 +94,7 @@
   </dependencies>
 
   <build>
-    <pluginManagement>
-      <plugins>
-        <plugin>
-          <artifactId>maven-clean-plugin</artifactId>
-          <version>3.3.2</version>
-        </plugin>
-        <plugin>
-          <artifactId>maven-deploy-plugin</artifactId>
-          <version>3.1.1</version>
-        </plugin>
-        <plugin>
-          <artifactId>maven-install-plugin</artifactId>
-          <version>3.1.1</version>
-        </plugin>
-        <plugin>
-          <artifactId>maven-jar-plugin</artifactId>
-          <version>3.3.0</version>
-        </plugin>
-        <plugin>
-          <artifactId>maven-javadoc-plugin</artifactId>
-          <version>3.6.3</version>
-        </plugin>
-        <plugin>
-          <artifactId>maven-resources-plugin</artifactId>
-          <version>3.3.1</version>
-        </plugin>
-        <plugin>
-          <artifactId>maven-source-plugin</artifactId>
-          <version>2.2.1</version>
-        </plugin>
-        <plugin>
-          <artifactId>maven-surefire-plugin</artifactId>
-          <version>3.2.5</version>
-        </plugin>
-      </plugins>
-    </pluginManagement>
     <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <configuration combine.self="override">
-          <compilerVersion>${javac.target}</compilerVersion>
-          <source>${javac.target}</source>
-          <target>${javac.target}</target>
-        </configuration>
-      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
@@ -175,7 +128,6 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
-        <version>3.2.0</version>
         <configuration>
           <skip>${skip.perf.benchmarks}</skip>
           <classpathScope>test</classpathScope>
@@ -212,5 +164,4 @@
       </plugin>
     </plugins>
   </build>
-
 </project>

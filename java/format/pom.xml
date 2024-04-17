@@ -31,7 +31,6 @@
   </dependencies>
 
   <build>
-
     <plugins>
       <plugin>
         <!-- no checkstyle on the generated code -->
@@ -42,6 +41,5 @@
         </configuration>
       </plugin>
     </plugins>
-
   </build>
 </project>
