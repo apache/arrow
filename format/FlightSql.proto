@@ -136,6 +136,23 @@ enum SqlInfo {
   FLIGHT_SQL_SERVER_CANCEL = 9;
 
   /*
+   * Retrieves a boolean value indicating whether the Flight SQL Server supports executing
+   * bulk ingestion.
+   */
+   FLIGHT_SQL_SERVER_BULK_INGESTION = 10;
+
+  /*
+   * Retrieves a boolean value indicating whether transactions are supported for bulk ingestion. If not, invoking
+   * the method commit in the context of a bulk ingestion is a noop, and the isolation level is
+   * `arrow.flight.protocol.sql.SqlTransactionIsolationLevel.TRANSACTION_NONE`.
+   *
+   * Returns:
+   * - false: if bulk ingestion transactions are unsupported;
+   * - true: if bulk ingestion transactions are supported.
+   */
+   FLIGHT_SQL_SERVER_INGEST_TRANSACTIONS_SUPPORTED = 11;
+
+  /*
    * Retrieves an int32 indicating the timeout (in milliseconds) for prepared statement handles.
    *
    * If 0, there is no timeout.  Servers should reset the timeout when the handle is used in a command.
@@ -1785,9 +1802,68 @@ message CommandPreparedStatementUpdate {
 }
 
 /*
- * Returned from the RPC call DoPut when a CommandStatementUpdate
- * CommandPreparedStatementUpdate was in the request, containing
- * results from the update.
+ * Represents a bulk ingestion request. Used in the command member of FlightDescriptor
+ * for the the RPC call DoPut to cause the server load the contents of the stream's
+ * FlightData into the target destination.
+ */
+message CommandStatementIngest {
+  option (experimental) = true;
+
+  // Options for table definition behavior
+  message TableDefinitionOptions {
+    // The action to take if the target table does not exist
+    enum TableNotExistOption {
+      // Do not use. Servers should error if this is specified by a client.
+      TABLE_NOT_EXIST_OPTION_UNSPECIFIED = 0;
+      // Create the table if it does not exist
+      TABLE_NOT_EXIST_OPTION_CREATE = 1;
+      // Fail if the table does not exist
+      TABLE_NOT_EXIST_OPTION_FAIL = 2;
+    }
+    // The action to take if the target table already exists
+    enum TableExistsOption {
+      // Do not use. Servers should error if this is specified by a client.
+      TABLE_EXISTS_OPTION_UNSPECIFIED = 0;
+      // Fail if the table already exists
+      TABLE_EXISTS_OPTION_FAIL = 1;
+      // Append to the table if it already exists
+      TABLE_EXISTS_OPTION_APPEND = 2;
+      // Drop and recreate the table if it already exists
+      TABLE_EXISTS_OPTION_REPLACE = 3;
+    }
+
+    TableNotExistOption if_not_exist = 1;
+    TableExistsOption if_exists = 2;
+  }
+
+  // The behavior for handling the table definition.
+  TableDefinitionOptions table_definition_options = 1;
+  // The table to load data into.
+  string table = 2;
+  // The db_schema of the destination table to load data into. If unset, a backend-specific default may be used.
+  optional string schema = 3;
+  // The catalog of the destination table to load data into. If unset, a backend-specific default may be used.
+  optional string catalog = 4;
+  /*
+   * Store ingested data in a temporary table.
+   * The effect of setting temporary is to place the table in a backend-defined namespace, and to drop the table at the end of the session.
+   * The namespacing may make use of a backend-specific schema and/or catalog.
+   * The server should return an error if an explicit choice of schema or catalog is incompatible with the server's namespacing decision.
+  */
+  bool temporary = 5;
+  // Perform the ingestion as part of this transaction. If specified, results should not be committed in the event of an error/cancellation.
+  optional bytes transaction_id = 6;
+
+  // Future extensions to the parameters of CommandStatementIngest should be added here, at a lower index than the generic 'options' parameter.
+
+  // Backend-specific options.
+  map<string, string> options = 1000;
+}
+
+/*
+ * Returned from the RPC call DoPut when a CommandStatementUpdate,
+ * CommandPreparedStatementUpdate, or CommandStatementIngest was
+ * in the request, containing results from the update.
  */
 message DoPutUpdateResult {
   option (experimental) = true;

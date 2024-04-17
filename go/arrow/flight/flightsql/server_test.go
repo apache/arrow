@@ -178,6 +178,19 @@ func (*testServer) CloseSession(ctx context.Context, req *flight.CloseSessionReq
 	return &flight.CloseSessionResult{Status: flight.CloseSessionResultClosed}, nil
 }
 
+func (*testServer) DoPutCommandStatementIngest(ctx context.Context, cmd flightsql.StatementIngest, rdr flight.MessageReader) (int64, error) {
+	var maxRows int64 = 50
+	var nRows int64
+	for rdr.Next() {
+		rec := rdr.Record()
+		if nRows+rec.NumRows() > maxRows {
+			return nRows, fmt.Errorf("ingested rows exceeded maximum of %d", maxRows)
+		}
+		nRows += rec.NumRows()
+	}
+	return nRows, nil
+}
+
 type FlightSqlServerSuite struct {
 	suite.Suite
 
@@ -202,9 +215,16 @@ func (s *FlightSqlServerSuite) SetupTest() {
 	cl, err := flightsql.NewClient(s.s.Addr().String(), nil, nil, dialOpts...)
 	s.Require().NoError(err)
 	s.cl = cl
+
+	checked := memory.NewCheckedAllocator(s.cl.Alloc)
+	s.cl.Alloc = checked
 }
 
 func (s *FlightSqlServerSuite) TearDownTest() {
+	checked, ok := s.cl.Alloc.(*memory.CheckedAllocator)
+	s.Require().True(ok)
+	checked.AssertSize(s.T(), 0)
+
 	s.Require().NoError(s.cl.Close())
 	s.cl = nil
 }
@@ -279,6 +299,111 @@ func (s *FlightSqlServerSuite) TestExecutePoll() {
 	s.NotNil(poll)
 	s.Nil(poll.GetFlightDescriptor())
 	s.Len(poll.GetInfo().Endpoint, 2)
+}
+
+func (s *FlightSqlServerSuite) TestExecuteIngestNil() {
+	// Ingest with nil options errors, but does not panic
+	nRecords, err := s.cl.ExecuteIngest(context.TODO(), nil, nil)
+	s.Error(err)
+	s.Equal(int64(0), nRecords)
+}
+
+func (s *FlightSqlServerSuite) TestExecuteIngestInvalid() {
+	reclist := []arrow.Record{}
+	rdr, err := array.NewRecordReader(arrow.NewSchema([]arrow.Field{}, nil), reclist)
+	s.NoError(err)
+	defer rdr.Release()
+
+	// Cannot execute ingest without specifying required options
+	nRecords, err := s.cl.ExecuteIngest(context.TODO(), rdr, &flightsql.ExecuteIngestOpts{})
+	s.Error(err)
+	s.Equal(int64(0), nRecords)
+}
+
+func (s *FlightSqlServerSuite) TestExecuteIngest() {
+	nRecords := 3
+	nRowsPerRecord := 5
+	reclist := generateRecords(s.cl.Alloc, nRecords, nRowsPerRecord)
+	for _, rec := range reclist {
+		defer rec.Release()
+	}
+
+	rdr, err := array.NewRecordReader(reclist[0].Schema(), reclist)
+	s.NoError(err)
+	defer rdr.Release()
+
+	nRowsIngested, err := s.cl.ExecuteIngest(
+		context.TODO(),
+		rdr,
+		&flightsql.ExecuteIngestOpts{
+			TableDefinitionOptions: &flightsql.TableDefinitionOptions{
+				IfNotExist: flightsql.TableDefinitionOptionsTableNotExistOptionCreate,
+				IfExists:   flightsql.TableDefinitionOptionsTableExistsOptionReplace,
+			},
+			Table: "test_table",
+		},
+	)
+	s.NoError(err)
+
+	nRowsExpected := int64(nRecords * nRowsPerRecord)
+	s.Equal(nRowsExpected, nRowsIngested)
+}
+
+func (s *FlightSqlServerSuite) TestExecuteIngestWithServerError() {
+	nRecords := 11 // intentionally exceed maximum number of rows the server can ingest
+	nRowsPerRecord := 5
+	reclist := generateRecords(s.cl.Alloc, nRecords, nRowsPerRecord)
+	for _, rec := range reclist {
+		defer rec.Release()
+	}
+
+	rdr, err := array.NewRecordReader(reclist[0].Schema(), reclist)
+	s.NoError(err)
+	defer rdr.Release()
+
+	nRowsIngested, err := s.cl.ExecuteIngest(
+		context.TODO(),
+		rdr,
+		&flightsql.ExecuteIngestOpts{
+			TableDefinitionOptions: &flightsql.TableDefinitionOptions{
+				IfNotExist: flightsql.TableDefinitionOptionsTableNotExistOptionCreate,
+				IfExists:   flightsql.TableDefinitionOptionsTableExistsOptionReplace,
+			},
+			Table: "test_table",
+		},
+	)
+	s.Error(err)
+	s.ErrorContains(err, "ingested rows exceeded maximum")
+
+	nRowsExpected := int64(50) // max rows the server can ingest
+	s.Equal(nRowsExpected, nRowsIngested)
+}
+
+func generateRecords(alloc memory.Allocator, nRecords, nRowsPerRecord int) []arrow.Record {
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			{Name: "one", Type: arrow.FixedWidthTypes.Boolean},
+			{Name: "two", Type: arrow.BinaryTypes.String},
+			{Name: "three", Type: arrow.PrimitiveTypes.Int64},
+		},
+		nil,
+	)
+
+	bldr := array.NewRecordBuilder(alloc, schema)
+	defer bldr.Release()
+
+	var val int
+	reclist := make([]arrow.Record, nRecords)
+	for i := 0; i < nRecords; i++ {
+		for j := 0; j < nRowsPerRecord; j++ {
+			bldr.Field(0).(*array.BooleanBuilder).Append(val%2 == 0)
+			bldr.Field(1).(*array.StringBuilder).Append(fmt.Sprint(val))
+			bldr.Field(2).(*array.Int64Builder).Append(int64(val))
+			val++
+		}
+		reclist[i] = bldr.NewRecord()
+	}
+	return reclist
 }
 
 type UnimplementedFlightSqlServerSuite struct {
@@ -457,6 +582,36 @@ func (s *UnimplementedFlightSqlServerSuite) TestDoGet() {
 			s.True(strings.HasSuffix(err.Error(), tt.name+" not implemented"), err.Error())
 		})
 	}
+}
+
+func (s *UnimplementedFlightSqlServerSuite) TestExecuteIngest() {
+	nRecords := 3
+	nRowsPerRecord := 5
+	reclist := generateRecords(s.cl.Alloc, nRecords, nRowsPerRecord)
+	for _, rec := range reclist {
+		defer rec.Release()
+	}
+
+	rdr, err := array.NewRecordReader(reclist[0].Schema(), reclist)
+	s.NoError(err)
+	defer rdr.Release()
+
+	info, err := s.cl.ExecuteIngest(
+		context.TODO(),
+		rdr,
+		&flightsql.ExecuteIngestOpts{
+			TableDefinitionOptions: &flightsql.TableDefinitionOptions{
+				IfNotExist: flightsql.TableDefinitionOptionsTableNotExistOptionCreate,
+				IfExists:   flightsql.TableDefinitionOptionsTableExistsOptionReplace,
+			},
+			Table: "test_table",
+		},
+	)
+	st, ok := status.FromError(err)
+	s.True(ok)
+	s.Equal(codes.Unimplemented, st.Code())
+	s.Equal("DoPutCommandStatementIngest not implemented", st.Message())
+	s.Zero(info)
 }
 
 func (s *UnimplementedFlightSqlServerSuite) TestDoAction() {

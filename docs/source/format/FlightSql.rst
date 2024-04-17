@@ -114,6 +114,12 @@ google.protobuf.Any message, then serialized and packed into the
 to the command name (i.e. for ``ActionClosePreparedStatementRequest``,
 the ``type`` should be ``ClosePreparedStatement``).
 
+Commands that execute updates such as ``CommandStatementUpdate`` and
+``CommandStatementIngest`` return a Flight SQL ``DoPutUpdateResult``
+after consuming the entire FlightData stream. This message is encoded
+in the ``app_metadata`` field of the Flight RPC ``PutResult`` returned.
+
+
 ``ActionClosePreparedStatementRequest``
     Close a previously created prepared statement.
 
@@ -185,6 +191,13 @@ the ``type`` should be ``ClosePreparedStatement``).
     When used with DoPut: execute the query and return the number of
     affected rows.
 
+``CommandStatementIngest``
+    Execute a bulk ingestion.
+
+    When used with DoPut: load the stream of Arrow record batches into
+    the specified target table and return the number of rows ingested
+    via a `DoPutUpdateResult` message.
+
 Flight Server Session Management
 --------------------------------
 
@@ -240,6 +253,10 @@ Sequence Diagrams
 .. figure:: ./FlightSql/CommandPreparedStatementQuery.mmd.svg
 
    Creating a prepared statement, then executing it.
+
+.. figure:: ./FlightSql/CommandStatementIngest.mmd.svg
+
+   Executing a bulk ingestion.
 
 External Resources
 ==================
