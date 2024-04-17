@@ -242,9 +242,30 @@ namespace Apache.Arrow
                 CheckData(type, 2);
                 ArrowBuffer validityBuffer = ConcatenateValidityBuffer();
                 ArrowBuffer offsetBuffer = ConcatenateOffsetBuffer();
-                ArrayData child = Concatenate(SelectChildren(0), _allocator);
 
-                Result = new ArrayData(type, _totalLength, _totalNullCount, 0, new ArrowBuffer[] { validityBuffer, offsetBuffer }, new[] { child });
+                var children = new List<ArrayData>(_arrayDataList.Count);
+                foreach (ArrayData arrayData in _arrayDataList)
+                {
+                    if (arrayData.Length == 0)
+                    {
+                        continue;
+                    }
+
+                    var child = arrayData.Children[0];
+                    ReadOnlySpan<int> offsets = arrayData.Buffers[1].Span.CastTo<int>().Slice(arrayData.Offset, arrayData.Length + 1);
+                    var firstOffset = offsets[0];
+                    var lastOffset = offsets[arrayData.Length];
+                    if (firstOffset != 0 || lastOffset != child.Length)
+                    {
+                        child = child.Slice(firstOffset, lastOffset - firstOffset);
+                    }
+
+                    children.Add(child);
+                }
+
+                ArrayData combinedChild = Concatenate(children, _allocator);
+
+                Result = new ArrayData(type, _totalLength, _totalNullCount, 0, new ArrowBuffer[] { validityBuffer, offsetBuffer }, new[] { combinedChild });
             }
 
             private ArrowBuffer ConcatenateValidityBuffer()
