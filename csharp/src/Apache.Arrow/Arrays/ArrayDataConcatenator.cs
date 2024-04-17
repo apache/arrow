@@ -341,8 +341,10 @@ namespace Apache.Arrow
 
                 foreach (ArrayData arrayData in _arrayDataList)
                 {
-                    int lastOffset = arrayData.Buffers[1].Span.CastTo<int>()[arrayData.Length];
-                    builder.Append(arrayData.Buffers[2].Span.Slice(0, lastOffset));
+                    var offsets = arrayData.Buffers[1].Span.CastTo<int>().Slice(arrayData.Offset, arrayData.Length + 1);
+                    var firstOffset = offsets[0];
+                    var lastOffset = offsets[arrayData.Length];
+                    builder.Append(arrayData.Buffers[2].Span.Slice(firstOffset, lastOffset - firstOffset));
                 }
 
                 return builder.Build(_allocator);
@@ -353,8 +355,6 @@ namespace Apache.Arrow
                 var builder = new ArrowBuffer.Builder<int>(_totalLength + 1);
                 int baseOffset = 0;
 
-                builder.Append(0);
-
                 foreach (ArrayData arrayData in _arrayDataList)
                 {
                     if (arrayData.Length == 0)
@@ -362,18 +362,19 @@ namespace Apache.Arrow
                         continue;
                     }
 
-                    // The first offset is always 0.
-                    // It should be skipped because it duplicate to the last offset of builder.
-                    ReadOnlySpan<int> span = arrayData.Buffers[1].Span.CastTo<int>().Slice(1, arrayData.Length);
+                    ReadOnlySpan<int> span = arrayData.Buffers[1].Span.CastTo<int>().Slice(arrayData.Offset, arrayData.Length + 1);
+                    // First offset may be non-zero for sliced arrays
+                    var firstOffset = span[0];
 
-                    foreach (int offset in span)
+                    foreach (int offset in span.Slice(0, arrayData.Length))
                     {
-                        builder.Append(baseOffset + offset);
+                        builder.Append(baseOffset + offset - firstOffset);
                     }
 
-                    // The next offset must start from the current last offset.
-                    baseOffset += span[arrayData.Length - 1];
+                    baseOffset += span[arrayData.Length] - firstOffset;
                 }
+
+                builder.Append(baseOffset);
 
                 return builder.Build(_allocator);
             }
