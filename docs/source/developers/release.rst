@@ -200,6 +200,8 @@ Build source and binaries and submit them
 .. code-block::
 
     # Build the source release tarball and create Pull Request with verification tasks
+    #
+    # Note that you need to have GitHub CLI installed to run this script.
     dev/release/02-source.sh <version> <rc-number>
 
     # Submit binary tasks using crossbow, the command will output the crossbow build id
@@ -225,8 +227,13 @@ Build source and binaries and submit them
     #   https://repository.apache.org/#stagingRepositories
     dev/release/06-java-upload.sh <version> <rc-number>
 
+    # Sign and upload MATLAB artifacts to the GitHub Releases area.
+    #
+    # Note that you need to have GitHub CLI installed to run this script.
+    dev/release/07-matlab-upload.sh <version> <rc-number>
+
     # Start verifications for binaries and wheels
-    dev/release/07-binary-verify.sh <version> <rc-number>
+    dev/release/08-binary-verify.sh <version> <rc-number>
 
 Verify the Release
 ------------------
@@ -361,8 +368,6 @@ Be sure to go through on the following checklist:
 
       # dev/release/post-03-binary.sh 0.1.0 0
       dev/release/post-03-binary.sh <version> <rc number>
-
-   Note: You must have GitHub CLI installed locally.
 
 .. dropdown:: Update website
    :animate: fade-in-slide-down
