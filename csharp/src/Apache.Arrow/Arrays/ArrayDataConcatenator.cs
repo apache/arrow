@@ -390,7 +390,7 @@ namespace Apache.Arrow
                         continue;
                     }
 
-                    ReadOnlySpan<BinaryView> span = arrayData.Buffers[1].Span.CastTo<BinaryView>().Slice(0, arrayData.Length);
+                    ReadOnlySpan<BinaryView> span = arrayData.Buffers[1].Span.CastTo<BinaryView>().Slice(arrayData.Offset, arrayData.Length);
                     foreach (BinaryView view in span)
                     {
                         if (view.Length > BinaryView.MaxInlineLength)
