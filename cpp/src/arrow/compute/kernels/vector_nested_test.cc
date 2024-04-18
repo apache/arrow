@@ -118,29 +118,6 @@ class TestVectorLogicalList : public ::testing::Test {
     CheckVectorUnary("list_flatten", input, expected, &opts);
   }
 
-  void TestListParentIndices() {
-    auto input = ArrayFromJSON(type_, "[[0, null, 1], null, [2, 3], [], [4, 5]]");
-    auto expected = ArrayFromJSON(int64(), "[0, 0, 0, 2, 2, 4, 4]");
-    CheckVectorUnary("list_parent_indices", input, expected);
-
-    // Construct a list with a non-empty null slot
-    input = ArrayFromJSON(type_, "[[0, null, 1], [0, 0], [2, 3], [], [4, 5]]");
-    auto tweaked = TweakValidityBit(input, 1, false);
-    expected = ArrayFromJSON(int64(), "[0, 0, 0, 1, 1, 2, 2, 4, 4]");
-    CheckVectorUnary("list_parent_indices", tweaked, expected);
-  }
-
-  void TestListParentIndicesChunkedArray() {
-    auto input =
-        ChunkedArrayFromJSON(type_, {"[[0, null, 1], null]", "[[2, 3], [], [4, 5]]"});
-    auto expected = ChunkedArrayFromJSON(int64(), {"[0, 0, 0]", "[2, 2, 4, 4]"});
-    CheckVectorUnary("list_parent_indices", input, expected);
-
-    input = ChunkedArrayFromJSON(type_, {});
-    expected = ChunkedArrayFromJSON(int64(), {});
-    CheckVectorUnary("list_parent_indices", input, expected);
-  }
-
  protected:
   std::shared_ptr<DataType> type_;
   std::shared_ptr<DataType> value_type_;
@@ -158,12 +135,6 @@ TYPED_TEST(TestVectorLogicalList, ListFlattenChunkedArray) {
 
 TYPED_TEST(TestVectorLogicalList, ListFlattenRecursively) {
   this->TestListFlattenRecursively();
-}
-
-TYPED_TEST(TestVectorLogicalList, ListParentIndices) { this->TestListParentIndices(); }
-
-TYPED_TEST(TestVectorLogicalList, ListParentIndicesChunkedArray) {
-  this->TestListParentIndicesChunkedArray();
 }
 
 TEST(TestVectorFixedSizeList, ListFlattenFixedSizeList) {
@@ -210,7 +181,36 @@ TEST(TestVectorFixedSizeList, ListFlattenFixedSizeListRecursively) {
   CheckVectorUnary("list_flatten", input, expected, &opts);
 }
 
-TEST(TestVectorFixedSizeList, ListParentIndicesFixedSizeList) {
+TEST(TestVectorNested, ListParentIndices) {
+  for (auto ty : {list(int16()), large_list(int16())}) {
+    auto input = ArrayFromJSON(ty, "[[0, null, 1], null, [2, 3], [], [4, 5]]");
+
+    auto expected = ArrayFromJSON(int64(), "[0, 0, 0, 2, 2, 4, 4]");
+    CheckVectorUnary("list_parent_indices", input, expected);
+  }
+
+  // Construct a list with a non-empty null slot
+  auto input = ArrayFromJSON(list(int16()), "[[0, null, 1], [0, 0], [2, 3], [], [4, 5]]");
+  auto tweaked = TweakValidityBit(input, 1, false);
+  auto expected = ArrayFromJSON(int64(), "[0, 0, 0, 1, 1, 2, 2, 4, 4]");
+  CheckVectorUnary("list_parent_indices", tweaked, expected);
+}
+
+TEST(TestVectorNested, ListParentIndicesChunkedArray) {
+  for (auto ty : {list(int16()), large_list(int16())}) {
+    auto input =
+        ChunkedArrayFromJSON(ty, {"[[0, null, 1], null]", "[[2, 3], [], [4, 5]]"});
+
+    auto expected = ChunkedArrayFromJSON(int64(), {"[0, 0, 0]", "[2, 2, 4, 4]"});
+    CheckVectorUnary("list_parent_indices", input, expected);
+
+    input = ChunkedArrayFromJSON(ty, {});
+    expected = ChunkedArrayFromJSON(int64(), {});
+    CheckVectorUnary("list_parent_indices", input, expected);
+  }
+}
+
+TEST(TestVectorNested, ListParentIndicesFixedSizeList) {
   for (auto ty : {fixed_size_list(int16(), 2), fixed_size_list(uint32(), 2)}) {
     {
       auto input = ArrayFromJSON(ty, "[[0, null], null, [1, 2], [3, 4], [null, 5]]");

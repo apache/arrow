@@ -79,10 +79,6 @@ struct ListParentIndicesArray {
 
   Status Visit(const LargeListType& type) { return VisitList(type); }
 
-  Status Visit(const ListViewType& type) { return VisitList(type); }
-
-  Status Visit(const LargeListViewType& type) { return VisitList(type); }
-
   Status Visit(const FixedSizeListType& type) {
     using offset_type = typename FixedSizeListType::offset_type;
     const offset_type slot_length = type.list_size();
