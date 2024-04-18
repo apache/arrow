@@ -139,7 +139,8 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
   /// This should create the appropriate stream type for the device,
   /// derived from Device::Stream to allow for stream ordered events
   /// and memory allocations.
-  virtual Result<std::shared_ptr<Stream>> MakeStream(unsigned int flags) {
+  virtual Result<std::shared_ptr<Stream>> MakeStream(
+      [[maybe_unused]] unsigned int flags) {
     return NULLPTR;
   }
 
@@ -149,8 +150,9 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
   /// @param release_fn a function to call during destruction, `nullptr` or
   ///        a no-op function can be passed to indicate ownership is maintained
   ///        externally
-  virtual Result<std::shared_ptr<Stream>> WrapStream(void* device_stream,
-                                                     Stream::release_fn_t release_fn) {
+  virtual Result<std::shared_ptr<Stream>> WrapStream(
+      [[maybe_unused]] void* device_stream,
+      [[maybe_unused]] Stream::release_fn_t release_fn) {
     return NULLPTR;
   }
 
