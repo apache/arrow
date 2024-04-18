@@ -1,19 +1,33 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.arrow.vector.complex;
 
 import static java.util.Collections.singletonList;
 
 import java.util.List;
+
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
-import org.apache.arrow.memory.util.ArrowBufPointer;
-import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.vector.AddOrGetResult;
-import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.BufferBacked;
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.complex.impl.UnionListReader;
@@ -43,11 +57,26 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     return new ListViewVector(name, allocator, FieldType.nullable(ArrowType.List.INSTANCE), null);
   }
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param name The name of the instance.
+   * @param allocator The allocator to use for allocating/reallocating buffers.
+   * @param fieldType The type of this list.
+   * @param callBack A schema change callback.
+   */
   public ListViewVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     this(new Field(name, fieldType, null), allocator, callBack);
   }
 
-  public  ListViewVector(Field field, BufferAllocator allocator, CallBack callBack) {
+  /**
+   * Constructs a new instance.
+   *
+   * @param field The field materialized by this vector.
+   * @param allocator The allocator to use for allocating/reallocating buffers.
+   * @param callBack A schema change callback.
+   */
+  public ListViewVector(Field field, BufferAllocator allocator, CallBack callBack) {
     super(field.getName(), allocator, callBack);
     this.validityBuffer = allocator.getEmpty();
     this.field = field;
@@ -219,7 +248,9 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
   }
 
   @Override
-  public Field getField() { return null; }
+  public Field getField() {
+    return null;
+  }
 
   @Override
   public MinorType getMinorType() {
