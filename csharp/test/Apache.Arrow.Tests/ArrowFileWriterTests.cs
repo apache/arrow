@@ -158,7 +158,7 @@ namespace Apache.Arrow.Tests
             for (int i = 0; i < length; ++i)
             {
                 var index = randomizedIndices[i];
-                var listLength = (int)random.NextInt64(0, 10);
+                var listLength = random.Next(0, 10);
                 offsetsBuilder.Span[index] = valuesLength;
                 sizesBuilder.Span[index] = listLength;
                 valuesLength += listLength;
@@ -169,7 +169,7 @@ namespace Apache.Arrow.Tests
             var valuesBuilder = new Int64Array.Builder().Reserve(valuesLength);
             for (int i = 0; i < valuesLength; ++i)
             {
-                valuesBuilder.Append(random.NextInt64(0, 1_000));
+                valuesBuilder.Append(random.Next(0, 1_000));
             }
 
             var type = new ListViewType(new Int64Type());
@@ -264,7 +264,7 @@ namespace Apache.Arrow.Tests
             var length = values.Length;
             for (int i = 0; i < length - 1; ++i)
             {
-                var j = (int)random.NextInt64(i, length);
+                var j = random.Next(i, length);
                 var tmp = values[i];
                 values[i] = values[j];
                 values[j] = tmp;
