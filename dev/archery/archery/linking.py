@@ -103,7 +103,7 @@ class DynamicLibrary:
                 if match:
                     paths[match.group(1)] = match.group(2)
                 else:
-                    match = re.search(r'(\S*) \(.*\)', line)
+                    match = re.search(r'(\S*) \(0x[0-9a-fA-F]*\)', line)
                     # Input:
                     #   /lib64/ld-linux-x86-64.so.2 (0x00007c1af3a26000)
                     # Match:
