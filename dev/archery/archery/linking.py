@@ -66,10 +66,8 @@ class DynamicLibrary:
     def _remove_weak_symbols(self, symbol_info):
         return [line for line in symbol_info if not line.endswith(" w")]
 
-    def _capture_symbols(self, remove_symbol_versions, symbol_info):
-        if remove_symbol_versions:
-            symbol_info = [line.split('@')[0].strip() for line in symbol_info]
-        return symbol_info
+    def _remove_symbol_versions(self, symbol_info):
+        return [line.split('@')[0].strip() for line in symbol_info]
 
     def list_symbols_for_dependency(self, dependency, remove_symbol_versions=False):
         if dependency == 'linux-vdso.so.1':
@@ -77,14 +75,16 @@ class DynamicLibrary:
             return []
         result = _nm.run('-D', '-P', dependency, stdout=subprocess.PIPE)
         lines = result.stdout.decode('utf-8').splitlines()
-        lines = self._capture_symbols(remove_symbol_versions, lines)
+        if remove_symbol_versions:
+            lines = self._remove_symbol_versions(lines)
         return self._remove_weak_symbols(lines)
 
     def list_undefined_symbols_for_dependency(self, dependency,
                                               remove_symbol_versions=False):
         result = _nm.run('-u', '-P', dependency, stdout=subprocess.PIPE)
         lines = result.stdout.decode('utf-8').splitlines()
-        lines = self._capture_symbols(remove_symbol_versions, lines)
+        if remove_symbol_versions:
+            lines = self._remove_symbol_versions(lines)
         return self._remove_weak_symbols(lines)
 
     def extract_library_paths(self, file_path):
