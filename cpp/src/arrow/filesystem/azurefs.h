@@ -38,7 +38,7 @@ class BlobServiceClient;
 }
 
 namespace Azure::Storage::Sas {
-class BlobSasBuilder;
+struct BlobSasBuilder;
 }
 
 namespace Azure::Storage::Files::DataLake {
@@ -202,7 +202,8 @@ struct ARROW_EXPORT AzureOptions {
   MakeDataLakeServiceClient() const;
 
   Result<std::string> GenerateSASToken(
-      Azure::Storage::Sas::BlobSasBuilder* builder) const;
+      Azure::Storage::Sas::BlobSasBuilder* builder,
+      Azure::Storage::Blobs::BlobServiceClient* client) const;
 };
 
 /// \brief FileSystem implementation backed by Azure Blob Storage (ABS) [1] and

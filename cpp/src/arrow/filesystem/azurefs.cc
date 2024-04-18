@@ -389,12 +389,11 @@ AzureOptions::MakeDataLakeServiceClient() const {
 }
 
 Result<std::string> AzureOptions::GenerateSASToken(
-    Storage::Sas::BlobSasBuilder* builder) const {
+    Storage::Sas::BlobSasBuilder* builder, Blobs::BlobServiceClient* client) const {
   if (storage_shared_key_credential_) {
     return builder->GenerateSasToken(*storage_shared_key_credential_);
   } else {
     // This part isn't tested. This may not work.
-    ARROW_ASSIGN_OR_RAISE(auto client, MakeBlobServiceClient());
     try {
       auto delegation_key_response = client->GetUserDelegationKey(builder->ExpiresOn);
 
@@ -2895,7 +2894,8 @@ class AzureFileSystem::Impl {
       builder.BlobName = src.path;
       builder.Resource = Storage::Sas::BlobSasResource::Blob;
       builder.SetPermissions(Storage::Sas::BlobSasPermissions::Read);
-      ARROW_ASSIGN_OR_RAISE(sas_token, options_.GenerateSASToken(&builder));
+      ARROW_ASSIGN_OR_RAISE(
+          sas_token, options_.GenerateSASToken(&builder, blob_service_client_.get()));
     }
     auto src_url = GetBlobClient(src.container, src.path).GetUrl() + sas_token;
     auto dest_blob_client = GetBlobClient(dest.container, dest.path);
