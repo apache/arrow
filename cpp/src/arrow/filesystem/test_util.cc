@@ -752,12 +752,6 @@ void GenericFileSystemTest::TestGetFileInfoSelector(FileSystem* fs) {
 }
 
 void GenericFileSystemTest::TestGetFileInfoGenerator(FileSystem* fs) {
-#if defined(ADDRESS_SANITIZER) || defined(ARROW_VALGRIND)
-  if (have_false_positive_memory_leak_with_generator()) {
-    GTEST_SKIP() << "Filesystem have false positive memory leak with generator";
-  }
-#endif
-
   ASSERT_OK(fs->CreateDir("AB/CD"));
   CreateFile(fs, "abc", "data");
   CreateFile(fs, "AB/def", "some data");
