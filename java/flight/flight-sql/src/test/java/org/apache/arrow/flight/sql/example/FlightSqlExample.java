@@ -778,7 +778,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     // Running on another thread
     Future<?> unused = executorService.submit(() -> {
       try {
-        final ByteString preparedStatementHandle = copyFrom(request.getQuery().getBytes(UTF_8));
+        final ByteString preparedStatementHandle = copyFrom(request.getQuery().getBytes(StandardCharsets.UTF_8));
         // Ownership of the connection will be passed to the context. Do NOT close!
         final Connection connection = dataSource.getConnection();
         final PreparedStatement preparedStatement = connection.prepareStatement(request.getQuery(),
