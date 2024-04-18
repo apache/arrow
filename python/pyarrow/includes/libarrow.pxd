@@ -2589,6 +2589,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CPairwiseOptions(int64_t period)
         int64_t period
 
+    cdef cppclass CListFlattenOptions\
+            "arrow::compute::ListFlattenOptions"(CFunctionOptions):
+        CListFlattenOptions(bool recursively)
+        bool recursively
+
     cdef cppclass CArraySortOptions \
             "arrow::compute::ArraySortOptions"(CFunctionOptions):
         CArraySortOptions(CSortOrder, CNullPlacement)

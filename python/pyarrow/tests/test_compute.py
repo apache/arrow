@@ -152,6 +152,7 @@ def test_option_class_equality():
         pc.IndexOptions(pa.scalar(1)),
         pc.JoinOptions(),
         pc.ListSliceOptions(0, -1, 1, True),
+        pc.ListFlattenOptions(recursively=False),
         pc.MakeStructOptions(["field", "names"],
                              field_nullability=[True, True],
                              field_metadata=[pa.KeyValueMetadata({"a": "1"}),

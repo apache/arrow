@@ -18,6 +18,7 @@
 // Vector kernels involving nested types
 
 #include "arrow/array/array_base.h"
+#include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/result.h"
 #include "arrow/visit_type_inline.h"
@@ -29,8 +30,16 @@ namespace {
 
 template <typename Type>
 Status ListFlatten(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  auto recursively = OptionsWrapper<ListFlattenOptions>::Get(ctx).recursively;
   typename TypeTraits<Type>::ArrayType list_array(batch[0].array.ToArrayData());
-  ARROW_ASSIGN_OR_RAISE(auto result, list_array.Flatten(ctx->memory_pool()));
+
+  std::shared_ptr<Array> result;
+  if (!recursively) {
+    ARROW_ASSIGN_OR_RAISE(result, list_array.Flatten(ctx->memory_pool()));
+  } else {
+    ARROW_ASSIGN_OR_RAISE(result, list_array.FlattenRecursively(ctx->memory_pool()));
+  }
+
   out->value = std::move(result->data());
   return Status::OK();
 }
@@ -69,6 +78,10 @@ struct ListParentIndicesArray {
   Status Visit(const ListType& type) { return VisitList(type); }
 
   Status Visit(const LargeListType& type) { return VisitList(type); }
+
+  Status Visit(const ListViewType& type) { return VisitList(type); }
+
+  Status Visit(const LargeListViewType& type) { return VisitList(type); }
 
   Status Visit(const FixedSizeListType& type) {
     using offset_type = typename FixedSizeListType::offset_type;
@@ -110,7 +123,7 @@ const FunctionDoc list_flatten_doc(
     ("`lists` must have a list-like type.\n"
      "Return an array with the top list level flattened.\n"
      "Top-level null values in `lists` do not emit anything in the input."),
-    {"lists"});
+    {"lists"}, "ListFlattenOptions");
 
 const FunctionDoc list_parent_indices_doc(
     "Compute parent indices of nested list values",
@@ -153,17 +166,34 @@ class ListParentIndicesFunction : public MetaFunction {
   }
 };
 
+const ListFlattenOptions* GetDefaultListFlattenOptions() {
+  static const auto kDefaultListFlattenOptions = ListFlattenOptions::Defaults();
+  return &kDefaultListFlattenOptions;
+}
+
+template <typename InListType>
+void AddBaseListFlattenKernels(VectorFunction* func) {
+  auto in_type = {InputType(InListType::type_id)};
+  auto out_type = OutputType(ListValuesType);
+  VectorKernel kernel(in_type, out_type, ListFlatten<InListType>,
+                      OptionsWrapper<ListFlattenOptions>::Init);
+  DCHECK_OK(func->AddKernel(std::move(kernel)));
+}
+
+void AddBaseListFlattenKernels(VectorFunction* func) {
+  AddBaseListFlattenKernels<ListType>(func);
+  AddBaseListFlattenKernels<LargeListType>(func);
+  AddBaseListFlattenKernels<FixedSizeListType>(func);
+  AddBaseListFlattenKernels<ListViewType>(func);
+  AddBaseListFlattenKernels<LargeListViewType>(func);
+}
+
 }  // namespace
 
 void RegisterVectorNested(FunctionRegistry* registry) {
-  auto flatten =
-      std::make_shared<VectorFunction>("list_flatten", Arity::Unary(), list_flatten_doc);
-  DCHECK_OK(flatten->AddKernel({Type::LIST}, OutputType(ListValuesType),
-                               ListFlatten<ListType>));
-  DCHECK_OK(flatten->AddKernel({Type::FIXED_SIZE_LIST}, OutputType(ListValuesType),
-                               ListFlatten<FixedSizeListType>));
-  DCHECK_OK(flatten->AddKernel({Type::LARGE_LIST}, OutputType(ListValuesType),
-                               ListFlatten<LargeListType>));
+  auto flatten = std::make_shared<VectorFunction>(
+      "list_flatten", Arity::Unary(), list_flatten_doc, GetDefaultListFlattenOptions());
+  AddBaseListFlattenKernels(flatten.get());
   DCHECK_OK(registry->AddFunction(std::move(flatten)));
 
   DCHECK_OK(registry->AddFunction(std::make_shared<ListParentIndicesFunction>()));

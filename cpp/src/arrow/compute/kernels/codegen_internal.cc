@@ -57,8 +57,14 @@ Result<TypeHolder> LastType(KernelContext*, const std::vector<TypeHolder>& types
 }
 
 Result<TypeHolder> ListValuesType(KernelContext*, const std::vector<TypeHolder>& args) {
-  const auto& list_type = checked_cast<const BaseListType&>(*args[0].type);
-  return list_type.value_type().get();
+  auto list_type = checked_cast<const BaseListType*>(args[0].type);
+  auto value_type = list_type->value_type().get();
+  for (auto value_kind = value_type->id();
+       is_list(value_kind) || is_list_view(value_kind); value_kind = value_type->id()) {
+    list_type = checked_cast<const BaseListType*>(list_type->value_type().get());
+    value_type = list_type->value_type().get();
+  }
+  return value_type;
 }
 
 void EnsureDictionaryDecoded(std::vector<TypeHolder>* types) {
