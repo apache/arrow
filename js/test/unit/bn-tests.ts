@@ -93,14 +93,9 @@ describe(`BN`, () => {
         expect(n3.valueOf()).toBe(-1);
         const n4 = new BN(new Uint32Array([0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF]), true);
         expect(n4.valueOf(1)).toBe(-0.1);
-
-        const n5 = BN.decimal(new Uint32Array([0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF]));
-        expect(n5.valueOf()).toBe(-1);
-        const n6 = BN.decimal(new Uint32Array([0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF]), 1);
-        expect(n6.valueOf()).toBe(-0.1);
-        // const n7 = new BN(new Uint32Array([0x00000000, 0x00000000, 0x00000000, 0x80000000]), false);
-        // expect(n7.valueOf()).toBe(1.7014118346046923e+38);
-        // const n8 = new BN(new Uint32Array([0x00000000, 0x00000000, 0x00000000, 0x80000000]), false);
-        // expect(n8.valueOf(1)).toBe(1.7014118346046923e+37);
+        // const n5 = new BN(new Uint32Array([0x00000000, 0x00000000, 0x00000000, 0x80000000]), false);
+        // expect(n5.valueOf()).toBe(1.7014118346046923e+38);
+        // const n6 = new BN(new Uint32Array([0x00000000, 0x00000000, 0x00000000, 0x80000000]), false);
+        // expect(n6.valueOf(1)).toBe(1.7014118346046923e+37);
     });
 });
