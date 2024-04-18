@@ -267,7 +267,9 @@ JSON
 
 * Description of the serialization:
 
-  Metadata is an empty string.
+  Metadata is either an empty string or a JSON string with an empty object.
+  In the future, additional fields may be added, but they are not required
+  to interpret the array.
 
 =========================
 Community Extension Types
