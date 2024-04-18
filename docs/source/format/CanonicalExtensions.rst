@@ -272,6 +272,17 @@ JSON
   In the future, additional fields may be added, but they are not required
   to interpret the array.
 
+UUID
+====
+
+* Extension name: `arrow.uuid`.
+
+* The storage type of the extension is ``FixedSizeBinary`` with a length of 16 bytes.
+
+.. note::
+   A specific UUID version is not required or guaranteed. This extension represents
+   UUIDs as FixedSizeBinary(16) and does not interpret the bytes in any way.
+
 =========================
 Community Extension Types
 =========================
