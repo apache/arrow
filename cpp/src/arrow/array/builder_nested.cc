@@ -213,13 +213,13 @@ Status FixedSizeListBuilder::AppendValues(int64_t length, const uint8_t* valid_b
 Status FixedSizeListBuilder::AppendNull() {
   RETURN_NOT_OK(Reserve(1));
   UnsafeAppendToBitmap(false);
-  return value_builder_->AppendEmptyValues(list_size_);
+  return value_builder_->AppendNulls(list_size_);
 }
 
 Status FixedSizeListBuilder::AppendNulls(int64_t length) {
   RETURN_NOT_OK(Reserve(length));
   UnsafeAppendToBitmap(length, false);
-  return value_builder_->AppendEmptyValues(list_size_ * length);
+  return value_builder_->AppendNulls(list_size_ * length);
 }
 
 Status FixedSizeListBuilder::ValidateOverflow(int64_t new_elements) {
