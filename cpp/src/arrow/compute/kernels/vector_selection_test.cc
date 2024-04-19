@@ -728,7 +728,37 @@ TEST_F(TestFilterKernelWithLargeList, FilterListInt32) {
                      "[[1,2], null, null]");
 }
 
-class TestFilterKernelWithFixedSizeList : public TestFilterKernel {};
+class TestFilterKernelWithFixedSizeList : public TestFilterKernel {
+ protected:
+  std::vector<std::shared_ptr<Array>> five_length_filters_ = {
+      ArrayFromJSON(boolean(), "[false, false, false, false, false]"),
+      ArrayFromJSON(boolean(), "[true, true, true, true, true]"),
+      ArrayFromJSON(boolean(), "[false, true, true, false, true]"),
+      ArrayFromJSON(boolean(), "[null, true, null, false, true]"),
+  };
+
+  void AssertFilterOnNestedLists(const std::shared_ptr<DataType>& inner_type,
+                                 const std::vector<int>& list_sizes) {
+    using NLG = ::arrow::util::internal::NestedListGenerator;
+    constexpr int64_t kLength = 5;
+    // Create two equivalent lists: one as a FixedSizeList and another as a List.
+    ASSERT_OK_AND_ASSIGN(auto fsl_list,
+                         NLG::NestedFSLArray(inner_type, list_sizes, kLength));
+    ASSERT_OK_AND_ASSIGN(auto list,
+                         NLG::NestedListArray(inner_type, list_sizes, kLength));
+
+    ARROW_SCOPED_TRACE("CheckTakeOnNestedLists of type `", *fsl_list->type(), "`");
+
+    for (auto& filter : five_length_filters_) {
+      // Use the Filter on ListType as the reference implementation.
+      ASSERT_OK_AND_ASSIGN(auto expected_list,
+                           Filter(*list, *filter, /*options=*/emit_null_));
+      ASSERT_OK_AND_ASSIGN(auto expected_fsl, Cast(expected_list, fsl_list->type()));
+      auto expected_fsl_array = expected_fsl.make_array();
+      this->AssertFilter(fsl_list, filter, expected_fsl_array);
+    }
+  }
+};
 
 TEST_F(TestFilterKernelWithFixedSizeList, FilterFixedSizeListInt32) {
   std::string list_json = "[null, [1, null, 3], [4, 5, 6], [7, 8, null]]";
@@ -740,6 +770,33 @@ TEST_F(TestFilterKernelWithFixedSizeList, FilterFixedSizeListInt32) {
   this->AssertFilter(fixed_size_list(int32(), 3), list_json, "[1, 1, 1, 1]", list_json);
   this->AssertFilter(fixed_size_list(int32(), 3), list_json, "[0, 1, 0, 1]",
                      "[[1, null, 3], [7, 8, null]]");
+}
+
+TEST_F(TestFilterKernelWithFixedSizeList, FilterFixedSizeListVarWidth) {
+  std::string list_json =
+      R"([["zero", "one", ""], ["two", "", "three"], ["four", "five", "six"], ["seven", "eight", ""]])";
+  this->AssertFilter(fixed_size_list(utf8(), 3), list_json, "[0, 0, 0, 0]", "[]");
+  this->AssertFilter(fixed_size_list(utf8(), 3), list_json, "[0, 1, 1, null]",
+                     R"([["two", "", "three"], ["four", "five", "six"], null])");
+  this->AssertFilter(fixed_size_list(utf8(), 3), list_json, "[0, 0, 1, null]",
+                     R"([["four", "five", "six"], null])");
+  this->AssertFilter(fixed_size_list(utf8(), 3), list_json, "[1, 1, 1, 1]", list_json);
+  this->AssertFilter(fixed_size_list(utf8(), 3), list_json, "[0, 1, 0, 1]",
+                     R"([["two", "", "three"], ["seven", "eight", ""]])");
+}
+
+TEST_F(TestFilterKernelWithFixedSizeList, FilterFixedSizeListModuloNesting) {
+  using NLG = ::arrow::util::internal::NestedListGenerator;
+  const std::vector<std::shared_ptr<DataType>> value_types = {
+      int16(),
+      int32(),
+      int64(),
+  };
+  NLG::VisitAllNestedListConfigurations(
+      value_types, [this](const std::shared_ptr<DataType>& inner_type,
+                          const std::vector<int>& list_sizes) {
+        this->AssertFilterOnNestedLists(inner_type, list_sizes);
+      });
 }
 
 class TestFilterKernelWithMap : public TestFilterKernel {};
