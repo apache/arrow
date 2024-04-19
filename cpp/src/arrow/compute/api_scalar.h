@@ -119,8 +119,7 @@ class ARROW_EXPORT RoundTemporalOptions : public FunctionOptions {
   explicit RoundTemporalOptions(int multiple = 1, CalendarUnit unit = CalendarUnit::DAY,
                                 bool week_starts_monday = true,
                                 bool ceil_is_strictly_greater = false,
-                                bool calendar_based_origin = false,
-                                bool preserve_wall_time_order = false);
+                                bool calendar_based_origin = false);
   static constexpr char const kTypeName[] = "RoundTemporalOptions";
   static RoundTemporalOptions Defaults() { return RoundTemporalOptions(); }
 
@@ -149,8 +148,6 @@ class ARROW_EXPORT RoundTemporalOptions : public FunctionOptions {
   /// YYYY-mm-dd+1 00:00:00 will ceil, round and floor to YYYY-mm-dd+1 00:00:00. This
   /// can break the order of an already ordered array.
   bool calendar_based_origin;
-  /// Should wall time will be preserved when rounding
-  bool preserve_wall_time_order;
 };
 
 class ARROW_EXPORT RoundToMultipleOptions : public FunctionOptions {
