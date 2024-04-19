@@ -1258,7 +1258,8 @@ Result<S3Model::GetObjectResult> GetObjectRange(Aws::S3::S3Client* client,
   S3Model::GetObjectRequest req;
   req.SetBucket(ToAwsString(path.bucket));
   req.SetKey(ToAwsString(path.key));
-  req.SetVersionId(version);
+  if(!version.empty())
+    req.SetVersionId(version);
   req.SetRange(ToAwsString(FormatRange(start, length)));
   req.SetResponseStreamFactory(AwsWriteableStreamFactory(out, length));
   return OutcomeToResult("GetObject", client->GetObject(req));
@@ -1417,7 +1418,8 @@ class ObjectInputFile final : public io::RandomAccessFile {
     }
     content_length_ = outcome.GetResult().GetContentLength();
     DCHECK_GE(content_length_, 0);
-    version_ = outcome.GetResult().GetVersionId();
+    if(!outcome.GetResult().GetVersionId().empty())
+      version_ = outcome.GetResult().GetVersionId();
     metadata_ = GetObjectMetadata(outcome.GetResult());
     return Status::OK();
   }
