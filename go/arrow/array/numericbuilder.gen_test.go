@@ -19,6 +19,7 @@
 package array_test
 
 import (
+	"math"
 	"testing"
 
 	"github.com/apache/arrow/go/v16/arrow"
@@ -633,6 +634,28 @@ func TestFloat64Builder_Resize(t *testing.T) {
 	assert.Equal(t, 5, ab.Len())
 }
 
+func TestFloat64BuilderUnmarshalJSON(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	bldr := array.NewFloat64Builder(mem)
+	defer bldr.Release()
+
+	jsonstr := `[0, 1, "+Inf", 2, 3, "NaN", "NaN", 4, 5, "-Inf"]`
+
+	err := bldr.UnmarshalJSON([]byte(jsonstr))
+	assert.NoError(t, err)
+
+	arr := bldr.NewFloat64Array()
+	defer arr.Release()
+	
+	assert.NotNil(t, arr)
+	
+	assert.False(t, math.IsInf(float64(arr.Value(0)), 0), arr.Value(0))
+	assert.True(t, math.IsInf(float64(arr.Value(2)), 1), arr.Value(2))
+	assert.True(t, math.IsNaN(float64(arr.Value(5))), arr.Value(5))
+}
+
 func TestInt32StringRoundTrip(t *testing.T) {
 	// 1. create array
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
@@ -1237,6 +1260,28 @@ func TestFloat32Builder_Resize(t *testing.T) {
 
 	ab.Resize(32)
 	assert.Equal(t, 5, ab.Len())
+}
+
+func TestFloat32BuilderUnmarshalJSON(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	bldr := array.NewFloat32Builder(mem)
+	defer bldr.Release()
+
+	jsonstr := `[0, 1, "+Inf", 2, 3, "NaN", "NaN", 4, 5, "-Inf"]`
+
+	err := bldr.UnmarshalJSON([]byte(jsonstr))
+	assert.NoError(t, err)
+
+	arr := bldr.NewFloat32Array()
+	defer arr.Release()
+	
+	assert.NotNil(t, arr)
+	
+	assert.False(t, math.IsInf(float64(arr.Value(0)), 0), arr.Value(0))
+	assert.True(t, math.IsInf(float64(arr.Value(2)), 1), arr.Value(2))
+	assert.True(t, math.IsNaN(float64(arr.Value(5))), arr.Value(5))
 }
 
 func TestInt16StringRoundTrip(t *testing.T) {

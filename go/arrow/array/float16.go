@@ -87,10 +87,20 @@ func (a *Float16) GetOneForMarshal(i int) interface{} {
 func (a *Float16) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i, v := range a.values {
-		if a.IsValid(i) {
-			vals[i] = v.Float32()
-		} else {
+		if !a.IsValid(i) {
 			vals[i] = nil
+			continue
+		}
+
+		switch {
+		case v.IsNaN():
+			vals[i] = "NaN"
+		case v.IsInf() && !v.Signbit():
+			vals[i] = "+Inf"
+		case v.IsInf() && v.Signbit():
+			vals[i] = "-Inf"
+		default:
+			vals[i] = v.Float32()
 		}
 	}
 	return json.Marshal(vals)

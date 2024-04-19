@@ -133,11 +133,45 @@ func (a *{{.Name}}) MarshalJSON() ([]byte, error) {
 {{else -}}
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
+	{{if (eq .Name "Float32") -}}
+		if !a.IsValid(i) {
+			vals[i] = nil
+			continue
+		}
+
+		f := a.Value(i)
+		v := strconv.FormatFloat(float64(f), 'g', -1, 32)
+
+		switch v {
+		case "NaN", "+Inf", "-Inf":
+			vals[i] = v
+		default:
+			vals[i] = f
+		}
+	{{else if (eq .Name "Float64") -}}
+		if !a.IsValid(i) {
+			vals[i] = nil
+			continue
+		}
+
+		f := a.Value(i)
+		switch {
+		case math.IsNaN(f):
+			vals[i] = "NaN"
+		case math.IsInf(f, 1):
+			vals[i] = "+Inf"
+		case math.IsInf(f, -1):
+			vals[i] = "-Inf"
+		default:
+			vals[i] = f
+		}
+	{{else}}
 		if a.IsValid(i) {
 			{{ if (eq .Size "1") }}vals[i] = float64(a.values[i]) // prevent uint8 from being seen as binary data{{ else }}vals[i] = a.values[i]{{ end }}
 		} else {
 			vals[i] = nil
 		}
+	{{end}}
 	}
 {{end}}
 	return json.Marshal(vals)

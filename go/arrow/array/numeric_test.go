@@ -16,13 +16,14 @@
 
 package array_test
 
-import (
+import (	
 	"math"
 	"reflect"
 	"testing"
 
 	"github.com/apache/arrow/go/v16/arrow"
 	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v16/arrow/float16"
 	"github.com/apache/arrow/go/v16/arrow/memory"
 	"github.com/apache/arrow/go/v16/internal/json"
 	"github.com/stretchr/testify/assert"
@@ -135,6 +136,94 @@ func TestFloat64SliceDataWithNull(t *testing.T) {
 	if got, want := slice.Float64Values(), sub; !reflect.DeepEqual(got, want) {
 		t.Fatalf("got=%v, want=%v", got, want)
 	}
+}
+
+func TestFloat16MarshalJSON(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	bldr := array.NewFloat16Builder(pool)
+	defer bldr.Release()
+	
+	jsonstr := `[0, 1, 2, 3, "NaN", "NaN", 4, 5, "+Inf", "-Inf"]`
+
+	bldr.Append(float16.New(0))
+	bldr.Append(float16.New(1))
+	bldr.Append(float16.New(2))
+	bldr.Append(float16.New(3))
+	bldr.Append(float16.NaN())
+	bldr.Append(float16.NaN())
+	bldr.Append(float16.New(4))
+	bldr.Append(float16.New(5))
+	bldr.Append(float16.Inf())
+	bldr.Append(float16.Inf().Negate())
+
+
+	expected := bldr.NewFloat16Array()
+	defer expected.Release()
+	expected_json, err := expected.MarshalJSON()
+	assert.NoError(t, err)
+	assert.JSONEq(t, jsonstr, string(expected_json))
+}
+
+func TestFloat32MarshalJSON(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	bldr := array.NewFloat32Builder(pool)
+	defer bldr.Release()
+	
+	jsonstr := `[0, 1, "+Inf", 2, 3, "NaN", "NaN", 4, 5, "-Inf"]`
+
+	bldr.Append(0)
+	bldr.Append(1)
+	bldr.Append(float32(math.Inf(1)))
+	bldr.Append(2)
+	bldr.Append(3)
+	bldr.Append(float32(math.NaN()))
+	bldr.Append(float32(math.NaN()))
+	bldr.Append(4)
+	bldr.Append(5)
+	bldr.Append(float32(math.Inf(-1)))
+
+
+	expected := bldr.NewFloat32Array()
+	defer expected.Release()
+	
+	expected_json, err := expected.MarshalJSON()
+	assert.NoError(t, err)
+
+	assert.JSONEq(t, jsonstr, string(expected_json))
+}
+
+func TestFloat64MarshalJSON(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	bldr := array.NewFloat64Builder(pool)
+	defer bldr.Release()
+
+	jsonstr := `[0, 1, "+Inf", 2, 3, "NaN", "NaN", 4, 5, "-Inf"]`
+
+	bldr.Append(0)
+	bldr.Append(1)
+	bldr.Append(math.Inf(1))
+	bldr.Append(2)
+	bldr.Append(3)
+	bldr.Append(math.NaN())
+	bldr.Append(math.NaN())
+	bldr.Append(4)
+	bldr.Append(5)
+	bldr.Append(math.Inf(-1))
+
+	expected := bldr.NewFloat64Array()
+	defer expected.Release()
+
+	expected_json, err := expected.MarshalJSON()
+	assert.NoError(t, err)
+
+	assert.JSONEq(t, jsonstr, string(expected_json))
+	
 }
 
 func TestUnmarshalSpecialFloat(t *testing.T) {
