@@ -259,7 +259,8 @@ JSON
 * Extension name: `arrow.json`.
 
 * The storage type of this extension is ``StringArray`` or
-  ``StringViewArray``.
+  or ``LargeStringArray`` or ``StringViewArray``.
+  Only UTF-8 encoded JSON is supported.
 
 * Extension type parameters:
 
