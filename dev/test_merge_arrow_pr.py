@@ -97,11 +97,9 @@ class FakeJIRA:
 
 class FakeGitHub:
 
-    def __init__(self, issue=None, project_versions=None, transitions=None,
-                 current_fix_versions=None):
+    def __init__(self, issue=None, project_versions=None):
         self._issue = issue
         self._project_versions = project_versions
-        self._transitions = transitions
 
     @property
     def issue(self):
@@ -253,8 +251,7 @@ def test_jira_resolve_non_mainline():
 def test_jira_resolve_released_fix_version():
     # ARROW-5083
     jira = FakeGitHub(issue=FAKE_ISSUE_1,
-                      project_versions=SOURCE_VERSIONS,
-                      transitions=TRANSITIONS)
+                      project_versions=SOURCE_VERSIONS)
 
     cmd = FakeCLI(responses=['1.0.0'])
     fix_versions_json = merge_arrow_pr.prompt_for_fix_version(cmd, jira)
