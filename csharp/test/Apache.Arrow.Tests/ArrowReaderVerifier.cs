@@ -449,16 +449,24 @@ namespace Apache.Arrow.Tests
                     Assert.Equal(expectedArray.Offset, actualArray.Offset);
                     Assert.True(expectedArray.ValueOffsetsBuffer.Span.SequenceEqual(actualArray.ValueOffsetsBuffer.Span));
                     Assert.True(expectedArray.SizesBuffer.Span.SequenceEqual(actualArray.SizesBuffer.Span));
+                    actualArray.Values.Accept(new ArrayComparer(expectedArray.Values, _strictCompare));
                 }
                 else
                 {
-                    int start = expectedArray.Offset * sizeof(int);
-                    int length = expectedArray.Length * sizeof(int);
-                    Assert.True(expectedArray.ValueOffsetsBuffer.Span.Slice(start, length).SequenceEqual(actualArray.ValueOffsetsBuffer.Span.Slice(0, length)));
-                    Assert.True(expectedArray.SizesBuffer.Span.Slice(start, length).SequenceEqual(actualArray.SizesBuffer.Span.Slice(0, length)));
+                    for (int i = 0; i < actualArray.Length; ++i)
+                    {
+                        if (expectedArray.IsNull(i))
+                        {
+                            Assert.True(actualArray.IsNull(i));
+                        }
+                        else
+                        {
+                            var expectedList = expectedArray.GetSlicedValues(i);
+                            var actualList = actualArray.GetSlicedValues(i);
+                            actualList.Accept(new ArrayComparer(expectedList, _strictCompare));
+                        }
+                    }
                 }
-
-                actualArray.Values.Accept(new ArrayComparer(expectedArray.Values, _strictCompare));
             }
 
             private void CompareArrays(FixedSizeListArray actualArray)
