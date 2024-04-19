@@ -16,8 +16,7 @@
 
 package array_test
 
-import (
-	"fmt"
+import (	
 	"math"
 	"reflect"
 	"testing"
