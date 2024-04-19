@@ -49,4 +49,3 @@ thrift-cpp>=0.11.0
 xsimd
 zlib
 zstd
-
