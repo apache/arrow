@@ -95,8 +95,10 @@ func (a *Float16) MarshalJSON() ([]byte, error) {
 		switch {
 		case v.IsNaN():
 			vals[i] = "NaN"
-		case v == float16.Inf():
-			vals[i] = "Inf"
+		case v.IsInf() && !v.Signbit():
+			vals[i] = "+Inf"
+		case v.IsInf() && v.Signbit():
+			vals[i] = "-Inf"
 		default:
 			vals[i] = v.Float32()
 		}
