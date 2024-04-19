@@ -19,14 +19,22 @@ import { targetDir, mainExport, esmRequire, gCCLanguageNames, publicModulePaths,
 
 import fs from 'node:fs';
 import gulp from 'gulp';
-import path from 'node:path';
+import Path from 'node:path';
+import https from 'node:https';
 import { mkdirp } from 'mkdirp';
+import { PassThrough } from 'node:stream';
 import sourcemaps from 'gulp-sourcemaps';
 import { memoizeTask } from './memoize-task.js';
 import { compileBinFiles } from './typescript-task.js';
 
 import closureCompiler from 'google-closure-compiler';
 const compiler = closureCompiler.gulp();
+
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const closureCompilerVer = JSON.parse(fs.readFileSync(Path.join(__dirname, '..', 'package.json'))).devDependencies['google-closure-compiler'].split('.')[0];
 
 export const closureTask = ((cache) => memoizeTask(cache, async function closure(target, format) {
 
@@ -35,10 +43,10 @@ export const closureTask = ((cache) => memoizeTask(cache, async function closure
     }
 
     const src = targetDir(target, `cls`);
-    const srcAbsolute = path.resolve(src);
+    const srcAbsolute = Path.resolve(src);
     const out = targetDir(target, format);
-    const externs = path.join(`${out}/${mainExport}.externs.js`);
-    const entry_point = path.join(`${src}/${mainExport}.dom.cls.js`);
+    const externs = Path.join(`${out}/${mainExport}.externs.js`);
+    const entry_point = Path.join(`${src}/${mainExport}.dom.cls.js`);
 
     const exportedImports = publicModulePaths(srcAbsolute).reduce((entries, publicModulePath) => [
         ...entries, {
@@ -54,11 +62,41 @@ export const closureTask = ((cache) => memoizeTask(cache, async function closure
         fs.promises.writeFile(entry_point, generateUMDExportAssignment(srcAbsolute, exportedImports))
     ]);
 
-    return await Promise.all([
+    const closeCompilerPolyfills = [];
+
+    await Promise.all([
         runClosureCompileAsObservable().toPromise(),
-        compileBinFiles(target, format).toPromise(),
-        observableFromStreams(gulp.src(`${src}/**/*.d.ts`), gulp.dest(out)), // copy .d.ts files
+        compileBinFiles(target, format).toPromise().then(() => Promise.all([
+            observableFromStreams(gulp.src(`${src}/**/*.d.ts`), gulp.dest(out)).toPromise(), // copy .d.ts files,
+            observableFromStreams(gulp.src(`${src}/**/*.d.ts.map`), gulp.dest(out)).toPromise(), // copy .d.ts.map files,
+            observableFromStreams(gulp.src(`${src}/src/**/*`), gulp.dest(`${out}/src`)).toPromise(), // copy TS source files,
+        ]))
     ]);
+
+    // Download the closure compiler polyfill sources for sourcemaps
+    await Promise.all(closeCompilerPolyfills.map(async (path) => {
+
+        await fs.promises.mkdir(
+            Path.join(out, Path.parse(path).dir),
+            { recursive: true, mode: 0o755 }
+        );
+
+        const res = new PassThrough();
+        const req = https.request(
+            new URL(`https://raw.githubusercontent.com/google/closure-compiler/v${closureCompilerVer}/${path}`),
+            (res_) => {
+                if (res_.statusCode === 200) {
+                    res_.pipe(res);
+                } else {
+                    res.end();
+                }
+            }
+        );
+
+        req.on('error', (e) => res.emit('error', e)).end();
+
+        return observableFromStreams(res, fs.createWriteStream(Path.join(out, path))).toPromise();
+    }));
 
     function runClosureCompileAsObservable() {
         return observableFromStreams(
@@ -72,8 +110,22 @@ export const closureTask = ((cache) => memoizeTask(cache, async function closure
             compiler(createClosureArgs(entry_point, externs, target), {
                 platform: ['native', 'java', 'javascript']
             }),
+            sourcemaps.mapSources((path) => {
+                if (path.indexOf(`${src}/`) === 0) {
+                    return path.slice(`${src}/`.length);
+                }
+                if (path.includes('com/google')) {
+                    closeCompilerPolyfills.push(path);
+                    return path.slice(`src/`.length);
+                }
+                return path;
+            }),
             // rename the sourcemaps from *.js.map files to *.min.js.map
-            sourcemaps.write(`.`, { mapFile: (mapPath) => mapPath.replace(`.js.map`, `.${target}.min.js.map`) }),
+            sourcemaps.write(`./`, {
+                sourceRoot: './src',
+                includeContent: false,
+                mapFile: (mapPath) => mapPath.replace(`.js.map`, `.${target}.min.js.map`),
+            }),
             gulp.dest(out)
         );
     }

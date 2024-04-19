@@ -27,37 +27,6 @@
   <description>Apache Arrow is open source, in-memory columnar data structures and low-overhead messaging</description>
   <url>https://arrow.apache.org/</url>
 
-  <properties>
-    <target.gen.source.path>${project.build.directory}/generated-sources</target.gen.source.path>
-    <dep.junit.platform.version>1.9.0</dep.junit.platform.version>
-    <dep.junit.jupiter.version>5.10.2</dep.junit.jupiter.version>
-    <dep.slf4j.version>2.0.12</dep.slf4j.version>
-    <dep.guava-bom.version>33.0.0-jre</dep.guava-bom.version>
-    <dep.netty-bom.version>4.1.108.Final</dep.netty-bom.version>
-    <dep.grpc-bom.version>1.63.0</dep.grpc-bom.version>
-    <dep.protobuf-bom.version>3.23.1</dep.protobuf-bom.version>
-    <dep.jackson-bom.version>2.17.0</dep.jackson-bom.version>
-    <dep.hadoop.version>3.4.0</dep.hadoop.version>
-    <dep.fbs.version>23.5.26</dep.fbs.version>
-    <dep.avro.version>1.11.3</dep.avro.version>
-    <arrow.vector.classifier />
-    <forkCount>2</forkCount>
-    <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
-    <errorprone.javac.version>9+181-r4173-1</errorprone.javac.version>
-    <error_prone_core.version>2.24.0</error_prone_core.version>
-    <maven-compiler-plugin.version>3.12.1</maven-compiler-plugin.version>
-    <mockito.core.version>5.11.0</mockito.core.version>
-    <mockito.inline.version>5.2.0</mockito.inline.version>
-    <checker.framework.version>3.42.0</checker.framework.version>
-  </properties>
-
-  <scm>
-    <connection>scm:git:https://github.com/apache/arrow.git</connection>
-    <developerConnection>scm:git:https://github.com/apache/arrow.git</developerConnection>
-    <url>https://github.com/apache/arrow</url>
-    <tag>apache-arrow-2.0.0</tag>
-  </scm>
-
   <mailingLists>
     <mailingList>
       <name>Developer List</name>
@@ -81,574 +50,56 @@
     </mailingList>
   </mailingLists>
 
-  <repositories>
+  <modules>
+    <module>maven</module>
+    <module>bom</module>
+    <module>format</module>
+    <module>memory</module>
+    <module>vector</module>
+    <module>tools</module>
+    <module>adapter/jdbc</module>
+    <module>flight</module>
+    <module>performance</module>
+    <module>algorithm</module>
+    <module>adapter/avro</module>
+    <module>compression</module>
+  </modules>
 
-  </repositories>
+  <scm>
+    <connection>scm:git:https://github.com/apache/arrow.git</connection>
+    <developerConnection>scm:git:https://github.com/apache/arrow.git</developerConnection>
+    <tag>apache-arrow-2.0.0</tag>
+    <url>https://github.com/apache/arrow</url>
+  </scm>
 
   <issueManagement>
     <system>Jira</system>
     <url>https://issues.apache.org/jira/browse/arrow</url>
   </issueManagement>
 
-  <build>
-    <extensions>
-      <!-- provides os.detected.classifier (i.e. linux-x86_64, osx-x86_64) property -->
-      <extension>
-        <groupId>kr.motd.maven</groupId>
-        <artifactId>os-maven-plugin</artifactId>
-        <version>1.7.1</version>
-      </extension>
-    </extensions>
-
-    <plugins>
-      <plugin>
-        <groupId>org.apache.rat</groupId>
-        <artifactId>apache-rat-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>rat-checks</id>
-            <phase>validate</phase>
-            <goals>
-              <goal>check</goal>
-            </goals>
-          </execution>
-        </executions>
-        <configuration>
-          <excludeSubProjects>false</excludeSubProjects>
-          <excludes>
-            <exclude>**/dependency-reduced-pom.xml</exclude>
-            <exclude>**/*.log</exclude>
-            <exclude>**/*.css</exclude>
-            <exclude>**/*.js</exclude>
-            <exclude>**/*.md</exclude>
-            <exclude>**/*.eps</exclude>
-            <exclude>**/*.json</exclude>
-            <exclude>**/*.seq</exclude>
-            <exclude>**/*.parquet</exclude>
-            <exclude>**/*.sql</exclude>
-            <exclude>**/arrow-git.properties</exclude>
-            <exclude>**/*.csv</exclude>
-            <exclude>**/*.csvh</exclude>
-            <exclude>**/*.csvh-test</exclude>
-            <exclude>**/*.tsv</exclude>
-            <exclude>**/*.txt</exclude>
-            <exclude>**/*.ssv</exclude>
-            <exclude>**/arrow-*.conf</exclude>
-            <exclude>**/.buildpath</exclude>
-            <exclude>**/*.proto</exclude>
-            <exclude>**/*.fmpp</exclude>
-            <exclude>**/target/**</exclude>
-            <exclude>**/*.tdd</exclude>
-            <exclude>**/*.project</exclude>
-            <exclude>**/TAGS</exclude>
-            <exclude>**/*.checkstyle</exclude>
-            <exclude>**/.classpath</exclude>
-            <exclude>**/.factorypath</exclude>
-            <exclude>**/.settings/**</exclude>
-            <exclude>.*/**</exclude>
-            <exclude>**/*.patch</exclude>
-            <exclude>**/*.pb.cc</exclude>
-            <exclude>**/*.pb.h</exclude>
-            <exclude>**/*.linux</exclude>
-            <exclude>**/client/build/**</exclude>
-            <exclude>**/*.tbl</exclude>
-            <exclude>**/*.iml</exclude>
-            <exclude>**/flight.properties</exclude>
-            <exclude>**/*.idea/**</exclude>
-          </excludes>
-        </configuration>
-      </plugin>
-
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-jar-plugin</artifactId>
-        <configuration>
-          <excludes>
-            <exclude>**/logging.properties</exclude>
-            <exclude>**/logback-test.xml</exclude>
-            <exclude>**/logback.out.xml</exclude>
-            <exclude>**/logback.xml</exclude>
-          </excludes>
-          <archive>
-            <index>true</index>
-            <manifest>
-              <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
-              <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
-            </manifest>
-            <manifestEntries>
-              <Extension-Name>org.apache.arrow</Extension-Name>
-              <Built-By>${username}</Built-By>
-              <url>https://arrow.apache.org/</url>
-            </manifestEntries>
-          </archive>
-        </configuration>
-        <executions>
-          <execution>
-            <goals>
-              <goal>test-jar</goal>
-            </goals>
-            <configuration>
-              <skipIfEmpty>true</skipIfEmpty>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-
-
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-resources-plugin</artifactId>
-        <configuration>
-          <encoding>UTF-8</encoding>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <configuration>
-          <source>1.8</source>
-          <target>1.8</target>
-          <maxmem>2048m</maxmem>
-          <useIncrementalCompilation>false</useIncrementalCompilation>
-          <fork>true</fork>
-        </configuration>
-      </plugin>
-      <plugin>
-        <artifactId>maven-enforcer-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>validate_java_and_maven_version</id>
-            <phase>verify</phase>
-            <goals>
-              <goal>enforce</goal>
-            </goals>
-            <inherited>false</inherited>
-            <configuration>
-              <rules>
-                <requireMavenVersion>
-                  <version>[3.3.0,4)</version>
-                </requireMavenVersion>
-              </rules>
-            </configuration>
-          </execution>
-          <execution>
-            <id>avoid_bad_dependencies</id>
-            <phase>verify</phase>
-            <goals>
-              <goal>enforce</goal>
-            </goals>
-            <configuration>
-              <rules>
-                <bannedDependencies>
-                  <excludes>
-                    <exclude>commons-logging</exclude>
-                    <exclude>javax.servlet:servlet-api</exclude>
-                    <exclude>org.mortbay.jetty:servlet-api</exclude>
-                    <exclude>org.mortbay.jetty:servlet-api-2.5</exclude>
-                    <exclude>log4j:log4j</exclude>
-                  </excludes>
-                </bannedDependencies>
-              </rules>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <groupId>pl.project13.maven</groupId>
-        <artifactId>git-commit-id-plugin</artifactId>
-        <version>4.0.5</version>
-        <executions>
-          <execution>
-            <id>for-jars</id>
-            <inherited>true</inherited>
-            <goals>
-              <goal>revision</goal>
-            </goals>
-            <configuration>
-              <generateGitPropertiesFilename>target/classes/arrow-git.properties</generateGitPropertiesFilename>
-            </configuration>
-          </execution>
-          <execution>
-            <id>for-source-tarball</id>
-            <goals>
-              <goal>revision</goal>
-            </goals>
-            <inherited>false</inherited>
-            <configuration>
-              <generateGitPropertiesFilename>./arrow-git.properties</generateGitPropertiesFilename>
-            </configuration>
-          </execution>
-        </executions>
-
-        <configuration>
-          <dateFormat>dd.MM.yyyy '@' HH:mm:ss z</dateFormat>
-          <verbose>false</verbose>
-          <skipPoms>false</skipPoms>
-          <generateGitPropertiesFile>true</generateGitPropertiesFile>
-          <failOnNoGitDirectory>false</failOnNoGitDirectory>
-          <gitDescribe>
-            <skip>false</skip>
-            <always>false</always>
-            <abbrev>7</abbrev>
-            <dirty>-dirty</dirty>
-            <forceLongFormat>true</forceLongFormat>
-          </gitDescribe>
-        </configuration>
-      </plugin>
-
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-checkstyle-plugin</artifactId>
-        <version>3.1.0</version>
-        <dependencies>
-          <dependency>
-            <groupId>com.puppycrawl.tools</groupId>
-            <artifactId>checkstyle</artifactId>
-            <version>8.29</version>
-          </dependency>
-          <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>jcl-over-slf4j</artifactId>
-            <version>${dep.slf4j.version}</version>
-          </dependency>
-        </dependencies>
-        <executions>
-          <execution>
-            <id>validate</id>
-            <phase>validate</phase>
-            <goals>
-              <goal>check</goal>
-            </goals>
-          </execution>
-        </executions>
-        <configuration>
-          <excludes>**/module-info.java</excludes>
-          <configLocation>dev/checkstyle/checkstyle.xml</configLocation>
-          <headerLocation>dev/checkstyle/checkstyle.license</headerLocation>
-          <suppressionsLocation>dev/checkstyle/suppressions.xml</suppressionsLocation>
-          <includeTestSourceDirectory>true</includeTestSourceDirectory>
-          <inputEncoding>UTF-8</inputEncoding>
-          <consoleOutput>true</consoleOutput>
-          <failsOnError>${checkstyle.failOnViolation}</failsOnError>
-          <failOnViolation>${checkstyle.failOnViolation}</failOnViolation>
-          <violationSeverity>warning</violationSeverity>
-          <outputFileFormat>xml</outputFileFormat>
-          <outputFile>${project.build.directory}/test/checkstyle-errors.xml</outputFile>
-          <linkXRef>false</linkXRef>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-dependency-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>analyze</id>
-            <phase>verify</phase>
-            <goals>
-              <goal>analyze-only</goal>
-            </goals>
-            <configuration>
-              <ignoreNonCompile>true</ignoreNonCompile>
-              <failOnWarning>true</failOnWarning>
-              <ignoredDependencies>
-                <!-- source annotations (not kept in compiled code) -->
-                <ignoredDependency>javax.annotation:javax.annotation-api:*</ignoredDependency>
-                <ignoredDependency>org.apache.hadoop:hadoop-client-api</ignoredDependency>
-                <ignoredDependency>org.checkerframework:checker-qual</ignoredDependency>
-              </ignoredDependencies>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <groupId>org.cyclonedx</groupId>
-        <artifactId>cyclonedx-maven-plugin</artifactId>
-        <version>2.7.11</version>
-        <executions>
-          <execution>
-            <phase>package</phase>
-            <goals>
-              <goal>makeBom</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.arrow.maven.plugins</groupId>
-        <artifactId>module-info-compiler-maven-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>default-compile</id>
-            <goals>
-              <goal>compile</goal>
-            </goals>
-          </execution>
-          <execution>
-            <id>default-testCompile</id>
-            <goals>
-              <goal>testCompile</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-project-info-reports-plugin</artifactId>
-        <version>3.5.0</version>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-site-plugin</artifactId>
-        <version>3.12.1</version>
-      </plugin>
-    </plugins>
-
-    <pluginManagement>
-      <plugins>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-dependency-plugin</artifactId>
-          <!--
-            This appears to report a false positive with versions
-            greater than 3.1.2 (tested up to 3.6.0) when compiling
-            arrow-tools about Jackson being only used for tests.
-          -->
-          <version>3.1.2</version>
-        </plugin>
-        <plugin>
-          <groupId>org.apache.rat</groupId>
-          <artifactId>apache-rat-plugin</artifactId>
-          <version>0.16.1</version>
-        </plugin>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-resources-plugin</artifactId>
-          <version>3.3.1</version>
-        </plugin>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-compiler-plugin</artifactId>
-          <version>${maven-compiler-plugin.version}</version>
-          <configuration>
-            <excludes>**/module-info.java</excludes>
-            <testExcludes>**/module-info.java</testExcludes>
-            <useModulePath>false</useModulePath>
-            <annotationProcessorPaths>
-              <path>
-                <groupId>org.immutables</groupId>
-                <artifactId>value</artifactId>
-                <version>2.10.0</version>
-              </path>
-            </annotationProcessorPaths>
-          </configuration>
-        </plugin>
-        <plugin>
-          <artifactId>maven-enforcer-plugin</artifactId>
-          <version>3.4.1</version>
-        </plugin>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-shade-plugin</artifactId>
-          <version>3.5.1</version>
-        </plugin>
-        <plugin>
-          <artifactId>maven-surefire-plugin</artifactId>
-          <version>3.2.5</version>
-          <dependencies>
-            <dependency>
-              <groupId>org.junit.jupiter</groupId>
-              <artifactId>junit-jupiter-engine</artifactId>
-              <version>${dep.junit.jupiter.version}</version>
-            </dependency>
-            <dependency>
-              <groupId>org.apache.maven.surefire</groupId>
-              <artifactId>surefire-junit-platform</artifactId>
-              <version>3.2.5</version>
-            </dependency>
-          </dependencies>
-          <configuration>
-            <enableAssertions>true</enableAssertions>
-            <childDelegation>true</childDelegation>
-            <forkCount>${forkCount}</forkCount>
-            <reuseForks>true</reuseForks>
-            <systemPropertyVariables>
-              <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
-              <io.netty.tryReflectionSetAccessible>true</io.netty.tryReflectionSetAccessible>
-              <user.timezone>UTC</user.timezone>
-              <!-- Note: changing the below configuration might increase the max allocation size for a vector
-              which in turn can cause OOM. -->
-              <arrow.vector.max_allocation_bytes>1048576</arrow.vector.max_allocation_bytes>
-            </systemPropertyVariables>
-          </configuration>
-        </plugin>
-        <plugin>
-          <artifactId>maven-failsafe-plugin</artifactId>
-          <version>3.2.5</version>
-          <configuration>
-            <systemPropertyVariables>
-              <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
-              <io.netty.tryReflectionSetAccessible>true</io.netty.tryReflectionSetAccessible>
-              <user.timezone>UTC</user.timezone>
-            </systemPropertyVariables>
-          </configuration>
-        </plugin>
-        <plugin>
-          <groupId>org.jacoco</groupId>
-          <artifactId>jacoco-maven-plugin</artifactId>
-          <version>0.8.11</version>
-        </plugin>
-
-        <!--This plugin's configuration is used to store Eclipse m2e settings
-          only. It has no influence on the Maven build itself. -->
-        <plugin>
-          <groupId>org.eclipse.m2e</groupId>
-          <artifactId>lifecycle-mapping</artifactId>
-          <version>1.0.0</version>
-          <configuration>
-            <lifecycleMappingMetadata>
-              <pluginExecutions>
-                <pluginExecution>
-                  <pluginExecutionFilter>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-antrun-plugin</artifactId>
-                    <versionRange>[1.6,)</versionRange>
-                    <goals>
-                      <goal>run</goal>
-                    </goals>
-                  </pluginExecutionFilter>
-                  <action>
-                    <ignore />
-                  </action>
-                </pluginExecution>
-                <pluginExecution>
-                  <pluginExecutionFilter>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-enforcer-plugin</artifactId>
-                    <versionRange>[1.2,)</versionRange>
-                    <goals>
-                      <goal>enforce</goal>
-                    </goals>
-                  </pluginExecutionFilter>
-                  <action>
-                    <ignore />
-                  </action>
-                </pluginExecution>
-                <pluginExecution>
-                  <pluginExecutionFilter>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>
-                      maven-remote-resources-plugin
-                    </artifactId>
-                    <versionRange>[1.1,)</versionRange>
-                    <goals>
-                      <goal>process</goal>
-                    </goals>
-                  </pluginExecutionFilter>
-                  <action>
-                    <ignore />
-                  </action>
-                </pluginExecution>
-                <pluginExecution>
-                  <pluginExecutionFilter>
-                    <groupId>org.apache.rat</groupId>
-                    <artifactId>apache-rat-plugin</artifactId>
-                    <versionRange>[0.10,)</versionRange>
-                    <goals>
-                      <goal>check</goal>
-                    </goals>
-                  </pluginExecutionFilter>
-                  <action>
-                    <ignore />
-                  </action>
-                </pluginExecution>
-                <pluginExecution>
-                  <pluginExecutionFilter>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-checkstyle-plugin</artifactId>
-                    <versionRange>[0,)</versionRange>
-                    <goals>
-                      <goal>check</goal>
-                    </goals>
-                  </pluginExecutionFilter>
-                  <action>
-                    <ignore />
-                  </action>
-                </pluginExecution>
-              </pluginExecutions>
-            </lifecycleMappingMetadata>
-          </configuration>
-        </plugin>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-javadoc-plugin</artifactId>
-          <version>3.6.3</version>
-          <configuration>
-            <source>8</source>
-            <sourceFileExcludes>
-              <sourceFileExclude>**/module-info.java</sourceFileExclude>
-            </sourceFileExcludes>
-          </configuration>
-        </plugin>
-        <plugin>
-          <groupId>org.apache.arrow.maven.plugins</groupId>
-          <artifactId>module-info-compiler-maven-plugin</artifactId>
-          <version>${project.version}</version>
-        </plugin>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-project-info-reports-plugin</artifactId>
-          <version>3.5.0</version>
-        </plugin>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-site-plugin</artifactId>
-          <version>3.12.1</version>
-        </plugin>
-        <plugin>
-          <groupId>com.gradle</groupId>
-          <artifactId>gradle-enterprise-maven-extension</artifactId>
-          <configuration>
-            <gradleEnterprise>
-              <normalization>
-                <runtimeClassPath>
-                  <ignoredFiles>
-                    <ignoredFile>arrow-git.properties</ignoredFile>
-                    <ignoredFile>properties/flight.properties</ignoredFile>
-                  </ignoredFiles>
-                </runtimeClassPath>
-              </normalization>
-              <plugins>
-                <plugin>
-                  <groupId>org.apache.maven.plugins</groupId>
-                  <artifactId>maven-surefire-plugin</artifactId>
-                  <inputs>
-                    <fileSets>
-                      <fileSet>
-                        <name>testingData</name>
-                        <paths>
-                          <path>${arrow.test.dataRoot}</path>
-                        </paths>
-                      </fileSet>
-                    </fileSets>
-                  </inputs>
-              </plugin>
-            </plugins>
-            </gradleEnterprise>
-          </configuration>
-        </plugin>
-        <plugin>
-          <groupId>org.xolstice.maven.plugins</groupId>
-          <artifactId>protobuf-maven-plugin</artifactId>
-          <version>0.6.1</version>
-          <configuration>
-            <protocArtifact>com.google.protobuf:protoc:${dep.protobuf-bom.version}:exe:${os.detected.classifier}</protocArtifact>
-            <pluginId>grpc-java</pluginId>
-            <pluginArtifact>io.grpc:protoc-gen-grpc-java:${dep.grpc-bom.version}:exe:${os.detected.classifier}</pluginArtifact>
-          </configuration>
-        </plugin>
-      </plugins>
-    </pluginManagement>
-  </build>
+  <properties>
+    <target.gen.source.path>${project.build.directory}/generated-sources</target.gen.source.path>
+    <dep.junit.platform.version>1.9.0</dep.junit.platform.version>
+    <dep.junit.jupiter.version>5.10.2</dep.junit.jupiter.version>
+    <dep.slf4j.version>2.0.12</dep.slf4j.version>
+    <dep.guava-bom.version>33.0.0-jre</dep.guava-bom.version>
+    <dep.netty-bom.version>4.1.108.Final</dep.netty-bom.version>
+    <dep.grpc-bom.version>1.63.0</dep.grpc-bom.version>
+    <dep.protobuf-bom.version>3.23.1</dep.protobuf-bom.version>
+    <dep.jackson-bom.version>2.17.0</dep.jackson-bom.version>
+    <dep.hadoop.version>3.4.0</dep.hadoop.version>
+    <dep.fbs.version>23.5.26</dep.fbs.version>
+    <dep.avro.version>1.11.3</dep.avro.version>
+    <arrow.vector.classifier></arrow.vector.classifier>
+    <forkCount>2</forkCount>
+    <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
+    <errorprone.javac.version>9+181-r4173-1</errorprone.javac.version>
+    <error_prone_core.version>2.24.0</error_prone_core.version>
+    <maven-compiler-plugin.version>3.12.1</maven-compiler-plugin.version>
+    <mockito.core.version>5.11.0</mockito.core.version>
+    <mockito.inline.version>5.2.0</mockito.inline.version>
+    <checker.framework.version>3.42.0</checker.framework.version>
+  </properties>
 
   <dependencyManagement>
     <dependencies>
@@ -820,31 +271,616 @@
 
   </dependencies>
 
+  <repositories></repositories>
+
+  <build>
+
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-dependency-plugin</artifactId>
+          <!--
+            This appears to report a false positive with versions
+            greater than 3.1.2 (tested up to 3.6.0) when compiling
+            arrow-tools about Jackson being only used for tests.
+          -->
+          <version>3.1.2</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.rat</groupId>
+          <artifactId>apache-rat-plugin</artifactId>
+          <version>0.16.1</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-resources-plugin</artifactId>
+          <version>3.3.1</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>${maven-compiler-plugin.version}</version>
+          <configuration>
+            <excludes>**/module-info.java</excludes>
+            <testExcludes>**/module-info.java</testExcludes>
+            <useModulePath>false</useModulePath>
+            <annotationProcessorPaths>
+              <path>
+                <groupId>org.immutables</groupId>
+                <artifactId>value</artifactId>
+                <version>2.10.0</version>
+              </path>
+            </annotationProcessorPaths>
+          </configuration>
+        </plugin>
+        <plugin>
+          <artifactId>maven-enforcer-plugin</artifactId>
+          <version>3.4.1</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-shade-plugin</artifactId>
+          <version>3.5.1</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <version>3.2.5</version>
+          <configuration>
+            <enableAssertions>true</enableAssertions>
+            <childDelegation>true</childDelegation>
+            <forkCount>${forkCount}</forkCount>
+            <reuseForks>true</reuseForks>
+            <systemPropertyVariables>
+              <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
+              <io.netty.tryReflectionSetAccessible>true</io.netty.tryReflectionSetAccessible>
+              <user.timezone>UTC</user.timezone>
+              <!-- Note: changing the below configuration might increase the max allocation size for a vector
+              which in turn can cause OOM. -->
+              <arrow.vector.max_allocation_bytes>1048576</arrow.vector.max_allocation_bytes>
+            </systemPropertyVariables>
+          </configuration>
+          <dependencies>
+            <dependency>
+              <groupId>org.junit.jupiter</groupId>
+              <artifactId>junit-jupiter-engine</artifactId>
+              <version>${dep.junit.jupiter.version}</version>
+            </dependency>
+            <dependency>
+              <groupId>org.apache.maven.surefire</groupId>
+              <artifactId>surefire-junit-platform</artifactId>
+              <version>3.2.5</version>
+            </dependency>
+          </dependencies>
+        </plugin>
+        <plugin>
+          <artifactId>maven-failsafe-plugin</artifactId>
+          <version>3.2.5</version>
+          <configuration>
+            <systemPropertyVariables>
+              <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
+              <io.netty.tryReflectionSetAccessible>true</io.netty.tryReflectionSetAccessible>
+              <user.timezone>UTC</user.timezone>
+            </systemPropertyVariables>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.jacoco</groupId>
+          <artifactId>jacoco-maven-plugin</artifactId>
+          <version>0.8.11</version>
+        </plugin>
+
+        <!--This plugin's configuration is used to store Eclipse m2e settings
+          only. It has no influence on the Maven build itself. -->
+        <plugin>
+          <groupId>org.eclipse.m2e</groupId>
+          <artifactId>lifecycle-mapping</artifactId>
+          <version>1.0.0</version>
+          <configuration>
+            <lifecycleMappingMetadata>
+              <pluginExecutions>
+                <pluginExecution>
+                  <pluginExecutionFilter>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-antrun-plugin</artifactId>
+                    <versionRange>[1.6,)</versionRange>
+                    <goals>
+                      <goal>run</goal>
+                    </goals>
+                  </pluginExecutionFilter>
+                  <action>
+                    <ignore></ignore>
+                  </action>
+                </pluginExecution>
+                <pluginExecution>
+                  <pluginExecutionFilter>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-enforcer-plugin</artifactId>
+                    <versionRange>[1.2,)</versionRange>
+                    <goals>
+                      <goal>enforce</goal>
+                    </goals>
+                  </pluginExecutionFilter>
+                  <action>
+                    <ignore></ignore>
+                  </action>
+                </pluginExecution>
+                <pluginExecution>
+                  <pluginExecutionFilter>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-remote-resources-plugin</artifactId>
+                    <versionRange>[1.1,)</versionRange>
+                    <goals>
+                      <goal>process</goal>
+                    </goals>
+                  </pluginExecutionFilter>
+                  <action>
+                    <ignore></ignore>
+                  </action>
+                </pluginExecution>
+                <pluginExecution>
+                  <pluginExecutionFilter>
+                    <groupId>org.apache.rat</groupId>
+                    <artifactId>apache-rat-plugin</artifactId>
+                    <versionRange>[0.10,)</versionRange>
+                    <goals>
+                      <goal>check</goal>
+                    </goals>
+                  </pluginExecutionFilter>
+                  <action>
+                    <ignore></ignore>
+                  </action>
+                </pluginExecution>
+                <pluginExecution>
+                  <pluginExecutionFilter>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-checkstyle-plugin</artifactId>
+                    <versionRange>[0,)</versionRange>
+                    <goals>
+                      <goal>check</goal>
+                    </goals>
+                  </pluginExecutionFilter>
+                  <action>
+                    <ignore></ignore>
+                  </action>
+                </pluginExecution>
+              </pluginExecutions>
+            </lifecycleMappingMetadata>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-javadoc-plugin</artifactId>
+          <version>3.6.3</version>
+          <configuration>
+            <source>8</source>
+            <sourceFileExcludes>
+              <sourceFileExclude>**/module-info.java</sourceFileExclude>
+            </sourceFileExcludes>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.arrow.maven.plugins</groupId>
+          <artifactId>module-info-compiler-maven-plugin</artifactId>
+          <version>${project.version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-project-info-reports-plugin</artifactId>
+          <version>3.5.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-site-plugin</artifactId>
+          <version>3.12.1</version>
+        </plugin>
+        <plugin>
+          <groupId>com.gradle</groupId>
+          <artifactId>gradle-enterprise-maven-extension</artifactId>
+          <configuration>
+            <gradleEnterprise>
+              <normalization>
+                <runtimeClassPath>
+                  <ignoredFiles>
+                    <ignoredFile>arrow-git.properties</ignoredFile>
+                    <ignoredFile>properties/flight.properties</ignoredFile>
+                  </ignoredFiles>
+                </runtimeClassPath>
+              </normalization>
+              <plugins>
+                <plugin>
+                  <groupId>org.apache.maven.plugins</groupId>
+                  <artifactId>maven-surefire-plugin</artifactId>
+                  <inputs>
+                    <fileSets>
+                      <fileSet>
+                        <name>testingData</name>
+                        <paths>
+                          <path>${arrow.test.dataRoot}</path>
+                        </paths>
+                      </fileSet>
+                    </fileSets>
+                  </inputs>
+                </plugin>
+              </plugins>
+            </gradleEnterprise>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.xolstice.maven.plugins</groupId>
+          <artifactId>protobuf-maven-plugin</artifactId>
+          <version>0.6.1</version>
+          <configuration>
+            <protocArtifact>com.google.protobuf:protoc:${dep.protobuf-bom.version}:exe:${os.detected.classifier}</protocArtifact>
+            <pluginId>grpc-java</pluginId>
+            <pluginArtifact>io.grpc:protoc-gen-grpc-java:${dep.grpc-bom.version}:exe:${os.detected.classifier}</pluginArtifact>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>com.diffplug.spotless</groupId>
+          <artifactId>spotless-maven-plugin</artifactId>
+          <version>2.30.0</version>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+
+    <plugins>
+      <plugin>
+        <groupId>org.apache.rat</groupId>
+        <artifactId>apache-rat-plugin</artifactId>
+        <configuration>
+          <excludeSubProjects>false</excludeSubProjects>
+          <excludes>
+            <exclude>**/dependency-reduced-pom.xml</exclude>
+            <exclude>**/*.log</exclude>
+            <exclude>**/*.css</exclude>
+            <exclude>**/*.js</exclude>
+            <exclude>**/*.md</exclude>
+            <exclude>**/*.eps</exclude>
+            <exclude>**/*.json</exclude>
+            <exclude>**/*.seq</exclude>
+            <exclude>**/*.parquet</exclude>
+            <exclude>**/*.sql</exclude>
+            <exclude>**/arrow-git.properties</exclude>
+            <exclude>**/*.csv</exclude>
+            <exclude>**/*.csvh</exclude>
+            <exclude>**/*.csvh-test</exclude>
+            <exclude>**/*.tsv</exclude>
+            <exclude>**/*.txt</exclude>
+            <exclude>**/*.ssv</exclude>
+            <exclude>**/arrow-*.conf</exclude>
+            <exclude>**/.buildpath</exclude>
+            <exclude>**/*.proto</exclude>
+            <exclude>**/*.fmpp</exclude>
+            <exclude>**/target/**</exclude>
+            <exclude>**/*.tdd</exclude>
+            <exclude>**/*.project</exclude>
+            <exclude>**/TAGS</exclude>
+            <exclude>**/*.checkstyle</exclude>
+            <exclude>**/.classpath</exclude>
+            <exclude>**/.factorypath</exclude>
+            <exclude>**/.settings/**</exclude>
+            <exclude>.*/**</exclude>
+            <exclude>**/*.patch</exclude>
+            <exclude>**/*.pb.cc</exclude>
+            <exclude>**/*.pb.h</exclude>
+            <exclude>**/*.linux</exclude>
+            <exclude>**/client/build/**</exclude>
+            <exclude>**/*.tbl</exclude>
+            <exclude>**/*.iml</exclude>
+            <exclude>**/flight.properties</exclude>
+            <exclude>**/*.idea/**</exclude>
+          </excludes>
+        </configuration>
+        <executions>
+          <execution>
+            <id>rat-checks</id>
+            <goals>
+              <goal>check</goal>
+            </goals>
+            <phase>validate</phase>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <configuration>
+          <excludes>
+            <exclude>**/logging.properties</exclude>
+            <exclude>**/logback-test.xml</exclude>
+            <exclude>**/logback.out.xml</exclude>
+            <exclude>**/logback.xml</exclude>
+          </excludes>
+          <archive>
+            <index>true</index>
+            <manifest>
+              <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+              <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
+            </manifest>
+            <manifestEntries>
+              <Extension-Name>org.apache.arrow</Extension-Name>
+              <Built-By>${username}</Built-By>
+              <url>https://arrow.apache.org/</url>
+            </manifestEntries>
+          </archive>
+        </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>test-jar</goal>
+            </goals>
+            <configuration>
+              <skipIfEmpty>true</skipIfEmpty>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-resources-plugin</artifactId>
+        <configuration>
+          <encoding>UTF-8</encoding>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <source>1.8</source>
+          <target>1.8</target>
+          <maxmem>2048m</maxmem>
+          <useIncrementalCompilation>false</useIncrementalCompilation>
+          <fork>true</fork>
+        </configuration>
+      </plugin>
+      <plugin>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>validate_java_and_maven_version</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <phase>verify</phase>
+            <inherited>false</inherited>
+            <configuration>
+              <rules>
+                <requireMavenVersion>
+                  <version>[3.3.0,4)</version>
+                </requireMavenVersion>
+              </rules>
+            </configuration>
+          </execution>
+          <execution>
+            <id>avoid_bad_dependencies</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <phase>verify</phase>
+            <configuration>
+              <rules>
+                <bannedDependencies>
+                  <excludes>
+                    <exclude>commons-logging</exclude>
+                    <exclude>javax.servlet:servlet-api</exclude>
+                    <exclude>org.mortbay.jetty:servlet-api</exclude>
+                    <exclude>org.mortbay.jetty:servlet-api-2.5</exclude>
+                    <exclude>log4j:log4j</exclude>
+                  </excludes>
+                </bannedDependencies>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>pl.project13.maven</groupId>
+        <artifactId>git-commit-id-plugin</artifactId>
+        <version>4.0.5</version>
+
+        <configuration>
+          <dateFormat>dd.MM.yyyy '@' HH:mm:ss z</dateFormat>
+          <verbose>false</verbose>
+          <skipPoms>false</skipPoms>
+          <generateGitPropertiesFile>true</generateGitPropertiesFile>
+          <failOnNoGitDirectory>false</failOnNoGitDirectory>
+          <gitDescribe>
+            <skip>false</skip>
+            <always>false</always>
+            <abbrev>7</abbrev>
+            <dirty>-dirty</dirty>
+            <forceLongFormat>true</forceLongFormat>
+          </gitDescribe>
+        </configuration>
+        <executions>
+          <execution>
+            <id>for-jars</id>
+            <goals>
+              <goal>revision</goal>
+            </goals>
+            <inherited>true</inherited>
+            <configuration>
+              <generateGitPropertiesFilename>target/classes/arrow-git.properties</generateGitPropertiesFilename>
+            </configuration>
+          </execution>
+          <execution>
+            <id>for-source-tarball</id>
+            <goals>
+              <goal>revision</goal>
+            </goals>
+            <inherited>false</inherited>
+            <configuration>
+              <generateGitPropertiesFilename>./arrow-git.properties</generateGitPropertiesFilename>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+        <version>3.1.0</version>
+        <configuration>
+          <excludes>**/module-info.java</excludes>
+          <configLocation>dev/checkstyle/checkstyle.xml</configLocation>
+          <headerLocation>dev/checkstyle/checkstyle.license</headerLocation>
+          <suppressionsLocation>dev/checkstyle/suppressions.xml</suppressionsLocation>
+          <includeTestSourceDirectory>true</includeTestSourceDirectory>
+          <inputEncoding>UTF-8</inputEncoding>
+          <consoleOutput>true</consoleOutput>
+          <failsOnError>${checkstyle.failOnViolation}</failsOnError>
+          <failOnViolation>${checkstyle.failOnViolation}</failOnViolation>
+          <violationSeverity>warning</violationSeverity>
+          <outputFileFormat>xml</outputFileFormat>
+          <outputFile>${project.build.directory}/test/checkstyle-errors.xml</outputFile>
+          <linkXRef>false</linkXRef>
+        </configuration>
+        <dependencies>
+          <dependency>
+            <groupId>com.puppycrawl.tools</groupId>
+            <artifactId>checkstyle</artifactId>
+            <version>8.29</version>
+          </dependency>
+          <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>jcl-over-slf4j</artifactId>
+            <version>${dep.slf4j.version}</version>
+          </dependency>
+        </dependencies>
+        <executions>
+          <execution>
+            <id>validate</id>
+            <goals>
+              <goal>check</goal>
+            </goals>
+            <phase>validate</phase>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>analyze</id>
+            <goals>
+              <goal>analyze-only</goal>
+            </goals>
+            <phase>verify</phase>
+            <configuration>
+              <ignoreNonCompile>true</ignoreNonCompile>
+              <failOnWarning>true</failOnWarning>
+              <ignoredDependencies>
+                <!-- source annotations (not kept in compiled code) -->
+                <ignoredDependency>javax.annotation:javax.annotation-api:*</ignoredDependency>
+                <ignoredDependency>org.apache.hadoop:hadoop-client-api</ignoredDependency>
+                <ignoredDependency>org.checkerframework:checker-qual</ignoredDependency>
+              </ignoredDependencies>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.cyclonedx</groupId>
+        <artifactId>cyclonedx-maven-plugin</artifactId>
+        <version>2.7.11</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>makeBom</goal>
+            </goals>
+            <phase>package</phase>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.arrow.maven.plugins</groupId>
+        <artifactId>module-info-compiler-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>default-compile</id>
+            <goals>
+              <goal>compile</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>default-testCompile</id>
+            <goals>
+              <goal>testCompile</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-project-info-reports-plugin</artifactId>
+        <version>3.5.0</version>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-site-plugin</artifactId>
+        <version>3.12.1</version>
+      </plugin>
+      <plugin>
+        <groupId>com.diffplug.spotless</groupId>
+        <artifactId>spotless-maven-plugin</artifactId>
+        <configuration>
+          <pom>
+            <sortPom></sortPom>
+          </pom>
+        </configuration>
+        <executions>
+          <execution>
+            <id>spotless-check</id>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+    <extensions>
+      <!-- provides os.detected.classifier (i.e. linux-x86_64, osx-x86_64) property -->
+      <extension>
+        <groupId>kr.motd.maven</groupId>
+        <artifactId>os-maven-plugin</artifactId>
+        <version>1.7.1</version>
+      </extension>
+    </extensions>
+  </build>
+
   <reporting>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-javadoc-plugin</artifactId>
         <version>3.6.3</version>
-        <reportSets>
-          <reportSet><!-- by default, id = "default" -->
-            <reports><!-- select non-aggregate reports -->
-              <report>javadoc</report>
-            </reports>
-          </reportSet>
-          <reportSet><!-- aggregate reportSet, to define in poms having modules -->
-            <id>aggregate</id>
-            <inherited>false</inherited><!-- don't run aggregate in child modules -->
-            <reports>
-              <report>aggregate</report>
-            </reports>
-          </reportSet>
-        </reportSets>
         <configuration>
           <sourceFileExcludes>
             <sourceFileExclude>**/module-info.java</sourceFileExclude>
           </sourceFileExcludes>
         </configuration>
+        <reportSets>
+          <reportSet>
+            <!-- by default, id = "default" -->
+            <reports>
+              <!-- select non-aggregate reports -->
+              <report>javadoc</report>
+            </reports>
+          </reportSet>
+          <reportSet>
+            <!-- aggregate reportSet, to define in poms having modules -->
+            <id>aggregate</id>
+            <!-- don't run aggregate in child modules -->
+            <reports>
+              <report>aggregate</report>
+            </reports>
+            <inherited>false</inherited>
+          </reportSet>
+        </reportSets>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -858,21 +894,6 @@
       </plugin>
     </plugins>
   </reporting>
-
-  <modules>
-    <module>maven</module>
-    <module>bom</module>
-    <module>format</module>
-    <module>memory</module>
-    <module>vector</module>
-    <module>tools</module>
-    <module>adapter/jdbc</module>
-    <module>flight</module>
-    <module>performance</module>
-    <module>algorithm</module>
-    <module>adapter/avro</module>
-    <module>compression</module>
-  </modules>
 
   <profiles>
     <profile>
@@ -1042,11 +1063,12 @@
             <version>0.8.11</version>
             <reportSets>
               <reportSet>
-                <inherited>false</inherited><!-- don't run aggregate in child modules -->
+                <!-- don't run aggregate in child modules -->
                 <reports>
                   <!-- select non-aggregate reports -->
                   <report>report</report>
                 </reports>
+                <inherited>false</inherited>
               </reportSet>
             </reportSets>
           </plugin>
@@ -1088,35 +1110,31 @@
             <executions>
               <execution>
                 <id>cdata-cmake</id>
-                <phase>generate-resources</phase>
                 <goals>
                   <goal>exec</goal>
                 </goals>
+                <phase>generate-resources</phase>
                 <configuration>
                   <executable>cmake</executable>
-                  <commandlineArgs>
-                    -S java
+                  <commandlineArgs>-S java
                     -B java-jni
                     -DARROW_JAVA_JNI_ENABLE_C=ON
                     -DARROW_JAVA_JNI_ENABLE_DEFAULT=OFF
                     -DBUILD_TESTING=OFF
                     -DCMAKE_BUILD_TYPE=Release
-                    -DCMAKE_INSTALL_PREFIX=${arrow.c.jni.dist.dir}
-                  </commandlineArgs>
+                    -DCMAKE_INSTALL_PREFIX=${arrow.c.jni.dist.dir}</commandlineArgs>
                   <workingDirectory>../</workingDirectory>
                 </configuration>
               </execution>
               <execution>
                 <id>cdata-build</id>
-                <phase>generate-resources</phase>
                 <goals>
                   <goal>exec</goal>
                 </goals>
+                <phase>generate-resources</phase>
                 <configuration>
                   <executable>cmake</executable>
-                  <commandlineArgs>
-                    --build java-jni --target install --config Release
-                  </commandlineArgs>
+                  <commandlineArgs>--build java-jni --target install --config Release</commandlineArgs>
                   <workingDirectory>../</workingDirectory>
                 </configuration>
               </execution>
@@ -1149,14 +1167,13 @@
             <executions>
               <execution>
                 <id>jni-cpp-cmake</id>
-                <phase>generate-resources</phase>
                 <goals>
                   <goal>exec</goal>
                 </goals>
+                <phase>generate-resources</phase>
                 <configuration>
                   <executable>cmake</executable>
-                  <commandlineArgs>
-                    -S cpp
+                  <commandlineArgs>-S cpp
                     -B cpp-jni
                     -DARROW_BUILD_SHARED=OFF
                     -DARROW_CSV=${ARROW_DATASET}
@@ -1174,37 +1191,33 @@
                     -DARROW_USE_CCACHE=ON
                     -DCMAKE_BUILD_TYPE=Release
                     -DCMAKE_INSTALL_PREFIX=java-dist
-                    -DCMAKE_UNITY_BUILD=ON
-                  </commandlineArgs>
+                    -DCMAKE_UNITY_BUILD=ON</commandlineArgs>
                   <workingDirectory>../</workingDirectory>
                   <skip>${cpp.dependencies.builded}</skip>
                 </configuration>
               </execution>
               <execution>
                 <id>jni-cpp-build</id>
-                <phase>generate-resources</phase>
                 <goals>
                   <goal>exec</goal>
                 </goals>
+                <phase>generate-resources</phase>
                 <configuration>
                   <executable>cmake</executable>
-                  <commandlineArgs>
-                    --build cpp-jni --target install --config Release
-                  </commandlineArgs>
+                  <commandlineArgs>--build cpp-jni --target install --config Release</commandlineArgs>
                   <workingDirectory>../</workingDirectory>
                   <skip>${cpp.dependencies.builded}</skip>
                 </configuration>
               </execution>
               <execution>
                 <id>jni-cmake</id>
-                <phase>generate-resources</phase>
                 <goals>
                   <goal>exec</goal>
                 </goals>
+                <phase>generate-resources</phase>
                 <configuration>
                   <executable>cmake</executable>
-                  <commandlineArgs>
-                    -S java
+                  <commandlineArgs>-S java
                     -B java-jni
                     -DARROW_JAVA_JNI_ENABLE_C=${ARROW_JAVA_JNI_ENABLE_C}
                     -DARROW_JAVA_JNI_ENABLE_DATASET=${ARROW_JAVA_JNI_ENABLE_DATASET}
@@ -1216,22 +1229,19 @@
                     -DCMAKE_INSTALL_PREFIX=${arrow.dataset.jni.dist.dir}
                     -DCMAKE_PREFIX_PATH=${project.basedir}/../java-dist/lib/${os.detected.arch}/cmake
                     -DProtobuf_USE_STATIC_LIBS=ON
-                    -DProtobuf_ROOT=${project.basedir}/../cpp-jni/protobuf_ep-install
-                  </commandlineArgs>
+                    -DProtobuf_ROOT=${project.basedir}/../cpp-jni/protobuf_ep-install</commandlineArgs>
                   <workingDirectory>../</workingDirectory>
                 </configuration>
               </execution>
               <execution>
                 <id>jni-build</id>
-                <phase>generate-resources</phase>
                 <goals>
                   <goal>exec</goal>
                 </goals>
+                <phase>generate-resources</phase>
                 <configuration>
                   <executable>cmake</executable>
-                  <commandlineArgs>
-                    --build java-jni --target install --config Release
-                  </commandlineArgs>
+                  <commandlineArgs>--build java-jni --target install --config Release</commandlineArgs>
                   <workingDirectory>../</workingDirectory>
                 </configuration>
               </execution>
@@ -1264,14 +1274,13 @@
             <executions>
               <execution>
                 <id>jni-cpp-cmake</id>
-                <phase>generate-resources</phase>
                 <goals>
                   <goal>exec</goal>
                 </goals>
+                <phase>generate-resources</phase>
                 <configuration>
                   <executable>cmake</executable>
-                  <commandlineArgs>
-                    -S cpp
+                  <commandlineArgs>-S cpp
                     -B cpp-jni
                     -DARROW_BUILD_SHARED=OFF
                     -DARROW_CSV=${ARROW_DATASET}
@@ -1293,37 +1302,33 @@
                     -DCMAKE_BUILD_TYPE=Release
                     -DCMAKE_INSTALL_PREFIX=java-dist
                     -DCMAKE_UNITY_BUILD=ON
-                    -GNinja
-                  </commandlineArgs>
+                    -GNinja</commandlineArgs>
                   <workingDirectory>../</workingDirectory>
                   <skip>${cpp.dependencies.builded}</skip>
                 </configuration>
               </execution>
               <execution>
                 <id>jni-cpp-build</id>
-                <phase>generate-resources</phase>
                 <goals>
                   <goal>exec</goal>
                 </goals>
+                <phase>generate-resources</phase>
                 <configuration>
                   <executable>ninja</executable>
-                  <commandlineArgs>
-                    install
-                  </commandlineArgs>
+                  <commandlineArgs>install</commandlineArgs>
                   <workingDirectory>../cpp-jni</workingDirectory>
                   <skip>${cpp.dependencies.builded}</skip>
                 </configuration>
               </execution>
               <execution>
                 <id>jni-cmake</id>
-                <phase>generate-resources</phase>
                 <goals>
                   <goal>exec</goal>
                 </goals>
+                <phase>generate-resources</phase>
                 <configuration>
                   <executable>cmake</executable>
-                  <commandlineArgs>
-                    -S java
+                  <commandlineArgs>-S java
                     -B java-jni
                     -DARROW_JAVA_JNI_ENABLE_C=${ARROW_JAVA_JNI_ENABLE_C}
                     -DARROW_JAVA_JNI_ENABLE_DATASET=${ARROW_JAVA_JNI_ENABLE_DATASET}
@@ -1333,22 +1338,19 @@
                     -DBUILD_TESTING=OFF
                     -DCMAKE_BUILD_TYPE=Release
                     -DCMAKE_INSTALL_PREFIX=${arrow.dataset.jni.dist.dir}
-                    -DCMAKE_PREFIX_PATH=${project.basedir}/../java-dist/lib/${os.detected.arch}/cmake
-                  </commandlineArgs>
+                    -DCMAKE_PREFIX_PATH=${project.basedir}/../java-dist/lib/${os.detected.arch}/cmake</commandlineArgs>
                   <workingDirectory>../</workingDirectory>
                 </configuration>
               </execution>
               <execution>
                 <id>jni-build</id>
-                <phase>generate-resources</phase>
                 <goals>
                   <goal>exec</goal>
                 </goals>
+                <phase>generate-resources</phase>
                 <configuration>
                   <executable>cmake</executable>
-                  <commandlineArgs>
-                    --build java-jni --target install --config Release
-                  </commandlineArgs>
+                  <commandlineArgs>--build java-jni --target install --config Release</commandlineArgs>
                   <workingDirectory>../</workingDirectory>
                 </configuration>
               </execution>

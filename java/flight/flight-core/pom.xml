@@ -1,4 +1,4 @@
-<?xml version="1.0"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!-- Licensed to the Apache Software Foundation (ASF) under one or more contributor
   license agreements. See the NOTICE file distributed with this work for additional
   information regarding copyright ownership. The ASF licenses this file to
@@ -12,16 +12,16 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
-    <artifactId>arrow-flight</artifactId>
     <groupId>org.apache.arrow</groupId>
+    <artifactId>arrow-flight</artifactId>
     <version>16.0.0-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
   <artifactId>flight-core</artifactId>
+  <packaging>jar</packaging>
   <name>Arrow Flight Core</name>
   <description>(Experimental)An RPC mechanism for transferring ValueVectors.</description>
-  <packaging>jar</packaging>
 
   <properties>
     <forkCount>1</forkCount>
@@ -116,7 +116,7 @@
     <dependency>
       <groupId>javax.annotation</groupId>
       <artifactId>javax.annotation-api</artifactId>
-     </dependency>
+    </dependency>
     <dependency>
       <groupId>org.immutables</groupId>
       <artifactId>value</artifactId>
@@ -138,13 +138,6 @@
     </dependency>
   </dependencies>
   <build>
-    <extensions>
-      <extension>
-        <groupId>kr.motd.maven</groupId>
-        <artifactId>os-maven-plugin</artifactId>
-        <version>1.7.1</version>
-      </extension>
-    </extensions>
     <plugins>
       <plugin>
         <artifactId>maven-surefire-plugin</artifactId>
@@ -168,10 +161,10 @@
         <executions>
           <execution>
             <id>shade-main</id>
-            <phase>package</phase>
             <goals>
               <goal>shade</goal>
             </goals>
+            <phase>package</phase>
             <configuration>
               <shadedArtifactAttached>true</shadedArtifactAttached>
               <shadedClassifierName>shaded</shadedClassifierName>
@@ -188,16 +181,16 @@
                 </relocation>
               </relocations>
               <transformers>
-                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"></transformer>
               </transformers>
             </configuration>
           </execution>
           <execution>
             <id>shade-ext</id>
-            <phase>package</phase>
             <goals>
               <goal>shade</goal>
             </goals>
+            <phase>package</phase>
             <configuration>
               <shadedArtifactAttached>true</shadedArtifactAttached>
               <shadedClassifierName>shaded-ext</shadedClassifierName>
@@ -219,7 +212,7 @@
                 </relocation>
               </relocations>
               <transformers>
-                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"></transformer>
               </transformers>
             </configuration>
           </execution>
@@ -231,13 +224,13 @@
         <executions>
           <execution>
             <id>src</id>
-            <configuration>
-              <protoSourceRoot>${basedir}/../../../format/</protoSourceRoot>
-            </configuration>
             <goals>
               <goal>compile</goal>
               <goal>compile-custom</goal>
             </goals>
+            <configuration>
+              <protoSourceRoot>${basedir}/../../../format/</protoSourceRoot>
+            </configuration>
           </execution>
           <execution>
             <id>test</id>
@@ -255,10 +248,10 @@
         <executions>
           <execution>
             <id>analyze</id>
-            <phase>verify</phase>
             <goals>
               <goal>analyze-only</goal>
             </goals>
+            <phase>verify</phase>
             <configuration>
               <ignoredDependencies combine.children="append">
                 <ignoredDependency>io.netty:netty-tcnative-boringssl-static:*</ignoredDependency>
@@ -267,17 +260,18 @@
           </execution>
         </executions>
       </plugin>
-      <plugin> <!-- add generated sources to classpath -->
+      <plugin>
+        <!-- add generated sources to classpath -->
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>build-helper-maven-plugin</artifactId>
         <version>1.9.1</version>
         <executions>
           <execution>
             <id>add-generated-sources-to-classpath</id>
-            <phase>generate-sources</phase>
             <goals>
               <goal>add-source</goal>
             </goals>
+            <phase>generate-sources</phase>
             <configuration>
               <sources>
                 <source>${project.build.directory}/generated-sources/protobuf</source>
@@ -297,14 +291,21 @@
         <executions>
           <execution>
             <id>make-assembly</id>
-            <phase>package</phase>
             <goals>
               <goal>single</goal>
             </goals>
+            <phase>package</phase>
           </execution>
         </executions>
       </plugin>
     </plugins>
+    <extensions>
+      <extension>
+        <groupId>kr.motd.maven</groupId>
+        <artifactId>os-maven-plugin</artifactId>
+        <version>1.7.1</version>
+      </extension>
+    </extensions>
   </build>
 
   <profiles>
