@@ -1550,7 +1550,7 @@ class CountOptions(_CountOptions):
     mode : str, default "only_valid"
         Which values to count in the input.
         Accepted values are "only_valid", "only_null", "all".
-    filter : Expression, default literal(true).
+    {_filter(default=None)}
     """
 
     def __init__(self, mode="only_valid", filter=None):
@@ -1578,8 +1578,7 @@ class IndexOptions(_IndexOptions):
     ----------
     value : Scalar
         The value to search for.
-    filter : Expression
-        The filter before agg.
+    {_filter(default=None)}
     """
 
     def __init__(self, value, filter=None):

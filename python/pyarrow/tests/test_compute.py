@@ -225,7 +225,8 @@ def test_option_class_equality():
     for option1, option2 in zip(options, options[1:]):
         assert option1 != option2
 
-    assert repr(pc.IndexOptions(pa.scalar(1))) == "IndexOptions({value=int64:1}, filter = true)"
+    assert repr(pc.IndexOptions(pa.scalar(1))) == \
+        "IndexOptions({value=int64:1}, filter = true)"
     assert repr(pc.ArraySortOptions()) == \
         "ArraySortOptions({order=Ascending, null_placement=AtEnd}, filter = true)"
 
