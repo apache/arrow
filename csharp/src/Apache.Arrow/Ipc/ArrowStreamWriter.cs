@@ -165,8 +165,13 @@ namespace Apache.Arrow.Ipc
                 _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
                 _buffers.Add(CreateBuffer(GetZeroBasedValueOffsets(array.ValueOffsetsBuffer, array.Offset, array.Length)));
 
-                int valuesOffset = array.ValueOffsets[0];
-                int valuesLength = array.ValueOffsets[array.Length] - valuesOffset;
+                int valuesOffset = 0;
+                int valuesLength = 0;
+                if (array.Length > 0)
+                {
+                    valuesOffset = array.ValueOffsets[0];
+                    valuesLength = array.ValueOffsets[array.Length] - valuesOffset;
+                }
 
                 var values = array.Values;
                 if (valuesOffset > 0 || valuesLength < values.Length)
@@ -206,8 +211,13 @@ namespace Apache.Arrow.Ipc
                 _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
                 _buffers.Add(CreateBuffer(GetZeroBasedValueOffsets(array.ValueOffsetsBuffer, array.Offset, array.Length)));
 
-                int valuesOffset = array.ValueOffsets[0];
-                int valuesLength = array.ValueOffsets[array.Length] - valuesOffset;
+                int valuesOffset = 0;
+                int valuesLength = 0;
+                if (array.Length > 0)
+                {
+                    valuesOffset = array.ValueOffsets[0];
+                    valuesLength = array.ValueOffsets[array.Length] - valuesOffset;
+                }
 
                 _buffers.Add(CreateSlicedBuffer<byte>(array.ValueBuffer, valuesOffset, valuesLength));
             }
