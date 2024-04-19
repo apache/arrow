@@ -497,36 +497,13 @@ namespace Apache.Arrow.Tests
                 {
                     Assert.True(expectedValidityBuffer.Span.SequenceEqual(actualValidityBuffer.Span));
                 }
-                else if (actualValidityBuffer.IsEmpty)
+                else if (actualValidityBuffer.IsEmpty || expectedValidityBuffer.IsEmpty || arrayLength == 0)
                 {
                     Assert.True(nullCount == 0 || arrayLength == 0);
                 }
-                else if (expectedBufferOffset % 8 == 0 && expectedBufferOffset == actualBufferOffset)
-                {
-                    int validityBitmapByteCount = BitUtility.ByteCount(arrayLength);
-                    int byteOffset = BitUtility.ByteCount(expectedBufferOffset);
-                    ReadOnlySpan<byte> expectedSpanPartial = expectedValidityBuffer.Span.Slice(byteOffset, validityBitmapByteCount - 1);
-                    ReadOnlySpan<byte> actualSpanPartial = actualValidityBuffer.Span.Slice(0, validityBitmapByteCount - 1);
-
-                    // Compare the first validityBitmapByteCount - 1 bytes
-                    Assert.True(
-                        expectedSpanPartial.SequenceEqual(actualSpanPartial),
-                        string.Format("First {0} bytes of validity buffer do not match", validityBitmapByteCount - 1));
-
-                    // Compare the last byte bitwise (because there is no guarantee about the value of
-                    // bits outside the range [0, arrayLength])
-                    ReadOnlySpan<byte> expectedSpanFull = expectedValidityBuffer.Span.Slice(byteOffset, validityBitmapByteCount);
-                    ReadOnlySpan<byte> actualSpanFull = actualValidityBuffer.Span.Slice(0, validityBitmapByteCount);
-                    for (int i = 8 * (validityBitmapByteCount - 1); i < arrayLength; i++)
-                    {
-                        Assert.True(
-                            BitUtility.GetBit(expectedSpanFull, i) == BitUtility.GetBit(actualSpanFull, i),
-                            string.Format("Bit at index {0}/{1} is not equal", i, arrayLength));
-                    }
-                }
                 else
                 {
-                    // Have to compare all values bitwise
+                    // Compare all values bitwise
                     var expectedSpan = expectedValidityBuffer.Span;
                     var actualSpan = actualValidityBuffer.Span;
                     for (int i = 0; i < arrayLength; i++)
