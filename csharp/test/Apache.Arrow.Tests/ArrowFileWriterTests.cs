@@ -135,6 +135,71 @@ namespace Apache.Arrow.Tests
             await ValidateRecordBatchFile(stream, slicedBatch, strictCompare: false);
         }
 
+        [Theory]
+        [InlineData(0, 100)]
+        [InlineData(0, 50)]
+        [InlineData(50, 50)]
+        [InlineData(25, 50)]
+        public async Task WriteListViewDataWithUnorderedOffsets(int sliceOffset, int sliceLength)
+        {
+            // A list-view array doesn't require that offsets are ordered,
+            // so verify that we can round trip a list-view array with out-of-order offsets.
+            const int length = 100;
+            var random = new Random();
+
+            var randomizedIndices = Enumerable.Range(0, length).ToArray();
+            Shuffle(randomizedIndices, random);
+
+            var offsetsBuilder = new ArrowBuffer.Builder<int>().Resize(length);
+            var sizesBuilder = new ArrowBuffer.Builder<int>().Resize(length);
+            var validityBuilder = new ArrowBuffer.BitmapBuilder().Reserve(length);
+
+            var valuesLength = 0;
+            for (int i = 0; i < length; ++i)
+            {
+                var index = randomizedIndices[i];
+                var listLength = random.Next(0, 10);
+                offsetsBuilder.Span[index] = valuesLength;
+                sizesBuilder.Span[index] = listLength;
+                valuesLength += listLength;
+
+                validityBuilder.Append(random.NextDouble() < 0.9);
+            }
+
+            var valuesBuilder = new Int64Array.Builder().Reserve(valuesLength);
+            for (int i = 0; i < valuesLength; ++i)
+            {
+                valuesBuilder.Append(random.Next(0, 1_000));
+            }
+
+            var type = new ListViewType(new Int64Type());
+            var offsets = offsetsBuilder.Build();
+            var sizes = sizesBuilder.Build();
+            var values = valuesBuilder.Build();
+            var nullCount = validityBuilder.UnsetBitCount;
+            var validityBuffer = validityBuilder.Build();
+
+            IArrowArray listViewArray = new ListViewArray(
+                type, length, offsets, sizes, values, validityBuffer, nullCount);
+
+            if (sliceOffset != 0 || sliceLength != length)
+            {
+                listViewArray = ArrowArrayFactory.Slice(listViewArray, sliceOffset, sliceLength);
+            }
+
+            var recordBatch = new RecordBatch.Builder().Append("x", true, listViewArray).Build();
+
+            var stream = new MemoryStream();
+            var writer = new ArrowFileWriter(stream, recordBatch.Schema, leaveOpen: true);
+
+            await writer.WriteRecordBatchAsync(recordBatch);
+            await writer.WriteEndAsync();
+
+            stream.Position = 0;
+
+            await ValidateRecordBatchFile(stream, recordBatch, strictCompare: false);
+        }
+
         private async Task ValidateRecordBatchFile(Stream stream, RecordBatch recordBatch, bool strictCompare = true)
         {
             var reader = new ArrowFileReader(stream);
@@ -244,6 +309,18 @@ namespace Apache.Arrow.Tests
             stream.Position = 0;
 
             await ValidateRecordBatchFile(stream, recordBatch, strictCompare: false);
+        }
+
+        private static void Shuffle(int[] values, Random random)
+        {
+            var length = values.Length;
+            for (int i = 0; i < length - 1; ++i)
+            {
+                var j = random.Next(i, length);
+                var tmp = values[i];
+                values[i] = values[j];
+                values[j] = tmp;
+            }
         }
     }
 }
