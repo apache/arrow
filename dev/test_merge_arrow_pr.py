@@ -159,7 +159,7 @@ def test_jira_fix_versions_filters_maintenance():
     assert fix_version == '2.0.0'
 
 
-def test_jira_only_suggest_major_elease():
+def test_jira_only_suggest_major_release():
     versions_json = [
         {'name': '0.9.1', 'released': False},
         {'name': '0.10.0', 'released': False},
