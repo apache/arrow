@@ -892,6 +892,24 @@ Status LargeListFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult
 }
 
 Status FSLFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  const ArraySpan& values = batch[0].array;
+
+  // If a FixedSizeList wraps a fixed-width type we can, in some cases, use
+  // PrimitiveFilterExec for a fixed-size list array.
+  if (util::IsFixedWidthModuloNesting(values,
+                                      /*force_null_count=*/true,
+                                      /*extra_predicate=*/[](auto& fixed_width_type) {
+                                        // DICTIONARY is fixed-width but not supported by
+                                        // PrimitiveFilterExec.
+                                        return fixed_width_type.id() != Type::DICTIONARY;
+                                      })) {
+    const auto byte_width = util::FixedWidthInBytes(*values.type);
+    // 0 is a valid byte width for FixedSizeList, but PrimitiveFilterExec
+    // might not handle it correctly.
+    if (byte_width > 0) {
+      return PrimitiveFilterExec(ctx, batch, out);
+    }
+  }
   return FilterExec<FSLSelectionImpl>(ctx, batch, out);
 }
 

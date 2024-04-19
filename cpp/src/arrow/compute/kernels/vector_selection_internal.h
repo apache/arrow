@@ -64,6 +64,7 @@ void VisitPlainxREEFilterOutputSegments(
     FilterOptions::NullSelectionBehavior null_selection,
     const EmitREEFilterSegment& emit_segment);
 
+Status PrimitiveFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status ListFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status LargeListFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status FSLFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
