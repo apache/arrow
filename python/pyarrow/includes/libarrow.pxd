@@ -2636,7 +2636,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
             "arrow::compute::TDigestOptions"(CFunctionOptions):
         CTDigestOptions(vector[double] q,
                         uint32_t delta, uint32_t buffer_size,
-                        c_bool skip_nulls, uint32_t min_count, 
+                        c_bool skip_nulls, uint32_t min_count,
                         CExpression filter)
         vector[double] q
         uint32_t delta

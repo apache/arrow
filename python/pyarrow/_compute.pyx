@@ -831,6 +831,7 @@ def _min_count_doc(*, default):
         of non-null values is below `min_count`, the output is null.
 """
 
+
 def _filter(*, default):
     return f"""filter : Expression, default {default}
         An expression that can be used to filter batch data.
@@ -1550,7 +1551,8 @@ class CountOptions(_CountOptions):
     mode : str, default "only_valid"
         Which values to count in the input.
         Accepted values are "only_valid", "only_null", "all".
-    {_filter(default=None)}
+    filter : Expression, default None
+        An expression that can be used to filter batch data.
     """
 
     def __init__(self, mode="only_valid", filter=None):
@@ -1578,7 +1580,8 @@ class IndexOptions(_IndexOptions):
     ----------
     value : Scalar
         The value to search for.
-    {_filter(default=None)}
+    filter : Expression, default None
+        An expression that can be used to filter batch data.
     """
 
     def __init__(self, value, filter=None):
@@ -2213,7 +2216,7 @@ class QuantileOptions(_QuantileOptions):
     """
 
     def __init__(self, q=0.5, *, interpolation="linear", skip_nulls=True,
-                 min_count=0, filter = None):
+                 min_count=0, filter=None):
         if not isinstance(q, (list, tuple, np.ndarray)):
             q = [q]
         if filter is None:
