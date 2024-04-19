@@ -2432,7 +2432,7 @@ cdef class Expression(_Weakrefable):
       1,
       2,
       3
-    ], null_matching_behavior=MATCH})>
+    ], null_matching_behavior=MATCH}, filter = true)>
     """
 
     def __init__(self):
