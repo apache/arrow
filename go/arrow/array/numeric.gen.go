@@ -20,6 +20,7 @@ package array
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -290,11 +291,23 @@ func (a *Float64) GetOneForMarshal(i int) interface{} {
 func (a *Float64) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
-		if a.IsValid(i) {
-			vals[i] = a.values[i]
-		} else {
+		if !a.IsValid(i) {
 			vals[i] = nil
+			continue
 		}
+
+		f := a.Value(i)
+		switch {
+		case math.IsNaN(f):
+			vals[i] = "NaN"
+		case math.IsInf(f, 1):
+			vals[i] = "+Inf"
+		case math.IsInf(f, -1):
+			vals[i] = "-Inf"
+		default:
+			vals[i] = f
+		}
+		
 	}
 
 	return json.Marshal(vals)
@@ -575,10 +588,19 @@ func (a *Float32) GetOneForMarshal(i int) interface{} {
 func (a *Float32) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
-		if a.IsValid(i) {
-			vals[i] = a.values[i]
-		} else {
+		if !a.IsValid(i) {
 			vals[i] = nil
+			continue
+		}
+
+		f := a.Value(i)
+		v := strconv.FormatFloat(float64(f), 'g', -1, 32)
+
+		switch v {
+		case "NaN", "+Inf", "-Inf":
+			vals[i] = v
+		default:
+			vals[i] = f
 		}
 	}
 
