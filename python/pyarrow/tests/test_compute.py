@@ -225,9 +225,9 @@ def test_option_class_equality():
     for option1, option2 in zip(options, options[1:]):
         assert option1 != option2
 
-    assert repr(pc.IndexOptions(pa.scalar(1))) == "IndexOptions(value=int64:1}, filter = tru)"
+    assert repr(pc.IndexOptions(pa.scalar(1))) == "IndexOptions({value=int64:1}, filter = true)"
     assert repr(pc.ArraySortOptions()) == \
-        "ArraySortOptions(order=Ascending, null_placement=AtEnd}, filter = tru)"
+        "ArraySortOptions({order=Ascending, null_placement=AtEnd}, filter = true)"
 
 
 def test_list_functions():
@@ -752,6 +752,8 @@ def test_generated_docstrings():
         min_count : int, default 1
             Minimum number of non-null values in the input.  If the number
             of non-null values is below `min_count`, the output is null.
+        filter : Expression, default None
+            An expression that can be used to filter batch data.
         options : pyarrow.compute.ScalarAggregateOptions, optional
             Alternative way of passing options.
         memory_pool : pyarrow.MemoryPool, optional
@@ -844,12 +846,12 @@ def test_generated_signatures():
     assert str(sig) == "(x, y, /, *, memory_pool=None)"
     # With options
     sig = inspect.signature(pc.min_max)
-    assert str(sig) == ("(array, /, *, skip_nulls=True, min_count=1, "
+    assert str(sig) == ("(array, /, *, skip_nulls=True, min_count=1, filter=None, "
                         "options=None, memory_pool=None)")
     # With positional options
     sig = inspect.signature(pc.quantile)
     assert str(sig) == ("(array, /, q=0.5, *, interpolation='linear', "
-                        "skip_nulls=True, min_count=0, "
+                        "skip_nulls=True, min_count=0, filter=None, "
                         "options=None, memory_pool=None)")
     # Varargs with options
     sig = inspect.signature(pc.binary_join_element_wise)

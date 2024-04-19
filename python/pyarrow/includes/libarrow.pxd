@@ -2490,14 +2490,14 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CVarianceOptions \
             "arrow::compute::VarianceOptions"(CFunctionOptions):
-        CVarianceOptions(int ddof, c_bool skip_nulls, uint32_t min_count)
+        CVarianceOptions(int ddof, c_bool skip_nulls, uint32_t min_count, CExpression filter)
         int ddof
         c_bool skip_nulls
         uint32_t min_count
 
     cdef cppclass CScalarAggregateOptions \
             "arrow::compute::ScalarAggregateOptions"(CFunctionOptions):
-        CScalarAggregateOptions(c_bool skip_nulls, uint32_t min_count)
+        CScalarAggregateOptions(c_bool skip_nulls, uint32_t min_count, CExpression filter)
         c_bool skip_nulls
         uint32_t min_count
 
@@ -2508,19 +2508,19 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CCountOptions \
             "arrow::compute::CountOptions"(CFunctionOptions):
-        CCountOptions(CCountMode mode)
+        CCountOptions(CCountMode mode, CExpression filter)
         CCountMode mode
 
     cdef cppclass CModeOptions \
             "arrow::compute::ModeOptions"(CFunctionOptions):
-        CModeOptions(int64_t n, c_bool skip_nulls, uint32_t min_count)
+        CModeOptions(int64_t n, c_bool skip_nulls, uint32_t min_count, CExpression filter)
         int64_t n
         c_bool skip_nulls
         uint32_t min_count
 
     cdef cppclass CIndexOptions \
             "arrow::compute::IndexOptions"(CFunctionOptions):
-        CIndexOptions(shared_ptr[CScalar] value)
+        CIndexOptions(shared_ptr[CScalar] value, CExpression filter)
         shared_ptr[CScalar] value
 
     cdef cppclass CAggregate "arrow::compute::Aggregate":
@@ -2626,7 +2626,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     cdef cppclass CQuantileOptions \
             "arrow::compute::QuantileOptions"(CFunctionOptions):
         CQuantileOptions(vector[double] q, CQuantileInterp interpolation,
-                         c_bool skip_nulls, uint32_t min_count)
+                         c_bool skip_nulls, uint32_t min_count, CExpression filter)
         vector[double] q
         CQuantileInterp interpolation
         c_bool skip_nulls
@@ -2636,7 +2636,8 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
             "arrow::compute::TDigestOptions"(CFunctionOptions):
         CTDigestOptions(vector[double] q,
                         uint32_t delta, uint32_t buffer_size,
-                        c_bool skip_nulls, uint32_t min_count)
+                        c_bool skip_nulls, uint32_t min_count, 
+                        CExpression filter)
         vector[double] q
         uint32_t delta
         uint32_t buffer_size
