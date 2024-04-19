@@ -56,7 +56,8 @@ Result<TypeHolder> LastType(KernelContext*, const std::vector<TypeHolder>& types
   return types.back();
 }
 
-Result<TypeHolder> ListValuesType(KernelContext*, const std::vector<TypeHolder>& args) {
+Result<TypeHolder> ListValuesType(KernelContext* ctx,
+                                  const std::vector<TypeHolder>& args) {
   auto list_type = checked_cast<const BaseListType*>(args[0].type);
   auto value_type = list_type->value_type().get();
   for (auto value_kind = value_type->id();

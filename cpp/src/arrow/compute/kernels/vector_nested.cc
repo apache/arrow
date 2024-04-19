@@ -30,15 +30,12 @@ namespace {
 
 template <typename Type>
 Status ListFlatten(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  auto recursively = OptionsWrapper<ListFlattenOptions>::Get(ctx).recursively;
+  auto recursive = OptionsWrapper<ListFlattenOptions>::Get(ctx).recursive;
   typename TypeTraits<Type>::ArrayType list_array(batch[0].array.ToArrayData());
 
-  std::shared_ptr<Array> result;
-  if (!recursively) {
-    ARROW_ASSIGN_OR_RAISE(result, list_array.Flatten(ctx->memory_pool()));
-  } else {
-    ARROW_ASSIGN_OR_RAISE(result, list_array.FlattenRecursively(ctx->memory_pool()));
-  }
+  auto pool = ctx->memory_pool();
+  ARROW_ASSIGN_OR_RAISE(auto result, (recursive ? list_array.FlattenRecursively(pool)
+                                                : list_array.Flatten(pool)));
 
   out->value = std::move(result->data());
   return Status::OK();
@@ -116,8 +113,11 @@ struct ListParentIndicesArray {
 
 const FunctionDoc list_flatten_doc(
     "Flatten list values",
-    ("`lists` must have a list-like type.\n"
-     "Return an array with the top list level flattened.\n"
+    ("`lists` must have a logical list type like `[Large]ListType`, \n"
+     "`[Large]ListViewType` and `FixedSizeListType`. \n"
+     "Whether to flatten the top list level or the bottom list level \n"
+     "will be decided based on the `recursive` option specified in \n"
+     ":struct:`ListFlattenOptions`. \n"
      "Top-level null values in `lists` do not emit anything in the input."),
     {"lists"}, "ListFlattenOptions");
 

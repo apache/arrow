@@ -82,7 +82,7 @@ class TestVectorLogicalList : public ::testing::Test {
     type_ = std::make_shared<T>(inner_type);
 
     ListFlattenOptions opts;
-    opts.recursively = true;
+    opts.recursive = true;
 
     // List types with two nested level: list<list<int16>>
     auto input = ArrayFromJSON(type_, R"([
@@ -168,7 +168,7 @@ TEST(TestVectorFixedSizeList, ListFlattenFixedSizeListNulls) {
 
 TEST(TestVectorFixedSizeList, ListFlattenFixedSizeListRecursively) {
   ListFlattenOptions opts;
-  opts.recursively = true;
+  opts.recursive = true;
 
   auto inner_type = fixed_size_list(int32(), 2);
   auto type = fixed_size_list(inner_type, 2);
@@ -181,7 +181,7 @@ TEST(TestVectorFixedSizeList, ListFlattenFixedSizeListRecursively) {
   CheckVectorUnary("list_flatten", input, expected, &opts);
 }
 
-TEST(TestVectorNested, ListParentIndices) {
+TEST(TestVectorListParentIndices, BasicListArray) {
   for (auto ty : {list(int16()), large_list(int16())}) {
     auto input = ArrayFromJSON(ty, "[[0, null, 1], null, [2, 3], [], [4, 5]]");
 
@@ -196,7 +196,7 @@ TEST(TestVectorNested, ListParentIndices) {
   CheckVectorUnary("list_parent_indices", tweaked, expected);
 }
 
-TEST(TestVectorNested, ListParentIndicesChunkedArray) {
+TEST(TestVectorListParentIndices, BasicListChunkedArray) {
   for (auto ty : {list(int16()), large_list(int16())}) {
     auto input =
         ChunkedArrayFromJSON(ty, {"[[0, null, 1], null]", "[[2, 3], [], [4, 5]]"});
@@ -210,7 +210,7 @@ TEST(TestVectorNested, ListParentIndicesChunkedArray) {
   }
 }
 
-TEST(TestVectorNested, ListParentIndicesFixedSizeList) {
+TEST(TestVectorListParentIndices, FixedSizeListArray) {
   for (auto ty : {fixed_size_list(int16(), 2), fixed_size_list(uint32(), 2)}) {
     {
       auto input = ArrayFromJSON(ty, "[[0, null], null, [1, 2], [3, 4], [null, 5]]");

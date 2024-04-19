@@ -252,9 +252,9 @@ class ARROW_EXPORT ListFlattenOptions : public FunctionOptions {
   static constexpr char const kTypeName[] = "ListFlattenOptions";
   static ListFlattenOptions Defaults() { return ListFlattenOptions(); }
 
-  /// Control the version of 'Flatten' that keeps recursively flattening
-  /// until an array of non-list values is reached.
-  bool recursively = false;
+  /// \brief If true, the list is flattened recursively until a non-list
+  /// array is formed.
+  bool recursive = false;
 };
 
 /// @}

@@ -23,6 +23,7 @@
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/result.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_generate.h"
@@ -39,19 +40,12 @@ namespace {
 template <typename Type, typename offset_type = typename Type::offset_type>
 Status ListValueLength(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const ArraySpan& arr = batch[0].array;
-  const auto kind = arr.type->id();
   ArraySpan* out_arr = out->array_span_mutable();
   auto out_values = out_arr->GetValues<offset_type>(1);
-  if (is_list_view(kind)) {
-    // [Large]ListView's buffer layout:
-    //  buffer1 : valid bitmap
-    //  buffer2 : elements' start offset in current array
-    //  buffer3 : elements' size
-    //
-    // It's unnecessary to calculate according offsets.
+  if (is_list_view(*arr.type)) {
     const auto* sizes = arr.GetValues<offset_type>(2);
-    for (int64_t i = 0; i < arr.length; i++) {
-      *out_values++ = sizes[i];
+    if (arr.length > 0) {
+      memcpy(out_values, sizes, arr.length * sizeof(offset_type));
     }
   } else {
     const offset_type* offsets = arr.GetValues<offset_type>(1);
@@ -81,14 +75,20 @@ void AddListValueLengthKernel(ScalarFunction* func,
   DCHECK_OK(func->AddKernel(std::move(kernel)));
 }
 
+template <>
+void AddListValueLengthKernel<FixedSizeListType>(
+    ScalarFunction* func, const std::shared_ptr<DataType>& out_type) {
+  auto in_type = {InputType(Type::FIXED_SIZE_LIST)};
+  ScalarKernel kernel(in_type, out_type, FixedSizeListValueLength);
+  DCHECK_OK(func->AddKernel(std::move(kernel)));
+}
+
 void AddListValueLengthKernels(ScalarFunction* func) {
   AddListValueLengthKernel<ListType>(func, int32());
   AddListValueLengthKernel<LargeListType>(func, int64());
   AddListValueLengthKernel<ListViewType>(func, int32());
   AddListValueLengthKernel<LargeListViewType>(func, int64());
-
-  DCHECK_OK(func->AddKernel({InputType(Type::FIXED_SIZE_LIST)}, int32(),
-                            FixedSizeListValueLength));
+  AddListValueLengthKernel<FixedSizeListType>(func, int32());
 }
 
 const FunctionDoc list_value_length_doc{

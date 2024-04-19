@@ -2591,8 +2591,8 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CListFlattenOptions\
             "arrow::compute::ListFlattenOptions"(CFunctionOptions):
-        CListFlattenOptions(bool recursively)
-        bool recursively
+        CListFlattenOptions(c_bool recursively)
+        c_bool recursively
 
     cdef cppclass CArraySortOptions \
             "arrow::compute::ArraySortOptions"(CFunctionOptions):

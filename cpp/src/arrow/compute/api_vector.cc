@@ -154,7 +154,7 @@ static auto kRankOptionsType = GetFunctionOptionsType<RankOptions>(
 static auto kPairwiseOptionsType = GetFunctionOptionsType<PairwiseOptions>(
     DataMember("periods", &PairwiseOptions::periods));
 static auto kListFlattenOptionsType = GetFunctionOptionsType<ListFlattenOptions>(
-    DataMember("recursively", &ListFlattenOptions::recursively));
+    DataMember("recursive", &ListFlattenOptions::recursive));
 }  // namespace
 }  // namespace internal
 
@@ -226,8 +226,8 @@ PairwiseOptions::PairwiseOptions(int64_t periods)
     : FunctionOptions(internal::kPairwiseOptionsType), periods(periods) {}
 constexpr char PairwiseOptions::kTypeName[];
 
-ListFlattenOptions::ListFlattenOptions(bool recursively)
-    : FunctionOptions(internal::kListFlattenOptionsType), recursively(recursively) {}
+ListFlattenOptions::ListFlattenOptions(bool recursive)
+    : FunctionOptions(internal::kListFlattenOptionsType), recursive(recursive) {}
 constexpr char ListFlattenOptions::kTypeName[];
 
 namespace internal {
