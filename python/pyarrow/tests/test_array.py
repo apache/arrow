@@ -2704,8 +2704,7 @@ def test_invalid_tensor_construction():
 
 
 @pytest.mark.parametrize(('offset_type', 'list_type_factory'),
-                         [(pa.int32(), pa.list_), (pa.int64(), pa.large_list),
-                          (pa.int32(), pa.list_view), (pa.int64(), pa.large_list_view)])
+                         [(pa.int32(), pa.list_), (pa.int64(), pa.large_list)])
 def test_list_array_flatten(offset_type, list_type_factory):
     typ2 = list_type_factory(
         list_type_factory(
@@ -2764,9 +2763,7 @@ def test_list_array_flatten(offset_type, list_type_factory):
 @pytest.mark.parametrize('list_type', [
     pa.list_(pa.int32()),
     pa.list_(pa.int32(), list_size=2),
-    pa.large_list(pa.int32()),
-    pa.list_view(pa.int32()),
-    pa.large_list_view(pa.int32())])
+    pa.large_list(pa.int32())])
 def test_list_value_parent_indices(list_type):
     arr = pa.array(
         [

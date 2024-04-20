@@ -2141,10 +2141,10 @@ cdef class Decimal256Array(FixedSizeBinaryArray):
 
 cdef class BaseListArray(Array):
 
-    def flatten(self, recursively=False):
+    def flatten(self, recursive=False):
         """
         Unnest this [Large]ListArray/[Large]ListViewArray/FixedSizeListArray
-        according to 'recursively'.
+        according to 'recursive'.
 
         Note that this method is different from ``self.values`` in that
         it takes care of the slicing offset as well as null elements backed
@@ -2152,8 +2152,8 @@ cdef class BaseListArray(Array):
 
         Parameters
         ----------
-        recursively : bool, defalut false, optional
-            When true, flatten this logical list-array recursively until an
+        recursive : bool, defalut false, optional
+            When true, flatten this logical list-array recursivey until an
             array of non-list values is reached.
             When false, flatten this logical list-array by one level
 
@@ -2199,7 +2199,7 @@ cdef class BaseListArray(Array):
 
         If an logical list-array is nested with multi-level, the array will
         be flattened recursively until an array of non-list values is reached
-        if we enable recursively=True.
+        if we enable recursive=True.
 
         >>> array = pa.array([
                 None,
@@ -2232,8 +2232,8 @@ cdef class BaseListArray(Array):
             8
         ]
         """
-        options = _pc().ListFlattenOptions(recursively)
-        return _pc().list_flatten(self, options)
+        options = _pc().ListFlattenOptions(recursive)
+        return _pc().list_flatten(self, options=options)
 
     def value_parent_indices(self):
         """

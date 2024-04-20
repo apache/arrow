@@ -2036,8 +2036,8 @@ class PairwiseOptions(_PairwiseOptions):
 
 
 cdef class _ListFlattenOptions(FunctionOptions):
-    def _set_options(self, recursively):
-        self.wrapped.reset(new CListFlattenOptions(recursively))
+    def _set_options(self, recursive):
+        self.wrapped.reset(new CListFlattenOptions(recursive))
 
 
 class ListFlattenOptions(_ListFlattenOptions):
@@ -2046,13 +2046,13 @@ class ListFlattenOptions(_ListFlattenOptions):
 
     Parameters
     ----------
-    recursively : bool, defalut false
+    recursive : bool, defalut false
         When true, do list flatten recursively until an array of
         non-list values is reached.
     """
 
-    def __init__(self, recursively=False):
-        self._set_options(recursively)
+    def __init__(self, recursive=False):
+        self._set_options(recursive)
 
 
 cdef class _ArraySortOptions(FunctionOptions):
