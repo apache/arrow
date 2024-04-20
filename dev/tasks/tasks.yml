@@ -493,59 +493,59 @@ tasks:
       - gir1.2-gandiva-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-acero-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-acero1600-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-acero1600_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-acero1700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-acero1700_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset-glib1600-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-dataset-glib1600_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset1600-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-dataset1600_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib1700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-dataset-glib1700_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset1700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-dataset1700_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight-glib1600-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight-glib1600_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-glib1700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight-glib1700_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-sql-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-sql-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-sql-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight-sql-glib1600-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight-sql-glib1600_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight-sql1600-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight-sql1600_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight1600-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight1600_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-sql-glib1700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight-sql-glib1700_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-sql1700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight-sql1700_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight1700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight1700_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-glib1600-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-glib1600_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow1600-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow1600_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib1700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-glib1700_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow1700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow1700_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib1600-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libgandiva-glib1600_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva1600-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libgandiva1600_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib1700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libgandiva-glib1700_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva1700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libgandiva1700_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet-glib1600-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libparquet-glib1600_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet1600-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libparquet1600_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib1700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libparquet-glib1700_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet1700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libparquet1700_{no_rc_version}-1_[a-z0-9]+.deb
       - parquet-tools_{no_rc_version}-1_[a-z0-9]+.deb
     {% if architecture == "amd64" %}
       - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-glib1600-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-cuda-glib1600_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda1600-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-cuda1600_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda-glib1700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-cuda-glib1700_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda1700-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-cuda1700_{no_rc_version}-1_[a-z0-9]+.deb
     {% endif %}
   {% endfor %}
 {% endfor %}
