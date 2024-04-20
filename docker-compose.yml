@@ -157,7 +157,8 @@ x-hierarchy:
   - ubuntu-csharp
   - ubuntu-cpp-sanitizer
   - ubuntu-cpp-thread-sanitizer
-  - ubuntu-cpp-emscripten
+  - ubuntu-cpp-emscripten:
+    - ubuntu-cpp-emscripten-python
   - ubuntu-r-sanitizer
   - ubuntu-r-valgrind
   - ubuntu-swift
@@ -677,6 +678,44 @@ services:
       ARROW_EMSCRIPTEN: "ON"
       UBUNTU:
     command: *cpp-command
+
+  ubuntu-cpp-emscripten-python:
+    # Usage:
+    #   docker-compose build ubuntu-cpp-emscripten-python
+    #   docker-compose run --rm ubuntu-cpp-emscripten-python
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   UBUNTU: 22.04
+    image: ${REPO}:${ARCH}-ubuntu-22.04-cpp-emscripten
+    build:
+      context: .
+      dockerfile: ci/docker/ubuntu-22.04-cpp-emscripten.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-ubuntu-22.04-cpp-emscripten
+      args:
+        repo: ${REPO}
+        arch: ${ARCH}
+        clang_tools: ${CLANG_TOOLS}
+        llvm: ${LLVM}
+        emscripten_version: "3.1.46" # must use correct emscripten for pyodide version
+        pyodide_version: "0.25.1"
+        chrome_version: "122"
+        firefox_version: "122"
+        selenium_version: "4.15.2"
+    shm_size: *shm-size
+    volumes: *ubuntu-volumes
+    environment:
+      <<: [*common, *ccache, *sccache, *cpp]
+      ARROW_EMSCRIPTEN: "ON"
+      UBUNTU: "22.04"
+      PYODIDE_VERSION: ${pyodide_version}
+      ARROW_BUILD_TYPE: "release"
+      ARROW_BUILD_TESTS: "off"
+    command: >
+      /bin/bash -c 
+        "/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/emscripten_python_build.sh /arrow &&
+        /arrow/ci/scripts/emscripten_python_test.sh /arrow /pyodide"
 
   fedora-cpp:
     # Usage:

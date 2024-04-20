@@ -142,6 +142,7 @@ class NodeDriver:
         print(self.process)
         self.hostname = hostname
         self.port = port
+        self.last_ret_code = None
 
     def load_pyodide(self, dist_dir):
         self.execute_js(
@@ -166,13 +167,14 @@ class NodeDriver:
             await pyodide.loadPackagesFromImports(python);
             await pyodide.runPythonAsync(python);
         """
-        self.execute_js(js_code, wait_for_terminate)
+        self.last_ret_code = self.execute_js(js_code, wait_for_terminate)
+        return self.last_ret_code
 
     def wait_for_done(self):
         # in node we just let it run above
         # then send EOF
         self.process.stdin.write(b".exit\n")
-        self.process.wait()
+        return self.last_ret_code
 
 
 class BrowserDriver:
@@ -236,7 +238,7 @@ class ChromeDriver(BrowserDriver):
         from selenium.webdriver.chrome.options import Options
 
         options = Options()
-        #        options.add_argument("--headless")
+        options.add_argument("--headless")
         options.add_argument("--no-sandbox")
         super().__init__(hostname, port, webdriver.Chrome(options=options))
 
@@ -310,9 +312,11 @@ with launch_server(dist_dir) as (hostname, port):
 
     print("Load pyodide in browser")
     driver.load_pyodide(dist_dir)
+    print("Done\n")
 
     print("Load pyarrow in browser")
     _load_pyarrow_in_runner(driver, Path(args.wheel).name)
+    print("Done\n")
     driver.clear_logs()
     print("Run pytest in browser")
     driver.execute_python(
