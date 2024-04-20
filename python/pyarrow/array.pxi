@@ -2202,34 +2202,34 @@ cdef class BaseListArray(Array):
         if we enable recursive=True.
 
         >>> array = pa.array([
-                None,
-                [
-                    [1, None, 2],
-                    None,
-                    [3, 4]
-                ],
-                [],
-                [
-                    [],
-                    [5, 6],
-                    None
-                ],
-                [
-                    [7, 8]
-                ]
-            ], type=pa.list_(pa.list_(pa.int64())))
+        ...    None,
+        ...    [
+        ...        [1, None, 2],
+        ...        None,
+        ...        [3, 4]
+        ...    ],
+        ...    [],
+        ...    [
+        ...        [],
+        ...        [5, 6],
+        ...        None
+        ...    ],
+        ...    [
+        ...        [7, 8]
+        ...    ]
+        ... ], type=pa.list_(pa.list_(pa.int64())))
         >>> array.flatten(True)
         <pyarrow.lib.Int64Array object at ...>
         [
-            1,
-            None,
-            2,
-            3,
-            4,
-            5,
-            6,
-            7,
-            8
+          1,
+          null,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
         ]
         """
         options = _pc().ListFlattenOptions(recursive)
