@@ -857,6 +857,64 @@ test_that("Expressions on aggregations", {
   )
 })
 
+test_that("Re-using/overwriting column names", {
+  compare_dplyr_binding(
+    .input %>%
+      summarize(
+        # These are both aggregations
+        y = sum(int, na.rm = TRUE),
+        y = sum(dbl, na.rm = TRUE)
+      ) %>%
+      collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      summarize(
+        # This is just aggregation
+        y = sum(int, na.rm = TRUE),
+        # This is aggregations and a projection after
+        y = mean(int, na.rm = TRUE) * n()
+      ) %>%
+      collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      summarize(
+        # Same thing, but in the other order
+        y = mean(int, na.rm = TRUE) * n(),
+        y = sum(dbl, na.rm = TRUE),
+      ) %>%
+      collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      summarize(
+        int = sum(int, na.rm = TRUE),
+        # This needs to pick up *that* int, not the column in the data
+        y = int / n()
+      ) %>%
+      collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      summarize(
+        # No one should do this! But it's valid right?
+        int = sum(int, na.rm = TRUE),
+        int = int / n()
+      ) %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("Weighted mean", {
   compare_dplyr_binding(
     .input %>%
@@ -907,7 +965,7 @@ test_that("Summarize with 0 arguments", {
   )
 })
 
-test_that("Not (yet) supported: implicit join", {
+test_that("Not (yet) supported: window functions", {
   compare_dplyr_binding(
     .input %>%
       group_by(some_grouping) %>%

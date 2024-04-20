@@ -125,8 +125,7 @@ arrow_mask <- function(.data, aggregation = FALSE) {
   if (aggregation) {
     # Add the aggregation functions to the environment, and set the enclosing
     # environment to the parent frame so that, when called from summarize_eval(),
-    # they can reference and assign into `..aggregations` and `..post_mutate`
-    # defined there.
+    # they can reference and assign into `..aggregations` defined there.
     pf <- parent.frame()
     for (f in names(agg_funcs)) {
       f_env[[f]] <- agg_funcs[[f]]

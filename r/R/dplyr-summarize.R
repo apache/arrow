@@ -253,10 +253,29 @@ summarise.Dataset <- summarise.ArrowTabular <- summarise.RecordBatchReader <- su
 do_arrow_summarize <- function(.data, ..., .groups = NULL) {
   exprs <- ensure_named_exprs(quos(...))
 
-  # Create a stateful environment for recording our evaluated expressions
-  # It's more complex than other places because a single summarize() expr
-  # may result in multiple query nodes (Aggregate, Project),
-  # and we have to walk through the expressions to disentangle them.
+  # nolint start
+  # summarize() is complicated because you can do a mixture of scalar operations
+  # and aggregations, but that's not how Acero works. For example, for us to do
+  #   summarize(mean = sum(x) / n())
+  # we basically have to translate it into
+  #   summarize(..temp0 = sum(x), ..temp1 = n()) %>%
+  #   mutate(mean = ..temp0 / ..temp1) %>%
+  #   select(-starts_with("..temp"))
+  # That is, "first aggregate, then transform the result further."
+  #
+  # When we do filter() and mutate(), we just turn the user's code into a single
+  # Arrow Expression per column. But when we do summarize(), we have to pull out
+  # the aggregations, collect them in one list (that will become an Aggregate
+  # ExecNode), and in the expressions, replace them with FieldRefs so that
+  # further operations can happen (in what will become a ProjectNode that works
+  # on the result of the Aggregate).
+  #
+  # To do this, we create two lists in this function scope, and in arrow_mask(),
+  # we make sure this environment here is the parent env of the binding
+  # functions, so that when they receive an expression, they can pull out
+  # aggregations and insert them into the list, which they can find because it
+  # is in the parent env.
+  # nolint end
 
   # Agg functions pull out the aggregation info and append it here
   ..aggregations <- empty_named_list()
@@ -267,7 +286,7 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
   for (i in seq_along(exprs)) {
     # Iterate over the indices and not the names because names may be repeated
     # (which overwrites the previous name)
-    summarize_eval(
+    ..post_mutate[[names(exprs)[i]]] <- summarize_eval(
       names(exprs)[i],
       exprs[[i]],
       mask,
@@ -281,17 +300,8 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
   # Then collapse the query so that the resulting query object can have
   # additional operations applied to it
   out <- collapse.arrow_dplyr_query(.data)
-  # The expressions may have been translated into
-  # "first, aggregate, then transform the result further"
-  # nolint start
-  # For example,
-  #   summarize(mean = sum(x) / n())
-  # is effectively implemented as
-  #   summarize(..temp0 = sum(x), ..temp1 = n()) %>%
-  #   mutate(mean = ..temp0 / ..temp1) %>%
-  #   select(-starts_with("..temp"))
+
   # If this is the case, there will be expressions in post_mutate
-  # nolint end
   if (length(..post_mutate)) {
     # One last check: it's possible that an expression like y - mean(y) would
     # successfully evaluate, but it's not supported. It gets transformed to:
@@ -314,15 +324,14 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
         )
         arrow_not_supported(msg)
       })
+      # If it's valid, add it to the .data object
+      out$selected_columns[[post]] <- ..post_mutate[[post]]
     }
-
-    # Append post_mutate, and make sure order is correct
-    # according to input exprs (also dropping ..temp columns)
-    out$selected_columns <- c(
-      out$selected_columns,
-      ..post_mutate
-    )[c(.data$group_by_vars, names(exprs))]
   }
+
+  # Make sure order is correct (also drop ..temp columns)
+  col_order <- c(.data$group_by_vars, unique(names(exprs)))
+  out$selected_columns <- out$selected_columns[col_order]
 
   # If the object has .drop = FALSE and any group vars are dictionaries,
   # we can't (currently) preserve the empty rows that dplyr does,
@@ -451,10 +460,10 @@ format_aggregation <- function(x) {
   paste0(x$fun, "(", paste(map(x$data, ~ .$ToString()), collapse = ","), ")")
 }
 
-# This function handles each summarize expression and turns it into the
-# appropriate combination of (1) aggregations (possibly temporary) and
-# (2) post-aggregation transformations (mutate)
-# The function returns nothing: it assigns into objects in the `mask`
+# This function evaluates an expression and returns the post-summarize
+# projection that results, or NULL if there is none because the top-level
+# expression was an aggregation. Any aggregations are pulled out and collected
+# in the ..aggregations list outside this function.
 summarize_eval <- function(name, quosure, mask, hash) {
   # For the quantile() binding in the hash aggregation case, we need to mutate
   # the list output from the Arrow hash_tdigest kernel to flatten it into a
@@ -467,12 +476,14 @@ summarize_eval <- function(name, quosure, mask, hash) {
     quosure <- as_quosure(expr, quo_env)
   }
 
-  # Add previous aggregations to the mask
+  # Add previous aggregations to the mask, so they can be referenced
   for (n in names(get("..aggregations", parent.frame()))) {
     mask[[n]] <- mask$.data[[n]] <- Expression$field_ref(n)
   }
   # Evaluate:
   value <- arrow_eval_or_stop(quosure, mask)
+
+  # Handle the result. There are a few different cases.
   if (!inherits(value, "Expression")) {
     # Must have just been a scalar? (If it's not a scalar, this will error)
     # Scalars need to be added to post_mutate because they don't need
@@ -484,19 +495,21 @@ summarize_eval <- function(name, quosure, mask, hash) {
   # aggregation at the top level. So the resulting name should be `name`.
   # not `..tempN`. Rename the corresponding aggregation.
   post_aggs <- get("..aggregations", parent.frame())
-  field_in_aggregations <- match(value$field_name, names(post_aggs))
-  # Assign into the parent environment
-  if (!is.na(field_in_aggregations)) {
-    names(post_aggs)[field_in_aggregations] <- name
+  result_field_name <- value$field_name
+  if (result_field_name %in% names(post_aggs)) {
+    # Do this by assigning over `name` in case something else was in `name`
+    post_aggs[[name]] <- post_aggs[[result_field_name]]
+    post_aggs[[result_field_name]] <- NULL
+    # Assign back into the parent environment
     assign("..aggregations", post_aggs, parent.frame())
+    # Return NULL because there is no post-mutate projection, it's just
+    # the aggregation
+    return(NULL)
   } else {
-    # If not, add the thing (expression, scalar, whatever) to post_mutate
-    post_mutate <- get("..post_mutate", parent.frame())
-    post_mutate[[name]] <- value
-    assign("..post_mutate", post_mutate, parent.frame())
+    # This is an expression that is not a ..temp fieldref, so it is some
+    # function of aggregations. Return it so it can be added to post_mutate.
+    return(value)
   }
-
-  return()
 }
 
 # This function recurses through expr and wraps each call to quantile() with a
