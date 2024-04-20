@@ -1545,7 +1545,6 @@ cdef class ParquetReader(_Weakrefable):
         else:
             self.reader.get().set_use_threads(False)
 
-
     def set_batch_size(self, int64_t batch_size):
         """
         Parameters

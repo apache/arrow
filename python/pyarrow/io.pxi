@@ -659,7 +659,7 @@ cdef class NativeFile(_Weakrefable):
             uint8_t* buf
 
         if not is_threading_enabled():
-            return self._download_nothreads(stream_or_path,buffer_size)
+            return self._download_nothreads(stream_or_path, buffer_size)
 
         handle = self.get_input_stream()
 
@@ -806,7 +806,7 @@ cdef class NativeFile(_Weakrefable):
             The buffer size to use for data transfers.
         """
         if not is_threading_enabled():
-            return self._upload_nothreads(stream,buffer_size)
+            return self._upload_nothreads(stream, buffer_size)
 
         write_queue = Queue(50)
         self._assert_writable()

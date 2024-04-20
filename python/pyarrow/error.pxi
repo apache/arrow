@@ -216,7 +216,7 @@ cdef class SignalStopHandler:
                 # may have already activated a signal-receiving StopSource.
                 # Just warn instead of erroring out.
                 maybe_source.status().Warn()
-            else:                
+            else:
                 self._stop_token.init(deref(maybe_source).token())
                 if not is_threading_enabled():
                     self._enabled = False
