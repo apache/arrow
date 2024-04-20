@@ -29,6 +29,7 @@
 #include "arrow/util/benchmark_util.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_reader.h"
+#include "arrow/util/byte_size.h"
 #include "arrow/util/string.h"
 
 namespace arrow {
@@ -50,6 +51,7 @@ namespace acero {
 #include <random>
 
 using arrow::internal::ToChars;
+using arrow::util::TotalBufferSize;
 
 #ifdef ARROW_WITH_BENCHMARKS_REFERENCE
 
@@ -321,19 +323,6 @@ BENCHMARK_TEMPLATE(ReferenceSum, SumBitmapVectorizeUnroll<int64_t>)
 // GroupBy
 //
 
-int64_t CalculateBatchSize(const std::shared_ptr<RecordBatch>& batch) {
-  int64_t total_size = 0;
-  for (int i = 0; i < batch->num_columns(); ++i) {
-    auto column = batch->column(i);
-    for (const auto& buffer : column->data()->buffers) {
-      if (buffer != nullptr) {
-        total_size += buffer->size();
-      }
-    }
-  }
-  return total_size;
-}
-
 std::shared_ptr<RecordBatch> RecordBatchFromArrays(
     const std::vector<std::shared_ptr<Array>>& arguments,
     const std::vector<std::shared_ptr<Array>>& keys) {
@@ -384,7 +373,7 @@ static void BenchmarkGroupBy(benchmark::State& state, std::vector<Aggregate> agg
   for (std::size_t arg_idx = 0; arg_idx < arguments.size(); arg_idx++) {
     aggregates[arg_idx].target = {FieldRef(static_cast<int>(arg_idx))};
   }
-  int64_t total_bytes = CalculateBatchSize(batch);
+  int64_t total_bytes = TotalBufferSize(*batch);
   for (auto _ : state) {
     ABORT_NOT_OK(BatchGroupBy(batch, aggregates, key_refs));
   }
