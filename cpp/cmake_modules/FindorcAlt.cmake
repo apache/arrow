@@ -29,6 +29,7 @@ endif()
 find_package(orc ${find_package_args})
 if(orc_FOUND)
   set(orcAlt_FOUND TRUE)
+  set(orcAlt_VERSION ${orc_VERSION})
   return()
 endif()
 
@@ -51,8 +52,17 @@ else()
             NAMES orc/orc-config.hh
             PATH_SUFFIXES ${ARROW_INCLUDE_PATH_SUFFIXES})
 endif()
+if(ORC_INCLUDE_DIR)
+  file(READ "${ORC_INCLUDE_DIR}/orc/orc-config.hh" ORC_CONFIG_HH_CONTENT)
+  string(REGEX MATCH "#define ORC_VERSION \"[0-9.]+\"" ORC_VERSION_DEFINITION
+               "${ORC_CONFIG_HH_CONTENT}")
+  string(REGEX MATCH "[0-9.]+" ORC_VERSION "${ORC_VERSION_DEFINITION}")
+endif()
 
-find_package_handle_standard_args(orcAlt REQUIRED_VARS ORC_STATIC_LIB ORC_INCLUDE_DIR)
+find_package_handle_standard_args(
+  orcAlt
+  REQUIRED_VARS ORC_STATIC_LIB ORC_INCLUDE_DIR
+  VERSION_VAR ORC_VERSION)
 
 if(orcAlt_FOUND)
   if(NOT TARGET orc::orc)

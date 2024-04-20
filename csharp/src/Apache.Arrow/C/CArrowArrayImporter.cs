@@ -17,6 +17,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
@@ -36,7 +37,7 @@ namespace Apache.Arrow.C
         /// Typically, you will allocate an uninitialized CArrowArray pointer,
         /// pass that to external function, and then use this method to import
         /// the result.
-        /// 
+        ///
         /// <code>
         /// CArrowArray* importedPtr = CArrowArray.Create();
         /// foreign_export_function(importedPtr);
@@ -71,7 +72,7 @@ namespace Apache.Arrow.C
         /// Typically, you will allocate an uninitialized CArrowArray pointer,
         /// pass that to external function, and then use this method to import
         /// the result.
-        /// 
+        ///
         /// <code>
         /// CArrowArray* importedPtr = CArrowArray.Create();
         /// foreign_export_function(importedPtr);
@@ -256,6 +257,19 @@ namespace Apache.Arrow.C
                 return (cArray->buffers[0] == null) ? ArrowBuffer.Empty : new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[0], 0, validityLength));
             }
 
+            private ArrowBuffer ImportCArrayBuffer(CArrowArray* cArray, int i, int lengthBytes)
+            {
+                if (lengthBytes > 0)
+                {
+                    Debug.Assert(cArray->buffers[i] != null);
+                    return new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[i], 0, lengthBytes));
+                }
+                else
+                {
+                    return ArrowBuffer.Empty;
+                }
+            }
+
             private ArrowBuffer[] ImportByteArrayBuffers(CArrowArray* cArray)
             {
                 if (cArray->n_buffers != 3)
@@ -266,12 +280,13 @@ namespace Apache.Arrow.C
                 int length = checked((int)cArray->length);
                 int offsetsLength = (length + 1) * 4;
                 int* offsets = (int*)cArray->buffers[1];
+                Debug.Assert(offsets != null);
                 int valuesLength = offsets[length];
 
                 ArrowBuffer[] buffers = new ArrowBuffer[3];
                 buffers[0] = ImportValidityBuffer(cArray);
-                buffers[1] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[1], 0, offsetsLength));
-                buffers[2] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[2], 0, valuesLength));
+                buffers[1] = ImportCArrayBuffer(cArray, 1, offsetsLength);
+                buffers[2] = ImportCArrayBuffer(cArray, 2, valuesLength);
 
                 return buffers;
             }
@@ -289,10 +304,10 @@ namespace Apache.Arrow.C
                 long* bufferLengths = (long*)cArray->buffers[cArray->n_buffers - 1];
                 ArrowBuffer[] buffers = new ArrowBuffer[cArray->n_buffers - 1];
                 buffers[0] = ImportValidityBuffer(cArray);
-                buffers[1] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[1], 0, viewsLength));
+                buffers[1] = ImportCArrayBuffer(cArray, 1, viewsLength);
                 for (int i = 2; i < buffers.Length; i++)
                 {
-                    buffers[i] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[i], 0, checked((int)bufferLengths[i - 2])));
+                    buffers[i] = ImportCArrayBuffer(cArray, i, checked((int)bufferLengths[i - 2]));
                 }
 
                 return buffers;
@@ -310,7 +325,7 @@ namespace Apache.Arrow.C
 
                 ArrowBuffer[] buffers = new ArrowBuffer[2];
                 buffers[0] = ImportValidityBuffer(cArray);
-                buffers[1] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[1], 0, offsetsLength));
+                buffers[1] = ImportCArrayBuffer(cArray, 1, offsetsLength);
 
                 return buffers;
             }
@@ -327,8 +342,8 @@ namespace Apache.Arrow.C
 
                 ArrowBuffer[] buffers = new ArrowBuffer[3];
                 buffers[0] = ImportValidityBuffer(cArray);
-                buffers[1] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[1], 0, offsetsLength));
-                buffers[2] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[2], 0, offsetsLength));
+                buffers[1] = ImportCArrayBuffer(cArray, 1, offsetsLength);
+                buffers[2] = ImportCArrayBuffer(cArray, 2, offsetsLength);
 
                 return buffers;
             }
@@ -356,8 +371,8 @@ namespace Apache.Arrow.C
                 int offsetsLength = length * 4;
 
                 ArrowBuffer[] buffers = new ArrowBuffer[2];
-                buffers[0] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[0], 0, length));
-                buffers[1] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[1], 0, offsetsLength));
+                buffers[0] = ImportCArrayBuffer(cArray, 0, length);
+                buffers[1] = ImportCArrayBuffer(cArray, 1, offsetsLength);
 
                 return buffers;
             }
@@ -370,7 +385,7 @@ namespace Apache.Arrow.C
                 }
 
                 ArrowBuffer[] buffers = new ArrowBuffer[1];
-                buffers[0] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[0], 0, checked((int)cArray->length)));
+                buffers[0] = ImportCArrayBuffer(cArray, 0, checked((int)cArray->length));
 
                 return buffers;
             }
@@ -392,7 +407,7 @@ namespace Apache.Arrow.C
 
                 ArrowBuffer[] buffers = new ArrowBuffer[2];
                 buffers[0] = ImportValidityBuffer(cArray);
-                buffers[1] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[1], 0, valuesLength));
+                buffers[1] = ImportCArrayBuffer(cArray, 1, valuesLength);
 
                 return buffers;
             }

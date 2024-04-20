@@ -272,9 +272,11 @@ class SortedMergeNode : public ExecNode {
         kPoisonPill);  // poison pill
                        // We might create a temporary (such as to inspect the output
                        // schema), in which case there isn't anything  to join
+#ifdef ARROW_ENABLE_THREADING
     if (process_thread.joinable()) {
       process_thread.join();
     }
+#endif
   }
 
   static arrow::Result<arrow::acero::ExecNode*> Make(
@@ -356,6 +358,11 @@ class SortedMergeNode : public ExecNode {
     input_counter[index] += rb->num_rows();
     ARROW_RETURN_NOT_OK(state[index]->Push(rb));
     process_queue.Push(kNewTask);
+#ifndef ARROW_ENABLE_THREADING
+    // process data (because we don't have a worker thread)
+    PollOnce();
+#endif
+
     return Status::OK();
   }
 
@@ -369,6 +376,12 @@ class SortedMergeNode : public ExecNode {
     }
     // Trigger a final process call for stragglers
     process_queue.Push(kNewTask);
+
+#ifndef ARROW_ENABLE_THREADING
+    // process data (because we don't have a worker thread)
+    PollOnce();
+#endif
+
     return Status::OK();
   }
 
@@ -379,7 +392,9 @@ class SortedMergeNode : public ExecNode {
       // Plan has already aborted.  Do not start process thread
       return Status::OK();
     }
+#ifdef ARROW_ENABLE_THREADING
     process_thread = std::thread(&SortedMergeNode::StartPoller, this);
+#endif
     return Status::OK();
   }
 
