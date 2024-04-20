@@ -22,13 +22,13 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/parquet"
-	"github.com/apache/arrow/go/v16/parquet/internal/encoding"
-	format "github.com/apache/arrow/go/v16/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v16/parquet/metadata"
-	"github.com/apache/arrow/go/v16/parquet/schema"
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/array"
+	"github.com/apache/arrow/go/v17/parquet"
+	"github.com/apache/arrow/go/v17/parquet/internal/encoding"
+	format "github.com/apache/arrow/go/v17/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v17/parquet/metadata"
+	"github.com/apache/arrow/go/v17/parquet/schema"
 	"golang.org/x/xerrors"
 )
 

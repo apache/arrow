@@ -23,7 +23,7 @@ import (
 	"os"
 	"syscall"
 
-	"github.com/apache/arrow/go/v16/arrow/internal/flight_integration"
+	"github.com/apache/arrow/go/v17/arrow/internal/flight_integration"
 )
 
 var (

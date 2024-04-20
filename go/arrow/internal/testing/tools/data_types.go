@@ -21,8 +21,8 @@ package tools
 import (
 	"reflect"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/float16"
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/float16"
 	"golang.org/x/exp/constraints"
 )
 
