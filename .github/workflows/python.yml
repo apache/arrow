@@ -128,7 +128,7 @@ jobs:
         run: archery docker push ${{ matrix.image }}
 
   macos:
-    name: ${{ matrix.architecture }} macOS Test ${{ matrix.macos-version }} Python 3
+    name: ${{ matrix.architecture }} macOS ${{ matrix.macos-version }} Python 3
     runs-on: macos-${{ matrix.macos-version }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
@@ -141,7 +141,7 @@ jobs:
           - architecture: ARM64
             macos-version: "14"
     env:
-      ARROW_HOME: /usr/local
+      ARROW_HOME: /tmp/local
       ARROW_AZURE: ON
       ARROW_DATASET: ON
       ARROW_FLIGHT: ON
