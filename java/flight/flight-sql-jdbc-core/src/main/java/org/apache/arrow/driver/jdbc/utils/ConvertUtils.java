@@ -262,6 +262,11 @@ public final class ConvertUtils {
     public AvaticaParameter visit(ArrowType.Duration type) {
       return new DurationAvaticaParameterConverter(type).createParameter(field);
     }
+
+    @Override
+    public AvaticaParameter visit(ArrowType.RunEndEncoded type) {
+      throw new UnsupportedOperationException("No Avatica parameter binder implemented for type " + type);
+    }
   }
 
 }

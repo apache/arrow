@@ -31,6 +31,7 @@ import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
+import org.apache.arrow.vector.complex.RunEndEncodedVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.types.pojo.Field;
 
@@ -122,6 +123,11 @@ public class TypeEqualsVisitor implements VectorVisitor<Boolean, Void> {
 
   @Override
   public Boolean visit(ExtensionTypeVector<?> left, Void value) {
+    return compareField(left.getField(), right.getField());
+  }
+
+  @Override
+  public Boolean visit(RunEndEncodedVector left, Void value) {
     return compareField(left.getField(), right.getField());
   }
 

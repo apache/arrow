@@ -70,6 +70,7 @@ import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.RunEndEncodedVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.impl.BigIntWriterImpl;
@@ -133,6 +134,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.LargeUtf8;
 import org.apache.arrow.vector.types.pojo.ArrowType.List;
 import org.apache.arrow.vector.types.pojo.ArrowType.Map;
 import org.apache.arrow.vector.types.pojo.ArrowType.Null;
+import org.apache.arrow.vector.types.pojo.ArrowType.RunEndEncoded;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.ArrowType.Time;
 import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
@@ -805,6 +807,20 @@ public class Types {
         return ((ExtensionTypeVector) vector).getUnderlyingVector().getMinorType().getNewFieldWriter(vector);
       }
     },
+    RUNENDENCODED(RunEndEncoded.INSTANCE) {
+      @Override
+      public FieldVector getNewVector(
+          Field field,
+          BufferAllocator allocator,
+          CallBack schemaChangeCallback) {
+        return new RunEndEncodedVector(field, allocator, schemaChangeCallback);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        return null; // TODO
+      }
+    },
     ;
 
     private final ArrowType type;
@@ -1023,6 +1039,11 @@ public class Types {
       @Override
       public MinorType visit(ExtensionType type) {
         return MinorType.EXTENSIONTYPE;
+      }
+
+      @Override
+      public MinorType visit(RunEndEncoded type) {
+        return MinorType.RUNENDENCODED;
       }
     });
   }

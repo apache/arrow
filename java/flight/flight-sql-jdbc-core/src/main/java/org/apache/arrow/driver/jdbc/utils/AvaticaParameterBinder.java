@@ -244,6 +244,11 @@ public class AvaticaParameterBinder {
     public Boolean visit(ArrowType.Duration type) {
       return new DurationAvaticaParameterConverter(type).bindParameter(vector, typedValue, index);
     }
+
+    @Override
+    public Boolean visit(ArrowType.RunEndEncoded type) {
+      throw new UnsupportedOperationException("No Avatica parameter binder implemented for type " + type);
+    }
   }
 
 }
