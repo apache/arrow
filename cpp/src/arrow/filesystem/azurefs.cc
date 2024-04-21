@@ -393,7 +393,7 @@ Result<std::string> AzureOptions::GenerateSASToken(
   if (storage_shared_key_credential_) {
     return builder->GenerateSasToken(*storage_shared_key_credential_);
   } else {
-    // This part isn't tested. This may not work.
+    // GH-39344: This part isn't tested. This may not work.
     try {
       auto delegation_key_response = client->GetUserDelegationKey(builder->ExpiresOn);
 
