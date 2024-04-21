@@ -252,6 +252,12 @@ summarise.Dataset <- summarise.ArrowTabular <- summarise.RecordBatchReader <- su
 # This is the Arrow summarize implementation
 do_arrow_summarize <- function(.data, ..., .groups = NULL) {
   exprs <- ensure_named_exprs(quos(...))
+  # Do any pre-processing to the expressions we need
+  exprs <- map(
+    exprs,
+    adjust_summarize_expression,
+    hash = length(.data$group_by_vars) > 0
+  )
 
   # nolint start
   # summarize() is complicated because you can do a mixture of scalar operations
@@ -269,29 +275,23 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
   # ExecNode), and in the expressions, replace them with FieldRefs so that
   # further operations can happen (in what will become a ProjectNode that works
   # on the result of the Aggregate).
-  #
-  # To do this, we create two lists in this function scope, and in arrow_mask(),
-  # we make sure this environment here is the parent env of the binding
+  # To do this, we create a list in this function scope, and in arrow_mask(),
+  # and we make sure this environment here is the parent env of the binding
   # functions, so that when they receive an expression, they can pull out
   # aggregations and insert them into the list, which they can find because it
   # is in the parent env.
   # nolint end
-
-  # Agg functions pull out the aggregation info and append it here
   ..aggregations <- empty_named_list()
-  # And if there are any transformations after the aggregation, they go here
+
+  # We'll collect any transformations after the aggregation here
   ..post_mutate <- empty_named_list()
   mask <- arrow_mask(.data, aggregation = TRUE)
 
   for (i in seq_along(exprs)) {
     # Iterate over the indices and not the names because names may be repeated
     # (which overwrites the previous name)
-    ..post_mutate[[names(exprs)[i]]] <- summarize_eval(
-      names(exprs)[i],
-      exprs[[i]],
-      mask,
-      length(.data$group_by_vars) > 0
-    )
+    name <- names(exprs)[i]
+    ..post_mutate[[name]] <- summarize_eval(name, exprs[[i]], mask)
   }
 
   # Apply the results to the .data object.
@@ -301,8 +301,8 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
   # additional operations applied to it
   out <- collapse.arrow_dplyr_query(.data)
 
-  # If this is the case, there will be expressions in post_mutate
-  if (length(..post_mutate)) {
+  # Now, add the projections in ..post_mutate (if any)
+  for (post in names(..post_mutate)) {
     # One last check: it's possible that an expression like y - mean(y) would
     # successfully evaluate, but it's not supported. It gets transformed to:
     # nolint start
@@ -310,26 +310,24 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
     #   mutate(y - ..temp0)
     # nolint end
     # but y is not in the schema of the data after summarize(). To catch this
-    # in the expression evaluation step, we'd have to remove all data variables
-    # from the mask, which would be a bit tortured (even for me).
+    # in the expression evaluation step, we'd have to remove all data
+    # variables from the mask, which would be a bit tortured (even for me).
     # So we'll check here.
-    for (post in names(..post_mutate)) {
-      # We can tell the expression is invalid if it references fields not in
-      # the schema of the data after summarize(). Evaulating its type will
-      # throw an error if it's invalid.
-      tryCatch(..post_mutate[[post]]$type(out$.data$schema), error = function(e) {
-        msg <- paste(
-          "Expression", as_label(exprs[[post]]),
-          "is not a valid aggregation expression or is"
-        )
-        arrow_not_supported(msg)
-      })
-      # If it's valid, add it to the .data object
-      out$selected_columns[[post]] <- ..post_mutate[[post]]
-    }
+    # We can tell the expression is invalid if it references fields not in
+    # the schema of the data after summarize(). Evaulating its type will
+    # throw an error if it's invalid.
+    tryCatch(..post_mutate[[post]]$type(out$.data$schema), error = function(e) {
+      msg <- paste(
+        "Expression", as_label(exprs[[post]]),
+        "is not a valid aggregation expression or is"
+      )
+      arrow_not_supported(msg)
+    })
+    # If it's valid, add it to the .data object
+    out$selected_columns[[post]] <- ..post_mutate[[post]]
   }
 
-  # Make sure order is correct (also drop ..temp columns)
+  # Make sure column order is correct (and also drop ..temp columns)
   col_order <- c(.data$group_by_vars, unique(names(exprs)))
   out$selected_columns <- out$selected_columns[col_order]
 
@@ -464,18 +462,7 @@ format_aggregation <- function(x) {
 # projection that results, or NULL if there is none because the top-level
 # expression was an aggregation. Any aggregations are pulled out and collected
 # in the ..aggregations list outside this function.
-summarize_eval <- function(name, quosure, mask, hash) {
-  # For the quantile() binding in the hash aggregation case, we need to mutate
-  # the list output from the Arrow hash_tdigest kernel to flatten it into a
-  # column of type float64. We do that by modifying the unevaluated expression
-  # to replace quantile(...) with arrow_list_element(quantile(...), 0L)
-  expr <- quo_get_expr(quosure)
-  if (hash && any(c("quantile", "stats::quantile") %in% all_funs(expr))) {
-    expr <- wrap_hash_quantile(expr)
-    quo_env <- quo_get_env(quosure)
-    quosure <- as_quosure(expr, quo_env)
-  }
-
+summarize_eval <- function(name, quosure, mask) {
   # Add previous aggregations to the mask, so they can be referenced
   for (n in names(get("..aggregations", parent.frame()))) {
     mask[[n]] <- mask$.data[[n]] <- Expression$field_ref(n)
@@ -510,6 +497,21 @@ summarize_eval <- function(name, quosure, mask, hash) {
     # function of aggregations. Return it so it can be added to post_mutate.
     return(value)
   }
+}
+
+adjust_summarize_expression <- function(quosure, hash) {
+  # For the quantile() binding in the hash aggregation case, we need to mutate
+  # the list output from the Arrow hash_tdigest kernel to flatten it into a
+  # column of type float64. We do that by modifying the unevaluated expression
+  # to replace quantile(...) with arrow_list_element(quantile(...), 0L)
+  expr <- quo_get_expr(quosure)
+  if (hash && any(c("quantile", "stats::quantile") %in% all_funs(expr))) {
+    expr <- wrap_hash_quantile(expr)
+    quo_env <- quo_get_env(quosure)
+    quosure <- as_quosure(expr, quo_env)
+  }
+  # We could add any other adjustments here, but currently quantile is the only one
+  quosure
 }
 
 # This function recurses through expr and wraps each call to quantile() with a
