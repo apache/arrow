@@ -649,6 +649,11 @@ Status TableBatchReader::ReadNext(std::shared_ptr<RecordBatch>* out) {
       std::min(table_.num_rows() - absolute_row_position_, max_chunksize_);
   std::vector<const Array*> chunks(table_.num_columns());
   for (int i = 0; i < table_.num_columns(); ++i) {
+    if (chunk_numbers_[i] >= column_data_[i]->num_chunks()) {
+      *out = nullptr;
+      return Status::Invalid("Requesting too large chunk number ", chunk_numbers_[i],
+                             " for column ", i);
+    }
     auto chunk = column_data_[i]->chunk(chunk_numbers_[i]).get();
     int64_t chunk_remaining = chunk->length() - chunk_offsets_[i];
 
