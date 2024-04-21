@@ -396,7 +396,6 @@ Result<std::string> AzureOptions::GenerateSASToken(
     // GH-39344: This part isn't tested. This may not work.
     try {
       auto delegation_key_response = client->GetUserDelegationKey(builder->ExpiresOn);
-
       return builder->GenerateSasToken(delegation_key_response.Value, account_name);
     } catch (const Storage::StorageException& exception) {
       return ExceptionToStatus(exception, "GetUserDelegationKey failed for '",
