@@ -69,4 +69,4 @@ export PYARROW_TEST_PARQUET_ENCRYPTION
 export PYARROW_TEST_S3
 
 # Testing PyArrow
-pytest -r s -vv -s ${PYTEST_ARGS} --pyargs pyarrow -k "test_make_write_options_error"
+pytest -r s ${PYTEST_ARGS} --pyargs pyarrow
