@@ -747,8 +747,8 @@ class TableSorter {
     auto& comparator = comparator_;
     const auto& first_sort_key = sort_keys_[0];
 
-    ChunkLocation left_loc{0, 0};
-    ChunkLocation right_loc{0, 0};
+    ChunkLocation left_loc;
+    ChunkLocation right_loc;
     std::merge(nulls_begin, nulls_middle, nulls_middle, nulls_end, temp_indices,
                [&](uint64_t left, uint64_t right) {
                  // First column is either null or nan
@@ -784,8 +784,8 @@ class TableSorter {
     // Untyped implementation
     auto& comparator = comparator_;
 
-    ChunkLocation left_loc{0, 0};
-    ChunkLocation right_loc{0, 0};
+    ChunkLocation left_loc;
+    ChunkLocation right_loc;
     std::merge(nulls_begin, nulls_middle, nulls_middle, nulls_end, temp_indices,
                [&](uint64_t left, uint64_t right) {
                  // First column is always null
@@ -808,8 +808,8 @@ class TableSorter {
     auto& comparator = comparator_;
     const auto& first_sort_key = sort_keys_[0];
 
-    ChunkLocation left_loc{0, 0};
-    ChunkLocation right_loc{0, 0};
+    ChunkLocation left_loc;
+    ChunkLocation right_loc;
     std::merge(range_begin, range_middle, range_middle, range_end, temp_indices,
                [&](uint64_t left, uint64_t right) {
                  // Both values are never null nor NaN.

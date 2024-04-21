@@ -23,6 +23,7 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/chunk_resolver.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/testing/builder.h"
@@ -33,6 +34,9 @@
 #include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
+
+using internal::ChunkLocation;
+using internal::ChunkResolver;
 
 class TestChunkedArray : public ::testing::Test {
  protected:
@@ -309,5 +313,166 @@ TEST_F(TestChunkedArray, GetScalar) {
 
   ASSERT_RAISES(IndexError, carr.GetScalar(7));
 }
+
+// ChunkResolver tests
+
+using IndexTypes = ::testing::Types<uint8_t, uint16_t, uint32_t, uint64_t>;
+
+TEST(TestChunkResolver, Resolve) {
+  ChunkResolver empty(std::vector<int64_t>({0}));  // []
+  // ChunkLocation::index_in_chunk is undefined when chunk_index==chunks.size(),
+  // so only chunk_index is compared in these cases.
+  ASSERT_EQ(empty.Resolve(0).chunk_index, 0);
+  ASSERT_EQ(empty.Resolve(0).chunk_index, 0);
+
+  ChunkResolver one(std::vector<int64_t>({0, 1}));  // [[0]]
+  ASSERT_EQ(one.Resolve(1).chunk_index, 1);
+  ASSERT_EQ(one.Resolve(0), (ChunkLocation::Forge(0, 0)));
+  ASSERT_EQ(one.Resolve(1).chunk_index, 1);
+
+  ChunkResolver one_and_empty(std::vector<int64_t>({0, 1, 1, 1}));  // [[0], [], []]
+  ASSERT_EQ(one_and_empty.Resolve(3).chunk_index, 3);
+  ASSERT_EQ(one_and_empty.Resolve(2).chunk_index, 3);
+  ASSERT_EQ(one_and_empty.Resolve(1).chunk_index, 3);
+  ASSERT_EQ(one_and_empty.Resolve(0), (ChunkLocation::Forge(0, 0)));
+  ASSERT_EQ(one_and_empty.Resolve(1).chunk_index, 3);
+  ASSERT_EQ(one_and_empty.Resolve(2).chunk_index, 3);
+  ASSERT_EQ(one_and_empty.Resolve(3).chunk_index, 3);
+
+  ChunkResolver one_one_one(std::vector<int64_t>({0, 1, 2, 3}));  // [[0], [1], [2]]
+  ASSERT_EQ(one_one_one.Resolve(3).chunk_index, 3);
+  ASSERT_EQ(one_one_one.Resolve(2), (ChunkLocation::Forge(2, 0)));
+  ASSERT_EQ(one_one_one.Resolve(1), (ChunkLocation::Forge(1, 0)));
+  ASSERT_EQ(one_one_one.Resolve(0), (ChunkLocation::Forge(0, 0)));
+  ASSERT_EQ(one_one_one.Resolve(1), (ChunkLocation::Forge(1, 0)));
+  ASSERT_EQ(one_one_one.Resolve(2), (ChunkLocation::Forge(2, 0)));
+  ASSERT_EQ(one_one_one.Resolve(3).chunk_index, 3);
+
+  ChunkResolver resolver(std::vector<int64_t>({0, 2, 3, 10}));  // [[0, 1], [2], [3..9]]
+  ASSERT_EQ(resolver.Resolve(10).chunk_index, 3);
+  ASSERT_EQ(resolver.Resolve(9), (ChunkLocation::Forge(2, 6)));
+  ASSERT_EQ(resolver.Resolve(8), (ChunkLocation::Forge(2, 5)));
+  ASSERT_EQ(resolver.Resolve(4), (ChunkLocation::Forge(2, 1)));
+  ASSERT_EQ(resolver.Resolve(3), (ChunkLocation::Forge(2, 0)));
+  ASSERT_EQ(resolver.Resolve(2), (ChunkLocation::Forge(1, 0)));
+  ASSERT_EQ(resolver.Resolve(1), (ChunkLocation::Forge(0, 1)));
+  ASSERT_EQ(resolver.Resolve(0), (ChunkLocation::Forge(0, 0)));
+  ASSERT_EQ(resolver.Resolve(1), (ChunkLocation::Forge(0, 1)));
+  ASSERT_EQ(resolver.Resolve(2), (ChunkLocation::Forge(1, 0)));
+  ASSERT_EQ(resolver.Resolve(3), (ChunkLocation::Forge(2, 0)));
+  ASSERT_EQ(resolver.Resolve(4), (ChunkLocation::Forge(2, 1)));
+  ASSERT_EQ(resolver.Resolve(8), (ChunkLocation::Forge(2, 5)));
+  ASSERT_EQ(resolver.Resolve(9), (ChunkLocation::Forge(2, 6)));
+  ASSERT_EQ(resolver.Resolve(10).chunk_index, 3);
+}
+
+template <typename T>
+class TestChunkResolverMany : public ::testing::Test {
+ public:
+  using IndexType = T;
+
+  Result<std::vector<ChunkLocation>> ResolveMany(
+      const ChunkResolver& resolver, const std::vector<IndexType>& logical_index_vec) {
+    const size_t n = logical_index_vec.size();
+    std::vector<IndexType> chunk_index_vec;
+    chunk_index_vec.resize(n);
+    std::vector<IndexType> index_in_chunk_vec;
+    index_in_chunk_vec.resize(n);
+    bool valid = resolver.ResolveMany<IndexType>(
+        static_cast<int64_t>(n), logical_index_vec.data(), chunk_index_vec.data(), 0,
+        index_in_chunk_vec.data());
+    if (ARROW_PREDICT_FALSE(!valid)) {
+      return Status::Invalid("index type doesn't fit possible chunk indexes");
+    }
+    std::vector<ChunkLocation> locations;
+    locations.reserve(n);
+    for (size_t i = 0; i < n; i++) {
+      auto chunk_index = static_cast<int64_t>(chunk_index_vec[i]);
+      auto index_in_chunk = static_cast<int64_t>(index_in_chunk_vec[i]);
+      locations.emplace_back(resolver, chunk_index, index_in_chunk);
+    }
+    return locations;
+  }
+
+  void CheckResolveMany(const ChunkResolver& resolver,
+                        const std::vector<IndexType>& logical_index_vec) {
+    ASSERT_OK_AND_ASSIGN(auto locations, ResolveMany(resolver, logical_index_vec));
+    EXPECT_EQ(logical_index_vec.size(), locations.size());
+    for (size_t i = 0; i < logical_index_vec.size(); i++) {
+      IndexType logical_index = logical_index_vec[i];
+      const auto expected = resolver.Resolve(logical_index);
+      ASSERT_LE(expected.chunk_index, resolver.num_chunks());
+      if (expected.chunk_index == resolver.num_chunks()) {
+        // index_in_chunk is undefined in this case
+        ASSERT_EQ(locations[i].chunk_index, expected.chunk_index);
+      } else {
+        ASSERT_EQ(locations[i], expected);
+      }
+    }
+  }
+
+  void TestBasics() {
+    std::vector<IndexType> logical_index_vec;
+
+    ChunkResolver empty(std::vector<int64_t>({0}));  // []
+    logical_index_vec = {0, 0};
+    CheckResolveMany(empty, logical_index_vec);
+
+    ChunkResolver one(std::vector<int64_t>({0, 1}));  // [[0]]
+    logical_index_vec = {1, 0, 1};
+    CheckResolveMany(one, logical_index_vec);
+
+    ChunkResolver one_and_empty(std::vector<int64_t>({0, 1, 1, 1}));  // [[0], [], []]
+    logical_index_vec = {3, 2, 1, 0, 1, 2, 3};
+    CheckResolveMany(one_and_empty, logical_index_vec);
+
+    ChunkResolver one_one_one(std::vector<int64_t>({0, 1, 2, 3}));  // [[0], [1], [2]]
+    logical_index_vec = {3, 2, 1, 0, 1, 2, 3};
+    CheckResolveMany(one_one_one, logical_index_vec);
+
+    ChunkResolver resolver(std::vector<int64_t>({0, 2, 3, 10}));  // [[0, 1], [2], [3..9]]
+    logical_index_vec = {10, 9, 8, 4, 3, 2, 1, 0, 1, 2, 3, 4, 8, 9, 10};
+    CheckResolveMany(resolver, logical_index_vec);
+  }
+
+  void TestOutOfBounds() {
+    ChunkResolver resolver(std::vector<int64_t>({0, 2, 3, 10}));  // [[0, 1], [2], [3..9]]
+
+    std::vector<IndexType> logical_index_vec = {10, 11, 12, 13, 14, 13, 11, 10};
+    ASSERT_OK_AND_ASSIGN(auto locations, ResolveMany(resolver, logical_index_vec));
+    EXPECT_EQ(logical_index_vec.size(), locations.size());
+    for (size_t i = 0; i < logical_index_vec.size(); i++) {
+      ASSERT_EQ(locations[i].chunk_index, resolver.num_chunks());
+    }
+  }
+
+  void TestOverflow() {
+    std::vector<IndexType> logical_index_vec = {0, 1, 2, 127, 255};
+
+    // Offsets are rare because to even make it possible, we need more chunks
+    // than logical elements in the ChunkedArray. That requires at least one
+    // empty chunk.
+    std::vector<int64_t> offsets;
+    for (int64_t i = 0; i < 256; i++) {
+      offsets.push_back(i);
+    }
+    ChunkResolver resolver{offsets};
+    ASSERT_OK(ResolveMany(resolver, logical_index_vec));
+
+    offsets.push_back(255);  // adding an empty chunk
+    ChunkResolver resolver_with_empty{offsets};
+    if (sizeof(IndexType) == 1) {
+      ASSERT_NOT_OK(ResolveMany(resolver_with_empty, logical_index_vec));
+    } else {
+      ASSERT_OK(ResolveMany(resolver_with_empty, logical_index_vec));
+    }
+  }
+};
+
+TYPED_TEST_SUITE(TestChunkResolverMany, IndexTypes);
+
+TYPED_TEST(TestChunkResolverMany, Basics) { this->TestBasics(); }
+TYPED_TEST(TestChunkResolverMany, OutOfBounds) { this->TestOutOfBounds(); }
+TYPED_TEST(TestChunkResolverMany, Overflow) { this->TestOverflow(); }
 
 }  // namespace arrow
