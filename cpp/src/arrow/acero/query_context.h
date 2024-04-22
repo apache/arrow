@@ -38,6 +38,7 @@ namespace internal {
 constexpr char kTempStackSizeEnvVar[] = "ACERO_TEMP_STACK_SIZE";
 constexpr int64_t kDefaultTempStackSize =
     32 * arrow::util::MiniBatch::kMiniBatchLength * sizeof(uint64_t);
+ARROW_ACERO_EXPORT
 int64_t GetTempStackSizeFromEnvVar();
 
 }  // namespace internal
