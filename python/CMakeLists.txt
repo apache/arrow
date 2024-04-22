@@ -392,7 +392,8 @@ if(NOT CMAKE_VERSION VERSION_LESS 3.16)
   target_precompile_headers(arrow_python PUBLIC
                             "$<$<COMPILE_LANGUAGE:CXX>:arrow/python/pch.h>")
 endif()
-target_link_libraries(arrow_python PUBLIC ${PYARROW_CPP_LINK_LIBS} Python3::NumPy)
+target_link_libraries(arrow_python PRIVATE ${PYARROW_CPP_LINK_LIBS})
+target_link_libraries(arrow_python PUBLIC Python3::NumPy)
 target_compile_definitions(arrow_python PRIVATE ARROW_PYTHON_EXPORTING)
 install(TARGETS arrow_python
         ARCHIVE DESTINATION .
@@ -808,12 +809,7 @@ foreach(module ${CYTHON_EXTENSIONS})
     set_target_properties(${module_name} PROPERTIES COMPILE_DEFINITIONS
                                                     "CYTHON_TRACE=1;CYTHON_TRACE_NOGIL=1")
   endif()
-  # user this rather roundabout way of including, otherwise the
-  # in static linking mode the target will depend on libarrow and 
-  # build it into every cython extension
-  target_include_directories(${module_name} PUBLIC $<TARGET_PROPERTY:arrow_python,INTERFACE_INCLUDE_DIRECTORIES>)
-  target_link_libraries(${module_name} PUBLIC $<TARGET_FILE:arrow_python>)
-  add_dependencies(${module_name} arrow_python)
+  target_link_libraries(${module_name} PUBLIC ${LINK_LIBS})
 
   install(TARGETS ${module_name} LIBRARY DESTINATION ".")
   foreach(output ${${module_name}_output})
