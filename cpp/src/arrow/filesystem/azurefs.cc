@@ -277,6 +277,13 @@ std::string BuildBaseUrl(const std::string& scheme, const std::string& authority
   url += "/";
   return url;
 }
+
+template <typename... PrefixArgs>
+Status ExceptionToStatus(const Storage::StorageException& exception,
+                         PrefixArgs&&... prefix_args) {
+  return Status::IOError(std::forward<PrefixArgs>(prefix_args)..., " Azure Error: [",
+                         exception.ErrorCode, "] ", exception.what());
+}
 }  // namespace
 
 std::string AzureOptions::AccountBlobUrl(const std::string& account_name) const {
@@ -381,6 +388,22 @@ AzureOptions::MakeDataLakeServiceClient() const {
   return Status::Invalid("AzureOptions doesn't contain a valid auth configuration");
 }
 
+Result<std::string> AzureOptions::GenerateSASToken(
+    Storage::Sas::BlobSasBuilder* builder, Blobs::BlobServiceClient* client) const {
+  if (storage_shared_key_credential_) {
+    return builder->GenerateSasToken(*storage_shared_key_credential_);
+  } else {
+    // GH-39344: This part isn't tested. This may not work.
+    try {
+      auto delegation_key_response = client->GetUserDelegationKey(builder->ExpiresOn);
+      return builder->GenerateSasToken(delegation_key_response.Value, account_name);
+    } catch (const Storage::StorageException& exception) {
+      return ExceptionToStatus(exception, "GetUserDelegationKey failed for '",
+                               client->GetUrl(), "'.");
+    }
+  }
+}
+
 namespace {
 
 // An AzureFileSystem represents an Azure storage account. An AzureLocation describes a
@@ -449,13 +472,6 @@ struct AzureLocation {
     return status.ok() ? status : Status::Invalid(status.message(), " in location ", all);
   }
 };
-
-template <typename... PrefixArgs>
-Status ExceptionToStatus(const Storage::StorageException& exception,
-                         PrefixArgs&&... prefix_args) {
-  return Status::IOError(std::forward<PrefixArgs>(prefix_args)..., " Azure Error: [",
-                         exception.ErrorCode, "] ", exception.what());
-}
 
 Status PathNotFound(const AzureLocation& location) {
   return ::arrow::fs::internal::PathNotFound(location.all);
@@ -2868,8 +2884,20 @@ class AzureFileSystem::Impl {
     if (src == dest) {
       return Status::OK();
     }
+    std::string sas_token;
+    {
+      Storage::Sas::BlobSasBuilder builder;
+      std::chrono::seconds available_period(60);
+      builder.ExpiresOn = std::chrono::system_clock::now() + available_period;
+      builder.BlobContainerName = src.container;
+      builder.BlobName = src.path;
+      builder.Resource = Storage::Sas::BlobSasResource::Blob;
+      builder.SetPermissions(Storage::Sas::BlobSasPermissions::Read);
+      ARROW_ASSIGN_OR_RAISE(
+          sas_token, options_.GenerateSASToken(&builder, blob_service_client_.get()));
+    }
+    auto src_url = GetBlobClient(src.container, src.path).GetUrl() + sas_token;
     auto dest_blob_client = GetBlobClient(dest.container, dest.path);
-    auto src_url = GetBlobClient(src.container, src.path).GetUrl();
     if (!dest.path.empty()) {
       auto dest_parent = dest.parent();
       if (!dest_parent.path.empty()) {
