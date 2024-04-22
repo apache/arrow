@@ -41,12 +41,14 @@ TEST(TestCache, TestGetPut) {
   ASSERT_EQ(cache.GetObjectCode(TestCacheKey(2)), "world");
 }
 
+namespace {
+constexpr auto capacity_env_var = "GANDIVA_CACHE_SIZE";
+constexpr auto default_capacity = 5000;
+}  // namespace
+
 TEST(TestCache, TestGetCacheCapacityDefault) { ASSERT_EQ(GetCapacity(), 5000); }
 
 TEST(TestCache, TestGetCacheCapacityEnvVar) {
-  constexpr auto capacity_env_var = "GANDIVA_CACHE_SIZE";
-  constexpr auto default_capacity = 5000;
-
   // Empty.
   ASSERT_OK(::arrow::internal::SetEnvVar(capacity_env_var, ""));
   ASSERT_EQ(internal::GetCapacityFromEnvVar(), default_capacity);
