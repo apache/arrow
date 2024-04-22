@@ -46,7 +46,9 @@ constexpr auto capacity_env_var = "GANDIVA_CACHE_SIZE";
 constexpr auto default_capacity = 5000;
 }  // namespace
 
-TEST(TestCache, TestGetCacheCapacityDefault) { ASSERT_EQ(GetCapacity(), 5000); }
+TEST(TestCache, TestGetCacheCapacityDefault) {
+  ASSERT_EQ(GetCapacity(), default_capacity);
+}
 
 TEST(TestCache, TestGetCacheCapacityEnvVar) {
   // Empty.
