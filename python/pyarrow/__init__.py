@@ -428,6 +428,7 @@ def get_library_dirs():
 
     return library_dirs
 
+
 # On emscripten in browser we need to load the timezones from tzdata
 # package into where arrow expects them to be, otherwise all time
 # handling will break.
