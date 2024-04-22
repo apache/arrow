@@ -256,9 +256,6 @@ if(ARROW_USE_CCACHE
 endif()
 
 if(ARROW_OPTIONAL_INSTALL)
-  # Don't make the "install" target depend on the "all" target
-  set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY true)
-
   set(INSTALL_IS_OPTIONAL OPTIONAL)
 endif()
 
