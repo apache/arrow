@@ -17,8 +17,8 @@
 
 # filter(), mutate(), etc. work by evaluating the quoted `exprs` to generate Expressions
 arrow_eval <- function(expr, mask) {
-  # Look for R functions referenced in expr that are not in the mask and add them
-  # If they call other functions in the mask, this will let them find them
+  # Look for R functions referenced in expr that are not in the mask and add
+  # them. If they call other functions in the mask, this will let them find them
   # and just work. (If they call things not supported in Arrow, it won't work,
   # but it wouldn't have worked anyway!)
   # Note this is *not* true UDFs.
@@ -57,8 +57,10 @@ add_user_functions_to_mask <- function(expr, mask) {
   # see if we can add them to the mask and set their parent env to the mask
   # so that they can reference other functions in the mask.
   if (is_quosure(expr)) {
-    # case_when evaluates regular formulas not quosures, which don't have
-    # their own environment, so let's just skip them for now
+    # case_when calls arrow_eval() on regular formulas not quosures, which don't
+    # have their own environment. But, we've already walked those expressions
+    # when calling arrow_eval() on the case_when expression itself, so we don't
+    # need to worry about adding them again.
     function_env <- parent.env(parent.env(mask))
     quo_expr <- quo_get_expr(expr)
     funs_in_expr <- all_funs(quo_expr)
