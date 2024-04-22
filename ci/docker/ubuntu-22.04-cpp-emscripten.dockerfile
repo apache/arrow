@@ -91,11 +91,16 @@ RUN if [ $chrome_version = "latest" ]; \
   
 ARG selenium_version="4.15.2"
 
-# install selenium and pyodide-build and node
-RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
-    apt-get update && apt install "software-properties-common" -y -q &&\
-    add-apt-repository ppa:deadsnakes/ppa &&\
-    apt install python3.11 -y -q &&\
-    ln -s /usr/bin/python3.11 /usr/bin/python && \
-    python -m pip install selenium==${selenium_version} &&\
-    python -m pip install pyodide-build==${pyodide_version}
+SHELL ["/bin/bash", "--login", "-i", "-c"]
+# install node 18 (needed for async call support)
+RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash -
+RUN nvm install 18
+SHELL ["/bin/bash","-c"]
+
+# install selenium and pyodide-build and recent python
+ RUN    apt-get update && apt install "software-properties-common" -y -q &&\
+     add-apt-repository ppa:deadsnakes/ppa &&\
+     apt install python3.11 -y -q &&\
+     ln -s /usr/bin/python3.11 /usr/bin/python && \
+     python -m pip install selenium==${selenium_version} &&\
+     python -m pip install pyodide-build==${pyodide_version}

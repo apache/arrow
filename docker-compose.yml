@@ -708,12 +708,13 @@ services:
       <<: [*common, *ccache, *sccache, *cpp]
       ARROW_EMSCRIPTEN: "ON"
       UBUNTU: "22.04"
-      PYODIDE_VERSION: ${pyodide_version}
+      PYODIDE_VERSION: "0.25.1"
       ARROW_BUILD_TYPE: "release"
       ARROW_BUILD_TESTS: "off"
     command: >
-      /bin/bash -c 
-        "/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+      /bin/bash -c "
+        source ~/.nvm/nvm.sh &&
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/emscripten_python_build.sh /arrow &&
         /arrow/ci/scripts/emscripten_python_test.sh /arrow /pyodide"
 

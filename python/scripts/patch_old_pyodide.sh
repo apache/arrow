@@ -16,6 +16,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# TEMPORARY PATCH FOR PYODIDE / EMSCRIPTEN BUG
+# - n.b. this can be removed once Pyodide 0.26 is released
 # if pyodide version is 0.25.1, then it needs a patched version of pyodide.js
 # or else tests will fail due to this bug:
 # https://github.com/emscripten-core/emscripten/pull/21759
@@ -23,4 +25,4 @@
 source_dir=${1}/python
 pyodide_dir=${2}
 
-cp ${source_dir}/scripts/pyodide.asm.js.0.25.1.patched $1/pyodide.asm.js
+cp ${source_dir}/scripts/pyodide.asm.js.0.25.1.patched ${pyodide_dir}/pyodide.asm.js
