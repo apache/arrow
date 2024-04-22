@@ -29,6 +29,7 @@ namespace internal {
 // Only called once by GetCapacity().
 // Do the actual work of getting the capacity from env var.
 // Also makes the testing easier.
+GANDIVA_EXPORT
 int GetCapacityFromEnvVar();
 }  // namespace internal
 
