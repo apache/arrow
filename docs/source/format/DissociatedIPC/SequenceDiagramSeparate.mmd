@@ -16,7 +16,7 @@
 %% under the License.
 
 %% To generate the diagram, use mermaid-cli
-%% Example: docker run --rm -v $(pwd)/DissociatedIPC:/data minlag/mermaid-cli -i /data/SequenceDiagramSeparate.mmd
+%% Example: docker run --rm -u `id -u`:`id -g` -v $(pwd)/DissociatedIPC:/data minlag/mermaid-cli -i /data/SequenceDiagramSeparate.mmd
 
 sequenceDiagram
   participant D as Data Stream
@@ -24,24 +24,24 @@ sequenceDiagram
   participant M as Metadata Stream
 
   activate C
-  C-->>+M: TAG: <want_data> BODY: <opaque ID>
-  C-->>+D: TAG: <want_data> BODY: <opaque ID>
-  M-->>C: MSG: [1] + <sequence number> + <schema metadata>
-  loop each chunk
+  C-->>+M: TaggedMessage(server.want_data, bytes=ID_of_desired_data)
+  C-->>+D: TaggedMessage(server.want_data, bytes=ID_of_desired_data)
+  M-->>C: Message(bytes([1]) + le_bytes(sequence_number) + schema_metadata)
+  loop each batch
     par
-      M-->>C: MSG: [1] + <sequence number> + <IPC metadata>
+      M-->>C: Message(bytes([1]) + le_bytes(sequence_number) + batch_metadata)
     and
       alt
-        D-->>C: TAG: <inline data> | <sequence number> BODY: <raw body bytes>
+        D-->>C: TaggedMessage((bytes[0] << 55) | le_bytes(sequence_number),<br/>bytes=batch_data)
       else
-        D-->>C: TAG: <pointer list> | <sequence number> BODY: <pairs of uint64>
+        D-->>C: TaggedMessage((bytes[1] << 55) | le_bytes(sequence_number),<br/>bytes=uint64_pairs)
       end
     end
   end
-  M-->>C: [0] + <sequence number>
+  M-->>C: Message(bytes([0]) + le_bytes(sequence_number))
   deactivate M
   loop
-    C-->>D: TAG: <free_data> BODY: <list of uint64>
+    C-->>D: TaggedMessage(server.free_data, bytes=uint64_list)
   end
   deactivate D
   deactivate C
