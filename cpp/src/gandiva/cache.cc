@@ -35,8 +35,15 @@ int GetCapacityFromEnvVar() {
   if (env_value.empty()) {
     return DEFAULT_CACHE_SIZE;
   }
-  int capacity = std::atoi(env_value.c_str());
-  if (capacity <= 0) {
+  int capacity = 0;
+  size_t length = 0;
+  bool exception = false;
+  try {
+    capacity = std::stoi(env_value.c_str(), &length);
+  } catch (const std::exception&) {
+    exception = true;
+  }
+  if (length != env_value.length() || exception || capacity <= 0) {
     ARROW_LOG(WARNING) << "Invalid cache size provided in GANDIVA_CACHE_SIZE. "
                        << "Using default cache size: " << DEFAULT_CACHE_SIZE;
     return DEFAULT_CACHE_SIZE;

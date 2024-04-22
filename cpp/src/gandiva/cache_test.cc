@@ -76,6 +76,12 @@ TEST(TestCache, TestGetCacheCapacityEnvVar) {
     ASSERT_EQ(internal::GetCapacityFromEnvVar(), default_capacity);
   }
 
+  // Number with invalid suffix.
+  {
+    ScopedEnvVar env(capacity_env_var, "42MB");
+    ASSERT_EQ(internal::GetCapacityFromEnvVar(), default_capacity);
+  }
+
   // Valid positive number.
   {
     ScopedEnvVar env(capacity_env_var, "42");
@@ -98,6 +104,13 @@ TEST(TestCache, TestGetCacheCapacityEnvVar) {
   // Negative number.
   {
     ScopedEnvVar env(capacity_env_var, "-1");
+    ASSERT_EQ(internal::GetCapacityFromEnvVar(), default_capacity);
+  }
+
+  // Over int max.
+  {
+    auto str = std::to_string(static_cast<int64_t>(std::numeric_limits<int>::max()) + 1);
+    ScopedEnvVar env(capacity_env_var, str.c_str());
     ASSERT_EQ(internal::GetCapacityFromEnvVar(), default_capacity);
   }
 }
