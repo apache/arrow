@@ -1,0 +1,10 @@
+--- pyodide.asm.js	2024-04-22 14:40:03.895857733 +0100
++++ pyodide.asm.js	2024-04-22 14:41:48.235858809 +0100
+@@ -7524,6 +7524,7 @@
+           stackRestore(sp);
+           if (e !== e + 0) throw e;
+           _setThrew(1, 0);
++          if(sig[0]=="j")return BigInt(0);
+         }
+       };
+     Module["createInvokeFunction"] = createInvokeFunction;

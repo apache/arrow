@@ -25,4 +25,5 @@
 source_dir=${1}/python
 pyodide_dir=${2}
 
-cp ${source_dir}/scripts/pyodide.asm.js.0.25.1.patched ${pyodide_dir}/pyodide.asm.js
+npx --yes prettier --write ${pyodide_dir}/pyodide.asm.js 
+patch -u -b ${pyodide_dir}/pyodide.asm.js -i slang.patch ${source_dir}/scripts/pyodide_25.1.patch
