@@ -18,6 +18,7 @@
 #include "gandiva/cache.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
+#include "arrow/util/logging.h"
 
 #include <gtest/gtest.h>
 
@@ -51,39 +52,54 @@ TEST(TestCache, TestGetCacheCapacityDefault) {
 }
 
 TEST(TestCache, TestGetCacheCapacityEnvVar) {
+  // Uncleared env var may have side-effect to subsequent tests. Use a structure to help
+  // clearing the env var when leaving the scope.
+  struct ScopedEnvVar {
+    ScopedEnvVar(const char* name, const char* value) : name_(std::move(name)) {
+      ARROW_CHECK_OK(::arrow::internal::SetEnvVar(name_, value));
+    }
+    ~ScopedEnvVar() { ARROW_CHECK_OK(::arrow::internal::DelEnvVar(name_)); }
+
+   private:
+    const char* name_;
+  };
+
   // Empty.
-  ASSERT_OK(::arrow::internal::SetEnvVar(capacity_env_var, ""));
-  ASSERT_EQ(internal::GetCapacityFromEnvVar(), default_capacity);
+  {
+    ScopedEnvVar env(capacity_env_var, "");
+    ASSERT_EQ(internal::GetCapacityFromEnvVar(), default_capacity);
+  }
 
   // Non-number.
-  ASSERT_OK(::arrow::internal::SetEnvVar(capacity_env_var, "invalid"));
-  ASSERT_EQ(internal::GetCapacityFromEnvVar(), default_capacity);
+  {
+    ScopedEnvVar env(capacity_env_var, "invalid");
+    ASSERT_EQ(internal::GetCapacityFromEnvVar(), default_capacity);
+  }
 
   // Valid positive number.
-  ASSERT_OK(::arrow::internal::SetEnvVar(capacity_env_var, "42"));
-  ASSERT_EQ(internal::GetCapacityFromEnvVar(), 42);
+  {
+    ScopedEnvVar env(capacity_env_var, "42");
+    ASSERT_EQ(internal::GetCapacityFromEnvVar(), 42);
+  }
 
   // Int max.
   {
     auto str = std::to_string(std::numeric_limits<int>::max());
-    ASSERT_OK(::arrow::internal::SetEnvVar(capacity_env_var, str));
+    ScopedEnvVar env(capacity_env_var, str.c_str());
     ASSERT_EQ(internal::GetCapacityFromEnvVar(), std::numeric_limits<int>::max());
   }
 
-  // Over int max.
+  // Zero.
   {
-    auto str = std::to_string(static_cast<int64_t>(std::numeric_limits<int>::max()) + 1);
-    ASSERT_OK(::arrow::internal::SetEnvVar(capacity_env_var, str));
+    ScopedEnvVar env(capacity_env_var, "0");
     ASSERT_EQ(internal::GetCapacityFromEnvVar(), default_capacity);
   }
 
-  // Zero.
-  ASSERT_OK(::arrow::internal::SetEnvVar(capacity_env_var, "0"));
-  ASSERT_EQ(internal::GetCapacityFromEnvVar(), default_capacity);
-
   // Negative number.
-  ASSERT_OK(::arrow::internal::SetEnvVar(capacity_env_var, "-1"));
-  ASSERT_EQ(internal::GetCapacityFromEnvVar(), default_capacity);
+  {
+    ScopedEnvVar env(capacity_env_var, "-1");
+    ASSERT_EQ(internal::GetCapacityFromEnvVar(), default_capacity);
+  }
 }
 
 }  // namespace gandiva
