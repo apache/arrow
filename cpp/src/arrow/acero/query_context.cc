@@ -23,6 +23,29 @@ namespace arrow {
 using arrow::internal::CpuInfo;
 namespace acero {
 
+namespace internal {
+
+int64_t GetTempStackSizeFromEnvVar() {
+  auto maybe_env_value = arrow::internal::GetEnvVar(kTempStackSizeEnvVar);
+  if (!maybe_env_value.ok()) {
+    return kDefaultTempStackSize;
+  }
+  auto env_value = *std::move(maybe_env_value);
+  if (env_value.empty()) {
+    return kDefaultTempStackSize;
+  }
+
+  int64_t temp_stack_size = std::atoll(env_value.c_str());
+  if (temp_stack_size <= 0) {
+    ARROW_LOG(WARNING) << "Invalid temp stack size provided in " << kTempStackSizeEnvVar
+                       << ". Using default temp stack size: " << kDefaultTempStackSize;
+    return kDefaultTempStackSize;
+  }
+  return temp_stack_size;
+}
+
+}  // namespace internal
+
 namespace {
 io::IOContext GetIoContext(const QueryOptions& opts, const ExecContext& exec_context) {
   if (opts.custom_io_executor == nullptr) {
@@ -51,9 +74,9 @@ size_t QueryContext::GetThreadIndex() { return thread_indexer_(); }
 size_t QueryContext::max_concurrency() const { return thread_indexer_.Capacity(); }
 
 Result<util::TempVectorStack*> QueryContext::GetTempStack(size_t thread_index) {
+  static const int64_t temp_stack_size = internal::GetTempStackSizeFromEnvVar();
   if (!tld_[thread_index].is_init) {
-    RETURN_NOT_OK(tld_[thread_index].stack.Init(
-        memory_pool(), 32 * util::MiniBatch::kMiniBatchLength * sizeof(uint64_t)));
+    RETURN_NOT_OK(tld_[thread_index].stack.Init(memory_pool(), temp_stack_size));
     tld_[thread_index].is_init = true;
   }
   return &tld_[thread_index].stack;

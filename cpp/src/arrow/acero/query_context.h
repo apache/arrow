@@ -33,6 +33,15 @@ using io::IOContext;
 
 namespace acero {
 
+namespace internal {
+
+constexpr char kTempStackSizeEnvVar[] = "ACERO_TEMP_STACK_SIZE";
+constexpr int64_t kDefaultTempStackSize =
+    32 * arrow::util::MiniBatch::kMiniBatchLength * sizeof(uint64_t);
+int64_t GetTempStackSizeFromEnvVar();
+
+}  // namespace internal
+
 class ARROW_ACERO_EXPORT QueryContext {
  public:
   QueryContext(QueryOptions opts = {},
