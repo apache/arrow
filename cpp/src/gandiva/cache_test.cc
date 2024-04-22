@@ -44,39 +44,42 @@ TEST(TestCache, TestGetPut) {
 TEST(TestCache, TestGetCacheCapacityDefault) { ASSERT_EQ(GetCapacity(), 5000); }
 
 TEST(TestCache, TestGetCacheCapacityEnvVar) {
+  constexpr auto capacity_env_var = "GANDIVA_CACHE_SIZE";
+  constexpr auto default_capacity = 5000;
+
   // Empty.
-  ASSERT_OK(::arrow::internal::SetEnvVar("GANDIVA_CACHE_SIZE", ""));
-  ASSERT_EQ(internal::GetCapacityFromEnvVar(), 5000);
+  ASSERT_OK(::arrow::internal::SetEnvVar(capacity_env_var, ""));
+  ASSERT_EQ(internal::GetCapacityFromEnvVar(), default_capacity);
 
   // Non-number.
-  ASSERT_OK(::arrow::internal::SetEnvVar("GANDIVA_CACHE_SIZE", "invalid"));
-  ASSERT_EQ(internal::GetCapacityFromEnvVar(), 5000);
+  ASSERT_OK(::arrow::internal::SetEnvVar(capacity_env_var, "invalid"));
+  ASSERT_EQ(internal::GetCapacityFromEnvVar(), default_capacity);
 
   // Valid positive number.
-  ASSERT_OK(::arrow::internal::SetEnvVar("GANDIVA_CACHE_SIZE", "42"));
+  ASSERT_OK(::arrow::internal::SetEnvVar(capacity_env_var, "42"));
   ASSERT_EQ(internal::GetCapacityFromEnvVar(), 42);
 
   // Int max.
   {
     auto str = std::to_string(std::numeric_limits<int>::max());
-    ASSERT_OK(::arrow::internal::SetEnvVar("GANDIVA_CACHE_SIZE", str));
+    ASSERT_OK(::arrow::internal::SetEnvVar(capacity_env_var, str));
     ASSERT_EQ(internal::GetCapacityFromEnvVar(), std::numeric_limits<int>::max());
   }
 
   // Over int max.
   {
     auto str = std::to_string(static_cast<int64_t>(std::numeric_limits<int>::max()) + 1);
-    ASSERT_OK(::arrow::internal::SetEnvVar("GANDIVA_CACHE_SIZE", str));
-    ASSERT_EQ(internal::GetCapacityFromEnvVar(), 5000);
+    ASSERT_OK(::arrow::internal::SetEnvVar(capacity_env_var, str));
+    ASSERT_EQ(internal::GetCapacityFromEnvVar(), default_capacity);
   }
 
   // Zero.
-  ASSERT_OK(::arrow::internal::SetEnvVar("GANDIVA_CACHE_SIZE", "0"));
-  ASSERT_EQ(internal::GetCapacityFromEnvVar(), 5000);
+  ASSERT_OK(::arrow::internal::SetEnvVar(capacity_env_var, "0"));
+  ASSERT_EQ(internal::GetCapacityFromEnvVar(), default_capacity);
 
   // Negative number.
-  ASSERT_OK(::arrow::internal::SetEnvVar("GANDIVA_CACHE_SIZE", "-1"));
-  ASSERT_EQ(internal::GetCapacityFromEnvVar(), 5000);
+  ASSERT_OK(::arrow::internal::SetEnvVar(capacity_env_var, "-1"));
+  ASSERT_EQ(internal::GetCapacityFromEnvVar(), default_capacity);
 }
 
 }  // namespace gandiva
