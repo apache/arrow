@@ -16,10 +16,13 @@
 // under the License.
 
 #include "gandiva/cache.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/util/io_util.h"
 
 #include <gtest/gtest.h>
 
 namespace gandiva {
+
 class TestCacheKey {
  public:
   explicit TestCacheKey(int value) : value_(value) {}
@@ -38,5 +41,42 @@ TEST(TestCache, TestGetPut) {
   ASSERT_EQ(cache.GetObjectCode(TestCacheKey(2)), "world");
 }
 
-TEST(TestCache, TestGetCacheCapacity) { ASSERT_EQ(GetCapacity(), 5000); }
+TEST(TestCache, TestGetCacheCapacityDefault) { ASSERT_EQ(GetCapacity(), 5000); }
+
+TEST(TestCache, TestGetCacheCapacityEnvVar) {
+  // Empty.
+  ASSERT_OK(::arrow::internal::SetEnvVar("GANDIVA_CACHE_SIZE", ""));
+  ASSERT_EQ(internal::GetCapacityInternal(), 5000);
+
+  // Non-number.
+  ASSERT_OK(::arrow::internal::SetEnvVar("GANDIVA_CACHE_SIZE", "invalid"));
+  ASSERT_EQ(internal::GetCapacityInternal(), 5000);
+
+  // Valid positive number.
+  ASSERT_OK(::arrow::internal::SetEnvVar("GANDIVA_CACHE_SIZE", "42"));
+  ASSERT_EQ(internal::GetCapacityInternal(), 42);
+
+  // Int max.
+  {
+    auto str = std::to_string(std::numeric_limits<int>::max());
+    ASSERT_OK(::arrow::internal::SetEnvVar("GANDIVA_CACHE_SIZE", str));
+    ASSERT_EQ(internal::GetCapacityInternal(), std::numeric_limits<int>::max());
+  }
+
+  // Over int max.
+  {
+    auto str = std::to_string(static_cast<int64_t>(std::numeric_limits<int>::max()) + 1);
+    ASSERT_OK(::arrow::internal::SetEnvVar("GANDIVA_CACHE_SIZE", str));
+    ASSERT_EQ(internal::GetCapacityInternal(), 5000);
+  }
+
+  // Zero.
+  ASSERT_OK(::arrow::internal::SetEnvVar("GANDIVA_CACHE_SIZE", "0"));
+  ASSERT_EQ(internal::GetCapacityInternal(), 5000);
+
+  // Negative number.
+  ASSERT_OK(::arrow::internal::SetEnvVar("GANDIVA_CACHE_SIZE", "-1"));
+  ASSERT_EQ(internal::GetCapacityInternal(), 5000);
+}
+
 }  // namespace gandiva

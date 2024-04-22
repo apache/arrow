@@ -25,6 +25,11 @@
 
 namespace gandiva {
 
+namespace internal {
+// For testing purposes only.
+int GetCapacityInternal();
+}  // namespace internal
+
 GANDIVA_EXPORT
 int GetCapacity();
 

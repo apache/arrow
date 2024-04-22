@@ -23,23 +23,31 @@
 
 namespace gandiva {
 
-static const size_t DEFAULT_CACHE_SIZE = 5000;
+static const int DEFAULT_CACHE_SIZE = 5000;
+
+namespace internal {
+int GetCapacityInternal() {
+  auto maybe_env_value = ::arrow::internal::GetEnvVar("GANDIVA_CACHE_SIZE");
+  if (!maybe_env_value.ok()) {
+    return DEFAULT_CACHE_SIZE;
+  }
+  const auto env_value = *std::move(maybe_env_value);
+  if (env_value.empty()) {
+    return DEFAULT_CACHE_SIZE;
+  }
+  int capacity = std::atoi(env_value.c_str());
+  if (capacity <= 0) {
+    ARROW_LOG(WARNING) << "Invalid cache size provided in GANDIVA_CACHE_SIZE. "
+                       << "Using default cache size: " << DEFAULT_CACHE_SIZE;
+    return DEFAULT_CACHE_SIZE;
+  }
+  return capacity;
+}
+}  // namespace internal
 
 int GetCapacity() {
-  size_t capacity = DEFAULT_CACHE_SIZE;
-  auto maybe_env_cache_size = ::arrow::internal::GetEnvVar("GANDIVA_CACHE_SIZE");
-  if (maybe_env_cache_size.ok()) {
-    const auto env_cache_size = *std::move(maybe_env_cache_size);
-    if (!env_cache_size.empty()) {
-      capacity = std::atol(env_cache_size.c_str());
-      if (capacity <= 0) {
-        ARROW_LOG(WARNING) << "Invalid cache size provided in GANDIVA_CACHE_SIZE. "
-                           << "Using default cache size: " << DEFAULT_CACHE_SIZE;
-        capacity = DEFAULT_CACHE_SIZE;
-      }
-    }
-  }
-  return static_cast<int>(capacity);
+  static const int capacity = internal::GetCapacityInternal();
+  return capacity;
 }
 
 void LogCacheSize(size_t capacity) {
