@@ -192,6 +192,21 @@ test_that("case_when()", {
       collect(),
     tbl
   )
+
+  # Test finding R functions from the user's environment
+  isIn <- function(x, y) x %in% y
+  withr::with_options(list(arrow.debug = TRUE), {
+    expect_output(
+      compare_dplyr_binding(
+        .input %>%
+          transmute(cw = case_when(isIn(chr, letters[1:3]) ~ 1L) + 41L) %>%
+          collect(),
+        tbl
+      ),
+      "Adding isIn to the function environment"
+    )
+  })
+
   compare_dplyr_binding(
     .input %>%
       filter(case_when(

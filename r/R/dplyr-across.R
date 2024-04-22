@@ -145,7 +145,6 @@ across_setup <- function(cols, fns, names, .caller_env, mask, inline = FALSE, ex
     fns <- call_args(fns)
   }
 
-  # ARROW-14071
   if (all(map_lgl(fns, is_call, name = "function"))) {
     abort("Anonymous functions are not yet supported in Arrow")
   }

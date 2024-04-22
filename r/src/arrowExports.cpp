@@ -2980,6 +2980,14 @@ BEGIN_CPP11
 END_CPP11
 }
 // expression.cpp
+std::vector<std::string> compute___expr__field_names_in_expression(const std::shared_ptr<compute::Expression>& x);
+extern "C" SEXP _arrow_compute___expr__field_names_in_expression(SEXP x_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<compute::Expression>&>::type x(x_sexp);
+	return cpp11::as_sexp(compute___expr__field_names_in_expression(x));
+END_CPP11
+}
+// expression.cpp
 std::shared_ptr<compute::Expression> compute___expr__field_ref(std::string name);
 extern "C" SEXP _arrow_compute___expr__field_ref(SEXP name_sexp){
 BEGIN_CPP11
@@ -5951,6 +5959,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_compute___expr__call", (DL_FUNC) &_arrow_compute___expr__call, 3}, 
 		{ "_arrow_compute___expr__is_field_ref", (DL_FUNC) &_arrow_compute___expr__is_field_ref, 1}, 
 		{ "_arrow_compute___expr__get_field_ref_name", (DL_FUNC) &_arrow_compute___expr__get_field_ref_name, 1}, 
+		{ "_arrow_compute___expr__field_names_in_expression", (DL_FUNC) &_arrow_compute___expr__field_names_in_expression, 1}, 
 		{ "_arrow_compute___expr__field_ref", (DL_FUNC) &_arrow_compute___expr__field_ref, 1}, 
 		{ "_arrow_compute___expr__nested_field_ref", (DL_FUNC) &_arrow_compute___expr__nested_field_ref, 2}, 
 		{ "_arrow_compute___expr__scalar", (DL_FUNC) &_arrow_compute___expr__scalar, 1}, 

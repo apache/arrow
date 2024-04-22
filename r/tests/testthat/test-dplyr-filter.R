@@ -277,7 +277,6 @@ test_that("filter environment scope", {
     tbl
   )
   isShortString <- function(x) nchar(x) < 10
-  skip("TODO: ARROW-14071")
   compare_dplyr_binding(
     .input %>%
       select(-fct) %>%
