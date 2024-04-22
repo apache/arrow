@@ -53,9 +53,9 @@ However, there are use cases that aren't handled by this:
   chunk of bytes and copying all of the data buffers into it, packed together
   back-to-back. This pessimizes the common case of wrapping existing, directly
   consumable data into an IPC message.
-* If the Arrow data is located in a shared memory location, there is no standard
-  way to share the handle to the shared-memory across processes or transports that
-  allow for remote memory accessing, such as UCX.
+* Even if Arrow data is located in a memory accessible across process boundaries
+  or transports (such as UCX), there is no standard way to specify that shared
+  location to consumers which could take advantage of it.
 * Arrow data located on a non-CPU device (such as a GPU) cannot be sent using
   Arrow IPC without having to copy the data back to the host device or copying
   the Flatbuffers metadata bytes into device memory.
