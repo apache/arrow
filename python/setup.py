@@ -363,18 +363,9 @@ class build_ext(_build_ext):
                 build_tool_args.append('--')
                 if os.environ.get('PYARROW_BUILD_VERBOSE', '0') == '1':
                     cmake_options.append('-DCMAKE_VERBOSE_MAKEFILE=ON')
-                parallel = os.environ.get('PYARROW_PARALLEL')
+                parallel = os.environ.get('PYARROW_PARALLEL', '')
                 if parallel:
                     build_tool_args.append(f'-j{parallel}')
-
-            if "PYODIDE" in os.environ and os.environ["PYODIDE"] == "1":
-                # remove c++ standard setting which pyodide
-                # (emscripten python) adds to its build variables
-                import json
-                pyodide_args = json.loads(os.environ["PYWASMCROSS_ARGS"])
-                pyodide_args["cxxflags"] = pyodide_args["cxxflags"].replace(
-                    "-std=c++14", "")
-                os.environ["PYWASMCROSS_ARGS"] = json.dumps(pyodide_args)
 
             if is_emscripten:
                 # Generate the build files

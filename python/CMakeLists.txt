@@ -151,8 +151,6 @@ include(BuildUtils)
 # Cython generated code emits way to many warnings at CHECKIN and EVERYTHING
 set(BUILD_WARNING_LEVEL "PRODUCTION")
 
-
-
 # This must be synchronized with the definition in
 # cpp/cmake_modules/DefineOptions.cmake.
 if(NOT DEFINED ARROW_SIMD_LEVEL)
@@ -176,12 +174,11 @@ if($ENV{PYODIDE})
   set(Python3_NumPy_INCLUDE_DIR $ENV{NUMPY_LIB}/core/include)
   set(Python3_EXECUTABLE)
   set(ENV{_PYTHON_SYSCONFIGDATA_NAME} $ENV{SYSCONFIG_NAME})
+  # we set the c and cxx compiler manually to bypass pywasmcross 
+  # which is pyodide's way of messing with C++ build parameters.
   set(CMAKE_C_COMPILER emcc)
   set(CMAKE_CXX_COMPILER em++)
 
-  # remove any c++ standard settings from cflags and let cmake set it.
-  # n.b. this is here because pyodide sets -stdc++=14, which breaks pyarrow builds
-  string(REGEX REPLACE "-std=c\\+\\+[0-9]+" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
 endif()
 
 
@@ -388,8 +385,6 @@ if(NOT PYARROW_CPP_LINK_LIBS)
 endif()
 
 add_library(arrow_python SHARED ${PYARROW_CPP_SRCS})
-target_compile_options(arrow_python PUBLIC "-fexceptions")
-
 
 target_include_directories(arrow_python PUBLIC ${PYARROW_CPP_ROOT_DIR}
                                                ${CMAKE_CURRENT_BINARY_DIR}/pyarrow/src)
@@ -616,6 +611,8 @@ endif()
 
 # Acero
 if(PYARROW_BUILD_ACERO)
+  list(APPEND CYTHON_EXTENSIONS _acero)
+
   if(ARROW_BUILD_SHARED)
 
     if(PYARROW_BUNDLE_ARROW_CPP)
@@ -626,11 +623,9 @@ if(PYARROW_BUILD_ACERO)
     endif()
 
     set(ACERO_LINK_LIBS ArrowAcero::arrow_acero_shared)
-    list(APPEND CYTHON_EXTENSIONS _acero)
   else()
     # ACERO is statically linked into libarrow_python already
     set(ACERO_LINK_LIBS)
-    list(APPEND CYTHON_EXTENSIONS _acero)
   endif()
 endif()
 

@@ -33,6 +33,7 @@ groups = [
     'dataset',
     'hypothesis',
     'fastparquet',
+    'flight',
     'gandiva',
     'gcs',
     'gdb',
@@ -46,15 +47,14 @@ groups = [
     'pandas',
     'parquet',
     'parquet_encryption',
+    'processes',
+    'requires_testing_data',
     's3',
+    'slow',
     'snappy',
     'substrait',
-    'flight',
-    'slow',
-    'requires_testing_data',
-    'zstd',
     'threading',
-    'processes',
+    'zstd',
 ]
 
 defaults = {
@@ -80,6 +80,7 @@ defaults = {
     'pandas': False,
     'parquet': False,
     'parquet_encryption': False,
+    'processes': True,
     'requires_testing_data': True,
     's3': False,
     'slow': False,
@@ -87,7 +88,6 @@ defaults = {
     'substrait': False,
     'threading': is_threading_enabled(),
     'zstd': Codec.is_available('zstd'),
-    'processes': True
 }
 
 if sys.platform == "emscripten":

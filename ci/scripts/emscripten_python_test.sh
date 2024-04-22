@@ -33,10 +33,10 @@ dist_dir=${2}
 # note: this assumes that there is only one wheel built into dist 
 # (which is true if you build using emscripten_python_build.sh)
 echo "-------------- Running emscripten tests in Chrome --------------------"
-python scripts/run_emscripten_tests.py dist/pyarrow*.whl --dist-dir=${dist_dir} --runtime=node
+python scripts/run_emscripten_tests.py dist/pyarrow*.whl --dist-dir=${dist_dir} --runtime=chrome
 
 echo "-------------- Running emscripten tests in Node ----------------------"
 python scripts/run_emscripten_tests.py dist/pyarrow*.whl --dist-dir=${dist_dir} --runtime=node
 
 echo "-------------- Running emscripten tests in Firefox -------------------"
-python scripts/run_emscripten_tests.py dist/pyarrow*.whl --dist-dir=${dist_dir} --runtime=node
+python scripts/run_emscripten_tests.py dist/pyarrow*.whl --dist-dir=${dist_dir} --runtime=firefox
