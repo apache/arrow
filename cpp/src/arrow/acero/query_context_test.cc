@@ -8,43 +8,58 @@ namespace arrow {
 namespace acero {
 
 TEST(TestTempStack, TestGetTempStackSizeFromEnvVar) {
+  // Uncleared env var may have side-effect to subsequent tests. Use a structure to help
+  // clearing the env var when leaving the scope.
+  struct ScopedEnvVar {
+    ScopedEnvVar(const char* name, const char* value) : name_(std::move(name)) {
+      ARROW_CHECK_OK(::arrow::internal::SetEnvVar(name_, value));
+    }
+    ~ScopedEnvVar() { ARROW_CHECK_OK(::arrow::internal::DelEnvVar(name_)); }
+
+   private:
+    const char* name_;
+  };
+
   // Not set.
   ASSERT_EQ(internal::GetTempStackSizeFromEnvVar(), internal::kDefaultTempStackSize);
 
   // Empty.
-  ASSERT_OK(::arrow::internal::SetEnvVar(internal::kTempStackSizeEnvVar, ""));
-  ASSERT_EQ(internal::GetTempStackSizeFromEnvVar(), internal::kDefaultTempStackSize);
+  {
+    ScopedEnvVar env(internal::kTempStackSizeEnvVar, "");
+    ASSERT_EQ(internal::GetTempStackSizeFromEnvVar(), internal::kDefaultTempStackSize);
+  }
 
   // Non-number.
-  ASSERT_OK(::arrow::internal::SetEnvVar(internal::kTempStackSizeEnvVar, "invalid"));
-  ASSERT_EQ(internal::GetTempStackSizeFromEnvVar(), internal::kDefaultTempStackSize);
+  {
+    ScopedEnvVar env(internal::kTempStackSizeEnvVar, "invalid");
+    ASSERT_EQ(internal::GetTempStackSizeFromEnvVar(), internal::kDefaultTempStackSize);
+  }
 
   // Valid positive number.
-  ASSERT_OK(::arrow::internal::SetEnvVar(internal::kTempStackSizeEnvVar, "42"));
-  ASSERT_EQ(internal::GetTempStackSizeFromEnvVar(), 42);
+  {
+    ScopedEnvVar env(internal::kTempStackSizeEnvVar, "42");
+    ASSERT_EQ(internal::GetTempStackSizeFromEnvVar(), 42);
+  }
 
   // Int64 max.
   {
     auto str = std::to_string(std::numeric_limits<int64_t>::max());
-    ASSERT_OK(::arrow::internal::SetEnvVar(internal::kTempStackSizeEnvVar, str));
+    ScopedEnvVar env(internal::kTempStackSizeEnvVar, str.c_str());
     ASSERT_EQ(internal::GetTempStackSizeFromEnvVar(),
               std::numeric_limits<int64_t>::max());
   }
 
-  // Over int64 max.
+  // Zero.
   {
-    auto str = std::to_string(std::numeric_limits<int64_t>::max()) + "0";
-    ASSERT_OK(::arrow::internal::SetEnvVar(internal::kTempStackSizeEnvVar, str));
+    ScopedEnvVar env(internal::kTempStackSizeEnvVar, "0");
     ASSERT_EQ(internal::GetTempStackSizeFromEnvVar(), internal::kDefaultTempStackSize);
   }
 
-  // Zero.
-  ASSERT_OK(::arrow::internal::SetEnvVar(internal::kTempStackSizeEnvVar, "0"));
-  ASSERT_EQ(internal::GetTempStackSizeFromEnvVar(), internal::kDefaultTempStackSize);
-
   // Negative number.
-  ASSERT_OK(::arrow::internal::SetEnvVar(internal::kTempStackSizeEnvVar, "-1"));
-  ASSERT_EQ(internal::GetTempStackSizeFromEnvVar(), internal::kDefaultTempStackSize);
+  {
+    ScopedEnvVar env(internal::kTempStackSizeEnvVar, "-1");
+    ASSERT_EQ(internal::GetTempStackSizeFromEnvVar(), internal::kDefaultTempStackSize);
+  }
 }
 
 }  // namespace acero
