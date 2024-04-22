@@ -180,6 +180,8 @@ that changing their value later will have an effect.
 
    The number of entries to keep in the Gandiva JIT compilation cache.
    The cache is in-memory and does not persist across processes.
+   The value of this variable is expected to be a positive number less or equal
+   than int32 max, defaults to 5000 otherwise.
 
 .. envvar:: HADOOP_HOME
 
