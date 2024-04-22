@@ -174,13 +174,12 @@ if($ENV{PYODIDE})
   set(Python3_NumPy_INCLUDE_DIR $ENV{NUMPY_LIB}/core/include)
   set(Python3_EXECUTABLE)
   set(ENV{_PYTHON_SYSCONFIGDATA_NAME} $ENV{SYSCONFIG_NAME})
-  # we set the c and cxx compiler manually to bypass pywasmcross 
+  # we set the c and cxx compiler manually to bypass pywasmcross
   # which is pyodide's way of messing with C++ build parameters.
   set(CMAKE_C_COMPILER emcc)
   set(CMAKE_CXX_COMPILER em++)
 
 endif()
-
 
 # Add common flags
 set(CMAKE_CXX_FLAGS "${CXX_COMMON_FLAGS} ${CMAKE_CXX_FLAGS}")
@@ -668,9 +667,9 @@ if(PYARROW_BUILD_PARQUET)
     endif()
     set(PARQUET_LINK_LIBS Parquet::parquet_shared)
   else()
-  # don't link the static lib as it is 
-  # already in arrow_python
-  set(PARQUET_LINK_LIBS )
+    # don't link the static lib as it is
+    # already in arrow_python
+    set(PARQUET_LINK_LIBS)
   endif()
   list(APPEND CYTHON_EXTENSIONS _parquet)
   if(PYARROW_BUILD_PARQUET_ENCRYPTION)
@@ -731,10 +730,10 @@ if(PYARROW_BUILD_SUBSTRAIT)
     endif()
     set(SUBSTRAIT_LINK_LIBS ArrowSubstrait::arrow_substrait_shared)
   else()
-  # only link to the output of substrait, not to libarrow etc.
-  # if we link to the target directly we end up with multiple copies
-  # of libarrow / parquet etc. 
-  set(SUBSTRAIT_LINK_LIBS $<TARGET_FILE:ArrowSubstrait::arrow_substrait_static> )
+    # only link to the output of substrait, not to libarrow etc.
+    # if we link to the target directly we end up with multiple copies
+    # of libarrow / parquet etc.
+    set(SUBSTRAIT_LINK_LIBS $<TARGET_FILE:ArrowSubstrait::arrow_substrait_static>)
   endif()
 
   list(APPEND CYTHON_EXTENSIONS _substrait)
@@ -875,4 +874,3 @@ if(PYARROW_BUILD_PARQUET)
     target_link_libraries(_parquet_encryption PRIVATE arrow_python_parquet_encryption)
   endif()
 endif()
-
