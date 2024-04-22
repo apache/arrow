@@ -7,7 +7,7 @@
 namespace arrow {
 namespace acero {
 
-TEST(TestTempStack, TestGetTempStackSizeFromEnvVar) {
+TEST(TestTempStack, GetTempStackSizeFromEnvVar) {
   // Uncleared env var may have side-effect to subsequent tests. Use a structure to help
   // clearing the env var when leaving the scope.
   struct ScopedEnvVar {
@@ -35,6 +35,12 @@ TEST(TestTempStack, TestGetTempStackSizeFromEnvVar) {
     ASSERT_EQ(internal::GetTempStackSizeFromEnvVar(), internal::kDefaultTempStackSize);
   }
 
+  // Number with invalid suffix.
+  {
+    ScopedEnvVar env(internal::kTempStackSizeEnvVar, "42MB");
+    ASSERT_EQ(internal::GetTempStackSizeFromEnvVar(), internal::kDefaultTempStackSize);
+  }
+
   // Valid positive number.
   {
     ScopedEnvVar env(internal::kTempStackSizeEnvVar, "42");
@@ -58,6 +64,13 @@ TEST(TestTempStack, TestGetTempStackSizeFromEnvVar) {
   // Negative number.
   {
     ScopedEnvVar env(internal::kTempStackSizeEnvVar, "-1");
+    ASSERT_EQ(internal::GetTempStackSizeFromEnvVar(), internal::kDefaultTempStackSize);
+  }
+
+  // Over int64 max.
+  {
+    auto str = std::to_string(std::numeric_limits<int64_t>::max()) + "0";
+    ScopedEnvVar env(internal::kTempStackSizeEnvVar, str.c_str());
     ASSERT_EQ(internal::GetTempStackSizeFromEnvVar(), internal::kDefaultTempStackSize);
   }
 }

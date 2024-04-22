@@ -35,8 +35,15 @@ int64_t GetTempStackSizeFromEnvVar() {
     return kDefaultTempStackSize;
   }
 
-  int64_t temp_stack_size = std::atoll(env_value.c_str());
-  if (temp_stack_size <= 0) {
+  int64_t temp_stack_size = 0;
+  size_t length = 0;
+  bool exception = false;
+  try {
+    temp_stack_size = std::stoll(env_value.c_str(), &length);
+  } catch (const std::exception&) {
+    exception = true;
+  }
+  if (length != env_value.length() || exception || temp_stack_size <= 0) {
     ARROW_LOG(WARNING) << "Invalid temp stack size provided in " << kTempStackSizeEnvVar
                        << ". Using default temp stack size: " << kDefaultTempStackSize;
     return kDefaultTempStackSize;
