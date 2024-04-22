@@ -51,7 +51,8 @@ However, there are use cases that aren't handled by this:
 
 * Constructing the IPC record batch message requires allocating a contiguous
   chunk of bytes and copying all of the data buffers into it, packed together
-  back-to-back. It's exceedingly difficult to zero-copy **create** IPC messages.
+  back-to-back. This pessimizes the common case of wrapping existing, directly
+  consumable data into an IPC message.
 * If the Arrow data is located in a shared memory location, there is no standard
   way to share the handle to the shared-memory across processes or transports that
   allow for remote memory accessing, such as UCX.
