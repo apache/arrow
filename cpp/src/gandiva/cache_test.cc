@@ -46,37 +46,37 @@ TEST(TestCache, TestGetCacheCapacityDefault) { ASSERT_EQ(GetCapacity(), 5000); }
 TEST(TestCache, TestGetCacheCapacityEnvVar) {
   // Empty.
   ASSERT_OK(::arrow::internal::SetEnvVar("GANDIVA_CACHE_SIZE", ""));
-  ASSERT_EQ(internal::GetCapacityInternal(), 5000);
+  ASSERT_EQ(internal::GetCapacityFromEnvVar(), 5000);
 
   // Non-number.
   ASSERT_OK(::arrow::internal::SetEnvVar("GANDIVA_CACHE_SIZE", "invalid"));
-  ASSERT_EQ(internal::GetCapacityInternal(), 5000);
+  ASSERT_EQ(internal::GetCapacityFromEnvVar(), 5000);
 
   // Valid positive number.
   ASSERT_OK(::arrow::internal::SetEnvVar("GANDIVA_CACHE_SIZE", "42"));
-  ASSERT_EQ(internal::GetCapacityInternal(), 42);
+  ASSERT_EQ(internal::GetCapacityFromEnvVar(), 42);
 
   // Int max.
   {
     auto str = std::to_string(std::numeric_limits<int>::max());
     ASSERT_OK(::arrow::internal::SetEnvVar("GANDIVA_CACHE_SIZE", str));
-    ASSERT_EQ(internal::GetCapacityInternal(), std::numeric_limits<int>::max());
+    ASSERT_EQ(internal::GetCapacityFromEnvVar(), std::numeric_limits<int>::max());
   }
 
   // Over int max.
   {
     auto str = std::to_string(static_cast<int64_t>(std::numeric_limits<int>::max()) + 1);
     ASSERT_OK(::arrow::internal::SetEnvVar("GANDIVA_CACHE_SIZE", str));
-    ASSERT_EQ(internal::GetCapacityInternal(), 5000);
+    ASSERT_EQ(internal::GetCapacityFromEnvVar(), 5000);
   }
 
   // Zero.
   ASSERT_OK(::arrow::internal::SetEnvVar("GANDIVA_CACHE_SIZE", "0"));
-  ASSERT_EQ(internal::GetCapacityInternal(), 5000);
+  ASSERT_EQ(internal::GetCapacityFromEnvVar(), 5000);
 
   // Negative number.
   ASSERT_OK(::arrow::internal::SetEnvVar("GANDIVA_CACHE_SIZE", "-1"));
-  ASSERT_EQ(internal::GetCapacityInternal(), 5000);
+  ASSERT_EQ(internal::GetCapacityFromEnvVar(), 5000);
 }
 
 }  // namespace gandiva
