@@ -727,13 +727,13 @@ class ColumnReaderImplBase {
         ConfigureDictionary(static_cast<const DictionaryPage*>(current_page_.get()));
         continue;
       } else if (current_page_->type() == PageType::DATA_PAGE) {
-        const auto page = std::static_pointer_cast<DataPageV1>(current_page_);
+        const auto* page = static_cast<const DataPageV1*>(current_page_.get());
         const int64_t levels_byte_size = InitializeLevelDecoders(
             *page, page->repetition_level_encoding(), page->definition_level_encoding());
         InitializeDataDecoder(*page, levels_byte_size);
         return true;
       } else if (current_page_->type() == PageType::DATA_PAGE_V2) {
-        const auto page = std::static_pointer_cast<DataPageV2>(current_page_);
+        const auto* page = static_cast<const DataPageV2*>(current_page_.get());
         int64_t levels_byte_size = InitializeLevelDecodersV2(*page);
         InitializeDataDecoder(*page, levels_byte_size);
         return true;
