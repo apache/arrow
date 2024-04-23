@@ -423,9 +423,11 @@ TYPED_TEST(TestLocalFS, FileSystemFromUriFile) {
   this->TestLocalUri("file:///some%20path/%25percent", "/some path/%percent");
 
   this->TestLocalUri("file:///_?use_mmap", "/_");
-  ASSERT_TRUE(this->local_fs_->options().use_mmap);
-  ASSERT_OK_AND_ASSIGN(auto uri, this->fs_->MakeUri("/_"));
-  EXPECT_EQ(uri, "file:///_?use_mmap");
+  if (this->path_formatter_.supports_uri()) {
+    ASSERT_TRUE(this->local_fs_->options().use_mmap);
+    ASSERT_OK_AND_ASSIGN(auto uri, this->fs_->MakeUri("/_"));
+    EXPECT_EQ(uri, "file:///_?use_mmap");
+  }
 
 #ifdef _WIN32
   this->TestLocalUri("file:/C:/foo/bar", "C:/foo/bar");
