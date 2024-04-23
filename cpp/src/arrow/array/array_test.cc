@@ -22,6 +22,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <future>
 #include <limits>
 #include <memory>
 #include <numeric>
@@ -819,6 +820,41 @@ TEST_F(TestArray, TestFillFromScalar) {
       AssertArraysEqual(*array, *roundtripped_array);
       ASSERT_OK_AND_ASSIGN(auto roundtripped_scalar, roundtripped_array->GetScalar(0));
       AssertScalarsEqual(*scalar, *roundtripped_scalar);
+    }
+  }
+}
+
+// GH-40069: Data-race when concurrent calling ArraySpan::FillFromScalar of the same
+// scalar instance.
+TEST_F(TestArray, TestConcurrentFillFromScalar) {
+  for (auto type : TestArrayUtilitiesAgainstTheseTypes()) {
+    ARROW_SCOPED_TRACE("type = ", type->ToString());
+    for (auto seed : {0u, 0xdeadbeef, 42u}) {
+      ARROW_SCOPED_TRACE("seed = ", seed);
+
+      Field field("", type, /*nullable=*/true,
+                  key_value_metadata({{"extension_allow_random_storage", "true"}}));
+      auto array = random::GenerateArray(field, 1, seed);
+
+      ASSERT_OK_AND_ASSIGN(auto scalar, array->GetScalar(0));
+
+      // Lambda to create fill an ArraySpan with the scalar and use the ArraySpan a bit.
+      auto array_span_from_scalar = [&]() {
+        ArraySpan span(*scalar);
+        auto roundtripped_array = span.ToArray();
+        ASSERT_OK(roundtripped_array->ValidateFull());
+
+        AssertArraysEqual(*array, *roundtripped_array);
+        ASSERT_OK_AND_ASSIGN(auto roundtripped_scalar, roundtripped_array->GetScalar(0));
+        AssertScalarsEqual(*scalar, *roundtripped_scalar);
+      };
+
+      // Two concurrent calls to the lambda are just enough for TSAN to detect a race
+      // condition.
+      auto fut1 = std::async(std::launch::async, array_span_from_scalar);
+      auto fut2 = std::async(std::launch::async, array_span_from_scalar);
+      fut1.get();
+      fut2.get();
     }
   }
 }
