@@ -21,10 +21,7 @@ using Grpc.Core;
 
 namespace Apache.Arrow.Flight.Server.Internal
 {
-    /// <summary>
-    /// This class has to be internal, since the generated code from proto is set as internal.
-    /// </summary>
-    internal class FlightServerImplementation : FlightService.FlightServiceBase
+    public class FlightServerImplementation : FlightService.FlightServiceBase
     {
         private readonly FlightServer _flightServer;
         public FlightServerImplementation(FlightServer flightServer)
