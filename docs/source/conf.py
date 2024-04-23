@@ -591,6 +591,10 @@ texinfo_documents = [
 
 mermaid_output_format = 'svg'
 
+# -- Options for mermaid output -------------------------------------------
+
+mermaid_output_format = 'svg'
+
 def setup(app):
     # Use a config value to indicate whether CUDA API docs can be generated.
     # This will also rebuild appropriately when the value changes.

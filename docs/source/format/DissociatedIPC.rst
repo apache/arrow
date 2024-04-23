@@ -73,37 +73,42 @@ Goals
 * Define a generic protocol for passing Arrow IPC data, not tied to any particular
   transport, that also allows for utilizing non-CPU device memory, shared memory, and
   newer "high performance" transports such as `UCX`_ or `libfabric`_.
-* Allow for using :ref:`Flight RPC <flight-rpc>` purely for control flow by separating
-  the stream of IPC metadata from IPC body bytes
-  
+
   * This allows for the data in the body to be kept on non-CPU devices (like GPUs)
     without expensive device-to-host copies.
+
+* Allow for using :ref:`Flight RPC <flight-rpc>` purely for control flow by separating
+  the stream of IPC metadata from IPC body bytes
 
 Definitions
 -----------
 
-   IPC Metadata
-       The Flatbuffers message bytes that encompass the header of an Arrow IPC message
-  
-   Tag
-       A little-endian ``uint64`` value used as an ID for a message. Specific bits can 
-       be masked to allow identifying messages by only a portion of the tag, leaving the 
-       rest of the bits to be used for control flow or other message metadata.
+IPC Metadata
+    The Flatbuffers message bytes that encompass the header of an Arrow IPC message
 
-   Sequence Number
-       A little-endian, 4-byte unsigned integer starting at 0 for a stream, indicating 
-       the sequence order of messages. It is also used to identify specific messages to 
-       tie the IPC metadata header to its corresponding body since the metadata and body
-       can be sent across separate pipes/streams/transports.
+Tag
+    A little-endian ``uint64`` value used for flow control and used in determining
+    how to interpret the body of a message. Specific bits can be masked to allow 
+    identifying messages by only a portion of the tag, leaving the rest of the bits 
+    to be used for control flow or other message metadata. Some transports, such as
+    UCX, have built-in support for such tag values and will provide them in CPU 
+    memory regardless of whether or not the body of the message may reside on a
+    non-CPU device.
 
-       If a sequence number reaches ``UINT32_MAX``, it should be allowed to roll over as
-       it is unlikely there would be enough unprocessed messages waiting to be processed
-       that would cause an overlap of sequence numbers.
+Sequence Number
+    A little-endian, 4-byte unsigned integer starting at 0 for a stream, indicating 
+    the sequence order of messages. It is also used to identify specific messages to 
+    tie the IPC metadata header to its corresponding body since the metadata and body
+    can be sent across separate pipes/streams/transports.
 
-       The sequence number serves two purposes: To identify corresponding metadata and 
-       tagged body data messages and to ensure we do not rely on messages having to arrive
-       in order. A client should use the sequence number to correctly order messages as
-       they arrive for processing.   
+    If a sequence number reaches ``UINT32_MAX``, it should be allowed to roll over as
+    it is unlikely there would be enough unprocessed messages waiting to be processed
+    that would cause an overlap of sequence numbers.
+
+    The sequence number serves two purposes: To identify corresponding metadata and 
+    tagged body data messages and to ensure we do not rely on messages having to arrive
+    in order. A client should use the sequence number to correctly order messages as
+    they arrive for processing.   
 
 The Protocol
 ============
@@ -190,12 +195,13 @@ There are two possibilities that can occur:
 
 1. The streams of metadata and body data are sent across separate connections
 
-.. figure:: ./DissociatedIPC/SequenceDiagramSeparate.mmd.svg
+.. mermaid:: ./DissociatedIPC/SequenceDiagramSeparate.mmd
+
 
 2. The streams of metadata and body data are sent simultaneously across the
    same connection
 
-.. figure:: ./DissociatedIPC/SequenceDiagramSame.mmd.svg
+.. mermaid:: ./DissociatedIPC/SequenceDiagramSame.mmd
 
 Server Sequence
 ---------------
@@ -224,6 +230,17 @@ opaque, binary identifier to indicate a particular dataset / data stream to send
 
 Upon receiving a ``<want_data>`` request, the server *should* respond by sending a stream
 of messages consisting of the following:
+
+.. mermaid::
+
+  block-beta
+  columns 8
+  
+  block:P["\n\n\n\nPrefix"]:5
+    T["Message type\nByte 0"]
+    S["Sequence number\nBytes 1-4"]
+  end
+  H["Flatbuffer bytes\nRest of the message"]:3
 
 * A 5-byte prefix
   
@@ -261,6 +278,15 @@ to send to the client.
 For each IPC message in the stream of data, a **tagged** message **MUST** be sent on the data
 stream if that message has a body (i.e. a Record Batch or Dictionary message). The 
 :term:`tag <Tag>` for each message should be structured as follows:
+
+.. mermaid::   
+
+  block-beta
+  columns 8
+
+  S["Sequence number\nBytes 0-3"]:4
+  U["Unused (Reserved)\nBytes 4-6"]:3
+  T["Message type\nByte 7"]:1
 
 * The *least significant* 4-bytes (bits 0 - 31) of the tag should be the unsigned 32-bit, little-endian sequence 
   number of the message.
@@ -304,7 +330,7 @@ A client for this protocol needs to concurrently handle both the data and metada
 messages which may either both come from the same server or different servers. Below is a flowchart
 showing how a client might handle the metadata and data streams:
 
-.. figure:: ./DissociatedIPC/ClientFlowchart.mmd.svg
+.. mermaid:: ./DissociatedIPC/ClientFlowchart.mmd
 
 #. First the client sends a tagged message using the ``<want_data>`` value it was provided in the
    URI as the tag, and the opaque ID as the body.
