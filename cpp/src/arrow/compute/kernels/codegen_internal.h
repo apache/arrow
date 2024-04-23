@@ -369,43 +369,6 @@ struct UnboxScalar<Decimal256Type> {
   }
 };
 
-template <typename Type, typename Enable = void>
-struct BoxScalar;
-
-template <typename Type>
-struct BoxScalar<Type, enable_if_has_c_type<Type>> {
-  using T = typename GetOutputType<Type>::T;
-  static void Box(T val, Scalar* out) {
-    // Enables BoxScalar<Int64Type> to work on a (for example) Time64Scalar
-    T* mutable_data = reinterpret_cast<T*>(
-        checked_cast<::arrow::internal::PrimitiveScalarBase*>(out)->mutable_data());
-    *mutable_data = val;
-  }
-};
-
-template <typename Type>
-struct BoxScalar<Type, enable_if_base_binary<Type>> {
-  using T = typename GetOutputType<Type>::T;
-  using ScalarType = typename TypeTraits<Type>::ScalarType;
-  static void Box(T val, Scalar* out) {
-    checked_cast<ScalarType*>(out)->value = std::make_shared<Buffer>(val);
-  }
-};
-
-template <>
-struct BoxScalar<Decimal128Type> {
-  using T = Decimal128;
-  using ScalarType = Decimal128Scalar;
-  static void Box(T val, Scalar* out) { checked_cast<ScalarType*>(out)->value = val; }
-};
-
-template <>
-struct BoxScalar<Decimal256Type> {
-  using T = Decimal256;
-  using ScalarType = Decimal256Scalar;
-  static void Box(T val, Scalar* out) { checked_cast<ScalarType*>(out)->value = val; }
-};
-
 // A VisitArraySpanInline variant that calls its visitor function with logical
 // values, such as Decimal128 rather than std::string_view.
 
