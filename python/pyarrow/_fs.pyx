@@ -1104,6 +1104,7 @@ cdef class LocalFileSystem(FileSystem):
             shared_ptr[CFileSystem] fs
             c_string c_uri
 
+        # from_uri needs a non-empty path, so just use a placeholder of /_
         c_uri = tobytes(f"file:///_?use_mmap={int(use_mmap)}")
         with nogil:
             fs = GetResultValue(CFileSystemFromUri(c_uri))
