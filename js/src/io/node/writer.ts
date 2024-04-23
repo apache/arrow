@@ -15,7 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Duplex, DuplexOptions } from 'stream';
+import { Duplex } from 'node:stream';
+import type { DuplexOptions } from 'node:stream';
 import { AsyncByteStream } from '../../io/stream.js';
 import { RecordBatchWriter } from '../../ipc/writer.js';
 import { TypeMap } from '../../type.js';

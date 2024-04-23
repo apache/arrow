@@ -21,9 +21,9 @@ package file
 import (
 	"unsafe"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/parquet"
-	"github.com/apache/arrow/go/v16/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/parquet"
+	"github.com/apache/arrow/go/v17/parquet/internal/encoding"
 )
 
 // Int32ColumnChunkReader is the Typed Column chunk reader instance for reading

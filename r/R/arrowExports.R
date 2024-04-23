@@ -1132,6 +1132,10 @@ compute___expr__get_field_ref_name <- function(x) {
   .Call(`_arrow_compute___expr__get_field_ref_name`, x)
 }
 
+compute___expr__field_names_in_expression <- function(x) {
+  .Call(`_arrow_compute___expr__field_names_in_expression`, x)
+}
+
 compute___expr__field_ref <- function(name) {
   .Call(`_arrow_compute___expr__field_ref`, name)
 }

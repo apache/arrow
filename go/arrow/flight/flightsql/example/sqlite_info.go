@@ -20,8 +20,8 @@
 package example
 
 import (
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/flight/flightsql"
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/flight/flightsql"
 )
 
 func SqlInfoResultMap() flightsql.SqlInfoResultMap {

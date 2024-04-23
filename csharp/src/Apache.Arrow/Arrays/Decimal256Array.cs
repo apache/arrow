@@ -151,7 +151,7 @@ namespace Apache.Arrow
                 return null;
             }
 
-            return DecimalUtility.GetDecimal(ValueBuffer, index, Scale, ByteWidth);
+            return DecimalUtility.GetDecimal(ValueBuffer, Offset + index, Scale, ByteWidth);
         }
 
         public IList<decimal?> ToList(bool includeNulls = false)
@@ -184,7 +184,7 @@ namespace Apache.Arrow
             {
                 return null;
             }
-            return DecimalUtility.GetString(ValueBuffer, index, Precision, Scale, ByteWidth);
+            return DecimalUtility.GetString(ValueBuffer, Offset + index, Precision, Scale, ByteWidth);
         }
 
         public bool TryGetSqlDecimal(int index, out SqlDecimal? value)
@@ -196,11 +196,11 @@ namespace Apache.Arrow
             }
 
             const int longWidth = 4;
-            var span = ValueBuffer.Span.CastTo<long>().Slice(index * longWidth);
+            var span = ValueBuffer.Span.CastTo<long>().Slice((Offset + index) * longWidth);
             if ((span[2] == 0 && span[3] == 0) ||
                 (span[2] == -1 && span[3] == -1))
             {
-                value = DecimalUtility.GetSqlDecimal128(ValueBuffer, 2 * index, Precision, Scale);
+                value = DecimalUtility.GetSqlDecimal128(ValueBuffer, 2 * (Offset + index), Precision, Scale);
                 return true;
             }
 

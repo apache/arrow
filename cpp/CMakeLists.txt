@@ -71,7 +71,7 @@ if(POLICY CMP0135)
   cmake_policy(SET CMP0135 NEW)
 endif()
 
-set(ARROW_VERSION "16.0.0-SNAPSHOT")
+set(ARROW_VERSION "17.0.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
@@ -256,9 +256,6 @@ if(ARROW_USE_CCACHE
 endif()
 
 if(ARROW_OPTIONAL_INSTALL)
-  # Don't make the "install" target depend on the "all" target
-  set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY true)
-
   set(INSTALL_IS_OPTIONAL OPTIONAL)
 endif()
 

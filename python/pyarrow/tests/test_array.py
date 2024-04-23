@@ -31,6 +31,7 @@ import numpy as np
 
 import pyarrow as pa
 import pyarrow.tests.strategies as past
+from pyarrow.vendored.version import Version
 
 
 def test_total_bytes_allocated():
@@ -3302,6 +3303,52 @@ def test_array_from_large_pyints():
         pa.array([int(2 ** 63)])
 
 
+def test_numpy_array_protocol():
+    # test the __array__ method on pyarrow.Array
+    arr = pa.array([1, 2, 3])
+    result = np.asarray(arr)
+    expected = np.array([1, 2, 3], dtype="int64")
+    np.testing.assert_array_equal(result, expected)
+
+    # this should not raise a deprecation warning with numpy 2.0+
+    result = np.array(arr, copy=False)
+    np.testing.assert_array_equal(result, expected)
+
+    result = np.array(arr, dtype="int64", copy=False)
+    np.testing.assert_array_equal(result, expected)
+
+    # no zero-copy is possible
+    arr = pa.array([1, 2, None])
+    expected = np.array([1, 2, np.nan], dtype="float64")
+    result = np.asarray(arr)
+    np.testing.assert_array_equal(result, expected)
+
+    if Version(np.__version__) < Version("2.0"):
+        # copy keyword is not strict and not passed down to __array__
+        result = np.array(arr, copy=False)
+        np.testing.assert_array_equal(result, expected)
+
+        result = np.array(arr, dtype="float64", copy=False)
+        np.testing.assert_array_equal(result, expected)
+    else:
+        # starting with numpy 2.0, the copy=False keyword is assumed to be strict
+        with pytest.raises(ValueError, match="Unable to avoid a copy"):
+            np.array(arr, copy=False)
+
+        arr = pa.array([1, 2, 3])
+        with pytest.raises(ValueError):
+            np.array(arr, dtype="float64", copy=False)
+
+    # copy=True -> not yet passed by numpy, so we have to call this directly to test
+    arr = pa.array([1, 2, 3])
+    result = arr.__array__(copy=True)
+    assert result.flags.writeable
+
+    arr = pa.array([1, 2, 3])
+    result = arr.__array__(dtype=np.dtype("float64"), copy=True)
+    assert result.dtype == "float64"
+
+
 def test_array_protocol():
 
     class MyArray:
@@ -3382,7 +3429,7 @@ def test_c_array_protocol():
     result = pa.array(arr)
     assert result == arr.data
 
-    # Will case to requested type
+    # Will cast to requested type
     result = pa.array(arr, type=pa.int32())
     assert result == pa.array([1, 2, 3], type=pa.int32())
 
