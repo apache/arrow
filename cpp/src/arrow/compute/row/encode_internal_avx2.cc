@@ -23,7 +23,7 @@ namespace arrow {
 namespace compute {
 
 void EncoderBinary::DecodeHelper_avx2(bool is_row_fixed_length, uint32_t start_row,
-                                      uint32_t num_rows, uint32_t offset_within_row,
+                                      uint32_t num_rows, int32_t offset_within_row,
                                       const RowTableImpl& rows, KeyColumnArray* col) {
   if (is_row_fixed_length) {
     DecodeImp_avx2<true>(start_row, num_rows, offset_within_row, rows, col);
@@ -34,7 +34,7 @@ void EncoderBinary::DecodeHelper_avx2(bool is_row_fixed_length, uint32_t start_r
 
 template <bool is_row_fixed_length>
 void EncoderBinary::DecodeImp_avx2(uint32_t start_row, uint32_t num_rows,
-                                   uint32_t offset_within_row, const RowTableImpl& rows,
+                                   int32_t offset_within_row, const RowTableImpl& rows,
                                    KeyColumnArray* col) {
   DecodeHelper<is_row_fixed_length>(
       start_row, num_rows, offset_within_row, &rows, nullptr, col, col,
@@ -49,10 +49,10 @@ void EncoderBinary::DecodeImp_avx2(uint32_t start_row, uint32_t num_rows,
 
 uint32_t EncoderBinaryPair::DecodeHelper_avx2(
     bool is_row_fixed_length, uint32_t col_width, uint32_t start_row, uint32_t num_rows,
-    uint32_t offset_within_row, const RowTableImpl& rows, KeyColumnArray* col1,
+    int32_t offset_within_row, const RowTableImpl& rows, KeyColumnArray* col1,
     KeyColumnArray* col2) {
   using DecodeImp_avx2_t =
-      uint32_t (*)(uint32_t start_row, uint32_t num_rows, uint32_t offset_within_row,
+      uint32_t (*)(uint32_t start_row, uint32_t num_rows, int32_t offset_within_row,
                    const RowTableImpl& rows, KeyColumnArray* col1, KeyColumnArray* col2);
   static const DecodeImp_avx2_t DecodeImp_avx2_fn[] = {
       DecodeImp_avx2<false, 1>, DecodeImp_avx2<false, 2>, DecodeImp_avx2<false, 4>,
@@ -66,7 +66,7 @@ uint32_t EncoderBinaryPair::DecodeHelper_avx2(
 
 template <bool is_row_fixed_length, uint32_t col_width>
 uint32_t EncoderBinaryPair::DecodeImp_avx2(uint32_t start_row, uint32_t num_rows,
-                                           uint32_t offset_within_row,
+                                           int32_t offset_within_row,
                                            const RowTableImpl& rows, KeyColumnArray* col1,
                                            KeyColumnArray* col2) {
   ARROW_DCHECK(col_width == 1 || col_width == 2 || col_width == 4 || col_width == 8);
@@ -75,7 +75,7 @@ uint32_t EncoderBinaryPair::DecodeImp_avx2(uint32_t start_row, uint32_t num_rows
   uint8_t* col_vals_B = col2->mutable_data(1);
 
   uint32_t fixed_length = rows.metadata().fixed_length;
-  const uint32_t* offsets;
+  const int32_t* offsets;
   const uint8_t* src_base;
   if (is_row_fixed_length) {
     src_base = rows.data(1) + fixed_length * start_row + offset_within_row;
@@ -99,7 +99,7 @@ uint32_t EncoderBinaryPair::DecodeImp_avx2(uint32_t start_row, uint32_t num_rows
         src2 = reinterpret_cast<const __m128i*>(src + fixed_length * 2);
         src3 = reinterpret_cast<const __m128i*>(src + fixed_length * 3);
       } else {
-        const uint32_t* row_offsets = offsets + i * unroll;
+        const int32_t* row_offsets = offsets + i * unroll;
         const uint8_t* src = src_base;
         src0 = reinterpret_cast<const __m128i*>(src + row_offsets[0]);
         src1 = reinterpret_cast<const __m128i*>(src + row_offsets[1]);
@@ -140,7 +140,7 @@ uint32_t EncoderBinaryPair::DecodeImp_avx2(uint32_t start_row, uint32_t num_rows
           }
         }
       } else {
-        const uint32_t* row_offsets = offsets + i * unroll;
+        const int32_t* row_offsets = offsets + i * unroll;
         const uint8_t* src = src_base;
         for (int j = 0; j < unroll; ++j) {
           if (col_width == 1) {

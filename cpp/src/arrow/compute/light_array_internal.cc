@@ -201,8 +201,7 @@ Status ColumnArraysFromExecBatch(const ExecBatch& batch, int64_t start_row,
 
 Status ColumnArraysFromExecBatch(const ExecBatch& batch,
                                  std::vector<KeyColumnArray>* column_arrays) {
-  return ColumnArraysFromExecBatch(batch, 0, static_cast<int>(batch.length),
-                                   column_arrays);
+  return ColumnArraysFromExecBatch(batch, 0, batch.length, column_arrays);
 }
 
 void ResizableArrayData::Init(const std::shared_ptr<DataType>& data_type,
@@ -355,9 +354,9 @@ std::shared_ptr<ArrayData> ResizableArrayData::array_data() const {
   KeyColumnMetadata column_metadata;
   column_metadata = ColumnMetadataFromDataType(data_type_).ValueOrDie();
 
-  auto valid_count = arrow::internal::CountSetBits(
-      buffers_[kValidityBuffer]->data(), /*offset=*/0, static_cast<int64_t>(num_rows_));
-  int null_count = static_cast<int>(num_rows_) - static_cast<int>(valid_count);
+  auto valid_count = arrow::internal::CountSetBits(buffers_[kValidityBuffer]->data(),
+                                                   /*offset=*/0, num_rows_);
+  auto null_count = num_rows_ - valid_count;
 
   if (column_metadata.is_fixed_length) {
     return ArrayData::Make(data_type_, num_rows_,
@@ -478,9 +477,8 @@ void ExecBatchBuilder::Visit(const std::shared_ptr<ArrayData>& column, int num_r
     for (int i = 0; i < num_rows; ++i) {
       uint16_t row_id = row_ids[i];
       const uint8_t* field_ptr =
-          column->buffers[1]->data() +
-          (column->offset + row_id) * static_cast<int64_t>(metadata.fixed_length);
-      process_value_fn(i, field_ptr, static_cast<int32_t>(metadata.fixed_length));
+          column->buffers[1]->data() + (column->offset + row_id) * metadata.fixed_length;
+      process_value_fn(i, field_ptr, metadata.fixed_length);
     }
   }
 }
@@ -583,7 +581,7 @@ Status ExecBatchBuilder::AppendSelected(const std::shared_ptr<ArrayData>& source
           });
     for (int i = 0; i < num_rows_to_append; ++i) {
       int32_t length = offsets[num_rows_before + i];
-      offsets[num_rows_before + i] = sum;
+      offsets[num_rows_before + i] = static_cast<int32_t>(sum);
       int32_t new_sum_maybe_overflow = 0;
       if (ARROW_PREDICT_FALSE(
               arrow::internal::AddWithOverflow(sum, length, &new_sum_maybe_overflow))) {
