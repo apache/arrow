@@ -175,8 +175,7 @@ agg_funcs <- new.env(parent = emptyenv())
 .cache <- new.env(parent = emptyenv())
 
 # we register 2 versions of the "::" binding - one for use with nse_funcs
-# (registered below) and another one for use with agg_funcs (registered in
-# dplyr-summarize.R)
+# and another one for use with agg_funcs (registered in dplyr-funcs-agg.R)
 nse_funcs[["::"]] <- function(lhs, rhs) {
   lhs_name <- as.character(substitute(lhs))
   rhs_name <- as.character(substitute(rhs))
@@ -186,4 +185,17 @@ nse_funcs[["::"]] <- function(lhs, rhs) {
   # if we do not have a binding for pkg::fun, then fall back on to the
   # regular pkg::fun function
   nse_funcs[[fun_name]] %||% asNamespace(lhs_name)[[rhs_name]]
+}
+
+agg_funcs[["::"]] <- function(lhs, rhs) {
+  lhs_name <- as.character(substitute(lhs))
+  rhs_name <- as.character(substitute(rhs))
+
+  fun_name <- paste0(lhs_name, "::", rhs_name)
+
+  # if we do not have a binding for pkg::fun, then fall back on to the
+  # nse_funcs (useful when we have a regular function inside an aggregating one)
+  # and then, if searching nse_funcs fails too, fall back to the
+  # regular `pkg::fun()` function
+  agg_funcs[[fun_name]] %||% nse_funcs[[fun_name]] %||% asNamespace(lhs_name)[[rhs_name]]
 }
