@@ -95,7 +95,7 @@ class ArrayDataEndianSwapper {
   Status SwapType(const DataType& type) {
     RETURN_NOT_OK(VisitTypeInline(type, this));
     RETURN_NOT_OK(SwapChildren(type.fields()));
-    if (internal::HasValidityBitmap(type.id())) {
+    if (internal::may_have_validity_bitmap(type.id())) {
       // Copy null bitmap
       out_->buffers[0] = data_->buffers[0];
     }
