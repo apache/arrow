@@ -53,7 +53,7 @@ static inline void AdjustNonNullable(Type::type type_id, int64_t length,
   if (type_id == Type::NA) {
     *null_count = length;
     (*buffers)[0] = nullptr;
-  } else if (internal::HasValidityBitmap(type_id)) {
+  } else if (internal::may_have_validity_bitmap(type_id)) {
     if (*null_count == 0) {
       // In case there are no nulls, don't keep an allocated null bitmap around
       (*buffers)[0] = nullptr;
@@ -335,7 +335,7 @@ void FillZeroLengthArray(const DataType* type, ArraySpan* span) {
     span->buffers[i].size = 0;
   }
 
-  if (!HasValidityBitmap(type->id())) {
+  if (!may_have_validity_bitmap(type->id())) {
     span->buffers[0] = {};
   }
 
@@ -370,7 +370,7 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
 
   if (type_id == Type::NA) {
     this->null_count = 1;
-  } else if (!internal::HasValidityBitmap(type_id)) {
+  } else if (!internal::may_have_validity_bitmap(type_id)) {
     this->null_count = 0;
   } else {
     // Populate null count and validity bitmap

@@ -317,7 +317,7 @@ class ConcatenateImpl {
   }
 
   Status Concatenate(std::shared_ptr<ArrayData>* out) && {
-    if (out_->null_count != 0 && internal::HasValidityBitmap(out_->type->id())) {
+    if (out_->null_count != 0 && internal::may_have_validity_bitmap(out_->type->id())) {
       RETURN_NOT_OK(ConcatenateBitmaps(Bitmaps(0), pool_, &out_->buffers[0]));
     }
     RETURN_NOT_OK(VisitTypeInline(*out_->type, this));
