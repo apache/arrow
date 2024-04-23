@@ -1123,17 +1123,11 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatch(int64_t batch_size, int16_t* def
   // row group is finished
   int64_t num_def_levels = 0;
   int64_t values_to_read = 0;
-  int64_t expected_values = std::min(batch_size, this->available_values_current_page());
   ReadLevels(batch_size, def_levels, rep_levels, &num_def_levels, &values_to_read);
-  if (ARROW_PREDICT_FALSE(num_def_levels < expected_values)) {
-    throw ParquetException("ReadBatch did not read the expected number of levels: read" +
-                           std::to_string(num_def_levels) + ", expected " +
-                           std::to_string(expected_values));
-  }
-  ARROW_DCHECK_GE(num_def_levels, values_to_read);
   *values_read = this->ReadValues(values_to_read, values);
   ARROW_DCHECK_GE(values_to_read, *values_read);
   int64_t total_values = std::max<int64_t>(num_def_levels, *values_read);
+  int64_t expected_values = std::min(batch_size, this->available_values_current_page());
   if (total_values == 0 && expected_values > 0) {
     std::stringstream ss;
     ss << "Read 0 values, expected " << expected_values;
@@ -1217,12 +1211,6 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchSpaced(
     *null_count_out = 0;
     *values_read = total_values;
     *levels_read = total_values;
-  }
-
-  if (ARROW_PREDICT_FALSE(*levels_read != batch_size)) {
-    throw ParquetException(
-        "ReadBatchSpaced did not read the expected number of levels: read" +
-        std::to_string(*levels_read) + ", expected " + std::to_string(batch_size));
   }
 
   this->ConsumeBufferedValues(*levels_read);
