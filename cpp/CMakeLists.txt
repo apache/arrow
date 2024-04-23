@@ -431,10 +431,6 @@ endif()
 # Compiler flags
 #
 
-if(ARROW_NO_DEPRECATED_API)
-  add_definitions(-DARROW_NO_DEPRECATED_API)
-endif()
-
 if(ARROW_EXTRA_ERROR_CONTEXT)
   add_definitions(-DARROW_EXTRA_ERROR_CONTEXT)
 endif()
