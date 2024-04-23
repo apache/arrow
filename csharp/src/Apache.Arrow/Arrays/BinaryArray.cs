@@ -16,6 +16,7 @@
 using Apache.Arrow.Types;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using Apache.Arrow.Memory;
 using System.Collections;
@@ -259,8 +260,77 @@ namespace Apache.Arrow
 
             public TBuilder Set(int index, byte value)
             {
-                // TODO: Implement
+                ValueBuffer.Span[index] = value;
+                return Instance;
+            }
+
+            public TBuilder SetNull(int offset)
+            {
+                int index = ValueOffsets.Span[offset];
+                int length = GetOffsetValueLength(offset);
+
+                for (int i = 0; i < length; i++)
+                {
+                    ValueBuffer.Span[index + i] = 0;
+                }
+
+                ValidityBuffer.Set(offset, false);
+
+                return Instance;
+            }
+
+            public TBuilder Set(int offset, ReadOnlySpan<byte> values)
+            {
+#if NETSTANDARD2_1_OR_GREATER || NET6_0_OR_GREATER
+                byte[] newValues = values.ToArray();
+                int index = ValueOffsets.Span[offset];
+                int existingValueLength = GetOffsetValueLength(offset);
+                int newValueLength = newValues.Length;
+
+                // Resize and shift the value and offset buffers
+                if (existingValueLength != newValueLength)
+                {
+                    int indexShift = newValueLength - existingValueLength;
+
+                    if (offset != ValueOffsets.Length)
+                    {
+                        //Shift the existing values after our change in size
+                        var afterValues = ValueBuffer.Span[(index + existingValueLength)..];
+                        ValueBuffer.Resize(ValueBuffer.Length + indexShift + 1);
+                        afterValues.CopyTo(ValueBuffer.Span[(index + newValueLength)..]);
+                    }
+                    else
+                    {
+                        ValueBuffer.Resize(ValueBuffer.Length + indexShift + 1);
+                    }
+
+                    //Update out offset indexes
+                    for (int i = offset + 1; i < ValueOffsets.Length; i++)
+                    {
+                        ValueOffsets.Span[i] += indexShift;
+                    }
+                }
+
+                for (int i = 0; i < newValues.Length; i++)
+                {
+                    Set(i + index, newValues[i]);
+                }
+
+                ValidityBuffer.Set(offset, true);
+
+                return Instance;
+#else
+                //There is not a clean way to shift the bytes without Span.CopyTo which was added in .NetStandard 2.1/.NET5
+                //For that reason this feature is only avaiable when running versions of .NetStandard 2.1/.NET5 and higher
                 throw new NotImplementedException();
+#endif
+            }
+
+            private int GetOffsetValueLength(int offset)
+            {
+                int index = ValueOffsets.Span[offset];
+                int nextIndex = offset + 1 < ValueOffsets.Length ? ValueOffsets.Span[offset + 1] : ValueBuffer.Length;
+                return nextIndex - index;
             }
 
             /// <summary>
