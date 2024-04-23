@@ -223,12 +223,11 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
 
   AnyKeysSegmenter(const std::vector<TypeHolder>& key_types, ExecContext* ctx)
       : BaseRowSegmenter(key_types),
-        ctx_(ctx),
-        grouper_(nullptr),
+        grouper_(Grouper::Make(key_types, ctx).ValueOrDie()),
         save_group_id_(kNoGroupId) {}
 
   Status Reset() override {
-    grouper_ = nullptr;
+    ARROW_RETURN_NOT_OK(grouper_->Reset());
     save_group_id_ = kNoGroupId;
     return Status::OK();
   }
@@ -245,7 +244,6 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
   // first row of a new segment to see if it extends the previous segment.
   template <typename Batch>
   Result<group_id_t> MapGroupIdAt(const Batch& batch, int64_t offset) {
-    if (!grouper_) return kNoGroupId;
     ARROW_ASSIGN_OR_RAISE(auto datum, grouper_->Consume(batch, offset,
                                                         /*length=*/1));
     if (!datum.is_array()) {
@@ -264,9 +262,6 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
     if (offset == batch.length) {
       return MakeSegment(batch.length, offset, 0, kEmptyExtends);
     }
-    // ARROW-18311: make Grouper support Reset()
-    // so it can be reset instead of recreated below
-    //
     // the group id must be computed prior to resetting the grouper, since it is compared
     // to save_group_id_, and after resetting the grouper produces incomparable group ids
     ARROW_ASSIGN_OR_RAISE(auto group_id, MapGroupIdAt(batch, offset));
@@ -276,7 +271,7 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
       return extends;
     };
     // resetting drops grouper's group-ids, freeing-up memory for the next segment
-    ARROW_ASSIGN_OR_RAISE(grouper_, Grouper::Make(key_types_, ctx_));  // TODO: reset it
+    ARROW_RETURN_NOT_OK(grouper_->Reset());
     // GH-34475: cache the grouper-consume result across invocations of GetNextSegment
     ARROW_ASSIGN_OR_RAISE(auto datum, grouper_->Consume(batch, offset));
     if (datum.is_array()) {
@@ -299,7 +294,6 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
   }
 
  private:
-  ExecContext* const ctx_;
   std::unique_ptr<Grouper> grouper_;
   group_id_t save_group_id_;
 };
@@ -354,6 +348,7 @@ struct GrouperNoKeysImpl : Grouper {
     RETURN_NOT_OK(builder->Finish(&array));
     return std::move(array);
   }
+  Status Reset() override { return Status::OK(); }
   Result<Datum> Consume(const ExecSpan& batch, int64_t offset, int64_t length) override {
     ARROW_ASSIGN_OR_RAISE(auto array, MakeConstantGroupIdArray(length, 0));
     return Datum(array);
@@ -417,6 +412,14 @@ struct GrouperImpl : public Grouper {
     }
 
     return std::move(impl);
+  }
+
+  Status Reset() override {
+    map_.clear();
+    offsets_.clear();
+    key_bytes_.clear();
+    num_groups_ = 0;
+    return Status::OK();
   }
 
   Result<Datum> Consume(const ExecSpan& batch, int64_t offset, int64_t length) override {
@@ -595,7 +598,13 @@ struct GrouperFastImpl : public Grouper {
     return std::move(impl);
   }
 
-  ~GrouperFastImpl() { map_.cleanup(); }
+  Status Reset() override {
+    rows_.Clean();
+    rows_minibatch_.Clean();
+    map_.cleanup();
+    RETURN_NOT_OK(map_.init(encode_ctx_.hardware_flags, ctx_->memory_pool()));
+    return Status::OK();
+  }
 
   Result<Datum> Consume(const ExecSpan& batch, int64_t offset, int64_t length) override {
     ARROW_RETURN_NOT_OK(CheckAndCapLengthForConsume(batch.length, offset, &length));
@@ -838,8 +847,7 @@ struct GrouperFastImpl : public Grouper {
     return out;
   }
 
-  static constexpr int log_minibatch_max_ = 10;
-  static constexpr int minibatch_size_max_ = 1 << log_minibatch_max_;
+  static constexpr int minibatch_size_max_ = arrow::util::MiniBatch::kMiniBatchLength;
   static constexpr int minibatch_size_min_ = 128;
   int minibatch_size_;
 
