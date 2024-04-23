@@ -907,6 +907,8 @@ class ColumnReaderImplBase {
                               static_cast<int>(data_size));
   }
 
+  // Available values in the current data page, value includes repeated values
+  // and nulls.
   int64_t available_values_current_page() const {
     return num_buffered_values_ - num_decoded_values_;
   }
@@ -933,7 +935,7 @@ class ColumnReaderImplBase {
   int64_t num_buffered_values_;
 
   // The number of values from the current data page that have been decoded
-  // into memory
+  // into memory or skipped over.
   int64_t num_decoded_values_;
 
   ::arrow::MemoryPool* pool_;
@@ -1028,12 +1030,17 @@ class TypedColumnReaderImpl : public TypedColumnReader<DType>,
   // and number of values to read. This function is called before reading values.
   void ReadLevels(int64_t batch_size, int16_t* def_levels, int16_t* rep_levels,
                   int64_t* num_def_levels, int64_t* values_to_read) {
-    batch_size =
-        std::min(batch_size, this->num_buffered_values_ - this->num_decoded_values_);
+    batch_size = std::min(batch_size, this->available_values_current_page());
 
     // If the field is required and non-repeated, there are no definition levels
     if (this->max_def_level_ > 0 && def_levels != nullptr) {
       *num_def_levels = this->ReadDefinitionLevels(batch_size, def_levels);
+      if (ARROW_PREDICT_FALSE(*num_def_levels != batch_size)) {
+        throw ParquetException(
+            "Number of decoded definition levels did not match: def_levels: " +
+            std::to_string(*num_def_levels) +
+            ", batch_size:" + std::to_string(batch_size));
+      }
       // TODO(wesm): this tallying of values-to-decode can be performed with better
       // cache-efficiency if fused with the level decoding.
       *values_to_read +=
@@ -1045,6 +1052,7 @@ class TypedColumnReaderImpl : public TypedColumnReader<DType>,
 
     // Not present for non-repeated fields
     if (this->max_rep_level_ > 0 && rep_levels != nullptr) {
+      DCHECK_GT(this->max_rep_level_, 0);
       int64_t num_rep_levels = this->ReadRepetitionLevels(batch_size, rep_levels);
       if (def_levels != nullptr && *num_def_levels != num_rep_levels) {
         throw ParquetException("Number of decoded rep / def levels did not match");
@@ -1090,8 +1098,7 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchWithDictionary(
   *indices_read = ReadDictionaryIndices(indices_to_read, indices);
   int64_t total_indices = std::max<int64_t>(num_def_levels, *indices_read);
   // Some callers use a batch size of 0 just to get the dictionary.
-  int64_t expected_values =
-      std::min(batch_size, this->num_buffered_values_ - this->num_decoded_values_);
+  int64_t expected_values = std::min(batch_size, this->available_values_current_page());
   if (total_indices == 0 && expected_values > 0) {
     std::stringstream ss;
     ss << "Read 0 values, expected " << expected_values;
@@ -1116,12 +1123,17 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatch(int64_t batch_size, int16_t* def
   // row group is finished
   int64_t num_def_levels = 0;
   int64_t values_to_read = 0;
+  int64_t expected_values = std::min(batch_size, this->available_values_current_page());
   ReadLevels(batch_size, def_levels, rep_levels, &num_def_levels, &values_to_read);
-
+  if (ARROW_PREDICT_FALSE(num_def_levels < expected_values)) {
+    throw ParquetException("ReadBatch did not read the expected number of levels: read" +
+                           std::to_string(num_def_levels) + ", expected " +
+                           std::to_string(expected_values));
+  }
+  ARROW_DCHECK_GE(num_def_levels, values_to_read);
   *values_read = this->ReadValues(values_to_read, values);
+  ARROW_DCHECK_GE(values_to_read, *values_read);
   int64_t total_values = std::max<int64_t>(num_def_levels, *values_read);
-  int64_t expected_values =
-      std::min(batch_size, this->num_buffered_values_ - this->num_decoded_values_);
   if (total_values == 0 && expected_values > 0) {
     std::stringstream ss;
     ss << "Read 0 values, expected " << expected_values;
@@ -1145,11 +1157,11 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchSpaced(
     return 0;
   }
 
+  // Number of non-null values to read
   int64_t total_values;
   // TODO(wesm): keep reading data pages until batch_size is reached, or the
   // row group is finished
-  batch_size =
-      std::min(batch_size, this->num_buffered_values_ - this->num_decoded_values_);
+  batch_size = std::min(batch_size, this->available_values_current_page());
 
   // If the field is required and non-repeated, there are no definition levels
   if (this->max_def_level_ > 0) {
@@ -1205,6 +1217,12 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchSpaced(
     *null_count_out = 0;
     *values_read = total_values;
     *levels_read = total_values;
+  }
+
+  if (ARROW_PREDICT_FALSE(*levels_read != batch_size)) {
+    throw ParquetException(
+        "ReadBatchSpaced did not read the expected number of levels: read" +
+        std::to_string(*levels_read) + ", expected " + std::to_string(batch_size));
   }
 
   this->ConsumeBufferedValues(*levels_read);
@@ -1412,15 +1430,16 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
           levels_read = this->ReadDefinitionLevels(batch_size, def_levels);
         }
 
-        // Exhausted column chunk
-        if (levels_read == 0) {
-          break;
+        if (ARROW_PREDICT_FALSE(batch_size != levels_read)) {
+          throw ParquetException(
+              "ReadRecords did not read the expected number of levels: read " +
+              std::to_string(levels_read) + ", expected " + std::to_string(batch_size));
         }
 
         levels_written_ += levels_read;
         records_read += ReadRecordData(num_records - records_read);
       } else {
-        // No repetition or definition levels
+        // No repetition and definition levels, we can read values directly
         batch_size = std::min(num_records - records_read, batch_size);
         records_read += ReadRecordData(batch_size);
       }
