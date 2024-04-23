@@ -17,17 +17,26 @@
 
 package org.apache.arrow.vector.complex;
 
+import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
+
 import java.util.Iterator;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.AddOrGetResult;
 import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
+import org.apache.arrow.vector.util.OversizedAllocationException;
+import org.apache.arrow.vector.util.SchemaChangeRuntimeException;
 
 public abstract class BaseRepeatedValueViewVector extends BaseValueVector
     implements RepeatedValueVector, BaseListVector {
@@ -70,11 +79,100 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
 
   @Override
   public boolean allocateNewSafe() {
-    return false;
+    boolean dataAlloc = false;
+    try {
+      offsetBuffer = allocateOffsetBuffer(offsetAllocationSizeInBytes);
+      sizeBuffer = allocateSizeBuffer(sizeAllocationSizeInBytes);
+      dataAlloc = vector.allocateNewSafe();
+    } catch (Exception e) {
+      e.printStackTrace();
+      clear();
+      return false;
+    } finally {
+      if (!dataAlloc) {
+        clear();
+      }
+    }
+    return dataAlloc;
+  }
+
+  protected ArrowBuf allocateOffsetBuffer(final long size) {
+    final int curSize = (int) size;
+    ArrowBuf offsetBuffer = allocator.buffer(curSize);
+    offsetBuffer.readerIndex(0);
+    offsetAllocationSizeInBytes = curSize;
+    offsetBuffer.setZero(0, offsetBuffer.capacity());
+    return offsetBuffer;
+  }
+
+  protected ArrowBuf allocateSizeBuffer(final long size) {
+    final int curSize = (int) size;
+    ArrowBuf sizeBuffer = allocator.buffer(curSize);
+    sizeBuffer.readerIndex(0);
+    sizeAllocationSizeInBytes = curSize;
+    sizeBuffer.setZero(0, sizeBuffer.capacity());
+    return sizeBuffer;
   }
 
   @Override
   public void reAlloc() {
+    reallocOffsetBuffer();
+    reallocSizeBuffer();
+    vector.reAlloc();
+  }
+
+  protected void reallocOffsetBuffer() {
+    final long currentBufferCapacity = offsetBuffer.capacity();
+    long newAllocationSize = currentBufferCapacity * 2;
+    if (newAllocationSize == 0) {
+      if (offsetAllocationSizeInBytes > 0) {
+        newAllocationSize = offsetAllocationSizeInBytes;
+      } else {
+        newAllocationSize = INITIAL_VALUE_ALLOCATION * OFFSET_WIDTH * 2;
+      }
+    }
+
+    newAllocationSize = CommonUtil.nextPowerOfTwo(newAllocationSize);
+    newAllocationSize = Math.min(newAllocationSize, (long) OFFSET_WIDTH * Integer.MAX_VALUE);
+    assert newAllocationSize >= 1;
+
+    if (newAllocationSize > MAX_ALLOCATION_SIZE || newAllocationSize <= offsetBuffer.capacity()) {
+      throw new OversizedAllocationException("Unable to expand the buffer");
+    }
+
+    final ArrowBuf newBuf = allocator.buffer(newAllocationSize);
+    newBuf.setBytes(0, offsetBuffer, 0, currentBufferCapacity);
+    newBuf.setZero(currentBufferCapacity, newBuf.capacity() - currentBufferCapacity);
+    offsetBuffer.getReferenceManager().release(1);
+    offsetBuffer = newBuf;
+    offsetAllocationSizeInBytes = newAllocationSize;
+  }
+
+  protected void reallocSizeBuffer() {
+    final long currentBufferCapacity = sizeBuffer.capacity();
+    long newAllocationSize = currentBufferCapacity * 2;
+    if (newAllocationSize == 0) {
+      if (sizeAllocationSizeInBytes > 0) {
+        newAllocationSize = sizeAllocationSizeInBytes;
+      } else {
+        newAllocationSize = INITIAL_VALUE_ALLOCATION * SIZE_WIDTH * 2;
+      }
+    }
+
+    newAllocationSize = CommonUtil.nextPowerOfTwo(newAllocationSize);
+    newAllocationSize = Math.min(newAllocationSize, (long) SIZE_WIDTH * Integer.MAX_VALUE);
+    assert newAllocationSize >= 1;
+
+    if (newAllocationSize > MAX_ALLOCATION_SIZE || newAllocationSize <= sizeBuffer.capacity()) {
+      throw new OversizedAllocationException("Unable to expand the buffer");
+    }
+
+    final ArrowBuf newBuf = allocator.buffer(newAllocationSize);
+    newBuf.setBytes(0, sizeBuffer, 0, currentBufferCapacity);
+    newBuf.setZero(currentBufferCapacity, newBuf.capacity() - currentBufferCapacity);
+    sizeBuffer.getReferenceManager().release(1);
+    sizeBuffer = newBuf;
+    sizeAllocationSizeInBytes = newAllocationSize;
   }
 
   @Override
@@ -101,6 +199,14 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
     return 0;
   }
 
+  protected int getOffsetBufferValueCapacity() {
+    return capAtMaxInt(offsetBuffer.capacity() / OFFSET_WIDTH);
+  }
+
+  protected int getSizeBufferValueCapacity() {
+    return capAtMaxInt(sizeBuffer.capacity() / SIZE_WIDTH);
+  }
+
   @Override
   public int getBufferSize() {
     return 0;
@@ -118,7 +224,11 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
 
   @Override
   public void clear() {
-
+    offsetBuffer = releaseBuffer(offsetBuffer);
+    sizeBuffer = releaseBuffer(sizeBuffer);
+    vector.clear();
+    valueCount = 0;
+    super.clear();
   }
 
   @Override
@@ -144,6 +254,37 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
   @Override
   public void setValueCount(int valueCount) {
 
+  }
+
+  /**
+   * Initialize the data vector (and execute callback) if it hasn't already been done,
+   * returns the data vector.
+   */
+  public <T extends ValueVector> AddOrGetResult<T> addOrGetVector(FieldType fieldType) {
+    boolean created = false;
+    if (vector instanceof NullVector) {
+      vector = fieldType.createNewSingleVector(defaultDataVectorName, allocator, repeatedCallBack);
+      // returned vector must have the same field
+      created = true;
+      if (repeatedCallBack != null &&
+              // not a schema change if changing from ZeroVector to ZeroVector
+              (fieldType.getType().getTypeID() != ArrowType.ArrowTypeID.Null)) {
+        repeatedCallBack.doWork();
+      }
+    }
+
+    if (vector.getField().getType().getTypeID() != fieldType.getType().getTypeID()) {
+      final String msg = String.format("Inner vector type mismatch. Requested type: [%s], actual type: [%s]",
+              fieldType.getType().getTypeID(), vector.getField().getType().getTypeID());
+      throw new SchemaChangeRuntimeException(msg);
+    }
+
+    return new AddOrGetResult<>((T) vector, created);
+  }
+
+  protected void replaceDataVector(FieldVector v) {
+    vector.clear();
+    vector = v;
   }
 
   public boolean isEmpty(int index) {

@@ -306,6 +306,8 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
         v = listVector.addOrGetVector(fieldType).getVector();
       } else if (fixedListVector != null) {
         v = fixedListVector.addOrGetVector(fieldType).getVector();
+      } else if (listViewVector != null) {
+        v = listViewVector.addOrGetVector(fieldType).getVector();
       } else {
         v = largeListVector.addOrGetVector(fieldType).getVector();
       }
@@ -348,6 +350,8 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
       unionVector = fixedListVector.promoteToUnion();
     } else if (largeListVector != null) {
       unionVector = largeListVector.promoteToUnion();
+    } else if (listViewVector != null) {
+      unionVector = listViewVector.promoteToUnion();
     }
     unionVector.addVector((FieldVector) tp.getTo());
     writer = new UnionWriter(unionVector, nullableStructWriterFactory);
