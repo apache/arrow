@@ -18,11 +18,13 @@
 package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.TestUtils.*;
+import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
 import static org.junit.Assert.*;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.Random;
 
@@ -592,6 +594,29 @@ public class TestVarCharViewVector {
       assertEquals(0, vector.getValueLength(12));
       assertEquals(0, vector.getValueLength(13));
       assertEquals(0, vector.getValueLength(14));
+    }
+  }
+
+  @Test
+  public void testGetBufferAddress1() {
+    try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
+
+      setVector(vector, STR1, STR2, STR3, STR4);
+      vector.setValueCount(15);
+
+      /* check the vector output */
+      assertArrayEquals(STR1, vector.get(0));
+      assertArrayEquals(STR2, vector.get(1));
+      assertArrayEquals(STR3, vector.get(2));
+      assertArrayEquals(STR4, vector.get(3));
+
+      List<ArrowBuf> buffers = vector.getFieldBuffers();
+      long bitAddress = vector.getValidityBufferAddress();
+      long dataAddress = vector.getDataBufferAddress();
+
+      assertEquals(3, buffers.size());
+      assertEquals(bitAddress, buffers.get(0).memoryAddress());
+      assertEquals(dataAddress, buffers.get(1).memoryAddress());
     }
   }
 
