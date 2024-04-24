@@ -328,6 +328,7 @@ public class TestValueVector {
         currentSize += i;
         vector.setSafe(i, new byte[i]);
       }
+
       assertEquals(currentSize, vector.sizeOfValueBuffer());
     }
   }
@@ -1303,6 +1304,7 @@ public class TestValueVector {
   @Test
   public void testGetTextRepeatedly() {
     try (final VarCharVector vector = new VarCharVector("myvector", allocator)) {
+
       ValueVectorDataPopulator.setVector(vector, STR1, STR2);
       vector.setValueCount(2);
 
@@ -1320,7 +1322,6 @@ public class TestValueVector {
 
     // Create a new value vector for 1024 integers.
     try (final VarBinaryVector vector = newVarBinaryVector(EMPTY_SCHEMA_PATH, allocator)) {
-
       vector.allocateNew(1024 * 10, 1024);
       vector.set(0, STR1);
       vector.set(1, STR2);
