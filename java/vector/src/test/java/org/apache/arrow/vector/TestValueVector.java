@@ -1320,6 +1320,7 @@ public class TestValueVector {
 
     // Create a new value vector for 1024 integers.
     try (final VarBinaryVector vector = newVarBinaryVector(EMPTY_SCHEMA_PATH, allocator)) {
+
       vector.allocateNew(1024 * 10, 1024);
       vector.set(0, STR1);
       vector.set(1, STR2);
@@ -1958,6 +1959,7 @@ public class TestValueVector {
     try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator);
          final VarCharVector vector2 =
              newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
+
       vector.setInitialCapacity(4095);
       vector.allocateNew();
       int capacity = vector.getValueCapacity();
