@@ -274,7 +274,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   }
 
   /**
-   * Reset the vector to initial state. Same as {@link #zeroVector()}.
+   * Reset the vector to initial state.
    * Note that this method doesn't release any memory.
    */
   @Override
@@ -1110,9 +1110,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
     final int dataLength = end - start;
     handleSafe(index, dataLength);
     BitVectorHelper.setValidityBit(validityBuffer, index, isSet);
-    byte[] data = new byte[dataLength];
-    buffer.getBytes(start, data, 0, dataLength);
-    setBytes(index, data, 0, dataLength);
+    setBytes(index, buffer, start, dataLength);
     lastSet = index;
   }
 
@@ -1128,9 +1126,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   public void set(int index, int start, int length, ArrowBuf buffer) {
     assert index >= 0;
     BitVectorHelper.setBit(validityBuffer, index);
-    byte[] data = new byte[length];
-    buffer.getBytes(start, data, 0, length);
-    setBytes(index, data, start, length);
+    setBytes(index, buffer, start, length);
     lastSet = index;
   }
 
@@ -1148,9 +1144,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
     assert index >= 0;
     handleSafe(index, length);
     BitVectorHelper.setBit(validityBuffer, index);
-    byte[] data = new byte[length];
-    buffer.getBytes(start, data, 0, length);
-    setBytes(index, data, start, length);
+    setBytes(index, buffer, start, length);
     lastSet = index;
   }
 
@@ -1222,6 +1216,45 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
       viewBuffer.setInt(writePosition, (int) currentBuf.writerIndex());
 
       currentBuf.setBytes(currentBuf.writerIndex(), value, start, length);
+      currentBuf.writerIndex(currentBuf.writerIndex() + length);
+    }
+  }
+
+  /**
+   * This method is used to create a view buffer for a variable width vector.
+   * Similar to {@link #setBytes(int index, byte[] value, int start, int length)}
+   *
+   * @param index The index at which the new value will be inserted.
+   * @param valueBuf The byte array that contains the data to be inserted.
+   * @param start The start index in the byte array from where the data for the new value begins.
+   * @param length The length of the data in the byte array that belongs to the new value.
+   */
+  protected final void setBytes(int index, ArrowBuf valueBuf, int start, int length) {
+    int writePosition = index * ELEMENT_SIZE;
+    if (length <= INLINE_SIZE) {
+      // allocate inline buffer
+      // set length
+      viewBuffer.setInt(writePosition, length);
+      writePosition += LENGTH_WIDTH;
+      // set data
+      viewBuffer.setBytes(writePosition, valueBuf, start, length);
+    } else {
+      // allocate data buffer
+      ArrowBuf currentBuf = allocateOrGetLastDataBuffer(length);
+
+      // set length
+      viewBuffer.setInt(writePosition, length);
+      writePosition += LENGTH_WIDTH;
+      // set prefix
+      viewBuffer.setBytes(writePosition, valueBuf, start, PREFIX_WIDTH);
+      writePosition += PREFIX_WIDTH;
+      // set buf id
+      viewBuffer.setInt(writePosition, dataBuffers.size() - 1);
+      writePosition += BUF_INDEX_WIDTH;
+      // set offset
+      viewBuffer.setInt(writePosition, (int) currentBuf.writerIndex());
+
+      currentBuf.setBytes(currentBuf.writerIndex(), valueBuf, start, length);
       currentBuf.writerIndex(currentBuf.writerIndex() + length);
     }
   }
