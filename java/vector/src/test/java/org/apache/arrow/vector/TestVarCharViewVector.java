@@ -528,6 +528,73 @@ public class TestVarCharViewVector {
     }
   }
 
+  @Test
+  public void testFillEmptiesUsage() {
+    try (final ViewVarCharVector vector = new ViewVarCharVector("myvector", allocator)) {
+      vector.allocateNew(1024 * 10, 1024);
+
+      setBytes(0, STR1, vector);
+      setBytes(1, STR2, vector);
+      setBytes(2, STR3, vector);
+      setBytes(3, STR4, vector);
+
+      /* Check current lastSet */
+      assertEquals(-1, vector.getLastSet());
+
+      /* Check the vector output */
+      assertArrayEquals(STR1, vector.get(0));
+      assertArrayEquals(STR2, vector.get(1));
+      assertArrayEquals(STR3, vector.get(2));
+      assertArrayEquals(STR4, vector.get(3));
+
+      vector.setLastSet(3);
+      /* fill empty byte arrays from index [4, 9] */
+      vector.fillEmpties(10);
+
+      /* Check current lastSet */
+      assertEquals(9, vector.getLastSet());
+
+      /* Check the vector output */
+      assertArrayEquals(STR1, vector.get(0));
+      assertArrayEquals(STR2, vector.get(1));
+      assertArrayEquals(STR3, vector.get(2));
+      assertArrayEquals(STR4, vector.get(3));
+      assertEquals(0, vector.getValueLength(4));
+      assertEquals(0, vector.getValueLength(5));
+      assertEquals(0, vector.getValueLength(6));
+      assertEquals(0, vector.getValueLength(7));
+      assertEquals(0, vector.getValueLength(8));
+      assertEquals(0, vector.getValueLength(9));
+
+      setBytes(10, STR1, vector);
+      setBytes(11, STR2, vector);
+
+      vector.setLastSet(11);
+      /* fill empty byte arrays from index [12, 14] */
+      vector.setValueCount(15);
+
+      /* Check current lastSet */
+      assertEquals(14, vector.getLastSet());
+
+      /* Check the vector output */
+      assertArrayEquals(STR1, vector.get(0));
+      assertArrayEquals(STR2, vector.get(1));
+      assertArrayEquals(STR3, vector.get(2));
+      assertArrayEquals(STR4, vector.get(3));
+      assertEquals(0, vector.getValueLength(4));
+      assertEquals(0, vector.getValueLength(5));
+      assertEquals(0, vector.getValueLength(6));
+      assertEquals(0, vector.getValueLength(7));
+      assertEquals(0, vector.getValueLength(8));
+      assertEquals(0, vector.getValueLength(9));
+      assertArrayEquals(STR1, vector.get(10));
+      assertArrayEquals(STR2, vector.get(11));
+      assertEquals(0, vector.getValueLength(12));
+      assertEquals(0, vector.getValueLength(13));
+      assertEquals(0, vector.getValueLength(14));
+    }
+  }
+
   private String generateRandomString(int length) {
     Random random = new Random();
     StringBuilder sb = new StringBuilder(length);
