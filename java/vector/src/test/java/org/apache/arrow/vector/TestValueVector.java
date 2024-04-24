@@ -1958,10 +1958,10 @@ public class TestValueVector {
          final VarCharVector vector2 =
              newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
       final int initialCapacity = 4095;
-      vector.setInitialCapacity(initialCapacity);
+      vector.setInitialCapacity(4095);
       vector.allocateNew();
       int capacity = vector.getValueCapacity();
-      assertTrue(capacity >= initialCapacity);
+      assertTrue(capacity >= 4095);
 
       for (int i = 0; i < capacity; i++) {
         if (i % 3 == 0) {
@@ -1987,12 +1987,10 @@ public class TestValueVector {
       /* set lesser initial capacity than actually needed
        * to trigger reallocs in copyFromSafe()
        */
-      final int totalBytes = 1024 * 10;
-      final int valueCount = 1024;
-      vector2.allocateNew(totalBytes, valueCount);
+      vector2.allocateNew(1024 * 10, 1024);
 
       int capacity2 = vector2.getValueCapacity();
-      assertTrue(capacity2 >= valueCount);
+      assertTrue(capacity2 >= 1024);
       assertTrue(capacity2 <= capacity);
 
       for (int i = 0; i < capacity; i++) {
