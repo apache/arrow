@@ -1798,13 +1798,11 @@ public class TestValueVector {
   @Test
   public void testReAllocVariableWidthVector() {
     try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
-      final int capacityLimit = 4095;
-      final int overLimitIndex = 200;
-      vector.setInitialCapacity(capacityLimit);
+      vector.setInitialCapacity(4095);
       vector.allocateNew();
 
       int initialCapacity = vector.getValueCapacity();
-      assertTrue(initialCapacity >= capacityLimit);
+      assertTrue(initialCapacity >= 4095);
 
       /* Put values in indexes that fall within the initial allocation */
       vector.setSafe(0, STR1, 0, STR1.length);
@@ -1814,18 +1812,18 @@ public class TestValueVector {
       assertEquals(initialCapacity, vector.getValueCapacity());
 
       /* Now try to put values in space that falls beyond the initial allocation */
-      vector.setSafe(initialCapacity + overLimitIndex, STR3, 0, STR3.length);
+      vector.setSafe(initialCapacity + 200, STR3, 0, STR3.length);
 
       /* Check valueCapacity is more than initial allocation */
       assertTrue(initialCapacity * 2 <= vector.getValueCapacity());
 
       assertArrayEquals(STR1, vector.get(0));
       assertArrayEquals(STR2, vector.get(initialCapacity - 1));
-      assertArrayEquals(STR3, vector.get(initialCapacity + overLimitIndex));
+      assertArrayEquals(STR3, vector.get(initialCapacity + 200));
 
       // Set the valueCount to be more than valueCapacity of current allocation. This is possible for ValueVectors
       // as we don't call setSafe for null values, but we do call setValueCount when the current batch is processed.
-      vector.setValueCount(vector.getValueCapacity() + overLimitIndex);
+      vector.setValueCount(vector.getValueCapacity() + 200);
     }
   }
 
