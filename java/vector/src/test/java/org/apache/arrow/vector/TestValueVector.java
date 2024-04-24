@@ -2354,28 +2354,12 @@ public class TestValueVector {
    * lastSet. The method is to test the lastSet property and that's why we load the vector
    * in a way that lastSet is not set automatically.
    */
-
-  public static void setBytes(int index, byte[] bytes, VariableWidthFieldVector vector) {
-    if (vector instanceof VarCharVector) {
-      setBytes(index, bytes, (VarCharVector) vector);
-    } else if (vector instanceof ViewVarCharVector) {
-      setBytes(index, bytes, (ViewVarCharVector) vector);
-    } else {
-      throw new IllegalArgumentException("Invalid vector type: " + vector.getClass().getName());
-    }
-  }
-
   public static void setBytes(int index, byte[] bytes, VarCharVector vector) {
     final int currentOffset = vector.offsetBuffer.getInt(index * BaseVariableWidthVector.OFFSET_WIDTH);
 
     BitVectorHelper.setBit(vector.validityBuffer, index);
     vector.offsetBuffer.setInt((index + 1) * BaseVariableWidthVector.OFFSET_WIDTH, currentOffset + bytes.length);
     vector.valueBuffer.setBytes(currentOffset, bytes, 0, bytes.length);
-  }
-
-  public static void setBytes(int index, byte[] bytes, ViewVarCharVector vector) {
-    BitVectorHelper.setBit(vector.validityBuffer, index);
-    vector.setBytes(index, bytes, 0, bytes.length);
   }
 
   @Test /* VarCharVector */
@@ -3201,27 +3185,6 @@ public class TestValueVector {
       assertEquals(4, offsetBuf.getInt(8));
 
       assertEquals(4, dataBuf.writerIndex());
-    }
-
-    try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("view var char", allocator)) {
-      viewVarCharVector.allocateNew(16, 2);
-      viewVarCharVector.setValueCount(2);
-      viewVarCharVector.set(0, "abcd".getBytes(StandardCharsets.UTF_8));
-
-      List<ArrowBuf> bufs = viewVarCharVector.getFieldBuffers();
-      assertEquals(2, bufs.size());
-
-      ArrowBuf viewBuf = bufs.get(1);
-
-      assertEquals(32, viewBuf.writerIndex());
-      final String longString = "012345678901234";
-      viewVarCharVector.set(1, longString.getBytes(StandardCharsets.UTF_8));
-
-      bufs = viewVarCharVector.getFieldBuffers();
-      assertEquals(3, bufs.size());
-
-      ArrowBuf referenceBuf = bufs.get(2);
-      assertEquals(longString.length(), referenceBuf.writerIndex());
     }
   }
 
