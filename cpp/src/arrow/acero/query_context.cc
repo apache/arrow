@@ -30,7 +30,7 @@ int64_t GetTempStackSizeFromEnvVar() {
   if (!maybe_env_value.ok()) {
     return kDefaultTempStackSize;
   }
-  auto env_value = *std::move(maybe_env_value);
+  std::string env_value = std::move(maybe_env_value).ValueUnsafe();
   if (env_value.empty()) {
     return kDefaultTempStackSize;
   }
@@ -81,8 +81,8 @@ size_t QueryContext::GetThreadIndex() { return thread_indexer_(); }
 size_t QueryContext::max_concurrency() const { return thread_indexer_.Capacity(); }
 
 Result<util::TempVectorStack*> QueryContext::GetTempStack(size_t thread_index) {
-  static const int64_t temp_stack_size = internal::GetTempStackSizeFromEnvVar();
-  if (!tld_[thread_index].is_init) {
+  if (ARROW_PREDICT_FALSE(!tld_[thread_index].is_init)) {
+    static const int64_t temp_stack_size = internal::GetTempStackSizeFromEnvVar();
     RETURN_NOT_OK(tld_[thread_index].stack.Init(memory_pool(), temp_stack_size));
     tld_[thread_index].is_init = true;
   }
