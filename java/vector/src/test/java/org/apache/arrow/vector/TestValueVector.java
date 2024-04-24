@@ -1303,6 +1303,7 @@ public class TestValueVector {
   @Test
   public void testGetTextRepeatedly() {
     try (final VarCharVector vector = new VarCharVector("myvector", allocator)) {
+      
       ValueVectorDataPopulator.setVector(vector, STR1, STR2);
       vector.setValueCount(2);
 
