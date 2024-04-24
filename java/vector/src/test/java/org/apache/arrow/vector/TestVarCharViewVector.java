@@ -114,7 +114,7 @@ public class TestVarCharViewVector {
   }
 
   @Test
-  public void testReferenceAllocationInSameBuffer() {
+  public void testDataBufferBasedAllocationInSameBuffer() {
     try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator)) {
       viewVarCharVector.allocateNew(48, 4);
       final int valueCount = 4;
@@ -158,7 +158,7 @@ public class TestVarCharViewVector {
   }
 
   @Test
-  public void testReferenceAllocationInOtherBuffer() {
+  public void testDataBufferBasedAllocationInOtherBuffer() {
     try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator)) {
       viewVarCharVector.allocateNew(48, 4);
       final int valueCount = 4;
@@ -290,7 +290,6 @@ public class TestVarCharViewVector {
   public void testNullableVarType1() {
 
     // Create a new value vector for 1024 integers.
-    // VarCharVector
     try (final ViewVarCharVector vector = newViewVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
       vector.allocateNew(1024 * 10, 1024);
 
