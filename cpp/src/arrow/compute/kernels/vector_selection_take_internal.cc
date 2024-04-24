@@ -38,6 +38,7 @@
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/fixed_width_internal.h"
+#include "arrow/util/gather_internal.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/ree_util.h"
 
@@ -347,108 +348,28 @@ struct PrimitiveTakeImpl {
   static void Exec(const ArraySpan& values, const ArraySpan& indices,
                    ArrayData* out_arr) {
     DCHECK_EQ(util::FixedWidthInBytes(*values.type), kValueWidth);
-    const auto* values_data = util::OffsetPointerOfFixedWidthValues(values);
-    const uint8_t* values_is_valid = values.buffers[0].data;
-    auto values_offset = values.offset;
-
-    const auto* indices_data = indices.GetValues<IndexCType>(1);
-    const uint8_t* indices_is_valid = indices.buffers[0].data;
-    auto indices_offset = indices.offset;
+    const auto* src = util::OffsetPointerOfFixedWidthValues(values);
+    auto* idx = indices.GetValues<IndexCType>(1);
 
     DCHECK_EQ(out_arr->offset, 0);
     auto* out = util::MutableFixedWidthValuesPointer(out_arr);
     auto out_is_valid = out_arr->buffers[0]->mutable_data();
 
-    // If either the values or indices have nulls, we preemptively zero out the
-    // out validity bitmap so that we don't have to use ClearBit in each
-    // iteration for nulls.
-    if (values.null_count != 0 || indices.null_count != 0) {
-      bit_util::SetBitsTo(out_is_valid, 0, indices.length, false);
-    }
-
-    auto WriteValue = [&](int64_t position) {
-      memcpy(out + position * kValueWidth,
-             values_data + indices_data[position] * kValueWidth, kValueWidth);
-    };
-
-    auto WriteZero = [&](int64_t position) {
-      memset(out + position * kValueWidth, 0, kValueWidth);
-    };
-
-    auto WriteZeroSegment = [&](int64_t position, int64_t length) {
-      memset(out + position * kValueWidth, 0, kValueWidth * length);
-    };
-
-    OptionalBitBlockCounter indices_bit_counter(indices_is_valid, indices_offset,
-                                                indices.length);
-    int64_t position = 0;
     int64_t valid_count = 0;
-    while (position < indices.length) {
-      BitBlockCount block = indices_bit_counter.NextBlock();
-      if (values.null_count == 0) {
-        // Values are never null, so things are easier
-        valid_count += block.popcount;
-        if (block.popcount == block.length) {
-          // Fastest path: neither values nor index nulls
-          bit_util::SetBitsTo(out_is_valid, position, block.length, true);
-          for (int64_t i = 0; i < block.length; ++i) {
-            WriteValue(position);
-            ++position;
-          }
-        } else if (block.popcount > 0) {
-          // Slow path: some indices but not all are null
-          for (int64_t i = 0; i < block.length; ++i) {
-            if (bit_util::GetBit(indices_is_valid, indices_offset + position)) {
-              // index is not null
-              bit_util::SetBit(out_is_valid, position);
-              WriteValue(position);
-            } else {
-              WriteZero(position);
-            }
-            ++position;
-          }
-        } else {
-          WriteZeroSegment(position, block.length);
-          position += block.length;
-        }
-      } else {
-        // Values have nulls, so we must do random access into the values bitmap
-        if (block.popcount == block.length) {
-          // Faster path: indices are not null but values may be
-          for (int64_t i = 0; i < block.length; ++i) {
-            if (bit_util::GetBit(values_is_valid,
-                                 values_offset + indices_data[position])) {
-              // value is not null
-              WriteValue(position);
-              bit_util::SetBit(out_is_valid, position);
-              ++valid_count;
-            } else {
-              WriteZero(position);
-            }
-            ++position;
-          }
-        } else if (block.popcount > 0) {
-          // Slow path: some but not all indices are null. Since we are doing
-          // random access in general we have to check the value nullness one by
-          // one.
-          for (int64_t i = 0; i < block.length; ++i) {
-            if (bit_util::GetBit(indices_is_valid, indices_offset + position) &&
-                bit_util::GetBit(values_is_valid,
-                                 values_offset + indices_data[position])) {
-              // index is not null && value is not null
-              WriteValue(position);
-              bit_util::SetBit(out_is_valid, position);
-              ++valid_count;
-            } else {
-              WriteZero(position);
-            }
-            ++position;
-          }
-        } else {
-          WriteZeroSegment(position, block.length);
-          position += block.length;
-        }
-      }
+    arrow::internal::Gather<kValueWidth, IndexCType> gather{
+        /*src_length=*/values.length, src,
+        /*idx_length=*/indices.length, idx, out};
+    if (!values.MayHaveNulls() && !indices.MayHaveNulls()) {
+      // See TODO in PrimitiveTakeExec about skipping allocation of validity bitmaps
+      bit_util::SetBitsTo(out_is_valid, 0, out_arr->length, true);
+      valid_count = gather.Execute();
+    } else {
+      // If either src or idx have nulls, we preemptively zero out the
+      // out validity bitmap so that we don't have to use ClearBit in each
+      // iteration for nulls.
+      bit_util::SetBitsTo(out_is_valid, 0, out_arr->length, false);
+      valid_count =
+          gather.Execute(/*src_validity=*/values, /*idx_validity=*/indices, out_is_valid);
     }
     out_arr->null_count = out_arr->length - valid_count;
   }
