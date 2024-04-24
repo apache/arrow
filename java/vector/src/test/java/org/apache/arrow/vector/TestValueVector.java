@@ -2099,7 +2099,7 @@ public class TestValueVector {
       assertEquals(40, vector.offsetBuffer.getInt(17 * BaseVariableWidthVector.OFFSET_WIDTH));
       assertEquals(40, vector.offsetBuffer.getInt(18 * BaseVariableWidthVector.OFFSET_WIDTH));
       assertEquals(40, vector.offsetBuffer.getInt(19 * BaseVariableWidthVector.OFFSET_WIDTH));
-
+      
       vector.set(19, STR6);
       assertArrayEquals(STR6, vector.get(19));
       assertEquals(40, vector.offsetBuffer.getInt(19 * BaseVariableWidthVector.OFFSET_WIDTH));
@@ -2625,7 +2625,6 @@ public class TestValueVector {
           vec2.set(i, sampleData[i].getBytes(StandardCharsets.UTF_8));
         } else {
           vec1.setNull(i);
-
           vec2.setNull(i);
         }
       }
@@ -3172,6 +3171,7 @@ public class TestValueVector {
     try (final VarCharVector varCharVector = new VarCharVector("var char", allocator)) {
       varCharVector.allocateNew(5, 2);
       varCharVector.setValueCount(2);
+
       varCharVector.set(0, "abcd".getBytes(StandardCharsets.UTF_8));
 
       List<ArrowBuf> bufs = varCharVector.getFieldBuffers();
