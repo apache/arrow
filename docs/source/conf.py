@@ -595,6 +595,8 @@ mermaid_output_format = 'svg'
 
 mermaid_output_format = 'svg'
 
+mermaid_cmd = os.path.abspath(os.path.join(os.getcwd(), "/../mermaid.sh"))
+
 def setup(app):
     # Use a config value to indicate whether CUDA API docs can be generated.
     # This will also rebuild appropriately when the value changes.
