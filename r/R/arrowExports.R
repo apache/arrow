@@ -1352,10 +1352,6 @@ fs___FileSystem__type_name <- function(file_system) {
   .Call(`_arrow_fs___FileSystem__type_name`, file_system)
 }
 
-fs___LocalFileSystem__create <- function() {
-  .Call(`_arrow_fs___LocalFileSystem__create`)
-}
-
 fs___SubTreeFileSystem__create <- function(base_path, base_fs) {
   .Call(`_arrow_fs___SubTreeFileSystem__create`, base_path, base_fs)
 }
