@@ -1493,7 +1493,7 @@ class ColumnWriterTestSizeEstimated : public ::testing::Test {
     node_ = std::static_pointer_cast<GroupNode>(
         GroupNode::Make("schema", Repetition::REQUIRED,
                         {
-                            schema::Int32("required", Repetition::REQUIRED),
+                            schema::Float("required", Repetition::REQUIRED),
                         }));
     std::vector<schema::NodePtr> fields;
     schema_descriptor_ = std::make_unique<SchemaDescriptor>();
@@ -1538,7 +1538,7 @@ TEST_F(ColumnWriterTestSizeEstimated, NonBuffered) {
   auto required_writer =
       this->BuildWriter(Compression::UNCOMPRESSED, /* buffered*/ false);
   // Write half page, page will not be flushed after loop
-  for (int32_t i = 0; i < 127; i++) {
+  for (int32_t i = 0; i < 50; i++) {
     required_writer->WriteBatch(1, nullptr, nullptr, &i);
   }
   // Page not flushed, check size
@@ -1546,16 +1546,13 @@ TEST_F(ColumnWriterTestSizeEstimated, NonBuffered) {
   EXPECT_EQ(0, required_writer->total_compressed_bytes());  // unbuffered
   EXPECT_EQ(0, required_writer->total_compressed_bytes_written());
   // Write half page, page be flushed after loop
-  for (int32_t i = 0; i < 127; i++) {
+  for (int32_t i = 0; i < 50; i++) {
     required_writer->WriteBatch(1, nullptr, nullptr, &i);
   }
   // Page flushed, check size
-  /* FIXME: For whatever reason, despite being flushed, this does not actually
-   * cause the data page to be written when the encoder is DELTA_BINARY_PACKED.
   EXPECT_LT(400, required_writer->total_bytes_written());
   EXPECT_EQ(0, required_writer->total_compressed_bytes());
   EXPECT_LT(400, required_writer->total_compressed_bytes_written());
-  */
 
   // Test after closed
   int64_t written_size = required_writer->Close();
@@ -1568,7 +1565,7 @@ TEST_F(ColumnWriterTestSizeEstimated, NonBuffered) {
 TEST_F(ColumnWriterTestSizeEstimated, Buffered) {
   auto required_writer = this->BuildWriter(Compression::UNCOMPRESSED, /* buffered*/ true);
   // Write half page, page will not be flushed after loop
-  for (int32_t i = 0; i < 127; i++) {
+  for (int32_t i = 0; i < 50; i++) {
     required_writer->WriteBatch(1, nullptr, nullptr, &i);
   }
   // Page not flushed, check size
@@ -1576,16 +1573,13 @@ TEST_F(ColumnWriterTestSizeEstimated, Buffered) {
   EXPECT_EQ(0, required_writer->total_compressed_bytes());  // buffered
   EXPECT_EQ(0, required_writer->total_compressed_bytes_written());
   // Write half page, page be flushed after loop
-  for (int32_t i = 0; i < 127; i++) {
+  for (int32_t i = 0; i < 50; i++) {
     required_writer->WriteBatch(1, nullptr, nullptr, &i);
   }
   // Page flushed, check size
-  /* FIXME: For whatever reason, despite being flushed, this does not actually
-   * cause the data page to be written when the encoder is DELTA_BINARY_PACKED.
   EXPECT_LT(400, required_writer->total_bytes_written());
   EXPECT_EQ(0, required_writer->total_compressed_bytes());
   EXPECT_LT(400, required_writer->total_compressed_bytes_written());
-  */
 
   // Test after closed
   int64_t written_size = required_writer->Close();
@@ -1612,12 +1606,9 @@ TEST_F(ColumnWriterTestSizeEstimated, NonBufferedDictionary) {
     required_writer->WriteBatch(1, nullptr, nullptr, &dict_value);
   }
   // Page flushed, check size
-  /* FIXME: For whatever reason, despite being flushed, this does not actually
-   * cause the data page to be written when the encoder is DELTA_BINARY_PACKED.
   EXPECT_EQ(0, required_writer->total_bytes_written());
   EXPECT_LT(400, required_writer->total_compressed_bytes());
   EXPECT_EQ(0, required_writer->total_compressed_bytes_written());
-  */
 
   required_writer->Close();
 
