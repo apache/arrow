@@ -2624,35 +2624,6 @@ public class TestValueVector {
     }
   }
 
-  private void testGetPointerVariableWidthHelper(VariableWidthFieldVector vec1, VariableWidthFieldVector vec2,
-      String[] sampleData, int vectorLength) {
-    vec1.allocateNew((long) sampleData.length * vectorLength, sampleData.length);
-    vec2.allocateNew((long) sampleData.length * vectorLength, sampleData.length);
-
-    for (int i = 0; i < sampleData.length; i++) {
-      String str = sampleData[i];
-      if (str != null) {
-        vec1.set(i, sampleData[i].getBytes(StandardCharsets.UTF_8));
-        vec2.set(i, sampleData[i].getBytes(StandardCharsets.UTF_8));
-      } else {
-        vec1.setNull(i);
-
-        vec2.setNull(i);
-      }
-    }
-
-    ArrowBufPointer ptr1 = new ArrowBufPointer();
-    ArrowBufPointer ptr2 = new ArrowBufPointer();
-
-    for (int i = 0; i < sampleData.length; i++) {
-      vec1.getDataPointer(i, ptr1);
-      vec2.getDataPointer(i, ptr2);
-
-      assertTrue(ptr1.equals(ptr2));
-      assertTrue(ptr2.equals(ptr2));
-    }
-  }
-
   @Test
   public void testGetPointerVariableWidth() {
     final String[] sampleData = new String[]{
@@ -2660,23 +2631,32 @@ public class TestValueVector {
 
     try (VarCharVector vec1 = new VarCharVector("vec1", allocator);
          VarCharVector vec2 = new VarCharVector("vec2", allocator)) {
-      testGetPointerVariableWidthHelper(vec1, vec2, sampleData, 10);
-    }
 
-    try (ViewVarCharVector vec1 = new ViewVarCharVector("vec1", allocator);
-        ViewVarCharVector vec2 = new ViewVarCharVector("vec2", allocator)) {
-      testGetPointerVariableWidthHelper(vec1, vec2, sampleData, /*required length for record in ViewVarCharVector*/16);
-    }
-  }
+      vec1.allocateNew((long) sampleData.length * 10, sampleData.length);
+      vec2.allocateNew((long) sampleData.length * 10, sampleData.length);
 
-  @Test
-  public void testGetPointerVariableWidthViews() {
-    final String[] sampleData = new String[]{
-        "abc", "1234567890123", "def", null, "hello world java", "aaaaa", "world", "2019", null, "0717"};
+      for (int i = 0; i < sampleData.length; i++) {
+        String str = sampleData[i];
+        if (str != null) {
+          vec1.set(i, sampleData[i].getBytes(StandardCharsets.UTF_8));
+          vec2.set(i, sampleData[i].getBytes(StandardCharsets.UTF_8));
+        } else {
+          vec1.setNull(i);
 
-    try (ViewVarCharVector vec1 = new ViewVarCharVector("vec1", allocator);
-        ViewVarCharVector vec2 = new ViewVarCharVector("vec2", allocator)) {
-      testGetPointerVariableWidthHelper(vec1, vec2, sampleData, /*required length for record in ViewVarCharVector*/16);
+          vec2.setNull(i);
+        }
+      }
+
+      ArrowBufPointer ptr1 = new ArrowBufPointer();
+      ArrowBufPointer ptr2 = new ArrowBufPointer();
+
+      for (int i = 0; i < sampleData.length; i++) {
+        vec1.getDataPointer(i, ptr1);
+        vec2.getDataPointer(i, ptr2);
+
+        assertTrue(ptr1.equals(ptr2));
+        assertTrue(ptr2.equals(ptr2));
+      }
     }
   }
 

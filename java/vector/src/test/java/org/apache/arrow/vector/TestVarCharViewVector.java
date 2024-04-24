@@ -38,6 +38,7 @@ import java.util.Random;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
 import org.apache.arrow.vector.types.Types;
@@ -655,6 +656,42 @@ public class TestVarCharViewVector {
         // replicating a new buffer allocation process when a new buffer is added to the
         // data buffer when inserting an element with length > 12
         assertEquals(tempBuf.capacity(), dataBuf.capacity());
+      }
+    }
+  }
+
+  @Test
+  public void testGetPointerVariableWidthViews() {
+    final String[] sampleData = new String[]{
+        "abc", "1234567890123", "def", null, "hello world java", "aaaaa", "world", "2019", null, "0717"};
+
+    try (ViewVarCharVector vec1 = new ViewVarCharVector("vec1", allocator);
+        ViewVarCharVector vec2 = new ViewVarCharVector("vec2", allocator)) {
+
+      vec1.allocateNew((long) sampleData.length * 16, sampleData.length);
+      vec2.allocateNew((long) sampleData.length * 16, sampleData.length);
+
+      for (int i = 0; i < sampleData.length; i++) {
+        String str = sampleData[i];
+        if (str != null) {
+          vec1.set(i, sampleData[i].getBytes(StandardCharsets.UTF_8));
+          vec2.set(i, sampleData[i].getBytes(StandardCharsets.UTF_8));
+        } else {
+          vec1.setNull(i);
+
+          vec2.setNull(i);
+        }
+      }
+
+      ArrowBufPointer ptr1 = new ArrowBufPointer();
+      ArrowBufPointer ptr2 = new ArrowBufPointer();
+
+      for (int i = 0; i < sampleData.length; i++) {
+        vec1.getDataPointer(i, ptr1);
+        vec2.getDataPointer(i, ptr2);
+
+        assertTrue(ptr1.equals(ptr2));
+        assertTrue(ptr2.equals(ptr2));
       }
     }
   }
