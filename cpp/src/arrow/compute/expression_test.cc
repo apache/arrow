@@ -992,32 +992,6 @@ TEST(Expression, ExecuteCallWithDecimalIfElseOps) {
       {"a1": "45.3", "a2": -30, "a3": "0.00"}
     ])"));
   }
-
-  // choose
-  {
-    // decimal128(3,3), decimal256(2,1) --> output_type: decimal256(5, 3)
-    ExpectExecute(
-        call("coalesce", {field_ref("idx"), field_ref("a1"), field_ref("a2")}),
-        ArrayFromJSON(struct_({field("idx", int64()), field("a1", decimal128(3, 3)),
-                               field("a2", decimal128(2, 1))}),
-                      R"([
-      {"idx": 0, "a1": "1.123", "a2": "2.3"},
-      {"idx": 1, "a1": null, "a2": "-3.3"},
-      {"idx": 0, "a1": "-1.230", "a2": "0.0"},
-      {"idx": null, "a1": "-1.230", "a2": "0.0"}
-    ])"));
-
-    // decimal128(3,3), float32() --> output_type: decimal128(3, 3)
-    ExpectExecute(
-        call("coalesce", {field_ref("idx"), field_ref("a1"), field_ref("a2")}),
-        ArrayFromJSON(struct_({field("idx", int64()), field("a1", decimal128(3, 3)),
-                               field("a2", float32())}),
-                      R"([
-      {"idx": null, "a1": "1.123", "a2": 2.3},
-      {"idx": 1, "a1": null, "a2": -3.3},
-      {"idx": 0, "a1": "-1.230", "a2": 0.0}
-    ])"));
-  }
 }
 
 TEST(Expression, ExecuteCallWithNoArguments) {

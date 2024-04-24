@@ -2773,10 +2773,9 @@ void AddPrimitiveCoalesceKernels(const std::shared_ptr<ScalarFunction>& scalar_f
 
 void AddChooseKernel(const std::shared_ptr<ScalarFunction>& scalar_function,
                      detail::GetTypeId get_id, ArrayKernelExec exec) {
-  ScalarKernel kernel(
-      KernelSignature::Make({Type::INT64, InputType(get_id.id)}, ResolveOutputType,
-                            /*is_varargs=*/true),
-      exec);
+  ScalarKernel kernel(KernelSignature::Make({Type::INT64, InputType(get_id.id)}, LastType,
+                                            /*is_varargs=*/true),
+                      exec);
   kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
   kernel.mem_allocation = MemAllocation::PREALLOCATE;
   kernel.can_write_into_slices = is_fixed_width(get_id.id);
