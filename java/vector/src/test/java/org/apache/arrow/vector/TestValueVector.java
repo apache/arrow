@@ -1391,8 +1391,7 @@ public class TestValueVector {
       assertSame(oldBuffer, reusableByteArray.getBuffer());
     }
   }
-
-
+  
   /*
    * generic tests
    *
