@@ -2047,7 +2047,7 @@ public class TestValueVector {
       /*
        * If we don't do setLastSe(5) before setValueCount(), then the latter will corrupt
        * the value vector by filling in all positions [0,valuecount-1] will empty byte arrays.
-       * Run the test by commenting out next line, and we should see incorrect vector output.
+       * Run the test by commenting out next line and we should see incorrect vector output.
        */
       vector.setLastSet(5);
       vector.setValueCount(20);
@@ -2100,8 +2100,8 @@ public class TestValueVector {
       assertEquals(40, vector.offsetBuffer.getInt(19 * BaseVariableWidthVector.OFFSET_WIDTH));
       vector.set(19, STR6);
       assertArrayEquals(STR6, vector.get(19));
-      assertEquals(40, vector.getOffsetBuffer().getInt(19 * BaseVariableWidthVector.OFFSET_WIDTH));
-      assertEquals(46, vector.getOffsetBuffer().getInt(20 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(40, vector.offsetBuffer.getInt(19 * BaseVariableWidthVector.OFFSET_WIDTH));
+      assertEquals(46, vector.offsetBuffer.getInt(20 * BaseVariableWidthVector.OFFSET_WIDTH));
     }
   }
 
@@ -2236,40 +2236,40 @@ public class TestValueVector {
       assertEquals(0, vector.getValueLength(13));
       assertEquals(0, vector.getValueLength(14));
       assertEquals(0,
-              vector.getOffsetBuffer().getInt(0 * BaseVariableWidthVector.OFFSET_WIDTH));
+              vector.offsetBuffer.getInt(0 * BaseVariableWidthVector.OFFSET_WIDTH));
       assertEquals(6,
-              vector.getOffsetBuffer().getInt(1 * BaseVariableWidthVector.OFFSET_WIDTH));
+              vector.offsetBuffer.getInt(1 * BaseVariableWidthVector.OFFSET_WIDTH));
       assertEquals(16,
-              vector.getOffsetBuffer().getInt(2 * BaseVariableWidthVector.OFFSET_WIDTH));
+              vector.offsetBuffer.getInt(2 * BaseVariableWidthVector.OFFSET_WIDTH));
       assertEquals(21,
-              vector.getOffsetBuffer().getInt(3 * BaseVariableWidthVector.OFFSET_WIDTH));
+              vector.offsetBuffer.getInt(3 * BaseVariableWidthVector.OFFSET_WIDTH));
       assertEquals(30,
-              vector.getOffsetBuffer().getInt(4 * BaseVariableWidthVector.OFFSET_WIDTH));
+              vector.offsetBuffer.getInt(4 * BaseVariableWidthVector.OFFSET_WIDTH));
       assertEquals(34,
-              vector.getOffsetBuffer().getInt(5 * BaseVariableWidthVector.OFFSET_WIDTH));
+              vector.offsetBuffer.getInt(5 * BaseVariableWidthVector.OFFSET_WIDTH));
 
       assertEquals(40,
-              vector.getOffsetBuffer().getInt(6 * BaseVariableWidthVector.OFFSET_WIDTH));
+              vector.offsetBuffer.getInt(6 * BaseVariableWidthVector.OFFSET_WIDTH));
       assertEquals(40,
-              vector.getOffsetBuffer().getInt(7 * BaseVariableWidthVector.OFFSET_WIDTH));
+              vector.offsetBuffer.getInt(7 * BaseVariableWidthVector.OFFSET_WIDTH));
       assertEquals(40,
-              vector.getOffsetBuffer().getInt(8 * BaseVariableWidthVector.OFFSET_WIDTH));
+              vector.offsetBuffer.getInt(8 * BaseVariableWidthVector.OFFSET_WIDTH));
       assertEquals(40,
-              vector.getOffsetBuffer().getInt(9 * BaseVariableWidthVector.OFFSET_WIDTH));
+              vector.offsetBuffer.getInt(9 * BaseVariableWidthVector.OFFSET_WIDTH));
       assertEquals(40,
-              vector.getOffsetBuffer().getInt(10 * BaseVariableWidthVector.OFFSET_WIDTH));
+              vector.offsetBuffer.getInt(10 * BaseVariableWidthVector.OFFSET_WIDTH));
 
       assertEquals(46,
-              vector.getOffsetBuffer().getInt(11 * BaseVariableWidthVector.OFFSET_WIDTH));
+              vector.offsetBuffer.getInt(11 * BaseVariableWidthVector.OFFSET_WIDTH));
       assertEquals(56,
-              vector.getOffsetBuffer().getInt(12 * BaseVariableWidthVector.OFFSET_WIDTH));
+              vector.offsetBuffer.getInt(12 * BaseVariableWidthVector.OFFSET_WIDTH));
 
       assertEquals(56,
-              vector.getOffsetBuffer().getInt(13 * BaseVariableWidthVector.OFFSET_WIDTH));
+              vector.offsetBuffer.getInt(13 * BaseVariableWidthVector.OFFSET_WIDTH));
       assertEquals(56,
-              vector.getOffsetBuffer().getInt(14 * BaseVariableWidthVector.OFFSET_WIDTH));
+              vector.offsetBuffer.getInt(14 * BaseVariableWidthVector.OFFSET_WIDTH));
       assertEquals(56,
-              vector.getOffsetBuffer().getInt(15 * BaseVariableWidthVector.OFFSET_WIDTH));
+              vector.offsetBuffer.getInt(15 * BaseVariableWidthVector.OFFSET_WIDTH));
     }
   }
 
