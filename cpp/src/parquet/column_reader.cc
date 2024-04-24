@@ -1686,14 +1686,14 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     // DelimitRecords. In this case we must continue until we find
     // another record start or exhausting the ColumnChunk
     if (at_record_start_) {
-      values_to_read += def_levels[levels_position_] == 0;
+      values_to_read += def_levels[levels_position_] == this->max_def_level_;
       ++levels_position_;
       // We have decided to consume the level at this position; therefore we
       // must advance until we find another record boundary
       at_record_start_ = false;
     }
 
-    // Count logical records and number of values to read
+    // Count logical records and number of non-null values to read
     ARROW_DCHECK(!at_record_start_);
     while (levels_position_ < levels_written_) {
       int64_t stride =
