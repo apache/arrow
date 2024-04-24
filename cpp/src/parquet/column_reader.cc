@@ -1680,10 +1680,16 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     const int16_t* const rep_levels = this->rep_levels();
     const int16_t* const def_levels = this->def_levels();
     ARROW_DCHECK_GT(this->max_rep_level_, 0);
-    ARROW_DCHECK_LT(levels_position_, levels_written_);
+    ARROW_CHECK_LT(levels_position_, levels_written_);
+    // If at_record_start_ is true, we are seeing the start of a record
+    // for the second time, such as after repeated calls to
+    // DelimitRecords. In this case we must continue until we find
+    // another record start or exhausting the ColumnChunk
     if (at_record_start_) {
       values_to_read += def_levels[levels_position_] == 0;
       ++levels_position_;
+      // We have decided to consume the level at this position; therefore we
+      // must advance until we find another record boundary
       at_record_start_ = false;
     }
 
@@ -1698,6 +1704,14 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       }
       levels_position_ += stride;
       if (records_read == num_records) {
+        // Last rep_level reaches the boundary
+        ARROW_CHECK_EQ(rep_levels[levels_position_ - 1], 0);
+        // We've found the number of records we were looking for. Set
+        // at_record_start_ to true and break
+        at_record_start_ = true;
+        // Remove last value if we have reaches the end of the record
+        levels_position_ = levels_position_ - 1;
+        values_to_read -= def_levels[levels_position_] == this->max_def_level_;
         break;
       }
     }
