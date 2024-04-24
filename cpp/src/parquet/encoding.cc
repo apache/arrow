@@ -4055,8 +4055,7 @@ std::unique_ptr<Decoder> MakeDictDecoder(Type::type type_num,
 }
 
 }  // namespace detail
-   //
-   //
+
 bool IsParquetVersionAtLeast2_0(ParquetVersion::type parquet_version) {
   switch (parquet_version) {
     case ParquetVersion::PARQUET_1_0:
