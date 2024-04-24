@@ -1381,13 +1381,13 @@ public class TestValueVector {
       vector.read(0, reusableByteArray);
       assertArrayEquals(str.getBytes(StandardCharsets.UTF_8),
 Arrays.copyOfRange(reusableByteArray.getBuffer(),
-         0, (int) reusableByteArray.getLength()));
+          0, (int) reusableByteArray.getLength()));
       byte[] oldBuffer = reusableByteArray.getBuffer();
 
       vector.read(1, reusableByteArray);
       assertArrayEquals(str2.getBytes(StandardCharsets.UTF_8),
 Arrays.copyOfRange(reusableByteArray.getBuffer(),
-         0, (int) reusableByteArray.getLength()));
+          0, (int) reusableByteArray.getLength()));
 
       // There should not have been any reallocation since the newer value is smaller in length.
       assertSame(oldBuffer, reusableByteArray.getBuffer());
