@@ -1303,7 +1303,6 @@ public class TestValueVector {
   @Test
   public void testGetTextRepeatedly() {
     try (final VarCharVector vector = new VarCharVector("myvector", allocator)) {
-      
       ValueVectorDataPopulator.setVector(vector, STR1, STR2);
       vector.setValueCount(2);
 
@@ -1377,15 +1376,13 @@ public class TestValueVector {
       // verify results
       ReusableByteArray reusableByteArray = new ReusableByteArray();
       vector.read(0, reusableByteArray);
-      assertArrayEquals(
-          str.getBytes(StandardCharsets.UTF_8),
+      assertArrayEquals(str.getBytes(StandardCharsets.UTF_8),
           Arrays.copyOfRange(
               reusableByteArray.getBuffer(), 0, (int) reusableByteArray.getLength()));
       byte[] oldBuffer = reusableByteArray.getBuffer();
 
       vector.read(1, reusableByteArray);
-      assertArrayEquals(
-          str2.getBytes(StandardCharsets.UTF_8),
+      assertArrayEquals(str2.getBytes(StandardCharsets.UTF_8),
           Arrays.copyOfRange(
               reusableByteArray.getBuffer(), 0, (int) reusableByteArray.getLength()));
 
