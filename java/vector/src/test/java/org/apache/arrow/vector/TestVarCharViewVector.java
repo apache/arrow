@@ -52,10 +52,15 @@ import org.junit.Test;
 
 public class TestVarCharViewVector {
 
+  // short string (length <= 12)
   private static final byte[] STR0 = "0123456".getBytes(StandardCharsets.UTF_8);
+  // short string (length <= 12)
   private static final byte[] STR1 = "012345678912".getBytes(StandardCharsets.UTF_8);
+  // long string (length > 12)
   private static final byte[] STR2 = "0123456789123".getBytes(StandardCharsets.UTF_8);
+  // long string (length > 12)
   private static final byte[] STR3 = "01234567891234567".getBytes(StandardCharsets.UTF_8);
+  // short string (length <= 12)
   private static final byte[] STR4 = "01234567".getBytes(StandardCharsets.UTF_8);
   private static final String EMPTY_SCHEMA_PATH = "";
 
