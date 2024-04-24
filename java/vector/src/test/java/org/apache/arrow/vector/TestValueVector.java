@@ -1323,6 +1323,7 @@ public class TestValueVector {
     // Create a new value vector for 1024 integers.
     try (final VarBinaryVector vector = newVarBinaryVector(EMPTY_SCHEMA_PATH, allocator)) {
       vector.allocateNew(1024 * 10, 1024);
+
       vector.set(0, STR1);
       vector.set(1, STR2);
       vector.set(2, STR3);
@@ -2020,66 +2021,62 @@ public class TestValueVector {
     }
   }
 
-  private void testSetLastSetUsageHelper(VariableWidthFieldVector vector) {
-    vector.allocateNew(1024 * 10, 1024);
-
-    setBytes(0, STR1, vector);
-    setBytes(1, STR2, vector);
-    setBytes(2, STR3, vector);
-    setBytes(3, STR4, vector);
-    setBytes(4, STR5, vector);
-    setBytes(5, STR6, vector);
-
-    /* Check current lastSet */
-    assertEquals(-1, vector.getLastSet());
-
-    /* Check the vector output */
-    assertArrayEquals(STR1, vector.get(0));
-    assertArrayEquals(STR2, vector.get(1));
-    assertArrayEquals(STR3, vector.get(2));
-    assertArrayEquals(STR4, vector.get(3));
-    assertArrayEquals(STR5, vector.get(4));
-    assertArrayEquals(STR6, vector.get(5));
-
-    /*
-     * If we don't do setLastSe(5) before setValueCount(), then the latter will corrupt
-     * the value vector by filling in all positions [0,valuecount-1] will empty byte arrays.
-     * Run the test by commenting on the next line, and we should see incorrect vector output.
-     */
-    vector.setLastSet(5);
-    vector.setValueCount(20);
-
-    /* Check current lastSet */
-    assertEquals(19, vector.getLastSet());
-
-    /* Check the vector output again */
-    assertArrayEquals(STR1, vector.get(0));
-    assertArrayEquals(STR2, vector.get(1));
-    assertArrayEquals(STR3, vector.get(2));
-    assertArrayEquals(STR4, vector.get(3));
-    assertArrayEquals(STR5, vector.get(4));
-    assertArrayEquals(STR6, vector.get(5));
-
-    assertEquals(0, vector.getValueLength(6));
-    assertEquals(0, vector.getValueLength(7));
-    assertEquals(0, vector.getValueLength(8));
-    assertEquals(0, vector.getValueLength(9));
-    assertEquals(0, vector.getValueLength(10));
-    assertEquals(0, vector.getValueLength(11));
-    assertEquals(0, vector.getValueLength(12));
-    assertEquals(0, vector.getValueLength(13));
-    assertEquals(0, vector.getValueLength(14));
-    assertEquals(0, vector.getValueLength(15));
-    assertEquals(0, vector.getValueLength(16));
-    assertEquals(0, vector.getValueLength(17));
-    assertEquals(0, vector.getValueLength(18));
-    assertEquals(0, vector.getValueLength(19));
-  }
-
   @Test
   public void testSetLastSetUsage() {
     try (final VarCharVector vector = new VarCharVector("myvector", allocator)) {
-      testSetLastSetUsageHelper(vector);
+      vector.allocateNew(1024 * 10, 1024);
+
+      setBytes(0, STR1, vector);
+      setBytes(1, STR2, vector);
+      setBytes(2, STR3, vector);
+      setBytes(3, STR4, vector);
+      setBytes(4, STR5, vector);
+      setBytes(5, STR6, vector);
+
+      /* Check current lastSet */
+      assertEquals(-1, vector.getLastSet());
+
+      /* Check the vector output */
+      assertArrayEquals(STR1, vector.get(0));
+      assertArrayEquals(STR2, vector.get(1));
+      assertArrayEquals(STR3, vector.get(2));
+      assertArrayEquals(STR4, vector.get(3));
+      assertArrayEquals(STR5, vector.get(4));
+      assertArrayEquals(STR6, vector.get(5));
+
+      /*
+       * If we don't do setLastSe(5) before setValueCount(), then the latter will corrupt
+       * the value vector by filling in all positions [0,valuecount-1] will empty byte arrays.
+       * Run the test by commenting on the next line, and we should see incorrect vector output.
+       */
+      vector.setLastSet(5);
+      vector.setValueCount(20);
+
+      /* Check current lastSet */
+      assertEquals(19, vector.getLastSet());
+
+      /* Check the vector output again */
+      assertArrayEquals(STR1, vector.get(0));
+      assertArrayEquals(STR2, vector.get(1));
+      assertArrayEquals(STR3, vector.get(2));
+      assertArrayEquals(STR4, vector.get(3));
+      assertArrayEquals(STR5, vector.get(4));
+      assertArrayEquals(STR6, vector.get(5));
+
+      assertEquals(0, vector.getValueLength(6));
+      assertEquals(0, vector.getValueLength(7));
+      assertEquals(0, vector.getValueLength(8));
+      assertEquals(0, vector.getValueLength(9));
+      assertEquals(0, vector.getValueLength(10));
+      assertEquals(0, vector.getValueLength(11));
+      assertEquals(0, vector.getValueLength(12));
+      assertEquals(0, vector.getValueLength(13));
+      assertEquals(0, vector.getValueLength(14));
+      assertEquals(0, vector.getValueLength(15));
+      assertEquals(0, vector.getValueLength(16));
+      assertEquals(0, vector.getValueLength(17));
+      assertEquals(0, vector.getValueLength(18));
+      assertEquals(0, vector.getValueLength(19));
       /* Check offsets */
       assertEquals(0, vector.getOffsetBuffer().getInt(0 * BaseVariableWidthVector.OFFSET_WIDTH));
       assertEquals(6, vector.getOffsetBuffer().getInt(1 * BaseVariableWidthVector.OFFSET_WIDTH));
@@ -2108,10 +2105,6 @@ public class TestValueVector {
       assertEquals(40, vector.getOffsetBuffer().getInt(19 * BaseVariableWidthVector.OFFSET_WIDTH));
       assertEquals(46, vector.getOffsetBuffer().getInt(20 * BaseVariableWidthVector.OFFSET_WIDTH));
 
-    }
-
-    try (final ViewVarCharVector vector = new ViewVarCharVector("myvector", allocator)) {
-      testSetLastSetUsageHelper(vector);
     }
   }
 

@@ -60,6 +60,11 @@ public class TestVarCharViewVector {
     allocator.close();
   }
 
+  public static void setBytes(int index, byte[] bytes, ViewVarCharVector vector) {
+    BitVectorHelper.setBit(vector.validityBuffer, index);
+    vector.setBytes(index, bytes, 0, bytes.length);
+  }
+
   @Test
   public void testInlineAllocation() {
     try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator)) {
@@ -465,6 +470,61 @@ public class TestVarCharViewVector {
        * the same.
        */
       assertEquals(fromDataBuffer.capacity(), toVector.getDataBuffer().capacity());
+    }
+  }
+
+  @Test
+  public void testSetLastSetUsage() {
+    try (final ViewVarCharVector vector = new ViewVarCharVector("myvector", allocator)) {
+      vector.allocateNew(1024 * 10, 1024);
+
+      setBytes(0, STR1, vector);
+      setBytes(1, STR2, vector);
+      setBytes(2, STR3, vector);
+      setBytes(3, STR4, vector);
+
+      /* Check current lastSet */
+      assertEquals(-1, vector.getLastSet());
+
+      /* Check the vector output */
+      assertArrayEquals(STR1, vector.get(0));
+      assertArrayEquals(STR2, vector.get(1));
+      assertArrayEquals(STR3, vector.get(2));
+      assertArrayEquals(STR4, vector.get(3));
+
+      /*
+       * If we don't do setLastSe(3) before setValueCount(), then the latter will corrupt
+       * the value vector by filling in all positions [0,valuecount-1] will empty byte arrays.
+       * Run the test by commenting on the next line, and we should see incorrect vector output.
+       */
+      vector.setLastSet(3);
+      vector.setValueCount(20);
+
+      /* Check current lastSet */
+      assertEquals(19, vector.getLastSet());
+
+      /* Check the vector output again */
+      assertArrayEquals(STR1, vector.get(0));
+      assertArrayEquals(STR2, vector.get(1));
+      assertArrayEquals(STR3, vector.get(2));
+      assertArrayEquals(STR4, vector.get(3));
+
+      assertEquals(0, vector.getValueLength(4));
+      assertEquals(0, vector.getValueLength(5));
+      assertEquals(0, vector.getValueLength(6));
+      assertEquals(0, vector.getValueLength(7));
+      assertEquals(0, vector.getValueLength(8));
+      assertEquals(0, vector.getValueLength(9));
+      assertEquals(0, vector.getValueLength(10));
+      assertEquals(0, vector.getValueLength(11));
+      assertEquals(0, vector.getValueLength(12));
+      assertEquals(0, vector.getValueLength(13));
+      assertEquals(0, vector.getValueLength(14));
+      assertEquals(0, vector.getValueLength(15));
+      assertEquals(0, vector.getValueLength(16));
+      assertEquals(0, vector.getValueLength(17));
+      assertEquals(0, vector.getValueLength(18));
+      assertEquals(0, vector.getValueLength(19));
     }
   }
 
