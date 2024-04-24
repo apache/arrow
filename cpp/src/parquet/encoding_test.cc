@@ -2539,13 +2539,24 @@ TEST(TestFallbackEncodingSuite, TestChooseNonDictEncoding) {
        Encoding::RLE},
       {Type::BOOLEAN, ParquetVersion::PARQUET_2_6, ParquetDataPageVersion::V2,
        Encoding::RLE},
-      // Only BYTE_ARRAY type matters for producing Encoding::DELTA_LENGTH_BYTE_ARRAY
       {Type::BYTE_ARRAY, ParquetVersion::PARQUET_1_0, ParquetDataPageVersion::V1,
-       Encoding::DELTA_LENGTH_BYTE_ARRAY},
+       Encoding::PLAIN},
       {Type::BYTE_ARRAY, ParquetVersion::PARQUET_1_0, ParquetDataPageVersion::V2,
-       Encoding::DELTA_LENGTH_BYTE_ARRAY},
+       Encoding::PLAIN},
       {Type::BYTE_ARRAY, ParquetVersion::PARQUET_2_4, ParquetDataPageVersion::V2,
        Encoding::DELTA_LENGTH_BYTE_ARRAY},
+      {Type::INT32, ParquetVersion::PARQUET_1_0, ParquetDataPageVersion::V1,
+       Encoding::PLAIN},
+      {Type::INT32, ParquetVersion::PARQUET_2_4, ParquetDataPageVersion::V1,
+       Encoding::DELTA_BINARY_PACKED},
+      {Type::FLOAT, ParquetVersion::PARQUET_1_0, ParquetDataPageVersion::V1,
+       Encoding::PLAIN},
+      {Type::FLOAT, ParquetVersion::PARQUET_2_4, ParquetDataPageVersion::V2,
+       Encoding::PLAIN},
+      {Type::FIXED_LEN_BYTE_ARRAY, ParquetVersion::PARQUET_1_0,
+       ParquetDataPageVersion::V1, Encoding::PLAIN},
+      {Type::FIXED_LEN_BYTE_ARRAY, ParquetVersion::PARQUET_2_4,
+       ParquetDataPageVersion::V2, Encoding::PLAIN},
   };
 
   for (auto test_case : cases) {

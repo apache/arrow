@@ -4062,7 +4062,6 @@ bool IsParquetVersionAtLeast2_0(ParquetVersion::type parquet_version) {
     case ParquetVersion::PARQUET_1_0:
       return false;
     case ParquetVersion::PARQUET_2_4:
-      return true;
     case ParquetVersion::PARQUET_2_6:
       return true;
     default:
@@ -4098,7 +4097,10 @@ Encoding::type ChooseNonDictEncoding(Type::type data_type,
       return Encoding::PLAIN;
 
     case Type::BYTE_ARRAY:
-      return Encoding::DELTA_LENGTH_BYTE_ARRAY;
+      if (IsParquetVersionAtLeast2_0(parquet_version)) {
+        return Encoding::DELTA_LENGTH_BYTE_ARRAY;
+      }
+      break;
 
     case Type::FIXED_LEN_BYTE_ARRAY:
     default:
