@@ -370,7 +370,7 @@ public class TestVarCharViewVector {
     try (ViewVarBinaryVector vector = new ViewVarBinaryVector("", allocator)) {
       vector.allocateNew(5, 1);
 
-      final String str = "hello world";
+      final String str = "hello world!!!";
       final String str2 = "foo";
       vector.setSafe(0, str.getBytes(StandardCharsets.UTF_8));
       vector.setSafe(1, str2.getBytes(StandardCharsets.UTF_8));
@@ -433,7 +433,7 @@ public class TestVarCharViewVector {
   @Test
   public void testSetSafeWithArrowBufNoExcessAllocs() {
     final int numValues = BaseVariableWidthViewVector.INITIAL_VALUE_ALLOCATION * 2;
-    final byte[] valueBytes = "hello world".getBytes(StandardCharsets.UTF_8);
+    final byte[] valueBytes = "hello world!!!".getBytes(StandardCharsets.UTF_8);
     final int valueBytesLength = valueBytes.length;
     final int isSet = 1;
     try (final ViewVarCharVector fromVector =
