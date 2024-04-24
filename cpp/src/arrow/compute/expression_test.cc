@@ -888,6 +888,138 @@ TEST(Expression, ExecuteCall) {
   ])"));
 }
 
+TEST(Expression, ExecuteCallWithDecimalIfElseOps) {
+  // GH-41336 : cast failed in 'IfElse' related kernel functions, make sure
+  // the expression call's results same with it's 'CallFunction'.
+  //
+  // if_else
+  {
+    // decimal128(3,2), decimal128(4,1) --> output_type : decimal128(5,2)
+    ExpectExecute(
+        call("if_else", {field_ref("b1"), field_ref("a1"), field_ref("a2")}),
+        ArrayFromJSON(struct_({field("b1", boolean()), field("a1", decimal128(3, 2)),
+                               field("a2", decimal128(4, 1))}),
+                      R"([
+      {"b1": true, "a1": "1.23", "a2": "121.3"},
+      {"b1": true, "a1": "2.34", "a2": "-232.3"},
+      {"b1": false, "a1": "-1.23", "a2": "0.0"}
+    ])"));
+
+    // decimal256(3,2), decimal128(3,2) --> output_type : decimal256(3,2)
+    ExpectExecute(
+        call("if_else", {field_ref("b1"), field_ref("a1"), field_ref("a2")}),
+        ArrayFromJSON(struct_({field("b1", boolean()), field("a1", decimal256(3, 2)),
+                               field("a2", decimal128(3, 2))}),
+                      R"([
+      {"b1": true, "a1": "1.23", "a2": "1.34"},
+      {"b1": true, "a1": "2.34", "a2": "-2.34"},
+      {"b1": false, "a1": "-1.23", "a2": "0.00"}
+    ])"));
+
+    // decimal256(3,2), decimal128(4,1) --> output_type : decimal256(5,2)
+    ExpectExecute(
+        call("if_else", {field_ref("b1"), field_ref("a1"), field_ref("a2")}),
+        ArrayFromJSON(struct_({field("b1", boolean()), field("a1", decimal128(3, 2)),
+                               field("a2", decimal128(4, 1))}),
+                      R"([
+      {"b1": true, "a1": "1.23", "a2": "121.3"},
+      {"b1": true, "a1": "2.34", "a2": "-232.3"},
+      {"b1": false, "a1": "-1.23", "a2": "0.0"}
+    ])"));
+  }
+
+  // case_when
+  {
+    // decimal128(4,2), decimal128(3,2) --> output_type : decimal128(4,2)
+    ExpectExecute(call("case_when", {field_ref("c"), field_ref("a1"), field_ref("a2")}),
+                  ArrayFromJSON(struct_({field("c", struct_({field("m", boolean())})),
+                                         field("a1", decimal128(4, 2)),
+                                         field("a2", decimal128(3, 2))}),
+                                R"([
+      { "c": {"m": true}, "a1": "1.23", "a2": "1.34"},
+      { "c": {"m": false}, "a1": "2.34", "a2": "-2.34"}
+    ])"));
+
+    // decimal128(4,1), decimal128(3,3), decimal256(2,1) --> output_type: decimal256(6,3)
+    ExpectExecute(
+        call("case_when",
+             {field_ref("c"), field_ref("a1"), field_ref("a2"), field_ref("a3")}),
+        ArrayFromJSON(
+            struct_(
+                {field("c", struct_({field("m1", boolean()), field("m2", boolean())})),
+                 field("a1", decimal128(4, 2)), field("a2", decimal128(3, 3)),
+                 field("a3", decimal256(2, 1))}),
+            R"([
+      { "c": {"m1": true, "m2": false}, "a1": "1.23", "a2": "1.342", "a3": "0.0"},
+      { "c": {"m1": true, "m2": false}, "a1": "2.34", "a2": "-2.314", "a3": "3.1"},
+      { "c": {"m1": null, "m2": true}, "a1": "2.34", "a2": null, "a3": "3.1"},
+      { "c": {"m1": null, "m2": null}, "a1": "2.34", "a2": "-2.034", "a3": "3.1"}
+    ])"));
+
+    // int32(), float32(), decimal256(2,1) --> output_type: decimal256(2,1)
+    ExpectExecute(call("case_when", {field_ref("c"), field_ref("a1"), field_ref("a2"),
+                                     field_ref("a3")}),
+                  ArrayFromJSON(struct_({field("c", struct_({field("m1", boolean()),
+                                                             field("m2", boolean())})),
+                                         field("a1", int32()), field("a2", float32()),
+                                         field("a3", decimal256(2, 1))}),
+                                R"([
+      { "c": {"m1": true, "m2": false}, "a1": 1, "a2": 1.342, "a3": "0.0"},
+      { "c": {"m1": false, "m2": false}, "a1": 34, "a2": 2.314, "a3": "3.1"}
+    ])"));
+  }
+
+  // coalesce
+  {
+    // decimal128(4,1), decimal128(3,3), decimal256(2,1) --> output_type: decimal256(6,3)
+    ExpectExecute(
+        call("coalesce", {field_ref("a1"), field_ref("a2"), field_ref("a3")}),
+        ArrayFromJSON(struct_({field("a1", decimal(4, 1)), field("a2", decimal128(3, 3)),
+                               field("a3", decimal128(2, 1))}),
+                      R"([
+      {"a1": null, "a2": "1.123", "a3": "2.3"},
+      {"a1": null, "a2": null, "a3": "-3.3"},
+      {"a1": "45.3", "a2": "-1.230", "a3": "0.0"}
+    ])"));
+
+    // decimal128(4,1), int64(), decimal256(2,2) --> output_type: decimal256(5,1)
+    ExpectExecute(call("coalesce", {field_ref("a1"), field_ref("a2"), field_ref("a3")}),
+                  ArrayFromJSON(struct_({field("a1", decimal(4, 1)), field("a2", int64()),
+                                         field("a3", decimal128(2, 2))}),
+                                R"([
+      {"a1": null, "a2": 123, "a3": "2.31"},
+      {"a1": null, "a2": null, "a3": "-3.03"},
+      {"a1": "45.3", "a2": -30, "a3": "0.00"}
+    ])"));
+  }
+
+  // choose
+  {
+    // decimal128(3,3), decimal256(2,1) --> output_type: decimal256(5, 3)
+    ExpectExecute(
+        call("coalesce", {field_ref("idx"), field_ref("a1"), field_ref("a2")}),
+        ArrayFromJSON(struct_({field("idx", int64()), field("a1", decimal128(3, 3)),
+                               field("a2", decimal128(2, 1))}),
+                      R"([
+      {"idx": 0, "a1": "1.123", "a2": "2.3"},
+      {"idx": 1, "a1": null, "a2": "-3.3"},
+      {"idx": 0, "a1": "-1.230", "a2": "0.0"},
+      {"idx": null, "a1": "-1.230", "a2": "0.0"}
+    ])"));
+
+    // decimal128(3,3), float32() --> output_type: decimal128(3, 3)
+    ExpectExecute(
+        call("coalesce", {field_ref("idx"), field_ref("a1"), field_ref("a2")}),
+        ArrayFromJSON(struct_({field("idx", int64()), field("a1", decimal128(3, 3)),
+                               field("a2", float32())}),
+                      R"([
+      {"idx": null, "a1": "1.123", "a2": 2.3},
+      {"idx": 1, "a1": null, "a2": -3.3},
+      {"idx": 0, "a1": "-1.230", "a2": 0.0}
+    ])"));
+  }
+}
+
 TEST(Expression, ExecuteCallWithNoArguments) {
   const int kCount = 10;
   auto random_options = RandomOptions::FromSeed(/*seed=*/0);

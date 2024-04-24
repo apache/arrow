@@ -1195,6 +1195,43 @@ struct ResolveIfElseExec<NullType, AllocateMem> {
   }
 };
 
+template <typename ResolverForOtherTypes>
+Result<TypeHolder> ResolveDecimalCaseType(KernelContext* ctx,
+                                          const std::vector<TypeHolder>& types,
+                                          ResolverForOtherTypes&& resolver) {
+  if (!HasDecimal(types)) {
+    return resolver(ctx, types);
+  }
+
+  int32_t max_precision = 0, max_scale = 0;
+  for (auto& type : types) {
+    if (is_floating(type.id()) || is_integer(type.id())) {
+      return Status::Invalid("Need to cast numeric types containing decimal types");
+    } else if (is_decimal(type.id())) {
+      const auto& decimal_type = checked_cast<const arrow::DecimalType&>(*type);
+      if (decimal_type.precision() < max_precision || decimal_type.scale() < max_scale) {
+        return Status::Invalid("Need to cast decimal types");
+      }
+      max_precision = std::max(max_precision, decimal_type.precision());
+      max_scale = std::max(max_scale, decimal_type.scale());
+    } else {
+      // Do nothing, needn't cast
+    }
+  }
+
+  return resolver(ctx, types);
+}
+
+Result<TypeHolder> ResolveCoalesceOutputType(KernelContext* ctx,
+                                             const std::vector<TypeHolder>& types) {
+  return ResolveDecimalCaseType(ctx, types, FirstType);
+}
+
+Result<TypeHolder> ResolveOutputType(KernelContext* ctx,
+                                     const std::vector<TypeHolder>& types) {
+  return ResolveDecimalCaseType(ctx, types, LastType);
+}
+
 struct IfElseFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
 
@@ -1299,7 +1336,8 @@ void AddBinaryIfElseKernels(const std::shared_ptr<IfElseFunction>& scalar_functi
 template <typename T>
 void AddFixedWidthIfElseKernel(const std::shared_ptr<IfElseFunction>& scalar_function) {
   auto type_id = T::type_id;
-  ScalarKernel kernel({boolean(), InputType(type_id), InputType(type_id)}, LastType,
+  ScalarKernel kernel({boolean(), InputType(type_id), InputType(type_id)},
+                      ResolveOutputType,
                       ResolveIfElseExec<T, /*AllocateMem=*/std::false_type>::Exec);
   kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
   kernel.mem_allocation = MemAllocation::PREALLOCATE;
@@ -2681,7 +2719,8 @@ struct ChooseFunction : ScalarFunction {
 void AddCaseWhenKernel(const std::shared_ptr<CaseWhenFunction>& scalar_function,
                        detail::GetTypeId get_id, ArrayKernelExec exec) {
   ScalarKernel kernel(
-      KernelSignature::Make({InputType(Type::STRUCT), InputType(get_id.id)}, LastType,
+      KernelSignature::Make({InputType(Type::STRUCT), InputType(get_id.id)},
+                            ResolveOutputType,
                             /*is_varargs=*/true),
       exec);
   if (is_fixed_width(get_id.id)) {
@@ -2714,9 +2753,10 @@ void AddBinaryCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar_fu
 
 void AddCoalesceKernel(const std::shared_ptr<ScalarFunction>& scalar_function,
                        detail::GetTypeId get_id, ArrayKernelExec exec) {
-  ScalarKernel kernel(KernelSignature::Make({InputType(get_id.id)}, FirstType,
-                                            /*is_varargs=*/true),
-                      exec);
+  ScalarKernel kernel(
+      KernelSignature::Make({InputType(get_id.id)}, ResolveCoalesceOutputType,
+                            /*is_varargs=*/true),
+      exec);
   kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
   kernel.mem_allocation = MemAllocation::PREALLOCATE;
   kernel.can_write_into_slices = is_fixed_width(get_id.id);
@@ -2733,9 +2773,10 @@ void AddPrimitiveCoalesceKernels(const std::shared_ptr<ScalarFunction>& scalar_f
 
 void AddChooseKernel(const std::shared_ptr<ScalarFunction>& scalar_function,
                      detail::GetTypeId get_id, ArrayKernelExec exec) {
-  ScalarKernel kernel(KernelSignature::Make({Type::INT64, InputType(get_id.id)}, LastType,
-                                            /*is_varargs=*/true),
-                      exec);
+  ScalarKernel kernel(
+      KernelSignature::Make({Type::INT64, InputType(get_id.id)}, ResolveOutputType,
+                            /*is_varargs=*/true),
+      exec);
   kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
   kernel.mem_allocation = MemAllocation::PREALLOCATE;
   kernel.can_write_into_slices = is_fixed_width(get_id.id);
