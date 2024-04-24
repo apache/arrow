@@ -1897,6 +1897,7 @@ public class TestValueVector {
     try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator);
          final VarCharVector vector2 =
              newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
+
       vector.setInitialCapacity(4095);
       vector.allocateNew();
       int capacity = vector.getValueCapacity();
@@ -1957,7 +1958,6 @@ public class TestValueVector {
     try (final VarCharVector vector = newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator);
          final VarCharVector vector2 =
              newVector(VarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VARCHAR, allocator)) {
-      final int initialCapacity = 4095;
       vector.setInitialCapacity(4095);
       vector.allocateNew();
       int capacity = vector.getValueCapacity();
