@@ -595,7 +595,7 @@ mermaid_output_format = 'svg'
 
 mermaid_output_format = 'svg'
 
-mermaid_cmd = os.path.abspath(os.path.join(os.getcwd(), "../mermaid.sh"))
+mermaid_params = ['-p', '/puppeteer-config.json']
 
 def setup(app):
     # Use a config value to indicate whether CUDA API docs can be generated.
