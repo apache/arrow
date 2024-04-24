@@ -2077,6 +2077,7 @@ public class TestValueVector {
       assertEquals(0, vector.getValueLength(17));
       assertEquals(0, vector.getValueLength(18));
       assertEquals(0, vector.getValueLength(19));
+
       /* Check offsets */
       assertEquals(0, vector.offsetBuffer.getInt(0 * BaseVariableWidthVector.OFFSET_WIDTH));
       assertEquals(6, vector.offsetBuffer.getInt(1 * BaseVariableWidthVector.OFFSET_WIDTH));
@@ -2098,6 +2099,7 @@ public class TestValueVector {
       assertEquals(40, vector.offsetBuffer.getInt(17 * BaseVariableWidthVector.OFFSET_WIDTH));
       assertEquals(40, vector.offsetBuffer.getInt(18 * BaseVariableWidthVector.OFFSET_WIDTH));
       assertEquals(40, vector.offsetBuffer.getInt(19 * BaseVariableWidthVector.OFFSET_WIDTH));
+
       vector.set(19, STR6);
       assertArrayEquals(STR6, vector.get(19));
       assertEquals(40, vector.offsetBuffer.getInt(19 * BaseVariableWidthVector.OFFSET_WIDTH));
@@ -2297,10 +2299,10 @@ public class TestValueVector {
       long offsetAddress = vector.getOffsetBufferAddress();
       long dataAddress = vector.getDataBufferAddress();
 
+      assertEquals(3, buffers.size());
       assertEquals(bitAddress, buffers.get(0).memoryAddress());
       assertEquals(offsetAddress, buffers.get(1).memoryAddress());
       assertEquals(dataAddress, buffers.get(2).memoryAddress());
-      assertEquals(3, buffers.size());
     }
   }
 
@@ -2408,39 +2410,6 @@ public class TestValueVector {
       assertEquals(2, vector.getDataBuffer().capacity());
     }
   }
-
-  @Test /* ViewVarCharVector */
-  public void testSetInitialCapacityInViews() {
-    try (final ViewVarCharVector vector = new ViewVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
-
-      /* use the default 16 data bytes on average per element */
-      final int viewSize = BaseVariableWidthViewVector.ELEMENT_SIZE;
-      int defaultCapacity = BaseVariableWidthViewVector.INITIAL_VIEW_VALUE_ALLOCATION / viewSize;
-      vector.setInitialCapacity(defaultCapacity);
-      vector.allocateNew();
-      assertEquals(defaultCapacity, vector.getValueCapacity());
-      assertEquals(CommonUtil.nextPowerOfTwo(defaultCapacity * viewSize), vector.getDataBuffer().capacity());
-
-      double density = 4.0;
-      final int valueCount = 5;
-      vector.setInitialCapacity(valueCount, density);
-      vector.allocateNew();
-      assertEquals(8, vector.getValueCapacity());
-      assertEquals(128, vector.getDataBuffer().capacity());
-      int initialDataBufferSize = (int) (valueCount * density);
-      // making sure a databuffer is allocated
-      vector.set(4, "01234567890123456".getBytes(StandardCharsets.UTF_8));
-      assertEquals(vector.dataBuffers.size(), 1);
-      ArrowBuf dataBuf = vector.dataBuffers.get(0);
-      try (ArrowBuf tempBuf = vector.allocator.buffer(initialDataBufferSize)) {
-        // replicating a new buffer allocation process when a new buffer is added to the
-        // data buffer when inserting an element with length > 12
-        assertEquals(tempBuf.capacity(), dataBuf.capacity());
-      }
-
-    }
-  }
-
 
   @Test
   public void testDefaultAllocNewAll() {
