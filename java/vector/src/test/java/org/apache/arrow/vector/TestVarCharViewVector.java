@@ -747,6 +747,22 @@ public class TestVarCharViewVector {
     }
   }
 
+  @Test(expected = UnsupportedOperationException.class)
+  public void testUnSupportedOffSet() {
+    // offset is not a feature required in ViewVarCharVector
+    try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
+
+      setVector(vector, STR1, STR2);
+      vector.setValueCount(2);
+
+      /* check the vector output */
+      assertArrayEquals(STR1, vector.get(0));
+      assertArrayEquals(STR2, vector.get(1));
+
+      vector.getOffsetBuffer();
+    }
+  }
+
   private String generateRandomString(int length) {
     Random random = new Random();
     StringBuilder sb = new StringBuilder(length);
