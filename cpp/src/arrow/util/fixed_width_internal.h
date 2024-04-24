@@ -55,10 +55,9 @@ namespace arrow::util {
 ///    The other types have power-of-2 byte widths, while fixed-size binary can
 ///    have any byte width including 0.
 ///
-/// Additionally, we say that a type is "fixed-width modulo nesting" [1] if it's a
-/// fixed-width as defined above, or if it's a fixed-size list (or nested fixed-size
-/// lists) and the innermost type is fixed-width and the following restrictions also
-/// apply:
+/// Additionally, we say that a type is "fixed-width like" if it's a fixed-width as
+/// defined above, or if it's a fixed-size list (or nested fixed-size lists) and
+/// the innermost type is fixed-width and the following restrictions also apply:
 ///  - The value type of the innermost fixed-size list is not BOOL (it has to be excluded
 ///    because a 1-bit type doesn't byte-align)
 ///  - Only the top-level array may have nulls, all the inner array have to be completely
@@ -109,8 +108,8 @@ namespace arrow::util {
 ///        ]
 ///     }
 ///
-/// This layout fits the fixed-width modulo nesting definition because the innermost
-/// type is byte-aligned fixed-width (int32 = 4 bytes) and the internal arrays don't
+/// This layout fits the fixed-width like definition because the innermost type
+/// is byte-aligned fixed-width (int32 = 4 bytes) and the internal arrays don't
 /// have nulls. The validity bitmap is only needed at the top-level array.
 ///
 /// Writing to this array can be done in the same way writing to a flat fixed-width
@@ -185,29 +184,25 @@ namespace arrow::util {
 /// `OffsetPointerOfFixedWidthValues()` can calculate this byte offset and return the
 /// pointer to the first relevant byte of the innermost values buffer.
 ///
-/// [1]: "The term modulo is often used to assert that two distinct objects can be
-/// regarded as equivalent --- if their difference is accounted for by an additional
-/// factor." https://en.wikipedia.org/wiki/Modulo_(mathematics)
-///
 /// \param source The array to check
 /// \param force_null_count If true, GetNullCount() is used instead of null_count
-ARROW_EXPORT bool IsFixedWidthModuloNesting(const ArraySpan& source,
-                                            bool force_null_count = false);
+ARROW_EXPORT bool IsFixedWidthLike(const ArraySpan& source,
+                                   bool force_null_count = false);
 
 /// \brief Checks if the given array has a fixed-width type or if it's an array of
 /// fixed-size list that can be flattened to an array of fixed-width values.
 ///
 /// This function is a more general version of
-/// `IsFixedWidthModuloNesting(const ArraySpan&, bool)` that allows the caller to
-/// further restrict the inner value types that should be considered fixed-width.
+/// `IsFixedWidthLike(const ArraySpan&, bool)` that allows the caller to further
+/// restrict the inner value types that should be considered fixed-width.
 ///
 /// \param source The array to check
 /// \param force_null_count If true, GetNullCount() is used instead of null_count
 /// \param extra_predicate A DataType predicate that can be used to further
 ///                        restrict the types that are considered fixed-width
 template <class ExtraPred>
-inline bool IsFixedWidthModuloNesting(const ArraySpan& source, bool force_null_count,
-                                      ExtraPred extra_predicate) {
+inline bool IsFixedWidthLike(const ArraySpan& source, bool force_null_count,
+                             ExtraPred extra_predicate) {
   const auto* type = source.type;
   // BOOL is considered fixed-width if not nested under FIXED_SIZE_LIST.
   if (is_fixed_width(type->id()) && extra_predicate(*type)) {
@@ -234,14 +229,14 @@ namespace internal {
 ARROW_EXPORT int64_t FixedWidthInBytesFallback(const FixedSizeListType&);
 }
 
-/// \brief Get the fixed-width in bytes of a type if it is a fixed-width modulo
-/// nesting type, but not BOOL.
+/// \brief Get the fixed-width in bytes of a type if it is a fixed-width like
+/// type, but not BOOL.
 ///
 /// If the array is a FixedSizeList (of any level of nesting), the byte width of
 /// the values is the product of all fixed-list sizes and the byte width of the
 /// innermost fixed-width value type.
 ///
-/// IsFixedWidthModuloNesting(array) performs more checks than this function and should
+/// IsFixedWidthLike(array) performs more checks than this function and should
 /// be used to guarantee that, if type is not BOOL, this function will not return -1.
 ///
 /// NOTE: this function translates `DataType::bit_width()` to bytes differently from
@@ -251,10 +246,10 @@ ARROW_EXPORT int64_t FixedWidthInBytesFallback(const FixedSizeListType&);
 /// size 0.
 ///
 /// \pre The instance of the array where this type is from must pass
-///      `IsFixedWidthModuloNesting(array)` and should not be BOOL.
+///      `IsFixedWidthLike(array)` and should not be BOOL.
 /// \return The fixed-byte width of the values or -1 if the type is BOOL or not
-///         fixed-width modulo nesting. 0 is a valid return value as
-///         fixed-size-lists and fixed-size-binary with size 0 are allowed.
+///         fixed-width like. 0 is a valid return value as fixed-size-lists
+///         and fixed-size-binary with size 0 are allowed.
 inline int64_t FixedWidthInBytes(const DataType& type) {
   auto type_id = type.id();
   if (is_fixed_width(type_id)) {
@@ -268,8 +263,8 @@ inline int64_t FixedWidthInBytes(const DataType& type) {
   return -1;
 }
 
-/// \brief Get the fixed-width in bits of a type if it is a fixed-width modulo
-/// nesting type.
+/// \brief Get the fixed-width in bits of a type if it is a fixed-width like
+/// type.
 ///
 /// \return The bit-width of the values or -1
 /// \see FixedWidthInBytes
@@ -287,12 +282,12 @@ inline int64_t FixedWidthInBits(const DataType& type) {
 
 namespace internal {
 
-/// \brief Allocate an ArrayData for a type that is fixed-width modulo nesting.
+/// \brief Allocate an ArrayData for a type that is fixed-width like.
 ///
 /// This function performs the same checks performed by
-/// `IsFixedWidthModuloNesting(source, false)`. If `source.type` is not a simple
+/// `IsFixedWidthLike(source, false)`. If `source.type` is not a simple
 /// fixed-width type, caller should make sure it passes the
-/// `IsFixedWidthModuloNesting(source)` checks. That guarantees that it's possible to
+/// `IsFixedWidthLike(source)` checks. That guarantees that it's possible to
 /// allocate an array that can serve as a destination for a kernel that writes values
 /// through a single pointer to fixed-width byte blocks.
 ///
@@ -301,7 +296,7 @@ namespace internal {
 /// \param[in] source The source array that carries the type information and the
 ///                   validity bitmaps that are relevant for the type validation
 ///                   when the source is a FixedSizeList.
-/// \see IsFixedWidthModuloNesting
+/// \see IsFixedWidthLike
 ARROW_EXPORT Status PreallocateFixedWidthArrayData(::arrow::compute::KernelContext* ctx,
                                                    int64_t length,
                                                    const ArraySpan& source,
@@ -320,15 +315,14 @@ ARROW_EXPORT uint8_t* MutableFixedWidthValuesPointerFallback(
 
 }  // namespace internal
 
-/// \brief Get the pointer to the fixed-width values of a fixed-width (modulo
-/// nesting) array.
+/// \brief Get the pointer to the fixed-width values of a fixed-width like array.
 ///
 /// This function might return NULLPTR if the type of the array is BOOL or
 /// if the pre-conditions listed are not satisfied. The converse is not true
 /// (i.e. not getting NULLPTR doesn't guarantee that source is a fixed-width
-/// modulo nesting array).
+/// like array).
 ///
-/// \pre `IsFixedWidthModuloNesting(source)` or the more restrictive
+/// \pre `IsFixedWidthLike(source)` or the more restrictive
 ///      is_fixed_width(*mutable_array->type) SHOULD be true
 /// \return The pointer to the fixed-width values of an array or NULLPTR
 ///         if pre-conditions are not satisfied.
@@ -351,7 +345,7 @@ inline const uint8_t* OffsetPointerOfFixedWidthValues(const ArraySpan& source) {
 ///
 /// \pre mutable_array->offset and the offset of child array (if it's a
 ///      FixedSizeList) MUST be 0 (recursively).
-/// \pre IsFixedWidthModuloNesting(ArraySpan(mutable_array)) or the more restrictive
+/// \pre IsFixedWidthLike(ArraySpan(mutable_array)) or the more restrictive
 ///      is_fixed_width(*mutable_array->type) MUST be true
 /// \return The mutable pointer to the fixed-width byte blocks of the array. If
 ///         pre-conditions are not satisfied, the return values is undefined.

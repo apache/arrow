@@ -469,7 +469,7 @@ Status PrimitiveFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult
   // validity bitmap.
   const bool allocate_validity = values.null_count != 0 || !filter_null_count_is_zero;
 
-  DCHECK(util::IsFixedWidthModuloNesting(values, /*force_null_count=*/false));
+  DCHECK(util::IsFixedWidthLike(values, /*force_null_count=*/false));
   const int64_t bit_width = util::FixedWidthInBits(*values.type);
   RETURN_NOT_OK(util::internal::PreallocateFixedWidthArrayData(
       ctx, output_length, /*source=*/values, allocate_validity, out_arr));

@@ -62,49 +62,49 @@ class TestFixedWidth : public ::testing::Test {
 TEST_F(TestFixedWidth, IsFixedWidth) {
   auto arr = ArraySpan{*bool_array_array_->data()};
   // force_null_count doesn't matter because nulls at the top-level
-  // of the array are allowed by IsFixedWidthModuloNesting.
-  ASSERT_TRUE(IsFixedWidthModuloNesting(arr, /*force_null_count=*/false));
-  ASSERT_TRUE(IsFixedWidthModuloNesting(arr, /*force_null_count=*/true));
+  // of the array are allowed by IsFixedWidthLike.
+  ASSERT_TRUE(IsFixedWidthLike(arr, /*force_null_count=*/false));
+  ASSERT_TRUE(IsFixedWidthLike(arr, /*force_null_count=*/true));
 
-  ASSERT_TRUE(IsFixedWidthModuloNesting(arr, /*force_null_count=*/false, NotInt32));
-  ASSERT_FALSE(IsFixedWidthModuloNesting(arr, /*force_null_count=*/false, NotBool));
+  ASSERT_TRUE(IsFixedWidthLike(arr, /*force_null_count=*/false, NotInt32));
+  ASSERT_FALSE(IsFixedWidthLike(arr, /*force_null_count=*/false, NotBool));
 
   arr = ArraySpan{*int_array_array_->data()};
-  ASSERT_TRUE(IsFixedWidthModuloNesting(arr, /*force_null_count=*/false));
-  ASSERT_TRUE(IsFixedWidthModuloNesting(arr, /*force_null_count=*/true));
-  ASSERT_TRUE(IsFixedWidthModuloNesting(arr, /*force_null_count=*/false, NotBool));
+  ASSERT_TRUE(IsFixedWidthLike(arr, /*force_null_count=*/false));
+  ASSERT_TRUE(IsFixedWidthLike(arr, /*force_null_count=*/true));
+  ASSERT_TRUE(IsFixedWidthLike(arr, /*force_null_count=*/false, NotBool));
 }
 
-TEST_F(TestFixedWidth, IsFixedWidthModuloNesting) {
+TEST_F(TestFixedWidth, IsFixedWidthLike) {
   auto arr = ArraySpan{*fsl_bool_array_->data()};
   // bools wrapped by fixed-size-list are not fixed-width because the
   // innermost data buffer is a bitmap and won't byte-align.
-  ASSERT_FALSE(IsFixedWidthModuloNesting(arr, /*force_null_count=*/false));
-  ASSERT_FALSE(IsFixedWidthModuloNesting(arr, /*force_null_count=*/true));
+  ASSERT_FALSE(IsFixedWidthLike(arr, /*force_null_count=*/false));
+  ASSERT_FALSE(IsFixedWidthLike(arr, /*force_null_count=*/true));
 
   arr = ArraySpan{*fsl_int_array_->data()};
-  ASSERT_TRUE(IsFixedWidthModuloNesting(arr, /*force_null_count=*/false));
+  ASSERT_TRUE(IsFixedWidthLike(arr, /*force_null_count=*/false));
   arr.null_count = kUnknownNullCount;
   // force_null_count=true isn't necessary because nulls at the top-level
-  // of the array are allowed by IsFixedWidthModuloNesting.
-  ASSERT_TRUE(IsFixedWidthModuloNesting(arr, /*force_null_count=*/false));
+  // of the array are allowed by IsFixedWidthLike.
+  ASSERT_TRUE(IsFixedWidthLike(arr, /*force_null_count=*/false));
 
   arr.child_data[0].null_count = kUnknownNullCount;
-  // inner nulls are not allowed by IsFixedWidthModuloNesting...
-  ASSERT_FALSE(IsFixedWidthModuloNesting(arr, /*force_null_count=*/false));
+  // inner nulls are not allowed by IsFixedWidthLike...
+  ASSERT_FALSE(IsFixedWidthLike(arr, /*force_null_count=*/false));
   // ...but forcing null counting at on every internal array increases
-  // the chances of IsFixedWidthModuloNesting returning true.
-  ASSERT_TRUE(IsFixedWidthModuloNesting(arr, /*force_null_count=*/true));
+  // the chances of IsFixedWidthLike returning true.
+  ASSERT_TRUE(IsFixedWidthLike(arr, /*force_null_count=*/true));
   // Excluding INT32 from the internal array checks.
-  ASSERT_FALSE(IsFixedWidthModuloNesting(arr, /*force_null_count=*/true, NotInt32));
+  ASSERT_FALSE(IsFixedWidthLike(arr, /*force_null_count=*/true, NotInt32));
 
   arr = ArraySpan{*fsl_int_nulls_array_->data()};
-  // Nulls at the top-level of the array are allowed by IsFixedWidthModuloNesting.
-  ASSERT_TRUE(IsFixedWidthModuloNesting(arr, /*force_null_count=*/false));
+  // Nulls at the top-level of the array are allowed by IsFixedWidthLike.
+  ASSERT_TRUE(IsFixedWidthLike(arr, /*force_null_count=*/false));
 
   arr = ArraySpan{*fsl_int_inner_nulls_array_->data()};
-  // Inner nulls are not allowed by IsFixedWidthModuloNesting.
-  ASSERT_FALSE(IsFixedWidthModuloNesting(arr, /*force_null_count=*/true));
+  // Inner nulls are not allowed by IsFixedWidthLike.
+  ASSERT_FALSE(IsFixedWidthLike(arr, /*force_null_count=*/true));
 }
 
 TEST_F(TestFixedWidth, MeasureWidthInBytes) {

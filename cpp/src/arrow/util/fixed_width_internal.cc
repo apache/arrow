@@ -32,9 +32,9 @@ namespace arrow::util {
 
 using ::arrow::internal::checked_cast;
 
-bool IsFixedWidthModuloNesting(const ArraySpan& source, bool force_null_count) {
-  return IsFixedWidthModuloNesting(source, force_null_count,
-                                   [](const DataType& type) { return true; });
+bool IsFixedWidthLike(const ArraySpan& source, bool force_null_count) {
+  return IsFixedWidthLike(source, force_null_count,
+                          [](const DataType& type) { return true; });
 }
 
 namespace internal {

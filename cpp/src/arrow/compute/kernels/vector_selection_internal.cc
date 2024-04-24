@@ -896,13 +896,13 @@ Status FSLFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out)
 
   // If a FixedSizeList wraps a fixed-width type we can, in some cases, use
   // PrimitiveFilterExec for a fixed-size list array.
-  if (util::IsFixedWidthModuloNesting(values,
-                                      /*force_null_count=*/true,
-                                      /*extra_predicate=*/[](auto& fixed_width_type) {
-                                        // DICTIONARY is fixed-width but not supported by
-                                        // PrimitiveFilterExec.
-                                        return fixed_width_type.id() != Type::DICTIONARY;
-                                      })) {
+  if (util::IsFixedWidthLike(values,
+                             /*force_null_count=*/true,
+                             /*extra_predicate=*/[](auto& fixed_width_type) {
+                               // DICTIONARY is fixed-width but not supported by
+                               // PrimitiveFilterExec.
+                               return fixed_width_type.id() != Type::DICTIONARY;
+                             })) {
     const auto byte_width = util::FixedWidthInBytes(*values.type);
     // 0 is a valid byte width for FixedSizeList, but PrimitiveFilterExec
     // might not handle it correctly.
@@ -973,13 +973,13 @@ Status FSLTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
 
   // If a FixedSizeList wraps a fixed-width type we can, in some cases, use
   // PrimitiveTakeExec for a fixed-size list array.
-  if (util::IsFixedWidthModuloNesting(values,
-                                      /*force_null_count=*/true,
-                                      /*extra_predicate=*/[](auto& fixed_width_type) {
-                                        // DICTIONARY is fixed-width but not supported by
-                                        // PrimitiveTakeExec.
-                                        return fixed_width_type.id() != Type::DICTIONARY;
-                                      })) {
+  if (util::IsFixedWidthLike(values,
+                             /*force_null_count=*/true,
+                             /*extra_predicate=*/[](auto& fixed_width_type) {
+                               // DICTIONARY is fixed-width but not supported by
+                               // PrimitiveTakeExec.
+                               return fixed_width_type.id() != Type::DICTIONARY;
+                             })) {
     const auto byte_width = util::FixedWidthInBytes(*values.type);
     // Additionally, PrimitiveTakeExec is only implemented for specific byte widths.
     // TODO(GH-41301): Extend PrimitiveTakeExec for any fixed-width type.

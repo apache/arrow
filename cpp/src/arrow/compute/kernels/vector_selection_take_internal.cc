@@ -588,9 +588,9 @@ Status PrimitiveTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
 
   ArrayData* out_arr = out->array_data().get();
 
-  DCHECK(util::IsFixedWidthModuloNesting(
-      values, /*force_null_count=*/false,
-      [](const auto& type) { return type.id() != Type::DICTIONARY; }));
+  DCHECK(util::IsFixedWidthLike(values, /*force_null_count=*/false, [](const auto& type) {
+    return type.id() != Type::DICTIONARY;
+  }));
   const int64_t bit_width = util::FixedWidthInBits(*values.type);
 
   // TODO: When neither values nor indices contain nulls, we can skip
