@@ -626,14 +626,22 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
 
   @Override
   public int sizeOfValueBuffer() {
+    throw new UnsupportedOperationException("sizeOfValueBuffer is not supported for BaseVariableWidthViewVector");
+  }
+
+  /**
+   * Get the size (number of bytes) of underlying elements in the view buffer.
+   * @return number of bytes used by data in the view buffer
+   */
+  public int sizeOfViewBufferElements() {
     if (valueCount == 0) {
       return 0;
     }
-    int totalLength = 0;
+    int totalSize = 0;
     for (int i = 0; i < valueCount; i++) {
-      totalLength += getValueLength(i);
+      totalSize += getValueLength(i);
     }
-    return totalLength;
+    return totalSize;
   }
 
   /**

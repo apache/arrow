@@ -17,13 +17,22 @@
 
 package org.apache.arrow.vector;
 
+import static org.apache.arrow.vector.TestUtils.*;
+import static org.junit.Assert.*;
 
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Objects;
 import java.util.Random;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
+import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.util.ReusableByteArray;
+import org.apache.arrow.vector.util.Text;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -37,6 +46,7 @@ public class TestVarCharViewVector {
   private static final byte[] STR2 = "0123456789123".getBytes(StandardCharsets.UTF_8);
   private static final byte[] STR3 = "01234567891234567".getBytes(StandardCharsets.UTF_8);
   private static final byte[] STR4 = "01234567".getBytes(StandardCharsets.UTF_8);
+  private static final String EMPTY_SCHEMA_PATH = "";
 
   private BufferAllocator allocator;
 
@@ -241,6 +251,216 @@ public class TestVarCharViewVector {
       viewVarCharVector.set(1, STR2);
       viewVarCharVector.set(2, STR2);
       viewVarCharVector.setValueCount(valueCount);
+    }
+  }
+
+  @Test
+  public void testSizeOfViewBufferElements() {
+    try (final ViewVarCharVector vector = new ViewVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
+      int valueCount = 100;
+      int currentSize = 0;
+      vector.setInitialCapacity(valueCount);
+      vector.allocateNew();
+      vector.setValueCount(valueCount);
+      for (int i = 0; i < valueCount; i++) {
+        currentSize += i;
+        vector.setSafe(i, new byte[i]);
+      }
+      assertEquals(currentSize, vector.sizeOfViewBufferElements());
+    }
+  }
+
+  @Test
+  public void testNullableVarType1() {
+
+    // Create a new value vector for 1024 integers.
+    // VarCharVector
+    try (final ViewVarCharVector vector = newViewVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
+      vector.allocateNew(1024 * 10, 1024);
+
+      vector.set(0, STR1);
+      vector.set(1, STR2);
+      vector.set(2, STR3);
+      vector.setSafe(3, STR3, 1, STR3.length - 1);
+      vector.setSafe(4, STR3, 2, STR3.length - 2);
+      ByteBuffer str3ByteBuffer = ByteBuffer.wrap(STR3);
+      vector.setSafe(5, str3ByteBuffer, 1, STR3.length - 1);
+      vector.setSafe(6, str3ByteBuffer, 2, STR3.length - 2);
+
+      // Set with convenience function
+      Text txt = new Text("foo");
+      vector.setSafe(7, txt.getBytes(), 0, (int) txt.getLength());
+
+      // Check the sample strings.
+      assertArrayEquals(STR1, vector.get(0));
+      assertArrayEquals(STR2, vector.get(1));
+      assertArrayEquals(STR3, vector.get(2));
+      assertArrayEquals(Arrays.copyOfRange(STR3, 1, STR3.length), vector.get(3));
+      assertArrayEquals(Arrays.copyOfRange(STR3, 2, STR3.length), vector.get(4));
+      assertArrayEquals(Arrays.copyOfRange(STR3, 1, STR3.length), vector.get(5));
+      assertArrayEquals(Arrays.copyOfRange(STR3, 2, STR3.length), vector.get(6));
+
+      // Check returning a Text object
+      assertEquals(txt, vector.getObject(7));
+
+      // Ensure null value throws.
+      assertNull(vector.get(8));
+    }
+  }
+
+  @Test
+  public void testGetTextRepeatedly() {
+    try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
+      ValueVectorDataPopulator.setVector(vector, STR1, STR2);
+      vector.setValueCount(2);
+
+      /* check the vector output */
+      Text text = new Text();
+      vector.read(0, text);
+      assertArrayEquals(STR1, text.getBytes());
+      vector.read(1, text);
+      assertArrayEquals(STR2, text.getBytes());
+    }
+  }
+
+  @Test
+  public void testNullableVarType2() {
+    try (final ViewVarBinaryVector vector = newViewVarBinaryVector(EMPTY_SCHEMA_PATH, allocator)) {
+      vector.allocateNew(1024 * 10, 1024);
+      vector.set(0, STR1);
+      vector.set(1, STR2);
+      vector.set(2, STR3);
+      vector.setSafe(3, STR3, 1, STR3.length - 1);
+      vector.setSafe(4, STR3, 2, STR3.length - 2);
+      ByteBuffer str3ByteBuffer = ByteBuffer.wrap(STR3);
+      vector.setSafe(5, str3ByteBuffer, 1, STR3.length - 1);
+      vector.setSafe(6, str3ByteBuffer, 2, STR3.length - 2);
+
+      // Check the sample strings.
+      assertArrayEquals(STR1, vector.get(0));
+      assertArrayEquals(STR2, vector.get(1));
+      assertArrayEquals(STR3, vector.get(2));
+      assertArrayEquals(Arrays.copyOfRange(STR3, 1, STR3.length), vector.get(3));
+      assertArrayEquals(Arrays.copyOfRange(STR3, 2, STR3.length), vector.get(4));
+      assertArrayEquals(Arrays.copyOfRange(STR3, 1, STR3.length), vector.get(5));
+      assertArrayEquals(Arrays.copyOfRange(STR3, 2, STR3.length), vector.get(6));
+
+      // Ensure null value throws.
+      assertNull(vector.get(7));
+    }
+  }
+
+  @Test
+  public void testGetBytesRepeatedly() {
+    try (ViewVarBinaryVector vector = new ViewVarBinaryVector("", allocator)) {
+      vector.allocateNew(5, 1);
+
+      final String str = "hello world";
+      final String str2 = "foo";
+      vector.setSafe(0, str.getBytes(StandardCharsets.UTF_8));
+      vector.setSafe(1, str2.getBytes(StandardCharsets.UTF_8));
+
+      // verify results
+      ReusableByteArray reusableByteArray = new ReusableByteArray();
+      vector.read(0, reusableByteArray);
+      assertArrayEquals(str.getBytes(StandardCharsets.UTF_8), Arrays.copyOfRange(reusableByteArray.getBuffer(),
+              0, (int) reusableByteArray.getLength()));
+      byte[] oldBuffer = reusableByteArray.getBuffer();
+
+      vector.read(1, reusableByteArray);
+      assertArrayEquals(str2.getBytes(StandardCharsets.UTF_8), Arrays.copyOfRange(reusableByteArray.getBuffer(),
+              0, (int) reusableByteArray.getLength()));
+
+      // There should not have been any reallocation since the newer value is smaller in length.
+      assertSame(oldBuffer, reusableByteArray.getBuffer());
+    }
+  }
+
+  @Test
+  public void testReAllocVariableWidthViewVector() {
+    try (final ViewVarCharVector vector = newVector(ViewVarCharVector.class, EMPTY_SCHEMA_PATH,
+            Types.MinorType.VIEWVARCHAR, allocator)) {
+      final int capacityLimit = 4095;
+      final int overLimitIndex = 200;
+      vector.setInitialCapacity(capacityLimit);
+      vector.allocateNew();
+
+      int initialCapacity = vector.getValueCapacity();
+      assertTrue(initialCapacity >= capacityLimit);
+
+      /* Put values in indexes that fall within the initial allocation */
+      vector.setSafe(0, STR1, 0, STR1.length);
+      vector.setSafe(initialCapacity - 1, STR2, 0, STR2.length);
+
+      /* the set calls above should NOT have triggered a realloc */
+      assertEquals(initialCapacity, vector.getValueCapacity());
+
+      /* Now try to put values in space that falls beyond the initial allocation */
+      vector.setSafe(initialCapacity + overLimitIndex, STR3, 0, STR3.length);
+
+      /* Check valueCapacity is more than initial allocation */
+      assertTrue(initialCapacity * 2 <= vector.getValueCapacity());
+
+      assertArrayEquals(STR1, vector.get(0));
+      assertArrayEquals(STR2, vector.get(initialCapacity - 1));
+      assertArrayEquals(STR3, vector.get(initialCapacity + overLimitIndex));
+
+      // Set the valueCount to be more than valueCapacity of current allocation. This is possible for ValueVectors
+      // as we don't call setSafe for null values, but we do call setValueCount when the current batch is processed.
+      vector.setValueCount(vector.getValueCapacity() + overLimitIndex);
+    }
+  }
+
+  @Test
+  public void testSetSafeWithArrowBufNoExcessAllocs() {
+    final int numValues = BaseVariableWidthViewVector.INITIAL_VALUE_ALLOCATION * 2;
+    final byte[] valueBytes = "hello world".getBytes(StandardCharsets.UTF_8);
+    final int valueBytesLength = valueBytes.length;
+    final int isSet = 1;
+    try (final ViewVarCharVector fromVector =
+            newVector(
+                ViewVarCharVector.class,
+                EMPTY_SCHEMA_PATH,
+                Types.MinorType.VIEWVARCHAR,
+                allocator);
+        final ViewVarCharVector toVector =
+            newVector(
+                ViewVarCharVector.class,
+                EMPTY_SCHEMA_PATH,
+                Types.MinorType.VIEWVARCHAR,
+                allocator)) {
+      /*
+       * Populate the `fromVector` with `numValues` with byte-arrays, each of size `valueBytesLength`.
+       */
+      fromVector.setInitialCapacity(numValues);
+      fromVector.allocateNew();
+      for (int i = 0; i < numValues; ++i) {
+        fromVector.setSafe(i, valueBytes, 0 /*start*/, valueBytesLength);
+      }
+      fromVector.setValueCount(numValues);
+      ArrowBuf fromDataBuffer = fromVector.getDataBuffer();
+      assertTrue(numValues * valueBytesLength <= fromDataBuffer.capacity());
+
+      /*
+       * Copy the entries one-by-one from 'fromVector' to 'toVector', but use the setSafe with
+       * ArrowBuf API (instead of setSafe with byte-array).
+       */
+      toVector.setInitialCapacity(numValues);
+      toVector.allocateNew();
+      for (int i = 0; i < numValues; i++) {
+        int start = fromVector.getTotalValueLengthUpToIndex(i);
+        // across variable
+        // width implementations
+        int end = fromVector.getTotalValueLengthUpToIndex(i + 1);
+        toVector.setSafe(i, isSet, start, end, fromDataBuffer);
+      }
+
+      /*
+       * Since the 'fromVector' and 'toVector' have the same initial capacity, and were populated
+       * with the same varchar elements, the allocations and hence, the final capacity should be
+       * the same.
+       */
+      assertEquals(fromDataBuffer.capacity(), toVector.getDataBuffer().capacity());
     }
   }
 
