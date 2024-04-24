@@ -3472,13 +3472,6 @@ BEGIN_CPP11
 END_CPP11
 }
 // filesystem.cpp
-std::shared_ptr<fs::LocalFileSystem> fs___LocalFileSystem__create();
-extern "C" SEXP _arrow_fs___LocalFileSystem__create(){
-BEGIN_CPP11
-	return cpp11::as_sexp(fs___LocalFileSystem__create());
-END_CPP11
-}
-// filesystem.cpp
 std::shared_ptr<fs::SubTreeFileSystem> fs___SubTreeFileSystem__create(const std::string& base_path, const std::shared_ptr<fs::FileSystem>& base_fs);
 extern "C" SEXP _arrow_fs___SubTreeFileSystem__create(SEXP base_path_sexp, SEXP base_fs_sexp){
 BEGIN_CPP11
@@ -6014,7 +6007,6 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_fs___FileSystem__OpenOutputStream", (DL_FUNC) &_arrow_fs___FileSystem__OpenOutputStream, 2}, 
 		{ "_arrow_fs___FileSystem__OpenAppendStream", (DL_FUNC) &_arrow_fs___FileSystem__OpenAppendStream, 2}, 
 		{ "_arrow_fs___FileSystem__type_name", (DL_FUNC) &_arrow_fs___FileSystem__type_name, 1}, 
-		{ "_arrow_fs___LocalFileSystem__create", (DL_FUNC) &_arrow_fs___LocalFileSystem__create, 0}, 
 		{ "_arrow_fs___SubTreeFileSystem__create", (DL_FUNC) &_arrow_fs___SubTreeFileSystem__create, 2}, 
 		{ "_arrow_fs___SubTreeFileSystem__base_fs", (DL_FUNC) &_arrow_fs___SubTreeFileSystem__base_fs, 1}, 
 		{ "_arrow_fs___SubTreeFileSystem__base_path", (DL_FUNC) &_arrow_fs___SubTreeFileSystem__base_path, 1}, 
