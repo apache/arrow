@@ -1689,8 +1689,6 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
 
     // Count logical records and number of values to read
     ARROW_DCHECK(!at_record_start_);
-    //     std::cout << "read " << num_records << " from " << levels_position_ << " to "
-    //     << levels_written_ << '\n';
     while (levels_position_ < levels_written_) {
       int64_t stride =
           std::min(levels_written_ - levels_position_, num_records - records_read);
@@ -1703,25 +1701,6 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
         break;
       }
     }
-    /*
-    for (; levels_position_ < levels_written_; ++levels_position_) {
-      const int16_t rep_level = rep_levels[levels_position_];
-      if (rep_level == 0) {
-        // We've reached the end of a record; increment the record count.
-        ++records_read;
-        if (records_read == num_records) {
-          // We've found the number of records we were looking for. Set
-          // at_record_start_ to true and break
-          at_record_start_ = true;
-          break;
-        }
-      }
-    }
-    */
-    //    *values_seen =
-    //        std::count(this->def_levels() + current_levels_position, this->def_levels()
-    //        + levels_position_,
-    //                   this->max_def_level_);
     *values_seen = values_to_read;
     return records_read;
   }
