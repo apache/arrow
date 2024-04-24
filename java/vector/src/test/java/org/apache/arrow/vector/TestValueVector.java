@@ -2631,9 +2631,8 @@ public class TestValueVector {
 
     try (VarCharVector vec1 = new VarCharVector("vec1", allocator);
          VarCharVector vec2 = new VarCharVector("vec2", allocator)) {
-
-      vec1.allocateNew((long) sampleData.length * 10, sampleData.length);
-      vec2.allocateNew((long) sampleData.length * 10, sampleData.length);
+      vec1.allocateNew(sampleData.length * 10, sampleData.length);
+      vec2.allocateNew(sampleData.length * 10, sampleData.length);
 
       for (int i = 0; i < sampleData.length; i++) {
         String str = sampleData[i];
@@ -2663,23 +2662,15 @@ public class TestValueVector {
   @Test
   public void testGetNullFromVariableWidthVector() {
     try (final VarCharVector varCharVector = new VarCharVector("varcharvec", allocator);
-         final VarBinaryVector varBinaryVector = new VarBinaryVector("varbinary", allocator);
-        final ViewVarCharVector varCharViewVector = new ViewVarCharVector("viewvarcharvec", allocator);
-         final ViewVarBinaryVector varBinaryViewVector = new ViewVarBinaryVector("viewvarbinary", allocator)) {
+         final VarBinaryVector varBinaryVector = new VarBinaryVector("varbinary", allocator)) {
       varCharVector.allocateNew(10, 1);
       varBinaryVector.allocateNew(10, 1);
-      varCharViewVector.allocateNew(16, 1);
-      varBinaryViewVector.allocateNew(16, 1);
 
       varCharVector.setNull(0);
       varBinaryVector.setNull(0);
-      varCharViewVector.setNull(0);
-      varBinaryViewVector.setNull(0);
 
       assertNull(varCharVector.get(0));
       assertNull(varBinaryVector.get(0));
-      assertNull(varCharViewVector.get(0));
-      assertNull(varBinaryViewVector.get(0));
     }
   }
 
@@ -3077,16 +3068,6 @@ public class TestValueVector {
   @Test
   public void testVariableWidthVectorNullHashCode() {
     try (VarCharVector varChVec = new VarCharVector("var char vector", allocator)) {
-      varChVec.allocateNew(100, 1);
-      varChVec.setValueCount(1);
-
-      varChVec.set(0, "abc".getBytes(StandardCharsets.UTF_8));
-      varChVec.setNull(0);
-
-      assertEquals(0, varChVec.hashCode(0));
-    }
-
-    try (ViewVarCharVector varChVec = new ViewVarCharVector("view var char vector", allocator)) {
       varChVec.allocateNew(100, 1);
       varChVec.setValueCount(1);
 

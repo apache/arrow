@@ -696,6 +696,34 @@ public class TestVarCharViewVector {
     }
   }
 
+  @Test
+  public void testGetNullFromVariableWidthViewVector() {
+    try (final ViewVarCharVector varCharViewVector = new ViewVarCharVector("viewvarcharvec", allocator);
+        final ViewVarBinaryVector varBinaryViewVector = new ViewVarBinaryVector("viewvarbinary", allocator)) {
+      varCharViewVector.allocateNew(16, 1);
+      varBinaryViewVector.allocateNew(16, 1);
+
+      varCharViewVector.setNull(0);
+      varBinaryViewVector.setNull(0);
+
+      assertNull(varCharViewVector.get(0));
+      assertNull(varBinaryViewVector.get(0));
+    }
+  }
+
+  @Test
+  public void testVariableWidthViewVectorNullHashCode() {
+    try (ViewVarCharVector viewVarChar = new ViewVarCharVector("view var char vector", allocator)) {
+      viewVarChar.allocateNew(100, 1);
+      viewVarChar.setValueCount(1);
+
+      viewVarChar.set(0, "abc".getBytes(StandardCharsets.UTF_8));
+      viewVarChar.setNull(0);
+
+      assertEquals(0, viewVarChar.hashCode(0));
+    }
+  }
+
   private String generateRandomString(int length) {
     Random random = new Random();
     StringBuilder sb = new StringBuilder(length);
