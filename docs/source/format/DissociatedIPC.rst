@@ -113,8 +113,8 @@ Sequence Number
 The Protocol
 ============
 
-A reference example implementation utilizing `libcudf`_ and `UCX`_ can be found at 
-https://github.com/zeroshade/cudf-flight-ucx.
+A reference example implementation utilizing `libcudf`_ and `UCX`_ can be found in the
+`arrow-experiments repo <https://github.com/apache/arrow-experiments/tree/main/dissociated-ipc>`_.
 
 Requirements
 ------------
