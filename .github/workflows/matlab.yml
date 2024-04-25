@@ -98,7 +98,7 @@ jobs:
           select-by-folder: matlab/test
   macos:
     name: AMD64 macOS 12 MATLAB
-    runs-on: macos-latest
+    runs-on: macos-12
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     steps:
       - name: Check out repository
