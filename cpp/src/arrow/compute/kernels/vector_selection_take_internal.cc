@@ -19,6 +19,7 @@
 #include <cstring>
 #include <limits>
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "arrow/array/builder_primitive.h"
@@ -333,7 +334,7 @@ using TakeState = OptionsWrapper<TakeOptions>;
 
 /// \brief The Take implementation for primitive (fixed-width) types does not
 /// use the logical Arrow type but rather the physical C type. This way we
-/// only generate one take function for each byte width.
+/// only generate one take function for each bit width.
 ///
 /// Also note that this function can also handle fixed-size-list arrays if
 /// they fit the criteria described in fixed_width_internal.h, so use the
@@ -345,6 +346,19 @@ template <typename IndexCType, typename ValueBitWidthConstant>
 struct PrimitiveTakeImpl {
   static constexpr int kValueWidthInBits = ValueBitWidthConstant::value;
 
+  // offset returned is defined as number of kValueWidthInBits blocks
+  static std::pair<int64_t, const uint8_t*> SourceOffsetAndValuesPointer(
+      const ArraySpan& values) {
+    if constexpr (kValueWidthInBits == 1) {
+      DCHECK_EQ(values.type->id(), Type::BOOL);
+      return {values.offset, values.GetValues<uint8_t>(1, 0)};
+    } else {
+      static_assert(kValueWidthInBits % 8 == 0,
+                    "kValueWidthInBits must be 1 or a multiple of 8");
+      return {0, util::OffsetPointerOfFixedWidthValues(values)};
+    }
+  }
+
   static void Exec(const ArraySpan& values, const ArraySpan& indices,
                    ArrayData* out_arr) {
     DCHECK_EQ(util::FixedWidthInBits(*values.type), kValueWidthInBits);
@@ -352,123 +366,38 @@ struct PrimitiveTakeImpl {
     auto* idx = indices.GetValues<IndexCType>(1);
 
     DCHECK_EQ(out_arr->offset, 0);
-    auto* out = util::MutableFixedWidthValuesPointer(out_arr);
     auto out_is_valid = out_arr->buffers[0]->mutable_data();
+    const bool out_has_validity = values.MayHaveNulls() || indices.MayHaveNulls();
 
+    if constexpr (kValueWidthInBits == 1) {
+      // XXX: Gather for booleans doesn't zero out the bits of nulls in the
+      // output buffer, so we need to do it manually.
+      memset(out_arr->buffers[1]->mutable_data(), 0, out_arr->buffers[1]->size());
+    }
+
+    const uint8_t* src;
+    int64_t src_offset;
+    std::tie(src_offset, src) = SourceOffsetAndValuesPointer(values);
+    uint8_t* out = util::MutableFixedWidthValuesPointer(out_arr);
     int64_t valid_count = 0;
     arrow::internal::Gather<kValueWidthInBits, IndexCType> gather{
-        /*src_length=*/values.length, src,
-        /*idx_length=*/indices.length, idx, out};
-    if (!values.MayHaveNulls() && !indices.MayHaveNulls()) {
-      // See TODO in PrimitiveTakeExec about skipping allocation of validity bitmaps
-      bit_util::SetBitsTo(out_is_valid, 0, out_arr->length, true);
-      valid_count = gather.Execute();
-    } else {
+        /*src_length=*/values.length,
+        src,
+        src_offset,
+        /*idx_length=*/indices.length,
+        /*idx=*/indices.GetValues<IndexCType>(1),
+        out};
+    if (out_has_validity) {
       // If either src or idx have nulls, we preemptively zero out the
       // out validity bitmap so that we don't have to use ClearBit in each
       // iteration for nulls.
       bit_util::SetBitsTo(out_is_valid, 0, out_arr->length, false);
       valid_count =
           gather.Execute(/*src_validity=*/values, /*idx_validity=*/indices, out_is_valid);
-    }
-    out_arr->null_count = out_arr->length - valid_count;
-  }
-};
-
-template <typename IndexCType>
-struct BooleanTakeImpl {
-  static void Exec(const ArraySpan& values, const ArraySpan& indices,
-                   ArrayData* out_arr) {
-    const uint8_t* values_data = values.buffers[1].data;
-    const uint8_t* values_is_valid = values.buffers[0].data;
-    auto values_offset = values.offset;
-
-    const auto* indices_data = indices.GetValues<IndexCType>(1);
-    const uint8_t* indices_is_valid = indices.buffers[0].data;
-    auto indices_offset = indices.offset;
-
-    auto out = out_arr->buffers[1]->mutable_data();
-    auto out_is_valid = out_arr->buffers[0]->mutable_data();
-    auto out_offset = out_arr->offset;
-
-    // If either the values or indices have nulls, we preemptively zero out the
-    // out validity bitmap so that we don't have to use ClearBit in each
-    // iteration for nulls.
-    if (values.null_count != 0 || indices.null_count != 0) {
-      bit_util::SetBitsTo(out_is_valid, out_offset, indices.length, false);
-    }
-    // Avoid uninitialized data in values array
-    bit_util::SetBitsTo(out, out_offset, indices.length, false);
-
-    auto PlaceDataBit = [&](int64_t loc, IndexCType index) {
-      bit_util::SetBitTo(out, out_offset + loc,
-                         bit_util::GetBit(values_data, values_offset + index));
-    };
-
-    OptionalBitBlockCounter indices_bit_counter(indices_is_valid, indices_offset,
-                                                indices.length);
-    int64_t position = 0;
-    int64_t valid_count = 0;
-    while (position < indices.length) {
-      BitBlockCount block = indices_bit_counter.NextBlock();
-      if (values.null_count == 0) {
-        // Values are never null, so things are easier
-        valid_count += block.popcount;
-        if (block.popcount == block.length) {
-          // Fastest path: neither values nor index nulls
-          bit_util::SetBitsTo(out_is_valid, out_offset + position, block.length, true);
-          for (int64_t i = 0; i < block.length; ++i) {
-            PlaceDataBit(position, indices_data[position]);
-            ++position;
-          }
-        } else if (block.popcount > 0) {
-          // Slow path: some but not all indices are null
-          for (int64_t i = 0; i < block.length; ++i) {
-            if (bit_util::GetBit(indices_is_valid, indices_offset + position)) {
-              // index is not null
-              bit_util::SetBit(out_is_valid, out_offset + position);
-              PlaceDataBit(position, indices_data[position]);
-            }
-            ++position;
-          }
-        } else {
-          position += block.length;
-        }
-      } else {
-        // Values have nulls, so we must do random access into the values bitmap
-        if (block.popcount == block.length) {
-          // Faster path: indices are not null but values may be
-          for (int64_t i = 0; i < block.length; ++i) {
-            if (bit_util::GetBit(values_is_valid,
-                                 values_offset + indices_data[position])) {
-              // value is not null
-              bit_util::SetBit(out_is_valid, out_offset + position);
-              PlaceDataBit(position, indices_data[position]);
-              ++valid_count;
-            }
-            ++position;
-          }
-        } else if (block.popcount > 0) {
-          // Slow path: some but not all indices are null. Since we are doing
-          // random access in general we have to check the value nullness one by
-          // one.
-          for (int64_t i = 0; i < block.length; ++i) {
-            if (bit_util::GetBit(indices_is_valid, indices_offset + position)) {
-              // index is not null
-              if (bit_util::GetBit(values_is_valid,
-                                   values_offset + indices_data[position])) {
-                // value is not null
-                PlaceDataBit(position, indices_data[position]);
-                bit_util::SetBit(out_is_valid, out_offset + position);
-                ++valid_count;
-              }
-            }
-            ++position;
-          }
-        } else {
-          position += block.length;
-        }
-      }
+    } else {
+      // See TODO in PrimitiveTakeExec about skipping allocation of validity bitmaps
+      bit_util::SetBitsTo(out_is_valid, 0, out_arr->length, true);
+      valid_count = gather.Execute();
     }
     out_arr->null_count = out_arr->length - valid_count;
   }
@@ -523,7 +452,8 @@ Status PrimitiveTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
       /*allocate_validity=*/true, out_arr));
   switch (bit_width) {
     case 1:
-      TakeIndexDispatch<BooleanTakeImpl>(values, indices, out_arr);
+      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 1>>(
+          values, indices, out_arr);
       break;
     case 8:
       TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 8>>(
