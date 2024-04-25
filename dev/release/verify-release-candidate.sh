@@ -355,7 +355,7 @@ install_csharp() {
       show_info "dotnet found but it is the wrong version and will be ignored."
     fi
     local csharp_bin=${ARROW_TMPDIR}/csharp/bin
-    local dotnet_version=7.0.102
+    local dotnet_version=8.0.204
     local dotnet_platform=
     case "$(uname)" in
       Linux)
