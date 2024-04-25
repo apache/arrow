@@ -1340,7 +1340,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
 
   const void* ReadDictionary(int32_t* dictionary_length) override {
     if (this->current_decoder_ == nullptr && !this->HasNextInternal()) {
-      dictionary_length = 0;
+      *dictionary_length = 0;
       return nullptr;
     }
     // Verify the current data page is dictionary encoded. The current_encoding_ should
