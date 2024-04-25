@@ -418,6 +418,9 @@ std::shared_ptr<acero::ExecNode> ExecNode_Join(
   for (auto&& name : left_keys) {
     left_refs.emplace_back(std::move(name));
     // Populate key_cmps in this loop, one for each key
+    // Note that Acero supports having different values for each key, but dplyr
+    // only supports one value for all keys, so we're only going to support that
+    // for now.
     key_cmps.emplace_back(na_matches ? acero::JoinKeyCmp::IS : acero::JoinKeyCmp::EQ);
   }
   for (auto&& name : right_keys) {
