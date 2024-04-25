@@ -21,6 +21,7 @@ import static java.util.Collections.singletonList;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.arrow.memory.ArrowBuf;
@@ -101,7 +102,8 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   @Override
   public void setInitialCapacity(int numRecords) {
-
+    validityAllocationSizeInBytes = getValidityBufferSizeFromCount(numRecords);
+    super.setInitialCapacity(numRecords);
   }
 
   @Override
@@ -325,7 +327,11 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   @Override
   public Field getField() {
-    return null;
+    if (field.getChildren().contains(getDataVector().getField())) {
+      return field;
+    }
+    field = new Field(field.getName(), field.getFieldType(), Collections.singletonList(getDataVector().getField()));
+    return field;
   }
 
   @Override

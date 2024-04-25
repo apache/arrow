@@ -26,7 +26,9 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.AddOrGetResult;
+import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseValueVector;
+import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.UInt4Vector;
@@ -74,7 +76,7 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
 
   @Override
   public String getName() {
-    return null;
+    return name;
   }
 
   @Override
@@ -182,7 +184,13 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
 
   @Override
   public void setInitialCapacity(int numRecords) {
-
+    offsetAllocationSizeInBytes = (numRecords) * OFFSET_WIDTH;
+    sizeAllocationSizeInBytes = (numRecords) * SIZE_WIDTH;
+    if (vector instanceof BaseFixedWidthVector || vector instanceof BaseVariableWidthVector) {
+      vector.setInitialCapacity(numRecords * RepeatedValueVector.DEFAULT_REPEAT_PER_RECORD);
+    } else {
+      vector.setInitialCapacity(numRecords);
+    }
   }
 
   @Override
@@ -253,7 +261,23 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
 
   @Override
   public void setValueCount(int valueCount) {
+    this.valueCount = valueCount;
+    while (valueCount > getOffsetBufferValueCapacity()) {
+      reallocOffsetBuffer();
+    }
+    while (valueCount > getSizeBufferValueCapacity()) {
+      reallocSizeBuffer();
+    }
+    final int childValueCount = valueCount == 0 ? 0 : getLengthOfChildVector();
+    vector.setValueCount(childValueCount);
+  }
 
+  private int getLengthOfChildVector() {
+    int length = 0;
+    for (int i = 0; i <= valueCount; i++) {
+      length += sizeBuffer.getInt(i * SIZE_WIDTH);
+    }
+    return length;
   }
 
   /**

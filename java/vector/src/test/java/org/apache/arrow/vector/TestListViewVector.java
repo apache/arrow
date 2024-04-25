@@ -29,6 +29,8 @@ import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.ListViewVector;
 import org.apache.arrow.vector.complex.impl.UnionListViewWriter;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
+import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -182,8 +184,8 @@ public class TestListViewVector {
       assertFalse(listViewVector.isNull(0));
       assertFalse(listViewVector.isNull(1));
 
-      ArrowBuf offSetBuffer = listViewVector.getOffsetBuffer();
-      ArrowBuf sizeBuffer = listViewVector.getSizeBuffer();
+      final ArrowBuf offSetBuffer = listViewVector.getOffsetBuffer();
+      final ArrowBuf sizeBuffer = listViewVector.getSizeBuffer();
 
       // check offset buffer
       assertEquals(0, offSetBuffer.getInt(0 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
@@ -245,9 +247,9 @@ public class TestListViewVector {
       assertEquals(5, listViewVector.getValueCount());
 
       /* get vector at index 0 -- the value is a BigIntVector*/
-      ArrowBuf offSetBuffer = listViewVector.getOffsetBuffer();
-      ArrowBuf sizeBuffer = listViewVector.getSizeBuffer();
-      FieldVector dataVec = listViewVector.getDataVector();
+      final ArrowBuf offSetBuffer = listViewVector.getOffsetBuffer();
+      final ArrowBuf sizeBuffer = listViewVector.getSizeBuffer();
+      final FieldVector dataVec = listViewVector.getDataVector();
 
       // check offset buffer
       assertEquals(0, offSetBuffer.getInt(0 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
@@ -275,6 +277,37 @@ public class TestListViewVector {
       assertEquals(2, ((BigIntVector) dataVec).get(8));
       assertEquals(3, ((BigIntVector) dataVec).get(9));
       assertEquals(4, ((BigIntVector) dataVec).get(10));
+    }
+  }
+
+  @Test
+  public void testNestedListVector1() throws Exception {
+    try (ListViewVector listViewVector = ListViewVector.empty("sourceVector", allocator)) {
+
+      MinorType listType = MinorType.LISTVIEW;
+      MinorType scalarType = MinorType.BIGINT;
+
+      listViewVector.addOrGetVector(FieldType.nullable(listType.getType()));
+
+      ListViewVector innerList1 = (ListViewVector) listViewVector.getDataVector();
+      innerList1.addOrGetVector(FieldType.nullable(listType.getType()));
+
+      ListViewVector innerList2 = (ListViewVector) innerList1.getDataVector();
+      innerList2.addOrGetVector(FieldType.nullable(listType.getType()));
+
+      ListViewVector innerList3 = (ListViewVector) innerList2.getDataVector();
+      innerList3.addOrGetVector(FieldType.nullable(listType.getType()));
+
+      ListViewVector innerList4 = (ListViewVector) innerList3.getDataVector();
+      innerList4.addOrGetVector(FieldType.nullable(listType.getType()));
+
+      ListViewVector innerList5 = (ListViewVector) innerList4.getDataVector();
+      innerList5.addOrGetVector(FieldType.nullable(listType.getType()));
+
+      ListViewVector innerList6 = (ListViewVector) innerList5.getDataVector();
+      innerList6.addOrGetVector(FieldType.nullable(scalarType.getType()));
+
+      listViewVector.setInitialCapacity(128);
     }
   }
 }
