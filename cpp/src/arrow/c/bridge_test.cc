@@ -5227,7 +5227,8 @@ TEST_F(TestArrayDeviceStreamRoundtrip, SchemaError) {
       return EIO;
     }
 
-    static int GetNext(struct ArrowDeviceArrayStream* stream, struct ArrowDeviceArray* array) {
+    static int GetNext(struct ArrowDeviceArrayStream* stream,
+                       struct ArrowDeviceArray* array) {
       return EINVAL;
     }
 

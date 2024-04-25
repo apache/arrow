@@ -762,7 +762,7 @@ TEST_F(TestArray, TestMakeArrayFromDictionaryScalar) {
   ASSERT_EQ(array->length(), 4);
   ASSERT_EQ(array->null_count(), 0);
   ASSERT_EQ(array->device_type(), DeviceAllocationType::kCPU);
-  
+
   for (int i = 0; i < 4; i++) {
     ASSERT_OK_AND_ASSIGN(auto item, array->GetScalar(i));
     ASSERT_TRUE(item->Equals(scalar));
@@ -801,7 +801,7 @@ TEST_F(TestArray, TestMakeEmptyArray) {
     ASSERT_OK_AND_ASSIGN(auto array, MakeEmptyArray(type));
     ASSERT_OK(array->ValidateFull());
     ASSERT_EQ(array->length(), 0);
-    
+
     CheckSpanRoundTrip(*array);
   }
 }
