@@ -46,6 +46,8 @@ class ARROW_EXPORT RecordBatch {
   /// \param[in] num_rows length of fields in the record batch. Each array
   /// should have the same length as num_rows
   /// \param[in] columns the record batch fields as vector of arrays
+  /// \param[in] sync_event optional synchronization event for non-CPU device
+  /// memory used by buffers
   static std::shared_ptr<RecordBatch> Make(
       std::shared_ptr<Schema> schema, int64_t num_rows,
       std::vector<std::shared_ptr<Array>> columns,
@@ -60,6 +62,8 @@ class ARROW_EXPORT RecordBatch {
   /// \param num_rows the number of semantic rows in the record batch. This
   /// should be equal to the length of each field
   /// \param columns the data for the batch's columns
+  /// \param[in] sync_event optional synchronization event for non-CPU device
+  /// memory used by buffers
   static std::shared_ptr<RecordBatch> Make(
       std::shared_ptr<Schema> schema, int64_t num_rows,
       std::vector<std::shared_ptr<ArrayData>> columns,
