@@ -173,6 +173,8 @@ jobs:
           submodules: recursive
       - name: Install ccache
         run: brew install ccache
+      - name: Display ccache statistics before build
+        run: ccache -s
       - name: Setup ccache
         shell: bash
         run: ci/scripts/ccache_setup.sh
@@ -203,6 +205,8 @@ jobs:
           python -m pip install wheel
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
           ci/scripts/python_build.sh $(pwd) $(pwd)/build
+      - name: Display ccache statistics after build
+        run: ccache -s
       - name: Test
         shell: bash
         run: ci/scripts/python_test.sh $(pwd) $(pwd)/build
