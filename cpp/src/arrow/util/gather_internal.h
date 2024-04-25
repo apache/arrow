@@ -147,10 +147,10 @@ class GatherBaseCRTP {
   }
 };
 
-template <int kValueWidthInBits, typename IndexCType,
+template <int kValueWidthInBits, typename IndexCType, bool WithFactor,
           std::enable_if_t<kValueWidthInBits % 8 == 0 || kValueWidthInBits == 1, bool> =
               true>
-class Gather : public GatherBaseCRTP<Gather<kValueWidthInBits, IndexCType>> {
+class Gather : public GatherBaseCRTP<Gather<kValueWidthInBits, IndexCType, WithFactor>> {
  public:
   static constexpr int kValueWidth = kValueWidthInBits / 8;
 
@@ -160,31 +160,51 @@ class Gather : public GatherBaseCRTP<Gather<kValueWidthInBits, IndexCType>> {
   const int64_t idx_length_;  // number IndexCType elements in idx_
   const IndexCType* idx_;
   uint8_t* out_;
+  size_t factor_;
 
  public:
   void WriteValue(int64_t position) {
-    memcpy(out_ + position * kValueWidth, src_ + idx_[position] * kValueWidth,
-           kValueWidth);
+    if constexpr (WithFactor) {
+      const size_t scaled_factor = kValueWidth * factor_;
+      memcpy(out_ + position * scaled_factor, src_ + idx_[position] * scaled_factor,
+             scaled_factor);
+    } else {
+      memcpy(out_ + position * kValueWidth, src_ + idx_[position] * kValueWidth,
+             kValueWidth);
+    }
   }
 
   void WriteZero(int64_t position) {
-    memset(out_ + position * kValueWidth, 0, kValueWidth);
+    if constexpr (WithFactor) {
+      const size_t scaled_factor = kValueWidth * factor_;
+      memset(out_ + position * scaled_factor, 0, scaled_factor);
+    } else {
+      memset(out_ + position * kValueWidth, 0, kValueWidth);
+    }
   }
 
   void WriteZeroSegment(int64_t position, int64_t length) {
-    memset(out_ + position * kValueWidth, 0, kValueWidth * length);
+    if constexpr (WithFactor) {
+      const size_t scaled_factor = kValueWidth * factor_;
+      memset(out_ + position * scaled_factor, 0, length * scaled_factor);
+    } else {
+      memset(out_ + position * kValueWidth, 0, length * kValueWidth);
+    }
   }
 
  public:
   Gather(int64_t src_length, const uint8_t* src, int64_t zero_src_offset,
-         int64_t idx_length, const IndexCType* idx, uint8_t* out)
+         int64_t idx_length, const IndexCType* idx, uint8_t* out, size_t factor)
       : src_length_(src_length),
         src_(src),
         idx_length_(idx_length),
         idx_(idx),
-        out_(out) {
+        out_(out),
+        factor_(factor) {
     assert(zero_src_offset == 0);
     assert(src && idx && out);
+    assert((WithFactor || factor == 1) &&
+           "When WithFactor is false, the factor is assumed to be 1 at compile time");
   }
 
   ARROW_FORCE_INLINE int64_t Execute() { return this->ExecuteNoNulls(idx_length_); }
@@ -209,7 +229,8 @@ class Gather : public GatherBaseCRTP<Gather<kValueWidthInBits, IndexCType>> {
 };
 
 template <typename IndexCType>
-class Gather<1, IndexCType> : public GatherBaseCRTP<Gather<1, IndexCType>> {
+class Gather<1, IndexCType, /*WithFactor=*/false>
+    : public GatherBaseCRTP<Gather<1, IndexCType, false>> {
  private:
   const int64_t src_length_;  // number of elements of bits bytes in src_ after offset
   const uint8_t* src_;        // the boolean array data buffer in bits
@@ -220,7 +241,7 @@ class Gather<1, IndexCType> : public GatherBaseCRTP<Gather<1, IndexCType>> {
 
  public:
   Gather(int64_t src_length, const uint8_t* src, int64_t src_offset, int64_t idx_length,
-         const IndexCType* idx, uint8_t* out)
+         const IndexCType* idx, uint8_t* out, size_t factor)
       : src_length_(src_length),
         src_(src),
         src_offset_(src_offset),
@@ -228,6 +249,8 @@ class Gather<1, IndexCType> : public GatherBaseCRTP<Gather<1, IndexCType>> {
         idx_(idx),
         out_(out) {
     assert(src && idx && out);
+    assert(factor == 1 &&
+           "factor != 1 is not supported when Gather is used to gather bits/booleans");
   }
 
   void WriteValue(int64_t position) {

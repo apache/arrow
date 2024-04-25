@@ -1531,9 +1531,13 @@ TEST_F(TestTakeKernelWithFixedSizeList, TakeFixedSizeListInt32) {
   CheckTake(fixed_size_list(int32(), 3), list_json, "[3, 0, 0, 3]",
             "[[7, 8, null], null, null, [7, 8, null]]");
   CheckTake(fixed_size_list(int32(), 3), list_json, "[0, 1, 2, 3]", list_json);
+
+  // No nulls in inner list values trigger the use of FixedWidthTakeExec() in
+  // FSLTakeExec()
+  std::string no_nulls_list_json = "[[0, 0, 0], [1, 2, 3], [4, 5, 6], [7, 8, 9]]";
   CheckTake(
-      fixed_size_list(int32(), 3), list_json, "[2, 2, 2, 2, 2, 2, 1]",
-      "[[4, 5, 6], [4, 5, 6], [4, 5, 6], [4, 5, 6], [4, 5, 6], [4, 5, 6], [1, null, 3]]");
+      fixed_size_list(int32(), 3), no_nulls_list_json, "[2, 2, 2, 2, 2, 2, 1]",
+      "[[4, 5, 6], [4, 5, 6], [4, 5, 6], [4, 5, 6], [4, 5, 6], [4, 5, 6], [1, 2, 3]]");
 
   this->TestNoValidityBitmapButUnknownNullCount(fixed_size_list(int32(), 3),
                                                 "[[1, null, 3], [4, 5, 6], [7, 8, null]]",

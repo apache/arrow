@@ -326,15 +326,20 @@ namespace {
 using TakeState = OptionsWrapper<TakeOptions>;
 
 // ----------------------------------------------------------------------
-// Implement optimized take for primitive types from boolean to 1/2/4/8/16/32-byte
-// C-type based types. Use common implementation for every byte width and only
-// generate code for unsigned integer indices, since after boundschecking to
-// check for negative numbers in the indices we can safely reinterpret_cast
-// signed integers as unsigned.
+// Implement optimized take for primitive types from boolean to
+// 1/2/4/8/16/32-byte C-type based types and fixed-size binary (0 or more
+// bytes).
+//
+// Use one specialization for each of these primitive byte-widths so the
+// compiler can specialize the memcpy to dedicated CPU instructions and for
+// fixed-width binary use the 1-byte specialization but pass WithFactor=true
+// that makes the kernel consider the factor parameter provided at runtime.
+//
+// Only unsigned index types need to be instantiated since after
+// boundschecking to check for negative numbers in the indices we can safely
+// reinterpret_cast signed integers as unsigned.
 
-/// \brief The Take implementation for primitive (fixed-width) types does not
-/// use the logical Arrow type but rather the physical C type. This way we
-/// only generate one take function for each bit width.
+/// \brief The Take implementation for primitive types and fixed-width binary.
 ///
 /// Also note that this function can also handle fixed-size-list arrays if
 /// they fit the criteria described in fixed_width_internal.h, so use the
@@ -343,8 +348,9 @@ using TakeState = OptionsWrapper<TakeOptions>;
 ///
 /// \pre the indices have been boundschecked
 template <typename IndexCType, typename ValueBitWidthConstant,
-          typename OutputIsZeroInitialized = std::false_type>
-struct PrimitiveTakeImpl {
+          typename OutputIsZeroInitialized = std::false_type,
+          typename WithFactor = std::false_type>
+struct FixedWidthTakeImpl {
   static constexpr int kValueWidthInBits = ValueBitWidthConstant::value;
 
   // offset returned is defined as number of kValueWidthInBits blocks
@@ -361,8 +367,14 @@ struct PrimitiveTakeImpl {
   }
 
   static void Exec(KernelContext* ctx, const ArraySpan& values, const ArraySpan& indices,
-                   ArrayData* out_arr) {
-    DCHECK_EQ(util::FixedWidthInBits(*values.type), kValueWidthInBits);
+                   ArrayData* out_arr, size_t factor) {
+#ifndef NDEBUG
+    int64_t bit_width = util::FixedWidthInBits(*values.type);
+    DCHECK(WithFactor::value || (kValueWidthInBits == bit_width && factor == 1));
+    DCHECK(!WithFactor::value ||
+           (factor > 0 && kValueWidthInBits == 8 &&  // factors are used with bytes
+            static_cast<int64_t>(factor * kValueWidthInBits) == bit_width));
+#endif
     const bool out_has_validity = values.MayHaveNulls() || indices.MayHaveNulls();
 
     const uint8_t* src;
@@ -370,13 +382,14 @@ struct PrimitiveTakeImpl {
     std::tie(src_offset, src) = SourceOffsetAndValuesPointer(values);
     uint8_t* out = util::MutableFixedWidthValuesPointer(out_arr);
     int64_t valid_count = 0;
-    arrow::internal::Gather<kValueWidthInBits, IndexCType> gather{
+    arrow::internal::Gather<kValueWidthInBits, IndexCType, WithFactor::value> gather{
         /*src_length=*/values.length,
         src,
         src_offset,
         /*idx_length=*/indices.length,
         /*idx=*/indices.GetValues<IndexCType>(1),
-        out};
+        out,
+        factor};
     if (out_has_validity) {
       DCHECK_EQ(out_arr->offset, 0);
       // out_is_valid must be zero-initiliazed, because Gather::Execute
@@ -394,7 +407,7 @@ struct PrimitiveTakeImpl {
 
 template <template <typename...> class TakeImpl, typename... Args>
 void TakeIndexDispatch(KernelContext* ctx, const ArraySpan& values,
-                       const ArraySpan& indices, ArrayData* out) {
+                       const ArraySpan& indices, ArrayData* out, size_t factor = 1) {
   // With the simplifying assumption that boundschecking has taken place
   // already at a higher level, we can now assume that the index values are all
   // non-negative. Thus, we can interpret signed integers as unsigned and avoid
@@ -402,20 +415,20 @@ void TakeIndexDispatch(KernelContext* ctx, const ArraySpan& values,
   // width.
   switch (indices.type->byte_width()) {
     case 1:
-      return TakeImpl<uint8_t, Args...>::Exec(ctx, values, indices, out);
+      return TakeImpl<uint8_t, Args...>::Exec(ctx, values, indices, out, factor);
     case 2:
-      return TakeImpl<uint16_t, Args...>::Exec(ctx, values, indices, out);
+      return TakeImpl<uint16_t, Args...>::Exec(ctx, values, indices, out, factor);
     case 4:
-      return TakeImpl<uint32_t, Args...>::Exec(ctx, values, indices, out);
+      return TakeImpl<uint32_t, Args...>::Exec(ctx, values, indices, out, factor);
     case 8:
-      return TakeImpl<uint64_t, Args...>::Exec(ctx, values, indices, out);
+      return TakeImpl<uint64_t, Args...>::Exec(ctx, values, indices, out, factor);
   }
   DCHECK(false) << "Invalid indices byte width";
 }
 
 }  // namespace
 
-Status PrimitiveTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+Status FixedWidthTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const ArraySpan& values = batch[0].array;
   const ArraySpan& indices = batch[1].array;
 
@@ -433,45 +446,65 @@ Status PrimitiveTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
   RETURN_NOT_OK(util::internal::PreallocateFixedWidthArrayData(
       ctx, indices.length, /*source=*/values, allocate_validity, out_arr));
   switch (util::FixedWidthInBits(*values.type)) {
+    case 0:
+      DCHECK(values.type->id() == Type::FIXED_SIZE_BINARY ||
+             values.type->id() == Type::FIXED_SIZE_LIST);
+      TakeIndexDispatch<FixedWidthTakeImpl, std::integral_constant<int, 0>>(
+          ctx, values, indices, out_arr);
+      break;
     case 1:
       // Zero-initialize the data buffer for the output array when the bit-width is 1
       // (e.g. Boolean array) to avoid having to ClearBit on every null element.
       // This might be profitable for other types as well, but we take the most
       // conservative approach for now.
       memset(out_arr->buffers[1]->mutable_data(), 0, out_arr->buffers[1]->size());
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 1>,
+      TakeIndexDispatch<FixedWidthTakeImpl, std::integral_constant<int, 1>,
                         /*OutputIsZeroInitialized=*/
                         std::true_type>(ctx, values, indices, out_arr);
       break;
     case 8:
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 8>>(
+      TakeIndexDispatch<FixedWidthTakeImpl, std::integral_constant<int, 8>>(
           ctx, values, indices, out_arr);
       break;
     case 16:
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 16>>(
+      TakeIndexDispatch<FixedWidthTakeImpl, std::integral_constant<int, 16>>(
           ctx, values, indices, out_arr);
       break;
     case 32:
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 32>>(
+      TakeIndexDispatch<FixedWidthTakeImpl, std::integral_constant<int, 32>>(
           ctx, values, indices, out_arr);
       break;
     case 64:
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 64>>(
+      TakeIndexDispatch<FixedWidthTakeImpl, std::integral_constant<int, 64>>(
           ctx, values, indices, out_arr);
       break;
     case 128:
       // For INTERVAL_MONTH_DAY_NANO, DECIMAL128
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 128>>(
+      TakeIndexDispatch<FixedWidthTakeImpl, std::integral_constant<int, 128>>(
           ctx, values, indices, out_arr);
       break;
     case 256:
       // For DECIMAL256
-      TakeIndexDispatch<PrimitiveTakeImpl, std::integral_constant<int, 256>>(
+      TakeIndexDispatch<FixedWidthTakeImpl, std::integral_constant<int, 256>>(
           ctx, values, indices, out_arr);
       break;
     default:
-      return Status::NotImplemented("Unsupported primitive type for take: ",
-                                    *values.type);
+      if (values.type->id() == Type::FIXED_SIZE_BINARY ||
+          values.type->id() == Type::FIXED_SIZE_LIST) {
+        int64_t byte_width = util::FixedWidthInBytes(*values.type);
+        // 0-length fixed-size binary or lists were handled above on `case 0`
+        DCHECK_GT(byte_width, 0);
+        TakeIndexDispatch<FixedWidthTakeImpl,
+                          /*ValueBitWidth=*/std::integral_constant<int, 8>,
+                          /*OutputIsZeroInitialized=*/std::false_type,
+                          /*WithFactor=*/std::true_type>(
+            ctx, values, indices, out_arr,
+            /*factor=*/static_cast<size_t>(byte_width));
+      } else {
+        return Status::NotImplemented("Unsupported primitive type for take: ",
+                                      *values.type);
+      }
+      break;
   }
   return Status::OK();
 }
@@ -724,13 +757,11 @@ void PopulateTakeKernels(std::vector<SelectionKernelData>* out) {
   auto take_indices = match::Integer();
 
   *out = {
-      {InputType(match::Primitive()), take_indices, PrimitiveTakeExec},
+      {InputType(match::Primitive()), take_indices, FixedWidthTakeExec},
       {InputType(match::BinaryLike()), take_indices, VarBinaryTakeExec},
       {InputType(match::LargeBinaryLike()), take_indices, LargeVarBinaryTakeExec},
-      {InputType(Type::FIXED_SIZE_BINARY), take_indices, FSBTakeExec},
+      {InputType(match::FixedSizeBinaryLike()), take_indices, FixedWidthTakeExec},
       {InputType(null()), take_indices, NullTakeExec},
-      {InputType(Type::DECIMAL128), take_indices, PrimitiveTakeExec},
-      {InputType(Type::DECIMAL256), take_indices, PrimitiveTakeExec},
       {InputType(Type::DICTIONARY), take_indices, DictionaryTake},
       {InputType(Type::EXTENSION), take_indices, ExtensionTake},
       {InputType(Type::LIST), take_indices, ListTakeExec},
