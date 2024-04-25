@@ -53,7 +53,7 @@ jobs:
 
       - uses: actions/setup-dotnet@v2
         with:
-          dotnet-version: '7.0.x'
+          dotnet-version: '8.0.x'
 
       - uses: actions/setup-node@v4
         with:
