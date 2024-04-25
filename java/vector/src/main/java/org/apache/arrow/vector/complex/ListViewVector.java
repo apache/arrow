@@ -367,7 +367,7 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   @Override
   public boolean isNull(int index) {
-    return false;
+    return (isSet(index) == 0);
   }
 
   @Override

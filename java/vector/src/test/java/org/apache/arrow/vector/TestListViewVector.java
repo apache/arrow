@@ -17,8 +17,14 @@
 
 package org.apache.arrow.vector;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+
+import java.util.ArrayList;
+
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.complex.BaseRepeatedValueViewVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.ListViewVector;
 import org.apache.arrow.vector.complex.impl.UnionListViewWriter;
@@ -72,6 +78,124 @@ public class TestListViewVector {
   }
 
   @Test
+  public void testNestedListViewVector() {
+    try (ListViewVector listViewVector = ListViewVector.empty("sourceVector", allocator)) {
+      UnionListViewWriter listViewWriter = listViewVector.getWriter();
+
+      /* allocate memory */
+      listViewWriter.allocate();
+
+      /* the dataVector that backs a listVector will also be a
+       * listVector for this test.
+       */
+
+      /* write one or more inner lists at index 0 */
+      listViewWriter.setPosition(0);
+      listViewWriter.startList();
+
+      listViewWriter.list().startList();
+      listViewWriter.list().bigInt().writeBigInt(50);
+      listViewWriter.list().bigInt().writeBigInt(100);
+      listViewWriter.list().bigInt().writeBigInt(200);
+      listViewWriter.list().endList();
+
+      listViewWriter.list().startList();
+      listViewWriter.list().bigInt().writeBigInt(75);
+      listViewWriter.list().bigInt().writeBigInt(125);
+      listViewWriter.list().bigInt().writeBigInt(150);
+      listViewWriter.list().bigInt().writeBigInt(175);
+      listViewWriter.list().endList();
+
+      listViewWriter.endList();
+
+      /* write one or more inner lists at index 1 */
+      listViewWriter.setPosition(1);
+      listViewWriter.startList();
+
+      listViewWriter.list().startList();
+      listViewWriter.list().bigInt().writeBigInt(10);
+      listViewWriter.list().endList();
+
+      listViewWriter.list().startList();
+      listViewWriter.list().bigInt().writeBigInt(15);
+      listViewWriter.list().bigInt().writeBigInt(20);
+      listViewWriter.list().endList();
+
+      listViewWriter.list().startList();
+      listViewWriter.list().bigInt().writeBigInt(25);
+      listViewWriter.list().bigInt().writeBigInt(30);
+      listViewWriter.list().bigInt().writeBigInt(35);
+      listViewWriter.list().endList();
+
+      listViewWriter.endList();
+
+      assertEquals(1, listViewVector.getLastSet());
+
+      listViewVector.setValueCount(2);
+
+      // [[[50,100,200],[75,125,150,175]], [[10],[15,20],[25,30,35]]]
+
+      assertEquals(2, listViewVector.getValueCount());
+
+      /* get listViewVector value at index 0 -- the value itself is a listViewVector */
+      Object result = listViewVector.getObject(0);
+      ArrayList<ArrayList<Long>> resultSet = (ArrayList<ArrayList<Long>>) result;
+      ArrayList<Long> list;
+
+      assertEquals(2, resultSet.size()); /* 2 inner lists at index 0 */
+      assertEquals(3, resultSet.get(0).size()); /* size of the first inner list */
+      assertEquals(4, resultSet.get(1).size()); /* size of the second inner list */
+
+      list = resultSet.get(0);
+      assertEquals(Long.valueOf(50), list.get(0));
+      assertEquals(Long.valueOf(100), list.get(1));
+      assertEquals(Long.valueOf(200), list.get(2));
+
+      list = resultSet.get(1);
+      assertEquals(Long.valueOf(75), list.get(0));
+      assertEquals(Long.valueOf(125), list.get(1));
+      assertEquals(Long.valueOf(150), list.get(2));
+      assertEquals(Long.valueOf(175), list.get(3));
+
+      /* get listViewVector value at index 1 -- the value itself is a listViewVector */
+      result = listViewVector.getObject(1);
+      resultSet = (ArrayList<ArrayList<Long>>) result;
+
+      assertEquals(3, resultSet.size()); /* 3 inner lists at index 1 */
+      assertEquals(1, resultSet.get(0).size()); /* size of the first inner list */
+      assertEquals(2, resultSet.get(1).size()); /* size of the second inner list */
+      assertEquals(3, resultSet.get(2).size()); /* size of the third inner list */
+
+      list = resultSet.get(0);
+      assertEquals(Long.valueOf(10), list.get(0));
+
+      list = resultSet.get(1);
+      assertEquals(Long.valueOf(15), list.get(0));
+      assertEquals(Long.valueOf(20), list.get(1));
+
+      list = resultSet.get(2);
+      assertEquals(Long.valueOf(25), list.get(0));
+      assertEquals(Long.valueOf(30), list.get(1));
+      assertEquals(Long.valueOf(35), list.get(2));
+
+      /* check underlying bitVector */
+      assertFalse(listViewVector.isNull(0));
+      assertFalse(listViewVector.isNull(1));
+
+      ArrowBuf offSetBuffer = listViewVector.getOffsetBuffer();
+      ArrowBuf sizeBuffer = listViewVector.getSizeBuffer();
+
+      // check offset buffer
+      assertEquals(0, offSetBuffer.getInt(0 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(2, offSetBuffer.getInt(1 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+
+      // check size buffer
+      assertEquals(2, sizeBuffer.getInt(0 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+      assertEquals(3, sizeBuffer.getInt(1 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+    }
+  }
+
+  @Test
   public void testBasicListViewVector() {
     try (ListViewVector listViewVector = ListViewVector.empty("sourceVector", allocator)) {
       UnionListViewWriter listViewWriter = listViewVector.getWriter();
@@ -105,6 +229,7 @@ public class TestListViewVector {
       listViewWriter.startList();
       listViewWriter.endList();
 
+      /* write the fifth list at index 4 */
       listViewWriter.setPosition(4);
       listViewWriter.startList();
       listViewWriter.bigInt().writeBigInt(1);
@@ -113,26 +238,43 @@ public class TestListViewVector {
       listViewWriter.bigInt().writeBigInt(4);
       listViewWriter.endList();
 
-      // assertEquals(3, listViewVector.getLastSet());
+      assertEquals(4, listViewVector.getLastSet());
 
       listViewVector.setValueCount(5);
-      // assertEquals(4, listViewVector.getValueCount());
+      // check value count
+      assertEquals(5, listViewVector.getValueCount());
+
       /* get vector at index 0 -- the value is a BigIntVector*/
       ArrowBuf offSetBuffer = listViewVector.getOffsetBuffer();
       ArrowBuf sizeBuffer = listViewVector.getSizeBuffer();
       FieldVector dataVec = listViewVector.getDataVector();
 
-      for (int i = 0; i < dataVec.getValueCount(); i++) {
-        Object o1 = dataVec.getObject(i);
-        System.out.println(i + " : " + o1);
-      }
+      // check offset buffer
+      assertEquals(0, offSetBuffer.getInt(0 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(3, offSetBuffer.getInt(1 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(3, offSetBuffer.getInt(2 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(7, offSetBuffer.getInt(3 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(7, offSetBuffer.getInt(4 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
 
-      for (int i = 0; i < 5; i++) {
-        System.out.println("Index: " + i + " Offset: " + offSetBuffer.getInt(i * 4) +
-                " Size: " + sizeBuffer.getInt(i * 4));
-      }
+      // check size buffer
+      assertEquals(3, sizeBuffer.getInt(0 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+      assertEquals(0, sizeBuffer.getInt(1 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+      assertEquals(4, sizeBuffer.getInt(2 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+      assertEquals(0, sizeBuffer.getInt(3 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+      assertEquals(4, sizeBuffer.getInt(4 * BaseRepeatedValueViewVector.SIZE_WIDTH));
 
-      System.out.println(listViewVector);
+      // check data vector
+      assertEquals(12, ((BigIntVector) dataVec).get(0));
+      assertEquals(-7, ((BigIntVector) dataVec).get(1));
+      assertEquals(25, ((BigIntVector) dataVec).get(2));
+      assertEquals(0, ((BigIntVector) dataVec).get(3));
+      assertEquals(-127, ((BigIntVector) dataVec).get(4));
+      assertEquals(127, ((BigIntVector) dataVec).get(5));
+      assertEquals(50, ((BigIntVector) dataVec).get(6));
+      assertEquals(1, ((BigIntVector) dataVec).get(7));
+      assertEquals(2, ((BigIntVector) dataVec).get(8));
+      assertEquals(3, ((BigIntVector) dataVec).get(9));
+      assertEquals(4, ((BigIntVector) dataVec).get(10));
     }
   }
 }
