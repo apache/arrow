@@ -23,6 +23,7 @@ import static org.apache.arrow.vector.TestUtils.newViewVarCharVector;
 import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -94,9 +95,9 @@ public class TestVarCharViewVector {
       byte[] view2 = viewVarCharVector.get(1);
       byte[] view3 = viewVarCharVector.get(2);
 
-      assert view1 != null;
-      assert view2 != null;
-      assert view3 != null;
+      assertNotNull(view1);
+      assertNotNull(view2);
+      assertNotNull(view3);
 
       String str1 = new String(STR0, StandardCharsets.UTF_8);
       String str2 = new String(STR1, StandardCharsets.UTF_8);
@@ -105,8 +106,8 @@ public class TestVarCharViewVector {
       assertEquals(new String(view1, StandardCharsets.UTF_8), str1);
       assertEquals(new String(view2, StandardCharsets.UTF_8), str2);
       assertEquals(new String(view3, StandardCharsets.UTF_8), str3);
-      
-      assert viewVarCharVector.dataBuffers.isEmpty();
+
+      assertTrue(viewVarCharVector.dataBuffers.isEmpty());
       
       assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(0)).getBuffer(),
           StandardCharsets.UTF_8), str1);
@@ -134,10 +135,10 @@ public class TestVarCharViewVector {
       byte[] view3 = viewVarCharVector.get(2);
       byte[] view4 = viewVarCharVector.get(3);
 
-      assert view1 != null;
-      assert view2 != null;
-      assert view3 != null;
-      assert view4 != null;
+      assertNotNull(view1);
+      assertNotNull(view2);
+      assertNotNull(view3);
+      assertNotNull(view4);
 
       String str1 = new String(STR1, StandardCharsets.UTF_8);
       String str2 = new String(STR2, StandardCharsets.UTF_8);
@@ -148,7 +149,7 @@ public class TestVarCharViewVector {
       assertEquals(new String(view3, StandardCharsets.UTF_8), str3);
       assertEquals(new String(view4, StandardCharsets.UTF_8), str4);
 
-      assert viewVarCharVector.dataBuffers.size() == 1;
+      assertEquals(1, viewVarCharVector.dataBuffers.size());
 
       assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(0)).getBuffer(),
           StandardCharsets.UTF_8), str1);
@@ -178,10 +179,10 @@ public class TestVarCharViewVector {
       byte[] view3 = viewVarCharVector.get(2);
       byte[] view4 = viewVarCharVector.get(3);
 
-      assert view1 != null;
-      assert view2 != null;
-      assert view3 != null;
-      assert view4 != null;
+      assertNotNull(view1);
+      assertNotNull(view2);
+      assertNotNull(view3);
+      assertNotNull(view4);
 
       String str1 = new String(STR1, StandardCharsets.UTF_8);
       String str2 = new String(STR2, StandardCharsets.UTF_8);
@@ -192,7 +193,7 @@ public class TestVarCharViewVector {
       assertEquals(new String(view3, StandardCharsets.UTF_8), str3);
       assertEquals(new String(view4, StandardCharsets.UTF_8), str4);
 
-      assert viewVarCharVector.dataBuffers.size() == 2;
+      assertEquals(2, viewVarCharVector.dataBuffers.size());
 
       assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(0)).getBuffer(),
           StandardCharsets.UTF_8), str1);
@@ -227,12 +228,12 @@ public class TestVarCharViewVector {
       byte[] view5 = viewVarCharVector.get(4);
       byte[] view6 = viewVarCharVector.get(5);
 
-      assert view1 != null;
-      assert view2 != null;
-      assert view3 != null;
-      assert view4 != null;
-      assert view5 != null;
-      assert view6 != null;
+      assertNotNull(view1);
+      assertNotNull(view2);
+      assertNotNull(view3);
+      assertNotNull(view4);
+      assertNotNull(view5);
+      assertNotNull(view6);
 
       String str1 = new String(STR1, StandardCharsets.UTF_8);
       String str2 = new String(STR2, StandardCharsets.UTF_8);
@@ -245,7 +246,7 @@ public class TestVarCharViewVector {
       assertEquals(new String(view5, StandardCharsets.UTF_8), str1);
       assertEquals(new String(view6, StandardCharsets.UTF_8), str6);
 
-      assert viewVarCharVector.dataBuffers.size() == 1;
+      assertEquals(1, viewVarCharVector.dataBuffers.size());
 
       assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(0)).getBuffer(),
           StandardCharsets.UTF_8), str1);
