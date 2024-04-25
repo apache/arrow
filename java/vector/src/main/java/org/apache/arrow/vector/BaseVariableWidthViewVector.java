@@ -1096,9 +1096,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
     assert index >= 0;
     final int dataLength = end - start;
     BitVectorHelper.setValidityBit(validityBuffer, index, isSet);
-    byte[] data = new byte[dataLength];
-    buffer.getBytes(start, data, 0, dataLength);
-    setBytes(index, data, start, dataLength);
+    setBytes(index, buffer, start, dataLength);
     lastSet = index;
   }
 

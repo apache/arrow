@@ -21,12 +21,12 @@ import static org.apache.arrow.vector.TestUtils.newVector;
 import static org.apache.arrow.vector.TestUtils.newViewVarBinaryVector;
 import static org.apache.arrow.vector.TestUtils.newViewVarCharVector;
 import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
-
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -44,10 +44,9 @@ import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.util.ReusableByteArray;
 import org.apache.arrow.vector.util.Text;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 
 public class TestVarCharViewVector {
@@ -66,12 +65,12 @@ public class TestVarCharViewVector {
 
   private BufferAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void prepare() {
     allocator = new RootAllocator(Integer.MAX_VALUE);
   }
 
-  @After
+  @AfterEach
   public void shutdown() {
     allocator.close();
   }
@@ -103,17 +102,17 @@ public class TestVarCharViewVector {
       String str2 = new String(STR1, StandardCharsets.UTF_8);
       String str3 = new String(STR4, StandardCharsets.UTF_8);
 
-      Assert.assertEquals(new String(view1, StandardCharsets.UTF_8), str1);
-      Assert.assertEquals(new String(view2, StandardCharsets.UTF_8), str2);
-      Assert.assertEquals(new String(view3, StandardCharsets.UTF_8), str3);
+      assertEquals(new String(view1, StandardCharsets.UTF_8), str1);
+      assertEquals(new String(view2, StandardCharsets.UTF_8), str2);
+      assertEquals(new String(view3, StandardCharsets.UTF_8), str3);
       
       assert viewVarCharVector.dataBuffers.isEmpty();
       
-      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(0)).getBuffer(),
+      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(0)).getBuffer(),
           StandardCharsets.UTF_8), str1);
-      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(1)).getBuffer(),
+      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(1)).getBuffer(),
           StandardCharsets.UTF_8), str2);
-      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(2)).getBuffer(),
+      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(2)).getBuffer(),
           StandardCharsets.UTF_8), str3);
     }
   }
@@ -144,20 +143,20 @@ public class TestVarCharViewVector {
       String str2 = new String(STR2, StandardCharsets.UTF_8);
       String str3 = new String(STR3, StandardCharsets.UTF_8);
 
-      Assert.assertEquals(new String(view1, StandardCharsets.UTF_8), str1);
-      Assert.assertEquals(new String(view2, StandardCharsets.UTF_8), str2);
-      Assert.assertEquals(new String(view3, StandardCharsets.UTF_8), str3);
-      Assert.assertEquals(new String(view4, StandardCharsets.UTF_8), str4);
+      assertEquals(new String(view1, StandardCharsets.UTF_8), str1);
+      assertEquals(new String(view2, StandardCharsets.UTF_8), str2);
+      assertEquals(new String(view3, StandardCharsets.UTF_8), str3);
+      assertEquals(new String(view4, StandardCharsets.UTF_8), str4);
 
       assert viewVarCharVector.dataBuffers.size() == 1;
 
-      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(0)).getBuffer(),
+      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(0)).getBuffer(),
           StandardCharsets.UTF_8), str1);
-      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(1)).getBuffer(),
+      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(1)).getBuffer(),
           StandardCharsets.UTF_8), str2);
-      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(2)).getBuffer(),
+      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(2)).getBuffer(),
           StandardCharsets.UTF_8), str3);
-      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(3)).getBuffer(),
+      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(3)).getBuffer(),
           StandardCharsets.UTF_8), str4);
     }
   }
@@ -188,20 +187,20 @@ public class TestVarCharViewVector {
       String str2 = new String(STR2, StandardCharsets.UTF_8);
       String str3 = new String(STR3, StandardCharsets.UTF_8);
 
-      Assert.assertEquals(new String(view1, StandardCharsets.UTF_8), str1);
-      Assert.assertEquals(new String(view2, StandardCharsets.UTF_8), str2);
-      Assert.assertEquals(new String(view3, StandardCharsets.UTF_8), str3);
-      Assert.assertEquals(new String(view4, StandardCharsets.UTF_8), str4);
+      assertEquals(new String(view1, StandardCharsets.UTF_8), str1);
+      assertEquals(new String(view2, StandardCharsets.UTF_8), str2);
+      assertEquals(new String(view3, StandardCharsets.UTF_8), str3);
+      assertEquals(new String(view4, StandardCharsets.UTF_8), str4);
 
       assert viewVarCharVector.dataBuffers.size() == 2;
 
-      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(0)).getBuffer(),
+      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(0)).getBuffer(),
           StandardCharsets.UTF_8), str1);
-      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(1)).getBuffer(),
+      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(1)).getBuffer(),
           StandardCharsets.UTF_8), str2);
-      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(2)).getBuffer(),
+      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(2)).getBuffer(),
           StandardCharsets.UTF_8), str3);
-      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(3)).getBuffer(),
+      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(3)).getBuffer(),
           StandardCharsets.UTF_8), str4);
     }
   }
@@ -239,40 +238,42 @@ public class TestVarCharViewVector {
       String str2 = new String(STR2, StandardCharsets.UTF_8);
       String str3 = new String(STR3, StandardCharsets.UTF_8);
 
-      Assert.assertEquals(new String(view1, StandardCharsets.UTF_8), str1);
-      Assert.assertEquals(new String(view2, StandardCharsets.UTF_8), str2);
-      Assert.assertEquals(new String(view3, StandardCharsets.UTF_8), str3);
-      Assert.assertEquals(new String(view4, StandardCharsets.UTF_8), str4);
-      Assert.assertEquals(new String(view5, StandardCharsets.UTF_8), str1);
-      Assert.assertEquals(new String(view6, StandardCharsets.UTF_8), str6);
+      assertEquals(new String(view1, StandardCharsets.UTF_8), str1);
+      assertEquals(new String(view2, StandardCharsets.UTF_8), str2);
+      assertEquals(new String(view3, StandardCharsets.UTF_8), str3);
+      assertEquals(new String(view4, StandardCharsets.UTF_8), str4);
+      assertEquals(new String(view5, StandardCharsets.UTF_8), str1);
+      assertEquals(new String(view6, StandardCharsets.UTF_8), str6);
 
       assert viewVarCharVector.dataBuffers.size() == 1;
 
-      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(0)).getBuffer(),
+      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(0)).getBuffer(),
           StandardCharsets.UTF_8), str1);
-      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(1)).getBuffer(),
+      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(1)).getBuffer(),
           StandardCharsets.UTF_8), str2);
-      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(2)).getBuffer(),
+      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(2)).getBuffer(),
           StandardCharsets.UTF_8), str3);
-      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(3)).getBuffer(),
+      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(3)).getBuffer(),
           StandardCharsets.UTF_8), str4);
-      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(4)).getBuffer(),
+      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(4)).getBuffer(),
           StandardCharsets.UTF_8), str1);
-      Assert.assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(5)).getBuffer(),
+      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(5)).getBuffer(),
           StandardCharsets.UTF_8), str6);
     }
   }
 
-  @Test(expected = IndexOutOfBoundsException.class)
+  @Test
   public void testAllocationIndexOutOfBounds() {
-    try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator)) {
-      viewVarCharVector.allocateNew(32, 3);
-      final int valueCount = 3;
-      viewVarCharVector.set(0, STR1);
-      viewVarCharVector.set(1, STR2);
-      viewVarCharVector.set(2, STR2);
-      viewVarCharVector.setValueCount(valueCount);
-    }
+    assertThrows(IndexOutOfBoundsException.class, () -> {
+      try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator)) {
+        viewVarCharVector.allocateNew(32, 3);
+        final int valueCount = 3;
+        viewVarCharVector.set(0, STR1);
+        viewVarCharVector.set(1, STR2);
+        viewVarCharVector.set(2, STR2);
+        viewVarCharVector.setValueCount(valueCount);
+      }
+    });
   }
 
   @Test
@@ -752,20 +753,22 @@ public class TestVarCharViewVector {
     }
   }
 
-  @Test(expected = UnsupportedOperationException.class)
+  @Test
   public void testUnSupportedOffSet() {
     // offset is not a feature required in ViewVarCharVector
-    try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
+    assertThrows(UnsupportedOperationException.class, () -> {
+      try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
 
-      setVector(vector, STR1, STR2);
-      vector.setValueCount(2);
+        setVector(vector, STR1, STR2);
+        vector.setValueCount(2);
 
-      /* check the vector output */
-      assertArrayEquals(STR1, vector.get(0));
-      assertArrayEquals(STR2, vector.get(1));
+        /* check the vector output */
+        assertArrayEquals(STR1, vector.get(0));
+        assertArrayEquals(STR2, vector.get(1));
 
-      vector.getOffsetBuffer();
-    }
+        vector.getOffsetBuffer();
+      }
+    });
   }
 
   private String generateRandomString(int length) {
