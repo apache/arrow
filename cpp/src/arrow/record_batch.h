@@ -62,7 +62,9 @@ class ARROW_EXPORT RecordBatch {
   /// \param num_rows the number of semantic rows in the record batch. This
   /// should be equal to the length of each field
   /// \param columns the data for the batch's columns
-  /// \param[in] sync_event optional synchronization event for non-CPU device
+  /// \param device_type the type of the device that the Arrow columns are 
+  /// allocated on
+  /// \param sync_event optional synchronization event for non-CPU device
   /// memory used by buffers
   static std::shared_ptr<RecordBatch> Make(
       std::shared_ptr<Schema> schema, int64_t num_rows,
@@ -404,6 +406,7 @@ class ARROW_EXPORT RecordBatchReader {
   /// \param[in] batches the vector of RecordBatch to read from
   /// \param[in] schema schema to conform to. Will be inferred from the first
   ///            element if not provided.
+  /// \param[in] device_type the type of device that the batches are allocated on
   static Result<std::shared_ptr<RecordBatchReader>> Make(
       RecordBatchVector batches, std::shared_ptr<Schema> schema = NULLPTR,
       DeviceAllocationType device_type = DeviceAllocationType::kCPU);
@@ -412,6 +415,7 @@ class ARROW_EXPORT RecordBatchReader {
   ///
   /// \param[in] batches an iterator of RecordBatch to read from.
   /// \param[in] schema schema that each record batch in iterator will conform to.
+  /// \param[in] device_type the type of device that the batches are allocated on
   static Result<std::shared_ptr<RecordBatchReader>> MakeFromIterator(
       Iterator<std::shared_ptr<RecordBatch>> batches, std::shared_ptr<Schema> schema,
       DeviceAllocationType device_type = DeviceAllocationType::kCPU);
