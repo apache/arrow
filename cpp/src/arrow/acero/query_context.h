@@ -36,8 +36,14 @@ namespace acero {
 namespace internal {
 
 constexpr char kTempStackSizeEnvVar[] = "ACERO_TEMP_STACK_SIZE";
-constexpr int64_t kDefaultTempStackSize =
-    32 * arrow::util::MiniBatch::kMiniBatchLength * sizeof(uint64_t);
+/// Default 256KB temp stack size to be fairly sufficient for most common cases.
+constexpr int64_t kDefaultTempStackSize = 256 * arrow::util::MiniBatch::kMiniBatchLength;
+/// Minimal 64KB temp stack size to be barely useful.
+constexpr int64_t kMinTempStackSize = 64 * arrow::util::MiniBatch::kMiniBatchLength;
+/// Maximal 64MB temp stack size, which should be sufficient for any case that is not
+/// insane, and the stack init overhead is acceptable.
+constexpr int64_t kMaxTempStackSize =
+    64 * 1024 * arrow::util::MiniBatch::kMiniBatchLength;
 ARROW_ACERO_EXPORT
 int64_t GetTempStackSizeFromEnvVar();
 

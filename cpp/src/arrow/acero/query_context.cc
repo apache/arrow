@@ -47,6 +47,16 @@ int64_t GetTempStackSizeFromEnvVar() {
     ARROW_LOG(WARNING) << "Invalid temp stack size provided in " << kTempStackSizeEnvVar
                        << ". Using default temp stack size: " << kDefaultTempStackSize;
     return kDefaultTempStackSize;
+  } else if (temp_stack_size < kMinTempStackSize) {
+    ARROW_LOG(WARNING) << "Temp stack size provided in " << kTempStackSizeEnvVar
+                       << " is too small. Using minimal temp stack size: "
+                       << kMinTempStackSize;
+    return kMinTempStackSize;
+  } else if (temp_stack_size > kMaxTempStackSize) {
+    ARROW_LOG(WARNING) << "Temp stack size provided in " << kTempStackSizeEnvVar
+                       << " is too big. Using maximal temp stack size: "
+                       << kMaxTempStackSize;
+    return kMaxTempStackSize;
   }
   return temp_stack_size;
 }

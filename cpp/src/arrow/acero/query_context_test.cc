@@ -58,18 +58,22 @@ TEST(TestTempStack, GetTempStackSizeFromEnvVar) {
     ASSERT_EQ(internal::GetTempStackSizeFromEnvVar(), internal::kDefaultTempStackSize);
   }
 
-  // Valid positive number.
+  // Smaller than minimal temp stack size.
   {
-    ScopedEnvVar env(internal::kTempStackSizeEnvVar, "42");
-    ASSERT_EQ(internal::GetTempStackSizeFromEnvVar(), 42);
+    ScopedEnvVar env(internal::kTempStackSizeEnvVar, "65535");
+    ASSERT_EQ(internal::GetTempStackSizeFromEnvVar(), internal::kMinTempStackSize);
   }
 
-  // Int64 max.
+  // Between minimal and maximal temp stack size.
   {
-    auto str = std::to_string(std::numeric_limits<int64_t>::max());
-    ScopedEnvVar env(internal::kTempStackSizeEnvVar, str.c_str());
-    ASSERT_EQ(internal::GetTempStackSizeFromEnvVar(),
-              std::numeric_limits<int64_t>::max());
+    ScopedEnvVar env(internal::kTempStackSizeEnvVar, "65537");
+    ASSERT_EQ(internal::GetTempStackSizeFromEnvVar(), 65537);
+  }
+
+  // Bigger than maximal temp stack size.
+  {
+    ScopedEnvVar env(internal::kTempStackSizeEnvVar, "67108865");
+    ASSERT_EQ(internal::GetTempStackSizeFromEnvVar(), internal::kMaxTempStackSize);
   }
 
   // Zero.

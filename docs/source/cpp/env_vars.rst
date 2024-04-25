@@ -62,8 +62,12 @@ that changing their value later will have an effect.
    value of the variable specifies the stack size in bytes.
    
    The default stack size is 262144 bytes (256 KB).  The value of this
-   environment variable should be a positive integer and should not exceed
-   the maximum value of int64.  Otherwise the default value is used.
+   environment variable should be a positive integer within the inclusive
+   range between 65536 (64 KB) and 67108864 (64 MB).  If the value is a
+   valid positive integer within the int64 range but exceeds the specified
+   minimum or maximum stack size limits, the nearest boundary value is used.
+   If the input is a non-positive integer, an invalid number, or exceeds the
+   int64 capacity, the default stack size is used.
 
 .. envvar:: ARROW_DEBUG_MEMORY_POOL
 
