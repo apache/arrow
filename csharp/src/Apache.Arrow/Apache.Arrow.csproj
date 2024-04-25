@@ -8,10 +8,10 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(IsWindows)'=='true'">
-    <TargetFrameworks>netstandard2.0;net6.0;net462</TargetFrameworks>
+    <TargetFrameworks>netstandard2.0;net6.0;net8.0;net462</TargetFrameworks>
   </PropertyGroup>
   <PropertyGroup Condition="'$(IsWindows)'!='true'">
-    <TargetFrameworks>netstandard2.0;net6.0</TargetFrameworks>
+    <TargetFrameworks>netstandard2.0;net6.0;net8.0</TargetFrameworks>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(TargetFrameworkIdentifier)' == '.NETStandard' or '$(TargetFramework)' == 'net462'">
