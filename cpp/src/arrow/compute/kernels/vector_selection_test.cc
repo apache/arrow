@@ -1146,6 +1146,15 @@ void ValidateTakeImpl(const std::shared_ptr<Array>& values,
   for (int64_t i = 0; i < indices->length(); ++i) {
     if (typed_indices->IsNull(i) || typed_values->IsNull(typed_indices->Value(i))) {
       ASSERT_TRUE(result->IsNull(i)) << i;
+      // The value of a null element is undefined, but right
+      // out of the Take kernel it is expected to be 0.
+      if constexpr (is_primitive(ValuesType::type_id)) {
+        if constexpr (ValuesType::type_id == Type::BOOL) {
+          ASSERT_EQ(typed_result->Value(i), false);
+        } else {
+          ASSERT_EQ(typed_result->Value(i), 0);
+        }
+      }
     } else {
       ASSERT_FALSE(result->IsNull(i)) << i;
       ASSERT_EQ(typed_result->GetView(i), typed_values->GetView(typed_indices->Value(i)))
