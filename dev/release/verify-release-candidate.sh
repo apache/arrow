@@ -347,7 +347,7 @@ install_csharp() {
 
   show_info "Ensuring that C# is installed..."
 
-  if dotnet --version | grep 7\.0 > /dev/null 2>&1; then
+  if dotnet --version | grep 8\.0 > /dev/null 2>&1; then
     local csharp_bin=$(dirname $(which dotnet))
     show_info "Found C# at $(which csharp) (.NET $(dotnet --version))"
   else
