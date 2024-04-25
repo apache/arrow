@@ -2169,6 +2169,7 @@ INCLUDE_FILE_PATTERNS  =
 PREDEFINED             = __attribute__(x)= \
                          __declspec(x)= \
                          ARROW_ACERO_EXPORT= \
+                         ARROW_ARG_UNUSED(x)=x \
                          ARROW_DEPRECATED(x)= \
                          ARROW_DS_EXPORT= \
                          ARROW_ENGINE_EXPORT= \
@@ -2186,7 +2187,7 @@ PREDEFINED             = __attribute__(x)= \
 # definition found in the source code.
 # This tag requires that the tag ENABLE_PREPROCESSING is set to YES.
 
-EXPAND_AS_DEFINED      = ARROW_ARG_UNUSED
+EXPAND_AS_DEFINED      =
 
 # If the SKIP_FUNCTION_MACROS tag is set to YES then doxygen's preprocessor will
 # remove all references to function-like macros that are alone on a line, have
