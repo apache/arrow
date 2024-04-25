@@ -31,16 +31,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/flight"
-	"github.com/apache/arrow/go/v16/arrow/flight/flightsql"
-	"github.com/apache/arrow/go/v16/arrow/flight/flightsql/schema_ref"
-	"github.com/apache/arrow/go/v16/arrow/flight/session"
-	"github.com/apache/arrow/go/v16/arrow/internal/arrjson"
-	"github.com/apache/arrow/go/v16/arrow/ipc"
-	"github.com/apache/arrow/go/v16/arrow/memory"
-	"github.com/apache/arrow/go/v16/internal/types"
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/array"
+	"github.com/apache/arrow/go/v17/arrow/flight"
+	"github.com/apache/arrow/go/v17/arrow/flight/flightsql"
+	"github.com/apache/arrow/go/v17/arrow/flight/flightsql/schema_ref"
+	"github.com/apache/arrow/go/v17/arrow/flight/session"
+	"github.com/apache/arrow/go/v17/arrow/internal/arrjson"
+	"github.com/apache/arrow/go/v17/arrow/ipc"
+	"github.com/apache/arrow/go/v17/arrow/memory"
+	"github.com/apache/arrow/go/v17/internal/types"
 	"golang.org/x/xerrors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -2134,16 +2134,16 @@ func (m *flightSqlScenarioTester) ClosePreparedStatement(_ context.Context, requ
 	return nil
 }
 
-func (m *flightSqlScenarioTester) DoPutPreparedStatementQuery(_ context.Context, cmd flightsql.PreparedStatementQuery, rdr flight.MessageReader, _ flight.MetadataWriter) error {
+func (m *flightSqlScenarioTester) DoPutPreparedStatementQuery(_ context.Context, cmd flightsql.PreparedStatementQuery, rdr flight.MessageReader, _ flight.MetadataWriter) ([]byte, error){
 	switch string(cmd.GetPreparedStatementHandle()) {
 	case "SELECT PREPARED STATEMENT HANDLE",
 		"SELECT PREPARED STATEMENT WITH TXN HANDLE",
 		"PLAN HANDLE", "PLAN WITH TXN HANDLE":
 		actualSchema := rdr.Schema()
-		return assertEq(true, actualSchema.Equal(getQuerySchema()))
+		return cmd.GetPreparedStatementHandle(), assertEq(true, actualSchema.Equal(getQuerySchema()))
 	}
 
-	return fmt.Errorf("%w: handle for DoPutPreparedStatementQuery '%s'",
+	return cmd.GetPreparedStatementHandle(), fmt.Errorf("%w: handle for DoPutPreparedStatementQuery '%s'",
 		arrow.ErrInvalid, string(cmd.GetPreparedStatementHandle()))
 }
 

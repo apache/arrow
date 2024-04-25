@@ -165,8 +165,13 @@ namespace Apache.Arrow.Ipc
                 _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
                 _buffers.Add(CreateBuffer(GetZeroBasedValueOffsets(array.ValueOffsetsBuffer, array.Offset, array.Length)));
 
-                int valuesOffset = array.ValueOffsets[0];
-                int valuesLength = array.ValueOffsets[array.Length] - valuesOffset;
+                int valuesOffset = 0;
+                int valuesLength = 0;
+                if (array.Length > 0)
+                {
+                    valuesOffset = array.ValueOffsets[0];
+                    valuesLength = array.ValueOffsets[array.Length] - valuesOffset;
+                }
 
                 var values = array.Values;
                 if (valuesOffset > 0 || valuesLength < values.Length)
@@ -179,11 +184,19 @@ namespace Apache.Arrow.Ipc
 
             public void Visit(ListViewArray array)
             {
+                var (valueOffsetsBuffer, minOffset, maxEnd) = GetZeroBasedListViewOffsets(array);
+
                 _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
-                _buffers.Add(CreateSlicedBuffer<int>(array.ValueOffsetsBuffer, array.Offset, array.Length));
+                _buffers.Add(CreateBuffer(valueOffsetsBuffer));
                 _buffers.Add(CreateSlicedBuffer<int>(array.SizesBuffer, array.Offset, array.Length));
 
-                VisitArray(array.Values);
+                IArrowArray values = array.Values;
+                if (minOffset != 0 || values.Length != maxEnd)
+                {
+                    values = ArrowArrayFactory.Slice(values, minOffset, maxEnd - minOffset);
+                }
+
+                VisitArray(values);
             }
 
             public void Visit(FixedSizeListArray array)
@@ -206,8 +219,13 @@ namespace Apache.Arrow.Ipc
                 _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
                 _buffers.Add(CreateBuffer(GetZeroBasedValueOffsets(array.ValueOffsetsBuffer, array.Offset, array.Length)));
 
-                int valuesOffset = array.ValueOffsets[0];
-                int valuesLength = array.ValueOffsets[array.Length] - valuesOffset;
+                int valuesOffset = 0;
+                int valuesLength = 0;
+                if (array.Length > 0)
+                {
+                    valuesOffset = array.ValueOffsets[0];
+                    valuesLength = array.ValueOffsets[array.Length] - valuesOffset;
+                }
 
                 _buffers.Add(CreateSlicedBuffer<byte>(array.ValueBuffer, valuesOffset, valuesLength));
             }
@@ -307,6 +325,58 @@ namespace Apache.Arrow.Ipc
                     // Use the full buffer
                     return valueOffsetsBuffer;
                 }
+            }
+
+            private (ArrowBuffer Buffer, int minOffset, int maxEnd) GetZeroBasedListViewOffsets(ListViewArray array)
+            {
+                if (array.Length == 0)
+                {
+                    return (ArrowBuffer.Empty, 0, 0);
+                }
+
+                var offsets = array.ValueOffsets;
+                var sizes = array.Sizes;
+
+                int minOffset = offsets[0];
+                int maxEnd = offsets[array.Length - 1] + sizes[array.Length - 1];
+
+                // Min possible offset is zero, and max possible end is the values length.
+                // If these match the first offset and last end we don't need to do anything further,
+                // but otherwise we need to iterate over each index in case the offsets aren't ordered.
+                if (minOffset != 0 || maxEnd != array.Values.Length)
+                {
+                    for (int i = 0; i < array.Length; ++i)
+                    {
+                        minOffset = Math.Min(minOffset, offsets[i]);
+                        maxEnd = Math.Max(maxEnd, offsets[i] + sizes[i]);
+                    }
+                }
+
+                var requiredBytes = CalculatePaddedBufferLength(sizeof(int) * array.Length);
+
+                if (minOffset == 0)
+                {
+                    // No need to adjust the offsets, but we may need to slice the offsets buffer.
+                    ArrowBuffer buffer = array.ValueOffsetsBuffer;
+                    if (array.Offset != 0 || buffer.Length > requiredBytes)
+                    {
+                        var byteOffset = sizeof(int) * array.Offset;
+                        var sliceLength = Math.Min(requiredBytes, buffer.Length - byteOffset);
+                        buffer = new ArrowBuffer(buffer.Memory.Slice(byteOffset, sliceLength));
+                    }
+
+                    return (buffer, minOffset, maxEnd);
+                }
+
+                // Compute shifted offsets
+                var newOffsetsBuffer = _allocator.Allocate(requiredBytes);
+                var newOffsets = newOffsetsBuffer.Memory.Span.CastTo<int>();
+                for (int i = 0; i < array.Length; ++i)
+                {
+                    newOffsets[i] = offsets[i] - minOffset;
+                }
+
+                return (new ArrowBuffer(newOffsetsBuffer), minOffset, maxEnd);
             }
 
             private Buffer CreateBitmapBuffer(ArrowBuffer buffer, int offset, int length)

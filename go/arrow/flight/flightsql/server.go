@@ -20,14 +20,14 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/flight"
-	"github.com/apache/arrow/go/v16/arrow/flight/flightsql/schema_ref"
-	pb "github.com/apache/arrow/go/v16/arrow/flight/gen/flight"
-	"github.com/apache/arrow/go/v16/arrow/internal/debug"
-	"github.com/apache/arrow/go/v16/arrow/ipc"
-	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/array"
+	"github.com/apache/arrow/go/v17/arrow/flight"
+	"github.com/apache/arrow/go/v17/arrow/flight/flightsql/schema_ref"
+	pb "github.com/apache/arrow/go/v17/arrow/flight/gen/flight"
+	"github.com/apache/arrow/go/v17/arrow/internal/debug"
+	"github.com/apache/arrow/go/v17/arrow/ipc"
+	"github.com/apache/arrow/go/v17/arrow/memory"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -510,8 +510,8 @@ func (BaseServer) DoPutCommandSubstraitPlan(context.Context, StatementSubstraitP
 	return 0, status.Error(codes.Unimplemented, "DoPutCommandSubstraitPlan not implemented")
 }
 
-func (BaseServer) DoPutPreparedStatementQuery(context.Context, PreparedStatementQuery, flight.MessageReader, flight.MetadataWriter) error {
-	return status.Error(codes.Unimplemented, "DoPutPreparedStatementQuery not implemented")
+func (BaseServer) DoPutPreparedStatementQuery(context.Context, PreparedStatementQuery, flight.MessageReader, flight.MetadataWriter) ([]byte, error) {
+	return nil, status.Error(codes.Unimplemented, "DoPutPreparedStatementQuery not implemented")
 }
 
 func (BaseServer) DoPutPreparedStatementUpdate(context.Context, PreparedStatementUpdate, flight.MessageReader) (int64, error) {
@@ -677,7 +677,7 @@ type Server interface {
 	// Currently anything written to the writer will be ignored. It is in the
 	// interface for potential future enhancements to avoid having to change
 	// the interface in the future.
-	DoPutPreparedStatementQuery(context.Context, PreparedStatementQuery, flight.MessageReader, flight.MetadataWriter) error
+	DoPutPreparedStatementQuery(context.Context, PreparedStatementQuery, flight.MessageReader, flight.MetadataWriter) ([]byte, error)
 	// DoPutPreparedStatementUpdate executes an update SQL Prepared statement
 	// for the specified statement handle. The reader allows providing a sequence
 	// of uploaded record batches to bind the parameters to. Returns the number
@@ -990,7 +990,16 @@ func (f *flightSqlServer) DoPut(stream flight.FlightService_DoPutServer) error {
 		}
 		return stream.Send(out)
 	case *pb.CommandPreparedStatementQuery:
-		return f.srv.DoPutPreparedStatementQuery(stream.Context(), cmd, rdr, &putMetadataWriter{stream})
+		handle, err := f.srv.DoPutPreparedStatementQuery(stream.Context(), cmd, rdr, &putMetadataWriter{stream})
+		if err != nil {
+			return err
+		}
+		result := pb.DoPutPreparedStatementResult{PreparedStatementHandle: handle}
+		out := &flight.PutResult{}
+		if out.AppMetadata, err = proto.Marshal(&result); err != nil {
+			return status.Errorf(codes.Internal, "failed to marshal PutResult: %s", err.Error())
+		}
+		return stream.Send(out)
 	case *pb.CommandPreparedStatementUpdate:
 		recordCount, err := f.srv.DoPutPreparedStatementUpdate(stream.Context(), cmd, rdr)
 		if err != nil {

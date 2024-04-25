@@ -22,7 +22,7 @@ import (
 	"math"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v16/arrow/endian"
+	"github.com/apache/arrow/go/v17/arrow/endian"
 )
 
 var (

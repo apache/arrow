@@ -21,13 +21,13 @@ package kernels
 import (
 	"fmt"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/compute/exec"
-	"github.com/apache/arrow/go/v16/arrow/internal/debug"
-	"github.com/apache/arrow/go/v16/arrow/memory"
-	"github.com/apache/arrow/go/v16/internal/bitutils"
-	"github.com/apache/arrow/go/v16/internal/hashing"
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/array"
+	"github.com/apache/arrow/go/v17/arrow/compute/exec"
+	"github.com/apache/arrow/go/v17/arrow/internal/debug"
+	"github.com/apache/arrow/go/v17/arrow/memory"
+	"github.com/apache/arrow/go/v17/internal/bitutils"
+	"github.com/apache/arrow/go/v17/internal/hashing"
 )
 
 type HashState interface {

@@ -449,16 +449,24 @@ namespace Apache.Arrow.Tests
                     Assert.Equal(expectedArray.Offset, actualArray.Offset);
                     Assert.True(expectedArray.ValueOffsetsBuffer.Span.SequenceEqual(actualArray.ValueOffsetsBuffer.Span));
                     Assert.True(expectedArray.SizesBuffer.Span.SequenceEqual(actualArray.SizesBuffer.Span));
+                    actualArray.Values.Accept(new ArrayComparer(expectedArray.Values, _strictCompare));
                 }
                 else
                 {
-                    int start = expectedArray.Offset * sizeof(int);
-                    int length = expectedArray.Length * sizeof(int);
-                    Assert.True(expectedArray.ValueOffsetsBuffer.Span.Slice(start, length).SequenceEqual(actualArray.ValueOffsetsBuffer.Span.Slice(0, length)));
-                    Assert.True(expectedArray.SizesBuffer.Span.Slice(start, length).SequenceEqual(actualArray.SizesBuffer.Span.Slice(0, length)));
+                    for (int i = 0; i < actualArray.Length; ++i)
+                    {
+                        if (expectedArray.IsNull(i))
+                        {
+                            Assert.True(actualArray.IsNull(i));
+                        }
+                        else
+                        {
+                            var expectedList = expectedArray.GetSlicedValues(i);
+                            var actualList = actualArray.GetSlicedValues(i);
+                            actualList.Accept(new ArrayComparer(expectedList, _strictCompare));
+                        }
+                    }
                 }
-
-                actualArray.Values.Accept(new ArrayComparer(expectedArray.Values, _strictCompare));
             }
 
             private void CompareArrays(FixedSizeListArray actualArray)
@@ -489,36 +497,13 @@ namespace Apache.Arrow.Tests
                 {
                     Assert.True(expectedValidityBuffer.Span.SequenceEqual(actualValidityBuffer.Span));
                 }
-                else if (actualValidityBuffer.IsEmpty)
+                else if (actualValidityBuffer.IsEmpty || expectedValidityBuffer.IsEmpty || arrayLength == 0)
                 {
                     Assert.True(nullCount == 0 || arrayLength == 0);
                 }
-                else if (expectedBufferOffset % 8 == 0 && expectedBufferOffset == actualBufferOffset)
-                {
-                    int validityBitmapByteCount = BitUtility.ByteCount(arrayLength);
-                    int byteOffset = BitUtility.ByteCount(expectedBufferOffset);
-                    ReadOnlySpan<byte> expectedSpanPartial = expectedValidityBuffer.Span.Slice(byteOffset, validityBitmapByteCount - 1);
-                    ReadOnlySpan<byte> actualSpanPartial = actualValidityBuffer.Span.Slice(0, validityBitmapByteCount - 1);
-
-                    // Compare the first validityBitmapByteCount - 1 bytes
-                    Assert.True(
-                        expectedSpanPartial.SequenceEqual(actualSpanPartial),
-                        string.Format("First {0} bytes of validity buffer do not match", validityBitmapByteCount - 1));
-
-                    // Compare the last byte bitwise (because there is no guarantee about the value of
-                    // bits outside the range [0, arrayLength])
-                    ReadOnlySpan<byte> expectedSpanFull = expectedValidityBuffer.Span.Slice(byteOffset, validityBitmapByteCount);
-                    ReadOnlySpan<byte> actualSpanFull = actualValidityBuffer.Span.Slice(0, validityBitmapByteCount);
-                    for (int i = 8 * (validityBitmapByteCount - 1); i < arrayLength; i++)
-                    {
-                        Assert.True(
-                            BitUtility.GetBit(expectedSpanFull, i) == BitUtility.GetBit(actualSpanFull, i),
-                            string.Format("Bit at index {0}/{1} is not equal", i, arrayLength));
-                    }
-                }
                 else
                 {
-                    // Have to compare all values bitwise
+                    // Compare all values bitwise
                     var expectedSpan = expectedValidityBuffer.Span;
                     var actualSpan = actualValidityBuffer.Span;
                     for (int i = 0; i < arrayLength; i++)

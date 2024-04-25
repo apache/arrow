@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/array"
 )
 
 // *** GRPC helpers ***

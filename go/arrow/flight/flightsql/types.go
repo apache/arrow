@@ -17,7 +17,7 @@
 package flightsql
 
 import (
-	pb "github.com/apache/arrow/go/v16/arrow/flight/gen/flight"
+	pb "github.com/apache/arrow/go/v17/arrow/flight/gen/flight"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 )

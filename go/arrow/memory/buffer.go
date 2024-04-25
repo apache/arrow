@@ -19,7 +19,7 @@ package memory
 import (
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v16/arrow/internal/debug"
+	"github.com/apache/arrow/go/v17/arrow/internal/debug"
 )
 
 // Buffer is a wrapper type for a buffer of bytes.

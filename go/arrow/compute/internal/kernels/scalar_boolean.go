@@ -19,9 +19,9 @@
 package kernels
 
 import (
-	"github.com/apache/arrow/go/v16/arrow/bitutil"
-	"github.com/apache/arrow/go/v16/arrow/compute/exec"
-	"github.com/apache/arrow/go/v16/arrow/scalar"
+	"github.com/apache/arrow/go/v17/arrow/bitutil"
+	"github.com/apache/arrow/go/v17/arrow/compute/exec"
+	"github.com/apache/arrow/go/v17/arrow/scalar"
 )
 
 type computeWordFN func(leftTrue, leftFalse, rightTrue, rightFalse uint64) (outValid, outData uint64)

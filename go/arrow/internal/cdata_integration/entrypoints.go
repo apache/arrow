@@ -25,10 +25,10 @@ import (
 	"runtime"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/cdata"
-	"github.com/apache/arrow/go/v16/arrow/internal/arrjson"
-	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v17/arrow/array"
+	"github.com/apache/arrow/go/v17/arrow/cdata"
+	"github.com/apache/arrow/go/v17/arrow/internal/arrjson"
+	"github.com/apache/arrow/go/v17/arrow/memory"
 )
 
 // #include <stdint.h>
