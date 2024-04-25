@@ -19,7 +19,7 @@ using Apache.Arrow.Flight.Internal;
 using Apache.Arrow.Flight.Protocol;
 using Grpc.Core;
 
-namespace Apache.Arrow.Flight.Server.Internal
+namespace Apache.Arrow.Flight.Server
 {
     public class FlightServerImplementation : FlightService.FlightServiceBase
     {
@@ -29,7 +29,7 @@ namespace Apache.Arrow.Flight.Server.Internal
             _flightServer = flightServer;
         }
 
-        public override async Task DoPut(IAsyncStreamReader<Protocol.FlightData> requestStream, IServerStreamWriter<Protocol.PutResult> responseStream, ServerCallContext context)
+        public override async Task DoPut(IAsyncStreamReader<Protocol.FlightData> requestStream, IServerStreamWriter<PutResult> responseStream, ServerCallContext context)
         {
             var readStream = new FlightServerRecordBatchStreamReader(requestStream);
             var writeStream = new StreamWriter<FlightPutResult, PutResult>(responseStream, putResult => putResult.ToProtocol());
@@ -37,7 +37,7 @@ namespace Apache.Arrow.Flight.Server.Internal
             await _flightServer.DoPut(readStream, writeStream, context).ConfigureAwait(false);
         }
 
-        public override Task DoGet(Protocol.Ticket request, IServerStreamWriter<Protocol.FlightData> responseStream, ServerCallContext context)
+        public override Task DoGet(Ticket request, IServerStreamWriter<Protocol.FlightData> responseStream, ServerCallContext context)
         {
             var flightTicket = new FlightTicket(request.Ticket_);
             var flightServerRecordBatchStreamWriter = new FlightServerRecordBatchStreamWriter(responseStream);
@@ -45,17 +45,17 @@ namespace Apache.Arrow.Flight.Server.Internal
             return _flightServer.DoGet(flightTicket, flightServerRecordBatchStreamWriter, context);
         }
 
-        public override Task ListFlights(Protocol.Criteria request, IServerStreamWriter<Protocol.FlightInfo> responseStream, ServerCallContext context)
+        public override Task ListFlights(Criteria request, IServerStreamWriter<Protocol.FlightInfo> responseStream, ServerCallContext context)
         {
             var writeStream = new StreamWriter<FlightInfo, Protocol.FlightInfo>(responseStream, flightInfo => flightInfo.ToProtocol());
 
             return _flightServer.ListFlights(new FlightCriteria(request), writeStream, context);
         }
 
-        public override Task DoAction(Protocol.Action request, IServerStreamWriter<Protocol.Result> responseStream, ServerCallContext context)
+        public override Task DoAction(Protocol.Action request, IServerStreamWriter<Result> responseStream, ServerCallContext context)
         {
             var action = new FlightAction(request);
-            var writeStream = new StreamWriter<FlightResult, Protocol.Result>(responseStream, result => result.ToProtocol());
+            var writeStream = new StreamWriter<FlightResult, Result>(responseStream, result => result.ToProtocol());
 
             return _flightServer.DoAction(action, writeStream, context);
         }
@@ -89,13 +89,13 @@ namespace Apache.Arrow.Flight.Server.Internal
         public override Task Handshake(IAsyncStreamReader<HandshakeRequest> requestStream, IServerStreamWriter<HandshakeResponse> responseStream, ServerCallContext context)
         {
             var readStream = new StreamReader<HandshakeRequest, FlightHandshakeRequest>(requestStream, request => new FlightHandshakeRequest(request));
-            var writeStream = new StreamWriter<FlightHandshakeResponse, Protocol.HandshakeResponse>(responseStream, result => result.ToProtocol());
+            var writeStream = new StreamWriter<FlightHandshakeResponse, HandshakeResponse>(responseStream, result => result.ToProtocol());
             return _flightServer.Handshake(readStream, writeStream, context);
         }
 
-        public override async Task ListActions(Empty request, IServerStreamWriter<Protocol.ActionType> responseStream, ServerCallContext context)
+        public override async Task ListActions(Empty request, IServerStreamWriter<ActionType> responseStream, ServerCallContext context)
         {
-            var writeStream = new StreamWriter<FlightActionType, Protocol.ActionType>(responseStream, (actionType) => actionType.ToProtocol());
+            var writeStream = new StreamWriter<FlightActionType, ActionType>(responseStream, (actionType) => actionType.ToProtocol());
             await _flightServer.ListActions(writeStream, context).ConfigureAwait(false);
         }
     }

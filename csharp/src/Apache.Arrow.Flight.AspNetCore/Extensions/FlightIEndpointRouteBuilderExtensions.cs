@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Apache.Arrow.Flight.Server.Internal;
+using Apache.Arrow.Flight.Server;
 using Microsoft.AspNetCore.Routing;
 
 namespace Microsoft.AspNetCore.Builder
