@@ -60,7 +60,7 @@ jobs:
 
   macos:
     name: AMD64 macOS 12 MATLAB
-    runs-on: macos-latest
+    runs-on: macos-12
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       - name: Install ninja-build
