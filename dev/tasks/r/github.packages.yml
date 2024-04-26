@@ -303,7 +303,7 @@ jobs:
           - {image: "rhub/debian-clang-devel", libarrow_binary: "TRUE"}
           # fedora-clang-devel cannot use binaries bc of libc++ (uncomment to see the error)
           # - {image: "rhub/fedora-clang-devel", libarrow_binary: "TRUE"}
-          - {image: "rhub/ubuntu-gcc-release"} # currently ubuntu-20.04 (focal)
+          - {image: "rhub/ubuntu-release"} # currently ubuntu-20.04 (focal)
           - {image: "rocker/r-ubuntu:22.04"} # openssl3
           - {image: "rocker/r-ver"} # whatever is latest ubuntu LTS
           - {image: "rocker/r-ver:4.0.0"} # ubuntu-20.04

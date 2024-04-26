@@ -180,7 +180,7 @@ test_that("strptime", {
   )
 
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
 
   compare_dplyr_binding(
@@ -198,7 +198,7 @@ test_that("strptime works for individual formats", {
   skip_on_cran()
 
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
 
   expect_equal(
@@ -269,7 +269,7 @@ test_that("timestamp round trip correctly via strftime and strptime", {
   skip_on_cran()
 
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
 
   tz <- "Pacific/Marquesas"
@@ -2080,7 +2080,7 @@ test_that("as_datetime() works with other functions", {
 
 test_that("parse_date_time() works with year, month, and date components", {
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
   compare_dplyr_binding(
     .input %>%
@@ -2139,7 +2139,7 @@ test_that("parse_date_time() works with year, month, and date components", {
 
 test_that("parse_date_time() works with a mix of formats and orders", {
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
   test_df <- tibble(
     string_combi = c("2021-09-1", "2/09//2021", "09.3.2021")
@@ -2169,7 +2169,7 @@ test_that("year, month, day date/time parsers", {
   )
 
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
   compare_dplyr_binding(
     .input %>%
@@ -2221,7 +2221,7 @@ test_that("ym, my & yq parsers", {
   )
 
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
   compare_dplyr_binding(
     .input %>%
@@ -2270,7 +2270,7 @@ test_that("ym, my & yq parsers", {
 
 test_that("parse_date_time's other formats", {
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
 
   compare_dplyr_binding(
@@ -2401,7 +2401,7 @@ test_that("lubridate's fast_strptime", {
   )
 
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
 
   compare_dplyr_binding(
@@ -2508,7 +2508,7 @@ test_that("parse_date_time with hours, minutes and seconds components", {
   # the unseparated strings are versions of "1987-08-22 20:13:59" (with %y)
 
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
 
   compare_dplyr_binding(
@@ -2638,7 +2638,7 @@ test_that("parse_date_time with month names and HMS", {
   skip_on_os("windows")
 
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6 & the minimal nightly builds)
+  # RE2 library (not available in the minimal nightly builds)
   skip_if_not_available("re2")
 
   test_dates_times2 <- tibble(
@@ -2737,7 +2737,7 @@ test_that("parse_date_time with `quiet = FALSE` not supported", {
   # https://issues.apache.org/jira/browse/ARROW-17146
 
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6 & the minimal nightly builds)
+  # RE2 library (not available in the minimal nightly builds)
   skip_if_not_available("re2")
 
   expect_warning(
@@ -2766,7 +2766,7 @@ test_that("parse_date_time with `quiet = FALSE` not supported", {
 
 test_that("parse_date_time with truncated formats", {
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
 
   test_truncation_df <- tibble(
@@ -2853,7 +2853,7 @@ test_that("parse_date_time with `exact = TRUE`, and with regular R objects", {
   )
 
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
   compare_dplyr_binding(
     .input %>%

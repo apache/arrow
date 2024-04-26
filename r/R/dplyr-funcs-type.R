@@ -140,7 +140,7 @@ register_bindings_type_cast <- function() {
              fix.empty.names = TRUE,
              stringsAsFactors = FALSE) {
       # we need a specific value of stringsAsFactors because the default was
-      # TRUE in R <= 3.6
+      # TRUE in R <= 3.6 and folks might still be cargoculting to stay in the past.
       if (!identical(stringsAsFactors, FALSE)) {
         arrow_not_supported("stringsAsFactors = TRUE")
       }

@@ -121,7 +121,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        r: ["4.3"]
+        r: ["4.4"]
         ubuntu: [20.04]
         force-tests: ["true"]
     env:
@@ -192,7 +192,10 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - { org: "rhub", image: "debian-gcc-devel", tag: "latest", devtoolset: "" }
+          # this should actually be ubuntu-gcc12, but:
+          # https://github.com/r-hub/containers/issues/62
+          # and donttest is devel with gcc (though 11 not 12)
+          - { org: "rhub", image: "donttest", tag: "latest", devtoolset: "" }
     env:
       R_ORG: ${{ matrix.config.org }}
       R_IMAGE: ${{ matrix.config.image }}

@@ -162,7 +162,7 @@ x-hierarchy:
   - ubuntu-r-valgrind
   - ubuntu-swift
   - ubuntu-verify-rc
-  - fedora-r-clang-sanitizer
+  - r-clang-sanitizer
   - r
   - r-revdepcheck
   # helper services
@@ -1459,8 +1459,8 @@ services:
     # (including building the C++ library) on any Docker image that contains R
     #
     # Usage:
-    #   R_ORG=rhub R_IMAGE=ubuntu-gcc-release R_TAG=latest docker-compose build r
-    #   R_ORG=rhub R_IMAGE=ubuntu-gcc-release R_TAG=latest docker-compose run r
+    #   R_ORG=rhub R_IMAGE=ubuntu-release R_TAG=latest docker-compose build r
+    #   R_ORG=rhub R_IMAGE=ubuntu-release R_TAG=latest docker-compose run r
     image: ${REPO}:r-${R_ORG}-${R_IMAGE}-${R_TAG}
     build:
       context: .
@@ -1515,18 +1515,18 @@ services:
       /bin/bash -c "
         /arrow/ci/scripts/r_sanitize.sh /arrow"
 
-  fedora-r-clang-sanitizer:
-    image: ${REPO}:r-rhub-fedora-clang-devel-latest
+  r-clang-sanitizer:
+    image: ${REPO}:r-rhub-clang-asan-devel-latest
     build:
       context: .
       dockerfile: ci/docker/linux-r.dockerfile
       cache_from:
-        - ${REPO}:r-rhub-fedora-clang-devel-latest
+        - ${REPO}:r-rhub-clang-asan-devel-latest
       args:
-        base: rhub/fedora-clang-devel-san
+        base: rhub/clang-asan
         r_dev: ${ARROW_R_DEV}
         devtoolset_version: ${DEVTOOLSET_VERSION}
-        r_bin: RDsan
+        r_bin: R
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
     shm_size: *shm-size
