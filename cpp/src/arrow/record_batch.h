@@ -62,7 +62,7 @@ class ARROW_EXPORT RecordBatch {
   /// \param num_rows the number of semantic rows in the record batch. This
   /// should be equal to the length of each field
   /// \param columns the data for the batch's columns
-  /// \param device_type the type of the device that the Arrow columns are 
+  /// \param device_type the type of the device that the Arrow columns are
   /// allocated on
   /// \param sync_event optional synchronization event for non-CPU device
   /// memory used by buffers
