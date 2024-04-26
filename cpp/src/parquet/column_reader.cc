@@ -1675,17 +1675,21 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
   //
   // \return Number of records delimited
   int64_t DelimitRecords(int64_t num_records, int64_t* values_seen) {
+    if (ARROW_PREDICT_FALSE(num_records == 0 || levels_position_ == levels_written_)) {
+      *values_seen = 0;
+      return 0;
+    }
     int64_t values_to_read = 0;
     int64_t records_read = 0;
     const int16_t* const rep_levels = this->rep_levels();
     const int16_t* const def_levels = this->def_levels();
     ARROW_DCHECK_GT(this->max_rep_level_, 0);
-    ARROW_CHECK_LT(levels_position_, levels_written_);
     // If at_record_start_ is true, we are seeing the start of a record
     // for the second time, such as after repeated calls to
     // DelimitRecords. In this case we must continue until we find
     // another record start or exhausting the ColumnChunk
     if (at_record_start_) {
+      ARROW_DCHECK_EQ(0, rep_levels[levels_position_]);
       values_to_read += def_levels[levels_position_] == this->max_def_level_;
       ++levels_position_;
       // We have decided to consume the level at this position; therefore we
