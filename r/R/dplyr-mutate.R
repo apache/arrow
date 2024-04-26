@@ -89,28 +89,7 @@ mutate.arrow_dplyr_query <- function(.data,
     agg_query$aggregations <- ..aggregations
     agg_query <- collapse.arrow_dplyr_query(agg_query)
     if (length(grv)) {
-      # First, hack around #41358
-      # We need to fill in missing values in the join keys with something valid.
-      # To reduce the number of types we have to deal with, and to allow us to
-      # insert a value for NA that we can very reasonably assume not to be in
-      # the actual data, we'll make copies of the join key columns in both
-      # tables, cast them to string, and coalesce to fill the NA with a sentinel.
-      # We'll prefix the column names with "..temp" so that they get cleaned up
-      # after, along with the aggregation columns, and we'll keep the original
-      # copy of the key columns in `out` but drop them from `agg_query` to
-      # avoid collisions.
-      na_sentinel <- Expression$scalar(paste0("..temp", Sys.time()))
-      make_joinable <- function(x) {
-        Expression$create("coalesce", args = list(x$cast(utf8()), na_sentinel))
-      }
-      for (group_var in grv) {
-        tempname <- paste0("..temp", group_var)
-        out$selected_columns[[tempname]] <- make_joinable(out$selected_columns[[group_var]])
-        agg_query$selected_columns[[tempname]] <- make_joinable(agg_query$selected_columns[[group_var]])
-        agg_query$selected_columns[[group_var]] <- NULL
-      }
-      # Now we can join
-      out <- left_join(out, agg_query, by = paste0("..temp", grv))
+      out <- left_join(out, agg_query, by = grv)
     } else {
       # If there are no group_by vars, add a scalar column to both and join on that
       agg_query$selected_columns[["..tempjoin"]] <- Expression$scalar(1L)

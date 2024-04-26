@@ -422,6 +422,8 @@ test_that("Can mutate after group_by, including with some aggregations", {
       mutate(avg_int = mean(int)) %>%
       # Because this silently does a join, the rows can get unsorted
       arrange(chr) %>%
+      # And joins currently don't join on NAs
+      filter(!is.na(chr)) %>%
       collect(),
     tbl
   )
@@ -434,6 +436,8 @@ test_that("Can mutate after group_by, including with some aggregations", {
       mutate(avg_int = mean(mean)) %>%
       # Because this silently does a join, the rows can get unsorted
       arrange(chr) %>%
+      # And joins currently don't join on NAs
+      filter(!is.na(chr)) %>%
       collect(),
     tbl
   )
@@ -483,6 +487,8 @@ test_that("Can mutate with .by argument, even with some aggregations", {
       mutate(avg_int = mean(int), .by = chr) %>%
       # Because this silently does a join, the rows can get unsorted
       arrange(chr) %>%
+      # And joins currently don't join on NAs
+      filter(!is.na(chr)) %>%
       collect(),
     tbl
   )
@@ -494,6 +500,8 @@ test_that("Can mutate with .by argument, even with some aggregations", {
       mutate(avg_int = mean(mean), .by = chr) %>%
       # Because this silently does a join, the rows can get unsorted
       arrange(chr) %>%
+      # And joins currently don't join on NAs
+      filter(!is.na(chr)) %>%
       collect(),
     tbl
   )
