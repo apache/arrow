@@ -1124,7 +1124,6 @@ func (p *PreparedStatement) Execute(ctx context.Context, opts ...grpc.CallOption
 		if err != nil {
 			return nil, err
 		}
-
 		wr, err := p.writeBindParameters(pstream, desc)
 		if err != nil {
 			return nil, err
@@ -1133,9 +1132,7 @@ func (p *PreparedStatement) Execute(ctx context.Context, opts ...grpc.CallOption
 			return nil, err
 		}
 		pstream.CloseSend()
-
-		// wait for the server to ack the result
-		if _, err = pstream.Recv(); err != nil && err != io.EOF {
+		if err = p.captureDoPutPreparedStatementHandle(pstream); err != nil {
 			return nil, err
 		}
 	}
@@ -1173,9 +1170,7 @@ func (p *PreparedStatement) ExecutePut(ctx context.Context, opts ...grpc.CallOpt
 			return err
 		}
 		pstream.CloseSend()
-
-		// wait for the server to ack the result
-		if _, err = pstream.Recv(); err != nil && err != io.EOF {
+		if err = p.captureDoPutPreparedStatementHandle(pstream); err != nil {
 			return err
 		}
 	}
@@ -1219,9 +1214,7 @@ func (p *PreparedStatement) ExecutePoll(ctx context.Context, retryDescriptor *fl
 				return nil, err
 			}
 			pstream.CloseSend()
-
-			// wait for the server to ack the result
-			if _, err = pstream.Recv(); err != nil && err != io.EOF {
+			if err = p.captureDoPutPreparedStatementHandle(pstream); err != nil {
 				return nil, err
 			}
 		}
@@ -1311,6 +1304,29 @@ func (p *PreparedStatement) writeBindParameters(pstream pb.FlightService_DoPutCl
 		}
 		return wr, nil
 	}
+}
+
+func (p *PreparedStatement) captureDoPutPreparedStatementHandle(pstream pb.FlightService_DoPutClient) error {
+	var (
+		result                  *pb.PutResult
+		preparedStatementResult pb.DoPutPreparedStatementResult
+		err                     error
+	)
+	if result, err = pstream.Recv(); err != nil && err != io.EOF {
+		return err
+	}
+	// skip if server does not provide a response (legacy server)
+	if result == nil {
+		return nil
+	}
+	if err = proto.Unmarshal(result.GetAppMetadata(), &preparedStatementResult); err != nil {
+		return err
+	}
+	handle := preparedStatementResult.GetPreparedStatementHandle()
+	if handle != nil {
+		p.handle = handle
+	}
+	return nil
 }
 
 // DatasetSchema may be nil if the server did not return it when creating the

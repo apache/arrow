@@ -239,13 +239,6 @@ std::string fs___FileSystem__type_name(
 }
 
 // [[arrow::export]]
-std::shared_ptr<fs::LocalFileSystem> fs___LocalFileSystem__create() {
-  // Affects OpenInputFile/OpenInputStream
-  auto io_context = MainRThread::GetInstance().CancellableIOContext();
-  return std::make_shared<fs::LocalFileSystem>(io_context);
-}
-
-// [[arrow::export]]
 std::shared_ptr<fs::SubTreeFileSystem> fs___SubTreeFileSystem__create(
     const std::string& base_path, const std::shared_ptr<fs::FileSystem>& base_fs) {
   return std::make_shared<fs::SubTreeFileSystem>(base_path, base_fs);
@@ -268,9 +261,10 @@ cpp11::writable::list fs___FileSystemFromUri(const std::string& path) {
   using cpp11::literals::operator"" _nm;
 
   std::string out_path;
-  return cpp11::writable::list(
-      {"fs"_nm = cpp11::to_r6(ValueOrStop(fs::FileSystemFromUri(path, &out_path))),
-       "path"_nm = out_path});
+  auto io_context = MainRThread::GetInstance().CancellableIOContext();
+  return cpp11::writable::list({"fs"_nm = cpp11::to_r6(ValueOrStop(
+                                    fs::FileSystemFromUri(path, io_context, &out_path))),
+                                "path"_nm = out_path});
 }
 
 // [[arrow::export]]

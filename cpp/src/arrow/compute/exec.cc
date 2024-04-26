@@ -480,7 +480,7 @@ struct NullGeneralization {
     if (dtype_id == Type::NA) {
       return ALL_NULL;
     }
-    if (!arrow::internal::HasValidityBitmap(dtype_id)) {
+    if (!arrow::internal::may_have_validity_bitmap(dtype_id)) {
       return ALL_VALID;
     }
     if (value.is_scalar()) {

@@ -256,9 +256,6 @@ if(ARROW_USE_CCACHE
 endif()
 
 if(ARROW_OPTIONAL_INSTALL)
-  # Don't make the "install" target depend on the "all" target
-  set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY true)
-
   set(INSTALL_IS_OPTIONAL OPTIONAL)
 endif()
 
@@ -711,7 +708,7 @@ list(APPEND ARROW_TEST_LINK_LIBS ${ARROW_GTEST_GMOCK} ${ARROW_GTEST_GTEST_MAIN})
 if(ARROW_BUILD_BENCHMARKS)
   set(ARROW_BENCHMARK_LINK_LIBS benchmark::benchmark_main ${ARROW_TEST_LINK_LIBS})
   if(WIN32)
-    list(APPEND ARROW_BENCHMARK_LINK_LIBS Shlwapi.dll)
+    list(APPEND ARROW_BENCHMARK_LINK_LIBS shlwapi)
   endif()
 endif()
 
