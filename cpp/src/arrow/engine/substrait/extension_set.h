@@ -295,6 +295,10 @@ class ARROW_ENGINE_EXPORT ExtensionIdRegistry {
 constexpr std::string_view kArrowExtTypesUri =
     "https://github.com/apache/arrow/blob/main/format/substrait/"
     "extension_types.yaml";
+// Extension types that don't match 1:1 with a data type (or the data type is
+// parameterized)
+constexpr std::string_view kTimeNanosTypeName = "time_nanos";
+constexpr Id kTimeNanosId = {kArrowExtTypesUri, kTimeNanosTypeName};
 
 /// A default registry with all supported functions and data types registered
 ///

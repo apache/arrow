@@ -22,11 +22,11 @@ import (
 	"io"
 	"strings"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/bitutil"
-	"github.com/apache/arrow/go/v16/arrow/memory"
-	"github.com/apache/arrow/go/v16/internal/hashing"
-	"github.com/apache/arrow/go/v16/internal/json"
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/bitutil"
+	"github.com/apache/arrow/go/v17/arrow/memory"
+	"github.com/apache/arrow/go/v17/internal/hashing"
+	"github.com/apache/arrow/go/v17/internal/json"
 )
 
 func min(a, b int) int {

@@ -21,8 +21,8 @@ package memory_test
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/v16/arrow/memory"
-	"github.com/apache/arrow/go/v16/arrow/memory/mallocator"
+	"github.com/apache/arrow/go/v17/arrow/memory"
+	"github.com/apache/arrow/go/v17/arrow/memory/mallocator"
 	"github.com/stretchr/testify/assert"
 )
 

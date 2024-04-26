@@ -277,6 +277,13 @@ std::string BuildBaseUrl(const std::string& scheme, const std::string& authority
   url += "/";
   return url;
 }
+
+template <typename... PrefixArgs>
+Status ExceptionToStatus(const Storage::StorageException& exception,
+                         PrefixArgs&&... prefix_args) {
+  return Status::IOError(std::forward<PrefixArgs>(prefix_args)..., " Azure Error: [",
+                         exception.ErrorCode, "] ", exception.what());
+}
 }  // namespace
 
 std::string AzureOptions::AccountBlobUrl(const std::string& account_name) const {
@@ -381,6 +388,22 @@ AzureOptions::MakeDataLakeServiceClient() const {
   return Status::Invalid("AzureOptions doesn't contain a valid auth configuration");
 }
 
+Result<std::string> AzureOptions::GenerateSASToken(
+    Storage::Sas::BlobSasBuilder* builder, Blobs::BlobServiceClient* client) const {
+  if (storage_shared_key_credential_) {
+    return builder->GenerateSasToken(*storage_shared_key_credential_);
+  } else {
+    // GH-39344: This part isn't tested. This may not work.
+    try {
+      auto delegation_key_response = client->GetUserDelegationKey(builder->ExpiresOn);
+      return builder->GenerateSasToken(delegation_key_response.Value, account_name);
+    } catch (const Storage::StorageException& exception) {
+      return ExceptionToStatus(exception, "GetUserDelegationKey failed for '",
+                               client->GetUrl(), "'.");
+    }
+  }
+}
+
 namespace {
 
 // An AzureFileSystem represents an Azure storage account. An AzureLocation describes a
@@ -449,13 +472,6 @@ struct AzureLocation {
     return status.ok() ? status : Status::Invalid(status.message(), " in location ", all);
   }
 };
-
-template <typename... PrefixArgs>
-Status ExceptionToStatus(const Storage::StorageException& exception,
-                         PrefixArgs&&... prefix_args) {
-  return Status::IOError(std::forward<PrefixArgs>(prefix_args)..., " Azure Error: [",
-                         exception.ErrorCode, "] ", exception.what());
-}
 
 Status PathNotFound(const AzureLocation& location) {
   return ::arrow::fs::internal::PathNotFound(location.all);
@@ -1179,6 +1195,15 @@ Status CreateContainerIfNotExists(const std::string& container_name,
   }
 }
 
+FileInfo FileInfoFromPath(std::string_view container,
+                          const DataLake::Models::PathItem& path) {
+  FileInfo info{internal::ConcatAbstractPath(container, path.Name),
+                path.IsDirectory ? FileType::Directory : FileType::File};
+  info.set_size(path.FileSize);
+  info.set_mtime(std::chrono::system_clock::time_point{path.LastModified});
+  return info;
+}
+
 FileInfo DirectoryFileInfoFromPath(std::string_view path) {
   return FileInfo{std::string{internal::RemoveTrailingSlash(path)}, FileType::Directory};
 }
@@ -1576,7 +1601,7 @@ class AzureFileSystem::Impl {
   }
 
  private:
-  /// \pref location.container is not empty.
+  /// \pre location.container is not empty.
   template <typename ContainerClient>
   Status CheckDirExists(const ContainerClient& container_client,
                         const AzureLocation& location) {
@@ -1621,6 +1646,50 @@ class AzureFileSystem::Impl {
     auto result = (offset == std::string_view::npos) ? s : s.substr(offset);
     DCHECK(!result.empty() && result.back() != internal::kSep);
     return result;
+  }
+
+  /// \brief List the paths at the root of a filesystem or some dir in a filesystem.
+  ///
+  /// \pre adlfs_client is the client for the filesystem named like the first
+  /// segment of select.base_dir.
+  Status GetFileInfoWithSelectorFromFileSystem(
+      const DataLake::DataLakeFileSystemClient& adlfs_client,
+      const Core::Context& context, Azure::Nullable<int32_t> page_size_hint,
+      const FileSelector& select, FileInfoVector* acc_results) {
+    ARROW_ASSIGN_OR_RAISE(auto base_location, AzureLocation::FromString(select.base_dir));
+
+    auto directory_client = adlfs_client.GetDirectoryClient(base_location.path);
+    bool found = false;
+    DataLake::ListPathsOptions options;
+    options.PageSizeHint = page_size_hint;
+
+    try {
+      auto list_response = directory_client.ListPaths(select.recursive, options, context);
+      for (; list_response.HasPage(); list_response.MoveToNextPage(context)) {
+        if (list_response.Paths.empty()) {
+          continue;
+        }
+        found = true;
+        for (const auto& path : list_response.Paths) {
+          if (path.Name == base_location.path && !path.IsDirectory) {
+            return NotADir(base_location);
+          }
+          acc_results->push_back(FileInfoFromPath(base_location.container, path));
+        }
+      }
+    } catch (const Storage::StorageException& exception) {
+      if (IsContainerNotFound(exception) || exception.ErrorCode == "PathNotFound") {
+        found = false;
+      } else {
+        return ExceptionToStatus(exception,
+                                 "Failed to list paths in a directory: ", select.base_dir,
+                                 ": ", directory_client.GetUrl());
+      }
+    }
+
+    return found || select.allow_not_found
+               ? Status::OK()
+               : ::arrow::fs::internal::PathNotFound(select.base_dir);
   }
 
   /// \brief List the blobs at the root of a container or some dir in a container.
@@ -1772,6 +1841,20 @@ class AzureFileSystem::Impl {
       return VisitContainers(context, std::move(on_container));
     }
 
+    auto adlfs_client = GetFileSystemClient(base_location.container);
+    ARROW_ASSIGN_OR_RAISE(auto hns_support, HierarchicalNamespaceSupport(adlfs_client));
+    if (hns_support == HNSSupport::kContainerNotFound) {
+      if (select.allow_not_found) {
+        return Status::OK();
+      } else {
+        return ::arrow::fs::internal::PathNotFound(select.base_dir);
+      }
+    }
+    if (hns_support == HNSSupport::kEnabled) {
+      return GetFileInfoWithSelectorFromFileSystem(adlfs_client, context, page_size_hint,
+                                                   select, acc_results);
+    }
+    DCHECK_EQ(hns_support, HNSSupport::kDisabled);
     auto container_client =
         blob_service_client_->GetBlobContainerClient(base_location.container);
     return GetFileInfoWithSelectorFromContainer(container_client, context, page_size_hint,
@@ -2157,6 +2240,17 @@ class AzureFileSystem::Impl {
                                Azure::Nullable<std::string> lease_id = {}) {
     DCHECK(!location.container.empty());
     DCHECK(!location.path.empty());
+    ARROW_ASSIGN_OR_RAISE(auto file_info, GetFileInfo(adlfs_client, location, lease_id));
+    if (file_info.type() == FileType::NotFound) {
+      if (require_dir_to_exist) {
+        return PathNotFound(location);
+      } else {
+        return Status::OK();
+      }
+    }
+    if (file_info.type() != FileType::Directory) {
+      return NotADir(location);
+    }
     auto directory_client = adlfs_client.GetDirectoryClient(
         std::string(internal::RemoveTrailingSlash(location.path)));
     DataLake::DeleteDirectoryOptions options;
@@ -2200,6 +2294,9 @@ class AzureFileSystem::Impl {
                   kDelimiter, path.Name, ": ", sub_directory_client.GetUrl());
             }
           } else {
+            if (path.Name == location.path) {
+              return NotADir(location);
+            }
             auto sub_file_client = adlfs_client.GetFileClient(path.Name);
             try {
               sub_file_client.Delete();
@@ -2787,8 +2884,20 @@ class AzureFileSystem::Impl {
     if (src == dest) {
       return Status::OK();
     }
+    std::string sas_token;
+    {
+      Storage::Sas::BlobSasBuilder builder;
+      std::chrono::seconds available_period(60);
+      builder.ExpiresOn = std::chrono::system_clock::now() + available_period;
+      builder.BlobContainerName = src.container;
+      builder.BlobName = src.path;
+      builder.Resource = Storage::Sas::BlobSasResource::Blob;
+      builder.SetPermissions(Storage::Sas::BlobSasPermissions::Read);
+      ARROW_ASSIGN_OR_RAISE(
+          sas_token, options_.GenerateSASToken(&builder, blob_service_client_.get()));
+    }
+    auto src_url = GetBlobClient(src.container, src.path).GetUrl() + sas_token;
     auto dest_blob_client = GetBlobClient(dest.container, dest.path);
-    auto src_url = GetBlobClient(src.container, src.path).GetUrl();
     if (!dest.path.empty()) {
       auto dest_parent = dest.parent();
       if (!dest_parent.path.empty()) {

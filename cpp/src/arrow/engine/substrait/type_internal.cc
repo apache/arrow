@@ -34,7 +34,12 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
+#include "arrow/type_traits.h"
+#include "arrow/util/checked_cast.h"
+#include "arrow/util/unreachable.h"
 #include "arrow/visit_type_inline.h"
+
+using arrow::internal::checked_cast;
 
 namespace arrow {
 namespace engine {
@@ -121,11 +126,24 @@ Result<std::pair<std::shared_ptr<DataType>, bool>> FromProto(
     case substrait::Type::kBinary:
       return FromProtoImpl<BinaryType>(type.binary());
 
+      ARROW_SUPPRESS_DEPRECATION_WARNING
     case substrait::Type::kTimestamp:
       return FromProtoImpl<TimestampType>(type.timestamp(), TimeUnit::MICRO);
     case substrait::Type::kTimestampTz:
       return FromProtoImpl<TimestampType>(type.timestamp_tz(), TimeUnit::MICRO,
                                           TimestampTzTimezoneString());
+      ARROW_UNSUPPRESS_DEPRECATION_WARNING
+    case substrait::Type::kPrecisionTimestamp: {
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<DataType> ts_type,
+                            precision_timestamp(type.precision_timestamp().precision()));
+      return std::make_pair(ts_type, IsNullable(type.precision_timestamp()));
+    }
+    case substrait::Type::kPrecisionTimestampTz: {
+      ARROW_ASSIGN_OR_RAISE(
+          std::shared_ptr<DataType> ts_type,
+          precision_timestamp_tz(type.precision_timestamp_tz().precision()));
+      return std::make_pair(ts_type, IsNullable(type.precision_timestamp_tz()));
+    }
     case substrait::Type::kDate:
       return FromProtoImpl<Date32Type>(type.date());
 
@@ -263,7 +281,14 @@ struct DataTypeToProtoImpl {
     return SetWith(&substrait::Type::set_allocated_binary);
   }
 
-  Status Visit(const BinaryViewType& t) { return NotImplemented(t); }
+  // From Substrait's point of view the view types are encodings, and an execution detail,
+  // and not distinct from the non-view type.
+  Status Visit(const BinaryViewType& t) {
+    return SetWith(&substrait::Type::set_allocated_binary);
+  }
+  Status Visit(const StringViewType& t) {
+    return SetWith(&substrait::Type::set_allocated_string);
+  }
 
   Status Visit(const FixedSizeBinaryType& t) {
     SetWithThen(&substrait::Type::set_allocated_fixed_binary)->set_length(t.byte_width());
@@ -273,25 +298,50 @@ struct DataTypeToProtoImpl {
   Status Visit(const Date32Type& t) {
     return SetWith(&substrait::Type::set_allocated_date);
   }
-  Status Visit(const Date64Type& t) { return NotImplemented(t); }
+  Status Visit(const Date64Type& t) { return EncodeUserDefined(t); }
 
-  Status Visit(const TimestampType& t) {
-    if (t.unit() != TimeUnit::MICRO) return NotImplemented(t);
-
-    if (t.timezone() == "") {
-      return SetWith(&substrait::Type::set_allocated_timestamp);
+  template <typename Sub>
+  Status VisitTimestamp(const TimestampType& t,
+                        void (substrait::Type::*set_allocated_sub)(Sub*)) {
+    auto ts = SetWithThen(set_allocated_sub);
+    switch (t.unit()) {
+      case TimeUnit::SECOND:
+        ts->set_precision(0);
+        break;
+      case TimeUnit::MILLI:
+        ts->set_precision(3);
+        break;
+      case TimeUnit::MICRO:
+        ts->set_precision(6);
+        break;
+      case TimeUnit::NANO:
+        ts->set_precision(9);
+        break;
+      default:
+        return NotImplemented(t);
     }
-    if (t.timezone() == TimestampTzTimezoneString()) {
-      return SetWith(&substrait::Type::set_allocated_timestamp_tz);
-    }
-
-    return NotImplemented(t);
+    return Status::OK();
   }
 
-  Status Visit(const Time32Type& t) { return NotImplemented(t); }
+  Status Visit(const TimestampType& t) {
+    if (t.timezone() == "") {
+      return VisitTimestamp(t, &substrait::Type::set_allocated_precision_timestamp);
+    } else {
+      // Note: The timezone information is discarded here.  In Substrait the time zone
+      // information is part of the function and not part of the type.  For example, to
+      // convert a timestamp to a string, the time zone is passed as an argument to the
+      // function.
+      return VisitTimestamp(t, &substrait::Type::set_allocated_precision_timestamp_tz);
+    }
+  }
+
+  Status Visit(const Time32Type& t) { return EncodeUserDefined(t); }
   Status Visit(const Time64Type& t) {
-    if (t.unit() != TimeUnit::MICRO) return NotImplemented(t);
-    return SetWith(&substrait::Type::set_allocated_time);
+    if (t.unit() == TimeUnit::MICRO) {
+      return SetWith(&substrait::Type::set_allocated_time);
+    } else {
+      return EncodeUserDefined(t);
+    }
   }
 
   Status Visit(const MonthIntervalType& t) { return EncodeUserDefined(t); }
@@ -303,6 +353,7 @@ struct DataTypeToProtoImpl {
     dec->set_scale(t.scale());
     return Status::OK();
   }
+  // TODO(GH-40740) support parameterized UDT
   Status Visit(const Decimal256Type& t) { return NotImplemented(t); }
 
   Status Visit(const ListType& t) {
@@ -313,8 +364,16 @@ struct DataTypeToProtoImpl {
     return Status::OK();
   }
 
-  Status Visit(const ListViewType& t) { return NotImplemented(t); }
+  // From Substrait's point of view this is an encoding, and an implementation detail,
+  // and not distinct from the list type.
+  Status Visit(const ListViewType& t) {
+    ARROW_ASSIGN_OR_RAISE(auto type, ToProto(*t.value_type(), t.value_field()->nullable(),
+                                             ext_set_, conversion_options_));
+    SetWithThen(&substrait::Type::set_allocated_list)->set_allocated_type(type.release());
+    return Status::OK();
+  }
 
+  // TODO(GH-40740) support parameterized UDT
   Status Visit(const LargeListViewType& t) { return NotImplemented(t); }
 
   Status Visit(const StructType& t) {
@@ -335,8 +394,9 @@ struct DataTypeToProtoImpl {
 
   Status Visit(const SparseUnionType& t) { return NotImplemented(t); }
   Status Visit(const DenseUnionType& t) { return NotImplemented(t); }
-  Status Visit(const DictionaryType& t) { return NotImplemented(t); }
-  Status Visit(const RunEndEncodedType& t) { return NotImplemented(t); }
+  // The caller should have unwrapped the dictionary / RLE type
+  Status Visit(const DictionaryType& t) { Unreachable(); }
+  Status Visit(const RunEndEncodedType& t) { Unreachable(); }
 
   Status Visit(const MapType& t) {
     // FIXME assert default field names; custom ones won't roundtrip
@@ -379,10 +439,13 @@ struct DataTypeToProtoImpl {
     return NotImplemented(t);
   }
 
+  // TODO(GH-40740) support parameterized UDT
   Status Visit(const FixedSizeListType& t) { return NotImplemented(t); }
+  // TODO(GH-40740) support parameterized UDT
   Status Visit(const DurationType& t) { return NotImplemented(t); }
-  Status Visit(const LargeStringType& t) { return NotImplemented(t); }
-  Status Visit(const LargeBinaryType& t) { return NotImplemented(t); }
+  Status Visit(const LargeStringType& t) { return EncodeUserDefined(t); }
+  Status Visit(const LargeBinaryType& t) { return EncodeUserDefined(t); }
+  // TODO(GH-40740) support parameterized UDT
   Status Visit(const LargeListType& t) { return NotImplemented(t); }
   Status Visit(const MonthDayNanoIntervalType& t) { return EncodeUserDefined(t); }
 
@@ -429,6 +492,17 @@ struct DataTypeToProtoImpl {
 Result<std::unique_ptr<substrait::Type>> ToProto(
     const DataType& type, bool nullable, ExtensionSet* ext_set,
     const ConversionOptions& conversion_options) {
+  // From Substrait's perspective the "dictionary type" is just an encoding.  As a result,
+  // we lose that information on conversion and just convert the value type.
+  if (type.id() == Type::DICTIONARY) {
+    const auto& dict_type = checked_cast<const DictionaryType&>(type);
+    return ToProto(*dict_type.value_type(), nullable, ext_set, conversion_options);
+  }
+  // Ditto for REE
+  if (type.id() == Type::RUN_END_ENCODED) {
+    const auto& ree_type = checked_cast<const RunEndEncodedType&>(type);
+    return ToProto(*ree_type.value_type(), nullable, ext_set, conversion_options);
+  }
   auto out = std::make_unique<substrait::Type>();
   RETURN_NOT_OK(
       (DataTypeToProtoImpl{out.get(), nullable, ext_set, conversion_options})(type));

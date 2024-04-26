@@ -283,18 +283,55 @@ struct ConvertColumnsToTensorVisitor {
   }
 };
 
+template <typename Out>
+struct ConvertColumnsToTensorRowMajorVisitor {
+  Out*& out_values;
+  const ArrayData& in_data;
+  int num_cols;
+  int col_idx;
+
+  template <typename T>
+  Status Visit(const T&) {
+    if constexpr (is_numeric(T::type_id)) {
+      using In = typename T::c_type;
+      auto in_values = ArraySpan(in_data).GetSpan<In>(1, in_data.length);
+
+      if (in_data.null_count == 0) {
+        for (int64_t i = 0; i < in_data.length; ++i) {
+          out_values[i * num_cols + col_idx] = static_cast<Out>(in_values[i]);
+        }
+      } else {
+        for (int64_t i = 0; i < in_data.length; ++i) {
+          out_values[i * num_cols + col_idx] =
+              in_data.IsNull(i) ? static_cast<Out>(NAN) : static_cast<Out>(in_values[i]);
+        }
+      }
+      return Status::OK();
+    }
+    Unreachable();
+  }
+};
+
 template <typename DataType>
-inline void ConvertColumnsToTensor(const RecordBatch& batch, uint8_t* out) {
+inline void ConvertColumnsToTensor(const RecordBatch& batch, uint8_t* out,
+                                   bool row_major) {
   using CType = typename arrow::TypeTraits<DataType>::CType;
   auto* out_values = reinterpret_cast<CType*>(out);
 
+  int i = 0;
   for (const auto& column : batch.columns()) {
-    ConvertColumnsToTensorVisitor<CType> visitor{out_values, *column->data()};
-    DCHECK_OK(VisitTypeInline(*column->type(), &visitor));
+    if (row_major) {
+      ConvertColumnsToTensorRowMajorVisitor<CType> visitor{out_values, *column->data(),
+                                                           batch.num_columns(), i++};
+      DCHECK_OK(VisitTypeInline(*column->type(), &visitor));
+    } else {
+      ConvertColumnsToTensorVisitor<CType> visitor{out_values, *column->data()};
+      DCHECK_OK(VisitTypeInline(*column->type(), &visitor));
+    }
   }
 }
 
-Result<std::shared_ptr<Tensor>> RecordBatch::ToTensor(bool null_to_nan,
+Result<std::shared_ptr<Tensor>> RecordBatch::ToTensor(bool null_to_nan, bool row_major,
                                                       MemoryPool* pool) const {
   if (num_columns() == 0) {
     return Status::TypeError(
@@ -362,35 +399,35 @@ Result<std::shared_ptr<Tensor>> RecordBatch::ToTensor(bool null_to_nan,
   // Copy data
   switch (result_type->id()) {
     case Type::UINT8:
-      ConvertColumnsToTensor<UInt8Type>(*this, result->mutable_data());
+      ConvertColumnsToTensor<UInt8Type>(*this, result->mutable_data(), row_major);
       break;
     case Type::UINT16:
     case Type::HALF_FLOAT:
-      ConvertColumnsToTensor<UInt16Type>(*this, result->mutable_data());
+      ConvertColumnsToTensor<UInt16Type>(*this, result->mutable_data(), row_major);
       break;
     case Type::UINT32:
-      ConvertColumnsToTensor<UInt32Type>(*this, result->mutable_data());
+      ConvertColumnsToTensor<UInt32Type>(*this, result->mutable_data(), row_major);
       break;
     case Type::UINT64:
-      ConvertColumnsToTensor<UInt64Type>(*this, result->mutable_data());
+      ConvertColumnsToTensor<UInt64Type>(*this, result->mutable_data(), row_major);
       break;
     case Type::INT8:
-      ConvertColumnsToTensor<Int8Type>(*this, result->mutable_data());
+      ConvertColumnsToTensor<Int8Type>(*this, result->mutable_data(), row_major);
       break;
     case Type::INT16:
-      ConvertColumnsToTensor<Int16Type>(*this, result->mutable_data());
+      ConvertColumnsToTensor<Int16Type>(*this, result->mutable_data(), row_major);
       break;
     case Type::INT32:
-      ConvertColumnsToTensor<Int32Type>(*this, result->mutable_data());
+      ConvertColumnsToTensor<Int32Type>(*this, result->mutable_data(), row_major);
       break;
     case Type::INT64:
-      ConvertColumnsToTensor<Int64Type>(*this, result->mutable_data());
+      ConvertColumnsToTensor<Int64Type>(*this, result->mutable_data(), row_major);
       break;
     case Type::FLOAT:
-      ConvertColumnsToTensor<FloatType>(*this, result->mutable_data());
+      ConvertColumnsToTensor<FloatType>(*this, result->mutable_data(), row_major);
       break;
     case Type::DOUBLE:
-      ConvertColumnsToTensor<DoubleType>(*this, result->mutable_data());
+      ConvertColumnsToTensor<DoubleType>(*this, result->mutable_data(), row_major);
       break;
     default:
       return Status::TypeError("DataType is not supported: ", result_type->ToString());
@@ -401,11 +438,17 @@ Result<std::shared_ptr<Tensor>> RecordBatch::ToTensor(bool null_to_nan,
       internal::checked_cast<const FixedWidthType&>(*result_type);
   std::vector<int64_t> shape = {num_rows(), num_columns()};
   std::vector<int64_t> strides;
-  ARROW_RETURN_NOT_OK(
-      internal::ComputeColumnMajorStrides(fixed_width_type, shape, &strides));
-  ARROW_ASSIGN_OR_RAISE(auto tensor,
-                        Tensor::Make(result_type, std::move(result), shape, strides));
+  std::shared_ptr<Tensor> tensor;
 
+  if (row_major) {
+    ARROW_RETURN_NOT_OK(
+        internal::ComputeRowMajorStrides(fixed_width_type, shape, &strides));
+  } else {
+    ARROW_RETURN_NOT_OK(
+        internal::ComputeColumnMajorStrides(fixed_width_type, shape, &strides));
+  }
+  ARROW_ASSIGN_OR_RAISE(tensor,
+                        Tensor::Make(result_type, std::move(result), shape, strides));
   return tensor;
 }
 

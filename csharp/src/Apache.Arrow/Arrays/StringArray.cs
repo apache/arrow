@@ -13,18 +13,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Apache.Arrow.Types;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
+using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
     public class StringArray: BinaryArray, IReadOnlyList<string>
     {
         public static readonly Encoding DefaultEncoding = Encoding.UTF8;
+
+        private Dictionary<Encoding, string[]> materializedStringStore;
 
         public new class Builder : BuilderBase<StringArray, Builder>
         {
@@ -71,9 +73,20 @@ namespace Apache.Arrow
 
         public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);
 
+        /// <summary>
+        /// Get the string value at the given index
+        /// </summary>
+        /// <param name="index">Input index</param>
+        /// <param name="encoding">Optional: the string encoding, default is UTF8</param>
+        /// <returns>The string object at the given index</returns>
         public string GetString(int index, Encoding encoding = default)
         {
             encoding ??= DefaultEncoding;
+
+            if (materializedStringStore != null && materializedStringStore.TryGetValue(encoding, out string[] materializedStrings))
+            {
+                return materializedStrings[index];
+            }
 
             ReadOnlySpan<byte> bytes = GetBytes(index, out bool isNull);
 
@@ -81,6 +94,7 @@ namespace Apache.Arrow
             {
                 return null;
             }
+
             if (bytes.Length == 0)
             {
                 return string.Empty;
@@ -91,6 +105,50 @@ namespace Apache.Arrow
                 fixed (byte* data = &MemoryMarshal.GetReference(bytes))
                     return encoding.GetString(data, bytes.Length);
             }
+        }
+
+        /// <summary>
+        /// Materialize the array for the given encoding to accelerate the string access
+        /// </summary>
+        /// <param name="encoding">Optional: the string encoding, default is UTF8</param>
+        /// <remarks>This method is not thread safe when it is called in parallel with <see cref="GetString(int, Encoding)"/> or <see cref="Materialize(Encoding)"/>.</remarks>
+        public void Materialize(Encoding encoding = default)
+        {
+            encoding ??= DefaultEncoding;
+
+            if (IsMaterialized(encoding))
+            {
+                return;
+            }
+
+            if (materializedStringStore == null)
+            {
+                materializedStringStore = new Dictionary<Encoding, string[]>();
+            }
+
+            var stringStore = new string[Length];
+            for (int i = 0; i < Length; i++)
+            {
+                stringStore[i] = GetString(i, encoding);
+            }
+
+            materializedStringStore[encoding] = stringStore;
+        }
+
+        /// <summary>
+        /// Check if the array has been materialized for the given encoding
+        /// </summary>
+        /// <param name="encoding">Optional: the string encoding, default is UTF8</param>
+        /// <returns>True of false whether the array has been materialized</returns>
+        public bool IsMaterialized(Encoding encoding = default)
+        {
+            if (materializedStringStore == null)
+            {
+                return false;
+            }
+
+            encoding ??= DefaultEncoding;
+            return materializedStringStore.ContainsKey(encoding);
         }
 
         int IReadOnlyCollection<string>.Count => Length;

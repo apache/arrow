@@ -19,7 +19,7 @@ package testutils
 import (
 	"reflect"
 
-	"github.com/apache/arrow/go/v16/parquet"
+	"github.com/apache/arrow/go/v17/parquet"
 )
 
 var typeToParquetTypeMap = map[reflect.Type]parquet.Type{

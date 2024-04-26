@@ -29,6 +29,7 @@ on:
       - 'js/**'
       - 'cpp/**'
       - 'java/**'
+      - 'csharp/**'
       - 'format/**'
   pull_request:
     paths:
@@ -40,6 +41,7 @@ on:
       - 'integration/**'
       - 'js/**'
       - 'cpp/**'
+      - 'csharp/**'
       - 'java/**'
       - 'format/**'
 

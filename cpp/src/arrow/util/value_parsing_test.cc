@@ -24,9 +24,13 @@
 
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/value_parsing.h"
 
 namespace arrow {
+
+using util::Float16;
+
 namespace internal {
 
 template <typename T>
@@ -152,6 +156,25 @@ TEST(StringConversion, ToDouble) {
   AssertConversionFails(&converter, "1.5");
 }
 
+TEST(StringConversion, ToHalfFloat) {
+  AssertConversion<HalfFloatType>("1.5", Float16(1.5f).bits());
+  AssertConversion<HalfFloatType>("0", Float16(0.0f).bits());
+  AssertConversion<HalfFloatType>("-0.0", Float16(-0.0f).bits());
+  AssertConversion<HalfFloatType>("-1e15", Float16(-1e15).bits());
+  AssertConversion<HalfFloatType>("+Infinity", 0x7c00);
+  AssertConversion<HalfFloatType>("-Infinity", 0xfc00);
+  AssertConversion<HalfFloatType>("Infinity", 0x7c00);
+
+  AssertConversionFails<HalfFloatType>("");
+  AssertConversionFails<HalfFloatType>("e");
+  AssertConversionFails<HalfFloatType>("1,5");
+
+  StringConverter<HalfFloatType> converter(/*decimal_point=*/',');
+  AssertConversion(&converter, "1,5", Float16(1.5f).bits());
+  AssertConversion(&converter, "0", Float16(0.0f).bits());
+  AssertConversionFails(&converter, "1.5");
+}
+
 #if !defined(_WIN32) || defined(NDEBUG)
 
 TEST(StringConversion, ToFloatLocale) {
@@ -176,6 +199,19 @@ TEST(StringConversion, ToDoubleLocale) {
 
   StringConverter<DoubleType> converter(/*decimal_point=*/'#');
   AssertConversion(&converter, "1#5", 1.5);
+  AssertConversionFails(&converter, "1.5");
+  AssertConversionFails(&converter, "1,5");
+}
+
+TEST(StringConversion, ToHalfFloatLocale) {
+  // French locale uses the comma as decimal point
+  LocaleGuard locale_guard("fr_FR.UTF-8");
+
+  AssertConversion<HalfFloatType>("1.5", Float16(1.5).bits());
+  AssertConversionFails<HalfFloatType>("1,5");
+
+  StringConverter<HalfFloatType> converter(/*decimal_point=*/'#');
+  AssertConversion(&converter, "1#5", Float16(1.5).bits());
   AssertConversionFails(&converter, "1.5");
   AssertConversionFails(&converter, "1,5");
 }
