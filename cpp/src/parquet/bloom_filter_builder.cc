@@ -32,7 +32,7 @@
 #include "parquet/metadata.h"
 #include "parquet/properties.h"
 
-namespace parquet {
+namespace parquet::internal {
 
 namespace {
 /// Column encryption for bloom filter is not implemented yet.
@@ -155,4 +155,4 @@ std::unique_ptr<BloomFilterBuilder> BloomFilterBuilder::Make(
   return std::make_unique<BloomFilterBuilderImpl>(schema, properties);
 }
 
-}  // namespace parquet
+}  // namespace parquet::internal

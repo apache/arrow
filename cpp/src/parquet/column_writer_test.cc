@@ -1718,7 +1718,7 @@ class TestBloomFilterWriter : public TestPrimitiveWriter<TestType> {
   std::shared_ptr<TypedColumnWriter<TestType>> BuildWriterWithBloomFilter(
       int64_t output_size, const ColumnProperties& column_properties);
 
-  std::unique_ptr<BloomFilterBuilder> builder_;
+  std::unique_ptr<internal::BloomFilterBuilder> builder_;
   BloomFilter* bloom_filter_;
 };
 

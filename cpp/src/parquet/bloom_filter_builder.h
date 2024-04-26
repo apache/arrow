@@ -27,6 +27,8 @@ class SchemaDescriptor;
 struct BloomFilterOptions;
 struct BloomFilterLocation;
 
+namespace internal {
+
 /// \brief Interface for collecting bloom filter of a parquet file.
 ///
 /// ```
@@ -80,5 +82,7 @@ class PARQUET_EXPORT BloomFilterBuilder {
 
   virtual ~BloomFilterBuilder() = default;
 };
+
+}  // namespace internal
 
 }  // namespace parquet
