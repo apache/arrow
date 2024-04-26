@@ -62,6 +62,14 @@ public class TestVarCharViewVector {
   private static final byte[] STR3 = "01234567891234567".getBytes(StandardCharsets.UTF_8);
   // short string (length <= 12)
   private static final byte[] STR4 = "01234567".getBytes(StandardCharsets.UTF_8);
+  // short string (length <= 12)
+  private static final byte[] STR5 = "A1234A".getBytes(StandardCharsets.UTF_8);
+  // short string (length <= 12)
+  private static final byte[] STR6 = "B1234567B".getBytes(StandardCharsets.UTF_8);
+  // long string (length > 12)
+  private static final byte[] STR7 = "K01234567891234567K".getBytes(StandardCharsets.UTF_8);
+  // long string (length > 12)
+  private static final byte[] STR8 = "M012345678912345678M".getBytes(StandardCharsets.UTF_8);
   private static final String EMPTY_SCHEMA_PATH = "";
 
   private BufferAllocator allocator;
@@ -770,6 +778,286 @@ public class TestVarCharViewVector {
         vector.getOffsetBuffer();
       }
     });
+  }
+
+  private void validateViewBuffer(int index, ViewVarCharVector vector, byte[] expectedData,
+      int expectedBufId, int expectedOffSet) {
+    final ArrowBuf viewBuffer = vector.viewBuffer;
+    int writePosition = index * BaseVariableWidthViewVector.ELEMENT_SIZE;
+    final int prefixBufWidth = BaseVariableWidthViewVector.PREFIX_WIDTH;
+    final int lengthBufWidth = BaseVariableWidthViewVector.LENGTH_WIDTH;
+    int length = viewBuffer.getInt(writePosition);
+
+    // validate length of the view
+    assertEquals(expectedData.length, length);
+
+    byte[] prefixBytes = new byte[prefixBufWidth];
+    viewBuffer.getBytes(writePosition + lengthBufWidth, prefixBytes);
+
+    // validate the prefix
+    byte[] expectedPrefixBytes = new byte[prefixBufWidth];
+    System.arraycopy(expectedData, 0, expectedPrefixBytes, 0, prefixBufWidth);
+    assertArrayEquals(expectedPrefixBytes, prefixBytes);
+
+    if (length > 12) {
+      /// validate bufId
+      int bufId = viewBuffer.getInt(writePosition + lengthBufWidth + prefixBufWidth);
+      assertEquals(expectedBufId, bufId);
+      // validate offset
+      int offset = viewBuffer.getInt(writePosition +
+          lengthBufWidth +
+          prefixBufWidth +
+          BaseVariableWidthViewVector.BUF_INDEX_WIDTH);
+      assertEquals(expectedOffSet, offset);
+    }
+    // validate retrieved data
+    assertArrayEquals(expectedData, vector.get(index));
+  }
+
+  @Test
+  public void testOverwriteShortFromLongString() {
+    /*NA: not applicable */
+    // Overwriting at the beginning of the buffer.
+    try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
+      vector.allocateNew(16, 1);
+      // set short string
+      vector.set(0, STR0);
+      vector.setValueCount(1);
+      assertEquals(0, vector.dataBuffers.size());
+      assertArrayEquals(STR0, vector.get(0));
+
+      validateViewBuffer(0, vector, STR0, /*NA*/-1, /*NA*/-1);
+
+      // set long string
+      vector.set(0, STR3);
+      vector.setValueCount(1);
+      assertEquals(1, vector.dataBuffers.size());
+      assertArrayEquals(STR3, vector.get(0));
+
+      validateViewBuffer(0, vector, STR3, 0, 0);
+    }
+
+    // Overwriting in the middle of the buffer when existing buffers are all shorts.
+    try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
+      vector.allocateNew(48, 3);
+      // set short string 1
+      vector.set(0, STR0);
+      // set short string 2
+      vector.set(1, STR5);
+      // set short string 3
+      vector.set(2, STR6);
+      vector.setValueCount(3);
+
+      // overwrite index 1 with a long string
+      vector.set(1, STR7);
+      vector.setValueCount(3);
+
+      validateViewBuffer(0, vector, STR0, /*NA*/-1, /*NA*/-1);
+      validateViewBuffer(1, vector, STR7, 0, 0);
+      validateViewBuffer(2, vector, STR6, /*NA*/-1, /*NA*/-1);
+    }
+
+    // Overwriting in the middle of the buffer with a mix of short and long strings.
+    try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
+      vector.allocateNew(80, 5);
+      // set short string 1
+      vector.set(0, STR0);
+      // set long string 1
+      vector.set(1, STR3);
+      // set short string 2
+      vector.set(2, STR5);
+      // set short string 3
+      vector.set(3, STR6);
+      // set long string 2
+      vector.set(4, STR7);
+      vector.setValueCount(5);
+
+      // overwrite index 2 with a long string
+      vector.set(2, STR8);
+      vector.setValueCount(5);
+
+      validateViewBuffer(0, vector, STR0, /*NA*/-1, /*NA*/-1);
+      validateViewBuffer(1, vector, STR3, 0, 0);
+      // Since we did overwrite index 2 with STR8, and as we are using append-only approach,
+      // it will be appended to the data buffer.
+      // Thus, it will be stored in the dataBuffer in order i.e. [STR3, STR7, STR8].
+      validateViewBuffer(2, vector, STR8, 0, STR3.length + STR7.length);
+      validateViewBuffer(3, vector, STR6, /*NA*/-1, /*NA*/-1);
+      validateViewBuffer(4, vector, STR7, 0, STR3.length);
+    }
+
+    // Overwriting in the middle of the buffer with a mix of short and long strings.
+    // Here the short string is overwritten with a long string, and its length is larger than
+    // the remaining capacity of the existing data buffer.
+    // This would allocate a new buffer in the data buffers.
+    try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
+      vector.allocateNew(80, 5);
+      // set short string 1
+      vector.set(0, STR0);
+      // set long string 1
+      vector.set(1, STR3);
+      // set short string 2
+      vector.set(2, STR5);
+      // set short string 3
+      vector.set(3, STR6);
+      // set long string 2
+      vector.set(4, STR7);
+
+      vector.setValueCount(5);
+
+      // overwrite index 2 with a long string
+      String longString = generateRandomString(128);
+      // this would allocate a new buffer in the dataBuffers
+      vector.set(2, longString.getBytes(StandardCharsets.UTF_8));
+      vector.setValueCount(5);
+
+      validateViewBuffer(0, vector, STR0, /*NA*/-1, /*NA*/-1);
+      validateViewBuffer(1, vector, STR3, 0, 0);
+      validateViewBuffer(2, vector, longString.getBytes(StandardCharsets.UTF_8), 1, 0);
+      validateViewBuffer(3, vector, STR6, /*NA*/-1, /*NA*/-1);
+      validateViewBuffer(4, vector, STR7, 0, STR3.length);
+    }
+  }
+
+  @Test
+  public void testOverwriteLongFromShortString() {
+    // Overwriting at the beginning of the buffer.
+    try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
+      vector.allocateNew(16, 1);
+      // set short string
+      vector.set(0, STR3);
+      vector.setValueCount(1);
+      // set long string
+      vector.set(0, STR0);
+      vector.setValueCount(1);
+
+      validateViewBuffer(0, vector, STR0, /*NA*/-1, /*NA*/-1);
+    }
+
+    // Overwriting in the middle of the buffer when existing buffers are all longs.
+    try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
+      vector.allocateNew(48, 3);
+      // set long string 1
+      vector.set(0, STR3);
+      // set long string 2
+      vector.set(1, STR8);
+      // set long string 3
+      vector.set(2, STR7);
+      vector.setValueCount(3);
+
+      // overwrite index 1 with a short string
+      vector.set(1, STR6);
+      vector.setValueCount(3);
+
+      validateViewBuffer(0, vector, STR3, 0, 0);
+      validateViewBuffer(1, vector, STR6, /*NA*/-1, /*NA*/-1);
+      validateViewBuffer(2, vector, STR7, 0, STR3.length + STR8.length);
+    }
+
+    // Overwriting in the middle of the buffer with a mix of short and long strings.
+    try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
+      vector.allocateNew(80, 5);
+      // set long string 1
+      vector.set(0, STR3);
+      // set short string 1
+      vector.set(1, STR5);
+      // set long string 2
+      vector.set(2, STR7);
+      // set long string 3
+      vector.set(3, STR8);
+      // set short string 2
+      vector.set(4, STR6);
+      vector.setValueCount(5);
+
+      // overwrite index 2 with a short string
+      vector.set(2, STR0);
+      vector.setValueCount(5);
+
+      validateViewBuffer(0, vector, STR3, 0, 0);
+      validateViewBuffer(1, vector, STR5, /*NA*/-1, /*NA*/-1);
+      validateViewBuffer(2, vector, STR0, /*NA*/-1, /*NA*/-1);
+      validateViewBuffer(3, vector, STR8, 0, STR3.length + STR7.length);
+      validateViewBuffer(4, vector, STR6, /*NA*/-1, /*NA*/-1);
+    }
+  }
+
+  @Test
+  public void testOverwriteLongFromAShorterLongString() {
+    // Overwriting at the beginning of the buffer.
+    try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
+      vector.allocateNew(16, 1);
+      // set long string
+      vector.set(0, STR7);
+      vector.setValueCount(1);
+      // set shorter long string, since append-only approach is used and the remaining capacity
+      // is not enough to store the new string; a new buffer will be allocated.
+      final ArrowBuf currentDataBuf = vector.dataBuffers.get(0);
+      final long remainingCapacity = currentDataBuf.capacity() - currentDataBuf.writerIndex();
+      assertTrue(remainingCapacity < STR3.length);
+      // set shorter long string
+      vector.set(0, STR3);
+      vector.setValueCount(1);
+
+      validateViewBuffer(0, vector, STR3, 1, 0);
+    }
+
+    // Overwriting in the middle of the buffer when existing buffers are all longs.
+    try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
+      // extra memory is allocated
+      vector.allocateNew(128, 3);
+      // set long string 1
+      vector.set(0, STR3);
+      // set long string 2
+      vector.set(1, STR8);
+      // set long string 3
+      vector.set(2, STR7);
+      vector.setValueCount(3);
+
+      // overwrite index 1 with a shorter long string
+      // Since append-only approach is used
+      // and the remaining capacity is enough to store in the same data buffer.;
+      final ArrowBuf currentDataBuf = vector.dataBuffers.get(0);
+      final long remainingCapacity = currentDataBuf.capacity() - currentDataBuf.writerIndex();
+      assertTrue(remainingCapacity > STR2.length);
+      vector.set(1, STR2);
+      vector.setValueCount(3);
+
+      validateViewBuffer(0, vector, STR3, 0, 0);
+      validateViewBuffer(1, vector, STR2, 0, STR3.length + STR8.length + STR7.length);
+      validateViewBuffer(2, vector, STR7, 0, STR3.length + STR8.length);
+    }
+
+    // Overwriting in the middle of the buffer with a mix of short and long strings.
+    try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
+      vector.allocateNew(128, 5);
+      // set long string 1
+      vector.set(0, STR3);
+      // set short string 1
+      vector.set(1, STR5);
+      // set long string 2
+      vector.set(2, STR7);
+      // set long string 3
+      vector.set(3, STR8);
+      // set short string 2
+      vector.set(4, STR6);
+      vector.setValueCount(5);
+
+      // overwrite index 2 with a shorter long string
+      // Since append-only approach is used
+      // and the remaining capacity is enough to store in the same data buffer.;
+      final ArrowBuf currentDataBuf = vector.dataBuffers.get(0);
+      final long remainingCapacity = currentDataBuf.capacity() - currentDataBuf.writerIndex();
+      assertTrue(remainingCapacity > STR2.length);
+      vector.set(2, STR2);
+      vector.setValueCount(5);
+
+      validateViewBuffer(0, vector, STR3, 0, 0);
+      validateViewBuffer(1, vector, STR5, /*NA*/-1, /*NA*/-1);
+      validateViewBuffer(2, vector, STR2, 0, STR3.length +
+          STR7.length + STR8.length);
+      validateViewBuffer(3, vector, STR8, 0, STR3.length + STR7.length);
+      validateViewBuffer(4, vector, STR6, /*NA*/-1, /*NA*/-1);
+    }
   }
 
   private String generateRandomString(int length) {

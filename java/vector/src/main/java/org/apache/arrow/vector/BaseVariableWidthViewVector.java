@@ -426,7 +426,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    *
    * @param totalBytes desired total memory capacity
    * @param valueCount the desired number of elements in the vector
-   * @throws org.apache.arrow.memory.OutOfMemoryException if memory allocation fails
+   * @throws OutOfMemoryException if memory allocation fails
    */
   @Override
   public void allocateNew(long totalBytes, int valueCount) {
@@ -1198,6 +1198,11 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    */
   protected final void setBytes(int index, byte[] value, int start, int length) {
     int writePosition = index * ELEMENT_SIZE;
+
+    // to clear the memory segment of view being written to
+    // this is helpful in case of overwriting the value
+    viewBuffer.setZero(writePosition, ELEMENT_SIZE);
+
     if (value.length <= INLINE_SIZE) {
       // allocate inline buffer
       // set length
@@ -1237,6 +1242,11 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    */
   protected final void setBytes(int index, ArrowBuf valueBuf, int start, int length) {
     int writePosition = index * ELEMENT_SIZE;
+
+    // to clear the memory segment of view being written to
+    // this is helpful in case of overwriting the value
+    viewBuffer.setZero(writePosition, ELEMENT_SIZE);
+
     if (length <= INLINE_SIZE) {
       // allocate inline buffer
       // set length
