@@ -2489,7 +2489,7 @@ void UpdateBinaryBloomFilter(BloomFilter* bloom_filter, const ArrayType& array) 
   };
   PARQUET_THROW_NOT_OK(::arrow::VisitArraySpanInline<typename ArrayType::TypeClass>(
       *array.data(),
-      [&](const std::string_view& view) {
+      [&](std::string_view view) {
         if (hashes_idx == kHashBatchSize) {
           flush_hashes();
         }
@@ -2507,6 +2507,8 @@ template <>
 void TypedColumnWriterImpl<ByteArrayType>::UpdateBloomFilterArray(
     const ::arrow::Array& values) {
   if (bloom_filter_) {
+    // TODO(mwish): GH-37832 currently we don't support write StringView/BinaryView to
+    //  parquet file. We can support
     if (!::arrow::is_base_binary_like(values.type_id())) {
       throw ParquetException("Only BaseBinaryArray and subclasses supported");
     }
