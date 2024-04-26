@@ -2044,7 +2044,11 @@ Status ExportStreamNext(const std::shared_ptr<RecordBatchReader>& src, int64_t i
   }
 }
 
-Status ExportDeviceStreamNext(const std::shared_ptr<RecordBatchReader>& src, int64_t,
+// the int64_t i input here is unused, but exists simply to allow utilizing the
+// overload of this with the version for ChunkedArrays. If we removed the int64_t
+// from the signature despite it being unused, we wouldn't be able to leverage the
+// overloading in the templated exporters.
+Status ExportDeviceStreamNext(const std::shared_ptr<RecordBatchReader>& src, int64_t i,
                               struct ArrowDeviceArray* out_array) {
   std::shared_ptr<RecordBatch> batch;
   RETURN_NOT_OK(src->ReadNext(&batch));
@@ -2069,15 +2073,13 @@ Status ExportStreamNext(const std::shared_ptr<ChunkedArray>& src, int64_t i,
 }
 
 Status ExportDeviceStreamNext(const std::shared_ptr<ChunkedArray>& src, int64_t i,
-                              std::shared_ptr<Device::SyncEvent> sync,
                               struct ArrowDeviceArray* out_array) {
   if (i >= src->num_chunks()) {
     // End of stream
     ArrowArrayMarkReleased(&out_array->array);
     return Status::OK();
   } else {
-    return ExportDeviceArray(*src->chunk(static_cast<int>(i)), std::move(sync),
-                             out_array);
+    return ExportDeviceArray(*src->chunk(static_cast<int>(i)), nullptr, out_array);
   }
 }
 
@@ -2105,8 +2107,6 @@ class ExportedArrayStream {
   Status GetNext(ArrayType* out_array) {
     if constexpr (std::is_same_v<ArrayType, struct ArrowArray>) {
       return ExportStreamNext(reader(), next_batch_num(), out_array);
-    } else if constexpr (std::is_same_v<T, ChunkedArray>) {
-      return ExportDeviceStreamNext(reader(), next_batch_num(), nullptr, out_array);
     } else {
       return ExportDeviceStreamNext(reader(), next_batch_num(), out_array);
     }
