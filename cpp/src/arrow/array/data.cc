@@ -225,6 +225,11 @@ int64_t ArrayData::ComputeLogicalNullCount() const {
 }
 
 DeviceAllocationType ArrayData::device_type() const {
+  // we're using 0 as a sentinel value for NOT YET ASSIGNED
+  // there is explicitly no constant DeviceAllocationType to represent
+  // the "UNASSIGNED" case as it is invalid for data to not have an
+  // assigned device type. If it's still 0 at the end, then we return
+  // CPU as the allocation device type
   int type = 0;
   for (const auto& buf : buffers) {
     if (!buf) continue;
