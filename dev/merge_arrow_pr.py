@@ -306,11 +306,7 @@ def get_candidate_fix_version(mainline_versions,
 
     # Only suggest versions starting with a number, like 0.x but not JS-0.x
     mainline_versions = all_versions
-    major_versions = []
-    for v in mainline_versions:
-        (major, minor, patch) = v.split(".")
-        if patch == "0" and minor == "0":
-            major_versions.append(v)
+    major_versions = [v for v in mainline_versions if v.endswith('.0.0')]
 
     if len(mainline_versions) > len(major_versions):
         # If there is a future major release, suggest that
