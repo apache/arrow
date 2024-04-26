@@ -907,13 +907,19 @@ public class TestVarCharViewVector {
 
       // overwrite index 2 with a long string
       String longString = generateRandomString(128);
-      // this would allocate a new buffer in the dataBuffers
-      vector.set(2, longString.getBytes(StandardCharsets.UTF_8));
+      byte[] longStringBytes = longString.getBytes(StandardCharsets.UTF_8);
+      // since the append-only approach is used and the remaining capacity
+      // is not enough to store the new string; a new buffer will be allocated.
+      final ArrowBuf currentDataBuf = vector.dataBuffers.get(0);
+      final long remainingCapacity = currentDataBuf.capacity() - currentDataBuf.writerIndex();
+      assertTrue(remainingCapacity < longStringBytes.length);
+      vector.set(2, longStringBytes);
       vector.setValueCount(5);
 
       validateViewBuffer(0, vector, STR0, /*NA*/-1, /*NA*/-1);
       validateViewBuffer(1, vector, STR3, 0, 0);
-      validateViewBuffer(2, vector, longString.getBytes(StandardCharsets.UTF_8), 1, 0);
+      // overwritten long string will be stored in the new data buffer.
+      validateViewBuffer(2, vector, longStringBytes, 1, 0);
       validateViewBuffer(3, vector, STR6, /*NA*/-1, /*NA*/-1);
       validateViewBuffer(4, vector, STR7, 0, STR3.length);
     }
@@ -951,6 +957,8 @@ public class TestVarCharViewVector {
 
       validateViewBuffer(0, vector, STR3, 0, 0);
       validateViewBuffer(1, vector, STR6, /*NA*/-1, /*NA*/-1);
+      // since the append-only approach is used,
+      // STR8 will still be in the first data buffer in dataBuffers.
       validateViewBuffer(2, vector, STR7, 0, STR3.length + STR8.length);
     }
 
@@ -976,6 +984,8 @@ public class TestVarCharViewVector {
       validateViewBuffer(0, vector, STR3, 0, 0);
       validateViewBuffer(1, vector, STR5, /*NA*/-1, /*NA*/-1);
       validateViewBuffer(2, vector, STR0, /*NA*/-1, /*NA*/-1);
+      // since the append-only approach is used,
+      // STR7 will still be in the first data buffer in dataBuffers.
       validateViewBuffer(3, vector, STR8, 0, STR3.length + STR7.length);
       validateViewBuffer(4, vector, STR6, /*NA*/-1, /*NA*/-1);
     }
@@ -1023,6 +1033,8 @@ public class TestVarCharViewVector {
       vector.setValueCount(3);
 
       validateViewBuffer(0, vector, STR3, 0, 0);
+      // since the append-only approach is used,
+      // STR8 will still be in the first data buffer in dataBuffers.
       validateViewBuffer(1, vector, STR2, 0, STR3.length + STR8.length + STR7.length);
       validateViewBuffer(2, vector, STR7, 0, STR3.length + STR8.length);
     }
@@ -1053,9 +1065,98 @@ public class TestVarCharViewVector {
 
       validateViewBuffer(0, vector, STR3, 0, 0);
       validateViewBuffer(1, vector, STR5, /*NA*/-1, /*NA*/-1);
+      // since the append-only approach is used,
+      // STR7 will still be in the first data buffer in dataBuffers.
       validateViewBuffer(2, vector, STR2, 0, STR3.length +
           STR7.length + STR8.length);
       validateViewBuffer(3, vector, STR8, 0, STR3.length + STR7.length);
+      validateViewBuffer(4, vector, STR6, /*NA*/-1, /*NA*/-1);
+    }
+  }
+
+  @Test
+  public void testOverwriteLongFromALongerLongString() {
+    // Overwriting at the beginning of the buffer.
+    try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
+      vector.allocateNew(16, 1);
+      // set long string
+      vector.set(0, STR3);
+      vector.setValueCount(1);
+      // set longer long string, since append-only approach is used and the remaining capacity
+      // is not enough to store the new string; a new buffer will be allocated.
+      final ArrowBuf currentDataBuf = vector.dataBuffers.get(0);
+      final long remainingCapacity = currentDataBuf.capacity() - currentDataBuf.writerIndex();
+      assertTrue(remainingCapacity < STR7.length);
+      // set longer long string
+      vector.set(0, STR7);
+      vector.setValueCount(1);
+
+      validateViewBuffer(0, vector, STR7, 1, 0);
+    }
+
+    // Overwriting in the middle of the buffer when existing buffers are all longs.
+    try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
+      // extra memory is allocated
+      vector.allocateNew(48, 3);
+      // set long string 1
+      vector.set(0, STR3);
+      // set long string 2
+      vector.set(1, STR8);
+      // set long string 3
+      vector.set(2, STR7);
+      vector.setValueCount(3);
+
+      // overwrite index 1 with a longer long string
+      // the remaining capacity is not enough to store in the same data buffer
+      // since a new buffer is added to the dataBuffers
+      final ArrowBuf currentDataBuf = vector.dataBuffers.get(0);
+      final long remainingCapacity = currentDataBuf.capacity() - currentDataBuf.writerIndex();
+      String longerString = generateRandomString(35);
+      byte[] longerStringBytes = longerString.getBytes(StandardCharsets.UTF_8);
+      assertTrue(remainingCapacity < longerStringBytes.length);
+
+      vector.set(1, longerStringBytes);
+      vector.setValueCount(3);
+
+      validateViewBuffer(0, vector, STR3, 0, 0);
+      validateViewBuffer(1, vector, longerStringBytes, 1, 0);
+      // since the append-only approach is used,
+      // STR8 will still be in the first data buffer in dataBuffers.
+      validateViewBuffer(2, vector, STR7, 0, STR3.length + STR8.length);
+    }
+
+    // Overwriting in the middle of the buffer with a mix of short and long strings.
+    try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
+      vector.allocateNew(128, 5);
+      // set long string 1
+      vector.set(0, STR3);
+      // set short string 1
+      vector.set(1, STR5);
+      // set long string 2
+      vector.set(2, STR7);
+      // set long string 3
+      vector.set(3, STR2);
+      // set short string 2
+      vector.set(4, STR6);
+      vector.setValueCount(5);
+
+      // overwrite index 2 with a longer long string
+      // the remaining capacity is enough to store in the same data buffer
+      final ArrowBuf currentDataBuf = vector.dataBuffers.get(0);
+      final long remainingCapacity = currentDataBuf.capacity() - currentDataBuf.writerIndex();
+      String longerString = generateRandomString(24);
+      byte[] longerStringBytes = longerString.getBytes(StandardCharsets.UTF_8);
+      assertTrue(remainingCapacity > longerStringBytes.length);
+
+      vector.set(2, longerStringBytes);
+      vector.setValueCount(5);
+
+      validateViewBuffer(0, vector, STR3, 0, 0);
+      validateViewBuffer(1, vector, STR5, /*NA*/-1, /*NA*/-1);
+      // since the append-only approach is used,
+      // STR7 will still be in the first data buffer in dataBuffers.
+      validateViewBuffer(2, vector, longerStringBytes, 0, STR3.length + STR7.length + STR2.length);
+      validateViewBuffer(3, vector, STR2, 0, STR3.length + STR7.length);
       validateViewBuffer(4, vector, STR6, /*NA*/-1, /*NA*/-1);
     }
   }
