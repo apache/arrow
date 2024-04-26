@@ -1161,6 +1161,296 @@ public class TestVarCharViewVector {
     }
   }
 
+  @Test
+  public void testSafeOverwriteShortFromLongString() {
+    /*NA: not applicable */
+    // Overwriting at the beginning of the buffer.
+    try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
+      vector.allocateNew(16, 1);
+      // set short string
+      vector.setSafe(0, STR0);
+      vector.setValueCount(1);
+      assertEquals(0, vector.dataBuffers.size());
+      assertArrayEquals(STR0, vector.get(0));
+
+      // set long string
+      vector.setSafe(0, STR3);
+      vector.setValueCount(1);
+      assertEquals(1, vector.dataBuffers.size());
+      assertArrayEquals(STR3, vector.get(0));
+
+    }
+
+    // Overwriting in the middle of the buffer when existing buffers are all shorts.
+    try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
+      vector.allocateNew(16, 3);
+      // set short string 1
+      vector.setSafe(0, STR0);
+      // set short string 2
+      vector.setSafe(1, STR5);
+      // set short string 3
+      vector.setSafe(2, STR6);
+      vector.setValueCount(3);
+
+      // overwrite index 1 with a long string
+      vector.setSafe(1, STR7);
+      vector.setValueCount(3);
+
+      assertArrayEquals(STR0, vector.get(0));
+      assertArrayEquals(STR7, vector.get(1));
+      assertArrayEquals(STR6, vector.get(2));
+    }
+
+    // Overwriting in the middle of the buffer with a mix of short and long strings.
+    try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
+      vector.allocateNew(16, 5);
+      // set short string 1
+      vector.setSafe(0, STR0);
+      // set long string 1
+      vector.setSafe(1, STR3);
+      // set short string 2
+      vector.setSafe(2, STR5);
+      // set short string 3
+      vector.setSafe(3, STR6);
+      // set long string 2
+      vector.setSafe(4, STR7);
+      vector.setValueCount(5);
+
+      // overwrite index 2 with a long string
+      vector.setSafe(2, STR8);
+      vector.setValueCount(5);
+
+      assertArrayEquals(STR0, vector.get(0));
+      assertArrayEquals(STR3, vector.get(1));
+      assertArrayEquals(STR8, vector.get(2));
+      assertArrayEquals(STR6, vector.get(3));
+      assertArrayEquals(STR7, vector.get(4));
+    }
+
+    // Overwriting in the middle of the buffer with a mix of short and long strings.
+    try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
+      vector.allocateNew(16, 5);
+      // set short string 1
+      vector.setSafe(0, STR0);
+      // set long string 1
+      vector.setSafe(1, STR3);
+      // set short string 2
+      vector.setSafe(2, STR5);
+      // set short string 3
+      vector.setSafe(3, STR6);
+      // set long string 2
+      vector.setSafe(4, STR7);
+
+      vector.setValueCount(5);
+
+      // overwrite index 2 with a long string
+      String longString = generateRandomString(128);
+      byte[] longStringBytes = longString.getBytes(StandardCharsets.UTF_8);
+
+      vector.setSafe(2, longStringBytes);
+      vector.setValueCount(5);
+
+      assertArrayEquals(STR0, vector.get(0));
+      assertArrayEquals(STR3, vector.get(1));
+      assertArrayEquals(longStringBytes, vector.get(2));
+      assertArrayEquals(STR6, vector.get(3));
+      assertArrayEquals(STR7, vector.get(4));
+    }
+  }
+
+  @Test
+  public void testSafeOverwriteLongFromShortString() {
+    // Overwriting at the beginning of the buffer.
+    try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
+      vector.allocateNew(16, 1);
+      // set short string
+      vector.setSafe(0, STR3);
+      vector.setValueCount(1);
+      // set long string
+      vector.setSafe(0, STR0);
+      vector.setValueCount(1);
+
+      assertArrayEquals(STR0, vector.get(0));
+    }
+
+    // Overwriting in the middle of the buffer when existing buffers are all longs.
+    try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
+      vector.allocateNew(16, 3);
+      // set long string 1
+      vector.setSafe(0, STR3);
+      // set long string 2
+      vector.setSafe(1, STR8);
+      // set long string 3
+      vector.setSafe(2, STR7);
+      vector.setValueCount(3);
+
+      // overwrite index 1 with a short string
+      vector.setSafe(1, STR6);
+      vector.setValueCount(3);
+
+      assertArrayEquals(STR3, vector.get(0));
+      assertArrayEquals(STR6, vector.get(1));
+      assertArrayEquals(STR7, vector.get(2));
+    }
+
+    // Overwriting in the middle of the buffer with a mix of short and long strings.
+    try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
+      vector.allocateNew(16, 5);
+      // set long string 1
+      vector.setSafe(0, STR3);
+      // set short string 1
+      vector.setSafe(1, STR5);
+      // set long string 2
+      vector.setSafe(2, STR7);
+      // set long string 3
+      vector.setSafe(3, STR8);
+      // set short string 2
+      vector.setSafe(4, STR6);
+      vector.setValueCount(5);
+
+      // overwrite index 2 with a short string
+      vector.setSafe(2, STR0);
+      vector.setValueCount(5);
+
+      assertArrayEquals(STR3, vector.get(0));
+      assertArrayEquals(STR5, vector.get(1));
+      assertArrayEquals(STR0, vector.get(2));
+      assertArrayEquals(STR8, vector.get(3));
+      assertArrayEquals(STR6, vector.get(4));
+    }
+  }
+
+  @Test
+  public void testSafeOverwriteLongFromAShorterLongString() {
+    // Overwriting at the beginning of the buffer.
+    try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
+      vector.allocateNew(16, 1);
+      // set long string
+      vector.setSafe(0, STR7);
+      vector.setValueCount(1);
+      // set shorter long string
+      vector.setSafe(0, STR3);
+      vector.setValueCount(1);
+
+      assertArrayEquals(STR3, vector.get(0));
+    }
+
+    // Overwriting in the middle of the buffer when existing buffers are all longs.
+    try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
+      // extra memory is allocated
+      vector.allocateNew(16, 3);
+      // set long string 1
+      vector.setSafe(0, STR3);
+      // set long string 2
+      vector.setSafe(1, STR8);
+      // set long string 3
+      vector.setSafe(2, STR7);
+      vector.setValueCount(3);
+
+      // overwrite index 1 with a shorter long string
+      vector.setSafe(1, STR2);
+      vector.setValueCount(3);
+
+      assertArrayEquals(STR3, vector.get(0));
+      assertArrayEquals(STR2, vector.get(1));
+      assertArrayEquals(STR7, vector.get(2));
+    }
+
+    // Overwriting in the middle of the buffer with a mix of short and long strings.
+    try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
+      vector.allocateNew(16, 5);
+      // set long string 1
+      vector.setSafe(0, STR3);
+      // set short string 1
+      vector.setSafe(1, STR5);
+      // set long string 2
+      vector.setSafe(2, STR7);
+      // set long string 3
+      vector.setSafe(3, STR8);
+      // set short string 2
+      vector.setSafe(4, STR6);
+      vector.setValueCount(5);
+
+      // overwrite index 2 with a shorter long string
+      vector.setSafe(2, STR2);
+      vector.setValueCount(5);
+
+      assertArrayEquals(STR3, vector.get(0));
+      assertArrayEquals(STR5, vector.get(1));
+      assertArrayEquals(STR2, vector.get(2));
+      assertArrayEquals(STR8, vector.get(3));
+      assertArrayEquals(STR6, vector.get(4));
+    }
+  }
+
+  @Test
+  public void testSafeOverwriteLongFromALongerLongString() {
+    // Overwriting at the beginning of the buffer.
+    try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
+      vector.allocateNew(16, 1);
+      // set long string
+      vector.setSafe(0, STR3);
+      vector.setValueCount(1);
+      // set longer long string
+      vector.setSafe(0, STR7);
+      vector.setValueCount(1);
+
+      assertArrayEquals(STR7, vector.get(0));
+    }
+
+    // Overwriting in the middle of the buffer when existing buffers are all longs.
+    try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
+      // extra memory is allocated
+      vector.allocateNew(16, 3);
+      // set long string 1
+      vector.setSafe(0, STR3);
+      // set long string 2
+      vector.setSafe(1, STR8);
+      // set long string 3
+      vector.setSafe(2, STR7);
+      vector.setValueCount(3);
+
+      String longerString = generateRandomString(35);
+      byte[] longerStringBytes = longerString.getBytes(StandardCharsets.UTF_8);
+
+      vector.setSafe(1, longerStringBytes);
+      vector.setValueCount(3);
+
+      assertArrayEquals(STR3, vector.get(0));
+      assertArrayEquals(longerStringBytes, vector.get(1));
+      assertArrayEquals(STR7, vector.get(2));
+    }
+
+    // Overwriting in the middle of the buffer with a mix of short and long strings.
+    try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
+      vector.allocateNew(16, 5);
+      // set long string 1
+      vector.setSafe(0, STR3);
+      // set short string 1
+      vector.setSafe(1, STR5);
+      // set long string 2
+      vector.setSafe(2, STR7);
+      // set long string 3
+      vector.setSafe(3, STR2);
+      // set short string 2
+      vector.setSafe(4, STR6);
+      vector.setValueCount(5);
+
+      String longerString = generateRandomString(24);
+      byte[] longerStringBytes = longerString.getBytes(StandardCharsets.UTF_8);
+
+      vector.setSafe(2, longerStringBytes);
+      vector.setValueCount(5);
+
+      assertArrayEquals(STR3, vector.get(0));
+      assertArrayEquals(STR5, vector.get(1));
+      assertArrayEquals(longerStringBytes, vector.get(2));
+      assertArrayEquals(STR2, vector.get(3));
+      assertArrayEquals(STR6, vector.get(4));
+
+    }
+  }
+
   private String generateRandomString(int length) {
     Random random = new Random();
     StringBuilder sb = new StringBuilder(length);
