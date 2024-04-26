@@ -1702,11 +1702,12 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     while (levels_position_ < levels_written_) {
       int64_t stride =
           std::min(levels_written_ - levels_position_, num_records - records_read);
-      for (int64_t i = 0; i < stride; ++i) {
-        records_read += rep_levels[levels_position_ + i] == 0;
-        values_to_read += def_levels[levels_position_ + i] == this->max_def_level_;
+      const int64_t position_end = levels_position_ + stride;
+      for (int64_t i = levels_position_; i < position_end; ++i) {
+        records_read += rep_levels[i] == 0;
+        values_to_read += def_levels[i] == this->max_def_level_;
       }
-      levels_position_ += stride;
+      levels_position_ = position_end;
       if (records_read == num_records) {
         // Last rep_level reaches the boundary
         ARROW_CHECK_EQ(rep_levels[levels_position_ - 1], 0);
