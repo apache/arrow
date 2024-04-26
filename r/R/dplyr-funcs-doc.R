@@ -53,7 +53,7 @@
 #' * [`groups()`][dplyr::groups()]
 #' * [`inner_join()`][dplyr::inner_join()]: the `copy` argument is ignored
 #' * [`left_join()`][dplyr::left_join()]: the `copy` argument is ignored
-#' * [`mutate()`][dplyr::mutate()]: window functions (e.g. things that require aggregation within groups) not currently supported
+#' * [`mutate()`][dplyr::mutate()]
 #' * [`pull()`][dplyr::pull()]: the `name` argument is not supported; returns an R vector by default but this behavior is deprecated and will return an Arrow [ChunkedArray] in a future release. Provide `as_vector = TRUE/FALSE` to control this behavior, or set `options(arrow.pull_as_vector)` globally.
 #' * [`relocate()`][dplyr::relocate()]
 #' * [`rename()`][dplyr::rename()]
