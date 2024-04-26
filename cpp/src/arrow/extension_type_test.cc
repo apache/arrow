@@ -196,6 +196,8 @@ TEST_F(TestExtensionType, ExtensionTypeTest) {
 
   auto type = uuid();
   ASSERT_EQ(type->id(), Type::EXTENSION);
+  ASSERT_EQ(type->bit_width(), 128);
+  ASSERT_EQ(type->byte_width(), 16);
 
   const auto& ext_type = static_cast<const ExtensionType&>(*type);
   std::string serialized = ext_type.Serialize();
@@ -204,6 +206,9 @@ TEST_F(TestExtensionType, ExtensionTypeTest) {
                        ext_type.Deserialize(fixed_size_binary(16), serialized));
   ASSERT_TRUE(deserialized->Equals(*type));
   ASSERT_FALSE(deserialized->Equals(*fixed_size_binary(16)));
+  ASSERT_EQ(deserialized->id(), Type::EXTENSION);
+  ASSERT_EQ(deserialized->bit_width(), 128);
+  ASSERT_EQ(deserialized->byte_width(), 16);
 }
 
 auto RoundtripBatch = [](const std::shared_ptr<RecordBatch>& batch,

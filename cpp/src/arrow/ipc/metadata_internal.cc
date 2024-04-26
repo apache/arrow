@@ -109,8 +109,9 @@ flatbuf::MetadataVersion MetadataVersionToFlatbuffer(MetadataVersion version) {
 bool HasValidityBitmap(Type::type type_id, MetadataVersion version) {
   // In V4, null types have no validity bitmap
   // In V5 and later, null and union types have no validity bitmap
-  return (version < MetadataVersion::V5) ? (type_id != Type::NA)
-                                         : ::arrow::internal::HasValidityBitmap(type_id);
+  return (version < MetadataVersion::V5)
+             ? (type_id != Type::NA)
+             : ::arrow::internal::may_have_validity_bitmap(type_id);
 }
 
 namespace {

@@ -2488,7 +2488,7 @@ Result<std::shared_ptr<Schema>> UnifySchemas(
 
 namespace internal {
 
-constexpr bool HasValidityBitmap(Type::type id) {
+constexpr bool may_have_validity_bitmap(Type::type id) {
   switch (id) {
     case Type::NA:
     case Type::DENSE_UNION:
@@ -2499,6 +2499,9 @@ constexpr bool HasValidityBitmap(Type::type id) {
       return true;
   }
 }
+
+ARROW_DEPRECATED("Deprecated in 17.0.0. Use may_have_validity_bitmap() instead.")
+constexpr bool HasValidityBitmap(Type::type id) { return may_have_validity_bitmap(id); }
 
 ARROW_EXPORT
 std::string ToString(Type::type id);

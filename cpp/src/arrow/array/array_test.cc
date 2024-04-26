@@ -22,6 +22,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <future>
 #include <limits>
 #include <memory>
 #include <numeric>
@@ -603,11 +604,11 @@ void AssertAppendScalar(MemoryPool* pool, const std::shared_ptr<Scalar>& scalar)
   ASSERT_EQ(out->length(), 9);
 
   auto out_type_id = out->type()->id();
-  const bool has_validity = internal::HasValidityBitmap(out_type_id);
+  const bool can_check_nulls = internal::may_have_validity_bitmap(out_type_id);
   // For a dictionary builder, the output dictionary won't necessarily be the same
   const bool can_check_values = !is_dictionary(out_type_id);
 
-  if (has_validity) {
+  if (can_check_nulls) {
     ASSERT_EQ(out->null_count(), 4);
   } else {
     ASSERT_EQ(out->null_count(), 0);
@@ -823,6 +824,41 @@ TEST_F(TestArray, TestFillFromScalar) {
   }
 }
 
+// GH-40069: Data-race when concurrent calling ArraySpan::FillFromScalar of the same
+// scalar instance.
+TEST_F(TestArray, TestConcurrentFillFromScalar) {
+  for (auto type : TestArrayUtilitiesAgainstTheseTypes()) {
+    ARROW_SCOPED_TRACE("type = ", type->ToString());
+    for (auto seed : {0u, 0xdeadbeef, 42u}) {
+      ARROW_SCOPED_TRACE("seed = ", seed);
+
+      Field field("", type, /*nullable=*/true,
+                  key_value_metadata({{"extension_allow_random_storage", "true"}}));
+      auto array = random::GenerateArray(field, 1, seed);
+
+      ASSERT_OK_AND_ASSIGN(auto scalar, array->GetScalar(0));
+
+      // Lambda to create fill an ArraySpan with the scalar and use the ArraySpan a bit.
+      auto array_span_from_scalar = [&]() {
+        ArraySpan span(*scalar);
+        auto roundtripped_array = span.ToArray();
+        ASSERT_OK(roundtripped_array->ValidateFull());
+
+        AssertArraysEqual(*array, *roundtripped_array);
+        ASSERT_OK_AND_ASSIGN(auto roundtripped_scalar, roundtripped_array->GetScalar(0));
+        AssertScalarsEqual(*scalar, *roundtripped_scalar);
+      };
+
+      // Two concurrent calls to the lambda are just enough for TSAN to detect a race
+      // condition.
+      auto fut1 = std::async(std::launch::async, array_span_from_scalar);
+      auto fut2 = std::async(std::launch::async, array_span_from_scalar);
+      fut1.get();
+      fut2.get();
+    }
+  }
+}
+
 TEST_F(TestArray, ExtensionSpanRoundTrip) {
   // Other types are checked in MakeEmptyArray but MakeEmptyArray doesn't
   // work for extension types so we check that here
@@ -855,7 +891,8 @@ TEST_F(TestArray, TestAppendArraySlice) {
     span.SetMembers(*nulls->data());
     ASSERT_OK(builder->AppendArraySlice(span, 0, 4));
     ASSERT_EQ(12, builder->length());
-    const bool has_validity_bitmap = internal::HasValidityBitmap(scalar->type->id());
+    const bool has_validity_bitmap =
+        internal::may_have_validity_bitmap(scalar->type->id());
     if (has_validity_bitmap) {
       ASSERT_EQ(4, builder->null_count());
     }

@@ -116,15 +116,15 @@ scope, which will register a factory whenever the instance is loaded:
 
 .. code-block:: cpp
 
-    arrow::fs::FileSystemRegistrar kExampleFileSystemModule{
+    auto kExampleFileSystemModule = ARROW_REGISTER_FILESYSTEM(
       "example",
       [](const Uri& uri, const io::IOContext& io_context,
           std::string* out_path) -> Result<std::shared_ptr<arrow::fs::FileSystem>> {
         EnsureExampleFileSystemInitialized();
         return std::make_shared<ExampleFileSystem>();
       },
-      &EnsureExampleFileSystemFinalized,
-    };
+      &EnsureExampleFileSystemFinalized
+    );
 
 If a filesystem implementation requires initialization before any instances
 may be constructed, this should be included in the corresponding factory or
@@ -144,4 +144,3 @@ should have exactly one of its sources
 ``#include "arrow/filesystem/filesystem_library.h"``
 in order to ensure the presence of the symbol on which
 :func:`~arrow::fs::LoadFileSystemFactories` depends.
-

@@ -1768,16 +1768,16 @@ func (s *MockServer) CreatePreparedStatement(ctx context.Context, req flightsql.
 	}, nil
 }
 
-func (s *MockServer) DoPutPreparedStatementQuery(ctx context.Context, qry flightsql.PreparedStatementQuery, r flight.MessageReader, w flight.MetadataWriter) error {
+func (s *MockServer) DoPutPreparedStatementQuery(ctx context.Context, qry flightsql.PreparedStatementQuery, r flight.MessageReader, w flight.MetadataWriter) ([]byte, error) {
 	if s.ExpectedPreparedStatementSchema != nil {
 		if !s.ExpectedPreparedStatementSchema.Equal(r.Schema()) {
-			return errors.New("parameter schema: unexpected")
+			return nil, errors.New("parameter schema: unexpected")
 		}
-		return nil
+		return qry.GetPreparedStatementHandle(), nil
 	}
 
 	if s.PreparedStatementParameterSchema != nil && !s.PreparedStatementParameterSchema.Equal(r.Schema()) {
-		return fmt.Errorf("parameter schema: %w", arrow.ErrInvalid)
+		return nil, fmt.Errorf("parameter schema: %w", arrow.ErrInvalid)
 	}
 
 	// GH-35328: it's rare, but this function can complete execution and return
@@ -1791,7 +1791,7 @@ func (s *MockServer) DoPutPreparedStatementQuery(ctx context.Context, qry flight
 	for r.Next() {
 	}
 
-	return nil
+	return qry.GetPreparedStatementHandle(), nil
 }
 
 func (s *MockServer) DoGetStatement(ctx context.Context, ticket flightsql.StatementQueryTicket) (*arrow.Schema, <-chan flight.StreamChunk, error) {

@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cerrno>
-#include <chrono>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -113,10 +111,8 @@ Result<std::shared_ptr<FileSystem>> SlowFileSystemFactory(const Uri& uri,
   }
   return std::make_shared<SlowFileSystemPublicProps>(base_fs, average_latency, seed);
 }
-FileSystemRegistrar kSlowFileSystemModule{
-    "slowfile",
-    SlowFileSystemFactory,
-};
+auto kSlowFileSystemModule =
+    ARROW_REGISTER_FILESYSTEM("slowfile", SlowFileSystemFactory, {});
 
 TEST(FileSystemFromUri, LinkedRegisteredFactory) {
   // Since the registrar's definition is in this translation unit (which is linked to the
@@ -158,23 +154,24 @@ TEST(FileSystemFromUri, RuntimeRegisteredFactory) {
   EXPECT_THAT(FileSystemFromUri("slowfile2:///hey/yo", &path),
               Raises(StatusCode::Invalid));
 
-  EXPECT_THAT(RegisterFileSystemFactory("slowfile2", SlowFileSystemFactory), Ok());
+  EXPECT_THAT(RegisterFileSystemFactory("slowfile2", {SlowFileSystemFactory, "", 0}),
+              Ok());
 
   ASSERT_OK_AND_ASSIGN(auto fs, FileSystemFromUri("slowfile2:///hey/yo", &path));
   EXPECT_EQ(path, "/hey/yo");
   EXPECT_EQ(fs->type_name(), "slow");
 
   EXPECT_THAT(
-      RegisterFileSystemFactory("slowfile2", SlowFileSystemFactory),
+      RegisterFileSystemFactory("slowfile2", {SlowFileSystemFactory, "", 0}),
       Raises(StatusCode::KeyError,
              testing::HasSubstr("Attempted to register factory for scheme 'slowfile2' "
                                 "but that scheme is already registered")));
 }
 
 FileSystemRegistrar kSegfaultFileSystemModule[]{
-    {"segfault", nullptr},
-    {"segfault", nullptr},
-    {"segfault", nullptr},
+    ARROW_REGISTER_FILESYSTEM("segfault", nullptr, {}),
+    ARROW_REGISTER_FILESYSTEM("segfault", nullptr, {}),
+    ARROW_REGISTER_FILESYSTEM("segfault", nullptr, {}),
 };
 TEST(FileSystemFromUri, LinkedRegisteredFactoryNameCollision) {
   // Since multiple registrars are defined in this translation unit which all
@@ -312,6 +309,7 @@ class TestLocalFS : public LocalFSTestMixin {
     std::string path;
     ASSERT_OK_AND_ASSIGN(fs_, fs_from_uri(uri, &path));
     ASSERT_EQ(fs_->type_name(), "local");
+    local_fs_ = ::arrow::internal::checked_pointer_cast<LocalFileSystem>(fs_);
     ASSERT_EQ(path, expected_path);
     ASSERT_OK_AND_ASSIGN(path, fs_->PathFromUri(uri));
     ASSERT_EQ(path, expected_path);
@@ -423,8 +421,17 @@ TYPED_TEST(TestLocalFS, FileSystemFromUriFile) {
 
   // Variations
   this->TestLocalUri("file:/foo/bar", "/foo/bar");
+  ASSERT_FALSE(this->local_fs_->options().use_mmap);
   this->TestLocalUri("file:///foo/bar", "/foo/bar");
   this->TestLocalUri("file:///some%20path/%25percent", "/some path/%percent");
+
+  this->TestLocalUri("file:///_?use_mmap", "/_");
+  if (this->path_formatter_.supports_uri()) {
+    ASSERT_TRUE(this->local_fs_->options().use_mmap);
+    ASSERT_OK_AND_ASSIGN(auto uri, this->fs_->MakeUri("/_"));
+    EXPECT_EQ(uri, "file:///_?use_mmap");
+  }
+
 #ifdef _WIN32
   this->TestLocalUri("file:/C:/foo/bar", "C:/foo/bar");
   this->TestLocalUri("file:///C:/foo/bar", "C:/foo/bar");

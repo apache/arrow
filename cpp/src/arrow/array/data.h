@@ -46,6 +46,7 @@ ARROW_EXPORT bool IsNullRunEndEncoded(const ArrayData& data, int64_t i);
 ARROW_EXPORT bool UnionMayHaveLogicalNulls(const ArrayData& data);
 ARROW_EXPORT bool RunEndEncodedMayHaveLogicalNulls(const ArrayData& data);
 ARROW_EXPORT bool DictionaryMayHaveLogicalNulls(const ArrayData& data);
+
 }  // namespace internal
 
 // When slicing, we do not know the null count of the sliced range without
