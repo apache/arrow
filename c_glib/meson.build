@@ -26,8 +26,6 @@ project('arrow-glib', 'c', 'cpp',
         # Debian:
         #   https://packages.debian.org/search?keywords=meson
         #
-        #   * bullseye: 0.56.2
-        #   * bullseye-backports:1.0.0
         #   * bookworm: 1.0.0
         #
         # Ubuntu:

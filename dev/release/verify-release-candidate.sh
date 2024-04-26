@@ -185,9 +185,7 @@ test_binary() {
 test_apt() {
   show_header "Testing APT packages"
 
-  for target in "debian:bullseye" \
-                "arm64v8/debian:bullseye" \
-                "debian:bookworm" \
+  for target in "debian:bookworm" \
                 "arm64v8/debian:bookworm" \
                 "debian:trixie" \
                 "arm64v8/debian:trixie" \

@@ -386,9 +386,7 @@ distro <- function() {
   out$id <- tolower(out$id)
   # debian unstable & testing lsb_release `version` don't include numbers but we can map from pretty name
   if (is.null(out$version) || out$version %in% c("testing", "unstable")) {
-    if (grepl("bullseye", out$codename)) {
-      out$short_version <- "11"
-    } else if (grepl("bookworm", out$codename)) {
+    if (grepl("bookworm", out$codename)) {
       out$short_version <- "12"
     }
   } else if (out$id == "ubuntu") {
