@@ -423,8 +423,6 @@ VERSION=#{@deb_upstream_version}
       # "centos-9-stream-aarch64",
       "centos-8-stream",
       # "centos-8-stream-aarch64",
-      "centos-7",
-      # "centos-7-aarch64",
     ]
   end
 

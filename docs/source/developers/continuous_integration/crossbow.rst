@@ -222,7 +222,7 @@ Run only ``conda`` package builds and a Linux one:
 
 .. code::
 
-   $ archery crossbow submit --group conda centos-7
+   $ archery crossbow submit --group conda centos-9
 
 Run ``wheel`` builds:
 

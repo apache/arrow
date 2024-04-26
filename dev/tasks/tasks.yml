@@ -554,12 +554,9 @@ tasks:
                   "almalinux-8",
                   "amazon-linux-2023",
                   "centos-9-stream",
-                  "centos-8-stream",
-                  "centos-7"] %}
-  {% set is_rhel7_based = (target in ["amazon-linux-2", "centos-7"]) %}
-  {% for architecture
-       in ["amd64", "arm64"]
-       if not (target == "centos-7" and architecture == "arm64") %}
+                  "centos-8-stream"] %}
+  {% set is_rhel7_based = (target in ["amazon-linux-2"]) %}
+  {% for architecture in ["amd64", "arm64"] %}
   {{ target }}-{{ architecture }}:
     ci: github
     template: linux-packages/github.linux.yml

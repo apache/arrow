@@ -84,22 +84,6 @@ case "${distribution}-${distribution_version}" in
     install_command="dnf install -y"
     info_command="dnf info"
     ;;
-  centos-7)
-    distribution_prefix="centos"
-    cmake_package=cmake3
-    cmake_command=cmake3
-    devtoolset=11
-    scl_package=centos-release-scl-rh
-    have_arrow_libs=yes
-    have_flight=no
-    have_gandiva=no
-    have_ruby=no
-    have_vala=no
-    install_command="yum install -y"
-    uninstall_command="yum remove -y"
-    clean_command="yum clean"
-    info_command="yum info"
-    ;;
   centos-8)
     distribution_prefix="centos"
     repository_version+="-stream"

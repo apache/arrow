@@ -236,18 +236,10 @@ test_yum() {
                 "arm64v8/almalinux:8" \
                 "amazonlinux:2023" \
                 "quay.io/centos/centos:stream9" \
-                "quay.io/centos/centos:stream8" \
-                "centos:7"; do
+                "quay.io/centos/centos:stream8"; do
     case "${target}" in
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
-          : # OK
-        else
-          continue
-        fi
-        ;;
-      centos:7)
-        if [ "$(arch)" = "x86_64" ]; then
           : # OK
         else
           continue

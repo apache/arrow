@@ -1464,7 +1464,6 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
       ["amazon-linux", "2023"],
       ["centos", "9-stream"],
       ["centos", "8-stream"],
-      ["centos", "7"],
     ]
   end
 
@@ -2179,8 +2178,6 @@ class LocalBinaryTask < BinaryTask
       # "centos-9-stream-aarch64",
       "centos-8-stream",
       # "centos-8-stream-aarch64",
-      "centos-7",
-      # "centos-7-aarch64",
     ]
   end
 
