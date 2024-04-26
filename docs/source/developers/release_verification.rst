@@ -152,7 +152,7 @@ As an example:
    * NVIDIA CUDA Build cuda_11.5.r11.5/compiler.30672275_0
    * openjdk version "17.0.9" 2023-10-17
    * ruby 3.0.2p107 (2021-07-07 revision 0db68f0233) [x86_64-linux-gnu]
-   * dotnet 7.0.115
+   * dotnet 8.0.204
    * Ubuntu 22.04 LTS
 
 If there were some issues during verification please report them on the
