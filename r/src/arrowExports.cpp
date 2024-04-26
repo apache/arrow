@@ -1163,8 +1163,8 @@ extern "C" SEXP _arrow_ExecNode_Aggregate(SEXP input_sexp, SEXP options_sexp, SE
 
 // compute-exec.cpp
 #if defined(ARROW_R_WITH_ACERO)
-std::shared_ptr<acero::ExecNode> ExecNode_Join(const std::shared_ptr<acero::ExecNode>& input, acero::JoinType join_type, const std::shared_ptr<acero::ExecNode>& right_data, std::vector<std::string> left_keys, std::vector<std::string> right_keys, std::vector<std::string> left_output, std::vector<std::string> right_output, std::string output_suffix_for_left, std::string output_suffix_for_right);
-extern "C" SEXP _arrow_ExecNode_Join(SEXP input_sexp, SEXP join_type_sexp, SEXP right_data_sexp, SEXP left_keys_sexp, SEXP right_keys_sexp, SEXP left_output_sexp, SEXP right_output_sexp, SEXP output_suffix_for_left_sexp, SEXP output_suffix_for_right_sexp){
+std::shared_ptr<acero::ExecNode> ExecNode_Join(const std::shared_ptr<acero::ExecNode>& input, acero::JoinType join_type, const std::shared_ptr<acero::ExecNode>& right_data, std::vector<std::string> left_keys, std::vector<std::string> right_keys, std::vector<std::string> left_output, std::vector<std::string> right_output, std::string output_suffix_for_left, std::string output_suffix_for_right, bool na_matches);
+extern "C" SEXP _arrow_ExecNode_Join(SEXP input_sexp, SEXP join_type_sexp, SEXP right_data_sexp, SEXP left_keys_sexp, SEXP right_keys_sexp, SEXP left_output_sexp, SEXP right_output_sexp, SEXP output_suffix_for_left_sexp, SEXP output_suffix_for_right_sexp, SEXP na_matches_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<acero::ExecNode>&>::type input(input_sexp);
 	arrow::r::Input<acero::JoinType>::type join_type(join_type_sexp);
@@ -1175,11 +1175,12 @@ BEGIN_CPP11
 	arrow::r::Input<std::vector<std::string>>::type right_output(right_output_sexp);
 	arrow::r::Input<std::string>::type output_suffix_for_left(output_suffix_for_left_sexp);
 	arrow::r::Input<std::string>::type output_suffix_for_right(output_suffix_for_right_sexp);
-	return cpp11::as_sexp(ExecNode_Join(input, join_type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right));
+	arrow::r::Input<bool>::type na_matches(na_matches_sexp);
+	return cpp11::as_sexp(ExecNode_Join(input, join_type, right_data, left_keys, right_keys, left_output, right_output, output_suffix_for_left, output_suffix_for_right, na_matches));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_ExecNode_Join(SEXP input_sexp, SEXP join_type_sexp, SEXP right_data_sexp, SEXP left_keys_sexp, SEXP right_keys_sexp, SEXP left_output_sexp, SEXP right_output_sexp, SEXP output_suffix_for_left_sexp, SEXP output_suffix_for_right_sexp){
+extern "C" SEXP _arrow_ExecNode_Join(SEXP input_sexp, SEXP join_type_sexp, SEXP right_data_sexp, SEXP left_keys_sexp, SEXP right_keys_sexp, SEXP left_output_sexp, SEXP right_output_sexp, SEXP output_suffix_for_left_sexp, SEXP output_suffix_for_right_sexp, SEXP na_matches_sexp){
 	Rf_error("Cannot call ExecNode_Join(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -5790,7 +5791,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ExecNode_Filter", (DL_FUNC) &_arrow_ExecNode_Filter, 2}, 
 		{ "_arrow_ExecNode_Project", (DL_FUNC) &_arrow_ExecNode_Project, 3}, 
 		{ "_arrow_ExecNode_Aggregate", (DL_FUNC) &_arrow_ExecNode_Aggregate, 3}, 
-		{ "_arrow_ExecNode_Join", (DL_FUNC) &_arrow_ExecNode_Join, 9}, 
+		{ "_arrow_ExecNode_Join", (DL_FUNC) &_arrow_ExecNode_Join, 10}, 
 		{ "_arrow_ExecNode_Union", (DL_FUNC) &_arrow_ExecNode_Union, 2}, 
 		{ "_arrow_ExecNode_Fetch", (DL_FUNC) &_arrow_ExecNode_Fetch, 3}, 
 		{ "_arrow_ExecNode_OrderBy", (DL_FUNC) &_arrow_ExecNode_OrderBy, 2}, 

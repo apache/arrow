@@ -441,3 +441,35 @@ test_that("full joins handle keep", {
     small_dataset_df
   )
 })
+
+left <- tibble::tibble(
+  x = c(1, NA, 3),
+)
+right <- tibble::tibble(
+  x = c(1, NA, 3),
+  y = c("a", "b", "c")
+)
+na_matches_na <- right
+na_matches_never <- tibble::tibble(
+  x = c(1, NA, 3),
+  y = c("a", NA, "c")
+)
+test_that("na_matches argument to join: na (default)", {
+  expect_equal(
+    arrow_table(left) %>%
+      left_join(right, by = "x", na_matches = "na") %>%
+      arrange(x) %>%
+      collect(),
+    na_matches_na %>% arrange(x)
+  )
+})
+
+test_that("na_matches argument to join: never", {
+  expect_equal(
+    arrow_table(left) %>%
+      left_join(right, by = "x", na_matches = "never") %>%
+      arrange(x) %>%
+      collect(),
+    na_matches_never %>% arrange(x)
+  )
+})

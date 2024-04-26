@@ -36,7 +36,7 @@
 #' which returns an `arrow` [Table], or `collect()`, which pulls the resulting
 #' Table into an R `tibble`.
 #'
-#' * [`anti_join()`][dplyr::anti_join()]: the `copy` and `na_matches` arguments are ignored
+#' * [`anti_join()`][dplyr::anti_join()]: the `copy` argument is ignored
 #' * [`arrange()`][dplyr::arrange()]
 #' * [`collapse()`][dplyr::collapse()]
 #' * [`collect()`][dplyr::collect()]
@@ -45,22 +45,22 @@
 #' * [`distinct()`][dplyr::distinct()]: `.keep_all = TRUE` not supported
 #' * [`explain()`][dplyr::explain()]
 #' * [`filter()`][dplyr::filter()]
-#' * [`full_join()`][dplyr::full_join()]: the `copy` and `na_matches` arguments are ignored
+#' * [`full_join()`][dplyr::full_join()]: the `copy` argument is ignored
 #' * [`glimpse()`][dplyr::glimpse()]
 #' * [`group_by()`][dplyr::group_by()]
 #' * [`group_by_drop_default()`][dplyr::group_by_drop_default()]
 #' * [`group_vars()`][dplyr::group_vars()]
 #' * [`groups()`][dplyr::groups()]
-#' * [`inner_join()`][dplyr::inner_join()]: the `copy` and `na_matches` arguments are ignored
-#' * [`left_join()`][dplyr::left_join()]: the `copy` and `na_matches` arguments are ignored
+#' * [`inner_join()`][dplyr::inner_join()]: the `copy` argument is ignored
+#' * [`left_join()`][dplyr::left_join()]: the `copy` argument is ignored
 #' * [`mutate()`][dplyr::mutate()]: window functions (e.g. things that require aggregation within groups) not currently supported
 #' * [`pull()`][dplyr::pull()]: the `name` argument is not supported; returns an R vector by default but this behavior is deprecated and will return an Arrow [ChunkedArray] in a future release. Provide `as_vector = TRUE/FALSE` to control this behavior, or set `options(arrow.pull_as_vector)` globally.
 #' * [`relocate()`][dplyr::relocate()]
 #' * [`rename()`][dplyr::rename()]
 #' * [`rename_with()`][dplyr::rename_with()]
-#' * [`right_join()`][dplyr::right_join()]: the `copy` and `na_matches` arguments are ignored
+#' * [`right_join()`][dplyr::right_join()]: the `copy` argument is ignored
 #' * [`select()`][dplyr::select()]
-#' * [`semi_join()`][dplyr::semi_join()]: the `copy` and `na_matches` arguments are ignored
+#' * [`semi_join()`][dplyr::semi_join()]: the `copy` argument is ignored
 #' * [`show_query()`][dplyr::show_query()]
 #' * [`slice_head()`][dplyr::slice_head()]: slicing within groups not supported; Arrow datasets do not have row order, so head is non-deterministic; `prop` only supported on queries where `nrow()` is knowable without evaluating
 #' * [`slice_max()`][dplyr::slice_max()]: slicing within groups not supported; `with_ties = TRUE` (dplyr default) is not supported; `prop` only supported on queries where `nrow()` is knowable without evaluating

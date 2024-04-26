@@ -148,7 +148,8 @@ ExecPlan <- R6Class("ExecPlan",
             left_output = .data$join$left_output,
             right_output = .data$join$right_output,
             left_suffix = .data$join$suffix[[1]],
-            right_suffix = .data$join$suffix[[2]]
+            right_suffix = .data$join$suffix[[2]],
+            na_matches = .data$join$na_matches
           )
         }
 
@@ -307,7 +308,7 @@ ExecNode <- R6Class("ExecNode",
       out$extras$source_schema$metadata[["r"]]$attributes <- NULL
       out
     },
-    Join = function(type, right_node, by, left_output, right_output, left_suffix, right_suffix) {
+    Join = function(type, right_node, by, left_output, right_output, left_suffix, right_suffix, na_matches = TRUE) {
       self$preserve_extras(
         ExecNode_Join(
           self,
@@ -318,7 +319,8 @@ ExecNode <- R6Class("ExecNode",
           left_output = left_output,
           right_output = right_output,
           output_suffix_for_left = left_suffix,
-          output_suffix_for_right = right_suffix
+          output_suffix_for_right = right_suffix,
+          na_matches = na_matches
         )
       )
     },
