@@ -18,6 +18,7 @@
 #include "arrow/acero/query_context.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/io_util.h"
+#include "arrow/util/value_parsing.h"
 
 namespace arrow {
 using arrow::internal::CpuInfo;
@@ -36,14 +37,9 @@ int64_t GetTempStackSizeFromEnvVar() {
   }
 
   int64_t temp_stack_size = 0;
-  size_t length = 0;
-  bool exception = false;
-  try {
-    temp_stack_size = std::stoll(env_value.c_str(), &length);
-  } catch (const std::exception&) {
-    exception = true;
-  }
-  if (length != env_value.length() || exception || temp_stack_size <= 0) {
+  bool ok = ::arrow::internal::ParseValue<Int64Type>(env_value.c_str(), env_value.size(),
+                                                     &temp_stack_size);
+  if (!ok || temp_stack_size <= 0) {
     ARROW_LOG(WARNING) << "Invalid temp stack size provided in " << kTempStackSizeEnvVar
                        << ". Using default temp stack size: " << kDefaultTempStackSize;
     return kDefaultTempStackSize;
