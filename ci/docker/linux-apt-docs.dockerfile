@@ -53,6 +53,7 @@ RUN apt-get update -y && \
         doxygen \
         gi-docgen \
         gobject-introspection \
+        libasound2-dev && \
         libcurl4-openssl-dev \
         libfontconfig1-dev \
         libfribidi-dev \
