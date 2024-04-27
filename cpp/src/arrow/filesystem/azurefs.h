@@ -226,7 +226,7 @@ struct ARROW_EXPORT AzureOptions {
 ///   overwriting.
 /// - When you use the ListBlobs operation without specifying a delimiter, the results
 ///   include both directories and blobs. If you choose to use a delimiter, use only a
-///   forward slash (/) -- the only supported delimiter.
+///   forward slash (/) \--- the only supported delimiter.
 /// - If you use the DeleteBlob API to delete a directory, that directory is deleted only
 ///   if it's empty. This means that you can't use the Blob API delete directories
 ///   recursively.
