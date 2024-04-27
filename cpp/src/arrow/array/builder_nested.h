@@ -248,7 +248,7 @@ class ARROW_EXPORT VarLengthListLikeBuilder : public ArrayBuilder {
   /// \brief Append dimensions for a single list slot.
   ///
   /// ListViewBuilder overrides this to also append the size.
-  virtual void UnsafeAppendDimensions(int64_t offset, [[maybe_unused]] int64_t size) {
+  virtual void UnsafeAppendDimensions(int64_t offset, int64_t ARROW_ARG_UNUSED(size)) {
     offsets_builder_.UnsafeAppend(static_cast<offset_type>(offset));
   }
 
