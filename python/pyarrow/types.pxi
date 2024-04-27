@@ -1519,6 +1519,20 @@ cdef class BaseExtensionType(DataType):
         """
         return pyarrow_wrap_data_type(self.ext_type.storage_type())
 
+    @property
+    def byte_width(self):
+        """
+        The byte width of the extension type.
+        """
+        return self.ext_type.byte_width()
+
+    @property
+    def bit_width(self):
+        """
+        The bit width of the extension type.
+        """
+        return self.ext_type.bit_width()
+
     def wrap_array(self, storage):
         """
         Wrap the given storage array as an extension array.

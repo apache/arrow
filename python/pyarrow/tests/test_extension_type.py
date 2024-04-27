@@ -267,6 +267,20 @@ def test_ext_type__storage_type():
     assert ty.__class__ is ParamExtType
 
 
+def test_ext_type__byte_width():
+    ty = UuidType()
+    assert ty.storage_type.byte_width == 16
+    ty = ParamExtType(5)
+    assert ty.storage_type.byte_width == 5
+
+
+def test_ext_type__bit_width():
+    ty = UuidType()
+    assert ty.storage_type.bit_width == 128
+    ty = ParamExtType(5)
+    assert ty.storage_type.bit_width == 40
+
+
 def test_ext_type_as_py():
     ty = UuidType()
     expected = uuid4()
