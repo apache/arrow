@@ -17,7 +17,7 @@
 
 # Aggregation functions
 #
-# These all insert into an ..aggregations list (in a parent frame) a list containing:
+# These all insert into an ..aggregations list in the mask, a list containing:
 # @param fun string function name
 # @param data list of 0 or more Expressions
 # @param options list of function options, as passed to call_function
@@ -180,12 +180,13 @@ set_agg <- function(...) {
 find_aggregations_env <- function() {
   # Find the environment where ..aggregations is stored,
   # it's in parent.env of something in the call stack
-  for (f in sys.frames()) {
-    if (exists("..aggregations", envir = f)) {
-      return(f)
+  n <- 1
+  while (TRUE) {
+    if (exists("..aggregations", envir = caller_env(n))) {
+      return(caller_env(n))
     }
+    n <- n + 1
   }
-  stop("Could not find ..aggregations")
 }
 
 ensure_one_arg <- function(args, fun) {
