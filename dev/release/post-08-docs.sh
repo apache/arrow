@@ -79,7 +79,6 @@ curl \
   https://apache.jfrog.io/artifactory/arrow/docs/${version}/docs.tar.gz
 tar xvf docs.tar.gz
 rm -f docs.tar.gz
-git checkout docs/c_glib/index.html
 if [ "$is_major_release" = "yes" ] ; then
   previous_series=${previous_version%.*}
   mv docs_temp docs/${previous_series}
