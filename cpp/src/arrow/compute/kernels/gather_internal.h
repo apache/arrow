@@ -27,8 +27,8 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/macros.h"
 
-// Implementation helpers for kernels that need to load/gather data from
-// multiple, arbitrary indices.
+// Implementation helpers for kernels that need to load/gather fixed-width
+// data from multiple, arbitrary indices.
 //
 // https://en.wikipedia.org/wiki/Gather/scatter_(vector_addressing)
 
