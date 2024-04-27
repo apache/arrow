@@ -87,7 +87,11 @@ arrow::Result<std::shared_ptr<arrow::DataType>> RExtensionType::Deserialize(
   return std::shared_ptr<RExtensionType>(cloned.release());
 }
 
+#if ARROW_VERSION_MAJOR >= 16
 std::string RExtensionType::ToString(bool show_metadata) const {
+#else
+std::string RExtensionType::ToString() const {
+#endif
   arrow::Result<std::string> result = SafeCallIntoR<std::string>([&]() {
     cpp11::environment instance = r6_instance();
     cpp11::function instance_ToString(instance["ToString"]);
