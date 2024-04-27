@@ -186,8 +186,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: python-ccache-macos-${{ hashFiles('cpp/**', 'python/**') }}
-          restore-keys: python-ccache-macos-
+          key: python-ccache-macos-${{ matrix.macos-version }}-${{ hashFiles('cpp/**', 'python/**') }}
+          restore-keys: python-ccache-macos-${{ matrix.macos-version }}-
       - name: Setup Python
         uses: actions/setup-python@v5.1.0
         with:
