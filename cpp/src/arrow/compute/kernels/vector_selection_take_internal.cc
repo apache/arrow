@@ -544,35 +544,34 @@ Result<std::shared_ptr<ArrayData>> TakeAAA(const std::shared_ptr<ArrayData>& val
   return result.array();
 }
 
+Result<std::shared_ptr<ChunkedArray>> TakeAAC(const Array& values, const Array& indices,
+                                              const TakeOptions& options,
+                                              ExecContext* ctx) {
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> new_chunk,
+                        TakeAAA(values.data(), indices.data(), options, ctx));
+  std::vector<std::shared_ptr<Array>> chunks = {MakeArray(new_chunk)};
+  return std::make_shared<ChunkedArray>(std::move(chunks));
+}
+
 Result<std::shared_ptr<ChunkedArray>> TakeCAC(const ChunkedArray& values,
                                               const Array& indices,
                                               const TakeOptions& options,
                                               ExecContext* ctx) {
-  std::shared_ptr<Array> values_array;
   if (values.num_chunks() == 1) {
-    // Case 1: `values` has a single chunk, so just use it
-    values_array = values.chunk(0);
-  } else {
-    // TODO Case 2: See if all `indices` fall in the same chunk and call Array Take on it
-    // See
-    // https://github.com/apache/arrow/blob/6f2c9041137001f7a9212f244b51bc004efc29af/r/src/compute.cpp#L123-L151
-    // TODO Case 3: If indices are sorted, can slice them and call Array Take
-    // (these are relevant to TakeCCC as well)
-
-    // Case 4: Else, concatenate chunks and call Array Take
-    if (values.chunks().empty()) {
-      ARROW_ASSIGN_OR_RAISE(
-          values_array, MakeArrayOfNull(values.type(), /*length=*/0, ctx->memory_pool()));
-    } else {
-      ARROW_ASSIGN_OR_RAISE(values_array,
-                            Concatenate(values.chunks(), ctx->memory_pool()));
-    }
+    // `values` has a single chunk, so just delegate to TakeAAC
+    return TakeAAC(*values.chunk(0), indices, options, ctx);
   }
-  // Call Array Take on our single chunk
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> new_chunk,
-                        TakeAAA(values_array->data(), indices.data(), options, ctx));
-  std::vector<std::shared_ptr<Array>> chunks = {MakeArray(new_chunk)};
-  return std::make_shared<ChunkedArray>(std::move(chunks));
+
+  // Slow path: Concatenate() chunks and delegate to TakeAAC which is more
+  // likely to handle the input types when they are in a single chunk.
+  std::shared_ptr<Array> values_array;
+  if (values.chunks().empty()) {
+    ARROW_ASSIGN_OR_RAISE(
+        values_array, MakeArrayOfNull(values.type(), /*length=*/0, ctx->memory_pool()));
+  } else {
+    ARROW_ASSIGN_OR_RAISE(values_array, Concatenate(values.chunks(), ctx->memory_pool()));
+  }
+  return TakeAAC(*values_array, indices, options, ctx);
 }
 
 Result<std::shared_ptr<ChunkedArray>> TakeCCC(const ChunkedArray& values,
