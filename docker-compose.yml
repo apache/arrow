@@ -1516,12 +1516,12 @@ services:
         /arrow/ci/scripts/r_sanitize.sh /arrow"
 
   fedora-r-clang-sanitizer:
-    image: ${REPO}:r-rhub-clang-asan-devel-latest
+    image: ${REPO}:r-rhub-fedora-clang-devel-latest
     build:
       context: .
       dockerfile: ci/docker/linux-r.dockerfile
       cache_from:
-        - ${REPO}:r-rhub-clang-asan-devel-latest
+        - ${REPO}:r-rhub-fedora-clang-devel-latest
       args:
         # TODO: change this to rhub/clang-asan
         base: rhub/fedora-clang-devel-san
