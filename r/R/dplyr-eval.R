@@ -153,7 +153,7 @@ arrow_mask <- function(.data, aggregation = FALSE) {
   # (because if we do we get `Error: Can't modify the data pronoun` in mutate())
   out$.data <- .data$selected_columns
   # Add the aggregations list to collect any that get pulled out when evaluating
-  out$..aggregations <- empty_named_list()
+  out$.aggregations <- empty_named_list()
   out
 }
 

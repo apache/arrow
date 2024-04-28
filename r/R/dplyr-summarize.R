@@ -80,7 +80,7 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
   # ExecNode), and in the expressions, replace them with FieldRefs so that
   # further operations can happen (in what will become a ProjectNode that works
   # on the result of the Aggregate).
-  # To do this, arrow_mask() includes a list called ..aggregations,
+  # To do this, arrow_mask() includes a list called .aggregations,
   # and the aggregation functions will pull out those terms and insert into
   # that list.
   # nolint end
@@ -99,7 +99,7 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
 
   # Apply the results to the .data object.
   # First, the aggregations
-  .data$aggregations <- mask$..aggregations
+  .data$aggregations <- mask$.aggregations
   # Then collapse the query so that the resulting query object can have
   # additional operations applied to it
   out <- collapse.arrow_dplyr_query(.data)
@@ -264,10 +264,10 @@ format_aggregation <- function(x) {
 # This function evaluates an expression and returns the post-summarize
 # projection that results, or NULL if there is none because the top-level
 # expression was an aggregation. Any aggregations are pulled out and collected
-# in the ..aggregations list outside this function.
+# in the .aggregations list outside this function.
 summarize_eval <- function(name, quosure, mask) {
   # Add previous aggregations to the mask, so they can be referenced
-  for (n in names(mask$..aggregations)) {
+  for (n in names(mask$.aggregations)) {
     mask[[n]] <- mask$.data[[n]] <- Expression$field_ref(n)
   }
   # Evaluate:
@@ -285,10 +285,10 @@ summarize_eval <- function(name, quosure, mask) {
   # aggregation at the top level. So the resulting name should be `name`.
   # not `..tempN`. Rename the corresponding aggregation.
   result_field_name <- value$field_name
-  if (result_field_name %in% names(mask$..aggregations)) {
+  if (result_field_name %in% names(mask$.aggregations)) {
     # Do this by assigning over `name` in case something else was in `name`
-    mask$..aggregations[[name]] <- mask$..aggregations[[result_field_name]]
-    mask$..aggregations[[result_field_name]] <- NULL
+    mask$.aggregations[[name]] <- mask$.aggregations[[result_field_name]]
+    mask$.aggregations[[result_field_name]] <- NULL
     # Return NULL because there is no post-mutate projection, it's just
     # the aggregation
     return(NULL)
