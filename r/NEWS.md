@@ -25,8 +25,6 @@
 
 # arrow 16.0.0
 
-# arrow 15.0.2
-
 # arrow 15.0.1
 
 # arrow 15.0.0
