@@ -28,7 +28,12 @@
 Apache Arrow is a development platform for in-memory analytics. It contains a
 set of technologies that enable big data systems to process and move data fast.
 
-Major components of the project include:
+# This fork differs from Arrow/main in its application of >=C++20 specific meta programming constructs e.g. concepts to Apache Parquet Cpp submodule. 
+Since the main's migration to higher versions of C++ might require additional ongoing efforts, people interested in directly using
+more recent C++ features for Apache Parquet builds might use this fork as the starting point. An effort will be made to keep it synced 
+with the main Arrow source.
+
+## Major components of the project include:
 
  - [The Arrow Columnar In-Memory Format](https://arrow.apache.org/docs/dev/format/Columnar.html):
    a standard and efficient in-memory representation of various datatypes, plain or nested
