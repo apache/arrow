@@ -615,8 +615,7 @@ BaseListScalar::BaseListScalar(std::shared_ptr<Array> value,
 }
 
 ListScalar::ListScalar(std::shared_ptr<Array> value, bool is_valid)
-    : BaseListScalar(value, list(value->type()), is_valid),
-      ArraySpanFillFromScalarScratchSpace(this->value) {}
+    : ListScalar(value, list(value->type()), is_valid) {}
 
 void ListScalar::FillScratchSpace(uint8_t* scratch_space,
                                   const std::shared_ptr<Array>& value) {
@@ -626,8 +625,7 @@ void ListScalar::FillScratchSpace(uint8_t* scratch_space,
 }
 
 LargeListScalar::LargeListScalar(std::shared_ptr<Array> value, bool is_valid)
-    : BaseListScalar(value, large_list(value->type()), is_valid),
-      ArraySpanFillFromScalarScratchSpace(this->value) {}
+    : LargeListScalar(value, large_list(value->type()), is_valid) {}
 
 void LargeListScalar::FillScratchSpace(uint8_t* scratch_space,
                                        const std::shared_ptr<Array>& value) {
@@ -636,8 +634,7 @@ void LargeListScalar::FillScratchSpace(uint8_t* scratch_space,
 }
 
 ListViewScalar::ListViewScalar(std::shared_ptr<Array> value, bool is_valid)
-    : BaseListScalar(value, list_view(value->type()), is_valid),
-      ArraySpanFillFromScalarScratchSpace(this->value) {}
+    : ListViewScalar(value, list_view(value->type()), is_valid) {}
 
 void ListViewScalar::FillScratchSpace(uint8_t* scratch_space,
                                       const std::shared_ptr<Array>& value) {
@@ -647,8 +644,7 @@ void ListViewScalar::FillScratchSpace(uint8_t* scratch_space,
 }
 
 LargeListViewScalar::LargeListViewScalar(std::shared_ptr<Array> value, bool is_valid)
-    : BaseListScalar(value, large_list_view(value->type()), is_valid),
-      ArraySpanFillFromScalarScratchSpace(this->value) {}
+    : LargeListViewScalar(value, large_list_view(value->type()), is_valid) {}
 
 void LargeListViewScalar::FillScratchSpace(uint8_t* scratch_space,
                                            const std::shared_ptr<Array>& value) {
@@ -663,8 +659,7 @@ inline std::shared_ptr<DataType> MakeMapType(const std::shared_ptr<DataType>& pa
 }
 
 MapScalar::MapScalar(std::shared_ptr<Array> value, bool is_valid)
-    : BaseListScalar(value, MakeMapType(value->type()), is_valid),
-      ArraySpanFillFromScalarScratchSpace(this->value) {}
+    : MapScalar(value, MakeMapType(value->type()), is_valid) {}
 
 void MapScalar::FillScratchSpace(uint8_t* scratch_space,
                                  const std::shared_ptr<Array>& value) {
