@@ -84,28 +84,6 @@ export TEXMFVAR=/tmp/texmf-var
 # Make sure we aren't writing to the home dir (CRAN _hates_ this but there is no official check)
 BEFORE=$(ls -alh ~/)
 
-# Install tinytex if we are acting like CRAN and there is no pdflatex already
-if $NOT_CRAN = "false" & ! command -v pdflatex &> /dev/null; then
-  echo "pdflatex is not available, installing tinytex instead"
-
-  if [ "`which dnf`" ]; then
-    PACKAGE_MANAGER=dnf
-  elif [ "`which yum`" ]; then
-    PACKAGE_MANAGER=yum
-  elif [ "`which zypper`" ]; then
-    PACKAGE_MANAGER=zypper
-  else
-    PACKAGE_MANAGER=apt-get
-    apt-get update
-  fi
-
-  # ensure that both perl and wget are installed
-  $PACKAGE_MANAGER install -y perl
-
-  R -e "install.packages('tinytex'); tinytex::install_tinytex()"
-  export PATH="$PATH:~/bin"
-fi
-
 SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
   if (as_cran) {
     args <- '--as-cran'
