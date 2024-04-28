@@ -142,7 +142,7 @@ struct ARROW_EXPORT ArraySpanFillFromScalarScratchSpace {
 
  private:
   template <typename... Args>
-  ArraySpanFillFromScalarScratchSpace(Args&&... args) {
+  explicit ArraySpanFillFromScalarScratchSpace(Args&&... args) {
     Impl::FillScratchSpace(scratch_space_, std::forward<Args>(args)...);
   }
 
