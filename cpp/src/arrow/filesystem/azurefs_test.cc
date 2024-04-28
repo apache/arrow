@@ -528,6 +528,13 @@ TEST(AzureFileSystem, InitializeWithWorkloadIdentityCredential) {
   EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
 }
 
+TEST(AzureFileSystem, InitializeWithEnvironmentCredential) {
+  AzureOptions options;
+  options.account_name = "dummy-account-name";
+  ARROW_EXPECT_OK(options.ConfigureEnvironmentCredential());
+  EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
+}
+
 TEST(AzureFileSystem, OptionsCompare) {
   AzureOptions options;
   EXPECT_TRUE(options.Equals(options));
