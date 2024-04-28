@@ -307,7 +307,7 @@ jobs:
           - {image: "rocker/r-ver:4.0.0"} # ubuntu-20.04
           - {image: "rstudio/r-base:4.1-focal"} # ubuntu-20.04
           - {image: "rstudio/r-base:4.2-centos7", devtoolset: "8"}
-          - {image: "rstudio/r-base:4.3-noble", devtoolset: "8"}
+          - {image: "rstudio/r-base:4.3-noble"}
     steps:
       # Get the arrow checkout just for the docker config scripts
       # Don't need submodules for this (hence false arg to macro): they fail on
