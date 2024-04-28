@@ -293,9 +293,12 @@ struct ZonedLocalizer {
       // typically 1 hour greater than post-ambiguous offset. While this produces
       // acceptable result in UTC it can cause discontinuities in local time and destroys
       // local time sortedness.
-      return duration_cast<Duration>(
+      const auto d3 = duration_cast<Duration>(
           FloorHelper<Duration, Unit>(d + li2.second.offset, options) -
           li2.second.offset);
+      const auto d4 = duration_cast<Duration>(
+          FloorHelper<Duration, Unit>(d + li2.first.offset, options) - li2.first.offset);
+      return d3 < d4 ? d3 : d4;
     } else if (li2.result == local_info::nonexistent ||
                li2.first.offset < li.first.offset) {
       // In case we hit or cross a nonexistent period we add the pre-DST-jump offset to
