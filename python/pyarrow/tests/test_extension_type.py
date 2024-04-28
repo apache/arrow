@@ -251,14 +251,14 @@ def test_ext_type_repr():
     assert repr(ty) == "IntegerType(DataType(int64))"
 
 
-def test_ext_type__lifetime():
+def test_ext_type_lifetime():
     ty = UuidType()
     wr = weakref.ref(ty)
     del ty
     assert wr() is None
 
 
-def test_ext_type__storage_type():
+def test_ext_type_storage_type():
     ty = UuidType()
     assert ty.storage_type == pa.binary(16)
     assert ty.__class__ is UuidType
@@ -267,14 +267,14 @@ def test_ext_type__storage_type():
     assert ty.__class__ is ParamExtType
 
 
-def test_ext_type__byte_width():
+def test_ext_type_byte_width():
     ty = UuidType()
     assert ty.storage_type.byte_width == 16
     ty = ParamExtType(5)
     assert ty.storage_type.byte_width == 5
 
 
-def test_ext_type__bit_width():
+def test_ext_type_bit_width():
     ty = UuidType()
     assert ty.storage_type.bit_width == 128
     ty = ParamExtType(5)
