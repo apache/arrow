@@ -1309,9 +1309,10 @@ void AddFixedWidthIfElseKernel(const std::shared_ptr<IfElseFunction>& scalar_fun
 }
 
 void AddNestedIfElseKernels(const std::shared_ptr<IfElseFunction>& scalar_function) {
-  for (const auto type_id : {Type::LIST, Type::LARGE_LIST, Type::LIST_VIEW,
-                             Type::LARGE_LIST_VIEW, Type::FIXED_SIZE_LIST, Type::STRUCT,
-                             Type::DENSE_UNION, Type::SPARSE_UNION, Type::DICTIONARY}) {
+  for (const auto type_id :
+       {Type::LIST, Type::LARGE_LIST, Type::LIST_VIEW, Type::LARGE_LIST_VIEW,
+        Type::FIXED_SIZE_LIST, Type::MAP, Type::STRUCT, Type::DENSE_UNION,
+        Type::SPARSE_UNION, Type::DICTIONARY}) {
     ScalarKernel kernel({boolean(), InputType(type_id), InputType(type_id)}, LastType,
                         NestedIfElseExec::Exec);
     kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
@@ -1807,7 +1808,8 @@ struct CaseWhenFunctor<Type, enable_if_base_binary<Type>> {
 };
 
 template <typename Type>
-struct CaseWhenFunctor<Type, enable_if_var_size_list<Type>> {
+struct CaseWhenFunctor<
+    Type, enable_if_t<is_base_list_type<Type>::value || is_list_view_type<Type>::value>> {
   using offset_type = typename Type::offset_type;
   using BuilderType = typename TypeTraits<Type>::BuilderType;
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
@@ -2712,6 +2714,25 @@ void AddBinaryCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar_fu
   }
 }
 
+template <typename ArrowNestedType>
+void AddNestedCaseWhenKernel(const std::shared_ptr<CaseWhenFunction>& scalar_function) {
+  AddCaseWhenKernel(scalar_function, ArrowNestedType::type_id,
+                    CaseWhenFunctor<ArrowNestedType>::Exec);
+}
+
+void AddNestedCaseWhenKernels(const std::shared_ptr<CaseWhenFunction>& scalar_function) {
+  AddNestedCaseWhenKernel<FixedSizeListType>(scalar_function);
+  AddNestedCaseWhenKernel<ListType>(scalar_function);
+  AddNestedCaseWhenKernel<LargeListType>(scalar_function);
+  AddNestedCaseWhenKernel<ListViewType>(scalar_function);
+  AddNestedCaseWhenKernel<LargeListViewType>(scalar_function);
+  AddNestedCaseWhenKernel<MapType>(scalar_function);
+  AddNestedCaseWhenKernel<StructType>(scalar_function);
+  AddNestedCaseWhenKernel<DenseUnionType>(scalar_function);
+  AddNestedCaseWhenKernel<SparseUnionType>(scalar_function);
+  AddNestedCaseWhenKernel<DictionaryType>(scalar_function);
+}
+
 void AddCoalesceKernel(const std::shared_ptr<ScalarFunction>& scalar_function,
                        detail::GetTypeId get_id, ArrayKernelExec exec) {
   ScalarKernel kernel(KernelSignature::Make({InputType(get_id.id)}, FirstType,
@@ -2729,6 +2750,25 @@ void AddPrimitiveCoalesceKernels(const std::shared_ptr<ScalarFunction>& scalar_f
     auto exec = GenerateTypeAgnosticPrimitive<CoalesceFunctor>(*type);
     AddCoalesceKernel(scalar_function, type, std::move(exec));
   }
+}
+
+template <typename ArrowNestedType>
+void AddNestedCoalesceKernel(const std::shared_ptr<ScalarFunction>& scalar_function) {
+  AddCoalesceKernel(scalar_function, ArrowNestedType::type_id,
+                    CoalesceFunctor<ArrowNestedType>::Exec);
+}
+
+void AddNestedCoalesceKernels(const std::shared_ptr<ScalarFunction>& scalar_function) {
+  AddNestedCoalesceKernel<FixedSizeListType>(scalar_function);
+  AddNestedCoalesceKernel<ListType>(scalar_function);
+  AddNestedCoalesceKernel<LargeListType>(scalar_function);
+  AddNestedCoalesceKernel<ListViewType>(scalar_function);
+  AddNestedCoalesceKernel<LargeListViewType>(scalar_function);
+  AddNestedCoalesceKernel<MapType>(scalar_function);
+  AddNestedCoalesceKernel<StructType>(scalar_function);
+  AddNestedCoalesceKernel<DenseUnionType>(scalar_function);
+  AddNestedCoalesceKernel<SparseUnionType>(scalar_function);
+  AddNestedCoalesceKernel<DictionaryType>(scalar_function);
 }
 
 void AddChooseKernel(const std::shared_ptr<ScalarFunction>& scalar_function,
@@ -2822,15 +2862,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddCaseWhenKernel(func, Type::DECIMAL128, CaseWhenFunctor<FixedSizeBinaryType>::Exec);
     AddCaseWhenKernel(func, Type::DECIMAL256, CaseWhenFunctor<FixedSizeBinaryType>::Exec);
     AddBinaryCaseWhenKernels(func, BaseBinaryTypes());
-    AddCaseWhenKernel(func, Type::FIXED_SIZE_LIST,
-                      CaseWhenFunctor<FixedSizeListType>::Exec);
-    AddCaseWhenKernel(func, Type::LIST, CaseWhenFunctor<ListType>::Exec);
-    AddCaseWhenKernel(func, Type::LARGE_LIST, CaseWhenFunctor<LargeListType>::Exec);
-    AddCaseWhenKernel(func, Type::MAP, CaseWhenFunctor<MapType>::Exec);
-    AddCaseWhenKernel(func, Type::STRUCT, CaseWhenFunctor<StructType>::Exec);
-    AddCaseWhenKernel(func, Type::DENSE_UNION, CaseWhenFunctor<DenseUnionType>::Exec);
-    AddCaseWhenKernel(func, Type::SPARSE_UNION, CaseWhenFunctor<SparseUnionType>::Exec);
-    AddCaseWhenKernel(func, Type::DICTIONARY, CaseWhenFunctor<DictionaryType>::Exec);
+    AddNestedCaseWhenKernels(func);
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {
@@ -2848,15 +2880,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     for (const auto& ty : BaseBinaryTypes()) {
       AddCoalesceKernel(func, ty, GenerateTypeAgnosticVarBinaryBase<CoalesceFunctor>(ty));
     }
-    AddCoalesceKernel(func, Type::FIXED_SIZE_LIST,
-                      CoalesceFunctor<FixedSizeListType>::Exec);
-    AddCoalesceKernel(func, Type::LIST, CoalesceFunctor<ListType>::Exec);
-    AddCoalesceKernel(func, Type::LARGE_LIST, CoalesceFunctor<LargeListType>::Exec);
-    AddCoalesceKernel(func, Type::MAP, CoalesceFunctor<MapType>::Exec);
-    AddCoalesceKernel(func, Type::STRUCT, CoalesceFunctor<StructType>::Exec);
-    AddCoalesceKernel(func, Type::DENSE_UNION, CoalesceFunctor<DenseUnionType>::Exec);
-    AddCoalesceKernel(func, Type::SPARSE_UNION, CoalesceFunctor<SparseUnionType>::Exec);
-    AddCoalesceKernel(func, Type::DICTIONARY, CoalesceFunctor<DictionaryType>::Exec);
+    AddNestedCoalesceKernels(func);
     DCHECK_OK(registry->AddFunction(std::move(func)));
   }
   {
