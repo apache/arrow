@@ -119,6 +119,8 @@ Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
         credential_kind = CredentialKind::kAnonymous;
       } else if (kv.second == "workload_identity") {
         credential_kind = CredentialKind::kWorkloadIdentity;
+      } else if (kv.second == "environment") {
+        credential_kind = CredentialKind::kEnvironment;
       } else {
         // Other credential kinds should be inferred from the given
         // parameters automatically.
@@ -170,6 +172,9 @@ Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
         break;
       case CredentialKind::kWorkloadIdentity:
         RETURN_NOT_OK(ConfigureWorkloadIdentityCredential());
+        break;
+      case CredentialKind::kEnvironment:
+        RETURN_NOT_OK(ConfigureEnvironmentCredential());
         break;
       default:
         // Default credential
