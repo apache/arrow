@@ -32,9 +32,9 @@
    fun:getvar
    fun:bcEval
 }
-
 {
    # This also doesn't seem to cause issues on CRAN, so suppress it.
+   <Memcheck_possible_leak>
    Memcheck:Leak
    match-leak-kinds: possible
    fun:malloc
