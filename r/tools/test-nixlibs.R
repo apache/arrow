@@ -158,10 +158,6 @@ test_that("check_allowlist", {
 })
 
 test_that("find_latest_nightly()", {
-  skip_if(
-    getRversion() > "4.4.0",
-    "long last version components (>8) fail to max on r-devel"
-  )
   tf <- tempfile()
   tf_uri <- paste0("file://", tf)
   on.exit(unlink(tf))

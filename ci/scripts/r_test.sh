@@ -48,9 +48,6 @@ if [ "$ARROW_USE_PKG_CONFIG" != "false" ]; then
 fi
 
 export _R_CHECK_COMPILATION_FLAGS_KNOWN_="${_R_CHECK_COMPILATION_FLAGS_KNOWN_} ${ARROW_R_CXXFLAGS}"
-# These should generally be picked up, but are slightly wrong in rhub's containers it appears
-# https://github.com/r-hub/containers/pull/63
-export _R_CHECK_COMPILATION_FLAGS_KNOWN_="${_R_CHECK_COMPILATION_FLAGS_KNOWN_} -Wno-parentheses -Werror=format-security -Wp,-D_FORTIFY_SOURCE=3"
 
 if [ "$ARROW_R_DEV" = "TRUE" ]; then
   # These are sometimes used in the Arrow C++ build and are not a problem
