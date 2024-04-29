@@ -1470,7 +1470,6 @@ services:
       args:
         base: ${R_ORG}/${R_IMAGE}:${R_TAG}
         r_dev: ${ARROW_R_DEV}
-        devtoolset_version: ${DEVTOOLSET_VERSION}
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
         r_custom_ccache: ${R_CUSTOM_CCACHE}
@@ -1482,7 +1481,6 @@ services:
       ARROW_R_DEV: ${ARROW_R_DEV}
       # To test for CRAN release, delete ^^ these two env vars so we download the Apache release
       ARROW_USE_PKG_CONFIG: "false"
-      devtoolset_version: ${DEVTOOLSET_VERSION}
     volumes:
       - .:/arrow:delegated
     command: >
@@ -1526,7 +1524,6 @@ services:
         # TODO: change this to rhub/clang-asan
         base: rhub/fedora-clang-devel-san
         r_dev: ${ARROW_R_DEV}
-        devtoolset_version: ${DEVTOOLSET_VERSION}
         r_bin: RDsan
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}

@@ -28,35 +28,6 @@ For `gcc`, this generally means version 7 or newer. Most contemporary Linux
 distributions have a new enough compiler; however, CentOS 7 is a notable
 exception, as it ships with gcc 4.8.
 
-If you are on CentOS 7, to build arrow you will need to install a newer `devtoolset`, and you'll need to update R's Makevars to define the `CXX17` variables. This script installs `devtoolset-8` and configures R to be able to use C++17:
-
-```
-#!/usr/bin/env bash
-
-yum install -y centos-release-scl
-yum install -y devtoolset-8
-# Optional: also install cloud storage dependencies, as described below
-yum install -y libcurl-devel openssl-devel
-
-source /opt/rh/devtoolset-8/enable
-
-if [ ! `R CMD config CXX17` ]; then
-  mkdir -p ~/.R
-  echo "CC = $(which gcc) -fPIC" >> ~/.R/Makevars
-  echo "CXX17 = $(which g++) -fPIC" >> ~/.R/Makevars
-  echo "CXX17STD = -std=c++17" >> ~/.R/Makevars
-  echo "CXX17FLAGS = ${CXX11FLAGS}" >> ~/.R/Makevars
-fi
-```
-
-Note that the C++17 compiler is only required at *build* time. You don't need
-to enable the devtoolset every time you load the package. What's more, if you
-install a binary package from RStudio Package Manager (see method 1a below), you
-do not need to set up any of this. Likewise, if you `R CMD INSTALL --build`
-arrow on a CentOS machine with the newer compilers, you can take the binary
-package it produces and install it on any other CentOS machine without those
-compilers.
-
 ### Libraries
 
 Optional support for reading from cloud storage--AWS S3 and
@@ -516,10 +487,6 @@ set the environment variable `ARROW_R_DEV=TRUE` to increase verbosity and retry 
 The install script should work everywhere, so if libarrow fails to compile,
 please [report an issue](https://issues.apache.org/jira/projects/ARROW/issues)
 so that we can improve the script.
-
-### Known installation issues
-
-* On CentOS, building the package requires a more modern `devtoolset` than the default system compilers. See "System dependencies" above.
 
 ## Contributing
 

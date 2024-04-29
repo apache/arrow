@@ -299,14 +299,14 @@ jobs:
           # choosing a binary on this OS. If libarrow_binary is TRUE, we're on
           # an OS that is not in the allowlist, so we have to opt-in to use the
           # binary. Other env vars used in r_docker_configure.sh can be added
-          # here (like devtoolset) and wired up in the later steps.
+          # here and wired up in the later steps.
           - {image: "rhub/ubuntu-clang", libarrow_binary: "TRUE"}
           # fedora-clang-devel cannot use binaries bc of libc++ (uncomment to see the error)
           # - {image: "rhub/fedora-clang-devel", libarrow_binary: "TRUE"}
           - {image: "rhub/ubuntu-release"} # currently ubuntu-22.04
           - {image: "rocker/r-ver:4.0.0"} # ubuntu-20.04
-          - {image: "rstudio/r-base:4.1-focal"} # ubuntu-20.04
-          - {image: "rstudio/r-base:4.2-centos7", devtoolset: "8"}
+          - {image: "rstudio/r-base:4.1-focal"}
+          - {image: "rstudio/r-base:4.2-jammy"}
           - {image: "rstudio/r-base:4.3-noble"}
     steps:
       # Get the arrow checkout just for the docker config scripts
@@ -317,7 +317,6 @@ jobs:
       - name: Install system requirements
         env:
           ARROW_R_DEV: "TRUE" # To install curl/openssl in r_docker_configure.sh
-          DEVTOOLSET_VERSION: {{ '${{ matrix.config.devtoolset }}' }}
         shell: bash
         run: |
           # Make sure R is on the path for the R-hub devel versions (where RPREFIX is set in its dockerfile)
