@@ -15,32 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.vector;
+package org.apache.arrow.driver.jdbc.converter.impl;
 
-import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.calcite.avatica.AvaticaParameter;
+import org.apache.calcite.avatica.remote.TypedValue;
 
 /**
- * Tuple class containing a vector and whether it was created.
- *
- * @param <V> The type of vector the result is for.
+ * AvaticaParameterConverter for Utf8View Arrow types.
  */
-public class AddOrGetResult<V extends ValueVector> {
-  private final V vector;
-  private final boolean created;
+public class Utf8ViewAvaticaParameterConverter extends BaseAvaticaParameterConverter {
 
-  /** Constructs a new object. */
-  public AddOrGetResult(V vector, boolean created) {
-    this.vector = Preconditions.checkNotNull(vector);
-    this.created = created;
+  public Utf8ViewAvaticaParameterConverter(ArrowType.Utf8View type) {
   }
 
-  /** Returns the vector. */
-  public V getVector() {
-    return vector;
+  @Override
+  public boolean bindParameter(FieldVector vector, TypedValue typedValue, int index) {
+    throw new UnsupportedOperationException("Utf8View not supported");
   }
 
-  /** Returns whether the vector is created. */
-  public boolean isCreated() {
-    return created;
+  @Override
+  public AvaticaParameter createParameter(Field field) {
+    return createParameter(field, false);
   }
 }
