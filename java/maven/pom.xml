@@ -15,6 +15,13 @@
     Note: Do not inherit from the Arrow parent POM as plugins can be referenced
     during the parent POM, introducing circular dependencies.
   -->
+  <parent>
+    <groupId>org.apache</groupId>
+    <artifactId>apache</artifactId>
+    <version>31</version>
+    <relativePath></relativePath>
+  </parent>
+
   <groupId>org.apache.arrow.maven.plugins</groupId>
   <artifactId>arrow-maven-plugins</artifactId>
   <version>17.0.0-SNAPSHOT</version>
@@ -27,25 +34,38 @@
 
   <properties>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
+    <!-- org.apache:apache overrides -->
+    <maven.compiler.source>1.8</maven.compiler.source>
+    <maven.compiler.target>1.8</maven.compiler.target>
+    <maven.plugin.tools.version>3.12.0</maven.plugin.tools.version>
+    <surefire.version>3.2.5</surefire.version>
+    <version.apache-rat-plugin>0.16.1</version.apache-rat-plugin>
+    <version.maven-assembly-plugin>3.7.1</version.maven-assembly-plugin>
+    <version.maven-compiler-plugin>3.12.1</version.maven-compiler-plugin>
+    <version.maven-dependency-plugin>3.6.1</version.maven-dependency-plugin>
+    <version.maven-gpg-plugin>3.2.0</version.maven-gpg-plugin>
+    <version.maven-jar-plugin>3.2.2</version.maven-jar-plugin>
+    <version.maven-javadoc-plugin>3.6.3</version.maven-javadoc-plugin>
+    <version.maven-project-info-reports-plugin>3.5.0</version.maven-project-info-reports-plugin>
   </properties>
 
   <build>
     <pluginManagement>
       <plugins>
         <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-project-info-reports-plugin</artifactId>
-          <version>3.5.0</version>
-        </plugin>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-site-plugin</artifactId>
-          <version>3.12.1</version>
-        </plugin>
-        <plugin>
           <groupId>com.diffplug.spotless</groupId>
           <artifactId>spotless-maven-plugin</artifactId>
           <version>2.30.0</version>
+        </plugin>
+        <plugin>
+          <groupId>pl.project13.maven</groupId>
+          <artifactId>git-commit-id-plugin</artifactId>
+          <version>4.0.5</version>
+        </plugin>
+        <plugin>
+          <groupId>org.cyclonedx</groupId>
+          <artifactId>cyclonedx-maven-plugin</artifactId>
+          <version>2.7.11</version>
         </plugin>
       </plugins>
     </pluginManagement>
@@ -119,11 +139,6 @@
             <exclude>**/logback.xml</exclude>
           </excludes>
           <archive>
-            <index>true</index>
-            <manifest>
-              <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
-              <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
-            </manifest>
             <manifestEntries>
               <Extension-Name>org.apache.arrow</Extension-Name>
               <Built-By>${username}</Built-By>
@@ -145,41 +160,15 @@
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-resources-plugin</artifactId>
-        <configuration>
-          <encoding>UTF-8</encoding>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
-          <encoding>UTF-8</encoding>
-          <source>1.8</source>
-          <target>1.8</target>
           <maxmem>2048m</maxmem>
-          <useIncrementalCompilation>false</useIncrementalCompilation>
           <fork>true</fork>
         </configuration>
       </plugin>
       <plugin>
         <artifactId>maven-enforcer-plugin</artifactId>
         <executions>
-          <execution>
-            <id>validate_java_and_maven_version</id>
-            <goals>
-              <goal>enforce</goal>
-            </goals>
-            <phase>verify</phase>
-            <inherited>false</inherited>
-            <configuration>
-              <rules>
-                <requireMavenVersion>
-                  <version>[3.3.0,4)</version>
-                </requireMavenVersion>
-              </rules>
-            </configuration>
-          </execution>
           <execution>
             <id>avoid_bad_dependencies</id>
             <goals>
@@ -205,8 +194,6 @@
       <plugin>
         <groupId>pl.project13.maven</groupId>
         <artifactId>git-commit-id-plugin</artifactId>
-        <version>4.0.5</version>
-
         <configuration>
           <dateFormat>dd.MM.yyyy '@' HH:mm:ss z</dateFormat>
           <verbose>false</verbose>
@@ -248,7 +235,6 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-checkstyle-plugin</artifactId>
-        <version>3.1.0</version>
         <configuration>
           <configLocation>../dev/checkstyle/checkstyle.xml</configLocation>
           <headerLocation>../dev/checkstyle/checkstyle.license</headerLocation>
@@ -288,7 +274,6 @@
       <plugin>
         <groupId>org.cyclonedx</groupId>
         <artifactId>cyclonedx-maven-plugin</artifactId>
-        <version>2.7.11</version>
         <executions>
           <execution>
             <goals>
@@ -353,12 +338,10 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-project-info-reports-plugin</artifactId>
-        <version>3.5.0</version>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-site-plugin</artifactId>
-        <version>3.12.1</version>
       </plugin>
     </plugins>
   </reporting>
