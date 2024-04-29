@@ -40,7 +40,7 @@ Table into an R \code{tibble}.
 \item \code{\link[dplyr:group_data]{groups()}}
 \item \code{\link[dplyr:mutate-joins]{inner_join()}}: the \code{copy} argument is ignored
 \item \code{\link[dplyr:mutate-joins]{left_join()}}: the \code{copy} argument is ignored
-\item \code{\link[dplyr:mutate]{mutate()}}: window functions (e.g. things that require aggregation within groups) not currently supported
+\item \code{\link[dplyr:mutate]{mutate()}}
 \item \code{\link[dplyr:pull]{pull()}}: the \code{name} argument is not supported; returns an R vector by default but this behavior is deprecated and will return an Arrow \link{ChunkedArray} in a future release. Provide \code{as_vector = TRUE/FALSE} to control this behavior, or set \code{options(arrow.pull_as_vector)} globally.
 \item \code{\link[dplyr:relocate]{relocate()}}
 \item \code{\link[dplyr:rename]{rename()}}
