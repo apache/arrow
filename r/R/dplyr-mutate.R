@@ -49,11 +49,6 @@ mutate.arrow_dplyr_query <- function(.data,
   # If there are any aggregations, we will need to compute them and
   # and join the results back in, for "window functions" like x - mean(x)
   mask <- arrow_mask(out, aggregation = TRUE)
-  # As in summarize(), we need to track the aggregations here.
-  # If this list is not empty after we evaluate the exprs, we will need to
-  # compute the aggregations and join them back in.
-  ..aggregations <- empty_named_list()
-
   # Evaluate the mutate expressions
   results <- list()
   for (i in seq_along(exprs)) {
@@ -80,13 +75,13 @@ mutate.arrow_dplyr_query <- function(.data,
     mask[[new_var]] <- mask$.data[[new_var]] <- results[[new_var]]
   }
 
-  if (length(..aggregations)) {
+  if (length(mask$.aggregations)) {
     # Make a copy of .data, do the aggregations on it, and then left_join on
     # the group_by variables.
     agg_query <- as_adq(.data)
     # These may be computed by .by, make sure they're set
     agg_query$group_by_vars <- grv
-    agg_query$aggregations <- ..aggregations
+    agg_query$aggregations <- mask$.aggregations
     agg_query <- collapse.arrow_dplyr_query(agg_query)
     if (length(grv)) {
       out <- left_join(out, agg_query, by = grv)
@@ -109,7 +104,7 @@ mutate.arrow_dplyr_query <- function(.data,
   }
 
   # Prune any ..temp columns from the result, which would have come from
-  # ..aggregations
+  # .aggregations
   temps <- grepl("^\\.\\.temp", names(out$selected_columns))
   out$selected_columns <- out$selected_columns[!temps]
 
