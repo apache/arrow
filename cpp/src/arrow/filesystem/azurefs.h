@@ -147,12 +147,9 @@ struct ARROW_EXPORT AzureOptions {
   ///    [/\<container\>[/path]]
   /// 4. abfs[s]://[\<account[:\<password\>]@]\<container\>[/path]
   ///
-  /// 1. and 2. are compatible with the Azure Data Lake Storage Gen2 URIs:
-  /// https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction-abfs-uri
-  ///
-  /// 3. is for Azure Blob Storage compatible service including Azurite.
-  ///
-  /// 4. is a shorter version of 1. and 2.
+  /// (1) and (2) are compatible with the Azure Data Lake Storage Gen2 URIs
+  /// [1], (3) is for Azure Blob Storage compatible service including Azurite,
+  /// and (4) is a shorter version of (1) and (2).
   ///
   /// Note that there is no difference between abfs and abfss. HTTPS is
   /// used with abfs by default. You can force to use HTTP by specifying
@@ -178,6 +175,8 @@ struct ARROW_EXPORT AzureOptions {
   ///   AzureOptions::ConfigureClientSecretCredential() is called.
   /// * client_secret: You must specify "tenant_id" and "client_id"
   ///   too. AzureOptions::ConfigureClientSecretCredential() is called.
+  ///
+  /// [1]: https://learn.microsoft.com/en-us/azure/storage/blobs/data-lake-storage-introduction-abfs-uri
   static Result<AzureOptions> FromUri(const Uri& uri, std::string* out_path);
   static Result<AzureOptions> FromUri(const std::string& uri, std::string* out_path);
 
