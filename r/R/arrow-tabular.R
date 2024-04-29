@@ -260,3 +260,47 @@ na.omit.ArrowTabular <- function(object, ...) {
 
 #' @export
 na.exclude.ArrowTabular <- na.omit.ArrowTabular
+
+#' @export
+print.ArrowTabular <- function(x, ..., n = NULL, width = NULL, n_extra = NULL){
+  cat(pillar:::format_tbl(x, width = NULL, ...,
+                          n_extra = NULL,
+                          n = NULL, max_extra_cols = NULL, max_footer_lines = NULL))
+  invisible(x)
+}
+
+#' @importFrom pillar tbl_format_setup
+#' @export
+tbl_format_setup.ArrowTabular <- function(x, width, ..., n, max_extra_cols, max_footer_lines, focus){
+  subset_x <- collect.ArrowTabular(head(x, n))
+  setup <- tbl_format_setup(subset_x)
+  setup$rows_total <- nrow(x)
+  setup$rows_missing <- nrow(x) - n
+  setup
+}
+
+#' @importFrom pillar tbl_format_header align style_subtle
+#' @export
+tbl_format_header.ArrowTabular <- function(x, setup){
+  named_header <- tbl_sum(x)
+  header <- paste0(
+    align(paste0(names(named_header), ":")),
+    " ",
+    named_header
+  )
+
+  style_subtle(paste0("# ", header))
+}
+
+#' @importFrom pillar tbl_sum
+#' @export
+tbl_sum.ArrowTabular <- function(x){
+  c("An Arrow Table" = paste(x$num_rows, "x", x$num_columns))
+}
+
+#' @importFrom pillar tbl_format_footer
+#' @export
+tbl_format_footer.ArrowTabular <- function(x, setup, ...){
+  tbl_format_footer(tibble::tibble(), setup)
+}
+
