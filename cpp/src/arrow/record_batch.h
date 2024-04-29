@@ -278,7 +278,7 @@ class ARROW_EXPORT RecordBatch {
   /// data the returned sync event will allow for it.
   ///
   /// \return null or a Device::SyncEvent
-  virtual std::shared_ptr<Device::SyncEvent> GetSyncEvent() const;
+  virtual const std::shared_ptr<Device::SyncEvent>& GetSyncEvent() const;
 
   virtual DeviceAllocationType device_type() const;
 

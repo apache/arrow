@@ -188,7 +188,7 @@ class SimpleRecordBatch : public RecordBatch {
     return RecordBatch::Validate();
   }
 
-  std::shared_ptr<Device::SyncEvent> GetSyncEvent() const override { return sync_event_; }
+  const std::shared_ptr<Device::SyncEvent>& GetSyncEvent() const override { return sync_event_; }
 
   DeviceAllocationType device_type() const override { return device_type_; }
 
@@ -213,7 +213,7 @@ std::shared_ptr<RecordBatch> RecordBatch::Make(
     std::shared_ptr<Device::SyncEvent> sync_event) {
   DCHECK_EQ(schema->num_fields(), static_cast<int>(columns.size()));
   return std::make_shared<SimpleRecordBatch>(std::move(schema), num_rows,
-                                             std::move(columns), sync_event);
+                                             std::move(columns), std::move(sync_event));
 }
 
 std::shared_ptr<RecordBatch> RecordBatch::Make(
@@ -222,7 +222,7 @@ std::shared_ptr<RecordBatch> RecordBatch::Make(
     std::shared_ptr<Device::SyncEvent> sync_event) {
   DCHECK_EQ(schema->num_fields(), static_cast<int>(columns.size()));
   return std::make_shared<SimpleRecordBatch>(std::move(schema), num_rows,
-                                             std::move(columns), device_type, sync_event);
+                                             std::move(columns), device_type, std::move(sync_event));
 }
 
 Result<std::shared_ptr<RecordBatch>> RecordBatch::MakeEmpty(
@@ -664,7 +664,7 @@ Status RecordBatch::ValidateFull() const {
   return ValidateBatch(*this, /*full_validation=*/true);
 }
 
-std::shared_ptr<Device::SyncEvent> RecordBatch::GetSyncEvent() const { return nullptr; }
+const std::shared_ptr<Device::SyncEvent>& RecordBatch::GetSyncEvent() const { return nullptr; }
 
 DeviceAllocationType RecordBatch::device_type() const {
   return DeviceAllocationType::kCPU;
