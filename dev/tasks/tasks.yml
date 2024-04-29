@@ -888,12 +888,12 @@ tasks:
       - r-lib__libarrow__bin__darwin-arm64-openssl-3.0__arrow-{no_rc_r_version}\.zip
       - r-lib__libarrow__bin__darwin-x86_64-openssl-1.1__arrow-{no_rc_r_version}\.zip
       - r-lib__libarrow__bin__darwin-x86_64-openssl-3.0__arrow-{no_rc_r_version}\.zip
+      - r-pkg__bin__windows__contrib__4.4__arrow_{no_rc_r_version}\.zip
       - r-pkg__bin__windows__contrib__4.3__arrow_{no_rc_r_version}\.zip
-      - r-pkg__bin__windows__contrib__4.2__arrow_{no_rc_r_version}\.zip
+      - r-pkg__bin__macosx__big-sur-x86_64__contrib__4.4__arrow_{no_rc_r_version}\.tgz
       - r-pkg__bin__macosx__big-sur-x86_64__contrib__4.3__arrow_{no_rc_r_version}\.tgz
-      - r-pkg__bin__macosx__contrib__4.2__arrow_{no_rc_r_version}\.tgz
+      - r-pkg__bin__macosx__big-sur-arm64__contrib__4.4__arrow_{no_rc_r_version}\.tgz
       - r-pkg__bin__macosx__big-sur-arm64__contrib__4.3__arrow_{no_rc_r_version}\.tgz
-      - r-pkg__bin__macosx__big-sur-arm64__contrib__4.2__arrow_{no_rc_r_version}\.tgz
       - r-pkg__src__contrib__arrow_{no_rc_r_version}\.tar\.gz
 
 
@@ -1356,7 +1356,7 @@ tasks:
       r_tag: latest
       r_custom_ccache: true
 
-{% for r_org, r_image, r_tag in [("rhub", "ubuntu-gcc-release", "latest"),
+{% for r_org, r_image, r_tag in [("rhub", "ubuntu-release", "latest"),
                                  ("rocker", "r-ver", "latest"),
                                  ("rstudio", "r-base", "4.2-focal"),
                                  ("rstudio", "r-base", "4.1-opensuse153")] %}
@@ -1377,9 +1377,9 @@ tasks:
     template: r/azure.linux.yml
     params:
       r_org: rhub
-      r_image: debian-gcc-devel-lto
+      r_image: gcc13
       r_tag: latest
-      flags: '-e NOT_CRAN=false -e INSTALL_ARGS=--use-LTO'
+      flags: '-e INSTALL_ARGS=--use-LTO'
 
   # This one has -flto=auto
   test-r-ubuntu-22.04:
