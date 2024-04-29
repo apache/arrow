@@ -1108,8 +1108,8 @@ class MatchSubstringOptions(_MatchSubstringOptions):
 
 
 cdef class _PadOptions(FunctionOptions):
-    def _set_options(self, width, padding):
-        self.wrapped.reset(new CPadOptions(width, tobytes(padding)))
+    def _set_options(self, width, padding, align_left_on_odd_padding):
+        self.wrapped.reset(new CPadOptions(width, tobytes(padding), align_left_on_odd_padding))
 
 
 class PadOptions(_PadOptions):
@@ -1124,8 +1124,8 @@ class PadOptions(_PadOptions):
         What to pad the string with. Should be one byte or codepoint.
     """
 
-    def __init__(self, width, padding=' '):
-        self._set_options(width, padding)
+    def __init__(self, width, padding=' ', align_left_on_odd_padding=True):
+        self._set_options(width, padding, align_left_on_odd_padding)
 
 
 cdef class _TrimOptions(FunctionOptions):

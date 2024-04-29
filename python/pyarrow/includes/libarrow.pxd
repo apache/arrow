@@ -2319,9 +2319,10 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CPadOptions \
             "arrow::compute::PadOptions"(CFunctionOptions):
-        CPadOptions(int64_t width, c_string padding)
+        CPadOptions(int64_t width, c_string padding, c_bool align_left_on_odd_padding)
         int64_t width
         c_string padding
+        c_bool align_left_on_odd_padding
 
     cdef cppclass CSliceOptions \
             "arrow::compute::SliceOptions"(CFunctionOptions):
