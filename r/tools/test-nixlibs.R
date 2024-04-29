@@ -23,8 +23,9 @@
 TESTING <- TRUE
 # The functions use `on_macos` from the env they were sourced in, so we need tool
 # explicitly set it in that environment.
+# We capture.output for a cleaner testthat output.
 nixlibs_env <- environment()
-source("nixlibs.R", local = nixlibs_env)
+capture.output(source("nixlibs.R", local = nixlibs_env))
 
 test_that("identify_binary() based on LIBARROW_BINARY", {
   expect_null(identify_binary("FALSE"))
@@ -157,6 +158,10 @@ test_that("check_allowlist", {
 })
 
 test_that("find_latest_nightly()", {
+  skip_if(
+    getRversion() > "4.4.0",
+    "long last version components (>8) fail to max on r-devel"
+  )
   tf <- tempfile()
   tf_uri <- paste0("file://", tf)
   on.exit(unlink(tf))

@@ -16,7 +16,7 @@
 // under the License.
 
 import {
-    Bool, DateDay, DateMillisecond, Dictionary, Float64, Int32, List, makeVector, Struct, Timestamp, TimeUnit, Utf8, LargeUtf8, util, Vector, vectorFromArray
+    Bool, DateDay, DateMillisecond, Dictionary, Float64, Int32, List, makeVector, Struct, Utf8, LargeUtf8, util, Vector, vectorFromArray, makeData
 } from 'apache-arrow';
 
 describe(`makeVectorFromArray`, () => {
@@ -30,6 +30,47 @@ describe(`makeVectorFromArray`, () => {
         test(`toJSON retains null`, () => {
             expect(vector.toJSON()).toEqual(values);
         });
+    });
+});
+
+describe(`basic vector methods`, () => {
+    test(`not nullable`, () => {
+        const vector = makeVector([makeData({ data: new Int32Array([1, 2, 3]), nullCount: -1, type: new Int32() })]);
+        expect(vector.nullable).toBe(false);
+        expect(vector.nullCount).toBe(0);
+    });
+
+    test(`nullable`, () => {
+        const vector = makeVector([makeData({ data: new Int32Array([1, 2, 3]), nullCount: 0, type: new Int32() })]);
+        expect(vector.nullable).toBe(true);
+        expect(vector.nullCount).toBe(0);
+        expect(vector.isValid(0)).toBe(true);
+
+        // set a value to null
+        vector.set(0, null);
+        expect(vector.nullable).toBe(true);
+        expect(vector.nullCount).toBe(1);
+        expect(vector.isValid(0)).toBe(false);
+
+        // set the same value to null which should not change anything
+        vector.set(0, null);
+        expect(vector.nullable).toBe(true);
+        expect(vector.nullCount).toBe(1);
+
+        // set a different value to null
+        vector.set(1, null);
+        expect(vector.nullable).toBe(true);
+        expect(vector.nullCount).toBe(2);
+
+        // set first value to non-null
+        vector.set(0, 1);
+        expect(vector.nullable).toBe(true);
+        expect(vector.nullCount).toBe(1);
+
+        // set last null to non-null
+        vector.set(1, 2);
+        expect(vector.nullable).toBe(true);
+        expect(vector.nullCount).toBe(0);
     });
 });
 
@@ -89,7 +130,7 @@ describe(`DateVector`, () => {
             new Date(1988, 3, 25, 4, 5, 6),
             new Date(1987, 2, 24, 7, 8, 9),
             new Date(2018, 4, 12, 17, 30, 0)
-        ];
+        ].map(v => v.getTime());
         const vector = vectorFromArray(values, new DateMillisecond);
         basicVectorTests(vector, values, extras);
     });
@@ -100,7 +141,7 @@ describe(`DateVector`, () => {
             new Date(Date.UTC(1988, 3, 25)),
             new Date(Date.UTC(1987, 2, 24)),
             new Date(Date.UTC(2018, 4, 12))
-        ];
+        ].map(v => v.getTime());
         const vector = vectorFromArray(values, new DateDay);
 
         basicVectorTests(vector, values, extras);
@@ -108,7 +149,6 @@ describe(`DateVector`, () => {
 });
 
 describe(`DictionaryVector`, () => {
-
     const dictionary = ['foo', 'bar', 'baz'];
     const extras = ['abc', '123']; // values to search for that should NOT be found
     const dictionary_vec = vectorFromArray(dictionary, new Utf8).memoize();
@@ -117,7 +157,6 @@ describe(`DictionaryVector`, () => {
     const validity = Array.from({ length: indices.length }, () => Math.random() > 0.2);
 
     describe(`index with nullCount == 0`, () => {
-
         const values = indices.map((d) => dictionary[d]);
         const vector = makeVector({
             data: indices,
@@ -133,7 +172,6 @@ describe(`DictionaryVector`, () => {
     });
 
     describe(`index with nullCount > 0`, () => {
-
         const nullBitmap = util.packBools(validity);
         const nullCount = validity.reduce((acc, d) => acc + (d ? 0 : 1), 0);
         const values = indices.map((d, i) => validity[i] ? dictionary[d] : null);
@@ -227,8 +265,10 @@ describe(`ListVector`, () => {
     });
 
     test(`get value`, () => {
-        for (const [i, value] of values.entries()) {
-            expect(vector.get(i)!.toJSON()).toEqual(value);
+        for (let i = 0; i < values.length; i++) {
+            expect(vector.get(i)!.toJSON()).toEqual(values[i]);
+            expect(vector.at(i)!.toJSON()).toEqual(values.at(i));
+            expect(vector.at(-i)!.toJSON()).toEqual(values.at(-i));
         }
     });
 });
@@ -248,17 +288,6 @@ describe(`toArray()`, () => {
         const array = vector.toArray();
         expect(array).toHaveLength(26);
     });
-
-    test(`when stride is 2`, () => {
-        let d1 = vectorFromArray([0, 1, 2], new Timestamp(TimeUnit.MILLISECOND)).data[0];
-        let d2 = vectorFromArray([3, 4, 5], new Timestamp(TimeUnit.MILLISECOND)).data[0];
-
-        const vector = new Vector([d1, d2]);
-
-        let array = Array.from(vector.toArray());
-        expect(array).toHaveLength(6 * 2);
-        expect(Array.from(array)).toMatchObject([0, 0, 1, 0, 2, 0, 3, 0, 4, 0, 5, 0]);
-    });
 });
 
 // Creates some basic tests for the given vector.
@@ -270,9 +299,10 @@ function basicVectorTests(vector: Vector, values: any[], extras: any[]) {
     const n = values.length;
 
     test(`gets expected values`, () => {
-        let i = -1;
-        while (++i < n) {
+        for (let i = 0; i < values.length; i++) {
             expect(vector.get(i)).toEqual(values[i]);
+            expect(vector.at(i)).toEqual(values.at(i));
+            expect(vector.at(-i)).toEqual(values.at(-i));
         }
     });
     test(`iterates expected values`, () => {

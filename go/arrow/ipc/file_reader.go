@@ -23,14 +23,14 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/bitutil"
-	"github.com/apache/arrow/go/v16/arrow/endian"
-	"github.com/apache/arrow/go/v16/arrow/internal"
-	"github.com/apache/arrow/go/v16/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v16/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/array"
+	"github.com/apache/arrow/go/v17/arrow/bitutil"
+	"github.com/apache/arrow/go/v17/arrow/endian"
+	"github.com/apache/arrow/go/v17/arrow/internal"
+	"github.com/apache/arrow/go/v17/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v17/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v17/arrow/memory"
 )
 
 // FileReader is an Arrow file reader.

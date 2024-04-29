@@ -19,15 +19,14 @@
 package exec
 
 import (
-	"reflect"
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/bitutil"
-	"github.com/apache/arrow/go/v16/arrow/memory"
-	"github.com/apache/arrow/go/v16/arrow/scalar"
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/array"
+	"github.com/apache/arrow/go/v17/arrow/bitutil"
+	"github.com/apache/arrow/go/v17/arrow/memory"
+	"github.com/apache/arrow/go/v17/arrow/scalar"
 )
 
 // BufferSpan is a lightweight Buffer holder for ArraySpans that does not
@@ -248,22 +247,6 @@ func (a *ArraySpan) resizeChildren(i int) {
 	} else {
 		a.Children = make([]ArraySpan, i)
 	}
-}
-
-// convenience function for populating the offsets buffer from a scalar
-// value's size.
-func setOffsetsForScalar[T int32 | int64](span *ArraySpan, buf []T, valueSize int64, bufidx int) {
-	buf[0] = 0
-	buf[1] = T(valueSize)
-
-	b := (*reflect.SliceHeader)(unsafe.Pointer(&buf))
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&span.Buffers[bufidx].Buf))
-	s.Data = b.Data
-	s.Len = 2 * int(unsafe.Sizeof(T(0)))
-	s.Cap = s.Len
-
-	span.Buffers[bufidx].Owner = nil
-	span.Buffers[bufidx].SelfAlloc = false
 }
 
 // FillFromScalar populates this ArraySpan as if it were a 1 length array

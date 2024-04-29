@@ -31,6 +31,7 @@ import numpy as np
 
 import pyarrow as pa
 import pyarrow.tests.strategies as past
+from pyarrow.vendored.version import Version
 
 
 def test_total_bytes_allocated():
@@ -486,6 +487,7 @@ def test_array_slice_negative_step():
         slice(None, None, 2),
         slice(0, 10, 2),
         slice(15, -25, -1),  # GH-38768
+        slice(-22, -22, -1),  # GH-40642
     ]
 
     for case in cases:
@@ -3301,6 +3303,52 @@ def test_array_from_large_pyints():
         pa.array([int(2 ** 63)])
 
 
+def test_numpy_array_protocol():
+    # test the __array__ method on pyarrow.Array
+    arr = pa.array([1, 2, 3])
+    result = np.asarray(arr)
+    expected = np.array([1, 2, 3], dtype="int64")
+    np.testing.assert_array_equal(result, expected)
+
+    # this should not raise a deprecation warning with numpy 2.0+
+    result = np.array(arr, copy=False)
+    np.testing.assert_array_equal(result, expected)
+
+    result = np.array(arr, dtype="int64", copy=False)
+    np.testing.assert_array_equal(result, expected)
+
+    # no zero-copy is possible
+    arr = pa.array([1, 2, None])
+    expected = np.array([1, 2, np.nan], dtype="float64")
+    result = np.asarray(arr)
+    np.testing.assert_array_equal(result, expected)
+
+    if Version(np.__version__) < Version("2.0"):
+        # copy keyword is not strict and not passed down to __array__
+        result = np.array(arr, copy=False)
+        np.testing.assert_array_equal(result, expected)
+
+        result = np.array(arr, dtype="float64", copy=False)
+        np.testing.assert_array_equal(result, expected)
+    else:
+        # starting with numpy 2.0, the copy=False keyword is assumed to be strict
+        with pytest.raises(ValueError, match="Unable to avoid a copy"):
+            np.array(arr, copy=False)
+
+        arr = pa.array([1, 2, 3])
+        with pytest.raises(ValueError):
+            np.array(arr, dtype="float64", copy=False)
+
+    # copy=True -> not yet passed by numpy, so we have to call this directly to test
+    arr = pa.array([1, 2, 3])
+    result = arr.__array__(copy=True)
+    assert result.flags.writeable
+
+    arr = pa.array([1, 2, 3])
+    result = arr.__array__(dtype=np.dtype("float64"), copy=True)
+    assert result.dtype == "float64"
+
+
 def test_array_protocol():
 
     class MyArray:
@@ -3381,7 +3429,7 @@ def test_c_array_protocol():
     result = pa.array(arr)
     assert result == arr.data
 
-    # Will case to requested type
+    # Will cast to requested type
     result = pa.array(arr, type=pa.int32())
     assert result == pa.array([1, 2, 3], type=pa.int32())
 
@@ -3578,6 +3626,67 @@ def test_run_end_encoded_from_buffers():
     with pytest.raises(ValueError):
         pa.RunEndEncodedArray.from_buffers(ree_type, length, buffers,
                                            1, offset, children)
+
+
+def test_run_end_encoded_from_array_with_type():
+    run_ends = [1, 3, 6]
+    values = [1, 2, 3]
+    ree_type = pa.run_end_encoded(pa.int32(), pa.int64())
+    expected = pa.RunEndEncodedArray.from_arrays(run_ends, values,
+                                                 ree_type)
+
+    arr = [1, 2, 2, 3, 3, 3]
+    result = pa.array(arr, type=ree_type)
+    assert result.equals(expected)
+    result = pa.array(np.array(arr), type=ree_type)
+    assert result.equals(expected)
+
+    ree_type_2 = pa.run_end_encoded(pa.int16(), pa.float32())
+    result = pa.array(arr, type=ree_type_2)
+    assert not result.equals(expected)
+    expected_2 = pa.RunEndEncodedArray.from_arrays(run_ends, values,
+                                                   ree_type_2)
+    assert result.equals(expected_2)
+
+    run_ends = [1, 3, 5, 6]
+    values = [1, 2, 3, None]
+    expected = pa.RunEndEncodedArray.from_arrays(run_ends, values,
+                                                 ree_type)
+
+    arr = [1, 2, 2, 3, 3, None]
+    result = pa.array(arr, type=ree_type)
+    assert result.equals(expected)
+
+    run_ends = [1, 3, 4, 5, 6]
+    values = [1, 2, None, 3, None]
+    expected = pa.RunEndEncodedArray.from_arrays(run_ends, values,
+                                                 ree_type)
+
+    mask = pa.array([False, False, False, True, False, True])
+    result = pa.array(arr, type=ree_type, mask=mask)
+    assert result.equals(expected)
+
+
+def test_run_end_encoded_to_numpy():
+    arr = [1, 2, 2, 3, 3, 3]
+    ree_array = pa.array(arr, pa.run_end_encoded(pa.int32(), pa.int64()))
+    expected = np.array(arr)
+
+    np.testing.assert_array_equal(ree_array.to_numpy(zero_copy_only=False), expected)
+
+    with pytest.raises(pa.ArrowInvalid):
+        ree_array.to_numpy()
+
+
+@pytest.mark.pandas
+def test_run_end_encoded_to_pandas():
+    arr = [1, 2, 2, 3, 3, 3]
+    ree_array = pa.array(arr, pa.run_end_encoded(pa.int32(), pa.int64()))
+
+    assert ree_array.to_pandas().tolist() == arr
+
+    with pytest.raises(pa.ArrowInvalid):
+        ree_array.to_pandas(zero_copy_only=True)
 
 
 @pytest.mark.parametrize(('list_array_type', 'list_type_factory'),

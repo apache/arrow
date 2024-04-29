@@ -30,13 +30,11 @@ array is valid (not null). If the array has no null entries, it is possible to o
 
 # Requirements
 
-Despite the go.mod stating go1.20, everything is able to be built with go1.19 or higher.
-
 To build with tinygo include the noasm build tag.
 */
 package arrow
 
-const PkgVersion = "16.0.0-SNAPSHOT"
+const PkgVersion = "17.0.0-SNAPSHOT"
 
 //go:generate go run _tools/tmpl/main.go -i -data=numeric.tmpldata type_traits_numeric.gen.go.tmpl type_traits_numeric.gen_test.go.tmpl array/numeric.gen.go.tmpl array/numericbuilder.gen.go.tmpl array/bufferbuilder_numeric.gen.go.tmpl
 //go:generate go run _tools/tmpl/main.go -i -data=datatype_numeric.gen.go.tmpldata datatype_numeric.gen.go.tmpl tensor/numeric.gen.go.tmpl tensor/numeric.gen_test.go.tmpl

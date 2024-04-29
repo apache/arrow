@@ -73,6 +73,8 @@ jobs:
         config:
         # We use the R version that was released at the time of the arrow release in order
         # to make sure we can download binaries from RSPM.
+        - { old_arrow_version: '14.0.2.1', r: '4.3' }
+        - { old_arrow_version: '13.0.0.1', r: '4.3' }
         - { old_arrow_version: '12.0.1.1', r: '4.3' }
         - { old_arrow_version: '11.0.0.3', r: '4.2' }
         - { old_arrow_version: '10.0.1', r: '4.2' }

@@ -22,12 +22,12 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/memory"
-	"github.com/apache/arrow/go/v16/parquet"
-	"github.com/apache/arrow/go/v16/parquet/file"
-	"github.com/apache/arrow/go/v16/parquet/pqarrow"
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/array"
+	"github.com/apache/arrow/go/v17/arrow/memory"
+	"github.com/apache/arrow/go/v17/parquet"
+	"github.com/apache/arrow/go/v17/parquet/file"
+	"github.com/apache/arrow/go/v17/parquet/pqarrow"
 	"golang.org/x/exp/rand"
 	"gonum.org/v1/gonum/stat/distuv"
 )

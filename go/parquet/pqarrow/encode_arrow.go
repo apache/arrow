@@ -25,16 +25,16 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/bitutil"
-	"github.com/apache/arrow/go/v16/arrow/decimal128"
-	"github.com/apache/arrow/go/v16/arrow/decimal256"
-	"github.com/apache/arrow/go/v16/arrow/memory"
-	"github.com/apache/arrow/go/v16/internal/utils"
-	"github.com/apache/arrow/go/v16/parquet"
-	"github.com/apache/arrow/go/v16/parquet/file"
-	"github.com/apache/arrow/go/v16/parquet/internal/debug"
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/array"
+	"github.com/apache/arrow/go/v17/arrow/bitutil"
+	"github.com/apache/arrow/go/v17/arrow/decimal128"
+	"github.com/apache/arrow/go/v17/arrow/decimal256"
+	"github.com/apache/arrow/go/v17/arrow/memory"
+	"github.com/apache/arrow/go/v17/internal/utils"
+	"github.com/apache/arrow/go/v17/parquet"
+	"github.com/apache/arrow/go/v17/parquet/file"
+	"github.com/apache/arrow/go/v17/parquet/internal/debug"
 )
 
 // get the count of the number of leaf arrays for the type

@@ -163,7 +163,7 @@ if(CMAKE_THREAD_LIBS_INIT)
 endif()
 
 if(WIN32)
-  list(APPEND ARROW_SYSTEM_LINK_LIBS "ws2_32.dll")
+  list(APPEND ARROW_SYSTEM_LINK_LIBS "ws2_32")
 endif()
 
 if(NOT WIN32 AND NOT APPLE)
@@ -628,9 +628,9 @@ else()
   list(APPEND ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS ArrowTesting::gtest)
 endif()
 if(WIN32)
-  list(APPEND ARROW_TESTING_SHARED_LINK_LIBS "ws2_32.dll")
-  list(APPEND ARROW_TESTING_STATIC_LINK_LIBS "ws2_32.dll")
-  list(APPEND ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS "ws2_32.dll")
+  list(APPEND ARROW_TESTING_SHARED_LINK_LIBS "ws2_32")
+  list(APPEND ARROW_TESTING_STATIC_LINK_LIBS "ws2_32")
+  list(APPEND ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS "ws2_32")
 endif()
 
 set(ARROW_TESTING_SRCS
@@ -689,9 +689,9 @@ set(ARROW_COMPUTE_SRCS
     compute/function.cc
     compute/function_internal.cc
     compute/kernel.cc
-    compute/key_hash.cc
-    compute/key_map.cc
-    compute/light_array.cc
+    compute/key_hash_internal.cc
+    compute/key_map_internal.cc
+    compute/light_array_internal.cc
     compute/ordering.cc
     compute/registry.cc
     compute/kernels/codegen_internal.cc
@@ -717,8 +717,8 @@ set(ARROW_COMPUTE_SRCS
     compute/row/row_internal.cc
     compute/util.cc)
 
-append_runtime_avx2_src(ARROW_COMPUTE_SRCS compute/key_hash_avx2.cc)
-append_runtime_avx2_bmi2_src(ARROW_COMPUTE_SRCS compute/key_map_avx2.cc)
+append_runtime_avx2_src(ARROW_COMPUTE_SRCS compute/key_hash_internal_avx2.cc)
+append_runtime_avx2_bmi2_src(ARROW_COMPUTE_SRCS compute/key_map_internal_avx2.cc)
 append_runtime_avx2_src(ARROW_COMPUTE_SRCS compute/row/compare_internal_avx2.cc)
 append_runtime_avx2_src(ARROW_COMPUTE_SRCS compute/row/encode_internal_avx2.cc)
 append_runtime_avx2_bmi2_src(ARROW_COMPUTE_SRCS compute/util_avx2.cc)
@@ -899,6 +899,10 @@ if(ARROW_ORC)
                            adapters/orc/util.cc)
   foreach(ARROW_ORC_TARGET ${ARROW_ORC_TARGETS})
     target_link_libraries(${ARROW_ORC_TARGET} PRIVATE orc::orc)
+    if(ARROW_ORC_VERSION VERSION_LESS "2.0.0")
+      target_compile_definitions(${ARROW_ORC_TARGET}
+                                 PRIVATE ARROW_ORC_NEED_TIME_ZONE_DATABASE_CHECK)
+    endif()
   endforeach()
 else()
   set(ARROW_ORC_TARGET_SHARED)
@@ -1175,6 +1179,7 @@ add_arrow_benchmark(builder_benchmark)
 add_arrow_benchmark(compare_benchmark)
 add_arrow_benchmark(memory_pool_benchmark)
 add_arrow_benchmark(type_benchmark)
+add_arrow_benchmark(tensor_benchmark)
 
 #
 # Recurse into sub-directories

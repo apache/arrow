@@ -104,11 +104,12 @@ Implementations
    C/GLib <c_glib/index>
    C++ <cpp/index>
    C# <https://github.com/apache/arrow/blob/main/csharp/README.md>
-   Go <https://pkg.go.dev/github.com/apache/arrow/go/v16>
+   Go <https://pkg.go.dev/github.com/apache/arrow/go/v17>
    Java <java/index>
    JavaScript <js/index>
    Julia <https://arrow.apache.org/julia/>
    MATLAB <https://github.com/apache/arrow/blob/main/matlab/README.md>
+   nanoarrow <https://arrow.apache.org/nanoarrow/>
    Python <python/index>
    R <r/index>
    Ruby <https://github.com/apache/arrow/blob/main/ruby/README.md>

@@ -65,6 +65,13 @@ public class ReusableByteArray implements ReusableBuffer<byte[]> {
   }
 
   @Override
+  public void set(byte[] srcBytes, long start, long len) {
+    setCapacity((int) len, false);
+    System.arraycopy(srcBytes, (int) start, bytes, 0, (int) len);
+    length = (int) len;
+  }
+
+  @Override
   public boolean equals(Object o) {
     if (o == this) {
       return true;

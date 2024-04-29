@@ -727,13 +727,13 @@ class ColumnReaderImplBase {
         ConfigureDictionary(static_cast<const DictionaryPage*>(current_page_.get()));
         continue;
       } else if (current_page_->type() == PageType::DATA_PAGE) {
-        const auto page = std::static_pointer_cast<DataPageV1>(current_page_);
+        const auto* page = static_cast<const DataPageV1*>(current_page_.get());
         const int64_t levels_byte_size = InitializeLevelDecoders(
             *page, page->repetition_level_encoding(), page->definition_level_encoding());
         InitializeDataDecoder(*page, levels_byte_size);
         return true;
       } else if (current_page_->type() == PageType::DATA_PAGE_V2) {
-        const auto page = std::static_pointer_cast<DataPageV2>(current_page_);
+        const auto* page = static_cast<const DataPageV2*>(current_page_.get());
         int64_t levels_byte_size = InitializeLevelDecodersV2(*page);
         InitializeDataDecoder(*page, levels_byte_size);
         return true;
@@ -1316,7 +1316,8 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     levels_position_ = 0;
     levels_capacity_ = 0;
     read_dense_for_nullable_ = read_dense_for_nullable;
-    uses_values_ = !(descr->physical_type() == Type::BYTE_ARRAY);
+    // BYTE_ARRAY values are not stored in the `values_` buffer.
+    uses_values_ = descr->physical_type() != Type::BYTE_ARRAY;
 
     if (uses_values_) {
       values_ = AllocateBuffer(pool);
@@ -1339,7 +1340,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
 
   const void* ReadDictionary(int32_t* dictionary_length) override {
     if (this->current_decoder_ == nullptr && !this->HasNextInternal()) {
-      dictionary_length = 0;
+      *dictionary_length = 0;
       return nullptr;
     }
     // Verify the current data page is dictionary encoded. The current_encoding_ should

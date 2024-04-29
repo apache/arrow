@@ -24,6 +24,8 @@ permissions:
   contents: read
 
 env:
+  ARCHERY_DEBUG: 1
+  ARCHERY_USE_DOCKER_CLI: 1
   ARROW_ENABLE_TIMING_TESTS: OFF
   DOCKER_VOLUME_PREFIX: ".docker/"
 
@@ -51,7 +53,7 @@ jobs:
           key: ubuntu-docs-${{ hashFiles('cpp/**') }}
           restore-keys: ubuntu-docs-
       - name: Setup Python
-        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c # v5.0.0
+        uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d # v5.1.0
         with:
           python-version: 3.12
       - name: Setup Archery

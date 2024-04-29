@@ -390,7 +390,8 @@ are_urls <- function(x) if (!is.character(x)) FALSE else grepl("://", x)
 #' @export
 LocalFileSystem <- R6Class("LocalFileSystem", inherit = FileSystem)
 LocalFileSystem$create <- function() {
-  fs___LocalFileSystem__create()
+  # from_uri needs a non-empty path, so just use a placeholder of /_
+  FileSystem$from_uri("file:///_")$fs
 }
 
 #' @usage NULL

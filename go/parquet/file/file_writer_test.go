@@ -22,13 +22,13 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v16/arrow/memory"
-	"github.com/apache/arrow/go/v16/parquet"
-	"github.com/apache/arrow/go/v16/parquet/compress"
-	"github.com/apache/arrow/go/v16/parquet/file"
-	"github.com/apache/arrow/go/v16/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v16/parquet/internal/testutils"
-	"github.com/apache/arrow/go/v16/parquet/schema"
+	"github.com/apache/arrow/go/v17/arrow/memory"
+	"github.com/apache/arrow/go/v17/parquet"
+	"github.com/apache/arrow/go/v17/parquet/compress"
+	"github.com/apache/arrow/go/v17/parquet/file"
+	"github.com/apache/arrow/go/v17/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v17/parquet/internal/testutils"
+	"github.com/apache/arrow/go/v17/parquet/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -64,6 +64,20 @@ func (t *SerializeTestSuite) fileSerializeTest(codec compress.Compression, expec
 
 	writer := file.NewParquetWriter(sink, t.Schema.Root(), file.WithWriterProps(props))
 	t.GenerateData(int64(t.rowsPerRG))
+
+	t.serializeGeneratedData(writer)
+	writer.FlushWithFooter()
+
+	t.validateSerializedData(writer, sink, expected)
+
+	t.serializeGeneratedData(writer)
+	writer.Close()
+
+	t.numRowGroups *= 2
+	t.validateSerializedData(writer, sink, expected)
+}
+
+func (t *SerializeTestSuite) serializeGeneratedData(writer *file.Writer) {
 	for rg := 0; rg < t.numRowGroups/2; rg++ {
 		rgw := writer.AppendRowGroup()
 		for col := 0; col < t.numCols; col++ {
@@ -94,8 +108,9 @@ func (t *SerializeTestSuite) fileSerializeTest(codec compress.Compression, expec
 		}
 		rgw.Close()
 	}
-	writer.Close()
+}
 
+func (t *SerializeTestSuite) validateSerializedData(writer *file.Writer, sink *encoding.BufferWriter, expected compress.Compression) {
 	nrows := t.numRowGroups * t.rowsPerRG
 	t.EqualValues(nrows, writer.NumRows())
 

@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/array"
 )
 
 // *** GRPC helpers ***
@@ -104,6 +104,10 @@ func fromArrowType(arr arrow.Array, idx int) (interface{}, error) {
 		return v.ToTime(ts.TimeUnit()), nil
 	case *array.Date64:
 		return c.Value(idx).ToTime(), nil
+	case *array.Duration:
+		dt := arr.DataType().(*arrow.DurationType)
+		duration := time.Duration(c.Value(idx)) * dt.Unit.Multiplier()
+		return duration, nil
 	case *array.DayTimeInterval:
 		durationDays := time.Duration(c.Value(idx).Days*24) * time.Hour
 		duration := time.Duration(c.Value(idx).Milliseconds) * time.Millisecond

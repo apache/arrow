@@ -400,7 +400,9 @@ class BooleanDecoder : virtual public TypedDecoder<BooleanType> {
   /// \brief Decode and bit-pack values into a buffer
   ///
   /// \param[in] buffer destination for decoded values
-  /// This buffer will contain bit-packed values.
+  /// This buffer will contain bit-packed values. If
+  /// max_values is not a multiple of 8, the trailing bits
+  /// of the last byte will be undefined.
   /// \param[in] max_values max values to decode.
   /// \return The number of values decoded. Should be identical to max_values except
   /// at the end of the current data page.

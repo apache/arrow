@@ -191,6 +191,11 @@ public class AvaticaParameterBinder {
     }
 
     @Override
+    public Boolean visit(ArrowType.Utf8View type) {
+      throw new UnsupportedOperationException("Utf8View is unsupported");
+    }
+
+    @Override
     public Boolean visit(ArrowType.LargeUtf8 type) {
       return new LargeUtf8AvaticaParameterConverter(type).bindParameter(vector, typedValue, index);
     }
@@ -198,6 +203,11 @@ public class AvaticaParameterBinder {
     @Override
     public Boolean visit(ArrowType.Binary type) {
       return new BinaryAvaticaParameterConverter(type).bindParameter(vector, typedValue, index);
+    }
+
+    @Override
+    public Boolean visit(ArrowType.BinaryView type) {
+      throw new UnsupportedOperationException("BinaryView is unsupported");
     }
 
     @Override

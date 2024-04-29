@@ -34,13 +34,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/flight"
-	"github.com/apache/arrow/go/v16/arrow/flight/flightsql"
-	"github.com/apache/arrow/go/v16/arrow/flight/flightsql/driver"
-	"github.com/apache/arrow/go/v16/arrow/flight/flightsql/example"
-	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/array"
+	"github.com/apache/arrow/go/v17/arrow/flight"
+	"github.com/apache/arrow/go/v17/arrow/flight/flightsql"
+	"github.com/apache/arrow/go/v17/arrow/flight/flightsql/driver"
+	"github.com/apache/arrow/go/v17/arrow/flight/flightsql/example"
+	"github.com/apache/arrow/go/v17/arrow/memory"
 )
 
 const defaultTableName = "drivertest"
@@ -619,6 +619,7 @@ func (s *SqlTestSuite) TestRowsPrematureCloseDuringNextLoop() {
 	require.NoError(t, err)
 	require.Equal(t, int64(rowCount), insertedRows)
 
+	time.Sleep(200 * time.Millisecond)
 	// Do query
 	const sqlSelectAll = `SELECT id, name, value FROM ` + tableName
 
@@ -1767,16 +1768,16 @@ func (s *MockServer) CreatePreparedStatement(ctx context.Context, req flightsql.
 	}, nil
 }
 
-func (s *MockServer) DoPutPreparedStatementQuery(ctx context.Context, qry flightsql.PreparedStatementQuery, r flight.MessageReader, w flight.MetadataWriter) error {
+func (s *MockServer) DoPutPreparedStatementQuery(ctx context.Context, qry flightsql.PreparedStatementQuery, r flight.MessageReader, w flight.MetadataWriter) ([]byte, error) {
 	if s.ExpectedPreparedStatementSchema != nil {
 		if !s.ExpectedPreparedStatementSchema.Equal(r.Schema()) {
-			return errors.New("parameter schema: unexpected")
+			return nil, errors.New("parameter schema: unexpected")
 		}
-		return nil
+		return qry.GetPreparedStatementHandle(), nil
 	}
 
 	if s.PreparedStatementParameterSchema != nil && !s.PreparedStatementParameterSchema.Equal(r.Schema()) {
-		return fmt.Errorf("parameter schema: %w", arrow.ErrInvalid)
+		return nil, fmt.Errorf("parameter schema: %w", arrow.ErrInvalid)
 	}
 
 	// GH-35328: it's rare, but this function can complete execution and return
@@ -1790,7 +1791,7 @@ func (s *MockServer) DoPutPreparedStatementQuery(ctx context.Context, qry flight
 	for r.Next() {
 	}
 
-	return nil
+	return qry.GetPreparedStatementHandle(), nil
 }
 
 func (s *MockServer) DoGetStatement(ctx context.Context, ticket flightsql.StatementQueryTicket) (*arrow.Schema, <-chan flight.StreamChunk, error) {

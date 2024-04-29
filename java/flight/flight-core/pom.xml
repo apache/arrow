@@ -1,4 +1,4 @@
-<?xml version="1.0"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!-- Licensed to the Apache Software Foundation (ASF) under one or more contributor
   license agreements. See the NOTICE file distributed with this work for additional
   information regarding copyright ownership. The ASF licenses this file to
@@ -12,16 +12,15 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
-    <artifactId>arrow-flight</artifactId>
     <groupId>org.apache.arrow</groupId>
-    <version>16.0.0-SNAPSHOT</version>
-    <relativePath>../pom.xml</relativePath>
+    <artifactId>arrow-flight</artifactId>
+    <version>17.0.0-SNAPSHOT</version>
   </parent>
 
   <artifactId>flight-core</artifactId>
+  <packaging>jar</packaging>
   <name>Arrow Flight Core</name>
   <description>(Experimental)An RPC mechanism for transferring ValueVectors.</description>
-  <packaging>jar</packaging>
 
   <properties>
     <forkCount>1</forkCount>
@@ -116,7 +115,7 @@
     <dependency>
       <groupId>javax.annotation</groupId>
       <artifactId>javax.annotation-api</artifactId>
-     </dependency>
+    </dependency>
     <dependency>
       <groupId>org.immutables</groupId>
       <artifactId>value</artifactId>
@@ -125,7 +124,7 @@
     <dependency>
       <groupId>com.google.api.grpc</groupId>
       <artifactId>proto-google-common-protos</artifactId>
-      <version>1.12.0</version>
+      <version>2.37.1</version>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -138,13 +137,6 @@
     </dependency>
   </dependencies>
   <build>
-    <extensions>
-      <extension>
-        <groupId>kr.motd.maven</groupId>
-        <artifactId>os-maven-plugin</artifactId>
-        <version>1.7.1</version>
-      </extension>
-    </extensions>
     <plugins>
       <plugin>
         <artifactId>maven-surefire-plugin</artifactId>
@@ -158,20 +150,13 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
-        <!--
-          Downgrade maven-shade-plugin specifically for this module.
-          Using a newer version up to at least 3.5.1 will cause
-          issues in the arrow-tools tests looking up FlatBuffer
-          dependencies.
-         -->
-        <version>3.5.2</version>
         <executions>
           <execution>
             <id>shade-main</id>
-            <phase>package</phase>
             <goals>
               <goal>shade</goal>
             </goals>
+            <phase>package</phase>
             <configuration>
               <shadedArtifactAttached>true</shadedArtifactAttached>
               <shadedClassifierName>shaded</shadedClassifierName>
@@ -188,16 +173,16 @@
                 </relocation>
               </relocations>
               <transformers>
-                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"></transformer>
               </transformers>
             </configuration>
           </execution>
           <execution>
             <id>shade-ext</id>
-            <phase>package</phase>
             <goals>
               <goal>shade</goal>
             </goals>
+            <phase>package</phase>
             <configuration>
               <shadedArtifactAttached>true</shadedArtifactAttached>
               <shadedClassifierName>shaded-ext</shadedClassifierName>
@@ -219,7 +204,7 @@
                 </relocation>
               </relocations>
               <transformers>
-                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"></transformer>
               </transformers>
             </configuration>
           </execution>
@@ -228,34 +213,22 @@
       <plugin>
         <groupId>org.xolstice.maven.plugins</groupId>
         <artifactId>protobuf-maven-plugin</artifactId>
-        <version>0.6.1</version>
-        <configuration>
-          <protocArtifact>com.google.protobuf:protoc:${dep.protobuf-bom.version}:exe:${os.detected.classifier}</protocArtifact>
-          <clearOutputDirectory>false</clearOutputDirectory>
-          <pluginId>grpc-java</pluginId>
-          <pluginArtifact>io.grpc:protoc-gen-grpc-java:${dep.grpc-bom.version}:exe:${os.detected.classifier}</pluginArtifact>
-        </configuration>
         <executions>
           <execution>
             <id>src</id>
-            <configuration>
-              <protoSourceRoot>${basedir}/../../../format/</protoSourceRoot>
-              <outputDirectory>${project.build.directory}/generated-sources/protobuf</outputDirectory>
-            </configuration>
             <goals>
               <goal>compile</goal>
               <goal>compile-custom</goal>
             </goals>
+            <configuration>
+              <protoSourceRoot>${basedir}/../../../format/</protoSourceRoot>
+            </configuration>
           </execution>
           <execution>
             <id>test</id>
-            <configuration>
-              <protoSourceRoot>${basedir}/src/test/protobuf</protoSourceRoot>
-              <outputDirectory>${project.build.directory}/generated-test-sources//protobuf</outputDirectory>
-            </configuration>
             <goals>
-              <goal>compile</goal>
-              <goal>compile-custom</goal>
+              <goal>test-compile</goal>
+              <goal>test-compile-custom</goal>
             </goals>
           </execution>
         </executions>
@@ -263,14 +236,13 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-dependency-plugin</artifactId>
-        <version>3.3.0</version>
         <executions>
           <execution>
             <id>analyze</id>
-            <phase>verify</phase>
             <goals>
               <goal>analyze-only</goal>
             </goals>
+            <phase>verify</phase>
             <configuration>
               <ignoredDependencies combine.children="append">
                 <ignoredDependency>io.netty:netty-tcnative-boringssl-static:*</ignoredDependency>
@@ -279,17 +251,17 @@
           </execution>
         </executions>
       </plugin>
-      <plugin> <!-- add generated sources to classpath -->
+      <plugin>
+        <!-- add generated sources to classpath -->
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>build-helper-maven-plugin</artifactId>
-        <version>1.9.1</version>
         <executions>
           <execution>
             <id>add-generated-sources-to-classpath</id>
-            <phase>generate-sources</phase>
             <goals>
               <goal>add-source</goal>
             </goals>
+            <phase>generate-sources</phase>
             <configuration>
               <sources>
                 <source>${project.build.directory}/generated-sources/protobuf</source>
@@ -300,7 +272,6 @@
       </plugin>
       <plugin>
         <artifactId>maven-assembly-plugin</artifactId>
-        <version>3.0.0</version>
         <configuration>
           <descriptorRefs>
             <descriptorRef>jar-with-dependencies</descriptorRef>
@@ -309,10 +280,10 @@
         <executions>
           <execution>
             <id>make-assembly</id>
-            <phase>package</phase>
             <goals>
               <goal>single</goal>
             </goals>
+            <phase>package</phase>
           </execution>
         </executions>
       </plugin>
@@ -324,18 +295,14 @@
       <id>jdk11+</id>
       <activation>
         <jdk>[11,]</jdk>
-        <property>
-          <name>!m2e.version</name>
-        </property>
       </activation>
       <build>
         <plugins>
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-surefire-plugin</artifactId>
-            <configuration combine.self="override">
-              <argLine>--add-opens=org.apache.arrow.flight.core/org.apache.arrow.flight.perf.impl=protobuf.java --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED</argLine>
-              <enableAssertions>false</enableAssertions>
+            <configuration>
+              <argLine combine.self="override">--add-opens=org.apache.arrow.flight.core/org.apache.arrow.flight.perf.impl=protobuf.java --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED</argLine>
               <systemPropertyVariables>
                 <arrow.test.dataRoot>${project.basedir}/../../../testing/data</arrow.test.dataRoot>
               </systemPropertyVariables>
@@ -345,5 +312,4 @@
       </build>
     </profile>
   </profiles>
-
 </project>

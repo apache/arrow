@@ -336,11 +336,23 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
             if pandas_api.have_pandas:
                 values, type = pandas_api.compat.get_datetimetz_type(
                     values, obj.dtype, type)
-            result = _ndarray_to_array(values, mask, type, c_from_pandas, safe,
-                                       pool)
+            if type and type.id == _Type_RUN_END_ENCODED:
+                arr = _ndarray_to_array(
+                    values, mask, type.value_type, c_from_pandas, safe, pool)
+                result = _pc().run_end_encode(arr, run_end_type=type.run_end_type,
+                                              memory_pool=memory_pool)
+            else:
+                result = _ndarray_to_array(values, mask, type, c_from_pandas, safe,
+                                           pool)
     else:
+        if type and type.id == _Type_RUN_END_ENCODED:
+            arr = _sequence_to_array(
+                obj, mask, size, type.value_type, pool, from_pandas)
+            result = _pc().run_end_encode(arr, run_end_type=type.run_end_type,
+                                          memory_pool=memory_pool)
         # ConvertPySequence does strict conversion if type is explicitly passed
-        result = _sequence_to_array(obj, mask, size, type, pool, c_from_pandas)
+        else:
+            result = _sequence_to_array(obj, mask, size, type, pool, c_from_pandas)
 
     if extension_type is not None:
         result = ExtensionArray.from_storage(extension_type, result)
@@ -549,34 +561,7 @@ def _normalize_slice(object arrow_obj, slice key):
         Py_ssize_t start, stop, step
         Py_ssize_t n = len(arrow_obj)
 
-    step = key.step or 1
-
-    if key.start is None:
-        if step < 0:
-            start = n - 1
-        else:
-            start = 0
-    elif key.start < 0:
-        start = key.start + n
-        if start < 0:
-            start = 0
-    elif key.start >= n:
-        start = n
-    else:
-        start = key.start
-
-    if step < 0 and (key.stop is None or key.stop < -n):
-        stop = -1
-    elif key.stop is None:
-        stop = n
-    elif key.stop < 0:
-        stop = key.stop + n
-        if stop < 0:  # step > 0 in this case.
-            stop = 0
-    elif key.stop >= n:
-        stop = n
-    else:
-        stop = key.stop
+    start, stop, step = key.indices(n)
 
     if step != 1:
         indices = np.arange(start, stop, step)
@@ -1531,11 +1516,28 @@ cdef class Array(_PandasConvertible):
     def _to_pandas(self, options, types_mapper=None, **kwargs):
         return _array_like_to_pandas(self, options, types_mapper=types_mapper)
 
-    def __array__(self, dtype=None):
+    def __array__(self, dtype=None, copy=None):
+        if copy is False:
+            try:
+                values = self.to_numpy(zero_copy_only=True)
+            except ArrowInvalid:
+                raise ValueError(
+                    "Unable to avoid a copy while creating a numpy array as requested.\n"
+                    "If using `np.array(obj, copy=False)` replace it with "
+                    "`np.asarray(obj)` to allow a copy when needed"
+                )
+            # values is already a numpy array at this point, but calling np.array(..)
+            # again to handle the `dtype` keyword with a no-copy guarantee
+            return np.array(values, dtype=dtype, copy=False)
+
         values = self.to_numpy(zero_copy_only=False)
+        if copy is True and is_numeric(self.type.id) and self.null_count == 0:
+            # to_numpy did not yet make a copy (is_numeric = integer/floats, no decimal)
+            return np.array(values, dtype=dtype, copy=True)
+
         if dtype is None:
             return values
-        return values.astype(dtype)
+        return np.asarray(values, dtype=dtype)
 
     def to_numpy(self, zero_copy_only=True, writable=False):
         """

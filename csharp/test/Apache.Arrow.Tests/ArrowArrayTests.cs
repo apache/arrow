@@ -16,6 +16,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 using Xunit;
 
@@ -122,6 +123,22 @@ namespace Apache.Arrow.Tests
             Assert.Equal(readOnlyList[1], 2);
         }
 
+        [Fact]
+        public void RecursiveArraySlice()
+        {
+            var initialValues = Enumerable.Range(0, 100).ToArray();
+            var array = new Int32Array.Builder().AppendRange(initialValues).Build();
+
+            var sliced = (Int32Array) array.Slice(20, 30);
+            var slicedAgain = (Int32Array) sliced.Slice(5, 10);
+
+            Assert.Equal(25, slicedAgain.Offset);
+            Assert.Equal(10, slicedAgain.Length);
+            Assert.Equal(
+                initialValues.Skip(25).Take(10).Select(val => (int?) val).ToArray(),
+                (IReadOnlyList<int?>) slicedAgain);
+        }
+
 #if NET5_0_OR_GREATER
         [Fact]
         public void SliceArray()
@@ -168,6 +185,7 @@ namespace Apache.Arrow.Tests
             TestSlice<Date64Array, Date64Array.Builder>(x => x.Append(new DateTime(2019, 1, 1)).Append(new DateTime(2019, 1, 2)).AppendNull().Append(new DateTime(2019, 1, 3)));
             TestSlice<Time32Array, Time32Array.Builder>(x => x.Append(10).Append(20).AppendNull().Append(30));
             TestSlice<Time64Array, Time64Array.Builder>(x => x.Append(10).Append(20).AppendNull().Append(30));
+            TestSlice<Int32Array, Int32Array.Builder>(x => x.AppendNull().AppendNull().AppendNull());  // All nulls
 
             static void TestNumberSlice<T, TArray, TBuilder>()
                 where T : struct, INumber<T>
@@ -297,6 +315,8 @@ namespace Apache.Arrow.Tests
                         .SequenceEqual(slicedArray.Values));
 
                 Assert.Equal(baseArray.GetValue(slicedArray.Offset), slicedArray.GetValue(0));
+
+                ValidateNullCount(slicedArray);
             }
 
             private void ValidateArrays(BooleanArray slicedArray)
@@ -316,6 +336,8 @@ namespace Apache.Arrow.Tests
 #pragma warning disable CS0618
                 Assert.Equal(baseArray.GetBoolean(slicedArray.Offset), slicedArray.GetBoolean(0));
 #pragma warning restore CS0618
+
+                ValidateNullCount(slicedArray);
             }
 
             private void ValidateArrays(BinaryArray slicedArray)
@@ -330,6 +352,16 @@ namespace Apache.Arrow.Tests
                         .SequenceEqual(slicedArray.ValueOffsets));
 
                 Assert.True(baseArray.GetBytes(slicedArray.Offset).SequenceEqual(slicedArray.GetBytes(0)));
+
+                ValidateNullCount(slicedArray);
+            }
+
+            private static void ValidateNullCount(IArrowArray slicedArray)
+            {
+                var expectedNullCount = Enumerable.Range(0, slicedArray.Length)
+                    .Select(i => slicedArray.IsNull(i) ? 1 : 0)
+                    .Sum();
+                Assert.Equal(expectedNullCount, slicedArray.NullCount);
             }
         }
     }

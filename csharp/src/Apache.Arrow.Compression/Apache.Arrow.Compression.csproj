@@ -12,8 +12,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="K4os.Compression.LZ4.Streams" Version="1.3.6" />
-    <PackageReference Include="ZstdSharp.Port" Version="0.7.3" />
+    <PackageReference Include="K4os.Compression.LZ4.Streams" Version="1.3.8" />
+    <PackageReference Include="ZstdSharp.Port" Version="0.7.6" />
   </ItemGroup>
 
   <ItemGroup>

@@ -69,7 +69,7 @@ The prebuilt binaries come with S3 and GCS support enabled, so you will need to 
 
 ## Install release version (easy way)
 
-On macOS and Windows, when you run `install.packages("arrow")` and install arrow from CRAN, you get an R binary package that contains a precompiled version of libarrow. Installing binaries is much easier that installing from source, but CRAN does not host binaries for Linux. This means that the default behaviour when you run `install.packages()` on Linux is to retrieve the source version of the R package and compile both the R package _and_ libarrow from source. We'll talk about this scenario in the next section (the "less easy" way), but first we'll suggest two faster alternatives that are usually much easier. 
+On macOS and Windows, when you run `install.packages("arrow")` and install arrow from CRAN, you get an R binary package that contains a precompiled version of libarrow. Installing binaries is much easier that installing from source, but CRAN does not host binaries for Linux. This means that the default behaviour when you run `install.packages()` on Linux is to retrieve the source version of the R package and compile both the R package _and_ libarrow from source. We'll talk about this scenario in the next section (the "less easy" way), but first we'll suggest two faster alternatives that are usually much easier.
 
 ### Binary R package with libarrow binary via RSPM/conda
 
@@ -154,15 +154,15 @@ knitr::include_graphics("./r_source_libarrow_source.png")
 ```
 
 The "less easy" way to install arrow is to install both the R package and the underlying Arrow C++ library (libarrow) from source. This method is somewhat more
-difficult because compiling and installing R packages with C++ dependencies 
-generally requires installing system packages, which you may not have privileges 
-to do, and/or building the C++ dependencies separately, which introduces all sorts 
+difficult because compiling and installing R packages with C++ dependencies
+generally requires installing system packages, which you may not have privileges
+to do, and/or building the C++ dependencies separately, which introduces all sorts
 of additional ways for things to go wrong.
 
-Installing from the full source build of arrow, compiling both C++ and R 
-bindings, will handle most of the dependency management for you, but it is 
-much slower than using binaries. However, if  using binaries isn't an option 
-for you,or you wish to customize your Linux installation, the instructions in 
+Installing from the full source build of arrow, compiling both C++ and R
+bindings, will handle most of the dependency management for you, but it is
+much slower than using binaries. However, if  using binaries isn't an option
+for you,or you wish to customize your Linux installation, the instructions in
 this section explain how to do that.
 
 ### Basic configuration
@@ -369,10 +369,10 @@ satisfy C++ dependencies.
 
 ## Offline installation
 
-The `install-arrow.R` file mentioned in the previous section includes a 
-function called `create_package_with_all_dependencies()`. Normally, when 
-installing on a computer with internet access, the build process will 
-download third-party dependencies as needed. This function provides a 
+The `install-arrow.R` file mentioned in the previous section includes a
+function called `create_package_with_all_dependencies()`. Normally, when
+installing on a computer with internet access, the build process will
+download third-party dependencies as needed. This function provides a
 way to download them in advance, which can be useful when installing Arrow
 on a computer without internet access. The process is as follows:
 
@@ -380,11 +380,11 @@ on a computer without internet access. The process is as follows:
 **Step 1.** Using a computer with internet access, download dependencies:
 
 * Install the arrow package **or** source the script directly using the following command:
-  
+
   ```r
   source("https://raw.githubusercontent.com/apache/arrow/main/r/R/install-arrow.R")
   ```
-  
+
 * Use the `create_package_with_all_dependencies()` function to create the installation bundle:
 
   ```r
@@ -399,27 +399,27 @@ on a computer without internet access. The process is as follows:
 
   ```r
   install.packages(
-    "my_arrow_pkg.tar.gz", 
+    "my_arrow_pkg.tar.gz",
     dependencies = c("Depends", "Imports", "LinkingTo")
    )
   ```
 
   This installation will build from source, so `cmake` must be available
-  
+
 * Run `arrow_info()` to check installed capabilities
 
 
 Notes:
 
-- arrow _can_ be installed on a computer without internet access 
-without using this function, but many useful features will be disabled, 
+- arrow _can_ be installed on a computer without internet access
+without using this function, but many useful features will be disabled,
 as they depend on third-party components. More precisely,
 `arrow::arrow_info()$capabilities()` will be `FALSE` for every
 capability.
 
 - If you are using binary packages you shouldn't need to this function. You
 can download the appropriate binary from your package repository, transfer
-that to the offline computer, and install that. 
+that to the offline computer, and install that.
 
 - If you're using RStudio Package Manager on Linux (RSPM), and you want to
 make a source bundle with this function, make sure to set the first repository
@@ -523,11 +523,11 @@ so that we can improve the script.
 
 ## Contributing
 
-We are constantly working to make the installation process as painless as 
+We are constantly working to make the installation process as painless as
 possible. If you find ways to improve the process, please [report an issue](https://github.com/apache/arrow/issues) so that we can
 document it. Similarly, if you find that your Linux distribution
-or version is not supported, we would welcome the contribution of Docker 
-images (hosted on Docker Hub) that we can use in our continuous integration 
+or version is not supported, we would welcome the contribution of Docker
+images (hosted on Docker Hub) that we can use in our continuous integration
 and hopefully improve our coverage. If you do contribute a Docker image,
 it should be as minimal as possible, containing only R and the dependencies it
 requires. For reference, see the images that
@@ -537,19 +537,16 @@ You can test the arrow R package installation using the `docker-compose`
 setup included in the `apache/arrow` git repository. For example,
 
 ```
-R_ORG=rhub R_IMAGE=ubuntu-gcc-release R_TAG=latest docker-compose build r
-R_ORG=rhub R_IMAGE=ubuntu-gcc-release R_TAG=latest docker-compose run r
+R_ORG=rhub R_IMAGE=ubuntu-release R_TAG=latest docker-compose build r
+R_ORG=rhub R_IMAGE=ubuntu-release R_TAG=latest docker-compose run r
 ```
 
 installs the arrow R package, including libarrow, on the
-[rhub/ubuntu-gcc-release](https://hub.docker.com/r/rhub/ubuntu-gcc-release)
+[rhub/ubuntu-release](https://hub.docker.com/r/rhub/ubuntu-release)
 image.
 
 ## Further reading
 
 - To learn about installing development versions, see the article on [installing nightly builds](./install_nightly.html).
-- If you're contributing to the Arrow project, see the [Arrow R developers guide](./developing.html) for resources to help you on set up your development environment.  
+- If you're contributing to the Arrow project, see the [Arrow R developers guide](./developing.html) for resources to help you on set up your development environment.
 - Arrow developers may also wish to read a more detailed discussion of the code run during the installation process, described in the [install details article](./developers/install_details.html).
-
-
-

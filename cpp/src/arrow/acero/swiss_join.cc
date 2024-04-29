@@ -25,7 +25,7 @@
 #include "arrow/acero/util.h"
 #include "arrow/array/util.h"  // MakeArrayFromScalar
 #include "arrow/compute/kernels/row_encoder_internal.h"
-#include "arrow/compute/key_hash.h"
+#include "arrow/compute/key_hash_internal.h"
 #include "arrow/compute/row/compare_internal.h"
 #include "arrow/compute/row/encode_internal.h"
 #include "arrow/util/bit_util.h"
@@ -2167,6 +2167,11 @@ Status JoinResidualFilter::FilterOneBatch(const ExecBatch& keypayload_batch,
   ARROW_DCHECK(!output_payload_ids || payload_ids_maybe_null);
 
   *num_passing_rows = 0;
+
+  if (num_batch_rows == 0) {
+    return Status::OK();
+  }
+
   ARROW_ASSIGN_OR_RAISE(Datum mask,
                         EvalFilter(keypayload_batch, num_batch_rows, batch_row_ids,
                                    key_ids_maybe_null, payload_ids_maybe_null));

@@ -18,7 +18,7 @@
 ARG base
 FROM ${base}
 
-ARG r=4.2
+ARG r=4.4
 ARG jdk=8
 
 # See R install instructions at https://cloud.r-project.org/bin/linux/ubuntu/
@@ -61,7 +61,7 @@ RUN apt-get update -y && \
 
 ENV JAVA_HOME=/usr/lib/jvm/java-${jdk}-openjdk-amd64
 
-ARG maven=3.6.3
+ARG maven=3.8.7
 COPY ci/scripts/util_download_apache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/util_download_apache.sh \
     "maven/maven-3/${maven}/binaries/apache-maven-${maven}-bin.tar.gz" /opt

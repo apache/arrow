@@ -20,9 +20,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v16/arrow/bitutil"
-	"github.com/apache/arrow/go/v16/parquet/internal/bmi"
-	"github.com/apache/arrow/go/v16/parquet/internal/utils"
+	"github.com/apache/arrow/go/v17/arrow/bitutil"
+	"github.com/apache/arrow/go/v17/parquet/internal/bmi"
+	"github.com/apache/arrow/go/v17/parquet/internal/utils"
 	"github.com/stretchr/testify/assert"
 )
 
