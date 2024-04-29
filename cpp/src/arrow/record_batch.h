@@ -290,6 +290,8 @@ class ARROW_EXPORT RecordBatch {
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(RecordBatch);
+
+  static const std::shared_ptr<Device::SyncEvent> null_sync_event_;
 };
 
 struct ARROW_EXPORT RecordBatchWithMetadata {

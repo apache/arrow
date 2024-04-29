@@ -668,12 +668,14 @@ Status RecordBatch::ValidateFull() const {
 }
 
 const std::shared_ptr<Device::SyncEvent>& RecordBatch::GetSyncEvent() const {
-  return nullptr;
+  return null_sync_event_;
 }
 
 DeviceAllocationType RecordBatch::device_type() const {
   return DeviceAllocationType::kCPU;
 }
+
+const std::shared_ptr<Device::SyncEvent> RecordBatch::null_sync_event_{nullptr};
 
 // ----------------------------------------------------------------------
 // Base record batch reader
