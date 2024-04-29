@@ -35,7 +35,7 @@ ENV LANG=C.UTF-8
 # Build R
 # [1] https://www.digitalocean.com/community/tutorials/how-to-install-r-on-ubuntu-18-04
 # [2] https://linuxize.com/post/how-to-install-r-on-ubuntu-18-04/#installing-r-packages-from-cran
-ARG r=3.6
+ARG r=4.4
 RUN apt-get update -y && \
     apt-get install -y \
         dirmngr \
