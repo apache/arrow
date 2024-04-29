@@ -891,7 +891,7 @@ tasks:
       - r-pkg__bin__windows__contrib__4.4__arrow_{no_rc_r_version}\.zip
       - r-pkg__bin__windows__contrib__4.3__arrow_{no_rc_r_version}\.zip
       - r-pkg__bin__macosx__big-sur-x86_64__contrib__4.4__arrow_{no_rc_r_version}\.tgz
-      - r-pkg__bin__macosx__contrib__4.3__arrow_{no_rc_r_version}\.tgz
+      - r-pkg__bin__macosx__big-sur-x86_64__contrib__4.3__arrow_{no_rc_r_version}\.tgz
       - r-pkg__bin__macosx__big-sur-arm64__contrib__4.4__arrow_{no_rc_r_version}\.tgz
       - r-pkg__bin__macosx__big-sur-arm64__contrib__4.3__arrow_{no_rc_r_version}\.tgz
       - r-pkg__src__contrib__arrow_{no_rc_r_version}\.tar\.gz
