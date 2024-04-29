@@ -164,7 +164,6 @@ set_agg <- function(...) {
     # like sum(x - mean(x)), i.e. window functions.
     # This will reject (sum(sum(x)) as well, but that's not a useful operation.
     if (any(expr$field_names_in_expression() %in% names(aggs))) {
-      # TODO: support in ARROW-13926
       arrow_not_supported("aggregate within aggregate expression")
     }
   })

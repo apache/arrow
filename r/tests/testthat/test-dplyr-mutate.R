@@ -378,18 +378,16 @@ test_that("dplyr::mutate's examples", {
   # The mutate operation may yield different results on grouped
   # tibbles because the expressions are computed within groups.
   # The following normalises `mass` by the global average:
-  # TODO(ARROW-13926): support window functions
   compare_dplyr_binding(
     .input %>%
       select(name, mass, species) %>%
       mutate(mass_norm = mass / mean(mass, na.rm = TRUE)) %>%
       collect(),
-    starwars,
-    warning = "window function"
+    starwars
   )
 })
 
-test_that("Can mutate after group_by as long as there are no aggregations", {
+test_that("Can mutate after group_by, including with some aggregations", {
   compare_dplyr_binding(
     .input %>%
       select(int, chr) %>%
@@ -417,31 +415,31 @@ test_that("Can mutate after group_by as long as there are no aggregations", {
       collect(),
     tbl
   )
-  expect_warning(
-    tbl %>%
-      Table$create() %>%
+  compare_dplyr_binding(
+    .input %>%
       select(int, chr) %>%
       group_by(chr) %>%
       mutate(avg_int = mean(int)) %>%
+      # Because this silently does a join, the rows can get unsorted
+      arrange(chr) %>%
       collect(),
-    "window functions not currently supported in Arrow; pulling data into R",
-    fixed = TRUE
+    tbl
   )
-  expect_warning(
-    tbl %>%
-      Table$create() %>%
+  compare_dplyr_binding(
+    .input %>%
       select(mean = int, chr) %>%
       # rename `int` to `mean` and use `mean(mean)` in `mutate()` to test that
       # `all_funs()` detects `mean()` despite the collision with a column name
       group_by(chr) %>%
       mutate(avg_int = mean(mean)) %>%
+      # Because this silently does a join, the rows can get unsorted
+      arrange(chr) %>%
       collect(),
-    "window functions not currently supported in Arrow; pulling data into R",
-    fixed = TRUE
+    tbl
   )
 })
 
-test_that("Can mutate with .by argument as long as there are no aggregations", {
+test_that("Can mutate with .by argument, even with some aggregations", {
   compare_dplyr_binding(
     .input %>%
       select(int, chr) %>%
@@ -479,25 +477,25 @@ test_that("Can mutate with .by argument as long as there are no aggregations", {
       collect(),
     tbl
   )
-  expect_warning(
-    tbl %>%
-      Table$create() %>%
+  compare_dplyr_binding(
+    .input %>%
       select(int, chr) %>%
       mutate(avg_int = mean(int), .by = chr) %>%
+      # Because this silently does a join, the rows can get unsorted
+      arrange(chr) %>%
       collect(),
-    "window functions not currently supported in Arrow; pulling data into R",
-    fixed = TRUE
+    tbl
   )
-  expect_warning(
-    tbl %>%
-      Table$create() %>%
+  compare_dplyr_binding(
+    .input %>%
       select(mean = int, chr) %>%
       # rename `int` to `mean` and use `mean(mean)` in `mutate()` to test that
       # `all_funs()` detects `mean()` despite the collision with a column name
       mutate(avg_int = mean(mean), .by = chr) %>%
+      # Because this silently does a join, the rows can get unsorted
+      arrange(chr) %>%
       collect(),
-    "window functions not currently supported in Arrow; pulling data into R",
-    fixed = TRUE
+    tbl
   )
 })
 
@@ -682,7 +680,6 @@ test_that("mutate() and transmute() with namespaced functions", {
 })
 
 test_that("Can use across() within mutate()", {
-
   # expressions work in the right order
   compare_dplyr_binding(
     .input %>%
@@ -717,17 +714,15 @@ test_that("Can use across() within mutate()", {
     example_data
   )
 
-  # gives the right error with window functions
-  expect_warning(
-    arrow_table(example_data) %>%
+  compare_dplyr_binding(
+    .input %>%
       mutate(
         x = int + 2,
         across(c("int", "dbl"), list(mean = mean, sd = sd, round)),
         exp(dbl2)
       ) %>%
       collect(),
-    "window functions not currently supported in Arrow; pulling data into R",
-    fixed = TRUE
+    example_data
   )
 })
 
