@@ -27,6 +27,7 @@ import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseLargeVariableWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
+import org.apache.arrow.vector.BaseVariableWidthViewVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.ExtensionTypeVector;
 import org.apache.arrow.vector.NullVector;
@@ -160,6 +161,11 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
       return false;
     }
     return compareBaseLargeVariableWidthVectors(range);
+  }
+
+  @Override
+  public Boolean visit(BaseVariableWidthViewVector left, Range range) {
+    throw new UnsupportedOperationException("View vectors are not supported.");
   }
 
   @Override

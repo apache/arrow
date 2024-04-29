@@ -42,8 +42,7 @@ import org.apache.arrow.vector.util.TransferPair;
 /**
  * BaseLargeVariableWidthVector is a base class providing functionality for large strings/large bytes types.
  */
-public abstract class BaseLargeVariableWidthVector extends BaseValueVector
-    implements VariableWidthVector, FieldVector, VectorDefinitionSetter {
+public abstract class BaseLargeVariableWidthVector extends BaseValueVector implements VariableWidthFieldVector {
   private static final int DEFAULT_RECORD_BYTE_COUNT = 12;
   private static final int INITIAL_BYTE_COUNT = INITIAL_VALUE_ALLOCATION * DEFAULT_RECORD_BYTE_COUNT;
   private int lastValueCapacity;
@@ -942,6 +941,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    *
    * @param index target index
    */
+  @Override
   public void fillEmpties(int index) {
     handleSafe(index, emptyByteArray.length);
     fillHoles(index);
@@ -955,6 +955,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    *
    * @param value desired index of last non-null element.
    */
+  @Override
   public void setLastSet(int value) {
     lastSet = value;
   }
@@ -964,6 +965,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    *
    * @return index of the last non-null element
    */
+  @Override
   public int getLastSet() {
     return lastSet;
   }
@@ -1003,6 +1005,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    * @param index   position of element to get
    * @return greater than 0 length for non-null element, 0 otherwise
    */
+  @Override
   public int getValueLength(int index) {
     assert index >= 0;
     if (isSet(index) == 0) {
@@ -1021,6 +1024,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    * @param index   position of the element to set
    * @param value   array of bytes to write
    */
+  @Override
   public void set(int index, byte[] value) {
     assert index >= 0;
     fillHoles(index);
@@ -1037,6 +1041,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    * @param index   position of the element to set
    * @param value   array of bytes to write
    */
+  @Override
   public void setSafe(int index, byte[] value) {
     assert index >= 0;
     handleSafe(index, value.length);
@@ -1055,6 +1060,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    * @param start   start index in array of bytes
    * @param length  length of data in array of bytes
    */
+  @Override
   public void set(int index, byte[] value, int start, int length) {
     assert index >= 0;
     fillHoles(index);
@@ -1091,6 +1097,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    * @param start   start index in ByteBuffer
    * @param length  length of data in ByteBuffer
    */
+  @Override
   public void set(int index, ByteBuffer value, int start, int length) {
     assert index >= 0;
     fillHoles(index);

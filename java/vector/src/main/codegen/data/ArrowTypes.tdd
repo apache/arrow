@@ -66,12 +66,22 @@
       complex: false
     },
     {
+      name: "Utf8View",
+      fields: [],
+      complex: false
+    },
+    {
       name: "LargeUtf8",
       fields: [],
       complex: false
     },
     {
       name: "Binary",
+      fields: [],
+      complex: false
+    },
+    {
+      name: "BinaryView",
       fields: [],
       complex: false
     },
