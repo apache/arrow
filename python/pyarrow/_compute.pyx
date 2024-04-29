@@ -2046,9 +2046,9 @@ class ListFlattenOptions(_ListFlattenOptions):
 
     Parameters
     ----------
-    recursive : bool, defalut false
-        When true, do list flatten recursively until an array of
-        non-list values is reached.
+    recursive : bool, default False
+        When True, the list array is flattened recursively until an array
+        of non-list values is formed.
     """
 
     def __init__(self, recursive=False):

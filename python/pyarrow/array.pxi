@@ -2152,10 +2152,11 @@ cdef class BaseListArray(Array):
 
         Parameters
         ----------
-        recursive : bool, defalut false, optional
-            When true, flatten this logical list-array recursivey until an
-            array of non-list values is reached.
-            When false, flatten this logical list-array by one level
+        recursive : bool, default False, optional
+            When True, flatten this logical list-array recursively until an
+            array of non-list values is formed.
+
+            When False, flatten only the top level.
 
         Returns
         -------
@@ -2197,9 +2198,8 @@ cdef class BaseListArray(Array):
           2
         ]
 
-        If an logical list-array is nested with multi-level, the array will
-        be flattened recursively until an array of non-list values is reached
-        if we enable recursive=True.
+        When recursive=True, nested list arrays are flattened recursively
+        until an array of non-list values is formed.
 
         >>> array = pa.array([
         ...    None,

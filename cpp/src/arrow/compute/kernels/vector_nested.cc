@@ -113,12 +113,14 @@ struct ListParentIndicesArray {
 
 const FunctionDoc list_flatten_doc(
     "Flatten list values",
-    ("`lists` must have a logical list type like `[Large]ListType`, \n"
-     "`[Large]ListViewType` and `FixedSizeListType`. \n"
-     "Whether to flatten the top list level or the bottom list level \n"
-     "will be decided based on the `recursive` option specified in \n"
-     ":struct:`ListFlattenOptions`. \n"
-     "Top-level null values in `lists` do not emit anything in the input."),
+    ("`lists` must have a list-like type (lists, list-views, and\n"
+     "fixed-size lists).\n"
+     "Return an array with the top list level flattened unless\n"
+     "`recursive` is set to true in ListFlattenOptions. When that\n"
+     "is that case, flattening happens recursively until a non-list\n"
+     "array is formed.\n"
+     "\n"
+     "Null list values do not emit anything to the output."),
     {"lists"}, "ListFlattenOptions");
 
 const FunctionDoc list_parent_indices_doc(

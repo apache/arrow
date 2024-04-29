@@ -248,7 +248,7 @@ class ARROW_EXPORT PairwiseOptions : public FunctionOptions {
 /// \brief Options for list_flatten function
 class ARROW_EXPORT ListFlattenOptions : public FunctionOptions {
  public:
-  explicit ListFlattenOptions(bool recursively = false);
+  explicit ListFlattenOptions(bool recursive = false);
   static constexpr char const kTypeName[] = "ListFlattenOptions";
   static ListFlattenOptions Defaults() { return ListFlattenOptions(); }
 

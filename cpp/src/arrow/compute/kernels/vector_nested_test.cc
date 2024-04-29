@@ -36,7 +36,7 @@ using ListAndListViewTypes =
 // ----------------------------------------------------------------------
 // [Large]List and [Large]ListView tests
 template <typename T>
-class TestVectorLogicalList : public ::testing::Test {
+class TestVectorNestedSpecialized : public ::testing::Test {
  public:
   using TypeClass = T;
 
@@ -84,7 +84,7 @@ class TestVectorLogicalList : public ::testing::Test {
     ListFlattenOptions opts;
     opts.recursive = true;
 
-    // List types with two nested level: list<list<int16>>
+    // List types with two nesting levels: list<list<int16>>
     auto input = ArrayFromJSON(type_, R"([
         [[0, 1, 2], null, [3, null]],
         [null],
@@ -98,7 +98,7 @@ class TestVectorLogicalList : public ::testing::Test {
     expected = ArrayFromJSON(value_type_, "[]");
     CheckVectorUnary("list_flatten", input, expected, &opts);
 
-    // List types with three nested level: list<list<fixed_size_list<int32, 2>>>
+    // List types with three nesting levels: list<list<fixed_size_list<int32, 2>>>
     type_ = std::make_shared<T>(std::make_shared<T>(fixed_size_list(value_type_, 2)));
     input = ArrayFromJSON(type_, R"([
         [
@@ -123,21 +123,23 @@ class TestVectorLogicalList : public ::testing::Test {
   std::shared_ptr<DataType> value_type_;
 };
 
-TYPED_TEST_SUITE(TestVectorLogicalList, ListAndListViewTypes);
+TYPED_TEST_SUITE(TestVectorNestedSpecialized, ListAndListViewTypes);
 
-TYPED_TEST(TestVectorLogicalList, ListFlatten) { this->TestListFlatten(); }
+TYPED_TEST(TestVectorNestedSpecialized, ListFlatten) { this->TestListFlatten(); }
 
-TYPED_TEST(TestVectorLogicalList, ListFlattenNulls) { this->TestListFlattenNulls(); }
+TYPED_TEST(TestVectorNestedSpecialized, ListFlattenNulls) {
+  this->TestListFlattenNulls();
+}
 
-TYPED_TEST(TestVectorLogicalList, ListFlattenChunkedArray) {
+TYPED_TEST(TestVectorNestedSpecialized, ListFlattenChunkedArray) {
   this->TestListFlattenChunkedArray();
 }
 
-TYPED_TEST(TestVectorLogicalList, ListFlattenRecursively) {
+TYPED_TEST(TestVectorNestedSpecialized, ListFlattenRecursively) {
   this->TestListFlattenRecursively();
 }
 
-TEST(TestVectorFixedSizeList, ListFlattenFixedSizeList) {
+TEST(TestVectorNested, ListFlattenFixedSizeList) {
   for (auto ty : {fixed_size_list(int16(), 2), fixed_size_list(uint32(), 2)}) {
     const auto& out_ty = checked_cast<const FixedSizeListType&>(*ty).value_type();
     {
@@ -159,14 +161,14 @@ TEST(TestVectorFixedSizeList, ListFlattenFixedSizeList) {
   }
 }
 
-TEST(TestVectorFixedSizeList, ListFlattenFixedSizeListNulls) {
+TEST(TestVectorNested, ListFlattenFixedSizeListNulls) {
   const auto ty = fixed_size_list(int32(), 1);
   auto input = ArrayFromJSON(ty, "[null, null]");
   auto expected = ArrayFromJSON(int32(), "[]");
   CheckVectorUnary("list_flatten", input, expected);
 }
 
-TEST(TestVectorFixedSizeList, ListFlattenFixedSizeListRecursively) {
+TEST(TestVectorNested, ListFlattenFixedSizeListRecursively) {
   ListFlattenOptions opts;
   opts.recursive = true;
 
@@ -181,7 +183,7 @@ TEST(TestVectorFixedSizeList, ListFlattenFixedSizeListRecursively) {
   CheckVectorUnary("list_flatten", input, expected, &opts);
 }
 
-TEST(TestVectorListParentIndices, BasicListArray) {
+TEST(TestVectorNested, ListParentIndices) {
   for (auto ty : {list(int16()), large_list(int16())}) {
     auto input = ArrayFromJSON(ty, "[[0, null, 1], null, [2, 3], [], [4, 5]]");
 
@@ -196,7 +198,7 @@ TEST(TestVectorListParentIndices, BasicListArray) {
   CheckVectorUnary("list_parent_indices", tweaked, expected);
 }
 
-TEST(TestVectorListParentIndices, BasicListChunkedArray) {
+TEST(TestVectorNested, ListParentIndicesChunkedArray) {
   for (auto ty : {list(int16()), large_list(int16())}) {
     auto input =
         ChunkedArrayFromJSON(ty, {"[[0, null, 1], null]", "[[2, 3], [], [4, 5]]"});
@@ -210,7 +212,7 @@ TEST(TestVectorListParentIndices, BasicListChunkedArray) {
   }
 }
 
-TEST(TestVectorListParentIndices, FixedSizeListArray) {
+TEST(TestVectorNested, ListParentIndicesFixedSizeList) {
   for (auto ty : {fixed_size_list(int16(), 2), fixed_size_list(uint32(), 2)}) {
     {
       auto input = ArrayFromJSON(ty, "[[0, null], null, [1, 2], [3, 4], [null, 5]]");
