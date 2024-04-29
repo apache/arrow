@@ -333,7 +333,7 @@ ARROW_EXPORT
 Status ExportDeviceRecordBatchReader(std::shared_ptr<RecordBatchReader> reader,
                                      struct ArrowDeviceArrayStream* out);
 
-/// \brief Export C++ ChunkedArray using the c device data interface format.
+/// \brief Export C++ ChunkedArray using the C device data interface format.
 ///
 /// The resulting ArrowDeviceArrayStream keeps the chunked array data and buffers
 /// alive until its release callback is called by the consumer.
