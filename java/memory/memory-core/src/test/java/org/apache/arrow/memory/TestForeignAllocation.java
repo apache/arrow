@@ -139,13 +139,13 @@ public class TestForeignAllocation {
     boolean released = false;
 
     public UnsafeForeignAllocation(long bufferSize) {
-      super(bufferSize, MemoryUtil.UNSAFE.allocateMemory(bufferSize));
+      super(bufferSize, MemoryUtil.allocateMemory(bufferSize));
     }
 
     @Override
     protected void release0() {
       if (!released) {
-        MemoryUtil.UNSAFE.freeMemory(memoryAddress());
+        MemoryUtil.freeMemory(memoryAddress());
         released = true;
       }
     }

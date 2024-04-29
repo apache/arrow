@@ -33,13 +33,13 @@ public class MemoryUtil {
 
   private static final @Nullable Constructor<?> DIRECT_BUFFER_CONSTRUCTOR;
   /** The unsafe object from which to access the off-heap memory. */
-  public static final Unsafe UNSAFE;
+  private static final Unsafe UNSAFE;
 
   /** The start offset of array data relative to the start address of the array object. */
-  public static final long BYTE_ARRAY_BASE_OFFSET;
+  private static final long BYTE_ARRAY_BASE_OFFSET;
 
   /** The offset of the address field with the {@link java.nio.ByteBuffer} object. */
-  static final long BYTE_BUFFER_ADDRESS_OFFSET;
+  private static final long BYTE_BUFFER_ADDRESS_OFFSET;
 
   /** If the native byte order is little-endian. */
   public static final boolean LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
@@ -178,12 +178,76 @@ public class MemoryUtil {
 
   @SuppressWarnings(
       "nullness:argument") // to handle null assignment on third party dependency: Unsafe
-  public static void copyMemory(
+  private static void copyMemory(
       @Nullable Object srcBase,
       long srcOffset,
       @Nullable Object destBase,
       long destOffset,
       long bytes) {
     UNSAFE.copyMemory(srcBase, srcOffset, destBase, destOffset, bytes);
+  }
+
+  public static void copyMemory(long srcAddress, long destAddress, long bytes) {
+    UNSAFE.copyMemory(srcAddress, destAddress, bytes);
+  }
+
+  public static void copyToMemory(byte[] src, long srcIndex, long destAddress, long bytes) {
+    copyMemory(src, BYTE_ARRAY_BASE_OFFSET + srcIndex, null, destAddress, bytes);
+  }
+
+  public static void copyFromMemory(long srcAddress, byte[] dest, long destIndex, long bytes) {
+    copyMemory(null, srcAddress, dest, BYTE_ARRAY_BASE_OFFSET + destIndex, bytes);
+  }
+
+  public static byte getByte(long address) {
+    return UNSAFE.getByte(address);
+  }
+
+  public static void putByte(long address, byte value) {
+    UNSAFE.putByte(address, value);
+  }
+
+  public static short getShort(long address) {
+    return UNSAFE.getShort(address);
+  }
+
+  public static void putShort(long address, short value) {
+    UNSAFE.putShort(address, value);
+  }
+
+  public static int getInt(long address) {
+    return UNSAFE.getInt(address);
+  }
+
+  public static void putInt(long address, int value) {
+    UNSAFE.putInt(address, value);
+  }
+
+  public static long getLong(long address) {
+    return UNSAFE.getLong(address);
+  }
+
+  public static void putLong(long address, long value) {
+    UNSAFE.putLong(address, value);
+  }
+
+  public static void setMemory(long address, long bytes, byte value) {
+    UNSAFE.setMemory(address, bytes, value);
+  }
+
+  public static int getInt(byte[] bytes, int index) {
+    return UNSAFE.getInt(bytes, BYTE_ARRAY_BASE_OFFSET + index);
+  }
+
+  public static long getLong(byte[] bytes, int index) {
+    return UNSAFE.getLong(bytes, BYTE_ARRAY_BASE_OFFSET + index);
+  }
+
+  public static long allocateMemory(long bytes) {
+    return UNSAFE.allocateMemory(bytes);
+  }
+
+  public static void freeMemory(long address) {
+    UNSAFE.freeMemory(address);
   }
 }
