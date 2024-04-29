@@ -2175,6 +2175,257 @@ TEST(TestFixedSizeBinaryMinMaxKernel, Basics) {
   EXPECT_THAT(MinMax(ScalarFromJSON(ty, R"("aa")"), options), ResultWith(null));
 }
 
+void CheckDictionaryMinMax(const std::shared_ptr<DataType>& value_type, Datum datum,
+                           const std::string& expected_min,
+                           const std::string& expected_max,
+                           const ScalarAggregateOptions& options) {
+  std::shared_ptr<arrow::DataType> result_type =
+      struct_({field("min", value_type), field("max", value_type)});
+  EXPECT_THAT(
+      MinMax(datum, options),
+      ResultWith(ScalarFromJSON(result_type, "{\"min\": " + expected_min +
+                                                 ", \"max\": " + expected_max + "}")));
+}
+
+void CheckDictionaryMinMax(const std::shared_ptr<DataType>& index_type,
+                           const std::shared_ptr<DataType>& value_type,
+                           const std::string& input_index_json,
+                           const std::string& input_dictionary_json,
+                           const std::string& expected_min,
+                           const std::string& expected_max,
+                           const ScalarAggregateOptions& options) {
+  auto dict_type = dictionary(index_type, value_type);
+  auto arr = DictArrayFromJSON(dict_type, input_index_json, input_dictionary_json);
+  CheckDictionaryMinMax(value_type, arr, expected_min, expected_max, options);
+}
+
+TEST(TestDictionaryMinMaxKernel, IntegersValue) {
+  ScalarAggregateOptions options;
+  std::shared_ptr<arrow::DataType> dict_ty;
+
+  for (const auto& index_type : all_dictionary_index_types()) {
+    ARROW_SCOPED_TRACE("index_type = ", index_type->ToString());
+
+    for (const auto& value_ty :
+         {int8(), uint8(), int16(), uint16(), int32(), uint32(), int64(), uint64()}) {
+      dict_ty = dictionary(index_type, value_ty);
+
+      auto chunk1 = DictArrayFromJSON(dict_ty, R"([null, 0])", R"([5])");
+      auto chunk2 = DictArrayFromJSON(dict_ty, R"([0, 1, 1])", R"([3, 1])");
+      ASSERT_OK_AND_ASSIGN(auto chunked, ChunkedArray::Make({chunk1, chunk2}));
+
+      options = ScalarAggregateOptions(/*skip_nulls=*/true);
+      CheckDictionaryMinMax(value_ty, chunked, "1", "5", options);       // chunked
+      CheckDictionaryMinMax(index_type, value_ty, R"([0, 1, 2, 3, 4])",  // noraml
+                            R"([5, 1, 2, 3, 4])", "1", "5", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // null in indices
+                            R"([0, 1, 2, 3, null])", R"([5, 9, 2, 3])", "2", "9",
+                            options);
+      CheckDictionaryMinMax(index_type, value_ty, R"([0, 1, 2, 3, 4])",  // null in values
+                            R"([null, null, 2, 3, 4])", "2", "4", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // null in both indices and values
+                            R"([0, 1, 2, 3, null])", R"([null, null, 2, 3])", "2", "3",
+                            options);
+      CheckDictionaryMinMax(index_type, value_ty,  // unreferenced values
+                            R"([0, 1, 2, 3, 5])", R"([5, 1, 2, 3, 4, 100, 101, 102])",
+                            "1", "100", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // multiply referenced values
+                            R"([0, 1, 2, 3, 5, 0, 3, 1])", R"([5, 1, 2, 3, 4, 100, 101])",
+                            "1", "100", options);
+
+      options = ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/4);
+      CheckDictionaryMinMax(value_ty, chunked, "1", "5", options);       // chunked
+      CheckDictionaryMinMax(index_type, value_ty, R"([0, 1, 2, 3, 4])",  // noraml
+                            R"([5, 1, 2, 3, 4])", "1", "5", options);
+      CheckDictionaryMinMax(index_type, value_ty, R"([0, 1, 2])",  // too short
+                            R"([5, 1, 2])", "null", "null", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // null in indices
+                            R"([0, 1, 2, 3, null])", R"([5, 9, 2, 3])", "2", "9",
+                            options);
+      CheckDictionaryMinMax(index_type, value_ty, R"([0, 1, 2, 3, 4])",  // null in values
+                            R"([null, null, 2, 3, 4])", "null", "null", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // null in both indices and values
+                            R"([0, 1, 2, 3, null])", R"([null, null, 2, 3])", "null",
+                            "null", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // unreferenced values
+                            R"([0, 1, 2, 3, 5])", R"([5, 1, 2, 3, 4, 100, 101, 102])",
+                            "1", "100", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // unreferenced nulls
+                            R"([0, 1, 2, 3, 5])",
+                            R"([5, 1, 2, 3, null, 100, null, null])", "1", "100",
+                            options);
+      CheckDictionaryMinMax(index_type, value_ty,  // multiply referenced values
+                            R"([0, 1, 2, 3, 5, 0, 3, 1])", R"([5, 1, 2, 3, 4, 100])", "1",
+                            "100", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // multiply referenced nulls
+                            R"([0, 1, 2, 3, 5, 0, 3, 1])",
+                            R"([null, null, 2, null, 4, 100])", "null", "null", options);
+
+      options = ScalarAggregateOptions(/*skip_nulls=*/false);
+      CheckDictionaryMinMax(value_ty, chunked, "null", "null", options);  // chunked
+      CheckDictionaryMinMax(index_type, value_ty, R"([0, 1, 2, 3, 4])",   // noraml
+                            R"([5, 1, 2, 3, 4])", "1", "5", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // null in indices
+                            R"([0, 1, 2, 3, null])", R"([5, 9, 2, 3])", "null", "null",
+                            options);
+      CheckDictionaryMinMax(index_type, value_ty, R"([0, 1, 2, 3, 4])",  // null in values
+                            R"([null, null, 2, 3, 4])", "null", "null", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // null in both indices and values
+                            R"([0, 1, 2, 3, null])", R"([null, null, 2, 3])", "null",
+                            "null", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // unreferenced values
+                            R"([0, 1, 2, 3, 5])", R"([5, 1, 2, 3, 4, 100, 101, 102])",
+                            "1", "100", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // unreferenced nulls
+                            R"([0, 1, 2, 3, 5])",
+                            R"([5, 1, 2, 3, null, 100, null, null])", "1", "100",
+                            options);
+      CheckDictionaryMinMax(index_type, value_ty,  // multiply referenced values
+                            R"([0, 1, 2, 3, 5, 0, 3, 1])", R"([5, 1, 2, 3, 4, 100])", "1",
+                            "100", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // multiply referenced nulls
+                            R"([0, 1, 2, 3, 5, 0, 3, 1])",
+                            R"([null, null, 2, null, 4, 100])", "null", "null", options);
+
+      options = ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/4);
+      CheckDictionaryMinMax(value_ty, chunked, "null", "null", options);  // chunked
+      CheckDictionaryMinMax(index_type, value_ty, R"([0, 1, 2, 3, 4])",   // noraml
+                            R"([5, 1, 2, 3, 4])", "1", "5", options);
+      CheckDictionaryMinMax(index_type, value_ty, R"([0, 1, 2])",  // too short
+                            R"([5, 1, 2])", "null", "null", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // null in indices
+                            R"([0, 1, 2, 3, null])", R"([5, 9, 2, 3])", "null", "null",
+                            options);
+      CheckDictionaryMinMax(index_type, value_ty, R"([0, 1, 2, 3, 4])",  // null in values
+                            R"([null, null, 2, 3, 4])", "null", "null", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // null in both indices and values
+                            R"([0, 1, 2, 3, null])", R"([null, null, 2, 3])", "null",
+                            "null", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // unreferenced values
+                            R"([0, 1, 2, 3, 5])", R"([5, 1, 2, 3, 4, 100, 101, 102])",
+                            "1", "100", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // unreferenced nulls
+                            R"([0, 1, 2, 3, 5])",
+                            R"([5, 1, 2, 3, null, 100, null, null])", "1", "100",
+                            options);
+      CheckDictionaryMinMax(index_type, value_ty,  // multiply referenced values
+                            R"([0, 1, 2, 3, 5, 0, 3, 1])", R"([5, 1, 2, 3, 4, 100])", "1",
+                            "100", options);
+      CheckDictionaryMinMax(index_type, value_ty,  // multiply referenced nulls
+                            R"([0, 1, 2, 3, 5, 0, 3, 1])",
+                            R"([null, null, 2, null, 4, 100])", "null", "null", options);
+    }
+  }
+}
+
+TEST(TestDictionaryMinMaxKernel, DecimalsValue) {
+  ScalarAggregateOptions options;
+  std::shared_ptr<arrow::DataType> dict_ty;
+  std::shared_ptr<arrow::DataType> ty;
+  for (const auto& index_type : all_dictionary_index_types()) {
+    ARROW_SCOPED_TRACE("index_type = ", index_type->ToString());
+
+    for (const auto& value_ty : {decimal128(5, 2), decimal256(5, 2)}) {
+      dict_ty = dictionary(index_type, value_ty);
+      ty = struct_({field("min", value_ty), field("max", value_ty)});
+
+      auto chunk1 = DictArrayFromJSON(dict_ty, R"([null, 0])", R"(["5.10"])");
+      auto chunk2 = DictArrayFromJSON(dict_ty, R"([0, 1, 1])", R"(["3.10", "-1.23"])");
+      ASSERT_OK_AND_ASSIGN(auto chunked, ChunkedArray::Make({chunk1, chunk2}));
+
+      options = ScalarAggregateOptions(/*skip_nulls=*/true);
+      CheckDictionaryMinMax(value_ty, chunked, R"("-1.23")", R"("5.10")", options);
+      CheckDictionaryMinMax(index_type, value_ty, R"([0, 1, 1, 0])",
+                            R"(["5.10", "-1.23"])", R"("-1.23")", R"("5.10")", options);
+      CheckDictionaryMinMax(index_type, value_ty, R"([3, 1, 1, 4, 0, 2, null])",
+                            R"(["5.10", "-1.23", "2.00", "3.45", "4.56"])", R"("-1.23")",
+                            R"("5.10")", options);
+    }
+  }
+}
+
+TEST(TestDictionaryMinMaxKernel, BooleansValue) {
+  ScalarAggregateOptions options;
+  std::shared_ptr<arrow::DataType> value_ty = boolean();
+  std::shared_ptr<arrow::DataType> dict_ty;
+
+  for (const auto& index_type : all_dictionary_index_types()) {
+    ARROW_SCOPED_TRACE("index_type = ", index_type->ToString());
+    dict_ty = dictionary(index_type, value_ty);
+
+    auto chunk1 = DictArrayFromJSON(dict_ty, R"([null, 0])", R"([true])");
+    auto chunk2 = DictArrayFromJSON(dict_ty, R"([0, 1, 1])", R"([false, true])");
+    ASSERT_OK_AND_ASSIGN(auto chunked, ChunkedArray::Make({chunk1, chunk2}));
+
+    CheckDictionaryMinMax(value_ty, chunked, "false", "true", options);
+    CheckDictionaryMinMax(index_type, value_ty, R"([0, 0, 1])", R"([false, true])",
+                          "false", "true", options);
+    CheckDictionaryMinMax(index_type, value_ty, R"([0, 0, 0])", R"([false])", "false",
+                          "false", options);
+  }
+}
+
+TEST(TestDictionaryMinMaxKernel, FloatsValue) {
+  ScalarAggregateOptions options;
+  std::shared_ptr<arrow::DataType> dict_ty;
+
+  for (const auto& index_type : all_dictionary_index_types()) {
+    ARROW_SCOPED_TRACE("index_type = ", index_type->ToString());
+
+    for (const auto& value_ty : {float32(), float64()}) {
+      dict_ty = dictionary(index_type, value_ty);
+
+      auto chunk1 = DictArrayFromJSON(dict_ty, R"([null, 0])", R"([5])");
+      auto chunk2 = DictArrayFromJSON(dict_ty, R"([0, 1, 1])", R"([-Inf, 1])");
+      ASSERT_OK_AND_ASSIGN(auto chunked, ChunkedArray::Make({chunk1, chunk2}));
+
+      CheckDictionaryMinMax(value_ty, chunked, "-Inf", "5", options);
+      CheckDictionaryMinMax(index_type, value_ty, R"([0, 1, 2, 3, 4])",
+                            R"([5, 1, 2, 3, 4])", "1", "5", options);
+      CheckDictionaryMinMax(index_type, value_ty, R"([0, 1, 2, 3, 4])",
+                            R"([5, -Inf, 2, 3, 4])", "-Inf", "5", options);
+    }
+  }
+}
+
+TEST(TestDictionaryMinMaxKernel, BinarysValue) {
+  ScalarAggregateOptions options;
+  std::shared_ptr<arrow::DataType> dict_ty;
+
+  for (const auto& index_type : all_dictionary_index_types()) {
+    ARROW_SCOPED_TRACE("index_type = ", index_type->ToString());
+
+    for (const auto& value_ty : {fixed_size_binary(2), binary(), large_binary()}) {
+      dict_ty = dictionary(index_type, value_ty);
+      auto chunk1 = DictArrayFromJSON(dict_ty, R"([null, 0])", R"(["hz"])");
+      auto chunk2 = DictArrayFromJSON(dict_ty, R"([0, 1, 1])", R"(["aa", "bb"])");
+      ASSERT_OK_AND_ASSIGN(auto chunked, ChunkedArray::Make({chunk1, chunk2}));
+
+      CheckDictionaryMinMax(value_ty, chunked, R"("aa")", R"("hz")", options);
+      CheckDictionaryMinMax(index_type, value_ty, R"([0, 1, 2, 3, 4])",
+                            R"(["hz", "bb", "bf", "cc", "fa"])", R"("bb")", R"("hz")",
+                            options);
+      CheckDictionaryMinMax(index_type, value_ty, R"([0, 1, 2, 3, 4])",
+                            R"(["hz", "aa", "bf", "cc", "fa"])", R"("aa")", R"("hz")",
+                            options);
+    }
+  }
+}
+
+TEST(TestDictionaryMinMaxKernel, NullValue) {
+  ScalarAggregateOptions options;
+  std::shared_ptr<arrow::DataType> value_ty = null();
+
+  for (const auto& index_type : all_dictionary_index_types()) {
+    ARROW_SCOPED_TRACE("index_type = ", index_type->ToString());
+
+    CheckDictionaryMinMax(index_type, value_ty, R"([null, null])", R"([])", "null",
+                          "null", options);
+    CheckDictionaryMinMax(index_type, value_ty, R"([])", R"([])", "null", "null",
+                          options);
+  }
+}
+
 template <typename ArrowType>
 struct MinMaxResult {
   using T = typename ArrowType::c_type;

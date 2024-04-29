@@ -349,6 +349,37 @@ std::shared_ptr<TypeMatcher> RunEndEncoded(
                                                 std::move(value_type_matcher));
 }
 
+class NotMatcher : public TypeMatcher {
+ public:
+  explicit NotMatcher(std::shared_ptr<TypeMatcher> base_matcher)
+      : base_matcher{std::move(base_matcher)} {}
+
+  ~NotMatcher() override = default;
+
+  bool Matches(const DataType& type) const override {
+    return !base_matcher->Matches(type);
+  }
+
+  bool Equals(const TypeMatcher& other) const override {
+    if (this == &other) {
+      return true;
+    }
+    const auto* casted = dynamic_cast<const NotMatcher*>(&other);
+    return casted != nullptr && base_matcher->Equals(*casted->base_matcher);
+  }
+
+  std::string ToString() const override {
+    return "not(" + base_matcher->ToString() + ")";
+  };
+
+ private:
+  std::shared_ptr<TypeMatcher> base_matcher;
+};
+
+std::shared_ptr<TypeMatcher> Not(std::shared_ptr<TypeMatcher> base_matcher) {
+  return std::make_shared<NotMatcher>(std::move(base_matcher));
+}
+
 }  // namespace match
 
 // ----------------------------------------------------------------------
