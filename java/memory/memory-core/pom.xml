@@ -61,9 +61,6 @@
       <id>jdk11+</id>
       <activation>
         <jdk>[11,]</jdk>
-        <property>
-          <name>!m2e.version</name>
-        </property>
       </activation>
       <build>
         <plugins>
@@ -92,7 +89,6 @@
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-surefire-plugin</artifactId>
-
             <executions>
               <execution>
                 <id>opens-tests</id>
@@ -101,12 +97,9 @@
                 </goals>
                 <phase>test</phase>
                 <configuration>
-                  <!-- Dummy value to stop inheriting the default add-opens flag -->
-                  <argLine>-Dfoo=bar</argLine>
-                  <excludes>
-                    <!-- Need something (anything) here to make Maven not inherit the value above -->
-                    <exclude>**/TestArrowBuf.java</exclude>
-                  </excludes>
+                  <!-- Do not inherit the default add-opens flag and excludes -->
+                  <argLine combine.self="override"></argLine>
+                  <excludes combine.self="override"></excludes>
                   <includes>
                     <include>**/TestOpens.java</include>
                   </includes>
@@ -129,9 +122,6 @@
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-compiler-plugin</artifactId>
             <configuration>
-              <source>8</source>
-              <target>8</target>
-              <encoding>UTF-8</encoding>
               <compilerArgs combine.children="append">
                 <arg>-Xmaxerrs</arg>
                 <!-- javac only reports the first 100 errors or warnings -->
@@ -150,12 +140,6 @@
                   <version>${checker.framework.version}</version>
                 </path>
               </annotationProcessorPaths>
-              <annotationProcessors>
-                <!-- To support @Value.Immutable processors -->
-                <annotationProcessor>org.immutables.value.internal.$processor$.$Processor</annotationProcessor>
-                <!-- Add all the checkers you want to enable here -->
-                <annotationProcessor>org.checkerframework.checker.nullness.NullnessChecker</annotationProcessor>
-              </annotationProcessors>
             </configuration>
           </plugin>
         </plugins>
