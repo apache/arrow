@@ -17,7 +17,7 @@
 
 # Aggregation functions
 #
-# These all insert into an ..aggregations list (in a parent frame) a list containing:
+# These all insert into an .aggregations list in the mask, a list containing:
 # @param fun string function name
 # @param data list of 0 or more Expressions
 # @param options list of function options, as passed to call_function
@@ -154,11 +154,11 @@ register_bindings_aggregate <- function() {
 
 set_agg <- function(...) {
   agg_data <- list2(...)
-  # Find the environment where ..aggregations is stored
+  # Find the environment where .aggregations is stored
   target <- find_aggregations_env()
-  aggs <- get("..aggregations", target)
+  aggs <- get(".aggregations", target)
   lapply(agg_data[["data"]], function(expr) {
-    # If any of the fields referenced in the expression are in ..aggregations,
+    # If any of the fields referenced in the expression are in .aggregations,
     # then we can't aggregate over them.
     # This is mainly for combinations of dataset columns and aggregations,
     # like sum(x - mean(x)), i.e. window functions.
@@ -169,23 +169,24 @@ set_agg <- function(...) {
     }
   })
 
-  # Record the (fun, data, options) in ..aggregations
+  # Record the (fun, data, options) in .aggregations
   # and return a FieldRef pointing to it
   tmpname <- paste0("..temp", length(aggs))
   aggs[[tmpname]] <- agg_data
-  assign("..aggregations", aggs, envir = target)
+  assign(".aggregations", aggs, envir = target)
   Expression$field_ref(tmpname)
 }
 
 find_aggregations_env <- function() {
-  # Find the environment where ..aggregations is stored,
+  # Find the environment where .aggregations is stored,
   # it's in parent.env of something in the call stack
-  for (f in sys.frames()) {
-    if (exists("..aggregations", envir = f)) {
-      return(f)
+  n <- 1
+  while (TRUE) {
+    if (exists(".aggregations", envir = caller_env(n))) {
+      return(caller_env(n))
     }
+    n <- n + 1
   }
-  stop("Could not find ..aggregations")
 }
 
 ensure_one_arg <- function(args, fun) {

@@ -80,34 +80,32 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
   # ExecNode), and in the expressions, replace them with FieldRefs so that
   # further operations can happen (in what will become a ProjectNode that works
   # on the result of the Aggregate).
-  # To do this, we create a list in this function scope, and in arrow_mask(),
-  # and we make sure this environment here is the parent env of the binding
-  # functions, so that when they receive an expression, they can pull out
-  # aggregations and insert them into the list, which they can find because it
-  # is in the parent env.
+  # To do this, arrow_mask() includes a list called .aggregations,
+  # and the aggregation functions will pull out those terms and insert into
+  # that list.
   # nolint end
-  ..aggregations <- empty_named_list()
-
-  # We'll collect any transformations after the aggregation here
-  ..post_mutate <- empty_named_list()
   mask <- arrow_mask(.data, aggregation = TRUE)
 
+  # We'll collect any transformations after the aggregation here.
+  # summarize_eval() returns NULL when the outer expression is an aggregation,
+  # i.e. there is no projection to do after
+  post_mutate <- empty_named_list()
   for (i in seq_along(exprs)) {
     # Iterate over the indices and not the names because names may be repeated
     # (which overwrites the previous name)
     name <- names(exprs)[i]
-    ..post_mutate[[name]] <- summarize_eval(name, exprs[[i]], mask)
+    post_mutate[[name]] <- summarize_eval(name, exprs[[i]], mask)
   }
 
   # Apply the results to the .data object.
   # First, the aggregations
-  .data$aggregations <- ..aggregations
+  .data$aggregations <- mask$.aggregations
   # Then collapse the query so that the resulting query object can have
   # additional operations applied to it
   out <- collapse.arrow_dplyr_query(.data)
 
-  # Now, add the projections in ..post_mutate (if any)
-  for (post in names(..post_mutate)) {
+  # Now, add the projections in post_mutate (if any)
+  for (post in names(post_mutate)) {
     # One last check: it's possible that an expression like y - mean(y) would
     # successfully evaluate, but it's not supported. It gets transformed to:
     # nolint start
@@ -121,7 +119,7 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
     # We can tell the expression is invalid if it references fields not in
     # the schema of the data after summarize(). Evaulating its type will
     # throw an error if it's invalid.
-    tryCatch(..post_mutate[[post]]$type(out$.data$schema), error = function(e) {
+    tryCatch(post_mutate[[post]]$type(out$.data$schema), error = function(e) {
       msg <- paste(
         "Expression", as_label(exprs[[post]]),
         "is not a valid aggregation expression or is"
@@ -129,7 +127,7 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
       arrow_not_supported(msg)
     })
     # If it's valid, add it to the .data object
-    out$selected_columns[[post]] <- ..post_mutate[[post]]
+    out$selected_columns[[post]] <- post_mutate[[post]]
   }
 
   # Make sure column order is correct (and also drop ..temp columns)
@@ -266,10 +264,10 @@ format_aggregation <- function(x) {
 # This function evaluates an expression and returns the post-summarize
 # projection that results, or NULL if there is none because the top-level
 # expression was an aggregation. Any aggregations are pulled out and collected
-# in the ..aggregations list outside this function.
+# in the .aggregations list outside this function.
 summarize_eval <- function(name, quosure, mask) {
   # Add previous aggregations to the mask, so they can be referenced
-  for (n in names(get("..aggregations", parent.frame()))) {
+  for (n in names(mask$.aggregations)) {
     mask[[n]] <- mask$.data[[n]] <- Expression$field_ref(n)
   }
   # Evaluate:
@@ -286,14 +284,11 @@ summarize_eval <- function(name, quosure, mask) {
   # Handle case where outer expr is ..temp field ref. This came from an
   # aggregation at the top level. So the resulting name should be `name`.
   # not `..tempN`. Rename the corresponding aggregation.
-  post_aggs <- get("..aggregations", parent.frame())
   result_field_name <- value$field_name
-  if (result_field_name %in% names(post_aggs)) {
+  if (result_field_name %in% names(mask$.aggregations)) {
     # Do this by assigning over `name` in case something else was in `name`
-    post_aggs[[name]] <- post_aggs[[result_field_name]]
-    post_aggs[[result_field_name]] <- NULL
-    # Assign back into the parent environment
-    assign("..aggregations", post_aggs, parent.frame())
+    mask$.aggregations[[name]] <- mask$.aggregations[[result_field_name]]
+    mask$.aggregations[[result_field_name]] <- NULL
     # Return NULL because there is no post-mutate projection, it's just
     # the aggregation
     return(NULL)
