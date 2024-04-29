@@ -15,7 +15,7 @@
   <parent>
     <groupId>org.apache</groupId>
     <artifactId>apache</artifactId>
-    <version>18</version>
+    <version>31</version>
   </parent>
 
   <groupId>org.apache.arrow</groupId>
@@ -85,7 +85,7 @@
     <dep.guava-bom.version>33.0.0-jre</dep.guava-bom.version>
     <dep.netty-bom.version>4.1.108.Final</dep.netty-bom.version>
     <dep.grpc-bom.version>1.63.0</dep.grpc-bom.version>
-    <dep.protobuf-bom.version>3.23.1</dep.protobuf-bom.version>
+    <dep.protobuf-bom.version>3.25.1</dep.protobuf-bom.version>
     <dep.jackson-bom.version>2.17.0</dep.jackson-bom.version>
     <dep.hadoop.version>3.4.0</dep.hadoop.version>
     <dep.fbs.version>23.5.26</dep.fbs.version>
@@ -95,10 +95,28 @@
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
     <errorprone.javac.version>9+181-r4173-1</errorprone.javac.version>
     <error_prone_core.version>2.24.0</error_prone_core.version>
-    <maven-compiler-plugin.version>3.12.1</maven-compiler-plugin.version>
     <mockito.core.version>5.11.0</mockito.core.version>
     <mockito.inline.version>5.2.0</mockito.inline.version>
     <checker.framework.version>3.42.0</checker.framework.version>
+    <doclint>none</doclint>
+    <additionalparam>-Xdoclint:none</additionalparam>
+    <!-- org.apache:apache overrides -->
+    <maven.compiler.source>1.8</maven.compiler.source>
+    <maven.compiler.target>1.8</maven.compiler.target>
+    <maven.plugin.tools.version>3.11.0</maven.plugin.tools.version>
+    <surefire.version>3.2.5</surefire.version>
+    <version.apache-rat-plugin>0.16.1</version.apache-rat-plugin>
+    <version.maven-assembly-plugin>3.7.1</version.maven-assembly-plugin>
+    <version.maven-compiler-plugin>3.12.1</version.maven-compiler-plugin>
+    <version.maven-dependency-plugin>3.6.1</version.maven-dependency-plugin>
+    <version.maven-gpg-plugin>3.2.0</version.maven-gpg-plugin>
+    <!--
+      Downgrade maven-jar-plugin until https://github.com/codehaus-plexus/plexus-archiver/issues/332
+      is addressed
+    -->
+    <version.maven-jar-plugin>3.2.2</version.maven-jar-plugin>
+    <version.maven-javadoc-plugin>3.6.3</version.maven-javadoc-plugin>
+    <version.maven-project-info-reports-plugin>3.5.0</version.maven-project-info-reports-plugin>
   </properties>
 
   <dependencyManagement>
@@ -268,40 +286,16 @@
       <version>8.3.0</version>
       <scope>test</scope>
     </dependency>
-
   </dependencies>
 
-  <repositories></repositories>
-
   <build>
-
     <pluginManagement>
       <plugins>
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-dependency-plugin</artifactId>
-          <!--
-            This appears to report a false positive with versions
-            greater than 3.1.2 (tested up to 3.6.0) when compiling
-            arrow-tools about Jackson being only used for tests.
-          -->
-          <version>3.1.2</version>
-        </plugin>
-        <plugin>
-          <groupId>org.apache.rat</groupId>
-          <artifactId>apache-rat-plugin</artifactId>
-          <version>0.16.1</version>
-        </plugin>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-resources-plugin</artifactId>
-          <version>3.3.1</version>
-        </plugin>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
-          <version>${maven-compiler-plugin.version}</version>
           <configuration>
+            <fork>true</fork>
             <excludes>**/module-info.java</excludes>
             <testExcludes>**/module-info.java</testExcludes>
             <useModulePath>false</useModulePath>
@@ -315,17 +309,7 @@
           </configuration>
         </plugin>
         <plugin>
-          <artifactId>maven-enforcer-plugin</artifactId>
-          <version>3.4.1</version>
-        </plugin>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-shade-plugin</artifactId>
-          <version>3.5.1</version>
-        </plugin>
-        <plugin>
           <artifactId>maven-surefire-plugin</artifactId>
-          <version>3.2.5</version>
           <configuration>
             <enableAssertions>true</enableAssertions>
             <childDelegation>true</childDelegation>
@@ -340,22 +324,9 @@
               <arrow.vector.max_allocation_bytes>1048576</arrow.vector.max_allocation_bytes>
             </systemPropertyVariables>
           </configuration>
-          <dependencies>
-            <dependency>
-              <groupId>org.junit.jupiter</groupId>
-              <artifactId>junit-jupiter-engine</artifactId>
-              <version>${dep.junit.jupiter.version}</version>
-            </dependency>
-            <dependency>
-              <groupId>org.apache.maven.surefire</groupId>
-              <artifactId>surefire-junit-platform</artifactId>
-              <version>3.2.5</version>
-            </dependency>
-          </dependencies>
         </plugin>
         <plugin>
           <artifactId>maven-failsafe-plugin</artifactId>
-          <version>3.2.5</version>
           <configuration>
             <systemPropertyVariables>
               <java.io.tmpdir>${project.build.directory}</java.io.tmpdir>
@@ -444,6 +415,22 @@
                     <ignore></ignore>
                   </action>
                 </pluginExecution>
+                <pluginExecution>
+                  <pluginExecutionFilter>
+                    <groupId>org.apache.drill.tools</groupId>
+                    <artifactId>drill-fmpp-maven-plugin</artifactId>
+                    <versionRange>[1.0,)</versionRange>
+                    <goals>
+                      <goal>generate</goal>
+                    </goals>
+                  </pluginExecutionFilter>
+                  <action>
+                    <execute>
+                      <runOnIncremental>false</runOnIncremental>
+                      <runOnConfiguration>true</runOnConfiguration>
+                    </execute>
+                  </action>
+                </pluginExecution>
               </pluginExecutions>
             </lifecycleMappingMetadata>
           </configuration>
@@ -451,9 +438,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-javadoc-plugin</artifactId>
-          <version>3.6.3</version>
           <configuration>
-            <source>8</source>
             <sourceFileExcludes>
               <sourceFileExclude>**/module-info.java</sourceFileExclude>
             </sourceFileExcludes>
@@ -463,16 +448,6 @@
           <groupId>org.apache.arrow.maven.plugins</groupId>
           <artifactId>module-info-compiler-maven-plugin</artifactId>
           <version>${project.version}</version>
-        </plugin>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-project-info-reports-plugin</artifactId>
-          <version>3.5.0</version>
-        </plugin>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-site-plugin</artifactId>
-          <version>3.12.1</version>
         </plugin>
         <plugin>
           <groupId>com.gradle</groupId>
@@ -520,6 +495,36 @@
           <groupId>com.diffplug.spotless</groupId>
           <artifactId>spotless-maven-plugin</artifactId>
           <version>2.30.0</version>
+        </plugin>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>build-helper-maven-plugin</artifactId>
+          <version>1.9.1</version>
+        </plugin>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>properties-maven-plugin</artifactId>
+          <version>1.2.1</version>
+        </plugin>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>exec-maven-plugin</artifactId>
+          <version>3.2.0</version>
+        </plugin>
+        <plugin>
+          <groupId>pl.project13.maven</groupId>
+          <artifactId>git-commit-id-plugin</artifactId>
+          <version>4.0.5</version>
+        </plugin>
+        <plugin>
+          <groupId>org.cyclonedx</groupId>
+          <artifactId>cyclonedx-maven-plugin</artifactId>
+          <version>2.7.11</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.drill.tools</groupId>
+          <artifactId>drill-fmpp-maven-plugin</artifactId>
+          <version>1.21.1</version>
         </plugin>
       </plugins>
     </pluginManagement>
@@ -594,11 +599,6 @@
             <exclude>**/logback.xml</exclude>
           </excludes>
           <archive>
-            <index>true</index>
-            <manifest>
-              <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
-              <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
-            </manifest>
             <manifestEntries>
               <Extension-Name>org.apache.arrow</Extension-Name>
               <Built-By>${username}</Built-By>
@@ -620,40 +620,15 @@
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-resources-plugin</artifactId>
-        <configuration>
-          <encoding>UTF-8</encoding>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
-          <source>1.8</source>
-          <target>1.8</target>
           <maxmem>2048m</maxmem>
-          <useIncrementalCompilation>false</useIncrementalCompilation>
           <fork>true</fork>
         </configuration>
       </plugin>
       <plugin>
         <artifactId>maven-enforcer-plugin</artifactId>
         <executions>
-          <execution>
-            <id>validate_java_and_maven_version</id>
-            <goals>
-              <goal>enforce</goal>
-            </goals>
-            <phase>verify</phase>
-            <inherited>false</inherited>
-            <configuration>
-              <rules>
-                <requireMavenVersion>
-                  <version>[3.3.0,4)</version>
-                </requireMavenVersion>
-              </rules>
-            </configuration>
-          </execution>
           <execution>
             <id>avoid_bad_dependencies</id>
             <goals>
@@ -679,8 +654,6 @@
       <plugin>
         <groupId>pl.project13.maven</groupId>
         <artifactId>git-commit-id-plugin</artifactId>
-        <version>4.0.5</version>
-
         <configuration>
           <dateFormat>dd.MM.yyyy '@' HH:mm:ss z</dateFormat>
           <verbose>false</verbose>
@@ -722,7 +695,6 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-checkstyle-plugin</artifactId>
-        <version>3.1.0</version>
         <configuration>
           <excludes>**/module-info.java</excludes>
           <configLocation>dev/checkstyle/checkstyle.xml</configLocation>
@@ -786,7 +758,6 @@
       <plugin>
         <groupId>org.cyclonedx</groupId>
         <artifactId>cyclonedx-maven-plugin</artifactId>
-        <version>2.7.11</version>
         <executions>
           <execution>
             <goals>
@@ -817,12 +788,10 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-project-info-reports-plugin</artifactId>
-        <version>3.5.0</version>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-site-plugin</artifactId>
-        <version>3.12.1</version>
       </plugin>
       <plugin>
         <groupId>com.diffplug.spotless</groupId>
@@ -857,7 +826,6 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-javadoc-plugin</artifactId>
-        <version>3.6.3</version>
         <configuration>
           <sourceFileExcludes>
             <sourceFileExclude>**/module-info.java</sourceFileExclude>
@@ -885,28 +853,15 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-project-info-reports-plugin</artifactId>
-        <version>3.5.0</version>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-site-plugin</artifactId>
-        <version>3.12.1</version>
       </plugin>
     </plugins>
   </reporting>
 
   <profiles>
-    <profile>
-      <id>java-nodoclint</id>
-      <activation>
-        <jdk>[1.8,)</jdk>
-      </activation>
-      <properties>
-        <doclint>none</doclint>
-        <additionalparam>-Xdoclint:none</additionalparam>
-      </properties>
-    </profile>
-
     <profile>
       <!-- C data interface depends on building a native library -->
       <id>arrow-c-data</id>
@@ -954,7 +909,6 @@
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-compiler-plugin</artifactId>
             <configuration>
-              <fork>true</fork>
               <compilerArgs combine.children="append">
                 <arg>-XDcompilePolicy=simple</arg>
                 <arg>-Xplugin:ErrorProne</arg>
@@ -987,9 +941,6 @@
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-compiler-plugin</artifactId>
             <configuration>
-              <source>8</source>
-              <target>8</target>
-              <encoding>UTF-8</encoding>
               <compilerArgs combine.children="append">
                 <arg>-XDcompilePolicy=simple</arg>
                 <arg>-Xplugin:ErrorProne -XepExcludedPaths:.*/(target/generated-sources)/.*</arg>
@@ -1013,9 +964,26 @@
               </annotationProcessorPaths>
             </configuration>
           </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>jdk11+</id>
+      <activation>
+        <jdk>[11,]</jdk>
+      </activation>
+      <build>
+        <plugins>
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-surefire-plugin</artifactId>
+            <configuration>
+              <argLine>--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED</argLine>
+            </configuration>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-failsafe-plugin</artifactId>
             <configuration>
               <argLine>--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED</argLine>
             </configuration>
@@ -1060,7 +1028,6 @@
           <plugin>
             <groupId>org.jacoco</groupId>
             <artifactId>jacoco-maven-plugin</artifactId>
-            <version>0.8.11</version>
             <reportSets>
               <reportSet>
                 <!-- don't run aggregate in child modules -->
@@ -1106,7 +1073,6 @@
           <plugin>
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>exec-maven-plugin</artifactId>
-            <version>3.2.0</version>
             <executions>
               <execution>
                 <id>cdata-cmake</id>
@@ -1163,7 +1129,6 @@
           <plugin>
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>exec-maven-plugin</artifactId>
-            <version>3.2.0</version>
             <executions>
               <execution>
                 <id>jni-cpp-cmake</id>
@@ -1270,7 +1235,6 @@
           <plugin>
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>exec-maven-plugin</artifactId>
-            <version>3.2.0</version>
             <executions>
               <execution>
                 <id>jni-cpp-cmake</id>
@@ -1360,5 +1324,4 @@
       </build>
     </profile>
   </profiles>
-
 </project>

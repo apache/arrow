@@ -54,6 +54,11 @@
       <version>1.3.14</version>
       <scope>test</scope>
     </dependency>
+    <!--
+        Adding jackson as a compile dependency although only directly used in tests.
+        Using <scope>test</scope> however would cause the final scope to be test instead of
+        compile because of MNG-4156
+    -->
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-core</artifactId>
@@ -85,7 +90,6 @@
     <plugins>
       <plugin>
         <artifactId>maven-assembly-plugin</artifactId>
-        <version>3.7.1</version>
         <configuration>
           <descriptorRefs>
             <descriptorRef>jar-with-dependencies</descriptorRef>
@@ -101,7 +105,21 @@
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>analyze</id>
+            <phase>verify</phase>
+            <configuration>
+              <ignoredNonTestScopedDependencies>
+                <ignoredNonTestScopedDependency>com.fasterxml.jackson.core:*</ignoredNonTestScopedDependency>
+              </ignoredNonTestScopedDependencies>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
-
 </project>
