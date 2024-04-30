@@ -3879,3 +3879,11 @@ def test_list_view_slice(list_view_type):
     j = sliced_array.offsets[1].as_py()
 
     assert sliced_array[0].as_py() == sliced_array.values[i:j].to_pylist() == [4]
+
+def test_slice_and_cast_binary_array():
+    arr = pa.array([b'a', b'b', b'c'], pa.binary(1))
+    # sliced_and_casted_arr = arr.slice(1).cast(pa.binary())
+    sliced_arr = arr.slice(1)
+    casted_arr = sliced_arr.cast(pa.binary())
+    expected_arr = pa.array([b'b', b'c'], pa.binary())
+    assert casted_arr.equals(expected_arr)

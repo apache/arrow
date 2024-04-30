@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <iostream>
 #include <limits>
 #include <optional>
 
@@ -340,10 +341,12 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   if (input.offset == output->offset) {
     output->buffers[0] = input.GetBuffer(0);
   } else {
-    ARROW_ASSIGN_OR_RAISE(
-        output->buffers[0],
-        arrow::internal::CopyBitmap(ctx->memory_pool(), input.buffers[0].data,
-                                    input.offset, input.length));
+    if (input.buffers[0].data) {
+      ARROW_ASSIGN_OR_RAISE(
+          output->buffers[0],
+          arrow::internal::CopyBitmap(ctx->memory_pool(), input.buffers[0].data,
+                                      input.offset, input.length));
+    }
   }
 
   // This buffer is preallocated

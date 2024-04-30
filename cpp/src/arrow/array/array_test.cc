@@ -45,6 +45,7 @@
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/compare.h"
+#include "arrow/compute/cast.h"
 #include "arrow/result.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
@@ -70,6 +71,7 @@
 
 namespace arrow {
 
+using compute::Cast;
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
@@ -3002,6 +3004,62 @@ TEST_F(TestAdaptiveUIntBuilder, TestAppendEmptyValue) {
   ASSERT_OK(result_->ValidateFull());
   // NOTE: The fact that we get 0 is really an implementation detail
   AssertArraysEqual(*result_, *ArrayFromJSON(uint8(), "[null, null, 0, 42, 0, 0]"));
+}
+
+TEST(TestSliceAndCastBinaryArray, SliceAndCastBinaryArray) {
+  // Create a binary array with fixed-size binary type
+  std::shared_ptr<arrow::Array> fixed_size_array;
+  arrow::FixedSizeBinaryBuilder fsb_builder(arrow::fixed_size_binary(1));
+  ASSERT_OK(fsb_builder.Append("a"));
+  ASSERT_OK(fsb_builder.Append("b"));
+  ASSERT_OK(fsb_builder.Append("c"));
+  ASSERT_OK(fsb_builder.Finish(&fixed_size_array));
+
+  // Slice the array starting from the second element and cast it to binary
+  auto sliced_array = fixed_size_array->Slice(1);
+  std::cout << sliced_array->ToString() << std::endl;
+  //  auto casted_array_result = sliced_array->View(arrow::binary());
+  auto casted_array_result = Cast(sliced_array, arrow::binary());
+  ASSERT_OK(casted_array_result.status());
+  auto casted_array = casted_array_result.ValueOrDie();
+
+  // Create the expected array
+  std::shared_ptr<arrow::Array> expected_array;
+  arrow::BinaryBuilder expected_builder;
+  ASSERT_OK(expected_builder.Append("b"));
+  ASSERT_OK(expected_builder.Append("c"));
+  ASSERT_OK(expected_builder.Finish(&expected_array));
+
+  // Compare the sliced and casted array to the expected array
+  ASSERT_TRUE(casted_array.Equals(expected_array));
+}
+
+TEST(TestSliceAndCastBinaryArray, SliceAndCastBinaryArrayWithNull) {
+  // Create a binary array with fixed-size binary type
+  std::shared_ptr<arrow::Array> fixed_size_array;
+  arrow::FixedSizeBinaryBuilder fsb_builder(arrow::fixed_size_binary(1));
+  ASSERT_OK(fsb_builder.Append("a"));
+  ASSERT_OK(fsb_builder.AppendNull());
+  ASSERT_OK(fsb_builder.Append("c"));
+  ASSERT_OK(fsb_builder.Finish(&fixed_size_array));
+
+  // Slice the array starting from the second element and cast it to binary
+  auto sliced_array = fixed_size_array->Slice(1);
+  std::cout << sliced_array->ToString() << std::endl;
+  //  auto casted_array_result = sliced_array->View(arrow::binary());
+  auto casted_array_result = Cast(sliced_array, arrow::binary());
+  ASSERT_OK(casted_array_result.status());
+  auto casted_array = casted_array_result.ValueOrDie();
+
+  // Create the expected array
+  std::shared_ptr<arrow::Array> expected_array;
+  arrow::BinaryBuilder expected_builder;
+  ASSERT_OK(expected_builder.AppendNull());
+  ASSERT_OK(expected_builder.Append("c"));
+  ASSERT_OK(expected_builder.Finish(&expected_array));
+
+  // Compare the sliced and casted array to the expected array
+  ASSERT_TRUE(casted_array.Equals(expected_array));
 }
 
 TEST(TestAdaptiveUIntBuilderWithStartIntSize, TestReset) {
