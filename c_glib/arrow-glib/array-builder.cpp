@@ -231,8 +231,8 @@ garrow_array_builder_append_values(GArrowArrayBuilder *builder,
   if (n_remains > 0) {
     ++n_loops;
   }
+  std::vector<uint8_t> data(value_size * chunk_size);
   for (gint64 i = 0; i < n_loops; ++i) {
-    uint8_t data[value_size * chunk_size];
     uint8_t *valid_bytes = nullptr;
     uint8_t valid_bytes_buffer[chunk_size];
     if (is_valids_length > 0) {
@@ -255,7 +255,7 @@ garrow_array_builder_append_values(GArrowArrayBuilder *builder,
         value = values[offset + j];
       }
       if (value) {
-        get_value_function(data + (value_size * j), value, value_size);
+        get_value_function(data.data() + (value_size * j), value, value_size);
       } else {
         is_valid = false;
         if (!valid_bytes) {
@@ -267,7 +267,7 @@ garrow_array_builder_append_values(GArrowArrayBuilder *builder,
         valid_bytes_buffer[j] = is_valid;
       }
     }
-    auto status = arrow_builder->AppendValues(data, n_values, valid_bytes);
+    auto status = arrow_builder->AppendValues(data.data(), n_values, valid_bytes);
     if (!garrow_error_check(error, status, context)) {
       return FALSE;
     }
@@ -1035,13 +1035,13 @@ garrow_boolean_array_builder_append_values(GArrowBooleanArrayBuilder *builder,
                                            gint64 is_valids_length,
                                            GError **error)
 {
-  guint8 arrow_values[values_length];
+  std::vector<guint8> arrow_values(values_length);
   for (gint64 i = 0; i < values_length; ++i) {
     arrow_values[i] = values[i];
   }
   return garrow_array_builder_append_values<arrow::BooleanBuilder>(
     GARROW_ARRAY_BUILDER(builder),
-    arrow_values,
+    arrow_values.data(),
     values_length,
     is_valids,
     is_valids_length,
