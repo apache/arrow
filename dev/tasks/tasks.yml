@@ -1428,13 +1428,13 @@ tasks:
         R_PRUNE_DEPS: TRUE
       image: ubuntu-r-sanitizer
 
-  test-fedora-r-clang-sanitizer:
+  test-r-clang-sanitizer:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
         R_PRUNE_DEPS: TRUE
-      image: fedora-r-clang-sanitizer
+      image: r-clang-sanitizer
 
   {% for go_version, staticcheck in [("1.21", "v0.4.7"), ("1.22", "latest")] %}
   test-debian-12-go-{{ go_version }}:
