@@ -2083,8 +2083,16 @@ Status ExportDeviceStreamNext(const std::shared_ptr<ChunkedArray>& src, int64_t 
   }
 }
 
-template <typename T, typename StreamType, typename ArrayType>
+template <typename T, bool IsDevice>
 class ExportedArrayStream {
+  using StreamTraits =
+      std::conditional_t<IsDevice, internal::ArrayDeviceStreamExportTraits,
+                         internal::ArrayStreamExportTraits>;
+  using StreamType = typename StreamTraits::CType;
+  using ArrayTraits = std::conditional_t<IsDevice, internal::ArrayDeviceExportTraits,
+                                         internal::ArrayExportTraits>;
+  using ArrayType = typename ArrayTraits::CType;
+
  public:
   struct PrivateData {
     explicit PrivateData(std::shared_ptr<T> reader)
@@ -2118,23 +2126,14 @@ class ExportedArrayStream {
   }
 
   void Release() {
-    if constexpr (std::is_same_v<StreamType, ArrowDeviceArrayStream>) {
-      if (ArrowDeviceArrayStreamIsReleased(stream_)) {
-        return;
-      }
-    } else {
-      if (ArrowArrayStreamIsReleased(stream_)) {
-        return;
-      }
+    if (StreamTraits::IsReleasedFunc(stream_)) {
+      return;
     }
+
     DCHECK_NE(private_data(), nullptr);
     delete private_data();
 
-    if constexpr (std::is_same_v<StreamType, ArrowDeviceArrayStream>) {
-      ArrowDeviceArrayStreamMarkReleased(stream_);
-    } else {
-      ArrowArrayStreamMarkReleased(stream_);
-    }
+    StreamTraits::MarkReleased(stream_);
   }
 
   // C-compatible callbacks
@@ -2199,23 +2198,20 @@ class ExportedArrayStream {
 Status ExportRecordBatchReader(std::shared_ptr<RecordBatchReader> reader,
                                struct ArrowArrayStream* out) {
   memset(out, 0, sizeof(struct ArrowArrayStream));
-  return ExportedArrayStream<RecordBatchReader, struct ArrowArrayStream,
-                             struct ArrowArray>::Make(std::move(reader), out);
+  return ExportedArrayStream<RecordBatchReader, false>::Make(std::move(reader), out);
 }
 
 Status ExportChunkedArray(std::shared_ptr<ChunkedArray> chunked_array,
                           struct ArrowArrayStream* out) {
   memset(out, 0, sizeof(struct ArrowArrayStream));
-  return ExportedArrayStream<ChunkedArray, struct ArrowArrayStream,
-                             struct ArrowArray>::Make(std::move(chunked_array), out);
+  return ExportedArrayStream<ChunkedArray, false>::Make(std::move(chunked_array), out);
 }
 
 Status ExportDeviceRecordBatchReader(std::shared_ptr<RecordBatchReader> reader,
                                      struct ArrowDeviceArrayStream* out) {
   memset(out, 0, sizeof(struct ArrowDeviceArrayStream));
   out->device_type = static_cast<ArrowDeviceType>(reader->device_type());
-  return ExportedArrayStream<RecordBatchReader, struct ArrowDeviceArrayStream,
-                             struct ArrowDeviceArray>::Make(std::move(reader), out);
+  return ExportedArrayStream<RecordBatchReader, true>::Make(std::move(reader), out);
 }
 
 Status ExportDeviceChunkedArray(std::shared_ptr<ChunkedArray> chunked_array,
@@ -2223,9 +2219,7 @@ Status ExportDeviceChunkedArray(std::shared_ptr<ChunkedArray> chunked_array,
                                 struct ArrowDeviceArrayStream* out) {
   memset(out, 0, sizeof(struct ArrowDeviceArrayStream));
   out->device_type = static_cast<ArrowDeviceType>(device_type);
-  return ExportedArrayStream<ChunkedArray, struct ArrowDeviceArrayStream,
-                             struct ArrowDeviceArray>::Make(std::move(chunked_array),
-                                                            out);
+  return ExportedArrayStream<ChunkedArray, true>::Make(std::move(chunked_array), out);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -2233,10 +2227,15 @@ Status ExportDeviceChunkedArray(std::shared_ptr<ChunkedArray> chunked_array,
 
 namespace {
 
-template <typename StreamTraits, typename ArrayTraits>
+template <bool IsDevice>
 class ArrayStreamReader {
  protected:
+  using StreamTraits =
+      std::conditional_t<IsDevice, internal::ArrayDeviceStreamExportTraits,
+                         internal::ArrayStreamExportTraits>;
   using StreamType = typename StreamTraits::CType;
+  using ArrayTraits = std::conditional_t<IsDevice, internal::ArrayDeviceExportTraits,
+                                         internal::ArrayExportTraits>;
   using ArrayType = typename ArrayTraits::CType;
 
  public:
@@ -2353,16 +2352,21 @@ class ArrayStreamReader {
   const DeviceMemoryMapper mapper_;
 };
 
-template <typename StreamTraits, typename ArrayTraits>
+template <bool IsDevice>
 class ArrayStreamBatchReader : public RecordBatchReader,
-                               public ArrayStreamReader<StreamTraits, ArrayTraits> {
+                               public ArrayStreamReader<IsDevice> {
+  using StreamTraits =
+      std::conditional_t<IsDevice, internal::ArrayDeviceStreamExportTraits,
+                         internal::ArrayStreamExportTraits>;
   using StreamType = typename StreamTraits::CType;
+  using ArrayTraits = std::conditional_t<IsDevice, internal::ArrayDeviceExportTraits,
+                                         internal::ArrayExportTraits>;
   using ArrayType = typename ArrayTraits::CType;
 
  public:
   explicit ArrayStreamBatchReader(
       StreamType* stream, const DeviceMemoryMapper& mapper = DefaultDeviceMemoryMapper)
-      : ArrayStreamReader<StreamTraits, ArrayTraits>(stream, mapper) {}
+      : ArrayStreamReader<IsDevice>(stream, mapper) {}
 
   Status Init() {
     ARROW_ASSIGN_OR_RAISE(schema_, this->ReadSchema());
@@ -2397,15 +2401,20 @@ class ArrayStreamBatchReader : public RecordBatchReader,
   std::shared_ptr<Schema> schema_;
 };
 
-template <typename StreamTraits, typename ArrayTraits>
-class ArrayStreamArrayReader : public ArrayStreamReader<StreamTraits, ArrayTraits> {
+template <bool IsDevice>
+class ArrayStreamArrayReader : public ArrayStreamReader<IsDevice> {
+  using StreamTraits =
+      std::conditional_t<IsDevice, internal::ArrayDeviceStreamExportTraits,
+                         internal::ArrayStreamExportTraits>;
   using StreamType = typename StreamTraits::CType;
+  using ArrayTraits = std::conditional_t<IsDevice, internal::ArrayDeviceExportTraits,
+                                         internal::ArrayExportTraits>;
   using ArrayType = typename ArrayTraits::CType;
 
  public:
   explicit ArrayStreamArrayReader(
       StreamType* stream, const DeviceMemoryMapper& mapper = DefaultDeviceMemoryMapper)
-      : ArrayStreamReader<StreamTraits, ArrayTraits>(stream, mapper) {}
+      : ArrayStreamReader<IsDevice>(stream, mapper) {}
 
   Status Init() {
     ARROW_ASSIGN_OR_RAISE(field_, this->ReadField());
@@ -2433,7 +2442,9 @@ class ArrayStreamArrayReader : public ArrayStreamReader<StreamTraits, ArrayTrait
   std::shared_ptr<Field> field_;
 };
 
-template <typename StreamTraits, typename ArrayTraits>
+template <bool IsDevice, typename StreamTraits = std::conditional_t<
+                             IsDevice, internal::ArrayDeviceStreamExportTraits,
+                             internal::ArrayStreamExportTraits>>
 Result<std::shared_ptr<RecordBatchReader>> ImportReader(
     typename StreamTraits::CType* stream,
     const DeviceMemoryMapper& mapper = DefaultDeviceMemoryMapper) {
@@ -2441,13 +2452,14 @@ Result<std::shared_ptr<RecordBatchReader>> ImportReader(
     return Status::Invalid("Cannot import released Arrow Stream");
   }
 
-  auto reader =
-      std::make_shared<ArrayStreamBatchReader<StreamTraits, ArrayTraits>>(stream, mapper);
+  auto reader = std::make_shared<ArrayStreamBatchReader<IsDevice>>(stream, mapper);
   ARROW_RETURN_NOT_OK(reader->Init());
   return reader;
 }
 
-template <typename StreamTraits, typename ArrayTraits>
+template <bool IsDevice, typename StreamTraits = std::conditional_t<
+                             IsDevice, internal::ArrayDeviceStreamExportTraits,
+                             internal::ArrayStreamExportTraits>>
 Result<std::shared_ptr<ChunkedArray>> ImportChunked(
     typename StreamTraits::CType* stream,
     const DeviceMemoryMapper& mapper = DefaultDeviceMemoryMapper) {
@@ -2455,8 +2467,7 @@ Result<std::shared_ptr<ChunkedArray>> ImportChunked(
     return Status::Invalid("Cannot import released Arrow Stream");
   }
 
-  auto reader =
-      std::make_shared<ArrayStreamArrayReader<StreamTraits, ArrayTraits>>(stream, mapper);
+  auto reader = std::make_shared<ArrayStreamArrayReader<IsDevice>>(stream, mapper);
   ARROW_RETURN_NOT_OK(reader->Init());
 
   auto data_type = reader->data_type();
@@ -2479,26 +2490,22 @@ Result<std::shared_ptr<ChunkedArray>> ImportChunked(
 
 Result<std::shared_ptr<RecordBatchReader>> ImportRecordBatchReader(
     struct ArrowArrayStream* stream) {
-  return ImportReader<internal::ArrayStreamExportTraits, internal::ArrayExportTraits>(
-      stream);
+  return ImportReader</*IsDevice=*/false>(stream);
 }
 
 Result<std::shared_ptr<RecordBatchReader>> ImportDeviceRecordBatchReader(
     struct ArrowDeviceArrayStream* stream, const DeviceMemoryMapper& mapper) {
-  return ImportReader<internal::ArrayDeviceStreamExportTraits,
-                      internal::ArrayDeviceExportTraits>(stream, mapper);
+  return ImportReader</*IsDevice=*/true>(stream, mapper);
 }
 
 Result<std::shared_ptr<ChunkedArray>> ImportChunkedArray(
     struct ArrowArrayStream* stream) {
-  return ImportChunked<internal::ArrayStreamExportTraits, internal::ArrayExportTraits>(
-      stream);
+  return ImportChunked</*IsDevice=*/false>(stream);
 }
 
 Result<std::shared_ptr<ChunkedArray>> ImportDeviceChunkedArray(
     struct ArrowDeviceArrayStream* stream, const DeviceMemoryMapper& mapper) {
-  return ImportChunked<internal::ArrayDeviceStreamExportTraits,
-                       internal::ArrayDeviceExportTraits>(stream, mapper);
+  return ImportChunked</*IsDevice=*/true>(stream, mapper);
 }
 
 }  // namespace arrow
