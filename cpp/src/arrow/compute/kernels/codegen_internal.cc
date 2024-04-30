@@ -23,6 +23,7 @@
 #include <mutex>
 #include <vector>
 
+#include "arrow/compute/api_vector.h"
 #include "arrow/type_fwd.h"
 
 namespace arrow {
@@ -56,9 +57,23 @@ Result<TypeHolder> LastType(KernelContext*, const std::vector<TypeHolder>& types
   return types.back();
 }
 
-Result<TypeHolder> ListValuesType(KernelContext*, const std::vector<TypeHolder>& args) {
-  const auto& list_type = checked_cast<const BaseListType&>(*args[0].type);
-  return list_type.value_type().get();
+Result<TypeHolder> ListValuesType(KernelContext* ctx,
+                                  const std::vector<TypeHolder>& args) {
+  auto list_type = checked_cast<const BaseListType*>(args[0].type);
+  auto value_type = list_type->value_type().get();
+
+  auto recursive =
+      ctx->state() ? OptionsWrapper<ListFlattenOptions>::Get(ctx).recursive : false;
+  if (!recursive) {
+    return value_type;
+  }
+
+  for (auto value_kind = value_type->id();
+       is_list(value_kind) || is_list_view(value_kind); value_kind = value_type->id()) {
+    list_type = checked_cast<const BaseListType*>(list_type->value_type().get());
+    value_type = list_type->value_type().get();
+  }
+  return value_type;
 }
 
 void EnsureDictionaryDecoded(std::vector<TypeHolder>* types) {
