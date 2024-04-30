@@ -2879,6 +2879,7 @@ def test_fixed_size_list_array_flatten():
     assert arr0.type.equals(typ0)
     assert arr1.flatten().equals(arr0)
     assert arr2.flatten().flatten().equals(arr0)
+    assert arr2.flatten().equals(arr1)
     assert arr2.flatten(True).equals(arr0)
 
 
