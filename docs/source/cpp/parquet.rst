@@ -548,9 +548,9 @@ Field Id
 The Parquet format supports an optional integer "field id" which can be assigned
 to a field. This is used in the `iceberg specification <https://github.com/apache/iceberg/blob/main/format/spec.md#column-projection>` __
 
-On writer side, If ``PARQUET:field_id`` is present as a metadata key on a field, and the corresponding
-value is a nonnegative integer, then it will be used as the "field id" in the parquet
-file.
+On writer side, If ``PARQUET:field_id`` is present as a metadata key on a field, 
+and the corresponding value is a non-negative integer, then it will be used as 
+the "field id" in the parquet file.
 
 On reader side, Arrow will convert these "field id"s to a metadata key named
 ``PARQUET:field_id`` on the appropriate field.
