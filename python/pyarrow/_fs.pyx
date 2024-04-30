@@ -18,6 +18,7 @@
 # cython: language_level = 3
 
 from cpython.datetime cimport datetime, PyDateTime_DateTime
+from cython cimport binding
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow_python cimport PyDateTime_to_TimePoint
