@@ -42,6 +42,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  */
 @State(Scope.Benchmark)
 public class TransferPairBenchmarks {
+  // checkstyle:off: MissingJavadocMethod
 
   private static final int VECTOR_LENGTH = 1024;
 
@@ -120,4 +121,5 @@ public class TransferPairBenchmarks {
 
     new Runner(opt).run();
   }
+  // checkstyle:on: MissingJavadocMethod
 }

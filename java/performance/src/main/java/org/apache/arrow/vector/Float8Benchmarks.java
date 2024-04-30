@@ -19,10 +19,9 @@ package org.apache.arrow.vector;
 
 import java.util.concurrent.TimeUnit;
 
+import org.apache.arrow.memory.BoundsChecking;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.complex.impl.IntWriterImpl;
-import org.apache.arrow.vector.holders.NullableIntHolder;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Mode;
@@ -37,10 +36,11 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 /**
- * Benchmarks for {@link IntVector}.
+ * Benchmarks for {@link Float8Vector}.
  */
 @State(Scope.Benchmark)
-public class IntBenchmarks {
+public class Float8Benchmarks {
+  // checkstyle:off: MissingJavadocMethod
 
   private static final int VECTOR_LENGTH = 1024;
 
@@ -48,63 +48,77 @@ public class IntBenchmarks {
 
   private BufferAllocator allocator;
 
-  private IntVector vector;
+  private Float8Vector vector;
 
+  private Float8Vector fromVector;
+
+  /**
+   * Setup benchmarks.
+   */
   @Setup
   public void prepare() {
     allocator = new RootAllocator(ALLOCATOR_CAPACITY);
-    vector = new IntVector("vector", allocator);
+    vector = new Float8Vector("vector", allocator);
     vector.allocateNew(VECTOR_LENGTH);
-    vector.setValueCount(VECTOR_LENGTH);
+
+    fromVector = new Float8Vector("vector", allocator);
+    fromVector.allocateNew(VECTOR_LENGTH);
+
+    for (int i = 0; i < VECTOR_LENGTH; i++) {
+      if (i % 3 == 0) {
+        fromVector.setNull(i);
+      } else {
+        fromVector.set(i, i * i);
+      }
+    }
+    fromVector.setValueCount(VECTOR_LENGTH);
   }
 
+  /**
+   * Tear down benchmarks.
+   */
   @TearDown
   public void tearDown() {
     vector.close();
+    fromVector.close();
     allocator.close();
   }
 
+  /**
+   * Test reading/writing on {@link Float8Vector}.
+   * The performance of this benchmark is influenced by the states of two flags:
+   * 1. The flag for boundary checking. For details, please see {@link BoundsChecking}.
+   * 2. The flag for null checking in get methods. For details, please see {@link NullCheckingForGet}.
+   * @return useless. To avoid DCE by JIT.
+   */
   @Benchmark
   @BenchmarkMode(Mode.AverageTime)
   @OutputTimeUnit(TimeUnit.MICROSECONDS)
-  public void setWithValueHolder() {
+  public double readWriteBenchmark() {
+    double sum = 0;
     for (int i = 0; i < VECTOR_LENGTH; i++) {
-      NullableIntHolder holder = new NullableIntHolder();
-      holder.isSet = i % 3 == 0 ? 0 : 1;
-      if (holder.isSet == 1) {
-        holder.value = i;
-      }
-      vector.setSafe(i, holder);
+      vector.set(i, i + 10.0);
+      sum += vector.get(i);
     }
+    return sum;
   }
 
   @Benchmark
   @BenchmarkMode(Mode.AverageTime)
   @OutputTimeUnit(TimeUnit.MICROSECONDS)
-  public void setIntDirectly() {
+  public void copyFromBenchmark() {
     for (int i = 0; i < VECTOR_LENGTH; i++) {
-      vector.setSafe(i, i % 3 == 0 ? 0 : 1, i);
-    }
-  }
-
-  @Benchmark
-  @BenchmarkMode(Mode.AverageTime)
-  @OutputTimeUnit(TimeUnit.MICROSECONDS)
-  public void setWithWriter() {
-    IntWriterImpl writer = new IntWriterImpl(vector);
-    for (int i = 0; i < VECTOR_LENGTH; i++) {
-      if (i % 3 != 0) {
-        writer.writeInt(i);
-      }
+      vector.copyFrom(i, i, (Float8Vector) fromVector);
     }
   }
 
   public static void main(String [] args) throws RunnerException {
     Options opt = new OptionsBuilder()
-            .include(IntBenchmarks.class.getSimpleName())
+            .include(Float8Benchmarks.class.getSimpleName())
             .forks(1)
             .build();
 
     new Runner(opt).run();
   }
+  // checkstyle:on: MissingJavadocMethod
 }

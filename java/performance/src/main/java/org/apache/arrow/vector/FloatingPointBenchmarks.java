@@ -41,6 +41,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  */
 @State(Scope.Benchmark)
 public class FloatingPointBenchmarks {
+  // checkstyle:off: MissingJavadocMethod
 
   private static final int VECTOR_LENGTH = 1024;
 
@@ -130,5 +131,6 @@ public class FloatingPointBenchmarks {
 
     new Runner(opt).run();
   }
+  // checkstyle:on: MissingJavadocMethod
 }
 

@@ -37,73 +37,83 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 /**
- * Benchmarks for {@link VectorUnloader}.
+ * Benchmarks for {@link VectorLoader}.
  */
-@State(Scope.Benchmark)
-public class VectorUnloaderBenchmark {
+public class VectorLoaderBenchmark {
+  // checkstyle:off: MissingJavadocMethod
 
   private static final int ALLOCATOR_CAPACITY = 1024 * 1024;
 
   private static final int VECTOR_COUNT = 10;
 
-  private BufferAllocator allocator;
-
-  private VarCharVector [] vectors;
-
-  private VectorUnloader unloader;
-
-  private ArrowRecordBatch recordBatch;
-
   /**
-   * Setup benchmarks.
+   * State for vector load benchmark.
    */
-  @Setup(Level.Trial)
-  public void prepare() {
-    allocator = new RootAllocator(ALLOCATOR_CAPACITY);
-  }
+  @State(Scope.Benchmark)
+  public static class LoadState {
 
-  @Setup(Level.Invocation)
-  public void prepareInvoke() {
-    vectors = new VarCharVector[VECTOR_COUNT];
-    for (int i = 0; i < VECTOR_COUNT; i++) {
-      vectors[i] = new VarCharVector("vector", allocator);
-      vectors[i].allocateNew(100, 10);
+    private BufferAllocator allocator;
+
+    private VarCharVector[] vectors;
+
+    private ArrowRecordBatch recordBatch;
+
+    private VectorSchemaRoot root;
+
+    private VectorLoader loader;
+
+    /**
+     * Setup benchmarks.
+     */
+    @Setup(Level.Trial)
+    public void prepare() {
+      allocator = new RootAllocator(ALLOCATOR_CAPACITY);
     }
 
-    unloader = new VectorUnloader(VectorSchemaRoot.of(vectors));
-  }
+    @Setup(Level.Invocation)
+    public void prepareInvoke() {
+      vectors = new VarCharVector[VECTOR_COUNT];
+      for (int i = 0; i < VECTOR_COUNT; i++) {
+        vectors[i] = new VarCharVector("vector", allocator);
+        vectors[i].allocateNew(100, 10);
+      }
 
-  @TearDown(Level.Invocation)
-  public void tearDownInvoke() {
-    if (recordBatch != null) {
+      root = VectorSchemaRoot.of(vectors);
+      VectorUnloader unloader = new VectorUnloader(root);
+      recordBatch = unloader.getRecordBatch();
+
+      loader = new VectorLoader(root);
+    }
+
+    @TearDown(Level.Invocation)
+    public void tearDownInvoke() {
       recordBatch.close();
+      root.close();
     }
-    for (int i = 0; i < VECTOR_COUNT; i++) {
-      vectors[i].close();
-    }
-  }
 
-  /**
-   * Tear down benchmarks.
-   */
-  @TearDown(Level.Trial)
-  public void tearDown() {
-    allocator.close();
+    /**
+     * Tear down benchmarks.
+     */
+    @TearDown(Level.Trial)
+    public void tearDown() {
+      allocator.close();
+    }
   }
 
   @Benchmark
   @BenchmarkMode(Mode.AverageTime)
   @OutputTimeUnit(TimeUnit.MICROSECONDS)
-  public void unloadBenchmark() {
-    recordBatch = unloader.getRecordBatch();
+  public void loadBenchmark(LoadState state) {
+    state.loader.load(state.recordBatch);
   }
 
   public static void main(String[] args) throws RunnerException {
     Options opt = new OptionsBuilder()
-            .include(VectorUnloaderBenchmark.class.getSimpleName())
+            .include(VectorLoaderBenchmark.class.getSimpleName())
             .forks(1)
             .build();
 
     new Runner(opt).run();
   }
+  // checkstyle:on: MissingJavadocMethod
 }

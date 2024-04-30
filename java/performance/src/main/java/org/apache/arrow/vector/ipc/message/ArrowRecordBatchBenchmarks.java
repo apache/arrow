@@ -42,6 +42,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  */
 @State(Scope.Benchmark)
 public class ArrowRecordBatchBenchmarks {
+  // checkstyle:off: MissingJavadocMethod
 
   private static final int VECTOR_CAPACITY = 16 * 1024;
 
@@ -95,4 +96,5 @@ public class ArrowRecordBatchBenchmarks {
 
     new Runner(opt).run();
   }
+  // checkstyle:on: MissingJavadocMethod
 }

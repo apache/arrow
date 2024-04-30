@@ -15,21 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.algorithm.search;
+package org.apache.arrow.vector;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
-import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
@@ -40,76 +37,75 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 /**
- * Benchmarks for {@link ParallelSearcher}.
+ * Benchmarks for {@link VectorUnloader}.
  */
-public class ParallelSearcherBenchmarks {
+@State(Scope.Benchmark)
+public class VectorUnloaderBenchmark {
+  // checkstyle:off: MissingJavadocMethod
 
-  private static final int VECTOR_LENGTH = 1024 * 1024;
+  private static final int ALLOCATOR_CAPACITY = 1024 * 1024;
+
+  private static final int VECTOR_COUNT = 10;
+
+  private BufferAllocator allocator;
+
+  private VarCharVector [] vectors;
+
+  private VectorUnloader unloader;
+
+  private ArrowRecordBatch recordBatch;
 
   /**
-   * State object for the benchmarks.
+   * Setup benchmarks.
    */
-  @State(Scope.Benchmark)
-  public static class SearchState {
+  @Setup(Level.Trial)
+  public void prepare() {
+    allocator = new RootAllocator(ALLOCATOR_CAPACITY);
+  }
 
-    @Param({"1", "2", "5", "10", "20", "50", "100"})
-    int numThreads;
-
-    BufferAllocator allocator;
-
-    ExecutorService threadPool;
-
-    IntVector targetVector;
-
-    IntVector keyVector;
-
-    ParallelSearcher<IntVector> searcher;
-
-    @Setup(Level.Trial)
-    public void prepare() {
-      allocator = new RootAllocator(Integer.MAX_VALUE);
-      targetVector = new IntVector("target vector", allocator);
-      targetVector.allocateNew(VECTOR_LENGTH);
-      keyVector = new IntVector("key vector", allocator);
-      keyVector.allocateNew(1);
-      threadPool = Executors.newFixedThreadPool(numThreads);
-
-      for (int i = 0; i < VECTOR_LENGTH; i++) {
-        targetVector.set(i, i);
-      }
-      targetVector.setValueCount(VECTOR_LENGTH);
-
-      keyVector.set(0, VECTOR_LENGTH / 3);
-      keyVector.setValueCount(1);
+  @Setup(Level.Invocation)
+  public void prepareInvoke() {
+    vectors = new VarCharVector[VECTOR_COUNT];
+    for (int i = 0; i < VECTOR_COUNT; i++) {
+      vectors[i] = new VarCharVector("vector", allocator);
+      vectors[i].allocateNew(100, 10);
     }
 
-    @Setup(Level.Invocation)
-    public void prepareInvoke() {
-      searcher = new ParallelSearcher<>(targetVector, threadPool, numThreads);
-    }
+    unloader = new VectorUnloader(VectorSchemaRoot.of(vectors));
+  }
 
-    @TearDown(Level.Trial)
-    public void tearDownState() {
-      targetVector.close();
-      keyVector.close();
-      allocator.close();
-      threadPool.shutdown();
+  @TearDown(Level.Invocation)
+  public void tearDownInvoke() {
+    if (recordBatch != null) {
+      recordBatch.close();
     }
+    for (int i = 0; i < VECTOR_COUNT; i++) {
+      vectors[i].close();
+    }
+  }
+
+  /**
+   * Tear down benchmarks.
+   */
+  @TearDown(Level.Trial)
+  public void tearDown() {
+    allocator.close();
   }
 
   @Benchmark
   @BenchmarkMode(Mode.AverageTime)
   @OutputTimeUnit(TimeUnit.MICROSECONDS)
-  public void searchBenchmark(SearchState state) throws Exception {
-    state.searcher.search(state.keyVector, 0);
+  public void unloadBenchmark() {
+    recordBatch = unloader.getRecordBatch();
   }
 
   public static void main(String[] args) throws RunnerException {
     Options opt = new OptionsBuilder()
-            .include(ParallelSearcherBenchmarks.class.getSimpleName())
+            .include(VectorUnloaderBenchmark.class.getSimpleName())
             .forks(1)
             .build();
 
     new Runner(opt).run();
   }
+  // checkstyle:on: MissingJavadocMethod
 }
