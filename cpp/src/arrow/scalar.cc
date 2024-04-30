@@ -727,7 +727,8 @@ RunEndEncodedScalar::RunEndEncodedScalar(const std::shared_ptr<DataType>& type)
 RunEndEncodedScalar::~RunEndEncodedScalar() = default;
 
 void RunEndEncodedScalar::FillScratchSpace(uint8_t* scratch_space, const DataType& type) {
-  switch (checked_cast<const RunEndEncodedType&>(type).run_end_type()->id()) {
+  Type::type run_end = checked_cast<const RunEndEncodedType&>(type).run_end_type()->id();
+  switch (run_end) {
     case Type::INT16:
       FillScalarScratchSpace(scratch_space, {int16_t(1)});
       break;

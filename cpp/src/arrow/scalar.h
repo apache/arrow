@@ -836,7 +836,7 @@ struct ARROW_EXPORT RunEndEncodedScalar
  private:
   const TypeClass& ree_type() const { return internal::checked_cast<TypeClass&>(*type); }
 
-  static void FillScratchSpace(uint8_t* scratch_space, Type::type t);
+  static void FillScratchSpace(uint8_t* scratch_space, const DataType& type);
 
   friend ArraySpan;
   friend ArraySpanFillFromScalarScratchSpace;
