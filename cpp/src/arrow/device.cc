@@ -87,6 +87,38 @@ Result<std::shared_ptr<Buffer>> MemoryManager::CopyBuffer(
                                 " to ", to->device()->ToString(), " not supported");
 }
 
+Result<std::shared_ptr<Buffer>> MemoryManager::CopyBufferSlice(
+    const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& to,
+    const int64_t offset, const int64_t length) {
+  const auto& from = buf->memory_manager();
+  auto maybe_buffer = to->CopyBufferSliceFrom(buf, from, offset, length);
+  COPY_BUFFER_RETURN(maybe_buffer, to);
+  // `to` doesn't support copying from `from`, try the other way
+  maybe_buffer = from->CopyBufferSliceTo(buf, to, offset, length);
+  COPY_BUFFER_RETURN(maybe_buffer, to);
+  if (!from->is_cpu() && !to->is_cpu()) {
+    // Try an intermediate view on the CPU
+    auto cpu_mm = default_cpu_memory_manager();
+    maybe_buffer = from->ViewBufferSliceTo(buf, cpu_mm, offset, length);
+    if (!COPY_BUFFER_SUCCESS(maybe_buffer)) {
+      // View failed, try a copy instead
+      // XXX should we have a MemoryManager::IsCopySupportedTo(MemoryManager)
+      // to avoid copying to CPU if copy from CPU to dest is unsupported?
+      maybe_buffer = from->CopyBufferSliceTo(buf, cpu_mm, offset, length);
+    }
+    if (COPY_BUFFER_SUCCESS(maybe_buffer)) {
+      // Copy from source to CPU succeeded, now try to copy from CPU into dest
+      maybe_buffer = to->CopyBufferSliceFrom(*maybe_buffer, cpu_mm, offset, length);
+      if (COPY_BUFFER_SUCCESS(maybe_buffer)) {
+        return maybe_buffer;
+      }
+    }
+  }
+
+  return Status::NotImplemented("Copying buffer slice from ", from->device()->ToString(),
+                                " to ", to->device()->ToString(), " not supported");
+}
+
 Result<std::unique_ptr<Buffer>> MemoryManager::CopyNonOwned(
     const Buffer& buf, const std::shared_ptr<MemoryManager>& to) {
   const auto& from = buf.memory_manager();
@@ -113,6 +145,23 @@ Result<std::shared_ptr<Buffer>> MemoryManager::ViewBuffer(
   COPY_BUFFER_RETURN(maybe_buffer, to);
 
   return Status::NotImplemented("Viewing buffer from ", from->device()->ToString(),
+                                " on ", to->device()->ToString(), " not supported");
+}
+
+Result<std::shared_ptr<Buffer>> MemoryManager::ViewBufferSlice(
+    const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& to,
+    const int64_t offset, const int64_t length) {
+  if (buf->memory_manager() == to) {
+    return buf;
+  }
+  const auto& from = buf->memory_manager();
+  auto maybe_buffer = to->ViewBufferSliceFrom(buf, from, offset, length);
+  COPY_BUFFER_RETURN(maybe_buffer, to);
+  // `to` doesn't support viewing from `from`, try the other way
+  maybe_buffer = from->ViewBufferSliceTo(buf, to, offset, length);
+  COPY_BUFFER_RETURN(maybe_buffer, to);
+
+  return Status::NotImplemented("Viewing buffer slice from ", from->device()->ToString(),
                                 " on ", to->device()->ToString(), " not supported");
 }
 
@@ -146,6 +195,42 @@ Result<std::shared_ptr<Buffer>> MemoryManager::ViewBufferFrom(
 
 Result<std::shared_ptr<Buffer>> MemoryManager::ViewBufferTo(
     const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& to) {
+  return nullptr;
+}
+
+Result<std::shared_ptr<Buffer>> MemoryManager::CopyBufferSliceFrom(
+    const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& from,
+    const int64_t offset, const int64_t length) {
+  return nullptr;
+}
+
+Result<std::shared_ptr<Buffer>> MemoryManager::CopyBufferSliceTo(
+    const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& to,
+    const int64_t offset, const int64_t length) {
+  return nullptr;
+}
+
+Result<std::unique_ptr<Buffer>> MemoryManager::CopyNonOwnedSliceFrom(
+    const Buffer& buf, const std::shared_ptr<MemoryManager>& from, const int64_t offset,
+    const int64_t length) {
+  return nullptr;
+}
+
+Result<std::unique_ptr<Buffer>> MemoryManager::CopyNonOwnedSliceTo(
+    const Buffer& buf, const std::shared_ptr<MemoryManager>& to, const int64_t offset,
+    const int64_t length) {
+  return nullptr;
+}
+
+Result<std::shared_ptr<Buffer>> MemoryManager::ViewBufferSliceFrom(
+    const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& from,
+    const int64_t offset, const int64_t length) {
+  return nullptr;
+}
+
+Result<std::shared_ptr<Buffer>> MemoryManager::ViewBufferSliceTo(
+    const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& to,
+    const int64_t offset, const int64_t length) {
   return nullptr;
 }
 
@@ -235,6 +320,77 @@ Result<std::shared_ptr<Buffer>> CPUMemoryManager::ViewBufferTo(
   // manager.
   if (buf->device_type() != DeviceAllocationType::kCPU) {
     return std::make_shared<Buffer>(buf->address(), buf->size(), to, buf);
+  }
+  return buf;
+}
+
+Result<std::shared_ptr<Buffer>> CPUMemoryManager::CopyBufferSliceFrom(
+    const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& from,
+    const int64_t offset, const int64_t length) {
+  return CopyNonOwnedSliceFrom(*buf, from, offset, length);
+}
+
+Result<std::unique_ptr<Buffer>> CPUMemoryManager::CopyNonOwnedSliceFrom(
+    const Buffer& buf, const std::shared_ptr<MemoryManager>& from, const int64_t offset,
+    const int64_t length) {
+  if (!from->is_cpu()) {
+    return nullptr;
+  }
+  ARROW_ASSIGN_OR_RAISE(auto dest, ::arrow::AllocateBuffer(buf.size(), pool_));
+  if (buf.size() > 0) {
+    memcpy(dest->mutable_data(), buf.data() + offset, static_cast<size_t>(length));
+  }
+  return std::move(dest);
+}
+
+Result<std::shared_ptr<Buffer>> CPUMemoryManager::ViewBufferSliceFrom(
+    const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& from,
+    const int64_t offset, const int64_t length) {
+  if (!from->is_cpu()) {
+    return nullptr;
+  }
+  // in this case the memory manager we're coming from is visible on the CPU,
+  // but uses an allocation type other than CPU. Since we know the data is visible
+  // to the CPU a "View" of this should use the CPUMemoryManager as the listed memory
+  // manager.
+  if (buf->device_type() != DeviceAllocationType::kCPU) {
+    return std::make_shared<Buffer>(buf->address() + offset, length, shared_from_this(),
+                                    buf);
+  }
+  return buf;
+}
+
+Result<std::shared_ptr<Buffer>> CPUMemoryManager::CopyBufferSliceTo(
+    const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& to,
+    const int64_t offset, const int64_t length) {
+  return CopyNonOwnedSliceTo(*buf, to, offset, length);
+}
+
+Result<std::unique_ptr<Buffer>> CPUMemoryManager::CopyNonOwnedSliceTo(
+    const Buffer& buf, const std::shared_ptr<MemoryManager>& to, const int64_t offset,
+    const int64_t length) {
+  if (!to->is_cpu()) {
+    return nullptr;
+  }
+  ARROW_ASSIGN_OR_RAISE(auto dest, ::arrow::AllocateBuffer(buf.size(), pool_));
+  if (buf.size() > 0) {
+    memcpy(dest->mutable_data(), buf.data() + offset, static_cast<size_t>(length));
+  }
+  return std::move(dest);
+}
+
+Result<std::shared_ptr<Buffer>> CPUMemoryManager::ViewBufferSliceTo(
+    const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& to,
+    const int64_t offset, const int64_t length) {
+  if (!to->is_cpu()) {
+    return nullptr;
+  }
+  // in this case the memory manager we're coming from is visible on the CPU,
+  // but uses an allocation type other than CPU. Since we know the data is visible
+  // to the CPU a "View" of this should use the CPUMemoryManager as the listed memory
+  // manager.
+  if (buf->device_type() != DeviceAllocationType::kCPU) {
+    return std::make_shared<Buffer>(buf->address() + offset, length, to, buf);
   }
   return buf;
 }

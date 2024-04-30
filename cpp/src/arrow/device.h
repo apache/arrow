@@ -236,6 +236,10 @@ class ARROW_EXPORT MemoryManager : public std::enable_shared_from_this<MemoryMan
   static Result<std::shared_ptr<Buffer>> CopyBuffer(
       const std::shared_ptr<Buffer>& source, const std::shared_ptr<MemoryManager>& to);
 
+  static Result<std::shared_ptr<Buffer>> CopyBufferSlice(
+      const std::shared_ptr<Buffer>& source, const std::shared_ptr<MemoryManager>& to,
+      const int64_t offset, const int64_t length);
+
   /// \brief Copy a non-owned Buffer to a destination MemoryManager
   ///
   /// This is useful for cases where the source memory area is externally managed
@@ -248,6 +252,10 @@ class ARROW_EXPORT MemoryManager : public std::enable_shared_from_this<MemoryMan
   /// See also the Buffer::View shorthand.
   static Result<std::shared_ptr<Buffer>> ViewBuffer(
       const std::shared_ptr<Buffer>& source, const std::shared_ptr<MemoryManager>& to);
+
+  static Result<std::shared_ptr<Buffer>> ViewBufferSlice(
+      const std::shared_ptr<Buffer>& source, const std::shared_ptr<MemoryManager>& to,
+      const int64_t offset, const int64_t length);
 
   /// \brief Create a new SyncEvent.
   ///
@@ -287,6 +295,25 @@ class ARROW_EXPORT MemoryManager : public std::enable_shared_from_this<MemoryMan
       const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& from);
   virtual Result<std::shared_ptr<Buffer>> ViewBufferTo(
       const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& to);
+
+  virtual Result<std::shared_ptr<Buffer>> CopyBufferSliceFrom(
+      const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& to,
+      const int64_t offset, const int64_t length);
+  virtual Result<std::shared_ptr<Buffer>> CopyBufferSliceTo(
+      const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& to,
+      const int64_t offset, const int64_t length);
+  virtual Result<std::unique_ptr<Buffer>> CopyNonOwnedSliceFrom(
+      const Buffer& buf, const std::shared_ptr<MemoryManager>& from, const int64_t offset,
+      const int64_t length);
+  virtual Result<std::unique_ptr<Buffer>> CopyNonOwnedSliceTo(
+      const Buffer& buf, const std::shared_ptr<MemoryManager>& to, const int64_t offset,
+      const int64_t length);
+  virtual Result<std::shared_ptr<Buffer>> ViewBufferSliceFrom(
+      const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& to,
+      const int64_t offset, const int64_t length);
+  virtual Result<std::shared_ptr<Buffer>> ViewBufferSliceTo(
+      const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& to,
+      const int64_t offset, const int64_t length);
 
   std::shared_ptr<Device> device_;
 };
@@ -350,6 +377,25 @@ class ARROW_EXPORT CPUMemoryManager : public MemoryManager {
   Result<std::shared_ptr<Buffer>> ViewBufferTo(
       const std::shared_ptr<Buffer>& buf,
       const std::shared_ptr<MemoryManager>& to) override;
+
+  Result<std::shared_ptr<Buffer>> CopyBufferSliceFrom(
+      const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& from,
+      const int64_t offset, const int64_t length) override;
+  Result<std::shared_ptr<Buffer>> CopyBufferSliceTo(
+      const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& to,
+      const int64_t offset, const int64_t length) override;
+  Result<std::unique_ptr<Buffer>> CopyNonOwnedSliceFrom(
+      const Buffer& buf, const std::shared_ptr<MemoryManager>& from, const int64_t offset,
+      const int64_t length) override;
+  Result<std::unique_ptr<Buffer>> CopyNonOwnedSliceTo(
+      const Buffer& buf, const std::shared_ptr<MemoryManager>& to, const int64_t offset,
+      const int64_t length) override;
+  Result<std::shared_ptr<Buffer>> ViewBufferSliceFrom(
+      const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& from,
+      const int64_t offset, const int64_t length) override;
+  Result<std::shared_ptr<Buffer>> ViewBufferSliceTo(
+      const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& to,
+      const int64_t offset, const int64_t length) override;
 
   MemoryPool* pool_;
 

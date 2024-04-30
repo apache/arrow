@@ -1878,11 +1878,11 @@ struct ArrayImporter {
 
     // we only need the value of the last offset so let's just copy that
     // one value from device to host.
-    auto single_value_buf =
-        SliceBuffer(data_->buffers[offsets_buffer_id],
-                    c_struct_->length * sizeof(OffsetType), sizeof(OffsetType));
-    ARROW_ASSIGN_OR_RAISE(
-        auto cpubuf, Buffer::ViewOrCopy(single_value_buf, default_cpu_memory_manager()));
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Buffer> cpubuf,
+                          Buffer::ViewOrCopySlice(data_->buffers[offsets_buffer_id],
+                                                  default_cpu_memory_manager(),
+                                                  c_struct_->length * sizeof(OffsetType),
+                                                  sizeof(OffsetType)));
     auto offsets = cpubuf->data_as<OffsetType>();
     // Compute visible size of buffer
     int64_t buffer_size = (c_struct_->length > 0) ? byte_width * offsets[0] : 0;

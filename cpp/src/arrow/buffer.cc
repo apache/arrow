@@ -148,6 +148,16 @@ Result<std::shared_ptr<Buffer>> Buffer::ViewOrCopy(
   return MemoryManager::CopyBuffer(source, to);
 }
 
+Result<std::shared_ptr<Buffer>> Buffer::ViewOrCopySlice(
+    std::shared_ptr<Buffer> source, const std::shared_ptr<MemoryManager>& to,
+    const int64_t offset, const int64_t length) {
+  auto maybe_buffer = MemoryManager::ViewBufferSlice(source, to, offset, length);
+  if (maybe_buffer.ok()) {
+    return maybe_buffer;
+  }
+  return MemoryManager::CopyBufferSlice(source, to, offset, length);
+}
+
 class StlStringBuffer : public Buffer {
  public:
   explicit StlStringBuffer(std::string data) : input_(std::move(data)) {
