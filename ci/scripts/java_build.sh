@@ -75,7 +75,12 @@ fi
 # Use `2 * ncores` threads
 mvn="${mvn} -T 2C"
 
-pushd ${source_dir}
+mkdir -p ${build_dir}
+rm -rf ${build_dir}/format
+cp -aL ${arrow_dir}/format ${build_dir}/
+rm -rf ${build_dir}/java
+cp -aL ${source_dir} ${build_dir}/
+pushd ${build_dir}/java
 
 if [ "${ARROW_JAVA_SHADE_FLATBUFFERS}" == "ON" ]; then
   mvn="${mvn} -Pshade-flatbuffers"
@@ -95,7 +100,7 @@ if [ "${BUILD_DOCS_JAVA}" == "ON" ]; then
   # HTTP pooling is turned of to avoid download issues https://issues.apache.org/jira/browse/ARROW-11633
   mkdir -p ${build_dir}/docs/java/reference
   ${mvn} -Dcheckstyle.skip=true -Dhttp.keepAlive=false -Dmaven.wagon.http.pool=false clean install site
-  rsync -a ${arrow_dir}/java/target/site/apidocs/ ${build_dir}/docs/java/reference
+  rsync -a target/site/apidocs/ ${build_dir}/docs/java/reference
 fi
 
 popd

@@ -8,8 +8,9 @@ myst-parser[linkify]
 numpydoc
 pydata-sphinx-theme~=0.14
 sphinx-autobuild
-sphinx-design
 sphinx-copybutton
+sphinx-design
 sphinx-lint
+sphinxcontrib-mermaid
 sphinx==6.2
 pandas

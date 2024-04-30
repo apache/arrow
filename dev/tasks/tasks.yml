@@ -1594,8 +1594,8 @@ tasks:
     template: docs/github.linux.yml
     params:
       env:
-        UBUNTU: 22.04
+        JDK: 17
       pr_number: Unset
       flags: "-v $PWD/build/:/build/"
-      image: ubuntu-docs
+      image: debian-docs
       publish: true

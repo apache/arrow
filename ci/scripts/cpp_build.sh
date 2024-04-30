@@ -229,12 +229,17 @@ find . -name "*.o" -delete
 popd
 
 if [ -x "$(command -v ldconfig)" ]; then
-  ldconfig ${ARROW_HOME}/${CMAKE_INSTALL_LIBDIR:-lib}
+  if [ -x "$(command -v sudo)" ]; then
+    SUDO=sudo
+  else
+    SUDO=
+  fi
+  ${SUDO} ldconfig ${ARROW_HOME}/${CMAKE_INSTALL_LIBDIR:-lib}
 fi
 
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
-    echo -e "===\n=== ccache statistics after build\n==="
-    ccache -sv 2>/dev/null || ccache -s
+  echo -e "===\n=== ccache statistics after build\n==="
+  ccache -sv 2>/dev/null || ccache -s
 fi
 
 if command -v sccache &> /dev/null; then
@@ -244,6 +249,6 @@ fi
 
 if [ "${BUILD_DOCS_CPP}" == "ON" ]; then
   pushd ${source_dir}/apidoc
-  doxygen
+  OUTPUT_DIRECTORY=${build_dir}/apidoc doxygen
   popd
 fi
