@@ -51,6 +51,8 @@ TEST(TestStringOps, TestAscii) {
   EXPECT_EQ(ascii_utf8("", 0), 0);
   EXPECT_EQ(ascii_utf8("123", 3), 49);
   EXPECT_EQ(ascii_utf8("999", 3), 57);
+  EXPECT_EQ(ascii_utf8("\x80", 1), -128);
+  EXPECT_EQ(ascii_utf8("\xFF", 1), -1);
 }
 
 TEST(TestStringOps, TestChrBigInt) {
