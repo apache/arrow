@@ -41,6 +41,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  * Benchmarks for {@link WriteChannel}.
  */
 public class WriteChannelBenchmark {
+  // checkstyle:off: MissingJavadocMethod
 
   /**
    * State object for align benchmark.
@@ -84,4 +85,5 @@ public class WriteChannelBenchmark {
 
     new Runner(opt).run();
   }
+  // checkstyle:on: MissingJavadocMethod
 }

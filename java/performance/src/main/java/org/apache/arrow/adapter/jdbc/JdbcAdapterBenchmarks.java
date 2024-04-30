@@ -54,6 +54,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  * Benchmarks for Jdbc adapter.
  */
 public class JdbcAdapterBenchmarks {
+  // checkstyle:off: MissingJavadocMethod
 
   private static final int VALUE_COUNT = 3000;
 
@@ -355,5 +356,6 @@ public class JdbcAdapterBenchmarks {
 
     new Runner(opt).run();
   }
+  // checkstyle:on: MissingJavadocMethod
 }
 

@@ -48,7 +48,7 @@ public class ByteFunctionHelpersBenchmarks {
    */
   @State(Scope.Benchmark)
   public static class ArrowEqualState {
-
+    // checkstyle:off: MissingJavadocMethod
     private static final int BUFFER_CAPACITY = 7;
 
     private BufferAllocator allocator;
@@ -135,4 +135,5 @@ public class ByteFunctionHelpersBenchmarks {
 
     new Runner(opt).run();
   }
+  // checkstyle:on: MissingJavadocMethod
 }

@@ -43,6 +43,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  * Benchmarks for {@link ParallelSearcher}.
  */
 public class ParallelSearcherBenchmarks {
+  // checkstyle:off: MissingJavadocMethod
 
   private static final int VECTOR_LENGTH = 1024 * 1024;
 
@@ -112,4 +113,5 @@ public class ParallelSearcherBenchmarks {
 
     new Runner(opt).run();
   }
+  // checkstyle:on: MissingJavadocMethod
 }

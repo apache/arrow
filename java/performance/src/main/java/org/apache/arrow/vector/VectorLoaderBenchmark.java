@@ -40,6 +40,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  * Benchmarks for {@link VectorLoader}.
  */
 public class VectorLoaderBenchmark {
+  // checkstyle:off: MissingJavadocMethod
 
   private static final int ALLOCATOR_CAPACITY = 1024 * 1024;
 
@@ -114,4 +115,5 @@ public class VectorLoaderBenchmark {
 
     new Runner(opt).run();
   }
+  // checkstyle:on: MissingJavadocMethod
 }
