@@ -1808,8 +1808,49 @@ struct CaseWhenFunctor<Type, enable_if_base_binary<Type>> {
 };
 
 template <typename Type>
-struct CaseWhenFunctor<
-    Type, enable_if_t<is_base_list_type<Type>::value || is_list_view_type<Type>::value>> {
+struct CaseWhenFunctor<Type, enable_if_var_size_list<Type>> {
+  using offset_type = typename Type::offset_type;
+  using BuilderType = typename TypeTraits<Type>::BuilderType;
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    /// TODO(wesm): should this be a DCHECK? Or checked elsewhere
+    if (batch[0].null_count() > 0) {
+      return Status::Invalid("cond struct must not have outer nulls");
+    }
+    if (batch[0].is_scalar()) {
+      return ExecVarWidthScalarCaseWhen(ctx, batch, out);
+    }
+    return ExecArray(ctx, batch, out);
+  }
+
+  static Status ExecArray(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    return ExecVarWidthArrayCaseWhen(
+        ctx, batch, out,
+        // ReserveData
+        [&](ArrayBuilder* raw_builder) {
+          auto builder = checked_cast<BuilderType*>(raw_builder);
+          auto child_builder = builder->value_builder();
+
+          int64_t reservation = 0;
+          for (int arg = 1; arg < batch.num_values(); arg++) {
+            const ExecValue& source = batch[arg];
+            if (!source.is_array()) {
+              const auto& scalar = checked_cast<const BaseListScalar&>(*source.scalar);
+              if (!scalar.value) continue;
+              reservation =
+                  std::max<int64_t>(reservation, batch.length * scalar.value->length());
+            } else {
+              const ArraySpan& array = source.array;
+              reservation = std::max<int64_t>(reservation, array.child_data[0].length);
+            }
+          }
+          return child_builder->Reserve(reservation);
+        });
+  }
+};
+
+// TODO(GH-41453): a more efficient implementation for list-views is possible
+template <typename Type>
+struct CaseWhenFunctor<Type, enable_if_list_view<Type>> {
   using offset_type = typename Type::offset_type;
   using BuilderType = typename TypeTraits<Type>::BuilderType;
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
