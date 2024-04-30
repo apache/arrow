@@ -2048,7 +2048,7 @@ Status ExportStreamNext(const std::shared_ptr<RecordBatchReader>& src, int64_t i
 // overload of this with the version for ChunkedArrays. If we removed the int64_t
 // from the signature despite it being unused, we wouldn't be able to leverage the
 // overloading in the templated exporters.
-Status ExportDeviceStreamNext(const std::shared_ptr<RecordBatchReader>& src, int64_t i,
+Status ExportStreamNext(const std::shared_ptr<RecordBatchReader>& src, int64_t i,
                               struct ArrowDeviceArray* out_array) {
   std::shared_ptr<RecordBatch> batch;
   RETURN_NOT_OK(src->ReadNext(&batch));
@@ -2072,7 +2072,7 @@ Status ExportStreamNext(const std::shared_ptr<ChunkedArray>& src, int64_t i,
   }
 }
 
-Status ExportDeviceStreamNext(const std::shared_ptr<ChunkedArray>& src, int64_t i,
+Status ExportStreamNext(const std::shared_ptr<ChunkedArray>& src, int64_t i,
                               struct ArrowDeviceArray* out_array) {
   if (i >= src->num_chunks()) {
     // End of stream
@@ -2113,11 +2113,7 @@ class ExportedArrayStream {
   }
 
   Status GetNext(ArrayType* out_array) {
-    if constexpr (std::is_same_v<ArrayType, struct ArrowArray>) {
-      return ExportStreamNext(reader(), next_batch_num(), out_array);
-    } else {
-      return ExportDeviceStreamNext(reader(), next_batch_num(), out_array);
-    }
+    return ExportStreamNext(reader(), next_batch_num(), out_array);
   }
 
   const char* GetLastError() {
