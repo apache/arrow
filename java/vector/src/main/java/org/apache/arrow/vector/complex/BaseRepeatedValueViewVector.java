@@ -83,8 +83,7 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
   public boolean allocateNewSafe() {
     boolean dataAlloc = false;
     try {
-      offsetBuffer = allocateOffsetBuffer(offsetAllocationSizeInBytes);
-      sizeBuffer = allocateSizeBuffer(sizeAllocationSizeInBytes);
+      allocateBuffers();
       dataAlloc = vector.allocateNewSafe();
     } catch (Exception e) {
       e.printStackTrace();
@@ -98,7 +97,12 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
     return dataAlloc;
   }
 
-  protected ArrowBuf allocateOffsetBuffer(final long size) {
+  private void allocateBuffers() {
+    offsetBuffer = allocateOffsetBuffer(offsetAllocationSizeInBytes);
+    sizeBuffer = allocateSizeBuffer(sizeAllocationSizeInBytes);
+  }
+
+  private ArrowBuf allocateOffsetBuffer(final long size) {
     final int curSize = (int) size;
     ArrowBuf offsetBuffer = allocator.buffer(curSize);
     offsetBuffer.readerIndex(0);
@@ -107,7 +111,7 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
     return offsetBuffer;
   }
 
-  protected ArrowBuf allocateSizeBuffer(final long size) {
+  private ArrowBuf allocateSizeBuffer(final long size) {
     final int curSize = (int) size;
     ArrowBuf sizeBuffer = allocator.buffer(curSize);
     sizeBuffer.readerIndex(0);
