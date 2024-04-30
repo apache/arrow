@@ -2049,7 +2049,7 @@ Status ExportStreamNext(const std::shared_ptr<RecordBatchReader>& src, int64_t i
 // from the signature despite it being unused, we wouldn't be able to leverage the
 // overloading in the templated exporters.
 Status ExportStreamNext(const std::shared_ptr<RecordBatchReader>& src, int64_t i,
-                              struct ArrowDeviceArray* out_array) {
+                        struct ArrowDeviceArray* out_array) {
   std::shared_ptr<RecordBatch> batch;
   RETURN_NOT_OK(src->ReadNext(&batch));
   if (batch == nullptr) {
@@ -2073,7 +2073,7 @@ Status ExportStreamNext(const std::shared_ptr<ChunkedArray>& src, int64_t i,
 }
 
 Status ExportStreamNext(const std::shared_ptr<ChunkedArray>& src, int64_t i,
-                              struct ArrowDeviceArray* out_array) {
+                        struct ArrowDeviceArray* out_array) {
   if (i >= src->num_chunks()) {
     // End of stream
     ArrowArrayMarkReleased(&out_array->array);
