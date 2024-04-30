@@ -421,6 +421,7 @@ cdef class FileSystem(_Weakrefable):
                         "SubTreeFileSystem")
 
     @staticmethod
+    @binding(True)  # Required for cython < 3
     def _from_uri(uri):
         fs, _path = FileSystem.from_uri(uri)
         return fs
