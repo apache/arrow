@@ -260,7 +260,7 @@ JSON
 
 * The storage type of this extension is ``StringArray`` or
   or ``LargeStringArray`` or ``StringViewArray``.
-  Only UTF-8 encoded JSON is supported.
+  Only UTF-8 encoded JSON as specified in `rfc8259`_ is supported.
 
 * Extension type parameters:
 
@@ -289,3 +289,5 @@ GeoArrow
 Arrow extension types for representing vector geometries. It is well known
 within the Arrow geospatial subcommunity. The GeoArrow specification is not yet
 finalized.
+
+.. _rfc8259: https://datatracker.ietf.org/doc/html/rfc8259
