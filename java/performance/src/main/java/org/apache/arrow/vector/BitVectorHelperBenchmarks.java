@@ -41,6 +41,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  * Benchmarks for {@link BitVectorHelper}.
  */
 public class BitVectorHelperBenchmarks {
+  // checkstyle:off: MissingJavadocMethod
 
   /**
    * State object for general benchmarks.
@@ -226,4 +227,5 @@ public class BitVectorHelperBenchmarks {
 
     new Runner(opt).run();
   }
+  // checkstyle:on: MissingJavadocMethod
 }

@@ -21,10 +21,10 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
+import org.apache.arrow.vector.complex.impl.IntWriterImpl;
+import org.apache.arrow.vector.holders.NullableIntHolder;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
-import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Scope;
@@ -37,81 +37,76 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 /**
- * Benchmarks for {@link VectorLoader}.
+ * Benchmarks for {@link IntVector}.
  */
-public class VectorLoaderBenchmark {
+@State(Scope.Benchmark)
+public class IntBenchmarks {
+  // checkstyle:off: MissingJavadocMethod
+
+  private static final int VECTOR_LENGTH = 1024;
 
   private static final int ALLOCATOR_CAPACITY = 1024 * 1024;
 
-  private static final int VECTOR_COUNT = 10;
+  private BufferAllocator allocator;
 
-  /**
-   * State for vector load benchmark.
-   */
-  @State(Scope.Benchmark)
-  public static class LoadState {
+  private IntVector vector;
 
-    private BufferAllocator allocator;
+  @Setup
+  public void prepare() {
+    allocator = new RootAllocator(ALLOCATOR_CAPACITY);
+    vector = new IntVector("vector", allocator);
+    vector.allocateNew(VECTOR_LENGTH);
+    vector.setValueCount(VECTOR_LENGTH);
+  }
 
-    private VarCharVector[] vectors;
+  @TearDown
+  public void tearDown() {
+    vector.close();
+    allocator.close();
+  }
 
-    private ArrowRecordBatch recordBatch;
-
-    private VectorSchemaRoot root;
-
-    private VectorLoader loader;
-
-    /**
-     * Setup benchmarks.
-     */
-    @Setup(Level.Trial)
-    public void prepare() {
-      allocator = new RootAllocator(ALLOCATOR_CAPACITY);
-    }
-
-    @Setup(Level.Invocation)
-    public void prepareInvoke() {
-      vectors = new VarCharVector[VECTOR_COUNT];
-      for (int i = 0; i < VECTOR_COUNT; i++) {
-        vectors[i] = new VarCharVector("vector", allocator);
-        vectors[i].allocateNew(100, 10);
+  @Benchmark
+  @BenchmarkMode(Mode.AverageTime)
+  @OutputTimeUnit(TimeUnit.MICROSECONDS)
+  public void setWithValueHolder() {
+    for (int i = 0; i < VECTOR_LENGTH; i++) {
+      NullableIntHolder holder = new NullableIntHolder();
+      holder.isSet = i % 3 == 0 ? 0 : 1;
+      if (holder.isSet == 1) {
+        holder.value = i;
       }
-
-      root = VectorSchemaRoot.of(vectors);
-      VectorUnloader unloader = new VectorUnloader(root);
-      recordBatch = unloader.getRecordBatch();
-
-      loader = new VectorLoader(root);
-    }
-
-    @TearDown(Level.Invocation)
-    public void tearDownInvoke() {
-      recordBatch.close();
-      root.close();
-    }
-
-    /**
-     * Tear down benchmarks.
-     */
-    @TearDown(Level.Trial)
-    public void tearDown() {
-      allocator.close();
+      vector.setSafe(i, holder);
     }
   }
 
   @Benchmark
   @BenchmarkMode(Mode.AverageTime)
   @OutputTimeUnit(TimeUnit.MICROSECONDS)
-  public void loadBenchmark(LoadState state) {
-    state.loader.load(state.recordBatch);
+  public void setIntDirectly() {
+    for (int i = 0; i < VECTOR_LENGTH; i++) {
+      vector.setSafe(i, i % 3 == 0 ? 0 : 1, i);
+    }
   }
 
-  public static void main(String[] args) throws RunnerException {
+  @Benchmark
+  @BenchmarkMode(Mode.AverageTime)
+  @OutputTimeUnit(TimeUnit.MICROSECONDS)
+  public void setWithWriter() {
+    IntWriterImpl writer = new IntWriterImpl(vector);
+    for (int i = 0; i < VECTOR_LENGTH; i++) {
+      if (i % 3 != 0) {
+        writer.writeInt(i);
+      }
+    }
+  }
+
+  public static void main(String [] args) throws RunnerException {
     Options opt = new OptionsBuilder()
-            .include(VectorLoaderBenchmark.class.getSimpleName())
+            .include(IntBenchmarks.class.getSimpleName())
             .forks(1)
             .build();
 
     new Runner(opt).run();
   }
+  // checkstyle:on: MissingJavadocMethod
 }

@@ -15,16 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.vector;
+package org.apache.arrow.vector.ipc;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.channels.Channels;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
+import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
+import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
@@ -35,68 +38,52 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 /**
- * Benchmarks for {@link VarCharVector}.
+ * Benchmarks for {@link WriteChannel}.
  */
-@State(Scope.Benchmark)
-public class VarCharBenchmarks {
-
-  private static final int VECTOR_LENGTH = 1024;
-
-  private static final int ALLOCATOR_CAPACITY = 1024 * 1024;
-
-  private BufferAllocator allocator;
-
-  private VarCharVector vector;
-
-  private VarCharVector fromVector;
+public class WriteChannelBenchmark {
+  // checkstyle:off: MissingJavadocMethod
 
   /**
-   * Setup benchmarks.
+   * State object for align benchmark.
    */
-  @Setup
-  public void prepare() {
-    allocator = new RootAllocator(ALLOCATOR_CAPACITY);
-    vector = new VarCharVector("vector", allocator);
-    vector.allocateNew(ALLOCATOR_CAPACITY / 4, VECTOR_LENGTH);
+  @State(Scope.Benchmark)
+  public static class AlignState {
 
-    fromVector = new VarCharVector("vector", allocator);
-    fromVector.allocateNew(ALLOCATOR_CAPACITY / 4, VECTOR_LENGTH);
+    private ByteArrayOutputStream baos;
 
-    for (int i = 0; i < VECTOR_LENGTH; i++) {
-      if (i % 3 == 0) {
-        fromVector.setNull(i);
-      } else {
-        fromVector.set(i, String.valueOf(i * 1000).getBytes());
-      }
+    private WriteChannel writeChannel;
+
+    @Param({"1", "2", "3", "4", "5", "6", "7"})
+    public int alignSize;
+
+    @Setup(Level.Invocation)
+    public void prepareInvoke() throws IOException {
+      baos = new ByteArrayOutputStream(8);
+      writeChannel = new WriteChannel(Channels.newChannel(baos));
+      writeChannel.write(new byte[8 - alignSize]);
     }
-    fromVector.setValueCount(VECTOR_LENGTH);
-  }
 
-  /**
-   * Tear down benchmarks.
-   */
-  @TearDown
-  public void tearDown() {
-    vector.close();
-    fromVector.close();
-    allocator.close();
+    @TearDown(Level.Invocation)
+    public void tearDownInvoke() throws IOException {
+      writeChannel.close();
+      baos.close();
+    }
   }
 
   @Benchmark
   @BenchmarkMode(Mode.AverageTime)
-  @OutputTimeUnit(TimeUnit.MICROSECONDS)
-  public void copyFromBenchmark() {
-    for (int i = 0; i < VECTOR_LENGTH; i++) {
-      vector.copyFrom(i, i, fromVector);
-    }
+  @OutputTimeUnit(TimeUnit.NANOSECONDS)
+  public void alignBenchmark(AlignState state) throws IOException {
+    state.writeChannel.align();
   }
 
-  public static void main(String [] args) throws RunnerException {
+  public static void main(String[] args) throws RunnerException {
     Options opt = new OptionsBuilder()
-            .include(VarCharBenchmarks.class.getSimpleName())
-            .forks(1)
-            .build();
+        .include(WriteChannelBenchmark.class.getSimpleName())
+        .forks(1)
+        .build();
 
     new Runner(opt).run();
   }
+  // checkstyle:on: MissingJavadocMethod
 }

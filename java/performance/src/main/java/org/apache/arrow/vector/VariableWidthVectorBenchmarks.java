@@ -41,6 +41,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  */
 @State(Scope.Benchmark)
 public class VariableWidthVectorBenchmarks {
+  // checkstyle:off: MissingJavadocMethod
 
   private static final int VECTOR_CAPACITY = 16 * 1024;
 
@@ -127,4 +128,5 @@ public class VariableWidthVectorBenchmarks {
 
     new Runner(opt).run();
   }
+  // checkstyle:on: MissingJavadocMethod
 }
