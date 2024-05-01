@@ -547,8 +547,8 @@ class NullArrayFactory {
     return Status::OK();
   }
 
-  Status Visit(const StructType& type) {
-    for (int i = 0; i < type_->num_fields(); ++i) {
+  Status Visit(const StructType& type) {    
+    for (int i = 0; i < type.num_fields(); ++i) {
       ARROW_ASSIGN_OR_RAISE(out_->child_data[i], CreateChild(type, i, length_));
     }
     return Status::OK();
