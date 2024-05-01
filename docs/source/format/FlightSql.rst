@@ -242,17 +242,21 @@ Close and invalidate the current session context.
 Sequence Diagrams
 =================
 
+Listing available tables:
+
 .. mermaid:: ./FlightSql/CommandGetTables.mmd
-  :caption: Listing available tables.
+
+Executing an ad-hoc query:
 
 .. mermaid:: ./FlightSql/CommandStatementQuery.mmd
-  :caption: Executing an ad-hoc query.
+
+Creating a prepared statement, then executing it:
 
 .. mermaid:: ./FlightSql/CommandPreparedStatementQuery.mmd
-  :caption: Creating a prepared statement, then executing it.
+
+Executing a bulk ingestion:
 
 .. mermaid:: ./FlightSql/CommandStatementIngest.mmd
-  :caption: Executing a bulk ingestion.
 
 External Resources
 ==================
