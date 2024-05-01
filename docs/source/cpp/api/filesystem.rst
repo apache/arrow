@@ -97,3 +97,12 @@ Google Cloud Storage filesystem
 
 .. doxygenclass:: arrow::fs::GcsFileSystem
    :members:
+
+Azure filesystem
+----------------
+
+.. doxygenstruct:: arrow::fs::AzureOptions
+   :members:
+
+.. doxygenclass:: arrow::fs::AzureFileSystem
+   :members:
