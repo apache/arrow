@@ -278,9 +278,9 @@ class ARROW_EXPORT RecordBatch {
   /// data the returned sync event will allow for it.
   ///
   /// \return null or a Device::SyncEvent
-  virtual const std::shared_ptr<Device::SyncEvent>& GetSyncEvent() const;
+  virtual const std::shared_ptr<Device::SyncEvent>& GetSyncEvent() const = 0;
 
-  virtual DeviceAllocationType device_type() const;
+  virtual DeviceAllocationType device_type() const = 0;
 
  protected:
   RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows);
@@ -290,8 +290,6 @@ class ARROW_EXPORT RecordBatch {
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(RecordBatch);
-
-  static const std::shared_ptr<Device::SyncEvent> null_sync_event_;
 };
 
 struct ARROW_EXPORT RecordBatchWithMetadata {

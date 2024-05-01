@@ -358,6 +358,14 @@ struct ARROW_EXPORT ArrayData {
   /// \see GetNullCount
   int64_t ComputeLogicalNullCount() const;
 
+  /// \brief Returns the device_type of the underlying buffers and children
+  ///
+  /// If there are no buffers in this ArrayData object, it just returns
+  /// DeviceAllocationType::kCPU as a default. We also assume that all buffers
+  /// should be allocated on the same device type and perform DCHECKs to confirm
+  /// this in debug mode.
+  ///
+  /// \return DeviceAllocationType
   DeviceAllocationType device_type() const;
 
   std::shared_ptr<DataType> type;

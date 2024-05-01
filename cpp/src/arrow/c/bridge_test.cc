@@ -5208,7 +5208,8 @@ TEST_F(TestArrayDeviceStreamRoundtrip, Errors) {
       Status::Invalid("roundtrip error example"));
 
   Roundtrip(std::move(reader), [&](const std::shared_ptr<RecordBatchReader>& reader) {
-    EXPECT_THAT(reader->Next(), Raises(StatusCode::Invalid, ::testing::HasSubstr("roundtrip error example")));
+    EXPECT_THAT(reader->Next(), Raises(StatusCode::Invalid,
+                                       ::testing::HasSubstr("roundtrip error example")));
   });
 }
 
@@ -5218,13 +5219,9 @@ TEST_F(TestArrayDeviceStreamRoundtrip, SchemaError) {
     return "Expected error";
   };
   stream.get_schema = [](struct ArrowDeviceArrayStream* stream,
-                         struct ArrowSchema* schema) {
-    return EIO;
-  };
+                         struct ArrowSchema* schema) { return EIO; };
   stream.get_next = [](struct ArrowDeviceArrayStream* stream,
-                       struct ArrowDeviceArray* array) {
-    return EINVAL;
-  };
+                       struct ArrowDeviceArray* array) { return EINVAL; };
   stream.release = [](struct ArrowDeviceArrayStream* stream) {
     *static_cast<bool*>(stream->private_data) = true;
     std::memset(stream, 0, sizeof(*stream));
@@ -5234,7 +5231,7 @@ TEST_F(TestArrayDeviceStreamRoundtrip, SchemaError) {
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(IOError, ::testing::HasSubstr("Expected error"),
                                   ImportDeviceRecordBatchReader(&stream));
-  ASSERT_TRUE(state.released);
+  ASSERT_TRUE(released);
 }
 
 TEST_F(TestArrayDeviceStreamRoundtrip, ChunkedArrayRoundtrip) {
