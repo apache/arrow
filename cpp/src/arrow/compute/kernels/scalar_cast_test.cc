@@ -2196,6 +2196,33 @@ TEST(Cast, BinaryOrStringToFixedSizeBinary) {
   }
 }
 
+TEST(Cast, FixedSizeBinaryToBinaryOrString) {
+  for (auto out_type : {utf8(), large_utf8(), binary(), large_binary()}) {
+    auto valid_input = ArrayFromJSON(fixed_size_binary(3), R"(["foo", null, "bar",
+          "baz", "quu"])");
+
+    CheckCast(valid_input, ArrayFromJSON(out_type, R"(["foo", null, "bar", "baz",
+          "quu"])"));
+
+    auto empty_input = ArrayFromJSON(fixed_size_binary(3), "[]");
+    CheckCast(empty_input, ArrayFromJSON(out_type, "[]"));
+  }
+}
+
+TEST(Cast, FixedSizeBinaryToBinaryOrStringWithSlice) {
+  for (auto out_type : {utf8(), large_utf8(), binary(), large_binary()}) {
+    auto valid_input = ArrayFromJSON(fixed_size_binary(3), R"(["foo", null, "bar",
+                "baz", "quu"])");
+    auto sliced = valid_input->Slice(1, 3);
+    CheckCast(sliced, ArrayFromJSON(out_type, R"([null, "bar", "baz"])"));
+
+    auto valid_input_without_null = ArrayFromJSON(fixed_size_binary(3), R"(["foo", "bar",
+                "baz", "quu"])");
+    auto sliced_without_null = valid_input_without_null->Slice(1, 3);
+    CheckCast(sliced_without_null, ArrayFromJSON(out_type, R"(["bar", "baz", "quu"])"));
+  }
+}
+
 TEST(Cast, IntToString) {
   for (auto string_type : {utf8(), large_utf8()}) {
     CheckCast(ArrayFromJSON(int8(), "[0, 1, 127, -128, null]"),
