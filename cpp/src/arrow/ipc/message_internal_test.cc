@@ -27,10 +27,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/key_value_metadata.h"
 
-namespace arrow {
-
-namespace ipc {
-namespace internal {
+namespace arrow::ipc::internal {
 
 using FBB = flatbuffers::FlatBufferBuilder;
 
@@ -82,6 +79,4 @@ TEST(TestMessageInternal, TestByteIdentical) {
 
   ASSERT_TRUE(expectedBuffer.Equals(*outBuffer));
 }
-}  // namespace internal
-}  // namespace ipc
-}  // namespace arrow
+}  // namespace arrow::ipc::internal
