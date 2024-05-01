@@ -69,6 +69,7 @@ Downloading Data
 A client that wishes to download the data would:
 
 .. mermaid:: ./Flight/DoGet.mmd
+   :caption: Retrieving data via ``DoGet``.
 
 #. Construct or acquire a ``FlightDescriptor`` for the data set they
    are interested in.
@@ -167,6 +168,7 @@ completes, so the client is blocked. In this situation, the client
 can use ``PollFlightInfo`` instead of ``GetFlightInfo``:
 
 .. mermaid:: ./Flight/PollFlightInfo.mmd
+   :caption: Polling a long-running query by ``PollFlightInfo``.
 
 #. Construct or acquire a ``FlightDescriptor``, as before.
 #. Call ``PollFlightInfo(FlightDescriptor)`` to get a ``PollInfo``
@@ -226,6 +228,7 @@ Uploading Data
 To upload data, a client would:
 
 .. mermaid:: ./Flight/DoPut.mmd
+   :caption: Uploading data via ``DoPut``.
 
 #. Construct or acquire a ``FlightDescriptor``, as before.
 #. Call ``DoPut(FlightData)`` and upload a stream of Arrow record
@@ -252,6 +255,7 @@ require being stateful if implemented using ``DoGet`` and
 single call. A client would:
 
 .. mermaid:: ./Flight/DoExchange.mmd
+   :caption: Complex data flow with ``DoExchange``.
 
 #. Construct or acquire a ``FlightDescriptor``, as before.
 #. Call ``DoExchange(FlightData)``.
