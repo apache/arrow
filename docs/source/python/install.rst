@@ -139,3 +139,20 @@ useful when deciding to use one package over another:
 | Gandiva    | libarrow-gandiva    |              |         | ✓           |
 +------------+---------------------+--------------+---------+-------------+
 
+Creating Custom Selections
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If you know which components you need and want to control what's installed, you
+can create a custom selection of packages to include just the extra features you
+need. For example, to install ``pyarrow-core`` and just support for reading and
+writing Parquet, install ``libparquet`` alongside ``pyarrow-core``:
+
+.. code-block:: shell
+
+    conda install pyarrow-core libparquet
+
+Or if you wish to use ``pyarrow`` but need support for Flight RPC:
+
+.. code-block:: shell
+
+    conda install pyarrow libarrow-flight
