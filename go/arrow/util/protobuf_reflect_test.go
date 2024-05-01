@@ -17,6 +17,8 @@
 package util
 
 import (
+	"fmt"
+	"github.com/apache/arrow/go/v16/arrow"
 	"github.com/apache/arrow/go/v16/arrow/array"
 	"github.com/apache/arrow/go/v16/arrow/memory"
 	"github.com/apache/arrow/go/v16/arrow/util/util_message"
@@ -91,6 +93,33 @@ func TestGetSchema(t *testing.T) {
 
 	require.Equal(t, want, got)
 
+	got = NewProtobufStructReflection(&msg, WithOneOfHandler(DenseUnion)).GetSchema().String()
+	want = `schema:
+  fields: 21
+    - string: type=utf8, nullable
+    - int32: type=int32, nullable
+    - int64: type=int64, nullable
+    - sint32: type=int32, nullable
+    - sin64: type=int64, nullable
+    - uint32: type=uint32, nullable
+    - uint64: type=uint64, nullable
+    - fixed32: type=uint32, nullable
+    - fixed64: type=uint64, nullable
+    - sfixed32: type=int32, nullable
+    - bool: type=bool, nullable
+    - bytes: type=binary, nullable
+    - double: type=float64, nullable
+    - enum: type=dictionary<values=utf8, indices=int32, ordered=false>, nullable
+    - message: type=struct<field1: utf8>, nullable
+    - oneof: type=dense_union<oneofstring: type=utf8, nullable=0, oneofmessage: type=struct<field1: utf8>, nullable=1>, nullable
+    - any: type=struct<field1: utf8>, nullable
+    - simple_map: type=map<int32, utf8, items_nullable>, nullable
+    - complex_map: type=map<utf8, struct<field1: utf8>, items_nullable>, nullable
+    - simple_list: type=list<item: utf8, nullable>, nullable
+    - complex_list: type=list<item: struct<field1: utf8>, nullable>, nullable`
+
+	require.Equal(t, want, got)
+
 	excludeComplex := func(pfr protobufFieldReflection) bool {
 		return pfr.isMap() || pfr.isList() || pfr.isStruct()
 	}
@@ -140,6 +169,100 @@ func TestGetSchema(t *testing.T) {
     - Oneofstring: type=utf8, nullable`
 
 	require.Equal(t, want, got)
+}
+
+var (
+	F32 arrow.UnionTypeCode = 7
+	I32 arrow.UnionTypeCode = 13
+)
+
+func TestDenseUnion(t *testing.T) {
+	dut := arrow.DenseUnionOf(
+		[]arrow.Field{
+			{Name: "f32", Type: arrow.PrimitiveTypes.Float32, Nullable: true},
+			{Name: "i32", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+		},
+		[]arrow.UnionTypeCode{F32, I32},
+	)
+
+	childFloat32Bldr := array.NewFloat32Builder(memory.DefaultAllocator)
+	childInt32Bldr := array.NewInt32Builder(memory.DefaultAllocator)
+	ub := array.NewDenseUnionBuilder(memory.DefaultAllocator, dut)
+	ub.Append(F32)
+	ub.Child(0).(*array.Float32Builder).Append(6.9)
+
+	defer ub.Release()
+	defer childFloat32Bldr.Release()
+	defer childInt32Bldr.Release()
+
+	arr := ub.NewDenseUnionArray()
+	defer arr.Release()
+
+	var arrays []arrow.Array
+
+	arrays = append(arrays, arr)
+
+	structArray, _ := array.NewStructArray(arrays, []string{"dense_union_example"})
+
+	schema := arrow.NewSchema([]arrow.Field{{
+		Name:     "dense_union_example",
+		Type:     dut,
+		Nullable: true,
+	}}, nil)
+
+	record := array.RecordFromStructArray(structArray, schema)
+
+	fmt.Println(record)
+
+	jb, _ := record.MarshalJSON()
+
+	fmt.Println(string(jb))
+}
+
+func TestRecordFromProtobuf2(t *testing.T) {
+	msg := SetupTest()
+
+	sm := NewSuperMessage(&msg, WithOneOfHandler(DenseUnion))
+
+	fmt.Printf("%+v\n", sm)
+
+	schema := sm.Schema()
+
+	fmt.Println(schema)
+
+	got := sm.Record(nil)
+
+	fmt.Printf("%+v\n", got)
+
+	jsonStr := `[
+		{
+			"string":"Hello",
+			"int32":10,
+			"int64":100,
+			"sint32":-10,
+			"sin64":-100,
+			"uint32":10,
+			"uint64":100,
+			"fixed32":10,
+			"fixed64":1000,
+			"sfixed32":10,
+			"bool":false,
+			"bytes":"SGVsbG8sIHdvcmxkIQ==",
+			"double":1.1,
+			"enum":"OPTION_0",
+			"message":{"field1":"Example"},
+			"oneof": [0, "World"],
+			"any":{"field1":"Example"},
+			"simple_map":[{"key":99,"value":"Hello"},{"key":100,"value":"World"}],
+			"complex_map":[{"key":"complex","value":{"field1":"Example"}}],
+			"simple_list":["Hello","World"],
+			"complex_list":[{"field1":"Example"}]
+		}
+	]`
+	want, _, err := array.RecordFromJSON(memory.NewGoAllocator(), schema, strings.NewReader(jsonStr))
+
+	require.NoError(t, err)
+	require.True(t, array.RecordEqual(got, want))
 }
 
 func TestRecordFromProtobuf(t *testing.T) {
