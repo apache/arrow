@@ -261,6 +261,7 @@ lint_checks = [
               "Check all sources files for license texts via Apache RAT."),
     LintCheck('r', "Lint R files."),
     LintCheck('docker', "Lint Dockerfiles with hadolint."),
+    LintCheck('docs', "Lint docs with sphinx-lint."),
 ]
 
 
@@ -285,9 +286,10 @@ def decorate_lint_command(cmd):
               help="Run IWYU on all C++ files if enabled")
 @click.option("-a", "--all", is_flag=True, default=False,
               help="Enable all checks.")
+@click.argument("path", required=False)
 @decorate_lint_command
 @click.pass_context
-def lint(ctx, src, fix, iwyu_all, **checks):
+def lint(ctx, src, fix, iwyu_all, path, **checks):
     if checks.pop('all'):
         # "--all" is given => enable all non-selected checks
         for k, v in checks.items():
@@ -297,7 +299,7 @@ def lint(ctx, src, fix, iwyu_all, **checks):
         raise click.UsageError(
             "Need to enable at least one lint check (try --help)")
     try:
-        linter(src, fix, iwyu_all=iwyu_all, **checks)
+        linter(src, fix, iwyu_all=iwyu_all, path=path, **checks)
     except LintValidationException:
         sys.exit(1)
 

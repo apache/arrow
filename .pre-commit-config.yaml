@@ -132,3 +132,9 @@ repos:
           ?^cpp/cmake_modules/UseCython\.cmake$|
           ?^cpp/src/arrow/util/config\.h\.cmake$|
           )
+  - repo: https://github.com/sphinx-contrib/sphinx-lint
+    rev: v0.9.1
+    hooks:
+      - id: sphinx-lint
+        files: ^docs/
+        args: ['--disable', 'all', '--enable', 'trailing-whitespace,missing-final-newline', 'docs']
