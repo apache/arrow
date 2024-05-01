@@ -2255,7 +2255,7 @@ class ArrayStreamReader {
   Status ReadNextArrayInternal(ArrayType* array) {
     ArrayTraits::MarkReleased(array);
     Status status = StatusFromCError(stream_.get_next(&stream_, array));
-    if (!status.ok() && !ArrayTraits::IsReleasedFunc(array)) {
+    if (!status.ok()) {
       ArrayTraits::ReleaseFunc(array);
     }
 
