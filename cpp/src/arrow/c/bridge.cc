@@ -2336,7 +2336,7 @@ class ArrayStreamReader {
   }
 
   DeviceAllocationType get_device_type() const {
-    if constexpr (std::is_same_v<ArrayType, struct ArrowDeviceArray>) {
+    if constexpr (IsDevice) {
       return static_cast<DeviceAllocationType>(stream_.device_type);
     } else {
       return DeviceAllocationType::kCPU;
