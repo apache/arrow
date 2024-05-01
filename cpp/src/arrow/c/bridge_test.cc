@@ -5208,9 +5208,7 @@ TEST_F(TestArrayDeviceStreamRoundtrip, Errors) {
       Status::Invalid("roundtrip error example"));
 
   Roundtrip(std::move(reader), [&](const std::shared_ptr<RecordBatchReader>& reader) {
-    auto status = reader->Next().status();
-    ASSERT_RAISES(Invalid, status);
-    ASSERT_THAT(status.message(), ::testing::HasSubstr("roundtrip error example"));
+    EXPECT_THAT(reader->Next(), Raises(StatusCode::Invalid, ::testing::HasSubstr("roundtrip error example")));
   });
 }
 
