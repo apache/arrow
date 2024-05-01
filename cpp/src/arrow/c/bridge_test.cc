@@ -5213,34 +5213,24 @@ TEST_F(TestArrayDeviceStreamRoundtrip, Errors) {
 }
 
 TEST_F(TestArrayDeviceStreamRoundtrip, SchemaError) {
-  struct StreamState {
-    bool released = false;
-
-    static const char* GetLastError(struct ArrowDeviceArrayStream* stream) {
-      return "Expected error";
-    }
-
-    static int GetSchema(struct ArrowDeviceArrayStream* stream,
-                         struct ArrowSchema* schema) {
-      return EIO;
-    }
-
-    static int GetNext(struct ArrowDeviceArrayStream* stream,
-                       struct ArrowDeviceArray* array) {
-      return EINVAL;
-    }
-
-    static void Release(struct ArrowDeviceArrayStream* stream) {
-      reinterpret_cast<StreamState*>(stream->private_data)->released = true;
-      std::memset(stream, 0, sizeof(*stream));
-    }
-  } state;
   struct ArrowDeviceArrayStream stream = {};
-  stream.get_last_error = &StreamState::GetLastError;
-  stream.get_schema = &StreamState::GetSchema;
-  stream.get_next = &StreamState::GetNext;
-  stream.release = &StreamState::Release;
-  stream.private_data = &state;
+  stream.get_last_error = [](struct ArrowDeviceArrayStream* stream) {
+    return "Expected error";
+  };
+  stream.get_schema = [](struct ArrowDeviceArrayStream* stream,
+                         struct ArrowSchema* schema) {
+    return EIO;
+  };
+  stream.get_next = [](struct ArrowDeviceArrayStream* stream,
+                       struct ArrowDeviceArray* array) {
+    return EINVAL;
+  };
+  stream.release = [](struct ArrowDeviceArrayStream* stream) {
+    *static_cast<bool*>(stream->private_data) = true;
+    std::memset(stream, 0, sizeof(*stream));
+  };
+  bool released = false;
+  stream.private_data = &released;
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(IOError, ::testing::HasSubstr("Expected error"),
                                   ImportDeviceRecordBatchReader(&stream));
