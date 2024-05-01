@@ -29,8 +29,6 @@
 
 namespace arrow {
 
-namespace flatbuf = org::apache::arrow::flatbuf;
-
 namespace ipc {
 namespace internal {
 
@@ -45,7 +43,7 @@ using FBB = flatbuffers::FlatBufferBuilder;
 // serialization.
 TEST(TestMessageInternal, TestByteIdentical) {
   FBB fbb;
-  flatbuffers::Offset<flatbuf::Schema> fb_schema;
+  flatbuffers::Offset<org::apache::arrow::flatbuf:Schema> fb_schema;
   DictionaryFieldMapper mapper;
 
   // Create a simple Schema with just one metadata KVP
