@@ -10,5 +10,6 @@ pydata-sphinx-theme~=0.14
 sphinx-autobuild
 sphinx-design
 sphinx-copybutton
+sphinx-lint
 sphinx==6.2
 pandas

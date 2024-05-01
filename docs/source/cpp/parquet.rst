@@ -51,8 +51,8 @@ FileReader
 ----------
 
 To read Parquet data into Arrow structures, use :class:`arrow::FileReader`.
-To construct, it requires a :class:`::arrow::io::RandomAccessFile` instance 
-representing the input file. To read the whole file at once, 
+To construct, it requires a :class:`::arrow::io::RandomAccessFile` instance
+representing the input file. To read the whole file at once,
 use :func:`arrow::FileReader::ReadTable`:
 
 .. literalinclude:: ../../../cpp/examples/arrow/parquet_read_write.cc
@@ -67,7 +67,7 @@ Finer-grained options are available through the
 and :class:`ArrowReaderProperties` classes.
 
 For reading as a stream of batches, use the :func:`arrow::FileReader::GetRecordBatchReader`
-method to retrieve a :class:`arrow::RecordBatchReader`. It will use the batch 
+method to retrieve a :class:`arrow::RecordBatchReader`. It will use the batch
 size set in :class:`ArrowReaderProperties`.
 
 .. literalinclude:: ../../../cpp/examples/arrow/parquet_read_write.cc
@@ -106,8 +106,8 @@ If memory efficiency is more important than performance, then:
 #. Turn on ``enable_buffered_stream`` in :class:`parquet::ReaderProperties`.
 
 In addition, if you know certain columns contain many repeated values, you can
-read them as :term:`dictionary encoded<dictionary-encoding>` columns. This is 
-enabled with the ``set_read_dictionary`` setting on :class:`ArrowReaderProperties`. 
+read them as :term:`dictionary encoded<dictionary-encoding>` columns. This is
+enabled with the ``set_read_dictionary`` setting on :class:`ArrowReaderProperties`.
 If the files were written with Arrow C++ and the ``store_schema`` was activated,
 then the original Arrow schema will be automatically read and will override this
 setting.
@@ -174,7 +174,7 @@ The :func:`arrow::WriteTable` function writes an entire
 
 .. note::
 
-   Column compression is off by default in C++. See :ref:`below <parquet-writer-properties>` 
+   Column compression is off by default in C++. See :ref:`below <parquet-writer-properties>`
    for how to choose a compression codec in the writer properties.
 
 To write out data batch-by-batch, use :class:`arrow::FileWriter`.
@@ -191,9 +191,9 @@ StreamWriter
 
 The :class:`StreamWriter` allows for Parquet files to be written using
 standard C++ output operators, similar to reading with the :class:`StreamReader`
-class. This type-safe approach also ensures that rows are written without 
-omitting fields and allows for new row groups to be created automatically 
-(after certain volume of data) or explicitly by using the :type:`EndRowGroup` 
+class. This type-safe approach also ensures that rows are written without
+omitting fields and allows for new row groups to be created automatically
+(after certain volume of data) or explicitly by using the :type:`EndRowGroup`
 stream modifier.
 
 Exceptions are used to signal errors.  A :class:`ParquetException` is
@@ -266,20 +266,20 @@ group that takes precedent over the ``chunk_size`` passed in the write methods.
 You can set the version of Parquet to write with ``version``, which determines
 which logical types are available. In addition, you can set the data page version
 with ``data_page_version``. It's V1 by default; setting to V2 will allow more
-optimal compression (skipping compressing pages where there isn't a space 
+optimal compression (skipping compressing pages where there isn't a space
 benefit), but not all readers support this data page version.
 
-Compression is off by default, but to get the most out of Parquet, you should 
-also choose a compression codec. You can choose one for the whole file or 
+Compression is off by default, but to get the most out of Parquet, you should
+also choose a compression codec. You can choose one for the whole file or
 choose one for individual columns. If you choose a mix, the file-level option
-will apply to columns that don't have a specific compression codec. See 
+will apply to columns that don't have a specific compression codec. See
 :class:`::arrow::Compression` for options.
 
-Column data encodings can likewise be applied at the file-level or at the 
-column level. By default, the writer will attempt to dictionary encode all 
+Column data encodings can likewise be applied at the file-level or at the
+column level. By default, the writer will attempt to dictionary encode all
 supported columns, unless the dictionary grows too large. This behavior can
 be changed at file-level or at the column level with ``disable_dictionary()``.
-When not using dictionary encoding, it will fallback to the encoding set for 
+When not using dictionary encoding, it will fallback to the encoding set for
 the column or the overall file; by default ``Encoding::PLAIN``, but this can
 be changed with ``encoding()``.
 
@@ -559,7 +559,7 @@ Encryption
 
 Parquet C++ implements all features specified in the
 `encryption specification <https://github.com/apache/parquet-format/blob/master/Encryption.md>`__,
-except for encryption of column index and bloom filter modules. 
+except for encryption of column index and bloom filter modules.
 
 More specifically, Parquet C++ supports:
 

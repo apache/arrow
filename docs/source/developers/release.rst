@@ -80,10 +80,10 @@ Ensure local tags are removed, gpg-agent is set and JIRA tickets are correctly a
 
     # Delete the local tag for RC1 or later
     git tag -d apache-arrow-<version>
-    
+
     # Setup gpg agent for signing artifacts
     source dev/release/setup-gpg-agent.sh
-    
+
     # Curate the release
     # The end of the generated report shows the JIRA tickets with wrong version number assigned.
     archery release curate <version>
@@ -180,7 +180,7 @@ Create the Release Candidate branch from the updated maintenance branch
 
     # Start from the updated maintenance branch.
     git checkout maint-X.Y.Z
-    
+
     # The following script will create a branch for the Release Candidate,
     # place the necessary commits updating the version number and then create a git tag
     # on OSX use gnu-sed with homebrew: brew install gnu-sed (and export to $PATH)
@@ -188,7 +188,7 @@ Create the Release Candidate branch from the updated maintenance branch
     # <rc-number> starts at 0 and increments every time the Release Candidate is burned
     # so for the first RC this would be: dev/release/01-prepare.sh 4.0.0 5.0.0 0
     dev/release/01-prepare.sh <version> <next-version> <rc-number>
-    
+
     # Push the release tag (for RC1 or later the --force flag is required)
     git push -u apache apache-arrow-<version>
     # Push the release candidate branch in order to trigger verification jobs later
@@ -201,23 +201,23 @@ Build source and binaries and submit them
 
     # Build the source release tarball and create Pull Request with verification tasks
     dev/release/02-source.sh <version> <rc-number>
-    
+
     # Submit binary tasks using crossbow, the command will output the crossbow build id
     dev/release/03-binary-submit.sh <version> <rc-number>
-    
+
     # Wait for the crossbow jobs to finish
     archery crossbow status <crossbow-build-id>
-    
+
     # Download the produced binaries
     # This will download packages to a directory called packages/release-<version>-rc<rc-number>
     dev/release/04-binary-download.sh <version> <rc-number>
-    
+
     # Sign and upload the binaries
     #
     # On macOS the only way I could get this to work was running "echo "UPDATESTARTUPTTY" | gpg-connect-agent" before running this comment
     # otherwise I got errors referencing "ioctl" errors.
     dev/release/05-binary-upload.sh <version> <rc-number>
-    
+
     # Sign and upload the Java artifacts
     #
     # Note that you need to press the "Close" button manually by Web interface

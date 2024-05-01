@@ -112,7 +112,7 @@ control various settings when writing an ORC file.
 
 * ``file_version``, the ORC format version to use.  ``'0.11'`` ensures
   compatibility with older readers, while ``'0.12'`` is the newer one.
-* ``stripe_size``, to control the approximate size of data within a column 
+* ``stripe_size``, to control the approximate size of data within a column
   stripe. This currently defaults to 64MB.
 
 See the :func:`~pyarrow.orc.write_table()` docstring for more details.

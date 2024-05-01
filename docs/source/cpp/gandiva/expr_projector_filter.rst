@@ -30,7 +30,7 @@ literal values, created by :func:`TreeExprBuilder::MakeLiteral`. Nodes
 can be combined into more complex expression trees using:
 
 * :func:`TreeExprBuilder::MakeFunction` to create a function
-  node. (You can call :func:`GetRegisteredFunctionSignatures` to 
+  node. (You can call :func:`GetRegisteredFunctionSignatures` to
   get a list of valid function signatures.)
 * :func:`TreeExprBuilder::MakeIf` to create if-else logic.
 * :func:`TreeExprBuilder::MakeAnd` and :func:`TreeExprBuilder::MakeOr`
@@ -39,7 +39,7 @@ can be combined into more complex expression trees using:
   functions to create set membership tests.
 
 Each of these functions create new composite nodes, which contain the leaf nodes
-(literals and field references) or other composite nodes as children. By 
+(literals and field references) or other composite nodes as children. By
 composing these, you can create arbitrarily complex expression trees.
 
 Once an expression tree is built, they are wrapped in either :class:`Expression`
@@ -84,7 +84,7 @@ reused to process distinct record batches in parallel.
 Evaluating projections
 ----------------------
 
-Execution is performed with :func:`Projector::Evaluate`. This outputs 
+Execution is performed with :func:`Projector::Evaluate`. This outputs
 a vector of arrays, which can be passed along with the output schema to
 :func:`arrow::RecordBatch::Make()`.
 
@@ -99,14 +99,14 @@ Evaluating filters
 
 :func:`Filter::Evaluate` produces :class:`SelectionVector`,
 a vector of row indices that matched the filter condition. The selection vector
-is a wrapper around an arrow integer array, parameterized by bitwidth. When 
-creating the selection vector (you must initialize it *before* passing to 
-``Evaluate()``), you must choose the bitwidth, which determines the max index 
+is a wrapper around an arrow integer array, parameterized by bitwidth. When
+creating the selection vector (you must initialize it *before* passing to
+``Evaluate()``), you must choose the bitwidth, which determines the max index
 value it can hold, and the max number of slots, which determines how many indices
-it may contain. In general, the max number of slots should be set to your batch 
-size and the bitwidth the smallest integer size that can represent all integers 
-less than the batch size. For example, if your batch size is 100k, set the 
-maximum number of slots to 100k and the bitwidth to 32 (since 2^16 = 64k which 
+it may contain. In general, the max number of slots should be set to your batch
+size and the bitwidth the smallest integer size that can represent all integers
+less than the batch size. For example, if your batch size is 100k, set the
+maximum number of slots to 100k and the bitwidth to 32 (since 2^16 = 64k which
 would be too small).
 
 Once ``Evaluate()`` has been run and the :class:`SelectionVector` is
@@ -123,10 +123,10 @@ output record batch.
 Evaluating projections and filters
 ----------------------------------
 
-Finally, you can also project while apply a selection vector, with 
+Finally, you can also project while apply a selection vector, with
 :func:`Projector::Evaluate()`. To do so, first make sure to initialize the
 :class:`Projector` with :func:`SelectionVector::GetMode()` so that the projector
-compiles with the correct bitwidth. Then you can pass the 
+compiles with the correct bitwidth. Then you can pass the
 :class:`SelectionVector` into the :func:`Projector::Evaluate()` method.
 
 

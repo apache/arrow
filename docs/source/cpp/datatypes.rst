@@ -72,8 +72,8 @@ To instantiate data types, it is recommended to call the provided
 Type Traits
 -----------
 
-Writing code that can handle concrete :class:`arrow::DataType` subclasses would 
-be verbose, if it weren't for type traits. Arrow's type traits map the Arrow 
+Writing code that can handle concrete :class:`arrow::DataType` subclasses would
+be verbose, if it weren't for type traits. Arrow's type traits map the Arrow
 data types to the specialized array, scalar, builder, and other associated types.
 For example, the Boolean type has traits:
 
@@ -96,7 +96,7 @@ For example, the Boolean type has traits:
 See the :ref:`type-traits` for an explanation of each of these fields.
 
 Using type traits, one can write template functions that can handle a variety
-of Arrow types. For example, to write a function that creates an array of 
+of Arrow types. For example, to write a function that creates an array of
 Fibonacci values for any Arrow numeric type:
 
 .. code-block:: cpp
@@ -128,7 +128,7 @@ For some common cases, there are type associations on the classes themselves. Us
 
 Similar to the type traits provided in
 `std::type_traits <https://en.cppreference.com/w/cpp/header/type_traits>`_,
-Arrow provides type predicates such as ``is_number_type`` as well as 
+Arrow provides type predicates such as ``is_number_type`` as well as
 corresponding templates that wrap ``std::enable_if_t`` such as ``enable_if_number``.
 These can constrain template functions to only compile for relevant types, which
 is useful if other overloads need to be implemented. For example, to write a sum
@@ -176,20 +176,20 @@ here is how one might sum across columns of arbitrary numeric types:
    class TableSummation {
      double partial = 0.0;
     public:
-   
+
      arrow::Result<double> Compute(std::shared_ptr<arrow::RecordBatch> batch) {
        for (std::shared_ptr<arrow::Array> array : batch->columns()) {
          ARROW_RETURN_NOT_OK(arrow::VisitArrayInline(*array, this));
        }
        return partial;
      }
-   
+
      // Default implementation
      arrow::Status Visit(const arrow::Array& array) {
        return arrow::Status::NotImplemented("Cannot compute sum for array of type ",
                                             array.type()->ToString());
      }
-   
+
      template <typename ArrayType, typename T = typename ArrayType::TypeClass>
      arrow::enable_if_number<T, arrow::Status> Visit(const ArrayType& array) {
        for (std::optional<typename T::c_type> value : array) {
