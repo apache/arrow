@@ -41,7 +41,7 @@ add_arrow_test(feather_test)
 add_arrow_ipc_test(json_simple_test)
 add_arrow_ipc_test(read_write_test)
 add_arrow_ipc_test(tensor_test)
-add_arrow_ipc_test(message_internal_test)
+add_arrow_ipc_test(message_internal_test EXTRA_LINK_LIBS arrow::flatbuffers)
 
 # Headers: top level
 arrow_install_all_headers("arrow/ipc")
