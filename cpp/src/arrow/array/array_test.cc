@@ -45,7 +45,6 @@
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/compare.h"
-#include "arrow/compute/cast.h"
 #include "arrow/result.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
@@ -71,7 +70,6 @@
 
 namespace arrow {
 
-using compute::Cast;
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
