@@ -16,3 +16,4 @@
 # under the License.
 
 vptr:include/c++/8/bits/shared_ptr_base.h
+function:cleancall.c
