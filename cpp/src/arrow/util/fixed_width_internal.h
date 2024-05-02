@@ -246,14 +246,14 @@ inline bool IsFixedWidthLike(const ArraySpan& source, bool force_null_count,
 /// \return The fixed-byte width of the values or -1 if the type is BOOL or not
 ///         fixed-width like. 0 is a valid return value as fixed-size-lists
 ///         and fixed-size-binary with size 0 are allowed.
-int64_t FixedWidthInBytes(const DataType& type);
+ARROW_EXPORT int64_t FixedWidthInBytes(const DataType& type);
 
 /// \brief Get the fixed-width in bits of a type if it is a fixed-width like
 /// type.
 ///
 /// \return The bit-width of the values or -1
 /// \see FixedWidthInBytes
-int64_t FixedWidthInBits(const DataType& type);
+ARROW_EXPORT int64_t FixedWidthInBits(const DataType& type);
 
 namespace internal {
 
@@ -291,7 +291,7 @@ ARROW_EXPORT Status PreallocateFixedWidthArrayData(::arrow::compute::KernelConte
 ///      is_fixed_width(*mutable_array->type) SHOULD be true
 /// \return The pointer to the fixed-width values of an array or NULLPTR
 ///         if pre-conditions are not satisfied.
-const uint8_t* OffsetPointerOfFixedWidthValues(const ArraySpan& source);
+ARROW_EXPORT const uint8_t* OffsetPointerOfFixedWidthValues(const ArraySpan& source);
 
 /// \brief Get the mutable pointer to the fixed-width values of an array
 ///        allocated by PreallocateFixedWidthArrayData.
@@ -302,6 +302,6 @@ const uint8_t* OffsetPointerOfFixedWidthValues(const ArraySpan& source);
 ///      is_fixed_width(*mutable_array->type) MUST be true
 /// \return The mutable pointer to the fixed-width byte blocks of the array. If
 ///         pre-conditions are not satisfied, the return values is undefined.
-uint8_t* MutableFixedWidthValuesPointer(ArrayData* mutable_array);
+ARROW_EXPORT uint8_t* MutableFixedWidthValuesPointer(ArrayData* mutable_array);
 
 }  // namespace arrow::util

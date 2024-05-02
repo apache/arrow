@@ -40,9 +40,7 @@ bool IsFixedWidthLike(const ArraySpan& source, bool force_null_count,
                           });
 }
 
-namespace internal {
-
-int64_t FixedWidthInBytesFallback(const FixedSizeListType& fixed_size_list_type) {
+static int64_t FixedWidthInBytesFallback(const FixedSizeListType& fixed_size_list_type) {
   auto* fsl = &fixed_size_list_type;
   int64_t list_size = fsl->list_size();
   for (auto type = fsl->value_type().get();;) {
@@ -62,8 +60,6 @@ int64_t FixedWidthInBytesFallback(const FixedSizeListType& fixed_size_list_type)
   return -1;
 }
 
-}  // namespace internal
-
 int64_t FixedWidthInBytes(const DataType& type) {
   auto type_id = type.id();
   if (is_fixed_width(type_id)) {
@@ -72,7 +68,7 @@ int64_t FixedWidthInBytes(const DataType& type) {
   }
   if (type_id == Type::FIXED_SIZE_LIST) {
     auto& fsl = ::arrow::internal::checked_cast<const FixedSizeListType&>(type);
-    return internal::FixedWidthInBytesFallback(fsl);
+    return FixedWidthInBytesFallback(fsl);
   }
   return -1;
 }
@@ -148,6 +144,8 @@ Status PreallocateFixedWidthArrayData(::arrow::compute::KernelContext* ctx,
   return Status::Invalid("PreallocateFixedWidthArrayData: Invalid type: ", *type);
 }
 
+}  // namespace internal
+
 /// \pre same as OffsetPointerOfFixedWidthValues
 /// \pre source.type->id() != Type::BOOL
 static const uint8_t* OffsetPointerOfFixedWidthValuesFallback(const ArraySpan& source) {
@@ -181,8 +179,6 @@ static const uint8_t* OffsetPointerOfFixedWidthValuesFallback(const ArraySpan& s
   return value_width < 0 ? nullptr : array->GetValues<uint8_t>(1, offset_in_bytes);
 }
 
-}  // namespace internal
-
 const uint8_t* OffsetPointerOfFixedWidthValues(const ArraySpan& source) {
   auto type_id = source.type->id();
   if (is_fixed_width(type_id)) {
@@ -194,7 +190,7 @@ const uint8_t* OffsetPointerOfFixedWidthValues(const ArraySpan& source) {
     }
     return source.GetValues<uint8_t>(1, 0) + source.offset * source.type->byte_width();
   }
-  return internal::OffsetPointerOfFixedWidthValuesFallback(source);
+  return OffsetPointerOfFixedWidthValuesFallback(source);
 }
 
 /// \brief Get the mutable pointer to the fixed-width values of an array
