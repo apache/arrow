@@ -303,32 +303,11 @@ created above (stored in ``$ARROW_HOME``):
 .. code-block::
 
    $ mkdir arrow/cpp/build
-   $ pushd arrow/cpp/build
-   $ cmake -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
-           -DCMAKE_INSTALL_LIBDIR=lib \
-           -DCMAKE_BUILD_TYPE=Debug \
-           -DARROW_BUILD_TESTS=ON \
-           -DARROW_COMPUTE=ON \
-           -DARROW_CSV=ON \
-           -DARROW_DATASET=ON \
-           -DARROW_FILESYSTEM=ON \
-           -DARROW_HDFS=ON \
-           -DARROW_JSON=ON \
-           -DARROW_PARQUET=ON \
-           -DARROW_WITH_BROTLI=ON \
-           -DARROW_WITH_BZ2=ON \
-           -DARROW_WITH_LZ4=ON \
-           -DARROW_WITH_SNAPPY=ON \
-           -DARROW_WITH_ZLIB=ON \
-           -DARROW_WITH_ZSTD=ON \
-           -DPARQUET_REQUIRE_ENCRYPTION=ON \
-           ..
-   $ make -j4
-   $ make install
-   $ popd
+   $ cmake -S arrow/cpp -B arrow/cpp/build --preset ninja-release-python
+   $ cmake --build arrow/cpp make install
 
 There are a number of optional components that can be switched ON by
-adding flags with ``ON``:
+adding flags a CMake cache entry flag with ``ON``:
 
 * ``ARROW_CUDA``: Support for CUDA-enabled GPUs
 * ``ARROW_DATASET``: Support for Apache Arrow Dataset
@@ -338,17 +317,8 @@ adding flags with ``ON``:
 * ``ARROW_PARQUET``: Support for Apache Parquet file format
 * ``PARQUET_REQUIRE_ENCRYPTION``: Support for Parquet Modular Encryption
 
-Anything set to ``ON`` above can also be turned off. Note that some compression
-libraries are recommended for full Parquet support.
-
-You may choose between different kinds of C++ build types:
-
-* ``-DCMAKE_BUILD_TYPE=Release`` (the default) produces a build with optimizations
-  enabled and debugging information disabled;
-* ``-DCMAKE_BUILD_TYPE=Debug`` produces a build with optimizations
-  disabled and debugging information enabled;
-* ``-DCMAKE_BUILD_TYPE=RelWithDebInfo`` produces a build with both optimizations
-  and debugging information enabled.
+If you wanted a debug build instead of a release build, you could also set
+the ``--preset`` option in the cmake command above to ``ninja-debug-python``.
 
 .. seealso::
    :ref:`Building Arrow C++ <cpp-building-building>`.
