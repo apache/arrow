@@ -275,6 +275,14 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
       CACHE STRING "Compiler flags to append when compiling Arrow")
 endif()
 
+# enforce module dependencies
+if(PYARROW_BUILD_SUBSTRAIT)
+  set(PYARROW_BUILD_DATASET ON)
+endif()
+if(PYARROW_BUILD_DATASET)
+  set(PYARROW_BUILD_ACERO ON)
+endif()
+
 # PyArrow C++
 set(PYARROW_CPP_ROOT_DIR pyarrow/src)
 set(PYARROW_CPP_SOURCE_DIR ${PYARROW_CPP_ROOT_DIR}/arrow/python)
