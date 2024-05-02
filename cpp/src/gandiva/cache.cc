@@ -26,7 +26,7 @@ namespace gandiva {
 static const int DEFAULT_CACHE_SIZE = 5000;
 
 namespace internal {
-int GetCapacityFromEnvVar() {
+int GetCacheCapacityFromEnvVar() {
   auto maybe_env_value = ::arrow::internal::GetEnvVar("GANDIVA_CACHE_SIZE");
   if (!maybe_env_value.ok()) {
     return DEFAULT_CACHE_SIZE;
@@ -52,8 +52,11 @@ int GetCapacityFromEnvVar() {
 }
 }  // namespace internal
 
-int GetCapacity() {
-  static const int capacity = internal::GetCapacityFromEnvVar();
+// Deprecated in 17.0.0. Use GetCacheCapacity instead.
+int GetCapacity() { return GetCacheCapacity(); }
+
+int GetCacheCapacity() {
+  static const int capacity = internal::GetCacheCapacityFromEnvVar();
   return capacity;
 }
 

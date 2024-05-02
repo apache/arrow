@@ -43,75 +43,65 @@ TEST(TestCache, TestGetPut) {
 }
 
 namespace {
-constexpr auto capacity_env_var = "GANDIVA_CACHE_SIZE";
-constexpr auto default_capacity = 5000;
+constexpr auto cache_capacity_env_var = "GANDIVA_CACHE_SIZE";
+constexpr auto default_cache_capacity = 5000;
 }  // namespace
 
 TEST(TestCache, TestGetCacheCapacityDefault) {
-  ASSERT_EQ(GetCapacity(), default_capacity);
+  ASSERT_EQ(GetCacheCapacity(), default_cache_capacity);
 }
 
 TEST(TestCache, TestGetCacheCapacityEnvVar) {
-  // Uncleared env var may have side-effect to subsequent tests. Use a structure to help
-  // clearing the env var when leaving the scope.
-  struct ScopedEnvVar {
-    ScopedEnvVar(const char* name, const char* value) : name_(std::move(name)) {
-      ARROW_CHECK_OK(::arrow::internal::SetEnvVar(name_, value));
-    }
-    ~ScopedEnvVar() { ARROW_CHECK_OK(::arrow::internal::DelEnvVar(name_)); }
-
-   private:
-    const char* name_;
-  };
+  using ::arrow::EnvVarGuard;
 
   // Empty.
   {
-    ScopedEnvVar env(capacity_env_var, "");
-    ASSERT_EQ(internal::GetCapacityFromEnvVar(), default_capacity);
+    EnvVarGuard guard(cache_capacity_env_var, "");
+    ASSERT_EQ(internal::GetCacheCapacityFromEnvVar(), default_cache_capacity);
   }
 
   // Non-number.
   {
-    ScopedEnvVar env(capacity_env_var, "invalid");
-    ASSERT_EQ(internal::GetCapacityFromEnvVar(), default_capacity);
+    EnvVarGuard guard(cache_capacity_env_var, "invalid");
+    ASSERT_EQ(internal::GetCacheCapacityFromEnvVar(), default_cache_capacity);
   }
 
   // Number with invalid suffix.
   {
-    ScopedEnvVar env(capacity_env_var, "42MB");
-    ASSERT_EQ(internal::GetCapacityFromEnvVar(), default_capacity);
+    EnvVarGuard guard(cache_capacity_env_var, "42MB");
+    ASSERT_EQ(internal::GetCacheCapacityFromEnvVar(), default_cache_capacity);
   }
 
   // Valid positive number.
   {
-    ScopedEnvVar env(capacity_env_var, "42");
-    ASSERT_EQ(internal::GetCapacityFromEnvVar(), 42);
+    EnvVarGuard guard(cache_capacity_env_var, "42");
+    ASSERT_EQ(internal::GetCacheCapacityFromEnvVar(), 42);
   }
 
   // Int max.
   {
     auto str = std::to_string(std::numeric_limits<int>::max());
-    ScopedEnvVar env(capacity_env_var, str.c_str());
-    ASSERT_EQ(internal::GetCapacityFromEnvVar(), std::numeric_limits<int>::max());
+    EnvVarGuard guard(cache_capacity_env_var, str.c_str());
+    ASSERT_EQ(internal::GetCacheCapacityFromEnvVar(), std::numeric_limits<int>::max());
   }
 
   // Zero.
   {
-    ScopedEnvVar env(capacity_env_var, "0");
-    ASSERT_EQ(internal::GetCapacityFromEnvVar(), default_capacity);
+    EnvVarGuard guard(cache_capacity_env_var, "0");
+    ASSERT_EQ(internal::GetCacheCapacityFromEnvVar(), default_cache_capacity);
   }
 
   // Negative number.
   {
-    ScopedEnvVar env(capacity_env_var, "-1");
-    ASSERT_EQ(internal::GetCapacityFromEnvVar(), default_capacity);
+    EnvVarGuard guard(cache_capacity_env_var, "-1");
+    ASSERT_EQ(internal::GetCacheCapacityFromEnvVar(), default_cache_capacity);
   }
 
   // Over int max.
   {
     auto str = std::to_string(static_cast<int64_t>(std::numeric_limits<int>::max()) + 1);
-    ScopedEnvVar env(capacity_env_var, str.c_str());
-    ASSERT_EQ(internal::GetCapacityFromEnvVar(), default_capacity);
+    EnvVarGuard guard(cache_capacity_env_var, str.c_str());
+    ASSERT_EQ(internal::GetCacheCapacityFromEnvVar(), default_cache_capacity);
   }
 }
 
