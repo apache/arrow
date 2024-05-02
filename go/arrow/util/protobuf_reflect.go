@@ -49,7 +49,6 @@ type ProtobufStructReflection struct {
 	message    protoreflect.Message
 	rValue     reflect.Value
 	schemaOptions
-	superMap map[string]SuperField
 }
 
 type protobufReflection interface {
