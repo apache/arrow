@@ -41,6 +41,7 @@ class TestFixedWidth : public ::testing::Test {
   std::shared_ptr<Array> fsl_int_array_;
   std::shared_ptr<Array> fsl_int_nulls_array_;
   std::shared_ptr<Array> fsl_int_inner_nulls_array_;
+  std::shared_ptr<Array> dict_string_array_;
 
   std::shared_ptr<DataType> fsl(int32_t list_size,
                                 const std::shared_ptr<DataType>& value_type) {
@@ -56,6 +57,8 @@ class TestFixedWidth : public ::testing::Test {
     fsl_int_nulls_array_ = ArrayFromJSON(fsl(2, int32()), "[[1, 0], null, [1, 2]]");
     fsl_int_inner_nulls_array_ =
         ArrayFromJSON(fsl(2, int32()), "[[1, 0], [2, 3], [null, 2]]");
+    dict_string_array_ =
+        ArrayFromJSON(dictionary(int32(), utf8()), R"(["Alice", "Bob", "Alice"])");
   }
 };
 
@@ -108,6 +111,15 @@ TEST_F(TestFixedWidth, IsFixedWidthLike) {
   arr = ArraySpan{*fsl_int_inner_nulls_array_->data()};
   // Inner nulls are not allowed by IsFixedWidthLike.
   ASSERT_FALSE(IsFixedWidthLike(arr, /*force_null_count=*/true));
+
+  arr = ArraySpan{*dict_string_array_->data()};
+  // Dictionaries are considered fixed-width by is_fixed_width(), but excluded
+  // by IsFixedWidthLike if exclude_dictionary=true.
+  ASSERT_TRUE(IsFixedWidthLike(arr));
+  ASSERT_TRUE(
+      IsFixedWidthLike(arr, /*force_null_count=*/false, /*exclude_dictionary=*/false));
+  ASSERT_FALSE(
+      IsFixedWidthLike(arr, /*force_null_count=*/false, /*exclude_dictionary=*/true));
 }
 
 TEST_F(TestFixedWidth, MeasureWidthInBytes) {

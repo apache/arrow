@@ -186,8 +186,10 @@ namespace arrow::util {
 ///
 /// \param source The array to check
 /// \param force_null_count If true, GetNullCount() is used instead of null_count
-ARROW_EXPORT bool IsFixedWidthLike(const ArraySpan& source,
-                                   bool force_null_count = false);
+/// \param exclude_dictionary If true, DICTIONARY is excluded from the
+///                           is_fixed_width() types. Default: false.
+ARROW_EXPORT bool IsFixedWidthLike(const ArraySpan& source, bool force_null_count = false,
+                                   bool exclude_dictionary = false);
 
 /// \brief Checks if the given array has a fixed-width type or if it's an array of
 /// fixed-size list that can be flattened to an array of fixed-width values.

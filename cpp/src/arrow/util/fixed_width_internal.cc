@@ -32,9 +32,12 @@ namespace arrow::util {
 
 using ::arrow::internal::checked_cast;
 
-bool IsFixedWidthLike(const ArraySpan& source, bool force_null_count) {
+bool IsFixedWidthLike(const ArraySpan& source, bool force_null_count,
+                      bool exclude_dictionary) {
   return IsFixedWidthLike(source, force_null_count,
-                          [](const DataType& type) { return true; });
+                          [exclude_dictionary](const DataType& type) {
+                            return !exclude_dictionary || type.id() != Type::DICTIONARY;
+                          });
 }
 
 namespace internal {
