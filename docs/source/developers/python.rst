@@ -302,7 +302,6 @@ created above (stored in ``$ARROW_HOME``):
 
 .. code-block::
 
-   $ mkdir arrow/cpp/build
    $ cmake -S arrow/cpp -B arrow/cpp/build --preset ninja-release-python
    $ cmake --build arrow/cpp/build --target install
 
