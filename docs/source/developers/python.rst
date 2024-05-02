@@ -306,19 +306,12 @@ created above (stored in ``$ARROW_HOME``):
    $ cmake -S arrow/cpp -B arrow/cpp/build --preset ninja-release-python
    $ cmake --build arrow/cpp make install
 
-There are a number of optional components that can be switched ON by
-adding flags a CMake cache entry flag with ``ON``:
-
-* ``ARROW_CUDA``: Support for CUDA-enabled GPUs
-* ``ARROW_DATASET``: Support for Apache Arrow Dataset
-* ``ARROW_FLIGHT``: Flight RPC framework
-* ``ARROW_GANDIVA``: LLVM-based expression compiler
-* ``ARROW_ORC``: Support for Apache ORC file format
-* ``ARROW_PARQUET``: Support for Apache Parquet file format
-* ``PARQUET_REQUIRE_ENCRYPTION``: Support for Parquet Modular Encryption
-
-If you wanted a debug build instead of a release build, you could also set
-the ``--preset`` option in the cmake command above to ``ninja-debug-python``.
+``ninja-release-python`` is not the only preset available - if you would like a
+build with more features like CUDA, Flight and Gandiva support you may opt for
+the ``ninja-release-python-maximal`` preset. If you wanted less features, (i.e
+removing Orc and dataset support) you could opt for
+``ninja-release-python-minimal``. Change the word ``release`` to ``debug`` with
+any of the aforementioned presets will generated a debug build of Arrow.
 
 .. seealso::
    :ref:`Building Arrow C++ <cpp-building-building>`.
