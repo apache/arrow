@@ -104,7 +104,7 @@ COPY r/DESCRIPTION /arrow/r/
 RUN /arrow/ci/scripts/r_deps.sh /arrow && \
     R -e "install.packages('pkgdown')"
 
-RUN useradd --user-group --create-home arrow
+RUN useradd --user-group --create-home --groups audio,video arrow
 RUN echo "arrow ALL=(ALL:ALL) NOPASSWD:ALL" | \
         EDITOR=tee visudo -f /etc/sudoers.d/arrow
 USER arrow
