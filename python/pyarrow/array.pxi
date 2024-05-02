@@ -3925,7 +3925,8 @@ cdef class StructArray(Array):
             tosort = self
         indices = _pc().sort_indices(
             tosort,
-            options=_pc().SortOptions(sort_keys=[("", order)], **kwargs)
+            options=_pc().SortOptions(
+                sort_keys=[(field.name, order) for field in self.type], **kwargs)
         )
         return self.take(indices)
 
