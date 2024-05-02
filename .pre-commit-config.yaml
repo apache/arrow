@@ -123,6 +123,7 @@ repos:
           ?^go/.*/CMakeLists\.txt$|
           ?^java/.*/CMakeLists\.txt$|
           ?^matlab/.*/CMakeLists\.txt$|
+          ?^python/CMakeLists\.txt$|
           ?^python/.*/CMakeLists\.txt$|
           )
         exclude: >-
