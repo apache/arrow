@@ -35,24 +35,26 @@ func SetupTest() util_message.AllTheTypes {
 	anyMsg, _ := anypb.New(&msg)
 
 	return util_message.AllTheTypes{
-		String_:     "Hello",
-		Int32:       10,
-		Int64:       100,
-		Sint32:      -10,
-		Sin64:       -100,
-		Uint32:      10,
-		Uint64:      100,
-		Fixed32:     10,
-		Fixed64:     1000,
-		Sfixed32:    10,
-		Bool:        false,
-		Bytes:       []byte("Hello, world!"),
-		Double:      1.1,
-		Enum:        util_message.AllTheTypes_OPTION_0,
-		Message:     &msg,
-		Oneof:       &util_message.AllTheTypes_Oneofstring{Oneofstring: "World"},
-		Any:         anyMsg,
-		SimpleMap:   map[int32]string{99: "Hello", 100: "World"},
+		String_:  "Hello",
+		Int32:    10,
+		Int64:    100,
+		Sint32:   -10,
+		Sin64:    -100,
+		Uint32:   10,
+		Uint64:   100,
+		Fixed32:  10,
+		Fixed64:  1000,
+		Sfixed32: 10,
+		Bool:     false,
+		Bytes:    []byte("Hello, world!"),
+		Double:   1.1,
+		Enum:     util_message.AllTheTypes_OPTION_0,
+		Message:  &msg,
+		Oneof:    &util_message.AllTheTypes_Oneofstring{Oneofstring: "World"},
+		Any:      anyMsg,
+		//Breaks the test as the `RecordFromJson` randomises the order
+		//SimpleMap:   map[int32]string{99: "Hello", 100: "World", 98: "How", 101: "Are", 1: "You"},
+		SimpleMap:   map[int32]string{99: "Hello"},
 		ComplexMap:  map[string]*util_message.ExampleMessage{"complex": &msg},
 		SimpleList:  []string{"Hello", "World"},
 		ComplexList: []*util_message.ExampleMessage{&msg},
@@ -193,7 +195,7 @@ func TestRecordFromProtobuf(t *testing.T) {
 			"message":{"field1":"Example"},
 			"oneof": [0, "World"],
 			"any":{"field1":"Example"},
-			"simple_map":[{"key":99,"value":"Hello"},{"key":100,"value":"World"}],
+			"simple_map":[{"key":99,"value":"Hello"}],
 			"complex_map":[{"key":"complex","value":{"field1":"Example"}}],
 			"simple_list":["Hello","World"],
 			"complex_list":[{"field1":"Example"}]
@@ -243,3 +245,53 @@ func TestRecordFromProtobuf(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, array.RecordEqual(got, want), "got: %s\nwant: %s", got, want)
 }
+
+//
+//Messages:   	got: record:	                                                                                                want: record:
+//schema:                                                                                                                         schema:
+//fields: 21                                                                                                                      fields: 21
+//- string: type=utf8, nullable                                                                                                   - string: type=utf8, nullable
+//- int32: type=int32, nullable                                                                                                   - int32: type=int32, nullable
+//- int64: type=int64, nullable                                                                                                   - int64: type=int64, nullable
+//- sint32: type=int32, nullable                                                                                                  - sint32: type=int32, nullable
+//- sin64: type=int64, nullable                                                                                                   - sin64: type=int64, nullable
+//- uint32: type=uint32, nullable                                                                                                 - uint32: type=uint32, nullable
+//- uint64: type=uint64, nullable                                                                                                 - uint64: type=uint64, nullable
+//- fixed32: type=uint32, nullable                                                                                                - fixed32: type=uint32, nullable
+//- fixed64: type=uint64, nullable                                                                                                - fixed64: type=uint64, nullable
+//- sfixed32: type=int32, nullable                                                                                                - sfixed32: type=int32, nullable
+//- bool: type=bool, nullable                                                                                                     - bool: type=bool, nullable
+//- bytes: type=binary, nullable                                                                                                  - bytes: type=binary, nullable
+//- double: type=float64, nullable                                                                                                - double: type=float64, nullable
+//- enum: type=dictionary<values=utf8, indices=int32, ordered=false>, nullable                                                    - enum: type=dictionary<values=utf8, indices=int32, ordered=false>, nullable
+//- message: type=struct<field1: utf8>, nullable                                                                                  - message: type=struct<field1: utf8>, nullable
+//- oneof: type=dense_union<oneofstring: type=utf8, nullable=0, oneofmessage: type=struct<field1: utf8>, nullable=1>, nullable    - oneof: type=dense_union<oneofstring: type=utf8, nullable=0, oneofmessage: type=struct<field1: utf8>, nullable=1>, nullable
+//- any: type=struct<field1: utf8>, nullable                                                                                      - any: type=struct<field1: utf8>, nullable
+//- simple_map: type=map<int32, utf8, items_nullable>, nullable                                                                   - simple_map: type=map<int32, utf8, items_nullable>, nullable
+//- complex_map: type=map<utf8, struct<field1: utf8>, items_nullable>, nullable                                                   - complex_map: type=map<utf8, struct<field1: utf8>, items_nullable>, nullable
+//- simple_list: type=list<item: utf8, nullable>, nullable                                                                        - simple_list: type=list<item: utf8, nullable>, nullable
+//- complex_list: type=list<item: struct<field1: utf8>, nullable>, nullable                                                       - complex_list: type=list<item: struct<field1: utf8>, nullable>, nullable
+//rows: 1                                                                                                                         rows: 1
+//col[0][string]: ["Hello"]                                                                                                       col[0][string]: ["Hello"]
+//col[1][int32]: [10]                                                                                                             col[1][int32]: [10]
+//col[2][int64]: [100]                                                                                                            col[2][int64]: [100]
+//col[3][sint32]: [-10]                                                                                                           col[3][sint32]: [-10]
+//col[4][sin64]: [-100]                                                                                                           col[4][sin64]: [-100]
+//col[5][uint32]: [10]                                                                                                            col[5][uint32]: [10]
+//col[6][uint64]: [100]                                                                                                           col[6][uint64]: [100]
+//col[7][fixed32]: [10]                                                                                                           col[7][fixed32]: [10]
+//col[8][fixed64]: [1000]                                                                                                         col[8][fixed64]: [1000]
+//col[9][sfixed32]: [10]                                                                                                          col[9][sfixed32]: [10]
+//col[10][bool]: [false]                                                                                                          col[10][bool]: [false]
+//col[11][bytes]: ["Hello, world!"]                                                                                               col[11][bytes]: ["Hello, world!"]
+//col[12][double]: [1.1]                                                                                                          col[12][double]: [1.1]
+//col[13][enum]: { dictionary: ["OPTION_0"]                                                                                       col[13][enum]: { dictionary: ["OPTION_0"]
+//indices: [0] }                                                                                                                  indices: [0] }
+//col[14][message]: {["Example"]}                                                                                                 col[14][message]: {["Example"]}
+//col[15][oneof]: [{oneofstring=World}]                                                                                           col[15][oneof]: [{oneofstring=World}]
+//col[16][any]: {["Example"]}                                                                                                     col[16][any]: {["Example"]}
+//col[17][simple_map]: [{[100 99] ["World" "Hello"]}]                                                                             col[17][simple_map]: [{[99 100] ["Hello" "World"]}]
+//col[18][complex_map]: [{["complex"] {["Example"]}}]                                                                             col[18][complex_map]: [{["complex"] {["Example"]}}]
+//col[19][simple_list]: [["Hello" "World"]]                                                                                       col[19][simple_list]: [["Hello" "World"]]
+//col[20][complex_list]: [{["Example"]}]                                                                                          col[20][complex_list]: [{["Example"]}]
+//

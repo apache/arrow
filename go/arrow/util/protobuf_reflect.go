@@ -404,6 +404,21 @@ func (pmr protobufMapReflection) generateKeyValuePairs() chan protobufMapKeyValu
 	return out
 }
 
+func getMapKey(v reflect.Value) protoreflect.Value {
+	switch v.Kind() {
+	case reflect.String:
+		return protoreflect.ValueOf(v.String())
+	case reflect.Int32, reflect.Int64:
+		return protoreflect.ValueOf(v.Int())
+	case reflect.Bool:
+		return protoreflect.ValueOf(v.Bool())
+	case reflect.Uint32, reflect.Uint64:
+		return protoreflect.ValueOf(v.Uint())
+	default:
+		panic("Unmapped protoreflect map key type")
+	}
+}
+
 func (psr ProtobufStructReflection) generateStructFields() chan *protobufFieldReflection {
 	out := make(chan *protobufFieldReflection)
 
@@ -743,20 +758,5 @@ func (sf SuperField) AppendValueOrNull(b array.Builder, mem memory.Allocator) {
 		}
 	default:
 		fmt.Printf("No logic for type %s", b.Type().ID())
-	}
-}
-
-func getMapKey(v reflect.Value) protoreflect.Value {
-	switch v.Kind() {
-	case reflect.String:
-		return protoreflect.ValueOf(v.String())
-	case reflect.Int32, reflect.Int64:
-		return protoreflect.ValueOf(v.Int())
-	case reflect.Bool:
-		return protoreflect.ValueOf(v.Bool())
-	case reflect.Uint32, reflect.Uint64:
-		return protoreflect.ValueOf(v.Uint())
-	default:
-		panic("Unmapped protoreflect map key type")
 	}
 }
