@@ -304,12 +304,12 @@ created above (stored in ``$ARROW_HOME``):
 
    $ mkdir arrow/cpp/build
    $ cmake -S arrow/cpp -B arrow/cpp/build --preset ninja-release-python
-   $ cmake --build arrow/cpp make install
+   $ cmake --build arrow/cpp/build --target install
 
 ``ninja-release-python`` is not the only preset available - if you would like a
 build with more features like CUDA, Flight and Gandiva support you may opt for
 the ``ninja-release-python-maximal`` preset. If you wanted less features, (i.e
-removing Orc and dataset support) you could opt for
+removing ORC and dataset support) you could opt for
 ``ninja-release-python-minimal``. Changing the word ``release`` to ``debug``
 with any of the aforementioned presets will generated a debug build of Arrow.
 
