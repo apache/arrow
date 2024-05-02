@@ -26,6 +26,7 @@
   <properties>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
     <arrow.cpp.build.dir>../../../cpp/release-build</arrow.cpp.build.dir>
+    <jna.version>5.14.0</jna.version>
   </properties>
 
   <dependencies>
@@ -58,6 +59,11 @@
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>net.java.dev.jna</groupId>
+      <artifactId>jna</artifactId>
+      <version>${jna.version}</version>
     </dependency>
   </dependencies>
 
