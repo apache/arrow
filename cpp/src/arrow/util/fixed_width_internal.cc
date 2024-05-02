@@ -62,6 +62,35 @@ int64_t FixedWidthInBytesFallback(const FixedSizeListType& fixed_size_list_type)
   return -1;
 }
 
+}  // namespace internal
+
+int64_t FixedWidthInBytes(const DataType& type) {
+  auto type_id = type.id();
+  if (is_fixed_width(type_id)) {
+    const int32_t num_bits = type.bit_width();
+    return (type_id == Type::BOOL) ? -1 : num_bits / 8;
+  }
+  if (type_id == Type::FIXED_SIZE_LIST) {
+    auto& fsl = ::arrow::internal::checked_cast<const FixedSizeListType&>(type);
+    return internal::FixedWidthInBytesFallback(fsl);
+  }
+  return -1;
+}
+
+int64_t FixedWidthInBits(const DataType& type) {
+  auto type_id = type.id();
+  if (is_fixed_width(type_id)) {
+    return type.bit_width();
+  }
+  const int64_t byte_width = FixedWidthInBytes(type);
+  if (ARROW_PREDICT_FALSE(byte_width < 0)) {
+    return -1;
+  }
+  return byte_width * 8;
+}
+
+namespace internal {
+
 Status PreallocateFixedWidthArrayData(::arrow::compute::KernelContext* ctx,
                                       int64_t length, const ArraySpan& source,
                                       bool allocate_validity, ArrayData* out) {
@@ -119,7 +148,9 @@ Status PreallocateFixedWidthArrayData(::arrow::compute::KernelContext* ctx,
   return Status::Invalid("PreallocateFixedWidthArrayData: Invalid type: ", *type);
 }
 
-const uint8_t* OffsetPointerOfFixedWidthValuesFallback(const ArraySpan& source) {
+/// \pre same as OffsetPointerOfFixedWidthValues
+/// \pre source.type->id() != Type::BOOL
+static const uint8_t* OffsetPointerOfFixedWidthValuesFallback(const ArraySpan& source) {
   using OffsetAndListSize = std::pair<int64_t, int64_t>;
   auto get_offset = [](auto pair) { return pair.first; };
   auto get_list_size = [](auto pair) { return pair.second; };
@@ -150,19 +181,50 @@ const uint8_t* OffsetPointerOfFixedWidthValuesFallback(const ArraySpan& source) 
   return value_width < 0 ? nullptr : array->GetValues<uint8_t>(1, offset_in_bytes);
 }
 
-uint8_t* MutableFixedWidthValuesPointerFallback(ArrayData* mutable_fsl_array) {
-  DCHECK_EQ(mutable_fsl_array->type->id(), Type::FIXED_SIZE_LIST);
-  auto* array = mutable_fsl_array;
-  do {
-    DCHECK_EQ(array->offset, 0);
-    DCHECK_EQ(array->child_data.size(), 1) << array->type->ToString(true) << " part of "
-                                           << mutable_fsl_array->type->ToString(true);
-    array = array->child_data[0].get();
-  } while (array->type->id() == Type::FIXED_SIZE_LIST);
-  DCHECK_EQ(array->offset, 0);
-  DCHECK(array->type->id() != Type::BOOL && is_fixed_width(*array->type));
-  return array->GetMutableValues<uint8_t>(1, 0);
+}  // namespace internal
+
+const uint8_t* OffsetPointerOfFixedWidthValues(const ArraySpan& source) {
+  auto type_id = source.type->id();
+  if (is_fixed_width(type_id)) {
+    if (ARROW_PREDICT_FALSE(type_id == Type::BOOL)) {
+      // BOOL arrays are bit-packed, thus a byte-aligned pointer cannot be produced in the
+      // general case. Returning something for BOOL arrays that happen to byte-align
+      // because offset=0 would create too much confusion.
+      return nullptr;
+    }
+    return source.GetValues<uint8_t>(1, 0) + source.offset * source.type->byte_width();
+  }
+  return internal::OffsetPointerOfFixedWidthValuesFallback(source);
 }
 
-}  // namespace internal
+/// \brief Get the mutable pointer to the fixed-width values of an array
+///        allocated by PreallocateFixedWidthArrayData.
+///
+/// \pre mutable_array->offset and the offset of child array (if it's a
+///      FixedSizeList) MUST be 0 (recursively).
+/// \pre IsFixedWidthLike(ArraySpan(mutable_array)) or the more restrictive
+///      is_fixed_width(*mutable_array->type) MUST be true
+/// \return The mutable pointer to the fixed-width byte blocks of the array. If
+///         pre-conditions are not satisfied, the return values is undefined.
+uint8_t* MutableFixedWidthValuesPointer(ArrayData* mutable_array) {
+  auto type_id = mutable_array->type->id();
+  if (type_id == Type::FIXED_SIZE_LIST) {
+    auto* array = mutable_array;
+    do {
+      DCHECK_EQ(array->offset, 0);
+      DCHECK_EQ(array->child_data.size(), 1) << array->type->ToString(true) << " part of "
+                                             << mutable_array->type->ToString(true);
+      array = array->child_data[0].get();
+    } while (array->type->id() == Type::FIXED_SIZE_LIST);
+    DCHECK_EQ(array->offset, 0);
+    DCHECK(array->type->id() != Type::BOOL && is_fixed_width(*array->type));
+    return array->GetMutableValues<uint8_t>(1, 0);
+  }
+  DCHECK_EQ(mutable_array->offset, 0);
+  // BOOL is allowed here only because the offset is expected to be 0,
+  // so the byte-aligned pointer also points to the first *bit* of the buffer.
+  DCHECK(is_fixed_width(type_id));
+  return mutable_array->GetMutableValues<uint8_t>(1, 0);
+}
+
 }  // namespace arrow::util

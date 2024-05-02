@@ -17,14 +17,12 @@
 
 #pragma once
 
-#include <cassert>
 #include <cstdint>
 
 #include "arrow/array/data.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/checked_cast.h"
 
 namespace arrow::compute {
 // XXX: remove dependency on compute::KernelContext
@@ -227,10 +225,6 @@ inline bool IsFixedWidthLike(const ArraySpan& source, bool force_null_count,
   return false;
 }
 
-namespace internal {
-ARROW_EXPORT int64_t FixedWidthInBytesFallback(const FixedSizeListType&);
-}
-
 /// \brief Get the fixed-width in bytes of a type if it is a fixed-width like
 /// type, but not BOOL.
 ///
@@ -252,35 +246,14 @@ ARROW_EXPORT int64_t FixedWidthInBytesFallback(const FixedSizeListType&);
 /// \return The fixed-byte width of the values or -1 if the type is BOOL or not
 ///         fixed-width like. 0 is a valid return value as fixed-size-lists
 ///         and fixed-size-binary with size 0 are allowed.
-inline int64_t FixedWidthInBytes(const DataType& type) {
-  auto type_id = type.id();
-  if (is_fixed_width(type_id)) {
-    const int32_t num_bits = type.bit_width();
-    return (type_id == Type::BOOL) ? -1 : num_bits / 8;
-  }
-  if (type_id == Type::FIXED_SIZE_LIST) {
-    auto& fsl = ::arrow::internal::checked_cast<const FixedSizeListType&>(type);
-    return internal::FixedWidthInBytesFallback(fsl);
-  }
-  return -1;
-}
+int64_t FixedWidthInBytes(const DataType& type);
 
 /// \brief Get the fixed-width in bits of a type if it is a fixed-width like
 /// type.
 ///
 /// \return The bit-width of the values or -1
 /// \see FixedWidthInBytes
-inline int64_t FixedWidthInBits(const DataType& type) {
-  auto type_id = type.id();
-  if (is_fixed_width(type_id)) {
-    return type.bit_width();
-  }
-  const int64_t byte_width = FixedWidthInBytes(type);
-  if (ARROW_PREDICT_FALSE(byte_width < 0)) {
-    return -1;
-  }
-  return byte_width * 8;
-}
+int64_t FixedWidthInBits(const DataType& type);
 
 namespace internal {
 
@@ -305,16 +278,6 @@ ARROW_EXPORT Status PreallocateFixedWidthArrayData(::arrow::compute::KernelConte
                                                    bool allocate_validity,
                                                    ArrayData* out);
 
-/// \pre same as OffsetPointerOfFixedWidthValues
-/// \pre source.type->id() != Type::BOOL
-ARROW_EXPORT const uint8_t* OffsetPointerOfFixedWidthValuesFallback(
-    const ArraySpan& source);
-
-/// \pre same as MutableFixedWidthValuesPointer
-/// \pre mutable_array->type->id() == Type::FIXED_SIZE_LIST
-ARROW_EXPORT uint8_t* MutableFixedWidthValuesPointerFallback(
-    ArrayData* mutable_fsl_array);
-
 }  // namespace internal
 
 /// \brief Get the pointer to the fixed-width values of a fixed-width like array.
@@ -328,19 +291,7 @@ ARROW_EXPORT uint8_t* MutableFixedWidthValuesPointerFallback(
 ///      is_fixed_width(*mutable_array->type) SHOULD be true
 /// \return The pointer to the fixed-width values of an array or NULLPTR
 ///         if pre-conditions are not satisfied.
-inline const uint8_t* OffsetPointerOfFixedWidthValues(const ArraySpan& source) {
-  auto type_id = source.type->id();
-  if (ARROW_PREDICT_TRUE(is_fixed_width(type_id))) {
-    if (ARROW_PREDICT_FALSE(type_id == Type::BOOL)) {
-      // BOOL arrays are bit-packed, thus a byte-aligned pointer cannot be produced in the
-      // general case. Returning something for BOOL arrays that happen to byte-align
-      // because offset=0 would create too much confusion.
-      return nullptr;
-    }
-    return source.GetValues<uint8_t>(1, 0) + source.offset * source.type->byte_width();
-  }
-  return internal::OffsetPointerOfFixedWidthValuesFallback(source);
-}
+const uint8_t* OffsetPointerOfFixedWidthValues(const ArraySpan& source);
 
 /// \brief Get the mutable pointer to the fixed-width values of an array
 ///        allocated by PreallocateFixedWidthArrayData.
@@ -351,16 +302,6 @@ inline const uint8_t* OffsetPointerOfFixedWidthValues(const ArraySpan& source) {
 ///      is_fixed_width(*mutable_array->type) MUST be true
 /// \return The mutable pointer to the fixed-width byte blocks of the array. If
 ///         pre-conditions are not satisfied, the return values is undefined.
-inline uint8_t* MutableFixedWidthValuesPointer(ArrayData* mutable_array) {
-  auto type_id = mutable_array->type->id();
-  if (ARROW_PREDICT_FALSE(type_id == Type::FIXED_SIZE_LIST)) {
-    return internal::MutableFixedWidthValuesPointerFallback(mutable_array);
-  }
-  assert(mutable_array->offset == 0);
-  // BOOL is allowed here only because the offset is expected to be 0,
-  // so the byte-aligned pointer also points to the first *bit* of the buffer.
-  assert(is_fixed_width(type_id));
-  return mutable_array->GetMutableValues<uint8_t>(1, 0);
-}
+uint8_t* MutableFixedWidthValuesPointer(ArrayData* mutable_array);
 
 }  // namespace arrow::util
