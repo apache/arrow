@@ -17,11 +17,9 @@
 package util
 
 import (
-	"fmt"
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/memory"
-	"github.com/apache/arrow/go/v16/arrow/util/util_message"
+	"github.com/apache/arrow/go/v17/arrow/array"
+	"github.com/apache/arrow/go/v17/arrow/memory"
+	"github.com/apache/arrow/go/v17/arrow/util/util_message"
 	"github.com/huandu/xstrings"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -91,7 +89,7 @@ func TestGetSchema(t *testing.T) {
     - simple_list: type=list<item: utf8, nullable>, nullable
     - complex_list: type=list<item: struct<field1: utf8>, nullable>, nullable`
 
-	require.Equal(t, want, got)
+	require.Equal(t, want, got, "got: %s\nwant: %s", got, want)
 
 	got = NewProtobufStructReflection(&msg, WithOneOfHandler(DenseUnion)).GetSchema().String()
 	want = `schema:
@@ -118,9 +116,9 @@ func TestGetSchema(t *testing.T) {
     - simple_list: type=list<item: utf8, nullable>, nullable
     - complex_list: type=list<item: struct<field1: utf8>, nullable>, nullable`
 
-	require.Equal(t, want, got)
+	require.Equal(t, want, got, "got: %s\nwant: %s", got, want)
 
-	excludeComplex := func(pfr protobufFieldReflection) bool {
+	excludeComplex := func(pfr *protobufFieldReflection) bool {
 		return pfr.isMap() || pfr.isList() || pfr.isStruct()
 	}
 
@@ -143,7 +141,7 @@ func TestGetSchema(t *testing.T) {
     - enum: type=dictionary<values=utf8, indices=int32, ordered=false>, nullable
     - oneofstring: type=utf8, nullable`
 
-	require.Equal(t, want, got)
+	require.Equal(t, want, got, "got: %s\nwant: %s", got, want)
 
 	got = NewProtobufStructReflection(
 		&msg,
@@ -168,72 +166,15 @@ func TestGetSchema(t *testing.T) {
     - Enum: type=dictionary<values=utf8, indices=int32, ordered=false>, nullable
     - Oneofstring: type=utf8, nullable`
 
-	require.Equal(t, want, got)
+	require.Equal(t, want, got, "got: %s\nwant: %s", got, want)
 }
 
-var (
-	F32 arrow.UnionTypeCode = 7
-	I32 arrow.UnionTypeCode = 13
-)
-
-func TestDenseUnion(t *testing.T) {
-	dut := arrow.DenseUnionOf(
-		[]arrow.Field{
-			{Name: "f32", Type: arrow.PrimitiveTypes.Float32, Nullable: true},
-			{Name: "i32", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
-		},
-		[]arrow.UnionTypeCode{F32, I32},
-	)
-
-	childFloat32Bldr := array.NewFloat32Builder(memory.DefaultAllocator)
-	childInt32Bldr := array.NewInt32Builder(memory.DefaultAllocator)
-	ub := array.NewDenseUnionBuilder(memory.DefaultAllocator, dut)
-	ub.Append(F32)
-	ub.Child(0).(*array.Float32Builder).Append(6.9)
-
-	defer ub.Release()
-	defer childFloat32Bldr.Release()
-	defer childInt32Bldr.Release()
-
-	arr := ub.NewDenseUnionArray()
-	defer arr.Release()
-
-	var arrays []arrow.Array
-
-	arrays = append(arrays, arr)
-
-	structArray, _ := array.NewStructArray(arrays, []string{"dense_union_example"})
-
-	schema := arrow.NewSchema([]arrow.Field{{
-		Name:     "dense_union_example",
-		Type:     dut,
-		Nullable: true,
-	}}, nil)
-
-	record := array.RecordFromStructArray(structArray, schema)
-
-	fmt.Println(record)
-
-	jb, _ := record.MarshalJSON()
-
-	fmt.Println(string(jb))
-}
-
-func TestRecordFromProtobuf2(t *testing.T) {
+func TestRecordFromProtobuf(t *testing.T) {
 	msg := SetupTest()
 
 	sm := NewSuperMessage(&msg, WithOneOfHandler(DenseUnion))
-
-	fmt.Printf("%+v\n", sm)
-
 	schema := sm.Schema()
-
-	fmt.Println(schema)
-
 	got := sm.Record(nil)
-
-	fmt.Printf("%+v\n", got)
-
 	jsonStr := `[
 		{
 			"string":"Hello",
@@ -262,42 +203,46 @@ func TestRecordFromProtobuf2(t *testing.T) {
 	want, _, err := array.RecordFromJSON(memory.NewGoAllocator(), schema, strings.NewReader(jsonStr))
 
 	require.NoError(t, err)
-	require.True(t, array.RecordEqual(got, want))
+	require.True(t, array.RecordEqual(got, want), "got: %s\nwant: %s", got, want)
 }
 
-func TestRecordFromProtobuf(t *testing.T) {
-	msg := SetupTest()
-	psr := NewProtobufStructReflection(&msg)
-	schema := psr.GetSchema()
-	got := RecordFromProtobuf(*psr, schema, nil)
+func TestRecordFromNullProtobuf(t *testing.T) {
+	sm := NewSuperMessage(&util_message.AllTheTypes{})
+	schema := sm.Schema()
+	got := sm.Record(nil)
 	jsonStr := `[
 		{
-            "string":"Hello",
-            "int32":10,
-            "int64":100,
-            "sint32":-10,
-            "sin64":-100,
-            "uint32":10,
-            "uint64":100,
-            "fixed32":10,
-            "fixed64":1000,
-            "sfixed32":10,
+			"string":"",
+			"int32":0,
+			"int64":0,
+			"sint32":0,
+			"sin64":0,
+			"uint32":0,
+			"uint64":0,
+			"fixed32":0,
+			"fixed64":0,
+			"sfixed32":0,
 			"bool":false,
-		    "bytes":"SGVsbG8sIHdvcmxkIQ==",
-            "double":1.1,
-            "enum":"OPTION_0",
-            "message":{"field1":"Example"},
-            "oneofstring":"World",
+			"bytes":"",
+			"double":0,
+			"enum":"OPTION_0",
+			"message":{"field1":""},
 			"oneofmessage":{"field1":""},
-			"any":{"field1":"Example"},
-            "simple_map":[{"key":99,"value":"Hello"},{"key":100,"value":"World"}],
-            "complex_map":[{"key":"complex","value":{"field1":"Example"}}],
-            "simple_list":["Hello","World"],
-            "complex_list":[{"field1":"Example"}]
+			"oneofstring":"",
+			"oneof": [0, "World"],
+			"any":{"type_url":"","value":""},
+			"simple_map":[],
+			"complex_map":[],
+			"simple_list":[],
+			"complex_list":[]
 		}
 	]`
+
+	//jb, _ := got.MarshalJSON()
+	//fmt.Println(string(jb))
+
 	want, _, err := array.RecordFromJSON(memory.NewGoAllocator(), schema, strings.NewReader(jsonStr))
 
 	require.NoError(t, err)
-	require.True(t, array.RecordEqual(got, want))
+	require.True(t, array.RecordEqual(got, want), "got: %s\nwant: %s", got, want)
 }

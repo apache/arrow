@@ -18,9 +18,9 @@ package util
 
 import (
 	"fmt"
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/array"
+	"github.com/apache/arrow/go/v17/arrow/memory"
 	"github.com/huandu/xstrings"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -38,7 +38,7 @@ const (
 )
 
 type schemaOptions struct {
-	exclusionPolicy    func(pfr protobufFieldReflection) bool
+	exclusionPolicy    func(pfr *protobufFieldReflection) bool
 	fieldNameFormatter func(str string) string
 	oneOfHandler       OneOfHandler
 }
@@ -52,32 +52,18 @@ type ProtobufStructReflection struct {
 	superMap map[string]SuperField
 }
 
-func (psr ProtobufStructReflection) makeSuperMap() map[string]SuperField {
-	superMap := make(map[string]SuperField)
-	for pfr := range psr.generateStructFields() {
-		superMap[pfr.name()] = SuperField{
-			parent:             &psr,
-			protobufReflection: pfr,
-			Field: arrow.Field{
-				Name:     pfr.name(),
-				Type:     pfr.getDataType(),
-				Nullable: true,
-			},
-		}
-	}
-	return superMap
-}
-
 // ProtobufMessageReflection represents the metadata and values of a protobuf message and maps them to arrow fields
 type ProtobufMessageReflection struct {
 	ProtobufStructReflection
 }
 
 type protobufReflection interface {
+	name() string
 	arrowType() arrow.Type
 	protoreflectValue() protoreflect.Value
 	reflectValue() reflect.Value
 	getDescriptor() protoreflect.FieldDescriptor
+	isNull() bool
 	asDictionary() protobufDictReflection
 	asList() protobufListReflection
 	asMap() protobufMapReflection
@@ -89,7 +75,10 @@ type SuperField struct {
 	parent *ProtobufStructReflection
 	protobufReflection
 	arrow.Field
-	name string
+}
+
+func (sf SuperField) name() string {
+	return sf.protobufReflection.name()
 }
 
 type SuperMessage struct {
@@ -115,8 +104,8 @@ func (sm SuperMessage) Record(mem memory.Allocator) arrow.Record {
 
 	var fieldNames []string
 	for i, sf := range sm.superFields {
-		sf.AppendValueOrNull3(recordBuilder.Field(i), mem)
-		fieldNames = append(fieldNames, sf.name)
+		sf.AppendValueOrNull(recordBuilder.Field(i), mem)
+		fieldNames = append(fieldNames, sf.name())
 	}
 
 	var arrays []arrow.Array
@@ -135,7 +124,7 @@ func NewSuperMessage(msg proto.Message, options ...option) *SuperMessage {
 	for v.Kind() == reflect.Ptr {
 		v = v.Elem()
 	}
-	includeAll := func(pfr protobufFieldReflection) bool {
+	includeAll := func(pfr *protobufFieldReflection) bool {
 		return false
 	}
 	noFormatting := func(str string) string {
@@ -156,13 +145,17 @@ func NewSuperMessage(msg proto.Message, options ...option) *SuperMessage {
 		opt(psr)
 	}
 
-	var superFields []SuperField
+	var fields []SuperField
 
-	for sf := range psr.generateSuperFields() {
-		superFields = append(superFields, sf)
+	for pfr := range psr.generateFields() {
+		fields = append(fields, SuperField{
+			parent:             psr,
+			protobufReflection: pfr,
+			Field:              pfr.arrowField(),
+		})
 	}
 
-	return &SuperMessage{superFields: superFields}
+	return &SuperMessage{superFields: fields}
 }
 
 type option func(*ProtobufStructReflection)
@@ -173,7 +166,7 @@ func NewProtobufStructReflection(msg proto.Message, options ...option) *Protobuf
 	for v.Kind() == reflect.Ptr {
 		v = v.Elem()
 	}
-	includeAll := func(pfr protobufFieldReflection) bool {
+	includeAll := func(pfr *protobufFieldReflection) bool {
 		return false
 	}
 	noFormatting := func(str string) string {
@@ -201,7 +194,7 @@ func NewProtobufStructReflection(msg proto.Message, options ...option) *Protobuf
 // WithExclusionPolicy acts as a deny filter on the fields of a protobuf message
 // to prevent them from being included in the schema.
 // A use case for this is to exclude fields containing PII.
-func WithExclusionPolicy(ex func(pfr protobufFieldReflection) bool) option {
+func WithExclusionPolicy(ex func(pfr *protobufFieldReflection) bool) option {
 	return func(psr *ProtobufStructReflection) {
 		psr.exclusionPolicy = ex
 	}
@@ -231,7 +224,7 @@ func (psr ProtobufStructReflection) GetSchema() *arrow.Schema {
 }
 
 func (psr ProtobufStructReflection) unmarshallAny() ProtobufStructReflection {
-	if psr.descriptor.FullName() == "google.protobuf.Any" {
+	if psr.descriptor.FullName() == "google.protobuf.Any" && psr.rValue.IsValid() {
 		for psr.rValue.Type().Kind() == reflect.Ptr {
 			psr.rValue = reflect.Indirect(psr.rValue)
 		}
@@ -272,23 +265,27 @@ type protobufListReflection struct {
 	protobufFieldReflection
 }
 
-func (pfr protobufFieldReflection) asList() protobufListReflection {
-	return protobufListReflection{pfr}
+func (pfr *protobufFieldReflection) asList() protobufListReflection {
+	return protobufListReflection{*pfr}
 }
 
 func (plr protobufListReflection) getDataType() arrow.DataType {
 	for li := range plr.generateListItems() {
 		return arrow.ListOf(li.getDataType())
 	}
-	return nil
+	pfr := protobufFieldReflection{
+		descriptor:    plr.descriptor,
+		schemaOptions: plr.schemaOptions,
+	}
+	return arrow.ListOf(pfr.getDataType())
 }
 
 type protobufUnionReflection struct {
 	protobufFieldReflection
 }
 
-func (pfr protobufFieldReflection) asUnion() protobufUnionReflection {
-	return protobufUnionReflection{pfr}
+func (pfr *protobufFieldReflection) asUnion() protobufUnionReflection {
+	return protobufUnionReflection{*pfr}
 }
 
 func (pur protobufUnionReflection) isThisOne() bool {
@@ -315,7 +312,7 @@ func (pur protobufUnionReflection) getField() *protobufFieldReflection {
 	for i := 0; i < fds.Len(); i++ {
 		pfr := pur.parent.getFieldByName(string(fds.Get(i).Name()))
 		if pfr.asUnion().isThisOne() {
-			return &pfr
+			return pfr
 		}
 	}
 	// i.e. all null
@@ -325,20 +322,17 @@ func (pur protobufUnionReflection) getField() *protobufFieldReflection {
 func (pur protobufUnionReflection) getUnionTypeCode(n int32) arrow.UnionTypeCode {
 	//We use the index of the field number as there is a limit on the arrow.UnionTypeCode (127)
 	//which a protobuf Number could realistically exceed
-	fmt.Println(pur.protobufFieldReflection.descriptor.FullName())
-	fmt.Println(n)
 	fds := pur.descriptor.ContainingOneof().Fields()
 	for i := 0; i < fds.Len(); i++ {
 		if n == int32(fds.Get(i).Number()) {
-			fmt.Println(i)
 			return int8(i)
 		}
 	}
 	return -1
 }
 
-func (pur protobufUnionReflection) generateUnionFields() chan protobufFieldReflection {
-	out := make(chan protobufFieldReflection)
+func (pur protobufUnionReflection) generateUnionFields() chan *protobufFieldReflection {
+	out := make(chan *protobufFieldReflection)
 	go func() {
 		defer close(out)
 		fds := pur.descriptor.ContainingOneof().Fields()
@@ -383,8 +377,8 @@ type protobufDictReflection struct {
 	protobufFieldReflection
 }
 
-func (pfr protobufFieldReflection) asDictionary() protobufDictReflection {
-	return protobufDictReflection{pfr}
+func (pfr *protobufFieldReflection) asDictionary() protobufDictReflection {
+	return protobufDictReflection{*pfr}
 }
 
 func (pdr protobufDictReflection) getDataType() arrow.DataType {
@@ -399,15 +393,26 @@ type protobufMapReflection struct {
 	protobufFieldReflection
 }
 
-func (pfr protobufFieldReflection) asMap() protobufMapReflection {
-	return protobufMapReflection{pfr}
+func (pfr *protobufFieldReflection) asMap() protobufMapReflection {
+	return protobufMapReflection{*pfr}
 }
 
 func (pmr protobufMapReflection) getDataType() arrow.DataType {
 	for kvp := range pmr.generateKeyValuePairs() {
 		return kvp.getDataType()
 	}
-	return nil
+	return protobufMapKeyValuePairReflection{
+		k: protobufFieldReflection{
+			parent:        pmr.parent,
+			descriptor:    pmr.descriptor.MapKey(),
+			schemaOptions: pmr.schemaOptions,
+		},
+		v: protobufFieldReflection{
+			parent:        pmr.parent,
+			descriptor:    pmr.descriptor.MapValue(),
+			schemaOptions: pmr.schemaOptions,
+		},
+	}.getDataType()
 }
 
 type protobufMapKeyValuePairReflection struct {
@@ -427,12 +432,14 @@ func (pmr protobufMapReflection) generateKeyValuePairs() chan protobufMapKeyValu
 		for _, k := range pmr.rValue.MapKeys() {
 			kvp := protobufMapKeyValuePairReflection{
 				k: protobufFieldReflection{
+					parent:        pmr.parent,
 					descriptor:    pmr.descriptor.MapKey(),
 					prValue:       getMapKey(k),
 					rValue:        k,
 					schemaOptions: pmr.schemaOptions,
 				},
 				v: protobufFieldReflection{
+					parent:        pmr.parent,
 					descriptor:    pmr.descriptor.MapValue(),
 					prValue:       pmr.prValue.Map().Get(protoreflect.MapKey(getMapKey(k))),
 					rValue:        pmr.rValue.MapIndex(k),
@@ -446,8 +453,8 @@ func (pmr protobufMapReflection) generateKeyValuePairs() chan protobufMapKeyValu
 	return out
 }
 
-func (psr ProtobufStructReflection) generateStructFields() chan protobufFieldReflection {
-	out := make(chan protobufFieldReflection)
+func (psr ProtobufStructReflection) generateStructFields() chan *protobufFieldReflection {
+	out := make(chan *protobufFieldReflection)
 
 	go func() {
 		defer close(out)
@@ -469,8 +476,8 @@ func (psr ProtobufStructReflection) generateStructFields() chan protobufFieldRef
 	return out
 }
 
-func (psr ProtobufStructReflection) generateSuperFields() chan SuperField {
-	out := make(chan SuperField)
+func (psr ProtobufStructReflection) generateFields() chan *protobufFieldReflection {
+	out := make(chan *protobufFieldReflection)
 
 	go func() {
 		defer close(out)
@@ -480,34 +487,26 @@ func (psr ProtobufStructReflection) generateSuperFields() chan SuperField {
 			if psr.exclusionPolicy(pfr) {
 				continue
 			}
-			sf := SuperField{
-				parent:             &psr,
-				protobufReflection: pfr,
-				Field: arrow.Field{
-					Name:     pfr.name(),
-					Type:     pfr.getDataType(),
-					Nullable: false,
-					Metadata: arrow.Metadata{},
-				},
-			}
 			if pfr.arrowType() == arrow.DENSE_UNION {
 				if pfr.descriptor.Number() != pfr.descriptor.ContainingOneof().Fields().Get(0).Number() {
 					continue
 				}
 			}
-			out <- sf
+			out <- pfr
 		}
 	}()
 
 	return out
 }
 
-func (pfr protobufFieldReflection) asStruct() ProtobufStructReflection {
+func (pfr *protobufFieldReflection) asStruct() ProtobufStructReflection {
 	psr := ProtobufStructReflection{
 		descriptor:    pfr.descriptor.Message(),
-		message:       pfr.prValue.Message(),
 		rValue:        pfr.rValue,
 		schemaOptions: pfr.schemaOptions,
+	}
+	if pfr.prValue.IsValid() {
+		psr.message = pfr.prValue.Message()
 	}
 	psr = psr.unmarshallAny()
 	return psr
@@ -517,7 +516,7 @@ func (psr ProtobufStructReflection) getDataType() arrow.DataType {
 	return arrow.StructOf(psr.getArrowFields()...)
 }
 
-func (psr ProtobufStructReflection) getFieldByName(n string) protobufFieldReflection {
+func (psr ProtobufStructReflection) getFieldByName(n string) *protobufFieldReflection {
 	// TODO need to do something here to go from the parent name `oneof` to the children
 	// func (psr) get_field_by_name, maps the arrow schema to protobuf fields
 	// could also look at tagging the schema by number, but I would prefer not to do that
@@ -537,13 +536,16 @@ func (psr ProtobufStructReflection) getFieldByName(n string) protobufFieldReflec
 			}
 		}
 	}
-	return protobufFieldReflection{
-		&psr,
-		fd,
-		psr.message.Get(fd),
-		fv,
-		psr.schemaOptions,
+	pfr := protobufFieldReflection{
+		parent:        &psr,
+		descriptor:    fd,
+		rValue:        fv,
+		schemaOptions: psr.schemaOptions,
 	}
+	if psr.message != nil {
+		pfr.prValue = psr.message.Get(fd)
+	}
+	return &pfr
 }
 
 type protobufFieldReflection struct {
@@ -554,26 +556,48 @@ type protobufFieldReflection struct {
 	schemaOptions
 }
 
-func (pfr protobufFieldReflection) protoreflectValue() protoreflect.Value {
+func (pfr *protobufFieldReflection) isNull() bool {
+	for pfr.rValue.Kind() == reflect.Ptr {
+		if pfr.rValue.IsNil() {
+			return true
+		}
+		pfr.rValue = pfr.rValue.Elem()
+	}
+
+	if !pfr.rValue.IsValid() && !pfr.prValue.IsValid() {
+		return true
+	}
+	return false
+}
+
+func (pfr *protobufFieldReflection) arrowField() arrow.Field {
+	return arrow.Field{
+		Name:     pfr.name(),
+		Type:     pfr.getDataType(),
+		Nullable: false,
+	}
+}
+
+func (pfr *protobufFieldReflection) protoreflectValue() protoreflect.Value {
 	return pfr.prValue
 }
 
-func (pfr protobufFieldReflection) reflectValue() reflect.Value {
+func (pfr *protobufFieldReflection) reflectValue() reflect.Value {
 	return pfr.rValue
 }
 
-func (pfr protobufFieldReflection) getDescriptor() protoreflect.FieldDescriptor {
+func (pfr *protobufFieldReflection) getDescriptor() protoreflect.FieldDescriptor {
 	return pfr.descriptor
 }
 
-func (pfr protobufFieldReflection) name() string {
+func (pfr *protobufFieldReflection) name() string {
 	if pfr.descriptor.ContainingOneof() != nil && pfr.schemaOptions.oneOfHandler != Null {
 		return pfr.fieldNameFormatter(string(pfr.descriptor.ContainingOneof().Name()))
 	}
 	return pfr.fieldNameFormatter(string(pfr.descriptor.Name()))
 }
 
-func (pfr protobufFieldReflection) arrowType() arrow.Type {
+func (pfr *protobufFieldReflection) arrowType() arrow.Type {
 	if pfr.descriptor.ContainingOneof() != nil && pfr.schemaOptions.oneOfHandler == DenseUnion {
 		return arrow.DENSE_UNION
 	}
@@ -592,23 +616,23 @@ func (pfr protobufFieldReflection) arrowType() arrow.Type {
 	return arrow.NULL
 }
 
-func (pfr protobufFieldReflection) isStruct() bool {
+func (pfr *protobufFieldReflection) isStruct() bool {
 	return pfr.descriptor.Kind() == protoreflect.MessageKind && !pfr.descriptor.IsMap() && pfr.rValue.Kind() != reflect.Slice
 }
 
-func (pfr protobufFieldReflection) isMap() bool {
+func (pfr *protobufFieldReflection) isMap() bool {
 	return pfr.descriptor.Kind() == protoreflect.MessageKind && pfr.descriptor.IsMap()
 }
 
-func (pfr protobufFieldReflection) isList() bool {
+func (pfr *protobufFieldReflection) isList() bool {
 	return pfr.descriptor.IsList() && pfr.rValue.Kind() == reflect.Slice
 }
 
-func (pfr protobufFieldReflection) getListLength() int {
+func (pfr *protobufFieldReflection) getListLength() int {
 	return pfr.prValue.List().Len()
 }
 
-func (pfr protobufFieldReflection) getMapLength() int {
+func (pfr *protobufFieldReflection) getMapLength() int {
 	return pfr.prValue.Map().Len()
 }
 
@@ -630,7 +654,7 @@ func (plr protobufListReflection) generateListItems() chan protobufFieldReflecti
 	return out
 }
 
-func (pfr protobufFieldReflection) getDataType() arrow.DataType {
+func (pfr *protobufFieldReflection) getDataType() arrow.DataType {
 	var dt arrow.DataType
 
 	typeMap := map[protoreflect.Kind]arrow.DataType{
@@ -674,237 +698,11 @@ func (pfr protobufFieldReflection) getDataType() arrow.DataType {
 	return dt
 }
 
-func RecordFromProtobuf(psr ProtobufStructReflection, schema *arrow.Schema, mem memory.Allocator) arrow.Record {
-	if mem == nil {
-		mem = memory.NewGoAllocator()
-	}
-
-	recordBuilder := array.NewRecordBuilder(mem, schema)
-
-	var fieldNames []string
-	for i, field := range schema.Fields() {
-		AppendValueOrNull(recordBuilder.Field(i), psr.getFieldByName(field.Name), field, mem)
-		fieldNames = append(fieldNames, field.Name)
-	}
-
-	var arrays []arrow.Array
-	for _, bldr := range recordBuilder.Fields() {
-		a := bldr.NewArray()
-		arrays = append(arrays, a)
-	}
-
-	structArray, _ := array.NewStructArray(arrays, fieldNames)
-
-	return array.RecordFromStructArray(structArray, schema)
-}
-
-func AppendValueOrNull(b array.Builder, pfr protobufFieldReflection, f arrow.Field, mem memory.Allocator) {
-	v := pfr.rValue
-	pv := pfr.prValue
-	fd := pfr.descriptor
-
-	for v.Kind() == reflect.Ptr {
-		if v.IsNil() {
-			b.AppendNull()
-			return
-		}
-		v = v.Elem()
-	}
-
-	if !v.IsValid() && !pv.IsValid() {
-		b.AppendNull()
-		return
-	}
-
-	switch b.Type().ID() {
-	case arrow.STRING:
-		b.(*array.StringBuilder).Append(pv.String())
-	case arrow.BINARY:
-		b.(*array.BinaryBuilder).Append(pv.Bytes())
-	case arrow.INT32:
-		b.(*array.Int32Builder).Append(int32(pv.Int()))
-	case arrow.INT64:
-		b.(*array.Int64Builder).Append(pv.Int())
-	case arrow.FLOAT64:
-		b.(*array.Float64Builder).Append(pv.Float())
-	case arrow.UINT32:
-		b.(*array.Uint32Builder).Append(uint32(pv.Uint()))
-	case arrow.UINT64:
-		b.(*array.Uint64Builder).Append(pv.Uint())
-	case arrow.BOOL:
-		b.(*array.BooleanBuilder).Append(pv.Bool())
-	case arrow.DENSE_UNION:
-		//u := pfr
-		ub := b.(array.UnionBuilder)
-		// TODO this needs to be set in the pur
-		// We can't use the pfr.descriptor.Number() incase it goes above 127, the limit
-		ub.Append(arrow.UnionTypeCode(pfr.descriptor.Number()))
-
-	case arrow.DICTIONARY:
-		db := b.(array.DictionaryBuilder)
-		err := db.AppendValueFromString(string(fd.Enum().Values().ByNumber(pv.Enum()).Name()))
-		if err != nil {
-			fmt.Println(err)
-		}
-	case arrow.STRUCT:
-		psr := pfr.asStruct()
-		sb := b.(*array.StructBuilder)
-		sb.Append(true)
-		for i, field := range f.Type.(*arrow.StructType).Fields() {
-			SuperField{
-				parent:             &psr,
-				protobufReflection: psr.getFieldByName(field.Name),
-				Field:              field,
-				name:               field.Name,
-			}.AppendValueOrNull3(sb.FieldBuilder(i), mem)
-		}
-	case arrow.LIST:
-		lb := b.(*array.ListBuilder)
-		l := pfr.getListLength()
-		if l == 0 {
-			lb.AppendEmptyValue()
-			break
-		}
-		lb.ValueBuilder().Reserve(l)
-		lb.Append(true)
-		field := f.Type.(*arrow.ListType).ElemField()
-		for li := range pfr.asList().generateListItems() {
-			AppendValueOrNull(lb.ValueBuilder(), li, field, mem)
-		}
-	case arrow.MAP:
-		mb := b.(*array.MapBuilder)
-		l := pfr.getMapLength()
-		if l == 0 {
-			mb.AppendEmptyValue()
-			break
-		}
-		mb.KeyBuilder().Reserve(l)
-		mb.ItemBuilder().Reserve(l)
-		mb.Append(true)
-
-		for kvp := range pfr.asMap().generateKeyValuePairs() {
-			AppendValueOrNull(mb.KeyBuilder(), kvp.k, f.Type.(*arrow.MapType).KeyField(), mem)
-			AppendValueOrNull(mb.ItemBuilder(), kvp.v, f.Type.(*arrow.MapType).ItemField(), mem)
-		}
-	default:
-		fmt.Printf("No logic for type %s", b.Type().ID())
-	}
-
-}
-
-func AppendValueOrNull2(b array.Builder, pr protobufReflection, f arrow.Field, mem memory.Allocator) {
-	v := pr.reflectValue()
-	pv := pr.protoreflectValue()
-	fd := pr.getDescriptor()
-
-	for v.Kind() == reflect.Ptr {
-		if v.IsNil() {
-			b.AppendNull()
-			return
-		}
-		v = v.Elem()
-	}
-
-	if !v.IsValid() && !pv.IsValid() {
-		b.AppendNull()
-		return
-	}
-
-	switch b.Type().ID() {
-	case arrow.STRING:
-		b.(*array.StringBuilder).Append(pv.String())
-	case arrow.BINARY:
-		b.(*array.BinaryBuilder).Append(pv.Bytes())
-	case arrow.INT32:
-		b.(*array.Int32Builder).Append(int32(pv.Int()))
-	case arrow.INT64:
-		b.(*array.Int64Builder).Append(pv.Int())
-	case arrow.FLOAT64:
-		b.(*array.Float64Builder).Append(pv.Float())
-	case arrow.UINT32:
-		b.(*array.Uint32Builder).Append(uint32(pv.Uint()))
-	case arrow.UINT64:
-		b.(*array.Uint64Builder).Append(pv.Uint())
-	case arrow.BOOL:
-		b.(*array.BooleanBuilder).Append(pv.Bool())
-	case arrow.DENSE_UNION:
-		ub := b.(array.UnionBuilder)
-		//TODO this shouldn't be nil, need to get the parent from somewhere
-		pur := pr.(*protobufUnionReflection)
-		//pur := pr.asUnion(nil)
-		if pur.whichOne() == -1 {
-			ub.AppendNull()
-			break
-		}
-		ub.Append(pur.whichOne())
-		//cb := ub.Child(int(pur.whichOne()))
-		//SuperField{
-		//	protobufReflection: pur,
-		//	Field:              arrow.Field{},
-		//	name:               "",
-		//}.AppendValueOrNull3(cb, mem)
-		////AppendValueOrNull2(cb, pur.getFieldByName(field.Name), field, mem)
-	case arrow.DICTIONARY:
-		db := b.(array.DictionaryBuilder)
-		err := db.AppendValueFromString(string(fd.Enum().Values().ByNumber(pv.Enum()).Name()))
-		if err != nil {
-			fmt.Println(err)
-		}
-	case arrow.STRUCT:
-		psr := pr.asStruct()
-		sb := b.(*array.StructBuilder)
-		sb.Append(true)
-		for i, field := range f.Type.(*arrow.StructType).Fields() {
-			AppendValueOrNull2(sb.FieldBuilder(i), psr.getFieldByName(field.Name), field, mem)
-		}
-	case arrow.LIST:
-		lb := b.(*array.ListBuilder)
-		l := pv.List().Len()
-		if l == 0 {
-			lb.AppendEmptyValue()
-			break
-		}
-		lb.ValueBuilder().Reserve(l)
-		lb.Append(true)
-		field := f.Type.(*arrow.ListType).ElemField()
-		for li := range pr.asList().generateListItems() {
-			AppendValueOrNull2(lb.ValueBuilder(), li, field, mem)
-		}
-	case arrow.MAP:
-		mb := b.(*array.MapBuilder)
-		l := pv.Map().Len()
-		if l == 0 {
-			mb.AppendEmptyValue()
-			break
-		}
-		mb.KeyBuilder().Reserve(l)
-		mb.ItemBuilder().Reserve(l)
-		mb.Append(true)
-
-		for kvp := range pr.asMap().generateKeyValuePairs() {
-			AppendValueOrNull2(mb.KeyBuilder(), kvp.k, f.Type.(*arrow.MapType).KeyField(), mem)
-			AppendValueOrNull2(mb.ItemBuilder(), kvp.v, f.Type.(*arrow.MapType).ItemField(), mem)
-		}
-	default:
-		fmt.Printf("No logic for type %s", b.Type().ID())
-	}
-
-}
-
-func (sf SuperField) AppendValueOrNull3(b array.Builder, mem memory.Allocator) {
-	v := sf.reflectValue()
+func (sf SuperField) AppendValueOrNull(b array.Builder, mem memory.Allocator) {
 	pv := sf.protoreflectValue()
 	fd := sf.getDescriptor()
 
-	for v.Kind() == reflect.Ptr {
-		if v.IsNil() {
-			b.AppendNull()
-			return
-		}
-		v = v.Elem()
-	}
-
-	if !v.IsValid() && !pv.IsValid() {
+	if sf.isNull() {
 		b.AppendNull()
 		return
 	}
@@ -928,7 +726,6 @@ func (sf SuperField) AppendValueOrNull3(b array.Builder, mem memory.Allocator) {
 		b.(*array.BooleanBuilder).Append(pv.Bool())
 	case arrow.DENSE_UNION:
 		ub := b.(array.UnionBuilder)
-		//TODO this shouldn't be nil, need to get the parent from somewhere
 		pur := sf.asUnion()
 		if pur.whichOne() == -1 {
 			ub.AppendNull()
@@ -936,17 +733,11 @@ func (sf SuperField) AppendValueOrNull3(b array.Builder, mem memory.Allocator) {
 		}
 		ub.Append(pur.whichOne())
 		cb := ub.Child(int(pur.whichOne()))
-		fmt.Println(pur.whichOne())
-		fmt.Printf("%+v\n", pur.getField())
 		SuperField{
 			parent:             sf.parent,
 			protobufReflection: pur.getField(),
-			Field:              arrow.Field{},
-			name:               pur.name(),
-		}.AppendValueOrNull3(cb, mem)
-
-		//AppendValueOrNull2(cb, pur., field, mem)
-		//AppendValueOrNull2(cb, pur.getFieldByName(field.Name), field, mem)
+			Field:              pur.arrowField(),
+		}.AppendValueOrNull(cb, mem)
 	case arrow.DICTIONARY:
 		db := b.(array.DictionaryBuilder)
 		err := db.AppendValueFromString(string(fd.Enum().Values().ByNumber(pv.Enum()).Name()))
@@ -954,16 +745,14 @@ func (sf SuperField) AppendValueOrNull3(b array.Builder, mem memory.Allocator) {
 			fmt.Println(err)
 		}
 	case arrow.STRUCT:
-		psr := sf.asStruct()
 		sb := b.(*array.StructBuilder)
 		sb.Append(true)
 		for i, field := range sf.Field.Type.(*arrow.StructType).Fields() {
 			SuperField{
 				parent:             sf.parent,
-				protobufReflection: psr.getFieldByName(field.Name),
+				protobufReflection: sf.asStruct().getFieldByName(field.Name),
 				Field:              field,
-				name:               psr.getFieldByName(field.Name).name(),
-			}.AppendValueOrNull3(sb.FieldBuilder(i), mem)
+			}.AppendValueOrNull(sb.FieldBuilder(i), mem)
 		}
 	case arrow.LIST:
 		lb := b.(*array.ListBuilder)
@@ -977,10 +766,9 @@ func (sf SuperField) AppendValueOrNull3(b array.Builder, mem memory.Allocator) {
 		for li := range sf.asList().generateListItems() {
 			SuperField{
 				parent:             sf.parent,
-				protobufReflection: li,
+				protobufReflection: &li,
 				Field:              sf.Field.Type.(*arrow.ListType).ElemField(),
-				name:               li.name(),
-			}.AppendValueOrNull3(lb.ValueBuilder(), mem)
+			}.AppendValueOrNull(lb.ValueBuilder(), mem)
 		}
 	case arrow.MAP:
 		mb := b.(*array.MapBuilder)
@@ -996,21 +784,18 @@ func (sf SuperField) AppendValueOrNull3(b array.Builder, mem memory.Allocator) {
 		for kvp := range sf.asMap().generateKeyValuePairs() {
 			SuperField{
 				parent:             sf.parent,
-				protobufReflection: kvp.k,
+				protobufReflection: &kvp.k,
 				Field:              sf.Field.Type.(*arrow.MapType).KeyField(),
-				name:               kvp.k.name(),
-			}.AppendValueOrNull3(mb.KeyBuilder(), mem)
+			}.AppendValueOrNull(mb.KeyBuilder(), mem)
 			SuperField{
 				parent:             sf.parent,
-				protobufReflection: kvp.v,
+				protobufReflection: &kvp.v,
 				Field:              sf.Field.Type.(*arrow.MapType).ItemField(),
-				name:               kvp.v.name(),
-			}.AppendValueOrNull3(mb.ItemBuilder(), mem)
+			}.AppendValueOrNull(mb.ItemBuilder(), mem)
 		}
 	default:
 		fmt.Printf("No logic for type %s", b.Type().ID())
 	}
-
 }
 
 func getMapKey(v reflect.Value) protoreflect.Value {
