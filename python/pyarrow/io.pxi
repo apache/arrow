@@ -1446,27 +1446,6 @@ cdef class Buffer(_Weakrefable):
         buffer.strides = self.strides
         buffer.suboffsets = NULL
 
-    def __getsegcount__(self, Py_ssize_t *len_out):
-        if len_out != NULL:
-            len_out[0] = <Py_ssize_t>self.size
-        return 1
-
-    def __getreadbuffer__(self, Py_ssize_t idx, void **p):
-        if idx != 0:
-            raise SystemError("accessing nonexistent buffer segment")
-        if p != NULL:
-            p[0] = <void*> self.buffer.get().data()
-        return self.size
-
-    def __getwritebuffer__(self, Py_ssize_t idx, void **p):
-        if not self.buffer.get().is_mutable():
-            raise SystemError("trying to write an immutable buffer")
-        if idx != 0:
-            raise SystemError("accessing nonexistent buffer segment")
-        if p != NULL:
-            p[0] = <void*> self.buffer.get().data()
-        return self.size
-
 
 cdef class ResizableBuffer(Buffer):
     """
@@ -2142,21 +2121,21 @@ cdef class CacheOptions(_Weakrefable):
     Parameters
     ----------
     hole_size_limit : int, default 8KiB
-        The maximum distance in bytes between two consecutive ranges; beyond 
+        The maximum distance in bytes between two consecutive ranges; beyond
         this value, ranges are not combined.
     range_size_limit : int, default 32MiB
-        The maximum size in bytes of a combined range; if combining two 
-        consecutive ranges would produce a range of a size greater than this, 
+        The maximum size in bytes of a combined range; if combining two
+        consecutive ranges would produce a range of a size greater than this,
         they are not combined
     lazy : bool, default True
         lazy = false: request all byte ranges when PreBuffer or WillNeed is called.
-        lazy = True, prefetch_limit = 0: request merged byte ranges only after the reader 
-        needs them. 
-        lazy = True, prefetch_limit = k: prefetch up to k merged byte ranges ahead of the 
+        lazy = True, prefetch_limit = 0: request merged byte ranges only after the reader
+        needs them.
+        lazy = True, prefetch_limit = k: prefetch up to k merged byte ranges ahead of the
         range that is currently being read.
     prefetch_limit : int, default 0
-        The maximum number of ranges to be prefetched. This is only used for 
-        lazy cache to asynchronously read some ranges after reading the target 
+        The maximum number of ranges to be prefetched. This is only used for
+        lazy cache to asynchronously read some ranges after reading the target
         range.
     """
 
@@ -2227,19 +2206,19 @@ cdef class CacheOptions(_Weakrefable):
         """
         Create suiteable CacheOptions based on provided network metrics.
 
-        Typically this will be used with object storage solutions like Amazon S3, 
+        Typically this will be used with object storage solutions like Amazon S3,
         Google Cloud Storage and Azure Blob Storage.
 
         Parameters
         ----------
         time_to_first_byte_millis : int
-            Seek-time or Time-To-First-Byte (TTFB) in milliseconds, also called call 
-            setup latency of a new read request. The value is a positive integer. 
+            Seek-time or Time-To-First-Byte (TTFB) in milliseconds, also called call
+            setup latency of a new read request. The value is a positive integer.
         transfer_bandwidth_mib_per_sec : int
-            Data transfer Bandwidth (BW) in MiB/sec (per connection). The value is a positive 
+            Data transfer Bandwidth (BW) in MiB/sec (per connection). The value is a positive
             integer.
         ideal_bandwidth_utilization_frac : int, default 0.9
-            Transfer bandwidth utilization fraction (per connection) to maximize the net 
+            Transfer bandwidth utilization fraction (per connection) to maximize the net
             data load. The value is a positive float less than 1.
         max_ideal_request_size_mib : int, default 64
             The maximum single data request size (in MiB) to maximize the net data load.
