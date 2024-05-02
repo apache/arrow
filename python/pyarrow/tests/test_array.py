@@ -3512,6 +3512,14 @@ def test_struct_array_sort():
         {"a": 5, "b": "foo"},
     ]
 
+    sorted_arr = arr.sort()
+    assert sorted_arr.to_pylist() == [
+        {"a": 5, "b": "foo"},
+        {"a": 7, "b": "bar"},
+        {"a": 7, "b": "car"},
+        {"a": 35, "b": "foobar"},
+    ]
+
     arr_with_nulls = pa.StructArray.from_arrays([
         pa.array([5, 7, 7, 35], type=pa.int64()),
         pa.array(["foo", "car", "bar", "foobar"])
