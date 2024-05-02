@@ -310,8 +310,8 @@ created above (stored in ``$ARROW_HOME``):
 build with more features like CUDA, Flight and Gandiva support you may opt for
 the ``ninja-release-python-maximal`` preset. If you wanted less features, (i.e
 removing Orc and dataset support) you could opt for
-``ninja-release-python-minimal``. Change the word ``release`` to ``debug`` with
-any of the aforementioned presets will generated a debug build of Arrow.
+``ninja-release-python-minimal``. Changing the word ``release`` to ``debug``
+with any of the aforementioned presets will generated a debug build of Arrow.
 
 .. seealso::
    :ref:`Building Arrow C++ <cpp-building-building>`.
