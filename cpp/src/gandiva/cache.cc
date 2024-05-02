@@ -20,33 +20,30 @@
 #include "arrow/result.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/value_parsing.h"
 
 namespace gandiva {
 
-static const int DEFAULT_CACHE_SIZE = 5000;
+constexpr auto kCacheCapacityEnvVar = "GANDIVA_CACHE_SIZE";
+constexpr auto kDefaultCacheSize = 5000;
 
 namespace internal {
 int GetCacheCapacityFromEnvVar() {
-  auto maybe_env_value = ::arrow::internal::GetEnvVar("GANDIVA_CACHE_SIZE");
+  auto maybe_env_value = ::arrow::internal::GetEnvVar(kCacheCapacityEnvVar);
   if (!maybe_env_value.ok()) {
-    return DEFAULT_CACHE_SIZE;
+    return kDefaultCacheSize;
   }
   const auto env_value = *std::move(maybe_env_value);
   if (env_value.empty()) {
-    return DEFAULT_CACHE_SIZE;
+    return kDefaultCacheSize;
   }
   int capacity = 0;
-  size_t length = 0;
-  bool exception = false;
-  try {
-    capacity = std::stoi(env_value.c_str(), &length);
-  } catch (const std::exception&) {
-    exception = true;
-  }
-  if (length != env_value.length() || exception || capacity <= 0) {
-    ARROW_LOG(WARNING) << "Invalid cache size provided in GANDIVA_CACHE_SIZE. "
-                       << "Using default cache size: " << DEFAULT_CACHE_SIZE;
-    return DEFAULT_CACHE_SIZE;
+  bool ok = ::arrow::internal::ParseValue<::arrow::Int32Type>(
+      env_value.c_str(), env_value.size(), &capacity);
+  if (!ok || capacity <= 0) {
+    ARROW_LOG(WARNING) << "Invalid cache size provided in " << kCacheCapacityEnvVar
+                       << "Using default cache size: " << kDefaultCacheSize;
+    return kDefaultCacheSize;
   }
   return capacity;
 }
