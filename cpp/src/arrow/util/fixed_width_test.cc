@@ -114,10 +114,14 @@ TEST_F(TestFixedWidth, MeasureWidthInBytes) {
   auto b = boolean();
   auto i8 = int8();
   auto i32 = int32();
+  auto fsb = fixed_size_binary(3);
+  auto dict = dictionary(int32(), utf8());
   auto varlen = utf8();
   ASSERT_EQ(FixedWidthInBytes(*b), -1);
   ASSERT_EQ(FixedWidthInBytes(*i8), 1);
   ASSERT_EQ(FixedWidthInBytes(*i32), 4);
+  ASSERT_EQ(FixedWidthInBytes(*fsb), 3);
+  ASSERT_EQ(FixedWidthInBytes(*dict), 4);
 
   ASSERT_EQ(FixedWidthInBytes(*varlen), -1);
   ASSERT_EQ(FixedWidthInBytes(*varlen), -1);
@@ -132,6 +136,8 @@ TEST_F(TestFixedWidth, MeasureWidthInBytes) {
   ASSERT_EQ(FixedWidthInBytes(*fsl(0, i32)), 0);
   ASSERT_EQ(FixedWidthInBytes(*fsl(3, i32)), 3 * 4);
   ASSERT_EQ(FixedWidthInBytes(*fsl(5, i32)), 5 * 4);
+  ASSERT_EQ(FixedWidthInBytes(*fsl(5, fsb)), 5 * 3);
+  ASSERT_EQ(FixedWidthInBytes(*fsl(5, dict)), 5 * 4);
 
   ASSERT_EQ(FixedWidthInBytes(*fsl(2, fsl(0, i8))), 0);
   ASSERT_EQ(FixedWidthInBytes(*fsl(2, fsl(3, i8))), 2 * 3);
@@ -139,6 +145,12 @@ TEST_F(TestFixedWidth, MeasureWidthInBytes) {
   ASSERT_EQ(FixedWidthInBytes(*fsl(2, fsl(0, i32))), 0);
   ASSERT_EQ(FixedWidthInBytes(*fsl(2, fsl(3, i32))), 2 * 3 * 4);
   ASSERT_EQ(FixedWidthInBytes(*fsl(2, fsl(5, i32))), 2 * 5 * 4);
+  ASSERT_EQ(FixedWidthInBytes(*fsl(2, fsl(0, fsb))), 0);
+  ASSERT_EQ(FixedWidthInBytes(*fsl(2, fsl(3, fsb))), 2 * 3 * 3);
+  ASSERT_EQ(FixedWidthInBytes(*fsl(2, fsl(5, fsb))), 2 * 5 * 3);
+  ASSERT_EQ(FixedWidthInBytes(*fsl(2, fsl(0, dict))), 0);
+  ASSERT_EQ(FixedWidthInBytes(*fsl(2, fsl(3, dict))), 2 * 3 * 4);
+  ASSERT_EQ(FixedWidthInBytes(*fsl(2, fsl(5, dict))), 2 * 5 * 4);
 
   ASSERT_EQ(FixedWidthInBytes(*fsl(0, varlen)), -1);
   ASSERT_EQ(FixedWidthInBytes(*fsl(2, varlen)), -1);
@@ -148,10 +160,14 @@ TEST_F(TestFixedWidth, MeasureWidthInBits) {
   auto b = boolean();
   auto i8 = int8();
   auto i32 = int32();
+  auto fsb = fixed_size_binary(3);
+  auto dict = dictionary(int32(), utf8());
   auto varlen = utf8();
   ASSERT_EQ(FixedWidthInBits(*b), 1);
   ASSERT_EQ(FixedWidthInBits(*i8), 8);
   ASSERT_EQ(FixedWidthInBits(*i32), 4 * 8);
+  ASSERT_EQ(FixedWidthInBits(*fsb), 3 * 8);
+  ASSERT_EQ(FixedWidthInBits(*dict), 4 * 8);
 
   ASSERT_EQ(FixedWidthInBits(*varlen), -1);
   ASSERT_EQ(FixedWidthInBits(*varlen), -1);
@@ -166,6 +182,8 @@ TEST_F(TestFixedWidth, MeasureWidthInBits) {
   ASSERT_EQ(FixedWidthInBits(*fsl(0, i32)), 0);
   ASSERT_EQ(FixedWidthInBits(*fsl(3, i32)), 4 * 3 * 8);
   ASSERT_EQ(FixedWidthInBits(*fsl(5, i32)), 4 * 5 * 8);
+  ASSERT_EQ(FixedWidthInBits(*fsl(5, fsb)), 5 * 3 * 8);
+  ASSERT_EQ(FixedWidthInBits(*fsl(5, dict)), 5 * 4 * 8);
 
   ASSERT_EQ(FixedWidthInBits(*fsl(2, fsl(0, i8))), 0);
   ASSERT_EQ(FixedWidthInBits(*fsl(2, fsl(3, i8))), 2 * 3 * 8);
@@ -173,6 +191,12 @@ TEST_F(TestFixedWidth, MeasureWidthInBits) {
   ASSERT_EQ(FixedWidthInBits(*fsl(2, fsl(0, i32))), 0);
   ASSERT_EQ(FixedWidthInBits(*fsl(2, fsl(3, i32))), 2 * 3 * 4 * 8);
   ASSERT_EQ(FixedWidthInBits(*fsl(2, fsl(5, i32))), 2 * 5 * 4 * 8);
+  ASSERT_EQ(FixedWidthInBits(*fsl(2, fsl(0, fsb))), 0);
+  ASSERT_EQ(FixedWidthInBits(*fsl(2, fsl(3, fsb))), 2 * 3 * 3 * 8);
+  ASSERT_EQ(FixedWidthInBits(*fsl(2, fsl(5, fsb))), 2 * 5 * 3 * 8);
+  ASSERT_EQ(FixedWidthInBits(*fsl(2, fsl(0, dict))), 0);
+  ASSERT_EQ(FixedWidthInBits(*fsl(2, fsl(3, dict))), 2 * 3 * 4 * 8);
+  ASSERT_EQ(FixedWidthInBits(*fsl(2, fsl(5, dict))), 2 * 5 * 4 * 8);
 
   ASSERT_EQ(FixedWidthInBits(*fsl(0, varlen)), -1);
   ASSERT_EQ(FixedWidthInBits(*fsl(2, varlen)), -1);
