@@ -62,8 +62,7 @@ func SetupTest() util_message.AllTheTypes {
 func TestGetSchema(t *testing.T) {
 	msg := SetupTest()
 
-	pr := NewProtobufStructReflection(&msg)
-	got := pr.GetSchema().String()
+	got := NewSuperMessage(&msg).Schema().String()
 	want := `schema:
   fields: 22
     - string: type=utf8, nullable
@@ -91,7 +90,7 @@ func TestGetSchema(t *testing.T) {
 
 	require.Equal(t, want, got, "got: %s\nwant: %s", got, want)
 
-	got = NewProtobufStructReflection(&msg, WithOneOfHandler(DenseUnion)).GetSchema().String()
+	got = NewSuperMessage(&msg, WithOneOfHandler(DenseUnion)).Schema().String()
 	want = `schema:
   fields: 21
     - string: type=utf8, nullable
@@ -122,7 +121,7 @@ func TestGetSchema(t *testing.T) {
 		return pfr.isMap() || pfr.isList() || pfr.isStruct()
 	}
 
-	got = NewProtobufStructReflection(&msg, WithExclusionPolicy(excludeComplex)).GetSchema().String()
+	got = NewSuperMessage(&msg, WithExclusionPolicy(excludeComplex)).Schema().String()
 	want = `schema:
   fields: 15
     - string: type=utf8, nullable
@@ -143,11 +142,11 @@ func TestGetSchema(t *testing.T) {
 
 	require.Equal(t, want, got, "got: %s\nwant: %s", got, want)
 
-	got = NewProtobufStructReflection(
+	got = NewSuperMessage(
 		&msg,
 		WithExclusionPolicy(excludeComplex),
 		WithFieldNameFormatter(xstrings.ToCamelCase),
-	).GetSchema().String()
+	).Schema().String()
 	want = `schema:
   fields: 15
     - String: type=utf8, nullable
@@ -204,13 +203,11 @@ func TestRecordFromProtobuf(t *testing.T) {
 
 	require.NoError(t, err)
 	require.True(t, array.RecordEqual(got, want), "got: %s\nwant: %s", got, want)
-}
 
-func TestRecordFromNullProtobuf(t *testing.T) {
-	sm := NewSuperMessage(&util_message.AllTheTypes{})
-	schema := sm.Schema()
-	got := sm.Record(nil)
-	jsonStr := `[
+	sm = NewSuperMessage(&util_message.AllTheTypes{})
+	schema = sm.Schema()
+	got = sm.Record(nil)
+	jsonStr = `[
 		{
 			"string":"",
 			"int32":0,
@@ -241,7 +238,7 @@ func TestRecordFromNullProtobuf(t *testing.T) {
 	//jb, _ := got.MarshalJSON()
 	//fmt.Println(string(jb))
 
-	want, _, err := array.RecordFromJSON(memory.NewGoAllocator(), schema, strings.NewReader(jsonStr))
+	want, _, err = array.RecordFromJSON(memory.NewGoAllocator(), schema, strings.NewReader(jsonStr))
 
 	require.NoError(t, err)
 	require.True(t, array.RecordEqual(got, want), "got: %s\nwant: %s", got, want)

@@ -52,11 +52,6 @@ type ProtobufStructReflection struct {
 	superMap map[string]SuperField
 }
 
-// ProtobufMessageReflection represents the metadata and values of a protobuf message and maps them to arrow fields
-type ProtobufMessageReflection struct {
-	ProtobufStructReflection
-}
-
 type protobufReflection interface {
 	name() string
 	arrowType() arrow.Type
@@ -75,10 +70,6 @@ type SuperField struct {
 	parent *ProtobufStructReflection
 	protobufReflection
 	arrow.Field
-}
-
-func (sf SuperField) name() string {
-	return sf.protobufReflection.name()
 }
 
 type SuperMessage struct {
@@ -105,7 +96,7 @@ func (sm SuperMessage) Record(mem memory.Allocator) arrow.Record {
 	var fieldNames []string
 	for i, sf := range sm.superFields {
 		sf.AppendValueOrNull(recordBuilder.Field(i), mem)
-		fieldNames = append(fieldNames, sf.name())
+		fieldNames = append(fieldNames, sf.protobufReflection.name())
 	}
 
 	var arrays []arrow.Array
@@ -160,39 +151,9 @@ func NewSuperMessage(msg proto.Message, options ...option) *SuperMessage {
 
 type option func(*ProtobufStructReflection)
 
-// NewProtobufStructReflection constructs a ProtobufStructReflection struct for a protobuf message
-func NewProtobufStructReflection(msg proto.Message, options ...option) *ProtobufStructReflection {
-	v := reflect.ValueOf(msg)
-	for v.Kind() == reflect.Ptr {
-		v = v.Elem()
-	}
-	includeAll := func(pfr *protobufFieldReflection) bool {
-		return false
-	}
-	noFormatting := func(str string) string {
-		return str
-	}
-	psr := &ProtobufStructReflection{
-		descriptor: msg.ProtoReflect().Descriptor(),
-		message:    msg.ProtoReflect(),
-		rValue:     v,
-		schemaOptions: schemaOptions{
-			exclusionPolicy:    includeAll,
-			fieldNameFormatter: noFormatting,
-			oneOfHandler:       Null,
-		},
-	}
-
-	for _, opt := range options {
-		opt(psr)
-	}
-
-	return psr
-}
-
 // WithExclusionPolicy is an option for a ProtobufStructReflection
 // WithExclusionPolicy acts as a deny filter on the fields of a protobuf message
-// to prevent them from being included in the schema.
+// i.e. prevents them from being included in the schema.
 // A use case for this is to exclude fields containing PII.
 func WithExclusionPolicy(ex func(pfr *protobufFieldReflection) bool) option {
 	return func(psr *ProtobufStructReflection) {
@@ -216,11 +177,6 @@ func WithOneOfHandler(oneOfHandler OneOfHandler) option {
 	return func(psr *ProtobufStructReflection) {
 		psr.oneOfHandler = oneOfHandler
 	}
-}
-
-// GetSchema returns an arrow schema representing a protobuf message
-func (psr ProtobufStructReflection) GetSchema() *arrow.Schema {
-	return arrow.NewSchema(psr.getArrowFields(), nil)
 }
 
 func (psr ProtobufStructReflection) unmarshallAny() ProtobufStructReflection {
@@ -354,11 +310,7 @@ func (pur protobufUnionReflection) getArrowFields() []arrow.Field {
 	var fields []arrow.Field
 
 	for pfr := range pur.generateUnionFields() {
-		fields = append(fields, arrow.Field{
-			Name:     pfr.name(),
-			Type:     pfr.getDataType(),
-			Nullable: true,
-		})
+		fields = append(fields, pfr.arrowField())
 	}
 
 	return fields
@@ -517,9 +469,6 @@ func (psr ProtobufStructReflection) getDataType() arrow.DataType {
 }
 
 func (psr ProtobufStructReflection) getFieldByName(n string) *protobufFieldReflection {
-	// TODO need to do something here to go from the parent name `oneof` to the children
-	// func (psr) get_field_by_name, maps the arrow schema to protobuf fields
-	// could also look at tagging the schema by number, but I would prefer not to do that
 	fd := psr.descriptor.Fields().ByTextName(xstrings.ToSnakeCase(n))
 	fv := psr.rValue
 	if fv.IsValid() {
@@ -574,7 +523,7 @@ func (pfr *protobufFieldReflection) arrowField() arrow.Field {
 	return arrow.Field{
 		Name:     pfr.name(),
 		Type:     pfr.getDataType(),
-		Nullable: false,
+		Nullable: true,
 	}
 }
 
@@ -591,29 +540,37 @@ func (pfr *protobufFieldReflection) getDescriptor() protoreflect.FieldDescriptor
 }
 
 func (pfr *protobufFieldReflection) name() string {
-	if pfr.descriptor.ContainingOneof() != nil && pfr.schemaOptions.oneOfHandler != Null {
+	if pfr.isOneOf() && pfr.schemaOptions.oneOfHandler != Null {
 		return pfr.fieldNameFormatter(string(pfr.descriptor.ContainingOneof().Name()))
 	}
 	return pfr.fieldNameFormatter(string(pfr.descriptor.Name()))
 }
 
 func (pfr *protobufFieldReflection) arrowType() arrow.Type {
-	if pfr.descriptor.ContainingOneof() != nil && pfr.schemaOptions.oneOfHandler == DenseUnion {
+	if pfr.isOneOf() && pfr.schemaOptions.oneOfHandler == DenseUnion {
 		return arrow.DENSE_UNION
 	}
-	if pfr.descriptor.Kind() == protoreflect.EnumKind {
+	if pfr.isEnum() {
 		return arrow.DICTIONARY
 	}
-	if pfr.descriptor.Kind() == protoreflect.MessageKind && !pfr.descriptor.IsMap() && pfr.rValue.Kind() != reflect.Slice {
+	if pfr.isStruct() {
 		return arrow.STRUCT
 	}
-	if pfr.descriptor.Kind() == protoreflect.MessageKind && pfr.descriptor.IsMap() {
+	if pfr.isMap() {
 		return arrow.MAP
 	}
-	if pfr.descriptor.IsList() && pfr.rValue.Kind() == reflect.Slice {
+	if pfr.isList() {
 		return arrow.LIST
 	}
 	return arrow.NULL
+}
+
+func (pfr *protobufFieldReflection) isOneOf() bool {
+	return pfr.descriptor.ContainingOneof() != nil
+}
+
+func (pfr *protobufFieldReflection) isEnum() bool {
+	return pfr.descriptor.Kind() == protoreflect.EnumKind
 }
 
 func (pfr *protobufFieldReflection) isStruct() bool {
@@ -626,14 +583,6 @@ func (pfr *protobufFieldReflection) isMap() bool {
 
 func (pfr *protobufFieldReflection) isList() bool {
 	return pfr.descriptor.IsList() && pfr.rValue.Kind() == reflect.Slice
-}
-
-func (pfr *protobufFieldReflection) getListLength() int {
-	return pfr.prValue.List().Len()
-}
-
-func (pfr *protobufFieldReflection) getMapLength() int {
-	return pfr.prValue.Map().Len()
 }
 
 func (plr protobufListReflection) generateListItems() chan protobufFieldReflection {
