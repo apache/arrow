@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -63,6 +64,7 @@ import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.ExtensionTypeRegistry;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.DecimalUtility;
@@ -98,10 +100,14 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
   public JsonFileReader(File inputFile, BufferAllocator allocator) throws JsonParseException, IOException {
     super();
     this.allocator = allocator;
-    MappingJsonFactory jsonFactory = new MappingJsonFactory(new ObjectMapper()
-        //ignore case for enums
-        .configure(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS, true)
-    );
+    //ignore case for enums
+    ObjectMapper mapper = new ObjectMapper().configure(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS, true);
+    mapper.registerSubtypes(
+        ExtensionTypeRegistry.getExtensionNames().stream()
+          .map(n -> ExtensionTypeRegistry.lookup(n).getClass())
+          .collect(Collectors.toList()));
+
+    MappingJsonFactory jsonFactory = new MappingJsonFactory(mapper);
     this.parser = jsonFactory.createParser(inputFile);
     // Allow reading NaN for floating point values
     this.parser.configure(JsonParser.Feature.ALLOW_NON_NUMERIC_NUMBERS, true);
@@ -756,7 +762,17 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
           innerBufferValueCount = valueCount + 1;
         }
 
-        vectorBuffers[v] = readIntoBuffer(allocator, bufferType, vector.getMinorType(), innerBufferValueCount);
+        Types.MinorType minorType;
+
+        ArrowType arrowType = field.getType();
+        if (arrowType instanceof ArrowType.ExtensionType) {
+          ArrowType.ExtensionType extType = (ArrowType.ExtensionType) arrowType;
+          minorType = Types.getMinorTypeForArrowType(extType.storageType());
+        } else {
+          minorType = vector.getMinorType();
+        }
+
+        vectorBuffers[v] = readIntoBuffer(allocator, bufferType, minorType, innerBufferValueCount);
       }
 
       int nullCount = 0;

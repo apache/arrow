@@ -40,6 +40,7 @@ import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.Decimal256Vector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.DurationVector;
+import org.apache.arrow.vector.ExtensionTypeVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
@@ -79,6 +80,7 @@ import org.apache.commons.codec.binary.Hex;
 
 import com.fasterxml.jackson.core.JsonEncoding;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.json.JsonWriteFeature;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter.NopIndenter;
 import com.fasterxml.jackson.databind.MappingJsonFactory;
@@ -136,7 +138,7 @@ public class JsonFileWriter implements AutoCloseable {
       this.generator.setPrettyPrinter(prettyPrinter);
     }
     // Allow writing of floating point NaN values not as strings
-    this.generator.configure(JsonGenerator.Feature.QUOTE_NON_NUMERIC_NUMBERS, false);
+    this.generator.configure(JsonWriteFeature.WRITE_NAN_AS_STRINGS.mappedFeature(), false);
   }
 
   /**
@@ -208,6 +210,10 @@ public class JsonFileWriter implements AutoCloseable {
   }
 
   private void writeFromVectorIntoJson(Field field, FieldVector vector) throws IOException {
+    if (vector instanceof ExtensionTypeVector) {
+      writeFromVectorIntoJson(field, ((ExtensionTypeVector<?>) vector).getUnderlyingVector());
+      return;
+    }
     List<BufferType> vectorTypes = TypeLayout.getTypeLayout(field.getType()).getBufferTypes();
     List<ArrowBuf> vectorBuffers = vector.getFieldBuffers();
     if (vectorTypes.size() != vectorBuffers.size()) {

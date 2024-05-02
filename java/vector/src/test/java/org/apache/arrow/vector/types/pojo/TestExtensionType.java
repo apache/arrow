@@ -278,7 +278,7 @@ public class TestExtensionType {
     }
   }
 
-  static class UuidType extends ExtensionType {
+  public static class UuidType extends ExtensionType {
 
     @Override
     public ArrowType storageType() {
@@ -314,10 +314,15 @@ public class TestExtensionType {
     }
   }
 
-  static class UuidVector extends ExtensionTypeVector<FixedSizeBinaryVector> {
+  public static class UuidVector extends ExtensionTypeVector<FixedSizeBinaryVector> {
 
     public UuidVector(String name, BufferAllocator allocator, FixedSizeBinaryVector underlyingVector) {
       super(name, allocator, underlyingVector);
+    }
+
+    @Override
+    public Field getField() {
+      return new Field(getName(), FieldType.nullable(new UuidType()), null);
     }
 
     @Override

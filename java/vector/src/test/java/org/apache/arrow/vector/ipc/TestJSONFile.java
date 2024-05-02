@@ -429,6 +429,27 @@ public class TestJSONFile extends BaseFileTest {
     }
   }
 
+  @Test
+  public void testWriteReadExtensionData() throws IOException {
+    // write
+    try (VectorSchemaRoot root = writeUuidData(allocator)) {
+      File file = new File("target/mytest_extension.json");
+      writeJSON(file, root, null);
+    }
+
+    // read
+    try (BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        JsonFileReader reader = new JsonFileReader(new File("target/mytest_extension.json"), readerAllocator)) {
+      Schema schema = reader.start();
+      LOGGER.debug("reading schema: " + schema);
+
+      // initialize vectors
+      try (VectorSchemaRoot root = reader.read()) {
+        validateUuidData(root);
+      }
+    }
+  }
+
   /** Regression test for ARROW-17107. */
   @Test
   public void testRoundtripEmptyVector() throws Exception {
