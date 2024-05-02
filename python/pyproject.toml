@@ -56,7 +56,6 @@ Homepage = "https://arrow.apache.org/"
 Documentation = "https://arrow.apache.org/docs/python"
 Repository = "https://github.com/apache/arrow"
 Issues = "https://github.com/apache/arrow/issues"
-Changelog = "https://github.com/apache/arrow/blob/main/CHANGELOG.md"
 
 [tool.setuptools]
 zip-safe=false
@@ -72,5 +71,4 @@ pyarrow = ["*.pxd", "*.pyx", "includes/*.pxd"]
 root = '..'
 version_file = 'pyarrow/_generated_version.py'
 version_scheme = 'guess-next-dev'
-relative_to = "pyproject.toml"
 git_describe_command = 'git describe --dirty --tags --long --match "apache-arrow-[0-9]*.*"'
