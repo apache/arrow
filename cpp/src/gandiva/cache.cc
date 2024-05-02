@@ -42,7 +42,7 @@ int GetCacheCapacityFromEnvVar() {
       env_value.c_str(), env_value.size(), &capacity);
   if (!ok || capacity <= 0) {
     ARROW_LOG(WARNING) << "Invalid cache size provided in " << kCacheCapacityEnvVar
-                       << "Using default cache size: " << kDefaultCacheSize;
+                       << ". Using default cache size: " << kDefaultCacheSize;
     return kDefaultCacheSize;
   }
   return capacity;
