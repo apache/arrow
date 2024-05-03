@@ -95,8 +95,8 @@ jobs:
           MATLABPATH: matlab/install/arrow_matlab
         uses: matlab-actions/run-tests@v2
         with:
-          strict: true
           select-by-folder: matlab/test
+          strict: true
   macos:
     name: AMD64 macOS 12 MATLAB
     runs-on: macos-12
@@ -136,8 +136,8 @@ jobs:
           MATLABPATH: matlab/install/arrow_matlab
         uses: matlab-actions/run-tests@v2
         with:
+          select-by-folder: matlab/test
           strict: true
-          select-by-folder: matlab/test 
   windows:
     name: AMD64 Windows 2022 MATLAB
     runs-on: windows-2022
@@ -183,5 +183,5 @@ jobs:
           MATLABPATH: matlab/install/arrow_matlab
         uses: matlab-actions/run-tests@v2
         with:
+          select-by-folder: matlab/test
           strict: true
-          select-by-folder: matlab/test 
