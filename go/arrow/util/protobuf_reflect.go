@@ -29,6 +29,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
+// OneOfHandler provides options on how oneOf fields should be handled in the conversion to arrow
 type OneOfHandler int
 
 const (
@@ -140,7 +141,7 @@ type ProtobufMessageReflection struct {
 	message    protoreflect.Message
 	rValue     reflect.Value
 	schemaOptions
-	fields []protobufMessageFieldReflection
+	fields []ProtobufMessageFieldReflection
 }
 
 func (psr ProtobufMessageReflection) unmarshallAny() ProtobufMessageReflection {
@@ -552,13 +553,14 @@ type protobufReflection interface {
 	asUnion() protobufUnionReflection
 }
 
-// protobufMessageFieldReflection links together the message and it's fields
-type protobufMessageFieldReflection struct {
+// ProtobufMessageFieldReflection links together the message and it's fields
+type ProtobufMessageFieldReflection struct {
 	parent *ProtobufMessageReflection
 	protobufReflection
 	arrow.Field
 }
 
+// Schema returns an arrow.Schema representing a protobuf message
 func (msg ProtobufMessageReflection) Schema() *arrow.Schema {
 	var fields []arrow.Field
 	for _, f := range msg.fields {
@@ -567,6 +569,7 @@ func (msg ProtobufMessageReflection) Schema() *arrow.Schema {
 	return arrow.NewSchema(fields, nil)
 }
 
+// Record returns an arrow.Record for a protobuf message
 func (msg ProtobufMessageReflection) Record(mem memory.Allocator) arrow.Record {
 	if mem == nil {
 		mem = memory.NewGoAllocator()
@@ -593,6 +596,8 @@ func (msg ProtobufMessageReflection) Record(mem memory.Allocator) arrow.Record {
 	return array.RecordFromStructArray(structArray, schema)
 }
 
+// NewProtobufMessageReflection initialises a ProtobufMessageReflection
+// can be used to convert a protobuf message into an arrow Record
 func NewProtobufMessageReflection(msg proto.Message, options ...option) *ProtobufMessageReflection {
 	v := reflect.ValueOf(msg)
 	for v.Kind() == reflect.Ptr {
@@ -619,10 +624,10 @@ func NewProtobufMessageReflection(msg proto.Message, options ...option) *Protobu
 		opt(psr)
 	}
 
-	var fields []protobufMessageFieldReflection
+	var fields []ProtobufMessageFieldReflection
 
 	for pfr := range psr.generateFields() {
-		fields = append(fields, protobufMessageFieldReflection{
+		fields = append(fields, ProtobufMessageFieldReflection{
 			parent:             psr,
 			protobufReflection: pfr,
 			Field:              pfr.arrowField(),
@@ -664,7 +669,8 @@ func WithOneOfHandler(oneOfHandler OneOfHandler) option {
 	}
 }
 
-func (f protobufMessageFieldReflection) AppendValueOrNull(b array.Builder, mem memory.Allocator) {
+// AppendValueOrNull add the value of a protobuf field to an arrow array builder
+func (f ProtobufMessageFieldReflection) AppendValueOrNull(b array.Builder, mem memory.Allocator) {
 	pv := f.protoreflectValue()
 	fd := f.getDescriptor()
 
@@ -699,7 +705,7 @@ func (f protobufMessageFieldReflection) AppendValueOrNull(b array.Builder, mem m
 		}
 		ub.Append(pur.whichOne())
 		cb := ub.Child(int(pur.whichOne()))
-		protobufMessageFieldReflection{
+		ProtobufMessageFieldReflection{
 			parent:             f.parent,
 			protobufReflection: pur.getField(),
 			Field:              pur.arrowField(),
@@ -713,7 +719,7 @@ func (f protobufMessageFieldReflection) AppendValueOrNull(b array.Builder, mem m
 	case arrow.STRUCT:
 		sb := b.(*array.StructBuilder)
 		sb.Append(true)
-		child := protobufMessageFieldReflection{
+		child := ProtobufMessageFieldReflection{
 			parent: f.parent,
 		}
 		for i, field := range f.Field.Type.(*arrow.StructType).Fields() {
@@ -730,7 +736,7 @@ func (f protobufMessageFieldReflection) AppendValueOrNull(b array.Builder, mem m
 		}
 		lb.ValueBuilder().Reserve(l)
 		lb.Append(true)
-		child := protobufMessageFieldReflection{
+		child := ProtobufMessageFieldReflection{
 			parent: f.parent,
 			Field:  f.Field.Type.(*arrow.ListType).ElemField(),
 		}
@@ -748,11 +754,11 @@ func (f protobufMessageFieldReflection) AppendValueOrNull(b array.Builder, mem m
 		mb.KeyBuilder().Reserve(l)
 		mb.ItemBuilder().Reserve(l)
 		mb.Append(true)
-		k := protobufMessageFieldReflection{
+		k := ProtobufMessageFieldReflection{
 			parent: f.parent,
 			Field:  f.Field.Type.(*arrow.MapType).KeyField(),
 		}
-		v := protobufMessageFieldReflection{
+		v := ProtobufMessageFieldReflection{
 			parent: f.parent,
 			Field:  f.Field.Type.(*arrow.MapType).ItemField(),
 		}
