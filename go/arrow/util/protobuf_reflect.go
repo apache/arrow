@@ -44,142 +44,104 @@ type schemaOptions struct {
 	oneOfHandler       OneOfHandler
 }
 
-// ProtobufStructReflection represents the metadata and values of a protobuf message
-type ProtobufStructReflection struct {
+// protobufFieldReflection represents the metadata and values of a protobuf field
+type protobufFieldReflection struct {
+	parent     *protobufStructReflection
+	descriptor protoreflect.FieldDescriptor
+	prValue    protoreflect.Value
+	rValue     reflect.Value
+	schemaOptions
+}
+
+func (pfr *protobufFieldReflection) isNull() bool {
+	for pfr.rValue.Kind() == reflect.Ptr {
+		if pfr.rValue.IsNil() {
+			return true
+		}
+		pfr.rValue = pfr.rValue.Elem()
+	}
+
+	if !pfr.rValue.IsValid() && !pfr.prValue.IsValid() {
+		return true
+	}
+	return false
+}
+
+func (pfr *protobufFieldReflection) arrowField() arrow.Field {
+	return arrow.Field{
+		Name:     pfr.name(),
+		Type:     pfr.getDataType(),
+		Nullable: true,
+	}
+}
+
+func (pfr *protobufFieldReflection) protoreflectValue() protoreflect.Value {
+	return pfr.prValue
+}
+
+func (pfr *protobufFieldReflection) reflectValue() reflect.Value {
+	return pfr.rValue
+}
+
+func (pfr *protobufFieldReflection) getDescriptor() protoreflect.FieldDescriptor {
+	return pfr.descriptor
+}
+
+func (pfr *protobufFieldReflection) name() string {
+	if pfr.isOneOf() && pfr.schemaOptions.oneOfHandler != Null {
+		return pfr.fieldNameFormatter(string(pfr.descriptor.ContainingOneof().Name()))
+	}
+	return pfr.fieldNameFormatter(string(pfr.descriptor.Name()))
+}
+
+func (pfr *protobufFieldReflection) arrowType() arrow.Type {
+	if pfr.isOneOf() && pfr.schemaOptions.oneOfHandler == DenseUnion {
+		return arrow.DENSE_UNION
+	}
+	if pfr.isEnum() {
+		return arrow.DICTIONARY
+	}
+	if pfr.isStruct() {
+		return arrow.STRUCT
+	}
+	if pfr.isMap() {
+		return arrow.MAP
+	}
+	if pfr.isList() {
+		return arrow.LIST
+	}
+	return arrow.NULL
+}
+
+func (pfr *protobufFieldReflection) isOneOf() bool {
+	return pfr.descriptor.ContainingOneof() != nil
+}
+
+func (pfr *protobufFieldReflection) isEnum() bool {
+	return pfr.descriptor.Kind() == protoreflect.EnumKind
+}
+
+func (pfr *protobufFieldReflection) isStruct() bool {
+	return pfr.descriptor.Kind() == protoreflect.MessageKind && !pfr.descriptor.IsMap() && pfr.rValue.Kind() != reflect.Slice
+}
+
+func (pfr *protobufFieldReflection) isMap() bool {
+	return pfr.descriptor.Kind() == protoreflect.MessageKind && pfr.descriptor.IsMap()
+}
+
+func (pfr *protobufFieldReflection) isList() bool {
+	return pfr.descriptor.IsList() && pfr.rValue.Kind() == reflect.Slice
+}
+
+// protobufStructReflection represents the metadata and values of a protobuf message
+type protobufStructReflection struct {
 	descriptor protoreflect.MessageDescriptor
 	message    protoreflect.Message
 	rValue     reflect.Value
 	schemaOptions
 }
 
-type protobufReflection interface {
-	name() string
-	arrowType() arrow.Type
-	protoreflectValue() protoreflect.Value
-	reflectValue() reflect.Value
-	getDescriptor() protoreflect.FieldDescriptor
-	isNull() bool
-	asDictionary() protobufDictReflection
-	asList() protobufListReflection
-	asMap() protobufMapReflection
-	asStruct() ProtobufStructReflection
-	asUnion() protobufUnionReflection
-}
-
-type SuperField struct {
-	parent *ProtobufStructReflection
-	protobufReflection
-	arrow.Field
-}
-
-type SuperMessage struct {
-	superFields []SuperField
-}
-
-func (sm SuperMessage) Schema() *arrow.Schema {
-	var fields []arrow.Field
-	for _, sf := range sm.superFields {
-		fields = append(fields, sf.Field)
-	}
-	return arrow.NewSchema(fields, nil)
-}
-
-func (sm SuperMessage) Record(mem memory.Allocator) arrow.Record {
-	if mem == nil {
-		mem = memory.NewGoAllocator()
-	}
-
-	schema := sm.Schema()
-
-	recordBuilder := array.NewRecordBuilder(mem, schema)
-
-	var fieldNames []string
-	for i, sf := range sm.superFields {
-		sf.AppendValueOrNull(recordBuilder.Field(i), mem)
-		fieldNames = append(fieldNames, sf.protobufReflection.name())
-	}
-
-	var arrays []arrow.Array
-	for _, bldr := range recordBuilder.Fields() {
-		a := bldr.NewArray()
-		arrays = append(arrays, a)
-	}
-
-	structArray, _ := array.NewStructArray(arrays, fieldNames)
-
-	return array.RecordFromStructArray(structArray, schema)
-}
-
-func NewSuperMessage(msg proto.Message, options ...option) *SuperMessage {
-	v := reflect.ValueOf(msg)
-	for v.Kind() == reflect.Ptr {
-		v = v.Elem()
-	}
-	includeAll := func(pfr *protobufFieldReflection) bool {
-		return false
-	}
-	noFormatting := func(str string) string {
-		return str
-	}
-	psr := &ProtobufStructReflection{
-		descriptor: msg.ProtoReflect().Descriptor(),
-		message:    msg.ProtoReflect(),
-		rValue:     v,
-		schemaOptions: schemaOptions{
-			exclusionPolicy:    includeAll,
-			fieldNameFormatter: noFormatting,
-			oneOfHandler:       Null,
-		},
-	}
-
-	for _, opt := range options {
-		opt(psr)
-	}
-
-	var fields []SuperField
-
-	for pfr := range psr.generateFields() {
-		fields = append(fields, SuperField{
-			parent:             psr,
-			protobufReflection: pfr,
-			Field:              pfr.arrowField(),
-		})
-	}
-
-	return &SuperMessage{superFields: fields}
-}
-
-type option func(*ProtobufStructReflection)
-
-// WithExclusionPolicy is an option for a ProtobufStructReflection
-// WithExclusionPolicy acts as a deny filter on the fields of a protobuf message
-// i.e. prevents them from being included in the schema.
-// A use case for this is to exclude fields containing PII.
-func WithExclusionPolicy(ex func(pfr *protobufFieldReflection) bool) option {
-	return func(psr *ProtobufStructReflection) {
-		psr.exclusionPolicy = ex
-	}
-}
-
-// WithFieldNameFormatter is an option for a ProtobufStructReflection
-// WithFieldNameFormatter enables customisation of the field names in the arrow schema
-// By default, the field names are taken from the protobuf message (.proto file)
-func WithFieldNameFormatter(formatter func(str string) string) option {
-	return func(psr *ProtobufStructReflection) {
-		psr.fieldNameFormatter = formatter
-	}
-}
-
-// WithOneOfHandler is an option for a ProtobufStructReflection
-// WithOneOfHandler enables customisation of the protobuf oneOf type in the arrow schema
-// By default, the oneOfs are mapped to separate columns
-func WithOneOfHandler(oneOfHandler OneOfHandler) option {
-	return func(psr *ProtobufStructReflection) {
-		psr.oneOfHandler = oneOfHandler
-	}
-}
-
-func (psr ProtobufStructReflection) unmarshallAny() ProtobufStructReflection {
+func (psr protobufStructReflection) unmarshallAny() protobufStructReflection {
 	if psr.descriptor.FullName() == "google.protobuf.Any" && psr.rValue.IsValid() {
 		for psr.rValue.Type().Kind() == reflect.Ptr {
 			psr.rValue = reflect.Indirect(psr.rValue)
@@ -192,7 +154,7 @@ func (psr ProtobufStructReflection) unmarshallAny() ProtobufStructReflection {
 			v = reflect.Indirect(v)
 		}
 
-		return ProtobufStructReflection{
+		return protobufStructReflection{
 			descriptor:    msg.ProtoReflect().Descriptor(),
 			message:       msg.ProtoReflect(),
 			rValue:        v,
@@ -203,7 +165,7 @@ func (psr ProtobufStructReflection) unmarshallAny() ProtobufStructReflection {
 	}
 }
 
-func (psr ProtobufStructReflection) getArrowFields() []arrow.Field {
+func (psr protobufStructReflection) getArrowFields() []arrow.Field {
 	var fields []arrow.Field
 
 	for pfr := range psr.generateStructFields() {
@@ -420,7 +382,7 @@ func getMapKey(v reflect.Value) protoreflect.Value {
 	}
 }
 
-func (psr ProtobufStructReflection) generateStructFields() chan *protobufFieldReflection {
+func (psr protobufStructReflection) generateStructFields() chan *protobufFieldReflection {
 	out := make(chan *protobufFieldReflection)
 
 	go func() {
@@ -443,7 +405,7 @@ func (psr ProtobufStructReflection) generateStructFields() chan *protobufFieldRe
 	return out
 }
 
-func (psr ProtobufStructReflection) generateFields() chan *protobufFieldReflection {
+func (psr protobufStructReflection) generateFields() chan *protobufFieldReflection {
 	out := make(chan *protobufFieldReflection)
 
 	go func() {
@@ -466,8 +428,8 @@ func (psr ProtobufStructReflection) generateFields() chan *protobufFieldReflecti
 	return out
 }
 
-func (pfr *protobufFieldReflection) asStruct() ProtobufStructReflection {
-	psr := ProtobufStructReflection{
+func (pfr *protobufFieldReflection) asStruct() protobufStructReflection {
+	psr := protobufStructReflection{
 		descriptor:    pfr.descriptor.Message(),
 		rValue:        pfr.rValue,
 		schemaOptions: pfr.schemaOptions,
@@ -479,11 +441,11 @@ func (pfr *protobufFieldReflection) asStruct() ProtobufStructReflection {
 	return psr
 }
 
-func (psr ProtobufStructReflection) getDataType() arrow.DataType {
+func (psr protobufStructReflection) getDataType() arrow.DataType {
 	return arrow.StructOf(psr.getArrowFields()...)
 }
 
-func (psr ProtobufStructReflection) getFieldByName(n string) *protobufFieldReflection {
+func (psr protobufStructReflection) getFieldByName(n string) *protobufFieldReflection {
 	fd := psr.descriptor.Fields().ByTextName(xstrings.ToSnakeCase(n))
 	fv := psr.rValue
 	if fv.IsValid() {
@@ -510,94 +472,6 @@ func (psr ProtobufStructReflection) getFieldByName(n string) *protobufFieldRefle
 		pfr.prValue = psr.message.Get(fd)
 	}
 	return &pfr
-}
-
-type protobufFieldReflection struct {
-	parent     *ProtobufStructReflection
-	descriptor protoreflect.FieldDescriptor
-	prValue    protoreflect.Value
-	rValue     reflect.Value
-	schemaOptions
-}
-
-func (pfr *protobufFieldReflection) isNull() bool {
-	for pfr.rValue.Kind() == reflect.Ptr {
-		if pfr.rValue.IsNil() {
-			return true
-		}
-		pfr.rValue = pfr.rValue.Elem()
-	}
-
-	if !pfr.rValue.IsValid() && !pfr.prValue.IsValid() {
-		return true
-	}
-	return false
-}
-
-func (pfr *protobufFieldReflection) arrowField() arrow.Field {
-	return arrow.Field{
-		Name:     pfr.name(),
-		Type:     pfr.getDataType(),
-		Nullable: true,
-	}
-}
-
-func (pfr *protobufFieldReflection) protoreflectValue() protoreflect.Value {
-	return pfr.prValue
-}
-
-func (pfr *protobufFieldReflection) reflectValue() reflect.Value {
-	return pfr.rValue
-}
-
-func (pfr *protobufFieldReflection) getDescriptor() protoreflect.FieldDescriptor {
-	return pfr.descriptor
-}
-
-func (pfr *protobufFieldReflection) name() string {
-	if pfr.isOneOf() && pfr.schemaOptions.oneOfHandler != Null {
-		return pfr.fieldNameFormatter(string(pfr.descriptor.ContainingOneof().Name()))
-	}
-	return pfr.fieldNameFormatter(string(pfr.descriptor.Name()))
-}
-
-func (pfr *protobufFieldReflection) arrowType() arrow.Type {
-	if pfr.isOneOf() && pfr.schemaOptions.oneOfHandler == DenseUnion {
-		return arrow.DENSE_UNION
-	}
-	if pfr.isEnum() {
-		return arrow.DICTIONARY
-	}
-	if pfr.isStruct() {
-		return arrow.STRUCT
-	}
-	if pfr.isMap() {
-		return arrow.MAP
-	}
-	if pfr.isList() {
-		return arrow.LIST
-	}
-	return arrow.NULL
-}
-
-func (pfr *protobufFieldReflection) isOneOf() bool {
-	return pfr.descriptor.ContainingOneof() != nil
-}
-
-func (pfr *protobufFieldReflection) isEnum() bool {
-	return pfr.descriptor.Kind() == protoreflect.EnumKind
-}
-
-func (pfr *protobufFieldReflection) isStruct() bool {
-	return pfr.descriptor.Kind() == protoreflect.MessageKind && !pfr.descriptor.IsMap() && pfr.rValue.Kind() != reflect.Slice
-}
-
-func (pfr *protobufFieldReflection) isMap() bool {
-	return pfr.descriptor.Kind() == protoreflect.MessageKind && pfr.descriptor.IsMap()
-}
-
-func (pfr *protobufFieldReflection) isList() bool {
-	return pfr.descriptor.IsList() && pfr.rValue.Kind() == reflect.Slice
 }
 
 func (plr protobufListReflection) generateListItems() chan protobufFieldReflection {
@@ -660,6 +534,133 @@ func (pfr *protobufFieldReflection) getDataType() arrow.DataType {
 	}
 
 	return dt
+}
+
+type protobufReflection interface {
+	name() string
+	arrowType() arrow.Type
+	protoreflectValue() protoreflect.Value
+	reflectValue() reflect.Value
+	getDescriptor() protoreflect.FieldDescriptor
+	isNull() bool
+	asDictionary() protobufDictReflection
+	asList() protobufListReflection
+	asMap() protobufMapReflection
+	asStruct() protobufStructReflection
+	asUnion() protobufUnionReflection
+}
+
+type SuperField struct {
+	parent *protobufStructReflection
+	protobufReflection
+	arrow.Field
+}
+
+type SuperMessage struct {
+	superFields []SuperField
+}
+
+func (sm SuperMessage) Schema() *arrow.Schema {
+	var fields []arrow.Field
+	for _, sf := range sm.superFields {
+		fields = append(fields, sf.Field)
+	}
+	return arrow.NewSchema(fields, nil)
+}
+
+func (sm SuperMessage) Record(mem memory.Allocator) arrow.Record {
+	if mem == nil {
+		mem = memory.NewGoAllocator()
+	}
+
+	schema := sm.Schema()
+
+	recordBuilder := array.NewRecordBuilder(mem, schema)
+
+	var fieldNames []string
+	for i, sf := range sm.superFields {
+		sf.AppendValueOrNull(recordBuilder.Field(i), mem)
+		fieldNames = append(fieldNames, sf.protobufReflection.name())
+	}
+
+	var arrays []arrow.Array
+	for _, bldr := range recordBuilder.Fields() {
+		a := bldr.NewArray()
+		arrays = append(arrays, a)
+	}
+
+	structArray, _ := array.NewStructArray(arrays, fieldNames)
+
+	return array.RecordFromStructArray(structArray, schema)
+}
+
+func NewSuperMessage(msg proto.Message, options ...option) *SuperMessage {
+	v := reflect.ValueOf(msg)
+	for v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+	includeAll := func(pfr *protobufFieldReflection) bool {
+		return false
+	}
+	noFormatting := func(str string) string {
+		return str
+	}
+	psr := &protobufStructReflection{
+		descriptor: msg.ProtoReflect().Descriptor(),
+		message:    msg.ProtoReflect(),
+		rValue:     v,
+		schemaOptions: schemaOptions{
+			exclusionPolicy:    includeAll,
+			fieldNameFormatter: noFormatting,
+			oneOfHandler:       Null,
+		},
+	}
+
+	for _, opt := range options {
+		opt(psr)
+	}
+
+	var fields []SuperField
+
+	for pfr := range psr.generateFields() {
+		fields = append(fields, SuperField{
+			parent:             psr,
+			protobufReflection: pfr,
+			Field:              pfr.arrowField(),
+		})
+	}
+
+	return &SuperMessage{superFields: fields}
+}
+
+type option func(*protobufStructReflection)
+
+// WithExclusionPolicy is an option for a protobufStructReflection
+// WithExclusionPolicy acts as a deny filter on the fields of a protobuf message
+// i.e. prevents them from being included in the schema.
+// A use case for this is to exclude fields containing PII.
+func WithExclusionPolicy(ex func(pfr *protobufFieldReflection) bool) option {
+	return func(psr *protobufStructReflection) {
+		psr.exclusionPolicy = ex
+	}
+}
+
+// WithFieldNameFormatter is an option for a protobufStructReflection
+// WithFieldNameFormatter enables customisation of the field names in the arrow schema
+// By default, the field names are taken from the protobuf message (.proto file)
+func WithFieldNameFormatter(formatter func(str string) string) option {
+	return func(psr *protobufStructReflection) {
+		psr.fieldNameFormatter = formatter
+	}
+}
+
+// WithOneOfHandler is an option for a protobufStructReflection
+// WithOneOfHandler enables customisation of the protobuf oneOf type in the arrow schema
+// By default, the oneOfs are mapped to separate columns
+func WithOneOfHandler(oneOfHandler OneOfHandler) option {
+	return func(psr *protobufStructReflection) {
+		psr.oneOfHandler = oneOfHandler
+	}
 }
 
 func (sf SuperField) AppendValueOrNull(b array.Builder, mem memory.Allocator) {
