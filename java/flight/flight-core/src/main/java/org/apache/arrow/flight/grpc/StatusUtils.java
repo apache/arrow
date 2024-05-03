@@ -74,6 +74,8 @@ public class StatusUtils {
         return Code.UNIMPLEMENTED;
       case UNAVAILABLE:
         return Code.UNAVAILABLE;
+      case RESOURCE_EXHAUSTED:
+        return Code.RESOURCE_EXHAUSTED;
       default:
         return Code.UNKNOWN;
     }
@@ -101,7 +103,7 @@ public class StatusUtils {
       case PERMISSION_DENIED:
         return FlightStatusCode.UNAUTHORIZED;
       case RESOURCE_EXHAUSTED:
-        return FlightStatusCode.INVALID_ARGUMENT;
+        return FlightStatusCode.RESOURCE_EXHAUSTED;
       case FAILED_PRECONDITION:
         return FlightStatusCode.INVALID_ARGUMENT;
       case ABORTED:
