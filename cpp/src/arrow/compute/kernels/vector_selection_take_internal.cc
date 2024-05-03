@@ -569,14 +569,6 @@ class TakeMetaFunction : public MetaFunction {
     return result.array();
   }
 
-  static Result<std::shared_ptr<ChunkedArray>> TakeAAC(const std::vector<Datum>& args,
-                                                       const TakeOptions& options,
-                                                       ExecContext* ctx) {
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> new_chunk,
-                          TakeAAA(args, options, ctx));
-    return std::make_shared<ChunkedArray>(MakeArray(new_chunk));
-  }
-
   static Result<std::shared_ptr<Array>> ChunkedArrayAsArray(
       const std::shared_ptr<ChunkedArray>& values, MemoryPool* pool) {
     switch (values->num_chunks()) {
@@ -589,13 +581,20 @@ class TakeMetaFunction : public MetaFunction {
     }
   }
 
-  static Result<std::shared_ptr<ChunkedArray>> TakeCAC(
+  static Result<std::shared_ptr<ArrayData>> TakeCAA(
       const std::shared_ptr<ChunkedArray>& values, const Array& indices,
       const TakeOptions& options, ExecContext* ctx) {
     ARROW_ASSIGN_OR_RAISE(auto values_array,
                           ChunkedArrayAsArray(values, ctx->memory_pool()));
     std::vector<Datum> args = {std::move(values_array), indices};
-    return TakeAAC(args, options, ctx);
+    return TakeAAA(args, options, ctx);
+  }
+
+  static Result<std::shared_ptr<ChunkedArray>> TakeCAC(
+      const std::shared_ptr<ChunkedArray>& values, const Array& indices,
+      const TakeOptions& options, ExecContext* ctx) {
+    ARROW_ASSIGN_OR_RAISE(auto new_chunk, TakeCAA(values, indices, options, ctx));
+    return std::make_shared<ChunkedArray>(MakeArray(std::move(new_chunk)));
   }
 
   static Result<std::shared_ptr<ChunkedArray>> TakeCCC(
@@ -613,6 +612,8 @@ class TakeMetaFunction : public MetaFunction {
     new_chunks.resize(indices->num_chunks());
     for (int i = 0; i < indices->num_chunks(); i++) {
       args[1] = indices->chunk(i);
+      // XXX: this loop can use TakeCAA once it can handle ChunkedArray
+      // without concatenating first
       ARROW_ASSIGN_OR_RAISE(auto chunk, TakeAAA(args, options, ctx));
       new_chunks[i] = MakeArray(chunk);
     }
