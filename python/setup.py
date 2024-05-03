@@ -235,28 +235,9 @@ class build_ext(_build_ext):
                 cmake_options.append('-D{0}={1}'.format(
                     varname, 'on' if value else 'off'))
 
-            def maybe_append_cmake_bool(varname):
-                env_var = varname.replace("PYARROW_BUILD", "PYARROW_WITH")
-                if env_var in os.environ:
-                    value = strtobool(os.environ.get(env_var))
-                    append_cmake_bool(value, varname)
-
             if self.cmake_generator:
                 cmake_options += ['-G', self.cmake_generator]
 
-            maybe_append_cmake_bool('PYARROW_BUILD_CUDA')
-            maybe_append_cmake_bool('PYARROW_BUILD_SUBSTRAIT')
-            maybe_append_cmake_bool('PYARROW_BUILD_FLIGHT')
-            maybe_append_cmake_bool('PYARROW_BUILD_GANDIVA')
-            maybe_append_cmake_bool('PYARROW_BUILD_ACERO')
-            maybe_append_cmake_bool('PYARROW_BUILD_DATASET')
-            maybe_append_cmake_bool('PYARROW_BUILD_ORC')
-            maybe_append_cmake_bool('PYARROW_BUILD_PARQUET')
-            maybe_append_cmake_bool('PYARROW_BUILD_PARQUET_ENCRYPTION')
-            maybe_append_cmake_bool('PYARROW_BUILD_AZURE')
-            maybe_append_cmake_bool('PYARROW_BUILD_GCS')
-            maybe_append_cmake_bool('PYARROW_BUILD_S3')
-            maybe_append_cmake_bool('PYARROW_BUILD_HDFS')
             append_cmake_bool(self.bundle_arrow_cpp,
                               'PYARROW_BUNDLE_ARROW_CPP')
             append_cmake_bool(self.bundle_cython_cpp,
