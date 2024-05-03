@@ -65,7 +65,7 @@ func SetupTest() util_message.AllTheTypes {
 func TestGetSchema(t *testing.T) {
 	msg := SetupTest()
 
-	got := NewSuperMessage(&msg).Schema().String()
+	got := NewProtobufMessageReflection(&msg).Schema().String()
 	want := `schema:
   fields: 22
     - string: type=utf8, nullable
@@ -93,7 +93,7 @@ func TestGetSchema(t *testing.T) {
 
 	require.Equal(t, want, got, "got: %s\nwant: %s", got, want)
 
-	got = NewSuperMessage(&msg, WithOneOfHandler(DenseUnion)).Schema().String()
+	got = NewProtobufMessageReflection(&msg, WithOneOfHandler(DenseUnion)).Schema().String()
 	want = `schema:
   fields: 21
     - string: type=utf8, nullable
@@ -124,7 +124,7 @@ func TestGetSchema(t *testing.T) {
 		return pfr.isMap() || pfr.isList() || pfr.isStruct()
 	}
 
-	got = NewSuperMessage(&msg, WithExclusionPolicy(excludeComplex)).Schema().String()
+	got = NewProtobufMessageReflection(&msg, WithExclusionPolicy(excludeComplex)).Schema().String()
 	want = `schema:
   fields: 15
     - string: type=utf8, nullable
@@ -145,7 +145,7 @@ func TestGetSchema(t *testing.T) {
 
 	require.Equal(t, want, got, "got: %s\nwant: %s", got, want)
 
-	got = NewSuperMessage(
+	got = NewProtobufMessageReflection(
 		&msg,
 		WithExclusionPolicy(excludeComplex),
 		WithFieldNameFormatter(xstrings.ToCamelCase),
@@ -174,9 +174,9 @@ func TestGetSchema(t *testing.T) {
 func TestRecordFromProtobuf(t *testing.T) {
 	msg := SetupTest()
 
-	sm := NewSuperMessage(&msg, WithOneOfHandler(DenseUnion))
-	schema := sm.Schema()
-	got := sm.Record(nil)
+	pmr := NewProtobufMessageReflection(&msg, WithOneOfHandler(DenseUnion))
+	schema := pmr.Schema()
+	got := pmr.Record(nil)
 	jsonStr := `[
 		{
 			"string":"Hello",
@@ -207,9 +207,9 @@ func TestRecordFromProtobuf(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, array.RecordEqual(got, want), "got: %s\nwant: %s", got, want)
 
-	sm = NewSuperMessage(&util_message.AllTheTypes{})
-	schema = sm.Schema()
-	got = sm.Record(nil)
+	pmr = NewProtobufMessageReflection(&util_message.AllTheTypes{})
+	schema = pmr.Schema()
+	got = pmr.Record(nil)
 	jsonStr = `[
 		{
 			"string":"",

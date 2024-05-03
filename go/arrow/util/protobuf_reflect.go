@@ -46,11 +46,12 @@ type schemaOptions struct {
 
 // protobufFieldReflection represents the metadata and values of a protobuf field
 type protobufFieldReflection struct {
-	parent     *protobufStructReflection
+	parent     *ProtobufMessageReflection
 	descriptor protoreflect.FieldDescriptor
 	prValue    protoreflect.Value
 	rValue     reflect.Value
 	schemaOptions
+	arrow.Field
 }
 
 func (pfr *protobufFieldReflection) isNull() bool {
@@ -133,15 +134,16 @@ func (pfr *protobufFieldReflection) isList() bool {
 	return pfr.descriptor.IsList() && pfr.rValue.Kind() == reflect.Slice
 }
 
-// protobufStructReflection represents the metadata and values of a protobuf message
-type protobufStructReflection struct {
+// ProtobufMessageReflection represents the metadata and values of a protobuf message
+type ProtobufMessageReflection struct {
 	descriptor protoreflect.MessageDescriptor
 	message    protoreflect.Message
 	rValue     reflect.Value
 	schemaOptions
+	fields []protobufMessageFieldReflection
 }
 
-func (psr protobufStructReflection) unmarshallAny() protobufStructReflection {
+func (psr ProtobufMessageReflection) unmarshallAny() ProtobufMessageReflection {
 	if psr.descriptor.FullName() == "google.protobuf.Any" && psr.rValue.IsValid() {
 		for psr.rValue.Type().Kind() == reflect.Ptr {
 			psr.rValue = reflect.Indirect(psr.rValue)
@@ -154,7 +156,7 @@ func (psr protobufStructReflection) unmarshallAny() protobufStructReflection {
 			v = reflect.Indirect(v)
 		}
 
-		return protobufStructReflection{
+		return ProtobufMessageReflection{
 			descriptor:    msg.ProtoReflect().Descriptor(),
 			message:       msg.ProtoReflect(),
 			rValue:        v,
@@ -165,7 +167,7 @@ func (psr protobufStructReflection) unmarshallAny() protobufStructReflection {
 	}
 }
 
-func (psr protobufStructReflection) getArrowFields() []arrow.Field {
+func (psr ProtobufMessageReflection) getArrowFields() []arrow.Field {
 	var fields []arrow.Field
 
 	for pfr := range psr.generateStructFields() {
@@ -382,7 +384,7 @@ func getMapKey(v reflect.Value) protoreflect.Value {
 	}
 }
 
-func (psr protobufStructReflection) generateStructFields() chan *protobufFieldReflection {
+func (psr ProtobufMessageReflection) generateStructFields() chan *protobufFieldReflection {
 	out := make(chan *protobufFieldReflection)
 
 	go func() {
@@ -405,7 +407,7 @@ func (psr protobufStructReflection) generateStructFields() chan *protobufFieldRe
 	return out
 }
 
-func (psr protobufStructReflection) generateFields() chan *protobufFieldReflection {
+func (psr ProtobufMessageReflection) generateFields() chan *protobufFieldReflection {
 	out := make(chan *protobufFieldReflection)
 
 	go func() {
@@ -428,8 +430,8 @@ func (psr protobufStructReflection) generateFields() chan *protobufFieldReflecti
 	return out
 }
 
-func (pfr *protobufFieldReflection) asStruct() protobufStructReflection {
-	psr := protobufStructReflection{
+func (pfr *protobufFieldReflection) asStruct() ProtobufMessageReflection {
+	psr := ProtobufMessageReflection{
 		descriptor:    pfr.descriptor.Message(),
 		rValue:        pfr.rValue,
 		schemaOptions: pfr.schemaOptions,
@@ -441,11 +443,11 @@ func (pfr *protobufFieldReflection) asStruct() protobufStructReflection {
 	return psr
 }
 
-func (psr protobufStructReflection) getDataType() arrow.DataType {
+func (psr ProtobufMessageReflection) getDataType() arrow.DataType {
 	return arrow.StructOf(psr.getArrowFields()...)
 }
 
-func (psr protobufStructReflection) getFieldByName(n string) *protobufFieldReflection {
+func (psr ProtobufMessageReflection) getFieldByName(n string) *protobufFieldReflection {
 	fd := psr.descriptor.Fields().ByTextName(xstrings.ToSnakeCase(n))
 	fv := psr.rValue
 	if fv.IsValid() {
@@ -546,41 +548,38 @@ type protobufReflection interface {
 	asDictionary() protobufDictReflection
 	asList() protobufListReflection
 	asMap() protobufMapReflection
-	asStruct() protobufStructReflection
+	asStruct() ProtobufMessageReflection
 	asUnion() protobufUnionReflection
 }
 
-type SuperField struct {
-	parent *protobufStructReflection
+// protobufMessageFieldReflection links together the message and it's fields
+type protobufMessageFieldReflection struct {
+	parent *ProtobufMessageReflection
 	protobufReflection
 	arrow.Field
 }
 
-type SuperMessage struct {
-	superFields []SuperField
-}
-
-func (sm SuperMessage) Schema() *arrow.Schema {
+func (msg ProtobufMessageReflection) Schema() *arrow.Schema {
 	var fields []arrow.Field
-	for _, sf := range sm.superFields {
-		fields = append(fields, sf.Field)
+	for _, f := range msg.fields {
+		fields = append(fields, f.Field)
 	}
 	return arrow.NewSchema(fields, nil)
 }
 
-func (sm SuperMessage) Record(mem memory.Allocator) arrow.Record {
+func (msg ProtobufMessageReflection) Record(mem memory.Allocator) arrow.Record {
 	if mem == nil {
 		mem = memory.NewGoAllocator()
 	}
 
-	schema := sm.Schema()
+	schema := msg.Schema()
 
 	recordBuilder := array.NewRecordBuilder(mem, schema)
 
 	var fieldNames []string
-	for i, sf := range sm.superFields {
-		sf.AppendValueOrNull(recordBuilder.Field(i), mem)
-		fieldNames = append(fieldNames, sf.protobufReflection.name())
+	for i, f := range msg.fields {
+		f.AppendValueOrNull(recordBuilder.Field(i), mem)
+		fieldNames = append(fieldNames, f.protobufReflection.name())
 	}
 
 	var arrays []arrow.Array
@@ -594,7 +593,7 @@ func (sm SuperMessage) Record(mem memory.Allocator) arrow.Record {
 	return array.RecordFromStructArray(structArray, schema)
 }
 
-func NewSuperMessage(msg proto.Message, options ...option) *SuperMessage {
+func NewProtobufMessageReflection(msg proto.Message, options ...option) *ProtobufMessageReflection {
 	v := reflect.ValueOf(msg)
 	for v.Kind() == reflect.Ptr {
 		v = v.Elem()
@@ -605,7 +604,7 @@ func NewSuperMessage(msg proto.Message, options ...option) *SuperMessage {
 	noFormatting := func(str string) string {
 		return str
 	}
-	psr := &protobufStructReflection{
+	psr := &ProtobufMessageReflection{
 		descriptor: msg.ProtoReflect().Descriptor(),
 		message:    msg.ProtoReflect(),
 		rValue:     v,
@@ -620,54 +619,56 @@ func NewSuperMessage(msg proto.Message, options ...option) *SuperMessage {
 		opt(psr)
 	}
 
-	var fields []SuperField
+	var fields []protobufMessageFieldReflection
 
 	for pfr := range psr.generateFields() {
-		fields = append(fields, SuperField{
+		fields = append(fields, protobufMessageFieldReflection{
 			parent:             psr,
 			protobufReflection: pfr,
 			Field:              pfr.arrowField(),
 		})
 	}
 
-	return &SuperMessage{superFields: fields}
+	psr.fields = fields
+
+	return psr
 }
 
-type option func(*protobufStructReflection)
+type option func(*ProtobufMessageReflection)
 
-// WithExclusionPolicy is an option for a protobufStructReflection
+// WithExclusionPolicy is an option for a ProtobufMessageReflection
 // WithExclusionPolicy acts as a deny filter on the fields of a protobuf message
 // i.e. prevents them from being included in the schema.
 // A use case for this is to exclude fields containing PII.
 func WithExclusionPolicy(ex func(pfr *protobufFieldReflection) bool) option {
-	return func(psr *protobufStructReflection) {
+	return func(psr *ProtobufMessageReflection) {
 		psr.exclusionPolicy = ex
 	}
 }
 
-// WithFieldNameFormatter is an option for a protobufStructReflection
+// WithFieldNameFormatter is an option for a ProtobufMessageReflection
 // WithFieldNameFormatter enables customisation of the field names in the arrow schema
 // By default, the field names are taken from the protobuf message (.proto file)
 func WithFieldNameFormatter(formatter func(str string) string) option {
-	return func(psr *protobufStructReflection) {
+	return func(psr *ProtobufMessageReflection) {
 		psr.fieldNameFormatter = formatter
 	}
 }
 
-// WithOneOfHandler is an option for a protobufStructReflection
+// WithOneOfHandler is an option for a ProtobufMessageReflection
 // WithOneOfHandler enables customisation of the protobuf oneOf type in the arrow schema
 // By default, the oneOfs are mapped to separate columns
 func WithOneOfHandler(oneOfHandler OneOfHandler) option {
-	return func(psr *protobufStructReflection) {
+	return func(psr *ProtobufMessageReflection) {
 		psr.oneOfHandler = oneOfHandler
 	}
 }
 
-func (sf SuperField) AppendValueOrNull(b array.Builder, mem memory.Allocator) {
-	pv := sf.protoreflectValue()
-	fd := sf.getDescriptor()
+func (f protobufMessageFieldReflection) AppendValueOrNull(b array.Builder, mem memory.Allocator) {
+	pv := f.protoreflectValue()
+	fd := f.getDescriptor()
 
-	if sf.isNull() {
+	if f.isNull() {
 		b.AppendNull()
 		return
 	}
@@ -691,15 +692,15 @@ func (sf SuperField) AppendValueOrNull(b array.Builder, mem memory.Allocator) {
 		b.(*array.BooleanBuilder).Append(pv.Bool())
 	case arrow.DENSE_UNION:
 		ub := b.(array.UnionBuilder)
-		pur := sf.asUnion()
+		pur := f.asUnion()
 		if pur.whichOne() == -1 {
 			ub.AppendNull()
 			break
 		}
 		ub.Append(pur.whichOne())
 		cb := ub.Child(int(pur.whichOne()))
-		SuperField{
-			parent:             sf.parent,
+		protobufMessageFieldReflection{
+			parent:             f.parent,
 			protobufReflection: pur.getField(),
 			Field:              pur.arrowField(),
 		}.AppendValueOrNull(cb, mem)
@@ -712,11 +713,11 @@ func (sf SuperField) AppendValueOrNull(b array.Builder, mem memory.Allocator) {
 	case arrow.STRUCT:
 		sb := b.(*array.StructBuilder)
 		sb.Append(true)
-		child := SuperField{
-			parent: sf.parent,
+		child := protobufMessageFieldReflection{
+			parent: f.parent,
 		}
-		for i, field := range sf.Field.Type.(*arrow.StructType).Fields() {
-			child.protobufReflection = sf.asStruct().getFieldByName(field.Name)
+		for i, field := range f.Field.Type.(*arrow.StructType).Fields() {
+			child.protobufReflection = f.asStruct().getFieldByName(field.Name)
 			child.Field = field
 			child.AppendValueOrNull(sb.FieldBuilder(i), mem)
 		}
@@ -729,11 +730,11 @@ func (sf SuperField) AppendValueOrNull(b array.Builder, mem memory.Allocator) {
 		}
 		lb.ValueBuilder().Reserve(l)
 		lb.Append(true)
-		child := SuperField{
-			parent: sf.parent,
-			Field:  sf.Field.Type.(*arrow.ListType).ElemField(),
+		child := protobufMessageFieldReflection{
+			parent: f.parent,
+			Field:  f.Field.Type.(*arrow.ListType).ElemField(),
 		}
-		for li := range sf.asList().generateListItems() {
+		for li := range f.asList().generateListItems() {
 			child.protobufReflection = &li
 			child.AppendValueOrNull(lb.ValueBuilder(), mem)
 		}
@@ -747,15 +748,15 @@ func (sf SuperField) AppendValueOrNull(b array.Builder, mem memory.Allocator) {
 		mb.KeyBuilder().Reserve(l)
 		mb.ItemBuilder().Reserve(l)
 		mb.Append(true)
-		k := SuperField{
-			parent: sf.parent,
-			Field:  sf.Field.Type.(*arrow.MapType).KeyField(),
+		k := protobufMessageFieldReflection{
+			parent: f.parent,
+			Field:  f.Field.Type.(*arrow.MapType).KeyField(),
 		}
-		v := SuperField{
-			parent: sf.parent,
-			Field:  sf.Field.Type.(*arrow.MapType).ItemField(),
+		v := protobufMessageFieldReflection{
+			parent: f.parent,
+			Field:  f.Field.Type.(*arrow.MapType).ItemField(),
 		}
-		for kvp := range sf.asMap().generateKeyValuePairs() {
+		for kvp := range f.asMap().generateKeyValuePairs() {
 			k.protobufReflection = &kvp.k
 			k.AppendValueOrNull(mb.KeyBuilder(), mem)
 			v.protobufReflection = &kvp.v
