@@ -31,6 +31,7 @@
 #include "arrow/compute/kernels/gather_internal.h"
 #include "arrow/compute/kernels/vector_selection_internal.h"
 #include "arrow/compute/kernels/vector_selection_take_internal.h"
+#include "arrow/compute/registry.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
@@ -552,43 +553,49 @@ class TakeMetaFunction : public MetaFunction {
   TakeMetaFunction()
       : MetaFunction("take", Arity::Binary(), take_doc, GetDefaultTakeOptions()) {}
 
-  static Result<std::shared_ptr<ArrayData>> TakeAAA(
-      const std::shared_ptr<ArrayData>& values, const std::shared_ptr<ArrayData>& indices,
-      const TakeOptions& options, ExecContext* ctx) {
-    ARROW_ASSIGN_OR_RAISE(Datum result,
-                          CallFunction("array_take", {values, indices}, &options, ctx));
+  static Result<Datum> CallArrayTake(const std::vector<Datum>& args,
+                                     const TakeOptions& options, ExecContext* ctx) {
+    ARROW_ASSIGN_OR_RAISE(auto array_take_func,
+                          ctx->func_registry()->GetFunction("array_take"));
+    return array_take_func->Execute(args, &options, ctx);
+  }
+
+  static Result<std::shared_ptr<ArrayData>> TakeAAA(const std::vector<Datum>& args,
+                                                    const TakeOptions& options,
+                                                    ExecContext* ctx) {
+    DCHECK_EQ(args[0].kind(), Datum::ARRAY);
+    DCHECK_EQ(args[1].kind(), Datum::ARRAY);
+    ARROW_ASSIGN_OR_RAISE(Datum result, CallArrayTake(args, options, ctx));
     return result.array();
   }
 
-  static Result<std::shared_ptr<ChunkedArray>> TakeAAC(const Array& values,
-                                                       const Array& indices,
+  static Result<std::shared_ptr<ChunkedArray>> TakeAAC(const std::vector<Datum>& args,
                                                        const TakeOptions& options,
                                                        ExecContext* ctx) {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ArrayData> new_chunk,
-                          TakeAAA(values.data(), indices.data(), options, ctx));
-    std::vector<std::shared_ptr<Array>> chunks = {MakeArray(new_chunk)};
-    return std::make_shared<ChunkedArray>(std::move(chunks));
+                          TakeAAA(args, options, ctx));
+    return std::make_shared<ChunkedArray>(MakeArray(new_chunk));
+  }
+
+  static Result<std::shared_ptr<Array>> ChunkedArrayAsArray(
+      const std::shared_ptr<ChunkedArray>& values, MemoryPool* pool) {
+    switch (values->num_chunks()) {
+      case 0:
+        return MakeArrayOfNull(values->type(), /*length=*/0, pool);
+      case 1:
+        return values->chunk(0);
+      default:
+        return Concatenate(values->chunks(), pool);
+    }
   }
 
   static Result<std::shared_ptr<ChunkedArray>> TakeCAC(
       const std::shared_ptr<ChunkedArray>& values, const Array& indices,
       const TakeOptions& options, ExecContext* ctx) {
-    if (values->num_chunks() == 1) {
-      // `values` has a single chunk, so just delegate to TakeAAC
-      return TakeAAC(*values->chunk(0), indices, options, ctx);
-    }
-
-    // Slow path: Concatenate() chunks and delegate to TakeAAC which is more
-    // likely to handle the input types when they are in a single chunk.
-    std::shared_ptr<Array> values_array;
-    if (values->chunks().empty()) {
-      ARROW_ASSIGN_OR_RAISE(values_array, MakeArrayOfNull(values->type(), /*length=*/0,
-                                                          ctx->memory_pool()));
-    } else {
-      ARROW_ASSIGN_OR_RAISE(values_array,
-                            Concatenate(values->chunks(), ctx->memory_pool()));
-    }
-    return TakeAAC(*values_array, indices, options, ctx);
+    ARROW_ASSIGN_OR_RAISE(auto values_array,
+                          ChunkedArrayAsArray(values, ctx->memory_pool()));
+    std::vector<Datum> args = {std::move(values_array), indices};
+    return TakeAAC(args, options, ctx);
   }
 
   static Result<std::shared_ptr<ChunkedArray>> TakeCCC(
@@ -599,23 +606,14 @@ class TakeMetaFunction : public MetaFunction {
     // form a new chunk in the result. Performing this concatenation is not ideal, but
     // greatly simplifies the implementation before something more efficient is
     // implemented.
-    std::shared_ptr<Array> values_array;
-    if (values->num_chunks() == 1) {
-      values_array = values->chunk(0);
-    } else {
-      if (values->chunks().empty()) {
-        ARROW_ASSIGN_OR_RAISE(values_array, MakeArrayOfNull(values->type(), /*length=*/0,
-                                                            ctx->memory_pool()));
-      } else {
-        ARROW_ASSIGN_OR_RAISE(values_array,
-                              Concatenate(values->chunks(), ctx->memory_pool()));
-      }
-    }
+    ARROW_ASSIGN_OR_RAISE(auto values_array,
+                          ChunkedArrayAsArray(values, ctx->memory_pool()));
+    std::vector<Datum> args = {std::move(values_array), {}};
     std::vector<std::shared_ptr<Array>> new_chunks;
     new_chunks.resize(indices->num_chunks());
     for (int i = 0; i < indices->num_chunks(); i++) {
-      ARROW_ASSIGN_OR_RAISE(auto chunk, TakeAAA(values_array->data(),
-                                                indices->chunk(i)->data(), options, ctx));
+      args[1] = indices->chunk(i);
+      ARROW_ASSIGN_OR_RAISE(auto chunk, TakeAAA(args, options, ctx));
       new_chunks[i] = MakeArray(chunk);
     }
     return std::make_shared<ChunkedArray>(std::move(new_chunks), values->type());
@@ -627,11 +625,11 @@ class TakeMetaFunction : public MetaFunction {
                                                        ExecContext* ctx) {
     auto num_chunks = indices.num_chunks();
     std::vector<std::shared_ptr<Array>> new_chunks(num_chunks);
+    std::vector<Datum> args = {values, {}};
     for (int i = 0; i < num_chunks; i++) {
       // Take with that indices chunk
-      ARROW_ASSIGN_OR_RAISE(
-          std::shared_ptr<ArrayData> chunk,
-          TakeAAA(values.data(), indices.chunk(i)->data(), options, ctx));
+      args[1] = indices.chunk(i);
+      ARROW_ASSIGN_OR_RAISE(auto chunk, TakeAAA(args, options, ctx));
       new_chunks[i] = MakeArray(chunk);
     }
     return std::make_shared<ChunkedArray>(std::move(new_chunks), values.type());
@@ -644,10 +642,10 @@ class TakeMetaFunction : public MetaFunction {
     auto ncols = batch.num_columns();
     auto nrows = indices.length();
     std::vector<std::shared_ptr<Array>> columns(ncols);
+    std::vector<Datum> args = {{}, indices};
     for (int j = 0; j < ncols; j++) {
-      ARROW_ASSIGN_OR_RAISE(
-          std::shared_ptr<ArrayData> col_data,
-          TakeAAA(batch.column(j)->data(), indices.data(), options, ctx));
+      args[0] = batch.column(j);
+      ARROW_ASSIGN_OR_RAISE(auto col_data, TakeAAA(args, options, ctx));
       columns[j] = MakeArray(col_data);
     }
     return RecordBatch::Make(batch.schema(), nrows, std::move(columns));
@@ -685,7 +683,7 @@ class TakeMetaFunction : public MetaFunction {
     switch (args[0].kind()) {
       case Datum::ARRAY:
         if (index_kind == Datum::ARRAY) {
-          return TakeAAA(args[0].array(), args[1].array(), take_opts, ctx);
+          return TakeAAA(args, take_opts, ctx);
         } else if (index_kind == Datum::CHUNKED_ARRAY) {
           return TakeACC(*args[0].make_array(), *args[1].chunked_array(), take_opts, ctx);
         }
