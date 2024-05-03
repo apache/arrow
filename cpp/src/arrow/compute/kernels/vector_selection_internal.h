@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/array/data.h"
@@ -34,9 +35,18 @@ using FilterState = OptionsWrapper<FilterOptions>;
 using TakeState = OptionsWrapper<TakeOptions>;
 
 struct SelectionKernelData {
+  SelectionKernelData(InputType value_type, InputType selection_type,
+                      ArrayKernelExec exec,
+                      VectorKernel::ChunkedExec chunked_exec = NULLPTR)
+      : value_type(std::move(value_type)),
+        selection_type(std::move(selection_type)),
+        exec(exec),
+        chunked_exec(chunked_exec) {}
+
   InputType value_type;
   InputType selection_type;
   ArrayKernelExec exec;
+  VectorKernel::ChunkedExec chunked_exec;
 };
 
 void RegisterSelectionFunction(const std::string& name, FunctionDoc doc,
