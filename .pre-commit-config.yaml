@@ -132,3 +132,12 @@ repos:
           ?^cpp/cmake_modules/UseCython\.cmake$|
           ?^cpp/src/arrow/util/config\.h\.cmake$|
           )
+  - repo: https://github.com/dnephin/pre-commit-golang
+    rev: v0.5.1
+    hooks:
+      - id: go-fmt
+        files: >-
+          go/
+      - id: go-imports
+        files: >-
+          go/
