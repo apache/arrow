@@ -1337,6 +1337,28 @@ under the License.
       <build>
         <plugins>
           <plugin>
+            <artifactId>maven-enforcer-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>check-jdk-version-property</id>
+                <goals>
+                  <goal>enforce</goal>
+                </goals>
+                <phase>validate</phase>
+                <configuration>
+                  <rules>
+                    <requireProperty>
+                      <property>arrow.test.jdk-version</property>
+                      <message>"JDK version used for test must be specified."</message>
+                      <regex>^(1\.8|\d{2,})</regex>
+                      <regexMessage>"JDK version used for test must be either 1.8 for Java 8, or 11, 17, 21, ..."</regexMessage>
+                    </requireProperty>
+                  </rules>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-surefire-plugin</artifactId>
             <configuration>
