@@ -60,6 +60,7 @@ void RegisterSelectionFunction(const std::string& name, FunctionDoc doc,
         {std::move(kernel_data.value_type), std::move(kernel_data.selection_type)},
         OutputType(FirstType));
     base_kernel.exec = kernel_data.exec;
+    base_kernel.exec_chunked = kernel_data.chunked_exec;
     DCHECK_OK(func->AddKernel(base_kernel));
   }
   kernels.clear();
