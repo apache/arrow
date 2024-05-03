@@ -152,6 +152,20 @@ class build_ext(_build_ext):
             if not hasattr(sys, 'gettotalrefcount'):
                 self.build_type = 'release'
 
+        self.with_azure = None
+        self.with_gcs = None
+        self.with_s3 = None
+        self.with_hdfs = None
+        self.with_cuda = None
+        self.with_substrait = None
+        self.with_flight = None
+        self.with_acero = None
+        self.with_dataset = None
+        self.with_parquet = None
+        self.with_parquet_encryption = None
+        self.with_orc = None
+        self.with_gandiva = None
+
         self.generate_coverage = strtobool(
             os.environ.get('PYARROW_GENERATE_COVERAGE', '0'))
         self.bundle_arrow_cpp = strtobool(
@@ -235,8 +249,29 @@ class build_ext(_build_ext):
                 cmake_options.append('-D{0}={1}'.format(
                     varname, 'on' if value else 'off'))
 
+            def append_cmake_component(flag, varname):
+                # only pass this to cmake is the user pass the --with-component
+                # flag to setup.py build_ext
+                if flag is not None:
+                    append_cmake_bool(flag, varname)
+
             if self.cmake_generator:
                 cmake_options += ['-G', self.cmake_generator]
+
+            append_cmake_component(self.with_cuda, 'PYARROW_CUDA')
+            append_cmake_component(self.with_substrait, 'PYARROW_SUBSTRAIT')
+            append_cmake_component(self.with_flight, 'PYARROW_FLIGHT')
+            append_cmake_component(self.with_gandiva, 'PYARROW_GANDIVA')
+            append_cmake_component(self.with_acero, 'PYARROW_ACERO')
+            append_cmake_component(self.with_dataset, 'PYARROW_DATASET')
+            append_cmake_component(self.with_orc, 'PYARROW_ORC')
+            append_cmake_component(self.with_parquet, 'PYARROW_PARQUET')
+            append_cmake_component(self.with_parquet_encryption,
+                                   'PYARROW_PARQUET_ENCRYPTION')
+            append_cmake_component(self.with_azure, 'PYARROW_AZURE')
+            append_cmake_component(self.with_gcs, 'PYARROW_GCS')
+            append_cmake_component(self.with_s3, 'PYARROW_S3')
+            append_cmake_component(self.with_hdfs, 'PYARROW_HDFS')
 
             append_cmake_bool(self.bundle_arrow_cpp,
                               'PYARROW_BUNDLE_ARROW_CPP')
