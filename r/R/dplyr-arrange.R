@@ -42,13 +42,17 @@ arrange.arrow_dplyr_query <- function(.data, ..., .by_group = FALSE) {
     x <- find_and_remove_desc(exprs[[i]])
     exprs[[i]] <- x[["quos"]]
     sorts[[i]] <- arrow_eval(exprs[[i]], mask)
-    if (length(mask$.aggregations)) {
-      # TODO: add test
-      stop("Aggregation expressions are not allowed in arrange expressions", call. = FALSE)
-    }
     names(sorts)[i] <- format_expr(exprs[[i]])
     if (inherits(sorts[[i]], "try-error")) {
       msg <- paste("Expression", names(sorts)[i], "not supported in Arrow")
+      return(abandon_ship(call, .data, msg))
+    }
+    if (length(mask$.aggregations)) {
+      # dplyr lets you arrange on e.g. x < mean(x), but we haven't implemented it.
+      # But we could, the same way it works in mutate() via join, if someone asks.
+      # Until then, just error.
+      # TODO: add a test for this
+      msg <- paste("Expression", format_expr(expr), "not supported in arrange() in Arrow")
       return(abandon_ship(call, .data, msg))
     }
     descs[i] <- x[["desc"]]

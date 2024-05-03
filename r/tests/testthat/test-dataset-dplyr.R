@@ -325,7 +325,7 @@ test_that("dplyr method not implemented messages", {
   # This one is more nuanced
   expect_error(
     ds %>% filter(int > 6, dbl > max(dbl)),
-    "Filter expression not supported for Arrow Datasets: dbl > max(dbl)\nCall collect() first to pull data into R.",
+    "Expression dbl > max(dbl) not supported in filter() in Arrow\nCall collect() first to pull data into R.",
     fixed = TRUE
   )
 })
