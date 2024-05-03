@@ -501,6 +501,7 @@ set(ARROW_UTIL_SRCS
     util/decimal.cc
     util/delimiting.cc
     util/dict_util.cc
+    util/fixed_width_internal.cc
     util/float16.cc
     util/formatting.cc
     util/future.cc

@@ -23,6 +23,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array/builder_nested.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
@@ -32,6 +33,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/fixed_width_test_util.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -726,7 +728,37 @@ TEST_F(TestFilterKernelWithLargeList, FilterListInt32) {
                      "[[1,2], null, null]");
 }
 
-class TestFilterKernelWithFixedSizeList : public TestFilterKernel {};
+class TestFilterKernelWithFixedSizeList : public TestFilterKernel {
+ protected:
+  std::vector<std::shared_ptr<Array>> five_length_filters_ = {
+      ArrayFromJSON(boolean(), "[false, false, false, false, false]"),
+      ArrayFromJSON(boolean(), "[true, true, true, true, true]"),
+      ArrayFromJSON(boolean(), "[false, true, true, false, true]"),
+      ArrayFromJSON(boolean(), "[null, true, null, false, true]"),
+  };
+
+  void AssertFilterOnNestedLists(const std::shared_ptr<DataType>& inner_type,
+                                 const std::vector<int>& list_sizes) {
+    using NLG = ::arrow::util::internal::NestedListGenerator;
+    constexpr int64_t kLength = 5;
+    // Create two equivalent lists: one as a FixedSizeList and another as a List.
+    ASSERT_OK_AND_ASSIGN(auto fsl_list,
+                         NLG::NestedFSLArray(inner_type, list_sizes, kLength));
+    ASSERT_OK_AND_ASSIGN(auto list,
+                         NLG::NestedListArray(inner_type, list_sizes, kLength));
+
+    ARROW_SCOPED_TRACE("CheckTakeOnNestedLists of type `", *fsl_list->type(), "`");
+
+    for (auto& filter : five_length_filters_) {
+      // Use the Filter on ListType as the reference implementation.
+      ASSERT_OK_AND_ASSIGN(auto expected_list,
+                           Filter(*list, *filter, /*options=*/emit_null_));
+      ASSERT_OK_AND_ASSIGN(auto expected_fsl, Cast(expected_list, fsl_list->type()));
+      auto expected_fsl_array = expected_fsl.make_array();
+      this->AssertFilter(fsl_list, filter, expected_fsl_array);
+    }
+  }
+};
 
 TEST_F(TestFilterKernelWithFixedSizeList, FilterFixedSizeListInt32) {
   std::string list_json = "[null, [1, null, 3], [4, 5, 6], [7, 8, null]]";
@@ -738,6 +770,33 @@ TEST_F(TestFilterKernelWithFixedSizeList, FilterFixedSizeListInt32) {
   this->AssertFilter(fixed_size_list(int32(), 3), list_json, "[1, 1, 1, 1]", list_json);
   this->AssertFilter(fixed_size_list(int32(), 3), list_json, "[0, 1, 0, 1]",
                      "[[1, null, 3], [7, 8, null]]");
+}
+
+TEST_F(TestFilterKernelWithFixedSizeList, FilterFixedSizeListVarWidth) {
+  std::string list_json =
+      R"([["zero", "one", ""], ["two", "", "three"], ["four", "five", "six"], ["seven", "eight", ""]])";
+  this->AssertFilter(fixed_size_list(utf8(), 3), list_json, "[0, 0, 0, 0]", "[]");
+  this->AssertFilter(fixed_size_list(utf8(), 3), list_json, "[0, 1, 1, null]",
+                     R"([["two", "", "three"], ["four", "five", "six"], null])");
+  this->AssertFilter(fixed_size_list(utf8(), 3), list_json, "[0, 0, 1, null]",
+                     R"([["four", "five", "six"], null])");
+  this->AssertFilter(fixed_size_list(utf8(), 3), list_json, "[1, 1, 1, 1]", list_json);
+  this->AssertFilter(fixed_size_list(utf8(), 3), list_json, "[0, 1, 0, 1]",
+                     R"([["two", "", "three"], ["seven", "eight", ""]])");
+}
+
+TEST_F(TestFilterKernelWithFixedSizeList, FilterFixedSizeListModuloNesting) {
+  using NLG = ::arrow::util::internal::NestedListGenerator;
+  const std::vector<std::shared_ptr<DataType>> value_types = {
+      int16(),
+      int32(),
+      int64(),
+  };
+  NLG::VisitAllNestedListConfigurations(
+      value_types, [this](const std::shared_ptr<DataType>& inner_type,
+                          const std::vector<int>& list_sizes) {
+        this->AssertFilterOnNestedLists(inner_type, list_sizes);
+      });
 }
 
 class TestFilterKernelWithMap : public TestFilterKernel {};
@@ -1034,29 +1093,34 @@ Status TakeJSON(const std::shared_ptr<DataType>& type, const std::string& values
       .Value(out);
 }
 
+void DoCheckTake(const std::shared_ptr<Array>& values,
+                 const std::shared_ptr<Array>& indices,
+                 const std::shared_ptr<Array>& expected) {
+  AssertTakeArrays(values, indices, expected);
+
+  // Check sliced values
+  ASSERT_OK_AND_ASSIGN(auto values_filler, MakeArrayOfNull(values->type(), 2));
+  ASSERT_OK_AND_ASSIGN(auto values_sliced,
+                       Concatenate({values_filler, values, values_filler}));
+  values_sliced = values_sliced->Slice(2, values->length());
+  AssertTakeArrays(values_sliced, indices, expected);
+
+  // Check sliced indices
+  ASSERT_OK_AND_ASSIGN(auto zero, MakeScalar(indices->type(), int8_t{0}));
+  ASSERT_OK_AND_ASSIGN(auto indices_filler, MakeArrayFromScalar(*zero, 3));
+  ASSERT_OK_AND_ASSIGN(auto indices_sliced,
+                       Concatenate({indices_filler, indices, indices_filler}));
+  indices_sliced = indices_sliced->Slice(3, indices->length());
+  AssertTakeArrays(values, indices_sliced, expected);
+}
+
 void CheckTake(const std::shared_ptr<DataType>& type, const std::string& values_json,
                const std::string& indices_json, const std::string& expected_json) {
   auto values = ArrayFromJSON(type, values_json);
   auto expected = ArrayFromJSON(type, expected_json);
-
   for (auto index_type : {int8(), uint32()}) {
     auto indices = ArrayFromJSON(index_type, indices_json);
-    AssertTakeArrays(values, indices, expected);
-
-    // Check sliced values
-    ASSERT_OK_AND_ASSIGN(auto values_filler, MakeArrayOfNull(type, 2));
-    ASSERT_OK_AND_ASSIGN(auto values_sliced,
-                         Concatenate({values_filler, values, values_filler}));
-    values_sliced = values_sliced->Slice(2, values->length());
-    AssertTakeArrays(values_sliced, indices, expected);
-
-    // Check sliced indices
-    ASSERT_OK_AND_ASSIGN(auto zero, MakeScalar(index_type, int8_t{0}));
-    ASSERT_OK_AND_ASSIGN(auto indices_filler, MakeArrayFromScalar(*zero, 3));
-    ASSERT_OK_AND_ASSIGN(auto indices_sliced,
-                         Concatenate({indices_filler, indices, indices_filler}));
-    indices_sliced = indices_sliced->Slice(3, indices->length());
-    AssertTakeArrays(values, indices_sliced, expected);
+    DoCheckTake(values, indices, expected);
   }
 }
 
@@ -1427,7 +1491,25 @@ TEST_F(TestTakeKernelWithLargeList, TakeLargeListInt32) {
   CheckTake(large_list(int32()), list_json, "[null, 1, 2, 0]", "[null, [1,2], null, []]");
 }
 
-class TestTakeKernelWithFixedSizeList : public TestTakeKernelTyped<FixedSizeListType> {};
+class TestTakeKernelWithFixedSizeList : public TestTakeKernelTyped<FixedSizeListType> {
+ protected:
+  void CheckTakeOnNestedLists(const std::shared_ptr<DataType>& inner_type,
+                              const std::vector<int>& list_sizes, int64_t length) {
+    using NLG = ::arrow::util::internal::NestedListGenerator;
+    // Create two equivalent lists: one as a FixedSizeList and another as a List.
+    ASSERT_OK_AND_ASSIGN(auto fsl_list,
+                         NLG::NestedFSLArray(inner_type, list_sizes, length));
+    ASSERT_OK_AND_ASSIGN(auto list, NLG::NestedListArray(inner_type, list_sizes, length));
+
+    ARROW_SCOPED_TRACE("CheckTakeOnNestedLists of type `", *fsl_list->type(), "`");
+
+    auto indices = ArrayFromJSON(int64(), "[1, 2, 4]");
+    // Use the Take on ListType as the reference implementation.
+    ASSERT_OK_AND_ASSIGN(auto expected_list, Take(*list, *indices));
+    ASSERT_OK_AND_ASSIGN(auto expected_fsl, Cast(*expected_list, fsl_list->type()));
+    DoCheckTake(fsl_list, indices, expected_fsl);
+  }
+};
 
 TEST_F(TestTakeKernelWithFixedSizeList, TakeFixedSizeListInt32) {
   std::string list_json = "[null, [1, null, 3], [4, 5, 6], [7, 8, null]]";
@@ -1447,6 +1529,42 @@ TEST_F(TestTakeKernelWithFixedSizeList, TakeFixedSizeListInt32) {
   this->TestNoValidityBitmapButUnknownNullCount(fixed_size_list(int32(), 3),
                                                 "[[1, null, 3], [4, 5, 6], [7, 8, null]]",
                                                 "[0, 1, 0]");
+}
+
+TEST_F(TestTakeKernelWithFixedSizeList, TakeFixedSizeListVarWidth) {
+  std::string list_json =
+      R"([["zero", "one", ""], ["two", "", "three"], ["four", "five", "six"], ["seven", "eight", ""]])";
+  CheckTake(fixed_size_list(utf8(), 3), list_json, "[]", "[]");
+  CheckTake(fixed_size_list(utf8(), 3), list_json, "[3, 2, 1]",
+            R"([["seven", "eight", ""], ["four", "five", "six"], ["two", "", "three"]])");
+  CheckTake(fixed_size_list(utf8(), 3), list_json, "[null, 2, 0]",
+            R"([null, ["four", "five", "six"], ["zero", "one", ""]])");
+  CheckTake(fixed_size_list(utf8(), 3), list_json, R"([null, null])", "[null, null]");
+  CheckTake(
+      fixed_size_list(utf8(), 3), list_json, "[3, 0, 0,3]",
+      R"([["seven", "eight", ""], ["zero", "one", ""], ["zero", "one", ""], ["seven", "eight", ""]])");
+  CheckTake(fixed_size_list(utf8(), 3), list_json, "[0, 1, 2, 3]", list_json);
+  CheckTake(fixed_size_list(utf8(), 3), list_json, "[2, 2, 2, 2, 2, 2, 1]",
+            R"([
+                 ["four", "five", "six"], ["four", "five", "six"],
+                 ["four", "five", "six"], ["four", "five", "six"],
+                 ["four", "five", "six"], ["four", "five", "six"],
+                 ["two", "", "three"]
+               ])");
+}
+
+TEST_F(TestTakeKernelWithFixedSizeList, TakeFixedSizeListModuloNesting) {
+  using NLG = ::arrow::util::internal::NestedListGenerator;
+  const std::vector<std::shared_ptr<DataType>> value_types = {
+      int16(),
+      int32(),
+      int64(),
+  };
+  NLG::VisitAllNestedListConfigurations(
+      value_types, [this](const std::shared_ptr<DataType>& inner_type,
+                          const std::vector<int>& list_sizes) {
+        this->CheckTakeOnNestedLists(inner_type, list_sizes, /*length=*/5);
+      });
 }
 
 class TestTakeKernelWithMap : public TestTakeKernelTyped<MapType> {};

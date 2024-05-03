@@ -37,6 +37,7 @@
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/fixed_width_internal.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ree_util.h"
@@ -63,24 +64,6 @@ void RegisterSelectionFunction(const std::string& name, FunctionDoc doc,
   }
   kernels.clear();
   DCHECK_OK(registry->AddFunction(std::move(func)));
-}
-
-Status PreallocatePrimitiveArrayData(KernelContext* ctx, int64_t length, int bit_width,
-                                     bool allocate_validity, ArrayData* out) {
-  // Preallocate memory
-  out->length = length;
-  out->buffers.resize(2);
-
-  if (allocate_validity) {
-    ARROW_ASSIGN_OR_RAISE(out->buffers[0], ctx->AllocateBitmap(length));
-  }
-  if (bit_width == 1) {
-    ARROW_ASSIGN_OR_RAISE(out->buffers[1], ctx->AllocateBitmap(length));
-  } else {
-    ARROW_ASSIGN_OR_RAISE(out->buffers[1],
-                          ctx->Allocate(bit_util::BytesForBits(length * bit_width)));
-  }
-  return Status::OK();
 }
 
 namespace {
@@ -909,6 +892,20 @@ Status LargeListFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult
 }
 
 Status FSLFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  const ArraySpan& values = batch[0].array;
+
+  // If a FixedSizeList wraps a fixed-width type we can, in some cases, use
+  // PrimitiveFilterExec for a fixed-size list array.
+  if (util::IsFixedWidthLike(values,
+                             /*force_null_count=*/true,
+                             /*exclude_dictionary=*/true)) {
+    const auto byte_width = util::FixedWidthInBytes(*values.type);
+    // 0 is a valid byte width for FixedSizeList, but PrimitiveFilterExec
+    // might not handle it correctly.
+    if (byte_width > 0) {
+      return PrimitiveFilterExec(ctx, batch, out);
+    }
+  }
   return FilterExec<FSLSelectionImpl>(ctx, batch, out);
 }
 
@@ -968,6 +965,29 @@ Status LargeListTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
 }
 
 Status FSLTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  const ArraySpan& values = batch[0].array;
+
+  // If a FixedSizeList wraps a fixed-width type we can, in some cases, use
+  // PrimitiveTakeExec for a fixed-size list array.
+  if (util::IsFixedWidthLike(values,
+                             /*force_null_count=*/true,
+                             /*exclude_dictionary=*/true)) {
+    const auto byte_width = util::FixedWidthInBytes(*values.type);
+    // Additionally, PrimitiveTakeExec is only implemented for specific byte widths.
+    // TODO(GH-41301): Extend PrimitiveTakeExec for any fixed-width type.
+    switch (byte_width) {
+      case 1:
+      case 2:
+      case 4:
+      case 8:
+      case 16:
+      case 32:
+        return PrimitiveTakeExec(ctx, batch, out);
+      default:
+        break;  // fallback to TakeExec<FSBSelectionImpl>
+    }
+  }
+
   return TakeExec<FSLSelectionImpl>(ctx, batch, out);
 }
 
