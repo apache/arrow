@@ -23,6 +23,7 @@
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/result.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_generate.h"
@@ -41,10 +42,17 @@ Status ListValueLength(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   const ArraySpan& arr = batch[0].array;
   ArraySpan* out_arr = out->array_span_mutable();
   auto out_values = out_arr->GetValues<offset_type>(1);
-  const offset_type* offsets = arr.GetValues<offset_type>(1);
-  // Offsets are always well-defined and monotonic, even for null values
-  for (int64_t i = 0; i < arr.length; ++i) {
-    *out_values++ = offsets[i + 1] - offsets[i];
+  if (is_list_view(*arr.type)) {
+    const auto* sizes = arr.GetValues<offset_type>(2);
+    if (arr.length > 0) {
+      memcpy(out_values, sizes, arr.length * sizeof(offset_type));
+    }
+  } else {
+    const offset_type* offsets = arr.GetValues<offset_type>(1);
+    // Offsets are always well-defined and monotonic, even for null values
+    for (int64_t i = 0; i < arr.length; ++i) {
+      *out_values++ = offsets[i + 1] - offsets[i];
+    }
   }
   return Status::OK();
 }
@@ -57,6 +65,30 @@ Status FixedSizeListValueLength(KernelContext* ctx, const ExecSpan& batch,
   int32_t* out_values = out_arr->GetValues<int32_t>(1);
   std::fill(out_values, out_values + arr.length, width);
   return Status::OK();
+}
+
+template <typename InListType>
+void AddListValueLengthKernel(ScalarFunction* func,
+                              const std::shared_ptr<DataType>& out_type) {
+  auto in_type = {InputType(InListType::type_id)};
+  ScalarKernel kernel(in_type, out_type, ListValueLength<InListType>);
+  DCHECK_OK(func->AddKernel(std::move(kernel)));
+}
+
+template <>
+void AddListValueLengthKernel<FixedSizeListType>(
+    ScalarFunction* func, const std::shared_ptr<DataType>& out_type) {
+  auto in_type = {InputType(Type::FIXED_SIZE_LIST)};
+  ScalarKernel kernel(in_type, out_type, FixedSizeListValueLength);
+  DCHECK_OK(func->AddKernel(std::move(kernel)));
+}
+
+void AddListValueLengthKernels(ScalarFunction* func) {
+  AddListValueLengthKernel<ListType>(func, int32());
+  AddListValueLengthKernel<LargeListType>(func, int64());
+  AddListValueLengthKernel<ListViewType>(func, int32());
+  AddListValueLengthKernel<LargeListViewType>(func, int64());
+  AddListValueLengthKernel<FixedSizeListType>(func, int32());
 }
 
 const FunctionDoc list_value_length_doc{
@@ -399,6 +431,8 @@ void AddListElementKernels(ScalarFunction* func) {
 void AddListElementKernels(ScalarFunction* func) {
   AddListElementKernels<ListType, ListElement>(func);
   AddListElementKernels<LargeListType, ListElement>(func);
+  AddListElementKernels<ListViewType, ListElement>(func);
+  AddListElementKernels<LargeListViewType, ListElement>(func);
   AddListElementKernels<FixedSizeListType, FixedSizeListElement>(func);
 }
 
@@ -824,12 +858,7 @@ const FunctionDoc map_lookup_doc{
 void RegisterScalarNested(FunctionRegistry* registry) {
   auto list_value_length = std::make_shared<ScalarFunction>(
       "list_value_length", Arity::Unary(), list_value_length_doc);
-  DCHECK_OK(list_value_length->AddKernel({InputType(Type::LIST)}, int32(),
-                                         ListValueLength<ListType>));
-  DCHECK_OK(list_value_length->AddKernel({InputType(Type::FIXED_SIZE_LIST)}, int32(),
-                                         FixedSizeListValueLength));
-  DCHECK_OK(list_value_length->AddKernel({InputType(Type::LARGE_LIST)}, int64(),
-                                         ListValueLength<LargeListType>));
+  AddListValueLengthKernels(list_value_length.get());
   DCHECK_OK(registry->AddFunction(std::move(list_value_length)));
 
   auto list_element =

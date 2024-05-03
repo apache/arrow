@@ -163,17 +163,6 @@ See $.data for the source Arrow object",
   )
 })
 
-test_that("mutate() features not yet implemented", {
-  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
-  expect_error(
-    ds %>%
-      group_by(int) %>%
-      mutate(avg = mean(int)),
-    "window functions not currently supported in Arrow\nCall collect() first to pull data into R.",
-    fixed = TRUE
-  )
-})
-
 test_that("filter scalar validation doesn't crash (ARROW-7772)", {
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_error(

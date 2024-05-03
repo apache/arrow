@@ -37,7 +37,7 @@ in tabular data.
 
 Arrow also provides support for various formats to get those tabular
 data in and out of disk and networks. Most commonly used formats are
-Parquet (:ref:`parquet`) and the IPC format (:ref:`ipc`). 
+Parquet (:ref:`parquet`) and the IPC format (:ref:`ipc`).
 
 Creating Arrays and Tables
 --------------------------
@@ -63,7 +63,7 @@ in tabular data when attached to a column name
 
     birthdays_table = pa.table([days, months, years],
                                names=["days", "months", "years"])
-    
+
     birthdays_table
 
 See :ref:`data` for more details.
@@ -75,7 +75,7 @@ Once you have tabular data, Arrow provides out of the box
 the features to save and restore that data for common formats
 like Parquet:
 
-.. ipython:: python   
+.. ipython:: python
 
     import pyarrow.parquet as pq
 
@@ -92,14 +92,14 @@ data will be as quick as possible
     reloaded_birthdays
 
 Saving and loading back data in arrow is usually done through
-:ref:`Parquet <parquet>`, :ref:`IPC format <ipc>` (:ref:`feather`), 
+:ref:`Parquet <parquet>`, :ref:`IPC format <ipc>` (:ref:`feather`),
 :ref:`CSV <py-csv>` or :ref:`Line-Delimited JSON <json>` formats.
 
 Performing Computations
 -----------------------
 
 Arrow ships with a bunch of compute functions that can be applied
-to its arrays and tables, so through the compute functions 
+to its arrays and tables, so through the compute functions
 it's possible to apply transformations to the data
 
 .. ipython:: python
@@ -122,7 +122,7 @@ smaller chunks
 
     import pyarrow.dataset as ds
 
-    ds.write_dataset(birthdays_table, "savedir", format="parquet", 
+    ds.write_dataset(birthdays_table, "savedir", format="parquet",
                      partitioning=ds.partitioning(
                         pa.schema([birthdays_table.schema.field("years")])
                     ))
@@ -151,8 +151,8 @@ how to project them, etc., refer to :ref:`dataset` documentation.
 Continuing from here
 --------------------
 
-For digging further into Arrow, you might want to read the 
-:doc:`PyArrow Documentation <./index>` itself or the 
+For digging further into Arrow, you might want to read the
+:doc:`PyArrow Documentation <./index>` itself or the
 `Arrow Python Cookbook <https://arrow.apache.org/cookbook/py/>`_
 
 

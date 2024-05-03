@@ -896,6 +896,21 @@ TEST_F(TestIfElseKernel, ParameterizedTypes) {
                    {cond, ArrayFromJSON(type0, "[0]"), ArrayFromJSON(type1, "[1]")}));
 }
 
+TEST_F(TestIfElseKernel, MapNested) {
+  auto type = map(int64(), utf8());
+  CheckWithDifferentShapes(
+      ArrayFromJSON(boolean(), "[true, true, false, false]"),
+      ArrayFromJSON(type, R"([null, [[2, "foo"], [4, null]], [[3, "test"]], []])"),
+      ArrayFromJSON(type, R"([[[1, "b"]], [[2, "c"]], [[7, "abc"]], null])"),
+      ArrayFromJSON(type, R"([null, [[2, "foo"], [4, null]], [[7, "abc"]], null])"));
+
+  CheckWithDifferentShapes(
+      ArrayFromJSON(boolean(), "[null, null, null, null]"),
+      ArrayFromJSON(type, R"([null, [[1, "c"]], [[4, null]], [[6, "ok"]]])"),
+      ArrayFromJSON(type, R"([[[-1, null]], [[3, "c"]], null, [[6, "ok"]]])"),
+      ArrayFromJSON(type, R"([null, null, null, null])"));
+}
+
 template <typename Type>
 class TestIfElseUnion : public ::testing::Test {};
 
@@ -1920,7 +1935,7 @@ TYPED_TEST(TestCaseWhenBinary, Random) {
 template <typename Type>
 class TestCaseWhenList : public ::testing::Test {};
 
-TYPED_TEST_SUITE(TestCaseWhenList, ListArrowTypes);
+TYPED_TEST_SUITE(TestCaseWhenList, ListAndListViewArrowTypes);
 
 TYPED_TEST(TestCaseWhenList, ListOfString) {
   auto type = std::make_shared<TypeParam>(utf8());
@@ -2555,7 +2570,7 @@ class TestCoalesceList : public ::testing::Test {};
 
 TYPED_TEST_SUITE(TestCoalesceNumeric, IfElseNumericBasedTypes);
 TYPED_TEST_SUITE(TestCoalesceBinary, BaseBinaryArrowTypes);
-TYPED_TEST_SUITE(TestCoalesceList, ListArrowTypes);
+TYPED_TEST_SUITE(TestCoalesceList, ListAndListViewArrowTypes);
 
 TYPED_TEST(TestCoalesceNumeric, Basics) {
   auto type = default_type_instance<TypeParam>();

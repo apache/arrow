@@ -761,8 +761,8 @@ class FileSystemFactoryRegistry {
     RETURN_NOT_OK(CheckValid());
 
     auto [it, success] = scheme_to_factory_.emplace(
-        std::move(scheme), Registered{std::move(factory), std::move(finalizer)});
-    if (success) {
+        std::move(scheme), Registered{factory, std::move(finalizer)});
+    if (success || (it->second.ok() && it->second->factory == factory)) {
       return Status::OK();
     }
 

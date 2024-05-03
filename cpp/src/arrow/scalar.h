@@ -141,7 +141,12 @@ struct ARROW_EXPORT ArraySpanFillFromScalarScratchSpace {
   alignas(int64_t) mutable uint8_t scratch_space_[kScalarScratchSpaceSize];
 
  private:
-  ArraySpanFillFromScalarScratchSpace() { static_cast<Impl*>(this)->FillScratchSpace(); }
+  template <typename... Args>
+  explicit ArraySpanFillFromScalarScratchSpace(Args&&... args) {
+    Impl::FillScratchSpace(scratch_space_, std::forward<Args>(args)...);
+  }
+
+  ArraySpanFillFromScalarScratchSpace() = delete;
 
   friend Impl;
 };
@@ -278,20 +283,32 @@ struct ARROW_EXPORT BaseBinaryScalar : public internal::PrimitiveScalarBase {
 struct ARROW_EXPORT BinaryScalar
     : public BaseBinaryScalar,
       private internal::ArraySpanFillFromScalarScratchSpace<BinaryScalar> {
-  using BaseBinaryScalar::BaseBinaryScalar;
   using TypeClass = BinaryType;
   using ArraySpanFillFromScalarScratchSpace =
       internal::ArraySpanFillFromScalarScratchSpace<BinaryScalar>;
 
+  explicit BinaryScalar(std::shared_ptr<DataType> type)
+      : BaseBinaryScalar(std::move(type)),
+        ArraySpanFillFromScalarScratchSpace(this->value) {}
+
+  BinaryScalar(std::shared_ptr<Buffer> value, std::shared_ptr<DataType> type)
+      : BaseBinaryScalar(std::move(value), std::move(type)),
+        ArraySpanFillFromScalarScratchSpace(this->value) {}
+
+  BinaryScalar(std::string s, std::shared_ptr<DataType> type)
+      : BaseBinaryScalar(std::move(s), std::move(type)),
+        ArraySpanFillFromScalarScratchSpace(this->value) {}
+
   explicit BinaryScalar(std::shared_ptr<Buffer> value)
       : BinaryScalar(std::move(value), binary()) {}
 
-  explicit BinaryScalar(std::string s) : BaseBinaryScalar(std::move(s), binary()) {}
+  explicit BinaryScalar(std::string s) : BinaryScalar(std::move(s), binary()) {}
 
   BinaryScalar() : BinaryScalar(binary()) {}
 
  private:
-  void FillScratchSpace();
+  static void FillScratchSpace(uint8_t* scratch_space,
+                               const std::shared_ptr<Buffer>& value);
 
   friend ArraySpan;
   friend ArraySpanFillFromScalarScratchSpace;
@@ -312,23 +329,35 @@ struct ARROW_EXPORT StringScalar : public BinaryScalar {
 struct ARROW_EXPORT BinaryViewScalar
     : public BaseBinaryScalar,
       private internal::ArraySpanFillFromScalarScratchSpace<BinaryViewScalar> {
-  using BaseBinaryScalar::BaseBinaryScalar;
   using TypeClass = BinaryViewType;
   using ArraySpanFillFromScalarScratchSpace =
       internal::ArraySpanFillFromScalarScratchSpace<BinaryViewScalar>;
+
+  explicit BinaryViewScalar(std::shared_ptr<DataType> type)
+      : BaseBinaryScalar(std::move(type)),
+        ArraySpanFillFromScalarScratchSpace(this->value) {}
+
+  BinaryViewScalar(std::shared_ptr<Buffer> value, std::shared_ptr<DataType> type)
+      : BaseBinaryScalar(std::move(value), std::move(type)),
+        ArraySpanFillFromScalarScratchSpace(this->value) {}
+
+  BinaryViewScalar(std::string s, std::shared_ptr<DataType> type)
+      : BaseBinaryScalar(std::move(s), std::move(type)),
+        ArraySpanFillFromScalarScratchSpace(this->value) {}
 
   explicit BinaryViewScalar(std::shared_ptr<Buffer> value)
       : BinaryViewScalar(std::move(value), binary_view()) {}
 
   explicit BinaryViewScalar(std::string s)
-      : BaseBinaryScalar(std::move(s), binary_view()) {}
+      : BinaryViewScalar(std::move(s), binary_view()) {}
 
   BinaryViewScalar() : BinaryViewScalar(binary_view()) {}
 
   std::string_view view() const override { return std::string_view(*this->value); }
 
  private:
-  void FillScratchSpace();
+  static void FillScratchSpace(uint8_t* scratch_space,
+                               const std::shared_ptr<Buffer>& value);
 
   friend ArraySpan;
   friend ArraySpanFillFromScalarScratchSpace;
@@ -350,24 +379,33 @@ struct ARROW_EXPORT StringViewScalar : public BinaryViewScalar {
 struct ARROW_EXPORT LargeBinaryScalar
     : public BaseBinaryScalar,
       private internal::ArraySpanFillFromScalarScratchSpace<LargeBinaryScalar> {
-  using BaseBinaryScalar::BaseBinaryScalar;
   using TypeClass = LargeBinaryType;
   using ArraySpanFillFromScalarScratchSpace =
       internal::ArraySpanFillFromScalarScratchSpace<LargeBinaryScalar>;
 
+  explicit LargeBinaryScalar(std::shared_ptr<DataType> type)
+      : BaseBinaryScalar(std::move(type)),
+        ArraySpanFillFromScalarScratchSpace(this->value) {}
+
   LargeBinaryScalar(std::shared_ptr<Buffer> value, std::shared_ptr<DataType> type)
-      : BaseBinaryScalar(std::move(value), std::move(type)) {}
+      : BaseBinaryScalar(std::move(value), std::move(type)),
+        ArraySpanFillFromScalarScratchSpace(this->value) {}
+
+  LargeBinaryScalar(std::string s, std::shared_ptr<DataType> type)
+      : BaseBinaryScalar(std::move(s), std::move(type)),
+        ArraySpanFillFromScalarScratchSpace(this->value) {}
 
   explicit LargeBinaryScalar(std::shared_ptr<Buffer> value)
       : LargeBinaryScalar(std::move(value), large_binary()) {}
 
   explicit LargeBinaryScalar(std::string s)
-      : BaseBinaryScalar(std::move(s), large_binary()) {}
+      : LargeBinaryScalar(std::move(s), large_binary()) {}
 
   LargeBinaryScalar() : LargeBinaryScalar(large_binary()) {}
 
  private:
-  void FillScratchSpace();
+  static void FillScratchSpace(uint8_t* scratch_space,
+                               const std::shared_ptr<Buffer>& value);
 
   friend ArraySpan;
   friend ArraySpanFillFromScalarScratchSpace;
@@ -550,14 +588,19 @@ struct ARROW_EXPORT ListScalar
     : public BaseListScalar,
       private internal::ArraySpanFillFromScalarScratchSpace<ListScalar> {
   using TypeClass = ListType;
-  using BaseListScalar::BaseListScalar;
   using ArraySpanFillFromScalarScratchSpace =
       internal::ArraySpanFillFromScalarScratchSpace<ListScalar>;
+
+  ListScalar(std::shared_ptr<Array> value, std::shared_ptr<DataType> type,
+             bool is_valid = true)
+      : BaseListScalar(std::move(value), std::move(type), is_valid),
+        ArraySpanFillFromScalarScratchSpace(this->value) {}
 
   explicit ListScalar(std::shared_ptr<Array> value, bool is_valid = true);
 
  private:
-  void FillScratchSpace();
+  static void FillScratchSpace(uint8_t* scratch_space,
+                               const std::shared_ptr<Array>& value);
 
   friend ArraySpan;
   friend ArraySpanFillFromScalarScratchSpace;
@@ -567,14 +610,19 @@ struct ARROW_EXPORT LargeListScalar
     : public BaseListScalar,
       private internal::ArraySpanFillFromScalarScratchSpace<LargeListScalar> {
   using TypeClass = LargeListType;
-  using BaseListScalar::BaseListScalar;
   using ArraySpanFillFromScalarScratchSpace =
       internal::ArraySpanFillFromScalarScratchSpace<LargeListScalar>;
+
+  LargeListScalar(std::shared_ptr<Array> value, std::shared_ptr<DataType> type,
+                  bool is_valid = true)
+      : BaseListScalar(std::move(value), std::move(type), is_valid),
+        ArraySpanFillFromScalarScratchSpace(this->value) {}
 
   explicit LargeListScalar(std::shared_ptr<Array> value, bool is_valid = true);
 
  private:
-  void FillScratchSpace();
+  static void FillScratchSpace(uint8_t* scratch_space,
+                               const std::shared_ptr<Array>& value);
 
   friend ArraySpan;
   friend ArraySpanFillFromScalarScratchSpace;
@@ -584,14 +632,19 @@ struct ARROW_EXPORT ListViewScalar
     : public BaseListScalar,
       private internal::ArraySpanFillFromScalarScratchSpace<ListViewScalar> {
   using TypeClass = ListViewType;
-  using BaseListScalar::BaseListScalar;
   using ArraySpanFillFromScalarScratchSpace =
       internal::ArraySpanFillFromScalarScratchSpace<ListViewScalar>;
+
+  ListViewScalar(std::shared_ptr<Array> value, std::shared_ptr<DataType> type,
+                 bool is_valid = true)
+      : BaseListScalar(std::move(value), std::move(type), is_valid),
+        ArraySpanFillFromScalarScratchSpace(this->value) {}
 
   explicit ListViewScalar(std::shared_ptr<Array> value, bool is_valid = true);
 
  private:
-  void FillScratchSpace();
+  static void FillScratchSpace(uint8_t* scratch_space,
+                               const std::shared_ptr<Array>& value);
 
   friend ArraySpan;
   friend ArraySpanFillFromScalarScratchSpace;
@@ -601,14 +654,19 @@ struct ARROW_EXPORT LargeListViewScalar
     : public BaseListScalar,
       private internal::ArraySpanFillFromScalarScratchSpace<LargeListViewScalar> {
   using TypeClass = LargeListViewType;
-  using BaseListScalar::BaseListScalar;
   using ArraySpanFillFromScalarScratchSpace =
       internal::ArraySpanFillFromScalarScratchSpace<LargeListViewScalar>;
+
+  LargeListViewScalar(std::shared_ptr<Array> value, std::shared_ptr<DataType> type,
+                      bool is_valid = true)
+      : BaseListScalar(std::move(value), std::move(type), is_valid),
+        ArraySpanFillFromScalarScratchSpace(this->value) {}
 
   explicit LargeListViewScalar(std::shared_ptr<Array> value, bool is_valid = true);
 
  private:
-  void FillScratchSpace();
+  static void FillScratchSpace(uint8_t* scratch_space,
+                               const std::shared_ptr<Array>& value);
 
   friend ArraySpan;
   friend ArraySpanFillFromScalarScratchSpace;
@@ -618,14 +676,19 @@ struct ARROW_EXPORT MapScalar
     : public BaseListScalar,
       private internal::ArraySpanFillFromScalarScratchSpace<MapScalar> {
   using TypeClass = MapType;
-  using BaseListScalar::BaseListScalar;
   using ArraySpanFillFromScalarScratchSpace =
       internal::ArraySpanFillFromScalarScratchSpace<MapScalar>;
+
+  MapScalar(std::shared_ptr<Array> value, std::shared_ptr<DataType> type,
+            bool is_valid = true)
+      : BaseListScalar(std::move(value), std::move(type), is_valid),
+        ArraySpanFillFromScalarScratchSpace(this->value) {}
 
   explicit MapScalar(std::shared_ptr<Array> value, bool is_valid = true);
 
  private:
-  void FillScratchSpace();
+  static void FillScratchSpace(uint8_t* scratch_space,
+                               const std::shared_ptr<Array>& value);
 
   friend ArraySpan;
   friend ArraySpanFillFromScalarScratchSpace;
@@ -707,7 +770,7 @@ struct ARROW_EXPORT SparseUnionScalar
                                            std::shared_ptr<DataType> type);
 
  private:
-  void FillScratchSpace();
+  static void FillScratchSpace(uint8_t* scratch_space, int8_t type_code);
 
   friend ArraySpan;
   friend ArraySpanFillFromScalarScratchSpace;
@@ -733,10 +796,11 @@ struct ARROW_EXPORT DenseUnionScalar
 
   DenseUnionScalar(ValueType value, int8_t type_code, std::shared_ptr<DataType> type)
       : UnionScalar(std::move(type), type_code, value->is_valid),
+        ArraySpanFillFromScalarScratchSpace(type_code),
         value(std::move(value)) {}
 
  private:
-  void FillScratchSpace();
+  static void FillScratchSpace(uint8_t* scratch_space, int8_t type_code);
 
   friend ArraySpan;
   friend ArraySpanFillFromScalarScratchSpace;
@@ -772,7 +836,7 @@ struct ARROW_EXPORT RunEndEncodedScalar
  private:
   const TypeClass& ree_type() const { return internal::checked_cast<TypeClass&>(*type); }
 
-  void FillScratchSpace();
+  static void FillScratchSpace(uint8_t* scratch_space, const DataType& type);
 
   friend ArraySpan;
   friend ArraySpanFillFromScalarScratchSpace;
