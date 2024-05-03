@@ -60,7 +60,7 @@ opts.SupportedPlatforms.MatlabOnline = true;
 % will most likely work on newer versions of MATLAB. However, this may not
 % always be the case.
 % 
-% For now, set the earliest and latest compatible  releases of MATLAB to 
+% For now, set the earliest and latest compatible releases of MATLAB to 
 % the release of MATLAB used to build and package the MATLAB Arrow Interface.
 % 
 % See: https://www.mathworks.com/help/matlab/matlab_external/version-compatibility.html
