@@ -325,8 +325,8 @@ register_bindings_datetime_conversion <- function() {
              origin = "1970-01-01",
              tz = "UTC") {
       if (is.null(format) && length(tryFormats) > 1) {
-        abort(
-          paste(
+        arrow_not_supported(
+          .actual_msg = paste(
             "`as.Date()` with multiple `tryFormats` is not supported in Arrow.",
             "Consider using the lubridate specialised parsing functions `ymd()`, `ymd()`, etc."
           )
@@ -455,15 +455,13 @@ register_bindings_datetime_timezone <- function() {
         arrow_not_supported("`roll_dst` must be 1 or 2 items long; other lengths")
       }
 
-      nonexistent <- switch(
-        roll_dst[1],
+      nonexistent <- switch(roll_dst[1],
         "error" = 0L,
         "boundary" = 2L,
         arrow_not_supported("`roll_dst` value must be 'error' or 'boundary' for nonexistent times; other values")
       )
 
-      ambiguous <- switch(
-        roll_dst[2],
+      ambiguous <- switch(roll_dst[2],
         "error" = 0L,
         "pre" = 1L,
         "post" = 2L,

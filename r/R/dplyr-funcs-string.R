@@ -134,9 +134,11 @@ format_string_replacement <- function(replacement, ignore.case, fixed) {
 # Arrow locale will be supported with ARROW-14126
 stop_if_locale_provided <- function(locale) {
   if (!identical(locale, "en")) {
-    stop("Providing a value for 'locale' other than the default ('en') is not supported in Arrow. ",
-      "To change locale, use 'Sys.setlocale()'",
-      call. = FALSE
+    arrow_not_supported(
+      .actual_msg = paste(
+        "Providing a value for 'locale' other than the default ('en') is not",
+        "supported in Arrow. To change locale, use 'Sys.setlocale()'"
+      )
     )
   }
 }

@@ -115,9 +115,9 @@ i18ize_error_messages <- function() {
 }
 
 # Helper to raise a common error
-arrow_not_supported <- function(msg) {
-  # TODO: raise a classed error?
-  stop(paste(msg, "not supported in Arrow"), call. = FALSE)
+arrow_not_supported <- function(msg,
+                                .actual_msg = paste(msg, "not supported in Arrow")) {
+  abort(.actual_msg, class = "arrow-not-supported")
 }
 
 # Create a data mask for evaluating a dplyr expression

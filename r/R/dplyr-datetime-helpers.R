@@ -56,8 +56,8 @@ duration_from_chunks <- function(chunks) {
   matched_chunks <- accepted_chunks[pmatch(names(chunks), accepted_chunks, duplicates.ok = TRUE)]
 
   if (any(is.na(matched_chunks))) {
-    abort(
-      paste0(
+    arrow_not_supported(
+      .actual_msg = paste0(
         "named `difftime` units other than: ",
         oxford_paste(accepted_chunks, quote_symbol = "`"),
         " not supported in Arrow. \nInvalid `difftime` parts: ",
@@ -114,7 +114,6 @@ binding_as_date_character <- function(x,
 }
 
 binding_as_date_numeric <- function(x, origin = "1970-01-01") {
-
   # Arrow does not support direct casting from double to date32(), but for
   # integer-like values we can go via int32()
   # TODO: revisit after ARROW-15798

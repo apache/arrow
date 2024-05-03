@@ -166,7 +166,7 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
     } else if (.groups == "keep") {
       out$group_by_vars <- .data$group_by_vars
     } else if (.groups == "rowwise") {
-      stop(arrow_not_supported('.groups = "rowwise"'))
+      arrow_not_supported('.groups = "rowwise"')
     } else if (.groups == "drop") {
       # collapse() preserves groups so remove them
       out <- dplyr::ungroup(out)
