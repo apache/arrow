@@ -53,7 +53,7 @@ func SetupTest() util_message.AllTheTypes {
 		Message:  &msg,
 		Oneof:    &util_message.AllTheTypes_Oneofstring{Oneofstring: "World"},
 		Any:      anyMsg,
-		//Breaks the test as the `RecordFromJson` randomises the order
+		//Breaks the test as the Golang maps have a non-deterministic order
 		//SimpleMap:   map[int32]string{99: "Hello", 100: "World", 98: "How", 101: "Are", 1: "You"},
 		SimpleMap:   map[int32]string{99: "Hello"},
 		ComplexMap:  map[string]*util_message.ExampleMessage{"complex": &msg},
@@ -237,9 +237,6 @@ func TestRecordFromProtobuf(t *testing.T) {
 			"complex_list":[]
 		}
 	]`
-
-	//jb, _ := got.MarshalJSON()
-	//fmt.Println(string(jb))
 
 	want, _, err = array.RecordFromJSON(memory.NewGoAllocator(), schema, strings.NewReader(jsonStr))
 
