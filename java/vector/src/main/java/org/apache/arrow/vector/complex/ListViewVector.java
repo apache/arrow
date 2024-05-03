@@ -384,7 +384,7 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
   /**
    * Same as {@link #isNull(int)}.
    *
-   * @param index  position of element
+   * @param index  position of the element
    * @return 1 if element at given index is not null, 0 otherwise
    */
   public int isSet(int index) {
@@ -419,6 +419,17 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   }
 
+  /**
+   * Start new value in the ListView vector.
+   * There are a few cases that are handled in this function.
+   * There are two main scenarios that need to be considered.
+   * The first scenario is simple insertion where indices are continuously updated.
+   * The other scenario is the event of non-continuous writing,
+   * the offset buffer needs to be updated.
+   *
+   * @param index index of the value to start
+   * @return offset of the new value
+   */
   @Override
   public int startNewValue(int index) {
     while (index >= getValidityAndSizeValueCapacity()) {
@@ -432,22 +443,24 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     if (index == 0) {
       offsetBuffer.setInt(0, 0);
     } else if (index > lastSet) {
+      /* when skipping indices, we need to update the offset buffer */
+      /* setting offset from lastSet + 1 to index (included) */
       for (int i = lastSet + 1; i <= index; i++) {
-        final int lastOffSet = offsetBuffer.getInt((i - 1L) * OFFSET_WIDTH);
-        final int lastSize = sizeBuffer.getInt((i - 1L) * SIZE_WIDTH);
-        final int newOffSet = lastOffSet + lastSize;
-        offsetBuffer.setInt(i * OFFSET_WIDTH, newOffSet);
+        final int prevOffSet = offsetBuffer.getInt((i - 1L) * OFFSET_WIDTH);
+        final int prevSize = sizeBuffer.getInt((i - 1L) * SIZE_WIDTH);
+        final int currOffSet = prevOffSet + prevSize;
+        offsetBuffer.setInt(i * OFFSET_WIDTH, currOffSet);
       }
     } else {
-      final int lastOffset = offsetBuffer.getInt(lastSet * OFFSET_WIDTH);
-      final int lastSize = sizeBuffer.getInt(lastSet * SIZE_WIDTH);
-      final int newOffSet = lastOffset + lastSize;
-      offsetBuffer.setInt((lastSet + 1) * OFFSET_WIDTH, newOffSet);
+      final int prevOffset = offsetBuffer.getInt((index - 1) * OFFSET_WIDTH);
+      final int prevSize = sizeBuffer.getInt((index - 1) * SIZE_WIDTH);
+      final int currOffSet = prevOffset + prevSize;
+      offsetBuffer.setInt(index * OFFSET_WIDTH, currOffSet);
     }
 
     BitVectorHelper.setBit(validityBuffer, index);
     lastSet = index;
-    return offsetBuffer.getInt((lastSet + 1) * OFFSET_WIDTH);
+    return offsetBuffer.getInt(index * OFFSET_WIDTH);
   }
 
   private int getLengthOfChildVector() {
@@ -519,6 +532,10 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   public int getLastSet() {
     return lastSet;
+  }
+
+  public void setLastSet(int newLastSet) {
+    lastSet = newLastSet;
   }
 
   @Override
