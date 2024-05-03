@@ -23,15 +23,15 @@ test_that("register_binding()/unregister_binding() works", {
   fun2 <- function() "Hello"
 
   expect_null(register_binding("some.pkg::some_fun", fun1))
-  expect_identical(nse_funcs$some_fun, fun1)
-  expect_identical(nse_funcs$`some.pkg::some_fun`, fun1)
+  expect_identical(.cache$functions$some_fun, fun1)
+  expect_identical(.cache$functions$`some.pkg::some_fun`, fun1)
 
   expect_identical(unregister_binding("some.pkg::some_fun"), fun1)
-  expect_false("some.pkg::some_fun" %in% names(nse_funcs))
-  expect_false("some_fun" %in% names(nse_funcs))
+  expect_false("some.pkg::some_fun" %in% names(.cache$functions))
+  expect_false("some_fun" %in% names(.cache$functions))
 
   expect_null(register_binding("somePkg::some_fun", fun1))
-  expect_identical(nse_funcs$some_fun, fun1)
+  expect_identical(.cache$functions$some_fun, fun1)
 
   expect_warning(
     register_binding("some.pkg2::some_fun", fun2),

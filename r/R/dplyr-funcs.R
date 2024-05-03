@@ -44,13 +44,6 @@ NULL
 #' @param fun A function, or `NULL` to un-register a previous function.
 #'   This function must accept `Expression` objects as arguments and return
 #'   `Expression` objects instead of regular R objects.
-#' @param update_cache Update .cache$functions at the time of registration.
-#'   the default is FALSE because the majority of usage is to register
-#'   bindings at package load, after which we create the cache once. The
-#'   reason why .cache$functions is needed in addition to nse_funcs for
-#'   non-aggregate functions could be revisited...it is currently used
-#'   as the data mask in mutate, filter, and aggregate (but not
-#'   summarise) because the data mask has to be a list.
 #' @param notes string for the docs: note any limitations or differences in
 #'   behavior between the Arrow version and the R function.
 #' @return The previously registered binding or `NULL` if no previously
@@ -58,11 +51,10 @@ NULL
 #' @keywords internal
 register_binding <- function(fun_name,
                              fun,
-                             update_cache = FALSE,
                              notes = character(0)) {
   unqualified_name <- sub("^.*?:{+}", "", fun_name)
 
-  previous_fun <- nse_funcs[[unqualified_name]]
+  previous_fun <- .cache$functions[[unqualified_name]]
 
   # if the unqualified name exists in the registry, warn
   if (!is.null(previous_fun) && !identical(fun, previous_fun)) {
@@ -77,44 +69,25 @@ register_binding <- function(fun_name,
 
   # register both as `pkg::fun` and as `fun` if `qualified_name` is prefixed
   # unqualified_name and fun_name will be the same if not prefixed
-  nse_funcs[[unqualified_name]] <- fun
-  nse_funcs[[fun_name]] <- fun
-
+  .cache$functions[[unqualified_name]] <- fun
+  .cache$functions[[fun_name]] <- fun
   .cache$docs[[fun_name]] <- notes
-
-  if (update_cache) {
-    fun_cache <- .cache$functions
-    fun_cache[[unqualified_name]] <- fun
-    fun_cache[[fun_name]] <- fun
-    .cache$functions <- fun_cache
-  }
-
   invisible(previous_fun)
 }
 
-unregister_binding <- function(fun_name, update_cache = FALSE) {
+unregister_binding <- function(fun_name) {
   unqualified_name <- sub("^.*?:{+}", "", fun_name)
-  previous_fun <- nse_funcs[[unqualified_name]]
+  previous_fun <- .cache$functions[[unqualified_name]]
 
-  rm(
-    list = unique(c(fun_name, unqualified_name)),
-    envir = nse_funcs,
-    inherits = FALSE
-  )
-
-  if (update_cache) {
-    fun_cache <- .cache$functions
-    fun_cache[[unqualified_name]] <- NULL
-    fun_cache[[fun_name]] <- NULL
-    .cache$functions <- fun_cache
-  }
+  .cache$functions[[unqualified_name]] <- NULL
+  .cache$functions[[fun_name]] <- NULL
 
   invisible(previous_fun)
 }
 
 # Supports functions and tests that call previously-defined bindings
 call_binding <- function(fun_name, ...) {
-  nse_funcs[[fun_name]](...)
+  .cache$functions[[fun_name]](...)
 }
 
 create_binding_cache <- function() {
@@ -123,7 +96,7 @@ create_binding_cache <- function() {
 
   # Register all available Arrow Compute functions, namespaced as arrow_fun.
   all_arrow_funs <- list_compute_functions()
-  arrow_funcs <- set_names(
+  .cache$functions <- set_names(
     lapply(all_arrow_funs, function(fun) {
       force(fun)
       function(...) Expression$create(fun, ...)
@@ -131,7 +104,7 @@ create_binding_cache <- function() {
     paste0("arrow_", all_arrow_funs)
   )
 
-  # Register bindings into nse_funcs
+  # Register bindings into the cache
   register_bindings_array_function_map()
   register_bindings_aggregate()
   register_bindings_conditional()
@@ -141,20 +114,17 @@ create_binding_cache <- function() {
   register_bindings_type()
   register_bindings_augmented()
 
-  .cache$functions <- c(as.list(nse_funcs), arrow_funcs)
+  .cache$functions[["::"]] <- function(lhs, rhs) {
+    lhs_name <- as.character(substitute(lhs))
+    rhs_name <- as.character(substitute(rhs))
+
+    fun_name <- paste0(lhs_name, "::", rhs_name)
+
+    # if we do not have a binding for pkg::fun, then fall back on to the
+    # regular pkg::fun function
+    .cache$functions[[fun_name]] %||% asNamespace(lhs_name)[[rhs_name]]
+  }
 }
 
-# environments in the arrow namespace used in the above functions
-nse_funcs <- new.env(parent = emptyenv())
+# environment in the arrow namespace used in the above functions
 .cache <- new.env(parent = emptyenv())
-
-nse_funcs[["::"]] <- function(lhs, rhs) {
-  lhs_name <- as.character(substitute(lhs))
-  rhs_name <- as.character(substitute(rhs))
-
-  fun_name <- paste0(lhs_name, "::", rhs_name)
-
-  # if we do not have a binding for pkg::fun, then fall back on to the
-  # regular pkg::fun function
-  nse_funcs[[fun_name]] %||% asNamespace(lhs_name)[[rhs_name]]
-}
