@@ -19,17 +19,18 @@
 
 set -e
 
+# Pin azurite to 3.29.0 due to https://github.com/apache/arrow/issues/41505
 case "$(uname)" in
   Darwin)
-    npm install -g azurite
+    npm install -g azurite@v3.29.0
     which azurite
     ;;
   MINGW*)
     choco install nodejs.install
-    npm install -g azurite
+    npm install -g azurite@v3.29.0
     ;;
   Linux)
-    npm install -g azurite
+    npm install -g azurite@v3.29.0
     which azurite
     ;;
 esac
