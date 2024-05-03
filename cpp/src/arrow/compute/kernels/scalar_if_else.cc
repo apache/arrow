@@ -1483,6 +1483,12 @@ Status ExecScalarCaseWhen(KernelContext* ctx, const ExecSpan& batch, ExecResult*
     result = temp.get();
   }
 
+  // Only input types of non-fixed length (which cannot be pre-allocated)
+  // will save the output data in ArrayData. And make sure the FixedLength
+  // types must be output in ArraySpan.
+  static_assert(is_fixed_width(Type::type_id));
+  DCHECK(out->is_array_span());
+
   ArraySpan* output = out->array_span_mutable();
   if (is_dictionary_type<Type>::value) {
     const ExecValue& dict_from = has_result ? result : batch[1];
