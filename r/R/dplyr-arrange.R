@@ -42,6 +42,10 @@ arrange.arrow_dplyr_query <- function(.data, ..., .by_group = FALSE) {
     x <- find_and_remove_desc(exprs[[i]])
     exprs[[i]] <- x[["quos"]]
     sorts[[i]] <- arrow_eval(exprs[[i]], mask)
+    if (length(mask$.aggregations)) {
+      # TODO: add test
+      stop("Aggregation expressions are not allowed in arrange expressions", call. = FALSE)
+    }
     names(sorts)[i] <- format_expr(exprs[[i]])
     if (inherits(sorts[[i]], "try-error")) {
       msg <- paste("Expression", names(sorts)[i], "not supported in Arrow")

@@ -35,7 +35,12 @@ filter.arrow_dplyr_query <- function(.data, ..., .by = NULL, .preserve = FALSE) 
   }
 
   # tidy-eval the filter expressions inside an Arrow data_mask
-  filters <- lapply(expanded_filters, arrow_eval, arrow_mask(out))
+  mask <- arrow_mask(out)
+  filters <- lapply(expanded_filters, arrow_eval, mask)
+  # Make sure there were no aggregation expressions in the filters
+  if (length(mask$.aggregations)) {
+    stop("Aggregation expressions are not allowed in filter expressions", call. = FALSE)
+  }
   bad_filters <- map_lgl(filters, ~ inherits(., "try-error"))
   if (any(bad_filters)) {
     # This is similar to abandon_ship() except that the filter eval is
