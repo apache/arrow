@@ -711,12 +711,13 @@ func (sf SuperField) AppendValueOrNull(b array.Builder, mem memory.Allocator) {
 	case arrow.STRUCT:
 		sb := b.(*array.StructBuilder)
 		sb.Append(true)
+		child := SuperField{
+			parent: sf.parent,
+		}
 		for i, field := range sf.Field.Type.(*arrow.StructType).Fields() {
-			SuperField{
-				parent:             sf.parent,
-				protobufReflection: sf.asStruct().getFieldByName(field.Name),
-				Field:              field,
-			}.AppendValueOrNull(sb.FieldBuilder(i), mem)
+			child.protobufReflection = sf.asStruct().getFieldByName(field.Name)
+			child.Field = field
+			child.AppendValueOrNull(sb.FieldBuilder(i), mem)
 		}
 	case arrow.LIST:
 		lb := b.(*array.ListBuilder)
@@ -727,12 +728,13 @@ func (sf SuperField) AppendValueOrNull(b array.Builder, mem memory.Allocator) {
 		}
 		lb.ValueBuilder().Reserve(l)
 		lb.Append(true)
+		child := SuperField{
+			parent: sf.parent,
+			Field:  sf.Field.Type.(*arrow.ListType).ElemField(),
+		}
 		for li := range sf.asList().generateListItems() {
-			SuperField{
-				parent:             sf.parent,
-				protobufReflection: &li,
-				Field:              sf.Field.Type.(*arrow.ListType).ElemField(),
-			}.AppendValueOrNull(lb.ValueBuilder(), mem)
+			child.protobufReflection = &li
+			child.AppendValueOrNull(lb.ValueBuilder(), mem)
 		}
 	case arrow.MAP:
 		mb := b.(*array.MapBuilder)
@@ -744,18 +746,19 @@ func (sf SuperField) AppendValueOrNull(b array.Builder, mem memory.Allocator) {
 		mb.KeyBuilder().Reserve(l)
 		mb.ItemBuilder().Reserve(l)
 		mb.Append(true)
-
+		k := SuperField{
+			parent: sf.parent,
+			Field:  sf.Field.Type.(*arrow.MapType).KeyField(),
+		}
+		v := SuperField{
+			parent: sf.parent,
+			Field:  sf.Field.Type.(*arrow.MapType).ItemField(),
+		}
 		for kvp := range sf.asMap().generateKeyValuePairs() {
-			SuperField{
-				parent:             sf.parent,
-				protobufReflection: &kvp.k,
-				Field:              sf.Field.Type.(*arrow.MapType).KeyField(),
-			}.AppendValueOrNull(mb.KeyBuilder(), mem)
-			SuperField{
-				parent:             sf.parent,
-				protobufReflection: &kvp.v,
-				Field:              sf.Field.Type.(*arrow.MapType).ItemField(),
-			}.AppendValueOrNull(mb.ItemBuilder(), mem)
+			k.protobufReflection = &kvp.k
+			k.AppendValueOrNull(mb.KeyBuilder(), mem)
+			v.protobufReflection = &kvp.v
+			v.AppendValueOrNull(mb.ItemBuilder(), mem)
 		}
 	default:
 		fmt.Printf("No logic for type %s", b.Type().ID())
