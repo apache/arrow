@@ -48,6 +48,7 @@ RUN apt-get update -y && \
         autoconf-archive \
         automake \
         chromium \
+        chromium-sandbox \
         curl \
         doxygen \
         gi-docgen \
