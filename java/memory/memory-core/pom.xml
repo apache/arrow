@@ -30,6 +30,11 @@ under the License.
   <name>Arrow Memory - Core</name>
   <description>Core off-heap memory management libraries for Arrow ValueVectors.</description>
 
+  <properties>
+    <!-- List of add-opens arg line arguments if tests are running on JDK 11 or higher -->
+    <surefire.add-opens.argLine>--add-reads=org.apache.arrow.memory.core=ch.qos.logback.classic --add-opens=java.base/java.lang.reflect=org.apache.arrow.memory.core --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED</surefire.add-opens.argLine>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>com.google.code.findbugs</groupId>
@@ -75,8 +80,7 @@ under the License.
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-surefire-plugin</artifactId>
-            <configuration combine.self="override">
-              <argLine>--add-reads=org.apache.arrow.memory.core=ch.qos.logback.classic --add-opens=java.base/java.lang.reflect=org.apache.arrow.memory.core --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED</argLine>
+            <configuration>
               <excludes>
                 <!-- Test is only useful when NOT running with add-opens -->
                 <exclude>**/TestOpens.java</exclude>
