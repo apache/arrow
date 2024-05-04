@@ -550,15 +550,15 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   private int getLengthOfChildVector() {
     int length = 0;
-    for (int i = 0; i <= lastSet + 1; i++) {
+    for (int i = 0; i < lastSet + 1; i++) {
       length += sizeBuffer.getInt(i * SIZE_WIDTH);
     }
     return length;
   }
 
-  private void setValuesInBuffer(int[] bufValues, ArrowBuf buffer, long bufWidth) {
-    for (int i = 0; i < bufValues.length; i++) {
-      buffer.setInt(i * bufWidth, bufValues[i]);
+  private void setValuesInBuffer(ArrowBuf srcBuf, ArrowBuf destBuf, long bufWidth, int length) {
+    for (int i = 0; i < length; i++) {
+      destBuf.setInt(i * bufWidth, srcBuf.getInt(i * bufWidth));
     }
   }
 
@@ -568,29 +568,41 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
    * Steps taken follow the workflow used in creating a ListViewVector with the API
    * used in ListVector.
    *
-   * @param offSets new offSets to be set
-   * @param sizes new sizes to be set
+   * @param offSetBuffer new offSet buffer to be set
+   * @param sizeBuffer new size buffer to be set
+   * @param validityBuffer new validity buffer to be set
    * @param elementFieldVec new elements to be appended to the field vector
+   * @param valueCount number of lists to be set
    */
-  public void set(ArrowBuf offSets, ArrowBuf sizes, FieldVector elementFieldVec, int length) {
+  public void set(ArrowBuf offSetBuffer, ArrowBuf sizeBuffer, ArrowBuf validityBuffer,
+      FieldVector elementFieldVec, int valueCount) {
     // Null checks
-    Objects.requireNonNull(offSets, "Offsets cannot be null");
-    Objects.requireNonNull(sizes, "Sizes cannot be null");
+    Objects.requireNonNull(offSetBuffer, "Offset buffer cannot be null");
+    Objects.requireNonNull(sizeBuffer, "Size buffer cannot be null");
+    Objects.requireNonNull(validityBuffer, "Validity buffer cannot be null");
     Objects.requireNonNull(elementFieldVec, "Element Field Vector cannot be null");
 
-    this.offsetBuffer = offSets;
-    this.sizeBuffer = sizes;
+    // clear buffers
+    this.offsetBuffer.clear();
+    this.sizeBuffer.clear();
+    this.validityBuffer.clear();
+    // clear child vector
+    this.vector.clear();
+    // allocate memory
+    this.vector.allocateNew();
+
+    // set buffers
+    setValuesInBuffer(offSetBuffer, this.offsetBuffer, OFFSET_WIDTH, valueCount);
+    setValuesInBuffer(sizeBuffer, this.sizeBuffer, SIZE_WIDTH, valueCount);
+    setValuesInBuffer(validityBuffer, this.validityBuffer, 1, valueCount);
+
+    // set child vector
     this.vector = elementFieldVec;
+    this.vector.setValueCount(elementFieldVec.getValueCount());
 
-    // set validity bit
-    final ArrowBuf validityBuffer = this.getValidityBuffer();
-    for (int i = 0; i < length; i++) {
-      if (this.sizeBuffer.getInt(i * SIZE_WIDTH) != -1) {
-        // only set validity bit if size is not 0
-        BitVectorHelper.setBit(validityBuffer, i);
-      }
-    }
-
+    this.lastSet = valueCount - 1;
+    this.setValueCount(valueCount);
+    this.getWriter().setPosition(valueCount);
   }
 
   @Override
