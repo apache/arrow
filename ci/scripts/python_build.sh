@@ -78,6 +78,10 @@ export PYARROW_PARALLEL=${n_jobs}
 export CMAKE_PREFIX_PATH
 export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
 
+# https://github.com/apache/arrow/issues/41429
+# TODO: We want to out-of-source build. This is a workaround. We copy
+# all needed files to the build directory from the source directory
+# and build in the build directory.
 rm -rf ${python_build_dir}
 cp -aL ${source_dir} ${python_build_dir}
 pushd ${python_build_dir}
@@ -89,6 +93,9 @@ ${PYTHON:-python} -m pip install --no-deps --no-build-isolation -vv .
 popd
 
 if [ "${BUILD_DOCS_PYTHON}" == "ON" ]; then
+  # https://github.com/apache/arrow/issues/41429
+  # TODO: We want to out-of-source build. This is a workaround.
+  #
   # Copy docs/source because the "autosummary_generate = True"
   # configuration generates files to docs/source/python/generated/.
   rm -rf ${python_build_dir}/docs/source

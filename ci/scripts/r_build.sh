@@ -24,6 +24,10 @@ build_dir=${2}
 
 : ${BUILD_DOCS_R:=OFF}
 
+# https://github.com/apache/arrow/issues/41429
+# TODO: We want to out-of-source build. This is a workaround. We copy
+# all needed files to the build directory from the source directory
+# and build in the build directory.
 rm -rf ${build_dir}/r
 cp -aL ${source_dir} ${build_dir}/r
 pushd ${build_dir}/r

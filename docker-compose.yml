@@ -1779,6 +1779,8 @@ services:
         maven: ${MAVEN}
         node: ${NODE}
         base: ${REPO}:${ARCH}-debian-${DEBIAN}-python-3
+    # This is for Chromium used by Mermaid. Chromium uses namespace
+    # isolation for security by default.
     cap_add:
       - SYS_ADMIN
     environment:

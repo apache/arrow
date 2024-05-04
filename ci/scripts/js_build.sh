@@ -25,6 +25,10 @@ build_dir=${2}
 
 : ${BUILD_DOCS_JS:=OFF}
 
+# https://github.com/apache/arrow/issues/41429
+# TODO: We want to out-of-source build. This is a workaround. We copy
+# all needed files to the build directory from the source directory
+# and build in the build directory.
 rm -rf ${build_dir}/js
 mkdir -p ${build_dir}
 cp -aL ${arrow_dir}/LICENSE.txt ${build_dir}/
