@@ -37,7 +37,7 @@ register_bindings_conditional <- function() {
   register_binding("dplyr::coalesce", function(...) {
     args <- list2(...)
     if (length(args) < 1) {
-      abort("At least one argument must be supplied to coalesce()")
+      abort_not_valid("At least one argument must be supplied to coalesce()")
     }
 
     # Treat NaN like NA for consistency with dplyr::coalesce(), but if *all*
@@ -102,7 +102,7 @@ register_bindings_conditional <- function() {
     formulas <- list2(...)
     n <- length(formulas)
     if (n == 0) {
-      abort("No cases provided in case_when()")
+      abort_not_valid("No cases provided in case_when()")
     }
     query <- vector("list", n)
     value <- vector("list", n)
@@ -110,20 +110,17 @@ register_bindings_conditional <- function() {
     for (i in seq_len(n)) {
       f <- formulas[[i]]
       if (!inherits(f, "formula")) {
-        abort("Each argument to case_when() must be a two-sided formula")
+        abort_not_valid("Each argument to case_when() must be a two-sided formula")
       }
       query[[i]] <- arrow_eval(f[[2]], mask)
       value[[i]] <- arrow_eval(f[[3]], mask)
       if (!call_binding("is.logical", query[[i]])) {
-        abort("Left side of each formula in case_when() must be a logical expression")
-      }
-      if (inherits(value[[i]], "try-error")) {
-        abort(handle_arrow_not_supported(value[[i]], format_expr(f[[3]])))
+        abort_not_valid("Left side of each formula in case_when() must be a logical expression")
       }
     }
     if (!is.null(.default)) {
       if (length(.default) != 1) {
-        abort(paste0("`.default` must have size 1, not size ", length(.default), "."))
+        abort_not_valid(paste0("`.default` must have size 1, not size ", length(.default), "."))
       }
 
       query[n + 1] <- TRUE
@@ -140,6 +137,5 @@ register_bindings_conditional <- function() {
         value
       )
     )
-  }, notes = "`.ptype` and `.size` arguments not supported"
-  )
+  }, notes = "`.ptype` and `.size` arguments not supported")
 }

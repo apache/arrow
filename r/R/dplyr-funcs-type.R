@@ -105,7 +105,7 @@ register_bindings_type_cast <- function() {
     } else if (inherits(class2, "DataType")) {
       object$type() == as_type(class2)
     } else {
-      stop("Second argument to is() is not a string or DataType", call. = FALSE)
+      abort_not_valid("Second argument to is() is not a string or DataType")
     }
   })
 

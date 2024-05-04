@@ -45,12 +45,9 @@ summarise.arrow_dplyr_query <- function(.data, ..., .by = NULL, .groups = NULL) 
   out <- dplyr::select(out, intersect(vars_to_keep, names(out)))
 
   # Try stuff, if successful return()
-  out <- try(do_arrow_summarize(out, !!!exprs, .groups = .groups), silent = TRUE)
-  if (inherits(out, "try-error")) {
-    out <- abandon_ship(call, .data, format(out))
-  }
-
-  out
+  try_arrow_dplyr({
+    do_arrow_summarize(out, !!!exprs, .groups = .groups)
+  })
 }
 summarise.Dataset <- summarise.ArrowTabular <- summarise.RecordBatchReader <- summarise.arrow_dplyr_query
 
@@ -183,16 +180,6 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
   out
 }
 
-arrow_eval_or_stop <- function(expr, mask) {
-  # TODO: change arrow_eval error handling behavior?
-  out <- arrow_eval(expr, mask)
-  if (inherits(out, "try-error")) {
-    msg <- handle_arrow_not_supported(out, format_expr(expr))
-    stop(msg, call. = FALSE)
-  }
-  out
-}
-
 # This function returns a list of expressions which is used to project the data
 # before an aggregation. This list includes the fields used in the aggregation
 # expressions (the "targets") and the group fields. The names of the returned
@@ -271,7 +258,7 @@ summarize_eval <- function(name, quosure, mask) {
     mask[[n]] <- mask$.data[[n]] <- Expression$field_ref(n)
   }
   # Evaluate:
-  value <- arrow_eval_or_stop(quosure, mask)
+  value <- arrow_eval(quosure, mask)
 
   # Handle the result. There are a few different cases.
   if (!inherits(value, "Expression")) {

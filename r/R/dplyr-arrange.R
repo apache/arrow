@@ -38,28 +38,27 @@ arrange.arrow_dplyr_query <- function(.data, ..., .by_group = FALSE) {
   sorts <- vector("list", length(exprs))
   descs <- logical(0)
   mask <- arrow_mask(.data)
-  for (i in seq_along(exprs)) {
-    x <- find_and_remove_desc(exprs[[i]])
-    exprs[[i]] <- x[["quos"]]
-    sorts[[i]] <- arrow_eval(exprs[[i]], mask)
-    names(sorts)[i] <- format_expr(exprs[[i]])
-    if (inherits(sorts[[i]], "try-error")) {
-      msg <- paste("Expression", names(sorts)[i], "not supported in Arrow")
-      return(abandon_ship(call, .data, msg))
+  try_arrow_dplyr({
+    for (i in seq_along(exprs)) {
+      x <- find_and_remove_desc(exprs[[i]])
+      exprs[[i]] <- x[["quos"]]
+      sorts[[i]] <- arrow_eval(exprs[[i]], mask)
+      names(sorts)[i] <- format_expr(exprs[[i]])
+      if (length(mask$.aggregations)) {
+        # dplyr lets you arrange on e.g. x < mean(x), but we haven't implemented it.
+        # But we could, the same way it works in mutate() via join, if someone asks.
+        # Until then, just error.
+        # TODO: add a test for this
+        arrow_not_supported(.actual_msg = paste(
+          "Expression", format_expr(expr), "not supported in arrange() in Arrow"
+        ))
+      }
+      descs[i] <- x[["desc"]]
     }
-    if (length(mask$.aggregations)) {
-      # dplyr lets you arrange on e.g. x < mean(x), but we haven't implemented it.
-      # But we could, the same way it works in mutate() via join, if someone asks.
-      # Until then, just error.
-      # TODO: add a test for this
-      msg <- paste("Expression", format_expr(expr), "not supported in arrange() in Arrow")
-      return(abandon_ship(call, .data, msg))
-    }
-    descs[i] <- x[["desc"]]
-  }
-  .data$arrange_vars <- c(sorts, .data$arrange_vars)
-  .data$arrange_desc <- c(descs, .data$arrange_desc)
-  .data
+    .data$arrange_vars <- c(sorts, .data$arrange_vars)
+    .data$arrange_desc <- c(descs, .data$arrange_desc)
+    .data
+  })
 }
 arrange.Dataset <- arrange.ArrowTabular <- arrange.RecordBatchReader <- arrange.arrow_dplyr_query
 

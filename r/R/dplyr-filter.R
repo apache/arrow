@@ -19,6 +19,7 @@
 # The following S3 methods are registered on load if dplyr is present
 
 filter.arrow_dplyr_query <- function(.data, ..., .by = NULL, .preserve = FALSE) {
+  call <- match.call()
   # TODO something with the .preserve argument
   out <- as_adq(.data)
 
@@ -36,28 +37,27 @@ filter.arrow_dplyr_query <- function(.data, ..., .by = NULL, .preserve = FALSE) 
 
   # tidy-eval the filter expressions inside an Arrow data_mask
   mask <- arrow_mask(out)
-  for (expr in expanded_filters) {
-    filt <- arrow_eval(expr, mask)
-    if (inherits(filt, "try-error")) {
-      msg <- handle_arrow_not_supported(filt, format_expr(expr))
-      return(abandon_ship(match.call(), .data, msg))
+  try_arrow_dplyr({
+    for (expr in expanded_filters) {
+      filt <- arrow_eval(expr, mask)
+      if (length(mask$.aggregations)) {
+        # dplyr lets you filter on e.g. x < mean(x), but we haven't implemented it.
+        # But we could, the same way it works in mutate() via join, if someone asks.
+        # Until then, just error.
+        # TODO: add a test for this
+        arrow_not_supported(.actual_msg = paste(
+          "Expression", format_expr(expr), "not supported in filter() in Arrow"
+        ))
+      }
+      out <- set_filters(out, filt)
     }
-    if (length(mask$.aggregations)) {
-      # dplyr lets you filter on e.g. x < mean(x), but we haven't implemented it.
-      # But we could, the same way it works in mutate() via join, if someone asks.
-      # Until then, just error.
-      # TODO: add a test for this
-      msg <- paste("Expression", format_expr(expr), "not supported in filter() in Arrow")
-      return(abandon_ship(match.call(), .data, msg))
+
+    if (by$from_by) {
+      out$group_by_vars <- character()
     }
-    out <- set_filters(out, filt)
-  }
 
-  if (by$from_by) {
-    out$group_by_vars <- character()
-  }
-
-  out
+    out
+  })
 }
 filter.Dataset <- filter.ArrowTabular <- filter.RecordBatchReader <- filter.arrow_dplyr_query
 

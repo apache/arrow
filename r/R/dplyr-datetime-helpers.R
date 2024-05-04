@@ -441,7 +441,7 @@ parse_period_unit <- function(x) {
   unit <- as.integer(pmatch(str_unit_start, known_units)) - 1L
 
   if (any(is.na(unit))) {
-    abort(
+    abort_not_valid(
       sprintf(
         "Invalid period name: '%s'",
         str_unit,
@@ -483,13 +483,13 @@ parse_period_unit <- function(x) {
   # more special cases: lubridate imposes sensible maximum
   # values on the number of seconds, minutes and hours
   if (unit == 3L && multiple > 60) {
-    abort("Rounding with second > 60 is not supported")
+    abort_not_valid("Rounding with second > 60 is not supported")
   }
   if (unit == 4L && multiple > 60) {
-    abort("Rounding with minute > 60 is not supported")
+    abort_not_valid("Rounding with minute > 60 is not supported")
   }
   if (unit == 5L && multiple > 24) {
-    abort("Rounding with hour > 24 is not supported")
+    abort_not_valid("Rounding with hour > 24 is not supported")
   }
 
   list(unit = unit, multiple = multiple)
