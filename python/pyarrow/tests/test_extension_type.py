@@ -268,17 +268,29 @@ def test_ext_type_storage_type():
 
 
 def test_ext_type_byte_width():
+    # Test for fixed-size binary types
     ty = UuidType()
     assert ty.storage_type.byte_width == 16
     ty = ParamExtType(5)
     assert ty.storage_type.byte_width == 5
 
+    # Test for non fixed-size binary types
+    ty = LabelType()
+    with pytest.raises(ValueError, match="Non-fixed width type"):
+        _ = ty.storage_type.byte_width
+
 
 def test_ext_type_bit_width():
+    # Test for fixed-size binary types
     ty = UuidType()
     assert ty.storage_type.bit_width == 128
     ty = ParamExtType(5)
     assert ty.storage_type.bit_width == 40
+
+    # Test for non fixed-size binary types
+    ty = LabelType()
+    with pytest.raises(ValueError, match="Non-fixed width type"):
+        _ = ty.storage_type.byte_width
 
 
 def test_ext_type_as_py():
