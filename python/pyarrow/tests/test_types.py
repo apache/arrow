@@ -1331,10 +1331,12 @@ def test_schema_import_c_schema_interface():
         def __arrow_c_schema__(self):
             return self.schema.__arrow_c_schema__()
 
-    schema = pa.schema([pa.field("field_name", pa.int32())])
-    wrapped_schema = Wrapper(schema)
+    schema = pa.schema([pa.field("field_name", pa.int32())], metadata={"a": "b"})
+    assert schema.metadata == {b"a": b"b"}
 
+    wrapped_schema = Wrapper(schema)
     assert pa.schema(wrapped_schema) == schema
+    assert pa.schema(wrapped_schema, metadata={"a": "c"}).metadata == {b"a": b"c"}
 
 
 def test_field_import_c_schema_interface():
