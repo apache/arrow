@@ -294,6 +294,8 @@ std::shared_ptr<VectorFunction> MakeIndicesNonZeroFunction(std::string name,
   VectorKernel kernel;
   kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
   kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+  // "array_take" ensures that the output will be be chunked when at least one
+  // input is chunked, so we need to set this to false.
   kernel.output_chunked = false;
   kernel.exec = IndicesNonZeroExec;
   kernel.exec_chunked = IndicesNonZeroExecChunked;
@@ -339,6 +341,7 @@ void RegisterVectorSelection(FunctionRegistry* registry) {
   VectorKernel take_base;
   take_base.init = TakeState::Init;
   take_base.can_execute_chunkwise = false;
+  take_base.output_chunked = false;
   RegisterSelectionFunction("array_take", array_take_doc, take_base,
                             std::move(take_kernels), GetDefaultTakeOptions(), registry);
 
