@@ -136,11 +136,11 @@ i18ize_error_messages <- function() {
 arrow_not_supported <- function(msg,
                                 .actual_msg = paste(msg, "not supported in Arrow"),
                                 ...) {
-  abort(.actual_msg, class = "arrow-not-supported", ...)
+  abort(.actual_msg, class = "arrow-not-supported", use_cli_format = TRUE, ...)
 }
 
 abort_not_valid <- function(msg, ...) {
-  abort(msg, class = "validation-error", ...)
+  abort(msg, class = "validation-error", use_cli_format = TRUE, ...)
 }
 
 # Wrap the contents of an arrow dplyr verb function in a tryCatch block to
@@ -167,17 +167,24 @@ try_arrow_dplyr <- function(expr) {
 # Requires that `env` contains `call` and `.data`
 abandon_ship <- function(err, env) {
   .data <- get(".data", envir = env)
+  call <- get("call", envir = env)
+
   if (query_on_dataset(.data)) {
-    err$message <- paste0(err$message, "\nCall collect() first to pull data into R.")
+    err$body <- c(
+      err$body,
+      # TODO: if there are things in body, they should be recommendations
+      # for solving this within arrow. So the message to collect() should start
+      # with "Or, ..."
+      ">" = "Call collect() first to pull data into R."
+    )
     stop(err)
   }
-  # else, collect and call dplyr method
-  msg <- paste0(
-    "In ", format_expr(err$call), ": ", conditionMessage(err),
-    "; pulling data into R"
+
+  # else, warn, collect(), and run in regular dplyr
+  rlang::warn(
+    message = paste0("In ", format_expr(err$call), ": "),
+    body = c("i" = conditionMessage(err), ">" = "Pulling data into R")
   )
-  warning(msg, immediate. = TRUE, call. = FALSE)
-  call <- get("call", envir = env)
   call$.data <- dplyr::collect(.data)
   dplyr_fun_name <- sub("^(.*?)\\..*", "\\1", as.character(call[[1]]))
   call[[1]] <- get(dplyr_fun_name, envir = asNamespace("dplyr"))

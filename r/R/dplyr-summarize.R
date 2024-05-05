@@ -19,19 +19,16 @@
 
 summarise.arrow_dplyr_query <- function(.data, ..., .by = NULL, .groups = NULL) {
   call <- match.call()
-  out <- as_adq(.data)
-
-  by <- compute_by({{ .by }}, out, by_arg = ".by", data_arg = ".data")
-
-  if (by$from_by) {
-    out$group_by_vars <- by$names
-    .groups <- "drop"
-  }
-
-  exprs <- expand_across(out, quos(...), exclude_cols = out$group_by_vars)
-
-  # Try stuff, if successful return()
   try_arrow_dplyr({
+    out <- as_adq(.data)
+
+    by <- compute_by({{ .by }}, out, by_arg = ".by", data_arg = ".data")
+    if (by$from_by) {
+      out$group_by_vars <- by$names
+      .groups <- "drop"
+    }
+
+    exprs <- expand_across(out, quos(...), exclude_cols = out$group_by_vars)
     do_arrow_summarize(out, !!!exprs, .groups = .groups)
   })
 }
@@ -103,11 +100,10 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
     # the schema of the data after summarize(). Evaulating its type will
     # throw an error if it's invalid.
     tryCatch(post_mutate[[post]]$type(out$.data$schema), error = function(e) {
-      msg <- paste(
-        "Expression", as_label(exprs[[post]]),
-        "is not a valid aggregation expression or is"
+      arrow_not_supported(
+        "Expression is not a valid aggregation expression or is",
+        call = exprs[[post]]
       )
-      arrow_not_supported(msg)
     })
     # If it's valid, add it to the .data object
     out$selected_columns[[post]] <- post_mutate[[post]]
@@ -149,12 +145,18 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
     } else if (.groups == "keep") {
       out$group_by_vars <- .data$group_by_vars
     } else if (.groups == "rowwise") {
-      arrow_not_supported('.groups = "rowwise"')
+      arrow_not_supported(
+        '.groups = "rowwise"',
+        call = rlang::caller_call()
+      )
     } else if (.groups == "drop") {
       # collapse() preserves groups so remove them
       out <- dplyr::ungroup(out)
     } else {
-      abort_not_valid(paste("Invalid .groups argument:", .groups))
+      abort_not_valid(
+        paste("Invalid .groups argument:", .groups),
+        call = rlang::caller_call()
+      )
     }
     out$drop_empty_groups <- .data$drop_empty_groups
     if (getOption("arrow.summarise.sort", FALSE)) {

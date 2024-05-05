@@ -20,24 +20,24 @@
 
 filter.arrow_dplyr_query <- function(.data, ..., .by = NULL, .preserve = FALSE) {
   call <- match.call()
-  # TODO something with the .preserve argument
-  out <- as_adq(.data)
-
-  by <- compute_by({{ .by }}, out, by_arg = ".by", data_arg = ".data")
-
-  if (by$from_by) {
-    out$group_by_vars <- by$names
-  }
-
-  expanded_filters <- expand_across(out, quos(...))
-  if (length(expanded_filters) == 0) {
-    # Nothing to do
-    return(as_adq(.data))
-  }
-
-  # tidy-eval the filter expressions inside an Arrow data_mask
-  mask <- arrow_mask(out)
   try_arrow_dplyr({
+    # TODO something with the .preserve argument
+    out <- as_adq(.data)
+
+    by <- compute_by({{ .by }}, out, by_arg = ".by", data_arg = ".data")
+
+    if (by$from_by) {
+      out$group_by_vars <- by$names
+    }
+
+    expanded_filters <- expand_across(out, quos(...))
+    if (length(expanded_filters) == 0) {
+      # Nothing to do
+      return(as_adq(.data))
+    }
+
+    # tidy-eval the filter expressions inside an Arrow data_mask
+    mask <- arrow_mask(out)
     for (expr in expanded_filters) {
       filt <- arrow_eval(expr, mask)
       if (length(mask$.aggregations)) {
@@ -45,9 +45,10 @@ filter.arrow_dplyr_query <- function(.data, ..., .by = NULL, .preserve = FALSE) 
         # But we could, the same way it works in mutate() via join, if someone asks.
         # Until then, just error.
         # TODO: add a test for this
-        arrow_not_supported(.actual_msg = paste(
-          "Expression", format_expr(expr), "not supported in filter() in Arrow"
-        ))
+        arrow_not_supported(
+          .actual_msg = "Expression not supported in filter() in Arrow",
+          call = expr
+        )
       }
       out <- set_filters(out, filt)
     }

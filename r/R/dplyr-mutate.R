@@ -25,33 +25,33 @@ mutate.arrow_dplyr_query <- function(.data,
                                      .before = NULL,
                                      .after = NULL) {
   call <- match.call()
-  out <- as_adq(.data)
-
-  by <- compute_by({{ .by }}, out, by_arg = ".by", data_arg = ".data")
-
-  if (by$from_by) {
-    out$group_by_vars <- by$names
-  }
-  grv <- out$group_by_vars
-  expression_list <- expand_across(out, quos(...), exclude_cols = grv)
-  exprs <- ensure_named_exprs(expression_list)
-
-  .keep <- match.arg(.keep)
-  .before <- enquo(.before)
-  .after <- enquo(.after)
-
-  if (.keep %in% c("all", "unused") && length(exprs) == 0) {
-    # Nothing to do
-    return(out)
-  }
-
-  # Create a mask with aggregation functions in it
-  # If there are any aggregations, we will need to compute them and
-  # and join the results back in, for "window functions" like x - mean(x)
-  mask <- arrow_mask(out)
-  # Evaluate the mutate expressions
-  results <- list()
   try_arrow_dplyr({
+    out <- as_adq(.data)
+
+    by <- compute_by({{ .by }}, out, by_arg = ".by", data_arg = ".data")
+
+    if (by$from_by) {
+      out$group_by_vars <- by$names
+    }
+    grv <- out$group_by_vars
+    expression_list <- expand_across(out, quos(...), exclude_cols = grv)
+    exprs <- ensure_named_exprs(expression_list)
+
+    .keep <- match.arg(.keep)
+    .before <- enquo(.before)
+    .after <- enquo(.after)
+
+    if (.keep %in% c("all", "unused") && length(exprs) == 0) {
+      # Nothing to do
+      return(out)
+    }
+
+    # Create a mask with aggregation functions in it
+    # If there are any aggregations, we will need to compute them and
+    # and join the results back in, for "window functions" like x - mean(x)
+    mask <- arrow_mask(out)
+    # Evaluate the mutate expressions
+    results <- list()
     for (i in seq_along(exprs)) {
       # Iterate over the indices and not the names because names may be repeated
       # (which overwrites the previous name)

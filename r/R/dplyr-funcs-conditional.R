@@ -102,7 +102,7 @@ register_bindings_conditional <- function() {
     formulas <- list2(...)
     n <- length(formulas)
     if (n == 0) {
-      abort_not_valid("No cases provided in case_when()")
+      abort_not_valid("No cases provided")
     }
     query <- vector("list", n)
     value <- vector("list", n)

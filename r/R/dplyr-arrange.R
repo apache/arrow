@@ -20,25 +20,25 @@
 
 arrange.arrow_dplyr_query <- function(.data, ..., .by_group = FALSE) {
   call <- match.call()
-  .data <- as_adq(.data)
-  exprs <- expand_across(.data, quos(...))
-
-  if (.by_group) {
-    # when the data is grouped and .by_group is TRUE, order the result by
-    # the grouping columns first
-    exprs <- c(quos(!!!dplyr::groups(.data)), exprs)
-  }
-  if (length(exprs) == 0) {
-    # Nothing to do
-    return(.data)
-  }
-  .data <- as_adq(.data)
-  # find and remove any dplyr::desc() and tidy-eval
-  # the arrange expressions inside an Arrow data_mask
-  sorts <- vector("list", length(exprs))
-  descs <- logical(0)
-  mask <- arrow_mask(.data)
   try_arrow_dplyr({
+    .data <- as_adq(.data)
+    exprs <- expand_across(.data, quos(...))
+
+    if (.by_group) {
+      # when the data is grouped and .by_group is TRUE, order the result by
+      # the grouping columns first
+      exprs <- c(quos(!!!dplyr::groups(.data)), exprs)
+    }
+    if (length(exprs) == 0) {
+      # Nothing to do
+      return(.data)
+    }
+    .data <- as_adq(.data)
+    # find and remove any dplyr::desc() and tidy-eval
+    # the arrange expressions inside an Arrow data_mask
+    sorts <- vector("list", length(exprs))
+    descs <- logical(0)
+    mask <- arrow_mask(.data)
     for (i in seq_along(exprs)) {
       x <- find_and_remove_desc(exprs[[i]])
       exprs[[i]] <- x[["quos"]]
@@ -49,9 +49,10 @@ arrange.arrow_dplyr_query <- function(.data, ..., .by_group = FALSE) {
         # But we could, the same way it works in mutate() via join, if someone asks.
         # Until then, just error.
         # TODO: add a test for this
-        arrow_not_supported(.actual_msg = paste(
-          "Expression", format_expr(expr), "not supported in arrange() in Arrow"
-        ))
+        arrow_not_supported(
+          .actual_msg = "Expression not supported in arrange() in Arrow",
+          call = expr
+        )
       }
       descs[i] <- x[["desc"]]
     }
@@ -72,9 +73,9 @@ find_and_remove_desc <- function(quosure) {
   expr <- quo_get_expr(quosure)
   descending <- FALSE
   if (length(all.vars(expr)) < 1L) {
-    arrow_not_supported(
-      .actual_msg = "Expression in arrange() does not contain any field names",
-      call = expr
+    abort_not_valid(
+      "Expression in arrange() does not contain any field names",
+      call = quosure
     )
   }
   # Use a while loop to remove any number of nested pairs of enclosing
@@ -88,7 +89,10 @@ find_and_remove_desc <- function(quosure) {
       # ensure desc() has only one argument (when an R expression is a function
       # call, length == 2 means it has exactly one argument)
       if (length(expr) > 2) {
-        abort_not_valid("desc() expects only one argument")
+        abort_not_valid(
+          "desc() expects only one argument",
+          call = expr
+        )
       }
       # remove desc() and toggle descending
       expr <- expr[[2]]
