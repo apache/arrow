@@ -86,6 +86,7 @@ Status MapFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status VarBinaryTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status LargeVarBinaryTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status FixedWidthTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
+Status FixedWidthTakeChunkedExec(KernelContext*, const ExecBatch&, Datum*);
 Status ListTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status LargeListTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status ListViewTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
