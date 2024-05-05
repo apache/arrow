@@ -327,6 +327,43 @@ namespace {
 
 using TakeState = OptionsWrapper<TakeOptions>;
 
+class ValuesSpan {
+ private:
+  const std::shared_ptr<ChunkedArray> chunked_ = nullptr;
+  const ArraySpan chunk0_;  // first chunk or the whole array
+
+ public:
+  explicit ValuesSpan(const std::shared_ptr<ChunkedArray> values)
+      : chunked_(std::move(values)), chunk0_{*values->chunk(0)->data()} {
+    DCHECK(chunked_);
+    DCHECK_GT(chunked_->num_chunks(), 0);
+  }
+
+  explicit ValuesSpan(const ArraySpan& values) : chunk0_(values) {}
+
+  bool is_chunked() const { return chunked_ != nullptr; }
+
+  const ChunkedArray& chunked_array() const {
+    DCHECK(is_chunked());
+    return *chunked_;
+  }
+
+  const ArraySpan& chunk0() const { return chunk0_; }
+
+  const ArraySpan& array() const {
+    DCHECK(!is_chunked());
+    return chunk0_;
+  }
+
+  const DataType* type() const { return chunk0_.type; }
+
+  int64_t length() const { return is_chunked() ? chunked_->length() : array().length; }
+
+  bool MayHaveNulls() const {
+    return is_chunked() ? chunked_->null_count() != 0 : array().MayHaveNulls();
+  }
+};
+
 // ----------------------------------------------------------------------
 // Implement optimized take for primitive types from boolean to
 // 1/2/4/8/16/32-byte C-type based types and fixed-size binary (0 or more
@@ -358,15 +395,22 @@ template <typename IndexCType, typename ValueBitWidthConstant,
 struct FixedWidthTakeImpl {
   static constexpr int kValueWidthInBits = ValueBitWidthConstant::value;
 
-  static Status Exec(KernelContext* ctx, const ArraySpan& values,
+  static Status Exec(KernelContext* ctx, const ValuesSpan& values,
                      const ArraySpan& indices, ArrayData* out_arr, int64_t factor) {
 #ifndef NDEBUG
-    int64_t bit_width = util::FixedWidthInBits(*values.type);
+    int64_t bit_width = util::FixedWidthInBits(*values.type());
     DCHECK(WithFactor::value || (kValueWidthInBits == bit_width && factor == 1));
     DCHECK(!WithFactor::value ||
            (factor > 0 && kValueWidthInBits == 8 &&  // factors are used with bytes
             static_cast<int64_t>(factor * kValueWidthInBits) == bit_width));
 #endif
+    // XXX: support values.is_chunked() case
+    assert(!values.is_chunked());
+    return Exec(ctx, values.array(), indices, out_arr, factor);
+  }
+
+  static Status Exec(KernelContext* ctx, const ArraySpan& values,
+                     const ArraySpan& indices, ArrayData* out_arr, int64_t factor) {
     const bool out_has_validity = values.MayHaveNulls() || indices.MayHaveNulls();
 
     const uint8_t* src;
@@ -399,7 +443,7 @@ struct FixedWidthTakeImpl {
 };
 
 template <template <typename...> class TakeImpl, typename... Args>
-Status TakeIndexDispatch(KernelContext* ctx, const ArraySpan& values,
+Status TakeIndexDispatch(KernelContext* ctx, const ValuesSpan& values,
                          const ArraySpan& indices, ArrayData* out, int64_t factor = 1) {
   // With the simplifying assumption that boundschecking has taken place
   // already at a higher level, we can now assume that the index values are all
@@ -419,27 +463,22 @@ Status TakeIndexDispatch(KernelContext* ctx, const ArraySpan& values,
   }
 }
 
-}  // namespace
-
-Status FixedWidthTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  const ArraySpan& values = batch[0].array;
-  const ArraySpan& indices = batch[1].array;
-
+Status FixedWidthTakeExecImpl(KernelContext* ctx, const ValuesSpan& values,
+                              const ArraySpan& indices, ArrayData* out_arr) {
   if (TakeState::Get(ctx).boundscheck) {
-    RETURN_NOT_OK(CheckIndexBounds(indices, values.length));
+    RETURN_NOT_OK(CheckIndexBounds(indices, values.length()));
   }
 
-  ArrayData* out_arr = out->array_data().get();
-  DCHECK(util::IsFixedWidthLike(values));
+  DCHECK(util::IsFixedWidthLike(values.chunk0()));
   // When we know for sure that values nor indices contain nulls, we can skip
   // allocating the validity bitmap altogether and save time and space.
   const bool allocate_validity = values.MayHaveNulls() || indices.MayHaveNulls();
   RETURN_NOT_OK(util::internal::PreallocateFixedWidthArrayData(
-      ctx, indices.length, /*source=*/values, allocate_validity, out_arr));
-  switch (util::FixedWidthInBits(*values.type)) {
+      ctx, indices.length, /*source=*/values.chunk0(), allocate_validity, out_arr));
+  switch (util::FixedWidthInBits(*values.type())) {
     case 0:
-      DCHECK(values.type->id() == Type::FIXED_SIZE_BINARY ||
-             values.type->id() == Type::FIXED_SIZE_LIST);
+      DCHECK(values.type()->id() == Type::FIXED_SIZE_BINARY ||
+             values.type()->id() == Type::FIXED_SIZE_LIST);
       return TakeIndexDispatch<FixedWidthTakeImpl, std::integral_constant<int, 0>>(
           ctx, values, indices, out_arr);
     case 1:
@@ -472,9 +511,9 @@ Status FixedWidthTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult*
       return TakeIndexDispatch<FixedWidthTakeImpl, std::integral_constant<int, 256>>(
           ctx, values, indices, out_arr);
   }
-  if (ARROW_PREDICT_TRUE(values.type->id() == Type::FIXED_SIZE_BINARY ||
-                         values.type->id() == Type::FIXED_SIZE_LIST)) {
-    int64_t byte_width = util::FixedWidthInBytes(*values.type);
+  if (ARROW_PREDICT_TRUE(values.type()->id() == Type::FIXED_SIZE_BINARY ||
+                         values.type()->id() == Type::FIXED_SIZE_LIST)) {
+    int64_t byte_width = util::FixedWidthInBytes(*values.type());
     // 0-length fixed-size binary or lists were handled above on `case 0`
     DCHECK_GT(byte_width, 0);
     return TakeIndexDispatch<FixedWidthTakeImpl,
@@ -483,7 +522,15 @@ Status FixedWidthTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult*
                              /*WithFactor=*/std::true_type>(ctx, values, indices, out_arr,
                                                             /*factor=*/byte_width);
   }
-  return Status::NotImplemented("Unsupported primitive type for take: ", *values.type);
+  return Status::NotImplemented("Unsupported primitive type for take: ", *values.type());
+}
+
+}  // namespace
+
+Status FixedWidthTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  ValuesSpan values{batch[0].array};
+  auto* out_arr = out->array_data().get();
+  return FixedWidthTakeExecImpl(ctx, values, batch[1].array, out_arr);
 }
 
 namespace {
