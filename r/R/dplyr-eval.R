@@ -168,7 +168,7 @@ try_arrow_dplyr <- function(expr) {
 abandon_ship <- function(err, env) {
   .data <- get(".data", envir = env)
   if (query_on_dataset(.data)) {
-    err$msg <- paste0(err$msg, "\nCall collect() first to pull data into R.")
+    err$message <- paste0(err$message, "\nCall collect() first to pull data into R.")
     stop(err)
   }
   # else, collect and call dplyr method

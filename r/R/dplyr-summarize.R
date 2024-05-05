@@ -30,20 +30,6 @@ summarise.arrow_dplyr_query <- function(.data, ..., .by = NULL, .groups = NULL) 
 
   exprs <- expand_across(out, quos(...), exclude_cols = out$group_by_vars)
 
-  # Only retain the columns we need to do our aggregations
-  vars_to_keep <- unique(c(
-    unlist(lapply(exprs, all.vars)), # vars referenced in summarise
-    dplyr::group_vars(out) # vars needed for grouping
-  ))
-  # If exprs rely on the results of previous exprs
-  # (total = sum(x), mean = total / n())
-  # then not all vars will correspond to columns in the data,
-  # so don't try to select() them (use intersect() to exclude them)
-  # Note that this select() isn't useful for the Arrow summarize implementation
-  # because it will effectively project to keep what it needs anyway,
-  # but the data.frame fallback version does benefit from select here
-  out <- dplyr::select(out, intersect(vars_to_keep, names(out)))
-
   # Try stuff, if successful return()
   try_arrow_dplyr({
     do_arrow_summarize(out, !!!exprs, .groups = .groups)
@@ -168,7 +154,7 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
       # collapse() preserves groups so remove them
       out <- dplyr::ungroup(out)
     } else {
-      stop(paste("Invalid .groups argument:", .groups))
+      abort_not_valid(paste("Invalid .groups argument:", .groups))
     }
     out$drop_empty_groups <- .data$drop_empty_groups
     if (getOption("arrow.summarise.sort", FALSE)) {

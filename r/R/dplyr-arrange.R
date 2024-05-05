@@ -72,10 +72,9 @@ find_and_remove_desc <- function(quosure) {
   expr <- quo_get_expr(quosure)
   descending <- FALSE
   if (length(all.vars(expr)) < 1L) {
-    stop(
-      "Expression in arrange() does not contain any field names: ",
-      deparse(expr),
-      call. = FALSE
+    arrow_not_supported(
+      .actual_msg = "Expression in arrange() does not contain any field names",
+      call = expr
     )
   }
   # Use a while loop to remove any number of nested pairs of enclosing
@@ -89,7 +88,7 @@ find_and_remove_desc <- function(quosure) {
       # ensure desc() has only one argument (when an R expression is a function
       # call, length == 2 means it has exactly one argument)
       if (length(expr) > 2) {
-        stop("desc() expects only one argument", call. = FALSE)
+        abort_not_valid("desc() expects only one argument")
       }
       # remove desc() and toggle descending
       expr <- expr[[2]]
