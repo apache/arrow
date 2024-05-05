@@ -328,7 +328,10 @@ test_that("Filtering with unsupported functions", {
       ) %>%
       collect(),
     tbl,
-    warning = '\\In nchar\\(chr, type = "bytes", allowNA = TRUE\\) == 1, allowNA = TRUE not supported in Arrow; pulling data into R'
+    warning = paste(
+      '\\In nchar\\(chr, type = "bytes", allowNA = TRUE\\) == 1,",
+      "allowNA = TRUE not supported in Arrow; pulling data into R'
+    )
   )
 })
 
