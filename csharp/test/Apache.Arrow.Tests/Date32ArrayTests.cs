@@ -131,7 +131,7 @@ namespace Apache.Arrow.Tests
         public class AppendDateOnly
         {
             [Theory]
-            [MemberData(nameof(GetDateOnlyData), MemberType = typeof(Date64ArrayTests))]
+            [MemberData(nameof(GetDateOnlyData), MemberType = typeof(Date32ArrayTests))]
             public void AppendDateGivesSameDate(DateOnly date)
             {
                 // Arrange

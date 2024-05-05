@@ -101,9 +101,9 @@ namespace Apache.Arrow.Tests
         {
             var array = new Int64Array.Builder().Append(1).Append(2).Build();
 
-            foreach(long? foo in (IEnumerable<long?>)array)
+            foreach(long? foo in array)
             {
-                Assert.InRange(foo.Value, 1, 2);
+                Assert.InRange(foo!.Value, 1, 2);
             }
 
             foreach (object foo in (IEnumerable)array)
@@ -115,41 +115,81 @@ namespace Apache.Arrow.Tests
         [Fact]
         public void ArrayAsReadOnlyList()
         {
-            Int64Array array = new Int64Array.Builder().Append(1).Append(2).Build();
-            var readOnlyList = (IReadOnlyList<long?>)array;
+            TestArrayAsReadOnlyList<byte, UInt8Array, UInt8Array.Builder>(new byte[] { 1, 2 });
+            TestArrayAsReadOnlyList<long, Int64Array, Int64Array.Builder>(new long[] { 1, 2 });
+            TestArrayAsReadOnlyList<DateTime, Date32Array, Date32Array.Builder>(new[] { DateTime.MinValue.Date, DateTime.MaxValue.Date });
+#if NET5_0_OR_GREATER
+            TestArrayAsReadOnlyList<Half, HalfFloatArray, HalfFloatArray.Builder>(new[] { (Half)1.1, (Half)2.2f });
+#endif
+        }
+
+        // Parameter 'values' must contain two distinct values
+        private static void TestArrayAsReadOnlyList<T, TArray, TArrayBuilder>(IReadOnlyList<T> values)
+            where T : struct
+            where TArray : IArrowArray
+            where TArrayBuilder : IArrowArrayBuilder<T, TArray, TArrayBuilder>, new()
+        {
+            Assert.Equal(2, values.Count);
+            TArray array = new TArrayBuilder().Append(values[0]).AppendNull().Append(values[1]).Build(default);
+            Assert.NotNull(array);
+            var readOnlyList = (IReadOnlyList<T?>)array;
 
             Assert.Equal(array.Length, readOnlyList.Count);
-            Assert.Equal(readOnlyList[0], 1);
-            Assert.Equal(readOnlyList[1], 2);
+            Assert.Equal(3, readOnlyList.Count);
+            Assert.Equal(values[0], readOnlyList[0]);
+            Assert.Null(readOnlyList[1]);
+            Assert.Equal(values[1], readOnlyList[2]);
         }
 
         [Fact]
         public void ArrayAsCollection()
         {
-            Int64Array array = new Int64Array.Builder().Append(1).Append((long?)null).Append(2).Append(1).Build();
-            var collection = (ICollection<long?>)array;
+            TestArrayAsCollection<long, Int64Array, Int64Array.Builder>(new long[] { 1, 2, 3, 4 });
+            TestArrayAsCollection<byte, UInt8Array, UInt8Array.Builder>(new byte[] { 1, 2, 3, 4 });
+            TestArrayAsCollection<bool, BooleanArray, BooleanArray.Builder>(new[] { true, true, true, false });
+            TestArrayAsCollection<DateTime, Date32Array, Date32Array.Builder>(new[] { DateTime.MinValue.Date, DateTime.MaxValue.Date, DateTime.Today, DateTime.Today });
+            TestArrayAsCollection<DateTime, Date64Array, Date64Array.Builder>(new[] { DateTime.MinValue.Date, DateTime.MaxValue.Date, DateTime.Today, DateTime.Today });
+
+#if NET5_0_OR_GREATER
+            TestArrayAsCollection<DateOnly, Date32Array, Date32Array.Builder>(new[] { DateOnly.MinValue, DateOnly.MaxValue, DateOnly.FromDayNumber(1), DateOnly.FromDayNumber(2) });
+            TestArrayAsCollection<DateOnly, Date64Array, Date64Array.Builder>(new[] { DateOnly.MinValue, DateOnly.MaxValue, DateOnly.FromDayNumber(1), DateOnly.FromDayNumber(2) });
+            TestArrayAsCollection<Half, HalfFloatArray, HalfFloatArray.Builder>(new[] { (Half)1.1, (Half)2.2f, (Half)3.3f, (Half)4.4f });
+#endif
+        }
+
+        // Parameter 'values' must contain four values. The last value must be distinct from the rest.
+        private static void TestArrayAsCollection<T, TArray, TArrayBuilder>(IReadOnlyList<T> values)
+            where T : struct
+            where TArray : IArrowArray
+            where TArrayBuilder : IArrowArrayBuilder<T, TArray, TArrayBuilder>, new()
+        {
+            Assert.Equal(4, values.Count);
+            TArray array = new TArrayBuilder().Append(values[0]).AppendNull().Append(values[1]).Append(values[0]).Build(default);
+            Assert.NotNull(array);
+            var collection = (ICollection<T?>)array;
 
             Assert.Equal(array.Length, collection.Count);
             Assert.Equal(4, collection.Count);
             Assert.True(collection.IsReadOnly);
 
-            Assert.Equal("Collection is read-only.", Assert.Throws<NotSupportedException>(() => collection.Add(3)).Message);
-            Assert.Equal("Collection is read-only.", Assert.Throws<NotSupportedException>(() => collection.Remove(3)).Message);
+            Assert.Equal("Collection is read-only.", Assert.Throws<NotSupportedException>(() => collection.Add(values[3])).Message);
+            Assert.Equal("Collection is read-only.", Assert.Throws<NotSupportedException>(() => collection.Remove(values[3])).Message);
             Assert.Equal("Collection is read-only.", Assert.Throws<NotSupportedException>(collection.Clear).Message);
 
-            Assert.True(collection.Contains(1));
-            Assert.True(collection.Contains(2));
-            Assert.True(collection.Contains(null));
-            Assert.False(collection.Contains(-1));
+            Assert.True(collection.Contains(values[0]));
+            Assert.True(collection.Contains(values[1]));
+            Assert.True(collection.Contains(default));
+            Assert.False(collection.Contains(values[3]));
 
-            long?[] destArr = new long?[6] { -1, -1, -1, -1, -1, -1 };
+            T sentinel = values[2];
+            T?[] destArr = { sentinel, sentinel, sentinel, sentinel, sentinel, sentinel };
             collection.CopyTo(destArr, 1);
-            Assert.Equal(-1, destArr[0]);
-            Assert.Equal(1, destArr[1]);
+            Assert.Equal(sentinel, destArr[0]);
+            Assert.Equal(values[0], destArr[1]);
             Assert.Null(destArr[2]);
-            Assert.Equal(2, destArr[3]);
-            Assert.Equal(1, destArr[4]);
-            Assert.Equal(-1, destArr[0]);
+            Assert.Equal(values[1], destArr[3]);
+            Assert.Equal(values[0], destArr[4]);
+            Assert.Equal(sentinel, destArr[0]);
         }
 
         [Fact]
