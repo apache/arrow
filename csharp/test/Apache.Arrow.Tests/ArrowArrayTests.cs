@@ -118,7 +118,11 @@ namespace Apache.Arrow.Tests
             TestArrayAsReadOnlyList<byte, UInt8Array, UInt8Array.Builder>(new byte[] { 1, 2 });
             TestArrayAsReadOnlyList<long, Int64Array, Int64Array.Builder>(new long[] { 1, 2 });
             TestArrayAsReadOnlyList<DateTime, Date32Array, Date32Array.Builder>(new[] { DateTime.MinValue.Date, DateTime.MaxValue.Date });
+            TestArrayAsReadOnlyList<DateTime, Date64Array, Date64Array.Builder>(new[] { DateTime.MinValue.Date, DateTime.MaxValue.Date });
+
 #if NET5_0_OR_GREATER
+            TestArrayAsReadOnlyList<TimeOnly, Time32Array, Time32Array.Builder>(new[] { TimeOnly.MinValue, TimeOnly.MinValue.AddHours(23) });
+            TestArrayAsReadOnlyList<TimeOnly, Time64Array, Time64Array.Builder>(new[] { TimeOnly.MinValue, TimeOnly.MaxValue });
             TestArrayAsReadOnlyList<Half, HalfFloatArray, HalfFloatArray.Builder>(new[] { (Half)1.1, (Half)2.2f });
 #endif
         }
@@ -153,6 +157,8 @@ namespace Apache.Arrow.Tests
 #if NET5_0_OR_GREATER
             TestArrayAsCollection<DateOnly, Date32Array, Date32Array.Builder>(new[] { DateOnly.MinValue, DateOnly.MaxValue, DateOnly.FromDayNumber(1), DateOnly.FromDayNumber(2) });
             TestArrayAsCollection<DateOnly, Date64Array, Date64Array.Builder>(new[] { DateOnly.MinValue, DateOnly.MaxValue, DateOnly.FromDayNumber(1), DateOnly.FromDayNumber(2) });
+            TestArrayAsCollection<TimeOnly, Time32Array, Time32Array.Builder>(new[] { TimeOnly.MinValue, TimeOnly.MinValue.AddHours(23), TimeOnly.MinValue.AddHours(1), TimeOnly.MinValue.AddHours(2) });
+            TestArrayAsCollection<TimeOnly, Time64Array, Time64Array.Builder>(new[] { TimeOnly.MinValue, TimeOnly.MaxValue, TimeOnly.MinValue.AddHours(1), TimeOnly.MinValue.AddHours(2) });
             TestArrayAsCollection<Half, HalfFloatArray, HalfFloatArray.Builder>(new[] { (Half)1.1, (Half)2.2f, (Half)3.3f, (Half)4.4f });
 #endif
         }
@@ -160,7 +166,7 @@ namespace Apache.Arrow.Tests
         // Parameter 'values' must contain four values. The last value must be distinct from the rest.
         private static void TestArrayAsCollection<T, TArray, TArrayBuilder>(IReadOnlyList<T> values)
             where T : struct
-            where TArray : IArrowArray
+            where TArray : IArrowArray, ICollection<T?>
             where TArrayBuilder : IArrowArrayBuilder<T, TArray, TArrayBuilder>, new()
         {
             Assert.Equal(4, values.Count);

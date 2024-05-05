@@ -26,7 +26,7 @@ namespace Apache.Arrow
     /// </summary>
     public class Time32Array : PrimitiveArray<int>
 #if NET6_0_OR_GREATER
-        , IReadOnlyList<TimeOnly?>
+        , IReadOnlyList<TimeOnly?>, ICollection<TimeOnly?>
 #endif
     {
         /// <summary>
@@ -170,6 +170,31 @@ namespace Apache.Arrow
             {
                 yield return GetTime(index);
             };
+        }
+
+        int ICollection<TimeOnly?>.Count => Length;
+        bool ICollection<TimeOnly?>.IsReadOnly => true;
+        void ICollection<TimeOnly?>.Add(TimeOnly? item) => throw new NotSupportedException("Collection is read-only.");
+        bool ICollection<TimeOnly?>.Remove(TimeOnly? item) => throw new NotSupportedException("Collection is read-only.");
+        void ICollection<TimeOnly?>.Clear() => throw new NotSupportedException("Collection is read-only.");
+
+        bool ICollection<TimeOnly?>.Contains(TimeOnly? item)
+        {
+            for (int index = 0; index < Length; index++)
+            {
+                if (GetTime(index).Equals(item))
+                    return true;
+            }
+
+            return false;
+        }
+
+        void ICollection<TimeOnly?>.CopyTo(TimeOnly?[] array, int arrayIndex)
+        {
+            for (int srcIndex = 0, destIndex = arrayIndex; srcIndex < Length; srcIndex++, destIndex++)
+            {
+                array[destIndex] = GetTime(srcIndex);
+            }
         }
 #endif
     }
