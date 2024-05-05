@@ -124,6 +124,35 @@ namespace Apache.Arrow.Tests
         }
 
         [Fact]
+        public void ArrayAsCollection()
+        {
+            Int64Array array = new Int64Array.Builder().Append(1).Append((long?)null).Append(2).Append(1).Build();
+            var collection = (ICollection<long?>)array;
+
+            Assert.Equal(array.Length, collection.Count);
+            Assert.Equal(4, collection.Count);
+            Assert.True(collection.IsReadOnly);
+
+            Assert.Equal("Collection is read-only.", Assert.Throws<NotSupportedException>(() => collection.Add(3)).Message);
+            Assert.Equal("Collection is read-only.", Assert.Throws<NotSupportedException>(() => collection.Remove(3)).Message);
+            Assert.Equal("Collection is read-only.", Assert.Throws<NotSupportedException>(collection.Clear).Message);
+
+            Assert.True(collection.Contains(1));
+            Assert.True(collection.Contains(2));
+            Assert.True(collection.Contains(null));
+            Assert.False(collection.Contains(-1));
+
+            long?[] destArr = new long?[6] { -1, -1, -1, -1, -1, -1 };
+            collection.CopyTo(destArr, 1);
+            Assert.Equal(-1, destArr[0]);
+            Assert.Equal(1, destArr[1]);
+            Assert.Null(destArr[2]);
+            Assert.Equal(2, destArr[3]);
+            Assert.Equal(1, destArr[4]);
+            Assert.Equal(-1, destArr[0]);
+        }
+
+        [Fact]
         public void RecursiveArraySlice()
         {
             var initialValues = Enumerable.Range(0, 100).ToArray();
