@@ -21,7 +21,7 @@ using System.IO;
 
 namespace Apache.Arrow
 {
-    public class TimestampArray : PrimitiveArray<long>, IReadOnlyList<DateTimeOffset?>
+    public class TimestampArray : PrimitiveArray<long>, IReadOnlyList<DateTimeOffset?>, ICollection<DateTimeOffset?>
     {
         private static readonly DateTimeOffset s_epoch = new DateTimeOffset(1970, 1, 1, 0, 0, 0, 0, TimeSpan.Zero);
 
@@ -156,6 +156,31 @@ namespace Apache.Arrow
             {
                 yield return GetTimestamp(index);
             };
+        }
+
+        int ICollection<DateTimeOffset?>.Count => Length;
+        bool ICollection<DateTimeOffset?>.IsReadOnly => true;
+        void ICollection<DateTimeOffset?>.Add(DateTimeOffset? item) => throw new NotSupportedException("Collection is read-only.");
+        bool ICollection<DateTimeOffset?>.Remove(DateTimeOffset? item) => throw new NotSupportedException("Collection is read-only.");
+        void ICollection<DateTimeOffset?>.Clear() => throw new NotSupportedException("Collection is read-only.");
+
+        bool ICollection<DateTimeOffset?>.Contains(DateTimeOffset? item)
+        {
+            for (int index = 0; index < Length; index++)
+            {
+                if (GetTimestamp(index).Equals(item))
+                    return true;
+            }
+
+            return false;
+        }
+
+        void ICollection<DateTimeOffset?>.CopyTo(DateTimeOffset?[] array, int arrayIndex)
+        {
+            for (int srcIndex = 0, destIndex = arrayIndex; srcIndex < Length; srcIndex++, destIndex++)
+            {
+                array[destIndex] = GetTimestamp(srcIndex);
+            }
         }
     }
 }

@@ -148,23 +148,29 @@ namespace Apache.Arrow.Tests
         [Fact]
         public void ArrayAsCollection()
         {
-            TestArrayAsCollection<long, Int64Array, Int64Array.Builder>(new long[] { 1, 2, 3, 4 });
-            TestArrayAsCollection<byte, UInt8Array, UInt8Array.Builder>(new byte[] { 1, 2, 3, 4 });
-            TestArrayAsCollection<bool, BooleanArray, BooleanArray.Builder>(new[] { true, true, true, false });
-            TestArrayAsCollection<DateTime, Date32Array, Date32Array.Builder>(new[] { DateTime.MinValue.Date, DateTime.MaxValue.Date, DateTime.Today, DateTime.Today });
-            TestArrayAsCollection<DateTime, Date64Array, Date64Array.Builder>(new[] { DateTime.MinValue.Date, DateTime.MaxValue.Date, DateTime.Today, DateTime.Today });
+            TestPrimitiveArrayAsCollection<long, Int64Array, Int64Array.Builder>(new long[] { 1, 2, 3, 4 });
+            TestPrimitiveArrayAsCollection<byte, UInt8Array, UInt8Array.Builder>(new byte[] { 1, 2, 3, 4 });
+            TestPrimitiveArrayAsCollection<bool, BooleanArray, BooleanArray.Builder>(new[] { true, true, true, false });
+            TestPrimitiveArrayAsCollection<DateTime, Date32Array, Date32Array.Builder>(new[] { DateTime.MinValue.Date, DateTime.MaxValue.Date, DateTime.Today, DateTime.Today });
+            TestPrimitiveArrayAsCollection<DateTime, Date64Array, Date64Array.Builder>(new[] { DateTime.MinValue.Date, DateTime.MaxValue.Date, DateTime.Today, DateTime.Today });
+            TestPrimitiveArrayAsCollection<DateTimeOffset, TimestampArray, TimestampArray.Builder>(new[] { DateTimeOffset.MinValue, DateTimeOffset.MinValue.AddYears(100), DateTimeOffset.Now, DateTimeOffset.UtcNow });
 
 #if NET5_0_OR_GREATER
-            TestArrayAsCollection<DateOnly, Date32Array, Date32Array.Builder>(new[] { DateOnly.MinValue, DateOnly.MaxValue, DateOnly.FromDayNumber(1), DateOnly.FromDayNumber(2) });
-            TestArrayAsCollection<DateOnly, Date64Array, Date64Array.Builder>(new[] { DateOnly.MinValue, DateOnly.MaxValue, DateOnly.FromDayNumber(1), DateOnly.FromDayNumber(2) });
-            TestArrayAsCollection<TimeOnly, Time32Array, Time32Array.Builder>(new[] { TimeOnly.MinValue, TimeOnly.MinValue.AddHours(23), TimeOnly.MinValue.AddHours(1), TimeOnly.MinValue.AddHours(2) });
-            TestArrayAsCollection<TimeOnly, Time64Array, Time64Array.Builder>(new[] { TimeOnly.MinValue, TimeOnly.MaxValue, TimeOnly.MinValue.AddHours(1), TimeOnly.MinValue.AddHours(2) });
-            TestArrayAsCollection<Half, HalfFloatArray, HalfFloatArray.Builder>(new[] { (Half)1.1, (Half)2.2f, (Half)3.3f, (Half)4.4f });
+            TestPrimitiveArrayAsCollection<DateOnly, Date32Array, Date32Array.Builder>(new[] { DateOnly.MinValue, DateOnly.MaxValue, DateOnly.FromDayNumber(1), DateOnly.FromDayNumber(2) });
+            TestPrimitiveArrayAsCollection<DateOnly, Date64Array, Date64Array.Builder>(new[] { DateOnly.MinValue, DateOnly.MaxValue, DateOnly.FromDayNumber(1), DateOnly.FromDayNumber(2) });
+            TestPrimitiveArrayAsCollection<TimeOnly, Time32Array, Time32Array.Builder>(new[] { TimeOnly.MinValue, TimeOnly.MinValue.AddHours(23), TimeOnly.MinValue.AddHours(1), TimeOnly.MinValue.AddHours(2) });
+            TestPrimitiveArrayAsCollection<TimeOnly, Time64Array, Time64Array.Builder>(new[] { TimeOnly.MinValue, TimeOnly.MaxValue, TimeOnly.MinValue.AddHours(1), TimeOnly.MinValue.AddHours(2) });
+            TestPrimitiveArrayAsCollection<Half, HalfFloatArray, HalfFloatArray.Builder>(new[] { (Half)1.1, (Half)2.2f, (Half)3.3f, (Half)4.4f });
 #endif
+
+            var builder = new BinaryArray.Builder();
+            byte[][] values = { new byte[1], System.Array.Empty<byte>(), new byte[] { 255 }, new byte[2] };
+            BinaryArray array = builder.Append(values[0].AsEnumerable()).AppendNull().Append(values[1].AsEnumerable()).Append(values[0].AsEnumerable()).Build();
+            TestObjectArrayAsCollection(array, System.Array.Empty<byte>(), values);
         }
 
         // Parameter 'values' must contain four values. The last value must be distinct from the rest.
-        private static void TestArrayAsCollection<T, TArray, TArrayBuilder>(IReadOnlyList<T> values)
+        private static void TestPrimitiveArrayAsCollection<T, TArray, TArrayBuilder>(IReadOnlyList<T> values)
             where T : struct
             where TArray : IArrowArray, ICollection<T?>
             where TArrayBuilder : IArrowArrayBuilder<T, TArray, TArrayBuilder>, new()
@@ -193,6 +199,39 @@ namespace Apache.Arrow.Tests
             Assert.Equal(sentinel, destArr[0]);
             Assert.Equal(values[0], destArr[1]);
             Assert.Null(destArr[2]);
+            Assert.Equal(values[1], destArr[3]);
+            Assert.Equal(values[0], destArr[4]);
+            Assert.Equal(sentinel, destArr[0]);
+        }
+
+        // Parameter 'values' must contain four values. The last value must be distinct from the rest.
+        private static void TestObjectArrayAsCollection<T, TArray>(TArray array, T nullValue, IReadOnlyList<T> values)
+            where T : class
+            where TArray : IArrowArray, ICollection<T?>
+        {
+            Assert.NotNull(array);
+            Assert.Equal(4, values.Count);
+            var collection = (ICollection<T?>)array;
+
+            Assert.Equal(array.Length, collection.Count);
+            Assert.Equal(4, collection.Count);
+            Assert.True(collection.IsReadOnly);
+
+            Assert.Equal("Collection is read-only.", Assert.Throws<NotSupportedException>(() => collection.Add(values[3])).Message);
+            Assert.Equal("Collection is read-only.", Assert.Throws<NotSupportedException>(() => collection.Remove(values[3])).Message);
+            Assert.Equal("Collection is read-only.", Assert.Throws<NotSupportedException>(collection.Clear).Message);
+
+            Assert.True(collection.Contains(values[0]));
+            Assert.True(collection.Contains(values[1]));
+            Assert.True(collection.Contains(default));
+            Assert.False(collection.Contains(values[3]));
+
+            T sentinel = values[2];
+            T?[] destArr = { sentinel, sentinel, sentinel, sentinel, sentinel, sentinel };
+            collection.CopyTo(destArr, 1);
+            Assert.Equal(sentinel, destArr[0]);
+            Assert.Equal(values[0], destArr[1]);
+            Assert.Equal(nullValue, destArr[2]);
             Assert.Equal(values[1], destArr[3]);
             Assert.Equal(values[0], destArr[4]);
             Assert.Equal(sentinel, destArr[0]);
