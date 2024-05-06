@@ -2232,7 +2232,7 @@ Result<void*> LoadDynamicLibrary(const char* path) {
   constexpr int kFlags =
       // All undefined symbols in the shared object are resolved before dlopen() returns.
       RTLD_NOW
-      // Symbols defined in  this  shared  object are not made available to
+      // Symbols defined in this shared object are not made available to
       // resolve references in subsequently loaded shared objects.
       | RTLD_LOCAL;
   if (void* handle = dlopen(path, kFlags)) return handle;
