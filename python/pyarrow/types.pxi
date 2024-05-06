@@ -5412,7 +5412,7 @@ def is_float_value(object obj):
     return IsPyFloat(obj)
 
 
-def _is_integer(data_type):
+def is_integer(data_type):
     """
     Returns whether the `data_type` is an integer type.
 
@@ -5421,10 +5421,10 @@ def _is_integer(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_integer(data_type.id)
+    return c_is_integer(data_type.id)
 
 
-def _is_signed_integer(data_type):
+def is_signed_integer(data_type):
     """
     Returns whether the `data_type` is a signed integer type.
 
@@ -5433,10 +5433,10 @@ def _is_signed_integer(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_signed_integer(data_type.id)
+    return c_is_signed_integer(data_type.id)
 
 
-def _is_unsigned_integer(data_type):
+def is_unsigned_integer(data_type):
     """
     Returns whether the `data_type` is an unsigned integer type.
 
@@ -5445,10 +5445,10 @@ def _is_unsigned_integer(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_unsigned_integer(data_type.id)
+    return c_is_unsigned_integer(data_type.id)
 
 
-def _is_floating(data_type):
+def is_floating(data_type):
     """
     Returns whether the `data_type` is a floating type.
 
@@ -5457,10 +5457,10 @@ def _is_floating(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_floating(data_type.id)
+    return c_is_floating(data_type.id)
 
 
-def _is_numeric(data_type):
+def is_numeric(data_type):
     """
     Returns whether the `data_type` is a numeric type.
 
@@ -5469,10 +5469,10 @@ def _is_numeric(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_numeric(data_type.id)
+    return c_is_numeric(data_type.id)
 
 
-def _is_decimal(data_type):
+def is_decimal(data_type):
     """
     Returns whether the `data_type` is a decimal type.
 
@@ -5481,10 +5481,10 @@ def _is_decimal(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_decimal(data_type.id)
+    return c_is_decimal(data_type.id)
 
 
-def _is_run_end_type(data_type):
+def is_run_end_encoded(data_type):
     """
     Returns whether the `data_type` is a run end type.
 
@@ -5493,10 +5493,10 @@ def _is_run_end_type(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_run_end_type(data_type.id)
+    return c_is_run_end(data_type.id)
 
 
-def _is_primitive(data_type):
+def is_primitive(data_type):
     """
     Returns whether the `data_type` is a primitive type.
 
@@ -5505,10 +5505,10 @@ def _is_primitive(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_primitive(data_type.id)
+    return c_is_primitive(data_type.id)
 
 
-def _is_base_binary_like(data_type):
+def is_base_binary_like(data_type):
     """
     Returns whether the `data_type` is a base binary-like type.
 
@@ -5517,10 +5517,10 @@ def _is_base_binary_like(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_base_binary_like(data_type.id)
+    return c_is_base_binary_like(data_type.id)
 
 
-def _is_binary_like(data_type):
+def is_binary_like(data_type):
     """
     Returns whether the `data_type` is a binary-like type.
 
@@ -5529,10 +5529,10 @@ def _is_binary_like(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_binary_like(data_type.id)
+    return c_is_binary_like(data_type.id)
 
 
-def _is_large_binary_like(data_type):
+def is_large_binary_like(data_type):
     """
     Returns whether the `data_type` is a large binary-like type.
 
@@ -5541,10 +5541,10 @@ def _is_large_binary_like(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_large_binary_like(data_type.id)
+    return c_is_large_binary_like(data_type.id)
 
 
-def _is_binary(data_type):
+def is_binary(data_type):
     """
     Returns whether the `data_type` is a binary type.
 
@@ -5553,10 +5553,10 @@ def _is_binary(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_binary(data_type.id) and offset_bit_width(data_type.id) == 32
+    return c_is_binary(data_type.id) and c_offset_bit_width(data_type.id) == 32
 
 
-def _is_string(data_type):
+def is_string(data_type):
     """
     Returns whether the `data_type` is a string type.
 
@@ -5565,10 +5565,10 @@ def _is_string(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_string(data_type.id) and offset_bit_width(data_type.id) == 32
+    return c_is_string(data_type.id) and c_offset_bit_width(data_type.id) == 32
 
 
-def _is_temporal(data_type):
+def is_temporal(data_type):
     """
     Returns whether the `data_type` is a temporal type.
 
@@ -5577,11 +5577,11 @@ def _is_temporal(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_primitive(data_type.id) and not is_integer(data_type.id) and \
-        not is_floating(data_type.id)
+    return c_is_primitive(data_type.id) and not c_is_integer(data_type.id) and \
+        not c_is_floating(data_type.id)
 
 
-def _is_time(data_type):
+def is_time(data_type):
     """
     Returns whether the `data_type` is a time type.
 
@@ -5590,10 +5590,10 @@ def _is_time(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_time(data_type.id)
+    return c_is_time(data_type.id)
 
 
-def _is_date(data_type):
+def is_date(data_type):
     """
     Returns whether the `data_type` is a date type.
 
@@ -5602,10 +5602,10 @@ def _is_date(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_date(data_type.id)
+    return c_is_date(data_type.id)
 
 
-def _is_interval(data_type):
+def is_interval(data_type):
     """
     Returns whether the `data_type` is an interval type.
 
@@ -5614,10 +5614,10 @@ def _is_interval(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_interval(data_type.id)
+    return c_is_interval(data_type.id)
 
 
-def _is_dictionary(data_type):
+def is_dictionary(data_type):
     """
     Returns whether the `data_type` is a dictionary type.
 
@@ -5626,10 +5626,10 @@ def _is_dictionary(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_dictionary(data_type.id)
+    return c_is_dictionary(data_type.id)
 
 
-def _is_fixed_size_binary(data_type):
+def is_fixed_size_binary(data_type):
     """
     Returns whether the `data_type` is a fixed size binary type.
 
@@ -5638,10 +5638,10 @@ def _is_fixed_size_binary(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_fixed_size_binary(data_type.id)
+    return c_is_fixed_size_binary(data_type.id)
 
 
-def _is_fixed_width(data_type):
+def is_fixed_width(data_type):
     """
     Returns whether the `data_type` is a fixed width type.
 
@@ -5650,10 +5650,10 @@ def _is_fixed_width(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_fixed_width(data_type.id)
+    return c_is_fixed_width(data_type.id)
 
 
-def _is_var_length_list(data_type):
+def is_var_length_list(data_type):
     """
     Returns whether the `data_type` is a variable length list type.
 
@@ -5662,10 +5662,10 @@ def _is_var_length_list(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_var_length_list(data_type.id)
+    return c_is_var_length_list(data_type.id)
 
 
-def _is_list(data_type):
+def is_list(data_type):
     """
     Returns whether the `data_type` is a list type.
 
@@ -5674,10 +5674,10 @@ def _is_list(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_list(data_type.id) and offset_bit_width(data_type.id) == 32
+    return c_is_list(data_type.id) and c_offset_bit_width(data_type.id) == 32
 
 
-def _is_list_like(data_type):
+def is_list_like(data_type):
     """
     Returns whether the `data_type` is a list like type.
 
@@ -5686,10 +5686,10 @@ def _is_list_like(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_list_like(data_type.id)
+    return c_is_list_like(data_type.id)
 
 
-def _is_var_length_list_like(data_type):
+def is_var_length_list_like(data_type):
     """
     Returns whether the `data_type` is a variable length list like type.
 
@@ -5698,10 +5698,10 @@ def _is_var_length_list_like(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_var_length_list_like(data_type.id)
+    return c_is_var_length_list_like(data_type.id)
 
 
-def _bit_width(data_type):
+def bit_width_length(data_type):
     """
     Determine the bit width of the data type.
 
@@ -5710,10 +5710,10 @@ def _bit_width(data_type):
     data_type : DataType
         The data type to check.
     """
-    return bit_width(data_type.id)
+    return c_bit_width(data_type.id)
 
 
-def _offset_bit_width(data_type):
+def offset_bit_width_length(data_type):
     """
     Determine the offset bit width of the data type.
 
@@ -5722,7 +5722,7 @@ def _offset_bit_width(data_type):
     data_type : DataType
         The data type to check.
     """
-    return offset_bit_width(data_type.id)
+    return c_offset_bit_width(data_type.id)
 
 
 def is_null(data_type):
@@ -5758,7 +5758,7 @@ def is_int8(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_integer(data_type.id) and bit_width(data_type.id) == 8
+    return c_is_integer(data_type.id) and c_bit_width(data_type.id) == 8
 
 
 def is_int16(data_type):
@@ -5770,7 +5770,7 @@ def is_int16(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_integer(data_type.id) and bit_width(data_type.id) == 16
+    return c_is_integer(data_type.id) and c_bit_width(data_type.id) == 16
 
 
 def is_int32(data_type):
@@ -5782,7 +5782,7 @@ def is_int32(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_integer(data_type.id) and bit_width(data_type.id) == 32
+    return c_is_integer(data_type.id) and c_bit_width(data_type.id) == 32
 
 
 def is_int64(data_type):
@@ -5794,7 +5794,7 @@ def is_int64(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_integer(data_type.id) and bit_width(data_type.id) == 64
+    return c_is_integer(data_type.id) and c_bit_width(data_type.id) == 64
 
 
 def is_uint8(data_type):
@@ -5806,7 +5806,7 @@ def is_uint8(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_unsigned_integer(data_type.id) and bit_width(data_type.id) == 8
+    return c_is_unsigned_integer(data_type.id) and c_bit_width(data_type.id) == 8
 
 
 def is_uint16(data_type):
@@ -5818,7 +5818,7 @@ def is_uint16(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_unsigned_integer(data_type.id) and bit_width(data_type.id) == 16
+    return c_is_unsigned_integer(data_type.id) and c_bit_width(data_type.id) == 16
 
 
 def is_uint32(data_type):
@@ -5830,7 +5830,7 @@ def is_uint32(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_unsigned_integer(data_type.id) and bit_width(data_type.id) == 32
+    return c_is_unsigned_integer(data_type.id) and c_bit_width(data_type.id) == 32
 
 
 def is_uint64(data_type):
@@ -5842,7 +5842,7 @@ def is_uint64(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_unsigned_integer(data_type.id) and bit_width(data_type.id) == 64
+    return c_is_unsigned_integer(data_type.id) and c_bit_width(data_type.id) == 64
 
 
 def is_float16(data_type):
@@ -5854,7 +5854,7 @@ def is_float16(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_floating(data_type.id) and bit_width(data_type.id) == 16
+    return c_is_floating(data_type.id) and c_bit_width(data_type.id) == 16
 
 
 def is_float32(data_type):
@@ -5866,7 +5866,7 @@ def is_float32(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_floating(data_type.id) and bit_width(data_type.id) == 32
+    return c_is_floating(data_type.id) and c_bit_width(data_type.id) == 32
 
 
 def is_float64(data_type):
@@ -5878,7 +5878,7 @@ def is_float64(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_floating(data_type.id) and bit_width(data_type.id) == 64
+    return c_is_floating(data_type.id) and c_bit_width(data_type.id) == 64
 
 
 def is_large_list(data_type):
@@ -5890,7 +5890,7 @@ def is_large_list(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_list(data_type.id) and offset_bit_width(data_type.id) == 64
+    return c_is_list(data_type.id) and c_offset_bit_width(data_type.id) == 64
 
 
 def is_fixed_size_list(data_type):
@@ -5905,7 +5905,7 @@ def is_fixed_size_list(data_type):
     return data_type.id == Type_FIXED_SIZE_LIST
 
 
-def _is_list_view(data_type):
+def is_list_view(data_type):
     """
     Returns whether the `data_type` is a list view type.
 
@@ -5914,10 +5914,10 @@ def _is_list_view(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_list_view(data_type.id) and offset_bit_width(data_type.id) == 32
+    return c_is_list_view(data_type.id) and c_offset_bit_width(data_type.id) == 32
 
 
-def _is_large_list_view(data_type):
+def is_large_list_view(data_type):
     """
     Returns whether the `data_type` is a large list view type.
 
@@ -5926,7 +5926,7 @@ def _is_large_list_view(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_list_view(data_type.id) and offset_bit_width(data_type.id) == 64
+    return c_is_list_view(data_type.id) and c_offset_bit_width(data_type.id) == 64
 
 
 def is_struct(data_type):
@@ -5941,7 +5941,7 @@ def is_struct(data_type):
     return data_type.id == Type_STRUCT
 
 
-def _is_union(data_type):
+def is_union(data_type):
     """
     Returns whether the `data_type` is a union type.
 
@@ -5950,10 +5950,10 @@ def _is_union(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_union(data_type.id)
+    return c_is_union(data_type.id)
 
 
-def _is_nested(data_type):
+def is_nested(data_type):
     """
     Returns whether the `data_type` is a nested type.
 
@@ -5962,7 +5962,7 @@ def _is_nested(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_nested(data_type.id)
+    return c_is_nested(data_type.id)
 
 
 def is_timestamp(data_type):
@@ -5974,7 +5974,7 @@ def is_timestamp(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_temporal(data_type.id) and not is_time(data_type.id) and not is_date(data_type.id)
+    return c_is_temporal(data_type.id) and not c_is_time(data_type.id) and not c_is_date(data_type.id)
 
 
 def is_duration(data_type):
@@ -5986,9 +5986,9 @@ def is_duration(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_primitive(data_type.id) and not is_integer(data_type.id) and \
-        not is_floating(data_type.id) and not is_temporal(data_type.id) and \
-        not is_interval(data_type.id)
+    return c_is_primitive(data_type.id) and not c_is_integer(data_type.id) and \
+        not c_is_floating(data_type.id) and not c_is_temporal(data_type.id) and \
+        not c_is_interval(data_type.id)
 
 
 def is_time32(data_type):
@@ -6000,7 +6000,7 @@ def is_time32(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_time(data_type.id) and bit_width(data_type.id) == 32
+    return c_is_time(data_type.id) and c_bit_width(data_type.id) == 32
 
 
 def is_time64(data_type):
@@ -6012,7 +6012,7 @@ def is_time64(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_time(data_type.id) and bit_width(data_type.id) == 64
+    return c_is_time(data_type.id) and c_bit_width(data_type.id) == 64
 
 
 def is_large_binary(data_type):
@@ -6024,7 +6024,7 @@ def is_large_binary(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_binary(data_type.id) and offset_bit_width(data_type.id) == 64
+    return c_is_binary(data_type.id) and c_offset_bit_width(data_type.id) == 64
 
 
 def is_large_string(data_type):
@@ -6036,7 +6036,7 @@ def is_large_string(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_string(data_type.id) and offset_bit_width(data_type.id) == 64
+    return c_is_string(data_type.id) and c_offset_bit_width(data_type.id) == 64
 
 
 def is_binary_view(data_type):
@@ -6072,7 +6072,7 @@ def is_date32(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_date(data_type.id) and bit_width(data_type.id) == 32
+    return c_is_date(data_type.id) and c_bit_width(data_type.id) == 32
 
 
 def is_date64(data_type):
@@ -6084,7 +6084,7 @@ def is_date64(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_date(data_type.id) and bit_width(data_type.id) == 64
+    return c_is_date(data_type.id) and c_bit_width(data_type.id) == 64
 
 
 def is_run_end_encoded(data_type):
@@ -6108,7 +6108,7 @@ def is_map(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_var_length_list(data_type.id) and not is_list(data_type.id)
+    return c_is_var_length_list(data_type.id) and not c_is_list(data_type.id)
 
 
 def is_decimal128(data_type):
@@ -6120,7 +6120,7 @@ def is_decimal128(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_decimal(data_type.id) and bit_width(data_type.id) == 128
+    return c_is_decimal(data_type.id) and c_bit_width(data_type.id) == 128
 
 
 def is_decimal256(data_type):
@@ -6132,7 +6132,7 @@ def is_decimal256(data_type):
     data_type : DataType
         The data type to check.
     """
-    return is_decimal(data_type.id) and bit_width(data_type.id) == 256
+    return c_is_decimal(data_type.id) and c_bit_width(data_type.id) == 256
 
 
 cdef class _ExtensionRegistryNanny(_Weakrefable):
