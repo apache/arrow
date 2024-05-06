@@ -186,8 +186,18 @@ struct ARROW_EXPORT ChunkResolver {
       int64_t n, const IndexType* ARROW_RESTRICT logical_index_vec,
       IndexType* ARROW_RESTRICT out_chunk_index_vec, IndexType chunk_hint = 0,
       IndexType* ARROW_RESTRICT out_index_in_chunk_vec = nullptr) const {
-    return ResolveManyTyped(n, logical_index_vec, out_chunk_index_vec, chunk_hint,
-                            out_index_in_chunk_vec);
+    if constexpr (sizeof(IndexType) < sizeof(uint64_t)) {
+      // The max value returned by Bisect is `offsets.size() - 1` (= chunks.size()).
+      constexpr auto kMaxIndexTypeValue = std::numeric_limits<IndexType>::max();
+      const bool chunk_index_fits_on_type =
+          static_cast<uint64_t>(offsets_.size() - 1) <= kMaxIndexTypeValue;
+      if (ARROW_PREDICT_FALSE(!chunk_index_fits_on_type)) {
+        return false;
+      }
+    }
+    ResolveManyImpl(n, logical_index_vec, out_chunk_index_vec, chunk_hint,
+                    out_index_in_chunk_vec);
+    return true;
   }
 
  private:
@@ -213,31 +223,6 @@ struct ARROW_EXPORT ChunkResolver {
       cached_chunk_.store(chunk_index, std::memory_order_relaxed);
     }
     return chunk_index;
-  }
-
-  template <typename IndexType>
-  bool ResolveManyTyped(int64_t n, const IndexType* logical_index_vec,
-                        IndexType* out_chunk_index_vec, IndexType chunk_hint,
-                        IndexType* out_index_in_chunk_vec) const {
-    // The max value returned by Bisect is `offsets.size() - 1` (= chunks.size()).
-    constexpr auto kMaxIndexTypeValue = std::numeric_limits<IndexType>::max();
-    const bool chunk_index_fits_on_type =
-        static_cast<uint64_t>(offsets_.size() - 1) <= kMaxIndexTypeValue;
-    if (ARROW_PREDICT_FALSE(!chunk_index_fits_on_type)) {
-      return false;
-    }
-    ResolveManyImpl(n, logical_index_vec, out_chunk_index_vec, chunk_hint,
-                    out_index_in_chunk_vec);
-    return true;
-  }
-
-  template <>
-  bool ResolveManyTyped<uint64_t>(int64_t n, const uint64_t* logical_index_vec,
-                                  uint64_t* out_chunk_index_vec, uint64_t chunk_hint,
-                                  uint64_t* out_index_in_chunk_vec) const {
-    ResolveManyImpl(n, logical_index_vec, out_chunk_index_vec, chunk_hint,
-                    out_index_in_chunk_vec);
-    return true;
   }
 
   /// \pre all the pre-conditions of ChunkResolver::ResolveMany()
