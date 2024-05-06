@@ -583,22 +583,15 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     Objects.requireNonNull(elementFieldVec, "Element Field Vector cannot be null");
 
     // clear buffers
-    this.offsetBuffer.clear();
-    this.sizeBuffer.clear();
-    this.validityBuffer.clear();
-    // clear child vector
-    this.vector.clear();
-    // allocate memory
-    this.vector.allocateNew();
+    this.clear();
 
     // set buffers
-    setValuesInBuffer(offSetBuffer, this.offsetBuffer, OFFSET_WIDTH, valueCount);
-    setValuesInBuffer(sizeBuffer, this.sizeBuffer, SIZE_WIDTH, valueCount);
-    setValuesInBuffer(validityBuffer, this.validityBuffer, 1, valueCount);
+    this.offsetBuffer = offSetBuffer;
+    this.sizeBuffer = sizeBuffer;
+    this.validityBuffer = validityBuffer;
 
     // set child vector
     this.vector = elementFieldVec;
-    this.vector.setValueCount(elementFieldVec.getValueCount());
 
     this.lastSet = valueCount - 1;
     this.setValueCount(valueCount);
