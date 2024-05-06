@@ -51,44 +51,6 @@ public class TestListViewVector {
   }
 
   @Test
-  public void testNestedListVector() {
-    try (ListVector listVector = ListVector.empty("sourceVector", allocator)) {
-
-      UnionListWriter listWriter = listVector.getWriter();
-
-      /* allocate memory */
-      listWriter.allocate();
-
-      /* the dataVector that backs a listVector will also be a
-       * listVector for this test.
-       */
-
-      /* write one or more inner lists at index 0 */
-      listWriter.setPosition(0);
-      listWriter.startList();
-
-      listWriter.bigInt().writeBigInt(12);
-      listWriter.bigInt().writeBigInt(-7);
-      listWriter.bigInt().writeBigInt(25);
-      listWriter.endList();
-
-      listWriter.setPosition(1);
-      listWriter.startList();
-
-      listWriter.bigInt().writeBigInt(100);
-      listWriter.endList();
-
-      listWriter.bigInt().writeBigInt(180);
-
-      listWriter.setValueCount(3);
-      listVector.setValueCount(3);
-
-      System.out.println(listVector);
-      System.out.println(listVector.getDataVector());
-    }
-  }
-
-  @Test
   public void testBasicListViewVector() {
     try (ListViewVector listViewVector = ListViewVector.empty("sourceVector", allocator)) {
       UnionListViewWriter listViewWriter = listViewVector.getWriter();
@@ -438,7 +400,7 @@ public class TestListViewVector {
    * 3. Buffer-based inserts followed by default list insertion.
    */
   @Test
-  public void testBasicListViewAddition() {
+  public void testBasicListViewSet() {
 
     ArrowBuf newOffSetBuf = allocator.buffer(1024);
     ArrowBuf newSizeBuffer = allocator.buffer(1024);
@@ -502,7 +464,144 @@ public class TestListViewVector {
   }
 
   @Test
-  public void testBasicListViewAdditionWithListViewWriter() {
+  public void testBasicListViewSetNested() {
+    // Expected listview
+    // [[[50,100,200],[75,125,150,175]], [[10],[15,20],[25,30,35]]]
+
+    // Setting child vector
+    // [[50,100,200],[75,125,150,175]], [10],[15,20],[25,30,35]]
+    ListVector listVector = ListVector.empty("nestedVector", allocator);
+
+    UnionListWriter listWriter = listVector.getWriter();
+    listWriter.allocate();
+
+    listWriter.setPosition(0);
+    listWriter.startList();
+
+    listWriter.bigInt().writeBigInt(50);
+    listWriter.bigInt().writeBigInt(100);
+    listWriter.bigInt().writeBigInt(200);
+
+    listWriter.endList();
+
+    listWriter.setPosition(1);
+    listWriter.startList();
+
+    listWriter.bigInt().writeBigInt(75);
+    listWriter.bigInt().writeBigInt(125);
+    listWriter.bigInt().writeBigInt(150);
+    listWriter.bigInt().writeBigInt(175);
+
+    listWriter.endList();
+
+    listWriter.setPosition(2);
+    listWriter.startList();
+
+    listWriter.bigInt().writeBigInt(10);
+
+    listWriter.endList();
+
+    listWriter.startList();
+    listWriter.setPosition(3);
+
+    listWriter.bigInt().writeBigInt(15);
+    listWriter.bigInt().writeBigInt(20);
+
+    listWriter.endList();
+
+    listWriter.startList();
+    listWriter.setPosition(4);
+
+    listWriter.bigInt().writeBigInt(25);
+    listWriter.bigInt().writeBigInt(30);
+    listWriter.bigInt().writeBigInt(35);
+
+    listWriter.endList();
+
+    listVector.setValueCount(2);
+
+    ListViewVector listViewVector = ListViewVector.empty("sourceVector", allocator);
+    listViewVector.allocateNew();
+
+    ArrowBuf newOffSetBuf = allocator.buffer(1024);
+    ArrowBuf newSizeBuffer = allocator.buffer(1024);
+    ArrowBuf validityBuffer = allocator.buffer(DataSizeRoundingUtil.divideBy8Ceil(1024));
+
+    int[] offSetValues = new int[]{0, 2};
+    int[] sizeValues = new int[]{2, 3};
+
+    BitVectorHelper.setBit(validityBuffer, 0);
+    BitVectorHelper.setBit(validityBuffer, 1);
+
+    setValuesInBuffer(offSetValues, newOffSetBuf, BaseRepeatedValueViewVector.OFFSET_WIDTH);
+    setValuesInBuffer(sizeValues, newSizeBuffer, BaseRepeatedValueViewVector.SIZE_WIDTH);
+
+    listViewVector.set(newOffSetBuf, newSizeBuffer, validityBuffer, listVector, 2);
+
+    assertEquals(2, listViewVector.getValueCount());
+
+    /* get listViewVector value at index 0 -- the value itself is a listViewVector */
+    Object result = listViewVector.getObject(0);
+    ArrayList<ArrayList<Long>> resultSet = (ArrayList<ArrayList<Long>>) result;
+    ArrayList<Long> list;
+
+    assertEquals(2, resultSet.size()); /* 2 inner lists at index 0 */
+    assertEquals(3, resultSet.get(0).size()); /* size of the first inner list */
+    assertEquals(4, resultSet.get(1).size()); /* size of the second inner list */
+
+    list = resultSet.get(0);
+    assertEquals(Long.valueOf(50), list.get(0));
+    assertEquals(Long.valueOf(100), list.get(1));
+    assertEquals(Long.valueOf(200), list.get(2));
+
+    list = resultSet.get(1);
+    assertEquals(Long.valueOf(75), list.get(0));
+    assertEquals(Long.valueOf(125), list.get(1));
+    assertEquals(Long.valueOf(150), list.get(2));
+    assertEquals(Long.valueOf(175), list.get(3));
+
+    /* get listViewVector value at index 1 -- the value itself is a listViewVector */
+    result = listViewVector.getObject(1);
+    resultSet = (ArrayList<ArrayList<Long>>) result;
+
+    assertEquals(3, resultSet.size()); /* 3 inner lists at index 1 */
+    assertEquals(1, resultSet.get(0).size()); /* size of the first inner list */
+    assertEquals(2, resultSet.get(1).size()); /* size of the second inner list */
+    assertEquals(3, resultSet.get(2).size()); /* size of the third inner list */
+
+    list = resultSet.get(0);
+    assertEquals(Long.valueOf(10), list.get(0));
+
+    list = resultSet.get(1);
+    assertEquals(Long.valueOf(15), list.get(0));
+    assertEquals(Long.valueOf(20), list.get(1));
+
+    list = resultSet.get(2);
+    assertEquals(Long.valueOf(25), list.get(0));
+    assertEquals(Long.valueOf(30), list.get(1));
+    assertEquals(Long.valueOf(35), list.get(2));
+
+    /* check underlying bitVector */
+    assertFalse(listViewVector.isNull(0));
+    assertFalse(listViewVector.isNull(1));
+
+    final ArrowBuf offSetBuffer = listViewVector.getOffsetBuffer();
+    final ArrowBuf sizeBuffer = listViewVector.getSizeBuffer();
+
+    // check offset buffer
+    assertEquals(0, offSetBuffer.getInt(0 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+    assertEquals(2, offSetBuffer.getInt(1 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+
+    // check size buffer
+    assertEquals(2, sizeBuffer.getInt(0 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+    assertEquals(3, sizeBuffer.getInt(1 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+
+    listVector.close();
+    listViewVector.close();
+  }
+
+  @Test
+  public void testBasicListViewSetWithListViewWriter() {
     ListViewVector listViewVector = ListViewVector.empty("sourceVector", allocator);
     ArrowBuf newOffSetBuf = allocator.buffer(1024);
     ArrowBuf newSizeBuffer = allocator.buffer(1024);
