@@ -146,11 +146,10 @@ class GatherBaseCRTP {
   }
 };
 
-template <int kValueWidthInBits, typename IndexCType, bool WithFactor,
-          std::enable_if_t<kValueWidthInBits % 8 == 0 || kValueWidthInBits == 1, bool> =
-              true>
-class Gather : public GatherBaseCRTP<Gather<kValueWidthInBits, IndexCType, WithFactor>> {
+template <int kValueWidthInBits, typename IndexCType, bool kWithFactor>
+class Gather : public GatherBaseCRTP<Gather<kValueWidthInBits, IndexCType, kWithFactor>> {
  public:
+  static_assert(kValueWidthInBits % 8 == 0);
   static constexpr int kValueWidth = kValueWidthInBits / 8;
 
  private:
@@ -163,7 +162,7 @@ class Gather : public GatherBaseCRTP<Gather<kValueWidthInBits, IndexCType, WithF
 
  public:
   void WriteValue(int64_t position) {
-    if constexpr (WithFactor) {
+    if constexpr (kWithFactor) {
       const size_t scaled_factor = kValueWidth * factor_;
       memcpy(out_ + position * scaled_factor, src_ + idx_[position] * scaled_factor,
              scaled_factor);
@@ -174,7 +173,7 @@ class Gather : public GatherBaseCRTP<Gather<kValueWidthInBits, IndexCType, WithF
   }
 
   void WriteZero(int64_t position) {
-    if constexpr (WithFactor) {
+    if constexpr (kWithFactor) {
       const size_t scaled_factor = kValueWidth * factor_;
       memset(out_ + position * scaled_factor, 0, scaled_factor);
     } else {
@@ -183,7 +182,7 @@ class Gather : public GatherBaseCRTP<Gather<kValueWidthInBits, IndexCType, WithF
   }
 
   void WriteZeroSegment(int64_t position, int64_t length) {
-    if constexpr (WithFactor) {
+    if constexpr (kWithFactor) {
       const size_t scaled_factor = kValueWidth * factor_;
       memset(out_ + position * scaled_factor, 0, length * scaled_factor);
     } else {
@@ -202,8 +201,8 @@ class Gather : public GatherBaseCRTP<Gather<kValueWidthInBits, IndexCType, WithF
         factor_(factor) {
     assert(zero_src_offset == 0);
     assert(src && idx && out);
-    assert((WithFactor || factor == 1) &&
-           "When WithFactor is false, the factor is assumed to be 1 at compile time");
+    assert((kWithFactor || factor == 1) &&
+           "When kWithFactor is false, the factor is assumed to be 1 at compile time");
   }
 
   ARROW_FORCE_INLINE int64_t Execute() { return this->ExecuteNoNulls(idx_length_); }
@@ -228,7 +227,7 @@ class Gather : public GatherBaseCRTP<Gather<kValueWidthInBits, IndexCType, WithF
 };
 
 template <typename IndexCType>
-class Gather<1, IndexCType, /*WithFactor=*/false>
+class Gather</*kValueWidthInBits=*/1, IndexCType, /*kWithFactor=*/false>
     : public GatherBaseCRTP<Gather<1, IndexCType, false>> {
  private:
   const int64_t src_length_;  // number of elements of bits bytes in src_ after offset
