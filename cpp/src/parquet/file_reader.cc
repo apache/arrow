@@ -373,6 +373,7 @@ class SerializedFile : public ParquetFileReader::Contents {
 
   void set_metadata(std::shared_ptr<FileMetaData> metadata) {
     file_metadata_ = std::move(metadata);
+    file_decryptor_ = file_metadata_->file_decryptor();
   }
 
   void PreBuffer(const std::vector<int>& row_groups,

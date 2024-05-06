@@ -405,6 +405,7 @@ class PARQUET_EXPORT FileMetaData {
                         std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
 
   void set_file_decryptor(std::shared_ptr<InternalFileDecryptor> file_decryptor);
+  std::shared_ptr<InternalFileDecryptor> file_decryptor() const;
 
   // PIMPL Idiom
   FileMetaData();
