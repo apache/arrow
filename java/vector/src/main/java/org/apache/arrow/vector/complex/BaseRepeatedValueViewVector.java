@@ -29,6 +29,7 @@ import org.apache.arrow.vector.AddOrGetResult;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
+import org.apache.arrow.vector.DensityAwareVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.UInt4Vector;
@@ -199,11 +200,42 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
 
   @Override
   public void setInitialCapacity(int numRecords, double density) {
+    if ((numRecords * density) >= Integer.MAX_VALUE) {
+      throw new OversizedAllocationException("Requested amount of memory is more than max allowed");
+    }
 
+    offsetAllocationSizeInBytes = numRecords * OFFSET_WIDTH;
+    sizeAllocationSizeInBytes = numRecords * SIZE_WIDTH;
+
+    int innerValueCapacity = Math.max((int) (numRecords * density), 1);
+
+    if (vector instanceof DensityAwareVector) {
+      ((DensityAwareVector) vector).setInitialCapacity(innerValueCapacity, density);
+    } else {
+      vector.setInitialCapacity(innerValueCapacity);
+    }
   }
 
+  /**
+   * Specialized version of setInitialTotalCapacity() for ListViewVector.
+   * This is used by some callers when they want to explicitly control and be
+   * conservative about memory allocated for inner data vector.
+   * This is very useful when we are working with memory constraints for a query
+   * and have a fixed amount of memory reserved for the record batch.
+   * In such cases, we are likely to face OOM or related problems when
+   * we reserve memory for a record batch with value count x and
+   * do setInitialCapacity(x) such that each vector allocates only
+   * what is necessary and not the default amount, but the multiplier
+   * forces the memory requirement to go beyond what was needed.
+   *
+   * @param numRecords value count
+   * @param totalNumberOfElements the total number of elements to allow
+   *                              for in this vector across all records.
+   */
   public void setInitialTotalCapacity(int numRecords, int totalNumberOfElements) {
-
+    offsetAllocationSizeInBytes = numRecords * OFFSET_WIDTH;
+    sizeAllocationSizeInBytes = numRecords * SIZE_WIDTH;
+    vector.setInitialCapacity(totalNumberOfElements);
   }
 
   @Override
@@ -221,12 +253,26 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
 
   @Override
   public int getBufferSize() {
-    return 0;
+    if (valueCount == 0) {
+      return 0;
+    }
+    return (valueCount * OFFSET_WIDTH) + (valueCount * SIZE_WIDTH) + vector.getBufferSize();
   }
 
   @Override
   public int getBufferSizeFor(int valueCount) {
-    return 0;
+    if (valueCount == 0) {
+      return 0;
+    }
+
+    int innerVectorValueCount = 0;
+
+    for (int i = 0; i < valueCount; i++) {
+      innerVectorValueCount += sizeBuffer.getInt(i * SIZE_WIDTH);
+    }
+
+    return (valueCount * OFFSET_WIDTH) + (valueCount * SIZE_WIDTH) +
+        vector.getBufferSizeFor(innerVectorValueCount);
   }
 
   @Override

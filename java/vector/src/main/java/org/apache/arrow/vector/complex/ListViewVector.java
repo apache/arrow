@@ -111,11 +111,13 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   @Override
   public void setInitialCapacity(int numRecords, double density) {
-
+    validityAllocationSizeInBytes = getValidityBufferSizeFromCount(numRecords);
+    super.setInitialCapacity(numRecords, density);
   }
 
   @Override
   public void setInitialTotalCapacity(int numRecords, int totalNumberOfElements) {
+    validityAllocationSizeInBytes = getValidityBufferSizeFromCount(numRecords);
     super.setInitialTotalCapacity(numRecords, totalNumberOfElements);
   }
 
@@ -342,14 +344,30 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     throw new UnsupportedOperationException();
   }
 
+  /**
+   * Get the size (number of bytes) of underlying buffers used by this
+   * vector.
+   * @return size of underlying buffers.
+   */
   @Override
   public int getBufferSize() {
-    return 0;
+    if (valueCount == 0) {
+      return 0;
+    }
+    final int offsetBufferSize = valueCount * OFFSET_WIDTH;
+    final int sizeBufferSize = valueCount * SIZE_WIDTH;
+    final int validityBufferSize = getValidityBufferSizeFromCount(valueCount);
+    return offsetBufferSize + sizeBufferSize + validityBufferSize + vector.getBufferSize();
   }
 
   @Override
   public int getBufferSizeFor(int valueCount) {
-    return 0;
+    if (valueCount == 0) {
+      return 0;
+    }
+    final int validityBufferSize = getValidityBufferSizeFromCount(valueCount);
+
+    return super.getBufferSizeFor(valueCount) + validityBufferSize;
   }
 
   @Override
@@ -428,13 +446,18 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   @Override
   public int getValueCapacity() {
-    return 0;
+    return getValidityAndOffsetValueCapacity();
   }
 
   private int getValidityAndSizeValueCapacity() {
     final int offsetValueCapacity = Math.max(getOffsetBufferValueCapacity(), 0);
     final int sizeValueCapacity = Math.max(getSizeBufferValueCapacity(), 0);
     return Math.min(offsetValueCapacity, sizeValueCapacity);
+  }
+
+  private int getValidityAndOffsetValueCapacity() {
+    final int offsetValueCapacity = Math.max(getOffsetBufferValueCapacity(), 0);
+    return Math.min(offsetValueCapacity, getValidityBufferValueCapacity());
   }
 
   private int getValidityBufferValueCapacity() {
@@ -705,5 +728,15 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     }
     final double totalListSize = getLengthOfChildVector();
     return totalListSize / valueCount;
+  }
+
+  /**
+   * End the current value.
+   *
+   * @param index index of the value to end
+   * @param size  number of elements in the list that was written
+   */
+  public void endValue(int index, int size) {
+    sizeBuffer.setInt(index * SIZE_WIDTH, size);
   }
 }

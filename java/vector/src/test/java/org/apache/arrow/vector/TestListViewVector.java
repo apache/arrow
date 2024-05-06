@@ -19,19 +19,27 @@ package org.apache.arrow.vector;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
 import org.apache.arrow.vector.complex.BaseRepeatedValueViewVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.ListViewVector;
 import org.apache.arrow.vector.complex.impl.UnionListViewWriter;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
+import org.apache.arrow.vector.holders.DurationHolder;
+import org.apache.arrow.vector.holders.TimeStampMilliTZHolder;
+import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.DataSizeRoundingUtil;
 import org.junit.jupiter.api.AfterEach;
@@ -779,6 +787,239 @@ public class TestListViewVector {
       String emptyVectorStr = listViewVector.getField().toString();
       assertTrue(emptyVectorStr.contains(ListVector.DATA_VECTOR_NAME));
     }
+  }
+
+  @Test
+  public void testSetInitialCapacity() {
+    try (final ListViewVector vector = ListViewVector.empty("", allocator)) {
+      vector.addOrGetVector(FieldType.nullable(MinorType.INT.getType()));
+
+      vector.setInitialCapacity(512);
+      vector.allocateNew();
+      assertEquals(512, vector.getValueCapacity());
+      assertTrue(vector.getDataVector().getValueCapacity() >= 512);
+
+      vector.setInitialCapacity(512, 4);
+      vector.allocateNew();
+      assertEquals(512, vector.getValueCapacity());
+      assertTrue(vector.getDataVector().getValueCapacity() >= 512 * 4);
+
+      vector.setInitialCapacity(512, 0.1);
+      vector.allocateNew();
+      assertEquals(512, vector.getValueCapacity());
+      assertTrue(vector.getDataVector().getValueCapacity() >= 51);
+
+      vector.setInitialCapacity(512, 0.01);
+      vector.allocateNew();
+      assertEquals(512, vector.getValueCapacity());
+      assertTrue(vector.getDataVector().getValueCapacity() >= 5);
+
+      vector.setInitialCapacity(5, 0.1);
+      vector.allocateNew();
+      assertEquals(8, vector.getValueCapacity());
+      assertTrue(vector.getDataVector().getValueCapacity() >= 1);
+    }
+  }
+
+  @Test
+  public void testClearAndReuse() {
+    try (final ListViewVector vector = ListViewVector.empty("list", allocator)) {
+      BigIntVector bigIntVector =
+          (BigIntVector) vector.addOrGetVector(FieldType.nullable(MinorType.BIGINT.getType())).getVector();
+      vector.setInitialCapacity(10);
+      vector.allocateNew();
+
+      vector.startNewValue(0);
+      bigIntVector.setSafe(0, 7);
+      vector.endValue(0, 1);
+      vector.startNewValue(1);
+      bigIntVector.setSafe(1, 8);
+      vector.endValue(1, 1);
+      vector.setValueCount(2);
+
+      Object result = vector.getObject(0);
+      ArrayList<Long> resultSet = (ArrayList<Long>) result;
+      assertEquals(Long.valueOf(7), resultSet.get(0));
+
+      result = vector.getObject(1);
+      resultSet = (ArrayList<Long>) result;
+      assertEquals(Long.valueOf(8), resultSet.get(0));
+
+      // Clear and release the buffers to trigger a realloc when adding next value
+      vector.clear();
+
+      // The list vector should reuse a buffer when reallocating the offset buffer
+      vector.startNewValue(0);
+      bigIntVector.setSafe(0, 7);
+      vector.endValue(0, 1);
+      vector.startNewValue(1);
+      bigIntVector.setSafe(1, 8);
+      vector.endValue(1, 1);
+      vector.setValueCount(2);
+
+      result = vector.getObject(0);
+      resultSet = (ArrayList<Long>) result;
+      assertEquals(Long.valueOf(7), resultSet.get(0));
+
+      result = vector.getObject(1);
+      resultSet = (ArrayList<Long>) result;
+      assertEquals(Long.valueOf(8), resultSet.get(0));
+    }
+  }
+
+  @Test
+  public void testWriterGetField() {
+    try (final ListViewVector vector = ListViewVector.empty("listview", allocator)) {
+
+      UnionListViewWriter writer = vector.getWriter();
+      writer.allocate();
+
+      //set some values
+      writer.startList();
+      writer.integer().writeInt(1);
+      writer.integer().writeInt(2);
+      writer.endList();
+      vector.setValueCount(2);
+
+      Field expectedDataField = new Field(BaseRepeatedValueVector.DATA_VECTOR_NAME,
+          FieldType.nullable(new ArrowType.Int(32, true)), null);
+      Field expectedField = new Field(vector.getName(), FieldType.nullable(ArrowType.ListView.INSTANCE),
+          Arrays.asList(expectedDataField));
+
+      assertEquals(expectedField, writer.getField());
+    }
+  }
+
+  @Test
+  public void testWriterUsingHolderGetTimestampMilliTZField() {
+    try (final ListViewVector vector = ListViewVector.empty("listview", allocator)) {
+      org.apache.arrow.vector.complex.writer.FieldWriter writer = vector.getWriter();
+      writer.allocate();
+
+      TimeStampMilliTZHolder holder = new TimeStampMilliTZHolder();
+      holder.timezone = "SomeFakeTimeZone";
+      writer.startList();
+      holder.value = 12341234L;
+      writer.timeStampMilliTZ().write(holder);
+      holder.value = 55555L;
+      writer.timeStampMilliTZ().write(holder);
+
+      // Writing with a different timezone should throw
+      holder.timezone = "AsdfTimeZone";
+      holder.value = 77777;
+      IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+          () -> writer.timeStampMilliTZ().write(holder));
+      assertEquals(
+          "holder.timezone: AsdfTimeZone not equal to vector timezone: SomeFakeTimeZone",
+          ex.getMessage());
+
+      writer.endList();
+      vector.setValueCount(1);
+
+      Field expectedDataField = new Field(BaseRepeatedValueVector.DATA_VECTOR_NAME,
+          FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MILLISECOND, "SomeFakeTimeZone")), null);
+      Field expectedField = new Field(vector.getName(), FieldType.nullable(ArrowType.ListView.INSTANCE),
+          Arrays.asList(expectedDataField));
+
+      assertEquals(expectedField, writer.getField());
+    }
+  }
+
+  @Test
+  public void testWriterGetDurationField() {
+    try (final ListViewVector vector = ListViewVector.empty("listview", allocator)) {
+      org.apache.arrow.vector.complex.writer.FieldWriter writer = vector.getWriter();
+      writer.allocate();
+
+      DurationHolder durationHolder = new DurationHolder();
+      durationHolder.unit = TimeUnit.MILLISECOND;
+
+      writer.startList();
+      durationHolder.value = 812374L;
+      writer.duration().write(durationHolder);
+      durationHolder.value = 143451L;
+      writer.duration().write(durationHolder);
+
+      // Writing with a different unit should throw
+      durationHolder.unit = TimeUnit.SECOND;
+      durationHolder.value = 8888888;
+      IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+          () -> writer.duration().write(durationHolder));
+      assertEquals(
+          "holder.unit: SECOND not equal to vector unit: MILLISECOND", ex.getMessage());
+
+      writer.endList();
+      vector.setValueCount(1);
+
+      Field expectedDataField = new Field(BaseRepeatedValueVector.DATA_VECTOR_NAME,
+          FieldType.nullable(new ArrowType.Duration(TimeUnit.MILLISECOND)), null);
+      Field expectedField = new Field(vector.getName(),
+          FieldType.nullable(ArrowType.ListView.INSTANCE),
+          Arrays.asList(expectedDataField));
+
+      assertEquals(expectedField, writer.getField());
+    }
+  }
+
+  @Test
+  public void testClose() throws Exception {
+    try (final ListViewVector vector = ListViewVector.empty("listview", allocator)) {
+
+      UnionListViewWriter writer = vector.getWriter();
+      writer.allocate();
+
+      //set some values
+      writer.startList();
+      writer.integer().writeInt(1);
+      writer.integer().writeInt(2);
+      writer.endList();
+      vector.setValueCount(2);
+
+      assertTrue(vector.getBufferSize() > 0);
+      assertTrue(vector.getDataVector().getBufferSize() > 0);
+
+      writer.close();
+      assertEquals(0, vector.getBufferSize());
+      assertEquals(0, vector.getDataVector().getBufferSize());
+    }
+  }
+
+  @Test
+  public void testGetBufferSizeFor() {
+    try (final ListViewVector vector = ListViewVector.empty("list", allocator)) {
+
+      UnionListViewWriter writer = vector.getWriter();
+      writer.allocate();
+
+      //set some values
+      writeIntValues(writer, new int[] {1, 2});
+      writeIntValues(writer, new int[] {3, 4});
+      writeIntValues(writer, new int[] {5, 6});
+      writeIntValues(writer, new int[] {7, 8, 9, 10});
+      writeIntValues(writer, new int[] {11, 12, 13, 14});
+      writer.setValueCount(5);
+
+      IntVector dataVector = (IntVector) vector.getDataVector();
+      int[] indices = new int[] {0, 2, 4, 6, 10, 14};
+
+      for (int valueCount = 1; valueCount <= 5; valueCount++) {
+        int validityBufferSize = BitVectorHelper.getValidityBufferSize(valueCount);
+        int offsetBufferSize = valueCount * BaseRepeatedValueViewVector.OFFSET_WIDTH;
+        int sizeBufferSize = valueCount * BaseRepeatedValueViewVector.SIZE_WIDTH;
+
+        int expectedSize = validityBufferSize + offsetBufferSize + sizeBufferSize +
+            dataVector.getBufferSizeFor(indices[valueCount]);
+        assertEquals(expectedSize, vector.getBufferSizeFor(valueCount));
+      }
+    }
+  }
+
+  private void writeIntValues(UnionListViewWriter writer, int[] values) {
+    writer.startList();
+    for (int v: values) {
+      writer.integer().writeInt(v);
+    }
+    writer.endList();
   }
 
 }
