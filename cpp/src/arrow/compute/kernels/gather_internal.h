@@ -149,7 +149,7 @@ class GatherBaseCRTP {
 template <int kValueWidthInBits, typename IndexCType, bool kWithFactor>
 class Gather : public GatherBaseCRTP<Gather<kValueWidthInBits, IndexCType, kWithFactor>> {
  public:
-  static_assert(kValueWidthInBits % 8 == 0);
+  static_assert(kValueWidthInBits >= 0 && kValueWidthInBits % 8 == 0);
   static constexpr int kValueWidth = kValueWidthInBits / 8;
 
  private:
@@ -158,12 +158,12 @@ class Gather : public GatherBaseCRTP<Gather<kValueWidthInBits, IndexCType, kWith
   const int64_t idx_length_;  // number IndexCType elements in idx_
   const IndexCType* idx_;
   uint8_t* out_;
-  size_t factor_;
+  int64_t factor_;
 
  public:
   void WriteValue(int64_t position) {
     if constexpr (kWithFactor) {
-      const size_t scaled_factor = kValueWidth * factor_;
+      const int64_t scaled_factor = kValueWidth * factor_;
       memcpy(out_ + position * scaled_factor, src_ + idx_[position] * scaled_factor,
              scaled_factor);
     } else {
@@ -174,7 +174,7 @@ class Gather : public GatherBaseCRTP<Gather<kValueWidthInBits, IndexCType, kWith
 
   void WriteZero(int64_t position) {
     if constexpr (kWithFactor) {
-      const size_t scaled_factor = kValueWidth * factor_;
+      const int64_t scaled_factor = kValueWidth * factor_;
       memset(out_ + position * scaled_factor, 0, scaled_factor);
     } else {
       memset(out_ + position * kValueWidth, 0, kValueWidth);
@@ -183,7 +183,7 @@ class Gather : public GatherBaseCRTP<Gather<kValueWidthInBits, IndexCType, kWith
 
   void WriteZeroSegment(int64_t position, int64_t length) {
     if constexpr (kWithFactor) {
-      const size_t scaled_factor = kValueWidth * factor_;
+      const int64_t scaled_factor = kValueWidth * factor_;
       memset(out_ + position * scaled_factor, 0, length * scaled_factor);
     } else {
       memset(out_ + position * kValueWidth, 0, length * kValueWidth);
@@ -192,7 +192,7 @@ class Gather : public GatherBaseCRTP<Gather<kValueWidthInBits, IndexCType, kWith
 
  public:
   Gather(int64_t src_length, const uint8_t* src, int64_t zero_src_offset,
-         int64_t idx_length, const IndexCType* idx, uint8_t* out, size_t factor)
+         int64_t idx_length, const IndexCType* idx, uint8_t* out, int64_t factor)
       : src_length_(src_length),
         src_(src),
         idx_length_(idx_length),
@@ -239,7 +239,7 @@ class Gather</*kValueWidthInBits=*/1, IndexCType, /*kWithFactor=*/false>
 
  public:
   Gather(int64_t src_length, const uint8_t* src, int64_t src_offset, int64_t idx_length,
-         const IndexCType* idx, uint8_t* out, size_t factor)
+         const IndexCType* idx, uint8_t* out, int64_t factor)
       : src_length_(src_length),
         src_(src),
         src_offset_(src_offset),

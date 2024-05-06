@@ -354,7 +354,7 @@ struct FixedWidthTakeImpl {
   static constexpr int kValueWidthInBits = ValueBitWidthConstant::value;
 
   static void Exec(KernelContext* ctx, const ArraySpan& values, const ArraySpan& indices,
-                   ArrayData* out_arr, size_t factor) {
+                   ArrayData* out_arr, int64_t factor) {
 #ifndef NDEBUG
     int64_t bit_width = util::FixedWidthInBits(*values.type);
     DCHECK(WithFactor::value || (kValueWidthInBits == bit_width && factor == 1));
@@ -394,7 +394,7 @@ struct FixedWidthTakeImpl {
 
 template <template <typename...> class TakeImpl, typename... Args>
 void TakeIndexDispatch(KernelContext* ctx, const ArraySpan& values,
-                       const ArraySpan& indices, ArrayData* out, size_t factor = 1) {
+                       const ArraySpan& indices, ArrayData* out, int64_t factor = 1) {
   // With the simplifying assumption that boundschecking has taken place
   // already at a higher level, we can now assume that the index values are all
   // non-negative. Thus, we can interpret signed integers as unsigned and avoid
@@ -482,9 +482,8 @@ Status FixedWidthTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult*
         TakeIndexDispatch<FixedWidthTakeImpl,
                           /*ValueBitWidth=*/std::integral_constant<int, 8>,
                           /*OutputIsZeroInitialized=*/std::false_type,
-                          /*WithFactor=*/std::true_type>(
-            ctx, values, indices, out_arr,
-            /*factor=*/static_cast<size_t>(byte_width));
+                          /*WithFactor=*/std::true_type>(ctx, values, indices, out_arr,
+                                                         /*factor=*/byte_width);
       } else {
         return Status::NotImplemented("Unsupported primitive type for take: ",
                                       *values.type);
