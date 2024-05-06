@@ -34,9 +34,6 @@
 #ifdef ARROW_HDFS
 #include "arrow/filesystem/hdfs.h"
 #endif
-#ifdef ARROW_S3
-#include "arrow/filesystem/s3fs.h"
-#endif
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/filesystem/path_util.h"
@@ -749,7 +746,7 @@ class FileSystemFactoryRegistry {
     if (finalized_) return;
 
     for (const auto& [_, registered_or_error] : scheme_to_factory_) {
-      if (!registered_or_error.ok()) continue;
+      if (!registered_or_error.ok() || !registered_or_error->finalizer) continue;
       registered_or_error->finalizer();
     }
     finalized_ = true;
@@ -894,18 +891,6 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
     return Status::NotImplemented(
         "Got HDFS URI but Arrow compiled "
         "without HDFS support");
-#endif
-  }
-  if (scheme == "s3") {
-#ifdef ARROW_S3
-    RETURN_NOT_OK(EnsureS3Initialized());
-    ARROW_ASSIGN_OR_RAISE(auto options, S3Options::FromUri(uri, out_path));
-    ARROW_ASSIGN_OR_RAISE(auto s3fs, S3FileSystem::Make(options, io_context));
-    return s3fs;
-#else
-    return Status::NotImplemented(
-        "Got S3 URI but Arrow compiled "
-        "without S3 support");
 #endif
   }
 
