@@ -21,6 +21,7 @@ import static java.util.Collections.singletonList;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -128,9 +129,33 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   }
 
+  /**
+   * Set the reader and writer indexes for the inner buffers.
+   */
+  private void setReaderAndWriterIndex() {
+    validityBuffer.readerIndex(0);
+    offsetBuffer.readerIndex(0);
+    sizeBuffer.readerIndex(0);
+    if (valueCount == 0) {
+      validityBuffer.writerIndex(0);
+      offsetBuffer.writerIndex(0);
+      sizeBuffer.writerIndex(0);
+    } else {
+      validityBuffer.writerIndex(getValidityBufferSizeFromCount(valueCount));
+      offsetBuffer.writerIndex(valueCount * OFFSET_WIDTH);
+      sizeBuffer.writerIndex(valueCount * SIZE_WIDTH);
+    }
+  }
+
   @Override
   public List<ArrowBuf> getFieldBuffers() {
-    return null;
+    List<ArrowBuf> result = new ArrayList<>(2);
+    setReaderAndWriterIndex();
+    result.add(validityBuffer);
+    result.add(offsetBuffer);
+    result.add(sizeBuffer);
+
+    return result;
   }
 
   @Override
@@ -668,5 +693,17 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
   @Override
   public int getValueCount() {
     return valueCount;
+  }
+
+  /**
+   * Get the density of this ListVector.
+   * @return density
+   */
+  public double getDensity() {
+    if (valueCount == 0) {
+      return 0.0D;
+    }
+    final double totalListSize = getLengthOfChildVector();
+    return totalListSize / valueCount;
   }
 }

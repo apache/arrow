@@ -19,8 +19,10 @@ package org.apache.arrow.vector;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -352,7 +354,7 @@ public class TestListViewVector {
   }
 
   @Test
-  public void testNestedListVector1() throws Exception {
+  public void testNestedListVector() throws Exception {
     try (ListViewVector listViewVector = ListViewVector.empty("sourceVector", allocator)) {
 
       MinorType listType = MinorType.LISTVIEW;
@@ -466,10 +468,10 @@ public class TestListViewVector {
   @Test
   public void testBasicListViewSetNested() {
     // Expected listview
-    // [[[50,100,200],[75,125,150,175]], [[10],[15,20],[25,30,35]]]
+    // [[[50,100,200],[75,125,150,175]],[[10],[15,20],[25,30,35]]]
 
     // Setting child vector
-    // [[50,100,200],[75,125,150,175]], [10],[15,20],[25,30,35]]
+    // [[50,100,200],[75,125,150,175],[10],[15,20],[25,30,35]]
     ListVector listVector = ListVector.empty("nestedVector", allocator);
 
     UnionListWriter listWriter = listVector.getWriter();
@@ -703,6 +705,80 @@ public class TestListViewVector {
     assertEquals(4, listViewVector.getLastSet());
 
     listViewVector.close();
+  }
+
+  @Test
+  public void testGetBufferAddress() throws Exception {
+    try (ListViewVector listViewVector = ListViewVector.empty("vector", allocator)) {
+
+      UnionListViewWriter listViewWriter = listViewVector.getWriter();
+      boolean error = false;
+
+      listViewWriter.allocate();
+
+      listViewWriter.setPosition(0);
+      listViewWriter.startList();
+      listViewWriter.bigInt().writeBigInt(50);
+      listViewWriter.bigInt().writeBigInt(100);
+      listViewWriter.bigInt().writeBigInt(200);
+      listViewWriter.endList();
+
+      listViewWriter.setPosition(1);
+      listViewWriter.startList();
+      listViewWriter.bigInt().writeBigInt(250);
+      listViewWriter.bigInt().writeBigInt(300);
+      listViewWriter.endList();
+
+      listViewVector.setValueCount(2);
+
+      /* check listVector contents */
+      Object result = listViewVector.getObject(0);
+      ArrayList<Long> resultSet = (ArrayList<Long>) result;
+      assertEquals(3, resultSet.size());
+      assertEquals(Long.valueOf(50), resultSet.get(0));
+      assertEquals(Long.valueOf(100), resultSet.get(1));
+      assertEquals(Long.valueOf(200), resultSet.get(2));
+
+      result = listViewVector.getObject(1);
+      resultSet = (ArrayList<Long>) result;
+      assertEquals(2, resultSet.size());
+      assertEquals(Long.valueOf(250), resultSet.get(0));
+      assertEquals(Long.valueOf(300), resultSet.get(1));
+
+      List<ArrowBuf> buffers = listViewVector.getFieldBuffers();
+
+      long bitAddress = listViewVector.getValidityBufferAddress();
+      long offsetAddress = listViewVector.getOffsetBufferAddress();
+      long sizeAddress = listViewVector.getSizeBufferAddress();
+
+      try {
+        listViewVector.getDataBufferAddress();
+      } catch (UnsupportedOperationException ue) {
+        error = true;
+      } finally {
+        assertTrue(error);
+      }
+
+      assertEquals(3, buffers.size());
+      assertEquals(bitAddress, buffers.get(0).memoryAddress());
+      assertEquals(offsetAddress, buffers.get(1).memoryAddress());
+      assertEquals(sizeAddress, buffers.get(2).memoryAddress());
+
+      /* (3+2)/2 */
+      assertEquals(2.5, listViewVector.getDensity(), 0);
+    }
+  }
+
+  @Test
+  public void testConsistentChildName() throws Exception {
+    try (ListViewVector listViewVector = ListViewVector.empty("sourceVector", allocator)) {
+      String emptyListStr = listViewVector.getField().toString();
+      assertTrue(emptyListStr.contains(ListVector.DATA_VECTOR_NAME));
+
+      listViewVector.addOrGetVector(FieldType.nullable(MinorType.INT.getType()));
+      String emptyVectorStr = listViewVector.getField().toString();
+      assertTrue(emptyVectorStr.contains(ListVector.DATA_VECTOR_NAME));
+    }
   }
 
 }
