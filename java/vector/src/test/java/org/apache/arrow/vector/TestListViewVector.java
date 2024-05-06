@@ -439,15 +439,15 @@ public class TestListViewVector {
    */
   @Test
   public void testBasicListViewAddition() {
-    try (ListViewVector listViewVector = ListViewVector.empty("sourceVector", allocator);
-        BigIntVector elementVector = new BigIntVector("element-vector", allocator)) {
+    try (ListViewVector listViewVector = ListViewVector.empty("sourceVector", allocator)) {
 
       listViewVector.allocateNew();
 
       try (ArrowBuf newOffSetBuf = allocator.buffer(1024);
           ArrowBuf newSizeBuffer = allocator.buffer(1024);
           ArrowBuf validityBuffer = allocator.buffer(
-              DataSizeRoundingUtil.divideBy8Ceil(1024))) {
+              DataSizeRoundingUtil.divideBy8Ceil(1024));
+          BigIntVector elementVector = new BigIntVector("element-vector", allocator)) {
         elementVector.allocateNew(7);
 
         elementVector.set(0, 12);
