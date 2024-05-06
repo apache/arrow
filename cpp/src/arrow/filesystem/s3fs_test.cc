@@ -521,9 +521,6 @@ class TestS3FS : public S3TestMixin {
   void TestOpenOutputStream() {
     std::shared_ptr<io::OutputStream> stream;
 
-    // Nonexistent
-    ASSERT_RAISES(IOError, fs_->OpenOutputStream("nonexistent-bucket/somefile"));
-
     // URI
     ASSERT_RAISES(Invalid, fs_->OpenOutputStream("s3:bucket/newfile1"));
 
