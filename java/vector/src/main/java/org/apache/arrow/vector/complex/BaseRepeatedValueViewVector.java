@@ -103,7 +103,7 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
     sizeBuffer = allocateSizeBuffer(sizeAllocationSizeInBytes);
   }
 
-  private ArrowBuf allocateOffsetBuffer(final long size) {
+  protected ArrowBuf allocateOffsetBuffer(final long size) {
     final int curSize = (int) size;
     ArrowBuf offsetBuffer = allocator.buffer(curSize);
     offsetBuffer.readerIndex(0);
@@ -112,7 +112,7 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
     return offsetBuffer;
   }
 
-  private ArrowBuf allocateSizeBuffer(final long size) {
+  protected ArrowBuf allocateSizeBuffer(final long size) {
     final int curSize = (int) size;
     ArrowBuf sizeBuffer = allocator.buffer(curSize);
     sizeBuffer.readerIndex(0);
@@ -291,7 +291,10 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
 
   @Override
   public void reset() {
-
+    offsetBuffer.setZero(0, offsetBuffer.capacity());
+    sizeBuffer.setZero(0, sizeBuffer.capacity());
+    vector.reset();
+    valueCount = 0;
   }
 
   @Override

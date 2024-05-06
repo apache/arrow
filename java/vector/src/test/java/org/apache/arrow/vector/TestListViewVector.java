@@ -869,6 +869,7 @@ public class TestListViewVector {
 
   @Test
   public void testWriterGetField() {
+    // adopted from ListVector test cases
     try (final ListViewVector vector = ListViewVector.empty("listview", allocator)) {
 
       UnionListViewWriter writer = vector.getWriter();
@@ -892,6 +893,7 @@ public class TestListViewVector {
 
   @Test
   public void testWriterUsingHolderGetTimestampMilliTZField() {
+    // adopted from ListVector test cases
     try (final ListViewVector vector = ListViewVector.empty("listview", allocator)) {
       org.apache.arrow.vector.complex.writer.FieldWriter writer = vector.getWriter();
       writer.allocate();
@@ -927,6 +929,7 @@ public class TestListViewVector {
 
   @Test
   public void testWriterGetDurationField() {
+    // adopted from ListVector test cases
     try (final ListViewVector vector = ListViewVector.empty("listview", allocator)) {
       org.apache.arrow.vector.complex.writer.FieldWriter writer = vector.getWriter();
       writer.allocate();
@@ -986,7 +989,7 @@ public class TestListViewVector {
 
   @Test
   public void testGetBufferSizeFor() {
-    try (final ListViewVector vector = ListViewVector.empty("list", allocator)) {
+    try (final ListViewVector vector = ListViewVector.empty("listview", allocator)) {
 
       UnionListViewWriter writer = vector.getWriter();
       writer.allocate();
@@ -1011,6 +1014,49 @@ public class TestListViewVector {
             dataVector.getBufferSizeFor(indices[valueCount]);
         assertEquals(expectedSize, vector.getBufferSizeFor(valueCount));
       }
+    }
+  }
+
+  @Test
+  public void testIsEmpty() {
+    try (final ListViewVector vector = ListViewVector.empty("listview", allocator)) {
+      UnionListViewWriter writer = vector.getWriter();
+      writer.allocate();
+
+      // set values [1,2], null, [], [5,6]
+      writeIntValues(writer, new int[] {1, 2});
+      writer.setPosition(2);
+      writeIntValues(writer, new int[] {});
+      writeIntValues(writer, new int[] {5, 6});
+      writer.setValueCount(4);
+
+      assertFalse(vector.isEmpty(0));
+      assertTrue(vector.isNull(1));
+      assertTrue(vector.isEmpty(1));
+      assertFalse(vector.isNull(2));
+      assertTrue(vector.isEmpty(2));
+      assertFalse(vector.isEmpty(3));
+    }
+  }
+
+  @Test
+  public void testTotalCapacity() {
+    // adopted from ListVector test cases
+    final FieldType type = FieldType.nullable(MinorType.INT.getType());
+    try (final ListViewVector vector = new ListViewVector("list", allocator, type, null)) {
+      // Force the child vector to be allocated based on the type
+      // (this is a bad API: we have to track and repeat the type twice)
+      vector.addOrGetVector(type);
+
+      // Specify the allocation size but do not allocate
+      vector.setInitialTotalCapacity(10, 100);
+
+      // Finally, actually do the allocation
+      vector.allocateNewSafe();
+
+      // Note: allocator rounds up and can be greater than the requested allocation.
+      assertTrue(vector.getValueCapacity() >= 10);
+      assertTrue(vector.getDataVector().getValueCapacity() >= 100);
     }
   }
 

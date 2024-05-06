@@ -20,6 +20,7 @@ package org.apache.arrow.vector.complex;
 import static java.util.Collections.singletonList;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
+import static org.apache.arrow.util.Preconditions.checkArgument;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -29,6 +30,8 @@ import java.util.Objects;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
+import org.apache.arrow.memory.util.ArrowBufPointer;
+import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.vector.AddOrGetResult;
@@ -100,7 +103,15 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   @Override
   public void initializeChildrenFromFields(List<Field> children) {
+    checkArgument(children.size() == 1,
+        "ListViews have one child Field. Found: %s", children.isEmpty() ? "none" : children);
 
+    Field field = children.get(0);
+    AddOrGetResult<FieldVector> addOrGetVector = addOrGetVector(field.getFieldType());
+    checkArgument(addOrGetVector.isCreated(), "Child vector already existed: %s", addOrGetVector.getVector());
+
+    addOrGetVector.getVector().initializeChildrenFromFields(field.getChildren());
+    this.field = new Field(this.field.getName(), this.field.getFieldType(), children);
   }
 
   @Override
@@ -109,12 +120,52 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     super.setInitialCapacity(numRecords);
   }
 
+  /**
+   * Specialized version of setInitialCapacity() for ListViewVector.
+   * This is used by some callers when they want to explicitly control and be
+   * conservative about memory allocated for inner data vector.
+   * This is very useful when we are working with memory constraints for a query
+   * and have a fixed amount of memory reserved for the record batch.
+   * In such cases, we are likely to face OOM or related problems when
+   * we reserve memory for a record batch with value count x and
+   * do setInitialCapacity(x) such that each vector allocates only
+   * what is necessary and not the default amount, but the multiplier
+   * forces the memory requirement to go beyond what was needed.
+   *
+   * @param numRecords value count
+   * @param density density of ListViewVector.
+   *                Density is the average size of a list per position in the ListViewVector.
+   *                For example, a
+   *                density value of 10 implies each position in the list
+   *                vector has a list of 10 values.
+   *                A density value of 0.1 implies out of 10 positions in
+   *                the list vector, 1 position has a list of size 1, and
+   *                the remaining positions are null (no lists) or empty lists.
+   *                This helps in tightly controlling the memory we provision
+   *                for inner data vector.
+   */
   @Override
   public void setInitialCapacity(int numRecords, double density) {
     validityAllocationSizeInBytes = getValidityBufferSizeFromCount(numRecords);
     super.setInitialCapacity(numRecords, density);
   }
 
+  /**
+   * Specialized version of setInitialTotalCapacity() for ListViewVector.
+   * This is used by some callers when they want to explicitly control and be
+   * conservative about memory allocated for inner data vector.
+   * This is very useful when we are working with memory constraints for a query
+   * and have a fixed amount of memory reserved for the record batch.
+   * In such cases, we are likely to face OOM or related problems when
+   * we reserve memory for a record batch with value count x and
+   * do setInitialCapacity(x) such that each vector allocates only
+   * what is necessary and not the default amount, but the multiplier
+   * forces the memory requirement to go beyond what was needed.
+   *
+   * @param numRecords value count
+   * @param totalNumberOfElements the total number of elements to allow
+   *                              for in this vector across all records.
+   */
   @Override
   public void setInitialTotalCapacity(int numRecords, int totalNumberOfElements) {
     validityAllocationSizeInBytes = getValidityBufferSizeFromCount(numRecords);
@@ -128,7 +179,28 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   @Override
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
+    if (ownBuffers.size() != 3) {
+      throw new IllegalArgumentException("Illegal buffer count, expected " +
+          3 + ", got: " + ownBuffers.size());
+    }
 
+    ArrowBuf bitBuffer = ownBuffers.get(0);
+    ArrowBuf offBuffer = ownBuffers.get(1);
+    ArrowBuf szBuffer = ownBuffers.get(2);
+
+    validityBuffer.getReferenceManager().release();
+    validityBuffer = BitVectorHelper.loadValidityBuffer(fieldNode, bitBuffer, allocator);
+    offsetBuffer.getReferenceManager().release();
+    offsetBuffer = offBuffer.getReferenceManager().retain(offBuffer, allocator);
+    sizeBuffer.getReferenceManager().release();
+    sizeBuffer = offBuffer.getReferenceManager().retain(szBuffer, allocator);
+
+    validityAllocationSizeInBytes = checkedCastToInt(validityBuffer.capacity());
+    offsetAllocationSizeInBytes = offsetBuffer.capacity();
+    sizeAllocationSizeInBytes = sizeBuffer.capacity();
+
+    lastSet = fieldNode.getLength() - 1;
+    valueCount = fieldNode.getLength();
   }
 
   /**
@@ -160,9 +232,14 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     return result;
   }
 
+  /**
+   * Export the buffers of the fields for C Data Interface.
+   * This method traverses the buffers and export buffer and buffer's memory address into a list of
+   * buffers and a pointer to the list of buffers.
+   */
   @Override
   public void exportCDataBuffers(List<ArrowBuf> buffers, ArrowBuf buffersPtr, long nullValue) {
-
+    throw new UnsupportedOperationException("exportCDataBuffers Not implemented yet");
   }
 
   @Override
@@ -244,11 +321,16 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   @Override
   public void copyFromSafe(int inIndex, int outIndex, ValueVector from) {
+    // TODO: https://github.com/apache/arrow/issues/41270
+    throw new UnsupportedOperationException(
+        "ListViewVector does not support copyFromSafe operation yet.");
   }
 
   @Override
   public void copyFrom(int inIndex, int outIndex, ValueVector from) {
-
+    // TODO: https://github.com/apache/arrow/issues/41270
+    throw new UnsupportedOperationException(
+        "ListViewVector does not support copyFrom operation yet.");
   }
 
   @Override
@@ -268,17 +350,23 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
-    throw new UnsupportedOperationException();
+    // TODO: https://github.com/apache/arrow/issues/41269
+    throw new UnsupportedOperationException(
+        "ListVector does not support getTransferPair(String, BufferAllocator, CallBack) yet");
   }
 
   @Override
   public TransferPair getTransferPair(Field field, BufferAllocator allocator, CallBack callBack) {
-    throw new UnsupportedOperationException();
+    // TODO: https://github.com/apache/arrow/issues/41269
+    throw new UnsupportedOperationException(
+        "ListVector does not support getTransferPair(Field, BufferAllocator, CallBack) yet");
   }
 
   @Override
   public TransferPair makeTransferPair(ValueVector target) {
-    throw new UnsupportedOperationException();
+    // TODO: https://github.com/apache/arrow/issues/41269
+    throw new UnsupportedOperationException(
+        "ListVector does not support makeTransferPair(ValueVector) yet");
   }
 
   @Override
@@ -326,7 +414,16 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   @Override
   public int hashCode(int index, ArrowBufHasher hasher) {
-    return 0;
+    if (isSet(index) == 0) {
+      return ArrowBufPointer.NULL_HASH_CODE;
+    }
+    int hash = 0;
+    final int start = offsetBuffer.getInt(index * OFFSET_WIDTH);
+    final int end = sizeBuffer.getInt(index * OFFSET_WIDTH);
+    for (int i = start; i < end; i++) {
+      hash = ByteFunctionHelpers.combineHash(hash, vector.hashCode(i, hasher));
+    }
+    return hash;
   }
 
   @Override
@@ -336,11 +433,13 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   @Override
   protected FieldReader getReaderImpl() {
+    // TODO:
     throw new UnsupportedOperationException();
   }
 
   @Override
   public UnionListReader getReader() {
+    // TODO:
     throw new UnsupportedOperationException();
   }
 
@@ -393,6 +492,9 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   @Override
   public void reset() {
+    super.reset();
+    validityBuffer.setZero(0, validityBuffer.capacity());
+    lastSet = -1;
   }
 
   @Override
@@ -423,7 +525,11 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   @Override
   public boolean isEmpty(int index) {
-    return false;
+    if (isNull(index)) {
+      return true;
+    } else {
+      return sizeBuffer.getInt(index * SIZE_WIDTH) == 0;
+    }
   }
 
   /**
@@ -439,9 +545,14 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     return (b >> bitIndex) & 0x01;
   }
 
+  /**
+   * Get the number of elements that are null in the vector.
+   *
+   * @return the number of null elements.
+   */
   @Override
   public int getNullCount() {
-    return 0;
+    return BitVectorHelper.getNullCount(validityBuffer, valueCount);
   }
 
   @Override
@@ -466,7 +577,23 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   @Override
   public void setNull(int index) {
+    // TODO: test this function
+    while (index >= getValidityAndSizeValueCapacity()) {
+      reallocValidityAndSizeAndOffsetBuffers();
+    }
+    if (lastSet >= index) {
+      lastSet = index - 1;
+    }
 
+    for (int i = lastSet + 1; i <= index; i++) {
+      final int prevOffSet = offsetBuffer.getInt((i - 1L) * OFFSET_WIDTH);
+      final int prevSize = sizeBuffer.getInt((i - 1L) * SIZE_WIDTH);
+      final int currOffSet = prevOffSet + prevSize;
+      offsetBuffer.setInt(i * OFFSET_WIDTH, currOffSet);
+    }
+
+    BitVectorHelper.unsetBit(validityBuffer, index);
+    lastSet = index;
   }
 
   /**
@@ -665,12 +792,12 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   @Override
   public int getElementStartIndex(int index) {
-    return 0;
+    return offsetBuffer.getInt(index * OFFSET_WIDTH);
   }
 
   @Override
   public int getElementEndIndex(int index) {
-    return 0;
+    return sizeBuffer.getInt(index * OFFSET_WIDTH);
   }
 
   @Override
