@@ -115,12 +115,16 @@ namespace Apache.Arrow.Tests
         [Fact]
         public void ArrayAsReadOnlyList()
         {
-            TestArrayAsReadOnlyList<byte, UInt8Array, UInt8Array.Builder>(new byte[] { 1, 2 });
             TestArrayAsReadOnlyList<long, Int64Array, Int64Array.Builder>(new long[] { 1, 2 });
+            TestArrayAsReadOnlyList<byte, UInt8Array, UInt8Array.Builder>(new byte[] { 1, 2 });
+            TestArrayAsReadOnlyList<bool, BooleanArray, BooleanArray.Builder>(new[] { true, false });
             TestArrayAsReadOnlyList<DateTime, Date32Array, Date32Array.Builder>(new[] { DateTime.MinValue.Date, DateTime.MaxValue.Date });
             TestArrayAsReadOnlyList<DateTime, Date64Array, Date64Array.Builder>(new[] { DateTime.MinValue.Date, DateTime.MaxValue.Date });
+            TestArrayAsReadOnlyList<DateTimeOffset, TimestampArray, TimestampArray.Builder>(new[] { DateTimeOffset.MinValue, DateTimeOffset.MinValue.AddYears(100) });
 
 #if NET5_0_OR_GREATER
+            TestArrayAsReadOnlyList<DateOnly, Date32Array, Date32Array.Builder>(new[] { DateOnly.MinValue, DateOnly.MaxValue });
+            TestArrayAsReadOnlyList<DateOnly, Date64Array, Date64Array.Builder>(new[] { DateOnly.MinValue, DateOnly.MaxValue});
             TestArrayAsReadOnlyList<TimeOnly, Time32Array, Time32Array.Builder>(new[] { TimeOnly.MinValue, TimeOnly.MinValue.AddHours(23) });
             TestArrayAsReadOnlyList<TimeOnly, Time64Array, Time64Array.Builder>(new[] { TimeOnly.MinValue, TimeOnly.MaxValue });
             TestArrayAsReadOnlyList<Half, HalfFloatArray, HalfFloatArray.Builder>(new[] { (Half)1.1, (Half)2.2f });
@@ -163,10 +167,11 @@ namespace Apache.Arrow.Tests
             TestPrimitiveArrayAsCollection<Half, HalfFloatArray, HalfFloatArray.Builder>(new[] { (Half)1.1, (Half)2.2f, (Half)3.3f, (Half)4.4f });
 #endif
 
-            var builder = new BinaryArray.Builder();
-            byte[][] values = { new byte[1], System.Array.Empty<byte>(), new byte[] { 255 }, new byte[2] };
-            BinaryArray array = builder.Append(values[0].AsEnumerable()).AppendNull().Append(values[1].AsEnumerable()).Append(values[0].AsEnumerable()).Build();
-            TestObjectArrayAsCollection(array, System.Array.Empty<byte>(), values);
+            byte[][] byteArrs = { new byte[1], System.Array.Empty<byte>(), new byte[] { 255 }, new byte[2] };
+            TestObjectArrayAsCollection(new BinaryArray.Builder().Append(byteArrs[0].AsEnumerable()).AppendNull().Append(byteArrs[1].AsEnumerable()).Append(byteArrs[0].AsEnumerable()).Build(), System.Array.Empty<byte>(), byteArrs);
+
+            string[] strings = { "abc", "abd", "acd", "adc" };
+            TestObjectArrayAsCollection(new StringArray.Builder().Append(strings[0]).AppendNull().Append(strings[1]).Append(strings[0]).Build(), null, strings);
         }
 
         // Parameter 'values' must contain four values. The last value must be distinct from the rest.
