@@ -2767,8 +2767,9 @@ class DeltaLengthByteArrayEncoder : public EncoderImpl,
             return Status::Invalid(
                 "Parquet cannot store strings with size 2GB or more, got: ", view.size());
           }
-          if (ARROW_PREDICT_FALSE(view.size() + sink_.length() >
-                                  std::numeric_limits<int32_t>::max())) {
+          if (ARROW_PREDICT_FALSE(
+                  view.size() + sink_.length() >
+                  static_cast<size_t>(std::numeric_limits<int32_t>::max()))) {
             return Status::Invalid("excess expansion in DELTA_LENGTH_BYTE_ARRAY");
           }
           length_encoder_.Put({static_cast<int32_t>(view.length())}, 1);
