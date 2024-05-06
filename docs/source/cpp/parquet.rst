@@ -542,19 +542,6 @@ As an example, when serializing an Arrow LargeList to Parquet:
   :func:`ArrowWriterProperties::store_schema` was enabled when writing the file;
   otherwise, it is decoded as an Arrow List.
 
-Field Id
---------
-
-The Parquet format supports an optional integer "field id" which can be assigned
-to a field. This is used for example in the
-`Apache Iceberg specification <https://github.com/apache/iceberg/blob/main/format/spec.md#column-projection>`__.
-
-On the writer side, If ``PARQUET:field_id`` is present as a metadata key on an Arrow field, 
-and the corresponding value is a non-negative integer, then it will be used as 
-the "field id" in the Parquet file.
-
-On the reader side, Arrow will convert these "field id"s to a metadata key named
-``PARQUET:field_id`` on the corresponding Arrow field.
 
 Serialization details
 """""""""""""""""""""
@@ -562,6 +549,20 @@ Serialization details
 The Arrow schema is serialized as a :ref:`Arrow IPC <format-ipc>` schema message,
 then base64-encoded and stored under the ``ARROW:schema`` metadata key in
 the Parquet file metadata.
+
+Field Id
+--------
+
+The Parquet format supports an optional integer "field id" which can be assigned
+to a field. This is used for example in the
+`Apache Iceberg specification <https://github.com/apache/iceberg/blob/main/format/spec.md#column-projection>`__.
+
+On the writer side, If ``PARQUET:field_id`` is present as a metadata key on an Arrow field,
+and the corresponding value is a non-negative integer, then it will be used as
+the "field id" in the Parquet file.
+
+On the reader side, Arrow will convert these "field id"s to a metadata key named
+``PARQUET:field_id`` on the corresponding Arrow field.
 
 Limitations
 ~~~~~~~~~~~
