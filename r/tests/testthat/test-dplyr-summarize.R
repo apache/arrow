@@ -337,20 +337,20 @@ test_that("Functions that take ... but we only accept a single arg", {
   )
 
   # Now that we've demonstrated that the whole machinery works, let's test
-  # the agg_funcs directly
-  expect_error(call_binding_agg("n_distinct"), "n_distinct() with 0 arguments", fixed = TRUE)
-  expect_error(call_binding_agg("sum"), "sum() with 0 arguments", fixed = TRUE)
-  expect_error(call_binding_agg("prod"), "prod() with 0 arguments", fixed = TRUE)
-  expect_error(call_binding_agg("any"), "any() with 0 arguments", fixed = TRUE)
-  expect_error(call_binding_agg("all"), "all() with 0 arguments", fixed = TRUE)
-  expect_error(call_binding_agg("min"), "min() with 0 arguments", fixed = TRUE)
-  expect_error(call_binding_agg("max"), "max() with 0 arguments", fixed = TRUE)
-  expect_error(call_binding_agg("n_distinct", 1, 2), "Multiple arguments to n_distinct()")
-  expect_error(call_binding_agg("sum", 1, 2), "Multiple arguments to sum")
-  expect_error(call_binding_agg("any", 1, 2), "Multiple arguments to any()")
-  expect_error(call_binding_agg("all", 1, 2), "Multiple arguments to all()")
-  expect_error(call_binding_agg("min", 1, 2), "Multiple arguments to min()")
-  expect_error(call_binding_agg("max", 1, 2), "Multiple arguments to max()")
+  # the agg funcs directly
+  expect_error(call_binding("n_distinct"), "n_distinct() with 0 arguments", fixed = TRUE)
+  expect_error(call_binding("sum"), "sum() with 0 arguments", fixed = TRUE)
+  expect_error(call_binding("prod"), "prod() with 0 arguments", fixed = TRUE)
+  expect_error(call_binding("any"), "any() with 0 arguments", fixed = TRUE)
+  expect_error(call_binding("all"), "all() with 0 arguments", fixed = TRUE)
+  expect_error(call_binding("min"), "min() with 0 arguments", fixed = TRUE)
+  expect_error(call_binding("max"), "max() with 0 arguments", fixed = TRUE)
+  expect_error(call_binding("n_distinct", 1, 2), "Multiple arguments to n_distinct()")
+  expect_error(call_binding("sum", 1, 2), "Multiple arguments to sum")
+  expect_error(call_binding("any", 1, 2), "Multiple arguments to any()")
+  expect_error(call_binding("all", 1, 2), "Multiple arguments to all()")
+  expect_error(call_binding("min", 1, 2), "Multiple arguments to min()")
+  expect_error(call_binding("max", 1, 2), "Multiple arguments to max()")
 })
 
 test_that("median()", {
