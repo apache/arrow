@@ -51,7 +51,7 @@ types:
 
   3) Its serialization *must* be described in the proposal and should
      not require unduly implementation work or unusual software dependencies
-     (for example, a trivial custom text format or JSON would be acceptable).
+     (for example, a trivial custom text format or YAML would be acceptable).
 
   4) Its expected semantics *should* be described as well and any
      potential ambiguities or pain points addressed or at least mentioned.
