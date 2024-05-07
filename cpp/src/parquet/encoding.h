@@ -256,9 +256,10 @@ class Decoder {
   // Sets the data for a new page. This will be called multiple times on the same
   // decoder and should reset all internal state.
   //
-  // In current implementations, `num_values` is the `num_values` field in the
-  // data page header, which may greater than the number of values in the data
-  // buffer.
+  // `num_values` comes from the data page header, and may be greater than the number of
+  // physical values in the data buffer if there are some omitted (null) values.
+  // `len`, on the other hand, is the size in bytes of the data buffer and
+  // directly relates to the number of physical values.
   virtual void SetData(int num_values, const uint8_t* data, int len) = 0;
 
   // Returns the number of values left (for the last call to SetData()). This is
