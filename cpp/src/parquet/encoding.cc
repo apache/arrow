@@ -3694,12 +3694,24 @@ class ByteStreamSplitDecoderBase : public DecoderImpl,
   ByteStreamSplitDecoderBase(const ColumnDescriptor* descr, int byte_width)
       : DecoderImpl(descr, Encoding::BYTE_STREAM_SPLIT), byte_width_(byte_width) {}
 
-  void SetData(int num_values, const uint8_t* data, int len) override {
-    if (static_cast<int64_t>(num_values) * byte_width_ != len) {
-      throw ParquetException("Data size (" + std::to_string(len) +
-                             ") does not match number of values in BYTE_STREAM_SPLIT (" +
-                             std::to_string(num_values) + ")");
+  void SetData(int num_values, const uint8_t* data, int len) final {
+    // Check that the data size is consistent with the number of values
+    // The spec requires that the data size is a multiple of the number of values,
+    // see: https://github.com/apache/parquet-format/pull/192 .
+    // GH-41562: passed in `num_values` may include nulls, so we need to check and
+    // adjust the number of values.
+    if (static_cast<int64_t>(num_values) * byte_width_ < len) {
+      throw ParquetException(
+          "Data size (" + std::to_string(len) +
+          ") is too small for the number of values in in BYTE_STREAM_SPLIT (" +
+          std::to_string(num_values) + ")");
     }
+    if (len % byte_width_ != 0) {
+      throw ParquetException("ByteStreamSplit data size " + std::to_string(len) +
+                             " not aligned with type " + TypeToString(DType::type_num) +
+                             " and byte_width: " + std::to_string(byte_width_));
+    }
+    num_values = len / byte_width_;
     DecoderImpl::SetData(num_values, data, len);
     stride_ = num_values_;
   }
