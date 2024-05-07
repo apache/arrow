@@ -183,7 +183,7 @@ jobs:
 
   package-jars:
     name: Build jar files
-    runs-on: macos-latest
+    runs-on: macos-13
     needs:
       - build-cpp-ubuntu
       - build-cpp-macos
