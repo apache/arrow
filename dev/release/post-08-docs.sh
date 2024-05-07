@@ -60,21 +60,6 @@ for versioned_path in docs/*.0/; do
   versioned_paths+=(${versioned_path})
   rm -rf ${versioned_path}
 done
-
-# Update DOCUMENTATION_OPTIONS.show_version_warning_banner
-# for dev docs (becoming stable docs)
-pushd docs/dev
-find ./ \
-  -type f \
-  -exec \
-    sed -i.bak \
-      -e "s/DOCUMENTATION_OPTIONS.show_version_warning_banner = true/DOCUMENTATION_OPTIONS.show_version_warning_banner = false/g" \
-      {} \;
-find ./ -name '*.bak' -delete
-popd
-git add docs/dev
-git commit -m "[Website] Update warning banner for dev docs"
-
 # add to list and remove dev docs
 versioned_paths+=("docs/dev/")
 rm -rf docs/dev/
@@ -94,6 +79,29 @@ curl \
   https://apache.jfrog.io/artifactory/arrow/docs/${version}/docs.tar.gz
 tar xvf docs.tar.gz
 rm -f docs.tar.gz
+
+# Update DOCUMENTATION_OPTIONS.show_version_warning_banner for stable docs
+pushd docs
+find ./ \
+  -maxdepth 1 \
+  -type f \
+  -exec \
+    sed -i.bak \
+      -e "s/DOCUMENTATION_OPTIONS.show_version_warning_banner = true/DOCUMENTATION_OPTIONS.show_version_warning_banner = false/g" \
+      {} \;
+find ./ -name '*.bak' -delete
+find /c_glib /cpp /developers /format /java /python  \
+  -type f \
+  -exec \
+    sed -i.bak \
+      -e "s/DOCUMENTATION_OPTIONS.show_version_warning_banner = true/DOCUMENTATION_OPTIONS.show_version_warning_banner = false/g" \
+      {} \;
+find ./ -name '*.bak' -delete
+popd
+git add docs
+git commit -m "[Website] Update warning banner for stable docs"
+
+git checkout docs/c_glib/index.html
 if [ "$is_major_release" = "yes" ] ; then
   previous_series=${previous_version%.*}
   mv docs_temp docs/${previous_series}
