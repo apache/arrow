@@ -166,7 +166,7 @@ class ScanNode : public acero::ExecNode, public acero::TracedNode {
       return Status::Invalid("A scan filter must be a boolean expression");
     }
 
-    return std::move(normalized);
+    return normalized;
   }
 
   static Result<acero::ExecNode*> Make(acero::ExecPlan* plan,
@@ -334,7 +334,7 @@ class ScanNode : public acero::ExecNode, public acero::TracedNode {
           extracted.known_values.push_back({i, *maybe_casted});
         }
       }
-      return std::move(extracted);
+      return extracted;
     }
 
     Future<> BeginScan(const std::shared_ptr<InspectedFragment>& inspected_fragment) {

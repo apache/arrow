@@ -230,7 +230,7 @@ class ReadableFile::ReadableFileImpl : public OSFile {
       RETURN_NOT_OK(buffer->Resize(bytes_read));
       buffer->ZeroPadding();
     }
-    return std::move(buffer);
+    return buffer;
   }
 
   Result<std::shared_ptr<Buffer>> ReadBufferAt(int64_t position, int64_t nbytes) {
@@ -242,7 +242,7 @@ class ReadableFile::ReadableFileImpl : public OSFile {
       RETURN_NOT_OK(buffer->Resize(bytes_read));
       buffer->ZeroPadding();
     }
-    return std::move(buffer);
+    return buffer;
   }
 
   Status WillNeed(const std::vector<ReadRange>& ranges) {

@@ -684,12 +684,12 @@ const FunctionOptionsType* GetFunctionOptionsType(const Properties&... propertie
       auto options = std::make_unique<Options>();
       RETURN_NOT_OK(
           FromStructScalarImpl<Options>(options.get(), scalar, properties_).status_);
-      return std::move(options);
+      return options;
     }
     std::unique_ptr<FunctionOptions> Copy(const FunctionOptions& options) const override {
       auto out = std::make_unique<Options>();
       CopyImpl<Options>(out.get(), checked_cast<const Options&>(options), properties_);
-      return std::move(out);
+      return out;
     }
 
    private:

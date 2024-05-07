@@ -113,7 +113,7 @@ Result<std::vector<To>> MaybeMapVector(Fn&& map, const std::vector<From>& source
   out.reserve(source.size());
   ARROW_RETURN_NOT_OK(MaybeTransform(source.begin(), source.end(),
                                      std::back_inserter(out), std::forward<Fn>(map)));
-  return std::move(out);
+  return out;
 }
 
 template <typename Fn, typename From = internal::call_traits::argument_type<0, Fn>,
@@ -152,7 +152,7 @@ Result<std::vector<T>> UnwrapOrRaise(std::vector<Result<T>>&& results) {
     }
     out.push_back(it->MoveValueUnsafe());
   }
-  return std::move(out);
+  return out;
 }
 
 template <typename T>
@@ -165,7 +165,7 @@ Result<std::vector<T>> UnwrapOrRaise(const std::vector<Result<T>>& results) {
     }
     out.push_back(result.ValueUnsafe());
   }
-  return std::move(out);
+  return out;
 }
 
 }  // namespace internal

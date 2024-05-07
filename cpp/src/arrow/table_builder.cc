@@ -47,7 +47,7 @@ Result<std::unique_ptr<RecordBatchBuilder>> RecordBatchBuilder::Make(
       new RecordBatchBuilder(schema, pool, initial_capacity));
   RETURN_NOT_OK(builder->CreateBuilders());
   RETURN_NOT_OK(builder->InitBuilders());
-  return std::move(builder);
+  return builder;
 }
 
 Result<std::shared_ptr<RecordBatch>> RecordBatchBuilder::Flush(bool reset_builders) {

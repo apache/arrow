@@ -1358,7 +1358,7 @@ class MyMemoryManager : public CPUMemoryManager {
     if (buf.size() > 0) {
       memcpy(dest->mutable_data(), buf.data(), static_cast<size_t>(buf.size()));
     }
-    return std::move(dest);
+    return dest;
   }
 };
 

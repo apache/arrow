@@ -791,7 +791,7 @@ class HashJoinBasicImpl : public HashJoinImpl {
 
 Result<std::unique_ptr<HashJoinImpl>> HashJoinImpl::MakeBasic() {
   std::unique_ptr<HashJoinImpl> impl{new HashJoinBasicImpl()};
-  return std::move(impl);
+  return impl;
 }
 
 }  // namespace acero

@@ -1561,7 +1561,7 @@ Result<std::unique_ptr<RecordBatchWriter>> OpenRecordBatchWriter(
   auto writer = std::make_unique<internal::IpcFormatWriter>(
       std::move(sink), schema, options, /*is_file_format=*/false);
   RETURN_NOT_OK(writer->Start());
-  return std::move(writer);
+  return writer;
 }
 
 Result<std::unique_ptr<IpcPayloadWriter>> MakePayloadStreamWriter(

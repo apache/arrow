@@ -1696,7 +1696,7 @@ class NestedSelector {
       }
     }
 
-    return std::move(child_data);
+    return child_data;
   }
 
   static Result<std::shared_ptr<Array>> GetChild(const Array& array, int i,

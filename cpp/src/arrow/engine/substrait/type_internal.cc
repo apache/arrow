@@ -506,7 +506,7 @@ Result<std::unique_ptr<substrait::Type>> ToProto(
   auto out = std::make_unique<substrait::Type>();
   RETURN_NOT_OK(
       (DataTypeToProtoImpl{out.get(), nullable, ext_set, conversion_options})(type));
-  return std::move(out);
+  return out;
 }
 
 Result<std::shared_ptr<Schema>> FromProto(const substrait::NamedStruct& named_struct,
@@ -583,7 +583,7 @@ Result<std::unique_ptr<substrait::NamedStruct>> ToProto(
   }
 
   named_struct->set_allocated_struct_(struct_.release());
-  return std::move(named_struct);
+  return named_struct;
 }
 
 }  // namespace engine

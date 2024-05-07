@@ -530,7 +530,7 @@ Result<std::unique_ptr<KernelState>> HashInit(KernelContext* ctx,
   auto result = std::make_unique<HashKernel>(args.inputs[0].GetSharedPtr(), args.options,
                                              ctx->memory_pool());
   RETURN_NOT_OK(result->Reset());
-  return std::move(result);
+  return result;
 }
 
 template <typename Action>

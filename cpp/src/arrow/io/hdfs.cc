@@ -172,7 +172,7 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
       RETURN_NOT_OK(buffer->Resize(bytes_read));
       buffer->ZeroPadding();
     }
-    return std::move(buffer);
+    return buffer;
   }
 
   Result<int64_t> Read(int64_t nbytes, void* buffer) {
@@ -200,7 +200,7 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
     if (bytes_read < nbytes) {
       RETURN_NOT_OK(buffer->Resize(bytes_read));
     }
-    return std::move(buffer);
+    return buffer;
   }
 
   Result<int64_t> GetSize() {

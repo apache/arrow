@@ -413,7 +413,7 @@ class CompressedInputStream::Impl {
     RETURN_NOT_OK(buf->Resize(bytes_read));
     // Using std::move because some compiler might has issue below:
     // https://wg21.cmeerw.net/cwg/issue1579
-    return std::move(buf);
+    return buf;
   }
 
   const std::shared_ptr<InputStream>& raw() const { return raw_; }

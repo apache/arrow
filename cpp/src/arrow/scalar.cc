@@ -1223,7 +1223,7 @@ Result<std::shared_ptr<Scalar>> CastImpl(const StringScalar& from,
   ARROW_ASSIGN_OR_RAISE(auto out,
                         Scalar::Parse(std::move(to_type), std::string_view(*from.value)));
   DCHECK(checked_pointer_cast<ToScalar>(out) != nullptr);
-  return std::move(out);
+  return out;
 }
 
 // binary/large binary/large string to string

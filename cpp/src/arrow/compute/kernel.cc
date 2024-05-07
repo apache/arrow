@@ -75,7 +75,7 @@ Result<std::unique_ptr<KernelState>> ScalarAggregateKernel::MergeAll(
   for (auto& state : states) {
     RETURN_NOT_OK(kernel->merge(ctx, std::move(*state), out.get()));
   }
-  return std::move(out);
+  return out;
 }
 
 // ----------------------------------------------------------------------

@@ -238,7 +238,7 @@ static inline Result<std::shared_ptr<Buffer>> WriteFlatbufferBuilder(
 
   uint8_t* dst = result->mutable_data();
   memcpy(dst, fbb.GetBufferPointer(), size);
-  return std::move(result);
+  return result;
 }
 
 ARROW_EXPORT

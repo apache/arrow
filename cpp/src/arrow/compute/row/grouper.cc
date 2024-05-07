@@ -352,7 +352,7 @@ struct GrouperNoKeysImpl : Grouper {
     }
     std::shared_ptr<Array> array;
     RETURN_NOT_OK(builder->Finish(&array));
-    return std::move(array);
+    return array;
   }
   Result<Datum> Consume(const ExecSpan& batch, int64_t offset, int64_t length) override {
     ARROW_ASSIGN_OR_RAISE(auto array, MakeConstantGroupIdArray(length, 0));
@@ -363,7 +363,7 @@ struct GrouperNoKeysImpl : Grouper {
     auto values = data->GetMutableValues<uint32_t>(0);
     values[0] = 0;
     ExecBatch out({Datum(data)}, 1);
-    return std::move(out);
+    return out;
   }
   uint32_t num_groups() const override { return 1; }
 };
@@ -416,7 +416,7 @@ struct GrouperImpl : public Grouper {
       return Status::NotImplemented("Keys of type ", *key);
     }
 
-    return std::move(impl);
+    return impl;
   }
 
   Result<Datum> Consume(const ExecSpan& batch, int64_t offset, int64_t length) override {
@@ -592,7 +592,7 @@ struct GrouperFastImpl : public Grouper {
     impl->minibatch_hashes_.resize(impl->minibatch_size_max_ +
                                    kPaddingForSIMD / sizeof(uint32_t));
 
-    return std::move(impl);
+    return impl;
   }
 
   ~GrouperFastImpl() { map_.cleanup(); }

@@ -103,7 +103,7 @@ Result<Uri> ParseFileSystemUri(const std::string& uri_string) {
     return status;
 #endif
   }
-  return std::move(uri);
+  return uri;
 }
 
 #ifdef _WIN32

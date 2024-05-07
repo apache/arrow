@@ -543,7 +543,7 @@ struct DirTreeCreator {
   Result<FileInfoVector> Create(const std::string& base) {
     FileInfoVector infos;
     RETURN_NOT_OK(Create(base, 0, &infos));
-    return std::move(infos);
+    return infos;
   }
 
   Status Create(const std::string& base, int depth, FileInfoVector* infos) {
