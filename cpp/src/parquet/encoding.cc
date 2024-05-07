@@ -3701,9 +3701,10 @@ class ByteStreamSplitDecoderBase : public DecoderImpl,
     // GH-41562: passed in `num_values` may include nulls, so we need to check and
     // adjust the number of values.
     if (static_cast<int64_t>(num_values) * byte_width_ < len) {
-      throw ParquetException("Data size (" + std::to_string(len) +
-                             ") does not match number of values in BYTE_STREAM_SPLIT (" +
-                             std::to_string(num_values) + ")");
+      throw ParquetException(
+          "Data size (" + std::to_string(len) +
+          ") is too small for the number of values in in BYTE_STREAM_SPLIT (" +
+          std::to_string(num_values) + ")");
     }
     if (len % byte_width_ != 0) {
       throw ParquetException("ByteStreamSplit data size " + std::to_string(len) +

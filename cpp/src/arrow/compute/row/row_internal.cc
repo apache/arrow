@@ -66,7 +66,8 @@ void RowTableMetadata::FromColumnMetadataVector(
   //
   // Columns are sorted based on the size in bytes of their fixed-length part.
   // For the varying-length column, the fixed-length part is the 32-bit field storing
-  // cumulative length of varying-length fields.
+  // cumulative length of varying-length fields. This is to make the memory access of
+  // each individual column within the encoded row alignment-friendly.
   //
   // The rules are:
   //
