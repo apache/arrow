@@ -3578,12 +3578,23 @@ def check_run_end_encoded_from_arrays_with_type(ree_type=None):
     check_run_end_encoded(ree_array, run_ends, values, 19, 4, 0)
 
 
+def check_run_end_encoded_from_typed_arrays(ree_type):
+    run_ends = [3, 5, 10, 19]
+    values = [1, 2, 1, 3]
+    typed_run_ends = pa.array(run_ends, ree_type.run_end_type)
+    typed_values = pa.array(values, ree_type.value_type)
+    ree_array = pa.RunEndEncodedArray.from_arrays(typed_run_ends, typed_values)
+    assert ree_array.type == ree_type
+    check_run_end_encoded(ree_array, run_ends, values, 19, 4, 0)
+
+
 def test_run_end_encoded_from_arrays():
     check_run_end_encoded_from_arrays_with_type()
     for run_end_type in [pa.int16(), pa.int32(), pa.int64()]:
         for value_type in [pa.uint32(), pa.int32(), pa.uint64(), pa.int64()]:
             ree_type = pa.run_end_encoded(run_end_type, value_type)
             check_run_end_encoded_from_arrays_with_type(ree_type)
+            check_run_end_encoded_from_typed_arrays(ree_type)
 
 
 def test_run_end_encoded_from_buffers():
