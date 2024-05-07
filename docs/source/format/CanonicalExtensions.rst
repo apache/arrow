@@ -275,7 +275,7 @@ JSON
 UUID
 ====
 
-* Extension name: `arrow.uuid`.
+* Extension name: ``arrow.uuid``.
 
 * The storage type of the extension is ``FixedSizeBinary`` with a length of 16 bytes.
 
