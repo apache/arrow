@@ -522,7 +522,7 @@ class ConcatenateImpl {
       }
       out_data += data->length * index_width;
     }
-    return std::move(out);
+    return out;
   }
 
   Status Visit(const DictionaryType& d) {

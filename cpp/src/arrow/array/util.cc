@@ -125,7 +125,7 @@ class ArrayDataEndianSwapper {
     for (int64_t i = 0; i < length; i++) {
       out_data[i] = bit_util::ByteSwap(in_data[i]);
     }
-    return std::move(out_buffer);
+    return out_buffer;
   }
 
   template <typename VALUE_TYPE>
