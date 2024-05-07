@@ -101,7 +101,6 @@ popd
 git add docs
 git commit -m "[Website] Update warning banner for stable docs"
 
-git checkout docs/c_glib/index.html
 if [ "$is_major_release" = "yes" ] ; then
   previous_series=${previous_version%.*}
   mv docs_temp docs/${previous_series}
