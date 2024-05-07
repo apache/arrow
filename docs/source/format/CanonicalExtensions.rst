@@ -256,7 +256,7 @@ Variable shape tensor
 JSON
 ====
 
-* Extension name: `arrow.json`.
+* Extension name: ``arrow.json``.
 
 * The storage type of this extension is ``StringArray`` or
   or ``LargeStringArray`` or ``StringViewArray``.
