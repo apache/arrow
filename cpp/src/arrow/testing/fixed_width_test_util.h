@@ -17,16 +17,6 @@
 
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
-#include <memory>
-#include <vector>
-
-#include "arrow/array/builder_primitive.h"
-#include "arrow/builder.h"
-#include "arrow/type.h"
-#include "arrow/util/checked_cast.h"
-
 namespace arrow::util::internal {
 
 class NestedListGenerator {
