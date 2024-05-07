@@ -73,7 +73,7 @@ find_and_remove_desc <- function(quosure) {
   expr <- quo_get_expr(quosure)
   descending <- FALSE
   if (length(all.vars(expr)) < 1L) {
-    abort_not_valid(
+    validation_error(
       "Expression in arrange() does not contain any field names",
       call = quosure
     )
@@ -89,7 +89,7 @@ find_and_remove_desc <- function(quosure) {
       # ensure desc() has only one argument (when an R expression is a function
       # call, length == 2 means it has exactly one argument)
       if (length(expr) > 2) {
-        abort_not_valid(
+        validation_error(
           "desc() expects only one argument",
           call = expr
         )

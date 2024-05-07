@@ -121,7 +121,7 @@ register_bindings_datetime_utility <- function() {
       precision <- "ymdhms"
     }
     if (!precision %in% names(ISO8601_precision_map)) {
-      abort_not_valid(
+      validation_error(
         paste(
           "`precision` must be one of the following values:",
           paste(names(ISO8601_precision_map), collapse = ", "),

@@ -153,7 +153,7 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
       # collapse() preserves groups so remove them
       out <- dplyr::ungroup(out)
     } else {
-      abort_not_valid(
+      validation_error(
         paste("Invalid .groups argument:", .groups),
         call = rlang::caller_call()
       )

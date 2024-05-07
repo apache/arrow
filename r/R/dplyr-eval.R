@@ -26,9 +26,9 @@ arrow_eval <- function(expr, mask) {
 
   # This yields an Expression as long as the `exprs` are implemented in Arrow.
   # Otherwise, it raises a classed error, either:
-  # * arrow-not-supported: the expression is not supported in Arrow; retry with
+  # * arrow_not_supported: the expression is not supported in Arrow; retry with
   #   regular dplyr may work
-  # * validation-error: the expression is known to be not valid, so don't
+  # * validation_error: the expression is known to be not valid, so don't
   #   recommend retrying with regular dplyr
   tryCatch(eval_tidy(expr, mask), error = function(e) {
     # Inspect why the expression failed, and add the expr as the `call`
@@ -39,12 +39,12 @@ arrow_eval <- function(expr, mask) {
 
     # A few cases:
     # 1. Invalid input. Retry with dplyr won't help
-    if (inherits(e, "validation-error")) {
-      abort_not_valid(msg, call = expr)
+    if (inherits(e, "validation_error")) {
+      validation_error(msg, call = expr)
     }
 
     # 2. Not supported in Arrow. Retry with dplyr may help
-    if (inherits(e, "arrow-not-supported") || grepl("NotImplemented", msg)) {
+    if (inherits(e, "arrow_not_supported") || grepl("NotImplemented", msg)) {
       arrow_not_supported(.actual_msg = msg, call = expr)
     }
 
@@ -52,7 +52,7 @@ arrow_eval <- function(expr, mask) {
     # Retry with dplyr won't help
     if (grepl(get_standard_error_messages(), msg)) {
       # Raise the original error: it's actually helpful here
-      abort_not_valid(msg, call = expr)
+      validation_error(msg, call = expr)
     }
 
     # 4. Otherwise, we're not sure why this errored: it's not an error we raised
@@ -136,11 +136,11 @@ i18ize_error_messages <- function() {
 arrow_not_supported <- function(msg,
                                 .actual_msg = paste(msg, "not supported in Arrow"),
                                 ...) {
-  abort(.actual_msg, class = "arrow-not-supported", use_cli_format = TRUE, ...)
+  abort(.actual_msg, class = "arrow_not_supported", use_cli_format = TRUE, ...)
 }
 
-abort_not_valid <- function(msg, ...) {
-  abort(msg, class = "validation-error", use_cli_format = TRUE, ...)
+validation_error <- function(msg, ...) {
+  abort(msg, class = "validation_error", use_cli_format = TRUE, ...)
 }
 
 # Wrap the contents of an arrow dplyr verb function in a tryCatch block to
@@ -150,10 +150,10 @@ abort_not_valid <- function(msg, ...) {
 try_arrow_dplyr <- function(expr) {
   parent <- caller_env()
   tryCatch(eval(expr, parent), error = function(e) {
-    # Instead of checking for arrow-not-supported, we could check !validation-error.
+    # Instead of checking for arrow_not_supported, we could check !validation_error.
     # Difference is in how non-classed (regular) errors are handled.
     # This way, regular errors just stop. If we want them to abandon_ship, change it.
-    if (inherits(e, "arrow-not-supported")) {
+    if (inherits(e, "arrow_not_supported")) {
       abandon_ship(e, parent)
     } else {
       stop(e)
