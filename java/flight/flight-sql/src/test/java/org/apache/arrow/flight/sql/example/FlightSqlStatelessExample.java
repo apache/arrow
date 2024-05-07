@@ -77,7 +77,8 @@ public class FlightSqlStatelessExample extends FlightSqlExample {
 
     return () -> {
       final String query = new String(command.getPreparedStatementHandle().toStringUtf8());
-      try (PreparedStatement preparedStatement = createPreparedStatement(query)) {
+      try (Connection connection = dataSource.getConnection();
+           PreparedStatement preparedStatement = createPreparedStatement(connection, query)) {
         while (flightStream.next()) {
           final VectorSchemaRoot root = flightStream.getRoot();
           final JdbcParameterBinder binder = JdbcParameterBinder.builder(preparedStatement, root).bindAll().build();
@@ -133,7 +134,8 @@ public class FlightSqlStatelessExample extends FlightSqlExample {
                 deserializePOJO(handle);
         final String query = doPutPreparedStatementResultPOJO.getQuery();
 
-        try (PreparedStatement statement = createPreparedStatement(query);
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = createPreparedStatement(connection, query);
              ArrowFileReader reader = new ArrowFileReader(new SeekableReadChannel(
                 new ByteArrayReadableSeekableByteChannel(
                         doPutPreparedStatementResultPOJO.getParameters())), rootAllocator)) {
@@ -152,7 +154,8 @@ public class FlightSqlStatelessExample extends FlightSqlExample {
       } catch (StreamCorruptedException e) {
         // Case where there are no parameters
         final String query = new String(command.getPreparedStatementHandle().toStringUtf8());
-        try (PreparedStatement preparedStatement = createPreparedStatement(query)) {
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement preparedStatement = createPreparedStatement(connection, query)) {
           executeQuery(preparedStatement, listener);
         }
       }
@@ -200,7 +203,8 @@ public class FlightSqlStatelessExample extends FlightSqlExample {
       } catch (StreamCorruptedException e) {
         query = new String(command.getPreparedStatementHandle().toStringUtf8());
       }
-      try (PreparedStatement statement = createPreparedStatement(query)) {
+      try (Connection connection = dataSource.getConnection();
+           PreparedStatement statement = createPreparedStatement(connection, query)) {
         ResultSetMetaData metaData = statement.getMetaData();
         return getFlightInfoForSchema(command, descriptor,
                 jdbcToArrowSchema(metaData, DEFAULT_CALENDAR));
@@ -226,8 +230,7 @@ public class FlightSqlStatelessExample extends FlightSqlExample {
     }
   }
 
-  private PreparedStatement createPreparedStatement(String query) throws SQLException {
-    final Connection connection = dataSource.getConnection();
+  private PreparedStatement createPreparedStatement(Connection connection, String query) throws SQLException {
     return connection.prepareStatement(query, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
   }
 }

@@ -280,6 +280,9 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   private static boolean populateDerbyDatabase() {
     try (final Connection connection = DriverManager.getConnection("jdbc:derby:target/derbyDB;create=true");
          Statement statement = connection.createStatement()) {
+
+      dropTable(statement, "intTable");
+      dropTable(statement, "foreignTable");
       statement.execute("CREATE TABLE foreignTable (" +
           "id INT not null primary key GENERATED ALWAYS AS IDENTITY (START WITH 1, INCREMENT BY 1), " +
           "foreignName varchar(100), " +
@@ -300,6 +303,18 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       return false;
     }
     return true;
+  }
+
+  private static void dropTable(final Statement statement, final String tableName) throws SQLException {
+    try {
+      statement.execute("DROP TABLE " + tableName);
+    } catch (SQLException e) {
+      // sql error code for "object does not exist"; which is fine, we're trying to delete the table
+      // see https://db.apache.org/derby/docs/10.17/ref/rrefexcept71493.html
+      if (!"42Y55".equals(e.getSQLState())) {
+        throw e;
+      }
+    }
   }
 
   private static ArrowType getArrowTypeFromJdbcType(final int jdbcDataType, final int precision, final int scale) {
