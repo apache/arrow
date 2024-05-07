@@ -2165,19 +2165,9 @@ TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowBinaryDirectPut) {
 
   auto CheckSeed = [&](std::shared_ptr<::arrow::Array> values) {
     ASSERT_NO_THROW(encoder->Put(*values));
-    int64_t expected_array_size = 0;
-    if (auto* string_array = dynamic_cast<const ::arrow::StringArray*>(values.get());
-        string_array != nullptr) {
-      expected_array_size = string_array->total_values_length();
-    } else if (auto* binary_array =
-                   dynamic_cast<const ::arrow::BinaryArray*>(values.get());
-               binary_array != nullptr) {
-      expected_array_size = binary_array->total_values_length();
-    } else {
-      FAIL() << "Unexpected array type";
-    }
+    auto* binary_array = checked_cast<const ::arrow::BinaryArray*>(values.get());
     // For DeltaLength encoding, the estimated size should be at least the total byte size
-    EXPECT_GE(encoder->EstimatedDataEncodedSize(), expected_array_size)
+    EXPECT_GE(encoder->EstimatedDataEncodedSize(), binary_array->total_values_length())
         << "Estimated size should be at least the total byte size";
     auto buf = encoder->FlushValues();
 
