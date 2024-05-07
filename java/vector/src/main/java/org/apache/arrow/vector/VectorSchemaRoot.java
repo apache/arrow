@@ -19,6 +19,7 @@ package org.apache.arrow.vector;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -160,7 +161,7 @@ public class VectorSchemaRoot implements AutoCloseable {
   }
 
   public List<FieldVector> getFieldVectors() {
-    return new ArrayList<>(fieldVectors);
+    return Collections.unmodifiableList(fieldVectors);
   }
 
   /**
