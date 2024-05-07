@@ -23,6 +23,7 @@ Specifications
 .. toctree::
    :maxdepth: 2
 
+   FormatIntro
    Versioning
    Columnar
    CanonicalExtensions
