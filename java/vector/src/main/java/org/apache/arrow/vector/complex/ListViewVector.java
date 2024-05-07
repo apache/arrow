@@ -38,7 +38,6 @@ import org.apache.arrow.vector.AddOrGetResult;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.BufferBacked;
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.complex.impl.UnionListReader;
@@ -577,7 +576,6 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   @Override
   public void setNull(int index) {
-    // TODO: test this function
     while (index >= getValidityAndSizeValueCapacity()) {
       reallocValidityAndSizeAndOffsetBuffers();
     }
@@ -585,11 +583,15 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
       lastSet = index - 1;
     }
 
-    for (int i = lastSet + 1; i <= index; i++) {
-      final int prevOffSet = offsetBuffer.getInt((i - 1L) * OFFSET_WIDTH);
-      final int prevSize = sizeBuffer.getInt((i - 1L) * SIZE_WIDTH);
-      final int currOffSet = prevOffSet + prevSize;
-      offsetBuffer.setInt(i * OFFSET_WIDTH, currOffSet);
+    if (index == 0) {
+      offsetBuffer.setInt(0, 0);
+      sizeBuffer.setInt(0, 0);
+    } else {
+      final int prevOffset = offsetBuffer.getInt((index - 1) * OFFSET_WIDTH);
+      final int prevSize = sizeBuffer.getInt((index - 1) * SIZE_WIDTH);
+      final int currOffSet = prevOffset + prevSize;
+      offsetBuffer.setInt(index * OFFSET_WIDTH, currOffSet);
+      sizeBuffer.setInt(index * SIZE_WIDTH, 0);
     }
 
     BitVectorHelper.unsetBit(validityBuffer, index);
@@ -623,6 +625,10 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
       /* when skipping indices, we need to update the offset buffer */
       /* setting offset from lastSet + 1 to index (included) */
       for (int i = lastSet + 1; i <= index; i++) {
+        if (i == 0) {
+          offsetBuffer.setInt(0, 0);
+          continue;
+        }
         final int prevOffSet = offsetBuffer.getInt((i - 1L) * OFFSET_WIDTH);
         final int prevSize = sizeBuffer.getInt((i - 1L) * SIZE_WIDTH);
         final int currOffSet = prevOffSet + prevSize;
@@ -640,101 +646,12 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     return offsetBuffer.getInt(index * OFFSET_WIDTH);
   }
 
-  /**
-   * Constructing a ListViewVector when the offsets, sizes and field vector are available.
-   * <p>
-   * Steps taken follow the workflow used in creating a ListViewVector with the API
-   * used in ListVector.
-   *
-   * @param offSets new offSets to be set
-   * @param sizes new sizes to be set
-   * @param elementFieldVec new elements to be appended to the field vector
-   */
-  public void setNewValues(
-      List<Integer> offSets, List<Integer> sizes, FieldVector elementFieldVec) {
-    // Null checks
-    Objects.requireNonNull(offSets, "Offsets cannot be null");
-    Objects.requireNonNull(sizes, "Sizes cannot be null");
-    Objects.requireNonNull(elementFieldVec, "Element Field Vector cannot be null");
-
-    while (offSets.size() >= getValidityAndSizeValueCapacity()) {
-      reallocValidityAndSizeAndOffsetBuffers();
-    }
-
-    /* TODO: add the validation method
-     * 0 <= offsets[i] <= length of the child array
-     * 0 <= offsets[i] + size[i] <= length of the child array
-     */
-    if (offSets.size() != sizes.size()) {
-      throw new IllegalArgumentException("Offsets and sizes must be of the same size." +
-          " Offsets size: " + offSets.size() + ", Sizes size: " + sizes.size());
-    }
-
-    UnionListViewWriter writer = this.getWriter();
-    int lastSet = this.getLastSet();
-    int listViewValueCount = this.getValueCount();
-    int newListViewValueCount = listViewValueCount + offSets.size();
-    lastSet += offSets.size();
-
-    // set validity bit
-    final ArrowBuf validityBuffer = this.getValidityBuffer();
-    for (int i = listViewValueCount; i < newListViewValueCount; i++) {
-      if (sizes.get(i - listViewValueCount) != null) {
-        // only set validity bit if size is not 0
-        BitVectorHelper.setBit(validityBuffer, i);
-      }
-    }
-
-    final ArrowBuf offSetBuffer = this.getOffsetBuffer();
-    final ArrowBuf sizeBuffer = this.getSizeBuffer();
-
-    // set offset and size buffers
-    for (int i = listViewValueCount; i < newListViewValueCount; i++) {
-      writer.setPosition(i);
-      offSetBuffer.setInt(i * OFFSET_WIDTH,
-          offSets.get(i - listViewValueCount));
-      // we use null to determine a list with size 0 and no list
-      if (sizes.get(i - listViewValueCount) != null) {
-        sizeBuffer.setInt(i * SIZE_WIDTH,
-            sizes.get(i - listViewValueCount));
-      } else {
-        sizeBuffer.setInt(i * SIZE_WIDTH,
-            0);
-      }
-    }
-
-    // updating field vector
-    if (this.getDataVector() instanceof NullVector) {
-      this.vector = DEFAULT_DATA_VECTOR;
-      this.vector.allocateNew();
-    }
-
-    if (this.getDataVector() instanceof NullVector) {
-      this.vector = elementFieldVec;
-    } else {
-      FieldVector dataVec = this.getDataVector();
-      for (int i = 0; i < elementFieldVec.getValueCount(); i++) {
-        dataVec.copyFromSafe(i, i + dataVec.getValueCount(), elementFieldVec);
-      }
-      dataVec.setValueCount(dataVec.getValueCount() + elementFieldVec.getValueCount());
-    }
-    writer.setPosition(newListViewValueCount);
-    this.setLastSet(lastSet);
-    this.setValueCount(newListViewValueCount);
-  }
-
   private int getLengthOfChildVector() {
     int length = 0;
-    for (int i = 0; i < lastSet + 1; i++) {
+    for (int i = 0; i < valueCount; i++) {
       length += sizeBuffer.getInt(i * SIZE_WIDTH);
     }
     return length;
-  }
-
-  private void setValuesInBuffer(ArrowBuf srcBuf, ArrowBuf destBuf, long bufWidth, int length) {
-    for (int i = 0; i < length; i++) {
-      destBuf.setInt(i * bufWidth, srcBuf.getInt(i * bufWidth));
-    }
   }
 
   /**
@@ -855,6 +772,28 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     }
     final double totalListSize = getLengthOfChildVector();
     return totalListSize / valueCount;
+  }
+
+  /**
+   * Validating ListViewVector creation based on the specification guideline.
+   * 0 <= offsets[i] <= length of the child array
+   * 0 <= offsets[i] + size[i] <= length of the child array
+   */
+  @Override
+  public void validate() {
+    for (int i = 0; i < valueCount; i++) {
+      final int offset = offsetBuffer.getInt(i * OFFSET_WIDTH);
+      final int size = sizeBuffer.getInt(i * SIZE_WIDTH);
+      final int childArrayLength = getLengthOfChildVector();
+      if (offset < 0 || offset > childArrayLength) {
+        throw new IllegalStateException(String.format(
+            "Offset %d at index %d is out of bounds", offset, i));
+      }
+      if ((offset + size) < 0 || (offset + size) > childArrayLength) {
+        throw new IllegalStateException(String.format(
+            "Size %d at index %d is out of bounds", size, i));
+      }
+    }
   }
 
   /**

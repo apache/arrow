@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -58,6 +59,14 @@ public class TestListViewVector {
   @AfterEach
   public void terminate() throws Exception {
     allocator.close();
+  }
+
+  private void validateVector(ListViewVector vector) {
+    try {
+      vector.validate();
+    } catch (Exception e) {
+      fail("Validation threw an exception: " + e.getMessage());
+    }
   }
 
   @Test
@@ -140,6 +149,8 @@ public class TestListViewVector {
       assertEquals(2, ((BigIntVector) dataVec).get(8));
       assertEquals(3, ((BigIntVector) dataVec).get(9));
       assertEquals(4, ((BigIntVector) dataVec).get(10));
+
+      validateVector(listViewVector);
     }
   }
 
@@ -240,6 +251,8 @@ public class TestListViewVector {
       assertEquals(10, lastSet11);
 
       listViewVector.setValueCount(11);
+
+      validateVector(listViewVector);
     }
   }
 
@@ -358,6 +371,8 @@ public class TestListViewVector {
       // check size buffer
       assertEquals(2, sizeBuffer.getInt(0 * BaseRepeatedValueViewVector.SIZE_WIDTH));
       assertEquals(3, sizeBuffer.getInt(1 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+
+      validateVector(listViewVector);
     }
   }
 
@@ -389,6 +404,8 @@ public class TestListViewVector {
       innerList6.addOrGetVector(FieldType.nullable(scalarType.getType()));
 
       listViewVector.setInitialCapacity(128);
+
+      validateVector(listViewVector);
     }
   }
 
@@ -398,7 +415,7 @@ public class TestListViewVector {
     }
   }
 
-  /**
+  /*
    * Setting up the buffers directly needs to be validated with the base method used in
    * the ListVector class where we use the approach of startList(),
    * write to the child vector and endList().
@@ -469,7 +486,7 @@ public class TestListViewVector {
     assertEquals(50, ((BigIntVector) listViewVector.getDataVector()).get(6));
 
     assertEquals(3, listViewVector.getLastSet());
-
+    validateVector(listViewVector);
     listViewVector.close();
   }
 
@@ -607,6 +624,7 @@ public class TestListViewVector {
     assertEquals(3, sizeBuffer.getInt(1 * BaseRepeatedValueViewVector.SIZE_WIDTH));
 
     listVector.close();
+    validateVector(listViewVector);
     listViewVector.close();
   }
 
@@ -711,7 +729,7 @@ public class TestListViewVector {
     assertEquals(251, ((BigIntVector) listViewVector.getDataVector()).get(9));
 
     assertEquals(4, listViewVector.getLastSet());
-
+    validateVector(listViewVector);
     listViewVector.close();
   }
 
@@ -774,6 +792,7 @@ public class TestListViewVector {
 
       /* (3+2)/2 */
       assertEquals(2.5, listViewVector.getDensity(), 0);
+      validateVector(listViewVector);
     }
   }
 
@@ -818,6 +837,8 @@ public class TestListViewVector {
       vector.allocateNew();
       assertEquals(8, vector.getValueCapacity());
       assertTrue(vector.getDataVector().getValueCapacity() >= 1);
+
+      validateVector(vector);
     }
   }
 
@@ -864,6 +885,8 @@ public class TestListViewVector {
       result = vector.getObject(1);
       resultSet = (ArrayList<Long>) result;
       assertEquals(Long.valueOf(8), resultSet.get(0));
+
+      validateVector(vector);
     }
   }
 
@@ -888,6 +911,8 @@ public class TestListViewVector {
           Arrays.asList(expectedDataField));
 
       assertEquals(expectedField, writer.getField());
+
+      validateVector(vector);
     }
   }
 
@@ -924,6 +949,8 @@ public class TestListViewVector {
           Arrays.asList(expectedDataField));
 
       assertEquals(expectedField, writer.getField());
+
+      validateVector(vector);
     }
   }
 
@@ -961,6 +988,8 @@ public class TestListViewVector {
           Arrays.asList(expectedDataField));
 
       assertEquals(expectedField, writer.getField());
+
+      validateVector(vector);
     }
   }
 
@@ -984,6 +1013,8 @@ public class TestListViewVector {
       writer.close();
       assertEquals(0, vector.getBufferSize());
       assertEquals(0, vector.getDataVector().getBufferSize());
+
+      validateVector(vector);
     }
   }
 
@@ -1014,6 +1045,7 @@ public class TestListViewVector {
             dataVector.getBufferSizeFor(indices[valueCount]);
         assertEquals(expectedSize, vector.getBufferSizeFor(valueCount));
       }
+      validateVector(vector);
     }
   }
 
@@ -1036,6 +1068,8 @@ public class TestListViewVector {
       assertFalse(vector.isNull(2));
       assertTrue(vector.isEmpty(2));
       assertFalse(vector.isEmpty(3));
+
+      validateVector(vector);
     }
   }
 
@@ -1057,7 +1091,422 @@ public class TestListViewVector {
       // Note: allocator rounds up and can be greater than the requested allocation.
       assertTrue(vector.getValueCapacity() >= 10);
       assertTrue(vector.getDataVector().getValueCapacity() >= 100);
+
+      validateVector(vector);
     }
+  }
+
+  @Test
+  public void testSetNull1() {
+    try (ListViewVector vector = ListViewVector.empty("listview", allocator)) {
+      UnionListViewWriter writer = vector.getWriter();
+      writer.allocate();
+
+      writer.setPosition(0);
+      writer.startList();
+      writer.bigInt().writeBigInt(10);
+      writer.bigInt().writeBigInt(20);
+      writer.endList();
+
+      vector.setNull(1);
+
+      writer.setPosition(2);
+      writer.startList();
+      writer.bigInt().writeBigInt(30);
+      writer.bigInt().writeBigInt(40);
+      writer.endList();
+
+      vector.setNull(3);
+      vector.setNull(4);
+
+      writer.setPosition(5);
+      writer.startList();
+      writer.bigInt().writeBigInt(50);
+      writer.bigInt().writeBigInt(60);
+      writer.endList();
+
+      vector.setValueCount(6);
+
+      assertFalse(vector.isNull(0));
+      assertTrue(vector.isNull(1));
+      assertFalse(vector.isNull(2));
+      assertTrue(vector.isNull(3));
+      assertTrue(vector.isNull(4));
+      assertFalse(vector.isNull(5));
+
+      // validate buffers
+
+      final ArrowBuf validityBuffer = vector.getValidityBuffer();
+      final ArrowBuf offsetBuffer = vector.getOffsetBuffer();
+      final ArrowBuf sizeBuffer = vector.getSizeBuffer();
+
+      assertEquals(1, BitVectorHelper.get(validityBuffer, 0));
+      assertEquals(0, BitVectorHelper.get(validityBuffer, 1));
+      assertEquals(1, BitVectorHelper.get(validityBuffer, 2));
+      assertEquals(0, BitVectorHelper.get(validityBuffer, 3));
+      assertEquals(0, BitVectorHelper.get(validityBuffer, 4));
+      assertEquals(1, BitVectorHelper.get(validityBuffer, 5));
+
+      assertEquals(0, offsetBuffer.getInt(0 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(2, offsetBuffer.getInt(1 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(2, offsetBuffer.getInt(2 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(4, offsetBuffer.getInt(3 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(4, offsetBuffer.getInt(4 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(4, offsetBuffer.getInt(5 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+
+      assertEquals(2, sizeBuffer.getInt(0 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+      assertEquals(0, sizeBuffer.getInt(1 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+      assertEquals(2, sizeBuffer.getInt(2 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+      assertEquals(0, sizeBuffer.getInt(3 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+      assertEquals(0, sizeBuffer.getInt(4 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+      assertEquals(2, sizeBuffer.getInt(5 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+
+      // validate values
+
+      Object result = vector.getObject(0);
+      ArrayList<Long> resultSet = (ArrayList<Long>) result;
+      assertEquals(2, resultSet.size());
+      assertEquals(Long.valueOf(10), resultSet.get(0));
+      assertEquals(Long.valueOf(20), resultSet.get(1));
+
+      result = vector.getObject(2);
+      resultSet = (ArrayList<Long>) result;
+      assertEquals(2, resultSet.size());
+      assertEquals(Long.valueOf(30), resultSet.get(0));
+      assertEquals(Long.valueOf(40), resultSet.get(1));
+
+      result = vector.getObject(5);
+      resultSet = (ArrayList<Long>) result;
+      assertEquals(2, resultSet.size());
+      assertEquals(Long.valueOf(50), resultSet.get(0));
+      assertEquals(Long.valueOf(60), resultSet.get(1));
+
+      validateVector(vector);
+    }
+  }
+
+  @Test
+  public void testSetNull2() {
+    try (ListViewVector vector = ListViewVector.empty("listview", allocator)) {
+      // validate setting nulls first and then writing values
+      UnionListViewWriter writer = vector.getWriter();
+      writer.allocate();
+
+      vector.setNull(0);
+      vector.setNull(2);
+      vector.setNull(4);
+
+      writer.setPosition(1);
+      writer.startList();
+      writer.bigInt().writeBigInt(10);
+      writer.bigInt().writeBigInt(20);
+      writer.bigInt().writeBigInt(30);
+      writer.endList();
+
+      writer.setPosition(3);
+      writer.startList();
+      writer.bigInt().writeBigInt(40);
+      writer.bigInt().writeBigInt(50);
+      writer.endList();
+
+      writer.setPosition(5);
+      writer.startList();
+      writer.bigInt().writeBigInt(60);
+      writer.bigInt().writeBigInt(70);
+      writer.bigInt().writeBigInt(80);
+      writer.endList();
+
+      vector.setValueCount(6);
+
+      assertTrue(vector.isNull(0));
+      assertFalse(vector.isNull(1));
+      assertTrue(vector.isNull(2));
+      assertFalse(vector.isNull(3));
+      assertTrue(vector.isNull(4));
+      assertFalse(vector.isNull(5));
+
+      // validate buffers
+
+      final ArrowBuf validityBuffer = vector.getValidityBuffer();
+      final ArrowBuf offsetBuffer = vector.getOffsetBuffer();
+      final ArrowBuf sizeBuffer = vector.getSizeBuffer();
+
+      assertEquals(0, BitVectorHelper.get(validityBuffer, 0));
+      assertEquals(1, BitVectorHelper.get(validityBuffer, 1));
+      assertEquals(0, BitVectorHelper.get(validityBuffer, 2));
+      assertEquals(1, BitVectorHelper.get(validityBuffer, 3));
+      assertEquals(0, BitVectorHelper.get(validityBuffer, 4));
+      assertEquals(1, BitVectorHelper.get(validityBuffer, 5));
+
+      assertEquals(0, offsetBuffer.getInt(0 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(0, offsetBuffer.getInt(1 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(3, offsetBuffer.getInt(2 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(3, offsetBuffer.getInt(3 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(5, offsetBuffer.getInt(4 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(5, offsetBuffer.getInt(5 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+
+      assertEquals(0, sizeBuffer.getInt(0 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+      assertEquals(3, sizeBuffer.getInt(1 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+      assertEquals(0, sizeBuffer.getInt(2 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+      assertEquals(2, sizeBuffer.getInt(3 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+      assertEquals(0, sizeBuffer.getInt(4 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+      assertEquals(3, sizeBuffer.getInt(5 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+
+      // validate values
+
+      Object result = vector.getObject(1);
+      ArrayList<Long> resultSet = (ArrayList<Long>) result;
+      assertEquals(3, resultSet.size());
+      assertEquals(Long.valueOf(10), resultSet.get(0));
+      assertEquals(Long.valueOf(20), resultSet.get(1));
+      assertEquals(Long.valueOf(30), resultSet.get(2));
+
+      result = vector.getObject(3);
+      resultSet = (ArrayList<Long>) result;
+      assertEquals(2, resultSet.size());
+      assertEquals(Long.valueOf(40), resultSet.get(0));
+      assertEquals(Long.valueOf(50), resultSet.get(1));
+
+      result = vector.getObject(5);
+      resultSet = (ArrayList<Long>) result;
+      assertEquals(3, resultSet.size());
+      assertEquals(Long.valueOf(60), resultSet.get(0));
+      assertEquals(Long.valueOf(70), resultSet.get(1));
+      assertEquals(Long.valueOf(80), resultSet.get(2));
+
+      validateVector(vector);
+    }
+  }
+
+  @Test
+  public void testSetNull3() {
+    try (ListViewVector vector = ListViewVector.empty("listview", allocator)) {
+      // validate setting values first and then writing nulls
+      UnionListViewWriter writer = vector.getWriter();
+      writer.allocate();
+
+      writer.setPosition(1);
+      writer.startList();
+      writer.bigInt().writeBigInt(10);
+      writer.bigInt().writeBigInt(20);
+      writer.bigInt().writeBigInt(30);
+      writer.endList();
+
+      writer.setPosition(3);
+      writer.startList();
+      writer.bigInt().writeBigInt(40);
+      writer.bigInt().writeBigInt(50);
+      writer.endList();
+
+      writer.setPosition(5);
+      writer.startList();
+      writer.bigInt().writeBigInt(60);
+      writer.bigInt().writeBigInt(70);
+      writer.bigInt().writeBigInt(80);
+      writer.endList();
+
+      vector.setNull(0);
+      vector.setNull(2);
+      vector.setNull(4);
+
+      vector.setValueCount(6);
+
+      assertTrue(vector.isNull(0));
+      assertFalse(vector.isNull(1));
+      assertTrue(vector.isNull(2));
+      assertFalse(vector.isNull(3));
+      assertTrue(vector.isNull(4));
+      assertFalse(vector.isNull(5));
+
+      // validate buffers
+
+      final ArrowBuf validityBuffer = vector.getValidityBuffer();
+      final ArrowBuf offsetBuffer = vector.getOffsetBuffer();
+      final ArrowBuf sizeBuffer = vector.getSizeBuffer();
+
+      assertEquals(0, BitVectorHelper.get(validityBuffer, 0));
+      assertEquals(1, BitVectorHelper.get(validityBuffer, 1));
+      assertEquals(0, BitVectorHelper.get(validityBuffer, 2));
+      assertEquals(1, BitVectorHelper.get(validityBuffer, 3));
+      assertEquals(0, BitVectorHelper.get(validityBuffer, 4));
+      assertEquals(1, BitVectorHelper.get(validityBuffer, 5));
+
+      assertEquals(0, offsetBuffer.getInt(0 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(0, offsetBuffer.getInt(1 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(3, offsetBuffer.getInt(2 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(3, offsetBuffer.getInt(3 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(5, offsetBuffer.getInt(4 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(5, offsetBuffer.getInt(5 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+
+      assertEquals(0, sizeBuffer.getInt(0 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+      assertEquals(3, sizeBuffer.getInt(1 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+      assertEquals(0, sizeBuffer.getInt(2 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+      assertEquals(2, sizeBuffer.getInt(3 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+      assertEquals(0, sizeBuffer.getInt(4 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+      assertEquals(3, sizeBuffer.getInt(5 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+
+      // validate values
+
+      Object result = vector.getObject(1);
+      ArrayList<Long> resultSet = (ArrayList<Long>) result;
+      assertEquals(3, resultSet.size());
+      assertEquals(Long.valueOf(10), resultSet.get(0));
+      assertEquals(Long.valueOf(20), resultSet.get(1));
+      assertEquals(Long.valueOf(30), resultSet.get(2));
+
+      result = vector.getObject(3);
+      resultSet = (ArrayList<Long>) result;
+      assertEquals(2, resultSet.size());
+      assertEquals(Long.valueOf(40), resultSet.get(0));
+      assertEquals(Long.valueOf(50), resultSet.get(1));
+
+      result = vector.getObject(5);
+      resultSet = (ArrayList<Long>) result;
+      assertEquals(3, resultSet.size());
+      assertEquals(Long.valueOf(60), resultSet.get(0));
+      assertEquals(Long.valueOf(70), resultSet.get(1));
+      assertEquals(Long.valueOf(80), resultSet.get(2));
+
+      validateVector(vector);
+    }
+  }
+
+  @Test
+  public void testOverWrite1() {
+    try (ListViewVector vector = ListViewVector.empty("listview", allocator)) {
+      UnionListViewWriter writer = vector.getWriter();
+      writer.allocate();
+
+      writer.setPosition(0);
+      writer.startList();
+      writer.bigInt().writeBigInt(10);
+      writer.bigInt().writeBigInt(20);
+      writer.bigInt().writeBigInt(30);
+      writer.endList();
+
+      writer.setPosition(1);
+      writer.startList();
+      writer.bigInt().writeBigInt(40);
+      writer.bigInt().writeBigInt(50);
+      writer.endList();
+
+      vector.setValueCount(2);
+
+      writer.setPosition(0);
+      writer.startList();
+      writer.bigInt().writeBigInt(60);
+      writer.bigInt().writeBigInt(70);
+      writer.endList();
+
+      writer.setPosition(1);
+      writer.startList();
+      writer.bigInt().writeBigInt(80);
+      writer.bigInt().writeBigInt(90);
+      writer.endList();
+
+      vector.setValueCount(2);
+
+      Object result = vector.getObject(0);
+      ArrayList<Long> resultSet = (ArrayList<Long>) result;
+      assertEquals(2, resultSet.size());
+      assertEquals(Long.valueOf(60), resultSet.get(0));
+      assertEquals(Long.valueOf(70), resultSet.get(1));
+
+      result = vector.getObject(1);
+      resultSet = (ArrayList<Long>) result;
+      assertEquals(2, resultSet.size());
+      assertEquals(Long.valueOf(80), resultSet.get(0));
+      assertEquals(Long.valueOf(90), resultSet.get(1));
+
+      validateVector(vector);
+    }
+  }
+
+  @Test
+  public void testOverwriteWithNull() {
+    try (ListViewVector vector = ListViewVector.empty("listview", allocator)) {
+      UnionListViewWriter writer = vector.getWriter();
+      writer.allocate();
+
+      ArrowBuf offsetBuffer = vector.getOffsetBuffer();
+      ArrowBuf sizeBuffer = vector.getSizeBuffer();
+
+      writer.setPosition(0);
+      writer.startList();
+      writer.bigInt().writeBigInt(10);
+      writer.bigInt().writeBigInt(20);
+      writer.bigInt().writeBigInt(30);
+      writer.endList();
+
+      writer.setPosition(1);
+      writer.startList();
+      writer.bigInt().writeBigInt(40);
+      writer.bigInt().writeBigInt(50);
+      writer.endList();
+
+      vector.setValueCount(2);
+
+      assertEquals(0, offsetBuffer.getInt(0 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(3, offsetBuffer.getInt(1 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+
+      assertEquals(3, sizeBuffer.getInt(0 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+      assertEquals(2, sizeBuffer.getInt(1 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+
+      vector.setNull(0);
+
+      assertEquals(0, offsetBuffer.getInt(0 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(0, sizeBuffer.getInt(0 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+
+      vector.setNull(1);
+
+      assertEquals(0, offsetBuffer.getInt(0 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(0, sizeBuffer.getInt(0 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+
+      assertTrue(vector.isNull(0));
+      assertTrue(vector.isNull(1));
+
+      writer.setPosition(0);
+      writer.startList();
+      writer.bigInt().writeBigInt(60);
+      writer.bigInt().writeBigInt(70);
+      writer.endList();
+
+      assertEquals(0, offsetBuffer.getInt(0 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(2, sizeBuffer.getInt(0 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+
+      writer.setPosition(1);
+      writer.startList();
+      writer.bigInt().writeBigInt(80);
+      writer.bigInt().writeBigInt(90);
+      writer.endList();
+
+      assertEquals(2, offsetBuffer.getInt(1 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(2, sizeBuffer.getInt(1 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+
+      vector.setValueCount(2);
+
+      assertFalse(vector.isNull(0));
+      assertFalse(vector.isNull(1));
+
+      Object result = vector.getObject(0);
+      ArrayList<Long> resultSet = (ArrayList<Long>) result;
+      assertEquals(2, resultSet.size());
+      assertEquals(Long.valueOf(60), resultSet.get(0));
+      assertEquals(Long.valueOf(70), resultSet.get(1));
+
+      result = vector.getObject(1);
+      resultSet = (ArrayList<Long>) result;
+      assertEquals(2, resultSet.size());
+      assertEquals(Long.valueOf(80), resultSet.get(0));
+      assertEquals(Long.valueOf(90), resultSet.get(1));
+
+      validateVector(vector);
+    }
+  }
+
+  @Test
+  public void testOutOfOrderOffset1() {
+    // [[12, -7, 25], null, [0, -127, 127, 50], [], [50, 12]]
   }
 
   private void writeIntValues(UnionListViewWriter writer, int[] values) {
