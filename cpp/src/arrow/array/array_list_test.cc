@@ -1287,7 +1287,7 @@ TEST_F(TestMapArray, ValidateErrorNullKey) {
 }
 
 TEST_F(TestMapArray, FromArrays) {
-  std::shared_ptr<Array> offsets1, offsets2, offsets3, offsets4, keys, items;
+  std::shared_ptr<Array> offsets1, offsets2, offsets3, offsets4, offsets5, keys, items;
 
   std::vector<bool> offsets_is_valid3 = {true, false, true, true};
   std::vector<bool> offsets_is_valid4 = {true, true, false, true};
@@ -1341,6 +1341,20 @@ TEST_F(TestMapArray, FromArrays) {
 
   // Zero-length offsets
   ASSERT_RAISES(Invalid, MapArray::FromArrays(offsets1->Slice(0, 0), keys, items, pool_));
+
+  // Offseted offsets
+  ASSERT_OK_AND_ASSIGN(auto map5,
+                       MapArray::FromArrays(offsets1->Slice(1), keys, items, pool_));
+  ASSERT_OK(map5->Validate());
+
+  AssertArraysEqual(*expected1.Slice(1), *map5);
+
+  std::vector<MapType::offset_type> offset5_values = {2, 2, 6};
+  ArrayFromVector<OffsetType, offset_type>(offset5_values, &offsets5);
+  ASSERT_OK_AND_ASSIGN(auto map6, MapArray::FromArrays(offsets5, keys, items, pool_));
+  ASSERT_OK(map6->Validate());
+
+  AssertArraysEqual(*map5, *map6);
 
   // Offsets not the right type
   ASSERT_RAISES(TypeError, MapArray::FromArrays(keys, offsets1, items, pool_));
