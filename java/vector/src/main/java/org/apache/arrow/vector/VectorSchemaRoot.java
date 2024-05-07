@@ -128,7 +128,7 @@ public class VectorSchemaRoot implements AutoCloseable {
     }
     if (fieldVectors.size() != schema.getFields().size()) {
       throw new IllegalArgumentException("The root vector did not create the right number of children. found " +
-              fieldVectors.size() + " expected " + schema.getFields().size());
+          fieldVectors.size() + " expected " + schema.getFields().size());
     }
     return new VectorSchemaRoot(schema, fieldVectors, 0);
   }
