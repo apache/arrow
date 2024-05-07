@@ -121,14 +121,14 @@ public class VectorSchemaRoot implements AutoCloseable {
    * Creates a new set of empty vectors corresponding to the given schema.
    */
   public static VectorSchemaRoot create(Schema schema, BufferAllocator allocator) {
-    List<FieldVector> fieldVectors = new ArrayList<>();
+    List<FieldVector> fieldVectors = new ArrayList<>(schema.getFields().size());
     for (Field field : schema.getFields()) {
       FieldVector vector = field.createVector(allocator);
       fieldVectors.add(vector);
     }
     if (fieldVectors.size() != schema.getFields().size()) {
       throw new IllegalArgumentException("The root vector did not create the right number of children. found " +
-          fieldVectors.size() + " expected " + schema.getFields().size());
+              fieldVectors.size() + " expected " + schema.getFields().size());
     }
     return new VectorSchemaRoot(schema, fieldVectors, 0);
   }
@@ -160,7 +160,7 @@ public class VectorSchemaRoot implements AutoCloseable {
   }
 
   public List<FieldVector> getFieldVectors() {
-    return fieldVectors.stream().collect(Collectors.toList());
+    return new ArrayList<>(fieldVectors);
   }
 
   /**
@@ -236,7 +236,7 @@ public class VectorSchemaRoot implements AutoCloseable {
    */
   public void setRowCount(int rowCount) {
     this.rowCount = rowCount;
-    for (FieldVector v : getFieldVectors()) {
+    for (FieldVector v : fieldVectors) {
       v.setValueCount(rowCount);
     }
   }
