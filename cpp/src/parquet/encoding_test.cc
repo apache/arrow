@@ -577,6 +577,11 @@ TEST(PlainEncodingAdHoc, ArrowBinaryDirectPut) {
     auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);
 
     ASSERT_NO_THROW(encoder->Put(*values));
+    // For Plain encoding, the estimated size should be at least the total byte size
+    auto& string_array = dynamic_cast<const ::arrow::StringArray&>(*values);
+    EXPECT_GE(encoder->EstimatedDataEncodedSize(), string_array.total_values_length())
+        << "Estimated size should be at least the total byte size";
+
     auto buf = encoder->FlushValues();
 
     int num_values = static_cast<int>(values->length() - values->null_count());
@@ -2160,6 +2165,10 @@ TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowBinaryDirectPut) {
 
   auto CheckSeed = [&](std::shared_ptr<::arrow::Array> values) {
     ASSERT_NO_THROW(encoder->Put(*values));
+    auto* binary_array = checked_cast<const ::arrow::BinaryArray*>(values.get());
+    // For DeltaLength encoding, the estimated size should be at least the total byte size
+    EXPECT_GE(encoder->EstimatedDataEncodedSize(), binary_array->total_values_length())
+        << "Estimated size should be at least the total byte size";
     auto buf = encoder->FlushValues();
 
     int num_values = static_cast<int>(values->length() - values->null_count());
