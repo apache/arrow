@@ -1383,7 +1383,7 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
     encoder->PutSpaced(draws_, num_values_, valid_bits, valid_bits_offset);
     encode_buffer_ = encoder->FlushValues();
     ASSERT_EQ(encode_buffer_->size(), physical_byte_width() * (num_values_ - null_count));
-    decoder->SetData(num_values_ - null_count, encode_buffer_->data(),
+    decoder->SetData(num_values_, encode_buffer_->data(),
                      static_cast<int>(encode_buffer_->size()));
     auto values_decoded = decoder->DecodeSpaced(decode_buf_, num_values_, null_count,
                                                 valid_bits, valid_bits_offset);
@@ -1717,7 +1717,7 @@ class TestDeltaBitPackEncoding : public TestEncodingBase<Type> {
     for (size_t i = 0; i < kNumRoundTrips; ++i) {
       encoder->PutSpaced(draws_, num_values_, valid_bits, valid_bits_offset);
       encode_buffer_ = encoder->FlushValues();
-      decoder->SetData(num_values_ - null_count, encode_buffer_->data(),
+      decoder->SetData(num_values_, encode_buffer_->data(),
                        static_cast<int>(encode_buffer_->size()));
       auto values_decoded = decoder->DecodeSpaced(decode_buf_, num_values_, null_count,
                                                   valid_bits, valid_bits_offset);
