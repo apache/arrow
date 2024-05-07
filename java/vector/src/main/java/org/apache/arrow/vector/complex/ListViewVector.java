@@ -23,6 +23,7 @@ import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 import static org.apache.arrow.util.Preconditions.checkArgument;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -432,14 +433,16 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   @Override
   protected FieldReader getReaderImpl() {
-    // TODO:
-    throw new UnsupportedOperationException();
+    // TODO: https://github.com/apache/arrow/issues/41569
+    throw new UnsupportedOperationException(
+        "ListViewVector does not support getReaderImpl operation yet.");
   }
 
   @Override
   public UnionListReader getReader() {
-    // TODO:
-    throw new UnsupportedOperationException();
+    // TODO: https://github.com/apache/arrow/issues/41569
+    throw new UnsupportedOperationException(
+        "ListViewVector does not support getReader operation yet.");
   }
 
   /**
@@ -458,6 +461,11 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     return offsetBufferSize + sizeBufferSize + validityBufferSize + vector.getBufferSize();
   }
 
+  /**
+   * Get the size (number of bytes) of underlying buffers used by this.
+   * @param valueCount the number of values to assume this vector contains
+   * @return size of underlying buffers.
+   */
   @Override
   public int getBufferSizeFor(int valueCount) {
     if (valueCount == 0) {
@@ -468,6 +476,10 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     return super.getBufferSizeFor(valueCount) + validityBufferSize;
   }
 
+  /**
+   * Get the field associated with the list view vector.
+   * @return the field
+   */
   @Override
   public Field getField() {
     if (field.getChildren().contains(getDataVector().getField())) {
@@ -477,11 +489,18 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     return field;
   }
 
+  /**
+   * Get the minor type for the vector.
+   * @return the minor type
+   */
   @Override
   public MinorType getMinorType() {
     return MinorType.LIST;
   }
 
+  /**
+  * Clear the vector data.
+  */
   @Override
   public void clear() {
     super.clear();
@@ -489,6 +508,9 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     lastSet = -1;
   }
 
+  /**
+  * Release the buffers associated with this vector.
+  */
   @Override
   public void reset() {
     super.reset();
@@ -496,11 +518,45 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     lastSet = -1;
   }
 
+  /**
+   * Return the underlying buffers associated with this vector. Note that this doesn't
+   * impact the reference counts for this buffer, so it only should be used for in-context
+   * access. Also note that this buffer changes regularly, thus
+   * external classes shouldn't hold a reference to it (unless they change it).
+   *
+   * @param clear Whether to clear vector before returning, the buffers will still be refcounted
+   *              but the returned array will be the only reference to them
+   * @return The underlying {@link ArrowBuf buffers} that is used by this
+   *         vector instance.
+   */
   @Override
   public ArrowBuf[] getBuffers(boolean clear) {
-    return new ArrowBuf[0];
+    setReaderAndWriterIndex();
+    final ArrowBuf[] buffers;
+    if (getBufferSize() == 0) {
+      buffers = new ArrowBuf[0];
+    } else {
+      List<ArrowBuf> list = new ArrayList<>();
+      list.add(offsetBuffer);
+      list.add(validityBuffer);
+      list.add(sizeBuffer);
+      list.addAll(Arrays.asList(vector.getBuffers(false)));
+      buffers = list.toArray(new ArrowBuf[list.size()]);
+    }
+    if (clear) {
+      for (ArrowBuf buffer : buffers) {
+        buffer.getReferenceManager().retain();
+      }
+      clear();
+    }
+    return buffers;
   }
 
+  /**
+   * Get the element in the list view vector at a particular index.
+   * @param index position of the element
+   * @return Object at given position
+   */
   @Override
   public List<?> getObject(int index) {
     if (isSet(index) == 0) {
@@ -517,11 +573,22 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     return vals;
   }
 
+  /**
+   * Check if an element at given index is null.
+   *
+   * @param index position of an element
+   * @return true if an element at given index is null, false otherwise
+   */
   @Override
   public boolean isNull(int index) {
     return (isSet(index) == 0);
   }
 
+  /**
+   * Check if an element at given index is an empty list.
+   * @param index position of an element
+   * @return true if an element at given index is an empty list or NULL, false otherwise
+   */
   @Override
   public boolean isEmpty(int index) {
     if (isNull(index)) {
