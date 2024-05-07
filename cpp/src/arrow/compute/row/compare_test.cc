@@ -106,5 +106,11 @@ TEST(KeyCompare, CompareColumnsToRowsCuriousFSB) {
   }
 }
 
+// Make sure that KeyCompare::CompareColumnsToRows uses no more stack space than declared
+// in KeyCompare::kTempStackUsage.
+TEST(KeyCompare, TempStackUsage) {
+  // TODO
+}
+
 }  // namespace compute
 }  // namespace arrow

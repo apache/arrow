@@ -3201,5 +3201,11 @@ TEST(HashJoin, ChainedIntegerHashJoins) {
   }
 }
 
+// Test that a large number of joins don't overflow the temp vector stack, like GH-39582
+// and GH-39951.
+TEST(HashJoin, ManyJoins) {
+  // TODO.
+}
+
 }  // namespace acero
 }  // namespace arrow

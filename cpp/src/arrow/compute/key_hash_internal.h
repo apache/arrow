@@ -48,6 +48,11 @@ class ARROW_EXPORT Hashing32 {
   static void HashMultiColumn(const std::vector<KeyColumnArray>& cols, LightContext* ctx,
                               uint32_t* out_hash);
 
+  // Clarify the max temp stack usage for HashBatch so the caller could reserve enough
+  // size in advance.
+  static constexpr auto kTempStackUsage =
+      (sizeof(uint32_t) + sizeof(uint16_t) + sizeof(uint32_t) + /*extra=*/1) *
+      util::MiniBatch::kMiniBatchLength;
   static Status HashBatch(const ExecBatch& key_batch, uint32_t* hashes,
                           std::vector<KeyColumnArray>& column_arrays,
                           int64_t hardware_flags, util::TempVectorStack* temp_stack,
@@ -161,6 +166,10 @@ class ARROW_EXPORT Hashing64 {
   static void HashMultiColumn(const std::vector<KeyColumnArray>& cols, LightContext* ctx,
                               uint64_t* hashes);
 
+  // Clarify the max temp stack usage for HashBatch so the caller could reserve enough
+  // size in advance.
+  static constexpr auto kTempStackUsage =
+      (sizeof(uint16_t) + sizeof(uint64_t)) * util::MiniBatch::kMiniBatchLength;
   static Status HashBatch(const ExecBatch& key_batch, uint64_t* hashes,
                           std::vector<KeyColumnArray>& column_arrays,
                           int64_t hardware_flags, util::TempVectorStack* temp_stack,

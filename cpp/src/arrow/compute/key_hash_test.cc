@@ -311,5 +311,11 @@ TEST(VectorHash, FixedLengthTailByteSafety) {
   HashFixedLengthFrom(/*key_length=*/19, /*num_rows=*/64, /*start_row=*/63);
 }
 
+// Make sure that Hashing32/64::HashBatch uses no more stack space than declared in
+// Hashing32/64::kTempStackUsage.
+TEST(VectorHash, TempStackUsage) {
+  // TODO
+}
+
 }  // namespace compute
 }  // namespace arrow

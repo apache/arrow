@@ -18,46 +18,10 @@
 #include "arrow/acero/query_context.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/io_util.h"
-#include "arrow/util/value_parsing.h"
 
 namespace arrow {
 using arrow::internal::CpuInfo;
 namespace acero {
-
-namespace internal {
-
-int64_t GetTempStackSizeFromEnvVar() {
-  auto maybe_env_value = arrow::internal::GetEnvVar(kTempStackSizeEnvVar);
-  if (!maybe_env_value.ok()) {
-    return kDefaultTempStackSize;
-  }
-  std::string env_value = std::move(maybe_env_value).ValueUnsafe();
-  if (env_value.empty()) {
-    return kDefaultTempStackSize;
-  }
-
-  int64_t temp_stack_size = 0;
-  bool ok = ::arrow::internal::ParseValue<Int64Type>(env_value.c_str(), env_value.size(),
-                                                     &temp_stack_size);
-  if (!ok || temp_stack_size <= 0) {
-    ARROW_LOG(WARNING) << "Invalid temp stack size provided in " << kTempStackSizeEnvVar
-                       << ". Using default temp stack size: " << kDefaultTempStackSize;
-    return kDefaultTempStackSize;
-  } else if (temp_stack_size < kMinTempStackSize) {
-    ARROW_LOG(WARNING) << "Temp stack size provided in " << kTempStackSizeEnvVar
-                       << " is too small. Using minimal temp stack size: "
-                       << kMinTempStackSize;
-    return kMinTempStackSize;
-  } else if (temp_stack_size > kMaxTempStackSize) {
-    ARROW_LOG(WARNING) << "Temp stack size provided in " << kTempStackSizeEnvVar
-                       << " is too big. Using maximal temp stack size: "
-                       << kMaxTempStackSize;
-    return kMaxTempStackSize;
-  }
-  return temp_stack_size;
-}
-
-}  // namespace internal
 
 namespace {
 io::IOContext GetIoContext(const QueryOptions& opts, const ExecContext& exec_context) {
@@ -76,8 +40,7 @@ QueryContext::QueryContext(QueryOptions opts, ExecContext exec_context)
 const CpuInfo* QueryContext::cpu_info() const { return CpuInfo::GetInstance(); }
 int64_t QueryContext::hardware_flags() const { return cpu_info()->hardware_flags(); }
 
-Status QueryContext::Init(size_t max_num_threads, util::AsyncTaskScheduler* scheduler) {
-  tld_.resize(max_num_threads);
+Status QueryContext::Init(util::AsyncTaskScheduler* scheduler) {
   async_scheduler_ = scheduler;
   return Status::OK();
 }
@@ -85,15 +48,6 @@ Status QueryContext::Init(size_t max_num_threads, util::AsyncTaskScheduler* sche
 size_t QueryContext::GetThreadIndex() { return thread_indexer_(); }
 
 size_t QueryContext::max_concurrency() const { return thread_indexer_.Capacity(); }
-
-Result<util::TempVectorStack*> QueryContext::GetTempStack(size_t thread_index) {
-  if (ARROW_PREDICT_FALSE(!tld_[thread_index].is_init)) {
-    static const int64_t temp_stack_size = internal::GetTempStackSizeFromEnvVar();
-    RETURN_NOT_OK(tld_[thread_index].stack.Init(memory_pool(), temp_stack_size));
-    tld_[thread_index].is_init = true;
-  }
-  return &tld_[thread_index].stack;
-}
 
 Result<Future<>> QueryContext::BeginExternalTask(std::string_view name) {
   Future<> completion_future = Future<>::Make();

@@ -1503,8 +1503,8 @@ void TestBackpressure(BatchesMaker maker, int batch_size, int num_l_batches,
 
   Declaration asofjoin = {"asofjoin", bp_decls, opts};
 
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<::arrow::internal::ThreadPool> tpool,
-                       ::arrow::internal::ThreadPool::Make(1));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<internal::ThreadPool> tpool,
+                       internal::ThreadPool::Make(1));
   ExecContext exec_ctx(default_memory_pool(), tpool.get());
   Future<BatchesWithCommonSchema> batches_fut =
       DeclarationToExecBatchesAsync(asofjoin, exec_ctx);

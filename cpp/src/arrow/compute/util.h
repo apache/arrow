@@ -89,6 +89,7 @@ class ARROW_EXPORT TempVectorStack {
   Status Init(MemoryPool* pool, int64_t size) {
     num_vectors_ = 0;
     top_ = 0;
+    peak_usage = 0;
     buffer_size_ = EstimatedAllocationSize(size);
     ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateResizableBuffer(size, pool));
     // Ensure later operations don't accidentally read uninitialized memory.
@@ -96,6 +97,8 @@ class ARROW_EXPORT TempVectorStack {
     buffer_ = std::move(buffer);
     return Status::OK();
   }
+
+  int64_t PeakUsage() const { return peak_usage; }
 
  private:
   static int64_t EstimatedAllocationSize(int64_t size) {
@@ -119,6 +122,7 @@ class ARROW_EXPORT TempVectorStack {
   static constexpr int64_t kPadding = 64;
   int num_vectors_;
   int64_t top_;
+  int64_t peak_usage;
   std::unique_ptr<Buffer> buffer_;
   int64_t buffer_size_;
 };

@@ -33,28 +33,12 @@ using io::IOContext;
 
 namespace acero {
 
-namespace internal {
-
-constexpr char kTempStackSizeEnvVar[] = "ACERO_TEMP_STACK_SIZE";
-/// Default 256KB temp stack size to be fairly sufficient for most common cases.
-constexpr int64_t kDefaultTempStackSize = 256 * arrow::util::MiniBatch::kMiniBatchLength;
-/// Minimal 64KB temp stack size to be barely useful.
-constexpr int64_t kMinTempStackSize = 64 * arrow::util::MiniBatch::kMiniBatchLength;
-/// Maximal 64MB temp stack size, which should be sufficient for any case that is not
-/// insane, and the stack init overhead is acceptable.
-constexpr int64_t kMaxTempStackSize =
-    64 * 1024 * arrow::util::MiniBatch::kMiniBatchLength;
-ARROW_ACERO_EXPORT
-int64_t GetTempStackSizeFromEnvVar();
-
-}  // namespace internal
-
 class ARROW_ACERO_EXPORT QueryContext {
  public:
   QueryContext(QueryOptions opts = {},
                ExecContext exec_context = *default_exec_context());
 
-  Status Init(size_t max_num_threads, arrow::util::AsyncTaskScheduler* scheduler);
+  Status Init(arrow::util::AsyncTaskScheduler* scheduler);
 
   const ::arrow::internal::CpuInfo* cpu_info() const;
   int64_t hardware_flags() const;
@@ -68,7 +52,6 @@ class ARROW_ACERO_EXPORT QueryContext {
 
   size_t GetThreadIndex();
   size_t max_concurrency() const;
-  Result<arrow::util::TempVectorStack*> GetTempStack(size_t thread_index);
 
   /// \brief Start an external task
   ///
@@ -161,11 +144,6 @@ class ARROW_ACERO_EXPORT QueryContext {
   std::unique_ptr<TaskScheduler> task_scheduler_ = TaskScheduler::Make();
 
   ThreadIndexer thread_indexer_;
-  struct ThreadLocalData {
-    bool is_init = false;
-    arrow::util::TempVectorStack stack;
-  };
-  std::vector<ThreadLocalData> tld_;
 
   std::atomic<size_t> in_flight_bytes_to_disk_{0};
 };

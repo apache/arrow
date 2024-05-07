@@ -32,6 +32,12 @@ namespace compute {
 
 class ARROW_EXPORT KeyCompare {
  public:
+  // Clarify the max temp stack usage for CompareColumnsToRows so the caller could reserve
+  // enough size in advance.
+  static constexpr auto kTempStackUsage =
+      (sizeof(uint8_t) + sizeof(uint8_t) + sizeof(uint8_t) + /*extra=*/1) *
+      util::MiniBatch::kMiniBatchLength;
+
   // Returns a single 16-bit selection vector of rows that failed comparison.
   // If there is input selection on the left, the resulting selection is a filtered image
   // of input selection.

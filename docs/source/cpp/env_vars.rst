@@ -49,26 +49,6 @@ that changing their value later will have an effect.
    option but this will have a significant performance impact as the buffer
    will need to be copied.
 
-.. envvar:: ACERO_TEMP_STACK_SIZE
-
-   Arrow C++'s Acero module performs computation on streams of data.  This
-   computation uses a thread-local temporary stack to store intermediate
-   results to reduce the overhead of memory allocation.  As the complexity
-   of the computation increases, such as when joining multiple tables, a
-   larger temporary stack is required.  If the stack is undersized,
-   computations may fail with error: "TempVectorStack::alloc overflow".
-
-   This environment variable allows users to adjust the stack size. The
-   value of the variable specifies the stack size in bytes.
-   
-   The default stack size is 262144 bytes (256 KB).  The value of this
-   environment variable should be a positive integer within the inclusive
-   range between 65536 (64 KB) and 67108864 (64 MB).  If the value is a
-   valid positive integer within the int64 range but exceeds the specified
-   minimum or maximum stack size limits, the nearest boundary value is used.
-   If the input is a non-positive integer, an invalid number, or exceeds the
-   int64 capacity, the default stack size is used.
-
 .. envvar:: ARROW_DEBUG_MEMORY_POOL
 
    Enable rudimentary memory checks to guard against buffer overflows.
