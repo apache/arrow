@@ -332,7 +332,7 @@ inline Result<std::unique_ptr<ArrayBuilder>> MakeBuilder(
     const std::shared_ptr<DataType>& type, MemoryPool* pool = default_memory_pool()) {
   std::unique_ptr<ArrayBuilder> out;
   ARROW_RETURN_NOT_OK(MakeBuilder(pool, type, &out));
-  return std::move(out);
+  return out;
 }
 
 /// \brief Construct an empty ArrayBuilder corresponding to the data
