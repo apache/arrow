@@ -844,7 +844,7 @@ public class TestListViewVector {
 
   @Test
   public void testClearAndReuse() {
-    try (final ListViewVector vector = ListViewVector.empty("list", allocator)) {
+    try (final ListViewVector vector = ListViewVector.empty("listview", allocator)) {
       BigIntVector bigIntVector =
           (BigIntVector) vector.addOrGetVector(FieldType.nullable(MinorType.BIGINT.getType())).getVector();
       vector.setInitialCapacity(10);
@@ -1077,7 +1077,7 @@ public class TestListViewVector {
   public void testTotalCapacity() {
     // adopted from ListVector test cases
     final FieldType type = FieldType.nullable(MinorType.INT.getType());
-    try (final ListViewVector vector = new ListViewVector("list", allocator, type, null)) {
+    try (final ListViewVector vector = new ListViewVector("listview", allocator, type, null)) {
       // Force the child vector to be allocated based on the type
       // (this is a bad API: we have to track and repeat the type twice)
       vector.addOrGetVector(type);
@@ -1507,6 +1507,93 @@ public class TestListViewVector {
   @Test
   public void testOutOfOrderOffset1() {
     // [[12, -7, 25], null, [0, -127, 127, 50], [], [50, 12]]
+    ArrowBuf newOffSetBuf = allocator.buffer(1024);
+    ArrowBuf newSizeBuffer = allocator.buffer(1024);
+    ArrowBuf validityBuffer = allocator.buffer(DataSizeRoundingUtil.divideBy8Ceil(1024));
+    SmallIntVector childVector = new SmallIntVector("child-vector", allocator);
+    ListViewVector listViewVector = ListViewVector.empty("listview", allocator);
+
+    listViewVector.allocateNew();
+
+    childVector.allocateNew(7);
+
+    childVector.set(0, 0);
+    childVector.set(1, -127);
+    childVector.set(2, 127);
+    childVector.set(3, 50);
+    childVector.set(4, 12);
+    childVector.set(5, -7);
+    childVector.set(6, 25);
+
+    childVector.setValueCount(7);
+
+    int[] offSetValues = new int[]{4, 7, 0, 0, 3};
+    int[] sizeValues = new int[]{3, 0, 4, 0, 2};
+
+    BitVectorHelper.setBit(validityBuffer, 0);
+    BitVectorHelper.setBit(validityBuffer, 2);
+    BitVectorHelper.setBit(validityBuffer, 3);
+    BitVectorHelper.setBit(validityBuffer, 4);
+
+    setValuesInBuffer(offSetValues, newOffSetBuf, BaseRepeatedValueViewVector.OFFSET_WIDTH);
+    setValuesInBuffer(sizeValues, newSizeBuffer, BaseRepeatedValueViewVector.SIZE_WIDTH);
+
+    listViewVector.set(newOffSetBuf, newSizeBuffer, validityBuffer, childVector, 5);
+
+    final ArrowBuf offSetBuffer = listViewVector.getOffsetBuffer();
+    final ArrowBuf sizeBuffer = listViewVector.getSizeBuffer();
+
+    // check offset buffer
+    assertEquals(4, offSetBuffer.getInt(0 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+    assertEquals(7, offSetBuffer.getInt(1 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+    assertEquals(0, offSetBuffer.getInt(2 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+    assertEquals(0, offSetBuffer.getInt(3 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+    assertEquals(3, offSetBuffer.getInt(4 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+
+    // check size buffer
+    assertEquals(3, sizeBuffer.getInt(0 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+    assertEquals(0, sizeBuffer.getInt(1 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+    assertEquals(4, sizeBuffer.getInt(2 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+    assertEquals(0, sizeBuffer.getInt(3 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+    assertEquals(2, sizeBuffer.getInt(4 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+
+    // check child vector
+    assertEquals(0, ((SmallIntVector) listViewVector.getDataVector()).get(0));
+    assertEquals(-127, ((SmallIntVector) listViewVector.getDataVector()).get(1));
+    assertEquals(127, ((SmallIntVector) listViewVector.getDataVector()).get(2));
+    assertEquals(50, ((SmallIntVector) listViewVector.getDataVector()).get(3));
+    assertEquals(12, ((SmallIntVector) listViewVector.getDataVector()).get(4));
+    assertEquals(-7, ((SmallIntVector) listViewVector.getDataVector()).get(5));
+    assertEquals(25, ((SmallIntVector) listViewVector.getDataVector()).get(6));
+
+    // check values
+    Object result = listViewVector.getObject(0);
+    ArrayList<Integer> resultSet = (ArrayList<Integer>) result;
+    assertEquals(3, resultSet.size());
+    assertEquals(Short.valueOf("12"), resultSet.get(0));
+    assertEquals(Short.valueOf("-7"), resultSet.get(1));
+    assertEquals(Short.valueOf("25"), resultSet.get(2));
+
+    assertTrue(listViewVector.isNull(1));
+
+    result = listViewVector.getObject(2);
+    resultSet = (ArrayList<Integer>) result;
+    assertEquals(4, resultSet.size());
+    assertEquals(Short.valueOf("0"), resultSet.get(0));
+    assertEquals(Short.valueOf("-127"), resultSet.get(1));
+    assertEquals(Short.valueOf("127"), resultSet.get(2));
+    assertEquals(Short.valueOf("50"), resultSet.get(3));
+
+    assertTrue(listViewVector.isEmpty(3));
+
+    result = listViewVector.getObject(4);
+    resultSet = (ArrayList<Integer>) result;
+    assertEquals(2, resultSet.size());
+    assertEquals(Short.valueOf("50"), resultSet.get(0));
+    assertEquals(Short.valueOf("12"), resultSet.get(1));
+
+    validateVector(listViewVector);
+    listViewVector.close();
   }
 
   private void writeIntValues(UnionListViewWriter writer, int[] values) {
