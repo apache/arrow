@@ -826,7 +826,7 @@ class FileMetaData::FileMetaDataImpl {
     file_decryptor_ = std::move(file_decryptor);
   }
 
-  std::shared_ptr<InternalFileDecryptor> file_decryptor() const {
+  const std::shared_ptr<InternalFileDecryptor>& file_decryptor() const {
     return file_decryptor_;
   }
 
@@ -951,7 +951,7 @@ void FileMetaData::set_file_decryptor(
   impl_->set_file_decryptor(std::move(file_decryptor));
 }
 
-std::shared_ptr<InternalFileDecryptor> FileMetaData::file_decryptor() const {
+const std::shared_ptr<InternalFileDecryptor>& FileMetaData::file_decryptor() const {
   return impl_->file_decryptor();
 }
 
