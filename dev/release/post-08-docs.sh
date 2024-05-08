@@ -72,7 +72,7 @@ fi
 # delete current stable docs and restore all previous versioned docs
 rm -rf docs/*
 git checkout "${versioned_paths[@]}"
-# Download and untare released docs in a temp folder
+# Download and untar released docs in a temp folder
 rm -rf docs_new
 mkdir docs_new
 pushd docs_new
