@@ -54,6 +54,17 @@ import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
 
+/**
+ * A list view vector contains lists of a specific type of elements.
+ * Its structure contains four elements.
+ * <ol>
+ * <li> A validity buffer. </li>
+ * <li> An offset buffer, that denotes lists starts. </li>
+ * <li> A size buffer, that denotes lists ends. </li>
+ * <li> A child data vector that contains the elements of lists. </li>
+ * </ol>
+ * The latter three are managed by its superclass.
+ */
 public class ListViewVector extends BaseRepeatedValueViewVector implements PromotableVector {
 
   protected ArrowBuf validityBuffer;
@@ -98,8 +109,6 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     this.validityAllocationSizeInBytes = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION);
     this.lastSet = -1;
   }
-
-
 
   @Override
   public void initializeChildrenFromFields(List<Field> children) {
@@ -177,6 +186,11 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     return singletonList(getDataVector());
   }
 
+  /**
+   * Load the buffers associated with this Field.
+   * @param fieldNode  the fieldNode
+   * @param ownBuffers the buffers for this Field (own buffers only, children not included)
+   */
   @Override
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
     if (ownBuffers.size() != 3) {
@@ -193,7 +207,7 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     offsetBuffer.getReferenceManager().release();
     offsetBuffer = offBuffer.getReferenceManager().retain(offBuffer, allocator);
     sizeBuffer.getReferenceManager().release();
-    sizeBuffer = offBuffer.getReferenceManager().retain(szBuffer, allocator);
+    sizeBuffer = szBuffer.getReferenceManager().retain(szBuffer, allocator);
 
     validityAllocationSizeInBytes = checkedCastToInt(validityBuffer.capacity());
     offsetAllocationSizeInBytes = offsetBuffer.capacity();
@@ -284,9 +298,8 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
   }
 
   protected void reallocValidityAndSizeAndOffsetBuffers() {
-    reallocOffsetBuffer();
+    reallocateBuffers();
     reallocValidityBuffer();
-    reallocSizeBuffer();
   }
 
   private void reallocValidityBuffer() {
@@ -407,11 +420,22 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     return sizeBuffer.memoryAddress();
   }
 
+  /**
+   * Get the hash code for the element at the given index.
+   * @param index position of the element
+   * @return hash code for the element at the given index
+   */
   @Override
   public int hashCode(int index) {
     return hashCode(index, null);
   }
 
+  /**
+   * Get the hash code for the element at the given index.
+   * @param index position of the element
+   * @param hasher hasher to use
+   * @return hash code for the element at the given index
+   */
   @Override
   public int hashCode(int index, ArrowBufHasher hasher) {
     if (isSet(index) == 0) {
@@ -621,6 +645,13 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     return BitVectorHelper.getNullCount(validityBuffer, valueCount);
   }
 
+  /**
+   * Get the value capacity by considering validity and offset capacity.
+   * Note that the size buffer capacity is not considered here since it has
+   * the same capacity as the offset buffer.
+   *
+   * @return the value capacity
+   */
   @Override
   public int getValueCapacity() {
     return getValidityAndOffsetValueCapacity();
@@ -641,6 +672,10 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     return capAtMaxInt(validityBuffer.capacity() * 8);
   }
 
+  /**
+   * Set the element at the given index to null.
+   * @param index the value to change
+   */
   @Override
   public void setNull(int index) {
     while (index >= getValidityAndSizeValueCapacity()) {
@@ -741,13 +776,17 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     Objects.requireNonNull(validityBuffer, "Validity buffer cannot be null");
     Objects.requireNonNull(elementFieldVec, "Element Field Vector cannot be null");
 
-    // clear buffers
-    this.clear();
-
     // set buffers
-    this.offsetBuffer = offSetBuffer;
-    this.sizeBuffer = sizeBuffer;
-    this.validityBuffer = validityBuffer;
+    this.validityBuffer.getReferenceManager().release();
+    this.validityBuffer = validityBuffer.getReferenceManager().retain(validityBuffer, allocator);
+    this.offsetBuffer.getReferenceManager().release();
+    this.offsetBuffer = offSetBuffer.getReferenceManager().retain(offSetBuffer, allocator);
+    this.sizeBuffer.getReferenceManager().release();
+    this.sizeBuffer = sizeBuffer.getReferenceManager().retain(sizeBuffer, allocator);
+
+    validityAllocationSizeInBytes = checkedCastToInt(validityBuffer.capacity());
+    offsetAllocationSizeInBytes = offSetBuffer.capacity();
+    sizeAllocationSizeInBytes = sizeBuffer.capacity();
 
     // set child vector
     this.vector = elementFieldVec;

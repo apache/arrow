@@ -19,6 +19,7 @@ package org.apache.arrow.vector.complex;
 
 import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
 
+import java.util.Collections;
 import java.util.Iterator;
 
 import org.apache.arrow.memory.ArrowBuf;
@@ -87,7 +88,6 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
       allocateBuffers();
       dataAlloc = vector.allocateNewSafe();
     } catch (Exception e) {
-      e.printStackTrace();
       clear();
       return false;
     } finally {
@@ -103,7 +103,7 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
     sizeBuffer = allocateSizeBuffer(sizeAllocationSizeInBytes);
   }
 
-  protected ArrowBuf allocateOffsetBuffer(final long size) {
+  private ArrowBuf allocateOffsetBuffer(final long size) {
     final int curSize = (int) size;
     ArrowBuf offsetBuffer = allocator.buffer(curSize);
     offsetBuffer.readerIndex(0);
@@ -112,7 +112,7 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
     return offsetBuffer;
   }
 
-  protected ArrowBuf allocateSizeBuffer(final long size) {
+  private ArrowBuf allocateSizeBuffer(final long size) {
     final int curSize = (int) size;
     ArrowBuf sizeBuffer = allocator.buffer(curSize);
     sizeBuffer.readerIndex(0);
@@ -123,12 +123,16 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
 
   @Override
   public void reAlloc() {
-    reallocOffsetBuffer();
-    reallocSizeBuffer();
+    reallocateBuffers();
     vector.reAlloc();
   }
 
-  protected void reallocOffsetBuffer() {
+  protected void reallocateBuffers() {
+    reallocOffsetBuffer();
+    reallocSizeBuffer();
+  }
+
+  private void reallocOffsetBuffer() {
     final long currentBufferCapacity = offsetBuffer.capacity();
     long newAllocationSize = currentBufferCapacity * 2;
     if (newAllocationSize == 0) {
@@ -155,7 +159,7 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
     offsetAllocationSizeInBytes = newAllocationSize;
   }
 
-  protected void reallocSizeBuffer() {
+  private void reallocSizeBuffer() {
     final long currentBufferCapacity = sizeBuffer.capacity();
     long newAllocationSize = currentBufferCapacity * 2;
     if (newAllocationSize == 0) {
@@ -277,7 +281,7 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
 
   @Override
   public Iterator<ValueVector> iterator() {
-    return null;
+    return Collections.<ValueVector>singleton(getDataVector()).iterator();
   }
 
   @Override
@@ -316,10 +320,7 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
   public void setValueCount(int valueCount) {
     this.valueCount = valueCount;
     while (valueCount > getOffsetBufferValueCapacity()) {
-      reallocOffsetBuffer();
-    }
-    while (valueCount > getSizeBufferValueCapacity()) {
-      reallocSizeBuffer();
+      reallocateBuffers();
     }
     final int childValueCount = valueCount == 0 ? 0 : getLengthOfChildVector();
     vector.setValueCount(childValueCount);
@@ -368,8 +369,30 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
     return false;
   }
 
+  /**
+   * Start a new value at the given index.
+   * @param index the index to start the new value at
+   * @return the offset in the data vector where the new value starts
+   */
   public int startNewValue(int index) {
-    return 0;
+    while (index >= getOffsetBufferValueCapacity()) {
+      reallocOffsetBuffer();
+    }
+    while (index >= getSizeBufferValueCapacity()) {
+      reallocSizeBuffer();
+    }
+
+    if (index == 0) {
+      offsetBuffer.setInt(0, 0);
+    } else {
+      final int prevOffset = offsetBuffer.getInt((index - 1) * OFFSET_WIDTH);
+      final int prevSize = sizeBuffer.getInt((index - 1) * SIZE_WIDTH);
+      final int currOffSet = prevOffset + prevSize;
+      offsetBuffer.setInt(index * OFFSET_WIDTH, currOffSet);
+    }
+
+    setValueCount(index + 1);
+    return offsetBuffer.getInt(index * OFFSET_WIDTH);
   }
 
   @Override
