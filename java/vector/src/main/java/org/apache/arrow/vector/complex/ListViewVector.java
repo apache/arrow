@@ -796,6 +796,37 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     this.getWriter().setPosition(valueCount);
   }
 
+  /**
+   * Set the offset at the given index.
+   * @param index index of the value to set
+   * @param value value to set
+   */
+  public void setOffSet(int index, int value) {
+    offsetBuffer.setInt(index * OFFSET_WIDTH, value);
+  }
+
+  /**
+   * Set the size at the given index.
+   * @param index index of the value to set
+   * @param value value to set
+   */
+  public void setSize(int index, int value) {
+    sizeBuffer.setInt(index * SIZE_WIDTH, value);
+  }
+
+  /**
+   * Set the validity at the given index.
+   * @param index index of the value to set
+   * @param value value to set (0 for unset and 1 for a set)
+   */
+  public void setValidity(int index, int value) {
+    if (value == 0) {
+      BitVectorHelper.unsetBit(validityBuffer, index);
+    } else {
+      BitVectorHelper.setBit(validityBuffer, index);
+    }
+  }
+
   @Override
   public void setValueCount(int valueCount) {
     this.valueCount = valueCount;

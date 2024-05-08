@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.arrow.memory.ArrowBuf;
@@ -450,6 +451,87 @@ public class TestListViewVector {
       setValuesInBuffer(sizeValues, newSizeBuffer, BaseRepeatedValueViewVector.SIZE_WIDTH);
 
       listViewVector.set(newOffSetBuf, newSizeBuffer, validityBuffer, childVector, 4);
+
+      final ArrowBuf offSetBuffer = listViewVector.getOffsetBuffer();
+      final ArrowBuf sizeBuffer = listViewVector.getSizeBuffer();
+
+      // check offset buffer
+      assertEquals(0, offSetBuffer.getInt(0 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(3, offSetBuffer.getInt(1 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(3, offSetBuffer.getInt(2 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(7, offSetBuffer.getInt(3 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+
+      // check size buffer
+      assertEquals(3, sizeBuffer.getInt(0 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+      assertEquals(0, sizeBuffer.getInt(1 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+      assertEquals(4, sizeBuffer.getInt(2 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+      assertEquals(0, sizeBuffer.getInt(3 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+
+      // check values
+      assertEquals(12, ((BigIntVector) listViewVector.getDataVector()).get(0));
+      assertEquals(-7, ((BigIntVector) listViewVector.getDataVector()).get(1));
+      assertEquals(25, ((BigIntVector) listViewVector.getDataVector()).get(2));
+      assertEquals(0, ((BigIntVector) listViewVector.getDataVector()).get(3));
+      assertEquals(-127, ((BigIntVector) listViewVector.getDataVector()).get(4));
+      assertEquals(127, ((BigIntVector) listViewVector.getDataVector()).get(5));
+      assertEquals(50, ((BigIntVector) listViewVector.getDataVector()).get(6));
+
+      assertEquals(3, listViewVector.getLastSet());
+      listViewVector.validate();
+    }
+  }
+
+  /*
+  * Setting up buffers directly would require the following steps to be taken
+  * 1. Set offset and size buffers using `setOffSet` and `setSize` methods.
+  * 2. Set validity buffer using `setValidity` method.
+  * 3. Set lastSet value using `setLastSet` method.
+  * 4. Initialize the child vector using `initializeChildrenFromFields` method.
+  * 5. Set values in the child vector.
+  */
+  @Test
+  public void testBasicListViewSet1() {
+
+    try (ListViewVector listViewVector = ListViewVector.empty("sourceVector", allocator)) {
+      listViewVector.allocateNew();
+
+      listViewVector.setOffSet(0, 0);
+      listViewVector.setOffSet(1, 3);
+      listViewVector.setOffSet(2, 3);
+      listViewVector.setOffSet(3, 7);
+
+      listViewVector.setSize(0, 3);
+      listViewVector.setSize(1, 0);
+      listViewVector.setSize(2, 4);
+      listViewVector.setSize(3, 0);
+
+      listViewVector.setValidity(0, 1);
+      listViewVector.setValidity(1, 0);
+      listViewVector.setValidity(2, 1);
+      listViewVector.setValidity(3, 1);
+
+      listViewVector.setLastSet(3);
+
+      FieldType fieldType = new FieldType(true, new ArrowType.Int(64, true),
+          null, null);
+      Field field = new Field("element-vector", fieldType, null);
+      listViewVector.initializeChildrenFromFields(Collections.singletonList(field));
+
+      FieldVector fieldVector = listViewVector.getDataVector();
+      fieldVector.clear();
+
+      BigIntVector childVector = (BigIntVector) fieldVector;
+      childVector.allocateNew(7);
+
+      childVector.set(0, 12);
+      childVector.set(1, -7);
+      childVector.set(2, 25);
+      childVector.set(3, 0);
+      childVector.set(4, -127);
+      childVector.set(5, 127);
+      childVector.set(6, 50);
+
+      childVector.setValueCount(7);
 
       final ArrowBuf offSetBuffer = listViewVector.getOffsetBuffer();
       final ArrowBuf sizeBuffer = listViewVector.getSizeBuffer();
