@@ -63,8 +63,8 @@ may expose data type-specific methods or properties.
    FixedSizeBinaryArray
    LargeBinaryArray
    LargeStringArray
-   BinaryViewArray,
-   StringViewArray,
+   BinaryViewArray
+   StringViewArray
    Time32Array
    Time64Array
    Date32Array

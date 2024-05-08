@@ -540,7 +540,6 @@ Compute Options
    AssumeTimezoneOptions
    CastOptions
    CountOptions
-   CountOptions
    CumulativeSumOptions
    DayOfWeekOptions
    DictionaryEncodeOptions
@@ -566,7 +565,6 @@ Compute Options
    RoundToMultipleOptions
    RunEndEncodeOptions
    ScalarAggregateOptions
-   ScalarAggregateOptions
    SelectKOptions
    SetLookupOptions
    SliceOptions
@@ -577,7 +575,6 @@ Compute Options
    StrptimeOptions
    StructFieldOptions
    TakeOptions
-   TDigestOptions
    TDigestOptions
    TrimOptions
    VarianceOptions
