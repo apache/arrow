@@ -47,11 +47,10 @@ fi
   gpg --full-generate-key --batch
 
 # build the entire project
-mvn clean \
-    install \
-    assembly:single \
-    source:jar \
-    javadoc:jar \
+mvn clean install
+mvn assembly:single
+mvn source:jar
+mvn javadoc:jar
     -Papache-release \
     -Parrow-c-data \
     -Parrow-jni \

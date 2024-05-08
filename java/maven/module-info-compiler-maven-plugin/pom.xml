@@ -108,9 +108,6 @@
             <goals>
               <goal>helpmojo</goal>
             </goals>
-            <configuration>
-              <classifier>helpmojo-classifier</classifier>
-            </configuration>
           </execution>
         </executions>
       </plugin>
