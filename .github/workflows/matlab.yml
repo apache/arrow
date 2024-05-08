@@ -98,9 +98,16 @@ jobs:
           select-by-folder: matlab/test
           strict: true
   macos:
-    name: AMD64 macOS 12 MATLAB
-    runs-on: macos-12
+    name: ${{ matrix.architecture }} macOS ${{ matrix.macos-version }} MATLAB
+    runs-on: macos-${{ matrix.macos-version }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    strategy:
+      matrix:
+        include:
+            - architecture: AMD64
+              macos-version: "12"
+            - architecture: ARM64
+              macos-version: "14"
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
