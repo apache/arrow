@@ -80,7 +80,7 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - { runs_on: ["macos-latest"], arch: "x86_64"}
+          - { runs_on: ["macos-13"], arch: "x86_64"}
           - { runs_on: ["macos-14"], arch: "aarch_64" }
     env:
       MACOSX_DEPLOYMENT_TARGET: "10.15"
