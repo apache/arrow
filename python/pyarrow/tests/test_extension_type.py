@@ -287,7 +287,7 @@ def test_ext_type__storage_type():
 
 def test_ext_type_byte_width():
     # Test for fixed-size binary types
-    ty = UuidType()
+    ty = pa.uuid()
     assert ty.byte_width == 16
     ty = ParamExtType(5)
     assert ty.byte_width == 5
@@ -300,7 +300,7 @@ def test_ext_type_byte_width():
 
 def test_ext_type_bit_width():
     # Test for fixed-size binary types
-    ty = UuidType()
+    ty = pa.uuid()
     assert ty.bit_width == 128
     ty = ParamExtType(5)
     assert ty.bit_width == 40

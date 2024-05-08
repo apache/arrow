@@ -53,7 +53,6 @@
 
 namespace arrow {
 
-using extension::uuid;
 using internal::ArrayDeviceExportTraits;
 using internal::ArrayDeviceStreamExportTraits;
 using internal::ArrayExportGuard;
