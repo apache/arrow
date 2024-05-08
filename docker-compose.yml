@@ -131,7 +131,8 @@ x-hierarchy:
   - debian-cpp:
     - debian-c-glib:
       - debian-ruby
-    - debian-python
+    - debian-python:
+      - debian-docs
   - debian-go:
     - debian-go-cgo
     - debian-go-cgo-python
@@ -145,8 +146,7 @@ x-hierarchy:
     - ubuntu-c-glib:
       - ubuntu-ruby
     - ubuntu-lint
-    - ubuntu-python:
-      - ubuntu-docs
+    - ubuntu-python
     - ubuntu-python-sdist-test
     - ubuntu-r
     - ubuntu-r-only-r
@@ -1228,6 +1228,8 @@ services:
     # We should extend the list of enabled rules after adding this build to
     # the CI pipeline.
     image: ${REPO}:${ARCH}-conda-python-${PYTHON}-pandas-${PANDAS}
+    cap_add:
+      - SYS_ADMIN
     environment:
       <<: [*common, *ccache]
       ARROW_SUBSTRAIT: "ON"
@@ -1378,7 +1380,7 @@ services:
           /arrow/ci/scripts/python_build.sh /arrow /build &&
           /arrow/ci/scripts/java_jni_build.sh /arrow $${ARROW_HOME} /build /tmp/dist/java/ &&
           /arrow/ci/scripts/java_build.sh /arrow /build /tmp/dist/java &&
-          /arrow/ci/scripts/java_cdata_integration.sh /arrow /tmp/dist/java" ]
+          /arrow/ci/scripts/java_cdata_integration.sh /arrow /build" ]
 
   conda-python-cython2:
     # Usage:
@@ -1680,7 +1682,7 @@ services:
     command: &js-command >
       /bin/bash -c "
         /arrow/ci/scripts/js_build.sh /arrow /build &&
-        /arrow/ci/scripts/js_test.sh /arrow"
+        /arrow/ci/scripts/js_test.sh /arrow /build"
 
   #################################### C# #####################################
 
@@ -1759,29 +1761,34 @@ services:
 
   ################################ Docs #######################################
 
-  ubuntu-docs:
+  debian-docs:
     # Usage:
-    #   docker-compose build ubuntu-cpp
-    #   docker-compose build ubuntu-python
-    #   docker-compose build ubuntu-docs
-    #   docker-compose run --rm ubuntu-docs
-    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-docs
+    #   docker-compose build debian-cpp
+    #   docker-compose build debian-python
+    #   docker-compose build debian-docs
+    #   docker-compose run --rm debian-docs
+    image: ${REPO}:${ARCH}-debian-${DEBIAN}-docs
     build:
       context: .
       dockerfile: ci/docker/linux-apt-docs.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-docs
+        - ${REPO}:${ARCH}-debian-${DEBIAN}-docs
       args:
         r: ${R}
         jdk: ${JDK}
         maven: ${MAVEN}
         node: ${NODE}
-        base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
+        base: ${REPO}:${ARCH}-debian-${DEBIAN}-python-3
+    # This is for Chromium used by Mermaid. Chromium uses namespace
+    # isolation for security by default.
+    cap_add:
+      - SYS_ADMIN
     environment:
       <<: [*common, *ccache]
       ARROW_CUDA: "ON"
       ARROW_CXX_FLAGS_DEBUG: "-g1"
       ARROW_C_FLAGS_DEBUG: "-g1"
+      ARROW_HOME: "/tmp/local"
       ARROW_JAVA_SKIP_GIT_PLUGIN:
       ARROW_SUBSTRAIT: "ON"
       BUILD_DOCS_C_GLIB: "ON"
@@ -1790,9 +1797,11 @@ services:
       BUILD_DOCS_JS: "ON"
       BUILD_DOCS_PYTHON: "ON"
       BUILD_DOCS_R: "ON"
-    volumes: *ubuntu-volumes
-    command: &docs-command >
+    volumes: *debian-volumes
+    command: >
       /bin/bash -c "
+        sudo mkdir -p /build /ccache &&
+        sudo chown -R `id --user --name`: /build /ccache &&
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/c_glib_build.sh /arrow /build &&
