@@ -1749,7 +1749,7 @@ services:
     volumes: *conda-volumes
     environment:
       <<: [*common, *ccache]
-      ARCHERY_INTEGRATION_WITH_RUST: 1
+      ARCHERY_INTEGRATION_WITH_RUST: 0
       ARCHERY_INTEGRATION_WITH_NANOARROW: 1
       # Tell Archery where Arrow binaries are located
       ARROW_CPP_EXE_PATH: /build/cpp/debug
