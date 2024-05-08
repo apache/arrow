@@ -39,29 +39,18 @@ topics as:
 * Reading and writing file formats (like CSV, Apache ORC, and Apache Parquet)
 * In-memory analytics and query processing
 
-NanoArrow
-=========
-
-The Arrow libraries are growing with a lot of functionality and
-`nanoarrow <https://github.com/apache/arrow-nanoarrow>`_ was born to
-solve the problem where linking to the Arrow implementation is
-difficult or impossible.
-
-The NanoArrow library is a set of helper functions to interpret and
-generate Arrow C Data Interface and Arrow C Stream Interface structures.
-The library is in active development.
-
-The NanoArrow Python bindings are intended to support clients that wish
-to produce or interpret Arrow C Data and/or Arrow C Stream structures
-in Python, without a dependency on the larger Arrow implementations.
-
 Arrow Columnar Format
 =====================
+
+.. figure:: ./images/columnar-diagram_1.svg
+   :scale: 70%
+   :alt: Diagram with tabular data of 4 rows and columns.
 
 Traditionally, in order to read the following data into memory you
 would have some kind of structure representing the following rows:
 
-.. TODO picture
+.. figure:: ./images/columnar-diagram_2.svg
+   :alt: Tabular data being structured row by row in computer memory.
 
 That means that you have all the information for every row together
 in memory.
@@ -75,7 +64,8 @@ CPUs have single instructions, multiple data (SIMD) enabling parallel
 processing and execution of instructions on vector data in single CPU
 instructions.
 
-.. TODO picture
+.. figure:: ./images/columnar-diagram_3.svg
+   :alt: Tabular data being structured column by column in computer memory.
 
 Compression is another element where columnar format representation can
 take high advantage. Data similarity allows for better compression
@@ -247,7 +237,7 @@ Map
 ---
 
 Map type represents nested data where each value is a variable number of
-key-value pairs. Its physical representation is the same as a list of `{key, value}`
+key-value pairs. Its physical representation is the same as a list of ``{key, value}``
 structs.
 
 The difference between a struct and a map type is that a struct holds the key
@@ -271,7 +261,14 @@ variable shape.
 Union
 -----
 
-.. TODO
+.. TODO content
+
+.. figure:: ./images/dictionary-diagram.svg
+   :alt: Diagram is showing the difference between the dictionary data type
+         presented in a Table and the data is actually stored in computer
+         memory.
+
+   Physical layout diagram for dictionary data type.
 
 Dictionary Encoded Layout
 =========================
@@ -283,17 +280,164 @@ Run-End Encoded Layout
 
 .. TODO
 
-All types overview
-==================
+.. link to All types overview
 
 Extension Types
 ===============
 
+In case the system or application needs to extend standard Arrow data types with
+custom semantics this is enabled by defining extension types or user-defined types.
+
+For example:
+
+* Universally unique identifier (uuid) can be represented as a FixedSizeBinary type
+* Trading time can be represented as a Timestamp with metadata indicating the market
+trading calendar
+
+Extension types can be defined by annotating any of the built-in Arrow logical types
+(the “storage type”) with a custom type name and optional serialized representation
+(``'ARROW:extension:name'`` and ``'ARROW:extension:metadata'`` keys in the Field
+metadata structure).
+
+.. seealso::
+   The :ref:`format_metadata_extension_types` documentation.
+
+Canonical Extension Types
+-------------------------
+
+It is beneficial to share the definitions of well-known extension types so as to
+improve interoperability between different systems integrating Arrow columnar data.
+For this reason canonical extension types are defined in Arrow itself.
+
+Examples:
+
+* Fixed and variable shape tensor
+
+  - :ref:`fixed_shape_tensor_extension`
+  - :ref:`variable_shape_tensor_extension`
+
+.. seealso::
+   The :ref:`format_canonical_extensions` documentation.
+
+Community Extension Types
+-------------------------
+These are Arrow extension types that have been established as standards within specific domain areas.
+
+Example:
+
+* GeoArrow - collection of Arrow extension types for representing vector geometries
+  https://github.com/geoarrow/geoarrow
+
 Overview of Arrow terminology
 =============================
+
+Buffer
+------
+A contiguous region of memory with a given length. Buffers are used to store data for arrays.
+
+Array
+-----
+A contiguous, one-dimensional sequence of values with known length where all values have the
+same type. An array consists of zero or more buffers.
+
+Chunked Array
+-------------
+A discontiguous, one-dimensional sequence of values with known length where all values have
+the same type. Consists of zero or more arrays, the “chunks”.
+
+.. note::
+   Chunked array is a concept specific to certain implementations such as Arrow C++ and PyArrow.
+
+RecordBatch
+-----------
+A contiguous, two-dimensional data structure which consist of ordered collection of arrays
+of the same length.
+
+Schema
+------
+A collection of fields with optional metadata that determines all the data types of an object
+like a record batch or table.
+
+Table
+-----
+A discontiguous, two-dimensional chunk of data consisting of an ordered collection of chunked
+arrays. All chunked arrays have the same length, but may have different types. Different columns
+may be chunked differently.
+
+.. note::
+   Table is a concept specific to certain implementations such as Arrow C++ and PyArrow.
+
+.. image:: ../cpp/tables-versus-record-batches.svg
+   :alt: A graphical representation of an Arrow Table and a
+         Record Batch, with structure as described in text above.
+
+.. seealso::
+   The :ref:`glossary` for more terms.
 
 The Arrow C Data Interface
 ==========================
 
-Arrow PyCapsule Interface
-=========================
+Arrow memory layout is meant to be a universal standard for tabular data, not tied to a specific
+implementation.
+
+While there are specifications to share Arrow data between processes or over the network (e.g. the
+IPC messages), the Arrow C Data Interface is meant to actually zero-copy share the data between
+different libraries within the same process (i.e. actually share the same buffers in memory).
+
+The Arrow C Data Interface defines a set of small C structures
+
+.. code-block::
+      
+   struct ArrowSchema {
+   const char* format;
+   const char* name;
+   const char* metadata;
+   int64_t flags;
+   int64_t n_children;
+   struct ArrowSchema** children;
+   struct ArrowSchema* dictionary;
+
+   // Release callback
+   void (*release)(struct ArrowSchema*);
+   // Opaque producer-specific data
+   void* private_data;
+   };
+
+   struct ArrowArray {
+   int64_t length;
+   int64_t null_count;
+   int64_t offset;
+   int64_t n_buffers;
+   int64_t n_children;
+   const void** buffers;
+   struct ArrowArray** children;
+   struct ArrowArray* dictionary;
+
+   // Release callback
+   void (*release)(struct ArrowArray*);
+   // Opaque producer-specific data
+   void* private_data;
+   };
+
+The C Data Interface passes Arrow data buffers through memory pointers. So, by construction, it allows
+you to share data from one runtime to another without copying it. Since the data is in standard Arrow
+in-memory format, its layout is well-defined and unambiguous.
+
+.. seealso::
+   The :ref:`c-data-interface` documentation.
+
+NanoArrow
+=========
+
+The Arrow libraries are growing with a lot of functionality and
+`nanoarrow <https://github.com/apache/arrow-nanoarrow>`_ was born to
+solve the problem where linking to the Arrow implementation is
+difficult or impossible.
+
+The NanoArrow library is a set of helper functions to interpret and
+generate Arrow C Data Interface and Arrow C Stream Interface structures.
+The library is in active development.
+
+The NanoArrow Python bindings are intended to support clients that wish
+to produce or interpret Arrow C Data and/or Arrow C Stream structures
+in Python, without a dependency on the larger Arrow implementations.
