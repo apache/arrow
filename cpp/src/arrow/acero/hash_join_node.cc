@@ -657,6 +657,7 @@ struct BloomFilterPushdownContext {
   static constexpr auto kTempStackUsage =
       Hashing32::kTempStackUsage +
       (sizeof(uint32_t) + /*extra=*/1) * arrow::util::MiniBatch::kMiniBatchLength;
+
   struct ThreadLocalData {
     arrow::util::TempVectorStack stack;
   };

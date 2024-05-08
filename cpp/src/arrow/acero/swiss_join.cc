@@ -2471,6 +2471,7 @@ Status JoinProbeProcessor::OnFinished() {
 class SwissJoin : public HashJoinImpl {
  public:
   static constexpr auto kTempStackUsage = 64 * arrow::util::MiniBatch::kMiniBatchLength;
+
   Status Init(QueryContext* ctx, JoinType join_type, size_t num_threads,
               const HashJoinProjectionMaps* proj_map_left,
               const HashJoinProjectionMaps* proj_map_right,
