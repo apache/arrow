@@ -415,7 +415,7 @@ TEST_F(TestPrimitiveReader, TestReadValuesMissing) {
       &descr, values, /*num_values=*/2, Encoding::PLAIN, /*indices=*/{},
       /*indices_size=*/0, /*def_levels=*/input_def_levels, max_def_level_,
       /*rep_levels=*/{},
-      /*max_rep_level=*/0);
+      /*max_rep_level=*/max_rep_level_);
   pages_.push_back(data_page);
   InitReader(&descr);
   auto reader = static_cast<BoolReader*>(reader_.get());
@@ -429,6 +429,66 @@ TEST_F(TestPrimitiveReader, TestReadValuesMissing) {
   ASSERT_THROW(reader->ReadBatch(batch_size, def_levels.data(), rep_levels.data(),
                                  values_out, &values_read),
                ParquetException);
+}
+
+TEST_F(TestPrimitiveReader, DefLevelNotExpected) {
+  max_def_level_ = 1;
+  max_rep_level_ = 0;
+  std::vector<bool> values(1, false);
+  // Less than expected
+  {
+    std::vector<int16_t> input_def_levels(1, 1);
+    NodePtr type = schema::Boolean("a", Repetition::OPTIONAL);
+    const ColumnDescriptor descr(type, max_def_level_, max_rep_level_);
+
+    // The data page falls back to plain encoding
+    std::shared_ptr<ResizableBuffer> dummy = AllocateBuffer();
+    std::shared_ptr<DataPageV1> data_page = MakeDataPage<BooleanType>(
+        &descr, values, /*num_values=*/3, Encoding::PLAIN, /*indices=*/{},
+        /*indices_size=*/0, /*def_levels=*/input_def_levels, max_def_level_,
+        /*rep_levels=*/{},
+        /*max_rep_level=*/max_rep_level_);
+    pages_.push_back(data_page);
+    InitReader(&descr);
+    auto reader = static_cast<BoolReader*>(reader_.get());
+    ASSERT_TRUE(reader->HasNext());
+
+    constexpr int batch_size = 3;
+    std::vector<int16_t> def_levels(batch_size, 0);
+    std::vector<int16_t> rep_levels(batch_size, 0);
+    bool values_out[batch_size];
+    int64_t values_read;
+    ASSERT_THROW(reader->ReadBatch(batch_size, def_levels.data(), rep_levels.data(),
+                                   values_out, &values_read),
+                 ParquetException);
+  }
+  // More than expected
+  {
+    std::vector<int16_t> input_def_levels(2, 1);
+    NodePtr type = schema::Boolean("a", Repetition::OPTIONAL);
+    const ColumnDescriptor descr(type, max_def_level_, max_rep_level_);
+
+    // The data page falls back to plain encoding
+    std::shared_ptr<ResizableBuffer> dummy = AllocateBuffer();
+    std::shared_ptr<DataPageV1> data_page = MakeDataPage<BooleanType>(
+        &descr, values, /*num_values=*/1, Encoding::PLAIN, /*indices=*/{},
+        /*indices_size=*/0, /*def_levels=*/input_def_levels, max_def_level_,
+        /*rep_levels=*/{},
+        /*max_rep_level=*/max_rep_level_);
+    pages_.push_back(data_page);
+    InitReader(&descr);
+    auto reader = static_cast<BoolReader*>(reader_.get());
+    ASSERT_TRUE(reader->HasNext());
+
+    constexpr int batch_size = 3;
+    std::vector<int16_t> def_levels(batch_size, 0);
+    std::vector<int16_t> rep_levels(batch_size, 0);
+    bool values_out[batch_size];
+    int64_t values_read;
+    ASSERT_THROW(reader->ReadBatch(batch_size, def_levels.data(), rep_levels.data(),
+                                   values_out, &values_read),
+                 ParquetException);
+  }
 }
 
 // Repetition level byte length reported in Page but Max Repetition level

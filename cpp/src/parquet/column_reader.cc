@@ -106,8 +106,6 @@ constexpr std::string_view kErrorRepDefLevelNotMatchesNumValues =
     "Number of decoded rep / def levels did less than num_values in page_header";
 constexpr std::string_view kErrorRepDefLevelInEqual =
     "Number of decoded rep / def levels did not match";
-constexpr std::string_view kErrorValueNotMatchesLevel =
-    "Number of decoded values did not match def level";
 
 }  // namespace
 
@@ -1055,6 +1053,7 @@ class TypedColumnReaderImpl : public TypedColumnReader<DType>,
           std::count(def_levels, def_levels + *num_def_levels, this->max_def_level_);
     } else {
       // Required field, read all values
+      *num_def_levels = 0;
       *non_null_values_to_read = batch_size;
     }
 
@@ -1136,21 +1135,22 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatch(int64_t batch_size, int16_t* def
              &non_null_values_to_read);
   // Should not return more values than available in the current data page.
   ARROW_DCHECK_LE(num_def_levels, this->available_values_current_page());
-  // Check levels read matches `available_values_current_page() > 0`
-  ARROW_DCHECK(num_def_levels == 0 ||
-               std::min(batch_size, this->available_values_current_page()) > 0);
   if (non_null_values_to_read != 0) {
     *values_read = this->ReadValues(non_null_values_to_read, values);
-    if (*values_read != non_null_values_to_read) {
-      throw ParquetException(std::string(kErrorValueNotMatchesLevel) + " read" +
-                             std::to_string(*values_read) +
-                             ", levels has: " + std::to_string(non_null_values_to_read));
-    }
   } else {
     *values_read = 0;
   }
-  this->ConsumeBufferedValues(num_def_levels);
-  return num_def_levels;
+  // Adjust total_values, since if max_def_level_ == 0, num_def_levels would
+  // be 0 and `values_read` would adjust to `available_values_current_page()`.
+  int64_t total_values = std::max<int64_t>(num_def_levels, *values_read);
+  int64_t expected_values = std::min(batch_size, this->available_values_current_page());
+  if (total_values == 0 && expected_values > 0) {
+    std::stringstream ss;
+    ss << "Read 0 values, expected " << expected_values;
+    ParquetException::EofException(ss.str());
+  }
+  this->ConsumeBufferedValues(total_values);
+  return total_values;
 }
 
 template <typename DType>
@@ -1432,9 +1432,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
         }
 
         if (ARROW_PREDICT_FALSE(batch_size != levels_read)) {
-          throw ParquetException(std::string(kErrorRepDefLevelNotMatchesNumValues) +
-                                 std::to_string(levels_read) + ", expected " +
-                                 std::to_string(batch_size));
+          throw ParquetException(kErrorRepDefLevelNotMatchesNumValues);
         }
 
         levels_written_ += levels_read;
