@@ -754,11 +754,10 @@ test_that("structs/nested data frames/tibbles can be created", {
   )
 
   # check that data.frame is mapped too
-  # stringsAsFactors default is TRUE in R 3.6, which is still tested on CI
   compare_dplyr_binding(
     .input %>%
       transmute(
-        df_col = data.frame(regular_col1, regular_col2, stringsAsFactors = FALSE)
+        df_col = data.frame(regular_col1, regular_col2)
       ) %>%
       collect() %>%
       mutate(df_col = as.data.frame(df_col)),

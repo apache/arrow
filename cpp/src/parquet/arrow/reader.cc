@@ -1043,6 +1043,16 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_groups,
           }
         }
 
+        // Check all columns has same row-size
+        if (!columns.empty()) {
+          int64_t row_size = columns[0]->length();
+          for (size_t i = 1; i < columns.size(); ++i) {
+            if (columns[i]->length() != row_size) {
+              return ::arrow::Status::Invalid("columns do not have the same size");
+            }
+          }
+        }
+
         auto table = ::arrow::Table::Make(batch_schema, std::move(columns));
         auto table_reader = std::make_shared<::arrow::TableBatchReader>(*table);
 

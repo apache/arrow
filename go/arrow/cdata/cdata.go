@@ -448,6 +448,7 @@ func (imp *cimporter) doImportArr(src *CArrowArray) error {
 	defer func() {
 		if imp.alloc.bufCount == 0 {
 			C.ArrowArrayRelease(imp.arr)
+			C.free(unsafe.Pointer(imp.arr))
 		}
 	}()
 

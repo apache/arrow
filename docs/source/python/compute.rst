@@ -23,7 +23,7 @@ Compute Functions
 =================
 
 Arrow supports logical compute operations over inputs of possibly
-varying types.  
+varying types.
 
 The standard compute operations are provided by the :mod:`pyarrow.compute`
 module and can be used directly::
@@ -91,7 +91,7 @@ Grouped Aggregations
 ====================
 
 PyArrow supports grouped aggregations over :class:`pyarrow.Table` through the
-:meth:`pyarrow.Table.group_by` method. 
+:meth:`pyarrow.Table.group_by` method.
 The method will return a grouping declaration
 to which the hash aggregation functions can be applied::
 
@@ -300,7 +300,7 @@ Filtering by Expressions
 :class:`.Table` and :class:`.Dataset` can
 both be filtered using a boolean :class:`.Expression`.
 
-The expression can be built starting from a 
+The expression can be built starting from a
 :func:`pyarrow.compute.field`. Comparisons and transformations
 can then be applied to one or more fields to build the filter
 expression you care about.
@@ -325,7 +325,7 @@ in column ``"nums"``
    by the ``bit_wise_and`` operation equals ``0``. Only the numbers where the last bit was ``0`` will
    return a ``0`` as the result of ``num & 1`` and as all numbers where the last bit is ``0`` are
    multiples of ``2`` we will be filtering for the even numbers only.
-   
+
 Once we have our filter, we can provide it to the :meth:`.Table.filter` method
 to filter our table only for the matching rows:
 
@@ -392,7 +392,7 @@ User-Defined Functions
 PyArrow allows defining and registering custom compute functions.
 These functions can then be called from Python as well as C++ (and potentially
 any other implementation wrapping Arrow C++, such as the R ``arrow`` package)
-using their registered function name. 
+using their registered function name.
 
 UDF support is limited to scalar functions. A scalar function is a function which
 executes elementwise operations on arrays or scalars. In general, the output of a
@@ -441,7 +441,7 @@ output type need to be defined. Using :func:`pyarrow.compute.register_scalar_fun
                               function_docs,
                               input_types,
                               output_type)
-   
+
 
 The implementation of a user-defined function always takes a first *context*
 parameter (named ``ctx`` in the example above) which is an instance of
@@ -497,9 +497,9 @@ the GCD of one column with the scalar value 30.  We will be re-using the
    category: [["A","B","C","D"]]
 
 Note that ``ds.field('')._call(...)`` returns a :func:`pyarrow.compute.Expression`.
-The arguments passed to this function call are expressions, not scalar values 
+The arguments passed to this function call are expressions, not scalar values
 (notice the difference between :func:`pyarrow.scalar` and :func:`pyarrow.compute.scalar`,
-the latter produces an expression). 
+the latter produces an expression).
 This expression is evaluated when the projection operator executes it.
 
 Projection Expressions

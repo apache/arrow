@@ -67,7 +67,11 @@
 // [5] J. Doerfert et al. 2019. "Performance Exploration Through Optimistic Static
 //     Program Annotations". https://github.com/jdoerfert/PETOSPA/blob/master/ISC19.pdf
 #define ARROW_UNUSED(x) (void)(x)
+#ifdef ARROW_WARN_DOCUMENTATION
+#define ARROW_ARG_UNUSED(x) x
+#else
 #define ARROW_ARG_UNUSED(x)
+#endif
 #if defined(__GNUC__)  // GCC and compatible compilers (clang, Intel ICC)
 #define ARROW_NORETURN __attribute__((noreturn))
 #define ARROW_NOINLINE __attribute__((noinline))

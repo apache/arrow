@@ -40,6 +40,7 @@
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/fixed_width_internal.h"
 
 namespace arrow {
 
@@ -158,9 +159,11 @@ class PrimitiveFilterImpl {
   PrimitiveFilterImpl(const ArraySpan& values, const ArraySpan& filter,
                       FilterOptions::NullSelectionBehavior null_selection,
                       ArrayData* out_arr)
-      : byte_width_(values.type->byte_width()),
+      : byte_width_(util::FixedWidthInBytes(*values.type)),
         values_is_valid_(values.buffers[0].data),
-        values_data_(values.buffers[1].data),
+        // No offset applied for boolean because it's a bitmap
+        values_data_(kIsBoolean ? values.buffers[1].data
+                                : util::OffsetPointerOfFixedWidthValues(values)),
         values_null_count_(values.null_count),
         values_offset_(values.offset),
         values_length_(values.length),
@@ -169,17 +172,13 @@ class PrimitiveFilterImpl {
     if constexpr (kByteWidth >= 0 && !kIsBoolean) {
       DCHECK_EQ(kByteWidth, byte_width_);
     }
-    if constexpr (!kIsBoolean) {
-      // No offset applied for boolean because it's a bitmap
-      values_data_ += values.offset * byte_width();
-    }
 
+    DCHECK_EQ(out_arr->offset, 0);
     if (out_arr->buffers[0] != nullptr) {
       // May be unallocated if neither filter nor values contain nulls
       out_is_valid_ = out_arr->buffers[0]->mutable_data();
     }
-    out_data_ = out_arr->buffers[1]->mutable_data();
-    DCHECK_EQ(out_arr->offset, 0);
+    out_data_ = util::MutableFixedWidthValuesPointer(out_arr);
     out_length_ = out_arr->length;
     out_position_ = 0;
   }
@@ -416,7 +415,7 @@ class PrimitiveFilterImpl {
     out_position_ += length;
   }
 
-  constexpr int32_t byte_width() const {
+  constexpr int64_t byte_width() const {
     if constexpr (kByteWidth >= 0) {
       return kByteWidth;
     } else {
@@ -425,7 +424,7 @@ class PrimitiveFilterImpl {
   }
 
  private:
-  int32_t byte_width_;
+  int64_t byte_width_;
   const uint8_t* values_is_valid_;
   const uint8_t* values_data_;
   int64_t values_null_count_;
@@ -438,6 +437,8 @@ class PrimitiveFilterImpl {
   int64_t out_length_;
   int64_t out_position_;
 };
+
+}  // namespace
 
 Status PrimitiveFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const ArraySpan& values = batch[0].array;
@@ -468,9 +469,10 @@ Status PrimitiveFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult
   // validity bitmap.
   const bool allocate_validity = values.null_count != 0 || !filter_null_count_is_zero;
 
-  const int bit_width = values.type->bit_width();
-  RETURN_NOT_OK(PreallocatePrimitiveArrayData(ctx, output_length, bit_width,
-                                              allocate_validity, out_arr));
+  DCHECK(util::IsFixedWidthLike(values, /*force_null_count=*/false));
+  const int64_t bit_width = util::FixedWidthInBits(*values.type);
+  RETURN_NOT_OK(util::internal::PreallocateFixedWidthArrayData(
+      ctx, output_length, /*source=*/values, allocate_validity, out_arr));
 
   switch (bit_width) {
     case 1:
@@ -504,6 +506,8 @@ Status PrimitiveFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult
   }
   return Status::OK();
 }
+
+namespace {
 
 // ----------------------------------------------------------------------
 // Optimized filter for base binary types (32-bit and 64-bit)

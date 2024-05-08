@@ -56,7 +56,7 @@ RUN wget -nv -O - https://dl.google.com/go/go${go}.linux-${arch}.tar.gz | tar -x
 
 ENV DOTNET_ROOT=/opt/dotnet \
     PATH=/opt/dotnet:$PATH
-RUN curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin -Channel 7.0 -InstallDir /opt/dotnet
+RUN curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin -Channel 8.0 -InstallDir /opt/dotnet
 
 ENV ARROW_ACERO=OFF \
     ARROW_AZURE=OFF \

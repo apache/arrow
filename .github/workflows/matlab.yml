@@ -70,7 +70,7 @@ jobs:
       - name: Install MATLAB
         uses: matlab-actions/setup-matlab@v2
         with:
-          release: R2023a
+          release: R2024a
       - name: Install ccache
         run: sudo apt-get install ccache
       - name: Setup ccache
@@ -96,6 +96,7 @@ jobs:
         uses: matlab-actions/run-tests@v2
         with:
           select-by-folder: matlab/test
+          strict: true
   macos:
     name: AMD64 macOS 12 MATLAB
     runs-on: macos-12
@@ -110,7 +111,7 @@ jobs:
       - name: Install MATLAB
         uses: matlab-actions/setup-matlab@v2
         with:
-          release: R2023a
+          release: R2024a
       - name: Install ccache
         run: brew install ccache
       - name: Setup ccache
@@ -135,7 +136,8 @@ jobs:
           MATLABPATH: matlab/install/arrow_matlab
         uses: matlab-actions/run-tests@v2
         with:
-          select-by-folder: matlab/test 
+          select-by-folder: matlab/test
+          strict: true
   windows:
     name: AMD64 Windows 2022 MATLAB
     runs-on: windows-2022
@@ -148,7 +150,7 @@ jobs:
       - name: Install MATLAB
         uses: matlab-actions/setup-matlab@v2
         with:
-          release: R2023a
+          release: R2024a
       - name: Download Timezone Database
         shell: bash
         run: ci/scripts/download_tz_database.sh
@@ -181,4 +183,5 @@ jobs:
           MATLABPATH: matlab/install/arrow_matlab
         uses: matlab-actions/run-tests@v2
         with:
-          select-by-folder: matlab/test 
+          select-by-folder: matlab/test
+          strict: true

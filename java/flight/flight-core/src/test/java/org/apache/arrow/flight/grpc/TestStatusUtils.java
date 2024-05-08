@@ -48,4 +48,26 @@ public class TestStatusUtils {
     Assertions.assertTrue(callStatus.metadata().containsKey("content-type"));
     Assertions.assertEquals("text/html", callStatus.metadata().get("content-type"));
   }
+
+  @Test
+  public void testGrpcResourceExhaustedTranslatedToFlightStatus() {
+    Status status = Status.RESOURCE_EXHAUSTED;
+
+    CallStatus callStatus = StatusUtils.fromGrpcStatus(status);
+    Assertions.assertEquals(FlightStatusCode.RESOURCE_EXHAUSTED, callStatus.code());
+
+    FlightStatusCode flightStatusCode = StatusUtils.fromGrpcStatusCode(status.getCode());
+    Assertions.assertEquals(FlightStatusCode.RESOURCE_EXHAUSTED, flightStatusCode);
+  }
+
+  @Test
+  public void testFlightResourceExhaustedTranslatedToGrpcStatua() {
+    CallStatus callStatus = CallStatus.RESOURCE_EXHAUSTED;
+
+    Status.Code grpcStatusCode = StatusUtils.toGrpcStatusCode(callStatus.code());
+    Assertions.assertEquals(Status.RESOURCE_EXHAUSTED.getCode(), grpcStatusCode);
+
+    Status grpcStatus = StatusUtils.toGrpcStatus(callStatus);
+    Assertions.assertEquals(Status.RESOURCE_EXHAUSTED.getCode(), grpcStatus.getCode());
+  }
 }

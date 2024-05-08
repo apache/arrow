@@ -153,6 +153,8 @@ static auto kRankOptionsType = GetFunctionOptionsType<RankOptions>(
     DataMember("tiebreaker", &RankOptions::tiebreaker));
 static auto kPairwiseOptionsType = GetFunctionOptionsType<PairwiseOptions>(
     DataMember("periods", &PairwiseOptions::periods));
+static auto kListFlattenOptionsType = GetFunctionOptionsType<ListFlattenOptions>(
+    DataMember("recursive", &ListFlattenOptions::recursive));
 }  // namespace
 }  // namespace internal
 
@@ -224,6 +226,10 @@ PairwiseOptions::PairwiseOptions(int64_t periods)
     : FunctionOptions(internal::kPairwiseOptionsType), periods(periods) {}
 constexpr char PairwiseOptions::kTypeName[];
 
+ListFlattenOptions::ListFlattenOptions(bool recursive)
+    : FunctionOptions(internal::kListFlattenOptionsType), recursive(recursive) {}
+constexpr char ListFlattenOptions::kTypeName[];
+
 namespace internal {
 void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kFilterOptionsType));
@@ -237,6 +243,7 @@ void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kCumulativeOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kRankOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kPairwiseOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kListFlattenOptionsType));
 }
 }  // namespace internal
 

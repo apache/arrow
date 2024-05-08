@@ -32,14 +32,14 @@ Using Acero
 The basic workflow for Acero is this:
 
 #. First, create a graph of :class:`Declaration` objects describing the plan
- 
+
 #. Call one of the DeclarationToXyz methods to execute the Declaration.
 
    a. A new ExecPlan is created from the graph of Declarations.  Each Declaration will correspond to one
       ExecNode in the plan.  In addition, a sink node will be added, depending on which DeclarationToXyz method
       was used.
 
-   b. The ExecPlan is executed.  Typically this happens as part of the DeclarationToXyz call but in 
+   b. The ExecPlan is executed.  Typically this happens as part of the DeclarationToXyz call but in
       DeclarationToReader the reader is returned before the plan is finished executing.
 
    c. Once the plan is finished it is destroyed
@@ -315,7 +315,7 @@ of a specific execution node.
 ``source``
 ----------
 
-A ``source`` operation can be considered as an entry point to create a streaming execution plan. 
+A ``source`` operation can be considered as an entry point to create a streaming execution plan.
 :class:`SourceNodeOptions` are used to create the ``source`` operation.  The
 ``source`` operation is the most generic and flexible type of source currently available but it can
 be quite tricky to configure.  First you should review the other source node types to ensure there
@@ -326,7 +326,7 @@ function should take no arguments and should return an
 ``arrow::Future<std::optional<arrow::ExecBatch>>``.
 This function might be reading a file, iterating through an in memory structure, or receiving data
 from a network connection.  The arrow library refers to these functions as ``arrow::AsyncGenerator``
-and there are a number of utilities for working with these functions.  For this example we use 
+and there are a number of utilities for working with these functions.  For this example we use
 a vector of record batches that we've already stored in memory.
 In addition, the schema of the data must be known up front.  Acero must know the schema of the data
 at each stage of the execution graph before any processing has begun.  This means we must supply the
@@ -368,10 +368,10 @@ Example of using ``source`` (usage of sink is explained in detail in :ref:`sink<
 In the previous example, :ref:`source node <stream_execution_source_docs>`, a source node
 was used to input the data.  But when developing an application, if the data is already in memory
 as a table, it is much easier, and more performant to use :class:`TableSourceNodeOptions`.
-Here the input data can be passed as a ``std::shared_ptr<arrow::Table>`` along with a ``max_batch_size``. 
+Here the input data can be passed as a ``std::shared_ptr<arrow::Table>`` along with a ``max_batch_size``.
 The ``max_batch_size`` is to break up large record batches so that they can be processed in parallel.
 It is important to note that the table batches will not get merged to form larger batches when the source
-table has a smaller batch size. 
+table has a smaller batch size.
 
 Example of using ``table_source``
 
@@ -387,7 +387,7 @@ Example of using ``table_source``
 ``filter``
 ----------
 
-``filter`` operation, as the name suggests, provides an option to define data filtering 
+``filter`` operation, as the name suggests, provides an option to define data filtering
 criteria. It selects rows where the given expression evaluates to true. Filters can be written using
 :class:`arrow::compute::Expression`, and the expression should have a return type of boolean.
 For example, if we wish to keep rows where the value
@@ -415,7 +415,7 @@ functions, i.e. elementwise functions that return one value for each input
 row independent of the value of all other rows).
 This is exposed via :class:`ProjectNodeOptions` which requires,
 an :class:`arrow::compute::Expression` and name for each of the output columns (if names are not
-provided, the string representations of exprs will be used).  
+provided, the string representations of exprs will be used).
 
 Project example:
 
@@ -456,7 +456,7 @@ can be selected from :ref:`this list of aggregation functions
 
 The aggregation can provide results as a group or scalar. For instances,
 an operation like `hash_count` provides the counts per each unique record
-as a grouped result while an operation like `sum` provides a single record. 
+as a grouped result while an operation like `sum` provides a single record.
 
 Scalar Aggregation example:
 
@@ -481,14 +481,14 @@ Group Aggregation example:
 ``sink``
 --------
 
-``sink`` operation provides output and is the final node of a streaming 
-execution definition. :class:`SinkNodeOptions` interface is used to pass 
+``sink`` operation provides output and is the final node of a streaming
+execution definition. :class:`SinkNodeOptions` interface is used to pass
 the required options. Similar to the source operator the sink operator exposes the output
 with a function that returns a record batch future each time it is called.  It is expected the
 caller will repeatedly call this function until the generator function is exhausted (returns
 ``std::optional::nullopt``).  If this function is not called often enough then record batches
 will accumulate in memory.  An execution plan should only have one
-"terminal" node (one sink node).  An :class:`ExecPlan` can terminate early due to cancellation or 
+"terminal" node (one sink node).  An :class:`ExecPlan` can terminate early due to cancellation or
 an error, before the output is fully consumed. However, the plan can be safely destroyed independently
 of the sink, which will hold the unconsumed batches by `exec_plan->finished()`.
 
@@ -526,12 +526,12 @@ Example::
   arrow::Future<> finish = arrow::Future<>::Make();
   struct CustomSinkNodeConsumer : public cp::SinkNodeConsumer {
 
-      CustomSinkNodeConsumer(std::atomic<uint32_t> *batches_seen, arrow::Future<>finish): 
+      CustomSinkNodeConsumer(std::atomic<uint32_t> *batches_seen, arrow::Future<>finish):
       batches_seen(batches_seen), finish(std::move(finish)) {}
       // Consumption logic can be written here
       arrow::Status Consume(cp::ExecBatch batch) override {
       // data can be consumed in the expected way
-      // transfer to another system or just do some work 
+      // transfer to another system or just do some work
       // and write to disk
       (*batches_seen)++;
       return arrow::Status::OK();
@@ -541,9 +541,9 @@ Example::
 
       std::atomic<uint32_t> *batches_seen;
       arrow::Future<> finish;
-      
+
   };
-  
+
   std::shared_ptr<CustomSinkNodeConsumer> consumer =
           std::make_shared<CustomSinkNodeConsumer>(&batches_seen, finish);
 
@@ -567,14 +567,14 @@ Consuming-Sink example:
 ``order_by_sink``
 -----------------
 
-``order_by_sink`` operation is an extension to the ``sink`` operation. 
-This operation provides the ability to guarantee the ordering of the 
-stream by providing the :class:`OrderBySinkNodeOptions`. 
-Here the :class:`arrow::compute::SortOptions` are provided to define which columns 
+``order_by_sink`` operation is an extension to the ``sink`` operation.
+This operation provides the ability to guarantee the ordering of the
+stream by providing the :class:`OrderBySinkNodeOptions`.
+Here the :class:`arrow::compute::SortOptions` are provided to define which columns
 are used for sorting and whether to sort by ascending or descending values.
 
 .. note:: This node is a "pipeline breaker" and will fully materialize the dataset in memory.
-          In the future, spillover mechanisms will be added which should alleviate this 
+          In the future, spillover mechanisms will be added which should alleviate this
           constraint.
 
 
@@ -593,14 +593,14 @@ Order-By-Sink example:
 ``select_k_sink``
 -----------------
 
-``select_k_sink`` option enables selecting the top/bottom K elements, 
-similar to a SQL ``ORDER BY ... LIMIT K`` clause.  
-:class:`SelectKOptions` which is a defined by 
-using :struct:`OrderBySinkNode` definition. This option returns a sink node that receives 
+``select_k_sink`` option enables selecting the top/bottom K elements,
+similar to a SQL ``ORDER BY ... LIMIT K`` clause.
+:class:`SelectKOptions` which is a defined by
+using :struct:`OrderBySinkNode` definition. This option returns a sink node that receives
 inputs and then compute top_k/bottom_k.
 
 .. note:: This node is a "pipeline breaker" and will fully materialize the input in memory.
-          In the future, spillover mechanisms will be added which should alleviate this 
+          In the future, spillover mechanisms will be added which should alleviate this
           constraint.
 
 SelectK example:
@@ -617,7 +617,7 @@ SelectK example:
 
 .. _stream_execution_table_sink_docs:
 
-The ``table_sink`` node provides the ability to receive the output as an in-memory table. 
+The ``table_sink`` node provides the ability to receive the output as an in-memory table.
 This is simpler to use than the other sink nodes provided by the streaming execution engine
 but it only makes sense when the output fits comfortably in memory.
 The node is created using :class:`TableSinkNodeOptions`.
@@ -637,7 +637,7 @@ Example of using ``table_sink``
 ---------
 
 ``scan`` is an operation used to load and process datasets.  It should be preferred over the
-more generic ``source`` node when your input is a dataset.  The behavior is defined using 
+more generic ``source`` node when your input is a dataset.  The behavior is defined using
 :class:`arrow::dataset::ScanNodeOptions`.  More information on datasets and the various
 scan options can be found in :doc:`../dataset`.
 
@@ -683,10 +683,10 @@ Write example:
 ``union``
 -------------
 
-``union`` merges multiple data streams with the same schema into one, similar to 
+``union`` merges multiple data streams with the same schema into one, similar to
 a SQL ``UNION ALL`` clause.
 
-The following example demonstrates how this can be achieved using 
+The following example demonstrates how this can be achieved using
 two data sources.
 
 Union example:
@@ -704,15 +704,15 @@ Union example:
 -------------
 
 ``hash_join`` operation provides the relational algebra operation, join using hash-based
-algorithm. :class:`HashJoinNodeOptions` contains the options required in 
-defining a join. The hash_join supports 
+algorithm. :class:`HashJoinNodeOptions` contains the options required in
+defining a join. The hash_join supports
 `left/right/full semi/anti/outerjoins
-<https://en.wikipedia.org/wiki/Join_(SQL)>`_. 
+<https://en.wikipedia.org/wiki/Join_(SQL)>`_.
 Also the join-key (i.e. the column(s) to join on), and suffixes (i.e a suffix term like "_x"
-which can be appended as a suffix for column names duplicated in both left and right 
-relations.) can be set via the join options. 
+which can be appended as a suffix for column names duplicated in both left and right
+relations.) can be set via the join options.
 `Read more on hash-joins
-<https://en.wikipedia.org/wiki/Hash_join>`_. 
+<https://en.wikipedia.org/wiki/Hash_join>`_.
 
 Hash-Join example:
 
@@ -726,7 +726,7 @@ Hash-Join example:
 Summary
 =======
 
-There are examples of these nodes which can be found in 
+There are examples of these nodes which can be found in
 ``cpp/examples/arrow/execution_plan_documentation_examples.cc`` in the Arrow source.
 
 Complete Example:

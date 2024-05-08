@@ -55,9 +55,18 @@ opts.SupportedPlatforms.Maci64 = true;
 opts.SupportedPlatforms.Glnxa64 = true;
 opts.SupportedPlatforms.MatlabOnline = true;
 
-% Interface is only qualified against R2023a at the moment
-opts.MinimumMatlabRelease = "R2023a";
-opts.MaximumMatlabRelease = "R2023a";
+% MEX files use run-time libraries shipped with MATLAB (e.g. libmx, libmex,
+% etc.). MEX files linked against earlier versions of MALTAB run-time libraries
+% will most likely work on newer versions of MATLAB. However, this may not
+% always be the case.
+% 
+% For now, set the earliest and latest compatible releases of MATLAB to 
+% the release of MATLAB used to build and package the MATLAB Arrow Interface.
+% 
+% See: https://www.mathworks.com/help/matlab/matlab_external/version-compatibility.html
+currentRelease = matlabRelease.Release;
+opts.MinimumMatlabRelease = currentRelease;
+opts.MaximumMatlabRelease = currentRelease;
 
 opts.OutputFile = fullfile(outputFolder, compose("matlab-arrow-%s.mltbx", toolboxVersionRaw));
 disp("Output File: " + opts.OutputFile);

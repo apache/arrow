@@ -577,6 +577,11 @@ TEST(PlainEncodingAdHoc, ArrowBinaryDirectPut) {
     auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN);
 
     ASSERT_NO_THROW(encoder->Put(*values));
+    // For Plain encoding, the estimated size should be at least the total byte size
+    auto& string_array = dynamic_cast<const ::arrow::StringArray&>(*values);
+    EXPECT_GE(encoder->EstimatedDataEncodedSize(), string_array.total_values_length())
+        << "Estimated size should be at least the total byte size";
+
     auto buf = encoder->FlushValues();
 
     int num_values = static_cast<int>(values->length() - values->null_count());
@@ -1383,7 +1388,7 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
     encoder->PutSpaced(draws_, num_values_, valid_bits, valid_bits_offset);
     encode_buffer_ = encoder->FlushValues();
     ASSERT_EQ(encode_buffer_->size(), physical_byte_width() * (num_values_ - null_count));
-    decoder->SetData(num_values_ - null_count, encode_buffer_->data(),
+    decoder->SetData(num_values_, encode_buffer_->data(),
                      static_cast<int>(encode_buffer_->size()));
     auto values_decoded = decoder->DecodeSpaced(decode_buf_, num_values_, null_count,
                                                 valid_bits, valid_bits_offset);
@@ -1717,7 +1722,7 @@ class TestDeltaBitPackEncoding : public TestEncodingBase<Type> {
     for (size_t i = 0; i < kNumRoundTrips; ++i) {
       encoder->PutSpaced(draws_, num_values_, valid_bits, valid_bits_offset);
       encode_buffer_ = encoder->FlushValues();
-      decoder->SetData(num_values_ - null_count, encode_buffer_->data(),
+      decoder->SetData(num_values_, encode_buffer_->data(),
                        static_cast<int>(encode_buffer_->size()));
       auto values_decoded = decoder->DecodeSpaced(decode_buf_, num_values_, null_count,
                                                   valid_bits, valid_bits_offset);
@@ -2160,6 +2165,10 @@ TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowBinaryDirectPut) {
 
   auto CheckSeed = [&](std::shared_ptr<::arrow::Array> values) {
     ASSERT_NO_THROW(encoder->Put(*values));
+    auto* binary_array = checked_cast<const ::arrow::BinaryArray*>(values.get());
+    // For DeltaLength encoding, the estimated size should be at least the total byte size
+    EXPECT_GE(encoder->EstimatedDataEncodedSize(), binary_array->total_values_length())
+        << "Estimated size should be at least the total byte size";
     auto buf = encoder->FlushValues();
 
     int num_values = static_cast<int>(values->length() - values->null_count());
