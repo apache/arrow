@@ -3206,28 +3206,33 @@ TEST(HashJoin, ChainedIntegerHashJoins) {
 TEST(HashJoin, ManyJoins) {
   const int num_joins = 64;
 
-  std::vector<TypeHolder> left_types = {int8()};
-  auto left_batch = ExecBatchFromJSON(left_types, R"([[1]])");
-  std::vector<TypeHolder> right_types = {int8()};
-  auto right_batch = ExecBatchFromJSON(right_types, R"([[1]])");
+  const int num_left_rows = ExecBatchBuilder::num_rows_max();
+  ASSERT_OK_AND_ASSIGN(
+      auto left_batches,
+      MakeIntegerBatches({[](int row_id) -> int64_t { return row_id; }},
+                         schema({field("l_key", int8())}),
+                         /*num_batches=*/1, /*batch_size=*/num_left_rows));
+  Declaration root{"exec_batch_source",
+                   ExecBatchSourceNodeOptions(std::move(left_batches.schema),
+                                              std::move(left_batches.batches))};
 
   HashJoinNodeOptions join_opts(JoinType::LEFT_OUTER, /*left_keys=*/{"l_key"},
                                 /*right_keys*/ {"r_key"});
 
-  Declaration root{
-      "exec_batch_source",
-      ExecBatchSourceNodeOptions(schema({field("l_key", int8())}), {left_batch})};
-
   for (int i = 0; i < num_joins; ++i) {
-    Declaration table{
-        "exec_batch_source",
-        ExecBatchSourceNodeOptions(schema({field("r_key", int8())}), {right_batch})};
-    Declaration new_root{"hashjoin", {std::move(root), std::move(table)}, join_opts};
+    ASSERT_OK_AND_ASSIGN(auto right_batches,
+                         MakeIntegerBatches({[i](int) -> int64_t { return i; }},
+                                            schema({field("r_key", int8())}),
+                                            /*num_batches=*/1, /*batch_size=*/2));
+    Declaration table{"exec_batch_source",
+                      ExecBatchSourceNodeOptions(std::move(right_batches.schema),
+                                                 std::move(right_batches.batches))};
 
+    Declaration new_root{"hashjoin", {std::move(root), std::move(table)}, join_opts};
     root = std::move(new_root);
   }
 
-  ASSERT_OK_AND_ASSIGN(auto result, DeclarationToTable(std::move(root)));
+  ASSERT_OK_AND_ASSIGN(std::ignore, DeclarationToTable(std::move(root)));
 }
 
 }  // namespace acero
