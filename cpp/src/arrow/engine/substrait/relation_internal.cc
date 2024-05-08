@@ -393,6 +393,7 @@ Result<DeclarationInfo> FromProto(const substrait::Rel& rel, const ExtensionSet&
 
       auto scan_options = std::make_shared<dataset::ScanOptions>();
       scan_options->use_threads = true;
+      scan_options->add_augmented_fields = false;
 
       if (read.has_filter()) {
         ARROW_ASSIGN_OR_RAISE(scan_options->filter,

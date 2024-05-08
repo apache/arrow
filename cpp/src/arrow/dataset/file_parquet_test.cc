@@ -331,7 +331,8 @@ TEST_F(TestParquetFileFormat, CachedMetadata) {
   auto options = std::make_shared<ScanOptions>();
   options->filter = literal(true);
   ASSERT_OK_AND_ASSIGN(auto projection_descr,
-                       ProjectionDescr::FromNames({"x"}, *test_schema));
+                       ProjectionDescr::FromNames({"x"}, *test_schema,
+                                                  options->add_augmented_fields));
   options->projected_schema = projection_descr.schema;
   options->projection = projection_descr.expression;
   ASSERT_OK_AND_ASSIGN(auto generator, fragment->ScanBatchesAsync(options));

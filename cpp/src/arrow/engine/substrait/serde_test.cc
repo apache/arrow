@@ -1064,7 +1064,7 @@ NamedTableProvider AlwaysProvideSameTable(std::shared_ptr<Table> table) {
   };
 }
 
-TEST(Substrait, ReadRelWithRoot) {
+TEST(Substrait, ExecReadRelWithLocalFiles) {
     ASSERT_OK_AND_ASSIGN(std::string dir_string,
                          arrow::internal::GetEnvVar("PARQUET_TEST_DATA"));
 
