@@ -56,145 +56,139 @@ namespace arrow::util {
 /// Additionally, we say that a type is "fixed-width like" if it's a fixed-width as
 /// defined above, or if it's a fixed-size list (or nested fixed-size lists) and
 /// the innermost type is fixed-width and the following restrictions also apply:
-///  - The value type of the innermost fixed-size list is not BOOL (it has to be excluded
-///    because a 1-bit type doesn't byte-align)
 ///  - Only the top-level array may have nulls, all the inner array have to be completely
 ///    free of nulls so we don't need to manage internal validity bitmaps.
 ///
-/// Take the following `fixed_size_list<fixed_size_list<int32, 2>, 3>` array as an
-/// example:
-///
-///     [
-///       [[1, 2], [3,  4], [ 5,  6]],
-///       null,
-///       [[7, 8], [9, 10], [11, 12]]
-///     ]
-///
-/// in memory, it would look like:
-///
-///     {
-///        type: fixed_size_list<fixed_size_list<int32, 2>, 3>,
-///        length: 3,
-///        null_count: 1,
-///        offset: 0,
-///        buffers: [
-///          0: [0b00000101]
-///        ],
-///        child_data: [
-///          0: {
-///            type: fixed_size_list<int32, 2>,
-///            length: 9,
-///            null_count: 0,
-///            offset: 0,
-///            buffers: [0: NULL],
-///            child_data: [
-///              0: {
-///                type: int32,
-///                length: 18,
-///                null_count: 0,
-///                offset: 0,
-///                buffers: [
-///                  0: NULL,
-///                  1: [ 1,  2,  3,  4,  5,  6,
-///                       0,  0,  0,  0,  0,  0
-///                       7,  8,  9, 10, 11, 12 ]
-///                ],
-///                child_data: []
-///              }
-///            ]
-///          }
-///        ]
-///     }
-///
-/// This layout fits the fixed-width like definition because the innermost type
-/// is byte-aligned fixed-width (int32 = 4 bytes) and the internal arrays don't
-/// have nulls. The validity bitmap is only needed at the top-level array.
-///
-/// Writing to this array can be done in the same way writing to a flat fixed-width
-/// array is done, by:
-/// 1. Updating the validity bitmap at the top-level array if nulls are present.
-/// 2. Updating a continuous fixed-width block of memory through a single pointer.
-///
-/// The length of this block of memory is the product of the list sizes in the
-/// `FixedSizeList` types and the byte width of the innermost fixed-width type:
-///
-///     3 * 2 * 4 = 24 bytes
-///
-/// Writing the `[[1, 2], [3, 4], [5, 6]]` value at a given index can be done by
-/// simply setting the validity bit to 1 and writing the 24-byte sequence of
-/// integers `[1, 2, 3, 4, 5, 6]` to the memory block at `byte_ptr + index * 24`.
-///
-/// The length of the top-level array fully defines the lengths that all the nested
-/// arrays must have, which makes defining all the lengths as easy as defining the
-/// length of the top-level array.
-///
-///     length = 3
-///     child_data[0].length == 3 * 3 == 9
-///     child_data[0].child_data[0].length == 3 * 3 * 2 == 18
-///
-///     child_data[0].child_data[0].buffers[1].size() >=
-///       (3 * (3 * 2 * sizeof(int32)) == 3 * 24 == 72)
-///
-/// Dealing with offsets is a bit involved. Let's say the array described above has
-/// the offsets 2, 5, and 7:
-///
-///     {
-///        type: fixed_size_list<fixed_size_list<int32, 2>, 3>,
-///        offset: 2,
-///        ...
-///        child_data: [
-///          0: {
-///            type: fixed_size_list<int32, 2>,
-///            offset: 5,
-///            ...
-///            child_data: [
-///              0: {
-///                type: int32,
-///                offset: 7,
-///                buffers: [
-///                  0: NULL,
-///                  1: [ 1, 1, 1, 1, 1, 1, 1,      // 7 values skipped
-///                       0,1, 0,1, 0,1, 0,1, 0,1,  // 5 [x,x] values skipped
-///
-///                       0,0,0,0,0,1,  //
-///                       0,0,0,0,0,1,  // 2 [[x,x], [x,x], [x,x]] values skipped
-///
-///                       1,  2,  3,  4,  5,  6,  //
-///                       0,  0,  0,  0,  0,  0   // the actual values
-///                       7,  8,  9, 10, 11, 12   //
-///                     ]
-///                ],
-///              }
-///            ]
-///          }
-///        ]
-///     }
-///
-/// The offset of the innermost values buffer, in bytes, is calculated as:
-///
-///     ((2 * 3) + (5 * 2) + 7) * sizeof(int32) = 29 * 4 bytes = 116 bytes
-///
-/// In general, the formula to calculate the offset of the innermost values buffer is:
-///
-///     ((off_0 * fsl_size_0) + (off_1 * fsl_size_1) + ... + innermost_off)
-///        * sizeof(innermost_type)
-///
-/// `OffsetPointerOfFixedWidthValues()` can calculate this byte offset and return the
-/// pointer to the first relevant byte of the innermost values buffer.
-///
 /// \param source The array to check
 /// \param force_null_count If true, GetNullCount() is used instead of null_count
-/// \param exclude_dictionary If true, DICTIONARY is excluded from the
-///                           is_fixed_width() types. Default: false.
+/// \param exclude_bool_and_dictionary If true, BOOL and DICTIONARY are excluded from
+///                                    the is_fixed_width() types. Default: false.
 ARROW_EXPORT bool IsFixedWidthLike(const ArraySpan& source, bool force_null_count = false,
-                                   bool exclude_dictionary = false);
+                                   bool exclude_bool_and_dictionary = false);
+
+// Take the following `fixed_size_list<fixed_size_list<int32, 2>, 3>` array as an
+// example:
+//
+//     [
+//       [[1, 2], [3,  4], [ 5,  6]],
+//       null,
+//       [[7, 8], [9, 10], [11, 12]]
+//     ]
+//
+// in memory, it would look like:
+//
+//     {
+//        type: fixed_size_list<fixed_size_list<int32, 2>, 3>,
+//        length: 3,
+//        null_count: 1,
+//        offset: 0,
+//        buffers: [
+//          0: [0b00000101]
+//        ],
+//        child_data: [
+//          0: {
+//            type: fixed_size_list<int32, 2>,
+//            length: 9,
+//            null_count: 0,
+//            offset: 0,
+//            buffers: [0: NULL],
+//            child_data: [
+//              0: {
+//                type: int32,
+//                length: 18,
+//                null_count: 0,
+//                offset: 0,
+//                buffers: [
+//                  0: NULL,
+//                  1: [ 1,  2,  3,  4,  5,  6,
+//                       0,  0,  0,  0,  0,  0
+//                       7,  8,  9, 10, 11, 12 ]
+//                ],
+//                child_data: []
+//              }
+//            ]
+//          }
+//        ]
+//     }
+//
+// This layout fits the fixed-width like definition because the innermost type
+// is byte-aligned fixed-width (int32 = 4 bytes) and the internal arrays don't
+// have nulls. The validity bitmap is only needed at the top-level array.
+//
+// Writing to this array can be done in the same way writing to a flat fixed-width
+// array is done, by:
+// 1. Updating the validity bitmap at the top-level array if nulls are present.
+// 2. Updating a continuous fixed-width block of memory through a single pointer.
+//
+// The length of this block of memory is the product of the list sizes in the
+// `FixedSizeList` types and the byte width of the innermost fixed-width type:
+//
+//     3 * 2 * 4 = 24 bytes
+//
+// Writing the `[[1, 2], [3, 4], [5, 6]]` value at a given index can be done by
+// simply setting the validity bit to 1 and writing the 24-byte sequence of
+// integers `[1, 2, 3, 4, 5, 6]` to the memory block at `byte_ptr + index * 24`.
+//
+// The length of the top-level array fully defines the lengths that all the nested
+// arrays must have, which makes defining all the lengths as easy as defining the
+// length of the top-level array.
+//
+//     length = 3
+//     child_data[0].length == 3 * 3 == 9
+//     child_data[0].child_data[0].length == 3 * 3 * 2 == 18
+//
+//     child_data[0].child_data[0].buffers[1].size() >=
+//       (3 * (3 * 2 * sizeof(int32)) == 3 * 24 == 72)
+//
+// Dealing with offsets is a bit involved. Let's say the array described above has
+// the offsets 2, 5, and 7:
+//
+//     {
+//        type: fixed_size_list<fixed_size_list<int32, 2>, 3>,
+//        offset: 2,
+//        ...
+//        child_data: [
+//          0: {
+//            type: fixed_size_list<int32, 2>,
+//            offset: 5,
+//            ...
+//            child_data: [
+//              0: {
+//                type: int32,
+//                offset: 7,
+//                buffers: [
+//                  0: NULL,
+//                  1: [ 1, 1, 1, 1, 1, 1, 1,      // 7 values skipped
+//                       0,1, 0,1, 0,1, 0,1, 0,1,  // 5 [x,x] values skipped
+//
+//                       0,0,0,0,0,1,  //
+//                       0,0,0,0,0,1,  // 2 [[x,x], [x,x], [x,x]] values skipped
+//
+//                       1,  2,  3,  4,  5,  6,  //
+//                       0,  0,  0,  0,  0,  0   // the actual values
+//                       7,  8,  9, 10, 11, 12   //
+//                     ]
+//                ],
+//              }
+//            ]
+//          }
+//        ]
+//     }
+//
+// The offset of the innermost values buffer, in bytes, is calculated as:
+//
+//     ((2 * 3) + (5 * 2) + 7) * sizeof(int32) = 29 * 4 bytes = 116 bytes
+//
+// In general, the formula to calculate the offset of the innermost values buffer is:
+//
+//     ((off_0 * fsl_size_0) + (off_1 * fsl_size_1) + ... + innermost_off)
+//        * sizeof(innermost_type)
+//
+// `OffsetPointerOfFixedByteWidthValues()` can calculate this byte offset and return
+// the pointer to the first relevant byte of the innermost values buffer.
 
 /// \brief Checks if the given array has a fixed-width type or if it's an array of
 /// fixed-size list that can be flattened to an array of fixed-width values.
-///
-/// This function is a more general version of
-/// `IsFixedWidthLike(const ArraySpan&, bool)` that allows the caller to further
-/// restrict the inner value types that should be considered fixed-width.
 ///
 /// \param source The array to check
 /// \param force_null_count If true, GetNullCount() is used instead of null_count
@@ -217,9 +211,7 @@ inline bool IsFixedWidthLike(const ArraySpan& source, bool force_null_count,
         values = &values->child_data[0];
         continue;
       }
-      // BOOL has to be excluded because it's not byte-aligned.
-      return type->id() != Type::BOOL && is_fixed_width(type->id()) &&
-             extra_predicate(*type);
+      return is_fixed_width(type->id()) && extra_predicate(*type);
     }
   }
   return false;
@@ -251,6 +243,10 @@ ARROW_EXPORT int64_t FixedWidthInBytes(const DataType& type);
 /// \brief Get the fixed-width in bits of a type if it is a fixed-width like
 /// type.
 ///
+/// If the array is a FixedSizeList (of any level of nesting), the bit width of
+/// the values is the product of all fixed-list sizes and the bit width of the
+/// innermost fixed-width value type.
+///
 /// \return The bit-width of the values or -1
 /// \see FixedWidthInBytes
 ARROW_EXPORT int64_t FixedWidthInBits(const DataType& type);
@@ -260,7 +256,7 @@ namespace internal {
 /// \brief Allocate an ArrayData for a type that is fixed-width like.
 ///
 /// This function performs the same checks performed by
-/// `IsFixedWidthLike(source, false)`. If `source.type` is not a simple
+/// `IsFixedWidthLike(source, false, false)`. If `source.type` is not a simple
 /// fixed-width type, caller should make sure it passes the
 /// `IsFixedWidthLike(source)` checks. That guarantees that it's possible to
 /// allocate an array that can serve as a destination for a kernel that writes values
@@ -280,18 +276,24 @@ ARROW_EXPORT Status PreallocateFixedWidthArrayData(::arrow::compute::KernelConte
 
 }  // namespace internal
 
-/// \brief Get the pointer to the fixed-width values of a fixed-width like array.
+/// \brief Get the 0-7 residual offset in bits and the pointer to the fixed-width
+/// values of a fixed-width like array.
 ///
-/// This function might return NULLPTR if the type of the array is BOOL or
-/// if the pre-conditions listed are not satisfied. The converse is not true
-/// (i.e. not getting NULLPTR doesn't guarantee that source is a fixed-width
-/// like array).
+/// For byte-aligned types, the offset is always 0.
 ///
 /// \pre `IsFixedWidthLike(source)` or the more restrictive
 ///      is_fixed_width(*mutable_array->type) SHOULD be true
-/// \return The pointer to the fixed-width values of an array or NULLPTR
-///         if pre-conditions are not satisfied.
-ARROW_EXPORT const uint8_t* OffsetPointerOfFixedWidthValues(const ArraySpan& source);
+/// \return A pair with the residual offset in bits (0-7) and the pointer
+///         to the fixed-width values.
+ARROW_EXPORT std::pair<int, const uint8_t*> OffsetPointerOfFixedBitWidthValues(
+    const ArraySpan& source);
+
+/// \brief Get the pointer to the fixed-width values of a fixed-width like array.
+///
+/// \pre `IsFixedWidthLike(source)` should be true and BOOL should be excluded
+///      as each bool is 1-bit width making it impossible to produce a
+///      byte-aligned pointer to the values in the general case.
+ARROW_EXPORT const uint8_t* OffsetPointerOfFixedByteWidthValues(const ArraySpan& source);
 
 /// \brief Get the mutable pointer to the fixed-width values of an array
 ///        allocated by PreallocateFixedWidthArrayData.

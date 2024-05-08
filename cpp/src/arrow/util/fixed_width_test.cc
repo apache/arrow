@@ -80,10 +80,7 @@ TEST_F(TestFixedWidth, IsFixedWidth) {
 
 TEST_F(TestFixedWidth, IsFixedWidthLike) {
   auto arr = ArraySpan{*fsl_bool_array_->data()};
-  // bools wrapped by fixed-size-list are not fixed-width because the
-  // innermost data buffer is a bitmap and won't byte-align.
-  ASSERT_FALSE(IsFixedWidthLike(arr, /*force_null_count=*/false));
-  ASSERT_FALSE(IsFixedWidthLike(arr, /*force_null_count=*/true));
+  ASSERT_TRUE(IsFixedWidthLike(arr, /*force_null_count=*/false));
 
   arr = ArraySpan{*fsl_int_array_->data()};
   ASSERT_TRUE(IsFixedWidthLike(arr, /*force_null_count=*/false));
@@ -114,12 +111,12 @@ TEST_F(TestFixedWidth, IsFixedWidthLike) {
 
   arr = ArraySpan{*dict_string_array_->data()};
   // Dictionaries are considered fixed-width by is_fixed_width(), but excluded
-  // by IsFixedWidthLike if exclude_dictionary=true.
+  // by IsFixedWidthLike if exclude_bool_and_dictionary=true.
   ASSERT_TRUE(IsFixedWidthLike(arr));
-  ASSERT_TRUE(
-      IsFixedWidthLike(arr, /*force_null_count=*/false, /*exclude_dictionary=*/false));
-  ASSERT_FALSE(
-      IsFixedWidthLike(arr, /*force_null_count=*/false, /*exclude_dictionary=*/true));
+  ASSERT_TRUE(IsFixedWidthLike(arr, /*force_null_count=*/false,
+                               /*exclude_bool_and_dictionary=*/false));
+  ASSERT_FALSE(IsFixedWidthLike(arr, /*force_null_count=*/false,
+                                /*exclude_bool_and_dictionary=*/true));
 }
 
 TEST_F(TestFixedWidth, MeasureWidthInBytes) {
@@ -184,9 +181,9 @@ TEST_F(TestFixedWidth, MeasureWidthInBits) {
   ASSERT_EQ(FixedWidthInBits(*varlen), -1);
   ASSERT_EQ(FixedWidthInBits(*varlen), -1);
 
-  ASSERT_EQ(FixedWidthInBits(*fsl(0, b)), -1);
-  ASSERT_EQ(FixedWidthInBits(*fsl(3, b)), -1);
-  ASSERT_EQ(FixedWidthInBits(*fsl(5, b)), -1);
+  ASSERT_EQ(FixedWidthInBits(*fsl(0, b)), 0);
+  ASSERT_EQ(FixedWidthInBits(*fsl(3, b)), 3);
+  ASSERT_EQ(FixedWidthInBits(*fsl(5, b)), 5);
 
   ASSERT_EQ(FixedWidthInBits(*fsl(0, i8)), 0);
   ASSERT_EQ(FixedWidthInBits(*fsl(3, i8)), 3 * 8);
