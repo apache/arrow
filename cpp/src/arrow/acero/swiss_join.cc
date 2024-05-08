@@ -42,15 +42,15 @@ using compute::SwissTable;
 
 namespace acero {
 
-int RowArrayAccessor::VarbinaryColumnId(const RowTableMetadata* row_metadata,
+int RowArrayAccessor::VarbinaryColumnId(const RowTableMetadata& row_metadata,
                                         int column_id) {
-  ARROW_DCHECK(row_metadata->num_cols() > static_cast<uint32_t>(column_id));
-  ARROW_DCHECK(!row_metadata->is_fixed_length);
-  ARROW_DCHECK(!row_metadata->column_metadatas[column_id].is_fixed_length);
+  ARROW_DCHECK(row_metadata.num_cols() > static_cast<uint32_t>(column_id));
+  ARROW_DCHECK(!row_metadata.is_fixed_length);
+  ARROW_DCHECK(!row_metadata.column_metadatas[column_id].is_fixed_length);
 
   int varbinary_column_id = 0;
   for (int i = 0; i < column_id; ++i) {
-    if (!row_metadata->column_metadatas[i].is_fixed_length) {
+    if (!row_metadata.column_metadatas[i].is_fixed_length) {
       ++varbinary_column_id;
     }
   }
@@ -63,7 +63,7 @@ int RowArrayAccessor::NumRowsToSkip(const RowTableImpl& rows, int column_id, int
   int num_rows_left = num_rows;
 
   bool is_fixed_length_column =
-      rows.metadata()->column_metadatas[column_id].is_fixed_length;
+      rows.metadata().column_metadatas[column_id].is_fixed_length;
 
   if (!is_fixed_length_column) {
     // Varying length column
@@ -81,10 +81,10 @@ int RowArrayAccessor::NumRowsToSkip(const RowTableImpl& rows, int column_id, int
       //
       uint32_t field_offset_within_row, field_length;
       if (varbinary_column_id == 0) {
-        rows.metadata()->first_varbinary_offset_and_length(
+        rows.metadata().first_varbinary_offset_and_length(
             row_ptr, &field_offset_within_row, &field_length);
       } else {
-        rows.metadata()->nth_varbinary_offset_and_length(
+        rows.metadata().nth_varbinary_offset_and_length(
             row_ptr, varbinary_column_id, &field_offset_within_row, &field_length);
       }
 
@@ -94,7 +94,7 @@ int RowArrayAccessor::NumRowsToSkip(const RowTableImpl& rows, int column_id, int
   } else {
     // Fixed length column
     //
-    uint32_t field_length = rows.metadata()->column_metadatas[column_id].fixed_length;
+    uint32_t field_length = rows.metadata().column_metadatas[column_id].fixed_length;
     uint32_t num_bytes_skipped = 0;
     while (num_rows_left > 0 &&
            num_bytes_skipped < static_cast<uint32_t>(num_tail_bytes_to_skip)) {
@@ -110,7 +110,7 @@ template <class PROCESS_VALUE_FN>
 void RowArrayAccessor::Visit(const RowTableImpl& rows, int column_id, int num_rows,
                              const uint32_t* row_ids, PROCESS_VALUE_FN process_value_fn) {
   bool is_fixed_length_column =
-      rows.metadata()->column_metadatas[column_id].is_fixed_length;
+      rows.metadata().column_metadatas[column_id].is_fixed_length;
 
   // There are 4 cases, each requiring different steps:
   // 1. Varying length column that is the first varying length column in a row
@@ -131,7 +131,7 @@ void RowArrayAccessor::Visit(const RowTableImpl& rows, int column_id, int num_ro
       for (int i = 0; i < num_rows; ++i) {
         uint32_t row_id = row_ids[i];
         const uint8_t* row_ptr = row_ptr_base + row_offsets[row_id];
-        rows.metadata()->first_varbinary_offset_and_length(
+        rows.metadata().first_varbinary_offset_and_length(
             row_ptr, &field_offset_within_row, &field_length);
         process_value_fn(i, row_ptr + field_offset_within_row, field_length);
       }
@@ -141,7 +141,7 @@ void RowArrayAccessor::Visit(const RowTableImpl& rows, int column_id, int num_ro
       for (int i = 0; i < num_rows; ++i) {
         uint32_t row_id = row_ids[i];
         const uint8_t* row_ptr = row_ptr_base + row_offsets[row_id];
-        rows.metadata()->nth_varbinary_offset_and_length(
+        rows.metadata().nth_varbinary_offset_and_length(
             row_ptr, varbinary_column_id, &field_offset_within_row, &field_length);
         process_value_fn(i, row_ptr + field_offset_within_row, field_length);
       }
@@ -149,17 +149,17 @@ void RowArrayAccessor::Visit(const RowTableImpl& rows, int column_id, int num_ro
   }
 
   if (is_fixed_length_column) {
-    uint32_t field_offset_within_row = rows.metadata()->encoded_field_offset(
-        rows.metadata()->pos_after_encoding(column_id));
-    uint32_t field_length = rows.metadata()->column_metadatas[column_id].fixed_length;
+    uint32_t field_offset_within_row = rows.metadata().encoded_field_offset(
+        rows.metadata().pos_after_encoding(column_id));
+    uint32_t field_length = rows.metadata().column_metadatas[column_id].fixed_length;
     // Bit column is encoded as a single byte
     //
     if (field_length == 0) {
       field_length = 1;
     }
-    uint32_t row_length = rows.metadata()->fixed_length;
+    uint32_t row_length = rows.metadata().fixed_length;
 
-    bool is_fixed_length_row = rows.metadata()->is_fixed_length;
+    bool is_fixed_length_row = rows.metadata().is_fixed_length;
     if (is_fixed_length_row) {
       // Case 3: This is a fixed length column in a fixed length row
       //
@@ -188,8 +188,8 @@ void RowArrayAccessor::VisitNulls(const RowTableImpl& rows, int column_id, int n
                                   const uint32_t* row_ids,
                                   PROCESS_VALUE_FN process_value_fn) {
   const uint8_t* null_masks = rows.null_masks();
-  uint32_t null_mask_num_bytes = rows.metadata()->null_masks_bytes_per_row;
-  uint32_t pos_after_encoding = rows.metadata()->pos_after_encoding(column_id);
+  uint32_t null_mask_num_bytes = rows.metadata().null_masks_bytes_per_row;
+  uint32_t pos_after_encoding = rows.metadata().pos_after_encoding(column_id);
   for (int i = 0; i < num_rows; ++i) {
     uint32_t row_id = row_ids[i];
     int64_t bit_id = row_id * null_mask_num_bytes * 8 + pos_after_encoding;
@@ -205,9 +205,9 @@ Status RowArray::InitIfNeeded(MemoryPool* pool,
   row_metadata_.FromColumnMetadataVector(column_metadatas,
                                          /* row_alignment = */ sizeof(uint64_t),
                                          /* string_alignment = */ sizeof(uint64_t));
-  encoder_.Init(&row_metadata_);
-  RETURN_NOT_OK(rows_temp_.Init(pool, &row_metadata_));
-  RETURN_NOT_OK(rows_.Init(pool, &row_metadata_));
+  encoder_.Init(row_metadata_);
+  RETURN_NOT_OK(rows_temp_.Init(pool, row_metadata_));
+  RETURN_NOT_OK(rows_.Init(pool, row_metadata_));
   is_initialized_ = true;
   return Status::OK();
 }
@@ -533,7 +533,7 @@ void RowArrayMerge::CopyFixedLength(RowTableImpl* target, const RowTableImpl& so
                                     const int64_t* source_rows_permutation) {
   int64_t num_source_rows = source.length();
 
-  int64_t fixed_length = target->metadata()->fixed_length;
+  int64_t fixed_length = target->metadata().fixed_length;
 
   // Permutation of source rows is optional. Without permutation all that is
   // needed is memcpy.
@@ -616,7 +616,7 @@ void RowArrayMerge::CopyNulls(RowTableImpl* target, const RowTableImpl& source,
                               int64_t first_target_row_id,
                               const int64_t* source_rows_permutation) {
   int64_t num_source_rows = source.length();
-  int num_bytes_per_row = target->metadata()->null_masks_bytes_per_row;
+  int num_bytes_per_row = target->metadata().null_masks_bytes_per_row;
   uint8_t* target_nulls = target->null_masks() + num_bytes_per_row * first_target_row_id;
   if (!source_rows_permutation) {
     memcpy(target_nulls, source.null_masks(), num_bytes_per_row * num_source_rows);

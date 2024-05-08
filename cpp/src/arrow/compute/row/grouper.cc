@@ -567,9 +567,9 @@ struct GrouperFastImpl : public Grouper {
         impl->col_metadata_,
         /* row_alignment = */ sizeof(uint64_t),
         /* string_alignment = */ sizeof(uint64_t));
-    impl->encoder_.Init(&impl->row_metadata_);
-    RETURN_NOT_OK(impl->rows_.Init(ctx->memory_pool(), &impl->row_metadata_));
-    RETURN_NOT_OK(impl->rows_minibatch_.Init(ctx->memory_pool(), &impl->row_metadata_));
+    impl->encoder_.Init(impl->row_metadata_);
+    RETURN_NOT_OK(impl->rows_.Init(ctx->memory_pool(), impl->row_metadata_));
+    RETURN_NOT_OK(impl->rows_minibatch_.Init(ctx->memory_pool(), impl->row_metadata_));
     impl->minibatch_size_ = impl->minibatch_size_min_;
     GrouperFastImpl* impl_ptr = impl.get();
     impl->map_equal_impl_ =

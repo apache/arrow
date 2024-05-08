@@ -57,13 +57,13 @@ TEST(KeyCompare, CompareColumnsToRowsCuriousFSB) {
   ASSERT_OK(ColumnArraysFromExecBatch(batch_right, &column_arrays_right));
 
   RowTableImpl row_table;
-  ASSERT_OK(row_table.Init(pool, &table_metadata_right));
+  ASSERT_OK(row_table.Init(pool, table_metadata_right));
 
   RowTableEncoder row_encoder;
   RowTableMetadata row_metadata;
   row_metadata.FromColumnMetadataVector(column_metadatas_right, sizeof(uint64_t),
                                         sizeof(uint64_t));
-  row_encoder.Init(&row_metadata);
+  row_encoder.Init(row_metadata);
   row_encoder.PrepareEncodeSelected(0, num_rows, column_arrays_right);
 
   std::vector<uint16_t> row_ids_right(num_rows);

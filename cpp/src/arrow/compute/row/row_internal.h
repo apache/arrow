@@ -165,7 +165,7 @@ class ARROW_EXPORT RowTableImpl {
   /// \brief Initialize a row array for use
   ///
   /// This must be called before any other method
-  Status Init(MemoryPool* pool, const RowTableMetadata* metadata);
+  Status Init(MemoryPool* pool, const RowTableMetadata& metadata);
   /// \brief Clear all rows from the table
   ///
   /// Does not shrink buffers
@@ -183,7 +183,7 @@ class ARROW_EXPORT RowTableImpl {
   Status AppendSelectionFrom(const RowTableImpl& from, uint32_t num_rows_to_append,
                              const uint16_t* source_row_ids);
   /// \brief Metadata describing the data stored in this table
-  const RowTableMetadata* metadata() const { return metadata_; }
+  const RowTableMetadata& metadata() const { return *metadata_; }
   /// \brief The number of rows stored in the table
   int64_t length() const { return num_rows_; }
   // Accessors into the table's buffers

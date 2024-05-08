@@ -167,9 +167,9 @@ void RowTableMetadata::FromColumnMetadataVector(
 
 RowTableImpl::RowTableImpl() : pool_(nullptr), rows_capacity_(0), bytes_capacity_(0) {}
 
-Status RowTableImpl::Init(MemoryPool* pool, const RowTableMetadata* metadata) {
+Status RowTableImpl::Init(MemoryPool* pool, const RowTableMetadata& metadata) {
   pool_ = pool;
-  metadata_ = metadata;
+  metadata_ = &metadata;
 
   DCHECK(!null_masks_ && !offsets_ && !rows_);
 
@@ -184,7 +184,7 @@ Status RowTableImpl::Init(MemoryPool* pool, const RowTableMetadata* metadata) {
   memset(null_masks_->mutable_data(), 0, size_null_masks(kInitialRowsCapacity));
 
   // Offsets and rows
-  if (!metadata->is_fixed_length) {
+  if (!metadata.is_fixed_length) {
     ARROW_ASSIGN_OR_RAISE(
         auto offsets, AllocateResizableBuffer(size_offsets(kInitialRowsCapacity), pool_));
     offsets_ = std::move(offsets);
@@ -316,7 +316,7 @@ Status RowTableImpl::ResizeOptionalVaryingLengthBuffer(int64_t num_extra_bytes) 
 Status RowTableImpl::AppendSelectionFrom(const RowTableImpl& from,
                                          uint32_t num_rows_to_append,
                                          const uint16_t* source_row_ids) {
-  DCHECK(metadata_->is_compatible(*from.metadata()));
+  DCHECK(metadata_->is_compatible(from.metadata()));
 
   RETURN_NOT_OK(ResizeFixedLengthBuffers(num_rows_to_append));
 

@@ -74,7 +74,7 @@ uint32_t EncoderBinaryPair::DecodeImp_avx2(uint32_t start_row, uint32_t num_rows
   uint8_t* col_vals_A = col1->mutable_data(1);
   uint8_t* col_vals_B = col2->mutable_data(1);
 
-  uint32_t fixed_length = rows.metadata()->fixed_length;
+  uint32_t fixed_length = rows.metadata().fixed_length;
   const uint32_t* offsets;
   const uint8_t* src_base;
   if (is_row_fixed_length) {
