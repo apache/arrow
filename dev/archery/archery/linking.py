@@ -64,7 +64,7 @@ class DynamicLibrary:
         return names
 
     def _remove_weak_symbols(self, symbol_info):
-        return [line for line in symbol_info if not line.endswith(" w")]
+        return [line for line in symbol_info if not line.endswith((" v", " V", " w", " W"))]
 
     def _remove_symbol_versions(self, symbol_info):
         return [line.split('@')[0].strip() for line in symbol_info]
