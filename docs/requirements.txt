@@ -6,7 +6,7 @@ breathe
 ipython
 myst-parser[linkify]
 numpydoc
-pydata-sphinx-theme~=0.14
+pydata-sphinx-theme~=0.15
 sphinx-autobuild
 sphinx-design
 sphinx-copybutton

@@ -18,15 +18,9 @@
 ARG repo
 ARG arch=amd64
 ARG python=3.8
-FROM ${repo}:${arch}-conda-python-${python}
-
 ARG pandas=latest
-ARG numpy=latest
+FROM ${repo}:${arch}-conda-python-${python}-pandas-${pandas}
 
-COPY ci/conda_env_python.txt /arrow/ci/
-RUN mamba install -q -y --file arrow/ci/conda_env_python.txt && \
+COPY ci/conda_env_sphinx.txt /arrow/ci/
+RUN mamba install -q -y --file arrow/ci/conda_env_sphinx.txt && \
     mamba clean --all
-
-COPY ci/scripts/install_pandas.sh /arrow/ci/scripts/
-RUN mamba uninstall -q -y numpy && \
-    /arrow/ci/scripts/install_pandas.sh ${pandas} ${numpy}
