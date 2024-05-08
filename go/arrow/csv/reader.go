@@ -474,6 +474,10 @@ func (r *Reader) initFieldConverter(bldr array.Builder) func(string) {
 		return func(str string) {
 			r.parseDate32(bldr, str)
 		}
+	case *arrow.Date64Type:
+		return func(str string) {
+			r.parseDate64(bldr, str)
+		}
 	case *arrow.Time32Type:
 		return func(str string) {
 			r.parseTime32(bldr, str, dt.Unit)
@@ -740,6 +744,21 @@ func (r *Reader) parseDate32(field array.Builder, str string) {
 	field.(*array.Date32Builder).Append(arrow.Date32FromTime(tm))
 }
 
+func (r *Reader) parseDate64(field array.Builder, str string) {
+	if r.isNull(str) {
+		field.AppendNull()
+		return
+	}
+
+	tm, err := time.Parse("2006-01-02", str)
+	if err != nil && r.err == nil {
+		r.err = err
+		field.AppendNull()
+		return
+	}
+	field.(*array.Date64Builder).Append(arrow.Date64FromTime(tm))
+}
+
 func (r *Reader) parseTime32(field array.Builder, str string, unit arrow.TimeUnit) {
 	if r.isNull(str) {
 		field.AppendNull()
@@ -982,7 +1001,7 @@ func (c conversionColumn) inferType(v string) arrow.DataType {
 			c.typ = arrow.FixedWidthTypes.Boolean
 		case *arrow.BooleanType:
 			c.typ = arrow.FixedWidthTypes.Date32
-		case *arrow.Date32Type:
+		case *arrow.Date32Type, *arrow.Date64Type:
 			c.typ = arrow.FixedWidthTypes.Time32s
 		case *arrow.Time32Type:
 			c.typ = &arrow.TimestampType{Unit: arrow.Second}
@@ -1017,7 +1036,7 @@ func tryParse(val string, dt arrow.DataType) error {
 	case *arrow.BooleanType:
 		_, err := strconv.ParseBool(val)
 		return err
-	case *arrow.Date32Type:
+	case *arrow.Date32Type, *arrow.Date64Type:
 		_, err := time.Parse("2006-01-02", val)
 		return err
 	case *arrow.Time32Type:
