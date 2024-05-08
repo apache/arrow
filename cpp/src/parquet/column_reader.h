@@ -197,7 +197,7 @@ class PARQUET_EXPORT ColumnReader {
 template <typename DType>
 class TypedColumnReader : public ColumnReader {
  public:
-  typedef typename DType::c_type T;
+  using T = typename DType::c_type;
 
   // Read a batch of repetition levels, definition levels, and values from the
   // column.
