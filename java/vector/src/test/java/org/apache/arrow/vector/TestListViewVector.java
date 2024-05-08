@@ -21,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -59,14 +58,6 @@ public class TestListViewVector {
   @AfterEach
   public void terminate() throws Exception {
     allocator.close();
-  }
-
-  private void validateVector(ListViewVector vector) {
-    try {
-      vector.validate();
-    } catch (Exception e) {
-      fail("Validation threw an exception: " + e.getMessage());
-    }
   }
 
   @Test
@@ -150,7 +141,7 @@ public class TestListViewVector {
       assertEquals(3, ((BigIntVector) dataVec).get(9));
       assertEquals(4, ((BigIntVector) dataVec).get(10));
 
-      validateVector(listViewVector);
+      listViewVector.validate();
     }
   }
 
@@ -252,7 +243,7 @@ public class TestListViewVector {
 
       listViewVector.setValueCount(11);
 
-      validateVector(listViewVector);
+      listViewVector.validate();
     }
   }
 
@@ -372,7 +363,7 @@ public class TestListViewVector {
       assertEquals(2, sizeBuffer.getInt(0 * BaseRepeatedValueViewVector.SIZE_WIDTH));
       assertEquals(3, sizeBuffer.getInt(1 * BaseRepeatedValueViewVector.SIZE_WIDTH));
 
-      validateVector(listViewVector);
+      listViewVector.validate();
     }
   }
 
@@ -405,7 +396,7 @@ public class TestListViewVector {
 
       listViewVector.setInitialCapacity(128);
 
-      validateVector(listViewVector);
+      listViewVector.validate();
     }
   }
 
@@ -485,7 +476,7 @@ public class TestListViewVector {
       assertEquals(50, ((BigIntVector) listViewVector.getDataVector()).get(6));
 
       assertEquals(3, listViewVector.getLastSet());
-      validateVector(listViewVector);
+      listViewVector.validate();
     }
   }
 
@@ -621,7 +612,7 @@ public class TestListViewVector {
       assertEquals(2, sizeBuffer.getInt(0 * BaseRepeatedValueViewVector.SIZE_WIDTH));
       assertEquals(3, sizeBuffer.getInt(1 * BaseRepeatedValueViewVector.SIZE_WIDTH));
 
-      validateVector(listViewVector);
+      listViewVector.validate();
     }
   }
 
@@ -722,7 +713,7 @@ public class TestListViewVector {
       assertEquals(251, ((BigIntVector) listViewVector.getDataVector()).get(9));
 
       assertEquals(4, listViewVector.getLastSet());
-      validateVector(listViewVector);
+      listViewVector.validate();
     }
   }
 
@@ -785,7 +776,7 @@ public class TestListViewVector {
 
       /* (3+2)/2 */
       assertEquals(2.5, listViewVector.getDensity(), 0);
-      validateVector(listViewVector);
+      listViewVector.validate();
     }
   }
 
@@ -831,7 +822,7 @@ public class TestListViewVector {
       assertEquals(8, vector.getValueCapacity());
       assertTrue(vector.getDataVector().getValueCapacity() >= 1);
 
-      validateVector(vector);
+      vector.validate();
     }
   }
 
@@ -879,7 +870,7 @@ public class TestListViewVector {
       resultSet = (ArrayList<Long>) result;
       assertEquals(Long.valueOf(8), resultSet.get(0));
 
-      validateVector(vector);
+      vector.validate();
     }
   }
 
@@ -905,7 +896,7 @@ public class TestListViewVector {
 
       assertEquals(expectedField, writer.getField());
 
-      validateVector(vector);
+      vector.validate();
     }
   }
 
@@ -943,7 +934,7 @@ public class TestListViewVector {
 
       assertEquals(expectedField, writer.getField());
 
-      validateVector(vector);
+      vector.validate();
     }
   }
 
@@ -982,7 +973,7 @@ public class TestListViewVector {
 
       assertEquals(expectedField, writer.getField());
 
-      validateVector(vector);
+      vector.validate();
     }
   }
 
@@ -1007,7 +998,7 @@ public class TestListViewVector {
       assertEquals(0, vector.getBufferSize());
       assertEquals(0, vector.getDataVector().getBufferSize());
 
-      validateVector(vector);
+      vector.validate();
     }
   }
 
@@ -1038,7 +1029,7 @@ public class TestListViewVector {
             dataVector.getBufferSizeFor(indices[valueCount]);
         assertEquals(expectedSize, vector.getBufferSizeFor(valueCount));
       }
-      validateVector(vector);
+      vector.validate();
     }
   }
 
@@ -1062,7 +1053,7 @@ public class TestListViewVector {
       assertTrue(vector.isEmpty(2));
       assertFalse(vector.isEmpty(3));
 
-      validateVector(vector);
+      vector.validate();
     }
   }
 
@@ -1085,7 +1076,7 @@ public class TestListViewVector {
       assertTrue(vector.getValueCapacity() >= 10);
       assertTrue(vector.getDataVector().getValueCapacity() >= 100);
 
-      validateVector(vector);
+      vector.validate();
     }
   }
 
@@ -1174,7 +1165,7 @@ public class TestListViewVector {
       assertEquals(Long.valueOf(50), resultSet.get(0));
       assertEquals(Long.valueOf(60), resultSet.get(1));
 
-      validateVector(vector);
+      vector.validate();
     }
   }
 
@@ -1267,7 +1258,7 @@ public class TestListViewVector {
       assertEquals(Long.valueOf(70), resultSet.get(1));
       assertEquals(Long.valueOf(80), resultSet.get(2));
 
-      validateVector(vector);
+      vector.validate();
     }
   }
 
@@ -1360,7 +1351,7 @@ public class TestListViewVector {
       assertEquals(Long.valueOf(70), resultSet.get(1));
       assertEquals(Long.valueOf(80), resultSet.get(2));
 
-      validateVector(vector);
+      vector.validate();
     }
   }
 
@@ -1411,7 +1402,7 @@ public class TestListViewVector {
       assertEquals(Long.valueOf(80), resultSet.get(0));
       assertEquals(Long.valueOf(90), resultSet.get(1));
 
-      validateVector(vector);
+      vector.validate();
     }
   }
 
@@ -1493,7 +1484,7 @@ public class TestListViewVector {
       assertEquals(Long.valueOf(80), resultSet.get(0));
       assertEquals(Long.valueOf(90), resultSet.get(1));
 
-      validateVector(vector);
+      vector.validate();
     }
   }
 
@@ -1584,7 +1575,7 @@ public class TestListViewVector {
       assertEquals(Short.valueOf("50"), resultSet.get(0));
       assertEquals(Short.valueOf("12"), resultSet.get(1));
 
-      validateVector(listViewVector);
+      listViewVector.validate();
     }
   }
 
