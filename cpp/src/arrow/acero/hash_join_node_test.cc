@@ -28,6 +28,7 @@
 #include "arrow/api.h"
 #include "arrow/compute/kernels/row_encoder_internal.h"
 #include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/light_array_internal.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
@@ -41,6 +42,7 @@ namespace arrow {
 
 using compute::call;
 using compute::default_exec_context;
+using compute::ExecBatchBuilder;
 using compute::ExecSpan;
 using compute::field_ref;
 using compute::SortIndices;
@@ -3204,8 +3206,24 @@ TEST(HashJoin, ChainedIntegerHashJoins) {
 // Test that a large number of joins don't overflow the temp vector stack, like GH-39582
 // and GH-39951.
 TEST(HashJoin, ManyJoins) {
+  // The idea of this case is to create many nested join nodes that may possibly cause
+  // recursive usage of temp vector stack. To make sure that the recursion happens:
+  // 1. A left-deep join tree is created so that the left-most (the final probe side)
+  // table will go through all the hash tables from the right side.
+  // 2. Left-outer join is used so that every join will increase the cardinality.
+  // 3. The left-most table contains rows of unique integers from 0 to N.
+  // 4. Each right table at level i contains two rows of integer i, so that the probing of
+  // each level will increase the result by one row.
+  // 5. The left-most table is a single batch of enough rows, so that at each level, the
+  // probing will accumulate enough result rows to have to output to the subsequent level
+  // before finishing the current batch (releasing the buffer allocated on the temp vector
+  // stack), which is essentially the recursive usage of the temp vector stack.
+
+  // A fair number of joins to guarantee temp vector stack overflow before GH-41335.
   const int num_joins = 64;
 
+  // `ExecBatchBuilder::num_rows_max()` is the number of rows for swiss join to accumulate
+  // before outputting.
   const int num_left_rows = ExecBatchBuilder::num_rows_max();
   ASSERT_OK_AND_ASSIGN(
       auto left_batches,
