@@ -289,7 +289,7 @@ endmacro()
 
 define_option(ACERO "Build the PyArrow Acero integration" ARROW_ACERO)
 define_option(CUDA "Build the PyArrow CUDA support" ARROW_CUDA)
-define_option(DATASET "Build the PyArrow Dataset integration"{ARROW_DATASET)
+define_option(DATASET "Build the PyArrow Dataset integration" ARROW_DATASET)
 define_option(FLIGHT "Build the PyArrow Flight integration" ARROW_FLIGHT)
 define_option(GANDIVA "Build the PyArrow Gandiva integration" ARROW_GANDIVA)
 define_option(ORC "Build the PyArrow ORC integration" ARROW_ORC)
