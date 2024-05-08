@@ -58,9 +58,6 @@ in Python, without a dependency on the larger Arrow implementations.
 Arrow Columnar Format
 =====================
 
-Row format
-----------
-
 Traditionally, in order to read the following data into memory you
 would have some kind of structure representing the following rows:
 
@@ -68,9 +65,6 @@ would have some kind of structure representing the following rows:
 
 That means that you have all the information for every row together
 in memory.
-
-Columnar format
----------------
 
 A columnar format keeps the data organised by column instead of by row
 making analytical operations like filtering, grouping, aggregations and
