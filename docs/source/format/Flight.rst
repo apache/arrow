@@ -68,9 +68,8 @@ Downloading Data
 
 A client that wishes to download the data would:
 
-.. figure:: ./Flight/DoGet.mmd.svg
-
-   Retrieving data via ``DoGet``.
+.. mermaid:: ./Flight/DoGet.mmd
+   :caption: Retrieving data via ``DoGet``.
 
 #. Construct or acquire a ``FlightDescriptor`` for the data set they
    are interested in.
@@ -168,9 +167,8 @@ data. However, ``GetFlightInfo`` doesn't return until the query
 completes, so the client is blocked. In this situation, the client
 can use ``PollFlightInfo`` instead of ``GetFlightInfo``:
 
-.. figure:: ./Flight/PollFlightInfo.mmd.svg
-
-   Polling a long-running query by ``PollFlightInfo``.
+.. mermaid:: ./Flight/PollFlightInfo.mmd
+   :caption: Polling a long-running query by ``PollFlightInfo``.
 
 #. Construct or acquire a ``FlightDescriptor``, as before.
 #. Call ``PollFlightInfo(FlightDescriptor)`` to get a ``PollInfo``
@@ -229,9 +227,8 @@ Uploading Data
 
 To upload data, a client would:
 
-.. figure:: ./Flight/DoPut.mmd.svg
-
-   Uploading data via ``DoPut``.
+.. mermaid:: ./Flight/DoPut.mmd
+   :caption: Uploading data via ``DoPut``.
 
 #. Construct or acquire a ``FlightDescriptor``, as before.
 #. Call ``DoPut(FlightData)`` and upload a stream of Arrow record
@@ -257,9 +254,8 @@ require being stateful if implemented using ``DoGet`` and
 ``DoPut``. Instead, ``DoExchange`` allows this to be implemented as a
 single call. A client would:
 
-.. figure:: ./Flight/DoExchange.mmd.svg
-
-   Complex data flow with ``DoExchange``.
+.. mermaid:: ./Flight/DoExchange.mmd
+   :caption: Complex data flow with ``DoExchange``.
 
 #. Construct or acquire a ``FlightDescriptor``, as before.
 #. Call ``DoExchange(FlightData)``.
