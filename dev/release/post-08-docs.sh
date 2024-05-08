@@ -72,25 +72,18 @@ fi
 # delete current stable docs and restore all previous versioned docs
 rm -rf docs/*
 git checkout "${versioned_paths[@]}"
+# Download and untare released docs in a temp folder
+rm -rf docs_new
+mkdir docs_new
+pushd docs_new
 curl \
   --fail \
   --location \
   --remote-name \
   https://apache.jfrog.io/artifactory/arrow/docs/${version}/docs.tar.gz
 tar xvf docs.tar.gz
-rm -f docs.tar.gz
-
-# Update DOCUMENTATION_OPTIONS.show_version_warning_banner for stable docs
-pushd docs
-find ./ \
-  -maxdepth 1 \
-  -type f \
-  -exec \
-    sed -i.bak \
-      -e "s/DOCUMENTATION_OPTIONS.show_version_warning_banner = true/DOCUMENTATION_OPTIONS.show_version_warning_banner = false/g" \
-      {} \;
-find ./ -name '*.bak' -delete
-find /c_glib /cpp /developers /format /java /python  \
+# Update DOCUMENTATION_OPTIONS.show_version_warning_banner
+find docs \
   -type f \
   -exec \
     sed -i.bak \
@@ -98,8 +91,8 @@ find /c_glib /cpp /developers /format /java /python  \
       {} \;
 find ./ -name '*.bak' -delete
 popd
-git add docs
-git commit -m "[Website] Update warning banner for stable docs"
+mv docs_new/docs/* docs/
+rm -rf docs_new
 
 if [ "$is_major_release" = "yes" ] ; then
   previous_series=${previous_version%.*}
