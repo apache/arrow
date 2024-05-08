@@ -77,7 +77,7 @@ public class TestListViewVector {
       listViewWriter.bigInt().writeBigInt(25);
       listViewWriter.endList();
 
-      /* the second list at index 2 is null (we are not setting any)*/
+      /* the second list at index 1 is null (we are not setting any)*/
 
       /* write the third list at index 2 */
       listViewWriter.setPosition(2);
