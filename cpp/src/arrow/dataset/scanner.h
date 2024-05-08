@@ -291,11 +291,11 @@ struct ARROW_DS_EXPORT ProjectionDescr {
   /// \brief Create a default projection referencing fields in the dataset schema
   static Result<ProjectionDescr> FromNames(std::vector<std::string> names,
                                            const Schema& dataset_schema,
-                                           bool add_augmented_fields);
+                                           bool add_augmented_fields = true);
 
   /// \brief Make a projection that projects every field in the dataset schema
   static Result<ProjectionDescr> Default(const Schema& dataset_schema,
-                                         bool add_augmented_fields);
+                                         bool add_augmented_fields = true);
 };
 
 /// \brief Utility method to set the projection expression and schema
