@@ -19,11 +19,14 @@ from linking import _remove_weak_symbols, _remove_symbol_versions
 
 
 def test_remove_weak_symbols(self):
-    symbol_info = ["symbol1 v", "symbol2 V", "symbol3", "symbol4 w", "symbol5 W", "symbol6"]
+    symbol_info = ["symbol1 v", "symbol2 V",
+                   "symbol3", "symbol4 w", "symbol5 W", "symbol6"]
     expected_result = ["symbol3", "symbol6"]
     self.assertEqual(_remove_weak_symbols(self, symbol_info), expected_result)
 
+
 def test_remove_symbol_versions(self):
-        symbol_info = ["symbol1@version1", "symbol2@version2", "symbol3", "symbol4@version4"]
-        expected_result = ["symbol1", "symbol2", "symbol3", "symbol4"]
-        self.assertEqual(_remove_symbol_versions(self, symbol_info), expected_result)
+    symbol_info = ["symbol1@version1",
+                   "symbol2@version2", "symbol3", "symbol4@version4"]
+    expected_result = ["symbol1", "symbol2", "symbol3", "symbol4"]
+    self.assertEqual(_remove_symbol_versions(self, symbol_info), expected_result)
