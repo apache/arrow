@@ -99,7 +99,7 @@ jobs:
           strict: true
   macos:
     name: ${{ matrix.architecture }} macOS ${{ matrix.macos-version }} MATLAB
-    runs-on: macos-12
+    runs-on: macos-${{ matrix.macos-version }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     strategy:
       matrix:
