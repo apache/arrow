@@ -655,7 +655,7 @@ struct BloomFilterPushdownContext {
   } eval_;
 
   static constexpr auto kTempStackUsage =
-      Hashing32::kTempStackUsage +
+      Hashing32::kHashBatchTempStackUsage +
       (sizeof(uint32_t) + /*extra=*/1) * arrow::util::MiniBatch::kMiniBatchLength;
 
   struct ThreadLocalData {

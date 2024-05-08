@@ -316,7 +316,7 @@ TEST(VectorHash, FixedLengthTailByteSafety) {
 }
 
 // Make sure that Hashing32/64::HashBatch uses no more stack space than declared in
-// Hashing32/64::kTempStackUsage.
+// Hashing32/64::kHashBatchTempStackUsage.
 TEST(VectorHash, HashBatchTempStackUsage) {
   for (auto num_rows :
        {0, 1, MiniBatch::kMiniBatchLength, MiniBatch::kMiniBatchLength * 64}) {
@@ -337,7 +337,7 @@ TEST(VectorHash, HashBatchTempStackUsage) {
     {
       std::vector<uint32_t> hashes(num_rows);
       TempVectorStack stack;
-      ASSERT_OK(stack.Init(pool, Hashing32::kTempStackUsage));
+      ASSERT_OK(stack.Init(pool, Hashing32::kHashBatchTempStackUsage));
       for (size_t i = 0; i < hardware_flags_for_testing.size(); ++i) {
         SCOPED_TRACE("hashing32 for hardware flags = " +
                      std::to_string(hardware_flags_for_testing[i]));
@@ -350,7 +350,7 @@ TEST(VectorHash, HashBatchTempStackUsage) {
     {
       std::vector<uint64_t> hashes(num_rows);
       TempVectorStack stack;
-      ASSERT_OK(stack.Init(pool, Hashing64::kTempStackUsage));
+      ASSERT_OK(stack.Init(pool, Hashing64::kHashBatchTempStackUsage));
       for (size_t i = 0; i < hardware_flags_for_testing.size(); ++i) {
         SCOPED_TRACE("hashing64 for hardware flags = " +
                      std::to_string(hardware_flags_for_testing[i]));

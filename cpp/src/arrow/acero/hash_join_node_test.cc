@@ -3235,7 +3235,7 @@ TEST(HashJoin, ManyJoins) {
                                               std::move(left_batches.batches))};
 
   HashJoinNodeOptions join_opts(JoinType::LEFT_OUTER, /*left_keys=*/{"l_key"},
-                                /*right_keys*/ {"r_key"});
+                                /*right_keys=*/{"r_key"});
 
   for (int i = 0; i < num_joins; ++i) {
     ASSERT_OK_AND_ASSIGN(auto right_batches,

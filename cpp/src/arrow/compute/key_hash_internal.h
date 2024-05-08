@@ -50,7 +50,7 @@ class ARROW_EXPORT Hashing32 {
 
   // Clarify the max temp stack usage for HashBatch so the caller could reserve enough
   // size in advance.
-  static constexpr auto kTempStackUsage =
+  static constexpr auto kHashBatchTempStackUsage =
       (sizeof(uint32_t) + sizeof(uint16_t) + sizeof(uint32_t) + /*extra=*/1) *
       util::MiniBatch::kMiniBatchLength;
 
@@ -169,7 +169,7 @@ class ARROW_EXPORT Hashing64 {
 
   // Clarify the max temp stack usage for HashBatch so the caller could reserve enough
   // size in advance.
-  static constexpr auto kTempStackUsage =
+  static constexpr auto kHashBatchTempStackUsage =
       (sizeof(uint16_t) + sizeof(uint64_t) + /*extra=*/1) *
       util::MiniBatch::kMiniBatchLength;
 

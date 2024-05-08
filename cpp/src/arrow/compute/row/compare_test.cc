@@ -37,7 +37,7 @@ TEST(KeyCompare, CompareColumnsToRowsCuriousFSB) {
 
   MemoryPool* pool = default_memory_pool();
   TempVectorStack stack;
-  ASSERT_OK(stack.Init(pool, KeyCompare::TempStackUsage(num_rows)));
+  ASSERT_OK(stack.Init(pool, KeyCompare::CompareColumnsToRowsTempStackUsage(num_rows)));
 
   auto column_right = ArrayFromJSON(fixed_size_binary(fsb_length), R"([
       "000000000",
@@ -110,7 +110,7 @@ TEST(KeyCompare, CompareColumnsToRowsCuriousFSB) {
 }
 
 // Make sure that KeyCompare::CompareColumnsToRows uses no more stack space than declared
-// in KeyCompare::TempStackUsage().
+// in KeyCompare::CompareColumnsToRowsTempStackUsage().
 TEST(KeyCompare, CompareColumnsToRowsTempStackUsage) {
   for (auto num_rows :
        {0, 1, MiniBatch::kMiniBatchLength, MiniBatch::kMiniBatchLength * 64}) {
@@ -118,7 +118,7 @@ TEST(KeyCompare, CompareColumnsToRowsTempStackUsage) {
 
     MemoryPool* pool = default_memory_pool();
     TempVectorStack stack;
-    ASSERT_OK(stack.Init(pool, KeyCompare::TempStackUsage(num_rows)));
+    ASSERT_OK(stack.Init(pool, KeyCompare::CompareColumnsToRowsTempStackUsage(num_rows)));
 
     RandomArrayGenerator gen(42);
 

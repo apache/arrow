@@ -34,7 +34,7 @@ class ARROW_EXPORT KeyCompare {
  public:
   // Clarify the max temp stack usage for CompareColumnsToRows so the caller could reserve
   // enough size in advance.
-  constexpr static int64_t TempStackUsage(int64_t num_rows) {
+  constexpr static int64_t CompareColumnsToRowsTempStackUsage(int64_t num_rows) {
     return (sizeof(uint8_t) + sizeof(uint8_t) + sizeof(uint8_t)) * num_rows +
            /*extra=*/util::MiniBatch::kMiniBatchLength;
   }
