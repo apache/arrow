@@ -37,8 +37,8 @@ void TempVectorStack::alloc(uint32_t num_bytes, uint8_t** data, int* id) {
   // Stack overflow check (see GH-39582).
   // XXX cannot return a regular Status because most consumers do not either.
   ARROW_CHECK_LE(new_top, buffer_size_)
-      << "TempVectorStack::alloc overflow: attempt " << estimated_alloc_size
-      << ", current " << top_ << ", capacity " << buffer_size_;
+      << "TempVectorStack::alloc overflow: allocating " << estimated_alloc_size
+      << " on top of " << top_ << " in stack of size " << buffer_size_;
   *data = buffer_->mutable_data() + top_ + sizeof(uint64_t);
   // We set 8 bytes before the beginning of the allocated range and
   // 8 bytes after the end to check for stack overflow (which would
@@ -47,7 +47,6 @@ void TempVectorStack::alloc(uint32_t num_bytes, uint8_t** data, int* id) {
   reinterpret_cast<uint64_t*>(buffer_->mutable_data() + new_top)[-1] = kGuard2;
   *id = num_vectors_++;
   top_ = new_top;
-  peak_usage = std::max(peak_usage, top_);
 }
 
 void TempVectorStack::release(int id, uint32_t num_bytes) {

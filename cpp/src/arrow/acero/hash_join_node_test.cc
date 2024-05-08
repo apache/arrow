@@ -3204,7 +3204,30 @@ TEST(HashJoin, ChainedIntegerHashJoins) {
 // Test that a large number of joins don't overflow the temp vector stack, like GH-39582
 // and GH-39951.
 TEST(HashJoin, ManyJoins) {
-  // TODO.
+  const int num_joins = 64;
+
+  std::vector<TypeHolder> left_types = {int8()};
+  auto left_batch = ExecBatchFromJSON(left_types, R"([[1]])");
+  std::vector<TypeHolder> right_types = {int8()};
+  auto right_batch = ExecBatchFromJSON(right_types, R"([[1]])");
+
+  HashJoinNodeOptions join_opts(JoinType::LEFT_OUTER, /*left_keys=*/{"l_key"},
+                                /*right_keys*/ {"r_key"});
+
+  Declaration root{
+      "exec_batch_source",
+      ExecBatchSourceNodeOptions(schema({field("l_key", int8())}), {left_batch})};
+
+  for (int i = 0; i < num_joins; ++i) {
+    Declaration table{
+        "exec_batch_source",
+        ExecBatchSourceNodeOptions(schema({field("r_key", int8())}), {right_batch})};
+    Declaration new_root{"hashjoin", {std::move(root), std::move(table)}, join_opts};
+
+    root = std::move(new_root);
+  }
+
+  ASSERT_OK_AND_ASSIGN(auto result, DeclarationToTable(std::move(root)));
 }
 
 }  // namespace acero
