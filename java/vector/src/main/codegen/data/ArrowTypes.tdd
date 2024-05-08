@@ -131,9 +131,9 @@
        complex: false
     },
     {
-          name: "ListView",
-          fields: [],
-          complex: true
-        },
+       name: "ListView",
+       fields: [],
+       complex: true
+    }
   ]
 }

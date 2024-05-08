@@ -53,6 +53,7 @@ import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.ArrowType.ListView;
 import org.apache.arrow.vector.util.DataSizeRoundingUtil;
 
 /**
@@ -327,5 +328,10 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
   @Override
   public List<ArrowBuf> visit(ArrowType.Duration type) {
     return Arrays.asList(maybeImportBitmap(type), importFixedBytes(type, 1, DurationVector.TYPE_WIDTH));
+  }
+
+  @Override
+  public List<ArrowBuf> visit(ListView type) {
+    throw new UnsupportedOperationException("Importing buffers for view type: " + type + " not supported");
   }
 }
