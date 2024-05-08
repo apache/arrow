@@ -127,7 +127,7 @@ arrow::Result<T> AsArrowResult(llvm::Expected<T>& expected,
   if (!expected) {
     return Status::CodeGenError(error_context, llvm::toString(expected.takeError()));
   }
-  return expected.get();
+  return std::move(expected.get());
 }
 
 Result<llvm::orc::JITTargetMachineBuilder> MakeTargetMachineBuilder(
