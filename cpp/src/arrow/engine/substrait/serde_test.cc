@@ -2523,6 +2523,7 @@ TEST(SubstraitRoundTrip, BasicPlanEndToEnd) {
 
   auto scan_options = std::make_shared<dataset::ScanOptions>();
   scan_options->projection = compute::project({}, {});
+  scan_options->add_augmented_fields = false;
   const std::string filter_col_left = "shared";
   const std::string filter_col_right = "distinct";
   auto comp_left_value = compute::field_ref(filter_col_left);
