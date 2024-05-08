@@ -826,6 +826,10 @@ class FileMetaData::FileMetaDataImpl {
     file_decryptor_ = std::move(file_decryptor);
   }
 
+  const std::shared_ptr<InternalFileDecryptor>& file_decryptor() const {
+    return file_decryptor_;
+  }
+
  private:
   friend FileMetaDataBuilder;
   uint32_t metadata_len_ = 0;
@@ -945,6 +949,10 @@ const std::string& FileMetaData::footer_signing_key_metadata() const {
 void FileMetaData::set_file_decryptor(
     std::shared_ptr<InternalFileDecryptor> file_decryptor) {
   impl_->set_file_decryptor(std::move(file_decryptor));
+}
+
+const std::shared_ptr<InternalFileDecryptor>& FileMetaData::file_decryptor() const {
+  return impl_->file_decryptor();
 }
 
 ParquetVersion::type FileMetaData::version() const {
