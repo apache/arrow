@@ -212,8 +212,7 @@ Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
         // produces valid set of fields.
         ARROW_ASSIGN_OR_RAISE(auto projection_descr,
                               ProjectionDescr::Default(
-                                      *projected_schema,
-                                      scan_options->add_augmented_fields));
+                                  *projected_schema, scan_options->add_augmented_fields));
         scan_options->projected_schema = std::move(projection_descr.schema);
         scan_options->projection = projection_descr.expression;
         ARROW_ASSIGN_OR_RAISE(scan_options->projection,
@@ -223,8 +222,7 @@ Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
         // and projection from the dataset_schema.
         ARROW_ASSIGN_OR_RAISE(auto projection_descr,
                               ProjectionDescr::Default(
-                                      *dataset_schema,
-                                      scan_options->add_augmented_fields));
+                                  *dataset_schema, scan_options->add_augmented_fields));
         scan_options->projected_schema = std::move(projection_descr.schema);
         scan_options->projection = projection_descr.expression;
       }
@@ -235,8 +233,7 @@ Status NormalizeScanOptions(const std::shared_ptr<ScanOptions>& scan_options,
     ARROW_ASSIGN_OR_RAISE(
         auto projection_descr,
         ProjectionDescr::FromNames(scan_options->projected_schema->field_names(),
-                                   *dataset_schema,
-                                   scan_options->add_augmented_fields));
+                                   *dataset_schema, scan_options->add_augmented_fields));
     scan_options->projection = projection_descr.expression;
   }
 
@@ -854,9 +851,9 @@ Result<ProjectionDescr> ProjectionDescr::FromNames(std::vector<std::string> name
   }
   auto fields = dataset_schema.fields();
   if (add_augmented_fields) {
-      for (const auto &aug_field: kAugmentedFields) {
-          fields.push_back(aug_field);
-      }
+    for (const auto& aug_field : kAugmentedFields) {
+      fields.push_back(aug_field);
+    }
   }
   return ProjectionDescr::FromExpressions(std::move(exprs), std::move(names),
                                           Schema(fields, dataset_schema.metadata()));
@@ -1065,9 +1062,9 @@ Result<acero::ExecNode*> MakeScanNode(acero::ExecPlan* plan,
 
   auto fields = scan_options->dataset_schema->fields();
   if (scan_options->add_augmented_fields) {
-      for (const auto &aug_field: kAugmentedFields) {
-          fields.push_back(aug_field);
-      }
+    for (const auto& aug_field : kAugmentedFields) {
+      fields.push_back(aug_field);
+    }
   }
 
   return acero::MakeExecNode(

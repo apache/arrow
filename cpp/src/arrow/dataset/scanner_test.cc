@@ -1103,8 +1103,8 @@ TEST_P(TestScanner, ProjectionDefaults) {
   }
   // If we only specify a projection expression then infer the projected schema
   // from the projection expression
-  auto projection_desc = ProjectionDescr::FromNames(
-          {"i32"}, *schema_, /*add_augmented_fields=*/true);
+  auto projection_desc =
+      ProjectionDescr::FromNames({"i32"}, *schema_, /*add_augmented_fields=*/true);
   {
     ARROW_SCOPED_TRACE("User only specifies projection");
     options_->projection = projection_desc->expression;
