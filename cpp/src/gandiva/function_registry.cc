@@ -147,7 +147,7 @@ arrow::Result<std::shared_ptr<FunctionRegistry>> MakeDefaultFunctionRegistry() {
       ARROW_RETURN_NOT_OK(registry->Add(func_signature));
     }
   }
-  return std::move(registry);
+  return registry;
 }
 
 std::shared_ptr<FunctionRegistry> default_function_registry() {

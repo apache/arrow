@@ -591,7 +591,7 @@ arrow::Result<CancelFlightInfoResult> FlightClient::CancelFlightInfo(
   ARROW_ASSIGN_OR_RAISE(auto cancel_result, CancelFlightInfoResult::Deserialize(
                                                 std::string_view(*result->body)));
   ARROW_RETURN_NOT_OK(stream->Drain());
-  return std::move(cancel_result);
+  return cancel_result;
 }
 
 arrow::Result<FlightEndpoint> FlightClient::RenewFlightEndpoint(
@@ -603,7 +603,7 @@ arrow::Result<FlightEndpoint> FlightClient::RenewFlightEndpoint(
   ARROW_ASSIGN_OR_RAISE(auto renewed_endpoint,
                         FlightEndpoint::Deserialize(std::string_view(*result->body)));
   ARROW_RETURN_NOT_OK(stream->Drain());
-  return std::move(renewed_endpoint);
+  return renewed_endpoint;
 }
 
 arrow::Result<std::vector<ActionType>> FlightClient::ListActions(

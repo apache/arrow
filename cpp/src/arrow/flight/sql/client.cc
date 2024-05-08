@@ -682,7 +682,7 @@ arrow::Result<std::unique_ptr<FlightInfo>> PreparedStatement::Execute(
                                          parameter_binding_.get()));
   }
   ARROW_ASSIGN_OR_RAISE(auto flight_info, client_->GetFlightInfo(options, descriptor));
-  return std::move(flight_info);
+  return flight_info;
 }
 
 arrow::Result<int64_t> PreparedStatement::ExecuteUpdate(
