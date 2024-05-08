@@ -966,7 +966,7 @@ func (c conversionColumn) inferType(v string) arrow.DataType {
 			c.typ = arrow.FixedWidthTypes.Boolean
 		case *arrow.BooleanType:
 			c.typ = arrow.FixedWidthTypes.Date32
-		case *arrow.Date32Type, *arrow.Date64Type:
+		case *arrow.Date32Type:
 			c.typ = arrow.FixedWidthTypes.Time32s
 		case *arrow.Time32Type:
 			c.typ = &arrow.TimestampType{Unit: arrow.Second}
@@ -1001,7 +1001,7 @@ func tryParse(val string, dt arrow.DataType) error {
 	case *arrow.BooleanType:
 		_, err := strconv.ParseBool(val)
 		return err
-	case *arrow.Date32Type, *arrow.Date64Type:
+	case *arrow.Date32Type:
 		_, err := time.Parse("2006-01-02", val)
 		return err
 	case *arrow.Time32Type:
