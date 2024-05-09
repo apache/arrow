@@ -142,8 +142,4 @@ repos:
     rev: v0.5.1
     hooks:
       - id: go-fmt
-        files: >-
-          go/
       - id: go-imports
-        files: >-
-          go/

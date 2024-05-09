@@ -17,6 +17,7 @@
 package util
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -670,13 +671,13 @@ func WithOneOfHandler(oneOfHandler OneOfHandler) option {
 }
 
 // AppendValueOrNull add the value of a protobuf field to an arrow array builder
-func (f ProtobufMessageFieldReflection) AppendValueOrNull(b array.Builder, mem memory.Allocator) {
+func (f ProtobufMessageFieldReflection) AppendValueOrNull(b array.Builder, mem memory.Allocator) error {
 	pv := f.protoreflectValue()
 	fd := f.getDescriptor()
 
 	if f.isNull() {
 		b.AppendNull()
-		return
+		return nil
 	}
 
 	switch b.Type().ID() {
@@ -714,7 +715,7 @@ func (f ProtobufMessageFieldReflection) AppendValueOrNull(b array.Builder, mem m
 		db := b.(array.DictionaryBuilder)
 		err := db.AppendValueFromString(string(fd.Enum().Values().ByNumber(pv.Enum()).Name()))
 		if err != nil {
-			fmt.Println(err)
+			return err
 		}
 	case arrow.STRUCT:
 		sb := b.(*array.StructBuilder)
@@ -769,6 +770,7 @@ func (f ProtobufMessageFieldReflection) AppendValueOrNull(b array.Builder, mem m
 			v.AppendValueOrNull(mb.ItemBuilder(), mem)
 		}
 	default:
-		fmt.Printf("No logic for type %s", b.Type().ID())
+		return errors.New(fmt.Sprintf("Not able to appendValueOrNull for type \"%s\"", b.Type().ID()))
 	}
+	return nil
 }
