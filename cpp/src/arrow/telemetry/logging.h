@@ -33,8 +33,6 @@
 namespace arrow {
 namespace telemetry {
 
-class AttributeHolder;
-
 using LogLevel = util::ArrowLogLevel;
 
 struct LoggingOptions {
@@ -47,80 +45,9 @@ struct LoggingOptions {
   static LoggingOptions Defaults() { return LoggingOptions{}; }
 };
 
-/// \brief Represents an event as a name/integer id pair
-struct EventId {
-  constexpr EventId() = default;
-  constexpr EventId(int64_t id, std::string_view name) : name(name), id(id) {}
-
-  constexpr bool is_valid() const { return id >= 0; }
-  constexpr operator bool() const { return is_valid(); }
-
-  static constexpr EventId Invalid() { return EventId{}; }
-
-  std::string_view name;
-  int64_t id = -1;
-};
-
-struct LogDescriptor {
-  LogLevel severity = LogLevel::ARROW_INFO;
-
-  std::chrono::system_clock::time_point timestamp = std::chrono::system_clock::now();
-
-  std::string_view body = "";
-
-  EventId event_id = EventId::Invalid();
-
-  const AttributeHolder* attributes = NULLPTR;
-};
-
 class ARROW_EXPORT Logger : public util::Logger {
  public:
   virtual ~Logger() = default;
-
-  virtual void Log(const LogDescriptor&) = 0;
-
-  void Log(const util::LogDetails& details) override {
-    LogDescriptor desc;
-    desc.body = details.message;
-    desc.severity = details.severity;
-    desc.timestamp = details.timestamp;
-    this->Log(desc);
-  }
-
-  void Log(LogLevel severity, std::string_view body, const AttributeHolder& attributes,
-           EventId event_id = EventId::Invalid()) {
-    LogDescriptor desc;
-    desc.severity = severity;
-    desc.body = body;
-    desc.attributes = &attributes;
-    desc.event_id = event_id;
-    this->Log(desc);
-  }
-
-  void Log(LogLevel severity, EventId event_id = EventId::Invalid()) {
-    LogDescriptor desc;
-    desc.severity = severity;
-    desc.event_id = event_id;
-    this->Log(desc);
-  }
-
-  void Log(LogLevel severity, const AttributeHolder& attributes,
-           EventId event_id = EventId::Invalid()) {
-    LogDescriptor desc;
-    desc.severity = severity;
-    desc.attributes = &attributes;
-    desc.event_id = event_id;
-    this->Log(desc);
-  }
-
-  void Log(LogLevel severity, std::string_view body,
-           EventId event_id = EventId::Invalid()) {
-    LogDescriptor desc;
-    desc.severity = severity;
-    desc.body = body;
-    desc.event_id = event_id;
-    this->Log(desc);
-  }
 
   virtual std::string_view name() const = 0;
 };
@@ -138,9 +65,6 @@ class ARROW_EXPORT OtelLoggerProvider {
 
   static Result<std::shared_ptr<Logger>> MakeLogger(
       std::string_view name, const LoggingOptions& options = LoggingOptions::Defaults());
-  static Result<std::shared_ptr<Logger>> MakeLogger(std::string_view name,
-                                                    const LoggingOptions& options,
-                                                    const AttributeHolder& attributes);
 };
 
 namespace internal {

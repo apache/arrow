@@ -205,8 +205,8 @@ class OtelLogger : public Logger {
   OtelLogger(LoggingOptions options, otel_shared_ptr<otel::logs::Logger> ot_logger)
       : logger_(ot_logger), options_(std::move(options)) {}
 
-  void Log(const LogDescriptor& desc) override {
-    if (desc.severity < options_.severity_threshold) {
+  void Log(const util::LogDetails& details) override {
+    if (details.severity < options_.severity_threshold) {
       return;
     }
 
@@ -215,34 +215,21 @@ class OtelLogger : public Logger {
       return;
     }
 
-    if (desc.attributes && desc.attributes->num_attributes() > 0) {
-      auto callback = [&log](std::string_view k, const AttributeValue& v) -> bool {
-        AttributeConverter converter{};
-        log->SetAttribute(ToOtel(k), std::visit(converter, v));
-        return true;
-      };
-      desc.attributes->ForEach(std::move(callback));
-    }
-
     // We set the remaining attributes AFTER the custom attributes in AttributeHolder
     // because, in the event of key collisions, these should take precedence.
-    log->SetTimestamp(otel::common::SystemTimestamp(desc.timestamp));
-    log->SetSeverity(ToOtelSeverity(desc.severity));
+    log->SetTimestamp(otel::common::SystemTimestamp(details.timestamp));
+    log->SetSeverity(ToOtelSeverity(details.severity));
 
     auto span_ctx = otel::trace::Tracer::GetCurrentSpan()->GetContext();
     log->SetSpanId(span_ctx.span_id());
     log->SetTraceId(span_ctx.trace_id());
     log->SetTraceFlags(span_ctx.trace_flags());
 
-    log->SetBody(ToOtel(desc.body));
-
-    if (const auto& event = desc.event_id; event.is_valid()) {
-      log->SetEventId(event.id, ToOtel(event.name));
-    }
+    log->SetBody(ToOtel(details.message));
 
     logger_->EmitLogRecord(std::move(log));
 
-    if (desc.severity >= options_.flush_severity) {
+    if (details.severity >= options_.flush_severity) {
       util::Logger::Flush();
     }
   }
@@ -279,17 +266,9 @@ bool OtelLoggerProvider::Flush(std::chrono::microseconds timeout) {
 }
 
 Result<std::shared_ptr<Logger>> OtelLoggerProvider::MakeLogger(
-    std::string_view name, const LoggingOptions& options,
-    const AttributeHolder& attributes) {
-  auto ot_logger = otel::logs::Provider::GetLoggerProvider()->GetLogger(
-      ToOtel(name), /*library_name=*/"", /*library_version=*/"", /*schema_url=*/"",
-      OtelAttributeHolder(attributes));
-  return std::make_shared<OtelLogger>(options, std::move(ot_logger));
-}
-
-Result<std::shared_ptr<Logger>> OtelLoggerProvider::MakeLogger(
     std::string_view name, const LoggingOptions& options) {
-  return MakeLogger(name, options, EmptyAttributeHolder{});
+  auto ot_logger = otel::logs::Provider::GetLoggerProvider()->GetLogger(ToOtel(name));
+  return std::make_shared<OtelLogger>(options, std::move(ot_logger));
 }
 
 namespace internal {

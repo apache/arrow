@@ -40,24 +40,22 @@ class OtelEnvironment : public ::testing::Environment {
   static constexpr std::string_view kLoggerName = "arrow-telemetry-test";
 
   void SetUp() override {
-    std::vector<std::unique_ptr<otel::sdk::trace::SpanProcessor>> processors;
-    auto tracer_provider = otel::nostd::shared_ptr<otel::sdk::trace::TracerProvider>(
-        new otel::sdk::trace::TracerProvider(std::move(processors)));
-    otel::trace::Provider::SetTracerProvider(std::move(tracer_provider));
+    // Implicitly sets up span processors + tracer provider
+    auto tracer = arrow::internal::tracing::GetTracer();
+    ARROW_UNUSED(tracer);
 
     otel::context::propagation::GlobalTextMapPropagator::SetGlobalPropagator(
         otel::nostd::shared_ptr<otel::context::propagation::TextMapPropagator>(
             new otel::trace::propagation::HttpTraceContext()));
 
     ASSERT_OK(internal::InitializeOtelLoggerProvider());
+
     auto logging_options = LoggingOptions::Defaults();
     logging_options.severity_threshold = LogLevel::ARROW_TRACE;
     logging_options.flush_severity = LogLevel::ARROW_TRACE;
-    ASSERT_OK_AND_ASSIGN(
-        auto logger,
-        OtelLoggerProvider::MakeLogger(
-            kLoggerName, logging_options,
-            AttributeList{Attribute{"fooInt", 42}, Attribute{"barStr", "fourty two"}}));
+    ASSERT_OK_AND_ASSIGN(auto logger,
+                         OtelLoggerProvider::MakeLogger(kLoggerName, logging_options));
+    ASSERT_NE(logger, nullptr);
     ASSERT_OK(util::LoggerRegistry::RegisterLogger(logger->name(), logger));
   }
 
@@ -67,12 +65,14 @@ class OtelEnvironment : public ::testing::Environment {
 static ::testing::Environment* kOtelEnvironment =
     ::testing::AddGlobalTestEnvironment(new OtelEnvironment);
 
-template <typename... Args>
-void Log(Args&&... args) {
+void Log(LogLevel severity, std::string_view message) {
   auto logger = std::dynamic_pointer_cast<telemetry::Logger>(
       util::LoggerRegistry::GetLogger(OtelEnvironment::kLoggerName));
   ASSERT_NE(logger, nullptr);
-  logger->Log(std::forward<Args>(args)...);
+  util::LogDetails details;
+  details.severity = severity;
+  details.message = message;
+  logger->Log(details);
 }
 
 class TestLogging : public ::testing::Test {
@@ -91,10 +91,8 @@ class TestLogging : public ::testing::Test {
 
 TEST_F(TestLogging, Basics) {
   auto scope = MakeScope();
-  Log(LogLevel::ARROW_ERROR, "foo bar", EventId(13, "Event13"));
-  Log(LogLevel::ARROW_WARNING, "baz bal",
-      AttributeList{Attribute{"intAttr", 24}, Attribute{"boolAttr", true},
-                    Attribute{"strAttr", std::string("ab") + "c"}});
+  Log(LogLevel::ARROW_ERROR, "foo bar");
+  Log(LogLevel::ARROW_WARNING, "baz bal");
 }
 
 }  // namespace telemetry
