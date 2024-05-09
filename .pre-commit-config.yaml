@@ -137,4 +137,4 @@ repos:
     hooks:
       - id: sphinx-lint
         files: ^docs/
-        args: ['--disable', 'all', '--enable', 'trailing-whitespace,missing-final-newline', 'docs']
+        args: ['--disable', ' dangling-hyphen', 'docs']
