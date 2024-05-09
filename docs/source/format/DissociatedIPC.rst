@@ -59,7 +59,7 @@ However, there are use cases that aren't handled by this:
 * Arrow data located on a non-CPU device (such as a GPU) cannot be sent using
   Arrow IPC without having to copy the data back to the host device or copying
   the Flatbuffers metadata bytes into device memory.
-  
+
   * By the same token, receiving IPC messages into device memory would require
     performing a copy of the Flatbuffers metadata back to the host CPU device. This
     is due to the fact that the IPC stream interleaves data and metadata across a
@@ -88,16 +88,16 @@ IPC Metadata
 
 Tag
     A little-endian ``uint64`` value used for flow control and used in determining
-    how to interpret the body of a message. Specific bits can be masked to allow 
-    identifying messages by only a portion of the tag, leaving the rest of the bits 
+    how to interpret the body of a message. Specific bits can be masked to allow
+    identifying messages by only a portion of the tag, leaving the rest of the bits
     to be used for control flow or other message metadata. Some transports, such as
-    UCX, have built-in support for such tag values and will provide them in CPU 
+    UCX, have built-in support for such tag values and will provide them in CPU
     memory regardless of whether or not the body of the message may reside on a
     non-CPU device.
 
 Sequence Number
-    A little-endian, 4-byte unsigned integer starting at 0 for a stream, indicating 
-    the sequence order of messages. It is also used to identify specific messages to 
+    A little-endian, 4-byte unsigned integer starting at 0 for a stream, indicating
+    the sequence order of messages. It is also used to identify specific messages to
     tie the IPC metadata header to its corresponding body since the metadata and body
     can be sent across separate pipes/streams/transports.
 
@@ -105,10 +105,10 @@ Sequence Number
     it is unlikely there would be enough unprocessed messages waiting to be processed
     that would cause an overlap of sequence numbers.
 
-    The sequence number serves two purposes: To identify corresponding metadata and 
+    The sequence number serves two purposes: To identify corresponding metadata and
     tagged body data messages and to ensure we do not rely on messages having to arrive
     in order. A client should use the sequence number to correctly order messages as
-    they arrive for processing.   
+    they arrive for processing.
 
 The Protocol
 ============
@@ -122,10 +122,10 @@ Requirements
 A transport implementing this protocol **MUST** provide two pieces of functionality:
 
 * Message sending
-  
-  * Delimited messages (like gRPC) as opposed to non-delimited streams (like plain TCP 
+
+  * Delimited messages (like gRPC) as opposed to non-delimited streams (like plain TCP
     without further framing).
-  
+
   * Alternatively, a framing mechanism like the :ref:`encapsulated message format <ipc-message-format>`
     for the IPC protocol can be used while leaving out the body bytes.
 
@@ -138,7 +138,7 @@ A transport implementing this protocol **MUST** provide two pieces of functional
 URI Specification
 -----------------
 
-When providing a URI to a consumer to contact for use with this protocol (such as via 
+When providing a URI to a consumer to contact for use with this protocol (such as via
 the :ref:`Location URI for Flight <flight-location-uris>`), the URI should specify a scheme
 like *ucx:* or *fabric:*, that is easily identifiable. In addition, the URI should
 encode the following URI query parameters:
@@ -148,7 +148,7 @@ encode the following URI query parameters:
     transport schemes that get used with it.
 
 * ``want_data`` - **REQUIRED** - uint64 integer value
-  
+
   * This value should be used to tag an initial message to the server to initiate a
     data transfer. The body of the initiating message should be an opaque binary identifier
     of the data stream being requested (like the ``Ticket`` in the Flight RPC protocol)
@@ -176,15 +176,15 @@ Handling of Backpressure
 ------------------------
 
 *Currently* this proposal does not specify any way to manage the backpressure of
-messages to throttle for memory and bandwidth reasons. For now, this will be 
-**transport-defined** rather than lock into something sub-optimal. 
+messages to throttle for memory and bandwidth reasons. For now, this will be
+**transport-defined** rather than lock into something sub-optimal.
 
 As usage among different transports and libraries grows, common patterns will emerge
 that will allow for a generic, but efficient, way to handle backpressure across
 different use cases.
 
 .. note::
-  While the protocol itself is transport agnostic, the current usage and examples 
+  While the protocol itself is transport agnostic, the current usage and examples
   only have been tested using UCX and libfabric transports so far, but that's all.
 
 
@@ -218,7 +218,7 @@ The standing state of the server is waiting for a **tagged** message with a spec
 ``<want_data>`` tag value to initiate a transfer. This ``<want_data>`` value is defined
 by the server and propagated to any clients via the URI they are provided. This protocol
 does not prescribe any particular value so that it will not interfere with any other
-existing protocols that rely on tag values. The body of that message will contain an 
+existing protocols that rely on tag values. The body of that message will contain an
 opaque, binary identifier to indicate a particular dataset / data stream to send.
 
 .. note::
@@ -235,7 +235,7 @@ of messages consisting of the following:
 
   block-beta
   columns 8
-  
+
   block:P["\n\n\n\nPrefix"]:5
     T["Message type\nByte 0"]
     S["Sequence number\nBytes 1-4"]
@@ -243,22 +243,22 @@ of messages consisting of the following:
   H["Flatbuffer bytes\nRest of the message"]:3
 
 * A 5-byte prefix
-  
+
   - The first byte of the message indicates the type of message, currently there are only
     two allowed message types (more types may get added in the future):
-  
+
     0) End of Stream
     1) Flatbuffers IPC Metadata Message
-  
+
   - the next 4-bytes are a little-endian, unsigned 32-bit integer indicating the sequence number of
     the message. The first message in the stream (**MUST** always be a schema message) **MUST**
-    have a sequence number of ``0``. Each subsequent message **MUST** increment the number by 
+    have a sequence number of ``0``. Each subsequent message **MUST** increment the number by
     ``1``.
 
 * The full Flatbuffers bytes of an Arrow IPC header
 
 As defined in the Arrow IPC format, each metadata message can represent a chunk of data or
-dictionaries for use by the stream of data. 
+dictionaries for use by the stream of data.
 
 After sending the last metadata message, the server **MUST** indicate the end of the stream
 by sending a message consisting of **exactly** 5 bytes:
@@ -276,10 +276,10 @@ message with the ``<want_data>`` tag value, whose body indicates the dataset / d
 to send to the client.
 
 For each IPC message in the stream of data, a **tagged** message **MUST** be sent on the data
-stream if that message has a body (i.e. a Record Batch or Dictionary message). The 
+stream if that message has a body (i.e. a Record Batch or Dictionary message). The
 :term:`tag <Tag>` for each message should be structured as follows:
 
-.. mermaid::   
+.. mermaid::
 
   block-beta
   columns 8
@@ -288,21 +288,21 @@ stream if that message has a body (i.e. a Record Batch or Dictionary message). T
   U["Unused (Reserved)\nBytes 4-6"]:3
   T["Message type\nByte 7"]:1
 
-* The *least significant* 4-bytes (bits 0 - 31) of the tag should be the unsigned 32-bit, little-endian sequence 
+* The *least significant* 4-bytes (bits 0 - 31) of the tag should be the unsigned 32-bit, little-endian sequence
   number of the message.
 * The *most significant* byte (bits 56 - 63) of the tag indicates the message body **type** as an 8-bit
   unsigned integer. Currently only two message types are specified, but more can be added as
   needed to expand the protocol:
-  
+
   0) The body contains the raw body buffer bytes as a packed buffer (i.e. the standard IPC
      format body bytes)
   1) The body contains a series of unsigned, little-endian 64-bit integer pairs to represent
      either shared or remote memory, schematically structured as
-  
+
      * The first two integers (e.g. the first 16 bytes) represent the *total* size (in bytes)
        of all buffers and the number of buffers in this message (and thus the number of following
        pairs of ``uint64``)
-  
+
      * Each subsequent pair of ``uint64`` values are an address / offset followed the length of
        that particular buffer.
 
@@ -319,7 +319,7 @@ stream if that message has a body (i.e. a Record Batch or Dictionary message). T
 After sending the last tagged IPC body message, the server should maintain the connection and wait
 for tagged ``<free_data>`` messages. The structure of these ``<free_data>`` messages is simple:
 one or more unsigned, little-endian 64-bit integers which indicate the addresses/offsets that can
-be freed. 
+be freed.
 
 Once there are no more outstanding addresses to be freed, the work for this stream is complete.
 
@@ -334,28 +334,28 @@ showing how a client might handle the metadata and data streams:
 
 #. First the client sends a tagged message using the ``<want_data>`` value it was provided in the
    URI as the tag, and the opaque ID as the body.
-  
+
    * If the metadata and data servers are separate, then a ``<want_data>`` message needs to be sent
-     separately to each. 
+     separately to each.
    * In either scenario, the metadata and data streams can be processed concurrently and/or asynchronously
      depending on the nature of the transports.
 
 #. For each **untagged** message the client receives in the metadata stream:
-  
+
    * The first byte of the message indicates whether it is an *End of Stream* message (value ``0``)
      or a metadata message (value ``1``).
-   * The next 4 bytes are the sequence number of the message, an unsigned 32-bit integer in 
+   * The next 4 bytes are the sequence number of the message, an unsigned 32-bit integer in
      little-endian byte order.
    * If it is **not** an *End of Stream* message, the remaining bytes are the IPC Flatbuffer bytes which
-     can be interpreted as normal.    
-    
+     can be interpreted as normal.
+
      * If the message has a body (i.e. Record Batch or Dictionary message) then the client should retrieve
        a tagged message from the Data Stream using the same sequence number.
-  
+
    * If it **is** an *End of Stream* message, then it is safe to close the metadata connection if there are
      no gaps in the sequence numbers received.
 
-#. When a metadata message that requires a body is received, the tag mask of ``0x00000000FFFFFFFF`` **should** 
+#. When a metadata message that requires a body is received, the tag mask of ``0x00000000FFFFFFFF`` **should**
    be used alongside the sequence number to match the message regardless of the higher bytes (e.g. we only
    care about matching the lower 4 bytes to the sequence number)
 
@@ -364,7 +364,7 @@ showing how a client might handle the metadata and data streams:
      * If the most significant byte is 0: Then the body of the message is the raw IPC packed body buffers
        allowing it to easily be processed with the corresponding metadata header bytes.
 
-     * If the most significant byte is 1: The body of the message will consist of a series of pairs of 
+     * If the most significant byte is 1: The body of the message will consist of a series of pairs of
        unsigned, 64-bit integers in little-endian byte order.
 
        * The first two integers represent *1)* the total size of all the body buffers together to allow
