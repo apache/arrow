@@ -35,19 +35,19 @@ namespace telemetry {
 
 using LogLevel = util::ArrowLogLevel;
 
-struct LoggingOptions {
+struct OtelLoggingOptions {
   /// \brief Minimum severity required to emit an OpenTelemetry log record
   LogLevel severity_threshold = LogLevel::ARROW_INFO;
 
   /// \brief Minimum severity required to immediately attempt to flush pending log records
   LogLevel flush_severity = LogLevel::ARROW_ERROR;
 
-  static LoggingOptions Defaults() { return LoggingOptions{}; }
+  static OtelLoggingOptions Defaults() { return OtelLoggingOptions{}; }
 };
 
-class ARROW_EXPORT Logger : public util::Logger {
+class ARROW_EXPORT OtelLogger : public util::Logger {
  public:
-  virtual ~Logger() = default;
+  virtual ~OtelLogger() = default;
 
   virtual std::string_view name() const = 0;
 };
@@ -63,26 +63,27 @@ class ARROW_EXPORT OtelLoggerProvider {
   /// \return `true` if the flush occured
   static bool Flush(std::chrono::microseconds timeout = std::chrono::microseconds::max());
 
-  static Result<std::shared_ptr<Logger>> MakeLogger(
-      std::string_view name, const LoggingOptions& options = LoggingOptions::Defaults());
+  static Result<std::shared_ptr<OtelLogger>> MakeLogger(
+      std::string_view name,
+      const OtelLoggingOptions& options = OtelLoggingOptions::Defaults());
 };
 
 namespace internal {
 
 // These utilities are primarily intended for Arrow developers
 
-struct LogExporterOptions {
+struct OtelLogExporterOptions {
   /// \brief Default stream to use for the ostream/arrow_otlp_ostream log record exporters
   /// \details If null, stderr will be used
   std::ostream* default_stream = NULLPTR;
 
-  static LogExporterOptions Defaults() { return LogExporterOptions{}; }
+  static OtelLogExporterOptions Defaults() { return OtelLogExporterOptions{}; }
 };
 
 /// \brief Initialize the global OpenTelemetry logger provider with a default exporter
 /// (based on the ARROW_LOGGING_BACKEND envvar) and batch processor
 ARROW_EXPORT Status InitializeOtelLoggerProvider(
-    const LogExporterOptions& exporter_options = LogExporterOptions::Defaults());
+    const OtelLogExporterOptions& exporter_options = OtelLogExporterOptions::Defaults());
 
 /// \brief Attempt to shut down the global OpenTelemetry logger provider
 /// \return `true` if shutdown was successful

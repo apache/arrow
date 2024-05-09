@@ -54,7 +54,7 @@ namespace telemetry {
 
 namespace {
 
-using internal::LogExporterOptions;
+using internal::OtelLogExporterOptions;
 
 constexpr const char kLoggingBackendEnvVar[] = "ARROW_LOGGING_BACKEND";
 
@@ -147,7 +147,7 @@ std::unique_ptr<otel::sdk::logs::LogRecordExporter> MakeExporter(
 }
 
 std::unique_ptr<otel::sdk::logs::LogRecordExporter> MakeExporterFromEnv(
-    const LogExporterOptions& exporter_options) {
+    const OtelLogExporterOptions& exporter_options) {
   auto maybe_env_var = arrow::internal::GetEnvVar(kLoggingBackendEnvVar);
   if (maybe_env_var.ok()) {
     auto env_var = maybe_env_var.ValueOrDie();
@@ -189,7 +189,7 @@ std::unique_ptr<otel::sdk::logs::LogRecordProcessor> MakeLogRecordProcessor(
 }
 
 otel_shared_ptr<otel::logs::LoggerProvider> MakeLoggerProvider(
-    const LogExporterOptions& exporter_options) {
+    const OtelLogExporterOptions& exporter_options) {
   auto exporter = MakeExporterFromEnv(exporter_options);
   if (exporter) {
     auto processor = MakeLogRecordProcessor(std::move(exporter));
@@ -200,9 +200,10 @@ otel_shared_ptr<otel::logs::LoggerProvider> MakeLoggerProvider(
       new otel::logs::NoopLoggerProvider{});
 }
 
-class OtelLogger : public Logger {
+class OtelLoggerImpl : public OtelLogger {
  public:
-  OtelLogger(LoggingOptions options, otel_shared_ptr<otel::logs::Logger> ot_logger)
+  OtelLoggerImpl(OtelLoggingOptions options,
+                 otel_shared_ptr<otel::logs::Logger> ot_logger)
       : logger_(ot_logger), options_(std::move(options)) {}
 
   void Log(const util::LogDetails& details) override {
@@ -251,7 +252,7 @@ class OtelLogger : public Logger {
 
  private:
   otel_shared_ptr<otel::logs::Logger> logger_;
-  LoggingOptions options_;
+  OtelLoggingOptions options_;
 };
 
 }  // namespace
@@ -265,15 +266,15 @@ bool OtelLoggerProvider::Flush(std::chrono::microseconds timeout) {
   return false;
 }
 
-Result<std::shared_ptr<Logger>> OtelLoggerProvider::MakeLogger(
-    std::string_view name, const LoggingOptions& options) {
+Result<std::shared_ptr<OtelLogger>> OtelLoggerProvider::MakeLogger(
+    std::string_view name, const OtelLoggingOptions& options) {
   auto ot_logger = otel::logs::Provider::GetLoggerProvider()->GetLogger(ToOtel(name));
-  return std::make_shared<OtelLogger>(options, std::move(ot_logger));
+  return std::make_shared<OtelLoggerImpl>(options, std::move(ot_logger));
 }
 
 namespace internal {
 
-Status InitializeOtelLoggerProvider(const LogExporterOptions& exporter_options) {
+Status InitializeOtelLoggerProvider(const OtelLogExporterOptions& exporter_options) {
   otel::logs::Provider::SetLoggerProvider(MakeLoggerProvider(exporter_options));
   return Status::OK();
 }

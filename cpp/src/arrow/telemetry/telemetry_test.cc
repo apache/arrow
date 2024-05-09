@@ -50,7 +50,7 @@ class OtelEnvironment : public ::testing::Environment {
 
     ASSERT_OK(internal::InitializeOtelLoggerProvider());
 
-    auto logging_options = LoggingOptions::Defaults();
+    auto logging_options = OtelLoggingOptions::Defaults();
     logging_options.severity_threshold = LogLevel::ARROW_TRACE;
     logging_options.flush_severity = LogLevel::ARROW_TRACE;
     ASSERT_OK_AND_ASSIGN(auto logger,
@@ -66,7 +66,7 @@ static ::testing::Environment* kOtelEnvironment =
     ::testing::AddGlobalTestEnvironment(new OtelEnvironment);
 
 void Log(LogLevel severity, std::string_view message) {
-  auto logger = std::dynamic_pointer_cast<telemetry::Logger>(
+  auto logger = std::dynamic_pointer_cast<telemetry::OtelLogger>(
       util::LoggerRegistry::GetLogger(OtelEnvironment::kLoggerName));
   ASSERT_NE(logger, nullptr);
   util::LogDetails details;

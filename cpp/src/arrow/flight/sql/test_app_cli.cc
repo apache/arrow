@@ -91,7 +91,7 @@ class OtelScope {
 
     ARROW_RETURN_NOT_OK(arrow::telemetry::internal::InitializeOtelLoggerProvider());
 
-    auto logging_options = arrow::telemetry::LoggingOptions::Defaults();
+    auto logging_options = arrow::telemetry::OtelLoggingOptions::Defaults();
     logging_options.severity_threshold = arrow::telemetry::LogLevel::ARROW_TRACE;
     // Flush after every log message
     logging_options.flush_severity = arrow::telemetry::LogLevel::ARROW_TRACE;

@@ -32,6 +32,7 @@
 
 #ifdef ARROW_TELEMETRY
 #include "arrow/telemetry/logging.h"
+#include "arrow/util/tracing_internal.h"
 
 #include <opentelemetry/context/propagation/global_propagator.h>
 #include <opentelemetry/context/propagation/text_map_propagator.h>
@@ -42,6 +43,9 @@ DEFINE_int32(port, 31337, "Server port to listen on");
 
 #ifdef ARROW_TELEMETRY
 arrow::Status SetupOTel() {
+  auto tracer = arrow::internal::tracing::GetTracer();
+  ARROW_UNUSED(tracer);
+
   opentelemetry::context::propagation::GlobalTextMapPropagator::SetGlobalPropagator(
       opentelemetry::nostd::shared_ptr<
           opentelemetry::context::propagation::TextMapPropagator>(
@@ -49,7 +53,7 @@ arrow::Status SetupOTel() {
 
   ARROW_RETURN_NOT_OK(arrow::telemetry::internal::InitializeOtelLoggerProvider());
 
-  auto logging_options = arrow::telemetry::LoggingOptions::Defaults();
+  auto logging_options = arrow::telemetry::OtelLoggingOptions::Defaults();
   logging_options.severity_threshold = arrow::telemetry::LogLevel::ARROW_TRACE;
   // Flush after every log message
   logging_options.flush_severity = arrow::telemetry::LogLevel::ARROW_TRACE;
