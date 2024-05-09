@@ -312,9 +312,7 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
   }
 
   @Override
-  public boolean isNull(int index) {
-    return false;
-  }
+  public abstract boolean isNull(int index);
 
   @Override
   public void setValueCount(int valueCount) {
@@ -372,9 +370,7 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
     vector = v;
   }
 
-  public boolean isEmpty(int index) {
-    return false;
-  }
+  public abstract boolean isEmpty(int index);
 
   /**
    * Start a new value at the given index.

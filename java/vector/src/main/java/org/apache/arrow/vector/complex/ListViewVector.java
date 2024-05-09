@@ -560,8 +560,9 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
       buffers = new ArrowBuf[0];
     } else {
       List<ArrowBuf> list = new ArrayList<>();
-      list.add(offsetBuffer);
+      // the order must be validity, offset and size buffers
       list.add(validityBuffer);
+      list.add(offsetBuffer);
       list.add(sizeBuffer);
       list.addAll(Arrays.asList(vector.getBuffers(false)));
       buffers = list.toArray(new ArrowBuf[list.size()]);
