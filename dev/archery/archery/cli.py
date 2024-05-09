@@ -738,12 +738,12 @@ def _set_default(opt, default):
               help='Include JavaScript in integration tests')
 @click.option('--with-go', type=bool, default=False,
               help='Include Go in integration tests')
-@click.option('--with-rust', type=bool, default=False,
-              help='Include Rust in integration tests',
-              envvar="ARCHERY_INTEGRATION_WITH_RUST")
 @click.option('--with-nanoarrow', type=bool, default=False,
               help='Include nanoarrow in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_NANOARROW")
+@click.option('--with-rust', type=bool, default=False,
+              help='Include Rust in integration tests',
+              envvar="ARCHERY_INTEGRATION_WITH_RUST")
 @click.option('--write_generated_json', default="",
               help='Generate test JSON to indicated path')
 @click.option('--run-ipc', is_flag=True, default=False,
@@ -779,7 +779,7 @@ def integration(with_all=False, random_seed=12345, **args):
 
     gen_path = args['write_generated_json']
 
-    languages = ['cpp', 'csharp', 'java', 'js', 'go', 'rust', 'nanoarrow']
+    languages = ['cpp', 'csharp', 'java', 'js', 'go', 'nanoarrow', 'rust']
     formats = ['ipc', 'flight', 'c_data']
 
     enabled_languages = 0

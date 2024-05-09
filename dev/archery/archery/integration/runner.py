@@ -563,11 +563,11 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
     if with_go:
         testers.append(GoTester(**kwargs))
 
-    if with_rust:
-        testers.append(RustTester(**kwargs))
-
     if with_nanoarrow:
         testers.append(NanoarrowTester(**kwargs))
+
+    if with_rust:
+        testers.append(RustTester(**kwargs))
 
     static_json_files = get_static_json_files()
     generated_json_files = datagen.get_generated_json_files(tempdir=tempdir)

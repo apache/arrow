@@ -102,8 +102,8 @@ jobs:
         run: >
           archery docker run \
             -e ARCHERY_DEFAULT_BRANCH=${{ github.event.repository.default_branch }} \
-            -e ARCHERY_INTEGRATION_WITH_RUST=1 \
             -e ARCHERY_INTEGRATION_WITH_NANOARROW=1 \
+            -e ARCHERY_INTEGRATION_WITH_RUST=1 \
             conda-integration
       - name: Docker Push
         if: >-
