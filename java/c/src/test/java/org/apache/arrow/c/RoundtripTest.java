@@ -524,7 +524,7 @@ public class RoundtripTest {
     }
   }
 
-  0@Test
+  @Test
   public void testEmptyVarCharVector() {
     try (final VarCharVector vector = new VarCharVector("v", allocator)) {
       vector.allocateNewSafe();
