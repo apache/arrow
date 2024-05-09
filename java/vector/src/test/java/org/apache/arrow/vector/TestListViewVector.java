@@ -42,7 +42,6 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
-import org.apache.arrow.vector.util.DataSizeRoundingUtil;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -418,105 +417,30 @@ public class TestListViewVector {
    * 2. Default list insertion followed by buffer-based inserts.
    * 3. Buffer-based inserts followed by default list insertion.
    */
+
+  /* Setting up buffers directly would require the following steps to be taken
+   * 0. Allocate buffers in listViewVector by calling `allocateNew` method.
+   * 1. Initialize the child vector using `initializeChildrenFromFields` method.
+   * 2. Set values in the child vector.
+   * 3. Set validity, offset and size buffers using `setValidity`,
+   * `setOffSet` and `setSize` methods.
+   * 4. Set lastSet value using `setLastSet` method.
+   * 5. Set value count using `setValueCount` method.
+   */
   @Test
   public void testBasicListViewSet() {
 
-    try (ArrowBuf newOffSetBuf = allocator.buffer(1024);
-        ArrowBuf newSizeBuffer = allocator.buffer(1024);
-        ArrowBuf validityBuffer = allocator.buffer(DataSizeRoundingUtil.divideBy8Ceil(1024));
-        BigIntVector childVector = new BigIntVector("element-vector", allocator);
-        ListViewVector listViewVector = ListViewVector.empty("sourceVector", allocator)) {
-      listViewVector.allocateNew();
-
-      childVector.allocateNew(7);
-
-      childVector.set(0, 12);
-      childVector.set(1, -7);
-      childVector.set(2, 25);
-      childVector.set(3, 0);
-      childVector.set(4, -127);
-      childVector.set(5, 127);
-      childVector.set(6, 50);
-
-      childVector.setValueCount(7);
-
-      int[] offSetValues = new int[]{0, 3, 3, 7};
-      int[] sizeValues = new int[]{3, 0, 4, 0};
-
-      BitVectorHelper.setBit(validityBuffer, 0);
-      BitVectorHelper.setBit(validityBuffer, 2);
-      BitVectorHelper.setBit(validityBuffer, 3);
-
-      setValuesInBuffer(offSetValues, newOffSetBuf, BaseRepeatedValueViewVector.OFFSET_WIDTH);
-      setValuesInBuffer(sizeValues, newSizeBuffer, BaseRepeatedValueViewVector.SIZE_WIDTH);
-
-      listViewVector.set(newOffSetBuf, newSizeBuffer, validityBuffer, childVector, 4);
-
-      final ArrowBuf offSetBuffer = listViewVector.getOffsetBuffer();
-      final ArrowBuf sizeBuffer = listViewVector.getSizeBuffer();
-
-      // check offset buffer
-      assertEquals(0, offSetBuffer.getInt(0 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
-      assertEquals(3, offSetBuffer.getInt(1 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
-      assertEquals(3, offSetBuffer.getInt(2 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
-      assertEquals(7, offSetBuffer.getInt(3 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
-
-      // check size buffer
-      assertEquals(3, sizeBuffer.getInt(0 * BaseRepeatedValueViewVector.SIZE_WIDTH));
-      assertEquals(0, sizeBuffer.getInt(1 * BaseRepeatedValueViewVector.SIZE_WIDTH));
-      assertEquals(4, sizeBuffer.getInt(2 * BaseRepeatedValueViewVector.SIZE_WIDTH));
-      assertEquals(0, sizeBuffer.getInt(3 * BaseRepeatedValueViewVector.SIZE_WIDTH));
-
-      // check values
-      assertEquals(12, ((BigIntVector) listViewVector.getDataVector()).get(0));
-      assertEquals(-7, ((BigIntVector) listViewVector.getDataVector()).get(1));
-      assertEquals(25, ((BigIntVector) listViewVector.getDataVector()).get(2));
-      assertEquals(0, ((BigIntVector) listViewVector.getDataVector()).get(3));
-      assertEquals(-127, ((BigIntVector) listViewVector.getDataVector()).get(4));
-      assertEquals(127, ((BigIntVector) listViewVector.getDataVector()).get(5));
-      assertEquals(50, ((BigIntVector) listViewVector.getDataVector()).get(6));
-
-      assertEquals(3, listViewVector.getLastSet());
-      listViewVector.validate();
-    }
-  }
-
-  /*
-  * Setting up buffers directly would require the following steps to be taken
-  * 1. Set offset and size buffers using `setOffSet` and `setSize` methods.
-  * 2. Set validity buffer using `setValidity` method.
-  * 3. Set lastSet value using `setLastSet` method.
-  * 4. Initialize the child vector using `initializeChildrenFromFields` method.
-  * 5. Set values in the child vector.
-  */
-  @Test
-  public void testBasicListViewSet1() {
-
     try (ListViewVector listViewVector = ListViewVector.empty("sourceVector", allocator)) {
+      // Allocate buffers in listViewVector by calling `allocateNew` method.
       listViewVector.allocateNew();
 
-      listViewVector.setOffSet(0, 0);
-      listViewVector.setOffSet(1, 3);
-      listViewVector.setOffSet(2, 3);
-      listViewVector.setOffSet(3, 7);
-
-      listViewVector.setSize(0, 3);
-      listViewVector.setSize(1, 0);
-      listViewVector.setSize(2, 4);
-      listViewVector.setSize(3, 0);
-
-      listViewVector.setValidity(0, 1);
-      listViewVector.setValidity(1, 0);
-      listViewVector.setValidity(2, 1);
-      listViewVector.setValidity(3, 1);
-
-      listViewVector.setLastSet(3);
-
+      // Initialize the child vector using `initializeChildrenFromFields` method.
       FieldType fieldType = new FieldType(true, new ArrowType.Int(64, true),
           null, null);
-      Field field = new Field("element-vector", fieldType, null);
+      Field field = new Field("child-vector", fieldType, null);
       listViewVector.initializeChildrenFromFields(Collections.singletonList(field));
 
+      // Set values in the child vector.
       FieldVector fieldVector = listViewVector.getDataVector();
       fieldVector.clear();
 
@@ -532,6 +456,29 @@ public class TestListViewVector {
       childVector.set(6, 50);
 
       childVector.setValueCount(7);
+
+      // Set validity, offset and size buffers using `setValidity`,
+      // `setOffSet` and `setSize` methods.
+      listViewVector.setOffSet(0, 0);
+      listViewVector.setOffSet(1, 3);
+      listViewVector.setOffSet(2, 3);
+      listViewVector.setOffSet(3, 7);
+
+      listViewVector.setSize(0, 3);
+      listViewVector.setSize(1, 0);
+      listViewVector.setSize(2, 4);
+      listViewVector.setSize(3, 0);
+
+      listViewVector.setValidity(0, 1);
+      listViewVector.setValidity(1, 0);
+      listViewVector.setValidity(2, 1);
+      listViewVector.setValidity(3, 1);
+
+      // Set lastSet value using `setLastSet` method.
+      listViewVector.setLastSet(3);
+
+      // Set value count using `setValueCount` method.
+      listViewVector.setValueCount(4);
 
       final ArrowBuf offSetBuffer = listViewVector.getOffsetBuffer();
       final ArrowBuf sizeBuffer = listViewVector.getSizeBuffer();
@@ -569,11 +516,26 @@ public class TestListViewVector {
 
     // Setting child vector
     // [[50,100,200],[75,125,150,175],[10],[15,20],[25,30,35]]
-    try (ListVector childVector = ListVector.empty("nestedVector", allocator);
-        ArrowBuf newOffSetBuf = allocator.buffer(1024);
-        ArrowBuf newSizeBuffer = allocator.buffer(1024);
-        ArrowBuf validityBuffer = allocator.buffer(DataSizeRoundingUtil.divideBy8Ceil(1024));
-        ListViewVector listViewVector = ListViewVector.empty("sourceVector", allocator)) {
+    try (ListViewVector listViewVector = ListViewVector.empty("sourceVector", allocator)) {
+      // Allocate buffers in listViewVector by calling `allocateNew` method.
+      listViewVector.allocateNew();
+
+      // Initialize the child vector using `initializeChildrenFromFields` method.
+      FieldType fieldType = new FieldType(true, new ArrowType.List(),
+          null, null);
+      FieldType childFieldType = new FieldType(true, new ArrowType.Int(64, true),
+          null, null);
+      Field childField = new Field("child-vector", childFieldType, null);
+      List<Field> children = new ArrayList<>();
+      children.add(childField);
+      Field field = new Field("child-vector", fieldType, children);
+      listViewVector.initializeChildrenFromFields(Collections.singletonList(field));
+
+      // Set values in the child vector.
+      FieldVector fieldVector = listViewVector.getDataVector();
+      fieldVector.clear();
+
+      ListVector childVector = (ListVector) fieldVector;
       UnionListWriter listWriter = childVector.getWriter();
       listWriter.allocate();
 
@@ -620,21 +582,25 @@ public class TestListViewVector {
 
       listWriter.endList();
 
-      childVector.setValueCount(2);
+      childVector.setValueCount(5);
 
+      // Set validity, offset and size buffers using `setValidity`,
+      //  `setOffSet` and `setSize` methods.
 
-      listViewVector.allocateNew();
+      listViewVector.setValidity(0, 1);
+      listViewVector.setValidity(1, 1);
 
-      int[] offSetValues = new int[]{0, 2};
-      int[] sizeValues = new int[]{2, 3};
+      listViewVector.setOffSet(0, 0);
+      listViewVector.setOffSet(1, 2);
 
-      BitVectorHelper.setBit(validityBuffer, 0);
-      BitVectorHelper.setBit(validityBuffer, 1);
+      listViewVector.setSize(0, 2);
+      listViewVector.setSize(1, 3);
 
-      setValuesInBuffer(offSetValues, newOffSetBuf, BaseRepeatedValueViewVector.OFFSET_WIDTH);
-      setValuesInBuffer(sizeValues, newSizeBuffer, BaseRepeatedValueViewVector.SIZE_WIDTH);
+      // Set lastSet value using `setLastSet` method.
+      listViewVector.setLastSet(1);
 
-      listViewVector.set(newOffSetBuf, newSizeBuffer, validityBuffer, childVector, 2);
+      // Set value count using `setValueCount` method.
+      listViewVector.setValueCount(2);
 
       assertEquals(2, listViewVector.getValueCount());
 
@@ -700,12 +666,21 @@ public class TestListViewVector {
 
   @Test
   public void testBasicListViewSetWithListViewWriter() {
-    try (ListViewVector listViewVector = ListViewVector.empty("sourceVector", allocator);
-        ArrowBuf newOffSetBuf = allocator.buffer(1024);
-        ArrowBuf newSizeBuffer = allocator.buffer(1024);
-        ArrowBuf validityBuffer = allocator.buffer(DataSizeRoundingUtil.divideBy8Ceil(1024));
-        BigIntVector childVector = new BigIntVector("element-vector", allocator)) {
+    try (ListViewVector listViewVector = ListViewVector.empty("sourceVector", allocator)) {
+      // Allocate buffers in listViewVector by calling `allocateNew` method.
       listViewVector.allocateNew();
+
+      // Initialize the child vector using `initializeChildrenFromFields` method.
+      FieldType fieldType = new FieldType(true, new ArrowType.Int(64, true),
+          null, null);
+      Field field = new Field("child-vector", fieldType, null);
+      listViewVector.initializeChildrenFromFields(Collections.singletonList(field));
+
+      // Set values in the child vector.
+      FieldVector fieldVector = listViewVector.getDataVector();
+      fieldVector.clear();
+
+      BigIntVector childVector = (BigIntVector) fieldVector;
       childVector.allocateNew(7);
 
       childVector.set(0, 12);
@@ -718,17 +693,29 @@ public class TestListViewVector {
 
       childVector.setValueCount(7);
 
-      int[] offSetValues = new int[]{0, 3, 3, 7};
-      int[] sizeValues = new int[]{3, 0, 4, 0};
+      // Set validity, offset and size buffers using `setValidity`,
+      //  `setOffSet` and `setSize` methods.
 
-      BitVectorHelper.setBit(validityBuffer, 0);
-      BitVectorHelper.setBit(validityBuffer, 2);
-      BitVectorHelper.setBit(validityBuffer, 3);
+      listViewVector.setValidity(0, 1);
+      listViewVector.setValidity(1, 0);
+      listViewVector.setValidity(2, 1);
+      listViewVector.setValidity(3, 1);
 
-      setValuesInBuffer(offSetValues, newOffSetBuf, BaseRepeatedValueViewVector.OFFSET_WIDTH);
-      setValuesInBuffer(sizeValues, newSizeBuffer, BaseRepeatedValueViewVector.SIZE_WIDTH);
+      listViewVector.setOffSet(0, 0);
+      listViewVector.setOffSet(1, 3);
+      listViewVector.setOffSet(2, 3);
+      listViewVector.setOffSet(3, 7);
 
-      listViewVector.set(newOffSetBuf, newSizeBuffer, validityBuffer, childVector, 4);
+      listViewVector.setSize(0, 3);
+      listViewVector.setSize(1, 0);
+      listViewVector.setSize(2, 4);
+      listViewVector.setSize(3, 0);
+
+      // Set lastSet value using `setLastSet` method.
+      listViewVector.setLastSet(3);
+
+      // Set value count using `setValueCount` method.
+      listViewVector.setValueCount(4);
 
       final ArrowBuf offSetBuffer = listViewVector.getOffsetBuffer();
       final ArrowBuf sizeBuffer = listViewVector.getSizeBuffer();
@@ -1573,12 +1560,22 @@ public class TestListViewVector {
   @Test
   public void testOutOfOrderOffset1() {
     // [[12, -7, 25], null, [0, -127, 127, 50], [], [50, 12]]
-    try (ArrowBuf newOffSetBuf = allocator.buffer(1024);
-        ArrowBuf newSizeBuffer = allocator.buffer(1024);
-        ArrowBuf validityBuffer = allocator.buffer(DataSizeRoundingUtil.divideBy8Ceil(1024));
-        SmallIntVector childVector = new SmallIntVector("child-vector", allocator);
-        ListViewVector listViewVector = ListViewVector.empty("listview", allocator)) {
+    try (ListViewVector listViewVector = ListViewVector.empty("listview", allocator)) {
+      // Allocate buffers in listViewVector by calling `allocateNew` method.
       listViewVector.allocateNew();
+
+      // Initialize the child vector using `initializeChildrenFromFields` method.
+
+      FieldType fieldType = new FieldType(true, new ArrowType.Int(16, true),
+          null, null);
+      Field field = new Field("child-vector", fieldType, null);
+      listViewVector.initializeChildrenFromFields(Collections.singletonList(field));
+
+      // Set values in the child vector.
+      FieldVector fieldVector = listViewVector.getDataVector();
+      fieldVector.clear();
+
+      SmallIntVector childVector = (SmallIntVector) fieldVector;
 
       childVector.allocateNew(7);
 
@@ -1592,18 +1589,31 @@ public class TestListViewVector {
 
       childVector.setValueCount(7);
 
-      int[] offSetValues = new int[]{4, 7, 0, 0, 3};
-      int[] sizeValues = new int[]{3, 0, 4, 0, 2};
+      // Set validity, offset and size buffers using `setValidity`,
+      //  `setOffSet` and `setSize` methods.
+      listViewVector.setValidity(0, 1);
+      listViewVector.setValidity(1, 0);
+      listViewVector.setValidity(2, 1);
+      listViewVector.setValidity(3, 1);
+      listViewVector.setValidity(4, 1);
 
-      BitVectorHelper.setBit(validityBuffer, 0);
-      BitVectorHelper.setBit(validityBuffer, 2);
-      BitVectorHelper.setBit(validityBuffer, 3);
-      BitVectorHelper.setBit(validityBuffer, 4);
+      listViewVector.setOffSet(0, 4);
+      listViewVector.setOffSet(1, 7);
+      listViewVector.setOffSet(2, 0);
+      listViewVector.setOffSet(3, 0);
+      listViewVector.setOffSet(4, 3);
 
-      setValuesInBuffer(offSetValues, newOffSetBuf, BaseRepeatedValueViewVector.OFFSET_WIDTH);
-      setValuesInBuffer(sizeValues, newSizeBuffer, BaseRepeatedValueViewVector.SIZE_WIDTH);
+      listViewVector.setSize(0, 3);
+      listViewVector.setSize(1, 0);
+      listViewVector.setSize(2, 4);
+      listViewVector.setSize(3, 0);
+      listViewVector.setSize(4, 2);
 
-      listViewVector.set(newOffSetBuf, newSizeBuffer, validityBuffer, childVector, 5);
+      // Set lastSet value using `setLastSet` method.
+      listViewVector.setLastSet(4);
+
+      // Set value count using `setValueCount` method.
+      listViewVector.setValueCount(5);
 
       final ArrowBuf offSetBuffer = listViewVector.getOffsetBuffer();
       final ArrowBuf sizeBuffer = listViewVector.getSizeBuffer();
