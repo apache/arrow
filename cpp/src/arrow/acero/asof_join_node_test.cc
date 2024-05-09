@@ -1678,5 +1678,34 @@ TEST(AsofJoinTest, BackpressureWithBatchesGen) {
                           /*slow_r0=*/false);
 }
 
+TEST(AsofJoinTest, Flaky) {
+  std::vector<TypeHolder> left_types = {int64(), utf8()};
+  auto left_batch = ExecBatchFromJSON(
+      left_types, R"([[1, "a"], [1, "b"], [5, "a"], [6, "b"], [7, "f"]])");
+  std::vector<TypeHolder> right_types = {int64(), utf8(), float64()};
+  auto right_batch =
+      ExecBatchFromJSON(right_types, R"([[2, "a", 1.0], [9, "b", 3.0], [15, "g", 5.0]])");
+
+  Declaration left{
+      "exec_batch_source",
+      ExecBatchSourceNodeOptions(schema({field("colA", int64()), field("col2", utf8())}),
+                                 {std::move(left_batch)})};
+  Declaration right{
+      "exec_batch_source",
+      ExecBatchSourceNodeOptions(schema({field("colB", int64()), field("col3", utf8()),
+                                         field("colC", float64())}),
+                                 {std::move(right_batch)})};
+  AsofJoinNodeOptions asof_join_opts({{{"colA"}, {{"col2"}}}, {{"colB"}, {{"col3"}}}}, 1);
+  Declaration asof_join{"asofjoin", {left, right}, asof_join_opts};
+
+  ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(asof_join));
+
+  std::vector<TypeHolder> exp_types = {int64(), utf8(), float64()};
+  auto exp_batch = ExecBatchFromJSON(
+      exp_types,
+      R"([[1, "a", 1.0], [1, "b", null], [5, "a", null], [6, "b", null], [7, "f", null]])");
+  AssertExecBatchesEqualIgnoringOrder(result.schema, {exp_batch}, result.batches);
+}
+
 }  // namespace acero
 }  // namespace arrow
