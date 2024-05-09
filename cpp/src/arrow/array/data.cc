@@ -241,6 +241,7 @@ DeviceAllocationType ArrayData::device_type() const {
   }
 
   for (const auto& child : child_data) {
+    if (!child) continue;
     if (type == 0) {
       type = static_cast<int>(child->device_type());
     } else {
