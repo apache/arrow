@@ -117,7 +117,7 @@ struct ARROW_EXPORT ArrayData {
     this->child_data = std::move(child_data);
 #ifndef NDEBUG
     // in debug mode, call the `device_type` function to trigger
-    // the DCHECKs that validate all the buffers (including children) 
+    // the DCHECKs that validate all the buffers (including children)
     // are on the same device
     ARROW_UNUSED(this->device_type());
 #endif
