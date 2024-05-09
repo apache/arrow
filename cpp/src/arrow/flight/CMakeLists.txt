@@ -158,7 +158,7 @@ set(ARROW_FLIGHT_SRCS
     types.cc)
 
 if(ARROW_TELEMETRY)
-    list(APPEND ARROW_FLIGHT_SRCS otel_logging.cc)
+  list(APPEND ARROW_FLIGHT_SRCS otel_logging.cc)
 endif()
 
 if(MSVC)
