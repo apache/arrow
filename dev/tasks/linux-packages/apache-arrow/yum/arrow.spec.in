@@ -881,6 +881,9 @@ Documentation for Apache Parquet GLib.
 %endif
 
 %changelog
+* Thu May 09 2024 Raúl Cumplido <raulcumplido@gmail.com> - 16.1.0-1
+- New upstream release.
+
 * Tue Apr 16 2024 Raúl Cumplido <raulcumplido@gmail.com> - 16.0.0-1
 - New upstream release.
 
