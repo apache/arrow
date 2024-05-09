@@ -261,6 +261,48 @@ variable shape.
 Union
 -----
 
+The union is a nested type where each slot in the union has a value with a type chosen
+from a subset of possible Arrow data types. That means that a union array represents a
+mixed-type array.
+
+Unlike other data types, unions do not have their own validity bitmap and the nullness
+is determined by the child arrays.
+
+Arrow defines two distinct union types, “dense” and “sparse”.
+
+Dense Union
+^^^^^^^^^^^
+
+Dense Union has one child array for each type present in the mixed-type array and
+
+* **Types buffer:** holds type id for each slot of the array. Type id corresponds
+  to the number of the child array.
+* **Offsets buffer:** holds relative offset into the respective child array for each array slot.
+
+.. figure:: ./images/dense-union-diagram.svg
+   :alt: Diagram is showing the difference between the dense union data type
+         presented in a Table and the data is actually stored in computer
+         memory.
+
+   Physical layout diagram for dense union data type.
+
+Sparse union
+^^^^^^^^^^^^
+
+A sparse union has the same structure as a dense union, with the omission of the offsets
+array. In this case, the child arrays are each equal in length to the length of the union.
+
+
+.. figure:: ./images/sparse-union-diagram.svg
+   :alt: Diagram is showing the difference between the sparse union data type
+         presented in a Table and the data is actually stored in computer
+         memory.
+
+   Physical layout diagram for sparse union data type.
+
+Dictionary Encoded Layout
+=========================
+
 .. TODO content
 
 .. figure:: ./images/dictionary-diagram.svg
@@ -270,17 +312,20 @@ Union
 
    Physical layout diagram for dictionary data type.
 
-Dictionary Encoded Layout
-=========================
-
-.. TODO
-
 Run-End Encoded Layout
 ======================
 
-.. TODO
+.. TODO content
 
-.. link to All types overview
+.. figure:: ./images/ree-diagram.svg
+   :alt: Diagram is showing the difference between the run-end encoded data
+         type presented in a Table and the data is actually stored in computer
+         memory.
+
+   Physical layout diagram for run-end encoded data type.
+
+
+.. link to All types overview https://github.com/apache/arrow/issues/14752
 
 Extension Types
 ===============
