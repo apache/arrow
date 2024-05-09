@@ -28,6 +28,7 @@
 #include <grpcpp/grpcpp.h>
 
 #include "arrow/buffer.h"
+#include "arrow/flight/otel_logging_internal.h"
 #include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/server.h"
 #include "arrow/flight/server_middleware.h"
@@ -39,9 +40,6 @@
 #include "arrow/util/logger.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/uri.h"
-
-#define ARROW_FLIGHT_LOG(LEVEL, ...) \
-  ARROW_LOGGER_CALL("FlightGrpcServer", LEVEL, __VA_ARGS__)
 
 namespace arrow {
 namespace flight {
@@ -339,8 +337,6 @@ class GrpcServiceHandler final : public FlightService::Service {
         return flight_context.FinishRequest(result);
       }
       if (instance != nullptr) {
-        ARROW_FLIGHT_LOG(
-            INFO, "[MakeCallContext] Started call for middleware: ", instance->name());
         flight_context.middleware_.push_back(instance);
         flight_context.middleware_map_.insert({factory.first, instance});
       }
@@ -408,6 +404,7 @@ class GrpcServiceHandler final : public FlightService::Service {
   ::grpc::Status GetFlightInfo(ServerContext* context,
                                const pb::FlightDescriptor* request,
                                pb::FlightInfo* response) {
+    ARROW_FLIGHT_OTELLOG_SERVER(INFO, "[Example message] func=", __func__);
     GrpcServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         CheckAuth(FlightMethod::GetFlightInfo, context, flight_context));
@@ -537,7 +534,6 @@ class GrpcServiceHandler final : public FlightService::Service {
     CHECK_ARG_NOT_NULL(flight_context, request, "Action cannot be null");
     Action action;
     SERVICE_RETURN_NOT_OK(flight_context, internal::FromProto(*request, &action));
-    ARROW_FLIGHT_LOG(INFO, "[DoAction] action.type=", action.type);
 
     std::unique_ptr<ResultStream> results;
     SERVICE_RETURN_NOT_OK(flight_context,

@@ -26,15 +26,13 @@
 
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
+#include "arrow/flight/otel_logging_internal.h"
 #include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/sql/protocol_internal.h"
 #include "arrow/flight/sql/sql_info_internal.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logger.h"
-
-#define ARROW_FLIGHT_SQL_LOG(LEVEL, ...) \
-  ARROW_LOGGER_CALL("FlightSqlServer", LEVEL, __VA_ARGS__)
 
 #define PROPERTY_TO_OPTIONAL(COMMAND, PROPERTY) \
   COMMAND.has_##PROPERTY() ? std::make_optional(COMMAND.PROPERTY()) : std::nullopt
@@ -580,6 +578,7 @@ arrow::Result<std::string> CreateStatementQueryTicket(
 Status FlightSqlServerBase::GetFlightInfo(const ServerCallContext& context,
                                           const FlightDescriptor& request,
                                           std::unique_ptr<FlightInfo>* info) {
+  ARROW_FLIGHT_OTELLOG_SQL_SERVER(INFO, "[Example message] func=", __func__);
   google::protobuf::Any any;
   if (!any.ParseFromArray(request.cmd.data(), static_cast<int>(request.cmd.size()))) {
     return Status::Invalid("Unable to parse command");
@@ -810,7 +809,6 @@ Status FlightSqlServerBase::DoPut(const ServerCallContext& context,
   if (!any.ParseFromArray(request.cmd.data(), static_cast<int>(request.cmd.size()))) {
     return Status::Invalid("Unable to parse command");
   }
-  ARROW_FLIGHT_SQL_LOG(INFO, "[DoPut] command: ", request.cmd);
 
   if (any.Is<pb::sql::CommandStatementUpdate>()) {
     ARROW_ASSIGN_OR_RAISE(StatementUpdate internal_command,
@@ -895,7 +893,6 @@ Status FlightSqlServerBase::DoAction(const ServerCallContext& context,
                                      const Action& action,
                                      std::unique_ptr<ResultStream>* result_stream) {
   std::vector<Result> results;
-  ARROW_FLIGHT_SQL_LOG(INFO, "[DoAction] action.type: ", action.type);
   if (action.type == ActionType::kCancelFlightInfo.type) {
     std::string_view body(*action.body);
     ARROW_ASSIGN_OR_RAISE(auto request, CancelFlightInfoRequest::Deserialize(body));

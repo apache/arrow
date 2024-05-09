@@ -35,7 +35,7 @@
 #include "arrow/table.h"
 
 #ifdef ARROW_TELEMETRY
-#include "arrow/telemetry/logging.h"
+#include "arrow/flight/otel_logging.h"
 #include "arrow/util/tracing_internal.h"
 
 #include <opentelemetry/context/propagation/global_propagator.h>
@@ -95,10 +95,7 @@ class OtelScope {
     logging_options.severity_threshold = arrow::telemetry::LogLevel::ARROW_TRACE;
     // Flush after every log message
     logging_options.flush_severity = arrow::telemetry::LogLevel::ARROW_TRACE;
-    ARROW_ASSIGN_OR_RAISE(auto logger, arrow::telemetry::OtelLoggerProvider::MakeLogger(
-                                           "FlightGrpcClient", logging_options));
-    ARROW_RETURN_NOT_OK(
-        arrow::util::LoggerRegistry::RegisterLogger(logger->name(), logger));
+    ARROW_RETURN_NOT_OK(arrow::flight::RegisterFlightOtelLoggers(logging_options));
 
     opentelemetry::trace::StartSpanOptions span_options;
     span_options.kind = opentelemetry::trace::SpanKind::kClient;

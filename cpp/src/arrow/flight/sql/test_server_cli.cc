@@ -31,7 +31,7 @@
 #include "arrow/util/logging.h"
 
 #ifdef ARROW_TELEMETRY
-#include "arrow/telemetry/logging.h"
+#include "arrow/flight/otel_logging.h"
 #include "arrow/util/tracing_internal.h"
 
 #include <opentelemetry/context/propagation/global_propagator.h>
@@ -57,14 +57,7 @@ arrow::Status SetupOTel() {
   logging_options.severity_threshold = arrow::telemetry::LogLevel::ARROW_TRACE;
   // Flush after every log message
   logging_options.flush_severity = arrow::telemetry::LogLevel::ARROW_TRACE;
-  ARROW_ASSIGN_OR_RAISE(auto logger1, arrow::telemetry::OtelLoggerProvider::MakeLogger(
-                                          "FlightGrpcServer", logging_options));
-  ARROW_ASSIGN_OR_RAISE(auto logger2, arrow::telemetry::OtelLoggerProvider::MakeLogger(
-                                          "FlightSqlServer", logging_options));
-  ARROW_RETURN_NOT_OK(
-      arrow::util::LoggerRegistry::RegisterLogger(logger1->name(), logger1));
-  ARROW_RETURN_NOT_OK(
-      arrow::util::LoggerRegistry::RegisterLogger(logger2->name(), logger2));
+  ARROW_RETURN_NOT_OK(arrow::flight::RegisterFlightOtelLoggers(logging_options));
 
   return arrow::Status::OK();
 }
