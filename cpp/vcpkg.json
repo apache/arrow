@@ -1,6 +1,6 @@
 {
   "name": "arrow",
-  "version-string": "16.0.0",
+  "version-string": "16.1.0",
   "dependencies": [
     "abseil",
     {

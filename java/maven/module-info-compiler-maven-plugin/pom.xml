@@ -16,7 +16,7 @@
   <parent>
     <groupId>org.apache.arrow.maven.plugins</groupId>
     <artifactId>arrow-maven-plugins</artifactId>
-    <version>16.0.0</version>
+    <version>16.1.0</version>
   </parent>
   <artifactId>module-info-compiler-maven-plugin</artifactId>
   <packaging>maven-plugin</packaging>

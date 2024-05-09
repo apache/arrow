@@ -21,7 +21,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(pyarrow)
 
-set(PYARROW_VERSION "16.0.0")
+set(PYARROW_VERSION "16.1.0")
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" PYARROW_BASE_VERSION "${PYARROW_VERSION}")
 
 # Running from a Python sdist tarball
