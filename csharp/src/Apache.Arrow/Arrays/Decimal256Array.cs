@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#nullable enable
+
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -23,7 +25,7 @@ using Apache.Arrow.Types;
 
 namespace Apache.Arrow
 {
-    public class Decimal256Array : FixedSizeBinaryArray, IReadOnlyList<SqlDecimal?>, IReadOnlyList<string>
+    public class Decimal256Array : FixedSizeBinaryArray, IReadOnlyList<SqlDecimal?>, IReadOnlyList<string?>
     {
         public class Builder : BuilderBase<Decimal256Array, Builder>
         {
@@ -178,7 +180,7 @@ namespace Apache.Arrow
             return list;
         }
 
-        public string GetString(int index)
+        public string? GetString(int index)
         {
             if (IsNull(index))
             {
@@ -230,10 +232,10 @@ namespace Apache.Arrow
             }
         }
 
-        int IReadOnlyCollection<string>.Count => Length;
-        string? IReadOnlyList<string>.this[int index] => GetString(index);
+        int IReadOnlyCollection<string?>.Count => Length;
+        string? IReadOnlyList<string?>.this[int index] => GetString(index);
 
-        IEnumerator<string> IEnumerable<string>.GetEnumerator()
+        IEnumerator<string?> IEnumerable<string?>.GetEnumerator()
         {
             for (int index = 0; index < Length; index++)
             {
@@ -241,6 +243,6 @@ namespace Apache.Arrow
             }
         }
 
-        IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable<string>)this).GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable<string?>)this).GetEnumerator();
     }
 }
