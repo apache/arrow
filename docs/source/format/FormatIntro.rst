@@ -292,7 +292,8 @@ Dense Union has one child array for each type present in the mixed-type array an
 
 * **Types buffer:** holds type id for each slot of the array. Type id corresponds
   to the number of the child array.
-* **Offsets buffer:** holds relative offset into the respective child array for each array slot.
+* **Offsets buffer:** holds relative offset into the respective child array for each
+  array slot.
 
 .. figure:: ./images/dense-union-diagram.svg
    :alt: Diagram is showing the difference between the dense union data type
@@ -318,7 +319,9 @@ array. In this case, the child arrays are each equal in length to the length of 
 Dictionary Encoded Layout
 =========================
 
-.. TODO content
+Dictionary encoding can be effective when you have data with many repeated values.
+The values are represented by integers referencing a dictionary usually consisting of
+unique values.
 
 .. figure:: ./images/dictionary-diagram.svg
    :alt: Diagram is showing the difference between the dictionary data type
@@ -330,7 +333,12 @@ Dictionary Encoded Layout
 Run-End Encoded Layout
 ======================
 
-.. TODO content
+Run-end encoding is well-suited for representing data containing sequences of the
+same value. These sequences are called runs. Run-end encoded array has no buffers
+by itself, but has two child arrays:
+
+*  **Run ends array:** holds the index in the array where each run ends.
+*  **Values array:** the actual values without repetitions.
 
 .. figure:: ./images/ree-diagram.svg
    :alt: Diagram is showing the difference between the run-end encoded data
@@ -338,7 +346,6 @@ Run-End Encoded Layout
          memory.
 
    Physical layout diagram for run-end encoded data type.
-
 
 .. link to All types overview https://github.com/apache/arrow/issues/14752
 
