@@ -21,7 +21,10 @@
 #include <gtest/gtest.h>
 
 #include "arrow/testing/gtest_util.h"
-#include "arrow/util/logging_v2.h"
+#include "arrow/util/logger.h"
+
+// Emit log via the default logger
+#define DO_LOG(LEVEL, ...) ARROW_LOGGER_CALL("", LEVEL, __VA_ARGS__)
 
 namespace arrow {
 namespace util {
@@ -55,25 +58,25 @@ struct OstreamableTracer {
 
 }  // namespace
 
-TEST(LoggingV2Test, Basics) {
+TEST(LoggerTest, Basics) {
   // Basic tests using the default logger
-  ARROW_LOG_V2(ERROR);
-  ARROW_LOG_V2(ERROR, "foo") << "bar";
+  DO_LOG(ERROR);
+  DO_LOG(ERROR, "foo");
   auto to_int = [](ArrowLogLevel lvl) { return static_cast<int>(lvl); };
-  ARROW_LOG_V2(TRACE, "sev: ", to_int(ArrowLogLevel::ARROW_TRACE), ":TRACE");
-  ARROW_LOG_V2(DEBUG, "sev: ", to_int(ArrowLogLevel::ARROW_DEBUG), ":DEBUG");
-  ARROW_LOG_V2(INFO, "sev: ", to_int(ArrowLogLevel::ARROW_INFO), ":INFO");
-  ARROW_LOG_V2(WARNING, "sev: ", to_int(ArrowLogLevel::ARROW_WARNING), ":WARNING");
-  ARROW_LOG_V2(ERROR, "sev: ", to_int(ArrowLogLevel::ARROW_ERROR), ":ERROR");
+  DO_LOG(TRACE, "sev: ", to_int(ArrowLogLevel::ARROW_TRACE), ":TRACE");
+  DO_LOG(DEBUG, "sev: ", to_int(ArrowLogLevel::ARROW_DEBUG), ":DEBUG");
+  DO_LOG(INFO, "sev: ", to_int(ArrowLogLevel::ARROW_INFO), ":INFO");
+  DO_LOG(WARNING, "sev: ", to_int(ArrowLogLevel::ARROW_WARNING), ":WARNING");
+  DO_LOG(ERROR, "sev: ", to_int(ArrowLogLevel::ARROW_ERROR), ":ERROR");
 
   {
     auto logger = std::make_shared<MockLogger>(ArrowLogLevel::ARROW_WARNING);
     OstreamableTracer tracers[5]{};
-    ARROW_LOG_WITH(logger, TRACE, "foo", tracers[0], "bar");
-    ARROW_LOG_WITH(logger, DEBUG, "foo", tracers[1], "bar");
-    ARROW_LOG_WITH(logger, INFO, "foo", tracers[2], "bar");
-    ARROW_LOG_WITH(logger, WARNING, "foo", tracers[3], "bar");
-    ARROW_LOG_WITH(logger, ERROR, "foo", tracers[4], "bar");
+    ARROW_LOGGER_CALL(logger, TRACE, "foo", tracers[0], "bar");
+    ARROW_LOGGER_CALL(logger, DEBUG, "foo", tracers[1], "bar");
+    ARROW_LOGGER_CALL(logger, INFO, "foo", tracers[2], "bar");
+    ARROW_LOGGER_CALL(logger, WARNING, "foo", tracers[3], "bar");
+    ARROW_LOGGER_CALL(logger, ERROR, "foo", tracers[4], "bar");
 
     // If the message severity doesn't meet the logger's minimum severity, the LogMessage
     // stream shouldn't be appended to
@@ -90,13 +93,13 @@ TEST(LoggingV2Test, Basics) {
     OstreamableTracer tracer;
     // If the underlying logger is disabled, the LogMessage stream shouldn't be appended
     // to (regardless of severity)
-    ARROW_LOG_WITH(logger, WARNING, tracer);
-    ARROW_LOG_WITH(logger, ERROR, tracer);
+    ARROW_LOGGER_CALL(logger, WARNING, tracer);
+    ARROW_LOGGER_CALL(logger, ERROR, tracer);
     ASSERT_FALSE(tracer.was_evaluated);
   }
 }
 
-TEST(LoggingV2Test, EmittedMessages) {
+TEST(LoggerTest, EmittedMessages) {
   std::vector<std::string> messages;
   auto callback = [&messages](const LogDetails& details) {
     messages.push_back(std::string(details.message));
@@ -105,7 +108,7 @@ TEST(LoggingV2Test, EmittedMessages) {
   auto logger = std::make_shared<MockLogger>(ArrowLogLevel::ARROW_TRACE);
   logger->callback = callback;
   for (int i = 0; i < 3; ++i) {
-    ARROW_LOG_WITH(logger, TRACE, "i=", i);
+    ARROW_LOGGER_CALL(logger, TRACE, "i=", i);
   }
 
   ASSERT_EQ(messages.size(), 3);
@@ -114,7 +117,7 @@ TEST(LoggingV2Test, EmittedMessages) {
   EXPECT_EQ(messages[2], "i=2");
 }
 
-TEST(LoggingV2Test, Registry) {
+TEST(LoggerTest, Registry) {
   std::string name = "test-logger";
   std::shared_ptr<Logger> logger = std::make_shared<MockLogger>();
 
@@ -130,6 +133,8 @@ TEST(LoggingV2Test, Registry) {
 
   LoggerRegistry::UnregisterLogger(name);
 }
+
+#undef DO_LOG
 
 }  // namespace util
 }  // namespace arrow

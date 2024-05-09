@@ -515,8 +515,8 @@ set(ARROW_UTIL_SRCS
     util/int_util.cc
     util/io_util.cc
     util/list_util.cc
+    util/logger.cc
     util/logging.cc
-    util/logging_v2.cc
     util/key_value_metadata.cc
     util/memory.cc
     util/mutex.cc

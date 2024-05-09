@@ -36,12 +36,12 @@
 #include "arrow/flight/transport/grpc/util_internal.h"
 #include "arrow/flight/transport_server.h"
 #include "arrow/flight/types.h"
+#include "arrow/util/logger.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/logging_v2.h"
 #include "arrow/util/uri.h"
 
 #define ARROW_FLIGHT_LOG(LEVEL, ...) \
-  ARROW_LOG_WITH("FlightGrpcServer", LEVEL, __VA_ARGS__)
+  ARROW_LOGGER_CALL("FlightGrpcServer", LEVEL, __VA_ARGS__)
 
 namespace arrow {
 namespace flight {

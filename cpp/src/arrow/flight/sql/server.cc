@@ -31,10 +31,10 @@
 #include "arrow/flight/sql/sql_info_internal.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/logging_v2.h"
+#include "arrow/util/logger.h"
 
 #define ARROW_FLIGHT_SQL_LOG(LEVEL, ...) \
-  ARROW_LOG_WITH("FlightSqlServer", LEVEL, __VA_ARGS__)
+  ARROW_LOGGER_CALL("FlightSqlServer", LEVEL, __VA_ARGS__)
 
 #define PROPERTY_TO_OPTIONAL(COMMAND, PROPERTY) \
   COMMAND.has_##PROPERTY() ? std::make_optional(COMMAND.PROPERTY()) : std::nullopt

@@ -103,14 +103,6 @@ class ARROW_EXPORT LogMessage {
 
   std::ostream& Stream();
 
-  template <typename T>
-  LogMessage& operator<<(const T& t) {
-    if (CheckIsEnabled()) {
-      Stream() << t;
-    }
-    return *this;
-  }
-
   // Convenience method - mainly for use in ARROW_LOG_* macros. This prevents unnecessary
   // argument evaluation when log statements are stripped in certain builds
   template <typename... Args>
@@ -139,65 +131,56 @@ class ARROW_EXPORT LogMessage {
 #define ARROW_MINIMUM_LOG_LEVEL -1000
 #endif
 
-#define ARROW_LOG_WITH_INTERNAL(LOGGER, LEVEL)                                    \
+#define ARROW_LOGGER_INTERNAL(LOGGER, LEVEL)                                      \
   (::arrow::util::LogMessage(::arrow::util::ArrowLogLevel::ARROW_##LEVEL, LOGGER, \
                              ::arrow::util::SourceLocation{__FILE__, __LINE__}))
 
 static_assert(static_cast<int>(::arrow::util::ArrowLogLevel::ARROW_TRACE) == -2);
 #if ARROW_MINIMUM_LOG_LEVEL <= -2
-#define ARROW_LOG_TRACE_WITH(LOGGER, ...) \
-  (ARROW_LOG_WITH_INTERNAL(LOGGER, TRACE).Append(__VA_ARGS__))
+#define ARROW_LOGGER_TRACE(LOGGER, ...) \
+  (ARROW_LOGGER_INTERNAL(LOGGER, TRACE).Append(__VA_ARGS__))
 #else
-#define ARROW_LOG_TRACE_WITH(...) (::arrow::util::detail::NullLog{})
+#define ARROW_LOGGER_TRACE(...) ARROW_UNUSED(0)
 #endif
 
 static_assert(static_cast<int>(::arrow::util::ArrowLogLevel::ARROW_DEBUG) == -1);
 #if ARROW_MINIMUM_LOG_LEVEL <= -1
-#define ARROW_LOG_DEBUG_WITH(LOGGER, ...) \
-  (ARROW_LOG_WITH_INTERNAL(LOGGER, DEBUG).Append(__VA_ARGS__))
+#define ARROW_LOGGER_DEBUG(LOGGER, ...) \
+  (ARROW_LOGGER_INTERNAL(LOGGER, DEBUG).Append(__VA_ARGS__))
 #else
-#define ARROW_LOG_DEBUG_WITH(...) (::arrow::util::detail::NullLog{})
+#define ARROW_LOGGER_DEBUG(...) ARROW_UNUSED(0)
 #endif
 
 static_assert(static_cast<int>(::arrow::util::ArrowLogLevel::ARROW_INFO) == 0);
 #if ARROW_MINIMUM_LOG_LEVEL <= 0
-#define ARROW_LOG_INFO_WITH(LOGGER, ...) \
-  (ARROW_LOG_WITH_INTERNAL(LOGGER, INFO).Append(__VA_ARGS__))
+#define ARROW_LOGGER_INFO(LOGGER, ...) \
+  (ARROW_LOGGER_INTERNAL(LOGGER, INFO).Append(__VA_ARGS__))
 #else
-#define ARROW_LOG_INFO_WITH(...) (::arrow::util::detail::NullLog{})
+#define ARROW_LOGGER_INFO(...) ARROW_UNUSED(0)
 #endif
 
 static_assert(static_cast<int>(::arrow::util::ArrowLogLevel::ARROW_WARNING) == 1);
 #if ARROW_MINIMUM_LOG_LEVEL <= 1
-#define ARROW_LOG_WARNING_WITH(LOGGER, ...) \
-  (ARROW_LOG_WITH_INTERNAL(LOGGER, WARNING).Append(__VA_ARGS__))
+#define ARROW_LOGGER_WARNING(LOGGER, ...) \
+  (ARROW_LOGGER_INTERNAL(LOGGER, WARNING).Append(__VA_ARGS__))
 #else
-#define ARROW_LOG_WARNING_WITH (::arrow::util::detail::NullLog{})
+#define ARROW_LOGGER_WARNING(...) ARROW_UNUSED(0)
 #endif
 
 static_assert(static_cast<int>(::arrow::util::ArrowLogLevel::ARROW_ERROR) == 2);
 #if ARROW_MINIMUM_LOG_LEVEL <= 2
-#define ARROW_LOG_ERROR_WITH(LOGGER, ...) \
-  (ARROW_LOG_WITH_INTERNAL(LOGGER, ERROR).Append(__VA_ARGS__))
+#define ARROW_LOGGER_ERROR(LOGGER, ...) \
+  (ARROW_LOGGER_INTERNAL(LOGGER, ERROR).Append(__VA_ARGS__))
 #else
-#define ARROW_LOG_ERROR_WITH(...) (::arrow::util::detail::NullLog{})
+#define ARROW_LOGGER_ERROR(...) ARROW_UNUSED(0)
 #endif
 
 static_assert(static_cast<int>(::arrow::util::ArrowLogLevel::ARROW_FATAL) == 3);
 #if ARROW_MINIMUM_LOG_LEVEL <= 3
-#define ARROW_LOG_FATAL_WITH(LOGGER, ...) \
-  (ARROW_LOG_WITH_INTERNAL(LOGGER, FATAL).Append(__VA_ARGS__))
+#define ARROW_LOGGER_FATAL(LOGGER, ...) \
+  (ARROW_LOGGER_INTERNAL(LOGGER, FATAL).Append(__VA_ARGS__))
 #else
-#define ARROW_LOG_FATAL_WITH(...) (::arrow::util::detail::NullLog{})
+#define ARROW_LOGGER_FATAL(...) ARROW_UNUSED(0)
 #endif
 
-#define ARROW_LOG_WITH(LOGGER, LEVEL, ...) ARROW_LOG_##LEVEL##_WITH(LOGGER, __VA_ARGS__)
-
-#define ARROW_LOG_TRACE(...) ARROW_LOG_TRACE_WITH("", __VA_ARGS__)
-#define ARROW_LOG_DEBUG(...) ARROW_LOG_DEBUG_WITH("", __VA_ARGS__)
-#define ARROW_LOG_INFO(...) ARROW_LOG_INFO_WITH("", __VA_ARGS__)
-#define ARROW_LOG_WARNING(...) ARROW_LOG_WARNING_WITH("", __VA_ARGS__)
-#define ARROW_LOG_ERROR(...) ARROW_LOG_ERROR_WITH("", __VA_ARGS__)
-#define ARROW_LOG_FATAL(...) ARROW_LOG_FATAL_WITH("", __VA_ARGS__)
-
-#define ARROW_LOG_V2(LEVEL, ...) ARROW_LOG_WITH("", LEVEL, __VA_ARGS__)
+#define ARROW_LOGGER_CALL(LOGGER, LEVEL, ...) ARROW_LOGGER_##LEVEL(LOGGER, __VA_ARGS__)

@@ -20,7 +20,7 @@
 #include <sstream>
 #include <unordered_map>
 
-#include "arrow/util/logging_v2.h"
+#include "arrow/util/logger.h"
 
 namespace arrow {
 namespace util {
