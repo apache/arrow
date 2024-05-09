@@ -36,20 +36,20 @@ require (
 	github.com/zeebo/xxh3 v1.0.2
 	golang.org/x/exp v0.0.0-20240222234643-814bf88cf225
 	golang.org/x/sync v0.7.0
-	golang.org/x/sys v0.19.0
+	golang.org/x/sys v0.20.0
 	golang.org/x/tools v0.20.0
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028
 	gonum.org/v1/gonum v0.15.0
 	google.golang.org/grpc v1.63.2
-	google.golang.org/protobuf v1.33.0
+	google.golang.org/protobuf v1.34.1
 	modernc.org/sqlite v1.29.6
 )
 
 require (
 	github.com/golang/protobuf v1.5.4
 	github.com/google/uuid v1.6.0
-	github.com/hamba/avro/v2 v2.20.1
 	github.com/huandu/xstrings v1.4.0
+	github.com/hamba/avro/v2 v2.21.1
 	github.com/substrait-io/substrait-go v0.4.2
 	github.com/tidwall/sjson v1.2.5
 )

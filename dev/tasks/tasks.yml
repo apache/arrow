@@ -65,7 +65,7 @@ groups:
     - r-binary-packages
     - ubuntu-*
     - wheel-*
-    - test-ubuntu-*-docs
+    - test-debian-*-docs
 
 {############################# Testing tasks #################################}
 
@@ -409,7 +409,7 @@ tasks:
       arrow_jemalloc: "ON"
       python_version: "{{ python_version }}"
       macos_deployment_target: "{{ macos_version }}"
-      runs_on: "macos-latest"
+      runs_on: "macos-13"
       vcpkg_arch: "amd64"
     artifacts:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-{{ platform_tag }}.whl
@@ -1458,15 +1458,15 @@ tasks:
   {% endfor %}
 
   # be sure to update binary-task.rb when upgrading ubuntu
-  test-ubuntu-22.04-docs:
+  test-debian-12-docs:
     ci: github
     template: docs/github.linux.yml
     params:
       env:
-        UBUNTU: 22.04
+        JDK: 17
       pr_number: Unset
       flags: "-v $PWD/build/:/build/"
-      image: ubuntu-docs
+      image: debian-docs
       publish: false
     artifacts:
       - docs.tar.gz
@@ -1594,8 +1594,8 @@ tasks:
     template: docs/github.linux.yml
     params:
       env:
-        UBUNTU: 22.04
+        JDK: 17
       pr_number: Unset
       flags: "-v $PWD/build/:/build/"
-      image: ubuntu-docs
+      image: debian-docs
       publish: true

@@ -125,6 +125,7 @@ extensions = [
     'sphinx.ext.intersphinx',
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
+    'sphinxcontrib.mermaid',
 ]
 
 # Show members for classes in .. autosummary
@@ -137,7 +138,9 @@ autodoc_default_options = {
 }
 
 # Breathe configuration
-breathe_projects = {"arrow_cpp": "../../cpp/apidoc/xml"}
+breathe_projects = {
+    "arrow_cpp": os.environ.get("ARROW_CPP_DOXYGEN_XML", "../../cpp/apidoc/xml"),
+}
 breathe_default_project = "arrow_cpp"
 
 # Overridden conditionally below
@@ -584,6 +587,9 @@ texinfo_documents = [
 #
 # texinfo_no_detailmenu = False
 
+# -- Options for mermaid output -------------------------------------------
+
+mermaid_output_format = 'svg'
 
 def setup(app):
     # Use a config value to indicate whether CUDA API docs can be generated.

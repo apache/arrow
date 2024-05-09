@@ -145,11 +145,10 @@ test_that("startsWith behaves identically in dplyr and Arrow", {
   df <- tibble(x = c("Foo", "bar", "baz", "qux"))
   compare_dplyr_binding(
     .input %>%
-        filter(startsWith(x, "b")) %>%
-        collect(),
+      filter(startsWith(x, "b")) %>%
+      collect(),
     df
   )
-
 })
 ```
 
@@ -197,7 +196,7 @@ As `startsWith()` requires options, direct mapping is not appropriate.
 If the function cannot be mapped directly, some extra work may be needed to 
 ensure that calling the arrow version of the function results in the same result
 as calling the R version of the function.  In this case, the function will need 
-adding to the `nse_funcs` function registry. Here is how this might look for 
+adding to the `.cache$functions` function registry. Here is how this might look for 
 `startsWith()`:
 
 ```{r, eval = FALSE}
