@@ -86,7 +86,7 @@ func (pfr *ProtobufFieldReflection) reflectValue() reflect.Value {
 	return pfr.rValue
 }
 
-func (pfr *ProtobufFieldReflection) getDescriptor() protoreflect.FieldDescriptor {
+func (pfr *ProtobufFieldReflection) GetDescriptor() protoreflect.FieldDescriptor {
 	return pfr.descriptor
 }
 
@@ -545,7 +545,7 @@ type protobufReflection interface {
 	arrowType() arrow.Type
 	protoreflectValue() protoreflect.Value
 	reflectValue() reflect.Value
-	getDescriptor() protoreflect.FieldDescriptor
+	GetDescriptor() protoreflect.FieldDescriptor
 	isNull() bool
 	asDictionary() protobufDictReflection
 	asList() protobufListReflection
@@ -673,7 +673,7 @@ func WithOneOfHandler(oneOfHandler OneOfHandler) option {
 // AppendValueOrNull add the value of a protobuf field to an arrow array builder
 func (f ProtobufMessageFieldReflection) AppendValueOrNull(b array.Builder, mem memory.Allocator) error {
 	pv := f.protoreflectValue()
-	fd := f.getDescriptor()
+	fd := f.GetDescriptor()
 
 	if f.isNull() {
 		b.AppendNull()
