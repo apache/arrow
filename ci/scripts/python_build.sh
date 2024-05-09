@@ -78,17 +78,42 @@ export PYARROW_PARALLEL=${n_jobs}
 export CMAKE_PREFIX_PATH
 export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
 
-pushd ${source_dir}
+# https://github.com/apache/arrow/issues/41429
+# TODO: We want to out-of-source build. This is a workaround. We copy
+# all needed files to the build directory from the source directory
+# and build in the build directory.
+rm -rf ${python_build_dir}
+cp -aL ${source_dir} ${python_build_dir}
+pushd ${python_build_dir}
 # - Cannot call setup.py as it may install in the wrong directory
 #   on Debian/Ubuntu (ARROW-15243).
 # - Cannot use build isolation as we want to use specific dependency versions
 #   (e.g. Numpy, Pandas) on some CI jobs.
 ${PYTHON:-python} -m pip install --no-deps --no-build-isolation -vv .
-# Remove build artifacts from source directory
-find build/ -user root -delete
 popd
 
 if [ "${BUILD_DOCS_PYTHON}" == "ON" ]; then
+  # https://github.com/apache/arrow/issues/41429
+  # TODO: We want to out-of-source build. This is a workaround.
+  #
+  # Copy docs/source because the "autosummary_generate = True"
+  # configuration generates files to docs/source/python/generated/.
+  rm -rf ${python_build_dir}/docs/source
+  mkdir -p ${python_build_dir}/docs
+  cp -a ${arrow_dir}/docs/source ${python_build_dir}/docs/
+  rm -rf ${python_build_dir}/format
+  cp -a ${arrow_dir}/format ${python_build_dir}/
+  rm -rf ${python_build_dir}/cpp/examples
+  mkdir -p ${python_build_dir}/cpp
+  cp -a ${arrow_dir}/cpp/examples ${python_build_dir}/cpp/
+  rm -rf ${python_build_dir}/ci
+  cp -a ${arrow_dir}/ci/ ${python_build_dir}/
   ncpus=$(python -c "import os; print(os.cpu_count())")
-  sphinx-build -b html -j ${ncpus} ${arrow_dir}/docs/source ${build_dir}/docs
+  export ARROW_CPP_DOXYGEN_XML=${build_dir}/cpp/apidoc/xml
+  pushd ${build_dir}
+  sphinx-build \
+    -b html \
+    ${python_build_dir}/docs/source \
+    ${build_dir}/docs
+  popd
 fi

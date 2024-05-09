@@ -25,7 +25,16 @@ build_dir=${2}
 
 : ${BUILD_DOCS_JS:=OFF}
 
-pushd ${source_dir}
+# https://github.com/apache/arrow/issues/41429
+# TODO: We want to out-of-source build. This is a workaround. We copy
+# all needed files to the build directory from the source directory
+# and build in the build directory.
+rm -rf ${build_dir}/js
+mkdir -p ${build_dir}
+cp -aL ${arrow_dir}/LICENSE.txt ${build_dir}/
+cp -aL ${arrow_dir}/NOTICE.txt ${build_dir}/
+cp -aL ${source_dir} ${build_dir}/js
+pushd ${build_dir}/js
 
 yarn --immutable
 yarn lint:ci
@@ -34,18 +43,18 @@ yarn build
 if [ "${BUILD_DOCS_JS}" == "ON" ]; then
   # If apache or upstream are defined use those as remote.
   # Otherwise use origin which could be a fork on PRs.
-  if [ "$(git config --get remote.apache.url)" == "git@github.com:apache/arrow.git" ]; then
+  if [ "$(git -C ${arrow_dir} config --get remote.apache.url)" == "git@github.com:apache/arrow.git" ]; then
     yarn doc --gitRemote apache
-  elif [[ "$(git config --get remote.upstream.url)" =~ "https://github.com/apache/arrow" ]]; then
+  elif [[ "$(git -C ${arrow_dir}config --get remote.upstream.url)" =~ "https://github.com/apache/arrow" ]]; then
     yarn doc --gitRemote upstream
-  elif [[ "$(basename -s .git $(git config --get remote.origin.url))" == "arrow" ]]; then
+  elif [[ "$(basename -s .git $(git -C ${arrow_dir} config --get remote.origin.url))" == "arrow" ]]; then
     yarn doc
   else
     echo "Failed to build docs because the remote is not set correctly. Please set the origin or upstream remote to https://github.com/apache/arrow.git or the apache remote to git@github.com:apache/arrow.git."
     exit 0
   fi
   mkdir -p ${build_dir}/docs/js
-  rsync -a ${arrow_dir}/js/doc/ ${build_dir}/docs/js
+  rsync -a doc/ ${build_dir}/docs/js
 fi
 
 popd
