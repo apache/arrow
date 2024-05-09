@@ -22,19 +22,39 @@ Specifications
 
 .. toctree::
    :maxdepth: 2
+   :caption: Arrow Columnar Format
+   :hidden:
 
    FormatIntro
-   Versioning
    Columnar
+   Versioning
+   Changing
    CanonicalExtensions
    Other
+
+.. toctree::
+   :maxdepth: 2
+   :caption: C definitions
+   :hidden:
+
    CDataInterface
    CStreamInterface
    CDeviceDataInterface
    DissociatedIPC
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Flight and ADBC
+   :hidden:
+
    Flight
    FlightSql
    ADBC
-   Changing
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Other
+   :hidden:
+
    Integration
    Glossary
