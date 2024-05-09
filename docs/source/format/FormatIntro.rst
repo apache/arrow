@@ -263,10 +263,8 @@ Union
 
 The union is a nested type where each slot in the union has a value with a type chosen
 from a subset of possible Arrow data types. That means that a union array represents a
-mixed-type array.
-
-Unlike other data types, unions do not have their own validity bitmap and the nullness
-is determined by the child arrays.
+mixed-type array. Unlike other data types, unions do not have their own validity bitmap
+and the nullness is determined by the child arrays.
 
 Arrow defines two distinct union types, “dense” and “sparse”.
 
@@ -432,7 +430,7 @@ different libraries within the same process (i.e. actually share the same buffer
 The Arrow C Data Interface defines a set of small C structures
 
 .. code-block::
-      
+
    struct ArrowSchema {
    const char* format;
    const char* name;
