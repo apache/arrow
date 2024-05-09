@@ -20,6 +20,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/apache/arrow/go/v17/arrow/array"
 	"github.com/apache/arrow/go/v17/arrow/memory"
 	"github.com/apache/arrow/go/v17/arrow/util/util_message"
@@ -242,4 +245,26 @@ func TestRecordFromProtobuf(t *testing.T) {
 
 	require.NoError(t, err)
 	require.True(t, array.RecordEqual(got, want), "got: %s\nwant: %s", got, want)
+}
+
+type testProtobufReflection struct {
+	protobufFieldReflection
+}
+
+func (tpr testProtobufReflection) isNull() bool {
+	return false
+}
+
+func TestAppendValueOrNull(t *testing.T) {
+	unsupportedField := arrow.Field{Name: "Test", Type: arrow.FixedWidthTypes.Time32s}
+	schema := arrow.NewSchema([]arrow.Field{unsupportedField}, nil)
+	mem := memory.NewGoAllocator()
+	recordBuilder := array.NewRecordBuilder(mem, schema)
+	pmfr := ProtobufMessageFieldReflection{
+		protobufReflection: &testProtobufReflection{},
+		Field:              arrow.Field{Name: "Test", Type: arrow.FixedWidthTypes.Time32s},
+	}
+	got := pmfr.AppendValueOrNull(recordBuilder.Field(0), mem)
+	want := "Not able to appendValueOrNull for type TIME32"
+	assert.EqualErrorf(t, got, want, "Error is: %v, want: %v", got, want)
 }

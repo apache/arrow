@@ -706,11 +706,14 @@ func (f ProtobufMessageFieldReflection) AppendValueOrNull(b array.Builder, mem m
 		}
 		ub.Append(pur.whichOne())
 		cb := ub.Child(int(pur.whichOne()))
-		ProtobufMessageFieldReflection{
+		err := ProtobufMessageFieldReflection{
 			parent:             f.parent,
 			protobufReflection: pur.getField(),
 			Field:              pur.arrowField(),
 		}.AppendValueOrNull(cb, mem)
+		if err != nil {
+			return err
+		}
 	case arrow.DICTIONARY:
 		db := b.(array.DictionaryBuilder)
 		err := db.AppendValueFromString(string(fd.Enum().Values().ByNumber(pv.Enum()).Name()))
@@ -726,7 +729,10 @@ func (f ProtobufMessageFieldReflection) AppendValueOrNull(b array.Builder, mem m
 		for i, field := range f.Field.Type.(*arrow.StructType).Fields() {
 			child.protobufReflection = f.asStruct().getFieldByName(field.Name)
 			child.Field = field
-			child.AppendValueOrNull(sb.FieldBuilder(i), mem)
+			err := child.AppendValueOrNull(sb.FieldBuilder(i), mem)
+			if err != nil {
+				return err
+			}
 		}
 	case arrow.LIST:
 		lb := b.(*array.ListBuilder)
@@ -743,7 +749,10 @@ func (f ProtobufMessageFieldReflection) AppendValueOrNull(b array.Builder, mem m
 		}
 		for li := range f.asList().generateListItems() {
 			child.protobufReflection = &li
-			child.AppendValueOrNull(lb.ValueBuilder(), mem)
+			err := child.AppendValueOrNull(lb.ValueBuilder(), mem)
+			if err != nil {
+				return err
+			}
 		}
 	case arrow.MAP:
 		mb := b.(*array.MapBuilder)
@@ -765,12 +774,18 @@ func (f ProtobufMessageFieldReflection) AppendValueOrNull(b array.Builder, mem m
 		}
 		for kvp := range f.asMap().generateKeyValuePairs() {
 			k.protobufReflection = &kvp.k
-			k.AppendValueOrNull(mb.KeyBuilder(), mem)
+			err := k.AppendValueOrNull(mb.KeyBuilder(), mem)
+			if err != nil {
+				return err
+			}
 			v.protobufReflection = &kvp.v
-			v.AppendValueOrNull(mb.ItemBuilder(), mem)
+			err = v.AppendValueOrNull(mb.ItemBuilder(), mem)
+			if err != nil {
+				return err
+			}
 		}
 	default:
-		return errors.New(fmt.Sprintf("Not able to appendValueOrNull for type \"%s\"", b.Type().ID()))
+		return errors.New(fmt.Sprintf("Not able to appendValueOrNull for type %s", b.Type().ID()))
 	}
 	return nil
 }
