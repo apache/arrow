@@ -999,6 +999,8 @@ class AsofJoinNode : public ExecNode {
     }
   }
 
+#ifdef ARROW_ENABLE_THREADING
+
   template <typename Callable>
   struct Defer {
     Callable callable;
@@ -1085,6 +1087,7 @@ class AsofJoinNode : public ExecNode {
   }
 
   static void ProcessThreadWrapper(AsofJoinNode* node) { node->ProcessThread(); }
+#endif
 
  public:
   AsofJoinNode(ExecPlan* plan, NodeVector inputs, std::vector<std::string> input_labels,
@@ -1116,8 +1119,8 @@ class AsofJoinNode : public ExecNode {
   }
 
   virtual ~AsofJoinNode() {
-    process_.Push(false);  // poison pill
 #ifdef ARROW_ENABLE_THREADING
+    PushProcess(false);
     process_thread_.join();
 #endif
   }
@@ -1397,13 +1400,7 @@ class AsofJoinNode : public ExecNode {
                rb->ToString(), DEBUG_MANIP(std::endl));
 
     ARROW_RETURN_NOT_OK(state_.at(k)->Push(rb));
-    process_.Push(true);
-
-#ifndef ARROW_ENABLE_THREADING
-    // if we can't have a worker thread then
-    // process some data now
-    ProcessNonThreaded();
-#endif
+    PushProcess(true);
 
     return Status::OK();
   }
@@ -1419,15 +1416,18 @@ class AsofJoinNode : public ExecNode {
     // The reason for this is that there are cases at the end of a table where we don't
     // know whether the RHS of the join is up-to-date until we know that the table is
     // finished.
-    process_.Push(true);
-
-#ifndef ARROW_ENABLE_THREADING
-    // if we can't have a worker thread then
-    // process any data left now
-    ProcessNonThreaded();
-#endif
+    PushProcess(true);
 
     return Status::OK();
+  }
+  void PushProcess(bool value) {
+#ifdef ARROW_ENABLE_THREADING
+    process_.Push(value);
+#else
+    if (value) {
+      ProcessNonThreaded();
+    }
+#endif
   }
 
 #ifndef ARROW_ENABLE_THREADING
@@ -1492,8 +1492,10 @@ class AsofJoinNode : public ExecNode {
   void ResumeProducing(ExecNode* output, int32_t counter) override {}
 
   Status StopProducingImpl() override {
+#ifdef ARROW_ENABLE_THREADING
     process_.Clear();
-    process_.Push(false);
+#endif
+    PushProcess(false);
     return Status::OK();
   }
 
@@ -1523,11 +1525,13 @@ class AsofJoinNode : public ExecNode {
 
   // Backpressure counter common to all inputs
   std::atomic<int32_t> backpressure_counter_;
-  // Queue for triggering processing of a given input
-  // (a false value is a poison pill)
+// Queue for triggering processing of a given input
+// (a false value is a poison pill)
+#ifdef ARROW_ENABLE_THREADING
   ConcurrentQueue<bool> process_;
   // Worker thread
   std::thread process_thread_;
+#endif
   Future<> process_task_;
 
   // In-progress batches produced
@@ -1555,9 +1559,13 @@ AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
       debug_os_(join_options.debug_opts ? join_options.debug_opts->os : nullptr),
       debug_mutex_(join_options.debug_opts ? join_options.debug_opts->mutex : nullptr),
 #endif
-      backpressure_counter_(1),
+#ifdef ARROW_ENABLE_THREADING
       process_(),
-      process_thread_() {
+      process_thread_(),
+#endif
+      backpressure_counter_(1)
+
+{
   for (auto& key_hasher : key_hashers_) {
     key_hasher->node_ = this;
   }
