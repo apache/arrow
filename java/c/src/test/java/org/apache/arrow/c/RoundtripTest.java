@@ -525,6 +525,38 @@ public class RoundtripTest {
   }
 
   @Test
+  public void testEmptyVarCharVector() {
+    try (final VarCharVector vector = new VarCharVector("v", allocator)) {
+      setVector(vector);
+      assertTrue(roundtrip(vector, VarCharVector.class));
+    }
+  }
+
+  @Test
+  public void testEmptyLargeVarCharVector() {
+    try (final LargeVarCharVector vector = new LargeVarCharVector("v", allocator)) {
+      setVector(vector);
+      assertTrue(roundtrip(vector, LargeVarCharVector.class));
+    }
+  }
+
+  @Test
+  public void testEmptyVarBinaryVector() {
+    try (final VarBinaryVector vector = new VarBinaryVector("v", allocator)) {
+      setVector(vector);
+      assertTrue(roundtrip(vector, VarBinaryVector.class));
+    }
+  }
+
+  @Test
+  public void testEmptyLargeVarBinaryVector() {
+    try (final LargeVarBinaryVector vector = new LargeVarBinaryVector("v", allocator)) {
+      setVector(vector);
+      assertTrue(roundtrip(vector, LargeVarBinaryVector.class));
+    }
+  }
+
+  @Test
   public void testLargeVarBinaryVector() {
     try (final LargeVarBinaryVector vector = new LargeVarBinaryVector("", allocator)) {
       vector.allocateNew(5, 1);
