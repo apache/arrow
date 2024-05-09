@@ -1679,7 +1679,6 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       *values_seen = 0;
       return 0;
     }
-    int64_t values_to_read = 0;
     int64_t records_read = 0;
     const int16_t* const rep_levels = this->rep_levels();
     const int16_t* const def_levels = this->def_levels();
@@ -1688,9 +1687,9 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     // for the second time, such as after repeated calls to
     // DelimitRecords. In this case we must continue until we find
     // another record start or exhausting the ColumnChunk
+    int64_t level = levels_position_;
     if (at_record_start_) {
       ARROW_DCHECK_EQ(0, rep_levels[levels_position_]);
-      values_to_read += def_levels[levels_position_] == this->max_def_level_;
       ++levels_position_;
       // We have decided to consume the level at this position; therefore we
       // must advance until we find another record boundary
@@ -1699,28 +1698,29 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
 
     // Count logical records and number of non-null values to read
     ARROW_DCHECK(!at_record_start_);
+    // Scan repetition levels to find record end
     while (levels_position_ < levels_written_) {
       int64_t stride =
           std::min(levels_written_ - levels_position_, num_records - records_read);
       const int64_t position_end = levels_position_ + stride;
       for (int64_t i = levels_position_; i < position_end; ++i) {
         records_read += rep_levels[i] == 0;
-        values_to_read += def_levels[i] == this->max_def_level_;
       }
       levels_position_ = position_end;
       if (records_read == num_records) {
-        // Last rep_level reaches the boundary
+        // Check last rep_level reaches the boundary and
+        // pop the last level.
         ARROW_CHECK_EQ(rep_levels[levels_position_ - 1], 0);
+        --levels_position_;
         // We've found the number of records we were looking for. Set
         // at_record_start_ to true and break
         at_record_start_ = true;
-        // Remove last value if we have reaches the end of the record
-        levels_position_ = levels_position_ - 1;
-        values_to_read -= def_levels[levels_position_] == this->max_def_level_;
         break;
       }
     }
-    *values_seen = values_to_read;
+    // Scan definition levels to find number of physical values
+    *values_seen = std::count(def_levels + level, def_levels + levels_position_,
+                              this->max_def_level_);
     return records_read;
   }
 
