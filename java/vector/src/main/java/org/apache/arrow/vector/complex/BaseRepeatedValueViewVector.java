@@ -326,12 +326,19 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
     vector.setValueCount(childValueCount);
   }
 
-  private int getLengthOfChildVector() {
-    int length = 0;
-    for (int i = 0; i <= valueCount; i++) {
-      length += sizeBuffer.getInt(i * SIZE_WIDTH);
+  protected int getLengthOfChildVector() {
+    int maxOffsetSizeSum = offsetBuffer.getInt(0) + sizeBuffer.getInt(0);
+    int minOffset = offsetBuffer.getInt(0);
+    for (int i = 0; i < valueCount; i++) {
+      int currentOffset = offsetBuffer.getInt(i * OFFSET_WIDTH);
+      int currentSize = sizeBuffer.getInt(i * SIZE_WIDTH);
+      int currentSum = currentOffset + currentSize;
+
+      maxOffsetSizeSum = Math.max(maxOffsetSizeSum, currentSum);
+      minOffset = Math.min(minOffset, currentOffset);
     }
-    return length;
+
+    return maxOffsetSizeSum - minOffset;
   }
 
   /**

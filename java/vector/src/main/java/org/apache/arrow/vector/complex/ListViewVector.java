@@ -747,14 +747,6 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     return offsetBuffer.getInt(index * OFFSET_WIDTH);
   }
 
-  private int getLengthOfChildVector() {
-    int length = 0;
-    for (int i = 0; i < valueCount; i++) {
-      length += sizeBuffer.getInt(i * SIZE_WIDTH);
-    }
-    return length;
-  }
-
   /**
    * Set the offset at the given index.
    * Make sure to use this function after using `setValidity`
