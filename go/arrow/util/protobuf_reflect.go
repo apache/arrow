@@ -41,13 +41,13 @@ const (
 )
 
 type schemaOptions struct {
-	exclusionPolicy    func(pfr *protobufFieldReflection) bool
+	exclusionPolicy    func(pfr *ProtobufFieldReflection) bool
 	fieldNameFormatter func(str string) string
 	oneOfHandler       OneOfHandler
 }
 
-// protobufFieldReflection represents the metadata and values of a protobuf field
-type protobufFieldReflection struct {
+// ProtobufFieldReflection represents the metadata and values of a protobuf field
+type ProtobufFieldReflection struct {
 	parent     *ProtobufMessageReflection
 	descriptor protoreflect.FieldDescriptor
 	prValue    protoreflect.Value
@@ -56,7 +56,7 @@ type protobufFieldReflection struct {
 	arrow.Field
 }
 
-func (pfr *protobufFieldReflection) isNull() bool {
+func (pfr *ProtobufFieldReflection) isNull() bool {
 	for pfr.rValue.Kind() == reflect.Ptr {
 		if pfr.rValue.IsNil() {
 			return true
@@ -70,7 +70,7 @@ func (pfr *protobufFieldReflection) isNull() bool {
 	return false
 }
 
-func (pfr *protobufFieldReflection) arrowField() arrow.Field {
+func (pfr *ProtobufFieldReflection) arrowField() arrow.Field {
 	return arrow.Field{
 		Name:     pfr.name(),
 		Type:     pfr.getDataType(),
@@ -78,26 +78,26 @@ func (pfr *protobufFieldReflection) arrowField() arrow.Field {
 	}
 }
 
-func (pfr *protobufFieldReflection) protoreflectValue() protoreflect.Value {
+func (pfr *ProtobufFieldReflection) protoreflectValue() protoreflect.Value {
 	return pfr.prValue
 }
 
-func (pfr *protobufFieldReflection) reflectValue() reflect.Value {
+func (pfr *ProtobufFieldReflection) reflectValue() reflect.Value {
 	return pfr.rValue
 }
 
-func (pfr *protobufFieldReflection) getDescriptor() protoreflect.FieldDescriptor {
+func (pfr *ProtobufFieldReflection) getDescriptor() protoreflect.FieldDescriptor {
 	return pfr.descriptor
 }
 
-func (pfr *protobufFieldReflection) name() string {
+func (pfr *ProtobufFieldReflection) name() string {
 	if pfr.isOneOf() && pfr.schemaOptions.oneOfHandler != Null {
 		return pfr.fieldNameFormatter(string(pfr.descriptor.ContainingOneof().Name()))
 	}
 	return pfr.fieldNameFormatter(string(pfr.descriptor.Name()))
 }
 
-func (pfr *protobufFieldReflection) arrowType() arrow.Type {
+func (pfr *ProtobufFieldReflection) arrowType() arrow.Type {
 	if pfr.isOneOf() && pfr.schemaOptions.oneOfHandler == DenseUnion {
 		return arrow.DENSE_UNION
 	}
@@ -116,23 +116,23 @@ func (pfr *protobufFieldReflection) arrowType() arrow.Type {
 	return arrow.NULL
 }
 
-func (pfr *protobufFieldReflection) isOneOf() bool {
+func (pfr *ProtobufFieldReflection) isOneOf() bool {
 	return pfr.descriptor.ContainingOneof() != nil
 }
 
-func (pfr *protobufFieldReflection) isEnum() bool {
+func (pfr *ProtobufFieldReflection) isEnum() bool {
 	return pfr.descriptor.Kind() == protoreflect.EnumKind
 }
 
-func (pfr *protobufFieldReflection) isStruct() bool {
+func (pfr *ProtobufFieldReflection) isStruct() bool {
 	return pfr.descriptor.Kind() == protoreflect.MessageKind && !pfr.descriptor.IsMap() && pfr.rValue.Kind() != reflect.Slice
 }
 
-func (pfr *protobufFieldReflection) isMap() bool {
+func (pfr *ProtobufFieldReflection) isMap() bool {
 	return pfr.descriptor.Kind() == protoreflect.MessageKind && pfr.descriptor.IsMap()
 }
 
-func (pfr *protobufFieldReflection) isList() bool {
+func (pfr *ProtobufFieldReflection) isList() bool {
 	return pfr.descriptor.IsList() && pfr.rValue.Kind() == reflect.Slice
 }
 
@@ -184,10 +184,10 @@ func (psr ProtobufMessageReflection) getArrowFields() []arrow.Field {
 }
 
 type protobufListReflection struct {
-	protobufFieldReflection
+	ProtobufFieldReflection
 }
 
-func (pfr *protobufFieldReflection) asList() protobufListReflection {
+func (pfr *ProtobufFieldReflection) asList() protobufListReflection {
 	return protobufListReflection{*pfr}
 }
 
@@ -195,7 +195,7 @@ func (plr protobufListReflection) getDataType() arrow.DataType {
 	for li := range plr.generateListItems() {
 		return arrow.ListOf(li.getDataType())
 	}
-	pfr := protobufFieldReflection{
+	pfr := ProtobufFieldReflection{
 		descriptor:    plr.descriptor,
 		schemaOptions: plr.schemaOptions,
 	}
@@ -203,10 +203,10 @@ func (plr protobufListReflection) getDataType() arrow.DataType {
 }
 
 type protobufUnionReflection struct {
-	protobufFieldReflection
+	ProtobufFieldReflection
 }
 
-func (pfr *protobufFieldReflection) asUnion() protobufUnionReflection {
+func (pfr *ProtobufFieldReflection) asUnion() protobufUnionReflection {
 	return protobufUnionReflection{*pfr}
 }
 
@@ -229,7 +229,7 @@ func (pur protobufUnionReflection) whichOne() arrow.UnionTypeCode {
 	return -1
 }
 
-func (pur protobufUnionReflection) getField() *protobufFieldReflection {
+func (pur protobufUnionReflection) getField() *ProtobufFieldReflection {
 	fds := pur.descriptor.ContainingOneof().Fields()
 	for i := 0; i < fds.Len(); i++ {
 		pfr := pur.parent.getFieldByName(string(fds.Get(i).Name()))
@@ -253,8 +253,8 @@ func (pur protobufUnionReflection) getUnionTypeCode(n int32) arrow.UnionTypeCode
 	return -1
 }
 
-func (pur protobufUnionReflection) generateUnionFields() chan *protobufFieldReflection {
-	out := make(chan *protobufFieldReflection)
+func (pur protobufUnionReflection) generateUnionFields() chan *ProtobufFieldReflection {
+	out := make(chan *ProtobufFieldReflection)
 	go func() {
 		defer close(out)
 		fds := pur.descriptor.ContainingOneof().Fields()
@@ -292,10 +292,10 @@ func (pur protobufUnionReflection) getDataType() arrow.DataType {
 }
 
 type protobufDictReflection struct {
-	protobufFieldReflection
+	ProtobufFieldReflection
 }
 
-func (pfr *protobufFieldReflection) asDictionary() protobufDictReflection {
+func (pfr *ProtobufFieldReflection) asDictionary() protobufDictReflection {
 	return protobufDictReflection{*pfr}
 }
 
@@ -308,10 +308,10 @@ func (pdr protobufDictReflection) getDataType() arrow.DataType {
 }
 
 type protobufMapReflection struct {
-	protobufFieldReflection
+	ProtobufFieldReflection
 }
 
-func (pfr *protobufFieldReflection) asMap() protobufMapReflection {
+func (pfr *ProtobufFieldReflection) asMap() protobufMapReflection {
 	return protobufMapReflection{*pfr}
 }
 
@@ -320,12 +320,12 @@ func (pmr protobufMapReflection) getDataType() arrow.DataType {
 		return kvp.getDataType()
 	}
 	return protobufMapKeyValuePairReflection{
-		k: protobufFieldReflection{
+		k: ProtobufFieldReflection{
 			parent:        pmr.parent,
 			descriptor:    pmr.descriptor.MapKey(),
 			schemaOptions: pmr.schemaOptions,
 		},
-		v: protobufFieldReflection{
+		v: ProtobufFieldReflection{
 			parent:        pmr.parent,
 			descriptor:    pmr.descriptor.MapValue(),
 			schemaOptions: pmr.schemaOptions,
@@ -334,8 +334,8 @@ func (pmr protobufMapReflection) getDataType() arrow.DataType {
 }
 
 type protobufMapKeyValuePairReflection struct {
-	k protobufFieldReflection
-	v protobufFieldReflection
+	k ProtobufFieldReflection
+	v ProtobufFieldReflection
 }
 
 func (pmr protobufMapKeyValuePairReflection) getDataType() arrow.DataType {
@@ -349,14 +349,14 @@ func (pmr protobufMapReflection) generateKeyValuePairs() chan protobufMapKeyValu
 		defer close(out)
 		for _, k := range pmr.rValue.MapKeys() {
 			kvp := protobufMapKeyValuePairReflection{
-				k: protobufFieldReflection{
+				k: ProtobufFieldReflection{
 					parent:        pmr.parent,
 					descriptor:    pmr.descriptor.MapKey(),
 					prValue:       getMapKey(k),
 					rValue:        k,
 					schemaOptions: pmr.schemaOptions,
 				},
-				v: protobufFieldReflection{
+				v: ProtobufFieldReflection{
 					parent:        pmr.parent,
 					descriptor:    pmr.descriptor.MapValue(),
 					prValue:       pmr.prValue.Map().Get(protoreflect.MapKey(getMapKey(k))),
@@ -386,8 +386,8 @@ func getMapKey(v reflect.Value) protoreflect.Value {
 	}
 }
 
-func (psr ProtobufMessageReflection) generateStructFields() chan *protobufFieldReflection {
-	out := make(chan *protobufFieldReflection)
+func (psr ProtobufMessageReflection) generateStructFields() chan *ProtobufFieldReflection {
+	out := make(chan *ProtobufFieldReflection)
 
 	go func() {
 		defer close(out)
@@ -409,8 +409,8 @@ func (psr ProtobufMessageReflection) generateStructFields() chan *protobufFieldR
 	return out
 }
 
-func (psr ProtobufMessageReflection) generateFields() chan *protobufFieldReflection {
-	out := make(chan *protobufFieldReflection)
+func (psr ProtobufMessageReflection) generateFields() chan *ProtobufFieldReflection {
+	out := make(chan *ProtobufFieldReflection)
 
 	go func() {
 		defer close(out)
@@ -432,7 +432,7 @@ func (psr ProtobufMessageReflection) generateFields() chan *protobufFieldReflect
 	return out
 }
 
-func (pfr *protobufFieldReflection) asStruct() ProtobufMessageReflection {
+func (pfr *ProtobufFieldReflection) asStruct() ProtobufMessageReflection {
 	psr := ProtobufMessageReflection{
 		descriptor:    pfr.descriptor.Message(),
 		rValue:        pfr.rValue,
@@ -449,7 +449,7 @@ func (psr ProtobufMessageReflection) getDataType() arrow.DataType {
 	return arrow.StructOf(psr.getArrowFields()...)
 }
 
-func (psr ProtobufMessageReflection) getFieldByName(n string) *protobufFieldReflection {
+func (psr ProtobufMessageReflection) getFieldByName(n string) *ProtobufFieldReflection {
 	fd := psr.descriptor.Fields().ByTextName(xstrings.ToSnakeCase(n))
 	fv := psr.rValue
 	if fv.IsValid() {
@@ -466,7 +466,7 @@ func (psr ProtobufMessageReflection) getFieldByName(n string) *protobufFieldRefl
 			}
 		}
 	}
-	pfr := protobufFieldReflection{
+	pfr := ProtobufFieldReflection{
 		parent:        &psr,
 		descriptor:    fd,
 		rValue:        fv,
@@ -478,13 +478,13 @@ func (psr ProtobufMessageReflection) getFieldByName(n string) *protobufFieldRefl
 	return &pfr
 }
 
-func (plr protobufListReflection) generateListItems() chan protobufFieldReflection {
-	out := make(chan protobufFieldReflection)
+func (plr protobufListReflection) generateListItems() chan ProtobufFieldReflection {
+	out := make(chan ProtobufFieldReflection)
 
 	go func() {
 		defer close(out)
 		for i := 0; i < plr.prValue.List().Len(); i++ {
-			out <- protobufFieldReflection{
+			out <- ProtobufFieldReflection{
 				descriptor:    plr.descriptor,
 				prValue:       plr.prValue.List().Get(i),
 				rValue:        plr.rValue.Index(i),
@@ -496,7 +496,7 @@ func (plr protobufListReflection) generateListItems() chan protobufFieldReflecti
 	return out
 }
 
-func (pfr *protobufFieldReflection) getDataType() arrow.DataType {
+func (pfr *ProtobufFieldReflection) getDataType() arrow.DataType {
 	var dt arrow.DataType
 
 	typeMap := map[protoreflect.Kind]arrow.DataType{
@@ -604,7 +604,7 @@ func NewProtobufMessageReflection(msg proto.Message, options ...option) *Protobu
 	for v.Kind() == reflect.Ptr {
 		v = v.Elem()
 	}
-	includeAll := func(pfr *protobufFieldReflection) bool {
+	includeAll := func(pfr *ProtobufFieldReflection) bool {
 		return false
 	}
 	noFormatting := func(str string) string {
@@ -646,7 +646,7 @@ type option func(*ProtobufMessageReflection)
 // WithExclusionPolicy acts as a deny filter on the fields of a protobuf message
 // i.e. prevents them from being included in the schema.
 // A use case for this is to exclude fields containing PII.
-func WithExclusionPolicy(ex func(pfr *protobufFieldReflection) bool) option {
+func WithExclusionPolicy(ex func(pfr *ProtobufFieldReflection) bool) option {
 	return func(psr *ProtobufMessageReflection) {
 		psr.exclusionPolicy = ex
 	}

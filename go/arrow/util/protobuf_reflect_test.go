@@ -123,7 +123,7 @@ func TestGetSchema(t *testing.T) {
 
 	require.Equal(t, want, got, "got: %s\nwant: %s", got, want)
 
-	excludeComplex := func(pfr *protobufFieldReflection) bool {
+	excludeComplex := func(pfr *ProtobufFieldReflection) bool {
 		return pfr.isMap() || pfr.isList() || pfr.isStruct()
 	}
 
@@ -248,7 +248,7 @@ func TestRecordFromProtobuf(t *testing.T) {
 }
 
 type testProtobufReflection struct {
-	protobufFieldReflection
+	ProtobufFieldReflection
 }
 
 func (tpr testProtobufReflection) isNull() bool {
