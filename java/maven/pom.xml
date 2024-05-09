@@ -340,6 +340,9 @@
             <goals>
               <goal>jar-no-fork</goal>
             </goals>
+            <configuration>
+              <classifier>custom2</classifier>
+            </configuration>
           </execution>
         </executions>
       </plugin>
