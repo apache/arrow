@@ -52,7 +52,7 @@ RUN apt-get update -y && \
         curl \
         doxygen \
         gi-docgen \
-        gobject-introspection \        
+        gobject-introspection \
         libcurl4-openssl-dev \
         libfontconfig1-dev \
         libfribidi-dev \
