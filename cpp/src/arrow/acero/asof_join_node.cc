@@ -1559,12 +1559,12 @@ AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
       debug_os_(join_options.debug_opts ? join_options.debug_opts->os : nullptr),
       debug_mutex_(join_options.debug_opts ? join_options.debug_opts->mutex : nullptr),
 #endif
-#ifdef ARROW_ENABLE_THREADING
-      process_(),
-      process_thread_(),
-#endif
       backpressure_counter_(1)
-
+#ifdef ARROW_ENABLE_THREADING
+      ,
+      process_(),
+      process_thread_()
+#endif
 {
   for (auto& key_hasher : key_hashers_) {
     key_hasher->node_ = this;
