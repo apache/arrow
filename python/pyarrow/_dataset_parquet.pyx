@@ -56,7 +56,7 @@ from pyarrow._parquet cimport (
 
 try:
     from pyarrow._dataset_parquet_encryption import (
-        set_encryption_config, set_decryption_config
+        set_encryption_config, set_decryption_config, set_decryption_properties
     )
     parquet_encryption_enabled = True
 except ImportError:
@@ -127,14 +127,7 @@ cdef class ParquetFileFormat(FileFormat):
                             'instance of ParquetReadOptions')
 
         if default_fragment_scan_options is None:
-            # remove decryption_properties from scan_args as it does not take this parameter
-            decryption_properties = scan_args.pop('decryption_properties', None)
             default_fragment_scan_options = ParquetFragmentScanOptions(**scan_args)
-            # make sure scan options has decryption properties
-            if decryption_properties is not None:
-                default_fragment_scan_options.set_file_decryption_properties(
-                    decryption_properties)
-
         elif isinstance(default_fragment_scan_options, dict):
             default_fragment_scan_options = ParquetFragmentScanOptions(
                 **default_fragment_scan_options)
@@ -155,7 +148,6 @@ cdef class ParquetFileFormat(FileFormat):
 
         self.init(<shared_ptr[CFileFormat]> wrapped)
         self.default_fragment_scan_options = default_fragment_scan_options
-        self._set_default_fragment_scan_options(default_fragment_scan_options)
 
     cdef void init(self, const shared_ptr[CFileFormat]& sp):
         FileFormat.init(self, sp)
@@ -722,6 +714,9 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
     decryption_config : pyarrow.dataset.ParquetDecryptionConfig, default None
         If not None, use the provided ParquetDecryptionConfig to decrypt the
         Parquet file.
+    decryption_properties : pyarrow.parquet.FileDecryptionProperties, default None
+        If not None, use the provided FileDecryptionProperties to decrypt encrypted
+        Parquet file.
     page_checksum_verification : bool, default False
         If True, verify the page checksum for each page read from the file.
     """
@@ -736,6 +731,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
                  thrift_string_size_limit=None,
                  thrift_container_size_limit=None,
                  decryption_config=None,
+                 decryption_properties=None,
                  bint page_checksum_verification=False):
         self.init(shared_ptr[CFragmentScanOptions](
             new CParquetFragmentScanOptions()))
@@ -750,6 +746,8 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
             self.thrift_container_size_limit = thrift_container_size_limit
         if decryption_config is not None:
             self.parquet_decryption_config = decryption_config
+        if decryption_properties is not None:
+            self.decryption_properties = decryption_properties
         self.page_checksum_verification = page_checksum_verification
 
     cdef void init(self, const shared_ptr[CFragmentScanOptions]& sp):
@@ -819,17 +817,24 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
             raise ValueError("size must be larger than zero")
         self.reader_properties().set_thrift_container_size_limit(size)
 
-    def set_file_decryption_properties(self, FileDecryptionProperties decryption_properties):
-        """
-        Set the file decryption properties for the Parquet fragment scan options.
+    @property
+    def decryption_properties(self):
+        if not parquet_encryption_enabled:
+            raise NotImplementedError(
+                "Unable to access encryption features. "
+                "Encryption is not enabled in your installation of pyarrow."
+            )
+        return self._decryption_properties
 
-        Parameters
-        ----------
-        decryption_properties : FileDecryptionProperties
-            The decryption properties to be used for reading encrypted Parquet files.
-        """
-        cdef CReaderProperties* reader_props = self.reader_properties()
-        reader_props.file_decryption_properties(decryption_properties.unwrap())
+    @decryption_properties.setter
+    def decryption_properties(self, config):
+        if not parquet_encryption_enabled:
+            raise NotImplementedError(
+                "Encryption is not enabled in your installation of pyarrow, but "
+                "decryption_properties were provided."
+            )
+        set_decryption_properties(self, config)
+        self._decryption_properties = config
 
     @property
     def parquet_decryption_config(self):
