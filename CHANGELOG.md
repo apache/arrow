@@ -1,4 +1,50 @@
 
+# Apache Arrow 16.1.0 (2024-05-09)
+
+## Bug Fixes
+
+* [GH-40069](https://github.com/apache/arrow/issues/40069) - [C++] Make scalar scratch space immutable after initialization (#40237)
+* [GH-40407](https://github.com/apache/arrow/issues/40407) - [JS] Fix string coercion in MapRowProxyHandler.ownKeys (#40408)
+* [GH-40563](https://github.com/apache/arrow/issues/40563) - [Go] Unable to JSON marshal float64 arrays which contain a NaN value (#41109)
+* [GH-41133](https://github.com/apache/arrow/issues/41133) - [Benchmarking] Build benchmarks in benchmarks.env (#40925)
+* [GH-41137](https://github.com/apache/arrow/issues/41137) - [C#] Fix DenseUnionArray IsNull/Valid (#41138)
+* [GH-41140](https://github.com/apache/arrow/issues/41140) - [C#] Account for offset and length in union arrays (#41165)
+* [GH-41238](https://github.com/apache/arrow/issues/41238) - [Release] Use UTF-8 as the default encoding to upload binary (#41242)
+* [GH-41280](https://github.com/apache/arrow/issues/41280) - [Release][Java] Make Maven version detection more robust (#41281)
+* [GH-41302](https://github.com/apache/arrow/issues/41302) - [C#][Integration] Fix writing list and binary arrays with zero length offsets to IPC format (#41303)
+* [GH-41333](https://github.com/apache/arrow/issues/41333) - [C++][CMake] Prefer protobuf-config.cmake to FindProtobuf.cmake (#41360)
+* [GH-41369](https://github.com/apache/arrow/issues/41369) - [CI][GLib] Don't use /usr/local on macOS (#41387)
+* [GH-41370](https://github.com/apache/arrow/issues/41370) - [CI][MATLAB] MATLAB macOS CI workflow fails because of `macos-latest` change to `macos-14` (#41384)
+* [GH-41397](https://github.com/apache/arrow/issues/41397) - [C\#] Tests fail on MacOS arm64 with a stack overflow
+* [GH-41398](https://github.com/apache/arrow/issues/41398) - [R][CI] Windows job failing after R 4.4 release (#41409)
+* [GH-41407](https://github.com/apache/arrow/issues/41407) - [C++] Use static method to fill scalar scratch space to prevent ub (#41421)
+* [GH-41431](https://github.com/apache/arrow/issues/41431) - [C++][Parquet][Dataset] Fix repeated scan on encrypted dataset (#41550)
+* [GH-41462](https://github.com/apache/arrow/issues/41462) - [CI] Temporary pin azurite to v3.29.0 (#41501)
+* [GH-41463](https://github.com/apache/arrow/issues/41463) - [C++] Skip TestConcurrentFillFromScalar for platforms without threading support (#41461)
+* [GH-41562](https://github.com/apache/arrow/issues/41562) - [C++][Parquet] Decoding: Fix num_value handling in ByteStreamSplitDecoder (#41565)
+* [GH-41566](https://github.com/apache/arrow/issues/41566) - [CI][Packaging] macOS wheel for Catalina fails to build on macOS arm64 (#41567)
+* [GH-41577](https://github.com/apache/arrow/issues/41577) - [Java][Packaging] Add org.apache.arrow.memory.core to --add-opens=java.base/java.nio
+* [GH-41594](https://github.com/apache/arrow/issues/41594) - [Go] Support reading `date64` type & properly validate list-like types (#41595)
+
+
+## New Features and Improvements
+
+* [GH-39131](https://github.com/apache/arrow/issues/39131) - [JS] Add at() for array like types (#40730)
+* [GH-39482](https://github.com/apache/arrow/issues/39482) - [JS] Refactor imports (#39483)
+* [GH-39664](https://github.com/apache/arrow/issues/39664) - [C++][Acero] Ensure Acero benchmarks present a metric for identifying throughput (#40884)
+* [GH-40517](https://github.com/apache/arrow/issues/40517) - [C#] Fix writing sliced arrays to IPC format (#41197)
+* [GH-40959](https://github.com/apache/arrow/issues/40959) - [JS] Store Timestamps in 64 bits (#40960)
+* [GH-40989](https://github.com/apache/arrow/issues/40989) - [JS] Update dependencies (#40990)
+* [GH-41136](https://github.com/apache/arrow/issues/41136) - [C#] Recompute null count for sliced arrays on demand (#41144)
+* [GH-41225](https://github.com/apache/arrow/issues/41225) - [C#] Slice value buffers when writing sliced list or binary arrays in IPC format (#41230)
+* [GH-41231](https://github.com/apache/arrow/issues/41231) - [C#] Slice values array when writing a sliced list view array to IPC format (#41255)
+* [GH-41247](https://github.com/apache/arrow/issues/41247) - [Release] Use LC_ALL in binary upload scripts (#41248)
+* [GH-41353](https://github.com/apache/arrow/issues/41353) - [C++] Define bit_width and byte_width of ExtensionType in terms of the storage type (#41354)
+* [GH-41402](https://github.com/apache/arrow/issues/41402) - [CI][R] Update our backwards compatibility CI any other R 4.4 cleanups (#41403)
+* [GH-41405](https://github.com/apache/arrow/issues/41405) - [Release][Docs][GLib] Use Sphinx based GLib front page (#41406)
+
+
+
 # Apache Arrow 16.0.0 (2024-04-16)
 
 ## Bug Fixes
