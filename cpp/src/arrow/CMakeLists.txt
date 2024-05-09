@@ -163,7 +163,7 @@ if(CMAKE_THREAD_LIBS_INIT)
 endif()
 
 if(WIN32)
-  list(APPEND ARROW_SYSTEM_LINK_LIBS "ws2_32.dll")
+  list(APPEND ARROW_SYSTEM_LINK_LIBS "ws2_32")
 endif()
 
 if(NOT WIN32 AND NOT APPLE)
@@ -501,6 +501,7 @@ set(ARROW_UTIL_SRCS
     util/decimal.cc
     util/delimiting.cc
     util/dict_util.cc
+    util/fixed_width_internal.cc
     util/float16.cc
     util/formatting.cc
     util/future.cc
@@ -628,9 +629,9 @@ else()
   list(APPEND ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS ArrowTesting::gtest)
 endif()
 if(WIN32)
-  list(APPEND ARROW_TESTING_SHARED_LINK_LIBS "ws2_32.dll")
-  list(APPEND ARROW_TESTING_STATIC_LINK_LIBS "ws2_32.dll")
-  list(APPEND ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS "ws2_32.dll")
+  list(APPEND ARROW_TESTING_SHARED_LINK_LIBS "ws2_32")
+  list(APPEND ARROW_TESTING_STATIC_LINK_LIBS "ws2_32")
+  list(APPEND ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS "ws2_32")
 endif()
 
 set(ARROW_TESTING_SRCS

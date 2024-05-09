@@ -152,6 +152,7 @@ def test_option_class_equality():
         pc.IndexOptions(pa.scalar(1)),
         pc.JoinOptions(),
         pc.ListSliceOptions(0, -1, 1, True),
+        pc.ListFlattenOptions(recursive=False),
         pc.MakeStructOptions(["field", "names"],
                              field_nullability=[True, True],
                              field_metadata=[pa.KeyValueMetadata({"a": "1"}),
@@ -1342,6 +1343,11 @@ def test_filter_record_batch():
     mask = pa.array([True, False, None, False, True])
     result = batch.filter(mask)
     expected = pa.record_batch([pa.array(["a", "e"])], names=["a'"])
+    assert result.equals(expected)
+
+    # GH-38770: mask is chunked array
+    chunked_mask = pa.chunked_array([[True, False], [None], [False, True]])
+    result = batch.filter(chunked_mask)
     assert result.equals(expected)
 
     result = batch.filter(mask, null_selection_behavior="emit_null")

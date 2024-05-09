@@ -340,10 +340,15 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
   if (input.offset == output->offset) {
     output->buffers[0] = input.GetBuffer(0);
   } else {
-    ARROW_ASSIGN_OR_RAISE(
-        output->buffers[0],
-        arrow::internal::CopyBitmap(ctx->memory_pool(), input.buffers[0].data,
-                                    input.offset, input.length));
+    // When the offsets are different (e.g., due to slice operation), we need to check if
+    // the null bitmap buffer is not null before copying it. The null bitmap buffer can be
+    // null if the input array value does not contain any null value.
+    if (input.buffers[0].data != NULLPTR) {
+      ARROW_ASSIGN_OR_RAISE(
+          output->buffers[0],
+          arrow::internal::CopyBitmap(ctx->memory_pool(), input.buffers[0].data,
+                                      input.offset, input.length));
+    }
   }
 
   // This buffer is preallocated

@@ -60,7 +60,7 @@ a username and password each time you execute a git command.
    RStudio project and will create a ``.Rproj`` file in the root directory.
    For this reason it is *highly recommended* to clone the repository using
    the command line or a Git client.
-   
+
 Get the source code
 ===================
 

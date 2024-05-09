@@ -185,6 +185,7 @@ namespace Apache.Arrow.Tests
             TestSlice<Date64Array, Date64Array.Builder>(x => x.Append(new DateTime(2019, 1, 1)).Append(new DateTime(2019, 1, 2)).AppendNull().Append(new DateTime(2019, 1, 3)));
             TestSlice<Time32Array, Time32Array.Builder>(x => x.Append(10).Append(20).AppendNull().Append(30));
             TestSlice<Time64Array, Time64Array.Builder>(x => x.Append(10).Append(20).AppendNull().Append(30));
+            TestSlice<Int32Array, Int32Array.Builder>(x => x.AppendNull().AppendNull().AppendNull());  // All nulls
 
             static void TestNumberSlice<T, TArray, TBuilder>()
                 where T : struct, INumber<T>
@@ -314,6 +315,8 @@ namespace Apache.Arrow.Tests
                         .SequenceEqual(slicedArray.Values));
 
                 Assert.Equal(baseArray.GetValue(slicedArray.Offset), slicedArray.GetValue(0));
+
+                ValidateNullCount(slicedArray);
             }
 
             private void ValidateArrays(BooleanArray slicedArray)
@@ -333,6 +336,8 @@ namespace Apache.Arrow.Tests
 #pragma warning disable CS0618
                 Assert.Equal(baseArray.GetBoolean(slicedArray.Offset), slicedArray.GetBoolean(0));
 #pragma warning restore CS0618
+
+                ValidateNullCount(slicedArray);
             }
 
             private void ValidateArrays(BinaryArray slicedArray)
@@ -347,6 +352,16 @@ namespace Apache.Arrow.Tests
                         .SequenceEqual(slicedArray.ValueOffsets));
 
                 Assert.True(baseArray.GetBytes(slicedArray.Offset).SequenceEqual(slicedArray.GetBytes(0)));
+
+                ValidateNullCount(slicedArray);
+            }
+
+            private static void ValidateNullCount(IArrowArray slicedArray)
+            {
+                var expectedNullCount = Enumerable.Range(0, slicedArray.Length)
+                    .Select(i => slicedArray.IsNull(i) ? 1 : 0)
+                    .Sum();
+                Assert.Equal(expectedNullCount, slicedArray.NullCount);
             }
         }
     }

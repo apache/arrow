@@ -31,6 +31,7 @@ import numpy as np
 
 import pyarrow as pa
 import pyarrow.tests.strategies as past
+from pyarrow.vendored.version import Version
 
 
 def test_total_bytes_allocated():
@@ -1097,6 +1098,30 @@ def test_map_from_arrays():
     assert len(keys_with_null) == len(items)
     with pytest.raises(ValueError):
         pa.MapArray.from_arrays(offsets, keys_with_null, items)
+
+    # Check if offset in offsets > 0
+    offsets = pa.array(offsets, pa.int32())
+    result = pa.MapArray.from_arrays(offsets.slice(1), keys, items)
+    expected = pa.MapArray.from_arrays([1, 3, 5], keys, items)
+
+    assert result.equals(expected)
+    assert result.offset == 1
+    assert expected.offset == 0
+
+    offsets = pa.array([0, 0, 0, 0, 0, 0], pa.int32())
+    result = pa.MapArray.from_arrays(
+        offsets.slice(1),
+        pa.array([], pa.string()),
+        pa.array([], pa.string()),
+    )
+    expected = pa.MapArray.from_arrays(
+        [0, 0, 0, 0, 0],
+        pa.array([], pa.string()),
+        pa.array([], pa.string()),
+    )
+    assert result.equals(expected)
+    assert result.offset == 1
+    assert expected.offset == 0
 
 
 def test_fixed_size_list_from_arrays():
@@ -2756,6 +2781,7 @@ def test_list_array_flatten(offset_type, list_type_factory):
     assert arr1.values.equals(arr0)
     assert arr2.flatten().flatten().equals(arr0)
     assert arr2.values.values.equals(arr0)
+    assert arr2.flatten(True).equals(arr0)
 
 
 @pytest.mark.parametrize('list_type', [
@@ -2777,7 +2803,9 @@ def test_list_value_parent_indices(list_type):
 @pytest.mark.parametrize(('offset_type', 'list_type'),
                          [(pa.int32(), pa.list_(pa.int32())),
                           (pa.int32(), pa.list_(pa.int32(), list_size=2)),
-                          (pa.int64(), pa.large_list(pa.int32()))])
+                          (pa.int64(), pa.large_list(pa.int32())),
+                          (pa.int32(), pa.list_view(pa.int32())),
+                          (pa.int64(), pa.large_list_view(pa.int32()))])
 def test_list_value_lengths(offset_type, list_type):
 
     # FixedSizeListArray needs fixed list sizes
@@ -2875,6 +2903,8 @@ def test_fixed_size_list_array_flatten():
     assert arr0.type.equals(typ0)
     assert arr1.flatten().equals(arr0)
     assert arr2.flatten().flatten().equals(arr0)
+    assert arr2.flatten().equals(arr1)
+    assert arr2.flatten(True).equals(arr0)
 
 
 def test_fixed_size_list_array_flatten_with_slice():
@@ -3302,6 +3332,52 @@ def test_array_from_large_pyints():
         pa.array([int(2 ** 63)])
 
 
+def test_numpy_array_protocol():
+    # test the __array__ method on pyarrow.Array
+    arr = pa.array([1, 2, 3])
+    result = np.asarray(arr)
+    expected = np.array([1, 2, 3], dtype="int64")
+    np.testing.assert_array_equal(result, expected)
+
+    # this should not raise a deprecation warning with numpy 2.0+
+    result = np.array(arr, copy=False)
+    np.testing.assert_array_equal(result, expected)
+
+    result = np.array(arr, dtype="int64", copy=False)
+    np.testing.assert_array_equal(result, expected)
+
+    # no zero-copy is possible
+    arr = pa.array([1, 2, None])
+    expected = np.array([1, 2, np.nan], dtype="float64")
+    result = np.asarray(arr)
+    np.testing.assert_array_equal(result, expected)
+
+    if Version(np.__version__) < Version("2.0"):
+        # copy keyword is not strict and not passed down to __array__
+        result = np.array(arr, copy=False)
+        np.testing.assert_array_equal(result, expected)
+
+        result = np.array(arr, dtype="float64", copy=False)
+        np.testing.assert_array_equal(result, expected)
+    else:
+        # starting with numpy 2.0, the copy=False keyword is assumed to be strict
+        with pytest.raises(ValueError, match="Unable to avoid a copy"):
+            np.array(arr, copy=False)
+
+        arr = pa.array([1, 2, 3])
+        with pytest.raises(ValueError):
+            np.array(arr, dtype="float64", copy=False)
+
+    # copy=True -> not yet passed by numpy, so we have to call this directly to test
+    arr = pa.array([1, 2, 3])
+    result = arr.__array__(copy=True)
+    assert result.flags.writeable
+
+    arr = pa.array([1, 2, 3])
+    result = arr.__array__(dtype=np.dtype("float64"), copy=True)
+    assert result.dtype == "float64"
+
+
 def test_array_protocol():
 
     class MyArray:
@@ -3382,7 +3458,7 @@ def test_c_array_protocol():
     result = pa.array(arr)
     assert result == arr.data
 
-    # Will case to requested type
+    # Will cast to requested type
     result = pa.array(arr, type=pa.int32())
     assert result == pa.array([1, 2, 3], type=pa.int32())
 
@@ -3526,12 +3602,23 @@ def check_run_end_encoded_from_arrays_with_type(ree_type=None):
     check_run_end_encoded(ree_array, run_ends, values, 19, 4, 0)
 
 
+def check_run_end_encoded_from_typed_arrays(ree_type):
+    run_ends = [3, 5, 10, 19]
+    values = [1, 2, 1, 3]
+    typed_run_ends = pa.array(run_ends, ree_type.run_end_type)
+    typed_values = pa.array(values, ree_type.value_type)
+    ree_array = pa.RunEndEncodedArray.from_arrays(typed_run_ends, typed_values)
+    assert ree_array.type == ree_type
+    check_run_end_encoded(ree_array, run_ends, values, 19, 4, 0)
+
+
 def test_run_end_encoded_from_arrays():
     check_run_end_encoded_from_arrays_with_type()
     for run_end_type in [pa.int16(), pa.int32(), pa.int64()]:
         for value_type in [pa.uint32(), pa.int32(), pa.uint64(), pa.int64()]:
             ree_type = pa.run_end_encoded(run_end_type, value_type)
             check_run_end_encoded_from_arrays_with_type(ree_type)
+            check_run_end_encoded_from_typed_arrays(ree_type)
 
 
 def test_run_end_encoded_from_buffers():
@@ -3797,6 +3884,7 @@ def test_list_view_flatten(list_array_type, list_type_factory, offset_type):
     assert arr2.values.equals(arr1)
     assert arr2.flatten().flatten().equals(arr0)
     assert arr2.values.values.equals(arr0)
+    assert arr2.flatten(True).equals(arr0)
 
     # test out of order offsets
     values = [1, 2, 3, 4]

@@ -396,7 +396,7 @@ struct ByteStreamSplitDummyValue<std::array<T, N>> {
   using Array = std::array<T, N>;
 
   static constexpr Array value() {
-    Array array;
+    Array array{};
     array.fill(ByteStreamSplitDummyValue<T>::value());
     return array;
   }

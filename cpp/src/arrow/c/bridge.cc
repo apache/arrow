@@ -576,7 +576,7 @@ struct ArrayExporter {
     // Store buffer pointers
     size_t n_buffers = data->buffers.size();
     auto buffers_begin = data->buffers.begin();
-    if (n_buffers > 0 && !internal::HasValidityBitmap(data->type->id())) {
+    if (n_buffers > 0 && !internal::may_have_validity_bitmap(data->type->id())) {
       --n_buffers;
       ++buffers_begin;
     }

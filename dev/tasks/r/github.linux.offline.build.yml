@@ -84,7 +84,7 @@ jobs:
         {{ macros.github_set_sccache_envvars()|indent(8)}}
         run: |
           cd arrow/r
-          R CMD INSTALL --install-tests --no-test-load --no-docs --no-help --no-byte-compile arrow_with_deps.tar.gz
+          R CMD INSTALL --install-tests --no-test-load --no-byte-compile arrow_with_deps.tar.gz
       - name: Run the tests
         run: R -e 'if(tools::testInstalledPackage("arrow") != 0L) stop("There was a test failure.")'
       - name: Dump test logs

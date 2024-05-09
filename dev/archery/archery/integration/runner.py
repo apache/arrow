@@ -638,6 +638,11 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
             description="Ensure Flight SQL extensions work as expected.",
             skip_testers={"Rust"}
         ),
+        Scenario(
+            "flight_sql:ingestion",
+            description="Ensure Flight SQL ingestion works as expected.",
+            skip_testers={"JS", "C#", "Rust", "Java"}
+        ),
     ]
 
     runner = IntegrationRunner(json_files, flight_scenarios, testers, **kwargs)

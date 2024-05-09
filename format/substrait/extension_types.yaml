@@ -35,36 +35,52 @@
 # - interval<months: i32, days: i32, nanos: i64>
 # - arrow::ExtensionTypes
 #
-# Note that not all of these are currently implemented. In particular, these
-# extension types are currently not parameterizable in Substrait, which means
-# among other things that we can't declare dictionary type here at all since
-# we'd have to declare a different dictionary type for all encoded types
-# (but that is an infinite space). Similarly, we would have to declare a
-# timestamp variation for all possible timezone strings.
+# These types fall into several categories of behavior:
 
-type_variations:
-  - parent: i8
-    name: u8
-    description: an unsigned 8 bit integer
-    functions: SEPARATE
-  - parent: i16
-    name: u16
-    description: an unsigned 16 bit integer
-    functions: SEPARATE
-  - parent: i32
-    name: u32
-    description: an unsigned 32 bit integer
-    functions: SEPARATE
-  - parent: i64
-    name: u64
-    description: an unsigned 64 bit integer
-    functions: SEPARATE
+# Certain Arrow data types are, from Substrait's point of view, encodings.
+# These include dictionary, the view types (e.g. binary view, list view),
+# and REE.
+#
+# These types are not logically distinct from the type they are encoding.
+# Specifically, the types meet the following criteria:
+#  *  There is no value in the decoded type that cannot be represented
+#     as a value in the encoded type and vice versa.
+#  *  Functions have the same meaning when applied to the encoded type
+#
+# Note: if two types have a different range (e.g. string and large_string) then
+# they do not satisfy the above criteria and are not encodings. 
+#
+# These types will never have a Substrait equivalent.  In the Substrait point
+# of view these are execution details.
 
-  - parent: i16
-    name: fp16
-    description: a 16 bit floating point number
-    functions: SEPARATE
+# The following types are encodings:
 
+# binary_view
+# list_view
+# dictionary
+# ree
+
+# Arrow-cpp's Substrait serde does not yet handle parameterized UDTs.  This means
+# the following types are not yet supported but may be supported in the future.
+# We define them below in case other implementations support them in the meantime.
+
+# decimal256
+# large_list
+# fixed_size_list
+# duration
+
+# Other types are not encodings, but are not first-class in Substrait.  These
+# types are often similar to existing Substrait types but define a different range
+# of values.  For example, unsigned integer types are very similar to their integer
+# counterparts, but have a different range of values.  These types are defined here
+# as extension types.
+#
+# A full description of the types, along with their specified range, can be found
+# in Schema.fbs
+#
+# Consumers should take care when supporting the below types.  Should Substrait decide
+# later to support these types, the consumer will need to make sure to continue supporting
+# the extension type names as aliases for proper backwards compatibility.
 types:
   - name: "null"
     structure: {}
@@ -80,3 +96,75 @@ types:
       months: i32
       days: i32
       nanos: i64
+  # All unsigned integer literals are encoded as user defined literals with
+  # a google.protobuf.UInt64Value message.
+  - name: u8
+    structure: {}
+  - name: u16
+    structure: {}
+  - name: u32
+    structure: {}
+  - name: u64
+    structure: {}
+  # fp16 literals are encoded as user defined literals with
+  # a google.protobuf.UInt32Value message where the lower 16 bits are
+  # the fp16 value.
+  - name: fp16
+    structure: {}
+  # 64-bit integers are big.  Even though date64 stores ms and not days it
+  # can still represent about 50x more dates than date32.  Since it has a
+  # different range of values, it is an extension type.
+  #
+  # date64 literals are encoded as user defined literals with
+  # a google.protobuf.Int64Value message.
+  - name: date_millis
+    structure: {}
+  # time literals are encoded as user defined literals with
+  # a google.protobuf.Int32Value message (for time_seconds/time_millis)
+  # or a google.protobuf.Int64Value message (for time_nanos).
+  - name: time_seconds
+    structure: {}
+  - name: time_millis
+    structure: {}
+  - name: time_nanos
+    structure: {}
+  # Large string literals are encoded using a
+  # google.protobuf.StringValue message.
+  - name: large_string
+    structure: {}
+  # Large binary literals are encoded using a
+  # google.protobuf.BytesValue message.
+  - name: large_binary
+    structure: {}
+  # We cannot generate these today because they are parameterized UDTs and
+  # substrait-cpp does not yet support parameterized UDTs.
+  - name: decimal256
+    structure: {}
+    parameters:
+     - name: precision
+       type: integer
+       min: 0
+       max: 76
+     - name: scale
+       type: integer
+       min: 0
+       max: 76
+  - name: large_list
+    structure: {}
+    parameters:
+      - name: value_type
+        type: dataType
+  - name: fixed_size_list
+    structure: {}
+    parameters:
+      - name: value_type
+        type: dataType
+      - name: dimension
+        type: integer
+        min: 0
+  - name: duration
+    structure: {}
+    parameters:
+      - name: unit
+        type: string
+

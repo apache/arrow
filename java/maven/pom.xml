@@ -1,4 +1,4 @@
-<?xml version="1.0"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!-- Licensed to the Apache Software Foundation (ASF) under one or more contributor
   license agreements. See the NOTICE file distributed with this work for additional
   information regarding copyright ownership. The ASF licenses this file to
@@ -15,11 +15,18 @@
     Note: Do not inherit from the Arrow parent POM as plugins can be referenced
     during the parent POM, introducing circular dependencies.
   -->
+  <parent>
+    <groupId>org.apache</groupId>
+    <artifactId>apache</artifactId>
+    <version>31</version>
+    <relativePath></relativePath>
+  </parent>
+
   <groupId>org.apache.arrow.maven.plugins</groupId>
   <artifactId>arrow-maven-plugins</artifactId>
-  <version>16.0.0-SNAPSHOT</version>
-  <name>Arrow Maven Plugins</name>
+  <version>17.0.0-SNAPSHOT</version>
   <packaging>pom</packaging>
+  <name>Arrow Maven Plugins</name>
 
   <modules>
     <module>module-info-compiler-maven-plugin</module>
@@ -27,22 +34,45 @@
 
   <properties>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
+    <!-- org.apache:apache overrides -->
+    <maven.compiler.source>1.8</maven.compiler.source>
+    <maven.compiler.target>1.8</maven.compiler.target>
+    <maven.plugin.tools.version>3.12.0</maven.plugin.tools.version>
+    <surefire.version>3.2.5</surefire.version>
+    <version.apache-rat-plugin>0.16.1</version.apache-rat-plugin>
+    <version.maven-assembly-plugin>3.7.1</version.maven-assembly-plugin>
+    <version.maven-compiler-plugin>3.12.1</version.maven-compiler-plugin>
+    <version.maven-dependency-plugin>3.6.1</version.maven-dependency-plugin>
+    <version.maven-gpg-plugin>3.2.0</version.maven-gpg-plugin>
+    <version.maven-jar-plugin>3.2.2</version.maven-jar-plugin>
+    <version.maven-javadoc-plugin>3.6.3</version.maven-javadoc-plugin>
+    <version.maven-project-info-reports-plugin>3.5.0</version.maven-project-info-reports-plugin>
   </properties>
 
   <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>com.diffplug.spotless</groupId>
+          <artifactId>spotless-maven-plugin</artifactId>
+          <version>2.30.0</version>
+        </plugin>
+        <plugin>
+          <groupId>pl.project13.maven</groupId>
+          <artifactId>git-commit-id-plugin</artifactId>
+          <version>4.0.5</version>
+        </plugin>
+        <plugin>
+          <groupId>org.cyclonedx</groupId>
+          <artifactId>cyclonedx-maven-plugin</artifactId>
+          <version>2.8.0</version>
+        </plugin>
+      </plugins>
+    </pluginManagement>
     <plugins>
       <plugin>
         <groupId>org.apache.rat</groupId>
         <artifactId>apache-rat-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>rat-checks</id>
-            <phase>validate</phase>
-            <goals>
-              <goal>check</goal>
-            </goals>
-          </execution>
-        </executions>
         <configuration>
           <excludeSubProjects>false</excludeSubProjects>
           <excludes>
@@ -87,6 +117,15 @@
             <exclude>**/*.idea/**</exclude>
           </excludes>
         </configuration>
+        <executions>
+          <execution>
+            <id>rat-checks</id>
+            <goals>
+              <goal>check</goal>
+            </goals>
+            <phase>validate</phase>
+          </execution>
+        </executions>
       </plugin>
 
       <plugin>
@@ -100,11 +139,6 @@
             <exclude>**/logback.xml</exclude>
           </excludes>
           <archive>
-            <index>true</index>
-            <manifest>
-              <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
-              <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
-            </manifest>
             <manifestEntries>
               <Extension-Name>org.apache.arrow</Extension-Name>
               <Built-By>${username}</Built-By>
@@ -124,23 +158,11 @@
         </executions>
       </plugin>
 
-
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-resources-plugin</artifactId>
-        <configuration>
-          <encoding>UTF-8</encoding>
-        </configuration>
-      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
-          <encoding>UTF-8</encoding>
-          <source>1.8</source>
-          <target>1.8</target>
           <maxmem>2048m</maxmem>
-          <useIncrementalCompilation>false</useIncrementalCompilation>
           <fork>true</fork>
         </configuration>
       </plugin>
@@ -148,26 +170,11 @@
         <artifactId>maven-enforcer-plugin</artifactId>
         <executions>
           <execution>
-            <id>validate_java_and_maven_version</id>
-            <phase>verify</phase>
-            <goals>
-              <goal>enforce</goal>
-            </goals>
-            <inherited>false</inherited>
-            <configuration>
-              <rules>
-                <requireMavenVersion>
-                  <version>[3.3.0,4)</version>
-                </requireMavenVersion>
-              </rules>
-            </configuration>
-          </execution>
-          <execution>
             <id>avoid_bad_dependencies</id>
-            <phase>verify</phase>
             <goals>
               <goal>enforce</goal>
             </goals>
+            <phase>verify</phase>
             <configuration>
               <rules>
                 <bannedDependencies>
@@ -187,14 +194,27 @@
       <plugin>
         <groupId>pl.project13.maven</groupId>
         <artifactId>git-commit-id-plugin</artifactId>
-        <version>4.0.5</version>
+        <configuration>
+          <dateFormat>dd.MM.yyyy '@' HH:mm:ss z</dateFormat>
+          <verbose>false</verbose>
+          <skipPoms>false</skipPoms>
+          <generateGitPropertiesFile>true</generateGitPropertiesFile>
+          <failOnNoGitDirectory>false</failOnNoGitDirectory>
+          <gitDescribe>
+            <skip>false</skip>
+            <always>false</always>
+            <abbrev>7</abbrev>
+            <dirty>-dirty</dirty>
+            <forceLongFormat>true</forceLongFormat>
+          </gitDescribe>
+        </configuration>
         <executions>
           <execution>
             <id>for-jars</id>
-            <inherited>true</inherited>
             <goals>
               <goal>revision</goal>
             </goals>
+            <inherited>true</inherited>
             <configuration>
               <generateGitPropertiesFilename>target/classes/arrow-git.properties</generateGitPropertiesFilename>
             </configuration>
@@ -210,27 +230,25 @@
             </configuration>
           </execution>
         </executions>
-
-        <configuration>
-          <dateFormat>dd.MM.yyyy '@' HH:mm:ss z</dateFormat>
-          <verbose>false</verbose>
-          <skipPoms>false</skipPoms>
-          <generateGitPropertiesFile>true</generateGitPropertiesFile>
-          <failOnNoGitDirectory>false</failOnNoGitDirectory>
-          <gitDescribe>
-            <skip>false</skip>
-            <always>false</always>
-            <abbrev>7</abbrev>
-            <dirty>-dirty</dirty>
-            <forceLongFormat>true</forceLongFormat>
-          </gitDescribe>
-        </configuration>
       </plugin>
 
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-checkstyle-plugin</artifactId>
-        <version>3.1.0</version>
+        <configuration>
+          <configLocation>../dev/checkstyle/checkstyle.xml</configLocation>
+          <headerLocation>../dev/checkstyle/checkstyle.license</headerLocation>
+          <suppressionsLocation>../dev/checkstyle/suppressions.xml</suppressionsLocation>
+          <includeTestSourceDirectory>true</includeTestSourceDirectory>
+          <inputEncoding>UTF-8</inputEncoding>
+          <consoleOutput>true</consoleOutput>
+          <failsOnError>${checkstyle.failOnViolation}</failsOnError>
+          <failOnViolation>${checkstyle.failOnViolation}</failOnViolation>
+          <violationSeverity>warning</violationSeverity>
+          <outputFileFormat>xml</outputFileFormat>
+          <outputFile>${project.build.directory}/test/checkstyle-errors.xml</outputFile>
+          <linkXRef>false</linkXRef>
+        </configuration>
         <dependencies>
           <dependency>
             <groupId>com.puppycrawl.tools</groupId>
@@ -246,37 +264,22 @@
         <executions>
           <execution>
             <id>validate</id>
-            <phase>validate</phase>
             <goals>
               <goal>check</goal>
             </goals>
+            <phase>validate</phase>
           </execution>
         </executions>
-        <configuration>
-          <configLocation>../dev/checkstyle/checkstyle.xml</configLocation>
-          <headerLocation>../dev/checkstyle/checkstyle.license</headerLocation>
-          <suppressionsLocation>../dev/checkstyle/suppressions.xml</suppressionsLocation>
-          <includeTestSourceDirectory>true</includeTestSourceDirectory>
-          <inputEncoding>UTF-8</inputEncoding>
-          <consoleOutput>true</consoleOutput>
-          <failsOnError>${checkstyle.failOnViolation}</failsOnError>
-          <failOnViolation>${checkstyle.failOnViolation}</failOnViolation>
-          <violationSeverity>warning</violationSeverity>
-          <outputFileFormat>xml</outputFileFormat>
-          <outputFile>${project.build.directory}/test/checkstyle-errors.xml</outputFile>
-          <linkXRef>false</linkXRef>
-        </configuration>
       </plugin>
       <plugin>
         <groupId>org.cyclonedx</groupId>
         <artifactId>cyclonedx-maven-plugin</artifactId>
-        <version>2.7.11</version>
         <executions>
           <execution>
-            <phase>package</phase>
             <goals>
               <goal>makeBom</goal>
             </goals>
+            <phase>package</phase>
           </execution>
         </executions>
       </plugin>
@@ -287,19 +290,19 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-assembly-plugin</artifactId>
-        <executions>
-          <execution>
-            <phase>package</phase>
-            <goals>
-              <goal>single</goal>
-            </goals>
-          </execution>
-        </executions>
         <configuration>
           <descriptorRefs>
             <descriptorRef>src</descriptorRef>
           </descriptorRefs>
         </configuration>
+        <executions>
+          <execution>
+            <goals>
+              <goal>single</goal>
+            </goals>
+            <phase>package</phase>
+          </execution>
+        </executions>
       </plugin>
 
       <plugin>
@@ -310,21 +313,24 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-site-plugin</artifactId>
       </plugin>
+      <plugin>
+        <groupId>com.diffplug.spotless</groupId>
+        <artifactId>spotless-maven-plugin</artifactId>
+        <configuration>
+          <pom>
+            <sortPom></sortPom>
+          </pom>
+        </configuration>
+        <executions>
+          <execution>
+            <id>spotless-check</id>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
-    <pluginManagement>
-      <plugins>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-project-info-reports-plugin</artifactId>
-          <version>3.5.0</version>
-        </plugin>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-site-plugin</artifactId>
-          <version>3.12.1</version>
-        </plugin>
-      </plugins>
-    </pluginManagement>
   </build>
 
   <reporting>
@@ -332,12 +338,10 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-project-info-reports-plugin</artifactId>
-        <version>3.5.0</version>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-site-plugin</artifactId>
-        <version>3.12.1</version>
       </plugin>
     </plugins>
   </reporting>

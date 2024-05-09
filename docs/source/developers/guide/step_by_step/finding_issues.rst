@@ -65,7 +65,7 @@ person who triaged the ticket expected it to be. Don't hesitate to write that
 in the comments.
 
 .. note::
-   
+
    When you find a GitHub issue you would like to work on, please mention
    your interest in the comment section of that issue; that way we will know
    you are working on it.

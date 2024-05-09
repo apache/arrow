@@ -20,6 +20,7 @@ package org.apache.arrow.vector.compare;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseLargeVariableWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
+import org.apache.arrow.vector.BaseVariableWidthViewVector;
 import org.apache.arrow.vector.ExtensionTypeVector;
 import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.complex.DenseUnionVector;
@@ -41,6 +42,8 @@ public interface VectorVisitor<OUT, IN> {
   OUT visit(BaseVariableWidthVector left, IN value);
 
   OUT visit(BaseLargeVariableWidthVector left, IN value);
+
+  OUT visit(BaseVariableWidthViewVector left, IN value);
 
   OUT visit(ListVector left, IN value);
 

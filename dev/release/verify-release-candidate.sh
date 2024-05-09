@@ -347,7 +347,7 @@ install_csharp() {
 
   show_info "Ensuring that C# is installed..."
 
-  if dotnet --version | grep 7\.0 > /dev/null 2>&1; then
+  if dotnet --version | grep 8\.0 > /dev/null 2>&1; then
     local csharp_bin=$(dirname $(which dotnet))
     show_info "Found C# at $(which csharp) (.NET $(dotnet --version))"
   else
@@ -355,7 +355,7 @@ install_csharp() {
       show_info "dotnet found but it is the wrong version and will be ignored."
     fi
     local csharp_bin=${ARROW_TMPDIR}/csharp/bin
-    local dotnet_version=7.0.102
+    local dotnet_version=8.0.204
     local dotnet_platform=
     case "$(uname)" in
       Linux)
@@ -502,7 +502,8 @@ maybe_setup_conda() {
 install_maven() {
   MAVEN_VERSION=3.8.7
   if command -v mvn > /dev/null; then
-    SYSTEM_MAVEN_VERSION=$(mvn -v | head -n 1 | awk '{print $3}')
+    # --batch-mode is for disabling output color.
+    SYSTEM_MAVEN_VERSION=$(mvn --batch-mode -v | head -n 1 | awk '{print $3}')
     show_info "Found Maven version ${SYSTEM_MAVEN_VERSION} at $(command -v mvn)."
   else
     SYSTEM_MAVEN_VERSION=0.0.0
@@ -523,7 +524,8 @@ install_maven() {
         ${APACHE_MIRROR}/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz
       tar xzf apache-maven-${MAVEN_VERSION}-bin.tar.gz
       export PATH=$(pwd)/apache-maven-${MAVEN_VERSION}/bin:$PATH
-      show_info "Installed Maven version $(mvn -v | head -n 1 | awk '{print $3}')"
+      # --batch-mode is for disabling output color.
+      show_info "Installed Maven version $(mvn --batch-mode -v | head -n 1 | awk '{print $3}')"
     else
       show_info "System Maven version ${SYSTEM_MAVEN_VERSION} is newer than minimum version ${MAVEN_VERSION}. Skipping installation."
     fi

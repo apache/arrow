@@ -21,11 +21,11 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/apache/arrow/go/v16/parquet"
-	"github.com/apache/arrow/go/v16/parquet/internal/encryption"
-	"github.com/apache/arrow/go/v16/parquet/internal/utils"
-	"github.com/apache/arrow/go/v16/parquet/metadata"
-	"github.com/apache/arrow/go/v16/parquet/schema"
+	"github.com/apache/arrow/go/v17/parquet"
+	"github.com/apache/arrow/go/v17/parquet/internal/encryption"
+	"github.com/apache/arrow/go/v17/parquet/internal/utils"
+	"github.com/apache/arrow/go/v17/parquet/metadata"
+	"github.com/apache/arrow/go/v17/parquet/schema"
 )
 
 // Writer is the primary interface for writing a parquet file

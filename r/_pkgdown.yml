@@ -76,7 +76,7 @@ home:
           [C GLib](https://arrow.apache.org/docs/c_glib) <br>
           [C++](https://arrow.apache.org/docs/cpp) <br>
           [C#](https://github.com/apache/arrow/blob/main/csharp/README.md) <br>
-          [Go](https://pkg.go.dev/github.com/apache/arrow/go/v16) <br>
+          [Go](https://pkg.go.dev/github.com/apache/arrow/go/v17) <br>
           [Java](https://arrow.apache.org/docs/java) <br>
           [JavaScript](https://arrow.apache.org/docs/js) <br>
           [Julia](https://github.com/apache/arrow-julia/blob/main/README.md) <br>

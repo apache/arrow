@@ -23,12 +23,12 @@ import (
 	"strconv"
 	"unicode/utf8"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/bitutil"
-	"github.com/apache/arrow/go/v16/arrow/compute/exec"
-	"github.com/apache/arrow/go/v16/arrow/float16"
-	"github.com/apache/arrow/go/v16/internal/bitutils"
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/array"
+	"github.com/apache/arrow/go/v17/arrow/bitutil"
+	"github.com/apache/arrow/go/v17/arrow/compute/exec"
+	"github.com/apache/arrow/go/v17/arrow/float16"
+	"github.com/apache/arrow/go/v17/internal/bitutils"
 )
 
 func validateUtf8Fsb(input *exec.ArraySpan) error {

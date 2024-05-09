@@ -51,7 +51,7 @@ types:
 
   3) Its serialization *must* be described in the proposal and should
      not require unduly implementation work or unusual software dependencies
-     (for example, a trivial custom text format or JSON would be acceptable).
+     (for example, a trivial custom text format or a JSON-based format would be acceptable).
 
   4) Its expected semantics *should* be described as well and any
      potential ambiguities or pain points addressed or at least mentioned.
@@ -251,6 +251,38 @@ Variable shape tensor
    Values inside each **data** tensor element are stored in row-major/C-contiguous
    order according to the corresponding **shape**.
 
+.. _json_extension:
+
+JSON
+====
+
+* Extension name: ``arrow.json``.
+
+* The storage type of this extension is ``String`` or
+  or ``LargeString`` or ``StringView``.
+  Only UTF-8 encoded JSON as specified in `rfc8259`_ is supported.
+
+* Extension type parameters:
+
+  This type does not have any parameters.
+
+* Description of the serialization:
+
+  Metadata is either an empty string or a JSON string with an empty object.
+  In the future, additional fields may be added, but they are not required
+  to interpret the array.
+
+UUID
+====
+
+* Extension name: ``arrow.uuid``.
+
+* The storage type of the extension is ``FixedSizeBinary`` with a length of 16 bytes.
+
+.. note::
+   A specific UUID version is not required or guaranteed. This extension represents
+   UUIDs as FixedSizeBinary(16) with big-endian notation and does not interpret the bytes in any way.
+
 =========================
 Community Extension Types
 =========================
@@ -268,3 +300,5 @@ GeoArrow
 Arrow extension types for representing vector geometries. It is well known
 within the Arrow geospatial subcommunity. The GeoArrow specification is not yet
 finalized.
+
+.. _rfc8259: https://datatracker.ietf.org/doc/html/rfc8259

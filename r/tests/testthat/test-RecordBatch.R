@@ -595,14 +595,10 @@ test_that("RecordBatch supports cbind", {
   )
 
   # Rejects Table and ChunkedArray arguments
-  if (getRversion() >= "4.0.0") {
-    # R 3.6 cbind dispatch rules cause cbind to fall back to default impl if
-    # there are multiple arguments with distinct cbind implementations
-    expect_error(
-      cbind(record_batch(a = 1:2), arrow_table(b = 3:4)),
-      regexp = "Cannot cbind a RecordBatch with Tables or ChunkedArrays"
-    )
-  }
+  expect_error(
+    cbind(record_batch(a = 1:2), arrow_table(b = 3:4)),
+    regexp = "Cannot cbind a RecordBatch with Tables or ChunkedArrays"
+  )
   expect_error(
     cbind(record_batch(a = 1:2), b = chunked_array(1, 2)),
     regexp = "Cannot cbind a RecordBatch with Tables or ChunkedArrays"
@@ -622,10 +618,6 @@ test_that("Handling string data with embedded nuls", {
   batch_with_nul <- record_batch(a = 1:5, b = raws)
   batch_with_nul$b <- batch_with_nul$b$cast(utf8())
 
-  # The behavior of the warnings/errors is slightly different with and without
-  # altrep. Without it (i.e. 3.5.0 and below, the error would trigger immediately
-  # on `as.vector()` where as with it, the error only happens on materialization)
-  skip_on_r_older_than("3.6")
   df <- as.data.frame(batch_with_nul)
 
   expect_error(

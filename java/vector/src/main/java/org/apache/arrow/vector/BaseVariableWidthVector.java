@@ -42,8 +42,7 @@ import org.apache.arrow.vector.util.TransferPair;
 /**
  * BaseVariableWidthVector is a base class providing functionality for strings/bytes types.
  */
-public abstract class BaseVariableWidthVector extends BaseValueVector
-        implements VariableWidthVector, FieldVector, VectorDefinitionSetter {
+public abstract class BaseVariableWidthVector extends BaseValueVector implements VariableWidthFieldVector {
   private static final int DEFAULT_RECORD_BYTE_COUNT = 8;
   private static final int INITIAL_BYTE_COUNT = INITIAL_VALUE_ALLOCATION * DEFAULT_RECORD_BYTE_COUNT;
   private static final int MAX_BUFFER_SIZE = (int) Math.min(MAX_ALLOCATION_SIZE, Integer.MAX_VALUE);
@@ -993,6 +992,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    *
    * @param index target index
    */
+  @Override
   public void fillEmpties(int index) {
     handleSafe(index, emptyByteArray.length);
     fillHoles(index);
@@ -1006,6 +1006,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    *
    * @param value desired index of last non-null element.
    */
+  @Override
   public void setLastSet(int value) {
     lastSet = value;
   }
@@ -1015,6 +1016,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    *
    * @return index of the last non-null element
    */
+  @Override
   public int getLastSet() {
     return lastSet;
   }
@@ -1050,6 +1052,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @param index   position of the element to set
    * @param length  length of the element
    */
+  @Override
   public void setValueLengthSafe(int index, int length) {
     assert index >= 0;
     handleSafe(index, length);
@@ -1065,6 +1068,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @param index   position of element to get
    * @return greater than 0 length for non-null element, 0 otherwise
    */
+  @Override
   public int getValueLength(int index) {
     assert index >= 0;
     if (isSet(index) == 0) {
@@ -1083,6 +1087,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @param index   position of the element to set
    * @param value   array of bytes to write
    */
+  @Override
   public void set(int index, byte[] value) {
     assert index >= 0;
     fillHoles(index);
@@ -1099,6 +1104,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @param index   position of the element to set
    * @param value   array of bytes to write
    */
+  @Override
   public void setSafe(int index, byte[] value) {
     assert index >= 0;
     handleSafe(index, value.length);
@@ -1153,6 +1159,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @param start   start index in ByteBuffer
    * @param length  length of data in ByteBuffer
    */
+  @Override
   public void set(int index, ByteBuffer value, int start, int length) {
     assert index >= 0;
     fillHoles(index);

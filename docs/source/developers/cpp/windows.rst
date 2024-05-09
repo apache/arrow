@@ -379,9 +379,9 @@ Downloading the Timezone Database
 =================================
 
 To run some of the compute unit tests on Windows, the IANA timezone database
-and the Windows timezone mapping need to be downloaded first. See 
+and the Windows timezone mapping need to be downloaded first. See
 :ref:`download-timezone-database` for download instructions. To set a non-default
-path for the timezone database while running the unit tests, set the 
+path for the timezone database while running the unit tests, set the
 ``ARROW_TIMEZONE_DATABASE`` environment variable.
 
 Replicating Appveyor Builds

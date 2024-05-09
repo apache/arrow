@@ -205,7 +205,7 @@ simply do::
 Memory Profiling
 ================
 
-On Linux, detailed profiles of memory allocations can be generated using 
+On Linux, detailed profiles of memory allocations can be generated using
 ``perf record``, without any need to modify the binaries. These profiles can
 show the traceback in addition to allocation size. This does require debug
 symbols, from either a debug build or a release with debug symbols build.
@@ -234,14 +234,14 @@ recorded allocations, so we can correlate them with the call to free/de-allocate
 .. tab-set::
 
    .. tab-item:: jemalloc
-      
+
       .. code-block:: shell
 
-         perf probe -x libarrow.so je_arrow_mallocx '$params' 
-         perf probe -x libarrow.so je_arrow_mallocx%return '$retval' 
-         perf probe -x libarrow.so je_arrow_rallocx '$params' 
-         perf probe -x libarrow.so je_arrow_rallocx%return '$retval' 
-         perf probe -x libarrow.so je_arrow_dallocx '$params' 
+         perf probe -x libarrow.so je_arrow_mallocx '$params'
+         perf probe -x libarrow.so je_arrow_mallocx%return '$retval'
+         perf probe -x libarrow.so je_arrow_rallocx '$params'
+         perf probe -x libarrow.so je_arrow_rallocx%return '$retval'
+         perf probe -x libarrow.so je_arrow_dallocx '$params'
          PROBE_ARGS="-e probe_libarrow:je_arrow_mallocx \
             -e probe_libarrow:je_arrow_mallocx__return \
             -e probe_libarrow:je_arrow_rallocx \
@@ -249,13 +249,13 @@ recorded allocations, so we can correlate them with the call to free/de-allocate
             -e probe_libarrow:je_arrow_dallocx"
 
    .. tab-item:: mimalloc
-      
+
       .. code-block:: shell
 
-         perf probe -x libarrow.so mi_malloc_aligned '$params' 
-         perf probe -x libarrow.so mi_malloc_aligned%return '$retval' 
-         perf probe -x libarrow.so mi_realloc_aligned '$params' 
-         perf probe -x libarrow.so mi_realloc_aligned%return '$retval' 
+         perf probe -x libarrow.so mi_malloc_aligned '$params'
+         perf probe -x libarrow.so mi_malloc_aligned%return '$retval'
+         perf probe -x libarrow.so mi_realloc_aligned '$params'
+         perf probe -x libarrow.so mi_realloc_aligned%return '$retval'
          perf probe -x libarrow.so mi_free '$params'
          PROBE_ARGS="-e probe_libarrow:mi_malloc_aligned \
             -e probe_libarrow:mi_malloc_aligned__return \
@@ -277,9 +277,9 @@ If you want to profile a running process, you can run ``perf record -p <PID>``
 and it will record until you interrupt with CTRL+C. Alternatively, you can do
 ``perf record -P <PID> sleep 10`` to record for 10 seconds.
 
-The resulting data can be processed with standard tools to work with perf or 
+The resulting data can be processed with standard tools to work with perf or
 ``perf script`` can be used to pipe a text format of the data to custom scripts.
-The following script parses ``perf script`` output and prints the output in 
+The following script parses ``perf script`` output and prints the output in
 new lines delimited JSON for easier processing.
 
 .. code-block:: python
@@ -354,7 +354,7 @@ Here's an example invocation of that script, with a preview of output data:
 
 
 From there one can answer a number of questions. For example, the following
-script will find which allocations were never freed, and print the associated 
+script will find which allocations were never freed, and print the associated
 tracebacks along with the count of dangling allocations:
 
 .. code-block:: python

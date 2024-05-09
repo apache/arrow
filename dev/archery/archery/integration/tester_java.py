@@ -18,17 +18,23 @@
 import contextlib
 import functools
 import os
+from pathlib import Path
 import subprocess
 
 from . import cdata
 from .tester import Tester, CDataExporter, CDataImporter
 from .util import run_cmd, log
-from ..utils.source import ARROW_ROOT_DEFAULT
+
+
+ARROW_BUILD_ROOT = os.environ.get(
+    'ARROW_BUILD_ROOT',
+    Path(__file__).resolve().parents[5]
+)
 
 
 def load_version_from_pom():
     import xml.etree.ElementTree as ET
-    tree = ET.parse(os.path.join(ARROW_ROOT_DEFAULT, 'java', 'pom.xml'))
+    tree = ET.parse(os.path.join(ARROW_BUILD_ROOT, 'java', 'pom.xml'))
     tag_pattern = '{http://maven.apache.org/POM/4.0.0}version'
     version_tag = list(tree.getroot().findall(tag_pattern))[0]
     return version_tag.text
@@ -48,7 +54,7 @@ _arrow_version = load_version_from_pom()
 _ARROW_TOOLS_JAR = os.environ.get(
     "ARROW_JAVA_INTEGRATION_JAR",
     os.path.join(
-        ARROW_ROOT_DEFAULT,
+        ARROW_BUILD_ROOT,
         "java/tools/target",
         f"arrow-tools-{_arrow_version}-jar-with-dependencies.jar"
     )
@@ -56,7 +62,7 @@ _ARROW_TOOLS_JAR = os.environ.get(
 _ARROW_C_DATA_JAR = os.environ.get(
     "ARROW_C_DATA_JAVA_INTEGRATION_JAR",
     os.path.join(
-        ARROW_ROOT_DEFAULT,
+        ARROW_BUILD_ROOT,
         "java/c/target",
         f"arrow-c-data-{_arrow_version}.jar"
     )
@@ -64,7 +70,7 @@ _ARROW_C_DATA_JAR = os.environ.get(
 _ARROW_FLIGHT_JAR = os.environ.get(
     "ARROW_FLIGHT_JAVA_INTEGRATION_JAR",
     os.path.join(
-        ARROW_ROOT_DEFAULT,
+        ARROW_BUILD_ROOT,
         "java/flight/flight-integration-tests/target",
         f"flight-integration-tests-{_arrow_version}-jar-with-dependencies.jar"
     )

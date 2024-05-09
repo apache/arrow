@@ -79,7 +79,7 @@ The ``NativeFunction`` class is used to define the metadata for an external func
     * ``ResultNullableType::kResultNullIfNull``: result validity is an intersection of the validity of the children.
     * ``ResultNullableType::kResultNullNever``: result is always valid.
     * ``ResultNullableType::kResultNullInternal``: result validity depends on some internal logic.
-* ``pc_name``: The name of the corresponding precompiled function. 
+* ``pc_name``: The name of the corresponding precompiled function.
   * Typically, this name follows the convention ``{base_name}`` + ``_{param1_type}`` + ``{param2_type}`` + ... + ``{paramN_type}``. For example, if the base name is ``add`` and the function takes two ``int32`` parameters and returns an ``int32``, the precompiled function name would be ``add_int32_int32``, but this convention is not mandatory as long as you can guarantee its uniqueness.
 * ``flags``: Optional flags for additional function attributes (default is 0). Please check out ``NativeFunction::kNeedsContext``, ``NativeFunction::kNeedsFunctionHolder``, and ``NativeFunction::kCanReturnErrors`` for more details.
 
@@ -153,10 +153,10 @@ Not all Arrow data types are supported in Gandiva. The following table lists the
 | utf8 (as return type)               | int64_t context,  |
 |                                     | const char*,      |
 |                                     | uint32_t*         |
-|                                     | [see next section]| 
+|                                     | [see next section]|
 +-------------------------------------+-------------------+
 
-Handling arrow::StringType (utf8 type) and arrow::BinaryType 
+Handling arrow::StringType (utf8 type) and arrow::BinaryType
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Both ``arrow::StringType`` and ``arrow::BinaryType`` are variable-length types. And they are handled similarly in external functions. Since ``arrow::StringType`` (utf8 type) is more commonly used, we will use it below as the example to explain how to handle variable-length types in external functions.
 
@@ -179,7 +179,7 @@ When ``arrow::StringType`` (``utf8`` type) is used as the return type in a funct
 2. **Function Parameters:**
     * **Context Parameter**: The C function should begin with an additional parameter, ``int64_t context``. This parameter is crucial for context management within the function.
     * **String Length Output Parameter**: The function should also include a ``uint32_t*`` parameter at the end. This output parameter will store the length of the returned string data.
-3. **Return Value**: The function should return a ``const char*`` pointer, pointing to the string data. 
+3. **Return Value**: The function should return a ``const char*`` pointer, pointing to the string data.
 4. **Function Implementation:**
    * **Memory Allocation and Error Messaging:** Within the function's implementation, use ``gdv_fn_context_arena_malloc`` and ``gdv_fn_context_set_error_msg`` for memory allocation and error messaging, respectively. Both functions take ``int64_t context`` as their first parameter, facilitating efficient context utilization.
 
@@ -200,10 +200,10 @@ You can use ``gandiva::FunctionRegistry``'s APIs to register external C function
         NativeFunction func, void* c_function_ptr,
         std::optional<FunctionHolderMaker> function_holder_maker = std::nullopt);
 
-The above API allows you to register an external C function. 
+The above API allows you to register an external C function.
 
-* The ``NativeFunction`` object describes the metadata of the external C function. 
-* The ``c_function_ptr`` is the function pointer to the external C function's implementation. 
+* The ``NativeFunction`` object describes the metadata of the external C function.
+* The ``c_function_ptr`` is the function pointer to the external C function's implementation.
 * The optional ``function_holder_maker`` is used to create a function holder for the external C function if the external C function requires a function holder. Check out the ``gandiva::FunctionHolder`` class and its several sub-classes for more details.
 
 External IR functions

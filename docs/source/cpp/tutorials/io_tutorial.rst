@@ -33,7 +33,7 @@ the start to end of an application. In this article, you will:
 
 3. Read a Parquet file into a :class:`Table` and write it back out afterwards
 
-Pre-requisites 
+Pre-requisites
 ---------------
 
 Before continuing, make sure you have:
@@ -50,7 +50,7 @@ Setup
 Before writing out some file I/O, we need to fill in a couple gaps:
 
 1. We need to include necessary headers.
-   
+
 2. A ``main()`` is needed to glue things together.
 
 3. We need files to play with.
@@ -58,8 +58,8 @@ Before writing out some file I/O, we need to fill in a couple gaps:
 Includes
 ^^^^^^^^
 
-Before writing C++ code, we need some includes. We'll get ``iostream`` for output, then import Arrow's 
-I/O functionality for each file type we'll work with in this article: 
+Before writing C++ code, we need some includes. We'll get ``iostream`` for output, then import Arrow's
+I/O functionality for each file type we'll work with in this article:
 
 .. literalinclude:: ../../../../cpp/examples/tutorial_examples/file_access_example.cc
   :language: cpp
@@ -156,8 +156,8 @@ Opening an Arrow file Reader
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 An :class:`io::ReadableFile` is too generic to offer all functionality to read an Arrow file.
-We need to use it to get an :class:`ipc::RecordBatchFileReader` object. This object implements 
-all the logic needed to read an Arrow file with correct formatting. We get one through 
+We need to use it to get an :class:`ipc::RecordBatchFileReader` object. This object implements
+all the logic needed to read an Arrow file with correct formatting. We get one through
 :func:`ipc::RecordBatchFileReader::Open`:
 
 .. literalinclude:: ../../../../cpp/examples/tutorial_examples/file_access_example.cc
@@ -294,8 +294,8 @@ Write a CSV File from Table
 
 CSV writing to :class:`Table` looks exactly like IPC writing to :class:`RecordBatch`,
 except with our :class:`Table`, and using :func:`ipc::RecordBatchWriter::WriteTable` instead of
-:func:`ipc::RecordBatchWriter::WriteRecordBatch`. Note that the same writer class is used -- 
-we're writing with :func:`ipc::RecordBatchWriter::WriteTable` because we have a :class:`Table`. We’ll target 
+:func:`ipc::RecordBatchWriter::WriteRecordBatch`. Note that the same writer class is used --
+we're writing with :func:`ipc::RecordBatchWriter::WriteTable` because we have a :class:`Table`. We’ll target
 a file, use our :class:`Table’s <Table>` :class:`Schema`, and then write the :class:`Table`:
 
 .. literalinclude:: ../../../../cpp/examples/tutorial_examples/file_access_example.cc
@@ -358,7 +358,7 @@ even though we used :func:`io::ReadableFile::Open`. Note that we pass our
 Reading a Parquet File to Table
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-With a prepared :class:`parquet::arrow::FileReader` in hand, we can read to a 
+With a prepared :class:`parquet::arrow::FileReader` in hand, we can read to a
 :class:`Table`, except we must pass the :class:`Table` by reference instead of outputting to it:
 
 .. literalinclude:: ../../../../cpp/examples/tutorial_examples/file_access_example.cc

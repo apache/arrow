@@ -422,6 +422,12 @@ cdef class FileSystem(_Weakrefable):
                         "SubTreeFileSystem")
 
     @staticmethod
+    @binding(True)  # Required for cython < 3
+    def _from_uri(uri):
+        fs, _path = FileSystem.from_uri(uri)
+        return fs
+
+    @staticmethod
     def from_uri(uri):
         """
         Create a new FileSystem from URI or Path.
@@ -1097,30 +1103,18 @@ cdef class LocalFileSystem(FileSystem):
 
     def __init__(self, *, use_mmap=False):
         cdef:
-            CLocalFileSystemOptions opts
-            shared_ptr[CLocalFileSystem] fs
+            shared_ptr[CFileSystem] fs
+            c_string c_uri
 
-        opts = CLocalFileSystemOptions.Defaults()
-        opts.use_mmap = use_mmap
-
-        fs = make_shared[CLocalFileSystem](opts)
+        # from_uri needs a non-empty path, so just use a placeholder of /_
+        c_uri = tobytes(f"file:///_?use_mmap={int(use_mmap)}")
+        with nogil:
+            fs = GetResultValue(CFileSystemFromUri(c_uri))
         self.init(<shared_ptr[CFileSystem]> fs)
 
-    cdef init(self, const shared_ptr[CFileSystem]& c_fs):
-        FileSystem.init(self, c_fs)
-        self.localfs = <CLocalFileSystem*> c_fs.get()
-
-    @staticmethod
-    @binding(True)  # Required for cython < 3
-    def _reconstruct(kwargs):
-        # __reduce__ doesn't allow passing named arguments directly to the
-        # reconstructor, hence this wrapper.
-        return LocalFileSystem(**kwargs)
-
     def __reduce__(self):
-        cdef CLocalFileSystemOptions opts = self.localfs.options()
-        return LocalFileSystem._reconstruct, (dict(
-            use_mmap=opts.use_mmap),)
+        uri = frombytes(GetResultValue(self.fs.MakeUri(b"/_")))
+        return FileSystem._from_uri, (uri,)
 
 
 cdef class SubTreeFileSystem(FileSystem):

@@ -173,6 +173,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_string ToString()
 
     c_bool is_primitive(Type type)
+    c_bool is_numeric(Type type)
 
     cdef cppclass CArrayData" arrow::ArrayData":
         shared_ptr[CDataType] type
@@ -2587,6 +2588,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
             "arrow::compute::PairwiseOptions"(CFunctionOptions):
         CPairwiseOptions(int64_t period)
         int64_t period
+
+    cdef cppclass CListFlattenOptions\
+            "arrow::compute::ListFlattenOptions"(CFunctionOptions):
+        CListFlattenOptions(c_bool recursive)
+        c_bool recursive
 
     cdef cppclass CArraySortOptions \
             "arrow::compute::ArraySortOptions"(CFunctionOptions):

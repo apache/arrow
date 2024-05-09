@@ -40,7 +40,7 @@ import { instance as indexOfVisitor } from './visitor/indexof.js';
 import { instance as iteratorVisitor } from './visitor/iterator.js';
 
 import { DataProps } from './data.js';
-import { clampRange } from './util/vector.js';
+import { clampRange, wrapIndex } from './util/vector.js';
 import { ArrayDataType, BigIntArray, TypedArray, TypedArrayDataType } from './interfaces.js';
 import { RecordBatch, _InternalEmptyPlaceholderRecordBatch } from './recordbatch.js';
 
@@ -195,6 +195,15 @@ export class Table<T extends TypeMap = any> {
      */
     // @ts-ignore
     public get(index: number): Struct<T>['TValue'] | null { return null; }
+
+    /**
+      * Get an element value by position.
+      * @param index The index of the element to read. A negative index will count back from the last element.
+      */
+    // @ts-ignore
+    public at(index: number): Struct<T>['TValue'] | null {
+        return this.get(wrapIndex(index, this.numRows));
+    }
 
     /**
      * Set an element value by position.

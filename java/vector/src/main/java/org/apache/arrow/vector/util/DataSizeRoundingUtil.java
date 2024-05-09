@@ -93,6 +93,10 @@ public final class DataSizeRoundingUtil {
     return (input + 7) >>> (long) DIVIDE_BY_8_SHIFT_BITS;
   }
 
+  public static long roundUpToMultipleOf16(long num) {
+    return (num + 15) & 0xFFFFFFFFFFFFFFF0L;
+  }
+
   private DataSizeRoundingUtil() {
 
   }
