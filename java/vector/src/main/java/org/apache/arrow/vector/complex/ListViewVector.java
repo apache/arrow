@@ -26,7 +26,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -757,60 +756,32 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
   }
 
   /**
-   * Constructing a ListViewVector when the offsets, sizes and field vector are available.
-   * <p>
-   * Steps taken follow the workflow used in creating a ListViewVector with the API
-   * used in ListVector.
-   *
-   * @param offSetBuffer new offSet buffer to be set
-   * @param sizeBuffer new size buffer to be set
-   * @param validityBuffer new validity buffer to be set
-   * @param elementFieldVec new elements to be appended to the field vector
-   * @param valueCount number of lists to be set
-   */
-  public void set(ArrowBuf offSetBuffer, ArrowBuf sizeBuffer, ArrowBuf validityBuffer,
-      FieldVector elementFieldVec, int valueCount) {
-    // Null checks
-    Objects.requireNonNull(offSetBuffer, "Offset buffer cannot be null");
-    Objects.requireNonNull(sizeBuffer, "Size buffer cannot be null");
-    Objects.requireNonNull(validityBuffer, "Validity buffer cannot be null");
-    Objects.requireNonNull(elementFieldVec, "Element Field Vector cannot be null");
-
-    // set buffers
-    this.validityBuffer.getReferenceManager().release();
-    this.validityBuffer = validityBuffer.getReferenceManager().retain(validityBuffer, allocator);
-    this.offsetBuffer.getReferenceManager().release();
-    this.offsetBuffer = offSetBuffer.getReferenceManager().retain(offSetBuffer, allocator);
-    this.sizeBuffer.getReferenceManager().release();
-    this.sizeBuffer = sizeBuffer.getReferenceManager().retain(sizeBuffer, allocator);
-
-    validityAllocationSizeInBytes = checkedCastToInt(validityBuffer.capacity());
-    offsetAllocationSizeInBytes = offSetBuffer.capacity();
-    sizeAllocationSizeInBytes = sizeBuffer.capacity();
-
-    // set child vector
-    this.vector = elementFieldVec;
-
-    this.lastSet = valueCount - 1;
-    this.setValueCount(valueCount);
-    this.getWriter().setPosition(valueCount);
-  }
-
-  /**
    * Set the offset at the given index.
+   * Make sure to use this function after using `setValidity`
    * @param index index of the value to set
    * @param value value to set
    */
   public void setOffSet(int index, int value) {
+    // 0 <= offsets[i] <= length of the child array
+    // 0 <= offsets[i] + size[i] <= length of the child array
+    if (value < 0) {
+      throw new IllegalArgumentException("Offset cannot be negative");
+    }
     offsetBuffer.setInt(index * OFFSET_WIDTH, value);
   }
 
   /**
    * Set the size at the given index.
+   * Make sure to use this function after using `setOffSet`.
    * @param index index of the value to set
    * @param value value to set
    */
   public void setSize(int index, int value) {
+    // 0 <= offsets[i] <= length of the child array
+    // 0 <= offsets[i] + size[i] <= length of the child array
+    if (value < 0) {
+      throw new IllegalArgumentException("Size cannot be negative");
+    }
     sizeBuffer.setInt(index * SIZE_WIDTH, value);
   }
 
@@ -921,6 +892,10 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     for (int i = 0; i < valueCount; i++) {
       final int offset = offsetBuffer.getInt(i * OFFSET_WIDTH);
       final int size = sizeBuffer.getInt(i * SIZE_WIDTH);
+      if (size < 0) {
+        throw new IllegalStateException(String.format(
+            "Size %d at index %d is negative", size, i));
+      }
       final int childArrayLength = getLengthOfChildVector();
       if (offset < 0 || offset > childArrayLength) {
         throw new IllegalStateException(String.format(
