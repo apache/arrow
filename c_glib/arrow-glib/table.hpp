@@ -25,14 +25,14 @@
 #include <arrow-glib/table.h>
 #include <arrow-glib/visibility.h>
 
-GARROW_EXPORT
+GARROW_EXTERN
 GArrowTable *
 garrow_table_new_raw(std::shared_ptr<arrow::Table> *arrow_table);
 
-GARROW_EXPORT
+GARROW_EXTERN
 std::shared_ptr<arrow::Table>
 garrow_table_get_raw(GArrowTable *table);
 
-GARROW_EXPORT
+GARROW_EXTERN
 arrow::ipc::feather::WriteProperties *
 garrow_feather_write_properties_get_raw(GArrowFeatherWriteProperties *properties);
