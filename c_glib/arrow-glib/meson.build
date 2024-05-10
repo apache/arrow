@@ -104,6 +104,7 @@ c_headers = files(
   'tensor.h',
   'timestamp-parser.h',
   'type.h',
+  'visibility.h',
 )
 
 
@@ -249,6 +250,7 @@ libarrow_glib = library('arrow-glib',
                         dependencies: dependencies,
                         implicit_include_directories: false,
                         include_directories: base_include_directories,
+                        cpp_args: ['-DGARROW_EXPORTING'],
                         soversion: so_version,
                         version: library_version)
 arrow_glib = declare_dependency(link_with: libarrow_glib,
