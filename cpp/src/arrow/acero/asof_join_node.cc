@@ -932,7 +932,12 @@ class AsofJoinNode : public ExecNode {
     bool up_to_date_with_lhs = true;
     for (size_t i = 1; i < state_.size(); ++i) {
       auto& rhs = *state_[i];
+
+      // Obtain RHS emptiness once for subsequent AdvanceAndMemoize() and CurrentEmpty().
       bool rhs_empty = rhs.Empty();
+      // Obtain RHS current time here because AdvanceAndMemoize() can change the
+      // emptiness.
+      OnType rhs_current_time = rhs_empty ? OnType{} : rhs.GetLatestTime();
 
       ARROW_ASSIGN_OR_RAISE(bool advanced,
                             rhs.AdvanceAndMemoize(lhs_latest_time, rhs_empty));
@@ -943,7 +948,7 @@ class AsofJoinNode : public ExecNode {
         if (rhs.CurrentEmpty(rhs_empty)) {
           // RHS isn't finished, but is empty --> not up to date
           up_to_date_with_lhs = false;
-        } else if (lhs_latest_time > rhs.GetCurrentTime()) {
+        } else if (lhs_latest_time > rhs_current_time) {
           // RHS isn't up to date (and not finished)
           up_to_date_with_lhs = false;
         }
