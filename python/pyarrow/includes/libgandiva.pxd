@@ -252,7 +252,6 @@ cdef extern from "gandiva/filter.h" namespace "gandiva" nogil:
     cdef CStatus Filter_Make \
         "gandiva::Filter::Make"(
             shared_ptr[CSchema] schema, shared_ptr[CCondition] condition,
-            shared_ptr[CConfiguration] configuration,
             shared_ptr[CFilter]* filter)
 
 cdef extern from "gandiva/function_signature.h" namespace "gandiva" nogil:
@@ -279,20 +278,9 @@ cdef extern from "gandiva/expression_registry.h" namespace "gandiva" nogil:
 cdef extern from "gandiva/configuration.h" namespace "gandiva" nogil:
 
     cdef cppclass CConfiguration" gandiva::Configuration":
-
-        CConfiguration()
-
-        CConfiguration(bint optimize, bint dump_ir)
-
-        void set_optimize(bint optimize)
-
-        void set_dump_ir(bint dump_ir)
+        pass
 
     cdef cppclass CConfigurationBuilder \
             " gandiva::ConfigurationBuilder":
         @staticmethod
         shared_ptr[CConfiguration] DefaultConfiguration()
-
-        CConfigurationBuilder()
-
-        shared_ptr[CConfiguration] build()

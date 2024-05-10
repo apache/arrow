@@ -76,7 +76,7 @@ class GANDIVA_EXPORT Filter {
   Status Evaluate(const arrow::RecordBatch& batch,
                   std::shared_ptr<SelectionVector> out_selection);
 
-  const std::string& DumpIR();
+  std::string DumpIR();
 
   void SetBuiltFromCache(bool flag);
 
