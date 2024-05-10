@@ -673,17 +673,8 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
       reallocValidityAndSizeAndOffsetBuffers();
     }
 
-    if (index == 0) {
-      offsetBuffer.setInt(0, 0);
-      sizeBuffer.setInt(0, 0);
-    } else {
-      final int prevOffset = offsetBuffer.getInt((index - 1) * OFFSET_WIDTH);
-      final int prevSize = sizeBuffer.getInt((index - 1) * SIZE_WIDTH);
-      final int currOffSet = prevOffset + prevSize;
-      offsetBuffer.setInt(index * OFFSET_WIDTH, currOffSet);
-      sizeBuffer.setInt(index * SIZE_WIDTH, 0);
-    }
-
+    offsetBuffer.setInt(index * OFFSET_WIDTH, 0);
+    sizeBuffer.setInt(index * SIZE_WIDTH, 0);
     BitVectorHelper.unsetBit(validityBuffer, index);
   }
 

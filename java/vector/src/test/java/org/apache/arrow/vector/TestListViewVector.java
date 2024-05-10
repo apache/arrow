@@ -1173,10 +1173,10 @@ public class TestListViewVector {
       assertEquals(1, BitVectorHelper.get(validityBuffer, 5));
 
       assertEquals(0, offsetBuffer.getInt(0 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
-      assertEquals(2, offsetBuffer.getInt(1 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(0, offsetBuffer.getInt(1 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
       assertEquals(2, offsetBuffer.getInt(2 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
-      assertEquals(4, offsetBuffer.getInt(3 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
-      assertEquals(4, offsetBuffer.getInt(4 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(0, offsetBuffer.getInt(3 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(0, offsetBuffer.getInt(4 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
       assertEquals(4, offsetBuffer.getInt(5 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
 
       assertEquals(2, sizeBuffer.getInt(0 * BaseRepeatedValueViewVector.SIZE_WIDTH));
@@ -1358,9 +1358,9 @@ public class TestListViewVector {
 
       assertEquals(0, offsetBuffer.getInt(0 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
       assertEquals(0, offsetBuffer.getInt(1 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
-      assertEquals(3, offsetBuffer.getInt(2 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(0, offsetBuffer.getInt(2 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
       assertEquals(3, offsetBuffer.getInt(3 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
-      assertEquals(5, offsetBuffer.getInt(4 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(0, offsetBuffer.getInt(4 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
       assertEquals(5, offsetBuffer.getInt(5 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
 
       assertEquals(0, sizeBuffer.getInt(0 * BaseRepeatedValueViewVector.SIZE_WIDTH));

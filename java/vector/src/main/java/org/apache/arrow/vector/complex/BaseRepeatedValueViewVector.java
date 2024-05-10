@@ -397,13 +397,9 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
       reallocSizeBuffer();
     }
 
-    if (index == 0) {
-      offsetBuffer.setInt(0, 0);
-    } else {
-      final int prevOffset = offsetBuffer.getInt((index - 1) * OFFSET_WIDTH);
-      final int prevSize = sizeBuffer.getInt((index - 1) * SIZE_WIDTH);
-      final int currOffSet = prevOffset + prevSize;
-      offsetBuffer.setInt(index * OFFSET_WIDTH, currOffSet);
+    if (index > 0) {
+      final int prevOffset = getLengthOfChildVectorByIndex(index);
+      offsetBuffer.setInt(index * OFFSET_WIDTH, prevOffset);
     }
 
     setValueCount(index + 1);
