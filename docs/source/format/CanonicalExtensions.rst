@@ -77,7 +77,7 @@ Official List
 Fixed shape tensor
 ==================
 
-* Extension name: `arrow.fixed_shape_tensor`.
+* Extension name: ``arrow.fixed_shape_tensor``.
 
 * The storage type of the extension: ``FixedSizeList`` where:
 
@@ -153,7 +153,7 @@ Fixed shape tensor
 Variable shape tensor
 =====================
 
-* Extension name: `arrow.variable_shape_tensor`.
+* Extension name: ``arrow.variable_shape_tensor``.
 
 * The storage type of the extension is: ``StructArray`` where struct
   is composed of **data** and **shape** fields describing a single

@@ -312,7 +312,7 @@ Each value in this layout consists of 0 or more bytes. While primitive
 arrays have a single values buffer, variable-size binary have an
 **offsets** buffer and **data** buffer.
 
-The offsets buffer contains `length + 1` signed integers (either
+The offsets buffer contains ``length + 1`` signed integers (either
 32-bit or 64-bit, depending on the logical type), which encode the
 start position of each slot in the data buffer. The length of the
 value in each slot is computed using the difference between the offset
@@ -374,7 +374,7 @@ locations are indicated using a **views** buffer, which may point to one
 of potentially several **data** buffers or may contain the characters
 inline.
 
-The views buffer contains `length` view structures with the following layout:
+The views buffer contains ``length`` view structures with the following layout:
 
 ::
 
@@ -394,7 +394,7 @@ should be interpreted.
 
 In the short string case the string's bytes are inlined — stored inside the
 view itself, in the twelve bytes which follow the length. Any remaining bytes
-after the string itself are padded with `0`.
+after the string itself are padded with ``0``.
 
 In the long string case, a buffer index indicates which data buffer
 stores the data bytes and an offset indicates where in that buffer the

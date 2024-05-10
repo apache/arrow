@@ -24,7 +24,7 @@ Arrow/Pandas Timestamps
 
 Arrow timestamps are stored as a 64-bit integer with column metadata to
 associate a time unit (e.g. milliseconds, microseconds, or nanoseconds), and an
-optional time zone.  Pandas (`Timestamp`) uses a 64-bit integer representing
+optional time zone.  Pandas (``Timestamp``) uses a 64-bit integer representing
 nanoseconds and an optional time zone.
 Python/Pandas timestamp types without a associated time zone are referred to as
 "Time Zone Naive".  Python/Pandas timestamp types with an associated time zone are

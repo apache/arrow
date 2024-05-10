@@ -182,7 +182,7 @@ Example how you can read contents from a S3 bucket::
 
 
 Note that it is important to configure :class:`S3FileSystem` with the correct
-region for the bucket being used. If `region` is not set, the AWS SDK will
+region for the bucket being used. If ``region`` is not set, the AWS SDK will
 choose a value, defaulting to 'us-east-1' if the SDK version is <1.8.
 Otherwise it will try to use a variety of heuristics (environment variables,
 configuration profile, EC2 metadata server) to resolve the region.
@@ -277,7 +277,7 @@ load time, since the library may not be in your LD_LIBRARY_PATH), and relies on
 some environment variables.
 
 * ``HADOOP_HOME``: the root of your installed Hadoop distribution. Often has
-  `lib/native/libhdfs.so`.
+  ``lib/native/libhdfs.so``.
 
 * ``JAVA_HOME``: the location of your Java SDK installation.
 
