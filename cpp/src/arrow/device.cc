@@ -100,20 +100,6 @@ Result<std::unique_ptr<Buffer>> MemoryManager::CopyNonOwned(
                                 " to ", to->device()->ToString(), " not supported");
 }
 
-Status MemoryManager::CopyBufferSliceFrom(const std::shared_ptr<Buffer>& buf, void* to,
-                                          const int64_t offset, const int64_t length) {
-  auto maybe_buffer = CopyBuffer(buf, default_cpu_memory_manager());
-
-  if (COPY_BUFFER_SUCCESS(maybe_buffer)) {
-    memcpy(to, (*maybe_buffer)->data() + offset, length);
-    return Status::OK();
-  }
-
-  return Status::NotImplemented("Copying buffer slice from ",
-                                buf->memory_manager()->device()->ToString(),
-                                " to memory not supported");
-}
-
 Result<std::shared_ptr<Buffer>> MemoryManager::ViewBuffer(
     const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& to) {
   if (buf->memory_manager() == to) {
@@ -128,6 +114,31 @@ Result<std::shared_ptr<Buffer>> MemoryManager::ViewBuffer(
 
   return Status::NotImplemented("Viewing buffer from ", from->device()->ToString(),
                                 " on ", to->device()->ToString(), " not supported");
+}
+
+Status MemoryManager::CopyBufferSlice(const std::shared_ptr<Buffer>& buf, int64_t offset,
+                                      int64_t length, uint8_t* out_data) {
+  if (ARROW_PREDICT_TRUE(buf->is_cpu())) {
+    memcpy(out_data, buf->data() + offset, static_cast<size_t>(length));
+    return Status::OK();
+  }
+
+  auto& from = buf->memory_manager();
+  auto cpu_mm = default_cpu_memory_manager();
+  // Try a view first
+  auto maybe_buffer_result = from->ViewBufferTo(buf, cpu_mm);
+  if (!COPY_BUFFER_SUCCESS(maybe_buffer_result)) {
+    // View failed, try a copy instead
+    maybe_buffer_result = from->CopyBufferTo(buf, cpu_mm);
+  }
+  ARROW_ASSIGN_OR_RAISE(auto maybe_buffer, std::move(maybe_buffer_result));
+  if (maybe_buffer != nullptr) {
+    memcpy(out_data, maybe_buffer->data() + offset, static_cast<size_t>(length));
+    return Status::OK();
+  }
+
+  return Status::NotImplemented("Copying buffer slice from ", from->device()->ToString(),
+                                " to CPU not supported");
 }
 
 #undef COPY_BUFFER_RETURN
@@ -187,15 +198,6 @@ Result<std::shared_ptr<io::OutputStream>> CPUMemoryManager::GetBufferWriter(
 
 Result<std::unique_ptr<Buffer>> CPUMemoryManager::AllocateBuffer(int64_t size) {
   return ::arrow::AllocateBuffer(size, pool_);
-}
-
-Status CPUMemoryManager::CopyBufferSliceFrom(const std::shared_ptr<Buffer>& buf, void* to,
-                                             const int64_t offset, const int64_t length) {
-  if (buf->size() > 0) {
-    memcpy(to, buf->data() + offset, length);
-  }
-
-  return Status::OK();
 }
 
 Result<std::shared_ptr<Buffer>> CPUMemoryManager::CopyBufferFrom(

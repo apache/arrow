@@ -1876,11 +1876,10 @@ struct ArrayImporter {
       return ImportBuffer(buffer_id, buffer_size);
     }
 
-    OffsetType last_offset = 0;
-    RETURN_NOT_OK(
-        data_->buffers[offsets_buffer_id]->memory_manager()->CopyBufferSliceFrom(
-            data_->buffers[offsets_buffer_id], &last_offset,
-            c_struct_->length * sizeof(OffsetType), sizeof(OffsetType)));
+    OffsetType last_offset;
+    RETURN_NOT_OK(MemoryManager::CopyBufferSlice(
+        data_->buffers[offsets_buffer_id], c_struct_->length * sizeof(OffsetType),
+        sizeof(OffsetType), reinterpret_cast<uint8_t*>(&last_offset)));
 
     // Compute visible size of buffer
     int64_t buffer_size = (c_struct_->length > 0) ? byte_width * last_offset : 0;
