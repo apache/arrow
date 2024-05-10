@@ -26,14 +26,13 @@ build_root=${2}
 : ${ARROW_GLIB_WERROR:=false}
 : ${ARROW_GLIB_VAPI:=true}
 : ${BUILD_DOCS_C_GLIB:=OFF}
-: ${BUILD_C_GLIB_WITH_VCPKG:=OFF}
 with_doc=$([ "${BUILD_DOCS_C_GLIB}" == "ON" ] && echo "true" || echo "false")
 
 export PKG_CONFIG_PATH="${ARROW_HOME}/lib/pkgconfig:${ARROW_HOME}/bin/pkgconfig"
 
 mkdir -p ${build_dir}
 
-if [ "${BUILD_C_GLIB_WITH_VCPKG}" == "ON" ]; then
+if [ -n "${VCPKG_ROOT:-}" ]; then
     vcpkg_install_root="${build_root}/vcpkg_installed"
     $VCPKG_ROOT/vcpkg install --x-manifest-root=${source_dir} --x-install-root=${vcpkg_install_root}
     export PKG_CONFIG="${vcpkg_install_root}/x64-windows/tools/pkgconf/pkgconf.exe"

@@ -186,7 +186,7 @@ jobs:
         shell: bash
         run: ci/scripts/ruby_test.sh $(pwd) $(pwd)/build
 
-  windows:
+  windows-mingw:
     name: AMD64 Windows MinGW ${{ matrix.mingw-n-bits }} GLib & Ruby
     runs-on: windows-2019
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
@@ -267,7 +267,6 @@ jobs:
           ridk exec bash ci\scripts\cpp_build.sh "${source_dir}" "${build_dir}"
       - name: Build GLib
         run: |
-          $Env:CMAKE_BUILD_PARALLEL_LEVEL = $Env:NUMBER_OF_PROCESSORS
           $source_dir = "$(ridk exec cygpath --unix "$(Get-Location)")"
           $build_dir = "$(ridk exec cygpath --unix "$(Get-Location)\build")"
           $ErrorActionPreference = "Continue"
@@ -383,12 +382,12 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: cglib-ccache-windows-${{ env.CACHE_VERSION }}-${{ hashFiles('cpp/**') }}
-          restore-keys: cglib-ccache-windows-${{ env.CACHE_VERSION }}-
+          key: glib-ccache-msvc-${{ env.CACHE_VERSION }}-${{ hashFiles('cpp/**') }}
+          restore-keys: glib-ccache-msvc-${{ env.CACHE_VERSION }}-
         env:
           # We can invalidate the current cache by updating this.
           CACHE_VERSION: "2024-05-09"
-      - name: Build
+      - name: Build C++
         shell: cmd
         run: |
           call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
@@ -399,6 +398,4 @@ jobs:
         # so we need to make sure the MSCV link.exe is first in $PATH
         run: |
           call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          set CMAKE_BUILD_PARALLEL_LEVEL=%NUMBER_OF_PROCESSORS%
-          set BUILD_C_GLIB_WITH_VCPKG=ON
           bash -c "VCPKG_ROOT=\"$(pwd)/vcpkg\" PATH=\"$(cygpath --unix \"$VCToolsInstallDir\")/bin/HostX64/x64:$PATH\" ci/scripts/c_glib_build.sh $(pwd) $(pwd)/build"
