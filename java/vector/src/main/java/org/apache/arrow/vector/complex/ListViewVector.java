@@ -700,17 +700,41 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
   }
 
   /**
+   * Validate the invariants of the offset and size buffers.
+   * 0 <= offsets[i] <= length of the child array
+   * 0 <= offsets[i] + size[i] <= length of the child array
+   * @param offset the offset at a given index
+   * @param size the size at a given index
+   */
+  private void validateInvariants(int offset, int size) {
+    if (offset < 0) {
+      throw new IllegalArgumentException("Offset cannot be negative");
+    }
+
+    if (size < 0) {
+      throw new IllegalArgumentException("Size cannot be negative");
+    }
+
+    // 0 <= offsets[i] <= length of the child array
+    if (offset > this.vector.getValueCount()) {
+      throw new IllegalArgumentException("Offset is out of bounds.");
+    }
+
+    // 0 <= offsets[i] + size[i] <= length of the child array
+    if (offset + size > this.vector.getValueCount()) {
+      throw new IllegalArgumentException("Offset + size <= length of the child array.");
+    }
+  }
+
+  /**
    * Set the offset at the given index.
-   * Make sure to use this function after using `setValidity`
+   * Make sure to use this function after updating `field` vector and using `setValidity`
    * @param index index of the value to set
    * @param value value to set
    */
   public void setOffset(int index, int value) {
-    // 0 <= offsets[i] <= length of the child array
-    // 0 <= offsets[i] + size[i] <= length of the child array
-    if (value < 0) {
-      throw new IllegalArgumentException("Offset cannot be negative");
-    }
+    validateInvariants(value, sizeBuffer.getInt(index * SIZE_WIDTH));
+
     offsetBuffer.setInt(index * OFFSET_WIDTH, value);
   }
 
@@ -721,11 +745,8 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
    * @param value value to set
    */
   public void setSize(int index, int value) {
-    // 0 <= offsets[i] <= length of the child array
-    // 0 <= offsets[i] + size[i] <= length of the child array
-    if (value < 0) {
-      throw new IllegalArgumentException("Size cannot be negative");
-    }
+    validateInvariants(offsetBuffer.getInt(index * SIZE_WIDTH), value);
+
     sizeBuffer.setInt(index * SIZE_WIDTH, value);
   }
 
@@ -820,27 +841,13 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   /**
    * Validating ListViewVector creation based on the specification guideline.
-   * 0 <= offsets[i] <= length of the child array
-   * 0 <= offsets[i] + size[i] <= length of the child array
    */
   @Override
   public void validate() {
     for (int i = 0; i < valueCount; i++) {
       final int offset = offsetBuffer.getInt(i * OFFSET_WIDTH);
       final int size = sizeBuffer.getInt(i * SIZE_WIDTH);
-      if (size < 0) {
-        throw new IllegalStateException(String.format(
-            "Size %d at index %d is negative", size, i));
-      }
-      final int childArrayLength = getLengthOfChildVector();
-      if (offset < 0 || offset > childArrayLength) {
-        throw new IllegalStateException(String.format(
-            "Offset %d at index %d is out of bounds", offset, i));
-      }
-      if ((offset + size) < 0 || (offset + size) > childArrayLength) {
-        throw new IllegalStateException(String.format(
-            "Size %d at index %d is out of bounds", size, i));
-      }
+      validateInvariants(offset, size);
     }
   }
 
