@@ -548,8 +548,10 @@ class InputState {
   // true when the queue is empty and, when memo may have future entries (the case of a
   // positive tolerance), when the memo is empty.
   // used when checking whether RHS is up to date with LHS.
-  bool CurrentEmpty() const {
-    return memo_.no_future_ ? Empty() : memo_.times_.empty() && Empty();
+  // NOTE: The emptiness must be decided by an atomic all to Empty() in caller, due to the
+  // potential race with Push(), see GH-41614.
+  bool CurrentEmpty(bool empty) const {
+    return memo_.no_future_ ? empty : memo_.times_.empty() && empty;
   }
 
   // in case memo may not have future entries (the case of a non-positive tolerance),
@@ -650,13 +652,15 @@ class InputState {
   // timestamp, update latest_time and latest_ref_row to the value that immediately pass
   // the horizon. Update the memo-store with any entries or future entries so observed.
   // Returns true if updates were made, false if not.
-  Result<bool> AdvanceAndMemoize(OnType ts) {
+  // NOTE: The emptiness must be decided by an atomic all to Empty() in caller, due to the
+  // potential race with Push(), see GH-41614.
+  Result<bool> AdvanceAndMemoize(OnType ts, bool empty) {
     // Advance the right side row index until we reach the latest right row (for each key)
     // for the given left timestamp.
     DEBUG_SYNC(node_, "Advancing input ", index_, DEBUG_MANIP(std::endl));
 
     // Check if already updated for TS (or if there is no latest)
-    if (Empty()) {  // can't advance if empty and no future entries
+    if (empty) {  // can't advance if empty and no future entries
       return memo_.no_future_ ? false : memo_.RemoveEntriesWithLesserTime(ts);
     }
 
@@ -918,34 +922,34 @@ class CompositeTableBuilder {
 // guaranteeing this probability is below 1 in a billion. The fix is 128-bit hashing.
 // See ARROW-17653
 class AsofJoinNode : public ExecNode {
-  // Advances the RHS as far as possible to be up to date for the current LHS timestamp
-  Result<bool> UpdateRhs() {
+  // Advances the RHS as far as possible to be up to date for the current LHS timestamp.
+  // Returns a pair of booleans. The first is if any RHS has advanced. The second is if
+  // all RHS are up to date for LHS.
+  Result<std::pair<bool, bool>> UpdateRhsAndCheckUpToDateWithLhs() {
     auto& lhs = *state_.at(0);
     auto lhs_latest_time = lhs.GetLatestTime();
-    bool any_updated = false;
-    for (size_t i = 1; i < state_.size(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(bool advanced, state_[i]->AdvanceAndMemoize(lhs_latest_time));
-      any_updated |= advanced;
-    }
-    return any_updated;
-  }
-
-  // Returns false if RHS not up to date for LHS
-  bool IsUpToDateWithLhsRow() const {
-    auto& lhs = *state_[0];
-    if (lhs.Empty()) return false;  // can't proceed if nothing on the LHS
-    OnType lhs_ts = lhs.GetLatestTime();
+    bool any_advanced = false;
+    bool up_to_date_with_lhs = true;
     for (size_t i = 1; i < state_.size(); ++i) {
       auto& rhs = *state_[i];
-      if (!rhs.Finished()) {
+      bool rhs_empty = rhs.Empty();
+
+      ARROW_ASSIGN_OR_RAISE(bool advanced,
+                            rhs.AdvanceAndMemoize(lhs_latest_time, rhs_empty));
+      any_advanced |= advanced;
+
+      if (up_to_date_with_lhs && !rhs.Finished()) {
         // If RHS is finished, then we know it's up to date
-        if (rhs.CurrentEmpty())
-          return false;  // RHS isn't finished, but is empty --> not up to date
-        if (lhs_ts > rhs.GetCurrentTime())
-          return false;  // RHS isn't up to date (and not finished)
+        if (rhs.CurrentEmpty(rhs_empty)) {
+          // RHS isn't finished, but is empty --> not up to date
+          up_to_date_with_lhs = false;
+        } else if (lhs_latest_time > rhs.GetCurrentTime()) {
+          // RHS isn't up to date (and not finished)
+          up_to_date_with_lhs = false;
+        }
       }
     }
-    return true;
+    return std::make_pair(any_advanced, up_to_date_with_lhs);
   }
 
   Result<std::shared_ptr<RecordBatch>> ProcessInner() {
@@ -963,22 +967,17 @@ class AsofJoinNode : public ExecNode {
       // If LHS is finished or empty then there's nothing we can do here
       if (lhs.Finished() || lhs.Empty()) break;
 
+      ARROW_ASSIGN_OR_RAISE(auto pair, UpdateRhsAndCheckUpToDateWithLhs());
       bool any_rhs_advanced{};
-      bool is_up_to_date_with_lhs_row{};
-      {
-        std::lock_guard<std::mutex> guard(push_gate_);
-        // Advance each of the RHS as far as possible to be up to date for the LHS
-        // timestamp
-        ARROW_ASSIGN_OR_RAISE(any_rhs_advanced, UpdateRhs());
+      bool rhs_up_to_date_with_lhs{};
+      std::tie(any_rhs_advanced, rhs_up_to_date_with_lhs) = pair;
 
-        // If we have received enough inputs to produce the next output batch
-        // (decided by IsUpToDateWithLhsRow), we will perform the join and
-        // materialize the output batch. The join is done by advancing through
-        // the LHS and adding joined row to rows_ (done by Emplace). Finally,
-        // input batches that are no longer needed are removed to free up memory.
-        is_up_to_date_with_lhs_row = IsUpToDateWithLhsRow();
-      }
-      if (is_up_to_date_with_lhs_row) {
+      // If we have received enough inputs to produce the next output batch
+      // (decided by IsUpToDateWithLhsRow), we will perform the join and
+      // materialize the output batch. The join is done by advancing through
+      // the LHS and adding joined row to rows_ (done by Emplace). Finally,
+      // input batches that are no longer needed are removed to free up memory.
+      if (rhs_up_to_date_with_lhs) {
         dst.Emplace(state_, tolerance_);
         ARROW_ASSIGN_OR_RAISE(bool advanced, lhs.Advance());
         if (!advanced) break;  // if we can't advance LHS, we're done for this batch
@@ -1039,7 +1038,7 @@ class AsofJoinNode : public ExecNode {
   }
 
   bool Process() {
-    std::lock_guard<std::mutex> guard(finish_gate_);
+    std::lock_guard<std::mutex> guard(gate_);
     if (!CheckEnded()) {
       return false;
     }
@@ -1401,17 +1400,14 @@ class AsofJoinNode : public ExecNode {
     DEBUG_SYNC(this, "received batch from input ", k, ":", DEBUG_MANIP(std::endl),
                rb->ToString(), DEBUG_MANIP(std::endl));
 
-    {
-      std::lock_guard<std::mutex> guard(push_gate_);
-      ARROW_RETURN_NOT_OK(state_.at(k)->Push(rb));
-    }
+    ARROW_RETURN_NOT_OK(state_.at(k)->Push(rb));
     process_.Push(true);
     return Status::OK();
   }
 
   Status InputFinished(ExecNode* input, int total_batches) override {
     {
-      std::lock_guard<std::mutex> guard(finish_gate_);
+      std::lock_guard<std::mutex> guard(gate_);
       ARROW_DCHECK(std_has(inputs_, input));
       size_t k = std_find(inputs_, input) - inputs_.begin();
       state_.at(k)->set_total_batches(total_batches);
@@ -1465,8 +1461,7 @@ class AsofJoinNode : public ExecNode {
   // InputStates
   // Each input state corresponds to an input table
   std::vector<std::unique_ptr<InputState>> state_;
-  std::mutex finish_gate_;
-  std::mutex push_gate_;
+  std::mutex gate_;
   TolType tolerance_;
 #ifndef NDEBUG
   std::ostream* debug_os_;
