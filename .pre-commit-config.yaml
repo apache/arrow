@@ -137,4 +137,4 @@ repos:
     hooks:
       - id: sphinx-lint
         files: ^docs/
-        args: ['--disable', ' dangling-hyphen', 'docs']
+        args: ['--disable', 'dangling-hyphen', 'docs']
