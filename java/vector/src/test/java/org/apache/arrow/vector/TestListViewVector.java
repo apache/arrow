@@ -103,8 +103,6 @@ public class TestListViewVector {
       listViewWriter.bigInt().writeBigInt(4);
       listViewWriter.endList();
 
-      assertEquals(4, listViewVector.getLastSet());
-
       listViewVector.setValueCount(5);
       // check value count
       assertEquals(5, listViewVector.getValueCount());
@@ -116,7 +114,7 @@ public class TestListViewVector {
 
       // check offset buffer
       assertEquals(0, offSetBuffer.getInt(0 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
-      assertEquals(3, offSetBuffer.getInt(1 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(0, offSetBuffer.getInt(1 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
       assertEquals(3, offSetBuffer.getInt(2 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
       assertEquals(7, offSetBuffer.getInt(3 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
       assertEquals(7, offSetBuffer.getInt(4 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
@@ -166,7 +164,6 @@ public class TestListViewVector {
 
       int offSet0 = offSetBuffer.getInt(0 * BaseRepeatedValueViewVector.OFFSET_WIDTH);
       int size0 = sizeBuffer.getInt(0 * BaseRepeatedValueViewVector.SIZE_WIDTH);
-      int lastSet0 = listViewVector.getLastSet();
 
       // after the first list is written,
       // the initial offset must be 0,
@@ -175,7 +172,6 @@ public class TestListViewVector {
 
       assertEquals(0, offSet0);
       assertEquals(3, size0);
-      assertEquals(0, lastSet0);
 
       listViewWriter.setPosition(5);
       listViewWriter.startList();
@@ -189,13 +185,11 @@ public class TestListViewVector {
       for (int i = 1; i < 5; i++) {
         int offSet = offSetBuffer.getInt(i * BaseRepeatedValueViewVector.OFFSET_WIDTH);
         int size = sizeBuffer.getInt(i * BaseRepeatedValueViewVector.SIZE_WIDTH);
-        int lastSet = listViewVector.getLastSet();
         // Since the list is not written, the offset and size must equal to child vector's size
         // i.e., 3, and size should be 0 as the list is not written.
         // And the last set value is the value currently being written, which is 5.
-        assertEquals(3, offSet);
+        assertEquals(0, offSet);
         assertEquals(0, size);
-        assertEquals(5, lastSet);
       }
 
       listViewWriter.bigInt().writeBigInt(12);
@@ -204,11 +198,9 @@ public class TestListViewVector {
 
       int offSet5 = offSetBuffer.getInt(5 * BaseRepeatedValueViewVector.OFFSET_WIDTH);
       int size5 = sizeBuffer.getInt(5 * BaseRepeatedValueViewVector.SIZE_WIDTH);
-      int lastSet5 = listViewVector.getLastSet();
 
       assertEquals(3, offSet5);
       assertEquals(2, size5);
-      assertEquals(5, lastSet5);
 
       listViewWriter.setPosition(10);
       listViewWriter.startList();
@@ -221,13 +213,11 @@ public class TestListViewVector {
       for (int i = 6; i < 10; i++) {
         int offSet = offSetBuffer.getInt(i * BaseRepeatedValueViewVector.OFFSET_WIDTH);
         int size = sizeBuffer.getInt(i * BaseRepeatedValueViewVector.SIZE_WIDTH);
-        int lastSet = listViewVector.getLastSet();
-        // Since the list is not written, the offset and size must equal to child vector's size
-        // i.e., 3, and size should be 0 as the list is not written.
+        // Since the list is not written, the offset and size must equal to 0
+        // and size should be 0 as the list is not written.
         // And the last set value is the value currently being written, which is 10.
-        assertEquals(5, offSet);
+        assertEquals(0, offSet);
         assertEquals(0, size);
-        assertEquals(10, lastSet);
       }
 
       listViewWriter.bigInt().writeBigInt(12);
@@ -235,11 +225,9 @@ public class TestListViewVector {
 
       int offSet11 = offSetBuffer.getInt(10 * BaseRepeatedValueViewVector.OFFSET_WIDTH);
       int size11 = sizeBuffer.getInt(10 * BaseRepeatedValueViewVector.SIZE_WIDTH);
-      int lastSet11 = listViewVector.getLastSet();
 
       assertEquals(5, offSet11);
       assertEquals(1, size11);
-      assertEquals(10, lastSet11);
 
       listViewVector.setValueCount(11);
 
@@ -298,8 +286,6 @@ public class TestListViewVector {
       listViewWriter.list().endList();
 
       listViewWriter.endList();
-
-      assertEquals(1, listViewVector.getLastSet());
 
       listViewVector.setValueCount(2);
 
@@ -423,9 +409,8 @@ public class TestListViewVector {
    * 1. Initialize the child vector using `initializeChildrenFromFields` method.
    * 2. Set values in the child vector.
    * 3. Set validity, offset and size buffers using `setValidity`,
-   * `setOffSet` and `setSize` methods.
-   * 4. Set lastSet value using `setLastSet` method.
-   * 5. Set value count using `setValueCount` method.
+   * `setOffset` and `setSize` methods.
+   * 4. Set value count using `setValueCount` method.
    */
   @Test
   public void testBasicListViewSet() {
@@ -458,11 +443,11 @@ public class TestListViewVector {
       childVector.setValueCount(7);
 
       // Set validity, offset and size buffers using `setValidity`,
-      // `setOffSet` and `setSize` methods.
-      listViewVector.setOffSet(0, 0);
-      listViewVector.setOffSet(1, 3);
-      listViewVector.setOffSet(2, 3);
-      listViewVector.setOffSet(3, 7);
+      // `setOffset` and `setSize` methods.
+      listViewVector.setOffset(0, 0);
+      listViewVector.setOffset(1, 3);
+      listViewVector.setOffset(2, 3);
+      listViewVector.setOffset(3, 7);
 
       listViewVector.setSize(0, 3);
       listViewVector.setSize(1, 0);
@@ -473,9 +458,6 @@ public class TestListViewVector {
       listViewVector.setValidity(1, 0);
       listViewVector.setValidity(2, 1);
       listViewVector.setValidity(3, 1);
-
-      // Set lastSet value using `setLastSet` method.
-      listViewVector.setLastSet(3);
 
       // Set value count using `setValueCount` method.
       listViewVector.setValueCount(4);
@@ -504,7 +486,6 @@ public class TestListViewVector {
       assertEquals(127, ((BigIntVector) listViewVector.getDataVector()).get(5));
       assertEquals(50, ((BigIntVector) listViewVector.getDataVector()).get(6));
 
-      assertEquals(3, listViewVector.getLastSet());
       listViewVector.validate();
     }
   }
@@ -585,19 +566,16 @@ public class TestListViewVector {
       childVector.setValueCount(5);
 
       // Set validity, offset and size buffers using `setValidity`,
-      //  `setOffSet` and `setSize` methods.
+      //  `setOffset` and `setSize` methods.
 
       listViewVector.setValidity(0, 1);
       listViewVector.setValidity(1, 1);
 
-      listViewVector.setOffSet(0, 0);
-      listViewVector.setOffSet(1, 2);
+      listViewVector.setOffset(0, 0);
+      listViewVector.setOffset(1, 2);
 
       listViewVector.setSize(0, 2);
       listViewVector.setSize(1, 3);
-
-      // Set lastSet value using `setLastSet` method.
-      listViewVector.setLastSet(1);
 
       // Set value count using `setValueCount` method.
       listViewVector.setValueCount(2);
@@ -694,25 +672,22 @@ public class TestListViewVector {
       childVector.setValueCount(7);
 
       // Set validity, offset and size buffers using `setValidity`,
-      //  `setOffSet` and `setSize` methods.
+      //  `setOffset` and `setSize` methods.
 
       listViewVector.setValidity(0, 1);
       listViewVector.setValidity(1, 0);
       listViewVector.setValidity(2, 1);
       listViewVector.setValidity(3, 1);
 
-      listViewVector.setOffSet(0, 0);
-      listViewVector.setOffSet(1, 3);
-      listViewVector.setOffSet(2, 3);
-      listViewVector.setOffSet(3, 7);
+      listViewVector.setOffset(0, 0);
+      listViewVector.setOffset(1, 3);
+      listViewVector.setOffset(2, 3);
+      listViewVector.setOffset(3, 7);
 
       listViewVector.setSize(0, 3);
       listViewVector.setSize(1, 0);
       listViewVector.setSize(2, 4);
       listViewVector.setSize(3, 0);
-
-      // Set lastSet value using `setLastSet` method.
-      listViewVector.setLastSet(3);
 
       // Set value count using `setValueCount` method.
       listViewVector.setValueCount(4);
@@ -740,8 +715,6 @@ public class TestListViewVector {
       assertEquals(-127, ((BigIntVector) listViewVector.getDataVector()).get(4));
       assertEquals(127, ((BigIntVector) listViewVector.getDataVector()).get(5));
       assertEquals(50, ((BigIntVector) listViewVector.getDataVector()).get(6));
-
-      assertEquals(3, listViewVector.getLastSet());
 
       UnionListViewWriter listViewWriter = listViewVector.getWriter();
 
@@ -781,7 +754,6 @@ public class TestListViewVector {
       assertEquals(-71, ((BigIntVector) listViewVector.getDataVector()).get(8));
       assertEquals(251, ((BigIntVector) listViewVector.getDataVector()).get(9));
 
-      assertEquals(4, listViewVector.getLastSet());
       listViewVector.validate();
     }
   }
@@ -1293,9 +1265,9 @@ public class TestListViewVector {
 
       assertEquals(0, offsetBuffer.getInt(0 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
       assertEquals(0, offsetBuffer.getInt(1 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
-      assertEquals(3, offsetBuffer.getInt(2 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(0, offsetBuffer.getInt(2 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
       assertEquals(3, offsetBuffer.getInt(3 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
-      assertEquals(5, offsetBuffer.getInt(4 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(0, offsetBuffer.getInt(4 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
       assertEquals(5, offsetBuffer.getInt(5 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
 
       assertEquals(0, sizeBuffer.getInt(0 * BaseRepeatedValueViewVector.SIZE_WIDTH));
@@ -1590,27 +1562,24 @@ public class TestListViewVector {
       childVector.setValueCount(7);
 
       // Set validity, offset and size buffers using `setValidity`,
-      //  `setOffSet` and `setSize` methods.
+      //  `setOffset` and `setSize` methods.
       listViewVector.setValidity(0, 1);
       listViewVector.setValidity(1, 0);
       listViewVector.setValidity(2, 1);
       listViewVector.setValidity(3, 1);
       listViewVector.setValidity(4, 1);
 
-      listViewVector.setOffSet(0, 4);
-      listViewVector.setOffSet(1, 7);
-      listViewVector.setOffSet(2, 0);
-      listViewVector.setOffSet(3, 0);
-      listViewVector.setOffSet(4, 3);
+      listViewVector.setOffset(0, 4);
+      listViewVector.setOffset(1, 7);
+      listViewVector.setOffset(2, 0);
+      listViewVector.setOffset(3, 0);
+      listViewVector.setOffset(4, 3);
 
       listViewVector.setSize(0, 3);
       listViewVector.setSize(1, 0);
       listViewVector.setSize(2, 4);
       listViewVector.setSize(3, 0);
       listViewVector.setSize(4, 2);
-
-      // Set lastSet value using `setLastSet` method.
-      listViewVector.setLastSet(4);
 
       // Set value count using `setValueCount` method.
       listViewVector.setValueCount(5);

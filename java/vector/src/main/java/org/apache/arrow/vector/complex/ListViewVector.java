@@ -72,11 +72,6 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
   protected Field field;
   protected int validityAllocationSizeInBytes;
 
-  /**
-   * The maximum index that is actually set.
-   */
-  protected int lastSet;
-
   public static ListViewVector empty(String name, BufferAllocator allocator) {
     return new ListViewVector(name, allocator, FieldType.nullable(ArrowType.ListView.INSTANCE), null);
   }
@@ -106,7 +101,6 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     this.field = field;
     this.callBack = callBack;
     this.validityAllocationSizeInBytes = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION);
-    this.lastSet = -1;
   }
 
   @Override
@@ -212,7 +206,6 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     offsetAllocationSizeInBytes = offsetBuffer.capacity();
     sizeAllocationSizeInBytes = sizeBuffer.capacity();
 
-    lastSet = fieldNode.getLength() - 1;
     valueCount = fieldNode.getLength();
   }
 
@@ -518,7 +511,7 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
    */
   @Override
   public MinorType getMinorType() {
-    return MinorType.LIST;
+    return MinorType.LISTVIEW;
   }
 
   /**
@@ -528,7 +521,6 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
   public void clear() {
     super.clear();
     validityBuffer = releaseBuffer(validityBuffer);
-    lastSet = -1;
   }
 
   /**
@@ -538,7 +530,6 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
   public void reset() {
     super.reset();
     validityBuffer.setZero(0, validityBuffer.capacity());
-    lastSet = -1;
   }
 
   /**
@@ -681,9 +672,6 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     while (index >= getValidityAndSizeValueCapacity()) {
       reallocValidityAndSizeAndOffsetBuffers();
     }
-    if (lastSet >= index) {
-      lastSet = index - 1;
-    }
 
     if (index == 0) {
       offsetBuffer.setInt(0, 0);
@@ -697,16 +685,10 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     }
 
     BitVectorHelper.unsetBit(validityBuffer, index);
-    lastSet = index;
   }
 
   /**
    * Start new value in the ListView vector.
-   * There are a few cases that are handled in this function.
-   * There are two main scenarios that need to be considered.
-   * The first scenario is simple insertion where indices are continuously updated.
-   * The other scenario is the event of non-continuous writing,
-   * the offset buffer needs to be updated.
    *
    * @param index index of the value to start
    * @return offset of the new value
@@ -717,34 +699,12 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
       reallocValidityAndSizeAndOffsetBuffers();
     }
 
-    if (lastSet >= index) {
-      lastSet = index - 1;
-    }
-
-    if (index == 0) {
-      offsetBuffer.setInt(0, 0);
-    } else if (index > lastSet) {
-      /* when skipping indices, we need to update the offset buffer */
-      /* setting offset from lastSet + 1 to index (included) */
-      for (int i = lastSet + 1; i <= index; i++) {
-        if (i == 0) {
-          offsetBuffer.setInt(0, 0);
-          continue;
-        }
-        final int prevOffSet = offsetBuffer.getInt((i - 1L) * OFFSET_WIDTH);
-        final int prevSize = sizeBuffer.getInt((i - 1L) * SIZE_WIDTH);
-        final int currOffSet = prevOffSet + prevSize;
-        offsetBuffer.setInt(i * OFFSET_WIDTH, currOffSet);
-      }
-    } else {
-      final int prevOffset = offsetBuffer.getInt((index - 1) * OFFSET_WIDTH);
-      final int prevSize = sizeBuffer.getInt((index - 1) * SIZE_WIDTH);
-      final int currOffSet = prevOffset + prevSize;
-      offsetBuffer.setInt(index * OFFSET_WIDTH, currOffSet);
+    if (index > 0) {
+      final int prevOffset = getLengthOfChildVectorByIndex(index);
+      offsetBuffer.setInt(index * OFFSET_WIDTH, prevOffset);
     }
 
     BitVectorHelper.setBit(validityBuffer, index);
-    lastSet = index;
     return offsetBuffer.getInt(index * OFFSET_WIDTH);
   }
 
@@ -754,7 +714,7 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
    * @param index index of the value to set
    * @param value value to set
    */
-  public void setOffSet(int index, int value) {
+  public void setOffset(int index, int value) {
     // 0 <= offsets[i] <= length of the child array
     // 0 <= offsets[i] + size[i] <= length of the child array
     if (value < 0) {
@@ -765,7 +725,7 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   /**
    * Set the size at the given index.
-   * Make sure to use this function after using `setOffSet`.
+   * Make sure to use this function after using `setOffset`.
    * @param index index of the value to set
    * @param value value to set
    */
@@ -848,14 +808,6 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
 
   public UnionListViewWriter getWriter() {
     return new UnionListViewWriter(this);
-  }
-
-  public int getLastSet() {
-    return lastSet;
-  }
-
-  public void setLastSet(int newLastSet) {
-    lastSet = newLastSet;
   }
 
   @Override

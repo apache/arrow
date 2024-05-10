@@ -312,9 +312,6 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
   }
 
   @Override
-  public abstract boolean isNull(int index);
-
-  @Override
   public void setValueCount(int valueCount) {
     this.valueCount = valueCount;
     while (valueCount > getOffsetBufferValueCapacity()) {
@@ -328,6 +325,21 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
     int maxOffsetSizeSum = offsetBuffer.getInt(0) + sizeBuffer.getInt(0);
     int minOffset = offsetBuffer.getInt(0);
     for (int i = 0; i < valueCount; i++) {
+      int currentOffset = offsetBuffer.getInt(i * OFFSET_WIDTH);
+      int currentSize = sizeBuffer.getInt(i * SIZE_WIDTH);
+      int currentSum = currentOffset + currentSize;
+
+      maxOffsetSizeSum = Math.max(maxOffsetSizeSum, currentSum);
+      minOffset = Math.min(minOffset, currentOffset);
+    }
+
+    return maxOffsetSizeSum - minOffset;
+  }
+
+  protected int getLengthOfChildVectorByIndex(int index) {
+    int maxOffsetSizeSum = offsetBuffer.getInt(0) + sizeBuffer.getInt(0);
+    int minOffset = offsetBuffer.getInt(0);
+    for (int i = 0; i < index; i++) {
       int currentOffset = offsetBuffer.getInt(i * OFFSET_WIDTH);
       int currentSize = sizeBuffer.getInt(i * SIZE_WIDTH);
       int currentSum = currentOffset + currentSize;
