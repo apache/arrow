@@ -24,7 +24,7 @@ message ExampleMessage {
 }
 
 message AllTheTypes {
-  string string = 1;
+  string str = 1;
   int32 int32 = 2;
   int64 int64 = 3;
   sint32 sint32 = 4;

@@ -71,7 +71,7 @@ func (pfr *ProtobufFieldReflection) isNull() bool {
 		pfr.rValue = pfr.rValue.Elem()
 	}
 
-	if !pfr.rValue.IsValid() && !pfr.prValue.IsValid() {
+	if !pfr.rValue.IsValid() || !pfr.prValue.IsValid() {
 		return true
 	}
 	return false
