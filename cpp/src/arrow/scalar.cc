@@ -1355,8 +1355,8 @@ struct FromTypeVisitor : CastImplVisitor {
   template <typename T1 = ToType>
   typename std::enable_if_t<TypeTraits<T1>::is_parameter_free, Status> Visit(
       const ToType&) {
-    ARROW_ASSIGN_OR_RAISE(out_, MakeScalar(to_type_,
-                                           checked_cast<const ToScalar&>(from_).value));
+    ARROW_ASSIGN_OR_RAISE(
+        out_, MakeScalar(to_type_, checked_cast<const ToScalar&>(from_).value));
     return Status::OK();
   }
 
