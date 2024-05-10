@@ -972,10 +972,9 @@ class AsofJoinNode : public ExecNode {
       // If LHS is finished or empty then there's nothing we can do here
       if (lhs.Finished() || lhs.Empty()) break;
 
-      ARROW_ASSIGN_OR_RAISE(auto pair, UpdateRhsAndCheckUpToDateWithLhs());
       bool any_rhs_advanced{};
       bool rhs_up_to_date_with_lhs{};
-      std::tie(any_rhs_advanced, rhs_up_to_date_with_lhs) = pair;
+      ARROW_ASSIGN_OR_RAISE(std::tie(any_rhs_advanced, rhs_up_to_date_with_lhs), UpdateRhsAndCheckUpToDateWithLhs());
 
       // If we have received enough inputs to produce the next output batch
       // (decided by IsUpToDateWithLhsRow), we will perform the join and
