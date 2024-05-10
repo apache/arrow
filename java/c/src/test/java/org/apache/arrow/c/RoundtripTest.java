@@ -78,6 +78,7 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.ViewVarBinaryVector;
 import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.compare.VectorEqualsVisitor;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
@@ -521,6 +522,26 @@ public class RoundtripTest {
           "def".getBytes(StandardCharsets.UTF_8),
           null);
       assertTrue(roundtrip(vector, VarBinaryVector.class));
+    }
+  }
+
+  @Test
+  public void testViewVarBinaryVector() {
+    // TODO: fix the required methods
+    /*
+     * 1. `getFieldBuffers()` in `BaseVariableWidthViewVector`
+      *  2. `getChildrenFromFields()` in `BaseVariableWidthViewVector`
+      *  3. `getFieldBuffers()` in `BaseVariableWidthViewVector`
+      *  4. `exportCDataBuffers` in `BaseVariableWidthViewVector`
+      *  5. `initializeChildrenFromFields` in `BaseVariableWidthViewVector`
+      *  6. `ArrayImporter` -> `BufferImportTypeVisitor` -> and usual steps to get buffers and populate them (update `visit(ArrowType.Utf8View type)` method
+      *  7. `loadFieldBuffers` in `BaseVariableWidthViewVector`
+      *  8. `transferPair` in `BaseVariableWidthViewVector`
+      *  9. `RangeEqualVisitor` -> visit(`BaseVariableWidthVector` left, Range range) -> `compareBaseVariableWidthVectors(Range range)`
+     */
+    try (final ViewVarBinaryVector vector = new ViewVarBinaryVector("v", allocator)) {
+      setVector(vector, "abc".getBytes(), "def".getBytes(), null);
+      assertTrue(roundtrip(vector, ViewVarBinaryVector.class));
     }
   }
 
