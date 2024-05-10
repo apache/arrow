@@ -52,7 +52,7 @@ func SetupTest() util_message.AllTheTypes {
 		Bool:     false,
 		Bytes:    []byte("Hello, world!"),
 		Double:   1.1,
-		Enum:     util_message.AllTheTypes_OPTION_0,
+		Enum:     util_message.AllTheTypes_OPTION_1,
 		Message:  &msg,
 		Oneof:    &util_message.AllTheTypes_Oneofstring{Oneofstring: "World"},
 		Any:      anyMsg,
@@ -96,7 +96,7 @@ func TestGetSchema(t *testing.T) {
 
 	require.Equal(t, want, got, "got: %s\nwant: %s", got, want)
 
-	got = NewProtobufMessageReflection(&msg, WithOneOfHandler(DenseUnion)).Schema().String()
+	got = NewProtobufMessageReflection(&msg, WithOneOfHandler(OneOfDenseUnion)).Schema().String()
 	want = `schema:
   fields: 21
     - string: type=utf8, nullable
@@ -172,12 +172,37 @@ func TestGetSchema(t *testing.T) {
     - Oneofstring: type=utf8, nullable`
 
 	require.Equal(t, want, got, "got: %s\nwant: %s", got, want)
+
+	onlyEnum := func(pfr *ProtobufFieldReflection) bool {
+		return !pfr.isEnum()
+	}
+	got = NewProtobufMessageReflection(
+		&msg,
+		WithExclusionPolicy(onlyEnum),
+		WithEnumHandler(EnumNumber),
+	).Schema().String()
+	want = `schema:
+  fields: 1
+    - enum: type=int32, nullable`
+
+	require.Equal(t, want, got, "got: %s\nwant: %s", got, want)
+
+	got = NewProtobufMessageReflection(
+		&msg,
+		WithExclusionPolicy(onlyEnum),
+		WithEnumHandler(EnumValue),
+	).Schema().String()
+	want = `schema:
+  fields: 1
+    - enum: type=utf8, nullable`
+
+	require.Equal(t, want, got, "got: %s\nwant: %s", got, want)
 }
 
 func TestRecordFromProtobuf(t *testing.T) {
 	msg := SetupTest()
 
-	pmr := NewProtobufMessageReflection(&msg, WithOneOfHandler(DenseUnion))
+	pmr := NewProtobufMessageReflection(&msg, WithOneOfHandler(OneOfDenseUnion))
 	schema := pmr.Schema()
 	got := pmr.Record(nil)
 	jsonStr := `[
@@ -195,7 +220,7 @@ func TestRecordFromProtobuf(t *testing.T) {
 			"bool":false,
 			"bytes":"SGVsbG8sIHdvcmxkIQ==",
 			"double":1.1,
-			"enum":"OPTION_0",
+			"enum":"OPTION_1",
 			"message":{"field1":"Example"},
 			"oneof": [0, "World"],
 			"any":{"field1":"Example"},
@@ -244,6 +269,19 @@ func TestRecordFromProtobuf(t *testing.T) {
 	want, _, err = array.RecordFromJSON(memory.NewGoAllocator(), schema, strings.NewReader(jsonStr))
 
 	require.NoError(t, err)
+	require.True(t, array.RecordEqual(got, want), "got: %s\nwant: %s", got, want)
+
+	onlyEnum := func(pfr *ProtobufFieldReflection) bool { return !pfr.isEnum() }
+	pmr = NewProtobufMessageReflection(&msg, WithExclusionPolicy(onlyEnum), WithEnumHandler(EnumValue), WithMemory(memory.NewGoAllocator()))
+	got = pmr.Record(nil)
+	jsonStr = `[ { "enum":"OPTION_1" } ]`
+	want, _, err = array.RecordFromJSON(memory.NewGoAllocator(), pmr.Schema(), strings.NewReader(jsonStr))
+	require.True(t, array.RecordEqual(got, want), "got: %s\nwant: %s", got, want)
+
+	pmr = NewProtobufMessageReflection(&msg, WithExclusionPolicy(onlyEnum), WithEnumHandler(EnumNumber))
+	got = pmr.Record(nil)
+	jsonStr = `[ { "enum":"1" } ]`
+	want, _, err = array.RecordFromJSON(memory.NewGoAllocator(), pmr.Schema(), strings.NewReader(jsonStr))
 	require.True(t, array.RecordEqual(got, want), "got: %s\nwant: %s", got, want)
 }
 

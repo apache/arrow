@@ -739,6 +739,7 @@ type DictionaryType struct {
 	IndexType DataType
 	ValueType DataType
 	Ordered   bool
+	Values    Array
 }
 
 func (*DictionaryType) ID() Type        { return DICTIONARY }

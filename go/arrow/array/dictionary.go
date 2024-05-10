@@ -672,7 +672,7 @@ func NewDictionaryBuilderWithDict(mem memory.Allocator, dt *arrow.DictionaryType
 }
 
 func NewDictionaryBuilder(mem memory.Allocator, dt *arrow.DictionaryType) DictionaryBuilder {
-	return NewDictionaryBuilderWithDict(mem, dt, nil)
+	return NewDictionaryBuilderWithDict(mem, dt, dt.Values)
 }
 
 func (b *dictionaryBuilder) Type() arrow.DataType { return b.dt }
