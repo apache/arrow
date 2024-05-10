@@ -22,27 +22,39 @@
 #include <arrow/api.h>
 
 #include <arrow-glib/basic-array.h>
+#include <arrow-glib/visibility.h>
 
+GARROW_EXPORT
 arrow::EqualOptions *
 garrow_equal_options_get_raw(GArrowEqualOptions *equal_options);
 
+GARROW_EXPORT
 GArrowArray *
 garrow_array_new_raw(std::shared_ptr<arrow::Array> *arrow_array);
+
+GARROW_EXPORT
 GArrowArray *
 garrow_array_new_raw(std::shared_ptr<arrow::Array> *arrow_array,
                      const gchar *first_property_name,
                      ...);
+
+GARROW_EXPORT
 GArrowArray *
 garrow_array_new_raw_valist(std::shared_ptr<arrow::Array> *arrow_array,
                             const gchar *first_property_name,
                             va_list args);
+
+GARROW_EXPORT
 GArrowExtensionArray *
 garrow_extension_array_new_raw(std::shared_ptr<arrow::Array> *arrow_array,
                                GArrowArray *storage);
+
+GARROW_EXPORT
 std::shared_ptr<arrow::Array>
 garrow_array_get_raw(GArrowArray *array);
 
 template <typename DataType>
+GARROW_EXPORT
 inline std::shared_ptr<typename arrow::TypeTraits<DataType>::ArrayType>
 garrow_array_get_raw(GArrowArray *array)
 {

@@ -22,23 +22,33 @@
 #include <arrow/api.h>
 
 #include <arrow-glib/error.h>
+#include <arrow-glib/visibility.h>
 
+GARROW_EXPORT
 gboolean
 garrow_error_check(GError **error, const arrow::Status &status, const char *context);
+
+GARROW_EXPORT
 GArrowError
 garrow_error_from_status(const arrow::Status &status);
+
+GARROW_EXPORT
 arrow::StatusCode
 garrow_error_to_status_code(GError *error, arrow::StatusCode default_code);
+
+GARROW_EXPORT
 arrow::Status
 garrow_error_to_status(GError *error,
                        arrow::StatusCode default_code,
                        const char *context);
 
 namespace garrow {
+  GARROW_EXPORT
   gboolean
   check(GError **error, const arrow::Status &status, const char *context);
 
   template <typename CONTEXT_FUNC>
+  GARROW_EXPORT
   gboolean
   check(GError **error, const arrow::Status &status, CONTEXT_FUNC &&context_func)
   {
@@ -57,6 +67,7 @@ namespace garrow {
   }
 
   template <typename TYPE>
+  GARROW_EXPORT
   gboolean
   check(GError **error, const arrow::Result<TYPE> &result, const char *context)
   {
@@ -64,6 +75,7 @@ namespace garrow {
   }
 
   template <typename TYPE, typename CONTEXT_FUNC>
+  GARROW_EXPORT
   gboolean
   check(GError **error, const arrow::Result<TYPE> &result, CONTEXT_FUNC &&context_func)
   {

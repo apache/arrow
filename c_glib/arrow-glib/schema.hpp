@@ -22,8 +22,12 @@
 #include <arrow/api.h>
 
 #include <arrow-glib/schema.h>
+#include <arrow-glib/visibility.h>
 
+GARROW_EXPORT
 GArrowSchema *
 garrow_schema_new_raw(std::shared_ptr<arrow::Schema> *arrow_schema);
+
+GARROW_EXPORT
 std::shared_ptr<arrow::Schema>
 garrow_schema_get_raw(GArrowSchema *schema);

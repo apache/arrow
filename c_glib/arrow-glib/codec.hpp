@@ -22,13 +22,20 @@
 #include <arrow/util/compression.h>
 
 #include <arrow-glib/codec.h>
+#include <arrow-glib/visibility.h>
 
+GARROW_EXPORT
 GArrowCompressionType
 garrow_compression_type_from_raw(arrow::Compression::type arrow_type);
+
+GARROW_EXPORT
 arrow::Compression::type
 garrow_compression_type_to_raw(GArrowCompressionType type);
 
+GARROW_EXPORT
 GArrowCodec *
 garrow_codec_new_raw(std::shared_ptr<arrow::util::Codec> *arrow_codec);
+
+GARROW_EXPORT
 std::shared_ptr<arrow::util::Codec>
 garrow_codec_get_raw(GArrowCodec *codec);

@@ -22,11 +22,17 @@
 #include <arrow/api.h>
 
 #include <arrow-glib/chunked-array.h>
+#include <arrow-glib/visibility.h>
 
+GARROW_EXPORT
 GArrowChunkedArray *
 garrow_chunked_array_new_raw(std::shared_ptr<arrow::ChunkedArray> *arrow_chunked_array);
+
+GARROW_EXPORT
 GArrowChunkedArray *
 garrow_chunked_array_new_raw(std::shared_ptr<arrow::ChunkedArray> *arrow_chunked_array,
                              GArrowDataType *data_type);
+
+GARROW_EXPORT
 std::shared_ptr<arrow::ChunkedArray>
 garrow_chunked_array_get_raw(GArrowChunkedArray *chunked_array);

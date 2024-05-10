@@ -22,8 +22,12 @@
 #include <arrow/compute/expression.h>
 
 #include <arrow-glib/expression.h>
+#include <arrow-glib/visibility.h>
 
+GARROW_EXPORT
 GArrowExpression *
 garrow_expression_new_raw(const arrow::compute::Expression &arrow_expression);
+
+GARROW_EXPORT
 arrow::compute::Expression *
 garrow_expression_get_raw(GArrowExpression *expression);

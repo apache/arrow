@@ -22,29 +22,37 @@
 #include <arrow/filesystem/api.h>
 
 #include <arrow-glib/file-system.h>
+#include <arrow-glib/visibility.h>
 
+GARROW_EXPORT
 GArrowFileInfo *
 garrow_file_info_new_raw(const arrow::fs::FileInfo &arrow_file_info);
 
+GARROW_EXPORT
 arrow::fs::FileInfo *
 garrow_file_info_get_raw(GArrowFileInfo *file_info);
 
+GARROW_EXPORT
 GArrowFileSystem *
 garrow_file_system_new_raw(std::shared_ptr<arrow::fs::FileSystem> *arrow_file_system);
 
+GARROW_EXPORT
 std::shared_ptr<arrow::fs::FileSystem>
 garrow_file_system_get_raw(GArrowFileSystem *file_system);
 
+GARROW_EXPORT
 GArrowSubTreeFileSystem *
 garrow_sub_tree_file_system_new_raw(
   std::shared_ptr<arrow::fs::FileSystem> *arrow_file_system,
   GArrowFileSystem *base_file_system);
 
+GARROW_EXPORT
 GArrowSlowFileSystem *
 garrow_slow_file_system_new_raw(std::shared_ptr<arrow::fs::FileSystem> *arrow_file_system,
                                 GArrowFileSystem *base_file_system);
 
 #ifdef ARROW_S3
+GARROW_EXPORT
 arrow::fs::S3GlobalOptions *
 garrow_s3_global_options_get_raw(GArrowS3GlobalOptions *options);
 #endif
