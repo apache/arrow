@@ -29,8 +29,6 @@ arrow-src.tar.gz
 *.bundle
 *.dylib
 .build_cache_dir
-cpp/build-debug/
-cpp/build-debug-ninja/
 dependency-reduced-pom.xml
 MANIFEST
 compile_commands.json
