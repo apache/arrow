@@ -171,10 +171,17 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
-      - name: Install ccache
-        run: brew install ccache
-      - name: Display ccache statistics before build
-        run: ccache -s
+      - name: Setup Python
+        uses: actions/setup-python@v5.1.0
+        with:
+          python-version: '3.11'
+      - name: Install Dependencies
+        shell: bash
+        run: |
+          brew bundle --file=cpp/Brewfile
+          python -m pip install \
+            -r python/requirements-build.txt \
+            -r python/requirements-test.txt
       - name: Setup ccache
         shell: bash
         run: ci/scripts/ccache_setup.sh
@@ -188,17 +195,6 @@ jobs:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: python-ccache-macos-${{ matrix.macos-version }}-${{ hashFiles('cpp/**', 'python/**') }}
           restore-keys: python-ccache-macos-${{ matrix.macos-version }}-
-      - name: Setup Python
-        uses: actions/setup-python@v5.1.0
-        with:
-          python-version: '3.11'
-      - name: Install Dependencies
-        shell: bash
-        run: |
-          brew bundle --file=cpp/Brewfile
-          python -m pip install \
-            -r python/requirements-build.txt \
-            -r python/requirements-test.txt
       - name: Build
         shell: bash
         run: |
