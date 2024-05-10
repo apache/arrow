@@ -20,10 +20,12 @@
 #pragma once
 
 #include <glib-object.h>
+#include <arrow-glib/version.h>
 
 G_BEGIN_DECLS
 
 #define GARROW_TYPE_ARRAY (garrow_array_get_type())
+GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(GArrowArray, garrow_array, GARROW, ARRAY, GObject)
 struct _GArrowArrayClass
 {
@@ -31,6 +33,7 @@ struct _GArrowArrayClass
 };
 
 #define GARROW_TYPE_EXTENSION_ARRAY (garrow_extension_array_get_type())
+GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(
   GArrowExtensionArray, garrow_extension_array, GARROW, EXTENSION_ARRAY, GArrowArray)
 struct _GArrowExtensionArrayClass

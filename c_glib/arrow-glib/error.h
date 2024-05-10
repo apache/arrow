@@ -20,6 +20,7 @@
 #pragma once
 
 #include <glib-object.h>
+#include <arrow-glib/version.h>
 
 G_BEGIN_DECLS
 
@@ -66,6 +67,7 @@ typedef enum {
 
 #define GARROW_ERROR garrow_error_quark()
 
+GARROW_AVAILABLE_IN_ALL
 GQuark
 garrow_error_quark(void);
 
