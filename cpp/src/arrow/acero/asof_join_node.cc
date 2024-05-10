@@ -974,7 +974,8 @@ class AsofJoinNode : public ExecNode {
 
       bool any_rhs_advanced{};
       bool rhs_up_to_date_with_lhs{};
-      ARROW_ASSIGN_OR_RAISE(std::tie(any_rhs_advanced, rhs_up_to_date_with_lhs), UpdateRhsAndCheckUpToDateWithLhs());
+      ARROW_ASSIGN_OR_RAISE(std::tie(any_rhs_advanced, rhs_up_to_date_with_lhs),
+                            UpdateRhsAndCheckUpToDateWithLhs());
 
       // If we have received enough inputs to produce the next output batch
       // (decided by IsUpToDateWithLhsRow), we will perform the join and
