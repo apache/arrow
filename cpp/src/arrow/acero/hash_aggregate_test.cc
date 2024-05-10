@@ -318,7 +318,7 @@ Result<Datum> RunGroupBy(const BatchesWithSchema& input,
           {
               {"source",
                SourceNodeOptions{input.schema, input.gen(use_threads, /*slow=*/false)}},
-              {"aggregate", AggregateNodeOptions{std::move(aggregates), std::move(keys),
+              {"aggregate", AggregateNodeOptions{aggregates, std::move(keys),
                                                  std::move(segment_keys)}},
               {"sink", SinkNodeOptions{&sink_gen}},
           })

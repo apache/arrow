@@ -427,7 +427,7 @@ class ScanNode : public acero::ExecNode, public acero::TracedNode {
             /*queue=*/nullptr,
             [this]() { return output_->InputFinished(this, num_batches_.load()); });
     fragment_tasks->AddAsyncGenerator<std::shared_ptr<Fragment>>(
-        std::move(frag_gen),
+        frag_gen,
         [this, fragment_tasks =
                    std::move(fragment_tasks)](const std::shared_ptr<Fragment>& fragment) {
           fragment_tasks->AddTask(std::make_unique<ListFragmentTask>(this, fragment));

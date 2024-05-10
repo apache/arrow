@@ -192,10 +192,10 @@ Status UnionFromFlatbuffer(const flatbuf::Union* union_data,
 
   if (mode == UnionMode::SPARSE) {
     ARROW_ASSIGN_OR_RAISE(
-        *out, SparseUnionType::Make(std::move(children), std::move(type_codes)));
+        *out, SparseUnionType::Make(children, std::move(type_codes)));
   } else {
     ARROW_ASSIGN_OR_RAISE(
-        *out, DenseUnionType::Make(std::move(children), std::move(type_codes)));
+        *out, DenseUnionType::Make(children, std::move(type_codes)));
   }
   return Status::OK();
 }
