@@ -1394,7 +1394,10 @@ class AsofJoinNode : public ExecNode {
     DEBUG_SYNC(this, "received batch from input ", k, ":", DEBUG_MANIP(std::endl),
                rb->ToString(), DEBUG_MANIP(std::endl));
 
-    ARROW_RETURN_NOT_OK(state_.at(k)->Push(rb));
+    {
+      std::lock_guard<std::mutex> guard(gate_);
+      ARROW_RETURN_NOT_OK(state_.at(k)->Push(rb));
+    }
     process_.Push(true);
     return Status::OK();
   }
