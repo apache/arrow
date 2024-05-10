@@ -60,6 +60,7 @@ import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VariableWidthFieldVector;
+import org.apache.arrow.vector.ViewVarCharVector;
 import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.LargeListVector;
@@ -565,6 +566,20 @@ public class ValueVectorDataPopulator {
     vector.setValueCount(length);
   }
 
+  /**
+   * Populate values for ViewVarCharVector.
+   */
+  public static void setVector(ViewVarCharVector vector, byte[]... values) {
+    final int length = values.length;
+    vector.allocateNewSafe();
+    for (int i = 0; i < length; i++) {
+      if (values[i] != null) {
+        vector.set(i, values[i]);
+      }
+    }
+    vector.setValueCount(length);
+  }
+
   public static void setVector(VariableWidthFieldVector vector, byte[]... values) {
     final int length = values.length;
     vector.allocateNewSafe();
@@ -590,6 +605,20 @@ public class ValueVectorDataPopulator {
 
   /** Populate values for VarCharVector. */
   public static void setVector(VarCharVector vector, String... values) {
+    final int length = values.length;
+    vector.allocateNewSafe();
+    for (int i = 0; i < length; i++) {
+      if (values[i] != null) {
+        vector.setSafe(i, values[i].getBytes(StandardCharsets.UTF_8));
+      }
+    }
+    vector.setValueCount(length);
+  }
+
+  /**
+   * Populate values for VarCharVector.
+   */
+  public static void setVector(ViewVarCharVector vector, String... values) {
     final int length = values.length;
     vector.allocateNewSafe();
     for (int i = 0; i < length; i++) {

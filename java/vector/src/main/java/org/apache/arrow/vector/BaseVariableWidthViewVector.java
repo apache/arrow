@@ -1668,4 +1668,11 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
   public <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value) {
     return visitor.visit(this, value);
   }
+
+  @Override
+  public void exportCDataBuffers(List<ArrowBuf> buffers, ArrowBuf buffersPtr, long nullValue) {
+    // TODO: Implement this method
+    throw new UnsupportedOperationException(
+        "exportCDataBuffers is not supported for VariableWidthVector");
+  }
 }
