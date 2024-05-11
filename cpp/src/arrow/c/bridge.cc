@@ -1868,21 +1868,15 @@ struct ArrayImporter {
   template <typename OffsetType>
   Status ImportStringValuesBuffer(int32_t offsets_buffer_id, int32_t buffer_id,
                                   int64_t byte_width = 1) {
-    if (device_type_ == DeviceAllocationType::kCPU) {
-      auto offsets = data_->GetValues<OffsetType>(offsets_buffer_id);
-      // Compute visible size of buffer
-      int64_t buffer_size =
-          (c_struct_->length > 0) ? byte_width * offsets[c_struct_->length] : 0;
-      return ImportBuffer(buffer_id, buffer_size);
-    }
-
-    OffsetType last_offset;
+    int64_t last_offset_value_offset =
+        c_struct_->length * sizeof(OffsetType) + c_struct_->offset;
+    OffsetType last_offset_value;
     RETURN_NOT_OK(MemoryManager::CopyBufferSlice(
-        data_->buffers[offsets_buffer_id], c_struct_->length * sizeof(OffsetType),
-        sizeof(OffsetType), reinterpret_cast<uint8_t*>(&last_offset)));
+        data_->buffers[offsets_buffer_id], last_offset_value_offset, sizeof(OffsetType),
+        reinterpret_cast<uint8_t*>(&last_offset_value)));
 
     // Compute visible size of buffer
-    int64_t buffer_size = (c_struct_->length > 0) ? byte_width * last_offset : 0;
+    int64_t buffer_size = (c_struct_->length > 0) ? byte_width * last_offset_value : 0;
 
     return ImportBuffer(buffer_id, buffer_size);
   }
