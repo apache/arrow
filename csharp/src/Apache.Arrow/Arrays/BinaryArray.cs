@@ -391,21 +391,11 @@ namespace Apache.Arrow
         {
             for (int index = 0; index < Length; index++)
             {
-                var foo = GetBytes(index);
-                if(IsSpanDataEqual(foo, item))
-                //if (foo == item)
+                if (GetBytes(index).SequenceEqual(item))
                     return true;
             }
 
             return false;
-        }
-
-        private static bool IsSpanDataEqual(ReadOnlySpan<byte> span1, ReadOnlySpan<byte> span2)
-        {
-            if (span1.Length != span2.Length)
-                return false;
-
-            return span1.SequenceEqual(span2);
         }
 
         void ICollection<byte[]>.CopyTo(byte[][] array, int arrayIndex)
