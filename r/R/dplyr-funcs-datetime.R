@@ -326,9 +326,9 @@ register_bindings_datetime_conversion <- function() {
              tz = "UTC") {
       if (is.null(format) && length(tryFormats) > 1) {
         arrow_not_supported(
-          .actual_msg = paste(
-            "`as.Date()` with multiple `tryFormats` is not supported in Arrow.",
-            "Consider using the lubridate specialised parsing functions `ymd()`, `ymd()`, etc."
+          "`as.Date()` with multiple `tryFormats`",
+          body = c(
+            ">" = "Consider using the lubridate specialised parsing functions `ymd()`, `ymd()`, etc."
           )
         )
       }

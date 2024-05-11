@@ -18,10 +18,10 @@
 check_time_locale <- function(locale = Sys.getlocale("LC_TIME")) {
   if (tolower(Sys.info()[["sysname"]]) == "windows" && locale != "C") {
     # MingW C++ std::locale only supports "C" and "POSIX"
-    arrow_not_supported(.actual_msg = paste0(
-      "On Windows, time locales other than 'C' are not supported in Arrow. ",
-      "Consider setting `Sys.setlocale('LC_TIME', 'C')`"
-    ))
+    arrow_not_supported(
+      "On Windows, time locales other than 'C'",
+      body = c(">" = "Consider setting `Sys.setlocale('LC_TIME', 'C')`")
+    )
   }
   locale
 }
@@ -57,12 +57,14 @@ duration_from_chunks <- function(chunks) {
 
   if (any(is.na(matched_chunks))) {
     arrow_not_supported(
-      .actual_msg = paste0(
-        "named `difftime` units other than: ",
-        oxford_paste(accepted_chunks, quote_symbol = "`"),
-        " not supported in Arrow. \nInvalid `difftime` parts: ",
+      paste(
+        "named `difftime` units other than:",
+        oxford_paste(accepted_chunks, quote_symbol = "`")
+      ),
+      body = c(i = paste(
+        "Invalid `difftime` parts:",
         oxford_paste(names(chunks[is.na(matched_chunks)]), quote_symbol = "`")
-      )
+      ))
     )
   }
 

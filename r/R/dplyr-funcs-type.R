@@ -219,7 +219,10 @@ register_bindings_type_inspect <- function() {
     call_binding("is.character", x)
   })
   register_binding("rlang::is_double", function(x, n = NULL, finite = NULL) {
-    assert_that(is.null(n) && is.null(finite))
+    assert_that(is.null(n))
+    if (!is.null(finite)) {
+      arrow_not_supported("`finite` argument")
+    }
     call_binding("is.double", x)
   })
   register_binding("rlang::is_integer", function(x, n = NULL) {

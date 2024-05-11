@@ -61,10 +61,7 @@ mutate.arrow_dplyr_query <- function(.data,
         !is.null(results[[new_var]])) {
         # We need some wrapping to handle literal values
         if (length(results[[new_var]]) != 1) {
-          arrow_not_supported(.actual_msg = paste0(
-            "In ", new_var, " = ", format_expr(exprs[[i]]),
-            ", only values of size one are recycled"
-          ))
+          arrow_not_supported("Recycling values of length != 1", call = exprs[[i]])
         }
         results[[new_var]] <- Expression$scalar(results[[new_var]])
       }
