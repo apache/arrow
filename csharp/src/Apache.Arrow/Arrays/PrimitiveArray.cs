@@ -21,7 +21,7 @@ using System.Runtime.CompilerServices;
 namespace Apache.Arrow
 {
     public abstract class PrimitiveArray<T> : Array, IReadOnlyList<T?>, ICollection<T?>
-        where T : struct
+        where T : struct, IEquatable<T>
     {
         protected PrimitiveArray(ArrayData data)
             : base(data)
@@ -95,13 +95,12 @@ namespace Apache.Arrow
 
         bool ICollection<T?>.Contains(T? item)
         {
-            for (int index = 0; index < Length; index++)
+            if (item == null)
             {
-                if (GetValue(index).Equals(item))
-                    return true;
+                return NullCount > 0;
             }
 
-            return false;
+            return Values.IndexOf(item.Value) >= 0;
         }
 
         void ICollection<T?>.CopyTo(T?[] array, int arrayIndex)
