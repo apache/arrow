@@ -30,9 +30,6 @@ with_doc=$([ "${BUILD_DOCS_C_GLIB}" == "ON" ] && echo "true" || echo "false")
 
 export PKG_CONFIG_PATH=${ARROW_HOME}/lib/pkgconfig
 
-export CFLAGS="-DARROW_NO_DEPRECATED_API"
-export CXXFLAGS="-DARROW_NO_DEPRECATED_API"
-
 mkdir -p ${build_dir}
 
 # Build with Meson
