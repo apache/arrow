@@ -1053,7 +1053,9 @@ class TypedColumnReaderImpl : public TypedColumnReader<DType>,
           std::count(def_levels, def_levels + *num_def_levels, this->max_def_level_);
     } else {
       // Required field, read all values
-      *num_def_levels = 0;
+      if (num_def_levels != nullptr) {
+        *num_def_levels = 0;
+      }
       *non_null_values_to_read = batch_size;
     }
 
