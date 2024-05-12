@@ -451,8 +451,7 @@ tasks:
 
 {############################## Linux PKGS ####################################}
 
-{% for target in ["debian-bullseye",
-                  "debian-bookworm",
+{% for target in ["debian-bookworm",
                   "debian-trixie",
                   "ubuntu-focal",
                   "ubuntu-jammy",
