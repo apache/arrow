@@ -162,7 +162,7 @@ x-hierarchy:
   - ubuntu-r-valgrind
   - ubuntu-swift
   - ubuntu-verify-rc
-  - fedora-r-clang-sanitizer
+  - r-clang-sanitizer
   - r
   - r-revdepcheck
   # helper services
@@ -1472,7 +1472,6 @@ services:
       args:
         base: ${R_ORG}/${R_IMAGE}:${R_TAG}
         r_dev: ${ARROW_R_DEV}
-        devtoolset_version: ${DEVTOOLSET_VERSION}
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
         r_custom_ccache: ${R_CUSTOM_CCACHE}
@@ -1484,7 +1483,6 @@ services:
       ARROW_R_DEV: ${ARROW_R_DEV}
       # To test for CRAN release, delete ^^ these two env vars so we download the Apache release
       ARROW_USE_PKG_CONFIG: "false"
-      devtoolset_version: ${DEVTOOLSET_VERSION}
     volumes:
       - .:/arrow:delegated
     command: >
@@ -1517,19 +1515,17 @@ services:
       /bin/bash -c "
         /arrow/ci/scripts/r_sanitize.sh /arrow"
 
-  fedora-r-clang-sanitizer:
-    image: ${REPO}:r-rhub-fedora-clang-devel-latest
+  r-clang-sanitizer:
+    image: ${REPO}:r-rhub-clang-devel-latest
     build:
       context: .
       dockerfile: ci/docker/linux-r.dockerfile
       cache_from:
-        - ${REPO}:r-rhub-fedora-clang-devel-latest
+        - ${REPO}:r-rhub-clang-devel-latest
       args:
-        # TODO: change this to rhub/clang-asan
-        base: rhub/fedora-clang-devel-san
+        base: rhub/clang-asan
         r_dev: ${ARROW_R_DEV}
-        devtoolset_version: ${DEVTOOLSET_VERSION}
-        r_bin: RDsan
+        r_bin: R
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
     shm_size: *shm-size

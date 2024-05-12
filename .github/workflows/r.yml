@@ -192,12 +192,11 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - { org: "rhub", image: "ubuntu-gcc12", tag: "latest", devtoolset: "" }
+          - { org: "rhub", image: "ubuntu-gcc12", tag: "latest" }
     env:
       R_ORG: ${{ matrix.config.org }}
       R_IMAGE: ${{ matrix.config.image }}
       R_TAG: ${{ matrix.config.tag }}
-      DEVTOOLSET_VERSION: ${{ matrix.config.devtoolset }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
