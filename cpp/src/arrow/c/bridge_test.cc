@@ -565,7 +565,7 @@ struct ArrayExportChecker {
 
     auto expected_n_buffers = static_cast<int64_t>(expected_data.buffers.size());
     auto expected_buffers = expected_data.buffers.data();
-    if (!internal::HasValidityBitmap(expected_data.type->id())) {
+    if (!internal::may_have_validity_bitmap(expected_data.type->id())) {
       --expected_n_buffers;
       ++expected_buffers;
     }

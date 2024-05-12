@@ -149,6 +149,11 @@ public class ColumnBinderArrowTypeVisitor implements ArrowType.ArrowTypeVisitor<
   }
 
   @Override
+  public ColumnBinder visit(ArrowType.Utf8View type) {
+    throw new UnsupportedOperationException("Column binder implemented for type " + type + " is not supported");
+  }
+
+  @Override
   public ColumnBinder visit(ArrowType.LargeUtf8 type) {
     LargeVarCharVector varChar = (LargeVarCharVector) vector;
     return jdbcType == null ? new VarCharBinder<>(varChar, Types.LONGVARCHAR) :
@@ -160,6 +165,11 @@ public class ColumnBinderArrowTypeVisitor implements ArrowType.ArrowTypeVisitor<
     VarBinaryVector varBinary = (VarBinaryVector) vector;
     return jdbcType == null ? new VarBinaryBinder<>(varBinary, Types.VARBINARY) :
         new VarBinaryBinder<>(varBinary, jdbcType);
+  }
+
+  @Override
+  public ColumnBinder visit(ArrowType.BinaryView type) {
+    throw new UnsupportedOperationException("Column binder implemented for type " + type + " is not supported");
   }
 
   @Override

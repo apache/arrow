@@ -575,28 +575,28 @@ Partitioning performance considerations
 
 Partitioning datasets has two aspects that affect performance: it increases the number of
 files and it creates a directory structure around the files. Both of these have benefits
-as well as costs. Depending on the configuration and the size of your dataset, the costs 
-can outweigh the benefits. 
+as well as costs. Depending on the configuration and the size of your dataset, the costs
+can outweigh the benefits.
 
-Because partitions split up the dataset into multiple files, partitioned datasets can be 
-read and written with parallelism. However, each additional file adds a little overhead in 
-processing for filesystem interaction. It also increases the overall dataset size since 
+Because partitions split up the dataset into multiple files, partitioned datasets can be
+read and written with parallelism. However, each additional file adds a little overhead in
+processing for filesystem interaction. It also increases the overall dataset size since
 each file has some shared metadata. For example, each parquet file contains the schema and
-group-level statistics. The number of partitions is a floor for the number of files. If 
-you partition a dataset by date with a year of data, you will have at least 365 files. If 
-you further partition by another dimension with 1,000 unique values, you will have up to 
+group-level statistics. The number of partitions is a floor for the number of files. If
+you partition a dataset by date with a year of data, you will have at least 365 files. If
+you further partition by another dimension with 1,000 unique values, you will have up to
 365,000 files. This fine of partitioning often leads to small files that mostly consist of
 metadata.
 
-Partitioned datasets create nested folder structures, and those allow us to prune which 
+Partitioned datasets create nested folder structures, and those allow us to prune which
 files are loaded in a scan. However, this adds overhead to discovering files in the dataset,
 as we'll need to recursively "list directory" to find the data files. Too fine
 partitions can cause problems here: Partitioning a dataset by date for a years worth
-of data will require 365 list calls to find all the files; adding another column with 
+of data will require 365 list calls to find all the files; adding another column with
 cardinality 1,000 will make that 365,365 calls.
 
 The most optimal partitioning layout will depend on your data, access patterns, and which
-systems will be reading the data. Most systems, including Arrow, should work across a 
+systems will be reading the data. Most systems, including Arrow, should work across a
 range of file sizes and partitioning layouts, but there are extremes you should avoid. These
 guidelines can help avoid some known worst cases:
 
@@ -611,35 +611,35 @@ of file size. Arrow's file writer provides sensible defaults for group sizing in
 Configuring files open during a write
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When writing data to the disk, there are a few parameters that can be 
+When writing data to the disk, there are a few parameters that can be
 important to optimize the writes, such as the number of rows per file and
 the maximum number of open files allowed during the write.
 
 Set the maximum number of files opened with the ``max_open_files`` parameter of
 :meth:`write_dataset`.
 
-If  ``max_open_files`` is set greater than 0 then this will limit the maximum 
+If  ``max_open_files`` is set greater than 0 then this will limit the maximum
 number of files that can be left open. This only applies to writing partitioned
 datasets, where rows are dispatched to the appropriate file depending on their
 partition values. If an attempt is made to open too many  files then the least
 recently used file will be closed.  If this setting is set too low you may end
 up fragmenting your data into many small files.
 
-If your process is concurrently using other file handlers, either with a 
-dataset scanner or otherwise, you may hit a system file handler limit. For 
+If your process is concurrently using other file handlers, either with a
+dataset scanner or otherwise, you may hit a system file handler limit. For
 example, if you are scanning a dataset with 300 files and writing out to
 900 files, the total of 1200 files may be over a system limit. (On Linux,
 this might be a "Too Many Open Files" error.) You can either reduce this
 ``max_open_files`` setting or increase the file handler limit on your
 system. The default value is 900 which allows some number of files
-to be open by the scanner before hitting the default Linux limit of 1024. 
+to be open by the scanner before hitting the default Linux limit of 1024.
 
-Another important configuration used in :meth:`write_dataset` is ``max_rows_per_file``. 
+Another important configuration used in :meth:`write_dataset` is ``max_rows_per_file``.
 
 Set the maximum number of rows written in each file with the ``max_rows_per_files``
 parameter of :meth:`write_dataset`.
 
-If ``max_rows_per_file`` is set greater than 0 then this will limit how many 
+If ``max_rows_per_file`` is set greater than 0 then this will limit how many
 rows are placed in any single file. Otherwise there will be no limit and one
 file will be created in each output directory unless files need to be closed to respect
 ``max_open_files``. This setting is the primary way to control file size.
@@ -653,22 +653,22 @@ Configuring rows per group during a write
 
 The volume of data written to the disk per each group can be configured.
 This configuration includes a lower and an upper bound.
-The minimum number of rows required to form a row group is 
+The minimum number of rows required to form a row group is
 defined with the ``min_rows_per_group`` parameter of :meth:`write_dataset`.
 
 .. note::
-    If ``min_rows_per_group`` is set greater than 0 then this will cause the 
-    dataset writer to batch incoming data and only write the row groups to the 
-    disk when sufficient rows have accumulated. The final row group size may be 
-    less than this value if other options such as ``max_open_files`` or 
+    If ``min_rows_per_group`` is set greater than 0 then this will cause the
+    dataset writer to batch incoming data and only write the row groups to the
+    disk when sufficient rows have accumulated. The final row group size may be
+    less than this value if other options such as ``max_open_files`` or
     ``max_rows_per_file`` force smaller row group sizes.
 
 The maximum number of rows allowed per group is defined with the
 ``max_rows_per_group`` parameter of :meth:`write_dataset`.
 
-If ``max_rows_per_group`` is set greater than 0 then the dataset writer may split 
-up large incoming batches into multiple row groups.  If this value is set then 
-``min_rows_per_group`` should also be set or else you may end up with very small 
+If ``max_rows_per_group`` is set greater than 0 then the dataset writer may split
+up large incoming batches into multiple row groups.  If this value is set then
+``min_rows_per_group`` should also be set or else you may end up with very small
 row groups (e.g. if the incoming row group size is just barely larger than this value).
 
 Row groups are built into the Parquet and IPC/Feather formats but don't affect JSON or CSV.
@@ -719,7 +719,7 @@ Customizing & inspecting written files
 By default the dataset API will create files named "part-i.format" where "i" is a integer
 generated during the write and "format" is the file format specified in the write_dataset
 call.  For simple datasets it may be possible to know which files will be created but for
-larger or partitioned datasets it is not so easy.  The ``file_visitor`` keyword can be used 
+larger or partitioned datasets it is not so easy.  The ``file_visitor`` keyword can be used
 to supply a visitor that will be called as each file is created:
 
 .. ipython:: python

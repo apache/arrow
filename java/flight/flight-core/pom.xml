@@ -15,7 +15,6 @@
     <groupId>org.apache.arrow</groupId>
     <artifactId>arrow-flight</artifactId>
     <version>17.0.0-SNAPSHOT</version>
-    <relativePath>../pom.xml</relativePath>
   </parent>
 
   <artifactId>flight-core</artifactId>
@@ -151,13 +150,6 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
-        <!--
-          Downgrade maven-shade-plugin specifically for this module.
-          Using a newer version up to at least 3.5.1 will cause
-          issues in the arrow-tools tests looking up FlatBuffer
-          dependencies.
-         -->
-        <version>3.2.4</version>
         <executions>
           <execution>
             <id>shade-main</id>
@@ -244,7 +236,6 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-dependency-plugin</artifactId>
-        <version>3.3.0</version>
         <executions>
           <execution>
             <id>analyze</id>
@@ -264,7 +255,6 @@
         <!-- add generated sources to classpath -->
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>build-helper-maven-plugin</artifactId>
-        <version>1.9.1</version>
         <executions>
           <execution>
             <id>add-generated-sources-to-classpath</id>
@@ -282,7 +272,6 @@
       </plugin>
       <plugin>
         <artifactId>maven-assembly-plugin</artifactId>
-        <version>3.7.1</version>
         <configuration>
           <descriptorRefs>
             <descriptorRef>jar-with-dependencies</descriptorRef>
@@ -299,13 +288,6 @@
         </executions>
       </plugin>
     </plugins>
-    <extensions>
-      <extension>
-        <groupId>kr.motd.maven</groupId>
-        <artifactId>os-maven-plugin</artifactId>
-        <version>1.7.1</version>
-      </extension>
-    </extensions>
   </build>
 
   <profiles>
@@ -313,18 +295,14 @@
       <id>jdk11+</id>
       <activation>
         <jdk>[11,]</jdk>
-        <property>
-          <name>!m2e.version</name>
-        </property>
       </activation>
       <build>
         <plugins>
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-surefire-plugin</artifactId>
-            <configuration combine.self="override">
-              <argLine>--add-opens=org.apache.arrow.flight.core/org.apache.arrow.flight.perf.impl=protobuf.java --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED</argLine>
-              <enableAssertions>false</enableAssertions>
+            <configuration>
+              <argLine combine.self="override">--add-opens=org.apache.arrow.flight.core/org.apache.arrow.flight.perf.impl=protobuf.java --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED</argLine>
               <systemPropertyVariables>
                 <arrow.test.dataRoot>${project.basedir}/../../../testing/data</arrow.test.dataRoot>
               </systemPropertyVariables>
@@ -334,5 +312,4 @@
       </build>
     </profile>
   </profiles>
-
 </project>

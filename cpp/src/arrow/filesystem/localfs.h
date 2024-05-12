@@ -83,6 +83,7 @@ class ARROW_EXPORT LocalFileSystem : public FileSystem {
 
   Result<std::string> NormalizePath(std::string path) override;
   Result<std::string> PathFromUri(const std::string& uri_string) const override;
+  Result<std::string> MakeUri(std::string path) const override;
 
   bool Equals(const FileSystem& other) const override;
 

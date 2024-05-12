@@ -1723,7 +1723,7 @@ class ARROW_EXPORT MonthIntervalType : public IntervalType {
 
   MonthIntervalType() : IntervalType(type_id) {}
 
-  std::string ToString([[maybe_unused]] bool show_metadata = false) const override {
+  std::string ToString(bool ARROW_ARG_UNUSED(show_metadata) = false) const override {
     return name();
   }
   std::string name() const override { return "month_interval"; }
@@ -1761,7 +1761,7 @@ class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
 
-  std::string ToString([[maybe_unused]] bool show_metadata = false) const override {
+  std::string ToString(bool ARROW_ARG_UNUSED(show_metadata) = false) const override {
     return name();
   }
   std::string name() const override { return "day_time_interval"; }
@@ -1803,7 +1803,7 @@ class ARROW_EXPORT MonthDayNanoIntervalType : public IntervalType {
 
   int bit_width() const override { return static_cast<int>(sizeof(c_type) * CHAR_BIT); }
 
-  std::string ToString([[maybe_unused]] bool show_metadata = false) const override {
+  std::string ToString(bool ARROW_ARG_UNUSED(show_metadata) = false) const override {
     return name();
   }
   std::string name() const override { return "month_day_nano_interval"; }
@@ -2488,7 +2488,7 @@ Result<std::shared_ptr<Schema>> UnifySchemas(
 
 namespace internal {
 
-constexpr bool HasValidityBitmap(Type::type id) {
+constexpr bool may_have_validity_bitmap(Type::type id) {
   switch (id) {
     case Type::NA:
     case Type::DENSE_UNION:
@@ -2499,6 +2499,9 @@ constexpr bool HasValidityBitmap(Type::type id) {
       return true;
   }
 }
+
+ARROW_DEPRECATED("Deprecated in 17.0.0. Use may_have_validity_bitmap() instead.")
+constexpr bool HasValidityBitmap(Type::type id) { return may_have_validity_bitmap(id); }
 
 ARROW_EXPORT
 std::string ToString(Type::type id);

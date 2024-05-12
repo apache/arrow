@@ -169,8 +169,8 @@ when using the JDBC Driver Manager to connect. When supplying using
 the Properties object, values should *not* be URI-encoded.
 
 Parameters specified by the URI supercede parameters supplied by the
-Properties object. When calling the `user/password overload of 
-DriverManager#getConnection() 
+Properties object. When calling the `user/password overload of
+DriverManager#getConnection()
 <https://docs.oracle.com/javase/8/docs/api/java/sql/DriverManager.html#getConnection-java.lang.String-java.lang.String-java.lang.String->`_,
 the username and password supplied on the URI supercede the username and
 password arguments to the function call.

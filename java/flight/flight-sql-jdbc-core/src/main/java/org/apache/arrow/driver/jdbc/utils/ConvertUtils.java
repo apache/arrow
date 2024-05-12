@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.apache.arrow.driver.jdbc.converter.impl.BinaryAvaticaParameterConverter;
+import org.apache.arrow.driver.jdbc.converter.impl.BinaryViewAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.BoolAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.DateAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.DecimalAvaticaParameterConverter;
@@ -43,6 +44,7 @@ import org.apache.arrow.driver.jdbc.converter.impl.TimeAvaticaParameterConverter
 import org.apache.arrow.driver.jdbc.converter.impl.TimestampAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.UnionAvaticaParameterConverter;
 import org.apache.arrow.driver.jdbc.converter.impl.Utf8AvaticaParameterConverter;
+import org.apache.arrow.driver.jdbc.converter.impl.Utf8ViewAvaticaParameterConverter;
 import org.apache.arrow.flight.sql.FlightSqlColumnMetadata;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -209,6 +211,11 @@ public final class ConvertUtils {
     }
 
     @Override
+    public AvaticaParameter visit(ArrowType.Utf8View type) {
+      return new Utf8ViewAvaticaParameterConverter(type).createParameter(field);
+    }
+
+    @Override
     public AvaticaParameter visit(ArrowType.LargeUtf8 type) {
       return new LargeUtf8AvaticaParameterConverter(type).createParameter(field);
     }
@@ -216,6 +223,11 @@ public final class ConvertUtils {
     @Override
     public AvaticaParameter visit(ArrowType.Binary type) {
       return new BinaryAvaticaParameterConverter(type).createParameter(field);
+    }
+
+    @Override
+    public AvaticaParameter visit(ArrowType.BinaryView type) {
+      return new BinaryViewAvaticaParameterConverter(type).createParameter(field);
     }
 
     @Override

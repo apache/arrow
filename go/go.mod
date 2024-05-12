@@ -21,7 +21,7 @@ go 1.21
 require (
 	github.com/JohnCGriffin/overflow v0.0.0-20211019200055-46fa312c352c
 	github.com/andybalholm/brotli v1.1.0
-	github.com/apache/thrift v0.19.0
+	github.com/apache/thrift v0.20.0
 	github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
 	github.com/goccy/go-json v0.10.2
 	github.com/golang/snappy v0.0.4
@@ -36,18 +36,18 @@ require (
 	github.com/zeebo/xxh3 v1.0.2
 	golang.org/x/exp v0.0.0-20240222234643-814bf88cf225
 	golang.org/x/sync v0.7.0
-	golang.org/x/sys v0.19.0
+	golang.org/x/sys v0.20.0
 	golang.org/x/tools v0.20.0
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028
 	gonum.org/v1/gonum v0.15.0
 	google.golang.org/grpc v1.63.2
-	google.golang.org/protobuf v1.33.0
+	google.golang.org/protobuf v1.34.1
 	modernc.org/sqlite v1.29.6
 )
 
 require (
 	github.com/google/uuid v1.6.0
-	github.com/hamba/avro/v2 v2.20.1
+	github.com/hamba/avro/v2 v2.21.1
 	github.com/substrait-io/substrait-go v0.4.2
 	github.com/tidwall/sjson v1.2.5
 )

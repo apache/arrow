@@ -206,7 +206,7 @@ is very similar to a RecordBatch.  It can have zero or more columns and all of t
 must have the same length.  There are a few key differences from ExecBatch:
 
 .. figure:: rb_vs_eb.svg
-   
+
    Both the record batch and the exec batch have strong ownership of the arrays & buffers
 
 * An `ExecBatch` does not have a schema.  This is because an `ExecBatch` is assumed to be
@@ -217,7 +217,7 @@ must have the same length.  There are a few key differences from ExecBatch:
   also has a length property which describes how many rows are in a batch.  So another way to
   view a `Scalar` is a constant array with `length` elements.
 * An `ExecBatch` contains additional information used by the exec plan.  For example, an
-  `index` can be used to describe a batch's position in an ordered stream.  We expect 
+  `index` can be used to describe a batch's position in an ordered stream.  We expect
   that `ExecBatch` will also evolve to contain additional fields such as a selection vector.
 
 .. figure:: scalar_vs_array.svg
@@ -266,5 +266,5 @@ various query representations (e.g. Substrait).  The Declaration objects are the
 with the DeclarationToXyz methods, are the current public API for Acero.
 
 .. figure:: decl_vs_ep.svg
-   
+
    A declaration is a blueprint that is used to instantiate exec plan instances

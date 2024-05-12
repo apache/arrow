@@ -121,7 +121,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        r: ["4.3"]
+        r: ["4.4"]
         ubuntu: [20.04]
         force-tests: ["true"]
     env:
@@ -192,7 +192,7 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - { org: "rhub", image: "debian-gcc-devel", tag: "latest", devtoolset: "" }
+          - { org: "rhub", image: "ubuntu-gcc12", tag: "latest", devtoolset: "" }
     env:
       R_ORG: ${{ matrix.config.org }}
       R_IMAGE: ${{ matrix.config.image }}

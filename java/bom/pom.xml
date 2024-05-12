@@ -15,7 +15,7 @@
   <parent>
     <groupId>org.apache</groupId>
     <artifactId>apache</artifactId>
-    <version>18</version>
+    <version>31</version>
   </parent>
 
   <groupId>org.apache.arrow</groupId>
@@ -27,6 +27,19 @@
 
   <properties>
     <arrow.vector.classifier></arrow.vector.classifier>
+    <!-- org.apache:apache overrides -->
+    <maven.compiler.source>1.8</maven.compiler.source>
+    <maven.compiler.target>1.8</maven.compiler.target>
+    <maven.plugin.tools.version>3.11.0</maven.plugin.tools.version>
+    <surefire.version>3.2.5</surefire.version>
+    <version.apache-rat-plugin>0.16.1</version.apache-rat-plugin>
+    <version.maven-assembly-plugin>3.7.1</version.maven-assembly-plugin>
+    <version.maven-compiler-plugin>3.12.1</version.maven-compiler-plugin>
+    <version.maven-dependency-plugin>3.6.1</version.maven-dependency-plugin>
+    <version.maven-gpg-plugin>3.2.0</version.maven-gpg-plugin>
+    <version.maven-jar-plugin>3.2.2</version.maven-jar-plugin>
+    <version.maven-javadoc-plugin>3.6.3</version.maven-javadoc-plugin>
+    <version.maven-project-info-reports-plugin>3.5.0</version.maven-project-info-reports-plugin>
   </properties>
 
   <dependencyManagement>
@@ -138,11 +151,9 @@
         <version>${project.version}</version>
       </dependency>
     </dependencies>
-
   </dependencyManagement>
 
   <build>
-
     <pluginManagement>
       <plugins>
         <plugin>
@@ -156,12 +167,10 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-project-info-reports-plugin</artifactId>
-        <version>3.5.0</version>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-site-plugin</artifactId>
-        <version>3.12.1</version>
       </plugin>
       <plugin>
         <groupId>com.diffplug.spotless</groupId>
@@ -188,12 +197,10 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-project-info-reports-plugin</artifactId>
-        <version>3.5.0</version>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-site-plugin</artifactId>
-        <version>3.12.1</version>
       </plugin>
     </plugins>
   </reporting>

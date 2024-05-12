@@ -175,9 +175,9 @@ class ARROW_EXPORT ArrayBuilder {
   /// \brief Append a range of values from an array.
   ///
   /// The given array must be the same type as the builder.
-  virtual Status AppendArraySlice([[maybe_unused]] const ArraySpan& array,
-                                  [[maybe_unused]] int64_t offset,
-                                  [[maybe_unused]] int64_t length) {
+  virtual Status AppendArraySlice(const ArraySpan& ARROW_ARG_UNUSED(array),
+                                  int64_t ARROW_ARG_UNUSED(offset),
+                                  int64_t ARROW_ARG_UNUSED(length)) {
     return Status::NotImplemented("AppendArraySlice for builder for ", *type());
   }
 

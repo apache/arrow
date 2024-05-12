@@ -37,6 +37,7 @@
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/fixed_width_internal.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/ree_util.h"
 
@@ -323,7 +324,7 @@ namespace {
 using TakeState = OptionsWrapper<TakeOptions>;
 
 // ----------------------------------------------------------------------
-// Implement optimized take for primitive types from boolean to 1/2/4/8-byte
+// Implement optimized take for primitive types from boolean to 1/2/4/8/16/32-byte
 // C-type based types. Use common implementation for every byte width and only
 // generate code for unsigned integer indices, since after boundschecking to
 // check for negative numbers in the indices we can safely reinterpret_cast
@@ -333,16 +334,20 @@ using TakeState = OptionsWrapper<TakeOptions>;
 /// use the logical Arrow type but rather the physical C type. This way we
 /// only generate one take function for each byte width.
 ///
-/// This function assumes that the indices have been boundschecked.
+/// Also note that this function can also handle fixed-size-list arrays if
+/// they fit the criteria described in fixed_width_internal.h, so use the
+/// function defined in that file to access values and destination pointers
+/// and DO NOT ASSUME `values.type()` is a primitive type.
+///
+/// \pre the indices have been boundschecked
 template <typename IndexCType, typename ValueWidthConstant>
 struct PrimitiveTakeImpl {
   static constexpr int kValueWidth = ValueWidthConstant::value;
 
   static void Exec(const ArraySpan& values, const ArraySpan& indices,
                    ArrayData* out_arr) {
-    DCHECK_EQ(values.type->byte_width(), kValueWidth);
-    const auto* values_data =
-        values.GetValues<uint8_t>(1, 0) + kValueWidth * values.offset;
+    DCHECK_EQ(util::FixedWidthInBytes(*values.type), kValueWidth);
+    const auto* values_data = util::OffsetPointerOfFixedWidthValues(values);
     const uint8_t* values_is_valid = values.buffers[0].data;
     auto values_offset = values.offset;
 
@@ -350,16 +355,15 @@ struct PrimitiveTakeImpl {
     const uint8_t* indices_is_valid = indices.buffers[0].data;
     auto indices_offset = indices.offset;
 
-    auto out = out_arr->GetMutableValues<uint8_t>(1, 0) + kValueWidth * out_arr->offset;
+    DCHECK_EQ(out_arr->offset, 0);
+    auto* out = util::MutableFixedWidthValuesPointer(out_arr);
     auto out_is_valid = out_arr->buffers[0]->mutable_data();
-    auto out_offset = out_arr->offset;
-    DCHECK_EQ(out_offset, 0);
 
     // If either the values or indices have nulls, we preemptively zero out the
     // out validity bitmap so that we don't have to use ClearBit in each
     // iteration for nulls.
     if (values.null_count != 0 || indices.null_count != 0) {
-      bit_util::SetBitsTo(out_is_valid, out_offset, indices.length, false);
+      bit_util::SetBitsTo(out_is_valid, 0, indices.length, false);
     }
 
     auto WriteValue = [&](int64_t position) {
@@ -386,7 +390,7 @@ struct PrimitiveTakeImpl {
         valid_count += block.popcount;
         if (block.popcount == block.length) {
           // Fastest path: neither values nor index nulls
-          bit_util::SetBitsTo(out_is_valid, out_offset + position, block.length, true);
+          bit_util::SetBitsTo(out_is_valid, position, block.length, true);
           for (int64_t i = 0; i < block.length; ++i) {
             WriteValue(position);
             ++position;
@@ -396,7 +400,7 @@ struct PrimitiveTakeImpl {
           for (int64_t i = 0; i < block.length; ++i) {
             if (bit_util::GetBit(indices_is_valid, indices_offset + position)) {
               // index is not null
-              bit_util::SetBit(out_is_valid, out_offset + position);
+              bit_util::SetBit(out_is_valid, position);
               WriteValue(position);
             } else {
               WriteZero(position);
@@ -416,7 +420,7 @@ struct PrimitiveTakeImpl {
                                  values_offset + indices_data[position])) {
               // value is not null
               WriteValue(position);
-              bit_util::SetBit(out_is_valid, out_offset + position);
+              bit_util::SetBit(out_is_valid, position);
               ++valid_count;
             } else {
               WriteZero(position);
@@ -433,7 +437,7 @@ struct PrimitiveTakeImpl {
                                  values_offset + indices_data[position])) {
               // index is not null && value is not null
               WriteValue(position);
-              bit_util::SetBit(out_is_valid, out_offset + position);
+              bit_util::SetBit(out_is_valid, position);
               ++valid_count;
             } else {
               WriteZero(position);
@@ -584,14 +588,17 @@ Status PrimitiveTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
 
   ArrayData* out_arr = out->array_data().get();
 
-  const int bit_width = values.type->bit_width();
+  DCHECK(util::IsFixedWidthLike(values, /*force_null_count=*/false,
+                                /*exclude_dictionary=*/true));
+  const int64_t bit_width = util::FixedWidthInBits(*values.type);
 
   // TODO: When neither values nor indices contain nulls, we can skip
   // allocating the validity bitmap altogether and save time and space. A
   // streamlined PrimitiveTakeImpl would need to be written that skips all
   // interactions with the output validity bitmap, though.
-  RETURN_NOT_OK(PreallocatePrimitiveArrayData(ctx, indices.length, bit_width,
-                                              /*allocate_validity=*/true, out_arr));
+  RETURN_NOT_OK(util::internal::PreallocateFixedWidthArrayData(
+      ctx, indices.length, /*source=*/values,
+      /*allocate_validity=*/true, out_arr));
   switch (bit_width) {
     case 1:
       TakeIndexDispatch<BooleanTakeImpl>(values, indices, out_arr);

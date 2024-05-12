@@ -187,7 +187,7 @@ Examples
   task (described below) as completed which allows the plan to finish.
 * The ``fetch`` node, in ``InputReceived``, may decide that it has all the data it needs.  It can then call
   ``StopProducing`` on its input.
-  
+
 Initialization / Construction / Destruction
 -------------------------------------------
 
@@ -271,7 +271,7 @@ distributed systems.  Once that has been done then it should be possible to do a
 meaning exchanging between multiple exec plan instances on a single system) if desired.
 
 .. figure:: dist_plan.svg
-   
+
    A distributed plan can provide parallelism even if the plans themselves run serially
 
 Pipeline Parallelism
@@ -472,7 +472,7 @@ Benchmarking
 
 The most complete macro benchmarking for Acero is provided by https://github.com/voltrondata-labs/arrowbench
 These include a set of TPC-H benchmarks, executed from the R-dplyr integration, which are run on every Arrow commit and
-reported to Conbench at https://conbench.ursa.dev/ 
+reported to Conbench at https://conbench.ursa.dev/
 
 In addition to these TPC-H benchmarks there are a number of micro-benchmarks for various nodes (hash-join, asof-join,
 etc.)  Finally, the compute functions themselves should mostly have micro-benchmarks.  For more on micro benchmarks you

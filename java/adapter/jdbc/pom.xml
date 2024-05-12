@@ -26,20 +26,17 @@
 
   <dependencies>
 
-    <!-- https://mvnrepository.com/artifact/org.apache.arrow/arrow-memory-core -->
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-memory-core</artifactId>
     </dependency>
 
-    <!-- https://mvnrepository.com/artifact/org.apache.arrow/arrow-memory-netty -->
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-memory-netty</artifactId>
       <scope>runtime</scope>
     </dependency>
 
-    <!-- https://mvnrepository.com/artifact/org.apache.arrow/arrow-vector -->
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-vector</artifactId>
@@ -51,7 +48,6 @@
       <artifactId>value</artifactId>
     </dependency>
 
-    <!-- https://mvnrepository.com/artifact/com.h2database/h2 -->
     <dependency>
       <groupId>com.h2database</groupId>
       <artifactId>h2</artifactId>
@@ -94,9 +90,6 @@
       <id>jdk11+</id>
       <activation>
         <jdk>[11,]</jdk>
-        <property>
-          <name>!m2e.version</name>
-        </property>
       </activation>
       <build>
         <plugins>

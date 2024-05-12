@@ -47,6 +47,14 @@ arrange.arrow_dplyr_query <- function(.data, ..., .by_group = FALSE) {
       msg <- paste("Expression", names(sorts)[i], "not supported in Arrow")
       return(abandon_ship(call, .data, msg))
     }
+    if (length(mask$.aggregations)) {
+      # dplyr lets you arrange on e.g. x < mean(x), but we haven't implemented it.
+      # But we could, the same way it works in mutate() via join, if someone asks.
+      # Until then, just error.
+      # TODO: add a test for this
+      msg <- paste("Expression", format_expr(expr), "not supported in arrange() in Arrow")
+      return(abandon_ship(call, .data, msg))
+    }
     descs[i] <- x[["desc"]]
   }
   .data$arrange_vars <- c(sorts, .data$arrange_vars)

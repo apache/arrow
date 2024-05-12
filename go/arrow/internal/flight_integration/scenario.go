@@ -2134,16 +2134,16 @@ func (m *flightSqlScenarioTester) ClosePreparedStatement(_ context.Context, requ
 	return nil
 }
 
-func (m *flightSqlScenarioTester) DoPutPreparedStatementQuery(_ context.Context, cmd flightsql.PreparedStatementQuery, rdr flight.MessageReader, _ flight.MetadataWriter) error {
+func (m *flightSqlScenarioTester) DoPutPreparedStatementQuery(_ context.Context, cmd flightsql.PreparedStatementQuery, rdr flight.MessageReader, _ flight.MetadataWriter) ([]byte, error){
 	switch string(cmd.GetPreparedStatementHandle()) {
 	case "SELECT PREPARED STATEMENT HANDLE",
 		"SELECT PREPARED STATEMENT WITH TXN HANDLE",
 		"PLAN HANDLE", "PLAN WITH TXN HANDLE":
 		actualSchema := rdr.Schema()
-		return assertEq(true, actualSchema.Equal(getQuerySchema()))
+		return cmd.GetPreparedStatementHandle(), assertEq(true, actualSchema.Equal(getQuerySchema()))
 	}
 
-	return fmt.Errorf("%w: handle for DoPutPreparedStatementQuery '%s'",
+	return cmd.GetPreparedStatementHandle(), fmt.Errorf("%w: handle for DoPutPreparedStatementQuery '%s'",
 		arrow.ErrInvalid, string(cmd.GetPreparedStatementHandle()))
 }
 

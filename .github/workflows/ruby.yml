@@ -117,7 +117,7 @@ jobs:
         run: archery docker push ubuntu-ruby
 
   macos:
-    name: AMD64 macOS 12 GLib & Ruby
+    name: AMD64 macOS 14 GLib & Ruby
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
@@ -132,7 +132,7 @@ jobs:
       ARROW_GCS: ON
       ARROW_GLIB_GTK_DOC: true
       ARROW_GLIB_WERROR: true
-      ARROW_HOME: /usr/local
+      ARROW_HOME: /tmp/local
       ARROW_JEMALLOC: OFF
       ARROW_ORC: OFF
       ARROW_PARQUET: ON
@@ -141,7 +141,6 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
-      XML_CATALOG_FILES: /usr/local/etc/xml/catalog
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v4

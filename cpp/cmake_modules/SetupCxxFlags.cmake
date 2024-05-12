@@ -314,6 +314,7 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wextra")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wdocumentation")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -DARROW_WARN_DOCUMENTATION")
     if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
       # size_t is 32 bit in Emscripten wasm32 - ignore conversion errors
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-shorten-64-to-32")

@@ -76,64 +76,7 @@
     </dependency>
   </dependencies>
 
-  <pluginRepositories>
-    <pluginRepository>
-      <releases>
-        <enabled>true</enabled>
-      </releases>
-      <snapshots>
-        <enabled>false</enabled>
-      </snapshots>
-      <id>apache</id>
-      <name>apache</name>
-      <url>https://repo.maven.apache.org/maven2/</url>
-    </pluginRepository>
-  </pluginRepositories>
-
   <build>
-
-    <resources>
-      <resource>
-        <targetPath>codegen</targetPath>
-        <!-- Copy freemarker template and fmpp configuration files of Vector's
-          to allow clients to leverage definitions. -->
-        <directory>${basedir}/src/main/codegen</directory>
-      </resource>
-    </resources>
-    <pluginManagement>
-      <plugins>
-        <!--This plugin's configuration is used to store Eclipse m2e settings
-          only. It has no influence on the Maven build itself. -->
-        <plugin>
-          <groupId>org.eclipse.m2e</groupId>
-          <artifactId>lifecycle-mapping</artifactId>
-          <version>1.0.0</version>
-          <configuration>
-            <lifecycleMappingMetadata>
-              <pluginExecutions>
-                <pluginExecution>
-                  <pluginExecutionFilter>
-                    <groupId>org.apache.drill.tools</groupId>
-                    <artifactId>drill-fmpp-maven-plugin</artifactId>
-                    <versionRange>[1.0,)</versionRange>
-                    <goals>
-                      <goal>generate</goal>
-                    </goals>
-                  </pluginExecutionFilter>
-                  <action>
-                    <execute>
-                      <runOnIncremental>false</runOnIncremental>
-                      <runOnConfiguration>true</runOnConfiguration>
-                    </execute>
-                  </action>
-                </pluginExecution>
-              </pluginExecutions>
-            </lifecycleMappingMetadata>
-          </configuration>
-        </plugin>
-      </plugins>
-    </pluginManagement>
-
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -164,32 +107,9 @@
         </executions>
       </plugin>
       <plugin>
-        <artifactId>maven-resources-plugin</artifactId>
-        <executions>
-          <execution>
-            <!-- copy all templates in the same location to compile them at once -->
-            <id>copy-fmpp-resources</id>
-            <goals>
-              <goal>copy-resources</goal>
-            </goals>
-            <phase>initialize</phase>
-            <configuration>
-              <outputDirectory>${project.build.directory}/codegen</outputDirectory>
-              <resources>
-                <resource>
-                  <directory>src/main/codegen</directory>
-                  <filtering>false</filtering>
-                </resource>
-              </resources>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
         <!-- generate sources from fmpp -->
         <groupId>org.apache.drill.tools</groupId>
         <artifactId>drill-fmpp-maven-plugin</artifactId>
-        <version>1.21.1</version>
         <executions>
           <execution>
             <id>generate-fmpp</id>
@@ -200,7 +120,7 @@
             <configuration>
               <config>src/main/codegen/config.fmpp</config>
               <output>${project.build.directory}/generated-sources</output>
-              <templates>${project.build.directory}/codegen/templates</templates>
+              <templates>src/main/codegen/templates</templates>
             </configuration>
           </execution>
         </executions>
@@ -208,13 +128,6 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
-        <!--
-          Downgrade maven-shade-plugin specifically for this module.
-          Using a newer version up to at least 3.5.1 will cause
-          issues in the arrow-tools tests looking up FlatBuffer
-          dependencies.
-         -->
-        <version>3.2.4</version>
         <executions>
           <execution>
             <goals>
@@ -243,7 +156,6 @@
         </executions>
       </plugin>
     </plugins>
-
   </build>
 
   <profiles>
@@ -276,5 +188,4 @@
       </build>
     </profile>
   </profiles>
-
 </project>

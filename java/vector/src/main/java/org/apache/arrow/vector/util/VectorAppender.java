@@ -26,6 +26,7 @@ import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseLargeVariableWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
+import org.apache.arrow.vector.BaseVariableWidthViewVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.ExtensionTypeVector;
@@ -203,6 +204,11 @@ public class VectorAppender implements VectorVisitor<ValueVector, Void> {
     ((BaseLargeVariableWidthVector) targetVector).setLastSet(newValueCount - 1);
     targetVector.setValueCount(newValueCount);
     return targetVector;
+  }
+
+  @Override
+  public ValueVector visit(BaseVariableWidthViewVector left, Void value) {
+    throw new UnsupportedOperationException("View vectors are not supported.");
   }
 
   @Override

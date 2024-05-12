@@ -134,5 +134,22 @@
         </includes>
       </resource>
     </resources>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>analyze</id>
+            <configuration>
+              <ignoredDependencies combine.children="append">
+                <!-- indirect use of org.apache.arrow.flatbuf.Message in OrcStripeReader -->
+                <ignoredDependency>org.apache.arrow:arrow-format</ignoredDependency>
+              </ignoredDependencies>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
   </build>
 </project>
