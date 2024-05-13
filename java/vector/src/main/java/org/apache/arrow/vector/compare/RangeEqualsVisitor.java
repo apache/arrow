@@ -22,6 +22,7 @@ import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 import java.util.List;
 import java.util.function.BiFunction;
 
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseFixedWidthVector;
@@ -165,7 +166,10 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
 
   @Override
   public Boolean visit(BaseVariableWidthViewVector left, Range range) {
-    throw new UnsupportedOperationException("View vectors are not supported.");
+    if (!validate(left)) {
+      return false;
+    }
+    return compareBaseLargeVariableWidthViewVectors(range);
   }
 
   @Override
@@ -445,6 +449,70 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
         if (ret == 0) {
           return false;
         }
+      }
+    }
+    return true;
+  }
+
+  protected boolean compareBaseLargeVariableWidthViewVectors(Range range) {
+    BaseVariableWidthViewVector leftVector = (BaseVariableWidthViewVector) left;
+    BaseVariableWidthViewVector rightVector = (BaseVariableWidthViewVector) right;
+
+    List<ArrowBuf> leftDataBuffers = leftVector.getDataBuffers();
+    List<ArrowBuf> rightDataBuffers = rightVector.getDataBuffers();
+
+    final ArrowBuf leftViewBuffer = leftVector.getDataBuffer();
+    final ArrowBuf rightViewBuffer = rightVector.getDataBuffer();
+
+    final int elementSize = BaseVariableWidthViewVector.ELEMENT_SIZE;
+    final int lengthWidth = BaseVariableWidthViewVector.LENGTH_WIDTH;
+    final int prefixWidth = BaseVariableWidthViewVector.PREFIX_WIDTH;
+    final int bufIndexWidth = BaseVariableWidthViewVector.BUF_INDEX_WIDTH;
+
+    for (int i = 0; i < range.getLength(); i++) {
+      int leftIndex = range.getLeftStart() + i;
+      int rightIndex = range.getRightStart() + i;
+
+      boolean isNull = leftVector.isNull(leftIndex);
+      if (isNull != rightVector.isNull(rightIndex)) {
+        return false;
+      }
+
+      int startIndexLeft = leftIndex * elementSize;
+      int endIndexLeft = (leftIndex + 1) * elementSize;
+
+      int startIndexRight = rightIndex * elementSize;
+      int endIndexRight = (rightIndex + 1) * elementSize;
+
+      // check equality in the view
+      int retView = ByteFunctionHelpers.equal(leftVector.getDataBuffer(), startIndexLeft, endIndexLeft,
+          rightVector.getDataBuffer(), startIndexRight, endIndexRight);
+
+      if (retView == 0) {
+        return false;
+      }
+
+      int leftDataBufferIndex = leftViewBuffer.getInt(startIndexLeft + lengthWidth + prefixWidth);
+      int rightDataBufferIndex = rightViewBuffer.getInt(startIndexRight + lengthWidth + prefixWidth);
+
+      int leftDataBufferValueLength = leftVector.getValueLength(startIndexLeft);
+      int rightDataBufferValueLength = rightVector.getValueLength(startIndexRight);
+
+      final int leftDataOffset =
+          leftViewBuffer.getInt(startIndexLeft + lengthWidth + prefixWidth + bufIndexWidth);
+      final int rightDataOffset =
+          rightViewBuffer.getInt(startIndexRight+ lengthWidth + prefixWidth + bufIndexWidth);
+
+      ArrowBuf leftDataBuffer = leftDataBuffers.get(leftDataBufferIndex);
+      ArrowBuf rightDataBuffer = rightDataBuffers.get(rightDataBufferIndex);
+
+      // check equality in the dataBuf
+      int retDataBuf = ByteFunctionHelpers.equal(
+          leftDataBuffer, leftDataOffset, leftDataOffset + leftDataBufferValueLength,
+          rightDataBuffer, rightDataOffset, rightDataOffset + rightDataBufferValueLength);
+
+      if (retDataBuf == 0) {
+        return false;
       }
     }
     return true;
