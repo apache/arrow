@@ -234,10 +234,10 @@ func TestRecordFromProtobuf(t *testing.T) {
 	want, _, err := array.RecordFromJSON(memory.NewGoAllocator(), schema, strings.NewReader(jsonStr))
 
 	require.NoError(t, err)
-	require.True(t, array.RecordEqual(got, want), "got: %s\nwant: %s", got, want)
+	require.EqualExportedValues(t, got, want, "got: %s\nwant: %s", got, want)
 
 	onlyEnum := func(pfr *ProtobufFieldReflection) bool { return !pfr.isEnum() }
-	pmr = NewProtobufMessageReflection(&msg, WithExclusionPolicy(onlyEnum), WithEnumHandler(EnumValue), WithMemory(memory.NewGoAllocator()))
+	pmr = NewProtobufMessageReflection(&msg, WithExclusionPolicy(onlyEnum), WithEnumHandler(EnumValue))
 	got = pmr.Record(nil)
 	jsonStr = `[ { "enum":"OPTION_1" } ]`
 	want, _, err = array.RecordFromJSON(memory.NewGoAllocator(), pmr.Schema(), strings.NewReader(jsonStr))

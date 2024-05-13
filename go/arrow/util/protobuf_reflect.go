@@ -187,7 +187,6 @@ type ProtobufMessageReflection struct {
 	descriptor protoreflect.MessageDescriptor
 	message    protoreflect.Message
 	rValue     reflect.Value
-	mem        memory.Allocator
 	schemaOptions
 	fields []ProtobufMessageFieldReflection
 }
@@ -347,12 +346,6 @@ func (pfr *ProtobufFieldReflection) asDictionary() protobufDictReflection {
 }
 
 func (pdr protobufDictReflection) getDataType() arrow.DataType {
-	enumValues := pdr.descriptor.Enum().Values()
-	dictValueBuilder := array.NewStringBuilder(pdr.parent.mem)
-	for i := 0; i < enumValues.Len(); i++ {
-		dictValueBuilder.Append(string(enumValues.Get(i).Name()))
-	}
-
 	return &arrow.DictionaryType{
 		IndexType: arrow.PrimitiveTypes.Int32,
 		ValueType: arrow.BinaryTypes.String,
@@ -360,9 +353,9 @@ func (pdr protobufDictReflection) getDataType() arrow.DataType {
 	}
 }
 
-func (pdr protobufDictReflection) getDictValues() arrow.Array {
+func (pdr protobufDictReflection) getDictValues(mem memory.Allocator) arrow.Array {
 	enumValues := pdr.descriptor.Enum().Values()
-	bldr := array.NewStringBuilder(pdr.parent.mem)
+	bldr := array.NewStringBuilder(mem)
 	for i := 0; i < enumValues.Len(); i++ {
 		bldr.Append(string(enumValues.Get(i).Name()))
 	}
@@ -677,7 +670,6 @@ func NewProtobufMessageReflection(msg proto.Message, options ...option) *Protobu
 			oneOfHandler:       OneOfNull,
 			enumHandler:        EnumDictionary,
 		},
-		mem: memory.NewGoAllocator(),
 	}
 
 	for _, opt := range options {
@@ -738,14 +730,6 @@ func WithEnumHandler(enumHandler ProtobufTypeHandler) option {
 	}
 }
 
-// WithMemory is an option for a ProtobufMessageReflection
-// WithEnumHandler enables customisation of the memory allocator
-func WithMemory(mem memory.Allocator) option {
-	return func(psr *ProtobufMessageReflection) {
-		psr.mem = mem
-	}
-}
-
 // AppendValueOrNull add the value of a protobuf field to an arrow array builder
 func (f ProtobufMessageFieldReflection) AppendValueOrNull(b array.Builder, mem memory.Allocator) error {
 	pv := f.protoreflectValue()
@@ -801,7 +785,7 @@ func (f ProtobufMessageFieldReflection) AppendValueOrNull(b array.Builder, mem m
 	case arrow.DICTIONARY:
 		pdr := f.asDictionary()
 		db := b.(*array.BinaryDictionaryBuilder)
-		err := db.InsertDictValues(pdr.getDictValues().(*array.Binary))
+		err := db.InsertStringDictValues(pdr.getDictValues(mem).(*array.String))
 		if err != nil {
 			return err
 		}
