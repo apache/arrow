@@ -39,6 +39,12 @@ if [ -n "${VCPKG_ROOT:-}" ]; then
     export PKG_CONFIG_PATH="${vcpkg_install_root}/x64-windows/lib/pkgconfig:${PKG_CONFIG_PATH}"
 fi
 
+if [ -n "${VCToolsInstallDir:-}" -a -n "${MSYSTEM:-}" ]; then
+    # Meson finds the gnu link.exe instead of MSVC link.exe when running in MSYS2/git bash,
+    # so we need to make sure the MSCV link.exe is first in $PATH
+    export PATH="$(cygpath --unix "${VCToolsInstallDir}")/bin/HostX64/x64:${PATH}"
+fi
+
 # Build with Meson
 meson setup \
       --backend=ninja \

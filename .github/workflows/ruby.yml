@@ -394,8 +394,6 @@ jobs:
           bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
       - name: Build GLib
         shell: cmd
-        # Meson finds the gnu link.exe instead of MSVC link.exe due to using bash,
-        # so we need to make sure the MSCV link.exe is first in $PATH
         run: |
           call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          bash -c "VCPKG_ROOT=\"$(pwd)/vcpkg\" PATH=\"$(cygpath --unix \"$VCToolsInstallDir\")/bin/HostX64/x64:$PATH\" ci/scripts/c_glib_build.sh $(pwd) $(pwd)/build"
+          bash -c "VCPKG_ROOT=\"$(pwd)/vcpkg\" ci/scripts/c_glib_build.sh $(pwd) $(pwd)/build"
