@@ -357,6 +357,8 @@ func testCSVReader(t *testing.T, filepath string, withHeader bool, stringsCanBeN
 			{Name: "large_binary", Type: arrow.BinaryTypes.LargeBinary},
 			{Name: "fixed_size_binary", Type: &arrow.FixedSizeBinaryType{ByteWidth: 3}},
 			{Name: "uuid", Type: types.NewUUIDType()},
+			{Name: "date32", Type: arrow.PrimitiveTypes.Date32},
+			{Name: "date64", Type: arrow.PrimitiveTypes.Date64},
 		},
 		nil,
 	)
@@ -420,6 +422,8 @@ rec[0]["binary"]: ["\x00\x01\x02"]
 rec[0]["large_binary"]: ["\x00\x01\x02"]
 rec[0]["fixed_size_binary"]: ["\x00\x01\x02"]
 rec[0]["uuid"]: ["00000000-0000-0000-0000-000000000001"]
+rec[0]["date32"]: [19121]
+rec[0]["date64"]: [1652054400000]
 rec[1]["bool"]: [false]
 rec[1]["i8"]: [-2]
 rec[1]["i16"]: [-2]
@@ -442,6 +446,8 @@ rec[1]["binary"]: [(null)]
 rec[1]["large_binary"]: [(null)]
 rec[1]["fixed_size_binary"]: [(null)]
 rec[1]["uuid"]: ["00000000-0000-0000-0000-000000000002"]
+rec[1]["date32"]: [19121]
+rec[1]["date64"]: [1652054400000]
 rec[2]["bool"]: [(null)]
 rec[2]["i8"]: [(null)]
 rec[2]["i16"]: [(null)]
@@ -464,6 +470,8 @@ rec[2]["binary"]: [(null)]
 rec[2]["large_binary"]: [(null)]
 rec[2]["fixed_size_binary"]: [(null)]
 rec[2]["uuid"]: [(null)]
+rec[2]["date32"]: [(null)]
+rec[2]["date64"]: [(null)]
 `, str1Value, str1Value, str2Value, str2Value)
 	got, want := out.String(), want
 	require.Equal(t, want, got)

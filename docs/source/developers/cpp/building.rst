@@ -627,9 +627,10 @@ outputs like:
 Deprecations and API Changes
 ----------------------------
 
-We use the compiler definition ``ARROW_NO_DEPRECATED_API`` to disable APIs that
-have been deprecated. It is a good practice to compile third party applications
-with this flag to proactively catch and account for API changes.
+We use the marco ``ARROW_DEPRECATED`` which wraps C++ deprecated attribute for
+APIs that have been deprecated. It is a good practice to compile third party
+applications with ``-Werror=deprecated-declarations`` (for GCC/Clang or similar
+flags of other compilers) to proactively catch and account for API changes.
 
 Modular Build Targets
 ---------------------

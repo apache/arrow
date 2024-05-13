@@ -84,7 +84,7 @@ do_arrow_summarize <- function(.data, ..., .groups = NULL) {
   # and the aggregation functions will pull out those terms and insert into
   # that list.
   # nolint end
-  mask <- arrow_mask(.data, aggregation = TRUE)
+  mask <- arrow_mask(.data)
 
   # We'll collect any transformations after the aggregation here.
   # summarize_eval() returns NULL when the outer expression is an aggregation,

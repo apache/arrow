@@ -28,6 +28,7 @@ sphinx-design
 sphinx-copybutton
 sphinx-lint
 sphinxcontrib-jquery
+sphinxcontrib-mermaid
 sphinx==6.2
 # Requirement for doctest-cython
 # Needs upper pin of 0.3.0, see:
