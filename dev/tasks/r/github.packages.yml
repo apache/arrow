@@ -227,7 +227,7 @@ jobs:
            working-directory: 'arrow'
            extra-packages: cpp11
       - name: Set CRAN like openssl
-        if: startsWith('macos', matrix.platform.runs_on)
+        if: contains(matrix.platform.name, 'macOS')
         shell: Rscript {0}
         run: |
           # get the mac-recipes version of openssl from CRAN
