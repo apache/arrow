@@ -1678,7 +1678,9 @@ TEST(AsofJoinTest, BackpressureWithBatchesGen) {
                           /*slow_r0=*/false);
 }
 
-TEST(AsofJoinTest, GH40675) {
+// Reproduction of GH-40675: A logical race between Process() and Push() that can be more
+// easily observed with single small batch.
+TEST(AsofJoinTest, RhsEmptinessRace) {
   auto left_batch = ExecBatchFromJSON(
       {int64(), utf8()}, R"([[1, "a"], [1, "b"], [5, "a"], [6, "b"], [7, "f"]])");
   auto right_batch = ExecBatchFromJSON(
@@ -1705,7 +1707,9 @@ TEST(AsofJoinTest, GH40675) {
   AssertExecBatchesEqualIgnoringOrder(result.schema, {exp_batch}, result.batches);
 }
 
-TEST(AsofJoinTest, GH41149) {
+// Reproduction of GH-41149: Another case of the same root cause as GH-40675, but with
+// empty "by" columns.
+TEST(AsofJoinTest, RhsEmptinessRaceEmptyBy) {
   auto left_batch = ExecBatchFromJSON({int64()}, R"([[1], [2], [3]])");
   auto right_batch =
       ExecBatchFromJSON({utf8(), int64()}, R"([["Z", 2], ["B", 3], ["A", 4]])");
