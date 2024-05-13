@@ -228,11 +228,18 @@ jobs:
            extra-packages: cpp11
       - name: Set CRAN like openssl
         if: startsWith('macos', matrix.platform.runs_on)
+        shell: Rscript {0}
         run: |
           # get the mac-recipes version of openssl from CRAN
-          Rscript -e 'source("https://mac.R-project.org/bin/install.R"); install.libs("openssl")'
+          source("https://mac.R-project.org/bin/install.R") 
+          install.libs("openssl")
+
           # override our cmakes default setting of the brew --prefix as root dir to avoid version conflicts.
-          echo "OPENSSL_ROOT_DIR=/opt/R/arm64" >> $GITHUB_ENV
+          if (Sys.info()[["machine"]] == "arm64"){
+            cat("OPENSSL_ROOT_DIR=/opt/R/arm64\n", file=Sys.getenv("GITHUB_ENV"), append = TRUE)
+          } else {
+            cat("OPENSSL_ROOT_DIR=/opt/R/x86_64\n", file=Sys.getenv("GITHUB_ENV"), append = TRUE)
+          }
       - name: Build Binary
         id: build
         shell: Rscript {0}
