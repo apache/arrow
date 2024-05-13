@@ -100,7 +100,14 @@ namespace Apache.Arrow
                 return NullCount > 0;
             }
 
-            return Values.IndexOf(item.Value) >= 0;
+            ReadOnlySpan<T> values = Values;
+            while (values.Length > 0)
+            {
+                int index = Values.IndexOf(item.Value);
+                if (index < 0 || IsValid(index)) { return index >= 0; }
+                values = values.Slice(index + 1);
+            }
+            return false;
         }
 
         void ICollection<T?>.CopyTo(T?[] array, int arrayIndex)

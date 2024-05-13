@@ -115,19 +115,19 @@ namespace Apache.Arrow.Tests
         [Fact]
         public void ArrayAsReadOnlyList()
         {
-            TestArrayAsReadOnlyList<long, Int64Array, Int64Array.Builder>(new long[] { 1, 2 });
-            TestArrayAsReadOnlyList<byte, UInt8Array, UInt8Array.Builder>(new byte[] { 1, 2 });
-            TestArrayAsReadOnlyList<bool, BooleanArray, BooleanArray.Builder>(new[] { true, false });
-            TestArrayAsReadOnlyList<DateTime, Date32Array, Date32Array.Builder>(new[] { DateTime.MinValue.Date, DateTime.MaxValue.Date });
-            TestArrayAsReadOnlyList<DateTime, Date64Array, Date64Array.Builder>(new[] { DateTime.MinValue.Date, DateTime.MaxValue.Date });
-            TestArrayAsReadOnlyList<DateTimeOffset, TimestampArray, TimestampArray.Builder>(new[] { DateTimeOffset.MinValue, DateTimeOffset.MinValue.AddYears(100) });
+            TestArrayAsReadOnlyList<long, Int64Array, Int64Array.Builder>([1, 2]);
+            TestArrayAsReadOnlyList<byte, UInt8Array, UInt8Array.Builder>([1, 2]);
+            TestArrayAsReadOnlyList<bool, BooleanArray, BooleanArray.Builder>([true, false]);
+            TestArrayAsReadOnlyList<DateTime, Date32Array, Date32Array.Builder>([DateTime.MinValue.Date, DateTime.MaxValue.Date]);
+            TestArrayAsReadOnlyList<DateTime, Date64Array, Date64Array.Builder>([DateTime.MinValue.Date, DateTime.MaxValue.Date]);
+            TestArrayAsReadOnlyList<DateTimeOffset, TimestampArray, TimestampArray.Builder>([DateTimeOffset.MinValue, DateTimeOffset.MinValue.AddYears(100)]);
 
 #if NET5_0_OR_GREATER
-            TestArrayAsReadOnlyList<DateOnly, Date32Array, Date32Array.Builder>(new[] { DateOnly.MinValue, DateOnly.MaxValue });
-            TestArrayAsReadOnlyList<DateOnly, Date64Array, Date64Array.Builder>(new[] { DateOnly.MinValue, DateOnly.MaxValue});
-            TestArrayAsReadOnlyList<TimeOnly, Time32Array, Time32Array.Builder>(new[] { TimeOnly.MinValue, TimeOnly.MinValue.AddHours(23) });
-            TestArrayAsReadOnlyList<TimeOnly, Time64Array, Time64Array.Builder>(new[] { TimeOnly.MinValue, TimeOnly.MaxValue });
-            TestArrayAsReadOnlyList<Half, HalfFloatArray, HalfFloatArray.Builder>(new[] { (Half)1.1, (Half)2.2f });
+            TestArrayAsReadOnlyList<DateOnly, Date32Array, Date32Array.Builder>([DateOnly.MinValue, DateOnly.MaxValue]);
+            TestArrayAsReadOnlyList<DateOnly, Date64Array, Date64Array.Builder>([DateOnly.MinValue, DateOnly.MaxValue]);
+            TestArrayAsReadOnlyList<TimeOnly, Time32Array, Time32Array.Builder>([TimeOnly.MinValue, TimeOnly.MinValue.AddHours(23)]);
+            TestArrayAsReadOnlyList<TimeOnly, Time64Array, Time64Array.Builder>([TimeOnly.MinValue, TimeOnly.MaxValue]);
+            TestArrayAsReadOnlyList<Half, HalfFloatArray, HalfFloatArray.Builder>([(Half)1.1, (Half)2.2f]);
 #endif
         }
 
@@ -152,25 +152,25 @@ namespace Apache.Arrow.Tests
         [Fact]
         public void ArrayAsCollection()
         {
-            TestPrimitiveArrayAsCollection<long, Int64Array, Int64Array.Builder>(new long[] { 1, 2, 3, 4 });
-            TestPrimitiveArrayAsCollection<byte, UInt8Array, UInt8Array.Builder>(new byte[] { 1, 2, 3, 4 });
-            TestPrimitiveArrayAsCollection<bool, BooleanArray, BooleanArray.Builder>(new[] { true, true, true, false });
-            TestPrimitiveArrayAsCollection<DateTime, Date32Array, Date32Array.Builder>(new[] { DateTime.MinValue.Date, DateTime.MaxValue.Date, DateTime.Today, DateTime.Today });
-            TestPrimitiveArrayAsCollection<DateTime, Date64Array, Date64Array.Builder>(new[] { DateTime.MinValue.Date, DateTime.MaxValue.Date, DateTime.Today, DateTime.Today });
-            TestPrimitiveArrayAsCollection<DateTimeOffset, TimestampArray, TimestampArray.Builder>(new[] { DateTimeOffset.MinValue, DateTimeOffset.MinValue.AddYears(100), DateTimeOffset.Now, DateTimeOffset.UtcNow });
+            TestPrimitiveArrayAsCollection<long, Int64Array, Int64Array.Builder>([1, 2, 3, 4]);
+            TestPrimitiveArrayAsCollection<byte, UInt8Array, UInt8Array.Builder>([1, 2, 3, 4]);
+            TestPrimitiveArrayAsCollection<bool, BooleanArray, BooleanArray.Builder>([true, true, true, false]);
+            TestPrimitiveArrayAsCollection<DateTime, Date32Array, Date32Array.Builder>([DateTime.MinValue.Date, DateTime.MaxValue.Date, DateTime.Today, DateTime.Today]);
+            TestPrimitiveArrayAsCollection<DateTime, Date64Array, Date64Array.Builder>([DateTime.MinValue.Date, DateTime.MaxValue.Date, DateTime.Today, DateTime.Today]);
+            TestPrimitiveArrayAsCollection<DateTimeOffset, TimestampArray, TimestampArray.Builder>([DateTimeOffset.MinValue, DateTimeOffset.MinValue.AddYears(100), DateTimeOffset.Now, DateTimeOffset.UtcNow]);
 
 #if NET5_0_OR_GREATER
-            TestPrimitiveArrayAsCollection<DateOnly, Date32Array, Date32Array.Builder>(new[] { DateOnly.MinValue, DateOnly.MaxValue, DateOnly.FromDayNumber(1), DateOnly.FromDayNumber(2) });
-            TestPrimitiveArrayAsCollection<DateOnly, Date64Array, Date64Array.Builder>(new[] { DateOnly.MinValue, DateOnly.MaxValue, DateOnly.FromDayNumber(1), DateOnly.FromDayNumber(2) });
-            TestPrimitiveArrayAsCollection<TimeOnly, Time32Array, Time32Array.Builder>(new[] { TimeOnly.MinValue, TimeOnly.MinValue.AddHours(23), TimeOnly.MinValue.AddHours(1), TimeOnly.MinValue.AddHours(2) });
-            TestPrimitiveArrayAsCollection<TimeOnly, Time64Array, Time64Array.Builder>(new[] { TimeOnly.MinValue, TimeOnly.MaxValue, TimeOnly.MinValue.AddHours(1), TimeOnly.MinValue.AddHours(2) });
-            TestPrimitiveArrayAsCollection<Half, HalfFloatArray, HalfFloatArray.Builder>(new[] { (Half)1.1, (Half)2.2f, (Half)3.3f, (Half)4.4f });
+            TestPrimitiveArrayAsCollection<DateOnly, Date32Array, Date32Array.Builder>([DateOnly.MinValue, DateOnly.MaxValue, DateOnly.FromDayNumber(1), DateOnly.FromDayNumber(2)]);
+            TestPrimitiveArrayAsCollection<DateOnly, Date64Array, Date64Array.Builder>([DateOnly.MinValue, DateOnly.MaxValue, DateOnly.FromDayNumber(1), DateOnly.FromDayNumber(2)]);
+            TestPrimitiveArrayAsCollection<TimeOnly, Time32Array, Time32Array.Builder>([TimeOnly.MinValue, TimeOnly.MinValue.AddHours(23), TimeOnly.MinValue.AddHours(1), TimeOnly.MinValue.AddHours(2)]);
+            TestPrimitiveArrayAsCollection<TimeOnly, Time64Array, Time64Array.Builder>([TimeOnly.MinValue, TimeOnly.MaxValue, TimeOnly.MinValue.AddHours(1), TimeOnly.MinValue.AddHours(2)]);
+            TestPrimitiveArrayAsCollection<Half, HalfFloatArray, HalfFloatArray.Builder>([(Half)1.1, (Half)2.2f, (Half)3.3f, (Half)4.4f]);
 #endif
 
-            byte[][] byteArrs = { new byte[1], System.Array.Empty<byte>(), new byte[] { 255 }, new byte[2] };
+            byte[][] byteArrs = [new byte[1], [], [255], new byte[2]];
             TestObjectArrayAsCollection(new BinaryArray.Builder().Append(byteArrs[0].AsEnumerable()).AppendNull().Append(byteArrs[1].AsEnumerable()).Append(byteArrs[0].AsEnumerable()).Build(), System.Array.Empty<byte>(), byteArrs);
 
-            string[] strings = { "abc", "abd", "acd", "adc" };
+            string[] strings = ["abc", "abd", "acd", "adc"];
             TestObjectArrayAsCollection(new StringArray.Builder().Append(strings[0]).AppendNull().Append(strings[1]).Append(strings[0]).Build(), null, strings);
         }
 
@@ -240,6 +240,20 @@ namespace Apache.Arrow.Tests
             Assert.Equal(values[1], destArr[3]);
             Assert.Equal(values[0], destArr[4]);
             Assert.Equal(sentinel, destArr[0]);
+        }
+
+        [Fact]
+        public void ContainsDoesNotMatchDefaultValueInArrayWithNullValue()
+        {
+            Int64Array array = new Int64Array.Builder().Append(1).Append(2).AppendNull().Build();
+            Assert.NotNull(array);
+            var collection = (ICollection<long?>)array;
+
+            Assert.True(collection.Contains(1));
+            Assert.True(collection.Contains(2));
+            Assert.True(collection.Contains(default));
+            // A null value is stored as a null bit in the null bitmap, and a default value in the value buffer. Check that we do not match the default value.
+            Assert.False(collection.Contains(0));
         }
 
         [Fact]
