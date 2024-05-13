@@ -1700,6 +1700,9 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
     ARROW_DCHECK(!at_record_start_);
     // Scan repetition levels to find record end
     while (levels_position_ < levels_written_) {
+      // We use an estimated batch size to simplify branching and
+      // improve performance in the common case. This might slow
+      // things down a bit if a single long record remains, though.
       int64_t stride =
           std::min(levels_written_ - levels_position_, num_records - records_read);
       const int64_t position_end = levels_position_ + stride;
