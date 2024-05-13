@@ -357,7 +357,6 @@ func (pdr protobufDictReflection) getDataType() arrow.DataType {
 		IndexType: arrow.PrimitiveTypes.Int32,
 		ValueType: arrow.BinaryTypes.String,
 		Ordered:   false,
-		Values:    dictValueBuilder.NewArray(),
 	}
 }
 
