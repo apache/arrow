@@ -169,7 +169,7 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
     if (!validate(left)) {
       return false;
     }
-    return compareBaseLargeVariableWidthViewVectors(range);
+    return compareBaseVariableWidthViewVectors(range);
   }
 
   @Override
@@ -454,12 +454,9 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
     return true;
   }
 
-  protected boolean compareBaseLargeVariableWidthViewVectors(Range range) {
+  protected boolean compareBaseVariableWidthViewVectors(Range range) {
     BaseVariableWidthViewVector leftVector = (BaseVariableWidthViewVector) left;
     BaseVariableWidthViewVector rightVector = (BaseVariableWidthViewVector) right;
-
-    List<ArrowBuf> leftDataBuffers = leftVector.getDataBuffers();
-    List<ArrowBuf> rightDataBuffers = rightVector.getDataBuffers();
 
     final ArrowBuf leftViewBuffer = leftVector.getDataBuffer();
     final ArrowBuf rightViewBuffer = rightVector.getDataBuffer();
@@ -484,35 +481,45 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
       int startIndexRight = rightIndex * elementSize;
       int endIndexRight = (rightIndex + 1) * elementSize;
 
-      // check equality in the view
-      int retView = ByteFunctionHelpers.equal(leftVector.getDataBuffer(), startIndexLeft, endIndexLeft,
-          rightVector.getDataBuffer(), startIndexRight, endIndexRight);
+      // check equality of the view
+      int retView = ByteFunctionHelpers.equal(leftViewBuffer, startIndexLeft, endIndexLeft,
+          rightViewBuffer, startIndexRight, endIndexRight);
 
       if (retView == 0) {
         return false;
       }
 
-      int leftDataBufferIndex = leftViewBuffer.getInt(startIndexLeft + lengthWidth + prefixWidth);
-      int rightDataBufferIndex = rightViewBuffer.getInt(startIndexRight + lengthWidth + prefixWidth);
+      int leftDataBufferValueLength = leftVector.getValueLength(leftIndex);
+      int rightDataBufferValueLength = rightVector.getValueLength(rightIndex);
 
-      int leftDataBufferValueLength = leftVector.getValueLength(startIndexLeft);
-      int rightDataBufferValueLength = rightVector.getValueLength(startIndexRight);
-
-      final int leftDataOffset =
-          leftViewBuffer.getInt(startIndexLeft + lengthWidth + prefixWidth + bufIndexWidth);
-      final int rightDataOffset =
-          rightViewBuffer.getInt(startIndexRight + lengthWidth + prefixWidth + bufIndexWidth);
-
-      ArrowBuf leftDataBuffer = leftDataBuffers.get(leftDataBufferIndex);
-      ArrowBuf rightDataBuffer = rightDataBuffers.get(rightDataBufferIndex);
-
-      // check equality in the dataBuf
-      int retDataBuf = ByteFunctionHelpers.equal(
-          leftDataBuffer, leftDataOffset, leftDataOffset + leftDataBufferValueLength,
-          rightDataBuffer, rightDataOffset, rightDataOffset + rightDataBufferValueLength);
-
-      if (retDataBuf == 0) {
+      if (leftDataBufferValueLength != rightDataBufferValueLength) {
         return false;
+      }
+
+      // if the value is stored in the dataBuffers
+      if (leftDataBufferValueLength > BaseVariableWidthViewVector.INLINE_SIZE) {
+        int leftDataBufferIndex = leftViewBuffer.getInt(startIndexLeft + lengthWidth + prefixWidth);
+        int rightDataBufferIndex = rightViewBuffer.getInt(startIndexRight + lengthWidth + prefixWidth);
+
+        List<ArrowBuf> leftDataBuffers = leftVector.getDataBuffers();
+        List<ArrowBuf> rightDataBuffers = rightVector.getDataBuffers();
+
+        final int leftDataOffset =
+            leftViewBuffer.getInt(startIndexLeft + lengthWidth + prefixWidth + bufIndexWidth);
+        final int rightDataOffset =
+            rightViewBuffer.getInt(startIndexRight + lengthWidth + prefixWidth + bufIndexWidth);
+
+        ArrowBuf leftDataBuffer = leftDataBuffers.get(leftDataBufferIndex);
+        ArrowBuf rightDataBuffer = rightDataBuffers.get(rightDataBufferIndex);
+
+        // check equality in the considered string stored in the dataBuffers
+        int retDataBuf = ByteFunctionHelpers.equal(
+            leftDataBuffer, leftDataOffset, leftDataOffset + leftDataBufferValueLength,
+            rightDataBuffer, rightDataOffset, rightDataOffset + rightDataBufferValueLength);
+
+        if (retDataBuf == 0) {
+          return false;
+        }
       }
     }
     return true;

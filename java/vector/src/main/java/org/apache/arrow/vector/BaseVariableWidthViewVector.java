@@ -70,7 +70,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   *
   * */
   // 12 byte unsigned int to track inline views
-  protected static final int INLINE_SIZE = 12;
+  public static final int INLINE_SIZE = 12;
   // The first 4 bytes of view are allocated for length
   public static final int LENGTH_WIDTH = 4;
   // The second 4 bytes of view are allocated for prefix width
