@@ -109,7 +109,7 @@ class ARROW_EXPORT Grouper {
   static Result<std::unique_ptr<Grouper>> Make(const std::vector<TypeHolder>& key_types,
                                                ExecContext* ctx = default_exec_context());
 
-  /// Reset all intermidiate state, make the grouper logically as just `Make`ed.
+  /// Reset all intermediate state, make the grouper logically as just `Make`ed.
   /// The underlying buffers, if any, may or may not be released though.
   virtual Status Reset() = 0;
 
