@@ -361,6 +361,15 @@ func (pdr protobufDictReflection) getDataType() arrow.DataType {
 	}
 }
 
+func (pdr protobufDictReflection) getDictValues() arrow.Array {
+	enumValues := pdr.descriptor.Enum().Values()
+	bldr := array.NewStringBuilder(pdr.parent.mem)
+	for i := 0; i < enumValues.Len(); i++ {
+		bldr.Append(string(enumValues.Get(i).Name()))
+	}
+	return bldr.NewArray()
+}
+
 type protobufMapReflection struct {
 	ProtobufFieldReflection
 }
@@ -791,10 +800,15 @@ func (f ProtobufMessageFieldReflection) AppendValueOrNull(b array.Builder, mem m
 			return err
 		}
 	case arrow.DICTIONARY:
-		db := b.(array.DictionaryBuilder)
+		pdr := f.asDictionary()
+		db := b.(*array.BinaryDictionaryBuilder)
+		err := db.InsertDictValues(pdr.getDictValues().(*array.Binary))
+		if err != nil {
+			return err
+		}
 		enumNum := int(f.reflectValue().Int())
 		enumVal := fd.Enum().Values().ByNumber(protoreflect.EnumNumber(enumNum)).Name()
-		err := db.AppendValueFromString(string(enumVal))
+		err = db.AppendValueFromString(string(enumVal))
 		if err != nil {
 			return err
 		}

@@ -22,7 +22,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/apache/arrow/go/v17/internal/json"
+	"github.com/apache/arrow/go/v16/internal/json"
 
 	"golang.org/x/xerrors"
 )
@@ -739,7 +739,6 @@ type DictionaryType struct {
 	IndexType DataType
 	ValueType DataType
 	Ordered   bool
-	Values    Array
 }
 
 func (*DictionaryType) ID() Type        { return DICTIONARY }
