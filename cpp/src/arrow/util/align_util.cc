@@ -159,7 +159,8 @@ Result<std::shared_ptr<Buffer>> EnsureAlignment(std::shared_ptr<Buffer> buffer,
         auto new_buffer,
         AllocateBuffer(buffer->size(), minimum_desired_alignment, memory_pool));
     std::memcpy(new_buffer->mutable_data(), buffer->data(), buffer->size());
-    return new_buffer;
+    // R build with openSUSE155 requires an explicit shared_ptr construction
+    return std::shared_ptr<Buffer>(std::move(new_buffer));
   } else {
     return buffer;
   }
