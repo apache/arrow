@@ -90,8 +90,8 @@ func NewBitWriter(w WriterAtWithLen) *BitWriter {
 func (b *BitWriter) SkipBytes(nbytes int) (int, error) {
 	b.Flush(true)
 	ret := b.byteoffset
+	b.wr.Reserve(nbytes)
 	b.byteoffset += nbytes
-	b.wr.Reserve(b.byteoffset)
 	return ret, nil
 }
 
