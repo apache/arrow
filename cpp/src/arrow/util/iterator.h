@@ -180,7 +180,6 @@ class Iterator : public util::EqualityComparable<Iterator<T>> {
       ARROW_ASSIGN_OR_RAISE(auto element, maybe_element);
       out.push_back(std::move(element));
     }
-
     return out;
   }
 
