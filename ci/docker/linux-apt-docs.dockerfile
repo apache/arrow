@@ -21,18 +21,34 @@ FROM ${base}
 ARG r=4.4
 ARG jdk=8
 
-# See R install instructions at https://cloud.r-project.org/bin/linux/ubuntu/
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+
+# See R install instructions at https://cloud.r-project.org/bin/linux/
 RUN apt-get update -y && \
     apt-get install -y \
-        dirmngr \
         apt-transport-https \
-        software-properties-common && \
-    wget -qO- https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc | \
-        tee -a /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc && \
-    add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu '$(lsb_release -cs)'-cran40/' && \
+        dirmngr \
+        gpg \
+        lsb-release && \
+    gpg --keyserver keyserver.ubuntu.com \
+        --recv-key 95C0FAF38DB3CCAD0C080A7BDC78B2DDEABC47B7 && \
+    gpg --export 95C0FAF38DB3CCAD0C080A7BDC78B2DDEABC47B7 | \
+        gpg --no-default-keyring \
+            --keyring /usr/share/keyrings/cran.gpg \
+            --import - && \
+    echo "deb [signed-by=/usr/share/keyrings/cran.gpg] https://cloud.r-project.org/bin/linux/$(lsb_release -is | tr 'A-Z' 'a-z') $(lsb_release -cs)-cran40/" | \
+        tee /etc/apt/sources.list.d/cran.list && \
+    if [ -f /etc/apt/sources.list.d/debian.sources ]; then \
+        sed -i \
+            -e 's/main$/main contrib non-free non-free-firmware/g' \
+            /etc/apt/sources.list.d/debian.sources; \
+    fi && \
+    apt-get update -y && \
     apt-get install -y --no-install-recommends \
         autoconf-archive \
         automake \
+        chromium \
+        chromium-sandbox \
         curl \
         doxygen \
         gi-docgen \
@@ -48,6 +64,8 @@ RUN apt-get update -y && \
         libxml2-dev \
         meson \
         ninja-build \
+        nodejs \
+        npm \
         nvidia-cuda-toolkit \
         openjdk-${jdk}-jdk-headless \
         pandoc \
@@ -55,9 +73,12 @@ RUN apt-get update -y && \
         r-base=${r}* \
         rsync \
         ruby-dev \
+        sudo \
         wget && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+       npm install -g yarn @mermaid-js/mermaid-cli
 
 ENV JAVA_HOME=/usr/lib/jvm/java-${jdk}-openjdk-amd64
 
@@ -67,20 +88,6 @@ RUN /arrow/ci/scripts/util_download_apache.sh \
     "maven/maven-3/${maven}/binaries/apache-maven-${maven}-bin.tar.gz" /opt
 ENV PATH=/opt/apache-maven-${maven}/bin:$PATH
 RUN mvn -version
-
-ARG node=16
-RUN apt-get purge -y npm && \
-    apt-get autoremove -y --purge && \
-    wget -q -O - https://deb.nodesource.com/setup_${node}.x | bash - && \
-    apt-get install -y nodejs && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    npm install -g yarn
-
-COPY docs/requirements.txt /arrow/docs/
-RUN python3 -m venv ${ARROW_PYTHON_VENV} && \
-    . ${ARROW_PYTHON_VENV}/bin/activate && \
-    pip install -r arrow/docs/requirements.txt
 
 COPY c_glib/Gemfile /arrow/c_glib/
 RUN gem install --no-document bundler && \
@@ -97,6 +104,17 @@ COPY ci/scripts/r_deps.sh /arrow/ci/scripts/
 COPY r/DESCRIPTION /arrow/r/
 RUN /arrow/ci/scripts/r_deps.sh /arrow && \
     R -e "install.packages('pkgdown')"
+
+RUN useradd --user-group --create-home --groups audio,video arrow
+RUN echo "arrow ALL=(ALL:ALL) NOPASSWD:ALL" | \
+        EDITOR=tee visudo -f /etc/sudoers.d/arrow
+USER arrow
+
+COPY docs/requirements.txt /arrow/docs/
+RUN sudo chown -R arrow: ${ARROW_PYTHON_VENV} && \
+    python3 -m venv ${ARROW_PYTHON_VENV} && \
+    . ${ARROW_PYTHON_VENV}/bin/activate && \
+    pip install -r arrow/docs/requirements.txt
 
 ENV ARROW_ACERO=ON \
     ARROW_AZURE=OFF \

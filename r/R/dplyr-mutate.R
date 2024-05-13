@@ -48,7 +48,7 @@ mutate.arrow_dplyr_query <- function(.data,
   # Create a mask with aggregation functions in it
   # If there are any aggregations, we will need to compute them and
   # and join the results back in, for "window functions" like x - mean(x)
-  mask <- arrow_mask(out, aggregation = TRUE)
+  mask <- arrow_mask(out)
   # Evaluate the mutate expressions
   results <- list()
   for (i in seq_along(exprs)) {

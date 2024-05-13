@@ -90,7 +90,8 @@ add_arrow_test(internals_test
                light_array_test.cc
                registry_test.cc
                key_hash_test.cc
-               row/compare_test.cc)
+               row/compare_test.cc
+               row/grouper_test.cc)
 
 add_arrow_compute_test(expression_test SOURCES expression_test.cc)
 

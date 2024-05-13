@@ -324,13 +324,14 @@ test_that("Filtering with unsupported functions", {
       filter(
         nchar(chr, type = "bytes", allowNA = TRUE) == 1, # bad, Arrow msg
         int > 2, # good
-        pnorm(dbl) > .99 # bad, opaque
+        pnorm(dbl) > .99 # bad, opaque, but we'll error on the first one before we get here
       ) %>%
       collect(),
     tbl,
-    warning = '\\* In nchar\\(chr, type = "bytes", allowNA = TRUE\\) == 1, allowNA = TRUE not supported in Arrow
-\\* Expression pnorm\\(dbl\\) > 0.99 not supported in Arrow
-pulling data into R'
+    warning = paste(
+      'In nchar\\(chr, type = "bytes", allowNA = TRUE\\) == 1,',
+      "allowNA = TRUE not supported in Arrow; pulling data into R"
+    )
   )
 })
 
