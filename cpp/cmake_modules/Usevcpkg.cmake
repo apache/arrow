@@ -249,4 +249,7 @@ if(CMAKE_HOST_WIN32)
   set(ZSTD_MSVC_STATIC_LIB_SUFFIX
       ""
       CACHE STRING "")
+  set(utf8proc_MSVC_STATIC_LIB_SUFFIX
+      ""
+      CACHE STRING "")
 endif()
