@@ -323,7 +323,7 @@ jobs:
       ARROW_FLIGHT: OFF
       ARROW_FLIGHT_SQL: OFF
       ARROW_HDFS: OFF
-      ARROW_HOME: /usr
+      ARROW_HOME: "${{ github.workspace }}/dist"
       ARROW_JEMALLOC: OFF
       ARROW_MIMALLOC: ON
       ARROW_ORC: OFF
@@ -342,7 +342,7 @@ jobs:
       CMAKE_CXX_STANDARD: "17"
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_LIBDIR: bin
-      CMAKE_INSTALL_PREFIX: /usr
+      CMAKE_INSTALL_PREFIX: "${{ github.workspace }}/dist"
       CMAKE_UNITY_BUILD: ON
     steps:
       - name: Disable Crash Dialogs

@@ -28,6 +28,12 @@ build_root=${2}
 : ${BUILD_DOCS_C_GLIB:=OFF}
 with_doc=$([ "${BUILD_DOCS_C_GLIB}" == "ON" ] && echo "true" || echo "false")
 
+
+if [ -n "${MSYSTEM:-}" ]; then
+    # Fix ARROW_HOME when running under MSYS2
+    export ARROW_HOME="$(cygpath --unix "${ARROW_HOME}")"
+fi
+
 meson_pkg_config_path="${ARROW_HOME}/lib/pkgconfig:${ARROW_HOME}/bin/pkgconfig"
 
 mkdir -p ${build_dir}
