@@ -32,8 +32,11 @@ namespace compute {
 
 class ARROW_EXPORT KeyCompare {
  public:
-  // Clarify the max temp stack usage for CompareColumnsToRows so the caller could reserve
-  // enough size in advance.
+  // Clarify the max temp stack usage for CompareColumnsToRows, which might be necessary
+  // for the caller to be aware of (possibly at compile time) to reserve enough stack size
+  // in advance. The CompareColumnsToRows implementation uses three uint8 temp vectors as
+  // buffers for match vectors, all are of size num_rows. Plus extra kMiniBatchLength to
+  // cope with stack padding and aligning.
   constexpr static int64_t CompareColumnsToRowsTempStackUsage(int64_t num_rows) {
     return (sizeof(uint8_t) + sizeof(uint8_t) + sizeof(uint8_t)) * num_rows +
            /*extra=*/util::MiniBatch::kMiniBatchLength;
