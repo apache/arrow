@@ -551,7 +551,7 @@ class InputState {
   // NOTE: The emptiness must be decided by an single call to Empty() in caller, due to
   // the potential race with Push(), see GH-41614.
   bool CurrentEmpty(bool empty) const {
-    return memo_.no_future_ ? empty : memo_.times_.empty() && empty;
+    return memo_.no_future_ ? empty : (memo_.times_.empty() && empty);
   }
 
   // in case memo may not have future entries (the case of a non-positive tolerance),
