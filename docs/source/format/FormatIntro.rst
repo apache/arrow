@@ -49,7 +49,7 @@ Arrow Columnar Format
 Data can be represented in memory using a row based format or a column
 based format. The row based format stores data by row meaning the rows
 are adjacent in the computer memory:
- 
+
 .. figure:: ./images/columnar-diagram_2.svg
    :alt: Tabular data being structured row by row in computer memory.
 
