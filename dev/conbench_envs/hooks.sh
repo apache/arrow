@@ -59,6 +59,7 @@ build_arrow_cpp() {
 }
 
 build_arrow_python() {
+  mkdir -p /tmp/arrow
   ci/scripts/python_build.sh $(pwd) /tmp/arrow
 }
 
@@ -69,6 +70,7 @@ build_arrow_r() {
 }
 
 build_arrow_java() {
+  mkdir -p /tmp/arrow
   ci/scripts/java_build.sh $(pwd) /tmp/arrow
 }
 
