@@ -22,7 +22,7 @@ using System.Collections;
 
 namespace Apache.Arrow
 {
-    public class BinaryArray : Array, IReadOnlyList<byte[]>
+    public class BinaryArray : Array, IReadOnlyList<byte[]>, ICollection<byte[]>
     {
         public class Builder : BuilderBase<BinaryArray, Builder>
         {
@@ -380,5 +380,30 @@ namespace Apache.Arrow
         }
 
         IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable<byte[]>)this).GetEnumerator();
+
+        int ICollection<byte[]>.Count => Length;
+        bool ICollection<byte[]>.IsReadOnly => true;
+        void ICollection<byte[]>.Add(byte[]? item) => throw new NotSupportedException("Collection is read-only.");
+        bool ICollection<byte[]>.Remove(byte[]? item) => throw new NotSupportedException("Collection is read-only.");
+        void ICollection<byte[]>.Clear() => throw new NotSupportedException("Collection is read-only.");
+
+        bool ICollection<byte[]>.Contains(byte[] item)
+        {
+            for (int index = 0; index < Length; index++)
+            {
+                if (GetBytes(index).SequenceEqual(item))
+                    return true;
+            }
+
+            return false;
+        }
+
+        void ICollection<byte[]>.CopyTo(byte[][] array, int arrayIndex)
+        {
+            for (int srcIndex = 0, destIndex = arrayIndex; srcIndex < Length; srcIndex++, destIndex++)
+            {
+                array[destIndex] = GetBytes(srcIndex).ToArray();
+            }
+        }
     }
 }

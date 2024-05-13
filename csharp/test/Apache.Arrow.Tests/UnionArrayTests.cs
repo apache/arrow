@@ -110,7 +110,7 @@ public class UnionArrayTests
     }
 
     private static void CompareFieldValue<T, TArray>(byte typeId, UnionArray originalArray, int originalIndex, UnionArray slicedArray, int sliceIndex)
-        where T: struct
+        where T : struct, IEquatable<T>
         where TArray : PrimitiveArray<T>
     {
         if (originalArray is DenseUnionArray denseOriginalArray)
