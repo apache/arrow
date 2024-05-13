@@ -501,7 +501,7 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
       final int leftDataOffset =
           leftViewBuffer.getInt(startIndexLeft + lengthWidth + prefixWidth + bufIndexWidth);
       final int rightDataOffset =
-          rightViewBuffer.getInt(startIndexRight+ lengthWidth + prefixWidth + bufIndexWidth);
+          rightViewBuffer.getInt(startIndexRight + lengthWidth + prefixWidth + bufIndexWidth);
 
       ArrowBuf leftDataBuffer = leftDataBuffers.get(leftDataBufferIndex);
       ArrowBuf rightDataBuffer = rightDataBuffers.get(rightDataBufferIndex);

@@ -33,6 +33,7 @@ import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.LargeVarCharVector;
 import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.ViewVarCharVector;
 import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.compare.util.ValueEpsilonEqualizers;
 import org.apache.arrow.vector.complex.DenseUnionVector;
@@ -123,6 +124,19 @@ public class TestRangeEqualsVisitor {
   public void testBaseVariableVectorRangeEquals() {
     try (final VarCharVector vector1 = new VarCharVector("varchar", allocator);
          final VarCharVector vector2 = new VarCharVector("varchar", allocator)) {
+
+      setVector(vector1, STR1, STR2, STR3, STR2, STR1);
+      setVector(vector2, STR1, STR2, STR3, STR2, STR1);
+
+      RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector1, vector2);
+      assertTrue(visitor.rangeEquals(new Range(1, 1, 3)));
+    }
+  }
+
+  @Test
+  public void testBaseVariableViewVectorRangeEquals() {
+    try (final ViewVarCharVector vector1 = new ViewVarCharVector("varchar", allocator);
+        final ViewVarCharVector vector2 = new ViewVarCharVector("varchar", allocator)) {
 
       setVector(vector1, STR1, STR2, STR3, STR2, STR1);
       setVector(vector2, STR1, STR2, STR3, STR2, STR1);
