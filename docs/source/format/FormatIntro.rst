@@ -46,19 +46,17 @@ Arrow Columnar Format
    :scale: 70%
    :alt: Diagram with tabular data of 4 rows and columns.
 
-Traditionally, in order to read the following data into memory you
-would have some kind of structure representing the following rows:
-
+Data can be represented in memory using a row based format or a column
+based format. The row based format stores data by row meaning the rows
+are adjacent in the computer memory:
+ 
 .. figure:: ./images/columnar-diagram_2.svg
    :alt: Tabular data being structured row by row in computer memory.
 
-That means that you have all the information for every row together
-in memory.
-
-A columnar format keeps the data organised by column instead of by row
-making analytical operations like filtering, grouping, aggregations and
-others much more efficient. CPU can maintain memory locality and require
-less memory jumps to process the data. By keeping the data contiguous
+In a columnar format, on the other hand, the data is organised by column
+instead of by row making analytical operations like filtering, grouping,
+aggregations and others much more efficient. CPU can maintain memory locality
+and require less memory jumps to process the data. By keeping the data contiguous
 in memory it also enables vectorization of the computations. Most modern
 CPUs have single instructions, multiple data (SIMD) enabling parallel
 processing and execution of instructions on vector data in single CPU
@@ -69,8 +67,8 @@ instructions.
 
 Compression is another element where columnar format representation can
 take high advantage. Data similarity allows for better compression
-techniques and algorithms. Having the same data types locality close
-allows us to have better compression ratios.
+techniques and algorithms. Having the same data types locality allows
+to have better compression ratios.
 
 Primitive layouts
 =================
@@ -78,8 +76,11 @@ Primitive layouts
 Fixed Size Primitive Layout
 ---------------------------
 
-A primitive value array represents an array of values where each value
-has the same physical size measured in bytes.
+A primitive column represents an array of values where each value
+has the same physical size measured in bytes. Data types that share the
+same fixed size primitive layout are for example signed and unsigned
+integer types, floating point numbers, boolean, decimal and temporal
+types.
 
 Support for null values
 -----------------------
@@ -127,20 +128,20 @@ Variable length binary and string
 The bytes of a binary or string column are stored together consecutively
 in a single buffer or region of memory. To know where each element of the
 column starts and ends the physical layout also includes integer offsets.
-The length of which is one more than the length on the column as the last
-two elements define the start and the end of the last element in the
-binary/string column.
+The length of the offset buffer is one more than the length of the values
+buffer as the last two elements define the start and the end of the last
+element in the binary/string column.
 
-Binary and string types share the same physical layout with where the string
-type is utf-8 binary and will produce an invalid result if the bytes are not
-valid utf-8.
+Binary and string types share the same physical layout. The one difference
+between them is that the string type is utf-8 binary and will produce an
+invalid result if the bytes are not valid utf-8.
 
 The difference between binary/string and large binary/string is in the offset
 type. In the first case that is int32 and in the second it is int64.
 
 The limitation of types using 32 bit offsets is that they have a max size of
-2GB for one array/column. One can still use the non-large variants for bigger
-data, but then multiple chunks are needed.
+2GB per array. One can still use the non-large variants for bigger data, but
+then multiple chunks are needed.
 
 .. figure:: ./images/var-string-diagram.svg
    :alt: Diagram is showing the difference between the variable length
@@ -152,19 +153,19 @@ data, but then multiple chunks are needed.
 Variable length binary and string view
 --------------------------------------
 
-This layout is adapted from TU Munich's UmbraDB, and similar to the string
+This layout is adapted from TU Munich's UmbraDB and is similar to the string
 layout used in DuckDB and Velox (and sometimes also called "German style strings").
 
 The main differences to classical binary and string types is the views buffer.
 It includes the length of the string, and then either contains the characters
-inline (for small strings) or either only contains the first 4 bytes of the
-string and point to potentially several data buffers. It also supports binary
-and strings to be written out of order.
+inline (for small strings) or only the first 4 bytes of the string and point to
+potentially several data buffers. It also supports binary and strings to be written
+out of order.
 
 These properties are important for efficient string processing. The prefix
 enables a profitable fast path for string comparisons, which are frequently
 determined within the first four bytes. Selecting elements is a simple "take"
-operations on the fixed-width views buffer and does not need to rewrite the
+operation on the fixed-width views buffer and does not need to rewrite the
 values buffers.
 
 .. figure:: ./images/var-string-view-diagram.svg
@@ -258,12 +259,12 @@ key-value pairs. Its physical representation is the same as a list of ``{key, va
 structs.
 
 The difference between a struct and a map type is that a struct holds the key
-in the schema therefore needs to be a string, the values are stored in the
-child arrays, one for each field. There can be multiple keys and therefore multiple
-child arrays. The map, on the other hand, has one child array holding all the
-different keys (that thus all need to be of the same type but not necessarily strings)
-and a second child array holding all the values, those values need to be of the same
-type (which doesn't have to match the one on the keys).
+in the schema, therefore need to be a string, and the values in the child arrays,
+one for each field. There can be multiple keys and therefore multiple child arrays.
+The map, on the other hand, has one child array holding all the different keys (that
+thus all need to be of the same type but not necessarily strings) and a second
+child array holding all the values, those values need to be of the same type (which
+doesn't have to match the one on the keys).
 
 Also, the map stores the struct in a list and needs an offset as the list is
 variable shape.
@@ -359,7 +360,7 @@ For example:
 
 * Universally unique identifier (uuid) can be represented as a FixedSizeBinary type
 * Trading time can be represented as a Timestamp with metadata indicating the market
-trading calendar
+  trading calendar
 
 Extension types can be defined by annotating any of the built-in Arrow logical types
 (the “storage type”) with a custom type name and optional serialized representation
