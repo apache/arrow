@@ -313,6 +313,8 @@ jobs:
     strategy:
       fail-fast: false
     env:
+      ARROW_DEPENDENCY_SOURCE: VCPKG
+      ARROW_DEPENDENCY_USE_SHARED: OFF
       ARROW_BOOST_USE_SHARED: OFF
       ARROW_BUILD_BENCHMARKS: OFF
       ARROW_BUILD_SHARED: ON
@@ -387,11 +389,15 @@ jobs:
         env:
           # We can invalidate the current cache by updating this.
           CACHE_VERSION: "2024-05-09"
+      - name: Build C++ VCPKG dependencies
+        shell: cmd
+        run: |
+          vcpkg\vcpkg.exe install --triplet x64-windows --x-manifest-root cpp --x-install-root build\cpp\vcpkg_installed
       - name: Build C++
         shell: cmd
         run: |
           call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
+          bash -c "VCPKG_ROOT=\"$(pwd)/vcpkg\" ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
       - name: Build GLib
         shell: cmd
         run: |
