@@ -482,6 +482,14 @@ class FileWriterImpl : public FileWriter {
     return writer_->metadata();
   }
 
+  /// \brief Append the key-value metadata to the file metadata
+  ::arrow::Status AddKeyValueMetadata(
+      const std::shared_ptr<const ::arrow::KeyValueMetadata>& key_value_metadata)
+      override {
+    PARQUET_CATCH_NOT_OK(writer_->AddKeyValueMetadata(key_value_metadata));
+    return Status::OK();
+  }
+
  private:
   friend class FileWriter;
 
