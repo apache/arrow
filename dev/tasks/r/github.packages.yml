@@ -228,7 +228,7 @@ jobs:
            extra-packages: cpp11
       - name: Set CRAN like openssl
         if: contains(matrix.platform.name, 'macOS')
-        shell: Rscript {0}
+        shell: sudo Rscript {0}
         run: |
           # get the mac-recipes version of openssl from CRAN
           source("https://mac.R-project.org/bin/install.R") 
