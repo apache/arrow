@@ -99,26 +99,21 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
   }
 
   private void allocateBuffers() {
-    offsetBuffer = allocateOffsetBuffer(offsetAllocationSizeInBytes);
-    sizeBuffer = allocateSizeBuffer(sizeAllocationSizeInBytes);
+    offsetBuffer = allocateBuffers(offsetAllocationSizeInBytes, true);
+    sizeBuffer = allocateBuffers(sizeAllocationSizeInBytes, false);
   }
 
-  private ArrowBuf allocateOffsetBuffer(final long size) {
+  private ArrowBuf allocateBuffers(final long size, boolean isOffSet) {
     final int curSize = (int) size;
-    ArrowBuf offsetBuffer = allocator.buffer(curSize);
-    offsetBuffer.readerIndex(0);
-    offsetAllocationSizeInBytes = curSize;
-    offsetBuffer.setZero(0, offsetBuffer.capacity());
-    return offsetBuffer;
-  }
-
-  private ArrowBuf allocateSizeBuffer(final long size) {
-    final int curSize = (int) size;
-    ArrowBuf sizeBuffer = allocator.buffer(curSize);
-    sizeBuffer.readerIndex(0);
-    sizeAllocationSizeInBytes = curSize;
-    sizeBuffer.setZero(0, sizeBuffer.capacity());
-    return sizeBuffer;
+    ArrowBuf buffer = allocator.buffer(curSize);
+    buffer.readerIndex(0);
+    buffer.setZero(0, buffer.capacity());
+    if (isOffSet) {
+      offsetAllocationSizeInBytes = curSize;
+    } else {
+      sizeAllocationSizeInBytes = curSize;
+    }
+    return buffer;
   }
 
   @Override
@@ -244,7 +239,8 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
 
   @Override
   public int getValueCapacity() {
-    return 0;
+    throw new UnsupportedOperationException(
+        "Get value capacity is not supported in RepeatedValueVector");
   }
 
   protected int getOffsetBufferValueCapacity() {

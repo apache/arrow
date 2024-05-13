@@ -808,7 +808,7 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
     return vector;
   }
 
-  protected void invalidateReader() {
+  private void invalidateReader() {
     reader = null;
   }
 
