@@ -551,7 +551,7 @@ then base64-encoded and stored under the ``ARROW:schema`` metadata key in
 the Parquet file metadata.
 
 Field Id
---------
+""""""""
 
 The Parquet format supports an optional integer "field id" which can be assigned
 to a field. This is used for example in the
