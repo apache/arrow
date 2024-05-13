@@ -159,7 +159,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   }
 
   /**
-   * Get the buffers that store the data for elements in the vector.
+   * Get the buffers that store the data for views in the vector.
    *
    * @return buffer
    */
