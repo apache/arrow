@@ -19,20 +19,10 @@
 
 #pragma once
 
-#if (defined(_WIN32) || defined(__CYGWIN__)) && !defined(GARROW_STATIC_COMPILATION)
-# /* Use C++ attribute syntax where possible to avoid GCC parser bug
-#  * (https://stackoverflow.com/questions/57993818/gcc-how-to-combine-attribute-dllexport-and-nodiscard-in-a-struct-de)
-#  */
-#  if defined(__cplusplus) && defined(__GNUC__) && !defined(__clang__)
-#    define GARROW_EXPORT [[gnu::dllexport]]
-#    define GARROW_IMPORT [[gnu::dllimport]]
-#  else
-#    define GARROW_EXPORT __declspec(dllexport)
-#    define GARROW_IMPORT __declspec(dllimport)
-#  endif
-#elif __GNUC__ >= 4
-#  define GARROW_EXPORT __attribute__((visibility("default")))
-#  define GARROW_IMPORT
+#if (defined(_WIN32) || defined(__CYGWIN__)) && defined(_MSVC_LANG) &&                   \
+  !defined(GARROW_STATIC_COMPILATION)
+#  define GARROW_EXPORT __declspec(dllexport)
+#  define GARROW_IMPORT __declspec(dllimport)
 #else
 #  define GARROW_EXPORT
 #  define GARROW_IMPORT
