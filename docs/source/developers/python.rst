@@ -318,9 +318,8 @@ The presets are provided as a convenience, but you may instead opt to
 specify the individual components:
 
 .. code-block::
-   $ mkdir arrow/cpp/build
-   $ pushd arrow/cpp/build
-   $ cmake -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
+   $ cmake -S arrow/cpp -B arrow/cpp/build \
+           -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
            -DCMAKE_BUILD_TYPE=Debug \
            -DARROW_BUILD_TESTS=ON \
            -DARROW_COMPUTE=ON \
@@ -336,11 +335,8 @@ specify the individual components:
            -DARROW_WITH_SNAPPY=ON \
            -DARROW_WITH_ZLIB=ON \
            -DARROW_WITH_ZSTD=ON \
-           -DPARQUET_REQUIRE_ENCRYPTION=ON \
-           ..
-   $ make -j4
-   $ make install
-   $ popd
+           -DPARQUET_REQUIRE_ENCRYPTION=ON
+   $ cmake --build arrow/cpp/build --target install -j4
 
 There are a number of optional components that can be switched ON by
 adding flags with ``ON``:
