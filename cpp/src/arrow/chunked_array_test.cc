@@ -327,42 +327,42 @@ TEST(TestChunkResolver, Resolve) {
 
   ChunkResolver one(std::vector<int64_t>({0, 1}));  // [[0]]
   ASSERT_EQ(one.Resolve(1).chunk_index, 1);
-  ASSERT_EQ(one.Resolve(0), (ChunkLocation::Forge(0, 0)));
+  ASSERT_EQ(one.Resolve(0), (ChunkLocation(0, 0)));
   ASSERT_EQ(one.Resolve(1).chunk_index, 1);
 
   ChunkResolver one_and_empty(std::vector<int64_t>({0, 1, 1, 1}));  // [[0], [], []]
   ASSERT_EQ(one_and_empty.Resolve(3).chunk_index, 3);
   ASSERT_EQ(one_and_empty.Resolve(2).chunk_index, 3);
   ASSERT_EQ(one_and_empty.Resolve(1).chunk_index, 3);
-  ASSERT_EQ(one_and_empty.Resolve(0), (ChunkLocation::Forge(0, 0)));
+  ASSERT_EQ(one_and_empty.Resolve(0), (ChunkLocation(0, 0)));
   ASSERT_EQ(one_and_empty.Resolve(1).chunk_index, 3);
   ASSERT_EQ(one_and_empty.Resolve(2).chunk_index, 3);
   ASSERT_EQ(one_and_empty.Resolve(3).chunk_index, 3);
 
   ChunkResolver one_one_one(std::vector<int64_t>({0, 1, 2, 3}));  // [[0], [1], [2]]
   ASSERT_EQ(one_one_one.Resolve(3).chunk_index, 3);
-  ASSERT_EQ(one_one_one.Resolve(2), (ChunkLocation::Forge(2, 0)));
-  ASSERT_EQ(one_one_one.Resolve(1), (ChunkLocation::Forge(1, 0)));
-  ASSERT_EQ(one_one_one.Resolve(0), (ChunkLocation::Forge(0, 0)));
-  ASSERT_EQ(one_one_one.Resolve(1), (ChunkLocation::Forge(1, 0)));
-  ASSERT_EQ(one_one_one.Resolve(2), (ChunkLocation::Forge(2, 0)));
+  ASSERT_EQ(one_one_one.Resolve(2), (ChunkLocation(2, 0)));
+  ASSERT_EQ(one_one_one.Resolve(1), (ChunkLocation(1, 0)));
+  ASSERT_EQ(one_one_one.Resolve(0), (ChunkLocation(0, 0)));
+  ASSERT_EQ(one_one_one.Resolve(1), (ChunkLocation(1, 0)));
+  ASSERT_EQ(one_one_one.Resolve(2), (ChunkLocation(2, 0)));
   ASSERT_EQ(one_one_one.Resolve(3).chunk_index, 3);
 
   ChunkResolver resolver(std::vector<int64_t>({0, 2, 3, 10}));  // [[0, 1], [2], [3..9]]
   ASSERT_EQ(resolver.Resolve(10).chunk_index, 3);
-  ASSERT_EQ(resolver.Resolve(9), (ChunkLocation::Forge(2, 6)));
-  ASSERT_EQ(resolver.Resolve(8), (ChunkLocation::Forge(2, 5)));
-  ASSERT_EQ(resolver.Resolve(4), (ChunkLocation::Forge(2, 1)));
-  ASSERT_EQ(resolver.Resolve(3), (ChunkLocation::Forge(2, 0)));
-  ASSERT_EQ(resolver.Resolve(2), (ChunkLocation::Forge(1, 0)));
-  ASSERT_EQ(resolver.Resolve(1), (ChunkLocation::Forge(0, 1)));
-  ASSERT_EQ(resolver.Resolve(0), (ChunkLocation::Forge(0, 0)));
-  ASSERT_EQ(resolver.Resolve(1), (ChunkLocation::Forge(0, 1)));
-  ASSERT_EQ(resolver.Resolve(2), (ChunkLocation::Forge(1, 0)));
-  ASSERT_EQ(resolver.Resolve(3), (ChunkLocation::Forge(2, 0)));
-  ASSERT_EQ(resolver.Resolve(4), (ChunkLocation::Forge(2, 1)));
-  ASSERT_EQ(resolver.Resolve(8), (ChunkLocation::Forge(2, 5)));
-  ASSERT_EQ(resolver.Resolve(9), (ChunkLocation::Forge(2, 6)));
+  ASSERT_EQ(resolver.Resolve(9), (ChunkLocation(2, 6)));
+  ASSERT_EQ(resolver.Resolve(8), (ChunkLocation(2, 5)));
+  ASSERT_EQ(resolver.Resolve(4), (ChunkLocation(2, 1)));
+  ASSERT_EQ(resolver.Resolve(3), (ChunkLocation(2, 0)));
+  ASSERT_EQ(resolver.Resolve(2), (ChunkLocation(1, 0)));
+  ASSERT_EQ(resolver.Resolve(1), (ChunkLocation(0, 1)));
+  ASSERT_EQ(resolver.Resolve(0), (ChunkLocation(0, 0)));
+  ASSERT_EQ(resolver.Resolve(1), (ChunkLocation(0, 1)));
+  ASSERT_EQ(resolver.Resolve(2), (ChunkLocation(1, 0)));
+  ASSERT_EQ(resolver.Resolve(3), (ChunkLocation(2, 0)));
+  ASSERT_EQ(resolver.Resolve(4), (ChunkLocation(2, 1)));
+  ASSERT_EQ(resolver.Resolve(8), (ChunkLocation(2, 5)));
+  ASSERT_EQ(resolver.Resolve(9), (ChunkLocation(2, 6)));
   ASSERT_EQ(resolver.Resolve(10).chunk_index, 3);
 }
 
@@ -389,7 +389,7 @@ class TestChunkResolverMany : public ::testing::Test {
     for (size_t i = 0; i < n; i++) {
       auto chunk_index = static_cast<int64_t>(chunk_index_vec[i]);
       auto index_in_chunk = static_cast<int64_t>(index_in_chunk_vec[i]);
-      locations.emplace_back(resolver, chunk_index, index_in_chunk);
+      locations.emplace_back(chunk_index, index_in_chunk);
     }
     return locations;
   }

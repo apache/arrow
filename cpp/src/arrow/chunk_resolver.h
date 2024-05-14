@@ -42,34 +42,10 @@ struct ChunkLocation {
   /// The value is UNDEFINED if chunk_index >= chunks.size()
   int64_t index_in_chunk = 0;
 
-  /// \brief Create a ChunkLocation without asserting any preconditions.
-  static ChunkLocation Forge(int64_t chunk_index, int64_t index_in_chunk) {
-    ChunkLocation loc;
-    loc.chunk_index = chunk_index;
-    loc.index_in_chunk = index_in_chunk;
-    return loc;
-  }
-
   ChunkLocation() = default;
 
-  template <class ChunkResolver>
-  ChunkLocation(const ChunkResolver& resolver, int64_t chunk_index,
-                int64_t index_in_chunk)
-      : chunk_index(chunk_index), index_in_chunk(index_in_chunk) {
-#ifndef NDEBUG
-    assert(chunk_index >= 0 && chunk_index <= resolver.num_chunks());
-    if (chunk_index == resolver.num_chunks()) {
-#if defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER)
-      // The value of index_in_chunk is undefined (can't be trusted) when
-      // chunk_index==chunks.size(), so make it easier for ASAN
-      // to detect misuse.
-      this->index_in_chunk = std::numeric_limits<int64_t>::min();
-#endif
-    } else {
-      assert(index_in_chunk == 0 || index_in_chunk < resolver.chunk_length(chunk_index));
-    }
-#endif  // NDEBUG
-  }
+  ChunkLocation(int64_t chunk_index, int64_t index_in_chunk)
+      : chunk_index(chunk_index), index_in_chunk(index_in_chunk) {}
 
   bool operator==(ChunkLocation other) const {
     return chunk_index == other.chunk_index && index_in_chunk == other.index_in_chunk;
@@ -140,7 +116,7 @@ struct ARROW_EXPORT ChunkResolver {
     const auto cached_chunk = cached_chunk_.load(std::memory_order_relaxed);
     const auto chunk_index =
         ResolveChunkIndex</*StoreCachedChunk=*/true>(index, cached_chunk);
-    return ChunkLocation{*this, chunk_index, index - offsets_[chunk_index]};
+    return ChunkLocation{chunk_index, index - offsets_[chunk_index]};
   }
 
   /// \brief Resolve a logical index to a ChunkLocation.
@@ -160,7 +136,7 @@ struct ARROW_EXPORT ChunkResolver {
     assert(hint.chunk_index < static_cast<int64_t>(offsets_.size()));
     const auto chunk_index =
         ResolveChunkIndex</*StoreCachedChunk=*/false>(index, hint.chunk_index);
-    return ChunkLocation{*this, chunk_index, index - offsets_[chunk_index]};
+    return ChunkLocation{chunk_index, index - offsets_[chunk_index]};
   }
 
   /// \brief Resolve `n` logical indices to chunk indices.
