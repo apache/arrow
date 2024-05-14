@@ -19,10 +19,7 @@
 
 #include "arrow/matlab/c/proxy/array.h"
 
-#include "libmexclass/proxy/Proxy.h"
-
-#include <memory.h>
-#include <type_traits>
+#include "libmexclass/proxy/Proxy.h"å
 
 namespace arrow::matlab::c::proxy {
 
