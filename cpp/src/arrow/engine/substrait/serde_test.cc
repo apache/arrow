@@ -1064,6 +1064,86 @@ NamedTableProvider AlwaysProvideSameTable(std::shared_ptr<Table> table) {
   };
 }
 
+TEST(Substrait, ExecReadRelWithLocalFiles) {
+  ASSERT_OK_AND_ASSIGN(std::string dir_string,
+                       arrow::internal::GetEnvVar("PARQUET_TEST_DATA"));
+
+  std::string substrait_json = R"({
+    "relations": [
+    {
+      "root": {
+        "input": {
+          "read": {
+            "common": {
+              "direct": {}
+            },
+            "baseSchema": {
+              "names": [
+                "f32",
+                "f64"
+              ],
+              "struct": {
+                "types": [
+                  {
+                    "fp32": {
+                      "nullability": "NULLABILITY_REQUIRED"
+                    }
+                  },
+                  {
+                    "fp64": {
+                      "nullability": "NULLABILITY_REQUIRED"
+                    }
+                  }
+                ],
+                "nullability": "NULLABILITY_REQUIRED"
+              }
+            },
+            "localFiles": {
+              "items": [
+                {
+                  "uriFile": "file://[DIRECTORY_PLACEHOLDER]/byte_stream_split.zstd.parquet",
+                  "parquet": {}
+                }
+              ]
+            }
+          }
+        },
+        "names": [
+          "f32",
+          "f64"
+        ]
+      }
+    }
+    ],
+    "version": {
+    "minorNumber": 42,
+    "producer": "my-producer"
+    }
+  })";
+  const char* placeholder = "[DIRECTORY_PLACEHOLDER]";
+  substrait_json.replace(substrait_json.find(placeholder), strlen(placeholder),
+                         dir_string);
+
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
+
+  ASSERT_OK_AND_ASSIGN(auto declarations,
+                       DeserializePlans(*buf, acero::NullSinkNodeConsumer::Make));
+  ASSERT_EQ(declarations.size(), 1);
+  acero::Declaration* decl = &declarations[0];
+  ASSERT_EQ(decl->factory_name, "consuming_sink");
+  ASSERT_OK_AND_ASSIGN(auto plan, acero::ExecPlan::Make());
+  ASSERT_OK_AND_ASSIGN(auto sink_node, declarations[0].AddToPlan(plan.get()));
+  ASSERT_STREQ(sink_node->kind_name(), "ConsumingSinkNode");
+  ASSERT_EQ(sink_node->num_inputs(), 1);
+  auto& prev_node = sink_node->inputs()[0];
+  ASSERT_STREQ(prev_node->kind_name(), "SourceNode");
+
+  plan->StartProducing();
+  ASSERT_FINISHES_OK(plan->finished());
+}
+
 TEST(Substrait, RelWithHint) {
   ASSERT_OK_AND_ASSIGN(auto buf,
                        internal::SubstraitFromJSON("Rel", R"({
@@ -2443,6 +2523,7 @@ TEST(SubstraitRoundTrip, BasicPlanEndToEnd) {
 
   auto scan_options = std::make_shared<dataset::ScanOptions>();
   scan_options->projection = compute::project({}, {});
+  scan_options->add_augmented_fields = false;
   const std::string filter_col_left = "shared";
   const std::string filter_col_right = "distinct";
   auto comp_left_value = compute::field_ref(filter_col_left);
