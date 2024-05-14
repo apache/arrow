@@ -116,6 +116,15 @@ most users (``pyarrow``), provide a smaller, minimal package for specialized use
 cases (``pyarrow-core``), while still providing a complete package for users who
 require it (``pyarrow-all``).
 
+The ``pyarrow-core`` package includes the following functionality:
+
+- Data Types
+- Compute Functions (i.e., ``pyarrow.compute``)
+- Memory and I/O interfaces
+- Streaming, Serialization, and IPC (i.e., ``pyarrow.ipc``)
+- Filesystem Interfaces (HDFS, S3, GCS, etc.)
+- File formats: Arrow/Feather, JSON, CSV, ORC (but not Parquet)
+
 The table below lists the functionality provided by each package and may be
 useful when deciding to use one package over another:
 
