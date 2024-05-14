@@ -594,7 +594,7 @@ void TestSegments(std::unique_ptr<RowSegmenter>& segmenter, const ExecSpan& batc
   }
   // Assert next is the last (empty) segment.
   ASSERT_OK_AND_ASSIGN(auto segment, segmenter->GetNextSegment(batch, offset));
-  ASSERT_TRUE(segment.offset >= batch.length);
+  ASSERT_GE(segment.offset, batch.length);
   ASSERT_TRUE(segment.is_open);
   ASSERT_TRUE(segment.extends);
 }
