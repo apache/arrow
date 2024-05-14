@@ -17,6 +17,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+project_name = 'arrow-cuda-glib'
+
 sources = files(
   'cuda.cpp',
 )
@@ -32,8 +34,20 @@ cpp_headers = files(
 )
 
 headers = c_headers + cpp_headers
-install_headers(headers, subdir: 'arrow-cuda-glib')
+install_headers(headers, subdir: project_name)
 
+version_h = custom_target(
+  'arrow-cuda-glib-version-header',
+  input: 'version.h.in',
+  output: 'version.h',
+  command: [gen_version_header, '--library', 'GARROW_CUDA', '--version', version, '--input', '@INPUT@', '--output', '@OUTPUT@'],
+  install: true,
+  install_dir: join_paths(include_dir, project_name)
+)
+
+built_headers = [version_h]
+
+c_headers += built_headers
 
 dependencies = [
   arrow_cuda,

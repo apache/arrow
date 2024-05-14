@@ -61,10 +61,10 @@ def write_header(input_file: TextIOBase, output_file: TextIOBase, library_name: 
     availability_macros = generate_availability_macros(library_name)
 
     replacements = {
-            "GARROW_VERSION_MAJOR": str(version_major),
-            "GARROW_VERSION_MINOR": str(version_minor),
-            "GARROW_VERSION_MICRO": str(version_micro),
-            "GARROW_VERSION_TAG": version_tag,
+            "VERSION_MAJOR": str(version_major),
+            "VERSION_MINOR": str(version_minor),
+            "VERSION_MICRO": str(version_micro),
+            "VERSION_TAG": version_tag,
             "AVAILABILITY_MACROS": availability_macros,
     }
 

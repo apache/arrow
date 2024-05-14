@@ -17,6 +17,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+project_name = 'arrow-flight-sql-glib'
+
 sources = files(
   'client.cpp',
   'server.cpp',
@@ -35,7 +37,20 @@ cpp_headers = files(
 )
 
 headers = c_headers + cpp_headers
-install_headers(headers, subdir: 'arrow-flight-sql-glib')
+install_headers(headers, subdir: project_name)
+
+version_h = custom_target(
+  'arrow-flight-sql-glib-version-header',
+  input: 'version.h.in',
+  output: 'version.h',
+  command: [gen_version_header, '--library', 'GAFLIGHTSQL', '--version', version, '--input', '@INPUT@', '--output', '@OUTPUT@'],
+  install: true,
+  install_dir: join_paths(include_dir, project_name)
+)
+
+built_headers = [version_h]
+
+c_headers += built_headers
 
 dependencies = [
   arrow_flight_sql,

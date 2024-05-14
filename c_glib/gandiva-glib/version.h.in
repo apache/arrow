@@ -38,7 +38,7 @@
  *
  * Since: 1.0.0
  */
-#define GGANDIVA_VERSION_MAJOR (@GGANDIVA_VERSION_MAJOR@)
+#define GGANDIVA_VERSION_MAJOR (@VERSION_MAJOR@)
 
 /**
  * GGANDIVA_VERSION_MINOR:
@@ -47,7 +47,7 @@
  *
  * Since: 1.0.0
  */
-#define GGANDIVA_VERSION_MINOR (@GGANDIVA_VERSION_MINOR@)
+#define GGANDIVA_VERSION_MINOR (@VERSION_MINOR@)
 
 /**
  * GGANDIVA_VERSION_MICRO:
@@ -56,7 +56,7 @@
  *
  * Since: 1.0.0
  */
-#define GGANDIVA_VERSION_MICRO (@GGANDIVA_VERSION_MICRO@)
+#define GGANDIVA_VERSION_MICRO (@VERSION_MICRO@)
 
 /**
  * GGANDIVA_VERSION_TAG:
@@ -66,7 +66,7 @@
  *
  * Since: 1.0.0
  */
-#define GGANDIVA_VERSION_TAG   "@GGANDIVA_VERSION_TAG@"
+#define GGANDIVA_VERSION_TAG   "@VERSION_TAG@"
 
 /**
  * GGANDIVA_VERSION_CHECK:
@@ -88,27 +88,6 @@
    (GGANDIVA_MAJOR_VERSION == (major) &&                \
     GGANDIVA_MINOR_VERSION == (minor) &&                \
     GGANDIVA_MICRO_VERSION >= (micro)))
-
-/**
- * GGANDIVA_DISABLE_DEPRECATION_WARNINGS:
- *
- * If this macro is defined, no deprecated warnings are produced.
- *
- * You must define this macro before including the
- * gandiva-glib/gandiva-glib.h header.
- *
- * Since: 1.0.0
- */
-
-#ifdef GGANDIVA_DISABLE_DEPRECATION_WARNINGS
-#  define GGANDIVA_DEPRECATED
-#  define GGANDIVA_DEPRECATED_FOR(function)
-#  define GGANDIVA_UNAVAILABLE(major, minor)
-#else
-#  define GGANDIVA_DEPRECATED G_DEPRECATED
-#  define GGANDIVA_DEPRECATED_FOR(function) G_DEPRECATED_FOR(function)
-#  define GGANDIVA_UNAVAILABLE(major, minor) G_UNAVAILABLE(major, minor)
-#endif
 
 /**
  * GGANDIVA_VERSION_1_0:
@@ -173,46 +152,15 @@
 #endif
 
 
-#define GGANDIVA_AVAILABLE_IN_ALL
+/**
+ * GGANDIVA_DISABLE_DEPRECATION_WARNINGS:
+ *
+ * If this macro is defined, no deprecated warnings are produced.
+ *
+ * You must define this macro before including the
+ * gandiva-glib/gandiva-glib.h header.
+ *
+ * Since: 1.0.0
+ */
 
-#if GGANDIVA_VERSION_MIN_REQUIRED >= GGANDIVA_VERSION_4_0
-#  define GGANDIVA_DEPRECATED_IN_4_0                GGANDIVA_DEPRECATED
-#  define GGANDIVA_DEPRECATED_IN_4_0_FOR(function)  GGANDIVA_DEPRECATED_FOR(function)
-#else
-#  define GGANDIVA_DEPRECATED_IN_4_0
-#  define GGANDIVA_DEPRECATED_IN_4_0_FOR(function)
-#endif
-
-#if GGANDIVA_VERSION_MAX_ALLOWED < GGANDIVA_VERSION_4_0
-#  define GGANDIVA_AVAILABLE_IN_4_0 GGANDIVA_UNAVAILABLE(4, 0)
-#else
-#  define GGANDIVA_AVAILABLE_IN_4_0
-#endif
-
-#if GGANDIVA_VERSION_MIN_REQUIRED >= GGANDIVA_VERSION_1_0
-#  define GGANDIVA_DEPRECATED_IN_1_0                GGANDIVA_DEPRECATED
-#  define GGANDIVA_DEPRECATED_IN_1_0_FOR(function)  GGANDIVA_DEPRECATED_FOR(function)
-#else
-#  define GGANDIVA_DEPRECATED_IN_1_0
-#  define GGANDIVA_DEPRECATED_IN_1_0_FOR(function)
-#endif
-
-#if GGANDIVA_VERSION_MAX_ALLOWED < GGANDIVA_VERSION_1_0
-#  define GGANDIVA_AVAILABLE_IN_1_0 GGANDIVA_UNAVAILABLE(1, 0)
-#else
-#  define GGANDIVA_AVAILABLE_IN_1_0
-#endif
-
-#if GGANDIVA_VERSION_MIN_REQUIRED >= GGANDIVA_VERSION_0_17
-#  define GGANDIVA_DEPRECATED_IN_0_17                GGANDIVA_DEPRECATED
-#  define GGANDIVA_DEPRECATED_IN_0_17_FOR(function)  GGANDIVA_DEPRECATED_FOR(function)
-#else
-#  define GGANDIVA_DEPRECATED_IN_0_17
-#  define GGANDIVA_DEPRECATED_IN_0_17_FOR(function)
-#endif
-
-#if GGANDIVA_VERSION_MAX_ALLOWED < GGANDIVA_VERSION_0_17
-#  define GGANDIVA_AVAILABLE_IN_0_17 GGANDIVA_UNAVAILABLE(0, 17)
-#else
-#  define GGANDIVA_AVAILABLE_IN_0_17
-#endif
+@AVAILABILITY_MACROS@

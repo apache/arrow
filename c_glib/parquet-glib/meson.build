@@ -42,9 +42,21 @@ cpp_headers = files(
   'parquet-glib.hpp',
 )
 
+version_h = custom_target(
+  'parquet-glib-version-header',
+  input: 'version.h.in',
+  output: 'version.h',
+  command: [gen_version_header, '--library', 'GPARQUET', '--version', version, '--input', '@INPUT@', '--output', '@OUTPUT@'],
+  install: true,
+  install_dir: join_paths(include_dir, project_name)
+)
+
+built_headers = [version_h]
+
 headers = c_headers + cpp_headers
 install_headers(headers, subdir: project_name)
 
+c_headers += built_headers
 
 dependencies = [
   arrow,

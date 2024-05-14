@@ -17,6 +17,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+project_name = 'arrow-dataset-glib'
+
 sources = files(
   'dataset-factory.cpp',
   'dataset.cpp',
@@ -47,20 +49,33 @@ cpp_headers = files(
   'scanner.hpp',
 )
 
+version_h = custom_target(
+  'arrow-dataset-glib-version-header',
+  input: 'version.h.in',
+  output: 'version.h',
+  command: [gen_version_header, '--library', 'GADATASET', '--version', version, '--input', '@INPUT@', '--output', '@OUTPUT@'],
+  install: true,
+  install_dir: join_paths(include_dir, project_name)
+)
+
+built_headers = [version_h]
+
 enums = gnome.mkenums('enums',
                       sources: c_headers,
                       identifier_prefix: 'GADataset',
                       symbol_prefix: 'gadataset',
                       c_template: 'enums.c.template',
                       h_template: 'enums.h.template',
-                      install_dir: join_paths(include_dir, 'arrow-dataset-glib'),
+                      install_dir: join_paths(include_dir, project_name),
                       install_header: true)
 enums_source = enums[0]
 enums_header = enums[1]
 
 
 headers = c_headers + cpp_headers
-install_headers(headers, subdir: 'arrow-dataset-glib')
+install_headers(headers, subdir: project_name)
+
+c_headers += built_headers
 
 dependencies = [
   arrow_dataset,

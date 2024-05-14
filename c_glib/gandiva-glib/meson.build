@@ -53,15 +53,16 @@ cpp_headers = files(
   'selection-vector.hpp',
 )
 
-version_h_conf = configuration_data()
-version_h_conf.set('GGANDIVA_VERSION_MAJOR', version_major)
-version_h_conf.set('GGANDIVA_VERSION_MINOR', version_minor)
-version_h_conf.set('GGANDIVA_VERSION_MICRO', version_micro)
-version_h_conf.set('GGANDIVA_VERSION_TAG', version_tag)
-version_h = configure_file(input: 'version.h.in',
-                           output: 'version.h',
-                           configuration: version_h_conf)
-c_headers += version_h
+version_h = custom_target(
+  'gandiva-glib-version-header',
+  input: 'version.h.in',
+  output: 'version.h',
+  command: [gen_version_header, '--library', 'GGANDIVA', '--version', version, '--input', '@INPUT@', '--output', '@OUTPUT@'],
+  install: true,
+  install_dir: join_paths(include_dir, project_name)
+)
+
+built_headers = [version_h]
 
 enums = gnome.mkenums('enums',
                       sources: c_headers,
@@ -76,6 +77,8 @@ enums_header = enums[1]
 
 headers = c_headers + cpp_headers
 install_headers(headers, subdir: project_name)
+
+c_headers += built_headers
 
 dependencies = [
   gandiva,
