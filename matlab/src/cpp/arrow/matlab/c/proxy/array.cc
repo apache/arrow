@@ -23,35 +23,36 @@
 
 namespace arrow::matlab::c::proxy {
 
-  struct ArrowArrayDeleter {
-    void operator()(ArrowArray* array) const {
-      if (array) {
-        free(array);
-      }
-    }
-  };
-
-  Array::Array() : arrowArray{ArrowArrayPtr(new ArrowArray(), ArrowArrayDeleter())} {
-    REGISTER_METHOD(Array, getAddress);
-  }
-
-  Array::~Array() {
-    if (arrowArray && arrowArray->release != nullptr) {
-      arrowArray->release(arrowArray.get());
-      arrowArray->release = nullptr;
+struct ArrowArrayDeleter {
+  void operator()(ArrowArray* array) const {
+    if (array) {
+      free(array);
     }
   }
+};
 
-  libmexclass::proxy::MakeResult Array::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
-    return std::make_shared<Array>();
+Array::Array() : arrowArray{ArrowArrayPtr(new ArrowArray(), ArrowArrayDeleter())} {
+  REGISTER_METHOD(Array, getAddress);
+}
+
+Array::~Array() {
+  if (arrowArray && arrowArray->release != nullptr) {
+    arrowArray->release(arrowArray.get());
+    arrowArray->release = nullptr;
   }
+}
 
-  void Array::getAddress(libmexclass::proxy::method::Context& context) {
-    namespace mda = ::matlab::data;
-    
-    mda::ArrayFactory factory;
-    auto address = reinterpret_cast<uint64_t>(arrowArray.get());
-    context.outputs[0] = factory.createScalar(address);
-  }
+libmexclass::proxy::MakeResult Array::make(
+    const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+  return std::make_shared<Array>();
+}
 
-} // namespace arrow::matlab::c::proxy
+void Array::getAddress(libmexclass::proxy::method::Context& context) {
+  namespace mda = ::matlab::data;
+
+  mda::ArrayFactory factory;
+  auto address = reinterpret_cast<uint64_t>(arrowArray.get());
+  context.outputs[0] = factory.createScalar(address);
+}
+
+}  // namespace arrow::matlab::c::proxy

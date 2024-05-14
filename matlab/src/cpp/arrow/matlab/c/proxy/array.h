@@ -23,23 +23,21 @@
 
 namespace arrow::matlab::c::proxy {
 
-  using ArrowArrayPtr = std::shared_ptr<ArrowArray>;
+using ArrowArrayPtr = std::shared_ptr<ArrowArray>;
 
+class Array : public libmexclass::proxy::Proxy {
+ public:
+  Array();
 
-  class Array : public libmexclass::proxy::Proxy {
-   public:
-    Array();
+  ~Array();
 
-    ~Array();
-
-    static libmexclass::proxy::MakeResult make(
+  static libmexclass::proxy::MakeResult make(
       const libmexclass::proxy::FunctionArguments& constructor_arguments);
 
-   protected:
-    void getAddress(libmexclass::proxy::method::Context& context);
+ protected:
+  void getAddress(libmexclass::proxy::method::Context& context);
 
-    ArrowArrayPtr arrowArray;
+  ArrowArrayPtr arrowArray;
+};
 
-  };
-
-} // namespace arrow::matlab::c::proxy
+}  // namespace arrow::matlab::c::proxy
