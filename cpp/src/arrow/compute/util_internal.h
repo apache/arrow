@@ -40,6 +40,8 @@ class ARROW_EXPORT TempVectorStack {
  public:
   Status Init(MemoryPool* pool, int64_t size);
 
+  int64_t AllocatedSize() const { return top_; }
+
  private:
   static int64_t EstimatedAllocationSize(int64_t size) {
     return PaddedAllocationSize(size) + 2 * sizeof(uint64_t);
