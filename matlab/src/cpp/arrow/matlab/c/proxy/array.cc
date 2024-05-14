@@ -28,4 +28,10 @@ namespace arrow::matlab::c::proxy {
 
   Array::Array() : arrowArray{std::make_unique<ArrowArrayPtr>()} {}
 
+  Array::~Array() {
+    if (arrowArray && arrowArray->released != nullptr) {
+      arrowArray->release(arrowArray.get());
+    }
+  }
+
 } // namespace arrow::matlab::c::proxy
