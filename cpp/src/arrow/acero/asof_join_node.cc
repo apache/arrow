@@ -548,8 +548,8 @@ class InputState {
   // true when the queue is empty and, when memo may have future entries (the case of a
   // positive tolerance), when the memo is empty.
   // used when checking whether RHS is up to date with LHS.
-  // NOTE: The emptiness must be decided by an single call to Empty() in caller, due to
-  // the potential race with Push(), see GH-41614.
+  // NOTE: The emptiness must be decided by a single call to Empty() in caller, due to the
+  // potential race with Push(), see GH-41614.
   bool CurrentEmpty(bool empty) const {
     return memo_.no_future_ ? empty : (memo_.times_.empty() && empty);
   }
@@ -652,8 +652,8 @@ class InputState {
   // timestamp, update latest_time and latest_ref_row to the value that immediately pass
   // the horizon. Update the memo-store with any entries or future entries so observed.
   // Returns true if updates were made, false if not.
-  // NOTE: The emptiness must be decided by an single call to Empty() in caller, due to
-  // the potential race with Push(), see GH-41614.
+  // NOTE: The emptiness must be decided by a single call to Empty() in caller, due to the
+  // potential race with Push(), see GH-41614.
   Result<bool> AdvanceAndMemoize(OnType ts, bool empty) {
     // Advance the right side row index until we reach the latest right row (for each key)
     // for the given left timestamp.
