@@ -42,4 +42,9 @@ namespace arrow::matlab::c::proxy {
     }
   }
 
+  libmexclass::proxy::MakeResult Array::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+    return std::make_shared<Array>();
+  }
+
+
 } // namespace arrow::matlab::c::proxy
