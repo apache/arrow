@@ -604,6 +604,10 @@ struct GrouperFastImpl : public Grouper {
     rows_minibatch_.Clean();
     map_.cleanup();
     RETURN_NOT_OK(map_.init(encode_ctx_.hardware_flags, ctx_->memory_pool()));
+    // TODO: It is now assumed that the dictionaries_ are identical to the first batch
+    // throughout the grouper's lifespan so no resetting is needed. But if we want to
+    // support different dictionaries for different batches, we need to reset the
+    // dictionaries_ here.
     return Status::OK();
   }
 
