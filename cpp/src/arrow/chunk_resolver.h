@@ -21,6 +21,7 @@
 #include <cassert>
 #include <cstdint>
 #include <limits>
+#include <type_traits>
 #include <vector>
 
 #include "arrow/type_fwd.h"
@@ -141,13 +142,15 @@ struct ARROW_EXPORT ChunkResolver {
 
   /// \brief Resolve `n` logical indices to chunk indices.
   ///
-  /// \pre logical_index_vec[i] < n (for valid chunk index results)
-  /// \pre out_chunk_index_vec has space for `n` elements
+  /// \pre 0 <= logical_index_vec[i] < n (for well-defined and valid chunk index results)
+  /// \pre out_chunk_index_vec has space for `n_indices`
   /// \post chunk_hint in [0, chunks.size()]
   /// \post out_chunk_index_vec[i] in [0, chunks.size()] for i in [0, n)
   /// \post if logical_index_vec[i] >= chunked_array.length(), then
   ///       out_chunk_index_vec[i] == chunks.size()
-  ///       and out_index_in_chunk_vec[i] is undefined (can be out-of-bounds)
+  ///       and out_index_in_chunk_vec[i] is UNDEFINED (can be out-of-bounds)
+  /// \post if logical_index_vec[i] < 0, then both out_chunk_index_vec[i] and
+  ///       out_index_in_chunk_vec[i] are UNDEFINED
   ///
   /// \param n_indices The number of logical indices to resolve
   /// \param logical_index_vec The logical indices to resolve
@@ -160,7 +163,6 @@ struct ARROW_EXPORT ChunkResolver {
   [[nodiscard]] bool ResolveMany(int64_t n_indices, const IndexType* logical_index_vec,
                                  IndexType* out_chunk_index_vec, IndexType chunk_hint = 0,
                                  IndexType* out_index_in_chunk_vec = NULLPTR) const {
-    static_assert(std::is_unsigned_v<IndexType>);
     if constexpr (sizeof(IndexType) < sizeof(uint64_t)) {
       // The max value returned by Bisect is `offsets.size() - 1` (= chunks.size()).
       constexpr uint64_t kMaxIndexTypeValue = std::numeric_limits<IndexType>::max();
@@ -174,8 +176,23 @@ struct ARROW_EXPORT ChunkResolver {
       // Since an index-in-chunk cannot possibly exceed the logical index being
       // queried, we don't have to worry about these values not fitting on IndexType.
     }
-    ResolveManyImpl(n_indices, logical_index_vec, out_chunk_index_vec, chunk_hint,
-                    out_index_in_chunk_vec);
+    if constexpr (std::is_signed_v<IndexType>) {
+      // We interpret signed integers as unsigned and avoid having to generate double
+      // the amount of binary code to handle each integer width.
+      //
+      // Negative logical indices can become large values when cast to unsigned, but
+      // they are gracefully handled by ResolveManyImpl. Although both the chunk index
+      // and the index in chunk values will be undefined in these cases.
+      using U = std::make_unsigned_t<IndexType>;
+      ResolveManyImpl(n_indices, reinterpret_cast<const U*>(logical_index_vec),
+                      reinterpret_cast<U*>(out_chunk_index_vec),
+                      static_cast<U>(chunk_hint),
+                      reinterpret_cast<U*>(out_index_in_chunk_vec));
+    } else {
+      static_assert(std::is_unsigned_v<IndexType>);
+      ResolveManyImpl(n_indices, logical_index_vec, out_chunk_index_vec, chunk_hint,
+                      out_index_in_chunk_vec);
+    }
     return true;
   }
 

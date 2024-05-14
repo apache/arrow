@@ -316,7 +316,8 @@ TEST_F(TestChunkedArray, GetScalar) {
 
 // ChunkResolver tests
 
-using IndexTypes = ::testing::Types<uint8_t, uint16_t, uint32_t, uint64_t>;
+using IndexTypes = ::testing::Types<uint8_t, uint16_t, uint32_t, uint64_t, int8_t,
+                                    int16_t, int32_t, int64_t>;
 
 TEST(TestChunkResolver, Resolve) {
   ChunkResolver empty(std::vector<int64_t>({0}));  // []
@@ -444,22 +445,43 @@ class TestChunkResolverMany : public ::testing::Test {
     for (size_t i = 0; i < logical_index_vec.size(); i++) {
       ASSERT_EQ(locations[i].chunk_index, resolver.num_chunks());
     }
+
+    if constexpr (std::is_signed_v<IndexType>) {
+      std::vector<IndexType> logical_index_vec = {-1, -2, -3, -4, -5, -127 - 1};
+      ASSERT_OK_AND_ASSIGN(auto locations, ResolveMany(resolver, logical_index_vec));
+      EXPECT_EQ(logical_index_vec.size(), locations.size());
+      for (size_t i = 0; i < logical_index_vec.size(); i++) {
+        using U = std::make_unsigned_t<IndexType>;
+        auto unsigned_logical_index = static_cast<U>(logical_index_vec[i]);
+        // When negative values are passed, the results should be treated as
+        // undefined because they are the result of resolving whathever the
+        // logical index becomes when interpreted as an unsigned integer.
+        auto expected = resolver.Resolve(static_cast<int64_t>(unsigned_logical_index));
+        if (expected.chunk_index == resolver.num_chunks()) {
+          ASSERT_EQ(locations[i].chunk_index, expected.chunk_index);
+        } else {
+          ASSERT_EQ(locations[i], expected);
+        }
+      }
+    }
   }
 
   void TestOverflow() {
-    std::vector<IndexType> logical_index_vec = {0, 1, 2, 127, 255};
+    const int64_t kMaxIndex = std::is_signed_v<IndexType> ? 127 : 255;
+    std::vector<IndexType> logical_index_vec = {0, 1, 2,
+                                                static_cast<IndexType>(kMaxIndex)};
 
-    // Offsets are rare because to even make it possible, we need more chunks
+    // Overflows are rare because to make them possible, we need more chunks
     // than logical elements in the ChunkedArray. That requires at least one
     // empty chunk.
     std::vector<int64_t> offsets;
-    for (int64_t i = 0; i < 256; i++) {
+    for (int64_t i = 0; i <= kMaxIndex; i++) {
       offsets.push_back(i);
     }
     ChunkResolver resolver{offsets};
     ASSERT_OK(ResolveMany(resolver, logical_index_vec));
 
-    offsets.push_back(255);  // adding an empty chunk
+    offsets.push_back(kMaxIndex);  // adding an empty chunk
     ChunkResolver resolver_with_empty{offsets};
     if (sizeof(IndexType) == 1) {
       ASSERT_NOT_OK(ResolveMany(resolver_with_empty, logical_index_vec));
