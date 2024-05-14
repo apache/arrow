@@ -17,7 +17,7 @@
 classdef tArray < matlab.unittest.TestCase
 
     methods (Test)
-        function Smoke(testCase)
+        function TestClassStructure(testCase)
             array = arrow.c.Array();
             
             % Verify array is an instance of arrow.c.Array.
