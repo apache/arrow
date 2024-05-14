@@ -19,11 +19,7 @@
 
 #include "libmexclass/proxy/Proxy.h"
 
-#include <memory.h>
-
 namespace arrow::matlab::c::proxy {
-
-using ArrowArrayPtr = std::shared_ptr<ArrowArray>;
 
 class Array : public libmexclass::proxy::Proxy {
  public:
@@ -37,7 +33,7 @@ class Array : public libmexclass::proxy::Proxy {
  protected:
   void getAddress(libmexclass::proxy::method::Context& context);
 
-  ArrowArrayPtr arrowArray;
+  struct ArrowArray* arrowArray;
 };
 
 }  // namespace arrow::matlab::c::proxy

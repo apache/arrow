@@ -23,22 +23,17 @@
 
 namespace arrow::matlab::c::proxy {
 
-struct ArrowArrayDeleter {
-  void operator()(ArrowArray* array) const {
-    if (array) {
-      free(array);
-    }
-  }
-};
-
-Array::Array() : arrowArray{ArrowArrayPtr(new ArrowArray(), ArrowArrayDeleter())} {
+Array::Array() : arrowArray{(ArrowArray*) malloc(sizeof(struct ArrowArray*))} {
   REGISTER_METHOD(Array, getAddress);
 }
 
 Array::~Array() {
-  if (arrowArray && arrowArray->release != nullptr) {
-    arrowArray->release(arrowArray.get());
-    arrowArray->release = nullptr;
+  if (arrowArray) {
+    if (arrowArray->release != nullptr) {
+      arrowArray->release(arrowArray);
+      arrowArray->release = nullptr;
+    }
+    free(arrowArray);
   }
 }
 
@@ -51,7 +46,7 @@ void Array::getAddress(libmexclass::proxy::method::Context& context) {
   namespace mda = ::matlab::data;
 
   mda::ArrayFactory factory;
-  auto address = reinterpret_cast<uint64_t>(arrowArray.get());
+  auto address = reinterpret_cast<uint64_t>(arrowArray);
   context.outputs[0] = factory.createScalar(address);
 }
 
