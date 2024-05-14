@@ -561,7 +561,7 @@ schema without having to get any of the batches.::
 
 It can also be sent between languages using the :ref:`C stream interface <c-stream-interface>`.
 
-Conversion of RecordBatch do Tensor
+Conversion of RecordBatch to Tensor
 -----------------------------------
 
 Each array of the ``RecordBatch`` has it's own contiguous memory that is not necessarily
