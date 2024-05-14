@@ -217,13 +217,14 @@ struct SimpleKeySegmenter : public BaseRowSegmenter {
 struct AnyKeysSegmenter : public BaseRowSegmenter {
   static Result<std::unique_ptr<RowSegmenter>> Make(
       const std::vector<TypeHolder>& key_types, ExecContext* ctx) {
-    ARROW_RETURN_NOT_OK(Grouper::Make(key_types, ctx));  // check types
-    return std::make_unique<AnyKeysSegmenter>(key_types, ctx);
+    ARROW_ASSIGN_OR_RAISE(auto grouper, Grouper::Make(key_types, ctx));  // check types
+    return std::make_unique<AnyKeysSegmenter>(key_types, ctx, std::move(grouper));
   }
 
-  AnyKeysSegmenter(const std::vector<TypeHolder>& key_types, ExecContext* ctx)
+  AnyKeysSegmenter(const std::vector<TypeHolder>& key_types, ExecContext* ctx,
+                   std::unique_ptr<Grouper> grouper)
       : BaseRowSegmenter(key_types),
-        grouper_(Grouper::Make(key_types, ctx).ValueOrDie()),
+        grouper_(std::move(grouper)),
         save_group_id_(kNoGroupId) {}
 
   Status Reset() override {
