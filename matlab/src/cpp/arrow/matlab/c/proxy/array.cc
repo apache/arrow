@@ -26,7 +26,15 @@
 
 namespace arrow::matlab::c::proxy {
 
-  Array::Array() : arrowArray{std::make_unique<ArrowArrayPtr>()} {}
+  struct ArrowArrayDeleter {
+    void operator()(ArrowArray* array) const {
+      if (array) {
+        free(array);
+      }
+    }
+  };
+
+  Array::Array() : arrowArray{std::shared_ptr<ArrowArrayPtr>(new ArrowArray(), ArrowArrayDeleter())} {}
 
   Array::~Array() {
     if (arrowArray && arrowArray->released != nullptr) {

@@ -23,15 +23,7 @@
 
 namespace arrow::matlab::c::proxy {
 
-  struct ArrowArrayDeleter {
-    void operator()(ArrowArray* array) const {
-      if (array) {
-        free(array);
-      }
-    }
-  };
-
-  using ArrowArrayPtr = std::unique_ptr<ArrowArray, arrow::matlab::c::proxy::ArrowArrayDeleter>;
+  using ArrowArrayPtr = std::shared_ptr<ArrowArray>;
 
 
   class Array : public libmexclass::proxy::Proxy {
