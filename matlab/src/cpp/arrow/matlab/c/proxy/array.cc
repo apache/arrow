@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cstddef>
 #include "arrow/c/abi.h"
 
 #include "arrow/matlab/c/proxy/array.h"
@@ -28,12 +29,12 @@ Array::Array() : arrowArray{(struct ArrowArray*)malloc(sizeof(struct ArrowArray)
 }
 
 Array::~Array() {
-  if (arrowArray) {
-    if (arrowArray->release != nullptr) {
+  if (arrowArray != NULL) {
+    if (arrowArray->release != NULL) {
       arrowArray->release(arrowArray);
-      arrowArray->release = nullptr;
+      arrowArray->release = NULL;
     }
-    free(arrowArray);
+    //free(arrowArray);
   }
 }
 
