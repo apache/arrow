@@ -181,6 +181,10 @@ that changing their value later will have an effect.
    The number of entries to keep in the Gandiva JIT compilation cache.
    The cache is in-memory and does not persist across processes.
 
+   The default cache size is 5000.  The value of this environment variable
+   should be a positive integer and should not exceed the maximum value
+   of int32.  Otherwise the default value is used.
+
 .. envvar:: HADOOP_HOME
 
    The path to the Hadoop installation.
