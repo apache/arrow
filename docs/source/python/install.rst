@@ -158,10 +158,10 @@ writing Parquet, install ``libparquet`` alongside ``pyarrow-core``:
 
 .. code-block:: shell
 
-    conda install pyarrow-core libparquet
+    conda install -c conda-forge pyarrow-core libparquet
 
 Or if you wish to use ``pyarrow`` but need support for Flight RPC:
 
 .. code-block:: shell
 
-    conda install pyarrow libarrow-flight
+    conda install -c conda-forge pyarrow libarrow-flight
