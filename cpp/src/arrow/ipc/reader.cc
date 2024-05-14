@@ -540,7 +540,8 @@ Result<std::shared_ptr<Buffer>> DecompressBuffer(const std::shared_ptr<Buffer>& 
                            actual_decompressed);
   }
 
-  return uncompressed;
+  // R build with openSUSE155 requires an explicit shared_ptr construction
+  return std::shared_ptr<Buffer>(std::move(uncompressed));
 }
 
 Status DecompressBuffers(Compression::type compression, const IpcReadOptions& options,

@@ -83,7 +83,8 @@ Result<std::unique_ptr<KernelState>> HashAggregateInit(KernelContext* ctx,
                                                        const KernelInitArgs& args) {
   auto impl = std::make_unique<Impl>();
   RETURN_NOT_OK(impl->Init(ctx->exec_context(), args));
-  return impl;
+  // R build with openSUSE155 requires an explicit unique_ptr construction
+  return std::unique_ptr<KernelState>(std::move(impl));
 }
 
 Status HashAggregateResize(KernelContext* ctx, int64_t num_groups) {
@@ -1114,7 +1115,8 @@ Result<std::unique_ptr<KernelState>> VarStdInit(KernelContext* ctx,
   auto impl = std::make_unique<GroupedVarStdImpl<T>>();
   impl->result_type_ = result_type;
   RETURN_NOT_OK(impl->Init(ctx->exec_context(), args));
-  return impl;
+  // R build with openSUSE155 requires an explicit unique_ptr construction
+  return std::unique_ptr<KernelState>(std::move(impl));
 }
 
 template <VarOrStd result_type>

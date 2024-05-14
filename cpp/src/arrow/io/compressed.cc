@@ -411,7 +411,8 @@ class CompressedInputStream::Impl {
     ARROW_ASSIGN_OR_RAISE(auto buf, AllocateResizableBuffer(nbytes, pool_));
     ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, Read(nbytes, buf->mutable_data()));
     RETURN_NOT_OK(buf->Resize(bytes_read));
-    return buf;
+    // R build with openSUSE155 requires an explicit shared_ptr construction
+    return std::shared_ptr<Buffer>(std::move(buf));
   }
 
   const std::shared_ptr<InputStream>& raw() const { return raw_; }

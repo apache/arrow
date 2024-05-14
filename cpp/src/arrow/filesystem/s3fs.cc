@@ -1510,7 +1510,8 @@ class ObjectInputFile final : public io::RandomAccessFile {
       DCHECK_LE(bytes_read, nbytes);
       RETURN_NOT_OK(buf->Resize(bytes_read));
     }
-    return buf;
+    // R build with openSUSE155 requires an explicit shared_ptr construction
+    return std::shared_ptr<Buffer>(std::move(buf));
   }
 
   Result<int64_t> Read(int64_t nbytes, void* out) override {

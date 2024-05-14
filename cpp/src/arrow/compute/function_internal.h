@@ -684,7 +684,8 @@ const FunctionOptionsType* GetFunctionOptionsType(const Properties&... propertie
       auto options = std::make_unique<Options>();
       RETURN_NOT_OK(
           FromStructScalarImpl<Options>(options.get(), scalar, properties_).status_);
-      return options;
+      // R build with openSUSE155 requires an explicit unique_ptr construction
+      return std::unique_ptr<FunctionOptions>(std::move(options));
     }
     std::unique_ptr<FunctionOptions> Copy(const FunctionOptions& options) const override {
       auto out = std::make_unique<Options>();
