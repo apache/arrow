@@ -1,4 +1,4 @@
-%ARRAY Wrapper for an ArrowArray C struct pointer.
+%ARRAY Wrapper for an Arrow C Data Interface format ArrowArray C struct pointer.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
