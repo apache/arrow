@@ -157,10 +157,9 @@ struct ARROW_EXPORT ChunkResolver {
   ///                               within-chunk indices will be written
   /// \return false iff chunks.size() > std::numeric_limits<IndexType>::max()
   template <typename IndexType>
-  [[nodiscard]] bool ResolveMany(
-      int64_t n_indices, const IndexType* ARROW_RESTRICT logical_index_vec,
-      IndexType* ARROW_RESTRICT out_chunk_index_vec, IndexType chunk_hint = 0,
-      IndexType* ARROW_RESTRICT out_index_in_chunk_vec = NULLPTR) const {
+  [[nodiscard]] bool ResolveMany(int64_t n_indices, const IndexType* logical_index_vec,
+                                 IndexType* out_chunk_index_vec, IndexType chunk_hint = 0,
+                                 IndexType* out_index_in_chunk_vec = NULLPTR) const {
     static_assert(std::is_unsigned_v<IndexType>);
     if constexpr (sizeof(IndexType) < sizeof(uint64_t)) {
       // The max value returned by Bisect is `offsets.size() - 1` (= chunks.size()).

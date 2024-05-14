@@ -58,12 +58,9 @@ inline std::vector<int64_t> MakeChunksOffsets(const std::vector<T>& chunks) {
 /// \pre all the pre-conditions of ChunkResolver::ResolveMany()
 /// \pre num_offsets - 1 <= std::numeric_limits<IndexType>::max()
 template <typename IndexType>
-void ResolveManyInline(size_t num_offsets, const int64_t* ARROW_RESTRICT offsets,
-                       int64_t n_indices,
-                       const IndexType* ARROW_RESTRICT logical_index_vec,
-                       IndexType* ARROW_RESTRICT out_chunk_index_vec,
-                       IndexType chunk_hint,
-                       IndexType* ARROW_RESTRICT out_index_in_chunk_vec) {
+void ResolveManyInline(size_t num_offsets, const int64_t* offsets, int64_t n_indices,
+                       const IndexType* logical_index_vec, IndexType* out_chunk_index_vec,
+                       IndexType chunk_hint, IndexType* out_index_in_chunk_vec) {
   const auto num_chunks = static_cast<IndexType>(num_offsets - 1);
   // chunk_hint in [0, num_offsets) per the precondition.
   for (int64_t i = 0; i < n_indices; i++) {
