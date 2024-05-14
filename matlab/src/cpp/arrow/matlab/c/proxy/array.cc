@@ -46,5 +46,13 @@ namespace arrow::matlab::c::proxy {
     return std::make_shared<Array>();
   }
 
+  void getAddress(libmexclass::proxy::method::Context& context) {
+    namespace mda = ::matlab::data;
+    
+    mda::ArrayFactory factory;
+    auto address = reinterpret_cast<uint64_t>(arrowArray.get());
+    context.outputs[0] = factory.createScalar(address);
+  }
+
 
 } // namespace arrow::matlab::c::proxy
