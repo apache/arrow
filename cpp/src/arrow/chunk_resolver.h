@@ -173,7 +173,7 @@ struct ARROW_EXPORT ChunkResolver {
   ///       out_chunk_index_vec[i] == chunks.size()
   ///       and out_index_in_chunk_vec[i] is undefined (can be out-of-bounds)
   ///
-  /// \param n The number of logical indices to resolve
+  /// \param n_indices The number of logical indices to resolve
   /// \param logical_index_vec The logical indices to resolve
   /// \param out_chunk_index_vec The output array where the chunk indices will be written
   /// \param chunk_hint 0 or the last chunk_index produced by ResolveMany
@@ -181,20 +181,25 @@ struct ARROW_EXPORT ChunkResolver {
   ///                               within-chunk indices will be written
   /// \return false iff chunks.size() > std::numeric_limits<IndexType>::max()
   template <typename IndexType>
-  [[nodiscard]] std::enable_if_t<std::is_unsigned_v<IndexType>, bool> ResolveMany(
-      int64_t n, const IndexType* ARROW_RESTRICT logical_index_vec,
+  [[nodiscard]] bool ResolveMany(
+      int64_t n_indices, const IndexType* ARROW_RESTRICT logical_index_vec,
       IndexType* ARROW_RESTRICT out_chunk_index_vec, IndexType chunk_hint = 0,
       IndexType* ARROW_RESTRICT out_index_in_chunk_vec = NULLPTR) const {
+    static_assert(std::is_unsigned_v<IndexType>);
     if constexpr (sizeof(IndexType) < sizeof(uint64_t)) {
       // The max value returned by Bisect is `offsets.size() - 1` (= chunks.size()).
-      constexpr auto kMaxIndexTypeValue = std::numeric_limits<IndexType>::max();
+      constexpr uint64_t kMaxIndexTypeValue = std::numeric_limits<IndexType>::max();
+      // A ChunkedArray with enough empty chunks can make the index of a chunk
+      // exceed the logical index and thus the maximum value of IndexType.
       const bool chunk_index_fits_on_type =
           static_cast<uint64_t>(offsets_.size() - 1) <= kMaxIndexTypeValue;
       if (ARROW_PREDICT_FALSE(!chunk_index_fits_on_type)) {
         return false;
       }
+      // Since an index-in-chunk cannot possibly exceed the logical index being
+      // queried, we don't have to worry about these values not fitting on IndexType.
     }
-    ResolveManyImpl(n, logical_index_vec, out_chunk_index_vec, chunk_hint,
+    ResolveManyImpl(n_indices, logical_index_vec, out_chunk_index_vec, chunk_hint,
                     out_index_in_chunk_vec);
     return true;
   }
@@ -226,10 +231,10 @@ struct ARROW_EXPORT ChunkResolver {
 
   /// \pre all the pre-conditions of ChunkResolver::ResolveMany()
   /// \pre num_offsets - 1 <= std::numeric_limits<IndexType>::max()
-  void ResolveManyImpl(int64_t n, const uint8_t*, uint8_t*, uint8_t, uint8_t*) const;
-  void ResolveManyImpl(int64_t n, const uint16_t*, uint16_t*, uint16_t, uint16_t*) const;
-  void ResolveManyImpl(int64_t n, const uint32_t*, uint32_t*, uint32_t, uint32_t*) const;
-  void ResolveManyImpl(int64_t n, const uint64_t*, uint64_t*, uint64_t, uint64_t*) const;
+  void ResolveManyImpl(int64_t, const uint8_t*, uint8_t*, uint8_t, uint8_t*) const;
+  void ResolveManyImpl(int64_t, const uint16_t*, uint16_t*, uint16_t, uint16_t*) const;
+  void ResolveManyImpl(int64_t, const uint32_t*, uint32_t*, uint32_t, uint32_t*) const;
+  void ResolveManyImpl(int64_t, const uint64_t*, uint64_t*, uint64_t, uint64_t*) const;
 
  public:
   /// \brief Find the index of the chunk that contains the logical index.

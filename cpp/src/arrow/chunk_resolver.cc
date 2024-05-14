@@ -59,13 +59,14 @@ inline std::vector<int64_t> MakeChunksOffsets(const std::vector<T>& chunks) {
 /// \pre num_offsets - 1 <= std::numeric_limits<IndexType>::max()
 template <typename IndexType>
 void ResolveManyInline(size_t num_offsets, const int64_t* ARROW_RESTRICT offsets,
-                       int64_t n, const IndexType* ARROW_RESTRICT logical_index_vec,
+                       int64_t n_indices,
+                       const IndexType* ARROW_RESTRICT logical_index_vec,
                        IndexType* ARROW_RESTRICT out_chunk_index_vec,
                        IndexType chunk_hint,
                        IndexType* ARROW_RESTRICT out_index_in_chunk_vec) {
   const auto num_chunks = static_cast<IndexType>(num_offsets - 1);
   // chunk_hint in [0, num_offsets) per the precondition.
-  for (int64_t i = 0; i < n; i++) {
+  for (int64_t i = 0; i < n_indices; i++) {
     const auto index = static_cast<uint64_t>(logical_index_vec[i]);
     if (index >= static_cast<uint64_t>(offsets[chunk_hint]) &&
         (chunk_hint == num_chunks ||
@@ -80,7 +81,7 @@ void ResolveManyInline(size_t num_offsets, const int64_t* ARROW_RESTRICT offsets
     out_chunk_index_vec[i] = chunk_hint;
   }
   if (out_index_in_chunk_vec != NULLPTR) {
-    for (int64_t i = 0; i < n; i++) {
+    for (int64_t i = 0; i < n_indices; i++) {
       auto logical_index = logical_index_vec[i];
       auto chunk_index = out_chunk_index_vec[i];
       // chunk_index is in [0, chunks.size()] no matter what the
@@ -130,31 +131,31 @@ ChunkResolver& ChunkResolver::operator=(const ChunkResolver& other) noexcept {
   return *this;
 }
 
-void ChunkResolver::ResolveManyImpl(int64_t n, const uint8_t* logical_index_vec,
+void ChunkResolver::ResolveManyImpl(int64_t n_indices, const uint8_t* logical_index_vec,
                                     uint8_t* out_chunk_index_vec, uint8_t chunk_hint,
                                     uint8_t* out_index_in_chunk_vec) const {
-  ResolveManyInline(offsets_.size(), offsets_.data(), n, logical_index_vec,
+  ResolveManyInline(offsets_.size(), offsets_.data(), n_indices, logical_index_vec,
                     out_chunk_index_vec, chunk_hint, out_index_in_chunk_vec);
 }
 
-void ChunkResolver::ResolveManyImpl(int64_t n, const uint32_t* logical_index_vec,
+void ChunkResolver::ResolveManyImpl(int64_t n_indices, const uint32_t* logical_index_vec,
                                     uint32_t* out_chunk_index_vec, uint32_t chunk_hint,
                                     uint32_t* out_index_in_chunk_vec) const {
-  ResolveManyInline(offsets_.size(), offsets_.data(), n, logical_index_vec,
+  ResolveManyInline(offsets_.size(), offsets_.data(), n_indices, logical_index_vec,
                     out_chunk_index_vec, chunk_hint, out_index_in_chunk_vec);
 }
 
-void ChunkResolver::ResolveManyImpl(int64_t n, const uint16_t* logical_index_vec,
+void ChunkResolver::ResolveManyImpl(int64_t n_indices, const uint16_t* logical_index_vec,
                                     uint16_t* out_chunk_index_vec, uint16_t chunk_hint,
                                     uint16_t* out_index_in_chunk_vec) const {
-  ResolveManyInline(offsets_.size(), offsets_.data(), n, logical_index_vec,
+  ResolveManyInline(offsets_.size(), offsets_.data(), n_indices, logical_index_vec,
                     out_chunk_index_vec, chunk_hint, out_index_in_chunk_vec);
 }
 
-void ChunkResolver::ResolveManyImpl(int64_t n, const uint64_t* logical_index_vec,
+void ChunkResolver::ResolveManyImpl(int64_t n_indices, const uint64_t* logical_index_vec,
                                     uint64_t* out_chunk_index_vec, uint64_t chunk_hint,
                                     uint64_t* out_index_in_chunk_vec) const {
-  ResolveManyInline(offsets_.size(), offsets_.data(), n, logical_index_vec,
+  ResolveManyInline(offsets_.size(), offsets_.data(), n_indices, logical_index_vec,
                     out_chunk_index_vec, chunk_hint, out_index_in_chunk_vec);
 }
 
