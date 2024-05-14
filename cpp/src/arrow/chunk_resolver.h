@@ -52,7 +52,6 @@ struct ChunkLocation {
 
   ChunkLocation() = default;
 
- public:
   template <class ChunkResolver>
   ChunkLocation(const ChunkResolver& resolver, int64_t chunk_index,
                 int64_t index_in_chunk)
