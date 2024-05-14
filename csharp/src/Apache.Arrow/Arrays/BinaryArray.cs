@@ -383,8 +383,8 @@ namespace Apache.Arrow
 
         int ICollection<byte[]>.Count => Length;
         bool ICollection<byte[]>.IsReadOnly => true;
-        void ICollection<byte[]>.Add(byte[]? item) => throw new NotSupportedException("Collection is read-only.");
-        bool ICollection<byte[]>.Remove(byte[]? item) => throw new NotSupportedException("Collection is read-only.");
+        void ICollection<byte[]>.Add(byte[] item) => throw new NotSupportedException("Collection is read-only.");
+        bool ICollection<byte[]>.Remove(byte[] item) => throw new NotSupportedException("Collection is read-only.");
         void ICollection<byte[]>.Clear() => throw new NotSupportedException("Collection is read-only.");
 
         bool ICollection<byte[]>.Contains(byte[] item)
