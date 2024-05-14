@@ -64,6 +64,10 @@ import org.apache.arrow.vector.util.TransferPair;
  * </ol>
  * The latter three are managed by its superclass.
  */
+
+/*
+* TODO: consider merging the functionality in `BaseRepeatedValueVector` into this class.
+*/
 public class ListViewVector extends BaseRepeatedValueViewVector implements PromotableVector {
 
   protected ArrowBuf validityBuffer;
@@ -259,7 +263,11 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
   public boolean allocateNewSafe() {
     boolean success = false;
     try {
-      /* release the current buffers, hence this is a new allocation */
+      /* release the current buffers, hence this is a new allocation
+      * Note that, the `clear` method call below is releasing validityBuffer
+      * calling the superclass clear method which is releasing the associated buffers
+      * (sizeBuffer and offsetBuffer).
+      */
       clear();
       /* allocate validity buffer */
       allocateValidityBuffer(validityAllocationSizeInBytes);
@@ -519,6 +527,7 @@ public class ListViewVector extends BaseRepeatedValueViewVector implements Promo
   */
   @Override
   public void clear() {
+    // calling superclass clear method which is releasing the sizeBufer and offsetBuffer
     super.clear();
     validityBuffer = releaseBuffer(validityBuffer);
   }
