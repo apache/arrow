@@ -39,6 +39,7 @@ namespace arrow::matlab::c::proxy {
   Array::~Array() {
     if (arrowArray && arrowArray->released != nullptr) {
       arrowArray->release(arrowArray.get());
+      arrowArray->release = nullptr;
     }
   }
 
@@ -54,5 +55,5 @@ namespace arrow::matlab::c::proxy {
     context.outputs[0] = factory.createScalar(address);
   }
 
-
 } // namespace arrow::matlab::c::proxy
+
