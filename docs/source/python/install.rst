@@ -114,19 +114,34 @@ contrast to PyPi, where only a single PyArrow package is provided.
 The purpose of this split is to minimize the size of the installed package for
 most users (``pyarrow``), provide a smaller, minimal package for specialized use
 cases (``pyarrow-core``), while still providing a complete package for users who
-require it (``pyarrow-all``).
+require it (``pyarrow-all``). What was historically ``pyarrow`` on
+`conda-forge <https://conda-forge.org/>`_ is now ``pyarrow-all``, though most
+users can continue using ``pyarrow``.
 
 The ``pyarrow-core`` package includes the following functionality:
 
-- Data Types
-- Compute Functions (i.e., ``pyarrow.compute``)
-- Memory and I/O interfaces
-- Streaming, Serialization, and IPC (i.e., ``pyarrow.ipc``)
-- Filesystem Interfaces (HDFS, S3, GCS, etc.)
-- File formats: Arrow/Feather, JSON, CSV, ORC (but not Parquet)
+- :ref:`data`
+- :ref:`compute` (i.e., ``pyarrow.compute``)
+- :ref:`io`
+- :ref:`ipc` (i.e., ``pyarrow.ipc``)
+- :ref:`filesystem` (HDFS, S3, GCS, etc.)
+- File formats: :ref:`Arrow/Feather<feather>`, :ref:`JSON<json>`, :ref:`CSV<py-csv>`, :ref:`ORC<orc>` (but not Parquet)
 
-The table below lists the functionality provided by each package and may be
-useful when deciding to use one package over another:
+The ``pyarrow`` package adds the following:
+
+- Acero
+- :ref:`dataset` (i.e., ``pyarrow.dataset``)
+- :ref:`Parquet<parquet>` (i.e., ``pyarrow.parquet``)
+- Substrait
+
+Finally, ``pyarrow-all`` adds:
+
+- :ref:`flight` and Flight SQL (i.e., ``pyarrow.flight``)
+- Gandiva
+
+The following table lists the functionality provided by each package and may be
+useful when deciding to use one package over another or when
+:ref:`python-conda-custom-selection`.
 
 +------------+---------------------+--------------+---------+-------------+
 | Component  | Package             | pyarrow-core | pyarrow | pyarrow-all |
@@ -148,12 +163,14 @@ useful when deciding to use one package over another:
 | Gandiva    | libarrow-gandiva    |              |         | ✓           |
 +------------+---------------------+--------------+---------+-------------+
 
-Creating Custom Selections
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. _python-conda-custom-selection:
+
+Creating A Custom Selection
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If you know which components you need and want to control what's installed, you
-can create a custom selection of packages to include just the extra features you
-need. For example, to install ``pyarrow-core`` and just support for reading and
+can create a custom selection of packages to include only the extra features you
+need. For example, to install ``pyarrow-core`` and add support for reading and
 writing Parquet, install ``libparquet`` alongside ``pyarrow-core``:
 
 .. code-block:: shell
