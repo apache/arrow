@@ -1249,8 +1249,6 @@ class AsyncioCall:
 cdef class AsyncioFlightClient:
     """
     A FlightClient with an asyncio-based async interface.
-
-    This interface is EXPERIMENTAL.
     """
 
     cdef:
