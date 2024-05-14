@@ -99,20 +99,15 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
   }
 
   private void allocateBuffers() {
-    offsetBuffer = allocateBuffers(offsetAllocationSizeInBytes, true);
-    sizeBuffer = allocateBuffers(sizeAllocationSizeInBytes, false);
+    offsetBuffer = allocateBuffers(offsetAllocationSizeInBytes);
+    sizeBuffer = allocateBuffers(sizeAllocationSizeInBytes);
   }
 
-  private ArrowBuf allocateBuffers(final long size, boolean isOffSet) {
+  private ArrowBuf allocateBuffers(final long size) {
     final int curSize = (int) size;
     ArrowBuf buffer = allocator.buffer(curSize);
     buffer.readerIndex(0);
     buffer.setZero(0, buffer.capacity());
-    if (isOffSet) {
-      offsetAllocationSizeInBytes = curSize;
-    } else {
-      sizeAllocationSizeInBytes = curSize;
-    }
     return buffer;
   }
 
