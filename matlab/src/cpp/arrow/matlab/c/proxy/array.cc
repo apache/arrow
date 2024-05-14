@@ -34,10 +34,10 @@ namespace arrow::matlab::c::proxy {
     }
   };
 
-  Array::Array() : arrowArray{std::shared_ptr<ArrowArrayPtr>(new ArrowArray(), ArrowArrayDeleter())} {}
+  Array::Array() : arrowArray{ArrowArrayPtr(new ArrowArray(), ArrowArrayDeleter())} {}
 
   Array::~Array() {
-    if (arrowArray && arrowArray->released != nullptr) {
+    if (arrowArray && arrowArray->release != nullptr) {
       arrowArray->release(arrowArray.get());
       arrowArray->release = nullptr;
     }
@@ -47,7 +47,7 @@ namespace arrow::matlab::c::proxy {
     return std::make_shared<Array>();
   }
 
-  void getAddress(libmexclass::proxy::method::Context& context) {
+  void Array::getAddress(libmexclass::proxy::method::Context& context) {
     namespace mda = ::matlab::data;
     
     mda::ArrayFactory factory;
