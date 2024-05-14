@@ -23,7 +23,7 @@
 
 namespace arrow::matlab::c::proxy {
 
-Array::Array() : arrowArray{(struct ArrowArray*)malloc(sizeof(struct ArrowArray*))} {
+Array::Array() : arrowArray{(struct ArrowArray*)malloc(sizeof(struct ArrowArray))} {
   REGISTER_METHOD(Array, getAddress);
 }
 
