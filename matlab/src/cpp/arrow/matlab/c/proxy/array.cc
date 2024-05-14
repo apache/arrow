@@ -31,7 +31,9 @@ namespace arrow::matlab::c::proxy {
     }
   };
 
-  Array::Array() : arrowArray{ArrowArrayPtr(new ArrowArray(), ArrowArrayDeleter())} {}
+  Array::Array() : arrowArray{ArrowArrayPtr(new ArrowArray(), ArrowArrayDeleter())} {
+    REGISTER_METHOD(Array, getAddress);
+  }
 
   Array::~Array() {
     if (arrowArray && arrowArray->release != nullptr) {
@@ -53,4 +55,3 @@ namespace arrow::matlab::c::proxy {
   }
 
 } // namespace arrow::matlab::c::proxy
-
