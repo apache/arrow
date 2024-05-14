@@ -466,6 +466,9 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
     final int prefixWidth = BaseVariableWidthViewVector.PREFIX_WIDTH;
     final int bufIndexWidth = BaseVariableWidthViewVector.BUF_INDEX_WIDTH;
 
+    List<ArrowBuf> leftDataBuffers = leftVector.getDataBuffers();
+    List<ArrowBuf> rightDataBuffers = rightVector.getDataBuffers();
+
     for (int i = 0; i < range.getLength(); i++) {
       int leftIndex = range.getLeftStart() + i;
       int rightIndex = range.getRightStart() + i;
@@ -475,19 +478,9 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
         return false;
       }
 
-      int startIndexLeft = leftIndex * elementSize;
-      int endIndexLeft = (leftIndex + 1) * elementSize;
+      int startLeftByteOffset = leftIndex * elementSize;
 
-      int startIndexRight = rightIndex * elementSize;
-      int endIndexRight = (rightIndex + 1) * elementSize;
-
-      // check equality of the view
-      int retView = ByteFunctionHelpers.equal(leftViewBuffer, startIndexLeft, endIndexLeft,
-          rightViewBuffer, startIndexRight, endIndexRight);
-
-      if (retView == 0) {
-        return false;
-      }
+      int startRightByteOffset = rightIndex * elementSize;
 
       int leftDataBufferValueLength = leftVector.getValueLength(leftIndex);
       int rightDataBufferValueLength = rightVector.getValueLength(rightIndex);
@@ -496,18 +489,15 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
         return false;
       }
 
-      // if the value is stored in the dataBuffers
       if (leftDataBufferValueLength > BaseVariableWidthViewVector.INLINE_SIZE) {
-        int leftDataBufferIndex = leftViewBuffer.getInt(startIndexLeft + lengthWidth + prefixWidth);
-        int rightDataBufferIndex = rightViewBuffer.getInt(startIndexRight + lengthWidth + prefixWidth);
-
-        List<ArrowBuf> leftDataBuffers = leftVector.getDataBuffers();
-        List<ArrowBuf> rightDataBuffers = rightVector.getDataBuffers();
+        // if the value is stored in the dataBuffers
+        int leftDataBufferIndex = leftViewBuffer.getInt(startLeftByteOffset + lengthWidth + prefixWidth);
+        int rightDataBufferIndex = rightViewBuffer.getInt(startRightByteOffset + lengthWidth + prefixWidth);
 
         final int leftDataOffset =
-            leftViewBuffer.getInt(startIndexLeft + lengthWidth + prefixWidth + bufIndexWidth);
+            leftViewBuffer.getInt(startLeftByteOffset + lengthWidth + prefixWidth + bufIndexWidth);
         final int rightDataOffset =
-            rightViewBuffer.getInt(startIndexRight + lengthWidth + prefixWidth + bufIndexWidth);
+            rightViewBuffer.getInt(startRightByteOffset + lengthWidth + prefixWidth + bufIndexWidth);
 
         ArrowBuf leftDataBuffer = leftDataBuffers.get(leftDataBufferIndex);
         ArrowBuf rightDataBuffer = rightDataBuffers.get(rightDataBufferIndex);
@@ -516,6 +506,19 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
         int retDataBuf = ByteFunctionHelpers.equal(
             leftDataBuffer, leftDataOffset, leftDataOffset + leftDataBufferValueLength,
             rightDataBuffer, rightDataOffset, rightDataOffset + rightDataBufferValueLength);
+
+        if (retDataBuf == 0) {
+          return false;
+        }
+      } else {
+        // if the value is stored in the view
+        final int leftDataOffset = startLeftByteOffset + lengthWidth;
+        final int rightDataOffset = startRightByteOffset + lengthWidth;
+
+        // check equality in the considered string stored in the view
+        int retDataBuf = ByteFunctionHelpers.equal(
+            leftViewBuffer, leftDataOffset, leftDataOffset + leftDataBufferValueLength,
+            rightViewBuffer, rightDataOffset, rightDataOffset + rightDataBufferValueLength);
 
         if (retDataBuf == 0) {
           return false;

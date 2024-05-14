@@ -138,11 +138,11 @@ public class TestRangeEqualsVisitor {
 
   @Test
   public void testBaseVariableViewVectorRangeEquals() {
-    try (final ViewVarCharVector vector1 = new ViewVarCharVector("varchar", allocator);
-        final ViewVarCharVector vector2 = new ViewVarCharVector("varchar", allocator)) {
+    try (final ViewVarCharVector vector1 = new ViewVarCharVector("varchar1", allocator);
+        final ViewVarCharVector vector2 = new ViewVarCharVector("varchar2", allocator)) {
 
-      setVector(vector1, STR1, STR2, STR4, STR3, STR2, STR5, STR1, STR6);
-      setVector(vector2, STR1, STR2, STR4, STR3, STR2, STR5, STR1, STR6);
+      setVector(vector1, STR1, STR2, STR4, STR3, STR2, STR5, STR1, STR6, STR1, STR2, STR4);
+      setVector(vector2, STR1, STR2, STR4, STR3, STR2, STR5, STR1, STR6, STR1, STR2, STR4);
 
       RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector1, vector2);
       // inclusion of long string in the middle
@@ -151,6 +151,8 @@ public class TestRangeEqualsVisitor {
       assertTrue(visitor.rangeEquals(new Range(2, 2, 4)));
       // inclusion of long string at the end
       assertTrue(visitor.rangeEquals(new Range(4, 4, 4)));
+      // unequal range
+      assertTrue(visitor.rangeEquals(new Range(8, 0, 3)));
     }
   }
 
