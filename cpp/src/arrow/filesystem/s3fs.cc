@@ -1581,7 +1581,8 @@ class ObjectOutputStream final : public io::OutputStream {
         path_(path),
         metadata_(metadata),
         default_metadata_(options.default_metadata),
-        background_writes_(options.background_writes) {}
+        background_writes_(options.background_writes),
+        sanitize_bucket_on_open_(options.sanitize_bucket_on_open) {}
 
   ~ObjectOutputStream() override {
     // For compliance with the rest of the IO stack, Close rather than Abort,
@@ -1636,12 +1637,16 @@ class ObjectOutputStream final : public io::OutputStream {
   }
 
   Status Init() {
-    // Do nothing. We first want to wait until some data is written to decide if we want
-    // to use single part upload (`UploadUsingSingleRequest`) or a multi part upload
-    // (x-times `UploadPart`).
-    upload_state_ = std::make_shared<UploadState>();
-    closed_ = false;
+    // If we can omit sanitizing the bucket when opening the OutputStream, we can use a
+    // single request to upload the data. If sanitization is needed, we use a multi-part
+    // upload and initiate it here to sanitize that writing to the bucket is possible.
+    if (sanitize_bucket_on_open_) {
+      RETURN_NOT_OK(CreateMultipartUpload());
+    } else {
+      upload_state_ = std::make_shared<UploadState>();
+    }
 
+    closed_ = false;
     return Status::OK();
   }
 
@@ -1678,12 +1683,21 @@ class ObjectOutputStream final : public io::OutputStream {
 
   bool ShouldBeMultipartUpload() { return pos_ > kMultiPartUploadThresholdSize; }
 
+  bool IsMultipartUpload() { return ShouldBeMultipartUpload() || is_multipart_created_; }
+
   Status EnsureReadyToFlushFromClose() {
-    if (!ShouldBeMultipartUpload()) {
+    if (IsMultipartUpload()) {
+      if (current_part_) {
+        // Upload last part
+        RETURN_NOT_OK(CommitCurrentPart());
+      }
+
+      // S3 mandates at least one part, upload an empty one if necessary
+      if (part_number_ == 1) {
+        RETURN_NOT_OK(UploadPart("", 0));
+      }
+    } else {
       RETURN_NOT_OK(UploadUsingSingleRequest());
-    } else if (current_part_) {
-      // Upload last part
-      RETURN_NOT_OK(CommitCurrentPart());
     }
 
     return Status::OK();
@@ -1746,7 +1760,7 @@ class ObjectOutputStream final : public io::OutputStream {
     // Wait for in-progress uploads to finish (if async writes are enabled)
     return FlushAsync().Then([self]() {
       if (self->is_multipart_created_) {
-        return self->FinishPartUploadAfterFlush();
+        RETURN_NOT_OK(self->FinishPartUploadAfterFlush());
       }
       return self->CleanupAfterFlush();
     });
@@ -2082,6 +2096,7 @@ class ObjectOutputStream final : public io::OutputStream {
   const std::shared_ptr<const KeyValueMetadata> metadata_;
   const std::shared_ptr<const KeyValueMetadata> default_metadata_;
   const bool background_writes_;
+  const bool sanitize_bucket_on_open_;
 
   Aws::String upload_id_;
   bool closed_ = true;

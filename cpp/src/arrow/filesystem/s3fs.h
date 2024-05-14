@@ -166,6 +166,13 @@ struct ARROW_EXPORT S3Options {
   /// Whether to allow deletion of buckets
   bool allow_bucket_deletion = false;
 
+  /// Whether to sanitize that a bucket can be written to when calling OpenOutputStream.
+  /// Disabling this will lead to less S3 requests issued and is therefore relevant
+  /// for latency-sensitive applications, at the cost of the OutputStream may throwing an
+  /// exception at a later stage (i.e. at writing or closing) if e.g. the bucket does not
+  /// exist.
+  bool sanitize_bucket_on_open = true;
+
   /// \brief Default metadata for OpenOutputStream.
   ///
   /// This will be ignored if non-empty metadata is passed to OpenOutputStream.

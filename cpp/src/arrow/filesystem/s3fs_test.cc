@@ -518,8 +518,13 @@ class TestS3FS : public S3TestMixin {
     AssertFileInfo(infos[11], "empty-bucket", FileType::Directory);
   }
 
-  void TestOpenOutputStream() {
+  void TestOpenOutputStream(bool assert_sanitize_bucket = true) {
     std::shared_ptr<io::OutputStream> stream;
+
+    if (assert_sanitize_bucket) {
+      // Nonexistent
+      ASSERT_RAISES(IOError, fs_->OpenOutputStream("nonexistent-bucket/somefile"));
+    }
 
     // URI
     ASSERT_RAISES(Invalid, fs_->OpenOutputStream("s3:bucket/newfile1"));
@@ -1194,10 +1199,36 @@ TEST_F(TestS3FS, OpenOutputStreamSyncWrites) {
   TestOpenOutputStream();
 }
 
+TEST_F(TestS3FS, OpenOutputStreamNoBucketSanitizationSyncWrites) {
+  options_.sanitize_bucket_on_open = false;
+  MakeFileSystem();
+  TestOpenOutputStream(false);
+}
+
+TEST_F(TestS3FS, OpenOutputStreamNoBucketSanitizationBackgroundWrites) {
+  options_.sanitize_bucket_on_open = false;
+  options_.background_writes = true;
+  MakeFileSystem();
+  TestOpenOutputStream(false);
+}
+
 TEST_F(TestS3FS, OpenOutputStreamAbortBackgroundWrites) { TestOpenOutputStreamAbort(); }
 
 TEST_F(TestS3FS, OpenOutputStreamAbortSyncWrites) {
   options_.background_writes = false;
+  MakeFileSystem();
+  TestOpenOutputStreamAbort();
+}
+
+TEST_F(TestS3FS, OpenOutputStreamAbortNoBucketSanitizationSyncWrites) {
+  options_.sanitize_bucket_on_open = false;
+  MakeFileSystem();
+  TestOpenOutputStreamAbort();
+}
+
+TEST_F(TestS3FS, OpenOutputStreamAbortNoBucketSanitizationBackgroundWrites) {
+  options_.sanitize_bucket_on_open = false;
+  options_.background_writes = true;
   MakeFileSystem();
   TestOpenOutputStreamAbort();
 }
@@ -1212,12 +1243,38 @@ TEST_F(TestS3FS, OpenOutputStreamDestructorSyncWrite) {
   TestOpenOutputStreamDestructor();
 }
 
+TEST_F(TestS3FS, OpenOutputStreamDestructorNoBucketSanitizationSyncWrites) {
+  options_.sanitize_bucket_on_open = false;
+  MakeFileSystem();
+  TestOpenOutputStreamDestructor();
+}
+
+TEST_F(TestS3FS, OpenOutputStreamDestructorNoBucketSanitizationBackgroundWrites) {
+  options_.sanitize_bucket_on_open = false;
+  options_.background_writes = true;
+  MakeFileSystem();
+  TestOpenOutputStreamDestructor();
+}
+
 TEST_F(TestS3FS, OpenOutputStreamAsyncDestructorBackgroundWrites) {
   TestOpenOutputStreamCloseAsyncDestructor();
 }
 
 TEST_F(TestS3FS, OpenOutputStreamAsyncDestructorSyncWrite) {
   options_.background_writes = false;
+  MakeFileSystem();
+  TestOpenOutputStreamCloseAsyncDestructor();
+}
+
+TEST_F(TestS3FS, OpenOutputStreamAsyncDestructorNoBucketSanitizationSyncWrite) {
+  options_.sanitize_bucket_on_open = false;
+  MakeFileSystem();
+  TestOpenOutputStreamCloseAsyncDestructor();
+}
+
+TEST_F(TestS3FS, OpenOutputStreamAsyncDestructorNoBucketSanitizationBackgroundWrites) {
+  options_.sanitize_bucket_on_open = false;
+  options_.background_writes = true;
   MakeFileSystem();
   TestOpenOutputStreamCloseAsyncDestructor();
 }
