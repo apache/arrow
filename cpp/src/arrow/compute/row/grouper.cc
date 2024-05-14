@@ -600,6 +600,7 @@ struct GrouperFastImpl : public Grouper {
   }
 
   Status Reset() override {
+    ARROW_DCHECK_EQ(temp_stack_.AllocatedSize(), 0);
     rows_.Clean();
     rows_minibatch_.Clean();
     map_.cleanup();
