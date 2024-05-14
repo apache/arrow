@@ -3228,7 +3228,7 @@ TEST(HashJoin, ManyJoins) {
   ASSERT_OK_AND_ASSIGN(
       auto left_batches,
       MakeIntegerBatches({[](int row_id) -> int64_t { return row_id; }},
-                         schema({field("l_key", int8())}),
+                         schema({field("l_key", int32())}),
                          /*num_batches=*/1, /*batch_size=*/num_left_rows));
   Declaration root{"exec_batch_source",
                    ExecBatchSourceNodeOptions(std::move(left_batches.schema),
@@ -3240,7 +3240,7 @@ TEST(HashJoin, ManyJoins) {
   for (int i = 0; i < num_joins; ++i) {
     ASSERT_OK_AND_ASSIGN(auto right_batches,
                          MakeIntegerBatches({[i](int) -> int64_t { return i; }},
-                                            schema({field("r_key", int8())}),
+                                            schema({field("r_key", int32())}),
                                             /*num_batches=*/1, /*batch_size=*/2));
     Declaration table{"exec_batch_source",
                       ExecBatchSourceNodeOptions(std::move(right_batches.schema),
