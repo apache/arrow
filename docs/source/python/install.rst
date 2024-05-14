@@ -107,7 +107,7 @@ a custom path to the database from Python:
 Differences between conda-forge packages
 ----------------------------------------
 
-On `conda-forge <https://conda-forge.org/>`_ , PyArrow is published as three
+On `conda-forge <https://conda-forge.org/>`_, PyArrow is published as three
 separate packages, each providing varying levels of functionality. This is in
 contrast to PyPi, where only a single PyArrow package is provided.
 
