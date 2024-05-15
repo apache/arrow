@@ -252,36 +252,39 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     boolean wasSuccess;
     final Path path = Paths.get("target" + File.separator + "derbyDB");
 
-    try (final Connection connection = DriverManager.getConnection("jdbc:derby:target/derbyDB;create=true");
-         Statement statement = connection.createStatement()) {
-
-      dropTable(statement, "intTable");
-      dropTable(statement, "foreignTable");
-    } catch (final SQLException e) {
-      LOGGER.error(format("Failed attempt to drop tables in DerbyDB: <%s>", e.getMessage()), e);
-      return false;
-    }
-
-    try (final Stream<Path> walk = Files.walk(path)) {
-      /*
-       * Iterate over all paths to delete, mapping each path to the outcome of its own
-       * deletion as a boolean representing whether or not each individual operation was
-       * successful; then reduce all booleans into a single answer, and store that into
-       * `wasSuccess`, which will later be returned by this method.
-       * If for whatever reason the resulting `Stream<Boolean>` is empty, throw an `IOException`;
-       * this not expected.
-       */
-      wasSuccess = walk.sorted(Comparator.reverseOrder()).map(Path::toFile).map(File::delete)
-          .reduce(Boolean::logicalAnd).orElseThrow(IOException::new);
-    } catch (IOException e) {
-      /*
-       * The only acceptable scenario for an `IOException` to be thrown here is if
-       * an attempt to delete an non-existing file takes place -- which should be
-       * alright, since they would be deleted anyway.
-       */
-      if (!(wasSuccess = e instanceof NoSuchFileException)) {
-        LOGGER.error(format("Failed attempt to clear DerbyDB: <%s>", e.getMessage()), e);
+    if (Files.exists(path)) {
+      try (final Connection connection = DriverManager.getConnection("jdbc:derby:target/derbyDB;create=true");
+           Statement statement = connection.createStatement()) {
+        dropTable(statement, "intTable");
+        dropTable(statement, "foreignTable");
+      } catch (final SQLException e) {
+        LOGGER.error(format("Failed attempt to drop tables in DerbyDB: <%s>", e.getMessage()), e);
+        return false;
       }
+
+      try (final Stream<Path> walk = Files.walk(path)) {
+        /*
+         * Iterate over all paths to delete, mapping each path to the outcome of its own
+         * deletion as a boolean representing whether or not each individual operation was
+         * successful; then reduce all booleans into a single answer, and store that into
+         * `wasSuccess`, which will later be returned by this method.
+         * If for whatever reason the resulting `Stream<Boolean>` is empty, throw an `IOException`;
+         * this not expected.
+         */
+        wasSuccess = walk.sorted(Comparator.reverseOrder()).map(Path::toFile).map(File::delete)
+                .reduce(Boolean::logicalAnd).orElseThrow(IOException::new);
+      } catch (IOException e) {
+        /*
+         * The only acceptable scenario for an `IOException` to be thrown here is if
+         * an attempt to delete an non-existing file takes place -- which should be
+         * alright, since they would be deleted anyway.
+         */
+        if (!(wasSuccess = e instanceof NoSuchFileException)) {
+          LOGGER.error(format("Failed attempt to clear DerbyDB: <%s>", e.getMessage()), e);
+        }
+      }
+    } else {
+      return true;
     }
 
     return wasSuccess;
