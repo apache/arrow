@@ -156,6 +156,32 @@ public class TestRangeEqualsVisitor {
       // unequal range
       assertTrue(visitor.rangeEquals(new Range(8, 0, 3)));
       assertFalse(visitor.rangeEquals(new Range(4, 5, 3)));
+
+      // checking the same ranges when nulls are set
+
+      vector1.setNull(1);
+      vector2.setNull(1);
+
+      vector1.setNull(3);
+      vector2.setNull(3);
+
+      vector1.setNull(5);
+      vector2.setNull(5);
+
+      vector1.setNull(9);
+      vector2.setNull(9);
+
+      // inclusion of long string in the middle
+      assertTrue(visitor.rangeEquals(new Range(1, 1, 3)));
+      assertFalse(visitor.rangeEquals(new Range(0, 1, 4)));
+      // inclusion of long string at the start
+      assertTrue(visitor.rangeEquals(new Range(2, 2, 4)));
+      assertFalse(visitor.rangeEquals(new Range(2, 5, 4)));
+      // inclusion of long string at the end
+      assertTrue(visitor.rangeEquals(new Range(4, 4, 4)));
+      // unequal range
+      assertTrue(visitor.rangeEquals(new Range(8, 0, 3)));
+      assertFalse(visitor.rangeEquals(new Range(4, 5, 3)));
     }
   }
 
