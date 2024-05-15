@@ -54,6 +54,7 @@ public class TestFlightSqlStateless extends TestFlightSql {
   @AfterAll
   public static void tearDown() throws Exception {
     close(sqlClient, server, allocator);
+    FlightSqlStatelessExample.removeDerbyDatabaseIfExists();
   }
 
   private static void setUpClientServer() throws Exception {
@@ -68,6 +69,7 @@ public class TestFlightSqlStateless extends TestFlightSql {
     sqlClient = new FlightSqlClient(FlightClient.builder(allocator, clientLocation).build());
   }
 
+  @Override
   @Test
   public void testSimplePreparedStatementResultsWithParameterBinding() throws Exception {
     try (PreparedStatement prepare = sqlClient.prepare("SELECT * FROM intTable WHERE id = ?")) {
@@ -84,12 +86,8 @@ public class TestFlightSqlStateless extends TestFlightSql {
 
         for (FlightEndpoint endpoint: flightInfo.getEndpoints()) {
           try (FlightStream stream = sqlClient.getStream(endpoint.getTicket())) {
-            // TODO: root is null and getSchema hangs when run as complete suite.
-            // This works when run as an individual test.
-            final VectorSchemaRoot root = stream.getRoot();
-            final Schema schema = root.getSchema();
             Assertions.assertAll(
-                () -> MatcherAssert.assertThat(schema, is(SCHEMA_INT_TABLE)),
+                () -> MatcherAssert.assertThat(stream.getSchema(), is(SCHEMA_INT_TABLE)),
                 () -> MatcherAssert.assertThat(getResults(stream), is(EXPECTED_RESULTS_FOR_PARAMETER_BINDING))
             );
           }

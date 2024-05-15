@@ -248,7 +248,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
 
   }
 
-  private static boolean removeDerbyDatabaseIfExists() {
+  public static boolean removeDerbyDatabaseIfExists() {
     boolean wasSuccess;
     final Path path = Paths.get("target" + File.separator + "derbyDB");
 
@@ -777,6 +777,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     } catch (Throwable t) {
       LOGGER.error(format("Failed to close resources: <%s>", t.getMessage()), t);
     }
+
+    // removeDerbyDatabaseIfExists();
 
     AutoCloseables.close(dataSource, rootAllocator);
   }

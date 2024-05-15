@@ -151,6 +151,7 @@ public class TestFlightSql {
   @AfterAll
   public static void tearDown() throws Exception {
     close(sqlClient, server, allocator);
+    FlightSqlExample.removeDerbyDatabaseIfExists();
   }
 
   private static List<List<String>> getNonConformingResultsForGetSqlInfo(final List<? extends List<String>> results) {
