@@ -1869,14 +1869,17 @@ struct ArrayImporter {
   Status ImportStringValuesBuffer(int32_t offsets_buffer_id, int32_t buffer_id,
                                   int64_t byte_width = 1) {
     int64_t last_offset_value_offset =
-        c_struct_->length * sizeof(OffsetType) + c_struct_->offset;
+        (c_struct_->length + c_struct_->offset) * sizeof(OffsetType);
     OffsetType last_offset_value;
     RETURN_NOT_OK(MemoryManager::CopyBufferSlice(
         data_->buffers[offsets_buffer_id], last_offset_value_offset, sizeof(OffsetType),
         reinterpret_cast<uint8_t*>(&last_offset_value)));
 
-    // Compute visible size of buffer
-    int64_t buffer_size = (c_struct_->length > 0) ? byte_width * last_offset_value : 0;
+    int64_t buffer_size = 0;
+    if (c_struct_->length > 0) {
+      // Compute visible size of buffer
+      buffer_size = (c_struct_->length > 0) ? byte_width * last_offset_value : 0;
+    }
 
     return ImportBuffer(buffer_id, buffer_size);
   }

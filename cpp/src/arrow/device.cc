@@ -119,9 +119,6 @@ Result<std::shared_ptr<Buffer>> MemoryManager::ViewBuffer(
 Status MemoryManager::CopyBufferSlice(const std::shared_ptr<Buffer>& buf, int64_t offset,
                                       int64_t length, uint8_t* out_data) {
   if (ARROW_PREDICT_TRUE(buf->is_cpu())) {
-    int64_t test;
-    memcpy(&test, buf->data() + offset, static_cast<size_t>(length));
-
     memcpy(out_data, buf->data() + offset, static_cast<size_t>(length));
     return Status::OK();
   }
