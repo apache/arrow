@@ -38,6 +38,8 @@ class ARROW_EXPORT TempVectorStack {
   friend class TempVectorHolder;
 
  public:
+  // ~TempVectorStack() = default;
+
   Status Init(MemoryPool* pool, int64_t size);
 
   int64_t AllocatedSize() const { return top_; }
@@ -51,8 +53,6 @@ class ARROW_EXPORT TempVectorStack {
 
   void alloc(uint32_t num_bytes, uint8_t** data, int* id);
   void release(int id, uint32_t num_bytes);
-  static constexpr uint64_t kGuard1 = 0x3141592653589793ULL;
-  static constexpr uint64_t kGuard2 = 0x0577215664901532ULL;
   static constexpr int64_t kPadding = 64;
   int num_vectors_;
   int64_t top_;
