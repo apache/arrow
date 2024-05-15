@@ -21,11 +21,11 @@
 
 namespace arrow::matlab::c::proxy {
 
-class Array : public libmexclass::proxy::Proxy {
+class Schema : public libmexclass::proxy::Proxy {
  public:
-  Array();
+  Schema();
 
-  ~Array();
+  ~Schema();
 
   static libmexclass::proxy::MakeResult make(
       const libmexclass::proxy::FunctionArguments& constructor_arguments);
@@ -33,7 +33,7 @@ class Array : public libmexclass::proxy::Proxy {
  protected:
   void getAddress(libmexclass::proxy::method::Context& context);
 
-  struct ArrowArray arrowArray;
+  struct ArrowSchema arrowSchema;
 };
 
 }  // namespace arrow::matlab::c::proxy

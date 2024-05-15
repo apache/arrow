@@ -15,25 +15,35 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cstddef>
 #include "arrow/c/abi.h"
+
+#include "arrow/matlab/c/proxy/schema.h"
 
 #include "libmexclass/proxy/Proxy.h"
 
 namespace arrow::matlab::c::proxy {
 
-class Array : public libmexclass::proxy::Proxy {
- public:
-  Array();
+Schema::Schema() : arrowSchema{} { REGISTER_METHOD(Schema, getAddress); }
 
-  ~Array();
+Schema::~Schema() {
+  if (arrowSchema.release != NULL) {
+    arrowSchema.release(&arrowSchema);
+    arrowSchema.release = NULL;
+  }
+}
 
-  static libmexclass::proxy::MakeResult make(
-      const libmexclass::proxy::FunctionArguments& constructor_arguments);
+libmexclass::proxy::MakeResult Schema::make(
+    const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+  return std::make_shared<Schema>();
+}
 
- protected:
-  void getAddress(libmexclass::proxy::method::Context& context);
+void Schema::getAddress(libmexclass::proxy::method::Context& context) {
+  namespace mda = ::matlab::data;
 
-  struct ArrowArray arrowArray;
-};
+  mda::ArrayFactory factory;
+  auto address = reinterpret_cast<uint64_t>(&arrowSchema);
+  context.outputs[0] = factory.createScalar(address);
+}
 
 }  // namespace arrow::matlab::c::proxy
