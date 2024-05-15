@@ -53,6 +53,49 @@ Result<std::shared_ptr<Array>> NestedListGenerator::NestedListArray(
   return NestedListArray(builder.get(), list_sizes, length);
 }
 
+Status NestedListGenerator::AppendNestedList(ArrayBuilder* nested_builder,
+                                             const int* list_sizes,
+                                             int64_t* next_inner_value) {
+  using ::arrow::internal::checked_cast;
+  ArrayBuilder* builder = nested_builder;
+  auto type = builder->type();
+  if (type->id() == Type::FIXED_SIZE_LIST || type->id() == Type::LIST) {
+    const int list_size = *list_sizes;
+    if (type->id() == Type::FIXED_SIZE_LIST) {
+      auto* fsl_builder = checked_cast<FixedSizeListBuilder*>(builder);
+      assert(list_size == checked_cast<FixedSizeListType&>(*type).list_size());
+      RETURN_NOT_OK(fsl_builder->Append());
+      builder = fsl_builder->value_builder();
+    } else {  // type->id() == Type::LIST)
+      auto* list_builder = checked_cast<ListBuilder*>(builder);
+      RETURN_NOT_OK(list_builder->Append(/*is_valid=*/true, list_size));
+      builder = list_builder->value_builder();
+    }
+    list_sizes++;
+    for (int i = 0; i < list_size; i++) {
+      RETURN_NOT_OK(AppendNestedList(builder, list_sizes, next_inner_value));
+    }
+  } else {
+    switch (type->id()) {
+      case Type::INT8:
+        RETURN_NOT_OK(AppendNumeric<Int8Type>(builder, next_inner_value));
+        break;
+      case Type::INT16:
+        RETURN_NOT_OK(AppendNumeric<Int16Type>(builder, next_inner_value));
+        break;
+      case Type::INT32:
+        RETURN_NOT_OK(AppendNumeric<Int32Type>(builder, next_inner_value));
+        break;
+      case Type::INT64:
+        RETURN_NOT_OK(AppendNumeric<Int64Type>(builder, next_inner_value));
+        break;
+      default:
+        return Status::NotImplemented("Unsupported type: ", *type);
+    }
+  }
+  return Status::OK();
+}
+
 Result<std::shared_ptr<Array>> NestedListGenerator::NestedListArray(
     ArrayBuilder* nested_builder, const std::vector<int>& list_sizes, int64_t length) {
   int64_t next_inner_value = 0;
