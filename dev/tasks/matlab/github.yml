@@ -117,8 +117,8 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: matlab-arrow-macos.tar.gz
-          path: matlab-arrow-macos.tar.gz
+          name: matlab-arrow-macos-arm64.tar.gz
+          path: matlab-arrow-macos-arm64.tar.gz
 
   windows:
     name: AMD64 Windows 2022 MATLAB
