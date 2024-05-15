@@ -25,6 +25,7 @@
 #include "arrow/matlab/array/proxy/time64_array.h"
 #include "arrow/matlab/array/proxy/timestamp_array.h"
 #include "arrow/matlab/buffer/proxy/buffer.h"
+#include "arrow/matlab/c/proxy/array.h"
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/io/csv/proxy/table_reader.h"
 #include "arrow/matlab/io/csv/proxy/table_writer.h"
@@ -99,6 +100,7 @@ libmexclass::proxy::MakeResult Factory::make_proxy(
   REGISTER_PROXY(arrow.io.feather.proxy.Reader   , arrow::matlab::io::feather::proxy::Reader);
   REGISTER_PROXY(arrow.io.csv.proxy.TableWriter  , arrow::matlab::io::csv::proxy::TableWriter);
   REGISTER_PROXY(arrow.io.csv.proxy.TableReader  , arrow::matlab::io::csv::proxy::TableReader);
+  REGISTER_PROXY(arrow.c.proxy.Array             , arrow::matlab::c::proxy::Array);
   // clang-format on
 
   return libmexclass::error::Error{error::UNKNOWN_PROXY_ERROR_ID,
