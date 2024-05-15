@@ -88,7 +88,7 @@ public class TypeEqualsVisitor implements VectorVisitor<Boolean, Void> {
 
   @Override
   public Boolean visit(BaseVariableWidthViewVector left, Void value) {
-    throw new UnsupportedOperationException("View vectors are not supported.");
+    return compareField(left.getField(), right.getField());
   }
 
   @Override
