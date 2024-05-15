@@ -208,7 +208,7 @@ public class JsonFileWriter implements AutoCloseable {
   }
 
   private void writeFromVectorIntoJson(Field field, FieldVector vector) throws IOException {
-    List<BufferType> vectorTypes = TypeLayout.getTypeLayout(field.getType()).getBufferTypes();
+    List<BufferType> vectorTypes = TypeLayout.getTypeLayout(field.getType(), vector).getBufferTypes();
     List<ArrowBuf> vectorBuffers = vector.getFieldBuffers();
     if (vectorTypes.size() != vectorBuffers.size()) {
       throw new IllegalArgumentException("vector types and inner vector buffers are not the same size: " +

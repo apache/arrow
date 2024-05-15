@@ -98,7 +98,7 @@ public class VectorLoader {
       CompressionCodec codec) {
     checkArgument(nodes.hasNext(), "no more field nodes for field %s and vector %s", field, vector);
     ArrowFieldNode fieldNode = nodes.next();
-    int bufferLayoutCount = TypeLayout.getTypeBufferCount(field.getType());
+    int bufferLayoutCount = TypeLayout.getTypeBufferCount(field.getType(), vector);
     List<ArrowBuf> ownBuffers = new ArrayList<>(bufferLayoutCount);
     for (int j = 0; j < bufferLayoutCount; j++) {
       ArrowBuf nextBuf = buffers.next();
