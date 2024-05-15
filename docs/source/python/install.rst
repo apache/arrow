@@ -137,7 +137,7 @@ The ``pyarrow`` package adds the following:
 Finally, ``pyarrow-all`` adds:
 
 - :ref:`flight` and Flight SQL (i.e., ``pyarrow.flight``)
-- Gandiva
+- Gandiva  (i.e., ``pyarrow.gandiva``)
 
 The following table lists the functionality provided by each package and may be
 useful when deciding to use one package over another or when
