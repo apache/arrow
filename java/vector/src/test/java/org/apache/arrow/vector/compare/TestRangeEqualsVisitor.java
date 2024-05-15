@@ -138,8 +138,8 @@ public class TestRangeEqualsVisitor {
 
   @Test
   public void testBaseVariableViewVectorRangeEquals() {
-    try (final ViewVarCharVector vector1 = new ViewVarCharVector("varchar1", allocator);
-        final ViewVarCharVector vector2 = new ViewVarCharVector("varchar2", allocator)) {
+    try (final ViewVarCharVector vector1 = new ViewVarCharVector("varchar", allocator);
+        final ViewVarCharVector vector2 = new ViewVarCharVector("varchar", allocator)) {
 
       setVector(vector1, STR1, STR2, STR4, STR3, STR2, STR5, STR1, STR6, STR1, STR2, STR4);
       setVector(vector2, STR1, STR2, STR4, STR3, STR2, STR5, STR1, STR6, STR1, STR2, STR4);
