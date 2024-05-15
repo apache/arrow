@@ -140,11 +140,12 @@ struct ARROW_EXPORT ChunkResolver {
     return ChunkLocation{chunk_index, index - offsets_[chunk_index]};
   }
 
-  /// \brief Resolve `n` logical indices to chunk indices.
+  /// \brief Resolve `n_indices` logical indices to chunk indices.
   ///
-  /// \pre 0 <= logical_index_vec[i] < n (for well-defined and valid chunk index results)
+  /// \pre 0 <= logical_index_vec[i] < logical_array_length()
+  ///      (for well-defined and valid chunk index results)
   /// \pre out_chunk_index_vec has space for `n_indices`
-  /// \post chunk_hint in [0, chunks.size()]
+  /// \pre chunk_hint in [0, chunks.size()]
   /// \post out_chunk_index_vec[i] in [0, chunks.size()] for i in [0, n)
   /// \post if logical_index_vec[i] >= chunked_array.length(), then
   ///       out_chunk_index_vec[i] == chunks.size()
@@ -180,9 +181,11 @@ struct ARROW_EXPORT ChunkResolver {
       // We interpret signed integers as unsigned and avoid having to generate double
       // the amount of binary code to handle each integer width.
       //
-      // Negative logical indices can become large values when cast to unsigned, but
-      // they are gracefully handled by ResolveManyImpl. Although both the chunk index
-      // and the index in chunk values will be undefined in these cases.
+      // Negative logical indices can become large values when cast to unsigned, and
+      // they are gracefully handled by ResolveManyImpl, but both the chunk index
+      // and the index in chunk values will be undefined in these cases. This
+      // happend because int8_t(-1) == uint8_t(255) and 255 could be a valid
+      // logical index in the chunked array.
       using U = std::make_unsigned_t<IndexType>;
       ResolveManyImpl(n_indices, reinterpret_cast<const U*>(logical_index_vec),
                       reinterpret_cast<U*>(out_chunk_index_vec),
