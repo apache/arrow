@@ -34,8 +34,6 @@ class Array : public libmexclass::proxy::Proxy {
   void getAddress(libmexclass::proxy::method::Context& context);
 
   struct ArrowArray arrowArray;
-
-  // struct ArrowArray* arrowArray;
 };
 
 }  // namespace arrow::matlab::c::proxy
