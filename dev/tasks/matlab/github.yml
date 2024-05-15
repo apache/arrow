@@ -95,6 +95,47 @@ jobs:
           name: matlab-arrow-macos.tar.gz
           path: matlab-arrow-macos.tar.gz
 
+macos-arm64:
+    name: ARM64 macOS 14 MATLAB
+    runs-on: macos-14
+    steps:
+      {{ macros.github_checkout_arrow()|indent }}
+      - name: Install ninja-build
+        run: brew install ninja
+      - name: Install MATLAB
+        uses: matlab-actions/setup-matlab@v2
+        with:
+          release: R2024a
+      - name: Build MATLAB Interface
+        env:
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
+        run: arrow/ci/scripts/matlab_build.sh $(pwd)/arrow
+      - name: Add arm64 suffix
+        run: |
+          pushd arrow/matlab/install/arrow_matlab/+libmexclass/+proxy
+          LIBARROW_MAJOR_MINOR_PATCH_DYLIB="$(echo libarrow.*.*.dylib)"
+          LIBARROW_MAJOR_DYLIB="$(find . -name 'libarrow.*.dylib' -type l | xargs basename)"
+          rm ${LIBARROW_MAJOR_DYLIB}
+          rm libarrow.dylib
+          mv ${LIBARROW_MAJOR_MINOR_PATCH_DYLIB} libarrow_arm64.${MAJOR_MINOR_PATCH_VERSION}.dylib
+          mv libarrowproxy.dylib libarrowproxy_arm64.dylib
+          mv libmexclass.dylib libmexclass_arm64.dylib
+          install_name_tool -id @rpath/libmexclass_arm64.dylib libmexclass_arm64.dylib
+          install_name_tool -id @rpath/libarrowproxy_arm64.dylib libarrowproxy_arm64.dylib
+          install_name_tool -id @rpath/libarrow_arm64.${MAJOR_MINOR_PATCH_VERSION}.dylib libarrow_arm64.${MAJOR_MINOR_PATCH_VERSION}.dylib
+          install_name_tool -change @rpath/${LIBARROW_MAJOR_DYLIB} @rpath/libarrow_arm64.${MAJOR_MINOR_PATCH_VERSION}.dylib libarrowproxy_arm64.dylib
+          install_name_tool -change @rpath/libmexclass.dylib @rpath/libmexclass_arm64.dylib libarrowproxy_arm64.dylib
+          install_name_tool -change @rpath/libmexclass.dylib @rpath/libmexclass_arm64.dylib gateway.maca64
+          install_name_tool -change @rpath/libarrowproxy.dylib @rpath/libarrowproxy_arm64.dylib gateway.maca64
+          popd 
+      - name: Compress into single artifact
+        run: tar -cvzf matlab-arrow-macos-arm64.tar.gz arrow/matlab/install/arrow_matlab
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: matlab-arrow-macos.tar.gz
+          path: matlab-arrow-macos.tar.gz
+
   windows:
     name: AMD64 Windows 2022 MATLAB
     runs-on: windows-2022
@@ -130,6 +171,7 @@ jobs:
       - ubuntu
       - macos
       - windows
+      - macos-arm64
     steps:
       {{ macros.github_checkout_arrow(fetch_depth=0)|indent }}
       - name: Download Artifacts
@@ -142,6 +184,7 @@ jobs:
           tar -xzvf matlab-arrow-ubuntu.tar.gz
           tar -xzvf matlab-arrow-macos.tar.gz
           tar -xzvf matlab-arrow-windows.tar.gz
+          tar -xzvf matlab-arrow-macos-arm64.tar.gz
       - name: Copy LICENSE.txt and NOTICE.txt for packaging 
         run: |
           cp arrow/LICENSE.txt arrow/matlab/install/arrow_matlab/LICENSE.txt
