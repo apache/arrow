@@ -240,5 +240,6 @@ static const char* ARRAY_SLICE_NON_POSITIVE_OFFSET =
 static const char* ARRAY_SLICE_NEGATIVE_LENGTH = "arrow:array:slice:NegativeLength";
 static const char* ARRAY_SLICE_FAILED_TO_CREATE_ARRAY_PROXY =
     "arrow:array:slice:FailedToCreateArrayProxy";
+static const char* C_EXPORT_FAILED = "arrow:c:export:ExportFailed";
 
 }  // namespace arrow::matlab::error
