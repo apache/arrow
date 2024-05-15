@@ -92,7 +92,7 @@ public class VectorUnloader {
   private void appendNodes(FieldVector vector, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers) {
     nodes.add(new ArrowFieldNode(vector.getValueCount(), includeNullCount ? vector.getNullCount() : -1));
     List<ArrowBuf> fieldBuffers = vector.getFieldBuffers();
-    int expectedBufferCount = TypeLayout.getTypeBufferCount(vector.getField().getType());
+    int expectedBufferCount = TypeLayout.getTypeBufferCount(vector.getField().getType(), vector);
     if (fieldBuffers.size() != expectedBufferCount) {
       throw new IllegalArgumentException(String.format(
           "wrong number of buffers for field %s in vector %s. found: %s",
