@@ -110,24 +110,8 @@ macos-arm64:
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: arrow/ci/scripts/matlab_build.sh $(pwd)/arrow
-      - name: Add arm64 suffix
-        run: |
-          pushd arrow/matlab/install/arrow_matlab/+libmexclass/+proxy
-          LIBARROW_MAJOR_MINOR_PATCH_DYLIB="$(echo libarrow.*.*.dylib)"
-          LIBARROW_MAJOR_DYLIB="$(find . -name 'libarrow.*.dylib' -type l | xargs basename)"
-          rm ${LIBARROW_MAJOR_DYLIB}
-          rm libarrow.dylib
-          mv ${LIBARROW_MAJOR_MINOR_PATCH_DYLIB} libarrow_arm64.${MAJOR_MINOR_PATCH_VERSION}.dylib
-          mv libarrowproxy.dylib libarrowproxy_arm64.dylib
-          mv libmexclass.dylib libmexclass_arm64.dylib
-          install_name_tool -id @rpath/libmexclass_arm64.dylib libmexclass_arm64.dylib
-          install_name_tool -id @rpath/libarrowproxy_arm64.dylib libarrowproxy_arm64.dylib
-          install_name_tool -id @rpath/libarrow_arm64.${MAJOR_MINOR_PATCH_VERSION}.dylib libarrow_arm64.${MAJOR_MINOR_PATCH_VERSION}.dylib
-          install_name_tool -change @rpath/${LIBARROW_MAJOR_DYLIB} @rpath/libarrow_arm64.${MAJOR_MINOR_PATCH_VERSION}.dylib libarrowproxy_arm64.dylib
-          install_name_tool -change @rpath/libmexclass.dylib @rpath/libmexclass_arm64.dylib libarrowproxy_arm64.dylib
-          install_name_tool -change @rpath/libmexclass.dylib @rpath/libmexclass_arm64.dylib gateway.maca64
-          install_name_tool -change @rpath/libarrowproxy.dylib @rpath/libarrowproxy_arm64.dylib gateway.maca64
-          popd 
+      - name: Update dylib names
+        run: arrow/dev/tasks/matlab/rename_macos_arm64_dylibs.sh arrow/matlab/install/arrow_matlab/+libmexclass/+proxy
       - name: Compress into single artifact
         run: tar -cvzf matlab-arrow-macos-arm64.tar.gz arrow/matlab/install/arrow_matlab
       - name: Upload artifacts
