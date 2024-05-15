@@ -124,7 +124,7 @@ The ``pyarrow-core`` package includes the following functionality:
 - :ref:`compute` (i.e., ``pyarrow.compute``)
 - :ref:`io`
 - :ref:`ipc` (i.e., ``pyarrow.ipc``)
-- :ref:`filesystem` (HDFS, S3, GCS, etc.)
+- :ref:`filesystem` (i.e., ``pyarrow.fs``. Note: It's planned to move cloud fileystems (i.e., :ref:`S3<filesystem-s3>`, :ref:`GCS<filesystem-gcs>`, etc) into ``pyarrow`` in a future release though :ref:`filesystem-localfs` will remain in ``pyarrow-core``.)
 - File formats: :ref:`Arrow/Feather<feather>`, :ref:`JSON<json>`, :ref:`CSV<py-csv>`, :ref:`ORC<orc>` (but not Parquet)
 
 The ``pyarrow`` package adds the following:
