@@ -53,4 +53,13 @@ Result<std::shared_ptr<Array>> NestedListGenerator::NestedListArray(
   return NestedListArray(builder.get(), list_sizes, length);
 }
 
+Result<std::shared_ptr<Array>> NestedListGenerator::NestedListArray(
+    ArrayBuilder* nested_builder, const std::vector<int>& list_sizes, int64_t length) {
+  int64_t next_inner_value = 0;
+  for (int64_t i = 0; i < length; i++) {
+    RETURN_NOT_OK(AppendNestedList(nested_builder, list_sizes.data(), &next_inner_value));
+  }
+  return nested_builder->Finish();
+}
+
 }  // namespace arrow::util::internal
