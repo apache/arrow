@@ -103,7 +103,7 @@ libmexclass::proxy::MakeResult Factory::make_proxy(
   REGISTER_PROXY(arrow.io.csv.proxy.TableWriter  , arrow::matlab::io::csv::proxy::TableWriter);
   REGISTER_PROXY(arrow.io.csv.proxy.TableReader  , arrow::matlab::io::csv::proxy::TableReader);
   REGISTER_PROXY(arrow.c.proxy.Array             , arrow::matlab::c::proxy::Array);
-  REGISTER_PROXY(arrow.c.proxy.Array             , arrow::matlab::c::proxy::ArrayImporter);
+  REGISTER_PROXY(arrow.c.proxy.ArrayImporter     , arrow::matlab::c::proxy::ArrayImporter);
   REGISTER_PROXY(arrow.c.proxy.Schema            , arrow::matlab::c::proxy::Schema);
   // clang-format on
 
