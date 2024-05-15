@@ -1615,6 +1615,8 @@ class ObjectOutputStream final : public io::OutputStream {
   }
 
   Status CreateMultipartUpload() {
+    DCHECK(ShouldBeMultipartUpload() || sanitize_bucket_on_open_);
+
     ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
 
     // Initiate the multi-part upload
@@ -1631,7 +1633,6 @@ class ObjectOutputStream final : public io::OutputStream {
           "CreateMultipartUpload", outcome.GetError());
     }
     upload_id_ = outcome.GetResult().GetUploadId();
-    upload_state_ = std::make_shared<UploadState>();
     is_multipart_created_ = true;
 
     return Status::OK();
@@ -1643,10 +1644,9 @@ class ObjectOutputStream final : public io::OutputStream {
     // upload and initiate it here to sanitize that writing to the bucket is possible.
     if (sanitize_bucket_on_open_) {
       RETURN_NOT_OK(CreateMultipartUpload());
-    } else {
-      upload_state_ = std::make_shared<UploadState>();
     }
 
+    upload_state_ = std::make_shared<UploadState>();
     closed_ = false;
     return Status::OK();
   }
@@ -1682,9 +1682,11 @@ class ObjectOutputStream final : public io::OutputStream {
 
   // OutputStream interface
 
-  bool ShouldBeMultipartUpload() { return pos_ > kMultiPartUploadThresholdSize; }
+  bool ShouldBeMultipartUpload() const { return pos_ > kMultiPartUploadThresholdSize; }
 
-  bool IsMultipartUpload() { return ShouldBeMultipartUpload() || is_multipart_created_; }
+  bool IsMultipartUpload() const {
+    return ShouldBeMultipartUpload() || is_multipart_created_;
+  }
 
   Status EnsureReadyToFlushFromClose() {
     if (IsMultipartUpload()) {
