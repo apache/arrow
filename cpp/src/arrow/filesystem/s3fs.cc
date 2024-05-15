@@ -1559,8 +1559,9 @@ class ObjectInputFile final : public io::RandomAccessFile {
 // (for rational, see: https://github.com/apache/arrow/issues/34363)
 static constexpr int64_t kPartUploadSize = 10 * 1024 * 1024;
 
-// Above this threshold, use a multi-part upload instead of a single request upload.
-static constexpr int64_t kMultiPartUploadThresholdSize = 5 * 1024 * 1024;
+// Above this threshold, use a multi-part upload instead of a single request upload. Only
+// relevant if early sanitization of writing to the bucket is activated.
+static constexpr int64_t kMultiPartUploadThresholdSize = kPartUploadSize - 1;
 
 static_assert(kMultiPartUploadThresholdSize < kPartUploadSize,
               "Multi part upload threshold size must be stricly less than the actual "
