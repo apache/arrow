@@ -252,6 +252,16 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     boolean wasSuccess;
     final Path path = Paths.get("target" + File.separator + "derbyDB");
 
+    try (final Connection connection = DriverManager.getConnection("jdbc:derby:target/derbyDB;create=true");
+         Statement statement = connection.createStatement()) {
+
+      dropTable(statement, "intTable");
+      dropTable(statement, "foreignTable");
+    } catch (final SQLException e) {
+      LOGGER.error(format("Failed attempt to drop tables in DerbyDB: <%s>", e.getMessage()), e);
+      return false;
+    }
+
     try (final Stream<Path> walk = Files.walk(path)) {
       /*
        * Iterate over all paths to delete, mapping each path to the outcome of its own
