@@ -478,50 +478,52 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
         return false;
       }
 
-      int startLeftByteOffset = leftIndex * elementSize;
+      if (!isNull) {
+        int startLeftByteOffset = leftIndex * elementSize;
 
-      int startRightByteOffset = rightIndex * elementSize;
+        int startRightByteOffset = rightIndex * elementSize;
 
-      int leftDataBufferValueLength = leftVector.getValueLength(leftIndex);
-      int rightDataBufferValueLength = rightVector.getValueLength(rightIndex);
+        int leftDataBufferValueLength = leftVector.getValueLength(leftIndex);
+        int rightDataBufferValueLength = rightVector.getValueLength(rightIndex);
 
-      if (leftDataBufferValueLength != rightDataBufferValueLength) {
-        return false;
-      }
-
-      if (leftDataBufferValueLength > BaseVariableWidthViewVector.INLINE_SIZE) {
-        // if the value is stored in the dataBuffers
-        int leftDataBufferIndex = leftViewBuffer.getInt(startLeftByteOffset + lengthWidth + prefixWidth);
-        int rightDataBufferIndex = rightViewBuffer.getInt(startRightByteOffset + lengthWidth + prefixWidth);
-
-        final int leftDataOffset =
-            leftViewBuffer.getInt(startLeftByteOffset + lengthWidth + prefixWidth + bufIndexWidth);
-        final int rightDataOffset =
-            rightViewBuffer.getInt(startRightByteOffset + lengthWidth + prefixWidth + bufIndexWidth);
-
-        ArrowBuf leftDataBuffer = leftDataBuffers.get(leftDataBufferIndex);
-        ArrowBuf rightDataBuffer = rightDataBuffers.get(rightDataBufferIndex);
-
-        // check equality in the considered string stored in the dataBuffers
-        int retDataBuf = ByteFunctionHelpers.equal(
-            leftDataBuffer, leftDataOffset, leftDataOffset + leftDataBufferValueLength,
-            rightDataBuffer, rightDataOffset, rightDataOffset + rightDataBufferValueLength);
-
-        if (retDataBuf == 0) {
+        if (leftDataBufferValueLength != rightDataBufferValueLength) {
           return false;
         }
-      } else {
-        // if the value is stored in the view
-        final int leftDataOffset = startLeftByteOffset + lengthWidth;
-        final int rightDataOffset = startRightByteOffset + lengthWidth;
 
-        // check equality in the considered string stored in the view
-        int retDataBuf = ByteFunctionHelpers.equal(
-            leftViewBuffer, leftDataOffset, leftDataOffset + leftDataBufferValueLength,
-            rightViewBuffer, rightDataOffset, rightDataOffset + rightDataBufferValueLength);
+        if (leftDataBufferValueLength > BaseVariableWidthViewVector.INLINE_SIZE) {
+          // if the value is stored in the dataBuffers
+          int leftDataBufferIndex = leftViewBuffer.getInt(startLeftByteOffset + lengthWidth + prefixWidth);
+          int rightDataBufferIndex = rightViewBuffer.getInt(startRightByteOffset + lengthWidth + prefixWidth);
 
-        if (retDataBuf == 0) {
-          return false;
+          final int leftDataOffset =
+              leftViewBuffer.getInt(startLeftByteOffset + lengthWidth + prefixWidth + bufIndexWidth);
+          final int rightDataOffset =
+              rightViewBuffer.getInt(startRightByteOffset + lengthWidth + prefixWidth + bufIndexWidth);
+
+          ArrowBuf leftDataBuffer = leftDataBuffers.get(leftDataBufferIndex);
+          ArrowBuf rightDataBuffer = rightDataBuffers.get(rightDataBufferIndex);
+
+          // check equality in the considered string stored in the dataBuffers
+          int retDataBuf = ByteFunctionHelpers.equal(
+              leftDataBuffer, leftDataOffset, leftDataOffset + leftDataBufferValueLength,
+              rightDataBuffer, rightDataOffset, rightDataOffset + rightDataBufferValueLength);
+
+          if (retDataBuf == 0) {
+            return false;
+          }
+        } else {
+          // if the value is stored in the view
+          final int leftDataOffset = startLeftByteOffset + lengthWidth;
+          final int rightDataOffset = startRightByteOffset + lengthWidth;
+
+          // check equality in the considered string stored in the view
+          int retDataBuf = ByteFunctionHelpers.equal(
+              leftViewBuffer, leftDataOffset, leftDataOffset + leftDataBufferValueLength,
+              rightViewBuffer, rightDataOffset, rightDataOffset + rightDataBufferValueLength);
+
+          if (retDataBuf == 0) {
+            return false;
+          }
         }
       }
     }
