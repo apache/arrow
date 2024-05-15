@@ -1525,9 +1525,9 @@ class AsofJoinNode : public ExecNode {
 
   // Backpressure counter common to all inputs
   std::atomic<int32_t> backpressure_counter_;
-// Queue for triggering processing of a given input
-// (a false value is a poison pill)
 #ifdef ARROW_ENABLE_THREADING
+  // Queue for triggering processing of a given input
+  // (a false value is a poison pill)
   ConcurrentQueue<bool> process_;
   // Worker thread
   std::thread process_thread_;
