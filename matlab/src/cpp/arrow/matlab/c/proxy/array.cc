@@ -24,9 +24,7 @@
 
 namespace arrow::matlab::c::proxy {
 
-Array::Array() : arrowArray{} {
-  REGISTER_METHOD(Array, getAddress);
-}
+Array::Array() : arrowArray{} { REGISTER_METHOD(Array, getAddress); }
 
 Array::~Array() {
   if (arrowArray.release != NULL) {
