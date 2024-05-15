@@ -132,7 +132,7 @@ The ``pyarrow`` package adds the following:
 - Acero (i.e., ``pyarrow.acero``)
 - :ref:`dataset` (i.e., ``pyarrow.dataset``)
 - :ref:`Parquet<parquet>` (i.e., ``pyarrow.parquet``)
-- Substrait
+- Substrait (i.e., ``pyarrow.substrait``)
 
 Finally, ``pyarrow-all`` adds:
 
