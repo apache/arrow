@@ -19,6 +19,25 @@
 
 namespace arrow::util::internal {
 
+namespace {
+template <typename ArrowType>
+inline Status AppendNumeric(ArrayBuilder* builder, int64_t* next_value) {
+  using NumericBuilder = ::arrow::NumericBuilder<ArrowType>;
+  using value_type = typename NumericBuilder::value_type;
+  auto* numeric_builder = ::arrow::internal::checked_cast<NumericBuilder*>(builder);
+  auto cast_next_value =
+      static_cast<value_type>(*next_value % std::numeric_limits<value_type>::max());
+  RETURN_NOT_OK(numeric_builder->Append(cast_next_value));
+  *next_value += 1;
+  return Status::OK();
+}
+
+template Status AppendNumeric<Int8Type>(ArrayBuilder* builder, int64_t* next_value);
+template Status AppendNumeric<Int16Type>(ArrayBuilder* builder, int64_t* next_value);
+template Status AppendNumeric<Int32Type>(ArrayBuilder* builder, int64_t* next_value);
+template Status AppendNumeric<Int64Type>(ArrayBuilder* builder, int64_t* next_value);
+}  // namespace
+
 std::shared_ptr<DataType> NestedListGenerator::NestedFSLType(
     const std::shared_ptr<DataType>& inner_type, const std::vector<int>& sizes) {
   auto type = inner_type;

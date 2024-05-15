@@ -106,18 +106,6 @@ class NestedListGenerator {
   }
 
  private:
-  template <typename ArrowType>
-  static Status AppendNumeric(ArrayBuilder* builder, int64_t* next_value) {
-    using NumericBuilder = ::arrow::NumericBuilder<ArrowType>;
-    using value_type = typename NumericBuilder::value_type;
-    auto* numeric_builder = ::arrow::internal::checked_cast<NumericBuilder*>(builder);
-    auto cast_next_value =
-        static_cast<value_type>(*next_value % std::numeric_limits<value_type>::max());
-    RETURN_NOT_OK(numeric_builder->Append(cast_next_value));
-    *next_value += 1;
-    return Status::OK();
-  }
-
   // Append([...[[*next_inner_value++, *next_inner_value++, ...]]...])
   static Status AppendNestedList(ArrayBuilder* nested_builder, const int* list_sizes,
                                  int64_t* next_inner_value);
