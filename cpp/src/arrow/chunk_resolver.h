@@ -236,11 +236,18 @@ struct ARROW_EXPORT ChunkResolver {
   /// `chunks.size()`. Which is returned when the logical index is greater or
   /// equal the logical length of the chunked array.
   ///
-  /// \pre index >= 0 (otherwise, when index is negative, lo is returned)
+  /// \pre index >= 0 (otherwise, when index is negative, hi-1 is returned)
   /// \pre lo < hi
   /// \pre lo >= 0 && hi <= offsets_.size()
   static inline int64_t Bisect(int64_t index, const int64_t* offsets, int64_t lo,
                                int64_t hi) {
+    return Bisect(static_cast<uint64_t>(index),
+                  reinterpret_cast<const uint64_t*>(offsets), static_cast<uint64_t>(lo),
+                  static_cast<uint64_t>(hi));
+  }
+
+  static inline int64_t Bisect(uint64_t index, const uint64_t* offsets, uint64_t lo,
+                               uint64_t hi) {
     // Similar to std::upper_bound(), but slightly different as our offsets
     // array always starts with 0.
     auto n = hi - lo;
@@ -248,8 +255,8 @@ struct ARROW_EXPORT ChunkResolver {
     // (lo < hi is guaranteed by the precondition).
     assert(n > 1 && "lo < hi is a precondition of Bisect");
     do {
-      const int64_t m = n >> 1;
-      const int64_t mid = lo + m;
+      const uint64_t m = n >> 1;
+      const uint64_t mid = lo + m;
       if (index >= offsets[mid]) {
         lo = mid;
         n -= m;

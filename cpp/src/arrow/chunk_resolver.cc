@@ -58,16 +58,17 @@ inline std::vector<int64_t> MakeChunksOffsets(const std::vector<T>& chunks) {
 /// \pre all the pre-conditions of ChunkResolver::ResolveMany()
 /// \pre num_offsets - 1 <= std::numeric_limits<IndexType>::max()
 template <typename IndexType>
-void ResolveManyInline(size_t num_offsets, const int64_t* offsets, int64_t n_indices,
-                       const IndexType* logical_index_vec, IndexType* out_chunk_index_vec,
-                       IndexType chunk_hint, IndexType* out_index_in_chunk_vec) {
+void ResolveManyInline(size_t num_offsets, const int64_t* signed_offsets,
+                       int64_t n_indices, const IndexType* logical_index_vec,
+                       IndexType* out_chunk_index_vec, IndexType chunk_hint,
+                       IndexType* out_index_in_chunk_vec) {
+  auto* offsets = reinterpret_cast<const uint64_t*>(signed_offsets);
   const auto num_chunks = static_cast<IndexType>(num_offsets - 1);
   // chunk_hint in [0, num_offsets) per the precondition.
   for (int64_t i = 0; i < n_indices; i++) {
     const auto index = static_cast<uint64_t>(logical_index_vec[i]);
-    if (index >= static_cast<uint64_t>(offsets[chunk_hint]) &&
-        (chunk_hint == num_chunks ||
-         index < static_cast<uint64_t>(offsets[chunk_hint + 1]))) {
+    if (index >= offsets[chunk_hint] &&
+        (chunk_hint == num_chunks || index < offsets[chunk_hint + 1])) {
       out_chunk_index_vec[i] = chunk_hint;  // hint is correct!
       continue;
     }

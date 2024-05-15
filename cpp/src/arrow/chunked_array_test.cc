@@ -447,20 +447,33 @@ class TestChunkResolverMany : public ::testing::Test {
     }
 
     if constexpr (std::is_signed_v<IndexType>) {
-      std::vector<IndexType> logical_index_vec = {-1, -2, -3, -4, -5, -127 - 1};
+      std::vector<IndexType> logical_index_vec = {-1, -2, -3, -4, INT8_MIN};
+
+      ChunkResolver resolver(std::vector<int64_t>({0, 2, 128}));  // [[0, 1], [2..127]]
       ASSERT_OK_AND_ASSIGN(auto locations, ResolveMany(resolver, logical_index_vec));
       EXPECT_EQ(logical_index_vec.size(), locations.size());
       for (size_t i = 0; i < logical_index_vec.size(); i++) {
-        using U = std::make_unsigned_t<IndexType>;
-        auto unsigned_logical_index = static_cast<U>(logical_index_vec[i]);
-        // When negative values are passed, the results should be treated as
-        // undefined because they are the result of resolving whathever the
-        // logical index becomes when interpreted as an unsigned integer.
-        auto expected = resolver.Resolve(static_cast<int64_t>(unsigned_logical_index));
-        if (expected.chunk_index == resolver.num_chunks()) {
-          ASSERT_EQ(locations[i].chunk_index, expected.chunk_index);
-        } else {
-          ASSERT_EQ(locations[i], expected);
+        // All the negative indices are greater than resolver.logical_array_length()-1
+        // when cast to uint8_t.
+        ASSERT_EQ(locations[i].chunk_index, resolver.num_chunks());
+      }
+
+      if constexpr (sizeof(IndexType) == 1) {
+        ChunkResolver resolver(std::vector<int64_t>(
+            {0, 2, 128, 129, 256}));  // [[0, 1], [2..127], [128], [129, 255]]
+        ASSERT_OK_AND_ASSIGN(auto locations, ResolveMany(resolver, logical_index_vec));
+        EXPECT_EQ(logical_index_vec.size(), locations.size());
+        for (size_t i = 0; i < logical_index_vec.size(); i++) {
+          if constexpr (sizeof(IndexType) == 1) {
+            // All the negative 8-bit indices are SMALLER than
+            // resolver.logical_array_length()=256 when cast to 8-bit unsigned integers.
+            // So the resolved locations might look valid, but they should not be trusted.
+            ASSERT_LT(locations[i].chunk_index, resolver.num_chunks());
+          } else {
+            // All the negative indices are greater than resolver.logical_array_length()
+            // when cast to 16/32/64-bit unsigned integers.
+            ASSERT_EQ(locations[i].chunk_index, resolver.num_chunks());
+          }
         }
       }
     }
