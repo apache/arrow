@@ -46,6 +46,8 @@ unset ARROW_R_DEV
 export ARROW_R_VERBOSE_TEST=TRUE
 
 export UBSAN_OPTIONS="print_stacktrace=1,suppressions=/arrow/r/tools/ubsan.supp"
+# From the old rhub image https://github.com/r-hub/rhub-linux-builders/blob/master/fedora-clang-devel-san/Dockerfile
+export ASAN_OPTIONS="alloc_dealloc_mismatch=0:detect_leaks=0:detect_odr_violation=0"
 
 # run tests
 pushd tests

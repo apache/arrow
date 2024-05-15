@@ -59,7 +59,8 @@ build_arrow_cpp() {
 }
 
 build_arrow_python() {
-  ci/scripts/python_build.sh $(pwd) $(pwd)
+  mkdir -p /tmp/arrow
+  ci/scripts/python_build.sh $(pwd) /tmp/arrow
 }
 
 build_arrow_r() {
@@ -69,7 +70,8 @@ build_arrow_r() {
 }
 
 build_arrow_java() {
-  ci/scripts/java_build.sh $(pwd) $(pwd)
+  mkdir -p /tmp/arrow
+  ci/scripts/java_build.sh $(pwd) /tmp/arrow
 }
 
 install_archery() {

@@ -423,6 +423,7 @@ class ConsumingSinkNode : public ExecNode,
   std::atomic<int32_t> backpressure_counter_ = 0;
   std::unique_ptr<util::SerialSequencingQueue> sequencer_;
 };
+
 static Result<ExecNode*> MakeTableConsumingSinkNode(ExecPlan* plan,
                                                     std::vector<ExecNode*> inputs,
                                                     const ExecNodeOptions& options) {
