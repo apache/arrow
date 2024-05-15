@@ -38,7 +38,7 @@ classdef ArrayImporter
                 ArrowArrayAddress=cArray.Address,...
                 ArrowSchemaAddress=cSchema.Address...
             );
-            [proxyID, typeID] = obj.Proxy.importFromC(args);
+            [proxyID, typeID] = obj.Proxy.import(args);
             traits = arrow.type.traits.traits(arrow.type.ID(typeID));
             proxy = libmexclass.proxy.Proxy(Name=traits.ArrayProxyClassName, ID=proxyID);
             array = traits.ArrayConstructor(proxy);
