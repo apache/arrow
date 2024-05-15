@@ -95,7 +95,7 @@ jobs:
           name: matlab-arrow-macos.tar.gz
           path: matlab-arrow-macos.tar.gz
 
-macos-arm64:
+  macos-arm64:
     name: ARM64 macOS 14 MATLAB
     runs-on: macos-14
     steps:
