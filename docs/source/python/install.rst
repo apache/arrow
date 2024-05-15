@@ -129,7 +129,7 @@ The ``pyarrow-core`` package includes the following functionality:
 
 The ``pyarrow`` package adds the following:
 
-- Acero
+- Acero (i.e., ``pyarrow.acero``)
 - :ref:`dataset` (i.e., ``pyarrow.dataset``)
 - :ref:`Parquet<parquet>` (i.e., ``pyarrow.parquet``)
 - Substrait
