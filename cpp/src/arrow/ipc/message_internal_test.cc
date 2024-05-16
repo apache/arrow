@@ -76,6 +76,6 @@ TEST(TestMessageInternal, TestByteIdentical) {
       0x40, 0x00, 0x00, 0x00};
   Buffer expected_buffer(expected, sizeof(expected));
 
-  ASSERT_TRUE(expected_buffer.Equals(*out_buffer));
+  AssertBufferEqual(expected_buffer, *out_buffer);
 }
 }  // namespace arrow::ipc::internal
