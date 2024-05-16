@@ -22,12 +22,12 @@ Introduction to the Arrow Columnar Format
 Apache Arrow was born with the idea to define a set of standards for
 data representation and interchange between languages and systems to
 avoid costs of data serialization/deserialization and in order to
-avoid reinventing the wheel on each of those systems and languages.
+avoid reinventing the wheel in each of those systems and languages.
 
-Each system / language requires their own format definitions, implementation
+Each system or language requires their own format definitions, implementation
 of common algorithms, etcetera. In our heterogeneous environments we
-often have to move data from one system/language to accommodate our
-workflows that meant copy&convert the data between them, which is
+often have to move data from one system or language to accommodate our
+workflows that meant copy and convert the data between them, which is
 quite costly.
 
 Apart from this initial vision, Arrow has grown to also develop a
@@ -36,8 +36,11 @@ related to in-memory analytical data processing. This includes such
 topics as:
 
 * Zero-copy shared memory and RPC-based data movement
-* Reading and writing file formats (like CSV, Apache ORC, and Apache Parquet)
+* Reading and writing file formats (like CSV, `Apache ORC`_, and `Apache Parquet`_)
 * In-memory analytics and query processing
+
+.. _Apache ORC: https://orc.apache.org/
+.. _Apache Parquet: https://parquet.apache.org/
 
 Arrow Columnar Format
 =====================
@@ -153,9 +156,12 @@ then multiple chunks are needed.
 Variable length binary and string view
 --------------------------------------
 
-This layout is adapted from TU Munich's UmbraDB and is similar to the string
-layout used in DuckDB and Velox (and sometimes also called "German style strings").
+This layout is adapted from TU Munich's `UmbraDB`_ and is similar to the string
+layout used in `DuckDB`_ and `Velox`_ (and sometimes also called "German style strings").
 
+.. _UmbraDB: https://umbra-db.com/
+.. _DuckDB: https://duckdb.com
+.. _Velox: https://velox-lib.io/
 The main differences to classical binary and string types is the views buffer.
 It includes the length of the string, and then either contains the characters
 inline (for small strings) or only the first 4 bytes of the string and point to
@@ -258,8 +264,9 @@ Map type represents nested data where each value is a variable number of
 key-value pairs. Its physical representation is the same as a list of ``{key, value}``
 structs.
 
-The difference between a struct and a map type is that a struct holds the key
-in the schema, therefore need to be a string, and the values in the child arrays,
+The difference between the struct and map types is that a struct holds the key
+in the schema, requiring keys to be strings, and the values are stored in in the 
+child arrays,
 one for each field. There can be multiple keys and therefore multiple child arrays.
 The map, on the other hand, has one child array holding all the different keys (that
 thus all need to be of the same type but not necessarily strings) and a second
@@ -358,7 +365,7 @@ custom semantics this is enabled by defining extension types or user-defined typ
 
 For example:
 
-* Universally unique identifier (uuid) can be represented as a FixedSizeBinary type
+* Universally unique identifiers (UUID) can be represented as a FixedSizeBinary type
 * Trading time can be represented as a Timestamp with metadata indicating the market
   trading calendar
 
@@ -393,10 +400,11 @@ These are Arrow extension types that have been established as standards within s
 
 Example:
 
-* GeoArrow - collection of Arrow extension types for representing vector geometries
-  https://github.com/geoarrow/geoarrow
+* `GeoArrow`_: A collection of Arrow extension types for representing vector geometries
 
-Overview of Arrow terminology
+.. _GeoArrow: https://github.com/geoarrow/geoarrow
+
+Overview of Arrow Terminology
 =============================
 
 Buffer
@@ -414,7 +422,7 @@ A discontiguous, one-dimensional sequence of values with known length where all 
 the same type. Consists of zero or more arrays, the “chunks”.
 
 .. note::
-   Chunked array is a concept specific to certain implementations such as Arrow C++ and PyArrow.
+   Chunked Array is a concept specific to certain implementations such as Arrow C++ and PyArrow.
 
 RecordBatch
 -----------
@@ -424,12 +432,12 @@ of the same length.
 Schema
 ------
 A collection of fields with optional metadata that determines all the data types of an object
-like a record batch or table.
+like a RecordBatch or Table.
 
 Table
 -----
-A discontiguous, two-dimensional chunk of data consisting of an ordered collection of chunked
-arrays. All chunked arrays have the same length, but may have different types. Different columns
+A discontiguous, two-dimensional chunk of data consisting of an ordered collection of Chunked
+Arrays. All Chunked Arrays have the same length, but may have different types. Different columns
 may be chunked differently.
 
 .. note::
@@ -452,7 +460,7 @@ While there are specifications to share Arrow data between processes or over the
 IPC messages), the Arrow C Data Interface is meant to actually zero-copy share the data between
 different libraries within the same process (i.e. actually share the same buffers in memory).
 
-The Arrow C Data Interface defines a set of small C structures
+The Arrow C Data Interface defines a set of small C structures:
 
 .. code-block::
 
@@ -494,7 +502,7 @@ in-memory format, its layout is well-defined and unambiguous.
 .. seealso::
    The :ref:`c-data-interface` documentation.
 
-NanoArrow
+nanoarrow
 =========
 
 The Arrow libraries are growing with a lot of functionality and
@@ -502,10 +510,10 @@ The Arrow libraries are growing with a lot of functionality and
 solve the problem where linking to the Arrow implementation is
 difficult or impossible.
 
-The NanoArrow library is a set of helper functions to interpret and
+The nanoarrow library is a set of helper functions to interpret and
 generate Arrow C Data Interface and Arrow C Stream Interface structures.
 The library is in active development.
 
-The NanoArrow Python bindings are intended to support clients that wish
+The nanoarrow Python bindings are intended to support clients that wish
 to produce or interpret Arrow C Data and/or Arrow C Stream structures
 in Python, without a dependency on the larger Arrow implementations.
