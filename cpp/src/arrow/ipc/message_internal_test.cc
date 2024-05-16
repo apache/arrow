@@ -42,7 +42,7 @@ TEST(TestMessageInternal, TestByteIdentical) {
   flatbuffers::Offset<org::apache::arrow::flatbuf::Schema> fb_schema;
   DictionaryFieldMapper mapper;
 
-  // Create a simple Schema with just one metadata KVP
+  // Create a simple Schema with just two metadata KVPs
   auto f0 = field("f0", int64());
   auto f1 = field("f1", int64());
   std::vector<std::shared_ptr<Field>> fields = {f0, f1};
