@@ -101,10 +101,20 @@ public class TypeLayout {
       }
 
       @Override
-      public TypeLayout visit(org.apache.arrow.vector.types.pojo.ArrowType.List type) {
+      public TypeLayout visit(ArrowType.List type) {
         List<BufferLayout> vectors = asList(
             BufferLayout.validityVector(),
             BufferLayout.offsetBuffer()
+        );
+        return new TypeLayout(vectors);
+      }
+
+      @Override
+      public TypeLayout visit(ArrowType.ListView type) {
+        List<BufferLayout> vectors = asList(
+                BufferLayout.validityVector(),
+                BufferLayout.offsetBuffer(),
+                BufferLayout.sizeBuffer()
         );
         return new TypeLayout(vectors);
       }
@@ -312,9 +322,15 @@ public class TypeLayout {
       }
 
       @Override
-      public Integer visit(org.apache.arrow.vector.types.pojo.ArrowType.List type) {
+      public Integer visit(ArrowType.List type) {
         // validity buffer + offset buffer
         return 2;
+      }
+
+      @Override
+      public Integer visit(ArrowType.ListView type) {
+        // validity buffer + offset buffer + size buffer
+        return 3;
       }
 
       @Override
