@@ -26,9 +26,11 @@ namespace arrow {
 namespace util {
 
 TempVectorStack::~TempVectorStack() {
+#ifdef ADDRESS_SANITIZER
   if (buffer_) {
     ASAN_UNPOISON_MEMORY_REGION(buffer_->mutable_data(), buffer_size_);
   }
+#endif
 }
 
 Status TempVectorStack::Init(MemoryPool* pool, int64_t size) {
@@ -36,7 +38,9 @@ Status TempVectorStack::Init(MemoryPool* pool, int64_t size) {
   top_ = 0;
   buffer_size_ = PaddedAllocationSize(size);
   ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateResizableBuffer(size, pool));
+#ifdef ADDRESS_SANITIZER
   ASAN_POISON_MEMORY_REGION(buffer->mutable_data(), size);
+#endif
   buffer_ = std::move(buffer);
   return Status::OK();
 }
@@ -61,7 +65,9 @@ void TempVectorStack::alloc(uint32_t num_bytes, uint8_t** data, int* id) {
       << "TempVectorStack::alloc overflow: allocating " << alloc_size << " on top of "
       << top_ << " in stack of size " << buffer_size_;
   *data = buffer_->mutable_data() + top_;
+#ifdef ADDRESS_SANITIZER
   ASAN_UNPOISON_MEMORY_REGION(*data, alloc_size);
+#endif
   *id = num_vectors_++;
   top_ = new_top;
 }
@@ -71,7 +77,9 @@ void TempVectorStack::release(int id, uint32_t num_bytes) {
   int64_t size = PaddedAllocationSize(num_bytes);
   ARROW_DCHECK(top_ >= size);
   top_ -= size;
+#ifdef ADDRESS_SANITIZER
   ASAN_POISON_MEMORY_REGION(buffer_->mutable_data() + top_, size);
+#endif
   --num_vectors_;
 }
 
