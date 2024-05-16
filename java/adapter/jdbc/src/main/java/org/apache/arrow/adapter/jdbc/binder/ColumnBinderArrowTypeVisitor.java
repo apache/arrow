@@ -256,4 +256,9 @@ public class ColumnBinderArrowTypeVisitor implements ArrowType.ArrowTypeVisitor<
   public ColumnBinder visit(ArrowType.Duration type) {
     throw new UnsupportedOperationException("No column binder implemented for type " + type);
   }
+
+  @Override
+  public ColumnBinder visit(ArrowType.ListView type) {
+    throw new UnsupportedOperationException("No column binder implemented for type " + type);
+  }
 }
