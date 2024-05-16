@@ -265,7 +265,7 @@ key-value pairs. Its physical representation is the same as a list of ``{key, va
 structs.
 
 The difference between the struct and map types is that a struct holds the key
-in the schema, requiring keys to be strings, and the values are stored in in the 
+in the schema, requiring keys to be strings, and the values are stored in in the
 child arrays,
 one for each field. There can be multiple keys and therefore multiple child arrays.
 The map, on the other hand, has one child array holding all the different keys (that
