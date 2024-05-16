@@ -51,8 +51,9 @@ TEST(TestMessageInternal, TestByteIdentical) {
   auto schema = ::arrow::schema({f0}, metadata);
 
   // Serialize the Schema to a Buffer
-  std::shared_ptr<Buffer> outBuffer;
-  ASSERT_OK(WriteSchemaMessage(*schema, mapper, IpcWriteOptions::Defaults(), &outBuffer));
+  std::shared_ptr<Buffer> out_buffer;
+  ASSERT_OK(
+      WriteSchemaMessage(*schema, mapper, IpcWriteOptions::Defaults(), &out_buffer));
 
   // This is example output from macOS+ARM+LLVM
   const uint8_t expected[] = {
@@ -73,8 +74,8 @@ TEST(TestMessageInternal, TestByteIdentical) {
       0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x66, 0x30, 0x00, 0x00, 0x08, 0x00,
       0x0C, 0x00, 0x08, 0x00, 0x07, 0x00, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
       0x40, 0x00, 0x00, 0x00};
-  Buffer expectedBuffer(expected, sizeof(expected));
+  Buffer expected_buffer(expected, sizeof(expected));
 
-  ASSERT_TRUE(expectedBuffer.Equals(*outBuffer));
+  ASSERT_TRUE(expected_buffer.Equals(*out_buffer));
 }
 }  // namespace arrow::ipc::internal
