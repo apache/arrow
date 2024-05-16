@@ -161,7 +161,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   /**
    * Get the buffers that store the data for views in the vector.
    *
-   * @return buffer
+   * @return list of ArrowBuf
    */
   public List<ArrowBuf> getDataBuffers() {
     return dataBuffers;
