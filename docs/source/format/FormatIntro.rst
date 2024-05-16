@@ -31,9 +31,8 @@ workflows that meant copy and convert the data between them, which is
 quite costly.
 
 Apart from this initial vision, Arrow has grown to also develop a
-multi-language collection of libraries for solving systems problems
-related to in-memory analytical data processing. This includes such
-topics as:
+multi-language collection of libraries for solving problems related to
+in-memory analytical data processing. This includes such topics as:
 
 * Zero-copy shared memory and RPC-based data movement
 * Reading and writing file formats (like CSV, `Apache ORC`_, and `Apache Parquet`_)
@@ -67,11 +66,6 @@ instructions.
 
 .. figure:: ./images/columnar-diagram_3.svg
    :alt: Tabular data being structured column by column in computer memory.
-
-Compression is another element where columnar format representation can
-take high advantage. Data similarity allows for better compression
-techniques and algorithms. Having the same data types locality allows
-to have better compression ratios.
 
 Primitive layouts
 =================
