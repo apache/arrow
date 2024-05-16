@@ -20,24 +20,32 @@
 #include "arrow/compute/util.h"
 #include "arrow/memory_pool.h"
 
+#ifdef ADDRESS_SANITIZER
 #include <sanitizer/asan_interface.h>
+#endif
 
 namespace arrow {
 namespace util {
 
-// TempVectorStack::~TempVectorStack() {
-//   if (buffer_) {
-//     ASAN_UNPOISON_MEMORY_REGION(buffer_->mutable_data(), buffer_size_);
-//   }
-// }
+TempVectorStack::~TempVectorStack() {
+#ifdef ADDRESS_SANITIZER
+  if (buffer_) {
+    ASAN_UNPOISON_MEMORY_REGION(buffer_->mutable_data(), buffer_size_);
+  }
+#endif
+}
 
 Status TempVectorStack::Init(MemoryPool* pool, int64_t size) {
   num_vectors_ = 0;
   top_ = 0;
   buffer_size_ = PaddedAllocationSize(size);
   ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateResizableBuffer(size, pool));
+#ifdef ADDRESS_SANITIZER
   ASAN_POISON_MEMORY_REGION(buffer->mutable_data(), size);
+#endif
   buffer_ = std::move(buffer);
+  // buffer_cure_.buffer = buffer_->mutable_data();
+  // buffer_cure_.size = buffer_size_;
   return Status::OK();
 }
 
@@ -62,7 +70,9 @@ void TempVectorStack::alloc(uint32_t num_bytes, uint8_t** data, int* id) {
       << "TempVectorStack::alloc overflow: allocating " << alloc_size << " on top of "
       << top_ << " in stack of size " << buffer_size_;
   *data = buffer_->mutable_data() + top_;
+#ifdef ADDRESS_SANITIZER
   ASAN_UNPOISON_MEMORY_REGION(*data, alloc_size);
+#endif
   // // We set 8 bytes before the beginning of the allocated range and
   // // 8 bytes after the end to check for stack overflow (which would
   // // result in those known bytes being corrupted).
@@ -79,11 +89,21 @@ void TempVectorStack::release(int id, uint32_t num_bytes) {
   //              kGuard2);
   ARROW_DCHECK(top_ >= size);
   top_ -= size;
+#ifdef ADDRESS_SANITIZER
   ASAN_POISON_MEMORY_REGION(buffer_->mutable_data() + top_, size);
+#endif
   // ARROW_DCHECK(reinterpret_cast<const uint64_t*>(buffer_->mutable_data() + top_)[0] ==
   //              kGuard1);
   --num_vectors_;
 }
+
+// #ifdef ADDRESS_SANITIZER
+// TempVectorStack::BufferCure::~BufferCure() {
+//   if (buffer) {
+//     ASAN_UNPOISON_MEMORY_REGION(buffer, size);
+//   }
+// }
+// #endif
 
 }  // namespace util
 }  // namespace arrow

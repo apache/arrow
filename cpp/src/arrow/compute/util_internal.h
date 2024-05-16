@@ -38,16 +38,22 @@ class ARROW_EXPORT TempVectorStack {
   friend class TempVectorHolder;
 
  public:
-  // ~TempVectorStack() = default;
+  TempVectorStack() = default;
+  ~TempVectorStack();
+
+  TempVectorStack(const TempVectorStack&) = delete;
+  TempVectorStack& operator=(const TempVectorStack&) = delete;
+  TempVectorStack(TempVectorStack&&) = default;
+  TempVectorStack& operator=(TempVectorStack&&) = default;
 
   Status Init(MemoryPool* pool, int64_t size);
 
   int64_t AllocatedSize() const { return top_; }
 
  private:
-  static int64_t EstimatedAllocationSize(int64_t size) {
-    return PaddedAllocationSize(size) + 2 * sizeof(uint64_t);
-  }
+  // static int64_t EstimatedAllocationSize(int64_t size) {
+  //   return PaddedAllocationSize(size) + 2 * sizeof(uint64_t);
+  // }
 
   static int64_t PaddedAllocationSize(int64_t num_bytes);
 
@@ -58,6 +64,15 @@ class ARROW_EXPORT TempVectorStack {
   int64_t top_;
   std::unique_ptr<Buffer> buffer_;
   int64_t buffer_size_;
+
+  // #ifdef ADDRESS_SANITIZER
+  //   struct BufferCure {
+  //     uint8_t* buffer = nullptr;
+  //     int64_t size = 0;
+  //     ~BufferCure();
+  //   };
+  //   BufferCure buffer_cure_;
+  // #endif
 };
 
 template <typename T>
