@@ -1601,14 +1601,14 @@ class ObjectOutputStream final : public io::OutputStream {
       metadata = default_metadata_;
     }
 
-    if (metadata == nullptr ||
-        !metadata->Contains(ObjectMetadataSetter<ObjectRequest>::CONTENT_TYPE_KEY)) {
+    if (metadata &&
+        metadata->Contains(ObjectMetadataSetter<ObjectRequest>::CONTENT_TYPE_KEY)) {
+      RETURN_NOT_OK(SetObjectMetadata(metadata, request));
+    } else {
       // If we do not set anything then the SDK will default to application/xml
       // which confuses some tools (https://github.com/apache/arrow/issues/11934)
       // So we instead default to application/octet-stream which is less misleading
       request->SetContentType("application/octet-stream");
-    } else {
-      RETURN_NOT_OK(SetObjectMetadata(metadata, request));
     }
 
     return Status::OK();
