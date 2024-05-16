@@ -431,11 +431,14 @@ TEST_F(TestPrimitiveReader, TestReadValuesMissing) {
                ParquetException);
 }
 
+// GH-41321: When max_def_level > 0, and Page has more or less
+// def-levels than the `num_values` in PageHeader. We should
+// detect and throw exception.
 TEST_F(TestPrimitiveReader, DefLevelNotExpected) {
   max_def_level_ = 1;
   max_rep_level_ = 0;
   std::vector<bool> values(1, false);
-  // Less than expected
+  // storing def-levels less than value in page-header
   {
     std::vector<int16_t> input_def_levels(1, 1);
     NodePtr type = schema::Boolean("a", Repetition::OPTIONAL);
@@ -458,11 +461,17 @@ TEST_F(TestPrimitiveReader, DefLevelNotExpected) {
     std::vector<int16_t> rep_levels(batch_size, 0);
     bool values_out[batch_size];
     int64_t values_read;
-    ASSERT_THROW(reader->ReadBatch(batch_size, def_levels.data(), rep_levels.data(),
-                                   values_out, &values_read),
-                 ParquetException);
+    EXPECT_THROW_THAT(
+        [&]() {
+          reader->ReadBatch(batch_size, def_levels.data(), rep_levels.data(), values_out,
+                            &values_read);
+        },
+        ParquetException,
+        ::testing::Property(&ParquetException::what,
+                            ::testing::HasSubstr("Number of decoded rep / def levels did "
+                                                 "less than num_values in page_header")));
   }
-  // More than expected
+  //  storing def-levels more than value in page-header
   {
     std::vector<int16_t> input_def_levels(2, 1);
     NodePtr type = schema::Boolean("a", Repetition::OPTIONAL);
@@ -485,9 +494,15 @@ TEST_F(TestPrimitiveReader, DefLevelNotExpected) {
     std::vector<int16_t> rep_levels(batch_size, 0);
     bool values_out[batch_size];
     int64_t values_read;
-    ASSERT_THROW(reader->ReadBatch(batch_size, def_levels.data(), rep_levels.data(),
-                                   values_out, &values_read),
-                 ParquetException);
+    EXPECT_THROW_THAT(
+        [&]() {
+          reader->ReadBatch(batch_size, def_levels.data(), rep_levels.data(), values_out,
+                            &values_read);
+        },
+        ParquetException,
+        ::testing::Property(&ParquetException::what,
+                            ::testing::HasSubstr("Number of decoded rep / def levels did "
+                                                 "less than num_values in page_header")));
   }
 }
 
