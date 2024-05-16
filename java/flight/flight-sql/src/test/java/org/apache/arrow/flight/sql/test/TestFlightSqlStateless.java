@@ -54,14 +54,15 @@ public class TestFlightSqlStateless extends TestFlightSql {
   @AfterAll
   public static void tearDown() throws Exception {
     close(sqlClient, server, allocator);
-    FlightSqlStatelessExample.removeDerbyDatabaseIfExists();
+    FlightSqlStatelessExample.removeDerbyDatabaseIfExists(FlightSqlStatelessExample.DB_NAME);
   }
 
   private static void setUpClientServer() throws Exception {
     allocator = new RootAllocator(Integer.MAX_VALUE);
 
     final Location serverLocation = Location.forGrpcInsecure(LOCALHOST, 0);
-    server = FlightServer.builder(allocator, serverLocation, new FlightSqlStatelessExample(serverLocation))
+    server = FlightServer.builder(allocator, serverLocation,
+                    new FlightSqlStatelessExample(serverLocation, FlightSqlStatelessExample.DB_NAME))
             .build()
             .start();
 

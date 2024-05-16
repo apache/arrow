@@ -66,9 +66,11 @@ import com.google.protobuf.ByteString;
  */
 public class FlightSqlStatelessExample extends FlightSqlExample {
   private static final Logger LOGGER = getLogger(FlightSqlStatelessExample.class);
+  public static final String DB_NAME = "derbyStatelessDB";
 
-  public FlightSqlStatelessExample(final Location location) {
-    super(location);
+
+  public FlightSqlStatelessExample(final Location location, final String dbName) {
+    super(location, dbName);
   }
 
   @Override

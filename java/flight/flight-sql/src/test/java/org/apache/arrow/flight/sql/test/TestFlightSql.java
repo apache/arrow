@@ -105,7 +105,8 @@ public class TestFlightSql {
     allocator = new RootAllocator(Integer.MAX_VALUE);
 
     final Location serverLocation = Location.forGrpcInsecure(LOCALHOST, 0);
-    server = FlightServer.builder(allocator, serverLocation, new FlightSqlExample(serverLocation))
+    server = FlightServer.builder(allocator, serverLocation,
+                    new FlightSqlExample(serverLocation, FlightSqlExample.DB_NAME))
             .build()
             .start();
 
@@ -151,7 +152,7 @@ public class TestFlightSql {
   @AfterAll
   public static void tearDown() throws Exception {
     close(sqlClient, server, allocator);
-    FlightSqlExample.removeDerbyDatabaseIfExists();
+    FlightSqlExample.removeDerbyDatabaseIfExists(FlightSqlExample.DB_NAME);
   }
 
   private static List<List<String>> getNonConformingResultsForGetSqlInfo(final List<? extends List<String>> results) {
