@@ -104,14 +104,14 @@ class OSFile {
     RETURN_NOT_OK(SetFileName(path));
 
     ARROW_ASSIGN_OR_RAISE(fd_, ::arrow::internal::FileOpenReadable(file_name_));
-    ARROW_ASSIGN_OR_RAISE(size_, ::arrow::internal::FileGetSize(fd_.fd()));
+    size_ = ::arrow::internal::FileGetSize(fd_.fd()).ValueOr(-1);
 
     mode_ = FileMode::READ;
     return Status::OK();
   }
 
   Status OpenReadable(int fd) {
-    ARROW_ASSIGN_OR_RAISE(size_, ::arrow::internal::FileGetSize(fd));
+    size_ = ::arrow::internal::FileGetSize(fd).ValueOr(-1);
     RETURN_NOT_OK(SetFileName(fd));
     mode_ = FileMode::READ;
     fd_ = FileDescriptor(fd);
