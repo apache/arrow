@@ -72,6 +72,55 @@ Result<std::shared_ptr<Array>> NestedListGenerator::NestedListArray(
   return NestedListArray(builder.get(), list_sizes, length);
 }
 
+void NestedListGenerator::VisitAllNestedListConfigurations(
+    const std::vector<std::shared_ptr<DataType>>& inner_value_types,
+    const std::function<void(const std::shared_ptr<DataType>&, const std::vector<int>&)>&
+        visit,
+    int max_depth, int max_power_of_2_size) {
+  for (int depth = 1; depth <= max_depth; depth++) {
+    for (auto& type : inner_value_types) {
+      assert(is_fixed_width(*type));
+      int value_width = type->byte_width();
+
+      std::vector<int> list_sizes;  // stack of list sizes
+      auto pop = [&]() {            // pop the list_sizes stack
+        assert(!list_sizes.empty());
+        value_width /= list_sizes.back();
+        list_sizes.pop_back();
+      };
+      auto next = [&]() {  // double the top of the stack
+        assert(!list_sizes.empty());
+        value_width *= 2;
+        list_sizes.back() *= 2;
+        return value_width;
+      };
+      auto push_1s = [&]() {  // fill the stack with 1s
+        while (list_sizes.size() < static_cast<size_t>(depth)) {
+          list_sizes.push_back(1);
+        }
+      };
+
+      // Loop invariants:
+      //   value_width == product(list_sizes) * type->byte_width()
+      //   value_width is a power-of-2 (1, 2, 4, 8, 16, max_power_of_2_size=32)
+      push_1s();
+      do {
+        // for (auto x : list_sizes) printf("%d * ", x);
+        // printf("(%s) %d = %2d\n", type->name().c_str(), type->byte_width(),
+        // value_width);
+        visit(type, list_sizes);
+        while (!list_sizes.empty()) {
+          if (next() <= max_power_of_2_size) {
+            push_1s();
+            break;
+          }
+          pop();
+        }
+      } while (!list_sizes.empty());
+    }
+  }
+}
+
 Status NestedListGenerator::AppendNestedList(ArrayBuilder* nested_builder,
                                              const int* list_sizes,
                                              int64_t* next_inner_value) {
