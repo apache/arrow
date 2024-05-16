@@ -20,19 +20,15 @@
 #include "arrow/compute/util.h"
 #include "arrow/memory_pool.h"
 
-#ifdef ADDRESS_SANITIZER
 #include <sanitizer/asan_interface.h>
-#endif
 
 namespace arrow {
 namespace util {
 
 TempVectorStack::~TempVectorStack() {
-#ifdef ADDRESS_SANITIZER
   if (buffer_) {
     ASAN_UNPOISON_MEMORY_REGION(buffer_->mutable_data(), buffer_size_);
   }
-#endif
 }
 
 Status TempVectorStack::Init(MemoryPool* pool, int64_t size) {
@@ -40,9 +36,7 @@ Status TempVectorStack::Init(MemoryPool* pool, int64_t size) {
   top_ = 0;
   buffer_size_ = PaddedAllocationSize(size);
   ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateResizableBuffer(size, pool));
-#ifdef ADDRESS_SANITIZER
   ASAN_POISON_MEMORY_REGION(buffer->mutable_data(), size);
-#endif
   buffer_ = std::move(buffer);
   // buffer_cure_.buffer = buffer_->mutable_data();
   // buffer_cure_.size = buffer_size_;
@@ -61,7 +55,6 @@ int64_t TempVectorStack::PaddedAllocationSize(int64_t num_bytes) {
 }
 
 void TempVectorStack::alloc(uint32_t num_bytes, uint8_t** data, int* id) {
-  // int64_t estimated_alloc_size = EstimatedAllocationSize(num_bytes);
   int64_t alloc_size = PaddedAllocationSize(num_bytes);
   int64_t new_top = top_ + alloc_size;
   // Stack overflow check (see GH-39582).
@@ -70,14 +63,7 @@ void TempVectorStack::alloc(uint32_t num_bytes, uint8_t** data, int* id) {
       << "TempVectorStack::alloc overflow: allocating " << alloc_size << " on top of "
       << top_ << " in stack of size " << buffer_size_;
   *data = buffer_->mutable_data() + top_;
-#ifdef ADDRESS_SANITIZER
   ASAN_UNPOISON_MEMORY_REGION(*data, alloc_size);
-#endif
-  // // We set 8 bytes before the beginning of the allocated range and
-  // // 8 bytes after the end to check for stack overflow (which would
-  // // result in those known bytes being corrupted).
-  // reinterpret_cast<uint64_t*>(buffer_->mutable_data() + top_)[0] = kGuard1;
-  // reinterpret_cast<uint64_t*>(buffer_->mutable_data() + new_top)[-1] = kGuard2;
   *id = num_vectors_++;
   top_ = new_top;
 }
@@ -85,25 +71,11 @@ void TempVectorStack::alloc(uint32_t num_bytes, uint8_t** data, int* id) {
 void TempVectorStack::release(int id, uint32_t num_bytes) {
   ARROW_DCHECK(num_vectors_ == id + 1);
   int64_t size = PaddedAllocationSize(num_bytes);
-  // ARROW_DCHECK(reinterpret_cast<const uint64_t*>(buffer_->mutable_data() + top_)[-1] ==
-  //              kGuard2);
   ARROW_DCHECK(top_ >= size);
   top_ -= size;
-#ifdef ADDRESS_SANITIZER
   ASAN_POISON_MEMORY_REGION(buffer_->mutable_data() + top_, size);
-#endif
-  // ARROW_DCHECK(reinterpret_cast<const uint64_t*>(buffer_->mutable_data() + top_)[0] ==
-  //              kGuard1);
   --num_vectors_;
 }
-
-// #ifdef ADDRESS_SANITIZER
-// TempVectorStack::BufferCure::~BufferCure() {
-//   if (buffer) {
-//     ASAN_UNPOISON_MEMORY_REGION(buffer, size);
-//   }
-// }
-// #endif
 
 }  // namespace util
 }  // namespace arrow
