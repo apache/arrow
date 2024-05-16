@@ -34,7 +34,7 @@ if [ -n "${MSYSTEM:-}" ]; then
   export ARROW_HOME="$(cygpath --unix "${ARROW_HOME}")"
 fi
 
-meson_pkg_config_path="${ARROW_HOME}/lib/pkgconfig:${ARROW_HOME}/bin/pkgconfig"
+meson_pkg_config_path="${ARROW_HOME}/lib/pkgconfig"
 
 mkdir -p ${build_dir}
 
