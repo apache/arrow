@@ -51,7 +51,8 @@ you'll have to install Python dependencies yourself and then run
 The merge script requires tokens for access control. There are two options
 for configuring your tokens: environment variables or a configuration file.
 
-> [!NOTE] Arrow only requires a GitHub token. Parquet can use GitHub or
+> [!NOTE]
+> Arrow only requires a GitHub token. Parquet can use GitHub or
 JIRA tokens.
 
 #### Pass tokens via Environment Variables
