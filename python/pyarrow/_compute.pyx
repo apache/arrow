@@ -1122,6 +1122,10 @@ class PadOptions(_PadOptions):
         Desired string length.
     padding : str, default " "
         What to pad the string with. Should be one byte or codepoint.
+    align_left_on_odd_padding : bool, default True
+        What to do if there is an odd number of padding characters (in case
+        of centered padding). Defaults to alignig on the left (i.e. adding
+        the extra padding character on the right).
     """
 
     def __init__(self, width, padding=' ', align_left_on_odd_padding=True):
