@@ -369,7 +369,7 @@ For example:
 * Trading time can be represented as a Timestamp with metadata indicating the market
   trading calendar
 
-Extension types can be defined by annotating any of the built-in Arrow logical types
+Extension types can be defined by annotating any of the built-in Arrow data types
 (the “storage type”) with a custom type name and optional serialized representation
 (``'ARROW:extension:name'`` and ``'ARROW:extension:metadata'`` keys in the Field
 metadata structure).
