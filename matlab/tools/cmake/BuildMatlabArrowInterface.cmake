@@ -75,7 +75,9 @@ set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_SOURCES "${CMAKE_SOURCE_DIR}/src/cpp/a
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/io/csv/proxy/table_writer.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/io/csv/proxy/table_reader.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/index/validate.cc"
-                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/buffer/proxy/buffer.cc")
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/buffer/proxy/buffer.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/c/proxy/array.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/c/proxy/schema.cc")
 
 
 set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_FACTORY_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/proxy")

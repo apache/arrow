@@ -1483,39 +1483,27 @@ Status ExecScalarCaseWhen(KernelContext* ctx, const ExecSpan& batch, ExecResult*
     result = temp.get();
   }
 
-  // TODO(wesm): clean this up to have less duplication
-  if (out->is_array_data()) {
-    ArrayData* output = out->array_data().get();
-    if (is_dictionary_type<Type>::value) {
-      const ExecValue& dict_from = has_result ? result : batch[1];
-      if (dict_from.is_scalar()) {
-        output->dictionary = checked_cast<const DictionaryScalar&>(*dict_from.scalar)
-                                 .value.dictionary->data();
-      } else {
-        output->dictionary = dict_from.array.ToArrayData()->dictionary;
-      }
+  // Only input types of non-fixed length (which cannot be pre-allocated)
+  // will save the output data in ArrayData. And make sure the FixedLength
+  // types must be output in ArraySpan.
+  static_assert(is_fixed_width(Type::type_id));
+  DCHECK(out->is_array_span());
+
+  ArraySpan* output = out->array_span_mutable();
+  if (is_dictionary_type<Type>::value) {
+    const ExecValue& dict_from = has_result ? result : batch[1];
+    output->child_data.resize(1);
+    if (dict_from.is_scalar()) {
+      output->child_data[0].SetMembers(
+          *checked_cast<const DictionaryScalar&>(*dict_from.scalar)
+               .value.dictionary->data());
+    } else {
+      output->child_data[0] = dict_from.array;
     }
-    CopyValues<Type>(result, /*in_offset=*/0, batch.length,
-                     output->GetMutableValues<uint8_t>(0, 0),
-                     output->GetMutableValues<uint8_t>(1, 0), output->offset);
-  } else {
-    // ArraySpan
-    ArraySpan* output = out->array_span_mutable();
-    if (is_dictionary_type<Type>::value) {
-      const ExecValue& dict_from = has_result ? result : batch[1];
-      output->child_data.resize(1);
-      if (dict_from.is_scalar()) {
-        output->child_data[0].SetMembers(
-            *checked_cast<const DictionaryScalar&>(*dict_from.scalar)
-                 .value.dictionary->data());
-      } else {
-        output->child_data[0] = dict_from.array;
-      }
-    }
-    CopyValues<Type>(result, /*in_offset=*/0, batch.length,
-                     output->GetValues<uint8_t>(0, 0), output->GetValues<uint8_t>(1, 0),
-                     output->offset);
   }
+  CopyValues<Type>(result, /*in_offset=*/0, batch.length,
+                   output->GetValues<uint8_t>(0, 0), output->GetValues<uint8_t>(1, 0),
+                   output->offset);
   return Status::OK();
 }
 

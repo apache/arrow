@@ -182,6 +182,19 @@ jobs:
           python -m pip install \
             -r python/requirements-build.txt \
             -r python/requirements-test.txt
+      - name: Setup ccache
+        shell: bash
+        run: ci/scripts/ccache_setup.sh
+      - name: ccache info
+        id: ccache-info
+        shell: bash
+        run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: python-ccache-macos-${{ matrix.macos-version }}-${{ hashFiles('cpp/**', 'python/**') }}
+          restore-keys: python-ccache-macos-${{ matrix.macos-version }}-
       - name: Build
         shell: bash
         run: |

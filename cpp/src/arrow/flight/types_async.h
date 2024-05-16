@@ -31,8 +31,6 @@ namespace arrow::flight {
 /// @{
 
 /// \brief Non-templated state for an async RPC.
-///
-/// This API is EXPERIMENTAL.
 class ARROW_FLIGHT_EXPORT AsyncListenerBase {
  public:
   AsyncListenerBase();
@@ -57,8 +55,6 @@ class ARROW_FLIGHT_EXPORT AsyncListenerBase {
 /// A single listener may not be used for multiple concurrent RPC
 /// calls.  The application MUST hold the listener alive until
 /// OnFinish() is called and has finished.
-///
-/// This API is EXPERIMENTAL.
 template <typename T>
 class ARROW_FLIGHT_EXPORT AsyncListener : public AsyncListenerBase {
  public:

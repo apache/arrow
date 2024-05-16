@@ -32,9 +32,6 @@ with any database that supports the necessary endpoints. Flight SQL
 clients wrap the underlying Flight client to provide methods for the
 new RPC methods described here.
 
-.. warning:: Flight SQL is **experimental** and changes to the
-             protocol may still be made.
-
 RPC Methods
 ===========
 
@@ -242,21 +239,17 @@ Close and invalidate the current session context.
 Sequence Diagrams
 =================
 
-.. figure:: ./FlightSql/CommandGetTables.mmd.svg
+.. mermaid:: ./FlightSql/CommandGetTables.mmd
+  :caption: Listing available tables.
 
-   Listing available tables.
+.. mermaid:: ./FlightSql/CommandStatementQuery.mmd
+  :caption: Executing an ad-hoc query.
 
-.. figure:: ./FlightSql/CommandStatementQuery.mmd.svg
+.. mermaid:: ./FlightSql/CommandPreparedStatementQuery.mmd
+  :caption: Creating a prepared statement, then executing it.
 
-   Executing an ad-hoc query.
-
-.. figure:: ./FlightSql/CommandPreparedStatementQuery.mmd.svg
-
-   Creating a prepared statement, then executing it.
-
-.. figure:: ./FlightSql/CommandStatementIngest.mmd.svg
-
-   Executing a bulk ingestion.
+.. mermaid:: ./FlightSql/CommandStatementIngest.mmd
+  :caption: Executing a bulk ingestion.
 
 External Resources
 ==================

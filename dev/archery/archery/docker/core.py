@@ -371,6 +371,10 @@ class DockerCompose(Command):
                     v = "{}:{}".format(v['source'], v['target'])
                 args.extend(['-v', v])
 
+            # append capabilities from the compose conf
+            for c in service.get('cap_add', []):
+                args.extend([f'--cap-add={c}'])
+
             # infer whether an interactive shell is desired or not
             if command in ['cmd.exe', 'bash', 'sh', 'powershell']:
                 args.append('-it')

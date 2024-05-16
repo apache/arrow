@@ -185,7 +185,7 @@ func (b *PooledBufferWriter) Reserve(nbytes int) {
 		b.buf = bufferPool.Get().(*memory.Buffer)
 	}
 
-	newCap := utils.Max(b.buf.Cap()+b.offset, 256)
+	newCap := utils.Max(b.buf.Cap(), 256)
 	for newCap < b.pos+nbytes {
 		newCap = bitutil.NextPowerOf2(newCap)
 	}
