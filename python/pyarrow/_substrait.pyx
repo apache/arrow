@@ -133,7 +133,7 @@ def run_query(plan, *, table_provider=None, use_threads=True):
         c_bool c_use_threads
 
     c_use_threads = use_threads
-    if isinstance(plan, bytes):
+    if isinstance(plan, (bytes, memoryview)):
         c_buf_plan = pyarrow_unwrap_buffer(py_buffer(plan))
     elif isinstance(plan, Buffer):
         c_buf_plan = pyarrow_unwrap_buffer(plan)
@@ -230,7 +230,7 @@ def serialize_schema(schema):
         c_res_buffer = SerializeSchema(deref((<Schema> schema).sp_schema), &c_extensions, c_conversion_options)
         c_buffer = GetResultValue(c_res_buffer)
 
-    return extension_types, pyarrow_wrap_buffer(c_buffer)
+    return extension_types, memoryview(pyarrow_wrap_buffer(c_buffer))
 
 
 def deserialize_schema(buf):
@@ -254,7 +254,7 @@ def deserialize_schema(buf):
         CConversionOptions c_conversion_options
         CExtensionSet c_extensions
 
-    if isinstance(buf, bytes):
+    if isinstance(buf, (bytes, memoryview)):
         c_buffer = pyarrow_unwrap_buffer(py_buffer(buf))
     elif isinstance(buf, Buffer):
         c_buffer = pyarrow_unwrap_buffer(buf)
@@ -328,7 +328,7 @@ def serialize_expressions(exprs, names, schema, *, allow_arrow_extensions=False)
     with nogil:
         c_res_buffer = SerializeExpressions(c_bound_exprs, c_conversion_options)
         c_buffer = GetResultValue(c_res_buffer)
-    return pyarrow_wrap_buffer(c_buffer)
+    return memoryview(pyarrow_wrap_buffer(c_buffer))
 
 
 cdef class BoundExpressions(_Weakrefable):
@@ -393,7 +393,7 @@ def deserialize_expressions(buf):
         CResult[CBoundExpressions] c_res_bound_exprs
         CBoundExpressions c_bound_exprs
 
-    if isinstance(buf, bytes):
+    if isinstance(buf, (bytes, memoryview)):
         c_buffer = pyarrow_unwrap_buffer(py_buffer(buf))
     elif isinstance(buf, Buffer):
         c_buffer = pyarrow_unwrap_buffer(buf)

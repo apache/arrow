@@ -1077,3 +1077,20 @@ def test_serializing_udfs():
     assert schema == returned.schema
     assert len(returned.expressions) == 1
     assert str(returned.expressions["expr"]) == str(exprs[0])
+
+
+def test_serializing_schema():
+    substrait_schema = b'\n\x01x\n\x01y\x12\x0c\n\x04*\x02\x10\x01\n\x04b\x02\x10\x01'
+    expected_schema = schema = pa.schema([
+        pa.field("x", pa.int32()),
+        pa.field("y", pa.string())
+    ])
+    returned = pa.substrait.deserialize_schema(substrait_schema)
+    assert expected_schema == returned
+
+    returned = pa.substrait.serialize_schema(returned)
+    assert isinstance(returned, (bytes, memoryview))  # protobuf accepts those
+    assert returned == substrait_schema
+
+    returned = pa.substrait.deserialize_schema(returned)
+    assert expected_schema == returned
