@@ -455,8 +455,8 @@ can be selected from :ref:`this list of aggregation functions
           will be added which should alleviate this constraint.
 
 The aggregation can provide results as a group or scalar. For instances,
-an operation like `hash_count` provides the counts per each unique record
-as a grouped result while an operation like `sum` provides a single record.
+an operation like ``hash_count`` provides the counts per each unique record
+as a grouped result while an operation like ``sum`` provides a single record.
 
 Scalar Aggregation example:
 
@@ -490,7 +490,7 @@ caller will repeatedly call this function until the generator function is exhaus
 will accumulate in memory.  An execution plan should only have one
 "terminal" node (one sink node).  An :class:`ExecPlan` can terminate early due to cancellation or
 an error, before the output is fully consumed. However, the plan can be safely destroyed independently
-of the sink, which will hold the unconsumed batches by `exec_plan->finished()`.
+of the sink, which will hold the unconsumed batches by ``exec_plan->finished()``.
 
 As a part of the Source Example, the Sink operation is also included;
 
@@ -515,7 +515,7 @@ The consuming function may be called before a previous invocation has completed.
 function does not run quickly enough then many concurrent executions could pile up, blocking the
 CPU thread pool.  The execution plan will not be marked finished until all consuming function callbacks
 have been completed.
-Once all batches have been delivered the execution plan will wait for the `finish` future to complete
+Once all batches have been delivered the execution plan will wait for the ``finish`` future to complete
 before marking the execution plan finished.  This allows for workflows where the consumption function
 converts batches into async tasks (this is currently done internally for the dataset write node).
 
