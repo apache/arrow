@@ -103,7 +103,7 @@ inline void CheckNumberDecoded(int64_t number_decoded, int64_t expected) {
 }
 
 constexpr std::string_view kErrorRepDefLevelNotMatchesNumValues =
-    "Number of decoded rep / def levels did less than num_values in page_header";
+    "Number of decoded rep / def levels did more or less than num_values in page_header";
 constexpr std::string_view kErrorRepDefLevelInEqual =
     "Number of decoded rep / def levels did not match";
 
