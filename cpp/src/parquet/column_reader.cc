@@ -103,9 +103,7 @@ inline void CheckNumberDecoded(int64_t number_decoded, int64_t expected) {
 }
 
 constexpr std::string_view kErrorRepDefLevelNotMatchesNumValues =
-    "Number of decoded rep / def levels did more or less than num_values in page_header";
-constexpr std::string_view kErrorRepDefLevelInEqual =
-    "Number of decoded rep / def levels did not match";
+    "Number of decoded rep / def levels do not match num_values in page header";
 
 }  // namespace
 
@@ -1063,7 +1061,7 @@ class TypedColumnReaderImpl : public TypedColumnReader<DType>,
     if (this->max_rep_level_ > 0 && rep_levels != nullptr) {
       int64_t num_rep_levels = this->ReadRepetitionLevels(batch_size, rep_levels);
       if (batch_size != num_rep_levels) {
-        throw ParquetException(kErrorRepDefLevelInEqual);
+        throw ParquetException(kErrorRepDefLevelNotMatchesNumValues);
       }
     }
   }
@@ -1183,7 +1181,7 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatchSpaced(
     if (this->max_rep_level_ > 0) {
       int64_t num_rep_levels = this->ReadRepetitionLevels(batch_size, rep_levels);
       if (num_def_levels != num_rep_levels) {
-        throw ParquetException(kErrorRepDefLevelInEqual);
+        throw ParquetException(kErrorRepDefLevelNotMatchesNumValues);
       }
     }
 
@@ -1429,7 +1427,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
         if (this->max_rep_level_ > 0) {
           int64_t rep_levels_read = this->ReadRepetitionLevels(batch_size, rep_levels);
           if (rep_levels_read != levels_read) {
-            throw ParquetException(kErrorRepDefLevelInEqual);
+            throw ParquetException(kErrorRepDefLevelNotMatchesNumValues);
           }
         }
 
@@ -1597,7 +1595,7 @@ class TypedRecordReader : public TypedColumnReaderImpl<DType>,
       int64_t levels_read = 0;
       levels_read = this->ReadDefinitionLevels(batch_size, def_levels);
       if (this->ReadRepetitionLevels(batch_size, rep_levels) != levels_read) {
-        throw ParquetException(kErrorRepDefLevelInEqual);
+        throw ParquetException(kErrorRepDefLevelNotMatchesNumValues);
       }
       if (ARROW_PREDICT_FALSE(batch_size != levels_read)) {
         throw ParquetException(kErrorRepDefLevelNotMatchesNumValues);

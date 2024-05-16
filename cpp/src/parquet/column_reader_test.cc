@@ -431,16 +431,13 @@ TEST_F(TestPrimitiveReader, TestReadValuesMissing) {
                ParquetException);
 }
 
-// GH-41321: When max_def_level > 0, and Page has more or less
-// def-levels than the `num_values` in PageHeader. We should
-// detect and throw exception.
-TEST_F(TestPrimitiveReader, DefLevelNotExpected) {
-  max_def_level_ = 1;
-  max_rep_level_ = 0;
-
-  auto do_check = [&](const std::vector<int16_t>& input_def_levels, int num_values) {
+// GH-41321: When max_def_level > 0 or max_rep_level > 0, and
+// Page has more or less levels than the `num_values` in
+// PageHeader. We should detect and throw exception.
+TEST_F(TestPrimitiveReader, DefRepLevelNotExpected) {
+  auto do_check = [&](const NodePtr& type, const std::vector<int16_t>& input_def_levels,
+                      const std::vector<int16_t>& input_rep_levels, int num_values) {
     std::vector<bool> values(num_values, false);
-    NodePtr type = schema::Boolean("a", Repetition::OPTIONAL);
     const ColumnDescriptor descr(type, max_def_level_, max_rep_level_);
 
     // The data page falls back to plain encoding
@@ -448,7 +445,7 @@ TEST_F(TestPrimitiveReader, DefLevelNotExpected) {
     std::shared_ptr<DataPageV1> data_page = MakeDataPage<BooleanType>(
         &descr, values, /*num_values=*/num_values, Encoding::PLAIN, /*indices=*/{},
         /*indices_size=*/0, /*def_levels=*/input_def_levels, max_def_level_,
-        /*rep_levels=*/{},
+        /*rep_levels=*/input_rep_levels,
         /*max_rep_level=*/max_rep_level_);
     pages_.push_back(data_page);
     InitReader(&descr);
@@ -466,20 +463,45 @@ TEST_F(TestPrimitiveReader, DefLevelNotExpected) {
                             &values_read);
         },
         ParquetException,
-        ::testing::Property(
-            &ParquetException::what,
-            ::testing::HasSubstr("Number of decoded rep / def levels did "
-                                 "more or less than num_values in page_header")));
+        ::testing::Property(&ParquetException::what,
+                            ::testing::HasSubstr("Number of decoded rep / def levels do "
+                                                 "not match num_values in page header")));
   };
   // storing def-levels less than value in page-header
   {
+    max_def_level_ = 1;
+    max_rep_level_ = 0;
+    NodePtr type = schema::Boolean("a", Repetition::OPTIONAL);
     std::vector<int16_t> input_def_levels(1, 1);
-    do_check(input_def_levels, /*num_values=*/3);
+    std::vector<int16_t> input_rep_levels{};
+    do_check(type, input_def_levels, input_rep_levels, /*num_values=*/3);
   }
   // storing def-levels more than value in page-header
   {
+    max_def_level_ = 1;
+    max_rep_level_ = 0;
+    NodePtr type = schema::Boolean("a", Repetition::OPTIONAL);
     std::vector<int16_t> input_def_levels(2, 1);
-    do_check(input_def_levels, /*num_values=*/1);
+    std::vector<int16_t> input_rep_levels{};
+    do_check(type, input_def_levels, input_rep_levels, /*num_values=*/1);
+  }
+  // storing rep-levels less than value in page-header
+  {
+    max_def_level_ = 0;
+    max_rep_level_ = 1;
+    NodePtr type = schema::Boolean("a", Repetition::REPEATED);
+    std::vector<int16_t> input_def_levels{};
+    std::vector<int16_t> input_rep_levels(3, 0);
+    do_check(type, input_def_levels, input_rep_levels, /*num_values=*/4);
+  }
+  // storing rep-levels more than value in page-header
+  {
+    max_def_level_ = 0;
+    max_rep_level_ = 1;
+    NodePtr type = schema::Boolean("a", Repetition::REPEATED);
+    std::vector<int16_t> input_def_levels{};
+    std::vector<int16_t> input_rep_levels(2, 1);
+    do_check(type, input_def_levels, input_rep_levels, /*num_values=*/1);
   }
 }
 
