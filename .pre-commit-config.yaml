@@ -136,5 +136,11 @@ repos:
     rev: v0.9.1
     hooks:
       - id: sphinx-lint
-        files: ^docs/
-        args: ['--disable', 'all', '--enable', 'trailing-whitespace,missing-final-newline', 'docs']
+        files: ^docs/source
+        exclude: ^docs/source/python/generated
+        args: [
+          '--enable',
+          'all',
+          '--disable',
+          'dangling-hyphen,line-too-long',
+        ]
