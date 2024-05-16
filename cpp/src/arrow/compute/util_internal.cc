@@ -38,8 +38,6 @@ Status TempVectorStack::Init(MemoryPool* pool, int64_t size) {
   ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateResizableBuffer(size, pool));
   ASAN_POISON_MEMORY_REGION(buffer->mutable_data(), size);
   buffer_ = std::move(buffer);
-  // buffer_cure_.buffer = buffer_->mutable_data();
-  // buffer_cure_.size = buffer_size_;
   return Status::OK();
 }
 
