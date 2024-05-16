@@ -524,6 +524,20 @@ cdef class RecordBatch(_Tabular):
     cdef void init(self, const shared_ptr[CRecordBatch]& table)
 
 
+cdef class Device(_Weakrefable):
+    cdef:
+        shared_ptr[CDevice] device
+
+    cdef void init(self, const shared_ptr[CDevice]& device)
+
+
+cdef class MemoryManager(_Weakrefable):
+    cdef:
+        shared_ptr[CMemoryManager] memory_manager
+
+    cdef void init(self, const shared_ptr[CMemoryManager]& memory_manager)
+
+
 cdef class Buffer(_Weakrefable):
     cdef:
         shared_ptr[CBuffer] buffer
