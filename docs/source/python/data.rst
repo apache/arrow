@@ -76,7 +76,7 @@ We use the name **logical type** because the **physical** storage may be the
 same for one or more types. For example, ``int64``, ``float64``, and
 ``timestamp[ms]`` all occupy 64 bits per value.
 
-These objects are `metadata`; they are used for describing the data in arrays,
+These objects are ``metadata``; they are used for describing the data in arrays,
 schemas, and record batches. In Python, they can be used in functions where the
 input data (e.g. Python objects) may be coerced to more than one Arrow type.
 
@@ -99,7 +99,7 @@ types' children. For example, we can define a list of int32 values with:
    t6 = pa.list_(t1)
    t6
 
-A `struct` is a collection of named fields:
+A ``struct`` is a collection of named fields:
 
 .. ipython:: python
 

@@ -148,7 +148,7 @@ namespace Apache.Arrow.Ipc
             public void Visit(MonthDayNanosecondIntervalArray array) => VisitPrimitiveArray(array);
 
             private void VisitPrimitiveArray<T>(PrimitiveArray<T> array)
-                where T : struct
+                where T : struct, IEquatable<T>
             {
                 _buffers.Add(CreateBitmapBuffer(array.NullBitmapBuffer, array.Offset, array.Length));
                 _buffers.Add(CreateSlicedBuffer<T>(array.ValueBuffer, array.Offset, array.Length));

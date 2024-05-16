@@ -29,9 +29,9 @@ jobs:
       - name: Install ninja-build
         run: sudo apt-get update && sudo apt-get install ninja-build
       - name: Install MATLAB
-        uses: matlab-actions/setup-matlab@v1
+        uses: matlab-actions/setup-matlab@v2
         with:
-          release: R2023a
+          release: R2024a
       - name: Build MATLAB Interface
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
@@ -66,9 +66,9 @@ jobs:
       - name: Install ninja-build
         run: brew install ninja
       - name: Install MATLAB
-        uses: matlab-actions/setup-matlab@v1
+        uses: matlab-actions/setup-matlab@v2
         with:
-          release: R2023a
+          release: R2024a
       - name: Build MATLAB Interface
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
@@ -101,9 +101,9 @@ jobs:
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       - name: Install MATLAB
-        uses: matlab-actions/setup-matlab@v1
+        uses: matlab-actions/setup-matlab@v2
         with:
-          release: R2023a
+          release: R2024a
       - name: Install sccache
         shell: bash
         run: arrow/ci/scripts/install_sccache.sh pc-windows-msvc $(pwd)/sccache
@@ -147,16 +147,16 @@ jobs:
           cp arrow/LICENSE.txt arrow/matlab/install/arrow_matlab/LICENSE.txt
           cp arrow/NOTICE.txt arrow/matlab/install/arrow_matlab/NOTICE.txt
       - name: Install MATLAB
-        uses: matlab-actions/setup-matlab@v1
+        uses: matlab-actions/setup-matlab@v2
         with:
-          release: R2023a
+          release: R2024a
       - name: Run commands
         env:
           MATLABPATH: arrow/matlab/tools
           ARROW_MATLAB_TOOLBOX_FOLDER: arrow/matlab/install/arrow_matlab
           ARROW_MATLAB_TOOLBOX_OUTPUT_FOLDER: artifacts/matlab-dist
           ARROW_MATLAB_TOOLBOX_VERSION: {{ arrow.no_rc_version }}
-        uses: matlab-actions/run-command@v1
+        uses: matlab-actions/run-command@v2
         with:
           command: packageMatlabInterface
       {{ macros.github_upload_releases(["artifacts/matlab-dist/*.mltbx"])|indent }}

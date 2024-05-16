@@ -30,11 +30,21 @@ namespace arrow {
 namespace compute {
 
 static std::shared_ptr<DataType> GetOffsetType(const DataType& type) {
-  return type.id() == Type::LIST ? int32() : int64();
+  switch (type.id()) {
+    case Type::LIST:
+    case Type::LIST_VIEW:
+      return int32();
+    case Type::LARGE_LIST:
+    case Type::LARGE_LIST_VIEW:
+      return int64();
+    default:
+      Unreachable("Unexpected type");
+  }
 }
 
 TEST(TestScalarNested, ListValueLength) {
-  for (auto ty : {list(int32()), large_list(int32())}) {
+  for (auto ty : {list(int32()), large_list(int32()), list_view(int32()),
+                  large_list_view(int32())}) {
     CheckScalarUnary("list_value_length", ty, "[[0, null, 1], null, [2, 3], []]",
                      GetOffsetType(*ty), "[3, null, 2, 0]");
   }
@@ -47,7 +57,8 @@ TEST(TestScalarNested, ListValueLength) {
 TEST(TestScalarNested, ListElementNonFixedListWithNulls) {
   auto sample = "[[7, 5, 81], [6, null, 4, 7, 8], [3, 12, 2, 0], [1, 9], null]";
   for (auto ty : NumericTypes()) {
-    for (auto list_type : {list(ty), large_list(ty)}) {
+    for (auto list_type :
+         {list(ty), large_list(ty), list_view(ty), large_list_view(ty)}) {
       auto input = ArrayFromJSON(list_type, sample);
       auto null_input = ArrayFromJSON(list_type, "[null]");
       for (auto index_type : IntTypes()) {

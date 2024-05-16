@@ -48,6 +48,16 @@ class ARROW_EXPORT Hashing32 {
   static void HashMultiColumn(const std::vector<KeyColumnArray>& cols, LightContext* ctx,
                               uint32_t* out_hash);
 
+  // Clarify the max temp stack usage for HashBatch, which might be necessary for the
+  // caller to be aware of at compile time to reserve enough stack size in advance. The
+  // HashBatch implementation uses one uint32 temp vector as a buffer for hash, one uint16
+  // temp vector as a buffer for null indices and one uint32 temp vector as a buffer for
+  // null hash, all are of size kMiniBatchLength. Plus extra kMiniBatchLength to cope with
+  // stack padding and aligning.
+  static constexpr auto kHashBatchTempStackUsage =
+      (sizeof(uint32_t) + sizeof(uint16_t) + sizeof(uint32_t) + /*extra=*/1) *
+      util::MiniBatch::kMiniBatchLength;
+
   static Status HashBatch(const ExecBatch& key_batch, uint32_t* hashes,
                           std::vector<KeyColumnArray>& column_arrays,
                           int64_t hardware_flags, util::TempVectorStack* temp_stack,
@@ -160,6 +170,15 @@ class ARROW_EXPORT Hashing64 {
  public:
   static void HashMultiColumn(const std::vector<KeyColumnArray>& cols, LightContext* ctx,
                               uint64_t* hashes);
+
+  // Clarify the max temp stack usage for HashBatch, which might be necessary for the
+  // caller to be aware of at compile time to reserve enough stack size in advance. The
+  // HashBatch implementation uses one uint16 temp vector as a buffer for null indices and
+  // one uint64 temp vector as a buffer for null hash, all are of size kMiniBatchLength.
+  // Plus extra kMiniBatchLength to cope with stack padding and aligning.
+  static constexpr auto kHashBatchTempStackUsage =
+      (sizeof(uint16_t) + sizeof(uint64_t) + /*extra=*/1) *
+      util::MiniBatch::kMiniBatchLength;
 
   static Status HashBatch(const ExecBatch& key_batch, uint64_t* hashes,
                           std::vector<KeyColumnArray>& column_arrays,

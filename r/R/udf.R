@@ -95,12 +95,7 @@ register_scalar_function <- function(name, fun, in_type, out_type,
   body(binding_fun) <- expr_substitute(body(binding_fun), sym("name"), name)
   environment(binding_fun) <- asNamespace("arrow")
 
-  register_binding(
-    name,
-    binding_fun,
-    update_cache = TRUE
-  )
-
+  register_binding(name, binding_fun)
   invisible(NULL)
 }
 

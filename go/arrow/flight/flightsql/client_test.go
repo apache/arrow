@@ -448,9 +448,9 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteParamBinding() {
 	expectedDesc := getDesc(&pb.CommandPreparedStatementQuery{PreparedStatementHandle: []byte(handle)})
 
 	// mocked DoPut result
-    doPutPreparedStatementResult := &pb.DoPutPreparedStatementResult{PreparedStatementHandle: []byte(updatedHandle)}
+	doPutPreparedStatementResult := &pb.DoPutPreparedStatementResult{PreparedStatementHandle: []byte(updatedHandle)}
 	resdata, _ := proto.Marshal(doPutPreparedStatementResult)
-	putResult := &pb.PutResult{ AppMetadata: resdata }
+	putResult := &pb.PutResult{AppMetadata: resdata}
 
 	// mocked client stream for DoPut
 	mockedPut := &mockDoPutClient{}
@@ -461,7 +461,7 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteParamBinding() {
 	mockedPut.On("CloseSend").Return(nil)
 	mockedPut.On("Recv").Return(putResult, nil)
 
-	infoCmd := &pb.CommandPreparedStatementQuery{PreparedStatementHandle: []byte(handle)}
+	infoCmd := &pb.CommandPreparedStatementQuery{PreparedStatementHandle: []byte(updatedHandle)}
 	desc := getDesc(infoCmd)
 	s.mockClient.On("GetFlightInfo", desc.Type, desc.Cmd, s.callOpts).Return(&emptyFlightInfo, nil)
 
@@ -525,9 +525,9 @@ func (s *FlightSqlClientSuite) TestPreparedStatementExecuteReaderBinding() {
 	expectedDesc := getDesc(&pb.CommandPreparedStatementQuery{PreparedStatementHandle: []byte(query)})
 
 	// mocked DoPut result
-    doPutPreparedStatementResult := &pb.DoPutPreparedStatementResult{PreparedStatementHandle: []byte(query)}
+	doPutPreparedStatementResult := &pb.DoPutPreparedStatementResult{PreparedStatementHandle: []byte(query)}
 	resdata, _ := proto.Marshal(doPutPreparedStatementResult)
-	putResult := &pb.PutResult{ AppMetadata: resdata }
+	putResult := &pb.PutResult{AppMetadata: resdata}
 
 	// mocked client stream for DoPut
 	mockedPut := &mockDoPutClient{}

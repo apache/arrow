@@ -121,27 +121,8 @@ arrow_not_supported <- function(msg) {
 }
 
 # Create a data mask for evaluating a dplyr expression
-arrow_mask <- function(.data, aggregation = FALSE) {
+arrow_mask <- function(.data) {
   f_env <- new_environment(.cache$functions)
-
-  if (aggregation) {
-    # Add the aggregation functions to the environment, and set the enclosing
-    # environment to the parent frame so that, when called from summarize_eval(),
-    # they can reference and assign into `..aggregations` defined there.
-    pf <- parent.frame()
-    for (f in names(agg_funcs)) {
-      f_env[[f]] <- agg_funcs[[f]]
-      environment(f_env[[f]]) <- pf
-    }
-  } else {
-    # Add functions that need to error hard and clear.
-    # Some R functions will still try to evaluate on an Expression
-    # and return NA with a warning :exploding_head:
-    fail <- function(...) stop("Not implemented")
-    for (f in c("mean", "sd")) {
-      f_env[[f]] <- fail
-    }
-  }
 
   # Assign the schema to the expressions
   schema <- .data$.data$schema
@@ -156,6 +137,8 @@ arrow_mask <- function(.data, aggregation = FALSE) {
   # TODO: figure out what rlang::as_data_pronoun does/why we should use it
   # (because if we do we get `Error: Can't modify the data pronoun` in mutate())
   out$.data <- .data$selected_columns
+  # Add the aggregations list to collect any that get pulled out when evaluating
+  out$.aggregations <- empty_named_list()
   out
 }
 

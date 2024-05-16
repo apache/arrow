@@ -67,7 +67,7 @@ On Alpine Linux:
            gcc \
            ninja \
            make
-           
+
 On Fedora Linux:
 
 .. code-block:: shell
@@ -99,7 +99,7 @@ On macOS, you can use `Homebrew <https://brew.sh/>`_:
 With `vcpkg <https://github.com/Microsoft/vcpkg>`_:
 
 .. code-block:: shell
-   
+
    git clone https://github.com/apache/arrow.git
    cd arrow
    vcpkg install \
@@ -312,7 +312,7 @@ depends on ``python`` being available).
 
 On some Linux distributions, running the test suite might require setting an
 explicit locale. If you see any locale-related errors, try setting the
-environment variable (which requires the `locales` package or equivalent):
+environment variable (which requires the ``locales`` package or equivalent):
 
 .. code-block::
 
@@ -362,7 +362,7 @@ boolean flags to ``cmake``.
 * ``-DARROW_GCS=ON``: Build Arrow with GCS support (requires the GCloud SDK for C++)
 * ``-DARROW_HDFS=ON``: Arrow integration with libhdfs for accessing the Hadoop
   Filesystem
-* ``-DARROW_JEMALLOC=ON``: Build the Arrow jemalloc-based allocator, on by default 
+* ``-DARROW_JEMALLOC=ON``: Build the Arrow jemalloc-based allocator, on by default
 * ``-DARROW_JSON=ON``: JSON reader module
 * ``-DARROW_MIMALLOC=ON``: Build the Arrow mimalloc-based allocator
 * ``-DARROW_ORC=ON``: Arrow integration with Apache ORC
@@ -375,7 +375,7 @@ boolean flags to ``cmake``.
   instead.
 * ``-DARROW_S3=ON``: Support for Amazon S3-compatible filesystems
 * ``-DARROW_SUBSTRAIT=ON``: Build with support for Substrait
-* ``-DARROW_WITH_RE2=ON``: Build with support for regular expressions using the re2 
+* ``-DARROW_WITH_RE2=ON``: Build with support for regular expressions using the re2
   library, on by default and used when ``ARROW_COMPUTE`` or ``ARROW_GANDIVA`` is ``ON``
 * ``-DARROW_WITH_UTF8PROC=ON``: Build with support for Unicode properties using
   the utf8proc library, on by default and used when ``ARROW_COMPUTE`` or ``ARROW_GANDIVA``
@@ -472,7 +472,7 @@ The build system supports a number of third-party dependencies
   * ``c-ares``: a dependency of gRPC
   * ``gflags``: for command line utilities (formerly Googleflags)
   * ``GLOG``: for logging
-  * ``google_cloud_cpp_storage``: for Google Cloud Storage support, requires 
+  * ``google_cloud_cpp_storage``: for Google Cloud Storage support, requires
     system cURL and can use the ``BUNDLED`` method described below
   * ``gRPC``: for remote procedure calls
   * ``GTest``: Googletest, for testing
@@ -627,9 +627,10 @@ outputs like:
 Deprecations and API Changes
 ----------------------------
 
-We use the compiler definition ``ARROW_NO_DEPRECATED_API`` to disable APIs that
-have been deprecated. It is a good practice to compile third party applications
-with this flag to proactively catch and account for API changes.
+We use the marco ``ARROW_DEPRECATED`` which wraps C++ deprecated attribute for
+APIs that have been deprecated. It is a good practice to compile third party
+applications with ``-Werror=deprecated-declarations`` (for GCC/Clang or similar
+flags of other compilers) to proactively catch and account for API changes.
 
 Modular Build Targets
 ---------------------

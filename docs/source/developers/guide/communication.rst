@@ -27,7 +27,7 @@
 .. _communication:
 
 *************
-Communication 
+Communication
 *************
 
 **About the contributors**
@@ -50,7 +50,7 @@ tags ([C++], [R], [Ruby] etc.) so it gets noticed by the right people.
 Where to get help 👋
 ====================
 
-For any question you may have or problems you are facing you can write to 
+For any question you may have or problems you are facing you can write to
 user or development :ref:`mailing_list` or you can create an issue on
 :ref:`github`. Also use GitHub to search through the issues, report bugs
 and create feature requests or proposals.

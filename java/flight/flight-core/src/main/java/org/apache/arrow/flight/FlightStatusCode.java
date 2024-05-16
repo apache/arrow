@@ -71,6 +71,11 @@ public enum FlightStatusCode {
    * should send this code only if it has not done any work.
    */
   UNAVAILABLE,
+  /**
+   * Some resource has been exhausted, perhaps a per-user quota, or perhaps the entire file system is out of space.
+   * (see: https://grpc.github.io/grpc/core/md_doc_statuscodes.html)
+   */
+  RESOURCE_EXHAUSTED
   ;
 
   /**

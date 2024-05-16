@@ -436,10 +436,55 @@ def docker_linter(src):
                                                    cwd=src.path))
 
 
-def linter(src, fix=False, *, clang_format=False, cpplint=False,
+class SphinxLint(Command):
+    def __init__(self, src, path=None, sphinx_lint_bin=None, disable=None, enable=None):
+        self.src = src
+        self.path = path
+        self.bin = default_bin(sphinx_lint_bin, "sphinx-lint")
+        self.disable = disable or "all"
+        self.enable = enable
+
+    def lint(self, *args, check=False):
+        docs_path = os.path.join(self.src.path, "docs")
+
+        args = []
+
+        if self.disable:
+            args.extend(["--disable", self.disable])
+
+        if self.enable:
+            args.extend(["--enable", self.enable])
+
+        if self.path is not None:
+            args.extend([self.path])
+        else:
+            args.extend([docs_path])
+
+        return self.run(*args, check=check)
+
+
+def docs_linter(src, path=None):
+    """Run sphinx-lint on docs."""
+    logger.info("Running docs linter (sphinx-lint)")
+
+    sphinx_lint = SphinxLint(
+        src,
+        path=path,
+        disable="all",
+        enable="trailing-whitespace,missing-final-newline"
+    )
+
+    if not sphinx_lint.available:
+        logger.error("sphinx-lint linter requested but sphinx-lint binary not found")
+        return
+
+    yield LintResult.from_cmd(sphinx_lint.lint())
+
+
+def linter(src, fix=False, path=None, *, clang_format=False, cpplint=False,
            clang_tidy=False, iwyu=False, iwyu_all=False,
            python=False, numpydoc=False, cmake_format=False, rat=False,
-           r=False, docker=False):
+           r=False, docker=False, docs=False):
     """Run all linters."""
     with tmpdir(prefix="arrow-lint-") as root:
         build_dir = os.path.join(root, "cpp-build")
@@ -480,6 +525,9 @@ def linter(src, fix=False, *, clang_format=False, cpplint=False,
 
         if docker:
             results.extend(docker_linter(src))
+
+        if docs:
+            results.extend(docs_linter(src, path))
 
         # Raise error if one linter failed, ensuring calling code can exit with
         # non-zero.

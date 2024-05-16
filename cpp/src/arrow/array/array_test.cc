@@ -827,6 +827,9 @@ TEST_F(TestArray, TestFillFromScalar) {
 // GH-40069: Data-race when concurrent calling ArraySpan::FillFromScalar of the same
 // scalar instance.
 TEST_F(TestArray, TestConcurrentFillFromScalar) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
   for (auto type : TestArrayUtilitiesAgainstTheseTypes()) {
     ARROW_SCOPED_TRACE("type = ", type->ToString());
     for (auto seed : {0u, 0xdeadbeef, 42u}) {
