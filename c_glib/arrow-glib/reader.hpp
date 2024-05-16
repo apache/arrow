@@ -26,7 +26,6 @@
 #include <arrow/json/api.h>
 
 #include <arrow-glib/reader.h>
-#include <arrow-glib/visibility.h>
 
 GARROW_EXTERN
 GArrowRecordBatchReader *

@@ -22,7 +22,6 @@
 #include <arrow/util/compression.h>
 
 #include <arrow-glib/codec.h>
-#include <arrow-glib/visibility.h>
 
 GARROW_EXTERN
 GArrowCompressionType

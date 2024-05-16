@@ -22,7 +22,6 @@
 #include <arrow/filesystem/api.h>
 
 #include <arrow-glib/file-system.h>
-#include <arrow-glib/visibility.h>
 
 GARROW_EXTERN
 GArrowFileInfo *

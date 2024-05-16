@@ -22,7 +22,6 @@
 #include <arrow/compute/expression.h>
 
 #include <arrow-glib/expression.h>
-#include <arrow-glib/visibility.h>
 
 GARROW_EXTERN
 GArrowExpression *

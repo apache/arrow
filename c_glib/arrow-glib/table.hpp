@@ -23,7 +23,6 @@
 #include <arrow/ipc/api.h>
 
 #include <arrow-glib/table.h>
-#include <arrow-glib/visibility.h>
 
 GARROW_EXTERN
 GArrowTable *

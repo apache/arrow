@@ -24,7 +24,6 @@
 #include <arrow/io/memory.h>
 
 #include <arrow-glib/output-stream.h>
-#include <arrow-glib/visibility.h>
 
 GARROW_EXTERN
 GArrowOutputStream *

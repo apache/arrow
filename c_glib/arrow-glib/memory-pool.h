@@ -20,6 +20,7 @@
 #pragma once
 
 #include <glib-object.h>
+
 #include <arrow-glib/version.h>
 
 G_BEGIN_DECLS

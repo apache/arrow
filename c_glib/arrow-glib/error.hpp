@@ -22,7 +22,6 @@
 #include <arrow/api.h>
 
 #include <arrow-glib/error.h>
-#include <arrow-glib/visibility.h>
 
 GARROW_EXTERN
 gboolean
