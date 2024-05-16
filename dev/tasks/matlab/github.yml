@@ -73,20 +73,8 @@ jobs:
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: arrow/ci/scripts/matlab_build.sh $(pwd)/arrow
-      - name: Change shared library dependency name
-        # MATLAB's programmatic packaging interface does not properly 
-        # include symbolic link files in the package MLTBX - this is a
-        # bug. As a temporary workaround, change the expected name of the 
-        # Arrow C++ library which libarrowproxy.dylib depends on.
-        # For example, change libarrow.1500.dylib to libarrow.1500.0.0.dylib.
-        run: |
-           pushd arrow/matlab/install/arrow_matlab/+libmexclass/+proxy
-           SYMLINK_ARROW_LIB="$(find . -name 'libarrow.*.dylib' -type l | xargs basename)"
-           REGULAR_ARROW_LIB="$(echo libarrow.*.*.dylib)"
-           echo "SYMLINK_ARROW_LIB = ${SYMLINK_ARROW_LIB}"
-           echo "REGULAR_ARROW_LIB = ${REGULAR_ARROW_LIB}"
-           install_name_tool -change @rpath/$SYMLINK_ARROW_LIB @rpath/$REGULAR_ARROW_LIB libarrowproxy.dylib
-           popd
+      - name: Update dylib names
+        run: arrow/dev/tasks/matlab/rename_macos_dynamic_libraries.sh arrow/matlab/install/arrow_matlab/+libmexclass/+proxy x64
       - name: Compress into single artifact
         run: tar -cvzf matlab-arrow-macos.tar.gz arrow/matlab/install/arrow_matlab
       - name: Upload artifacts
@@ -111,7 +99,7 @@ jobs:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: arrow/ci/scripts/matlab_build.sh $(pwd)/arrow
       - name: Update dylib names
-        run: arrow/dev/tasks/matlab/rename_macos_arm64_dylibs.sh arrow/matlab/install/arrow_matlab/+libmexclass/+proxy
+        run: arrow/dev/tasks/matlab/rename_macos_dynamic_libraries.sh arrow/matlab/install/arrow_matlab/+libmexclass/+proxy arm64
       - name: Compress into single artifact
         run: tar -cvzf matlab-arrow-macos-arm64.tar.gz arrow/matlab/install/arrow_matlab
       - name: Upload artifacts
