@@ -58,6 +58,7 @@ public class TypeLayout {
 
   /**
    * Constructs a new {@link TypeLayout} for the given <code>arrowType</code>.
+   * This method is deprecated and will be removed in a future release.
    */
   @Deprecated
   public static TypeLayout getTypeLayout(final ArrowType arrowType) {
@@ -501,6 +502,7 @@ public class TypeLayout {
 
   /**
    * Gets the number of {@link BufferLayout}s for the given <code>arrowType</code>.
+   * This method is deprecated and will be removed in a future release.
    */
   @Deprecated
   public static int getTypeBufferCount(final ArrowType arrowType) {
