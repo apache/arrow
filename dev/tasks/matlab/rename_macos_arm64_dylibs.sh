@@ -31,8 +31,8 @@ set -ex
 #    
 #        $ tree /tmp/example
 #        /tmp/example
-#        ├── regular_file.txt
-#        └── symbolic_link -> regular_file.txt
+#        |-- regular_file.txt
+#        |-- symbolic_link -> regular_file.txt
 #  
 # In MATLAB, if the symbolic link and its target file are in the same folder, then the symbolic link
 # is not included as one of the files to be packaged:
@@ -50,11 +50,11 @@ set -ex
 #     
 #        $ tree arrow/matlab/install/arrow_matlab/+libmexclass/+proxy/ 
 #        . 
-#        ├── libarrow.1700.0.0.dylib
-#        ├── libarrow.1700.dylib -> libarrow.1700.0.0.dylib
-#        └── libarrow.dylib -> libarrow.1700.dylib
+#        |-- libarrow.1700.0.0.dylib
+#        |-- libarrow.1700.dylib -> libarrow.1700.0.0.dylib
+#        |-- libarrow.dylib -> libarrow.1700.dylib
 #
-# When arrow/matlab/install/arrow_matlab is packaged into an MLTBX file, only the "reguar file"
+# When arrow/matlab/install/arrow_matlab is packaged into an MLTBX file, only the "regular file"
 # libarrow.1700.0.0.dylib is included. This is problematic because building the MATLAB creates
 # a shared library named libarrowproxy.dylib, which links against libarrow.1700.dylib 
 # - not libarrow.1700.0.0.dylib:
@@ -69,8 +69,16 @@ set -ex
 #
 # Issue Number 2:
 #
+# We currently create one MLTBX file to package the MATLAB Arrow interface for win64, glnxa64,
+# maci64, and maca64. We do this because the MATLAB File Exchange <-> GitHub Releases integration 
+# does not support platform-specific MLTBX files as of this moment. This mostly works, except rename
+# either the maci64 shared libraries or the maca64 shared libraries to avoid duplicate filenames
+# in the MLTBX file because maci64 and maca64 shared libraries have the same extension: dylib.
+# For example, the shared library libarrow.1700.0.0.dylib is produced when building Arrow on
+# macOS AND Intel-based macOS.
 #
-
+# To workaround this issue, we have decided to append the suffix arm64 to the shared libraries built
+# on ARM-based macOS.
 
 if [ "$#" -ne 1 ]; then
   echo "Usage: $0 <dylib-dir>"
