@@ -152,47 +152,26 @@ class build_ext(_build_ext):
             if not hasattr(sys, 'gettotalrefcount'):
                 self.build_type = 'release'
 
-        self.with_azure = strtobool(
-            os.environ.get('PYARROW_WITH_AZURE', '0'))
-        self.with_gcs = strtobool(
-            os.environ.get('PYARROW_WITH_GCS', '0'))
-        self.with_s3 = strtobool(
-            os.environ.get('PYARROW_WITH_S3', '0'))
-        self.with_hdfs = strtobool(
-            os.environ.get('PYARROW_WITH_HDFS', '0'))
-        self.with_cuda = strtobool(
-            os.environ.get('PYARROW_WITH_CUDA', '0'))
-        self.with_substrait = strtobool(
-            os.environ.get('PYARROW_WITH_SUBSTRAIT', '0'))
-        self.with_flight = strtobool(
-            os.environ.get('PYARROW_WITH_FLIGHT', '0'))
-        self.with_acero = strtobool(
-            os.environ.get('PYARROW_WITH_ACERO', '0'))
-        self.with_dataset = strtobool(
-            os.environ.get('PYARROW_WITH_DATASET', '0'))
-        self.with_parquet = strtobool(
-            os.environ.get('PYARROW_WITH_PARQUET', '0'))
-        self.with_parquet_encryption = strtobool(
-            os.environ.get('PYARROW_WITH_PARQUET_ENCRYPTION', '0'))
-        self.with_orc = strtobool(
-            os.environ.get('PYARROW_WITH_ORC', '0'))
-        self.with_gandiva = strtobool(
-            os.environ.get('PYARROW_WITH_GANDIVA', '0'))
+        self.with_azure = None
+        self.with_gcs = None
+        self.with_s3 = None
+        self.with_hdfs = None
+        self.with_cuda = None
+        self.with_substrait = None
+        self.with_flight = None
+        self.with_acero = None
+        self.with_dataset = None
+        self.with_parquet = None
+        self.with_parquet_encryption = None
+        self.with_orc = None
+        self.with_gandiva = None
+
         self.generate_coverage = strtobool(
             os.environ.get('PYARROW_GENERATE_COVERAGE', '0'))
         self.bundle_arrow_cpp = strtobool(
             os.environ.get('PYARROW_BUNDLE_ARROW_CPP', '0'))
         self.bundle_cython_cpp = strtobool(
             os.environ.get('PYARROW_BUNDLE_CYTHON_CPP', '0'))
-
-        self.with_parquet_encryption = (self.with_parquet_encryption and
-                                        self.with_parquet)
-
-        # enforce module dependencies
-        if self.with_substrait:
-            self.with_dataset = True
-        if self.with_dataset:
-            self.with_acero = True
 
     CYTHON_MODULE_NAMES = [
         'lib',
@@ -270,23 +249,30 @@ class build_ext(_build_ext):
                 cmake_options.append('-D{0}={1}'.format(
                     varname, 'on' if value else 'off'))
 
+            def append_cmake_component(flag, varname):
+                # only pass this to cmake is the user pass the --with-component
+                # flag to setup.py build_ext
+                if flag is not None:
+                    append_cmake_bool(flag, varname)
+
             if self.cmake_generator:
                 cmake_options += ['-G', self.cmake_generator]
 
-            append_cmake_bool(self.with_cuda, 'PYARROW_BUILD_CUDA')
-            append_cmake_bool(self.with_substrait, 'PYARROW_BUILD_SUBSTRAIT')
-            append_cmake_bool(self.with_flight, 'PYARROW_BUILD_FLIGHT')
-            append_cmake_bool(self.with_gandiva, 'PYARROW_BUILD_GANDIVA')
-            append_cmake_bool(self.with_acero, 'PYARROW_BUILD_ACERO')
-            append_cmake_bool(self.with_dataset, 'PYARROW_BUILD_DATASET')
-            append_cmake_bool(self.with_orc, 'PYARROW_BUILD_ORC')
-            append_cmake_bool(self.with_parquet, 'PYARROW_BUILD_PARQUET')
-            append_cmake_bool(self.with_parquet_encryption,
-                              'PYARROW_BUILD_PARQUET_ENCRYPTION')
-            append_cmake_bool(self.with_azure, 'PYARROW_BUILD_AZURE')
-            append_cmake_bool(self.with_gcs, 'PYARROW_BUILD_GCS')
-            append_cmake_bool(self.with_s3, 'PYARROW_BUILD_S3')
-            append_cmake_bool(self.with_hdfs, 'PYARROW_BUILD_HDFS')
+            append_cmake_component(self.with_cuda, 'PYARROW_CUDA')
+            append_cmake_component(self.with_substrait, 'PYARROW_SUBSTRAIT')
+            append_cmake_component(self.with_flight, 'PYARROW_FLIGHT')
+            append_cmake_component(self.with_gandiva, 'PYARROW_GANDIVA')
+            append_cmake_component(self.with_acero, 'PYARROW_ACERO')
+            append_cmake_component(self.with_dataset, 'PYARROW_DATASET')
+            append_cmake_component(self.with_orc, 'PYARROW_ORC')
+            append_cmake_component(self.with_parquet, 'PYARROW_PARQUET')
+            append_cmake_component(self.with_parquet_encryption,
+                                   'PYARROW_PARQUET_ENCRYPTION')
+            append_cmake_component(self.with_azure, 'PYARROW_AZURE')
+            append_cmake_component(self.with_gcs, 'PYARROW_GCS')
+            append_cmake_component(self.with_s3, 'PYARROW_S3')
+            append_cmake_component(self.with_hdfs, 'PYARROW_HDFS')
+
             append_cmake_bool(self.bundle_arrow_cpp,
                               'PYARROW_BUNDLE_ARROW_CPP')
             append_cmake_bool(self.bundle_cython_cpp,
@@ -329,54 +315,8 @@ class build_ext(_build_ext):
             self._found_names = []
             for name in self.CYTHON_MODULE_NAMES:
                 built_path = pjoin(install_prefix, name + ext_suffix)
-                if not os.path.exists(built_path):
-                    print(f'Did not find {built_path}')
-                    if self._failure_permitted(name):
-                        print(f'Cython module {name} failure permitted')
-                        continue
-                    raise RuntimeError('PyArrow C-extension failed to build:',
-                                       os.path.abspath(built_path))
-
-                self._found_names.append(name)
-
-    def _failure_permitted(self, name):
-        if name == '_parquet' and not self.with_parquet:
-            return True
-        if name == '_parquet_encryption' and not self.with_parquet_encryption:
-            return True
-        if name == '_orc' and not self.with_orc:
-            return True
-        if name == '_flight' and not self.with_flight:
-            return True
-        if name == '_substrait' and not self.with_substrait:
-            return True
-        if name == '_azurefs' and not self.with_azure:
-            return True
-        if name == '_gcsfs' and not self.with_gcs:
-            return True
-        if name == '_s3fs' and not self.with_s3:
-            return True
-        if name == '_hdfs' and not self.with_hdfs:
-            return True
-        if name == '_dataset' and not self.with_dataset:
-            return True
-        if name == '_acero' and not self.with_acero:
-            return True
-        if name == '_exec_plan' and not self.with_acero:
-            return True
-        if name == '_dataset_orc' and not (
-                self.with_orc and self.with_dataset
-        ):
-            return True
-        if name == '_dataset_parquet' and not (
-                self.with_parquet and self.with_dataset
-        ):
-            return True
-        if name == '_cuda' and not self.with_cuda:
-            return True
-        if name == 'gandiva' and not self.with_gandiva:
-            return True
-        return False
+                if os.path.exists(built_path):
+                    self._found_names.append(name)
 
     def _get_build_dir(self):
         # Get the package directory from build_py
