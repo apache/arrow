@@ -18,8 +18,8 @@
 package org.apache.arrow.vector.compare;
 
 import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.Charset;
 import java.util.Arrays;
@@ -33,6 +33,7 @@ import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.LargeVarCharVector;
 import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.ViewVarCharVector;
 import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.compare.util.ValueEpsilonEqualizers;
 import org.apache.arrow.vector.complex.DenseUnionVector;
@@ -53,16 +54,16 @@ import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 public class TestRangeEqualsVisitor {
 
   private BufferAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void init() {
     allocator = new RootAllocator(Long.MAX_VALUE);
   }
@@ -71,8 +72,11 @@ public class TestRangeEqualsVisitor {
   private static final byte[] STR1 = "AAAAA1".getBytes(utf8Charset);
   private static final byte[] STR2 = "BBBBBBBBB2".getBytes(utf8Charset);
   private static final byte[] STR3 = "CCCC3".getBytes(utf8Charset);
+  private static final byte[] STR4 = "12345678901234A".getBytes(utf8Charset);
+  private static final byte[] STR5 = "A2345678901234ABC".getBytes(utf8Charset);
+  private static final byte[] STR6 = "AB45678901234ABCD".getBytes(utf8Charset);
 
-  @After
+  @AfterEach
   public void terminate() throws Exception {
     allocator.close();
   }
@@ -129,6 +133,55 @@ public class TestRangeEqualsVisitor {
 
       RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector1, vector2);
       assertTrue(visitor.rangeEquals(new Range(1, 1, 3)));
+    }
+  }
+
+  @Test
+  public void testBaseVariableViewVectorRangeEquals() {
+    try (final ViewVarCharVector vector1 = new ViewVarCharVector("varchar", allocator);
+        final ViewVarCharVector vector2 = new ViewVarCharVector("varchar", allocator)) {
+
+      setVector(vector1, STR1, STR2, STR4, STR3, STR2, STR5, STR1, STR6, STR1, STR2, STR4);
+      setVector(vector2, STR1, STR2, STR4, STR3, STR2, STR5, STR1, STR6, STR1, STR2, STR4);
+
+      RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector1, vector2);
+      // inclusion of long string in the middle
+      assertTrue(visitor.rangeEquals(new Range(1, 1, 3)));
+      assertFalse(visitor.rangeEquals(new Range(0, 1, 4)));
+      // inclusion of long string at the start
+      assertTrue(visitor.rangeEquals(new Range(2, 2, 4)));
+      assertFalse(visitor.rangeEquals(new Range(2, 5, 4)));
+      // inclusion of long string at the end
+      assertTrue(visitor.rangeEquals(new Range(4, 4, 4)));
+      // unequal range
+      assertTrue(visitor.rangeEquals(new Range(8, 0, 3)));
+      assertFalse(visitor.rangeEquals(new Range(4, 5, 3)));
+
+      // checking the same ranges when nulls are set
+
+      vector1.setNull(1);
+      vector2.setNull(1);
+
+      vector1.setNull(3);
+      vector2.setNull(3);
+
+      vector1.setNull(5);
+      vector2.setNull(5);
+
+      vector1.setNull(9);
+      vector2.setNull(9);
+
+      // inclusion of long string in the middle
+      assertTrue(visitor.rangeEquals(new Range(1, 1, 3)));
+      assertFalse(visitor.rangeEquals(new Range(0, 1, 4)));
+      // inclusion of long string at the start
+      assertTrue(visitor.rangeEquals(new Range(2, 2, 4)));
+      assertFalse(visitor.rangeEquals(new Range(2, 5, 4)));
+      // inclusion of long string at the end
+      assertTrue(visitor.rangeEquals(new Range(4, 4, 4)));
+      // unequal range
+      assertTrue(visitor.rangeEquals(new Range(8, 0, 3)));
+      assertFalse(visitor.rangeEquals(new Range(4, 5, 3)));
     }
   }
 
@@ -476,7 +529,7 @@ public class TestRangeEqualsVisitor {
     }
   }
 
-  @Ignore
+  @Disabled
   @Test
   public void testEqualsWithOutTypeCheck() {
     try (final IntVector intVector = new IntVector("int", allocator);
