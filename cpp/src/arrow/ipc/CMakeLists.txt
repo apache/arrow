@@ -23,10 +23,10 @@ function(ADD_ARROW_IPC_TEST REL_TEST_NAME)
   set(one_value_args PREFIX)
   set(multi_value_args)
   cmake_parse_arguments(ARG
-    "${options}"
-    "${one_value_args}"
-    "${multi_value_args}"
-    ${ARGN})
+                        "${options}"
+                        "${one_value_args}"
+                        "${multi_value_args}"
+                        ${ARGN})
 
   if(ARG_PREFIX)
     set(PREFIX ${ARG_PREFIX})
@@ -60,7 +60,7 @@ if(ARROW_BUILD_UTILITIES OR ARROW_BUILD_INTEGRATION)
 
   if(ARROW_BUILD_UTILITIES)
     install(TARGETS arrow-file-to-stream arrow-stream-to-file ${INSTALL_IS_OPTIONAL}
-      DESTINATION ${CMAKE_INSTALL_BINDIR})
+            DESTINATION ${CMAKE_INSTALL_BINDIR})
   endif()
 
   if(ARROW_BUILD_INTEGRATION)
@@ -74,11 +74,11 @@ add_arrow_benchmark(read_write_benchmark PREFIX "arrow-ipc")
 if(ARROW_FUZZING)
   add_executable(arrow-ipc-generate-fuzz-corpus generate_fuzz_corpus.cc)
   target_link_libraries(arrow-ipc-generate-fuzz-corpus ${ARROW_UTIL_LIB}
-    ${ARROW_TEST_LINK_LIBS})
+                        ${ARROW_TEST_LINK_LIBS})
 
   add_executable(arrow-ipc-generate-tensor-fuzz-corpus generate_tensor_fuzz_corpus.cc)
   target_link_libraries(arrow-ipc-generate-tensor-fuzz-corpus ${ARROW_UTIL_LIB}
-    ${ARROW_TEST_LINK_LIBS})
+                        ${ARROW_TEST_LINK_LIBS})
 endif()
 
 add_arrow_fuzz_target(file_fuzz PREFIX "arrow-ipc")
