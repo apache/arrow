@@ -119,11 +119,7 @@ repos:
           ?^ci/.*/.*\.cmake$|
           ?^cpp/.*/.*\.cmake\.in$|
           ?^cpp/.*/.*\.cmake$|
-          ?^cpp/.*/CMakeLists\.txt$|
-          ?^go/.*/CMakeLists\.txt$|
-          ?^java/.*/CMakeLists\.txt$|
-          ?^matlab/.*/CMakeLists\.txt$|
-          ?^python/.*/CMakeLists\.txt$|
+          ?.*CMakeLists\.txt$|
           )
         exclude: >-
           (
@@ -131,6 +127,7 @@ repos:
           ?^cpp/cmake_modules/FindPythonLibsNew\.cmake$|
           ?^cpp/cmake_modules/UseCython\.cmake$|
           ?^cpp/src/arrow/util/config\.h\.cmake$|
+          ?^ci/conan/all/.*CMakeLists\.txt$|
           )
   - repo: https://github.com/sphinx-contrib/sphinx-lint
     rev: v0.9.1
