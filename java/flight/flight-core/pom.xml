@@ -20,7 +20,7 @@
   <artifactId>flight-core</artifactId>
   <packaging>jar</packaging>
   <name>Arrow Flight Core</name>
-  <description>(Experimental)An RPC mechanism for transferring ValueVectors.</description>
+  <description>An RPC mechanism for transferring ValueVectors.</description>
 
   <properties>
     <forkCount>1</forkCount>
