@@ -20,10 +20,11 @@
 #include <vector>
 
 #include "arrow/builder.h"
+#include "arrow/testing/visibility.h"
 
 namespace arrow::util::internal {
 
-class NestedListGenerator {
+class ARROW_TESTING_EXPORT NestedListGenerator {
  public:
   /// \brief Create a nested FixedSizeListType.
   ///
