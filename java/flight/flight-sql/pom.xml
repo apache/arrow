@@ -20,7 +20,7 @@
   <artifactId>flight-sql</artifactId>
   <packaging>jar</packaging>
   <name>Arrow Flight SQL</name>
-  <description>(Experimental)Contains utility classes to expose Flight SQL semantics for clients and servers over Arrow Flight</description>
+  <description>Contains utility classes to expose Flight SQL semantics for clients and servers over Arrow Flight</description>
 
   <properties>
     <forkCount>1</forkCount>

@@ -32,9 +32,6 @@ with any database that supports the necessary endpoints. Flight SQL
 clients wrap the underlying Flight client to provide methods for the
 new RPC methods described here.
 
-.. warning:: Flight SQL is **experimental** and changes to the
-             protocol may still be made.
-
 RPC Methods
 ===========
 

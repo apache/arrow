@@ -43,7 +43,6 @@ package arrow.flight.protocol.sql;
  * where there is one row per requested piece of metadata information.
  */
 message CommandGetSqlInfo {
-  option (experimental) = true;
 
   /*
    * Values are modelled after ODBC's SQLGetInfo() function. This information is intended to provide
@@ -1131,7 +1130,6 @@ enum Searchable {
  * The returned data should be ordered by data_type and then by type_name.
  */
 message CommandGetXdbcTypeInfo {
-  option (experimental) = true;
 
   /*
    * Specifies the data type to search for the info.
@@ -1153,7 +1151,6 @@ message CommandGetXdbcTypeInfo {
  * The returned data should be ordered by catalog_name.
  */
 message CommandGetCatalogs {
-  option (experimental) = true;
 }
 
 /*
@@ -1171,7 +1168,6 @@ message CommandGetCatalogs {
  * The returned data should be ordered by catalog_name, then db_schema_name.
  */
 message CommandGetDbSchemas {
-  option (experimental) = true;
 
   /*
    * Specifies the Catalog to search for the tables.
@@ -1219,7 +1215,6 @@ message CommandGetDbSchemas {
  * The returned data should be ordered by catalog_name, db_schema_name, table_name, then table_type, followed by table_schema if requested.
  */
 message CommandGetTables {
-  option (experimental) = true;
 
   /*
    * Specifies the Catalog to search for the tables.
@@ -1272,7 +1267,6 @@ message CommandGetTables {
  * The returned data should be ordered by table_type.
  */
 message CommandGetTableTypes {
-  option (experimental) = true;
 }
 
 /*
@@ -1293,7 +1287,6 @@ message CommandGetTableTypes {
  * The returned data should be ordered by catalog_name, db_schema_name, table_name, key_name, then key_sequence.
  */
 message CommandGetPrimaryKeys {
-  option (experimental) = true;
 
   /*
    * Specifies the catalog to search for the table.
@@ -1348,7 +1341,6 @@ enum UpdateDeleteRules {
  * update_rule and delete_rule returns a byte that is equivalent to actions declared on UpdateDeleteRules enum.
  */
 message CommandGetExportedKeys {
-  option (experimental) = true;
 
   /*
    * Specifies the catalog to search for the foreign key table.
@@ -1399,7 +1391,6 @@ message CommandGetExportedKeys {
  *    - 4 = SET DEFAULT
  */
 message CommandGetImportedKeys {
-  option (experimental) = true;
 
   /*
    * Specifies the catalog to search for the primary key table.
@@ -1452,7 +1443,6 @@ message CommandGetImportedKeys {
  *    - 4 = SET DEFAULT
  */
 message CommandGetCrossReference {
-  option (experimental) = true;
 
   /**
    * The catalog name where the parent table is.
@@ -1499,7 +1489,6 @@ message CommandGetCrossReference {
  * Request message for the "CreatePreparedStatement" action on a Flight SQL enabled backend.
  */
 message ActionCreatePreparedStatementRequest {
-  option (experimental) = true;
 
   // The valid SQL string to create a prepared statement for.
   string query = 1;
@@ -1512,7 +1501,6 @@ message ActionCreatePreparedStatementRequest {
  * An embedded message describing a Substrait plan to execute.
  */
 message SubstraitPlan {
-  option (experimental) = true;
 
   // The serialized substrait.Plan to create a prepared statement for.
   // XXX(ARROW-16902): this is bytes instead of an embedded message
@@ -1529,7 +1517,6 @@ message SubstraitPlan {
  * Request message for the "CreatePreparedSubstraitPlan" action on a Flight SQL enabled backend.
  */
 message ActionCreatePreparedSubstraitPlanRequest {
-  option (experimental) = true;
 
   // The serialized substrait.Plan to create a prepared statement for.
   SubstraitPlan plan = 1;
@@ -1548,7 +1535,6 @@ message ActionCreatePreparedSubstraitPlanRequest {
  * The result should be wrapped in a google.protobuf.Any message.
  */
 message ActionCreatePreparedStatementResult {
-  option (experimental) = true;
 
   // Opaque handle for the prepared statement on the server.
   bytes prepared_statement_handle = 1;
@@ -1570,7 +1556,6 @@ message ActionCreatePreparedStatementResult {
  * Closes server resources associated with the prepared statement handle.
  */
 message ActionClosePreparedStatementRequest {
-  option (experimental) = true;
 
   // Opaque handle for the prepared statement on the server.
   bytes prepared_statement_handle = 1;
@@ -1581,7 +1566,6 @@ message ActionClosePreparedStatementRequest {
  * Begins a transaction.
  */
 message ActionBeginTransactionRequest {
-  option (experimental) = true;
 }
 
 /*
@@ -1592,7 +1576,6 @@ message ActionBeginTransactionRequest {
  * FLIGHT_SQL_TRANSACTION_SUPPORT_SAVEPOINT.
  */
 message ActionBeginSavepointRequest {
-  option (experimental) = true;
 
   // The transaction to which a savepoint belongs.
   bytes transaction_id = 1;
@@ -1610,7 +1593,6 @@ message ActionBeginSavepointRequest {
  * The result should be wrapped in a google.protobuf.Any message.
  */
 message ActionBeginTransactionResult {
-  option (experimental) = true;
 
   // Opaque handle for the transaction on the server.
   bytes transaction_id = 1;
@@ -1626,7 +1608,6 @@ message ActionBeginTransactionResult {
  * The result should be wrapped in a google.protobuf.Any message.
  */
 message ActionBeginSavepointResult {
-  option (experimental) = true;
 
   // Opaque handle for the savepoint on the server.
   bytes savepoint_id = 1;
@@ -1641,7 +1622,6 @@ message ActionBeginSavepointResult {
  * invalidated, as are all associated savepoints.
  */
 message ActionEndTransactionRequest {
-  option (experimental) = true;
 
   enum EndTransaction {
     END_TRANSACTION_UNSPECIFIED = 0;
@@ -1667,7 +1647,6 @@ message ActionEndTransactionRequest {
  * savepoints created after the current savepoint.
  */
 message ActionEndSavepointRequest {
-  option (experimental) = true;
 
   enum EndSavepoint {
     END_SAVEPOINT_UNSPECIFIED = 0;
@@ -1702,7 +1681,6 @@ message ActionEndSavepointRequest {
  *  - GetFlightInfo: execute the query.
  */
 message CommandStatementQuery {
-  option (experimental) = true;
 
   // The SQL syntax.
   string query = 1;
@@ -1729,7 +1707,6 @@ message CommandStatementQuery {
  *  - DoPut: execute the query.
  */
 message CommandStatementSubstraitPlan {
-  option (experimental) = true;
 
   // A serialized substrait.Plan
   SubstraitPlan plan = 1;
@@ -1742,7 +1719,6 @@ message CommandStatementSubstraitPlan {
  * This should be used only once and treated as an opaque value, that is, clients should not attempt to parse this.
  */
 message TicketStatementQuery {
-  option (experimental) = true;
 
   // Unique identifier for the instance of the statement to execute.
   bytes statement_handle = 1;
@@ -1770,7 +1746,6 @@ message TicketStatementQuery {
  *  - GetFlightInfo: execute the prepared statement instance.
  */
 message CommandPreparedStatementQuery {
-  option (experimental) = true;
 
   // Opaque handle for the prepared statement on the server.
   bytes prepared_statement_handle = 1;
@@ -1781,7 +1756,6 @@ message CommandPreparedStatementQuery {
  * for the RPC call DoPut to cause the server to execute the included SQL update.
  */
 message CommandStatementUpdate {
-  option (experimental) = true;
 
   // The SQL syntax.
   string query = 1;
@@ -1795,7 +1769,6 @@ message CommandStatementUpdate {
  * prepared statement handle as an update.
  */
 message CommandPreparedStatementUpdate {
-  option (experimental) = true;
 
   // Opaque handle for the prepared statement on the server.
   bytes prepared_statement_handle = 1;
@@ -1807,7 +1780,6 @@ message CommandPreparedStatementUpdate {
  * FlightData into the target destination.
  */
 message CommandStatementIngest {
-  option (experimental) = true;
 
   // Options for table definition behavior
   message TableDefinitionOptions {
@@ -1866,7 +1838,6 @@ message CommandStatementIngest {
  * in the request, containing results from the update.
  */
 message DoPutUpdateResult {
-  option (experimental) = true;
 
   // The number of records updated. A return value of -1 represents
   // an unknown updated record count.
@@ -1880,7 +1851,6 @@ message DoPutUpdateResult {
  * can continue as though the fields in this message were not provided or set to sensible default values.
  */
 message DoPutPreparedStatementResult {
-  option (experimental) = true;
 
   // Represents a (potentially updated) opaque handle for the prepared statement on the server.
   // Because the handle could potentially be updated, any previous handles for this prepared
@@ -1912,7 +1882,6 @@ message DoPutPreparedStatementResult {
  */
 message ActionCancelQueryRequest {
   option deprecated = true;
-  option (experimental) = true;
 
   // The result of the GetFlightInfo RPC that initiated the query.
   // XXX(ARROW-16902): this must be a serialized FlightInfo, but is
@@ -1931,7 +1900,6 @@ message ActionCancelQueryRequest {
  */
 message ActionCancelQueryResult {
   option deprecated = true;
-  option (experimental) = true;
 
   enum CancelResult {
     // The cancellation status is unknown. Servers should avoid using
