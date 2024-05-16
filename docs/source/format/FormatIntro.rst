@@ -465,34 +465,34 @@ The Arrow C Data Interface defines a set of small C structures:
 .. code-block::
 
    struct ArrowSchema {
-   const char* format;
-   const char* name;
-   const char* metadata;
-   int64_t flags;
-   int64_t n_children;
-   struct ArrowSchema** children;
-   struct ArrowSchema* dictionary;
+    const char* format;
+    const char* name;
+    const char* metadata;
+    int64_t flags;
+    int64_t n_children;
+    struct ArrowSchema** children;
+    struct ArrowSchema* dictionary;
 
-   // Release callback
-   void (*release)(struct ArrowSchema*);
-   // Opaque producer-specific data
-   void* private_data;
+    // Release callback
+    void (*release)(struct ArrowSchema*);
+    // Opaque producer-specific data
+    void* private_data;
    };
 
    struct ArrowArray {
-   int64_t length;
-   int64_t null_count;
-   int64_t offset;
-   int64_t n_buffers;
-   int64_t n_children;
-   const void** buffers;
-   struct ArrowArray** children;
-   struct ArrowArray* dictionary;
+    int64_t length;
+    int64_t null_count;
+    int64_t offset;
+    int64_t n_buffers;
+    int64_t n_children;
+    const void** buffers;
+    struct ArrowArray** children;
+    struct ArrowArray* dictionary;
 
-   // Release callback
-   void (*release)(struct ArrowArray*);
-   // Opaque producer-specific data
-   void* private_data;
+    // Release callback
+    void (*release)(struct ArrowArray*);
+    // Opaque producer-specific data
+    void* private_data;
    };
 
 The C Data Interface passes Arrow data buffers through memory pointers. So, by construction, it allows
