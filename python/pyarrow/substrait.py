@@ -21,7 +21,9 @@ try:
         get_supported_functions,
         run_query,
         deserialize_expressions,
-        serialize_expressions
+        serialize_expressions,
+        deserialize_schema,
+        serialize_schema,
     )
 except ImportError as exc:
     raise ImportError(
