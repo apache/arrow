@@ -1333,9 +1333,10 @@ def test_schema_import_c_schema_interface():
 
     schema = pa.schema([pa.field("field_name", pa.int32())], metadata={"a": "b"})
     assert schema.metadata == {b"a": b"b"}
-
     wrapped_schema = Wrapper(schema)
+
     assert pa.schema(wrapped_schema) == schema
+    assert pa.schema(wrapped_schema).metadata == {b"a": b"b"}
     assert pa.schema(wrapped_schema, metadata={"a": "c"}).metadata == {b"a": b"c"}
 
 
