@@ -30,8 +30,8 @@ with_doc=$([ "${BUILD_DOCS_C_GLIB}" == "ON" ] && echo "true" || echo "false")
 
 
 if [ -n "${MSYSTEM:-}" ]; then
-    # Fix ARROW_HOME when running under MSYS2
-    export ARROW_HOME="$(cygpath --unix "${ARROW_HOME}")"
+  # Fix ARROW_HOME when running under MSYS2
+  export ARROW_HOME="$(cygpath --unix "${ARROW_HOME}")"
 fi
 
 meson_pkg_config_path="${ARROW_HOME}/lib/pkgconfig:${ARROW_HOME}/bin/pkgconfig"
@@ -39,16 +39,16 @@ meson_pkg_config_path="${ARROW_HOME}/lib/pkgconfig:${ARROW_HOME}/bin/pkgconfig"
 mkdir -p ${build_dir}
 
 if [ -n "${VCPKG_ROOT:-}" ]; then
-    vcpkg_install_root="${build_root}/vcpkg_installed"
-    $VCPKG_ROOT/vcpkg install --x-manifest-root=${source_dir} --x-install-root=${vcpkg_install_root}
-    export PKG_CONFIG="${vcpkg_install_root}/x64-windows/tools/pkgconf/pkgconf.exe"
-    meson_pkg_config_path="${vcpkg_install_root}/x64-windows/lib/pkgconfig:${meson_pkg_config_path}"
+  vcpkg_install_root="${build_root}/vcpkg_installed"
+  $VCPKG_ROOT/vcpkg install --x-manifest-root=${source_dir} --x-install-root=${vcpkg_install_root}
+  export PKG_CONFIG="${vcpkg_install_root}/x64-windows/tools/pkgconf/pkgconf.exe"
+  meson_pkg_config_path="${vcpkg_install_root}/x64-windows/lib/pkgconfig:${meson_pkg_config_path}"
 fi
 
 if [ -n "${VCToolsInstallDir:-}" -a -n "${MSYSTEM:-}" ]; then
-    # Meson finds the gnu link.exe instead of MSVC link.exe when running in MSYS2/git bash,
-    # so we need to make sure the MSCV link.exe is first in $PATH
-    export PATH="$(cygpath --unix "${VCToolsInstallDir}")/bin/HostX64/x64:${PATH}"
+  # Meson finds the gnu link.exe instead of MSVC link.exe when running in MSYS2/git bash,
+  # so we need to make sure the MSCV link.exe is first in $PATH
+  export PATH="$(cygpath --unix "${VCToolsInstallDir}")/bin/HostX64/x64:${PATH}"
 fi
 
 # Build with Meson
