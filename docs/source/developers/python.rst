@@ -601,42 +601,6 @@ Caveats
 Relevant components and environment variables
 =============================================
 
-List of relevant Arrow CMake flags and corresponding environment variables
-to be used when building PyArrow are:
-
-.. list-table::
-   :widths: 30 30
-   :header-rows: 1
-
-   * - Arrow flags/options
-     - Corresponding environment variables for PyArrow
-   * - ``ARROW_GCS``
-     - ``PYARROW_WITH_GCS``
-   * - ``ARROW_S3``
-     - ``PYARROW_WITH_S3``
-   * - ``ARROW_AZURE``
-     - ``PYARROW_WITH_AZURE``
-   * - ``ARROW_HDFS``
-     - ``PYARROW_WITH_HDFS``
-   * - ``ARROW_CUDA``
-     - ``PYARROW_WITH_CUDA``
-   * - ``ARROW_SUBSTRAIT``
-     - ``PYARROW_WITH_SUBSTRAIT``
-   * - ``ARROW_FLIGHT``
-     - ``PYARROW_WITH_FLIGHT``
-   * - ``ARROW_ACERO``
-     - ``PYARROW_WITH_ACERO``
-   * - ``ARROW_DATASET``
-     - ``PYARROW_WITH_DATASET``
-   * - ``ARROW_PARQUET``
-     - ``PYARROW_WITH_PARQUET``
-   * - ``PARQUET_REQUIRE_ENCRYPTION``
-     - ``PYARROW_WITH_PARQUET_ENCRYPTION``
-   * - ``ARROW_ORC``
-     - ``PYARROW_WITH_ORC``
-   * - ``ARROW_GANDIVA``
-     - ``PYARROW_WITH_GANDIVA``
-
 List of relevant environment variables that can be used to build
 PyArrow are:
 
@@ -677,6 +641,45 @@ PyArrow are:
    * - ``PYARROW_PARALLEL``
      - Number of processes used to compile PyArrow’s C++/Cython components
      - ``''``
+
+The components being disabled or enabled when building PyArrrow is by default
+based on how Arrow C++ is build (i.e. it follows the ``ARROW_$COMPONENT`` flags).
+However, the ``PYARROW_WITH_$COMPONENT`` environment variables can still be used
+to override this when building PyArrow (e.g. to disable components, or to enforce
+certain components to be built):
+
+.. list-table::
+   :widths: 30 30
+   :header-rows: 1
+
+   * - Arrow flags/options
+     - Corresponding environment variables for PyArrow
+   * - ``ARROW_GCS``
+     - ``PYARROW_WITH_GCS``
+   * - ``ARROW_S3``
+     - ``PYARROW_WITH_S3``
+   * - ``ARROW_AZURE``
+     - ``PYARROW_WITH_AZURE``
+   * - ``ARROW_HDFS``
+     - ``PYARROW_WITH_HDFS``
+   * - ``ARROW_CUDA``
+     - ``PYARROW_WITH_CUDA``
+   * - ``ARROW_SUBSTRAIT``
+     - ``PYARROW_WITH_SUBSTRAIT``
+   * - ``ARROW_FLIGHT``
+     - ``PYARROW_WITH_FLIGHT``
+   * - ``ARROW_ACERO``
+     - ``PYARROW_WITH_ACERO``
+   * - ``ARROW_DATASET``
+     - ``PYARROW_WITH_DATASET``
+   * - ``ARROW_PARQUET``
+     - ``PYARROW_WITH_PARQUET``
+   * - ``PARQUET_REQUIRE_ENCRYPTION``
+     - ``PYARROW_WITH_PARQUET_ENCRYPTION``
+   * - ``ARROW_ORC``
+     - ``PYARROW_WITH_ORC``
+   * - ``ARROW_GANDIVA``
+     - ``PYARROW_WITH_GANDIVA``
 
 Deleting stale build artifacts
 ==============================
