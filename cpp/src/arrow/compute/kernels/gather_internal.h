@@ -275,7 +275,7 @@ class Gather</*kValueWidthInBits=*/1, IndexCType, /*kWithFactor=*/false>
   ARROW_FORCE_INLINE int64_t Execute(const ArraySpan& src_validity,
                                      const ArraySpan& idx_validity,
                                      uint8_t* out_is_valid) {
-    assert(src_length_ == src_validity.length && src_offset_ == src_validity.offset);
+    assert(src_length_ == src_validity.length);
     assert(idx_length_ == idx_validity.length);
     assert(out_is_valid);
     return this->template ExecuteWithNulls<kOutputIsZeroInitialized>(
