@@ -1295,14 +1295,14 @@ std::shared_ptr<const KeyValueMetadata> GetObjectMetadata(const ObjectResult& re
 
 template <typename ObjectRequest>
 struct ObjectMetadataSetter {
-  static constexpr std::string_view CONTENT_TYPE_KEY = "Content-Type";
+  static constexpr std::string_view kContentTypeKey = "Content-Type";
 
   using Setter = std::function<Status(const std::string& value, ObjectRequest* req)>;
 
   static std::unordered_map<std::string, Setter> GetSetters() {
     return {{"ACL", CannedACLSetter()},
             {"Cache-Control", StringSetter(&ObjectRequest::SetCacheControl)},
-            {std::string{CONTENT_TYPE_KEY}, ContentTypeSetter()},
+            {std::string{kContentTypeKey}, ContentTypeSetter()},
             {"Content-Language", StringSetter(&ObjectRequest::SetContentLanguage)},
             {"Expires", DateTimeSetter(&ObjectRequest::SetExpires)}};
   }
@@ -1583,7 +1583,7 @@ class ObjectOutputStream final : public io::OutputStream {
         metadata_(metadata),
         default_metadata_(options.default_metadata),
         background_writes_(options.background_writes),
-        sanitize_bucket_on_open_(options.sanitize_bucket_on_open) {}
+        allow_delayed_open_(options.allow_delayed_open) {}
 
   ~ObjectOutputStream() override {
     // For compliance with the rest of the IO stack, Close rather than Abort,
@@ -1602,7 +1602,7 @@ class ObjectOutputStream final : public io::OutputStream {
     }
 
     if (metadata &&
-        metadata->Contains(ObjectMetadataSetter<ObjectRequest>::CONTENT_TYPE_KEY)) {
+        metadata->Contains(ObjectMetadataSetter<ObjectRequest>::kContentTypeKey)) {
       RETURN_NOT_OK(SetObjectMetadata(metadata, request));
     } else {
       // If we do not set anything then the SDK will default to application/xml
@@ -1615,7 +1615,7 @@ class ObjectOutputStream final : public io::OutputStream {
   }
 
   Status CreateMultipartUpload() {
-    DCHECK(ShouldBeMultipartUpload() || sanitize_bucket_on_open_);
+    DCHECK(ShouldBeMultipartUpload() || !allow_delayed_open_);
 
     ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
 
@@ -1639,10 +1639,10 @@ class ObjectOutputStream final : public io::OutputStream {
   }
 
   Status Init() {
-    // If we can omit sanitizing the bucket when opening the OutputStream, we can use a
-    // single request to upload the data. If sanitization is needed, we use a multi-part
-    // upload and initiate it here to sanitize that writing to the bucket is possible.
-    if (sanitize_bucket_on_open_) {
+    // If we are allowed to do delayed I/O, we can use a single request to upload the
+    // data. If not, we use a multi-part upload and initiate it here to
+    // sanitize that writing to the bucket is possible.
+    if (!allow_delayed_open_) {
       RETURN_NOT_OK(CreateMultipartUpload());
     }
 
@@ -1706,7 +1706,7 @@ class ObjectOutputStream final : public io::OutputStream {
     return Status::OK();
   }
 
-  Status CleanupAfterFlush() {
+  Status CleanupAfterClose() {
     holder_ = nullptr;
     closed_ = true;
     return Status::OK();
@@ -1751,7 +1751,7 @@ class ObjectOutputStream final : public io::OutputStream {
       RETURN_NOT_OK(FinishPartUploadAfterFlush());
     }
 
-    return CleanupAfterFlush();
+    return CleanupAfterClose();
   }
 
   Future<> CloseAsync() override {
@@ -1765,7 +1765,7 @@ class ObjectOutputStream final : public io::OutputStream {
       if (self->is_multipart_created_) {
         RETURN_NOT_OK(self->FinishPartUploadAfterFlush());
       }
-      return self->CleanupAfterFlush();
+      return self->CleanupAfterClose();
     });
   }
 
@@ -1812,7 +1812,8 @@ class ObjectOutputStream final : public io::OutputStream {
         return Status::OK();
       }
 
-      // Upload current buffer if we are above threshold for multi-part upload
+      // Upload current buffer. We're only reaching this point if we have accumulated
+      // enough data to upload.
       RETURN_NOT_OK(CommitCurrentPart());
     }
 
@@ -1867,7 +1868,7 @@ class ObjectOutputStream final : public io::OutputStream {
     if (current_part_ == nullptr) {
       // In case the stream is closed directly after it has been opened without writing
       // anything, we'll have to create an empty buffer.
-      buf = Buffer::FromVector<uint8_t>({});
+      buf = std::make_shared<Buffer>("");
     } else {
       ARROW_ASSIGN_OR_RAISE(buf, current_part_->Finish());
     }
@@ -1880,11 +1881,7 @@ class ObjectOutputStream final : public io::OutputStream {
   template <typename RequestType, typename OutcomeType>
   using UploadResultCallbackFunction =
       std::function<Status(const RequestType& request, std::shared_ptr<UploadState>,
-                           int32_t, OutcomeType outcome)>;
-
-  template <typename RequestType, typename OutcomeType>
-  static Result<OutcomeType> TriggerUploadRequest(
-      const RequestType& request, const std::shared_ptr<S3ClientHolder>& holder);
+                           int32_t part_number, OutcomeType outcome)>;
 
   static Result<Aws::S3::Model::PutObjectOutcome> TriggerUploadRequest(
       const Aws::S3::Model::PutObjectRequest& request,
@@ -1988,8 +1985,8 @@ class ObjectOutputStream final : public io::OutputStream {
     RETURN_NOT_OK(SetMetadataInRequest(&req));
 
     return Upload<Aws::S3::Model::PutObjectRequest, Aws::S3::Model::PutObjectOutcome>(
-        std::move(req), sync_result_callback, async_result_callback, data, nbytes,
-        owned_buffer);
+        std::move(req), std::move(sync_result_callback), std::move(async_result_callback),
+        data, nbytes, std::move(owned_buffer));
   }
 
   Status UploadPart(std::shared_ptr<Buffer> buffer) {
@@ -2036,8 +2033,8 @@ class ObjectOutputStream final : public io::OutputStream {
     };
 
     return Upload<Aws::S3::Model::UploadPartRequest, Aws::S3::Model::UploadPartOutcome>(
-        std::move(req), sync_result_callback, async_result_callback, data, nbytes,
-        owned_buffer);
+        std::move(req), std::move(sync_result_callback), std::move(async_result_callback),
+        data, nbytes, std::move(owned_buffer));
   }
 
   static void HandleUploadUsingSingleRequestOutcome(
@@ -2099,7 +2096,7 @@ class ObjectOutputStream final : public io::OutputStream {
   const std::shared_ptr<const KeyValueMetadata> metadata_;
   const std::shared_ptr<const KeyValueMetadata> default_metadata_;
   const bool background_writes_;
-  const bool sanitize_bucket_on_open_;
+  const bool allow_delayed_open_;
 
   Aws::String upload_id_;
   bool closed_ = true;

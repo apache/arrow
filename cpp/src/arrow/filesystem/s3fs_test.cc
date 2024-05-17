@@ -518,10 +518,10 @@ class TestS3FS : public S3TestMixin {
     AssertFileInfo(infos[11], "empty-bucket", FileType::Directory);
   }
 
-  void TestOpenOutputStream(bool assert_sanitize_bucket = true) {
+  void TestOpenOutputStream(bool allow_delayed_open) {
     std::shared_ptr<io::OutputStream> stream;
 
-    if (assert_sanitize_bucket) {
+    if (!allow_delayed_open) {
       // Nonexistent
       ASSERT_RAISES(IOError, fs_->OpenOutputStream("nonexistent-bucket/somefile"));
     }
@@ -1191,92 +1191,55 @@ TEST_F(TestS3FS, OpenInputFile) {
   ASSERT_RAISES(IOError, file->Seek(10));
 }
 
-TEST_F(TestS3FS, OpenOutputStreamBackgroundWrites) { TestOpenOutputStream(); }
+struct S3OptionsTestParameters {
+  bool background_writes{false};
+  bool allow_delayed_open{false};
 
-TEST_F(TestS3FS, OpenOutputStreamSyncWrites) {
-  options_.background_writes = false;
-  MakeFileSystem();
-  TestOpenOutputStream();
+  void apply_to_s3_options(S3Options& options) const {
+    options.background_writes = background_writes;
+    options.allow_delayed_open = allow_delayed_open;
+  }
+
+  static std::vector<S3OptionsTestParameters> GetCartesianProduct() {
+    return {
+        S3OptionsTestParameters{.background_writes = true, .allow_delayed_open = false},
+        S3OptionsTestParameters{.background_writes = false, .allow_delayed_open = false},
+        S3OptionsTestParameters{.background_writes = true, .allow_delayed_open = true},
+        S3OptionsTestParameters{.background_writes = false, .allow_delayed_open = true},
+    };
+  }
+};
+
+TEST_F(TestS3FS, OpenOutputStream) {
+  for (const auto& combination : S3OptionsTestParameters::GetCartesianProduct()) {
+    combination.apply_to_s3_options(options_);
+    MakeFileSystem();
+    TestOpenOutputStream(combination.allow_delayed_open);
+  }
 }
 
-TEST_F(TestS3FS, OpenOutputStreamNoBucketSanitizationSyncWrites) {
-  options_.sanitize_bucket_on_open = false;
-  MakeFileSystem();
-  TestOpenOutputStream(false);
+TEST_F(TestS3FS, OpenOutputStreamAbort) {
+  for (const auto& combination : S3OptionsTestParameters::GetCartesianProduct()) {
+    combination.apply_to_s3_options(options_);
+    MakeFileSystem();
+    TestOpenOutputStreamAbort();
+  }
 }
 
-TEST_F(TestS3FS, OpenOutputStreamNoBucketSanitizationBackgroundWrites) {
-  options_.sanitize_bucket_on_open = false;
-  options_.background_writes = true;
-  MakeFileSystem();
-  TestOpenOutputStream(false);
+TEST_F(TestS3FS, OpenOutputStreamDestructor) {
+  for (const auto& combination : S3OptionsTestParameters::GetCartesianProduct()) {
+    combination.apply_to_s3_options(options_);
+    MakeFileSystem();
+    TestOpenOutputStreamDestructor();
+  }
 }
 
-TEST_F(TestS3FS, OpenOutputStreamAbortBackgroundWrites) { TestOpenOutputStreamAbort(); }
-
-TEST_F(TestS3FS, OpenOutputStreamAbortSyncWrites) {
-  options_.background_writes = false;
-  MakeFileSystem();
-  TestOpenOutputStreamAbort();
-}
-
-TEST_F(TestS3FS, OpenOutputStreamAbortNoBucketSanitizationSyncWrites) {
-  options_.sanitize_bucket_on_open = false;
-  MakeFileSystem();
-  TestOpenOutputStreamAbort();
-}
-
-TEST_F(TestS3FS, OpenOutputStreamAbortNoBucketSanitizationBackgroundWrites) {
-  options_.sanitize_bucket_on_open = false;
-  options_.background_writes = true;
-  MakeFileSystem();
-  TestOpenOutputStreamAbort();
-}
-
-TEST_F(TestS3FS, OpenOutputStreamDestructorBackgroundWrites) {
-  TestOpenOutputStreamDestructor();
-}
-
-TEST_F(TestS3FS, OpenOutputStreamDestructorSyncWrite) {
-  options_.background_writes = false;
-  MakeFileSystem();
-  TestOpenOutputStreamDestructor();
-}
-
-TEST_F(TestS3FS, OpenOutputStreamDestructorNoBucketSanitizationSyncWrites) {
-  options_.sanitize_bucket_on_open = false;
-  MakeFileSystem();
-  TestOpenOutputStreamDestructor();
-}
-
-TEST_F(TestS3FS, OpenOutputStreamDestructorNoBucketSanitizationBackgroundWrites) {
-  options_.sanitize_bucket_on_open = false;
-  options_.background_writes = true;
-  MakeFileSystem();
-  TestOpenOutputStreamDestructor();
-}
-
-TEST_F(TestS3FS, OpenOutputStreamAsyncDestructorBackgroundWrites) {
-  TestOpenOutputStreamCloseAsyncDestructor();
-}
-
-TEST_F(TestS3FS, OpenOutputStreamAsyncDestructorSyncWrite) {
-  options_.background_writes = false;
-  MakeFileSystem();
-  TestOpenOutputStreamCloseAsyncDestructor();
-}
-
-TEST_F(TestS3FS, OpenOutputStreamAsyncDestructorNoBucketSanitizationSyncWrite) {
-  options_.sanitize_bucket_on_open = false;
-  MakeFileSystem();
-  TestOpenOutputStreamCloseAsyncDestructor();
-}
-
-TEST_F(TestS3FS, OpenOutputStreamAsyncDestructorNoBucketSanitizationBackgroundWrites) {
-  options_.sanitize_bucket_on_open = false;
-  options_.background_writes = true;
-  MakeFileSystem();
-  TestOpenOutputStreamCloseAsyncDestructor();
+TEST_F(TestS3FS, OpenOutputStreamAsync) {
+  for (const auto& combination : S3OptionsTestParameters::GetCartesianProduct()) {
+    combination.apply_to_s3_options(options_);
+    MakeFileSystem();
+    TestOpenOutputStreamCloseAsyncDestructor();
+  }
 }
 
 TEST_F(TestS3FS, OpenOutputStreamMetadata) {
