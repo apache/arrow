@@ -40,6 +40,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.ArrowType.Interval;
 import org.apache.arrow.vector.types.pojo.ArrowType.LargeBinary;
 import org.apache.arrow.vector.types.pojo.ArrowType.LargeUtf8;
+import org.apache.arrow.vector.types.pojo.ArrowType.ListView;
 import org.apache.arrow.vector.types.pojo.ArrowType.Map;
 import org.apache.arrow.vector.types.pojo.ArrowType.Null;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
@@ -496,6 +497,16 @@ public class TypeLayout {
         return newFixedWidthTypeLayout(BufferLayout.dataBuffer(64));
       }
 
+      @Override
+      public TypeLayout visit(ListView type) {
+        List<BufferLayout> vectors = asList(
+            BufferLayout.validityVector(),
+            BufferLayout.offsetBuffer(),
+            BufferLayout.sizeBuffer()
+        );
+        return new TypeLayout(vectors);
+      }
+
     });
     return layout;
   }
@@ -808,6 +819,12 @@ public class TypeLayout {
       @Override
       public Integer visit(Duration type) {
         return FIXED_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
+      public Integer visit(ListView type) {
+        // validity buffer + offset buffer + size buffer
+        return 3;
       }
 
     });
