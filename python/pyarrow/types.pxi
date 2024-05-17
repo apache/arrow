@@ -5332,7 +5332,10 @@ def schema(fields, metadata=None):
     if isinstance(fields, Mapping):
         fields = fields.items()
     elif hasattr(fields, "__arrow_c_schema__"):
-        return Schema._import_from_c_capsule(fields.__arrow_c_schema__())
+        result = Schema._import_from_c_capsule(fields.__arrow_c_schema__())
+        if metadata is not None:
+            result = result.with_metadata(metadata)
+        return result
 
     for item in fields:
         if isinstance(item, tuple):
