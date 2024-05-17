@@ -637,6 +637,7 @@ endif()
 set(ARROW_TESTING_SRCS
     io/test_common.cc
     ipc/test_common.cc
+    testing/fixed_width_test_util.cc
     testing/gtest_util.cc
     testing/random.cc
     testing/generator.cc
