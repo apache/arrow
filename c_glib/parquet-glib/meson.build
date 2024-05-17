@@ -64,7 +64,7 @@ dependencies = [
   arrow_glib,
 ]
 libparquet_glib = library('parquet-glib',
-                          sources: sources,
+                          sources: sources + built_headers,
                           install: true,
                           dependencies: dependencies,
                           implicit_include_directories: false,

@@ -54,7 +54,7 @@ dependencies = [
   arrow_glib,
 ]
 libarrow_cuda_glib = library('arrow-cuda-glib',
-                             sources: sources,
+                             sources: sources + built_headers,
                              install: true,
                              dependencies: dependencies,
                              implicit_include_directories: false,

@@ -57,7 +57,7 @@ dependencies = [
   arrow_flight_glib,
 ]
 libarrow_flight_sql_glib = library('arrow-flight-sql-glib',
-                                   sources: sources,
+                                   sources: sources + built_headers,
                                    install: true,
                                    dependencies: dependencies,
                                    implicit_include_directories: false,

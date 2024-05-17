@@ -82,7 +82,7 @@ dependencies = [
   arrow_glib,
 ]
 libarrow_dataset_glib = library('arrow-dataset-glib',
-                                sources: sources + enums,
+                                sources: sources + enums + built_headers,
                                 install: true,
                                 dependencies: dependencies,
                                 implicit_include_directories: false,

@@ -85,7 +85,7 @@ dependencies = [
   arrow_glib,
 ]
 libgandiva_glib = library('gandiva-glib',
-                          sources: sources + enums,
+                          sources: sources + enums + built_headers,
                           install: true,
                           dependencies: dependencies,
                           implicit_include_directories: false,

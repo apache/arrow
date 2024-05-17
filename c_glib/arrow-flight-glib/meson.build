@@ -60,7 +60,7 @@ dependencies = [
   arrow_glib,
 ]
 libarrow_flight_glib = library('arrow-flight-glib',
-                               sources: sources,
+                               sources: sources + built_headers,
                                install: true,
                                dependencies: dependencies,
                                implicit_include_directories: false,
