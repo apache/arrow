@@ -116,18 +116,18 @@ repos:
         name: CMake Format
         files: >-
           (
+          ?.*CMakeLists\.txt$|
           ?^ci/.*/.*\.cmake$|
           ?^cpp/.*/.*\.cmake\.in$|
           ?^cpp/.*/.*\.cmake$|
-          ?.*CMakeLists\.txt$|
           )
         exclude: >-
           (
+          ?^ci/conan/all/.*CMakeLists\.txt$|
           ?^cpp/cmake_modules/FindNumPy\.cmake$|
           ?^cpp/cmake_modules/FindPythonLibsNew\.cmake$|
           ?^cpp/cmake_modules/UseCython\.cmake$|
           ?^cpp/src/arrow/util/config\.h\.cmake$|
-          ?^ci/conan/all/.*CMakeLists\.txt$|
           )
   - repo: https://github.com/sphinx-contrib/sphinx-lint
     rev: v0.9.1
