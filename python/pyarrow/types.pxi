@@ -1524,6 +1524,8 @@ cdef class BaseExtensionType(DataType):
         """
         The byte width of the extension type.
         """
+        if self.ext_type.byte_width() == -1:
+            raise ValueError("Non-fixed width type")
         return self.ext_type.byte_width()
 
     @property
@@ -1531,6 +1533,8 @@ cdef class BaseExtensionType(DataType):
         """
         The bit width of the extension type.
         """
+        if self.ext_type.bit_width() == -1:
+            raise ValueError("Non-fixed width type")
         return self.ext_type.bit_width()
 
     def wrap_array(self, storage):

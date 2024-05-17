@@ -290,7 +290,7 @@ def test_ext_type_bit_width():
     # Test for non fixed-size binary types
     ty = LabelType()
     with pytest.raises(ValueError, match="Non-fixed width type"):
-        _ = ty.byte_width
+        _ = ty.bit_width
 
 
 def test_ext_type_as_py():
