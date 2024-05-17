@@ -373,6 +373,32 @@ cdef class BoundExpressions(_Weakrefable):
         self.init(bound_expressions)
         return self
 
+    @classmethod
+    def from_substrait(cls, message):
+        """
+        Convert a Substrait message into a BoundExpressions object
+
+        Parameters
+        ----------
+        message : Buffer or bytes or protobuf Message
+            The message to convert to a BoundExpressions object
+
+        Returns
+        -------
+        BoundExpressions
+            The converted expressions, their names, and the bound schema
+        """
+        if isinstance(message, (bytes, memoryview)):
+            return deserialize_expressions(message)
+        elif isinstance(message, Buffer):
+            return deserialize_expressions(message)
+        else:
+            try:
+                return deserialize_expressions(message.SerializeToString())
+            except AttributeError:
+                raise TypeError(
+                    f"Expected 'pyarrow.Buffer' or bytes or protobuf Message, got '{type(message)}'")
+
 
 def deserialize_expressions(buf):
     """
