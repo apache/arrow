@@ -451,7 +451,6 @@ func (bw *bufferedPageWriter) Close(hasDict, fallback bool) error {
 
 	buf := bw.inMemSink.Finish()
 	defer buf.Release()
-	bw.inMemSink.Release()
 	_, err := bw.finalSink.Write(buf.Bytes())
 	return err
 }
