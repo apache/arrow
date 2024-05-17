@@ -49,7 +49,7 @@ struct _GADatasetPartitioningFactoryOptionsClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_11_0
+GADATASET_AVAILABLE_IN_11_0
 GADatasetPartitioningFactoryOptions *
 gadataset_partitioning_factory_options_new(void);
 
@@ -61,11 +61,11 @@ struct _GADatasetPartitioningClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_6_0
+GADATASET_AVAILABLE_IN_6_0
 gchar *
 gadataset_partitioning_get_type_name(GADatasetPartitioning *partitioning);
 
-GARROW_AVAILABLE_IN_12_0
+GADATASET_AVAILABLE_IN_12_0
 GADatasetPartitioning *
 gadataset_partitioning_create_default(void);
 
@@ -81,7 +81,7 @@ struct _GADatasetKeyValuePartitioningOptionsClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_11_0
+GADATASET_AVAILABLE_IN_11_0
 GADatasetKeyValuePartitioningOptions *
 gadataset_key_value_partitioning_options_new(void);
 
@@ -109,7 +109,7 @@ struct _GADatasetDirectoryPartitioningClass
   GADatasetKeyValuePartitioningClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_6_0
+GADATASET_AVAILABLE_IN_6_0
 GADatasetDirectoryPartitioning *
 gadataset_directory_partitioning_new(GArrowSchema *schema,
                                      GList *dictionaries,
@@ -128,7 +128,7 @@ struct _GADatasetHivePartitioningOptionsClass
   GADatasetKeyValuePartitioningOptionsClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_11_0
+GADATASET_AVAILABLE_IN_11_0
 GADatasetHivePartitioningOptions *
 gadataset_hive_partitioning_options_new(void);
 
@@ -143,13 +143,13 @@ struct _GADatasetHivePartitioningClass
   GADatasetKeyValuePartitioningClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_11_0
+GADATASET_AVAILABLE_IN_11_0
 GADatasetHivePartitioning *
 gadataset_hive_partitioning_new(GArrowSchema *schema,
                                 GList *dictionaries,
                                 GADatasetHivePartitioningOptions *options,
                                 GError **error);
-GARROW_AVAILABLE_IN_11_0
+GADATASET_AVAILABLE_IN_11_0
 gchar *
 gadataset_hive_partitioning_get_null_fallback(GADatasetHivePartitioning *partitioning);
 

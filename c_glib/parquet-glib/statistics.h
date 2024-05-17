@@ -31,26 +31,26 @@ struct _GParquetStatisticsClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gboolean
 gparquet_statistics_equal(GParquetStatistics *statistics,
                           GParquetStatistics *other_statistics);
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gboolean
 gparquet_statistics_has_n_nulls(GParquetStatistics *statistics);
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gint64
 gparquet_statistics_get_n_nulls(GParquetStatistics *statistics);
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gboolean
 gparquet_statistics_has_n_distinct_values(GParquetStatistics *statistics);
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gint64
 gparquet_statistics_get_n_distinct_values(GParquetStatistics *statistics);
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gint64
 gparquet_statistics_get_n_values(GParquetStatistics *statistics);
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gboolean
 gparquet_statistics_has_min_max(GParquetStatistics *statistics);
 
@@ -65,10 +65,10 @@ struct _GParquetBooleanStatisticsClass
   GParquetStatisticsClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gboolean
 gparquet_boolean_statistics_get_min(GParquetBooleanStatistics *statistics);
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gboolean
 gparquet_boolean_statistics_get_max(GParquetBooleanStatistics *statistics);
 
@@ -83,10 +83,10 @@ struct _GParquetInt32StatisticsClass
   GParquetStatisticsClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gint32
 gparquet_int32_statistics_get_min(GParquetInt32Statistics *statistics);
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gint32
 gparquet_int32_statistics_get_max(GParquetInt32Statistics *statistics);
 
@@ -101,10 +101,10 @@ struct _GParquetInt64StatisticsClass
   GParquetStatisticsClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gint64
 gparquet_int64_statistics_get_min(GParquetInt64Statistics *statistics);
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gint64
 gparquet_int64_statistics_get_max(GParquetInt64Statistics *statistics);
 
@@ -119,10 +119,10 @@ struct _GParquetFloatStatisticsClass
   GParquetStatisticsClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gfloat
 gparquet_float_statistics_get_min(GParquetFloatStatistics *statistics);
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gfloat
 gparquet_float_statistics_get_max(GParquetFloatStatistics *statistics);
 
@@ -137,10 +137,10 @@ struct _GParquetDoubleStatisticsClass
   GParquetStatisticsClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gdouble
 gparquet_double_statistics_get_min(GParquetDoubleStatistics *statistics);
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gdouble
 gparquet_double_statistics_get_max(GParquetDoubleStatistics *statistics);
 
@@ -155,10 +155,10 @@ struct _GParquetByteArrayStatisticsClass
   GParquetStatisticsClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 GBytes *
 gparquet_byte_array_statistics_get_min(GParquetByteArrayStatistics *statistics);
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 GBytes *
 gparquet_byte_array_statistics_get_max(GParquetByteArrayStatistics *statistics);
 
@@ -174,11 +174,11 @@ struct _GParquetFixedLengthByteArrayStatisticsClass
   GParquetStatisticsClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 GBytes *
 gparquet_fixed_length_byte_array_statistics_get_min(
   GParquetFixedLengthByteArrayStatistics *statistics);
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 GBytes *
 gparquet_fixed_length_byte_array_statistics_get_max(
   GParquetFixedLengthByteArrayStatistics *statistics);

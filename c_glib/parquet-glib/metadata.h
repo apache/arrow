@@ -34,24 +34,24 @@ struct _GParquetColumnChunkMetadataClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gboolean
 gparquet_column_chunk_metadata_equal(GParquetColumnChunkMetadata *metadata,
                                      GParquetColumnChunkMetadata *other_metadata);
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gint64
 gparquet_column_chunk_metadata_get_total_size(GParquetColumnChunkMetadata *metadata);
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gint64
 gparquet_column_chunk_metadata_get_total_compressed_size(
   GParquetColumnChunkMetadata *metadata);
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gint64
 gparquet_column_chunk_metadata_get_file_offset(GParquetColumnChunkMetadata *metadata);
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gboolean
 gparquet_column_chunk_metadata_can_decompress(GParquetColumnChunkMetadata *metadata);
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 GParquetStatistics *
 gparquet_column_chunk_metadata_get_statistics(GParquetColumnChunkMetadata *metadata);
 
@@ -66,31 +66,31 @@ struct _GParquetRowGroupMetadataClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gboolean
 gparquet_row_group_metadata_equal(GParquetRowGroupMetadata *metadata,
                                   GParquetRowGroupMetadata *other_metadata);
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gint
 gparquet_row_group_metadata_get_n_columns(GParquetRowGroupMetadata *metadata);
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 GParquetColumnChunkMetadata *
 gparquet_row_group_metadata_get_column_chunk(GParquetRowGroupMetadata *metadata,
                                              gint index,
                                              GError **error);
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gint64
 gparquet_row_group_metadata_get_n_rows(GParquetRowGroupMetadata *metadata);
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gint64
 gparquet_row_group_metadata_get_total_size(GParquetRowGroupMetadata *metadata);
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gint64
 gparquet_row_group_metadata_get_total_compressed_size(GParquetRowGroupMetadata *metadata);
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gint64
 gparquet_row_group_metadata_get_file_offset(GParquetRowGroupMetadata *metadata);
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gboolean
 gparquet_row_group_metadata_can_decompress(GParquetRowGroupMetadata *metadata);
 
@@ -102,34 +102,34 @@ struct _GParquetFileMetadataClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gboolean
 gparquet_file_metadata_equal(GParquetFileMetadata *metadata,
                              GParquetFileMetadata *other_metadata);
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gint
 gparquet_file_metadata_get_n_columns(GParquetFileMetadata *metadata);
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gint
 gparquet_file_metadata_get_n_schema_elements(GParquetFileMetadata *metadata);
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gint64
 gparquet_file_metadata_get_n_rows(GParquetFileMetadata *metadata);
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gint
 gparquet_file_metadata_get_n_row_groups(GParquetFileMetadata *metadata);
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 GParquetRowGroupMetadata *
 gparquet_file_metadata_get_row_group(GParquetFileMetadata *metadata,
                                      gint index,
                                      GError **error);
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 const gchar *
 gparquet_file_metadata_get_created_by(GParquetFileMetadata *metadata);
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 guint32
 gparquet_file_metadata_get_size(GParquetFileMetadata *metadata);
-GARROW_AVAILABLE_IN_8_0
+GPARQUET_AVAILABLE_IN_8_0
 gboolean
 gparquet_file_metadata_can_decompress(GParquetFileMetadata *metadata);
 

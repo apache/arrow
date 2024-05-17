@@ -34,57 +34,57 @@ struct _GParquetWriterPropertiesClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_0_17
+GPARQUET_AVAILABLE_IN_0_17
 GParquetWriterProperties *
 gparquet_writer_properties_new(void);
-GARROW_AVAILABLE_IN_0_17
+GPARQUET_AVAILABLE_IN_0_17
 void
 gparquet_writer_properties_set_compression(GParquetWriterProperties *properties,
                                            GArrowCompressionType compression_type,
                                            const gchar *path);
-GARROW_AVAILABLE_IN_0_17
+GPARQUET_AVAILABLE_IN_0_17
 GArrowCompressionType
 gparquet_writer_properties_get_compression_path(GParquetWriterProperties *properties,
                                                 const gchar *path);
-GARROW_AVAILABLE_IN_0_17
+GPARQUET_AVAILABLE_IN_0_17
 void
 gparquet_writer_properties_enable_dictionary(GParquetWriterProperties *properties,
                                              const gchar *path);
-GARROW_AVAILABLE_IN_0_17
+GPARQUET_AVAILABLE_IN_0_17
 void
 gparquet_writer_properties_disable_dictionary(GParquetWriterProperties *properties,
                                               const gchar *path);
-GARROW_AVAILABLE_IN_0_17
+GPARQUET_AVAILABLE_IN_0_17
 gboolean
 gparquet_writer_properties_is_dictionary_enabled(GParquetWriterProperties *properties,
                                                  const gchar *path);
-GARROW_AVAILABLE_IN_0_17
+GPARQUET_AVAILABLE_IN_0_17
 void
 gparquet_writer_properties_set_dictionary_page_size_limit(
   GParquetWriterProperties *properties, gint64 limit);
-GARROW_AVAILABLE_IN_0_17
+GPARQUET_AVAILABLE_IN_0_17
 gint64
 gparquet_writer_properties_get_dictionary_page_size_limit(
   GParquetWriterProperties *properties);
-GARROW_AVAILABLE_IN_0_17
+GPARQUET_AVAILABLE_IN_0_17
 void
 gparquet_writer_properties_set_batch_size(GParquetWriterProperties *properties,
                                           gint64 batch_size);
-GARROW_AVAILABLE_IN_0_17
+GPARQUET_AVAILABLE_IN_0_17
 gint64
 gparquet_writer_properties_get_batch_size(GParquetWriterProperties *properties);
-GARROW_AVAILABLE_IN_0_17
+GPARQUET_AVAILABLE_IN_0_17
 void
 gparquet_writer_properties_set_max_row_group_length(GParquetWriterProperties *properties,
                                                     gint64 length);
-GARROW_AVAILABLE_IN_0_17
+GPARQUET_AVAILABLE_IN_0_17
 gint64
 gparquet_writer_properties_get_max_row_group_length(GParquetWriterProperties *properties);
-GARROW_AVAILABLE_IN_0_17
+GPARQUET_AVAILABLE_IN_0_17
 void
 gparquet_writer_properties_set_data_page_size(GParquetWriterProperties *properties,
                                               gint64 data_page_size);
-GARROW_AVAILABLE_IN_0_17
+GPARQUET_AVAILABLE_IN_0_17
 gint64
 gparquet_writer_properties_get_data_page_size(GParquetWriterProperties *properties);
 

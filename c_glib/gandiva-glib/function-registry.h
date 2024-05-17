@@ -35,7 +35,7 @@ struct _GGandivaFunctionRegistryClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_15_0
+GGANDIVA_AVAILABLE_IN_15_0
 GGandivaFunctionRegistry *
 ggandiva_function_registry_default(void);
 GGandivaFunctionRegistry *

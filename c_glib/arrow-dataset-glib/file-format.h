@@ -42,17 +42,17 @@ struct _GADatasetFileWriterClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_6_0
+GADATASET_AVAILABLE_IN_6_0
 gboolean
 gadataset_file_writer_write_record_batch(GADatasetFileWriter *writer,
                                          GArrowRecordBatch *record_batch,
                                          GError **error);
-GARROW_AVAILABLE_IN_6_0
+GADATASET_AVAILABLE_IN_6_0
 gboolean
 gadataset_file_writer_write_record_batch_reader(GADatasetFileWriter *writer,
                                                 GArrowRecordBatchReader *reader,
                                                 GError **error);
-GARROW_AVAILABLE_IN_6_0
+GADATASET_AVAILABLE_IN_6_0
 gboolean
 gadataset_file_writer_finish(GADatasetFileWriter *writer, GError **error);
 
@@ -64,13 +64,13 @@ struct _GADatasetFileFormatClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_3_0
+GADATASET_AVAILABLE_IN_3_0
 gchar *
 gadataset_file_format_get_type_name(GADatasetFileFormat *format);
-GARROW_AVAILABLE_IN_6_0
+GADATASET_AVAILABLE_IN_6_0
 GADatasetFileWriteOptions *
 gadataset_file_format_get_default_write_options(GADatasetFileFormat *format);
-GARROW_AVAILABLE_IN_6_0
+GADATASET_AVAILABLE_IN_6_0
 GADatasetFileWriter *
 gadataset_file_format_open_writer(GADatasetFileFormat *format,
                                   GArrowOutputStream *destination,
@@ -80,7 +80,7 @@ gadataset_file_format_open_writer(GADatasetFileFormat *format,
                                   GADatasetFileWriteOptions *options,
                                   GError **error);
 
-GARROW_AVAILABLE_IN_3_0
+GADATASET_AVAILABLE_IN_3_0
 gboolean
 gadataset_file_format_equal(GADatasetFileFormat *format,
                             GADatasetFileFormat *other_format);
@@ -96,7 +96,7 @@ struct _GADatasetCSVFileFormatClass
   GADatasetFileFormatClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_3_0
+GADATASET_AVAILABLE_IN_3_0
 GADatasetCSVFileFormat *
 gadataset_csv_file_format_new(void);
 
@@ -111,7 +111,7 @@ struct _GADatasetIPCFileFormatClass
   GADatasetFileFormatClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_3_0
+GADATASET_AVAILABLE_IN_3_0
 GADatasetIPCFileFormat *
 gadataset_ipc_file_format_new(void);
 
@@ -126,7 +126,7 @@ struct _GADatasetParquetFileFormatClass
   GADatasetFileFormatClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_3_0
+GADATASET_AVAILABLE_IN_3_0
 GADatasetParquetFileFormat *
 gadataset_parquet_file_format_new(void);
 

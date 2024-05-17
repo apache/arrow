@@ -31,7 +31,7 @@ struct _GADatasetScannerClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_5_0
+GADATASET_AVAILABLE_IN_5_0
 GArrowTable *
 gadataset_scanner_to_table(GADatasetScanner *scanner, GError **error);
 
@@ -43,20 +43,20 @@ struct _GADatasetScannerBuilderClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_5_0
+GADATASET_AVAILABLE_IN_5_0
 GADatasetScannerBuilder *
 gadataset_scanner_builder_new(GADatasetDataset *dataset, GError **error);
-GARROW_AVAILABLE_IN_6_0
+GADATASET_AVAILABLE_IN_6_0
 GADatasetScannerBuilder *
 gadataset_scanner_builder_new_record_batch_reader(GArrowRecordBatchReader *reader);
 
-GARROW_AVAILABLE_IN_6_0
+GADATASET_AVAILABLE_IN_6_0
 gboolean
 gadataset_scanner_builder_set_filter(GADatasetScannerBuilder *builder,
                                      GArrowExpression *expression,
                                      GError **error);
 
-GARROW_AVAILABLE_IN_5_0
+GADATASET_AVAILABLE_IN_5_0
 GADatasetScanner *
 gadataset_scanner_builder_finish(GADatasetScannerBuilder *builder, GError **error);
 

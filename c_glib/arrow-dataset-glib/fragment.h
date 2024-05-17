@@ -46,7 +46,7 @@ struct _GADatasetInMemoryFragmentClass
   GADatasetFragmentClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_4_0
+GADATASET_AVAILABLE_IN_4_0
 GADatasetInMemoryFragment *
 gadataset_in_memory_fragment_new(GArrowSchema *schema,
                                  GArrowRecordBatch **record_batches,

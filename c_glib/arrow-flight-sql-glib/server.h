@@ -42,7 +42,7 @@ struct _GAFlightSQLStatementQueryClass
   GAFlightSQLCommandClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_9_0
+GAFLIGHTSQL_AVAILABLE_IN_9_0
 const gchar *
 gaflightsql_statement_query_get_query(GAFlightSQLStatementQuery *command);
 
@@ -57,7 +57,7 @@ struct _GAFlightSQLStatementUpdateClass
   GAFlightSQLCommandClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_13_0
+GAFLIGHTSQL_AVAILABLE_IN_13_0
 const gchar *
 gaflightsql_statement_update_get_query(GAFlightSQLStatementUpdate *command);
 
@@ -73,7 +73,7 @@ struct _GAFlightSQLPreparedStatementUpdateClass
   GAFlightSQLCommandClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_14_0
+GAFLIGHTSQL_AVAILABLE_IN_14_0
 GBytes *
 gaflightsql_prepared_statement_update_get_handle(
   GAFlightSQLPreparedStatementUpdate *command);
@@ -90,10 +90,10 @@ struct _GAFlightSQLStatementQueryTicketClass
   GAFlightSQLCommandClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_9_0
+GAFLIGHTSQL_AVAILABLE_IN_9_0
 GBytes *
 gaflightsql_statement_query_ticket_generate_handle(const gchar *query, GError **error);
-GARROW_AVAILABLE_IN_9_0
+GAFLIGHTSQL_AVAILABLE_IN_9_0
 GBytes *
 gaflightsql_statement_query_ticket_get_handle(GAFlightSQLStatementQueryTicket *command);
 
@@ -109,12 +109,12 @@ struct _GAFlightSQLCreatePreparedStatementRequestClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_14_0
+GAFLIGHTSQL_AVAILABLE_IN_14_0
 const gchar *
 gaflightsql_create_prepared_statement_request_get_query(
   GAFlightSQLCreatePreparedStatementRequest *request);
 
-GARROW_AVAILABLE_IN_14_0
+GAFLIGHTSQL_AVAILABLE_IN_14_0
 const gchar *
 gaflightsql_create_prepared_statement_request_get_transaction_id(
   GAFlightSQLCreatePreparedStatementRequest *request);
@@ -131,30 +131,30 @@ struct _GAFlightSQLCreatePreparedStatementResultClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_14_0
+GAFLIGHTSQL_AVAILABLE_IN_14_0
 GAFlightSQLCreatePreparedStatementResult *
 gaflightsql_create_prepared_statement_result_new(void);
-GARROW_AVAILABLE_IN_14_0
+GAFLIGHTSQL_AVAILABLE_IN_14_0
 void
 gaflightsql_create_prepared_statement_result_set_dataset_schema(
   GAFlightSQLCreatePreparedStatementResult *result, GArrowSchema *schema);
-GARROW_AVAILABLE_IN_14_0
+GAFLIGHTSQL_AVAILABLE_IN_14_0
 GArrowSchema *
 gaflightsql_create_prepared_statement_result_get_dataset_schema(
   GAFlightSQLCreatePreparedStatementResult *result);
-GARROW_AVAILABLE_IN_14_0
+GAFLIGHTSQL_AVAILABLE_IN_14_0
 void
 gaflightsql_create_prepared_statement_result_set_parameter_schema(
   GAFlightSQLCreatePreparedStatementResult *result, GArrowSchema *schema);
-GARROW_AVAILABLE_IN_14_0
+GAFLIGHTSQL_AVAILABLE_IN_14_0
 GArrowSchema *
 gaflightsql_create_prepared_statement_result_get_parameter_schema(
   GAFlightSQLCreatePreparedStatementResult *result);
-GARROW_AVAILABLE_IN_14_0
+GAFLIGHTSQL_AVAILABLE_IN_14_0
 void
 gaflightsql_create_prepared_statement_result_set_handle(
   GAFlightSQLCreatePreparedStatementResult *result, GBytes *handle);
-GARROW_AVAILABLE_IN_14_0
+GAFLIGHTSQL_AVAILABLE_IN_14_0
 GBytes *
 gaflightsql_create_prepared_statement_result_get_handle(
   GAFlightSQLCreatePreparedStatementResult *result);
@@ -171,7 +171,7 @@ struct _GAFlightSQLClosePreparedStatementRequestClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_14_0
+GAFLIGHTSQL_AVAILABLE_IN_14_0
 GBytes *
 gaflightsql_close_prepared_statement_request_get_handle(
   GAFlightSQLClosePreparedStatementRequest *request);
@@ -231,27 +231,27 @@ struct _GAFlightSQLServerClass
                                    GError **error);
 };
 
-GARROW_AVAILABLE_IN_9_0
+GAFLIGHTSQL_AVAILABLE_IN_9_0
 GAFlightInfo *
 gaflightsql_server_get_flight_info_statement(GAFlightSQLServer *server,
                                              GAFlightServerCallContext *context,
                                              GAFlightSQLStatementQuery *command,
                                              GAFlightDescriptor *descriptor,
                                              GError **error);
-GARROW_AVAILABLE_IN_9_0
+GAFLIGHTSQL_AVAILABLE_IN_9_0
 GAFlightDataStream *
 gaflightsql_server_do_get_statement(GAFlightSQLServer *server,
                                     GAFlightServerCallContext *context,
                                     GAFlightSQLStatementQueryTicket *ticket,
                                     GError **error);
-GARROW_AVAILABLE_IN_13_0
+GAFLIGHTSQL_AVAILABLE_IN_13_0
 gint64
 gaflightsql_server_do_put_command_statement_update(GAFlightSQLServer *server,
                                                    GAFlightServerCallContext *context,
                                                    GAFlightSQLStatementUpdate *command,
                                                    GError **error);
 /* We can restore this after we bump version to 14.0.0-SNAPSHOT. */
-/* GARROW_AVAILABLE_IN_14_0 */
+/* GAFLIGHTSQL_AVAILABLE_IN_14_0 */
 gint64
 gaflightsql_server_do_put_prepared_statement_update(
   GAFlightSQLServer *server,
@@ -260,7 +260,7 @@ gaflightsql_server_do_put_prepared_statement_update(
   GAFlightMessageReader *reader,
   GError **error);
 /* We can restore this after we bump version to 14.0.0-SNAPSHOT. */
-/* GARROW_AVAILABLE_IN_14_0 */
+/* GAFLIGHTSQL_AVAILABLE_IN_14_0 */
 GAFlightSQLCreatePreparedStatementResult *
 gaflightsql_server_create_prepared_statement(
   GAFlightSQLServer *server,
@@ -268,7 +268,7 @@ gaflightsql_server_create_prepared_statement(
   GAFlightSQLCreatePreparedStatementRequest *request,
   GError **error);
 /* We can restore this after we bump version to 14.0.0-SNAPSHOT. */
-/* GARROW_AVAILABLE_IN_14_0 */
+/* GAFLIGHTSQL_AVAILABLE_IN_14_0 */
 void
 gaflightsql_server_close_prepared_statement(
   GAFlightSQLServer *server,

@@ -42,7 +42,7 @@ struct _GAFlightRecordBatchStreamClass
   GAFlightDataStreamClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_6_0
+GAFLIGHT_AVAILABLE_IN_6_0
 GAFlightRecordBatchStream *
 gaflight_record_batch_stream_new(GArrowRecordBatchReader *reader,
                                  GArrowWriteOptions *options);
@@ -58,7 +58,7 @@ struct _GAFlightMessageReaderClass
   GAFlightRecordBatchReaderClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_14_0
+GAFLIGHT_AVAILABLE_IN_14_0
 GAFlightDescriptor *
 gaflight_message_reader_get_descriptor(GAFlightMessageReader *reader);
 
@@ -73,7 +73,7 @@ struct _GAFlightServerCallContextClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_14_0
+GAFLIGHT_AVAILABLE_IN_14_0
 void
 gaflight_server_call_context_foreach_incoming_header(GAFlightServerCallContext *context,
                                                      GAFlightHeaderFunc func,
@@ -90,7 +90,7 @@ struct _GAFlightServerAuthSenderClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_12_0
+GAFLIGHT_AVAILABLE_IN_12_0
 gboolean
 gaflight_server_auth_sender_write(GAFlightServerAuthSender *sender,
                                   GBytes *message,
@@ -107,7 +107,7 @@ struct _GAFlightServerAuthReaderClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_12_0
+GAFLIGHT_AVAILABLE_IN_12_0
 GBytes *
 gaflight_server_auth_reader_read(GAFlightServerAuthReader *reader, GError **error);
 
@@ -152,7 +152,7 @@ struct _GAFlightServerCustomAuthHandlerClass
                       GError **error);
 };
 
-GARROW_AVAILABLE_IN_12_0
+GAFLIGHT_AVAILABLE_IN_12_0
 void
 gaflight_server_custom_auth_handler_authenticate(GAFlightServerCustomAuthHandler *handler,
                                                  GAFlightServerCallContext *context,
@@ -160,7 +160,7 @@ gaflight_server_custom_auth_handler_authenticate(GAFlightServerCustomAuthHandler
                                                  GAFlightServerAuthReader *reader,
                                                  GError **error);
 
-GARROW_AVAILABLE_IN_12_0
+GAFLIGHT_AVAILABLE_IN_12_0
 GBytes *
 gaflight_server_custom_auth_handler_is_valid(GAFlightServerCustomAuthHandler *handler,
                                              GAFlightServerCallContext *context,
@@ -175,7 +175,7 @@ struct _GAFlightServerOptionsClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_5_0
+GAFLIGHT_AVAILABLE_IN_5_0
 GAFlightServerOptions *
 gaflight_server_options_new(GAFlightLocation *location);
 
@@ -209,34 +209,34 @@ struct _GAFlightServerClass
                                 GError **error);
 };
 
-GARROW_AVAILABLE_IN_5_0
+GAFLIGHT_AVAILABLE_IN_5_0
 gboolean
 gaflight_server_listen(GAFlightServer *server,
                        GAFlightServerOptions *options,
                        GError **error);
-GARROW_AVAILABLE_IN_5_0
+GAFLIGHT_AVAILABLE_IN_5_0
 gint
 gaflight_server_get_port(GAFlightServer *server);
-GARROW_AVAILABLE_IN_5_0
+GAFLIGHT_AVAILABLE_IN_5_0
 gboolean
 gaflight_server_shutdown(GAFlightServer *server, GError **error);
-GARROW_AVAILABLE_IN_5_0
+GAFLIGHT_AVAILABLE_IN_5_0
 gboolean
 gaflight_server_wait(GAFlightServer *server, GError **error);
 
-GARROW_AVAILABLE_IN_5_0
+GAFLIGHT_AVAILABLE_IN_5_0
 GList *
 gaflight_server_list_flights(GAFlightServer *server,
                              GAFlightServerCallContext *context,
                              GAFlightCriteria *criteria,
                              GError **error);
-GARROW_AVAILABLE_IN_9_0
+GAFLIGHT_AVAILABLE_IN_9_0
 GAFlightInfo *
 gaflight_server_get_flight_info(GAFlightServer *server,
                                 GAFlightServerCallContext *context,
                                 GAFlightDescriptor *request,
                                 GError **error);
-GARROW_AVAILABLE_IN_6_0
+GAFLIGHT_AVAILABLE_IN_6_0
 GAFlightDataStream *
 gaflight_server_do_get(GAFlightServer *server,
                        GAFlightServerCallContext *context,
