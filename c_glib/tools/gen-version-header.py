@@ -44,21 +44,30 @@ def main():
             type=Path,
             required=True,
             help="Path to the output file to generate")
+    parser.add_argument(
+            "--version-library",
+            default="GARROW",
+            help="The library name prefix to use in MIN_REQUIRED and MAX_ALLOWED checks")
 
     args = parser.parse_args()
     with open(args.input, "r", encoding="utf-8") as input_file, \
             open(args.output, "w", encoding="utf-8") as output_file:
-        write_header(input_file, output_file, args.library, args.version)
+        write_header(input_file, output_file, args.library, args.version, args.version_library)
 
 
-def write_header(input_file: TextIOBase, output_file: TextIOBase, library_name: str, version: str):
+def write_header(
+        input_file: TextIOBase,
+        output_file: TextIOBase,
+        library_name: str,
+        version: str,
+        version_library: str):
     if "-" in version:
         version, version_tag = version.split("-")
     else:
         version_tag = ""
     version_major, version_minor, version_micro = [int(v) for v in version.split(".")]
 
-    availability_macros = generate_availability_macros(library_name)
+    availability_macros = generate_availability_macros(library_name, version_library)
 
     replacements = {
             "VERSION_MAJOR": str(version_major),
@@ -78,7 +87,7 @@ def write_header(input_file: TextIOBase, output_file: TextIOBase, library_name: 
         output_file.write(line)
 
 
-def generate_availability_macros(library: str) -> str:
+def generate_availability_macros(library: str, version_library: str) -> str:
     versions = [
             (16, 0),
             (15, 0),
@@ -106,7 +115,7 @@ def generate_availability_macros(library: str) -> str:
     ]
     macros = []
 
-    macros.append(f"""#ifdef GARROW_DISABLE_DEPRECATION_WARNINGS
+    macros.append(f"""#ifdef {version_library}_DISABLE_DEPRECATION_WARNINGS
 #  define {library}_DEPRECATED
 #  define {library}_DEPRECATED_FOR(function)
 #  define {library}_UNAVAILABLE(major, minor)
@@ -119,7 +128,7 @@ def generate_availability_macros(library: str) -> str:
     macros.append(f"""#define {library}_AVAILABLE_IN_ALL""")
 
     for major_version, minor_version in versions:
-        macros.append(f"""#if GARROW_VERSION_MIN_REQUIRED >= GARROW_VERSION_{major_version}_{minor_version}
+        macros.append(f"""#if {version_library}_VERSION_MIN_REQUIRED >= {version_library}_VERSION_{major_version}_{minor_version}
 #  define {library}_DEPRECATED_IN_{major_version}_{minor_version}               {library}_DEPRECATED
 #  define {library}_DEPRECATED_IN_{major_version}_{minor_version}_FOR(function) {library}_DEPRECATED_FOR(function)
 #else
@@ -127,7 +136,7 @@ def generate_availability_macros(library: str) -> str:
 #  define {library}_DEPRECATED_IN_{major_version}_{minor_version}_FOR(function)
 #endif
 
-#if GARROW_VERSION_MAX_ALLOWED < GARROW_VERSION_{major_version}_{minor_version}
+#if {version_library}_VERSION_MAX_ALLOWED < {version_library}_VERSION_{major_version}_{minor_version}
 #  define {library}_AVAILABLE_IN_{major_version}_{minor_version} {library}_UNAVAILABLE({major_version}, {minor_version})
 #else
 #  define {library}_AVAILABLE_IN_{major_version}_{minor_version}
