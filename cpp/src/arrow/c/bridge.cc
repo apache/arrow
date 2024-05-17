@@ -1877,7 +1877,7 @@ struct ArrayImporter {
           data_->buffers[offsets_buffer_id], last_offset_value_offset, sizeof(OffsetType),
           reinterpret_cast<uint8_t*>(&last_offset_value)));
       // Compute visible size of buffer
-      buffer_size = (c_struct_->length > 0) ? byte_width * last_offset_value : 0;
+      buffer_size = byte_width * last_offset_value;
     }
 
     return ImportBuffer(buffer_id, buffer_size);
