@@ -303,14 +303,18 @@ def test_parquet_write_disable_statistics(tempdir):
 
 def test_parquet_sorting_column():
     sorting_col = pq.SortingColumn(10)
-    assert sorting_col.column_index == 10
-    assert sorting_col.descending is False
-    assert sorting_col.nulls_first is False
+    assert sorting_col.to_dict() == {
+        'column_index': 10,
+        'descending': False,
+        'nulls_first': False
+    }
 
     sorting_col = pq.SortingColumn(0, descending=True, nulls_first=True)
-    assert sorting_col.column_index == 0
-    assert sorting_col.descending is True
-    assert sorting_col.nulls_first is True
+    assert sorting_col.to_dict() == {
+        'column_index': 0,
+        'descending': True,
+        'nulls_first': True
+    }
 
     schema = pa.schema([('a', pa.int64()), ('b', pa.int64())])
     sorting_cols = (
