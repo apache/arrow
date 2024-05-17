@@ -25,6 +25,7 @@
 #include "arrow/array/builder_primitive.h"
 #include "arrow/testing/fixed_width_test_util.h"
 #include "arrow/type.h"
+#include "arrow/util/checked_cast.h"
 
 namespace arrow::util::internal {
 
