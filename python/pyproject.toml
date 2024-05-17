@@ -57,6 +57,14 @@ Documentation = "https://arrow.apache.org/docs/python"
 Repository = "https://github.com/apache/arrow"
 Issues = "https://github.com/apache/arrow/issues"
 
+[project.optional-dependencies]
+test = [
+    'pytest',
+    'hypothesis',
+    'cffi',
+    'pytz'
+]
+
 [tool.setuptools]
 zip-safe=false
 include-package-data=true

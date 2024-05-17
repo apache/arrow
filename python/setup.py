@@ -352,34 +352,9 @@ class build_ext(_build_ext):
                 for name in self.get_names()]
 
 
-# If the event of not running from a git clone (e.g. from a git archive
-# or a Python sdist), see if we can set the version number ourselves
-default_version = '17.0.0-SNAPSHOT'
-if (not os.path.exists('../.git') and
-        not os.environ.get('SETUPTOOLS_SCM_PRETEND_VERSION')):
-    os.environ['SETUPTOOLS_SCM_PRETEND_VERSION'] = \
-        default_version.replace('-SNAPSHOT', 'a0')
-
-
-with open('README.md') as f:
-    long_description = f.read()
-
-
 class BinaryDistribution(Distribution):
     def has_ext_modules(foo):
         return True
-
-
-install_requires = (
-    'numpy >= 1.16.6',
-)
-
-
-# Only include pytest-runner in setup_requires if we're invoking tests
-if {'pytest', 'test', 'ptr'}.intersection(sys.argv):
-    setup_requires = ['pytest-runner']
-else:
-    setup_requires = []
 
 
 if strtobool(os.environ.get('PYARROW_INSTALL_TESTS', '1')):
