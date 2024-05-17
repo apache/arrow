@@ -20,6 +20,7 @@
 #pragma once
 
 #include <arrow-glib/arrow-glib.h>
+#include <parquet-glib/version.h>
 
 G_BEGIN_DECLS
 

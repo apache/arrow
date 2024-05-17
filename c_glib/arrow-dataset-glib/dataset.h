@@ -22,6 +22,7 @@
 #include <arrow-dataset-glib/dataset-definition.h>
 #include <arrow-dataset-glib/file-format.h>
 #include <arrow-dataset-glib/scanner.h>
+#include <arrow-dataset-glib/version.h>
 
 G_BEGIN_DECLS
 

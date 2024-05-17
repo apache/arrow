@@ -21,6 +21,7 @@
 
 #include <arrow-dataset-glib/dataset-definition.h>
 #include <arrow-dataset-glib/fragment.h>
+#include <arrow-dataset-glib/version.h>
 
 G_BEGIN_DECLS
 
