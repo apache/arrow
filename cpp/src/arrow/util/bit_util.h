@@ -282,15 +282,19 @@ static inline int Log2(uint64_t x) {
 
 // Bitmask selecting the k-th bit in a byte
 // static constexpr uint8_t kBitmask[] = {1, 2, 4, 8, 16, 32, 64, 128};
-static constexpr uint8_t GetBitMask(uint8_t index) {
+template <typename T>
+static constexpr uint8_t GetBitMask(T index) {
   // DCHECK(index >= 0 && index <= 7);
+  ARROW_COMPILER_ASSUME(index >= 0 && index <= 7);
   return static_cast<uint8_t>(1) << index;
 }
 
 // the bitwise complement version of kBitmask
 // static constexpr uint8_t kFlippedBitmask[] = {254, 253, 251, 247, 239, 223, 191, 127};
-static constexpr uint8_t GetFlippedBitMask(uint8_t index) {
+template <typename T>
+static constexpr uint8_t GetFlippedBitMask(T index) {
   // DCHECK(index >= 0 && index <= 7);
+  ARROW_COMPILER_ASSUME(index >= 0 && index <= 7);
   return ~(static_cast<uint8_t>(1) << index);
 }
 
