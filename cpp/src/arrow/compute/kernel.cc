@@ -430,6 +430,11 @@ bool InputType::Matches(const Datum& value) const {
   return Matches(*value.type());
 }
 
+bool InputType::Matches(const std::vector<TypeHolder>& types) const {
+  DCHECK_EQ(InputType::USE_TYPE_MATCHER, kind_);
+  return type_matcher_->Matches(types);
+}
+
 const std::shared_ptr<DataType>& InputType::type() const {
   DCHECK_EQ(InputType::EXACT_TYPE, kind_);
   return type_;
@@ -505,9 +510,14 @@ bool KernelSignature::Equals(const KernelSignature& other) const {
 }
 
 bool KernelSignature::MatchesInputs(const std::vector<TypeHolder>& types) const {
+  auto is_match_combination_types = [&](const InputType& in_type) {
+    return in_type.kind() == InputType::USE_TYPE_MATCHER ? in_type.Matches(types) : true;
+  };
+
   if (is_varargs_) {
     for (size_t i = 0; i < types.size(); ++i) {
-      if (!in_types_[std::min(i, in_types_.size() - 1)].Matches(*types[i])) {
+      const auto& in_type = in_types_[std::min(i, in_types_.size() - 1)];
+      if (!in_type.Matches(*types[i]) || !is_match_combination_types(in_type)) {
         return false;
       }
     }
@@ -516,7 +526,7 @@ bool KernelSignature::MatchesInputs(const std::vector<TypeHolder>& types) const 
       return false;
     }
     for (size_t i = 0; i < in_types_.size(); ++i) {
-      if (!in_types_[i].Matches(*types[i])) {
+      if (!in_types_[i].Matches(*types[i]) || !is_match_combination_types(in_types_[i])) {
         return false;
       }
     }

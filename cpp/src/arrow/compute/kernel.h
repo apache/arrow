@@ -109,6 +109,9 @@ struct ARROW_EXPORT TypeMatcher {
   /// \brief Return true if this matcher accepts the data type.
   virtual bool Matches(const DataType& type) const = 0;
 
+  /// \brief Return true if this matcher accepts the combination types
+  virtual bool Matches(const std::vector<TypeHolder>& types) const { return true; }
+
   /// \brief A human-interpretable string representation of what the type
   /// matcher checks for, usable when printing KernelSignature or formatting
   /// error messages.
@@ -240,6 +243,10 @@ class ARROW_EXPORT InputType {
 
   /// \brief Return true if the type matches this InputType
   bool Matches(const DataType& type) const;
+
+  /// \brief Return true if the input combination types matches this
+  /// InputType's type_matcher matched rules.
+  bool Matches(const std::vector<TypeHolder>& types) const;
 
   /// \brief The type matching rule that this InputType uses.
   Kind kind() const { return kind_; }
