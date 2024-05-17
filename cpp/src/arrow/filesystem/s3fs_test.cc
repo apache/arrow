@@ -1202,10 +1202,10 @@ struct S3OptionsTestParameters {
 
   static std::vector<S3OptionsTestParameters> GetCartesianProduct() {
     return {
-        S3OptionsTestParameters{.background_writes = true, .allow_delayed_open = false},
-        S3OptionsTestParameters{.background_writes = false, .allow_delayed_open = false},
-        S3OptionsTestParameters{.background_writes = true, .allow_delayed_open = true},
-        S3OptionsTestParameters{.background_writes = false, .allow_delayed_open = true},
+        S3OptionsTestParameters{true, false},
+        S3OptionsTestParameters{false, false},
+        S3OptionsTestParameters{true, true},
+        S3OptionsTestParameters{false, true},
     };
   }
 };
