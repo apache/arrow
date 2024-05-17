@@ -124,7 +124,6 @@ jobs:
       - name: Run Release Test
         env:
           ARROW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
           ci/scripts/release_test.sh $(pwd)
