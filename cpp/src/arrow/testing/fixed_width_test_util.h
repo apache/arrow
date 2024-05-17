@@ -17,10 +17,14 @@
 
 #pragma once
 
+#include <cstdint>
+#include <functional>
+#include <memory>
 #include <vector>
 
-#include "arrow/builder.h"
 #include "arrow/testing/visibility.h"
+#include "arrow/type.h"
+#include "arrow/type_fwd.h"
 
 namespace arrow::util::internal {
 

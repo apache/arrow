@@ -15,7 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "fixed_width_test_util.h"
+#include <cstdint>
+#include <functional>
+#include <limits>
+#include <vector>
+
+#include "arrow/array/builder_base.h"
+#include "arrow/array/builder_nested.h"
+#include "arrow/array/builder_primitive.h"
+#include "arrow/testing/fixed_width_test_util.h"
+#include "arrow/type.h"
 
 namespace arrow::util::internal {
 
@@ -31,11 +40,6 @@ inline Status AppendNumeric(ArrayBuilder* builder, int64_t* next_value) {
   *next_value += 1;
   return Status::OK();
 }
-
-template Status AppendNumeric<Int8Type>(ArrayBuilder* builder, int64_t* next_value);
-template Status AppendNumeric<Int16Type>(ArrayBuilder* builder, int64_t* next_value);
-template Status AppendNumeric<Int32Type>(ArrayBuilder* builder, int64_t* next_value);
-template Status AppendNumeric<Int64Type>(ArrayBuilder* builder, int64_t* next_value);
 }  // namespace
 
 std::shared_ptr<DataType> NestedListGenerator::NestedFSLType(
