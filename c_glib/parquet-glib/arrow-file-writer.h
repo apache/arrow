@@ -25,6 +25,7 @@
 G_BEGIN_DECLS
 
 #define GPARQUET_TYPE_WRITER_PROPERTIES (gparquet_writer_properties_get_type())
+GPARQUET_AVAILABLE_IN_0_17
 G_DECLARE_DERIVABLE_TYPE(GParquetWriterProperties,
                          gparquet_writer_properties,
                          GPARQUET,
@@ -90,6 +91,7 @@ gint64
 gparquet_writer_properties_get_data_page_size(GParquetWriterProperties *properties);
 
 #define GPARQUET_TYPE_ARROW_FILE_WRITER (gparquet_arrow_file_writer_get_type())
+GPARQUET_AVAILABLE_IN_0_11
 G_DECLARE_DERIVABLE_TYPE(GParquetArrowFileWriter,
                          gparquet_arrow_file_writer,
                          GPARQUET,
@@ -100,23 +102,28 @@ struct _GParquetArrowFileWriterClass
   GObjectClass parent_class;
 };
 
+GPARQUET_AVAILABLE_IN_0_11
 GParquetArrowFileWriter *
 gparquet_arrow_file_writer_new_arrow(GArrowSchema *schema,
                                      GArrowOutputStream *sink,
                                      GParquetWriterProperties *writer_properties,
                                      GError **error);
+
+GPARQUET_AVAILABLE_IN_0_11
 GParquetArrowFileWriter *
 gparquet_arrow_file_writer_new_path(GArrowSchema *schema,
                                     const gchar *path,
                                     GParquetWriterProperties *writer_properties,
                                     GError **error);
 
+GPARQUET_AVAILABLE_IN_0_11
 gboolean
 gparquet_arrow_file_writer_write_table(GParquetArrowFileWriter *writer,
                                        GArrowTable *table,
                                        guint64 chunk_size,
                                        GError **error);
 
+GPARQUET_AVAILABLE_IN_0_11
 gboolean
 gparquet_arrow_file_writer_close(GParquetArrowFileWriter *writer, GError **error);
 

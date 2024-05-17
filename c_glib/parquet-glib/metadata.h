@@ -24,6 +24,7 @@
 G_BEGIN_DECLS
 
 #define GPARQUET_TYPE_COLUMN_CHUNK_METADATA (gparquet_column_chunk_metadata_get_type())
+GPARQUET_AVAILABLE_IN_8_0
 G_DECLARE_DERIVABLE_TYPE(GParquetColumnChunkMetadata,
                          gparquet_column_chunk_metadata,
                          GPARQUET,
@@ -56,6 +57,7 @@ GParquetStatistics *
 gparquet_column_chunk_metadata_get_statistics(GParquetColumnChunkMetadata *metadata);
 
 #define GPARQUET_TYPE_ROW_GROUP_METADATA (gparquet_row_group_metadata_get_type())
+GPARQUET_AVAILABLE_IN_8_0
 G_DECLARE_DERIVABLE_TYPE(GParquetRowGroupMetadata,
                          gparquet_row_group_metadata,
                          GPARQUET,
@@ -95,6 +97,7 @@ gboolean
 gparquet_row_group_metadata_can_decompress(GParquetRowGroupMetadata *metadata);
 
 #define GPARQUET_TYPE_FILE_METADATA (gparquet_file_metadata_get_type())
+GPARQUET_AVAILABLE_IN_8_0
 G_DECLARE_DERIVABLE_TYPE(
   GParquetFileMetadata, gparquet_file_metadata, GPARQUET, FILE_METADATA, GObject)
 struct _GParquetFileMetadataClass

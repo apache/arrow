@@ -24,6 +24,7 @@
 G_BEGIN_DECLS
 
 #define GPARQUET_TYPE_ARROW_FILE_READER (gparquet_arrow_file_reader_get_type())
+GPARQUET_AVAILABLE_IN_0_11
 G_DECLARE_DERIVABLE_TYPE(GParquetArrowFileReader,
                          gparquet_arrow_file_reader,
                          GPARQUET,
@@ -34,11 +35,15 @@ struct _GParquetArrowFileReaderClass
   GObjectClass parent_class;
 };
 
+GPARQUET_AVAILABLE_IN_0_11
 GParquetArrowFileReader *
 gparquet_arrow_file_reader_new_arrow(GArrowSeekableInputStream *source, GError **error);
+
+GPARQUET_AVAILABLE_IN_0_11
 GParquetArrowFileReader *
 gparquet_arrow_file_reader_new_path(const gchar *path, GError **error);
 
+GPARQUET_AVAILABLE_IN_0_11
 GArrowTable *
 gparquet_arrow_file_reader_read_table(GParquetArrowFileReader *reader, GError **error);
 
@@ -50,14 +55,17 @@ gparquet_arrow_file_reader_read_row_group(GParquetArrowFileReader *reader,
                                           gsize n_column_indices,
                                           GError **error);
 
+GPARQUET_AVAILABLE_IN_0_12
 GArrowSchema *
 gparquet_arrow_file_reader_get_schema(GParquetArrowFileReader *reader, GError **error);
 
+GPARQUET_AVAILABLE_IN_0_15
 GArrowChunkedArray *
 gparquet_arrow_file_reader_read_column_data(GParquetArrowFileReader *reader,
                                             gint i,
                                             GError **error);
 
+GPARQUET_AVAILABLE_IN_0_11
 gint
 gparquet_arrow_file_reader_get_n_row_groups(GParquetArrowFileReader *reader);
 
@@ -65,6 +73,7 @@ GPARQUET_AVAILABLE_IN_6_0
 gint64
 gparquet_arrow_file_reader_get_n_rows(GParquetArrowFileReader *reader);
 
+GPARQUET_AVAILABLE_IN_0_11
 void
 gparquet_arrow_file_reader_set_use_threads(GParquetArrowFileReader *reader,
                                            gboolean use_threads);

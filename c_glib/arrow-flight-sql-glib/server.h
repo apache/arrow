@@ -25,6 +25,7 @@
 G_BEGIN_DECLS
 
 #define GAFLIGHTSQL_TYPE_COMMAND (gaflightsql_command_get_type())
+GAFLIGHTSQL_AVAILABLE_IN_9_0
 G_DECLARE_DERIVABLE_TYPE(
   GAFlightSQLCommand, gaflightsql_command, GAFLIGHTSQL, COMMAND, GObject)
 struct _GAFlightSQLCommandClass
@@ -33,6 +34,7 @@ struct _GAFlightSQLCommandClass
 };
 
 #define GAFLIGHTSQL_TYPE_STATEMENT_QUERY (gaflightsql_statement_query_get_type())
+GAFLIGHTSQL_AVAILABLE_IN_9_0
 G_DECLARE_DERIVABLE_TYPE(GAFlightSQLStatementQuery,
                          gaflightsql_statement_query,
                          GAFLIGHTSQL,
@@ -48,6 +50,7 @@ const gchar *
 gaflightsql_statement_query_get_query(GAFlightSQLStatementQuery *command);
 
 #define GAFLIGHTSQL_TYPE_STATEMENT_UPDATE (gaflightsql_statement_update_get_type())
+GAFLIGHTSQL_AVAILABLE_IN_13_0
 G_DECLARE_DERIVABLE_TYPE(GAFlightSQLStatementUpdate,
                          gaflightsql_statement_update,
                          GAFLIGHTSQL,
@@ -64,6 +67,7 @@ gaflightsql_statement_update_get_query(GAFlightSQLStatementUpdate *command);
 
 #define GAFLIGHTSQL_TYPE_PREPARED_STATEMENT_UPDATE                                       \
   (gaflightsql_prepared_statement_update_get_type())
+GAFLIGHTSQL_AVAILABLE_IN_14_0
 G_DECLARE_DERIVABLE_TYPE(GAFlightSQLPreparedStatementUpdate,
                          gaflightsql_prepared_statement_update,
                          GAFLIGHTSQL,
@@ -81,6 +85,7 @@ gaflightsql_prepared_statement_update_get_handle(
 
 #define GAFLIGHTSQL_TYPE_STATEMENT_QUERY_TICKET                                          \
   (gaflightsql_statement_query_ticket_get_type())
+GAFLIGHTSQL_AVAILABLE_IN_9_0
 G_DECLARE_DERIVABLE_TYPE(GAFlightSQLStatementQueryTicket,
                          gaflightsql_statement_query_ticket,
                          GAFLIGHTSQL,
@@ -100,6 +105,7 @@ gaflightsql_statement_query_ticket_get_handle(GAFlightSQLStatementQueryTicket *c
 
 #define GAFLIGHTSQL_TYPE_CREATE_PREPARED_STATEMENT_REQUEST                               \
   (gaflightsql_create_prepared_statement_request_get_type())
+GAFLIGHTSQL_AVAILABLE_IN_14_0
 G_DECLARE_DERIVABLE_TYPE(GAFlightSQLCreatePreparedStatementRequest,
                          gaflightsql_create_prepared_statement_request,
                          GAFLIGHTSQL,
@@ -122,6 +128,7 @@ gaflightsql_create_prepared_statement_request_get_transaction_id(
 
 #define GAFLIGHTSQL_TYPE_CREATE_PREPARED_STATEMENT_RESULT                                \
   (gaflightsql_create_prepared_statement_result_get_type())
+GAFLIGHTSQL_AVAILABLE_IN_14_0
 G_DECLARE_DERIVABLE_TYPE(GAFlightSQLCreatePreparedStatementResult,
                          gaflightsql_create_prepared_statement_result,
                          GAFLIGHTSQL,
@@ -162,6 +169,7 @@ gaflightsql_create_prepared_statement_result_get_handle(
 
 #define GAFLIGHTSQL_TYPE_CLOSE_PREPARED_STATEMENT_REQUEST                                \
   (gaflightsql_close_prepared_statement_request_get_type())
+GAFLIGHTSQL_AVAILABLE_IN_14_0
 G_DECLARE_DERIVABLE_TYPE(GAFlightSQLClosePreparedStatementRequest,
                          gaflightsql_close_prepared_statement_request,
                          GAFLIGHTSQL,
@@ -178,6 +186,7 @@ gaflightsql_close_prepared_statement_request_get_handle(
   GAFlightSQLClosePreparedStatementRequest *request);
 
 #define GAFLIGHTSQL_TYPE_SERVER (gaflightsql_server_get_type())
+GAFLIGHTSQL_AVAILABLE_IN_9_0
 G_DECLARE_DERIVABLE_TYPE(
   GAFlightSQLServer, gaflightsql_server, GAFLIGHTSQL, SERVER, GAFlightServer)
 /**
@@ -251,8 +260,8 @@ gaflightsql_server_do_put_command_statement_update(GAFlightSQLServer *server,
                                                    GAFlightServerCallContext *context,
                                                    GAFlightSQLStatementUpdate *command,
                                                    GError **error);
-/* We can restore this after we bump version to 14.0.0-SNAPSHOT. */
-/* GAFLIGHTSQL_AVAILABLE_IN_14_0 */
+
+GAFLIGHTSQL_AVAILABLE_IN_14_0
 gint64
 gaflightsql_server_do_put_prepared_statement_update(
   GAFlightSQLServer *server,
@@ -260,16 +269,16 @@ gaflightsql_server_do_put_prepared_statement_update(
   GAFlightSQLPreparedStatementUpdate *command,
   GAFlightMessageReader *reader,
   GError **error);
-/* We can restore this after we bump version to 14.0.0-SNAPSHOT. */
-/* GAFLIGHTSQL_AVAILABLE_IN_14_0 */
+
+GAFLIGHTSQL_AVAILABLE_IN_14_0
 GAFlightSQLCreatePreparedStatementResult *
 gaflightsql_server_create_prepared_statement(
   GAFlightSQLServer *server,
   GAFlightServerCallContext *context,
   GAFlightSQLCreatePreparedStatementRequest *request,
   GError **error);
-/* We can restore this after we bump version to 14.0.0-SNAPSHOT. */
-/* GAFLIGHTSQL_AVAILABLE_IN_14_0 */
+
+GAFLIGHTSQL_AVAILABLE_IN_14_0
 void
 gaflightsql_server_close_prepared_statement(
   GAFlightSQLServer *server,

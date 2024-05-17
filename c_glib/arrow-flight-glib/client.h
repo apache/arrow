@@ -24,6 +24,7 @@
 G_BEGIN_DECLS
 
 #define GAFLIGHT_TYPE_STREAM_READER (gaflight_stream_reader_get_type())
+GAFLIGHT_AVAILABLE_IN_6_0
 G_DECLARE_DERIVABLE_TYPE(GAFlightStreamReader,
                          gaflight_stream_reader,
                          GAFLIGHT,
@@ -35,6 +36,7 @@ struct _GAFlightStreamReaderClass
 };
 
 #define GAFLIGHT_TYPE_CALL_OPTIONS (gaflight_call_options_get_type())
+GAFLIGHT_AVAILABLE_IN_5_0
 G_DECLARE_DERIVABLE_TYPE(
   GAFlightCallOptions, gaflight_call_options, GAFLIGHT, CALL_OPTIONS, GObject)
 struct _GAFlightCallOptionsClass
@@ -61,6 +63,7 @@ gaflight_call_options_foreach_header(GAFlightCallOptions *options,
                                      gpointer user_data);
 
 #define GAFLIGHT_TYPE_CLIENT_OPTIONS (gaflight_client_options_get_type())
+GAFLIGHT_AVAILABLE_IN_5_0
 G_DECLARE_DERIVABLE_TYPE(
   GAFlightClientOptions, gaflight_client_options, GAFLIGHT, CLIENT_OPTIONS, GObject)
 struct _GAFlightClientOptionsClass
@@ -73,6 +76,7 @@ GAFlightClientOptions *
 gaflight_client_options_new(void);
 
 #define GAFLIGHT_TYPE_CLIENT (gaflight_client_get_type())
+GAFLIGHT_AVAILABLE_IN_5_0
 G_DECLARE_DERIVABLE_TYPE(GAFlightClient, gaflight_client, GAFLIGHT, CLIENT, GObject)
 struct _GAFlightClientClass
 {

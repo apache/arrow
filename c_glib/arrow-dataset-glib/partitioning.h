@@ -40,6 +40,7 @@ typedef enum {
 
 #define GADATASET_TYPE_PARTITIONING_FACTORY_OPTIONS                                      \
   (gadataset_partitioning_factory_options_get_type())
+GADATASET_AVAILABLE_IN_11_0
 G_DECLARE_DERIVABLE_TYPE(GADatasetPartitioningFactoryOptions,
                          gadataset_partitioning_factory_options,
                          GADATASET,
@@ -55,6 +56,7 @@ GADatasetPartitioningFactoryOptions *
 gadataset_partitioning_factory_options_new(void);
 
 #define GADATASET_TYPE_PARTITIONING (gadataset_partitioning_get_type())
+GADATASET_AVAILABLE_IN_6_0
 G_DECLARE_DERIVABLE_TYPE(
   GADatasetPartitioning, gadataset_partitioning, GADATASET, PARTITIONING, GObject)
 struct _GADatasetPartitioningClass
@@ -72,6 +74,7 @@ gadataset_partitioning_create_default(void);
 
 #define GADATASET_TYPE_KEY_VALUE_PARTITIONING_OPTIONS                                    \
   (gadataset_key_value_partitioning_options_get_type())
+GADATASET_AVAILABLE_IN_11_0
 G_DECLARE_DERIVABLE_TYPE(GADatasetKeyValuePartitioningOptions,
                          gadataset_key_value_partitioning_options,
                          GADATASET,
@@ -88,6 +91,7 @@ gadataset_key_value_partitioning_options_new(void);
 
 #define GADATASET_TYPE_KEY_VALUE_PARTITIONING                                            \
   (gadataset_key_value_partitioning_get_type())
+GADATASET_AVAILABLE_IN_6_0
 G_DECLARE_DERIVABLE_TYPE(GADatasetKeyValuePartitioning,
                          gadataset_key_value_partitioning,
                          GADATASET,
@@ -100,6 +104,7 @@ struct _GADatasetKeyValuePartitioningClass
 
 #define GADATASET_TYPE_DIRECTORY_PARTITIONING                                            \
   (gadataset_directory_partitioning_get_type())
+GADATASET_AVAILABLE_IN_6_0
 G_DECLARE_DERIVABLE_TYPE(GADatasetDirectoryPartitioning,
                          gadataset_directory_partitioning,
                          GADATASET,
@@ -119,6 +124,7 @@ gadataset_directory_partitioning_new(GArrowSchema *schema,
 
 #define GADATASET_TYPE_HIVE_PARTITIONING_OPTIONS                                         \
   (gadataset_hive_partitioning_options_get_type())
+GADATASET_AVAILABLE_IN_11_0
 G_DECLARE_DERIVABLE_TYPE(GADatasetHivePartitioningOptions,
                          gadataset_hive_partitioning_options,
                          GADATASET,
@@ -134,6 +140,7 @@ GADatasetHivePartitioningOptions *
 gadataset_hive_partitioning_options_new(void);
 
 #define GADATASET_TYPE_HIVE_PARTITIONING (gadataset_hive_partitioning_get_type())
+GADATASET_AVAILABLE_IN_11_0
 G_DECLARE_DERIVABLE_TYPE(GADatasetHivePartitioning,
                          gadataset_hive_partitioning,
                          GADATASET,

@@ -25,6 +25,7 @@
 G_BEGIN_DECLS
 
 #define GAFLIGHTSQL_TYPE_PREPARED_STATEMENT (gaflightsql_prepared_statement_get_type())
+GAFLIGHTSQL_AVAILABLE_IN_14_0
 G_DECLARE_DERIVABLE_TYPE(GAFlightSQLPreparedStatement,
                          gaflightsql_prepared_statement,
                          GAFLIGHTSQL,
@@ -81,6 +82,7 @@ gboolean
 gaflightsql_prepared_statement_is_closed(GAFlightSQLPreparedStatement *statement);
 
 #define GAFLIGHTSQL_TYPE_CLIENT (gaflightsql_client_get_type())
+GAFLIGHTSQL_AVAILABLE_IN_9_0
 G_DECLARE_DERIVABLE_TYPE(
   GAFlightSQLClient, gaflightsql_client, GAFLIGHTSQL, CLIENT, GObject)
 struct _GAFlightSQLClientClass

@@ -24,6 +24,7 @@
 G_BEGIN_DECLS
 
 #define GADATASET_TYPE_FINISH_OPTIONS (gadataset_finish_options_get_type())
+GADATASET_AVAILABLE_IN_11_0
 G_DECLARE_DERIVABLE_TYPE(
   GADatasetFinishOptions, gadataset_finish_options, GADATASET, FINISH_OPTIONS, GObject)
 struct _GADatasetFinishOptionsClass
@@ -36,6 +37,7 @@ GADatasetFinishOptions *
 gadataset_finish_options_new(void);
 
 #define GADATASET_TYPE_DATASET_FACTORY (gadataset_dataset_factory_get_type())
+GADATASET_AVAILABLE_IN_5_0
 G_DECLARE_DERIVABLE_TYPE(
   GADatasetDatasetFactory, gadataset_dataset_factory, GADATASET, DATASET_FACTORY, GObject)
 struct _GADatasetDatasetFactoryClass
@@ -51,6 +53,7 @@ gadataset_dataset_factory_finish(GADatasetDatasetFactory *factory,
 
 #define GADATASET_TYPE_FILE_SYSTEM_DATASET_FACTORY                                       \
   (gadataset_file_system_dataset_factory_get_type())
+GADATASET_AVAILABLE_IN_5_0
 G_DECLARE_DERIVABLE_TYPE(GADatasetFileSystemDatasetFactory,
                          gadataset_file_system_dataset_factory,
                          GADATASET,
@@ -70,6 +73,7 @@ gadataset_file_system_dataset_factory_set_file_system(
   GADatasetFileSystemDatasetFactory *factory,
   GArrowFileSystem *file_system,
   GError **error);
+GADATASET_AVAILABLE_IN_5_0
 gboolean
 gadataset_file_system_dataset_factory_set_file_system_uri(
   GADatasetFileSystemDatasetFactory *factory, const gchar *uri, GError **error);

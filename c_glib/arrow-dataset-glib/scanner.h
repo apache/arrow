@@ -26,6 +26,7 @@
 G_BEGIN_DECLS
 
 #define GADATASET_TYPE_SCANNER (gadataset_scanner_get_type())
+GADATASET_AVAILABLE_IN_5_0
 G_DECLARE_DERIVABLE_TYPE(GADatasetScanner, gadataset_scanner, GADATASET, SCANNER, GObject)
 struct _GADatasetScannerClass
 {
@@ -37,6 +38,7 @@ GArrowTable *
 gadataset_scanner_to_table(GADatasetScanner *scanner, GError **error);
 
 #define GADATASET_TYPE_SCANNER_BUILDER (gadataset_scanner_builder_get_type())
+GADATASET_AVAILABLE_IN_5_0
 G_DECLARE_DERIVABLE_TYPE(
   GADatasetScannerBuilder, gadataset_scanner_builder, GADATASET, SCANNER_BUILDER, GObject)
 struct _GADatasetScannerBuilderClass

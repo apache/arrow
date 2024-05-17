@@ -111,6 +111,7 @@ def generate_availability_macros(library: str, version_library: str) -> str:
             (0, 14),
             (0, 13),
             (0, 12),
+            (0, 11),
             (0, 10),
     ]
     macros = []

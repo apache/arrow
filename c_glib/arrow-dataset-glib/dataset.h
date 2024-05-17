@@ -22,7 +22,6 @@
 #include <arrow-dataset-glib/dataset-definition.h>
 #include <arrow-dataset-glib/file-format.h>
 #include <arrow-dataset-glib/scanner.h>
-#include <arrow-dataset-glib/version.h>
 
 G_BEGIN_DECLS
 
@@ -38,6 +37,7 @@ gadataset_dataset_get_type_name(GADatasetDataset *dataset);
 
 #define GADATASET_TYPE_FILE_SYSTEM_DATASET_WRITE_OPTIONS                                 \
   (gadataset_file_system_dataset_write_options_get_type())
+GADATASET_AVAILABLE_IN_6_0
 G_DECLARE_DERIVABLE_TYPE(GADatasetFileSystemDatasetWriteOptions,
                          gadataset_file_system_dataset_write_options,
                          GADATASET,
@@ -53,6 +53,7 @@ GADatasetFileSystemDatasetWriteOptions *
 gadataset_file_system_dataset_write_options_new(void);
 
 #define GADATASET_TYPE_FILE_SYSTEM_DATASET (gadataset_file_system_dataset_get_type())
+GADATASET_AVAILABLE_IN_5_0
 G_DECLARE_DERIVABLE_TYPE(GADatasetFileSystemDataset,
                          gadataset_file_system_dataset,
                          GADATASET,

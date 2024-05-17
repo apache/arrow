@@ -29,6 +29,7 @@ typedef void (*GAFlightHeaderFunc)(const gchar *name,
                                    gpointer user_data);
 
 #define GAFLIGHT_TYPE_CRITERIA (gaflight_criteria_get_type())
+GAFLIGHT_AVAILABLE_IN_5_0
 G_DECLARE_DERIVABLE_TYPE(GAFlightCriteria, gaflight_criteria, GAFLIGHT, CRITERIA, GObject)
 struct _GAFlightCriteriaClass
 {
@@ -40,6 +41,7 @@ GAFlightCriteria *
 gaflight_criteria_new(GBytes *expression);
 
 #define GAFLIGHT_TYPE_LOCATION (gaflight_location_get_type())
+GAFLIGHT_AVAILABLE_IN_5_0
 G_DECLARE_DERIVABLE_TYPE(GAFlightLocation, gaflight_location, GAFLIGHT, LOCATION, GObject)
 struct _GAFlightLocationClass
 {
@@ -63,6 +65,7 @@ gboolean
 gaflight_location_equal(GAFlightLocation *location, GAFlightLocation *other_location);
 
 #define GAFLIGHT_TYPE_DESCRIPTOR (gaflight_descriptor_get_type())
+GAFLIGHT_AVAILABLE_IN_5_0
 G_DECLARE_DERIVABLE_TYPE(
   GAFlightDescriptor, gaflight_descriptor, GAFLIGHT, DESCRIPTOR, GObject)
 struct _GAFlightDescriptorClass
@@ -80,6 +83,7 @@ gaflight_descriptor_equal(GAFlightDescriptor *descriptor,
                           GAFlightDescriptor *other_descriptor);
 
 #define GAFLIGHT_TYPE_PATH_DESCRIPTOR (gaflight_path_descriptor_get_type())
+GAFLIGHT_AVAILABLE_IN_5_0
 G_DECLARE_DERIVABLE_TYPE(GAFlightPathDescriptor,
                          gaflight_path_descriptor,
                          GAFLIGHT,
@@ -99,6 +103,7 @@ gchar **
 gaflight_path_descriptor_get_paths(GAFlightPathDescriptor *descriptor);
 
 #define GAFLIGHT_TYPE_COMMAND_DESCRIPTOR (gaflight_command_descriptor_get_type())
+GAFLIGHT_AVAILABLE_IN_5_0
 G_DECLARE_DERIVABLE_TYPE(GAFlightCommandDescriptor,
                          gaflight_command_descriptor,
                          GAFLIGHT,
@@ -118,6 +123,7 @@ gchar *
 gaflight_command_descriptor_get_command(GAFlightCommandDescriptor *descriptor);
 
 #define GAFLIGHT_TYPE_TICKET (gaflight_ticket_get_type())
+GAFLIGHT_AVAILABLE_IN_5_0
 G_DECLARE_DERIVABLE_TYPE(GAFlightTicket, gaflight_ticket, GAFLIGHT, TICKET, GObject)
 struct _GAFlightTicketClass
 {
@@ -133,6 +139,7 @@ gboolean
 gaflight_ticket_equal(GAFlightTicket *ticket, GAFlightTicket *other_ticket);
 
 #define GAFLIGHT_TYPE_ENDPOINT (gaflight_endpoint_get_type())
+GAFLIGHT_AVAILABLE_IN_5_0
 G_DECLARE_DERIVABLE_TYPE(GAFlightEndpoint, gaflight_endpoint, GAFLIGHT, ENDPOINT, GObject)
 struct _GAFlightEndpointClass
 {
@@ -152,6 +159,7 @@ GList *
 gaflight_endpoint_get_locations(GAFlightEndpoint *endpoint);
 
 #define GAFLIGHT_TYPE_INFO (gaflight_info_get_type())
+GAFLIGHT_AVAILABLE_IN_5_0
 G_DECLARE_DERIVABLE_TYPE(GAFlightInfo, gaflight_info, GAFLIGHT, INFO, GObject)
 struct _GAFlightInfoClass
 {
@@ -188,6 +196,7 @@ gint64
 gaflight_info_get_total_bytes(GAFlightInfo *info);
 
 #define GAFLIGHT_TYPE_STREAM_CHUNK (gaflight_stream_chunk_get_type())
+GAFLIGHT_AVAILABLE_IN_6_0
 G_DECLARE_DERIVABLE_TYPE(
   GAFlightStreamChunk, gaflight_stream_chunk, GAFLIGHT, STREAM_CHUNK, GObject)
 struct _GAFlightStreamChunkClass
@@ -203,6 +212,7 @@ GArrowBuffer *
 gaflight_stream_chunk_get_metadata(GAFlightStreamChunk *chunk);
 
 #define GAFLIGHT_TYPE_RECORD_BATCH_READER (gaflight_record_batch_reader_get_type())
+GAFLIGHT_AVAILABLE_IN_6_0
 G_DECLARE_DERIVABLE_TYPE(GAFlightRecordBatchReader,
                          gaflight_record_batch_reader,
                          GAFLIGHT,
