@@ -20,6 +20,7 @@
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 namespace util {
@@ -41,11 +42,9 @@ class ARROW_EXPORT TempVectorStack {
   TempVectorStack() = default;
   ~TempVectorStack();
 
-  TempVectorStack(const TempVectorStack&) = delete;
-  TempVectorStack& operator=(const TempVectorStack&) = delete;
+  ARROW_DISALLOW_COPY_AND_ASSIGN(TempVectorStack);
 
-  TempVectorStack(TempVectorStack&&) = default;
-  TempVectorStack& operator=(TempVectorStack&&) = default;
+  ARROW_DEFAULT_MOVE_AND_ASSIGN(TempVectorStack);
 
   Status Init(MemoryPool* pool, int64_t size);
 
