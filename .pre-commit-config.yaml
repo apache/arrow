@@ -116,17 +116,14 @@ repos:
         name: CMake Format
         files: >-
           (
+          ?.*CMakeLists\.txt$|
           ?^ci/.*/.*\.cmake$|
           ?^cpp/.*/.*\.cmake\.in$|
           ?^cpp/.*/.*\.cmake$|
-          ?^cpp/.*/CMakeLists\.txt$|
-          ?^go/.*/CMakeLists\.txt$|
-          ?^java/.*/CMakeLists\.txt$|
-          ?^matlab/.*/CMakeLists\.txt$|
-          ?^python/.*/CMakeLists\.txt$|
           )
         exclude: >-
           (
+          ?^ci/conan/all/.*CMakeLists\.txt$|
           ?^cpp/cmake_modules/FindNumPy\.cmake$|
           ?^cpp/cmake_modules/FindPythonLibsNew\.cmake$|
           ?^cpp/cmake_modules/UseCython\.cmake$|

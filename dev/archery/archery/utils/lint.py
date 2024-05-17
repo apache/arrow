@@ -157,7 +157,7 @@ def cmake_linter(src, fix=False):
             'go/**/CMakeLists.txt',
             'java/**/CMakeLists.txt',
             'matlab/**/CMakeLists.txt',
-            'python/CMakeLists.txt',
+            'python/**/CMakeLists.txt',
         ],
         exclude_patterns=[
             'cpp/cmake_modules/FindNumPy.cmake',
