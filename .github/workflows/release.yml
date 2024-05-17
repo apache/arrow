@@ -35,11 +35,7 @@ jobs:
     name: Publish 
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    steps: 
-      - name: Checkout Arrow
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+    steps:
       - name: Get Tag Name of Latest Release Candidate
         run: |
           rc_tag=$(gh release list | \
