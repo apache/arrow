@@ -26,6 +26,7 @@ pygit2
 pygithub
 ruamel.yaml
 setuptools_scm
+build
 toolz
 
 # benchmark
