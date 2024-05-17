@@ -81,7 +81,7 @@ class SourceTest < Test::Unit::TestCase
   def test_python_version
     source
     Dir.chdir("#{@tag_name}/python") do
-      sh("python3", "setup.py", "sdist")
+      sh("python3", "-m", "build", "--sdist")
       if on_release_branch?
         pyarrow_source_archive = "dist/pyarrow-#{@release_version}.tar.gz"
       else
