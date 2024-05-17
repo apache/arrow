@@ -171,6 +171,9 @@ if cxx.get_id() != 'msvc'
 endif
 add_project_arguments(cxx.get_supported_arguments(cxx_flags), language: 'cpp')
 
+tools_dir = join_paths(project_source_root, 'tools')
+gen_version_header = find_program('gen-version-header.py', dirs: [tools_dir])
+
 subdir('arrow-glib')
 if arrow_cuda.found()
   subdir('arrow-cuda-glib')
