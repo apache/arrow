@@ -1133,8 +1133,12 @@ int64_t TypedColumnReaderImpl<DType>::ReadBatch(int64_t batch_size, int16_t* def
   int64_t non_null_values_to_read = 0;
   ReadLevels(batch_size, def_levels, rep_levels, &num_def_levels,
              &non_null_values_to_read);
-  // Should not return more values than available in the current data page.
-  ARROW_DCHECK_LE(num_def_levels, this->available_values_current_page());
+  // Should not return more values than available in the current data page,
+  // since currently, ReadLevels would only consume level from current
+  // data page.
+  if (ARROW_PREDICT_FALSE(num_def_levels > this->available_values_current_page())) {
+    throw ParquetException(kErrorRepDefLevelNotMatchesNumValues);
+  }
   if (non_null_values_to_read != 0) {
     *values_read = this->ReadValues(non_null_values_to_read, values);
   } else {
