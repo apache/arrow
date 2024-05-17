@@ -38,7 +38,7 @@ jobs:
     steps:
       - name: Get Tag Name of Latest Release Candidate
         run: |
-          rc_tag=$(gh release list | \
+          rc_tag=$(gh release list --repo apache/arrow | \
                     cut -f3 | \
                     grep -F "${GITHUB_REF_NAME}-rc" | \
                     head -n1)
@@ -55,7 +55,7 @@ jobs:
       - name: Download Release Candidate Artifacts 
         run: |
           mkdir release_candidate_artifacts
-          gh release download ${RELEASE_CANDIDATE_TAG_NAME} --dir release_candidate_artifacts
+          gh release download ${RELEASE_CANDIDATE_TAG_NAME} --repo apache/arrow --dir release_candidate_artifacts
       - name: Create Release Title
         run: |
           title="Apache Arrow ${VERSION}"
@@ -68,6 +68,7 @@ jobs:
       - name: Create GitHub Release
         run: |
           gh release create ${GITHUB_REF_NAME} \
+            --repo apache/arrow \
             --verify-tag \
             --title "${RELEASE_TITLE}" \
             --notes "Release Notes: ${RELEASE_NOTES}"  \
