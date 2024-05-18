@@ -20,16 +20,29 @@
 #include "arrow/compute/util.h"
 #include "arrow/memory_pool.h"
 
+#ifdef ADDRESS_SANITIZER
+#include <sanitizer/asan_interface.h>
+#endif
+
 namespace arrow {
 namespace util {
+
+TempVectorStack::~TempVectorStack() {
+#ifdef ADDRESS_SANITIZER
+  if (buffer_) {
+    ASAN_UNPOISON_MEMORY_REGION(buffer_->mutable_data(), buffer_size_);
+  }
+#endif
+}
 
 Status TempVectorStack::Init(MemoryPool* pool, int64_t size) {
   num_vectors_ = 0;
   top_ = 0;
   buffer_size_ = EstimatedAllocationSize(size);
   ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateResizableBuffer(size, pool));
-  // Ensure later operations don't accidentally read uninitialized memory.
-  std::memset(buffer->mutable_data(), 0xFF, size);
+#ifdef ADDRESS_SANITIZER
+  ASAN_POISON_MEMORY_REGION(buffer->mutable_data(), size);
+#endif
   buffer_ = std::move(buffer);
   return Status::OK();
 }
@@ -53,12 +66,17 @@ void TempVectorStack::alloc(uint32_t num_bytes, uint8_t** data, int* id) {
   ARROW_CHECK_LE(new_top, buffer_size_)
       << "TempVectorStack::alloc overflow: allocating " << estimated_alloc_size
       << " on top of " << top_ << " in stack of size " << buffer_size_;
-  *data = buffer_->mutable_data() + top_ + sizeof(uint64_t);
+#ifdef ADDRESS_SANITIZER
+  ASAN_UNPOISON_MEMORY_REGION(buffer_->mutable_data() + top_, estimated_alloc_size);
+#endif
+  *data = buffer_->mutable_data() + top_ + /*one guard*/ sizeof(uint64_t);
+#ifndef NDEBUG
   // We set 8 bytes before the beginning of the allocated range and
   // 8 bytes after the end to check for stack overflow (which would
   // result in those known bytes being corrupted).
   reinterpret_cast<uint64_t*>(buffer_->mutable_data() + top_)[0] = kGuard1;
   reinterpret_cast<uint64_t*>(buffer_->mutable_data() + new_top)[-1] = kGuard2;
+#endif
   *id = num_vectors_++;
   top_ = new_top;
 }
@@ -72,6 +90,9 @@ void TempVectorStack::release(int id, uint32_t num_bytes) {
   top_ -= size;
   ARROW_DCHECK(reinterpret_cast<const uint64_t*>(buffer_->mutable_data() + top_)[0] ==
                kGuard1);
+#ifdef ADDRESS_SANITIZER
+  ASAN_POISON_MEMORY_REGION(buffer_->mutable_data() + top_, size);
+#endif
   --num_vectors_;
 }
 
