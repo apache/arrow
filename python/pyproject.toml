@@ -28,7 +28,6 @@ requires = [
     # versions released after 2022
     "setuptools_scm[toml]>=8",
     "setuptools>=64",
-    "build",
     "wheel"
 ]
 build-backend = "setuptools.build_meta"

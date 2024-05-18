@@ -22,5 +22,4 @@ jira
 pygit2
 ruamel.yaml
 setuptools_scm
-build
 toolz
