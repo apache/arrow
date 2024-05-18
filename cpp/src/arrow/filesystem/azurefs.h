@@ -119,6 +119,7 @@ struct ARROW_EXPORT AzureOptions {
     kStorageSharedKey,
     kClientSecret,
     kManagedIdentity,
+    kCLI,
     kWorkloadIdentity,
     kEnvironment,
   } credential_kind_ = CredentialKind::kDefault;
@@ -190,6 +191,7 @@ struct ARROW_EXPORT AzureOptions {
                                          const std::string& client_id,
                                          const std::string& client_secret);
   Status ConfigureManagedIdentityCredential(const std::string& client_id = std::string());
+  Status ConfigureCLICredential();
   Status ConfigureWorkloadIdentityCredential();
   Status ConfigureEnvironmentCredential();
 
