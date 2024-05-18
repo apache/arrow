@@ -20,6 +20,7 @@
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 namespace util {
@@ -38,13 +39,20 @@ class ARROW_EXPORT TempVectorStack {
   friend class TempVectorHolder;
 
  public:
+  TempVectorStack() = default;
+  ~TempVectorStack();
+
+  ARROW_DISALLOW_COPY_AND_ASSIGN(TempVectorStack);
+
+  ARROW_DEFAULT_MOVE_AND_ASSIGN(TempVectorStack);
+
   Status Init(MemoryPool* pool, int64_t size);
 
   int64_t AllocatedSize() const { return top_; }
 
  private:
   static int64_t EstimatedAllocationSize(int64_t size) {
-    return PaddedAllocationSize(size) + 2 * sizeof(uint64_t);
+    return PaddedAllocationSize(size) + /*two guards*/ 2 * sizeof(uint64_t);
   }
 
   static int64_t PaddedAllocationSize(int64_t num_bytes);
