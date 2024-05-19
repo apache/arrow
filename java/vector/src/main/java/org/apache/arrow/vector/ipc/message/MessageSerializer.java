@@ -702,7 +702,7 @@ public class MessageSerializer {
               "Unexpected end of stream trying to read message.");
         }
         // see https://github.com/apache/arrow/issues/41717 for reason why we cast to java.nio.Buffer
-        ((ByteBuffer) ((java.nio.Buffer) messageBuffer).rewind());
+        ByteBuffer rewindBuffer = (ByteBuffer) ((java.nio.Buffer) messageBuffer).rewind();
 
         // Load the message.
         Message message = Message.getRootAsMessage(messageBuffer);
