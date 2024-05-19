@@ -20,8 +20,8 @@ package org.apache.arrow.vector.ipc.message;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.Buffer;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
