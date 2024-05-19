@@ -20,7 +20,6 @@ package org.apache.arrow.vector.ipc.message;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 
 import java.io.IOException;
-import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -702,8 +701,8 @@ public class MessageSerializer {
           throw new IOException(
               "Unexpected end of stream trying to read message.");
         }
-        // see https://github.com/apache/arrow/issues/41717 for reason why we cast to Buffer
-        ((Buffer) messageBuffer).rewind();
+        // see https://github.com/apache/arrow/issues/41717 for reason why we cast to java.nio.Buffer
+        ((java.nio.Buffer) messageBuffer).rewind();
 
         // Load the message.
         Message message = Message.getRootAsMessage(messageBuffer);
