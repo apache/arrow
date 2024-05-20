@@ -26,28 +26,25 @@ namespace util {
 
 class TempVectorStackTest : public ::testing::Test {
  protected:
-  static int64_t EstimatedAllocationSize(int64_t size) {
-    return TempVectorStack::EstimatedAllocationSize(size);
+  static const uint8_t* BufferData(const TempVectorStack& stack) {
+    return stack.buffer_->data();
+  }
+
+  static int64_t BufferCapacity(const TempVectorStack& stack) {
+    return stack.buffer_->capacity();
   }
 };
 
-TEST_F(TempVectorStackTest, OverflowCheck) {
-  int64_t stack_size = 64;  // exact 64b of actual buffer size.
-  auto stack_allocation_size = EstimatedAllocationSize(
-      stack_size);  // padded 144b = 64b(buffer) + 64b(padding) + 16b(two guards).
-  std::cout << "stack_allocation_size: " << stack_allocation_size << std::endl;
-  TempVectorStack stack;
-  ASSERT_OK(stack.Init(default_memory_pool(), stack_size));
+// GH-41738: Test the underlying buffer capacity is sufficient to hold the requested
+// vector.
+TEST_F(TempVectorStackTest, BufferCapacitySufficiency) {
+  for (uint32_t stack_size : {1, 7, 8, 63, 64, 65535, 65536}) {
+    ARROW_SCOPED_TRACE("stack_size = ", stack_size);
+    TempVectorStack stack;
+    ASSERT_OK(stack.Init(default_memory_pool(), stack_size));
 
-  uint32_t v1_size = 64;
-  auto v1_allocation_size = EstimatedAllocationSize(v1_size);
-  std::cout << "v1_allocation_size: " << v1_allocation_size << std::endl;
-  TempVectorHolder<uint8_t> v1(&stack, v1_size);  // vector allocation is OK.
-  auto v1_data =
-      v1.mutable_data();  // data addr will be on buffer addr + 8b(heading guard).
-  for (uint32_t i = 0; i < v1_size; ++i) {
-    // The last 8b access will exceed buffer's boundary and can be caught by ASAN.
-    v1_data[i] = i;
+    TempVectorHolder<uint8_t> v(&stack, stack_size);
+    ASSERT_LE(v.mutable_data() + stack_size, BufferData(stack) + BufferCapacity(stack));
   }
 }
 

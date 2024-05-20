@@ -30,7 +30,7 @@ namespace util {
 TempVectorStack::~TempVectorStack() {
 #ifdef ADDRESS_SANITIZER
   if (buffer_) {
-    // ASAN_UNPOISON_MEMORY_REGION(buffer_->mutable_data(), buffer_size_);
+    ASAN_UNPOISON_MEMORY_REGION(buffer_->mutable_data(), buffer_size_);
   }
 #endif
 }
@@ -39,9 +39,9 @@ Status TempVectorStack::Init(MemoryPool* pool, int64_t size) {
   num_vectors_ = 0;
   top_ = 0;
   buffer_size_ = EstimatedAllocationSize(size);
-  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateResizableBuffer(size, pool));
+  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateResizableBuffer(buffer_size_, pool));
 #ifdef ADDRESS_SANITIZER
-  // ASAN_POISON_MEMORY_REGION(buffer->mutable_data(), size);
+  ASAN_POISON_MEMORY_REGION(buffer->mutable_data(), buffer_size_);
 #endif
   buffer_ = std::move(buffer);
   return Status::OK();
@@ -67,7 +67,7 @@ void TempVectorStack::alloc(uint32_t num_bytes, uint8_t** data, int* id) {
       << "TempVectorStack::alloc overflow: allocating " << estimated_alloc_size
       << " on top of " << top_ << " in stack of size " << buffer_size_;
 #ifdef ADDRESS_SANITIZER
-  // ASAN_UNPOISON_MEMORY_REGION(buffer_->mutable_data() + top_, estimated_alloc_size);
+  ASAN_UNPOISON_MEMORY_REGION(buffer_->mutable_data() + top_, estimated_alloc_size);
 #endif
   *data = buffer_->mutable_data() + top_ + /*one guard*/ sizeof(uint64_t);
 #ifndef NDEBUG
@@ -91,7 +91,7 @@ void TempVectorStack::release(int id, uint32_t num_bytes) {
   ARROW_DCHECK(reinterpret_cast<const uint64_t*>(buffer_->mutable_data() + top_)[0] ==
                kGuard1);
 #ifdef ADDRESS_SANITIZER
-  // ASAN_POISON_MEMORY_REGION(buffer_->mutable_data() + top_, size);
+  ASAN_POISON_MEMORY_REGION(buffer_->mutable_data() + top_, size);
 #endif
   --num_vectors_;
 }
