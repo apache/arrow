@@ -189,7 +189,7 @@ void Array::exportToC(libmexclass::proxy::method::Context& context) {
 
   auto arrow_array =
       reinterpret_cast<struct ArrowArray*>(uint64_t(array_address_mda[0]));
-  struct ArrowSchema* arrow_schema =
+  auto arrow_schema =
       reinterpret_cast<struct ArrowSchema*>(uint64_t(schema_address_mda[0]));
 
   MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(
