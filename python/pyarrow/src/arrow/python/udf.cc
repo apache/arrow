@@ -305,8 +305,8 @@ struct PythonUdfHashAggregatorImpl : public HashUdfAggregator {
         batch.ToExecBatch().ToRecordBatch(input_schema, ctx->memory_pool()));
 
     // This is similar to GroupedListImpl
-    // last array is the group id
-    const ArraySpan& groups_array_data = batch[batch.num_values() - 1].array;
+    // first array is the group id
+    const ArraySpan& groups_array_data = batch[0].array;
     DCHECK_EQ(groups_array_data.offset, 0);
     int64_t batch_num_values = groups_array_data.length;
     const auto* batch_groups = groups_array_data.GetValues<uint32_t>(1);
@@ -337,7 +337,7 @@ struct PythonUdfHashAggregatorImpl : public HashUdfAggregator {
   }
 
   Status Finalize(KernelContext* ctx, Datum* out) override {
-    // Exclude the last column which is the group id
+    // Exclude the first column which is the group id
     const int num_args = input_schema->num_fields() - 1;
 
     ARROW_ASSIGN_OR_RAISE(auto groups_buffer, groups.Finish());
@@ -367,7 +367,8 @@ struct PythonUdfHashAggregatorImpl : public HashUdfAggregator {
 
         for (int arg_id = 0; arg_id < num_args; arg_id++) {
           // Since we combined chunks there is only one chunk
-          std::shared_ptr<Array> c_data = group_rb->column(arg_id);
+          // offset column by one, first column is group_id
+          std::shared_ptr<Array> c_data = group_rb->column(arg_id + 1);
           PyObject* data = wrap_array(c_data);
           PyTuple_SetItem(arg_tuple.obj(), arg_id, data);
         }
@@ -615,9 +616,10 @@ UdfOptions AdjustForHashAggregate(const UdfOptions& options) {
   // function validation. The name group_id_array is consistent with
   // hash kernels in hash_aggregate.cc
   hash_options.func_doc = options.func_doc;
-  hash_options.func_doc.arg_names.emplace_back("group_id_array");
+  hash_options.func_doc.arg_names.insert(hash_options.func_doc.arg_names.begin(), "group_id_array");
+
   std::vector<std::shared_ptr<DataType>> input_dtypes = options.input_types;
-  input_dtypes.emplace_back(uint32());
+  input_dtypes.insert(input_dtypes.begin(), uint32());
   hash_options.input_types = std::move(input_dtypes);
   hash_options.output_type = options.output_type;
   return hash_options;
