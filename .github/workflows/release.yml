@@ -60,16 +60,15 @@ jobs:
         run: |
           title="Apache Arrow ${VERSION}"
           echo "RELEASE_TITLE=${title}" >> ${GITHUB_ENV}
-      - name: Create Release Notes
-        run: |
-          release_notes="https://arrow.apache.org/release/${VERSION}.html"
-          echo "Release Notes URL: ${release_notes}"
-          echo "RELEASE_NOTES=${release_notes}" >> ${GITHUB_ENV}
+      # Set the release notes to "TODO" temporarily. After the release notes page
+      # (https://arrow.apache.org/release/{VERSION}.html) is published, use 
+      # gh release edit to update the release notes to refer to the newly 
+      # pushed web page. See dev/post/post-05-update-gh-release-notes.sh
       - name: Create GitHub Release
         run: |
           gh release create ${GITHUB_REF_NAME} \
             --repo apache/arrow \
             --verify-tag \
             --title "${RELEASE_TITLE}" \
-            --notes "Release Notes: ${RELEASE_NOTES}"  \
+            --notes "TODO" \
             release_candidate_artifacts/*
