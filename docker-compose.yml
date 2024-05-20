@@ -132,8 +132,7 @@ x-hierarchy:
   - debian-cpp:
     - debian-c-glib:
       - debian-ruby
-    - debian-python:
-      - debian-docs
+    - debian-python
   - debian-go:
     - debian-go-cgo
     - debian-go-cgo-python
@@ -147,7 +146,8 @@ x-hierarchy:
     - ubuntu-c-glib:
       - ubuntu-ruby
     - ubuntu-lint
-    - ubuntu-python
+    - ubuntu-python:
+      - ubuntu-docs
     - ubuntu-python-sdist-test
     - ubuntu-r
     - ubuntu-r-only-r
@@ -169,9 +169,9 @@ x-hierarchy:
   # helper services
   - impala
   - postgres
-  - python-wheel-manylinux-2014:
-    - java-jni-manylinux-2014
-  - python-wheel-manylinux-2-28
+  - python-wheel-manylinux-2014
+  - python-wheel-manylinux-2-28:
+    - java-jni-manylinux-2-28
   - python-wheel-manylinux-test-imports
   - python-wheel-manylinux-test-unittests
   - python-wheel-windows-vs2019
@@ -1197,22 +1197,22 @@ services:
         target: "C:/arrow"
     command: arrow\\ci\\scripts\\python_wheel_windows_test.bat
 
-  java-jni-manylinux-2014:
-    image: ${REPO}:${ARCH}-java-jni-manylinux-2014-vcpkg-${VCPKG}
+  java-jni-manylinux-2-28:
+    image: ${REPO}:${ARCH}-java-jni-manylinux-2-28-vcpkg-${VCPKG}
     build:
       args:
-        base: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-vcpkg-${VCPKG}
-        java: 11
+        base: ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2-28-vcpkg-${VCPKG}
+        java: 22
       context: .
-      dockerfile: ci/docker/java-jni-manylinux-201x.dockerfile
+      dockerfile: ci/docker/java-jni-manylinux.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-java-jni-manylinux-2014-vcpkg-${VCPKG}
+        - ${REPO}:${ARCH}-java-jni-manylinux-2-28-vcpkg-${VCPKG}
     environment:
       <<: [*common, *ccache]
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}maven-cache:/root/.m2:delegated
-      - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux2014-ccache:/ccache:delegated
+      - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux-2-28-ccache:/ccache:delegated
     command:
       ["pip install -e /arrow/dev/archery && \
         /arrow/ci/scripts/java_jni_manylinux_build.sh /arrow /build /arrow/java-dist && \
@@ -1747,8 +1747,13 @@ services:
     #   docker-compose run java
     # Parameters:
     #   MAVEN: 3.9.5
-    #   JDK: 11, 17, 21
-    image: ${ARCH}/maven:${MAVEN}-eclipse-temurin-${JDK}
+    #   JDK: 11, 17, 21, 22
+    image: ${REPO}:${ARCH}-java
+    build:
+      context: .
+      dockerfile: ci/docker/java.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-java
     shm_size: *shm-size
     volumes: &java-volumes
       - .:/arrow:delegated
@@ -1775,7 +1780,7 @@ services:
         repo: ${REPO}
         arch: ${ARCH}
         # Use a newer JDK as it seems to improve stability
-        jdk: 17
+        jdk: 22
         maven: ${MAVEN}
         node: ${NODE}
         go: ${GO}
@@ -1794,24 +1799,24 @@ services:
 
   ################################ Docs #######################################
 
-  debian-docs:
+  ubuntu-docs:
     # Usage:
-    #   docker-compose build debian-cpp
-    #   docker-compose build debian-python
-    #   docker-compose build debian-docs
-    #   docker-compose run --rm debian-docs
-    image: ${REPO}:${ARCH}-debian-${DEBIAN}-docs
+    #   docker-compose build ubuntu-cpp
+    #   docker-compose build ubuntu-python
+    #   docker-compose build ubuntu-docs
+    #   docker-compose run --rm ubuntu-docs
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-docs
     build:
       context: .
       dockerfile: ci/docker/linux-apt-docs.dockerfile
       cache_from:
-        - ${REPO}:${ARCH}-debian-${DEBIAN}-docs
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-docs
       args:
         r: ${R}
         jdk: ${JDK}
         maven: ${MAVEN}
         node: ${NODE}
-        base: ${REPO}:${ARCH}-debian-${DEBIAN}-python-3
+        base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
     # This is for Chromium used by Mermaid. Chromium uses namespace
     # isolation for security by default.
     cap_add:
@@ -1830,7 +1835,7 @@ services:
       BUILD_DOCS_JS: "ON"
       BUILD_DOCS_PYTHON: "ON"
       BUILD_DOCS_R: "ON"
-    volumes: *debian-volumes
+    volumes: *ubuntu-volumes
     command: >
       /bin/bash -c "
         sudo mkdir -p /build /ccache &&

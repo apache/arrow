@@ -65,7 +65,7 @@ groups:
     - r-binary-packages
     - ubuntu-*
     - wheel-*
-    - test-debian-*-docs
+    - test-ubuntu-*-docs
 
 {############################# Testing tasks #################################}
 
@@ -1465,15 +1465,16 @@ tasks:
   {% endfor %}
 
   # be sure to update binary-task.rb when upgrading ubuntu
-  test-debian-12-docs:
+  test-ubuntu-24.04-docs:
     ci: github
     template: docs/github.linux.yml
     params:
       env:
-        JDK: 17
+        JDK: 22
+        UBUNTU: 24.04
       pr_number: Unset
       flags: "-v $PWD/build/:/build/"
-      image: debian-docs
+      image: ubuntu-docs
       publish: false
     artifacts:
       - docs.tar.gz
@@ -1601,8 +1602,9 @@ tasks:
     template: docs/github.linux.yml
     params:
       env:
-        JDK: 17
+        JDK: 22
+        UBUNTU: 24.04
       pr_number: Unset
       flags: "-v $PWD/build/:/build/"
-      image: debian-docs
+      image: ubuntu-docs
       publish: true

@@ -52,13 +52,15 @@ def setup_jvm():
     # This will be the default behaviour in jpype 0.8+
     kwargs['convertStrings'] = False
 
-    # For debugging purpose please uncomment the following, and include *jvm_args, before **kwargs
-    # in startJVM function call
-    # jvm_args = [
+    jvm_args = [
+        "--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED"
+    ]
+    # For debugging purpose please uncomment the following
+    # jvm_args += [
     #     "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
     # ]
 
-    jpype.startJVM(jpype.getDefaultJVMPath(), "-Djava.class.path=" + jar_path, **kwargs)
+    jpype.startJVM(jpype.getDefaultJVMPath(), "-Djava.class.path=" + jar_path, *jvm_args, **kwargs)
 
 
 class Bridge:

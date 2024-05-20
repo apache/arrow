@@ -20,7 +20,7 @@ ARG arch=amd64
 ARG python=3.8
 FROM ${repo}:${arch}-conda-python-${python}
 
-ARG jdk=11
+ARG jdk=22
 ARG maven=3.8.7
 RUN mamba install -q -y \
         maven=${maven} \
