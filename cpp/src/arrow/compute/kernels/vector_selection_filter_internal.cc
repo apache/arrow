@@ -164,7 +164,7 @@ class PrimitiveFilterImpl {
         values_is_valid_(values.buffers[0].data),
         // No offset applied for boolean because it's a bitmap
         values_data_(kIsBoolean ? values.buffers[1].data
-                                : util::OffsetPointerOfFixedWidthValues(values)),
+                                : util::OffsetPointerOfFixedByteWidthValues(values)),
         values_null_count_(values.null_count),
         values_offset_(values.offset),
         values_length_(values.length),
@@ -470,7 +470,7 @@ Status PrimitiveFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult
   // validity bitmap.
   const bool allocate_validity = values.null_count != 0 || !filter_null_count_is_zero;
 
-  DCHECK(util::IsFixedWidthLike(values, /*force_null_count=*/false));
+  DCHECK(util::IsFixedWidthLike(values));
   const int64_t bit_width = util::FixedWidthInBits(*values.type);
   RETURN_NOT_OK(util::internal::PreallocateFixedWidthArrayData(
       ctx, output_length, /*source=*/values, allocate_validity, out_arr));

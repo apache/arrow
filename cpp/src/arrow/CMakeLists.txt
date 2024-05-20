@@ -637,6 +637,7 @@ endif()
 set(ARROW_TESTING_SRCS
     io/test_common.cc
     ipc/test_common.cc
+    testing/fixed_width_test_util.cc
     testing/gtest_util.cc
     testing/random.cc
     testing/generator.cc
@@ -716,7 +717,8 @@ set(ARROW_COMPUTE_SRCS
     compute/row/compare_internal.cc
     compute/row/grouper.cc
     compute/row/row_internal.cc
-    compute/util.cc)
+    compute/util.cc
+    compute/util_internal.cc)
 
 append_runtime_avx2_src(ARROW_COMPUTE_SRCS compute/key_hash_internal_avx2.cc)
 append_runtime_avx2_bmi2_src(ARROW_COMPUTE_SRCS compute/key_map_internal_avx2.cc)

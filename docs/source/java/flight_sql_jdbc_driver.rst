@@ -162,7 +162,7 @@ the Flight SQL service as gRPC headers. For example, the following URI ::
 
 This will connect without authentication or encryption, to a Flight
 SQL service running on ``localhost`` on port 12345. Each request will
-also include a `database=mydb` gRPC header.
+also include a ``database=mydb`` gRPC header.
 
 Connection parameters may also be supplied using the Properties object
 when using the JDBC Driver Manager to connect. When supplying using

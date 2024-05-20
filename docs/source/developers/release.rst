@@ -106,7 +106,7 @@ If there is consensus and there is a Release Manager willing to take the effort 
 the release a patch release can be created.
 
 Committers can tag issues that should be included on the next patch release using the
-`backport-candidate` label. Is the responsability of the author or the committer to add the
+``backport-candidate`` label. Is the responsability of the author or the committer to add the
 label to the issue to help the Release Manager identify the issues that should be backported.
 
 If a specific issue is identified as the reason to create a patch release the Release Manager
@@ -117,7 +117,7 @@ Be sure to go through on the following checklist:
 #. Create milestone
 #. Create maintenance branch
 #. Include issue that was requested as requiring new patch release
-#. Add new milestone to issues with `backport-candidate` label
+#. Add new milestone to issues with ``backport-candidate`` label
 #. cherry-pick issues into maintenance branch
 
 Creating a Release Candidate

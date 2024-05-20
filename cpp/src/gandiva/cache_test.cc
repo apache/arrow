@@ -16,10 +16,14 @@
 // under the License.
 
 #include "gandiva/cache.h"
+#include "arrow/testing/gtest_util.h"
+#include "arrow/util/io_util.h"
+#include "arrow/util/logging.h"
 
 #include <gtest/gtest.h>
 
 namespace gandiva {
+
 class TestCacheKey {
  public:
   explicit TestCacheKey(int value) : value_(value) {}
@@ -38,5 +42,67 @@ TEST(TestCache, TestGetPut) {
   ASSERT_EQ(cache.GetObjectCode(TestCacheKey(2)), "world");
 }
 
-TEST(TestCache, TestGetCacheCapacity) { ASSERT_EQ(GetCapacity(), 5000); }
+namespace {
+constexpr auto cache_capacity_env_var = "GANDIVA_CACHE_SIZE";
+constexpr auto default_cache_capacity = 5000;
+}  // namespace
+
+TEST(TestCache, TestGetCacheCapacityDefault) {
+  ASSERT_EQ(GetCacheCapacity(), default_cache_capacity);
+}
+
+TEST(TestCache, TestGetCacheCapacityEnvVar) {
+  using ::arrow::EnvVarGuard;
+
+  // Empty.
+  {
+    EnvVarGuard guard(cache_capacity_env_var, "");
+    ASSERT_EQ(internal::GetCacheCapacityFromEnvVar(), default_cache_capacity);
+  }
+
+  // Non-number.
+  {
+    EnvVarGuard guard(cache_capacity_env_var, "invalid");
+    ASSERT_EQ(internal::GetCacheCapacityFromEnvVar(), default_cache_capacity);
+  }
+
+  // Number with invalid suffix.
+  {
+    EnvVarGuard guard(cache_capacity_env_var, "42MB");
+    ASSERT_EQ(internal::GetCacheCapacityFromEnvVar(), default_cache_capacity);
+  }
+
+  // Valid positive number.
+  {
+    EnvVarGuard guard(cache_capacity_env_var, "42");
+    ASSERT_EQ(internal::GetCacheCapacityFromEnvVar(), 42);
+  }
+
+  // Int max.
+  {
+    auto str = std::to_string(std::numeric_limits<int>::max());
+    EnvVarGuard guard(cache_capacity_env_var, str.c_str());
+    ASSERT_EQ(internal::GetCacheCapacityFromEnvVar(), std::numeric_limits<int>::max());
+  }
+
+  // Zero.
+  {
+    EnvVarGuard guard(cache_capacity_env_var, "0");
+    ASSERT_EQ(internal::GetCacheCapacityFromEnvVar(), default_cache_capacity);
+  }
+
+  // Negative number.
+  {
+    EnvVarGuard guard(cache_capacity_env_var, "-1");
+    ASSERT_EQ(internal::GetCacheCapacityFromEnvVar(), default_cache_capacity);
+  }
+
+  // Over int max.
+  {
+    auto str = std::to_string(static_cast<int64_t>(std::numeric_limits<int>::max()) + 1);
+    EnvVarGuard guard(cache_capacity_env_var, str.c_str());
+    ASSERT_EQ(internal::GetCacheCapacityFromEnvVar(), default_cache_capacity);
+  }
+}
+
 }  // namespace gandiva
