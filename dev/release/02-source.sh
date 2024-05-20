@@ -59,6 +59,9 @@ echo "Using commit $release_hash"
 tarball=apache-arrow-${version}.tar.gz
 
 if [ ${SOURCE_DOWNLOAD} -gt 0 ]; then
+  # Wait for the release candidate workflow to finish before attempting 
+  # to download the tarball from the GitHub Release.
+  . $SOURCE_DIR/utils-watch-gh-workflow.sh ${tag} "release_candidate.yml"
   rm -f ${tarball}
   gh release download \
     ${tag} \

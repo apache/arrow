@@ -201,9 +201,6 @@ Build source and binaries and submit them
 
     # Build the source release tarball and create Pull Request with verification tasks
     #
-    # NOTE: Do not run this script until the "Release" GitHub Actions workflow - triggered by
-    #       pushing the release candidate tag - has finished.
-    #
     # NOTE: You need to have GitHub CLI installed to run this script.
     dev/release/02-source.sh <version> <rc-number>
 
