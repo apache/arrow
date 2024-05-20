@@ -49,16 +49,13 @@ cpp_headers = files(
   'scanner.hpp',
 )
 
-version_h = custom_target(
-  'arrow-dataset-glib-version-header',
+version_h = configure_file(
   input: 'version.h.in',
   output: 'version.h',
   command: [python3, generate_version_header_py, '--library', 'GADATASET', '--version', version, '--input', '@INPUT@', '--output', '@OUTPUT@'],
-  install: true,
-  install_dir: join_paths(include_dir, project_name)
 )
 
-built_headers = [version_h]
+c_headers += version_h
 
 enums = gnome.mkenums('enums',
                       sources: c_headers,
@@ -71,18 +68,15 @@ enums = gnome.mkenums('enums',
 enums_source = enums[0]
 enums_header = enums[1]
 
-
 headers = c_headers + cpp_headers
 install_headers(headers, subdir: project_name)
-
-c_headers += built_headers
 
 dependencies = [
   arrow_dataset,
   arrow_glib,
 ]
 libarrow_dataset_glib = library('arrow-dataset-glib',
-                                sources: sources + enums + built_headers,
+                                sources: sources + enums,
                                 install: true,
                                 dependencies: dependencies,
                                 implicit_include_directories: false,

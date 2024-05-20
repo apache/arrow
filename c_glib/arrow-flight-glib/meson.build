@@ -17,8 +17,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-project_name = 'arrow-flight-glib'
-
 sources = files(
   'client.cpp',
   'common.cpp',
@@ -39,28 +37,23 @@ cpp_headers = files(
   'server.hpp',
 )
 
-headers = c_headers + cpp_headers
-install_headers(headers, subdir: project_name)
-
-version_h = custom_target(
-  'arrow-flight-glib-version-header',
+version_h = configure_file(
   input: 'version.h.in',
   output: 'version.h',
   command: [python3, generate_version_header_py, '--library', 'GAFLIGHT', '--version', version, '--input', '@INPUT@', '--output', '@OUTPUT@'],
-  install: true,
-  install_dir: join_paths(include_dir, project_name)
 )
 
-built_headers = [version_h]
+c_headers += version_h
 
-c_headers += built_headers
+headers = c_headers + cpp_headers
+install_headers(headers, subdir: 'arrow-flight-glib')
 
 dependencies = [
   arrow_flight,
   arrow_glib,
 ]
 libarrow_flight_glib = library('arrow-flight-glib',
-                               sources: sources + built_headers,
+                               sources: sources,
                                install: true,
                                dependencies: dependencies,
                                implicit_include_directories: false,

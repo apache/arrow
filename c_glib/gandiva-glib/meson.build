@@ -53,16 +53,13 @@ cpp_headers = files(
   'selection-vector.hpp',
 )
 
-version_h = custom_target(
-  'gandiva-glib-version-header',
+version_h = configure_file(
   input: 'version.h.in',
   output: 'version.h',
   command: [python3, generate_version_header_py, '--library', 'GGANDIVA', '--version', version, '--input', '@INPUT@', '--output', '@OUTPUT@', '--version-library', 'GGANDIVA'],
-  install: true,
-  install_dir: join_paths(include_dir, project_name)
 )
 
-built_headers = [version_h]
+c_headers += version_h
 
 enums = gnome.mkenums('enums',
                       sources: c_headers,
@@ -78,14 +75,12 @@ enums_header = enums[1]
 headers = c_headers + cpp_headers
 install_headers(headers, subdir: project_name)
 
-c_headers += built_headers
-
 dependencies = [
   gandiva,
   arrow_glib,
 ]
 libgandiva_glib = library('gandiva-glib',
-                          sources: sources + enums + built_headers,
+                          sources: sources + enums,
                           install: true,
                           dependencies: dependencies,
                           implicit_include_directories: false,
