@@ -21,6 +21,7 @@
 import argparse
 from io import TextIOBase
 from pathlib import Path
+import re
 
 
 def main():
@@ -77,14 +78,8 @@ def write_header(
             "AVAILABILITY_MACROS": availability_macros,
     }
 
-    replacements = dict(
-            (f"@{key}@", replacement) for (key, replacement) in replacements.items())
-
-    for line in input_file:
-        if "@" in line:
-            for key, replacement in replacements.items():
-                line = line.replace(key, replacement)
-        output_file.write(line)
+    output_file.write(re.sub(
+        r"@([A-Z_]+)@", lambda match: replacements[match[1]], input_file.read()))
 
 
 def generate_availability_macros(library: str, version_library: str) -> str:
