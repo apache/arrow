@@ -395,7 +395,7 @@ Be sure to go through on the following checklist:
 
    This script pushes a ``release-note-X.Y.Z`` branch to your ``apache/arrow-site`` fork. You need to open a pull request from the ``release-note-X.Y.Z`` branch on your Web browser.
 
-.. dropdown:: Update Release Notes for Release in apache/arrow's GitHub Releases area 
+.. dropdown:: Update Release Notes for Release in apache/arrow's GitHub Releases area
    :animate: fade-in-slide-down
    :class-title: sd-fs-5
    :class-container: sd-shadow-md
@@ -405,11 +405,11 @@ Be sure to go through on the following checklist:
    A committer must run the following script:
 
    .. code-block:: Bash
-     
+
       # dev/release/post-05-update-gh-release-notes.sh 17.0.0
       dev/release/post-05-update-gh-release-notes.sh apache-arrow-X.Y.Z
 
-  This script updates the release notes in the GitHub Releases area to refer to the newly published release notes page. 
+  This script updates the release notes in the GitHub Releases area to refer to the newly published release notes page.
 
 .. dropdown:: Update Homebrew packages
    :animate: fade-in-slide-down
