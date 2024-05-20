@@ -427,13 +427,13 @@ class Repo:
         return branch
 
     def create_tag(self, tag_name, commit_id, message=''):
-        commit_object = (
+        git_object_commit = (
             pygit2.GIT_OBJECT_COMMIT
             if getattr(pygit2, 'GIT_OBJECT_COMMIT')
             else pygit2.GIT_OBJ_COMMIT
         )
         tag_id = self.repo.create_tag(tag_name, commit_id,
-                                      commit_object,
+                                      git_object_commit,
                                       self.signature,
                                       message)
 
