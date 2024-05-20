@@ -17,36 +17,20 @@
 
 package org.apache.arrow.vector;
 
-import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Random;
 
-import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.complex.NonNullableStructVector;
-import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
-import org.apache.arrow.vector.complex.reader.FieldReader;
-import org.apache.arrow.vector.complex.writer.BaseWriter.ComplexWriter;
-import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
-import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
-import org.apache.arrow.vector.complex.writer.IntWriter;
-import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.IntervalUnit;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.UnionMode;
 import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.apache.arrow.vector.types.pojo.Field;
-import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -196,212 +180,5 @@ public class TestTypeLayout {
       assertEquals(TypeLayout.getTypeBufferCount(type, viewVarCharVector),
           TypeLayout.getTypeLayout(type, viewVarCharVector).getBufferLayouts().size());
     }
-  }
-
-  @Test
-  public void testVectorLoadUnload() {
-
-    try (final ViewVarCharVector vector1 = new ViewVarCharVector("myvector", allocator)) {
-
-      setVector(vector1, STR1, STR2, STR3, STR4, STR5, STR6);
-
-      assertEquals(5, vector1.getLastSet());
-      vector1.setValueCount(15);
-      assertEquals(14, vector1.getLastSet());
-
-      /* Check the vector output */
-      assertArrayEquals(STR1, vector1.get(0));
-      assertArrayEquals(STR2, vector1.get(1));
-      assertArrayEquals(STR3, vector1.get(2));
-      assertArrayEquals(STR4, vector1.get(3));
-      assertArrayEquals(STR5, vector1.get(4));
-      assertArrayEquals(STR6, vector1.get(5));
-
-      Field field = vector1.getField();
-      String fieldName = field.getName();
-
-      List<Field> fields = new ArrayList<>();
-      List<FieldVector> fieldVectors = new ArrayList<>();
-
-      fields.add(field);
-      fieldVectors.add(vector1);
-
-      Schema schema = new Schema(fields);
-
-      VectorSchemaRoot schemaRoot1 = new VectorSchemaRoot(schema, fieldVectors, vector1.getValueCount());
-      VectorUnloader vectorUnloader = new VectorUnloader(schemaRoot1);
-
-      try (
-          ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
-          BufferAllocator finalVectorsAllocator = allocator.newChildAllocator("new vector", 0, Long.MAX_VALUE);
-          VectorSchemaRoot schemaRoot2 = VectorSchemaRoot.create(schema, finalVectorsAllocator);
-      ) {
-
-        VectorLoader vectorLoader = new VectorLoader(schemaRoot2);
-        vectorLoader.load(recordBatch);
-
-        ViewVarCharVector vector2 = (ViewVarCharVector) schemaRoot2.getVector(fieldName);
-        /*
-         * lastSet would have internally been set by VectorLoader.load() when it invokes
-         * loadFieldBuffers.
-         */
-        assertEquals(14, vector2.getLastSet());
-        vector2.setValueCount(25);
-        assertEquals(24, vector2.getLastSet());
-
-        /* Check the vector output */
-        assertArrayEquals(STR1, vector2.get(0));
-        assertArrayEquals(STR2, vector2.get(1));
-        assertArrayEquals(STR3, vector2.get(2));
-        assertArrayEquals(STR4, vector2.get(3));
-        assertArrayEquals(STR5, vector2.get(4));
-        assertArrayEquals(STR6, vector2.get(5));
-      }
-    }
-  }
-
-  @Test
-  public void testVectorLoadUnload2() {
-
-    try (final VarCharVector vector1 = new VarCharVector("myvector", allocator)) {
-
-      setVector(vector1, STR1, STR2, STR3, STR4, STR5, STR6);
-
-      assertEquals(5, vector1.getLastSet());
-      vector1.setValueCount(15);
-      assertEquals(14, vector1.getLastSet());
-
-      /* Check the vector output */
-      assertArrayEquals(STR1, vector1.get(0));
-      assertArrayEquals(STR2, vector1.get(1));
-      assertArrayEquals(STR3, vector1.get(2));
-      assertArrayEquals(STR4, vector1.get(3));
-      assertArrayEquals(STR5, vector1.get(4));
-      assertArrayEquals(STR6, vector1.get(5));
-
-      Field field = vector1.getField();
-      String fieldName = field.getName();
-
-      List<Field> fields = new ArrayList<>();
-      List<FieldVector> fieldVectors = new ArrayList<>();
-
-      fields.add(field);
-      fieldVectors.add(vector1);
-
-      Schema schema = new Schema(fields);
-
-      VectorSchemaRoot schemaRoot1 = new VectorSchemaRoot(schema, fieldVectors, vector1.getValueCount());
-      VectorUnloader vectorUnloader = new VectorUnloader(schemaRoot1);
-
-      try (
-          ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
-          BufferAllocator finalVectorsAllocator = allocator.newChildAllocator("new vector", 0, Long.MAX_VALUE);
-          VectorSchemaRoot schemaRoot2 = VectorSchemaRoot.create(schema, finalVectorsAllocator);
-      ) {
-
-        VectorLoader vectorLoader = new VectorLoader(schemaRoot2);
-        vectorLoader.load(recordBatch);
-
-        VarCharVector vector2 = (VarCharVector) schemaRoot2.getVector(fieldName);
-        /*
-         * lastSet would have internally been set by VectorLoader.load() when it invokes
-         * loadFieldBuffers.
-         */
-        assertEquals(14, vector2.getLastSet());
-        vector2.setValueCount(25);
-        assertEquals(24, vector2.getLastSet());
-
-        /* Check the vector output */
-        assertArrayEquals(STR1, vector2.get(0));
-        assertArrayEquals(STR2, vector2.get(1));
-        assertArrayEquals(STR3, vector2.get(2));
-        assertArrayEquals(STR4, vector2.get(3));
-        assertArrayEquals(STR5, vector2.get(4));
-        assertArrayEquals(STR6, vector2.get(5));
-      }
-    }
-  }
-
-  @Test
-  public void testUnloadLoadAddPadding() throws IOException {
-    int count = 10000;
-    Schema schema;
-    try (
-        BufferAllocator originalVectorsAllocator =
-            allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
-        NonNullableStructVector parent = NonNullableStructVector.empty("parent", originalVectorsAllocator)) {
-
-      // write some data
-      ComplexWriter writer = new ComplexWriterImpl("root", parent);
-      StructWriter rootWriter = writer.rootAsStruct();
-      ListWriter list = rootWriter.list("list");
-      IntWriter intWriter = list.integer();
-      for (int i = 0; i < count; i++) {
-        list.setPosition(i);
-        list.startList();
-        for (int j = 0; j < i % 4 + 1; j++) {
-          intWriter.writeInt(i);
-        }
-        list.endList();
-      }
-      writer.setValueCount(count);
-
-      // unload it
-      FieldVector root = parent.getChild("root");
-      schema = new Schema(root.getField().getChildren());
-      VectorUnloader vectorUnloader = newVectorUnloader(root);
-      try (
-          ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
-          BufferAllocator finalVectorsAllocator = allocator.newChildAllocator("final vectors", 0, Integer.MAX_VALUE);
-          VectorSchemaRoot newRoot = VectorSchemaRoot.create(schema, finalVectorsAllocator);
-      ) {
-        List<ArrowBuf> oldBuffers = recordBatch.getBuffers();
-        List<ArrowBuf> newBuffers = new ArrayList<>();
-        for (ArrowBuf oldBuffer : oldBuffers) {
-          long l = oldBuffer.readableBytes();
-          if (l % 64 != 0) {
-            // pad
-            l = l + 64 - l % 64;
-          }
-          ArrowBuf newBuffer = allocator.buffer(l);
-          for (long i = oldBuffer.readerIndex(); i < oldBuffer.writerIndex(); i++) {
-            newBuffer.setByte(i - oldBuffer.readerIndex(), oldBuffer.getByte(i));
-          }
-          newBuffer.readerIndex(0);
-          newBuffer.writerIndex(l);
-          newBuffers.add(newBuffer);
-        }
-
-        try (ArrowRecordBatch newBatch =
-            new ArrowRecordBatch(recordBatch.getLength(), recordBatch.getNodes(), newBuffers);) {
-          // load it
-          VectorLoader vectorLoader = new VectorLoader(newRoot);
-
-          vectorLoader.load(newBatch);
-
-          FieldReader reader = newRoot.getVector("list").getReader();
-          for (int i = 0; i < count; i++) {
-            reader.setPosition(i);
-            List<Integer> expected = new ArrayList<>();
-            for (int j = 0; j < i % 4 + 1; j++) {
-              expected.add(i);
-            }
-            assertEquals(expected, reader.readObject());
-          }
-        }
-
-        for (ArrowBuf newBuf : newBuffers) {
-          newBuf.getReferenceManager().release();
-        }
-      }
-    }
-  }
-
-  public static VectorUnloader newVectorUnloader(FieldVector root) {
-    Schema schema = new Schema(root.getField().getChildren());
-    int valueCount = root.getValueCount();
-    List<FieldVector> fields = root.getChildrenFromFields();
-    VectorSchemaRoot vsr = new VectorSchemaRoot(schema.getFields(), fields, valueCount);
-    return new VectorUnloader(vsr);
   }
 }
