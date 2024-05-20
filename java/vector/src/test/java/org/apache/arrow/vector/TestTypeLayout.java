@@ -37,14 +37,6 @@ import org.junit.jupiter.api.Test;
 
 public class TestTypeLayout {
 
-  private static final Charset utf8Charset = StandardCharsets.UTF_8;
-  private static final byte[] STR1 = "AAAAA1".getBytes(utf8Charset);
-  private static final byte[] STR2 = "BBBBBBBBB2".getBytes(utf8Charset);
-  private static final byte[] STR3 = "CCCC3".getBytes(utf8Charset);
-  private static final byte[] STR4 = "DDDDDDDD4".getBytes(utf8Charset);
-  private static final byte[] STR5 = "EEE5".getBytes(utf8Charset);
-  private static final byte[] STR6 = "0123456789123456".getBytes(utf8Charset);
-
   private BufferAllocator allocator;
 
   @BeforeEach
