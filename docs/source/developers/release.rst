@@ -632,8 +632,8 @@ Be sure to go through on the following checklist:
       # You can run the script with BUMP_TAG=0 and BUMP_PUSH=0
       # this will avoid default pushing to main and pushing the tag
       # but you will require to push manually after reviewing the commits.
-      # dev/release/post-13-bump-versions.sh 10.0.0 11.0.0
-      dev/release/post-13-bump-versions.sh X.Y.Z NEXT_X.NEXT_Y.NEXT_Z
+      # dev/release/post-12-bump-versions.sh 10.0.0 11.0.0
+      dev/release/post-12-bump-versions.sh X.Y.Z NEXT_X.NEXT_Y.NEXT_Z
 
 .. dropdown:: Update tags for Go modules
    :animate: fade-in-slide-down
@@ -642,8 +642,8 @@ Be sure to go through on the following checklist:
 
    .. code-block:: Bash
 
-      # dev/release/post-12-go.sh 10.0.0
-      dev/release/post-12-go.sh X.Y.Z
+      # dev/release/post-13-go.sh 10.0.0
+      dev/release/post-13-go.sh X.Y.Z
 
 .. dropdown:: Update docs
    :animate: fade-in-slide-down
