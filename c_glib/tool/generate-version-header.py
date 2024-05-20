@@ -48,12 +48,16 @@ def main():
     parser.add_argument(
             "--version-library",
             default="GARROW",
-            help="The library name prefix to use in MIN_REQUIRED and MAX_ALLOWED checks")
+            help="The library name prefix to use in MIN_REQUIRED and "
+            "MAX_ALLOWED checks")
 
     args = parser.parse_args()
+
     with open(args.input, "r", encoding="utf-8") as input_file, \
             open(args.output, "w", encoding="utf-8") as output_file:
-        write_header(input_file, output_file, args.library, args.version, args.version_library)
+        write_header(
+                input_file, output_file,
+                args.library, args.version, args.version_library)
 
 
 def write_header(
@@ -136,7 +140,7 @@ def generate_availability_macros(library: str, version_library: str) -> str:
 #  define {library}_AVAILABLE_IN_{major_version}_{minor_version} {library}_UNAVAILABLE({major_version}, {minor_version})
 #else
 #  define {library}_AVAILABLE_IN_{major_version}_{minor_version}
-#endif""")
+#endif""")  # noqa: E501
 
     return "\n\n".join(macros)
 
