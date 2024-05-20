@@ -444,8 +444,8 @@ Be sure to go through on the following checklist:
       git remote add upstream https://github.com/msys2/MINGW-packages.git
       cd -
 
-      # dev/release/post-13-msys2.sh 10.0.0 ../MINGW-packages
-      dev/release/post-13-msys2.sh X.Y.Z <YOUR_MINGW_PACKAGES_FORK>
+      # dev/release/post-14-msys2.sh 10.0.0 ../MINGW-packages
+      dev/release/post-14-msys2.sh X.Y.Z <YOUR_MINGW_PACKAGES_FORK>
 
    This script pushes a ``arrow-X.Y.Z`` branch to your ``msys2/MINGW-packages`` fork. You need to create a pull request from the ``arrow-X.Y.Z`` branch with ``arrow: Update to X.Y.Z`` title on your Web browser.
 
