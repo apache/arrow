@@ -315,12 +315,17 @@ static constexpr bool GetBitFromByte(uint8_t byte, uint8_t i) {
 }
 
 static inline void ClearBit(uint8_t* bits, int64_t i) {
+  ARROW_COMPILER_ASSUME(i >= 0);
   bits[i / 8] &= GetFlippedBitMask(i % 8);
 }
 
-static inline void SetBit(uint8_t* bits, int64_t i) { bits[i / 8] |= GetBitMask(i % 8); }
+static inline void SetBit(uint8_t* bits, int64_t i) {
+  ARROW_COMPILER_ASSUME(i >= 0);
+  bits[i / 8] |= GetBitMask(i % 8);
+}
 
 static inline void SetBitTo(uint8_t* bits, int64_t i, bool bit_is_set) {
+  ARROW_COMPILER_ASSUME(i >= 0);
   // https://graphics.stanford.edu/~seander/bithacks.html
   // "Conditionally set or clear bits without branching"
   // NOTE: this seems to confuse Valgrind as it reads from potentially
