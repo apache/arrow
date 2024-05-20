@@ -268,6 +268,7 @@ Be sure to go through on the following checklist:
 #. Upload source
 #. Upload binaries
 #. Update website
+#. Update GitHub Release Notes
 #. Update Homebrew packages
 #. Update MSYS2 package
 #. Upload RubyGems
@@ -405,8 +406,8 @@ Be sure to go through on the following checklist:
 
    .. code-block:: Bash
      
-      # dev/release/post-05-update-release-notes.sh 17.0.0
-      dev/release/post-04-website.sh apache-arrow-X.Y.Z
+      # dev/release/post-05-update-gh-release-notes.sh 17.0.0
+      dev/release/post-05-update-gh-release-notes.sh apache-arrow-X.Y.Z
 
   This script updates the release notes in the GitHub Releases area to refer to the newly published release notes page. 
 
