@@ -78,7 +78,7 @@ classdef tRoundTrip < matlab.unittest.TestCase
 
             expected.export(cArray.Address, cSchema.Address);
             actual = arrow.array.Array.import(cArray, cSchema);
-            
+
             testCase.verifyEqual(actual, expected);
         end
 
@@ -199,5 +199,5 @@ classdef tRoundTrip < matlab.unittest.TestCase
         end
 
     end
- 
+
 end
