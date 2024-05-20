@@ -17,37 +17,21 @@
 
 #pragma once
 
-#include "arrow/array.h"
-#include "arrow/matlab/type/proxy/type.h"
-
 #include "libmexclass/proxy/Proxy.h"
 
-namespace arrow::matlab::array::proxy {
+namespace arrow::matlab::c::proxy {
 
-class Array : public libmexclass::proxy::Proxy {
+class ArrayImporter : public libmexclass::proxy::Proxy {
  public:
-  Array(std::shared_ptr<arrow::Array> array);
+  ArrayImporter();
 
-  virtual ~Array() {}
+  ~ArrayImporter() = default;
 
-  std::shared_ptr<arrow::Array> unwrap();
+  static libmexclass::proxy::MakeResult make(
+      const libmexclass::proxy::FunctionArguments& constructor_arguments);
 
  protected:
-  void toString(libmexclass::proxy::method::Context& context);
-
-  void getNumElements(libmexclass::proxy::method::Context& context);
-
-  void getValid(libmexclass::proxy::method::Context& context);
-
-  void getType(libmexclass::proxy::method::Context& context);
-
-  void isEqual(libmexclass::proxy::method::Context& context);
-
-  void slice(libmexclass::proxy::method::Context& context);
-
-  void exportToC(libmexclass::proxy::method::Context& context);
-
-  std::shared_ptr<arrow::Array> array;
+  void import(libmexclass::proxy::method::Context& context);
 };
 
-}  // namespace arrow::matlab::array::proxy
+}  // namespace arrow::matlab::c::proxy
