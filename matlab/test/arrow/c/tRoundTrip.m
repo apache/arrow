@@ -26,7 +26,7 @@ classdef tRoundTrip < matlab.unittest.TestCase
 
             expected.export(cArray.Address, cSchema.Address);
             actual = arrow.array.Array.import(cArray, cSchema);
-            
+
             testCase.verifyEqual(actual, expected);
 
             % Empty 0x1
@@ -36,7 +36,7 @@ classdef tRoundTrip < matlab.unittest.TestCase
 
             expected.export(cArray.Address, cSchema.Address);
             actual = arrow.array.Array.import(cArray, cSchema);
-            
+
             testCase.verifyEqual(actual, expected);
 
             % Empty 1x0
@@ -46,7 +46,7 @@ classdef tRoundTrip < matlab.unittest.TestCase
 
             expected.export(cArray.Address, cSchema.Address);
             actual = arrow.array.Array.import(cArray, cSchema);
-            
+
             testCase.verifyEqual(actual, expected);
         end
 
@@ -58,7 +58,7 @@ classdef tRoundTrip < matlab.unittest.TestCase
 
             expected.export(cArray.Address, cSchema.Address);
             actual = arrow.array.Array.import(cArray, cSchema);
-            
+
             testCase.verifyEqual(actual, expected);
 
             % Vector with nulls
@@ -68,7 +68,7 @@ classdef tRoundTrip < matlab.unittest.TestCase
 
             expected.export(cArray.Address, cSchema.Address);
             actual = arrow.array.Array.import(cArray, cSchema);
-            
+
             testCase.verifyEqual(actual, expected);
 
             % Vector all nulls
@@ -90,7 +90,7 @@ classdef tRoundTrip < matlab.unittest.TestCase
 
             expected.export(cArray.Address, cSchema.Address);
             actual = arrow.array.Array.import(cArray, cSchema);
-            
+
             testCase.verifyEqual(actual, expected);
 
             % Vector
@@ -100,7 +100,7 @@ classdef tRoundTrip < matlab.unittest.TestCase
 
             expected.export(cArray.Address, cSchema.Address);
             actual = arrow.array.Array.import(cArray, cSchema);
-            
+
             testCase.verifyEqual(actual, expected);
         end
 
@@ -112,7 +112,7 @@ classdef tRoundTrip < matlab.unittest.TestCase
 
             expected.export(cArray.Address, cSchema.Address);
             actual = arrow.array.Array.import(cArray, cSchema);
-            
+
             testCase.verifyEqual(actual, expected);
 
             % Vector
@@ -122,7 +122,7 @@ classdef tRoundTrip < matlab.unittest.TestCase
 
             expected.export(cArray.Address, cSchema.Address);
             actual = arrow.array.Array.import(cArray, cSchema);
-            
+
             testCase.verifyEqual(actual, expected);
         end
 
@@ -134,7 +134,7 @@ classdef tRoundTrip < matlab.unittest.TestCase
 
             expected.export(cArray.Address, cSchema.Address);
             actual = arrow.array.Array.import(cArray, cSchema);
-            
+
             testCase.verifyEqual(actual, expected);
 
             % Vector
@@ -148,7 +148,7 @@ classdef tRoundTrip < matlab.unittest.TestCase
 
             expected.export(cArray.Address, cSchema.Address);
             actual = arrow.array.Array.import(cArray, cSchema);
-            
+
             testCase.verifyEqual(actual, expected);
         end
 
@@ -199,5 +199,5 @@ classdef tRoundTrip < matlab.unittest.TestCase
         end
 
     end
-
+ 
 end
