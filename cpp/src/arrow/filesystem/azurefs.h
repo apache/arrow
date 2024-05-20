@@ -161,12 +161,12 @@ struct ARROW_EXPORT AzureOptions {
   /// * dfs_storage_authority: Set AzureOptions::dfs_storage_authority
   /// * enable_tls: If it's "false" or "0", HTTP not HTTPS is used.
   /// * credential_kind: One of "default", "anonymous",
-  ///   "workload_identity" or "environment". If "default" is specified, it's 
+  ///   "workload_identity" or "environment". If "default" is specified, it's
   ///   just ignored.  If "anonymous" is specified,
   ///   AzureOptions::ConfigureAnonymousCredential() is called. If
   ///   "workload_identity" is specified,
-  ///   AzureOptions::ConfigureWorkloadIdentityCredential() is called, If 
-  ///   "environment" is specified, 
+  ///   AzureOptions::ConfigureWorkloadIdentityCredential() is called, If
+  ///   "environment" is specified,
   ///   AzureOptions::ConfigureEnvironmentCredential() is called.
   /// * tenant_id: You must specify "client_id" and "client_secret"
   ///   too. AzureOptions::ConfigureClientSecretCredential() is called.
