@@ -361,11 +361,16 @@ func (b *BufferWriter) Truncate() {
 func (b *BufferWriter) Reset(initial int) {
 	if b.buffer != nil {
 		b.buffer.Release()
+	} else {
+		b.buffer = memory.NewResizableBuffer(b.mem)
 	}
 
 	b.pos = 0
 	b.offset = 0
-	b.Reserve(initial)
+
+	if initial > 0 {
+		b.Reserve(initial)
+	}
 }
 
 // Reserve ensures that there is at least enough capacity to write nbytes
