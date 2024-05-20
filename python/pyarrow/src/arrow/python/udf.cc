@@ -615,9 +615,9 @@ UdfOptions AdjustForHashAggregate(const UdfOptions& options) {
   // function validation. The name group_id_array is consistent with
   // hash kernels in hash_aggregate.cc
   hash_options.func_doc = options.func_doc;
-  hash_options.func_doc.arg_names.emplace_back("group_id_array");
+  hash_options.func_doc.arg_names.insert( "group_id_array", hash_options.func_doc.arg_names.begin());
   std::vector<std::shared_ptr<DataType>> input_dtypes = options.input_types;
-  input_dtypes.emplace_back(uint32());
+  input_dtypes.insert(input_dtypes.begin(), uint32());
   hash_options.input_types = std::move(input_dtypes);
   hash_options.output_type = options.output_type;
   return hash_options;

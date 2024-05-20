@@ -117,7 +117,7 @@ HashAggregateKernel MakeKernel(std::shared_ptr<KernelSignature> signature,
 HashAggregateKernel MakeKernel(InputType argument_type, KernelInit init,
                                const bool ordered = false) {
   return MakeKernel(
-      KernelSignature::Make({std::move(argument_type), InputType(Type::UINT32)},
+      KernelSignature::Make({InputType(Type::UINT32), std::move(argument_type)},
                             OutputType(ResolveGroupOutputType)),
       std::move(init), ordered);
 }
@@ -175,15 +175,15 @@ template <typename Type, typename ConsumeValue, typename ConsumeNull>
 typename arrow::internal::call_traits::enable_if_return<ConsumeValue, void>::type
 VisitGroupedValues(const ExecSpan& batch, ConsumeValue&& valid_func,
                    ConsumeNull&& null_func) {
-  auto g = batch[1].array.GetValues<uint32_t>(1);
-  if (batch[0].is_array()) {
+  auto g = batch[0].array.GetValues<uint32_t>(1);
+  if (batch[1].is_array()) {
     VisitArrayValuesInline<Type>(
-        batch[0].array,
+        batch[1].array,
         [&](typename TypeTraits<Type>::CType val) { valid_func(*g++, val); },
         [&]() { null_func(*g++); });
     return;
   }
-  const Scalar& input = *batch[0].scalar;
+  const Scalar& input = *batch[1].scalar;
   if (input.is_valid) {
     const auto val = UnboxScalar<Type>::Unbox(input);
     for (int64_t i = 0; i < batch.length; i++) {
@@ -200,14 +200,14 @@ template <typename Type, typename ConsumeValue, typename ConsumeNull>
 typename arrow::internal::call_traits::enable_if_return<ConsumeValue, Status>::type
 VisitGroupedValues(const ExecSpan& batch, ConsumeValue&& valid_func,
                    ConsumeNull&& null_func) {
-  auto g = batch[1].array.GetValues<uint32_t>(1);
-  if (batch[0].is_array()) {
+  auto g = batch[0].array.GetValues<uint32_t>(1);
+  if (batch[1].is_array()) {
     return VisitArrayValuesInline<Type>(
-        batch[0].array,
+        batch[1].array,
         [&](typename GetViewType<Type>::T val) { return valid_func(*g++, val); },
         [&]() { return null_func(*g++); });
   }
-  const Scalar& input = *batch[0].scalar;
+  const Scalar& input = *batch[1].scalar;
   if (input.is_valid) {
     const auto val = UnboxScalar<Type>::Unbox(input);
     for (int64_t i = 0; i < batch.length; i++) {
@@ -346,14 +346,14 @@ struct GroupedCountImpl : public GroupedAggregator {
 
   Status Consume(const ExecSpan& batch) override {
     auto* counts = counts_.mutable_data_as<int64_t>();
-    auto* g_begin = batch[1].array.GetValues<uint32_t>(1);
+    auto* g_begin = batch[0].array.GetValues<uint32_t>(1);
 
     if (options_.mode == CountOptions::ALL) {
       for (int64_t i = 0; i < batch.length; ++i, ++g_begin) {
         counts[*g_begin] += 1;
       }
-    } else if (batch[0].is_array()) {
-      const ArraySpan& input = batch[0].array;
+    } else if (batch[1].is_array()) {
+      const ArraySpan& input = batch[1].array;
       if (options_.mode == CountOptions::ONLY_VALID) {  // ONLY_VALID
         if (input.type->id() != arrow::Type::NA) {
           const uint8_t* bitmap = input.buffers[0].data;
@@ -413,7 +413,7 @@ struct GroupedCountImpl : public GroupedAggregator {
         }
       }
     } else {
-      const Scalar& input = *batch[0].scalar;
+      const Scalar& input = *batch[1].scalar;
       if (options_.mode == CountOptions::ONLY_VALID) {
         for (int64_t i = 0; i < batch.length; ++i, ++g_begin) {
           counts[*g_begin] += input.is_valid;
@@ -455,7 +455,7 @@ struct GroupedReducingAggregator : public GroupedAggregator {
     reduced_ = TypedBufferBuilder<CType>(pool_);
     counts_ = TypedBufferBuilder<int64_t>(pool_);
     no_nulls_ = TypedBufferBuilder<bool>(pool_);
-    out_type_ = GetOutType(args.inputs[0].GetSharedPtr());
+    out_type_ = GetOutType(args.inputs[1].GetSharedPtr());
     return Status::OK();
   }
 
@@ -846,7 +846,7 @@ struct GroupedVarStdImpl : public GroupedAggregator {
     options_ = *checked_cast<const VarianceOptions*>(args.options);
     if (is_decimal_type<Type>::value) {
       const int32_t scale =
-          checked_cast<const DecimalType&>(*args.inputs[0].type).scale();
+          checked_cast<const DecimalType&>(*args.inputs[1].type).scale();
       return InitInternal(ctx, scale, args.options);
     }
     return InitInternal(ctx, 0, args.options);
@@ -944,8 +944,8 @@ struct GroupedVarStdImpl : public GroupedAggregator {
     // for int32: -2^62 <= sum < 2^62
     constexpr int64_t max_length = 1ULL << (63 - sizeof(CType) * 8);
 
-    const auto* g = batch[1].array.GetValues<uint32_t>(1);
-    if (batch[0].is_scalar() && !batch[0].scalar->is_valid) {
+    const auto* g = batch[0].array.GetValues<uint32_t>(1);
+    if (batch[1].is_scalar() && !batch[1].scalar->is_valid) {
       uint8_t* no_nulls = no_nulls_.mutable_data();
       for (int64_t i = 0; i < batch.length; i++) {
         bit_util::ClearBit(no_nulls, g[i]);
@@ -977,8 +977,8 @@ struct GroupedVarStdImpl : public GroupedAggregator {
       double* other_m2s = state.m2s_.mutable_data();
       uint8_t* other_no_nulls = state.no_nulls_.mutable_data();
 
-      if (batch[0].is_array()) {
-        const ArraySpan& array = batch[0].array;
+      if (batch[1].is_array()) {
+        const ArraySpan& array = batch[1].array;
         const CType* values = array.GetValues<CType>(1);
         auto visit_values = [&](int64_t pos, int64_t len) {
           for (int64_t i = 0; i < len; ++i) {
@@ -1009,7 +1009,7 @@ struct GroupedVarStdImpl : public GroupedAggregator {
           visit_values(0, array.length);
         }
       } else {
-        const auto value = UnboxScalar<Type>::Unbox(*batch[0].scalar);
+        const auto value = UnboxScalar<Type>::Unbox(*batch[1].scalar);
         for (int64_t i = 0; i < std::min(max_length, batch.length - start_index); ++i) {
           const int64_t index = start_index + i;
           var_std[g[index]].ConsumeOne(value);
@@ -1158,7 +1158,7 @@ struct GroupedTDigestImpl : public GroupedAggregator {
   Status Init(ExecContext* ctx, const KernelInitArgs& args) override {
     options_ = *checked_cast<const TDigestOptions*>(args.options);
     if (is_decimal_type<Type>::value) {
-      decimal_scale_ = checked_cast<const DecimalType&>(*args.inputs[0].type).scale();
+      decimal_scale_ = checked_cast<const DecimalType&>(*args.inputs[1].type).scale();
     } else {
       decimal_scale_ = 0;
     }
@@ -1323,7 +1323,7 @@ HashAggregateKernel MakeApproximateMedianKernel(HashAggregateFunction* tdigest_f
     KernelInitArgs new_args{kernel, args.inputs, &options};
     return kernel->init(ctx, new_args);
   };
-  kernel.signature = KernelSignature::Make({InputType::Any(), Type::UINT32}, float64());
+  kernel.signature = KernelSignature::Make({Type::UINT32, InputType::Any()}, float64());
   kernel.resize = HashAggregateResize;
   kernel.consume = HashAggregateConsume;
   kernel.merge = HashAggregateMerge;
@@ -1684,7 +1684,7 @@ template <typename T>
 Result<std::unique_ptr<KernelState>> MinMaxInit(KernelContext* ctx,
                                                 const KernelInitArgs& args) {
   ARROW_ASSIGN_OR_RAISE(auto impl, HashAggregateInit<GroupedMinMaxImpl<T>>(ctx, args));
-  static_cast<GroupedMinMaxImpl<T>*>(impl.get())->type_ = args.inputs[0].GetSharedPtr();
+  static_cast<GroupedMinMaxImpl<T>*>(impl.get())->type_ = args.inputs[1].GetSharedPtr();
   return std::move(impl);
 }
 
@@ -1700,7 +1700,7 @@ HashAggregateKernel MakeMinOrMaxKernel(HashAggregateFunction* min_max_func) {
     return kernel->init(ctx, new_args);
   };
   kernel.signature =
-      KernelSignature::Make({InputType::Any(), Type::UINT32}, OutputType(FirstType));
+      KernelSignature::Make({Type::UINT32, InputType::Any()}, OutputType(LastType));
   kernel.resize = HashAggregateResize;
   kernel.consume = HashAggregateConsume;
   kernel.merge = HashAggregateMerge;
@@ -2187,7 +2187,7 @@ Result<std::unique_ptr<KernelState>> FirstLastInit(KernelContext* ctx,
                                                    const KernelInitArgs& args) {
   ARROW_ASSIGN_OR_RAISE(auto impl, HashAggregateInit<GroupedFirstLastImpl<T>>(ctx, args));
   static_cast<GroupedFirstLastImpl<T>*>(impl.get())->type_ =
-      args.inputs[0].GetSharedPtr();
+      args.inputs[1].GetSharedPtr();
   return std::move(impl);
 }
 
@@ -2204,7 +2204,7 @@ HashAggregateKernel MakeFirstOrLastKernel(HashAggregateFunction* first_last_func
   };
 
   kernel.signature =
-      KernelSignature::Make({InputType::Any(), Type::UINT32}, OutputType(FirstType));
+      KernelSignature::Make({Type::UINT32, InputType::Any()}, OutputType(LastType));
   kernel.resize = HashAggregateResize;
   kernel.consume = HashAggregateConsume;
   kernel.merge = HashAggregateMerge;
@@ -2300,10 +2300,10 @@ struct GroupedBooleanAggregator : public GroupedAggregator {
     uint8_t* reduced = reduced_.mutable_data();
     uint8_t* no_nulls = no_nulls_.mutable_data();
     int64_t* counts = counts_.mutable_data();
-    auto g = batch[1].array.GetValues<uint32_t>(1);
+    auto g = batch[0].array.GetValues<uint32_t>(1);
 
-    if (batch[0].is_array()) {
-      const ArraySpan& input = batch[0].array;
+    if (batch[1].is_array()) {
+      const ArraySpan& input = batch[1].array;
       const uint8_t* bitmap = input.buffers[1].data;
       if (input.MayHaveNulls()) {
         arrow::internal::VisitBitBlocksVoid(
@@ -2327,7 +2327,7 @@ struct GroupedBooleanAggregator : public GroupedAggregator {
             });
       }
     } else {
-      const Scalar& input = *batch[0].scalar;
+      const Scalar& input = *batch[1].scalar;
       if (input.is_valid) {
         const bool value = UnboxScalar<BooleanType>::Unbox(input);
         for (int64_t i = 0; i < batch.length; i++) {
@@ -2470,14 +2470,14 @@ struct GroupedCountDistinctImpl : public GroupedAggregator {
                const ArrayData& group_id_mapping) override {
     auto other = checked_cast<GroupedCountDistinctImpl*>(&raw_other);
 
-    // Get (value, group_id) pairs, then translate the group IDs and consume them
+    // Get (group_id, value) pairs, then translate the group IDs and consume them
     // ourselves
     ARROW_ASSIGN_OR_RAISE(ExecBatch uniques, other->grouper_->GetUniques());
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> remapped_g,
                           AllocateBuffer(uniques.length * sizeof(uint32_t), pool_));
 
     const auto* g_mapping = group_id_mapping.buffers[1]->data_as<uint32_t>();
-    const auto* other_g = uniques[1].array()->buffers[1]->data_as<uint32_t>();
+    const auto* other_g = uniques[0].array()->buffers[1]->data_as<uint32_t>();
     auto* g = remapped_g->mutable_data_as<uint32_t>();
 
     for (int64_t i = 0; i < uniques.length; i++) {
@@ -2485,7 +2485,7 @@ struct GroupedCountDistinctImpl : public GroupedAggregator {
     }
 
     ExecSpan uniques_span(uniques);
-    uniques_span.values[1].array.SetBuffer(1, remapped_g);
+    uniques_span.values[0].array.SetBuffer(1, remapped_g);
     return Consume(uniques_span);
   }
 
@@ -2496,8 +2496,8 @@ struct GroupedCountDistinctImpl : public GroupedAggregator {
     std::fill(counts, counts + num_groups_, 0);
 
     ARROW_ASSIGN_OR_RAISE(auto uniques, grouper_->GetUniques());
-    auto* g = uniques[1].array()->GetValues<uint32_t>(1);
-    const auto& items = *uniques[0].array();
+    auto* g = uniques[0].array()->GetValues<uint32_t>(1);
+    const auto& items = *uniques[1].array();
     const auto* valid = items.GetValues<uint8_t>(0, 0);
     if (options_.mode == CountOptions::ALL ||
         (options_.mode == CountOptions::ONLY_VALID && !valid)) {
@@ -2532,10 +2532,10 @@ struct GroupedDistinctImpl : public GroupedCountDistinctImpl {
   Result<Datum> Finalize() override {
     ARROW_ASSIGN_OR_RAISE(auto uniques, grouper_->GetUniques());
     ARROW_ASSIGN_OR_RAISE(auto groupings, grouper_->MakeGroupings(
-                                              *uniques[1].array_as<UInt32Array>(),
+                                              *uniques[0].array_as<UInt32Array>(),
                                               static_cast<uint32_t>(num_groups_), ctx_));
     ARROW_ASSIGN_OR_RAISE(
-        auto list, grouper_->ApplyGroupings(*groupings, *uniques[0].make_array(), ctx_));
+        auto list, grouper_->ApplyGroupings(*groupings, *uniques[1].make_array(), ctx_));
     const auto& values = list->values();
     DCHECK_EQ(values->offset(), 0);
     auto* offsets = list->value_offsets()->mutable_data_as<int32_t>();
@@ -2594,7 +2594,7 @@ Result<std::unique_ptr<KernelState>> GroupedDistinctInit(KernelContext* ctx,
                                                          const KernelInitArgs& args) {
   ARROW_ASSIGN_OR_RAISE(auto impl, HashAggregateInit<Impl>(ctx, args));
   auto instance = static_cast<Impl*>(impl.get());
-  instance->out_type_ = args.inputs[0].GetSharedPtr();
+  instance->out_type_ = args.inputs[1].GetSharedPtr();
   ARROW_ASSIGN_OR_RAISE(instance->grouper_,
                         Grouper::Make(args.inputs, ctx->exec_context()));
   return std::move(impl);
@@ -2838,7 +2838,7 @@ Result<std::unique_ptr<KernelState>> GroupedOneInit(KernelContext* ctx,
                                                     const KernelInitArgs& args) {
   ARROW_ASSIGN_OR_RAISE(auto impl, HashAggregateInit<GroupedOneImpl<T>>(ctx, args));
   auto instance = static_cast<GroupedOneImpl<T>*>(impl.get());
-  instance->out_type_ = args.inputs[0].GetSharedPtr();
+  instance->out_type_ = args.inputs[1].GetSharedPtr();
   return std::move(impl);
 }
 
@@ -2926,8 +2926,8 @@ struct GroupedListImpl final : public GroupedAggregator {
   }
 
   Status Consume(const ExecSpan& batch) override {
-    const ArraySpan& values_array_data = batch[0].array;
-    const ArraySpan& groups_array_data = batch[1].array;
+    const ArraySpan& values_array_data = batch[1].array;
+    const ArraySpan& groups_array_data = batch[0].array;
 
     int64_t num_values = values_array_data.length;
     const auto* groups = groups_array_data.GetValues<uint32_t>(1, 0);
@@ -2938,7 +2938,7 @@ struct GroupedListImpl final : public GroupedAggregator {
     const uint8_t* values = values_array_data.buffers[1].data;
     RETURN_NOT_OK(GetSet::AppendBuffers(&values_, values, offset, num_values));
 
-    if (batch[0].null_count() > 0) {
+    if (batch[1].null_count() > 0) {
       if (!has_nulls_) {
         has_nulls_ = true;
         RETURN_NOT_OK(values_bitmap_.Append(num_args_, true));
@@ -3033,16 +3033,16 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
   }
 
   Status Consume(const ExecSpan& batch) override {
-    const ArraySpan& values_array_data = batch[0].array;
+    const ArraySpan& values_array_data = batch[1].array;
     int64_t num_values = values_array_data.length;
     int64_t offset = values_array_data.offset;
 
-    const ArraySpan& groups_array_data = batch[1].array;
+    const ArraySpan& groups_array_data = batch[0].array;
     const uint32_t* groups = groups_array_data.GetValues<uint32_t>(1, 0);
     DCHECK_EQ(groups_array_data.offset, 0);
     RETURN_NOT_OK(groups_.Append(groups, num_values));
 
-    if (batch[0].null_count() == 0) {
+    if (batch[1].null_count() == 0) {
       RETURN_NOT_OK(values_bitmap_.Append(num_values, true));
     } else {
       const uint8_t* values_bitmap = values_array_data.buffers[0].data;
@@ -3188,7 +3188,7 @@ struct GroupedNullListImpl : public GroupedAggregator {
 
   Status Consume(const ExecSpan& batch) override {
     int64_t* counts = counts_.mutable_data();
-    const auto* g_begin = batch[1].array.GetValues<uint32_t>(1);
+    const auto* g_begin = batch[0].array.GetValues<uint32_t>(1);
     for (int64_t i = 0; i < batch.length; ++i, ++g_begin) {
       counts[*g_begin] += 1;
     }
@@ -3236,7 +3236,7 @@ Result<std::unique_ptr<KernelState>> GroupedListInit(KernelContext* ctx,
                                                      const KernelInitArgs& args) {
   ARROW_ASSIGN_OR_RAISE(auto impl, HashAggregateInit<GroupedListImpl<T>>(ctx, args));
   auto instance = static_cast<GroupedListImpl<T>*>(impl.get());
-  instance->out_type_ = args.inputs[0].GetSharedPtr();
+  instance->out_type_ = args.inputs[1].GetSharedPtr();
   return std::move(impl);
 }
 
@@ -3306,7 +3306,7 @@ const FunctionDoc hash_count_doc{
     "Count the number of null / non-null values in each group",
     ("By default, only non-null values are counted.\n"
      "This can be changed through ScalarAggregateOptions."),
-    {"array", "group_id_array"},
+    {"group_id_array", "array"},
     "CountOptions"};
 
 const FunctionDoc hash_count_all_doc{"Count the number of rows in each group",
@@ -3315,7 +3315,7 @@ const FunctionDoc hash_count_all_doc{"Count the number of rows in each group",
 
 const FunctionDoc hash_sum_doc{"Sum values in each group",
                                ("Null values are ignored."),
-                               {"array", "group_id_array"},
+                               {"group_id_array", "array"},
                                "ScalarAggregateOptions"};
 
 const FunctionDoc hash_product_doc{
@@ -3323,7 +3323,7 @@ const FunctionDoc hash_product_doc{
     ("Null values are ignored.\n"
      "On integer overflow, the result will wrap around as if the calculation\n"
      "was done with unsigned integers."),
-    {"array", "group_id_array"},
+    {"group_id_array", "array"},
     "ScalarAggregateOptions"};
 
 const FunctionDoc hash_mean_doc{
@@ -3331,7 +3331,7 @@ const FunctionDoc hash_mean_doc{
     ("Null values are ignored.\n"
      "For integers and floats, NaN is returned if min_count = 0 and\n"
      "there are no values. For decimals, null is returned instead."),
-    {"array", "group_id_array"},
+    {"group_id_array", "array"},
     "ScalarAggregateOptions"};
 
 const FunctionDoc hash_stddev_doc{
@@ -3340,7 +3340,7 @@ const FunctionDoc hash_stddev_doc{
      "By default (`ddof` = 0), the population standard deviation is calculated.\n"
      "Nulls are ignored.  If there are not enough non-null values in the array\n"
      "to satisfy `ddof`, null is returned."),
-    {"array", "group_id_array"}};
+    {"group_id_array", "array"}};
 
 const FunctionDoc hash_variance_doc{
     "Compute the variance of values in each group",
@@ -3348,7 +3348,7 @@ const FunctionDoc hash_variance_doc{
      "By default (`ddof` = 0), the population variance is calculated.\n"
      "Nulls are ignored.  If there are not enough non-null values in the array\n"
      "to satisfy `ddof`, null is returned."),
-    {"array", "group_id_array"}};
+    {"group_id_array", "array"}};
 
 const FunctionDoc hash_tdigest_doc{
     "Compute approximate quantiles of values in each group",
@@ -3356,7 +3356,7 @@ const FunctionDoc hash_tdigest_doc{
      "By default, the 0.5 quantile (i.e. median) is returned.\n"
      "Nulls and NaNs are ignored.\n"
      "Nulls are returned if there are no valid data points."),
-    {"array", "group_id_array"},
+    {"group_id_array", "array"},
     "TDigestOptions"};
 
 const FunctionDoc hash_approximate_median_doc{
@@ -3364,7 +3364,7 @@ const FunctionDoc hash_approximate_median_doc{
     ("The T-Digest algorithm is used for a fast approximation.\n"
      "Nulls and NaNs are ignored.\n"
      "Nulls are returned if there are no valid data points."),
-    {"array", "group_id_array"},
+    {"group_id_array", "array"},
     "ScalarAggregateOptions"};
 
 const FunctionDoc hash_first_last_doc{
@@ -3372,7 +3372,7 @@ const FunctionDoc hash_first_last_doc{
     ("Null values are ignored by default.\n"
      "If skip_nulls = false, then this will return the first and last values\n"
      "regardless if it is null"),
-    {"array", "group_id_array"},
+    {"group_id_array", "array"},
     "ScalarAggregateOptions"};
 
 const FunctionDoc hash_first_doc{
@@ -3380,7 +3380,7 @@ const FunctionDoc hash_first_doc{
     ("Null values are ignored by default.\n"
      "If skip_nulls = false, then this will return the first and last values\n"
      "regardless if it is null"),
-    {"array", "group_id_array"},
+    {"group_id_array", "array"},
     "ScalarAggregateOptions"};
 
 const FunctionDoc hash_last_doc{
@@ -3388,54 +3388,54 @@ const FunctionDoc hash_last_doc{
     ("Null values are ignored by default.\n"
      "If skip_nulls = false, then this will return the first and last values\n"
      "regardless if it is null"),
-    {"array", "group_id_array"},
+    {"group_id_array", "array"},
     "ScalarAggregateOptions"};
 
 const FunctionDoc hash_min_max_doc{
     "Compute the minimum and maximum of values in each group",
     ("Null values are ignored by default.\n"
      "This can be changed through ScalarAggregateOptions."),
-    {"array", "group_id_array"},
+    {"group_id_array", "array"},
     "ScalarAggregateOptions"};
 
 const FunctionDoc hash_min_or_max_doc{
     "Compute the minimum or maximum of values in each group",
     ("Null values are ignored by default.\n"
      "This can be changed through ScalarAggregateOptions."),
-    {"array", "group_id_array"},
+    {"group_id_array", "array"},
     "ScalarAggregateOptions"};
 
 const FunctionDoc hash_any_doc{"Whether any element in each group evaluates to true",
                                ("Null values are ignored."),
-                               {"array", "group_id_array"},
+                               {"group_id_array", "array"},
                                "ScalarAggregateOptions"};
 
 const FunctionDoc hash_all_doc{"Whether all elements in each group evaluate to true",
                                ("Null values are ignored."),
-                               {"array", "group_id_array"},
+                               {"group_id_array", "array"},
                                "ScalarAggregateOptions"};
 
 const FunctionDoc hash_count_distinct_doc{
     "Count the distinct values in each group",
     ("Whether nulls/values are counted is controlled by CountOptions.\n"
      "NaNs and signed zeroes are not normalized."),
-    {"array", "group_id_array"},
+    {"group_id_array", "array"},
     "CountOptions"};
 
 const FunctionDoc hash_distinct_doc{
     "Keep the distinct values in each group",
     ("Whether nulls/values are kept is controlled by CountOptions.\n"
      "NaNs and signed zeroes are not normalized."),
-    {"array", "group_id_array"},
+    {"group_id_array", "array"},
     "CountOptions"};
 
 const FunctionDoc hash_one_doc{"Get one value from each group",
                                ("Null values are also returned."),
-                               {"array", "group_id_array"}};
+                               {"group_id_array", "array"}};
 
 const FunctionDoc hash_list_doc{"List all values in each group",
                                 ("Null values are also returned."),
-                                {"array", "group_id_array"}};
+                                {"group_id_array", "array"}};
 }  // namespace
 
 void RegisterHashAggregateBasic(FunctionRegistry* registry) {
