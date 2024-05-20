@@ -20,7 +20,7 @@
 set -e
 set -o pipefail
 
-if [ "$#" -ne 2 ]; then
+if [ "$#" -ne 1 ]; then
     echo "Usage: $0 <version>"
     exit 1
 fi
@@ -39,4 +39,4 @@ SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 # Update the Release Notes section
 RELEASE_NOTES_URL="https://arrow.apache.org/release/${VERSION}.html"
 RELEASE_NOTES="Release Notes URL: ${RELEASE_NOTES_URL}"
-gh release edit ${TAG} --repo ${REPOSITORY} --notes "{RELEASE_NOTES}" --verify-tag
+gh release edit ${TAG} --repo ${REPOSITORY} --notes "${RELEASE_NOTES}" --verify-tag
