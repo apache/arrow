@@ -45,11 +45,15 @@ namespace otel = opentelemetry;
 // TODO: Remove once we drop support for opentelemetry-cpp < 1.8.0
 // They switched from ALL_CAPS to kConstantFormat in 1.8.0. But we can't check
 // the minor version until they expose that. So, for now, we vendor these constants.
+//
+// Attributes from trace semantic conventions spec
+// https://github.com/open-telemetry/semantic-conventions/blob/main/docs/rpc/rpc-spans.md
 namespace SemanticConventions {
 static constexpr const char* kRpcGrpcStatusCode = "rpc.grpc.status_code";
 static constexpr const char* kRpcSystem = "rpc.system";
 static constexpr const char* kRpcService = "rpc.service";
 static constexpr const char* kRpcMethod = "rpc.method";
+static constexpr const char* kCodeFunction = "code.function";
 namespace RpcSystemValues {
 static constexpr const char* kGrpc = "grpc";
 }
@@ -115,6 +119,10 @@ class TracingServerMiddleware::Impl {
     return result;
   }
 
+  void SetAction(const Action& action) {
+    span_->SetAttribute(SemanticConventions::kCodeFunction, action.type);
+  }
+
  private:
   otel::trace::Scope scope_;
   otel::nostd::shared_ptr<otel::trace::Span> span_;
@@ -139,17 +147,14 @@ class TracingServerMiddlewareFactory : public ServerMiddlewareFactory {
 
     auto* tracer = arrow::internal::tracing::GetTracer();
     auto method_name = ToString(info.method);
-    auto span = tracer->StartSpan(
-        method_name,
-        {
-            // Attributes from trace semantic conventions spec
-            // https://github.com/open-telemetry/opentelemetry-specification/blob/main/semantic_conventions/trace/rpc.yaml
-            {SemanticConventions::kRpcSystem,
-             SemanticConventions::RpcSystemValues::kGrpc},
-            {SemanticConventions::kRpcService, kServiceName},
-            {SemanticConventions::kRpcMethod, method_name},
-        },
-        options);
+    auto span = tracer->StartSpan(method_name,
+                                  {
+                                      {SemanticConventions::kRpcSystem,
+                                       SemanticConventions::RpcSystemValues::kGrpc},
+                                      {SemanticConventions::kRpcService, kServiceName},
+                                      {SemanticConventions::kRpcMethod, method_name},
+                                  },
+                                  options);
     auto scope = tracer->WithActiveSpan(span);
 
     std::unique_ptr<TracingServerMiddleware::Impl> impl(
@@ -164,6 +169,7 @@ class TracingServerMiddleware::Impl {
  public:
   void CallCompleted(const Status&) {}
   std::vector<TraceKey> GetTraceContext() const { return {}; }
+  void SetAction(const Action&) {}
 };
 class TracingServerMiddlewareFactory : public ServerMiddlewareFactory {
  public:
@@ -189,6 +195,9 @@ void TracingServerMiddleware::CallCompleted(const Status& status) {
 std::vector<TracingServerMiddleware::TraceKey> TracingServerMiddleware::GetTraceContext()
     const {
   return impl_->GetTraceContext();
+}
+void TracingServerMiddleware::HandlingRequest(FlightMethod, const Action& action) {
+  impl_->SetAction(action);
 }
 constexpr char const TracingServerMiddleware::kMiddlewareName[];
 
