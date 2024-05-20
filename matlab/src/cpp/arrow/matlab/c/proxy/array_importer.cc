@@ -45,7 +45,7 @@ void ArrayImporter::import(libmexclass::proxy::method::Context& context) {
   const auto arrow_array_address = uint64_t(arrow_array_address_mda[0]);
   const auto arrow_schema_address = uint64_t(arrow_schema_address_mda[0]);
 
-  struct ArrowArray* arrow_array =
+  auto arrow_array =
       reinterpret_cast<struct ArrowArray*>(arrow_array_address);
   auto arrow_schema =
       reinterpret_cast<struct ArrowSchema*>(arrow_schema_address);
