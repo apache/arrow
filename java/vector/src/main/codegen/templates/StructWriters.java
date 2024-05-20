@@ -73,6 +73,9 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
         map(child.getName(), arrowType.getKeysSorted());
         break;
       }
+      case EXTENSIONTYPE:
+        extension(child.getName(), child.getType());
+        break;
       case DENSEUNION: {
         FieldType fieldType = new FieldType(addVectorAsNullable, MinorType.DENSEUNION.getType(), null, null);
         DenseUnionWriter writer = new DenseUnionWriter(container.addOrGet(child.getName(), fieldType, DenseUnionVector.class), getNullableStructWriterFactory());
@@ -130,6 +133,29 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
   @Override
   public Field getField() {
       return container.getField();
+  }
+
+  @Override
+  public ExtensionWriter extension(String name, ArrowType arrowType) {
+    String finalName = handleCase(name);
+    FieldWriter writer = fields.get(finalName);
+    if(writer == null){
+      int vectorCount=container.size();
+      FieldType fieldType = new FieldType(addVectorAsNullable, arrowType, null, null);
+      ExtensionTypeVector vector = container.addOrGet(name, fieldType, ExtensionTypeVector.class);
+      writer = new PromotableWriter(vector, container, getNullableStructWriterFactory());
+      if(vectorCount != container.size()) {
+        writer.allocate();
+      }
+      writer.setPosition(idx());
+      fields.put(finalName, writer);
+    } else {
+      if (writer instanceof PromotableWriter) {
+        // ensure writers are initialized
+        ((PromotableWriter)writer).getWriter(MinorType.EXTENSIONTYPE, arrowType);
+      }
+    }
+    return (ExtensionWriter) writer;
   }
 
   @Override

@@ -215,6 +215,18 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
   }
 
   @Override
+  public ExtensionWriter extension(String name, ArrowType arrowType) {
+    fail("Extension");
+    return null;
+  }
+
+  @Override
+  public ExtensionWriter extension(ArrowType arrowType) {
+    fail("Extension");
+    return null;
+  }
+
+  @Override
   public MapWriter map(String name, boolean keysSorted) {
     fail("Map");
     return null;
