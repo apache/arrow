@@ -25,7 +25,7 @@ if [ "$#" -ne 2 ]; then
     exit 1
 fi
 
-REPOSITORY="mathworks/arrow"
+REPOSITORY="apache/arrow"
 TAG=$1
 WORKFLOW=$2
 
