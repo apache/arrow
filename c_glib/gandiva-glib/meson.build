@@ -57,7 +57,7 @@ version_h = custom_target(
   'gandiva-glib-version-header',
   input: 'version.h.in',
   output: 'version.h',
-  command: [gen_version_header, '--library', 'GGANDIVA', '--version', version, '--input', '@INPUT@', '--output', '@OUTPUT@', '--version-library', 'GGANDIVA'],
+  command: [python3, generate_version_header_py, '--library', 'GGANDIVA', '--version', version, '--input', '@INPUT@', '--output', '@OUTPUT@', '--version-library', 'GGANDIVA'],
   install: true,
   install_dir: join_paths(include_dir, project_name)
 )

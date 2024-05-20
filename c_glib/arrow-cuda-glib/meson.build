@@ -40,7 +40,7 @@ version_h = custom_target(
   'arrow-cuda-glib-version-header',
   input: 'version.h.in',
   output: 'version.h',
-  command: [gen_version_header, '--library', 'GARROW_CUDA', '--version', version, '--input', '@INPUT@', '--output', '@OUTPUT@'],
+  command: [python3, generate_version_header_py, '--library', 'GARROW_CUDA', '--version', version, '--input', '@INPUT@', '--output', '@OUTPUT@'],
   install: true,
   install_dir: join_paths(include_dir, project_name)
 )
