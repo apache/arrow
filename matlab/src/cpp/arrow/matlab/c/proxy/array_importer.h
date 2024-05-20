@@ -27,8 +27,8 @@ class ArrayImporter : public libmexclass::proxy::Proxy {
 
   ~ArrayImporter() = default;
 
- static libmexclass::proxy::MakeResult make(
-  const libmexclass::proxy::FunctionArguments& constructor_arguments);
+  static libmexclass::proxy::MakeResult make(
+      const libmexclass::proxy::FunctionArguments& constructor_arguments);
 
  protected:
   void import(libmexclass::proxy::method::Context& context);

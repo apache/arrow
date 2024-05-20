@@ -18,51 +18,54 @@
 #include "arrow/array.h"
 #include "arrow/c/bridge.h"
 
-#include "arrow/matlab/c/proxy/array_importer.h"
 #include "arrow/matlab/array/proxy/wrap.h"
+#include "arrow/matlab/c/proxy/array_importer.h"
 #include "arrow/matlab/error/error.h"
 
 #include "libmexclass/proxy/ProxyManager.h"
 
 namespace arrow::matlab::c::proxy {
 
-    ArrayImporter::ArrayImporter() {
-        REGISTER_METHOD(ArrayImporter, import);
-    }
+ArrayImporter::ArrayImporter() { REGISTER_METHOD(ArrayImporter, import); }
 
-    libmexclass::proxy::MakeResult ArrayImporter::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
-        return std::make_shared<ArrayImporter>();
-    }
+libmexclass::proxy::MakeResult ArrayImporter::make(
+    const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+  return std::make_shared<ArrayImporter>();
+}
 
-    void ArrayImporter::import(libmexclass::proxy::method::Context& context) {
-        namespace mda = ::matlab::data;
-        using namespace libmexclass::proxy;
+void ArrayImporter::import(libmexclass::proxy::method::Context& context) {
+  namespace mda = ::matlab::data;
+  using namespace libmexclass::proxy;
 
-        mda::StructArray args = context.inputs[0];
-        const mda::TypedArray<uint64_t> arrow_array_address_mda = args[0]["ArrowArrayAddress"];
-        const mda::TypedArray<uint64_t> arrow_schema_address_mda = args[0]["ArrowSchemaAddress"];
+  mda::StructArray args = context.inputs[0];
+  const mda::TypedArray<uint64_t> arrow_array_address_mda = args[0]["ArrowArrayAddress"];
+  const mda::TypedArray<uint64_t> arrow_schema_address_mda =
+      args[0]["ArrowSchemaAddress"];
 
-        const auto arrow_array_address = uint64_t(arrow_array_address_mda[0]);
-        const auto arrow_schema_address = uint64_t(arrow_schema_address_mda[0]);
+  const auto arrow_array_address = uint64_t(arrow_array_address_mda[0]);
+  const auto arrow_schema_address = uint64_t(arrow_schema_address_mda[0]);
 
-        struct ArrowArray* arrow_array = reinterpret_cast<struct ArrowArray*>(arrow_array_address);
-        struct ArrowSchema* arrow_schema = reinterpret_cast<struct ArrowSchema*>(arrow_schema_address);
+  struct ArrowArray* arrow_array =
+      reinterpret_cast<struct ArrowArray*>(arrow_array_address);
+  struct ArrowSchema* arrow_schema =
+      reinterpret_cast<struct ArrowSchema*>(arrow_schema_address);
 
-        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(std::shared_ptr<arrow::Array> array,
-                arrow::ImportArray(arrow_array, arrow_schema),
-                context, error::C_IMPORT_FAILED);
+  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(std::shared_ptr<arrow::Array> array,
+                                      arrow::ImportArray(arrow_array, arrow_schema),
+                                      context, error::C_IMPORT_FAILED);
 
-        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto array_proxy,
-                arrow::matlab::array::proxy::wrap(array), context,
-                error::UNKNOWN_PROXY_FOR_ARRAY_TYPE);
+  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto array_proxy,
+                                      arrow::matlab::array::proxy::wrap(array), context,
+                                      error::UNKNOWN_PROXY_FOR_ARRAY_TYPE);
 
-        mda::ArrayFactory factory;
-        const auto array_proxy_id = ProxyManager::manageProxy(array_proxy);
-        const auto array_proxy_id_mda = factory.createScalar(array_proxy_id);
-        const auto array_type_id_mda = factory.createScalar(static_cast<int32_t>(array->type_id()));
+  mda::ArrayFactory factory;
+  const auto array_proxy_id = ProxyManager::manageProxy(array_proxy);
+  const auto array_proxy_id_mda = factory.createScalar(array_proxy_id);
+  const auto array_type_id_mda =
+      factory.createScalar(static_cast<int32_t>(array->type_id()));
 
-        context.outputs[0] = array_proxy_id_mda;
-        context.outputs[1] = array_type_id_mda;
-    }
+  context.outputs[0] = array_proxy_id_mda;
+  context.outputs[1] = array_type_id_mda;
+}
 
-} // namespace arrow::matlab::c::proxy
+}  // namespace arrow::matlab::c::proxy
