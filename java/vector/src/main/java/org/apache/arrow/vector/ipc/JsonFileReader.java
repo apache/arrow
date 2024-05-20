@@ -715,8 +715,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
 
   private void readFromJsonIntoVector(Field field, FieldVector vector) throws JsonParseException, IOException {
     ArrowType type = field.getType();
-    // TODO: update the `getTypeLayout` method to take a FieldVector as an argument.
-    //  In relation, the metadata must be used to determine the buffer count for views.
+    // TODO: https://github.com/apache/arrow/issues/41733
     TypeLayout typeLayout = TypeLayout.getTypeLayout(type);
     List<BufferType> vectorTypes = typeLayout.getBufferTypes();
     ArrowBuf[] vectorBuffers = new ArrowBuf[vectorTypes.size()];
