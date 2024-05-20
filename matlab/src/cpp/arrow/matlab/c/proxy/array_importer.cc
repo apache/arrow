@@ -50,7 +50,7 @@ void ArrayImporter::import(libmexclass::proxy::method::Context& context) {
   struct ArrowSchema* arrow_schema =
       reinterpret_cast<struct ArrowSchema*>(arrow_schema_address);
 
-  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(std::shared_ptr<arrow::Array> array,
+  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto array,
                                       arrow::ImportArray(arrow_array, arrow_schema),
                                       context, error::C_IMPORT_FAILED);
 
