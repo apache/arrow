@@ -418,8 +418,8 @@ Be sure to go through on the following checklist:
       git remote add <YOUR_GITHUB_ID> git@github.com:<YOUR_GITHUB_ID>/homebrew-core.git
       cd -
 
-      # dev/release/post-14-homebrew.sh 10.0.0 kou
-      dev/release/post-14-homebrew.sh X.Y.Z <YOUR_GITHUB_ID>
+      # dev/release/post-15-homebrew.sh 10.0.0 kou
+      dev/release/post-15-homebrew.sh X.Y.Z <YOUR_GITHUB_ID>
 
    This script pushes a ``apache-arrow-X.Y.Z`` branch to your ``Homebrew/homebrew-core`` fork. You need to create a pull request from the ``apache-arrow-X.Y.Z`` branch with ``apache-arrow, apache-arrow-glib: X.Y.Z`` title on your Web browser.
 
@@ -469,8 +469,8 @@ Be sure to go through on the following checklist:
 
    .. code-block:: Bash
 
-      # dev/release/post-05-ruby.sh 10.0.0
-      dev/release/post-05-ruby.sh X.Y.Z
+      # dev/release/post-06-ruby.sh 10.0.0
+      dev/release/post-06-ruby.sh X.Y.Z
 
 .. dropdown:: Update JavaScript packages
    :animate: fade-in-slide-down
@@ -488,8 +488,8 @@ Be sure to go through on the following checklist:
       # Login to npmjs.com (You need to do this only for the first time)
       npm login --registry=https://registry.yarnpkg.com/
 
-      # dev/release/post-06-js.sh 10.0.0
-      dev/release/post-06-js.sh X.Y.Z
+      # dev/release/post-07-js.sh 10.0.0
+      dev/release/post-07-js.sh X.Y.Z
 
 .. dropdown:: Update C# packages
    :animate: fade-in-slide-down
@@ -504,8 +504,8 @@ Be sure to go through on the following checklist:
 
    .. code-block:: Bash
 
-      # NUGET_API_KEY=YOUR_NUGET_API_KEY dev/release/post-07-csharp.sh 10.0.0
-      NUGET_API_KEY=<your NuGet API key> dev/release/post-07-csharp.sh X.Y.Z
+      # NUGET_API_KEY=YOUR_NUGET_API_KEY dev/release/post-08-csharp.sh 10.0.0
+      NUGET_API_KEY=<your NuGet API key> dev/release/post-08-csharp.sh X.Y.Z
 
 .. dropdown:: Upload wheels/sdist to PyPI
    :animate: fade-in-slide-down
@@ -518,8 +518,8 @@ Be sure to go through on the following checklist:
 
    .. code-block:: Bash
 
-      # dev/release/post-10-python.sh 10.0.0
-      dev/release/post-10-python.sh <version>
+      # dev/release/post-11-python.sh 10.0.0
+      dev/release/post-11-python.sh <version>
 
 .. dropdown:: Publish Maven packages
    :animate: fade-in-slide-down
@@ -591,8 +591,8 @@ Be sure to go through on the following checklist:
       git remote add upstream https://github.com/microsoft/vcpkg.git
       cd -
 
-      # dev/release/post-15-vcpkg.sh 10.0.0 ../vcpkg
-      dev/release/post-15-vcpkg.sh X.Y.Z <YOUR_VCPKG_FORK>
+      # dev/release/post-16-vcpkg.sh 10.0.0 ../vcpkg
+      dev/release/post-16-vcpkg.sh X.Y.Z <YOUR_VCPKG_FORK>
 
    This script pushes a ``arrow-X.Y.Z`` branch to your ``microsoft/vcpkg`` fork. You need to create a pull request from the ``arrow-X.Y.Z`` branch with ``[arrow] Update to X.Y.Z`` title on your Web browser.
 
@@ -617,8 +617,8 @@ Be sure to go through on the following checklist:
       git remote add upstream https://github.com/conan-io/conan-center-index.git
       cd -
 
-      # dev/release/post-16-conan.sh 10.0.1 ../conan-center-index
-      dev/release/post-16-conan.sh X.Y.Z <YOUR_CONAN_CENTER_INDEX_FORK>
+      # dev/release/post-17-conan.sh 10.0.1 ../conan-center-index
+      dev/release/post-17-conan.sh X.Y.Z <YOUR_CONAN_CENTER_INDEX_FORK>
 
    This script pushes a ``arrow-X.Y.Z`` branch to your ``conan-io/conan-center-index`` fork. You need to create a pull request from the ``arrow-X.Y.Z`` branch on your Web browser.
 
@@ -632,8 +632,8 @@ Be sure to go through on the following checklist:
       # You can run the script with BUMP_TAG=0 and BUMP_PUSH=0
       # this will avoid default pushing to main and pushing the tag
       # but you will require to push manually after reviewing the commits.
-      # dev/release/post-12-bump-versions.sh 10.0.0 11.0.0
-      dev/release/post-12-bump-versions.sh X.Y.Z NEXT_X.NEXT_Y.NEXT_Z
+      # dev/release/post-13-bump-versions.sh 10.0.0 11.0.0
+      dev/release/post-13-bump-versions.sh X.Y.Z NEXT_X.NEXT_Y.NEXT_Z
 
 .. dropdown:: Update tags for Go modules
    :animate: fade-in-slide-down
@@ -642,8 +642,8 @@ Be sure to go through on the following checklist:
 
    .. code-block:: Bash
 
-      # dev/release/post-11-go.sh 10.0.0
-      dev/release/post-11-go.sh X.Y.Z
+      # dev/release/post-12-go.sh 10.0.0
+      dev/release/post-12-go.sh X.Y.Z
 
 .. dropdown:: Update docs
    :animate: fade-in-slide-down
@@ -663,8 +663,8 @@ Be sure to go through on the following checklist:
       git remote add apache git@github.com:apache/arrow-site.git
       cd -
 
-      # dev/release/post-09-docs.sh 10.0.0 9.0.0
-      dev/release/post-09-docs.sh X.Y.Z PREVIOUS_X.PREVIOUS_Y.PREVIOUS_Z
+      # dev/release/post-10-docs.sh 10.0.0 9.0.0
+      dev/release/post-10-docs.sh X.Y.Z PREVIOUS_X.PREVIOUS_Y.PREVIOUS_Z
 
    This script pushes a ``release-docs-X.Y.Z`` branch to your ``arrow-site`` fork. You need to create a Pull Request and use the ``asf-site`` branch as base for it.
 
@@ -709,4 +709,4 @@ Be sure to go through on the following checklist:
 
    .. code-block:: Bash
 
-      dev/release/post-08-remove-old-artifacts.sh
+      dev/release/post-09-remove-old-artifacts.sh
