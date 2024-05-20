@@ -16,3 +16,27 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+
+set -e
+set -o pipefail
+
+if [ "$#" -ne 2 ]; then
+    echo "Usage: $0 <version>"
+    exit 1
+fi
+
+SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+VERSION=$1
+REPOSITORY="apache/arrow"
+TAG="apache-arrow-${VERSION}"
+WORKFLOW="release.yml"
+
+# Wait for the GitHub Workflow that creates the GitHub Release
+# to finish before updating the release notes.
+. $SOURCE_DIR/utils-watch-gh-workflow.sh ${TAG} ${WORKFLOW}
+
+# Update the Release Notes section
+RELEASE_NOTES_URL="https://arrow.apache.org/release/${VERSION}.html"
+RELEASE_NOTES="Release Notes URL: ${RELEASE_NOTES_URL}"
+gh release edit ${TAG} --repo ${REPOSITORY} --notes "{RELEASE_NOTES}" --verify-tag
