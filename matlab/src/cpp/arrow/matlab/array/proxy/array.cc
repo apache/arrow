@@ -187,7 +187,7 @@ void Array::exportToC(libmexclass::proxy::method::Context& context) {
   const mda::TypedArray<uint64_t> array_address_mda = opts[0]["ArrowArrayAddress"];
   const mda::TypedArray<uint64_t> schema_address_mda = opts[0]["ArrowSchemaAddress"];
 
-  struct ArrowArray* arrow_array =
+  auto arrow_array =
       reinterpret_cast<struct ArrowArray*>(uint64_t(array_address_mda[0]));
   struct ArrowSchema* arrow_schema =
       reinterpret_cast<struct ArrowSchema*>(uint64_t(schema_address_mda[0]));
