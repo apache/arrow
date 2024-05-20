@@ -25,9 +25,9 @@ if [ "$#" -ne 2 ]; then
     exit 1
 fi
 
-REPOSITORY="apache/arrow"
 TAG=$1
 WORKFLOW=$2
+REPOSITORY="apache/arrow"
 
 echo "Looking for GitHub Actions workflow on ${REPOSITORY}:${TAG}"
 RUN_ID=""

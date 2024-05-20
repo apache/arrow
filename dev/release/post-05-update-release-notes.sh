@@ -25,12 +25,12 @@ if [ "$#" -ne 2 ]; then
     exit 1
 fi
 
-SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 VERSION=$1
 REPOSITORY="apache/arrow"
 TAG="apache-arrow-${VERSION}"
 WORKFLOW="release.yml"
+SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # Wait for the GitHub Workflow that creates the GitHub Release
 # to finish before updating the release notes.
