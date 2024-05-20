@@ -125,6 +125,7 @@ jobs:
           archery docker run \
             -e CI=true \
             -e "DEVELOCITY_ACCESS_KEY=$DEVELOCITY_ACCESS_KEY" \
+            -e "TEST_JDK=$TEST_JDK" \
             conda-python-java-integration
       - name: Docker Push
         if: >-

@@ -15,5 +15,5 @@
 # specific language governing permissions and limitations
 # under the License.
 
-brew "openjdk@11"
+brew "openjdk@21"
 brew "sccache"

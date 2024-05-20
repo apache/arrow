@@ -62,7 +62,7 @@ jobs:
         maven: [3.9.6]
         image: [java]
     env:
-      JDK: ${{ matrix.jdk }}
+      TEST_JDK: ${{ matrix.jdk }}
       MAVEN: ${{ matrix.maven }}
     steps:
       - name: Checkout Arrow
@@ -91,6 +91,7 @@ jobs:
           archery docker run \
             -e CI=true \
             -e "DEVELOCITY_ACCESS_KEY=$DEVELOCITY_ACCESS_KEY" \
+            -e "TEST_JDK=$TEST_JDK" \
             ${{ matrix.image }}
       - name: Docker Push
         if: >-
@@ -117,8 +118,10 @@ jobs:
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
-          java-version: ${{ matrix.jdk }}
+          distribution: 'temurin'
+          java-version: |
+            ${{ matrix.jdk }}
+            21
       - name: Checkout Arrow
         uses: actions/checkout@v4
         with:
@@ -128,11 +131,13 @@ jobs:
         shell: bash
         env:
           DEVELOCITY_ACCESS_KEY: ${{ secrets.GE_ACCESS_TOKEN }}
+          TEST_JDK: ${{ matrix.jdk }}
         run: ci/scripts/java_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
         env:
           DEVELOCITY_ACCESS_KEY: ${{ secrets.GE_ACCESS_TOKEN }}
+          TEST_JDK: ${{ matrix.jdk }}
         run: ci/scripts/java_test.sh $(pwd) $(pwd)/build
 
   windows:
@@ -148,8 +153,10 @@ jobs:
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
-          java-version: ${{ matrix.jdk }}
           distribution: 'temurin'
+          java-version: |
+            ${{ matrix.jdk }}
+            21
       - name: Checkout Arrow
         uses: actions/checkout@v4
         with:
@@ -159,9 +166,11 @@ jobs:
         shell: bash
         env:
           DEVELOCITY_ACCESS_KEY: ${{ secrets.GE_ACCESS_TOKEN }}
+          TEST_JDK: ${{ matrix.jdk }}
         run: ci/scripts/java_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
         env:
           DEVELOCITY_ACCESS_KEY: ${{ secrets.GE_ACCESS_TOKEN }}
+          TEST_JDK: ${{ matrix.jdk }}
         run: ci/scripts/java_test.sh $(pwd) $(pwd)/build

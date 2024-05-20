@@ -1715,7 +1715,7 @@ services:
     # Parameters:
     #   MAVEN: 3.9.5
     #   JDK: 8, 11, 17, 21
-    image: ${ARCH}/maven:${MAVEN}-eclipse-temurin-${JDK}
+    image: ghcr.io/laurentgo/multi-jdk-maven-image:main
     shm_size: *shm-size
     volumes: &java-volumes
       - .:/arrow:delegated

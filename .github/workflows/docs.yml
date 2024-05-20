@@ -37,7 +37,7 @@ jobs:
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 150
     env:
-      JDK: 17
+      JDK: 21
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
@@ -62,7 +62,7 @@ jobs:
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
-          JDK: 17
+          JDK: 21
         run: archery docker run debian-docs
       - name: Docker Push
         if: >-

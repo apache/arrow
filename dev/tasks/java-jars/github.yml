@@ -146,7 +146,7 @@ jobs:
         run: |
           set -e
           # make brew Java available to CMake
-          export JAVA_HOME=$(brew --prefix openjdk@11)/libexec/openjdk.jdk/Contents/Home
+          export JAVA_HOME=$(brew --prefix openjdk@21)/libexec/openjdk.jdk/Contents/Home
           arrow/ci/scripts/java_jni_macos_build.sh \
             $GITHUB_WORKSPACE/arrow \
             $GITHUB_WORKSPACE/arrow/cpp-build \
@@ -167,7 +167,7 @@ jobs:
       - name: Set up Java
         uses: actions/setup-java@v3
         with:
-          java-version: '11'
+          java-version: '21'
           distribution: 'temurin'
       - name: Download Timezone Database
         shell: bash
