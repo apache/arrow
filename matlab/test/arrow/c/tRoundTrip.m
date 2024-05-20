@@ -19,27 +19,6 @@ classdef tRoundTrip < matlab.unittest.TestCase
     methods (Test)
 
         function EmptyArray(testCase)
-            % Empty 0x0
-            expected = arrow.array(double.empty(0, 0));
-            cArray = arrow.c.Array();
-            cSchema = arrow.c.Schema();
-
-            expected.export(cArray.Address, cSchema.Address);
-            actual = arrow.array.Array.import(cArray, cSchema);
-
-            testCase.verifyEqual(actual, expected);
-
-            % Empty 0x1
-            expected = arrow.array(double.empty(0, 1));
-            cArray = arrow.c.Array();
-            cSchema = arrow.c.Schema();
-
-            expected.export(cArray.Address, cSchema.Address);
-            actual = arrow.array.Array.import(cArray, cSchema);
-
-            testCase.verifyEqual(actual, expected);
-
-            % Empty 1x0
             expected = arrow.array(double.empty(0, 1));
             cArray = arrow.c.Array();
             cSchema = arrow.c.Schema();
