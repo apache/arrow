@@ -4098,6 +4098,42 @@ TEST_F(TestArrayRoundtrip, RegisteredExtension) {
   TestWithArrayFactory(NestedFactory(ExampleDictExtension));
 }
 
+TEST_F(TestArrayRoundtrip, RegisteredExtensionNoMetadata) {
+  // A minimal extension type that does not error when passed blank extension information
+  class MetadataOptionalExtensionType : public ExtensionType {
+   public:
+    MetadataOptionalExtensionType() : ExtensionType(null()) {}
+    std::string extension_name() const override { return "metadata.optional"; }
+    std::string Serialize() const override { return ""; }
+    std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override {
+      return nullptr;
+    }
+    bool ExtensionEquals(const ExtensionType& other) const override {
+      return other.extension_name() == extension_name();
+    }
+    Result<std::shared_ptr<DataType>> Deserialize(
+        std::shared_ptr<DataType> storage_type,
+        const std::string& serialized_data) const override {
+      return std::make_shared<MetadataOptionalExtensionType>();
+    }
+  };
+
+  auto ext_type = std::make_shared<MetadataOptionalExtensionType>();
+  ExtensionTypeGuard guard(ext_type);
+
+  auto ext_metadata =
+      KeyValueMetadata::Make({"ARROW:extension:name"}, {ext_type->extension_name()});
+  auto ext_field = field("", ext_type->storage_type(), true, std::move(ext_metadata));
+
+  struct ArrowSchema c_schema {};
+  SchemaExportGuard schema_guard(&c_schema);
+  ASSERT_OK(ExportField(*ext_field, &c_schema));
+
+  ASSERT_OK_AND_ASSIGN(auto ext_type_roundtrip, ImportType(&c_schema));
+  ASSERT_EQ(ext_type_roundtrip->id(), Type::EXTENSION);
+  ASSERT_TRUE(ext_type_roundtrip->Equals(ext_type));
+}
+
 TEST_F(TestArrayRoundtrip, UnregisteredExtension) {
   auto StorageExtractor = [](ArrayFactory factory) {
     return [factory]() -> Result<std::shared_ptr<Array>> {
