@@ -40,6 +40,14 @@ update_versions() {
     meson.build
   rm -f meson.build.bak
   git add meson.build
+
+  if [ "${type}" = "snapshot" ]; then
+    sed -i.bak -E -e \
+      "s/^ALL_VERSIONS = \[$/&\\n        (${major_version}, 0),/" \
+      tool/generate-version-header.py
+    rm -f tool/generate-version-header.py.bak
+    git add tool/generate-version-header.py
+  fi
   popd
 
   pushd "${ARROW_DIR}/ci/scripts"
