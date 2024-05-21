@@ -184,6 +184,9 @@ cdef class ParquetFileFormat(FileFormat):
         # the private property which uses the C Type
         parquet_read_options._coerce_int96_timestamp_unit = \
             options.coerce_int96_timestamp_unit
+        parquet_read_options.convert_unknown_logical_types = \
+            options.convert_unknown_logical_types
+
         return parquet_read_options
 
     def make_write_options(self, **kwargs):
@@ -510,17 +513,24 @@ cdef class ParquetReadOptions(_Weakrefable):
         resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
         and therefore INT96 timestamps will be inferred as timestamps
         in nanoseconds
+    convert_unknown_logical_types : bool, default false
+        When enabled, the Arrow reader will use the underlying physical type
+        of a logical type that it does not recognize (e.g., one that was added
+        to the spec but not implemented in Parquet C++).
     """
 
     cdef public:
         set dictionary_columns
         TimeUnit _coerce_int96_timestamp_unit
+        bint convert_unknown_logical_types
 
     # Also see _PARQUET_READ_OPTIONS
     def __init__(self, dictionary_columns=None,
-                 coerce_int96_timestamp_unit=None):
+                 coerce_int96_timestamp_unit=None,
+                 convert_unknown_logical_types=False):
         self.dictionary_columns = set(dictionary_columns or set())
         self.coerce_int96_timestamp_unit = coerce_int96_timestamp_unit
+        self.convert_unknown_logical_types = convert_unknown_logical_types
 
     @property
     def coerce_int96_timestamp_unit(self):
@@ -545,7 +555,9 @@ cdef class ParquetReadOptions(_Weakrefable):
         """
         return (self.dictionary_columns == other.dictionary_columns and
                 self.coerce_int96_timestamp_unit ==
-                other.coerce_int96_timestamp_unit)
+                other.coerce_int96_timestamp_unit and
+                self.convert_unknown_logical_types ==
+                other.convert_unknown_logical_types)
 
     def __eq__(self, other):
         try:
@@ -557,7 +569,8 @@ cdef class ParquetReadOptions(_Weakrefable):
         return (
             f"<ParquetReadOptions"
             f" dictionary_columns={self.dictionary_columns}"
-            f" coerce_int96_timestamp_unit={self.coerce_int96_timestamp_unit}>"
+            f" coerce_int96_timestamp_unit={self.coerce_int96_timestamp_unit}"
+            f" convert_unknown_logical_types={self.convert_unknown_logical_types}>"
         )
 
 
@@ -677,7 +690,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
 
 
 cdef set _PARQUET_READ_OPTIONS = {
-    'dictionary_columns', 'coerce_int96_timestamp_unit'
+    'dictionary_columns', 'coerce_int96_timestamp_unit', 'convert_unknown_logical_types'
 }
 
 
@@ -703,7 +716,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
     cache_options : pyarrow.CacheOptions, default None
         Cache options used when pre_buffer is enabled. The default values should
         be good for most use cases. You may want to adjust these for example if
-        you have exceptionally high latency to the file system. 
+        you have exceptionally high latency to the file system.
     thrift_string_size_limit : int, default None
         If not None, override the maximum total string size allocated
         when decoding Thrift structures. The default limit should be
