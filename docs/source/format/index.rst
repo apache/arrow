@@ -22,9 +22,8 @@ Specifications
 
 .. toctree::
    :maxdepth: 2
-   :hidden:
 
-   FormatIntro
+   Intro
    Columnar
    Versioning
    Changing
