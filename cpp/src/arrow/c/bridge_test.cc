@@ -53,11 +53,15 @@
 
 namespace arrow {
 
+using internal::ArrayDeviceExportTraits;
+using internal::ArrayDeviceStreamExportTraits;
 using internal::ArrayExportGuard;
 using internal::ArrayExportTraits;
 using internal::ArrayStreamExportGuard;
 using internal::ArrayStreamExportTraits;
 using internal::checked_cast;
+using internal::DeviceArrayExportGuard;
+using internal::DeviceArrayStreamExportGuard;
 using internal::SchemaExportGuard;
 using internal::SchemaExportTraits;
 using internal::Zip;
@@ -4738,6 +4742,518 @@ TEST_F(TestArrayStreamRoundtrip, ChunkedArrayRoundtrip) {
 }
 
 TEST_F(TestArrayStreamRoundtrip, ChunkedArrayRoundtripEmpty) {
+  ASSERT_OK_AND_ASSIGN(auto src, ChunkedArray::Make({}, int32()));
+
+  Roundtrip(src, [&](const std::shared_ptr<ChunkedArray>& dst) {
+    AssertTypeEqual(*dst->type(), *src->type());
+    AssertChunkedEqual(*dst, *src);
+  });
+}
+
+////////////////////////////////////////////////////////////////////////////
+// Array device stream export tests
+
+class TestArrayDeviceStreamExport : public BaseArrayStreamTest {
+ public:
+  void AssertStreamSchema(struct ArrowDeviceArrayStream* c_stream,
+                          const Schema& expected) {
+    struct ArrowSchema c_schema;
+    ASSERT_EQ(0, c_stream->get_schema(c_stream, &c_schema));
+
+    SchemaExportGuard schema_guard(&c_schema);
+    ASSERT_FALSE(ArrowSchemaIsReleased(&c_schema));
+    ASSERT_OK_AND_ASSIGN(auto schema, ImportSchema(&c_schema));
+    AssertSchemaEqual(expected, *schema, /*check_metadata=*/true);
+  }
+
+  void AssertStreamEnd(struct ArrowDeviceArrayStream* c_stream) {
+    struct ArrowDeviceArray c_array;
+    ASSERT_EQ(0, c_stream->get_next(c_stream, &c_array));
+
+    DeviceArrayExportGuard guard(&c_array);
+    ASSERT_TRUE(ArrowDeviceArrayIsReleased(&c_array));
+  }
+
+  void AssertStreamNext(struct ArrowDeviceArrayStream* c_stream,
+                        const RecordBatch& expected) {
+    struct ArrowDeviceArray c_array;
+    ASSERT_EQ(0, c_stream->get_next(c_stream, &c_array));
+
+    DeviceArrayExportGuard guard(&c_array);
+    ASSERT_FALSE(ArrowDeviceArrayIsReleased(&c_array));
+
+    ASSERT_OK_AND_ASSIGN(auto batch,
+                         ImportDeviceRecordBatch(&c_array, expected.schema(),
+                                                 TestDeviceArrayRoundtrip::DeviceMapper));
+    AssertBatchesEqual(expected, *batch);
+  }
+
+  void AssertStreamNext(struct ArrowDeviceArrayStream* c_stream, const Array& expected) {
+    struct ArrowDeviceArray c_array;
+    ASSERT_EQ(0, c_stream->get_next(c_stream, &c_array));
+
+    DeviceArrayExportGuard guard(&c_array);
+    ASSERT_FALSE(ArrowDeviceArrayIsReleased(&c_array));
+
+    ASSERT_OK_AND_ASSIGN(auto array,
+                         ImportDeviceArray(&c_array, expected.type(),
+                                           TestDeviceArrayRoundtrip::DeviceMapper));
+    AssertArraysEqual(expected, *array);
+  }
+
+  static Result<std::shared_ptr<ArrayData>> ToDeviceData(
+      const std::shared_ptr<MemoryManager>& mm, const ArrayData& data) {
+    arrow::BufferVector buffers;
+    for (const auto& buf : data.buffers) {
+      if (buf) {
+        ARROW_ASSIGN_OR_RAISE(auto dest, mm->CopyBuffer(buf, mm));
+        buffers.push_back(dest);
+      } else {
+        buffers.push_back(nullptr);
+      }
+    }
+
+    arrow::ArrayDataVector children;
+    for (const auto& child : data.child_data) {
+      ARROW_ASSIGN_OR_RAISE(auto dest, ToDeviceData(mm, *child));
+      children.push_back(dest);
+    }
+
+    return ArrayData::Make(data.type, data.length, buffers, children, data.null_count,
+                           data.offset);
+  }
+
+  static Result<std::shared_ptr<Array>> ToDevice(const std::shared_ptr<MemoryManager>& mm,
+                                                 const ArrayData& data) {
+    ARROW_ASSIGN_OR_RAISE(auto result, ToDeviceData(mm, data));
+    return MakeArray(result);
+  }
+};
+
+TEST_F(TestArrayDeviceStreamExport, Empty) {
+  auto schema = arrow::schema({field("ints", int32())});
+  auto batches = MakeBatches(schema, {});
+  ASSERT_OK_AND_ASSIGN(
+      auto reader,
+      RecordBatchReader::Make(batches, schema,
+                              static_cast<DeviceAllocationType>(kMyDeviceType)));
+
+  struct ArrowDeviceArrayStream c_stream;
+  ASSERT_OK(ExportDeviceRecordBatchReader(reader, &c_stream));
+  DeviceArrayStreamExportGuard guard(&c_stream);
+
+  ASSERT_FALSE(ArrowDeviceArrayStreamIsReleased(&c_stream));
+  ASSERT_EQ(kMyDeviceType, c_stream.device_type);
+  AssertStreamSchema(&c_stream, *schema);
+  AssertStreamEnd(&c_stream);
+  AssertStreamEnd(&c_stream);
+}
+
+TEST_F(TestArrayDeviceStreamExport, Simple) {
+  std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
+  auto mm = device->default_memory_manager();
+
+  ASSERT_OK_AND_ASSIGN(auto arr1,
+                       ToDevice(mm, *ArrayFromJSON(int32(), "[1, 2]")->data()));
+  ASSERT_EQ(device->device_type(), arr1->device_type());
+  ASSERT_OK_AND_ASSIGN(auto arr2,
+                       ToDevice(mm, *ArrayFromJSON(int32(), "[4, 5, null]")->data()));
+  ASSERT_EQ(device->device_type(), arr2->device_type());
+  auto schema = arrow::schema({field("ints", int32())});
+  auto batches = MakeBatches(schema, {arr1, arr2});
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       RecordBatchReader::Make(batches, schema, device->device_type()));
+
+  struct ArrowDeviceArrayStream c_stream;
+
+  ASSERT_OK(ExportDeviceRecordBatchReader(reader, &c_stream));
+  DeviceArrayStreamExportGuard guard(&c_stream);
+
+  ASSERT_FALSE(ArrowDeviceArrayStreamIsReleased(&c_stream));
+  AssertStreamSchema(&c_stream, *schema);
+  ASSERT_EQ(kMyDeviceType, c_stream.device_type);
+  AssertStreamNext(&c_stream, *batches[0]);
+  AssertStreamNext(&c_stream, *batches[1]);
+  AssertStreamEnd(&c_stream);
+  AssertStreamEnd(&c_stream);
+}
+
+TEST_F(TestArrayDeviceStreamExport, ArrayLifetime) {
+  std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
+  auto mm = device->default_memory_manager();
+
+  ASSERT_OK_AND_ASSIGN(auto arr1,
+                       ToDevice(mm, *ArrayFromJSON(int32(), "[1, 2]")->data()));
+  ASSERT_EQ(device->device_type(), arr1->device_type());
+  ASSERT_OK_AND_ASSIGN(auto arr2,
+                       ToDevice(mm, *ArrayFromJSON(int32(), "[4, 5, null]")->data()));
+  ASSERT_EQ(device->device_type(), arr2->device_type());
+  auto schema = arrow::schema({field("ints", int32())});
+  auto batches = MakeBatches(schema, {arr1, arr2});
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       RecordBatchReader::Make(batches, schema, device->device_type()));
+
+  struct ArrowDeviceArrayStream c_stream;
+  struct ArrowSchema c_schema;
+  struct ArrowDeviceArray c_array0, c_array1;
+
+  ASSERT_OK(ExportDeviceRecordBatchReader(reader, &c_stream));
+  {
+    DeviceArrayStreamExportGuard guard(&c_stream);
+    ASSERT_FALSE(ArrowDeviceArrayStreamIsReleased(&c_stream));
+    ASSERT_EQ(kMyDeviceType, c_stream.device_type);
+
+    ASSERT_EQ(0, c_stream.get_schema(&c_stream, &c_schema));
+    ASSERT_EQ(0, c_stream.get_next(&c_stream, &c_array0));
+    ASSERT_EQ(0, c_stream.get_next(&c_stream, &c_array1));
+    AssertStreamEnd(&c_stream);
+  }
+
+  DeviceArrayExportGuard guard0(&c_array0), guard1(&c_array1);
+
+  {
+    SchemaExportGuard schema_guard(&c_schema);
+    ASSERT_OK_AND_ASSIGN(auto got_schema, ImportSchema(&c_schema));
+    AssertSchemaEqual(*schema, *got_schema, /*check_metadata=*/true);
+  }
+
+  ASSERT_EQ(kMyDeviceType, c_array0.device_type);
+  ASSERT_EQ(kMyDeviceType, c_array1.device_type);
+
+  ASSERT_GT(pool_->bytes_allocated(), orig_allocated_);
+  ASSERT_OK_AND_ASSIGN(
+      auto batch,
+      ImportDeviceRecordBatch(&c_array1, schema, TestDeviceArrayRoundtrip::DeviceMapper));
+  AssertBatchesEqual(*batches[1], *batch);
+  ASSERT_EQ(device->device_type(), batch->device_type());
+  ASSERT_OK_AND_ASSIGN(
+      batch,
+      ImportDeviceRecordBatch(&c_array0, schema, TestDeviceArrayRoundtrip::DeviceMapper));
+  AssertBatchesEqual(*batches[0], *batch);
+  ASSERT_EQ(device->device_type(), batch->device_type());
+}
+
+TEST_F(TestArrayDeviceStreamExport, Errors) {
+  auto reader =
+      std::make_shared<FailingRecordBatchReader>(Status::Invalid("some example error"));
+
+  struct ArrowDeviceArrayStream c_stream;
+
+  ASSERT_OK(ExportDeviceRecordBatchReader(reader, &c_stream));
+  DeviceArrayStreamExportGuard guard(&c_stream);
+
+  struct ArrowSchema c_schema;
+  ASSERT_EQ(0, c_stream.get_schema(&c_stream, &c_schema));
+  ASSERT_FALSE(ArrowSchemaIsReleased(&c_schema));
+  {
+    SchemaExportGuard schema_guard(&c_schema);
+    ASSERT_OK_AND_ASSIGN(auto schema, ImportSchema(&c_schema));
+    AssertSchemaEqual(schema, arrow::schema({}), /*check_metadata=*/true);
+  }
+
+  struct ArrowDeviceArray c_array;
+  ASSERT_EQ(EINVAL, c_stream.get_next(&c_stream, &c_array));
+}
+
+TEST_F(TestArrayDeviceStreamExport, ChunkedArrayExportEmpty) {
+  ASSERT_OK_AND_ASSIGN(auto chunked_array, ChunkedArray::Make({}, int32()));
+
+  struct ArrowDeviceArrayStream c_stream;
+  struct ArrowSchema c_schema;
+
+  ASSERT_OK(ExportDeviceChunkedArray(
+      chunked_array, static_cast<DeviceAllocationType>(kMyDeviceType), &c_stream));
+  DeviceArrayStreamExportGuard guard(&c_stream);
+
+  {
+    DeviceArrayStreamExportGuard guard(&c_stream);
+    ASSERT_FALSE(ArrowDeviceArrayStreamIsReleased(&c_stream));
+
+    ASSERT_EQ(kMyDeviceType, c_stream.device_type);
+    ASSERT_EQ(0, c_stream.get_schema(&c_stream, &c_schema));
+    AssertStreamEnd(&c_stream);
+  }
+
+  {
+    SchemaExportGuard schema_guard(&c_schema);
+    ASSERT_OK_AND_ASSIGN(auto got_type, ImportType(&c_schema));
+    AssertTypeEqual(*chunked_array->type(), *got_type);
+  }
+}
+
+TEST_F(TestArrayDeviceStreamExport, ChunkedArrayExport) {
+  std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
+  auto mm = device->default_memory_manager();
+
+  ASSERT_OK_AND_ASSIGN(auto arr1,
+                       ToDevice(mm, *ArrayFromJSON(int32(), "[1, 2]")->data()));
+  ASSERT_EQ(device->device_type(), arr1->device_type());
+  ASSERT_OK_AND_ASSIGN(auto arr2,
+                       ToDevice(mm, *ArrayFromJSON(int32(), "[4, 5, null]")->data()));
+  ASSERT_EQ(device->device_type(), arr2->device_type());
+
+  ASSERT_OK_AND_ASSIGN(auto chunked_array, ChunkedArray::Make({arr1, arr2}));
+
+  struct ArrowDeviceArrayStream c_stream;
+  struct ArrowSchema c_schema;
+  struct ArrowDeviceArray c_array0, c_array1;
+
+  ASSERT_OK(ExportDeviceChunkedArray(chunked_array, device->device_type(), &c_stream));
+  DeviceArrayStreamExportGuard guard(&c_stream);
+
+  {
+    DeviceArrayStreamExportGuard guard(&c_stream);
+    ASSERT_FALSE(ArrowDeviceArrayStreamIsReleased(&c_stream));
+    ASSERT_EQ(kMyDeviceType, c_stream.device_type);
+
+    ASSERT_EQ(0, c_stream.get_schema(&c_stream, &c_schema));
+    ASSERT_EQ(0, c_stream.get_next(&c_stream, &c_array0));
+    ASSERT_EQ(0, c_stream.get_next(&c_stream, &c_array1));
+    AssertStreamEnd(&c_stream);
+  }
+
+  DeviceArrayExportGuard guard0(&c_array0), guard1(&c_array1);
+
+  {
+    SchemaExportGuard schema_guard(&c_schema);
+    ASSERT_OK_AND_ASSIGN(auto got_type, ImportType(&c_schema));
+    AssertTypeEqual(*chunked_array->type(), *got_type);
+  }
+
+  ASSERT_EQ(kMyDeviceType, c_array0.device_type);
+  ASSERT_EQ(kMyDeviceType, c_array1.device_type);
+
+  ASSERT_GT(pool_->bytes_allocated(), orig_allocated_);
+  ASSERT_OK_AND_ASSIGN(auto array,
+                       ImportDeviceArray(&c_array0, chunked_array->type(),
+                                         TestDeviceArrayRoundtrip::DeviceMapper));
+  ASSERT_EQ(device->device_type(), array->device_type());
+  AssertArraysEqual(*chunked_array->chunk(0), *array);
+  ASSERT_OK_AND_ASSIGN(array, ImportDeviceArray(&c_array1, chunked_array->type(),
+                                                TestDeviceArrayRoundtrip::DeviceMapper));
+  ASSERT_EQ(device->device_type(), array->device_type());
+  AssertArraysEqual(*chunked_array->chunk(1), *array);
+}
+
+////////////////////////////////////////////////////////////////////////////
+// Array device stream roundtrip tests
+
+class TestArrayDeviceStreamRoundtrip : public BaseArrayStreamTest {
+ public:
+  static Result<std::shared_ptr<ArrayData>> ToDeviceData(
+      const std::shared_ptr<MemoryManager>& mm, const ArrayData& data) {
+    arrow::BufferVector buffers;
+    for (const auto& buf : data.buffers) {
+      if (buf) {
+        ARROW_ASSIGN_OR_RAISE(auto dest, mm->CopyBuffer(buf, mm));
+        buffers.push_back(dest);
+      } else {
+        buffers.push_back(nullptr);
+      }
+    }
+
+    arrow::ArrayDataVector children;
+    for (const auto& child : data.child_data) {
+      ARROW_ASSIGN_OR_RAISE(auto dest, ToDeviceData(mm, *child));
+      children.push_back(dest);
+    }
+
+    return ArrayData::Make(data.type, data.length, buffers, children, data.null_count,
+                           data.offset);
+  }
+
+  static Result<std::shared_ptr<Array>> ToDevice(const std::shared_ptr<MemoryManager>& mm,
+                                                 const ArrayData& data) {
+    ARROW_ASSIGN_OR_RAISE(auto result, ToDeviceData(mm, data));
+    return MakeArray(result);
+  }
+
+  void Roundtrip(std::shared_ptr<RecordBatchReader>* reader,
+                 struct ArrowDeviceArrayStream* c_stream) {
+    ASSERT_OK(ExportDeviceRecordBatchReader(*reader, c_stream));
+    ASSERT_FALSE(ArrowDeviceArrayStreamIsReleased(c_stream));
+
+    ASSERT_OK_AND_ASSIGN(
+        auto got_reader,
+        ImportDeviceRecordBatchReader(c_stream, TestDeviceArrayRoundtrip::DeviceMapper));
+    *reader = std::move(got_reader);
+  }
+
+  void Roundtrip(
+      std::shared_ptr<RecordBatchReader> reader,
+      std::function<void(const std::shared_ptr<RecordBatchReader>&)> check_func) {
+    ArrowDeviceArrayStream c_stream;
+
+    // NOTE: ReleaseCallback<> is not immediately usable with ArrowDeviceArayStream
+    // because get_next and get_schema need the original private_data.
+    std::weak_ptr<RecordBatchReader> weak_reader(reader);
+    ASSERT_EQ(weak_reader.use_count(), 1);  // Expiration check will fail otherwise
+
+    ASSERT_OK(ExportDeviceRecordBatchReader(std::move(reader), &c_stream));
+    ASSERT_FALSE(ArrowDeviceArrayStreamIsReleased(&c_stream));
+
+    {
+      ASSERT_OK_AND_ASSIGN(auto new_reader,
+                           ImportDeviceRecordBatchReader(
+                               &c_stream, TestDeviceArrayRoundtrip::DeviceMapper));
+      // stream was moved
+      ASSERT_TRUE(ArrowDeviceArrayStreamIsReleased(&c_stream));
+      ASSERT_FALSE(weak_reader.expired());
+
+      check_func(new_reader);
+    }
+    // Stream was released when `new_reader` was destroyed
+    ASSERT_TRUE(weak_reader.expired());
+  }
+
+  void Roundtrip(std::shared_ptr<ChunkedArray> src,
+                 std::function<void(const std::shared_ptr<ChunkedArray>&)> check_func) {
+    ArrowDeviceArrayStream c_stream;
+
+    // One original copy to compare the result, one copy held by the stream
+    std::weak_ptr<ChunkedArray> weak_src(src);
+    int64_t initial_use_count = weak_src.use_count();
+
+    ASSERT_OK(ExportDeviceChunkedArray(
+        std::move(src), static_cast<DeviceAllocationType>(kMyDeviceType), &c_stream));
+    ASSERT_FALSE(ArrowDeviceArrayStreamIsReleased(&c_stream));
+    ASSERT_EQ(kMyDeviceType, c_stream.device_type);
+
+    {
+      ASSERT_OK_AND_ASSIGN(
+          auto dst,
+          ImportDeviceChunkedArray(&c_stream, TestDeviceArrayRoundtrip::DeviceMapper));
+      // Stream was moved, consumed, and released
+      ASSERT_TRUE(ArrowDeviceArrayStreamIsReleased(&c_stream));
+
+      // Stream was released by ImportDeviceChunkedArray but original copy remains
+      ASSERT_EQ(weak_src.use_count(), initial_use_count - 1);
+
+      check_func(dst);
+    }
+  }
+
+  void AssertReaderNext(const std::shared_ptr<RecordBatchReader>& reader,
+                        const RecordBatch& expected) {
+    ASSERT_OK_AND_ASSIGN(auto batch, reader->Next());
+    ASSERT_NE(batch, nullptr);
+    ASSERT_EQ(static_cast<DeviceAllocationType>(kMyDeviceType), batch->device_type());
+    AssertBatchesEqual(expected, *batch);
+  }
+
+  void AssertReaderEnd(const std::shared_ptr<RecordBatchReader>& reader) {
+    ASSERT_OK_AND_ASSIGN(auto batch, reader->Next());
+    ASSERT_EQ(batch, nullptr);
+  }
+
+  void AssertReaderClosed(const std::shared_ptr<RecordBatchReader>& reader) {
+    ASSERT_THAT(reader->Next(),
+                Raises(StatusCode::Invalid, ::testing::HasSubstr("already been closed")));
+  }
+
+  void AssertReaderClose(const std::shared_ptr<RecordBatchReader>& reader) {
+    ASSERT_OK(reader->Close());
+    AssertReaderClosed(reader);
+  }
+};
+
+TEST_F(TestArrayDeviceStreamRoundtrip, Simple) {
+  std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
+  auto mm = device->default_memory_manager();
+
+  ASSERT_OK_AND_ASSIGN(auto arr1,
+                       ToDevice(mm, *ArrayFromJSON(int32(), "[1, 2]")->data()));
+  ASSERT_EQ(device->device_type(), arr1->device_type());
+  ASSERT_OK_AND_ASSIGN(auto arr2,
+                       ToDevice(mm, *ArrayFromJSON(int32(), "[4, 5, null]")->data()));
+  ASSERT_EQ(device->device_type(), arr2->device_type());
+  auto orig_schema = arrow::schema({field("ints", int32())});
+  auto batches = MakeBatches(orig_schema, {arr1, arr2});
+  ASSERT_OK_AND_ASSIGN(
+      auto reader, RecordBatchReader::Make(batches, orig_schema, device->device_type()));
+
+  Roundtrip(std::move(reader), [&](const std::shared_ptr<RecordBatchReader>& reader) {
+    AssertSchemaEqual(*orig_schema, *reader->schema(), /*check_metadata=*/true);
+    AssertReaderNext(reader, *batches[0]);
+    AssertReaderNext(reader, *batches[1]);
+    AssertReaderEnd(reader);
+    AssertReaderEnd(reader);
+    AssertReaderClose(reader);
+  });
+}
+
+TEST_F(TestArrayDeviceStreamRoundtrip, CloseEarly) {
+  std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
+  auto mm = device->default_memory_manager();
+
+  ASSERT_OK_AND_ASSIGN(auto arr1,
+                       ToDevice(mm, *ArrayFromJSON(int32(), "[1, 2]")->data()));
+  ASSERT_EQ(device->device_type(), arr1->device_type());
+  ASSERT_OK_AND_ASSIGN(auto arr2,
+                       ToDevice(mm, *ArrayFromJSON(int32(), "[4, 5, null]")->data()));
+  ASSERT_EQ(device->device_type(), arr2->device_type());
+  auto orig_schema = arrow::schema({field("ints", int32())});
+  auto batches = MakeBatches(orig_schema, {arr1, arr2});
+  ASSERT_OK_AND_ASSIGN(
+      auto reader, RecordBatchReader::Make(batches, orig_schema, device->device_type()));
+
+  Roundtrip(std::move(reader), [&](const std::shared_ptr<RecordBatchReader>& reader) {
+    AssertReaderNext(reader, *batches[0]);
+    AssertReaderClose(reader);
+  });
+}
+
+TEST_F(TestArrayDeviceStreamRoundtrip, Errors) {
+  auto reader = std::make_shared<FailingRecordBatchReader>(
+      Status::Invalid("roundtrip error example"));
+
+  Roundtrip(std::move(reader), [&](const std::shared_ptr<RecordBatchReader>& reader) {
+    EXPECT_THAT(reader->Next(), Raises(StatusCode::Invalid,
+                                       ::testing::HasSubstr("roundtrip error example")));
+  });
+}
+
+TEST_F(TestArrayDeviceStreamRoundtrip, SchemaError) {
+  struct ArrowDeviceArrayStream stream = {};
+  stream.get_last_error = [](struct ArrowDeviceArrayStream* stream) {
+    return "Expected error";
+  };
+  stream.get_schema = [](struct ArrowDeviceArrayStream* stream,
+                         struct ArrowSchema* schema) { return EIO; };
+  stream.get_next = [](struct ArrowDeviceArrayStream* stream,
+                       struct ArrowDeviceArray* array) { return EINVAL; };
+  stream.release = [](struct ArrowDeviceArrayStream* stream) {
+    *static_cast<bool*>(stream->private_data) = true;
+    std::memset(stream, 0, sizeof(*stream));
+  };
+  bool released = false;
+  stream.private_data = &released;
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(IOError, ::testing::HasSubstr("Expected error"),
+                                  ImportDeviceRecordBatchReader(&stream));
+  ASSERT_TRUE(released);
+}
+
+TEST_F(TestArrayDeviceStreamRoundtrip, ChunkedArrayRoundtrip) {
+  std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
+  auto mm = device->default_memory_manager();
+
+  ASSERT_OK_AND_ASSIGN(auto arr1,
+                       ToDevice(mm, *ArrayFromJSON(int32(), "[1, 2]")->data()));
+  ASSERT_EQ(device->device_type(), arr1->device_type());
+  ASSERT_OK_AND_ASSIGN(auto arr2,
+                       ToDevice(mm, *ArrayFromJSON(int32(), "[4, 5, null]")->data()));
+  ASSERT_EQ(device->device_type(), arr2->device_type());
+
+  ASSERT_OK_AND_ASSIGN(auto src, ChunkedArray::Make({arr1, arr2}));
+
+  Roundtrip(src, [&](const std::shared_ptr<ChunkedArray>& dst) {
+    AssertTypeEqual(*dst->type(), *src->type());
+    AssertChunkedEqual(*dst, *src);
+  });
+}
+
+TEST_F(TestArrayDeviceStreamRoundtrip, ChunkedArrayRoundtripEmpty) {
   ASSERT_OK_AND_ASSIGN(auto src, ChunkedArray::Make({}, int32()));
 
   Roundtrip(src, [&](const std::shared_ptr<ChunkedArray>& dst) {
