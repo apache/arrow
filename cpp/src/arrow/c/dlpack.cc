@@ -136,11 +136,11 @@ struct TensorManagerCtx {
   DLManagedTensor tensor;
 };
 
-Result<DLManagedTensor*> ExportArray(const std::shared_ptr<Tensor>& t) {
+Result<DLManagedTensor*> ExportTensor(const std::shared_ptr<Tensor>& t) {
   // Define DLDevice struct nad check if array type is supported
   // by the DLPack protocol at the same time. Raise TypeError if not.
   // Supported data types: int, uint, float with no validity buffer.
-  ARROW_ASSIGN_OR_RAISE(auto device, ExportDevice(t))
+  ARROW_ASSIGN_OR_RAISE(auto device, ExportTensorDevice(t))
 
   // Define the DLDataType struct
   const DataType& type = *t->type();
@@ -175,7 +175,7 @@ Result<DLManagedTensor*> ExportArray(const std::shared_ptr<Tensor>& t) {
   return &ctx.release()->tensor;
 }
 
-Result<DLDevice> ExportDevice(const std::shared_ptr<Tensor>& t) {
+Result<DLDevice> ExportTensorDevice(const std::shared_ptr<Tensor>& t) {
   // Check if array is supported by the DLPack protocol.
   const DataType& type = *t->type();
   if (type.id() == Type::BOOL) {
