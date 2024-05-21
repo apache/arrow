@@ -41,9 +41,10 @@ update_versions() {
   rm -f meson.build.bak
   git add meson.build
 
-  if [ "${type}" = "snapshot" ]; then
+  glib_version_tuple="(${major_version}, 0)"
+  if [ "${type}" = "snapshot" ] && ! grep -q "${glib_version_tuple}" tool/generate-version-header.py; then
     sed -i.bak -E -e \
-      "s/^ALL_VERSIONS = \[$/&\\n        (${major_version}, 0),/" \
+      "s/^ALL_VERSIONS = \[$/&\\n        ${glib_version_tuple},/" \
       tool/generate-version-header.py
     rm -f tool/generate-version-header.py.bak
     git add tool/generate-version-header.py
