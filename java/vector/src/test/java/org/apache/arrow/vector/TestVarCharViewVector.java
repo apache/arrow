@@ -47,6 +47,7 @@ import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.util.ReusableByteArray;
 import org.apache.arrow.vector.util.Text;
 import org.junit.jupiter.api.AfterEach;
@@ -1513,6 +1514,164 @@ public class TestVarCharViewVector {
         assertArrayEquals(STR4, vector2.get(3));
         assertArrayEquals(STR5, vector2.get(4));
         assertArrayEquals(STR6, vector2.get(5));
+      }
+    }
+  }
+
+  @Test
+  public void testCopyFromWithNulls() {
+    try (final ViewVarCharVector vector = newVector(ViewVarCharVector.class, EMPTY_SCHEMA_PATH,
+        MinorType.VIEWVARCHAR, allocator);
+        final ViewVarCharVector vector2 =
+            newVector(ViewVarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VIEWVARCHAR, allocator)) {
+
+      final int initialCapacity = 1024;
+      vector.setInitialCapacity(initialCapacity);
+      vector.allocateNew();
+      int capacity = vector.getValueCapacity();
+      assertTrue(capacity >= initialCapacity);
+
+      final int numberOfValues = initialCapacity / 2 / ViewVarCharVector.ELEMENT_SIZE;
+
+      final String prefixString = generateRandomString(12);
+
+      for (int i = 0; i < numberOfValues; i++) {
+        if (i % 3 == 0) {
+          // null values
+          vector.setNull(i);
+        } else if (i % 3 == 1) {
+          // short strings
+          byte[] b = Integer.toString(i).getBytes(StandardCharsets.UTF_8);
+          vector.set(i, b, 0, b.length);
+        } else {
+          // long strings
+          byte[] b = (i + prefixString).getBytes(StandardCharsets.UTF_8);
+          vector.set(i, b, 0, b.length);
+        }
+      }
+
+      assertEquals(capacity, vector.getValueCapacity());
+
+      vector.setValueCount(numberOfValues);
+
+      for (int i = 0; i < numberOfValues; i++) {
+        if (i % 3 == 0) {
+          assertNull(vector.getObject(i));
+        } else if (i % 3 == 1) {
+          assertEquals(Integer.toString(i), vector.getObject(i).toString(), "unexpected value at index: " + i);
+        } else {
+          assertEquals(i + prefixString, vector.getObject(i).toString(), "unexpected value at index: " + i);
+        }
+      }
+
+      vector2.setInitialCapacity(initialCapacity);
+      vector2.allocateNew();
+      int capacity2 = vector2.getValueCapacity();
+      assertEquals(capacity2, capacity);
+
+      for (int i = 0; i < numberOfValues; i++) {
+        vector2.copyFrom(i, i, vector);
+        if (i % 3 == 0) {
+          assertNull(vector2.getObject(i));
+        } else if (i % 3 == 1) {
+          assertEquals(Integer.toString(i), vector2.getObject(i).toString(), "unexpected value at index: " + i);
+        } else {
+          assertEquals(i + prefixString, vector2.getObject(i).toString(), "unexpected value at index: " + i);
+        }
+      }
+
+      assertEquals(capacity, vector2.getValueCapacity());
+
+      vector2.setValueCount(numberOfValues);
+
+      for (int i = 0; i < numberOfValues; i++) {
+        if (i % 3 == 0) {
+          assertNull(vector2.getObject(i));
+        } else if (i % 3 == 1) {
+          assertEquals(Integer.toString(i), vector2.getObject(i).toString(), "unexpected value at index: " + i);
+        } else {
+          assertEquals(i + prefixString, vector2.getObject(i).toString(), "unexpected value at index: " + i);
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testCopyFromSafeWithNulls() {
+    try (final ViewVarCharVector vector = newVector(ViewVarCharVector.class, EMPTY_SCHEMA_PATH,
+        MinorType.VIEWVARCHAR, allocator);
+        final ViewVarCharVector vector2 =
+            newVector(ViewVarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VIEWVARCHAR, allocator)) {
+
+      final int initialCapacity = 4096;
+      vector.setInitialCapacity(initialCapacity);
+      vector.allocateNew();
+      int capacity = vector.getValueCapacity();
+      assertTrue(capacity >= initialCapacity);
+
+      final int numberOfValues = initialCapacity / ViewVarCharVector.ELEMENT_SIZE;
+
+      final String prefixString = generateRandomString(12);
+
+      for (int i = 0; i < numberOfValues; i++) {
+        if (i % 3 == 0) {
+          // null values
+          vector.setNull(i);
+        } else if (i % 3 == 1) {
+          // short strings
+          byte[] b = Integer.toString(i).getBytes(StandardCharsets.UTF_8);
+          vector.setSafe(i, b, 0, b.length);
+        } else {
+          // long strings
+          byte[] b = (i + prefixString).getBytes(StandardCharsets.UTF_8);
+          vector.setSafe(i, b, 0, b.length);
+        }
+      }
+
+      /* NO reAlloc() should have happened in setSafe() */
+      assertEquals(capacity, vector.getValueCapacity());
+
+      vector.setValueCount(numberOfValues);
+
+      for (int i = 0; i < numberOfValues; i++) {
+        if (i % 3 == 0) {
+          assertNull(vector.getObject(i));
+        } else if (i % 3 == 1) {
+          assertEquals(Integer.toString(i), vector.getObject(i).toString(), "unexpected value at index: " + i);
+        } else {
+          assertEquals(i + prefixString, vector.getObject(i).toString(), "unexpected value at index: " + i);
+        }
+      }
+
+      vector2.setInitialCapacity(initialCapacity);
+      vector2.allocateNew();
+      int capacity2 = vector2.getValueCapacity();
+      assertEquals(capacity2, capacity);
+
+      for (int i = 0; i < numberOfValues; i++) {
+        vector2.copyFromSafe(i, i, vector);
+        if (i % 3 == 0) {
+          assertNull(vector2.getObject(i));
+        } else if (i % 3 == 1) {
+          assertEquals(Integer.toString(i), vector2.getObject(i).toString(), "unexpected value at index: " + i);
+        } else {
+          assertEquals(i + prefixString, vector2.getObject(i).toString(), "unexpected value at index: " + i);
+        }
+      }
+
+      /* NO reAlloc() should have happened in copyFrom */
+      assertEquals(capacity, vector2.getValueCapacity());
+
+      vector2.setValueCount(numberOfValues);
+
+      for (int i = 0; i < numberOfValues; i++) {
+        if (i % 3 == 0) {
+          assertNull(vector2.getObject(i));
+        } else if (i % 3 == 1) {
+          assertEquals(Integer.toString(i), vector2.getObject(i).toString(), "unexpected value at index: " + i);
+        } else {
+          assertEquals(i + prefixString, vector2.getObject(i).toString(), "unexpected value at index: " + i);
+        }
       }
     }
   }
