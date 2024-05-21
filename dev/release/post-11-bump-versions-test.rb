@@ -198,6 +198,12 @@ class PostBumpVersionsTest < Test::Unit::TestCase
     if release_type == :major
       expected_changes += [
         {
+          path: "c_glib/tool/generate-version-header.py",
+          hunks: [
+            ["+        (#{@next_major_version}, 0),"],
+          ],
+        },
+        {
           path: "docs/source/index.rst",
           hunks: [
             [
@@ -228,12 +234,6 @@ class PostBumpVersionsTest < Test::Unit::TestCase
               "-          [Go](https://pkg.go.dev/github.com/apache/arrow/go/v#{@snapshot_major_version}) <br>",
               "+          [Go](https://pkg.go.dev/github.com/apache/arrow/go/v#{@next_major_version}) <br>",
             ],
-          ],
-        },
-        {
-          path: "c_glib/tool/generate-version-header.py",
-          hunks: [
-            ["+        (#{@next_major_version}, 0),"],
           ],
         },
       ]
