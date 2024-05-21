@@ -1063,7 +1063,7 @@ struct SchemaImporter {
         // the extension name key)
         if (metadata_.extension_serialized_index >= 0) {
           RETURN_NOT_OK(metadata_.metadata->DeleteMany(
-            {metadata_.extension_name_index, metadata_.extension_serialized_index}));
+              {metadata_.extension_name_index, metadata_.extension_serialized_index}));
         } else {
           RETURN_NOT_OK(metadata_.metadata->Delete(metadata_.extension_name_index));
         }
