@@ -1298,8 +1298,8 @@ Structural transforms
 +---------------------+------------+-------------+------------------+------------------------------+--------+
 
 * \(1) Each output element is the length of the corresponding input element
-  (null if input is null).  Output type is Int32 for List and FixedSizeList,
-  Int64 for LargeList.
+  (null if input is null).  Output type is Int32 for List, ListView, and
+  FixedSizeList, Int64 for LargeList and LargeListView.
 
 * \(2) The output struct's field types are the types of its arguments. The
   field names are specified using an instance of :struct:`MakeStructOptions`.
