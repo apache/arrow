@@ -45,4 +45,16 @@ class TestDatasetScanner < Test::Unit::TestCase
   def test_to_table
     assert_equal(@table, @scanner.to_table)
   end
+
+  def test_record_batch_reader
+    reader = @scanner.reader
+    record_batches = []
+    loop do
+      batch = reader.read_next
+      break if batch.nil?
+      record_batches << batch
+    end
+    table_from_batches = Arrow::Table.new(reader.schema, record_batches)
+    assert_equal(@table, table_from_batches)
+  end
 end
