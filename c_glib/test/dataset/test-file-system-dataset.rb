@@ -63,14 +63,7 @@ class TestDatasetFileSystemDataset < Test::Unit::TestCase
   def test_record_batch_reader
     dataset, expected_table = create_dataset
     reader = dataset.to_reader
-    record_batches = []
-    loop do
-      batch = reader.read_next
-      break if batch.nil?
-      record_batches << batch
-    end
-    table_from_batches = Arrow::Table.new(reader.schema, record_batches)
-    assert_equal(expected_table, table_from_batches)
+    assert_equal(expected_table, reader.read_all)
   end
 
   def create_dataset
