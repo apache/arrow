@@ -67,8 +67,51 @@ instructions.
 .. figure:: ./images/columnar-diagram_3.svg
    :alt: Tabular data being structured column by column in computer memory.
 
+Overview of Arrow Terminology
+=============================
+
+**Physical layout**
+A specification for how to arrange values of an array in memory.
+
+**Buffer**
+A contiguous region of memory with a given length. Buffers are used to store data for arrays.
+
+**Array**
+A contiguous, one-dimensional sequence of values with known length where all values have the
+same type. An array consists of zero or more buffers.
+
+**Chunked Array**
+A discontiguous, one-dimensional sequence of values with known length where all values have
+the same type. Consists of zero or more arrays, the “chunks”.
+
+.. note::
+   Chunked Array is a concept specific to certain implementations such as Arrow C++ and PyArrow.
+
+**RecordBatch**
+A contiguous, two-dimensional data structure which consist of ordered collection of arrays
+of the same length.
+
+**Schema**
+A collection of fields with optional metadata that determines all the data types of an object
+like a RecordBatch or Table.
+
+**Table**
+A discontiguous, two-dimensional chunk of data consisting of an ordered collection of Chunked
+Arrays. All Chunked Arrays have the same length, but may have different types. Different columns
+may be chunked differently.
+
+.. note::
+   Table is a concept specific to certain implementations such as Arrow C++ and PyArrow.
+
+.. image:: ../cpp/tables-versus-record-batches.svg
+   :alt: A graphical representation of an Arrow Table and a
+         Record Batch, with structure as described in text above.
+
+.. seealso::
+   The :ref:`glossary` for more terms.
+
 Support for null values
------------------------
+=======================
 
 Arrow supports missing values or "nulls" for all data types: any value
 in an array may be semantically null, whether primitive or nested type.
@@ -397,52 +440,6 @@ Example:
 * `GeoArrow`_: A collection of Arrow extension types for representing vector geometries
 
 .. _GeoArrow: https://github.com/geoarrow/geoarrow
-
-Overview of Arrow Terminology
-=============================
-
-Buffer
-------
-A contiguous region of memory with a given length. Buffers are used to store data for arrays.
-
-Array
------
-A contiguous, one-dimensional sequence of values with known length where all values have the
-same type. An array consists of zero or more buffers.
-
-Chunked Array
--------------
-A discontiguous, one-dimensional sequence of values with known length where all values have
-the same type. Consists of zero or more arrays, the “chunks”.
-
-.. note::
-   Chunked Array is a concept specific to certain implementations such as Arrow C++ and PyArrow.
-
-RecordBatch
------------
-A contiguous, two-dimensional data structure which consist of ordered collection of arrays
-of the same length.
-
-Schema
-------
-A collection of fields with optional metadata that determines all the data types of an object
-like a RecordBatch or Table.
-
-Table
------
-A discontiguous, two-dimensional chunk of data consisting of an ordered collection of Chunked
-Arrays. All Chunked Arrays have the same length, but may have different types. Different columns
-may be chunked differently.
-
-.. note::
-   Table is a concept specific to certain implementations such as Arrow C++ and PyArrow.
-
-.. image:: ../cpp/tables-versus-record-batches.svg
-   :alt: A graphical representation of an Arrow Table and a
-         Record Batch, with structure as described in text above.
-
-.. seealso::
-   The :ref:`glossary` for more terms.
 
 The Arrow C Data Interface
 ==========================
