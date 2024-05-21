@@ -274,6 +274,11 @@ public final class ConvertUtils {
     public AvaticaParameter visit(ArrowType.Duration type) {
       return new DurationAvaticaParameterConverter(type).createParameter(field);
     }
+
+    @Override
+    public AvaticaParameter visit(ArrowType.ListView type) {
+      throw new UnsupportedOperationException("AvaticaParameter not yet supported for type " + type);
+    }
   }
 
 }

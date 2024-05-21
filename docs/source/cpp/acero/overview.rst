@@ -209,16 +209,16 @@ must have the same length.  There are a few key differences from ExecBatch:
 
    Both the record batch and the exec batch have strong ownership of the arrays & buffers
 
-* An `ExecBatch` does not have a schema.  This is because an `ExecBatch` is assumed to be
+* An ``ExecBatch`` does not have a schema.  This is because an ``ExecBatch`` is assumed to be
   part of a stream of batches and the stream is assumed to have a consistent schema.  So
-  the schema for an `ExecBatch` is typically stored in the ExecNode.
-* Columns in an `ExecBatch` are either an `Array` or a `Scalar`.  When a column is a `Scalar`
-  this means that the column has a single value for every row in the batch.  An `ExecBatch`
+  the schema for an ``ExecBatch`` is typically stored in the ExecNode.
+* Columns in an ``ExecBatch`` are either an ``Array`` or a ``Scalar``.  When a column is a ``Scalar``
+  this means that the column has a single value for every row in the batch.  An ``ExecBatch``
   also has a length property which describes how many rows are in a batch.  So another way to
-  view a `Scalar` is a constant array with `length` elements.
-* An `ExecBatch` contains additional information used by the exec plan.  For example, an
-  `index` can be used to describe a batch's position in an ordered stream.  We expect
-  that `ExecBatch` will also evolve to contain additional fields such as a selection vector.
+  view a ``Scalar`` is a constant array with ``length`` elements.
+* An ``ExecBatch`` contains additional information used by the exec plan.  For example, an
+  ``index`` can be used to describe a batch's position in an ordered stream.  We expect
+  that ``ExecBatch`` will also evolve to contain additional fields such as a selection vector.
 
 .. figure:: scalar_vs_array.svg
 
@@ -231,8 +231,8 @@ only zero copy if there are no scalars in the exec batch.
 
 .. note::
    Both Acero and the compute module have "lightweight" versions of batches and arrays.
-   In the compute module these are called `BatchSpan`, `ArraySpan`, and `BufferSpan`.  In
-   Acero the concept is called `KeyColumnArray`.  These types were developed concurrently
+   In the compute module these are called ``BatchSpan``, ``ArraySpan``, and ``BufferSpan``.  In
+   Acero the concept is called ``KeyColumnArray``.  These types were developed concurrently
    and serve the same purpose.  They aim to provide an array container that can be completely
    stack allocated (provided the data type is non-nested) in order to avoid heap allocation
    overhead.  Ideally these two concepts will be merged someday.
@@ -247,9 +247,9 @@ execution of the nodes.  Both ExecPlan and ExecNode are tied to the lifecycle of
 They have state and are not expected to be restartable.
 
 .. warning::
-   The structures within Acero, including `ExecBatch`, are still experimental.  The `ExecBatch`
-   class should not be used outside of Acero.  Instead, an `ExecBatch` should be converted to
-   a more standard structure such as a `RecordBatch`.
+   The structures within Acero, including ``ExecBatch``, are still experimental.  The ``ExecBatch``
+   class should not be used outside of Acero.  Instead, an ``ExecBatch`` should be converted to
+   a more standard structure such as a ``RecordBatch``.
 
    Similarly, an ExecPlan is an internal concept.  Users creating plans should be using Declaration
    objects.  APIs for consuming and executing plans should abstract away the details of the underlying

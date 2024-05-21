@@ -193,7 +193,7 @@ in the ``app_metadata`` field of the Flight RPC ``PutResult`` returned.
 
     When used with DoPut: load the stream of Arrow record batches into
     the specified target table and return the number of rows ingested
-    via a `DoPutUpdateResult` message.
+    via a ``DoPutUpdateResult`` message.
 
 Flight Server Session Management
 --------------------------------
