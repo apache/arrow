@@ -24,6 +24,11 @@
 
 #include "arrow/buffer.h"
 #include "arrow/io/caching.h"
+
+#include <arrow/memory_pool.h>
+#include <parquet/exception.h>
+#include <numeric>
+
 #include "arrow/io/util_internal.h"
 #include "arrow/result.h"
 #include "arrow/util/future.h"
@@ -132,13 +137,56 @@ CacheOptions CacheOptions::MakeFromNetworkMetrics(int64_t time_to_first_byte_mil
 
 namespace internal {
 
+std::vector<ReadRange> GetReadRangesExcludingHoles(const ReadRange& read_range,
+                                                   const std::vector<ReadRange>& holes) {
+  std::vector<ReadRange> ranges;
+  int64_t offset = read_range.offset;
+  for (const auto& hole : holes) {
+    if (hole.offset >= read_range.offset + read_range.length ||
+        hole.offset + hole.length <= read_range.offset) {
+      throw parquet::ParquetException("Parquet error: holes not subset of read range");
+    }
+    if (hole.offset > offset) {
+      ranges.push_back({offset, hole.offset - offset});
+    }
+    offset = hole.offset + hole.length;
+  }
+  if (offset < read_range.offset + read_range.length) {
+    ranges.push_back({offset, read_range.offset + read_range.length - offset});
+  }
+  return ranges;
+}
+
+int64_t GetActualBufferOffset(const int64_t offset, const int64_t buffer_start_offset,
+                              const std::vector<ReadRange>& holes) {
+  int padding = 0;
+  for (const auto& hole : holes) {
+    if (hole.offset >= offset) {
+      break;
+    }
+    if (hole.offset + hole.length <= offset) {
+      padding += hole.length;
+    } else {
+      padding += offset - hole.offset;
+    }
+  }
+  return offset - padding - buffer_start_offset;
+}
+
 struct RangeCacheEntry {
-  ReadRange range;
-  Future<std::shared_ptr<Buffer>> future;
+  ReadRange range;                 // nominal range for this entry
+  std::vector<ReadRange> holes;    // nominal range - holes = actual read ranges
+  Future<int64_t> future;          // the future for actual read ranges
+  std::shared_ptr<Buffer> buffer;  // actual read ranges are read into this buffer with
+                                   // pre-calculated position
 
   RangeCacheEntry() = default;
-  RangeCacheEntry(const ReadRange& range_, Future<std::shared_ptr<Buffer>> future_)
-      : range(range_), future(std::move(future_)) {}
+  RangeCacheEntry(const ReadRange& range, std::vector<ReadRange>& holes,
+                  Future<int64_t>& future, std::unique_ptr<Buffer>& buffer)
+      : range(range),
+        holes(std::move(holes)),
+        future(std::move(future)),
+        buffer(std::move(buffer)) {}
 
   friend bool operator<(const RangeCacheEntry& left, const RangeCacheEntry& right) {
     return left.range.offset < right.range.offset;
@@ -156,28 +204,87 @@ struct ReadRangeCache::Impl {
 
   virtual ~Impl() = default;
 
-  // Get the future corresponding to a range
-  virtual Future<std::shared_ptr<Buffer>> MaybeRead(RangeCacheEntry* entry) {
-    return entry->future;
+  virtual Future<int64_t> MaybeRead(RangeCacheEntry* entry) { return entry->future; }
+
+  Future<int64_t> DoAsyncRead(const ReadRange& range, const std::vector<ReadRange>& holes,
+                              std::unique_ptr<Buffer>& buffer) const {
+    int64_t total_size = range.length;
+    for (const auto& hole : holes) {
+      total_size -= hole.length;
+    }
+
+    buffer = *AllocateBuffer(total_size, 64, ctx.pool());
+
+    auto actual_read_ranges = GetReadRangesExcludingHoles(range, holes);
+    return file->ReadAsync(ctx, actual_read_ranges, buffer->mutable_data());
   }
 
   // Make cache entries for ranges
   virtual std::vector<RangeCacheEntry> MakeCacheEntries(
-      const std::vector<ReadRange>& ranges) {
+      const std::vector<ReadRange>& ranges,
+      std::vector<std::vector<ReadRange>>& holes_foreach_range) {
     std::vector<RangeCacheEntry> new_entries;
     new_entries.reserve(ranges.size());
-    for (const auto& range : ranges) {
-      new_entries.emplace_back(range, file->ReadAsync(ctx, range.offset, range.length));
+
+    for (size_t i = 0; i < ranges.size(); i++) {
+      std::unique_ptr<Buffer> buffer;
+      auto future = DoAsyncRead(ranges[i], holes_foreach_range[i], buffer);
+      new_entries.emplace_back(ranges[i], holes_foreach_range[i], future, buffer);
     }
     return new_entries;
   }
 
+  void CoalesceRanges(
+      std::vector<ReadRange>& ranges,
+      const std::vector<std::vector<ReadRange>>& holes_foreach_range_orig,
+      std::vector<std::vector<ReadRange>>& holes_foreach_range_new) const {
+    auto result = CoalesceReadRanges(std::move(ranges), options.hole_size_limit,
+                                     options.range_size_limit);
+    if (!result.ok()) {
+      throw parquet::ParquetException("Failed to coalesce ranges: " +
+                                      result.status().message());
+    }
+    ranges = std::move(result.ValueOrDie());
+    holes_foreach_range_new.resize(ranges.size());
+
+    std::vector<ReadRange> flatten_holes;
+    size_t index = 0;
+    flatten_holes.reserve(
+        std::accumulate(holes_foreach_range_orig.begin(), holes_foreach_range_orig.end(),
+                        0, [](int sum, const auto& v) { return sum + v.size(); }));
+    for (const auto& v : holes_foreach_range_orig) {
+      std::move(v.begin(), v.end(), std::back_inserter(flatten_holes));
+    }
+    for (size_t i = 0; i < ranges.size(); ++i) {
+      std::vector<ReadRange> current_range_holes;
+      const auto& range = ranges.at(i);
+      for (; index < flatten_holes.size(); ++index) {
+        const auto& hole = flatten_holes.at(index);
+        if (hole.offset >= range.offset + range.length) {
+          break;
+        }
+        if (!(hole.offset >= range.offset &&
+              hole.offset + hole.length <= range.offset + range.length)) {
+          throw parquet::ParquetException(
+              "Parquet error: holes not subset of read range");
+        }
+        current_range_holes.push_back({hole.offset, hole.length});
+      }
+      holes_foreach_range_new.at(i) = std::move(current_range_holes);
+    }
+    if (ranges.size() != holes_foreach_range_new.size()) {
+      throw parquet::ParquetException("ranges.size() !=  holes_foreach_range_new.size()");
+    }
+  }
+
   // Add the given ranges to the cache, coalescing them where possible
-  virtual Status Cache(std::vector<ReadRange> ranges) {
-    ARROW_ASSIGN_OR_RAISE(
-        ranges, internal::CoalesceReadRanges(std::move(ranges), options.hole_size_limit,
-                                             options.range_size_limit));
-    std::vector<RangeCacheEntry> new_entries = MakeCacheEntries(ranges);
+  virtual Status Cache(std::vector<ReadRange> ranges,
+                       std::vector<std::vector<ReadRange>> holes_foreach_range_orig) {
+    std::vector<std::vector<ReadRange>> holes_foreach_range_new;
+    CoalesceRanges(ranges, holes_foreach_range_orig, holes_foreach_range_new);
+
+    std::vector<RangeCacheEntry> new_entries =
+        MakeCacheEntries(ranges, holes_foreach_range_new);
     // Add new entries, themselves ordered by offset
     if (entries.size() > 0) {
       std::vector<RangeCacheEntry> merged(entries.size() + new_entries.size());
@@ -205,21 +312,32 @@ struct ReadRangeCache::Impl {
           return entry.range.offset + entry.range.length < range.offset + range.length;
         });
     if (it != entries.end() && it->range.Contains(range)) {
-      auto fut = MaybeRead(&*it);
-      ARROW_ASSIGN_OR_RAISE(auto buf, fut.result());
+      const auto fut = MaybeRead(&*it);
+      const auto result = fut.result();
+      if (!result.ok()) {
+        throw parquet::ParquetException(
+            "Parquet error: read failed for one of the sub range");
+      }
+
       if (options.lazy && options.prefetch_limit > 0) {
         int64_t num_prefetched = 0;
         for (auto next_it = it + 1;
              next_it != entries.end() && num_prefetched < options.prefetch_limit;
              ++next_it) {
           if (!next_it->future.is_valid()) {
-            next_it->future =
-                file->ReadAsync(ctx, next_it->range.offset, next_it->range.length);
+            std::unique_ptr<Buffer> buffer;
+            next_it->future = DoAsyncRead(next_it->range, next_it->holes, buffer);
+            next_it->buffer = std::move(buffer);
           }
           ++num_prefetched;
         }
       }
-      return SliceBuffer(std::move(buf), range.offset - it->range.offset, range.length);
+
+      const auto actual_start =
+          GetActualBufferOffset(range.offset, it->range.offset, it->holes);
+      const auto actual_end =
+          GetActualBufferOffset(range.offset + range.length, it->range.offset, it->holes);
+      return SliceBuffer(it->buffer, actual_start, actual_end - actual_start);
     }
     return Status::Invalid("ReadRangeCache did not find matching cache entry");
   }
@@ -264,29 +382,37 @@ struct ReadRangeCache::LazyImpl : public ReadRangeCache::Impl {
 
   virtual ~LazyImpl() = default;
 
-  Future<std::shared_ptr<Buffer>> MaybeRead(RangeCacheEntry* entry) override {
+  Future<int64_t> MaybeRead(RangeCacheEntry* entry) override {
     // Called by superclass Read()/WaitFor() so we have the lock
     if (!entry->future.is_valid()) {
-      entry->future = file->ReadAsync(ctx, entry->range.offset, entry->range.length);
+      std::unique_ptr<Buffer> buffer;
+      entry->future = DoAsyncRead(entry->range, entry->holes, buffer);
+      entry->buffer = std::move(buffer);
     }
     return entry->future;
   }
 
   std::vector<RangeCacheEntry> MakeCacheEntries(
-      const std::vector<ReadRange>& ranges) override {
+      const std::vector<ReadRange>& ranges,
+      std::vector<std::vector<ReadRange>>& holes_foreach_range) override {
     std::vector<RangeCacheEntry> new_entries;
     new_entries.reserve(ranges.size());
-    for (const auto& range : ranges) {
+    for (size_t i = 0; i < ranges.size(); ++i) {
+      const auto& range = ranges[i];
+      auto& holes = holes_foreach_range[i];
+      auto temp_buffer = std::make_unique<Buffer>(NULLPTR, 0);
+      auto temp_future = Future<int64_t>();
       // In the lazy variant, don't read data here - later, a call to Read or WaitFor
       // will call back to MaybeRead (under the lock) which will fill the future.
-      new_entries.emplace_back(range, Future<std::shared_ptr<Buffer>>());
+      new_entries.emplace_back(range, holes, temp_future, temp_buffer);
     }
     return new_entries;
   }
 
-  Status Cache(std::vector<ReadRange> ranges) override {
+  Status Cache(std::vector<ReadRange> ranges,
+               std::vector<std::vector<ReadRange>> holes_foreach_range) override {
     std::unique_lock<std::mutex> guard(entry_mutex);
-    return ReadRangeCache::Impl::Cache(std::move(ranges));
+    return ReadRangeCache::Impl::Cache(std::move(ranges), std::move(holes_foreach_range));
   }
 
   Result<std::shared_ptr<Buffer>> Read(ReadRange range) override {
@@ -317,8 +443,9 @@ ReadRangeCache::ReadRangeCache(std::shared_ptr<RandomAccessFile> owned_file,
 
 ReadRangeCache::~ReadRangeCache() = default;
 
-Status ReadRangeCache::Cache(std::vector<ReadRange> ranges) {
-  return impl_->Cache(std::move(ranges));
+Status ReadRangeCache::Cache(std::vector<ReadRange> ranges,
+                             std::vector<std::vector<ReadRange>> holes_foreach_range) {
+  return impl_->Cache(std::move(ranges), std::move(holes_foreach_range));
 }
 
 Result<std::shared_ptr<Buffer>> ReadRangeCache::Read(ReadRange range) {

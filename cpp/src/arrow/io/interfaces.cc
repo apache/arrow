@@ -171,6 +171,21 @@ Future<std::shared_ptr<Buffer>> RandomAccessFile::ReadAsync(const IOContext& ctx
       ctx, [self, position, nbytes] { return self->ReadAt(position, nbytes); }));
 }
 
+Future<int64_t> RandomAccessFile::ReadAsync(const IOContext& ctx,
+                                            std::vector<ReadRange>& ranges, void* out) {
+  auto self = checked_pointer_cast<RandomAccessFile>(shared_from_this());
+  return DeferNotOk(internal::SubmitIO(
+      ctx, [self, ranges = std::move(ranges), out]() mutable -> Result<int64_t> {
+        int64_t read_size = 0;
+        for (const auto& r : ranges) {
+          RETURN_NOT_OK(
+              self->ReadAt(r.offset, r.length, static_cast<char*>(out) + read_size));
+          read_size += r.length;
+        }
+        return read_size;
+      }));
+}
+
 Future<std::shared_ptr<Buffer>> RandomAccessFile::ReadAsync(int64_t position,
                                                             int64_t nbytes) {
   return ReadAsync(io_context(), position, nbytes);

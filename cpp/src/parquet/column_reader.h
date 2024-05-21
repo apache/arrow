@@ -27,6 +27,7 @@
 #include "parquet/metadata.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
+#include "parquet/row_range.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
 
@@ -304,6 +305,30 @@ class TypedColumnReader : public ColumnReader {
 
 namespace internal {
 
+// A RecordSkipper is used to skip uncessary rows within each pages.
+class PARQUET_EXPORT RecordSkipper {
+ public:
+  RecordSkipper(IntervalRanges& pages, const RowRanges& orig_row_ranges);
+  /// Return the number of records to read or to skip
+  /// if return values is positive, it means to read N records
+  /// if return values is negative, it means to skip N records
+  /// if return values is 0, it means end of RG
+  int64_t AdviseNext(const int64_t current_rg_processed);
+
+ private:
+  /// Since the skipped pages will be silently skipped without updating
+  /// current_rg_processed_records or records_read_, we need to pre-process the row
+  /// ranges as if these skipped pages never existed
+  static void AdjustRanges(IntervalRanges& skip_pages, const RowRanges& orig_row_ranges,
+                           std::unique_ptr<RowRanges>& ret);
+
+  std::unique_ptr<RowRanges> row_ranges_;
+  std::unique_ptr<RowRanges::Iterator> range_iter_;
+  std::variant<IntervalRange, BitmapRange, End> current_range_variant = End();
+
+  size_t total_rows_to_process_ = 0;
+};
+
 /// \brief Stateful column reader that delimits semantic records for both flat
 /// and nested columns
 ///
@@ -424,6 +449,14 @@ class PARQUET_EXPORT RecordReader {
   /// \brief True if reading dense for nullable columns.
   bool read_dense_for_nullable() const { return read_dense_for_nullable_; }
 
+  void reset_current_rg_processed_records() { current_rg_processed_records_ = 0; }
+
+  void set_record_skipper(std::unique_ptr<RecordSkipper> skipper) {
+    skipper_ = std::move(skipper);
+  }
+
+  void reset_record_skipper() { skipper_.reset(); }
+
  protected:
   /// \brief Indicates if we can have nullable values. Note that repeated fields
   /// may or may not be nullable.
@@ -431,6 +464,8 @@ class PARQUET_EXPORT RecordReader {
 
   bool at_record_start_;
   int64_t records_read_;
+
+  int64_t current_rg_processed_records_ = 0;  // counting both read and skip records
 
   /// \brief Stores values. These values are populated based on each ReadRecords
   /// call. No extra values are buffered for the next call. SkipRecords will not
@@ -473,6 +508,8 @@ class PARQUET_EXPORT RecordReader {
   // If true, we will not leave any space for the null values in the values_
   // vector.
   bool read_dense_for_nullable_ = false;
+
+  std::unique_ptr<RecordSkipper> skipper_ = NULLPTR;
 };
 
 class BinaryRecordReader : virtual public RecordReader {
