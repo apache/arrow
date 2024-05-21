@@ -788,7 +788,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             const shared_ptr[CArray]& offsets,
             const shared_ptr[CArray]& keys,
             const shared_ptr[CArray]& items,
-            CMemoryPool* pool)
+            CMemoryPool* pool,
+            const shared_ptr[CBuffer] null_bitmap,
+        )
 
         @staticmethod
         CResult[shared_ptr[CArray]] FromArraysAndType" FromArrays"(
@@ -796,7 +798,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             const shared_ptr[CArray]& offsets,
             const shared_ptr[CArray]& keys,
             const shared_ptr[CArray]& items,
-            CMemoryPool* pool)
+            CMemoryPool* pool,
+            const shared_ptr[CBuffer] null_bitmap,
+        )
 
         shared_ptr[CArray] keys()
         shared_ptr[CArray] items()

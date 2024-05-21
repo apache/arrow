@@ -807,7 +807,7 @@ MapArray::MapArray(const std::shared_ptr<DataType>& type, int64_t length,
 Result<std::shared_ptr<Array>> MapArray::FromArraysInternal(
     std::shared_ptr<DataType> type, const std::shared_ptr<Array>& offsets,
     const std::shared_ptr<Array>& keys, const std::shared_ptr<Array>& items,
-    MemoryPool* pool) {
+    MemoryPool* pool, const std::shared_ptr<Buffer>& null_bitmap) {
   using offset_type = typename MapType::offset_type;
   using OffsetArrowType = typename CTypeTraits<offset_type>::ArrowType;
 
@@ -829,31 +829,30 @@ Result<std::shared_ptr<Array>> MapArray::FromArraysInternal(
 
   if (offsets->null_count() > 0) {
     ARROW_ASSIGN_OR_RAISE(auto buffers,
-                          CleanListOffsets<MapType>(NULLPTR, *offsets, pool));
+                          CleanListOffsets<MapType>(null_bitmap, *offsets, pool));
     return std::make_shared<MapArray>(type, offsets->length() - 1, std::move(buffers),
                                       keys, items, offsets->null_count(), 0);
   }
 
   using OffsetArrayType = typename TypeTraits<OffsetArrowType>::ArrayType;
   const auto& typed_offsets = checked_cast<const OffsetArrayType&>(*offsets);
-  auto buffers = BufferVector({nullptr, typed_offsets.values()});
+  auto buffers = BufferVector({null_bitmap, typed_offsets.values()});
   return std::make_shared<MapArray>(type, offsets->length() - 1, std::move(buffers), keys,
                                     items, /*null_count=*/0, offsets->offset());
 }
 
-Result<std::shared_ptr<Array>> MapArray::FromArrays(const std::shared_ptr<Array>& offsets,
-                                                    const std::shared_ptr<Array>& keys,
-                                                    const std::shared_ptr<Array>& items,
-                                                    MemoryPool* pool) {
+Result<std::shared_ptr<Array>> MapArray::FromArrays(
+    const std::shared_ptr<Array>& offsets, const std::shared_ptr<Array>& keys,
+    const std::shared_ptr<Array>& items, MemoryPool* pool,
+    const std::shared_ptr<Buffer>& null_bitmap) {
   return FromArraysInternal(std::make_shared<MapType>(keys->type(), items->type()),
-                            offsets, keys, items, pool);
+                            offsets, keys, items, pool, null_bitmap);
 }
 
-Result<std::shared_ptr<Array>> MapArray::FromArrays(std::shared_ptr<DataType> type,
-                                                    const std::shared_ptr<Array>& offsets,
-                                                    const std::shared_ptr<Array>& keys,
-                                                    const std::shared_ptr<Array>& items,
-                                                    MemoryPool* pool) {
+Result<std::shared_ptr<Array>> MapArray::FromArrays(
+    std::shared_ptr<DataType> type, const std::shared_ptr<Array>& offsets,
+    const std::shared_ptr<Array>& keys, const std::shared_ptr<Array>& items,
+    MemoryPool* pool, const std::shared_ptr<Buffer>& null_bitmap) {
   if (type->id() != Type::MAP) {
     return Status::TypeError("Expected map type, got ", type->ToString());
   }
@@ -864,7 +863,7 @@ Result<std::shared_ptr<Array>> MapArray::FromArrays(std::shared_ptr<DataType> ty
   if (!map_type.item_type()->Equals(items->type())) {
     return Status::TypeError("Mismatching map items type");
   }
-  return FromArraysInternal(std::move(type), offsets, keys, items, pool);
+  return FromArraysInternal(std::move(type), offsets, keys, items, pool, null_bitmap);
 }
 
 Status MapArray::ValidateChildData(
