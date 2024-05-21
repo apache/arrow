@@ -278,14 +278,16 @@ struct ListSlice {
 Result<TypeHolder> MakeListSliceResolve(KernelContext* ctx,
                                         const std::vector<TypeHolder>& types) {
   const auto& opts = OptionsWrapper<ListSliceOptions>::Get(ctx);
-  const auto list_type = checked_cast<const BaseListType*>(types[0].type);
-  const auto value_type = list_type->field(0);
+  const auto& list_type_holder = types[0];
+  const auto* list_type = checked_cast<const BaseListType*>(list_type_holder.type);
+  const auto& value_type = list_type->field(0);
+  const bool is_fixed_size_list = list_type->id() == Type::FIXED_SIZE_LIST;
   const auto return_fixed_size_list =
-      opts.return_fixed_size_list.value_or(list_type->id() == Type::FIXED_SIZE_LIST);
+      opts.return_fixed_size_list.value_or(is_fixed_size_list);
   if (return_fixed_size_list) {
     int32_t stop;
     if (!opts.stop.has_value()) {
-      if (list_type->id() == Type::FIXED_SIZE_LIST) {
+      if (is_fixed_size_list) {
         stop = checked_cast<const FixedSizeListType*>(list_type)->list_size();
       } else {
         return Status::NotImplemented(
@@ -301,13 +303,8 @@ Result<TypeHolder> MakeListSliceResolve(KernelContext* ctx,
     }
     const auto length = bit_util::CeilDiv(size, opts.step);
     return fixed_size_list(value_type, static_cast<int32_t>(length));
-  } else {
-    // Returning large list if that's what we got in and didn't ask for fixed size
-    if (list_type->id() == Type::LARGE_LIST) {
-      return large_list(value_type);
-    }
-    return list(value_type);
   }
+  return is_fixed_size_list ? TypeHolder{list(value_type)} : list_type_holder;
 }
 
 template <typename InListType>
