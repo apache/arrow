@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.reflect.InvocationTargetException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -36,6 +37,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Random;
+import java.util.stream.Stream;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -53,6 +55,8 @@ import org.apache.arrow.vector.util.Text;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 
 public class TestVarCharViewVector {
@@ -1456,6 +1460,12 @@ public class TestVarCharViewVector {
     }
   }
 
+  static Stream<Class<? extends BaseVariableWidthViewVector>> vectorProvider() {
+    return Stream.of(
+        ViewVarCharVector.class,
+        ViewVarBinaryVector.class
+    );
+  }
   @Test
   public void testVectorLoadUnload() {
 
@@ -1525,12 +1535,22 @@ public class TestVarCharViewVector {
         final ViewVarCharVector vector2 =
             newVector(ViewVarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VIEWVARCHAR, allocator)) {
 
+  @ParameterizedTest
+  @MethodSource("vectorProvider")
+  public void testCopyFromWithNulls(Class<? extends BaseVariableWidthViewVector> vectorClass)
+      throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
+    try (final BaseVariableWidthViewVector vector = vectorClass.getConstructor(String.class, BufferAllocator.class)
+        .newInstance(EMPTY_SCHEMA_PATH, allocator);
+        final BaseVariableWidthViewVector vector2 = vectorClass.getConstructor(String.class, BufferAllocator.class)
+            .newInstance(EMPTY_SCHEMA_PATH, allocator)) {
       final int initialCapacity = 1024;
       vector.setInitialCapacity(initialCapacity);
       vector.allocateNew();
       int capacity = vector.getValueCapacity();
       assertTrue(capacity >= initialCapacity);
 
+      // setting number of values such that we have enough space in the initial allocation
+      // to avoid re-allocation. This is to test copyFrom() without re-allocation.
       final int numberOfValues = initialCapacity / 2 / ViewVarCharVector.ELEMENT_SIZE;
 
       final String prefixString = generateRandomString(12);
@@ -1558,9 +1578,13 @@ public class TestVarCharViewVector {
         if (i % 3 == 0) {
           assertNull(vector.getObject(i));
         } else if (i % 3 == 1) {
-          assertEquals(Integer.toString(i), vector.getObject(i).toString(), "unexpected value at index: " + i);
+          assertArrayEquals(Integer.toString(i).getBytes(StandardCharsets.UTF_8),
+               vector.get(i),
+              "unexpected value at index: " + i);
         } else {
-          assertEquals(i + prefixString, vector.getObject(i).toString(), "unexpected value at index: " + i);
+          assertArrayEquals((i + prefixString).getBytes(StandardCharsets.UTF_8),
+              vector.get(i),
+              "unexpected value at index: " + i);
         }
       }
 
@@ -1574,9 +1598,13 @@ public class TestVarCharViewVector {
         if (i % 3 == 0) {
           assertNull(vector2.getObject(i));
         } else if (i % 3 == 1) {
-          assertEquals(Integer.toString(i), vector2.getObject(i).toString(), "unexpected value at index: " + i);
+          assertArrayEquals(Integer.toString(i).getBytes(StandardCharsets.UTF_8),
+              vector.get(i),
+              "unexpected value at index: " + i);
         } else {
-          assertEquals(i + prefixString, vector2.getObject(i).toString(), "unexpected value at index: " + i);
+          assertArrayEquals((i + prefixString).getBytes(StandardCharsets.UTF_8),
+              vector.get(i),
+              "unexpected value at index: " + i);
         }
       }
 
@@ -1588,20 +1616,26 @@ public class TestVarCharViewVector {
         if (i % 3 == 0) {
           assertNull(vector2.getObject(i));
         } else if (i % 3 == 1) {
-          assertEquals(Integer.toString(i), vector2.getObject(i).toString(), "unexpected value at index: " + i);
+          assertArrayEquals(Integer.toString(i).getBytes(StandardCharsets.UTF_8),
+              vector.get(i),
+              "unexpected value at index: " + i);
         } else {
-          assertEquals(i + prefixString, vector2.getObject(i).toString(), "unexpected value at index: " + i);
+          assertArrayEquals((i + prefixString).getBytes(StandardCharsets.UTF_8),
+              vector.get(i),
+              "unexpected value at index: " + i);
         }
       }
     }
   }
 
-  @Test
-  public void testCopyFromSafeWithNulls() {
-    try (final ViewVarCharVector vector = newVector(ViewVarCharVector.class, EMPTY_SCHEMA_PATH,
-        MinorType.VIEWVARCHAR, allocator);
-        final ViewVarCharVector vector2 =
-            newVector(ViewVarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VIEWVARCHAR, allocator)) {
+  @ParameterizedTest
+  @MethodSource("vectorProvider")
+  public void testCopyFromSafeWithNulls(Class<? extends BaseVariableWidthViewVector> vectorClass)
+      throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
+    try (final BaseVariableWidthViewVector vector = vectorClass.getConstructor(String.class, BufferAllocator.class)
+        .newInstance(EMPTY_SCHEMA_PATH, allocator);
+        final BaseVariableWidthViewVector vector2 = vectorClass.getConstructor(String.class, BufferAllocator.class)
+            .newInstance(EMPTY_SCHEMA_PATH, allocator)) {
 
       final int initialCapacity = 4096;
       vector.setInitialCapacity(initialCapacity);
@@ -1637,9 +1671,13 @@ public class TestVarCharViewVector {
         if (i % 3 == 0) {
           assertNull(vector.getObject(i));
         } else if (i % 3 == 1) {
-          assertEquals(Integer.toString(i), vector.getObject(i).toString(), "unexpected value at index: " + i);
+          assertArrayEquals(Integer.toString(i).getBytes(StandardCharsets.UTF_8),
+              vector.get(i),
+              "unexpected value at index: " + i);
         } else {
-          assertEquals(i + prefixString, vector.getObject(i).toString(), "unexpected value at index: " + i);
+          assertArrayEquals((i + prefixString).getBytes(StandardCharsets.UTF_8),
+              vector.get(i),
+              "unexpected value at index: " + i);
         }
       }
 
@@ -1653,13 +1691,17 @@ public class TestVarCharViewVector {
         if (i % 3 == 0) {
           assertNull(vector2.getObject(i));
         } else if (i % 3 == 1) {
-          assertEquals(Integer.toString(i), vector2.getObject(i).toString(), "unexpected value at index: " + i);
+          assertArrayEquals(Integer.toString(i).getBytes(StandardCharsets.UTF_8),
+              vector.get(i),
+              "unexpected value at index: " + i);
         } else {
-          assertEquals(i + prefixString, vector2.getObject(i).toString(), "unexpected value at index: " + i);
+          assertArrayEquals((i + prefixString).getBytes(StandardCharsets.UTF_8),
+              vector.get(i),
+              "unexpected value at index: " + i);
         }
       }
 
-      /* NO reAlloc() should have happened in copyFrom */
+      /* NO reAlloc() should have happened in setSafe() */
       assertEquals(capacity, vector2.getValueCapacity());
 
       vector2.setValueCount(numberOfValues);
@@ -1668,9 +1710,13 @@ public class TestVarCharViewVector {
         if (i % 3 == 0) {
           assertNull(vector2.getObject(i));
         } else if (i % 3 == 1) {
-          assertEquals(Integer.toString(i), vector2.getObject(i).toString(), "unexpected value at index: " + i);
+          assertArrayEquals(Integer.toString(i).getBytes(StandardCharsets.UTF_8),
+              vector.get(i),
+              "unexpected value at index: " + i);
         } else {
-          assertEquals(i + prefixString, vector2.getObject(i).toString(), "unexpected value at index: " + i);
+          assertArrayEquals((i + prefixString).getBytes(StandardCharsets.UTF_8),
+              vector.get(i),
+              "unexpected value at index: " + i);
         }
       }
     }
