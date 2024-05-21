@@ -90,22 +90,27 @@
     GGANDIVA_MICRO_VERSION >= (micro)))
 
 /**
- * GGANDIVA_VERSION_1_0:
+ * GGANDIVA_DISABLE_DEPRECATION_WARNINGS:
  *
- * You can use this macro value for compile time API version check.
+ * If this macro is defined, no deprecated warnings are produced.
+ *
+ * You must define this macro before including the
+ * gandiva-glib/gandiva-glib.h header.
  *
  * Since: 1.0.0
  */
-#define GGANDIVA_VERSION_1_0 G_ENCODE_VERSION(1, 0)
 
-/**
- * GGANDIVA_VERSION_4_0:
- *
- * You can use this macro value for compile time API version check.
- *
- * Since: 4.0.0
- */
-#define GGANDIVA_VERSION_4_0 G_ENCODE_VERSION(4, 0)
+#ifdef GGANDIVA_DISABLE_DEPRECATION_WARNINGS
+#  define GGANDIVA_DEPRECATED
+#  define GGANDIVA_DEPRECATED_FOR(function)
+#  define GGANDIVA_UNAVAILABLE(major, minor)
+#else
+#  define GGANDIVA_DEPRECATED G_DEPRECATED
+#  define GGANDIVA_DEPRECATED_FOR(function) G_DEPRECATED_FOR(function)
+#  define GGANDIVA_UNAVAILABLE(major, minor) G_UNAVAILABLE(major, minor)
+#endif
+
+@ENCODED_VERSIONS@
 
 /**
  * GGANDIVA_VERSION_MIN_REQUIRED:
@@ -150,17 +155,5 @@
 #  define GGANDIVA_VERSION_MAX_ALLOWED                                  \
   G_ENCODE_VERSION(GGANDIVA_VERSION_MAJOR, GGANDIVA_VERSION_MINOR)
 #endif
-
-
-/**
- * GGANDIVA_DISABLE_DEPRECATION_WARNINGS:
- *
- * If this macro is defined, no deprecated warnings are produced.
- *
- * You must define this macro before including the
- * gandiva-glib/gandiva-glib.h header.
- *
- * Since: 1.0.0
- */
 
 @AVAILABILITY_MACROS@

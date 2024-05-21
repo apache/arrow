@@ -56,7 +56,7 @@ cpp_headers = files(
 version_h = configure_file(
   input: 'version.h.in',
   output: 'version.h',
-  command: [python3, generate_version_header_py, '--library', 'GGANDIVA', '--version', version, '--input', '@INPUT@', '--output', '@OUTPUT@', '--version-library', 'GGANDIVA'],
+  command: [python3, generate_version_header_py, '--library', 'GGANDIVA', '--version', version, '--input', '@INPUT@', '--output', '@OUTPUT@'],
 )
 
 c_headers += version_h

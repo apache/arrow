@@ -45,40 +45,35 @@ def main():
             type=Path,
             required=True,
             help="Path to the output file to generate")
-    parser.add_argument(
-            "--version-library",
-            default="GARROW",
-            help="The library name prefix to use in MIN_REQUIRED and "
-            "MAX_ALLOWED checks")
 
     args = parser.parse_args()
 
     with open(args.input, "r", encoding="utf-8") as input_file, \
             open(args.output, "w", encoding="utf-8") as output_file:
         write_header(
-                input_file, output_file,
-                args.library, args.version, args.version_library)
+                input_file, output_file, args.library, args.version)
 
 
 def write_header(
         input_file: TextIOBase,
         output_file: TextIOBase,
         library_name: str,
-        version: str,
-        version_library: str):
+        version: str):
     if "-" in version:
         version, version_tag = version.split("-")
     else:
         version_tag = ""
     version_major, version_minor, version_micro = [int(v) for v in version.split(".")]
 
-    availability_macros = generate_availability_macros(library_name, version_library)
+    encoded_versions = generate_encoded_versions(library_name)
+    availability_macros = generate_availability_macros(library_name)
 
     replacements = {
             "VERSION_MAJOR": str(version_major),
             "VERSION_MINOR": str(version_minor),
             "VERSION_MICRO": str(version_micro),
             "VERSION_TAG": version_tag,
+            "ENCODED_VERSIONS": encoded_versions,
             "AVAILABILITY_MACROS": availability_macros,
     }
 
@@ -86,49 +81,27 @@ def write_header(
         r"@([A-Z_]+)@", lambda match: replacements[match[1]], input_file.read()))
 
 
-def generate_availability_macros(library: str, version_library: str) -> str:
-    versions = [
-            (16, 0),
-            (15, 0),
-            (14, 0),
-            (13, 0),
-            (12, 0),
-            (11, 0),
-            (10, 0),
-            (9, 0),
-            (8, 0),
-            (7, 0),
-            (6, 0),
-            (5, 0),
-            (4, 0),
-            (3, 0),
-            (2, 0),
-            (1, 0),
-            (0, 17),
-            (0, 16),
-            (0, 15),
-            (0, 14),
-            (0, 13),
-            (0, 12),
-            (0, 11),
-            (0, 10),
-    ]
+def generate_encoded_versions(library: str) -> str:
     macros = []
 
-    macros.append(f"""#ifdef {version_library}_DISABLE_DEPRECATION_WARNINGS
-#  define {library}_DEPRECATED
-#  define {library}_DEPRECATED_FOR(function)
-#  define {library}_UNAVAILABLE(major, minor)
-#else
-#  define {library}_DEPRECATED G_DEPRECATED
-#  define {library}_DEPRECATED_FOR(function) G_DEPRECATED_FOR(function)
-#  define {library}_UNAVAILABLE(major, minor) G_UNAVAILABLE(major, minor)
-#endif""")
+    for major_version, minor_version in ALL_VERSIONS:
+        macros.append(f"""/**
+ * {library}_VERSION_{major_version}_{minor_version}:
+ *
+ * You can use this macro value for compile time API version check.
+ *
+ * Since: {major_version}.{minor_version}.0
+ */
+#define {library}_VERSION_{major_version}_{minor_version} G_ENCODE_VERSION({major_version}, {minor_version})""")  # noqa: E501
 
-    macros.append(f"""#define {library}_AVAILABLE_IN_ALL""")
+    return "\n\n".join(macros)
 
-    for major_version, minor_version in versions:
-        macros.append(f"""#if {version_library}_VERSION_MIN_REQUIRED >= {version_library}_VERSION_{major_version}_{minor_version}
+
+def generate_availability_macros(library: str) -> str:
+    macros = [f"""#define {library}_AVAILABLE_IN_ALL"""]
+
+    for major_version, minor_version in ALL_VERSIONS:
+        macros.append(f"""#if {library}_VERSION_MIN_REQUIRED >= {library}_VERSION_{major_version}_{minor_version}
 #  define {library}_DEPRECATED_IN_{major_version}_{minor_version}               {library}_DEPRECATED
 #  define {library}_DEPRECATED_IN_{major_version}_{minor_version}_FOR(function) {library}_DEPRECATED_FOR(function)
 #else
@@ -136,13 +109,41 @@ def generate_availability_macros(library: str, version_library: str) -> str:
 #  define {library}_DEPRECATED_IN_{major_version}_{minor_version}_FOR(function)
 #endif
 
-#if {version_library}_VERSION_MAX_ALLOWED < {version_library}_VERSION_{major_version}_{minor_version}
+#if {library}_VERSION_MAX_ALLOWED < {library}_VERSION_{major_version}_{minor_version}
 #  define {library}_AVAILABLE_IN_{major_version}_{minor_version} {library}_UNAVAILABLE({major_version}, {minor_version})
 #else
 #  define {library}_AVAILABLE_IN_{major_version}_{minor_version}
 #endif""")  # noqa: E501
 
     return "\n\n".join(macros)
+
+
+ALL_VERSIONS = [
+        (16, 0),
+        (15, 0),
+        (14, 0),
+        (13, 0),
+        (12, 0),
+        (11, 0),
+        (10, 0),
+        (9, 0),
+        (8, 0),
+        (7, 0),
+        (6, 0),
+        (5, 0),
+        (4, 0),
+        (3, 0),
+        (2, 0),
+        (1, 0),
+        (0, 17),
+        (0, 16),
+        (0, 15),
+        (0, 14),
+        (0, 13),
+        (0, 12),
+        (0, 11),
+        (0, 10),
+]
 
 
 if __name__ == '__main__':

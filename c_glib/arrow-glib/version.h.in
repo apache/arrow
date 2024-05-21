@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <glib.h>
+
 /**
  * SECTION: version
  * @section_id: version-macros
@@ -88,211 +90,27 @@
     GARROW_VERSION_MICRO >= (micro)))
 
 /**
- * GARROW_VERSION_16_0:
+ * GARROW_DISABLE_DEPRECATION_WARNINGS:
  *
- * You can use this macro value for compile time API version check.
+ * If this macro is defined, no deprecated warnings are produced.
  *
- * Since: 16.0.0
- */
-#define GARROW_VERSION_16_0 G_ENCODE_VERSION(16, 0)
-
-/**
- * GARROW_VERSION_15_0:
- *
- * You can use this macro value for compile time API version check.
- *
- * Since: 15.0.0
- */
-#define GARROW_VERSION_15_0 G_ENCODE_VERSION(15, 0)
-
-/**
- * GARROW_VERSION_14_0:
- *
- * You can use this macro value for compile time API version check.
- *
- * Since: 14.0.0
- */
-#define GARROW_VERSION_14_0 G_ENCODE_VERSION(14, 0)
-
-/**
- * GARROW_VERSION_13_0:
- *
- * You can use this macro value for compile time API version check.
- *
- * Since: 13.0.0
- */
-#define GARROW_VERSION_13_0 G_ENCODE_VERSION(13, 0)
-
-/**
- * GARROW_VERSION_12_0:
- *
- * You can use this macro value for compile time API version check.
- *
- * Since: 12.0.0
- */
-#define GARROW_VERSION_12_0 G_ENCODE_VERSION(12, 0)
-
-/**
- * GARROW_VERSION_11_0:
- *
- * You can use this macro value for compile time API version check.
- *
- * Since: 11.0.0
- */
-#define GARROW_VERSION_11_0 G_ENCODE_VERSION(11, 0)
-
-/**
- * GARROW_VERSION_10_0:
- *
- * You can use this macro value for compile time API version check.
- *
- * Since: 10.0.0
- */
-#define GARROW_VERSION_10_0 G_ENCODE_VERSION(10, 0)
-
-/**
- * GARROW_VERSION_9_0:
- *
- * You can use this macro value for compile time API version check.
- *
- * Since: 9.0.0
- */
-#define GARROW_VERSION_9_0 G_ENCODE_VERSION(9, 0)
-
-/**
- * GARROW_VERSION_8_0:
- *
- * You can use this macro value for compile time API version check.
- *
- * Since: 8.0.0
- */
-#define GARROW_VERSION_8_0 G_ENCODE_VERSION(8, 0)
-
-/**
- * GARROW_VERSION_7_0:
- *
- * You can use this macro value for compile time API version check.
- *
- * Since: 7.0.0
- */
-#define GARROW_VERSION_7_0 G_ENCODE_VERSION(7, 0)
-
-/**
- * GARROW_VERSION_6_0:
- *
- * You can use this macro value for compile time API version check.
- *
- * Since: 6.0.0
- */
-#define GARROW_VERSION_6_0 G_ENCODE_VERSION(6, 0)
-
-/**
- * GARROW_VERSION_5_0:
- *
- * You can use this macro value for compile time API version check.
- *
- * Since: 5.0.0
- */
-#define GARROW_VERSION_5_0 G_ENCODE_VERSION(5, 0)
-
-/**
- * GARROW_VERSION_4_0:
- *
- * You can use this macro value for compile time API version check.
- *
- * Since: 4.0.0
- */
-#define GARROW_VERSION_4_0 G_ENCODE_VERSION(4, 0)
-
-/**
- * GARROW_VERSION_3_0:
- *
- * You can use this macro value for compile time API version check.
- *
- * Since: 3.0.0
- */
-#define GARROW_VERSION_3_0 G_ENCODE_VERSION(3, 0)
-
-/**
- * GARROW_VERSION_2_0:
- *
- * You can use this macro value for compile time API version check.
- *
- * Since: 2.0.0
- */
-#define GARROW_VERSION_2_0 G_ENCODE_VERSION(2, 0)
-
-/**
- * GARROW_VERSION_1_0:
- *
- * You can use this macro value for compile time API version check.
- *
- * Since: 1.0.0
- */
-#define GARROW_VERSION_1_0 G_ENCODE_VERSION(1, 0)
-
-/**
- * GARROW_VERSION_0_17:
- *
- * You can use this macro value for compile time API version check.
- *
- * Since: 0.17.0
- */
-#define GARROW_VERSION_0_17 G_ENCODE_VERSION(0, 17)
-
-/**
- * GARROW_VERSION_0_16:
- *
- * You can use this macro value for compile time API version check.
- *
- * Since: 0.16.0
- */
-#define GARROW_VERSION_0_16 G_ENCODE_VERSION(0, 16)
-
-/**
- * GARROW_VERSION_0_15:
- *
- * You can use this macro value for compile time API version check.
- *
- * Since: 0.15.0
- */
-#define GARROW_VERSION_0_15 G_ENCODE_VERSION(0, 15)
-
-/**
- * GARROW_VERSION_0_14:
- *
- * You can use this macro value for compile time API version check.
- *
- * Since: 0.14.0
- */
-#define GARROW_VERSION_0_14 G_ENCODE_VERSION(0, 14)
-
-/**
- * GARROW_VERSION_0_13:
- *
- * You can use this macro value for compile time API version check.
- *
- * Since: 0.13.0
- */
-#define GARROW_VERSION_0_13 G_ENCODE_VERSION(0, 13)
-
-/**
- * GARROW_VERSION_0_12:
- *
- * You can use this macro value for compile time API version check.
- *
- * Since: 0.12.0
- */
-#define GARROW_VERSION_0_12 G_ENCODE_VERSION(0, 12)
-
-/**
- * GARROW_VERSION_0_10:
- *
- * You can use this macro value for compile time API version check.
+ * You must define this macro before including the
+ * arrow-glib/arrow-glib.h header.
  *
  * Since: 0.10.0
  */
-#define GARROW_VERSION_0_10 G_ENCODE_VERSION(0, 10)
+
+#ifdef GARROW_DISABLE_DEPRECATION_WARNINGS
+#  define GARROW_DEPRECATED
+#  define GARROW_DEPRECATED_FOR(function)
+#  define GARROW_UNAVAILABLE(major, minor)
+#else
+#  define GARROW_DEPRECATED G_DEPRECATED
+#  define GARROW_DEPRECATED_FOR(function) G_DEPRECATED_FOR(function)
+#  define GARROW_UNAVAILABLE(major, minor) G_UNAVAILABLE(major, minor)
+#endif
+
+@ENCODED_VERSIONS@
 
 /**
  * GARROW_VERSION_MIN_REQUIRED:
@@ -337,16 +155,5 @@
 #  define GARROW_VERSION_MAX_ALLOWED            \
   G_ENCODE_VERSION(GARROW_VERSION_MAJOR, GARROW_VERSION_MINOR)
 #endif
-
-/**
- * GARROW_DISABLE_DEPRECATION_WARNINGS:
- *
- * If this macro is defined, no deprecated warnings are produced.
- *
- * You must define this macro before including the
- * arrow-glib/arrow-glib.h header.
- *
- * Since: 0.10.0
- */
 
 @AVAILABILITY_MACROS@
