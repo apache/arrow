@@ -30,6 +30,7 @@
 #ifdef ARROW_JSON
 #include "arrow/extension/fixed_shape_tensor.h"
 #endif
+#include "arrow/extension/uuid.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
@@ -145,12 +146,17 @@ static void CreateGlobalRegistry() {
   g_registry = std::make_shared<ExtensionTypeRegistryImpl>();
 
 #ifdef ARROW_JSON
-  // Register canonical extension types
-  auto ext_type =
-      checked_pointer_cast<ExtensionType>(extension::fixed_shape_tensor(int64(), {}));
-
-  ARROW_CHECK_OK(g_registry->RegisterType(ext_type));
+  std::vector<std::shared_ptr<DataType>> ext_types{
+      extension::fixed_shape_tensor(int64(), {}), ::arrow::extension::uuid()};
+#else
+  std::vector<std::shared_ptr<DataType>> ext_types{::arrow::extension::uuid()};
 #endif
+
+  // Register canonical extension types
+  for (const auto& ext_type : ext_types) {
+    ARROW_CHECK_OK(
+        g_registry->RegisterType(checked_pointer_cast<ExtensionType>(ext_type)));
+  }
 }
 
 }  // namespace internal

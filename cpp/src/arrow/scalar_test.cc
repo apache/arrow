@@ -43,7 +43,6 @@ namespace arrow {
 
 using compute::Cast;
 using compute::CastOptions;
-
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
@@ -2038,7 +2037,7 @@ class TestExtensionScalar : public ::testing::Test {
   void SetUp() {
     type_ = uuid();
     storage_type_ = fixed_size_binary(16);
-    uuid_type_ = checked_cast<const UuidType*>(type_.get());
+    uuid_type_ = checked_cast<const ExampleUuidType*>(type_.get());
   }
 
  protected:
@@ -2049,7 +2048,7 @@ class TestExtensionScalar : public ::testing::Test {
   }
 
   std::shared_ptr<DataType> type_, storage_type_;
-  const UuidType* uuid_type_{nullptr};
+  const ExampleUuidType* uuid_type_{nullptr};
 
   const std::string_view uuid_string1_{UUID_STRING1};
   const std::string_view uuid_string2_{UUID_STRING2};

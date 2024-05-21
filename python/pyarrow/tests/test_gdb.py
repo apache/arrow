@@ -409,7 +409,7 @@ def test_types_stack(gdb_arrow):
 
     check_stack_repr(
         gdb_arrow, "uuid_type",
-        ('arrow::ExtensionType "extension<uuid>" '
+        ('arrow::ExtensionType "extension<arrow.uuid>" '
          'with storage type arrow::fixed_size_binary(16)'))
 
 
@@ -447,7 +447,7 @@ def test_types_heap(gdb_arrow):
 
     check_heap_repr(
         gdb_arrow, "heap_uuid_type",
-        ('arrow::ExtensionType "extension<uuid>" '
+        ('arrow::ExtensionType "extension<arrow.uuid>" '
          'with storage type arrow::fixed_size_binary(16)'))
 
 
@@ -716,12 +716,12 @@ def test_scalars_stack(gdb_arrow):
 
     check_stack_repr(
         gdb_arrow, "extension_scalar",
-        ('arrow::ExtensionScalar of type "extension<uuid>", '
+        ('arrow::ExtensionScalar of type "extension<arrow.uuid>", '
          'value arrow::FixedSizeBinaryScalar of size 16, '
          'value "0123456789abcdef"'))
     check_stack_repr(
         gdb_arrow, "extension_scalar_null",
-        'arrow::ExtensionScalar of type "extension<uuid>", null value')
+        'arrow::ExtensionScalar of type "extension<arrow.uuid>", null value')
 
 
 def test_scalars_heap(gdb_arrow):

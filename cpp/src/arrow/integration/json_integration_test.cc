@@ -1046,7 +1046,7 @@ TEST(TestJsonFileReadWrite, JsonExample2) {
 
     auto storage_array =
         ArrayFromJSON(fixed_size_binary(16), R"(["0123456789abcdef", null])");
-    AssertArraysEqual(*batch->column(0), UuidArray(uuid_type, storage_array));
+    AssertArraysEqual(*batch->column(0), ExampleUuidArray(uuid_type, storage_array));
 
     AssertArraysEqual(*batch->column(1), NullArray(2));
   }
