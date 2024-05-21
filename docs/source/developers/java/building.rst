@@ -32,8 +32,12 @@ Arrow Java uses the `Maven <https://maven.apache.org/>`_ build system.
 
 Building requires:
 
+* JDK 21+
+* Maven 3.6.3+
+
+Testing requires:
+
 * JDK 8+
-* Maven 3+
 
 .. note::
     CI will test all supported JDK LTS versions, plus the latest non-LTS version.
@@ -320,6 +324,63 @@ Building Java JNI Modules
           -Darrow.cpp.build.dir=<absolute path to your arrow folder>/java-dist/lib/ \
           -Darrow.c.jni.dist.dir=<absolute path to your arrow folder>/java-dist/lib/ \
           -Parrow-jni clean install
+
+Testing
+=======
+
+By default, Maven will use the same Java version to build Arrow and run the tests.
+In order to run the test suite against a specific version of the Java runtime, Maven
+toolchains needs to be configured beforehand, and then a test specific property needs to
+be set.
+
+Configuring Maven toolchains
+----------------------------
+
+To be able to use a JDK for testing, it needs to be registered first in Maven ``toolchains.xml``
+configuration file usually located under ``${HOME}/.m2`` with the following snippet added to it:
+
+  .. code-block::
+
+      <?xml version="1.0" encoding="UTF8"?>
+      <toolchains>
+
+        [...]
+
+        <toolchain>
+          <type>jdk</type>
+          <provides>
+            <version>21</version> <!-- Replace with the corresponding JDK version: 1.8, 11, 17, ... -->
+            <vendor>temurin</vendor> <!-- Replace with the vendor/distribution: temurin, oracle, zulu ... -->
+          </provides>
+          <configuration>
+            <jdkHome>path/to/jdk/home</jdkHome> <!-- Replace with the path to the JDK -->
+          </configuration>
+        </toolchain>
+
+        [...]
+
+      </toolchains>
+
+Testing with a specific JDK
+---------------------------
+
+To run Arrow tests with a specific JDK version, use the ``arrow.test.jdk-version`` property.
+
+- To run Arrow tests with JDK 1.8, use the following snippet:
+
+  .. code-block::
+
+      $ cd arrow/java
+      $ mvn -Darrow.test.jdk-version=1.8 clean verify
+
+
+- To run Arrow tests with JDK 17, use the following snippet:
+
+  .. code-block::
+
+      $ cd arrow/java
+      $ mvn -Darrow.test.jdk-version=17 clean verify
+
 
 IDE Configuration
 =================

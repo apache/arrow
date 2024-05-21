@@ -36,6 +36,7 @@ under the License.
   <properties>
     <arrow.vector.classifier></arrow.vector.classifier>
     <!-- org.apache:apache overrides -->
+    <minimalJavaBuildVersion>21</minimalJavaBuildVersion>
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
     <maven.compiler.release>8</maven.compiler.release>
@@ -51,8 +52,6 @@ under the License.
       is addressed
     -->
     <version.maven-jar-plugin>3.2.2</version.maven-jar-plugin>
-    <version.maven-javadoc-plugin>3.6.3</version.maven-javadoc-plugin>
-    <version.maven-project-info-reports-plugin>3.5.0</version.maven-project-info-reports-plugin>
   </properties>
 
   <dependencyManagement>

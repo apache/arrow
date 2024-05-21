@@ -57,7 +57,7 @@ jobs:
           archery docker run \
             -e ARROW_JAVA_BUILD=OFF \
             -e ARROW_JAVA_TEST=OFF \
-            java-jni-manylinux-2014
+            java-jni-manylinux-2-28
       - name: Compress into single artifact to keep directory structure
         run: tar -cvzf arrow-shared-libs-linux-{{ arch }}.tar.gz arrow/java-dist/
       - name: Upload artifacts
@@ -69,7 +69,7 @@ jobs:
       {{ macros.github_login_dockerhub()|indent }}
       - name: Push Docker image
         shell: bash
-        run: archery docker push java-jni-manylinux-2014
+        run: archery docker push java-jni-manylinux-2-28
     {% endif %}
 
   build-cpp-macos:
