@@ -285,7 +285,7 @@ static inline int Log2(uint64_t x) {
 template <typename T>
 static constexpr uint8_t GetBitMask(T index) {
   // DCHECK(index >= 0 && index <= 7);
-  ARROW_COMPILER_ASSUME(index >= 0 && index <= 7);
+  ARROW_COMPILER_ASSUME(index >= 0);
   return static_cast<uint8_t>(1) << index;
 }
 
@@ -294,7 +294,7 @@ static constexpr uint8_t GetBitMask(T index) {
 template <typename T>
 static constexpr uint8_t GetFlippedBitMask(T index) {
   // DCHECK(index >= 0 && index <= 7);
-  ARROW_COMPILER_ASSUME(index >= 0 && index <= 7);
+  ARROW_COMPILER_ASSUME(index >= 0);
   return ~(static_cast<uint8_t>(1) << index);
 }
 
