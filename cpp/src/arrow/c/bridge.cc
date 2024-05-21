@@ -1873,7 +1873,7 @@ struct ArrayImporter {
       int64_t last_offset_value_offset =
           (c_struct_->length + c_struct_->offset) * sizeof(OffsetType);
       OffsetType last_offset_value;
-      RETURN_NOT_OK(MemoryManager::CopyBufferSlice(
+      RETURN_NOT_OK(MemoryManager::CopyBufferSliceToCPU(
           data_->buffers[offsets_buffer_id], last_offset_value_offset, sizeof(OffsetType),
           reinterpret_cast<uint8_t*>(&last_offset_value)));
       // Compute visible size of buffer

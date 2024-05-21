@@ -116,8 +116,9 @@ Result<std::shared_ptr<Buffer>> MemoryManager::ViewBuffer(
                                 " on ", to->device()->ToString(), " not supported");
 }
 
-Status MemoryManager::CopyBufferSlice(const std::shared_ptr<Buffer>& buf, int64_t offset,
-                                      int64_t length, uint8_t* out_data) {
+Status MemoryManager::CopyBufferSliceToCPU(const std::shared_ptr<Buffer>& buf,
+                                           int64_t offset, int64_t length,
+                                           uint8_t* out_data) {
   if (ARROW_PREDICT_TRUE(buf->is_cpu())) {
     memcpy(out_data, buf->data() + offset, static_cast<size_t>(length));
     return Status::OK();
