@@ -20,6 +20,7 @@
 #include "arrow/array/array_base.h"
 #include "arrow/c/dlpack_abi.h"
 #include "arrow/device.h"
+#include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 
@@ -121,6 +122,73 @@ Result<DLDevice> ExportDevice(const std::shared_ptr<Array>& arr) {
   // Define DLDevice struct
   DLDevice device;
   if (arr->data()->buffers[1]->device_type() == DeviceAllocationType::kCPU) {
+    device.device_id = 0;
+    device.device_type = DLDeviceType::kDLCPU;
+    return device;
+  } else {
+    return Status::NotImplemented(
+        "DLPack support is implemented only for buffers on CPU device.");
+  }
+}
+
+struct TensorManagerCtx {
+  std::shared_ptr<Tensor> t;
+  DLManagedTensor tensor;
+};
+
+Result<DLManagedTensor*> ExportArray(const std::shared_ptr<Tensor>& t) {
+  // Define DLDevice struct nad check if array type is supported
+  // by the DLPack protocol at the same time. Raise TypeError if not.
+  // Supported data types: int, uint, float with no validity buffer.
+  ARROW_ASSIGN_OR_RAISE(auto device, ExportDevice(t))
+
+  // Define the DLDataType struct
+  const DataType& type = *t->type();
+  ARROW_ASSIGN_OR_RAISE(auto dlpack_type, GetDLDataType(type));
+
+  // Create ManagerCtx that will serve as the owner of the DLManagedTensor
+  std::unique_ptr<TensorManagerCtx> ctx(new TensorManagerCtx);
+
+  // Define the data pointer to the DLTensor
+  // If array is of length 0, data pointer should be NULL
+  if (t->size() == 0) {
+    ctx->tensor.dl_tensor.data = NULL;
+  } else {
+    ctx->tensor.dl_tensor.data = const_cast<uint8_t*>(t->raw_data());
+  }
+
+  ctx->tensor.dl_tensor.device = device;
+  ctx->tensor.dl_tensor.ndim = t->ndim();
+  ctx->tensor.dl_tensor.dtype = dlpack_type;
+
+  auto temp_shape = *t->shape().data();
+  ctx->tensor.dl_tensor.shape = const_cast<int64_t*>(&temp_shape);
+  auto temp_strides = *t->strides().data();
+  ctx->tensor.dl_tensor.strides = const_cast<int64_t*>(&temp_strides);
+  ctx->tensor.dl_tensor.byte_offset = 0;
+
+  ctx->t = std::move(t);
+  ctx->tensor.manager_ctx = ctx.get();
+  ctx->tensor.deleter = [](struct DLManagedTensor* self) {
+    delete reinterpret_cast<ManagerCtx*>(self->manager_ctx);
+  };
+  return &ctx.release()->tensor;
+}
+
+Result<DLDevice> ExportDevice(const std::shared_ptr<Tensor>& t) {
+  // Check if array is supported by the DLPack protocol.
+  const DataType& type = *t->type();
+  if (type.id() == Type::BOOL) {
+    return Status::TypeError("Bit-packed boolean data type not supported by DLPack.");
+  }
+  if (!is_integer(type.id()) && !is_floating(type.id())) {
+    return Status::TypeError("DataType is not compatible with DLPack spec: ",
+                             type.ToString());
+  }
+
+  // Define DLDevice struct
+  DLDevice device;
+  if (t->data()->device_type() == DeviceAllocationType::kCPU) {
     device.device_id = 0;
     device.device_type = DLDeviceType::kDLCPU;
     return device;
