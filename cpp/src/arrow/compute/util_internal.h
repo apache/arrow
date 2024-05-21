@@ -66,6 +66,8 @@ class ARROW_EXPORT TempVectorStack {
   int64_t top_;
   std::unique_ptr<Buffer> buffer_;
   int64_t buffer_size_;
+
+  friend class TempVectorStackTest;
 };
 
 template <typename T>
