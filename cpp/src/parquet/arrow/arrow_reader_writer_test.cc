@@ -649,22 +649,24 @@ class ParquetIOTestBase : public ::testing::Test {
     AssertArraysEqual(values, *out);
   }
 
-  void ReadTableFromFile(std::unique_ptr<FileReader> reader, bool expect_metadata,
+  void ReadTableFromFile(std::unique_ptr<FileReader> reader, bool expect_schema,
                          std::shared_ptr<Table>* out) {
     ASSERT_OK_NO_THROW(reader->ReadTable(out));
     auto key_value_metadata =
         reader->parquet_reader()->metadata()->key_value_metadata().get();
-    if (!expect_metadata) {
-      ASSERT_EQ(nullptr, key_value_metadata);
+    if (!expect_schema) {
+      ASSERT_TRUE(key_value_metadata == nullptr ||
+                  !key_value_metadata->Contains("ARROW:schema"));
     } else {
       ASSERT_NE(nullptr, key_value_metadata);
+      ASSERT_TRUE(key_value_metadata->Contains("ARROW:schema"));
     }
     ASSERT_NE(nullptr, out->get());
   }
 
   void ReadTableFromFile(std::unique_ptr<FileReader> reader,
                          std::shared_ptr<Table>* out) {
-    ReadTableFromFile(std::move(reader), /*expect_metadata=*/false, out);
+    ReadTableFromFile(std::move(reader), /*expect_schema=*/false, out);
   }
 
   void RoundTripSingleColumn(
@@ -680,9 +682,9 @@ class ParquetIOTestBase : public ::testing::Test {
     std::shared_ptr<Table> out;
     std::unique_ptr<FileReader> reader;
     ASSERT_NO_FATAL_FAILURE(this->ReaderFromSink(&reader));
-    const bool expect_metadata = arrow_properties->store_schema();
+    const bool expect_schema = arrow_properties->store_schema();
     ASSERT_NO_FATAL_FAILURE(
-        this->ReadTableFromFile(std::move(reader), expect_metadata, &out));
+        this->ReadTableFromFile(std::move(reader), expect_schema, &out));
     ASSERT_EQ(1, out->num_columns());
     ASSERT_EQ(table->num_rows(), out->num_rows());
 
@@ -887,6 +889,25 @@ TYPED_TEST(TestParquetIO, ZeroChunksTable) {
   ASSERT_EQ(0, out->column(0)->length());
   // odd: even though zero chunks were written, a single empty chunk is read
   ASSERT_EQ(1, out->column(0)->num_chunks());
+}
+
+TYPED_TEST(TestParquetIO, TableWithMetadata) {
+  auto values =
+      std::make_shared<ChunkedArray>(::arrow::ArrayVector{}, ::arrow::int32());
+  auto table = MakeSimpleTable(
+      values, false, ::arrow::KeyValueMetadata::Make({"foo"}, {"bar"}));
+
+  this->ResetSink();
+  ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(),
+                                this->sink_, SMALL_SIZE));
+
+  std::shared_ptr<Table> out;
+  std::unique_ptr<FileReader> reader;
+  ASSERT_NO_FATAL_FAILURE(this->ReaderFromSink(&reader));
+  ASSERT_NO_FATAL_FAILURE(this->ReadTableFromFile(std::move(reader), &out));
+  ASSERT_NE(nullptr, out->schema()->metadata());
+  ASSERT_TRUE(out->schema()->metadata()->Contains("foo"));
+  ASSERT_EQ("bar", out->schema()->metadata()->Get("foo"));
 }
 
 TYPED_TEST(TestParquetIO, SingleColumnTableRequiredWrite) {
