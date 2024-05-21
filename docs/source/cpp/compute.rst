@@ -1413,13 +1413,15 @@ null input value is converted into a null output value.
 +-----------------------------+------------------------------------+---------+
 | Struct                      | Struct                             | \(2)    |
 +-----------------------------+------------------------------------+---------+
-| List-like                   | List-like                          | \(3)    |
+| List-like                   | List-like or (Large)ListView       | \(3)    |
 +-----------------------------+------------------------------------+---------+
-| Map                         | Map or List of two-field struct    | \(4)    |
+| (Large)ListView             | List-like or (Large)ListView       | \(4)    |
++-----------------------------+------------------------------------+---------+
+| Map                         | Map or List of two-field struct    | \(5)    |
 +-----------------------------+------------------------------------+---------+
 | Null                        | Any                                |         |
 +-----------------------------+------------------------------------+---------+
-| Any                         | Extension                          | \(5)    |
+| Any                         | Extension                          | \(6)    |
 +-----------------------------+------------------------------------+---------+
 
 * \(1) The dictionary indices are unchanged, the dictionary values are
@@ -1433,14 +1435,20 @@ null input value is converted into a null output value.
 
 * \(3) The list offsets are unchanged, the list values are cast from the
   input value type to the output value type (if a conversion is
-  available).
+  available). If the output type is (Large)ListView, then sizes are
+  derived from the offsets.
 
-* \(4) Offsets are unchanged, the keys and values are cast from respective input
+* \(4) If output type is list-like, offsets might have to be rebuilt to be
+  sorted and spaced correctly. If output type is a list-view type, the offsets
+  and sizes are unchanged. In any case, the list values are cast from the input
+  value type to the output value type (if a conversion is available).
+
+* \(5) Offsets are unchanged, the keys and values are cast from respective input
   to output types (if a conversion is available). If output type is a list of
   struct, the key field is output as the first field and the value field the
   second field, regardless of field names chosen.
 
-* \(5) Any input type that can be cast to the resulting extension's storage type.
+* \(6) Any input type that can be cast to the resulting extension's storage type.
   This excludes extension types, unless being cast to the same extension type.
 
 Temporal component extraction
