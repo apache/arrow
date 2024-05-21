@@ -47,7 +47,7 @@ require (
 
 require (
 	github.com/google/uuid v1.6.0
-	github.com/hamba/avro/v2 v2.21.1
+	github.com/hamba/avro/v2 v2.22.0
 	github.com/substrait-io/substrait-go v0.4.2
 	github.com/tidwall/sjson v1.2.5
 )
