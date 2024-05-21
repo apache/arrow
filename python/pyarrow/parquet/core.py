@@ -238,6 +238,10 @@ class ParquetFile:
         resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
         and therefore INT96 timestamps will be inferred as timestamps
         in nanoseconds.
+    convert_unknown_logical_types : bool, default false
+        When enabled, the Arrow reader will use the underlying physical type
+        of a logical type that it does not recognize (e.g., one that was added
+        to the spec but not implemented in Parquet C++).
     decryption_properties : FileDecryptionProperties, default None
         File decryption properties for Parquet Modular Encryption.
     thrift_string_size_limit : int, default None
@@ -300,6 +304,7 @@ class ParquetFile:
     def __init__(self, source, *, metadata=None, common_metadata=None,
                  read_dictionary=None, memory_map=False, buffer_size=0,
                  pre_buffer=False, coerce_int96_timestamp_unit=None,
+                 convert_unknown_logical_types=False,
                  decryption_properties=None, thrift_string_size_limit=None,
                  thrift_container_size_limit=None, filesystem=None,
                  page_checksum_verification=False):
@@ -318,6 +323,7 @@ class ParquetFile:
             buffer_size=buffer_size, pre_buffer=pre_buffer,
             read_dictionary=read_dictionary, metadata=metadata,
             coerce_int96_timestamp_unit=coerce_int96_timestamp_unit,
+            convert_unknown_logical_types=convert_unknown_logical_types,
             decryption_properties=decryption_properties,
             thrift_string_size_limit=thrift_string_size_limit,
             thrift_container_size_limit=thrift_container_size_limit,
@@ -1250,6 +1256,10 @@ coerce_int96_timestamp_unit : str, default None
     Cast timestamps that are stored in INT96 format to a particular resolution
     (e.g. 'ms'). Setting to None is equivalent to 'ns' and therefore INT96
     timestamps will be inferred as timestamps in nanoseconds.
+convert_unknown_logical_types : bool, default False
+    When enabled, the Arrow reader will use the underlying physical type
+    of a logical type that it does not recognize (e.g., one that was added
+    to the spec but not implemented in Parquet C++).
 decryption_properties : FileDecryptionProperties or None
     File-level decryption properties.
     The decryption properties can be created using
@@ -1274,6 +1284,7 @@ Examples
                  read_dictionary=None, memory_map=False, buffer_size=None,
                  partitioning="hive", ignore_prefixes=None, pre_buffer=True,
                  coerce_int96_timestamp_unit=None,
+                 convert_unknown_logical_types=False,
                  decryption_properties=None, thrift_string_size_limit=None,
                  thrift_container_size_limit=None,
                  page_checksum_verification=False):
@@ -1284,6 +1295,7 @@ Examples
         read_options = {
             "pre_buffer": pre_buffer,
             "coerce_int96_timestamp_unit": coerce_int96_timestamp_unit,
+            "convert_unknown_logical_types": convert_unknown_logical_types,
             "thrift_string_size_limit": thrift_string_size_limit,
             "thrift_container_size_limit": thrift_container_size_limit,
             "page_checksum_verification": page_checksum_verification,
@@ -1660,6 +1672,10 @@ coerce_int96_timestamp_unit : str, default None
     resolution (e.g. 'ms'). Setting to None is equivalent to 'ns'
     and therefore INT96 timestamps will be inferred as timestamps
     in nanoseconds.
+convert_unknown_logical_types : bool, default False
+    When enabled, the Arrow reader will use the underlying physical type
+    of a logical type that it does not recognize (e.g., one that was added
+    to the spec but not implemented in Parquet C++).
 decryption_properties : FileDecryptionProperties or None
     File-level decryption properties.
     The decryption properties can be created using
@@ -1766,6 +1782,7 @@ def read_table(source, *, columns=None, use_threads=True,
                memory_map=False, buffer_size=0, partitioning="hive",
                filesystem=None, filters=None, ignore_prefixes=None,
                pre_buffer=True, coerce_int96_timestamp_unit=None,
+               convert_unknown_logical_types=False,
                decryption_properties=None, thrift_string_size_limit=None,
                thrift_container_size_limit=None,
                page_checksum_verification=False):
@@ -1783,6 +1800,7 @@ def read_table(source, *, columns=None, use_threads=True,
             ignore_prefixes=ignore_prefixes,
             pre_buffer=pre_buffer,
             coerce_int96_timestamp_unit=coerce_int96_timestamp_unit,
+            convert_unknown_logical_types=convert_unknown_logical_types,
             decryption_properties=decryption_properties,
             thrift_string_size_limit=thrift_string_size_limit,
             thrift_container_size_limit=thrift_container_size_limit,
@@ -1815,6 +1833,7 @@ def read_table(source, *, columns=None, use_threads=True,
             memory_map=memory_map, buffer_size=buffer_size,
             pre_buffer=pre_buffer,
             coerce_int96_timestamp_unit=coerce_int96_timestamp_unit,
+            convert_unknown_logical_types=convert_unknown_logical_types,
             decryption_properties=decryption_properties,
             thrift_string_size_limit=thrift_string_size_limit,
             thrift_container_size_limit=thrift_container_size_limit,
