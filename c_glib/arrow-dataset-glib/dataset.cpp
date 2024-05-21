@@ -160,7 +160,7 @@ gadataset_dataset_to_table(GADatasetDataset *dataset, GError **error)
 }
 
 /**
- * gadataset_dataset_to_reader:
+ * gadataset_dataset_to_record_batch_reader:
  * @dataset: A #GADatasetDataset.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
@@ -170,21 +170,23 @@ gadataset_dataset_to_table(GADatasetDataset *dataset, GError **error)
  * Since: 17.0.0
  */
 GArrowRecordBatchReader *
-gadataset_dataset_to_reader(GADatasetDataset *dataset, GError **error)
+gadataset_dataset_to_record_batch_reader(GADatasetDataset *dataset, GError **error)
 {
   auto arrow_dataset = gadataset_dataset_get_raw(dataset);
   auto arrow_scanner_builder_result = arrow_dataset->NewScan();
-  if (!garrow::check(error, arrow_scanner_builder_result, "[dataset][get-reader]")) {
+  if (!garrow::check(error,
+                     arrow_scanner_builder_result,
+                     "[dataset][to-record-batch-reader]")) {
     return NULL;
   }
   auto arrow_scanner_builder = *arrow_scanner_builder_result;
   auto arrow_scanner_result = arrow_scanner_builder->Finish();
-  if (!garrow::check(error, arrow_scanner_result, "[dataset][get-reader]")) {
+  if (!garrow::check(error, arrow_scanner_result, "[dataset][to-record-batch-reader]")) {
     return NULL;
   }
   auto arrow_scanner = *arrow_scanner_result;
   auto arrow_reader_result = arrow_scanner->ToRecordBatchReader();
-  if (!garrow::check(error, arrow_reader_result, "[dataset][get-reader]")) {
+  if (!garrow::check(error, arrow_reader_result, "[dataset][to-record-batch-reader]")) {
     return NULL;
   }
   return garrow_record_batch_reader_new_raw(&(*arrow_reader_result), nullptr);

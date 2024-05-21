@@ -47,6 +47,6 @@ class TestDatasetScanner < Test::Unit::TestCase
   end
 
   def test_record_batch_reader
-    assert_equal(@table, @scanner.to_reader.read_all)
+    assert_equal(@table, @scanner.to_record_batch_reader.read_all)
   end
 end
