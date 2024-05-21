@@ -20,6 +20,7 @@
 #pragma once
 
 #include <arrow-flight-glib/arrow-flight-glib.h>
+
 #include <arrow-flight-sql-glib/version.h>
 
 G_BEGIN_DECLS

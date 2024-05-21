@@ -20,7 +20,6 @@
 #pragma once
 
 #include <gandiva-glib/native-function.h>
-#include <gandiva-glib/version.h>
 
 G_BEGIN_DECLS
 
