@@ -47,7 +47,7 @@ class TestDatasetScanner < Test::Unit::TestCase
   end
 
   def test_record_batch_reader
-    reader = @scanner.reader
+    reader = @scanner.to_reader
     record_batches = []
     loop do
       batch = reader.read_next

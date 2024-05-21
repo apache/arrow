@@ -62,7 +62,7 @@ class TestDatasetFileSystemDataset < Test::Unit::TestCase
 
   def test_record_batch_reader
     dataset, expected_table = create_dataset
-    reader = dataset.reader
+    reader = dataset.to_reader
     record_batches = []
     loop do
       batch = reader.read_next

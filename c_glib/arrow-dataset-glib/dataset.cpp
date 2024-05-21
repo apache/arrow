@@ -160,7 +160,7 @@ gadataset_dataset_to_table(GADatasetDataset *dataset, GError **error)
 }
 
 /**
- * gadataset_dataset_get_reader:
+ * gadataset_dataset_to_reader:
  * @dataset: A #GADatasetDataset.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
@@ -170,7 +170,7 @@ gadataset_dataset_to_table(GADatasetDataset *dataset, GError **error)
  * Since: 17.0.0
  */
 GArrowRecordBatchReader *
-gadataset_dataset_get_reader(GADatasetDataset *dataset, GError **error)
+gadataset_dataset_to_reader(GADatasetDataset *dataset, GError **error)
 {
   auto arrow_dataset = gadataset_dataset_get_raw(dataset);
   auto arrow_scanner_builder_result = arrow_dataset->NewScan();

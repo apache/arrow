@@ -129,7 +129,7 @@ gadataset_scanner_to_table(GADatasetScanner *scanner, GError **error)
 }
 
 /**
- * gadataset_scanner_get_reader:
+ * gadataset_scanner_to_reader:
  * @scanner: A #GADatasetScanner.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
@@ -139,7 +139,7 @@ gadataset_scanner_to_table(GADatasetScanner *scanner, GError **error)
  * Since: 17.0.0
  */
 GArrowRecordBatchReader *
-gadataset_scanner_get_reader(GADatasetScanner *scanner, GError **error)
+gadataset_scanner_to_reader(GADatasetScanner *scanner, GError **error)
 {
   auto arrow_scanner = gadataset_scanner_get_raw(scanner);
   auto arrow_reader_result = arrow_scanner->ToRecordBatchReader();
