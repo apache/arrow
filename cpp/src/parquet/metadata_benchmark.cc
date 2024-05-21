@@ -132,7 +132,7 @@ void WriteMetadata(benchmark::State& state) {
     file_size = sink->Finish().ValueOrDie()->size();
   }
   state.SetItemsProcessed(state.iterations());
-  state.counters["file_size"] = file_size;
+  state.counters["file_size"] = static_cast<double>(file_size);
 }
 
 void ReadMetadata(benchmark::State& state) {
@@ -143,7 +143,7 @@ void ReadMetadata(benchmark::State& state) {
     benchmark.ReadFile(contents);
   }
   state.SetItemsProcessed(state.iterations());
-  state.counters["file_size"] = contents->size();
+  state.counters["file_size"] = static_cast<double>(contents->size());
 }
 
 BENCHMARK(WriteMetadata)->Apply(WriteMetadataSetArgs);
