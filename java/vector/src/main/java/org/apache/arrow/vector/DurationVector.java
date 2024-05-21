@@ -143,13 +143,24 @@ public final class DurationVector extends BaseFixedWidthVector {
    * @param index   position of element
    * @return element at given index
    */
+  @Override
   public Duration getObject(int index) {
     if (isSet(index) == 0) {
       return null;
     } else {
-      final long value = get(valueBuffer, index);
-      return toDuration(value, unit);
+      return getObjectNotNull(index);
     }
+  }
+
+  /**
+   * Same as {@link #getObject(int)} but does not check for null.
+   *
+   * @param index   position of element
+   * @return element at given index
+   */
+  public Duration getObjectNotNull(int index) {
+    final long value = get(valueBuffer, index);
+    return toDuration(value, unit);
   }
 
   /**

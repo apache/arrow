@@ -100,3 +100,6 @@ __debug_bin
 
 # direnv
 .envrc
+
+# Develocity
+.mvn/.gradle-enterprise/

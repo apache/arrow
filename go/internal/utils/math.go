@@ -16,32 +16,16 @@
 
 package utils
 
-// Min is a convenience Min function for int64
-func Min(a, b int64) int64 {
+import "golang.org/x/exp/constraints"
+
+func Min[T constraints.Ordered](a, b T) T {
 	if a < b {
 		return a
 	}
 	return b
 }
 
-// MinInt is a convenience Min function for int
-func MinInt(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-// Max is a convenience Max function for int64
-func Max(a, b int64) int64 {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-// MaxInt is a convenience Max function for int
-func MaxInt(a, b int) int {
+func Max[T constraints.Ordered](a, b T) T {
 	if a > b {
 		return a
 	}

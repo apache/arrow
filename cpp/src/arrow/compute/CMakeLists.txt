@@ -15,19 +15,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
-add_custom_target(arrow_compute)
+add_custom_target(arrow-compute-tests)
 
 arrow_install_all_headers("arrow/compute")
 
-# pkg-config support
-arrow_add_pkg_config("arrow-compute")
+if(ARROW_COMPUTE)
+  # pkg-config support
+  arrow_add_pkg_config("arrow-compute")
+endif()
 
 #
 # Unit tests
 #
 
 set(ARROW_COMPUTE_TEST_PREFIX "arrow-compute")
-set(ARROW_COMPUTE_TEST_LABELS "arrow_compute")
+set(ARROW_COMPUTE_TEST_LABELS "arrow-compute-tests")
 set(ARROW_COMPUTE_TEST_ARGS PREFIX ${ARROW_COMPUTE_TEST_PREFIX} LABELS
                             ${ARROW_COMPUTE_TEST_LABELS})
 
@@ -87,7 +89,10 @@ add_arrow_test(internals_test
                kernel_test.cc
                light_array_test.cc
                registry_test.cc
-               key_hash_test.cc)
+               key_hash_test.cc
+               row/compare_test.cc
+               row/grouper_test.cc
+               util_internal_test.cc)
 
 add_arrow_compute_test(expression_test SOURCES expression_test.cc)
 

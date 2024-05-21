@@ -24,7 +24,7 @@ function addInstallDirToSearchPath(installDirPath, addInstallDirToSearchPath, ad
         % Return exit code 1 to indicate savepath failure and 0 to indicate the path has
         % been saved successfully.
         if status == 0
-            disp("Sucessfully added installation directory to the MATLAB Search Path: " + installDirPath);
+            disp("Successfully added installation directory to the MATLAB Search Path: " + installDirPath);
             quit(0);
         else
             quit(1);
@@ -48,7 +48,7 @@ function addInstallDirToSearchPath(installDirPath, addInstallDirToSearchPath, ad
             % fopen failed.
             quit(2);
         end
-        disp("Sucessfully appended an addpath command to the MATLAB startup.m file located at the userpath to add installation directory to the MATLAB Search Path: " + installDirPath);
+        disp("Successfully appended an addpath command to the MATLAB startup.m file located at the userpath to add installation directory to the MATLAB Search Path: " + installDirPath);
         quit(0);
     end
 end

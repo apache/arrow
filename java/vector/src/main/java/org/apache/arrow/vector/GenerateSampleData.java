@@ -27,7 +27,8 @@ import java.nio.charset.Charset;
  * with sample data. This class should be used for that purpose.
  */
 public class GenerateSampleData {
-  private GenerateSampleData() {}
+  private GenerateSampleData() {
+  }
 
   /** Populates <code>vector</code> with <code>valueCount</code> random values. */
   public static void generateTestData(final ValueVector vector, final int valueCount) {
@@ -108,8 +109,8 @@ public class GenerateSampleData {
   }
 
   private static void writeDecimalData(DecimalVector vector, int valueCount) {
-    final BigDecimal even = new BigDecimal(0.0543278923);
-    final BigDecimal odd = new BigDecimal(2.0543278923);
+    final BigDecimal even = new BigDecimal("0.0543278923");
+    final BigDecimal odd = new BigDecimal("2.0543278923");
     for (int i = 0; i < valueCount; i++) {
       if (i % 2 == 0) {
         vector.setSafe(i, even);

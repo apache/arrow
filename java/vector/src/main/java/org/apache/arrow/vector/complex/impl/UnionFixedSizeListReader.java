@@ -99,6 +99,7 @@ public class UnionFixedSizeListReader extends AbstractFieldReader {
     }
   }
 
+  @Override
   public void copyAsValue(ListWriter writer) {
     ComplexCopier.copy(this, (FieldWriter) writer);
   }

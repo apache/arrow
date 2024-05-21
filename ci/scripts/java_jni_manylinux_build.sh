@@ -28,7 +28,7 @@ case ${normalized_arch} in
     ;;
 esac
 # The directory where the final binaries will be stored when scripts finish
-dist_dir=${3}/${normalized_arch}
+dist_dir=${3}
 
 echo "=== Clear output directories and leftovers ==="
 # Clear output directories and leftovers
@@ -58,7 +58,7 @@ export ARROW_ORC
 : ${VCPKG_ROOT:=/opt/vcpkg}
 : ${VCPKG_FEATURE_FLAGS:=-manifests}
 : ${VCPKG_TARGET_TRIPLET:=${VCPKG_DEFAULT_TRIPLET:-x64-linux-static-${CMAKE_BUILD_TYPE}}}
-: ${GANDIVA_CXX_FLAGS:=-isystem;${devtoolset_include_cpp};-isystem;${devtoolset_include_cpp}/x86_64-redhat-linux;-isystem;-lpthread}
+: ${GANDIVA_CXX_FLAGS:=-isystem;${devtoolset_include_cpp};-isystem;${devtoolset_include_cpp}/x86_64-redhat-linux;-lpthread}
 
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
   echo "=== ccache statistics before build ==="
@@ -91,7 +91,6 @@ cmake \
   -DARROW_S3=${ARROW_S3} \
   -DARROW_USE_CCACHE=${ARROW_USE_CCACHE} \
   -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
-  -DCMAKE_INSTALL_LIBDIR=lib \
   -DCMAKE_INSTALL_PREFIX=${ARROW_HOME} \
   -DCMAKE_UNITY_BUILD=${CMAKE_UNITY_BUILD} \
   -DGTest_SOURCE=BUNDLED \
@@ -164,8 +163,8 @@ archery linking check-dependencies \
   --allow libstdc++ \
   --allow libz \
   --allow linux-vdso \
-  libarrow_cdata_jni.so \
-  libarrow_dataset_jni.so \
-  libarrow_orc_jni.so \
-  libgandiva_jni.so
+  arrow_cdata_jni/${normalized_arch}/libarrow_cdata_jni.so \
+  arrow_dataset_jni/${normalized_arch}/libarrow_dataset_jni.so \
+  arrow_orc_jni/${normalized_arch}/libarrow_orc_jni.so \
+  gandiva_jni/${normalized_arch}/libgandiva_jni.so
 popd

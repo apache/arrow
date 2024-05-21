@@ -29,7 +29,14 @@ endif()
 find_package(RapidJSON ${find_package_args})
 if(RapidJSON_FOUND)
   set(RapidJSONAlt_FOUND TRUE)
-  set(RAPIDJSON_INCLUDE_DIR ${RAPIDJSON_INCLUDE_DIRS})
+  if(NOT TARGET RapidJSON)
+    add_library(RapidJSON INTERFACE IMPORTED)
+    if(RapidJSON_INCLUDE_DIRS)
+      target_include_directories(RapidJSON INTERFACE "${RapidJSON_INCLUDE_DIRS}")
+    else()
+      target_include_directories(RapidJSON INTERFACE "${RAPIDJSON_INCLUDE_DIRS}")
+    endif()
+  endif()
   return()
 endif()
 
@@ -74,3 +81,14 @@ find_package_handle_standard_args(
   RapidJSONAlt
   REQUIRED_VARS RAPIDJSON_INCLUDE_DIR
   VERSION_VAR RAPIDJSON_VERSION)
+
+if(RapidJSONAlt_FOUND)
+  if(WIN32 AND "${RAPIDJSON_INCLUDE_DIR}" MATCHES "^/")
+    # MSYS2
+    execute_process(COMMAND "cygpath" "--windows" "${RAPIDJSON_INCLUDE_DIR}"
+                    OUTPUT_VARIABLE RAPIDJSON_INCLUDE_DIR
+                    OUTPUT_STRIP_TRAILING_WHITESPACE)
+  endif()
+  add_library(RapidJSON INTERFACE IMPORTED)
+  target_include_directories(RapidJSON INTERFACE "${RAPIDJSON_INCLUDE_DIR}")
+endif()

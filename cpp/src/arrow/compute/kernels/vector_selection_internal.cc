@@ -37,6 +37,7 @@
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/fixed_width_internal.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ree_util.h"
@@ -45,8 +46,7 @@ namespace arrow {
 
 using internal::CheckIndexBounds;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 
 void RegisterSelectionFunction(const std::string& name, FunctionDoc doc,
                                VectorKernel base_kernel,
@@ -64,23 +64,6 @@ void RegisterSelectionFunction(const std::string& name, FunctionDoc doc,
   }
   kernels.clear();
   DCHECK_OK(registry->AddFunction(std::move(func)));
-}
-
-Status PreallocatePrimitiveArrayData(KernelContext* ctx, int64_t length, int bit_width,
-                                     bool allocate_validity, ArrayData* out) {
-  // Preallocate memory
-  out->length = length;
-  out->buffers.resize(2);
-
-  if (allocate_validity) {
-    ARROW_ASSIGN_OR_RAISE(out->buffers[0], ctx->AllocateBitmap(length));
-  }
-  if (bit_width == 1) {
-    ARROW_ASSIGN_OR_RAISE(out->buffers[1], ctx->AllocateBitmap(length));
-  } else {
-    ARROW_ASSIGN_OR_RAISE(out->buffers[1], ctx->Allocate(length * bit_width / 8));
-  }
-  return Status::OK();
 }
 
 namespace {
@@ -170,9 +153,6 @@ void VisitPlainxREEFilterOutputSegments(
 }
 
 namespace {
-
-using FilterState = OptionsWrapper<FilterOptions>;
-using TakeState = OptionsWrapper<TakeOptions>;
 
 // ----------------------------------------------------------------------
 // Implement take for other data types where there is less performance
@@ -741,6 +721,66 @@ struct DenseUnionSelectionImpl
   }
 };
 
+// We need a slightly different approach for SparseUnion. For Take, we can
+// invoke Take on each child's data with boundschecking disabled. For
+// Filter on the other hand, if we naively call Filter on each child, then the
+// filter output length will have to be redundantly computed. Thus, for Filter
+// we instead convert the filter to selection indices and then invoke take.
+
+// SparseUnion selection implementation. ONLY used for Take
+struct SparseUnionSelectionImpl
+    : public Selection<SparseUnionSelectionImpl, SparseUnionType> {
+  using Base = Selection<SparseUnionSelectionImpl, SparseUnionType>;
+  LIFT_BASE_MEMBERS();
+
+  TypedBufferBuilder<int8_t> child_id_buffer_builder_;
+  const int8_t type_code_for_null_;
+
+  SparseUnionSelectionImpl(KernelContext* ctx, const ExecSpan& batch,
+                           int64_t output_length, ExecResult* out)
+      : Base(ctx, batch, output_length, out),
+        child_id_buffer_builder_(ctx->memory_pool()),
+        type_code_for_null_(
+            checked_cast<const UnionType&>(*this->values.type).type_codes()[0]) {}
+
+  template <typename Adapter>
+  Status GenerateOutput() {
+    SparseUnionArray typed_values(this->values.ToArrayData());
+    Adapter adapter(this);
+    RETURN_NOT_OK(adapter.Generate(
+        [&](int64_t index) {
+          child_id_buffer_builder_.UnsafeAppend(typed_values.type_code(index));
+          return Status::OK();
+        },
+        [&]() {
+          child_id_buffer_builder_.UnsafeAppend(type_code_for_null_);
+          return Status::OK();
+        }));
+    return Status::OK();
+  }
+
+  Status Init() override {
+    RETURN_NOT_OK(child_id_buffer_builder_.Reserve(output_length));
+    return Status::OK();
+  }
+
+  Status Finish() override {
+    ARROW_ASSIGN_OR_RAISE(auto child_ids_buffer, child_id_buffer_builder_.Finish());
+    SparseUnionArray typed_values(this->values.ToArrayData());
+    auto num_fields = typed_values.num_fields();
+    auto num_rows = child_ids_buffer->size();
+    BufferVector buffers{nullptr, std::move(child_ids_buffer)};
+    *out = ArrayData(typed_values.type(), num_rows, std::move(buffers), 0);
+    out->child_data.reserve(num_fields);
+    for (auto i = 0; i < num_fields; i++) {
+      ARROW_ASSIGN_OR_RAISE(auto child_datum,
+                            Take(*typed_values.field(i), *this->selection.ToArrayData()));
+      out->child_data.emplace_back(std::move(child_datum).array());
+    }
+    return Status::OK();
+  }
+};
+
 struct FSLSelectionImpl : public Selection<FSLSelectionImpl, FixedSizeListType> {
   Int64Builder child_index_builder;
 
@@ -843,10 +883,6 @@ Status FilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
 
 }  // namespace
 
-Status FSBFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  return FilterExec<FSBSelectionImpl>(ctx, batch, out);
-}
-
 Status ListFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   return FilterExec<ListSelectionImpl<ListType>>(ctx, batch, out);
 }
@@ -856,6 +892,20 @@ Status LargeListFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult
 }
 
 Status FSLFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  const ArraySpan& values = batch[0].array;
+
+  // If a FixedSizeList wraps a fixed-width type we can, in some cases, use
+  // PrimitiveFilterExec for a fixed-size list array.
+  if (util::IsFixedWidthLike(values,
+                             /*force_null_count=*/true,
+                             /*exclude_bool_and_dictionary=*/true)) {
+    const auto byte_width = util::FixedWidthInBytes(*values.type);
+    // 0 is a valid byte width for FixedSizeList, but PrimitiveFilterExec
+    // might not handle it correctly.
+    if (byte_width > 0) {
+      return PrimitiveFilterExec(ctx, batch, out);
+    }
+  }
   return FilterExec<FSLSelectionImpl>(ctx, batch, out);
 }
 
@@ -890,7 +940,20 @@ Status LargeVarBinaryTakeExec(KernelContext* ctx, const ExecSpan& batch,
 }
 
 Status FSBTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  return TakeExec<FSBSelectionImpl>(ctx, batch, out);
+  const ArraySpan& values = batch[0].array;
+  const auto byte_width = values.type->byte_width();
+  // Use primitive Take implementation (presumably faster) for some byte widths
+  switch (byte_width) {
+    case 1:
+    case 2:
+    case 4:
+    case 8:
+    case 16:
+    case 32:
+      return PrimitiveTakeExec(ctx, batch, out);
+    default:
+      return TakeExec<FSBSelectionImpl>(ctx, batch, out);
+  }
 }
 
 Status ListTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
@@ -902,11 +965,38 @@ Status LargeListTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
 }
 
 Status FSLTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  const ArraySpan& values = batch[0].array;
+
+  // If a FixedSizeList wraps a fixed-width type we can, in some cases, use
+  // PrimitiveTakeExec for a fixed-size list array.
+  if (util::IsFixedWidthLike(values,
+                             /*force_null_count=*/true,
+                             /*exclude_bool_and_dictionary=*/true)) {
+    const auto byte_width = util::FixedWidthInBytes(*values.type);
+    // Additionally, PrimitiveTakeExec is only implemented for specific byte widths.
+    // TODO(GH-41301): Extend PrimitiveTakeExec for any fixed-width type.
+    switch (byte_width) {
+      case 1:
+      case 2:
+      case 4:
+      case 8:
+      case 16:
+      case 32:
+        return PrimitiveTakeExec(ctx, batch, out);
+      default:
+        break;  // fallback to TakeExec<FSBSelectionImpl>
+    }
+  }
+
   return TakeExec<FSLSelectionImpl>(ctx, batch, out);
 }
 
 Status DenseUnionTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   return TakeExec<DenseUnionSelectionImpl>(ctx, batch, out);
+}
+
+Status SparseUnionTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  return TakeExec<SparseUnionSelectionImpl>(ctx, batch, out);
 }
 
 Status StructTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
@@ -917,6 +1007,5 @@ Status MapTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   return TakeExec<ListSelectionImpl<MapType>>(ctx, batch, out);
 }
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow

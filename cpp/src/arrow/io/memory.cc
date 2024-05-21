@@ -269,14 +269,17 @@ BufferReader::BufferReader(std::shared_ptr<Buffer> buffer)
       is_open_(true) {}
 
 BufferReader::BufferReader(const uint8_t* data, int64_t size)
-    : buffer_(nullptr), data_(data), size_(size), position_(0), is_open_(true) {}
+    : BufferReader(std::make_shared<Buffer>(data, size)) {}
 
 BufferReader::BufferReader(const Buffer& buffer)
-    : BufferReader(buffer.data(), buffer.size()) {}
+    : BufferReader(std::make_shared<Buffer>(buffer.data(), buffer.size())) {}
 
 BufferReader::BufferReader(std::string_view data)
-    : BufferReader(reinterpret_cast<const uint8_t*>(data.data()),
-                   static_cast<int64_t>(data.size())) {}
+    : BufferReader(std::make_shared<Buffer>(data)) {}
+
+std::unique_ptr<BufferReader> BufferReader::FromString(std::string data) {
+  return std::make_unique<BufferReader>(Buffer::FromString(std::move(data)));
+}
 
 Status BufferReader::DoClose() {
   is_open_ = false;

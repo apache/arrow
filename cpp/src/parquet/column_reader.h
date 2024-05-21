@@ -197,7 +197,7 @@ class PARQUET_EXPORT ColumnReader {
 template <typename DType>
 class TypedColumnReader : public ColumnReader {
  public:
-  typedef typename DType::c_type T;
+  using T = typename DType::c_type;
 
   // Read a batch of repetition levels, definition levels, and values from the
   // column.
@@ -367,6 +367,16 @@ class PARQUET_EXPORT RecordReader {
   virtual const ColumnDescriptor* descr() const = 0;
 
   virtual void DebugPrintState() = 0;
+
+  /// \brief Returns the dictionary owned by the current decoder. Throws an
+  /// exception if the current decoder is not for dictionary encoding. The caller is
+  /// responsible for casting the returned pointer to proper type depending on the
+  /// column's physical type. An example:
+  ///   const ByteArray* dict = reinterpret_cast<const ByteArray*>(ReadDictionary(&len));
+  /// or:
+  ///   const float* dict = reinterpret_cast<const float*>(ReadDictionary(&len));
+  /// \param[out] dictionary_length The number of dictionary entries.
+  virtual const void* ReadDictionary(int32_t* dictionary_length) = 0;
 
   /// \brief Decoded definition levels
   int16_t* def_levels() const {

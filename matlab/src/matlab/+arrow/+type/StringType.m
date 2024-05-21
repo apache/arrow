@@ -17,9 +17,26 @@ classdef StringType < arrow.type.Type
 %STRINGTYPE Type class for string data.
 
     methods
-        function obj = StringType()
-            obj@arrow.type.Type("Name", "arrow.type.proxy.StringType", "ConstructorArguments", {});
+        function obj = StringType(proxy)
+            arguments
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.type.proxy.StringType")}
+            end
+            import arrow.internal.proxy.validate
+            obj@arrow.type.Type(proxy);
         end
-   end
+    end
+
+    methods (Access=protected)
+        function groups = getDisplayPropertyGroups(~)
+            targets = "ID";
+            groups = matlab.mixin.util.PropertyGroup(targets);
+        end
+    end
+
+    methods(Hidden)
+        function data = preallocateMATLABArray(~, length)
+            data = strings(length, 1);
+        end
+    end
 end
 

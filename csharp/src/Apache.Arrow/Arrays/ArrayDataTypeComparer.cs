@@ -13,7 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow
@@ -22,11 +21,14 @@ namespace Apache.Arrow
         IArrowTypeVisitor<TimestampType>,
         IArrowTypeVisitor<Date32Type>,
         IArrowTypeVisitor<Date64Type>,
-        IArrowTypeVisitor<Time32Type>,
-        IArrowTypeVisitor<Time64Type>,
+        IArrowTypeVisitor<TimeBasedType>,
         IArrowTypeVisitor<FixedSizeBinaryType>,
         IArrowTypeVisitor<ListType>,
-        IArrowTypeVisitor<StructType>
+        IArrowTypeVisitor<FixedSizeListType>,
+        IArrowTypeVisitor<StructType>,
+        IArrowTypeVisitor<UnionType>,
+        IArrowTypeVisitor<MapType>,
+        IArrowTypeVisitor<IntervalType>
     {
         private readonly IArrowType _expectedType;
         private bool _dataTypeMatch;
@@ -66,18 +68,10 @@ namespace Apache.Arrow
             }
         }
 
-        public void Visit(Time32Type actualType)
+        public void Visit(TimeBasedType actualType)
         {
-            if (_expectedType is Time32Type expectedType
-                && expectedType.Unit == actualType.Unit)
-            {
-                _dataTypeMatch = true;
-            }
-        }
-
-        public void Visit(Time64Type actualType)
-        {
-            if (_expectedType is Time64Type expectedType
+            if (_expectedType.TypeId == actualType.TypeId
+                && _expectedType is TimeBasedType expectedType
                 && expectedType.Unit == actualType.Unit)
             {
                 _dataTypeMatch = true;
@@ -102,10 +96,48 @@ namespace Apache.Arrow
             }
         }
 
+        public void Visit(FixedSizeListType actualType)
+        {
+            if (_expectedType is FixedSizeListType expectedType
+                && actualType.ListSize == expectedType.ListSize
+                && CompareNested(expectedType, actualType))
+            {
+                _dataTypeMatch = true;
+            }
+        }
+
         public void Visit(StructType actualType)
         {
             if (_expectedType is StructType expectedType
                 && CompareNested(expectedType, actualType))
+            {
+                _dataTypeMatch = true;
+            }
+        }
+
+        public void Visit(UnionType actualType)
+        {
+            if (_expectedType is UnionType expectedType
+                && CompareNested(expectedType, actualType))
+            {
+                _dataTypeMatch = true;
+            }
+        }
+
+        public void Visit(MapType actualType)
+        {
+            if (_expectedType is MapType expectedType
+                && expectedType.KeySorted == actualType.KeySorted
+                && CompareNested(expectedType, actualType))
+            {
+                _dataTypeMatch = true;
+            }
+        }
+
+        public void Visit(IntervalType actualType)
+        {
+            if (_expectedType is IntervalType expectedType
+                && expectedType.Unit == actualType.Unit)
             {
                 _dataTypeMatch = true;
             }

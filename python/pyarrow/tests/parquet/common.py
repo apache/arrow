@@ -18,30 +18,9 @@
 import io
 
 import numpy as np
-import pytest
 
 import pyarrow as pa
 from pyarrow.tests import util
-
-legacy_filter_mark = pytest.mark.filterwarnings(
-    "ignore:Passing 'use_legacy:FutureWarning"
-)
-
-parametrize_legacy_dataset = pytest.mark.parametrize(
-    "use_legacy_dataset",
-    [pytest.param(True, marks=legacy_filter_mark),
-     pytest.param(False, marks=pytest.mark.dataset)]
-)
-parametrize_legacy_dataset_not_supported = pytest.mark.parametrize(
-    "use_legacy_dataset",
-    [pytest.param(True, marks=legacy_filter_mark),
-     pytest.param(False, marks=pytest.mark.skip)]
-)
-parametrize_legacy_dataset_fixed = pytest.mark.parametrize(
-    "use_legacy_dataset",
-    [pytest.param(True, marks=[pytest.mark.xfail, legacy_filter_mark]),
-     pytest.param(False, marks=pytest.mark.dataset)]
-)
 
 
 def _write_table(table, path, **kwargs):
@@ -65,19 +44,18 @@ def _read_table(*args, **kwargs):
 
 
 def _roundtrip_table(table, read_table_kwargs=None,
-                     write_table_kwargs=None, use_legacy_dataset=False):
+                     write_table_kwargs=None):
     read_table_kwargs = read_table_kwargs or {}
     write_table_kwargs = write_table_kwargs or {}
 
     writer = pa.BufferOutputStream()
     _write_table(table, writer, **write_table_kwargs)
     reader = pa.BufferReader(writer.getvalue())
-    return _read_table(reader, use_legacy_dataset=use_legacy_dataset,
-                       **read_table_kwargs)
+    return _read_table(reader, **read_table_kwargs)
 
 
 def _check_roundtrip(table, expected=None, read_table_kwargs=None,
-                     use_legacy_dataset=False, **write_table_kwargs):
+                     **write_table_kwargs):
     if expected is None:
         expected = table
 
@@ -85,20 +63,17 @@ def _check_roundtrip(table, expected=None, read_table_kwargs=None,
 
     # intentionally check twice
     result = _roundtrip_table(table, read_table_kwargs=read_table_kwargs,
-                              write_table_kwargs=write_table_kwargs,
-                              use_legacy_dataset=use_legacy_dataset)
+                              write_table_kwargs=write_table_kwargs)
     assert result.equals(expected)
     result = _roundtrip_table(result, read_table_kwargs=read_table_kwargs,
-                              write_table_kwargs=write_table_kwargs,
-                              use_legacy_dataset=use_legacy_dataset)
+                              write_table_kwargs=write_table_kwargs)
     assert result.equals(expected)
 
 
-def _roundtrip_pandas_dataframe(df, write_kwargs, use_legacy_dataset=False):
+def _roundtrip_pandas_dataframe(df, write_kwargs):
     table = pa.Table.from_pandas(df)
     result = _roundtrip_table(
-        table, write_table_kwargs=write_kwargs,
-        use_legacy_dataset=use_legacy_dataset)
+        table, write_table_kwargs=write_kwargs)
     return result.to_pandas()
 
 

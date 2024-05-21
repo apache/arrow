@@ -19,7 +19,7 @@
 
 echo "Building windows wheel..."
 
-call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars64.bat"
+call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat"
 
 echo "=== (%PYTHON_VERSION%) Clear output directories and leftovers ==="
 del /s /q C:\arrow-build
@@ -36,7 +36,7 @@ set ARROW_FLIGHT=ON
 set ARROW_GANDIVA=OFF
 set ARROW_GCS=ON
 set ARROW_HDFS=ON
-set ARROW_ORC=OFF
+set ARROW_ORC=ON
 set ARROW_PARQUET=ON
 set PARQUET_REQUIRE_ENCRYPTION=ON
 set ARROW_MIMALLOC=ON
@@ -49,11 +49,9 @@ set ARROW_WITH_LZ4=ON
 set ARROW_WITH_SNAPPY=ON
 set ARROW_WITH_ZLIB=ON
 set ARROW_WITH_ZSTD=ON
-@rem Workaround for https://github.com/aws/aws-sdk-cpp/issues/1809 .
-@rem Use (old) bundled AWS SDK C++ instead of (newer) AWS SDK C++.
-set AWSSDK_SOURCE=BUNDLED
 set CMAKE_UNITY_BUILD=ON
-set CMAKE_GENERATOR=Visual Studio 15 2017 Win64
+set CMAKE_GENERATOR=Visual Studio 16 2019
+set CMAKE_PLATFORM=x64
 set VCPKG_ROOT=C:\vcpkg
 set VCPKG_FEATURE_FLAGS=-manifests
 set VCGPK_TARGET_TRIPLET=amd64-windows-static-md-%CMAKE_BUILD_TYPE%
@@ -90,7 +88,6 @@ cmake ^
     -DARROW_WITH_SNAPPY=%ARROW_WITH_SNAPPY% ^
     -DARROW_WITH_ZLIB=%ARROW_WITH_ZLIB% ^
     -DARROW_WITH_ZSTD=%ARROW_WITH_ZSTD% ^
-    -DAWSSDK_SOURCE=%AWSSDK_SOURCE% ^
     -DCMAKE_BUILD_TYPE=%CMAKE_BUILD_TYPE% ^
     -DCMAKE_CXX_COMPILER=clcache ^
     -DCMAKE_INSTALL_PREFIX=C:\arrow-dist ^
@@ -100,6 +97,7 @@ cmake ^
     -DVCPKG_MANIFEST_MODE=OFF ^
     -DVCPKG_TARGET_TRIPLET=%VCGPK_TARGET_TRIPLET% ^
     -G "%CMAKE_GENERATOR%" ^
+    -A "%CMAKE_PLATFORM%" ^
     C:\arrow\cpp || exit /B 1
 cmake --build . --config %CMAKE_BUILD_TYPE% --target install || exit /B 1
 popd
@@ -125,6 +123,6 @@ set CMAKE_PREFIX_PATH=C:\arrow-dist
 
 pushd C:\arrow\python
 @REM bundle the msvc runtime
-cp "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Redist\MSVC\14.16.27012\x64\Microsoft.VC141.CRT\msvcp140.dll" pyarrow\
+cp "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Redist\MSVC\14.28.29325\x64\Microsoft.VC142.CRT\msvcp140.dll" pyarrow\
 python setup.py bdist_wheel || exit /B 1
 popd

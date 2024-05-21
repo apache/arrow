@@ -19,6 +19,7 @@
 
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -31,6 +32,7 @@ class AesDecryptor;
 class AesEncryptor;
 }  // namespace encryption
 
+class ColumnCryptoMetaData;
 class FileDecryptionProperties;
 
 class PARQUET_EXPORT Decryptor {
@@ -90,15 +92,15 @@ class InternalFileDecryptor {
   FileDecryptionProperties* properties_;
   // Concatenation of aad_prefix (if exists) and aad_file_unique
   std::string file_aad_;
-  std::map<std::string, std::shared_ptr<Decryptor>> column_data_map_;
-  std::map<std::string, std::shared_ptr<Decryptor>> column_metadata_map_;
 
   std::shared_ptr<Decryptor> footer_metadata_decryptor_;
   std::shared_ptr<Decryptor> footer_data_decryptor_;
   ParquetCipher::type algorithm_;
   std::string footer_key_metadata_;
+  // Mutex to guard access to all_decryptors_
+  mutable std::mutex mutex_;
   // A weak reference to all decryptors that need to be wiped out when decryption is
-  // finished
+  // finished, guarded by mutex_ for thread safety
   std::vector<std::weak_ptr<encryption::AesDecryptor>> all_decryptors_;
 
   ::arrow::MemoryPool* pool_;
@@ -109,5 +111,17 @@ class InternalFileDecryptor {
                                                 const std::string& aad,
                                                 bool metadata = false);
 };
+
+/// Utility to get column meta decryptor of an encrypted column.
+std::shared_ptr<Decryptor> GetColumnMetaDecryptor(
+    const ColumnCryptoMetaData* crypto_metadata, InternalFileDecryptor* file_decryptor);
+
+/// Utility to get column data decryptor of an encrypted column.
+std::shared_ptr<Decryptor> GetColumnDataDecryptor(
+    const ColumnCryptoMetaData* crypto_metadata, InternalFileDecryptor* file_decryptor);
+
+void UpdateDecryptor(const std::shared_ptr<Decryptor>& decryptor,
+                     int16_t row_group_ordinal, int16_t column_ordinal,
+                     int8_t module_type);
 
 }  // namespace parquet

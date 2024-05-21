@@ -23,8 +23,7 @@
 
 G_BEGIN_DECLS
 
-#define GADATASET_TYPE_FILE_WRITE_OPTIONS       \
-  (gadataset_file_write_options_get_type())
+#define GADATASET_TYPE_FILE_WRITE_OPTIONS (gadataset_file_write_options_get_type())
 G_DECLARE_DERIVABLE_TYPE(GADatasetFileWriteOptions,
                          gadataset_file_write_options,
                          GADATASET,
@@ -35,14 +34,9 @@ struct _GADatasetFileWriteOptionsClass
   GObjectClass parent_class;
 };
 
-
-#define GADATASET_TYPE_FILE_WRITER              \
-  (gadataset_file_writer_get_type())
-G_DECLARE_DERIVABLE_TYPE(GADatasetFileWriter,
-                         gadataset_file_writer,
-                         GADATASET,
-                         FILE_WRITER,
-                         GObject)
+#define GADATASET_TYPE_FILE_WRITER (gadataset_file_writer_get_type())
+G_DECLARE_DERIVABLE_TYPE(
+  GADatasetFileWriter, gadataset_file_writer, GADATASET, FILE_WRITER, GObject)
 struct _GADatasetFileWriterClass
 {
   GObjectClass parent_class;
@@ -60,16 +54,11 @@ gadataset_file_writer_write_record_batch_reader(GADatasetFileWriter *writer,
                                                 GError **error);
 GARROW_AVAILABLE_IN_6_0
 gboolean
-gadataset_file_writer_finish(GADatasetFileWriter *writer,
-                             GError **error);
-
+gadataset_file_writer_finish(GADatasetFileWriter *writer, GError **error);
 
 #define GADATASET_TYPE_FILE_FORMAT (gadataset_file_format_get_type())
-G_DECLARE_DERIVABLE_TYPE(GADatasetFileFormat,
-                         gadataset_file_format,
-                         GADATASET,
-                         FILE_FORMAT,
-                         GObject)
+G_DECLARE_DERIVABLE_TYPE(
+  GADatasetFileFormat, gadataset_file_format, GADATASET, FILE_FORMAT, GObject)
 struct _GADatasetFileFormatClass
 {
   GObjectClass parent_class;
@@ -96,7 +85,6 @@ gboolean
 gadataset_file_format_equal(GADatasetFileFormat *format,
                             GADatasetFileFormat *other_format);
 
-
 #define GADATASET_TYPE_CSV_FILE_FORMAT (gadataset_csv_file_format_get_type())
 G_DECLARE_DERIVABLE_TYPE(GADatasetCSVFileFormat,
                          gadataset_csv_file_format,
@@ -109,8 +97,8 @@ struct _GADatasetCSVFileFormatClass
 };
 
 GARROW_AVAILABLE_IN_3_0
-GADatasetCSVFileFormat *gadataset_csv_file_format_new(void);
-
+GADatasetCSVFileFormat *
+gadataset_csv_file_format_new(void);
 
 #define GADATASET_TYPE_IPC_FILE_FORMAT (gadataset_ipc_file_format_get_type())
 G_DECLARE_DERIVABLE_TYPE(GADatasetIPCFileFormat,
@@ -124,11 +112,10 @@ struct _GADatasetIPCFileFormatClass
 };
 
 GARROW_AVAILABLE_IN_3_0
-GADatasetIPCFileFormat *gadataset_ipc_file_format_new(void);
+GADatasetIPCFileFormat *
+gadataset_ipc_file_format_new(void);
 
-
-#define GADATASET_TYPE_PARQUET_FILE_FORMAT      \
-  (gadataset_parquet_file_format_get_type())
+#define GADATASET_TYPE_PARQUET_FILE_FORMAT (gadataset_parquet_file_format_get_type())
 G_DECLARE_DERIVABLE_TYPE(GADatasetParquetFileFormat,
                          gadataset_parquet_file_format,
                          GADATASET,
@@ -140,7 +127,7 @@ struct _GADatasetParquetFileFormatClass
 };
 
 GARROW_AVAILABLE_IN_3_0
-GADatasetParquetFileFormat *gadataset_parquet_file_format_new(void);
-
+GADatasetParquetFileFormat *
+gadataset_parquet_file_format_new(void);
 
 G_END_DECLS

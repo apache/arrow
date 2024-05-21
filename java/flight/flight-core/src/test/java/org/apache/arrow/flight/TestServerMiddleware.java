@@ -38,15 +38,13 @@ import org.junit.jupiter.api.Test;
 
 public class TestServerMiddleware {
 
-  private static final RuntimeException EXPECTED_EXCEPTION = new RuntimeException("test");
-
   /**
    * Make sure errors in DoPut are intercepted.
    */
   @Test
   public void doPutErrors() {
     test(
-        new ErrorProducer(EXPECTED_EXCEPTION),
+        new ErrorProducer(new RuntimeException("test")),
         (allocator, client) -> {
           final FlightDescriptor descriptor = FlightDescriptor.path("test");
           try (final VectorSchemaRoot root = VectorSchemaRoot.create(new Schema(Collections.emptyList()), allocator)) {
@@ -91,7 +89,7 @@ public class TestServerMiddleware {
    */
   @Test
   public void doPutUncaught() {
-    test(new ServerErrorProducer(EXPECTED_EXCEPTION),
+    test(new ServerErrorProducer(new RuntimeException("test")),
         (allocator, client) -> {
           final FlightDescriptor descriptor = FlightDescriptor.path("test");
           try (final VectorSchemaRoot root = VectorSchemaRoot.create(new Schema(Collections.emptyList()), allocator)) {
@@ -106,13 +104,13 @@ public class TestServerMiddleware {
           Assertions.assertEquals(FlightStatusCode.OK, status.code());
           Assertions.assertNull(status.cause());
           Assertions.assertNotNull(err);
-          Assertions.assertEquals(EXPECTED_EXCEPTION.getMessage(), err.getMessage());
+          Assertions.assertEquals("test", err.getMessage());
         });
   }
 
   @Test
   public void listFlightsUncaught() {
-    test(new ServerErrorProducer(EXPECTED_EXCEPTION),
+    test(new ServerErrorProducer(new RuntimeException("test")),
         (allocator, client) -> client.listFlights(new Criteria(new byte[0])).forEach((action) -> {
         }), (recorder) -> {
           final CallStatus status = recorder.statusFuture.get();
@@ -121,13 +119,13 @@ public class TestServerMiddleware {
           Assertions.assertEquals(FlightStatusCode.OK, status.code());
           Assertions.assertNull(status.cause());
           Assertions.assertNotNull(err);
-          Assertions.assertEquals(EXPECTED_EXCEPTION.getMessage(), err.getMessage());
+          Assertions.assertEquals("test", err.getMessage());
         });
   }
 
   @Test
   public void doActionUncaught() {
-    test(new ServerErrorProducer(EXPECTED_EXCEPTION),
+    test(new ServerErrorProducer(new RuntimeException("test")),
         (allocator, client) -> client.doAction(new Action("test")).forEachRemaining(result -> {
         }), (recorder) -> {
           final CallStatus status = recorder.statusFuture.get();
@@ -136,13 +134,13 @@ public class TestServerMiddleware {
           Assertions.assertEquals(FlightStatusCode.OK, status.code());
           Assertions.assertNull(status.cause());
           Assertions.assertNotNull(err);
-          Assertions.assertEquals(EXPECTED_EXCEPTION.getMessage(), err.getMessage());
+          Assertions.assertEquals("test", err.getMessage());
         });
   }
 
   @Test
   public void listActionsUncaught() {
-    test(new ServerErrorProducer(EXPECTED_EXCEPTION),
+    test(new ServerErrorProducer(new RuntimeException("test")),
         (allocator, client) -> client.listActions().forEach(result -> {
         }), (recorder) -> {
           final CallStatus status = recorder.statusFuture.get();
@@ -151,13 +149,13 @@ public class TestServerMiddleware {
           Assertions.assertEquals(FlightStatusCode.OK, status.code());
           Assertions.assertNull(status.cause());
           Assertions.assertNotNull(err);
-          Assertions.assertEquals(EXPECTED_EXCEPTION.getMessage(), err.getMessage());
+          Assertions.assertEquals("test", err.getMessage());
         });
   }
 
   @Test
   public void getFlightInfoUncaught() {
-    test(new ServerErrorProducer(EXPECTED_EXCEPTION),
+    test(new ServerErrorProducer(new RuntimeException("test")),
         (allocator, client) -> {
           FlightTestUtil.assertCode(FlightStatusCode.INTERNAL, () -> client.getInfo(FlightDescriptor.path("test")));
         }, (recorder) -> {
@@ -165,13 +163,13 @@ public class TestServerMiddleware {
           Assertions.assertNotNull(status);
           Assertions.assertEquals(FlightStatusCode.INTERNAL, status.code());
           Assertions.assertNotNull(status.cause());
-          Assertions.assertEquals(EXPECTED_EXCEPTION.getMessage(), status.cause().getMessage());
+          Assertions.assertEquals(new RuntimeException("test").getMessage(), status.cause().getMessage());
         });
   }
 
   @Test
   public void doGetUncaught() {
-    test(new ServerErrorProducer(EXPECTED_EXCEPTION),
+    test(new ServerErrorProducer(new RuntimeException("test")),
         (allocator, client) -> {
           try (final FlightStream stream = client.getStream(new Ticket(new byte[0]))) {
             while (stream.next()) {
@@ -186,7 +184,7 @@ public class TestServerMiddleware {
           Assertions.assertEquals(FlightStatusCode.OK, status.code());
           Assertions.assertNull(status.cause());
           Assertions.assertNotNull(err);
-          Assertions.assertEquals(EXPECTED_EXCEPTION.getMessage(), err.getMessage());
+          Assertions.assertEquals("test", err.getMessage());
         });
   }
 
@@ -305,7 +303,7 @@ public class TestServerMiddleware {
     final FlightServerMiddleware.Key<T> key;
     final FlightServerMiddleware.Factory<T> factory;
 
-    ServerMiddlewarePair(Key<T> key, Factory<T> factory) {
+    ServerMiddlewarePair(FlightServerMiddleware.Key<T> key, FlightServerMiddleware.Factory<T> factory) {
       this.key = key;
       this.factory = factory;
     }
@@ -339,7 +337,7 @@ public class TestServerMiddleware {
       ErrorConsumer<ErrorRecorder> verify) {
     final ErrorRecorder.Factory factory = new ErrorRecorder.Factory();
     final List<ServerMiddlewarePair<ErrorRecorder>> middleware = Collections
-        .singletonList(new ServerMiddlewarePair<>(Key.of("m"), factory));
+        .singletonList(new ServerMiddlewarePair<>(FlightServerMiddleware.Key.of("m"), factory));
     test(producer, middleware, (allocator, client) -> {
       body.accept(allocator, client);
       try {

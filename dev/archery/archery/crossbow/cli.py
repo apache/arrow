@@ -174,7 +174,7 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
                    'locally. Examples: https://github.com/apache/arrow or '
                    'https://github.com/raulcd/arrow.')
 @click.option('--rc', default=None,
-              help='Relase Candidate number.')
+              help='Release Candidate number.')
 @click.option('--version', default=None,
               help='Release version.')
 @click.option('--verify-binaries', is_flag=True, default=False,
@@ -505,7 +505,17 @@ def download_artifacts(obj, job_name, target_dir, dry_run, fetch,
         if asset is not None:
             path = target_dir / task_name / asset.name
             path.parent.mkdir(exist_ok=True)
-            if not dry_run:
+
+            def need_download():
+                if dry_run:
+                    return False
+                if not path.exists():
+                    return True
+                if path.stat().st_size != asset.size:
+                    return True
+                return False
+
+            if need_download():
                 import github3
                 max_n_retries = 5
                 n_retries = 0

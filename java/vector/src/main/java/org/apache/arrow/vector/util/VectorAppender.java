@@ -26,6 +26,7 @@ import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseLargeVariableWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
+import org.apache.arrow.vector.BaseVariableWidthViewVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.ExtensionTypeVector;
@@ -43,7 +44,7 @@ import org.apache.arrow.vector.complex.UnionVector;
 /**
  * Utility to append two vectors together.
  */
-class VectorAppender implements VectorVisitor<ValueVector, Void> {
+public class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
   /**
    * The targetVector to be appended.
@@ -56,7 +57,7 @@ class VectorAppender implements VectorVisitor<ValueVector, Void> {
    * Constructs a new targetVector appender, with the given targetVector.
    * @param targetVector the targetVector to be appended.
    */
-  VectorAppender(ValueVector targetVector) {
+  public VectorAppender(ValueVector targetVector) {
     this.targetVector = targetVector;
     typeVisitor = new TypeEqualsVisitor(targetVector, false, true);
   }
@@ -116,7 +117,7 @@ class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
     // make sure there is enough capacity
     while (targetVector.getValueCapacity() < newValueCount) {
-      targetVector.reAlloc();
+      ((BaseVariableWidthVector) targetVector).reallocValidityAndOffsetBuffers();
     }
     while (targetVector.getDataBuffer().capacity() < newValueCapacity) {
       ((BaseVariableWidthVector) targetVector).reallocDataBuffer();
@@ -170,7 +171,7 @@ class VectorAppender implements VectorVisitor<ValueVector, Void> {
 
     // make sure there is enough capacity
     while (targetVector.getValueCapacity() < newValueCount) {
-      targetVector.reAlloc();
+      ((BaseLargeVariableWidthVector) targetVector).reallocValidityAndOffsetBuffers();
     }
     while (targetVector.getDataBuffer().capacity() < newValueCapacity) {
       ((BaseLargeVariableWidthVector) targetVector).reallocDataBuffer();
@@ -203,6 +204,11 @@ class VectorAppender implements VectorVisitor<ValueVector, Void> {
     ((BaseLargeVariableWidthVector) targetVector).setLastSet(newValueCount - 1);
     targetVector.setValueCount(newValueCount);
     return targetVector;
+  }
+
+  @Override
+  public ValueVector visit(BaseVariableWidthViewVector left, Void value) {
+    throw new UnsupportedOperationException("View vectors are not supported.");
   }
 
   @Override
@@ -506,7 +512,7 @@ class VectorAppender implements VectorVisitor<ValueVector, Void> {
         targetChildVector = targetDenseUnionVector.addVector(
             (byte) i, deltaChildVector.getField().createVector(targetDenseUnionVector.getAllocator()));
 
-        // now we have both child vecors not null, we can append them.
+        // now we have both child vectors not null, we can append them.
         VectorAppender childAppender = new VectorAppender(targetChildVector);
         deltaChildVector.accept(childAppender, null);
       } else if (targetChildVector != null && deltaChildVector == null) {

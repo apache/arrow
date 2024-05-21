@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.logging.Logger;
 
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
 import org.apache.arrow.driver.jdbc.utils.UrlParser;
@@ -42,6 +43,7 @@ import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.DriverVersion;
 import org.apache.calcite.avatica.Meta;
 import org.apache.calcite.avatica.UnregisteredDriver;
+
 
 /**
  * JDBC driver for querying data from an Apache Arrow Flight server.
@@ -57,13 +59,20 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
     // Netty requires some extra properties to unlock some native memory management api
     // Setting this property if not already set externally
     // This has to be done before any netty class is being loaded
-    final String key = "cfjd.io.netty.tryReflectionSetAccessible";
+    final String key = "io.netty.tryReflectionSetAccessible";
     final String tryReflectionSetAccessible = System.getProperty(key);
     if (tryReflectionSetAccessible == null) {
       System.setProperty(key, Boolean.TRUE.toString());
     }
 
     new ArrowFlightJdbcDriver().register();
+  }
+
+  @Override
+  public Logger getParentLogger() {
+    // Return the logger associated with the driver package ('org.apache.arrow.driver.jdbc')
+    // When packaged in flight-sql-jdbc-driver, it will also apply to all shaded dependencies
+    return Logger.getLogger(getClass().getPackage().getName());
   }
 
   @Override
@@ -99,6 +108,7 @@ public class ArrowFlightJdbcDriver extends UnregisteredDriver {
   }
 
   @Override
+  @SuppressWarnings("StringSplitter")
   protected DriverVersion createDriverVersion() {
     if (version == null) {
       final InputStream flightProperties = this.getClass().getResourceAsStream("/properties/flight.properties");

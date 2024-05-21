@@ -85,6 +85,7 @@ libgandiva_glib = library('gandiva-glib',
                           sources: sources + enums,
                           install: true,
                           dependencies: dependencies,
+                          implicit_include_directories: false,
                           include_directories: base_include_directories,
                           soversion: so_version,
                           version: library_version)
@@ -110,15 +111,13 @@ if have_gi
                          '--warn-all',
                          '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
                        ],
-                       fatal_warnings: gi_fatal_warnings,
                        header: 'gandiva-glib/gandiva-glib.h',
                        identifier_prefix: 'GGandiva',
                        includes: [
                          'Arrow-1.0'
                        ],
-                       install: true,
+                       kwargs: generate_gi_common_args,
                        namespace: 'Gandiva',
-                       nsversion: api_version,
                        sources: sources + c_headers + enums,
                        symbol_prefix: 'ggandiva')
 

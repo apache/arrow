@@ -52,7 +52,6 @@ BENCHMARK(SelectKInt64)
     ->Apply(RegressionSetArgs)
     ->Args({1 << 20, 100})
     ->Args({1 << 23, 100})
-    ->MinTime(1.0)
     ->Unit(benchmark::TimeUnit::kNanosecond);
 
 }  // namespace compute

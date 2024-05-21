@@ -18,12 +18,23 @@
 
 package org.apache.arrow.flatbuf;
 
-import java.nio.*;
-import java.lang.*;
-import java.util.*;
-import com.google.flatbuffers.*;
+import com.google.flatbuffers.BaseVector;
+import com.google.flatbuffers.BooleanVector;
+import com.google.flatbuffers.ByteVector;
+import com.google.flatbuffers.Constants;
+import com.google.flatbuffers.DoubleVector;
+import com.google.flatbuffers.FlatBufferBuilder;
+import com.google.flatbuffers.FloatVector;
+import com.google.flatbuffers.IntVector;
+import com.google.flatbuffers.LongVector;
+import com.google.flatbuffers.ShortVector;
+import com.google.flatbuffers.StringVector;
+import com.google.flatbuffers.Struct;
+import com.google.flatbuffers.Table;
+import com.google.flatbuffers.UnionVector;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
-@SuppressWarnings("unused")
 /**
  * ----------------------------------------------------------------------
  * Data structures for describing a table row batch (a collection of
@@ -35,6 +46,7 @@ import com.google.flatbuffers.*;
  * would have {length: 5, null_count: 2} for its List node, and {length: 6,
  * null_count: 0} for its Int16 node, as separate FieldNode structs
  */
+@SuppressWarnings("unused")
 public final class FieldNode extends Struct {
   public void __init(int _i, ByteBuffer _bb) { __reset(_i, _bb); }
   public FieldNode __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }

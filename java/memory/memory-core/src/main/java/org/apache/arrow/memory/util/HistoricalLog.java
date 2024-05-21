@@ -20,6 +20,7 @@ package org.apache.arrow.memory.util;
 import java.util.Arrays;
 import java.util.LinkedList;
 
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.slf4j.Logger;
 
 /**
@@ -32,7 +33,7 @@ public class HistoricalLog {
   private final LinkedList<Event> history = new LinkedList<>();
   private final String idString; // the formatted id string
   private final int limit; // the limit on the number of events kept
-  private Event firstEvent; // the first stack trace recorded
+  private @Nullable Event firstEvent; // the first stack trace recorded
 
   /**
    * Constructor. The format string will be formatted and have its arguments
@@ -68,6 +69,7 @@ public class HistoricalLog {
   public HistoricalLog(final int limit, final String idStringFormat, Object... args) {
     this.limit = limit;
     this.idString = String.format(idStringFormat, args);
+    this.firstEvent = null;
   }
 
   /**
@@ -122,13 +124,16 @@ public class HistoricalLog {
         .append('\n');
 
     if (firstEvent != null) {
+      long time = firstEvent.time;
+      String note = firstEvent.note;
+      final StackTrace stackTrace = firstEvent.stackTrace;
       sb.append(innerIndentation)
-          .append(firstEvent.time)
+          .append(time)
           .append(' ')
-          .append(firstEvent.note)
+          .append(note)
           .append('\n');
       if (includeStackTrace) {
-        firstEvent.stackTrace.writeToBuilder(sb, indent + 2);
+        stackTrace.writeToBuilder(sb, indent + 2);
       }
 
       for (final Event event : history) {

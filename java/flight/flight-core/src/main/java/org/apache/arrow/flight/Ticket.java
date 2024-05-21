@@ -88,7 +88,7 @@ public class Ticket {
     if (obj == null) {
       return false;
     }
-    if (getClass() != obj.getClass()) {
+    if (!(obj instanceof Ticket)) {
       return false;
     }
     Ticket other = (Ticket) obj;

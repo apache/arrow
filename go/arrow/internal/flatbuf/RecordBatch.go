@@ -128,8 +128,62 @@ func (rcv *RecordBatch) Compression(obj *BodyCompression) *BodyCompression {
 }
 
 /// Optional compression of the message body
+/// Some types such as Utf8View are represented using a variable number of buffers.
+/// For each such Field in the pre-ordered flattened logical schema, there will be
+/// an entry in variadicBufferCounts to indicate the number of number of variadic
+/// buffers which belong to that Field in the current RecordBatch.
+///
+/// For example, the schema
+///     col1: Struct<alpha: Int32, beta: BinaryView, gamma: Float64>
+///     col2: Utf8View
+/// contains two Fields with variadic buffers so variadicBufferCounts will have
+/// two entries, the first counting the variadic buffers of `col1.beta` and the
+/// second counting `col2`'s.
+///
+/// This field may be omitted if and only if the schema contains no Fields with
+/// a variable number of buffers, such as BinaryView and Utf8View.
+func (rcv *RecordBatch) VariadicBufferCounts(j int) int64 {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(12))
+	if o != 0 {
+		a := rcv._tab.Vector(o)
+		return rcv._tab.GetInt64(a + flatbuffers.UOffsetT(j*8))
+	}
+	return 0
+}
+
+func (rcv *RecordBatch) VariadicBufferCountsLength() int {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(12))
+	if o != 0 {
+		return rcv._tab.VectorLen(o)
+	}
+	return 0
+}
+
+/// Some types such as Utf8View are represented using a variable number of buffers.
+/// For each such Field in the pre-ordered flattened logical schema, there will be
+/// an entry in variadicBufferCounts to indicate the number of number of variadic
+/// buffers which belong to that Field in the current RecordBatch.
+///
+/// For example, the schema
+///     col1: Struct<alpha: Int32, beta: BinaryView, gamma: Float64>
+///     col2: Utf8View
+/// contains two Fields with variadic buffers so variadicBufferCounts will have
+/// two entries, the first counting the variadic buffers of `col1.beta` and the
+/// second counting `col2`'s.
+///
+/// This field may be omitted if and only if the schema contains no Fields with
+/// a variable number of buffers, such as BinaryView and Utf8View.
+func (rcv *RecordBatch) MutateVariadicBufferCounts(j int, n int64) bool {
+	o := flatbuffers.UOffsetT(rcv._tab.Offset(12))
+	if o != 0 {
+		a := rcv._tab.Vector(o)
+		return rcv._tab.MutateInt64(a+flatbuffers.UOffsetT(j*8), n)
+	}
+	return false
+}
+
 func RecordBatchStart(builder *flatbuffers.Builder) {
-	builder.StartObject(4)
+	builder.StartObject(5)
 }
 func RecordBatchAddLength(builder *flatbuffers.Builder, length int64) {
 	builder.PrependInt64Slot(0, length, 0)
@@ -148,6 +202,12 @@ func RecordBatchStartBuffersVector(builder *flatbuffers.Builder, numElems int) f
 }
 func RecordBatchAddCompression(builder *flatbuffers.Builder, compression flatbuffers.UOffsetT) {
 	builder.PrependUOffsetTSlot(3, flatbuffers.UOffsetT(compression), 0)
+}
+func RecordBatchAddVariadicBufferCounts(builder *flatbuffers.Builder, variadicBufferCounts flatbuffers.UOffsetT) {
+	builder.PrependUOffsetTSlot(4, flatbuffers.UOffsetT(variadicBufferCounts), 0)
+}
+func RecordBatchStartVariadicBufferCountsVector(builder *flatbuffers.Builder, numElems int) flatbuffers.UOffsetT {
+	return builder.StartVector(8, numElems, 8)
 }
 func RecordBatchEnd(builder *flatbuffers.Builder) flatbuffers.UOffsetT {
 	return builder.EndObject()

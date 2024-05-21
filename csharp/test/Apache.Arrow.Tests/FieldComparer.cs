@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using System.Linq;
+using Apache.Arrow.Types;
 using Xunit;
 
 namespace Apache.Arrow.Tests
@@ -39,6 +40,16 @@ namespace Apache.Arrow.Tests
             }
 
             actual.DataType.Accept(new ArrayTypeComparer(expected.DataType));
+        }
+
+        public static void Compare(IRecordType expected, IRecordType actual)
+        {
+            Assert.Equal(expected.FieldCount, actual.FieldCount);
+
+            for (int i = 0; i < expected.FieldCount; i++)
+            {
+                Compare(expected.GetFieldByIndex(i), actual.GetFieldByIndex(i));
+            }
         }
     }
 }

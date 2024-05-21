@@ -78,7 +78,24 @@ def get_json(url, headers=None):
     response = requests.get(url, headers=headers)
     if response.status_code != 200:
         raise ValueError(response.json())
-    return response.json()
+    # GitHub returns a link header with the next, previous, last
+    # page if there is pagination on the response. See:
+    # https://docs.github.com/en/rest/guides/using-pagination-in-the-rest-api#using-link-headers
+    next_responses = None
+    if "link" in response.headers:
+        links = response.headers['link'].split(', ')
+        for link in links:
+            if 'rel="next"' in link:
+                # Format: '<url>; rel="next"'
+                next_url = link.split(";")[0][1:-1]
+                next_responses = get_json(next_url, headers)
+    responses = response.json()
+    if next_responses:
+        if isinstance(responses, list):
+            responses.extend(next_responses)
+        else:
+            raise ValueError('GitHub response was paginated and is not a list')
+    return responses
 
 
 def run_cmd(cmd):
@@ -236,7 +253,10 @@ class GitHubIssue(object):
 
     @property
     def current_fix_versions(self):
-        return self.issue.get("milestone", {}).get("title")
+        try:
+            return self.issue.get("milestone", {}).get("title")
+        except AttributeError:
+            pass
 
     @property
     def current_versions(self):
@@ -286,15 +306,11 @@ def get_candidate_fix_version(mainline_versions,
 
     # Only suggest versions starting with a number, like 0.x but not JS-0.x
     mainline_versions = all_versions
-    mainline_non_patch_versions = []
-    for v in mainline_versions:
-        (major, minor, patch) = v.split(".")
-        if patch == "0":
-            mainline_non_patch_versions.append(v)
+    major_versions = [v for v in mainline_versions if v.endswith('.0.0')]
 
-    if len(mainline_versions) > len(mainline_non_patch_versions):
-        # If there is a non-patch release, suggest that instead
-        mainline_versions = mainline_non_patch_versions
+    if len(mainline_versions) > len(major_versions):
+        # If there is a future major release, suggest that
+        mainline_versions = major_versions
 
     mainline_versions = [v for v in mainline_versions
                          if f"maint-{v}" not in maintenance_branches]
@@ -430,7 +446,7 @@ class GitHubAPI(object):
         response = requests.get(url, headers=self.headers)
         labels = response.json()
         for label in labels:
-            # All PR workflow state labes starts with "awaiting"
+            # All PR workflow state labels starts with "awaiting"
             if label['name'].startswith('awaiting'):
                 label_url = f"{url}/{label['name']}"
                 requests.delete(label_url, headers=self.headers)
@@ -662,6 +678,19 @@ def prompt_for_fix_version(cmd, issue, maintenance_branches=()):
         mainline_versions=issue.current_versions,
         maintenance_branches=maintenance_branches
     )
+
+    current_fix_versions = issue.current_fix_versions
+    if (current_fix_versions and
+            current_fix_versions != default_fix_version):
+        print("\n=== The assigned milestone is not the default ===")
+        print(f"Assigned milestone: {current_fix_versions}")
+        print(f"Current milestone: {default_fix_version}")
+        if issue.issue["milestone"].get("state") == 'closed':
+            print("The assigned milestone state is closed. Contact the ")
+            print("Release Manager if it has to be added to a closed Release")
+        print("Please ensure to assign the correct milestone.")
+        # Default to existing assigned milestone
+        default_fix_version = current_fix_versions
 
     issue_fix_version = cmd.prompt("Enter fix version [%s]: "
                                    % default_fix_version)

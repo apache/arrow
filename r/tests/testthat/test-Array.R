@@ -283,8 +283,8 @@ test_that("array supports POSIXct (ARROW-3340)", {
   times[5] <- NA
   expect_array_roundtrip(times, timestamp("us", "UTC"))
 
-  times2 <- lubridate::ymd_hms("2018-10-07 19:04:05", tz = "US/Eastern") + 1:10
-  expect_array_roundtrip(times2, timestamp("us", "US/Eastern"))
+  times2 <- lubridate::ymd_hms("2018-10-07 19:04:05", tz = "America/New_York") + 1:10
+  expect_array_roundtrip(times2, timestamp("us", "America/New_York"))
 })
 
 test_that("array uses local timezone for POSIXct without timezone", {
@@ -371,19 +371,19 @@ test_that("support for NaN (ARROW-3615)", {
   expect_equal(y$null_count, 1L)
 })
 
-test_that("is.nan() evalutes to FALSE on NA (for consistency with base R)", {
+test_that("is.nan() evaluates to FALSE on NA (for consistency with base R)", {
   x <- c(1.0, NA, NaN, -1.0)
   compare_expression(is.nan(.input), x)
 })
 
-test_that("is.nan() evalutes to FALSE on non-floats (for consistency with base R)", {
+test_that("is.nan() evaluates to FALSE on non-floats (for consistency with base R)", {
   x <- c(1L, 2L, 3L)
   y <- c("foo", "bar")
   compare_expression(is.nan(.input), x)
   compare_expression(is.nan(.input), y)
 })
 
-test_that("is.na() evalutes to TRUE on NaN (for consistency with base R)", {
+test_that("is.na() evaluates to TRUE on NaN (for consistency with base R)", {
   x <- c(1, NA, NaN, -1)
   compare_expression(is.na(.input), x)
 })
@@ -817,11 +817,6 @@ test_that("Handling string data with embedded nuls", {
     fixed = TRUE
   )
   array_with_nul <- arrow_array(raws)$cast(utf8())
-
-  # The behavior of the warnings/errors is slightly different with and without
-  # altrep. Without it (i.e. 3.5.0 and below, the error would trigger immediately
-  # on `as.vector()` where as with it, the error only happens on materialization)
-  skip_on_r_older_than("3.6")
 
   # no error on conversion, because altrep laziness
   v <- expect_error(as.vector(array_with_nul), NA)

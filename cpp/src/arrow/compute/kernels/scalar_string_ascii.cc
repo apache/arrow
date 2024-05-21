@@ -21,16 +21,17 @@
 #include <memory>
 #include <string>
 
-#ifdef ARROW_WITH_RE2
-#include <re2/re2.h>
-#endif
-
 #include "arrow/array/builder_nested.h"
 #include "arrow/compute/kernels/scalar_string_internal.h"
 #include "arrow/result.h"
+#include "arrow/util/config.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
+
+#ifdef ARROW_WITH_RE2
+#include <re2/re2.h>
+#endif
 
 namespace arrow {
 
@@ -95,7 +96,7 @@ struct FixedSizeBinaryTransformExecBase {
                           ctx->Allocate(output_width * input_nstrings));
     uint8_t* output_str = values_buffer->mutable_data();
 
-    const uint8_t* input_data = input.GetValues<uint8_t>(1);
+    const uint8_t* input_data = input.GetValues<uint8_t>(1, input.offset * input_width);
     for (int64_t i = 0; i < input_nstrings; i++) {
       if (!input.IsNull(i)) {
         const uint8_t* input_string = input_data + i * input_width;
@@ -132,7 +133,8 @@ struct FixedSizeBinaryTransformExecWithState
     DCHECK_EQ(1, types.size());
     const auto& options = State::Get(ctx);
     const int32_t input_width = types[0].type->byte_width();
-    const int32_t output_width = StringTransform::FixedOutputSize(options, input_width);
+    ARROW_ASSIGN_OR_RAISE(const int32_t output_width,
+                          StringTransform::FixedOutputSize(options, input_width));
     return fixed_size_binary(output_width);
   }
 };
@@ -2064,11 +2066,17 @@ struct RegexSubstringReplacer {
         regex_replacement_(options_.pattern, MakeRE2Options<Type>()) {}
 
   Status ReplaceString(std::string_view s, TypedBufferBuilder<uint8_t>* builder) const {
+    re2::StringPiece piece(s.data(), s.length());
+    return ReplaceStringImpl(piece, builder);
+  }
+
+  Status ReplaceStringImpl(re2::StringPiece s,
+                           TypedBufferBuilder<uint8_t>* builder) const {
     re2::StringPiece replacement(options_.replacement);
 
     // If s is empty, then it's essentially global
     if (options_.max_replacements == -1 || s.empty()) {
-      std::string s_copy(s);
+      std::string s_copy{s.data(), s.length()};
       RE2::GlobalReplace(&s_copy, regex_replacement_, replacement);
       return builder->Append(reinterpret_cast<const uint8_t*>(s_copy.data()),
                              s_copy.length());
@@ -2079,18 +2087,18 @@ struct RegexSubstringReplacer {
     // We might do this faster similar to RE2::GlobalReplace using Match and Rewrite
     const char* i = s.data();
     const char* end = s.data() + s.length();
-    re2::StringPiece piece(s.data(), s.length());
+    re2::StringPiece mutable_s{s};
 
     int64_t max_replacements = options_.max_replacements;
     while ((i < end) && (max_replacements != 0)) {
       std::string found;
-      if (!RE2::FindAndConsume(&piece, regex_find_, &found)) {
+      if (!RE2::FindAndConsume(&mutable_s, regex_find_, &found)) {
         RETURN_NOT_OK(builder->Append(reinterpret_cast<const uint8_t*>(i),
                                       static_cast<int64_t>(end - i)));
         i = end;
       } else {
         // wind back to the beginning of the match
-        const char* pos = piece.begin() - found.length();
+        const char* pos = mutable_s.data() - found.length();
         // the string before the pattern
         RETURN_NOT_OK(builder->Append(reinterpret_cast<const uint8_t*>(i),
                                       static_cast<int64_t>(pos - i)));
@@ -2101,7 +2109,7 @@ struct RegexSubstringReplacer {
         RETURN_NOT_OK(builder->Append(reinterpret_cast<const uint8_t*>(found.data()),
                                       static_cast<int64_t>(found.length())));
         // skip pattern
-        i = piece.begin();
+        i = mutable_s.data();
         max_replacements--;
       }
     }
@@ -2371,7 +2379,8 @@ struct BinaryReplaceSliceTransform : ReplaceStringSliceTransformBase {
     return output - output_start;
   }
 
-  static int32_t FixedOutputSize(const ReplaceSliceOptions& opts, int32_t input_width) {
+  static Result<int32_t> FixedOutputSize(const ReplaceSliceOptions& opts,
+                                         int32_t input_width) {
     int32_t before_slice = 0;
     int32_t after_slice = 0;
     const int32_t start = static_cast<int32_t>(opts.start);
@@ -2430,6 +2439,7 @@ void AddAsciiStringReplaceSlice(FunctionRegistry* registry) {
 
 namespace {
 struct SliceBytesTransform : StringSliceTransformBase {
+  using StringSliceTransformBase::StringSliceTransformBase;
   int64_t MaxCodeunits(int64_t ninputs, int64_t input_bytes) override {
     const SliceOptions& opt = *this->options;
     if ((opt.start >= 0) != (opt.stop >= 0)) {
@@ -2448,22 +2458,15 @@ struct SliceBytesTransform : StringSliceTransformBase {
     return SliceBackward(input, input_string_bytes, output);
   }
 
-  int64_t SliceForward(const uint8_t* input, int64_t input_string_bytes,
-                       uint8_t* output) {
-    // Slice in forward order (step > 0)
-    const SliceOptions& opt = *this->options;
-    const uint8_t* begin = input;
-    const uint8_t* end = input + input_string_bytes;
-    const uint8_t* begin_sliced;
-    const uint8_t* end_sliced;
-
-    if (!input_string_bytes) {
-      return 0;
-    }
-    // First, compute begin_sliced and end_sliced
+  static std::pair<int64_t, int64_t> SliceForwardRange(const SliceOptions& opt,
+                                                       int64_t input_string_bytes) {
+    int64_t begin = 0;
+    int64_t end = input_string_bytes;
+    int64_t begin_sliced = 0;
+    int64_t end_sliced = 0;
     if (opt.start >= 0) {
       // start counting from the left
-      begin_sliced = std::min(begin + opt.start, end);
+      begin_sliced = std::min(opt.start, end);
       if (opt.stop > opt.start) {
         // continue counting from begin_sliced
         const int64_t length = opt.stop - opt.start;
@@ -2473,7 +2476,7 @@ struct SliceBytesTransform : StringSliceTransformBase {
         end_sliced = std::max(end + opt.stop, begin_sliced);
       } else {
         // zero length slice
-        return 0;
+        return {0, 0};
       }
     } else {
       // start counting from the right
@@ -2485,7 +2488,7 @@ struct SliceBytesTransform : StringSliceTransformBase {
         // and therefore we also need this
         if (end_sliced <= begin_sliced) {
           // zero length slice
-          return 0;
+          return {0, 0};
         }
       } else if ((opt.stop < 0) && (opt.stop > opt.start)) {
         // stop is negative, but larger than start, so we count again from the right
@@ -2495,12 +2498,30 @@ struct SliceBytesTransform : StringSliceTransformBase {
         end_sliced = std::max(end + opt.stop, begin_sliced);
       } else {
         // zero length slice
-        return 0;
+        return {0, 0};
       }
+    }
+    return {begin_sliced, end_sliced};
+  }
+
+  int64_t SliceForward(const uint8_t* input, int64_t input_string_bytes,
+                       uint8_t* output) {
+    // Slice in forward order (step > 0)
+    if (!input_string_bytes) {
+      return 0;
+    }
+
+    const SliceOptions& opt = *this->options;
+    auto [begin_index, end_index] = SliceForwardRange(opt, input_string_bytes);
+    const uint8_t* begin_sliced = input + begin_index;
+    const uint8_t* end_sliced = input + end_index;
+
+    if (begin_sliced == end_sliced) {
+      return 0;
     }
 
     // Second, copy computed slice to output
-    DCHECK(begin_sliced <= end_sliced);
+    DCHECK(begin_sliced < end_sliced);
     if (opt.step == 1) {
       // fast case, where we simply can finish with a memcpy
       std::copy(begin_sliced, end_sliced, output);
@@ -2519,18 +2540,13 @@ struct SliceBytesTransform : StringSliceTransformBase {
     return dest - output;
   }
 
-  int64_t SliceBackward(const uint8_t* input, int64_t input_string_bytes,
-                        uint8_t* output) {
+  static std::pair<int64_t, int64_t> SliceBackwardRange(const SliceOptions& opt,
+                                                        int64_t input_string_bytes) {
     // Slice in reverse order (step < 0)
-    const SliceOptions& opt = *this->options;
-    const uint8_t* begin = input;
-    const uint8_t* end = input + input_string_bytes;
-    const uint8_t* begin_sliced = begin;
-    const uint8_t* end_sliced = end;
-
-    if (!input_string_bytes) {
-      return 0;
-    }
+    int64_t begin = 0;
+    int64_t end = input_string_bytes;
+    int64_t begin_sliced = begin;
+    int64_t end_sliced = end;
 
     if (opt.start >= 0) {
       // +1 because begin_sliced acts as as the end of a reverse iterator
@@ -2549,6 +2565,28 @@ struct SliceBytesTransform : StringSliceTransformBase {
     }
     end_sliced--;
 
+    if (begin_sliced <= end_sliced) {
+      // zero length slice
+      return {0, 0};
+    }
+
+    return {begin_sliced, end_sliced};
+  }
+
+  int64_t SliceBackward(const uint8_t* input, int64_t input_string_bytes,
+                        uint8_t* output) {
+    if (!input_string_bytes) {
+      return 0;
+    }
+
+    const SliceOptions& opt = *this->options;
+    auto [begin_index, end_index] = SliceBackwardRange(opt, input_string_bytes);
+    const uint8_t* begin_sliced = input + begin_index;
+    const uint8_t* end_sliced = input + end_index;
+
+    if (begin_sliced == end_sliced) {
+      return 0;
+    }
     // Copy computed slice to output
     uint8_t* dest = output;
     const uint8_t* i = begin_sliced;
@@ -2561,6 +2599,22 @@ struct SliceBytesTransform : StringSliceTransformBase {
     }
 
     return dest - output;
+  }
+
+  static Result<int32_t> FixedOutputSize(SliceOptions options, int32_t input_width_32) {
+    auto step = options.step;
+    if (step == 0) {
+      return Status::Invalid("Slice step cannot be zero");
+    }
+    if (step > 0) {
+      // forward slice
+      auto [begin_index, end_index] = SliceForwardRange(options, input_width_32);
+      return static_cast<int32_t>((end_index - begin_index + step - 1) / step);
+    } else {
+      // backward slice
+      auto [begin_index, end_index] = SliceBackwardRange(options, input_width_32);
+      return static_cast<int32_t>((end_index - begin_index + step + 1) / step);
+    }
   }
 };
 
@@ -2588,6 +2642,12 @@ void AddAsciiStringSlice(FunctionRegistry* registry) {
     DCHECK_OK(
         func->AddKernel({ty}, ty, std::move(exec), SliceBytesTransform::State::Init));
   }
+  using TransformExec = FixedSizeBinaryTransformExecWithState<SliceBytesTransform>;
+  ScalarKernel fsb_kernel({InputType(Type::FIXED_SIZE_BINARY)},
+                          OutputType(TransformExec::OutputType), TransformExec::Exec,
+                          StringSliceTransformBase::State::Init);
+  fsb_kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+  DCHECK_OK(func->AddKernel(std::move(fsb_kernel)));
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 

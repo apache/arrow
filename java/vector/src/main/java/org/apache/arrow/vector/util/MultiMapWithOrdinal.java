@@ -25,8 +25,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import io.netty.util.collection.IntObjectHashMap;
-
 /**
  * An implementation of a multimap that supports constant time look-up by a generic key or an ordinal.
  *

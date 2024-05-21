@@ -21,6 +21,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import java.nio.charset.StandardCharsets;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.memory.RootAllocator;
@@ -65,7 +67,7 @@ public class TestBufferOwnershipTransfer {
 
     VarCharVector v1 = new VarCharVector("v1", childAllocator1);
     v1.allocateNew();
-    v1.setSafe(4094, "hello world".getBytes(), 0, 11);
+    v1.setSafe(4094, "hello world".getBytes(StandardCharsets.UTF_8), 0, 11);
     v1.setValueCount(4001);
 
     VarCharVector v2 = new VarCharVector("v2", childAllocator2);

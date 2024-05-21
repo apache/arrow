@@ -17,6 +17,8 @@
 
 # cython: language_level = 3
 
+from cython cimport binding
+
 from pyarrow.lib cimport (pyarrow_wrap_metadata,
                           pyarrow_unwrap_metadata)
 from pyarrow.lib import frombytes, tobytes, ensure_metadata
@@ -154,16 +156,19 @@ cdef class GcsFileSystem(FileSystem):
         FileSystem.init(self, wrapped)
         self.gcsfs = <CGcsFileSystem*> wrapped.get()
 
-    @classmethod
-    def _reconstruct(cls, kwargs):
-        return cls(**kwargs)
-
     def _expiration_datetime_from_options(self):
         expiration_ns = TimePoint_to_ns(
             self.gcsfs.options().credentials.expiration())
         if expiration_ns == 0:
             return None
         return datetime.fromtimestamp(expiration_ns / 1.0e9, timezone.utc)
+
+    @staticmethod
+    @binding(True)  # Required for cython < 3
+    def _reconstruct(kwargs):
+        # __reduce__ doesn't allow passing named arguments directly to the
+        # reconstructor, hence this wrapper.
+        return GcsFileSystem(**kwargs)
 
     def __reduce__(self):
         cdef CGcsOptions opts = self.gcsfs.options()

@@ -15,28 +15,41 @@
 # specific language governing permissions and limitations
 # under the License.
 
-add_gandiva_test(filter_test)
-add_gandiva_test(projector_test)
-add_gandiva_test(projector_build_validation_test)
-add_gandiva_test(if_expr_test)
-add_gandiva_test(literal_test)
-add_gandiva_test(boolean_expr_test)
-add_gandiva_test(binary_test)
-add_gandiva_test(date_time_test)
-add_gandiva_test(to_string_test)
-add_gandiva_test(utf8_test)
-add_gandiva_test(hash_test)
-add_gandiva_test(in_expr_test)
-add_gandiva_test(null_validity_test)
-add_gandiva_test(decimal_test)
-add_gandiva_test(decimal_single_test)
-add_gandiva_test(filter_project_test)
+add_gandiva_test(projector-test
+                 SOURCES
+                 binary_test.cc
+                 boolean_expr_test.cc
+                 date_time_test.cc
+                 decimal_single_test.cc
+                 decimal_test.cc
+                 filter_project_test.cc
+                 filter_test.cc
+                 hash_test.cc
+                 huge_table_test.cc
+                 if_expr_test.cc
+                 in_expr_test.cc
+                 literal_test.cc
+                 null_validity_test.cc
+                 projector_build_validation_test.cc
+                 projector_test.cc
+                 test_util.cc
+                 to_string_test.cc
+                 utf8_test.cc)
 
 if(ARROW_BUILD_STATIC)
-  add_gandiva_test(projector_test_static SOURCES projector_test.cc USE_STATIC_LINKING)
+  add_gandiva_test(projector_test_static
+                   SOURCES
+                   projector_test.cc
+                   test_util.cc
+                   USE_STATIC_LINKING)
   add_arrow_benchmark(micro_benchmarks
+                      SOURCES
+                      micro_benchmarks.cc
+                      test_util.cc
                       PREFIX
                       "gandiva"
                       EXTRA_LINK_LIBS
                       gandiva_static)
 endif()
+
+add_subdirectory(external_functions)

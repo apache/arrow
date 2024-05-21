@@ -20,9 +20,8 @@
 #include <memory>
 #include <utility>
 
-#include "arrow/compute/function.h"
+#include "arrow/compute/function_options.h"
 #include "arrow/compute/ordering.h"
-#include "arrow/datum.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
 
@@ -226,6 +225,7 @@ class ARROW_EXPORT CumulativeOptions : public FunctionOptions {
   /// - prod: 1
   /// - min: maximum of the input type
   /// - max: minimum of the input type
+  /// - mean: start is ignored because it has no meaning for mean
   std::optional<std::shared_ptr<Scalar>> start;
 
   /// If true, nulls in the input are ignored and produce a corresponding null output.
@@ -243,6 +243,18 @@ class ARROW_EXPORT PairwiseOptions : public FunctionOptions {
 
   /// Periods to shift for applying the binary operation, accepts negative values.
   int64_t periods = 1;
+};
+
+/// \brief Options for list_flatten function
+class ARROW_EXPORT ListFlattenOptions : public FunctionOptions {
+ public:
+  explicit ListFlattenOptions(bool recursive = false);
+  static constexpr char const kTypeName[] = "ListFlattenOptions";
+  static ListFlattenOptions Defaults() { return ListFlattenOptions(); }
+
+  /// \brief If true, the list is flattened recursively until a non-list
+  /// array is formed.
+  bool recursive = false;
 };
 
 /// @}
@@ -401,7 +413,7 @@ Result<std::shared_ptr<Array>> NthToIndices(const Array& values, int64_t n,
 
 /// \brief Return indices that partition an array around n-th sorted element.
 ///
-/// This overload takes a PartitionNthOptions specifiying the pivot index
+/// This overload takes a PartitionNthOptions specifying the pivot index
 /// and the null handling.
 ///
 /// \param[in] values array to be partitioned
@@ -452,7 +464,7 @@ Result<std::shared_ptr<Array>> SortIndices(const Array& array,
 
 /// \brief Return the indices that would sort an array.
 ///
-/// This overload takes a ArraySortOptions specifiying the sort order
+/// This overload takes a ArraySortOptions specifying the sort order
 /// and the null handling.
 ///
 /// \param[in] array array to sort
@@ -486,7 +498,7 @@ Result<std::shared_ptr<Array>> SortIndices(const ChunkedArray& chunked_array,
 
 /// \brief Return the indices that would sort a chunked array.
 ///
-/// This overload takes a ArraySortOptions specifiying the sort order
+/// This overload takes a ArraySortOptions specifying the sort order
 /// and the null handling.
 ///
 /// \param[in] chunked_array chunked array to sort
@@ -661,6 +673,16 @@ Result<Datum> CumulativeMin(
     const Datum& values, const CumulativeOptions& options = CumulativeOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
 
+/// \brief Compute the cumulative mean of an array-like object
+///
+/// \param[in] values array-like input
+/// \param[in] options configures cumulative mean behavior, `start` is ignored
+/// \param[in] ctx the function execution context, optional
+ARROW_EXPORT
+Result<Datum> CumulativeMean(
+    const Datum& values, const CumulativeOptions& options = CumulativeOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
 /// \brief Return the first order difference of an array.
 ///
 /// Computes the first order difference of an array, i.e.
@@ -682,14 +704,6 @@ Result<std::shared_ptr<Array>> PairwiseDiff(const Array& array,
                                             const PairwiseOptions& options,
                                             bool check_overflow = false,
                                             ExecContext* ctx = NULLPTR);
-
-// ----------------------------------------------------------------------
-// Deprecated functions
-
-ARROW_DEPRECATED("Deprecated in 3.0.0. Use SortIndices()")
-ARROW_EXPORT
-Result<std::shared_ptr<Array>> SortToIndices(const Array& values,
-                                             ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow

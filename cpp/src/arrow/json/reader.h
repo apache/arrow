@@ -79,7 +79,7 @@ class ARROW_EXPORT StreamingReader : public RecordBatchReader {
   /// threading is disabled, this will block until completion.
   virtual Future<std::shared_ptr<RecordBatch>> ReadNextAsync() = 0;
 
-  /// Get the number of bytes which have been succesfully converted to record batches
+  /// Get the number of bytes which have been successfully converted to record batches
   /// and consumed
   [[nodiscard]] virtual int64_t bytes_processed() const = 0;
 

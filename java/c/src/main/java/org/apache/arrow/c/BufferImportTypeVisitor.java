@@ -53,6 +53,7 @@ import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.ArrowType.ListView;
 import org.apache.arrow.vector.util.DataSizeRoundingUtil;
 
 /**
@@ -80,45 +81,44 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
   }
 
   @VisibleForTesting
-  long getBufferPtr(ArrowType type, int index) {
+  ArrowBuf importBuffer(ArrowType type, int index, long capacity) {
     checkState(
-        buffers.length > index,
-        "Expected at least %s buffers for type %s, but found %s", index + 1, type, buffers.length);
-    if (buffers[index] == NULL) {
-      throw new IllegalStateException(String.format("Buffer %s for type %s cannot be null", index, type));
+            buffers.length > index,
+            "Expected at least %s buffers for type %s, but found %s", index + 1, type, buffers.length);
+    long bufferPtr = buffers[index];
+
+    if (bufferPtr == NULL) {
+      // C array may be NULL but only accept that if expected capacity is zero too
+      if (capacity != 0) {
+        throw new IllegalStateException(String.format("Buffer %s for type %s cannot be null", index, type));
+      } else {
+        // no data in the C array, return an empty buffer
+        return allocator.getEmpty();
+      }
     }
-    return buffers[index];
+
+    ArrowBuf buf = underlyingAllocation.unsafeAssociateAllocation(allocator, capacity, bufferPtr);
+    imported.add(buf);
+    return buf;
   }
 
   private ArrowBuf importFixedBits(ArrowType type, int index, long bitsPerSlot) {
-    final long bufferPtr = getBufferPtr(type, index);
     final long capacity = DataSizeRoundingUtil.divideBy8Ceil(bitsPerSlot * fieldNode.getLength());
-    ArrowBuf buf = underlyingAllocation.unsafeAssociateAllocation(allocator, capacity, bufferPtr);
-    this.imported.add(buf);
-    return buf;
+    return importBuffer(type, index, capacity);
   }
 
   private ArrowBuf importFixedBytes(ArrowType type, int index, long bytesPerSlot) {
-    final long bufferPtr = getBufferPtr(type, index);
     final long capacity = bytesPerSlot * fieldNode.getLength();
-    ArrowBuf buf = underlyingAllocation.unsafeAssociateAllocation(allocator, capacity, bufferPtr);
-    this.imported.add(buf);
-    return buf;
+    return importBuffer(type, index, capacity);
   }
 
   private ArrowBuf importOffsets(ArrowType type, long bytesPerSlot) {
-    final long bufferPtr = getBufferPtr(type, 1);
     final long capacity = bytesPerSlot * (fieldNode.getLength() + 1);
-    ArrowBuf buf = underlyingAllocation.unsafeAssociateAllocation(allocator, capacity, bufferPtr);
-    this.imported.add(buf);
-    return buf;
+    return importBuffer(type, 1, capacity);
   }
 
   private ArrowBuf importData(ArrowType type, long capacity) {
-    final long bufferPtr = getBufferPtr(type, 2);
-    ArrowBuf buf = underlyingAllocation.unsafeAssociateAllocation(allocator, capacity, bufferPtr);
-    this.imported.add(buf);
-    return buf;
+    return importBuffer(type, 2, capacity);
   }
 
   private ArrowBuf maybeImportBitmap(ArrowType type) {
@@ -166,9 +166,9 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
         return Collections.singletonList(importFixedBytes(type, 0, UnionVector.TYPE_WIDTH));
       case Dense:
         return Arrays.asList(importFixedBytes(type, 0, DenseUnionVector.TYPE_WIDTH),
-            importFixedBytes(type, 0, DenseUnionVector.OFFSET_WIDTH));
+            importFixedBytes(type, 1, DenseUnionVector.OFFSET_WIDTH));
       default:
-        throw new UnsupportedOperationException("Importing buffers for type: " + type);
+        throw new UnsupportedOperationException("Importing buffers for union type: " + type);
     }
   }
 
@@ -211,6 +211,11 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
   }
 
   @Override
+  public List<ArrowBuf> visit(ArrowType.Utf8View type) {
+    throw new UnsupportedOperationException("Importing buffers for view type: " + type + " not supported");
+  }
+
+  @Override
   public List<ArrowBuf> visit(ArrowType.LargeUtf8 type) {
     try (ArrowBuf offsets = importOffsets(type, LargeVarCharVector.OFFSET_WIDTH)) {
       final long start = offsets.getLong(0);
@@ -236,6 +241,11 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
       offsets.getReferenceManager().retain();
       return Arrays.asList(maybeImportBitmap(type), offsets, importData(type, len));
     }
+  }
+
+  @Override
+  public List<ArrowBuf> visit(ArrowType.BinaryView type) {
+    throw new UnsupportedOperationException("Importing buffers for view type: " + type + " not supported");
   }
 
   @Override
@@ -318,5 +328,10 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
   @Override
   public List<ArrowBuf> visit(ArrowType.Duration type) {
     return Arrays.asList(maybeImportBitmap(type), importFixedBytes(type, 1, DurationVector.TYPE_WIDTH));
+  }
+
+  @Override
+  public List<ArrowBuf> visit(ListView type) {
+    throw new UnsupportedOperationException("Importing buffers for view type: " + type + " not supported");
   }
 }

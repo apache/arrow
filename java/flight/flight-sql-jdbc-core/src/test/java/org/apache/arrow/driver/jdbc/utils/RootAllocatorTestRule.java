@@ -18,6 +18,7 @@
 package org.apache.arrow.driver.jdbc.utils;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
@@ -456,9 +457,9 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
   public VarBinaryVector createVarBinaryVector(final String fieldName) {
     VarBinaryVector valueVector = new VarBinaryVector(fieldName, this.getRootAllocator());
     valueVector.allocateNew(3);
-    valueVector.setSafe(0, (fieldName + "__BINARY_DATA_0001").getBytes());
-    valueVector.setSafe(1, (fieldName + "__BINARY_DATA_0002").getBytes());
-    valueVector.setSafe(2, (fieldName + "__BINARY_DATA_0003").getBytes());
+    valueVector.setSafe(0, (fieldName + "__BINARY_DATA_0001").getBytes(StandardCharsets.UTF_8));
+    valueVector.setSafe(1, (fieldName + "__BINARY_DATA_0002").getBytes(StandardCharsets.UTF_8));
+    valueVector.setSafe(2, (fieldName + "__BINARY_DATA_0003").getBytes(StandardCharsets.UTF_8));
     valueVector.setValueCount(3);
 
     return valueVector;
@@ -472,9 +473,9 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
   public LargeVarBinaryVector createLargeVarBinaryVector() {
     LargeVarBinaryVector valueVector = new LargeVarBinaryVector("", this.getRootAllocator());
     valueVector.allocateNew(3);
-    valueVector.setSafe(0, "BINARY_DATA_0001".getBytes());
-    valueVector.setSafe(1, "BINARY_DATA_0002".getBytes());
-    valueVector.setSafe(2, "BINARY_DATA_0003".getBytes());
+    valueVector.setSafe(0, "BINARY_DATA_0001".getBytes(StandardCharsets.UTF_8));
+    valueVector.setSafe(1, "BINARY_DATA_0002".getBytes(StandardCharsets.UTF_8));
+    valueVector.setSafe(2, "BINARY_DATA_0003".getBytes(StandardCharsets.UTF_8));
     valueVector.setValueCount(3);
 
     return valueVector;
@@ -488,9 +489,9 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
   public FixedSizeBinaryVector createFixedSizeBinaryVector() {
     FixedSizeBinaryVector valueVector = new FixedSizeBinaryVector("", this.getRootAllocator(), 16);
     valueVector.allocateNew(3);
-    valueVector.setSafe(0, "BINARY_DATA_0001".getBytes());
-    valueVector.setSafe(1, "BINARY_DATA_0002".getBytes());
-    valueVector.setSafe(2, "BINARY_DATA_0003".getBytes());
+    valueVector.setSafe(0, "BINARY_DATA_0001".getBytes(StandardCharsets.UTF_8));
+    valueVector.setSafe(1, "BINARY_DATA_0002".getBytes(StandardCharsets.UTF_8));
+    valueVector.setSafe(2, "BINARY_DATA_0003".getBytes(StandardCharsets.UTF_8));
     valueVector.setValueCount(3);
 
     return valueVector;

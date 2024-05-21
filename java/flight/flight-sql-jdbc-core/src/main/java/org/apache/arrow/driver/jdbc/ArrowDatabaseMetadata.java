@@ -45,11 +45,12 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -145,8 +146,8 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
           Field.notNullable("IS_AUTOINCREMENT", Types.MinorType.VARCHAR.getType()),
           Field.notNullable("IS_GENERATEDCOLUMN", Types.MinorType.VARCHAR.getType())
       ));
-  private final Map<SqlInfo, Object> cachedSqlInfo =
-      Collections.synchronizedMap(new EnumMap<>(SqlInfo.class));
+  private final AtomicBoolean isCachePopulated = new AtomicBoolean(false);
+  private final Map<SqlInfo, Object> cachedSqlInfo = new EnumMap<>(SqlInfo.class);
   private static final Map<Integer, Integer> sqlTypesToFlightEnumConvertTypes = new HashMap<>();
 
   static {
@@ -197,31 +198,36 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
   @Override
   public String getSQLKeywords() throws SQLException {
     return convertListSqlInfoToString(
-        getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_KEYWORDS, List.class));
+        getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_KEYWORDS, List.class))
+        .orElse("");
   }
 
   @Override
   public String getNumericFunctions() throws SQLException {
     return convertListSqlInfoToString(
-        getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_NUMERIC_FUNCTIONS, List.class));
+        getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_NUMERIC_FUNCTIONS, List.class))
+        .orElse("");
   }
 
   @Override
   public String getStringFunctions() throws SQLException {
     return convertListSqlInfoToString(
-        getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_STRING_FUNCTIONS, List.class));
+        getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_STRING_FUNCTIONS, List.class))
+        .orElse("");
   }
 
   @Override
   public String getSystemFunctions() throws SQLException {
     return convertListSqlInfoToString(
-        getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_SYSTEM_FUNCTIONS, List.class));
+        getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_SYSTEM_FUNCTIONS, List.class))
+        .orElse("");
   }
 
   @Override
   public String getTimeDateFunctions() throws SQLException {
     return convertListSqlInfoToString(
-        getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_DATETIME_FUNCTIONS, List.class));
+        getSqlInfoAndCacheIfCacheIsEmpty(SqlInfo.SQL_DATETIME_FUNCTIONS, List.class))
+        .orElse("");
   }
 
   @Override
@@ -729,10 +735,15 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
                                                  final Class<T> desiredType)
       throws SQLException {
     final ArrowFlightConnection connection = getConnection();
-    if (cachedSqlInfo.isEmpty()) {
-      final FlightInfo sqlInfo = connection.getClientHandler().getSqlInfo();
+    if (!isCachePopulated.get()) {
+      // Lock-and-populate the cache. Only issue the call to getSqlInfo() once,
+      // populate the cache, then mark it as populated.
+      // Note that multiple callers from separate threads can see that the cache is not populated, but only
+      // one thread will try to populate the cache. Other threads will see the cache is non-empty when acquiring
+      // the lock on the cache and skip population.
       synchronized (cachedSqlInfo) {
         if (cachedSqlInfo.isEmpty()) {
+          final FlightInfo sqlInfo = connection.getClientHandler().getSqlInfo();
           try (final ResultSet resultSet =
                    ArrowFlightJdbcFlightStreamResultSet.fromFlightInfo(
                        connection, sqlInfo, null)) {
@@ -741,14 +752,19 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
                   resultSet.getObject("value"));
             }
           }
+          isCachePopulated.set(true);
         }
       }
     }
     return desiredType.cast(cachedSqlInfo.get(sqlInfoCommand));
   }
 
-  private String convertListSqlInfoToString(final List<?> sqlInfoList) {
-    return sqlInfoList.stream().map(Object::toString).collect(Collectors.joining(", "));
+  private Optional<String> convertListSqlInfoToString(final List<?> sqlInfoList) {
+    if (sqlInfoList == null) {
+      return Optional.empty();
+    } else {
+      return Optional.of(sqlInfoList.stream().map(Object::toString).collect(Collectors.joining(", ")));
+    }
   }
 
   private boolean getSqlInfoEnumOptionAndCacheIfCacheIsEmpty(
@@ -1042,8 +1058,8 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
           SqlTypes.getSqlTypeNameFromArrowType(fieldType).getBytes(CHARSET);
       typeNameVector.setSafe(insertIndex, typeName);
 
-      // We're not setting COLUMN_SIZE for ROWID SQL Types, as there's no such Arrow type.
-      // We're not setting COLUMN_SIZE nor DECIMAL_DIGITS for Float/Double as their precision and scale are variable.
+      // We aren't setting COLUMN_SIZE for ROWID SQL Types, as there's no such Arrow type.
+      // We aren't setting COLUMN_SIZE nor DECIMAL_DIGITS for Float/Double as their precision and scale are variable.
       if (fieldType instanceof ArrowType.Decimal) {
         numPrecRadixVector.setSafe(insertIndex, BASE10_RADIX);
       } else if (fieldType instanceof ArrowType.Int) {
@@ -1095,7 +1111,7 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
   }
 
   static Integer getDecimalDigits(final ArrowType fieldType) {
-    // We're not setting  DECIMAL_DIGITS for Float/Double as their precision and scale are variable.
+    // We aren't setting DECIMAL_DIGITS for Float/Double as their precision and scale are variable.
     if (fieldType instanceof ArrowType.Decimal) {
       final ArrowType.Decimal thisDecimal = (ArrowType.Decimal) fieldType;
       return thisDecimal.getScale();
@@ -1135,8 +1151,8 @@ public class ArrowDatabaseMetadata extends AvaticaDatabaseMetaData {
   }
 
   static Integer getColumnSize(final ArrowType fieldType) {
-    // We're not setting COLUMN_SIZE for ROWID SQL Types, as there's no such Arrow type.
-    // We're not setting COLUMN_SIZE nor DECIMAL_DIGITS for Float/Double as their precision and scale are variable.
+    // We aren't setting COLUMN_SIZE for ROWID SQL Types, as there's no such Arrow type.
+    // We aren't setting COLUMN_SIZE nor DECIMAL_DIGITS for Float/Double as their precision and scale are variable.
     if (fieldType instanceof ArrowType.Decimal) {
       final ArrowType.Decimal thisDecimal = (ArrowType.Decimal) fieldType;
       return thisDecimal.getPrecision();

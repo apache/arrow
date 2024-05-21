@@ -55,6 +55,7 @@ libparquet_glib = library('parquet-glib',
                           sources: sources,
                           install: true,
                           dependencies: dependencies,
+                          implicit_include_directories: false,
                           include_directories: base_include_directories,
                           soversion: so_version,
                           version: library_version)
@@ -79,15 +80,13 @@ if have_gi
                          '--warn-all',
                          '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
                        ],
-                       fatal_warnings: gi_fatal_warnings,
                        header: 'parquet-glib/parquet-glib.h',
                        identifier_prefix: 'GParquet',
                        includes: [
                          'Arrow-1.0',
                        ],
-                       install: true,
+                       kwargs: generate_gi_common_args,
                        namespace: 'Parquet',
-                       nsversion: api_version,
                        sources: sources + c_headers,
                        symbol_prefix: 'gparquet')
 

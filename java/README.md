@@ -48,10 +48,10 @@ a version of your choosing.
 
 ```bash
 $ flatc --version
-flatc version 1.12.0
+flatc version 23.5.26
 
 $ grep "dep.fbs.version" java/pom.xml
-    <dep.fbs.version>1.12.0</dep.fbs.version>
+    <dep.fbs.version>23.5.26</dep.fbs.version>
 ```
 
 2. Generate the flatbuffer java files by performing the following:

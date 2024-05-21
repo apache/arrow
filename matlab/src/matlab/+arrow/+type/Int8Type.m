@@ -1,3 +1,5 @@
+%INT8TYPE Type class for int8 data. 
+
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
 % this work for additional information regarding copyright ownership.
@@ -13,12 +15,15 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef Int8Type < arrow.type.FixedWidthType
-%INT8TYPE Type class for int8 data. 
+classdef Int8Type < arrow.type.NumericType
     
     methods 
-        function obj = Int8Type()
-            obj@arrow.type.FixedWidthType("Name", "arrow.type.proxy.Int8Type", "ConstructorArguments", {})
+        function obj = Int8Type(proxy)
+            arguments
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.type.proxy.Int8Type")}
+            end
+            import arrow.internal.proxy.validate
+            obj@arrow.type.NumericType(proxy);
         end
     end
 end

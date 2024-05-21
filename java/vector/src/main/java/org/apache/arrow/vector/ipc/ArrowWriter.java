@@ -61,8 +61,13 @@ public abstract class ArrowWriter implements AutoCloseable {
   private final DictionaryProvider dictionaryProvider;
   private final Set<Long> dictionaryIdsUsed = new HashSet<>();
 
+  private final CompressionCodec.Factory compressionFactory;
+  private final CompressionUtil.CodecType codecType;
+  private final Optional<Integer> compressionLevel;
   private boolean started = false;
   private boolean ended = false;
+
+  private final CompressionCodec codec;
 
   protected IpcOption option;
 
@@ -89,15 +94,18 @@ public abstract class ArrowWriter implements AutoCloseable {
   protected ArrowWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out, IpcOption option,
                         CompressionCodec.Factory compressionFactory, CompressionUtil.CodecType codecType,
                         Optional<Integer> compressionLevel) {
-    this.unloader = new VectorUnloader(
-        root, /*includeNullCount*/ true,
-        compressionLevel.isPresent() ?
-            compressionFactory.createCodec(codecType, compressionLevel.get()) :
-            compressionFactory.createCodec(codecType),
-        /*alignBuffers*/ true);
     this.out = new WriteChannel(out);
     this.option = option;
     this.dictionaryProvider = provider;
+
+    this.compressionFactory = compressionFactory;
+    this.codecType = codecType;
+    this.compressionLevel = compressionLevel;
+    this.codec = this.compressionLevel.isPresent() ?
+            this.compressionFactory.createCodec(this.codecType, this.compressionLevel.get()) :
+            this.compressionFactory.createCodec(this.codecType);
+    this.unloader = new VectorUnloader(root, /*includeNullCount*/ true, codec,
+        /*alignBuffers*/ true);
 
     List<Field> fields = new ArrayList<>(root.getSchema().getFields().size());
 
@@ -133,7 +141,8 @@ public abstract class ArrowWriter implements AutoCloseable {
         Collections.singletonList(vector.getField()),
         Collections.singletonList(vector),
         count);
-    VectorUnloader unloader = new VectorUnloader(dictRoot);
+    VectorUnloader unloader = new VectorUnloader(dictRoot, /*includeNullCount*/ true, this.codec,
+        /*alignBuffers*/ true);
     ArrowRecordBatch batch = unloader.getRecordBatch();
     ArrowDictionaryBatch dictionaryBatch = new ArrowDictionaryBatch(id, batch, false);
     try {

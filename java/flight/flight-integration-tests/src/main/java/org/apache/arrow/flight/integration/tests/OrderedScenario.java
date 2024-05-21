@@ -55,7 +55,8 @@ public class OrderedScenario implements Scenario {
   }
 
   @Override
-  public void buildServer(FlightServer.Builder builder) throws Exception {}
+  public void buildServer(FlightServer.Builder builder) throws Exception {
+  }
 
   @Override
   public void client(BufferAllocator allocator, Location location, FlightClient client)

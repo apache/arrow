@@ -14,7 +14,6 @@
 // limitations under the License.
 
 using System.Threading.Tasks;
-using Apache.Arrow.Flight.Protocol;
 using Apache.Arrow.Flight.Internal;
 using Grpc.Core;
 
@@ -22,7 +21,11 @@ namespace Apache.Arrow.Flight.Server
 {
     public class FlightServerRecordBatchStreamReader : FlightRecordBatchStreamReader
     {
-        internal FlightServerRecordBatchStreamReader(IAsyncStreamReader<FlightData> flightDataStream) : base(flightDataStream)
+        public FlightServerRecordBatchStreamReader(IAsyncStreamReader<FlightData> flightDataStream) : base(new StreamReader<FlightData, Protocol.FlightData>(flightDataStream, data => data.ToProtocol()))
+        {
+        }
+
+        internal FlightServerRecordBatchStreamReader(IAsyncStreamReader<Protocol.FlightData> flightDataStream) : base(flightDataStream)
         {
         }
 

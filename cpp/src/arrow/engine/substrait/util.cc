@@ -70,6 +70,16 @@ const std::string& default_extension_types_uri() {
   return uri;
 }
 
+Status CheckVersion(uint32_t major_version, uint32_t minor_version) {
+  if (major_version < kSubstraitMinimumMajorVersion &&
+      minor_version < kSubstraitMinimumMinorVersion) {
+    return Status::Invalid("Can only parse Substrait messages with a version >= ",
+                           kSubstraitMinimumMajorVersion, ".",
+                           kSubstraitMinimumMinorVersion);
+  }
+  return Status::OK();
+}
+
 }  // namespace engine
 
 }  // namespace arrow

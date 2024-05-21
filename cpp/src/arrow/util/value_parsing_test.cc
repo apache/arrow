@@ -24,9 +24,13 @@
 
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/value_parsing.h"
 
 namespace arrow {
+
+using util::Float16;
+
 namespace internal {
 
 template <typename T>
@@ -119,6 +123,9 @@ TEST(StringConversion, ToFloat) {
   AssertConversion<FloatType>("0", 0.0f);
   AssertConversion<FloatType>("-0.0", -0.0f);
   AssertConversion<FloatType>("-1e20", -1e20f);
+  AssertConversion<FloatType>("+Infinity", std::numeric_limits<float>::infinity());
+  AssertConversion<FloatType>("-Infinity", -std::numeric_limits<float>::infinity());
+  AssertConversion<FloatType>("Infinity", std::numeric_limits<float>::infinity());
 
   AssertConversionFails<FloatType>("");
   AssertConversionFails<FloatType>("e");
@@ -135,6 +142,9 @@ TEST(StringConversion, ToDouble) {
   AssertConversion<DoubleType>("0", 0);
   AssertConversion<DoubleType>("-0.0", -0.0);
   AssertConversion<DoubleType>("-1e100", -1e100);
+  AssertConversion<DoubleType>("+Infinity", std::numeric_limits<double>::infinity());
+  AssertConversion<DoubleType>("-Infinity", -std::numeric_limits<double>::infinity());
+  AssertConversion<DoubleType>("Infinity", std::numeric_limits<double>::infinity());
 
   AssertConversionFails<DoubleType>("");
   AssertConversionFails<DoubleType>("e");
@@ -143,6 +153,25 @@ TEST(StringConversion, ToDouble) {
   StringConverter<DoubleType> converter(/*decimal_point=*/',');
   AssertConversion(&converter, "1,5", 1.5);
   AssertConversion(&converter, "0", 0.0);
+  AssertConversionFails(&converter, "1.5");
+}
+
+TEST(StringConversion, ToHalfFloat) {
+  AssertConversion<HalfFloatType>("1.5", Float16(1.5f).bits());
+  AssertConversion<HalfFloatType>("0", Float16(0.0f).bits());
+  AssertConversion<HalfFloatType>("-0.0", Float16(-0.0f).bits());
+  AssertConversion<HalfFloatType>("-1e15", Float16(-1e15).bits());
+  AssertConversion<HalfFloatType>("+Infinity", 0x7c00);
+  AssertConversion<HalfFloatType>("-Infinity", 0xfc00);
+  AssertConversion<HalfFloatType>("Infinity", 0x7c00);
+
+  AssertConversionFails<HalfFloatType>("");
+  AssertConversionFails<HalfFloatType>("e");
+  AssertConversionFails<HalfFloatType>("1,5");
+
+  StringConverter<HalfFloatType> converter(/*decimal_point=*/',');
+  AssertConversion(&converter, "1,5", Float16(1.5f).bits());
+  AssertConversion(&converter, "0", Float16(0.0f).bits());
   AssertConversionFails(&converter, "1.5");
 }
 
@@ -170,6 +199,19 @@ TEST(StringConversion, ToDoubleLocale) {
 
   StringConverter<DoubleType> converter(/*decimal_point=*/'#');
   AssertConversion(&converter, "1#5", 1.5);
+  AssertConversionFails(&converter, "1.5");
+  AssertConversionFails(&converter, "1,5");
+}
+
+TEST(StringConversion, ToHalfFloatLocale) {
+  // French locale uses the comma as decimal point
+  LocaleGuard locale_guard("fr_FR.UTF-8");
+
+  AssertConversion<HalfFloatType>("1.5", Float16(1.5).bits());
+  AssertConversionFails<HalfFloatType>("1,5");
+
+  StringConverter<HalfFloatType> converter(/*decimal_point=*/'#');
+  AssertConversion(&converter, "1#5", Float16(1.5).bits());
   AssertConversionFails(&converter, "1.5");
   AssertConversionFails(&converter, "1,5");
 }
@@ -788,6 +830,11 @@ TEST(TimestampParser, StrptimeZoneOffset) {
   if (!kStrptimeSupportsZone) {
     GTEST_SKIP() << "strptime does not support %z on this platform";
   }
+#ifdef __EMSCRIPTEN__
+  GTEST_SKIP() << "Test temporarily disabled due to emscripten bug "
+                  "https://github.com/emscripten-core/emscripten/issues/20467 ";
+#endif
+
   std::string format = "%Y-%d-%m %H:%M:%S%z";
   auto parser = TimestampParser::MakeStrptime(format);
 

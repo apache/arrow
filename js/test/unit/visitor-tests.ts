@@ -18,13 +18,14 @@
 import {
     Field, Visitor,
     DataType, Dictionary,
-    Bool, Null, Utf8, Binary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
+    Bool, Null, Utf8, LargeUtf8, Binary, LargeBinary, Decimal, FixedSizeBinary, List, FixedSizeList, Map_, Struct,
     Float, Float16, Float32, Float64,
     Int, Uint8, Uint16, Uint32, Uint64, Int8, Int16, Int32, Int64,
     Date_, DateDay, DateMillisecond,
     Interval, IntervalDayTime, IntervalYearMonth,
     Time, TimeSecond, TimeMillisecond, TimeMicrosecond, TimeNanosecond,
     Timestamp, TimestampSecond, TimestampMillisecond, TimestampMicrosecond, TimestampNanosecond,
+    Duration, DurationSecond, DurationMillisecond, DurationMicrosecond, DurationNanosecond,
     Union, DenseUnion, SparseUnion,
 } from 'apache-arrow';
 
@@ -35,7 +36,9 @@ class BasicVisitor extends Visitor {
     public visitInt<T extends Int>(type: T) { return (this.type = type); }
     public visitFloat<T extends Float>(type: T) { return (this.type = type); }
     public visitUtf8<T extends Utf8>(type: T) { return (this.type = type); }
+    public visitLargeUtf8<T extends LargeUtf8>(type: T) { return (this.type = type); }
     public visitBinary<T extends Binary>(type: T) { return (this.type = type); }
+    public visitLargeBinary<T extends LargeBinary>(type: T) { return (this.type = type); }
     public visitFixedSizeBinary<T extends FixedSizeBinary>(type: T) { return (this.type = type); }
     public visitDate<T extends Date_>(type: T) { return (this.type = type); }
     public visitTimestamp<T extends Timestamp>(type: T) { return (this.type = type); }
@@ -46,6 +49,7 @@ class BasicVisitor extends Visitor {
     public visitUnion<T extends Union>(type: T) { return (this.type = type); }
     public visitDictionary<T extends Dictionary>(type: T) { return (this.type = type); }
     public visitInterval<T extends Interval>(type: T) { return (this.type = type); }
+    public visitDuration<T extends Duration>(type: T) { return (this.type = type); }
     public visitFixedSizeList<T extends FixedSizeList>(type: T) { return (this.type = type); }
     public visitMap<T extends Map_>(type: T) { return (this.type = type); }
 }
@@ -66,7 +70,9 @@ class FeatureVisitor extends Visitor {
     public visitFloat32<T extends Float32>(type: T) { return (this.type = type); }
     public visitFloat64<T extends Float64>(type: T) { return (this.type = type); }
     public visitUtf8<T extends Utf8>(type: T) { return (this.type = type); }
+    public visitLargeUtf8<T extends LargeUtf8>(type: T) { return (this.type = type); }
     public visitBinary<T extends Binary>(type: T) { return (this.type = type); }
+    public visitLargeBinary<T extends LargeBinary>(type: T) { return (this.type = type); }
     public visitFixedSizeBinary<T extends FixedSizeBinary>(type: T) { return (this.type = type); }
     public visitDateDay<T extends DateDay>(type: T) { return (this.type = type); }
     public visitDateMillisecond<T extends DateMillisecond>(type: T) { return (this.type = type); }
@@ -86,6 +92,10 @@ class FeatureVisitor extends Visitor {
     public visitDictionary<T extends Dictionary>(type: T) { return (this.type = type); }
     public visitIntervalDayTime<T extends IntervalDayTime>(type: T) { return (this.type = type); }
     public visitIntervalYearMonth<T extends IntervalYearMonth>(type: T) { return (this.type = type); }
+    public visitDurationSecond<T extends DurationSecond>(type: T) { return (this.type = type); }
+    public visitDurationMillisecond<T extends DurationMillisecond>(type: T) { return (this.type = type); }
+    public visitDurationMicrosecond<T extends DurationMicrosecond>(type: T) { return (this.type = type); }
+    public visitDurationNanosecond<T extends DurationNanosecond>(type: T) { return (this.type = type); }
     public visitFixedSizeList<T extends FixedSizeList>(type: T) { return (this.type = type); }
     public visitMap<T extends Map_>(type: T) { return (this.type = type); }
 }
@@ -98,7 +108,9 @@ describe('Visitor', () => {
         test(`visits Int types`, () => validateBasicVisitor(new Int(true, 32)));
         test(`visits Float types`, () => validateBasicVisitor(new Float(0)));
         test(`visits Utf8 types`, () => validateBasicVisitor(new Utf8()));
+        test(`visits LargeUtf8 types`, () => validateBasicVisitor(new LargeUtf8()));
         test(`visits Binary types`, () => validateBasicVisitor(new Binary()));
+        test(`visits LargeBinary types`, () => validateBasicVisitor(new LargeBinary()));
         test(`visits FixedSizeBinary types`, () => validateBasicVisitor(new FixedSizeBinary(128)));
         test(`visits Date types`, () => validateBasicVisitor(new Date_(0)));
         test(`visits Timestamp types`, () => validateBasicVisitor(new Timestamp(0, 'UTC')));
@@ -109,8 +121,11 @@ describe('Visitor', () => {
         test(`visits Union types`, () => validateBasicVisitor(new Union(0, [] as any[], [] as any[])));
         test(`visits Dictionary types`, () => validateBasicVisitor(new Dictionary(null as any, null as any)));
         test(`visits Interval types`, () => validateBasicVisitor(new Interval(0)));
+        test(`visits Duration types`, () => validateBasicVisitor(new Duration(0)));
         test(`visits FixedSizeList types`, () => validateBasicVisitor(new FixedSizeList(2, null as any)));
-        test(`visits Map types`, () => validateBasicVisitor(new Map_(new Field('', new Struct<{ key: Int; value: Int }>([] as any[])))));
+        test(`visits Map types`, () => validateBasicVisitor(new Map_(new Field('', new Struct<{ key: Utf8; value: Int }>([
+            new Field('key', new Utf8()), new Field('value', new Int8())
+        ] as any[])))));
         function validateBasicVisitor<T extends DataType>(type: T) {
             const visitor = new BasicVisitor();
             const result = visitor.visit(type);
@@ -135,7 +150,9 @@ describe('Visitor', () => {
         test(`visits Float32 types`, () => validateFeatureVisitor(new Float32()));
         test(`visits Float64 types`, () => validateFeatureVisitor(new Float64()));
         test(`visits Utf8 types`, () => validateFeatureVisitor(new Utf8()));
+        test(`visits LargeUtf8 types`, () => validateFeatureVisitor(new LargeUtf8()));
         test(`visits Binary types`, () => validateFeatureVisitor(new Binary()));
+        test(`visits LargeBinary types`, () => validateFeatureVisitor(new LargeBinary()));
         test(`visits FixedSizeBinary types`, () => validateFeatureVisitor(new FixedSizeBinary(128)));
         test(`visits DateDay types`, () => validateFeatureVisitor(new DateDay()));
         test(`visits DateMillisecond types`, () => validateFeatureVisitor(new DateMillisecond()));
@@ -156,7 +173,13 @@ describe('Visitor', () => {
         test(`visits IntervalDayTime types`, () => validateFeatureVisitor(new IntervalDayTime()));
         test(`visits IntervalYearMonth types`, () => validateFeatureVisitor(new IntervalYearMonth()));
         test(`visits FixedSizeList types`, () => validateFeatureVisitor(new FixedSizeList(2, null as any)));
-        test(`visits Map types`, () => validateFeatureVisitor(new Map_(new Field('', new Struct<{ key: Int; value: Int }>([] as any[])))));
+        test(`visits DurationSecond types`, () => validateFeatureVisitor(new DurationSecond()));
+        test(`visits DurationMillisecond types`, () => validateFeatureVisitor(new DurationMillisecond()));
+        test(`visits DurationMicrosecond types`, () => validateFeatureVisitor(new DurationMicrosecond()));
+        test(`visits DurationNanosecond types`, () => validateFeatureVisitor(new DurationNanosecond()));
+        test(`visits Map types`, () => validateFeatureVisitor(new Map_(new Field('', new Struct<{ key: Utf8; value: Int }>([
+            new Field('key', new Utf8()), new Field('value', new Int8())
+        ] as any[])))));
 
         function validateFeatureVisitor<T extends DataType>(type: T) {
             const visitor = new FeatureVisitor();

@@ -17,6 +17,8 @@
 
 (function() {
     // adapted 2022-11 from https://mne.tools/versionwarning.js
+    // Not used anymore for versions 14.0.0 and higher
+    // Kept for older docs versions (13.0.0 and lower)
     if (location.hostname == 'arrow.apache.org') {
         $.getJSON("https://arrow.apache.org/docs/_static/versions.json", function(data){
             var latestStable = data[1].name.replace(" (stable)","");

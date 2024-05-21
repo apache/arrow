@@ -167,7 +167,9 @@ def list_types(item_strategy=primitive_types):
             pa.list_,
             item_strategy,
             st.integers(min_value=0, max_value=16)
-        )
+        ) |
+        st.builds(pa.list_view, item_strategy) |
+        st.builds(pa.large_list_view, item_strategy)
     )
 
 
@@ -182,15 +184,17 @@ def struct_types(draw, item_strategy=primitive_types):
 
 
 def dictionary_types(key_strategy=None, value_strategy=None):
-    key_strategy = key_strategy or signed_integer_types
-    value_strategy = value_strategy or st.one_of(
-        bool_type,
-        integer_types,
-        st.sampled_from([pa.float32(), pa.float64()]),
-        binary_type,
-        string_type,
-        fixed_size_binary_type,
-    )
+    if key_strategy is None:
+        key_strategy = signed_integer_types
+    if value_strategy is None:
+        value_strategy = st.one_of(
+            bool_type,
+            integer_types,
+            st.sampled_from([pa.float32(), pa.float64()]),
+            binary_type,
+            string_type,
+            fixed_size_binary_type,
+        )
     return st.builds(pa.dictionary, key_strategy, value_strategy)
 
 
@@ -318,6 +322,10 @@ def arrays(draw, type, size=None, nullable=True):
         value = _pylist(ty.value_type, size=size, nullable=nullable)
     elif pa.types.is_fixed_size_list(ty):
         value = _pylist(ty.value_type, size=ty.list_size, nullable=nullable)
+    elif pa.types.is_list_view(ty):
+        value = _pylist(ty.value_type, size=size, nullable=nullable)
+    elif pa.types.is_large_list_view(ty):
+        value = _pylist(ty.value_type, size=size, nullable=nullable)
     elif pa.types.is_dictionary(ty):
         values = _pylist(ty.value_type, size=size, nullable=nullable)
         return pa.array(draw(values), type=ty)
@@ -368,7 +376,7 @@ def record_batches(draw, type, rows=None, max_fields=None):
     children = [draw(arrays(field.type, size=rows)) for field in schema]
     # TODO(kszucs): the names and schema arguments are not consistent with
     #               Table.from_array's arguments
-    return pa.RecordBatch.from_arrays(children, names=schema)
+    return pa.RecordBatch.from_arrays(children, schema=schema)
 
 
 @st.composite

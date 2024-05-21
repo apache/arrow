@@ -25,11 +25,11 @@ import (
 	"math/big"
 	"strconv"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/array"
 )
 
-func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array) []string {
+func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array, stringsReplacer func(string) string) []string {
 	res := make([]string, col.Len())
 	switch typ.(type) {
 	case *arrow.BooleanType:
@@ -144,7 +144,7 @@ func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array) []
 		arr := col.(*array.String)
 		for i := 0; i < arr.Len(); i++ {
 			if arr.IsValid(i) {
-				res[i] = arr.Value(i)
+				res[i] = stringsReplacer(arr.Value(i))
 			} else {
 				res[i] = w.nullValue
 			}
@@ -153,7 +153,7 @@ func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array) []
 		arr := col.(*array.LargeString)
 		for i := 0; i < arr.Len(); i++ {
 			if arr.IsValid(i) {
-				res[i] = arr.Value(i)
+				res[i] = stringsReplacer(arr.Value(i))
 			} else {
 				res[i] = w.nullValue
 			}
@@ -215,62 +215,25 @@ func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array) []
 				res[i] = w.nullValue
 			}
 		}
-	case *arrow.ListType:
-		arr := col.(*array.List)
-		listVals, offsets := arr.ListValues(), arr.Offsets()
-		for i := 0; i < arr.Len(); i++ {
-			if arr.IsValid(i) {
-				list := array.NewSlice(listVals, int64(offsets[i]), int64(offsets[i+1]))
-				var b bytes.Buffer
-				b.Write([]byte{'{'})
-				writer := csv.NewWriter(&b)
-				writer.Write(w.transformColToStringArr(list.DataType(), list))
-				writer.Flush()
-				b.Truncate(b.Len() - 1)
-				b.Write([]byte{'}'})
-				res[i] = b.String()
-				list.Release()
-			} else {
-				res[i] = w.nullValue
-			}
-		}
-	case *arrow.LargeListType:
-		arr := col.(*array.LargeList)
-		listVals, offsets := arr.ListValues(), arr.Offsets()
-		for i := 0; i < arr.Len(); i++ {
-			if arr.IsValid(i) {
-				list := array.NewSlice(listVals, int64(offsets[i]), int64(offsets[i+1]))
-				var b bytes.Buffer
-				b.Write([]byte{'{'})
-				writer := csv.NewWriter(&b)
-				writer.Write(w.transformColToStringArr(list.DataType(), list))
-				writer.Flush()
-				b.Truncate(b.Len() - 1)
-				b.Write([]byte{'}'})
-				res[i] = b.String()
-				list.Release()
-			} else {
-				res[i] = w.nullValue
-			}
-		}
-	case *arrow.FixedSizeListType:
-		arr := col.(*array.FixedSizeList)
+	case arrow.ListLikeType:
+		arr := col.(array.ListLike)
 		listVals := arr.ListValues()
 		for i := 0; i < arr.Len(); i++ {
-			if arr.IsValid(i) {
-				list := array.NewSlice(listVals, int64((arr.Len()-1)*i), int64((arr.Len()-1)*(i+1)))
-				var b bytes.Buffer
-				b.Write([]byte{'{'})
-				writer := csv.NewWriter(&b)
-				writer.Write(w.transformColToStringArr(list.DataType(), list))
-				writer.Flush()
-				b.Truncate(b.Len() - 1)
-				b.Write([]byte{'}'})
-				res[i] = b.String()
-				list.Release()
-			} else {
+			if arr.IsNull(i) {
 				res[i] = w.nullValue
+				continue
 			}
+			start, end := arr.ValueOffsets(i)
+			list := array.NewSlice(listVals, start, end)
+			var b bytes.Buffer
+			b.Write([]byte{'{'})
+			writer := csv.NewWriter(&b)
+			writer.Write(w.transformColToStringArr(list.DataType(), list, stringsReplacer))
+			writer.Flush()
+			b.Truncate(b.Len() - 1)
+			b.Write([]byte{'}'})
+			res[i] = b.String()
+			list.Release()
 		}
 	case *arrow.BinaryType:
 		arr := col.(*array.Binary)

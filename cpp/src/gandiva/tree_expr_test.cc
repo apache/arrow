@@ -45,7 +45,7 @@ class TestExprTree : public ::testing::Test {
   FieldPtr i1_;  // int32
 
   FieldPtr b0_;  // bool
-  FunctionRegistry registry_;
+  std::shared_ptr<FunctionRegistry> registry_ = gandiva::default_function_registry();
 };
 
 TEST_F(TestExprTree, TestField) {
@@ -57,7 +57,7 @@ TEST_F(TestExprTree, TestField) {
   auto n1 = TreeExprBuilder::MakeField(b0_);
   EXPECT_EQ(n1->return_type(), boolean());
 
-  ExprDecomposer decomposer(registry_, annotator);
+  ExprDecomposer decomposer(*registry_, annotator);
   ValueValidityPairPtr pair;
   auto status = decomposer.Decompose(*n1, &pair);
   DCHECK_EQ(status.ok(), true) << status.message();
@@ -88,7 +88,7 @@ TEST_F(TestExprTree, TestBinary) {
   EXPECT_EQ(add->return_type(), int32());
   EXPECT_TRUE(sign == FunctionSignature("add", {int32(), int32()}, int32()));
 
-  ExprDecomposer decomposer(registry_, annotator);
+  ExprDecomposer decomposer(*registry_, annotator);
   ValueValidityPairPtr pair;
   auto status = decomposer.Decompose(*n, &pair);
   DCHECK_EQ(status.ok(), true) << status.message();
@@ -97,7 +97,7 @@ TEST_F(TestExprTree, TestBinary) {
   auto null_if_null = std::dynamic_pointer_cast<NonNullableFuncDex>(value);
 
   FunctionSignature signature("add", {int32(), int32()}, int32());
-  const NativeFunction* fn = registry_.LookupSignature(signature);
+  const NativeFunction* fn = registry_->LookupSignature(signature);
   EXPECT_EQ(null_if_null->native_function(), fn);
 }
 
@@ -114,7 +114,7 @@ TEST_F(TestExprTree, TestUnary) {
   EXPECT_EQ(unaryFn->return_type(), boolean());
   EXPECT_TRUE(sign == FunctionSignature("isnumeric", {int32()}, boolean()));
 
-  ExprDecomposer decomposer(registry_, annotator);
+  ExprDecomposer decomposer(*registry_, annotator);
   ValueValidityPairPtr pair;
   auto status = decomposer.Decompose(*n, &pair);
   DCHECK_EQ(status.ok(), true) << status.message();
@@ -123,7 +123,7 @@ TEST_F(TestExprTree, TestUnary) {
   auto never_null = std::dynamic_pointer_cast<NullableNeverFuncDex>(value);
 
   FunctionSignature signature("isnumeric", {int32()}, boolean());
-  const NativeFunction* fn = registry_.LookupSignature(signature);
+  const NativeFunction* fn = registry_->LookupSignature(signature);
   EXPECT_EQ(never_null->native_function(), fn);
 }
 
@@ -143,7 +143,7 @@ TEST_F(TestExprTree, TestExpression) {
                          func_desc->return_type());
   EXPECT_TRUE(sign == FunctionSignature("add", {int32(), int32()}, int32()));
 
-  ExprDecomposer decomposer(registry_, annotator);
+  ExprDecomposer decomposer(*registry_, annotator);
   ValueValidityPairPtr pair;
   auto status = decomposer.Decompose(*root_node, &pair);
   DCHECK_EQ(status.ok(), true) << status.message();
@@ -152,7 +152,7 @@ TEST_F(TestExprTree, TestExpression) {
   auto null_if_null = std::dynamic_pointer_cast<NonNullableFuncDex>(value);
 
   FunctionSignature signature("add", {int32(), int32()}, int32());
-  const NativeFunction* fn = registry_.LookupSignature(signature);
+  const NativeFunction* fn = registry_->LookupSignature(signature);
   EXPECT_EQ(null_if_null->native_function(), fn);
 }
 

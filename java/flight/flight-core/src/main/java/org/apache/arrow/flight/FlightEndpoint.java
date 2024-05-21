@@ -23,6 +23,7 @@ import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -30,7 +31,9 @@ import java.util.Optional;
 
 import org.apache.arrow.flight.impl.Flight;
 
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Timestamp;
+import com.google.protobuf.util.Timestamps;
 
 /**
  * POJO to convert to/from the underlying protobuf FlightEndpoint.
@@ -39,6 +42,7 @@ public class FlightEndpoint {
   private final List<Location> locations;
   private final Ticket ticket;
   private final Instant expirationTime;
+  private final byte[] appMetadata;
 
   /**
    * Constructs a new endpoint with no expiration time.
@@ -54,13 +58,22 @@ public class FlightEndpoint {
    * Constructs a new endpoint with an expiration time.
    *
    * @param ticket A ticket that describe the key of a data stream.
+   * @param expirationTime (optional) When this endpoint expires.
    * @param locations  The possible locations the stream can be retrieved from.
    */
   public FlightEndpoint(Ticket ticket, Instant expirationTime, Location... locations) {
+    this(ticket, expirationTime, null, Collections.unmodifiableList(new ArrayList<>(Arrays.asList(locations))));
+  }
+
+  /**
+   * Private constructor with all parameters. Should only be called by Builder.
+   */
+  private FlightEndpoint(Ticket ticket, Instant expirationTime, byte[] appMetadata, List<Location> locations) {
     Objects.requireNonNull(ticket);
-    this.locations = Collections.unmodifiableList(new ArrayList<>(Arrays.asList(locations)));
+    this.locations = locations;
     this.expirationTime = expirationTime;
     this.ticket = ticket;
+    this.appMetadata = appMetadata;
   }
 
   /**
@@ -73,10 +86,11 @@ public class FlightEndpoint {
     }
     if (flt.hasExpirationTime()) {
       this.expirationTime = Instant.ofEpochSecond(
-          flt.getExpirationTime().getSeconds(), flt.getExpirationTime().getNanos());
+          flt.getExpirationTime().getSeconds(), Timestamps.toNanos(flt.getExpirationTime()));
     } else {
       this.expirationTime = null;
     }
+    this.appMetadata = (flt.getAppMetadata().isEmpty() ? null : flt.getAppMetadata().toByteArray());
     this.ticket = new Ticket(flt.getTicket());
   }
 
@@ -90,6 +104,10 @@ public class FlightEndpoint {
 
   public Optional<Instant> getExpirationTime() {
     return Optional.ofNullable(expirationTime);
+  }
+
+  public byte[] getAppMetadata() {
+    return appMetadata;
   }
 
   /**
@@ -109,6 +127,10 @@ public class FlightEndpoint {
               .setSeconds(expirationTime.getEpochSecond())
               .setNanos(expirationTime.getNano())
               .build());
+    }
+
+    if (appMetadata != null) {
+      b.setAppMetadata(ByteString.copyFrom(appMetadata));
     }
 
     return b.build();
@@ -142,18 +164,19 @@ public class FlightEndpoint {
     if (this == o) {
       return true;
     }
-    if (o == null || getClass() != o.getClass()) {
+    if (!(o instanceof FlightEndpoint)) {
       return false;
     }
     FlightEndpoint that = (FlightEndpoint) o;
     return locations.equals(that.locations) &&
         ticket.equals(that.ticket) &&
-        Objects.equals(expirationTime, that.expirationTime);
+        Objects.equals(expirationTime, that.expirationTime) &&
+        Arrays.equals(appMetadata, that.appMetadata);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(locations, ticket, expirationTime);
+    return Objects.hash(locations, ticket, expirationTime, Arrays.hashCode(appMetadata));
   }
 
   @Override
@@ -162,6 +185,59 @@ public class FlightEndpoint {
         "locations=" + locations +
         ", ticket=" + ticket +
         ", expirationTime=" + (expirationTime == null ? "(none)" : expirationTime.toString()) +
+        ", appMetadata=" + (appMetadata == null ? "(none)" : Base64.getEncoder().encodeToString(appMetadata)) +
         '}';
+  }
+
+  /**
+   * Create a builder for FlightEndpoint.
+   *
+   * @param ticket A ticket that describe the key of a data stream.
+   * @param locations  The possible locations the stream can be retrieved from.
+   */
+  public static Builder builder(Ticket ticket, Location... locations) {
+    return new Builder(ticket, locations);
+  }
+
+  /**
+   * Builder for FlightEndpoint.
+   */
+  public static final class Builder {
+    private final Ticket ticket;
+    private final List<Location> locations;
+    private Instant expirationTime = null;
+    private byte[] appMetadata = null;
+
+    private Builder(Ticket ticket, Location... locations) {
+      this.ticket = ticket;
+      this.locations = Collections.unmodifiableList(new ArrayList<>(Arrays.asList(locations)));
+    }
+
+    /**
+     * Set expiration time for the endpoint. Default is null, which means don't expire.
+     *
+     * @param expirationTime (optional) When this endpoint expires.
+     */
+    public Builder setExpirationTime(Instant expirationTime) {
+      this.expirationTime = expirationTime;
+      return this;
+    }
+
+    /**
+     * Set the app metadata to send along with the flight. Default is null;
+     *
+     * @param appMetadata Metadata to send along with the flight
+     */
+    public Builder setAppMetadata(byte[] appMetadata) {
+      this.appMetadata = appMetadata;
+      return this;
+    }
+
+    /**
+     * Build FlightEndpoint object.
+     */
+    public FlightEndpoint build() {
+      return new FlightEndpoint(ticket, expirationTime, appMetadata, locations);
+    }
   }
 }

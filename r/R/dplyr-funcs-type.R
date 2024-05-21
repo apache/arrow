@@ -140,7 +140,7 @@ register_bindings_type_cast <- function() {
              fix.empty.names = TRUE,
              stringsAsFactors = FALSE) {
       # we need a specific value of stringsAsFactors because the default was
-      # TRUE in R <= 3.6
+      # TRUE in R <= 3.6 and folks might still be cargoculting to stay in the past.
       if (!identical(stringsAsFactors, FALSE)) {
         arrow_not_supported("stringsAsFactors = TRUE")
       }
@@ -158,8 +158,8 @@ register_bindings_type_cast <- function() {
         if (identical(fix.empty.names, TRUE)) {
           names(args) <- make.names(names(args), unique = TRUE)
         } else {
-          name_emtpy <- names(args) == ""
-          names(args)[!name_emtpy] <- make.names(names(args)[!name_emtpy], unique = TRUE)
+          name_empty <- names(args) == ""
+          names(args)[!name_empty] <- make.names(names(args)[!name_empty], unique = TRUE)
         }
       }
 

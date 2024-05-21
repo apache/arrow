@@ -121,7 +121,7 @@ import (
 /// no indication of how to map this information to a physical point in time.
 /// Naive date-times must be handled with care because of this missing
 /// information, and also because daylight saving time (DST) may make
-/// some values ambiguous or non-existent. A naive date-time may be
+/// some values ambiguous or nonexistent. A naive date-time may be
 /// stored as a struct with Date and Time fields. However, it may also be
 /// encoded into a Timestamp column with an empty timezone. The timestamp
 /// values should be computed "as if" the timezone of the date-time values

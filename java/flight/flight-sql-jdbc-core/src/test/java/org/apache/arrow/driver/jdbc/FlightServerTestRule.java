@@ -55,6 +55,9 @@ import org.slf4j.LoggerFactory;
  * and interact with it.
  */
 public class FlightServerTestRule implements TestRule, AutoCloseable {
+  public static final String DEFAULT_USER = "flight-test-user";
+  public static final String DEFAULT_PASSWORD = "flight-test-password";
+
   private static final Logger LOGGER = LoggerFactory.getLogger(FlightServerTestRule.class);
 
   private final Properties properties;
@@ -63,6 +66,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
   private final FlightSqlProducer producer;
   private final Authentication authentication;
   private final CertKeyPair certKeyPair;
+  private final File mTlsCACert;
 
   private final MiddlewareCookie.Factory middlewareCookieFactory = new MiddlewareCookie.Factory();
 
@@ -71,13 +75,15 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
                                final BufferAllocator allocator,
                                final FlightSqlProducer producer,
                                final Authentication authentication,
-                               final CertKeyPair certKeyPair) {
+                               final CertKeyPair certKeyPair,
+                               final File mTlsCACert) {
     this.properties = Preconditions.checkNotNull(properties);
     this.config = Preconditions.checkNotNull(config);
     this.allocator = Preconditions.checkNotNull(allocator);
     this.producer = Preconditions.checkNotNull(producer);
     this.authentication = authentication;
     this.certKeyPair = certKeyPair;
+    this.mTlsCACert = mTlsCACert;
   }
 
   /**
@@ -89,7 +95,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
   public static FlightServerTestRule createStandardTestRule(final FlightSqlProducer producer) {
     UserPasswordAuthentication authentication =
         new UserPasswordAuthentication.Builder()
-            .user("flight-test-user", "flight-test-password")
+            .user(DEFAULT_USER, DEFAULT_PASSWORD)
             .build();
 
     return new Builder()
@@ -141,6 +147,9 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
         .middleware(FlightServerMiddleware.Key.of("KEY"), middlewareCookieFactory);
     if (certKeyPair != null) {
       builder.useTls(certKeyPair.cert, certKeyPair.key);
+    }
+    if (mTlsCACert != null) {
+      builder.useMTlsClientVerification(mTlsCACert);
     }
     return builder.build();
   }
@@ -212,6 +221,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
     private FlightSqlProducer producer;
     private Authentication authentication;
     private CertKeyPair certKeyPair;
+    private File mTlsCACert;
 
     public Builder() {
       this.properties = new Properties();
@@ -255,6 +265,17 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
     }
 
     /**
+     * Enable Client Verification via mTLS on the server.
+     *
+     * @param mTlsCACert The CA certificate to use for client verification.
+     * @return the Builder.
+     */
+    public Builder useMTlsClientVerification(final File mTlsCACert) {
+      this.mTlsCACert = mTlsCACert;
+      return this;
+    }
+
+    /**
      * Builds the {@link FlightServerTestRule} using the provided values.
      *
      * @return a {@link FlightServerTestRule}.
@@ -262,7 +283,7 @@ public class FlightServerTestRule implements TestRule, AutoCloseable {
     public FlightServerTestRule build() {
       authentication.populateProperties(properties);
       return new FlightServerTestRule(properties, new ArrowFlightConnectionConfigImpl(properties),
-          new RootAllocator(Long.MAX_VALUE), producer, authentication, certKeyPair);
+          new RootAllocator(Long.MAX_VALUE), producer, authentication, certKeyPair, mTlsCACert);
     }
   }
 

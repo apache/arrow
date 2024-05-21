@@ -24,7 +24,9 @@ include(CheckCXXSourceCompiles)
 message(STATUS "System processor: ${CMAKE_SYSTEM_PROCESSOR}")
 
 if(NOT DEFINED ARROW_CPU_FLAG)
-  if(CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64|amd64|X86|x86|i[3456]86|x64")
+  if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    set(ARROW_CPU_FLAG "emscripten")
+  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64|amd64|X86|x86|i[3456]86|x64")
     set(ARROW_CPU_FLAG "x86")
   elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|ARM64|arm64")
     set(ARROW_CPU_FLAG "aarch64")
@@ -49,42 +51,48 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
   if(MSVC)
     set(ARROW_SSE4_2_FLAG "")
     set(ARROW_AVX2_FLAG "/arch:AVX2")
+    # MSVC has no specific flag for BMI2, it seems to be enabled with AVX2
+    set(ARROW_BMI2_FLAG "/arch:AVX2")
     set(ARROW_AVX512_FLAG "/arch:AVX512")
     set(CXX_SUPPORTS_SSE4_2 TRUE)
   else()
     set(ARROW_SSE4_2_FLAG "-msse4.2")
     set(ARROW_AVX2_FLAG "-march=haswell")
+    set(ARROW_BMI2_FLAG "-mbmi2")
     # skylake-avx512 consists of AVX512F,AVX512BW,AVX512VL,AVX512CD,AVX512DQ
-    set(ARROW_AVX512_FLAG "-march=skylake-avx512 -mbmi2")
+    set(ARROW_AVX512_FLAG "-march=skylake-avx512")
     # Append the avx2/avx512 subset option also, fix issue ARROW-9877 for homebrew-cpp
     set(ARROW_AVX2_FLAG "${ARROW_AVX2_FLAG} -mavx2")
     set(ARROW_AVX512_FLAG
         "${ARROW_AVX512_FLAG} -mavx512f -mavx512cd -mavx512vl -mavx512dq -mavx512bw")
     check_cxx_compiler_flag(${ARROW_SSE4_2_FLAG} CXX_SUPPORTS_SSE4_2)
   endif()
-  check_cxx_compiler_flag(${ARROW_AVX2_FLAG} CXX_SUPPORTS_AVX2)
-  if(MINGW)
-    # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65782
-    message(STATUS "Disable AVX512 support on MINGW for now")
-  else()
-    # Check for AVX512 support in the compiler.
-    set(OLD_CMAKE_REQURED_FLAGS ${CMAKE_REQUIRED_FLAGS})
-    set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} ${ARROW_AVX512_FLAG}")
-    check_cxx_source_compiles("
-      #ifdef _MSC_VER
-      #include <intrin.h>
-      #else
-      #include <immintrin.h>
-      #endif
+  if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    # Check for AVX extensions on 64-bit systems only, as 32-bit support seems iffy
+    check_cxx_compiler_flag(${ARROW_AVX2_FLAG} CXX_SUPPORTS_AVX2)
+    if(MINGW)
+      # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65782
+      message(STATUS "Disable AVX512 support on MINGW for now")
+    else()
+      # Check for AVX512 support in the compiler.
+      set(OLD_CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS})
+      set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} ${ARROW_AVX512_FLAG}")
+      check_cxx_source_compiles("
+        #ifdef _MSC_VER
+        #include <intrin.h>
+        #else
+        #include <immintrin.h>
+        #endif
 
-      int main() {
-        __m512i mask = _mm512_set1_epi32(0x1);
-        char out[32];
-        _mm512_storeu_si512(out, mask);
-        return 0;
-      }"
-                              CXX_SUPPORTS_AVX512)
-    set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQURED_FLAGS})
+        int main() {
+          __m512i mask = _mm512_set1_epi32(0x1);
+          char out[32];
+          _mm512_storeu_si512(out, mask);
+          return 0;
+        }"
+                                CXX_SUPPORTS_AVX512)
+      set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQUIRED_FLAGS})
+    endif()
   endif()
   # Runtime SIMD level it can get from compiler and ARROW_RUNTIME_SIMD_LEVEL
   if(CXX_SUPPORTS_SSE4_2 AND ARROW_RUNTIME_SIMD_LEVEL MATCHES
@@ -92,13 +100,16 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
     set(ARROW_HAVE_RUNTIME_SSE4_2 ON)
     add_definitions(-DARROW_HAVE_RUNTIME_SSE4_2)
   endif()
+  # Note: for now we assume that AVX2 support should also enable BMI2 support,
+  # at least at compile-time (more care may be required for runtime dispatch).
   if(CXX_SUPPORTS_AVX2 AND ARROW_RUNTIME_SIMD_LEVEL MATCHES "^(AVX2|AVX512|MAX)$")
     set(ARROW_HAVE_RUNTIME_AVX2 ON)
+    set(ARROW_HAVE_RUNTIME_BMI2 ON)
     add_definitions(-DARROW_HAVE_RUNTIME_AVX2 -DARROW_HAVE_RUNTIME_BMI2)
   endif()
   if(CXX_SUPPORTS_AVX512 AND ARROW_RUNTIME_SIMD_LEVEL MATCHES "^(AVX512|MAX)$")
     set(ARROW_HAVE_RUNTIME_AVX512 ON)
-    add_definitions(-DARROW_HAVE_RUNTIME_AVX512 -DARROW_HAVE_RUNTIME_BMI2)
+    add_definitions(-DARROW_HAVE_RUNTIME_AVX512)
   endif()
   if(ARROW_SIMD_LEVEL STREQUAL "DEFAULT")
     set(ARROW_SIMD_LEVEL "SSE4_2")
@@ -168,11 +179,6 @@ if(WIN32)
   add_definitions(-D_ENABLE_EXTENDED_ALIGNED_STORAGE)
 
   if(MSVC)
-    if(MSVC_VERSION VERSION_LESS 19)
-      message(FATAL_ERROR "Only MSVC 2015 (Version 19.0) and later are supported
-      by Arrow. Found version ${CMAKE_CXX_COMPILER_VERSION}.")
-    endif()
-
     # ARROW-1931 See https://github.com/google/googletest/issues/1318
     #
     # This is added to CMAKE_CXX_FLAGS instead of CXX_COMMON_FLAGS since only the
@@ -308,7 +314,13 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wextra")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wdocumentation")
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wshorten-64-to-32")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -DARROW_WARN_DOCUMENTATION")
+    if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+      # size_t is 32 bit in Emscripten wasm32 - ignore conversion errors
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-shorten-64-to-32")
+    else()
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wshorten-64-to-32")
+    endif()
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-missing-braces")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unused-parameter")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-constant-logical-operand")
@@ -320,7 +332,8 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-sign-conversion")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wunused-result")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wdate-time")
-  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
+  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel" OR CMAKE_CXX_COMPILER_ID STREQUAL
+                                                   "IntelLLVM")
     if(WIN32)
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /Wall")
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /Wno-deprecated")
@@ -351,7 +364,8 @@ elseif("${BUILD_WARNING_LEVEL}" STREQUAL "EVERYTHING")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wextra")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unused-parameter")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wunused-result")
-  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
+  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel" OR CMAKE_CXX_COMPILER_ID STREQUAL
+                                                   "IntelLLVM")
     if(WIN32)
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /Wall")
     else()
@@ -374,7 +388,8 @@ else()
          OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
          OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
-  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
+  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel" OR CMAKE_CXX_COMPILER_ID STREQUAL
+                                                   "IntelLLVM")
     if(WIN32)
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /Wall")
     else()
@@ -444,11 +459,18 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STRE
   # Don't complain about optimization passes that were not possible
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-pass-failed")
 
-  # Avoid clang / libc++ error about C++17 aligned allocation on macOS.
-  # See https://chromium.googlesource.com/chromium/src/+/eee44569858fc650b635779c4e34be5cb0c73186%5E%21/#F0
-  # for details.
   if(APPLE)
-    set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -fno-aligned-new")
+    # Avoid clang / libc++ error about C++17 aligned allocation on macOS.
+    # See https://chromium.googlesource.com/chromium/src/+/eee44569858fc650b635779c4e34be5cb0c73186%5E%21/#F0
+    # for details.
+    string(APPEND CXX_ONLY_FLAGS " -fno-aligned-new")
+
+    if(CMAKE_HOST_SYSTEM_VERSION VERSION_LESS 20)
+      # Avoid C++17 std::get 'not available' issue on macOS 10.13
+      # This will be required until at least R 4.4 is released and
+      # CRAN (hopefully) stops checking on 10.13
+      string(APPEND CXX_ONLY_FLAGS " -D_LIBCPP_DISABLE_AVAILABILITY")
+    endif()
   endif()
 endif()
 
@@ -513,7 +535,7 @@ if(ARROW_CPU_FLAG STREQUAL "aarch64")
         set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -msve-vector-bits=${SVE_VECTOR_BITS}")
       else()
         set(ARROW_HAVE_SVE_SIZELESS ON)
-        add_definitions(-DARROW_HAVE_SVE_SIZELSS)
+        add_definitions(-DARROW_HAVE_SVE_SIZELESS)
       endif()
     endif()
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -march=${ARROW_ARMV8_MARCH}")
@@ -611,6 +633,74 @@ if(NOT WIN32 AND NOT APPLE)
   endif()
 endif()
 
+if(NOT WIN32 AND NOT APPLE)
+  if(ARROW_USE_MOLD)
+    find_program(LD_MOLD ld.mold)
+    if(LD_MOLD)
+      unset(MOLD_LINKER_FLAGS)
+      if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "12.1.0")
+          set(MOLD_LINKER_FLAGS "-fuse-ld=mold")
+        else()
+          message(STATUS "Need GCC 12.1.0 or later to use mold linker: ${CMAKE_CXX_COMPILER_VERSION}"
+          )
+        endif()
+      elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "12.0.0")
+          set(MOLD_LINKER_FLAGS "--ld-path=${LD_MOLD}")
+        else()
+          message(STATUS "Need clang 12.0.0 or later to use mold linker: ${CMAKE_CXX_COMPILER_VERSION}"
+          )
+        endif()
+      else()
+        message(STATUS "Using the default linker because compiler doesn't support mold: ${CMAKE_CXX_COMPILER_ID}"
+        )
+      endif()
+      if(MOLD_LINKER_FLAGS)
+        message(STATUS "Using optional mold linker")
+        string(APPEND CMAKE_EXE_LINKER_FLAGS " ${MOLD_LINKER_FLAGS}")
+        string(APPEND CMAKE_MODULE_LINKER_FLAGS " ${MOLD_LINKER_FLAGS}")
+        string(APPEND CMAKE_SHARED_LINKER_FLAGS " ${MOLD_LINKER_FLAGS}")
+      endif()
+    else()
+      message(STATUS "Using the default linker because mold isn't found")
+    endif()
+  endif()
+endif()
+
+if(ARROW_USE_LLD)
+  find_program(LD_LLD ld.lld)
+  if(LD_LLD)
+    unset(LLD_LINKER_FLAGS)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+      if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "9.1.0")
+        set(LLD_LINKER_FLAGS "-fuse-ld=lld")
+      else()
+        message(STATUS "Need GCC 9.1.0 or later to use LLD linker: ${CMAKE_CXX_COMPILER_VERSION}"
+        )
+      endif()
+    elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+      if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL "12.0.0")
+        set(LLD_LINKER_FLAGS "--ld-path=${LD_LLD}")
+      else()
+        message(STATUS "Need clang 12.0.0 or later to use LLD linker: ${CMAKE_CXX_COMPILER_VERSION}"
+        )
+      endif()
+    else()
+      message(STATUS "Using the default linker because compiler doesn't support LLD: ${CMAKE_CXX_COMPILER_ID}"
+      )
+    endif()
+    if(LLD_LINKER_FLAGS)
+      message(STATUS "Using optional LLVM LLD linker")
+      string(APPEND CMAKE_EXE_LINKER_FLAGS " ${LLD_LINKER_FLAGS}")
+      string(APPEND CMAKE_MODULE_LINKER_FLAGS " ${LLD_LINKER_FLAGS}")
+      string(APPEND CMAKE_SHARED_LINKER_FLAGS " ${LLD_LINKER_FLAGS}")
+    else()
+      message(STATUS "Using the default linker because the LLD isn't supported")
+    endif()
+  endif()
+endif()
+
 # compiler flags for different build types (run 'cmake -DCMAKE_BUILD_TYPE=<type> .')
 # For all builds:
 # For CMAKE_BUILD_TYPE=Debug
@@ -647,17 +737,36 @@ if(NOT MSVC)
   set(C_DEBUG_FLAGS "")
   set(CXX_DEBUG_FLAGS "")
   if(NOT MSVC)
-    if(NOT CMAKE_C_FLAGS_DEBUG MATCHES "-O")
-      string(APPEND C_DEBUG_FLAGS " -O0")
-    endif()
-    if(NOT CMAKE_CXX_FLAGS_DEBUG MATCHES "-O")
-      string(APPEND CXX_DEBUG_FLAGS " -O0")
-    endif()
-    if(ARROW_GGDB_DEBUG)
-      string(APPEND C_DEBUG_FLAGS " -ggdb")
-      string(APPEND CXX_DEBUG_FLAGS " -ggdb")
-      string(APPEND C_RELWITHDEBINFO_FLAGS " -ggdb")
-      string(APPEND CXX_RELWITHDEBINFO_FLAGS " -ggdb")
+    if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+      # with -g it uses DWARF debug info, which is really slow to build
+      # on emscripten (and uses tons of memory)
+      string(REPLACE "-g" " " CMAKE_CXX_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
+      string(REPLACE "-g" " " CMAKE_C_FLAGS_DEBUG ${CMAKE_C_FLAGS_DEBUG})
+      string(APPEND C_DEBUG_FLAGS " -g2")
+      string(APPEND CXX_DEBUG_FLAGS " -g2")
+      string(APPEND C_RELWITHDEBINFO_FLAGS " -g2")
+      string(APPEND CXX_RELWITHDEBINFO_FLAGS " -g2")
+      # without -O1, emscripten executables are *MASSIVE*. Don't use -O0
+      if(NOT CMAKE_C_FLAGS_DEBUG MATCHES "-O")
+        string(APPEND C_DEBUG_FLAGS " -O1")
+      endif()
+      if(NOT CMAKE_CXX_FLAGS_DEBUG MATCHES "-O")
+        string(APPEND CXX_DEBUG_FLAGS " -O1")
+      endif()
+    else()
+      if(NOT CMAKE_C_FLAGS_DEBUG MATCHES "-O")
+        string(APPEND C_DEBUG_FLAGS " -O0")
+      endif()
+      if(NOT CMAKE_CXX_FLAGS_DEBUG MATCHES "-O")
+        string(APPEND CXX_DEBUG_FLAGS " -O0")
+      endif()
+
+      if(ARROW_GGDB_DEBUG)
+        string(APPEND C_DEBUG_FLAGS " -ggdb")
+        string(APPEND CXX_DEBUG_FLAGS " -ggdb")
+        string(APPEND C_RELWITHDEBINFO_FLAGS " -ggdb")
+        string(APPEND CXX_RELWITHDEBINFO_FLAGS " -ggdb")
+      endif()
     endif()
   endif()
 
@@ -686,5 +795,42 @@ if(MSVC)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${MSVC_LINKER_FLAGS}")
     set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} ${MSVC_LINKER_FLAGS}")
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${MSVC_LINKER_FLAGS}")
+  endif()
+endif()
+
+if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+  # flags are:
+  # 1) We force *everything* to build as position independent
+  # 2) And with support for C++ exceptions
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC -fexceptions")
+  # deprecated-literal-operator error is thrown in datetime (vendored lib in arrow)
+  set(CMAKE_CXX_FLAGS
+      "${CMAKE_CXX_FLAGS} -fPIC -fexceptions -Wno-error=deprecated-literal-operator")
+
+  # flags for creating shared libraries (only used in pyarrow, because
+  # Emscripten builds libarrow as static)
+  # flags are:
+  # 1) Tell it to use JavaScript / WebAssembly 64 bit number support.
+  # 2) Tell it to build with support for C++ exceptions
+  # 3) Skip linker flags error which happens with -soname parameter
+  set(ARROW_EMSCRIPTEN_LINKER_FLAGS "-sWASM_BIGINT=1 -fexceptions -Wno-error=linkflags")
+  set(CMAKE_SHARED_LIBRARY_CREATE_C_FLAGS
+      "-sSIDE_MODULE=1 ${ARROW_EMSCRIPTEN_LINKER_FLAGS}")
+  set(CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS
+      "-sSIDE_MODULE=1 ${ARROW_EMSCRIPTEN_LINKER_FLAGS}")
+  set(CMAKE_SHARED_LINKER_FLAGS "-sSIDE_MODULE=1 ${ARROW_EMSCRIPTEN_LINKER_FLAGS}")
+  if(ARROW_TESTING)
+    # flags for building test executables for use in node
+    if("${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
+      set(CMAKE_EXE_LINKER_FLAGS
+          "${ARROW_EMSCRIPTEN_LINKER_FLAGS} -sALLOW_MEMORY_GROWTH -lnodefs.js -lnoderawfs.js --pre-js ${BUILD_SUPPORT_DIR}/emscripten-test-init.js"
+      )
+    else()
+      set(CMAKE_EXE_LINKER_FLAGS
+          "${ARROW_EMSCRIPTEN_LINKER_FLAGS} -sERROR_ON_WASM_CHANGES_AFTER_LINK=1 -sALLOW_MEMORY_GROWTH -lnodefs.js -lnoderawfs.js --pre-js ${BUILD_SUPPORT_DIR}/emscripten-test-init.js"
+      )
+    endif()
+  else()
+    set(CMAKE_EXE_LINKER_FLAGS "${ARROW_EMSCRIPTEN_LINKER_FLAGS} -sALLOW_MEMORY_GROWTH")
   endif()
 endif()

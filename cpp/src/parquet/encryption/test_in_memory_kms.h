@@ -25,8 +25,7 @@
 #include "parquet/encryption/local_wrap_kms_client.h"
 #include "parquet/platform.h"
 
-namespace parquet {
-namespace encryption {
+namespace parquet::encryption {
 
 // This is a mock class, built for testing only. Don't use it as an example of
 // LocalWrapKmsClient implementation.
@@ -92,5 +91,4 @@ class TestOnlyInMemoryKmsClientFactory : public KmsClientFactory {
   }
 };
 
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption

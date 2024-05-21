@@ -969,6 +969,16 @@ bool BasicDecimal256::FitsInPrecision(int32_t precision) const {
   return BasicDecimal256::Abs(*this) < kDecimal256PowersOfTen[precision];
 }
 
+void BasicDecimal256::GetWholeAndFraction(int scale, BasicDecimal256* whole,
+                                          BasicDecimal256* fraction) const {
+  DCHECK_GE(scale, 0);
+  DCHECK_LE(scale, 76);
+
+  BasicDecimal256 multiplier(kDecimal256PowersOfTen[scale]);
+  auto s = Divide(multiplier, whole, fraction);
+  DCHECK_EQ(s, DecimalStatus::kSuccess);
+}
+
 const BasicDecimal256& BasicDecimal256::GetScaleMultiplier(int32_t scale) {
   DCHECK_GE(scale, 0);
   DCHECK_LE(scale, 76);

@@ -15,6 +15,8 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+.. _release:
+
 ========================
 Release Management Guide
 ========================
@@ -78,10 +80,10 @@ Ensure local tags are removed, gpg-agent is set and JIRA tickets are correctly a
 
     # Delete the local tag for RC1 or later
     git tag -d apache-arrow-<version>
-    
+
     # Setup gpg agent for signing artifacts
     source dev/release/setup-gpg-agent.sh
-    
+
     # Curate the release
     # The end of the generated report shows the JIRA tickets with wrong version number assigned.
     archery release curate <version>
@@ -90,14 +92,51 @@ Ensure a major version milestone for a follow up release is created on GitHub. T
 automatically be used by our merge script as the new version for issues closed when
 the maintenance branch is created.
 
+Patch Releases
+==============
+
+We usually create patch releases once a major breaking issue has been identified.
+Issues that are identified as major breaking issues can be security fixes, broken packages
+for specific builds and others.
+
+Any developer can ask for a patch release to be generated sending an email to the
+`Arrow development mailing-list <https://arrow.apache.org/community/>`__ with the reason
+of why a new release is necessary.
+If there is consensus and there is a Release Manager willing to take the effort to create
+the release a patch release can be created.
+
+Committers can tag issues that should be included on the next patch release using the
+``backport-candidate`` label. Is the responsability of the author or the committer to add the
+label to the issue to help the Release Manager identify the issues that should be backported.
+
+If a specific issue is identified as the reason to create a patch release the Release Manager
+should validate that, at least, this issue is correctly tagged and included in the patch release.
+
+Be sure to go through on the following checklist:
+
+#. Create milestone
+#. Create maintenance branch
+#. Include issue that was requested as requiring new patch release
+#. Add new milestone to issues with ``backport-candidate`` label
+#. cherry-pick issues into maintenance branch
+
 Creating a Release Candidate
 ============================
 
 These are the different steps that are required to create a Release Candidate.
 
-For the initial Release Candidate, we will create a maintenance branch from main.
+For the initial Release Candidate on a major release, we will create a maintenance
+branch from main.
+
 Follow up Release Candidates will update the maintenance branch by cherry-picking
 specific commits.
+
+For the initial Release Candidate for a minor or a patch release we will create
+a maintenance branch from the previous corresponding release. For example,
+for a 15.0.1 patch we will create a maint-15.0.1 branch from maint-15.0.0 and for
+a maint-15.0.2 we will create it from maint-15.0.1. Once the maintenance branch is
+created we will update the created maintenance branch by cherry-picking specific
+commits.
 
 We have implemented a Feature Freeze policy between Release Candidates.
 This means that, in general, we should only add bug fixes between Release Candidates.
@@ -141,7 +180,7 @@ Create the Release Candidate branch from the updated maintenance branch
 
     # Start from the updated maintenance branch.
     git checkout maint-X.Y.Z
-    
+
     # The following script will create a branch for the Release Candidate,
     # place the necessary commits updating the version number and then create a git tag
     # on OSX use gnu-sed with homebrew: brew install gnu-sed (and export to $PATH)
@@ -149,7 +188,7 @@ Create the Release Candidate branch from the updated maintenance branch
     # <rc-number> starts at 0 and increments every time the Release Candidate is burned
     # so for the first RC this would be: dev/release/01-prepare.sh 4.0.0 5.0.0 0
     dev/release/01-prepare.sh <version> <next-version> <rc-number>
-    
+
     # Push the release tag (for RC1 or later the --force flag is required)
     git push -u apache apache-arrow-<version>
     # Push the release candidate branch in order to trigger verification jobs later
@@ -162,26 +201,26 @@ Build source and binaries and submit them
 
     # Build the source release tarball and create Pull Request with verification tasks
     dev/release/02-source.sh <version> <rc-number>
-    
+
     # Submit binary tasks using crossbow, the command will output the crossbow build id
     dev/release/03-binary-submit.sh <version> <rc-number>
-    
+
     # Wait for the crossbow jobs to finish
     archery crossbow status <crossbow-build-id>
-    
+
     # Download the produced binaries
     # This will download packages to a directory called packages/release-<version>-rc<rc-number>
     dev/release/04-binary-download.sh <version> <rc-number>
-    
+
     # Sign and upload the binaries
     #
     # On macOS the only way I could get this to work was running "echo "UPDATESTARTUPTTY" | gpg-connect-agent" before running this comment
     # otherwise I got errors referencing "ioctl" errors.
     dev/release/05-binary-upload.sh <version> <rc-number>
-    
+
     # Sign and upload the Java artifacts
     #
-    # Note that you need to press the "Close" button manually by Web interfacec
+    # Note that you need to press the "Close" button manually by Web interface
     # after you complete the script:
     #   https://repository.apache.org/#stagingRepositories
     dev/release/06-java-upload.sh <version> <rc-number>
@@ -197,6 +236,8 @@ Verify the Release
     # Once the automatic verification has passed start the vote thread
     # on dev@arrow.apache.org. To regenerate the email template use
     SOURCE_DEFAULT=0 SOURCE_VOTE=1 dev/release/02-source.sh <version> <rc-number>
+
+See :ref:`release_verification` for details.
 
 Voting and approval
 ===================
@@ -381,7 +422,7 @@ Be sure to go through on the following checklist:
       cd -
 
       # dev/release/post-12-msys2.sh 10.0.0 ../MINGW-packages
-      dev/release/post-12-msys2.sh X.Y.Z <YOUR_MINGW_PACAKGES_FORK>
+      dev/release/post-12-msys2.sh X.Y.Z <YOUR_MINGW_PACKAGES_FORK>
 
    This script pushes a ``arrow-X.Y.Z`` branch to your ``msys2/MINGW-packages`` fork. You need to create a pull request from the ``arrow-X.Y.Z`` branch with ``arrow: Update to X.Y.Z`` title on your Web browser.
 
@@ -417,7 +458,7 @@ Be sure to go through on the following checklist:
 
    The package upload requires npm and yarn to be installed and 2FA to be configured on your account.
 
-   When you have access, you can publish releases to npm by running the the following script:
+   When you have access, you can publish releases to npm by running the following script:
 
    .. code-block:: Bash
 
@@ -497,8 +538,8 @@ Be sure to go through on the following checklist:
    Our CI systems give us some coverage for the things that CRAN checks, but
    there are a couple of final tests we should do to confirm that the release
    binaries will work and that everything runs on the same infrastructure that
-   CRAN has, which is difficult/impossible to emulate fully on Travis or with
-   Docker. For a precise list of checks, see the
+   CRAN has, which is difficult/impossible to emulate fully with Docker. For a
+   precise list of checks, see the
    `packaging checklist <https://github.com/apache/arrow/blob/main/r/PACKAGING.md>`_.
 
    Once all checks are clean, we submit to CRAN, which has a web form for
@@ -565,6 +606,9 @@ Be sure to go through on the following checklist:
 
    .. code-block:: Bash
 
+      # You can run the script with BUMP_TAG=0 and BUMP_PUSH=0
+      # this will avoid default pushing to main and pushing the tag
+      # but you will require to push manually after reviewing the commits.
       # dev/release/post-11-bump-versions.sh 10.0.0 11.0.0
       dev/release/post-11-bump-versions.sh X.Y.Z NEXT_X.NEXT_Y.NEXT_Z
 

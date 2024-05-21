@@ -49,7 +49,7 @@ public class ComplexWriterImpl extends AbstractFieldWriter implements ComplexWri
    * @param name The name of the writer (for tracking).
    * @param container A container for the data field to be written.
    * @param unionEnabled Unused.
-   * @param caseSensitive Whether field names are case sensitive (if false field names will be lowercase.
+   * @param caseSensitive Whether field names are case-sensitive (if false field names will be lowercase.
    */
   public ComplexWriterImpl(
       String name,

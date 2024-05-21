@@ -71,7 +71,7 @@ public class Location {
       case LocationSchemes.GRPC_DOMAIN_SOCKET: {
         try {
           // This dependency is not available on non-Unix platforms.
-          return (SocketAddress) Class.forName("io.netty.channel.unix.DomainSocketAddress")
+          return Class.forName("io.netty.channel.unix.DomainSocketAddress").asSubclass(SocketAddress.class)
               .getConstructor(String.class)
               .newInstance(uri.getPath());
         } catch (InstantiationException | ClassNotFoundException | InvocationTargetException |
@@ -91,6 +91,19 @@ public class Location {
    */
   Flight.Location toProtocol() {
     return Flight.Location.newBuilder().setUri(uri.toString()).build();
+  }
+
+  /**
+   * Construct a special URI to indicate to clients that they may fetch data by reusing
+   * an existing connection to a Flight RPC server.
+   */
+  public static Location reuseConnection() {
+    try {
+      return new Location(new URI(LocationSchemes.REUSE_CONNECTION, "", "", "", null));
+    } catch (URISyntaxException e) {
+      // This should never happen.
+      throw new IllegalArgumentException(e);
+    }
   }
 
   /**
@@ -144,7 +157,7 @@ public class Location {
     if (this == o) {
       return true;
     }
-    if (o == null || getClass() != o.getClass()) {
+    if (!(o instanceof Location)) {
       return false;
     }
     Location location = (Location) o;

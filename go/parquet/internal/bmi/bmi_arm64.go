@@ -14,44 +14,51 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build !noasm
 // +build !noasm
 
 package bmi
 
 import (
+	"fmt"
 	"os"
 	"strings"
-)
-import (
-	"golang.org/x/sys/cpu"
+
+	"github.com/klauspost/cpuid/v2"
 )
 
 func init() {
-    // Added ability to enable extension via environment:
+	// Added ability to enable extension via environment:
 	// ARM_ENABLE_EXT=NEON go test
 	if ext, ok := os.LookupEnv("ARM_ENABLE_EXT"); ok {
-		exts := strings.Split(ext, ",")
+		if ext == "DISABLE" {
+			cpuid.CPU.Disable(cpuid.ASIMD, cpuid.AESARM, cpuid.PMULL)
+		} else {
+			exts := strings.Split(ext, ",")
 
-		for _, x := range exts {
-			switch x {
-			case "NEON":
-				cpu.ARM64.HasASIMD = true
-			case "AES":
-				cpu.ARM64.HasAES = true
-			case "PMULL":
-				cpu.ARM64.HasPMULL = true
-			default:
-				cpu.ARM64.HasASIMD = false
-				cpu.ARM64.HasAES = false
-				cpu.ARM64.HasPMULL = false
+			for _, x := range exts {
+				switch x {
+				case "NEON":
+					cpuid.CPU.Enable(cpuid.ASIMD)
+				case "AES":
+					cpuid.CPU.Enable(cpuid.AESARM)
+				case "PMULL":
+					cpuid.CPU.Enable(cpuid.PMULL)
+				default:
+					fmt.Fprintln(os.Stderr, "unrecognized value for ARM_ENABLE_EXT:", x)
+				}
 			}
 		}
 	}
-	if cpu.ARM64.HasASIMD {
-		funclist.extractBits = extractBitsNEON
+
+	// after benchmarking, turns out the pure go lookup table version
+	// is nearly twice as fast as the non-lookup table assembly
+	// because arm doesn't have a PEXT instruction.
+	funclist.extractBits = extractBitsGo
+
+	if cpuid.CPU.Has(cpuid.ASIMD) {
 		funclist.gtbitmap = greaterThanBitmapNEON
 	} else {
-		funclist.extractBits = extractBitsGo
 		funclist.gtbitmap = greaterThanBitmapGo
 	}
 }

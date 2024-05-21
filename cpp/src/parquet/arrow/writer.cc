@@ -73,8 +73,7 @@ using parquet::ParquetFileWriter;
 using parquet::ParquetVersion;
 using parquet::schema::GroupNode;
 
-namespace parquet {
-namespace arrow {
+namespace parquet::arrow {
 
 namespace {
 
@@ -295,7 +294,7 @@ class FileWriterImpl : public FileWriter {
       for (int i = 0; i < schema_->num_fields(); ++i) {
         // Explicitly create each ArrowWriteContext object to avoid unintentional
         // call of the copy constructor. Otherwise, the buffers in the type of
-        // sharad_ptr will be shared among all contexts.
+        // shared_ptr will be shared among all contexts.
         parallel_column_write_contexts_.emplace_back(pool, arrow_properties_.get());
       }
     }
@@ -307,6 +306,7 @@ class FileWriterImpl : public FileWriter {
   }
 
   Status NewRowGroup(int64_t chunk_size) override {
+    RETURN_NOT_OK(CheckClosed());
     if (row_group_writer_ != nullptr) {
       PARQUET_CATCH_NOT_OK(row_group_writer_->Close());
     }
@@ -326,6 +326,13 @@ class FileWriterImpl : public FileWriter {
     return Status::OK();
   }
 
+  Status CheckClosed() const {
+    if (closed_) {
+      return Status::Invalid("Operation on closed file");
+    }
+    return Status::OK();
+  }
+
   Status WriteColumnChunk(const Array& data) override {
     // A bit awkward here since cannot instantiate ChunkedArray from const Array&
     auto chunk = ::arrow::MakeArray(data.data());
@@ -335,6 +342,7 @@ class FileWriterImpl : public FileWriter {
 
   Status WriteColumnChunk(const std::shared_ptr<ChunkedArray>& data, int64_t offset,
                           int64_t size) override {
+    RETURN_NOT_OK(CheckClosed());
     if (arrow_properties_->engine_version() == ArrowWriterProperties::V2 ||
         arrow_properties_->engine_version() == ArrowWriterProperties::V1) {
       if (row_group_writer_->buffered()) {
@@ -357,6 +365,7 @@ class FileWriterImpl : public FileWriter {
   std::shared_ptr<::arrow::Schema> schema() const override { return schema_; }
 
   Status WriteTable(const Table& table, int64_t chunk_size) override {
+    RETURN_NOT_OK(CheckClosed());
     RETURN_NOT_OK(table.Validate());
 
     if (chunk_size <= 0 && table.num_rows() > 0) {
@@ -393,6 +402,7 @@ class FileWriterImpl : public FileWriter {
   }
 
   Status NewBufferedRowGroup() override {
+    RETURN_NOT_OK(CheckClosed());
     if (row_group_writer_ != nullptr) {
       PARQUET_CATCH_NOT_OK(row_group_writer_->Close());
     }
@@ -401,6 +411,7 @@ class FileWriterImpl : public FileWriter {
   }
 
   Status WriteRecordBatch(const RecordBatch& batch) override {
+    RETURN_NOT_OK(CheckClosed());
     if (batch.num_rows() == 0) {
       return Status::OK();
     }
@@ -408,6 +419,7 @@ class FileWriterImpl : public FileWriter {
     // Max number of rows allowed in a row group.
     const int64_t max_row_group_length = this->properties().max_row_group_length();
 
+    // Initialize a new buffered row group writer if necessary.
     if (row_group_writer_ == nullptr || !row_group_writer_->buffered() ||
         row_group_writer_->num_rows() >= max_row_group_length) {
       RETURN_NOT_OK(NewBufferedRowGroup());
@@ -450,8 +462,9 @@ class FileWriterImpl : public FileWriter {
       RETURN_NOT_OK(WriteBatch(offset, batch_size));
       offset += batch_size;
 
-      // Flush current row group if it is full.
-      if (row_group_writer_->num_rows() >= max_row_group_length) {
+      // Flush current row group writer and create a new writer if it is full.
+      if (row_group_writer_->num_rows() >= max_row_group_length &&
+          offset < batch.num_rows()) {
         RETURN_NOT_OK(NewBufferedRowGroup());
       }
     }
@@ -600,5 +613,4 @@ Status WriteTable(const ::arrow::Table& table, ::arrow::MemoryPool* pool,
   return writer->Close();
 }
 
-}  // namespace arrow
-}  // namespace parquet
+}  // namespace parquet::arrow

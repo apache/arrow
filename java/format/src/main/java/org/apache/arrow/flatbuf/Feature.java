@@ -37,26 +37,23 @@ package org.apache.arrow.flatbuf;
  * to facilitate exchanging and comparing bitmaps for supported
  * features.
  */
+@SuppressWarnings("unused")
 public final class Feature {
   private Feature() { }
   /**
    * Needed to make flatbuffers happy.
    */
-  public static final long UNUSED = 0;
+  public static final long UNUSED = 0L;
   /**
    * The stream makes use of multiple full dictionaries with the
    * same ID and assumes clients implement dictionary replacement
    * correctly.
    */
-  public static final long DICTIONARY_REPLACEMENT = 1;
+  public static final long DICTIONARY_REPLACEMENT = 1L;
   /**
    * The stream makes use of compressed bodies as described
    * in Message.fbs.
    */
-  public static final long COMPRESSED_BODY = 2;
-
-  public static final String[] names = { "UNUSED", "DICTIONARY_REPLACEMENT", "COMPRESSED_BODY", };
-
-  public static String name(int e) { return names[e]; }
+  public static final long COMPRESSED_BODY = 2L;
 }
 

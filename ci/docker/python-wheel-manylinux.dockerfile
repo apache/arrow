@@ -28,7 +28,7 @@ ENV MANYLINUX_VERSION=${manylinux}
 RUN yum install -y dnf
 
 # Install basic dependencies
-RUN dnf install -y git flex curl autoconf zip perl-IPC-Cmd wget kernel-headers
+RUN dnf install -y git flex curl autoconf zip perl-IPC-Cmd wget
 
 # A system Python is required for ninja and vcpkg in this Dockerfile.
 # On manylinux2014 base images, system Python is 2.7.5, while
@@ -62,18 +62,19 @@ COPY ci/vcpkg/*.patch \
 COPY ci/scripts/install_vcpkg.sh \
      arrow/ci/scripts/
 ENV VCPKG_ROOT=/opt/vcpkg
-RUN arrow/ci/scripts/install_vcpkg.sh ${VCPKG_ROOT} ${vcpkg}
-ENV PATH="${PATH}:${VCPKG_ROOT}"
-
 ARG build_type=release
 ENV CMAKE_BUILD_TYPE=${build_type} \
     VCPKG_FORCE_SYSTEM_BINARIES=1 \
     VCPKG_OVERLAY_TRIPLETS=/arrow/ci/vcpkg \
     VCPKG_DEFAULT_TRIPLET=${arch_short}-linux-static-${build_type} \
     VCPKG_FEATURE_FLAGS="manifests"
+
+RUN arrow/ci/scripts/install_vcpkg.sh ${VCPKG_ROOT} ${vcpkg}
+ENV PATH="${PATH}:${VCPKG_ROOT}"
+
 COPY ci/vcpkg/vcpkg.json arrow/ci/vcpkg/
 # cannot use the S3 feature here because while aws-sdk-cpp=1.9.160 contains
-# ssl related fixies as well as we can patch the vcpkg portfile to support
+# ssl related fixes as well as we can patch the vcpkg portfile to support
 # arm machines it hits ARROW-15141 where we would need to fall back to 1.8.186
 # but we cannot patch those portfiles since vcpkg-tool handles the checkout of
 # previous versions => use bundled S3 build
@@ -81,10 +82,12 @@ RUN vcpkg install \
         --clean-after-build \
         --x-install-root=${VCPKG_ROOT}/installed \
         --x-manifest-root=/arrow/ci/vcpkg \
+        --x-feature=azure \ 
         --x-feature=flight \
         --x-feature=gcs \
         --x-feature=json \
-        --x-feature=parquet
+        --x-feature=parquet \
+        --x-feature=s3
 
 # Configure Python for applications running in the bash shell of this Dockerfile
 ARG python=3.8

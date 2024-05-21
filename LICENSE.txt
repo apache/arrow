@@ -1889,19 +1889,6 @@ for PyArrow. Ibis is released under the Apache License, Version 2.0.
 
 --------------------------------------------------------------------------------
 
-This project includes code from the autobrew project.
-
-The following files are based on code from the autobrew project:
-* r/tools/autobrew
-* dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb
-* dev/tasks/homebrew-formulae/autobrew/apache-arrow-static.rb 
-
-Copyright (c) 2019, Jeroen Ooms
-License: MIT
-Homepage: https://github.com/autobrew/
-
---------------------------------------------------------------------------------
-
 dev/tasks/homebrew-formulae/apache-arrow.rb has the following license:
 
 BSD 2-Clause License
@@ -2265,3 +2252,10 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+--------------------------------------------------------------------------------
+java/vector/src/main/java/org/apache/arrow/vector/util/IntObjectHashMap.java
+java/vector/src/main/java/org/apache/arrow/vector/util/IntObjectMap.java
+
+These file are derived from code from Netty, which is made available under the
+Apache License 2.0.

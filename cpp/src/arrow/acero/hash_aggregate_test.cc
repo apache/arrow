@@ -261,7 +261,7 @@ Result<Datum> MakeGroupByOutput(const std::vector<ExecBatch>& output_batches,
     return struct_arr;
   }
 
-  // The exec plan may reorder the output rows.  The tests are all setup to expect ouptut
+  // The exec plan may reorder the output rows.  The tests are all setup to expect output
   // in ascending order of keys.  So we need to sort the result by the key columns.  To do
   // that we create a table using the key columns, calculate the sort indices from that
   // table (sorting on all fields) and then use those indices to calculate our result.
@@ -592,6 +592,12 @@ void TestSegments(std::unique_ptr<RowSegmenter>& segmenter, const ExecSpan& batc
     ASSERT_EQ(expected_segment, segment);
     offset = segment.offset + segment.length;
   }
+  // Assert next is the last (empty) segment.
+  ASSERT_OK_AND_ASSIGN(auto segment, segmenter->GetNextSegment(batch, offset));
+  ASSERT_GE(segment.offset, batch.length);
+  ASSERT_EQ(segment.length, 0);
+  ASSERT_TRUE(segment.is_open);
+  ASSERT_TRUE(segment.extends);
 }
 
 Result<std::unique_ptr<Grouper>> MakeGrouper(const std::vector<TypeHolder>& key_types) {
@@ -682,48 +688,142 @@ TEST(RowSegmenter, Basics) {
 }
 
 TEST(RowSegmenter, NonOrdered) {
-  std::vector<TypeHolder> types = {int32()};
-  auto batch = ExecBatchFromJSON(types, "[[1], [1], [2], [1], [2]]");
-  ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(types));
-  TestSegments(segmenter, ExecSpan(batch),
-               {{0, 2, false, true},
-                {2, 1, false, false},
-                {3, 1, false, false},
-                {4, 1, true, false},
-                {5, 0, true, true}});
+  {
+    std::vector<TypeHolder> types = {int32()};
+    auto batch = ExecBatchFromJSON(types, "[[1], [1], [2], [1], [2]]");
+    ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(types));
+    TestSegments(segmenter, ExecSpan(batch),
+                 {{0, 2, false, true},
+                  {2, 1, false, false},
+                  {3, 1, false, false},
+                  {4, 1, true, false},
+                  {5, 0, true, true}});
+  }
+  {
+    std::vector<TypeHolder> types = {int32(), int32()};
+    auto batch = ExecBatchFromJSON(types, "[[1, 1], [1, 1], [2, 2], [1, 2], [2, 2]]");
+    ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(types));
+    TestSegments(segmenter, ExecSpan(batch),
+                 {{0, 2, false, true},
+                  {2, 1, false, false},
+                  {3, 1, false, false},
+                  {4, 1, true, false},
+                  {5, 0, true, true}});
+  }
 }
 
 TEST(RowSegmenter, EmptyBatches) {
-  std::vector<TypeHolder> types = {int32()};
-  std::vector<ExecBatch> batches = {
-      ExecBatchFromJSON(types, "[]"),         ExecBatchFromJSON(types, "[]"),
-      ExecBatchFromJSON(types, "[[1]]"),      ExecBatchFromJSON(types, "[]"),
-      ExecBatchFromJSON(types, "[[1]]"),      ExecBatchFromJSON(types, "[]"),
-      ExecBatchFromJSON(types, "[[2], [2]]"), ExecBatchFromJSON(types, "[]"),
-  };
-  ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(types));
-  TestSegments(segmenter, ExecSpan(batches[0]), {});
-  TestSegments(segmenter, ExecSpan(batches[1]), {});
-  TestSegments(segmenter, ExecSpan(batches[2]), {{0, 1, true, true}});
-  TestSegments(segmenter, ExecSpan(batches[3]), {});
-  TestSegments(segmenter, ExecSpan(batches[4]), {{0, 1, true, true}});
-  TestSegments(segmenter, ExecSpan(batches[5]), {});
-  TestSegments(segmenter, ExecSpan(batches[6]), {{0, 2, true, false}});
-  TestSegments(segmenter, ExecSpan(batches[7]), {});
+  {
+    std::vector<TypeHolder> types = {int32()};
+    std::vector<ExecBatch> batches = {
+        ExecBatchFromJSON(types, "[]"),         ExecBatchFromJSON(types, "[]"),
+        ExecBatchFromJSON(types, "[[1]]"),      ExecBatchFromJSON(types, "[]"),
+        ExecBatchFromJSON(types, "[[1]]"),      ExecBatchFromJSON(types, "[]"),
+        ExecBatchFromJSON(types, "[[2], [2]]"), ExecBatchFromJSON(types, "[]"),
+    };
+    ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(types));
+    TestSegments(segmenter, ExecSpan(batches[0]), {});
+    TestSegments(segmenter, ExecSpan(batches[1]), {});
+    TestSegments(segmenter, ExecSpan(batches[2]), {{0, 1, true, true}});
+    TestSegments(segmenter, ExecSpan(batches[3]), {});
+    TestSegments(segmenter, ExecSpan(batches[4]), {{0, 1, true, true}});
+    TestSegments(segmenter, ExecSpan(batches[5]), {});
+    TestSegments(segmenter, ExecSpan(batches[6]), {{0, 2, true, false}});
+    TestSegments(segmenter, ExecSpan(batches[7]), {});
+  }
+  {
+    std::vector<TypeHolder> types = {int32(), int32()};
+    std::vector<ExecBatch> batches = {
+        ExecBatchFromJSON(types, "[]"),
+        ExecBatchFromJSON(types, "[]"),
+        ExecBatchFromJSON(types, "[[1, 1]]"),
+        ExecBatchFromJSON(types, "[]"),
+        ExecBatchFromJSON(types, "[[1, 1]]"),
+        ExecBatchFromJSON(types, "[]"),
+        ExecBatchFromJSON(types, "[[2, 2], [2, 2]]"),
+        ExecBatchFromJSON(types, "[]"),
+    };
+    ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(types));
+    TestSegments(segmenter, ExecSpan(batches[0]), {});
+    TestSegments(segmenter, ExecSpan(batches[1]), {});
+    TestSegments(segmenter, ExecSpan(batches[2]), {{0, 1, true, true}});
+    TestSegments(segmenter, ExecSpan(batches[3]), {});
+    TestSegments(segmenter, ExecSpan(batches[4]), {{0, 1, true, true}});
+    TestSegments(segmenter, ExecSpan(batches[5]), {});
+    TestSegments(segmenter, ExecSpan(batches[6]), {{0, 2, true, false}});
+    TestSegments(segmenter, ExecSpan(batches[7]), {});
+  }
 }
 
 TEST(RowSegmenter, MultipleSegments) {
-  std::vector<TypeHolder> types = {int32()};
-  auto batch = ExecBatchFromJSON(types, "[[1], [1], [2], [5], [3], [3], [5], [5], [4]]");
-  ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(types));
-  TestSegments(segmenter, ExecSpan(batch),
-               {{0, 2, false, true},
-                {2, 1, false, false},
-                {3, 1, false, false},
-                {4, 2, false, false},
-                {6, 2, false, false},
-                {8, 1, true, false},
-                {9, 0, true, true}});
+  {
+    std::vector<TypeHolder> types = {int32()};
+    auto batch =
+        ExecBatchFromJSON(types, "[[1], [1], [2], [5], [3], [3], [5], [5], [4]]");
+    ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(types));
+    TestSegments(segmenter, ExecSpan(batch),
+                 {{0, 2, false, true},
+                  {2, 1, false, false},
+                  {3, 1, false, false},
+                  {4, 2, false, false},
+                  {6, 2, false, false},
+                  {8, 1, true, false},
+                  {9, 0, true, true}});
+  }
+  {
+    std::vector<TypeHolder> types = {int32(), int32()};
+    auto batch = ExecBatchFromJSON(
+        types,
+        "[[1, 1], [1, 1], [2, 2], [5, 5], [3, 3], [3, 3], [5, 5], [5, 5], [4, 4]]");
+    ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(types));
+    TestSegments(segmenter, ExecSpan(batch),
+                 {{0, 2, false, true},
+                  {2, 1, false, false},
+                  {3, 1, false, false},
+                  {4, 2, false, false},
+                  {6, 2, false, false},
+                  {8, 1, true, false},
+                  {9, 0, true, true}});
+  }
+}
+
+TEST(RowSegmenter, MultipleSegmentsMultipleBatches) {
+  {
+    std::vector<TypeHolder> types = {int32()};
+    std::vector<ExecBatch> batches = {
+        ExecBatchFromJSON(types, "[[1]]"), ExecBatchFromJSON(types, "[[1], [2]]"),
+        ExecBatchFromJSON(types, "[[5], [3]]"),
+        ExecBatchFromJSON(types, "[[3], [5], [5]]"), ExecBatchFromJSON(types, "[[4]]")};
+
+    ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(types));
+    TestSegments(segmenter, ExecSpan(batches[0]), {{0, 1, true, true}});
+    TestSegments(segmenter, ExecSpan(batches[1]),
+                 {{0, 1, false, true}, {1, 1, true, false}});
+    TestSegments(segmenter, ExecSpan(batches[2]),
+                 {{0, 1, false, false}, {1, 1, true, false}});
+    TestSegments(segmenter, ExecSpan(batches[3]),
+                 {{0, 1, false, true}, {1, 2, true, false}});
+    TestSegments(segmenter, ExecSpan(batches[4]), {{0, 1, true, false}});
+  }
+  {
+    std::vector<TypeHolder> types = {int32(), int32()};
+    std::vector<ExecBatch> batches = {
+        ExecBatchFromJSON(types, "[[1, 1]]"),
+        ExecBatchFromJSON(types, "[[1, 1], [2, 2]]"),
+        ExecBatchFromJSON(types, "[[5, 5], [3, 3]]"),
+        ExecBatchFromJSON(types, "[[3, 3], [5, 5], [5, 5]]"),
+        ExecBatchFromJSON(types, "[[4, 4]]")};
+
+    ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(types));
+    TestSegments(segmenter, ExecSpan(batches[0]), {{0, 1, true, true}});
+    TestSegments(segmenter, ExecSpan(batches[1]),
+                 {{0, 1, false, true}, {1, 1, true, false}});
+    TestSegments(segmenter, ExecSpan(batches[2]),
+                 {{0, 1, false, false}, {1, 1, true, false}});
+    TestSegments(segmenter, ExecSpan(batches[3]),
+                 {{0, 1, false, true}, {1, 2, true, false}});
+    TestSegments(segmenter, ExecSpan(batches[4]), {{0, 1, true, false}});
+  }
 }
 
 namespace {
@@ -1689,6 +1789,42 @@ TEST_P(GroupBy, SumMeanProductScalar) {
       [1, 4, 1.333333, 2],
       [2, 4, 2,        3],
       [3, 5, 2.5,      4]
+    ])");
+    AssertDatumsApproxEqual(expected, actual, /*verbose=*/true);
+  }
+}
+
+TEST_P(GroupBy, MeanOverflow) {
+  BatchesWithSchema input;
+  // would overflow if intermediate sum is integer
+  input.batches = {
+      ExecBatchFromJSON({int64(), int64()}, {ArgShape::SCALAR, ArgShape::ARRAY},
+
+                        "[[9223372036854775805, 1], [9223372036854775805, 1], "
+                        "[9223372036854775805, 2], [9223372036854775805, 3]]"),
+      ExecBatchFromJSON({int64(), int64()}, {ArgShape::SCALAR, ArgShape::ARRAY},
+                        "[[null, 1], [null, 1], [null, 2], [null, 3]]"),
+      ExecBatchFromJSON({int64(), int64()},
+                        "[[9223372036854775805, 1], [9223372036854775805, 2], "
+                        "[9223372036854775805, 3]]"),
+  };
+  input.schema = schema({field("argument", int64()), field("key", int64())});
+  for (bool use_threads : {true, false}) {
+    SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+    ASSERT_OK_AND_ASSIGN(Datum actual,
+                         RunGroupBy(input, {"key"},
+                                    {
+                                        {"hash_mean", nullptr, "argument", "hash_mean"},
+                                    },
+                                    use_threads));
+    Datum expected = ArrayFromJSON(struct_({
+                                       field("key", int64()),
+                                       field("hash_mean", float64()),
+                                   }),
+                                   R"([
+      [1, 9223372036854775805],
+      [2, 9223372036854775805],
+      [3, 9223372036854775805]
     ])");
     AssertDatumsApproxEqual(expected, actual, /*verbose=*/true);
   }

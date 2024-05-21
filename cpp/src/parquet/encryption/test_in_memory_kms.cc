@@ -21,8 +21,7 @@
 #include "parquet/encryption/test_in_memory_kms.h"
 #include "parquet/exception.h"
 
-namespace parquet {
-namespace encryption {
+namespace parquet::encryption {
 
 std::unordered_map<std::string, std::string>
     TestOnlyLocalWrapInMemoryKms::master_key_map_;
@@ -95,5 +94,4 @@ std::string TestOnlyInServerWrapKms::GetMasterKeyFromServer(
   return wrapping_master_key_map_.at(master_key_identifier);
 }
 
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption

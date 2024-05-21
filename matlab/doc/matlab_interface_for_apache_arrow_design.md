@@ -257,13 +257,12 @@ For large tables used in a multi-process "data processing pipeline", a user coul
 
 ## Testing 
 To ensure code quality, we would like to include the following testing infrastructure, at a minimum: 
-1. C++ APIs 
-   - GoogleTest C++ Unit Tests 
-   - Integration with CI workflows 
-2. MATLAB APIs  
-   - [MATLAB Class-Based Unit Tests] 
-   - Integration with CI workflows 
+
+1. [MATLAB Class-Based Unit Tests]
+2. [MATLAB CI Workflows]
 3. [Integration Testing]
+
+**Note**: To test internal C++ code, we can use a [MEX function] to call the C++ code from a MATLAB Class-Based Unit Test.
 
 ## Documentation 
 To ensure usability, discoverability, and accessibility, we would like to include high quality documentation for the MATLAB Interface for Apache Arrow. 
@@ -318,3 +317,4 @@ The table below provides a high-level roadmap for the development of specific ca
 [`apache-arrow` package via the `npm` package manager]: https://www.npmjs.com/package/apache-arrow
 [Rust user]: https://github.com/apache/arrow-rs
 [`arrow` crate via the `cargo` package manager]: https://crates.io/crates/arrow
+[MATLAB CI Workflows]: https://github.com/apache/arrow/actions/workflows/matlab.yml

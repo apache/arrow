@@ -50,7 +50,7 @@ struct IterationTraits {
   static T End() { return T(NULLPTR); }
 
   /// \brief Checks to see if the value is a terminal value.
-  /// A method is used here since T is not neccesarily comparable in many
+  /// A method is used here since T is not necessarily comparable in many
   /// cases even though it has a distinct final value
   static bool IsEnd(const T& val) { return val == End(); }
 };

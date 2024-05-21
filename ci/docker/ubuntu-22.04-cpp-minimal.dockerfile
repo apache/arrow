@@ -76,6 +76,7 @@ COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
 ENV ARROW_ACERO=ON \
+    ARROW_AZURE=OFF \
     ARROW_BUILD_TESTS=ON \
     ARROW_DATASET=ON \
     ARROW_FLIGHT=ON \
@@ -84,7 +85,6 @@ ENV ARROW_ACERO=ON \
     ARROW_HDFS=ON \
     ARROW_HOME=/usr/local \
     ARROW_INSTALL_NAME_RPATH=OFF \
-    ARROW_NO_DEPRECATED_API=ON \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
     ARROW_S3=ON \

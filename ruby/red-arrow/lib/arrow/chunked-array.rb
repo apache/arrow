@@ -24,6 +24,14 @@ module Arrow
     include GenericTakeable
     include InputReferable
 
+    def freeze
+      unless frozen?
+        # Ensure caching
+        chunks
+      end
+      super
+    end
+
     def to_arrow
       self
     end

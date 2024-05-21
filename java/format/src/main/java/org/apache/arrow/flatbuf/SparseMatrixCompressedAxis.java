@@ -18,6 +18,7 @@
 
 package org.apache.arrow.flatbuf;
 
+@SuppressWarnings("unused")
 public final class SparseMatrixCompressedAxis {
   private SparseMatrixCompressedAxis() { }
   public static final short Row = 0;

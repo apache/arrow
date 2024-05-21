@@ -131,6 +131,7 @@ public final class Float8Vector extends BaseFixedWidthVector implements Floating
    * @param index   position of element
    * @return element at given index
    */
+  @Override
   public Double getObject(int index) {
     if (isSet(index) == 0) {
       return null;

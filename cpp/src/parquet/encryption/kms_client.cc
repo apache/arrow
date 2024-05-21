@@ -17,8 +17,7 @@
 
 #include "parquet/encryption/kms_client.h"
 
-namespace parquet {
-namespace encryption {
+namespace parquet::encryption {
 
 constexpr const char KmsClient::kKmsInstanceIdDefault[];
 constexpr const char KmsClient::kKmsInstanceUrlDefault[];
@@ -35,10 +34,9 @@ void KmsConnectionConfig::SetDefaultIfEmpty() {
   if (kms_instance_url.empty()) {
     kms_instance_url = KmsClient::kKmsInstanceUrlDefault;
   }
-  if (refreshable_key_access_token == NULL) {
+  if (refreshable_key_access_token == nullptr) {
     refreshable_key_access_token = std::make_shared<KeyAccessToken>();
   }
 }
 
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption

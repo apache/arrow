@@ -43,6 +43,7 @@ libarrow_cuda_glib = library('arrow-cuda-glib',
                              sources: sources,
                              install: true,
                              dependencies: dependencies,
+                             implicit_include_directories: false,
                              include_directories: base_include_directories,
                              soversion: so_version,
                              version: library_version)
@@ -71,15 +72,13 @@ if have_gi
                        dependencies: gir_dependencies,
                        export_packages: 'arrow-cuda-glib',
                        extra_args: gir_extra_args,
-                       fatal_warnings: gi_fatal_warnings,
                        header: 'arrow-cuda-glib/arrow-cuda-glib.h',
                        identifier_prefix: 'GArrowCUDA',
                        includes: [
                          'Arrow-1.0',
                        ],
-                       install: true,
+                       kwargs: generate_gi_common_args,
                        namespace: 'ArrowCUDA',
-                       nsversion: api_version,
                        sources: sources + c_headers,
                        symbol_prefix: 'garrow_cuda')
 

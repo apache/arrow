@@ -82,7 +82,7 @@ class ARROW_DS_EXPORT FragmentSelection {
 
 /// \brief Instructions for scanning a particular fragment
 ///
-/// The fragment scan request is dervied from ScanV2Options.  The main
+/// The fragment scan request is derived from ScanV2Options.  The main
 /// difference is that the scan options are based on the dataset schema
 /// while the fragment request is based on the fragment schema.
 struct ARROW_DS_EXPORT FragmentScanRequest {
@@ -398,7 +398,7 @@ class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
   ///
   /// Currently, `executor` is always the same as `internal::GetCPUThreadPool()`,
   /// which means the results from the underlying fragment generator will be
-  /// transfered to the default CPU thread pool. The generator itself is
+  /// transferred to the default CPU thread pool. The generator itself is
   /// offloaded to run on the default IO thread pool.
   virtual Result<FragmentGenerator> GetFragmentsAsyncImpl(
       compute::Expression predicate, arrow::internal::Executor* executor);

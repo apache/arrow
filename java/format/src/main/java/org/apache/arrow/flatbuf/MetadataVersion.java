@@ -18,6 +18,7 @@
 
 package org.apache.arrow.flatbuf;
 
+@SuppressWarnings("unused")
 public final class MetadataVersion {
   private MetadataVersion() { }
   /**
@@ -37,7 +38,7 @@ public final class MetadataVersion {
    */
   public static final short V4 = 3;
   /**
-   * >= 1.0.0 (July 2020. Backwards compatible with V4 (V5 readers can read V4
+   * >= 1.0.0 (July 2020). Backwards compatible with V4 (V5 readers can read V4
    * metadata and IPC messages). Implementations are recommended to provide a
    * V4 compatibility mode with V5 format changes disabled.
    *

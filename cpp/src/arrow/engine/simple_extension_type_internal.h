@@ -70,8 +70,9 @@ class SimpleExtensionType : public ExtensionType {
 
   std::string extension_name() const override { return std::string(kExtensionName); }
 
-  std::string ToString() const override { return "extension<" + this->Serialize() + ">"; }
-
+  std::string ToString(bool show_metadata = false) const override {
+    return "extension<" + this->Serialize() + ">";
+  }
   /// \brief A comparator which returns true iff all parameter properties are equal
   struct ExtensionEqualsImpl {
     ExtensionEqualsImpl(const Params& l, const Params& r) : left_(l), right_(r) {

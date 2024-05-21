@@ -24,6 +24,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -216,9 +217,47 @@ public class TestSchema {
     contains(schema, "\"" + METADATA_KEY + "\" : \"testKey\"", "\"" + METADATA_VALUE + "\" : \"testValue\"");
   }
 
+  @Test
+  public void testMessageSerialization() {
+    Schema schema = new Schema(asList(
+        field("a", false, new Null()),
+        field("b", new Struct(), field("ba", new Null())),
+        field("c", new List(), field("ca", new Null())),
+        field("d", new Union(UnionMode.Sparse, new int[] {1, 2, 3}), field("da", new Null())),
+        field("e", new Int(8, true)),
+        field("f", new FloatingPoint(FloatingPointPrecision.SINGLE)),
+        field("g", new Utf8()),
+        field("h", new Binary()),
+        field("i", new Bool()),
+        field("j", new Decimal(5, 5, 128)),
+        field("k", new Date(DateUnit.DAY)),
+        field("l", new Date(DateUnit.MILLISECOND)),
+        field("m", new Time(TimeUnit.SECOND, 32)),
+        field("n", new Time(TimeUnit.MILLISECOND, 32)),
+        field("o", new Time(TimeUnit.MICROSECOND, 64)),
+        field("p", new Time(TimeUnit.NANOSECOND, 64)),
+        field("q", new Timestamp(TimeUnit.MILLISECOND, "UTC")),
+        field("r", new Timestamp(TimeUnit.MICROSECOND, null)),
+        field("s", new Interval(IntervalUnit.DAY_TIME)),
+        field("t", new FixedSizeBinary(100)),
+        field("u", new Duration(TimeUnit.SECOND)),
+        field("v", new Duration(TimeUnit.MICROSECOND))
+    ));
+    roundTripMessage(schema);
+  }
+
   private void roundTrip(Schema schema) throws IOException {
     String json = schema.toJson();
     Schema actual = Schema.fromJSON(json);
+    assertEquals(schema.toJson(), actual.toJson());
+    assertEquals(schema, actual);
+    validateFieldsHashcode(schema.getFields(), actual.getFields());
+    assertEquals(schema.hashCode(), actual.hashCode());
+  }
+
+  private void roundTripMessage(Schema schema) {
+    byte[] bytes = schema.serializeAsMessage();
+    Schema actual = Schema.deserializeMessage(ByteBuffer.wrap(bytes));
     assertEquals(schema.toJson(), actual.toJson());
     assertEquals(schema, actual);
     validateFieldsHashcode(schema.getFields(), actual.getFields());

@@ -35,7 +35,7 @@ Benchmark builds use `hooks.sh` functions as hooks to create conda env with Arro
 
 Defining hooks in Arrow repo allows benchmark builds for a specific commit to be
 compatible with the files/scripts *in that commit* which are used for installing Arrow
-dependencies and building Arrow. This allows Arrow contributors to asses the perfomance
+dependencies and building Arrow. This allows Arrow contributors to asses the performance
 implications of different build options, dependency versions, etc by updating
 `hooks.sh`.
 

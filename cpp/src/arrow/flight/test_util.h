@@ -192,7 +192,8 @@ std::vector<ActionType> ExampleActionTypes();
 ARROW_FLIGHT_EXPORT
 FlightInfo MakeFlightInfo(const Schema& schema, const FlightDescriptor& descriptor,
                           const std::vector<FlightEndpoint>& endpoints,
-                          int64_t total_records, int64_t total_bytes, bool ordered);
+                          int64_t total_records, int64_t total_bytes, bool ordered,
+                          std::string app_metadata);
 
 // ----------------------------------------------------------------------
 // A pair of authentication handlers that check for a predefined password

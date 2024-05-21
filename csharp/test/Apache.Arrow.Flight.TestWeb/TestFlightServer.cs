@@ -18,6 +18,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Apache.Arrow.Flight.Server;
+using Google.Protobuf;
 using Grpc.Core;
 using Grpc.Core.Utils;
 
@@ -86,6 +87,21 @@ namespace Apache.Arrow.Flight.TestWeb
             throw new RpcException(new Status(StatusCode.NotFound, "Flight not found"));
         }
 
+        public override async Task Handshake(IAsyncStreamReader<FlightHandshakeRequest> requestStream, IAsyncStreamWriter<FlightHandshakeResponse> responseStream, ServerCallContext context)
+        {
+            while (await requestStream.MoveNext().ConfigureAwait(false))
+            {
+                if (requestStream.Current.Payload.ToStringUtf8() == "Hello")
+                {
+                    await responseStream.WriteAsync(new(ByteString.CopyFromUtf8("Hello handshake"))).ConfigureAwait(false);
+                }
+                else
+                {
+                    await responseStream.WriteAsync(new(ByteString.CopyFromUtf8("Done"))).ConfigureAwait(false);
+                }
+            }
+        }
+
         public override Task<Schema> GetSchema(FlightDescriptor request, ServerCallContext context)
         {
             if(_flightStore.Flights.TryGetValue(request, out var flightHolder))
@@ -110,6 +126,14 @@ namespace Apache.Arrow.Flight.TestWeb
             foreach(var flightInfo in flightInfos)
             {
                 await responseStream.WriteAsync(flightInfo);
+            }
+        }
+
+        public override async Task DoExchange(FlightServerRecordBatchStreamReader requestStream, FlightServerRecordBatchStreamWriter responseStream, ServerCallContext context)
+        {
+            while(await requestStream.MoveNext().ConfigureAwait(false))
+            {
+                await responseStream.WriteAsync(requestStream.Current, requestStream.ApplicationMetadata.FirstOrDefault()).ConfigureAwait(false);
             }
         }
     }

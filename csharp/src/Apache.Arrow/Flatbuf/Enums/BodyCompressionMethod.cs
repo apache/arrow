@@ -17,7 +17,7 @@ internal enum BodyCompressionMethod : sbyte
   /// uncompressed length may be set to -1 to indicate that the data that
   /// follows is not compressed, which can be useful for cases where
   /// compression does not yield appreciable savings.
- BUFFER = 0,
+  BUFFER = 0,
 };
 
 

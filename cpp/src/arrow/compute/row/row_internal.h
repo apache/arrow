@@ -20,7 +20,7 @@
 #include <vector>
 
 #include "arrow/buffer.h"
-#include "arrow/compute/light_array.h"
+#include "arrow/compute/light_array_internal.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"

@@ -22,6 +22,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <future>
 #include <limits>
 #include <memory>
 #include <numeric>
@@ -80,6 +81,22 @@ class TestArray : public ::testing::Test {
   MemoryPool* pool_;
 };
 
+void CheckDictionaryNullCount(const std::shared_ptr<DataType>& dict_type,
+                              const std::string& input_dictionary_json,
+                              const std::string& input_index_json,
+                              const int64_t& expected_null_count,
+                              const int64_t& expected_logical_null_count,
+                              bool expected_may_have_nulls,
+                              bool expected_may_have_logical_nulls) {
+  std::shared_ptr<arrow::Array> arr =
+      DictArrayFromJSON(dict_type, input_index_json, input_dictionary_json);
+
+  ASSERT_EQ(arr->null_count(), expected_null_count);
+  ASSERT_EQ(arr->ComputeLogicalNullCount(), expected_logical_null_count);
+  ASSERT_EQ(arr->data()->MayHaveNulls(), expected_may_have_nulls);
+  ASSERT_EQ(arr->data()->MayHaveLogicalNulls(), expected_may_have_logical_nulls);
+}
+
 TEST_F(TestArray, TestNullCount) {
   // These are placeholders
   auto data = std::make_shared<Buffer>(nullptr, 0);
@@ -127,6 +144,37 @@ TEST_F(TestArray, TestNullCount) {
   ASSERT_EQ(0, ree_no_nulls->ComputeLogicalNullCount());
   ASSERT_FALSE(ree_no_nulls->data()->MayHaveNulls());
   ASSERT_FALSE(ree_no_nulls->data()->MayHaveLogicalNulls());
+
+  // Dictionary type
+  std::shared_ptr<arrow::DataType> type;
+  std::shared_ptr<arrow::DataType> dict_type;
+
+  for (const auto& index_type : all_dictionary_index_types()) {
+    ARROW_SCOPED_TRACE("index_type = ", index_type->ToString());
+
+    type = boolean();
+    dict_type = dictionary(index_type, type);
+    // no null value
+    CheckDictionaryNullCount(dict_type, "[]", "[]", 0, 0, false, false);
+    CheckDictionaryNullCount(dict_type, "[true, false]", "[0, 1, 0]", 0, 0, false, false);
+
+    // only indices contain null value
+    CheckDictionaryNullCount(dict_type, "[true, false]", "[null, 0, 1]", 1, 1, true,
+                             true);
+    CheckDictionaryNullCount(dict_type, "[true, false]", "[null, null]", 2, 2, true,
+                             true);
+
+    // only dictionary contains null value
+    CheckDictionaryNullCount(dict_type, "[null, true]", "[]", 0, 0, false, true);
+    CheckDictionaryNullCount(dict_type, "[null, true, false]", "[0, 1, 0]", 0, 2, false,
+                             true);
+
+    // both indices and dictionary contain null value
+    CheckDictionaryNullCount(dict_type, "[null, true, false]", "[0, 1, 0, null]", 1, 3,
+                             true, true);
+    CheckDictionaryNullCount(dict_type, "[null, true, null, false]", "[null, 1, 0, 2, 3]",
+                             1, 3, true, true);
+  }
 }
 
 TEST_F(TestArray, TestSlicePreservesAllNullCount) {
@@ -137,6 +185,16 @@ TEST_F(TestArray, TestSlicePreservesAllNullCount) {
   Int32Array arr(/*length=*/100, data, null_bitmap,
                  /*null_count*/ 100);
   EXPECT_EQ(arr.Slice(1, 99)->data()->null_count, arr.Slice(1, 99)->length());
+
+  // Dictionary type
+  std::shared_ptr<arrow::DataType> dict_type = dictionary(int64(), boolean());
+  std::shared_ptr<arrow::Array> dict_arr =
+      DictArrayFromJSON(dict_type, /*indices=*/"[null, 0, 0, 0, 0, 0, 1, 2, 0, 0]",
+                        /*dictionary=*/"[null, true, false]");
+  ASSERT_EQ(dict_arr->null_count(), 1);
+  ASSERT_EQ(dict_arr->ComputeLogicalNullCount(), 8);
+  ASSERT_EQ(dict_arr->Slice(2, 8)->null_count(), 0);
+  ASSERT_EQ(dict_arr->Slice(2, 8)->ComputeLogicalNullCount(), 6);
 }
 
 TEST_F(TestArray, TestLength) {
@@ -382,15 +440,24 @@ static std::vector<std::shared_ptr<DataType>> TestArrayUtilitiesAgainstTheseType
       float64(),
       binary(),
       large_binary(),
+      binary_view(),
       fixed_size_binary(3),
       decimal(16, 4),
       utf8(),
       large_utf8(),
+      utf8_view(),
       list(utf8()),
       list(int64()),  // NOTE: Regression case for ARROW-9071/MakeArrayOfNull
+      list(large_utf8()),
+      list(list(int64())),
+      list(list(large_utf8())),
+      large_list(utf8()),
       large_list(large_utf8()),
+      large_list(list(large_utf8())),
       fixed_size_list(utf8(), 3),
       fixed_size_list(int64(), 4),
+      list_view(utf8()),
+      large_list_view(utf8()),
       dictionary(int32(), utf8()),
       struct_({field("a", utf8()), field("b", int32())}),
       sparse_union(union_fields1, union_type_codes),
@@ -537,11 +604,11 @@ void AssertAppendScalar(MemoryPool* pool, const std::shared_ptr<Scalar>& scalar)
   ASSERT_EQ(out->length(), 9);
 
   auto out_type_id = out->type()->id();
-  const bool has_validity = internal::HasValidityBitmap(out_type_id);
+  const bool can_check_nulls = internal::may_have_validity_bitmap(out_type_id);
   // For a dictionary builder, the output dictionary won't necessarily be the same
   const bool can_check_values = !is_dictionary(out_type_id);
 
-  if (has_validity) {
+  if (can_check_nulls) {
     ASSERT_EQ(out->null_count(), 4);
   } else {
     ASSERT_EQ(out->null_count(), 0);
@@ -596,16 +663,21 @@ static ScalarVector GetScalars() {
       std::make_shared<DurationScalar>(60, duration(TimeUnit::SECOND)),
       std::make_shared<BinaryScalar>(hello),
       std::make_shared<LargeBinaryScalar>(hello),
+      std::make_shared<BinaryViewScalar>(hello),
       std::make_shared<FixedSizeBinaryScalar>(
           hello, fixed_size_binary(static_cast<int32_t>(hello->size()))),
       std::make_shared<Decimal128Scalar>(Decimal128(10), decimal(16, 4)),
       std::make_shared<Decimal256Scalar>(Decimal256(10), decimal(76, 38)),
       std::make_shared<StringScalar>(hello),
       std::make_shared<LargeStringScalar>(hello),
+      std::make_shared<StringViewScalar>(hello),
+      std::make_shared<StringViewScalar>(Buffer::FromString("long string; not inlined")),
       std::make_shared<ListScalar>(ArrayFromJSON(int8(), "[1, 2, 3]")),
       ScalarFromJSON(map(int8(), utf8()), R"([[1, "foo"], [2, "bar"]])"),
       std::make_shared<LargeListScalar>(ArrayFromJSON(int8(), "[1, 1, 2, 2, 3, 3]")),
       std::make_shared<FixedSizeListScalar>(ArrayFromJSON(int8(), "[1, 2, 3, 4]")),
+      std::make_shared<ListViewScalar>(ArrayFromJSON(int8(), "[1, 2, 3]")),
+      std::make_shared<LargeListViewScalar>(ArrayFromJSON(int8(), "[1, 1, 2, 2, 3, 3]")),
       std::make_shared<StructScalar>(
           ScalarVector{
               std::make_shared<Int32Scalar>(2),
@@ -642,13 +714,14 @@ TEST_F(TestArray, TestMakeArrayFromScalar) {
 
   for (int64_t length : {16}) {
     for (auto scalar : scalars) {
+      ARROW_SCOPED_TRACE("scalar type: ", scalar->type->ToString());
       ASSERT_OK_AND_ASSIGN(auto array, MakeArrayFromScalar(*scalar, length));
       ASSERT_OK(array->ValidateFull());
       ASSERT_EQ(array->length(), length);
       ASSERT_EQ(array->null_count(), 0);
 
       // test case for ARROW-13321
-      for (int64_t i : std::vector<int64_t>{0, length / 2, length - 1}) {
+      for (int64_t i : {int64_t{0}, length / 2, length - 1}) {
         ASSERT_OK_AND_ASSIGN(auto s, array->GetScalar(i));
         AssertScalarsEqual(*s, *scalar, /*verbose=*/true);
       }
@@ -656,6 +729,7 @@ TEST_F(TestArray, TestMakeArrayFromScalar) {
   }
 
   for (auto scalar : scalars) {
+    ARROW_SCOPED_TRACE("scalar type: ", scalar->type->ToString());
     AssertAppendScalar(pool_, scalar);
   }
 }
@@ -741,11 +815,49 @@ TEST_F(TestArray, TestFillFromScalar) {
 
       ArraySpan span(*scalar);
       auto roundtripped_array = span.ToArray();
-      AssertArraysEqual(*array, *roundtripped_array);
-
       ASSERT_OK(roundtripped_array->ValidateFull());
+
+      AssertArraysEqual(*array, *roundtripped_array);
       ASSERT_OK_AND_ASSIGN(auto roundtripped_scalar, roundtripped_array->GetScalar(0));
       AssertScalarsEqual(*scalar, *roundtripped_scalar);
+    }
+  }
+}
+
+// GH-40069: Data-race when concurrent calling ArraySpan::FillFromScalar of the same
+// scalar instance.
+TEST_F(TestArray, TestConcurrentFillFromScalar) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+  for (auto type : TestArrayUtilitiesAgainstTheseTypes()) {
+    ARROW_SCOPED_TRACE("type = ", type->ToString());
+    for (auto seed : {0u, 0xdeadbeef, 42u}) {
+      ARROW_SCOPED_TRACE("seed = ", seed);
+
+      Field field("", type, /*nullable=*/true,
+                  key_value_metadata({{"extension_allow_random_storage", "true"}}));
+      auto array = random::GenerateArray(field, 1, seed);
+
+      ASSERT_OK_AND_ASSIGN(auto scalar, array->GetScalar(0));
+
+      // Lambda to create fill an ArraySpan with the scalar and use the ArraySpan a bit.
+      auto array_span_from_scalar = [&]() {
+        ArraySpan span(*scalar);
+        auto roundtripped_array = span.ToArray();
+        ASSERT_OK(roundtripped_array->ValidateFull());
+
+        AssertArraysEqual(*array, *roundtripped_array);
+        ASSERT_OK_AND_ASSIGN(auto roundtripped_scalar, roundtripped_array->GetScalar(0));
+        AssertScalarsEqual(*scalar, *roundtripped_scalar);
+      };
+
+      // Two concurrent calls to the lambda are just enough for TSAN to detect a race
+      // condition.
+      auto fut1 = std::async(std::launch::async, array_span_from_scalar);
+      auto fut2 = std::async(std::launch::async, array_span_from_scalar);
+      fut1.get();
+      fut2.get();
     }
   }
 }
@@ -782,7 +894,8 @@ TEST_F(TestArray, TestAppendArraySlice) {
     span.SetMembers(*nulls->data());
     ASSERT_OK(builder->AppendArraySlice(span, 0, 4));
     ASSERT_EQ(12, builder->length());
-    const bool has_validity_bitmap = internal::HasValidityBitmap(scalar->type->id());
+    const bool has_validity_bitmap =
+        internal::may_have_validity_bitmap(scalar->type->id());
     if (has_validity_bitmap) {
       ASSERT_EQ(4, builder->null_count());
     }
@@ -830,6 +943,29 @@ TEST_F(TestArray, TestAppendArraySlice) {
     ASSERT_EQ(8, result->length());
     ASSERT_EQ(8, result->null_count());
   }
+}
+
+// GH-39976: Test out-of-line data size calculation in
+// BinaryViewBuilder::AppendArraySlice.
+TEST_F(TestArray, TestBinaryViewAppendArraySlice) {
+  BinaryViewBuilder src_builder(pool_);
+  ASSERT_OK(src_builder.AppendNull());
+  ASSERT_OK(src_builder.Append("long string; not inlined"));
+  ASSERT_EQ(2, src_builder.length());
+  ASSERT_OK_AND_ASSIGN(auto src, src_builder.Finish());
+  ASSERT_OK(src->ValidateFull());
+
+  ArraySpan span;
+  span.SetMembers(*src->data());
+  BinaryViewBuilder dst_builder(pool_);
+  ASSERT_OK(dst_builder.AppendArraySlice(span, 0, 1));
+  ASSERT_EQ(1, dst_builder.length());
+  ASSERT_OK(dst_builder.AppendArraySlice(span, 1, 1));
+  ASSERT_EQ(2, dst_builder.length());
+  ASSERT_OK_AND_ASSIGN(auto dst, dst_builder.Finish());
+  ASSERT_OK(dst->ValidateFull());
+
+  AssertArraysEqual(*src, *dst);
 }
 
 TEST_F(TestArray, ValidateBuffersPrimitive) {
@@ -1211,6 +1347,13 @@ TEST(TestBooleanArray, TrueCountFalseCount) {
   CheckArray(checked_cast<const BooleanArray&>(*arr));
   CheckArray(checked_cast<const BooleanArray&>(*arr->Slice(5)));
   CheckArray(checked_cast<const BooleanArray&>(*arr->Slice(0, 0)));
+
+  // GH-41016 true_count() with array without validity buffer with null_count of -1
+  auto arr_unknown_null_count = ArrayFromJSON(boolean(), "[true, false, true]");
+  arr_unknown_null_count->data()->null_count = kUnknownNullCount;
+  ASSERT_EQ(arr_unknown_null_count->data()->null_count.load(), -1);
+  ASSERT_EQ(arr_unknown_null_count->null_bitmap(), nullptr);
+  ASSERT_EQ(checked_pointer_cast<BooleanArray>(arr_unknown_null_count)->true_count(), 2);
 }
 
 TEST(TestPrimitiveAdHoc, TestType) {
@@ -1727,21 +1870,6 @@ TYPED_TEST(TestPrimitiveBuilder, TestAppendValuesStdBool) {
   this->Check(this->builder_nn_, false);
 }
 
-TYPED_TEST(TestPrimitiveBuilder, TestAdvance) {
-  ARROW_SUPPRESS_DEPRECATION_WARNING
-  int64_t n = 1000;
-  ASSERT_OK(this->builder_->Reserve(n));
-
-  ASSERT_OK(this->builder_->Advance(100));
-  ASSERT_EQ(100, this->builder_->length());
-
-  ASSERT_OK(this->builder_->Advance(900));
-
-  int64_t too_many = this->builder_->capacity() - 1000 + 1;
-  ASSERT_RAISES(Invalid, this->builder_->Advance(too_many));
-  ARROW_UNSUPPRESS_DEPRECATION_WARNING
-}
-
 TYPED_TEST(TestPrimitiveBuilder, TestResize) {
   int64_t cap = kMinBuilderCapacity * 2;
 
@@ -1757,9 +1885,7 @@ TYPED_TEST(TestPrimitiveBuilder, TestReserve) {
   ASSERT_OK(this->builder_->Reserve(100));
   ASSERT_EQ(0, this->builder_->length());
   ASSERT_GE(100, this->builder_->capacity());
-  ARROW_SUPPRESS_DEPRECATION_WARNING
-  ASSERT_OK(this->builder_->Advance(100));
-  ARROW_UNSUPPRESS_DEPRECATION_WARNING
+  ASSERT_OK(this->builder_->AppendEmptyValues(100));
   ASSERT_EQ(100, this->builder_->length());
   ASSERT_GE(100, this->builder_->capacity());
 
@@ -3532,6 +3658,8 @@ DataTypeVector SwappableTypes() {
                         large_utf8(),
                         list(int16()),
                         large_list(int16()),
+                        list_view(int16()),
+                        large_list_view(int16()),
                         dictionary(int16(), utf8())};
 }
 

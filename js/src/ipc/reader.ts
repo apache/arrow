@@ -47,6 +47,8 @@ import {
     isReadableDOMStream, isReadableNodeStream
 } from '../util/compat.js';
 
+import type { DuplexOptions, Duplex } from 'node:stream';
+
 /** @ignore */ export type FromArg0 = ArrowJSONLike;
 /** @ignore */ export type FromArg1 = PromiseLike<ArrowJSONLike>;
 /** @ignore */ export type FromArg2 = Iterable<ArrayBufferViewInput> | ArrayBufferViewInput;
@@ -113,13 +115,13 @@ export class RecordBatchReader<T extends TypeMap = any> extends ReadableInterop<
     public [Symbol.asyncIterator](): AsyncIterableIterator<RecordBatch<T>> {
         return (<AsyncIterableIterator<RecordBatch<T>>>this._impl)[Symbol.asyncIterator]();
     }
-    public toDOMStream() {
+    public toDOMStream(): ReadableStream<RecordBatch<T>> {
         return streamAdapters.toDOMStream<RecordBatch<T>>(
             (this.isSync()
                 ? { [Symbol.iterator]: () => this } as Iterable<RecordBatch<T>>
                 : { [Symbol.asyncIterator]: () => this } as AsyncIterable<RecordBatch<T>>));
     }
-    public toNodeStream() {
+    public toNodeStream(): import('stream').Readable {
         return streamAdapters.toNodeStream<RecordBatch<T>>(
             (this.isSync()
                 ? { [Symbol.iterator]: () => this } as Iterable<RecordBatch<T>>
@@ -129,7 +131,7 @@ export class RecordBatchReader<T extends TypeMap = any> extends ReadableInterop<
 
     /** @nocollapse */
     // @ts-ignore
-    public static throughNode(options?: import('stream').DuplexOptions & { autoDestroy: boolean }): import('stream').Duplex {
+    public static throughNode(options?: DuplexOptions & { autoDestroy: boolean }): Duplex {
         throw new Error(`"throughNode" not available in this environment`);
     }
     /** @nocollapse */
@@ -185,7 +187,7 @@ export class RecordBatchReader<T extends TypeMap = any> extends ReadableInterop<
 
 //
 // Since TS is a structural type system, we define the following subclass stubs
-// so that concrete types exist to associate with with the interfaces below.
+// so that concrete types exist to associate with the interfaces below.
 //
 // The implementation for each RecordBatchReader is hidden away in the set of
 // `RecordBatchReaderImpl` classes in the second half of this file. This allows
@@ -371,7 +373,7 @@ abstract class RecordBatchReaderImpl<T extends TypeMap = any> implements RecordB
         return dictionary.memoize();
     }
     protected _loadVectors(header: metadata.RecordBatch, body: any, types: (Field | DataType)[]) {
-        return new VectorLoader(body, header.nodes, header.buffers, this.dictionaries).visitMany(types);
+        return new VectorLoader(body, header.nodes, header.buffers, this.dictionaries, this.schema.metadataVersion).visitMany(types);
     }
 }
 
@@ -678,7 +680,7 @@ class RecordBatchJSONReaderImpl<T extends TypeMap = any> extends RecordBatchStre
         super(source, dictionaries);
     }
     protected _loadVectors(header: metadata.RecordBatch, body: any, types: (Field | DataType)[]) {
-        return new JSONVectorLoader(body, header.nodes, header.buffers, this.dictionaries).visitMany(types);
+        return new JSONVectorLoader(body, header.nodes, header.buffers, this.dictionaries, this.schema.metadataVersion).visitMany(types);
     }
 }
 

@@ -17,10 +17,10 @@
 package file
 
 import (
-	"github.com/apache/arrow/go/v13/parquet"
-	"github.com/apache/arrow/go/v13/parquet/internal/encryption"
-	"github.com/apache/arrow/go/v13/parquet/internal/utils"
-	"github.com/apache/arrow/go/v13/parquet/metadata"
+	"github.com/apache/arrow/go/v17/parquet"
+	"github.com/apache/arrow/go/v17/parquet/internal/encryption"
+	"github.com/apache/arrow/go/v17/parquet/internal/utils"
+	"github.com/apache/arrow/go/v17/parquet/metadata"
 	"golang.org/x/xerrors"
 )
 
@@ -52,7 +52,7 @@ type SerialRowGroupWriter interface {
 	RowGroupWriter
 	NextColumn() (ColumnChunkWriter, error)
 	// returns the current column being built, if buffered it will equal NumColumns
-	// if serialized then it will return which column is currenly being written
+	// if serialized then it will return which column is currently being written
 	CurrentColumn() int
 }
 

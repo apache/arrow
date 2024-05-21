@@ -24,6 +24,7 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.holders.FixedSizeBinaryHolder;
 import org.apache.arrow.vector.holders.NullableFixedSizeBinaryHolder;
+import org.apache.arrow.vector.util.ReusableByteArray;
 import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
 import org.junit.Before;
@@ -285,5 +286,20 @@ public class TestFixedSizeBinaryVector {
     final FixedSizeBinaryVector toVector = (FixedSizeBinaryVector) transferPair.getTo();
     // Field inside a new vector created by reusing a field should be the same in memory as the original field.
     assertSame(fromVector.getField(), toVector.getField());
+  }
+
+  @Test
+  public void testGetBytesRepeatedly() {
+    for (int i = 0; i < numValues; i++) {
+      vector.set(i, values[i]);
+    }
+    vector.setValueCount(numValues);
+
+    ReusableByteArray reusableByteArray = new ReusableByteArray();
+    for (int i = 0; i < numValues; i++) {
+      // verify results
+      vector.read(i, reusableByteArray);
+      assertArrayEquals(values[i], reusableByteArray.getBuffer());
+    }
   }
 }

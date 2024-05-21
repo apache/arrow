@@ -108,7 +108,7 @@ public class MessageSerializerTest {
 
     // First message continuation, size, and 2 int values
     assertEquals(MessageSerializer.IPC_CONTINUATION_TOKEN, result.getInt());
-    // mesage length is represented in little endian
+    // message length is represented in little endian
     result.order(ByteOrder.LITTLE_ENDIAN);
     assertEquals(8, result.getInt());
     result.order(ByteOrder.nativeOrder());
@@ -117,7 +117,7 @@ public class MessageSerializerTest {
 
     // Second message continuation, size, 1 int value and 4 bytes padding
     assertEquals(MessageSerializer.IPC_CONTINUATION_TOKEN, result.getInt());
-    // mesage length is represented in little endian
+    // message length is represented in little endian
     result.order(ByteOrder.LITTLE_ENDIAN);
     assertEquals(8, result.getInt());
     result.order(ByteOrder.nativeOrder());

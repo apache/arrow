@@ -63,6 +63,8 @@ namespace Apache.Arrow
             public Time64Array Time64(Time64Type type, Action<Time64Array.Builder> action) =>
                 Build<Time64Array, Time64Array.Builder>(
                     new Time64Array.Builder(type), action);
+            public DurationArray Duration(DurationType type, Action<DurationArray.Builder> action) =>
+                Build<DurationArray, DurationArray.Builder>(new DurationArray.Builder(type), action);
             public BinaryArray Binary(Action<BinaryArray.Builder> action) => Build<BinaryArray, BinaryArray.Builder>(new BinaryArray.Builder(), action);
             public StringArray String(Action<StringArray.Builder> action) => Build<StringArray, StringArray.Builder>(new StringArray.Builder(), action);
             public TimestampArray Timestamp(Action<TimestampArray.Builder> action) => Build<TimestampArray, TimestampArray.Builder>(new TimestampArray.Builder(), action);

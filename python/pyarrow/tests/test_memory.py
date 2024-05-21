@@ -134,8 +134,14 @@ def check_env_var(name, expected, *, expect_warning=False):
         res.check_returncode()  # fail
     errlines = res.stderr.splitlines()
     if expect_warning:
-        assert len(errlines) == 1
-        assert f"Unsupported backend '{name}'" in errlines[0]
+        assert len(errlines) in (1, 2)
+        if len(errlines) == 1:
+            # ARROW_USE_GLOG=OFF
+            assert f"Unsupported backend '{name}'" in errlines[0]
+        else:
+            # ARROW_USE_GLOG=ON
+            assert "InitGoogleLogging()" in errlines[0]
+            assert f"Unsupported backend '{name}'" in errlines[1]
     else:
         assert len(errlines) == 0
 
@@ -237,13 +243,35 @@ def test_debug_memory_pool_warn(pool_factory):
     assert "Wrong size on deallocation" in res.stderr
 
 
-@pytest.mark.parametrize('pool_factory', supported_factories())
-def test_debug_memory_pool_disabled(pool_factory):
-    res = run_debug_memory_pool(pool_factory.__name__, "")
+def check_debug_memory_pool_disabled(pool_factory, env_value, msg):
+    res = run_debug_memory_pool(pool_factory.__name__, env_value)
     # The subprocess either returned successfully or was killed by a signal
     # (due to writing out of bounds), depending on the underlying allocator.
     if os.name == "posix":
         assert res.returncode <= 0
     else:
         res.check_returncode()
-    assert res.stderr == ""
+    if msg == "":
+        assert res.stderr == ""
+    else:
+        assert msg in res.stderr
+
+
+@pytest.mark.parametrize('pool_factory', supported_factories())
+def test_debug_memory_pool_none(pool_factory):
+    check_debug_memory_pool_disabled(pool_factory, "none", "")
+
+
+@pytest.mark.parametrize('pool_factory', supported_factories())
+def test_debug_memory_pool_empty(pool_factory):
+    check_debug_memory_pool_disabled(pool_factory, "", "")
+
+
+@pytest.mark.parametrize('pool_factory', supported_factories())
+def test_debug_memory_pool_unknown(pool_factory):
+    env_value = "some_arbitrary_value"
+    msg = (
+        f"Invalid value for ARROW_DEBUG_MEMORY_POOL: '{env_value}'. "
+        "Valid values are 'abort', 'trap', 'warn', 'none'."
+    )
+    check_debug_memory_pool_disabled(pool_factory, env_value, msg)

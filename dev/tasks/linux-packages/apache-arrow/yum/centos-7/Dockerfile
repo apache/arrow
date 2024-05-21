@@ -44,7 +44,6 @@ RUN \
     git \
     glog-devel \
     gobject-introspection-devel \
-    gtk-doc \
     json-devel \
     libzstd-devel \
     lz4-devel \
@@ -58,6 +57,7 @@ RUN \
     tar \
     thrift-devel \
     vala \
+    which \
     zlib-devel && \
   yum clean ${quiet} all
 

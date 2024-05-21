@@ -30,8 +30,7 @@ arrow::fs::FileInfo *
 garrow_file_info_get_raw(GArrowFileInfo *file_info);
 
 GArrowFileSystem *
-garrow_file_system_new_raw(
-  std::shared_ptr<arrow::fs::FileSystem> *arrow_file_system);
+garrow_file_system_new_raw(std::shared_ptr<arrow::fs::FileSystem> *arrow_file_system);
 
 std::shared_ptr<arrow::fs::FileSystem>
 garrow_file_system_get_raw(GArrowFileSystem *file_system);
@@ -42,10 +41,8 @@ garrow_sub_tree_file_system_new_raw(
   GArrowFileSystem *base_file_system);
 
 GArrowSlowFileSystem *
-garrow_slow_file_system_new_raw(
-  std::shared_ptr<arrow::fs::FileSystem> *arrow_file_system,
-  GArrowFileSystem *base_file_system);
-
+garrow_slow_file_system_new_raw(std::shared_ptr<arrow::fs::FileSystem> *arrow_file_system,
+                                GArrowFileSystem *base_file_system);
 
 #ifdef ARROW_S3
 arrow::fs::S3GlobalOptions *

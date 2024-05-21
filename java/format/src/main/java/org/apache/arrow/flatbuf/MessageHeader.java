@@ -28,6 +28,7 @@ package org.apache.arrow.flatbuf;
  * which may include experimental metadata types. For maximum compatibility,
  * it is best to send data using RecordBatch
  */
+@SuppressWarnings("unused")
 public final class MessageHeader {
   private MessageHeader() { }
   public static final byte NONE = 0;

@@ -99,4 +99,4 @@ integrations in other projects, we'd be happy to have you involved:
 [2]: https://github.com/apache/arrow/tree/main/format
 [3]: https://github.com/apache/arrow/issues
 [4]: https://github.com/apache/arrow
-[5]: https://arrow.apache.org/docs/dev/developers/contributing.html
+[5]: https://arrow.apache.org/docs/dev/developers/index.html

@@ -249,16 +249,11 @@ make_readable_file <- function(file, mmap = TRUE, random_access = TRUE) {
       on.exit(unlink(tf))
     }
 
-    if (is_url(file)) {
-      file <- tryCatch(
-        {
-          fs_and_path <- FileSystem$from_uri(file)
-          fs_and_path$fs$OpenInputFile(fs_and_path$path)
-        },
-        error = function(e) {
-          MakeRConnectionInputStream(url(file, open = "rb"))
-        }
-      )
+    if (is_http_url(file)) {
+      file <- MakeRConnectionInputStream(url(file, open = "rb"))
+    } else if (is_url(file)) {
+      fs_and_path <- FileSystem$from_uri(file)
+      file <- fs_and_path$fs$OpenInputFile(fs_and_path$path)
     } else if (isTRUE(mmap)) {
       file <- mmap_open(file)
     } else {

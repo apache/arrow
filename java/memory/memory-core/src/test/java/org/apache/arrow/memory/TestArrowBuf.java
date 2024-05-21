@@ -29,6 +29,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
 
+import org.apache.arrow.memory.util.Float16;
 import org.junit.Test;
 import org.slf4j.LoggerFactory;
 
@@ -167,15 +168,27 @@ public class TestArrowBuf {
       fieldDebug.set(null, true);
       try (BufferAllocator allocator = new RootAllocator(128)) {
         allocator.buffer(2);
-        Exception e = assertThrows(IllegalStateException.class, () -> allocator.close());
-        assertTrue(e.getMessage().contains("event log for:")); // JDK8, JDK11
+        Exception e = assertThrows(IllegalStateException.class, allocator::close);
+        assertTrue("Exception had the following message: " + e.getMessage(),
+            e.getMessage().contains("event log for:")); // JDK8, JDK11
       } finally {
         fieldDebug.set(null, false);
       }
     } catch (Exception e) {
-      assertTrue(e.toString().contains("java.lang.NoSuchFieldException: modifiers")); // JDK17+
+      assertTrue("Exception had the following toString(): " + e.toString(),
+          e.toString().contains("java.lang.NoSuchFieldException: modifiers")); // JDK17+
     } finally {
       ((Logger) LoggerFactory.getLogger("org.apache.arrow")).setLevel(null);
+    }
+  }
+
+  @Test
+  public void testArrowBufFloat16() {
+    try (BufferAllocator allocator = new RootAllocator();
+         ArrowBuf buf = allocator.buffer(1024)
+    ) {
+      buf.setShort(0, Float16.toFloat16(+32.875f));
+      assertEquals((short) 0x501c, buf.getShort(0));
     }
   }
 }

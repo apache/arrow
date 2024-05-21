@@ -66,10 +66,6 @@ This argument configuration also applies to `clean` and `test` scripts.
 To run tests on the bundles, you need to build them first.
 To run tests directly on the sources without bundling, use the `src` target (e.g. `yarn test -t src`).
 
-* `yarn deploy`
-
-Uses [lerna](https://github.com/lerna/lerna) to publish each build target to npm with [conventional](https://conventionalcommits.org/) [changelogs](https://github.com/conventional-changelog/conventional-changelog/tree/master/packages/conventional-changelog-cli).
-
 * `yarn doc`
 
 Compiles the documentation with [Typedoc](https://typedoc.org/). Use `yarn doc --watch` to automatically rebuild when the docs change.

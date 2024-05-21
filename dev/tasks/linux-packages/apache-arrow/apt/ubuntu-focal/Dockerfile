@@ -37,7 +37,6 @@ RUN \
     debhelper \
     devscripts \
     git \
-    gtk-doc-tools \
     libboost-filesystem-dev \
     libboost-system-dev \
     libbrotli-dev \
@@ -75,5 +74,7 @@ RUN \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \
   fi && \
+  pip3 install gi-docgen && \
+  ln -fs /usr/local/bin/gi-docgen /usr/bin && \
   apt clean && \
   rm -rf /var/lib/apt/lists/*

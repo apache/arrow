@@ -54,6 +54,11 @@ class IntegrationTest {
   }
 
   @Test
+  void locationReuseConnection() throws Exception {
+    testScenario("location:reuse_connection");
+  }
+
+  @Test
   void middleware() throws Exception {
     testScenario("middleware");
   }
@@ -64,6 +69,11 @@ class IntegrationTest {
   }
 
   @Test
+  void pollFlightInfo() throws Exception {
+    testScenario("poll_flight_info");
+  }
+
+  @Test
   void flightSql() throws Exception {
     testScenario("flight_sql");
   }
@@ -71,6 +81,16 @@ class IntegrationTest {
   @Test
   void flightSqlExtension() throws Exception {
     testScenario("flight_sql:extension");
+  }
+
+  @Test
+  void appMetadataFlightInfoEndpoint() throws Exception {
+    testScenario("app_metadata_flight_info_endpoint");
+  }
+
+  @Test
+  void sessionOptions() throws Exception {
+    testScenario("session_options");
   }
 
   void testScenario(String scenarioName) throws Exception {

@@ -17,7 +17,6 @@
 
 import datetime
 import decimal
-import pickle
 import pytest
 import sys
 import weakref
@@ -52,10 +51,14 @@ from pyarrow.tests import util
     (b"bytes", None, pa.BinaryScalar),
     ("largestring", pa.large_string(), pa.LargeStringScalar),
     (b"largebytes", pa.large_binary(), pa.LargeBinaryScalar),
+    ("string_view", pa.string_view(), pa.StringViewScalar),
+    (b"bytes_view", pa.binary_view(), pa.BinaryViewScalar),
     (b"abc", pa.binary(3), pa.FixedSizeBinaryScalar),
     ([1, 2, 3], None, pa.ListScalar),
     ([1, 2, 3, 4], pa.large_list(pa.int8()), pa.LargeListScalar),
     ([1, 2, 3, 4, 5], pa.list_(pa.int8(), 5), pa.FixedSizeListScalar),
+    ([1, 2, 3], pa.list_view(pa.int8()), pa.ListViewScalar),
+    ([1, 2, 3, 4], pa.large_list_view(pa.int8()), pa.LargeListViewScalar),
     (datetime.date.today(), None, pa.Date32Scalar),
     (datetime.date.today(), pa.date64(), pa.Date64Scalar),
     (datetime.datetime.now(), None, pa.TimestampScalar),
@@ -68,7 +71,7 @@ from pyarrow.tests import util
     ({'a': 1, 'b': [1, 2]}, None, pa.StructScalar),
     ([('a', 1), ('b', 2)], pa.map_(pa.string(), pa.int8()), pa.MapScalar),
 ])
-def test_basics(value, ty, klass):
+def test_basics(value, ty, klass, pickle_module):
     s = pa.scalar(value, type=ty)
     s.validate()
     s.validate(full=True)
@@ -87,7 +90,7 @@ def test_basics(value, ty, klass):
     assert s != pa.scalar(value, type=ty)
 
     # test pickle roundtrip
-    restored = pickle.loads(pickle.dumps(s))
+    restored = pickle_module.loads(pickle_module.dumps(s))
     assert s.equals(restored)
 
     # test that scalars are weak-referenceable
@@ -110,7 +113,7 @@ def test_null_singleton():
         pa.NullScalar()
 
 
-def test_nulls():
+def test_nulls(pickle_module):
     null = pa.scalar(None)
     assert null is pa.NA
     assert null.as_py() is None
@@ -126,7 +129,7 @@ def test_nulls():
         assert v.as_py() is None
 
     # test pickle roundtrip
-    restored = pickle.loads(pickle.dumps(null))
+    restored = pickle_module.loads(pickle_module.dumps(null))
     assert restored.equals(null)
 
     # test that scalars are weak-referenceable
@@ -152,6 +155,20 @@ def test_hashing_struct_scalar():
     hash1 = hash(a[1])
     hash2 = hash(b[0])
     assert hash1 == hash2
+
+
+@pytest.mark.skipif(sys.platform == "win32" and not util.windows_has_tzdata(),
+                    reason="Timezone database is not installed on Windows")
+def test_timestamp_scalar():
+    a = repr(pa.scalar("0000-01-01").cast(pa.timestamp("s")))
+    assert a == "<pyarrow.TimestampScalar: '0000-01-01T00:00:00'>"
+    b = repr(pa.scalar(datetime.datetime(2015, 1, 1), type=pa.timestamp('s', tz='UTC')))
+    assert b == "<pyarrow.TimestampScalar: '2015-01-01T00:00:00+0000'>"
+    c = repr(pa.scalar(datetime.datetime(2015, 1, 1), type=pa.timestamp('us')))
+    assert c == "<pyarrow.TimestampScalar: '2015-01-01T00:00:00.000000'>"
+    d = repr(pc.assume_timezone(
+        pa.scalar("2000-01-01").cast(pa.timestamp("s")), "America/New_York"))
+    assert d == "<pyarrow.TimestampScalar: '2000-01-01T00:00:00-0500'>"
 
 
 def test_bool():
@@ -191,7 +208,9 @@ def test_numerics():
     # float16
     s = pa.scalar(np.float16(0.5), type='float16')
     assert isinstance(s, pa.HalfFloatScalar)
-    assert repr(s) == "<pyarrow.HalfFloatScalar: 0.5>"
+    # on numpy2 repr(np.float16(0.5)) == "np.float16(0.5)"
+    # on numpy1 repr(np.float16(0.5)) == "0.5"
+    assert repr(s) == f"<pyarrow.HalfFloatScalar: {np.float16(0.5)!r}>"
     assert str(s) == "0.5"
     assert s.as_py() == 0.5
 
@@ -337,6 +356,13 @@ def test_cast_int_to_float():
         int_scalar.cast(pa.float64())  # verify default is safe cast
 
 
+@pytest.mark.parametrize("typ", [pa.date32(), pa.date64()])
+def test_cast_string_to_date(typ):
+    scalar = pa.scalar('2021-01-01')
+    result = scalar.cast(typ)
+    assert result == pa.scalar(datetime.date(2021, 1, 1), type=typ)
+
+
 @pytest.mark.pandas
 def test_timestamp():
     import pandas as pd
@@ -466,7 +492,8 @@ def test_month_day_nano_interval():
 @pytest.mark.parametrize('value', ['foo', 'mañana'])
 @pytest.mark.parametrize(('ty', 'scalar_typ'), [
     (pa.string(), pa.StringScalar),
-    (pa.large_string(), pa.LargeStringScalar)
+    (pa.large_string(), pa.LargeStringScalar),
+    (pa.string_view(), pa.StringViewScalar),
 ])
 def test_string(value, ty, scalar_typ):
     s = pa.scalar(value, type=ty)
@@ -484,7 +511,8 @@ def test_string(value, ty, scalar_typ):
 @pytest.mark.parametrize('value', [b'foo', b'bar'])
 @pytest.mark.parametrize(('ty', 'scalar_typ'), [
     (pa.binary(), pa.BinaryScalar),
-    (pa.large_binary(), pa.LargeBinaryScalar)
+    (pa.large_binary(), pa.LargeBinaryScalar),
+    (pa.binary_view(), pa.BinaryViewScalar),
 ])
 def test_binary(value, ty, scalar_typ):
     s = pa.scalar(value, type=ty)
@@ -511,7 +539,9 @@ def test_fixed_size_binary():
 
 @pytest.mark.parametrize(('ty', 'klass'), [
     (pa.list_(pa.string()), pa.ListScalar),
-    (pa.large_list(pa.string()), pa.LargeListScalar)
+    (pa.large_list(pa.string()), pa.LargeListScalar),
+    (pa.list_view(pa.string()), pa.ListViewScalar),
+    (pa.large_list_view(pa.string()), pa.LargeListViewScalar)
 ])
 def test_list(ty, klass):
     v = ['foo', None]
@@ -533,14 +563,29 @@ def test_list(ty, klass):
         s[2]
 
 
-def test_list_from_numpy():
-    s = pa.scalar(np.array([1, 2, 3], dtype=np.int64()))
-    assert s.type == pa.list_(pa.int64())
+@pytest.mark.parametrize('ty', [
+    pa.list_(pa.int64()),
+    pa.large_list(pa.int64()),
+    pa.list_view(pa.int64()),
+    pa.large_list_view(pa.int64()),
+    None
+])
+def test_list_from_numpy(ty):
+    s = pa.scalar(np.array([1, 2, 3], dtype=np.int64()), type=ty)
+    if ty is None:
+        ty = pa.list_(pa.int64())  # expected inferred type
+    assert s.type == ty
     assert s.as_py() == [1, 2, 3]
 
 
 @pytest.mark.pandas
-def test_list_from_pandas():
+@pytest.mark.parametrize('factory', [
+    pa.list_,
+    pa.large_list,
+    pa.list_view,
+    pa.large_list_view
+])
+def test_list_from_pandas(factory):
     import pandas as pd
 
     s = pa.scalar(pd.Series([1, 2, 3]))
@@ -548,11 +593,11 @@ def test_list_from_pandas():
 
     cases = [
         (np.nan, 'null'),
-        (['string', np.nan], pa.list_(pa.binary())),
-        (['string', np.nan], pa.list_(pa.utf8())),
-        ([b'string', np.nan], pa.list_(pa.binary(6))),
-        ([True, np.nan], pa.list_(pa.bool_())),
-        ([decimal.Decimal('0'), np.nan], pa.list_(pa.decimal128(12, 2))),
+        (['string', np.nan], factory(pa.binary())),
+        (['string', np.nan], factory(pa.utf8())),
+        ([b'string', np.nan], factory(pa.binary(6))),
+        ([True, np.nan], factory(pa.bool_())),
+        ([decimal.Decimal('0'), np.nan], factory(pa.decimal128(12, 2))),
     ]
     for case, ty in cases:
         # Both types of exceptions are raised. May want to clean that up
@@ -611,7 +656,7 @@ def test_struct():
     assert s['y'].as_py() == 3.5
 
     with pytest.raises(KeyError):
-        s['non-existent']
+        s['nonexistent']
 
     s = pa.scalar(None, type=ty)
     assert list(s) == list(s.keys()) == ['x', 'y']
@@ -669,7 +714,7 @@ def test_struct_duplicate_fields():
         s.as_py()
 
 
-def test_map():
+def test_map(pickle_module):
     ty = pa.map_(pa.string(), pa.int8())
     v = [('a', 1), ('b', 2)]
     s = pa.scalar(v, type=ty)
@@ -687,6 +732,10 @@ def test_map():
     for i, j in zip(s, v):
         assert i == j
 
+    # test iteration with missing values
+    for _ in pa.scalar(None, type=ty):
+        pass
+
     assert s.as_py() == v
     assert s[1] == (
         pa.scalar('b', type=pa.string()),
@@ -699,11 +748,11 @@ def test_map():
     with pytest.raises(IndexError):
         s[2]
 
-    restored = pickle.loads(pickle.dumps(s))
+    restored = pickle_module.loads(pickle_module.dumps(s))
     assert restored.equals(s)
 
 
-def test_dictionary():
+def test_dictionary(pickle_module):
     indices = pa.array([2, None, 1, 2, 0, None])
     dictionary = pa.array(['foo', 'bar', 'baz'])
 
@@ -719,7 +768,7 @@ def test_dictionary():
         assert s.index.equals(i)
         assert s.dictionary.equals(dictionary)
 
-        restored = pickle.loads(pickle.dumps(s))
+        restored = pickle_module.loads(pickle_module.dumps(s))
         assert restored.equals(s)
 
 
@@ -744,7 +793,7 @@ def test_run_end_encoded():
         pa.scalar(1, pa.run_end_encoded(pa.int64(), pa.int64()))
 
 
-def test_union():
+def test_union(pickle_module):
     # sparse
     arr = pa.UnionArray.from_sparse(
         pa.array([0, 0, 1, 1], type=pa.int8()),
@@ -759,7 +808,7 @@ def test_union():
         assert s.type.equals(arr.type)
         assert s.is_valid is True
         with pytest.raises(pa.ArrowNotImplementedError):
-            pickle.loads(pickle.dumps(s))
+            pickle_module.loads(pickle_module.dumps(s))
 
     assert arr[0].type_code == 0
     assert arr[0].as_py() == "a"
@@ -785,9 +834,32 @@ def test_union():
         assert s.type.equals(arr.type)
         assert s.is_valid is True
         with pytest.raises(pa.ArrowNotImplementedError):
-            pickle.loads(pickle.dumps(s))
+            pickle_module.loads(pickle_module.dumps(s))
 
     assert arr[0].type_code == 0
     assert arr[0].as_py() == b'a'
     assert arr[5].type_code == 1
     assert arr[5].as_py() == 3
+
+
+def test_map_scalar_as_py_with_custom_field_name():
+    """
+    Check we can call `MapScalar.as_py` with custom field names
+
+    See https://github.com/apache/arrow/issues/36809
+    """
+    assert pa.scalar(
+        [("foo", "bar")],
+        pa.map_(
+            pa.string(),
+            pa.string()
+        ),
+    ).as_py() == [("foo", "bar")]
+
+    assert pa.scalar(
+        [("foo", "bar")],
+        pa.map_(
+            pa.field("custom_key", pa.string(), nullable=False),
+            pa.field("custom_value", pa.string()),
+        ),
+    ).as_py() == [("foo", "bar")]

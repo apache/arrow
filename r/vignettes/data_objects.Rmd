@@ -259,7 +259,7 @@ write_parquet(df_b, file.path(ds_dir_b, "part-0.parquet"))
 write_parquet(df_c, file.path(ds_dir_c, "part-0.parquet"))
 ```
 
-If we had wanted to, we could have further subdivided the dataset. A folder could contain multiple files (`part-0.parquet`, `part-1.parquet`, etc) if we wanted it to. Similarly, there is no particular reason to name the files `part-0.parquet` this way at all: it would have been fine to call these files `subset-a.parquet`, `subset-b.parquet`, and `subset-c.parquet` if we had wished. We could have written other file formats if we wanted, and we don't necessarily have to use Hive-style folders. You can learn more about the supported formats by reading the help documentation for `open_dataset()`, and learn about how to exercise fine grained control with `help("Dataset", package = "arrow")`. 
+If we had wanted to, we could have further subdivided the dataset. A folder could contain multiple files (`part-0.parquet`, `part-1.parquet`, etc) if we wanted it to. Similarly, there is no particular reason to name the files `part-0.parquet` this way at all: it would have been fine to call these files `subset-a.parquet`, `subset-b.parquet`, and `subset-c.parquet` if we had wished. We could have written other file formats if we wanted, and we don't necessarily have to use Hive-style folders. You can learn more about the supported formats by reading the help documentation for `open_dataset()`, and learn about how to exercise fine-grained control with `help("Dataset", package = "arrow")`. 
 
 In any case, we have created an on-disk parquet Dataset using Hive-style partitioning. Our Dataset is defined by these files:
 

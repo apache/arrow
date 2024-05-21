@@ -26,7 +26,7 @@ import java.lang.UnsupportedOperationException;
 import java.math.BigDecimal;
 
 <@pp.dropOutputFile />
-<#list ["List", "LargeList"] as listName>
+<#list ["List", "ListView", "LargeList"] as listName>
 
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/Union${listName}Writer.java" />
 
@@ -57,6 +57,10 @@ public class Union${listName}Writer extends AbstractFieldWriter {
   private static final long OFFSET_WIDTH = 8;
   <#else>
   private static final int OFFSET_WIDTH = 4;
+  </#if>
+
+  <#if listName = "ListView">
+  private static final long SIZE_WIDTH = 4;
   </#if>
 
   public Union${listName}Writer(${listName}Vector vector) {
@@ -193,6 +197,24 @@ public class Union${listName}Writer extends AbstractFieldWriter {
     setPosition(idx() + 1);
     listStarted = false;
   }
+  <#elseif listName == "ListView">
+  @Override
+  public void startList() {
+    vector.startNewValue(idx());
+    writer.setPosition(vector.getOffsetBuffer().getInt((idx()) * OFFSET_WIDTH));
+    listStarted = true;
+  }
+
+  @Override
+  public void endList() {
+    int sizeUptoIdx = 0;
+    for (int i = 0; i < idx(); i++) {
+      sizeUptoIdx += vector.getSizeBuffer().getInt(i * SIZE_WIDTH);
+    }
+    vector.getSizeBuffer().setInt(idx() * SIZE_WIDTH, writer.idx() - sizeUptoIdx);
+    setPosition(idx() + 1);
+    listStarted = false;
+  }
   <#else>
   @Override
   public void startList() {
@@ -273,6 +295,43 @@ public class Union${listName}Writer extends AbstractFieldWriter {
   public void write(${name}Holder holder) {
     writer.write${name}(<#list fields as field>holder.${field.name}<#if field_has_next>, </#if></#list>);
     writer.setPosition(writer.idx()+1);
+  }
+  </#if>
+
+  <#if minor.class?ends_with("VarBinary")>
+  @Override
+  public void write${minor.class}(byte[] value) {
+    writer.write${minor.class}(value);
+    writer.setPosition(writer.idx() + 1);
+  }
+
+  @Override
+  public void write${minor.class}(byte[] value, int offset, int length) {
+    writer.write${minor.class}(value, offset, length);
+    writer.setPosition(writer.idx() + 1);
+  }
+
+  @Override
+  public void write${minor.class}(ByteBuffer value) {
+    writer.write${minor.class}(value);
+    writer.setPosition(writer.idx() + 1);
+  }
+
+  @Override
+  public void write${minor.class}(ByteBuffer value, int offset, int length) {
+    writer.write${minor.class}(value, offset, length);
+    writer.setPosition(writer.idx() + 1);
+  }
+  <#elseif minor.class?ends_with("VarChar")>
+  @Override
+  public void write${minor.class}(Text value) {
+    writer.write${minor.class}(value);
+    writer.setPosition(writer.idx() + 1);
+  }
+
+  public void write${minor.class}(String value) {
+    writer.write${minor.class}(value);
+    writer.setPosition(writer.idx() + 1);
   }
   </#if>
 

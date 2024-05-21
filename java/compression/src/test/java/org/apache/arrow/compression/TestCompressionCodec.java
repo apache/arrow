@@ -117,6 +117,12 @@ class TestCompressionCodec {
     return outputBuffers;
   }
 
+  private void assertWriterIndex(List<ArrowBuf> decompressedBuffers) {
+    for (ArrowBuf decompressedBuf : decompressedBuffers) {
+      assertTrue(decompressedBuf.writerIndex() > 0);
+    }
+  }
+
   @ParameterizedTest
   @MethodSource("codecs")
   void testCompressFixedWidthBuffers(int vectorLength, CompressionCodec codec) throws Exception {
@@ -139,6 +145,7 @@ class TestCompressionCodec {
     List<ArrowBuf> decompressedBuffers = deCompressBuffers(codec, compressedBuffers);
 
     assertEquals(2, decompressedBuffers.size());
+    assertWriterIndex(decompressedBuffers);
 
     // orchestrate new vector
     IntVector newVec = new IntVector("new vec", allocator);
@@ -168,7 +175,7 @@ class TestCompressionCodec {
       if (i % 10 == 0) {
         origVec.setNull(i);
       } else {
-        origVec.setSafe(i, String.valueOf(i).getBytes());
+        origVec.setSafe(i, String.valueOf(i).getBytes(StandardCharsets.UTF_8));
       }
     }
     origVec.setValueCount(vectorLength);
@@ -180,6 +187,7 @@ class TestCompressionCodec {
     List<ArrowBuf> decompressedBuffers = deCompressBuffers(codec, compressedBuffers);
 
     assertEquals(3, decompressedBuffers.size());
+    assertWriterIndex(decompressedBuffers);
 
     // orchestrate new vector
     VarCharVector newVec = new VarCharVector("new vec", allocator);
@@ -191,7 +199,7 @@ class TestCompressionCodec {
       if (i % 10 == 0) {
         assertTrue(newVec.isNull(i));
       } else {
-        assertArrayEquals(String.valueOf(i).getBytes(), newVec.get(i));
+        assertArrayEquals(String.valueOf(i).getBytes(StandardCharsets.UTF_8), newVec.get(i));
       }
     }
 
@@ -317,7 +325,7 @@ class TestCompressionCodec {
     try (final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
       final IntVector ints = (IntVector) root.getVector(0);
       final VarCharVector strings = (VarCharVector) root.getVector(1);
-      // Doesn't get compresed
+      // Doesn't get compressed
       ints.setSafe(0, 0x4a3e);
       ints.setSafe(1, 0x8aba);
       ints.setSafe(2, 0x4362);

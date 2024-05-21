@@ -23,6 +23,7 @@ package org.apache.arrow.flatbuf;
  * strategies for compressing the IPC message body (like whole-body
  * compression rather than buffer-level) in the future
  */
+@SuppressWarnings("unused")
 public final class BodyCompressionMethod {
   private BodyCompressionMethod() { }
   /**

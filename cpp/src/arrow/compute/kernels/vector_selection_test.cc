@@ -23,12 +23,14 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array/builder_nested.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/table.h"
 #include "arrow/testing/builder.h"
+#include "arrow/testing/fixed_width_test_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
@@ -282,11 +284,6 @@ class TestFilterKernel : public ::testing::Test {
                     const std::shared_ptr<Array>& expected) {
     DoAssertFilter(values, filter, expected);
 
-    if (values->type_id() == Type::DENSE_UNION) {
-      // Concatenation of dense union not supported
-      return;
-    }
-
     // Check slicing: add M(=3) dummy values at the start and end of `values`,
     // add N(=2) dummy values at the start and end of `filter`.
     ARROW_SCOPED_TRACE("for sliced values and filter");
@@ -312,6 +309,33 @@ class TestFilterKernel : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(auto ree_filter, REEncode(filter_array));
     ARROW_SCOPED_TRACE("for plain values and REE filter");
     AssertFilter(values_array, ree_filter, expected_array);
+  }
+
+  void TestNumericBasics(const std::shared_ptr<DataType>& type) {
+    ARROW_SCOPED_TRACE("type = ", *type);
+    AssertFilter(type, "[]", "[]", "[]");
+
+    AssertFilter(type, "[9]", "[0]", "[]");
+    AssertFilter(type, "[9]", "[1]", "[9]");
+    AssertFilter(type, "[9]", "[null]", "[null]");
+    AssertFilter(type, "[null]", "[0]", "[]");
+    AssertFilter(type, "[null]", "[1]", "[null]");
+    AssertFilter(type, "[null]", "[null]", "[null]");
+
+    AssertFilter(type, "[7, 8, 9]", "[0, 1, 0]", "[8]");
+    AssertFilter(type, "[7, 8, 9]", "[1, 0, 1]", "[7, 9]");
+    AssertFilter(type, "[null, 8, 9]", "[0, 1, 0]", "[8]");
+    AssertFilter(type, "[7, 8, 9]", "[null, 1, 0]", "[null, 8]");
+    AssertFilter(type, "[7, 8, 9]", "[1, null, 1]", "[7, null, 9]");
+
+    AssertFilter(ArrayFromJSON(type, "[7, 8, 9]"),
+                 ArrayFromJSON(boolean(), "[0, 1, 1, 1, 0, 1]")->Slice(3, 3),
+                 ArrayFromJSON(type, "[7, 9]"));
+
+    ASSERT_RAISES(Invalid, Filter(ArrayFromJSON(type, "[7, 8, 9]"),
+                                  ArrayFromJSON(boolean(), "[]"), emit_null_));
+    ASSERT_RAISES(Invalid, Filter(ArrayFromJSON(type, "[7, 8, 9]"),
+                                  ArrayFromJSON(boolean(), "[]"), drop_));
   }
 
   const FilterOptions emit_null_, drop_;
@@ -345,6 +369,33 @@ void ValidateFilter(const std::shared_ptr<Array>& values,
                     /*verbose=*/true);
   AssertArraysEqual(*expected_emit_null.make_array(), *filtered_emit_null,
                     /*verbose=*/true);
+}
+
+TEST_F(TestFilterKernel, Temporal) {
+  this->TestNumericBasics(time32(TimeUnit::MILLI));
+  this->TestNumericBasics(time64(TimeUnit::MICRO));
+  this->TestNumericBasics(timestamp(TimeUnit::NANO, "Europe/Paris"));
+  this->TestNumericBasics(duration(TimeUnit::SECOND));
+  this->TestNumericBasics(date32());
+  this->AssertFilter(date64(), "[0, 86400000, null]", "[null, 1, 0]", "[null, 86400000]");
+}
+
+TEST_F(TestFilterKernel, Duration) {
+  for (auto type : DurationTypes()) {
+    this->TestNumericBasics(type);
+  }
+}
+
+TEST_F(TestFilterKernel, Interval) {
+  this->TestNumericBasics(month_interval());
+
+  auto type = day_time_interval();
+  this->AssertFilter(type, "[[1, -600], [2, 3000], null]", "[null, 1, 0]",
+                     "[null, [2, 3000]]");
+  type = month_day_nano_interval();
+  this->AssertFilter(type,
+                     "[[1, -2, 34567890123456789], [2, 3, -34567890123456789], null]",
+                     "[null, 1, 0]", "[null, [2, 3, -34567890123456789]]");
 }
 
 class TestFilterKernelWithNull : public TestFilterKernel {
@@ -406,30 +457,7 @@ class TestFilterKernelWithNumeric : public TestFilterKernel {
 
 TYPED_TEST_SUITE(TestFilterKernelWithNumeric, NumericArrowTypes);
 TYPED_TEST(TestFilterKernelWithNumeric, FilterNumeric) {
-  auto type = this->type_singleton();
-  this->AssertFilter(type, "[]", "[]", "[]");
-
-  this->AssertFilter(type, "[9]", "[0]", "[]");
-  this->AssertFilter(type, "[9]", "[1]", "[9]");
-  this->AssertFilter(type, "[9]", "[null]", "[null]");
-  this->AssertFilter(type, "[null]", "[0]", "[]");
-  this->AssertFilter(type, "[null]", "[1]", "[null]");
-  this->AssertFilter(type, "[null]", "[null]", "[null]");
-
-  this->AssertFilter(type, "[7, 8, 9]", "[0, 1, 0]", "[8]");
-  this->AssertFilter(type, "[7, 8, 9]", "[1, 0, 1]", "[7, 9]");
-  this->AssertFilter(type, "[null, 8, 9]", "[0, 1, 0]", "[8]");
-  this->AssertFilter(type, "[7, 8, 9]", "[null, 1, 0]", "[null, 8]");
-  this->AssertFilter(type, "[7, 8, 9]", "[1, null, 1]", "[7, null, 9]");
-
-  this->AssertFilter(ArrayFromJSON(type, "[7, 8, 9]"),
-                     ArrayFromJSON(boolean(), "[0, 1, 1, 1, 0, 1]")->Slice(3, 3),
-                     ArrayFromJSON(type, "[7, 9]"));
-
-  ASSERT_RAISES(Invalid, Filter(ArrayFromJSON(type, "[7, 8, 9]"),
-                                ArrayFromJSON(boolean(), "[]"), this->emit_null_));
-  ASSERT_RAISES(Invalid, Filter(ArrayFromJSON(type, "[7, 8, 9]"),
-                                ArrayFromJSON(boolean(), "[]"), this->drop_));
+  this->TestNumericBasics(this->type_singleton());
 }
 
 template <typename CType>
@@ -593,7 +621,7 @@ TYPED_TEST(TestFilterKernelWithDecimal, FilterNumeric) {
                                 ArrayFromJSON(boolean(), "[]"), this->drop_));
 }
 
-TEST(TestFilterKernel, NoValidityBitmapButUnknownNullCount) {
+TEST_F(TestFilterKernel, NoValidityBitmapButUnknownNullCount) {
   auto values = ArrayFromJSON(int32(), "[1, 2, 3, 4]");
   auto filter = ArrayFromJSON(boolean(), "[true, true, false, true]");
 
@@ -700,7 +728,37 @@ TEST_F(TestFilterKernelWithLargeList, FilterListInt32) {
                      "[[1,2], null, null]");
 }
 
-class TestFilterKernelWithFixedSizeList : public TestFilterKernel {};
+class TestFilterKernelWithFixedSizeList : public TestFilterKernel {
+ protected:
+  std::vector<std::shared_ptr<Array>> five_length_filters_ = {
+      ArrayFromJSON(boolean(), "[false, false, false, false, false]"),
+      ArrayFromJSON(boolean(), "[true, true, true, true, true]"),
+      ArrayFromJSON(boolean(), "[false, true, true, false, true]"),
+      ArrayFromJSON(boolean(), "[null, true, null, false, true]"),
+  };
+
+  void AssertFilterOnNestedLists(const std::shared_ptr<DataType>& inner_type,
+                                 const std::vector<int>& list_sizes) {
+    using NLG = ::arrow::util::internal::NestedListGenerator;
+    constexpr int64_t kLength = 5;
+    // Create two equivalent lists: one as a FixedSizeList and another as a List.
+    ASSERT_OK_AND_ASSIGN(auto fsl_list,
+                         NLG::NestedFSLArray(inner_type, list_sizes, kLength));
+    ASSERT_OK_AND_ASSIGN(auto list,
+                         NLG::NestedListArray(inner_type, list_sizes, kLength));
+
+    ARROW_SCOPED_TRACE("CheckTakeOnNestedLists of type `", *fsl_list->type(), "`");
+
+    for (auto& filter : five_length_filters_) {
+      // Use the Filter on ListType as the reference implementation.
+      ASSERT_OK_AND_ASSIGN(auto expected_list,
+                           Filter(*list, *filter, /*options=*/emit_null_));
+      ASSERT_OK_AND_ASSIGN(auto expected_fsl, Cast(expected_list, fsl_list->type()));
+      auto expected_fsl_array = expected_fsl.make_array();
+      this->AssertFilter(fsl_list, filter, expected_fsl_array);
+    }
+  }
+};
 
 TEST_F(TestFilterKernelWithFixedSizeList, FilterFixedSizeListInt32) {
   std::string list_json = "[null, [1, null, 3], [4, 5, 6], [7, 8, null]]";
@@ -712,6 +770,33 @@ TEST_F(TestFilterKernelWithFixedSizeList, FilterFixedSizeListInt32) {
   this->AssertFilter(fixed_size_list(int32(), 3), list_json, "[1, 1, 1, 1]", list_json);
   this->AssertFilter(fixed_size_list(int32(), 3), list_json, "[0, 1, 0, 1]",
                      "[[1, null, 3], [7, 8, null]]");
+}
+
+TEST_F(TestFilterKernelWithFixedSizeList, FilterFixedSizeListVarWidth) {
+  std::string list_json =
+      R"([["zero", "one", ""], ["two", "", "three"], ["four", "five", "six"], ["seven", "eight", ""]])";
+  this->AssertFilter(fixed_size_list(utf8(), 3), list_json, "[0, 0, 0, 0]", "[]");
+  this->AssertFilter(fixed_size_list(utf8(), 3), list_json, "[0, 1, 1, null]",
+                     R"([["two", "", "three"], ["four", "five", "six"], null])");
+  this->AssertFilter(fixed_size_list(utf8(), 3), list_json, "[0, 0, 1, null]",
+                     R"([["four", "five", "six"], null])");
+  this->AssertFilter(fixed_size_list(utf8(), 3), list_json, "[1, 1, 1, 1]", list_json);
+  this->AssertFilter(fixed_size_list(utf8(), 3), list_json, "[0, 1, 0, 1]",
+                     R"([["two", "", "three"], ["seven", "eight", ""]])");
+}
+
+TEST_F(TestFilterKernelWithFixedSizeList, FilterFixedSizeListModuloNesting) {
+  using NLG = ::arrow::util::internal::NestedListGenerator;
+  const std::vector<std::shared_ptr<DataType>> value_types = {
+      int16(),
+      int32(),
+      int64(),
+  };
+  NLG::VisitAllNestedListConfigurations(
+      value_types, [this](const std::shared_ptr<DataType>& inner_type,
+                          const std::vector<int>& list_sizes) {
+        this->AssertFilterOnNestedLists(inner_type, list_sizes);
+      });
 }
 
 class TestFilterKernelWithMap : public TestFilterKernel {};
@@ -759,8 +844,10 @@ TEST_F(TestFilterKernelWithStruct, FilterStruct) {
 class TestFilterKernelWithUnion : public TestFilterKernel {};
 
 TEST_F(TestFilterKernelWithUnion, FilterUnion) {
-  auto union_type = dense_union({field("a", int32()), field("b", utf8())}, {2, 5});
-  auto union_json = R"([
+  for (const auto& union_type :
+       {dense_union({field("a", int32()), field("b", utf8())}, {2, 5}),
+        sparse_union({field("a", int32()), field("b", utf8())}, {2, 5})}) {
+    auto union_json = R"([
       [2, null],
       [2, 222],
       [5, "hello"],
@@ -769,31 +856,21 @@ TEST_F(TestFilterKernelWithUnion, FilterUnion) {
       [2, 111],
       [5, null]
     ])";
-  this->AssertFilter(union_type, union_json, "[0, 0, 0, 0, 0, 0, 0]", "[]");
-  this->AssertFilter(union_type, union_json, "[0, 1, 1, null, 0, 1, 1]", R"([
+    this->AssertFilter(union_type, union_json, "[0, 0, 0, 0, 0, 0, 0]", "[]");
+    this->AssertFilter(union_type, union_json, "[0, 1, 1, null, 0, 1, 1]", R"([
       [2, 222],
       [5, "hello"],
       [2, null],
       [2, 111],
       [5, null]
     ])");
-  this->AssertFilter(union_type, union_json, "[1, 0, 1, 0, 1, 0, 0]", R"([
+    this->AssertFilter(union_type, union_json, "[1, 0, 1, 0, 1, 0, 0]", R"([
       [2, null],
       [5, "hello"],
       [2, null]
     ])");
-  this->AssertFilter(union_type, union_json, "[1, 1, 1, 1, 1, 1, 1]", union_json);
-
-  // Sliced
-  // (check this manually as concatenation of dense unions isn't supported: ARROW-4975)
-  auto values = ArrayFromJSON(union_type, union_json)->Slice(2, 4);
-  auto filter = ArrayFromJSON(boolean(), "[0, 1, 1, null, 0, 1, 1]")->Slice(2, 4);
-  auto expected = ArrayFromJSON(union_type, R"([
-      [5, "hello"],
-      [2, null],
-      [2, 111]
-    ])");
-  this->AssertFilter(values, filter, expected);
+    this->AssertFilter(union_type, union_json, "[1, 1, 1, 1, 1, 1, 1]", union_json);
+  }
 }
 
 class TestFilterKernelWithRecordBatch : public TestFilterKernel {
@@ -1016,31 +1093,34 @@ Status TakeJSON(const std::shared_ptr<DataType>& type, const std::string& values
       .Value(out);
 }
 
+void DoCheckTake(const std::shared_ptr<Array>& values,
+                 const std::shared_ptr<Array>& indices,
+                 const std::shared_ptr<Array>& expected) {
+  AssertTakeArrays(values, indices, expected);
+
+  // Check sliced values
+  ASSERT_OK_AND_ASSIGN(auto values_filler, MakeArrayOfNull(values->type(), 2));
+  ASSERT_OK_AND_ASSIGN(auto values_sliced,
+                       Concatenate({values_filler, values, values_filler}));
+  values_sliced = values_sliced->Slice(2, values->length());
+  AssertTakeArrays(values_sliced, indices, expected);
+
+  // Check sliced indices
+  ASSERT_OK_AND_ASSIGN(auto zero, MakeScalar(indices->type(), int8_t{0}));
+  ASSERT_OK_AND_ASSIGN(auto indices_filler, MakeArrayFromScalar(*zero, 3));
+  ASSERT_OK_AND_ASSIGN(auto indices_sliced,
+                       Concatenate({indices_filler, indices, indices_filler}));
+  indices_sliced = indices_sliced->Slice(3, indices->length());
+  AssertTakeArrays(values, indices_sliced, expected);
+}
+
 void CheckTake(const std::shared_ptr<DataType>& type, const std::string& values_json,
                const std::string& indices_json, const std::string& expected_json) {
   auto values = ArrayFromJSON(type, values_json);
   auto expected = ArrayFromJSON(type, expected_json);
-
   for (auto index_type : {int8(), uint32()}) {
     auto indices = ArrayFromJSON(index_type, indices_json);
-    AssertTakeArrays(values, indices, expected);
-
-    // Check sliced values
-    if (type->id() != Type::DENSE_UNION) {
-      ASSERT_OK_AND_ASSIGN(auto values_filler, MakeArrayOfNull(type, 2));
-      ASSERT_OK_AND_ASSIGN(auto values_sliced,
-                           Concatenate({values_filler, values, values_filler}));
-      values_sliced = values_sliced->Slice(2, values->length());
-      AssertTakeArrays(values_sliced, indices, expected);
-    }
-
-    // Check sliced indices
-    ASSERT_OK_AND_ASSIGN(auto zero, MakeScalar(index_type, int8_t{0}));
-    ASSERT_OK_AND_ASSIGN(auto indices_filler, MakeArrayFromScalar(*zero, 3));
-    ASSERT_OK_AND_ASSIGN(auto indices_sliced,
-                         Concatenate({indices_filler, indices, indices_filler}));
-    indices_sliced = indices_sliced->Slice(3, indices->length());
-    AssertTakeArrays(values, indices_sliced, expected);
+    DoCheckTake(values, indices, expected);
   }
 }
 
@@ -1151,6 +1231,20 @@ class TestTakeKernel : public ::testing::Test {
     TestNoValidityBitmapButUnknownNullCount(ArrayFromJSON(type, values),
                                             ArrayFromJSON(int16(), indices));
   }
+
+  void TestNumericBasics(const std::shared_ptr<DataType>& type) {
+    ARROW_SCOPED_TRACE("type = ", *type);
+    CheckTake(type, "[7, 8, 9]", "[]", "[]");
+    CheckTake(type, "[7, 8, 9]", "[0, 1, 0]", "[7, 8, 7]");
+    CheckTake(type, "[null, 8, 9]", "[0, 1, 0]", "[null, 8, null]");
+    CheckTake(type, "[7, 8, 9]", "[null, 1, 0]", "[null, 8, 7]");
+    CheckTake(type, "[null, 8, 9]", "[]", "[]");
+    CheckTake(type, "[7, 8, 9]", "[0, 0, 0, 0, 0, 0, 2]", "[7, 7, 7, 7, 7, 7, 9]");
+
+    std::shared_ptr<Array> arr;
+    ASSERT_RAISES(IndexError, TakeJSON(type, "[7, 8, 9]", int8(), "[0, 9, 0]", &arr));
+    ASSERT_RAISES(IndexError, TakeJSON(type, "[7, 8, 9]", int8(), "[0, -1, 0]", &arr));
+  }
 };
 
 template <typename ArrowType>
@@ -1216,6 +1310,34 @@ TEST_F(TestTakeKernel, TakeBoolean) {
                 TakeJSON(boolean(), "[true, false, true]", int8(), "[0, -1, 0]", &arr));
 }
 
+TEST_F(TestTakeKernel, Temporal) {
+  this->TestNumericBasics(time32(TimeUnit::MILLI));
+  this->TestNumericBasics(time64(TimeUnit::MICRO));
+  this->TestNumericBasics(timestamp(TimeUnit::NANO, "Europe/Paris"));
+  this->TestNumericBasics(duration(TimeUnit::SECOND));
+  this->TestNumericBasics(date32());
+  CheckTake(date64(), "[0, 86400000, null]", "[null, 1, 1, 0]",
+            "[null, 86400000, 86400000, 0]");
+}
+
+TEST_F(TestTakeKernel, Duration) {
+  for (auto type : DurationTypes()) {
+    this->TestNumericBasics(type);
+  }
+}
+
+TEST_F(TestTakeKernel, Interval) {
+  this->TestNumericBasics(month_interval());
+
+  auto type = day_time_interval();
+  CheckTake(type, "[[1, -600], [2, 3000], null]", "[0, null, 2, 1]",
+            "[[1, -600], null, null, [2, 3000]]");
+  type = month_day_nano_interval();
+  CheckTake(type, "[[1, -2, 34567890123456789], [2, 3, -34567890123456789], null]",
+            "[0, null, 2, 1]",
+            "[[1, -2, 34567890123456789], null, null, [2, 3, -34567890123456789]]");
+}
+
 template <typename ArrowType>
 class TestTakeKernelWithNumeric : public TestTakeKernelTyped<ArrowType> {
  protected:
@@ -1231,18 +1353,7 @@ class TestTakeKernelWithNumeric : public TestTakeKernelTyped<ArrowType> {
 
 TYPED_TEST_SUITE(TestTakeKernelWithNumeric, NumericArrowTypes);
 TYPED_TEST(TestTakeKernelWithNumeric, TakeNumeric) {
-  this->AssertTake("[7, 8, 9]", "[]", "[]");
-  this->AssertTake("[7, 8, 9]", "[0, 1, 0]", "[7, 8, 7]");
-  this->AssertTake("[null, 8, 9]", "[0, 1, 0]", "[null, 8, null]");
-  this->AssertTake("[7, 8, 9]", "[null, 1, 0]", "[null, 8, 7]");
-  this->AssertTake("[null, 8, 9]", "[]", "[]");
-  this->AssertTake("[7, 8, 9]", "[0, 0, 0, 0, 0, 0, 2]", "[7, 7, 7, 7, 7, 7, 9]");
-
-  std::shared_ptr<Array> arr;
-  ASSERT_RAISES(IndexError,
-                TakeJSON(this->type_singleton(), "[7, 8, 9]", int8(), "[0, 9, 0]", &arr));
-  ASSERT_RAISES(IndexError, TakeJSON(this->type_singleton(), "[7, 8, 9]", int8(),
-                                     "[0, -1, 0]", &arr));
+  this->TestNumericBasics(this->type_singleton());
 }
 
 template <typename TypeClass>
@@ -1380,7 +1491,25 @@ TEST_F(TestTakeKernelWithLargeList, TakeLargeListInt32) {
   CheckTake(large_list(int32()), list_json, "[null, 1, 2, 0]", "[null, [1,2], null, []]");
 }
 
-class TestTakeKernelWithFixedSizeList : public TestTakeKernelTyped<FixedSizeListType> {};
+class TestTakeKernelWithFixedSizeList : public TestTakeKernelTyped<FixedSizeListType> {
+ protected:
+  void CheckTakeOnNestedLists(const std::shared_ptr<DataType>& inner_type,
+                              const std::vector<int>& list_sizes, int64_t length) {
+    using NLG = ::arrow::util::internal::NestedListGenerator;
+    // Create two equivalent lists: one as a FixedSizeList and another as a List.
+    ASSERT_OK_AND_ASSIGN(auto fsl_list,
+                         NLG::NestedFSLArray(inner_type, list_sizes, length));
+    ASSERT_OK_AND_ASSIGN(auto list, NLG::NestedListArray(inner_type, list_sizes, length));
+
+    ARROW_SCOPED_TRACE("CheckTakeOnNestedLists of type `", *fsl_list->type(), "`");
+
+    auto indices = ArrayFromJSON(int64(), "[1, 2, 4]");
+    // Use the Take on ListType as the reference implementation.
+    ASSERT_OK_AND_ASSIGN(auto expected_list, Take(*list, *indices));
+    ASSERT_OK_AND_ASSIGN(auto expected_fsl, Cast(*expected_list, fsl_list->type()));
+    DoCheckTake(fsl_list, indices, expected_fsl);
+  }
+};
 
 TEST_F(TestTakeKernelWithFixedSizeList, TakeFixedSizeListInt32) {
   std::string list_json = "[null, [1, null, 3], [4, 5, 6], [7, 8, null]]";
@@ -1400,6 +1529,42 @@ TEST_F(TestTakeKernelWithFixedSizeList, TakeFixedSizeListInt32) {
   this->TestNoValidityBitmapButUnknownNullCount(fixed_size_list(int32(), 3),
                                                 "[[1, null, 3], [4, 5, 6], [7, 8, null]]",
                                                 "[0, 1, 0]");
+}
+
+TEST_F(TestTakeKernelWithFixedSizeList, TakeFixedSizeListVarWidth) {
+  std::string list_json =
+      R"([["zero", "one", ""], ["two", "", "three"], ["four", "five", "six"], ["seven", "eight", ""]])";
+  CheckTake(fixed_size_list(utf8(), 3), list_json, "[]", "[]");
+  CheckTake(fixed_size_list(utf8(), 3), list_json, "[3, 2, 1]",
+            R"([["seven", "eight", ""], ["four", "five", "six"], ["two", "", "three"]])");
+  CheckTake(fixed_size_list(utf8(), 3), list_json, "[null, 2, 0]",
+            R"([null, ["four", "five", "six"], ["zero", "one", ""]])");
+  CheckTake(fixed_size_list(utf8(), 3), list_json, R"([null, null])", "[null, null]");
+  CheckTake(
+      fixed_size_list(utf8(), 3), list_json, "[3, 0, 0,3]",
+      R"([["seven", "eight", ""], ["zero", "one", ""], ["zero", "one", ""], ["seven", "eight", ""]])");
+  CheckTake(fixed_size_list(utf8(), 3), list_json, "[0, 1, 2, 3]", list_json);
+  CheckTake(fixed_size_list(utf8(), 3), list_json, "[2, 2, 2, 2, 2, 2, 1]",
+            R"([
+                 ["four", "five", "six"], ["four", "five", "six"],
+                 ["four", "five", "six"], ["four", "five", "six"],
+                 ["four", "five", "six"], ["four", "five", "six"],
+                 ["two", "", "three"]
+               ])");
+}
+
+TEST_F(TestTakeKernelWithFixedSizeList, TakeFixedSizeListModuloNesting) {
+  using NLG = ::arrow::util::internal::NestedListGenerator;
+  const std::vector<std::shared_ptr<DataType>> value_types = {
+      int16(),
+      int32(),
+      int64(),
+  };
+  NLG::VisitAllNestedListConfigurations(
+      value_types, [this](const std::shared_ptr<DataType>& inner_type,
+                          const std::vector<int>& list_sizes) {
+        this->CheckTakeOnNestedLists(inner_type, list_sizes, /*length=*/5);
+      });
 }
 
 class TestTakeKernelWithMap : public TestTakeKernelTyped<MapType> {};
@@ -1477,32 +1642,34 @@ TEST_F(TestTakeKernelWithStruct, TakeStruct) {
 class TestTakeKernelWithUnion : public TestTakeKernelTyped<UnionType> {};
 
 TEST_F(TestTakeKernelWithUnion, TakeUnion) {
-  auto union_type = dense_union({field("a", int32()), field("b", utf8())}, {2, 5});
-  auto union_json = R"([
-      [2, null],
+  for (const auto& union_type :
+       {dense_union({field("a", int32()), field("b", utf8())}, {2, 5}),
+        sparse_union({field("a", int32()), field("b", utf8())}, {2, 5})}) {
+    auto union_json = R"([
       [2, 222],
+      [2, null],
       [5, "hello"],
       [5, "eh"],
       [2, null],
       [2, 111],
       [5, null]
     ])";
-  CheckTake(union_type, union_json, "[]", "[]");
-  CheckTake(union_type, union_json, "[3, 1, 3, 1, 3]", R"([
+    CheckTake(union_type, union_json, "[]", "[]");
+    CheckTake(union_type, union_json, "[3, 0, 3, 0, 3]", R"([
       [5, "eh"],
       [2, 222],
       [5, "eh"],
       [2, 222],
       [5, "eh"]
     ])");
-  CheckTake(union_type, union_json, "[4, 2, 1, 6]", R"([
+    CheckTake(union_type, union_json, "[4, 2, 0, 6]", R"([
       [2, null],
       [5, "hello"],
       [2, 222],
       [5, null]
     ])");
-  CheckTake(union_type, union_json, "[0, 1, 2, 3, 4, 5, 6]", union_json);
-  CheckTake(union_type, union_json, "[0, 2, 2, 2, 2, 2, 2]", R"([
+    CheckTake(union_type, union_json, "[0, 1, 2, 3, 4, 5, 6]", union_json);
+    CheckTake(union_type, union_json, "[1, 2, 2, 2, 2, 2, 2]", R"([
       [2, null],
       [5, "hello"],
       [5, "hello"],
@@ -1511,6 +1678,16 @@ TEST_F(TestTakeKernelWithUnion, TakeUnion) {
       [5, "hello"],
       [5, "hello"]
     ])");
+    CheckTake(union_type, union_json, "[0, null, 1, null, 2, 2, 2]", R"([
+      [2, 222],
+      [2, null],
+      [2, null],
+      [2, null],
+      [5, "hello"],
+      [5, "hello"],
+      [5, "hello"]
+    ])");
+  }
 }
 
 class TestPermutationsWithTake : public ::testing::Test {
@@ -1819,6 +1996,7 @@ TEST(TestTakeMetaFunction, ArityChecking) {
 template <typename Unused = void>
 struct FilterRandomTest {
   static void Test(const std::shared_ptr<DataType>& type) {
+    ARROW_SCOPED_TRACE("type = ", *type);
     auto rand = random::RandomArrayGenerator(kRandomSeed);
     const int64_t length = static_cast<int64_t>(1ULL << 10);
     for (auto null_probability : {0.0, 0.01, 0.1, 0.999, 1.0}) {
@@ -1859,6 +2037,7 @@ void CheckTakeRandom(const std::shared_ptr<Array>& values, int64_t indices_lengt
 template <typename ValuesType>
 struct TakeRandomTest {
   static void Test(const std::shared_ptr<DataType>& type) {
+    ARROW_SCOPED_TRACE("type = ", *type);
     auto rand = random::RandomArrayGenerator(kRandomSeed);
     const int64_t values_length = 64 * 16 + 1;
     const int64_t indices_length = 64 * 4 + 1;
@@ -1900,8 +2079,10 @@ TEST(TestFilter, RandomString) {
 }
 
 TEST(TestFilter, RandomFixedSizeBinary) {
-  FilterRandomTest<>::Test(fixed_size_binary(0));
-  FilterRandomTest<>::Test(fixed_size_binary(16));
+  // FixedSizeBinary filter is special-cased for some widths
+  for (int32_t width : {0, 1, 16, 32, 35}) {
+    FilterRandomTest<>::Test(fixed_size_binary(width));
+  }
 }
 
 TEST(TestTake, PrimitiveRandom) { TestRandomPrimitiveCTypes<TakeRandomTest>(); }
@@ -1914,8 +2095,10 @@ TEST(TestTake, RandomString) {
 }
 
 TEST(TestTake, RandomFixedSizeBinary) {
-  TakeRandomTest<FixedSizeBinaryType>::Test(fixed_size_binary(0));
-  TakeRandomTest<FixedSizeBinaryType>::Test(fixed_size_binary(16));
+  // FixedSizeBinary take is special-cased for some widths
+  for (int32_t width : {0, 1, 16, 32, 35}) {
+    TakeRandomTest<FixedSizeBinaryType>::Test(fixed_size_binary(width));
+  }
 }
 
 // ----------------------------------------------------------------------
@@ -2162,8 +2345,10 @@ TEST_F(TestDropNullKernelWithStruct, DropNullStruct) {
 class TestDropNullKernelWithUnion : public TestDropNullKernelTyped<UnionType> {};
 
 TEST_F(TestDropNullKernelWithUnion, DropNullUnion) {
-  auto union_type = dense_union({field("a", int32()), field("b", utf8())}, {2, 5});
-  auto union_json = R"([
+  for (const auto& union_type :
+       {dense_union({field("a", int32()), field("b", utf8())}, {2, 5}),
+        sparse_union({field("a", int32()), field("b", utf8())}, {2, 5})}) {
+    auto union_json = R"([
       [2, null],
       [2, 222],
       [5, "hello"],
@@ -2172,7 +2357,8 @@ TEST_F(TestDropNullKernelWithUnion, DropNullUnion) {
       [2, 111],
       [5, null]
     ])";
-  CheckDropNull(union_type, union_json, union_json);
+    CheckDropNull(union_type, union_json, union_json);
+  }
 }
 
 class TestDropNullKernelWithRecordBatch : public TestDropNullKernelTyped<RecordBatch> {
@@ -2488,7 +2674,7 @@ TEST(TestIndicesNonZero, IndicesNonZeroBoolean) {
   Datum actual;
   std::shared_ptr<Array> result;
 
-  // boool
+  // bool
   ASSERT_OK_AND_ASSIGN(
       actual, CallFunction("indices_nonzero",
                            {ArrayFromJSON(boolean(), "[null, true, false, true]")}));

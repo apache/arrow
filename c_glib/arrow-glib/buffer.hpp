@@ -26,8 +26,7 @@
 GArrowBuffer *
 garrow_buffer_new_raw(std::shared_ptr<arrow::Buffer> *arrow_buffer);
 GArrowBuffer *
-garrow_buffer_new_raw_bytes(std::shared_ptr<arrow::Buffer> *arrow_buffer,
-                            GBytes *data);
+garrow_buffer_new_raw_bytes(std::shared_ptr<arrow::Buffer> *arrow_buffer, GBytes *data);
 GArrowBuffer *
 garrow_buffer_new_raw_parent(std::shared_ptr<arrow::Buffer> *arrow_buffer,
                              GArrowBuffer *parent);

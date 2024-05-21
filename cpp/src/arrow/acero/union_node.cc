@@ -80,6 +80,9 @@ class UnionNode : public ExecNode, public TracedNode {
     NoteInputReceived(batch);
     ARROW_DCHECK(std::find(inputs_.begin(), inputs_.end(), input) != inputs_.end());
 
+    if (inputs_.size() > 1) {
+      batch.index = compute::kUnsequencedIndex;
+    }
     return output_->InputReceived(this, std::move(batch));
   }
 

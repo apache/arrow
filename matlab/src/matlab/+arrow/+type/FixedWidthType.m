@@ -21,12 +21,15 @@ classdef (Abstract) FixedWidthType < arrow.type.Type
     end
 
     methods
-        function obj = FixedWidthType(varargin)
-            obj@arrow.type.Type(varargin{:});
+        function obj = FixedWidthType(proxy)
+            arguments
+                proxy(1, 1) libmexclass.proxy.Proxy
+            end
+            obj@arrow.type.Type(proxy);
         end
 
         function width = get.BitWidth(obj)
-            width = obj.Proxy.bitWidth();
+            width = obj.Proxy.getBitWidth();
         end
     end 
 end

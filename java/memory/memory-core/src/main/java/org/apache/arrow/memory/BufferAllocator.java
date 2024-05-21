@@ -21,6 +21,7 @@ import java.util.Collection;
 
 import org.apache.arrow.memory.rounding.DefaultRoundingPolicy;
 import org.apache.arrow.memory.rounding.RoundingPolicy;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Wrapper class to deal with byte buffer allocation. Ensures users only use designated methods.
@@ -166,7 +167,7 @@ public interface BufferAllocator extends AutoCloseable {
    *
    * @return parent allocator
    */
-  BufferAllocator getParentAllocator();
+  @Nullable BufferAllocator getParentAllocator();
 
   /**
    * Returns the set of child allocators.

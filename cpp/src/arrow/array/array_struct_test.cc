@@ -303,6 +303,58 @@ TEST(StructArray, FlattenOfSlice) {
   ASSERT_OK(arr->ValidateFull());
 }
 
+TEST(StructArray, CanReferenceFieldByName) {
+  auto a = ArrayFromJSON(int8(), "[4, 5]");
+  auto b = ArrayFromJSON(int16(), "[6, 7]");
+  auto c = ArrayFromJSON(int32(), "[8, 9]");
+  auto d = ArrayFromJSON(int64(), "[10, 11]");
+  auto children = std::vector<std::shared_ptr<Array>>{a, b, c, d};
+
+  auto f0 = field("f0", int8());
+  auto f1 = field("f1", int16());
+  auto f2 = field("f2", int32());
+  auto f3 = field("f1", int64());
+  auto type = struct_({f0, f1, f2, f3});
+
+  auto arr = std::make_shared<StructArray>(type, 2, children);
+
+  ASSERT_OK(arr->CanReferenceFieldByName("f0"));
+  ASSERT_OK(arr->CanReferenceFieldByName("f2"));
+  // Not found
+  ASSERT_RAISES(Invalid, arr->CanReferenceFieldByName("nope"));
+
+  // Duplicates
+  ASSERT_RAISES(Invalid, arr->CanReferenceFieldByName("f1"));
+}
+
+TEST(StructArray, CanReferenceFieldsByNames) {
+  auto a = ArrayFromJSON(int8(), "[4, 5]");
+  auto b = ArrayFromJSON(int16(), "[6, 7]");
+  auto c = ArrayFromJSON(int32(), "[8, 9]");
+  auto d = ArrayFromJSON(int64(), "[10, 11]");
+  auto children = std::vector<std::shared_ptr<Array>>{a, b, c, d};
+
+  auto f0 = field("f0", int8());
+  auto f1 = field("f1", int16());
+  auto f2 = field("f2", int32());
+  auto f3 = field("f1", int64());
+  auto type = struct_({f0, f1, f2, f3});
+
+  auto arr = std::make_shared<StructArray>(type, 2, children);
+
+  ASSERT_OK(arr->CanReferenceFieldsByNames({"f0", "f2"}));
+  ASSERT_OK(arr->CanReferenceFieldsByNames({"f2", "f0"}));
+
+  // Not found
+  ASSERT_RAISES(Invalid, arr->CanReferenceFieldsByNames({"nope"}));
+  ASSERT_RAISES(Invalid, arr->CanReferenceFieldsByNames({"f0", "nope"}));
+  // Duplicates
+  ASSERT_RAISES(Invalid, arr->CanReferenceFieldsByNames({"f1"}));
+  ASSERT_RAISES(Invalid, arr->CanReferenceFieldsByNames({"f0", "f1"}));
+  // Both
+  ASSERT_RAISES(Invalid, arr->CanReferenceFieldsByNames({"f0", "f1", "nope"}));
+}
+
 // ----------------------------------------------------------------------------------
 // Struct test
 class TestStructBuilder : public ::testing::Test {
@@ -489,7 +541,7 @@ TEST_F(TestStructBuilder, TestEquality) {
   ASSERT_OK(char_vb->Reserve(list_values.size()));
   ASSERT_OK(int_vb->Reserve(int_values.size()));
 
-  // setup two equal arrays, one of which takes an unequal bitmap
+  // set up two equal arrays, one of which takes an unequal bitmap
   ASSERT_OK(builder_->AppendValues(struct_is_valid.size(), struct_is_valid.data()));
   ASSERT_OK(list_vb->AppendValues(list_offsets.data(), list_offsets.size(),
                                   list_is_valid.data()));
@@ -522,7 +574,7 @@ TEST_F(TestStructBuilder, TestEquality) {
   ASSERT_OK(char_vb->Resize(list_values.size()));
   ASSERT_OK(int_vb->Resize(int_values.size()));
 
-  // setup an unequal one with the unequal bitmap
+  // set up an unequal one with the unequal bitmap
   ASSERT_OK(builder_->AppendValues(unequal_struct_is_valid.size(),
                                    unequal_struct_is_valid.data()));
   ASSERT_OK(list_vb->AppendValues(list_offsets.data(), list_offsets.size(),
@@ -540,7 +592,7 @@ TEST_F(TestStructBuilder, TestEquality) {
   ASSERT_OK(char_vb->Resize(list_values.size()));
   ASSERT_OK(int_vb->Resize(int_values.size()));
 
-  // setup an unequal one with unequal offsets
+  // set up an unequal one with unequal offsets
   ASSERT_OK(builder_->AppendValues(struct_is_valid.size(), struct_is_valid.data()));
   ASSERT_OK(list_vb->AppendValues(unequal_list_offsets.data(),
                                   unequal_list_offsets.size(),
@@ -558,7 +610,7 @@ TEST_F(TestStructBuilder, TestEquality) {
   ASSERT_OK(char_vb->Resize(list_values.size()));
   ASSERT_OK(int_vb->Resize(int_values.size()));
 
-  // setup anunequal one with unequal values
+  // set up an unequal one with unequal values
   ASSERT_OK(builder_->AppendValues(struct_is_valid.size(), struct_is_valid.data()));
   ASSERT_OK(list_vb->AppendValues(list_offsets.data(), list_offsets.size(),
                                   list_is_valid.data()));

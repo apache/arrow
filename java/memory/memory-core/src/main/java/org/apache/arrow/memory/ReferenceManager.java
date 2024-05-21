@@ -141,10 +141,12 @@ public interface ReferenceManager {
     }
 
     @Override
-    public void retain() { }
+    public void retain() {
+    }
 
     @Override
-    public void retain(int increment) { }
+    public void retain(int increment) {
+    }
 
     @Override
     public ArrowBuf retain(ArrowBuf srcBuffer, BufferAllocator targetAllocator) {

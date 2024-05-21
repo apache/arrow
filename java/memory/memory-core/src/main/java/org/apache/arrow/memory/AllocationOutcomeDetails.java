@@ -20,6 +20,9 @@ package org.apache.arrow.memory;
 import java.util.ArrayDeque;
 import java.util.Deque;
 
+import org.checkerframework.checker.nullness.qual.Nullable;
+
+
 /**
  * Captures details of allocation for each accountant in the hierarchical chain.
  */
@@ -47,7 +50,7 @@ public class AllocationOutcomeDetails {
    * Get the allocator that caused the failure.
    * @return the allocator that caused failure, null if there was no failure.
    */
-  public BufferAllocator getFailedAllocator() {
+  public @Nullable BufferAllocator getFailedAllocator() {
     Entry top = allocEntries.peekLast();
     if (top != null && top.allocationFailed && (top.accountant instanceof BufferAllocator)) {
       return (BufferAllocator) top.accountant;

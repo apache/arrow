@@ -27,8 +27,7 @@
 #include "parquet/encryption/key_material.h"
 #include "parquet/exception.h"
 
-namespace parquet {
-namespace encryption {
+namespace parquet::encryption {
 
 constexpr const char FileSystemKeyMaterialStore::kKeyMaterialFilePrefix[];
 constexpr const char FileSystemKeyMaterialStore::kTempFilePrefix[];
@@ -139,5 +138,4 @@ void FileSystemKeyMaterialStore::MoveMaterialTo(
   }
 }
 
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption

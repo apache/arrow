@@ -25,8 +25,7 @@
 #include <arrow-dataset-glib/scanner.h>
 
 GADatasetScanner *
-gadataset_scanner_new_raw(
-  std::shared_ptr<arrow::dataset::Scanner> *arrow_scanner);
+gadataset_scanner_new_raw(std::shared_ptr<arrow::dataset::Scanner> *arrow_scanner);
 std::shared_ptr<arrow::dataset::Scanner>
 gadataset_scanner_get_raw(GADatasetScanner *scanner);
 

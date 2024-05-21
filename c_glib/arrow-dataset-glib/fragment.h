@@ -26,11 +26,8 @@ G_BEGIN_DECLS
 /* arrow::dataset::Fragment */
 
 #define GADATASET_TYPE_FRAGMENT (gadataset_fragment_get_type())
-G_DECLARE_DERIVABLE_TYPE(GADatasetFragment,
-                         gadataset_fragment,
-                         GADATASET,
-                         FRAGMENT,
-                         GObject)
+G_DECLARE_DERIVABLE_TYPE(
+  GADatasetFragment, gadataset_fragment, GADATASET, FRAGMENT, GObject)
 struct _GADatasetFragmentClass
 {
   GObjectClass parent_class;
@@ -38,8 +35,7 @@ struct _GADatasetFragmentClass
 
 /* arrow::dataset::InMemoryFragment */
 
-#define GADATASET_TYPE_IN_MEMORY_FRAGMENT       \
-  (gadataset_in_memory_fragment_get_type())
+#define GADATASET_TYPE_IN_MEMORY_FRAGMENT (gadataset_in_memory_fragment_get_type())
 G_DECLARE_DERIVABLE_TYPE(GADatasetInMemoryFragment,
                          gadataset_in_memory_fragment,
                          GADATASET,

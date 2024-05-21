@@ -18,30 +18,36 @@
 #pragma once
 
 #include "arrow/array.h"
+#include "arrow/matlab/type/proxy/type.h"
 
 #include "libmexclass/proxy/Proxy.h"
 
 namespace arrow::matlab::array::proxy {
 
 class Array : public libmexclass::proxy::Proxy {
-    public:
-        Array(std::shared_ptr<arrow::Array> array);
-    
-        virtual ~Array() {}
+ public:
+  Array(std::shared_ptr<arrow::Array> array);
 
-        std::shared_ptr<arrow::Array> getArray();
+  virtual ~Array() {}
 
-    protected:
+  std::shared_ptr<arrow::Array> unwrap();
 
-        void toString(libmexclass::proxy::method::Context& context);
+ protected:
+  void toString(libmexclass::proxy::method::Context& context);
 
-        void length(libmexclass::proxy::method::Context& context);
+  void getNumElements(libmexclass::proxy::method::Context& context);
 
-        void valid(libmexclass::proxy::method::Context& context);
+  void getValid(libmexclass::proxy::method::Context& context);
 
-        virtual void toMATLAB(libmexclass::proxy::method::Context& context) = 0;
+  void getType(libmexclass::proxy::method::Context& context);
 
-        std::shared_ptr<arrow::Array> array;
+  void isEqual(libmexclass::proxy::method::Context& context);
+
+  void slice(libmexclass::proxy::method::Context& context);
+
+  void exportToC(libmexclass::proxy::method::Context& context);
+
+  std::shared_ptr<arrow::Array> array;
 };
 
-}
+}  // namespace arrow::matlab::array::proxy

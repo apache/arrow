@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -44,13 +45,13 @@ class ARROW_EXPORT KeyValueMetadata {
   void ToUnorderedMap(std::unordered_map<std::string, std::string>* out) const;
   void Append(std::string key, std::string value);
 
-  Result<std::string> Get(const std::string& key) const;
-  bool Contains(const std::string& key) const;
+  Result<std::string> Get(std::string_view key) const;
+  bool Contains(std::string_view key) const;
   // Note that deleting may invalidate known indices
-  Status Delete(const std::string& key);
+  Status Delete(std::string_view key);
   Status Delete(int64_t index);
   Status DeleteMany(std::vector<int64_t> indices);
-  Status Set(const std::string& key, const std::string& value);
+  Status Set(std::string key, std::string value);
 
   void reserve(int64_t n);
 
@@ -63,7 +64,7 @@ class ARROW_EXPORT KeyValueMetadata {
   std::vector<std::pair<std::string, std::string>> sorted_pairs() const;
 
   /// \brief Perform linear search for key, returning -1 if not found
-  int FindKey(const std::string& key) const;
+  int FindKey(std::string_view key) const;
 
   std::shared_ptr<KeyValueMetadata> Copy() const;
 

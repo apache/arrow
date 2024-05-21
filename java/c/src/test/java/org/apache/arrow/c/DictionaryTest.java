@@ -100,7 +100,7 @@ public class DictionaryTest {
     dictVector.setSafe(2, "cc".getBytes());
     dictVector.setValueCount(3);
 
-    Dictionary dictionary = new Dictionary(dictVector, new DictionaryEncoding(1L, false, /* indexType= */null));
+    Dictionary dictionary = new Dictionary(dictVector, new DictionaryEncoding(0L, false, /* indexType= */null));
     provider.put(dictionary);
 
     // create vector and encode it
@@ -128,7 +128,7 @@ public class DictionaryTest {
         ArrowSchema consumerArrowSchema = ArrowSchema.allocateNew(allocator)) {
       // Load first batch
       reader.loadNextBatch();
-      // Producer fills consumer schema stucture
+      // Producer fills consumer schema structure
       Data.exportSchema(allocator, reader.getVectorSchemaRoot().getSchema(), reader, consumerArrowSchema);
       // Consumer loads it as an empty vector schema root
       try (CDataDictionaryProvider consumerDictionaryProvider = new CDataDictionaryProvider();
@@ -169,7 +169,7 @@ public class DictionaryTest {
       dictVector.setSafe(3, "dd".getBytes());
       dictVector.setSafe(4, "ee".getBytes());
       dictVector.setValueCount(5);
-      Dictionary dictionary = new Dictionary(dictVector, new DictionaryEncoding(1L, false, /* indexType= */null));
+      Dictionary dictionary = new Dictionary(dictVector, new DictionaryEncoding(0L, false, /* indexType= */null));
       provider.put(dictionary);
 
       Schema schema = new Schema(Collections.singletonList(vector.getField()));

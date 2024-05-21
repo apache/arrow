@@ -23,11 +23,26 @@ Development Guidelines
 
 .. contents::
 
+Logger Abstraction
+==================
+
+Apache Arrow Java uses the SLF4J API, so please configure SLF4J to see logs (e.g. via Logback/Apache Log4j):
+
+1. If no jar dependencies are added by the user via Logback or Apache Log4j then SLF4J will default
+   to no-operation (NOP) logging.
+
+2. If a user adds any dependencies via Logback or Apache Log4j but does not configure/add/define
+   logback.xml/log4j2.xml, then logs will default to DEBUG mode.
+
+3. To disable debug logs, the user must define their own rules within their logback.xml/log4j2.xml
+   and define their own loggers.
+
 Unit Testing
 ============
 Unit tests are run by Maven during the build.
 
 To speed up the build, you can skip them by passing -DskipTests.
+
 .. code-block::
 
     $ cd arrow/java
@@ -84,16 +99,18 @@ UI Benchmark:
 Integration Testing
 ===================
 
-Integration tests can be run via Archery:
+Integration tests can be run :ref:`via Archery <running_integration_tests>`.
+For example, assuming you only built Arrow Java and want to run the IPC
+integration tests, you would do:
 
-.. code-block::
+.. code-block:: console
 
-    $ archery integration --with-java true --with-cpp false --with-js false --with-csharp false --with-go false --with-rust false
+   $ archery integration --run-ipc --with-java 1
 
 Code Style
 ==========
 
-Code style is enforced with Checkstyle. The configuration is located at `checkstyle`_.
+Java code style is enforced with Checkstyle. The configuration is located at `checkstyle`_.
 You can also just check the style without building the project.
 This checks the code style of all source code under the current directory or from within an individual module.
 
@@ -101,7 +118,22 @@ This checks the code style of all source code under the current directory or fro
 
     $ mvn checkstyle:check
 
+Maven ``pom.xml`` style is enforced with Spotless using `Apache Maven pom.xml guidelines`_
+You can also just check the style without building the project.
+This checks the style of all pom.xml files under the current directory or from within an individual module.
+
+.. code-block::
+
+    $ mvn spotless:check
+
+This applies the style to all pom.xml files under the current directory or from within an individual module.
+
+.. code-block::
+
+    $ mvn spotless:apply
+
 .. _benchmark: https://github.com/ursacomputing/benchmarks
 .. _archery: https://github.com/apache/arrow/blob/main/dev/conbench_envs/README.md#L188
 .. _conbench: https://github.com/conbench/conbench
 .. _checkstyle: https://github.com/apache/arrow/blob/main/java/dev/checkstyle/checkstyle.xml
+.. _Apache Maven pom.xml guidelines: https://maven.apache.org/developers/conventions/code.html#pom-code-convention

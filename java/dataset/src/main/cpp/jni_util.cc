@@ -97,7 +97,11 @@ class ReservationListenableMemoryPool::Impl {
 
   int64_t Reserve(int64_t diff) {
     std::lock_guard<std::mutex> lock(mutex_);
-    stats_.UpdateAllocatedBytes(diff);
+    if (diff > 0) {
+      stats_.DidAllocateBytes(diff);
+    } else if (diff < 0) {
+      stats_.DidFreeBytes(-diff);
+    }
     int64_t new_block_count;
     int64_t bytes_reserved = stats_.bytes_allocated();
     if (bytes_reserved == 0) {
@@ -192,9 +196,9 @@ std::string Describe(JNIEnv* env, jthrowable t) {
 }
 
 bool IsErrorInstanceOf(JNIEnv* env, jthrowable t, std::string class_name) {
-  jclass jclass = env->FindClass(class_name.c_str());
-  DCHECK_NE(jclass, nullptr) << "Could not find Java class " << class_name;
-  return env->IsInstanceOf(t, jclass);
+  jclass java_class = env->FindClass(class_name.c_str());
+  DCHECK_NE(java_class, nullptr) << "Could not find Java class " << class_name;
+  return env->IsInstanceOf(t, java_class);
 }
 
 arrow::StatusCode MapJavaError(JNIEnv* env, jthrowable t) {

@@ -39,7 +39,7 @@ import org.apache.arrow.vector.util.TransferPair;
  * A validity buffer (bit vector) is maintained to track which elements in the
  * vector are null.
  *
- * Month, day and nanoseconds are indepndent from one another and there
+ * Month, day and nanoseconds are independent from one another and there
  * is no specific limits imposed on their values.
  */
 public final class IntervalMonthDayNanoVector extends BaseFixedWidthVector {
@@ -186,6 +186,7 @@ public final class IntervalMonthDayNanoVector extends BaseFixedWidthVector {
    * @param index   position of element
    * @return element at given index
    */
+  @Override
   public PeriodDuration getObject(int index) {
     if (isSet(index) == 0) {
       return null;

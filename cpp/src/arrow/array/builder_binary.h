@@ -36,6 +36,7 @@
 #include "arrow/buffer_builder.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/util/binary_view_util.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -204,10 +205,10 @@ class BaseBinaryBuilder
         }
       }
     } else {
-      for (std::size_t i = 0; i < values.size(); ++i) {
+      for (const auto& value : values) {
         UnsafeAppendNextOffset();
-        value_data_builder_.UnsafeAppend(
-            reinterpret_cast<const uint8_t*>(values[i].data()), values[i].size());
+        value_data_builder_.UnsafeAppend(reinterpret_cast<const uint8_t*>(value.data()),
+                                         value.size());
       }
     }
 
@@ -464,6 +465,265 @@ class ARROW_EXPORT LargeStringBuilder : public LargeBinaryBuilder {
 };
 
 // ----------------------------------------------------------------------
+// BinaryViewBuilder, StringViewBuilder
+//
+// These builders do not support building raw pointer view arrays.
+
+namespace internal {
+
+// We allocate medium-sized memory chunks and accumulate data in those, which
+// may result in some waste if there are many large-ish strings. If a string
+// comes along that does not fit into a block, we allocate a new block and
+// write into that.
+//
+// Later we can implement optimizations to continuing filling underfull blocks
+// after encountering a large string that required allocating a new block.
+class ARROW_EXPORT StringHeapBuilder {
+ public:
+  static constexpr int64_t kDefaultBlocksize = 32 << 10;  // 32KB
+
+  StringHeapBuilder(MemoryPool* pool, int64_t alignment)
+      : pool_(pool), alignment_(alignment) {}
+
+  void SetBlockSize(int64_t blocksize) { blocksize_ = blocksize; }
+
+  using c_type = BinaryViewType::c_type;
+
+  template <bool Safe>
+  std::conditional_t<Safe, Result<c_type>, c_type> Append(const uint8_t* value,
+                                                          int64_t length) {
+    if (length <= BinaryViewType::kInlineSize) {
+      return util::ToInlineBinaryView(value, static_cast<int32_t>(length));
+    }
+
+    if constexpr (Safe) {
+      ARROW_RETURN_NOT_OK(Reserve(length));
+    }
+
+    auto v =
+        util::ToBinaryView(value, static_cast<int32_t>(length),
+                           static_cast<int32_t>(blocks_.size() - 1), current_offset_);
+
+    memcpy(current_out_buffer_, value, static_cast<size_t>(length));
+    current_out_buffer_ += length;
+    current_remaining_bytes_ -= length;
+    current_offset_ += static_cast<int32_t>(length);
+    return v;
+  }
+
+  static constexpr int64_t ValueSizeLimit() {
+    return std::numeric_limits<int32_t>::max();
+  }
+
+  /// \brief Ensure that the indicated number of bytes can be appended via
+  /// UnsafeAppend operations without the need to allocate more memory
+  Status Reserve(int64_t num_bytes) {
+    if (ARROW_PREDICT_FALSE(num_bytes > ValueSizeLimit())) {
+      return Status::CapacityError(
+          "BinaryView or StringView elements cannot reference "
+          "strings larger than 2GB");
+    }
+    if (num_bytes > current_remaining_bytes_) {
+      ARROW_RETURN_NOT_OK(FinishLastBlock());
+      current_remaining_bytes_ = num_bytes > blocksize_ ? num_bytes : blocksize_;
+      ARROW_ASSIGN_OR_RAISE(
+          std::shared_ptr<ResizableBuffer> new_block,
+          AllocateResizableBuffer(current_remaining_bytes_, alignment_, pool_));
+      current_offset_ = 0;
+      current_out_buffer_ = new_block->mutable_data();
+      blocks_.emplace_back(std::move(new_block));
+    }
+    return Status::OK();
+  }
+
+  void Reset() {
+    current_offset_ = 0;
+    current_out_buffer_ = NULLPTR;
+    current_remaining_bytes_ = 0;
+    blocks_.clear();
+  }
+
+  int64_t current_remaining_bytes() const { return current_remaining_bytes_; }
+
+  Result<std::vector<std::shared_ptr<ResizableBuffer>>> Finish() {
+    if (!blocks_.empty()) {
+      ARROW_RETURN_NOT_OK(FinishLastBlock());
+    }
+    current_offset_ = 0;
+    current_out_buffer_ = NULLPTR;
+    current_remaining_bytes_ = 0;
+    return std::move(blocks_);
+  }
+
+ private:
+  Status FinishLastBlock() {
+    if (current_remaining_bytes_ > 0) {
+      // Avoid leaking uninitialized bytes from the allocator
+      ARROW_RETURN_NOT_OK(
+          blocks_.back()->Resize(blocks_.back()->size() - current_remaining_bytes_,
+                                 /*shrink_to_fit=*/true));
+      blocks_.back()->ZeroPadding();
+    }
+    return Status::OK();
+  }
+
+  MemoryPool* pool_;
+  int64_t alignment_;
+  int64_t blocksize_ = kDefaultBlocksize;
+  std::vector<std::shared_ptr<ResizableBuffer>> blocks_;
+
+  int32_t current_offset_ = 0;
+  uint8_t* current_out_buffer_ = NULLPTR;
+  int64_t current_remaining_bytes_ = 0;
+};
+
+}  // namespace internal
+
+class ARROW_EXPORT BinaryViewBuilder : public ArrayBuilder {
+ public:
+  using TypeClass = BinaryViewType;
+
+  // this constructor provided for MakeBuilder compatibility
+  BinaryViewBuilder(const std::shared_ptr<DataType>&, MemoryPool* pool);
+
+  explicit BinaryViewBuilder(MemoryPool* pool = default_memory_pool(),
+                             int64_t alignment = kDefaultBufferAlignment)
+      : ArrayBuilder(pool, alignment),
+        data_builder_(pool, alignment),
+        data_heap_builder_(pool, alignment) {}
+
+  /// Set the size for future preallocated data buffers.
+  ///
+  /// The default size is 32KB, so after each 32KB of string data appended to the builder
+  /// a new data buffer will be allocated. Adjust this to a larger value to decrease the
+  /// frequency of allocation, or to a smaller value to lower the overhead of each
+  /// allocation.
+  void SetBlockSize(int64_t blocksize) { data_heap_builder_.SetBlockSize(blocksize); }
+
+  /// The number of bytes which can be appended to this builder without allocating another
+  /// data buffer.
+  int64_t current_block_bytes_remaining() const {
+    return data_heap_builder_.current_remaining_bytes();
+  }
+
+  Status Append(const uint8_t* value, int64_t length) {
+    ARROW_RETURN_NOT_OK(Reserve(1));
+    UnsafeAppendToBitmap(true);
+    ARROW_ASSIGN_OR_RAISE(auto v,
+                          data_heap_builder_.Append</*Safe=*/true>(value, length));
+    data_builder_.UnsafeAppend(v);
+    return Status::OK();
+  }
+
+  Status Append(const char* value, int64_t length) {
+    return Append(reinterpret_cast<const uint8_t*>(value), length);
+  }
+
+  Status Append(std::string_view value) {
+    return Append(value.data(), static_cast<int64_t>(value.size()));
+  }
+
+  /// \brief Append without checking capacity
+  ///
+  /// Builder should have been presized using Reserve() and ReserveData(),
+  /// respectively, and the value must not be larger than 2GB
+  void UnsafeAppend(const uint8_t* value, int64_t length) {
+    UnsafeAppendToBitmap(true);
+    auto v = data_heap_builder_.Append</*Safe=*/false>(value, length);
+    data_builder_.UnsafeAppend(v);
+  }
+
+  void UnsafeAppend(const char* value, int64_t length) {
+    UnsafeAppend(reinterpret_cast<const uint8_t*>(value), length);
+  }
+
+  void UnsafeAppend(const std::string& value) {
+    UnsafeAppend(value.c_str(), static_cast<int64_t>(value.size()));
+  }
+
+  void UnsafeAppend(std::string_view value) {
+    UnsafeAppend(value.data(), static_cast<int64_t>(value.size()));
+  }
+
+  /// \brief Ensures there is enough allocated available capacity in the
+  /// out-of-line data heap to append the indicated number of bytes without
+  /// additional allocations
+  Status ReserveData(int64_t length);
+
+  Status AppendNulls(int64_t length) final {
+    ARROW_RETURN_NOT_OK(Reserve(length));
+    data_builder_.UnsafeAppend(length, BinaryViewType::c_type{});
+    UnsafeSetNull(length);
+    return Status::OK();
+  }
+
+  /// \brief Append a single null element
+  Status AppendNull() final {
+    ARROW_RETURN_NOT_OK(Reserve(1));
+    data_builder_.UnsafeAppend(BinaryViewType::c_type{});
+    UnsafeAppendToBitmap(false);
+    return Status::OK();
+  }
+
+  /// \brief Append a empty element (length-0 inline string)
+  Status AppendEmptyValue() final {
+    ARROW_RETURN_NOT_OK(Reserve(1));
+    data_builder_.UnsafeAppend(BinaryViewType::c_type{});
+    UnsafeAppendToBitmap(true);
+    return Status::OK();
+  }
+
+  /// \brief Append several empty elements
+  Status AppendEmptyValues(int64_t length) final {
+    ARROW_RETURN_NOT_OK(Reserve(length));
+    data_builder_.UnsafeAppend(length, BinaryViewType::c_type{});
+    UnsafeSetNotNull(length);
+    return Status::OK();
+  }
+
+  void UnsafeAppendNull() {
+    data_builder_.UnsafeAppend(BinaryViewType::c_type{});
+    UnsafeAppendToBitmap(false);
+  }
+
+  void UnsafeAppendEmptyValue() {
+    data_builder_.UnsafeAppend(BinaryViewType::c_type{});
+    UnsafeAppendToBitmap(true);
+  }
+
+  /// \brief Append a slice of a BinaryViewArray passed as an ArraySpan. Copies
+  /// the underlying out-of-line string memory to avoid memory lifetime issues
+  Status AppendArraySlice(const ArraySpan& array, int64_t offset,
+                          int64_t length) override;
+
+  void Reset() override;
+
+  Status Resize(int64_t capacity) override {
+    ARROW_RETURN_NOT_OK(CheckCapacity(capacity));
+    capacity = std::max(capacity, kMinBuilderCapacity);
+    ARROW_RETURN_NOT_OK(data_builder_.Resize(capacity));
+    return ArrayBuilder::Resize(capacity);
+  }
+
+  Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
+
+  std::shared_ptr<DataType> type() const override { return binary_view(); }
+
+ protected:
+  TypedBufferBuilder<BinaryViewType::c_type> data_builder_;
+
+  // Accumulates out-of-line data in fixed-size chunks which are then attached
+  // to the resulting ArrayData
+  internal::StringHeapBuilder data_heap_builder_;
+};
+
+class ARROW_EXPORT StringViewBuilder : public BinaryViewBuilder {
+ public:
+  using BinaryViewBuilder::BinaryViewBuilder;
+  std::shared_ptr<DataType> type() const override { return utf8_view(); }
+};
+
+// ----------------------------------------------------------------------
 // FixedSizeBinaryBuilder
 
 class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
@@ -498,7 +758,7 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
 
   Status Append(const Buffer& s) {
     ARROW_RETURN_NOT_OK(Reserve(1));
-    UnsafeAppend(std::string_view(s));
+    UnsafeAppend(s);
     return Status::OK();
   }
 
@@ -549,7 +809,7 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
     UnsafeAppend(reinterpret_cast<const uint8_t*>(value.data()));
   }
 
-  void UnsafeAppend(const Buffer& s) { UnsafeAppend(std::string_view(s)); }
+  void UnsafeAppend(const Buffer& s) { UnsafeAppend(std::string_view{s}); }
 
   void UnsafeAppend(const std::shared_ptr<Buffer>& s) { UnsafeAppend(*s); }
 

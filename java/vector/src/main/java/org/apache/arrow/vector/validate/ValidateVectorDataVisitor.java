@@ -23,6 +23,7 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseLargeVariableWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
+import org.apache.arrow.vector.BaseVariableWidthViewVector;
 import org.apache.arrow.vector.ExtensionTypeVector;
 import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.ValueVector;
@@ -85,19 +86,27 @@ public class ValidateVectorDataVisitor implements VectorVisitor<Void, Void> {
 
   @Override
   public Void visit(BaseFixedWidthVector vector, Void value) {
+    vector.validateScalars();
     return null;
   }
 
   @Override
   public Void visit(BaseVariableWidthVector vector, Void value) {
     validateOffsetBuffer(vector, vector.getValueCount());
+    vector.validateScalars();
     return null;
   }
 
   @Override
   public Void visit(BaseLargeVariableWidthVector vector, Void value) {
     validateLargeOffsetBuffer(vector, vector.getValueCount());
+    vector.validateScalars();
     return null;
+  }
+
+  @Override
+  public Void visit(BaseVariableWidthViewVector vector, Void value) {
+    throw new UnsupportedOperationException("View vectors are not supported.");
   }
 
   @Override
@@ -169,6 +178,8 @@ public class ValidateVectorDataVisitor implements VectorVisitor<Void, Void> {
 
   @Override
   public Void visit(NullVector vector, Void value) {
+    ValidateUtil.validateOrThrow(vector.getNullCount() == vector.getValueCount(),
+        "NullVector should have only null entries.");
     return null;
   }
 

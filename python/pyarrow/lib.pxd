@@ -65,6 +65,7 @@ cdef extern from "Python.h":
 
 
 cdef int check_status(const CStatus& status) except -1 nogil
+cdef object convert_status(const CStatus& status)
 
 
 cdef class _Weakrefable:
@@ -117,6 +118,16 @@ cdef class ListType(DataType):
 cdef class LargeListType(DataType):
     cdef:
         const CLargeListType* list_type
+
+
+cdef class ListViewType(DataType):
+    cdef:
+        const CListViewType* list_view_type
+
+
+cdef class LargeListViewType(DataType):
+    cdef:
+        const CLargeListViewType* list_view_type
 
 
 cdef class MapType(DataType):
@@ -284,6 +295,8 @@ cdef class Tensor(_Weakrefable):
 
     cdef readonly:
         DataType type
+        bytes _ssize_t_shape
+        bytes _ssize_t_strides
 
     cdef void init(self, const shared_ptr[CTensor]& sp_tensor)
 
@@ -424,6 +437,14 @@ cdef class LargeListArray(BaseListArray):
     pass
 
 
+cdef class ListViewArray(BaseListArray):
+    pass
+
+
+cdef class LargeListViewArray(BaseListArray):
+    pass
+
+
 cdef class MapArray(ListArray):
     pass
 
@@ -441,6 +462,14 @@ cdef class StringArray(Array):
 
 
 cdef class BinaryArray(Array):
+    pass
+
+
+cdef class StringViewArray(Array):
+    pass
+
+
+cdef class BinaryViewArray(Array):
     pass
 
 
@@ -518,6 +547,7 @@ cdef class NativeFile(_Weakrefable):
         bint is_readable
         bint is_writable
         bint is_seekable
+        bint _is_appending
         bint own_file
 
     # By implementing these "virtual" functions (all functions in Cython
@@ -551,12 +581,24 @@ cdef class CompressedOutputStream(NativeFile):
 
 cdef class _CRecordBatchWriter(_Weakrefable):
     cdef:
-        shared_ptr[CRecordBatchWriter] writer
+        SharedPtrNoGIL[CRecordBatchWriter] writer
 
 
 cdef class RecordBatchReader(_Weakrefable):
     cdef:
-        shared_ptr[CRecordBatchReader] reader
+        SharedPtrNoGIL[CRecordBatchReader] reader
+
+
+cdef class CacheOptions(_Weakrefable):
+    cdef:
+        CCacheOptions wrapped
+
+    cdef void init(self, CCacheOptions options)
+
+    cdef inline CCacheOptions unwrap(self)
+
+    @staticmethod
+    cdef wrap(const CCacheOptions options)
 
 
 cdef class Codec(_Weakrefable):

@@ -34,9 +34,14 @@ case "$(uname -m)" in
     ;;
 esac
 
+# On newer pythons install into the system will fail, so override that
+export PIP_BREAK_SYSTEM_PACKAGES=1
+
 version=$1
 if [[ "${version}" -eq "default" ]]; then
-  version="v0.36.0"
+  version="v0.39.0"
+  # Latests versions of Testbench require newer setuptools
+  ${PYTHON:-python3} -m pip install --upgrade setuptools
 fi
 
 ${PYTHON:-python3} -m pip install \

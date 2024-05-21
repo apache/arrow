@@ -100,6 +100,44 @@ public class TestDenseUnionVector {
   }
 
   @Test
+  public void testSetOffset() {
+    try (DenseUnionVector duv = DenseUnionVector.empty("foo", allocator)) {
+      duv.allocateNew();
+      byte i32TypeId = duv.registerNewTypeId(Field.notNullable("i32", MinorType.INT.getType()));
+      byte f64TypeId = duv.registerNewTypeId(Field.notNullable("f64", MinorType.FLOAT8.getType()));
+
+      IntVector i32Vector = ((IntVector) duv.addVector(i32TypeId, new IntVector("i32", allocator)));
+      Float8Vector f64Vector = ((Float8Vector) duv.addVector(f64TypeId, new Float8Vector("f64", allocator)));
+
+      i32Vector.allocateNew(3);
+      f64Vector.allocateNew(1);
+
+      duv.setTypeId(0, i32TypeId);
+      duv.setOffset(0, 0);
+      i32Vector.set(0, 42);
+
+      duv.setTypeId(1, i32TypeId);
+      duv.setOffset(1, 1);
+      i32Vector.set(1, 43);
+
+      duv.setTypeId(2, f64TypeId);
+      duv.setOffset(2, 0);
+      f64Vector.set(0, 3.14);
+
+      duv.setTypeId(3, i32TypeId);
+      duv.setOffset(3, 2);
+      i32Vector.set(2, 44);
+
+      duv.setValueCount(4);
+
+      assertEquals(42, duv.getObject(0));
+      assertEquals(43, duv.getObject(1));
+      assertEquals(3.14, duv.getObject(2));
+      assertEquals(44, duv.getObject(3));
+    }
+  }
+
+  @Test
   public void testTransfer() throws Exception {
     try (DenseUnionVector srcVector = new DenseUnionVector(EMPTY_SCHEMA_PATH, allocator, null, null)) {
       srcVector.allocateNew();
@@ -326,6 +364,34 @@ public class TestDenseUnionVector {
   }
 
   @Test
+  public void testSplitAndTransferDuvInStruct() {
+    try (StructVector struct = StructVector.empty("struct", allocator)) {
+      DenseUnionVector duv = struct.addOrGet("duv",
+          FieldType.notNullable(MinorType.DENSEUNION.getType()),
+          DenseUnionVector.class);
+      byte i32TypeId = duv.registerNewTypeId(Field.notNullable("i32", MinorType.INT.getType()));
+      duv.addVector(i32TypeId, new IntVector("i32", allocator));
+
+      struct.setIndexDefined(0);
+      duv.setTypeId(0, i32TypeId);
+      duv.setSafe(0, newIntHolder(42));
+
+      struct.setNull(1);
+      struct.setValueCount(2);
+
+      try (StructVector dest = StructVector.empty("dest", allocator)) {
+        TransferPair pair = struct.makeTransferPair(dest);
+        pair.splitAndTransfer(0, 2);
+
+        assertEquals(2, dest.getValueCount());
+        assertFalse(dest.isNull(0));
+        assertEquals(42, dest.getObject(0).get("duv"));
+        assertTrue(dest.isNull(1));
+      }
+    }
+  }
+
+  @Test
   public void testGetFieldTypeInfo() throws Exception {
     Map<String, String> metadata = new HashMap<>();
     metadata.put("key1", "value1");
@@ -349,16 +415,16 @@ public class TestDenseUnionVector {
     assertEquals(vector.getField(), field);
 
     // Union has 2 child vectors
-    assertEquals(vector.size(), 2);
+    assertEquals(2, vector.size());
 
     // Check child field 0
     VectorWithOrdinal intChild = vector.getChildVectorWithOrdinal("int");
-    assertEquals(intChild.ordinal, 0);
+    assertEquals(0, intChild.ordinal);
     assertEquals(intChild.vector.getField(), children.get(0));
 
     // Check child field 1
     VectorWithOrdinal varcharChild = vector.getChildVectorWithOrdinal("varchar");
-    assertEquals(varcharChild.ordinal, 1);
+    assertEquals(1, varcharChild.ordinal);
     assertEquals(varcharChild.vector.getField(), children.get(1));
   }
 
@@ -458,8 +524,8 @@ public class TestDenseUnionVector {
       // register relative types
       byte typeId1 = unionVector.registerNewTypeId(structVector1.getField());
       byte typeId2 = unionVector.registerNewTypeId(structVector2.getField());
-      assertEquals(typeId1, 0);
-      assertEquals(typeId2, 1);
+      assertEquals(0, typeId1);
+      assertEquals(1, typeId2);
 
       // add two struct vectors to union vector
       unionVector.addVector(typeId1, structVector1);
@@ -519,8 +585,8 @@ public class TestDenseUnionVector {
       byte typeId1 = unionVector.registerNewTypeId(childVector1.getField());
       byte typeId2 = unionVector.registerNewTypeId(childVector2.getField());
 
-      assertEquals(typeId1, 0);
-      assertEquals(typeId2, 1);
+      assertEquals(0, typeId1);
+      assertEquals(1, typeId2);
 
       while (unionVector.getValueCapacity() < 5) {
         unionVector.reAlloc();
@@ -610,9 +676,9 @@ public class TestDenseUnionVector {
       assertEquals(8L, longVector.get(0));
       assertEquals(12L, longVector.get(1));
 
-      Float4Vector floagVector = (Float4Vector) vector.getVectorByType(floatTypeId);
-      assertEquals(1, floagVector.getValueCount());
-      assertEquals(9.0f, floagVector.get(0), 0);
+      Float4Vector floatVector = (Float4Vector) vector.getVectorByType(floatTypeId);
+      assertEquals(1, floatVector.getValueCount());
+      assertEquals(9.0f, floatVector.get(0), 0);
     }
   }
 

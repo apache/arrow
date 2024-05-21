@@ -46,6 +46,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Time;
 import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
+import org.apache.arrow.vector.types.pojo.ArrowType.Utf8View;
 
 /**
  * The buffer layout of vectors for a given type.
@@ -55,7 +56,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
 public class TypeLayout {
 
   /**
-   * Constructs a new {@TypeLayout} for the given <code>arrowType</code>.
+   * Constructs a new {@link TypeLayout} for the given <code>arrowType</code>.
    */
   public static TypeLayout getTypeLayout(final ArrowType arrowType) {
     TypeLayout layout = arrowType.accept(new ArrowTypeVisitor<TypeLayout>() {
@@ -100,10 +101,20 @@ public class TypeLayout {
       }
 
       @Override
-      public TypeLayout visit(org.apache.arrow.vector.types.pojo.ArrowType.List type) {
+      public TypeLayout visit(ArrowType.List type) {
         List<BufferLayout> vectors = asList(
             BufferLayout.validityVector(),
             BufferLayout.offsetBuffer()
+        );
+        return new TypeLayout(vectors);
+      }
+
+      @Override
+      public TypeLayout visit(ArrowType.ListView type) {
+        List<BufferLayout> vectors = asList(
+                BufferLayout.validityVector(),
+                BufferLayout.offsetBuffer(),
+                BufferLayout.sizeBuffer()
         );
         return new TypeLayout(vectors);
       }
@@ -174,8 +185,20 @@ public class TypeLayout {
       }
 
       @Override
+      public TypeLayout visit(ArrowType.BinaryView type) {
+        // TODO: https://github.com/apache/arrow/issues/40934
+        throw new UnsupportedOperationException("BinaryView not supported");
+      }
+
+      @Override
       public TypeLayout visit(Utf8 type) {
         return newVariableWidthTypeLayout();
+      }
+
+      @Override
+      public TypeLayout visit(Utf8View type) {
+        // TODO: https://github.com/apache/arrow/issues/40934
+        throw new UnsupportedOperationException("Utf8View not supported");
       }
 
       @Override
@@ -299,9 +322,15 @@ public class TypeLayout {
       }
 
       @Override
-      public Integer visit(org.apache.arrow.vector.types.pojo.ArrowType.List type) {
+      public Integer visit(ArrowType.List type) {
         // validity buffer + offset buffer
         return 2;
+      }
+
+      @Override
+      public Integer visit(ArrowType.ListView type) {
+        // validity buffer + offset buffer + size buffer
+        return 3;
       }
 
       @Override
@@ -348,7 +377,19 @@ public class TypeLayout {
       }
 
       @Override
+      public Integer visit(ArrowType.BinaryView type) {
+        // TODO: https://github.com/apache/arrow/issues/40935
+        return VARIABLE_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
       public Integer visit(Utf8 type) {
+        return VARIABLE_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
+      public Integer visit(Utf8View type) {
+        // TODO: https://github.com/apache/arrow/issues/40935
         return VARIABLE_WIDTH_BUFFER_COUNT;
       }
 
@@ -421,6 +462,7 @@ public class TypeLayout {
     return types;
   }
 
+  @Override
   public String toString() {
     return bufferLayouts.toString();
   }
@@ -438,7 +480,7 @@ public class TypeLayout {
     if (obj == null) {
       return false;
     }
-    if (getClass() != obj.getClass()) {
+    if (!(obj instanceof TypeLayout)) {
       return false;
     }
     TypeLayout other = (TypeLayout) obj;

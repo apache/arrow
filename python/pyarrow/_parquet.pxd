@@ -21,8 +21,8 @@
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport (CChunkedArray, CScalar, CSchema, CStatus,
                                         CTable, CMemoryPool, CBuffer,
-                                        CKeyValueMetadata,
-                                        CRandomAccessFile, COutputStream,
+                                        CKeyValueMetadata, CRandomAccessFile,
+                                        COutputStream, CCacheOptions,
                                         TimeUnit, CRecordBatchReader)
 from pyarrow.lib cimport _Weakrefable
 
@@ -328,11 +328,17 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         optional[ParquetIndexLocation] GetColumnIndexLocation() const
         optional[ParquetIndexLocation] GetOffsetIndexLocation() const
 
+    struct CSortingColumn" parquet::SortingColumn":
+        int column_idx
+        c_bool descending
+        c_bool nulls_first
+
     cdef cppclass CRowGroupMetaData" parquet::RowGroupMetaData":
         c_bool Equals(const CRowGroupMetaData&) const
-        int num_columns()
-        int64_t num_rows()
-        int64_t total_byte_size()
+        int num_columns() const
+        int64_t num_rows() const
+        int64_t total_byte_size() const
+        vector[CSortingColumn] sorting_columns() const
         unique_ptr[CColumnChunkMetaData] ColumnChunk(int i) const
 
     cdef cppclass CFileMetaData" parquet::FileMetaData":
@@ -380,6 +386,9 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         shared_ptr[CFileDecryptionProperties] file_decryption_properties() \
             const
 
+        c_bool page_checksum_verification() const
+        void set_page_checksum_verification(c_bool check_crc)
+
     CReaderProperties default_reader_properties()
 
     cdef cppclass ArrowReaderProperties:
@@ -390,6 +399,8 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         int64_t batch_size()
         void set_pre_buffer(c_bool pre_buffer)
         c_bool pre_buffer() const
+        void set_cache_options(CCacheOptions options)
+        CCacheOptions cache_options() const
         void set_coerce_int96_timestamp_unit(TimeUnit unit)
         TimeUnit coerce_int96_timestamp_unit() const
 
@@ -416,6 +427,7 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* disable_dictionary()
             Builder* enable_dictionary()
             Builder* enable_dictionary(const c_string& path)
+            Builder* set_sorting_columns(vector[CSortingColumn] sorting_columns)
             Builder* disable_statistics()
             Builder* enable_statistics()
             Builder* enable_statistics(const c_string& path)
@@ -428,6 +440,8 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* dictionary_pagesize_limit(int64_t dictionary_pagesize_limit)
             Builder* enable_write_page_index()
             Builder* disable_write_page_index()
+            Builder* enable_page_checksum()
+            Builder* disable_page_checksum()
             shared_ptr[WriterProperties] build()
 
     cdef cppclass ArrowWriterProperties:
@@ -510,8 +524,8 @@ cdef extern from "parquet/arrow/schema.h" namespace "parquet::arrow" nogil:
 
     CStatus ToParquetSchema(
         const CSchema* arrow_schema,
-        const ArrowReaderProperties& properties,
-        const shared_ptr[const CKeyValueMetadata]& key_value_metadata,
+        const WriterProperties& properties,
+        const ArrowWriterProperties& arrow_properties,
         shared_ptr[SchemaDescriptor]* out)
 
 
@@ -576,7 +590,10 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     FileEncryptionProperties encryption_properties=*,
     write_batch_size=*,
     dictionary_pagesize_limit=*,
-    write_page_index=*) except *
+    write_page_index=*,
+    write_page_checksum=*,
+    sorting_columns=*,
+) except *
 
 
 cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
@@ -585,7 +602,8 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
     allow_truncated_timestamps=*,
     writer_engine_version=*,
     use_compliant_nested_type=*,
-    store_schema=*) except *
+    store_schema=*,
+) except *
 
 cdef class ParquetSchema(_Weakrefable):
     cdef:

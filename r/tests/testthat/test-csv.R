@@ -336,7 +336,7 @@ test_that("CSV reader works on files with non-UTF-8 encoding", {
   fs <- LocalFileSystem$create()
   reader <- CsvTableReader$create(
     fs$OpenInputStream(tf),
-    read_options = CsvReadOptions$create(encoding = "UTF-16LE")
+    read_options = csv_read_options(encoding = "UTF-16LE")
   )
 
   table <- reader$Read()
@@ -435,7 +435,7 @@ test_that("Write a CSV with custom NA value", {
 
   # Also can use null_value in CsvWriteOptions
   tbl_out1 <- write_csv_arrow(tbl_no_dates, csv_file,
-    write_options = CsvWriteOptions$create(null_string = "another_null")
+    write_options = csv_write_options(null_string = "another_null")
   )
   csv_contents <- readLines(csv_file)
   expect_true(any(grepl("another_null", csv_contents)))
@@ -680,9 +680,9 @@ test_that("CSV reading/parsing/convert options can be passed in as lists", {
 
   tab2 <- read_csv_arrow(
     tf,
-    convert_options = CsvConvertOptions$create(null_values = c(NA, "NA", "NULL"), strings_can_be_null = TRUE),
-    parse_options = CsvParseOptions$create(ignore_empty_lines = FALSE),
-    read_options = CsvReadOptions$create(skip_rows = 1L)
+    convert_options = csv_convert_options(null_values = c(NA, "NA", "NULL"), strings_can_be_null = TRUE),
+    parse_options = csv_parse_options(ignore_empty_lines = FALSE),
+    read_options = csv_read_options(skip_rows = 1L)
   )
 
   expect_equal(tab1, tab2)
@@ -723,4 +723,20 @@ test_that("skip_rows and skip_rows_after_names option", {
     ),
     tibble::tibble(`1` = 3:4)
   )
+})
+
+test_that("Can read CSV files from a URL", {
+  skip_if_offline()
+  skip_on_cran()
+  csv_url <- "https://raw.githubusercontent.com/apache/arrow-testing/master/data/csv/aggregate_test_100.csv"
+  cu <- read_csv_arrow(csv_url)
+  expect_true(tibble::is_tibble(cu))
+  expect_identical(dim(cu), c(100L, 13L))
+})
+
+test_that("read_csv2_arrow correctly parses comma decimals", {
+  tf <- tempfile()
+  writeLines("x;y\n1,2;c", con = tf)
+  expect_equal(read_csv2_arrow(tf), tibble(x = 1.2, y = "c"))
+
 })

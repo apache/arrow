@@ -18,6 +18,8 @@
 package org.apache.arrow.vector.complex.impl;
 
 import java.math.BigDecimal;
+import java.nio.ByteBuffer;
+import java.util.Locale;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.FieldVector;
@@ -27,6 +29,7 @@ import org.apache.arrow.vector.complex.AbstractStructVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.ListViewVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
@@ -37,6 +40,7 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.util.Text;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
@@ -51,6 +55,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
 
   private final AbstractStructVector parentContainer;
   private final ListVector listVector;
+  private final ListViewVector listViewVector;
   private final FixedSizeListVector fixedListVector;
   private final LargeListVector largeListVector;
   private final NullableStructWriterFactory nullableStructWriterFactory;
@@ -91,6 +96,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
       NullableStructWriterFactory nullableStructWriterFactory) {
     this.parentContainer = parentContainer;
     this.listVector = null;
+    this.listViewVector = null;
     this.fixedListVector = null;
     this.largeListVector = null;
     this.nullableStructWriterFactory = nullableStructWriterFactory;
@@ -139,6 +145,27 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
       ListVector listVector,
       NullableStructWriterFactory nullableStructWriterFactory) {
     this.listVector = listVector;
+    this.listViewVector = null;
+    this.parentContainer = null;
+    this.fixedListVector = null;
+    this.largeListVector = null;
+    this.nullableStructWriterFactory = nullableStructWriterFactory;
+    init(v);
+  }
+
+  /**
+   * Constructs a new instance.
+   *
+   * @param v The vector to initialize the writer with.
+   * @param listViewVector The vector that serves as a parent of v.
+   * @param nullableStructWriterFactory The factory to create the delegate writer.
+   */
+  public PromotableWriter(
+      ValueVector v,
+      ListViewVector listViewVector,
+      NullableStructWriterFactory nullableStructWriterFactory) {
+    this.listViewVector = listViewVector;
+    this.listVector = null;
     this.parentContainer = null;
     this.fixedListVector = null;
     this.largeListVector = null;
@@ -160,6 +187,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     this.fixedListVector = fixedListVector;
     this.parentContainer = null;
     this.listVector = null;
+    this.listViewVector = null;
     this.largeListVector = null;
     this.nullableStructWriterFactory = nullableStructWriterFactory;
     init(v);
@@ -180,6 +208,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     this.fixedListVector = null;
     this.parentContainer = null;
     this.listVector = null;
+    this.listViewVector = null;
     this.nullableStructWriterFactory = nullableStructWriterFactory;
     init(v);
   }
@@ -277,6 +306,8 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
         v = listVector.addOrGetVector(fieldType).getVector();
       } else if (fixedListVector != null) {
         v = fixedListVector.addOrGetVector(fieldType).getVector();
+      } else if (listViewVector != null) {
+        v = listViewVector.addOrGetVector(fieldType).getVector();
       } else {
         v = largeListVector.addOrGetVector(fieldType).getVector();
       }
@@ -299,13 +330,15 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     return writer.isEmptyStruct();
   }
 
+  @Override
   protected FieldWriter getWriter() {
     return writer;
   }
 
   private FieldWriter promoteToUnion() {
     String name = vector.getField().getName();
-    TransferPair tp = vector.getTransferPair(vector.getMinorType().name().toLowerCase(), vector.getAllocator());
+    TransferPair tp = vector.getTransferPair(vector.getMinorType().name().toLowerCase(Locale.ROOT),
+        vector.getAllocator());
     tp.transfer();
     if (parentContainer != null) {
       // TODO allow dictionaries in complex types
@@ -317,6 +350,8 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
       unionVector = fixedListVector.promoteToUnion();
     } else if (largeListVector != null) {
       unionVector = largeListVector.promoteToUnion();
+    } else if (listViewVector != null) {
+      unionVector = listViewVector.promoteToUnion();
     }
     unionVector.addVector((FieldVector) tp.getTo());
     writer = new UnionWriter(unionVector, nullableStructWriterFactory);
@@ -378,7 +413,66 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
           /*bitWidth=*/256)).writeBigEndianBytesToDecimal256(value, arrowType);
   }
 
- 
+  @Override
+  public void writeVarBinary(byte[] value) {
+    getWriter(MinorType.VARBINARY).writeVarBinary(value);
+  }
+
+  @Override
+  public void writeVarBinary(byte[] value, int offset, int length) {
+    getWriter(MinorType.VARBINARY).writeVarBinary(value, offset, length);
+  }
+
+  @Override
+  public void writeVarBinary(ByteBuffer value) {
+    getWriter(MinorType.VARBINARY).writeVarBinary(value);
+  }
+
+  @Override
+  public void writeVarBinary(ByteBuffer value, int offset, int length) {
+    getWriter(MinorType.VARBINARY).writeVarBinary(value, offset, length);
+  }
+
+  @Override
+  public void writeLargeVarBinary(byte[] value) {
+    getWriter(MinorType.LARGEVARBINARY).writeLargeVarBinary(value);
+  }
+
+  @Override
+  public void writeLargeVarBinary(byte[] value, int offset, int length) {
+    getWriter(MinorType.LARGEVARBINARY).writeLargeVarBinary(value, offset, length);
+  }
+
+  @Override
+  public void writeLargeVarBinary(ByteBuffer value) {
+    getWriter(MinorType.LARGEVARBINARY).writeLargeVarBinary(value);
+  }
+
+  @Override
+  public void writeLargeVarBinary(ByteBuffer value, int offset, int length) {
+    getWriter(MinorType.LARGEVARBINARY).writeLargeVarBinary(value, offset, length);
+  }
+
+  @Override
+  public void writeVarChar(Text value) {
+    getWriter(MinorType.VARCHAR).writeVarChar(value);
+  }
+
+  @Override
+  public void writeVarChar(String value) {
+    getWriter(MinorType.VARCHAR).writeVarChar(value);
+  }
+
+  @Override
+  public void writeLargeVarChar(Text value) {
+    getWriter(MinorType.LARGEVARCHAR).writeLargeVarChar(value);
+  }
+
+  @Override
+  public void writeLargeVarChar(String value) {
+    getWriter(MinorType.LARGEVARCHAR).writeLargeVarChar(value);
+  }
+
   @Override
   public void allocate() {
     getWriter().allocate();

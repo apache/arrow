@@ -366,6 +366,10 @@ class ARROW_EXPORT BasicDecimal256 : public GenericBasicDecimal<BasicDecimal256,
   /// \brief Get the lowest bits of the two's complement representation of the number.
   uint64_t low_bits() const { return bit_util::little_endian::Make(array_)[0]; }
 
+  /// \brief separate the integer and fractional parts for the given scale.
+  void GetWholeAndFraction(int32_t scale, BasicDecimal256* whole,
+                           BasicDecimal256* fraction) const;
+
   /// \brief Scale multiplier for given scale value.
   static const BasicDecimal256& GetScaleMultiplier(int32_t scale);
   /// \brief Half-scale multiplier for given scale value.

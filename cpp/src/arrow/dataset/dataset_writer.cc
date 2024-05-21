@@ -87,7 +87,7 @@ class Throttle {
 
  private:
   Future<> backpressure_ = Future<>::MakeFinished();
-  uint64_t max_value_;
+  const uint64_t max_value_;
   uint64_t in_waiting_ = 0;
   uint64_t current_value_ = 0;
   std::mutex mutex_;
@@ -139,7 +139,7 @@ class DatasetWriterFileQueue {
       : options_(options), schema_(schema), writer_state_(writer_state) {}
 
   void Start(util::AsyncTaskScheduler* file_tasks, const std::string& filename) {
-    file_tasks_ = std::move(file_tasks);
+    file_tasks_ = file_tasks;
     // Because the scheduler runs one task at a time we know the writer will
     // be opened before any attempt to write
     file_tasks_->AddSimpleTask(
@@ -515,7 +515,7 @@ class DatasetWriter::DatasetWriterImpl {
                     std::function<void()> finish_callback, uint64_t max_rows_queued)
       : scheduler_(scheduler),
         write_tasks_(util::MakeThrottledAsyncTaskGroup(
-            scheduler_, 1, /*queue=*/nullptr,
+            scheduler_, /*max_concurrent_cost=*/1, /*queue=*/nullptr,
             [finish_callback = std::move(finish_callback)] {
               finish_callback();
               return Status::OK();
@@ -541,6 +541,23 @@ class DatasetWriter::DatasetWriterImpl {
     }
   }
 
+  void ResumeIfNeeded() {
+    if (!paused_) {
+      return;
+    }
+    bool needs_resume = false;
+    {
+      std::lock_guard lg(mutex_);
+      if (!write_tasks_ || write_tasks_->QueueSize() == 0) {
+        needs_resume = true;
+      }
+    }
+    if (needs_resume) {
+      paused_ = false;
+      resume_callback_();
+    }
+  }
+
   void WriteRecordBatch(std::shared_ptr<RecordBatch> batch, const std::string& directory,
                         const std::string& prefix) {
     write_tasks_->AddSimpleTask(
@@ -549,11 +566,14 @@ class DatasetWriter::DatasetWriterImpl {
               WriteAndCheckBackpressure(std::move(batch), directory, prefix);
           if (!has_room.is_finished()) {
             // We don't have to worry about sequencing backpressure here since
-            // task_group_ serves as our sequencer.  If batches continue to arrive after
-            // we pause they will queue up in task_group_ until we free up and call
-            // Resume
+            // task_group_ serves as our sequencer.  If batches continue to arrive
+            // after we pause they will queue up in task_group_ until we free up and
+            // call Resume
             pause_callback_();
-            return has_room.Then([this] { resume_callback_(); });
+            paused_ = true;
+            return has_room.Then([this] { ResumeIfNeeded(); });
+          } else {
+            ResumeIfNeeded();
           }
           return has_room;
         },
@@ -571,11 +591,14 @@ class DatasetWriter::DatasetWriterImpl {
           return Future<>::MakeFinished();
         },
         "DatasetWriter::FinishAll"sv);
+    // Reset write_tasks_ to signal that we are done adding tasks, this will allow
+    // us to invoke the finish callback once the tasks wrap up.
+    std::lock_guard lg(mutex_);
     write_tasks_.reset();
   }
 
  protected:
-  Status CloseLargestFile() {
+  Status TryCloseLargestFile() {
     std::shared_ptr<DatasetWriterDirectoryQueue> largest = nullptr;
     uint64_t largest_num_rows = 0;
     for (auto& dir_queue : directory_queues_) {
@@ -584,7 +607,10 @@ class DatasetWriter::DatasetWriterImpl {
         largest = dir_queue.second;
       }
     }
-    DCHECK_NE(largest, nullptr);
+    if (largest == nullptr) {
+      // GH-38011: If all written files has written 0 rows, we should not close any file
+      return Status::OK();
+    }
     return largest->FinishCurrentFile();
   }
 
@@ -607,7 +633,16 @@ class DatasetWriter::DatasetWriterImpl {
       bool will_open_file = false;
       ARROW_ASSIGN_OR_RAISE(auto next_chunk, dir_queue->NextWritableChunk(
                                                  batch, &remainder, &will_open_file));
-
+      // GH-39965: `NextWritableChunk` may return an empty batch to signal
+      // that the current file has reached `max_rows_per_file` and should be
+      // finished.
+      if (next_chunk->num_rows() == 0) {
+        batch = std::move(remainder);
+        if (batch) {
+          RETURN_NOT_OK(dir_queue->FinishCurrentFile());
+        }
+        continue;
+      }
       backpressure =
           writer_state_.rows_in_flight_throttle.Acquire(next_chunk->num_rows());
       if (!backpressure.is_finished()) {
@@ -618,11 +653,21 @@ class DatasetWriter::DatasetWriterImpl {
         backpressure = writer_state_.open_files_throttle.Acquire(1);
         if (!backpressure.is_finished()) {
           EVENT_ON_CURRENT_SPAN("DatasetWriter::Backpressure::TooManyOpenFiles");
-          RETURN_NOT_OK(CloseLargestFile());
+          writer_state_.rows_in_flight_throttle.Release(next_chunk->num_rows());
+          RETURN_NOT_OK(TryCloseLargestFile());
           break;
         }
       }
-      RETURN_NOT_OK(dir_queue->StartWrite(next_chunk));
+      auto s = dir_queue->StartWrite(next_chunk);
+      if (!s.ok()) {
+        // If `StartWrite` succeeded, it will Release the
+        // `rows_in_flight_throttle` when the write task is finished.
+        //
+        // `open_files_throttle` will be handed by `DatasetWriterDirectoryQueue`
+        // so we don't need to release it here.
+        writer_state_.rows_in_flight_throttle.Release(next_chunk->num_rows());
+        return s;
+      }
       batch = std::move(remainder);
       if (batch) {
         RETURN_NOT_OK(dir_queue->FinishCurrentFile());
@@ -638,15 +683,17 @@ class DatasetWriter::DatasetWriterImpl {
   }
 
   util::AsyncTaskScheduler* scheduler_ = nullptr;
-  std::unique_ptr<util::AsyncTaskScheduler> write_tasks_;
+  std::unique_ptr<util::ThrottledAsyncTaskScheduler> write_tasks_;
   Future<> finish_fut_ = Future<>::Make();
   FileSystemDatasetWriteOptions write_options_;
   DatasetWriterState writer_state_;
   std::function<void()> pause_callback_;
   std::function<void()> resume_callback_;
+  // Map from directory + prefix to the queue for that directory
   std::unordered_map<std::string, std::shared_ptr<DatasetWriterDirectoryQueue>>
       directory_queues_;
   std::mutex mutex_;
+  bool paused_ = false;
   Status err_;
 };
 

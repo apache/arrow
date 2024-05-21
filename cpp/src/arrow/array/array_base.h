@@ -165,6 +165,22 @@ class ARROW_EXPORT Array {
   /// An error is returned if the types are not layout-compatible.
   Result<std::shared_ptr<Array>> View(const std::shared_ptr<DataType>& type) const;
 
+  /// \brief Construct a copy of the array with all buffers on destination
+  /// Memory Manager
+  ///
+  /// This method recursively copies the array's buffers and those of its children
+  /// onto the destination MemoryManager device and returns the new Array.
+  Result<std::shared_ptr<Array>> CopyTo(const std::shared_ptr<MemoryManager>& to) const;
+
+  /// \brief Construct a new array attempting to zero-copy view if possible.
+  ///
+  /// Like CopyTo this method recursively goes through all of the array's buffers
+  /// and those of it's children and first attempts to create zero-copy
+  /// views on the destination MemoryManager device. If it can't, it falls back
+  /// to performing a copy. See Buffer::ViewOrCopy.
+  Result<std::shared_ptr<Array>> ViewOrCopyTo(
+      const std::shared_ptr<MemoryManager>& to) const;
+
   /// Construct a zero-copy slice of the array with the indicated offset and
   /// length
   ///

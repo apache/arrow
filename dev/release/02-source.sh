@@ -65,7 +65,9 @@ rm -rf ${tag}
   git archive ${release_hash} --prefix ${tag}/) | \
   tar xf -
 
-# Resolve all hard and symbolic links
+# Resolve all hard and symbolic links.
+# If we change this, we must change ArrowSources.archive in
+# dev/archery/archery/utils/source.py too.
 rm -rf ${tag}.tmp
 mv ${tag} ${tag}.tmp
 cp -R -L ${tag}.tmp ${tag}
@@ -168,7 +170,7 @@ Hi,
 
 I would like to propose the following release candidate (RC${rc}) of Apache
 Arrow version ${version}. This is a release consisting of ${n_resolved_issues}
-resolved JIRA issues[1].
+resolved GitHub issues[1].
 
 This release candidate is based on commit:
 ${release_hash} [2]
@@ -200,7 +202,7 @@ The vote will be open for at least 72 hours.
 [10]: https://apache.jfrog.io/artifactory/arrow/python-rc/${version}-rc${rc}
 [11]: https://apache.jfrog.io/artifactory/arrow/ubuntu-rc/
 [12]: https://github.com/apache/arrow/blob/${release_hash}/CHANGELOG.md
-[13]: https://cwiki.apache.org/confluence/display/ARROW/How+to+Verify+Release+Candidates
+[13]: https://arrow.apache.org/docs/developers/release_verification.html
 [14]: ${verify_pr_url}
 MAIL
   echo "---------------------------------------------------------"

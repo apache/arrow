@@ -20,6 +20,8 @@ package org.apache.arrow.algorithm.search;
 import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.OFFSET_WIDTH;
 import static org.junit.Assert.assertEquals;
 
+import java.nio.charset.StandardCharsets;
+
 import org.apache.arrow.algorithm.sort.DefaultVectorComparators;
 import org.apache.arrow.algorithm.sort.VectorValueComparator;
 import org.apache.arrow.memory.BufferAllocator;
@@ -142,7 +144,7 @@ public class TestVectorSearcher {
           rawVector.set(i, content);
         }
       }
-      negVector.set(0, "abcd".getBytes());
+      negVector.set(0, "abcd".getBytes(StandardCharsets.UTF_8));
 
       // do search
       VectorValueComparator<BaseVariableWidthVector> comparator =
@@ -181,7 +183,7 @@ public class TestVectorSearcher {
           rawVector.set(i, content);
         }
       }
-      negVector.set(0, "abcd".getBytes());
+      negVector.set(0, "abcd".getBytes(StandardCharsets.UTF_8));
 
       // do search
       VectorValueComparator<BaseVariableWidthVector> comparator =

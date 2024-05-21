@@ -54,6 +54,7 @@
 #include "arrow/engine/substrait/options.h"
 #include "arrow/engine/substrait/serde.h"
 #include "arrow/engine/substrait/test_util.h"
+#include "arrow/engine/substrait/type_internal.h"
 #include "arrow/engine/substrait/util.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/localfs.h"
@@ -71,6 +72,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/async_generator_fwd.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/config.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/future.h"
 #include "arrow/util/hash_util.h"
@@ -298,6 +300,8 @@ TEST(Substrait, SupportedTypes) {
            map(utf8(), field("", utf8()), false));
 }
 
+// These types don't exist in Substrait.  However, we have user defined types
+// defined for them and they should be able to round-trip
 TEST(Substrait, SupportedExtensionTypes) {
   ExtensionSet ext_set;
 
@@ -307,6 +311,12 @@ TEST(Substrait, SupportedExtensionTypes) {
            uint16(),
            uint32(),
            uint64(),
+           large_utf8(),
+           large_binary(),
+           date64(),
+           time32(TimeUnit::SECOND),
+           time32(TimeUnit::MILLI),
+           time64(TimeUnit::NANO),
        }) {
     auto anchor = ext_set.num_types();
 
@@ -328,6 +338,53 @@ TEST(Substrait, SupportedExtensionTypes) {
 
     ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeType(*serialized, ext_set));
     EXPECT_EQ(*roundtripped, *expected_type);
+  }
+}
+
+// Encodings are not considered distinct types in Substrait.  The encoding information
+// is lost during a round-trip.
+TEST(Substrait, OneWayTypes) {
+  ExtensionSet ext_set;
+
+  for (auto [source_type, return_type] :
+       {std::pair{binary_view(), binary()},
+        {utf8_view(), utf8()},
+        {dictionary(int32(), utf8()), utf8()},
+        {run_end_encoded(int32(), int32()), int32()},
+        {dictionary(int32(), dictionary(int32(), utf8())), utf8()}}) {
+    ASSERT_OK_AND_ASSIGN(auto substrait_type, SerializeType(*source_type, &ext_set, {}));
+
+    ASSERT_OK_AND_ASSIGN(auto actual_return,
+                         DeserializeType(*substrait_type, ext_set, {}));
+
+    EXPECT_EQ(*actual_return, *return_type);
+  }
+}
+
+// Substrait does not store the time zone as part of the type.  That information is stored
+// on the function instead.  As a result, that information is lost on a round-trip.
+TEST(Substrait, TimestampTypes) {
+  ExtensionSet ext_set;
+
+  for (auto time_unit :
+       {TimeUnit::NANO, TimeUnit::MICRO, TimeUnit::MILLI, TimeUnit::SECOND}) {
+    for (auto time_zone : {"UTC", "America/New_York"}) {
+      auto input_type = timestamp(time_unit, time_zone);
+      ASSERT_OK_AND_ASSIGN(auto substrait_type, SerializeType(*input_type, &ext_set, {}));
+
+      auto expected_return = timestamp(time_unit, TimestampTzTimezoneString());
+      ASSERT_OK_AND_ASSIGN(auto actual_return,
+                           DeserializeType(*substrait_type, ext_set, {}));
+
+      EXPECT_EQ(*actual_return, *expected_return);
+    }
+    auto input_type = timestamp(time_unit);
+    ASSERT_OK_AND_ASSIGN(auto substrait_type, SerializeType(*input_type, &ext_set, {}));
+
+    ASSERT_OK_AND_ASSIGN(auto actual_return,
+                         DeserializeType(*substrait_type, ext_set, {}));
+
+    EXPECT_EQ(*actual_return, *input_type);
   }
 }
 
@@ -414,26 +471,11 @@ TEST(Substrait, NoEquivalentArrowType) {
 
 TEST(Substrait, NoEquivalentSubstraitType) {
   for (auto type : {
-           date64(),
-           timestamp(TimeUnit::SECOND),
-           timestamp(TimeUnit::NANO),
-           timestamp(TimeUnit::MICRO, "New York"),
-           time32(TimeUnit::SECOND),
-           time32(TimeUnit::MILLI),
-           time64(TimeUnit::NANO),
-
            decimal256(76, 67),
-
            sparse_union({field("i8", int8()), field("f32", float32())}),
            dense_union({field("i8", int8()), field("f32", float32())}),
-           dictionary(int32(), utf8()),
-
            fixed_size_list(float16(), 3),
-
            duration(TimeUnit::MICRO),
-
-           large_utf8(),
-           large_binary(),
            large_list(utf8()),
        }) {
     ARROW_SCOPED_TRACE(type->ToString());
@@ -560,6 +602,56 @@ TEST(Substrait, SupportedLiterals) {
     ASSERT_OK_AND_ASSIGN(auto json, internal::SubstraitToJSON("Type", *buf));
     ExpectEq("{\"null\": " + json + "}", MakeNullScalar(type));
   }
+}
+
+template <typename ScalarType>
+void CheckArrowSpecificLiteral(ScalarType scalar) {
+  compute::Expression lit = compute::literal(scalar);
+  ExtensionSet ext_set;
+  ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(lit, &ext_set));
+  ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeExpression(*serialized, ext_set));
+  ASSERT_EQ(lit, roundtripped);
+}
+
+TEST(Substrait, ArrowSpecificLiterals) {
+  CheckArrowSpecificLiteral(UInt8Scalar(7));
+  CheckArrowSpecificLiteral(UInt16Scalar(7));
+  CheckArrowSpecificLiteral(UInt32Scalar(7));
+  CheckArrowSpecificLiteral(UInt64Scalar(7));
+  CheckArrowSpecificLiteral(Date64Scalar(86400000));
+  CheckArrowSpecificLiteral(Time64Scalar(7, TimeUnit::NANO));
+  CheckArrowSpecificLiteral(Time32Scalar(7, TimeUnit::SECOND));
+  CheckArrowSpecificLiteral(Time32Scalar(7, TimeUnit::MILLI));
+  CheckArrowSpecificLiteral(Time32Scalar(7, TimeUnit::SECOND));
+  // We serialize as a signed integer, which doesn't make sense for Time scalars but
+  // Arrow supports it so we might as well round-trip it.
+  CheckArrowSpecificLiteral(Time32Scalar(-7, TimeUnit::MILLI));
+  CheckArrowSpecificLiteral(Time32Scalar(-7, TimeUnit::SECOND));
+  CheckArrowSpecificLiteral(Time64Scalar(-7, TimeUnit::NANO));
+  // Negative date scalars DO make sense and we should make sure they work
+  CheckArrowSpecificLiteral(Date64Scalar(-86400000));
+  CheckArrowSpecificLiteral(HalfFloatScalar(0));
+  CheckArrowSpecificLiteral(LargeStringScalar("hello"));
+  CheckArrowSpecificLiteral(LargeBinaryScalar("hello"));
+  CheckArrowSpecificLiteral(MakeNullScalar(null()));
+}
+
+template <typename SourceScalarType, typename DestScalarType>
+void CheckOneWayLiteral(SourceScalarType source, DestScalarType expected) {
+  compute::Expression lit = compute::literal(source);
+  ExtensionSet ext_set;
+  ASSERT_OK_AND_ASSIGN(auto serialized, SerializeExpression(lit, &ext_set));
+  ASSERT_OK_AND_ASSIGN(auto roundtripped, DeserializeExpression(*serialized, ext_set));
+  compute::Expression expected_lit = compute::literal(expected);
+  ASSERT_EQ(expected_lit, roundtripped);
+}
+
+TEST(Substrait, OneWayLiterals) {
+  CheckOneWayLiteral(StringViewScalar("test"), StringScalar("test"));
+  CheckOneWayLiteral(BinaryViewScalar("test"), BinaryScalar("test"));
+  CheckOneWayLiteral(RunEndEncodedScalar(std::make_shared<UInt32Scalar>(7),
+                                         run_end_encoded(int16(), uint32())),
+                     UInt32Scalar(7));
 }
 
 TEST(Substrait, CannotDeserializeLiteral) {
@@ -822,8 +914,8 @@ TEST(Substrait, Cast) {
   std::shared_ptr<compute::CastOptions> cast_opts =
       std::dynamic_pointer_cast<compute::CastOptions>(call_opts);
   ASSERT_TRUE(!!cast_opts);
-  // It is unclear whether a Substrait cast should be safe or not.  In the meantime we are
-  // assuming it is unsafe based on the behavior of many SQL engines.
+  // It is unclear whether a Substrait cast should be safe or not.  In the meantime we
+  // are assuming it is unsafe based on the behavior of many SQL engines.
   ASSERT_TRUE(cast_opts->allow_int_overflow);
   ASSERT_TRUE(cast_opts->allow_float_truncate);
   ASSERT_TRUE(cast_opts->allow_decimal_truncate);
@@ -970,6 +1062,86 @@ NamedTableProvider AlwaysProvideSameTable(std::shared_ptr<Table> table) {
         std::make_shared<acero::TableSourceNodeOptions>(table);
     return acero::Declaration("table_source", {}, options, "mock_source");
   };
+}
+
+TEST(Substrait, ExecReadRelWithLocalFiles) {
+  ASSERT_OK_AND_ASSIGN(std::string dir_string,
+                       arrow::internal::GetEnvVar("PARQUET_TEST_DATA"));
+
+  std::string substrait_json = R"({
+    "relations": [
+    {
+      "root": {
+        "input": {
+          "read": {
+            "common": {
+              "direct": {}
+            },
+            "baseSchema": {
+              "names": [
+                "f32",
+                "f64"
+              ],
+              "struct": {
+                "types": [
+                  {
+                    "fp32": {
+                      "nullability": "NULLABILITY_REQUIRED"
+                    }
+                  },
+                  {
+                    "fp64": {
+                      "nullability": "NULLABILITY_REQUIRED"
+                    }
+                  }
+                ],
+                "nullability": "NULLABILITY_REQUIRED"
+              }
+            },
+            "localFiles": {
+              "items": [
+                {
+                  "uriFile": "file://[DIRECTORY_PLACEHOLDER]/byte_stream_split.zstd.parquet",
+                  "parquet": {}
+                }
+              ]
+            }
+          }
+        },
+        "names": [
+          "f32",
+          "f64"
+        ]
+      }
+    }
+    ],
+    "version": {
+    "minorNumber": 42,
+    "producer": "my-producer"
+    }
+  })";
+  const char* placeholder = "[DIRECTORY_PLACEHOLDER]";
+  substrait_json.replace(substrait_json.find(placeholder), strlen(placeholder),
+                         dir_string);
+
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
+
+  ASSERT_OK_AND_ASSIGN(auto declarations,
+                       DeserializePlans(*buf, acero::NullSinkNodeConsumer::Make));
+  ASSERT_EQ(declarations.size(), 1);
+  acero::Declaration* decl = &declarations[0];
+  ASSERT_EQ(decl->factory_name, "consuming_sink");
+  ASSERT_OK_AND_ASSIGN(auto plan, acero::ExecPlan::Make());
+  ASSERT_OK_AND_ASSIGN(auto sink_node, declarations[0].AddToPlan(plan.get()));
+  ASSERT_STREQ(sink_node->kind_name(), "ConsumingSinkNode");
+  ASSERT_EQ(sink_node->num_inputs(), 1);
+  auto& prev_node = sink_node->inputs()[0];
+  ASSERT_STREQ(prev_node->kind_name(), "SourceNode");
+
+  plan->StartProducing();
+  ASSERT_FINISHES_OK(plan->finished());
 }
 
 TEST(Substrait, RelWithHint) {
@@ -1333,7 +1505,7 @@ TEST(Substrait, GetRecordBatchReader) {
     ASSERT_OK_AND_ASSIGN(auto reader, ExecuteSerializedPlan(*buf));
     ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatchReader(reader.get()));
     // Note: assuming the binary.parquet file contains fixed amount of records
-    // in case of a test failure, re-evalaute the content in the file
+    // in case of a test failure, re-evaluate the content in the file
     EXPECT_EQ(table->num_rows(), 12);
   });
 }
@@ -2351,6 +2523,7 @@ TEST(SubstraitRoundTrip, BasicPlanEndToEnd) {
 
   auto scan_options = std::make_shared<dataset::ScanOptions>();
   scan_options->projection = compute::project({}, {});
+  scan_options->add_augmented_fields = false;
   const std::string filter_col_left = "shared";
   const std::string filter_col_right = "distinct";
   auto comp_left_value = compute::field_ref(filter_col_left);
@@ -4222,7 +4395,7 @@ TEST(Substrait, ReadRelWithGlobFiles) {
       }
     }]
   })"));
-  // To avoid unnecessar metadata columns being included in the final result
+  // To avoid unnecessary metadata columns being included in the final result
   std::vector<int> include_columns = {0, 1, 2};
   compute::SortOptions options({compute::SortKey("A", compute::SortOrder::Ascending)});
   CheckRoundTripResult(std::move(expected_table), buf, std::move(include_columns),
@@ -4458,6 +4631,9 @@ TEST(Substrait, SetRelationBasic) {
 }
 
 TEST(Substrait, PlanWithAsOfJoinExtension) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "ASOF join requires threading";
+#endif
   // This demos an extension relation
   std::string substrait_json = R"({
     "extensionUris": [],
@@ -5477,6 +5653,10 @@ TEST(Substrait, MixedSort) {
 }
 
 TEST(Substrait, PlanWithExtension) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "ASOF join requires threading";
+#endif
+
   // This demos an extension relation
   std::string substrait_json = R"({
     "extensionUris": [],
@@ -5665,6 +5845,9 @@ TEST(Substrait, PlanWithExtension) {
 }
 
 TEST(Substrait, AsOfJoinDefaultEmit) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "ASOF join requires threading";
+#endif
   std::string substrait_json = R"({
     "extensionUris": [],
     "extensions": [],
@@ -6057,6 +6240,101 @@ TEST(Substrait, PlanWithSegmentedAggregateExtension) {
   auto expected_table =
       TableFromJSON(output_schema, {"[[1, 1, 4], [1, 2, 2], [2, 2, 10], [2, 1, 5]]"});
   CheckRoundTripResult(std::move(expected_table), buf, {}, conversion_options);
+}
+
+void CheckExpressionRoundTrip(const Schema& schema,
+                              const compute::Expression& expression) {
+  ASSERT_OK_AND_ASSIGN(compute::Expression bound_expression, expression.Bind(schema));
+  BoundExpressions bound_expressions;
+  bound_expressions.schema = std::make_shared<Schema>(schema);
+  bound_expressions.named_expressions = {{std::move(bound_expression), "some_name"}};
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buf,
+                       SerializeExpressions(bound_expressions));
+
+  ASSERT_OK_AND_ASSIGN(BoundExpressions round_tripped, DeserializeExpressions(*buf));
+
+  AssertSchemaEqual(schema, *round_tripped.schema);
+  ASSERT_EQ(1, round_tripped.named_expressions.size());
+  ASSERT_EQ("some_name", round_tripped.named_expressions[0].name);
+  ASSERT_EQ(bound_expressions.named_expressions[0].expression,
+            round_tripped.named_expressions[0].expression);
+}
+
+TEST(Substrait, ExtendedExpressionSerialization) {
+  std::shared_ptr<Schema> test_schema =
+      schema({field("a", int32()), field("b", int32()), field("c", float32()),
+              field("nested", struct_({field("x", float32()), field("y", float32())}))});
+  // Basic a + b
+  CheckExpressionRoundTrip(
+      *test_schema, compute::call("add", {compute::field_ref(0), compute::field_ref(1)}));
+  // Nested struct reference
+  CheckExpressionRoundTrip(*test_schema, compute::field_ref(FieldPath{3, 0}));
+  // Struct return type
+  CheckExpressionRoundTrip(*test_schema, compute::field_ref(3));
+  // c + nested.y
+  CheckExpressionRoundTrip(
+      *test_schema,
+      compute::call("add", {compute::field_ref(2), compute::field_ref(FieldPath{3, 1})}));
+}
+
+TEST(Substrait, ExtendedExpressionInvalidPlans) {
+  // The schema defines the type as {"x", "y"} but output_names has {"a", "y"}
+  constexpr std::string_view kBadOutputNames = R"(
+    {
+      "referredExpr":[
+        {
+          "expression":{
+            "selection":{
+              "directReference":{
+                "structField":{
+                  "field":3
+                }
+              },
+              "rootReference":{}
+            }
+          },
+          "outputNames":["a", "y", "some_name"]
+        }
+      ],
+      "baseSchema":{
+        "names":["a","b","c","nested","x","y"],
+        "struct":{
+          "types":[
+            {
+              "i32":{"nullability":"NULLABILITY_NULLABLE"}
+            },
+            {
+              "i32":{"nullability":"NULLABILITY_NULLABLE"}
+            },
+            {
+              "fp32":{"nullability":"NULLABILITY_NULLABLE"}
+            },
+            {
+              "struct":{
+                "types":[
+                  {
+                    "fp32":{"nullability":"NULLABILITY_NULLABLE"}
+                  },
+                  {
+                    "fp32":{"nullability":"NULLABILITY_NULLABLE"}
+                  }
+                ],
+                "nullability":"NULLABILITY_NULLABLE"
+              }
+            }
+          ]
+        }
+      },
+      "version":{"majorNumber":9999}
+    }
+  )";
+
+  ASSERT_OK_AND_ASSIGN(
+      auto buf, internal::SubstraitFromJSON("ExtendedExpression", kBadOutputNames));
+
+  ASSERT_THAT(DeserializeExpressions(*buf),
+              Raises(StatusCode::Invalid, testing::HasSubstr("Ambiguous plan")));
 }
 
 }  // namespace engine

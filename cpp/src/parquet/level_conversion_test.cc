@@ -31,8 +31,7 @@
 #include "arrow/util/bitmap.h"
 #include "arrow/util/ubsan.h"
 
-namespace parquet {
-namespace internal {
+namespace parquet::internal {
 
 using ::arrow::internal::Bitmap;
 using ::testing::ElementsAreArray;
@@ -128,7 +127,7 @@ TEST(DefLevelsToBitmap, WithRepetitionLevelFiltersOutEmptyListValues) {
   level_info.repeated_ancestor_def_level = 1;
   level_info.def_level = 2;
   level_info.rep_level = 1;
-  // All zeros should be ignored, ones should be unset in the bitmp and 2 should be set.
+  // All zeros should be ignored, ones should be unset in the bitmap and 2 should be set.
   std::vector<int16_t> def_levels = {0, 0, 0, 2, 2, 1, 0, 2};
   DefLevelsToBitmap(def_levels.data(), def_levels.size(), level_info, &io);
 
@@ -357,5 +356,4 @@ TEST(TestOnlyExtractBitsSoftware, BasicTest) {
   check(0xFECBDA9876543210ULL, 0xF00FF00FF00FF00FULL, 0xFBD87430ULL);
 }
 
-}  // namespace internal
-}  // namespace parquet
+}  // namespace parquet::internal

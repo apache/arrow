@@ -33,6 +33,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/compression.h"
+#include "arrow/util/config.h"
 
 namespace arrow {
 namespace io {

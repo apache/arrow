@@ -205,7 +205,7 @@ func TestStructOf(t *testing.T) {
 				t.Fatalf("invalid name. got=%q, want=%q", got, want)
 			}
 
-			if got, want := len(got.Fields()), len(tc.fields); got != want {
+			if got, want := got.NumFields(), len(tc.fields); got != want {
 				t.Fatalf("invalid number of fields. got=%d, want=%d", got, want)
 			}
 

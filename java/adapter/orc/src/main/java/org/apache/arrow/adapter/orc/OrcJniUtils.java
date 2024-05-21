@@ -32,14 +32,15 @@ class OrcJniUtils {
   private static final String LIBRARY_NAME = "arrow_orc_jni";
   private static boolean isLoaded = false;
 
-  private OrcJniUtils() {}
+  private OrcJniUtils() {
+  }
 
   static void loadOrcAdapterLibraryFromJar()
           throws IOException, IllegalAccessException {
     synchronized (OrcJniUtils.class) {
       if (!isLoaded) {
         final String libraryToLoad =
-            getNormalizedArch() + "/" + System.mapLibraryName(LIBRARY_NAME);
+            LIBRARY_NAME + "/" + getNormalizedArch() + "/" + System.mapLibraryName(LIBRARY_NAME);
         final File libraryFile =
             moveFileFromJarToTemp(System.getProperty("java.io.tmpdir"), libraryToLoad, LIBRARY_NAME);
         System.load(libraryFile.getAbsolutePath());

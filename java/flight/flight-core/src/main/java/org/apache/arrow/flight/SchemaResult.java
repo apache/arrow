@@ -21,6 +21,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
+import java.util.Objects;
 
 import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.vector.ipc.ReadChannel;
@@ -52,6 +53,7 @@ public class SchemaResult {
    * Create a schema result with specific IPC options for serialization.
    */
   public SchemaResult(Schema schema, IpcOption option) {
+    Objects.requireNonNull(schema);
     MetadataV4UnionChecker.checkForUnion(schema.getFields().iterator(), option.metadataVersion);
     this.schema = schema;
     this.option = option;

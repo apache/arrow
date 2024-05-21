@@ -30,9 +30,9 @@ namespace Apache.Arrow.C
 #if NET5_0_OR_GREATER
         private static unsafe delegate* unmanaged<CArrowSchema*, void> ReleaseSchemaPtr => &ReleaseCArrowSchema;
 #else
-        private unsafe delegate void ReleaseArrowSchema(CArrowSchema* cArray);
+        internal unsafe delegate void ReleaseArrowSchema(CArrowSchema* cArray);
         private static unsafe readonly NativeDelegate<ReleaseArrowSchema> s_releaseSchema = new NativeDelegate<ReleaseArrowSchema>(ReleaseCArrowSchema);
-        private static unsafe delegate* unmanaged[Cdecl]<CArrowSchema*, void> ReleaseSchemaPtr => (delegate* unmanaged[Cdecl]<CArrowSchema*, void>)s_releaseSchema.Pointer;
+        private static IntPtr ReleaseSchemaPtr => s_releaseSchema.Pointer;
 #endif
 
         /// <summary>
@@ -124,6 +124,23 @@ namespace Apache.Arrow.C
             _ => throw new InvalidDataException($"Unsupported time unit for export: {unit}"),
         };
 
+        private static string FormatUnion(UnionType unionType)
+        {
+            StringBuilder builder = new StringBuilder();
+            builder.Append(unionType.Mode switch
+            {
+                UnionMode.Sparse => "+us:",
+                UnionMode.Dense => "+ud:",
+                _ => throw new InvalidDataException($"Unsupported union mode for export: {unionType.Mode}"),
+            });
+            for (int i = 0; i < unionType.TypeIds.Length; i++)
+            {
+                if (i > 0) { builder.Append(','); }
+                builder.Append(unionType.TypeIds[i]);
+            }
+            return builder.ToString();
+        }
+
         private static string GetFormat(IArrowType datatype)
         {
             switch (datatype)
@@ -150,7 +167,9 @@ namespace Apache.Arrow.C
                     return $"d:{decimalType.Precision},{decimalType.Scale},256";
                 // Binary
                 case BinaryType _: return "z";
+                case BinaryViewType _: return "vz";
                 case StringType _: return "u";
+                case StringViewType _: return "vu";
                 case FixedSizeBinaryType binaryType:
                     return $"w:{binaryType.ByteWidth}";
                 // Date
@@ -162,12 +181,29 @@ namespace Apache.Arrow.C
                 case Time64Type timeType:
                     // Same prefix as Time32, but allowed time units are different.
                     return String.Format("tt{0}", FormatTimeUnit(timeType.Unit));
+                // Duration
+                case DurationType durationType:
+                    return String.Format("tD{0}", FormatTimeUnit(durationType.Unit));
                 // Timestamp
                 case TimestampType timestampType:
                     return String.Format("ts{0}:{1}", FormatTimeUnit(timestampType.Unit), timestampType.Timezone);
+                // Interval
+                case IntervalType intervalType:
+                    return intervalType.Unit switch
+                    {
+                        IntervalUnit.YearMonth => "tiM",
+                        IntervalUnit.DayTime => "tiD",
+                        IntervalUnit.MonthDayNanosecond => "tin",
+                        _ => throw new InvalidDataException($"Unsupported interval unit for export: {intervalType.Unit}"),
+                    };
                 // Nested
                 case ListType _: return "+l";
+                case ListViewType _: return "+vl";
+                case FixedSizeListType fixedListType:
+                    return $"+w:{fixedListType.ListSize}";
                 case StructType _: return "+s";
+                case UnionType u: return FormatUnion(u);
+                case MapType _: return "+m";
                 // Dictionary
                 case DictionaryType dictionaryType:
                     return GetFormat(dictionaryType.IndexType);
@@ -192,10 +228,9 @@ namespace Apache.Arrow.C
                 }
             }
 
-            if (datatype.TypeId == ArrowTypeId.Map)
+            if (datatype is MapType mapType && mapType.KeySorted)
             {
-                // TODO: when we implement MapType, make sure to set the KEYS_SORTED flag.
-                throw new NotSupportedException("Exporting MapTypes is not supported.");
+                flags |= CArrowSchema.ArrowFlagMapKeysSorted;
             }
 
             return flags;
@@ -297,7 +332,7 @@ namespace Apache.Arrow.C
         private static unsafe void ReleaseCArrowSchema(CArrowSchema* schema)
         {
             if (schema == null) return;
-            if (schema->release == null) return;
+            if (schema->release == default) return;
 
             Marshal.FreeHGlobal((IntPtr)schema->format);
             Marshal.FreeHGlobal((IntPtr)schema->name);
@@ -324,7 +359,7 @@ namespace Apache.Arrow.C
             schema->n_children = 0;
             schema->dictionary = null;
             schema->children = null;
-            schema->release = null;
+            schema->release = default;
         }
     }
 }

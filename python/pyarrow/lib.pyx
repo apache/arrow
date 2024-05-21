@@ -106,8 +106,12 @@ Type_STRING = _Type_STRING
 Type_LARGE_BINARY = _Type_LARGE_BINARY
 Type_LARGE_STRING = _Type_LARGE_STRING
 Type_FIXED_SIZE_BINARY = _Type_FIXED_SIZE_BINARY
+Type_BINARY_VIEW = _Type_BINARY_VIEW
+Type_STRING_VIEW = _Type_STRING_VIEW
 Type_LIST = _Type_LIST
 Type_LARGE_LIST = _Type_LARGE_LIST
+Type_LIST_VIEW = _Type_LIST_VIEW
+Type_LARGE_LIST_VIEW = _Type_LARGE_LIST_VIEW
 Type_MAP = _Type_MAP
 Type_FIXED_SIZE_LIST = _Type_FIXED_SIZE_LIST
 Type_STRUCT = _Type_STRUCT
@@ -175,6 +179,9 @@ include "table.pxi"
 
 # Tensors
 include "tensor.pxi"
+
+# DLPack
+include "_dlpack.pxi"
 
 # File IO
 include "io.pxi"

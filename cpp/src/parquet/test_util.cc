@@ -30,6 +30,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/testing/uniform_real.h"
 #include "parquet/column_page.h"
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
@@ -100,6 +101,16 @@ void random_Int96_numbers(int n, uint32_t seed, int32_t min_value, int32_t max_v
   }
 }
 
+void random_float16_numbers(int n, uint32_t seed, ::arrow::util::Float16 min_value,
+                            ::arrow::util::Float16 max_value, uint16_t* out) {
+  std::vector<float> values(n);
+  random_numbers(n, seed, static_cast<float>(min_value), static_cast<float>(max_value),
+                 values.data());
+  for (int i = 0; i < n; ++i) {
+    out[i] = ::arrow::util::Float16(values[i]).bits();
+  }
+}
+
 void random_fixed_byte_array(int n, uint32_t seed, uint8_t* buf, int len, FLBA* out) {
   std::default_random_engine gen(seed);
   std::uniform_int_distribution<int> d(0, 255);
@@ -130,6 +141,57 @@ void random_byte_array(int n, uint32_t seed, uint8_t* buf, ByteArray* out, int m
 
 void random_byte_array(int n, uint32_t seed, uint8_t* buf, ByteArray* out, int max_size) {
   random_byte_array(n, seed, buf, out, 0, max_size);
+}
+
+void prefixed_random_byte_array(int n, uint32_t seed, uint8_t* buf, ByteArray* out,
+                                int min_size, int max_size, double prefixed_probability) {
+  std::default_random_engine gen(seed);
+  std::uniform_int_distribution<int> dist_size(min_size, max_size);
+  std::uniform_int_distribution<int> dist_byte(0, 255);
+  std::bernoulli_distribution dist_has_prefix(prefixed_probability);
+  std::uniform_real_distribution<double> dist_prefix_length(0, 1);
+
+  for (int i = 0; i < n; ++i) {
+    int len = dist_size(gen);
+    out[i].len = len;
+    out[i].ptr = buf;
+
+    bool do_prefix = dist_has_prefix(gen) && i > 0;
+    int prefix_len = 0;
+    if (do_prefix) {
+      int max_prefix_len = std::min(len, static_cast<int>(out[i - 1].len));
+      prefix_len = static_cast<int>(std::ceil(max_prefix_len * dist_prefix_length(gen)));
+    }
+    for (int j = 0; j < prefix_len; ++j) {
+      buf[j] = out[i - 1].ptr[j];
+    }
+    for (int j = prefix_len; j < len; ++j) {
+      buf[j] = static_cast<uint8_t>(dist_byte(gen));
+    }
+    buf += len;
+  }
+}
+
+void prefixed_random_byte_array(int n, uint32_t seed, uint8_t* buf, int len, FLBA* out,
+                                double prefixed_probability) {
+  std::default_random_engine gen(seed);
+  std::uniform_int_distribution<int> dist_byte(0, 255);
+  std::bernoulli_distribution dist_has_prefix(prefixed_probability);
+  std::uniform_int_distribution<int> dist_size(0, len);
+
+  for (int i = 0; i < n; ++i) {
+    out[i].ptr = buf;
+
+    bool do_prefix = dist_has_prefix(gen) && i > 0;
+    int prefix_len = do_prefix ? dist_size(gen) : 0;
+    for (int j = 0; j < prefix_len; ++j) {
+      buf[j] = out[i - 1].ptr[j];
+    }
+    for (int j = prefix_len; j < len; ++j) {
+      buf[j] = static_cast<uint8_t>(dist_byte(gen));
+    }
+    buf += len;
+  }
 }
 
 }  // namespace test

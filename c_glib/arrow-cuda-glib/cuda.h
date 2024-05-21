@@ -35,22 +35,16 @@ struct _GArrowCUDADeviceManagerClass
 };
 
 #define GARROW_CUDA_TYPE_CONTEXT (garrow_cuda_context_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowCUDAContext,
-                         garrow_cuda_context,
-                         GARROW_CUDA,
-                         CONTEXT,
-                         GObject)
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowCUDAContext, garrow_cuda_context, GARROW_CUDA, CONTEXT, GObject)
 struct _GArrowCUDAContextClass
 {
   GObjectClass parent_class;
 };
 
 #define GARROW_CUDA_TYPE_BUFFER (garrow_cuda_buffer_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowCUDABuffer,
-                         garrow_cuda_buffer,
-                         GARROW_CUDA,
-                         BUFFER,
-                         GArrowBuffer)
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowCUDABuffer, garrow_cuda_buffer, GARROW_CUDA, BUFFER, GArrowBuffer)
 struct _GArrowCUDABufferClass
 {
   GArrowBufferClass parent_class;
@@ -67,8 +61,7 @@ struct _GArrowCUDAHostBufferClass
   GArrowMutableBufferClass parent_class;
 };
 
-#define GARROW_CUDA_TYPE_IPC_MEMORY_HANDLE      \
-  (garrow_cuda_ipc_memory_handle_get_type())
+#define GARROW_CUDA_TYPE_IPC_MEMORY_HANDLE (garrow_cuda_ipc_memory_handle_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowCUDAIPCMemoryHandle,
                          garrow_cuda_ipc_memory_handle,
                          GARROW_CUDA,
@@ -79,8 +72,7 @@ struct _GArrowCUDAIPCMemoryHandleClass
   GObjectClass parent_class;
 };
 
-#define GARROW_CUDA_TYPE_BUFFER_INPUT_STREAM    \
-  (garrow_cuda_buffer_input_stream_get_type())
+#define GARROW_CUDA_TYPE_BUFFER_INPUT_STREAM (garrow_cuda_buffer_input_stream_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowCUDABufferInputStream,
                          garrow_cuda_buffer_input_stream,
                          GARROW_CUDA,
@@ -91,7 +83,7 @@ struct _GArrowCUDABufferInputStreamClass
   GArrowBufferInputStreamClass parent_class;
 };
 
-#define GARROW_CUDA_TYPE_BUFFER_OUTPUT_STREAM   \
+#define GARROW_CUDA_TYPE_BUFFER_OUTPUT_STREAM                                            \
   (garrow_cuda_buffer_output_stream_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowCUDABufferOutputStream,
                          garrow_cuda_buffer_output_stream,
@@ -116,11 +108,8 @@ garrow_cuda_device_manager_get_n_devices(GArrowCUDADeviceManager *manager);
 gint64
 garrow_cuda_context_get_allocated_size(GArrowCUDAContext *context);
 
-
 GArrowCUDABuffer *
-garrow_cuda_buffer_new(GArrowCUDAContext *context,
-                       gint64 size,
-                       GError **error);
+garrow_cuda_buffer_new(GArrowCUDAContext *context, gint64 size, GError **error);
 GArrowCUDABuffer *
 garrow_cuda_buffer_new_ipc(GArrowCUDAContext *context,
                            GArrowCUDAIPCMemoryHandle *handle,
@@ -140,8 +129,7 @@ garrow_cuda_buffer_copy_from_host(GArrowCUDABuffer *buffer,
                                   gint64 size,
                                   GError **error);
 GArrowCUDAIPCMemoryHandle *
-garrow_cuda_buffer_export(GArrowCUDABuffer *buffer,
-                          GError **error);
+garrow_cuda_buffer_export(GArrowCUDABuffer *buffer, GError **error);
 GArrowCUDAContext *
 garrow_cuda_buffer_get_context(GArrowCUDABuffer *buffer);
 GArrowRecordBatch *
@@ -150,16 +138,11 @@ garrow_cuda_buffer_read_record_batch(GArrowCUDABuffer *buffer,
                                      GArrowReadOptions *options,
                                      GError **error);
 
-
 GArrowCUDAHostBuffer *
-garrow_cuda_host_buffer_new(gint gpu_number,
-                            gint64 size,
-                            GError **error);
+garrow_cuda_host_buffer_new(gint gpu_number, gint64 size, GError **error);
 
 GArrowCUDAIPCMemoryHandle *
-garrow_cuda_ipc_memory_handle_new(const guint8 *data,
-                                  gsize size,
-                                  GError **error);
+garrow_cuda_ipc_memory_handle_new(const guint8 *data, gsize size, GError **error);
 
 GArrowBuffer *
 garrow_cuda_ipc_memory_handle_serialize(GArrowCUDAIPCMemoryHandle *handle,

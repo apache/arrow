@@ -141,13 +141,13 @@ struct EncodingTraits<ByteArrayType> {
   using Encoder = ByteArrayEncoder;
   using Decoder = ByteArrayDecoder;
 
+  using ArrowType = ::arrow::BinaryType;
   /// \brief Internal helper class for decoding BYTE_ARRAY data where we can
   /// overflow the capacity of a single arrow::BinaryArray
   struct Accumulator {
     std::unique_ptr<::arrow::BinaryBuilder> builder;
     std::vector<std::shared_ptr<::arrow::Array>> chunks;
   };
-  using ArrowType = ::arrow::BinaryType;
   using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::BinaryType>;
 };
 
@@ -233,7 +233,7 @@ class DictEncoder : virtual public TypedEncoder<DType> {
 
   /// \brief EXPERIMENTAL: Append dictionary indices into the encoder. It is
   /// assumed (without any boundschecking) that the indices reference
-  /// pre-existing dictionary values
+  /// preexisting dictionary values
   /// \param[in] indices the dictionary index values. Only Int32Array currently
   /// supported
   virtual void PutIndices(const ::arrow::Array& indices) = 0;
@@ -255,6 +255,11 @@ class Decoder {
 
   // Sets the data for a new page. This will be called multiple times on the same
   // decoder and should reset all internal state.
+  //
+  // `num_values` comes from the data page header, and may be greater than the number of
+  // physical values in the data buffer if there are some omitted (null) values.
+  // `len`, on the other hand, is the size in bytes of the data buffer and
+  // directly relates to the number of physical values.
   virtual void SetData(int num_values, const uint8_t* data, int len) = 0;
 
   // Returns the number of values left (for the last call to SetData()). This is
@@ -400,7 +405,9 @@ class BooleanDecoder : virtual public TypedDecoder<BooleanType> {
   /// \brief Decode and bit-pack values into a buffer
   ///
   /// \param[in] buffer destination for decoded values
-  /// This buffer will contain bit-packed values.
+  /// This buffer will contain bit-packed values. If
+  /// max_values is not a multiple of 8, the trailing bits
+  /// of the last byte will be undefined.
   /// \param[in] max_values max values to decode.
   /// \return The number of values decoded. Should be identical to max_values except
   /// at the end of the current data page.

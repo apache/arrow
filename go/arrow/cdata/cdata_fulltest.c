@@ -27,7 +27,19 @@
 #include "arrow/c/helpers.h"
 #include "utils.h"
 
+int is_little_endian()
+{
+  unsigned int x = 1;
+  char *c = (char*) &x;
+  return (int)*c;
+}
+
 static const int64_t kDefaultFlags = ARROW_FLAG_NULLABLE;
+
+extern void releaseTestArr(struct ArrowArray* array);
+void goReleaseTestArray(struct ArrowArray* array) {
+  releaseTestArr(array);
+}
 
 static void release_int32_type(struct ArrowSchema* schema) {
     // mark released
@@ -404,6 +416,7 @@ void setup_array_stream_test(const int n_batches, struct ArrowArrayStream* out) 
 int test_exported_stream(struct ArrowArrayStream* stream) {
   while (1) {
     struct ArrowArray array;
+    memset(&array, 0, sizeof(array));
     // Garbage - implementation should not try to call it, though!
     array.release = (void*)0xDEADBEEF;
     int rc = stream->get_next(stream, &array);
@@ -446,4 +459,36 @@ void test_stream_schema_fallible(struct ArrowArrayStream* stream) {
   stream->get_next = FallibleGetNext;
   stream->private_data = &kFallibleStream;
   stream->release = FallibleRelease;
+}
+
+int confuse_go_gc(struct ArrowArrayStream* stream, unsigned int seed) {
+  struct ArrowSchema schema;
+  // Try to confuse the Go GC by putting what looks like a Go pointer here.
+#ifdef _WIN32
+  // Thread-safe on Windows with the multithread CRT
+#define DORAND rand()
+#else
+#define DORAND rand_r(&seed)
+#endif
+  schema.name = (char*)(0xc000000000L + (DORAND % 0x2000));
+  schema.format = (char*)(0xc000000000L + (DORAND % 0x2000));
+  int rc = stream->get_schema(stream, &schema);
+  if (rc != 0) return rc;
+  schema.release(&schema);
+
+  while (1) {
+    struct ArrowArray array;
+    array.release = (void*)(0xc000000000L + (DORAND % 0x2000));
+    array.private_data = (void*)(0xc000000000L + (DORAND % 0x2000));
+    int rc = stream->get_next(stream, &array);
+    if (rc != 0) return rc;
+
+    if (array.release == NULL) {
+      stream->release(stream);
+      break;
+    }
+    array.release(&array);
+  }
+  return 0;
+#undef DORAND
 }

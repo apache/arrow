@@ -30,15 +30,10 @@
 # /cpp/
 /cpp/src/arrow/acero @westonpace
 /cpp/src/arrow/adapters/orc @wgtmac
-/cpp/src/arrow/dataset @westonpace
 /cpp/src/arrow/engine @westonpace
 /cpp/src/arrow/flight/ @lidavidm
-/cpp/src/arrow/util/async* @westonpace
-/cpp/src/arrow/util/future* @westonpace
-/cpp/src/arrow/util/thread* @westonpace
 /cpp/src/parquet @wgtmac
-/cpp/src/skyhook @westonpace
-/csharp/ @westonpace
+/csharp/ @curthagenlocher
 /go/ @zeroshade
 /java/ @lidavidm
 /js/ @domoritz @trxcllnt

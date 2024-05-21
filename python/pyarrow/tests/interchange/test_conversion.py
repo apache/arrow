@@ -513,3 +513,10 @@ def test_allow_copy_false_bool_categorical():
     df = df.astype("category")
     with pytest.raises(RuntimeError):
         pi.from_dataframe(df, allow_copy=False)
+
+
+def test_empty_dataframe():
+    schema = pa.schema([('col1', pa.int8())])
+    df = pa.table([[]], schema=schema)
+    dfi = df.__dataframe__()
+    assert pi.from_dataframe(dfi) == df

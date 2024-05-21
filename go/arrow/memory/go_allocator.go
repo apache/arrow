@@ -32,10 +32,9 @@ func (a *GoAllocator) Allocate(size int) []byte {
 }
 
 func (a *GoAllocator) Reallocate(size int, b []byte) []byte {
-	if size == len(b) {
-		return b
+	if cap(b) >= size {
+		return b[:size]
 	}
-
 	newBuf := a.Allocate(size)
 	copy(newBuf, b)
 	return newBuf

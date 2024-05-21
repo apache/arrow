@@ -32,7 +32,11 @@ let package = Package(
             targets: ["Arrow"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/google/flatbuffers.git", from: "23.3.3")
+        // The latest version of flatbuffers v23.5.26 was built in May 26, 2023
+        // and therefore doesn't include the unaligned buffer swift changes.
+        // This can be changed back to using the tag once a new version of
+        // flatbuffers has been released.
+        .package(url: "https://github.com/google/flatbuffers.git", branch: "master")
     ],
     targets: [
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.

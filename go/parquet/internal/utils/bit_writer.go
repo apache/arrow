@@ -21,7 +21,7 @@ import (
 	"io"
 	"log"
 
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v17/arrow/bitutil"
 )
 
 // WriterAtBuffer is a convenience struct for providing a WriteAt function
@@ -56,36 +56,43 @@ func (w *WriterAtBuffer) WriteAt(p []byte, off int64) (n int, err error) {
 	return
 }
 
+func (w *WriterAtBuffer) Reserve(nbytes int) {
+	// no-op. We should not expand or otherwise modify the underlying buffer
+}
+
 // WriterAtWithLen is an interface for an io.WriterAt with a Len function
 type WriterAtWithLen interface {
 	io.WriterAt
 	Len() int
+	Reserve(int)
 }
 
 // BitWriter is a utility for writing values of specific bit widths to a stream
 // using a uint64 as a buffer to build up between flushing for efficiency.
 type BitWriter struct {
-	wr         io.WriterAt
+	wr         WriterAtWithLen
 	buffer     uint64
 	byteoffset int
 	bitoffset  uint
 	raw        [8]byte
+	buf        [binary.MaxVarintLen64]byte
 }
 
 // NewBitWriter initializes a new bit writer to write to the passed in interface
 // using WriteAt to write the appropriate offsets and values.
-func NewBitWriter(w io.WriterAt) *BitWriter {
+func NewBitWriter(w WriterAtWithLen) *BitWriter {
 	return &BitWriter{wr: w}
 }
 
-// ReserveBytes reserves the next aligned nbytes, skipping them and returning
+// SkipBytes reserves the next aligned nbytes, skipping them and returning
 // the offset to use with WriteAt to write to those reserved bytes. Used for
 // RLE encoding to fill in the indicators after encoding.
-func (b *BitWriter) ReserveBytes(nbytes int) int {
+func (b *BitWriter) SkipBytes(nbytes int) (int, error) {
 	b.Flush(true)
 	ret := b.byteoffset
 	b.byteoffset += nbytes
-	return ret
+	b.wr.Reserve(b.byteoffset)
+	return ret, nil
 }
 
 // WriteAt fulfills the io.WriterAt interface to write len(p) bytes from p
@@ -157,9 +164,8 @@ func (b *BitWriter) WriteAligned(val uint64, nbytes int) bool {
 // without buffering.
 func (b *BitWriter) WriteVlqInt(v uint64) bool {
 	b.Flush(true)
-	var buf [binary.MaxVarintLen64]byte
-	nbytes := binary.PutUvarint(buf[:], v)
-	if _, err := b.wr.WriteAt(buf[:nbytes], int64(b.byteoffset)); err != nil {
+	nbytes := binary.PutUvarint(b.buf[:], v)
+	if _, err := b.wr.WriteAt(b.buf[:nbytes], int64(b.byteoffset)); err != nil {
 		log.Println(err)
 		return false
 	}

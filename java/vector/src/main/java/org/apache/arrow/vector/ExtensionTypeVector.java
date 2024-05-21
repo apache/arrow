@@ -50,7 +50,7 @@ public abstract class ExtensionTypeVector<T extends ValueVector & FieldVector> e
    */
   public ExtensionTypeVector(String name, BufferAllocator allocator, T underlyingVector) {
     super(allocator);
-    Preconditions.checkNotNull(underlyingVector, "underlyingVector can not be null.");
+    Preconditions.checkNotNull(underlyingVector, "underlyingVector cannot be null.");
     this.name = name;
     this.underlyingVector = underlyingVector;
   }
@@ -123,6 +123,16 @@ public abstract class ExtensionTypeVector<T extends ValueVector & FieldVector> e
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator, CallBack callBack) {
     return underlyingVector.getTransferPair(ref, allocator, callBack);
+  }
+
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return underlyingVector.getTransferPair(field, allocator);
+  }
+
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator, CallBack callBack) {
+    return underlyingVector.getTransferPair(field, allocator, callBack);
   }
 
   @Override

@@ -30,6 +30,7 @@ try:
         AggregateNodeOptions,
         OrderByNodeOptions,
         HashJoinNodeOptions,
+        AsofJoinNodeOptions,
     )
 except ImportError:
     pass
@@ -265,7 +266,7 @@ def test_order_by():
     expected = pa.table({"a": [3, 2, 4, 1], "b": [None, 3, 2, 1]})
     assert result.equals(expected)
 
-    # emtpy ordering
+    # empty ordering
     ord_opts = OrderByNodeOptions([])
     decl = Declaration.from_sequence([table_source, Declaration("order_by", ord_opts)])
     with pytest.raises(
@@ -340,6 +341,40 @@ def test_hash_join():
         names=["key", "a", "b"]
     )
     assert result.sort_by("a").equals(expected)
+
+
+def test_asof_join():
+    left = pa.table({'key': [1, 2, 3], 'ts': [1, 1, 1], 'a': [4, 5, 6]})
+    left_source = Declaration("table_source", options=TableSourceNodeOptions(left))
+    right = pa.table({'key': [2, 3, 4], 'ts': [2, 5, 2], 'b': [4, 5, 6]})
+    right_source = Declaration("table_source", options=TableSourceNodeOptions(right))
+
+    # asof join
+    join_opts = AsofJoinNodeOptions(
+        left_on="ts", left_by=["key"],
+        right_on="ts", right_by=["key"],
+        tolerance=1,
+    )
+    joined = Declaration(
+        "asofjoin", options=join_opts, inputs=[left_source, right_source]
+    )
+    result = joined.to_table()
+    expected = pa.table(
+        [[1, 2, 3], [1, 1, 1], [4, 5, 6], [None, 4, None]],
+        names=["key", "ts", "a", "b"])
+    assert result == expected
+
+    for by in [field("key"), ["key"], [field("key")]]:
+        for on in [field("ts"), "ts"]:
+            join_opts = AsofJoinNodeOptions(
+                left_on=on, left_by=by,
+                right_on=on, right_by=by,
+                tolerance=1,
+            )
+            joined = Declaration(
+                "asofjoin", options=join_opts, inputs=[left_source, right_source])
+            result = joined.to_table()
+            assert result == expected
 
 
 @pytest.mark.dataset

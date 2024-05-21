@@ -131,6 +131,7 @@ public final class IntVector extends BaseFixedWidthVector implements BaseIntVect
    * @param index position of element
    * @return element at given index
    */
+  @Override
   public Integer getObject(int index) {
     if (isSet(index) == 0) {
       return null;

@@ -17,6 +17,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
 
@@ -35,7 +37,7 @@ namespace Apache.Arrow.C
         /// Typically, you will allocate an uninitialized CArrowArray pointer,
         /// pass that to external function, and then use this method to import
         /// the result.
-        /// 
+        ///
         /// <code>
         /// CArrowArray* importedPtr = CArrowArray.Create();
         /// foreign_export_function(importedPtr);
@@ -70,7 +72,7 @@ namespace Apache.Arrow.C
         /// Typically, you will allocate an uninitialized CArrowArray pointer,
         /// pass that to external function, and then use this method to import
         /// the result.
-        /// 
+        ///
         /// <code>
         /// CArrowArray* importedPtr = CArrowArray.Create();
         /// foreign_export_function(importedPtr);
@@ -104,21 +106,25 @@ namespace Apache.Arrow.C
                 {
                     throw new ArgumentNullException(nameof(cArray));
                 }
-                if (cArray->release == null)
+                if (cArray->release == default)
                 {
                     throw new ArgumentException("Tried to import an array that has already been released.", nameof(cArray));
                 }
                 _cArray = *cArray;
-                cArray->release = null;
+                cArray->release = default;
             }
 
             protected override void FinalRelease()
             {
-                if (_cArray.release != null)
+                if (_cArray.release != default)
                 {
                     fixed (CArrowArray* cArray = &_cArray)
                     {
+#if NET5_0_OR_GREATER
                         cArray->release(cArray);
+#else
+                        Marshal.GetDelegateForFunctionPointer<CArrowArrayExporter.ReleaseArrowArray>(cArray->release)(cArray);
+#endif
                     }
                 }
             }
@@ -152,16 +158,40 @@ namespace Apache.Arrow.C
                     case ArrowTypeId.Binary:
                         buffers = ImportByteArrayBuffers(cArray);
                         break;
+                    case ArrowTypeId.StringView:
+                    case ArrowTypeId.BinaryView:
+                        buffers = ImportByteArrayViewBuffers(cArray);
+                        break;
                     case ArrowTypeId.List:
                         children = ProcessListChildren(cArray, ((ListType)type).ValueDataType);
                         buffers = ImportListBuffers(cArray);
+                        break;
+                    case ArrowTypeId.ListView:
+                        children = ProcessListChildren(cArray, ((ListViewType)type).ValueDataType);
+                        buffers = ImportListViewBuffers(cArray);
+                        break;
+                    case ArrowTypeId.FixedSizeList:
+                        children = ProcessListChildren(cArray, ((FixedSizeListType)type).ValueDataType);
+                        buffers = ImportFixedSizeListBuffers(cArray);
                         break;
                     case ArrowTypeId.Struct:
                         children = ProcessStructChildren(cArray, ((StructType)type).Fields);
                         buffers = new ArrowBuffer[] { ImportValidityBuffer(cArray) };
                         break;
                     case ArrowTypeId.Union:
+                        UnionType unionType = (UnionType)type;
+                        children = ProcessStructChildren(cArray, unionType.Fields);
+                        buffers = unionType.Mode switch
+                        {
+                            UnionMode.Dense => ImportDenseUnionBuffers(cArray),
+                            UnionMode.Sparse => ImportSparseUnionBuffers(cArray),
+                            _ => throw new InvalidOperationException("unknown union mode in import")
+                        }; ;
+                        break;
                     case ArrowTypeId.Map:
+                        MapType mapType = (MapType)type;
+                        children = ProcessListChildren(cArray, mapType.Fields[0].DataType);
+                        buffers = ImportListBuffers(cArray);
                         break;
                     case ArrowTypeId.Null:
                         buffers = System.Array.Empty<ArrowBuffer>();
@@ -227,22 +257,58 @@ namespace Apache.Arrow.C
                 return (cArray->buffers[0] == null) ? ArrowBuffer.Empty : new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[0], 0, validityLength));
             }
 
+            private ArrowBuffer ImportCArrayBuffer(CArrowArray* cArray, int i, int lengthBytes)
+            {
+                if (lengthBytes > 0)
+                {
+                    Debug.Assert(cArray->buffers[i] != null);
+                    return new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[i], 0, lengthBytes));
+                }
+                else
+                {
+                    return ArrowBuffer.Empty;
+                }
+            }
+
             private ArrowBuffer[] ImportByteArrayBuffers(CArrowArray* cArray)
             {
                 if (cArray->n_buffers != 3)
                 {
-                    throw new InvalidOperationException("Byte arrays are expected to have exactly three child arrays");
+                    throw new InvalidOperationException("Byte arrays are expected to have exactly three buffers");
                 }
 
                 int length = checked((int)cArray->length);
                 int offsetsLength = (length + 1) * 4;
                 int* offsets = (int*)cArray->buffers[1];
+                Debug.Assert(offsets != null);
                 int valuesLength = offsets[length];
 
                 ArrowBuffer[] buffers = new ArrowBuffer[3];
                 buffers[0] = ImportValidityBuffer(cArray);
-                buffers[1] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[1], 0, offsetsLength));
-                buffers[2] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[2], 0, valuesLength));
+                buffers[1] = ImportCArrayBuffer(cArray, 1, offsetsLength);
+                buffers[2] = ImportCArrayBuffer(cArray, 2, valuesLength);
+
+                return buffers;
+            }
+
+            private ArrowBuffer[] ImportByteArrayViewBuffers(CArrowArray* cArray)
+            {
+                if (cArray->n_buffers < 3)
+                {
+                    throw new InvalidOperationException("Byte array views are expected to have at least three buffers");
+                }
+
+                int length = checked((int)cArray->length);
+                int viewsLength = length * 16;
+
+                long* bufferLengths = (long*)cArray->buffers[cArray->n_buffers - 1];
+                ArrowBuffer[] buffers = new ArrowBuffer[cArray->n_buffers - 1];
+                buffers[0] = ImportValidityBuffer(cArray);
+                buffers[1] = ImportCArrayBuffer(cArray, 1, viewsLength);
+                for (int i = 2; i < buffers.Length; i++)
+                {
+                    buffers[i] = ImportCArrayBuffer(cArray, i, checked((int)bufferLengths[i - 2]));
+                }
 
                 return buffers;
             }
@@ -251,7 +317,7 @@ namespace Apache.Arrow.C
             {
                 if (cArray->n_buffers != 2)
                 {
-                    throw new InvalidOperationException("List arrays are expected to have exactly two children");
+                    throw new InvalidOperationException("List arrays are expected to have exactly two buffers");
                 }
 
                 int length = checked((int)cArray->length);
@@ -259,7 +325,67 @@ namespace Apache.Arrow.C
 
                 ArrowBuffer[] buffers = new ArrowBuffer[2];
                 buffers[0] = ImportValidityBuffer(cArray);
-                buffers[1] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[1], 0, offsetsLength));
+                buffers[1] = ImportCArrayBuffer(cArray, 1, offsetsLength);
+
+                return buffers;
+            }
+
+            private ArrowBuffer[] ImportListViewBuffers(CArrowArray* cArray)
+            {
+                if (cArray->n_buffers != 3)
+                {
+                    throw new InvalidOperationException("List view arrays are expected to have exactly three buffers");
+                }
+
+                int length = checked((int)cArray->length);
+                int offsetsLength = length * 4;
+
+                ArrowBuffer[] buffers = new ArrowBuffer[3];
+                buffers[0] = ImportValidityBuffer(cArray);
+                buffers[1] = ImportCArrayBuffer(cArray, 1, offsetsLength);
+                buffers[2] = ImportCArrayBuffer(cArray, 2, offsetsLength);
+
+                return buffers;
+            }
+
+            private ArrowBuffer[] ImportFixedSizeListBuffers(CArrowArray* cArray)
+            {
+                if (cArray->n_buffers != 1)
+                {
+                    throw new InvalidOperationException("Fixed-size list arrays are expected to have exactly one buffer");
+                }
+
+                ArrowBuffer[] buffers = new ArrowBuffer[1];
+                buffers[0] = ImportValidityBuffer(cArray);
+
+                return buffers;
+            }
+
+            private ArrowBuffer[] ImportDenseUnionBuffers(CArrowArray* cArray)
+            {
+                if (cArray->n_buffers != 2)
+                {
+                    throw new InvalidOperationException("Dense union arrays are expected to have exactly two children");
+                }
+                int length = checked((int)cArray->length);
+                int offsetsLength = length * 4;
+
+                ArrowBuffer[] buffers = new ArrowBuffer[2];
+                buffers[0] = ImportCArrayBuffer(cArray, 0, length);
+                buffers[1] = ImportCArrayBuffer(cArray, 1, offsetsLength);
+
+                return buffers;
+            }
+
+            private ArrowBuffer[] ImportSparseUnionBuffers(CArrowArray* cArray)
+            {
+                if (cArray->n_buffers != 1)
+                {
+                    throw new InvalidOperationException("Sparse union arrays are expected to have exactly one child");
+                }
+
+                ArrowBuffer[] buffers = new ArrowBuffer[1];
+                buffers[0] = ImportCArrayBuffer(cArray, 0, checked((int)cArray->length));
 
                 return buffers;
             }
@@ -268,7 +394,7 @@ namespace Apache.Arrow.C
             {
                 if (cArray->n_buffers != 2)
                 {
-                    throw new InvalidOperationException("Arrays of fixed-width type are expected to have exactly two children");
+                    throw new InvalidOperationException("Arrays of fixed-width type are expected to have exactly two buffers");
                 }
 
                 // validity, data
@@ -281,7 +407,7 @@ namespace Apache.Arrow.C
 
                 ArrowBuffer[] buffers = new ArrowBuffer[2];
                 buffers[0] = ImportValidityBuffer(cArray);
-                buffers[1] = new ArrowBuffer(AddMemory((IntPtr)cArray->buffers[1], 0, valuesLength));
+                buffers[1] = ImportCArrayBuffer(cArray, 1, valuesLength);
 
                 return buffers;
             }

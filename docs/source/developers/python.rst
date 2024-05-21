@@ -302,10 +302,24 @@ created above (stored in ``$ARROW_HOME``):
 
 .. code-block::
 
-   $ mkdir arrow/cpp/build
-   $ pushd arrow/cpp/build
-   $ cmake -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
-           -DCMAKE_INSTALL_LIBDIR=lib \
+   $ cmake -S arrow/cpp -B arrow/cpp/build \
+           -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
+           --preset ninja-release-python
+   $ cmake --build arrow/cpp/build --target install
+
+``ninja-release-python`` is not the only preset available - if you would like a
+build with more features like CUDA, Flight and Gandiva support you may opt for
+the ``ninja-release-python-maximal`` preset. If you wanted less features, (i.e.
+removing ORC and dataset support) you could opt for
+``ninja-release-python-minimal``. Changing the word ``release`` to ``debug``
+with any of the aforementioned presets will generate a debug build of Arrow.
+
+The presets are provided as a convenience, but you may instead opt to
+specify the individual components:
+
+.. code-block::
+   $ cmake -S arrow/cpp -B arrow/cpp/build \
+           -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
            -DCMAKE_BUILD_TYPE=Debug \
            -DARROW_BUILD_TESTS=ON \
            -DARROW_COMPUTE=ON \
@@ -321,11 +335,8 @@ created above (stored in ``$ARROW_HOME``):
            -DARROW_WITH_SNAPPY=ON \
            -DARROW_WITH_ZLIB=ON \
            -DARROW_WITH_ZSTD=ON \
-           -DPARQUET_REQUIRE_ENCRYPTION=ON \
-           ..
-   $ make -j4
-   $ make install
-   $ popd
+           -DPARQUET_REQUIRE_ENCRYPTION=ON
+   $ cmake --build arrow/cpp/build --target install -j4
 
 There are a number of optional components that can be switched ON by
 adding flags with ``ON``:
@@ -405,6 +416,12 @@ set the ``PYARROW_PARALLEL`` environment variable.
 If you wish to delete stale PyArrow build artifacts before rebuilding, navigate
 to the ``arrow/python`` folder and run ``git clean -Xfd .``.
 
+By default, PyArrow will be built in release mode even if Arrow C++ has been
+built in debug mode. To create a debug build of PyArrow, run
+``export PYARROW_BUILD_TYPE=debug`` prior to running  ``python setup.py
+build_ext --inplace`` above. A ``relwithdebinfo`` build can be created
+similarly.
+
 Now you are ready to install test dependencies and run `Unit Testing`_, as
 described above.
 
@@ -434,6 +451,9 @@ Debugging
 
 Since pyarrow depends on the Arrow C++ libraries, debugging can
 frequently involve crossing between Python and C++ shared libraries.
+For the best experience, make sure you've built both Arrow C++
+(``-DCMAKE_BUILD_TYPE=Debug``) and PyArrow (``export PYARROW_BUILD_TYPE=debug``)
+in debug mode.
 
 Using gdb on Linux
 ~~~~~~~~~~~~~~~~~~
@@ -716,6 +736,9 @@ Install the development version of PyArrow from `arrow-nightlies
 .. code-block:: bash
 
     conda install -c arrow-nightlies pyarrow
+
+Note that this requires to use the ``conda-forge`` channel for all other
+packages (``conda config --add channels conda-forge``).
 
 Install the development version from an `alternative PyPI
 <https://gemfury.com/arrow-nightlies>`_ index:

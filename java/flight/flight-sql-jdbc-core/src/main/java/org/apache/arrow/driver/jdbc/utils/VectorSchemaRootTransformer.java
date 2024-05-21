@@ -74,7 +74,7 @@ public interface VectorSchemaRootTransformer {
         final ArrowType transformedType = transformedVector.getField().getType();
         if (!originalType.equals(transformedType)) {
           throw new IllegalArgumentException(String.format(
-              "Can not transfer vector with field type %s to %s", originalType, transformedType));
+              "Cannot transfer vector with field type %s to %s", originalType, transformedType));
         }
 
         if (originalVector instanceof BaseVariableWidthVector) {
@@ -85,7 +85,7 @@ public interface VectorSchemaRootTransformer {
               ((BaseFixedWidthVector) transformedVector));
         } else {
           throw new IllegalStateException(String.format(
-              "Can not transfer vector of type %s", originalVector.getClass()));
+              "Cannot transfer vector of type %s", originalVector.getClass()));
         }
       });
 

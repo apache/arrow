@@ -77,7 +77,7 @@ public class JdbcToArrow {
       ResultSet resultSet,
       BufferAllocator allocator)
       throws SQLException, IOException {
-    Preconditions.checkNotNull(allocator, "Memory Allocator object can not be null");
+    Preconditions.checkNotNull(allocator, "Memory Allocator object cannot be null");
 
     JdbcToArrowConfig config =
         new JdbcToArrowConfig(allocator, JdbcToArrowUtils.getUtcCalendar());
@@ -96,7 +96,7 @@ public class JdbcToArrow {
       ResultSet resultSet,
       JdbcToArrowConfig config)
       throws SQLException, IOException {
-    Preconditions.checkNotNull(resultSet, "JDBC ResultSet object can not be null");
+    Preconditions.checkNotNull(resultSet, "JDBC ResultSet object cannot be null");
     Preconditions.checkNotNull(config, "The configuration cannot be null");
     return ArrowVectorIterator.create(resultSet, config);
   }

@@ -20,6 +20,7 @@ package org.apache.arrow.flight;
 import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
 import static org.apache.arrow.flight.Location.forGrpcInsecure;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.concurrent.ExecutionException;
@@ -45,7 +46,7 @@ import org.junit.jupiter.api.Test;
 public class TestApplicationMetadata {
 
   // The command used to trigger the test for ARROW-6136.
-  private static final byte[] COMMAND_ARROW_6136 = "ARROW-6136".getBytes();
+  private static final byte[] COMMAND_ARROW_6136 = "ARROW-6136".getBytes(StandardCharsets.UTF_8);
   // The expected error message.
   private static final String MESSAGE_ARROW_6136 = "The stream should not be double-closed.";
 

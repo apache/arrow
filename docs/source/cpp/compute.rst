@@ -49,8 +49,8 @@ Computation inputs are represented as a general :class:`Datum` class,
 which is a tagged union of several shapes of data such as :class:`Scalar`,
 :class:`Array` and :class:`ChunkedArray`.  Many compute functions support
 both array (chunked or not) and scalar inputs, however some will mandate
-particular input types. For example, while ``array_sort_indices`` requires its 
-first and only input to be an array, the generalized ``sort_indices`` 
+particular input types. For example, while ``array_sort_indices`` requires its
+first and only input to be an array, the generalized ``sort_indices``
 function accepts an array, chunked array, record batch or table.
 
 .. _invoking-compute-functions:
@@ -155,7 +155,7 @@ is signed. For example:
 | float32, int64    | float32              | int64 is wider, still promotes to float32      |
 +-------------------+----------------------+------------------------------------------------+
 
-In particulary, note that comparing a ``uint64`` column to an ``int16`` column
+In particular, note that comparing a ``uint64`` column to an ``int16`` column
 may emit an error if one of the ``uint64`` values cannot be expressed as the
 common type ``int64`` (for example, ``2 ** 63``).
 
@@ -458,45 +458,45 @@ floating-point arguments will cast all arguments to floating-point, while mixed
 decimal and integer arguments will cast all arguments to decimals.
 Mixed time resolution temporal inputs will be cast to finest input resolution.
 
-+------------------+--------+-------------------------+----------------------+-------+
-| Function name    | Arity  | Input types             | Output type          | Notes |
-+==================+========+=========================+======================+=======+
-| abs              | Unary  | Numeric                 | Numeric              |       |
-+------------------+--------+-------------------------+----------------------+-------+
-| abs_checked      | Unary  | Numeric                 | Numeric              |       |
-+------------------+--------+-------------------------+----------------------+-------+
-| add              | Binary | Numeric/Temporal        | Numeric/Temporal     | \(1)  |
-+------------------+--------+-------------------------+----------------------+-------+
-| add_checked      | Binary | Numeric/Temporal        | Numeric/Temporal     | \(1)  |
-+------------------+--------+-------------------------+----------------------+-------+
-| divide           | Binary | Numeric/Temporal        | Numeric/Temporal     | \(1)  |
-+------------------+--------+-------------------------+----------------------+-------+
-| divide_checked   | Binary | Numeric/Temporal        | Numeric/Temporal     | \(1)  |
-+------------------+--------+-------------------------+----------------------+-------+
-| exp              | Unary  | Numeric                 | Float32/Float64      |       |
-+------------------+--------+-------------------------+----------------------+-------+
-| multiply         | Binary | Numeric/Temporal        | Numeric/Temporal     | \(1)  |
-+------------------+--------+-------------------------+----------------------+-------+
-| multiply_checked | Binary | Numeric/Temporal        | Numeric/Temporal     | \(1)  |
-+------------------+--------+-------------------------+----------------------+-------+
-| negate           | Unary  | Numeric                 | Numeric              |       |
-+------------------+--------+-------------------------+----------------------+-------+
-| negate_checked   | Unary  | Signed Numeric          | Signed Numeric       |       |
-+------------------+--------+-------------------------+----------------------+-------+
-| power            | Binary | Numeric                 | Numeric              |       |
-+------------------+--------+-------------------------+----------------------+-------+
-| power_checked    | Binary | Numeric                 | Numeric              |       |
-+------------------+--------+-------------------------+----------------------+-------+
-| sign             | Unary  | Numeric                 | Int8/Float32/Float64 | \(2)  |
-+------------------+--------+-------------------------+----------------------+-------+
-| sqrt             | Unary  | Numeric                 | Numeric              |       |
-+------------------+--------+-------------------------+----------------------+-------+
-| sqrt_checked     | Unary  | Numeric                 | Numeric              |       |
-+------------------+--------+-------------------------+----------------------+-------+
-| subtract         | Binary | Numeric/Temporal        | Numeric/Temporal     | \(1)  |
-+------------------+--------+-------------------------+----------------------+-------+
-| subtract_checked | Binary | Numeric/Temporal        | Numeric/Temporal     | \(1)  |
-+------------------+--------+-------------------------+----------------------+-------+
++------------------+--------+-------------------------+---------------------------+-------+
+| Function name    | Arity  | Input types             | Output type               | Notes |
++==================+========+=========================+===========================+=======+
+| abs              | Unary  | Numeric/Duration        | Numeric/Duration          |       |
++------------------+--------+-------------------------+---------------------------+-------+
+| abs_checked      | Unary  | Numeric/Duration        | Numeric/Duration          |       |
++------------------+--------+-------------------------+---------------------------+-------+
+| add              | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
++------------------+--------+-------------------------+---------------------------+-------+
+| add_checked      | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
++------------------+--------+-------------------------+---------------------------+-------+
+| divide           | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
++------------------+--------+-------------------------+---------------------------+-------+
+| divide_checked   | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
++------------------+--------+-------------------------+---------------------------+-------+
+| exp              | Unary  | Numeric                 | Float32/Float64           |       |
++------------------+--------+-------------------------+---------------------------+-------+
+| multiply         | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
++------------------+--------+-------------------------+---------------------------+-------+
+| multiply_checked | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
++------------------+--------+-------------------------+---------------------------+-------+
+| negate           | Unary  | Numeric/Duration        | Numeric/Duration          |       |
++------------------+--------+-------------------------+---------------------------+-------+
+| negate_checked   | Unary  | Signed Numeric/Duration | Signed Numeric/Duration   |       |
++------------------+--------+-------------------------+---------------------------+-------+
+| power            | Binary | Numeric                 | Numeric                   |       |
++------------------+--------+-------------------------+---------------------------+-------+
+| power_checked    | Binary | Numeric                 | Numeric                   |       |
++------------------+--------+-------------------------+---------------------------+-------+
+| sign             | Unary  | Numeric/Duration        | Int8/Float32/Float64      | \(2)  |
++------------------+--------+-------------------------+---------------------------+-------+
+| sqrt             | Unary  | Numeric                 | Numeric                   |       |
++------------------+--------+-------------------------+---------------------------+-------+
+| sqrt_checked     | Unary  | Numeric                 | Numeric                   |       |
++------------------+--------+-------------------------+---------------------------+-------+
+| subtract         | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
++------------------+--------+-------------------------+---------------------------+-------+
+| subtract_checked | Binary | Numeric/Temporal        | Numeric/Temporal          | \(1)  |
++------------------+--------+-------------------------+---------------------------+-------+
 
 * \(1) Precision and scale of computed DECIMAL results
 
@@ -514,8 +514,8 @@ Mixed time resolution temporal inputs will be cast to finest input resolution.
   +------------+---------------------------------------------+
 
   It's compatible with Redshift's decimal promotion rules. All decimal digits
-  are preserved for `add`, `subtract` and `multiply` operations. The result
-  precision of `divide` is at least the sum of precisions of both operands with
+  are preserved for ``add``, ``subtract`` and ``multiply`` operations. The result
+  precision of ``divide`` is at least the sum of precisions of both operands with
   enough scale kept. Error is returned if the result precision is beyond the
   decimal value range.
 
@@ -563,32 +563,40 @@ representation based on the rounding criterion.
 +-------------------+------------+-------------+-------------------------+----------------------------------+--------+
 | floor             | Unary      | Numeric     | Float32/Float64/Decimal |                                  |        |
 +-------------------+------------+-------------+-------------------------+----------------------------------+--------+
-| round             | Unary      | Numeric     | Float32/Float64/Decimal | :struct:`RoundOptions`           | (1)(2) |
+| round             | Unary      | Numeric     | Input Type              | :struct:`RoundOptions`           | (1)(2) |
 +-------------------+------------+-------------+-------------------------+----------------------------------+--------+
-| round_to_multiple | Unary      | Numeric     | Float32/Float64/Decimal | :struct:`RoundToMultipleOptions` | (1)(3) |
+| round_to_multiple | Unary      | Numeric     | Input Type              | :struct:`RoundToMultipleOptions` | (1)(3) |
++-------------------+------------+-------------+-------------------------+----------------------------------+--------+
+| round_binary      | Binary     | Numeric     | Input Type              | :struct:`RoundBinaryOptions`     | (1)(4) |
 +-------------------+------------+-------------+-------------------------+----------------------------------+--------+
 | trunc             | Unary      | Numeric     | Float32/Float64/Decimal |                                  |        |
 +-------------------+------------+-------------+-------------------------+----------------------------------+--------+
 
-* \(1) Output value is a 64-bit floating-point for integral inputs and the
-  retains the same type for floating-point and decimal inputs.  By default
-  rounding functions displace a value to the nearest integer using
-  HALF_TO_EVEN to resolve ties.  Options are available to control the rounding
-  criterion.  Both ``round`` and ``round_to_multiple`` have the ``round_mode``
-  option to set the rounding mode.
+* \(1)  By default rounding functions change a value to the nearest
+  integer using HALF_TO_EVEN to resolve ties.  Options are available to control
+  the rounding criterion.  All ``round`` functions have the
+  ``round_mode`` option to set the rounding mode.
 * \(2) Round to a number of digits where the ``ndigits`` option of
   :struct:`RoundOptions` specifies the rounding precision in terms of number
   of digits.  A negative value corresponds to digits in the non-fractional
   part.  For example, -2 corresponds to rounding to the nearest multiple of
   100 (zeroing the ones and tens digits).  Default value of ``ndigits`` is 0
-  which rounds to the nearest integer.
+  which rounds to the nearest integer. For integer inputs a non-negative
+  ``ndigits`` value is ignored and the input is returned unchanged. For integer
+  inputs, if ``-ndigits`` is larger than the maximum number of digits the
+  input type can hold, an error is returned.
 * \(3) Round to a multiple where the ``multiple`` option of
   :struct:`RoundToMultipleOptions` specifies the rounding scale.  The rounding
-  multiple has to be a positive value.  For example, 100 corresponds to
-  rounding to the nearest multiple of 100 (zeroing the ones and tens digits).
-  Default value of ``multiple`` is 1 which rounds to the nearest integer.
+  multiple has to be a positive value and can be casted to input type.
+  For example, 100 corresponds to rounding to the nearest multiple of 100
+  (zeroing the ones and tens digits). Default value of ``multiple`` is 1 which
+  rounds to the nearest integer.
+* \(4) Round the first input to multiple of the second input. The rounding
+  multiple has to be a positive value and can be casted to the first input type.
+  For example, 100 corresponds to rounding to the nearest multiple of 100
+  (zeroing the ones and tens digits).
 
-For ``round`` and ``round_to_multiple``, the following rounding modes are available.
+For ``round`` functions, the following rounding modes are available.
 Tie-breaking modes are prefixed with HALF and round non-ties to the nearest integer.
 The example values are given for default values of ``ndigits`` and ``multiple``.
 
@@ -627,8 +635,8 @@ The example values are given for default values of ``ndigits`` and ``multiple``.
 +-----------------------+--------------------------------------------------------------+---------------------------+
 
 The following table gives examples of how ``ndigits`` (for the ``round``
-function) and ``multiple`` (for ``round_to_multiple``) influence the operance
-performed, respectively.
+and ``round_binary`` functions) and ``multiple`` (for ``round_to_multiple``)
+influence the operation performed, respectively.
 
 +--------------------+-------------------+---------------------------+
 | Round ``multiple`` | Round ``ndigits`` | Operation performed       |
@@ -1021,7 +1029,7 @@ These functions trim off characters on both sides (trim), or the left (ltrim) or
 +--------------------------+------------+-------------------------+---------------------+----------------------------------------+---------+
 
 * \(1) Only characters specified in :member:`TrimOptions::characters` will be
-  trimmed off. Both the input string and the `characters` argument are
+  trimmed off. Both the input string and the ``characters`` argument are
   interpreted as ASCII characters.
 
 * \(2) Only trim off ASCII whitespace characters (``'\t'``, ``'\n'``, ``'\v'``,
@@ -1562,7 +1570,7 @@ is the same, even though the UTC years would be different.
 Timezone handling
 ~~~~~~~~~~~~~~~~~
 
-`assume_timezone` function is meant to be used when an external system produces
+``assume_timezone`` function is meant to be used when an external system produces
 "timezone-naive" timestamps which need to be converted to "timezone-aware"
 timestamps (see for example the `definition
 <https://docs.python.org/3/library/datetime.html#aware-and-naive-objects>`__
@@ -1573,11 +1581,11 @@ Input timestamps are assumed to be relative to the timezone given in
 UTC-relative timestamps with the timezone metadata set to the above value.
 An error is returned if the timestamps already have the timezone metadata set.
 
-`local_timestamp` function converts UTC-relative timestamps to local "timezone-naive"
+``local_timestamp`` function converts UTC-relative timestamps to local "timezone-naive"
 timestamps. The timezone is taken from the timezone metadata of the input
-timestamps. This function is the inverse of `assume_timezone`. Please note:
+timestamps. This function is the inverse of ``assume_timezone``. Please note:
 **all temporal functions already operate on timestamps as if they were in local
-time of the metadata provided timezone**. Using `local_timestamp` is only meant to be
+time of the metadata provided timezone**. Using ``local_timestamp`` is only meant to be
 used when an external system expects local timestamps.
 
 +-----------------+-------+-------------+---------------+---------------------------------+-------+
@@ -1613,39 +1621,43 @@ Array-wise ("vector") functions
 Cumulative Functions
 ~~~~~~~~~~~~~~~~~~~~
 
-Cumulative functions are vector functions that perform a running accumulation on 
-their input using a given binary associative operation with an identidy element 
-(a monoid) and output an array containing the corresponding intermediate running 
-values. The input is expected to be of numeric type. By default these functions 
-do not detect overflow. They are alsoavailable in an overflow-checking variant, 
-suffixed ``_checked``, which returns an ``Invalid`` :class:`Status` when 
+Cumulative functions are vector functions that perform a running accumulation on
+their input using a given binary associative operation with an identity element
+(a monoid) and output an array containing the corresponding intermediate running
+values. The input is expected to be of numeric type. By default these functions
+do not detect overflow. They are also available in an overflow-checking variant,
+suffixed ``_checked``, which returns an ``Invalid`` :class:`Status` when
 overflow is detected.
 
-+------------------------+-------+-------------+-------------+--------------------------------+-------+
-| Function name           | Arity | Input types | Output type | Options class                  | Notes |
-+=========================+=======+=============+=============+================================+=======+
-| cumulative_sum          | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)  |
-+-------------------------+-------+-------------+-------------+--------------------------------+-------+
-| cumulative_sum_checked  | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)  |
-+-------------------------+-------+-------------+-------------+--------------------------------+-------+
-| cumulative_prod         | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)  |
-+-------------------------+-------+-------------+-------------+--------------------------------+-------+
-| cumulative_prod_checked | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)  |
-+-------------------------+-------+-------------+-------------+--------------------------------+-------+
-| cumulative_max          | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)  |
-+-------------------------+-------+-------------+-------------+--------------------------------+-------+
-| cumulative_min          | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)  |
-+-------------------------+-------+-------------+-------------+--------------------------------+-------+
++-------------------------+-------+-------------+-------------+--------------------------------+-----------+
+| Function name           | Arity | Input types | Output type | Options class                  | Notes     |
++=========================+=======+=============+=============+================================+===========+
+| cumulative_sum          | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)      |
++-------------------------+-------+-------------+-------------+--------------------------------+-----------+
+| cumulative_sum_checked  | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)      |
++-------------------------+-------+-------------+-------------+--------------------------------+-----------+
+| cumulative_prod         | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)      |
++-------------------------+-------+-------------+-------------+--------------------------------+-----------+
+| cumulative_prod_checked | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)      |
++-------------------------+-------+-------------+-------------+--------------------------------+-----------+
+| cumulative_max          | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)      |
++-------------------------+-------+-------------+-------------+--------------------------------+-----------+
+| cumulative_min          | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)      |
++-------------------------+-------+-------------+-------------+--------------------------------+-----------+
+| cumulative_mean         | Unary | Numeric     | Float64     | :struct:`CumulativeOptions`    | \(1) \(2) |
++-------------------------+-------+-------------+-------------+--------------------------------+-----------+
 
 * \(1) CumulativeOptions has two optional parameters. The first parameter
   :member:`CumulativeOptions::start` is a starting value for the running
-  accumulation. It has a default value of 0 for `sum`, 1 for `prod`, min of 
-  input type for `max`, and max of input type for `min`. Specified values of 
+  accumulation. It has a default value of 0 for ``sum``, 1 for ``prod``, min of
+  input type for ``max``, and max of input type for ``min``. Specified values of
   ``start`` must be castable to the input type. The second parameter
   :member:`CumulativeOptions::skip_nulls` is a boolean. When set to
   false (the default), the first encountered null is propagated. When set to
   true, each null in the input produces a corresponding null in the output and
   doesn't affect the accumulation forward.
+
+* \(2) :member:`CumulativeOptions::start` is ignored.
 
 Associative transforms
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -1663,7 +1675,8 @@ Associative transforms
 |                   |       | Temporal, Binary- and String-like |             |       |
 +-------------------+-------+-----------------------------------+-------------+-------+
 
-* \(1) Output is ``Dictionary(Int32, input type)``.
+* \(1) Output is ``Dictionary(Int32, input type)``. It is a no-op if input is
+  already a Dictionary array.
 
 * \(2) Duplicates are removed from the output while the original order is
   maintained.
@@ -1680,28 +1693,26 @@ These functions select and return a subset of their input.
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
 | Function name | Arity  | Input type 1 | Input type 2 | Output type  | Options class           | Notes     |
 +===============+========+==============+==============+==============+=========================+===========+
-| array_filter  | Binary | Any          | Boolean      | Input type 1 | :struct:`FilterOptions` | \(1) \(3) |
+| array_filter  | Binary | Any          | Boolean      | Input type 1 | :struct:`FilterOptions` | \(2)      |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| array_take    | Binary | Any          | Integer      | Input type 1 | :struct:`TakeOptions`   | \(1) \(4) |
+| array_take    | Binary | Any          | Integer      | Input type 1 | :struct:`TakeOptions`   | \(3)      |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| drop_null     | Unary  | Any          | -            | Input type 1 |                         | \(1) \(2) |
+| drop_null     | Unary  | Any          | -            | Input type 1 |                         | \(1)      |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| filter        | Binary | Any          | Boolean      | Input type 1 | :struct:`FilterOptions` | \(1) \(3) |
+| filter        | Binary | Any          | Boolean      | Input type 1 | :struct:`FilterOptions` | \(2)      |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| take          | Binary | Any          | Integer      | Input type 1 | :struct:`TakeOptions`   | \(1) \(4) |
+| take          | Binary | Any          | Integer      | Input type 1 | :struct:`TakeOptions`   | \(3)      |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
 
-* \(1) Sparse unions are unsupported.
-
-* \(2) Each element in the input is appended to the output iff it is non-null.
+* \(1) Each element in the input is appended to the output iff it is non-null.
   If the input is a record batch or table, any null value in a column drops
   the entire row.
 
-* \(3) Each element in input 1 (the values) is appended to the output iff
+* \(2) Each element in input 1 (the values) is appended to the output iff
   the corresponding element in input 2 (the filter) is true.  How
   nulls in the filter are handled can be configured using FilterOptions.
 
-* \(4) For each element *i* in input 2 (the indices), the *i*'th element
+* \(3) For each element *i* in input 2 (the indices), the *i*'th element
   in input 1 (the values) is appended to the output.
 
 Containment tests
@@ -1850,9 +1861,9 @@ replaced, based on the remaining inputs.
 
 Pairwise functions
 ~~~~~~~~~~~~~~~~~~~~
-Pairwise functions are unary vector functions that perform a binary operation on 
+Pairwise functions are unary vector functions that perform a binary operation on
 a pair of elements in the input array, typically on adjacent elements. The n-th
-output is computed by applying the binary operation to the n-th and (n-p)-th inputs, 
+output is computed by applying the binary operation to the n-th and (n-p)-th inputs,
 where p is the period. The default period is 1, in which case the binary
 operation is applied to adjacent pairs of inputs. The period can also be
 negative, in which case the n-th output is computed by applying the binary
@@ -1866,9 +1877,9 @@ operation to the n-th and (n+abs(p))-th inputs.
 | pairwise_diff_checked  | Unary | Numeric/Temporal     | Numeric/Temporal     | :struct:`PairwiseOptions`      | \(1)(3)  |
 +------------------------+-------+----------------------+----------------------+--------------------------------+----------+
 
-* \(1) Computes the first order difference of an array, It internally calls 
-  the scalar function ``Subtract`` (or the checked variant) to compute 
-  differences, so its behavior and supported types are the same as 
-  ``Subtract``. The period can be specified in :struct:`PairwiseOptions`. 
+* \(1) Computes the first order difference of an array, It internally calls
+  the scalar function ``Subtract`` (or the checked variant) to compute
+  differences, so its behavior and supported types are the same as
+  ``Subtract``. The period can be specified in :struct:`PairwiseOptions`.
 * \(2) Wraps around the result when overflow is detected.
 * \(3) Returns an ``Invalid`` :class:`Status` when overflow is detected.

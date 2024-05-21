@@ -23,17 +23,26 @@
 #include <string>
 #include <unordered_set>
 
+#include "gandiva/tests/test_util.h"
+
 namespace gandiva {
 
 class TestFunctionRegistry : public ::testing::Test {
  protected:
-  FunctionRegistry registry_;
+  std::shared_ptr<FunctionRegistry> registry_ = gandiva::default_function_registry();
+
+  static std::unique_ptr<FunctionRegistry> MakeFunctionRegistryWithExternalFunction() {
+    auto registry = std::make_unique<FunctionRegistry>();
+    ARROW_EXPECT_OK(
+        registry->Register({GetTestExternalFunction()}, GetTestFunctionLLVMIRPath()));
+    return registry;
+  }
 };
 
 TEST_F(TestFunctionRegistry, TestFound) {
   FunctionSignature add_i32_i32("add", {arrow::int32(), arrow::int32()}, arrow::int32());
 
-  const NativeFunction* function = registry_.LookupSignature(add_i32_i32);
+  const NativeFunction* function = registry_->LookupSignature(add_i32_i32);
   EXPECT_NE(function, nullptr);
   EXPECT_THAT(function->signatures(), testing::Contains(add_i32_i32));
   EXPECT_EQ(function->pc_name(), "add_int32_int32");
@@ -42,11 +51,32 @@ TEST_F(TestFunctionRegistry, TestFound) {
 TEST_F(TestFunctionRegistry, TestNotFound) {
   FunctionSignature addX_i32_i32("addX", {arrow::int32(), arrow::int32()},
                                  arrow::int32());
-  EXPECT_EQ(registry_.LookupSignature(addX_i32_i32), nullptr);
+  EXPECT_EQ(registry_->LookupSignature(addX_i32_i32), nullptr);
 
   FunctionSignature add_i32_i32_ret64("add", {arrow::int32(), arrow::int32()},
                                       arrow::int64());
-  EXPECT_EQ(registry_.LookupSignature(add_i32_i32_ret64), nullptr);
+  EXPECT_EQ(registry_->LookupSignature(add_i32_i32_ret64), nullptr);
+}
+
+TEST_F(TestFunctionRegistry, TestCustomFunctionRegistry) {
+  auto registry = MakeFunctionRegistryWithExternalFunction();
+
+  auto multiply_by_two_func = GetTestExternalFunction();
+  auto multiply_by_two_int32_ret64 = multiply_by_two_func.signatures().front();
+  EXPECT_NE(registry->LookupSignature(multiply_by_two_int32_ret64), nullptr);
+
+  FunctionSignature add_i32_i32_ret64("add", {arrow::int32(), arrow::int32()},
+                                      arrow::int64());
+  EXPECT_EQ(registry->LookupSignature(add_i32_i32_ret64), nullptr);
+}
+
+TEST_F(TestFunctionRegistry, TestGetBitcodeMemoryBuffersDefaultFunctionRegistry) {
+  EXPECT_EQ(registry_->GetBitcodeBuffers().size(), 0);
+}
+
+TEST_F(TestFunctionRegistry, TestGetBitcodeMemoryBuffersCustomFunctionRegistry) {
+  auto registry = MakeFunctionRegistryWithExternalFunction();
+  EXPECT_EQ(registry->GetBitcodeBuffers().size(), 1);
 }
 
 // one nativefunction object per precompiled function
@@ -55,10 +85,9 @@ TEST_F(TestFunctionRegistry, TestNoDuplicates) {
   std::unordered_set<std::string> native_func_duplicates;
   std::unordered_set<std::string> func_sigs;
   std::unordered_set<std::string> func_sig_duplicates;
-  for (auto native_func_it = registry_.begin(); native_func_it != registry_.end();
-       ++native_func_it) {
-    auto& first_sig = native_func_it->signatures().front();
-    auto pc_func_sig = FunctionSignature(native_func_it->pc_name(),
+  for (const auto& native_func_it : *registry_) {
+    auto& first_sig = native_func_it.signatures().front();
+    auto pc_func_sig = FunctionSignature(native_func_it.pc_name(),
                                          first_sig.param_types(), first_sig.ret_type())
                            .ToString();
     if (pc_func_sigs.count(pc_func_sig) == 0) {
@@ -67,7 +96,7 @@ TEST_F(TestFunctionRegistry, TestNoDuplicates) {
       native_func_duplicates.insert(pc_func_sig);
     }
 
-    for (auto& sig : native_func_it->signatures()) {
+    for (auto& sig : native_func_it.signatures()) {
       auto sig_str = sig.ToString();
       if (func_sigs.count(sig_str) == 0) {
         func_sigs.insert(sig_str);

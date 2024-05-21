@@ -30,6 +30,7 @@
 namespace arrow {
 
 using internal::ParseTimestampISO8601;
+using internal::ParseYYYY_MM_DD;
 
 namespace compute {
 namespace internal {
@@ -451,6 +452,44 @@ struct CastFunctor<TimestampType, I, enable_if_t<is_base_binary_type<I>::value>>
   }
 };
 
+template <typename DateType>
+struct ParseDate {
+  using value_type = typename DateType::c_type;
+
+  using duration_type =
+      typename std::conditional<std::is_same<DateType, Date32Type>::value,
+                                arrow_vendored::date::days,
+                                std::chrono::milliseconds>::type;
+
+  template <typename OutValue, typename Arg0Value>
+  OutValue Call(KernelContext* ctx, Arg0Value val, Status* st) const {
+    OutValue result = OutValue(0);
+
+    if (ARROW_PREDICT_FALSE(val.size() != 10)) {
+      *st = Status::Invalid("Failed to parse string: '", val, "' as a scalar of type ",
+                            TypeTraits<DateType>::type_singleton()->ToString());
+      return result;
+    }
+
+    duration_type since_epoch;
+    if (ARROW_PREDICT_FALSE(!ParseYYYY_MM_DD(val.data(), &since_epoch))) {
+      *st = Status::Invalid("Failed to parse string: '", val, "' as a scalar of type ",
+                            TypeTraits<DateType>::type_singleton()->ToString());
+    } else {
+      result = static_cast<value_type>(since_epoch.count());
+    }
+    return result;
+  }
+};
+
+template <typename O, typename I>
+struct CastFunctor<O, I,
+                   enable_if_t<(is_date_type<O>::value && is_string_type<I>::value)>> {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    return applicator::ScalarUnaryNotNull<O, I, ParseDate<O>>::Exec(ctx, batch, out);
+  }
+};
+
 template <typename Type>
 void AddCrossUnitCast(CastFunction* func) {
   ScalarKernel kernel;
@@ -483,6 +522,11 @@ std::shared_ptr<CastFunction> GetDate32Cast() {
   // timestamp -> date32
   AddSimpleCast<TimestampType, Date32Type>(InputType(Type::TIMESTAMP), date32(),
                                            func.get());
+
+  // string -> date32
+  AddSimpleCast<StringType, Date32Type>(utf8(), date32(), func.get());
+  AddSimpleCast<LargeStringType, Date32Type>(large_utf8(), date32(), func.get());
+
   return func;
 }
 
@@ -500,6 +544,11 @@ std::shared_ptr<CastFunction> GetDate64Cast() {
   // timestamp -> date64
   AddSimpleCast<TimestampType, Date64Type>(InputType(Type::TIMESTAMP), date64(),
                                            func.get());
+
+  // string -> date64
+  AddSimpleCast<StringType, Date64Type>(utf8(), date64(), func.get());
+  AddSimpleCast<LargeStringType, Date64Type>(large_utf8(), date64(), func.get());
+
   return func;
 }
 

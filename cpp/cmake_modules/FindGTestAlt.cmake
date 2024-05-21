@@ -63,4 +63,7 @@ TEST(CXX_STANDARD, MatcherStringView) {
     find_package_handle_standard_args(GTestAlt
                                       REQUIRED_VARS GTestAlt_CXX_STANDARD_AVAILABLE)
   endif()
+
+  target_link_libraries(GTest::gmock INTERFACE GTest::gtest)
+  target_link_libraries(GTest::gtest_main INTERFACE GTest::gtest)
 endif()

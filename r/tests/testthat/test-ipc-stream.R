@@ -43,3 +43,12 @@ test_that("write_ipc_stream errors for invalid input type", {
   bad_input <- Array$create(1:5)
   expect_snapshot_error(write_ipc_stream(bad_input, feather_file))
 })
+
+test_that("Can read IPC streams from a URL", {
+  skip_if_offline()
+  skip_on_cran()
+  ipc_url <- "https://github.com/apache/arrow-testing/raw/master/data/arrow-ipc-stream/integration/1.0.0-littleendian/generated_primitive.stream" #nolint
+  ipcu <- read_ipc_stream(ipc_url)
+  expect_true(tibble::is_tibble(ipcu))
+  expect_identical(dim(ipcu), c(37L, 30L))
+})

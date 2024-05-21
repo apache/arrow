@@ -18,20 +18,32 @@
 
 package org.apache.arrow.flatbuf;
 
-import java.nio.*;
-import java.lang.*;
-import java.util.*;
-import com.google.flatbuffers.*;
+import com.google.flatbuffers.BaseVector;
+import com.google.flatbuffers.BooleanVector;
+import com.google.flatbuffers.ByteVector;
+import com.google.flatbuffers.Constants;
+import com.google.flatbuffers.DoubleVector;
+import com.google.flatbuffers.FlatBufferBuilder;
+import com.google.flatbuffers.FloatVector;
+import com.google.flatbuffers.IntVector;
+import com.google.flatbuffers.LongVector;
+import com.google.flatbuffers.ShortVector;
+import com.google.flatbuffers.StringVector;
+import com.google.flatbuffers.Struct;
+import com.google.flatbuffers.Table;
+import com.google.flatbuffers.UnionVector;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
-@SuppressWarnings("unused")
 /**
  * Exact decimal value represented as an integer value in two's
  * complement. Currently only 128-bit (16-byte) and 256-bit (32-byte) integers
  * are used. The representation uses the endianness indicated
  * in the Schema.
  */
+@SuppressWarnings("unused")
 public final class Decimal extends Table {
-  public static void ValidateVersion() { Constants.FLATBUFFERS_1_12_0(); }
+  public static void ValidateVersion() { Constants.FLATBUFFERS_23_5_26(); }
   public static Decimal getRootAsDecimal(ByteBuffer _bb) { return getRootAsDecimal(_bb, new Decimal()); }
   public static Decimal getRootAsDecimal(ByteBuffer _bb, Decimal obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb)); }
   public void __init(int _i, ByteBuffer _bb) { __reset(_i, _bb); }

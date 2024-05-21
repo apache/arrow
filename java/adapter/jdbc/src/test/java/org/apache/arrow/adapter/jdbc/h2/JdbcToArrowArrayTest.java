@@ -53,7 +53,8 @@ public class JdbcToArrowArrayTest {
   private Connection conn = null;
 
   private static final String CREATE_STATEMENT =
-      "CREATE TABLE array_table (id INTEGER, int_array ARRAY, float_array ARRAY, string_array ARRAY);";
+      "CREATE TABLE array_table (id INTEGER, int_array INTEGER ARRAY, float_array REAL ARRAY, " +
+          "string_array VARCHAR ARRAY);";
   private static final String INSERT_STATEMENT =
       "INSERT INTO array_table (id, int_array, float_array, string_array) VALUES (?, ?, ?, ?);";
   private static final String QUERY = "SELECT int_array, float_array, string_array FROM array_table ORDER BY id;";
@@ -354,9 +355,9 @@ public class JdbcToArrowArrayTest {
         Float[] floatArray = floatArrays[i];
         String[] strArray = strArrays[i];
 
-        Array intArray = conn.createArrayOf("INT", integerArray);
-        Array realArray = conn.createArrayOf("REAL", floatArray);
-        Array varcharArray = conn.createArrayOf("VARCHAR", strArray);
+        Array intArray = integerArray != null ? conn.createArrayOf("INT", integerArray) : null;
+        Array realArray = floatArray != null ? conn.createArrayOf("REAL", floatArray) : null;
+        Array varcharArray = strArray != null ? conn.createArrayOf("VARCHAR", strArray) : null;
 
         // Insert Arrays of 4 Values in Each Row
         stmt.setInt(1, i);
@@ -366,9 +367,15 @@ public class JdbcToArrowArrayTest {
 
         stmt.executeUpdate();
 
-        intArray.free();
-        realArray.free();
-        varcharArray.free();
+        if (intArray != null) {
+          intArray.free();
+        }
+        if (realArray != null) {
+          realArray.free();
+        }
+        if (varcharArray != null) {
+          varcharArray.free();
+        }
       }
     }
   }

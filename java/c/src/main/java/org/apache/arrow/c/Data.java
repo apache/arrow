@@ -19,8 +19,6 @@ package org.apache.arrow.c;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.StructVectorLoader;
-import org.apache.arrow.vector.StructVectorUnloader;
 import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
@@ -222,7 +220,7 @@ public final class Data {
 
   /**
    * Export a reader as an ArrowArrayStream using the C Stream Interface.
-   * @param allocator Buffer allocator for allocating C data inteface fields
+   * @param allocator Buffer allocator for allocating C data interface fields
    * @param reader Reader to export
    * @param out C struct to export the stream
    */

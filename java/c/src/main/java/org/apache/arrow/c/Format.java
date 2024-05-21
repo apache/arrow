@@ -138,6 +138,8 @@ final class Format {
             return "tiD";
           case YEAR_MONTH:
             return "tiM";
+          case MONTH_DAY_NANO:
+            return "tin";
           default:
             throw new UnsupportedOperationException(
                 String.format("Interval type with unit %s is unsupported", type.getUnit()));
@@ -277,6 +279,8 @@ final class Format {
         return new ArrowType.Interval(IntervalUnit.YEAR_MONTH);
       case "tiD":
         return new ArrowType.Interval(IntervalUnit.DAY_TIME);
+      case "tin":
+        return new ArrowType.Interval(IntervalUnit.MONTH_DAY_NANO);
       case "+l":
         return new ArrowType.List();
       case "+L":

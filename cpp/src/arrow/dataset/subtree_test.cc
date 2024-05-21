@@ -133,7 +133,7 @@ void ExpectForestIs(std::vector<FileInfo> infos, std::vector<PT> expected_roots)
   ASSERT_OK(forest.Visit(
       [&](Forest::Ref ref) -> Result<bool> {
         actual_roots.emplace_back(ref, infos);
-        return false;  // only vist roots
+        return false;  // only visit roots
       },
       [](Forest::Ref) {}));
 

@@ -45,7 +45,7 @@ checklist for using ``git``:
 
   .. dropdown:: How to squash local commits?
     :animate: fade-in-slide-down
-    :class-container: sd-shadow-md
+    :class-container: sd-shadow-none
 
     Abort the rebase with:
 
@@ -75,10 +75,10 @@ checklist for using ``git``:
     locally, for example if additional commits have been made by a colleague.  By using
     ``--force-with-lease`` instead of ``--force``, you ensure those commits are not overwritten
     and can fetch those changes if desired.
-    
+
   .. dropdown:: Setting rebase to be default
     :animate: fade-in-slide-down
-    :class-container: sd-shadow-md
+    :class-container: sd-shadow-none
 
     If you set the following in your repo's ``.git/config``, the ``--rebase`` option can be
     omitted from the ``git pull`` command, as it is implied by default.
@@ -136,7 +136,7 @@ will merge the pull request. This is done with a
 
 .. dropdown:: Details on squash merge
   :animate: fade-in-slide-down
-  :class-container: sd-shadow-md
+  :class-container: sd-shadow-none
 
   A pull request is merged with a squash merge so that all of your commits will be
   registered as a single commit to the main branch; this simplifies the
@@ -202,4 +202,3 @@ Implementations that do not intend to implement cross endian support:
 
 For other libraries, a discussion to gather consensus on the mailing-list
 should be had before submitting PRs.
-

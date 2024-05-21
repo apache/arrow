@@ -34,14 +34,14 @@ for module in "${modules[@]}"; do
   module_build_dir="${build_dir}/${module}"
   if [ -d "${module_build_dir}" ]; then
     LD_LIBRARY_PATH="${module_build_dir}:${LD_LIBRARY_PATH}"
+    DYLD_LIBRARY_PATH="${module_build_dir}:${DYLD_LIBRARY_PATH}"
   fi
 done
 export LD_LIBRARY_PATH
+export DYLD_LIBRARY_PATH
 
 if [ "${BUILD}" != "no" ]; then
-  if [ -f "Makefile" ]; then
-    make -j8 > /dev/null || exit $?
-  elif [ -f "build.ninja" ]; then
+  if [ -f "build.ninja" ]; then
     ninja || exit $?
   fi
 fi
@@ -59,4 +59,19 @@ for module in "${modules[@]}"; do
 done
 export GI_TYPELIB_PATH
 
-${GDB} ruby ${test_dir}/run-test.rb "$@"
+if type rbenv > /dev/null 2>&1; then
+  RUBY="$(rbenv which ruby)"
+else
+  RUBY=ruby
+fi
+DEBUGGER_ARGS=()
+case "${DEBUGGER}" in
+  "gdb")
+    DEBUGGER_ARGS+=(--args)
+    ;;
+  "lldb")
+    DEBUGGER_ARGS+=(--one-line "env DYLD_LIBRARY_PATH=${DYLD_LIBRARY_PATH}")
+    DEBUGGER_ARGS+=(--)
+    ;;
+esac
+${DEBUGGER} "${DEBUGGER_ARGS[@]}" "${RUBY}" ${test_dir}/run-test.rb "$@"

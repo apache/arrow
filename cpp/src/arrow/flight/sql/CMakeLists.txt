@@ -47,7 +47,8 @@ set(ARROW_FLIGHT_SQL_SRCS
     sql_info_internal.cc
     column_metadata.cc
     client.cc
-    protocol_internal.cc)
+    protocol_internal.cc
+    server_session_middleware.cc)
 
 add_arrow_lib(arrow_flight_sql
               CMAKE_PACKAGE_NAME
@@ -64,8 +65,12 @@ add_arrow_lib(arrow_flight_sql
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS
               arrow_flight_shared
+              SHARED_INSTALL_INTERFACE_LIBS
+              ArrowFlight::arrow_flight_shared
               STATIC_LINK_LIBS
               arrow_flight_static
+              STATIC_INSTALL_INTERFACE_LIBS
+              ArrowFlight::arrow_flight_static
               PRIVATE_INCLUDES
               "${Protobuf_INCLUDE_DIRS}")
 
@@ -100,7 +105,9 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
       example/sqlite_server.cc
       example/sqlite_tables_schema_batch_reader.cc)
 
-  set(ARROW_FLIGHT_SQL_TEST_SRCS server_test.cc)
+  set(ARROW_FLIGHT_SQL_TEST_SRCS server_test.cc
+                                 server_session_middleware_internals_test.cc)
+
   set(ARROW_FLIGHT_SQL_TEST_LIBS ${SQLite3_LIBRARIES})
   set(ARROW_FLIGHT_SQL_ACERO_SRCS example/acero_server.cc)
 

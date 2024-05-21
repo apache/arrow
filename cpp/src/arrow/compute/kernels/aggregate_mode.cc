@@ -115,7 +115,7 @@ Status Finalize(KernelContext* ctx, const DataType& type, ExecResult* out,
   return Status::OK();
 }
 
-// count value occurances for integers with narrow value range
+// count value occurrences for integers with narrow value range
 // O(1) space, O(n) time
 template <typename T>
 struct CountModer {

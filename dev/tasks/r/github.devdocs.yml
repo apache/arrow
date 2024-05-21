@@ -26,37 +26,26 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macOS-latest, ubuntu-20.04, windows-latest]
+        os: [macOS-latest, ubuntu-20.04]
 
     steps:
       {{ macros.github_checkout_arrow()|indent }}
-      # TODO (ARROW-16376): Switch to v2 once we use UCRT
-      - uses: r-lib/actions/setup-r@v1
-        with:
-          # temp workaround the fact that R 4.2 requires UCRT which isn't
-          # currently part of this build.
-          # remove after https://issues.apache.org/jira/browse/ARROW-16376
-          r-version: '4.1'
+      - uses: r-lib/actions/setup-r@v2
       - uses: r-lib/actions/setup-pandoc@v2
-      - name: Install knitr, rmarkdown
-        run: |
-          install.packages(c("rmarkdown", "knitr", "sessioninfo"))
-        shell: Rscript {0}
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: "rmarkdown, knitr, sessioninfo"
       - name: Session info
         run: |
           options(width = 100)
           pkgs <- installed.packages()[, "Package"]
           sessioninfo::session_info(pkgs, include_base = TRUE)
         shell: Rscript {0}
-      - name: Remove system gfortran so that brew can install gcc successfully
-        run: rm -f /usr/local/bin/gfortran
-        if: {{ "${{ !contains(matrix.os, 'windows') }}" }}
       - name: Write the install script
         env:
           RUN_DEVDOCS: TRUE
           DEVDOCS_MACOS: {{ "${{contains(matrix.os, 'macOS')}}" }}
           DEVDOCS_UBUNTU: {{ "${{contains(matrix.os, 'ubuntu')}}" }}
-          DEVDOCS_WINDOWS: {{ "${{contains(matrix.os, 'windows')}}" }}
         run: |
           # This isn't actually rendering the docs, but will save arrow/r/vignettes/developers/script.sh
           # which can be sourced to install arrow.
@@ -66,21 +55,10 @@ jobs:
         env:
           LIBARROW_BINARY: FALSE
           ARROW_R_DEV: TRUE
-          DEVDOCS_WINDOWS: {{ "${{contains(matrix.os, 'windows')}}" }}
         run: |
-          if [ $DEVDOCS_WINDOWS == "true" ]; then
-            # Part of Path, including the path to R's bin, needs to be reformatted
-            # from Windows paths (C:\R\bin) to Unix paths (/c/r/bin)
-            echo export PATH=\"$(cygpath --path "$PATH")\" >> ~/.bash_profile
-            # This starts a special mingw64 Git Bash shell
-            $RTOOLS40_HOME/msys2_shell.cmd -here -mingw64 -no-start -defterm -full-path arrow/r/vignettes/developers/script.sh
-          else
-            bash arrow/r/vignettes/developers/script.sh
-          fi
+          bash arrow/r/vignettes/developers/script.sh
         shell: bash
       - name: Ensure that the Arrow package is loadable and we have the correct one
-        env:
-          DEVDOCS_WINDOWS: {{ "${{contains(matrix.os, 'windows')}}" }}
         run: |
           echo $LD_LIBRARY_PATH
           R --no-save <<EOF

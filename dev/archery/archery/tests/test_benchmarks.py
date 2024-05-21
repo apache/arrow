@@ -81,6 +81,53 @@ def test_static_runner_from_json_not_a_regression():
     assert not comparison.regression
 
 
+def test_static_runner_from_json_multiple_values_not_a_regression():
+    # Same as above, but with multiple repetitions
+    archery_result = {
+        "suites": [
+            {
+                "name": "arrow-value-parsing-benchmark",
+                "benchmarks": [
+                    {
+                        "name": "FloatParsing<DoubleType>",
+                        "unit": "items_per_second",
+                        "less_is_better": False,
+                        "values": [
+                            93588476.22327498,
+                            94873831.3818328,
+                            95593675.20810866,
+                            95797325.6543961,
+                            96134728.05794072
+                        ],
+                        "time_unit": "ns",
+                        "times": [
+                            10537.724568456104,
+                            10575.162068480413,
+                            10599.271208720838,
+                            10679.028059166194,
+                            10827.995119861762
+                        ],
+                        "counters": {
+                            "family_index": 0,
+                            "per_family_instance_index": 0,
+                            "run_name": "FloatParsing<DoubleType>",
+                            "repetitions": 5,
+                            "repetition_index": 0,
+                            "threads": 1,
+                            "iterations": 10656
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+
+    contender = StaticBenchmarkRunner.from_json(json.dumps(archery_result))
+    baseline = StaticBenchmarkRunner.from_json(json.dumps(archery_result))
+    [comparison] = RunnerComparator(contender, baseline).comparisons
+    assert not comparison.regression
+
+
 def test_static_runner_from_json_regression():
     archery_result = {
         "suites": [
@@ -108,6 +155,58 @@ def test_static_runner_from_json_regression():
 
     # introduce artificial regression
     archery_result['suites'][0]['benchmarks'][0]['values'][0] *= 2
+    baseline = StaticBenchmarkRunner.from_json(json.dumps(archery_result))
+
+    [comparison] = RunnerComparator(contender, baseline).comparisons
+    assert comparison.regression
+
+
+def test_static_runner_from_json_multiple_values_regression():
+    # Same as above, but with multiple repetitions
+    archery_result = {
+        "suites": [
+            {
+                "name": "arrow-value-parsing-benchmark",
+                "benchmarks": [
+                    {
+                        "name": "FloatParsing<DoubleType>",
+                        "unit": "items_per_second",
+                        "less_is_better": False,
+                        "values": [
+                            93588476.22327498,
+                            94873831.3818328,
+                            95593675.20810866,
+                            95797325.6543961,
+                            96134728.05794072
+                        ],
+                        "time_unit": "ns",
+                        "times": [
+                            10537.724568456104,
+                            10575.162068480413,
+                            10599.271208720838,
+                            10679.028059166194,
+                            10827.995119861762
+                        ],
+                        "counters": {
+                            "family_index": 0,
+                            "per_family_instance_index": 0,
+                            "run_name": "FloatParsing<DoubleType>",
+                            "repetitions": 5,
+                            "repetition_index": 0,
+                            "threads": 1,
+                            "iterations": 10656
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+
+    contender = StaticBenchmarkRunner.from_json(json.dumps(archery_result))
+
+    # introduce artificial regression
+    values = archery_result['suites'][0]['benchmarks'][0]['values']
+    values[:] = [v * 2 for v in values]
     baseline = StaticBenchmarkRunner.from_json(json.dumps(archery_result))
 
     [comparison] = RunnerComparator(contender, baseline).comparisons
@@ -379,5 +478,79 @@ def test_omits_aggregates():
     observation1 = GoogleBenchmarkObservation(**google_aggregate)
     observation2 = GoogleBenchmarkObservation(**google_result)
     benchmark = GoogleBenchmark(name, [observation1, observation2])
+    result = json.dumps(benchmark, cls=JsonEncoder)
+    assert json.loads(result) == archery_result
+
+
+def test_multiple_observations():
+    name = "FloatParsing<DoubleType>"
+    google_results = [
+        {
+            'cpu_time': 10627.38199641615,
+            'family_index': 0,
+            'items_per_second': 94096551.75067839,
+            'iterations': 9487,
+            'name': 'FloatParsing<DoubleType>',
+            'per_family_instance_index': 0,
+            'real_time': 10628.84905663701,
+            'repetition_index': 0,
+            'repetitions': 3,
+            'run_name': 'FloatParsing<DoubleType>',
+            'run_type': 'iteration',
+            'threads': 1,
+            'time_unit': 'ns'
+        },
+        {
+            'cpu_time': 10633.318014124594,
+            'family_index': 0,
+            'items_per_second': 94044022.63448404,
+            'iterations': 9487,
+            'name': 'FloatParsing<DoubleType>',
+            'per_family_instance_index': 0,
+            'real_time': 10634.858754122948,
+            'repetition_index': 1,
+            'repetitions': 3,
+            'run_name': 'FloatParsing<DoubleType>',
+            'run_type': 'iteration',
+            'threads': 1,
+            'time_unit': 'ns'
+        },
+        {
+            'cpu_time': 10664.315484347,
+            'family_index': 0,
+            'items_per_second': 93770669.24434038,
+            'iterations': 9487,
+            'name': 'FloatParsing<DoubleType>',
+            'per_family_instance_index': 0,
+            'real_time': 10665.584589337563,
+            'repetition_index': 2,
+            'repetitions': 3,
+            'run_name': 'FloatParsing<DoubleType>',
+            'run_type': 'iteration',
+            'threads': 1,
+            'time_unit': 'ns'
+        }
+    ]
+
+    archery_result = {
+        'counters': {
+            'family_index': 0,
+            'iterations': 9487,
+            'per_family_instance_index': 0,
+            'repetition_index': 2,
+            'repetitions': 3,
+            'run_name': 'FloatParsing<DoubleType>',
+            'threads': 1
+        },
+        'less_is_better': False,
+        'name': 'FloatParsing<DoubleType>',
+        'time_unit': 'ns',
+        'times': [10628.84905663701, 10634.858754122948, 10665.584589337563],
+        'unit': 'items_per_second',
+        'values': [93770669.24434038, 94044022.63448404, 94096551.75067839]
+    }
+
+    observations = [GoogleBenchmarkObservation(**g) for g in google_results]
+    benchmark = GoogleBenchmark(name, observations)
     result = json.dumps(benchmark, cls=JsonEncoder)
     assert json.loads(result) == archery_result

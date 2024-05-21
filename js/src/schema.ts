@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { MetadataVersion } from './enum.js';
 import { DataType, TypeMap } from './type.js';
 
 export class Schema<T extends TypeMap = any> {
@@ -22,17 +23,20 @@ export class Schema<T extends TypeMap = any> {
     public readonly fields: Field<T[keyof T]>[];
     public readonly metadata: Map<string, string>;
     public readonly dictionaries: Map<number, DataType>;
+    public readonly metadataVersion: MetadataVersion;
 
     constructor(
         fields: Field<T[keyof T]>[] = [],
         metadata?: Map<string, string> | null,
-        dictionaries?: Map<number, DataType> | null) {
+        dictionaries?: Map<number, DataType> | null,
+        metadataVersion = MetadataVersion.V5) {
         this.fields = (fields || []) as Field<T[keyof T]>[];
         this.metadata = metadata || new Map();
         if (!dictionaries) {
             dictionaries = generateDictionaryMap(fields);
         }
         this.dictionaries = dictionaries;
+        this.metadataVersion = metadataVersion;
     }
     public get [Symbol.toStringTag]() { return 'Schema'; }
 

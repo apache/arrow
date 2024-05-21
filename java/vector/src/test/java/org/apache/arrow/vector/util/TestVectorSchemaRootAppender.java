@@ -50,7 +50,7 @@ public class TestVectorSchemaRootAppender {
   }
 
   @Test
-  public void testVectorScehmaRootAppend() {
+  public void testVectorSchemaRootAppend() {
     final int length1 = 5;
     final int length2 = 3;
     final int length3 = 2;

@@ -29,8 +29,7 @@
 
 #include "parquet/properties.h"
 
-namespace parquet {
-namespace arrow {
+namespace parquet::arrow {
 
 using ::arrow::default_memory_pool;
 using ::arrow::field;
@@ -382,7 +381,7 @@ TEST_F(MultipathLevelBuilderTest, NestedListsWithSomeNulls) {
                      /*rep_levels=*/std::vector<int16_t>{0, 0, 2, 2, 1, 1, 0, 2});
 }
 
-TEST_F(MultipathLevelBuilderTest, NestedListsWithSomeNullsSomeEmptys) {
+TEST_F(MultipathLevelBuilderTest, NestedListsWithSomeNullsSomeEmpties) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/true);
   auto list_field = field("list", list(entries), /*nullable=*/true);
   auto nested_list_type = list(list_field);
@@ -443,7 +442,7 @@ TEST_F(MultipathLevelBuilderTest, TripleNestedListsAllPresent) {
                      });
 }
 
-TEST_F(MultipathLevelBuilderTest, TripleNestedListsWithSomeNullsSomeEmptys) {
+TEST_F(MultipathLevelBuilderTest, TripleNestedListsWithSomeNullsSomeEmpties) {
   auto entries = field("Entries", ::arrow::int64(), /*nullable=*/true);
   auto list_field = field("list", list(entries), /*nullable=*/true);
   auto nested_list_type = list(list_field);
@@ -644,5 +643,4 @@ TEST_F(MultipathLevelBuilderTest, TestPrimitiveNonNullable) {
   EXPECT_THAT(results_[0].post_list_elements[0].end, Eq(4));
 }
 
-}  // namespace arrow
-}  // namespace parquet
+}  // namespace parquet::arrow

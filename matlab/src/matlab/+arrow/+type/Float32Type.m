@@ -1,3 +1,5 @@
+%FLOAT32TYPE Type class for float32 data.
+
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
 % this work for additional information regarding copyright ownership.
@@ -13,12 +15,15 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef Float32Type < arrow.type.FixedWidthType
-%FLOAT32TYPE Type class for float32 data.
+classdef Float32Type < arrow.type.NumericType
     
     methods 
-        function obj = Float32Type()
-            obj@arrow.type.FixedWidthType("Name", "arrow.type.proxy.Float32Type", "ConstructorArguments", {})
+        function obj = Float32Type(proxy)
+            arguments
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.type.proxy.Float32Type")}
+            end
+            import arrow.internal.proxy.validate
+            obj@arrow.type.NumericType(proxy);
         end
     end
 end

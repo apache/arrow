@@ -17,6 +17,8 @@
 
 # cython: language_level = 3
 
+from cython cimport binding
+
 from pyarrow.lib cimport (check_status, pyarrow_wrap_metadata,
                           pyarrow_unwrap_metadata)
 from pyarrow.lib import frombytes, tobytes, KeyValueMetadata
@@ -68,6 +70,13 @@ def finalize_s3():
     check_status(CFinalizeS3())
 
 
+def ensure_s3_finalized():
+    """
+    Finalize S3 if already initialized
+    """
+    check_status(CEnsureS3Finalized())
+
+
 def resolve_s3_region(bucket):
     """
     Resolve the S3 region of a bucket.
@@ -90,6 +99,8 @@ def resolve_s3_region(bucket):
     cdef:
         c_string c_bucket
         c_string c_region
+
+    ensure_s3_initialized()
 
     c_bucket = tobytes(bucket)
     with nogil:
@@ -140,13 +151,19 @@ cdef class S3FileSystem(FileSystem):
     """
     S3-backed FileSystem implementation
 
-    If neither access_key nor secret_key are provided, and role_arn is also not
-    provided, then attempts to initialize from AWS environment variables,
-    otherwise both access_key and secret_key must be provided.
+    AWS access_key and secret_key can be provided explicitly.
 
     If role_arn is provided instead of access_key and secret_key, temporary
     credentials will be fetched by issuing a request to STS to assume the
     specified role.
+
+    If neither access_key nor secret_key are provided, and role_arn is also not
+    provided, then attempts to establish the credentials automatically.
+    S3FileSystem will try the following methods, in order:
+
+    * ``AWS_ACCESS_KEY_ID``, ``AWS_SECRET_ACCESS_KEY``, and ``AWS_SESSION_TOKEN`` environment variables
+    * configuration files such as ``~/.aws/credentials`` and ``~/.aws/config``
+    * for nodes on Amazon EC2, the EC2 Instance Metadata Service
 
     Note: S3 buckets are special and the operations available on them may be
     limited or more expensive than desired.
@@ -228,6 +245,11 @@ cdef class S3FileSystem(FileSystem):
     retry_strategy : S3RetryStrategy, default AwsStandardS3RetryStrategy(max_attempts=3)
         The retry strategy to use with S3; fail after max_attempts. Available
         strategies are AwsStandardS3RetryStrategy, AwsDefaultS3RetryStrategy.
+    force_virtual_addressing : bool, default False
+        Whether to use virtual addressing of buckets.
+        If true, then virtual addressing is always enabled.
+        If false, then virtual addressing is only enabled if `endpoint_override` is empty.
+        This can be used for non-AWS backends that only support virtual hosted-style access.
 
     Examples
     --------
@@ -251,7 +273,9 @@ cdef class S3FileSystem(FileSystem):
                  role_arn=None, session_name=None, external_id=None,
                  load_frequency=900, proxy_options=None,
                  allow_bucket_creation=False, allow_bucket_deletion=False,
-                 retry_strategy: S3RetryStrategy = AwsStandardS3RetryStrategy(max_attempts=3)):
+                 retry_strategy: S3RetryStrategy = AwsStandardS3RetryStrategy(
+                     max_attempts=3),
+                 force_virtual_addressing=False):
         cdef:
             optional[CS3Options] options
             shared_ptr[CS3FileSystem] wrapped
@@ -363,6 +387,7 @@ cdef class S3FileSystem(FileSystem):
 
         options.value().allow_bucket_creation = allow_bucket_creation
         options.value().allow_bucket_deletion = allow_bucket_deletion
+        options.value().force_virtual_addressing = force_virtual_addressing
 
         if isinstance(retry_strategy, AwsStandardS3RetryStrategy):
             options.value().retry_strategy = CS3RetryStrategy.GetAwsStandardRetryStrategy(
@@ -382,9 +407,12 @@ cdef class S3FileSystem(FileSystem):
         FileSystem.init(self, wrapped)
         self.s3fs = <CS3FileSystem*> wrapped.get()
 
-    @classmethod
-    def _reconstruct(cls, kwargs):
-        return cls(**kwargs)
+    @staticmethod
+    @binding(True)  # Required for cython < 3
+    def _reconstruct(kwargs):
+        # __reduce__ doesn't allow passing named arguments directly to the
+        # reconstructor, hence this wrapper.
+        return S3FileSystem(**kwargs)
 
     def __reduce__(self):
         cdef CS3Options opts = self.s3fs.options()
@@ -427,6 +455,7 @@ cdef class S3FileSystem(FileSystem):
                                    opts.proxy_options.username),
                                'password': frombytes(
                                    opts.proxy_options.password)},
+                force_virtual_addressing=opts.force_virtual_addressing,
             ),)
         )
 

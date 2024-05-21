@@ -60,6 +60,11 @@
       <property name="eachLine" value="true"/>
     </module>
 
+    <module name="LineLength">
+        <property name="max" value="120"/>
+        <property name="ignorePattern" value="^package.*|^import.*|a href|href|http://|https://|ftp://"/>
+    </module>
+
     <module name="TreeWalker">
         <module name="OuterTypeFilename"/>
         <module name="IllegalTokenText">
@@ -71,10 +76,6 @@
             <property name="allowEscapesForControlCharacters" value="true"/>
             <property name="allowByTailComment" value="true"/>
             <property name="allowNonPrintableEscapes" value="true"/>
-        </module>
-        <module name="LineLength">
-            <property name="max" value="120"/>
-            <property name="ignorePattern" value="^package.*|^import.*|a href|href|http://|https://|ftp://"/>
         </module>
         <module name="OneTopLevelClass"/>
         <module name="NoLineWrap"/>
@@ -223,13 +224,12 @@
         <module name="JavadocMethod">
             <property name="scope" value="public"/>
             <property name="allowMissingParamTags" value="true"/>
-            <property name="allowMissingThrowsTags" value="true"/>
             <property name="allowMissingReturnTag" value="true"/>
-            <property name="minLineCount" value="2"/>
             <property name="allowedAnnotations" value="Override, Test"/>
-            <property name="allowThrowsTagsForSubclasses" value="true"/>
-            <!-- This seems partially broken under JDK >= 9. -->
-            <property name="suppressLoadErrors" value="true"/>
+        </module>
+        <module name="MissingJavadocMethod">
+            <property name="scope" value="public"/>
+            <property name="minLineCount" value="2"/>
             <property name="ignoreMethodNamesRegex" value="main"/>
         </module>
         <module name="JavadocType">

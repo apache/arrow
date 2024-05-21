@@ -45,6 +45,9 @@ const createMainPackageJson = (target, format) => (orig) => ({
     type: 'commonjs',
     main: `${mainExport}.node.js`,
     module: `${mainExport}.node.mjs`,
+    types: `${mainExport}.node.d.ts`,
+    unpkg: `${mainExport}.es2015.min.js`,
+    jsdelivr: `${mainExport}.es2015.min.js`,
     browser: {
         [`./${mainExport}.node.js`]: `./${mainExport}.dom.js`,
         [`./${mainExport}.node.mjs`]: `./${mainExport}.dom.mjs`
@@ -52,20 +55,35 @@ const createMainPackageJson = (target, format) => (orig) => ({
     exports: {
         '.': {
             node: {
-                import: `./${mainExport}.node.mjs`,
-                require: `./${mainExport}.node.js`,
+                import: {
+                    types: `./${mainExport}.node.d.ts`,
+                    default: `./${mainExport}.node.mjs`,
+                },
+                require: {
+                    types: `./${mainExport}.node.d.ts`,
+                    default: `./${mainExport}.node.js`,
+                },
             },
-            import: `./${mainExport}.dom.mjs`,
-            require: `./${mainExport}.dom.js`,
+            import: {
+                types: `./${mainExport}.dom.d.ts`,
+                default: `./${mainExport}.dom.mjs`,
+            },
+            require: {
+                types: `./${mainExport}.dom.d.ts`,
+                default: `./${mainExport}.dom.js`,
+            }
         },
         './*': {
-            import: `./*.mjs`,
-            require: `./*.js`
-        }
+            import: {
+                types: `./*.d.ts`,
+                default: `./*.mjs`,
+            },
+            require: {
+                types: `./*.d.ts`,
+                default: `./*.js`,
+            },
+        },
     },
-    types: `${mainExport}.node.d.ts`,
-    unpkg: `${mainExport}.es2015.min.js`,
-    jsdelivr: `${mainExport}.es2015.min.js`,
     sideEffects: false,
     esm: { mode: `all`, sourceMap: true }
 });
@@ -109,8 +127,8 @@ const createScopedPackageJSON = (target, format) => (({ name, ...orig }) =>
             sideEffects: format === 'esm' ? false : undefined,
             // include "esm" settings for https://www.npmjs.com/package/esm if building scoped ESM target
             esm:      format === `esm` ? { mode: `auto`, sourceMap: true } : undefined,
-            // set "types" (for TypeScript/VSCode)
-            types:    format === 'umd' ? undefined : `${mainExport}.node.d.ts`,
+            // set "types" to "Arrow.dom" if building scoped UMD target, otherwise "Arrow.node"
+            types:    format === 'umd' ? `${mainExport}.dom.d.ts`: `${mainExport}.node.d.ts`,
         }
     )
 );

@@ -94,6 +94,8 @@ namespace Apache.Arrow.Tests
         {
             await TestReaderFromMemory((reader, originalBatch) =>
             {
+                Assert.NotNull(reader.Schema);
+
                 ArrowReaderVerifier.VerifyReader(reader, originalBatch);
                 return Task.CompletedTask;
             }, writeEnd);
@@ -224,6 +226,7 @@ namespace Apache.Arrow.Tests
             // by default return 20 bytes at a time
             public int PartialReadLength { get; set; } = 20;
 
+#if NET5_0_OR_GREATER
             public override int Read(Span<byte> destination)
             {
                 if (destination.Length > PartialReadLength)
@@ -243,6 +246,17 @@ namespace Apache.Arrow.Tests
 
                 return base.ReadAsync(destination, cancellationToken);
             }
+#else
+            public override int Read(byte[] buffer, int offset, int length)
+            {
+                return base.Read(buffer, offset, Math.Min(length, PartialReadLength));
+            }
+
+            public override Task<int> ReadAsync(byte[] buffer, int offset, int length, CancellationToken cancellationToken = default)
+            {
+                return base.ReadAsync(buffer, offset, Math.Min(length, PartialReadLength), cancellationToken);
+            }
+#endif
         }
     }
 }

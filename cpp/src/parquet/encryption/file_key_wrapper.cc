@@ -22,8 +22,7 @@
 #include "parquet/encryption/key_toolkit_internal.h"
 #include "parquet/exception.h"
 
-namespace parquet {
-namespace encryption {
+namespace parquet::encryption {
 
 FileKeyWrapper::FileKeyWrapper(KeyToolkit* key_toolkit,
                                const KmsConnectionConfig& kms_connection_config,
@@ -54,7 +53,7 @@ std::string FileKeyWrapper::GetEncryptionKeyMetadata(const std::string& data_key
                                                      const std::string& master_key_id,
                                                      bool is_footer_key,
                                                      std::string key_id_in_file) {
-  if (kms_client_ == NULL) {
+  if (kms_client_ == NULLPTR) {
     throw ParquetException("No KMS client available. See previous errors.");
   }
 
@@ -104,7 +103,7 @@ std::string FileKeyWrapper::GetEncryptionKeyMetadata(const std::string& data_key
       key_counter_++;
     }
   }
-  key_material_store_->AddKeyMaterial(key_id_in_file, serialized_key_material);
+  key_material_store_->AddKeyMaterial(key_id_in_file, std::move(serialized_key_material));
   std::string serialized_key_metadata =
       KeyMetadata::CreateSerializedForExternalMaterial(key_id_in_file);
   return serialized_key_metadata;
@@ -121,8 +120,8 @@ KeyEncryptionKey FileKeyWrapper::CreateKeyEncryptionKey(
   // Encrypt KEK with Master key
   std::string encoded_wrapped_kek = kms_client_->WrapKey(kek_bytes, master_key_id);
 
-  return KeyEncryptionKey(kek_bytes, kek_id, encoded_wrapped_kek);
+  return KeyEncryptionKey(std::move(kek_bytes), std::move(kek_id),
+                          std::move(encoded_wrapped_kek));
 }
 
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption

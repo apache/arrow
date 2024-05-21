@@ -154,8 +154,8 @@ TEST(Datum, ToString) {
   Datum v1(arr);
   Datum v2(std::make_shared<Int8Scalar>(1));
 
-  ASSERT_EQ("Array", v1.ToString());
-  ASSERT_EQ("Scalar", v2.ToString());
+  ASSERT_EQ("Array([\n  1,\n  2,\n  3,\n  4\n])", v1.ToString());
+  ASSERT_EQ("Scalar(1)", v2.ToString());
 }
 
 TEST(Datum, TotalBufferSize) {

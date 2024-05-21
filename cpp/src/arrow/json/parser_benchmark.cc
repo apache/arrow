@@ -200,8 +200,6 @@ static void ParseJSONFields(benchmark::State& state) {  // NOLINT non-const refe
   int32_t num_rows = static_cast<int32_t>(2e4 / (1.0 - sparsity) / num_fields);
   // ... however, we want enough rows to make setup/finish overhead negligible
   num_rows = std::max<int32_t>(num_rows, 200);
-  // ... and also we want to avoid an "Exceeded maximum rows" error.
-  num_rows = std::min<int32_t>(num_rows, kMaxParserNumRows);
   // In the end, we will empirically generate between 400 kB and 4 MB of JSON data.
 
   auto fields = GenerateTestFields(num_fields, 10);

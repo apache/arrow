@@ -6,7 +6,8 @@ namespace Apache.Arrow.Flatbuf
 {
 
 using global::System;
-using global::FlatBuffers;
+using global::System.Collections.Generic;
+using global::Google.FlatBuffers;
 
 /// ----------------------------------------------------------------------
 /// A Buffer represents a single contiguous memory segment
@@ -14,14 +15,17 @@ internal struct Buffer : IFlatbufferObject
 {
   private Struct __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
-  public void __init(int _i, ByteBuffer _bb) { __p.bb_pos = _i; __p.bb = _bb; }
+  public void __init(int _i, ByteBuffer _bb) { __p = new Struct(_i, _bb); }
   public Buffer __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
   /// The relative offset into the shared memory page where the bytes for this
   /// buffer starts
   public long Offset { get { return __p.bb.GetLong(__p.bb_pos + 0); } }
   /// The absolute length (in bytes) of the memory buffer. The memory is found
-  /// from offset (inclusive) to offset + length (non-inclusive).
+  /// from offset (inclusive) to offset + length (non-inclusive). When building
+  /// messages using the encapsulated IPC message, padding bytes may be written
+  /// after a buffer, but such padding bytes do not need to be accounted for in
+  /// the size here.
   public long Length { get { return __p.bb.GetLong(__p.bb_pos + 8); } }
 
   public static Offset<Buffer> CreateBuffer(FlatBufferBuilder builder, long Offset, long Length) {
@@ -30,7 +34,7 @@ internal struct Buffer : IFlatbufferObject
     builder.PutLong(Offset);
     return new Offset<Buffer>(builder.Offset);
   }
-};
+}
 
 
 }

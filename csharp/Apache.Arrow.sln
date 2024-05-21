@@ -23,6 +23,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Apache.Arrow.Compression", 
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Apache.Arrow.Compression.Tests", "test\Apache.Arrow.Compression.Tests\Apache.Arrow.Compression.Tests.csproj", "{5D7FF380-B7DF-4752-B415-7C08C70C9F06}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Apache.Arrow.Flight.Sql.Tests", "test\Apache.Arrow.Flight.Sql.Tests\Apache.Arrow.Flight.Sql.Tests.csproj", "{DCC99EB1-4E60-4F0D-AEA9-C44A4C0C8B1D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Apache.Arrow.Flight.Sql", "src\Apache.Arrow.Flight.Sql\Apache.Arrow.Flight.Sql.csproj", "{2ADE087A-B424-4895-8CC5-10170D10BA62}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -69,6 +73,14 @@ Global
 		{5D7FF380-B7DF-4752-B415-7C08C70C9F06}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{5D7FF380-B7DF-4752-B415-7C08C70C9F06}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{5D7FF380-B7DF-4752-B415-7C08C70C9F06}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DCC99EB1-4E60-4F0D-AEA9-C44A4C0C8B1D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DCC99EB1-4E60-4F0D-AEA9-C44A4C0C8B1D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DCC99EB1-4E60-4F0D-AEA9-C44A4C0C8B1D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DCC99EB1-4E60-4F0D-AEA9-C44A4C0C8B1D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2ADE087A-B424-4895-8CC5-10170D10BA62}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2ADE087A-B424-4895-8CC5-10170D10BA62}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2ADE087A-B424-4895-8CC5-10170D10BA62}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2ADE087A-B424-4895-8CC5-10170D10BA62}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

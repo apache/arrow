@@ -82,6 +82,8 @@
 %define have_thrift (%{_rhel} >= 8)
 %define have_utf8proc (%{_rhel} >= 9 || %{_amzn} >= 2023)
 
+%define enable_glib_doc (%{_rhel} >= 9 || %{is_amazon_linux})
+
 Name:		@PACKAGE@
 Version:	@VERSION@
 Release:	@RELEASE@%{?dist}
@@ -142,7 +144,6 @@ BuildRequires:	ncurses-devel
 %endif
 
 BuildRequires:	gobject-introspection-devel
-BuildRequires:	gtk-doc
 %if %{use_vala}
 BuildRequires:	vala
 %endif
@@ -199,14 +200,15 @@ cd c_glib
 %if %{_amzn} >= 2023
   # Do nothing
 %else
-  %if (%{_rhel} >= 8 || "%{_arch}" != "aarch64")
-    pip3 install meson
+  %if %{is_centos_7}
+    # Meson 0.62.0 or later requires Python 3.7 or later.
+    pip3 install 'meson<0.62.0'
   %else
-    # Meson 0.57.0 or later requires Ninja 1.8.2 or later but EPEL for
-    # Amazon Linux 2 aarch64 provides Ninja 1.7.2. We can remove
-    # '<0.57.0' once we drop support for Amazon Linux 2.
-    pip3 install 'meson<0.57.0'
+    pip3 install meson
   %endif
+%endif
+%if %{enable_glib_doc}
+  pip3 install gi-docgen
 %endif
 meson setup build \
   --default-library=both \
@@ -214,7 +216,9 @@ meson setup build \
   --prefix=%{_prefix} \
   -Darrow_cpp_build_dir=../cpp/%{arrow_cmake_builddir} \
   -Darrow_cpp_build_type=$cpp_build_type \
-  -Dgtk_doc=true \
+%if %{enable_glib_doc}
+  -Ddoc=true \
+%endif
 %if %{use_vala}
   -Dvapi=true
 %endif
@@ -238,27 +242,11 @@ cd -
 %package -n %{name}%{major_version}-libs
 Summary:	Runtime libraries for Apache Arrow C++
 License:	Apache-2.0
-Requires:	brotli
-%if %{use_gflags}
-Requires:	gflags
-%endif
-%if %{use_glog}
-Requires:	glog
-%endif
-Requires:	libzstd
 %if %{have_lz4_libs}
 Requires:	lz4-libs %{lz4_requirement}
 %else
 Requires:	lz4 %{lz4_requirement}
 %endif
-%if %{have_re2}
-Requires:	re2
-%endif
-Requires:	snappy
-%if %{have_utf8proc}
-Requires:	utf8proc
-%endif
-Requires:	zlib
 
 %description -n %{name}%{major_version}-libs
 This package contains the libraries for Apache Arrow C++.
@@ -289,14 +277,7 @@ License:	Apache-2.0
 Requires:	%{name}%{major_version}-libs = %{version}-%{release}
 Requires:	brotli-devel
 Requires:	bzip2-devel
-%if %{use_flight}
-Requires:	c-ares-devel
-%endif
 Requires:	curl-devel
-%if %{have_grpc}
-Requires:	grpc-devel
-Requires:	grpc-plugins
-%endif
 %if %{use_gcs}
 Requires:	json-devel
 %endif
@@ -414,8 +395,6 @@ Libraries and header files for Apache Arrow dataset.
 Summary:	C++ library for fast data transport.
 License:	Apache-2.0
 Requires:	%{name}%{major_version}-libs = %{version}-%{release}
-Requires:	c-ares
-Requires:	openssl
 
 %description -n %{name}%{major_version}-flight-libs
 This package contains the libraries for Apache Arrow Flight.
@@ -431,6 +410,11 @@ Summary:	Libraries and header files for Apache Arrow Flight.
 License:	Apache-2.0
 Requires:	%{name}%{major_version}-flight-libs = %{version}-%{release}
 Requires:	%{name}-devel = %{version}-%{release}
+Requires:	c-ares-devel
+%if %{have_grpc}
+Requires:	grpc-devel
+Requires:	grpc-plugins
+%endif
 
 %description flight-devel
 Libraries and header files for Apache Arrow Flight.
@@ -485,7 +469,6 @@ Libraries and header files for Apache Arrow Flight SQL.
 Summary:	C++ library for compiling and evaluating expressions on Apache Arrow data.
 License:	Apache-2.0
 Requires:	%{name}%{major_version}-libs = %{version}-%{release}
-Requires:	ncurses-libs
 
 %description -n gandiva%{major_version}-libs
 This package contains the libraries for Gandiva.
@@ -521,7 +504,6 @@ Libraries and header files for Gandiva.
 Summary:	Runtime libraries for Apache Parquet C++
 License:	Apache-2.0
 Requires:	%{name}%{major_version}-libs = %{version}-%{release}
-Requires:	openssl
 
 %description -n parquet%{major_version}-libs
 This package contains the libraries for Apache Parquet C++.
@@ -570,7 +552,6 @@ Libraries and header files for Apache Parquet C++.
 Summary:	Runtime libraries for Apache Arrow GLib
 License:	Apache-2.0
 Requires:	%{name}%{major_version}-libs = %{version}-%{release}
-Requires:	glib2
 
 %description -n %{name}%{major_version}-glib-libs
 This package contains the libraries for Apache Arrow GLib.
@@ -585,7 +566,7 @@ This package contains the libraries for Apache Arrow GLib.
 %package glib-devel
 Summary:	Libraries and header files for Apache Arrow GLib
 License:	Apache-2.0
-Requires:	%{name}-devel = %{version}-%{release}
+Requires:	%{name}-acero-devel = %{version}-%{release}
 Requires:	%{name}%{major_version}-glib-libs = %{version}-%{release}
 Requires:	glib2-devel
 Requires:	gobject-introspection-devel
@@ -619,8 +600,11 @@ Documentation for Apache Arrow GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
+%{_datadir}/arrow-glib/*.txt
+%{_datadir}/arrow-glib/*.md
+%if %{enable_glib_doc}
 %{_docdir}/arrow-glib/
-%{_datadir}/gtk-doc/html/arrow-glib/
+%endif
 
 %package -n %{name}%{major_version}-dataset-glib-libs
 Summary:	Runtime libraries for Apache Arrow Dataset GLib
@@ -672,7 +656,9 @@ Documentation for Apache Arrow dataset GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
-%{_datadir}/gtk-doc/html/arrow-dataset-glib/
+%if %{enable_glib_doc}
+%{_docdir}/arrow-dataset-glib/
+%endif
 
 %if %{use_flight}
 %package -n %{name}%{major_version}-flight-glib-libs
@@ -725,7 +711,9 @@ Documentation for Apache Arrow Flight GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
-%{_datadir}/gtk-doc/html/arrow-flight-glib/
+%if %{enable_glib_doc}
+%{_docdir}/arrow-flight-glib/
+%endif
 
 %package -n %{name}%{major_version}-flight-sql-glib-libs
 Summary:	Runtime libraries for Apache Arrow Flight SQL GLib
@@ -777,7 +765,9 @@ Documentation for Apache Arrow Flight SQL GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
-%{_datadir}/gtk-doc/html/arrow-flight-sql-glib/
+  %if %{enable_glib_doc}
+%{_docdir}/arrow-flight-sql-glib/
+  %endif
 %endif
 
 %if %{use_gandiva}
@@ -831,7 +821,9 @@ Documentation for Gandiva GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
-%{_datadir}/gtk-doc/html/gandiva-glib/
+  %if %{enable_glib_doc}
+%{_docdir}/gandiva-glib/
+  %endif
 %endif
 
 %package -n parquet%{major_version}-glib-libs
@@ -884,9 +876,38 @@ Documentation for Apache Parquet GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
-%{_datadir}/gtk-doc/html/parquet-glib/
+%if %{enable_glib_doc}
+%{_docdir}/parquet-glib/
+%endif
 
 %changelog
+* Thu May 09 2024 Raúl Cumplido <raulcumplido@gmail.com> - 16.1.0-1
+- New upstream release.
+
+* Tue Apr 16 2024 Raúl Cumplido <raulcumplido@gmail.com> - 16.0.0-1
+- New upstream release.
+
+* Wed Mar 13 2024 Raúl Cumplido <raulcumplido@gmail.com> - 15.0.2-1
+- New upstream release.
+
+* Fri Feb 23 2024 Raúl Cumplido <raulcumplido@gmail.com> - 15.0.1-1
+- New upstream release.
+
+* Tue Jan 16 2024 Raúl Cumplido <raulcumplido@gmail.com> - 15.0.0-1
+- New upstream release.
+
+* Tue Dec 12 2023 Raúl Cumplido <raulcumplido@gmail.com> - 14.0.2-1
+- New upstream release.
+
+* Mon Nov 06 2023 Raúl Cumplido <raulcumplido@gmail.com> - 14.0.1-1
+- New upstream release.
+
+* Thu Oct 19 2023 Raúl Cumplido <raulcumplido@gmail.com> - 14.0.0-1
+- New upstream release.
+
+* Thu Aug 17 2023 Raúl Cumplido <raulcumplido@gmail.com> - 13.0.0-1
+- New upstream release.
+
 * Wed Jun 07 2023 Raúl Cumplido <raulcumplido@gmail.com> - 12.0.1-1
 - New upstream release.
 

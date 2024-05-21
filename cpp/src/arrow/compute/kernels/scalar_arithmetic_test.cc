@@ -1857,7 +1857,7 @@ TEST_F(TestBinaryArithmeticDecimal, DispatchBest) {
   }
 }
 
-// reference result from bc (precsion=100, scale=40)
+// reference result from bc (precision=100, scale=40)
 TEST_F(TestBinaryArithmeticDecimal, AddSubtract) {
   // array array, decimal128
   {

@@ -251,6 +251,7 @@ public class TestCookieHandling {
 
   private void startServerAndClient() throws IOException {
     final FlightProducer flightProducer = new NoOpFlightProducer() {
+      @Override
       public void listFlights(CallContext context, Criteria criteria,
                               StreamListener<FlightInfo> listener) {
         listener.onCompleted();

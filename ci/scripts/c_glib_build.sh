@@ -26,12 +26,9 @@ build_root=${2}
 : ${ARROW_GLIB_WERROR:=false}
 : ${ARROW_GLIB_VAPI:=true}
 : ${BUILD_DOCS_C_GLIB:=OFF}
-with_gtk_doc=$([ "${BUILD_DOCS_C_GLIB}" == "ON" ] && echo "true" || echo "false")
+with_doc=$([ "${BUILD_DOCS_C_GLIB}" == "ON" ] && echo "true" || echo "false")
 
 export PKG_CONFIG_PATH=${ARROW_HOME}/lib/pkgconfig
-
-export CFLAGS="-DARROW_NO_DEPRECATED_API"
-export CXXFLAGS="-DARROW_NO_DEPRECATED_API"
 
 mkdir -p ${build_dir}
 
@@ -39,7 +36,7 @@ mkdir -p ${build_dir}
 meson setup \
       --prefix=$ARROW_HOME \
       --libdir=lib \
-      -Dgtk_doc=${with_gtk_doc} \
+      -Ddoc=${with_doc} \
       -Dvapi=${ARROW_GLIB_VAPI} \
       -Dwerror=${ARROW_GLIB_WERROR} \
       ${build_dir} \
@@ -52,5 +49,5 @@ popd
 
 if [ "${BUILD_DOCS_C_GLIB}" == "ON" ]; then
   mkdir -p ${build_root}/docs/c_glib
-  rsync -a ${ARROW_HOME}/share/gtk-doc/html/ ${build_root}/docs/c_glib
+  cp -a ${ARROW_HOME}/share/doc/*-glib/ ${build_root}/docs/c_glib/
 fi

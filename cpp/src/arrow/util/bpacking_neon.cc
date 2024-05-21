@@ -16,7 +16,7 @@
 // under the License.
 
 #include "arrow/util/bpacking_neon.h"
-#include "arrow/util/bpacking_simd128_generated.h"
+#include "arrow/util/bpacking_simd128_generated_internal.h"
 #include "arrow/util/bpacking_simd_internal.h"
 
 namespace arrow {

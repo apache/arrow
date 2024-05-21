@@ -45,6 +45,7 @@ Status SchemaToString(const Schema& schema, std::string* out);
 
 // These functions depend on protobuf types which are not exported in the Flight DLL.
 
+Status FromProto(const google::protobuf::Timestamp& pb_timestamp, Timestamp* timestamp);
 Status FromProto(const pb::ActionType& pb_type, ActionType* type);
 Status FromProto(const pb::Action& pb_action, Action* action);
 Status FromProto(const pb::Result& pb_result, Result* result);
@@ -59,17 +60,30 @@ Status FromProto(const pb::FlightDescriptor& pb_descr, FlightDescriptor* descr);
 Status FromProto(const pb::FlightEndpoint& pb_endpoint, FlightEndpoint* endpoint);
 Status FromProto(const pb::RenewFlightEndpointRequest& pb_request,
                  RenewFlightEndpointRequest* request);
-Status FromProto(const pb::FlightInfo& pb_info, FlightInfo::Data* info);
+arrow::Result<FlightInfo> FromProto(const pb::FlightInfo& pb_info);
+Status FromProto(const pb::PollInfo& pb_info, PollInfo* info);
 Status FromProto(const pb::CancelFlightInfoRequest& pb_request,
                  CancelFlightInfoRequest* request);
 Status FromProto(const pb::SchemaResult& pb_result, std::string* result);
 Status FromProto(const pb::BasicAuth& pb_basic_auth, BasicAuth* info);
+Status FromProto(const pb::SetSessionOptionsRequest& pb_request,
+                 SetSessionOptionsRequest* request);
+Status FromProto(const pb::SetSessionOptionsResult& pb_result,
+                 SetSessionOptionsResult* result);
+Status FromProto(const pb::GetSessionOptionsRequest& pb_request,
+                 GetSessionOptionsRequest* request);
+Status FromProto(const pb::GetSessionOptionsResult& pb_result,
+                 GetSessionOptionsResult* result);
+Status FromProto(const pb::CloseSessionRequest& pb_request, CloseSessionRequest* request);
+Status FromProto(const pb::CloseSessionResult& pb_result, CloseSessionResult* result);
 
+Status ToProto(const Timestamp& timestamp, google::protobuf::Timestamp* pb_timestamp);
 Status ToProto(const FlightDescriptor& descr, pb::FlightDescriptor* pb_descr);
 Status ToProto(const FlightEndpoint& endpoint, pb::FlightEndpoint* pb_endpoint);
 Status ToProto(const RenewFlightEndpointRequest& request,
                pb::RenewFlightEndpointRequest* pb_request);
 Status ToProto(const FlightInfo& info, pb::FlightInfo* pb_info);
+Status ToProto(const PollInfo& info, pb::PollInfo* pb_info);
 Status ToProto(const CancelFlightInfoRequest& request,
                pb::CancelFlightInfoRequest* pb_request);
 Status ToProto(const ActionType& type, pb::ActionType* pb_type);
@@ -81,6 +95,16 @@ Status ToProto(const Criteria& criteria, pb::Criteria* pb_criteria);
 Status ToProto(const SchemaResult& result, pb::SchemaResult* pb_result);
 Status ToProto(const Ticket& ticket, pb::Ticket* pb_ticket);
 Status ToProto(const BasicAuth& basic_auth, pb::BasicAuth* pb_basic_auth);
+Status ToProto(const SetSessionOptionsRequest& request,
+               pb::SetSessionOptionsRequest* pb_request);
+Status ToProto(const SetSessionOptionsResult& result,
+               pb::SetSessionOptionsResult* pb_result);
+Status ToProto(const GetSessionOptionsRequest& request,
+               pb::GetSessionOptionsRequest* pb_request);
+Status ToProto(const GetSessionOptionsResult& result,
+               pb::GetSessionOptionsResult* pb_result);
+Status ToProto(const CloseSessionRequest& request, pb::CloseSessionRequest* pb_request);
+Status ToProto(const CloseSessionResult& result, pb::CloseSessionResult* pb_result);
 
 Status ToPayload(const FlightDescriptor& descr, std::shared_ptr<Buffer>* out);
 

@@ -30,7 +30,9 @@ ggandiva_result_nullable_type_from_raw(gandiva::ResultNullableType gandiva_type)
 gandiva::ResultNullableType
 ggandiva_result_nullable_type_to_raw(GGandivaResultNullableType type);
 
-GGandivaNativeFunction *ggandiva_native_function_new_raw(const gandiva::NativeFunction *gandiva_native_function);
-const gandiva::NativeFunction *ggandiva_native_function_get_raw(GGandivaNativeFunction *native_function);
+GGandivaNativeFunction *
+ggandiva_native_function_new_raw(const gandiva::NativeFunction *gandiva_native_function);
+const gandiva::NativeFunction *
+ggandiva_native_function_get_raw(GGandivaNativeFunction *native_function);
 
 G_END_DECLS

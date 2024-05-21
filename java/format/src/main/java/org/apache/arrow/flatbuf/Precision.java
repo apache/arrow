@@ -18,6 +18,7 @@
 
 package org.apache.arrow.flatbuf;
 
+@SuppressWarnings("unused")
 public final class Precision {
   private Precision() { }
   public static final short HALF = 0;

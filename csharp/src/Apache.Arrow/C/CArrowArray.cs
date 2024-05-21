@@ -16,6 +16,7 @@
 // under the License.
 
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 namespace Apache.Arrow.C
@@ -38,11 +39,11 @@ namespace Apache.Arrow.C
         public byte** buffers;
         public CArrowArray** children;
         public CArrowArray* dictionary;
-        internal delegate* unmanaged
-#if !NET5_0_OR_GREATER
-            [Cdecl]
+#if NET5_0_OR_GREATER
+        internal delegate* unmanaged<CArrowArray*, void> release;
+#else
+        internal IntPtr release;
 #endif
-            <CArrowArray*, void> release;
         public void* private_data;
 
         /// <summary>
@@ -68,12 +69,26 @@ namespace Apache.Arrow.C
         /// </remarks>
         public static void Free(CArrowArray* array)
         {
-            if (array->release != null)
+            CallReleaseFunc(array);
+            Marshal.FreeHGlobal((IntPtr)array);
+        }
+
+        /// <summary>
+        /// Call the array's release func, if set.
+        /// </summary>
+        public static void CallReleaseFunc(CArrowArray* array)
+        {
+            if (array->release != default)
             {
                 // Call release if not already called.
+#if NET5_0_OR_GREATER
                 array->release(array);
+#else
+                Marshal.GetDelegateForFunctionPointer<CArrowArrayExporter.ReleaseArrowArray>(array->release)(array);
+#endif
+                Debug.Assert(array->release == default,
+                             "Calling the CArrowArray release func should have set it to NULL");
             }
-            Marshal.FreeHGlobal((IntPtr)array);
         }
     }
 }

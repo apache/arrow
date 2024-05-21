@@ -22,6 +22,8 @@ library(lubridate, warn.conflicts = FALSE)
 library(dplyr, warn.conflicts = FALSE)
 
 skip_if_not_available("acero")
+# Skip these tests on CRAN due to build times > 10 mins
+skip_on_cran()
 
 # base::strptime() defaults to local timezone
 # but arrow's strptime defaults to UTC.
@@ -178,7 +180,7 @@ test_that("strptime", {
   )
 
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
 
   compare_dplyr_binding(
@@ -196,7 +198,7 @@ test_that("strptime works for individual formats", {
   skip_on_cran()
 
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
 
   expect_equal(
@@ -267,7 +269,7 @@ test_that("timestamp round trip correctly via strftime and strptime", {
   skip_on_cran()
 
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
 
   tz <- "Pacific/Marquesas"
@@ -289,7 +291,9 @@ test_that("timestamp round trip correctly via strftime and strptime", {
 
   # Some formats are not supported on Windows
   if (!tolower(Sys.info()[["sysname"]]) == "windows") {
-    formats <- c(formats, "%a", "%A", "%b", "%B", "%OS", "%I%p", "%r", "%T%z")
+    # "%r" could also be here, though it is only valid in some locales (those
+    # that use 12 hour formats, so skip for now)
+    formats <- c(formats, "%a", "%A", "%b", "%B", "%OS", "%I%p", "%T%z")
   }
 
   for (fmt in formats) {
@@ -1548,7 +1552,7 @@ test_that("as.difftime()", {
   )
 
   # only integer (or integer-like) -> duration conversion supported in Arrow.
-  # double -> duration not supported. we're not testing the content of the
+  # double -> duration not supported. We aren't testing the content of the
   # error message as it is being generated in the C++ code and it might change,
   # but we want to make sure that this error is raised in our binding implementation
   expect_error(
@@ -1959,7 +1963,7 @@ test_that("`as.Date()` and `as_date()`", {
   # `as.Date()` ignores the `tzone` attribute and uses the value of the `tz` arg
   # to `as.Date()`
   # `as_date()` does the opposite: uses the tzone attribute of the POSIXct object
-  # passsed if`tz` is NULL
+  # passed if`tz` is NULL
   compare_dplyr_binding(
     .input %>%
       transmute(
@@ -2078,7 +2082,7 @@ test_that("as_datetime() works with other functions", {
 
 test_that("parse_date_time() works with year, month, and date components", {
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
   compare_dplyr_binding(
     .input %>%
@@ -2137,7 +2141,7 @@ test_that("parse_date_time() works with year, month, and date components", {
 
 test_that("parse_date_time() works with a mix of formats and orders", {
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
   test_df <- tibble(
     string_combi = c("2021-09-1", "2/09//2021", "09.3.2021")
@@ -2167,7 +2171,7 @@ test_that("year, month, day date/time parsers", {
   )
 
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
   compare_dplyr_binding(
     .input %>%
@@ -2219,7 +2223,7 @@ test_that("ym, my & yq parsers", {
   )
 
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
   compare_dplyr_binding(
     .input %>%
@@ -2268,7 +2272,7 @@ test_that("ym, my & yq parsers", {
 
 test_that("parse_date_time's other formats", {
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
 
   compare_dplyr_binding(
@@ -2399,7 +2403,7 @@ test_that("lubridate's fast_strptime", {
   )
 
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
 
   compare_dplyr_binding(
@@ -2506,7 +2510,7 @@ test_that("parse_date_time with hours, minutes and seconds components", {
   # the unseparated strings are versions of "1987-08-22 20:13:59" (with %y)
 
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
 
   compare_dplyr_binding(
@@ -2636,7 +2640,7 @@ test_that("parse_date_time with month names and HMS", {
   skip_on_os("windows")
 
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6 & the minimal nightly builds)
+  # RE2 library (not available in the minimal nightly builds)
   skip_if_not_available("re2")
 
   test_dates_times2 <- tibble(
@@ -2735,7 +2739,7 @@ test_that("parse_date_time with `quiet = FALSE` not supported", {
   # https://issues.apache.org/jira/browse/ARROW-17146
 
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6 & the minimal nightly builds)
+  # RE2 library (not available in the minimal nightly builds)
   skip_if_not_available("re2")
 
   expect_warning(
@@ -2764,7 +2768,7 @@ test_that("parse_date_time with `quiet = FALSE` not supported", {
 
 test_that("parse_date_time with truncated formats", {
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
 
   test_truncation_df <- tibble(
@@ -2829,7 +2833,7 @@ test_that("parse_date_time with truncated formats", {
 })
 
 test_that("parse_date_time with `locale != NULL` not supported", {
-  # parse_date_time currently doesn't take locale paramete which will be
+  # parse_date_time currently doesn't take locale parameter which will be
   # addressed in https://issues.apache.org/jira/browse/ARROW-17147
   skip_if_not_available("re2")
 
@@ -2851,7 +2855,7 @@ test_that("parse_date_time with `exact = TRUE`, and with regular R objects", {
   )
 
   # these functions' internals use some string processing which requires the
-  # RE2 library (not available on Windows with R 3.6)
+  # RE2 library
   skip_if_not_available("re2")
   compare_dplyr_binding(
     .input %>%
@@ -3036,7 +3040,7 @@ test_that("build_formats() and build_format_from_order()", {
 
 # an "easy" date to avoid conflating tests of different things (i.e., it's
 # UTC time, and not one of the edge cases on or extremely close to the
-# rounding boundaty)
+# rounding boundary)
 easy_date <- as.POSIXct("2022-10-11 12:00:00", tz = "UTC")
 easy_df <- tibble::tibble(datetime = easy_date)
 
@@ -3604,7 +3608,7 @@ test_that("with_tz() and force_tz() works", {
     "2012-01-01 01:02:03"
   ), tz = "UTC")
 
-  timestamps_non_utc <- force_tz(timestamps, "US/Central")
+  timestamps_non_utc <- force_tz(timestamps, "America/Chicago")
 
   nonexistent <- as_datetime(c(
     "2015-03-29 02:30:00",
@@ -3620,10 +3624,10 @@ test_that("with_tz() and force_tz() works", {
     .input %>%
       mutate(
         timestamps_with_tz_1 = with_tz(timestamps, "UTC"),
-        timestamps_with_tz_2 = with_tz(timestamps, "US/Central"),
+        timestamps_with_tz_2 = with_tz(timestamps, "America/Chicago"),
         timestamps_with_tz_3 = with_tz(timestamps, "Asia/Kolkata"),
         timestamps_force_tz_1 = force_tz(timestamps, "UTC"),
-        timestamps_force_tz_2 = force_tz(timestamps, "US/Central"),
+        timestamps_force_tz_2 = force_tz(timestamps, "America/Chicago"),
         timestamps_force_tz_3 = force_tz(timestamps, "Asia/Kolkata")
       ) %>%
       collect(),
@@ -3634,7 +3638,7 @@ test_that("with_tz() and force_tz() works", {
     .input %>%
       mutate(
         timestamps_with_tz_1 = with_tz(timestamps, "UTC"),
-        timestamps_with_tz_2 = with_tz(timestamps, "US/Central"),
+        timestamps_with_tz_2 = with_tz(timestamps, "America/Chicago"),
         timestamps_with_tz_3 = with_tz(timestamps, "Asia/Kolkata")
       ) %>%
       collect(),
@@ -3701,7 +3705,7 @@ test_that("with_tz() and force_tz() works", {
         roll_dst = "post")
       ) %>%
       collect(),
-    "roll_dst` value must be 'error' or 'boundary' for non-existent times"
+    "roll_dst` value must be 'error' or 'boundary' for nonexistent times"
   )
 
   expect_warning(
@@ -3714,7 +3718,7 @@ test_that("with_tz() and force_tz() works", {
         )
       ) %>%
       collect(),
-    "`roll_dst` value must be 'error', 'pre', or 'post' for non-existent times"
+    "`roll_dst` value must be 'error', 'pre', or 'post' for nonexistent times"
   )
 
   # Raise error when the timezone falls into the DST-break
@@ -3731,17 +3735,17 @@ test_that("with_tz() and force_tz() can add timezone to timestamp without timezo
 
   expect_equal(
     arrow_table(timestamps = timestamps) %>%
-      mutate(timestamps = with_tz(timestamps, "US/Central")) %>%
+      mutate(timestamps = with_tz(timestamps, "America/Chicago")) %>%
       compute(),
-    arrow_table(timestamps = timestamps$cast(timestamp("s", "US/Central")))
+    arrow_table(timestamps = timestamps$cast(timestamp("s", "America/Chicago")))
   )
 
   expect_equal(
     arrow_table(timestamps = timestamps) %>%
-      mutate(timestamps = force_tz(timestamps, "US/Central")) %>%
+      mutate(timestamps = force_tz(timestamps, "America/Chicago")) %>%
       compute(),
     arrow_table(
-      timestamps = call_function("assume_timezone", timestamps, options = list(timezone = "US/Central"))
+      timestamps = call_function("assume_timezone", timestamps, options = list(timezone = "America/Chicago"))
     )
   )
 })

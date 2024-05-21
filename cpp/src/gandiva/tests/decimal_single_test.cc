@@ -49,7 +49,8 @@ class TestDecimalOps : public ::testing::Test {
   ArrayPtr MakeDecimalVector(const DecimalScalar128& in);
 
   void Verify(DecimalTypeUtil::Op, const std::string& function, const DecimalScalar128& x,
-              const DecimalScalar128& y, const DecimalScalar128& expected);
+              const DecimalScalar128& y, const DecimalScalar128& expected,
+              bool use_compute_rules = false, bool verify_failed = false);
 
   void AddAndVerify(const DecimalScalar128& x, const DecimalScalar128& y,
                     const DecimalScalar128& expected) {
@@ -67,8 +68,10 @@ class TestDecimalOps : public ::testing::Test {
   }
 
   void DivideAndVerify(const DecimalScalar128& x, const DecimalScalar128& y,
-                       const DecimalScalar128& expected) {
-    Verify(DecimalTypeUtil::kOpDivide, "divide", x, y, expected);
+                       const DecimalScalar128& expected, bool use_compute_rules = false,
+                       bool verify_failed = false) {
+    Verify(DecimalTypeUtil::kOpDivide, "divide", x, y, expected, use_compute_rules,
+           verify_failed);
   }
 
   void ModAndVerify(const DecimalScalar128& x, const DecimalScalar128& y,
@@ -91,7 +94,8 @@ ArrayPtr TestDecimalOps::MakeDecimalVector(const DecimalScalar128& in) {
 
 void TestDecimalOps::Verify(DecimalTypeUtil::Op op, const std::string& function,
                             const DecimalScalar128& x, const DecimalScalar128& y,
-                            const DecimalScalar128& expected) {
+                            const DecimalScalar128& expected, bool use_compute_rules,
+                            bool verify_failed) {
   auto x_type = std::make_shared<arrow::Decimal128Type>(x.precision(), x.scale());
   auto y_type = std::make_shared<arrow::Decimal128Type>(y.precision(), y.scale());
   auto field_x = field("x", x_type);
@@ -99,8 +103,14 @@ void TestDecimalOps::Verify(DecimalTypeUtil::Op op, const std::string& function,
   auto schema = arrow::schema({field_x, field_y});
 
   Decimal128TypePtr output_type;
-  auto status = DecimalTypeUtil::GetResultType(op, {x_type, y_type}, &output_type);
-  ARROW_EXPECT_OK(status);
+  auto status = DecimalTypeUtil::GetResultType(op, {x_type, y_type}, &output_type,
+                                               use_compute_rules);
+  if (verify_failed) {
+    ASSERT_NOT_OK(status);
+    return;
+  } else {
+    ARROW_EXPECT_OK(status);
+  }
 
   // output fields
   auto res = field("res", output_type);
@@ -283,13 +293,31 @@ TEST_F(TestDecimalOps, TestMultiply) {
 }
 
 TEST_F(TestDecimalOps, TestDivide) {
+  // fast-path
+  //
+  // origin Gandiva's rules
   DivideAndVerify(decimal_literal("201", 10, 3),              // x
                   decimal_literal("301", 10, 2),              // y
                   decimal_literal("6677740863787", 23, 14));  // expected
 
+  // compute module's rules
+  DivideAndVerify(decimal_literal("201", 10, 3),           // x
+                  decimal_literal("301", 10, 2),           // y
+                  decimal_literal("66777408638", 21, 12),  // expected
+                  /*use_compute_rules=*/true);
+
+  // max precision beyond 38
+  //
+  // normally under origin Gandiva rules
   DivideAndVerify(DecimalScalar128(std::string(38, '9'), 38, 20),  // x
                   DecimalScalar128(std::string(35, '9'), 38, 20),  // x
                   DecimalScalar128("1000000000", 38, 6));
+
+  // invalid under compute module's rules
+  DivideAndVerify(DecimalScalar128(std::string(38, '9'), 38, 20),  // x
+                  DecimalScalar128(std::string(35, '9'), 38, 20),  // x
+                  DecimalScalar128(std::string(35, '9'), 0, 0),    // useless expected
+                  /*use_compute_rules=*/true, /*verify_failed=*/true);
 }
 
 TEST_F(TestDecimalOps, TestMod) {

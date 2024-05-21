@@ -17,6 +17,7 @@
 
 package org.apache.arrow.adapter.jdbc;
 
+import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -40,6 +41,8 @@ public class JdbcFieldInfo {
   private final int nullability;
   private final int precision;
   private final int scale;
+  private final String typeName;
+  private final int displaySize;
 
   /**
    * Builds a <code>JdbcFieldInfo</code> using only the {@link java.sql.Types} type.  Do not use this constructor
@@ -53,12 +56,13 @@ public class JdbcFieldInfo {
     Preconditions.checkArgument(
         (jdbcType != Types.DECIMAL && jdbcType != Types.NUMERIC),
         "DECIMAL and NUMERIC types require a precision and scale; please use another constructor.");
-
     this.column = 0;
     this.jdbcType = jdbcType;
     this.nullability = ResultSetMetaData.columnNullableUnknown;
     this.precision = 0;
     this.scale = 0;
+    this.typeName = "";
+    this.displaySize = 0;
   }
 
   /**
@@ -75,6 +79,8 @@ public class JdbcFieldInfo {
     this.nullability = ResultSetMetaData.columnNullableUnknown;
     this.precision = precision;
     this.scale = scale;
+    this.typeName = "";
+    this.displaySize = 0;
   }
 
   /**
@@ -92,6 +98,8 @@ public class JdbcFieldInfo {
     this.nullability = nullability;
     this.precision = precision;
     this.scale = scale;
+    this.typeName = "";
+    this.displaySize = 0;
   }
 
   /**
@@ -115,6 +123,25 @@ public class JdbcFieldInfo {
     this.nullability = rsmd.isNullable(column);
     this.precision = rsmd.getPrecision(column);
     this.scale = rsmd.getScale(column);
+    this.typeName = rsmd.getColumnTypeName(column);
+    this.displaySize = rsmd.getColumnDisplaySize(column);
+  }
+
+  /**
+   * Builds a <code>JdbcFieldInfo</code> from the corresponding row from a {@link java.sql.DatabaseMetaData#getColumns}
+   * ResultSet.
+   *
+   * @param rs The {@link java.sql.ResultSet} to get the field information from.
+   * @throws SQLException If the column information cannot be retrieved.
+   */
+  public JdbcFieldInfo(ResultSet rs) throws SQLException {
+    this.column = rs.getInt("ORDINAL_POSITION");
+    this.jdbcType = rs.getInt("DATA_TYPE");
+    this.nullability = rs.getInt("NULLABLE");
+    this.precision = rs.getInt("COLUMN_SIZE");
+    this.scale = rs.getInt("DECIMAL_DIGITS");
+    this.typeName = rs.getString("TYPE_NAME");
+    this.displaySize = rs.getInt("CHAR_OCTET_LENGTH");
   }
 
   /**
@@ -150,5 +177,19 @@ public class JdbcFieldInfo {
    */
   public int getColumn() {
     return column;
+  }
+
+  /**
+   * The type name as reported by the database.
+   */
+  public String getTypeName() {
+    return typeName;
+  }
+
+  /**
+   * The max number of characters for the column.
+   */
+  public int getDisplaySize() {
+    return displaySize;
   }
 }

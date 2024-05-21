@@ -20,9 +20,7 @@
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/key_toolkit_internal.h"
 
-namespace parquet {
-namespace encryption {
-namespace internal {
+namespace parquet::encryption::internal {
 
 // Acceptable key lengths in number of bits, used to validate the data key lengths
 // configured by users and the master key lengths fetched from KMS server.
@@ -77,6 +75,4 @@ bool ValidateKeyLength(int32_t key_length_bits) {
   return found_key_length != std::end(kAcceptableDataKeyLengths);
 }
 
-}  // namespace internal
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption::internal

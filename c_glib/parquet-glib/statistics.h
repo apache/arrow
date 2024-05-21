@@ -23,14 +23,9 @@
 
 G_BEGIN_DECLS
 
-
-#define GPARQUET_TYPE_STATISTICS                \
-  (gparquet_statistics_get_type())
-G_DECLARE_DERIVABLE_TYPE(GParquetStatistics,
-                         gparquet_statistics,
-                         GPARQUET,
-                         STATISTICS,
-                         GObject)
+#define GPARQUET_TYPE_STATISTICS (gparquet_statistics_get_type())
+G_DECLARE_DERIVABLE_TYPE(
+  GParquetStatistics, gparquet_statistics, GPARQUET, STATISTICS, GObject)
 struct _GParquetStatisticsClass
 {
   GObjectClass parent_class;
@@ -59,9 +54,7 @@ GARROW_AVAILABLE_IN_8_0
 gboolean
 gparquet_statistics_has_min_max(GParquetStatistics *statistics);
 
-
-#define GPARQUET_TYPE_BOOLEAN_STATISTICS        \
-  (gparquet_boolean_statistics_get_type())
+#define GPARQUET_TYPE_BOOLEAN_STATISTICS (gparquet_boolean_statistics_get_type())
 G_DECLARE_DERIVABLE_TYPE(GParquetBooleanStatistics,
                          gparquet_boolean_statistics,
                          GPARQUET,
@@ -79,9 +72,7 @@ GARROW_AVAILABLE_IN_8_0
 gboolean
 gparquet_boolean_statistics_get_max(GParquetBooleanStatistics *statistics);
 
-
-#define GPARQUET_TYPE_INT32_STATISTICS          \
-  (gparquet_int32_statistics_get_type())
+#define GPARQUET_TYPE_INT32_STATISTICS (gparquet_int32_statistics_get_type())
 G_DECLARE_DERIVABLE_TYPE(GParquetInt32Statistics,
                          gparquet_int32_statistics,
                          GPARQUET,
@@ -99,9 +90,7 @@ GARROW_AVAILABLE_IN_8_0
 gint32
 gparquet_int32_statistics_get_max(GParquetInt32Statistics *statistics);
 
-
-#define GPARQUET_TYPE_INT64_STATISTICS          \
-  (gparquet_int64_statistics_get_type())
+#define GPARQUET_TYPE_INT64_STATISTICS (gparquet_int64_statistics_get_type())
 G_DECLARE_DERIVABLE_TYPE(GParquetInt64Statistics,
                          gparquet_int64_statistics,
                          GPARQUET,
@@ -119,9 +108,7 @@ GARROW_AVAILABLE_IN_8_0
 gint64
 gparquet_int64_statistics_get_max(GParquetInt64Statistics *statistics);
 
-
-#define GPARQUET_TYPE_FLOAT_STATISTICS          \
-  (gparquet_float_statistics_get_type())
+#define GPARQUET_TYPE_FLOAT_STATISTICS (gparquet_float_statistics_get_type())
 G_DECLARE_DERIVABLE_TYPE(GParquetFloatStatistics,
                          gparquet_float_statistics,
                          GPARQUET,
@@ -139,9 +126,7 @@ GARROW_AVAILABLE_IN_8_0
 gfloat
 gparquet_float_statistics_get_max(GParquetFloatStatistics *statistics);
 
-
-#define GPARQUET_TYPE_DOUBLE_STATISTICS          \
-  (gparquet_double_statistics_get_type())
+#define GPARQUET_TYPE_DOUBLE_STATISTICS (gparquet_double_statistics_get_type())
 G_DECLARE_DERIVABLE_TYPE(GParquetDoubleStatistics,
                          gparquet_double_statistics,
                          GPARQUET,
@@ -159,9 +144,7 @@ GARROW_AVAILABLE_IN_8_0
 gdouble
 gparquet_double_statistics_get_max(GParquetDoubleStatistics *statistics);
 
-
-#define GPARQUET_TYPE_BYTE_ARRAY_STATISTICS          \
-  (gparquet_byte_array_statistics_get_type())
+#define GPARQUET_TYPE_BYTE_ARRAY_STATISTICS (gparquet_byte_array_statistics_get_type())
 G_DECLARE_DERIVABLE_TYPE(GParquetByteArrayStatistics,
                          gparquet_byte_array_statistics,
                          GPARQUET,
@@ -179,8 +162,7 @@ GARROW_AVAILABLE_IN_8_0
 GBytes *
 gparquet_byte_array_statistics_get_max(GParquetByteArrayStatistics *statistics);
 
-
-#define GPARQUET_TYPE_FIXED_LENGTH_BYTE_ARRAY_STATISTICS        \
+#define GPARQUET_TYPE_FIXED_LENGTH_BYTE_ARRAY_STATISTICS                                 \
   (gparquet_fixed_length_byte_array_statistics_get_type())
 G_DECLARE_DERIVABLE_TYPE(GParquetFixedLengthByteArrayStatistics,
                          gparquet_fixed_length_byte_array_statistics,
@@ -200,6 +182,5 @@ GARROW_AVAILABLE_IN_8_0
 GBytes *
 gparquet_fixed_length_byte_array_statistics_get_max(
   GParquetFixedLengthByteArrayStatistics *statistics);
-
 
 G_END_DECLS

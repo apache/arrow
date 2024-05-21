@@ -1103,7 +1103,8 @@ TEST_P(TestScanner, ProjectionDefaults) {
   }
   // If we only specify a projection expression then infer the projected schema
   // from the projection expression
-  auto projection_desc = ProjectionDescr::FromNames({"i32"}, *schema_);
+  auto projection_desc =
+      ProjectionDescr::FromNames({"i32"}, *schema_, /*add_augmented_fields=*/true);
   {
     ARROW_SCOPED_TRACE("User only specifies projection");
     options_->projection = projection_desc->expression;
@@ -1148,7 +1149,8 @@ TEST_P(TestScanner, ProjectedScanNestedFromNames) {
   });
   ASSERT_OK_AND_ASSIGN(auto descr,
                        ProjectionDescr::FromNames({".struct.i32", "nested.right.f64"},
-                                                  *options_->dataset_schema))
+                                                  *options_->dataset_schema,
+                                                  options_->add_augmented_fields))
   SetProjection(options_.get(), std::move(descr));
   auto batch_in = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
   auto batch_out = ConstantArrayGenerator::Zeroes(
@@ -2106,7 +2108,8 @@ TEST(ScanOptions, TestMaterializedFields) {
 
   auto set_projection_from_names = [&opts](std::vector<std::string> names) {
     ASSERT_OK_AND_ASSIGN(auto projection, ProjectionDescr::FromNames(
-                                              std::move(names), *opts->dataset_schema));
+                                              std::move(names), *opts->dataset_schema,
+                                              opts->add_augmented_fields));
     SetProjection(opts.get(), std::move(projection));
   };
 
@@ -2160,7 +2163,8 @@ TEST(ScanOptions, TestMaterializedFields) {
   // project top-level field, filter nothing
   opts->filter = literal(true);
   ASSERT_OK_AND_ASSIGN(projection,
-                       ProjectionDescr::FromNames({"nested"}, *opts->dataset_schema));
+                       ProjectionDescr::FromNames({"nested"}, *opts->dataset_schema,
+                                                  opts->add_augmented_fields));
   SetProjection(opts.get(), std::move(projection));
   EXPECT_THAT(opts->MaterializedFields(), ElementsAre(FieldRef("nested")));
 
@@ -2591,7 +2595,7 @@ TEST(ScanNode, MinimalEndToEnd) {
   // for now, specify the projection as the full project expression (eventually this can
   // just be a list of materialized field names)
   compute::Expression a_times_2 = call("multiply", {field_ref("a"), literal(2)});
-  // set the projection such that required project experssion field is included as a
+  // set the projection such that required project expression field is included as a
   // field_ref
   compute::Expression project_expr = field_ref("a");
   options->projection =
@@ -2686,7 +2690,7 @@ TEST(ScanNode, MinimalScalarAggEndToEnd) {
   // for now, specify the projection as the full project expression (eventually this can
   // just be a list of materialized field names)
   compute::Expression a_times_2 = call("multiply", {field_ref("a"), literal(2)});
-  // set the projection such that required project experssion field is included as a
+  // set the projection such that required project expression field is included as a
   // field_ref
   compute::Expression project_expr = field_ref("a");
   options->projection =
@@ -2778,7 +2782,7 @@ TEST(ScanNode, MinimalGroupedAggEndToEnd) {
   // for now, specify the projection as the full project expression (eventually this can
   // just be a list of materialized field names)
   compute::Expression a_times_2 = call("multiply", {field_ref("a"), literal(2)});
-  // set the projection such that required project experssion field is included as a
+  // set the projection such that required project expression field is included as a
   // field_ref
   compute::Expression a = field_ref("a");
   compute::Expression b = field_ref("b");
@@ -2888,12 +2892,12 @@ TEST(ScanNode, OnlyLoadProjectedFields) {
       {acero::Declaration({"scan", dataset::ScanNodeOptions{dataset, scan_options}})});
   ASSERT_OK_AND_ASSIGN(auto actual, acero::DeclarationToTable(declarations));
   // Scan node always emits augmented fields so we drop those
-  ASSERT_OK_AND_ASSIGN(auto actualMinusAgumented, actual->SelectColumns({0, 1, 2}));
+  ASSERT_OK_AND_ASSIGN(auto actualMinusAugmented, actual->SelectColumns({0, 1, 2}));
   auto expected = TableFromJSON(dummy_schema, {R"([
       [null, 1, null],
       [null, 4, null]
   ])"});
-  AssertTablesEqual(*expected, *actualMinusAgumented, /*same_chunk_layout=*/false);
+  AssertTablesEqual(*expected, *actualMinusAugmented, /*same_chunk_layout=*/false);
 }
 
 }  // namespace dataset

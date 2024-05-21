@@ -135,7 +135,7 @@ final class StreamTest {
   @Test
   public void roundtripDictionary() throws Exception {
     final ArrowType.Int indexType = new ArrowType.Int(32, true);
-    final DictionaryEncoding encoding = new DictionaryEncoding(1L, false, indexType);
+    final DictionaryEncoding encoding = new DictionaryEncoding(0L, false, indexType);
     final Schema schema = new Schema(Collections.singletonList(
         new Field("dict", new FieldType(/*nullable=*/true, indexType, encoding), Collections.emptyList())));
     final List<ArrowRecordBatch> batches = new ArrayList<>();

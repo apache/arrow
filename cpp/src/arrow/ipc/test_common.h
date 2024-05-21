@@ -96,7 +96,7 @@ Status MakeRandomStringArray(int64_t length, bool include_nulls, MemoryPool* poo
 
 ARROW_TESTING_EXPORT
 Status MakeStringTypesRecordBatch(std::shared_ptr<RecordBatch>* out,
-                                  bool with_nulls = true);
+                                  bool with_nulls = true, bool with_view_types = true);
 
 ARROW_TESTING_EXPORT
 Status MakeStringTypesRecordBatchWithNulls(std::shared_ptr<RecordBatch>* out);
@@ -106,6 +106,9 @@ Status MakeNullRecordBatch(std::shared_ptr<RecordBatch>* out);
 
 ARROW_TESTING_EXPORT
 Status MakeListRecordBatch(std::shared_ptr<RecordBatch>* out);
+
+ARROW_TESTING_EXPORT
+Status MakeListViewRecordBatch(std::shared_ptr<RecordBatch>* out);
 
 ARROW_TESTING_EXPORT
 Status MakeFixedSizeListRecordBatch(std::shared_ptr<RecordBatch>* out);
@@ -118,6 +121,9 @@ Status MakeNonNullRecordBatch(std::shared_ptr<RecordBatch>* out);
 
 ARROW_TESTING_EXPORT
 Status MakeDeeplyNestedList(std::shared_ptr<RecordBatch>* out);
+
+ARROW_TESTING_EXPORT
+Status MakeDeeplyNestedListView(std::shared_ptr<RecordBatch>* out);
 
 ARROW_TESTING_EXPORT
 Status MakeStruct(std::shared_ptr<RecordBatch>* out);

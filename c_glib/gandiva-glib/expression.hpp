@@ -30,10 +30,11 @@ GGandivaExpression *
 ggandiva_expression_new_raw(std::shared_ptr<gandiva::Expression> *gandiva_expression,
                             GGandivaNode *root_node,
                             GArrowField *result_field);
-std::shared_ptr<gandiva::Expression> ggandiva_expression_get_raw(GGandivaExpression *expression);
+std::shared_ptr<gandiva::Expression>
+ggandiva_expression_get_raw(GGandivaExpression *expression);
 
-GGandivaCondition
-*ggandiva_condition_new_raw(std::shared_ptr<gandiva::Condition> *gandiva_expression,
-                            GGandivaNode *root_node);
+GGandivaCondition *
+ggandiva_condition_new_raw(std::shared_ptr<gandiva::Condition> *gandiva_expression,
+                           GGandivaNode *root_node);
 std::shared_ptr<gandiva::Condition>
 ggandiva_condition_get_raw(GGandivaCondition *condition);

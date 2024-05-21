@@ -15,9 +15,6 @@
 %% specific language governing permissions and limitations
 %% under the License.
 
-%% To generate the diagram, use mermaid-cli
-%% Example: docker run --rm -v $(pwd)/FlightSql:/data minlag/mermaid-cli -i /data/CommandPreparedStatementQuery.mmd
-
 sequenceDiagram
 autonumber
 
@@ -28,6 +25,8 @@ Server->>Client: ActionCreatePreparedStatementResult{handle}
 loop for each invocation of the prepared statement
 Client->>Server: DoPut(CommandPreparedStatementQuery)
 Client->>Server: stream of FlightData
+Server-->>Client: DoPutPreparedStatementResult{handle}
+Note over Client,Server: optional response with updated handle
 Client->>Server: GetFlightInfo(CommandPreparedStatementQuery)
 Server->>Client: FlightInfo{endpoints: [FlightEndpoint{…}, …]}
     loop for each endpoint in FlightInfo.endpoints

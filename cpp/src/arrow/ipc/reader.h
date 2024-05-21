@@ -190,7 +190,7 @@ class ARROW_EXPORT RecordBatchFileReader
   /// \return the read batch
   virtual Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(int i) = 0;
 
-  /// \brief Read a particular record batch along with its custom metadada from the file.
+  /// \brief Read a particular record batch along with its custom metadata from the file.
   /// Does not copy memory if the input source supports zero-copy.
   ///
   /// \param[in] i the index of the record batch to return
@@ -229,6 +229,12 @@ class ARROW_EXPORT RecordBatchFileReader
       const io::IOContext& io_context = io::default_io_context(),
       const io::CacheOptions cache_options = io::CacheOptions::LazyDefaults(),
       arrow::internal::Executor* executor = NULLPTR) = 0;
+
+  /// \brief Collect all batches as a vector of record batches
+  Result<RecordBatchVector> ToRecordBatches();
+
+  /// \brief Collect all batches and concatenate as arrow::Table
+  Result<std::shared_ptr<Table>> ToTable();
 };
 
 /// \brief A general listener class to receive events.
@@ -252,7 +258,7 @@ class ARROW_EXPORT Listener {
   virtual Status OnEOS();
 
   /// \brief Called when a record batch is decoded and
-  /// OnRecordBatchWithMetadataDecoded() isn't overrided.
+  /// OnRecordBatchWithMetadataDecoded() isn't overridden.
   ///
   /// The default implementation just returns
   /// arrow::Status::NotImplemented().
@@ -418,6 +424,14 @@ class ARROW_EXPORT StreamDecoder {
   /// \param[in] buffer a Buffer to be processed.
   /// \return Status
   Status Consume(std::shared_ptr<Buffer> buffer);
+
+  /// \brief Reset the internal status.
+  ///
+  /// You can reuse this decoder for new stream after calling
+  /// this.
+  ///
+  /// \return Status
+  Status Reset();
 
   /// \return the shared schema of the record batches in the stream
   std::shared_ptr<Schema> schema() const;

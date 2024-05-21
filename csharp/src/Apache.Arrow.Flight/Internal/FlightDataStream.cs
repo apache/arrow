@@ -22,7 +22,7 @@ using System.Threading.Tasks;
 using Apache.Arrow.Flatbuf;
 using Apache.Arrow.Flight.Protocol;
 using Apache.Arrow.Ipc;
-using FlatBuffers;
+using Google.FlatBuffers;
 using Google.Protobuf;
 using Grpc.Core;
 
@@ -34,10 +34,10 @@ namespace Apache.Arrow.Flight.Internal
     internal class FlightDataStream : ArrowStreamWriter
     {
         private readonly FlightDescriptor _flightDescriptor;
-        private readonly IAsyncStreamWriter<FlightData> _clientStreamWriter;
+        private readonly IAsyncStreamWriter<Protocol.FlightData> _clientStreamWriter;
         private Protocol.FlightData _currentFlightData;
 
-        public FlightDataStream(IAsyncStreamWriter<FlightData> clientStreamWriter, FlightDescriptor flightDescriptor, Schema schema)
+        public FlightDataStream(IAsyncStreamWriter<Protocol.FlightData> clientStreamWriter, FlightDescriptor flightDescriptor, Schema schema)
             : base(new MemoryStream(), schema)
         {
             _clientStreamWriter = clientStreamWriter;

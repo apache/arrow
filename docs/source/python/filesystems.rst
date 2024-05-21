@@ -153,8 +153,9 @@ PyArrow implements natively a S3 filesystem for S3 compatible storage.
 The :class:`S3FileSystem` constructor has several options to configure the S3
 connection (e.g. credentials, the region, an endpoint override, etc). In
 addition, the constructor will also inspect configured S3 credentials as
-supported by AWS (for example the ``AWS_ACCESS_KEY_ID`` and
-``AWS_SECRET_ACCESS_KEY`` environment variables).
+supported by AWS (such as the ``AWS_ACCESS_KEY_ID`` and
+``AWS_SECRET_ACCESS_KEY`` environment variables, AWS configuration files,
+and EC2 Instance Metadata Service for EC2 nodes).
 
 
 Example how you can read contents from a S3 bucket::
@@ -181,7 +182,7 @@ Example how you can read contents from a S3 bucket::
 
 
 Note that it is important to configure :class:`S3FileSystem` with the correct
-region for the bucket being used. If `region` is not set, the AWS SDK will
+region for the bucket being used. If ``region`` is not set, the AWS SDK will
 choose a value, defaulting to 'us-east-1' if the SDK version is <1.8.
 Otherwise it will try to use a variety of heuristics (environment variables,
 configuration profile, EC2 metadata server) to resolve the region.
@@ -206,6 +207,14 @@ Here are a couple examples in code::
 
    :func:`pyarrow.fs.resolve_s3_region` for resolving region from a bucket name.
 
+Troubleshooting
+~~~~~~~~~~~~~~~
+
+When using :class:`S3FileSystem`, output is only produced for fatal errors or
+when printing return values. For troubleshooting, the log level can be set using
+the environment variable ``ARROW_S3_LOG_LEVEL``. The log level must be set prior
+to running any code that interacts with S3. Possible values include ``FATAL`` (the
+default), ``ERROR``, ``WARN``, ``INFO``, ``DEBUG`` (recommended), ``TRACE``, and ``OFF``.
 
 .. _filesystem-gcs:
 
@@ -224,7 +233,7 @@ generate a credentials file in the default location::
 
 To connect to a public bucket without using any credentials, you must pass
 ``anonymous=True`` to :class:`GcsFileSystem`. Otherwise, the filesystem
-will report ``Couldn't resolve host name`` since there are different host 
+will report ``Couldn't resolve host name`` since there are different host
 names for authenticated and public access.
 
 Example showing how you can read contents from a GCS bucket::
@@ -268,7 +277,7 @@ load time, since the library may not be in your LD_LIBRARY_PATH), and relies on
 some environment variables.
 
 * ``HADOOP_HOME``: the root of your installed Hadoop distribution. Often has
-  `lib/native/libhdfs.so`.
+  ``lib/native/libhdfs.so``.
 
 * ``JAVA_HOME``: the location of your Java SDK installation.
 
@@ -305,7 +314,7 @@ For example::
    # using this to read a partitioned dataset
    import pyarrow.dataset as ds
    ds.dataset("data/", filesystem=fs)
-   
+
 Similarly for Azure Blob Storage::
 
    import adlfs

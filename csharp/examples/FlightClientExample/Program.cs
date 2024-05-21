@@ -81,7 +81,7 @@ namespace FlightClientExample
                 Console.WriteLine($"Read batch from flight server: \n {batch}")  ;
             }
 
-            // See available comands on this server
+            // See available commands on this server
             var action_stream = client.ListActions();
             Console.WriteLine("Actions:");
             while (await action_stream.ResponseStream.MoveNext())

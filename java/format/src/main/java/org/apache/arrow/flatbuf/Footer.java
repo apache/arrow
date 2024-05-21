@@ -18,19 +18,31 @@
 
 package org.apache.arrow.flatbuf;
 
-import java.nio.*;
-import java.lang.*;
-import java.util.*;
-import com.google.flatbuffers.*;
+import com.google.flatbuffers.BaseVector;
+import com.google.flatbuffers.BooleanVector;
+import com.google.flatbuffers.ByteVector;
+import com.google.flatbuffers.Constants;
+import com.google.flatbuffers.DoubleVector;
+import com.google.flatbuffers.FlatBufferBuilder;
+import com.google.flatbuffers.FloatVector;
+import com.google.flatbuffers.IntVector;
+import com.google.flatbuffers.LongVector;
+import com.google.flatbuffers.ShortVector;
+import com.google.flatbuffers.StringVector;
+import com.google.flatbuffers.Struct;
+import com.google.flatbuffers.Table;
+import com.google.flatbuffers.UnionVector;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
-@SuppressWarnings("unused")
 /**
  * ----------------------------------------------------------------------
  * Arrow File metadata
  *
  */
+@SuppressWarnings("unused")
 public final class Footer extends Table {
-  public static void ValidateVersion() { Constants.FLATBUFFERS_1_12_0(); }
+  public static void ValidateVersion() { Constants.FLATBUFFERS_23_5_26(); }
   public static Footer getRootAsFooter(ByteBuffer _bb) { return getRootAsFooter(_bb, new Footer()); }
   public static Footer getRootAsFooter(ByteBuffer _bb, Footer obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb)); }
   public void __init(int _i, ByteBuffer _bb) { __reset(_i, _bb); }
@@ -63,9 +75,9 @@ public final class Footer extends Table {
       int schemaOffset,
       int dictionariesOffset,
       int recordBatchesOffset,
-      int custom_metadataOffset) {
+      int customMetadataOffset) {
     builder.startTable(5);
-    Footer.addCustomMetadata(builder, custom_metadataOffset);
+    Footer.addCustomMetadata(builder, customMetadataOffset);
     Footer.addRecordBatches(builder, recordBatchesOffset);
     Footer.addDictionaries(builder, dictionariesOffset);
     Footer.addSchema(builder, schemaOffset);

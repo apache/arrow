@@ -26,6 +26,7 @@
 #include <cmath>
 
 #include "arrow/memory_pool.h"
+#include "gandiva/function_registry.h"
 #include "gandiva/literal_holder.h"
 #include "gandiva/node.h"
 #include "gandiva/tests/test_util.h"
@@ -3579,6 +3580,106 @@ TEST_F(TestProjector, TestSqrtFloat64) {
   arrow::ArrayVector outs;
   ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
 
+  EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
+}
+
+TEST_F(TestProjector, TestExtendedFunctions) {
+  auto in_field = field("in", arrow::int32());
+  auto schema = arrow::schema({in_field});
+  auto out_field = field("out", arrow::int64());
+  // the multiply_by_two function is only available in the external function's IR bitcode
+  auto multiply =
+      TreeExprBuilder::MakeExpression("multiply_by_two", {in_field}, out_field);
+
+  std::shared_ptr<Projector> projector;
+  auto external_registry = std::make_shared<FunctionRegistry>();
+  auto config_with_func_registry =
+      TestConfigWithFunctionRegistry(std::move(external_registry));
+  ARROW_EXPECT_OK(
+      Projector::Make(schema, {multiply}, config_with_func_registry, &projector));
+
+  int num_records = 4;
+  auto array = MakeArrowArrayInt32({1, 2, 3, 4}, {true, true, true, true});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array});
+  auto out = MakeArrowArrayInt64({2, 4, 6, 8}, {true, true, true, true});
+
+  arrow::ArrayVector outs;
+  ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
+  EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
+}
+
+TEST_F(TestProjector, TestExtendedCFunctions) {
+  auto in_field = field("in", arrow::int32());
+  auto schema = arrow::schema({in_field});
+  auto out_field = field("out", arrow::int64());
+  auto multiply =
+      TreeExprBuilder::MakeExpression("multiply_by_three", {in_field}, out_field);
+
+  std::shared_ptr<Projector> projector;
+  auto external_registry = std::make_shared<FunctionRegistry>();
+  auto config_with_func_registry = TestConfigWithCFunction(std::move(external_registry));
+  ARROW_EXPECT_OK(
+      Projector::Make(schema, {multiply}, config_with_func_registry, &projector));
+
+  int num_records = 4;
+  auto array = MakeArrowArrayInt32({1, 2, 3, 4}, {true, true, true, true});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array});
+  auto out = MakeArrowArrayInt64({3, 6, 9, 12}, {true, true, true, true});
+
+  arrow::ArrayVector outs;
+  ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
+  EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
+}
+
+TEST_F(TestProjector, TestExtendedCFunctionsWithFunctionHolder) {
+  auto multiple = TreeExprBuilder::MakeLiteral(5);
+  auto in_field = field("in", arrow::int32());
+  auto schema = arrow::schema({in_field});
+  auto out_field = field("out", arrow::int64());
+
+  auto in_node = TreeExprBuilder::MakeField(in_field);
+  auto multiply_by_n_func =
+      TreeExprBuilder::MakeFunction("multiply_by_n", {in_node, multiple}, arrow::int64());
+  auto multiply = TreeExprBuilder::MakeExpression(multiply_by_n_func, out_field);
+
+  std::shared_ptr<Projector> projector;
+  auto external_registry = std::make_shared<FunctionRegistry>();
+  auto config_with_func_registry =
+      TestConfigWithHolderFunction(std::move(external_registry));
+  ARROW_EXPECT_OK(
+      Projector::Make(schema, {multiply}, config_with_func_registry, &projector));
+
+  int num_records = 4;
+  auto array = MakeArrowArrayInt32({1, 2, 3, 4}, {true, true, true, true});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array});
+  auto out = MakeArrowArrayInt64({5, 10, 15, 20}, {true, true, true, true});
+
+  arrow::ArrayVector outs;
+  ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
+  EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
+}
+
+TEST_F(TestProjector, TestExtendedCFunctionThatNeedsContext) {
+  auto in_field = field("in", arrow::utf8());
+  auto schema = arrow::schema({in_field});
+  auto out_field = field("out", arrow::utf8());
+  auto multiply =
+      TreeExprBuilder::MakeExpression("multiply_by_two_formula", {in_field}, out_field);
+
+  std::shared_ptr<Projector> projector;
+  auto external_registry = std::make_shared<FunctionRegistry>();
+  auto config_with_func_registry =
+      TestConfigWithContextFunction(std::move(external_registry));
+  ARROW_EXPECT_OK(
+      Projector::Make(schema, {multiply}, config_with_func_registry, &projector));
+
+  int num_records = 4;
+  auto array = MakeArrowArrayUtf8({"1", "2", "3", "10"}, {true, true, true, true});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array});
+  auto out = MakeArrowArrayUtf8({"1x2", "2x2", "3x2", "10x2"}, {true, true, true, true});
+
+  arrow::ArrayVector outs;
+  ARROW_EXPECT_OK(projector->Evaluate(*in_batch, pool_, &outs));
   EXPECT_ARROW_ARRAY_EQUALS(out, outs.at(0));
 }
 

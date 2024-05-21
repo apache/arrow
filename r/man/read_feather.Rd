@@ -10,8 +10,8 @@ read_feather(file, col_select = NULL, as_data_frame = TRUE, mmap = TRUE)
 read_ipc_file(file, col_select = NULL, as_data_frame = TRUE, mmap = TRUE)
 }
 \arguments{
-\item{file}{A character file name or URI, \code{raw} vector, an Arrow input stream,
-or a \code{FileSystem} with path (\code{SubTreeFileSystem}).
+\item{file}{A character file name or URI, connection, \code{raw} vector, an
+Arrow input stream, or a \code{FileSystem} with path (\code{SubTreeFileSystem}).
 If a file name or URI, an Arrow \link{InputStream} will be opened and
 closed when finished. If an input stream is provided, it will be left
 open.}
@@ -21,13 +21,13 @@ open.}
 \link[tidyselect:eval_select]{tidy selection specification}
 of columns, as used in \code{dplyr::select()}.}
 
-\item{as_data_frame}{Should the function return a \code{data.frame} (default) or
+\item{as_data_frame}{Should the function return a \code{tibble} (default) or
 an Arrow \link{Table}?}
 
 \item{mmap}{Logical: whether to memory-map the file (default \code{TRUE})}
 }
 \value{
-A \code{data.frame} if \code{as_data_frame} is \code{TRUE} (the default), or an
+A \code{tibble} if \code{as_data_frame} is \code{TRUE} (the default), or an
 Arrow \link{Table} otherwise
 }
 \description{

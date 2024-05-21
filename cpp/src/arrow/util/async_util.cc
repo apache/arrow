@@ -118,6 +118,8 @@ class FifoQueue : public ThrottledAsyncTaskScheduler::Queue {
 
   void Purge() override { tasks_.clear(); }
 
+  std::size_t Size() const override { return tasks_.size(); }
+
  private:
   std::list<std::unique_ptr<Task>> tasks_;
 };
@@ -201,10 +203,14 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
     }
     // Capture `task` to keep it alive until finished
     if (!submit_result->TryAddCallback([this, task_inner = std::move(task)]() mutable {
-          return [this, task_inner2 = std::move(task_inner)](const Status& st) {
+          return [this, task_inner2 = std::move(task_inner)](const Status& st) mutable {
 #ifdef ARROW_WITH_OPENTELEMETRY
             TraceTaskFinished(task_inner2.get());
 #endif
+            // OnTaskFinished might trigger the scheduler to end.  We want to ensure that
+            // is the very last thing that happens after all task destructors have run so
+            // we eagerly destroy the task first.
+            task_inner2.reset();
             OnTaskFinished(st);
           };
         })) {
@@ -328,6 +334,10 @@ class ThrottledAsyncTaskSchedulerImpl
 
   void Pause() override { throttle_->Pause(); }
   void Resume() override { throttle_->Resume(); }
+  std::size_t QueueSize() override {
+    std::lock_guard lk(mutex_);
+    return queue_->Size();
+  }
   const util::tracing::Span& span() const override { return target_->span(); }
 
  private:
@@ -495,6 +505,7 @@ class ThrottledAsyncTaskGroup : public ThrottledAsyncTaskScheduler {
       : throttle_(std::move(throttle)), task_group_(std::move(task_group)) {}
   void Pause() override { throttle_->Pause(); }
   void Resume() override { throttle_->Resume(); }
+  std::size_t QueueSize() override { return throttle_->QueueSize(); }
   const util::tracing::Span& span() const override { return task_group_->span(); }
   bool AddTask(std::unique_ptr<Task> task) override {
     return task_group_->AddTask(std::move(task));

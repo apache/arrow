@@ -18,6 +18,7 @@
 
 package org.apache.arrow.flatbuf;
 
+@SuppressWarnings("unused")
 public final class CompressionType {
   private CompressionType() { }
   public static final byte LZ4_FRAME = 0;

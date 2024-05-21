@@ -26,10 +26,12 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/compute/kernels/codegen_internal.h"
 
-namespace arrow {
-namespace compute {
-namespace internal {
+namespace arrow::compute::internal {
+
+using FilterState = OptionsWrapper<FilterOptions>;
+using TakeState = OptionsWrapper<TakeOptions>;
 
 struct SelectionKernelData {
   InputType value_type;
@@ -42,12 +44,6 @@ void RegisterSelectionFunction(const std::string& name, FunctionDoc doc,
                                std::vector<SelectionKernelData>&& kernels,
                                const FunctionOptions* default_options,
                                FunctionRegistry* registry);
-
-/// \brief Allocate an ArrayData for a primitive array with a given length and bit width
-///
-/// \param[in] bit_width 1 or a multiple of 8
-Status PreallocatePrimitiveArrayData(KernelContext* ctx, int64_t length, int bit_width,
-                                     bool allocate_validity, ArrayData* out);
 
 /// \brief Callback type for VisitPlainxREEFilterOutputSegments.
 ///
@@ -68,7 +64,7 @@ void VisitPlainxREEFilterOutputSegments(
     FilterOptions::NullSelectionBehavior null_selection,
     const EmitREEFilterSegment& emit_segment);
 
-Status FSBFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
+Status PrimitiveFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status ListFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status LargeListFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status FSLFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
@@ -77,14 +73,14 @@ Status MapFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
 
 Status VarBinaryTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status LargeVarBinaryTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
+Status PrimitiveTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status FSBTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status ListTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status LargeListTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status FSLTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status DenseUnionTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
+Status SparseUnionTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status StructTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status MapTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
 
-}  // namespace internal
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute::internal

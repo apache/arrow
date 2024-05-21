@@ -26,8 +26,7 @@ from collections.abc import Mapping
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
-from pyarrow.includes.libarrow_python cimport (MakeInvalidRowHandler,
-                                               PyInvalidRowCallback)
+from pyarrow.includes.libarrow_python cimport *
 from pyarrow.lib cimport (check_status, Field, MemoryPool, Schema,
                           RecordBatchReader, ensure_type,
                           maybe_unbox_memory_pool, get_input_stream,
@@ -290,6 +289,15 @@ cdef class ReadOptions(_Weakrefable):
         check_status(deref(self.options).Validate())
 
     def equals(self, ReadOptions other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.csv.ReadOptions
+
+        Returns
+        -------
+        bool
+        """
         return (
             self.use_threads == other.use_threads and
             self.block_size == other.block_size and
@@ -536,6 +544,15 @@ cdef class ParseOptions(_Weakrefable):
         check_status(deref(self.options).Validate())
 
     def equals(self, ParseOptions other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.csv.ParseOptions
+
+        Returns
+        -------
+        bool
+        """
         return (
             self.delimiter == other.delimiter and
             self.quote_char == other.quote_char and
@@ -1042,6 +1059,15 @@ cdef class ConvertOptions(_Weakrefable):
         check_status(deref(self.options).Validate())
 
     def equals(self, ConvertOptions other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.csv.ConvertOptions
+
+        Returns
+        -------
+        bool
+        """
         return (
             self.check_utf8 == other.check_utf8 and
             self.column_types == other.column_types and
@@ -1224,7 +1250,7 @@ def read_csv(input_file, read_options=None, parse_options=None,
         CCSVParseOptions c_parse_options
         CCSVConvertOptions c_convert_options
         CIOContext io_context
-        shared_ptr[CCSVReader] reader
+        SharedPtrNoGIL[CCSVReader] reader
         shared_ptr[CTable] table
 
     _get_reader(input_file, read_options, &stream)

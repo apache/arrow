@@ -14,7 +14,7 @@ This article provides an overview of working with both S3 and GCS data using the
 
 ## S3 and GCS support on Linux
 
-Before you start, make sure that your arrow install has support for S3 and/or GCS enabled. For most users this will be true by default, because the Windows and MacOS binary packages hosted on CRAN include S3 and GCS support. You can check whether support is enabled via helper functions:
+Before you start, make sure that your arrow install has support for S3 and/or GCS enabled. For most users this will be true by default, because the Windows and macOS binary packages hosted on CRAN include S3 and GCS support. You can check whether support is enabled via helper functions:
 
 ```r
 arrow_with_s3()
@@ -307,7 +307,7 @@ Sys.unsetenv("AWS_S3_ENDPOINT")
 ```
 
 By default, the AWS SDK tries to retrieve metadata about user configuration, 
-which can cause conficts when passing in connection details via URI (for example
+which can cause conflicts when passing in connection details via URI (for example
 when accessing a MINIO bucket).  To disable the use of AWS environment 
 variables, you can set environment variable `AWS_EC2_METADATA_DISABLED` to 
 `TRUE`.

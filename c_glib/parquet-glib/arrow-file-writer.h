@@ -23,8 +23,7 @@
 
 G_BEGIN_DECLS
 
-#define GPARQUET_TYPE_WRITER_PROPERTIES         \
-  (gparquet_writer_properties_get_type())
+#define GPARQUET_TYPE_WRITER_PROPERTIES (gparquet_writer_properties_get_type())
 G_DECLARE_DERIVABLE_TYPE(GParquetWriterProperties,
                          gparquet_writer_properties,
                          GPARQUET,
@@ -36,7 +35,8 @@ struct _GParquetWriterPropertiesClass
 };
 
 GARROW_AVAILABLE_IN_0_17
-GParquetWriterProperties *gparquet_writer_properties_new(void);
+GParquetWriterProperties *
+gparquet_writer_properties_new(void);
 GARROW_AVAILABLE_IN_0_17
 void
 gparquet_writer_properties_set_compression(GParquetWriterProperties *properties,
@@ -60,11 +60,12 @@ gparquet_writer_properties_is_dictionary_enabled(GParquetWriterProperties *prope
                                                  const gchar *path);
 GARROW_AVAILABLE_IN_0_17
 void
-gparquet_writer_properties_set_dictionary_page_size_limit(GParquetWriterProperties *properties,
-                                                          gint64 limit);
+gparquet_writer_properties_set_dictionary_page_size_limit(
+  GParquetWriterProperties *properties, gint64 limit);
 GARROW_AVAILABLE_IN_0_17
 gint64
-gparquet_writer_properties_get_dictionary_page_size_limit(GParquetWriterProperties *properties);
+gparquet_writer_properties_get_dictionary_page_size_limit(
+  GParquetWriterProperties *properties);
 GARROW_AVAILABLE_IN_0_17
 void
 gparquet_writer_properties_set_batch_size(GParquetWriterProperties *properties,
@@ -86,7 +87,6 @@ gparquet_writer_properties_set_data_page_size(GParquetWriterProperties *properti
 GARROW_AVAILABLE_IN_0_17
 gint64
 gparquet_writer_properties_get_data_page_size(GParquetWriterProperties *properties);
-
 
 #define GPARQUET_TYPE_ARROW_FILE_WRITER (gparquet_arrow_file_writer_get_type())
 G_DECLARE_DERIVABLE_TYPE(GParquetArrowFileWriter,
@@ -117,7 +117,6 @@ gparquet_arrow_file_writer_write_table(GParquetArrowFileWriter *writer,
                                        GError **error);
 
 gboolean
-gparquet_arrow_file_writer_close(GParquetArrowFileWriter *writer,
-                                 GError **error);
+gparquet_arrow_file_writer_close(GParquetArrowFileWriter *writer, GError **error);
 
 G_END_DECLS

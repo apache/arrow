@@ -24,11 +24,7 @@
 G_BEGIN_DECLS
 
 #define GADATASET_TYPE_DATASET (gadataset_dataset_get_type())
-G_DECLARE_DERIVABLE_TYPE(GADatasetDataset,
-                         gadataset_dataset,
-                         GADATASET,
-                         DATASET,
-                         GObject)
+G_DECLARE_DERIVABLE_TYPE(GADatasetDataset, gadataset_dataset, GADATASET, DATASET, GObject)
 struct _GADatasetDatasetClass
 {
   GObjectClass parent_class;

@@ -381,6 +381,9 @@ class GZipCodec : public Codec {
 
   Result<int64_t> Decompress(int64_t input_length, const uint8_t* input,
                              int64_t output_buffer_length, uint8_t* output) override {
+    int64_t read_input_bytes = 0;
+    int64_t decompressed_bytes = 0;
+
     if (!decompressor_initialized_) {
       RETURN_NOT_OK(InitDecompressor());
     }
@@ -392,40 +395,46 @@ class GZipCodec : public Codec {
       return 0;
     }
 
-    // Reset the stream for this block
-    if (inflateReset(&stream_) != Z_OK) {
-      return ZlibErrorPrefix("zlib inflateReset failed: ", stream_.msg);
-    }
+    // inflate() will not automatically decode concatenated gzip members, keep calling
+    // inflate until reading all input data (GH-38271).
+    while (read_input_bytes < input_length) {
+      // Reset the stream for this block
+      if (inflateReset(&stream_) != Z_OK) {
+        return ZlibErrorPrefix("zlib inflateReset failed: ", stream_.msg);
+      }
 
-    int ret = 0;
-    // gzip can run in streaming mode or non-streaming mode.  We only
-    // support the non-streaming use case where we present it the entire
-    // compressed input and a buffer big enough to contain the entire
-    // compressed output.  In the case where we don't know the output,
-    // we just make a bigger buffer and try the non-streaming mode
-    // from the beginning again.
-    while (ret != Z_STREAM_END) {
-      stream_.next_in = const_cast<Bytef*>(reinterpret_cast<const Bytef*>(input));
-      stream_.avail_in = static_cast<uInt>(input_length);
-      stream_.next_out = reinterpret_cast<Bytef*>(output);
-      stream_.avail_out = static_cast<uInt>(output_buffer_length);
+      int ret = 0;
+      // gzip can run in streaming mode or non-streaming mode.  We only
+      // support the non-streaming use case where we present it the entire
+      // compressed input and a buffer big enough to contain the entire
+      // compressed output.  In the case where we don't know the output,
+      // we just make a bigger buffer and try the non-streaming mode
+      // from the beginning again.
+      stream_.next_in =
+          const_cast<Bytef*>(reinterpret_cast<const Bytef*>(input + read_input_bytes));
+      stream_.avail_in = static_cast<uInt>(input_length - read_input_bytes);
+      stream_.next_out = reinterpret_cast<Bytef*>(output + decompressed_bytes);
+      stream_.avail_out = static_cast<uInt>(output_buffer_length - decompressed_bytes);
 
       // We know the output size.  In this case, we can use Z_FINISH
       // which is more efficient.
       ret = inflate(&stream_, Z_FINISH);
-      if (ret == Z_STREAM_END || ret != Z_OK) break;
+      if (ret == Z_OK) {
+        // Failure, buffer was too small
+        return Status::IOError("Too small a buffer passed to GZipCodec. InputLength=",
+                               input_length, " OutputLength=", output_buffer_length);
+      }
 
-      // Failure, buffer was too small
-      return Status::IOError("Too small a buffer passed to GZipCodec. InputLength=",
-                             input_length, " OutputLength=", output_buffer_length);
+      // Failure for some other reason
+      if (ret != Z_STREAM_END) {
+        return ZlibErrorPrefix("GZipCodec failed: ", stream_.msg);
+      }
+
+      read_input_bytes += stream_.total_in;
+      decompressed_bytes += stream_.total_out;
     }
 
-    // Failure for some other reason
-    if (ret != Z_STREAM_END) {
-      return ZlibErrorPrefix("GZipCodec failed: ", stream_.msg);
-    }
-
-    return stream_.total_out;
+    return decompressed_bytes;
   }
 
   int64_t MaxCompressedLen(int64_t input_length,

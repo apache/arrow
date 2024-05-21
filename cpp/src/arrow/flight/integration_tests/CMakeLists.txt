@@ -22,11 +22,8 @@ if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static" AND ARROW_BUILD_STATIC)
 else()
   set(ARROW_FLIGHT_INTEGRATION_TEST_LINK_LIBS arrow_flight_sql_shared)
 endif()
-list(APPEND
-     ARROW_FLIGHT_INTEGRATION_TEST_LINK_LIBS
-     ${ARROW_FLIGHT_TEST_LINK_LIBS}
-     ${GFLAGS_LIBRARIES}
-     ${ARROW_GTEST_GTEST})
+list(APPEND ARROW_FLIGHT_INTEGRATION_TEST_LINK_LIBS ${ARROW_FLIGHT_TEST_LINK_LIBS}
+     ${GFLAGS_LIBRARIES})
 
 add_executable(flight-test-integration-server test_integration_server.cc
                                               test_integration.cc)

@@ -31,24 +31,6 @@ function(check_description_length name description)
   endforeach()
 endfunction()
 
-function(list_join lst glue out)
-  if("${${lst}}" STREQUAL "")
-    set(${out}
-        ""
-        PARENT_SCOPE)
-    return()
-  endif()
-
-  list(GET ${lst} 0 joined)
-  list(REMOVE_AT ${lst} 0)
-  foreach(item ${${lst}})
-    set(joined "${joined}${glue}${item}")
-  endforeach()
-  set(${out}
-      ${joined}
-      PARENT_SCOPE)
-endfunction()
-
 macro(define_option name description default)
   set(options)
   set(one_value_args)
@@ -63,7 +45,7 @@ macro(define_option name description default)
   endif()
 
   check_description_length(${name} ${description})
-  list_join(description "\n" multiline_description)
+  list(JOIN description "\n" multiline_description)
 
   option(${name} "${multiline_description}" ${default})
 
@@ -76,7 +58,7 @@ endmacro()
 
 macro(define_option_string name description default)
   check_description_length(${name} ${description})
-  list_join(description "\n" multiline_description)
+  list(JOIN description "\n" multiline_description)
 
   set(${name}
       ${default}
@@ -87,8 +69,12 @@ macro(define_option_string name description default)
   set("${name}_OPTION_DEFAULT" "\"${default}\"")
   set("${name}_OPTION_TYPE" "string")
   set("${name}_OPTION_POSSIBLE_VALUES" ${ARGN})
-
-  list_join("${name}_OPTION_POSSIBLE_VALUES" "|" "${name}_OPTION_ENUM")
+  list(FIND ${name}_OPTION_POSSIBLE_VALUES "${default}" default_value_index)
+  if(NOT ${default_value_index} EQUAL -1)
+    list(REMOVE_AT ${name}_OPTION_POSSIBLE_VALUES ${default_value_index})
+    list(PREPEND ${name}_OPTION_POSSIBLE_VALUES "${default}")
+  endif()
+  list(JOIN "${name}_OPTION_POSSIBLE_VALUES" "|" "${name}_OPTION_ENUM")
   if(NOT ("${${name}_OPTION_ENUM}" STREQUAL ""))
     set_property(CACHE ${name} PROPERTY STRINGS "${name}_OPTION_POSSIBLE_VALUES")
   endif()
@@ -123,6 +109,17 @@ endmacro()
 macro(resolve_option_dependencies)
   if(MSVC_TOOLCHAIN)
     set(ARROW_USE_GLOG OFF)
+  endif()
+  # Tests are crashed with mold + sanitizer checks.
+  if(ARROW_USE_ASAN
+     OR ARROW_USE_TSAN
+     OR ARROW_USE_UBSAN)
+    if(ARROW_USE_MOLD)
+      message(WARNING "ARROW_USE_MOLD is disabled when one of "
+                      "ARROW_USE_ASAN, ARROW_USE_TSAN or ARROW_USE_UBSAN is specified "
+                      "because it causes some problems.")
+      set(ARROW_USE_MOLD OFF)
+    endif()
   endif()
 
   tsort_bool_option_dependencies()
@@ -161,8 +158,6 @@ if(ARROW_DEFINE_OPTIONS)
   define_option_string(ARROW_GIT_DESCRIPTION "The Arrow git commit description (if any)"
                        "")
 
-  define_option(ARROW_NO_DEPRECATED_API "Exclude deprecated APIs from build" OFF)
-
   define_option(ARROW_POSITION_INDEPENDENT_CODE
                 "Whether to create position-independent target" ON)
 
@@ -172,6 +167,10 @@ if(ARROW_DEFINE_OPTIONS)
 takes precedence over ccache if a storage backend is configured" ON)
 
   define_option(ARROW_USE_LD_GOLD "Use ld.gold for linking on Linux (if available)" OFF)
+
+  define_option(ARROW_USE_LLD "Use the LLVM lld for linking (if available)" OFF)
+
+  define_option(ARROW_USE_MOLD "Use mold for linking on Linux (if available)" OFF)
 
   define_option(ARROW_USE_PRECOMPILED_HEADERS "Use precompiled headers when compiling"
                 OFF)
@@ -209,6 +208,8 @@ takes precedence over ccache if a storage backend is configured" ON)
   define_option(ARROW_GGDB_DEBUG "Pass -ggdb flag to debug builds" ON)
 
   define_option(ARROW_WITH_MUSL "Whether the system libc is musl or not" OFF)
+
+  define_option(ARROW_ENABLE_THREADING "Enable threading in Arrow core" ON)
 
   #----------------------------------------------------------------------
   set_option_category("Test and benchmark")
@@ -352,12 +353,16 @@ takes precedence over ccache if a storage backend is configured" ON)
   define_option(ARROW_IPC "Build the Arrow IPC extensions" ON)
 
   set(ARROW_JEMALLOC_DESCRIPTION "Build the Arrow jemalloc-based allocator")
-  if(WIN32 OR "${CMAKE_SYSTEM_NAME}" STREQUAL "FreeBSD")
+  if(WIN32
+     OR "${CMAKE_SYSTEM_NAME}" STREQUAL "FreeBSD"
+     OR NOT ARROW_ENABLE_THREADING)
     # jemalloc is not supported on Windows.
     #
     # jemalloc is the default malloc implementation on FreeBSD and can't
     # be built with --disable-libdl on FreeBSD. Because lazy-lock feature
     # is required on FreeBSD. Lazy-lock feature requires libdl.
+    #
+    # jemalloc requires thread.
     define_option(ARROW_JEMALLOC ${ARROW_JEMALLOC_DESCRIPTION} OFF)
   else()
     define_option(ARROW_JEMALLOC ${ARROW_JEMALLOC_DESCRIPTION} ON)
@@ -481,6 +486,15 @@ takes precedence over ccache if a storage backend is configured" ON)
   define_option(ARROW_JEMALLOC_USE_SHARED
                 "Rely on jemalloc shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})
+
+  if(MSVC)
+    # LLVM doesn't support shared library with MSVC.
+    set(ARROW_LLVM_USE_SHARED_DEFAULT OFF)
+  else()
+    set(ARROW_LLVM_USE_SHARED_DEFAULT ${ARROW_DEPENDENCY_USE_SHARED})
+  endif()
+  define_option(ARROW_LLVM_USE_SHARED "Rely on LLVM shared libraries where relevant"
+                ${ARROW_LLVM_USE_SHARED_DEFAULT})
 
   define_option(ARROW_LZ4_USE_SHARED "Rely on lz4 shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})
@@ -750,7 +764,7 @@ if(NOT ARROW_GIT_ID)
                   OUTPUT_STRIP_TRAILING_WHITESPACE)
 endif()
 if(NOT ARROW_GIT_DESCRIPTION)
-  execute_process(COMMAND "git" "describe" "--tags" "--dirty"
+  execute_process(COMMAND "git" "describe" "--tags"
                   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
                   ERROR_QUIET
                   OUTPUT_VARIABLE ARROW_GIT_DESCRIPTION

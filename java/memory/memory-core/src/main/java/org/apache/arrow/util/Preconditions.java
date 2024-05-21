@@ -33,6 +33,8 @@
 
 package org.apache.arrow.util;
 
+import org.checkerframework.dataflow.qual.AssertMethod;
+
 /**
  * Static convenience methods that help a method or constructor check whether it was invoked
  * correctly (whether its <i>preconditions</i> have been met). These methods generally accept a
@@ -109,7 +111,8 @@ package org.apache.arrow.util;
  * @since 2.0
  */
 public final class Preconditions {
-  private Preconditions() {}
+  private Preconditions() {
+  }
 
   /**
    * Ensures the truth of an expression involving one or more parameters to the calling method.
@@ -117,6 +120,7 @@ public final class Preconditions {
    * @param expression a boolean expression
    * @throws IllegalArgumentException if {@code expression} is false
    */
+  @AssertMethod
   public static void checkArgument(boolean expression) {
     if (!expression) {
       throw new IllegalArgumentException();
@@ -131,6 +135,7 @@ public final class Preconditions {
    *     string using {@link String#valueOf(Object)}
    * @throws IllegalArgumentException if {@code expression} is false
    */
+  @AssertMethod
   public static void checkArgument(boolean expression, Object errorMessage) {
     if (!expression) {
       throw new IllegalArgumentException(String.valueOf(errorMessage));
@@ -438,6 +443,7 @@ public final class Preconditions {
    * @param expression a boolean expression
    * @throws IllegalStateException if {@code expression} is false
    */
+  @AssertMethod
   public static void checkState(boolean expression) {
     if (!expression) {
       throw new IllegalStateException();
@@ -453,6 +459,7 @@ public final class Preconditions {
    *     string using {@link String#valueOf(Object)}
    * @throws IllegalStateException if {@code expression} is false
    */
+  @AssertMethod
   public static void checkState(boolean expression, Object errorMessage) {
     if (!expression) {
       throw new IllegalStateException(String.valueOf(errorMessage));

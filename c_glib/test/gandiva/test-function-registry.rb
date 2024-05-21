@@ -20,7 +20,7 @@ class TestGandivaFunctionRegistry < Test::Unit::TestCase
 
   def setup
     omit("Gandiva is required") unless defined?(::Gandiva)
-    @registry = Gandiva::FunctionRegistry.new
+    @registry = Gandiva::FunctionRegistry.default
   end
 
   sub_test_case("lookup") do

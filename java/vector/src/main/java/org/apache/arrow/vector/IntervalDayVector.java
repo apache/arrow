@@ -164,15 +164,26 @@ public final class IntervalDayVector extends BaseFixedWidthVector {
    * @param index   position of element
    * @return element at given index
    */
+  @Override
   public Duration getObject(int index) {
     if (isSet(index) == 0) {
       return null;
     } else {
-      final long startIndex = (long) index * TYPE_WIDTH;
-      final int days = valueBuffer.getInt(startIndex);
-      final int milliseconds = valueBuffer.getInt(startIndex + MILLISECOND_OFFSET);
-      return Duration.ofDays(days).plusMillis(milliseconds);
+      return getObjectNotNull(index);
     }
+  }
+
+  /**
+   * Same as {@link #getObject(int)} but does not check for null.
+   *
+   * @param index   position of element
+   * @return element at given index
+   */
+  public Duration getObjectNotNull(int index) {
+    final long startIndex = (long) index * TYPE_WIDTH;
+    final int days = valueBuffer.getInt(startIndex);
+    final int milliseconds = valueBuffer.getInt(startIndex + MILLISECOND_OFFSET);
+    return Duration.ofDays(days).plusMillis(milliseconds);
   }
 
   /**
@@ -196,23 +207,23 @@ public final class IntervalDayVector extends BaseFixedWidthVector {
     final int days = valueBuffer.getInt(startIndex);
     int millis = valueBuffer.getInt(startIndex + MILLISECOND_OFFSET);
 
-    final int hours = millis / (org.apache.arrow.vector.util.DateUtility.hoursToMillis);
-    millis = millis % (org.apache.arrow.vector.util.DateUtility.hoursToMillis);
+    final int hours = millis / org.apache.arrow.vector.util.DateUtility.hoursToMillis;
+    millis = millis % org.apache.arrow.vector.util.DateUtility.hoursToMillis;
 
-    final int minutes = millis / (org.apache.arrow.vector.util.DateUtility.minutesToMillis);
-    millis = millis % (org.apache.arrow.vector.util.DateUtility.minutesToMillis);
+    final int minutes = millis / org.apache.arrow.vector.util.DateUtility.minutesToMillis;
+    millis = millis % org.apache.arrow.vector.util.DateUtility.minutesToMillis;
 
-    final int seconds = millis / (org.apache.arrow.vector.util.DateUtility.secondsToMillis);
-    millis = millis % (org.apache.arrow.vector.util.DateUtility.secondsToMillis);
+    final int seconds = millis / org.apache.arrow.vector.util.DateUtility.secondsToMillis;
+    millis = millis % org.apache.arrow.vector.util.DateUtility.secondsToMillis;
 
     final String dayString = (Math.abs(days) == 1) ? " day " : " days ";
 
-    return (new StringBuilder()
+    return new StringBuilder()
             .append(days).append(dayString)
             .append(hours).append(":")
             .append(minutes).append(":")
             .append(seconds).append(".")
-            .append(millis));
+            .append(millis);
   }
 
   /*----------------------------------------------------------------*

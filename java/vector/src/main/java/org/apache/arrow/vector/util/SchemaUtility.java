@@ -33,7 +33,8 @@ import org.apache.arrow.vector.types.pojo.Schema;
  * Schema utility class including serialization and deserialization.
  */
 public class SchemaUtility {
-  private SchemaUtility() {}
+  private SchemaUtility() {
+  }
 
   /**
    * Deserialize Arrow schema from byte array.

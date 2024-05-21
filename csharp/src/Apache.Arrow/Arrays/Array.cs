@@ -31,7 +31,7 @@ namespace Apache.Arrow
 
         public int Offset => Data.Offset;
 
-        public int NullCount => Data.NullCount;
+        public int NullCount => Data.GetNullCount();
 
         public ArrowBuffer NullBitmapBuffer => Data.Buffers[0];
 
@@ -62,16 +62,7 @@ namespace Apache.Arrow
 
         public Array Slice(int offset, int length)
         {
-            if (offset > Length)
-            {
-                throw new ArgumentException($"Offset {offset} cannot be greater than Length {Length} for Array.Slice");
-            }
-
-            length = Math.Min(Data.Length - offset, length);
-            offset += Data.Offset;
-
-            ArrayData newData = Data.Slice(offset, length);
-            return ArrowArrayFactory.BuildArray(newData) as Array;
+            return ArrowArrayFactory.Slice(this, offset, length) as Array;
         }
 
         public void Dispose()

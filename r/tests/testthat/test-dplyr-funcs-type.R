@@ -20,6 +20,8 @@ suppressPackageStartupMessages(library(bit64))
 suppressPackageStartupMessages(library(lubridate))
 
 skip_if_not_available("acero")
+# Skip these tests on CRAN due to build times > 10 mins
+skip_on_cran()
 
 tbl <- example_data
 
@@ -752,11 +754,10 @@ test_that("structs/nested data frames/tibbles can be created", {
   )
 
   # check that data.frame is mapped too
-  # stringsAsFactors default is TRUE in R 3.6, which is still tested on CI
   compare_dplyr_binding(
     .input %>%
       transmute(
-        df_col = data.frame(regular_col1, regular_col2, stringsAsFactors = FALSE)
+        df_col = data.frame(regular_col1, regular_col2)
       ) %>%
       collect() %>%
       mutate(df_col = as.data.frame(df_col)),

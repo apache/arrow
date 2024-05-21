@@ -19,10 +19,10 @@ package main
 import (
 	"os"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/math"
-	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/array"
+	"github.com/apache/arrow/go/v17/arrow/math"
+	"github.com/apache/arrow/go/v17/arrow/memory"
 )
 
 func main() {

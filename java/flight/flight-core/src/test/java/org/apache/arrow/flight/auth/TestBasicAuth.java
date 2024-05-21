@@ -41,10 +41,11 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import com.google.common.collect.ImmutableList;
@@ -56,8 +57,8 @@ public class TestBasicAuth {
   private static final byte[] VALID_TOKEN = "my_token".getBytes(StandardCharsets.UTF_8);
 
   private FlightClient client;
-  private FlightServer server;
-  private BufferAllocator allocator;
+  private static FlightServer server;
+  private static BufferAllocator allocator;
 
   @Test
   public void validAuth() {
@@ -65,8 +66,6 @@ public class TestBasicAuth {
     Assertions.assertTrue(ImmutableList.copyOf(client.listFlights(Criteria.ALL)).size() == 0);
   }
 
-  // ARROW-7722: this test occasionally leaks memory
-  @Disabled
   @Test
   public void asyncCall() throws Exception {
     client.authenticateBasic(USERNAME, PASSWORD);
@@ -97,7 +96,12 @@ public class TestBasicAuth {
   }
 
   @BeforeEach
-  public void setup() throws IOException {
+  public void testSetup() throws IOException {
+    client = FlightClient.builder(allocator, server.getLocation()).build();
+  }
+
+  @BeforeAll
+  public static void setup() throws IOException {
     allocator = new RootAllocator(Long.MAX_VALUE);
     final BasicServerAuthHandler.BasicAuthValidator validator = new BasicServerAuthHandler.BasicAuthValidator() {
 
@@ -149,12 +153,19 @@ public class TestBasicAuth {
             }
           }
         }).authHandler(new BasicServerAuthHandler(validator)).build().start();
-    client = FlightClient.builder(allocator, server.getLocation()).build();
   }
 
   @AfterEach
-  public void shutdown() throws Exception {
-    AutoCloseables.close(client, server, allocator);
+  public void tearDown() throws Exception {
+    AutoCloseables.close(client);
+  }
+
+  @AfterAll
+  public static void shutdown() throws Exception {
+    AutoCloseables.close(server);
+
+    allocator.getChildAllocators().forEach(BufferAllocator::close);
+    AutoCloseables.close(allocator);
   }
 
 }

@@ -22,7 +22,6 @@ package hashing
 import (
 	"bytes"
 	"math"
-	"reflect"
 	"unsafe"
 )
 
@@ -53,6 +52,12 @@ type MemoTable interface {
 	// the table (if false, the value was inserted). An error is returned
 	// if val is not the appropriate type for the table.
 	GetOrInsert(val interface{}) (idx int, existed bool, err error)
+	// GetOrInsertBytes returns the index of the table the specified value is,
+	// and a boolean indicating whether or not the value was found in
+	// the table (if false, the value was inserted). An error is returned
+	// if val is not the appropriate type for the table. This function is intended to be used by
+	// the BinaryMemoTable to prevent unnecessary allocations of the data when converting from a []byte to interface{}.
+	GetOrInsertBytes(val []byte) (idx int, existed bool, err error)
 	// GetOrInsertNull returns the index of the null value in the table,
 	// inserting one if it hasn't already been inserted. It returns a boolean
 	// indicating if the null value already existed or not in the table.
@@ -61,7 +66,7 @@ type MemoTable interface {
 	// insert one if it doesn't already exist. Will return -1 if it doesn't exist
 	// indicated by a false value for the boolean.
 	GetNull() (idx int, exists bool)
-	// WriteOut copys the unique values of the memotable out to the byte slice
+	// WriteOut copies the unique values of the memotable out to the byte slice
 	// provided. Must have allocated enough bytes for all the values.
 	WriteOut(out []byte)
 	// WriteOutSubset is like WriteOut, but only writes a subset of values
@@ -177,13 +182,7 @@ func (BinaryMemoTable) valAsByteSlice(val interface{}) []byte {
 	case ByteSlice:
 		return v.Bytes()
 	case string:
-		var out []byte
-		h := (*reflect.StringHeader)(unsafe.Pointer(&v))
-		s := (*reflect.SliceHeader)(unsafe.Pointer(&out))
-		s.Data = h.Data
-		s.Len = h.Len
-		s.Cap = h.Len
-		return out
+		return strToBytes(v)
 	default:
 		panic("invalid type for binarymemotable")
 	}
@@ -229,6 +228,22 @@ func (b *BinaryMemoTable) Get(val interface{}) (int, bool) {
 		return int(p.payload.val), ok
 	}
 	return KeyNotFound, false
+}
+
+// GetOrInsertBytes returns the index of the given value in the table, if not found
+// it is inserted into the table. The return value 'found' indicates whether the value
+// was found in the table (true) or inserted (false) along with any possible error.
+func (b *BinaryMemoTable) GetOrInsertBytes(val []byte) (idx int, found bool, err error) {
+	h := Hash(val, 0)
+	p, found := b.lookup(h, val)
+	if found {
+		idx = int(p.payload.val)
+	} else {
+		idx = b.Size()
+		b.builder.Append(val)
+		b.tbl.Insert(p, h, int32(idx), -1)
+	}
+	return
 }
 
 // GetOrInsert returns the index of the given value in the table, if not found

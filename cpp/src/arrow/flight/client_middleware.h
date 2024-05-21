@@ -42,6 +42,11 @@ class ARROW_FLIGHT_EXPORT ClientMiddleware {
   virtual void SendingHeaders(AddCallHeaders* outgoing_headers) = 0;
 
   /// \brief A callback when headers are received from the server.
+  ///
+  /// This may be called more than once, since servers send both
+  /// headers and trailers.  Some implementations (e.g. gRPC-Java, and
+  /// hence Arrow Flight in Java) may consolidate headers into
+  /// trailers if the RPC errored.
   virtual void ReceivedHeaders(const CallHeaders& incoming_headers) = 0;
 
   /// \brief A callback after the call has completed.

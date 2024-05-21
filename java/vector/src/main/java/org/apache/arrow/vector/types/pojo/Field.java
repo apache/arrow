@@ -37,7 +37,6 @@ import org.apache.arrow.flatbuf.Type;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Collections2;
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.TypeLayout;
 import org.apache.arrow.vector.types.pojo.ArrowType.ExtensionType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -93,14 +92,17 @@ public class Field {
     this(name, new FieldType(nullable, type, dictionary, convertMetadata(metadata)), children);
   }
 
-  private Field(String name, FieldType fieldType, List<Field> children, TypeLayout typeLayout) {
+  /**
+   * Constructs a new Field object.
+   *
+   * @param name name of the field
+   * @param fieldType type of the field
+   * @param children child fields, if any
+   */
+  public Field(String name, FieldType fieldType, List<Field> children) {
     this.name = name;
     this.fieldType = checkNotNull(fieldType);
     this.children = children == null ? Collections.emptyList() : Collections2.toImmutableList(children);
-  }
-
-  public Field(String name, FieldType fieldType, List<Field> children) {
-    this(name, fieldType, children, fieldType == null ? null : TypeLayout.getTypeLayout(fieldType.getType()));
   }
 
   /**
@@ -279,7 +281,7 @@ public class Field {
     }
     Field that = (Field) obj;
     return Objects.equals(this.name, that.name) &&
-        Objects.equals(this.isNullable(), that.isNullable()) &&
+        this.isNullable() == that.isNullable() &&
         Objects.equals(this.getType(), that.getType()) &&
         Objects.equals(this.getDictionary(), that.getDictionary()) &&
         Objects.equals(this.getMetadata(), that.getMetadata()) &&

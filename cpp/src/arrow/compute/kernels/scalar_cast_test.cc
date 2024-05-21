@@ -211,8 +211,8 @@ TEST(Cast, CanCast) {
     ExpectCannotCast(from_base_binary, {null()});
   }
 
-  ExpectCanCast(utf8(), {timestamp(TimeUnit::MILLI)});
-  ExpectCanCast(large_utf8(), {timestamp(TimeUnit::NANO)});
+  ExpectCanCast(utf8(), {timestamp(TimeUnit::MILLI), date32(), date64()});
+  ExpectCanCast(large_utf8(), {timestamp(TimeUnit::NANO), date32(), date64()});
   ExpectCannotCast(timestamp(TimeUnit::MICRO),
                    {binary(), large_binary()});  // no formatting supported
 
@@ -389,7 +389,7 @@ TEST(Cast, ToIntDowncastUnsafe) {
 }
 
 TEST(Cast, FloatingToInt) {
-  for (auto from : {float32(), float64()}) {
+  for (auto from : {float16(), float32(), float64()}) {
     for (auto to : {int32(), int64()}) {
       // float to int no truncation
       CheckCast(ArrayFromJSON(from, "[1.0, null, 0.0, -1.0, 5.0]"),
@@ -403,6 +403,15 @@ TEST(Cast, FloatingToInt) {
       opts.allow_float_truncate = true;
       CheckCast(ArrayFromJSON(from, "[1.5, 0.0, null, 0.5, -1.5, 5.5]"),
                 ArrayFromJSON(to, "[1, 0, null, 0, -1, 5]"), opts);
+    }
+  }
+}
+
+TEST(Cast, FloatingToFloating) {
+  for (auto from : {float16(), float32(), float64()}) {
+    for (auto to : {float16(), float32(), float64()}) {
+      CheckCast(ArrayFromJSON(from, "[1.0, 0.0, -1.0, 5.0]"),
+                ArrayFromJSON(to, "[1.0, 0.0, -1.0, 5.0]"));
     }
   }
 }
@@ -1025,7 +1034,8 @@ TEST(Cast, DecimalToFloating) {
     }
   }
 
-  // Edge cases are tested for Decimal128::ToReal() and Decimal256::ToReal()
+  // Edge cases are tested for Decimal128::ToReal() and Decimal256::ToReal() in
+  // decimal_test.cc
 }
 
 TEST(Cast, DecimalToString) {
@@ -2015,6 +2025,23 @@ TEST(Cast, StringToTimestamp) {
   }
 }
 
+TEST(Cast, StringToDate) {
+  for (auto string_type : {utf8(), large_utf8()}) {
+    auto strings = ArrayFromJSON(string_type, R"(["1970-01-01", null, "2000-02-29"])");
+
+    CheckCast(strings, ArrayFromJSON(date32(), "[0, null, 11016]"));
+    CheckCast(strings, ArrayFromJSON(date64(), "[0, null, 951782400000]"));
+
+    for (auto date_type : {date32(), date64()}) {
+      for (std::string not_ts : {"", "2012-01-xx", "2012-01-01 09:00:00"}) {
+        auto options = CastOptions::Safe(date_type);
+        CheckCastFails(ArrayFromJSON(string_type, "[\"" + not_ts + "\"]"), options);
+      }
+    }
+    // NOTE: YYYY-MM-DD parsing is tested comprehensively in value_parsing_test.cc
+  }
+}
+
 static void AssertBinaryZeroCopy(std::shared_ptr<Array> lhs, std::shared_ptr<Array> rhs) {
   // null bitmap and data buffers are always zero-copied
   AssertBufferSame(*lhs, *rhs, 0);
@@ -2153,6 +2180,49 @@ TEST(Cast, StringToString) {
   }
 }
 
+TEST(Cast, BinaryOrStringToFixedSizeBinary) {
+  for (auto in_type : {utf8(), large_utf8(), binary(), large_binary()}) {
+    auto valid_input = ArrayFromJSON(in_type, R"(["foo", null, "bar", "baz", "quu"])");
+    auto invalid_input = ArrayFromJSON(in_type, R"(["foo", null, "bar", "baz", "quux"])");
+
+    CheckCast(valid_input, ArrayFromJSON(fixed_size_binary(3), R"(["foo", null, "bar",
+          "baz", "quu"])"));
+    CheckCastFails(invalid_input, CastOptions::Safe(fixed_size_binary(3)));
+    CheckCastFails(valid_input, CastOptions::Safe(fixed_size_binary(5)));
+
+    auto empty_input = ArrayFromJSON(in_type, "[]");
+    CheckCast(empty_input, ArrayFromJSON(fixed_size_binary(3), "[]"));
+    CheckCast(empty_input, ArrayFromJSON(fixed_size_binary(5), "[]"));
+  }
+}
+
+TEST(Cast, FixedSizeBinaryToBinaryOrString) {
+  for (auto out_type : {utf8(), large_utf8(), binary(), large_binary()}) {
+    auto valid_input = ArrayFromJSON(fixed_size_binary(3), R"(["foo", null, "bar",
+          "baz", "quu"])");
+
+    CheckCast(valid_input, ArrayFromJSON(out_type, R"(["foo", null, "bar", "baz",
+          "quu"])"));
+
+    auto empty_input = ArrayFromJSON(fixed_size_binary(3), "[]");
+    CheckCast(empty_input, ArrayFromJSON(out_type, "[]"));
+  }
+}
+
+TEST(Cast, FixedSizeBinaryToBinaryOrStringWithSlice) {
+  for (auto out_type : {utf8(), large_utf8(), binary(), large_binary()}) {
+    auto valid_input = ArrayFromJSON(fixed_size_binary(3), R"(["foo", null, "bar",
+                "baz", "quu"])");
+    auto sliced = valid_input->Slice(1, 3);
+    CheckCast(sliced, ArrayFromJSON(out_type, R"([null, "bar", "baz"])"));
+
+    auto valid_input_without_null = ArrayFromJSON(fixed_size_binary(3), R"(["foo", "bar",
+                "baz", "quu"])");
+    auto sliced_without_null = valid_input_without_null->Slice(1, 3);
+    CheckCast(sliced_without_null, ArrayFromJSON(out_type, R"(["bar", "baz", "quu"])"));
+  }
+}
+
 TEST(Cast, IntToString) {
   for (auto string_type : {utf8(), large_utf8()}) {
     CheckCast(ArrayFromJSON(int8(), "[0, 1, 127, -128, null]"),
@@ -2186,14 +2256,12 @@ TEST(Cast, IntToString) {
 }
 
 TEST(Cast, FloatingToString) {
-  for (auto string_type : {utf8(), large_utf8()}) {
-    CheckCast(
-        ArrayFromJSON(float32(), "[0.0, -0.0, 1.5, -Inf, Inf, NaN, null]"),
-        ArrayFromJSON(string_type, R"(["0", "-0", "1.5", "-inf", "inf", "nan", null])"));
-
-    CheckCast(
-        ArrayFromJSON(float64(), "[0.0, -0.0, 1.5, -Inf, Inf, NaN, null]"),
-        ArrayFromJSON(string_type, R"(["0", "-0", "1.5", "-inf", "inf", "nan", null])"));
+  for (auto float_type : {float16(), float32(), float64()}) {
+    for (auto string_type : {utf8(), large_utf8()}) {
+      CheckCast(ArrayFromJSON(float_type, "[0.0, -0.0, 1.5, -Inf, Inf, NaN, null]"),
+                ArrayFromJSON(string_type,
+                              R"(["0", "-0", "1.5", "-inf", "inf", "nan", null])"));
+    }
   }
 }
 
@@ -2324,6 +2392,88 @@ TEST(Cast, FSLToFSLOptionsPassThru) {
 
   options.allow_int_overflow = true;
   CheckCast(fsl_int32, ArrayFromJSON(fixed_size_list(int16(), 1), "[[32689]]"), options);
+}
+
+void CheckCastList(const std::shared_ptr<DataType>& from_type,
+                   const std::shared_ptr<DataType>& to_type,
+                   const std::string& json_data) {
+  CheckCast(ArrayFromJSON(from_type, json_data), ArrayFromJSON(to_type, json_data));
+}
+
+TEST(Cast, FSLToList) {
+  CheckCastList(fixed_size_list(int16(), 2), list(int16()),
+                "[[0, 1], [2, 3], [null, 5], null]");
+  // Large variant
+  CheckCastList(fixed_size_list(int16(), 2), large_list(int16()),
+                "[[0, 1], [2, 3], [null, 5], null]");
+  // Different child types
+  CheckCastList(fixed_size_list(int16(), 2), list(int32()),
+                "[[0, 1], [2, 3], [null, 5], null]");
+  // No nulls
+  CheckCastList(fixed_size_list(int16(), 2), list(int32()), "[[0, 1], [2, 3], [4, 5]]");
+  // Nested lists
+  CheckCastList(fixed_size_list(list(int16()), 2), list(list(int32())),
+                "[[[0, 1], [2, 3]], [[4, 5], null]]");
+  // Sliced children (top-level slicing handled in CheckCast)
+  auto children_src = ArrayFromJSON(int32(), "[1, 2, null, 4, 5, null]");
+  children_src = children_src->Slice(2);
+  auto from =
+      std::make_shared<FixedSizeListArray>(fixed_size_list(int32(), 2), 2, children_src);
+  auto to = ArrayFromJSON(list(int32()), "[[null, 4], [5, null]]");
+  CheckCast(from, to);
+  // Options pass through
+  auto fsl_int32 = ArrayFromJSON(fixed_size_list(int32(), 1), "[[87654321]]");
+  auto options = CastOptions::Safe(list(int16()));
+  CheckCastFails(fsl_int32, options);
+  options.allow_int_overflow = true;
+  CheckCast(fsl_int32, ArrayFromJSON(fixed_size_list(int16(), 1), "[[32689]]"), options);
+}
+
+TEST(Cast, ListToFSL) {
+  CheckCastList(list(int16()), fixed_size_list(int16(), 2),
+                "[[0, 1], [2, 3], null, [null, 5], null]");
+  // Large variant
+  CheckCastList(large_list(int16()), fixed_size_list(int16(), 2),
+                "[[0, 1], [2, 3], null, [null, 5], null]");
+  // Different child types
+  CheckCastList(list(int32()), fixed_size_list(int16(), 2),
+                "[[0, 1], [2, 3], null, [null, 5], null]");
+  // No nulls
+  CheckCastList(list(int32()), fixed_size_list(int16(), 2), "[[0, 1], [2, 3], [4, 5]]");
+  // Nested lists
+  CheckCastList(list(list(int32())), fixed_size_list(list(int16()), 2),
+                "[[[0, 1], [2, 3]], [[4, 5], null]]");
+  // Sliced children (top-level slicing handled in CheckCast)
+  {
+    auto children_src = ArrayFromJSON(int32(), "[1, 2, null, 4, 5, null]");
+    children_src = children_src->Slice(2);
+    ASSERT_OK_AND_ASSIGN(
+        auto from,
+        ListArray::FromArrays(*ArrayFromJSON(int32(), "[0, 2, 4]"), *children_src));
+    auto to = ArrayFromJSON(fixed_size_list(int32(), 2), "[[null, 4], [5, null]]");
+    CheckCast(from, to);
+  }
+
+  // Null slots with non-zero size
+  {
+    auto from = MaskArrayWithNullsAt(
+        ArrayFromJSON(list(int32()), "[[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]"),
+        {1, 2, 4});
+    auto to =
+        ArrayFromJSON(fixed_size_list(int32(), 2), "[[0, 1], null, null, [6, 7], null]");
+    CheckCast(from, to);
+  }
+
+  // Options pass through
+  auto fsl_int32 = ArrayFromJSON(fixed_size_list(int32(), 1), "[[87654321]]");
+  auto options = CastOptions::Safe(list(int16()));
+  CheckCastFails(fsl_int32, options);
+  options.allow_int_overflow = true;
+  CheckCast(fsl_int32, ArrayFromJSON(fixed_size_list(int16(), 1), "[[32689]]"), options);
+
+  // Invalid fixed_size_list cast if inconsistent size
+  ASSERT_RAISES(Invalid, Cast(ArrayFromJSON(list(int32()), "[[0, 1, 2], null, [3, 4]]"),
+                              CastOptions::Safe(fixed_size_list(int32(), 3))));
 }
 
 TEST(Cast, CastMap) {
@@ -2726,19 +2876,19 @@ TEST(Cast, StructToDifferentNullabilityStruct) {
         ::testing::HasSubstr("cannot cast nullable field to non-nullable field"),
         Cast(src_nullable, options1_non_nullable));
 
-    std::vector<std::shared_ptr<Field>> fields_dest2_non_nullble = {
+    std::vector<std::shared_ptr<Field>> fields_dest2_non_nullable = {
         std::make_shared<Field>("a", int64(), false),
         std::make_shared<Field>("c", int64(), false)};
-    const auto dest2_non_nullable = arrow::struct_(fields_dest2_non_nullble);
+    const auto dest2_non_nullable = arrow::struct_(fields_dest2_non_nullable);
     const auto options2_non_nullable = CastOptions::Safe(dest2_non_nullable);
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         TypeError,
         ::testing::HasSubstr("cannot cast nullable field to non-nullable field"),
         Cast(src_nullable, options2_non_nullable));
 
-    std::vector<std::shared_ptr<Field>> fields_dest3_non_nullble = {
+    std::vector<std::shared_ptr<Field>> fields_dest3_non_nullable = {
         std::make_shared<Field>("c", int64(), false)};
-    const auto dest3_non_nullable = arrow::struct_(fields_dest3_non_nullble);
+    const auto dest3_non_nullable = arrow::struct_(fields_dest3_non_nullable);
     const auto options3_non_nullable = CastOptions::Safe(dest3_non_nullable);
     EXPECT_RAISES_WITH_MESSAGE_THAT(
         TypeError,

@@ -67,27 +67,31 @@ int RequiredValueAlignmentForBuffer(Type::type type_id, int buffer_index) {
     case Type::BINARY:  // Offsets may be cast to int32_t*
     case Type::DATE32:
     case Type::TIME32:
-    case Type::LIST:  // Offsets may be cast to int32_t*, data is in child array
-    case Type::MAP:   // This is a list array
+    case Type::LIST:               // Offsets may be cast to int32_t*
+    case Type::LIST_VIEW:          // Offsets and sizes may be cast to int32_t*
+    case Type::MAP:                // Same as LIST
     case Type::INTERVAL_MONTHS:    // Stored as int32_t*
     case Type::INTERVAL_DAY_TIME:  // Stored as two contiguous 32-bit integers
       return 4;
     case Type::INT64:
     case Type::UINT64:
     case Type::DOUBLE:
-    case Type::DECIMAL128:    // May be cast to GenericBasicDecimal* which requires
-                              // alignment of 8
-    case Type::DECIMAL256:    // May be cast to GenericBasicDecimal* which requires
-                              // alignment of 8
-    case Type::LARGE_BINARY:  // Offsets may be cast to int64_t*
-    case Type::LARGE_LIST:    // Offsets may be cast to int64_t*
-    case Type::LARGE_STRING:  // Offsets may be cast to int64_t*
+    case Type::DECIMAL128:       // May be cast to GenericBasicDecimal* which requires
+                                 // alignment of 8
+    case Type::DECIMAL256:       // May be cast to GenericBasicDecimal* which requires
+                                 // alignment of 8
+    case Type::LARGE_BINARY:     // Offsets may be cast to int64_t*
+    case Type::LARGE_STRING:     // Offsets may be cast to int64_t*
+    case Type::LARGE_LIST:       // Offsets may be cast to int64_t*
+    case Type::LARGE_LIST_VIEW:  // Offsets and sizes may be cast to int64_t*
     case Type::DATE64:
     case Type::TIME64:
     case Type::TIMESTAMP:
     case Type::DURATION:
     case Type::INTERVAL_MONTH_DAY_NANO:  // Stored as two 32-bit integers and a 64-bit
                                          // integer
+    case Type::STRING_VIEW:
+    case Type::BINARY_VIEW:
       return 8;
     case Type::DICTIONARY:
     case Type::EXTENSION:

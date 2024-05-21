@@ -35,15 +35,12 @@ struct _GParquetArrowFileReaderClass
 };
 
 GParquetArrowFileReader *
-gparquet_arrow_file_reader_new_arrow(GArrowSeekableInputStream *source,
-                                     GError **error);
+gparquet_arrow_file_reader_new_arrow(GArrowSeekableInputStream *source, GError **error);
 GParquetArrowFileReader *
-gparquet_arrow_file_reader_new_path(const gchar *path,
-                                    GError **error);
+gparquet_arrow_file_reader_new_path(const gchar *path, GError **error);
 
 GArrowTable *
-gparquet_arrow_file_reader_read_table(GParquetArrowFileReader *reader,
-                                      GError **error);
+gparquet_arrow_file_reader_read_table(GParquetArrowFileReader *reader, GError **error);
 
 GARROW_AVAILABLE_IN_1_0
 GArrowTable *
@@ -54,8 +51,7 @@ gparquet_arrow_file_reader_read_row_group(GParquetArrowFileReader *reader,
                                           GError **error);
 
 GArrowSchema *
-gparquet_arrow_file_reader_get_schema(GParquetArrowFileReader *reader,
-                                      GError **error);
+gparquet_arrow_file_reader_get_schema(GParquetArrowFileReader *reader, GError **error);
 
 GArrowChunkedArray *
 gparquet_arrow_file_reader_read_column_data(GParquetArrowFileReader *reader,

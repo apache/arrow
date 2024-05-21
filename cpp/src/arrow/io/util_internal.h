@@ -45,9 +45,9 @@ ARROW_EXPORT Status ValidateWriteRange(int64_t offset, int64_t size, int64_t fil
 ARROW_EXPORT Status ValidateRange(int64_t offset, int64_t size);
 
 ARROW_EXPORT
-std::vector<ReadRange> CoalesceReadRanges(std::vector<ReadRange> ranges,
-                                          int64_t hole_size_limit,
-                                          int64_t range_size_limit);
+Result<std::vector<ReadRange>> CoalesceReadRanges(std::vector<ReadRange> ranges,
+                                                  int64_t hole_size_limit,
+                                                  int64_t range_size_limit);
 
 ARROW_EXPORT
 ::arrow::internal::ThreadPool* GetIOThreadPool();

@@ -15,9 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from cpython.pycapsule cimport PyCapsule_CheckExact, PyCapsule_GetPointer, PyCapsule_New
+
 from collections import namedtuple
 import warnings
-
+from cython import sizeof
 
 cpdef enum MetadataVersion:
     V1 = <char> CMetadataVersion_V1
@@ -436,8 +438,10 @@ cdef class MessageReader(_Weakrefable):
         return result
 
     def __iter__(self):
-        while True:
-            yield self.read_next_message()
+        return self
+
+    def __next__(self):
+        return self.read_next_message()
 
     def read_next_message(self):
         """
@@ -511,8 +515,8 @@ cdef class _CRecordBatchWriter(_Weakrefable):
         ----------
         table : Table
         max_chunksize : int, default None
-            Maximum size for RecordBatch chunks. Individual chunks may be
-            smaller depending on the chunk layout of individual columns.
+            Maximum number of rows for RecordBatch chunks. Individual chunks may
+            be smaller depending on the chunk layout of individual columns.
         """
         cdef:
             # max_chunksize must be > 0 to have any impact
@@ -628,7 +632,7 @@ cdef class RecordBatchReader(_Weakrefable):
     Notes
     -----
     To import and export using the Arrow C stream interface, use the
-    ``_import_from_c`` and ``_export_from_c`` methods. However, keep in mind this
+    ``_import_from_c`` and ``_export_to_c`` methods. However, keep in mind this
     interface is intended for expert users.
 
     Examples
@@ -656,11 +660,10 @@ cdef class RecordBatchReader(_Weakrefable):
     # cdef block is in lib.pxd
 
     def __iter__(self):
-        while True:
-            try:
-                yield self.read_next_batch()
-            except StopIteration:
-                return
+        return self
+
+    def __next__(self):
+        return self.read_next_batch()
 
     @property
     def schema(self):
@@ -769,6 +772,38 @@ cdef class RecordBatchReader(_Weakrefable):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
+    def cast(self, target_schema):
+        """
+        Wrap this reader with one that casts each batch lazily as it is pulled.
+        Currently only a safe cast to target_schema is implemented.
+
+        Parameters
+        ----------
+        target_schema : Schema
+            Schema to cast to, the names and order of fields must match.
+
+        Returns
+        -------
+        RecordBatchReader
+        """
+        cdef:
+            shared_ptr[CSchema] c_schema
+            shared_ptr[CRecordBatchReader] c_reader
+            RecordBatchReader out
+
+        if self.schema.names != target_schema.names:
+            raise ValueError("Target schema's field names are not matching "
+                             f"the table's field names: {self.schema.names}, "
+                             f"{target_schema.names}")
+
+        c_schema = pyarrow_unwrap_schema(target_schema)
+        c_reader = GetResultValue(CCastingRecordBatchReader.Make(
+            self.reader, c_schema))
+
+        out = RecordBatchReader.__new__(RecordBatchReader)
+        out.reader = c_reader
+        return out
+
     def _export_to_c(self, out_ptr):
         """
         Export to a C ArrowArrayStream struct, given its pointer.
@@ -813,6 +848,110 @@ cdef class RecordBatchReader(_Weakrefable):
         self = RecordBatchReader.__new__(RecordBatchReader)
         self.reader = c_reader
         return self
+
+    def __arrow_c_stream__(self, requested_schema=None):
+        """
+        Export to a C ArrowArrayStream PyCapsule.
+
+        Parameters
+        ----------
+        requested_schema : PyCapsule, default None
+            The schema to which the stream should be casted, passed as a
+            PyCapsule containing a C ArrowSchema representation of the
+            requested schema.
+
+        Returns
+        -------
+        PyCapsule
+            A capsule containing a C ArrowArrayStream struct.
+        """
+        cdef:
+            ArrowArrayStream* c_stream
+
+        if requested_schema is not None:
+            out_schema = Schema._import_from_c_capsule(requested_schema)
+            if self.schema != out_schema:
+                return self.cast(out_schema).__arrow_c_stream__()
+
+        stream_capsule = alloc_c_stream(&c_stream)
+
+        with nogil:
+            check_status(ExportRecordBatchReader(self.reader, c_stream))
+
+        return stream_capsule
+
+    @staticmethod
+    def _import_from_c_capsule(stream):
+        """
+        Import RecordBatchReader from a C ArrowArrayStream PyCapsule.
+
+        Parameters
+        ----------
+        stream: PyCapsule
+            A capsule containing a C ArrowArrayStream PyCapsule.
+
+        Returns
+        -------
+        RecordBatchReader
+        """
+        cdef:
+            ArrowArrayStream* c_stream
+            shared_ptr[CRecordBatchReader] c_reader
+            RecordBatchReader self
+
+        c_stream = <ArrowArrayStream*>PyCapsule_GetPointer(
+            stream, 'arrow_array_stream'
+        )
+
+        with nogil:
+            c_reader = GetResultValue(ImportRecordBatchReader(c_stream))
+
+        self = RecordBatchReader.__new__(RecordBatchReader)
+        self.reader = c_reader
+        return self
+
+    @staticmethod
+    def from_stream(data, schema=None):
+        """
+        Create RecordBatchReader from a Arrow-compatible stream object.
+
+        This accepts objects implementing the Arrow PyCapsule Protocol for
+        streams, i.e. objects that have a ``__arrow_c_stream__`` method.
+
+        Parameters
+        ----------
+        data : Arrow-compatible stream object
+            Any object that implements the Arrow PyCapsule Protocol for
+            streams.
+        schema : Schema, default None
+            The schema to which the stream should be casted, if supported
+            by the stream object.
+
+        Returns
+        -------
+        RecordBatchReader
+        """
+
+        if not hasattr(data, "__arrow_c_stream__"):
+            raise TypeError(
+                "Expected an object implementing the Arrow PyCapsule Protocol for "
+                "streams (i.e. having a `__arrow_c_stream__` method), "
+                f"got {type(data)!r}."
+            )
+
+        if schema is not None:
+            if not hasattr(schema, "__arrow_c_schema__"):
+                raise TypeError(
+                    "Expected an object implementing the Arrow PyCapsule Protocol for "
+                    "schema (i.e. having a `__arrow_c_schema__` method), "
+                    f"got {type(schema)!r}."
+                )
+            requested = schema.__arrow_c_schema__()
+        else:
+            requested = None
+
+        capsule = data.__arrow_c_stream__(requested)
+        return RecordBatchReader._import_from_c_capsule(capsule)
 
     @staticmethod
     def from_batches(Schema schema not None, batches):
@@ -910,7 +1049,7 @@ cdef _wrap_record_batch_with_metadata(CRecordBatchWithMetadata c):
 
 cdef class _RecordBatchFileReader(_Weakrefable):
     cdef:
-        shared_ptr[CRecordBatchFileReader] reader
+        SharedPtrNoGIL[CRecordBatchFileReader] reader
         shared_ptr[CRandomAccessFile] file
         CIpcReadOptions options
 

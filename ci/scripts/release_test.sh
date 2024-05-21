@@ -23,6 +23,6 @@ arrow_dir=${1}
 
 pushd ${arrow_dir}
 
-dev/release/run-test.rb
+dev/release/run-test.rb -vv
 
 popd

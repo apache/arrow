@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-export function arange<T extends { length: number; [n: number]: number }>(arr: T, n = arr.length) {
+export function arange<T extends { length: number;[n: number]: number }>(arr: T, n = arr.length) {
     for (let i = -1; ++i < n; arr[i] = i) { }
     return arr;
 }

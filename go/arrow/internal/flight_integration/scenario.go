@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"os"
 	"reflect"
@@ -30,15 +31,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/flight"
-	"github.com/apache/arrow/go/v13/arrow/flight/flightsql"
-	"github.com/apache/arrow/go/v13/arrow/flight/flightsql/schema_ref"
-	"github.com/apache/arrow/go/v13/arrow/internal/arrjson"
-	"github.com/apache/arrow/go/v13/arrow/ipc"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/internal/types"
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/array"
+	"github.com/apache/arrow/go/v17/arrow/flight"
+	"github.com/apache/arrow/go/v17/arrow/flight/flightsql"
+	"github.com/apache/arrow/go/v17/arrow/flight/flightsql/schema_ref"
+	"github.com/apache/arrow/go/v17/arrow/flight/session"
+	"github.com/apache/arrow/go/v17/arrow/internal/arrjson"
+	"github.com/apache/arrow/go/v17/arrow/ipc"
+	"github.com/apache/arrow/go/v17/arrow/memory"
+	"github.com/apache/arrow/go/v17/internal/types"
 	"golang.org/x/xerrors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -68,10 +70,20 @@ func GetScenario(name string, args ...string) Scenario {
 		return &expirationTimeCancelFlightInfoScenarioTester{}
 	case "expiration_time:renew_flight_endpoint":
 		return &expirationTimeRenewFlightEndpointScenarioTester{}
+	case "location:reuse_connection":
+		return &locationReuseConnectionScenarioTester{}
+	case "poll_flight_info":
+		return &pollFlightInfoScenarioTester{}
+	case "app_metadata_flight_info_endpoint":
+		return &appMetadataFlightInfoEndpointScenarioTester{}
 	case "flight_sql":
 		return &flightSqlScenarioTester{}
 	case "flight_sql:extension":
 		return &flightSqlExtensionScenarioTester{}
+	case "session_options":
+		return &sessionOptionsScenarioTester{}
+	case "flight_sql:ingestion":
+		return &flightSqlIngestionScenarioTester{}
 	case "":
 		if len(args) > 0 {
 			return &defaultIntegrationTester{path: args[0]}
@@ -1131,11 +1143,224 @@ func (tester *expirationTimeRenewFlightEndpointScenarioTester) RunClient(addr st
 	return nil
 }
 
+type locationReuseConnectionScenarioTester struct {
+	flight.BaseFlightServer
+}
+
+func (m *locationReuseConnectionScenarioTester) GetFlightInfo(ctx context.Context, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+	return &flight.FlightInfo{
+		Schema:           flight.SerializeSchema(arrow.NewSchema([]arrow.Field{}, nil), memory.DefaultAllocator),
+		FlightDescriptor: desc,
+		Endpoint: []*flight.FlightEndpoint{{
+			Ticket:   &flight.Ticket{Ticket: []byte("reuse")},
+			Location: []*flight.Location{{Uri: flight.LocationReuseConnection}},
+		}},
+		TotalRecords: -1,
+		TotalBytes:   -1,
+	}, nil
+}
+
+func (tester *locationReuseConnectionScenarioTester) MakeServer(port int) flight.Server {
+	srv := flight.NewServerWithMiddleware(nil)
+	srv.RegisterFlightService(tester)
+	initServer(port, srv)
+	return srv
+}
+
+func (tester *locationReuseConnectionScenarioTester) RunClient(addr string, opts ...grpc.DialOption) error {
+	client, err := flight.NewClientWithMiddleware(addr, nil, nil, opts...)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+	info, err := client.GetFlightInfo(ctx, &flight.FlightDescriptor{Type: flight.DescriptorCMD, Cmd: []byte("reuse")})
+	if err != nil {
+		return err
+	}
+
+	if len(info.Endpoint) != 1 {
+		return fmt.Errorf("expected 1 endpoint, got %d", len(info.Endpoint))
+	}
+	endpoint := info.Endpoint[0]
+	if len(endpoint.Location) != 1 {
+		return fmt.Errorf("expected 1 location, got %d", len(endpoint.Location))
+	} else if endpoint.Location[0].Uri != flight.LocationReuseConnection {
+		return fmt.Errorf("expected %s, got %s", flight.LocationReuseConnection, endpoint.Location[0].Uri)
+	}
+
+	return nil
+}
+
+type pollFlightInfoScenarioTester struct {
+	flight.BaseFlightServer
+}
+
+func (tester *pollFlightInfoScenarioTester) MakeServer(port int) flight.Server {
+	srv := flight.NewServerWithMiddleware(nil)
+	srv.RegisterFlightService(tester)
+	initServer(port, srv)
+	return srv
+}
+
+func (tester *pollFlightInfoScenarioTester) PollFlightInfo(ctx context.Context, desc *flight.FlightDescriptor) (*flight.PollInfo, error) {
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			{Name: "number", Type: arrow.PrimitiveTypes.Uint32},
+		},
+		nil,
+	)
+	endpoints := []*flight.FlightEndpoint{
+		{
+			Ticket:   &flight.Ticket{Ticket: []byte("long-running query")},
+			Location: []*flight.Location{},
+		},
+	}
+	info := &flight.FlightInfo{
+		Schema:           flight.SerializeSchema(schema, memory.DefaultAllocator),
+		FlightDescriptor: desc,
+		Endpoint:         endpoints,
+		TotalRecords:     -1,
+		TotalBytes:       -1,
+	}
+	pollDesc := flight.FlightDescriptor{
+		Type: flight.DescriptorCMD,
+		Cmd:  []byte("poll"),
+	}
+	if desc.Type == pollDesc.Type && string(desc.Cmd) == string(pollDesc.Cmd) {
+		progress := float64(1.0)
+		return &flight.PollInfo{
+			Info:             info,
+			FlightDescriptor: nil,
+			Progress:         &progress,
+			ExpirationTime:   nil,
+		}, nil
+	} else {
+		progress := float64(0.1)
+		return &flight.PollInfo{
+			Info:             info,
+			FlightDescriptor: &pollDesc,
+			Progress:         &progress,
+			ExpirationTime:   timestamppb.New(time.Now().Add(time.Second * 10)),
+		}, nil
+	}
+}
+
+func (tester *pollFlightInfoScenarioTester) RunClient(addr string, opts ...grpc.DialOption) error {
+	client, err := flight.NewClientWithMiddleware(addr, nil, nil, opts...)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+	desc := flight.FlightDescriptor{
+		Type: flight.DescriptorCMD,
+		Cmd:  []byte("heavy query"),
+	}
+	info, err := client.PollFlightInfo(ctx, &desc)
+	if err != nil {
+		return err
+	}
+	switch {
+	case info.FlightDescriptor == nil:
+		return fmt.Errorf("description is missing: %s", info.String())
+	case info.Progress == nil:
+		return fmt.Errorf("progress is missing: %s", info.String())
+	case !(0.0 <= *info.Progress && *info.Progress <= 1.0):
+		return fmt.Errorf("invalid progress: %s", info.String())
+	case info.ExpirationTime == nil:
+		return fmt.Errorf("expiration time is missing: %s", info.String())
+	}
+
+	info, err = client.PollFlightInfo(ctx, info.FlightDescriptor)
+	if err != nil {
+		return err
+	}
+	switch {
+	case info.FlightDescriptor != nil:
+		return fmt.Errorf("retried but no finished yet: %s", info.String())
+	case info.Progress == nil:
+		return fmt.Errorf("progress is missing in finished query: %s",
+			info.String())
+	case math.Abs(*info.Progress-1.0) > 1e-5:
+		return fmt.Errorf("progress for finished query isn't 1.0: %s",
+			info.String())
+	case info.ExpirationTime != nil:
+		return fmt.Errorf("expiration time must not be set for finished query: %s",
+			info.String())
+	}
+
+	return nil
+}
+
+type appMetadataFlightInfoEndpointScenarioTester struct {
+	flight.BaseFlightServer
+}
+
+func (tester *appMetadataFlightInfoEndpointScenarioTester) MakeServer(port int) flight.Server {
+	srv := flight.NewServerWithMiddleware(nil)
+	srv.RegisterFlightService(tester)
+	initServer(port, srv)
+	return srv
+}
+
+func (tester *appMetadataFlightInfoEndpointScenarioTester) GetFlightInfo(ctx context.Context, desc *flight.FlightDescriptor) (*flight.FlightInfo, error) {
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			{Name: "number", Type: arrow.PrimitiveTypes.Uint32},
+		},
+		nil,
+	)
+
+	if desc.Type != flight.DescriptorCMD {
+		return nil, fmt.Errorf("%w: should have received CMD descriptor", arrow.ErrInvalid)
+	}
+	endpoints := []*flight.FlightEndpoint{{AppMetadata: desc.Cmd}}
+	return &flight.FlightInfo{
+		Schema:           flight.SerializeSchema(schema, memory.DefaultAllocator),
+		FlightDescriptor: desc,
+		Endpoint:         endpoints,
+		TotalRecords:     -1,
+		TotalBytes:       -1,
+		AppMetadata:      desc.Cmd,
+	}, nil
+}
+
+func (tester *appMetadataFlightInfoEndpointScenarioTester) RunClient(addr string, opts ...grpc.DialOption) error {
+	client, err := flight.NewClientWithMiddleware(addr, nil, nil, opts...)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+	desc := flight.FlightDescriptor{
+		Type: flight.DescriptorCMD,
+		Cmd:  []byte("foobar"),
+	}
+	info, err := client.GetFlightInfo(ctx, &desc)
+	if err != nil {
+		return err
+	}
+	switch {
+	case !bytes.Equal(desc.Cmd, info.AppMetadata):
+		return fmt.Errorf("invalid flight info app_metadata: %s, expected: %s", info.AppMetadata, desc.Cmd)
+	case len(info.Endpoint) != 1:
+		return fmt.Errorf("expected exactly 1 flight endpoint, got: %d", len(info.Endpoint))
+	case !bytes.Equal(desc.Cmd, info.Endpoint[0].AppMetadata):
+		return fmt.Errorf("invalid flight endpoint app_metadata: %s, expected: %s", info.Endpoint[0].AppMetadata, desc.Cmd)
+	}
+	return nil
+}
+
 const (
 	updateStatementExpectedRows                        int64 = 10000
 	updateStatementWithTransactionExpectedRows         int64 = 15000
 	updatePreparedStatementExpectedRows                int64 = 20000
 	updatePreparedStatementWithTransactionExpectedRows int64 = 25000
+	ingestStatementExpectedRows                        int64 = 3
 )
 
 type flightSqlScenarioTester struct {
@@ -1623,7 +1848,7 @@ func (m *flightSqlScenarioTester) GetSchemaPreparedStatement(ctx context.Context
 	case "SELECT PREPARED STATEMENT WITH TXN HANDLE", "PLAN WITH TXN HANDLE":
 		return &flight.SchemaResult{Schema: flight.SerializeSchema(getQueryWithTransactionSchema(), memory.DefaultAllocator)}, nil
 	}
-	return nil, fmt.Errorf("%w: invalid handle for GetSchemaPreparedStaement %s",
+	return nil, fmt.Errorf("%w: invalid handle for GetSchemaPreparedStatement %s",
 		arrow.ErrInvalid, string(cmd.GetPreparedStatementHandle()))
 }
 
@@ -1909,16 +2134,16 @@ func (m *flightSqlScenarioTester) ClosePreparedStatement(_ context.Context, requ
 	return nil
 }
 
-func (m *flightSqlScenarioTester) DoPutPreparedStatementQuery(_ context.Context, cmd flightsql.PreparedStatementQuery, rdr flight.MessageReader, _ flight.MetadataWriter) error {
+func (m *flightSqlScenarioTester) DoPutPreparedStatementQuery(_ context.Context, cmd flightsql.PreparedStatementQuery, rdr flight.MessageReader, _ flight.MetadataWriter) ([]byte, error){
 	switch string(cmd.GetPreparedStatementHandle()) {
 	case "SELECT PREPARED STATEMENT HANDLE",
 		"SELECT PREPARED STATEMENT WITH TXN HANDLE",
 		"PLAN HANDLE", "PLAN WITH TXN HANDLE":
 		actualSchema := rdr.Schema()
-		return assertEq(true, actualSchema.Equal(getQuerySchema()))
+		return cmd.GetPreparedStatementHandle(), assertEq(true, actualSchema.Equal(getQuerySchema()))
 	}
 
-	return fmt.Errorf("%w: handle for DoPutPreparedStatementQuery '%s'",
+	return cmd.GetPreparedStatementHandle(), fmt.Errorf("%w: handle for DoPutPreparedStatementQuery '%s'",
 		arrow.ErrInvalid, string(cmd.GetPreparedStatementHandle()))
 }
 
@@ -2467,4 +2692,395 @@ func (m *flightSqlExtensionScenarioTester) ValidateTransactions(client *flightsq
 	}
 
 	return txn.Rollback(ctx)
+}
+
+type sessionOptionsScenarioTester struct {
+	flightsql.BaseServer
+}
+
+func (tester *sessionOptionsScenarioTester) MakeServer(port int) flight.Server {
+	srv := flight.NewServerWithMiddleware([]flight.ServerMiddleware{
+		flight.CreateServerMiddleware(session.NewServerSessionMiddleware(nil)),
+	})
+
+	srv.RegisterFlightService(flightsql.NewFlightServer(tester))
+	initServer(port, srv)
+	return srv
+}
+
+func (tester *sessionOptionsScenarioTester) SetSessionOptions(ctx context.Context, req *flight.SetSessionOptionsRequest) (*flight.SetSessionOptionsResult, error) {
+	session, err := session.GetSessionFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	errors := make(map[string]*flight.SetSessionOptionsResultError)
+	for key, val := range req.GetSessionOptions() {
+		if key == "lol_invalid" {
+			errors[key] = &flight.SetSessionOptionsResultError{Value: flight.SetSessionOptionsResultErrorInvalidName}
+			continue
+		}
+		if val.GetStringValue() == "lol_invalid" {
+			errors[key] = &flight.SetSessionOptionsResultError{Value: flight.SetSessionOptionsResultErrorInvalidValue}
+			continue
+		}
+
+		session.SetSessionOption(key, val)
+	}
+
+	return &flight.SetSessionOptionsResult{Errors: errors}, nil
+}
+
+func (tester *sessionOptionsScenarioTester) GetSessionOptions(ctx context.Context, req *flight.GetSessionOptionsRequest) (*flight.GetSessionOptionsResult, error) {
+	session, err := session.GetSessionFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &flight.GetSessionOptionsResult{SessionOptions: session.GetSessionOptions()}, nil
+}
+
+func (tester *sessionOptionsScenarioTester) CloseSession(ctx context.Context, req *flight.CloseSessionRequest) (*flight.CloseSessionResult, error) {
+	session, err := session.GetSessionFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = session.Close(); err != nil {
+		return nil, err
+	}
+
+	return &flight.CloseSessionResult{Status: flight.CloseSessionResultClosed}, nil
+}
+
+func (tester *sessionOptionsScenarioTester) RunClient(addr string, opts ...grpc.DialOption) error {
+	middleware := []flight.ClientMiddleware{
+		flight.NewClientCookieMiddleware(),
+	}
+	client, err := flight.NewClientWithMiddleware(addr, nil, middleware, opts...)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	// Run validations in order. We are changing session state in each step, so order is made explicit.
+	ctx := context.Background()
+	if err = tester.ValidateFirstGetSessionOptions(ctx, client); err != nil {
+		return err
+	}
+
+	if err = tester.ValidateSecondSetSessionOptions(ctx, client); err != nil {
+		return err
+	}
+
+	if err = tester.ValidateThirdGetSessionOptions(ctx, client); err != nil {
+		return err
+	}
+
+	if err = tester.ValidateFourthRemoveOption(ctx, client); err != nil {
+		return err
+	}
+
+	if err = tester.ValidateFifthGetSessionOptions(ctx, client); err != nil {
+		return err
+	}
+
+	if err = tester.ValidateSixthCloseSession(ctx, client); err != nil {
+		return err
+	}
+
+	// C++ impl currently fails with "Invalid or expired arrow_flight_session_id cookie", likely related to GH-39791
+	// if err = tester.ValidateSeventhGetSessionOptions(ctx, client); err != nil {
+	// 	return err
+	// }
+
+	return nil
+}
+
+func (tester *sessionOptionsScenarioTester) ValidateFirstGetSessionOptions(ctx context.Context, client flight.Client) error {
+	res, err := client.GetSessionOptions(ctx, &flight.GetSessionOptionsRequest{})
+	if err != nil {
+		return err
+	}
+
+	opts := res.GetSessionOptions()
+	if len(opts) != 0 {
+		return fmt.Errorf("expected new session to be empty, but found %d options already set", len(opts))
+	}
+
+	return nil
+}
+
+func (tester *sessionOptionsScenarioTester) ValidateSecondSetSessionOptions(ctx context.Context, client flight.Client) error {
+	opts, err := flight.NewSessionOptionValues(map[string]any{
+		"foolong":                int64(123),
+		"bardouble":              456.0,
+		"lol_invalid":            "this won't get set",
+		"key_with_invalid_value": "lol_invalid",
+		"big_ol_string_list":     []string{"a", "b", "sea", "dee", " ", "  ", "geee", "(づ｡◕‿‿◕｡)づ"},
+	})
+	if err != nil {
+		return err
+	}
+
+	res, err := client.SetSessionOptions(ctx, &flight.SetSessionOptionsRequest{SessionOptions: opts})
+	if err != nil {
+		return err
+	}
+
+	expectedErrs := map[string]*flight.SetSessionOptionsResultError{
+		"lol_invalid":            {Value: flight.SetSessionOptionsResultErrorInvalidName},
+		"key_with_invalid_value": {Value: flight.SetSessionOptionsResultErrorInvalidValue},
+	}
+
+	errs := res.GetErrors()
+	if len(errs) != len(expectedErrs) {
+		return fmt.Errorf("errors expected: %d, got: %d", len(expectedErrs), len(errs))
+	}
+
+	for key, val := range errs {
+		if !reflect.DeepEqual(val, expectedErrs[key]) {
+			return fmt.Errorf("error mismatch for key %s. expected: %s, got: %s", key, expectedErrs[key], val)
+		}
+	}
+
+	return nil
+}
+
+func (tester *sessionOptionsScenarioTester) ValidateThirdGetSessionOptions(ctx context.Context, client flight.Client) error {
+	res, err := client.GetSessionOptions(ctx, &flight.GetSessionOptionsRequest{})
+	if err != nil {
+		return err
+	}
+
+	expectedOpts, err := flight.NewSessionOptionValues(map[string]any{
+		"foolong":            int64(123),
+		"bardouble":          456.0,
+		"big_ol_string_list": []string{"a", "b", "sea", "dee", " ", "  ", "geee", "(づ｡◕‿‿◕｡)づ"},
+	})
+	if err != nil {
+		return err
+	}
+
+	opts := res.GetSessionOptions()
+	if len(opts) != len(expectedOpts) {
+		return fmt.Errorf("options expected: %d, got: %d", len(expectedOpts), len(opts))
+	}
+
+	for key, val := range opts {
+		if !reflect.DeepEqual(val, expectedOpts[key]) {
+			return fmt.Errorf("session options mismatch for key %s. expected: %s, got: %s", key, expectedOpts[key], val)
+		}
+	}
+
+	return nil
+}
+
+func (tester *sessionOptionsScenarioTester) ValidateFourthRemoveOption(ctx context.Context, client flight.Client) error {
+	opts, err := flight.NewSessionOptionValues(map[string]any{
+		"foolong": nil,
+	})
+	if err != nil {
+		return err
+	}
+
+	res, err := client.SetSessionOptions(ctx, &flight.SetSessionOptionsRequest{SessionOptions: opts})
+	if err != nil {
+		return err
+	}
+
+	errs := res.GetErrors()
+	if len(errs) != 0 {
+		return fmt.Errorf("errors expected: %d, got: %d", 0, len(errs))
+	}
+
+	return nil
+}
+
+func (tester *sessionOptionsScenarioTester) ValidateFifthGetSessionOptions(ctx context.Context, client flight.Client) error {
+	res, err := client.GetSessionOptions(ctx, &flight.GetSessionOptionsRequest{})
+	if err != nil {
+		return err
+	}
+
+	expectedOpts, err := flight.NewSessionOptionValues(map[string]any{
+		"bardouble":          456.0,
+		"big_ol_string_list": []string{"a", "b", "sea", "dee", " ", "  ", "geee", "(づ｡◕‿‿◕｡)づ"},
+	})
+	if err != nil {
+		return err
+	}
+
+	opts := res.GetSessionOptions()
+	if len(opts) != len(expectedOpts) {
+		return fmt.Errorf("options expected: %d, got: %d", len(expectedOpts), len(opts))
+	}
+
+	for key, val := range opts {
+		if !reflect.DeepEqual(val, expectedOpts[key]) {
+			return fmt.Errorf("session options mismatch for key %s. expected: %s, got: %s", key, expectedOpts[key], val)
+		}
+	}
+
+	return nil
+}
+
+func (tester *sessionOptionsScenarioTester) ValidateSixthCloseSession(ctx context.Context, client flight.Client) error {
+	res, err := client.CloseSession(ctx, &flight.CloseSessionRequest{})
+	if err != nil {
+		return err
+	}
+
+	if res.GetStatus() != flight.CloseSessionResultClosed {
+		return fmt.Errorf("expected session to successfully close, but found status: %s", res.GetStatus())
+	}
+
+	return nil
+}
+
+func (tester *sessionOptionsScenarioTester) ValidateSeventhGetSessionOptions(ctx context.Context, client flight.Client) error {
+	res, err := client.GetSessionOptions(ctx, &flight.GetSessionOptionsRequest{})
+	if err != nil {
+		return err
+	}
+
+	opts := res.GetSessionOptions()
+	if len(opts) != 0 {
+		return fmt.Errorf("expected new session to be empty, but found %d options already set", len(opts))
+	}
+
+	return nil
+}
+
+type flightSqlIngestionScenarioTester struct {
+	flightsql.BaseServer
+}
+
+func (m *flightSqlIngestionScenarioTester) MakeServer(port int) flight.Server {
+	srv := flight.NewServerWithMiddleware(nil)
+	m.RegisterSqlInfo(flightsql.SqlInfoFlightSqlServerBulkIngestion, true)
+	m.RegisterSqlInfo(flightsql.SqlInfoFlightSqlServerIngestTransactionsSupported, true)
+
+	srv.RegisterFlightService(flightsql.NewFlightServer(m))
+	initServer(port, srv)
+	return srv
+}
+
+func (m *flightSqlIngestionScenarioTester) RunClient(addr string, opts ...grpc.DialOption) error {
+	client, err := flightsql.NewClient(addr, nil, nil, opts...)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	return m.ValidateIngestion(client)
+}
+
+func (m *flightSqlIngestionScenarioTester) ValidateIngestion(client *flightsql.Client) error {
+	ctx := context.Background()
+	opts := getIngestOptions()
+	ingestResult, err := client.ExecuteIngest(ctx, getIngestRecords(), opts)
+	if err != nil {
+		return err
+	}
+	if ingestResult != ingestStatementExpectedRows {
+		return fmt.Errorf("expected ingest return %d got %d", ingestStatementExpectedRows, ingestResult)
+	}
+	return nil
+}
+
+func (m *flightSqlIngestionScenarioTester) DoPutCommandStatementIngest(ctx context.Context, cmd flightsql.StatementIngest, rdr flight.MessageReader) (int64, error) {
+	expectedSchema := getIngestSchema()
+	expectedOpts := getIngestOptions()
+
+	if err := assertEq(expectedOpts.TableDefinitionOptions.IfExists, cmd.GetTableDefinitionOptions().IfExists); err != nil {
+		return 0, err
+	}
+
+	if err := assertEq(expectedOpts.TableDefinitionOptions.IfNotExist, cmd.GetTableDefinitionOptions().IfNotExist); err != nil {
+		return 0, err
+	}
+
+	if err := assertEq(expectedOpts.Table, cmd.GetTable()); err != nil {
+		return 0, err
+	}
+
+	if err := assertEq(*expectedOpts.Schema, cmd.GetSchema()); err != nil {
+		return 0, err
+	}
+
+	if err := assertEq(*expectedOpts.Catalog, cmd.GetCatalog()); err != nil {
+		return 0, err
+	}
+
+	if err := assertEq(expectedOpts.Temporary, cmd.GetTemporary()); err != nil {
+		return 0, err
+	}
+
+	if err := assertEq(expectedOpts.TransactionId, cmd.GetTransactionId()); err != nil {
+		return 0, err
+	}
+
+	if err := assertEq(expectedOpts.Options, cmd.GetOptions()); err != nil {
+		return 0, err
+	}
+
+	var nRecords int64
+	for rdr.Next() {
+		rec := rdr.Record()
+		nRecords += rec.NumRows()
+
+		if err := assertEq(true, expectedSchema.Equal(rec.Schema())); err != nil {
+			return 0, err
+		}
+	}
+
+	return nRecords, nil
+}
+
+// Options to assert before/after mocked ingest call
+func getIngestOptions() *flightsql.ExecuteIngestOpts {
+	tableDefinitionOptions := flightsql.TableDefinitionOptions{
+		IfNotExist: flightsql.TableDefinitionOptionsTableNotExistOptionCreate,
+		IfExists:   flightsql.TableDefinitionOptionsTableExistsOptionReplace,
+	}
+	table := "test_table"
+	schema := "test_schema"
+	catalog := "test_catalog"
+	temporary := true
+	transactionId := []byte("123")
+	options := map[string]string{
+		"key1": "val1",
+		"key2": "val2",
+	}
+
+	return &flightsql.ExecuteIngestOpts{
+		TableDefinitionOptions: &tableDefinitionOptions,
+		Table:                  table,
+		Schema:                 &schema,
+		Catalog:                &catalog,
+		Temporary:              temporary,
+		TransactionId:          transactionId,
+		Options:                options,
+	}
+}
+
+// Schema for ingest records; asserted on records received by handler
+func getIngestSchema() *arrow.Schema {
+	return arrow.NewSchema([]arrow.Field{{Name: "test_field", Type: arrow.PrimitiveTypes.Int64, Nullable: true}}, nil)
+}
+
+// Prepare records for ingestion with known length and schema
+func getIngestRecords() array.RecordReader {
+	schema := getIngestSchema()
+
+	arr := array.MakeArrayOfNull(memory.DefaultAllocator, arrow.PrimitiveTypes.Int64, int(ingestStatementExpectedRows))
+	defer arr.Release()
+
+	rec := array.NewRecord(schema, []arrow.Array{arr}, ingestStatementExpectedRows)
+	defer rec.Release()
+
+	rdr, _ := array.NewRecordReader(schema, []arrow.Record{rec})
+
+	return rdr
 }

@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -29,6 +30,7 @@
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/span.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -58,18 +60,31 @@ class ARROW_EXPORT Buffer {
   ///
   /// \note The passed memory must be kept alive through some other means
   Buffer(const uint8_t* data, int64_t size)
-      : is_mutable_(false), is_cpu_(true), data_(data), size_(size), capacity_(size) {
+      : is_mutable_(false),
+        is_cpu_(true),
+        data_(data),
+        size_(size),
+        capacity_(size),
+        device_type_(DeviceAllocationType::kCPU) {
     SetMemoryManager(default_cpu_memory_manager());
   }
 
   Buffer(const uint8_t* data, int64_t size, std::shared_ptr<MemoryManager> mm,
-         std::shared_ptr<Buffer> parent = NULLPTR)
+         std::shared_ptr<Buffer> parent = NULLPTR,
+         std::optional<DeviceAllocationType> device_type_override = std::nullopt)
       : is_mutable_(false),
         data_(data),
         size_(size),
         capacity_(size),
         parent_(std::move(parent)) {
+    // SetMemoryManager will also set device_type_
     SetMemoryManager(std::move(mm));
+    // If a device type is specified, use that instead. Example of when this can be
+    // useful: the CudaMemoryManager can set device_type_ to kCUDA, but you can specify
+    // device_type_override=kCUDA_HOST as the device type to override it.
+    if (device_type_override != std::nullopt) {
+      device_type_ = *device_type_override;
+    }
   }
 
   Buffer(uintptr_t address, int64_t size, std::shared_ptr<MemoryManager> mm,
@@ -219,6 +234,12 @@ class ARROW_EXPORT Buffer {
     return reinterpret_cast<const T*>(data());
   }
 
+  /// \brief Return the buffer's data as a span
+  template <typename T>
+  util::span<const T> span_as() const {
+    return util::span(data_as<T>(), static_cast<size_t>(size() / sizeof(T)));
+  }
+
   /// \brief Return a writable pointer to the buffer's data
   ///
   /// The buffer has to be a mutable CPU buffer (`is_cpu()` and `is_mutable()`
@@ -244,6 +265,12 @@ class ARROW_EXPORT Buffer {
   template <typename T>
   T* mutable_data_as() {
     return reinterpret_cast<T*>(mutable_data());
+  }
+
+  /// \brief Return the buffer's mutable data as a span
+  template <typename T>
+  util::span<T> mutable_span_as() {
+    return util::span(mutable_data_as<T>(), static_cast<size_t>(size() / sizeof(T)));
   }
 
   /// \brief Return the device address of the buffer's data
@@ -281,6 +308,8 @@ class ARROW_EXPORT Buffer {
   const std::shared_ptr<Device>& device() const { return memory_manager_->device(); }
 
   const std::shared_ptr<MemoryManager>& memory_manager() const { return memory_manager_; }
+
+  DeviceAllocationType device_type() const { return device_type_; }
 
   std::shared_ptr<Buffer> parent() const { return parent_; }
 
@@ -330,12 +359,15 @@ class ARROW_EXPORT Buffer {
   static Result<std::shared_ptr<Buffer>> ViewOrCopy(
       std::shared_ptr<Buffer> source, const std::shared_ptr<MemoryManager>& to);
 
+  virtual std::shared_ptr<Device::SyncEvent> device_sync_event() const { return NULLPTR; }
+
  protected:
   bool is_mutable_;
   bool is_cpu_;
   const uint8_t* data_;
   int64_t size_;
   int64_t capacity_;
+  DeviceAllocationType device_type_;
 
   // null by default, but may be set
   std::shared_ptr<Buffer> parent_;
@@ -353,6 +385,7 @@ class ARROW_EXPORT Buffer {
   void SetMemoryManager(std::shared_ptr<MemoryManager> mm) {
     memory_manager_ = std::move(mm);
     is_cpu_ = memory_manager_->is_cpu();
+    device_type_ = memory_manager_->device()->device_type();
   }
 };
 

@@ -24,8 +24,6 @@
 namespace arrow {
 namespace compute {
 
-#if defined(ARROW_HAVE_AVX2)
-
 inline __m256i set_first_n_bytes_avx2(int n) {
   constexpr uint64_t kByteSequence0To7 = 0x0706050403020100ULL;
   constexpr uint64_t kByteSequence8To15 = 0x0f0e0d0c0b0a0908ULL;
@@ -41,12 +39,14 @@ template <bool use_selection>
 uint32_t KeyCompare::NullUpdateColumnToRowImp_avx2(
     uint32_t id_col, uint32_t num_rows_to_compare, const uint16_t* sel_left_maybe_null,
     const uint32_t* left_to_right_map, LightContext* ctx, const KeyColumnArray& col,
-    const RowTableImpl& rows, uint8_t* match_bytevector) {
+    const RowTableImpl& rows, bool are_cols_in_encoding_order,
+    uint8_t* match_bytevector) {
   if (!rows.has_any_nulls(ctx) && !col.data(0)) {
     return num_rows_to_compare;
   }
 
-  uint32_t null_bit_id = rows.metadata().pos_after_encoding(id_col);
+  const uint32_t null_bit_id =
+      ColIdInEncodingOrder(rows, id_col, are_cols_in_encoding_order);
 
   if (!col.data(0)) {
     // Remove rows from the result for which the column value is a null
@@ -571,7 +571,7 @@ uint32_t KeyCompare::NullUpdateColumnToRow_avx2(
     bool use_selection, uint32_t id_col, uint32_t num_rows_to_compare,
     const uint16_t* sel_left_maybe_null, const uint32_t* left_to_right_map,
     LightContext* ctx, const KeyColumnArray& col, const RowTableImpl& rows,
-    uint8_t* match_bytevector) {
+    bool are_cols_in_encoding_order, uint8_t* match_bytevector) {
   int64_t num_rows_safe =
       TailSkipForSIMD::FixBitAccess(sizeof(uint32_t), col.length(), col.bit_offset(0));
   if (sel_left_maybe_null) {
@@ -582,13 +582,13 @@ uint32_t KeyCompare::NullUpdateColumnToRow_avx2(
   }
 
   if (use_selection) {
-    return NullUpdateColumnToRowImp_avx2<true>(id_col, num_rows_to_compare,
-                                               sel_left_maybe_null, left_to_right_map,
-                                               ctx, col, rows, match_bytevector);
+    return NullUpdateColumnToRowImp_avx2<true>(
+        id_col, num_rows_to_compare, sel_left_maybe_null, left_to_right_map, ctx, col,
+        rows, are_cols_in_encoding_order, match_bytevector);
   } else {
-    return NullUpdateColumnToRowImp_avx2<false>(id_col, num_rows_to_compare,
-                                                sel_left_maybe_null, left_to_right_map,
-                                                ctx, col, rows, match_bytevector);
+    return NullUpdateColumnToRowImp_avx2<false>(
+        id_col, num_rows_to_compare, sel_left_maybe_null, left_to_right_map, ctx, col,
+        rows, are_cols_in_encoding_order, match_bytevector);
   }
 }
 
@@ -669,8 +669,6 @@ uint32_t KeyCompare::CompareVarBinaryColumnToRow_avx2(
 
   return num_rows_to_compare;
 }
-
-#endif
 
 }  // namespace compute
 }  // namespace arrow

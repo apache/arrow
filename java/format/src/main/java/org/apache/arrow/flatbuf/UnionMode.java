@@ -18,6 +18,7 @@
 
 package org.apache.arrow.flatbuf;
 
+@SuppressWarnings("unused")
 public final class UnionMode {
   private UnionMode() { }
   public static final short Sparse = 0;

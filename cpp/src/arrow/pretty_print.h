@@ -32,7 +32,27 @@ class Schema;
 class Status;
 class Table;
 
-struct PrettyPrintOptions {
+/// \class PrettyPrintDelimiters
+/// \brief Options for controlling which delimiters to use when printing
+/// an Array or ChunkedArray.
+struct ARROW_EXPORT PrettyPrintDelimiters {
+  /// Delimiter to use when opening an Array or ChunkedArray (e.g. "[")
+  std::string open = "[";
+
+  /// Delimiter to use when closing an Array or ChunkedArray (e.g. "]")
+  std::string close = "]";
+
+  /// Delimiter for separating individual elements of an Array (e.g. ","),
+  /// or individual chunks of a ChunkedArray
+  std::string element = ",";
+
+  /// Create a PrettyPrintDelimiters instance with default values
+  static PrettyPrintDelimiters Defaults() { return PrettyPrintDelimiters(); }
+};
+
+/// \class PrettyPrintOptions
+/// \brief Options for controlling how various Arrow types should be printed.
+struct ARROW_EXPORT PrettyPrintOptions {
   PrettyPrintOptions() = default;
 
   PrettyPrintOptions(int indent,  // NOLINT runtime/explicit
@@ -47,6 +67,7 @@ struct PrettyPrintOptions {
         skip_new_lines(skip_new_lines),
         truncate_metadata(truncate_metadata) {}
 
+  /// Create a PrettyPrintOptions instance with default values
   static PrettyPrintOptions Defaults() { return PrettyPrintOptions(); }
 
   /// Number of spaces to shift entire formatted object to the right
@@ -77,6 +98,12 @@ struct PrettyPrintOptions {
 
   /// If true, display schema metadata when pretty-printing a Schema
   bool show_schema_metadata = true;
+
+  /// Delimiters to use when printing an Array
+  PrettyPrintDelimiters array_delimiters = PrettyPrintDelimiters::Defaults();
+
+  /// Delimiters to use when printing a ChunkedArray
+  PrettyPrintDelimiters chunked_array_delimiters = PrettyPrintDelimiters::Defaults();
 };
 
 /// \brief Print human-readable representation of RecordBatch

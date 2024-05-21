@@ -6,14 +6,23 @@
 
 #include "flatbuffers/flatbuffers.h"
 
+// Ensure the included flatbuffers.h is the same version as when this file was
+// generated, otherwise it may not be compatible.
+static_assert(FLATBUFFERS_VERSION_MAJOR == 23 &&
+              FLATBUFFERS_VERSION_MINOR == 5 &&
+              FLATBUFFERS_VERSION_REVISION == 26,
+             "Non-compatible flatbuffers version included");
+
 namespace org {
 namespace apache {
 namespace arrow {
 namespace flatbuf {
 
 struct ScanRequest;
+struct ScanRequestBuilder;
 
-struct ScanRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+struct ScanRequest FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef ScanRequestBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_FILE_SIZE = 4,
     VT_FILE_FORMAT = 6,
@@ -28,22 +37,22 @@ struct ScanRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   int16_t file_format() const {
     return GetField<int16_t>(VT_FILE_FORMAT, 0);
   }
-  const flatbuffers::Vector<uint8_t> *filter() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_FILTER);
+  const ::flatbuffers::Vector<uint8_t> *filter() const {
+    return GetPointer<const ::flatbuffers::Vector<uint8_t> *>(VT_FILTER);
   }
-  const flatbuffers::Vector<uint8_t> *partition() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_PARTITION);
+  const ::flatbuffers::Vector<uint8_t> *partition() const {
+    return GetPointer<const ::flatbuffers::Vector<uint8_t> *>(VT_PARTITION);
   }
-  const flatbuffers::Vector<uint8_t> *dataset_schema() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_DATASET_SCHEMA);
+  const ::flatbuffers::Vector<uint8_t> *dataset_schema() const {
+    return GetPointer<const ::flatbuffers::Vector<uint8_t> *>(VT_DATASET_SCHEMA);
   }
-  const flatbuffers::Vector<uint8_t> *projection_schema() const {
-    return GetPointer<const flatbuffers::Vector<uint8_t> *>(VT_PROJECTION_SCHEMA);
+  const ::flatbuffers::Vector<uint8_t> *projection_schema() const {
+    return GetPointer<const ::flatbuffers::Vector<uint8_t> *>(VT_PROJECTION_SCHEMA);
   }
-  bool Verify(flatbuffers::Verifier &verifier) const {
+  bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int64_t>(verifier, VT_FILE_SIZE) &&
-           VerifyField<int16_t>(verifier, VT_FILE_FORMAT) &&
+           VerifyField<int64_t>(verifier, VT_FILE_SIZE, 8) &&
+           VerifyField<int16_t>(verifier, VT_FILE_FORMAT, 2) &&
            VerifyOffset(verifier, VT_FILTER) &&
            verifier.VerifyVector(filter()) &&
            VerifyOffset(verifier, VT_PARTITION) &&
@@ -57,46 +66,46 @@ struct ScanRequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
 };
 
 struct ScanRequestBuilder {
-  flatbuffers::FlatBufferBuilder &fbb_;
-  flatbuffers::uoffset_t start_;
+  typedef ScanRequest Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
   void add_file_size(int64_t file_size) {
     fbb_.AddElement<int64_t>(ScanRequest::VT_FILE_SIZE, file_size, 0);
   }
   void add_file_format(int16_t file_format) {
     fbb_.AddElement<int16_t>(ScanRequest::VT_FILE_FORMAT, file_format, 0);
   }
-  void add_filter(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> filter) {
+  void add_filter(::flatbuffers::Offset<::flatbuffers::Vector<uint8_t>> filter) {
     fbb_.AddOffset(ScanRequest::VT_FILTER, filter);
   }
-  void add_partition(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> partition) {
+  void add_partition(::flatbuffers::Offset<::flatbuffers::Vector<uint8_t>> partition) {
     fbb_.AddOffset(ScanRequest::VT_PARTITION, partition);
   }
-  void add_dataset_schema(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> dataset_schema) {
+  void add_dataset_schema(::flatbuffers::Offset<::flatbuffers::Vector<uint8_t>> dataset_schema) {
     fbb_.AddOffset(ScanRequest::VT_DATASET_SCHEMA, dataset_schema);
   }
-  void add_projection_schema(flatbuffers::Offset<flatbuffers::Vector<uint8_t>> projection_schema) {
+  void add_projection_schema(::flatbuffers::Offset<::flatbuffers::Vector<uint8_t>> projection_schema) {
     fbb_.AddOffset(ScanRequest::VT_PROJECTION_SCHEMA, projection_schema);
   }
-  explicit ScanRequestBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+  explicit ScanRequestBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  ScanRequestBuilder &operator=(const ScanRequestBuilder &);
-  flatbuffers::Offset<ScanRequest> Finish() {
+  ::flatbuffers::Offset<ScanRequest> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = flatbuffers::Offset<ScanRequest>(end);
+    auto o = ::flatbuffers::Offset<ScanRequest>(end);
     return o;
   }
 };
 
-inline flatbuffers::Offset<ScanRequest> CreateScanRequest(
-    flatbuffers::FlatBufferBuilder &_fbb,
+inline ::flatbuffers::Offset<ScanRequest> CreateScanRequest(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
     int64_t file_size = 0,
     int16_t file_format = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> filter = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> partition = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> dataset_schema = 0,
-    flatbuffers::Offset<flatbuffers::Vector<uint8_t>> projection_schema = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<uint8_t>> filter = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<uint8_t>> partition = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<uint8_t>> dataset_schema = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<uint8_t>> projection_schema = 0) {
   ScanRequestBuilder builder_(_fbb);
   builder_.add_file_size(file_size);
   builder_.add_projection_schema(projection_schema);
@@ -107,8 +116,8 @@ inline flatbuffers::Offset<ScanRequest> CreateScanRequest(
   return builder_.Finish();
 }
 
-inline flatbuffers::Offset<ScanRequest> CreateScanRequestDirect(
-    flatbuffers::FlatBufferBuilder &_fbb,
+inline ::flatbuffers::Offset<ScanRequest> CreateScanRequestDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
     int64_t file_size = 0,
     int16_t file_format = 0,
     const std::vector<uint8_t> *filter = nullptr,
@@ -130,32 +139,32 @@ inline flatbuffers::Offset<ScanRequest> CreateScanRequestDirect(
 }
 
 inline const org::apache::arrow::flatbuf::ScanRequest *GetScanRequest(const void *buf) {
-  return flatbuffers::GetRoot<org::apache::arrow::flatbuf::ScanRequest>(buf);
+  return ::flatbuffers::GetRoot<org::apache::arrow::flatbuf::ScanRequest>(buf);
 }
 
 inline const org::apache::arrow::flatbuf::ScanRequest *GetSizePrefixedScanRequest(const void *buf) {
-  return flatbuffers::GetSizePrefixedRoot<org::apache::arrow::flatbuf::ScanRequest>(buf);
+  return ::flatbuffers::GetSizePrefixedRoot<org::apache::arrow::flatbuf::ScanRequest>(buf);
 }
 
 inline bool VerifyScanRequestBuffer(
-    flatbuffers::Verifier &verifier) {
+    ::flatbuffers::Verifier &verifier) {
   return verifier.VerifyBuffer<org::apache::arrow::flatbuf::ScanRequest>(nullptr);
 }
 
 inline bool VerifySizePrefixedScanRequestBuffer(
-    flatbuffers::Verifier &verifier) {
+    ::flatbuffers::Verifier &verifier) {
   return verifier.VerifySizePrefixedBuffer<org::apache::arrow::flatbuf::ScanRequest>(nullptr);
 }
 
 inline void FinishScanRequestBuffer(
-    flatbuffers::FlatBufferBuilder &fbb,
-    flatbuffers::Offset<org::apache::arrow::flatbuf::ScanRequest> root) {
+    ::flatbuffers::FlatBufferBuilder &fbb,
+    ::flatbuffers::Offset<org::apache::arrow::flatbuf::ScanRequest> root) {
   fbb.Finish(root);
 }
 
 inline void FinishSizePrefixedScanRequestBuffer(
-    flatbuffers::FlatBufferBuilder &fbb,
-    flatbuffers::Offset<org::apache::arrow::flatbuf::ScanRequest> root) {
+    ::flatbuffers::FlatBufferBuilder &fbb,
+    ::flatbuffers::Offset<org::apache::arrow::flatbuf::ScanRequest> root) {
   fbb.FinishSizePrefixed(root);
 }
 

@@ -52,7 +52,7 @@ class ARROW_EXPORT SortKey : public util::EqualityComparable<SortKey> {
   bool Equals(const SortKey& other) const;
   std::string ToString() const;
 
-  /// A FieldRef targetting the sort column.
+  /// A FieldRef targeting the sort column.
   FieldRef target;
   /// How to order by this sort key.
   SortOrder order;

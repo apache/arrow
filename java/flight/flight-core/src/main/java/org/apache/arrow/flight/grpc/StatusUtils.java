@@ -17,6 +17,7 @@
 
 package org.apache.arrow.flight.grpc;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 import java.util.Objects;
 import java.util.function.Function;
@@ -73,6 +74,8 @@ public class StatusUtils {
         return Code.UNIMPLEMENTED;
       case UNAVAILABLE:
         return Code.UNAVAILABLE;
+      case RESOURCE_EXHAUSTED:
+        return Code.RESOURCE_EXHAUSTED;
       default:
         return Code.UNKNOWN;
     }
@@ -100,7 +103,7 @@ public class StatusUtils {
       case PERMISSION_DENIED:
         return FlightStatusCode.UNAUTHORIZED;
       case RESOURCE_EXHAUSTED:
-        return FlightStatusCode.INVALID_ARGUMENT;
+        return FlightStatusCode.RESOURCE_EXHAUSTED;
       case FAILED_PRECONDITION:
         return FlightStatusCode.INVALID_ARGUMENT;
       case ABORTED:
@@ -171,7 +174,7 @@ public class StatusUtils {
       if (key.endsWith(Metadata.BINARY_HEADER_SUFFIX)) {
         metadata.insert(key, trailers.get(keyOfBinary(key)));
       } else {
-        metadata.insert(key, Objects.requireNonNull(trailers.get(keyOfAscii(key))).getBytes());
+        metadata.insert(key, Objects.requireNonNull(trailers.get(keyOfAscii(key))).getBytes(StandardCharsets.UTF_8));
       }
     }
     return metadata;

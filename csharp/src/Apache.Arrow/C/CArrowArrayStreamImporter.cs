@@ -16,6 +16,7 @@
 // under the License.
 
 using System;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Apache.Arrow.Ipc;
@@ -57,7 +58,11 @@ namespace Apache.Arrow.C
 
             internal static string GetLastError(CArrowArrayStream* arrayStream, int errno)
             {
+#if NET5_0_OR_GREATER
                 byte* error = arrayStream->get_last_error(arrayStream);
+#else
+                byte* error = Marshal.GetDelegateForFunctionPointer<CArrowArrayStreamExporter.GetLastErrorArrayStream>(arrayStream->get_last_error)(arrayStream);
+#endif
                 if (error == null)
                 {
                     return $"Array stream operation failed with no message. Error code: {errno}";
@@ -71,13 +76,17 @@ namespace Apache.Arrow.C
                 {
                     throw new ArgumentNullException(nameof(cArrayStream));
                 }
-                if (cArrayStream->release == null)
+                if (cArrayStream->release == default)
                 {
                     throw new ArgumentException("Tried to import an array stream that has already been released.", nameof(cArrayStream));
                 }
 
                 CArrowSchema cSchema = new CArrowSchema();
+#if NET5_0_OR_GREATER
                 int errno = cArrayStream->get_schema(cArrayStream, &cSchema);
+#else
+                int errno = Marshal.GetDelegateForFunctionPointer<CArrowArrayStreamExporter.GetSchemaArrayStream>(cArrayStream->get_schema)(cArrayStream, &cSchema);
+#endif
                 if (errno != 0)
                 {
                     throw new Exception(GetLastError(cArrayStream, errno));
@@ -85,7 +94,7 @@ namespace Apache.Arrow.C
                 _schema = CArrowSchemaImporter.ImportSchema(&cSchema);
 
                 _cArrayStream = *cArrayStream;
-                cArrayStream->release = null;
+                cArrayStream->release = default;
             }
 
             ~ImportedArrowArrayStream()
@@ -111,12 +120,16 @@ namespace Apache.Arrow.C
                 CArrowArray cArray = new CArrowArray();
                 fixed (CArrowArrayStream* cArrayStream = &_cArrayStream)
                 {
+#if NET5_0_OR_GREATER
                     int errno = cArrayStream->get_next(cArrayStream, &cArray);
+#else
+                    int errno = Marshal.GetDelegateForFunctionPointer<CArrowArrayStreamExporter.GetNextArrayStream>(cArrayStream->get_next)(cArrayStream, &cArray);
+#endif
                     if (errno != 0)
                     {
                         return new(Task.FromException<RecordBatch>(new Exception(GetLastError(cArrayStream, errno))));
                     }
-                    if (cArray.release != null)
+                    if (cArray.release != default)
                     {
                         result = CArrowArrayImporter.ImportRecordBatch(&cArray, _schema);
                     }
@@ -127,12 +140,16 @@ namespace Apache.Arrow.C
 
             public void Dispose()
             {
-                if (!_disposed && _cArrayStream.release != null)
+                if (!_disposed && _cArrayStream.release != default)
                 {
                     _disposed = true;
                     fixed (CArrowArrayStream* cArrayStream = &_cArrayStream)
                     {
+#if NET5_0_OR_GREATER
                         cArrayStream->release(cArrayStream);
+#else
+                        Marshal.GetDelegateForFunctionPointer<CArrowArrayStreamExporter.ReleaseArrayStream>(cArrayStream->release)(cArrayStream);
+#endif
                     }
                 }
                 GC.SuppressFinalize(this);

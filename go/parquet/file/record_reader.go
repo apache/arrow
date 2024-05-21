@@ -23,14 +23,14 @@ import (
 	"unsafe"
 
 	"github.com/JohnCGriffin/overflow"
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/internal/utils"
-	"github.com/apache/arrow/go/v13/parquet"
-	"github.com/apache/arrow/go/v13/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v13/parquet/schema"
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/array"
+	"github.com/apache/arrow/go/v17/arrow/bitutil"
+	"github.com/apache/arrow/go/v17/arrow/memory"
+	"github.com/apache/arrow/go/v17/internal/utils"
+	"github.com/apache/arrow/go/v17/parquet"
+	"github.com/apache/arrow/go/v17/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v17/parquet/schema"
 	"golang.org/x/xerrors"
 )
 
@@ -486,7 +486,7 @@ func (rr *recordReader) delimitRecords(numRecords int64) (recordsRead, valsToRea
 			// if at record start, we are seeing the start of a record
 			// for the second time, such as after repeated calls to delimitrecords.
 			// in this case we must continue until we find another record start
-			// or exaust the column chunk
+			// or exhaust the column chunk
 			if !rr.atRecStart {
 				// end of a record, increment count
 				recordsRead++

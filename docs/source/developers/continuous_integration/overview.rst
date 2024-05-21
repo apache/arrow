@@ -20,13 +20,12 @@
 Continuous Integration
 ======================
 
-Continuous Integration for Arrow is fairly complex as it needs to run across different combinations of package managers, compilers, versions of multiple sofware libraries, operating systems, and other potential sources of variation.  In this article, we will give an overview of its main components and the relevant files and directories.
+Continuous Integration for Arrow is fairly complex as it needs to run across different combinations of package managers, compilers, versions of multiple software libraries, operating systems, and other potential sources of variation.  In this article, we will give an overview of its main components and the relevant files and directories.
 
 Some files central to Arrow CI are:
 
 - ``docker-compose.yml`` - here we define docker services which can be configured using either enviroment variables, or the default values for these variables.
 - ``.env`` - here we define default values to configure the services in ``docker-compose.yml``
-- ``.travis.yml`` - here we define workflows which run on Travis
 - ``appveyor.yml`` - here we define workflows that run on Appveyor
 
 We use :ref:`Docker<docker-builds>` in order to have portable and reproducible Linux builds, as well as running Windows builds in Windows containers.  We use :ref:`Archery<Archery>` and :ref:`Crossbow<Crossbow>` to help co-ordinate the various CI tasks.
@@ -35,7 +34,7 @@ One thing to note is that some of the services defined in ``docker-compose.yml``
 
 There are numerous important directories in the Arrow project which relate to CI:
 
-- ``.github/worflows`` - workflows that are run via GitHub actions and are triggered by things like pull requests being submitted or merged
+- ``.github/workflows`` - workflows that are run via GitHub actions and are triggered by things like pull requests being submitted or merged
 - ``dev/tasks`` - containing extended jobs triggered/submitted via ``archery crossbow submit ...``, typically nightly builds or relating to the release process
 - ``ci/`` - containing scripts, dockerfiles, and any supplemental files, e.g. patch files, conda environment files, vcpkg triplet files.
 
@@ -47,7 +46,7 @@ Instead of thinking about Arrow CI in terms of files and folders, it may be conc
 Action-triggered builds
 -----------------------
 
-The ``.yml`` files in ``.github/worflows`` are workflows which are run on GitHub in response to specific actions.  The majority of workflows in this directory are Arrow implementation-specific and are run when changes are made which affect code relevant to that language's implementation, but other workflows worth noting are:
+The ``.yml`` files in ``.github/workflows`` are workflows which are run on GitHub in response to specific actions.  The majority of workflows in this directory are Arrow implementation-specific and are run when changes are made which affect code relevant to that language's implementation, but other workflows worth noting are:
 
 - ``archery.yml`` - if changes are made to the Archery tool or tasks which it runs, this workflow runs the necessary validation checks
 - ``comment_bot.yml`` - triggers certain actions by listening on github pull request comments for the following strings:
@@ -60,7 +59,6 @@ The ``.yml`` files in ``.github/worflows`` are workflows which are run on GitHub
 
 There are two other files which define action-triggered builds:
 
-- ``.travis.yml`` - runs on all commits and is used to test on architectures such as ARM and S390x
 - ``appveyor.yml`` - runs on commits related to Python or C++
 
 Extended builds

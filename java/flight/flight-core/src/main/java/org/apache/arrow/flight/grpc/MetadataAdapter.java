@@ -17,6 +17,7 @@
 
 package org.apache.arrow.flight.grpc;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -42,26 +43,26 @@ public class MetadataAdapter implements CallHeaders {
 
   @Override
   public String get(String key) {
-    return this.metadata.get(Key.of(key, Metadata.ASCII_STRING_MARSHALLER));
+    return this.metadata.get(Metadata.Key.of(key, Metadata.ASCII_STRING_MARSHALLER));
   }
 
   @Override
   public byte[] getByte(String key) {
     if (key.endsWith(Metadata.BINARY_HEADER_SUFFIX)) {
-      return this.metadata.get(Key.of(key, Metadata.BINARY_BYTE_MARSHALLER));
+      return this.metadata.get(Metadata.Key.of(key, Metadata.BINARY_BYTE_MARSHALLER));
     }
-    return get(key).getBytes();
+    return get(key).getBytes(StandardCharsets.UTF_8);
   }
 
   @Override
   public Iterable<String> getAll(String key) {
-    return this.metadata.getAll(Key.of(key, Metadata.ASCII_STRING_MARSHALLER));
+    return this.metadata.getAll(Metadata.Key.of(key, Metadata.ASCII_STRING_MARSHALLER));
   }
 
   @Override
   public Iterable<byte[]> getAllByte(String key) {
     if (key.endsWith(Metadata.BINARY_HEADER_SUFFIX)) {
-      return this.metadata.getAll(Key.of(key, Metadata.BINARY_BYTE_MARSHALLER));
+      return this.metadata.getAll(Metadata.Key.of(key, Metadata.BINARY_BYTE_MARSHALLER));
     }
     return StreamSupport.stream(getAll(key).spliterator(), false)
         .map(String::getBytes).collect(Collectors.toList());
@@ -69,12 +70,12 @@ public class MetadataAdapter implements CallHeaders {
 
   @Override
   public void insert(String key, String value) {
-    this.metadata.put(Key.of(key, Metadata.ASCII_STRING_MARSHALLER), value);
+    this.metadata.put(Metadata.Key.of(key, Metadata.ASCII_STRING_MARSHALLER), value);
   }
 
   @Override
   public void insert(String key, byte[] value) {
-    this.metadata.put(Key.of(key, Metadata.BINARY_BYTE_MARSHALLER), value);
+    this.metadata.put(Metadata.Key.of(key, Metadata.BINARY_BYTE_MARSHALLER), value);
   }
 
   @Override
@@ -85,13 +86,14 @@ public class MetadataAdapter implements CallHeaders {
   @Override
   public boolean containsKey(String key) {
     if (key.endsWith("-bin")) {
-      final Key<?> grpcKey = Key.of(key, Metadata.BINARY_BYTE_MARSHALLER);
+      final Metadata.Key<?> grpcKey = Metadata.Key.of(key, Metadata.BINARY_BYTE_MARSHALLER);
       return this.metadata.containsKey(grpcKey);
     }
-    final Key<?> grpcKey = Key.of(key, Metadata.ASCII_STRING_MARSHALLER);
+    final Metadata.Key<?> grpcKey = Metadata.Key.of(key, Metadata.ASCII_STRING_MARSHALLER);
     return this.metadata.containsKey(grpcKey);
   }
 
+  @Override
   public String toString() {
     return this.metadata.toString();
   }

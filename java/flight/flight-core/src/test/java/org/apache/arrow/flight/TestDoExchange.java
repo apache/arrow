@@ -55,6 +55,7 @@ public class TestDoExchange {
   static byte[] EXCHANGE_METADATA_ONLY = "only-metadata".getBytes(StandardCharsets.UTF_8);
   static byte[] EXCHANGE_TRANSFORM = "transform".getBytes(StandardCharsets.UTF_8);
   static byte[] EXCHANGE_CANCEL = "cancel".getBytes(StandardCharsets.UTF_8);
+  static byte[] EXCHANGE_ERROR = "error".getBytes(StandardCharsets.UTF_8);
 
   private BufferAllocator allocator;
   private FlightServer server;
@@ -365,6 +366,37 @@ public class TestDoExchange {
     }
   }
 
+  /** Test a DoExchange error handling. */
+  @Test
+  public void testDoExchangeError() throws Exception {
+    final Schema schema = new Schema(Collections.singletonList(Field.nullable("a", new ArrowType.Int(32, true))));
+    try (final FlightClient.ExchangeReaderWriter stream = client.doExchange(FlightDescriptor.command(EXCHANGE_ERROR));
+         final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
+      final FlightStream reader = stream.getReader();
+
+      // Write data and check that it gets echoed back.
+      IntVector iv = (IntVector) root.getVector("a");
+      iv.allocateNew();
+      stream.getWriter().start(root);
+      for (int i = 0; i < 10; i++) {
+        iv.setSafe(0, i);
+        root.setRowCount(1);
+        stream.getWriter().putNext();
+
+        assertTrue(reader.next());
+        assertEquals(root.getSchema(), reader.getSchema());
+        assertEquals(i, ((IntVector) reader.getRoot().getVector("a")).get(0));
+      }
+
+      // Complete the stream so that the server knows not to expect any more messages from us.
+      stream.getWriter().completed();
+
+      // Must call reader.next() to get any errors after exchange, will return false if no error
+      final FlightRuntimeException fre = assertThrows(FlightRuntimeException.class, stream::getResult);
+      assertEquals("error completing exchange", fre.status().description());
+    }
+  }
+
   /** Have the client close the stream without reading; ensure memory is not leaked. */
   @Test
   public void testClientClose() throws Exception {
@@ -379,6 +411,38 @@ public class TestDoExchange {
     // https://stackoverflow.com/questions/46716024/
     allocator = null;
     client = null;
+  }
+
+  /** Test closing with Metadata can't lead to error. */
+  @Test
+  public void testCloseWithMetadata() throws Exception {
+    // Send a particular descriptor to the server and check for a particular response pattern.
+    try (final FlightClient.ExchangeReaderWriter stream =
+                 client.doExchange(FlightDescriptor.command(EXCHANGE_METADATA_ONLY))) {
+      final FlightStream reader = stream.getReader();
+
+      // Server starts by sending a message without data (hence no VectorSchemaRoot should be present)
+      assertTrue(reader.next());
+      assertFalse(reader.hasRoot());
+      assertEquals(42, reader.getLatestMetadata().getInt(0));
+
+      // Write a metadata message to the server (without sending any data)
+      ArrowBuf buf = allocator.buffer(4);
+      buf.writeInt(84);
+      stream.getWriter().putMetadata(buf);
+
+      // Check that the server echoed the metadata back to us
+      assertTrue(reader.next());
+      assertFalse(reader.hasRoot());
+      assertEquals(84, reader.getLatestMetadata().getInt(0));
+
+      // Close our write channel and ensure the server also closes theirs
+      stream.getWriter().completed();
+      stream.getResult();
+
+      // Not necessary to close reader here, but check closing twice doesn't lead to negative refcnt from metadata
+      stream.getReader().close();
+    }
   }
 
   static class Producer extends NoOpFlightProducer {
@@ -404,13 +468,15 @@ public class TestDoExchange {
         transform(context, reader, writer);
       } else if (Arrays.equals(reader.getDescriptor().getCommand(), EXCHANGE_CANCEL)) {
         cancel(context, reader, writer);
+      } else if (Arrays.equals(reader.getDescriptor().getCommand(), EXCHANGE_ERROR)) {
+        error(context, reader, writer);
       } else {
         writer.error(CallStatus.UNIMPLEMENTED.withDescription("Command not implemented").toRuntimeException());
       }
     }
 
     /** Emulate DoGet. */
-    private void doGet(CallContext context, FlightStream reader, ServerStreamListener writer) {
+    private void doGet(CallContext unusedContext, FlightStream unusedReader, ServerStreamListener writer) {
       try (VectorSchemaRoot root = VectorSchemaRoot.create(SCHEMA, allocator)) {
         writer.start(root);
         root.allocateNew();
@@ -427,7 +493,7 @@ public class TestDoExchange {
     }
 
     /** Emulate DoPut. */
-    private void doPut(CallContext context, FlightStream reader, ServerStreamListener writer) {
+    private void doPut(CallContext unusedContext, FlightStream reader, ServerStreamListener writer) {
       int counter = 0;
       while (reader.next()) {
         if (!reader.hasRoot()) {
@@ -444,7 +510,7 @@ public class TestDoExchange {
     }
 
     /** Exchange metadata without ever exchanging data. */
-    private void metadataOnly(CallContext context, FlightStream reader, ServerStreamListener writer) {
+    private void metadataOnly(CallContext unusedContext, FlightStream reader, ServerStreamListener writer) {
       final ArrowBuf buf = allocator.buffer(4);
       buf.writeInt(42);
       writer.putMetadata(buf);
@@ -456,7 +522,7 @@ public class TestDoExchange {
     }
 
     /** Echo the client's response back to it. */
-    private void echo(CallContext context, FlightStream reader, ServerStreamListener writer) {
+    private void echo(CallContext unusedContext, FlightStream reader, ServerStreamListener writer) {
       VectorSchemaRoot root = null;
       VectorLoader loader = null;
       while (reader.next()) {
@@ -489,7 +555,7 @@ public class TestDoExchange {
     }
 
     /** Accept a set of messages, then return some result. */
-    private void transform(CallContext context, FlightStream reader, ServerStreamListener writer) {
+    private void transform(CallContext unusedContext, FlightStream reader, ServerStreamListener writer) {
       final Schema schema = reader.getSchema();
       for (final Field field : schema.getFields()) {
         if (!(field.getType() instanceof ArrowType.Int)) {
@@ -531,8 +597,33 @@ public class TestDoExchange {
     }
 
     /** Immediately cancel the call. */
-    private void cancel(CallContext context, FlightStream reader, ServerStreamListener writer) {
+    private void cancel(CallContext unusedContext, FlightStream unusedReader, ServerStreamListener writer) {
       writer.error(CallStatus.CANCELLED.withDescription("expected").toRuntimeException());
+    }
+
+    private void error(CallContext unusedContext, FlightStream reader, ServerStreamListener writer) {
+      VectorSchemaRoot root = null;
+      VectorLoader loader = null;
+      while (reader.next()) {
+
+        if (root == null) {
+          root = VectorSchemaRoot.create(reader.getSchema(), allocator);
+          loader = new VectorLoader(root);
+          writer.start(root);
+        }
+        VectorUnloader unloader = new VectorUnloader(reader.getRoot());
+        try (final ArrowRecordBatch arb = unloader.getRecordBatch()) {
+          loader.load(arb);
+        }
+
+        writer.putNext();
+      }
+      if (root != null) {
+        root.close();
+      }
+
+      // An error occurs before completing the writer
+      writer.error(CallStatus.INTERNAL.withDescription("error completing exchange").toRuntimeException());
     }
   }
 }

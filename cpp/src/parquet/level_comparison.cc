@@ -25,8 +25,7 @@
 
 #include "arrow/util/dispatch.h"
 
-namespace parquet {
-namespace internal {
+namespace parquet::internal {
 
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
 MinMax FindMinMaxAvx2(const int16_t* levels, int64_t num_levels);
@@ -78,5 +77,4 @@ MinMax FindMinMax(const int16_t* levels, int64_t num_levels) {
   return dispatch.func(levels, num_levels);
 }
 
-}  // namespace internal
-}  // namespace parquet
+}  // namespace parquet::internal

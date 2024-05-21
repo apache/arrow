@@ -23,7 +23,6 @@
 
 #include <arrow-flight-glib/common.h>
 
-
 GAFlightCriteria *
 gaflight_criteria_new_raw(const arrow::flight::Criteria *flight_criteria);
 arrow::flight::Criteria *
@@ -33,8 +32,7 @@ arrow::flight::Location *
 gaflight_location_get_raw(GAFlightLocation *location);
 
 GAFlightDescriptor *
-gaflight_descriptor_new_raw(
-  const arrow::flight::FlightDescriptor *flight_descriptor);
+gaflight_descriptor_new_raw(const arrow::flight::FlightDescriptor *flight_descriptor);
 arrow::flight::FlightDescriptor *
 gaflight_descriptor_get_raw(GAFlightDescriptor *descriptor);
 

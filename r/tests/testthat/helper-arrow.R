@@ -34,9 +34,10 @@ Sys.setenv(LANGUAGE = "en")
 options(arrow.pull_as_vector = FALSE)
 
 with_language <- function(lang, expr) {
+  skip_on_cran()
   old <- Sys.getenv("LANGUAGE")
   # Check what this message is before changing languages; this will
-  # trigger caching the transations if the OS does that (some do).
+  # trigger caching the translations if the OS does that (some do).
   # If the OS does cache, then we can't test changing languages safely.
   before <- i18ize_error_messages()
   Sys.setenv(LANGUAGE = lang)

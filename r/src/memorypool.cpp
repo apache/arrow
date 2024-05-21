@@ -16,8 +16,8 @@
 // under the License.
 
 #include <arrow/memory_pool.h>
-#include <arrow/util/mutex.h>
 #include "./arrow_types.h"
+#include "./safe-call-into-r.h"
 
 class GcMemoryPool : public arrow::MemoryPool {
  public:
@@ -59,17 +59,17 @@ class GcMemoryPool : public arrow::MemoryPool {
     if (call().ok()) {
       return arrow::Status::OK();
     } else {
-      auto lock = mutex_.Lock();
-
       // ARROW-10080: Allocation may fail spuriously since the garbage collector is lazy.
       // Force it to run then try again in case any reusable allocations have been freed.
-      static cpp11::function gc = cpp11::package("base")["gc"];
-      gc();
+      arrow::Status r_call = SafeCallIntoRVoid([] {
+        cpp11::function gc = cpp11::package("base")["gc"];
+        gc();
+      });
+      ARROW_RETURN_NOT_OK(r_call);
+      return call();
     }
-    return call();
   }
 
-  arrow::util::Mutex mutex_;
   arrow::MemoryPool* pool_;
 };
 

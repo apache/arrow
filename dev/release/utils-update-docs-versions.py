@@ -38,7 +38,9 @@ elif split_next_version[2:] == ["0"]:
 else:
     release_type = "patch"
 
-# Update main docs version script
+# Update main docs version script only when compatible version of the
+# stable version isn't changed. Compatible version is ${MAJOR}.${MINOR}
+# version.
 if release_type != "patch":
     with open(main_versions_path) as json_file:
         old_versions = json.load(json_file)
@@ -47,19 +49,30 @@ if release_type != "patch":
     stable_compatible_version = ".".join(split_version[:2])
     previous_compatible_version = old_versions[1]["name"].split(" ")[0]
 
-    # Create new versions
-    new_versions = [
-        {"name": f"{dev_compatible_version} (dev)",
-         "version": "dev/"},
-        {"name": f"{stable_compatible_version} (stable)",
-         "version": ""},
-        {"name": previous_compatible_version,
-         "version": f"{previous_compatible_version}/"},
-        *old_versions[2:],
-    ]
-    with open(main_versions_path, 'w') as json_file:
-        json.dump(new_versions, json_file, indent=4)
-        json_file.write("\n")
+    # previous (compatible version) -> stable (compatible version)
+    #
+    # 13.Y.Z (13.Y) -> 14.0.0 (14.0): Update
+    # 14.0.0 (14.0) -> 14.0.1 (14.0): Not update
+    # 14.0.0 (14.0) -> 14.1.0 (14.1): Update
+    # 14.0.1 (14.0) -> 14.1.0 (14.1): Update
+    if stable_compatible_version != previous_compatible_version:
+        # Create new versions
+        new_versions = [
+            {"name": f"{dev_compatible_version} (dev)",
+             "version": "dev/",
+             "url": "https://arrow.apache.org/docs/dev/"},
+            {"name": f"{stable_compatible_version} (stable)",
+             "version": "",
+             "url": "https://arrow.apache.org/docs/",
+             "preferred": True},
+            {"name": previous_compatible_version,
+             "version": f"{previous_compatible_version}/",
+             "url": f"https://arrow.apache.org/docs/{previous_compatible_version}/"},
+            *old_versions[2:],
+        ]
+        with open(main_versions_path, 'w') as json_file:
+            json.dump(new_versions, json_file, indent=4)
+            json_file.write("\n")
 
 
 # Update R package version script
@@ -72,7 +85,8 @@ release_r_version = version
 previous_r_name = old_r_versions[1]["name"].split(" ")[0]
 previous_r_version = ".".join(previous_r_name.split(".")[:2])
 
-if release_type == "major":
+if release_type == "major" and split_version[1:] == ["0", "0"]:
+    # 14.0.0 -> 15.0.0
     new_r_versions = [
         {"name": f"{dev_r_version} (dev)", "version": "dev/"},
         {"name": f"{release_r_version} (release)", "version": ""},
@@ -80,6 +94,10 @@ if release_type == "major":
         *old_r_versions[2:],
     ]
 else:
+    # 14.0.1 -> 15.0.0
+    # 14.0.0 -> 14.1.0
+    # 14.0.1 -> 14.1.0
+    # 14.0.0 -> 14.0.1
     new_r_versions = [
         {"name": f"{dev_r_version} (dev)", "version": "dev/"},
         {"name": f"{release_r_version} (release)", "version": ""},

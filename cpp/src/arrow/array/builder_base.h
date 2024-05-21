@@ -175,19 +175,11 @@ class ARROW_EXPORT ArrayBuilder {
   /// \brief Append a range of values from an array.
   ///
   /// The given array must be the same type as the builder.
-  virtual Status AppendArraySlice(const ArraySpan& array, int64_t offset,
-                                  int64_t length) {
+  virtual Status AppendArraySlice(const ArraySpan& ARROW_ARG_UNUSED(array),
+                                  int64_t ARROW_ARG_UNUSED(offset),
+                                  int64_t ARROW_ARG_UNUSED(length)) {
     return Status::NotImplemented("AppendArraySlice for builder for ", *type());
   }
-
-  /// For cases where raw data was memcpy'd into the internal buffers, allows us
-  /// to advance the length of the builder. It is your responsibility to use
-  /// this function responsibly.
-  ARROW_DEPRECATED(
-      "Deprecated in 6.0.0. ArrayBuilder::Advance is poorly supported and mostly "
-      "untested.\nFor low-level control over buffer construction, use BufferBuilder "
-      "or TypedBufferBuilder directly.")
-  Status Advance(int64_t elements);
 
   /// \brief Return result of builder as an internal generic ArrayData
   /// object. Resets builder except for dictionary builder
@@ -358,7 +350,7 @@ inline Result<std::unique_ptr<ArrayBuilder>> MakeBuilderExactIndex(
 }
 
 /// \brief Construct an empty DictionaryBuilder initialized optionally
-/// with a pre-existing dictionary
+/// with a preexisting dictionary
 /// \param[in] pool the MemoryPool to use for allocations
 /// \param[in] type the dictionary type to create the builder for
 /// \param[in] dictionary the initial dictionary, if any. May be nullptr

@@ -342,7 +342,7 @@ arrow::Status TableSourceSinkExample() {
 ///
 /// Source-Filter-Table
 /// This example shows how a filter can be used in an execution plan,
-/// to filter data from a source. The output from the exeuction plan
+/// to filter data from a source. The output from the execution plan
 /// is collected into a table.
 arrow::Status ScanFilterSinkExample() {
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::dataset::Dataset> dataset, GetDataset());

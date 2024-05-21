@@ -231,7 +231,8 @@ public final class MockPreparedStatement implements PreparedStatement {
   }
 
   @Override
-  public void setTime(int parameterIndex, Time x, Calendar cal) throws SQLException {}
+  public void setTime(int parameterIndex, Time x, Calendar cal) throws SQLException {
+  }
 
   @Override
   public void setTimestamp(int parameterIndex, Timestamp x, Calendar cal) throws SQLException {
@@ -241,7 +242,8 @@ public final class MockPreparedStatement implements PreparedStatement {
   }
 
   @Override
-  public void setNull(int parameterIndex, int sqlType, String typeName) throws SQLException {}
+  public void setNull(int parameterIndex, int sqlType, String typeName) throws SQLException {
+  }
 
   @Override
   public void setURL(int parameterIndex, URL x) throws SQLException {
@@ -259,62 +261,80 @@ public final class MockPreparedStatement implements PreparedStatement {
   }
 
   @Override
-  public void setNString(int parameterIndex, String value) throws SQLException {}
+  public void setNString(int parameterIndex, String value) throws SQLException {
+  }
 
   @Override
   public void setNCharacterStream(int parameterIndex, Reader value, long length)
-      throws SQLException {}
+      throws SQLException {
+  }
 
   @Override
-  public void setNClob(int parameterIndex, NClob value) throws SQLException {}
+  public void setNClob(int parameterIndex, NClob value) throws SQLException {
+  }
 
   @Override
-  public void setClob(int parameterIndex, Reader reader, long length) throws SQLException {}
+  public void setClob(int parameterIndex, Reader reader, long length) throws SQLException {
+  }
 
   @Override
   public void setBlob(int parameterIndex, InputStream inputStream, long length)
-      throws SQLException {}
+      throws SQLException {
+  }
 
   @Override
-  public void setNClob(int parameterIndex, Reader reader, long length) throws SQLException {}
+  public void setNClob(int parameterIndex, Reader reader, long length) throws SQLException {
+  }
 
   @Override
-  public void setSQLXML(int parameterIndex, SQLXML xmlObject) throws SQLException {}
+  public void setSQLXML(int parameterIndex, SQLXML xmlObject) throws SQLException {
+  }
 
   @Override
   public void setObject(int parameterIndex, Object x, int targetSqlType, int scaleOrLength)
-      throws SQLException {}
+      throws SQLException {
+  }
 
   @Override
-  public void setAsciiStream(int parameterIndex, InputStream x, long length) throws SQLException {}
+  public void setAsciiStream(int parameterIndex, InputStream x, long length) throws SQLException {
+  }
 
   @Override
-  public void setBinaryStream(int parameterIndex, InputStream x, long length) throws SQLException {}
+  public void setBinaryStream(int parameterIndex, InputStream x, long length) throws SQLException {
+  }
 
   @Override
   public void setCharacterStream(int parameterIndex, Reader reader, long length)
-      throws SQLException {}
+      throws SQLException {
+  }
 
   @Override
-  public void setAsciiStream(int parameterIndex, InputStream x) throws SQLException {}
+  public void setAsciiStream(int parameterIndex, InputStream x) throws SQLException {
+  }
 
   @Override
-  public void setBinaryStream(int parameterIndex, InputStream x) throws SQLException {}
+  public void setBinaryStream(int parameterIndex, InputStream x) throws SQLException {
+  }
 
   @Override
-  public void setCharacterStream(int parameterIndex, Reader reader) throws SQLException {}
+  public void setCharacterStream(int parameterIndex, Reader reader) throws SQLException {
+  }
 
   @Override
-  public void setNCharacterStream(int parameterIndex, Reader value) throws SQLException {}
+  public void setNCharacterStream(int parameterIndex, Reader value) throws SQLException {
+  }
 
   @Override
-  public void setClob(int parameterIndex, Reader reader) throws SQLException {}
+  public void setClob(int parameterIndex, Reader reader) throws SQLException {
+  }
 
   @Override
-  public void setBlob(int parameterIndex, InputStream inputStream) throws SQLException {}
+  public void setBlob(int parameterIndex, InputStream inputStream) throws SQLException {
+  }
 
   @Override
-  public void setNClob(int parameterIndex, Reader reader) throws SQLException {}
+  public void setNClob(int parameterIndex, Reader reader) throws SQLException {
+  }
 
   @Override
   public ResultSet executeQuery(String sql) throws SQLException {
@@ -327,7 +347,8 @@ public final class MockPreparedStatement implements PreparedStatement {
   }
 
   @Override
-  public void close() throws SQLException {}
+  public void close() throws SQLException {
+  }
 
   @Override
   public int getMaxFieldSize() throws SQLException {

@@ -82,7 +82,7 @@ class SequencingQueue {
     /// This method will be called on each batch in order.  Calls to this method
     /// will be serialized and it will not be called reentrantly.  This makes it
     /// safe to do things that rely on order but minimal time should be spent here
-    /// to avoid becoming a bottlneck.
+    /// to avoid becoming a bottleneck.
     ///
     /// \return a follow-up task that will be scheduled.  The follow-up task(s) are
     ///         is not guaranteed to run in any particular order.  If nullopt is

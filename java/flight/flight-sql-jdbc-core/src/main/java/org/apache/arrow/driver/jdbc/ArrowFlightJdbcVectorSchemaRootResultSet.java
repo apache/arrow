@@ -17,20 +17,18 @@
 
 package org.apache.arrow.driver.jdbc;
 
-import static java.util.Objects.isNull;
-
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TimeZone;
 
 import org.apache.arrow.driver.jdbc.utils.ConvertUtils;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.calcite.avatica.AvaticaResultSet;
 import org.apache.calcite.avatica.AvaticaResultSetMetaData;
@@ -74,7 +72,7 @@ public class ArrowFlightJdbcVectorSchemaRootResultSet extends AvaticaResultSet {
     final TimeZone timeZone = TimeZone.getDefault();
     final QueryState state = new QueryState();
 
-    final Meta.Signature signature = ArrowFlightMetaImpl.newSignature(null);
+    final Meta.Signature signature = ArrowFlightMetaImpl.newSignature(null, null, null);
 
     final AvaticaResultSetMetaData resultSetMetaData =
         new AvaticaResultSetMetaData(null, null, signature);
@@ -83,7 +81,7 @@ public class ArrowFlightJdbcVectorSchemaRootResultSet extends AvaticaResultSet {
         new ArrowFlightJdbcVectorSchemaRootResultSet(null, state, signature, resultSetMetaData,
             timeZone, null);
 
-    resultSet.execute(vectorSchemaRoot);
+    resultSet.populateData(vectorSchemaRoot);
     return resultSet;
   }
 
@@ -92,18 +90,13 @@ public class ArrowFlightJdbcVectorSchemaRootResultSet extends AvaticaResultSet {
     throw new RuntimeException("Can only execute with execute(VectorSchemaRoot)");
   }
 
-  void execute(final VectorSchemaRoot vectorSchemaRoot) {
-    final List<Field> fields = vectorSchemaRoot.getSchema().getFields();
-    final List<ColumnMetaData> columns = ConvertUtils.convertArrowFieldsToColumnMetaDataList(fields);
-    signature.columns.clear();
-    signature.columns.addAll(columns);
-
-    this.vectorSchemaRoot = vectorSchemaRoot;
-    execute2(new ArrowFlightJdbcCursor(vectorSchemaRoot), this.signature.columns);
+  void populateData(final VectorSchemaRoot vectorSchemaRoot) {
+    populateData(vectorSchemaRoot, null);
   }
 
-  void execute(final VectorSchemaRoot vectorSchemaRoot, final Schema schema) {
-    final List<ColumnMetaData> columns = ConvertUtils.convertArrowFieldsToColumnMetaDataList(schema.getFields());
+  void populateData(final VectorSchemaRoot vectorSchemaRoot, final Schema schema) {
+    Schema currentSchema = schema == null ? vectorSchemaRoot.getSchema() : schema;
+    final List<ColumnMetaData> columns = ConvertUtils.convertArrowFieldsToColumnMetaDataList(currentSchema.getFields());
     signature.columns.clear();
     signature.columns.addAll(columns);
 
@@ -137,7 +130,7 @@ public class ArrowFlightJdbcVectorSchemaRootResultSet extends AvaticaResultSet {
     } catch (final Exception e) {
       exceptions.add(e);
     }
-    if (!isNull(statement)) {
+    if (!Objects.isNull(statement)) {
       try {
         super.close();
       } catch (final Exception e) {

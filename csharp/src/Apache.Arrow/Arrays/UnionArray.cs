@@ -15,37 +15,107 @@
 
 using Apache.Arrow.Types;
 using System;
+using System.Collections.Generic;
+using System.Threading;
 
 namespace Apache.Arrow
 {
-    public class UnionArray: Array
+    public abstract class UnionArray : IArrowArray
     {
-        public UnionType Type => Data.DataType as UnionType;
+        protected IReadOnlyList<IArrowArray> _fields;
+
+        public IReadOnlyList<IArrowArray> Fields =>
+            LazyInitializer.EnsureInitialized(ref _fields, InitializeFields);
+
+        public ArrayData Data { get; }
+
+        public UnionType Type => (UnionType)Data.DataType;
 
         public UnionMode Mode => Type.Mode;
 
-        public ArrowBuffer TypeBuffer => Data.Buffers[1];
+        public ArrowBuffer TypeBuffer => Data.Buffers[0];
 
-        public ArrowBuffer ValueOffsetBuffer => Data.Buffers[2];
+        public ReadOnlySpan<byte> TypeIds => TypeBuffer.Span.Slice(Offset, Length);
 
-        public ReadOnlySpan<byte> TypeIds => TypeBuffer.Span;
+        public int Length => Data.Length;
 
-        public ReadOnlySpan<int> ValueOffsets => ValueOffsetBuffer.Span.CastTo<int>().Slice(0, Length + 1);
+        public int Offset => Data.Offset;
 
-        public UnionArray(ArrayData data) 
-            : base(data)
+        public int NullCount => Data.GetNullCount();
+
+        public bool IsValid(int index) => NullCount == 0 || FieldIsValid(Fields[TypeIds[index]], index);
+
+        public bool IsNull(int index) => !IsValid(index);
+
+        protected UnionArray(ArrayData data) 
         {
+            Data = data;
             data.EnsureDataType(ArrowTypeId.Union);
-            data.EnsureBufferCount(3);
         }
 
-        public IArrowArray GetChild(int index)
+        public static UnionArray Create(ArrayData data)
         {
-            // TODO: Implement
-            throw new NotImplementedException();
+            return ((UnionType)data.DataType).Mode switch
+            {
+                UnionMode.Dense => new DenseUnionArray(data),
+                UnionMode.Sparse => new SparseUnionArray(data),
+                _ => throw new InvalidOperationException("unknown union mode in array creation")
+            };
         }
 
-        public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);
+        public void Accept(IArrowArrayVisitor visitor) => Array.Accept(this, visitor);
 
+        protected abstract bool FieldIsValid(IArrowArray field, int index);
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                Data.Dispose();
+            }
+        }
+
+        protected static void ValidateMode(UnionMode expected, UnionMode actual)
+        {
+            if (expected != actual)
+            {
+                throw new ArgumentException(
+                    $"Specified union mode <{actual}> does not match expected mode <{expected}>",
+                    "Mode");
+            }
+        }
+
+        internal static int ComputeNullCount(ArrayData data)
+        {
+            return ((UnionType)data.DataType).Mode switch
+            {
+                UnionMode.Sparse => SparseUnionArray.ComputeNullCount(data),
+                UnionMode.Dense => DenseUnionArray.ComputeNullCount(data),
+                _ => throw new InvalidOperationException("unknown union mode in null count computation")
+            };
+        }
+
+        private IReadOnlyList<IArrowArray> InitializeFields()
+        {
+            IArrowArray[] result = new IArrowArray[Data.Children.Length];
+            for (int i = 0; i < Data.Children.Length; i++)
+            {
+                var childData = Data.Children[i];
+                if (Mode == UnionMode.Sparse && (Data.Offset != 0 || childData.Length != Data.Length))
+                {
+                    // We only slice the child data for sparse mode,
+                    // so that the sliced value offsets remain valid in dense mode
+                    childData = childData.Slice(Data.Offset, Data.Length);
+                }
+                result[i] = ArrowArrayFactory.BuildArray(childData);
+            }
+            return result;
+        }
     }
 }

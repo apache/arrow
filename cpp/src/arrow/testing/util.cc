@@ -43,6 +43,7 @@
 #include "arrow/table.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
+#include "arrow/util/cpu_info.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/pcg_random.h"
@@ -197,7 +198,7 @@ std::string GetListenAddress() {
     ss << "." << byte;
   }
 #else
-  // On MacOS, only 127.0.0.1 is a valid loopback address by default.
+  // On macOS, only 127.0.0.1 is a valid loopback address by default.
   ss << "127.0.0.1";
 #endif
   // Append port number
@@ -209,6 +210,20 @@ const std::vector<std::shared_ptr<DataType>>& all_dictionary_index_types() {
   static std::vector<std::shared_ptr<DataType>> types = {
       int8(), uint8(), int16(), uint16(), int32(), uint32(), int64(), uint64()};
   return types;
+}
+
+std::vector<int64_t> GetSupportedHardwareFlags(
+    const std::vector<int64_t>& candidate_flags) {
+  std::vector<int64_t> hardware_flags;
+  // Always test fallback codepaths
+  hardware_flags.push_back(0);
+  for (const int64_t candidate_flag : candidate_flags) {
+    if (candidate_flag != 0 &&
+        internal::CpuInfo::GetInstance()->IsSupported(candidate_flag)) {
+      hardware_flags.push_back(candidate_flag);
+    }
+  }
+  return hardware_flags;
 }
 
 }  // namespace arrow

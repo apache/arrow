@@ -22,6 +22,7 @@
 #include <string_view>
 
 #include "arrow/engine/simple_extension_type_internal.h"
+#include "arrow/engine/substrait/type_internal.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/reflection_internal.h"
@@ -112,6 +113,36 @@ std::shared_ptr<DataType> varchar(int32_t length) { return VarCharType::Make({le
 std::shared_ptr<DataType> interval_year() { return IntervalYearType::Make({}); }
 
 std::shared_ptr<DataType> interval_day() { return IntervalDayType::Make({}); }
+
+Result<std::shared_ptr<DataType>> precision_timestamp(int precision) {
+  switch (precision) {
+    case 0:
+      return timestamp(TimeUnit::SECOND);
+    case 3:
+      return timestamp(TimeUnit::MILLI);
+    case 6:
+      return timestamp(TimeUnit::MICRO);
+    case 9:
+      return timestamp(TimeUnit::NANO);
+    default:
+      return Status::NotImplemented("Unrecognized timestamp precision (", precision, ")");
+  }
+}
+
+Result<std::shared_ptr<DataType>> precision_timestamp_tz(int precision) {
+  switch (precision) {
+    case 0:
+      return timestamp(TimeUnit::SECOND, TimestampTzTimezoneString());
+    case 3:
+      return timestamp(TimeUnit::MILLI, TimestampTzTimezoneString());
+    case 6:
+      return timestamp(TimeUnit::MICRO, TimestampTzTimezoneString());
+    case 9:
+      return timestamp(TimeUnit::NANO, TimestampTzTimezoneString());
+    default:
+      return Status::NotImplemented("Unrecognized timestamp precision (", precision, ")");
+  }
+}
 
 bool UnwrapUuid(const DataType& t) {
   if (UuidType::GetIf(t)) {

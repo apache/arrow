@@ -62,7 +62,7 @@
         },
         "repository_url": "https://api.github.com/repos/ursa-labs/ursabot",
         "state": "open",
-        "title": "Unittests for GithubHook",
+        "title": "Unittests for GitHubHook",
         "updated_at": "2019-04-05T11:35:46Z",
         "url": "https://api.github.com/repos/ursa-labs/ursabot/issues/26",
         "user": {

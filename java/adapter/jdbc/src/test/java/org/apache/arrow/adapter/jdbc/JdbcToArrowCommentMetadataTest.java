@@ -127,7 +127,7 @@ public class JdbcToArrowCommentMetadataTest {
                 "SQL_SCHEMA_NAME", "PUBLIC",
                 "SQL_TABLE_NAME", "TABLE1",
                 "SQL_COLUMN_NAME", "NAME",
-                "SQL_TYPE", "VARCHAR",
+                "SQL_TYPE", "CHARACTER VARYING",
                 "comment", "Name of record")),
         field("COLUMN1", true, Types.MinorType.BIT.getType(),
             metadata(
@@ -205,7 +205,7 @@ public class JdbcToArrowCommentMetadataTest {
     }
     String comment = null;
     int rowCount = 0;
-    try (ResultSet tableMetadata = metaData.getTables("%", "%", tableName, null)) {
+    try (ResultSet tableMetadata = metaData.getTables(null, null, tableName, null)) {
       if (tableMetadata.next()) {
         comment = tableMetadata.getString("REMARKS");
         rowCount++;
@@ -221,7 +221,7 @@ public class JdbcToArrowCommentMetadataTest {
   }
 
   private String getColumnComment(DatabaseMetaData metaData, String tableName, String columnName) throws SQLException {
-    try (ResultSet tableMetadata = metaData.getColumns("%", "%", tableName, columnName)) {
+    try (ResultSet tableMetadata = metaData.getColumns(null, null, tableName, columnName)) {
       if (tableMetadata.next()) {
         return tableMetadata.getString("REMARKS");
       }

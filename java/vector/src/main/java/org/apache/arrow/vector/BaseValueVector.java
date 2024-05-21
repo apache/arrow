@@ -28,15 +28,12 @@ import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.util.DataSizeRoundingUtil;
 import org.apache.arrow.vector.util.TransferPair;
 import org.apache.arrow.vector.util.ValueVectorUtility;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Base class for other Arrow Vector Types.  Provides basic functionality around
  * memory management.
  */
 public abstract class BaseValueVector implements ValueVector {
-  private static final Logger logger = LoggerFactory.getLogger(BaseValueVector.class);
 
   public static final String MAX_ALLOCATION_SIZE_PROPERTY = "arrow.vector.max_allocation_bytes";
   public static final long MAX_ALLOCATION_SIZE = Long.getLong(MAX_ALLOCATION_SIZE_PROPERTY, Long.MAX_VALUE);
@@ -160,6 +157,7 @@ public abstract class BaseValueVector implements ValueVector {
    *
    * @return Concrete instance of FieldReader by using double-checked locking.
    */
+  @Override
   public FieldReader getReader() {
     FieldReader reader = fieldReader;
 
@@ -178,7 +176,7 @@ public abstract class BaseValueVector implements ValueVector {
   /**
    * Container for primitive vectors (1 for the validity bit-mask and one to hold the values).
    */
-  class DataAndValidityBuffers {
+  static class DataAndValidityBuffers {
     private ArrowBuf dataBuf;
     private ArrowBuf validityBuf;
 
