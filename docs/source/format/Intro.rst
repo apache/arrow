@@ -67,18 +67,6 @@ instructions.
 .. figure:: ./images/columnar-diagram_3.svg
    :alt: Tabular data being structured column by column in computer memory.
 
-Primitive layouts
-=================
-
-Fixed Size Primitive Layout
----------------------------
-
-A primitive column represents an array of values where each value
-has the same physical size measured in bytes. Data types that share the
-same fixed size primitive layout are for example signed and unsigned
-integer types, floating point numbers, boolean, decimal and temporal
-types.
-
 Support for null values
 -----------------------
 
@@ -94,6 +82,18 @@ is null.
 This validity bitmap is optional, i.e. if there are no missing values in
 the array the buffer does not need to be allocated (as in the example
 column 1 in the diagram below).
+
+Primitive layouts
+=================
+
+Fixed Size Primitive Layout
+---------------------------
+
+A primitive column represents an array of values where each value
+has the same physical size measured in bytes. Data types that share the
+same fixed size primitive layout are for example signed and unsigned
+integer types, floating point numbers, boolean, decimal and temporal
+types.
 
 .. figure:: ./images/primitive-diagram.svg
    :alt: Diagram is showing the difference between the primitive data
