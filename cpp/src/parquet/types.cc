@@ -464,7 +464,9 @@ std::shared_ptr<const LogicalType> LogicalType::FromThrift(
   } else if (type.__isset.FLOAT16) {
     return Float16LogicalType::Make();
   } else {
-    throw ParquetException("Metadata contains Thrift LogicalType that is not recognized");
+    // Or provide some mechanism to optionally error here?
+    // throw ParquetException("Metadata contains Thrift LogicalType that is not recognized");
+    return NoLogicalType::Make();
   }
 }
 
