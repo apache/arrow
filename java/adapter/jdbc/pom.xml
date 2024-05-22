@@ -48,7 +48,7 @@
 
     <dependency>
       <groupId>org.immutables</groupId>
-      <artifactId>value</artifactId>
+      <artifactId>value-annotations</artifactId>
     </dependency>
 
     <!-- https://mvnrepository.com/artifact/com.h2database/h2 -->
