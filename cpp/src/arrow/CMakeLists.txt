@@ -351,6 +351,12 @@ macro(append_runtime_avx512_src SRCS SRC)
   endif()
 endmacro()
 
+# Write out compile-time configuration constants
+configure_file("util/config.h.cmake" "util/config.h" ESCAPE_QUOTES)
+configure_file("util/config_internal.h.cmake" "util/config_internal.h" ESCAPE_QUOTES)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/util/config.h"
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/util")
+
 set(ARROW_SRCS
     builder.cc
     buffer.cc
