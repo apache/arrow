@@ -360,6 +360,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_bool is_mutable() const
         c_string ToHexString()
         c_bool Equals(const CBuffer& other)
+        shared_ptr[CDevice] device()
+        const shared_ptr[CMemoryManager] memory_manager()
+        CDeviceAllocationType device_type()
 
     CResult[shared_ptr[CBuffer]] SliceBufferSafe(
         const shared_ptr[CBuffer]& buffer, int64_t offset)

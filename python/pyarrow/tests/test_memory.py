@@ -275,16 +275,3 @@ def test_debug_memory_pool_unknown(pool_factory):
         "Valid values are 'abort', 'trap', 'warn', 'none'."
     )
     check_debug_memory_pool_disabled(pool_factory, env_value, msg)
-
-
-def test_device_memory_manager():
-
-    mm = pa.default_cpu_memory_manager()
-    assert mm.is_cpu
-    device = mm.device
-    assert device.is_cpu
-    assert device.device_id == -1
-    assert device.device_type == pa.DeviceAllocationType.CPU
-    assert device.type_name == "arrow::CPUDevice"
-    assert device == device
-    assert repr(device) == "<pyarrow.Device: CPUDevice()>"

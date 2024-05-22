@@ -58,6 +58,12 @@ cdef class Device(_Weakrefable):
     cdef void init(self, const shared_ptr[CDevice]& device):
         self.device = device
 
+    @staticmethod
+    cdef wrap(const shared_ptr[CDevice]& device):
+        cdef Device self = Device.__new__(Device)
+        self.init(device)
+        return self
+
     def __eq__(self, other):
         if not isinstance(other, Device):
             return False
@@ -104,31 +110,37 @@ cdef class Device(_Weakrefable):
 cdef class MemoryManager(_Weakrefable):
     """
     An object that provides memory management primitives.
+
+    A MemoryManager is always tied to a particular Device instance.
     It can also have additional parameters (such as a MemoryPool to
     allocate CPU memory).
 
-    A MemoryManager is always tied to a particular Device instance.
-
-    Besides tracking its number of allocated bytes, a memory pool also
-    takes care of the required 64-byte alignment for Arrow data.
     """
 
     def __init__(self):
         raise TypeError("Do not call MemoryManager's constructor directly, "
-                        "use pyarrow.default_*_memory_manager() instead.")
+                        "use pyarrow.default_cpu_memory_manager() instead.")
 
     cdef void init(self, const shared_ptr[CMemoryManager]& mm):
         self.memory_manager = mm
+
+    @staticmethod
+    cdef wrap(const shared_ptr[CMemoryManager]& mm):
+        cdef MemoryManager self = MemoryManager.__new__(MemoryManager)
+        self.init(mm)
+        return self
+
+    def __repr__(self):
+        return "<pyarrow.MemoryManager device: {}>".format(
+            frombytes(self.memory_manager.get().device().get().ToString())
+        )
 
     @property
     def device(self):
         """
         The device this MemoryManager is tied to.
         """
-        cdef:
-            Device device = Device.__new__(Device)
-        device.init(self.memory_manager.get().device())
-        return device
+        return Device.wrap(self.memory_manager.get().device())
 
     @property
     def is_cpu(self):
@@ -147,7 +159,4 @@ def default_cpu_memory_manager():
 
     The returned singleton instance uses the default MemoryPool.
     """
-    cdef:
-        MemoryManager mm = MemoryManager.__new__(MemoryManager)
-    mm.init(c_default_cpu_memory_manager())
-    return mm
+    return MemoryManager.wrap(c_default_cpu_memory_manager())
