@@ -1292,11 +1292,9 @@ class TestListLikeScalar : public ::testing::Test {
     auto invalid_cast_type = fixed_size_list(value_->type(), 5);
     CheckListCastError(scalar, invalid_cast_type);
 
-    // Cast() function doesn't support casting list-like to string, use Scalar::CastTo()
-    // instead.
-    ASSERT_OK_AND_ASSIGN(auto casted_str, scalar.CastTo(utf8()));
-    ASSERT_EQ(casted_str->type->id(), utf8()->id());
-    ASSERT_EQ(casted_str->ToString(), scalar.ToString());
+    ASSERT_OK_AND_ASSIGN(auto casted_str, Cast(scalar, utf8()));
+    ASSERT_EQ(casted_str.scalar()->type->id(), utf8()->id());
+    ASSERT_EQ(casted_str.scalar()->ToString(), scalar.ToString());
   }
 
  protected:
@@ -1337,11 +1335,9 @@ TEST(TestFixedSizeListScalar, Cast) {
   auto invalid_cast_type = fixed_size_list(int16(), 4);
   CheckListCastError(scalar, invalid_cast_type);
 
-  // Cast() function doesn't support casting list-like to string, use Scalar::CastTo()
-  // instead.
-  ASSERT_OK_AND_ASSIGN(auto casted_str, scalar.CastTo(utf8()));
-  ASSERT_EQ(casted_str->type->id(), utf8()->id());
-  ASSERT_EQ(casted_str->ToString(), scalar.ToString());
+  ASSERT_OK_AND_ASSIGN(auto casted_str, Cast(scalar, utf8()));
+  ASSERT_EQ(casted_str.scalar()->type->id(), utf8()->id());
+  ASSERT_EQ(casted_str.scalar()->ToString(), scalar.ToString());
 }
 
 TEST(TestMapScalar, Basics) {
@@ -1374,11 +1370,10 @@ TEST(TestMapScalar, Cast) {
   auto invalid_cast_type = fixed_size_list(key_value_type, 5);
   CheckListCastError(scalar, invalid_cast_type);
 
-  // Cast() function doesn't support casting map to string, use Scalar::CastTo() instead.
-  ASSERT_OK_AND_ASSIGN(auto casted_str, scalar.CastTo(utf8()));
-  ASSERT_TRUE(casted_str->Equals(StringScalar(
+  ASSERT_OK_AND_ASSIGN(auto casted_str, Cast(scalar, utf8()));
+  ASSERT_TRUE(casted_str.scalar()->Equals(StringScalar(
       R"(map<string, int8>[{key:string = a, value:int8 = 1}, {key:string = b, value:int8 = 2}])")))
-      << casted_str->ToString();
+      << casted_str.scalar()->ToString();
 }
 
 TEST(TestStructScalar, FieldAccess) {
@@ -1475,10 +1470,9 @@ TEST(TestStructScalar, Cast) {
   auto ty = struct_({field("i", int32()), field("s", utf8())});
   StructScalar scalar({MakeScalar(42), MakeScalar("xxx")}, ty);
 
-  // Cast() function doesn't support casting map to string, use Scalar::CastTo() instead.
-  ASSERT_OK_AND_ASSIGN(auto casted_str, scalar.CastTo(utf8()));
-  ASSERT_TRUE(casted_str->Equals(StringScalar(R"({i:int32 = 42, s:string = xxx})")))
-      << casted_str->ToString();
+  ASSERT_OK_AND_ASSIGN(auto casted_str, Cast(scalar, utf8()));
+  ASSERT_TRUE(casted_str.scalar()->Equals(StringScalar(R"({i:int32 = 42, s:string = xxx})")))
+      << casted_str.scalar()->ToString();
 }
 
 TEST(TestDictionaryScalar, Basics) {
@@ -1855,11 +1849,9 @@ class TestUnionScalar : public ::testing::Test {
   }
 
   void TestCast() {
-    // Cast() function doesn't support casting union to string, use Scalar::CastTo()
-    // instead.
-    ASSERT_OK_AND_ASSIGN(auto casted, union_alpha_->CastTo(utf8()));
-    ASSERT_TRUE(casted->Equals(StringScalar(R"(union{string: string = alpha})")))
-        << casted->ToString();
+    ASSERT_OK_AND_ASSIGN(auto casted, Cast(union_alpha_, utf8()));
+    ASSERT_TRUE(casted.scalar()->Equals(StringScalar(R"(union{string: string = alpha})")))
+        << casted.scalar()->ToString();
   }
 
  protected:

@@ -490,6 +490,15 @@ void AddBinaryToBinaryCast(CastFunction* func) {
   AddBinaryToBinaryCast<OutType, FixedSizeBinaryType>(func);
 }
 
+template <typename OutType>
+void AddListLikeToBinaryCast(CastFunction* func) {
+  auto out_ty = TypeTraits<OutType>::type_singleton();
+  for (const auto& in_ty : {Type::LIST, Type::LARGE_LIST}) {
+    DCHECK_OK(func->AddKernel(in_ty, {InputType(in_ty)}, out_ty,
+                            ZeroCopyCastExec, NullHandling::COMPUTED_NO_PREALLOCATE));
+  }
+}
+
 template <typename InType>
 void AddBinaryToFixedSizeBinaryCast(CastFunction* func) {
   auto resolver_fsb = [](KernelContext* ctx, const std::vector<TypeHolder>&) {
@@ -528,6 +537,7 @@ std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
   AddDecimalToStringCasts<StringType>(cast_string.get());
   AddTemporalToStringCasts<StringType>(cast_string.get());
   AddBinaryToBinaryCast<StringType>(cast_string.get());
+  AddListLikeToBinaryCast<StringType>(cast_string.get());
 
   auto cast_large_string =
       std::make_shared<CastFunction>("cast_large_string", Type::LARGE_STRING);
