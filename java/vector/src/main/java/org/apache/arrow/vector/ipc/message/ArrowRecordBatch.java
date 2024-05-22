@@ -78,6 +78,21 @@ public class ArrowRecordBatch implements ArrowMessage {
    * @param nodes   field level info
    * @param buffers will be retained until this recordBatch is closed
    * @param bodyCompression compression info.
+   * @param alignBuffers Whether to align buffers to an 8 byte boundary.
+   */
+  public ArrowRecordBatch(
+      int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers,
+      ArrowBodyCompression bodyCompression, boolean alignBuffers) {
+    this(length, nodes, buffers, bodyCompression, alignBuffers, /*retainBuffers*/ true);
+  }
+
+  /**
+   * Construct a record batch from nodes.
+   *
+   * @param length  how many rows in this batch
+   * @param nodes   field level info
+   * @param buffers will be retained until this recordBatch is closed
+   * @param bodyCompression compression info.
    * @param variadicBufferCounts the number of buffers in each variadic section.
    * @param alignBuffers Whether to align buffers to an 8 byte boundary.
    */
@@ -85,6 +100,47 @@ public class ArrowRecordBatch implements ArrowMessage {
       int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers,
       ArrowBodyCompression bodyCompression, List<Long> variadicBufferCounts, boolean alignBuffers) {
     this(length, nodes, buffers, bodyCompression, variadicBufferCounts, alignBuffers, /*retainBuffers*/ true);
+  }
+
+  /**
+   * Construct a record batch from nodes.
+   *
+   * @param length  how many rows in this batch
+   * @param nodes   field level info
+   * @param buffers will be retained until this recordBatch is closed
+   * @param bodyCompression compression info.
+   * @param alignBuffers Whether to align buffers to an 8 byte boundary.
+   * @param retainBuffers Whether to retain() each source buffer in the constructor. If false, the caller is
+   *                      responsible for retaining the buffers beforehand.
+   */
+  public ArrowRecordBatch(
+      int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers,
+      ArrowBodyCompression bodyCompression, boolean alignBuffers,
+      boolean retainBuffers) {
+    super();
+    this.length = length;
+    this.nodes = nodes;
+    this.buffers = buffers;
+    Preconditions.checkArgument(bodyCompression != null, "body compression cannot be null");
+    this.bodyCompression = bodyCompression;
+    List<ArrowBuffer> arrowBuffers = new ArrayList<>(buffers.size());
+    long offset = 0;
+    for (ArrowBuf arrowBuf : buffers) {
+      if (retainBuffers) {
+        arrowBuf.getReferenceManager().retain();
+      }
+      long size = arrowBuf.readableBytes();
+      arrowBuffers.add(new ArrowBuffer(offset, size));
+      if (LOGGER.isTraceEnabled()) {
+        LOGGER.trace("Buffer in RecordBatch at {}, length: {}", offset, size);
+      }
+      offset += size;
+      if (alignBuffers) { // align on 8 byte boundaries
+        offset = DataSizeRoundingUtil.roundUpTo8Multiple(offset);
+      }
+    }
+    this.buffersLayout = Collections.unmodifiableList(arrowBuffers);
+    this.variadicBufferCounts = null;
   }
 
   /**
