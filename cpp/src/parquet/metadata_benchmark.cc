@@ -58,15 +58,18 @@ class MetadataBenchmark {
         GroupNode::Make("schema", Repetition::REQUIRED, fields));
 
     WriterProperties::Builder prop_builder;
-    writer_properties_ =
-        prop_builder.version(ParquetVersion::PARQUET_2_6)->disable_dictionary()->build();
+    writer_properties_ = prop_builder.version(ParquetVersion::PARQUET_2_6)
+                             ->disable_dictionary()
+                             ->data_page_version(ParquetDataPageVersion::V2)
+                             ->build();
   }
 
-  std::shared_ptr<BufferOutputStream> WriteFile() {
+  std::shared_ptr<Buffer> WriteFile(benchmark::State* state) {
     PARQUET_ASSIGN_OR_THROW(auto sink, BufferOutputStream::Create());
 
     auto writer = ParquetFileWriter::Open(sink, schema_root_, writer_properties_);
-    std::vector<int32_t> int32_values(42, 1);
+    std::vector<int32_t> int32_values(1, 42);
+    int64_t data_size = 0;
     for (int rg = 0; rg < num_row_groups_; ++rg) {
       auto row_group_writer = writer->AppendRowGroup();
       for (int col = 0; col < num_columns_; ++col) {
@@ -79,9 +82,14 @@ class MetadataBenchmark {
         typed_col_writer->Close();
       }
       row_group_writer->Close();
+      data_size += row_group_writer->total_compressed_bytes_written();
     }
     writer->Close();
-    return sink;
+    PARQUET_ASSIGN_OR_THROW(auto buf, sink->Finish());
+    state->counters["file_size"] = static_cast<double>(buf->size());
+    // Note that "data_size" includes the Thrift page headers
+    state->counters["data_size"] = static_cast<double>(data_size);
+    return buf;
   }
 
   void ReadFile(std::shared_ptr<Buffer> contents) {
@@ -91,6 +99,8 @@ class MetadataBenchmark {
     auto metadata = reader->metadata();
     ARROW_CHECK_EQ(metadata->num_columns(), num_columns_);
     ARROW_CHECK_EQ(metadata->num_row_groups(), num_row_groups_);
+    // There should be one row per row group
+    ARROW_CHECK_EQ(metadata->num_rows(), num_row_groups_);
     reader->Close();
   }
 
@@ -112,10 +122,8 @@ void WriteMetadataSetArgs(benchmark::internal::Benchmark* bench) {
   /* For larger num_columns, restrict num_row_groups to small values
    * to avoid blowing up benchmark execution time.
    */
-  for (int num_columns : {1000, 10000}) {
-    for (int num_row_groups : {1, 100}) {
-      bench->Args({num_columns, num_row_groups});
-    }
+  for (int num_row_groups : {1, 100}) {
+    bench->Args({/*num_columns=*/1000, num_row_groups});
   }
 }
 
@@ -123,30 +131,26 @@ void ReadMetadataSetArgs(benchmark::internal::Benchmark* bench) {
   WriteMetadataSetArgs(bench);
 }
 
-void WriteMetadata(benchmark::State& state) {
+void WriteFileMetadataAndData(benchmark::State& state) {
   MetadataBenchmark benchmark(&state);
 
-  int64_t file_size = 0;
   for (auto _ : state) {
-    auto sink = benchmark.WriteFile();
-    file_size = sink->Finish().ValueOrDie()->size();
+    auto sink = benchmark.WriteFile(&state);
   }
   state.SetItemsProcessed(state.iterations());
-  state.counters["file_size"] = static_cast<double>(file_size);
 }
 
-void ReadMetadata(benchmark::State& state) {
+void ReadFileMetadata(benchmark::State& state) {
   MetadataBenchmark benchmark(&state);
-  auto contents = benchmark.WriteFile()->Finish().ValueOrDie();
+  auto contents = benchmark.WriteFile(&state);
 
   for (auto _ : state) {
     benchmark.ReadFile(contents);
   }
   state.SetItemsProcessed(state.iterations());
-  state.counters["file_size"] = static_cast<double>(contents->size());
 }
 
-BENCHMARK(WriteMetadata)->Apply(WriteMetadataSetArgs);
-BENCHMARK(ReadMetadata)->Apply(ReadMetadataSetArgs);
+BENCHMARK(WriteFileMetadataAndData)->Apply(WriteMetadataSetArgs);
+BENCHMARK(ReadFileMetadata)->Apply(ReadMetadataSetArgs);
 
 }  // namespace parquet
