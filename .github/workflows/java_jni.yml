@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: Java JNI (edit to trigger)
+name: Java JNI
 
 on:
   push:
