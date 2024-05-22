@@ -46,7 +46,7 @@ import org.apache.arrow.vector.util.TransferPair;
  */
 public abstract class BaseVariableWidthViewVector extends BaseValueVector implements VariableWidthFieldVector {
   // A single element of a view comprises 16 bytes
-  protected static final int ELEMENT_SIZE = 16;
+  public static final int ELEMENT_SIZE = 16;
   public static final int INITIAL_VIEW_VALUE_ALLOCATION = 4096;
   private static final int INITIAL_BYTE_COUNT = INITIAL_VIEW_VALUE_ALLOCATION * ELEMENT_SIZE;
   private static final int MAX_BUFFER_SIZE = (int) Math.min(MAX_ALLOCATION_SIZE, Integer.MAX_VALUE);
@@ -70,14 +70,14 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   *
   * */
   // 12 byte unsigned int to track inline views
-  protected static final int INLINE_SIZE = 12;
+  public static final int INLINE_SIZE = 12;
   // The first 4 bytes of view are allocated for length
-  protected static final int LENGTH_WIDTH = 4;
+  public static final int LENGTH_WIDTH = 4;
   // The second 4 bytes of view are allocated for prefix width
-  protected static final int PREFIX_WIDTH = 4;
+  public static final int PREFIX_WIDTH = 4;
   // The third 4 bytes of view are allocated for buffer index
-  protected static final int BUF_INDEX_WIDTH = 4;
-  protected static final byte[] EMPTY_BYTE_ARRAY = new byte[]{};
+  public static final int BUF_INDEX_WIDTH = 4;
+  public static final byte[] EMPTY_BYTE_ARRAY = new byte[]{};
   protected ArrowBuf validityBuffer;
   // The view buffer is used to store the variable width view elements
   protected ArrowBuf viewBuffer;
@@ -156,6 +156,15 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   @Override
   public ArrowBuf getDataBuffer() {
     return viewBuffer;
+  }
+
+  /**
+   * Get the buffers that store the data for views in the vector.
+   *
+   * @return buffer
+   */
+  public List<ArrowBuf> getDataBuffers() {
+    return dataBuffers;
   }
 
   /**

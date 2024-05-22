@@ -898,7 +898,7 @@ Status FSLFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out)
   // PrimitiveFilterExec for a fixed-size list array.
   if (util::IsFixedWidthLike(values,
                              /*force_null_count=*/true,
-                             /*exclude_dictionary=*/true)) {
+                             /*exclude_bool_and_dictionary=*/true)) {
     const auto byte_width = util::FixedWidthInBytes(*values.type);
     // 0 is a valid byte width for FixedSizeList, but PrimitiveFilterExec
     // might not handle it correctly.
@@ -971,7 +971,7 @@ Status FSLTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   // PrimitiveTakeExec for a fixed-size list array.
   if (util::IsFixedWidthLike(values,
                              /*force_null_count=*/true,
-                             /*exclude_dictionary=*/true)) {
+                             /*exclude_bool_and_dictionary=*/true)) {
     const auto byte_width = util::FixedWidthInBytes(*values.type);
     // Additionally, PrimitiveTakeExec is only implemented for specific byte widths.
     // TODO(GH-41301): Extend PrimitiveTakeExec for any fixed-width type.

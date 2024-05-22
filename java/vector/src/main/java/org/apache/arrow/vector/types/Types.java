@@ -71,6 +71,7 @@ import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.LargeListVector;
 import org.apache.arrow.vector.complex.ListVector;
+import org.apache.arrow.vector.complex.ListViewVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
@@ -136,6 +137,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Interval;
 import org.apache.arrow.vector.types.pojo.ArrowType.LargeBinary;
 import org.apache.arrow.vector.types.pojo.ArrowType.LargeUtf8;
 import org.apache.arrow.vector.types.pojo.ArrowType.List;
+import org.apache.arrow.vector.types.pojo.ArrowType.ListView;
 import org.apache.arrow.vector.types.pojo.ArrowType.Map;
 import org.apache.arrow.vector.types.pojo.ArrowType.Null;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
@@ -692,6 +694,20 @@ public class Types {
         return new UnionListWriter((ListVector) vector);
       }
     },
+    LISTVIEW(ListView.INSTANCE) {
+      @Override
+      public FieldVector getNewVector(
+              Field field,
+              BufferAllocator allocator,
+              CallBack schemaChangeCallback) {
+        return new ListViewVector(field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
+      }
+
+      @Override
+      public FieldWriter getNewFieldWriter(ValueVector vector) {
+        return new UnionListWriter((ListVector) vector);
+      }
+    },
     LARGELIST(ArrowType.LargeList.INSTANCE) {
       @Override
       public FieldVector getNewVector(Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
@@ -1062,6 +1078,11 @@ public class Types {
       @Override
       public MinorType visit(Duration type) {
         return MinorType.DURATION;
+      }
+
+      @Override
+      public MinorType visit(ListView type) {
+        return MinorType.LISTVIEW;
       }
 
       @Override

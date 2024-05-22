@@ -82,7 +82,7 @@ for fixed width and variable width vectors, respectively. Both algorithms run in
 
 3. **Index sorter**: this sorter does not actually sort the vector. Instead, it returns an integer
 vector, which correspond to indices of vector elements in sorted order. With the index vector, one can
-easily construct a sorted vector. In addition, some other tasks can be easily achieved, like finding the ``k``th
+easily construct a sorted vector. In addition, some other tasks can be easily achieved, like finding the ``k`` th
 smallest value in the vector. Index sorting is supported by ``org.apache.arrow.algorithm.sort.IndexSorter``,
 which runs in ``O(nlog(n))`` time. It is applicable to vectors of any type.
 

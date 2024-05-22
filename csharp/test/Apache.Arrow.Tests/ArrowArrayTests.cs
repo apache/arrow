@@ -212,11 +212,11 @@ namespace Apache.Arrow.Tests
         // Parameter 'values' must contain four values. The last value must be distinct from the rest.
         private static void TestObjectArrayAsCollection<T, TArray>(TArray array, T nullValue, IReadOnlyList<T> values)
             where T : class
-            where TArray : IArrowArray, ICollection<T?>
+            where TArray : IArrowArray, ICollection<T>
         {
             Assert.NotNull(array);
             Assert.Equal(4, values.Count);
-            var collection = (ICollection<T?>)array;
+            var collection = (ICollection<T>)array;
 
             Assert.Equal(array.Length, collection.Count);
             Assert.Equal(4, collection.Count);
@@ -232,7 +232,7 @@ namespace Apache.Arrow.Tests
             Assert.False(collection.Contains(values[3]));
 
             T sentinel = values[2];
-            T?[] destArr = { sentinel, sentinel, sentinel, sentinel, sentinel, sentinel };
+            T[] destArr = { sentinel, sentinel, sentinel, sentinel, sentinel, sentinel };
             collection.CopyTo(destArr, 1);
             Assert.Equal(sentinel, destArr[0]);
             Assert.Equal(values[0], destArr[1]);

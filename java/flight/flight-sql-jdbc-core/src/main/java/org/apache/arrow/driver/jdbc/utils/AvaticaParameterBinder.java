@@ -254,6 +254,11 @@ public class AvaticaParameterBinder {
     public Boolean visit(ArrowType.Duration type) {
       return new DurationAvaticaParameterConverter(type).bindParameter(vector, typedValue, index);
     }
+
+    @Override
+    public Boolean visit(ArrowType.ListView type) {
+      throw new UnsupportedOperationException("Binding is not yet supported for type " + type);
+    }
   }
 
 }

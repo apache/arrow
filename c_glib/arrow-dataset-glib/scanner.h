@@ -21,21 +21,24 @@
 
 #include <arrow-dataset-glib/dataset-definition.h>
 #include <arrow-dataset-glib/fragment.h>
+#include <arrow-dataset-glib/version.h>
 
 G_BEGIN_DECLS
 
 #define GADATASET_TYPE_SCANNER (gadataset_scanner_get_type())
+GADATASET_AVAILABLE_IN_5_0
 G_DECLARE_DERIVABLE_TYPE(GADatasetScanner, gadataset_scanner, GADATASET, SCANNER, GObject)
 struct _GADatasetScannerClass
 {
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_5_0
+GADATASET_AVAILABLE_IN_5_0
 GArrowTable *
 gadataset_scanner_to_table(GADatasetScanner *scanner, GError **error);
 
 #define GADATASET_TYPE_SCANNER_BUILDER (gadataset_scanner_builder_get_type())
+GADATASET_AVAILABLE_IN_5_0
 G_DECLARE_DERIVABLE_TYPE(
   GADatasetScannerBuilder, gadataset_scanner_builder, GADATASET, SCANNER_BUILDER, GObject)
 struct _GADatasetScannerBuilderClass
@@ -43,20 +46,20 @@ struct _GADatasetScannerBuilderClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_5_0
+GADATASET_AVAILABLE_IN_5_0
 GADatasetScannerBuilder *
 gadataset_scanner_builder_new(GADatasetDataset *dataset, GError **error);
-GARROW_AVAILABLE_IN_6_0
+GADATASET_AVAILABLE_IN_6_0
 GADatasetScannerBuilder *
 gadataset_scanner_builder_new_record_batch_reader(GArrowRecordBatchReader *reader);
 
-GARROW_AVAILABLE_IN_6_0
+GADATASET_AVAILABLE_IN_6_0
 gboolean
 gadataset_scanner_builder_set_filter(GADatasetScannerBuilder *builder,
                                      GArrowExpression *expression,
                                      GError **error);
 
-GARROW_AVAILABLE_IN_5_0
+GADATASET_AVAILABLE_IN_5_0
 GADatasetScanner *
 gadataset_scanner_builder_finish(GADatasetScannerBuilder *builder, GError **error);
 

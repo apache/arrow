@@ -705,6 +705,22 @@ cdef class SortingColumn:
         """Whether null values appear before valid values (bool)."""
         return self.nulls_first
 
+    def to_dict(self):
+        """
+        Get dictionary representation of the SortingColumn.
+
+        Returns
+        -------
+        dict
+            Dictionary with a key for each attribute of this class.
+        """
+        d = dict(
+            column_index=self.column_index,
+            descending=self.descending,
+            nulls_first=self.nulls_first
+        )
+        return d
+
 
 cdef class RowGroupMetaData(_Weakrefable):
     """Metadata for a single row group."""

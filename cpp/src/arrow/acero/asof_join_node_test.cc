@@ -1678,5 +1678,59 @@ TEST(AsofJoinTest, BackpressureWithBatchesGen) {
                           /*slow_r0=*/false);
 }
 
+// Reproduction of GH-40675: A logical race between Process() and Push() that can be more
+// easily observed with single small batch.
+TEST(AsofJoinTest, RhsEmptinessRace) {
+  auto left_batch = ExecBatchFromJSON(
+      {int64(), utf8()}, R"([[1, "a"], [1, "b"], [5, "a"], [6, "b"], [7, "f"]])");
+  auto right_batch = ExecBatchFromJSON(
+      {int64(), utf8(), float64()}, R"([[2, "a", 1.0], [9, "b", 3.0], [15, "g", 5.0]])");
+
+  Declaration left{
+      "exec_batch_source",
+      ExecBatchSourceNodeOptions(schema({field("colA", int64()), field("col2", utf8())}),
+                                 {std::move(left_batch)})};
+  Declaration right{
+      "exec_batch_source",
+      ExecBatchSourceNodeOptions(schema({field("colB", int64()), field("col3", utf8()),
+                                         field("colC", float64())}),
+                                 {std::move(right_batch)})};
+  AsofJoinNodeOptions asof_join_opts({{{"colA"}, {{"col2"}}}, {{"colB"}, {{"col3"}}}}, 1);
+  Declaration asof_join{
+      "asofjoin", {std::move(left), std::move(right)}, std::move(asof_join_opts)};
+
+  ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(std::move(asof_join)));
+
+  auto exp_batch = ExecBatchFromJSON(
+      {int64(), utf8(), float64()},
+      R"([[1, "a", 1.0], [1, "b", null], [5, "a", null], [6, "b", null], [7, "f", null]])");
+  AssertExecBatchesEqualIgnoringOrder(result.schema, {exp_batch}, result.batches);
+}
+
+// Reproduction of GH-41149: Another case of the same root cause as GH-40675, but with
+// empty "by" columns.
+TEST(AsofJoinTest, RhsEmptinessRaceEmptyBy) {
+  auto left_batch = ExecBatchFromJSON({int64()}, R"([[1], [2], [3]])");
+  auto right_batch =
+      ExecBatchFromJSON({utf8(), int64()}, R"([["Z", 2], ["B", 3], ["A", 4]])");
+
+  Declaration left{"exec_batch_source",
+                   ExecBatchSourceNodeOptions(schema({field("on", int64())}),
+                                              {std::move(left_batch)})};
+  Declaration right{
+      "exec_batch_source",
+      ExecBatchSourceNodeOptions(schema({field("colVals", utf8()), field("on", int64())}),
+                                 {std::move(right_batch)})};
+  AsofJoinNodeOptions asof_join_opts({{{"on"}, {}}, {{"on"}, {}}}, 1);
+  Declaration asof_join{
+      "asofjoin", {std::move(left), std::move(right)}, std::move(asof_join_opts)};
+
+  ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(std::move(asof_join)));
+
+  auto exp_batch =
+      ExecBatchFromJSON({int64(), utf8()}, R"([[1, "Z"], [2, "Z"], [3, "B"]])");
+  AssertExecBatchesEqualIgnoringOrder(result.schema, {exp_batch}, result.batches);
+}
+
 }  // namespace acero
 }  // namespace arrow
