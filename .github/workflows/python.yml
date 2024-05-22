@@ -204,3 +204,34 @@ jobs:
       - name: Test
         shell: bash
         run: ci/scripts/python_test.sh $(pwd) $(pwd)/build
+
+
+  macos_debug:
+    name: macOS 11 debug wheels
+    runs-on: macos-11
+    timeout-minutes: 60
+    steps:
+      # - name: Checkout Arrow
+      #   uses: actions/checkout@v4
+      #   with:
+      #     fetch-depth: 0
+      #     submodules: recursive
+      - name: Setup Python
+        uses: actions/setup-python@v5.1.0
+        with:
+          python-version: '3.11'
+      - name: Install Dependencies
+        shell: bash
+        run: |
+          python -m pip install pyarrow
+      # - name: Build
+      #   shell: bash
+      #   run: |
+      #     python -m pip install wheel
+      #     ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+      #     ci/scripts/python_build.sh $(pwd) $(pwd)/build
+      - name: Test
+        shell: bash
+        # run: ci/scripts/python_test.sh $(pwd) $(pwd)/build
+        run: |
+          python -c "import pyarrow; print(pyarrow.__version__)"
