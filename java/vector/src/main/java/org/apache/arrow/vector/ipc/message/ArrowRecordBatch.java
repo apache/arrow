@@ -93,22 +93,6 @@ public class ArrowRecordBatch implements ArrowMessage {
    * @param nodes   field level info
    * @param buffers will be retained until this recordBatch is closed
    * @param bodyCompression compression info.
-   * @param variadicBufferCounts the number of buffers in each variadic section.
-   * @param alignBuffers Whether to align buffers to an 8 byte boundary.
-   */
-  public ArrowRecordBatch(
-      int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers,
-      ArrowBodyCompression bodyCompression, List<Long> variadicBufferCounts, boolean alignBuffers) {
-    this(length, nodes, buffers, bodyCompression, variadicBufferCounts, alignBuffers, /*retainBuffers*/ true);
-  }
-
-  /**
-   * Construct a record batch from nodes.
-   *
-   * @param length  how many rows in this batch
-   * @param nodes   field level info
-   * @param buffers will be retained until this recordBatch is closed
-   * @param bodyCompression compression info.
    * @param alignBuffers Whether to align buffers to an 8 byte boundary.
    * @param retainBuffers Whether to retain() each source buffer in the constructor. If false, the caller is
    *                      responsible for retaining the buffers beforehand.
@@ -141,6 +125,22 @@ public class ArrowRecordBatch implements ArrowMessage {
     }
     this.buffersLayout = Collections.unmodifiableList(arrowBuffers);
     this.variadicBufferCounts = null;
+  }
+
+  /**
+   * Construct a record batch from nodes.
+   *
+   * @param length  how many rows in this batch
+   * @param nodes   field level info
+   * @param buffers will be retained until this recordBatch is closed
+   * @param bodyCompression compression info.
+   * @param variadicBufferCounts the number of buffers in each variadic section.
+   * @param alignBuffers Whether to align buffers to an 8 byte boundary.
+   */
+  public ArrowRecordBatch(
+      int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers,
+      ArrowBodyCompression bodyCompression, List<Long> variadicBufferCounts, boolean alignBuffers) {
+    this(length, nodes, buffers, bodyCompression, variadicBufferCounts, alignBuffers, /*retainBuffers*/ true);
   }
 
   /**
@@ -343,8 +343,12 @@ public class ArrowRecordBatch implements ArrowMessage {
 
   @Override
   public String toString() {
+    int variadicBufCount = 0;
+    if (variadicBufferCounts != null && !variadicBufferCounts.isEmpty()) {
+      variadicBufCount = variadicBufferCounts.size();
+    }
     return "ArrowRecordBatch [length=" + length + ", nodes=" + nodes + ", #buffers=" + buffers.size() +
-        ", #variadicBufferCounts=" + variadicBufferCounts.size() + ", buffersLayout=" + buffersLayout +
+        ", #variadicBufferCounts=" + variadicBufCount + ", buffersLayout=" + buffersLayout +
         ", closed=" + closed + "]";
   }
 
