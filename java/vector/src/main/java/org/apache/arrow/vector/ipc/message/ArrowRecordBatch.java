@@ -99,8 +99,7 @@ public class ArrowRecordBatch implements ArrowMessage {
    */
   public ArrowRecordBatch(
       int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers,
-      ArrowBodyCompression bodyCompression, boolean alignBuffers,
-      boolean retainBuffers) {
+      ArrowBodyCompression bodyCompression, boolean alignBuffers, boolean retainBuffers) {
     super();
     this.length = length;
     this.nodes = nodes;
