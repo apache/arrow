@@ -481,8 +481,8 @@ Status MakeEmptyListsArray(int64_t size, std::shared_ptr<Array>* out_array) {
 std::shared_ptr<::arrow::Table> MakeSimpleTable(
     const std::shared_ptr<ChunkedArray>& values, bool nullable,
     std::shared_ptr<::arrow::KeyValueMetadata> metadata = nullptr) {
-  auto schema = ::arrow::schema(
-      {::arrow::field("col", values->type(), nullable)}, std::move(metadata));
+  auto schema = ::arrow::schema({::arrow::field("col", values->type(), nullable)},
+                                std::move(metadata));
   return ::arrow::Table::Make(schema, {values});
 }
 

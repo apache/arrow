@@ -892,14 +892,13 @@ TYPED_TEST(TestParquetIO, ZeroChunksTable) {
 }
 
 TYPED_TEST(TestParquetIO, TableWithMetadata) {
-  auto values =
-      std::make_shared<ChunkedArray>(::arrow::ArrayVector{}, ::arrow::int32());
-  auto table = MakeSimpleTable(
-      values, false, ::arrow::KeyValueMetadata::Make({"foo"}, {"bar"}));
+  auto values = std::make_shared<ChunkedArray>(::arrow::ArrayVector{}, ::arrow::int32());
+  auto table =
+      MakeSimpleTable(values, false, ::arrow::KeyValueMetadata::Make({"foo"}, {"bar"}));
 
   this->ResetSink();
-  ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(),
-                                this->sink_, SMALL_SIZE));
+  ASSERT_OK_NO_THROW(
+      WriteTable(*table, ::arrow::default_memory_pool(), this->sink_, SMALL_SIZE));
 
   std::shared_ptr<Table> out;
   std::unique_ptr<FileReader> reader;
@@ -4055,8 +4054,7 @@ TEST(TestArrowReaderAdHoc, OldDataPageV2) {
     GTEST_SKIP() << "ARROW_TEST_DATA not set.";
   }
   std::stringstream ss;
-  ss << c_root << "/"
-     << "parquet/ARROW-17100.parquet";
+  ss << c_root << "/" << "parquet/ARROW-17100.parquet";
   std::string path = ss.str();
   TryReadDataFile(path);
 }
