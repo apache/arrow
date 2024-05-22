@@ -237,6 +237,7 @@ def test_set_timezone_db_path_non_windows():
     pa.StructScalar,
     pa.DictionaryScalar,
     pa.RunEndEncodedScalar,
+    pa.RecordBatchReader,
     pa.ipc.Message,
     pa.ipc.MessageReader,
     pa.MemoryPool,
