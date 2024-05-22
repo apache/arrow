@@ -21,7 +21,8 @@ class TestDatasetFileSystemDataset < Test::Unit::TestCase
 
   def setup
     omit("Arrow Dataset is required") unless defined?(ArrowDataset)
-    Dir.mktmpdir do |tmpdir|
+    tmpdir = Dir.mktmpdir
+    begin
       @dir = tmpdir
       @format = ArrowDataset::IPCFileFormat.new
       @factory = ArrowDataset::FileSystemDatasetFactory.new(@format)
@@ -32,6 +33,14 @@ class TestDatasetFileSystemDataset < Test::Unit::TestCase
         ArrowDataset::DirectoryPartitioning.new(partitioning_schema)
       @factory.partitioning = @partitioning
       yield
+    ensure
+      # We have to ignore errors trying to remove the directory due to
+      # the RecordBatchReader not closing files
+      # (https://github.com/apache/arrow/issues/41771).
+      # Also request GC first which should free any remaining RecordBatchReader
+      # and close open files.
+      GC.start
+      FileUtils.remove_entry(tmpdir, force: true)
     end
   end
 
