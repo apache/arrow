@@ -25,18 +25,19 @@
 
 G_BEGIN_DECLS
 
-GARROW_AVAILABLE_IN_5_0
+GADATASET_AVAILABLE_IN_5_0
 GADatasetScannerBuilder *
 gadataset_dataset_begin_scan(GADatasetDataset *dataset, GError **error);
-GARROW_AVAILABLE_IN_5_0
+GADATASET_AVAILABLE_IN_5_0
 GArrowTable *
 gadataset_dataset_to_table(GADatasetDataset *dataset, GError **error);
-GARROW_AVAILABLE_IN_5_0
+GADATASET_AVAILABLE_IN_5_0
 gchar *
 gadataset_dataset_get_type_name(GADatasetDataset *dataset);
 
 #define GADATASET_TYPE_FILE_SYSTEM_DATASET_WRITE_OPTIONS                                 \
   (gadataset_file_system_dataset_write_options_get_type())
+GADATASET_AVAILABLE_IN_6_0
 G_DECLARE_DERIVABLE_TYPE(GADatasetFileSystemDatasetWriteOptions,
                          gadataset_file_system_dataset_write_options,
                          GADATASET,
@@ -47,11 +48,12 @@ struct _GADatasetFileSystemDatasetWriteOptionsClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_6_0
+GADATASET_AVAILABLE_IN_6_0
 GADatasetFileSystemDatasetWriteOptions *
 gadataset_file_system_dataset_write_options_new(void);
 
 #define GADATASET_TYPE_FILE_SYSTEM_DATASET (gadataset_file_system_dataset_get_type())
+GADATASET_AVAILABLE_IN_5_0
 G_DECLARE_DERIVABLE_TYPE(GADatasetFileSystemDataset,
                          gadataset_file_system_dataset,
                          GADATASET,
@@ -62,7 +64,7 @@ struct _GADatasetFileSystemDatasetClass
   GADatasetDatasetClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_6_0
+GADATASET_AVAILABLE_IN_6_0
 gboolean
 gadataset_file_system_dataset_write_scanner(
   GADatasetScanner *scanner,

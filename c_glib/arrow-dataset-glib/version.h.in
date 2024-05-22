@@ -19,141 +19,139 @@
 
 #pragma once
 
-#include <glib.h>
+#include <arrow-glib/version.h>
 
 /**
  * SECTION: version
  * @section_id: version-macros
  * @title: Version related macros
- * @include: gandiva-glib/gandiva-glib.h
+ * @include: arrow-dataset-glib/arrow-dataset-glib.h
  *
- * Gandiva GLib provides macros that can be used by C pre-processor.
+ * Apache Arrow Dataset GLib provides macros that can be used by C pre-processor.
  * They are useful to check version related things at compile time.
  */
 
 /**
- * GGANDIVA_VERSION_MAJOR:
+ * GADATASET_VERSION_MAJOR:
  *
  * The major version.
  *
- * Since: 1.0.0
+ * Since: 17.0.0
  */
-#define GGANDIVA_VERSION_MAJOR (@VERSION_MAJOR@)
+#define GADATASET_VERSION_MAJOR (@VERSION_MAJOR@)
 
 /**
- * GGANDIVA_VERSION_MINOR:
+ * GADATASET_VERSION_MINOR:
  *
  * The minor version.
  *
- * Since: 1.0.0
+ * Since: 17.0.0
  */
-#define GGANDIVA_VERSION_MINOR (@VERSION_MINOR@)
+#define GADATASET_VERSION_MINOR (@VERSION_MINOR@)
 
 /**
- * GGANDIVA_VERSION_MICRO:
+ * GADATASET_VERSION_MICRO:
  *
  * The micro version.
  *
- * Since: 1.0.0
+ * Since: 17.0.0
  */
-#define GGANDIVA_VERSION_MICRO (@VERSION_MICRO@)
+#define GADATASET_VERSION_MICRO (@VERSION_MICRO@)
 
 /**
- * GGANDIVA_VERSION_TAG:
+ * GADATASET_VERSION_TAG:
  *
  * The version tag. Normally, it's an empty string. It's "SNAPSHOT"
  * for snapshot version.
  *
- * Since: 1.0.0
+ * Since: 17.0.0
  */
-#define GGANDIVA_VERSION_TAG   "@VERSION_TAG@"
+#define GADATASET_VERSION_TAG   "@VERSION_TAG@"
 
 /**
- * GGANDIVA_VERSION_CHECK:
+ * GADATASET_VERSION_CHECK:
  * @major: A major version to check for.
  * @minor: A minor version to check for.
  * @micro: A micro version to check for.
  *
  * You can use this macro in C pre-processor.
  *
- * Returns: %TRUE if the compile time Gandiva GLib version is the
+ * Returns: %TRUE if the compile time Apache Arrow GLib version is the
  *   same as or newer than the passed version, %FALSE otherwise.
  *
- * Since: 1.0.0
+ * Since: 17.0.0
  */
-#define GGANDIVA_VERSION_CHECK(major, minor, micro)     \
-  (GGANDIVA_MAJOR_VERSION > (major) ||                  \
-   (GGANDIVA_MAJOR_VERSION == (major) &&                \
-    GGANDIVA_MINOR_VERSION > (minor)) ||                \
-   (GGANDIVA_MAJOR_VERSION == (major) &&                \
-    GGANDIVA_MINOR_VERSION == (minor) &&                \
-    GGANDIVA_MICRO_VERSION >= (micro)))
+#define GADATASET_VERSION_CHECK(major, minor, micro)       \
+  (GADATASET_VERSION_MAJOR > (major) ||                    \
+   (GADATASET_VERSION_MAJOR == (major) &&                  \
+    GADATASET_VERSION_MINOR > (minor)) ||                  \
+   (GADATASET_VERSION_MAJOR == (major) &&                  \
+    GADATASET_VERSION_MINOR == (minor) &&                  \
+    GADATASET_VERSION_MICRO >= (micro)))
 
 /**
- * GGANDIVA_DISABLE_DEPRECATION_WARNINGS:
+ * GADATASET_DISABLE_DEPRECATION_WARNINGS:
  *
  * If this macro is defined, no deprecated warnings are produced.
  *
  * You must define this macro before including the
- * gandiva-glib/gandiva-glib.h header.
+ * arrow-glib/arrow-glib.h header.
  *
- * Since: 1.0.0
+ * Since: 17.0.0
  */
 
-#ifdef GGANDIVA_DISABLE_DEPRECATION_WARNINGS
-#  define GGANDIVA_DEPRECATED
-#  define GGANDIVA_DEPRECATED_FOR(function)
-#  define GGANDIVA_UNAVAILABLE(major, minor)
+#ifdef GADATASET_DISABLE_DEPRECATION_WARNINGS
+#  define GADATASET_DEPRECATED
+#  define GADATASET_DEPRECATED_FOR(function)
+#  define GADATASET_UNAVAILABLE(major, minor)
 #else
-#  define GGANDIVA_DEPRECATED G_DEPRECATED
-#  define GGANDIVA_DEPRECATED_FOR(function) G_DEPRECATED_FOR(function)
-#  define GGANDIVA_UNAVAILABLE(major, minor) G_UNAVAILABLE(major, minor)
+#  define GADATASET_DEPRECATED G_DEPRECATED
+#  define GADATASET_DEPRECATED_FOR(function) G_DEPRECATED_FOR(function)
+#  define GADATASET_UNAVAILABLE(major, minor) G_UNAVAILABLE(major, minor)
 #endif
 
 @ENCODED_VERSIONS@
 
 /**
- * GGANDIVA_VERSION_MIN_REQUIRED:
+ * GADATASET_VERSION_MIN_REQUIRED:
  *
  * You can use this macro for compile time API version check.
  *
  * This macro value must be one of the predefined version macros such
- * as %GGANDIVA_VERSION_1_0.
+ * as %GADATASET_VERSION_0_10.
  *
  * If you use any functions that is defined by newer version than
- * %GGANDIVA_VERSION_MIN_REQUIRED, deprecated warnings are produced at
+ * %GADATASET_VERSION_MIN_REQUIRED, deprecated warnings are produced at
  * compile time.
  *
  * You must define this macro before including the
- * gandiva-glib/gandiva-glib.h header.
+ * arrow-dataset-glib/arrow-dataset-glib.h header.
  *
- * Since: 1.0.0
+ * Since: 17.0.0
  */
-#ifndef GGANDIVA_VERSION_MIN_REQUIRED
-#  define GGANDIVA_VERSION_MIN_REQUIRED                                 \
-  G_ENCODE_VERSION(GGANDIVA_VERSION_MAJOR, GGANDIVA_VERSION_MINOR)
+#ifndef GADATASET_VERSION_MIN_REQUIRED
+#  define GADATASET_VERSION_MIN_REQUIRED GARROW_VERSION_MIN_REQUIRED
 #endif
 
 /**
- * GGANDIVA_VERSION_MAX_ALLOWED:
+ * GADATASET_VERSION_MAX_ALLOWED:
  *
  * You can use this macro for compile time API version check.
  *
  * This macro value must be one of the predefined version macros such
- * as %GGANDIVA_VERSION_1_0.
+ * as %GADATASET_VERSION_0_10.
  *
  * If you use any functions that is defined by newer version than
- * %GGANDIVA_VERSION_MAX_ALLOWED, deprecated warnings are produced at
+ * %GADATASET_VERSION_MAX_ALLOWED, deprecated warnings are produced at
  * compile time.
  *
  * You must define this macro before including the
- * gandiva-glib/gandiva-glib.h header.
+ * arrow-dataset-glib/arrow-dataset-glib.h header.
  *
- * Since: 1.0.0
+ * Since: 17.0.0
  */
-#ifndef GGANDIVA_VERSION_MAX_ALLOWED
-#  define GGANDIVA_VERSION_MAX_ALLOWED                                  \
-  G_ENCODE_VERSION(GGANDIVA_VERSION_MAJOR, GGANDIVA_VERSION_MINOR)
+#ifndef GADATASET_VERSION_MAX_ALLOWED
+#  define GADATASET_VERSION_MAX_ALLOWED GARROW_VERSION_MAX_ALLOWED
 #endif
 
 @AVAILABILITY_MACROS@
