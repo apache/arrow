@@ -193,105 +193,104 @@ struct ListSlice {
 
     ARROW_ASSIGN_OR_RAISE(auto output_type_holder, ListSliceOutputType(opts, *list_type));
     auto output_type = output_type_holder.GetSharedPtr();
-    std::unique_ptr<ArrayBuilder> builder;
-    RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), output_type, &builder));
     switch (output_type->id()) {
       case Type::LIST:
-        RETURN_NOT_OK(BuildArray<ListBuilder>(batch, opts, *builder));
-        break;
+        return BuildArray<ListBuilder>(ctx, batch, output_type, out);
       case Type::LARGE_LIST:
-        RETURN_NOT_OK(BuildArray<LargeListBuilder>(batch, opts, *builder));
-        break;
+        return BuildArray<LargeListBuilder>(ctx, batch, output_type, out);
       case Type::FIXED_SIZE_LIST:
-        RETURN_NOT_OK(BuildArray<FixedSizeListBuilder>(batch, opts, *builder));
-        break;
+        return BuildArray<FixedSizeListBuilder>(ctx, batch, output_type, out);
       default:
         Unreachable();
-        break;
+        return Status::OK();
     }
+  }
 
-    ARROW_ASSIGN_OR_RAISE(auto result, builder->Finish());
+  /// \brief Builds the array of list slices from the input list array
+  template <typename BuilderType>
+  static Status BuildArray(KernelContext* ctx, const ExecSpan& batch,
+                           const std::shared_ptr<DataType>& output_type,
+                           ExecResult* out) {
+    const auto& opts = OptionsWrapper<ListSliceOptions>::Get(ctx);
+    std::unique_ptr<ArrayBuilder> builder;
+    RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), output_type, &builder));
+    auto* list_builder = checked_cast<BuilderType*>(builder.get());
+    if constexpr (std::is_same_v<InListType, FixedSizeListType>) {
+      RETURN_NOT_OK(BuildArrayFromFixedSizeListType(opts, batch, list_builder));
+    } else {
+      RETURN_NOT_OK(BuildArrayFromListType(opts, batch, list_builder));
+    }
+    ARROW_ASSIGN_OR_RAISE(auto result, list_builder->Finish());
     out->value = std::move(result->data());
     return Status::OK();
   }
 
   template <typename BuilderType>
-  static Status BuildArray(const ExecSpan& batch, const ListSliceOptions& opts,
-                           ArrayBuilder& builder) {
-    if constexpr (std::is_same_v<InListType, FixedSizeListType>) {
-      RETURN_NOT_OK(BuildArrayFromFixedSizeListType<BuilderType>(batch, opts, builder));
-    } else {
-      RETURN_NOT_OK(BuildArrayFromListType<BuilderType>(batch, opts, builder));
-    }
-    return Status::OK();
-  }
-
-  template <typename BuilderType>
-  static Status BuildArrayFromFixedSizeListType(const ExecSpan& batch,
-                                                const ListSliceOptions& opts,
-                                                ArrayBuilder& builder) {
-    const auto list_size =
-        checked_cast<const FixedSizeListType&>(*batch[0].type()).list_size();
+  static Status BuildArrayFromFixedSizeListType(const ListSliceOptions& opts,
+                                                const ExecSpan& batch,
+                                                BuilderType* out_list_builder) {
+    static_assert(std::is_same_v<InListType, FixedSizeListType>);
+    const auto& fsl_type = checked_cast<const FixedSizeListType&>(*batch[0].type());
     const ArraySpan& list_array = batch[0].array;
-    const ArraySpan& list_values = list_array.child_data[0];
+    const ArraySpan& values_array = list_array.child_data[0];
 
-    auto list_builder = checked_cast<BuilderType*>(&builder);
+    const int32_t list_size = fsl_type.list_size();
     for (auto i = 0; i < list_array.length; ++i) {
       auto offset = (i + list_array.offset) * list_size;
       auto next_offset = offset + list_size;
       if (list_array.IsNull(i)) {
-        RETURN_NOT_OK(list_builder->AppendNull());
+        RETURN_NOT_OK(out_list_builder->AppendNull());
       } else {
-        RETURN_NOT_OK(SetValues<BuilderType>(list_builder, offset, next_offset, &opts,
-                                             &list_values));
+        RETURN_NOT_OK(
+            SetValues(opts, offset, next_offset, values_array, out_list_builder));
       }
     }
     return Status::OK();
   }
 
   template <typename BuilderType>
-  static Status BuildArrayFromListType(const ExecSpan& batch,
-                                       const ListSliceOptions& opts,
-                                       ArrayBuilder& builder) {
+  static Status BuildArrayFromListType(const ListSliceOptions& opts,
+                                       const ExecSpan& batch,
+                                       BuilderType* out_list_builder) {
     const ArraySpan& list_array = batch[0].array;
     const auto* offsets = list_array.GetValues<offset_type>(1);
 
     const ArraySpan& list_values = list_array.child_data[0];
 
-    auto list_builder = checked_cast<BuilderType*>(&builder);
     for (auto i = 0; i < list_array.length; ++i) {
       const offset_type offset = offsets[i];
       const offset_type next_offset = offsets[i + 1];
       if (list_array.IsNull(i)) {
-        RETURN_NOT_OK(list_builder->AppendNull());
+        RETURN_NOT_OK(out_list_builder->AppendNull());
       } else {
-        RETURN_NOT_OK(SetValues<BuilderType>(list_builder, offset, next_offset, &opts,
-                                             &list_values));
+        RETURN_NOT_OK(
+            SetValues(opts, offset, next_offset, list_values, out_list_builder));
       }
     }
     return Status::OK();
   }
+
   template <typename BuilderType>
-  static Status SetValues(BuilderType* list_builder, const offset_type offset,
-                          const offset_type next_offset, const ListSliceOptions* opts,
-                          const ArraySpan* list_values) {
-    auto value_builder = list_builder->value_builder();
+  static Status SetValues(const ListSliceOptions& opts, offset_type offset,
+                          offset_type next_offset, const ArraySpan& values_array,
+                          BuilderType* out_list_builder) {
+    auto* value_builder = out_list_builder->value_builder();
     auto cursor = offset;
 
-    RETURN_NOT_OK(list_builder->Append());
-    const auto size = opts->stop.has_value() ? (opts->stop.value() - opts->start)
-                                             : ((next_offset - opts->start) - offset);
+    RETURN_NOT_OK(out_list_builder->Append());
+    const auto size = opts.stop.has_value() ? (opts.stop.value() - opts.start)
+                                            : ((next_offset - opts.start) - offset);
     while (cursor < offset + size) {
-      if (cursor + opts->start >= next_offset) {
+      if (cursor + opts.start >= next_offset) {
         if constexpr (!std::is_same_v<BuilderType, FixedSizeListBuilder>) {
           break;  // don't pad nulls for variable sized list output
         }
         RETURN_NOT_OK(value_builder->AppendNull());
       } else {
         RETURN_NOT_OK(
-            value_builder->AppendArraySlice(*list_values, cursor + opts->start, 1));
+            value_builder->AppendArraySlice(values_array, cursor + opts.start, 1));
       }
-      cursor += static_cast<offset_type>(opts->step);
+      cursor += static_cast<offset_type>(opts.step);
     }
     return Status::OK();
   }
