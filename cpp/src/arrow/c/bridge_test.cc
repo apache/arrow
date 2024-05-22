@@ -4099,25 +4099,6 @@ TEST_F(TestArrayRoundtrip, RegisteredExtension) {
 }
 
 TEST_F(TestArrayRoundtrip, RegisteredExtensionNoMetadata) {
-  // A minimal extension type that does not error when passed blank extension information
-  class MetadataOptionalExtensionType : public ExtensionType {
-   public:
-    MetadataOptionalExtensionType() : ExtensionType(null()) {}
-    std::string extension_name() const override { return "metadata.optional"; }
-    std::string Serialize() const override { return ""; }
-    std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override {
-      return nullptr;
-    }
-    bool ExtensionEquals(const ExtensionType& other) const override {
-      return other.extension_name() == extension_name();
-    }
-    Result<std::shared_ptr<DataType>> Deserialize(
-        std::shared_ptr<DataType> storage_type,
-        const std::string& serialized_data) const override {
-      return std::make_shared<MetadataOptionalExtensionType>();
-    }
-  };
-
   auto ext_type = std::make_shared<MetadataOptionalExtensionType>();
   ExtensionTypeGuard guard(ext_type);
 
@@ -4131,7 +4112,7 @@ TEST_F(TestArrayRoundtrip, RegisteredExtensionNoMetadata) {
 
   ASSERT_OK_AND_ASSIGN(auto ext_type_roundtrip, ImportType(&c_schema));
   ASSERT_EQ(ext_type_roundtrip->id(), Type::EXTENSION);
-  ASSERT_TRUE(ext_type_roundtrip->Equals(ext_type));
+  AssertTypeEqual(ext_type_roundtrip, ext_type);
 }
 
 TEST_F(TestArrayRoundtrip, UnregisteredExtension) {
