@@ -3920,12 +3920,11 @@ cdef class StructArray(Array):
         result : StructArray
         """
         if by is not None:
-            tosort = self._flattened_field(by)
+            tosort, sort_keys = self._flattened_field(by), [("", order)]
         else:
-            tosort = self
+            tosort, sort_keys = self, [(field.name, order) for field in self.type]
         indices = _pc().sort_indices(
-            tosort,
-            options=_pc().SortOptions(sort_keys=[("", order)], **kwargs)
+            tosort, options=_pc().SortOptions(sort_keys=sort_keys, **kwargs)
         )
         return self.take(indices)
 
@@ -3984,7 +3983,7 @@ cdef class RunEndEncodedArray(Array):
         -------
         RunEndEncodedArray
         """
-        logical_length = run_ends[-1] if len(run_ends) > 0 else 0
+        logical_length = scalar(run_ends[-1]).as_py() if len(run_ends) > 0 else 0
         return RunEndEncodedArray._from_arrays(type, True, logical_length,
                                                run_ends, values, 0)
 

@@ -399,12 +399,14 @@ class PARQUET_EXPORT FileMetaData {
  private:
   friend FileMetaDataBuilder;
   friend class SerializedFile;
+  friend class SerializedRowGroup;
 
   explicit FileMetaData(const void* serialized_metadata, uint32_t* metadata_len,
                         const ReaderProperties& properties,
                         std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
 
   void set_file_decryptor(std::shared_ptr<InternalFileDecryptor> file_decryptor);
+  const std::shared_ptr<InternalFileDecryptor>& file_decryptor() const;
 
   // PIMPL Idiom
   FileMetaData();

@@ -56,7 +56,7 @@ from pyarrow._parquet cimport (
 
 try:
     from pyarrow._dataset_parquet_encryption import (
-        set_encryption_config, set_decryption_config
+        set_encryption_config, set_decryption_config, set_decryption_properties
     )
     parquet_encryption_enabled = True
 except ImportError:
@@ -127,8 +127,7 @@ cdef class ParquetFileFormat(FileFormat):
                             'instance of ParquetReadOptions')
 
         if default_fragment_scan_options is None:
-            default_fragment_scan_options = ParquetFragmentScanOptions(
-                **scan_args)
+            default_fragment_scan_options = ParquetFragmentScanOptions(**scan_args)
         elif isinstance(default_fragment_scan_options, dict):
             default_fragment_scan_options = ParquetFragmentScanOptions(
                 **default_fragment_scan_options)
@@ -715,6 +714,9 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
     decryption_config : pyarrow.dataset.ParquetDecryptionConfig, default None
         If not None, use the provided ParquetDecryptionConfig to decrypt the
         Parquet file.
+    decryption_properties : pyarrow.parquet.FileDecryptionProperties, default None
+        If not None, use the provided FileDecryptionProperties to decrypt encrypted
+        Parquet file.
     page_checksum_verification : bool, default False
         If True, verify the page checksum for each page read from the file.
     """
@@ -729,6 +731,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
                  thrift_string_size_limit=None,
                  thrift_container_size_limit=None,
                  decryption_config=None,
+                 decryption_properties=None,
                  bint page_checksum_verification=False):
         self.init(shared_ptr[CFragmentScanOptions](
             new CParquetFragmentScanOptions()))
@@ -743,6 +746,8 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
             self.thrift_container_size_limit = thrift_container_size_limit
         if decryption_config is not None:
             self.parquet_decryption_config = decryption_config
+        if decryption_properties is not None:
+            self.decryption_properties = decryption_properties
         self.page_checksum_verification = page_checksum_verification
 
     cdef void init(self, const shared_ptr[CFragmentScanOptions]& sp):
@@ -811,6 +816,25 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         if size <= 0:
             raise ValueError("size must be larger than zero")
         self.reader_properties().set_thrift_container_size_limit(size)
+
+    @property
+    def decryption_properties(self):
+        if not parquet_encryption_enabled:
+            raise NotImplementedError(
+                "Unable to access encryption features. "
+                "Encryption is not enabled in your installation of pyarrow."
+            )
+        return self._decryption_properties
+
+    @decryption_properties.setter
+    def decryption_properties(self, config):
+        if not parquet_encryption_enabled:
+            raise NotImplementedError(
+                "Encryption is not enabled in your installation of pyarrow, but "
+                "decryption_properties were provided."
+            )
+        set_decryption_properties(self, config)
+        self._decryption_properties = config
 
     @property
     def parquet_decryption_config(self):

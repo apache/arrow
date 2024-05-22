@@ -121,23 +121,8 @@ arrow_not_supported <- function(msg) {
 }
 
 # Create a data mask for evaluating a dplyr expression
-arrow_mask <- function(.data, aggregation = FALSE) {
+arrow_mask <- function(.data) {
   f_env <- new_environment(.cache$functions)
-
-  if (aggregation) {
-    # Add the aggregation functions to the environment.
-    for (f in names(agg_funcs)) {
-      f_env[[f]] <- agg_funcs[[f]]
-    }
-  } else {
-    # Add functions that need to error hard and clear.
-    # Some R functions will still try to evaluate on an Expression
-    # and return NA with a warning :exploding_head:
-    fail <- function(...) stop("Not implemented")
-    for (f in c("mean", "sd")) {
-      f_env[[f]] <- fail
-    }
-  }
 
   # Assign the schema to the expressions
   schema <- .data$.data$schema

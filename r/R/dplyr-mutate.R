@@ -48,7 +48,7 @@ mutate.arrow_dplyr_query <- function(.data,
   # Create a mask with aggregation functions in it
   # If there are any aggregations, we will need to compute them and
   # and join the results back in, for "window functions" like x - mean(x)
-  mask <- arrow_mask(out, aggregation = TRUE)
+  mask <- arrow_mask(out)
   # Evaluate the mutate expressions
   results <- list()
   for (i in seq_along(exprs)) {
@@ -84,12 +84,12 @@ mutate.arrow_dplyr_query <- function(.data,
     agg_query$aggregations <- mask$.aggregations
     agg_query <- collapse.arrow_dplyr_query(agg_query)
     if (length(grv)) {
-      out <- left_join(out, agg_query, by = grv)
+      out <- dplyr::left_join(out, agg_query, by = grv)
     } else {
       # If there are no group_by vars, add a scalar column to both and join on that
       agg_query$selected_columns[["..tempjoin"]] <- Expression$scalar(1L)
       out$selected_columns[["..tempjoin"]] <- Expression$scalar(1L)
-      out <- left_join(out, agg_query, by = "..tempjoin")
+      out <- dplyr::left_join(out, agg_query, by = "..tempjoin")
     }
   }
 
