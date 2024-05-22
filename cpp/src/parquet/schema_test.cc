@@ -1696,10 +1696,9 @@ TEST(TestSchemaNodeCreation, FactoryUnknownLogicalType) {
   node->ToParquet(&string_intermediary);
 
   string_intermediary.logicalType.__isset.STRING = false;
-  // TODO: test?
-  // Previously passed:
-  // ASSERT_ANY_THROW(node = PrimitiveNode::FromParquet(&string_intermediary));
-  ASSERT_TRUE(false);
+  node = PrimitiveNode::FromParquet(&string_intermediary);
+  ASSERT_FALSE(node->logical_type()->is_valid());
+  ASSERT_EQ(node->logical_type()->ToString(), "Undefined");
 }
 
 TEST(TestSchemaNodeCreation, FactoryExceptions) {
