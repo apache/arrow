@@ -223,14 +223,10 @@ class NumPyConverter {
   Status Visit(const NullType& type) { return TypeNotImplemented(type.ToString()); }
 
   // NumPy ascii string arrays
-  template <typename T>
-  Status VisitBinary(T* builder);
   Status Visit(const BinaryType& type);
   Status Visit(const LargeBinaryType& type);
 
   // NumPy unicode arrays
-  template <typename T>
-  Status VisitString(T* builder);
   Status Visit(const StringType& type);
   Status Visit(const LargeStringType& type);
 
@@ -289,6 +285,12 @@ class NumPyConverter {
     auto arr_data = ArrayData::Make(type_, length_, {null_bitmap_, data}, null_count_, 0);
     return PushArray(arr_data);
   }
+
+  template <typename T>
+  Status VisitBinary(T* builder);
+
+  template <typename T>
+  Status VisitString(T* builder);
 
   Status TypeNotImplemented(std::string type_name) {
     return Status::NotImplemented("NumPyConverter doesn't implement <", type_name,
