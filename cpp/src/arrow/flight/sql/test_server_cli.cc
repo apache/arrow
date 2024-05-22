@@ -61,12 +61,12 @@ arrow::Status SetupOTel() {
 
   return arrow::Status::OK();
 }
-#else
-arrow::Status SetupOTel() { return arrow::Status::OK(); }
 #endif
 
 arrow::Status RunMain() {
+#ifdef ARROW_TELEMETRY
   ARROW_RETURN_NOT_OK(SetupOTel());
+#endif
 
   ARROW_ASSIGN_OR_RAISE(auto location,
                         arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port));

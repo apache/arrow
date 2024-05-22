@@ -104,17 +104,17 @@ class OtlpOStreamLogRecordExporter final : public otel::sdk::logs::LogRecordExpo
 otel::logs::Severity ToOtelSeverity(LogLevel level) {
   switch (level) {
     case LogLevel::ARROW_TRACE:
-      return opentelemetry::logs::Severity::kTrace;
+      return otel::logs::Severity::kTrace;
     case LogLevel::ARROW_DEBUG:
-      return opentelemetry::logs::Severity::kDebug;
+      return otel::logs::Severity::kDebug;
     case LogLevel::ARROW_INFO:
-      return opentelemetry::logs::Severity::kInfo;
+      return otel::logs::Severity::kInfo;
     case LogLevel::ARROW_WARNING:
-      return opentelemetry::logs::Severity::kWarn;
+      return otel::logs::Severity::kWarn;
     case LogLevel::ARROW_ERROR:
-      return opentelemetry::logs::Severity::kError;
+      return otel::logs::Severity::kError;
     case LogLevel::ARROW_FATAL:
-      return opentelemetry::logs::Severity::kFatal;
+      return otel::logs::Severity::kFatal;
   }
   return otel::logs::Severity::kInvalid;
 }
@@ -133,7 +133,6 @@ std::unique_ptr<otel::sdk::logs::LogRecordExporter> MakeExporter(
     } break;
     case ExporterKind::OTLP_HTTP: {
       namespace otlp = otel::exporter::otlp;
-      // TODO: Allow user configuration here?
       otlp::OtlpHttpLogRecordExporterOptions options{};
       return std::make_unique<otlp::OtlpHttpLogRecordExporter>(options);
     } break;

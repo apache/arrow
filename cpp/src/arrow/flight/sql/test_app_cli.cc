@@ -108,11 +108,6 @@ class OtelScope {
  private:
   opentelemetry::trace::Scope scope_;
 };
-#else
-class OtelScope {
- public:
-  static Result<std::unique_ptr<OtelScope>> Make() { return nullptr; }
-};
 #endif
 
 Status PrintResultsForEndpoint(FlightSqlClient& client,
@@ -158,7 +153,9 @@ Status PrintResults(FlightSqlClient& client, const FlightCallOptions& call_optio
 }
 
 Status RunMain() {
+#ifdef ARROW_TELEMETRY
   ARROW_ASSIGN_OR_RAISE(auto otel_scope, OtelScope::Make());
+#endif
 
   ARROW_ASSIGN_OR_RAISE(auto location, Location::ForGrpcTcp(FLAGS_host, FLAGS_port));
   auto client_options = FlightClientOptions::Defaults();
