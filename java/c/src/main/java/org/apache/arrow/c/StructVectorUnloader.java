@@ -107,8 +107,9 @@ public class StructVectorUnloader {
       List<Long> variadicBufferCounts) {
     nodes.add(new ArrowFieldNode(vector.getValueCount(), includeNullCount ? vector.getNullCount() : -1));
     List<ArrowBuf> fieldBuffers = vector.getFieldBuffers();
-    int expectedBufferCount = TypeLayout.getTypeBufferCount(vector.getField().getType(), vector);
-    variadicBufferCounts.add(getVariadicBufferCount(vector));
+    long variadicBufferCount = getVariadicBufferCount(vector);
+    int expectedBufferCount = (int) (TypeLayout.getTypeBufferCount(vector.getField().getType()) + variadicBufferCount);
+    variadicBufferCounts.add(variadicBufferCount);
     if (fieldBuffers.size() != expectedBufferCount) {
       throw new IllegalArgumentException(String.format("wrong number of buffers for field %s in vector %s. found: %s",
           vector.getField(), vector.getClass().getSimpleName(), fieldBuffers));

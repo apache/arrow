@@ -109,7 +109,7 @@ public class VectorLoader {
     if (variadicBufferCounts != null) {
       variadicBufferLayoutCount = variadicBufferCounts.next();
     }
-    int bufferLayoutCount = (int) (variadicBufferLayoutCount + TypeLayout.getTypeBufferCount(field.getType(), vector));
+    int bufferLayoutCount = (int) (variadicBufferLayoutCount + TypeLayout.getTypeBufferCount(field.getType()));
     List<ArrowBuf> ownBuffers = new ArrayList<>(bufferLayoutCount);
     for (int j = 0; j < bufferLayoutCount; j++) {
       ArrowBuf nextBuf = buffers.next();
