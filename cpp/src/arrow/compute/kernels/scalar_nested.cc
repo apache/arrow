@@ -28,6 +28,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_generate.h"
 #include "arrow/util/string.h"
+#include "arrow/util/unreachable.h"
 
 namespace arrow {
 
@@ -145,14 +146,41 @@ std::optional<int64_t> EffectiveSliceStop(const ListSliceOptions& opts,
   return opts.stop;
 }
 
-template <typename Type>
+Result<TypeHolder> ListSliceOutputType(const ListSliceOptions& opts,
+                                       const BaseListType& input_list_type) {
+  const auto& value_type = input_list_type.field(0);
+  const bool is_fixed_size_list = input_list_type.id() == Type::FIXED_SIZE_LIST;
+  const auto return_fixed_size_list =
+      opts.return_fixed_size_list.value_or(is_fixed_size_list);
+  if (return_fixed_size_list) {
+    auto stop = EffectiveSliceStop(opts, input_list_type);
+    if (!stop.has_value()) {
+      return Status::NotImplemented(
+          "Unable to produce FixedSizeListArray from non-FixedSizeListArray without "
+          "`stop` being set.");
+    }
+    if (opts.step < 1) {
+      return Status::Invalid("`step` must be >= 1, got: ", opts.step);
+    }
+    const auto length = ListSliceLength(opts.start, opts.step, *stop);
+    return fixed_size_list(value_type, static_cast<int32_t>(length));
+  }
+  if (is_fixed_size_list) {
+    return list(value_type);
+  }
+  return TypeHolder{&input_list_type};
+}
+
+template <typename InListType>
 struct ListSlice {
-  using offset_type = typename Type::offset_type;
+  using offset_type = typename InListType::offset_type;
 
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    const auto opts = OptionsWrapper<ListSliceOptions>::Get(ctx);
+    const auto& opts = OptionsWrapper<ListSliceOptions>::Get(ctx);
+    const ArraySpan& list_array = batch[0].array;
+    const auto* list_type = checked_cast<const BaseListType*>(list_array.type);
 
-    // Invariants
+    // Pre-conditions
     if (opts.start < 0 || (opts.stop.has_value() && opts.start >= opts.stop.value())) {
       // TODO(ARROW-18281): support start == stop which should give empty lists
       return Status::Invalid("`start`(", opts.start,
@@ -163,38 +191,25 @@ struct ListSlice {
       return Status::Invalid("`step` must be >= 1, got: ", opts.step);
     }
 
-    const ArraySpan& list_array = batch[0].array;
-    const Type* list_type = checked_cast<const Type*>(list_array.type);
-    const auto value_type = list_type->field(0);
-    const auto return_fixed_size_list = opts.return_fixed_size_list.value_or(
-        list_type->id() == arrow::Type::FIXED_SIZE_LIST);
+    ARROW_ASSIGN_OR_RAISE(auto output_type_holder, ListSliceOutputType(opts, *list_type));
+    auto output_type = output_type_holder.GetSharedPtr();
     std::unique_ptr<ArrayBuilder> builder;
-
-    auto stop = EffectiveSliceStop(opts, *list_type);
-    // This is enforced by MakeListSliceResolve, so we just DCHECK here.
-    // If stop not explicitly set, then we cannot return fixed-size list
-    // without input also being a fixed-size list, which allows the stop
-    // to be inferred from the fixed-size list size.
-    DCHECK(!return_fixed_size_list || stop.has_value());
-
-    // construct array values
-    if (return_fixed_size_list) {
-      const auto length = ListSliceLength(opts.start, opts.step, *stop);
-      RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(),
-                                fixed_size_list(value_type, static_cast<int32_t>(length)),
-                                &builder));
-      RETURN_NOT_OK(BuildArray<FixedSizeListBuilder>(batch, opts, *builder));
-    } else {
-      if constexpr (std::is_same_v<Type, LargeListType>) {
-        RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), large_list(value_type), &builder));
-        RETURN_NOT_OK(BuildArray<LargeListBuilder>(batch, opts, *builder));
-      } else {
-        RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), list(value_type), &builder));
+    RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), output_type, &builder));
+    switch (output_type->id()) {
+      case Type::LIST:
         RETURN_NOT_OK(BuildArray<ListBuilder>(batch, opts, *builder));
-      }
+        break;
+      case Type::LARGE_LIST:
+        RETURN_NOT_OK(BuildArray<LargeListBuilder>(batch, opts, *builder));
+        break;
+      case Type::FIXED_SIZE_LIST:
+        RETURN_NOT_OK(BuildArray<FixedSizeListBuilder>(batch, opts, *builder));
+        break;
+      default:
+        Unreachable();
+        break;
     }
 
-    // build output arrays and set result
     ARROW_ASSIGN_OR_RAISE(auto result, builder->Finish());
     out->value = std::move(result->data());
     return Status::OK();
@@ -203,7 +218,7 @@ struct ListSlice {
   template <typename BuilderType>
   static Status BuildArray(const ExecSpan& batch, const ListSliceOptions& opts,
                            ArrayBuilder& builder) {
-    if constexpr (std::is_same_v<Type, FixedSizeListType>) {
+    if constexpr (std::is_same_v<InListType, FixedSizeListType>) {
       RETURN_NOT_OK(BuildArrayFromFixedSizeListType<BuilderType>(batch, opts, builder));
     } else {
       RETURN_NOT_OK(BuildArrayFromListType<BuilderType>(batch, opts, builder));
@@ -239,7 +254,7 @@ struct ListSlice {
                                        const ListSliceOptions& opts,
                                        ArrayBuilder& builder) {
     const ArraySpan& list_array = batch[0].array;
-    const offset_type* offsets = list_array.GetValues<offset_type>(1);
+    const auto* offsets = list_array.GetValues<offset_type>(1);
 
     const ArraySpan& list_values = list_array.child_data[0];
 
@@ -285,26 +300,8 @@ struct ListSlice {
 Result<TypeHolder> MakeListSliceResolve(KernelContext* ctx,
                                         const std::vector<TypeHolder>& types) {
   const auto& opts = OptionsWrapper<ListSliceOptions>::Get(ctx);
-  const auto& list_type_holder = types[0];
-  const auto* list_type = checked_cast<const BaseListType*>(list_type_holder.type);
-  const auto& value_type = list_type->field(0);
-  const bool is_fixed_size_list = list_type->id() == Type::FIXED_SIZE_LIST;
-  const auto return_fixed_size_list =
-      opts.return_fixed_size_list.value_or(is_fixed_size_list);
-  if (return_fixed_size_list) {
-    auto stop = EffectiveSliceStop(opts, *list_type);
-    if (!stop.has_value()) {
-      return Status::NotImplemented(
-          "Unable to produce FixedSizeListArray from non-FixedSizeListArray without "
-          "`stop` being set.");
-    }
-    if (opts.step < 1) {
-      return Status::Invalid("`step` must be >= 1, got: ", opts.step);
-    }
-    const auto length = ListSliceLength(opts.start, opts.step, *stop);
-    return fixed_size_list(value_type, static_cast<int32_t>(length));
-  }
-  return is_fixed_size_list ? TypeHolder{list(value_type)} : list_type_holder;
+  const auto* list_type = checked_cast<const BaseListType*>(types[0].type);
+  return ListSliceOutputType(opts, *list_type);
 }
 
 template <typename InListType>
