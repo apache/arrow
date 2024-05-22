@@ -128,33 +128,41 @@ TEST(TestScalarNested, ListElementInvalid) {
               Raises(StatusCode::Invalid));
 }
 
+using VarLenListLikeTypeFactory =
+    std::shared_ptr<DataType> (*)(std::shared_ptr<DataType>);
+constexpr VarLenListLikeTypeFactory kVarLenListTypeFactories[] = {
+    list, large_list /*, list_view, large_list_view*/};
+
 TEST(TestScalarNested, ListSliceVariableOutput) {
   const auto value_types = {float32(), int32()};
   for (auto value_type : value_types) {
-    auto input = ArrayFromJSON(list(value_type), "[[1, 2, 3], [4, 5], [6], null]");
-    ListSliceOptions args(/*start=*/0, /*stop=*/2, /*step=*/1,
-                          /*return_fixed_size_list=*/false);
-    auto expected = ArrayFromJSON(list(value_type), "[[1, 2], [4, 5], [6], null]");
-    CheckScalarUnary("list_slice", input, expected, &args);
+    for (auto list_type_factory : kVarLenListTypeFactories) {
+      ListSliceOptions args(/*start=*/0, /*stop=*/2, /*step=*/1,
+                            /*return_fixed_size_list=*/false);
+      auto list_ty = list_type_factory(value_type);
+      auto input = ArrayFromJSON(list_ty, "[[1, 2, 3], [4, 5], [6], null]");
+      auto expected = ArrayFromJSON(list_ty, "[[1, 2], [4, 5], [6], null]");
+      CheckScalarUnary("list_slice", input, expected, &args);
 
-    args.start = 1;
-    expected = ArrayFromJSON(list(value_type), "[[2], [5], [], null]");
-    CheckScalarUnary("list_slice", input, expected, &args);
+      args.start = 1;
+      expected = ArrayFromJSON(list_ty, "[[2], [5], [], null]");
+      CheckScalarUnary("list_slice", input, expected, &args);
 
-    args.start = 2;
-    args.stop = 4;
-    expected = ArrayFromJSON(list(value_type), "[[3], [], [], null]");
-    CheckScalarUnary("list_slice", input, expected, &args);
+      args.start = 2;
+      args.stop = 4;
+      expected = ArrayFromJSON(list_ty, "[[3], [], [], null]");
+      CheckScalarUnary("list_slice", input, expected, &args);
 
-    args.start = 1;
-    args.stop = std::nullopt;
-    expected = ArrayFromJSON(list(value_type), "[[2, 3], [5], [], null]");
-    CheckScalarUnary("list_slice", input, expected, &args);
+      args.start = 1;
+      args.stop = std::nullopt;
+      expected = ArrayFromJSON(list_ty, "[[2, 3], [5], [], null]");
+      CheckScalarUnary("list_slice", input, expected, &args);
 
-    args.start = 0;
-    args.stop = 4;
-    args.step = 2;
-    expected = ArrayFromJSON(list(value_type), "[[1, 3], [4], [6], null]");
+      args.start = 0;
+      args.stop = 4;
+      args.step = 2;
+      expected = ArrayFromJSON(list_ty, "[[1, 3], [4], [6], null]");
+    }
   }
 
   // Verify passing `return_fixed_size_list=false` with fixed size input
@@ -169,9 +177,13 @@ TEST(TestScalarNested, ListSliceVariableOutput) {
 TEST(TestScalarNested, ListSliceFixedOutput) {
   const auto value_types = {float32(), int32()};
   for (auto value_type : value_types) {
-    auto inputs = {ArrayFromJSON(list(value_type), "[[1, 2, 3], [4, 5], [6], null]"),
-                   ArrayFromJSON(fixed_size_list(value_type, 3),
-                                 "[[1, 2, 3], [4, 5, null], [6, null, null], null]")};
+    const char* kVarLenListJSON = "[[1, 2, 3], [4, 5], [6], null]";
+    const char* kFixedSizeListJSON = "[[1, 2, 3], [4, 5, null], [6, null, null], null]";
+    std::vector<std::shared_ptr<Array>> inputs;
+    for (auto list_type_factory : kVarLenListTypeFactories) {
+      inputs.push_back(ArrayFromJSON(list_type_factory(value_type), kVarLenListJSON));
+    }
+    inputs.push_back(ArrayFromJSON(fixed_size_list(value_type, 3), kFixedSizeListJSON));
     for (auto input : inputs) {
       ListSliceOptions args(/*start=*/0, /*stop=*/2, /*step=*/1,
                             /*return_fixed_size_list=*/true);
@@ -275,11 +287,14 @@ TEST(TestScalarNested, ListSliceChildArrayOffset) {
 }
 
 TEST(TestScalarNested, ListSliceOutputEqualsInputType) {
+  const char* kVarLenListJSON = "[[1, 2, 3], [4, 5], [6, null], null]";
+  const char* kFixedLenListJSON = "[[1, 2], [4, 5], [6, null], null]";
   // Default is to return same type as the one passed in.
-  auto inputs = {
-      ArrayFromJSON(list(int8()), "[[1, 2, 3], [4, 5], [6, null], null]"),
-      ArrayFromJSON(large_list(int8()), "[[1, 2, 3], [4, 5], [6, null], null]"),
-      ArrayFromJSON(fixed_size_list(int8(), 2), "[[1, 2], [4, 5], [6, null], null]")};
+  std::vector<std::shared_ptr<Array>> inputs;
+  for (auto list_type_factory : kVarLenListTypeFactories) {
+    inputs.push_back(ArrayFromJSON(list_type_factory(int8()), kVarLenListJSON));
+  }
+  inputs.push_back(ArrayFromJSON(fixed_size_list(int8(), 2), kFixedLenListJSON));
   for (auto input : inputs) {
     ListSliceOptions args(/*start=*/0, /*stop=*/2, /*step=*/1);
     auto expected = ArrayFromJSON(input->type(), "[[1, 2], [4, 5], [6, null], null]");
