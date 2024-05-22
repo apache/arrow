@@ -29,7 +29,6 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.lang.reflect.InvocationTargetException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -56,6 +55,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 
@@ -1460,10 +1460,10 @@ public class TestVarCharViewVector {
     }
   }
 
-  static Stream<Class<? extends BaseVariableWidthViewVector>> vectorProvider() {
+  static Stream<Arguments> vectorTypeAndClassProvider() {
     return Stream.of(
-        ViewVarCharVector.class,
-        ViewVarBinaryVector.class
+        Arguments.of(Types.MinorType.VIEWVARBINARY, ViewVarBinaryVector.class),
+        Arguments.of(Types.MinorType.VIEWVARCHAR, ViewVarCharVector.class)
     );
   }
   @Test
@@ -1536,13 +1536,13 @@ public class TestVarCharViewVector {
             newVector(ViewVarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VIEWVARCHAR, allocator)) {
 
   @ParameterizedTest
-  @MethodSource("vectorProvider")
-  public void testCopyFromWithNulls(Class<? extends BaseVariableWidthViewVector> vectorClass)
-      throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
-    try (final BaseVariableWidthViewVector vector = vectorClass.getConstructor(String.class, BufferAllocator.class)
-        .newInstance(EMPTY_SCHEMA_PATH, allocator);
-        final BaseVariableWidthViewVector vector2 = vectorClass.getConstructor(String.class, BufferAllocator.class)
-            .newInstance(EMPTY_SCHEMA_PATH, allocator)) {
+  @MethodSource({"vectorTypeAndClassProvider"})
+  public void testCopyFromWithNulls(Types.MinorType type,
+      Class<? extends BaseVariableWidthViewVector> vectorClass) {
+    try (final BaseVariableWidthViewVector vector = newVector(vectorClass, EMPTY_SCHEMA_PATH,
+        type, allocator);
+        final BaseVariableWidthViewVector vector2 = newVector(vectorClass, EMPTY_SCHEMA_PATH,
+            type, allocator)) {
       final int initialCapacity = 1024;
       vector.setInitialCapacity(initialCapacity);
       vector.allocateNew();
@@ -1629,13 +1629,13 @@ public class TestVarCharViewVector {
   }
 
   @ParameterizedTest
-  @MethodSource("vectorProvider")
-  public void testCopyFromSafeWithNulls(Class<? extends BaseVariableWidthViewVector> vectorClass)
-      throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
-    try (final BaseVariableWidthViewVector vector = vectorClass.getConstructor(String.class, BufferAllocator.class)
-        .newInstance(EMPTY_SCHEMA_PATH, allocator);
-        final BaseVariableWidthViewVector vector2 = vectorClass.getConstructor(String.class, BufferAllocator.class)
-            .newInstance(EMPTY_SCHEMA_PATH, allocator)) {
+  @MethodSource("vectorTypeAndClassProvider")
+  public void testCopyFromSafeWithNulls(Types.MinorType type,
+      Class<? extends BaseVariableWidthViewVector> vectorClass) {
+    try (final BaseVariableWidthViewVector vector = newVector(vectorClass, EMPTY_SCHEMA_PATH,
+        type, allocator);
+        final BaseVariableWidthViewVector vector2 = newVector(vectorClass, EMPTY_SCHEMA_PATH,
+            type, allocator)) {
 
       final int initialCapacity = 4096;
       vector.setInitialCapacity(initialCapacity);

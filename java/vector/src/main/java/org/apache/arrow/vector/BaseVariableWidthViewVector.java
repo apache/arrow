@@ -1335,24 +1335,21 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   /**
    * Copy a cell value from a particular index in source vector to a particular position in this
    * vector.
-   * TODO: Improve functionality to support copying views.
-   * <a href="https://github.com/apache/arrow/issues/40933">Enhance CopyFrom</a>
-   *
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
   @Override
   public void copyFrom(int fromIndex, int thisIndex, ValueVector from) {
-    Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
+    Preconditions.checkArgument(getMinorType() == from.getMinorType());
     if (from.isNull(fromIndex)) {
-      BitVectorHelper.unsetBit(this.validityBuffer, thisIndex);
+      BitVectorHelper.unsetBit(validityBuffer, thisIndex);
     } else {
       final int viewLength = from.getDataBuffer().getInt((long) fromIndex * ELEMENT_SIZE);
-      BitVectorHelper.setBit(this.validityBuffer, thisIndex);
+      BitVectorHelper.setBit(validityBuffer, thisIndex);
       final int start = thisIndex * ELEMENT_SIZE;
       final int copyStart = fromIndex * ELEMENT_SIZE;
-      from.getDataBuffer().getBytes(start, this.viewBuffer, copyStart, ELEMENT_SIZE);
+      from.getDataBuffer().getBytes(start, viewBuffer, copyStart, ELEMENT_SIZE);
       if (viewLength > INLINE_SIZE) {
         final int bufIndex = from.getDataBuffer().getInt(((long) fromIndex * ELEMENT_SIZE) +
             LENGTH_WIDTH + PREFIX_WIDTH);
@@ -1370,25 +1367,23 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   /**
    * Same as {@link #copyFrom(int, int, ValueVector)} except that it handles the case when the
    * capacity of the vector needs to be expanded before copy.
-   * TODO: Improve functionality to support copying views.
-   * <a href="https://github.com/apache/arrow/issues/40933">Enhance CopyFrom</a>
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
   @Override
   public void copyFromSafe(int fromIndex, int thisIndex, ValueVector from) {
-    Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
+    Preconditions.checkArgument(getMinorType() == from.getMinorType());
     if (from.isNull(fromIndex)) {
       handleSafe(thisIndex, 0);
-      BitVectorHelper.unsetBit(this.validityBuffer, thisIndex);
+      BitVectorHelper.unsetBit(validityBuffer, thisIndex);
     } else {
       final int viewLength = from.getDataBuffer().getInt((long) fromIndex * ELEMENT_SIZE);
       handleSafe(thisIndex, viewLength);
-      BitVectorHelper.setBit(this.validityBuffer, thisIndex);
+      BitVectorHelper.setBit(validityBuffer, thisIndex);
       final int start = thisIndex * ELEMENT_SIZE;
       final int copyStart = fromIndex * ELEMENT_SIZE;
-      from.getDataBuffer().getBytes(start, this.viewBuffer, copyStart, ELEMENT_SIZE);
+      from.getDataBuffer().getBytes(start, viewBuffer, copyStart, ELEMENT_SIZE);
       if (viewLength > INLINE_SIZE) {
         final int bufIndex = from.getDataBuffer().getInt(((long) fromIndex * ELEMENT_SIZE) +
             LENGTH_WIDTH + PREFIX_WIDTH);
