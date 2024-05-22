@@ -98,7 +98,7 @@ def generate_encoded_versions(library: str) -> str:
 
 
 def generate_availability_macros(library: str) -> str:
-    macros = [f"""#define {library}_AVAILABLE_IN_ALL"""]
+    macros = [f"""#define {library}_AVAILABLE_IN_ALL {library}_EXTERN"""]
 
     for major_version, minor_version in ALL_VERSIONS:
         macros.append(f"""#if {library}_VERSION_MIN_REQUIRED >= {library}_VERSION_{major_version}_{minor_version}
@@ -110,9 +110,9 @@ def generate_availability_macros(library: str) -> str:
 #endif
 
 #if {library}_VERSION_MAX_ALLOWED < {library}_VERSION_{major_version}_{minor_version}
-#  define {library}_AVAILABLE_IN_{major_version}_{minor_version} {library}_UNAVAILABLE({major_version}, {minor_version})
+#  define {library}_AVAILABLE_IN_{major_version}_{minor_version} {library}_EXTERN {library}_UNAVAILABLE({major_version}, {minor_version})
 #else
-#  define {library}_AVAILABLE_IN_{major_version}_{minor_version}
+#  define {library}_AVAILABLE_IN_{major_version}_{minor_version} {library}_EXTERN
 #endif""")  # noqa: E501
 
     return "\n\n".join(macros)

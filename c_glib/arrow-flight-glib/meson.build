@@ -37,13 +37,18 @@ cpp_headers = files(
   'server.hpp',
 )
 
+visibility_h = configure_file(
+  output: 'visibility.h',
+  command: [python3, generate_visibility_header_py, '--library', 'GAFLIGHT', '--output', '@OUTPUT@'],
+)
+
 version_h = configure_file(
   input: 'version.h.in',
   output: 'version.h',
   command: [python3, generate_version_header_py, '--library', 'GAFLIGHT', '--version', version, '--input', '@INPUT@', '--output', '@OUTPUT@'],
 )
 
-c_headers += version_h
+c_headers += [visibility_h, version_h]
 
 headers = c_headers + cpp_headers
 install_headers(headers, subdir: 'arrow-flight-glib')

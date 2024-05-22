@@ -21,6 +21,8 @@
 
 #include <glib.h>
 
+#include <gandiva-glib/visibility.h>
+
 /**
  * SECTION: version
  * @section_id: version-macros

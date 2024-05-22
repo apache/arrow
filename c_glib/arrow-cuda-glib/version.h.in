@@ -21,6 +21,8 @@
 
 #include <arrow-glib/version.h>
 
+#include <arrow-cuda-glib/visibility.h>
+
 /**
  * SECTION: version
  * @section_id: version-macros

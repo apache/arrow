@@ -174,6 +174,7 @@ add_project_arguments(cxx.get_supported_arguments(cxx_flags), language: 'cpp')
 python = import('python')
 python3 = python.find_installation('python3')
 generate_version_header_py = project_source_root / 'tool' / 'generate-version-header.py'
+generate_visibility_header_py = project_source_root / 'tool' / 'generate-visibility-header.py'
 
 subdir('arrow-glib')
 if arrow_cuda.found()

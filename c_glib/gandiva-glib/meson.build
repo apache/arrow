@@ -53,13 +53,18 @@ cpp_headers = files(
   'selection-vector.hpp',
 )
 
+visibility_h = configure_file(
+  output: 'visibility.h',
+  command: [python3, generate_visibility_header_py, '--library', 'GGANDIVA', '--output', '@OUTPUT@'],
+)
+
 version_h = configure_file(
   input: 'version.h.in',
   output: 'version.h',
   command: [python3, generate_version_header_py, '--library', 'GGANDIVA', '--version', version, '--input', '@INPUT@', '--output', '@OUTPUT@'],
 )
 
-c_headers += version_h
+c_headers += [visibility_h, version_h]
 
 enums = gnome.mkenums('enums',
                       sources: c_headers,
