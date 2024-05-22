@@ -370,12 +370,18 @@ if(PYARROW_BUILD_ACERO)
   endif()
 endif()
 
-if(PYARROW_BUILD_PARQUET OR PYARROW_BUILD_PARQUET_ENCRYPTION)
+if(PYARROW_BUILD_PARQUET)
   message(STATUS "Building PyArrow with Parquet")
   if(NOT ARROW_PARQUET)
     message(FATAL_ERROR "You must build Arrow C++ with ARROW_PARQUET=ON")
   endif()
   find_package(Parquet REQUIRED)
+else()
+  if(PYARROW_BUILD_PARQUET_ENCRYPTION)
+    message(WARNING "Building PyArrow with Parquet Encryption is requested, but Parquet itself is not enabled. Ignoring the Parquet Encryption setting."
+    )
+    set(PYARROW_BUILD_PARQUET_ENCRYPTION OFF)
+  endif()
 endif()
 
 # Check for only Arrow C++ options
