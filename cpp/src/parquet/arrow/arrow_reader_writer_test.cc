@@ -4506,7 +4506,8 @@ TEST(TestArrowReaderAdHoc, OldDataPageV2) {
     GTEST_SKIP() << "ARROW_TEST_DATA not set.";
   }
   std::stringstream ss;
-  ss << c_root << "/" << "parquet/ARROW-17100.parquet";
+  ss << c_root << "/"
+     << "parquet/ARROW-17100.parquet";
   std::string path = ss.str();
   TryReadDataFile(path);
 }
