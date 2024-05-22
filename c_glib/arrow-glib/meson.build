@@ -205,14 +205,12 @@ cpp_internal_headers = files(
   'internal-index.hpp',
 )
 
-version_h_conf = configuration_data()
-version_h_conf.set('GARROW_VERSION_MAJOR', version_major)
-version_h_conf.set('GARROW_VERSION_MINOR', version_minor)
-version_h_conf.set('GARROW_VERSION_MICRO', version_micro)
-version_h_conf.set('GARROW_VERSION_TAG', version_tag)
-version_h = configure_file(input: 'version.h.in',
-                           output: 'version.h',
-                           configuration: version_h_conf)
+version_h = configure_file(
+  input: 'version.h.in',
+  output: 'version.h',
+  command: [python3, generate_version_header_py, '--library', 'GARROW', '--version', version, '--input', '@INPUT@', '--output', '@OUTPUT@'],
+)
+
 c_headers += version_h
 
 enums = gnome.mkenums('enums',
@@ -226,10 +224,8 @@ enums = gnome.mkenums('enums',
 enums_source = enums[0]
 enums_header = enums[1]
 
-
 headers = c_headers + cpp_headers
 install_headers(headers, subdir: meson.project_name())
-
 
 gobject = dependency('gobject-2.0')
 gobject_libdir = gobject.get_variable(pkgconfig: 'libdir')

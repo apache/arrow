@@ -24,6 +24,7 @@
 G_BEGIN_DECLS
 
 #define GAFLIGHT_TYPE_DATA_STREAM (gaflight_data_stream_get_type())
+GAFLIGHT_AVAILABLE_IN_6_0
 G_DECLARE_DERIVABLE_TYPE(
   GAFlightDataStream, gaflight_data_stream, GAFLIGHT, DATA_STREAM, GObject)
 struct _GAFlightDataStreamClass
@@ -32,6 +33,7 @@ struct _GAFlightDataStreamClass
 };
 
 #define GAFLIGHT_TYPE_RECORD_BATCH_STREAM (gaflight_record_batch_stream_get_type())
+GAFLIGHT_AVAILABLE_IN_6_0
 G_DECLARE_DERIVABLE_TYPE(GAFlightRecordBatchStream,
                          gaflight_record_batch_stream,
                          GAFLIGHT,
@@ -42,12 +44,13 @@ struct _GAFlightRecordBatchStreamClass
   GAFlightDataStreamClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_6_0
+GAFLIGHT_AVAILABLE_IN_6_0
 GAFlightRecordBatchStream *
 gaflight_record_batch_stream_new(GArrowRecordBatchReader *reader,
                                  GArrowWriteOptions *options);
 
 #define GAFLIGHT_TYPE_MESSAGE_READER (gaflight_message_reader_get_type())
+GAFLIGHT_AVAILABLE_IN_14_0
 G_DECLARE_DERIVABLE_TYPE(GAFlightMessageReader,
                          gaflight_message_reader,
                          GAFLIGHT,
@@ -58,11 +61,12 @@ struct _GAFlightMessageReaderClass
   GAFlightRecordBatchReaderClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_14_0
+GAFLIGHT_AVAILABLE_IN_14_0
 GAFlightDescriptor *
 gaflight_message_reader_get_descriptor(GAFlightMessageReader *reader);
 
 #define GAFLIGHT_TYPE_SERVER_CALL_CONTEXT (gaflight_server_call_context_get_type())
+GAFLIGHT_AVAILABLE_IN_5_0
 G_DECLARE_DERIVABLE_TYPE(GAFlightServerCallContext,
                          gaflight_server_call_context,
                          GAFLIGHT,
@@ -73,13 +77,14 @@ struct _GAFlightServerCallContextClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_14_0
+GAFLIGHT_AVAILABLE_IN_14_0
 void
 gaflight_server_call_context_foreach_incoming_header(GAFlightServerCallContext *context,
                                                      GAFlightHeaderFunc func,
                                                      gpointer user_data);
 
 #define GAFLIGHT_TYPE_SERVER_AUTH_SENDER (gaflight_server_auth_sender_get_type())
+GAFLIGHT_AVAILABLE_IN_12_0
 G_DECLARE_DERIVABLE_TYPE(GAFlightServerAuthSender,
                          gaflight_server_auth_sender,
                          GAFLIGHT,
@@ -90,13 +95,14 @@ struct _GAFlightServerAuthSenderClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_12_0
+GAFLIGHT_AVAILABLE_IN_12_0
 gboolean
 gaflight_server_auth_sender_write(GAFlightServerAuthSender *sender,
                                   GBytes *message,
                                   GError **error);
 
 #define GAFLIGHT_TYPE_SERVER_AUTH_READER (gaflight_server_auth_reader_get_type())
+GAFLIGHT_AVAILABLE_IN_12_0
 G_DECLARE_DERIVABLE_TYPE(GAFlightServerAuthReader,
                          gaflight_server_auth_reader,
                          GAFLIGHT,
@@ -107,11 +113,12 @@ struct _GAFlightServerAuthReaderClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_12_0
+GAFLIGHT_AVAILABLE_IN_12_0
 GBytes *
 gaflight_server_auth_reader_read(GAFlightServerAuthReader *reader, GError **error);
 
 #define GAFLIGHT_TYPE_SERVER_AUTH_HANDLER (gaflight_server_auth_handler_get_type())
+GAFLIGHT_AVAILABLE_IN_12_0
 G_DECLARE_DERIVABLE_TYPE(GAFlightServerAuthHandler,
                          gaflight_server_auth_handler,
                          GAFLIGHT,
@@ -124,6 +131,7 @@ struct _GAFlightServerAuthHandlerClass
 
 #define GAFLIGHT_TYPE_SERVER_CUSTOM_AUTH_HANDLER                                         \
   (gaflight_server_custom_auth_handler_get_type())
+GAFLIGHT_AVAILABLE_IN_12_0
 G_DECLARE_DERIVABLE_TYPE(GAFlightServerCustomAuthHandler,
                          gaflight_server_custom_auth_handler,
                          GAFLIGHT,
@@ -152,7 +160,7 @@ struct _GAFlightServerCustomAuthHandlerClass
                       GError **error);
 };
 
-GARROW_AVAILABLE_IN_12_0
+GAFLIGHT_AVAILABLE_IN_12_0
 void
 gaflight_server_custom_auth_handler_authenticate(GAFlightServerCustomAuthHandler *handler,
                                                  GAFlightServerCallContext *context,
@@ -160,7 +168,7 @@ gaflight_server_custom_auth_handler_authenticate(GAFlightServerCustomAuthHandler
                                                  GAFlightServerAuthReader *reader,
                                                  GError **error);
 
-GARROW_AVAILABLE_IN_12_0
+GAFLIGHT_AVAILABLE_IN_12_0
 GBytes *
 gaflight_server_custom_auth_handler_is_valid(GAFlightServerCustomAuthHandler *handler,
                                              GAFlightServerCallContext *context,
@@ -168,6 +176,7 @@ gaflight_server_custom_auth_handler_is_valid(GAFlightServerCustomAuthHandler *ha
                                              GError **error);
 
 #define GAFLIGHT_TYPE_SERVER_OPTIONS (gaflight_server_options_get_type())
+GAFLIGHT_AVAILABLE_IN_5_0
 G_DECLARE_DERIVABLE_TYPE(
   GAFlightServerOptions, gaflight_server_options, GAFLIGHT, SERVER_OPTIONS, GObject)
 struct _GAFlightServerOptionsClass
@@ -175,14 +184,16 @@ struct _GAFlightServerOptionsClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_5_0
+GAFLIGHT_AVAILABLE_IN_5_0
 GAFlightServerOptions *
 gaflight_server_options_new(GAFlightLocation *location);
 
 #define GAFLIGHT_TYPE_SERVABLE (gaflight_servable_get_type())
+GAFLIGHT_AVAILABLE_IN_9_0
 G_DECLARE_INTERFACE(GAFlightServable, gaflight_servable, GAFLIGHT, SERVABLE, GObject)
 
 #define GAFLIGHT_TYPE_SERVER (gaflight_server_get_type())
+GAFLIGHT_AVAILABLE_IN_5_0
 G_DECLARE_DERIVABLE_TYPE(GAFlightServer, gaflight_server, GAFLIGHT, SERVER, GObject)
 /**
  * GAFlightServerClass:
@@ -209,34 +220,34 @@ struct _GAFlightServerClass
                                 GError **error);
 };
 
-GARROW_AVAILABLE_IN_5_0
+GAFLIGHT_AVAILABLE_IN_5_0
 gboolean
 gaflight_server_listen(GAFlightServer *server,
                        GAFlightServerOptions *options,
                        GError **error);
-GARROW_AVAILABLE_IN_5_0
+GAFLIGHT_AVAILABLE_IN_5_0
 gint
 gaflight_server_get_port(GAFlightServer *server);
-GARROW_AVAILABLE_IN_5_0
+GAFLIGHT_AVAILABLE_IN_5_0
 gboolean
 gaflight_server_shutdown(GAFlightServer *server, GError **error);
-GARROW_AVAILABLE_IN_5_0
+GAFLIGHT_AVAILABLE_IN_5_0
 gboolean
 gaflight_server_wait(GAFlightServer *server, GError **error);
 
-GARROW_AVAILABLE_IN_5_0
+GAFLIGHT_AVAILABLE_IN_5_0
 GList *
 gaflight_server_list_flights(GAFlightServer *server,
                              GAFlightServerCallContext *context,
                              GAFlightCriteria *criteria,
                              GError **error);
-GARROW_AVAILABLE_IN_9_0
+GAFLIGHT_AVAILABLE_IN_9_0
 GAFlightInfo *
 gaflight_server_get_flight_info(GAFlightServer *server,
                                 GAFlightServerCallContext *context,
                                 GAFlightDescriptor *request,
                                 GError **error);
-GARROW_AVAILABLE_IN_6_0
+GAFLIGHT_AVAILABLE_IN_6_0
 GAFlightDataStream *
 gaflight_server_do_get(GAFlightServer *server,
                        GAFlightServerCallContext *context,

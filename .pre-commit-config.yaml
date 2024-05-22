@@ -40,7 +40,7 @@ repos:
     hooks:
       - id: flake8
         name: Python Format
-        files: ^(python|dev|integration)/
+        files: ^(python|dev|c_glib|integration)/
         types:
           - file
           - python
