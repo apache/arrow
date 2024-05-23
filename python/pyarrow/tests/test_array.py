@@ -2355,18 +2355,21 @@ def test_array_from_numpy_timedelta_incorrect_unit():
             pa.array(data)
 
 
-@pytest.mark.parametrize('binary_type', [pa.binary(), pa.large_binary()])
+@pytest.mark.parametrize('binary_type', [None, pa.binary(), pa.large_binary()])
 def test_array_from_numpy_ascii(binary_type):
+    # Default when no type is specified should be binary
+    expected_type = binary_type or pa.binary()
+
     arr = np.array(['abcde', 'abc', ''], dtype='|S5')
 
     arrow_arr = pa.array(arr, binary_type)
-    assert arrow_arr.type == binary_type
-    expected = pa.array(['abcde', 'abc', ''], type=binary_type)
+    assert arrow_arr.type == expected_type
+    expected = pa.array(['abcde', 'abc', ''], type=expected_type)
     assert arrow_arr.equals(expected)
 
     mask = np.array([False, True, False])
     arrow_arr = pa.array(arr, binary_type, mask=mask)
-    expected = pa.array(['abcde', None, ''], type=binary_type)
+    expected = pa.array(['abcde', None, ''], type=expected_type)
     assert arrow_arr.equals(expected)
 
     # Strided variant
@@ -2375,13 +2378,13 @@ def test_array_from_numpy_ascii(binary_type):
     arrow_arr = pa.array(arr, binary_type, mask=mask)
 
     expected = pa.array(['abcde', '', None, 'abcde', '', None, 'abcde', ''],
-                        type=binary_type)
+                        type=expected_type)
     assert arrow_arr.equals(expected)
 
     # 0 itemsize
     arr = np.array(['', '', ''], dtype='|S0')
     arrow_arr = pa.array(arr, binary_type)
-    expected = pa.array(['', '', ''], type=binary_type)
+    expected = pa.array(['', '', ''], type=expected_type)
     assert arrow_arr.equals(expected)
 
 
@@ -2500,21 +2503,24 @@ def test_interval_array_from_dateoffset():
     assert list(actual_list[0]) == expected_from_pandas
 
 
-@pytest.mark.parametrize('string_type', [pa.utf8(), pa.large_utf8()])
+@pytest.mark.parametrize('string_type', [None, pa.utf8(), pa.large_utf8()])
 def test_array_from_numpy_unicode(string_type):
+    # Default when no type is specified should be utf8
+    expected_type = string_type or pa.utf8()
+
     dtypes = ['<U5', '>U5']
 
     for dtype in dtypes:
         arr = np.array(['abcde', 'abc', ''], dtype=dtype)
 
         arrow_arr = pa.array(arr, string_type)
-        assert arrow_arr.type == string_type
-        expected = pa.array(['abcde', 'abc', ''], type=string_type)
+        assert arrow_arr.type == expected_type
+        expected = pa.array(['abcde', 'abc', ''], type=expected_type)
         assert arrow_arr.equals(expected)
 
         mask = np.array([False, True, False])
         arrow_arr = pa.array(arr, string_type, mask=mask)
-        expected = pa.array(['abcde', None, ''], type=string_type)
+        expected = pa.array(['abcde', None, ''], type=expected_type)
         assert arrow_arr.equals(expected)
 
         # Strided variant
@@ -2523,13 +2529,13 @@ def test_array_from_numpy_unicode(string_type):
         arrow_arr = pa.array(arr, string_type, mask=mask)
 
         expected = pa.array(['abcde', '', None, 'abcde', '', None,
-                             'abcde', ''], type=string_type)
+                             'abcde', ''], type=expected_type)
         assert arrow_arr.equals(expected)
 
     # 0 itemsize
     arr = np.array(['', '', ''], dtype='<U0')
     arrow_arr = pa.array(arr, string_type)
-    expected = pa.array(['', '', ''], type=string_type)
+    expected = pa.array(['', '', ''], type=expected_type)
     assert arrow_arr.equals(expected)
 
 
