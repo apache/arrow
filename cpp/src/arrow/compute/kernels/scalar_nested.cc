@@ -242,8 +242,8 @@ struct ListSlice {
       if (list_array.IsNull(i)) {
         RETURN_NOT_OK(out_list_builder->AppendNull());
       } else {
-        RETURN_NOT_OK(
-            SetValues(opts, offset, next_offset, values_array, out_list_builder));
+        RETURN_NOT_OK(AppendValidListSlice(opts, offset, next_offset, values_array,
+                                           out_list_builder));
       }
     }
     return Status::OK();
@@ -264,17 +264,18 @@ struct ListSlice {
       if (list_array.IsNull(i)) {
         RETURN_NOT_OK(out_list_builder->AppendNull());
       } else {
-        RETURN_NOT_OK(
-            SetValues(opts, offset, next_offset, list_values, out_list_builder));
+        RETURN_NOT_OK(AppendValidListSlice(opts, offset, next_offset, list_values,
+                                           out_list_builder));
       }
     }
     return Status::OK();
   }
 
   template <typename BuilderType>
-  static Status SetValues(const ListSliceOptions& opts, offset_type offset,
-                          offset_type next_offset, const ArraySpan& values_array,
-                          BuilderType* out_list_builder) {
+  static Status AppendValidListSlice(const ListSliceOptions& opts, offset_type offset,
+                                     offset_type next_offset,
+                                     const ArraySpan& values_array,
+                                     BuilderType* out_list_builder) {
     auto* value_builder = out_list_builder->value_builder();
     auto cursor = offset;
 
