@@ -1460,10 +1460,30 @@ public class TestVarCharViewVector {
     }
   }
 
+  private ViewVarCharVector createViewVarCharVector(BufferAllocator allocator) {
+    return newVector(ViewVarCharVector.class, EMPTY_SCHEMA_PATH,
+        Types.MinorType.VIEWVARCHAR, allocator);
+  }
+
+  private ViewVarBinaryVector createViewVarBinaryVector(BufferAllocator allocator) {
+    return newVector(ViewVarBinaryVector.class, EMPTY_SCHEMA_PATH,
+        Types.MinorType.VIEWVARBINARY, allocator);
+  }
+
+  private BaseVariableWidthViewVector createVector(Types.MinorType type, BufferAllocator allocator) {
+    if (type == Types.MinorType.VIEWVARBINARY) {
+      return createViewVarBinaryVector(allocator);
+    } else if (type == Types.MinorType.VIEWVARCHAR) {
+      return createViewVarCharVector(allocator);
+    } else {
+      throw new UnsupportedOperationException("Not supported type : " + type);
+    }
+  }
+
   static Stream<Arguments> vectorTypeAndClassProvider() {
     return Stream.of(
-        Arguments.of(Types.MinorType.VIEWVARBINARY, ViewVarBinaryVector.class),
-        Arguments.of(Types.MinorType.VIEWVARCHAR, ViewVarCharVector.class)
+        Arguments.of(Types.MinorType.VIEWVARBINARY),
+        Arguments.of(Types.MinorType.VIEWVARCHAR)
     );
   }
   @Test
@@ -1537,12 +1557,9 @@ public class TestVarCharViewVector {
 
   @ParameterizedTest
   @MethodSource({"vectorTypeAndClassProvider"})
-  public void testCopyFromWithNulls(Types.MinorType type,
-      Class<? extends BaseVariableWidthViewVector> vectorClass) {
-    try (final BaseVariableWidthViewVector vector = newVector(vectorClass, EMPTY_SCHEMA_PATH,
-        type, allocator);
-        final BaseVariableWidthViewVector vector2 = newVector(vectorClass, EMPTY_SCHEMA_PATH,
-            type, allocator)) {
+  public void testCopyFromWithNulls(Types.MinorType type) {
+    try (final BaseVariableWidthViewVector vector = createVector(type, allocator);
+        final BaseVariableWidthViewVector vector2 = createVector(type, allocator)) {
       final int initialCapacity = 1024;
       vector.setInitialCapacity(initialCapacity);
       vector.allocateNew();
@@ -1630,12 +1647,9 @@ public class TestVarCharViewVector {
 
   @ParameterizedTest
   @MethodSource("vectorTypeAndClassProvider")
-  public void testCopyFromSafeWithNulls(Types.MinorType type,
-      Class<? extends BaseVariableWidthViewVector> vectorClass) {
-    try (final BaseVariableWidthViewVector vector = newVector(vectorClass, EMPTY_SCHEMA_PATH,
-        type, allocator);
-        final BaseVariableWidthViewVector vector2 = newVector(vectorClass, EMPTY_SCHEMA_PATH,
-            type, allocator)) {
+  public void testCopyFromSafeWithNulls(Types.MinorType type) {
+    try (final BaseVariableWidthViewVector vector = createVector(type, allocator);
+        final BaseVariableWidthViewVector vector2 = createVector(type, allocator)) {
 
       final int initialCapacity = 4096;
       vector.setInitialCapacity(initialCapacity);
