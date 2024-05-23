@@ -715,14 +715,14 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
     if (getBufferSize() == 0) {
       buffers = new ArrowBuf[0];
     } else {
-      final int dataBufferCount = dataBuffers.size();
+      final int dataBufferSize = dataBuffers.size();
       // validity and view buffers
-      final int numFixedBuffers = 2;
-      buffers = new ArrowBuf[numFixedBuffers + dataBufferCount];
+      final int fixedBufferSize = 2;
+      buffers = new ArrowBuf[fixedBufferSize + dataBufferSize];
       buffers[0] = validityBuffer;
       buffers[1] = viewBuffer;
-      for (int i = numFixedBuffers; i < numFixedBuffers + dataBufferCount; i++) {
-        buffers[i] = dataBuffers.get(i - numFixedBuffers);
+      for (int i = fixedBufferSize; i < fixedBufferSize + dataBufferSize; i++) {
+        buffers[i] = dataBuffers.get(i - fixedBufferSize);
       }
     }
     if (clear) {
