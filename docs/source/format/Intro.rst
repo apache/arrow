@@ -157,15 +157,15 @@ then multiple chunks are needed.
 Variable length binary and string view
 --------------------------------------
 
-This layout is adapted from TU Munich's `UmbraDB`_ and is similar to the string
+This layout is an alternative for the variable length binary layout and is adapted from TU Munich's `UmbraDB`_ and is similar to the string
 layout used in `DuckDB`_ and `Velox`_ (and sometimes also called "German style strings").
 
 .. _UmbraDB: https://umbra-db.com/
 .. _DuckDB: https://duckdb.com
 .. _Velox: https://velox-lib.io/
-The main differences to classical binary and string types is the views buffer.
+The main differences to classical binary and string layout is the views buffer.
 It includes the length of the string, and then either contains the characters
-inline (for small strings) or only the first 4 bytes of the string and point to
+inline (for small strings) or only the first 4 bytes of the string and point to a location in one of
 potentially several data buffers. It also supports binary and strings to be written
 out of order.
 
@@ -206,7 +206,7 @@ are int64.
 
 .. figure:: ./images/var-list-diagram.svg
    :alt: Diagram is showing the difference between the variable size
-         list data type presented in a Table and the dataactually
+         list data type presented in a Table and the data actually
          stored in computer memory.
 
    Physical layout diagram for variable size list data type.
