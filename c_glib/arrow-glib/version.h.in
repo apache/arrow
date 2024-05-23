@@ -21,8 +21,6 @@
 
 #include <glib.h>
 
-#include <arrow-glib/visibility.h>
-
 /**
  * SECTION: version
  * @section_id: version-macros
@@ -157,5 +155,7 @@
 #  define GARROW_VERSION_MAX_ALLOWED            \
   G_ENCODE_VERSION(GARROW_VERSION_MAJOR, GARROW_VERSION_MINOR)
 #endif
+
+@VISIBILITY_MACROS@
 
 @AVAILABILITY_MACROS@

@@ -21,8 +21,6 @@
 
 #include <arrow-glib/version.h>
 
-#include <arrow-dataset-glib/visibility.h>
-
 /**
  * SECTION: version
  * @section_id: version-macros
@@ -155,5 +153,7 @@
 #ifndef GADATASET_VERSION_MAX_ALLOWED
 #  define GADATASET_VERSION_MAX_ALLOWED GARROW_VERSION_MAX_ALLOWED
 #endif
+
+@VISIBILITY_MACROS@
 
 @AVAILABILITY_MACROS@

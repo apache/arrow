@@ -205,18 +205,13 @@ cpp_internal_headers = files(
   'internal-index.hpp',
 )
 
-visibility_h = configure_file(
-  output: 'visibility.h',
-  command: [python3, generate_visibility_header_py, '--library', 'GARROW', '--output', '@OUTPUT@'],
-)
-
 version_h = configure_file(
   input: 'version.h.in',
   output: 'version.h',
   command: [python3, generate_version_header_py, '--library', 'GARROW', '--version', version, '--input', '@INPUT@', '--output', '@OUTPUT@'],
 )
 
-c_headers += [visibility_h, version_h]
+c_headers += version_h
 
 enums = gnome.mkenums('enums',
                       sources: c_headers,

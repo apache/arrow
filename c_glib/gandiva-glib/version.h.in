@@ -21,8 +21,6 @@
 
 #include <glib.h>
 
-#include <gandiva-glib/visibility.h>
-
 /**
  * SECTION: version
  * @section_id: version-macros
@@ -157,5 +155,7 @@
 #  define GGANDIVA_VERSION_MAX_ALLOWED                                  \
   G_ENCODE_VERSION(GGANDIVA_VERSION_MAJOR, GGANDIVA_VERSION_MINOR)
 #endif
+
+@VISIBILITY_MACROS@
 
 @AVAILABILITY_MACROS@
