@@ -220,8 +220,9 @@ struct ListSlice {
     } else {
       RETURN_NOT_OK(BuildArrayFromListType(opts, batch, list_builder));
     }
-    ARROW_ASSIGN_OR_RAISE(auto result, list_builder->Finish());
-    out->value = std::move(result->data());
+    std::shared_ptr<ArrayData> result;
+    RETURN_NOT_OK(list_builder->FinishInternal(&result));
+    out->value = std::move(result);
     return Status::OK();
   }
 
