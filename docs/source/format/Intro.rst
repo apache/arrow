@@ -407,11 +407,8 @@ Extension Types
 In case the system or application needs to extend standard Arrow data types with
 custom semantics this is enabled by defining extension types or user-defined types.
 
-For example:
-
-* Universally unique identifiers (UUID) can be represented as a FixedSizeBinary type
-* Trading time can be represented as a Timestamp with metadata indicating the market
-  trading calendar
+Examples of an extension type are :ref:`uuid_extension` or
+:ref:`fixed_shape_tensor_extension` extension type.
 
 Extension types can be defined by annotating any of the built-in Arrow data types
 (the “storage type”) with a custom type name and optional serialized representation
@@ -427,13 +424,6 @@ Canonical Extension Types
 It is beneficial to share the definitions of well-known extension types so as to
 improve interoperability between different systems integrating Arrow columnar data.
 For this reason canonical extension types are defined in Arrow itself.
-
-Examples:
-
-* Fixed and variable shape tensor
-
-  - :ref:`fixed_shape_tensor_extension`
-  - :ref:`variable_shape_tensor_extension`
 
 .. seealso::
    The :ref:`format_canonical_extensions` documentation.
