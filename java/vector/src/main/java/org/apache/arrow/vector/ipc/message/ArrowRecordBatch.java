@@ -83,7 +83,7 @@ public class ArrowRecordBatch implements ArrowMessage {
   public ArrowRecordBatch(
       int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers,
       ArrowBodyCompression bodyCompression, boolean alignBuffers) {
-    this(length, nodes, buffers, bodyCompression, alignBuffers, /*retainBuffers*/ true);
+    this(length, nodes, buffers, bodyCompression, null, alignBuffers, /*retainBuffers*/ true);
   }
 
   /**
@@ -100,30 +100,7 @@ public class ArrowRecordBatch implements ArrowMessage {
   public ArrowRecordBatch(
       int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers,
       ArrowBodyCompression bodyCompression, boolean alignBuffers, boolean retainBuffers) {
-    super();
-    this.length = length;
-    this.nodes = nodes;
-    this.buffers = buffers;
-    Preconditions.checkArgument(bodyCompression != null, "body compression cannot be null");
-    this.bodyCompression = bodyCompression;
-    List<ArrowBuffer> arrowBuffers = new ArrayList<>(buffers.size());
-    long offset = 0;
-    for (ArrowBuf arrowBuf : buffers) {
-      if (retainBuffers) {
-        arrowBuf.getReferenceManager().retain();
-      }
-      long size = arrowBuf.readableBytes();
-      arrowBuffers.add(new ArrowBuffer(offset, size));
-      if (LOGGER.isTraceEnabled()) {
-        LOGGER.trace("Buffer in RecordBatch at {}, length: {}", offset, size);
-      }
-      offset += size;
-      if (alignBuffers) { // align on 8 byte boundaries
-        offset = DataSizeRoundingUtil.roundUpTo8Multiple(offset);
-      }
-    }
-    this.buffersLayout = Collections.unmodifiableList(arrowBuffers);
-    this.variadicBufferCounts = null;
+    this(length, nodes, buffers, bodyCompression, null, alignBuffers, retainBuffers);
   }
 
   /**
