@@ -320,8 +320,8 @@ jobs:
       ARROW_BUILD_TESTS: OFF
       ARROW_ACERO: ON
       ARROW_DATASET: ON
-      ARROW_FLIGHT: ON
-      ARROW_FLIGHT_SQL: ON
+      ARROW_FLIGHT: OFF
+      ARROW_FLIGHT_SQL: OFF
       ARROW_GANDIVA: OFF
       ARROW_HDFS: OFF
       ARROW_HOME: "${{ github.workspace }}/dist"
