@@ -1091,7 +1091,7 @@ layouts depending on the particular realization of the type.
 
    Floating Point Type
       Array of floating point numbers with half, single or double precision.
-   
+
    .. TODO: list other types if we agree to keep the glossary
 
 
