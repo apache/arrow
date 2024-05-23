@@ -1871,24 +1871,17 @@ struct ArrayImporter {
   template <typename OffsetType>
   Status ImportStringValuesBuffer(int32_t offsets_buffer_id, int32_t buffer_id,
                                   int64_t byte_width = 1) {
-    if (device_type_ == DeviceAllocationType::kCPU) {
-      auto offsets = data_->GetValues<OffsetType>(offsets_buffer_id);
+    int64_t buffer_size = 0;
+    if (c_struct_->length > 0) {
+      int64_t last_offset_value_offset =
+          (c_struct_->length + c_struct_->offset) * sizeof(OffsetType);
+      OffsetType last_offset_value;
+      RETURN_NOT_OK(MemoryManager::CopyBufferSliceToCPU(
+          data_->buffers[offsets_buffer_id], last_offset_value_offset, sizeof(OffsetType),
+          reinterpret_cast<uint8_t*>(&last_offset_value)));
       // Compute visible size of buffer
-      int64_t buffer_size =
-          (c_struct_->length > 0) ? byte_width * offsets[c_struct_->length] : 0;
-      return ImportBuffer(buffer_id, buffer_size);
+      buffer_size = byte_width * last_offset_value;
     }
-
-    // we only need the value of the last offset so let's just copy that
-    // one value from device to host.
-    auto single_value_buf =
-        SliceBuffer(data_->buffers[offsets_buffer_id],
-                    c_struct_->length * sizeof(OffsetType), sizeof(OffsetType));
-    ARROW_ASSIGN_OR_RAISE(
-        auto cpubuf, Buffer::ViewOrCopy(single_value_buf, default_cpu_memory_manager()));
-    auto offsets = cpubuf->data_as<OffsetType>();
-    // Compute visible size of buffer
-    int64_t buffer_size = (c_struct_->length > 0) ? byte_width * offsets[0] : 0;
 
     return ImportBuffer(buffer_id, buffer_size);
   }
