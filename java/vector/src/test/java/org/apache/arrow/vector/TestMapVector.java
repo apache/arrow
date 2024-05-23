@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -1184,8 +1185,7 @@ public class TestMapVector {
   @Test
   public void testMakeTransferPairPreserveNullability() {
     Field intField = new Field("int", FieldType.notNullable(MinorType.INT.getType()), null);
-    List<Field> fields = new ArrayList<>(1);
-    fields.add(intField);
+    List<Field> fields = Collections.singletonList(intField);
     Field structField = new Field("struct", FieldType.notNullable(ArrowType.Struct.INSTANCE), fields);
     Field structField2 = new Field("struct", FieldType.notNullable(ArrowType.Struct.INSTANCE), fields);
     FieldVector vec = structField.createVector(allocator);
