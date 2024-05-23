@@ -275,7 +275,7 @@ take two datasets and join them:
    ds1 = ds.dataset(table1)
    ds2 = ds.dataset(table2)
 
-   joined_ds = ds1.join(ds2, key="id")
+   joined_ds = ds1.join(ds2, keys="id")
 
 The resulting dataset will be an :class:`.InMemoryDataset` containing the joined data::
 
