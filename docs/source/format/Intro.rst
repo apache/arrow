@@ -430,7 +430,8 @@ For this reason canonical extension types are defined in Arrow itself.
 
 Community Extension Types
 -------------------------
-These are Arrow extension types that have been established as standards within specific domain areas.
+These are Arrow extension types that have been established as standards within specific
+domain areas.
 
 Example:
 
@@ -438,54 +439,16 @@ Example:
 
 .. _GeoArrow: https://github.com/geoarrow/geoarrow
 
-The Arrow C Data Interface
-==========================
+Sharing Arrow data
+==================
 
-Arrow memory layout is meant to be a universal standard for tabular data, not tied to a specific
-implementation.
+Arrow memory layout is meant to be a universal standard for representing tabular data in memory,
+not tied to a specific implementation. Next step is the specification for sharing the data
+in Arrow format that is well-defined and unambiguous between applications.
 
-While there are specifications to share Arrow data between processes or over the network (e.g. the
-IPC messages), the Arrow C Data Interface is meant to actually zero-copy share the data between
-different libraries within the same process (i.e. actually share the same buffers in memory).
+* Protocol to share Arrow data between processes or over the network is called :ref:`format-ipc`.
+  The specification for sharing data is called IPC message format which defines how Arrow
+  array or record batch buffers are stacked together to be serialized and deserialized.
 
-The Arrow C Data Interface defines a set of small C structures:
-
-.. code-block::
-
-   struct ArrowSchema {
-    const char* format;
-    const char* name;
-    const char* metadata;
-    int64_t flags;
-    int64_t n_children;
-    struct ArrowSchema** children;
-    struct ArrowSchema* dictionary;
-
-    // Release callback
-    void (*release)(struct ArrowSchema*);
-    // Opaque producer-specific data
-    void* private_data;
-   };
-
-   struct ArrowArray {
-    int64_t length;
-    int64_t null_count;
-    int64_t offset;
-    int64_t n_buffers;
-    int64_t n_children;
-    const void** buffers;
-    struct ArrowArray** children;
-    struct ArrowArray* dictionary;
-
-    // Release callback
-    void (*release)(struct ArrowArray*);
-    // Opaque producer-specific data
-    void* private_data;
-   };
-
-The C Data Interface passes Arrow data buffers through memory pointers. So, by construction, it allows
-you to share data from one runtime to another without copying it. Since the data is in standard Arrow
-in-memory format, its layout is well-defined and unambiguous.
-
-.. seealso::
-   The :ref:`c-data-interface` documentation.
+* To share Arrow data in the same process :ref:`c-data-interface` is used, meant for sharing
+  the same buffer zero-copy in memory between different libraries within the same process.
