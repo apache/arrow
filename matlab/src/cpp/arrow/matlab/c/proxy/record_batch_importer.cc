@@ -15,14 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/record_batch.h"
 #include "arrow/c/bridge.h"
 
-#include "arrow/matlab/c/proxy/record_batch.h"
+#include "arrow/matlab/c/proxy/record_batch_importer.h"
 #include "arrow/matlab/error/error.h"
+#include "arrow/matlab/tabular/proxy/record_batch.h"
 
 #include "libmexclass/proxy/ProxyManager.h"
-#include "record_batch_importer.h"
+
 
 namespace arrow::matlab::c::proxy {
 
@@ -36,6 +36,7 @@ libmexclass::proxy::MakeResult RecordBatchImporter::make(
 void RecordBatchImporter::import(libmexclass::proxy::method::Context& context) {
   namespace mda = ::matlab::data;
   using namespace libmexclass::proxy;
+  using RecordBatchProxy = arrow::matlab::tabular::proxy::RecordBatch;
 
   mda::StructArray args = context.inputs[0];
   const mda::TypedArray<uint64_t> arrow_array_address_mda = args[0]["ArrowArrayAddress"];
@@ -49,10 +50,10 @@ void RecordBatchImporter::import(libmexclass::proxy::method::Context& context) {
   auto arrow_schema = reinterpret_cast<struct ArrowSchema*>(arrow_schema_address);
 
   MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto record_batch,
-                                      arrow::ImportREcordBatch(arrow_array, arrow_schema),
+                                      arrow::ImportRecordBatch(arrow_array, arrow_schema),
                                       context, error::C_IMPORT_FAILED);
 
-  auto record_batch_proxy = arrow::matlab::tabular::proxy::RecordBatch(std::move(record_batch_proxy));
+  auto record_batch_proxy = std::make_shared<RecordBatchProxy>(std::move(record_batch));
 
   mda::ArrayFactory factory;
   const auto record_batch_proxy_id = ProxyManager::manageProxy(record_batch_proxy);
