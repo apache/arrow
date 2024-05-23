@@ -489,19 +489,3 @@ in-memory format, its layout is well-defined and unambiguous.
 
 .. seealso::
    The :ref:`c-data-interface` documentation.
-
-nanoarrow
-=========
-
-The Arrow libraries are growing with a lot of functionality and
-`nanoarrow <https://github.com/apache/arrow-nanoarrow>`_ was born to
-solve the problem where linking to the Arrow implementation is
-difficult or impossible.
-
-The nanoarrow library is a set of helper functions to interpret and
-generate Arrow C Data Interface and Arrow C Stream Interface structures.
-The library is in active development.
-
-The nanoarrow Python bindings are intended to support clients that wish
-to produce or interpret Arrow C Data and/or Arrow C Stream structures
-in Python, without a dependency on the larger Arrow implementations.
