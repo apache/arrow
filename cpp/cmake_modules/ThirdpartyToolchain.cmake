@@ -5348,9 +5348,3 @@ if(ARROW_WITH_UCX)
 endif()
 
 message(STATUS "All bundled static libraries: ${ARROW_BUNDLED_STATIC_LIBS}")
-
-# Write out the package configurations.
-
-configure_file("src/arrow/util/config.h.cmake" "src/arrow/util/config.h" ESCAPE_QUOTES)
-install(FILES "${ARROW_BINARY_DIR}/src/arrow/util/config.h"
-        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/util")

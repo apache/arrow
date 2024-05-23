@@ -39,9 +39,9 @@ Status TempVectorStack::Init(MemoryPool* pool, int64_t size) {
   num_vectors_ = 0;
   top_ = 0;
   buffer_size_ = EstimatedAllocationSize(size);
-  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateResizableBuffer(size, pool));
+  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateResizableBuffer(buffer_size_, pool));
 #ifdef ADDRESS_SANITIZER
-  ASAN_POISON_MEMORY_REGION(buffer->mutable_data(), size);
+  ASAN_POISON_MEMORY_REGION(buffer->mutable_data(), buffer_size_);
 #endif
   buffer_ = std::move(buffer);
   return Status::OK();

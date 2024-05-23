@@ -2801,6 +2801,8 @@ cdef extern from "arrow/extension_type.h" namespace "arrow":
     cdef cppclass CExtensionType" arrow::ExtensionType"(CDataType):
         c_string extension_name()
         shared_ptr[CDataType] storage_type()
+        int byte_width()
+        int bit_width()
 
         @staticmethod
         shared_ptr[CArray] WrapArray(shared_ptr[CDataType] ext_type,

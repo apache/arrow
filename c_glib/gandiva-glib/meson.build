@@ -53,14 +53,12 @@ cpp_headers = files(
   'selection-vector.hpp',
 )
 
-version_h_conf = configuration_data()
-version_h_conf.set('GGANDIVA_VERSION_MAJOR', version_major)
-version_h_conf.set('GGANDIVA_VERSION_MINOR', version_minor)
-version_h_conf.set('GGANDIVA_VERSION_MICRO', version_micro)
-version_h_conf.set('GGANDIVA_VERSION_TAG', version_tag)
-version_h = configure_file(input: 'version.h.in',
-                           output: 'version.h',
-                           configuration: version_h_conf)
+version_h = configure_file(
+  input: 'version.h.in',
+  output: 'version.h',
+  command: [python3, generate_version_header_py, '--library', 'GGANDIVA', '--version', version, '--input', '@INPUT@', '--output', '@OUTPUT@'],
+)
+
 c_headers += version_h
 
 enums = gnome.mkenums('enums',

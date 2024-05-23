@@ -286,6 +286,7 @@ services:
       <<: [*common, *ccache, *sccache, *cpp]
       ARROW_BUILD_BENCHMARKS: "ON"
       ARROW_BUILD_EXAMPLES: "ON"
+      ARROW_BUILD_OPENMP_BENCHMARKS: "ON"
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_EXTRA_ERROR_CONTEXT: "ON"
       ARROW_MIMALLOC: "ON"

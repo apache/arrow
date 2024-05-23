@@ -249,6 +249,10 @@ class ARROW_EXPORT MemoryManager : public std::enable_shared_from_this<MemoryMan
   static Result<std::shared_ptr<Buffer>> ViewBuffer(
       const std::shared_ptr<Buffer>& source, const std::shared_ptr<MemoryManager>& to);
 
+  /// \brief Copy a slice of a buffer into a CPU pointer
+  static Status CopyBufferSliceToCPU(const std::shared_ptr<Buffer>& buf, int64_t offset,
+                                     int64_t length, uint8_t* out_data);
+
   /// \brief Create a new SyncEvent.
   ///
   /// This version should construct the appropriate event for the device and
