@@ -141,5 +141,17 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
             proxy = arrow.internal.proxy.create(proxyName, args);
             recordBatch = arrow.tabular.RecordBatch(proxy);
         end
+
+    end
+
+    methods(Static)
+        function recordBatch = import(cArray, cSchema)
+            arguments
+                cArray(1, 1) arrow.c.Array
+                cSchema(1, 1) arrow.c.Schema
+            end
+            importer = arrow.c.internal.RecordBatchImporter();
+            recordBatch = importer.import(cArray, cSchema);
+        end
     end
 end
