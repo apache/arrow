@@ -703,13 +703,6 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    * impact the reference counts for this buffer, so it only should be used for in-context
    * access. Also note that this buffer changes regularly, thus
    * external classes shouldn't hold a reference to it (unless they change it).
-   * <p>
-   * Note: This method only returns validityBuffer and valueBuffer.
-   * But it doesn't return the data buffers.
-   * <p>
-   * TODO: Implement a strategy to retrieve the data buffers.
-   * <a href="https://github.com/apache/arrow/issues/40930">data buffer retrieval.</a>
-   *
    * @param clear Whether to clear vector before returning, the buffers will still be refcounted
    *              but the returned array will be the only reference to them
    * @return The underlying {@link ArrowBuf buffers} that is used by this
@@ -722,9 +715,15 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
     if (getBufferSize() == 0) {
       buffers = new ArrowBuf[0];
     } else {
-      buffers = new ArrowBuf[2];
+      final int dataBufferCount = dataBuffers.size();
+      // validity and view buffers
+      final int numFixedBuffers = 2;
+      buffers = new ArrowBuf[numFixedBuffers + dataBufferCount];
       buffers[0] = validityBuffer;
       buffers[1] = viewBuffer;
+      for (int i = numFixedBuffers; i < numFixedBuffers + dataBufferCount; i++) {
+        buffers[i] = dataBuffers.get(i - numFixedBuffers);
+      }
     }
     if (clear) {
       for (final ArrowBuf buffer : buffers) {
