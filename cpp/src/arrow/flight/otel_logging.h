@@ -19,7 +19,7 @@
 
 #include "arrow/util/config.h"
 
-#ifdef ARROW_TELEMETRY
+#ifdef ARROW_WITH_OPENTELEMETRY
 #include "arrow/status.h"
 #include "arrow/telemetry/logging.h"
 #include "arrow/util/macros.h"

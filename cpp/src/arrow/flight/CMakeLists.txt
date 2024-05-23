@@ -157,7 +157,7 @@ set(ARROW_FLIGHT_SRCS
     transport/grpc/util_internal.cc
     types.cc)
 
-if(ARROW_TELEMETRY)
+if(ARROW_WITH_OPENTELEMETRY)
   list(APPEND ARROW_FLIGHT_SRCS otel_logging.cc)
 endif()
 

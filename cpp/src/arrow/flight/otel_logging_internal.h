@@ -20,7 +20,7 @@
 #include "arrow/util/config.h"
 
 #include "arrow/util/macros.h"
-#ifdef ARROW_TELEMETRY
+#ifdef ARROW_WITH_OPENTELEMETRY
 #include "arrow/flight/otel_logging.h"
 #include "arrow/util/logger.h"
 

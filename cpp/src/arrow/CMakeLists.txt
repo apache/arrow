@@ -621,7 +621,7 @@ if(ARROW_WITH_ZSTD)
   endforeach()
 endif()
 
-if(ARROW_TELEMETRY)
+if(ARROW_WITH_OPENTELEMETRY)
   arrow_add_object_library(ARROW_TELEMETRY telemetry/logging.cc)
 
   foreach(ARROW_TELEMETRY_TARGET ${ARROW_TELEMETRY_TARGETS})
@@ -1267,7 +1267,7 @@ if(ARROW_SUBSTRAIT)
   add_subdirectory(engine)
 endif()
 
-if(ARROW_TELEMETRY)
+if(ARROW_WITH_OPENTELEMETRY)
   add_subdirectory(telemetry)
 endif()
 

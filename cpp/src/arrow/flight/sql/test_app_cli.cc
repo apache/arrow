@@ -34,7 +34,7 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 
-#ifdef ARROW_TELEMETRY
+#ifdef ARROW_WITH_OPENTELEMETRY
 #include "arrow/flight/otel_logging.h"
 #include "arrow/util/tracing_internal.h"
 
@@ -75,7 +75,7 @@ DEFINE_string(catalog, "", "Catalog");
 DEFINE_string(schema, "", "Schema");
 DEFINE_string(table, "", "Table");
 
-#ifdef ARROW_TELEMETRY
+#ifdef ARROW_WITH_OPENTELEMETRY
 class OtelScope {
  public:
   explicit OtelScope(opentelemetry::trace::Scope scope) : scope_(std::move(scope)) {}
@@ -153,7 +153,7 @@ Status PrintResults(FlightSqlClient& client, const FlightCallOptions& call_optio
 }
 
 Status RunMain() {
-#ifdef ARROW_TELEMETRY
+#ifdef ARROW_WITH_OPENTELEMETRY
   ARROW_ASSIGN_OR_RAISE(auto otel_scope, OtelScope::Make());
 #endif
 

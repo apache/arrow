@@ -417,12 +417,6 @@ takes precedence over ccache if a storage backend is configured" ON)
                 ARROW_IPC
                 ARROW_PARQUET)
 
-  define_option(ARROW_TELEMETRY
-                "Build Arrow with extended telemetry support (requires OpenTelemetry)"
-                OFF
-                DEPENDS
-                ARROW_WITH_OPENTELEMETRY)
-
   define_option(ARROW_TENSORFLOW "Build Arrow with TensorFlow support enabled" OFF)
 
   define_option(ARROW_TESTING

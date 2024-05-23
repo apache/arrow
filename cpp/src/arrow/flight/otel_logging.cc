@@ -17,6 +17,7 @@
 
 #include <string_view>
 
+#include "arrow/flight/otel_logging.h"
 #include "arrow/flight/otel_logging_internal.h"
 #include "arrow/result.h"
 #include "arrow/util/logger.h"

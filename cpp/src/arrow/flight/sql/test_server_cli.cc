@@ -30,7 +30,7 @@
 #include "arrow/io/test_common.h"
 #include "arrow/util/logging.h"
 
-#ifdef ARROW_TELEMETRY
+#ifdef ARROW_WITH_OPENTELEMETRY
 #include "arrow/flight/otel_logging.h"
 #include "arrow/util/tracing_internal.h"
 
@@ -41,7 +41,7 @@
 
 DEFINE_int32(port, 31337, "Server port to listen on");
 
-#ifdef ARROW_TELEMETRY
+#ifdef ARROW_WITH_OPENTELEMETRY
 arrow::Status SetupOTel() {
   auto tracer = arrow::internal::tracing::GetTracer();
   ARROW_UNUSED(tracer);
@@ -64,7 +64,7 @@ arrow::Status SetupOTel() {
 #endif
 
 arrow::Status RunMain() {
-#ifdef ARROW_TELEMETRY
+#ifdef ARROW_WITH_OPENTELEMETRY
   ARROW_RETURN_NOT_OK(SetupOTel());
 #endif
 
