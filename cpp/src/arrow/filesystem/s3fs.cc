@@ -166,6 +166,18 @@ static constexpr const char kAwsEndpointUrlEnvVar[] = "AWS_ENDPOINT_URL";
 static constexpr const char kAwsEndpointUrlS3EnvVar[] = "AWS_ENDPOINT_URL_S3";
 static constexpr const char kAwsDirectoryContentType[] = "application/x-directory";
 
+// Upload size per part. While AWS and Minio support different sizes for each
+// part (only requiring a minimum of 5MB), Cloudflare R2 requires that every
+// part be exactly equal (except for the last part). We set this to 10 MB, so
+// that in combination with the maximum number of parts of 10,000, this gives a
+// file limit of 100k MB (or about 98 GB).
+// (see https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html)
+// (for rational, see: https://github.com/apache/arrow/issues/34363)
+static constexpr int64_t kPartUploadSize = 10 * 1024 * 1024;
+
+// Instruct callers to avoid reads < 4 MiB if possible.
+static constexpr int64_t kPreferredReadSize = 4 * 1024 * 1024;
+
 // -----------------------------------------------------------------------
 // S3ProxyOptions implementation
 
@@ -1439,6 +1451,10 @@ class ObjectInputFile final : public io::RandomAccessFile {
 
   // RandomAccessFile APIs
 
+  int64_t preferred_read_size(std::optional<int64_t> nbytes) const override {
+    return kPreferredReadSize;
+  }
+
   Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata() override {
     return metadata_;
   }
@@ -1535,15 +1551,6 @@ class ObjectInputFile final : public io::RandomAccessFile {
   int64_t content_length_ = kNoSize;
   std::shared_ptr<const KeyValueMetadata> metadata_;
 };
-
-// Upload size per part. While AWS and Minio support different sizes for each
-// part (only requiring a minimum of 5MB), Cloudflare R2 requires that every
-// part be exactly equal (except for the last part). We set this to 10 MB, so
-// that in combination with the maximum number of parts of 10,000, this gives a
-// file limit of 100k MB (or about 98 GB).
-// (see https://docs.aws.amazon.com/AmazonS3/latest/userguide/qfacts.html)
-// (for rational, see: https://github.com/apache/arrow/issues/34363)
-static constexpr int64_t kPartUploadSize = 10 * 1024 * 1024;
 
 // An OutputStream that writes to a S3 object
 class ObjectOutputStream final : public io::OutputStream {

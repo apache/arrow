@@ -183,7 +183,7 @@ class CompressedOutputStream::Impl {
 
  private:
   // Write 64 KB compressed data at a time
-  static const int64_t kChunkSize = 64 * 1024;
+  static constexpr int64_t kChunkSize = 64 * 1024;
 
   MemoryPool* pool_;
   std::shared_ptr<OutputStream> raw_;
@@ -232,8 +232,9 @@ class CompressedInputStream::Impl {
   Impl(MemoryPool* pool, const std::shared_ptr<InputStream>& raw)
       : pool_(pool),
         raw_(raw),
-        is_open_(true),
         supports_zero_copy_from_raw_(raw_->supports_zero_copy()),
+        chunk_size_(raw->preferred_read_size(kDefaultChunkSize)),
+        is_open_(true),
         compressed_pos_(0),
         decompressed_pos_(0),
         fresh_decompressor_(false),
@@ -271,18 +272,20 @@ class CompressedInputStream::Impl {
   Status EnsureCompressedData() {
     int64_t compressed_avail = compressed_buffer_available();
     if (compressed_avail == 0) {
-      // Ensure compressed_ buffer is allocated with kChunkSize.
       if (!supports_zero_copy_from_raw_) {
+        // Without zero-copy, we allocate a permanent buffer that
+        // we read into. This reduces a number of allocations, compared
+        // to letting the raw stream return a new buffer every time.
         if (compressed_for_non_zero_copy_ == nullptr) {
           ARROW_ASSIGN_OR_RAISE(compressed_for_non_zero_copy_,
-                                AllocateResizableBuffer(kChunkSize, pool_));
-        } else if (compressed_for_non_zero_copy_->size() != kChunkSize) {
-          RETURN_NOT_OK(
-              compressed_for_non_zero_copy_->Resize(kChunkSize, /*shrink_to_fit=*/false));
+                                AllocateResizableBuffer(chunk_size_, pool_));
+        } else if (compressed_for_non_zero_copy_->size() != chunk_size_) {
+          RETURN_NOT_OK(compressed_for_non_zero_copy_->Resize(chunk_size_,
+                                                              /*shrink_to_fit=*/false));
         }
         ARROW_ASSIGN_OR_RAISE(
             int64_t read_size,
-            raw_->Read(kChunkSize,
+            raw_->Read(chunk_size_,
                        compressed_for_non_zero_copy_->mutable_data_as<void>()));
         if (read_size != compressed_for_non_zero_copy_->size()) {
           RETURN_NOT_OK(
@@ -290,7 +293,10 @@ class CompressedInputStream::Impl {
         }
         compressed_ = compressed_for_non_zero_copy_;
       } else {
-        ARROW_ASSIGN_OR_RAISE(compressed_, raw_->Read(kChunkSize));
+        // With zero-copy, we let the raw stream just directly return their
+        // own buffer, since that would be more efficient than copying into
+        // our own.
+        ARROW_ASSIGN_OR_RAISE(compressed_, raw_->Read(chunk_size_));
       }
       compressed_pos_ = 0;
     }
@@ -428,15 +434,16 @@ class CompressedInputStream::Impl {
   }
 
  private:
-  // Read 64 KB compressed data at a time
-  static const int64_t kChunkSize = 64 * 1024;
+  // By default, we'll read 64 KB compressed data at a time
+  static constexpr int64_t kDefaultChunkSize = 64 * 1024;
   // Decompress 1 MB at a time
-  static const int64_t kDecompressSize = 1024 * 1024;
+  static constexpr int64_t kDecompressSize = 1024 * 1024;
 
   MemoryPool* pool_;
   std::shared_ptr<InputStream> raw_;
-  bool is_open_;
   const bool supports_zero_copy_from_raw_;
+  const int64_t chunk_size_;
+  bool is_open_;
   std::shared_ptr<Decompressor> decompressor_;
   // If `raw_->supports_zero_copy()`, this buffer would not allocate memory.
   // Otherwise, this buffer would allocate `kChunkSize` memory and read data from

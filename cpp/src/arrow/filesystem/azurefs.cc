@@ -58,6 +58,9 @@ namespace Storage = Azure::Storage;
 
 using HNSSupport = internal::HierarchicalNamespaceSupport;
 
+// Instruct callers to avoid reads < 4 MiB if possible.
+static constexpr int64_t kPreferredReadSize = 4 * 1024 * 1024;
+
 // -----------------------------------------------------------------------
 // AzureOptions Implementation
 
@@ -769,6 +772,10 @@ class ObjectInputFile final : public io::RandomAccessFile {
   }
 
   // RandomAccessFile APIs
+
+  int64_t preferred_read_size(std::optional<int64_t> nbytes) const override {
+    return kPreferredReadSize;
+  }
 
   Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata() override {
     return metadata_;
