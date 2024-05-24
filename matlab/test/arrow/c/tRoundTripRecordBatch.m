@@ -69,6 +69,104 @@ classdef tRoundTripRecordBatch < matlab.unittest.TestCase
             testCase.verifyEqual(actual, expected);
         end
 
+         function ExportErrorWrongInputTypes(testCase)
+            rb = arrow.recordBatch(table([1; 2; 3]));
+            fcn = @() rb.export("cArray.Address", "cSchema.Address");
+            testCase.verifyError(fcn, "MATLAB:validation:UnableToConvert");
+        end
+
+        function ExportTooFewInputs(testCase)
+            rb = arrow.recordBatch(table([1; 2; 3]));
+            fcn = @() rb.export();
+            testCase.verifyError(fcn, "MATLAB:minrhs");
+        end
+
+        function ExportTooManyInputs(testCase)
+            rb = arrow.recordBatch(table([1; 2; 3]));
+            fcn = @() rb.export("A", "B", "C");
+            testCase.verifyError(fcn, "MATLAB:TooManyInputs");
+        end
+
+        function ImportErrorWrongInputTypes(testCase)
+            cArray = "arrow.c.Array";
+            cSchema = "arrow.c.Schema";
+            fcn = @() arrow.tabular.RecordBatch.import(cArray, cSchema);
+            testCase.verifyError(fcn, "MATLAB:validation:UnableToConvert");
+        end
+
+        function ImportTooFewInputs(testCase)
+            fcn = @() arrow.tabular.RecordBatch.import();
+            testCase.verifyError(fcn, "MATLAB:minrhs");
+        end
+
+        function ImportTooManyInputs(testCase)
+            fcn = @() arrow.tabular.RecordBatch.import("A", "B", "C");
+            testCase.verifyError(fcn, "MATLAB:TooManyInputs");
+        end
+
+        function ImportErrorImportFailed(testCase)
+            cArray = arrow.c.Array();
+            cSchema = arrow.c.Schema();
+            % An arrow:c:import:ImportFailed error should be thrown
+            % if the supplied arrow.c.Array and arrow.c.Schema were
+            % never populated previously from an exported Array.
+            fcn = @() arrow.tabular.RecordBatch.import(cArray, cSchema);
+            testCase.verifyError(fcn, "arrow:c:import:ImportFailed");
+        end
+
+        function ImportErrorInvalidSchema(testCase)
+            cArray = arrow.c.Array();
+            cSchema = arrow.c.Schema();
+            % An arrow:c:import:ImportFailed error should be thrown
+            % if the supplied arrow.c.Schema was not populated from a 
+            % struct-like type (i.e. StructArray or RecordBatch).
+            a = arrow.array(1:3);
+            a.export(cArray.Address, cSchema.Address);
+            fcn = @() arrow.tabular.RecordBatch.import(cArray, cSchema);
+            testCase.verifyError(fcn, "arrow:c:import:ImportFailed");
+        end
+
+        function ImportFromStructArray(testCase)
+            % Verify that a StructArray that has been exported via the 
+            % C Data Interface Interface format can be imported as a 
+            % RecordBatch.
+            field1 = arrow.array(1:3);
+
+            field2 = arrow.array(["A" "B" "C"]);
+            structArray = arrow.array.StructArray.fromArrays(field1, field2, ...
+                FieldNames=["Number" "Text"]);
+            
+            cArray = arrow.c.Array();
+            cSchema = arrow.c.Schema();
+            structArray.export(cArray.Address, cSchema.Address)
+            rb = arrow.tabular.RecordBatch.import(cArray, cSchema);
+
+            expected = arrow.tabular.RecordBatch.fromArrays(field1, field2, ...
+                ColumnNames=["Number" "Text"]);
+
+            testCase.verifyEqual(rb, expected);
+        end
+
+        function ExportToStructArray(testCase)
+            % Verify that a RecordBatch that has been exported via the
+            % C Data Interface Interface format can be imported as a 
+            % StructArray.
+            column1 = arrow.array(1:3);
+            column2 = arrow.array(["A" "B" "C"]);
+            rb = arrow.tabular.RecordBatch.fromArrays(column1, column2, ...
+                ColumnNames=["Number" "Text"]);
+            
+            cArray = arrow.c.Array();
+            cSchema = arrow.c.Schema();
+            rb.export(cArray.Address, cSchema.Address)
+            rb = arrow.array.Array.import(cArray, cSchema);
+
+            expected = arrow.array.StructArray.fromArrays(column1, column2, ...
+                FieldNames=["Number" "Text"]);
+
+            testCase.verifyEqual(rb, expected);
+        end
+
     end
 
 end
