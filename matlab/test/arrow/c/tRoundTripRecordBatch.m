@@ -127,9 +127,8 @@ classdef tRoundTripRecordBatch < matlab.unittest.TestCase
         end
 
         function ImportFromStructArray(testCase)
-            % Verify that a StructArray that has been exported via the 
-            % C Data Interface Interface format can be imported as a 
-            % RecordBatch.
+            % Verify a StructArray exported via the C Data Interface format
+            % can be imported as a RecordBatch.
             field1 = arrow.array(1:3);
 
             field2 = arrow.array(["A" "B" "C"]);
@@ -148,9 +147,8 @@ classdef tRoundTripRecordBatch < matlab.unittest.TestCase
         end
 
         function ExportToStructArray(testCase)
-            % Verify that a RecordBatch that has been exported via the
-            % C Data Interface Interface format can be imported as a 
-            % StructArray.
+            % Verify a RecordBatch exported via the C Data Interface
+            % format can be imported as a StructArray.
             column1 = arrow.array(1:3);
             column2 = arrow.array(["A" "B" "C"]);
             rb = arrow.tabular.RecordBatch.fromArrays(column1, column2, ...
