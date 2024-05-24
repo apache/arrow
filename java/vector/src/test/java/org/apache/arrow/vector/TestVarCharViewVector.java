@@ -36,7 +36,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Random;
-import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 import org.apache.arrow.memory.ArrowBuf;
@@ -1462,10 +1462,14 @@ public class TestVarCharViewVector {
     }
   }
 
-  static Stream<Arguments> vectorTypeProvider() {
+  static Stream<Arguments> vectorCreatorProvider() {
     return Stream.of(
-        Arguments.of(Types.MinorType.VIEWVARBINARY),
-        Arguments.of(Types.MinorType.VIEWVARCHAR)
+        Arguments.of((Function<BufferAllocator, BaseVariableWidthViewVector>)
+            (allocator -> newVector(ViewVarBinaryVector.class, EMPTY_SCHEMA_PATH,
+                Types.MinorType.VIEWVARBINARY, allocator))),
+        Arguments.of((Function<BufferAllocator, BaseVariableWidthViewVector>)
+            (allocator -> newVector(ViewVarCharVector.class, EMPTY_SCHEMA_PATH,
+                Types.MinorType.VIEWVARCHAR, allocator)))
     );
   }
 
@@ -1556,10 +1560,10 @@ public class TestVarCharViewVector {
             newVector(ViewVarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VIEWVARCHAR, allocator)) {
 
   @ParameterizedTest
-  @MethodSource({"vectorTypeProvider"})
-  public void testCopyFromWithNulls(Types.MinorType type) {
-    try (final BaseVariableWidthViewVector vector = vectorCreator.apply(allocator, type);
-        final BaseVariableWidthViewVector vector2 = vectorCreator.apply(allocator, type)) {
+  @MethodSource({"vectorCreatorProvider"})
+  public void testCopyFromWithNulls(Function<BufferAllocator, BaseVariableWidthViewVector> vectorCreator) {
+    try (final BaseVariableWidthViewVector vector = vectorCreator.apply(allocator);
+        final BaseVariableWidthViewVector vector2 = vectorCreator.apply(allocator)) {
       final int initialCapacity = 1024;
       vector.setInitialCapacity(initialCapacity);
       vector.allocateNew();
@@ -1646,10 +1650,10 @@ public class TestVarCharViewVector {
   }
 
   @ParameterizedTest
-  @MethodSource("vectorTypeProvider")
-  public void testCopyFromSafeWithNulls(Types.MinorType type) {
-    try (final BaseVariableWidthViewVector vector = vectorCreator.apply(allocator, type);
-        final BaseVariableWidthViewVector vector2 = vectorCreator.apply(allocator, type)) {
+  @MethodSource("vectorCreatorProvider")
+  public void testCopyFromSafeWithNulls(Function<BufferAllocator, BaseVariableWidthViewVector> vectorCreator) {
+    try (final BaseVariableWidthViewVector vector = vectorCreator.apply(allocator);
+        final BaseVariableWidthViewVector vector2 = vectorCreator.apply(allocator)) {
 
       final int initialCapacity = 4096;
       vector.setInitialCapacity(initialCapacity);
