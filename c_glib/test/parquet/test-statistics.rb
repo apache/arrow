@@ -28,17 +28,26 @@ class TestParquetStatistics < Test::Unit::TestCase
       writer.write_table(@table, chunk_size)
       writer.close
       reader = Parquet::ArrowFileReader.new(@file.path)
-      @statistics = reader.metadata.get_row_group(0).get_column_chunk(0).statistics
-      yield
+      begin
+        @statistics =
+          reader.metadata.get_row_group(0).get_column_chunk(0).statistics
+        yield
+      ensure
+        reader.unref
+      end
     end
   end
 
   test("#==") do
     reader = Parquet::ArrowFileReader.new(@file.path)
-    other_statistics =
-      reader.metadata.get_row_group(0).get_column_chunk(0).statistics
-    assert do
-      @statistics == other_statistics
+    begin
+      other_statistics =
+        reader.metadata.get_row_group(0).get_column_chunk(0).statistics
+      assert do
+        @statistics == other_statistics
+      end
+    ensure
+      reader.unref
     end
   end
 

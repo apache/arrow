@@ -28,8 +28,13 @@ class TestParquetInt32Statistics < Test::Unit::TestCase
       writer.write_table(@table, chunk_size)
       writer.close
       reader = Parquet::ArrowFileReader.new(@file.path)
-      @statistics = reader.metadata.get_row_group(0).get_column_chunk(0).statistics
-      yield
+      begin
+        @statistics =
+          reader.metadata.get_row_group(0).get_column_chunk(0).statistics
+        yield
+      ensure
+        reader.unref
+      end
     end
   end
 

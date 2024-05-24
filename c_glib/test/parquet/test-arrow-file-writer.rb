@@ -36,14 +36,18 @@ class TestParquetArrowFileWriter < Test::Unit::TestCase
     writer.close
 
     reader = Parquet::ArrowFileReader.new(@file.path)
-    reader.use_threads = true
-    assert_equal([
-                   enabled_values.length / chunk_size,
-                   true,
-                 ],
-                 [
-                   reader.n_row_groups,
-                   table.equal_metadata(reader.read_table, false),
-                 ])
+    begin
+      reader.use_threads = true
+      assert_equal([
+                     enabled_values.length / chunk_size,
+                     true,
+                   ],
+                   [
+                     reader.n_row_groups,
+                     table.equal_metadata(reader.read_table, false),
+                   ])
+    ensure
+      reader.unref
+    end
   end
 end

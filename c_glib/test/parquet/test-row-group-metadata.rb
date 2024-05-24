@@ -42,16 +42,24 @@ class TestParquetRowGroupMetadata < Test::Unit::TestCase
       writer.write_table(@table, chunk_size)
       writer.close
       reader = Parquet::ArrowFileReader.new(@file.path)
-      @metadata = reader.metadata.get_row_group(0)
-      yield
+      begin
+        @metadata = reader.metadata.get_row_group(0)
+        yield
+      ensure
+        reader.unref
+      end
     end
   end
 
   test("#==") do
     reader = Parquet::ArrowFileReader.new(@file.path)
-    other_metadata = reader.metadata.get_row_group(0)
-    assert do
-      @metadata == other_metadata
+    begin
+      other_metadata = reader.metadata.get_row_group(0)
+      assert do
+        @metadata == other_metadata
+      end
+    ensure
+      reader.unref
     end
   end
 

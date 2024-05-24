@@ -42,8 +42,12 @@ class TestParquetColumnChunkMetadata < Test::Unit::TestCase
       writer.write_table(@table, chunk_size)
       writer.close
       reader = Parquet::ArrowFileReader.new(@file.path)
-      @metadata = reader.metadata.get_row_group(0).get_column_chunk(0)
-      yield
+      begin
+        @metadata = reader.metadata.get_row_group(0).get_column_chunk(0)
+        yield
+      ensure
+        reader.unref
+      end
     end
   end
 

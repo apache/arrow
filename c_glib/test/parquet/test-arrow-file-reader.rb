@@ -31,7 +31,11 @@ class TestParquetArrowFileReader < Test::Unit::TestCase
       writer.write_table(@table, chunk_size)
       writer.close
       @reader = Parquet::ArrowFileReader.new(@file.path)
-      yield
+      begin
+        yield
+      ensure
+        @reader.unref
+      end
     end
   end
 
