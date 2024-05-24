@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <!--
 
     Licensed to the Apache Software Foundation (ASF) under one
@@ -19,19 +19,19 @@
     under the License.
 
 -->
-<gradleEnterprise xmlns="https://www.gradle.com/gradle-enterprise-maven" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="https://www.gradle.com/gradle-enterprise-maven https://www.gradle.com/schema/gradle-enterprise-maven.xsd">
+<develocity xmlns="https://www.gradle.com/develocity-maven" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="https://www.gradle.com/develocity-maven https://www.gradle.com/schema/develocity-maven.xsd">
     <server>
         <url>https://ge.apache.org</url>
         <allowUntrusted>false</allowUntrusted>
     </server>
     <buildScan>
         <capture>
-            <goalInputFiles>true</goalInputFiles>
+            <fileFingerprints>true</fileFingerprints>
             <buildLogging>true</buildLogging>
             <testLogging>true</testLogging>
         </capture>
         <backgroundBuildScanUpload>#{isFalse(env['CI'])}</backgroundBuildScanUpload>
-        <publish>ALWAYS</publish>
+        <publishing><onlyIf>true</onlyIf></publishing>
         <publishIfAuthenticated>true</publishIfAuthenticated>
         <obfuscation>
             <ipAddresses>#{{'0.0.0.0'}}</ipAddresses>
@@ -42,4 +42,4 @@
             <enabled>false</enabled>
         </remote>
     </buildCache>
-</gradleEnterprise>
+</develocity>
