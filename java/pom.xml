@@ -98,7 +98,7 @@
     <maven-compiler-plugin.version>3.12.1</maven-compiler-plugin.version>
     <mockito.core.version>5.11.0</mockito.core.version>
     <mockito.inline.version>5.2.0</mockito.inline.version>
-    <checker.framework.version>3.42.0</checker.framework.version>
+    <checker.framework.version>3.43.0</checker.framework.version>
   </properties>
 
   <dependencyManagement>
