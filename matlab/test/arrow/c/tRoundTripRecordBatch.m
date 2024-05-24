@@ -18,11 +18,57 @@
 classdef tRoundTripRecordBatch < matlab.unittest.TestCase
 
     methods (Test)
-        % Test methods
+        function ZeroColumnRecordBatch(testCase)
+            expected = arrow.recordBatch(table());
+           
+            cArray = arrow.c.Array();
+            cSchema = arrow.c.Schema();
+            expected.export(cArray.Address, cSchema.Address);
+            actual = arrow.tabular.RecordBatch.import(cArray, cSchema);
 
-        function unimplementedTest(testCase)
-        testCase.verifyFail("Unimplemented test");
+            testCase.verifyEqual(actual, expected);
         end
+
+        function ZeroRowRecordBatch(testCase)
+            doubleArray = arrow.array([]);
+            stringArray = arrow.array(string.empty(0, 0));
+            expected = arrow.tabular.RecordBatch.fromArrays(doubleArray, stringArray);
+            
+            cArray = arrow.c.Array();
+            cSchema = arrow.c.Schema();
+            expected.export(cArray.Address, cSchema.Address);
+            actual = arrow.tabular.RecordBatch.import(cArray, cSchema);
+
+            testCase.verifyEqual(actual, expected);
+        end
+
+        function OneRowRecordBatch(testCase)
+            varNames = ["Col1" "Col2" "Col3"];
+            t = table(1, "A", false, VariableNames=varNames);
+            expected = arrow.recordBatch(t);
+
+            cArray = arrow.c.Array();
+            cSchema = arrow.c.Schema();
+            expected.export(cArray.Address, cSchema.Address);
+            actual = arrow.tabular.RecordBatch.import(cArray, cSchema);
+
+            testCase.verifyEqual(actual, expected);
+        end
+
+        function MultiRowRecordBatch(testCase)
+            varNames = ["Col1" "Col2" "Col3"];
+            t = table((1:3)', ["A"; "B"; "C"], [false; true; false],...
+                VariableNames=varNames);
+            expected = arrow.recordBatch(t);
+
+            cArray = arrow.c.Array();
+            cSchema = arrow.c.Schema();
+            expected.export(cArray.Address, cSchema.Address);
+            actual = arrow.tabular.RecordBatch.import(cArray, cSchema);
+
+            testCase.verifyEqual(actual, expected);
+        end
+
     end
 
 end
