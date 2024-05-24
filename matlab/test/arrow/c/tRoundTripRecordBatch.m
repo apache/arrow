@@ -157,12 +157,12 @@ classdef tRoundTripRecordBatch < matlab.unittest.TestCase
             cArray = arrow.c.Array();
             cSchema = arrow.c.Schema();
             rb.export(cArray.Address, cSchema.Address)
-            rb = arrow.array.Array.import(cArray, cSchema);
+            structArray = arrow.array.Array.import(cArray, cSchema);
 
             expected = arrow.array.StructArray.fromArrays(column1, column2, ...
                 FieldNames=["Number" "Text"]);
 
-            testCase.verifyEqual(rb, expected);
+            testCase.verifyEqual(structArray, expected);
         end
 
     end
