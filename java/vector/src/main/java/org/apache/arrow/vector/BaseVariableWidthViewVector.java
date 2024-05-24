@@ -46,7 +46,7 @@ import org.apache.arrow.vector.util.TransferPair;
  */
 public abstract class BaseVariableWidthViewVector extends BaseValueVector implements VariableWidthFieldVector {
   // A single element of a view comprises 16 bytes
-  protected static final int ELEMENT_SIZE = 16;
+  public static final int ELEMENT_SIZE = 16;
   public static final int INITIAL_VIEW_VALUE_ALLOCATION = 4096;
   private static final int INITIAL_BYTE_COUNT = INITIAL_VIEW_VALUE_ALLOCATION * ELEMENT_SIZE;
   private static final int MAX_BUFFER_SIZE = (int) Math.min(MAX_ALLOCATION_SIZE, Integer.MAX_VALUE);
@@ -70,14 +70,14 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   *
   * */
   // 12 byte unsigned int to track inline views
-  protected static final int INLINE_SIZE = 12;
+  public static final int INLINE_SIZE = 12;
   // The first 4 bytes of view are allocated for length
-  protected static final int LENGTH_WIDTH = 4;
+  public static final int LENGTH_WIDTH = 4;
   // The second 4 bytes of view are allocated for prefix width
-  protected static final int PREFIX_WIDTH = 4;
+  public static final int PREFIX_WIDTH = 4;
   // The third 4 bytes of view are allocated for buffer index
-  protected static final int BUF_INDEX_WIDTH = 4;
-  protected static final byte[] EMPTY_BYTE_ARRAY = new byte[]{};
+  public static final int BUF_INDEX_WIDTH = 4;
+  public static final byte[] EMPTY_BYTE_ARRAY = new byte[]{};
   protected ArrowBuf validityBuffer;
   // The view buffer is used to store the variable width view elements
   protected ArrowBuf viewBuffer;
@@ -156,6 +156,15 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   @Override
   public ArrowBuf getDataBuffer() {
     return viewBuffer;
+  }
+
+  /**
+   * Get the buffers that store the data for views in the vector.
+   *
+   * @return list of ArrowBuf
+   */
+  public List<ArrowBuf> getDataBuffers() {
+    return dataBuffers;
   }
 
   /**
@@ -359,8 +368,21 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    */
   @Override
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
-    // TODO: https://github.com/apache/arrow/issues/40931
-    throw new UnsupportedOperationException("loadFieldBuffers is not supported for BaseVariableWidthViewVector");
+    ArrowBuf bitBuf = ownBuffers.get(0);
+    ArrowBuf viewBuf = ownBuffers.get(1);
+    List<ArrowBuf> dataBufs = ownBuffers.subList(2, ownBuffers.size());
+
+    this.clear();
+
+    this.viewBuffer = viewBuf.getReferenceManager().retain(viewBuf, allocator);
+    this.validityBuffer = BitVectorHelper.loadValidityBuffer(fieldNode, bitBuf, allocator);
+
+    for (ArrowBuf dataBuf : dataBufs) {
+      this.dataBuffers.add(dataBuf.getReferenceManager().retain(dataBuf, allocator));
+    }
+
+    lastSet = fieldNode.getLength() - 1;
+    valueCount = fieldNode.getLength();
   }
 
   /**
@@ -694,13 +716,6 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    * impact the reference counts for this buffer, so it only should be used for in-context
    * access. Also note that this buffer changes regularly, thus
    * external classes shouldn't hold a reference to it (unless they change it).
-   * <p>
-   * Note: This method only returns validityBuffer and valueBuffer.
-   * But it doesn't return the data buffers.
-   * <p>
-   * TODO: Implement a strategy to retrieve the data buffers.
-   * <a href="https://github.com/apache/arrow/issues/40930">data buffer retrieval.</a>
-   *
    * @param clear Whether to clear vector before returning, the buffers will still be refcounted
    *              but the returned array will be the only reference to them
    * @return The underlying {@link ArrowBuf buffers} that is used by this
@@ -713,9 +728,15 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
     if (getBufferSize() == 0) {
       buffers = new ArrowBuf[0];
     } else {
-      buffers = new ArrowBuf[2];
+      final int dataBufferSize = dataBuffers.size();
+      // validity and view buffers
+      final int fixedBufferSize = 2;
+      buffers = new ArrowBuf[fixedBufferSize + dataBufferSize];
       buffers[0] = validityBuffer;
       buffers[1] = viewBuffer;
+      for (int i = fixedBufferSize; i < fixedBufferSize + dataBufferSize; i++) {
+        buffers[i] = dataBuffers.get(i - fixedBufferSize);
+      }
     }
     if (clear) {
       for (final ArrowBuf buffer : buffers) {

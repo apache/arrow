@@ -208,6 +208,7 @@ public class JsonFileWriter implements AutoCloseable {
   }
 
   private void writeFromVectorIntoJson(Field field, FieldVector vector) throws IOException {
+    // TODO: https://github.com/apache/arrow/issues/41733
     List<BufferType> vectorTypes = TypeLayout.getTypeLayout(field.getType()).getBufferTypes();
     List<ArrowBuf> vectorBuffers = vector.getFieldBuffers();
     if (vectorTypes.size() != vectorBuffers.size()) {

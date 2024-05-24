@@ -46,7 +46,7 @@ parent-child relationships.
 
 There are many implementations of ``arrow::Buffer``, but they all provide a
 standard interface: a data pointer and length. This is similar to Python's
-built-in `buffer protocol` and ``memoryview`` objects.
+built-in ``buffer protocol`` and ``memoryview`` objects.
 
 A :class:`Buffer` can be created from any Python object implementing
 the buffer protocol by calling the :func:`py_buffer` function. Let's consider

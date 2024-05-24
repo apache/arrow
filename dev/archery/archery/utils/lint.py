@@ -157,13 +157,13 @@ def cmake_linter(src, fix=False):
             'go/**/CMakeLists.txt',
             'java/**/CMakeLists.txt',
             'matlab/**/CMakeLists.txt',
-            'python/CMakeLists.txt',
+            'python/**/CMakeLists.txt',
         ],
         exclude_patterns=[
             'cpp/cmake_modules/FindNumPy.cmake',
             'cpp/cmake_modules/FindPythonLibsNew.cmake',
             'cpp/cmake_modules/UseCython.cmake',
-            'cpp/src/arrow/util/config.h.cmake',
+            'cpp/src/arrow/util/*.h.cmake',
         ]
     )
     method = cmake_format.fix if fix else cmake_format.check

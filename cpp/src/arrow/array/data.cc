@@ -224,6 +224,42 @@ int64_t ArrayData::ComputeLogicalNullCount() const {
   return ArraySpan(*this).ComputeLogicalNullCount();
 }
 
+DeviceAllocationType ArrayData::device_type() const {
+  // we're using 0 as a sentinel value for NOT YET ASSIGNED
+  // there is explicitly no constant DeviceAllocationType to represent
+  // the "UNASSIGNED" case as it is invalid for data to not have an
+  // assigned device type. If it's still 0 at the end, then we return
+  // CPU as the allocation device type
+  int type = 0;
+  for (const auto& buf : buffers) {
+    if (!buf) continue;
+    if (type == 0) {
+      type = static_cast<int>(buf->device_type());
+    } else {
+      DCHECK_EQ(type, static_cast<int>(buf->device_type()));
+    }
+  }
+
+  for (const auto& child : child_data) {
+    if (!child) continue;
+    if (type == 0) {
+      type = static_cast<int>(child->device_type());
+    } else {
+      DCHECK_EQ(type, static_cast<int>(child->device_type()));
+    }
+  }
+
+  if (dictionary) {
+    if (type == 0) {
+      type = static_cast<int>(dictionary->device_type());
+    } else {
+      DCHECK_EQ(type, static_cast<int>(dictionary->device_type()));
+    }
+  }
+
+  return type == 0 ? DeviceAllocationType::kCPU : static_cast<DeviceAllocationType>(type);
+}
+
 // ----------------------------------------------------------------------
 // Methods for ArraySpan
 

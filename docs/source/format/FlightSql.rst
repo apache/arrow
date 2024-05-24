@@ -32,9 +32,6 @@ with any database that supports the necessary endpoints. Flight SQL
 clients wrap the underlying Flight client to provide methods for the
 new RPC methods described here.
 
-.. warning:: Flight SQL is **experimental** and changes to the
-             protocol may still be made.
-
 RPC Methods
 ===========
 
@@ -196,7 +193,7 @@ in the ``app_metadata`` field of the Flight RPC ``PutResult`` returned.
 
     When used with DoPut: load the stream of Arrow record batches into
     the specified target table and return the number of rows ingested
-    via a `DoPutUpdateResult` message.
+    via a ``DoPutUpdateResult`` message.
 
 Flight Server Session Management
 --------------------------------

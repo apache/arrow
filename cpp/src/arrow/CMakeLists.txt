@@ -351,6 +351,12 @@ macro(append_runtime_avx512_src SRCS SRC)
   endif()
 endmacro()
 
+# Write out compile-time configuration constants
+configure_file("util/config.h.cmake" "util/config.h" ESCAPE_QUOTES)
+configure_file("util/config_internal.h.cmake" "util/config_internal.h" ESCAPE_QUOTES)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/util/config.h"
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/util")
+
 set(ARROW_SRCS
     builder.cc
     buffer.cc
@@ -637,6 +643,7 @@ endif()
 set(ARROW_TESTING_SRCS
     io/test_common.cc
     ipc/test_common.cc
+    testing/fixed_width_test_util.cc
     testing/gtest_util.cc
     testing/random.cc
     testing/generator.cc
@@ -716,7 +723,8 @@ set(ARROW_COMPUTE_SRCS
     compute/row/compare_internal.cc
     compute/row/grouper.cc
     compute/row/row_internal.cc
-    compute/util.cc)
+    compute/util.cc
+    compute/util_internal.cc)
 
 append_runtime_avx2_src(ARROW_COMPUTE_SRCS compute/key_hash_internal_avx2.cc)
 append_runtime_avx2_bmi2_src(ARROW_COMPUTE_SRCS compute/key_map_internal_avx2.cc)

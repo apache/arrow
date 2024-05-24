@@ -87,6 +87,13 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         ],
       },
       {
+        path: "c_glib/vcpkg.json",
+        hunks: [
+          ["-  \"version-string\": \"#{@snapshot_version}\",",
+           "+  \"version-string\": \"#{@next_snapshot_version}\","],
+        ],
+      },
+      {
         path: "ci/scripts/PKGBUILD",
         hunks: [
           ["-pkgver=#{@previous_version}.9000",
@@ -197,6 +204,12 @@ class PostBumpVersionsTest < Test::Unit::TestCase
     ]
     if release_type == :major
       expected_changes += [
+        {
+          path: "c_glib/tool/generate-version-header.py",
+          hunks: [
+            ["+        (#{@next_major_version}, 0),"],
+          ],
+        },
         {
           path: "docs/source/index.rst",
           hunks: [

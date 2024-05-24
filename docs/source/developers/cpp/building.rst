@@ -312,7 +312,7 @@ depends on ``python`` being available).
 
 On some Linux distributions, running the test suite might require setting an
 explicit locale. If you see any locale-related errors, try setting the
-environment variable (which requires the `locales` package or equivalent):
+environment variable (which requires the ``locales`` package or equivalent):
 
 .. code-block::
 

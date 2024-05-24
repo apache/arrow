@@ -26,6 +26,7 @@
 G_BEGIN_DECLS
 
 #define GARROW_TYPE_RECORD_BATCH_BUILDER (garrow_record_batch_builder_get_type())
+GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(GArrowRecordBatchBuilder,
                          garrow_record_batch_builder,
                          GARROW,
@@ -36,34 +37,45 @@ struct _GArrowRecordBatchBuilderClass
   GObjectClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_ALL
 GArrowRecordBatchBuilder *
 garrow_record_batch_builder_new(GArrowSchema *schema, GError **error);
 
+GARROW_AVAILABLE_IN_ALL
 gint64
 garrow_record_batch_builder_get_initial_capacity(GArrowRecordBatchBuilder *builder);
+
+GARROW_AVAILABLE_IN_ALL
 void
 garrow_record_batch_builder_set_initial_capacity(GArrowRecordBatchBuilder *builder,
                                                  gint64 capacity);
+GARROW_AVAILABLE_IN_ALL
 GArrowSchema *
 garrow_record_batch_builder_get_schema(GArrowRecordBatchBuilder *builder);
 
 #ifndef GARROW_DISABLE_DEPRECATED
+GARROW_AVAILABLE_IN_ALL
 GARROW_DEPRECATED_IN_0_13_FOR(garrow_record_batch_builder_get_n_columns)
 gint
 garrow_record_batch_builder_get_n_fields(GArrowRecordBatchBuilder *builder);
 #endif
+
 GARROW_AVAILABLE_IN_0_13
 gint
 garrow_record_batch_builder_get_n_columns(GArrowRecordBatchBuilder *builder);
+
 #ifndef GARROW_DISABLE_DEPRECATED
+GARROW_AVAILABLE_IN_ALL
 GARROW_DEPRECATED_IN_0_13_FOR(garrow_record_batch_builder_get_column_builder)
 GArrowArrayBuilder *
 garrow_record_batch_builder_get_field(GArrowRecordBatchBuilder *builder, gint i);
 #endif
+
 GARROW_AVAILABLE_IN_0_13
 GArrowArrayBuilder *
 garrow_record_batch_builder_get_column_builder(GArrowRecordBatchBuilder *builder, gint i);
 
+GARROW_AVAILABLE_IN_ALL
 GArrowRecordBatch *
 garrow_record_batch_builder_flush(GArrowRecordBatchBuilder *builder, GError **error);
 

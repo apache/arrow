@@ -478,7 +478,9 @@ static Status GetDictionaryEncoding(FBB& fbb, const std::shared_ptr<Field>& fiel
 
 static KeyValueOffset AppendKeyValue(FBB& fbb, const std::string& key,
                                      const std::string& value) {
-  return flatbuf::CreateKeyValue(fbb, fbb.CreateString(key), fbb.CreateString(value));
+  auto fbb_key = fbb.CreateString(key);
+  auto fbb_value = fbb.CreateString(value);
+  return flatbuf::CreateKeyValue(fbb, fbb_key, fbb_value);
 }
 
 static void AppendKeyValueMetadata(FBB& fbb, const KeyValueMetadata& metadata,

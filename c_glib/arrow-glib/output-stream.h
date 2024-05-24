@@ -30,6 +30,7 @@
 G_BEGIN_DECLS
 
 #define GARROW_TYPE_OUTPUT_STREAM (garrow_output_stream_get_type())
+GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(
   GArrowOutputStream, garrow_output_stream, GARROW, OUTPUT_STREAM, GObject)
 struct _GArrowOutputStreamClass
@@ -37,8 +38,11 @@ struct _GArrowOutputStreamClass
   GObjectClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_ALL
 gboolean
 garrow_output_stream_align(GArrowOutputStream *stream, gint32 alignment, GError **error);
+
+GARROW_AVAILABLE_IN_ALL
 gint64
 garrow_output_stream_write_tensor(GArrowOutputStream *stream,
                                   GArrowTensor *tensor,
@@ -51,6 +55,7 @@ garrow_output_stream_write_record_batch(GArrowOutputStream *stream,
                                         GError **error);
 
 #define GARROW_TYPE_FILE_OUTPUT_STREAM (garrow_file_output_stream_get_type())
+GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(GArrowFileOutputStream,
                          garrow_file_output_stream,
                          GARROW,
@@ -61,10 +66,12 @@ struct _GArrowFileOutputStreamClass
   GArrowOutputStreamClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_ALL
 GArrowFileOutputStream *
 garrow_file_output_stream_new(const gchar *path, gboolean append, GError **error);
 
 #define GARROW_TYPE_BUFFER_OUTPUT_STREAM (garrow_buffer_output_stream_get_type())
+GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(GArrowBufferOutputStream,
                          garrow_buffer_output_stream,
                          GARROW,
@@ -75,10 +82,12 @@ struct _GArrowBufferOutputStreamClass
   GArrowOutputStreamClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_ALL
 GArrowBufferOutputStream *
 garrow_buffer_output_stream_new(GArrowResizableBuffer *buffer);
 
 #define GARROW_TYPE_GIO_OUTPUT_STREAM (garrow_gio_output_stream_get_type())
+GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(GArrowGIOOutputStream,
                          garrow_gio_output_stream,
                          GARROW,
@@ -89,15 +98,19 @@ struct _GArrowGIOOutputStreamClass
   GArrowOutputStreamClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_ALL
 GArrowGIOOutputStream *
 garrow_gio_output_stream_new(GOutputStream *gio_output_stream);
+
 #ifndef GARROW_DISABLE_DEPRECATED
+GARROW_AVAILABLE_IN_ALL
 G_GNUC_DEPRECATED
 GOutputStream *
 garrow_gio_output_stream_get_raw(GArrowGIOOutputStream *output_stream);
 #endif
 
 #define GARROW_TYPE_COMPRESSED_OUTPUT_STREAM (garrow_compressed_output_stream_get_type())
+GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(GArrowCompressedOutputStream,
                          garrow_compressed_output_stream,
                          GARROW,
@@ -108,6 +121,7 @@ struct _GArrowCompressedOutputStreamClass
   GArrowOutputStreamClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_ALL
 GArrowCompressedOutputStream *
 garrow_compressed_output_stream_new(GArrowCodec *codec,
                                     GArrowOutputStream *raw,

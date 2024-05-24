@@ -26,6 +26,7 @@
 G_BEGIN_DECLS
 
 #define GARROW_TYPE_TIMESTAMP_PARSER (garrow_timestamp_parser_get_type())
+GARROW_AVAILABLE_IN_16_0
 G_DECLARE_DERIVABLE_TYPE(
   GArrowTimestampParser, garrow_timestamp_parser, GARROW, TIMESTAMP_PARSER, GObject)
 struct _GArrowTimestampParserClass
@@ -39,6 +40,7 @@ garrow_timestamp_parser_get_kind(GArrowTimestampParser *parser);
 
 #define GARROW_TYPE_STRPTIME_TIMESTAMP_PARSER                                            \
   (garrow_strptime_timestamp_parser_get_type())
+GARROW_AVAILABLE_IN_16_0
 G_DECLARE_DERIVABLE_TYPE(GArrowStrptimeTimestampParser,
                          garrow_strptime_timestamp_parser,
                          GARROW,
@@ -58,6 +60,7 @@ const gchar *
 garrow_strptime_timestamp_parser_get_format(GArrowStrptimeTimestampParser *parser);
 
 #define GARROW_TYPE_ISO8601_TIMESTAMP_PARSER (garrow_iso8601_timestamp_parser_get_type())
+GARROW_AVAILABLE_IN_16_0
 G_DECLARE_DERIVABLE_TYPE(GArrowISO8601TimestampParser,
                          garrow_iso8601_timestamp_parser,
                          GARROW,
