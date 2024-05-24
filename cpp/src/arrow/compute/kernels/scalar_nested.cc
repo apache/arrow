@@ -231,9 +231,11 @@ struct ListSlice {
                                                 const ExecSpan& batch,
                                                 BuilderType* out_list_builder) {
     static_assert(std::is_same_v<InListType, FixedSizeListType>);
+    constexpr bool kIsFixedSizeOutput = std::is_same_v<BuilderType, FixedSizeListBuilder>;
     const auto& fsl_type = checked_cast<const FixedSizeListType&>(*batch[0].type());
     const ArraySpan& list_array = batch[0].array;
     const ArraySpan& values_array = list_array.child_data[0];
+    ArrayBuilder* value_builder = out_list_builder->value_builder();
 
     const int32_t list_size = fsl_type.list_size();
     for (int64_t i = 0; i < list_array.length; ++i) {
@@ -241,12 +243,14 @@ struct ListSlice {
       if (list_array.IsNull(i)) {
         RETURN_NOT_OK(out_list_builder->AppendNull());
       } else {
+        RETURN_NOT_OK(out_list_builder->Append());
         int64_t start_offset = offset + opts.start;
         int64_t stop_offset =
             opts.stop.has_value() ? (offset + *opts.stop) : (offset + list_size);
         int64_t limit_offset = offset + list_size;
-        RETURN_NOT_OK(AppendValidListSlice(start_offset, opts.step, stop_offset,
-                                           limit_offset, values_array, out_list_builder));
+        RETURN_NOT_OK(AppendListSliceValues<kIsFixedSizeOutput>(
+            start_offset, opts.step, stop_offset, limit_offset, values_array,
+            value_builder));
       }
     }
     return Status::OK();
@@ -256,22 +260,25 @@ struct ListSlice {
   static Status BuildArrayFromListType(const ListSliceOptions& opts,
                                        const ExecSpan& batch,
                                        BuilderType* out_list_builder) {
+    constexpr bool kIsFixedSizeOutput = std::is_same_v<BuilderType, FixedSizeListBuilder>;
     const ArraySpan& list_array = batch[0].array;
+    const ArraySpan& values_array = list_array.child_data[0];
+    ArrayBuilder* value_builder = out_list_builder->value_builder();
+
     const auto* offsets = list_array.GetValues<offset_type>(1);
-
-    const ArraySpan& list_values = list_array.child_data[0];
-
     for (int64_t i = 0; i < list_array.length; ++i) {
       const offset_type offset = offsets[i];
       const offset_type next_offset = offsets[i + 1];
       if (list_array.IsNull(i)) {
         RETURN_NOT_OK(out_list_builder->AppendNull());
       } else {
+        RETURN_NOT_OK(out_list_builder->Append());
         int64_t start_offset = offset + opts.start;
         int64_t stop_offset = opts.stop.has_value() ? (offset + *opts.stop) : next_offset;
         int64_t limit_offset = next_offset;
-        RETURN_NOT_OK(AppendValidListSlice(start_offset, opts.step, stop_offset,
-                                           limit_offset, list_values, out_list_builder));
+        RETURN_NOT_OK(AppendListSliceValues<kIsFixedSizeOutput>(
+            start_offset, opts.step, stop_offset, limit_offset, values_array,
+            value_builder));
       }
     }
     return Status::OK();
@@ -279,23 +286,21 @@ struct ListSlice {
 
   /// \param stop_offset The offset to stop at, exclusive (according to ListSliceOptions)
   /// \param limit_offset The offset to stop at, exclusive (according to the input list)
-  template <typename BuilderType>
-  static Status AppendValidListSlice(int64_t start_offset, int64_t step,
-                                     int64_t stop_offset, int64_t limit_offset,
-                                     const ArraySpan& values_array,
-                                     BuilderType* out_list_builder) {
-    auto* value_builder = out_list_builder->value_builder();
-
-    RETURN_NOT_OK(out_list_builder->Append());
+  template <bool kIsFixedSizeOutput>
+  static Status AppendListSliceValues(int64_t start_offset, int64_t step,
+                                      int64_t stop_offset, int64_t limit_offset,
+                                      const ArraySpan& values_array,
+                                      ArrayBuilder* out_value_builder) {
     auto cursor_offset = start_offset;
     while (cursor_offset < stop_offset) {
       if (cursor_offset >= limit_offset) {
-        if constexpr (!std::is_same_v<BuilderType, FixedSizeListBuilder>) {
+        if constexpr (!kIsFixedSizeOutput) {
           break;  // don't pad nulls for variable sized list output
         }
-        RETURN_NOT_OK(value_builder->AppendNull());
+        RETURN_NOT_OK(out_value_builder->AppendNull());
       } else {
-        RETURN_NOT_OK(value_builder->AppendArraySlice(values_array, cursor_offset, 1));
+        RETURN_NOT_OK(
+            out_value_builder->AppendArraySlice(values_array, cursor_offset, 1));
       }
       cursor_offset += step;
     }
