@@ -931,3 +931,15 @@ def test_deprecated_use_legacy_dataset(tempdir):
 
     with pytest.warns(FutureWarning, match=msg):
         pq.ParquetDataset(path, use_legacy_dataset=False)
+
+def test_append_key_value_metadata(tempdir):
+    table = pa.Table.from_arrays([pa.array([], type='int32')], ['f0'])
+    path = tempdir / 'metadata.parquet'
+
+    with pq.ParquetWriter(path, table.schema) as writer:
+        writer.write_table(table)
+        writer.add_key_value_metadata({'key1': '1', 'key2': 'x'})
+        writer.add_key_value_metadata({'key2': '2', 'key3': '3'})
+    print("done")
+    reader = pq.ParquetFile(path)
+    print(reader.metadata())

@@ -24,7 +24,7 @@ from pyarrow.includes.libarrow cimport (CChunkedArray, CScalar, CSchema, CStatus
                                         CKeyValueMetadata, CRandomAccessFile,
                                         COutputStream, CCacheOptions,
                                         TimeUnit, CRecordBatchReader)
-from pyarrow.lib cimport _Weakrefable
+from pyarrow.lib cimport (_Weakrefable, pyarrow_unwrap_metadata, KeyValueMetadata)
 
 
 cdef extern from "parquet/api/schema.h" namespace "parquet::schema" nogil:
@@ -554,6 +554,7 @@ cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
         CStatus WriteTable(const CTable& table, int64_t chunk_size)
         CStatus NewRowGroup(int64_t chunk_size)
         CStatus Close()
+        CStatus AddKeyValueMetadata(const shared_ptr[const CKeyValueMetadata]& key_value_metadata)
 
         const shared_ptr[CFileMetaData] metadata() const
 
