@@ -36,6 +36,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Random;
+import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
 import org.apache.arrow.memory.ArrowBuf;
@@ -46,6 +47,7 @@ import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
 import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -1460,24 +1462,22 @@ public class TestVarCharViewVector {
     }
   }
 
-  private ViewVarCharVector createViewVarCharVector(BufferAllocator allocator) {
-    return newVector(ViewVarCharVector.class, EMPTY_SCHEMA_PATH,
-        Types.MinorType.VIEWVARCHAR, allocator);
+  static Stream<Arguments> vectorTypeProvider() {
+    return Stream.of(
+        Arguments.of(Types.MinorType.VIEWVARBINARY),
+        Arguments.of(Types.MinorType.VIEWVARCHAR)
+    );
   }
 
-  private ViewVarBinaryVector createViewVarBinaryVector(BufferAllocator allocator) {
-    return newVector(ViewVarBinaryVector.class, EMPTY_SCHEMA_PATH,
-        Types.MinorType.VIEWVARBINARY, allocator);
-  }
-
-  private BaseVariableWidthViewVector createVector(Types.MinorType type, BufferAllocator allocator) {
+  BiFunction<BufferAllocator, MinorType, BaseVariableWidthViewVector> vectorCreator = (allocator, type) -> {
     if (type == Types.MinorType.VIEWVARBINARY) {
-      return createViewVarBinaryVector(allocator);
+      return newVector(ViewVarBinaryVector.class, EMPTY_SCHEMA_PATH, Types.MinorType.VIEWVARBINARY, allocator);
     } else if (type == Types.MinorType.VIEWVARCHAR) {
-      return createViewVarCharVector(allocator);
+      return newVector(ViewVarCharVector.class, EMPTY_SCHEMA_PATH, Types.MinorType.VIEWVARCHAR, allocator);
     } else {
       throw new UnsupportedOperationException("Not supported type : " + type);
     }
+  };
   }
 
   static Stream<Arguments> vectorTypeAndClassProvider() {
@@ -1556,10 +1556,10 @@ public class TestVarCharViewVector {
             newVector(ViewVarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VIEWVARCHAR, allocator)) {
 
   @ParameterizedTest
-  @MethodSource({"vectorTypeAndClassProvider"})
+  @MethodSource({"vectorTypeProvider"})
   public void testCopyFromWithNulls(Types.MinorType type) {
-    try (final BaseVariableWidthViewVector vector = createVector(type, allocator);
-        final BaseVariableWidthViewVector vector2 = createVector(type, allocator)) {
+    try (final BaseVariableWidthViewVector vector = vectorCreator.apply(allocator, type);
+        final BaseVariableWidthViewVector vector2 = vectorCreator.apply(allocator, type)) {
       final int initialCapacity = 1024;
       vector.setInitialCapacity(initialCapacity);
       vector.allocateNew();
@@ -1646,10 +1646,10 @@ public class TestVarCharViewVector {
   }
 
   @ParameterizedTest
-  @MethodSource("vectorTypeAndClassProvider")
+  @MethodSource("vectorTypeProvider")
   public void testCopyFromSafeWithNulls(Types.MinorType type) {
-    try (final BaseVariableWidthViewVector vector = createVector(type, allocator);
-        final BaseVariableWidthViewVector vector2 = createVector(type, allocator)) {
+    try (final BaseVariableWidthViewVector vector = vectorCreator.apply(allocator, type);
+        final BaseVariableWidthViewVector vector2 = vectorCreator.apply(allocator, type)) {
 
       final int initialCapacity = 4096;
       vector.setInitialCapacity(initialCapacity);
