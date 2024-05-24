@@ -1059,8 +1059,14 @@ struct SchemaImporter {
         ARROW_ASSIGN_OR_RAISE(
             type_, registered_ext_type->Deserialize(std::move(type_),
                                                     metadata_.extension_serialized));
-        RETURN_NOT_OK(metadata_.metadata->DeleteMany(
-            {metadata_.extension_name_index, metadata_.extension_serialized_index}));
+        // If metadata is present, delete both metadata keys (otherwise, just remove
+        // the extension name key)
+        if (metadata_.extension_serialized_index >= 0) {
+          RETURN_NOT_OK(metadata_.metadata->DeleteMany(
+              {metadata_.extension_name_index, metadata_.extension_serialized_index}));
+        } else {
+          RETURN_NOT_OK(metadata_.metadata->Delete(metadata_.extension_name_index));
+        }
       }
     }
 
