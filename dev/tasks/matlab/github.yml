@@ -76,7 +76,7 @@ jobs:
       - name: Update dylib names
         run: arrow/dev/tasks/matlab/rename_macos_dynamic_libraries.sh arrow/matlab/install/arrow_matlab/+libmexclass/+proxy x64
       - name: Compress into single artifact
-        run: tar -cvzf matlab-arrow-macos.tar.gz arrow/matlab/install/arrow_matlab
+        run: tar -cvzf matlab-arrow-macos-x64.tar.gz arrow/matlab/install/arrow_matlab
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
