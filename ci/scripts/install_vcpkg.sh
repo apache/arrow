@@ -25,7 +25,7 @@ if [ "$#" -lt 1 ]; then
 fi
 
 arrow_dir=$(cd -- "$(dirname -- "$0")/../.." && pwd -P)
-default_vcpkg_version=$(cat "${arrow_dir}/.env" | grep "VCPKG" | cut -d "=" -f2 | tr -d '"')
+default_vcpkg_version=$(source "${arrow_dir}/.env" && echo "$VCPKG" || echo "")
 default_vcpkg_ports_patch="${arrow_dir}/ci/vcpkg/ports.patch"
 
 vcpkg_destination=$1

@@ -87,6 +87,13 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         ],
       },
       {
+        path: "c_glib/vcpkg.json",
+        hunks: [
+          ["-  \"version-string\": \"#{@snapshot_version}\",",
+           "+  \"version-string\": \"#{@next_snapshot_version}\","],
+        ],
+      },
+      {
         path: "ci/scripts/PKGBUILD",
         hunks: [
           ["-pkgver=#{@previous_version}.9000",

@@ -50,6 +50,12 @@ update_versions() {
     rm -f tool/generate-version-header.py.bak
     git add tool/generate-version-header.py
   fi
+
+  sed -i.bak -E -e \
+    "s/\"version-string\": \".+\"/\"version-string\": \"${version}\"/" \
+    vcpkg.json
+  rm -f vcpkg.json.bak
+  git add vcpkg.json
   popd
 
   pushd "${ARROW_DIR}/ci/scripts"

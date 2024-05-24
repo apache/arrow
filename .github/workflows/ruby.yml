@@ -186,7 +186,7 @@ jobs:
         shell: bash
         run: ci/scripts/ruby_test.sh $(pwd) $(pwd)/build
 
-  windows:
+  windows-mingw:
     name: AMD64 Windows MinGW ${{ matrix.mingw-n-bits }} GLib & Ruby
     runs-on: windows-2019
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
@@ -267,7 +267,6 @@ jobs:
           ridk exec bash ci\scripts\cpp_build.sh "${source_dir}" "${build_dir}"
       - name: Build GLib
         run: |
-          $Env:CMAKE_BUILD_PARALLEL_LEVEL = $Env:NUMBER_OF_PROCESSORS
           $source_dir = "$(ridk exec cygpath --unix "$(Get-Location)")"
           $build_dir = "$(ridk exec cygpath --unix "$(Get-Location)\build")"
           $ErrorActionPreference = "Continue"
@@ -305,3 +304,96 @@ jobs:
           $Env:MAKE = "ridk exec make"
           $ErrorActionPreference = "Continue"
           rake -f ruby\Rakefile
+
+  windows-msvc:
+    name: AMD64 Windows MSVC GLib
+    runs-on: windows-2019
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+    env:
+      ARROW_BOOST_USE_SHARED: OFF
+      ARROW_BUILD_BENCHMARKS: OFF
+      ARROW_BUILD_SHARED: ON
+      ARROW_BUILD_STATIC: OFF
+      ARROW_BUILD_TESTS: OFF
+      ARROW_ACERO: ON
+      ARROW_DATASET: ON
+      ARROW_FLIGHT: OFF
+      ARROW_FLIGHT_SQL: OFF
+      ARROW_GANDIVA: OFF
+      ARROW_HDFS: OFF
+      ARROW_HOME: "${{ github.workspace }}/dist"
+      ARROW_JEMALLOC: OFF
+      ARROW_MIMALLOC: ON
+      ARROW_ORC: OFF
+      ARROW_PARQUET: ON
+      ARROW_SUBSTRAIT: OFF
+      ARROW_USE_GLOG: OFF
+      ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
+      ARROW_WITH_BROTLI: OFF
+      ARROW_WITH_BZ2: OFF
+      ARROW_WITH_LZ4: OFF
+      ARROW_WITH_OPENTELEMETRY: OFF
+      ARROW_WITH_SNAPPY: ON
+      ARROW_WITH_ZLIB: OFF
+      ARROW_WITH_ZSTD: ON
+      BOOST_SOURCE: BUNDLED
+      CMAKE_CXX_STANDARD: "17"
+      CMAKE_GENERATOR: Ninja
+      CMAKE_INSTALL_PREFIX: "${{ github.workspace }}/dist"
+      CMAKE_UNITY_BUILD: ON
+    steps:
+      - name: Disable Crash Dialogs
+        run: |
+          reg add `
+            "HKCU\SOFTWARE\Microsoft\Windows\Windows Error Reporting" `
+            /v DontShowUI `
+            /t REG_DWORD `
+            /d 1 `
+            /f
+      - name: Checkout Arrow
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Install vcpkg
+        shell: bash
+        run: |
+          ci/scripts/install_vcpkg.sh ./vcpkg
+      - name: Install meson
+        run: |
+          python -m pip install meson
+      - name: Install ccache
+        shell: bash
+        run: |
+          ci/scripts/install_ccache.sh 4.6.3 /usr
+      - name: Setup ccache
+        shell: bash
+        run: |
+          ci/scripts/ccache_setup.sh
+      - name: ccache info
+        id: ccache-info
+        shell: bash
+        run: |
+          echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: glib-ccache-msvc-${{ env.CACHE_VERSION }}-${{ hashFiles('cpp/**') }}
+          restore-keys: glib-ccache-msvc-${{ env.CACHE_VERSION }}-
+        env:
+          # We can invalidate the current cache by updating this.
+          CACHE_VERSION: "2024-05-09"
+      - name: Build C++
+        shell: cmd
+        run: |
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
+      - name: Build GLib
+        shell: cmd
+        run: |
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          bash -c "VCPKG_ROOT=\"$(pwd)/vcpkg\" ci/scripts/c_glib_build.sh $(pwd) $(pwd)/build"

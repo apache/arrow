@@ -23,7 +23,10 @@
 
 #include <arrow-glib/schema.h>
 
+GARROW_EXTERN
 GArrowSchema *
 garrow_schema_new_raw(std::shared_ptr<arrow::Schema> *arrow_schema);
+
+GARROW_EXTERN
 std::shared_ptr<arrow::Schema>
 garrow_schema_get_raw(GArrowSchema *schema);
