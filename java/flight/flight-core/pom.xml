@@ -119,7 +119,7 @@
     </dependency>
     <dependency>
       <groupId>org.immutables</groupId>
-      <artifactId>value</artifactId>
+      <artifactId>value-annotations</artifactId>
     </dependency>
 
     <dependency>
