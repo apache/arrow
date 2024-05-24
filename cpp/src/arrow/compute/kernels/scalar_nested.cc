@@ -200,6 +200,10 @@ struct ListSlice {
         return BuildArray<LargeListBuilder>(ctx, batch, output_type, out);
       case Type::FIXED_SIZE_LIST:
         return BuildArray<FixedSizeListBuilder>(ctx, batch, output_type, out);
+      case Type::LIST_VIEW:
+        return BuildArray<ListViewBuilder>(ctx, batch, output_type, out);
+      case Type::LARGE_LIST_VIEW:
+        return BuildArray<LargeListViewBuilder>(ctx, batch, output_type, out);
       default:
         Unreachable();
         return Status::OK();
@@ -239,19 +243,25 @@ struct ListSlice {
 
     const int32_t list_size = fsl_type.list_size();
     const int64_t start = opts.start;
+    const int64_t step = opts.step;
     const int64_t stop = opts.stop.value_or(list_size);
     for (int64_t i = 0; i < list_array.length; ++i) {
       auto offset = (i + list_array.offset) * list_size;
       if (list_array.IsNull(i)) {
         RETURN_NOT_OK(out_list_builder->AppendNull());
       } else {
-        RETURN_NOT_OK(out_list_builder->Append());
         int64_t start_offset = offset + start;
         int64_t stop_offset = offset + stop;
         int64_t limit_offset = (list_size < stop) ? offset + list_size : stop_offset;
+        auto slice_value_count = ListSliceLength(
+            start_offset, step, kIsFixedSizeOutput ? stop_offset : limit_offset);
+        if constexpr (kIsFixedSizeOutput) {
+          RETURN_NOT_OK(out_list_builder->Append());
+        } else {
+          RETURN_NOT_OK(out_list_builder->Append(/*is_valid=*/true, slice_value_count));
+        }
         RETURN_NOT_OK(AppendListSliceValues<kIsFixedSizeOutput>(
-            start_offset, opts.step, stop_offset, limit_offset, values_array,
-            value_builder));
+            start_offset, step, stop_offset, limit_offset, values_array, value_builder));
       }
     }
     return Status::OK();
@@ -266,7 +276,9 @@ struct ListSlice {
     const ArraySpan& values_array = list_array.child_data[0];
     ArrayBuilder* value_builder = out_list_builder->value_builder();
 
-    const auto stop = opts.stop;
+    const int64_t start = opts.start;
+    const int64_t step = opts.step;
+    const std::optional<int64_t> stop = opts.stop;
     const auto* offsets = list_array.GetValues<offset_type>(1);
     for (int64_t i = 0; i < list_array.length; ++i) {
       const offset_type offset = offsets[i];
@@ -274,14 +286,19 @@ struct ListSlice {
       if (list_array.IsNull(i)) {
         RETURN_NOT_OK(out_list_builder->AppendNull());
       } else {
-        RETURN_NOT_OK(out_list_builder->Append());
-        int64_t start_offset = offset + opts.start;
+        int64_t start_offset = offset + start;
         int64_t stop_offset =
             stop.has_value() ? stop_offset = offset + *stop : next_offset;
         int64_t limit_offset = std::min(stop_offset, static_cast<int64_t>(next_offset));
+        auto slice_value_count = ListSliceLength(
+            start_offset, step, kIsFixedSizeOutput ? stop_offset : limit_offset);
+        if constexpr (kIsFixedSizeOutput) {
+          RETURN_NOT_OK(out_list_builder->Append());
+        } else {
+          RETURN_NOT_OK(out_list_builder->Append(/*is_valid=*/true, slice_value_count));
+        }
         RETURN_NOT_OK(AppendListSliceValues<kIsFixedSizeOutput>(
-            start_offset, opts.step, stop_offset, limit_offset, values_array,
-            value_builder));
+            start_offset, step, stop_offset, limit_offset, values_array, value_builder));
       }
     }
     return Status::OK();
@@ -332,6 +349,8 @@ void AddListSliceKernels(ScalarFunction* func) {
   AddListSliceKernels<ListType>(func);
   AddListSliceKernels<LargeListType>(func);
   AddListSliceKernels<FixedSizeListType>(func);
+  AddListSliceKernels<ListViewType>(func);
+  AddListSliceKernels<LargeListViewType>(func);
 }
 
 const FunctionDoc list_slice_doc(
