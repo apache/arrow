@@ -23,10 +23,11 @@
 
 #include "libmexclass/proxy/ProxyManager.h"
 
-
 namespace arrow::matlab::c::proxy {
 
-RecordBatchImporter::RecordBatchImporter() { REGISTER_METHOD(RecordBatchImporter, import); }
+RecordBatchImporter::RecordBatchImporter() {
+  REGISTER_METHOD(RecordBatchImporter, import);
+}
 
 libmexclass::proxy::MakeResult RecordBatchImporter::make(
     const libmexclass::proxy::FunctionArguments& constructor_arguments) {
