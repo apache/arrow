@@ -212,7 +212,7 @@ def test_use_threads(version):
     columns = ['col_' + str(i) for i in range(10)]
     table = pa.Table.from_arrays(values, columns)
 
-    write_feather(table, path, version=version)
+    write_feather(table, path, version=version, use_threads=True)
 
     result = read_feather(path)
     assert_frame_equal(table.to_pandas(), result)
@@ -224,6 +224,12 @@ def test_use_threads(version):
     # Test read_table with use_threads=False
     result = read_table(path, use_threads=False)
     assert result.equals(table)
+
+    # Test write_feather in serial
+    write_feather(table, path, version=version, use_threads=False)
+
+    result = read_feather(path)
+    assert_frame_equal(table.to_pandas(), result)
 
 
 @pytest.mark.pandas
