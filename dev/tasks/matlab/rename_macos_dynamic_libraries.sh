@@ -35,9 +35,8 @@ set -ex
 #        |-- regular_file.txt
 #        |-- symbolic_link -> regular_file.txt
 #
-# Passing "/tmp/example" as the toolboxFolder argument to ToolboxOptions' constructor returns
-# the following object:
-#
+# Passing "/tmp/example" as the toolboxFolder argument to ToolboxOptions' constructor in MATLAB
+# returns the following object:
 #
 #       >> opts = matlab.addons.toolbox.ToolboxOptions("/tmp/example", "dummy-identifier");
 #       >> opts.ToolboxFiles
