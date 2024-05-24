@@ -47,10 +47,8 @@ import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
 import org.apache.arrow.vector.types.Types;
-import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.util.ReusableByteArray;
 import org.apache.arrow.vector.util.Text;
 import org.junit.jupiter.api.AfterEach;
@@ -1462,34 +1460,6 @@ public class TestVarCharViewVector {
     }
   }
 
-  static Stream<Arguments> vectorCreatorProvider() {
-    return Stream.of(
-        Arguments.of((Function<BufferAllocator, BaseVariableWidthViewVector>)
-            (allocator -> newVector(ViewVarBinaryVector.class, EMPTY_SCHEMA_PATH,
-                Types.MinorType.VIEWVARBINARY, allocator))),
-        Arguments.of((Function<BufferAllocator, BaseVariableWidthViewVector>)
-            (allocator -> newVector(ViewVarCharVector.class, EMPTY_SCHEMA_PATH,
-                Types.MinorType.VIEWVARCHAR, allocator)))
-    );
-  }
-
-  BiFunction<BufferAllocator, MinorType, BaseVariableWidthViewVector> vectorCreator = (allocator, type) -> {
-    if (type == Types.MinorType.VIEWVARBINARY) {
-      return newVector(ViewVarBinaryVector.class, EMPTY_SCHEMA_PATH, Types.MinorType.VIEWVARBINARY, allocator);
-    } else if (type == Types.MinorType.VIEWVARCHAR) {
-      return newVector(ViewVarCharVector.class, EMPTY_SCHEMA_PATH, Types.MinorType.VIEWVARCHAR, allocator);
-    } else {
-      throw new UnsupportedOperationException("Not supported type : " + type);
-    }
-  };
-  }
-
-  static Stream<Arguments> vectorTypeAndClassProvider() {
-    return Stream.of(
-        Arguments.of(Types.MinorType.VIEWVARBINARY),
-        Arguments.of(Types.MinorType.VIEWVARCHAR)
-    );
-  }
   @Test
   public void testVectorLoadUnload() {
 
@@ -1552,12 +1522,16 @@ public class TestVarCharViewVector {
     }
   }
 
-  @Test
-  public void testCopyFromWithNulls() {
-    try (final ViewVarCharVector vector = newVector(ViewVarCharVector.class, EMPTY_SCHEMA_PATH,
-        MinorType.VIEWVARCHAR, allocator);
-        final ViewVarCharVector vector2 =
-            newVector(ViewVarCharVector.class, EMPTY_SCHEMA_PATH, MinorType.VIEWVARCHAR, allocator)) {
+  static Stream<Arguments> vectorCreatorProvider() {
+    return Stream.of(
+        Arguments.of((Function<BufferAllocator, BaseVariableWidthViewVector>)
+            (allocator -> newVector(ViewVarBinaryVector.class, EMPTY_SCHEMA_PATH,
+                Types.MinorType.VIEWVARBINARY, allocator))),
+        Arguments.of((Function<BufferAllocator, BaseVariableWidthViewVector>)
+            (allocator -> newVector(ViewVarCharVector.class, EMPTY_SCHEMA_PATH,
+                Types.MinorType.VIEWVARCHAR, allocator)))
+    );
+  }
 
   @ParameterizedTest
   @MethodSource({"vectorCreatorProvider"})
