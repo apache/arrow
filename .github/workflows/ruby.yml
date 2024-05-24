@@ -313,6 +313,7 @@ jobs:
     strategy:
       fail-fast: false
     env:
+      VCPKG_BINARY_SOURCES: 'clear;nuget,GitHub,readwrite'
       ARROW_DEPENDENCY_SOURCE: VCPKG
       ARROW_DEPENDENCY_USE_SHARED: OFF
       ARROW_BOOST_USE_SHARED: OFF
@@ -389,6 +390,19 @@ jobs:
         env:
           # We can invalidate the current cache by updating this.
           CACHE_VERSION: "2024-05-09"
+      - name: Setup NuGet credentials for vcpkg caching
+        shell: bash
+        run: |
+          `./vcpkg/vcpkg.exe fetch nuget | tail -n 1` \
+            sources add \
+            -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json" \
+            -storepasswordincleartext \
+            -name "GitHub" \
+            -username "$GITHUB_REPOSITORY_OWNER" \
+            -password "${{ secrets.GITHUB_TOKEN }}"
+          `./vcpkg/vcpkg.exe fetch nuget | tail -n 1` \
+            setapikey "${{ secrets.GITHUB_TOKEN }}" \
+            -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json"
       - name: Build C++ VCPKG dependencies
         shell: cmd
         run: |
