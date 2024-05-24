@@ -566,6 +566,7 @@ struct ARROW_EXPORT ScalarKernel : public Kernel {
   // bitmaps is a reasonable default
   NullHandling::type null_handling = NullHandling::INTERSECTION;
   MemAllocation::type mem_allocation = MemAllocation::PREALLOCATE;
+  bool selection_vector_aware = false;
 };
 
 // ----------------------------------------------------------------------

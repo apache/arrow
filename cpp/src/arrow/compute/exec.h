@@ -422,6 +422,7 @@ struct ARROW_EXPORT ExecSpan {
 
   int64_t length = 0;
   std::vector<ExecValue> values;
+  SelectionVector *selection_vector = NULLPTR;
 };
 
 /// \defgroup compute-call-function One-shot calls to compute functions

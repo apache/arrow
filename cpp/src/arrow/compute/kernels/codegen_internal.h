@@ -418,6 +418,27 @@ static void VisitTwoArrayValuesInline(const ArraySpan& arr0, const ArraySpan& ar
                         std::move(visit_null));
 }
 
+template <typename Arg0Type, typename Arg1Type, typename VisitFunc, typename NullFunc>
+static void VisitTwoArrayValuesWithSelInline(const ArraySpan& arr0, const ArraySpan& arr1,
+                                             VisitFunc&& valid_func, NullFunc&& null_func,
+                                             SelectionVector* sel) {
+  ArrayIterator<Arg0Type> arr0_it(arr0);
+  ArrayIterator<Arg1Type> arr1_it(arr1);
+
+  auto visit_valid = [&](int64_t i) {
+    valid_func(GetViewType<Arg0Type>::LogicalValue(arr0_it()),
+               GetViewType<Arg1Type>::LogicalValue(arr1_it()));
+  };
+  auto visit_null = [&]() {
+    arr0_it();
+    arr1_it();
+    null_func();
+  };
+  VisitTwoBitBlocksVoid(arr0.buffers[0].data, arr0.offset, arr1.buffers[0].data,
+                        arr1.offset, arr0.length, std::move(visit_valid),
+                        std::move(visit_null));
+}
+
 // ----------------------------------------------------------------------
 // Reusable type resolvers
 
@@ -781,6 +802,19 @@ struct ScalarBinaryNotNullStateful {
     return st;
   }
 
+  Status ArrayArrayWithSel(KernelContext* ctx, const ArraySpan& arg0,
+                           const ArraySpan& arg1, SelectionVector* sel, ExecResult* out) {
+    Status st = Status::OK();
+    OutputArrayWriter<OutType> writer(out->array_span_mutable());
+    VisitTwoArrayValuesInline<Arg0Type, Arg1Type>(
+        arg0, arg1,
+        [&](Arg0Value u, Arg1Value v) {
+          writer.Write(op.template Call<OutValue, Arg0Value, Arg1Value>(ctx, u, v, &st));
+        },
+        [&]() { writer.WriteNull(); });
+    return st;
+  }
+
   Status ArrayScalar(KernelContext* ctx, const ArraySpan& arg0, const Scalar& arg1,
                      ExecResult* out) {
     Status st = Status::OK();
@@ -801,8 +835,48 @@ struct ScalarBinaryNotNullStateful {
     return st;
   }
 
+  Status ArrayScalarWithSel(KernelContext* ctx, const ArraySpan& arg0, const Scalar& arg1,
+                            SelectionVector* sel, ExecResult* out) {
+    Status st = Status::OK();
+    ArraySpan* out_span = out->array_span_mutable();
+    OutputArrayWriter<OutType> writer(out_span);
+    if (arg1.is_valid) {
+      const auto arg1_val = UnboxScalar<Arg1Type>::Unbox(arg1);
+      VisitArrayValuesInline<Arg0Type>(
+          arg0,
+          [&](Arg0Value u) {
+            writer.Write(
+                op.template Call<OutValue, Arg0Value, Arg1Value>(ctx, u, arg1_val, &st));
+          },
+          [&]() { writer.WriteNull(); });
+    } else {
+      writer.WriteAllNull(out_span->length);
+    }
+    return st;
+  }
+
   Status ScalarArray(KernelContext* ctx, const Scalar& arg0, const ArraySpan& arg1,
                      ExecResult* out) {
+    Status st = Status::OK();
+    ArraySpan* out_span = out->array_span_mutable();
+    OutputArrayWriter<OutType> writer(out_span);
+    if (arg0.is_valid) {
+      const auto arg0_val = UnboxScalar<Arg0Type>::Unbox(arg0);
+      VisitArrayValuesInline<Arg1Type>(
+          arg1,
+          [&](Arg1Value v) {
+            writer.Write(
+                op.template Call<OutValue, Arg0Value, Arg1Value>(ctx, arg0_val, v, &st));
+          },
+          [&]() { writer.WriteNull(); });
+    } else {
+      writer.WriteAllNull(out_span->length);
+    }
+    return st;
+  }
+
+  Status ScalarArrayWithSel(KernelContext* ctx, const Scalar& arg0, const ArraySpan& arg1,
+                            SelectionVector* sel, ExecResult* out) {
     Status st = Status::OK();
     ArraySpan* out_span = out->array_span_mutable();
     OutputArrayWriter<OutType> writer(out_span);

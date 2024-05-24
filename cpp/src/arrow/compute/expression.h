@@ -60,6 +60,22 @@ class ARROW_EXPORT Expression {
     void ComputeHash();
   };
 
+  struct SpecialCall {
+    std::string function_name;
+    std::vector<Expression> arguments;
+    std::shared_ptr<FunctionOptions> options;
+    // Cached hash value
+    size_t hash;
+
+    // post-Bind properties:
+    std::shared_ptr<Function> function;
+    const Kernel* kernel = NULLPTR;
+    std::shared_ptr<KernelState> kernel_state;
+    TypeHolder type;
+
+    void ComputeHash();
+  };
+
   std::string ToString() const;
   bool Equals(const Expression& other) const;
   size_t hash() const;
