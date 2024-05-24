@@ -78,9 +78,7 @@ class ReaderProperties;
 class ArrowReaderProperties;
 
 class WriterProperties;
-class WriterPropertiesBuilder;
 class ArrowWriterProperties;
-class ArrowWriterPropertiesBuilder;
 
 namespace arrow {
 
