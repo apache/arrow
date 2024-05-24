@@ -215,7 +215,7 @@ Result<std::unique_ptr<Buffer>> CPUMemoryManager::CopyNonOwnedFrom(
   if (buf.size() > 0) {
     memcpy(dest->mutable_data(), buf.data(), static_cast<size_t>(buf.size()));
   }
-  return std::move(dest);
+  return dest;
 }
 
 Result<std::shared_ptr<Buffer>> CPUMemoryManager::ViewBufferFrom(
@@ -247,7 +247,7 @@ Result<std::unique_ptr<Buffer>> CPUMemoryManager::CopyNonOwnedTo(
   if (buf.size() > 0) {
     memcpy(dest->mutable_data(), buf.data(), static_cast<size_t>(buf.size()));
   }
-  return std::move(dest);
+  return dest;
 }
 
 Result<std::shared_ptr<Buffer>> CPUMemoryManager::ViewBufferTo(
