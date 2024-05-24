@@ -113,9 +113,8 @@ _FEATHER_SUPPORTED_CODECS = {'lz4', 'zstd', 'uncompressed'}
 
 
 def write_feather(df, dest, compression=None, compression_level=None,
-                  chunksize=None, version=2):
-    """
-    Write a pandas.DataFrame to Feather format.
+                  chunksize=None, version=2, use_threads=True):
+    """Write a pandas.DataFrame to Feather format.
 
     Parameters
     ----------
@@ -136,6 +135,9 @@ def write_feather(df, dest, compression=None, compression_level=None,
     version : int, default 2
         Feather file version. Version 2 is the current. Version 1 is the more
         limited legacy format
+    use_threads : bool, default True
+        Whether to parallelize conversion of a pandas.DataFrame using
+        multiple threads.
     """
     if _pandas_api.have_pandas:
         if (_pandas_api.has_sparse and
@@ -153,7 +155,16 @@ def write_feather(df, dest, compression=None, compression_level=None,
         else:
             raise ValueError("Version value should either be 1 or 2")
 
-        table = Table.from_pandas(df, preserve_index=preserve_index)
+        # Table.from_pandas will heuristically choose the number of
+        # threads to use if nthreads == None, but won't use threads if
+        # nthreads == 1.
+        if use_threads:
+            nthreads = None
+        else:
+            nthreads = 1
+
+        table = Table.from_pandas(df, preserve_index=preserve_index,
+                                  nthreads=nthreads)
 
         if version == 1:
             # Version 1 does not chunking
