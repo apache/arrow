@@ -238,16 +238,17 @@ struct ListSlice {
     ArrayBuilder* value_builder = out_list_builder->value_builder();
 
     const int32_t list_size = fsl_type.list_size();
+    const int64_t start = opts.start;
+    const int64_t stop = opts.stop.value_or(list_size);
     for (int64_t i = 0; i < list_array.length; ++i) {
       auto offset = (i + list_array.offset) * list_size;
       if (list_array.IsNull(i)) {
         RETURN_NOT_OK(out_list_builder->AppendNull());
       } else {
         RETURN_NOT_OK(out_list_builder->Append());
-        int64_t start_offset = offset + opts.start;
-        int64_t stop_offset =
-            opts.stop.has_value() ? (offset + *opts.stop) : (offset + list_size);
-        int64_t limit_offset = offset + list_size;
+        int64_t start_offset = offset + start;
+        int64_t stop_offset = offset + stop;
+        int64_t limit_offset = (list_size < stop) ? offset + list_size : stop_offset;
         RETURN_NOT_OK(AppendListSliceValues<kIsFixedSizeOutput>(
             start_offset, opts.step, stop_offset, limit_offset, values_array,
             value_builder));
@@ -265,6 +266,7 @@ struct ListSlice {
     const ArraySpan& values_array = list_array.child_data[0];
     ArrayBuilder* value_builder = out_list_builder->value_builder();
 
+    const auto stop = opts.stop;
     const auto* offsets = list_array.GetValues<offset_type>(1);
     for (int64_t i = 0; i < list_array.length; ++i) {
       const offset_type offset = offsets[i];
@@ -274,8 +276,9 @@ struct ListSlice {
       } else {
         RETURN_NOT_OK(out_list_builder->Append());
         int64_t start_offset = offset + opts.start;
-        int64_t stop_offset = opts.stop.has_value() ? (offset + *opts.stop) : next_offset;
-        int64_t limit_offset = next_offset;
+        int64_t stop_offset =
+            stop.has_value() ? stop_offset = offset + *stop : next_offset;
+        int64_t limit_offset = std::min(stop_offset, static_cast<int64_t>(next_offset));
         RETURN_NOT_OK(AppendListSliceValues<kIsFixedSizeOutput>(
             start_offset, opts.step, stop_offset, limit_offset, values_array,
             value_builder));
@@ -291,18 +294,17 @@ struct ListSlice {
                                       int64_t stop_offset, int64_t limit_offset,
                                       const ArraySpan& values_array,
                                       ArrayBuilder* out_value_builder) {
+    DCHECK_LE(limit_offset, stop_offset);
     auto cursor_offset = start_offset;
-    while (cursor_offset < stop_offset) {
-      if (cursor_offset >= limit_offset) {
-        if constexpr (!kIsFixedSizeOutput) {
-          break;  // don't pad nulls for variable sized list output
-        }
-        RETURN_NOT_OK(out_value_builder->AppendNull());
-      } else {
-        RETURN_NOT_OK(
-            out_value_builder->AppendArraySlice(values_array, cursor_offset, 1));
-      }
+    while (cursor_offset < limit_offset) {
+      RETURN_NOT_OK(out_value_builder->AppendArraySlice(values_array, cursor_offset, 1));
       cursor_offset += step;
+    }
+    if constexpr (kIsFixedSizeOutput) {
+      while (cursor_offset < stop_offset) {
+        RETURN_NOT_OK(out_value_builder->AppendNull());
+        cursor_offset += step;
+      }
     }
     return Status::OK();
   }
