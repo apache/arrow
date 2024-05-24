@@ -1045,7 +1045,7 @@ cdef class FileMetaData(_Weakrefable):
         c_metadata = other.sp_metadata
         self._metadata.AppendRowGroups(deref(c_metadata))
 
-    def write_metadata_file(self, where):
+    def write_metadata_file(self, where, encryption_properties=None):
         """
         Write the metadata to a metadata-only Parquet file.
 
@@ -1054,10 +1054,13 @@ cdef class FileMetaData(_Weakrefable):
         where : path or file-like object
             Where to write the metadata.  Should be a writable path on
             the local filesystem, or a writable file-like object.
+        encryption_properties : EncryptionProperties
+            Optional encryption properties to use when encrypting metadata.
         """
         cdef:
             shared_ptr[COutputStream] sink
             c_string c_where
+            shared_ptr[CFileEncryptionProperties] properties
 
         try:
             where = _stringify_path(where)
@@ -1068,9 +1071,15 @@ cdef class FileMetaData(_Weakrefable):
             with nogil:
                 sink = GetResultValue(FileOutputStream.Open(c_where))
 
+        if encryption_properties is not None:
+            properties = (<FileEncryptionProperties> encryption_properties).unwrap()
+
         with nogil:
-            check_status(
-                WriteMetaDataFile(deref(self._metadata), sink.get()))
+            if encryption_properties is not None:
+                check_status(
+                    WriteEncryptedMetadataFile(deref(self._metadata), sink, properties))
+            else:
+                check_status(WriteMetaDataFile(deref(self._metadata), sink.get()))
 
 
 cdef class ParquetSchema(_Weakrefable):

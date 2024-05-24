@@ -33,10 +33,12 @@
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
 #include "parquet/arrow/reader.h"
+#include "parquet/arrow/writer.h"
 #include "parquet/encryption/crypto_factory.h"
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/kms_client.h"
 #include "parquet/encryption/test_in_memory_kms.h"
+#include "parquet/file_writer.h"
 
 constexpr std::string_view kFooterKeyMasterKey = "0123456789012345";
 constexpr std::string_view kFooterKeyMasterKeyId = "footer_key";
@@ -238,6 +240,94 @@ TEST_F(DatasetEncryptionTest, ReadSingleFile) {
   ASSERT_EQ(checked_pointer_cast<Int64Array>(table->column(0)->chunk(0))->GetView(0), 0);
   ASSERT_EQ(checked_pointer_cast<Int64Array>(table->column(1)->chunk(0))->GetView(0), 9);
   ASSERT_EQ(checked_pointer_cast<Int64Array>(table->column(2)->chunk(0))->GetView(0), 1);
+}
+
+TEST_F(DatasetEncryptionTest, EncryptedFileMetaDataWrite) {
+  std::string_view kFooterKeyMasterKey = "0123456789012345";
+  std::string_view kFooterKeyMasterKeyId = "footer_key";
+  std::string_view kFooterKeyName = "footer_key";
+  std::string_view kColumnMasterKey = "1234567890123450";
+  std::string_view kColumnMasterKeyId = "col_key";
+
+  auto table_schema = schema({field("a", int64()), field("c", int64()),
+                              field("e", int64()), field("part", utf8())});
+  auto table = TableFromJSON(table_schema, {R"([
+                          [ 0, 9, 1, "a" ],
+                          [ 1, 8, 2, "a" ],
+                          [ 2, 7, 1, "c" ],
+                          [ 3, 6, 2, "c" ],
+                          [ 4, 5, 1, "e" ],
+                          [ 5, 4, 2, "e" ],
+                          [ 6, 3, 1, "g" ],
+                          [ 7, 2, 2, "g" ],
+                          [ 8, 1, 1, "i" ],
+                          [ 9, 0, 2, "i" ]
+                        ])"});
+
+  // Prepare encryption properties.
+  std::unordered_map<std::string, std::string> key_map;
+  key_map.emplace(kColumnMasterKeyId, kColumnMasterKey);
+  key_map.emplace(kFooterKeyMasterKeyId, kFooterKeyMasterKey);
+
+  auto crypto_factory = std::make_shared<parquet::encryption::CryptoFactory>();
+  auto kms_client_factory =
+      std::make_shared<::parquet::encryption::TestOnlyInMemoryKmsClientFactory>(
+          /*wrap_locally=*/true, key_map);
+  crypto_factory->RegisterKmsClientFactory(std::move(kms_client_factory));
+  auto kms_connection_config =
+      std::make_shared<parquet::encryption::KmsConnectionConfig>();
+
+  auto encryption_config = std::make_shared<parquet::encryption::EncryptionConfiguration>(
+      std::string(kFooterKeyName));
+  encryption_config->column_keys = kColumnKeyMapping;
+
+  auto file_encryption_properties = crypto_factory->GetFileEncryptionProperties(
+      *kms_connection_config, *encryption_config);
+  auto writer_properties = ::parquet::WriterProperties::Builder()
+                               .encryption(file_encryption_properties)
+                               ->build();
+
+  // Create the ReaderProperties object using the FileDecryptionProperties object
+  auto decryption_config =
+      std::make_shared<parquet::encryption::DecryptionConfiguration>();
+
+  auto file_decryption_properties = crypto_factory->GetFileDecryptionProperties(
+      *kms_connection_config, *decryption_config);
+  auto reader_properties = parquet::default_reader_properties();
+  reader_properties.file_decryption_properties(file_decryption_properties);
+
+  PARQUET_ASSIGN_OR_THROW(
+      auto stream, ::arrow::io::BufferOutputStream::Create(1024, default_memory_pool()));
+  ASSERT_OK_NO_THROW(::parquet::arrow::WriteTable(*table, ::arrow::default_memory_pool(),
+                                                  stream, 10, writer_properties));
+
+  EXPECT_OK_AND_ASSIGN(auto buffer, stream->Finish())
+
+  // Read entire file as a single Arrow table
+  std::unique_ptr<::parquet::arrow::FileReader> reader;
+  ::parquet::arrow::FileReaderBuilder reader_builder;
+  ASSERT_OK(reader_builder.Open(std::make_shared<::arrow::io::BufferReader>(buffer),
+                                reader_properties));
+  ASSERT_OK(reader_builder.Build(&reader));
+  auto metadata = reader->parquet_reader()->metadata();
+
+  PARQUET_ASSIGN_OR_THROW(
+      stream, ::arrow::io::BufferOutputStream::Create(1024, default_memory_pool()));
+  file_encryption_properties = crypto_factory->GetFileEncryptionProperties(
+      *kms_connection_config, *encryption_config);
+  ::parquet::WriteEncryptedMetadataFile(*metadata.get(), stream,
+                                        file_encryption_properties);
+  EXPECT_OK_AND_ASSIGN(buffer, stream->Finish());
+
+  ASSERT_OK(reader_builder.Open(std::make_shared<::arrow::io::BufferReader>(buffer),
+                                reader_properties));
+  ASSERT_OK(reader_builder.Build(&reader));
+
+  ASSERT_TRUE(
+      metadata->schema()->Equals(*reader->parquet_reader()->metadata()->schema()));
+  ASSERT_EQ(metadata->num_columns(), reader->parquet_reader()->metadata()->num_columns());
+  ASSERT_EQ(reader->parquet_reader()->metadata()->num_rows(), 0);
+  ASSERT_EQ(reader->parquet_reader()->metadata()->num_row_groups(), 0);
 }
 
 // GH-39444: This test covers the case where parquet dataset scanner crashes when
