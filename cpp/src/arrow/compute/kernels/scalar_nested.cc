@@ -220,9 +220,11 @@ struct ListSlice {
     RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), output_type, &builder));
     auto* list_builder = checked_cast<BuilderType*>(builder.get());
     if constexpr (std::is_same_v<InListType, FixedSizeListType>) {
-      RETURN_NOT_OK(BuildArrayFromFixedSizeListType(opts, batch, list_builder));
+      RETURN_NOT_OK(BuildArrayFromFixedSizeListType(opts.start, opts.step, opts.stop,
+                                                    batch, list_builder));
     } else {
-      RETURN_NOT_OK(BuildArrayFromListType(opts, batch, list_builder));
+      RETURN_NOT_OK(BuildArrayFromVarLenListLikeType(opts.start, opts.step, opts.stop,
+                                                     batch, list_builder));
     }
     std::shared_ptr<ArrayData> result;
     RETURN_NOT_OK(list_builder->FinishInternal(&result));
@@ -231,7 +233,8 @@ struct ListSlice {
   }
 
   template <typename BuilderType>
-  static Status BuildArrayFromFixedSizeListType(const ListSliceOptions& opts,
+  static Status BuildArrayFromFixedSizeListType(int64_t start, int64_t step,
+                                                std::optional<int64_t> stop,
                                                 const ExecSpan& batch,
                                                 BuilderType* out_list_builder) {
     static_assert(std::is_same_v<InListType, FixedSizeListType>);
@@ -242,47 +245,48 @@ struct ListSlice {
     ArrayBuilder* value_builder = out_list_builder->value_builder();
 
     const int32_t list_size = fsl_type.list_size();
-    const int64_t start = opts.start;
-    const int64_t step = opts.step;
-    const int64_t stop = opts.stop.value_or(list_size);
+    const int64_t effective_stop = stop.value_or(static_cast<int64_t>(list_size));
+    int64_t offset = list_array.offset * list_size;
     for (int64_t i = 0; i < list_array.length; ++i) {
-      auto offset = (i + list_array.offset) * list_size;
       if (list_array.IsNull(i)) {
         RETURN_NOT_OK(out_list_builder->AppendNull());
       } else {
         int64_t start_offset = offset + start;
-        int64_t stop_offset = offset + stop;
-        int64_t limit_offset = (list_size < stop) ? offset + list_size : stop_offset;
+        int64_t stop_offset = offset + effective_stop;
+        int64_t limit_offset =
+            (list_size < effective_stop) ? offset + list_size : stop_offset;
         auto slice_value_count = ListSliceLength(
             start_offset, step, kIsFixedSizeOutput ? stop_offset : limit_offset);
-        if constexpr (kIsFixedSizeOutput) {
-          RETURN_NOT_OK(out_list_builder->Append());
-        } else {
-          RETURN_NOT_OK(out_list_builder->Append(/*is_valid=*/true, slice_value_count));
-        }
+        RETURN_NOT_OK(AppendListSliceDimensions<kIsFixedSizeOutput>(slice_value_count,
+                                                                    out_list_builder));
         RETURN_NOT_OK(AppendListSliceValues<kIsFixedSizeOutput>(
             start_offset, step, stop_offset, limit_offset, values_array, value_builder));
       }
+      offset += list_size;
     }
     return Status::OK();
   }
 
   template <typename BuilderType>
-  static Status BuildArrayFromListType(const ListSliceOptions& opts,
-                                       const ExecSpan& batch,
-                                       BuilderType* out_list_builder) {
+  static Status BuildArrayFromVarLenListLikeType(int64_t start, int64_t step,
+                                                 std::optional<int64_t> stop,
+                                                 const ExecSpan& batch,
+                                                 BuilderType* out_list_builder) {
+    constexpr bool kIsListViewInput = is_list_view(InListType::type_id);
     constexpr bool kIsFixedSizeOutput = std::is_same_v<BuilderType, FixedSizeListBuilder>;
     const ArraySpan& list_array = batch[0].array;
     const ArraySpan& values_array = list_array.child_data[0];
     ArrayBuilder* value_builder = out_list_builder->value_builder();
 
-    const int64_t start = opts.start;
-    const int64_t step = opts.step;
-    const std::optional<int64_t> stop = opts.stop;
     const auto* offsets = list_array.GetValues<offset_type>(1);
+    const offset_type* sizes = nullptr;
+    if constexpr (kIsListViewInput) {
+      sizes = list_array.GetValues<offset_type>(2);
+    }
     for (int64_t i = 0; i < list_array.length; ++i) {
       const offset_type offset = offsets[i];
-      const offset_type next_offset = offsets[i + 1];
+      const offset_type next_offset =
+          kIsListViewInput ? offset + sizes[i] : offsets[i + 1];
       if (list_array.IsNull(i)) {
         RETURN_NOT_OK(out_list_builder->AppendNull());
       } else {
@@ -292,16 +296,24 @@ struct ListSlice {
         int64_t limit_offset = std::min(stop_offset, static_cast<int64_t>(next_offset));
         auto slice_value_count = ListSliceLength(
             start_offset, step, kIsFixedSizeOutput ? stop_offset : limit_offset);
-        if constexpr (kIsFixedSizeOutput) {
-          RETURN_NOT_OK(out_list_builder->Append());
-        } else {
-          RETURN_NOT_OK(out_list_builder->Append(/*is_valid=*/true, slice_value_count));
-        }
+        RETURN_NOT_OK(AppendListSliceDimensions<kIsFixedSizeOutput>(slice_value_count,
+                                                                    out_list_builder));
         RETURN_NOT_OK(AppendListSliceValues<kIsFixedSizeOutput>(
             start_offset, step, stop_offset, limit_offset, values_array, value_builder));
       }
     }
     return Status::OK();
+  }
+
+  template <bool kIsFixedSizeOutput, typename BuilderType>
+  static Status AppendListSliceDimensions(int64_t slice_length,
+                                          BuilderType* out_list_builder) {
+    if constexpr (kIsFixedSizeOutput) {
+      DCHECK_EQ(out_list_builder->type()->id(), Type::FIXED_SIZE_LIST);
+      return out_list_builder->Append();
+    } else {
+      return out_list_builder->Append(/*is_valid=*/true, slice_length);
+    }
   }
 
   /// \param stop_offset The offset to stop at, exclusive (according to ListSliceOptions)
