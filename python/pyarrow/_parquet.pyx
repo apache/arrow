@@ -2189,7 +2189,7 @@ cdef class ParquetWriter(_Weakrefable):
         with nogil:
             check_status(self.writer.get()
                          .WriteTable(deref(ctable), c_row_group_size))
-    
+
     def add_key_value_metadata(self, key_value_metadata):
         cdef:
             shared_ptr[const CKeyValueMetadata] c_metadata

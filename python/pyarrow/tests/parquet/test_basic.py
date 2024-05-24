@@ -932,6 +932,7 @@ def test_deprecated_use_legacy_dataset(tempdir):
     with pytest.warns(FutureWarning, match=msg):
         pq.ParquetDataset(path, use_legacy_dataset=False)
 
+
 def test_append_key_value_metadata(tempdir):
     table = pa.Table.from_arrays([pa.array([], type='int32')], ['f0'])
     path = tempdir / 'metadata.parquet'
