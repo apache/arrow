@@ -351,7 +351,7 @@ Result<Expression> HashJoinSchema::BindFilter(Expression filter,
                                               const Schema& right_schema,
                                               ExecContext* exec_context) {
   if (filter.IsBound() || filter == literal(true)) {
-    return std::move(filter);
+    return filter;
   }
   // Step 1: Construct filter schema
   FieldVector fields;
@@ -386,7 +386,7 @@ Result<Expression> HashJoinSchema::BindFilter(Expression filter,
                              filter.ToString(), " evaluates to ",
                              filter.type()->ToString());
   }
-  return std::move(filter);
+  return filter;
 }
 
 Expression HashJoinSchema::RewriteFilterToUseFilterSchema(

@@ -102,7 +102,7 @@ Result<std::unique_ptr<KernelState>> InitKernel(const HashAggregateKernel* kerne
   ARROW_ASSIGN_OR_RAISE(
       auto state,
       kernel->init(&kernel_ctx, KernelInitArgs{kernel, aggr_in_types, options}));
-  return std::move(state);
+  return state;
 }
 
 Result<std::vector<const HashAggregateKernel*>> GetKernels(
@@ -129,7 +129,7 @@ Result<std::vector<std::unique_ptr<KernelState>>> InitKernels(
     ARROW_ASSIGN_OR_RAISE(states[i],
                           InitKernel(kernels[i], ctx, aggregates[i], in_types[i]));
   }
-  return std::move(states);
+  return states;
 }
 
 Result<FieldVector> ResolveKernels(
@@ -242,7 +242,7 @@ Result<std::vector<Datum>> ExtractValues(const ExecBatch& input_batch,
       DCHECK(false);
     }
   }
-  return std::move(values);
+  return values;
 }
 
 }  // namespace aggregate
