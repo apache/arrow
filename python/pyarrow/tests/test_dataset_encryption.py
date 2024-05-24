@@ -227,3 +227,107 @@ def test_large_row_encryption_decryption():
     dataset = ds.dataset(path, format=file_format, filesystem=mockfs)
     new_table = dataset.to_table()
     assert table == new_table
+
+
+def test_dataset_metadata_encryption_decryption(tempdir):
+    table = create_sample_table()
+
+    encryption_config = create_encryption_config()
+    decryption_config = create_decryption_config()
+    kms_connection_config = create_kms_connection_config()
+
+    crypto_factory = pe.CryptoFactory(kms_factory)
+    parquet_encryption_cfg = ds.ParquetEncryptionConfig(
+        crypto_factory, kms_connection_config, encryption_config
+    )
+    parquet_decryption_cfg = ds.ParquetDecryptionConfig(
+        crypto_factory, kms_connection_config, decryption_config
+    )
+
+    # create write_options with dataset encryption config
+    pformat = pa.dataset.ParquetFileFormat()
+    write_options = pformat.make_write_options(encryption_config=parquet_encryption_cfg)
+
+    path = str(tempdir / "sample_dataset")
+    metadata_file = str(tempdir / "_metadata")
+    mockfs = fs._MockFileSystem()
+    mockfs.create_dir(path)
+
+    partitioning = ds.partitioning(
+        schema=pa.schema([
+            pa.field("year", pa.int64())
+        ]),
+        flavor="hive"
+    )
+
+    ds.write_dataset(
+        data=table,
+        base_dir=path,
+        format=pformat,
+        file_options=write_options,
+        filesystem=mockfs,
+    )
+
+    # read without decryption config -> should error is dataset was properly encrypted
+    pformat = pa.dataset.ParquetFileFormat()
+    with pytest.raises(IOError, match=r"no decryption"):
+        ds.dataset(path, format=pformat, filesystem=mockfs)
+
+    # set decryption config for parquet fragment scan options
+    pq_scan_opts = ds.ParquetFragmentScanOptions(
+        decryption_config=parquet_decryption_cfg
+    )
+    pformat = pa.dataset.ParquetFileFormat(default_fragment_scan_options=pq_scan_opts)
+    dataset = ds.dataset(path, format=pformat, filesystem=mockfs)
+
+    assert table.equals(dataset.to_table())
+
+    metadata_collector = []
+
+    pq.write_to_dataset(
+        table,
+        path,
+        partitioning=partitioning,
+        encryption_config=parquet_encryption_cfg,
+        metadata_collector=metadata_collector,
+        filesystem=mockfs
+    )
+
+    encryption_properties = crypto_factory.file_encryption_properties(
+        kms_connection_config, encryption_config)
+    decryption_properties = crypto_factory.file_decryption_properties(
+        kms_connection_config, decryption_config)
+
+    metadata_schema = pa.schema(
+        field
+        for field in table.schema
+        if field.name != "year"
+    )
+    pq.write_metadata(
+        metadata_schema,
+        metadata_file,
+        metadata_collector,
+        encryption_properties=encryption_properties,
+        filesystem=mockfs,
+    )
+
+    dataset = ds.parquet_dataset(
+        metadata_file,
+        format=pformat,
+        partitioning=partitioning,
+        filesystem=mockfs
+    )
+
+    new_table = dataset.to_table()
+
+    for field in table.schema:
+        # Schema order is not persevered
+        assert field == new_table.schema.field_by_name(field.name)
+
+    metadata = pq.read_metadata(
+        metadata_file, decryption_properties=decryption_properties, filesystem=mockfs)
+
+    assert metadata.num_columns == 2
+    assert metadata.num_rows == 0
+    assert metadata.num_row_groups == 0
+    assert metadata.schema.to_arrow_schema() == metadata_schema
