@@ -66,6 +66,7 @@ def write_header(
     version_major, version_minor, version_micro = [int(v) for v in version.split(".")]
 
     encoded_versions = generate_encoded_versions(library_name)
+    visibility_macros = generate_visibility_macros(library_name)
     availability_macros = generate_availability_macros(library_name)
 
     replacements = {
@@ -74,11 +75,31 @@ def write_header(
             "VERSION_MICRO": str(version_micro),
             "VERSION_TAG": version_tag,
             "ENCODED_VERSIONS": encoded_versions,
+            "VISIBILITY_MACROS": visibility_macros,
             "AVAILABILITY_MACROS": availability_macros,
     }
 
     output_file.write(re.sub(
         r"@([A-Z_]+)@", lambda match: replacements[match[1]], input_file.read()))
+
+
+def generate_visibility_macros(library: str) -> str:
+    return f"""#if (defined(_WIN32) || defined(__CYGWIN__)) && defined(_MSVC_LANG) && \
+  !defined({library}_STATIC_COMPILATION)
+#  define {library}_EXPORT __declspec(dllexport)
+#  define {library}_IMPORT __declspec(dllimport)
+#else
+#  define {library}_EXPORT
+#  define {library}_IMPORT
+#endif
+
+#ifdef {library}_COMPILATION
+#  define {library}_API {library}_EXPORT
+#else
+#  define {library}_API {library}_IMPORT
+#endif
+
+#define {library}_EXTERN {library}_API extern"""
 
 
 def generate_encoded_versions(library: str) -> str:
@@ -98,7 +119,7 @@ def generate_encoded_versions(library: str) -> str:
 
 
 def generate_availability_macros(library: str) -> str:
-    macros = [f"""#define {library}_AVAILABLE_IN_ALL"""]
+    macros = [f"""#define {library}_AVAILABLE_IN_ALL {library}_EXTERN"""]
 
     for major_version, minor_version in ALL_VERSIONS:
         macros.append(f"""#if {library}_VERSION_MIN_REQUIRED >= {library}_VERSION_{major_version}_{minor_version}
@@ -110,9 +131,9 @@ def generate_availability_macros(library: str) -> str:
 #endif
 
 #if {library}_VERSION_MAX_ALLOWED < {library}_VERSION_{major_version}_{minor_version}
-#  define {library}_AVAILABLE_IN_{major_version}_{minor_version} {library}_UNAVAILABLE({major_version}, {minor_version})
+#  define {library}_AVAILABLE_IN_{major_version}_{minor_version} {library}_EXTERN {library}_UNAVAILABLE({major_version}, {minor_version})
 #else
-#  define {library}_AVAILABLE_IN_{major_version}_{minor_version}
+#  define {library}_AVAILABLE_IN_{major_version}_{minor_version} {library}_EXTERN
 #endif""")  # noqa: E501
 
     return "\n\n".join(macros)

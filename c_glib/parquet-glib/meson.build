@@ -64,6 +64,7 @@ libparquet_glib = library('parquet-glib',
                           dependencies: dependencies,
                           implicit_include_directories: false,
                           include_directories: base_include_directories,
+                          cpp_args: ['-DGPARQUET_COMPILATION'],
                           soversion: so_version,
                           version: library_version)
 parquet_glib = declare_dependency(link_with: libparquet_glib,

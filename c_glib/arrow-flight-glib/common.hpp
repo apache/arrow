@@ -23,39 +23,59 @@
 
 #include <arrow-flight-glib/common.h>
 
+GAFLIGHT_EXTERN
 GAFlightCriteria *
 gaflight_criteria_new_raw(const arrow::flight::Criteria *flight_criteria);
+
+GAFLIGHT_EXTERN
 arrow::flight::Criteria *
 gaflight_criteria_get_raw(GAFlightCriteria *criteria);
 
+GAFLIGHT_EXTERN
 arrow::flight::Location *
 gaflight_location_get_raw(GAFlightLocation *location);
 
+GAFLIGHT_EXTERN
 GAFlightDescriptor *
 gaflight_descriptor_new_raw(const arrow::flight::FlightDescriptor *flight_descriptor);
+
+GAFLIGHT_EXTERN
 arrow::flight::FlightDescriptor *
 gaflight_descriptor_get_raw(GAFlightDescriptor *descriptor);
 
+GAFLIGHT_EXTERN
 GAFlightTicket *
 gaflight_ticket_new_raw(const arrow::flight::Ticket *flight_ticket);
+
+GAFLIGHT_EXTERN
 arrow::flight::Ticket *
 gaflight_ticket_get_raw(GAFlightTicket *ticket);
 
+GAFLIGHT_EXTERN
 GAFlightEndpoint *
 gaflight_endpoint_new_raw(const arrow::flight::FlightEndpoint *flight_endpoint,
                           GAFlightTicket *ticket);
+
+GAFLIGHT_EXTERN
 arrow::flight::FlightEndpoint *
 gaflight_endpoint_get_raw(GAFlightEndpoint *endpoint);
 
+GAFLIGHT_EXTERN
 GAFlightInfo *
 gaflight_info_new_raw(arrow::flight::FlightInfo *flight_info);
+
+GAFLIGHT_EXTERN
 arrow::flight::FlightInfo *
 gaflight_info_get_raw(GAFlightInfo *info);
 
+GAFLIGHT_EXTERN
 GAFlightStreamChunk *
 gaflight_stream_chunk_new_raw(arrow::flight::FlightStreamChunk *flight_chunk);
+
+GAFLIGHT_EXTERN
 arrow::flight::FlightStreamChunk *
 gaflight_stream_chunk_get_raw(GAFlightStreamChunk *chunk);
 
+GAFLIGHT_EXTERN
 arrow::flight::MetadataRecordBatchReader *
 gaflight_record_batch_reader_get_raw(GAFlightRecordBatchReader *reader);

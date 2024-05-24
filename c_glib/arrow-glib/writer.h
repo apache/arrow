@@ -28,6 +28,7 @@
 G_BEGIN_DECLS
 
 #define GARROW_TYPE_RECORD_BATCH_WRITER (garrow_record_batch_writer_get_type())
+GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(GArrowRecordBatchWriter,
                          garrow_record_batch_writer,
                          GARROW,
@@ -38,19 +39,23 @@ struct _GArrowRecordBatchWriterClass
   GObjectClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_ALL
 gboolean
 garrow_record_batch_writer_write_record_batch(GArrowRecordBatchWriter *writer,
                                               GArrowRecordBatch *record_batch,
                                               GError **error);
+GARROW_AVAILABLE_IN_ALL
 gboolean
 garrow_record_batch_writer_write_table(GArrowRecordBatchWriter *writer,
                                        GArrowTable *table,
                                        GError **error);
+GARROW_AVAILABLE_IN_ALL
 gboolean
 garrow_record_batch_writer_close(GArrowRecordBatchWriter *writer, GError **error);
 
 #define GARROW_TYPE_RECORD_BATCH_STREAM_WRITER                                           \
   (garrow_record_batch_stream_writer_get_type())
+GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(GArrowRecordBatchStreamWriter,
                          garrow_record_batch_stream_writer,
                          GARROW,
@@ -61,12 +66,14 @@ struct _GArrowRecordBatchStreamWriterClass
   GArrowRecordBatchWriterClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_ALL
 GArrowRecordBatchStreamWriter *
 garrow_record_batch_stream_writer_new(GArrowOutputStream *sink,
                                       GArrowSchema *schema,
                                       GError **error);
 
 #define GARROW_TYPE_RECORD_BATCH_FILE_WRITER (garrow_record_batch_file_writer_get_type())
+GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(GArrowRecordBatchFileWriter,
                          garrow_record_batch_file_writer,
                          GARROW,
@@ -77,6 +84,7 @@ struct _GArrowRecordBatchFileWriterClass
   GArrowRecordBatchStreamWriterClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_ALL
 GArrowRecordBatchFileWriter *
 garrow_record_batch_file_writer_new(GArrowOutputStream *sink,
                                     GArrowSchema *schema,

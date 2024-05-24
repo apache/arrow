@@ -58,6 +58,7 @@ libarrow_flight_glib = library('arrow-flight-glib',
                                dependencies: dependencies,
                                implicit_include_directories: false,
                                include_directories: base_include_directories,
+                               cpp_args: ['-DGAFLIGHT_COMPILATION'],
                                soversion: so_version,
                                version: library_version)
 arrow_flight_glib = declare_dependency(link_with: libarrow_flight_glib,
