@@ -442,12 +442,12 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
   constexpr static int32_t kDataPageBitWidthBytes = 1;
 
   explicit DictEncoderImpl(const ColumnDescriptor* desc, MemoryPool* pool)
-      : EncoderImpl(desc, Encoding::PLAIN_DICTIONARY, pool),
+      : EncoderImpl(desc, Encoding::RLE_DICTIONARY, pool),
         buffered_indices_(::arrow::stl::allocator<int32_t>(pool)),
         dict_encoded_size_(0),
         memo_table_(pool, kInitialHashTableSize) {}
 
-  ~DictEncoderImpl() = default;
+  ~DictEncoderImpl() override = default;
 
   int dict_encoded_size() const override { return dict_encoded_size_; }
 
