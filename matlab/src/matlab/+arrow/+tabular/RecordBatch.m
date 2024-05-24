@@ -102,6 +102,19 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
         function tf = isequal(obj, varargin)
             tf = arrow.tabular.internal.isequal(obj, varargin{:});
         end
+
+        function export(obj, cArrowArrayAddress, cArrowSchemaAddress)
+            arguments
+                obj(1, 1) arrow.tabular.RecordBatch
+                cArrowArrayAddress(1, 1) uint64
+                cArrowSchemaAddress(1, 1) uint64
+            end
+            args = struct(...
+                ArrowArrayAddress=cArrowArrayAddress,...
+                ArrowSchemaAddress=cArrowSchemaAddress...
+            );
+            obj.Proxy.exportToC(args);
+        end
     end
 
     methods (Access = private)
@@ -142,21 +155,6 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
             recordBatch = arrow.tabular.RecordBatch(proxy);
         end
 
-        function export(obj, cArrowArrayAddress, cArrowSchemaAddress)
-            arguments
-                obj(1, 1) arrow.tabular.RecordBatch
-                cArrowArrayAddress(1, 1) uint64
-                cArrowSchemaAddress(1, 1) uint64
-            end
-            args = struct(...
-                ArrowArrayAddress=cArrowArrayAddress,...
-                ArrowSchemaAddress=cArrowSchemaAddress...
-            );
-            obj.Proxy.exportToC(args);
-        end
-    end
-
-    methods(Static)
         function recordBatch = import(cArray, cSchema)
             arguments
                 cArray(1, 1) arrow.c.Array
