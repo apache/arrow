@@ -21,64 +21,77 @@ set -ex
 
 # Issue Number 1:
 #
-# MATLAB's programmatic packaging interface does not properly handle symbolic link files. Instead
-# of adding a symbolic link entry to the archive, the interface follows the link to
-# copy the link's target file contents AND uses the target file name as the entry name.
+# MATLAB's programmatic packaging interface does not properly package symbolic links. If the
+# toolboxFolder argumented provided to the constructor of matlab.addons.toolbox.ToolboxOptions
+# contains a symbolic link, the ToolboxOptions will resolve the symbolic link and include
+# the symbolic link's target as one of the files to package instead of the link itself.
 #
 # Example:
-# 
-# Suppose you had this folder structure:   
-#    
+#
+# Suppose you had this folder structure
+#
 #        $ tree /tmp/example
 #        /tmp/example
 #        |-- regular_file.txt
 #        |-- symbolic_link -> regular_file.txt
-#  
-# In MATLAB, if the symbolic link and its target file are in the same folder, then the symbolic link
-# is not included as one of the files to be packaged:
+#
+# Passing "/tmp/example" as the toolboxFolder argument to ToolboxOptions' constructor returns
+# the following object:
+#
 #
 #       >> opts = matlab.addons.toolbox.ToolboxOptions("/tmp/example", "dummy-identifier");
 #       >> opts.ToolboxFiles
 #
-#       ans = 
+#       ans =
 #
 #            "/private/tmp/example/regular_file.txt"
 #
-# This is a bug. 
+# Note that the ToolboxFiles property - the list of files to package - does not include the
+# symbolic link.
 #
-# Why is this a problem? On macOS, building the Arrow C++ bindings generates the following files:
-#     
-#        $ tree arrow/matlab/install/arrow_matlab/+libmexclass/+proxy/ 
-#        . 
+# This is a bug in matlab.addons.toolbox.ToolboxOptions.
+#
+# Why is this a problem?
+#
+# On macOS, building the Arrow C++ bindings generates the following files:
+#
+#        $ tree arrow/matlab/install/arrow_matlab/+libmexclass/+proxy/
+#        .
 #        |-- libarrow.1700.0.0.dylib
 #        |-- libarrow.1700.dylib -> libarrow.1700.0.0.dylib
 #        |-- libarrow.dylib -> libarrow.1700.dylib
 #
-# When arrow/matlab/install/arrow_matlab is packaged into an MLTBX file, only the "regular file"
-# libarrow.1700.0.0.dylib is included. This is problematic because building the MATLAB creates
-# a shared library named libarrowproxy.dylib, which links against libarrow.1700.dylib 
-# - not libarrow.1700.0.0.dylib:
+# When "arrow/matlab/install/arrow_matlab" is suppplied as the toolboxFolder argument
+# to the constructor of ToolboxOptions, only the libarrow.1700.0.0.dylib is included as a file
+# to package. This is a problem because building the MATLAB interface to Arrow creates a shared
+# library called libarrowproxy.dylib, which is linked against libarrow.1700.dylib - not
+# libarrow.1700.0.0.dyblib.
+#
+# This can be seen by calling otool with the -L flag on libarrowproxy.dylib:
 #
 #        $ otool -L libarrowproxy.dylib | grep -E '@rpath/libarrow\.'
 #	            @rpath/libarrow.1700.dylib
 #
-# To avoid a run-time linker issue, we need to update the name of libarrowproxy.dylib's 
-# dependent shared library from @rpath/libarrow.1700.dylib to @rpath/libarrow.1700.0.0.dylib.
+# To prevent a run-time linker error, we need to update the name of libarrowproxy.dylib's
+# dependent shared library from @rpath/libarrow.1700.dylib to @rpath/libarrow.1700.0.0.dylib
+# because only libarrow.1700.0.0.dylib is packaged.
 #
 # ==============================================================================================
 #
 # Issue Number 2:
 #
-# We currently create one MLTBX file to package the MATLAB Arrow interface for win64, glnxa64,
-# maci64, and maca64. We do this because the MATLAB File Exchange <-> GitHub Releases integration 
-# does not support platform-specific MLTBX files as of this moment. This mostly works, except rename
-# either the maci64 shared libraries or the maca64 shared libraries to avoid duplicate filenames
-# in the MLTBX file because maci64 and maca64 shared libraries have the same extension: dylib.
-# For example, the shared library libarrow.1700.0.0.dylib is produced when building Arrow on
-# macOS AND Intel-based macOS.
+# The platforms that the MATLAB Interface to Arrow supports includen Windows, Linux,
+# Intel/AMD-based macOS and ARM-based macOS. Currently, we create one "monolithic" MLTBX file
+# to package the interface that includes all shared libraries for all supported platforms.
+# We do this because the File Exchange <-> GitHub Release integration does not support
+# platform-specific MLTBX files.
 #
-# To workaround this issue, we have decided to append the suffixes arm64 and x64 to the shared 
-# libraries for ARM-based macOS and Intel-based macOS, respectively.
+# The problem with creating one MLTBX to package the interface for all platforms is that
+# the names of the shared libraries built by the interface for Intel/AMD-based macOS
+# and ARM-based macOS are identical.For example, building the interface generates the shared
+# library libarrow.1700.0.0.dylib on both platforms. To avoid this duplicate name problem,
+# we need to modify the names of the shared libraries generated for either Intel/AMD-based
+# macOS or ARM-based macOS.
 
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <dylib-dir> <arch>"
