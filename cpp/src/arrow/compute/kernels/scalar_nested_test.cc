@@ -276,13 +276,13 @@ TEST(TestScalarNested, ListSliceChildArrayOffset) {
   ASSERT_EQ(input->offset(), 0);
   ASSERT_EQ(input->values()->offset(), 2);
 
-  ListSliceOptions args(/*start=*/0, /*stop=*/2, /*step=*/1,
+  ListSliceOptions args(/*start=*/0, /*stop=*/3, /*step=*/1,
                         /*return_fixed_size_list=*/false);
   auto expected = ArrayFromJSON(list(int8()), "[[2], [3, 4]]");
   CheckScalarUnary("list_slice", input, expected, &args);
 
   args.return_fixed_size_list = true;
-  expected = ArrayFromJSON(fixed_size_list(int8(), 2), "[[2, null], [3, 4]]");
+  expected = ArrayFromJSON(fixed_size_list(int8(), 3), "[[2, null, null], [3, 4, null]]");
   CheckScalarUnary("list_slice", input, expected, &args);
 }
 
