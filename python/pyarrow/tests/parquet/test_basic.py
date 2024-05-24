@@ -942,4 +942,7 @@ def test_append_key_value_metadata(tempdir):
         writer.add_key_value_metadata({'key2': '2', 'key3': '3'})
     print("done")
     reader = pq.ParquetFile(path)
-    print(reader.metadata())
+    metadata = reader.metadata.metadata
+    assert metadata[b'key1'] == b'1'
+    assert metadata[b'key2'] == b'2'
+    assert metadata[b'key3'] == b'3'
