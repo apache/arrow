@@ -161,7 +161,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   /**
    * Get the buffers that store the data for views in the vector.
    *
-   * @return buffer
+   * @return list of ArrowBuf
    */
   public List<ArrowBuf> getDataBuffers() {
     return dataBuffers;
@@ -368,8 +368,21 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    */
   @Override
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
-    // TODO: https://github.com/apache/arrow/issues/40931
-    throw new UnsupportedOperationException("loadFieldBuffers is not supported for BaseVariableWidthViewVector");
+    ArrowBuf bitBuf = ownBuffers.get(0);
+    ArrowBuf viewBuf = ownBuffers.get(1);
+    List<ArrowBuf> dataBufs = ownBuffers.subList(2, ownBuffers.size());
+
+    this.clear();
+
+    this.viewBuffer = viewBuf.getReferenceManager().retain(viewBuf, allocator);
+    this.validityBuffer = BitVectorHelper.loadValidityBuffer(fieldNode, bitBuf, allocator);
+
+    for (ArrowBuf dataBuf : dataBufs) {
+      this.dataBuffers.add(dataBuf.getReferenceManager().retain(dataBuf, allocator));
+    }
+
+    lastSet = fieldNode.getLength() - 1;
+    valueCount = fieldNode.getLength();
   }
 
   /**
