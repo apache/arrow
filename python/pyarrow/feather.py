@@ -114,7 +114,8 @@ _FEATHER_SUPPORTED_CODECS = {'lz4', 'zstd', 'uncompressed'}
 
 def write_feather(df, dest, compression=None, compression_level=None,
                   chunksize=None, version=2, use_threads=True):
-    """Write a pandas.DataFrame to Feather format.
+    """
+    Write a pandas.DataFrame to Feather format.
 
     Parameters
     ----------
