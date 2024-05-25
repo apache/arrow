@@ -21,6 +21,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
 import java.nio.charset.StandardCharsets;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
@@ -29,7 +30,9 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-/** Test cases for {@link VectorRunDeduplicator}. */
+/**
+ * Test cases for {@link VectorRunDeduplicator}.
+ */
 public class TestVectorRunDeduplicator {
 
   private static final int VECTOR_LENGTH = 100;
@@ -54,7 +57,7 @@ public class TestVectorRunDeduplicator {
         IntVector dedupVec = new IntVector("deduplicated vec", allocator);
         IntVector lengthVec = new IntVector("length vec", allocator);
         VectorRunDeduplicator<IntVector> deduplicator =
-            new VectorRunDeduplicator<>(origVec, allocator)) {
+                 new VectorRunDeduplicator<>(origVec, allocator)) {
       origVec.allocateNew(VECTOR_LENGTH * REPETITION_COUNT);
       origVec.setValueCount(VECTOR_LENGTH * REPETITION_COUNT);
       lengthVec.allocateNew();
@@ -90,11 +93,12 @@ public class TestVectorRunDeduplicator {
   @Test
   public void testDeduplicateVariableWidth() {
     try (VarCharVector origVec = new VarCharVector("original vec", allocator);
-        VarCharVector dedupVec = new VarCharVector("deduplicated vec", allocator);
-        IntVector lengthVec = new IntVector("length vec", allocator);
-        VectorRunDeduplicator<VarCharVector> deduplicator =
-            new VectorRunDeduplicator<>(origVec, allocator)) {
-      origVec.allocateNew(VECTOR_LENGTH * REPETITION_COUNT * 10, VECTOR_LENGTH * REPETITION_COUNT);
+         VarCharVector dedupVec = new VarCharVector("deduplicated vec", allocator);
+         IntVector lengthVec = new IntVector("length vec", allocator);
+         VectorRunDeduplicator<VarCharVector> deduplicator =
+                 new VectorRunDeduplicator<>(origVec, allocator)) {
+      origVec.allocateNew(
+              VECTOR_LENGTH * REPETITION_COUNT * 10, VECTOR_LENGTH * REPETITION_COUNT);
       origVec.setValueCount(VECTOR_LENGTH * REPETITION_COUNT);
       lengthVec.allocateNew();
 

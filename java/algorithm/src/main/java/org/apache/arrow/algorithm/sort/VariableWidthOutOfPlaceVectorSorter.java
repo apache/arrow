@@ -25,13 +25,12 @@ import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.IntVector;
 
 /**
- * Default sorter for variable-width vectors. It is an out-of-place sort, with time complexity
- * O(n*log(n)).
- *
+ * Default sorter for variable-width vectors.
+ * It is an out-of-place sort, with time complexity O(n*log(n)).
  * @param <V> vector type.
  */
 public class VariableWidthOutOfPlaceVectorSorter<V extends BaseVariableWidthVector>
-    implements OutOfPlaceVectorSorter<V> {
+        implements OutOfPlaceVectorSorter<V> {
 
   protected IndexSorter<V> indexSorter = new IndexSorter<>();
 
@@ -47,29 +46,20 @@ public class VariableWidthOutOfPlaceVectorSorter<V extends BaseVariableWidthVect
     ArrowBuf dstOffsetBuffer = dstVector.getOffsetBuffer();
 
     // check buffer size
+    Preconditions.checkArgument(dstValidityBuffer.capacity() * 8 >= srcVector.getValueCount(),
+        "Not enough capacity for the validity buffer of the dst vector. " +
+            "Expected capacity %s, actual capacity %s",
+        (srcVector.getValueCount() + 7) / 8, dstValidityBuffer.capacity());
     Preconditions.checkArgument(
-        dstValidityBuffer.capacity() * 8 >= srcVector.getValueCount(),
-        "Not enough capacity for the validity buffer of the dst vector. "
-            + "Expected capacity %s, actual capacity %s",
-        (srcVector.getValueCount() + 7) / 8,
-        dstValidityBuffer.capacity());
+        dstOffsetBuffer.capacity() >= (srcVector.getValueCount() + 1) * ((long) BaseVariableWidthVector.OFFSET_WIDTH),
+        "Not enough capacity for the offset buffer of the dst vector. " +
+            "Expected capacity %s, actual capacity %s",
+        (srcVector.getValueCount() + 1) * BaseVariableWidthVector.OFFSET_WIDTH, dstOffsetBuffer.capacity());
+    long dataSize = srcVector.getOffsetBuffer().getInt(
+        srcVector.getValueCount() * ((long) BaseVariableWidthVector.OFFSET_WIDTH));
     Preconditions.checkArgument(
-        dstOffsetBuffer.capacity()
-            >= (srcVector.getValueCount() + 1) * ((long) BaseVariableWidthVector.OFFSET_WIDTH),
-        "Not enough capacity for the offset buffer of the dst vector. "
-            + "Expected capacity %s, actual capacity %s",
-        (srcVector.getValueCount() + 1) * BaseVariableWidthVector.OFFSET_WIDTH,
-        dstOffsetBuffer.capacity());
-    long dataSize =
-        srcVector
-            .getOffsetBuffer()
-            .getInt(srcVector.getValueCount() * ((long) BaseVariableWidthVector.OFFSET_WIDTH));
-    Preconditions.checkArgument(
-        dstValueBuffer.capacity() >= dataSize,
-        "No enough capacity for the data buffer of the dst vector. "
-            + "Expected capacity %s, actual capacity %s",
-        dataSize,
-        dstValueBuffer.capacity());
+        dstValueBuffer.capacity() >= dataSize, "No enough capacity for the data buffer of the dst vector. " +
+            "Expected capacity %s, actual capacity %s", dataSize, dstValueBuffer.capacity());
 
     // sort value indices
     try (IntVector sortedIndices = new IntVector("", srcVector.getAllocator())) {
@@ -87,19 +77,16 @@ public class VariableWidthOutOfPlaceVectorSorter<V extends BaseVariableWidthVect
           BitVectorHelper.unsetBit(dstValidityBuffer, dstIndex);
         } else {
           BitVectorHelper.setBit(dstValidityBuffer, dstIndex);
-          int srcOffset =
-              srcOffsetBuffer.getInt(srcIndex * ((long) BaseVariableWidthVector.OFFSET_WIDTH));
+          int srcOffset = srcOffsetBuffer.getInt(srcIndex * ((long) BaseVariableWidthVector.OFFSET_WIDTH));
           int valueLength =
-              srcOffsetBuffer.getInt((srcIndex + 1) * ((long) BaseVariableWidthVector.OFFSET_WIDTH))
-                  - srcOffset;
+              srcOffsetBuffer.getInt((srcIndex + 1) * ((long) BaseVariableWidthVector.OFFSET_WIDTH)) - srcOffset;
           MemoryUtil.UNSAFE.copyMemory(
-              srcValueBuffer.memoryAddress() + srcOffset,
-              dstValueBuffer.memoryAddress() + dstOffset,
-              valueLength);
+                  srcValueBuffer.memoryAddress() + srcOffset,
+                  dstValueBuffer.memoryAddress() + dstOffset,
+                  valueLength);
           dstOffset += valueLength;
         }
-        dstOffsetBuffer.setInt(
-            (dstIndex + 1) * ((long) BaseVariableWidthVector.OFFSET_WIDTH), dstOffset);
+        dstOffsetBuffer.setInt((dstIndex + 1) * ((long) BaseVariableWidthVector.OFFSET_WIDTH), dstOffset);
       }
     }
   }

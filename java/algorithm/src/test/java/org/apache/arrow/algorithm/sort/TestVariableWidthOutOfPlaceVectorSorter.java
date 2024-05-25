@@ -22,6 +22,7 @@ import static org.junit.Assert.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BaseVariableWidthVector;
@@ -31,7 +32,9 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-/** Test cases for {@link VariableWidthOutOfPlaceVectorSorter}. */
+/**
+ * Test cases for {@link VariableWidthOutOfPlaceVectorSorter}.
+ */
 public class TestVariableWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSorter {
 
   private BufferAllocator allocator;
@@ -41,10 +44,9 @@ public class TestVariableWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVecto
   }
 
   <V extends BaseVariableWidthVector> OutOfPlaceVectorSorter<V> getSorter() {
-    return generalSorter
-        ? new GeneralOutOfPlaceVectorSorter<>()
-        : new VariableWidthOutOfPlaceVectorSorter<V>();
+    return generalSorter ? new GeneralOutOfPlaceVectorSorter<>() : new VariableWidthOutOfPlaceVectorSorter<V>();
   }
+
 
   @Before
   public void prepare() {
@@ -77,10 +79,10 @@ public class TestVariableWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVecto
       // sort the vector
       OutOfPlaceVectorSorter<BaseVariableWidthVector> sorter = getSorter();
       VectorValueComparator<BaseVariableWidthVector> comparator =
-          DefaultVectorComparators.createDefaultComparator(vec);
+              DefaultVectorComparators.createDefaultComparator(vec);
 
       VarCharVector sortedVec =
-          (VarCharVector) vec.getField().getFieldType().createNewSingleVector("", allocator, null);
+              (VarCharVector) vec.getField().getFieldType().createNewSingleVector("", allocator, null);
       sortedVec.allocateNew(vec.getByteCapacity(), vec.getValueCount());
       sortedVec.setLastSet(vec.getValueCount() - 1);
       sortedVec.setValueCount(vec.getValueCount());
@@ -94,23 +96,14 @@ public class TestVariableWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVecto
 
       assertTrue(sortedVec.isNull(0));
       assertTrue(sortedVec.isNull(1));
-      assertEquals(
-          "12", new String(Objects.requireNonNull(sortedVec.get(2)), StandardCharsets.UTF_8));
-      assertEquals(
-          "abc", new String(Objects.requireNonNull(sortedVec.get(3)), StandardCharsets.UTF_8));
-      assertEquals(
-          "dictionary",
-          new String(Objects.requireNonNull(sortedVec.get(4)), StandardCharsets.UTF_8));
-      assertEquals(
-          "good", new String(Objects.requireNonNull(sortedVec.get(5)), StandardCharsets.UTF_8));
-      assertEquals(
-          "hello", new String(Objects.requireNonNull(sortedVec.get(6)), StandardCharsets.UTF_8));
-      assertEquals(
-          "hello", new String(Objects.requireNonNull(sortedVec.get(7)), StandardCharsets.UTF_8));
-      assertEquals(
-          "world", new String(Objects.requireNonNull(sortedVec.get(8)), StandardCharsets.UTF_8));
-      assertEquals(
-          "yes", new String(Objects.requireNonNull(sortedVec.get(9)), StandardCharsets.UTF_8));
+      assertEquals("12", new String(Objects.requireNonNull(sortedVec.get(2)), StandardCharsets.UTF_8));
+      assertEquals("abc", new String(Objects.requireNonNull(sortedVec.get(3)), StandardCharsets.UTF_8));
+      assertEquals("dictionary", new String(Objects.requireNonNull(sortedVec.get(4)), StandardCharsets.UTF_8));
+      assertEquals("good", new String(Objects.requireNonNull(sortedVec.get(5)), StandardCharsets.UTF_8));
+      assertEquals("hello", new String(Objects.requireNonNull(sortedVec.get(6)), StandardCharsets.UTF_8));
+      assertEquals("hello", new String(Objects.requireNonNull(sortedVec.get(7)), StandardCharsets.UTF_8));
+      assertEquals("world", new String(Objects.requireNonNull(sortedVec.get(8)), StandardCharsets.UTF_8));
+      assertEquals("yes", new String(Objects.requireNonNull(sortedVec.get(9)), StandardCharsets.UTF_8));
 
       sortedVec.close();
     }

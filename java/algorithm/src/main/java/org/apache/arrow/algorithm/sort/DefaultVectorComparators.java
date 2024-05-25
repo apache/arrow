@@ -21,6 +21,7 @@ import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.OFFSET_WID
 
 import java.math.BigDecimal;
 import java.time.Duration;
+
 import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.vector.BaseFixedWidthVector;
@@ -55,12 +56,13 @@ import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.RepeatedValueVector;
 import org.apache.arrow.vector.holders.NullableFixedSizeBinaryHolder;
 
-/** Default comparator implementations for different types of vectors. */
+/**
+ * Default comparator implementations for different types of vectors.
+ */
 public class DefaultVectorComparators {
 
   /**
    * Create the default comparator for the vector.
-   *
    * @param vector the vector.
    * @param <T> the vector type.
    * @return the default comparator.
@@ -102,8 +104,7 @@ public class DefaultVectorComparators {
       } else if (vector instanceof IntervalDayVector) {
         return (VectorValueComparator<T>) new IntervalDayComparator();
       } else if (vector instanceof IntervalMonthDayNanoVector) {
-        throw new IllegalArgumentException(
-            "No default comparator for " + vector.getClass().getCanonicalName());
+        throw new IllegalArgumentException("No default comparator for " + vector.getClass().getCanonicalName());
       } else if (vector instanceof TimeMicroVector) {
         return (VectorValueComparator<T>) new TimeMicroComparator();
       } else if (vector instanceof TimeMilliVector) {
@@ -121,7 +122,7 @@ public class DefaultVectorComparators {
       return (VectorValueComparator<T>) new VariableWidthComparator();
     } else if (vector instanceof RepeatedValueVector) {
       VectorValueComparator<?> innerComparator =
-          createDefaultComparator(((RepeatedValueVector) vector).getDataVector());
+              createDefaultComparator(((RepeatedValueVector) vector).getDataVector());
       return new RepeatedValueComparator(innerComparator);
     } else if (vector instanceof FixedSizeListVector) {
       VectorValueComparator<?> innerComparator =
@@ -131,11 +132,13 @@ public class DefaultVectorComparators {
       return (VectorValueComparator<T>) new NullComparator();
     }
 
-    throw new IllegalArgumentException(
-        "No default comparator for " + vector.getClass().getCanonicalName());
+    throw new IllegalArgumentException("No default comparator for " + vector.getClass().getCanonicalName());
   }
 
-  /** Default comparator for bytes. The comparison is based on values, with null comes first. */
+  /**
+   * Default comparator for bytes.
+   * The comparison is based on values, with null comes first.
+   */
   public static class ByteComparator extends VectorValueComparator<TinyIntVector> {
 
     public ByteComparator() {
@@ -156,8 +159,8 @@ public class DefaultVectorComparators {
   }
 
   /**
-   * Default comparator for short integers. The comparison is based on values, with null comes
-   * first.
+   * Default comparator for short integers.
+   * The comparison is based on values, with null comes first.
    */
   public static class ShortComparator extends VectorValueComparator<SmallIntVector> {
 
@@ -179,8 +182,8 @@ public class DefaultVectorComparators {
   }
 
   /**
-   * Default comparator for 32-bit integers. The comparison is based on int values, with null comes
-   * first.
+   * Default comparator for 32-bit integers.
+   * The comparison is based on int values, with null comes first.
    */
   public static class IntComparator extends VectorValueComparator<IntVector> {
 
@@ -202,7 +205,8 @@ public class DefaultVectorComparators {
   }
 
   /**
-   * Default comparator for long integers. The comparison is based on values, with null comes first.
+   * Default comparator for long integers.
+   * The comparison is based on values, with null comes first.
    */
   public static class LongComparator extends VectorValueComparator<BigIntVector> {
 
@@ -225,8 +229,8 @@ public class DefaultVectorComparators {
   }
 
   /**
-   * Default comparator for unsigned bytes. The comparison is based on values, with null comes
-   * first.
+   * Default comparator for unsigned bytes.
+   * The comparison is based on values, with null comes first.
    */
   public static class UInt1Comparator extends VectorValueComparator<UInt1Vector> {
 
@@ -249,8 +253,8 @@ public class DefaultVectorComparators {
   }
 
   /**
-   * Default comparator for unsigned short integer. The comparison is based on values, with null
-   * comes first.
+   * Default comparator for unsigned short integer.
+   * The comparison is based on values, with null comes first.
    */
   public static class UInt2Comparator extends VectorValueComparator<UInt2Vector> {
 
@@ -276,8 +280,8 @@ public class DefaultVectorComparators {
   }
 
   /**
-   * Default comparator for unsigned integer. The comparison is based on values, with null comes
-   * first.
+   * Default comparator for unsigned integer.
+   * The comparison is based on values, with null comes first.
    */
   public static class UInt4Comparator extends VectorValueComparator<UInt4Vector> {
 
@@ -299,8 +303,8 @@ public class DefaultVectorComparators {
   }
 
   /**
-   * Default comparator for unsigned long integer. The comparison is based on values, with null
-   * comes first.
+   * Default comparator for unsigned long integer.
+   * The comparison is based on values, with null comes first.
    */
   public static class UInt8Comparator extends VectorValueComparator<UInt8Vector> {
 
@@ -322,7 +326,8 @@ public class DefaultVectorComparators {
   }
 
   /**
-   * Default comparator for float type. The comparison is based on values, with null comes first.
+   * Default comparator for float type.
+   * The comparison is based on values, with null comes first.
    */
   public static class Float4Comparator extends VectorValueComparator<Float4Vector> {
 
@@ -358,7 +363,8 @@ public class DefaultVectorComparators {
   }
 
   /**
-   * Default comparator for double type. The comparison is based on values, with null comes first.
+   * Default comparator for double type.
+   * The comparison is based on values, with null comes first.
    */
   public static class Float8Comparator extends VectorValueComparator<Float8Vector> {
 
@@ -393,7 +399,10 @@ public class DefaultVectorComparators {
     }
   }
 
-  /** Default comparator for bit type. The comparison is based on values, with null comes first. */
+  /**
+   * Default comparator for bit type.
+   * The comparison is based on values, with null comes first.
+   */
   public static class BitComparator extends VectorValueComparator<BitVector> {
 
     public BitComparator() {
@@ -415,7 +424,8 @@ public class DefaultVectorComparators {
   }
 
   /**
-   * Default comparator for DateDay type. The comparison is based on values, with null comes first.
+   * Default comparator for DateDay type.
+   * The comparison is based on values, with null comes first.
    */
   public static class DateDayComparator extends VectorValueComparator<DateDayVector> {
 
@@ -437,8 +447,8 @@ public class DefaultVectorComparators {
   }
 
   /**
-   * Default comparator for DateMilli type. The comparison is based on values, with null comes
-   * first.
+   * Default comparator for DateMilli type.
+   * The comparison is based on values, with null comes first.
    */
   public static class DateMilliComparator extends VectorValueComparator<DateMilliVector> {
 
@@ -461,8 +471,8 @@ public class DefaultVectorComparators {
   }
 
   /**
-   * Default comparator for Decimal256 type. The comparison is based on values, with null comes
-   * first.
+   * Default comparator for Decimal256 type.
+   * The comparison is based on values, with null comes first.
    */
   public static class Decimal256Comparator extends VectorValueComparator<Decimal256Vector> {
 
@@ -485,7 +495,8 @@ public class DefaultVectorComparators {
   }
 
   /**
-   * Default comparator for Decimal type. The comparison is based on values, with null comes first.
+   * Default comparator for Decimal type.
+   * The comparison is based on values, with null comes first.
    */
   public static class DecimalComparator extends VectorValueComparator<DecimalVector> {
 
@@ -508,7 +519,8 @@ public class DefaultVectorComparators {
   }
 
   /**
-   * Default comparator for Duration type. The comparison is based on values, with null comes first.
+   * Default comparator for Duration type.
+   * The comparison is based on values, with null comes first.
    */
   public static class DurationComparator extends VectorValueComparator<DurationVector> {
 
@@ -531,8 +543,8 @@ public class DefaultVectorComparators {
   }
 
   /**
-   * Default comparator for IntervalDay type. The comparison is based on values, with null comes
-   * first.
+   * Default comparator for IntervalDay type.
+   * The comparison is based on values, with null comes first.
    */
   public static class IntervalDayComparator extends VectorValueComparator<IntervalDayVector> {
 
@@ -555,8 +567,8 @@ public class DefaultVectorComparators {
   }
 
   /**
-   * Default comparator for TimeMicro type. The comparison is based on values, with null comes
-   * first.
+   * Default comparator for TimeMicro type.
+   * The comparison is based on values, with null comes first.
    */
   public static class TimeMicroComparator extends VectorValueComparator<TimeMicroVector> {
 
@@ -579,8 +591,8 @@ public class DefaultVectorComparators {
   }
 
   /**
-   * Default comparator for TimeMilli type. The comparison is based on values, with null comes
-   * first.
+   * Default comparator for TimeMilli type.
+   * The comparison is based on values, with null comes first.
    */
   public static class TimeMilliComparator extends VectorValueComparator<TimeMilliVector> {
 
@@ -603,7 +615,8 @@ public class DefaultVectorComparators {
   }
 
   /**
-   * Default comparator for TimeNano type. The comparison is based on values, with null comes first.
+   * Default comparator for TimeNano type.
+   * The comparison is based on values, with null comes first.
    */
   public static class TimeNanoComparator extends VectorValueComparator<TimeNanoVector> {
 
@@ -626,7 +639,8 @@ public class DefaultVectorComparators {
   }
 
   /**
-   * Default comparator for TimeSec type. The comparison is based on values, with null comes first.
+   * Default comparator for TimeSec type.
+   * The comparison is based on values, with null comes first.
    */
   public static class TimeSecComparator extends VectorValueComparator<TimeSecVector> {
 
@@ -649,7 +663,8 @@ public class DefaultVectorComparators {
   }
 
   /**
-   * Default comparator for TimeSec type. The comparison is based on values, with null comes first.
+   * Default comparator for TimeSec type.
+   * The comparison is based on values, with null comes first.
    */
   public static class TimeStampComparator extends VectorValueComparator<TimeStampVector> {
 
@@ -672,11 +687,10 @@ public class DefaultVectorComparators {
   }
 
   /**
-   * Default comparator for {@link org.apache.arrow.vector.FixedSizeBinaryVector}. The comparison is
-   * in lexicographic order, with null comes first.
+   * Default comparator for {@link org.apache.arrow.vector.FixedSizeBinaryVector}.
+   * The comparison is in lexicographic order, with null comes first.
    */
-  public static class FixedSizeBinaryComparator
-      extends VectorValueComparator<FixedSizeBinaryVector> {
+  public static class FixedSizeBinaryComparator extends VectorValueComparator<FixedSizeBinaryVector> {
 
     @Override
     public int compare(int index1, int index2) {
@@ -706,7 +720,9 @@ public class DefaultVectorComparators {
     }
   }
 
-  /** Default comparator for {@link org.apache.arrow.vector.NullVector}. */
+  /**
+   * Default comparator for {@link org.apache.arrow.vector.NullVector}.
+   */
   public static class NullComparator extends VectorValueComparator<NullVector> {
     @Override
     public int compare(int index1, int index2) {
@@ -726,8 +742,8 @@ public class DefaultVectorComparators {
   }
 
   /**
-   * Default comparator for {@link org.apache.arrow.vector.VariableWidthVector}. The comparison is
-   * in lexicographic order, with null comes first.
+   * Default comparator for {@link org.apache.arrow.vector.VariableWidthVector}.
+   * The comparison is in lexicographic order, with null comes first.
    */
   public static class VariableWidthComparator extends VectorValueComparator<VariableWidthVector> {
 
@@ -756,13 +772,12 @@ public class DefaultVectorComparators {
   }
 
   /**
-   * Default comparator for {@link RepeatedValueVector}. It works by comparing the underlying vector
-   * in a lexicographic order.
-   *
+   * Default comparator for {@link RepeatedValueVector}.
+   * It works by comparing the underlying vector in a lexicographic order.
    * @param <T> inner vector type.
    */
   public static class RepeatedValueComparator<T extends ValueVector>
-      extends VectorValueComparator<RepeatedValueVector> {
+          extends VectorValueComparator<RepeatedValueVector> {
 
     private final VectorValueComparator<T> innerComparator;
 
@@ -808,9 +823,8 @@ public class DefaultVectorComparators {
   }
 
   /**
-   * Default comparator for {@link RepeatedValueVector}. It works by comparing the underlying vector
-   * in a lexicographic order.
-   *
+   * Default comparator for {@link RepeatedValueVector}.
+   * It works by comparing the underlying vector in a lexicographic order.
    * @param <T> inner vector type.
    */
   public static class FixedSizeListComparator<T extends ValueVector>
@@ -855,5 +869,6 @@ public class DefaultVectorComparators {
     }
   }
 
-  private DefaultVectorComparators() {}
+  private DefaultVectorComparators() {
+  }
 }

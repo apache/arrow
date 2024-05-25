@@ -21,6 +21,7 @@ import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.OFFSET_WID
 import static org.junit.Assert.assertEquals;
 
 import java.nio.charset.StandardCharsets;
+
 import org.apache.arrow.algorithm.sort.DefaultVectorComparators;
 import org.apache.arrow.algorithm.sort.VectorValueComparator;
 import org.apache.arrow.memory.BufferAllocator;
@@ -36,7 +37,9 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-/** Test cases for {@link org.apache.arrow.algorithm.search.VectorSearcher}. */
+/**
+ * Test cases for {@link org.apache.arrow.algorithm.search.VectorSearcher}.
+ */
 public class TestVectorSearcher {
 
   private final int VECTOR_LENGTH = 100;
@@ -56,7 +59,7 @@ public class TestVectorSearcher {
   @Test
   public void testBinarySearchInt() {
     try (IntVector rawVector = new IntVector("", allocator);
-        IntVector negVector = new IntVector("", allocator)) {
+         IntVector negVector = new IntVector("", allocator)) {
       rawVector.allocateNew(VECTOR_LENGTH);
       rawVector.setValueCount(VECTOR_LENGTH);
       negVector.allocateNew(1);
@@ -74,7 +77,7 @@ public class TestVectorSearcher {
 
       // do search
       VectorValueComparator<IntVector> comparator =
-          DefaultVectorComparators.createDefaultComparator(rawVector);
+              DefaultVectorComparators.createDefaultComparator(rawVector);
       for (int i = 0; i < VECTOR_LENGTH; i++) {
         int result = VectorSearcher.binarySearch(rawVector, comparator, rawVector, i);
         assertEquals(i, result);
@@ -88,7 +91,7 @@ public class TestVectorSearcher {
   @Test
   public void testLinearSearchInt() {
     try (IntVector rawVector = new IntVector("", allocator);
-        IntVector negVector = new IntVector("", allocator)) {
+         IntVector negVector = new IntVector("", allocator)) {
       rawVector.allocateNew(VECTOR_LENGTH);
       rawVector.setValueCount(VECTOR_LENGTH);
       negVector.allocateNew(1);
@@ -106,7 +109,7 @@ public class TestVectorSearcher {
 
       // do search
       VectorValueComparator<IntVector> comparator =
-          DefaultVectorComparators.createDefaultComparator(rawVector);
+              DefaultVectorComparators.createDefaultComparator(rawVector);
       for (int i = 0; i < VECTOR_LENGTH; i++) {
         int result = VectorSearcher.linearSearch(rawVector, comparator, rawVector, i);
         assertEquals(i, result);
@@ -120,7 +123,7 @@ public class TestVectorSearcher {
   @Test
   public void testBinarySearchVarChar() {
     try (VarCharVector rawVector = new VarCharVector("", allocator);
-        VarCharVector negVector = new VarCharVector("", allocator)) {
+         VarCharVector negVector = new VarCharVector("", allocator)) {
       rawVector.allocateNew(VECTOR_LENGTH * 16, VECTOR_LENGTH);
       rawVector.setValueCount(VECTOR_LENGTH);
       negVector.allocateNew(VECTOR_LENGTH, 1);
@@ -145,7 +148,7 @@ public class TestVectorSearcher {
 
       // do search
       VectorValueComparator<BaseVariableWidthVector> comparator =
-          DefaultVectorComparators.createDefaultComparator(rawVector);
+              DefaultVectorComparators.createDefaultComparator(rawVector);
       for (int i = 0; i < VECTOR_LENGTH; i++) {
         int result = VectorSearcher.binarySearch(rawVector, comparator, rawVector, i);
         assertEquals(i, result);
@@ -159,7 +162,7 @@ public class TestVectorSearcher {
   @Test
   public void testLinearSearchVarChar() {
     try (VarCharVector rawVector = new VarCharVector("", allocator);
-        VarCharVector negVector = new VarCharVector("", allocator)) {
+         VarCharVector negVector = new VarCharVector("", allocator)) {
       rawVector.allocateNew(VECTOR_LENGTH * 16, VECTOR_LENGTH);
       rawVector.setValueCount(VECTOR_LENGTH);
       negVector.allocateNew(VECTOR_LENGTH, 1);
@@ -184,7 +187,7 @@ public class TestVectorSearcher {
 
       // do search
       VectorValueComparator<BaseVariableWidthVector> comparator =
-          DefaultVectorComparators.createDefaultComparator(rawVector);
+              DefaultVectorComparators.createDefaultComparator(rawVector);
       for (int i = 0; i < VECTOR_LENGTH; i++) {
         int result = VectorSearcher.linearSearch(rawVector, comparator, rawVector, i);
         assertEquals(i, result);
@@ -257,11 +260,11 @@ public class TestVectorSearcher {
   @Test
   public void testBinarySearchList() {
     try (ListVector rawVector = createListVector();
-        ListVector negVector = createNegativeListVector()) {
+         ListVector negVector = createNegativeListVector()) {
 
       // do search
       VectorValueComparator<ListVector> comparator =
-          DefaultVectorComparators.createDefaultComparator(rawVector);
+              DefaultVectorComparators.createDefaultComparator(rawVector);
       for (int i = 0; i < rawVector.getValueCount(); i++) {
         int result = VectorSearcher.binarySearch(rawVector, comparator, rawVector, i);
         assertEquals(i, result);
@@ -278,11 +281,11 @@ public class TestVectorSearcher {
   @Test
   public void testLinearSearchList() {
     try (ListVector rawVector = createListVector();
-        ListVector negVector = createNegativeListVector()) {
+         ListVector negVector = createNegativeListVector()) {
 
       // do search
       VectorValueComparator<ListVector> comparator =
-          DefaultVectorComparators.createDefaultComparator(rawVector);
+              DefaultVectorComparators.createDefaultComparator(rawVector);
       for (int i = 0; i < rawVector.getValueCount(); i++) {
         int result = VectorSearcher.linearSearch(rawVector, comparator, rawVector, i);
         assertEquals(i, result);

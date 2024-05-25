@@ -22,6 +22,7 @@ import static org.junit.Assert.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
+
 import org.apache.arrow.algorithm.sort.DefaultVectorComparators;
 import org.apache.arrow.algorithm.sort.VectorValueComparator;
 import org.apache.arrow.memory.BufferAllocator;
@@ -32,7 +33,9 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-/** Test cases for {@link SearchTreeBasedDictionaryBuilder}. */
+/**
+ * Test cases for {@link SearchTreeBasedDictionaryBuilder}.
+ */
 public class TestSearchTreeBasedDictionaryBuilder {
 
   private BufferAllocator allocator;
@@ -50,8 +53,8 @@ public class TestSearchTreeBasedDictionaryBuilder {
   @Test
   public void testBuildVariableWidthDictionaryWithNull() {
     try (VarCharVector vec = new VarCharVector("", allocator);
-        VarCharVector dictionary = new VarCharVector("", allocator);
-        VarCharVector sortedDictionary = new VarCharVector("", allocator)) {
+         VarCharVector dictionary = new VarCharVector("", allocator);
+         VarCharVector sortedDictionary = new VarCharVector("", allocator)) {
 
       vec.allocateNew(100, 10);
       vec.setValueCount(10);
@@ -71,10 +74,9 @@ public class TestSearchTreeBasedDictionaryBuilder {
       vec.set(8, "good".getBytes(StandardCharsets.UTF_8));
       vec.set(9, "abc".getBytes(StandardCharsets.UTF_8));
 
-      VectorValueComparator<VarCharVector> comparator =
-          DefaultVectorComparators.createDefaultComparator(vec);
+      VectorValueComparator<VarCharVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
       SearchTreeBasedDictionaryBuilder<VarCharVector> dictionaryBuilder =
-          new SearchTreeBasedDictionaryBuilder<>(dictionary, comparator, true);
+              new SearchTreeBasedDictionaryBuilder<>(dictionary, comparator, true);
 
       int result = dictionaryBuilder.addValues(vec);
 
@@ -84,32 +86,20 @@ public class TestSearchTreeBasedDictionaryBuilder {
       dictionaryBuilder.populateSortedDictionary(sortedDictionary);
 
       assertTrue(sortedDictionary.isNull(0));
-      assertEquals(
-          "12",
-          new String(Objects.requireNonNull(sortedDictionary.get(1)), StandardCharsets.UTF_8));
-      assertEquals(
-          "abc",
-          new String(Objects.requireNonNull(sortedDictionary.get(2)), StandardCharsets.UTF_8));
-      assertEquals(
-          "dictionary",
-          new String(Objects.requireNonNull(sortedDictionary.get(3)), StandardCharsets.UTF_8));
-      assertEquals(
-          "good",
-          new String(Objects.requireNonNull(sortedDictionary.get(4)), StandardCharsets.UTF_8));
-      assertEquals(
-          "hello",
-          new String(Objects.requireNonNull(sortedDictionary.get(5)), StandardCharsets.UTF_8));
-      assertEquals(
-          "world",
-          new String(Objects.requireNonNull(sortedDictionary.get(6)), StandardCharsets.UTF_8));
+      assertEquals("12", new String(Objects.requireNonNull(sortedDictionary.get(1)), StandardCharsets.UTF_8));
+      assertEquals("abc", new String(Objects.requireNonNull(sortedDictionary.get(2)), StandardCharsets.UTF_8));
+      assertEquals("dictionary", new String(Objects.requireNonNull(sortedDictionary.get(3)), StandardCharsets.UTF_8));
+      assertEquals("good", new String(Objects.requireNonNull(sortedDictionary.get(4)), StandardCharsets.UTF_8));
+      assertEquals("hello", new String(Objects.requireNonNull(sortedDictionary.get(5)), StandardCharsets.UTF_8));
+      assertEquals("world", new String(Objects.requireNonNull(sortedDictionary.get(6)), StandardCharsets.UTF_8));
     }
   }
 
   @Test
   public void testBuildVariableWidthDictionaryWithoutNull() {
     try (VarCharVector vec = new VarCharVector("", allocator);
-        VarCharVector dictionary = new VarCharVector("", allocator);
-        VarCharVector sortedDictionary = new VarCharVector("", allocator)) {
+         VarCharVector dictionary = new VarCharVector("", allocator);
+         VarCharVector sortedDictionary = new VarCharVector("", allocator)) {
 
       vec.allocateNew(100, 10);
       vec.setValueCount(10);
@@ -129,10 +119,9 @@ public class TestSearchTreeBasedDictionaryBuilder {
       vec.set(8, "good".getBytes(StandardCharsets.UTF_8));
       vec.set(9, "abc".getBytes(StandardCharsets.UTF_8));
 
-      VectorValueComparator<VarCharVector> comparator =
-          DefaultVectorComparators.createDefaultComparator(vec);
+      VectorValueComparator<VarCharVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
       SearchTreeBasedDictionaryBuilder<VarCharVector> dictionaryBuilder =
-          new SearchTreeBasedDictionaryBuilder<>(dictionary, comparator, false);
+              new SearchTreeBasedDictionaryBuilder<>(dictionary, comparator, false);
 
       int result = dictionaryBuilder.addValues(vec);
 
@@ -141,32 +130,20 @@ public class TestSearchTreeBasedDictionaryBuilder {
 
       dictionaryBuilder.populateSortedDictionary(sortedDictionary);
 
-      assertEquals(
-          "12",
-          new String(Objects.requireNonNull(sortedDictionary.get(0)), StandardCharsets.UTF_8));
-      assertEquals(
-          "abc",
-          new String(Objects.requireNonNull(sortedDictionary.get(1)), StandardCharsets.UTF_8));
-      assertEquals(
-          "dictionary",
-          new String(Objects.requireNonNull(sortedDictionary.get(2)), StandardCharsets.UTF_8));
-      assertEquals(
-          "good",
-          new String(Objects.requireNonNull(sortedDictionary.get(3)), StandardCharsets.UTF_8));
-      assertEquals(
-          "hello",
-          new String(Objects.requireNonNull(sortedDictionary.get(4)), StandardCharsets.UTF_8));
-      assertEquals(
-          "world",
-          new String(Objects.requireNonNull(sortedDictionary.get(5)), StandardCharsets.UTF_8));
+      assertEquals("12", new String(Objects.requireNonNull(sortedDictionary.get(0)), StandardCharsets.UTF_8));
+      assertEquals("abc", new String(Objects.requireNonNull(sortedDictionary.get(1)), StandardCharsets.UTF_8));
+      assertEquals("dictionary", new String(Objects.requireNonNull(sortedDictionary.get(2)), StandardCharsets.UTF_8));
+      assertEquals("good", new String(Objects.requireNonNull(sortedDictionary.get(3)), StandardCharsets.UTF_8));
+      assertEquals("hello", new String(Objects.requireNonNull(sortedDictionary.get(4)), StandardCharsets.UTF_8));
+      assertEquals("world", new String(Objects.requireNonNull(sortedDictionary.get(5)), StandardCharsets.UTF_8));
     }
   }
 
   @Test
   public void testBuildFixedWidthDictionaryWithNull() {
     try (IntVector vec = new IntVector("", allocator);
-        IntVector dictionary = new IntVector("", allocator);
-        IntVector sortedDictionary = new IntVector("", allocator)) {
+         IntVector dictionary = new IntVector("", allocator);
+         IntVector sortedDictionary = new IntVector("", allocator)) {
       vec.allocateNew(10);
       vec.setValueCount(10);
 
@@ -185,10 +162,9 @@ public class TestSearchTreeBasedDictionaryBuilder {
       vec.set(8, 4);
       vec.setNull(9);
 
-      VectorValueComparator<IntVector> comparator =
-          DefaultVectorComparators.createDefaultComparator(vec);
+      VectorValueComparator<IntVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
       SearchTreeBasedDictionaryBuilder<IntVector> dictionaryBuilder =
-          new SearchTreeBasedDictionaryBuilder<>(dictionary, comparator, true);
+              new SearchTreeBasedDictionaryBuilder<>(dictionary, comparator, true);
 
       int result = dictionaryBuilder.addValues(vec);
 
@@ -208,8 +184,8 @@ public class TestSearchTreeBasedDictionaryBuilder {
   @Test
   public void testBuildFixedWidthDictionaryWithoutNull() {
     try (IntVector vec = new IntVector("", allocator);
-        IntVector dictionary = new IntVector("", allocator);
-        IntVector sortedDictionary = new IntVector("", allocator)) {
+         IntVector dictionary = new IntVector("", allocator);
+         IntVector sortedDictionary = new IntVector("", allocator)) {
       vec.allocateNew(10);
       vec.setValueCount(10);
 
@@ -228,10 +204,9 @@ public class TestSearchTreeBasedDictionaryBuilder {
       vec.set(8, 4);
       vec.setNull(9);
 
-      VectorValueComparator<IntVector> comparator =
-          DefaultVectorComparators.createDefaultComparator(vec);
+      VectorValueComparator<IntVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
       SearchTreeBasedDictionaryBuilder<IntVector> dictionaryBuilder =
-          new SearchTreeBasedDictionaryBuilder<>(dictionary, comparator, false);
+              new SearchTreeBasedDictionaryBuilder<>(dictionary, comparator, false);
 
       int result = dictionaryBuilder.addValues(vec);
 
