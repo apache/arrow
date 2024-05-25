@@ -540,11 +540,9 @@ struct UnionToStringCastFunctor {
       auto child_index = union_type.mode() == UnionMode::DENSE ? offsets[i] : i;
       RETURN_NOT_OK(child_span.ToArray()->GetScalar(child_index).Value(&child_scalar));
 
-      std::stringstream ss;
-      ss << "union{" << field->name() << ": " << field->type()->ToString() << " = "
-         << child_scalar->ToString() << "}";
-
-      RETURN_NOT_OK(builder.Append(ss.str()));
+      std::string str = "union{" + field->name() + ": " + field->type()->ToString() +
+                           " = " + child_scalar->ToString() + "}";
+      RETURN_NOT_OK(builder.Append(str));
     }
 
     std::shared_ptr<Array> output_array;
