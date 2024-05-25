@@ -127,6 +127,13 @@ class OSFile {
 
   Status Close() { return fd_.Close(); }
 
+  Status CheckSeekable() const {
+    if (!is_seekable()) {
+      return Status::IOError("Invalid operation on non-seekable file (FIFO/Stdin/Pipe/etc...).");
+    }
+    return Status::OK();
+  }
+
   Result<int64_t> Read(int64_t nbytes, void* out) {
     RETURN_NOT_OK(CheckClosed());
     RETURN_NOT_OK(CheckPositioned());
@@ -135,6 +142,7 @@ class OSFile {
 
   Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) {
     RETURN_NOT_OK(CheckClosed());
+    RETURN_NOT_OK(CheckSeekable());
     RETURN_NOT_OK(internal::ValidateRange(position, nbytes));
     // ReadAt() leaves the file position undefined, so require that we seek
     // before calling Read() or Write().
@@ -145,6 +153,7 @@ class OSFile {
 
   Status Seek(int64_t pos) {
     RETURN_NOT_OK(CheckClosed());
+    RETURN_NOT_OK(CheckSeekable());
     if (pos < 0) {
       return Status::Invalid("Invalid position");
     }
@@ -157,6 +166,7 @@ class OSFile {
 
   Result<int64_t> Tell() const {
     RETURN_NOT_OK(CheckClosed());
+    RETURN_NOT_OK(CheckSeekable());
     return ::arrow::internal::FileTell(fd_.fd());
   }
 
@@ -177,6 +187,8 @@ class OSFile {
   bool is_open() const { return !fd_.closed(); }
 
   int64_t size() const { return size_; }
+
+  bool is_seekable() const { return size_ >= 0; }
 
   FileMode::type mode() const { return mode_; }
 
