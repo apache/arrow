@@ -1862,8 +1862,7 @@ class TestUnionScalar : public ::testing::Test {
         {union_three_, R"(union{number: uint64 = 3})"},
         {union_other_two_, R"(union{other_number: uint64 = 2})"},
         {union_string_null_, "null"},
-        {union_number_null_, "null"}
-    };
+        {union_number_null_, "null"}};
 
     for (const auto& [scalar, expected] : test_cases) {
       ASSERT_OK_AND_ASSIGN(auto casted, Cast(scalar, utf8()));
