@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.algorithm.dictionary;
 
 import org.apache.arrow.vector.BaseIntVector;
@@ -24,20 +23,17 @@ import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 
 /**
  * Dictionary encoder based on linear search.
+ *
  * @param <E> encoded vector type.
  * @param <D> decoded vector type, which is also the dictionary type.
  */
 public class LinearDictionaryEncoder<E extends BaseIntVector, D extends ValueVector>
     implements DictionaryEncoder<E, D> {
 
-  /**
-   * The dictionary for encoding.
-   */
+  /** The dictionary for encoding. */
   private final D dictionary;
 
-  /**
-   * A flag indicating if null should be encoded.
-   */
+  /** A flag indicating if null should be encoded. */
   private final boolean encodeNull;
 
   private RangeEqualsVisitor equalizer;
@@ -46,8 +42,10 @@ public class LinearDictionaryEncoder<E extends BaseIntVector, D extends ValueVec
 
   /**
    * Constructs a dictionary encoder, with the encode null flag set to false.
-   * @param dictionary the dictionary. Its entries should be sorted in the non-increasing order of their frequency.
-   *     Otherwise, the encoder still produces correct results, but at the expense of performance overhead.
+   *
+   * @param dictionary the dictionary. Its entries should be sorted in the non-increasing order of
+   *     their frequency. Otherwise, the encoder still produces correct results, but at the expense
+   *     of performance overhead.
    */
   public LinearDictionaryEncoder(D dictionary) {
     this(dictionary, false);
@@ -55,14 +53,15 @@ public class LinearDictionaryEncoder<E extends BaseIntVector, D extends ValueVec
 
   /**
    * Constructs a dictionary encoder.
-   * @param dictionary the dictionary. Its entries should be sorted in the non-increasing order of their frequency.
-   *     Otherwise, the encoder still produces correct results, but at the expense of performance overhead.
-   * @param encodeNull a flag indicating if null should be encoded.
-   *     It determines the behaviors for processing null values in the input during encoding.
-   *     When a null is encountered in the input,
-   *     1) If the flag is set to true, the encoder searches for the value in the dictionary,
-   *     and outputs the index in the dictionary.
-   *     2) If the flag is set to false, the encoder simply produces a null in the output.
+   *
+   * @param dictionary the dictionary. Its entries should be sorted in the non-increasing order of
+   *     their frequency. Otherwise, the encoder still produces correct results, but at the expense
+   *     of performance overhead.
+   * @param encodeNull a flag indicating if null should be encoded. It determines the behaviors for
+   *     processing null values in the input during encoding. When a null is encountered in the
+   *     input, 1) If the flag is set to true, the encoder searches for the value in the dictionary,
+   *     and outputs the index in the dictionary. 2) If the flag is set to false, the encoder simply
+   *     produces a null in the output.
    */
   public LinearDictionaryEncoder(D dictionary, boolean encodeNull) {
     this.dictionary = dictionary;
@@ -74,12 +73,13 @@ public class LinearDictionaryEncoder<E extends BaseIntVector, D extends ValueVec
   }
 
   /**
-   * Encodes an input vector by linear search.
-   * When the dictionary is sorted in the non-increasing order of the entry frequency,
-   * it will have constant time complexity, with no extra memory requirement.
+   * Encodes an input vector by linear search. When the dictionary is sorted in the non-increasing
+   * order of the entry frequency, it will have constant time complexity, with no extra memory
+   * requirement.
+   *
    * @param input the input vector.
-   * @param output the output vector. Note that it must be in a fresh state. At least,
-   *     all its validity bits should be clear.
+   * @param output the output vector. Note that it must be in a fresh state. At least, all its
+   *     validity bits should be clear.
    */
   @Override
   public void encode(D input, E output) {

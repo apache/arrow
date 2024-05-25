@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.algorithm.misc;
 
 import static org.junit.Assert.assertEquals;
@@ -26,9 +25,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-/**
- * Test cases for {@link PartialSumUtils}.
- */
+/** Test cases for {@link PartialSumUtils}. */
 public class TestPartialSumUtils {
 
   private static final int PARTIAL_SUM_VECTOR_LENGTH = 101;
@@ -50,7 +47,7 @@ public class TestPartialSumUtils {
   @Test
   public void testToPartialSumVector() {
     try (IntVector delta = new IntVector("delta", allocator);
-         IntVector partialSum = new IntVector("partial sum", allocator)) {
+        IntVector partialSum = new IntVector("partial sum", allocator)) {
       delta.allocateNew(DELTA_VECTOR_LENGTH);
       delta.setValueCount(DELTA_VECTOR_LENGTH);
 
@@ -75,7 +72,7 @@ public class TestPartialSumUtils {
   @Test
   public void testToDeltaVector() {
     try (IntVector partialSum = new IntVector("partial sum", allocator);
-         IntVector delta = new IntVector("delta", allocator)) {
+        IntVector delta = new IntVector("delta", allocator)) {
       partialSum.allocateNew(PARTIAL_SUM_VECTOR_LENGTH);
       partialSum.setValueCount(PARTIAL_SUM_VECTOR_LENGTH);
 
@@ -111,7 +108,8 @@ public class TestPartialSumUtils {
 
       // search and verify results
       for (int i = 0; i < PARTIAL_SUM_VECTOR_LENGTH - 1; i++) {
-        assertEquals(i, PartialSumUtils.findPositionInPartialSumVector(partialSum, sumBase + 3 * i + 1));
+        assertEquals(
+            i, PartialSumUtils.findPositionInPartialSumVector(partialSum, sumBase + 3 * i + 1));
       }
     }
   }
@@ -131,8 +129,10 @@ public class TestPartialSumUtils {
       // search and verify results
       assertEquals(0, PartialSumUtils.findPositionInPartialSumVector(partialSum, sumBase));
       assertEquals(-1, PartialSumUtils.findPositionInPartialSumVector(partialSum, sumBase - 1));
-      assertEquals(-1, PartialSumUtils.findPositionInPartialSumVector(partialSum,
-              sumBase + 3 * (PARTIAL_SUM_VECTOR_LENGTH - 1)));
+      assertEquals(
+          -1,
+          PartialSumUtils.findPositionInPartialSumVector(
+              partialSum, sumBase + 3 * (PARTIAL_SUM_VECTOR_LENGTH - 1)));
     }
   }
 }
