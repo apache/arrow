@@ -167,50 +167,43 @@ TEST(KeyCompare, CompareColumnsToRowsTempStackUsage) {
 TEST(KeyCompare, CompareColumnsWithEncodingOrder) {
   const int num_rows = 5;
 
-  for (auto are_cols_sorted : {true, false}) {
-    SCOPED_TRACE("are_cols_sorted = " + std::to_string(are_cols_sorted));
+  const auto i32_col = ArrayFromJSON(int32(), "[0, 1, 2, 3, 4]");
+  const auto i64_col = ArrayFromJSON(int64(), "[7, 8, 9, 10, 11]");
+
+  std::vector<ExecBatch> batches = {ExecBatch({i32_col, i64_col}, num_rows),
+                                    ExecBatch({i64_col, i32_col}, num_rows)};
+  int batch_idx = 0;
+  for (const auto& batch : batches) {
+    SCOPED_TRACE("batch idx = " + std::to_string(batch_idx));
 
     MemoryPool* pool = default_memory_pool();
     TempVectorStack stack;
     ASSERT_OK(stack.Init(pool, KeyCompare::CompareColumnsToRowsTempStackUsage(num_rows)));
 
-    auto i32_col = ArrayFromJSON(int32(), "[0, 1, 2, 3, 4]");
-    auto i64_col = ArrayFromJSON(int64(), "[7, 8, 9, 10, 11]");
-
-    // resorted order in RowTableMetadata will be : i64_col, i32_col
-    ExecBatch batch_right({i32_col, i64_col}, num_rows);
-
     std::vector<KeyColumnMetadata> r_col_metas;
-    ASSERT_OK(ColumnMetadatasFromExecBatch(batch_right, &r_col_metas));
+    ASSERT_OK(ColumnMetadatasFromExecBatch(batch, &r_col_metas));
 
     RowTableMetadata r_table_meta;
-    r_table_meta.FromColumnMetadataVector(r_col_metas, sizeof(uint64_t), sizeof(uint64_t),
-                                          are_cols_sorted);
+    r_table_meta.FromColumnMetadataVector(r_col_metas, sizeof(uint64_t),
+                                          sizeof(uint64_t));
 
     std::vector<KeyColumnArray> r_column_arrays;
-    ASSERT_OK(ColumnArraysFromExecBatch(batch_right, &r_column_arrays));
+    ASSERT_OK(ColumnArraysFromExecBatch(batch, &r_column_arrays));
 
     RowTableImpl row_table;
     ASSERT_OK(row_table.Init(pool, r_table_meta));
 
     RowTableEncoder row_encoder;
-    row_encoder.Init(r_col_metas, sizeof(uint64_t), sizeof(uint64_t), are_cols_sorted);
+    row_encoder.Init(r_col_metas, sizeof(uint64_t), sizeof(uint64_t));
     row_encoder.PrepareEncodeSelected(0, num_rows, r_column_arrays);
 
     std::vector<uint16_t> r_row_ids(num_rows);
     std::iota(r_row_ids.begin(), r_row_ids.end(), 0);
     ASSERT_OK(row_encoder.EncodeSelected(&row_table, num_rows, r_row_ids.data()));
 
-    ExecBatch batch_left;
-    if (are_cols_sorted) {
-      batch_left.values = {i64_col, i32_col};
-    } else {
-      batch_left.values = {i32_col, i64_col};
-    }
-    batch_left.length = num_rows;
-
     std::vector<KeyColumnArray> l_column_arrays;
-    ASSERT_OK(ColumnArraysFromExecBatch(batch_left, &l_column_arrays));
+    // Input left batch should always be 'i64_col,i32_col' order.
+    ASSERT_OK(ColumnArraysFromExecBatch(batches[1], &l_column_arrays));
 
     std::vector<uint32_t> l_row_ids(num_rows);
     std::iota(l_row_ids.begin(), l_row_ids.end(), 0);
@@ -221,10 +214,16 @@ TEST(KeyCompare, CompareColumnsWithEncodingOrder) {
     std::vector<uint16_t> row_ids_out(num_rows);
     KeyCompare::CompareColumnsToRows(
         num_rows, NULLPTR, l_row_ids.data(), &ctx, &num_rows_no_match, row_ids_out.data(),
-        l_column_arrays, row_table, are_cols_sorted, NULLPTR);
-    // Because the data of batch_left and batch_right are the same, their comparison
-    // results should be the same regardless of whether are_cols_sorted is true or false.
+        l_column_arrays, row_table, r_table_meta.are_cols_sorted, NULLPTR);
+    // The data of these two batches are the same, their comparison results
+    // should be the same regardless of whether are_cols_sorted is true or false.
     ASSERT_EQ(num_rows_no_match, 0);
+    if (batch_idx == 0) {
+      ASSERT_EQ(row_encoder.row_metadata().are_cols_sorted, true);
+    } else if (batch_idx == 1) {
+      ASSERT_EQ(row_encoder.row_metadata().are_cols_sorted, false);
+    }
+    batch_idx++;
   }
 }
 

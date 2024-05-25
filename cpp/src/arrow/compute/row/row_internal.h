@@ -149,8 +149,7 @@ struct ARROW_EXPORT RowTableMetadata {
 
   /// \brief Populate this instance to describe `cols` with the given alignment
   void FromColumnMetadataVector(const std::vector<KeyColumnMetadata>& cols,
-                                int in_row_alignment, int in_string_alignment,
-                                bool in_are_cols_sorted = true);
+                                int in_row_alignment, int in_string_alignment);
 
   /// \brief True if `other` has the same number of columns
   ///   and each column has the same width (two variable length

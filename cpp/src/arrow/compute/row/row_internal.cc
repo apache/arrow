@@ -54,7 +54,7 @@ bool RowTableMetadata::is_compatible(const RowTableMetadata& other) const {
 
 void RowTableMetadata::FromColumnMetadataVector(
     const std::vector<KeyColumnMetadata>& cols, int in_row_alignment,
-    int in_string_alignment, bool in_are_cols_sorted) {
+    int in_string_alignment) {
   column_metadatas.resize(cols.size());
   for (size_t i = 0; i < cols.size(); ++i) {
     column_metadatas[i] = cols[i];
@@ -62,64 +62,67 @@ void RowTableMetadata::FromColumnMetadataVector(
 
   const auto num_cols = static_cast<uint32_t>(cols.size());
 
+  // Sort columns.
+  //
+  // Columns are sorted based on the size in bytes of their fixed-length part.
+  // For the varying-length column, the fixed-length part is the 32-bit field storing
+  // cumulative length of varying-length fields. This is to make the memory access of
+  // each individual column within the encoded row alignment-friendly.
+  //
+  // The rules are:
+  //
+  // a) Boolean column, marked with fixed-length 0, is considered to have fixed-length
+  // part of 1 byte.
+  //
+  // b) Columns with fixed-length part being power of 2 or multiple of row
+  // alignment precede other columns. They are sorted in decreasing order of the size of
+  // their fixed-length part.
+  //
+  // c) Fixed-length columns precede varying-length columns when
+  // both have the same size fixed-length part.
+  //
   column_order.resize(num_cols);
   for (uint32_t i = 0; i < num_cols; ++i) {
     column_order[i] = i;
   }
-
-  if (in_are_cols_sorted) {
-    // Sort columns.
-    //
-    // Columns are sorted based on the size in bytes of their fixed-length part.
-    // For the varying-length column, the fixed-length part is the 32-bit field storing
-    // cumulative length of varying-length fields. This is to make the memory access of
-    // each individual column within the encoded row alignment-friendly.
-    //
-    // The rules are:
-    //
-    // a) Boolean column, marked with fixed-length 0, is considered to have fixed-length
-    // part of 1 byte.
-    //
-    // b) Columns with fixed-length part being power of 2 or multiple of row
-    // alignment precede other columns. They are sorted in decreasing order of the size of
-    // their fixed-length part.
-    //
-    // c) Fixed-length columns precede varying-length columns when
-    // both have the same size fixed-length part.
-    //
-    std::sort(
-        column_order.begin(), column_order.end(), [&cols](uint32_t left, uint32_t right) {
-          bool is_left_pow2 = !cols[left].is_fixed_length ||
-                              ARROW_POPCOUNT64(cols[left].fixed_length) <= 1;
-          bool is_right_pow2 = !cols[right].is_fixed_length ||
-                               ARROW_POPCOUNT64(cols[right].fixed_length) <= 1;
-          bool is_left_fixedlen = cols[left].is_fixed_length;
-          bool is_right_fixedlen = cols[right].is_fixed_length;
-          uint32_t width_left =
-              cols[left].is_fixed_length ? cols[left].fixed_length : sizeof(uint32_t);
-          uint32_t width_right =
-              cols[right].is_fixed_length ? cols[right].fixed_length : sizeof(uint32_t);
-          if (is_left_pow2 != is_right_pow2) {
-            return is_left_pow2;
-          }
-          if (!is_left_pow2) {
-            return left < right;
-          }
-          if (width_left != width_right) {
-            return width_left > width_right;
-          }
-          if (is_left_fixedlen != is_right_fixedlen) {
-            return is_left_fixedlen;
-          }
+  std::sort(
+      column_order.begin(), column_order.end(), [&cols](uint32_t left, uint32_t right) {
+        bool is_left_pow2 =
+            !cols[left].is_fixed_length || ARROW_POPCOUNT64(cols[left].fixed_length) <= 1;
+        bool is_right_pow2 = !cols[right].is_fixed_length ||
+                             ARROW_POPCOUNT64(cols[right].fixed_length) <= 1;
+        bool is_left_fixedlen = cols[left].is_fixed_length;
+        bool is_right_fixedlen = cols[right].is_fixed_length;
+        uint32_t width_left =
+            cols[left].is_fixed_length ? cols[left].fixed_length : sizeof(uint32_t);
+        uint32_t width_right =
+            cols[right].is_fixed_length ? cols[right].fixed_length : sizeof(uint32_t);
+        if (is_left_pow2 != is_right_pow2) {
+          return is_left_pow2;
+        }
+        if (!is_left_pow2) {
           return left < right;
-        });
-  }
+        }
+        if (width_left != width_right) {
+          return width_left > width_right;
+        }
+        if (is_left_fixedlen != is_right_fixedlen) {
+          return is_left_fixedlen;
+        }
+        return left < right;
+      });
+  are_cols_sorted = false;
   inverse_column_order.resize(num_cols);
   for (uint32_t i = 0; i < num_cols; ++i) {
     inverse_column_order[column_order[i]] = i;
+    // Check whether the column_order has changed due to sorting,
+    // and the sorted column order will be used first for better
+    // performance in grouper's compare.
+    if (inverse_column_order[i] != column_order[i] && are_cols_sorted == false) {
+      are_cols_sorted = true;
+    }
   }
 
-  are_cols_sorted = in_are_cols_sorted;
   row_alignment = in_row_alignment;
   string_alignment = in_string_alignment;
   varbinary_end_array_offset = 0;
