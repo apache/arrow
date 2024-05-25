@@ -246,14 +246,21 @@ struct ListSlice {
 
     const auto list_size = static_cast<int64_t>(fsl_type.list_size());
     const int64_t effective_stop = stop.value_or(list_size);
-    int64_t slice_length = ListSliceLength(start, step, effective_stop);
+    int64_t slice_length, value_count;
     int64_t null_padding = 0;
-    if (list_size < effective_stop) {
-      if constexpr (kIsFixedSizeOutput) {
-        null_padding = slice_length - ListSliceLength(start, step, list_size);
+    if constexpr (kIsFixedSizeOutput) {
+      if (list_size < effective_stop) {
+        slice_length = ListSliceLength(start, step, effective_stop);
+        value_count = ListSliceLength(start, step, list_size);
+        DCHECK_LE(value_count, slice_length);
+        null_padding = slice_length - value_count;
       } else {
-        slice_length = ListSliceLength(start, step, list_size);
+        slice_length = ListSliceLength(start, step, effective_stop);
+        value_count = slice_length;
       }
+    } else {
+      slice_length = ListSliceLength(start, step, std::min(list_size, effective_stop));
+      value_count = slice_length;
     }
     int64_t offset = list_array.offset * list_size;
     for (int64_t i = 0; i < list_array.length; ++i) {
@@ -263,9 +270,8 @@ struct ListSlice {
         int64_t start_offset = offset + start;
         RETURN_NOT_OK(AppendListSliceDimensions<kIsFixedSizeOutput>(slice_length,
                                                                     out_list_builder));
-        RETURN_NOT_OK(AppendListSliceValues(start_offset, step,
-                                            /*value_count=*/slice_length - null_padding,
-                                            null_padding, values_array, value_builder));
+        RETURN_NOT_OK(AppendListSliceValues(start_offset, step, value_count, null_padding,
+                                            values_array, value_builder));
       }
       offset += list_size;
     }
@@ -295,19 +301,26 @@ struct ListSlice {
         RETURN_NOT_OK(out_list_builder->AppendNull());
       } else {
         int64_t effective_stop = stop.value_or(list_size);
-        int64_t slice_length = ListSliceLength(start, step, effective_stop);
+        int64_t slice_length, value_count;
         int64_t null_padding = 0;
-        if (list_size < effective_stop) {
-          if constexpr (kIsFixedSizeOutput) {
-            null_padding = slice_length - ListSliceLength(start, step, list_size);
+        if constexpr (kIsFixedSizeOutput) {
+          if (list_size < effective_stop) {
+            slice_length = ListSliceLength(start, step, effective_stop);
+            value_count = ListSliceLength(start, step, list_size);
+            DCHECK_LE(value_count, slice_length);
+            null_padding = slice_length - value_count;
           } else {
-            slice_length = ListSliceLength(start, step, list_size);
+            slice_length = ListSliceLength(start, step, effective_stop);
+            value_count = slice_length;
           }
+        } else {
+          slice_length =
+              ListSliceLength(start, step, std::min(list_size, effective_stop));
+          value_count = slice_length;
         }
         RETURN_NOT_OK(AppendListSliceDimensions<kIsFixedSizeOutput>(slice_length,
                                                                     out_list_builder));
-        RETURN_NOT_OK(AppendListSliceValues(offset + start, step,
-                                            /*value_count=*/slice_length - null_padding,
+        RETURN_NOT_OK(AppendListSliceValues(offset + start, step, value_count,
                                             null_padding, values_array, value_builder));
       }
     }
