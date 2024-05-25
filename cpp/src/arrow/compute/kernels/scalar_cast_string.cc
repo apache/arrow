@@ -541,7 +541,7 @@ struct UnionToStringCastFunctor {
       RETURN_NOT_OK(child_span.ToArray()->GetScalar(child_index).Value(&child_scalar));
 
       std::string str = "union{" + field->name() + ": " + field->type()->ToString() +
-                           " = " + child_scalar->ToString() + "}";
+                        " = " + child_scalar->ToString() + "}";
       RETURN_NOT_OK(builder.Append(str));
     }
 
