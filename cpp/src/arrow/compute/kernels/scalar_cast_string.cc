@@ -521,6 +521,7 @@ struct UnionToStringCastFunctor {
     const ArraySpan& input = batch[0].array;
     const auto& union_type = checked_cast<const UnionType&>(*input.type);
     const auto type_ids = input.GetValues<int8_t>(1);
+    const auto& offsets = input.GetValues<int32_t>(2);
 
     BuilderType builder(input.type->GetSharedPtr(), ctx->memory_pool());
     RETURN_NOT_OK(builder.Reserve(input.length));
@@ -536,7 +537,8 @@ struct UnionToStringCastFunctor {
       const ArraySpan& child_span = input.child_data[union_type.child_ids()[type_id]];
 
       std::shared_ptr<Scalar> child_scalar;
-      RETURN_NOT_OK(child_span.ToArray()->GetScalar(i).Value(&child_scalar));
+      auto child_index = union_type.mode() == UnionMode::DENSE ? offsets[i] : i;
+      RETURN_NOT_OK(child_span.ToArray()->GetScalar(child_index).Value(&child_scalar));
 
       std::stringstream ss;
       ss << "union{" << field->name() << ": " << field->type()->ToString() << " = "
