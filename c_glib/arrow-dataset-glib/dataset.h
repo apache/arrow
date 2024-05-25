@@ -34,6 +34,9 @@ gadataset_dataset_to_table(GADatasetDataset *dataset, GError **error);
 GADATASET_AVAILABLE_IN_5_0
 gchar *
 gadataset_dataset_get_type_name(GADatasetDataset *dataset);
+GADATASET_AVAILABLE_IN_17_0
+GArrowRecordBatchReader *
+gadataset_dataset_to_record_batch_reader(GADatasetDataset *dataset, GError **error);
 
 #define GADATASET_TYPE_FILE_SYSTEM_DATASET_WRITE_OPTIONS                                 \
   (gadataset_file_system_dataset_write_options_get_type())
