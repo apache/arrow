@@ -1922,11 +1922,13 @@ TEST_F(TestSparseUnionScalar, GetScalar) {
 }
 
 TEST_F(TestSparseUnionScalar, Cast) {
-  auto expected = ArrayFromJSON(
-      utf8(),
-      R"(["union{string: string = alpha}", "union{number: uint64 = 2}", "union{string: string = beta}", null, null])");
-  ASSERT_OK_AND_ASSIGN(auto casted, Cast(*arr, utf8()));
-  ASSERT_TRUE(casted->Equals(*expected));
+  for (const auto& out_ty : {utf8(), large_utf8()}) {
+    auto expected = ArrayFromJSON(
+        out_ty,
+        R"(["union{string: string = alpha}", "union{number: uint64 = 2}", "union{string: string = beta}", null, null])");
+    ASSERT_OK_AND_ASSIGN(auto casted, Cast(*arr, out_ty));
+    ASSERT_TRUE(casted->Equals(*expected));
+  }
 }
 
 class TestDenseUnionScalar : public TestUnionScalar<DenseUnionType> {
@@ -1959,11 +1961,13 @@ TEST_F(TestDenseUnionScalar, GetScalar) {
 }
 
 TEST_F(TestDenseUnionScalar, Cast) {
-  auto expected = ArrayFromJSON(
-      utf8(),
-      R"(["union{string: string = alpha}", "union{number: uint64 = 2}", "union{string: string = beta}", null, "union{number: uint64 = 3}"])");
-  ASSERT_OK_AND_ASSIGN(auto casted, Cast(*arr, utf8()));
-  ASSERT_TRUE(casted->Equals(*expected));
+  for (const auto& out_ty : {utf8(), large_utf8()}) {
+    auto expected = ArrayFromJSON(
+        out_ty,
+        R"(["union{string: string = alpha}", "union{number: uint64 = 2}", "union{string: string = beta}", null, "union{number: uint64 = 3}"])");
+    ASSERT_OK_AND_ASSIGN(auto casted, Cast(*arr, out_ty));
+    ASSERT_TRUE(casted->Equals(*expected));
+  }
 }
 
 template <typename RunEndType>
