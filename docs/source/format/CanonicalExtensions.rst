@@ -283,6 +283,59 @@ UUID
    A specific UUID version is not required or guaranteed. This extension represents
    UUIDs as FixedSizeBinary(16) with big-endian notation and does not interpret the bytes in any way.
 
+Other
+=====
+
+Other represents a type or array that one Arrow-based system received from an
+external (likely non-Arrow) system, but cannot interpret itself.  In this
+case, the Other type explicitly communicates the name and presence of a field
+to downstream clients.
+
+For example:
+
+* A Flight SQL service may support connecting external databases.  In this
+  case, its catalog (``GetTables`` etc.) should reflect the names and types of
+  tables in external databases.  These tables may support types it does not
+  recognize.  Instead of erroring or silently dropping columns from the
+  catalog, it can use the Other[NA] type to report that a column exists with a
+  particular name and type name in the external database; the Other type lets
+  clients know that the column is not supported, but still exists.
+
+* The ADBC PostgreSQL driver, because of how the PostgreSQL wire protocol
+  works, may get bytes for a field whose type it does not recognize (say, a
+  geospatial type).  It can still return the bytes to the application which
+  may be able to parse the data itself.  In that case, it can use the
+  Other[binary] type to return the column data.  The Other type differentiates
+  the column from actual binary columns.
+
+Extension parameters:
+
+* Extension name: ``arrow.other``.
+
+* The storage type of this extension is any type.  If there is no underlying
+  data, the storage type should be NA.  If there is data (because the system
+  got bytes or some other data it does not know how to interpret), the storage
+  type should preferably be binary or fixed-size binary, but may be any type.
+
+* Extension type parameters:
+
+  * **type_name** = the name of the unknown type in the external system.
+
+* Description of the serialization:
+
+  A valid JSON object containing the parameters as fields.  In the future,
+  additional fields may be added, but all fields current and future are never
+  required to interpret the array.
+
+  For example:
+
+  - The PostgreSQL ``polygon`` type may be represented as Other[binary] with
+    metadata ``{"type_name": "polygon"}``.
+  - The PostgreSQL ``point`` type may be represented as
+    Other[fixed_size_binary[16]] with metadata ``{"type_name": "point"}``.
+  - A Flight SQL service may return an array type as Other[NA] with metadata
+    ``{"type_name": "ARRAY"}``.
+
 =========================
 Community Extension Types
 =========================
