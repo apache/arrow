@@ -21,8 +21,7 @@ class TestDatasetScanner < Test::Unit::TestCase
 
   def setup
     omit("Arrow Dataset is required") unless defined?(ArrowDataset)
-    tmpdir = Dir.mktmpdir
-    begin
+    Dir.mktmpdir do |tmpdir|
       path = File.join(tmpdir, "table.arrow")
       @table = build_table(visible: [
                              build_boolean_array([true, false, true]),
@@ -40,14 +39,6 @@ class TestDatasetScanner < Test::Unit::TestCase
       builder = @dataset.begin_scan
       @scanner = builder.finish
       yield
-    ensure
-      # We have to ignore errors trying to remove the directory due to
-      # the RecordBatchReader not closing files
-      # (https://github.com/apache/arrow/issues/41771).
-      # Also request GC first which should free any remaining RecordBatchReader
-      # and close open files.
-      GC.start
-      FileUtils.remove_entry(tmpdir, force: true)
     end
   end
 
@@ -56,6 +47,12 @@ class TestDatasetScanner < Test::Unit::TestCase
   end
 
   def test_to_record_batch_reader
-    assert_equal(@table, @scanner.to_record_batch_reader.read_all)
+    reader = @scanner.to_record_batch_reader
+    begin
+      assert_equal(@table, reader.read_all)
+    ensure
+      # Unref to ensure the reader closes files and we can delete the temp directory
+      reader.unref
+    end
   end
 end
