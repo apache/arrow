@@ -244,23 +244,28 @@ struct ListSlice {
     const ArraySpan& values_array = list_array.child_data[0];
     ArrayBuilder* value_builder = out_list_builder->value_builder();
 
-    const int32_t list_size = fsl_type.list_size();
-    const int64_t effective_stop = stop.value_or(static_cast<int64_t>(list_size));
+    const auto list_size = static_cast<int64_t>(fsl_type.list_size());
+    const int64_t effective_stop = stop.value_or(list_size);
+    int64_t slice_length = ListSliceLength(start, step, effective_stop);
+    int64_t null_padding = 0;
+    if (list_size < effective_stop) {
+      if constexpr (kIsFixedSizeOutput) {
+        null_padding = slice_length - ListSliceLength(start, step, list_size);
+      } else {
+        slice_length = ListSliceLength(start, step, list_size);
+      }
+    }
     int64_t offset = list_array.offset * list_size;
     for (int64_t i = 0; i < list_array.length; ++i) {
       if (list_array.IsNull(i)) {
         RETURN_NOT_OK(out_list_builder->AppendNull());
       } else {
         int64_t start_offset = offset + start;
-        int64_t stop_offset = offset + effective_stop;
-        int64_t limit_offset =
-            (list_size < effective_stop) ? offset + list_size : stop_offset;
-        auto slice_value_count = ListSliceLength(
-            start_offset, step, kIsFixedSizeOutput ? stop_offset : limit_offset);
-        RETURN_NOT_OK(AppendListSliceDimensions<kIsFixedSizeOutput>(slice_value_count,
+        RETURN_NOT_OK(AppendListSliceDimensions<kIsFixedSizeOutput>(slice_length,
                                                                     out_list_builder));
-        RETURN_NOT_OK(AppendListSliceValues<kIsFixedSizeOutput>(
-            start_offset, step, stop_offset, limit_offset, values_array, value_builder));
+        RETURN_NOT_OK(AppendListSliceValues(start_offset, step,
+                                            /*value_count=*/slice_length - null_padding,
+                                            null_padding, values_array, value_builder));
       }
       offset += list_size;
     }
@@ -285,21 +290,25 @@ struct ListSlice {
     }
     for (int64_t i = 0; i < list_array.length; ++i) {
       const offset_type offset = offsets[i];
-      const offset_type next_offset =
-          kIsListViewInput ? offset + sizes[i] : offsets[i + 1];
+      const int64_t list_size = kIsListViewInput ? sizes[i] : offsets[i + 1] - offset;
       if (list_array.IsNull(i)) {
         RETURN_NOT_OK(out_list_builder->AppendNull());
       } else {
-        int64_t start_offset = offset + start;
-        int64_t stop_offset =
-            stop.has_value() ? stop_offset = offset + *stop : next_offset;
-        int64_t limit_offset = std::min(stop_offset, static_cast<int64_t>(next_offset));
-        auto slice_value_count = ListSliceLength(
-            start_offset, step, kIsFixedSizeOutput ? stop_offset : limit_offset);
-        RETURN_NOT_OK(AppendListSliceDimensions<kIsFixedSizeOutput>(slice_value_count,
+        int64_t effective_stop = stop.value_or(list_size);
+        int64_t slice_length = ListSliceLength(start, step, effective_stop);
+        int64_t null_padding = 0;
+        if (list_size < effective_stop) {
+          if constexpr (kIsFixedSizeOutput) {
+            null_padding = slice_length - ListSliceLength(start, step, list_size);
+          } else {
+            slice_length = ListSliceLength(start, step, list_size);
+          }
+        }
+        RETURN_NOT_OK(AppendListSliceDimensions<kIsFixedSizeOutput>(slice_length,
                                                                     out_list_builder));
-        RETURN_NOT_OK(AppendListSliceValues<kIsFixedSizeOutput>(
-            start_offset, step, stop_offset, limit_offset, values_array, value_builder));
+        RETURN_NOT_OK(AppendListSliceValues(offset + start, step,
+                                            /*value_count=*/slice_length - null_padding,
+                                            null_padding, values_array, value_builder));
       }
     }
     return Status::OK();
@@ -316,24 +325,20 @@ struct ListSlice {
     }
   }
 
-  /// \param stop_offset The offset to stop at, exclusive (according to ListSliceOptions)
-  /// \param limit_offset The offset to stop at, exclusive (according to the input list)
-  template <bool kIsFixedSizeOutput>
+  /// \param value_count The pre-validated number of values to append starting
+  ///                    from `start_offset` with a step of `step`
+  /// \param null_padding The number of nulls to append after the values
   static Status AppendListSliceValues(int64_t start_offset, int64_t step,
-                                      int64_t stop_offset, int64_t limit_offset,
+                                      int64_t value_count, int64_t null_padding,
                                       const ArraySpan& values_array,
                                       ArrayBuilder* out_value_builder) {
-    DCHECK_LE(limit_offset, stop_offset);
     auto cursor_offset = start_offset;
-    while (cursor_offset < limit_offset) {
+    for (int64_t i = 0; i < value_count; i++) {
       RETURN_NOT_OK(out_value_builder->AppendArraySlice(values_array, cursor_offset, 1));
       cursor_offset += step;
     }
-    if constexpr (kIsFixedSizeOutput) {
-      while (cursor_offset < stop_offset) {
-        RETURN_NOT_OK(out_value_builder->AppendNull());
-        cursor_offset += step;
-      }
+    if (null_padding > 0) {
+      RETURN_NOT_OK(out_value_builder->AppendNulls(null_padding));
     }
     return Status::OK();
   }
