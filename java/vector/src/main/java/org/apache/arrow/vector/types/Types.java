@@ -568,7 +568,7 @@ public class Types {
         return new VarBinaryWriterImpl((VarBinaryVector) vector);
       }
     },
-    VIEWVARBINARY(Binary.INSTANCE) {
+    VIEWVARBINARY(BinaryView.INSTANCE) {
       @Override
       public FieldVector getNewVector(
               Field field,
