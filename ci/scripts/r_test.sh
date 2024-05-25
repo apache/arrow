@@ -90,6 +90,7 @@ SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
   if (as_cran) {
     args <- '--as-cran'
     build_args <- character()
+    Sys.setenv('_R_CHECK_CRAN_INCOMING_REMOTE_'=TRUE)
   } else {
     args <- c('--no-manual', '--ignore-vignettes')
     build_args <- '--no-build-vignettes'
