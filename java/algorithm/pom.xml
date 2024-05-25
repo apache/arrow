@@ -21,7 +21,7 @@
   <description>(Experimental/Contrib) A collection of algorithms for working with ValueVectors.</description>
 
   <properties>
-    <spotless.version>2.42.0</spotless.version>
+    <spotless.version>2.30.0</spotless.version>
   </properties>
 
   <dependencies>
@@ -53,6 +53,16 @@
   </dependencies>
 
   <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+        <version>3.1.0</version>
+        <configuration>
+          <skip>true</skip>
+        </configuration>
+      </plugin>
+    </plugins>
   </build>
 
   <profiles>
@@ -92,7 +102,7 @@
               </formats>
               <java>
                 <googleJavaFormat>
-                  <version>1.9</version>
+                  <version>1.17.0</version>
                   <style>GOOGLE</style>
                 </googleJavaFormat>
               </java>
@@ -114,6 +124,7 @@
               <execution>
                 <id>spotless-check</id>
                 <goals>
+                  <goal>apply</goal>
                   <goal>check</goal>
                 </goals>
                 <phase>validate</phase>

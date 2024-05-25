@@ -20,15 +20,16 @@ package org.apache.arrow.algorithm.sort;
 import org.apache.arrow.vector.ValueVector;
 
 /**
- * Basic interface for sorting a vector out-of-place.
- * That is, the sorting is performed on a newly-created vector,
- * and the original vector is not modified.
+ * Basic interface for sorting a vector out-of-place. That is, the sorting is performed on a
+ * newly-created vector, and the original vector is not modified.
+ *
  * @param <V> the vector type.
  */
 public interface OutOfPlaceVectorSorter<V extends ValueVector> {
 
   /**
    * Sort a vector out-of-place.
+   *
    * @param inVec the input vector.
    * @param outVec the output vector, which has the same size as the input vector.
    * @param comparator the criteria for sort.
