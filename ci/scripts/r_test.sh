@@ -90,10 +90,11 @@ SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
   if (as_cran) {
     args <- '--as-cran'
     build_args <- character()
-    Sys.setenv('_R_CHECK_CRAN_INCOMING_REMOTE_'=TRUE)
+    env <- c('_R_CHECK_CRAN_INCOMING_REMOTE_'='TRUE')
   } else {
     args <- c('--no-manual', '--ignore-vignettes')
     build_args <- '--no-build-vignettes'
+    env <- c()
   }
 
   if (requireNamespace('reticulate', quietly = TRUE) && reticulate::py_module_available('pyarrow')) {
@@ -121,7 +122,7 @@ SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
     args <- c(args, paste0('--install-args=\"', install_args, '\"'))
   }
 
-  rcmdcheck::rcmdcheck(build_args = build_args, args = args, error_on = 'warning', check_dir = 'check', timeout = 3600)"
+  rcmdcheck::rcmdcheck(build_args = build_args, args = args, error_on = 'warning', check_dir = 'check', timeout = 3600, env = env)"
 echo "$SCRIPT" | ${R_BIN} --no-save
 
 AFTER=$(ls -alh ~/)
