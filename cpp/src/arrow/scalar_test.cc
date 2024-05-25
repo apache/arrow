@@ -1864,10 +1864,12 @@ class TestUnionScalar : public ::testing::Test {
         {union_string_null_, "null"},
         {union_number_null_, "null"}};
 
-    for (const auto& [scalar, expected] : test_cases) {
-      ASSERT_OK_AND_ASSIGN(auto casted, Cast(scalar, utf8()));
-      ASSERT_EQ(casted.scalar()->ToString(), expected)
-          << "Failed to cast " << scalar->ToString() << " to " << expected;
+    for (const auto& out_ty : {utf8(), large_utf8()}) {
+      for (const auto& [scalar, expected] : test_cases) {
+        ASSERT_OK_AND_ASSIGN(auto casted, Cast(scalar, out_ty));
+        ASSERT_EQ(casted.scalar()->ToString(), expected)
+            << "Failed to cast " << scalar->ToString() << " to " << expected;
+      }
     }
   }
 
