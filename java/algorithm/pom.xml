@@ -85,7 +85,7 @@
                     <include>pom.xml</include>
                   </includes>
                   <licenseHeader>
-                    <file>${maven.multiModuleProjectDirectory}/java/spotless/asf-xml.license</file>
+                    <file>../spotless/asf-xml.license</file>
                     <delimiter>(&lt;configuration|&lt;project)</delimiter>
                   </licenseHeader>
                 </format>
@@ -95,7 +95,7 @@
                     <include>**/*.java</include>
                   </includes>
                   <licenseHeader>
-                    <file>${maven.multiModuleProjectDirectory}/java/spotless/asf-java.license</file>
+                    <file>../spotless/asf-java.license</file>
                     <delimiter>package</delimiter>
                   </licenseHeader>
                 </format>
