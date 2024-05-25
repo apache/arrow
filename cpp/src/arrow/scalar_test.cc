@@ -1893,73 +1893,76 @@ TYPED_TEST(TestUnionScalar, MakeNullScalar) { this->TestMakeNullScalar(); }
 
 TYPED_TEST(TestUnionScalar, Cast) { this->TestCast(); }
 
-class TestSparseUnionScalar : public TestUnionScalar<SparseUnionType> {};
+class TestSparseUnionScalar : public TestUnionScalar<SparseUnionType> {
+  void SetUp() override {
+    TestUnionScalar::SetUp();
+
+    children = {ArrayFromJSON(utf8(), R"(["alpha", "", "beta", null, "gamma"])"),
+                ArrayFromJSON(uint64(), "[1, 2, 11, 22, null]"),
+                ArrayFromJSON(uint64(), "[100, 101, 102, 103, 104]")};
+
+    type_ids = ArrayFromJSON(int8(), "[3, 42, 3, 3, 42]");
+    arr = std::make_shared<SparseUnionArray>(type_, 5, children,
+                                             type_ids->data()->buffers[1]);
+    ASSERT_OK(arr->ValidateFull());
+  }
+
+ protected:
+  ArrayVector children;
+  std::shared_ptr<Array> type_ids;
+  std::shared_ptr<SparseUnionArray> arr;
+};
 
 TEST_F(TestSparseUnionScalar, GetScalar) {
-  ArrayVector children{ArrayFromJSON(utf8(), R"(["alpha", "", "beta", null, "gamma"])"),
-                       ArrayFromJSON(uint64(), "[1, 2, 11, 22, null]"),
-                       ArrayFromJSON(uint64(), "[100, 101, 102, 103, 104]")};
-
-  auto type_ids = ArrayFromJSON(int8(), "[3, 42, 3, 3, 42]");
-  SparseUnionArray arr(type_, 5, children, type_ids->data()->buffers[1]);
-  ASSERT_OK(arr.ValidateFull());
-
-  CheckGetValidUnionScalar(arr, 0, *union_alpha_, *alpha_);
-  CheckGetValidUnionScalar(arr, 1, *union_two_, *two_);
-  CheckGetValidUnionScalar(arr, 2, *union_beta_, *beta_);
-  CheckGetNullUnionScalar(arr, 3);
-  CheckGetNullUnionScalar(arr, 4);
+  CheckGetValidUnionScalar(*arr, 0, *union_alpha_, *alpha_);
+  CheckGetValidUnionScalar(*arr, 1, *union_two_, *two_);
+  CheckGetValidUnionScalar(*arr, 2, *union_beta_, *beta_);
+  CheckGetNullUnionScalar(*arr, 3);
+  CheckGetNullUnionScalar(*arr, 4);
 }
 
 TEST_F(TestSparseUnionScalar, Cast) {
-  ArrayVector children{ArrayFromJSON(utf8(), R"(["alpha", "", "beta", null, "gamma"])"),
-                       ArrayFromJSON(uint64(), "[1, 2, 11, 22, null]"),
-                       ArrayFromJSON(uint64(), "[100, 101, 102, 103, 104]")};
-
-  auto type_ids = ArrayFromJSON(int8(), "[3, 42, 3, 3, 42]");
-  SparseUnionArray arr(type_, 5, children, type_ids->data()->buffers[1]);
-  ASSERT_OK(arr.ValidateFull());
-
   auto expected = ArrayFromJSON(
       utf8(),
       R"(["union{string: string = alpha}", "union{number: uint64 = 2}", "union{string: string = beta}", null, null])");
-  ASSERT_OK_AND_ASSIGN(auto casted, Cast(arr, utf8()));
+  ASSERT_OK_AND_ASSIGN(auto casted, Cast(*arr, utf8()));
   ASSERT_TRUE(casted->Equals(*expected));
 }
 
-class TestDenseUnionScalar : public TestUnionScalar<DenseUnionType> {};
+class TestDenseUnionScalar : public TestUnionScalar<DenseUnionType> {
+  void SetUp() override {
+    TestUnionScalar::SetUp();
+
+    children = {ArrayFromJSON(utf8(), R"(["alpha", "beta", null])"),
+                ArrayFromJSON(uint64(), "[2, 3]"), ArrayFromJSON(uint64(), "[]")};
+
+    type_ids = ArrayFromJSON(int8(), "[3, 42, 3, 3, 42]");
+    offsets = ArrayFromJSON(int32(), "[0, 0, 1, 2, 1]");
+    arr = std::make_shared<DenseUnionArray>(
+        type_, 5, children, type_ids->data()->buffers[1], offsets->data()->buffers[1]);
+    ASSERT_OK(arr->ValidateFull());
+  }
+
+ protected:
+  ArrayVector children;
+  std::shared_ptr<Array> type_ids;
+  std::shared_ptr<Array> offsets;
+  std::shared_ptr<DenseUnionArray> arr;
+};
 
 TEST_F(TestDenseUnionScalar, GetScalar) {
-  ArrayVector children{ArrayFromJSON(utf8(), R"(["alpha", "beta", null])"),
-                       ArrayFromJSON(uint64(), "[2, 3]"), ArrayFromJSON(uint64(), "[]")};
-
-  auto type_ids = ArrayFromJSON(int8(), "[3, 42, 3, 3, 42]");
-  auto offsets = ArrayFromJSON(int32(), "[0, 0, 1, 2, 1]");
-  DenseUnionArray arr(type_, 5, children, type_ids->data()->buffers[1],
-                      offsets->data()->buffers[1]);
-  ASSERT_OK(arr.ValidateFull());
-
-  CheckGetValidUnionScalar(arr, 0, *union_alpha_, *alpha_);
-  CheckGetValidUnionScalar(arr, 1, *union_two_, *two_);
-  CheckGetValidUnionScalar(arr, 2, *union_beta_, *beta_);
-  CheckGetNullUnionScalar(arr, 3);
-  CheckGetValidUnionScalar(arr, 4, *union_three_, *three_);
+  CheckGetValidUnionScalar(*arr, 0, *union_alpha_, *alpha_);
+  CheckGetValidUnionScalar(*arr, 1, *union_two_, *two_);
+  CheckGetValidUnionScalar(*arr, 2, *union_beta_, *beta_);
+  CheckGetNullUnionScalar(*arr, 3);
+  CheckGetValidUnionScalar(*arr, 4, *union_three_, *three_);
 }
 
 TEST_F(TestDenseUnionScalar, Cast) {
-  ArrayVector children{ArrayFromJSON(utf8(), R"(["alpha", "beta", null])"),
-                       ArrayFromJSON(uint64(), "[2, 3]"), ArrayFromJSON(uint64(), "[]")};
-
-  auto type_ids = ArrayFromJSON(int8(), "[3, 42, 3, 3, 42]");
-  auto offsets = ArrayFromJSON(int32(), "[0, 0, 1, 2, 1]");
-  DenseUnionArray arr(type_, 5, children, type_ids->data()->buffers[1],
-                      offsets->data()->buffers[1]);
-  ASSERT_OK(arr.ValidateFull());
-
   auto expected = ArrayFromJSON(
       utf8(),
       R"(["union{string: string = alpha}", "union{number: uint64 = 2}", "union{string: string = beta}", null, "union{number: uint64 = 3}"])");
-  ASSERT_OK_AND_ASSIGN(auto casted, Cast(arr, utf8()));
+  ASSERT_OK_AND_ASSIGN(auto casted, Cast(*arr, utf8()));
   ASSERT_TRUE(casted->Equals(*expected));
 }
 
