@@ -177,19 +177,20 @@ gadataset_dataset_to_record_batch_reader(GADatasetDataset *dataset, GError **err
   if (!garrow::check(error,
                      arrow_scanner_builder_result,
                      "[dataset][to-record-batch-reader]")) {
-    return NULL;
+    return nullptr;
   }
   auto arrow_scanner_builder = *arrow_scanner_builder_result;
   auto arrow_scanner_result = arrow_scanner_builder->Finish();
   if (!garrow::check(error, arrow_scanner_result, "[dataset][to-record-batch-reader]")) {
-    return NULL;
+    return nullptr;
   }
   auto arrow_scanner = *arrow_scanner_result;
   auto arrow_reader_result = arrow_scanner->ToRecordBatchReader();
   if (!garrow::check(error, arrow_reader_result, "[dataset][to-record-batch-reader]")) {
-    return NULL;
+    return nullptr;
   }
-  return garrow_record_batch_reader_new_raw(&(*arrow_reader_result), nullptr);
+  auto sources = g_list_prepend(nullptr, dataset);
+  return garrow_record_batch_reader_new_raw(&(*arrow_reader_result), sources);
 }
 
 /**

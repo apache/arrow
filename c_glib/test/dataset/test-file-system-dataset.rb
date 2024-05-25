@@ -69,7 +69,7 @@ class TestDatasetFileSystemDataset < Test::Unit::TestCase
     assert_equal(expected_table, dataset.to_table)
   end
 
-  def test_record_batch_reader
+  def test_to_record_batch_reader
     dataset, expected_table = create_dataset
     reader = dataset.to_record_batch_reader
     assert_equal(expected_table, reader.read_all)
