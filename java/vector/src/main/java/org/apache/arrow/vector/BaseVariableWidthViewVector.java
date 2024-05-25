@@ -33,6 +33,7 @@ import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -1334,30 +1335,67 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   /**
    * Copy a cell value from a particular index in source vector to a particular position in this
    * vector.
-   * TODO: Improve functionality to support copying views.
-   * <a href="https://github.com/apache/arrow/issues/40933">Enhance CopyFrom</a>
-   *
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
   @Override
   public void copyFrom(int fromIndex, int thisIndex, ValueVector from) {
-    throw new UnsupportedOperationException("copyFrom is not supported for VariableWidthVector");
+    Preconditions.checkArgument(getMinorType() == from.getMinorType());
+    if (from.isNull(fromIndex)) {
+      BitVectorHelper.unsetBit(validityBuffer, thisIndex);
+    } else {
+      final int viewLength = from.getDataBuffer().getInt((long) fromIndex * ELEMENT_SIZE);
+      BitVectorHelper.setBit(validityBuffer, thisIndex);
+      final int start = thisIndex * ELEMENT_SIZE;
+      final int copyStart = fromIndex * ELEMENT_SIZE;
+      from.getDataBuffer().getBytes(start, viewBuffer, copyStart, ELEMENT_SIZE);
+      if (viewLength > INLINE_SIZE) {
+        final int bufIndex = from.getDataBuffer().getInt(((long) fromIndex * ELEMENT_SIZE) +
+            LENGTH_WIDTH + PREFIX_WIDTH);
+        final int dataOffset = from.getDataBuffer().getInt(((long) fromIndex * ELEMENT_SIZE) +
+            LENGTH_WIDTH + PREFIX_WIDTH + BUF_INDEX_WIDTH);
+        final ArrowBuf dataBuf = ((BaseVariableWidthViewVector) from).dataBuffers.get(bufIndex);
+        final ArrowBuf thisDataBuf = allocateOrGetLastDataBuffer(viewLength);
+        thisDataBuf.setBytes(thisDataBuf.writerIndex(), dataBuf, dataOffset, viewLength);
+        thisDataBuf.writerIndex(thisDataBuf.writerIndex() + viewLength);
+      }
+    }
+    lastSet = thisIndex;
   }
 
   /**
    * Same as {@link #copyFrom(int, int, ValueVector)} except that it handles the case when the
    * capacity of the vector needs to be expanded before copy.
-   * TODO: Improve functionality to support copying views.
-   * <a href="https://github.com/apache/arrow/issues/40933">Enhance CopyFrom</a>
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
   @Override
   public void copyFromSafe(int fromIndex, int thisIndex, ValueVector from) {
-    throw new UnsupportedOperationException("copyFromSafe is not supported for VariableWidthVector");
+    Preconditions.checkArgument(getMinorType() == from.getMinorType());
+    if (from.isNull(fromIndex)) {
+      handleSafe(thisIndex, 0);
+      BitVectorHelper.unsetBit(validityBuffer, thisIndex);
+    } else {
+      final int viewLength = from.getDataBuffer().getInt((long) fromIndex * ELEMENT_SIZE);
+      handleSafe(thisIndex, viewLength);
+      BitVectorHelper.setBit(validityBuffer, thisIndex);
+      final int start = thisIndex * ELEMENT_SIZE;
+      final int copyStart = fromIndex * ELEMENT_SIZE;
+      from.getDataBuffer().getBytes(start, viewBuffer, copyStart, ELEMENT_SIZE);
+      if (viewLength > INLINE_SIZE) {
+        final int bufIndex = from.getDataBuffer().getInt(((long) fromIndex * ELEMENT_SIZE) +
+            LENGTH_WIDTH + PREFIX_WIDTH);
+        final int dataOffset = from.getDataBuffer().getInt(((long) fromIndex * ELEMENT_SIZE) +
+            LENGTH_WIDTH + PREFIX_WIDTH + BUF_INDEX_WIDTH);
+        final ArrowBuf dataBuf = ((BaseVariableWidthViewVector) from).dataBuffers.get(bufIndex);
+        final ArrowBuf thisDataBuf = allocateOrGetLastDataBuffer(viewLength);
+        thisDataBuf.setBytes(thisDataBuf.writerIndex(), dataBuf, dataOffset, viewLength);
+        thisDataBuf.writerIndex(thisDataBuf.writerIndex() + viewLength);
+      }
+    }
+    lastSet = thisIndex;
   }
 
   @Override
