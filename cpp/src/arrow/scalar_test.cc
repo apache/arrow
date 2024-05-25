@@ -1855,11 +1855,21 @@ class TestUnionScalar : public ::testing::Test {
   }
 
   void TestCast() {
-    // Cast() function doesn't support casting union to string, use Scalar::CastTo()
-    // instead.
-    ASSERT_OK_AND_ASSIGN(auto casted, union_alpha_->CastTo(utf8()));
-    ASSERT_TRUE(casted->Equals(StringScalar(R"(union{string: string = alpha})")))
-        << casted->ToString();
+    std::vector<std::pair<std::shared_ptr<Scalar>, std::string>> test_cases = {
+        {union_alpha_, R"(union{string: string = alpha})"},
+        {union_beta_, R"(union{string: string = beta})"},
+        {union_two_, R"(union{number: uint64 = 2})"},
+        {union_three_, R"(union{number: uint64 = 3})"},
+        {union_other_two_, R"(union{other_number: uint64 = 2})"},
+        {union_string_null_, "null"},
+        {union_number_null_, "null"}
+    };
+
+    for (const auto& [scalar, expected] : test_cases) {
+      ASSERT_OK_AND_ASSIGN(auto casted, Cast(scalar, utf8()));
+      ASSERT_EQ(casted.scalar()->ToString(), expected)
+          << "Failed to cast " << scalar->ToString() << " to " << expected;
+    }
   }
 
  protected:
