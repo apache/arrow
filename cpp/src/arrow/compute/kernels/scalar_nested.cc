@@ -345,10 +345,16 @@ struct ListSlice {
                                       int64_t value_count, int64_t null_padding,
                                       const ArraySpan& values_array,
                                       ArrayBuilder* out_value_builder) {
-    auto cursor_offset = start_offset;
-    for (int64_t i = 0; i < value_count; i++) {
-      RETURN_NOT_OK(out_value_builder->AppendArraySlice(values_array, cursor_offset, 1));
-      cursor_offset += step;
+    if (step == 1) {
+      RETURN_NOT_OK(
+          out_value_builder->AppendArraySlice(values_array, start_offset, value_count));
+    } else {
+      auto cursor_offset = start_offset;
+      for (int64_t i = 0; i < value_count; i++) {
+        RETURN_NOT_OK(
+            out_value_builder->AppendArraySlice(values_array, cursor_offset, 1));
+        cursor_offset += step;
+      }
     }
     if (null_padding > 0) {
       RETURN_NOT_OK(out_value_builder->AppendNulls(null_padding));
