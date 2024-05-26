@@ -509,12 +509,12 @@ class SwissHashTable {
     auto group_index = ProbeStart(h1);
     while (true) {
       DCHECK(group_index < groups_count_);
-      auto& group = groups_[group_index];
       // probe
       auto match_value = GroupMetaMatchH2(group_metas_[group_index], h2);
-      while (match_value != 0) {
+      while (ARROW_PREDICT_FALSE(match_value != 0)) {
         auto group_internal_index = NextMatchGroupInternalIndex(&match_value);
         DCHECK(group_internal_index < kGroupSize);
+        auto& group = groups_[group_index];
         auto* entry = &group.entries[group_internal_index];
         if (CompareEntry<CKind, CmpFunc>(h, entry, std::forward<CmpFunc>(cmp_func))) {
           // Found
@@ -524,9 +524,10 @@ class SwissHashTable {
 
       // stop probing if we see an empty slot
       auto match_empty_value = GroupMetaMatchEmpty(group_metas_[group_index]);
-      if (match_empty_value != 0) {
+      if (ARROW_PREDICT_FALSE(match_empty_value != 0)) {
         auto group_internal_index = NextMatchGroupInternalIndex(&match_empty_value);
         DCHECK(group_internal_index < kGroupSize);
+        auto& group = groups_[group_index];
         auto* entry = &group.entries[group_internal_index];
         // Not Found
         return {entry, false};
@@ -613,7 +614,12 @@ class SwissHashTable {
     return {(hash_value & kH1Mask) >> 7, hash_value & kH2Mask};
   }
 
-  uint64_t ProbeStart(H1 h1) const { return h1 % groups_count_; }
+  uint64_t ProbeStart(H1 h1) const {
+    if (ARROW_PREDICT_TRUE(groups_count_ < std::numeric_limits<uint32_t>::max())) {
+      return FastModN(h1, groups_count_);
+    }
+    return h1 % groups_count_;
+  }
 
   uint64_t GroupMetaMatchH2(const GroupMeta& meta, H2 h2) const {
     auto u64_meta =
@@ -654,6 +660,12 @@ class SwissHashTable {
     return {group_index, group_internal_index};
   }
 
+  // lemire.me/blog/2016/06/27/a-fast-alternative-to-the-modulo-reduction/
+  uint32_t FastModN(uint32_t x, uint32_t n) const {
+    return static_cast<uint32_t>(static_cast<uint64_t>(x) * static_cast<uint64_t>(n) >>
+                                 32);
+  }
+
   // The number of groups available in the hash table array.
   uint64_t groups_count_;
   // The number of used slots in the hash table array.
@@ -688,7 +700,7 @@ class MemoTable {
 // The memoization table remembers and allows to look up the insertion
 // index for each key.
 
-template <typename Scalar, template <class> class HashTableTemplateType = HashTable>
+template <typename Scalar, template <class> class HashTableTemplateType = SwissHashTable>
 class ScalarMemoTable : public MemoTable {
  public:
   explicit ScalarMemoTable(MemoryPool* pool, int64_t entries = 0)
@@ -925,7 +937,7 @@ class SmallScalarMemoTable : public MemoTable {
 // A memoization table for variable-sized binary data.
 
 template <typename BinaryBuilderT,
-          template <class> class HashTableTemplateType = HashTable>
+          template <class> class HashTableTemplateType = SwissHashTable>
 class BinaryMemoTable : public MemoTable {
  public:
   using builder_offset_type = typename BinaryBuilderT::offset_type;
@@ -1181,7 +1193,7 @@ struct HashTraits<T, enable_if_8bit_int<T>> {
 template <typename T>
 struct HashTraits<T, enable_if_t<has_c_type<T>::value && !is_8bit_int<T>::value>> {
   using c_type = typename T::c_type;
-  using MemoTableType = ScalarMemoTable<c_type, HashTable>;
+  using MemoTableType = ScalarMemoTable<c_type, SwissHashTable>;
 };
 
 template <typename T>
