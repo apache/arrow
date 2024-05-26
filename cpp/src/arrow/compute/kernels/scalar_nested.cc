@@ -244,6 +244,7 @@ struct ListSlice {
     const ArraySpan& values_array = list_array.child_data[0];
     ArrayBuilder* value_builder = out_list_builder->value_builder();
 
+    auto* is_valid = list_array.GetValues<uint8_t>(0, 0);
     const auto list_size = static_cast<int64_t>(fsl_type.list_size());
     const int64_t effective_stop = stop.value_or(list_size);
     int64_t slice_length, value_count;
@@ -264,7 +265,7 @@ struct ListSlice {
     }
     int64_t offset = list_array.offset * list_size;
     for (int64_t i = 0; i < list_array.length; ++i) {
-      if (list_array.IsNull(i)) {
+      if (is_valid && !bit_util::GetBit(is_valid, list_array.offset + i)) {
         RETURN_NOT_OK(out_list_builder->AppendNull());
       } else {
         int64_t start_offset = offset + start;
@@ -289,6 +290,7 @@ struct ListSlice {
     const ArraySpan& values_array = list_array.child_data[0];
     ArrayBuilder* value_builder = out_list_builder->value_builder();
 
+    const auto* is_valid = list_array.GetValues<uint8_t>(0, 0);
     const auto* offsets = list_array.GetValues<offset_type>(1);
     const offset_type* sizes = nullptr;
     if constexpr (kIsListViewInput) {
@@ -297,7 +299,7 @@ struct ListSlice {
     for (int64_t i = 0; i < list_array.length; ++i) {
       const offset_type offset = offsets[i];
       const int64_t list_size = kIsListViewInput ? sizes[i] : offsets[i + 1] - offset;
-      if (list_array.IsNull(i)) {
+      if (is_valid && !bit_util::GetBit(is_valid, list_array.offset + i)) {
         RETURN_NOT_OK(out_list_builder->AppendNull());
       } else {
         int64_t effective_stop = stop.value_or(list_size);
