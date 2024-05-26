@@ -510,13 +510,30 @@ void AddBinaryToFixedSizeBinaryCast(CastFunction* func) {
   AddBinaryToFixedSizeBinaryCast<FixedSizeBinaryType>(func);
 }
 
+// ----------------------------------------------------------------------
+// List-like (List, LargeList, ListView, LargeListView, FixedSizeList, Map) to string
+
 template <typename O, typename I>
 struct ListLikeToStringCastFunctor {
   using BuilderType = typename TypeTraits<O>::BuilderType;
 
+  static Status AppendValue(const ArraySpan& values, std::stringstream& ss, int64_t j, int64_t start) {
+    if (j != start) {
+      ss << ", ";
+    }
+    if (values.IsValid(j)) {
+      std::shared_ptr<Scalar> value_scalar;
+      RETURN_NOT_OK(values.ToArray()->GetScalar(j).Value(&value_scalar));
+      ss << value_scalar->ToString();
+    } else {
+      ss << "null";
+    }
+    return Status::OK();
+  }
+
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const ArraySpan& input = batch[0].array;
-
+    auto type_id = input.type->id();
     BuilderType builder(ctx->memory_pool());
     RETURN_NOT_OK(builder.Reserve(input.length));
 
@@ -525,7 +542,7 @@ struct ListLikeToStringCastFunctor {
     const auto* offsets = input.GetValues<typename I::offset_type>(1);
 
     int list_size = -1;
-    if (input.type->id() == Type::FIXED_SIZE_LIST) {
+    if (type_id == Type::FIXED_SIZE_LIST) {
       list_size = checked_cast<const FixedSizeListType&>(*input.type).list_size();
     }
 
@@ -535,11 +552,11 @@ struct ListLikeToStringCastFunctor {
         continue;
       }
 
-      std::ostringstream ss;
+      std::stringstream ss;
       ss << type_info << "[";
 
       int64_t start, end;
-      if (input.type->id() == Type::FIXED_SIZE_LIST) {
+      if (type_id == Type::FIXED_SIZE_LIST) {
         start = i * list_size;
         end = start + list_size;
       } else {
@@ -547,22 +564,8 @@ struct ListLikeToStringCastFunctor {
         end = offsets[i + 1];
       }
 
-      auto append_value = [&](int64_t j) -> Status {
-        if (j != start) {
-          ss << ", ";
-        }
-        if (values.IsValid(j)) {
-          std::shared_ptr<Scalar> value_scalar;
-          RETURN_NOT_OK(values.ToArray()->GetScalar(j).Value(&value_scalar));
-          ss << value_scalar->ToString();
-        } else {
-          ss << "null";
-        }
-        return Status::OK();
-      };
-
       for (int64_t j = start; j < end; ++j) {
-        RETURN_NOT_OK(append_value(j));
+        RETURN_NOT_OK(AppendValue(values, ss, j, start));
       }
 
       ss << "]";
