@@ -93,7 +93,7 @@ SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
     env <- c('_R_CHECK_CRAN_INCOMING_REMOTE_'='TRUE')
 
     # Attempt to install pandoc
-    system('apt', 'install', '-y', 'pandoc)
+    system('apt', 'install', '-y', 'pandoc')
   } else {
     args <- c('--no-manual', '--ignore-vignettes')
     build_args <- '--no-build-vignettes'
