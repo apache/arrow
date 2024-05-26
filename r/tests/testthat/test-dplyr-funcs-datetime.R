@@ -1886,34 +1886,18 @@ test_that("`as.Date()` and `as_date()`", {
   )
 
   # we do not support multiple tryFormats
-  # this is not a simple warning, therefore we cannot use compare_dplyr_binding()
-  # with `warning = TRUE`
-  # arrow_table test
-  expect_warning(
+  # Use a dataset to test the alternative suggestion message
+  expect_snapshot(
     test_df %>%
-      arrow_table() %>%
-      mutate(
+      InMemoryDataset$create() %>%
+      transmute(
         date_char_ymd = as.Date(
           character_ymd_var,
           tryFormats = c("%Y-%m-%d", "%Y/%m/%d")
         )
       ) %>%
       collect(),
-    regexp = "Consider using the lubridate specialised parsing functions"
-  )
-
-  # record batch test
-  expect_warning(
-    test_df %>%
-      record_batch() %>%
-      mutate(
-        date_char_ymd = as.Date(
-          character_ymd_var,
-          tryFormats = c("%Y-%m-%d", "%Y/%m/%d")
-        )
-      ) %>%
-      collect(),
-    regexp = "Consider using the lubridate specialised parsing functions"
+    error = TRUE
   )
 
   # strptime does not support a partial format - Arrow returns NA, while

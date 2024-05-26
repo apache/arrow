@@ -227,8 +227,6 @@ abandon_ship <- function(err, env) {
   }
 
   # Else, warn, collect(), and run in regular dplyr
-  # Note that this drops any suggestions for fixing in arrow
-  # (since that ship has sailed by the time you see the warning)
   rlang::warn(
     message = paste0("In ", format_expr(err$call), ": "),
     body = c("i" = conditionMessage(err), ">" = "Pulling data into R")

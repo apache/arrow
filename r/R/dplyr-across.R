@@ -36,7 +36,7 @@ expand_across <- function(.data, quos_in, exclude_cols = NULL) {
       if (!all(names(across_call[-1]) %in% c(".cols", ".fns", ".names"))) {
         arrow_not_supported(
           "`...` argument to `across()` is deprecated in dplyr and",
-          # TODO: add body = c("i", "some suggestion to do this right?")
+          body = c(">" = "Convert your call into a function or formula including the arguments"),
           call = rlang::caller_call()
         )
       }
