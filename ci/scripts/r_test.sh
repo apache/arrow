@@ -91,6 +91,9 @@ SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
     args <- '--as-cran'
     build_args <- character()
     env <- c('_R_CHECK_CRAN_INCOMING_REMOTE_'='TRUE')
+
+    # Attempt to install pandoc
+    system('apt', 'install', '-y', 'pandoc)
   } else {
     args <- c('--no-manual', '--ignore-vignettes')
     build_args <- '--no-build-vignettes'
@@ -122,12 +125,13 @@ SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
     args <- c(args, paste0('--install-args=\"', install_args, '\"'))
   }
 
-  message(
-    'Running rcmdcheck with:\n',
-    'build_args: ', build_args,
-    'args: ', args,
-    'env: ', env
-  )
+  message('Running rcmdcheck with:\n')
+  message('build_args:\n')
+  print(build_args)
+  message('args:\n')
+  print(args)
+  message('env:\n')
+  print(env)
 
   rcmdcheck::rcmdcheck(build_args = build_args, args = args, error_on = 'warning', check_dir = 'check', timeout = 3600, env = env)"
 echo "$SCRIPT" | ${R_BIN} --no-save
