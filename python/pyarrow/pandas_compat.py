@@ -1109,7 +1109,7 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
             level = pd.to_datetime(level, utc=True).tz_convert(tz)
         # GH-41503: if the column index was decimal, restore to decimal
         elif pandas_dtype == "decimal":
-            level = _pandas_api.pd.Index([decimal.Decimal(l) for l in level])
+            level = _pandas_api.pd.Index([decimal.Decimal(i) for i in level])
         elif level.dtype != dtype:
             level = level.astype(dtype)
         # ARROW-9096: if original DataFrame was upcast we keep that
