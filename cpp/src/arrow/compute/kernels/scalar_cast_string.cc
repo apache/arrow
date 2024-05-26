@@ -547,16 +547,24 @@ struct ListLikeToStringCastFunctor {
         end = offsets[i + 1];
       }
 
-      for (int64_t j = start; j < end; ++j) {
+      auto append_value = [&](int64_t j) -> Status {
         if (j != start) {
           ss << ", ";
         }
         if (values.IsValid(j)) {
-          ss << std::to_string(values.GetValues<int16_t>(1)[j]);
+          std::shared_ptr<Scalar> value_scalar;
+          RETURN_NOT_OK(values.ToArray()->GetScalar(j).Value(&value_scalar));
+          ss << value_scalar->ToString();
         } else {
           ss << "null";
         }
+        return Status::OK();
+      };
+
+      for (int64_t j = start; j < end; ++j) {
+        RETURN_NOT_OK(append_value(j));
       }
+
       ss << "]";
       RETURN_NOT_OK(builder.Append(ss.str()));
     }

@@ -2275,10 +2275,6 @@ TEST(Cast, BooleanToString) {
 TEST(Cast, ListToPrimitive) {
   ASSERT_RAISES(NotImplemented,
                 Cast(*ArrayFromJSON(list(int8()), "[[1, 2], [3, 4]]"), uint8()));
-
-  ASSERT_RAISES(
-      NotImplemented,
-      Cast(*ArrayFromJSON(list(binary()), R"([["1", "2"], ["3", "4"]])"), utf8()));
 }
 
 using make_list_t = std::shared_ptr<DataType>(const std::shared_ptr<DataType>&);
@@ -2429,6 +2425,40 @@ TEST(Cast, FSLToList) {
   CheckCast(fsl_int32, ArrayFromJSON(fixed_size_list(int16(), 1), "[[32689]]"), options);
 }
 
+TEST(Cast, FSLToString) {
+  auto CheckFSLToStringCast = [](const std::shared_ptr<DataType>& fsl_type,
+                                 const std::string& fsl_json,
+                                 const std::string& expected_str) {
+    std::shared_ptr<Array> src = ArrayFromJSON(fsl_type, fsl_json);
+    ASSERT_OK_AND_ASSIGN(auto casted_str, Cast(*src, utf8()));
+
+    std::shared_ptr<Array> expected_array = ArrayFromJSON(utf8(), expected_str);
+    ASSERT_TRUE(casted_str->Equals(expected_array)) << casted_str->ToString();
+  };
+
+  // Example with int32 list
+  std::shared_ptr<DataType> fsl_type = fixed_size_list(int32(), 3);
+  const std::string fsl_json = R"([[1, 2, 3], [4, 5, 6], [7, null, 8], null])";
+  const std::string expected_str =
+      "[\"fixed_size_list<item: int32>[3][1, 2, 3]\", "
+      "\"fixed_size_list<item: int32>[3][4, 5, 6]\", "
+      "\"fixed_size_list<item: int32>[3][7, null, 8]\", "
+      "\"null\"]";
+
+  CheckFSLToStringCast(fsl_type, fsl_json, expected_str);
+
+  // Example with nested fixed_size_list<int32> of size 2
+  fsl_type = fixed_size_list(fixed_size_list(int32(), 2), 2);
+  const std::string nested_fsl_json = R"([[[1, 2], [3, 4]], [[null, 5], null]])";
+  const std::string expected_nested_str =
+      "[\"fixed_size_list<item: fixed_size_list<item: int32>[2]>[2]"
+      "[fixed_size_list<item: int32>[2][1, 2], fixed_size_list<item: int32>[2][3, 4]]\", "
+      "\"fixed_size_list<item: fixed_size_list<item: int32>[2]>[2]"
+      "[fixed_size_list<item: int32>[2][null, 5], null]\"]";
+
+  CheckFSLToStringCast(fsl_type, nested_fsl_json, expected_nested_str);
+}
+
 TEST(Cast, ListToFSL) {
   CheckCastList(list(int16()), fixed_size_list(int16(), 2),
                 "[[0, 1], [2, 3], null, [null, 5], null]");
@@ -2476,6 +2506,40 @@ TEST(Cast, ListToFSL) {
                               CastOptions::Safe(fixed_size_list(int32(), 3))));
 }
 
+TEST(Cast, ListToString) {
+  auto CheckListToStringCast = [](const std::shared_ptr<DataType>& list_type,
+                                  const std::string& list_json,
+                                  const std::string& expected_str) {
+    std::shared_ptr<Array> src = ArrayFromJSON(list_type, list_json);
+    ASSERT_OK_AND_ASSIGN(auto casted_str, Cast(*src, utf8()));
+
+    std::shared_ptr<Array> expected_array = ArrayFromJSON(utf8(), expected_str);
+    ASSERT_TRUE(casted_str->Equals(expected_array)) << casted_str->ToString();
+  };
+
+  // Example with int32 list
+  std::shared_ptr<DataType> list_type = list(int32());
+  const std::string list_json = R"([[1, 2, 3], [4, 5], [6], []])";
+  const std::string expected_str =
+      R"(["list<item: int32>[1, 2, 3]",
+          "list<item: int32>[4, 5]",
+          "list<item: int32>[6]",
+          "list<item: int32>[]"])";
+
+  CheckListToStringCast(list_type, list_json, expected_str);
+
+  // Example with nested list of int32
+  list_type = list(list(int32()));
+  const std::string nested_list_json = R"([[[1, 2], [3, 4]], [[5], [6, 7]], [[]], []])";
+  const std::string expected_nested_str =
+      R"(["list<item: list<item: int32>>[list<item: int32>[1, 2], list<item: int32>[3, 4]]",
+          "list<item: list<item: int32>>[list<item: int32>[5], list<item: int32>[6, 7]]",
+          "list<item: list<item: int32>>[list<item: int32>[]]",
+          "list<item: list<item: int32>>[]"])";
+
+  CheckListToStringCast(list_type, nested_list_json, expected_nested_str);
+}
+
 TEST(Cast, CastMap) {
   const std::string map_json =
       "[[[\"x\", 1], [\"y\", 8], [\"z\", 9]], [[\"x\", 6]], [[\"y\", 36]]]";
@@ -2509,9 +2573,9 @@ TEST(Cast, CastMap) {
   std::shared_ptr<DataType> dst_type = map(utf8(), field("y", list(field("b", int64()))));
 
   std::shared_ptr<Array> src =
-      ArrayFromJSON(src_type, "[[[\"1\", [1,2,3]]], [[\"2\", [4,5,6]]]]");
+      ArrayFromJSON(src_type, R"([[["1", [1,2,3]]], [["2", [4,5,6]]]])");
   std::shared_ptr<Array> dst =
-      ArrayFromJSON(dst_type, "[[[\"1\", [1,2,3]]], [[\"2\", [4,5,6]]]]");
+      ArrayFromJSON(dst_type, R"([[["1", [1,2,3]]], [["2", [4,5,6]]]])");
 
   CheckCast(src, dst);
 
@@ -2522,6 +2586,49 @@ TEST(Cast, CastMap) {
       TypeError,
       ::testing::HasSubstr("must be cast to a list<struct> with exactly two fields"),
       Cast(src, dst_type));
+}
+
+void CheckMapToStringCast(const std::string& map_json,
+                          const std::string& map_json_nullable,
+                          const std::vector<std::string>& expected_str,
+                          const std::vector<std::string>& expected_str_nullable,
+                          const std::shared_ptr<DataType>& src_type) {
+  auto check_cast = [&](const std::string& json,
+                        const std::vector<std::string>& expected) {
+    std::shared_ptr<Array> src = ArrayFromJSON(src_type, json);
+    for (int64_t i = 0; i < src->length(); ++i) {
+      ASSERT_OK_AND_ASSIGN(auto scalar, src->GetScalar(i));
+      ASSERT_OK_AND_ASSIGN(auto casted_str, Cast(scalar, utf8()));
+      ASSERT_EQ(casted_str.scalar()->type->id(), utf8()->id());
+      ASSERT_EQ(casted_str.scalar()->ToString(), expected[i]);
+    }
+  };
+
+  check_cast(map_json, expected_str);
+  check_cast(map_json_nullable, expected_str_nullable);
+}
+
+TEST(Cast, MapToString) {
+  const std::string map_json =
+      "[[[\"x\", 1], [\"y\", 8], [\"z\", 9]], [[\"x\", 6]], [[\"y\", 36]]]";
+  const std::string map_json_nullable =
+      "[[[\"x\", 1], [\"y\", null], [\"z\", 9]], null, [[\"y\", 36]]]";
+
+  const std::vector<std::string> expected_str = {
+      "map<string ('x'), int64 ('y')>[{x:string = x, y:int64 = 1}, "
+      "{x:string = y, y:int64 = 8}, {x:string = z, y:int64 = 9}]",
+      "map<string ('x'), int64 ('y')>[{x:string = x, y:int64 = 6}]",
+      "map<string ('x'), int64 ('y')>[{x:string = y, y:int64 = 36}]"};
+
+  const std::vector<std::string> expected_str_nullable = {
+      "map<string ('x'), int64 ('y')>[{x:string = x, y:int64 = 1}, "
+      "{x:string = y, y:int64 = null}, {x:string = z, y:int64 = 9}]",
+      "null", "map<string ('x'), int64 ('y')>[{x:string = y, y:int64 = 36}]"};
+
+  auto src_type =
+      std::make_shared<MapType>(field("x", utf8(), false), field("y", int64()));
+  CheckMapToStringCast(map_json, map_json_nullable, expected_str, expected_str_nullable,
+                       src_type);
 }
 
 static void CheckStructToStruct(
