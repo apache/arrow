@@ -2430,10 +2430,12 @@ TEST(Cast, FSLToString) {
                                  const std::string& fsl_json,
                                  const std::string& expected_str) {
     std::shared_ptr<Array> src = ArrayFromJSON(fsl_type, fsl_json);
-    ASSERT_OK_AND_ASSIGN(auto casted_str, Cast(*src, utf8()));
+    for (const auto& out_ty : {utf8(), large_utf8()}) {
+      ASSERT_OK_AND_ASSIGN(auto casted_str, Cast(*src, out_ty));
 
-    std::shared_ptr<Array> expected_array = ArrayFromJSON(utf8(), expected_str);
-    ASSERT_TRUE(casted_str->Equals(expected_array)) << casted_str->ToString();
+      std::shared_ptr<Array> expected_array = ArrayFromJSON(out_ty, expected_str);
+      ASSERT_TRUE(casted_str->Equals(expected_array)) << casted_str->ToString();
+    }
   };
 
   // Example with int32 list
@@ -2511,10 +2513,11 @@ TEST(Cast, ListToString) {
                                   const std::string& list_json,
                                   const std::string& expected_str) {
     std::shared_ptr<Array> src = ArrayFromJSON(list_type, list_json);
-    ASSERT_OK_AND_ASSIGN(auto casted_str, Cast(*src, utf8()));
-
-    std::shared_ptr<Array> expected_array = ArrayFromJSON(utf8(), expected_str);
-    ASSERT_TRUE(casted_str->Equals(expected_array)) << casted_str->ToString();
+    for (const auto& out_ty : {utf8(), large_utf8()}) {
+      ASSERT_OK_AND_ASSIGN(auto casted_str, Cast(*src, out_ty));
+      std::shared_ptr<Array> expected_array = ArrayFromJSON(out_ty, expected_str);
+      ASSERT_TRUE(casted_str->Equals(expected_array)) << casted_str->ToString();
+    }
   };
 
   // Example with int32 list
@@ -2598,9 +2601,11 @@ void CheckMapToStringCast(const std::string& map_json,
     std::shared_ptr<Array> src = ArrayFromJSON(src_type, json);
     for (int64_t i = 0; i < src->length(); ++i) {
       ASSERT_OK_AND_ASSIGN(auto scalar, src->GetScalar(i));
-      ASSERT_OK_AND_ASSIGN(auto casted_str, Cast(scalar, utf8()));
-      ASSERT_EQ(casted_str.scalar()->type->id(), utf8()->id());
-      ASSERT_EQ(casted_str.scalar()->ToString(), expected[i]);
+      for (const auto& out_ty : {utf8(), large_utf8()}) {
+        ASSERT_OK_AND_ASSIGN(auto casted_str, Cast(scalar, out_ty));
+        ASSERT_EQ(casted_str.scalar()->type->id(), out_ty->id());
+        ASSERT_EQ(casted_str.scalar()->ToString(), expected[i]);
+      }
     }
   };
 

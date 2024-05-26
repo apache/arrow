@@ -633,6 +633,7 @@ std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
   AddDecimalToStringCasts<LargeStringType>(cast_large_string.get());
   AddTemporalToStringCasts<LargeStringType>(cast_large_string.get());
   AddBinaryToBinaryCast<LargeStringType>(cast_large_string.get());
+  AddListLikeToStringCasts<LargeStringType>(cast_large_string.get());
 
   auto cast_fsb =
       std::make_shared<CastFunction>("cast_fixed_size_binary", Type::FIXED_SIZE_BINARY);
