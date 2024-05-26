@@ -2576,9 +2576,9 @@ TEST(Cast, CastMap) {
   std::shared_ptr<DataType> dst_type = map(utf8(), field("y", list(field("b", int64()))));
 
   std::shared_ptr<Array> src =
-      ArrayFromJSON(src_type, R"([[["1", [1,2,3]]], [["2", [4,5,6]]]])");
+      ArrayFromJSON(src_type, "[[[\"1\", [1,2,3]]], [[\"2\", [4,5,6]]]]");
   std::shared_ptr<Array> dst =
-      ArrayFromJSON(dst_type, R"([[["1", [1,2,3]]], [["2", [4,5,6]]]])");
+      ArrayFromJSON(dst_type, "[[[\"1\", [1,2,3]]], [[\"2\", [4,5,6]]]]");
 
   CheckCast(src, dst);
 
