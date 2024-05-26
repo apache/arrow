@@ -458,6 +458,28 @@ modern package managers (apt, yum, conda, Homebrew, vcpkg, chocolatey).
 
 .. _cpp-build-dependency-management:
 
+Meson Support
+-------------
+
+While CMake is the official build generator for Arrow, limited and experimental
+support for the Meson build system is also provided. To use Meson, start in
+the cpp directory and run:
+
+.. code-block::
+
+   $ meson setup builddir && cd builddir
+   $ meson compile
+
+Meson will automatically handle dependency management for you.
+
+To enable tests, configure the ``ARROW_BUILD_TESTS`` option from your
+build directory and use ``meson test``:
+
+.. code-block::
+
+   $ meson configure -DARROW_BUILD_TESTS=true
+   $ meson test
+
 Build Dependency Management
 ===========================
 

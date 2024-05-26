@@ -50,6 +50,8 @@ cpp/.clangd/
 .cache/clangd/
 cpp/.cache/clangd/
 cpp/apidoc/xml/
+cpp/subprojects/*
+!cpp/subprojects/*.wrap
 docs/example.gz
 docs/example1.dat
 docs/example3.dat

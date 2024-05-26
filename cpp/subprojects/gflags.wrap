@@ -1,0 +1,8 @@
+[wrap-git]
+method = cmake
+url = https://github.com/gflags/gflags
+revision = v2.2.2
+depth = 1
+
+[provide]
+gflags = gflags_dep

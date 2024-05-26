@@ -1,0 +1,13 @@
+[wrap-file]
+directory = rapidjson-1.1.0
+source_url = https://github.com/Tencent/rapidjson/archive/v1.1.0.tar.gz
+source_filename = rapidjson-1.1.0.tar.gz
+source_hash = bf7ced29704a1e696fbccf2a2b4ea068e7774fa37f6d7dd4039d0787f8bed98e
+patch_filename = rapidjson_1.1.0-2_patch.zip
+patch_url = https://wrapdb.mesonbuild.com/v2/rapidjson_1.1.0-2/get_patch
+patch_hash = c1480d0ecef09dbaa4b4d85d86090205386fb2c7e87f4f158b20dbbda14c9afc
+source_fallback_url = https://github.com/mesonbuild/wrapdb/releases/download/rapidjson_1.1.0-2/rapidjson-1.1.0.tar.gz
+wrapdb_version = 1.1.0-2
+
+[provide]
+rapidjson = rapidjson_dep
