@@ -56,6 +56,11 @@ arrow_eval <- function(expr, mask) {
       # Raise the original error: it's actually helpful here
       validation_error(msg, call = expr)
     }
+    # 3b. Check to see if this is from match.arg. Retry with dplyr won't help.
+    if (is.language(e$call) && identical(as.character(e$call[[1]]), "match.arg")) {
+      # Raise the original error: it's actually helpful here
+      validation_error(msg, call = expr)
+    }
 
     # 4. Check for NotImplemented error raised from Arrow C++ code.
     #    Not sure where exactly we may raise this, but if we see it, it means
@@ -123,16 +128,11 @@ add_user_functions_to_mask <- function(expr, mask) {
 }
 
 get_standard_error_messages <- function() {
-  patterns <- .cache$i18ized_error_pattern
-  if (is.null(patterns)) {
-    patterns <- i18ize_error_messages()
-    # Add to the patterns something for match.arg() errors
-    # (the function name won't be internationalized, so we can't just look for it)
-    patterns <- paste0(patterns, "|match\\.arg")
+  if (is.null(.cache$i18ized_error_pattern)) {
     # Memoize it
-    .cache$i18ized_error_pattern <- patterns
+    .cache$i18ized_error_pattern <- i18ize_error_messages()
   }
-  patterns
+  .cache$i18ized_error_pattern
 }
 
 i18ize_error_messages <- function() {
@@ -199,13 +199,10 @@ validation_error <- function(msg, ...) {
 # * If it's another error, just stop, retry with regular dplyr won't help
 try_arrow_dplyr <- function(expr) {
   parent <- caller_env()
-  tryCatch(eval(expr, parent), error = function(e) {
-    if (inherits(e, "arrow_not_supported")) {
-      abandon_ship(e, parent)
-    } else {
-      stop(e)
-    }
-  })
+  tryCatch(
+    eval(expr, parent),
+    arrow_not_supported = function(e) abandon_ship(e, parent)
+  )
 }
 
 # Helper to handle unsupported dplyr features
