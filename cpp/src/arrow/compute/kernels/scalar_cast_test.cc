@@ -2509,27 +2509,50 @@ TEST(Cast, ListToFSL) {
 }
 
 TEST_F(TestCastToString, ListToString) {
-  // Example with int32 list
-  std::shared_ptr<DataType> list_type = list(int32());
-  const std::string list_json = R"([[1, 2, 3], [4, 5], [6], []])";
-  const std::string expected_str = R"([
-  "list<item: int32>[1, 2, 3]",
-  "list<item: int32>[4, 5]",
-  "list<item: int32>[6]",
+  // Example with int32 list, large list, list view and large list view
+  const std::vector<std::pair<std::shared_ptr<DataType>, std::string>> list_types = {
+      {list(int32()), R"([
+  "list<item: int32>[1, 2]",
+  "list<item: int32>[3]",
   "list<item: int32>[]"
-])";
-  CheckCastToString(list_type, list_json, expected_str);
+])"},
+      {large_list(int32()), R"([
+  "large_list<item: int32>[1, 2]",
+  "large_list<item: int32>[3]",
+  "large_list<item: int32>[]"
+])"},
+      {list_view(int32()), R"([
+  "list_view<item: int32>[1, 2]",
+  "list_view<item: int32>[3]",
+  "list_view<item: int32>[]"
+])"},
+      {large_list_view(int32()), R"([
+  "large_list_view<item: int32>[1, 2]",
+  "large_list_view<item: int32>[3]",
+  "large_list_view<item: int32>[]"
+])"}};
 
-  // Example with nested list of int32
-  list_type = list(list(int32()));
-  const std::string nested_list_json = R"([[[1, 2], [3, 4]], [[5], [6, 7]], [[]], []])";
-  const std::string expected_nested_str = R"([
-  "list<item: list<item: int32>>[list<item: int32>[1, 2], list<item: int32>[3, 4]]",
-  "list<item: list<item: int32>>[list<item: int32>[5], list<item: int32>[6, 7]]",
+  const std::string list_json = R"([[1, 2], [3], []])";
+
+  for (const auto& [list_type, expected_str] : list_types) {
+    CheckCastToString(list_type, list_json, expected_str);
+  }
+
+  // Example with nested list of int32.  To avoid further code duplication, the code for
+  // large_list, list_view, and large_list_view is omitted.
+  const std::vector<std::pair<std::shared_ptr<DataType>, std::string>> nested_list_types =
+      {{list(list(int32())), R"([
+  "list<item: list<item: int32>>[list<item: int32>[1, 2], list<item: int32>[3]]",
+  "list<item: list<item: int32>>[list<item: int32>[4]]",
   "list<item: list<item: int32>>[list<item: int32>[]]",
   "list<item: list<item: int32>>[]"
-])";
-  CheckCastToString(list_type, nested_list_json, expected_nested_str);
+])"}};
+
+  const std::string nested_list_json = R"([[[1, 2], [3]], [[4]], [[]], []])";
+
+  for (const auto& [nested_list_type, expected_nested_str] : nested_list_types) {
+    CheckCastToString(nested_list_type, nested_list_json, expected_nested_str);
+  }
 }
 
 class TestMapScalar : public TestCastToString {
