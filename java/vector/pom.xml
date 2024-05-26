@@ -214,7 +214,7 @@
           issues in the arrow-tools tests looking up FlatBuffer
           dependencies.
          -->
-        <version>3.4.1</version>
+        <version>3.3.0</version>
         <executions>
           <execution>
             <goals>
