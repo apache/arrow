@@ -2561,24 +2561,13 @@ class TestMapScalar : public ::testing::Test {
     CheckCast(src, dst);
   }
 
-  void CheckMapToStringCast(const std::vector<std::string>& expected_str,
-                            const std::vector<std::string>& expected_str_nullable,
-                            const std::shared_ptr<DataType>& src_type_) {
-    auto check_cast = [&](const std::string& json,
-                          const std::vector<std::string>& expected) {
-      std::shared_ptr<Array> src = ArrayFromJSON(src_type_, json);
-      for (int64_t i = 0; i < src->length(); ++i) {
-        ASSERT_OK_AND_ASSIGN(auto scalar, src->GetScalar(i));
-        for (const auto& out_ty : {utf8(), large_utf8()}) {
-          ASSERT_OK_AND_ASSIGN(auto casted_str, Cast(scalar, out_ty));
-          ASSERT_EQ(casted_str.scalar()->type->id(), out_ty->id());
-          ASSERT_EQ(casted_str.scalar()->ToString(), expected[i]);
-        }
-      }
-    };
-
-    check_cast(map_json, expected_str);
-    check_cast(map_json_nullable, expected_str_nullable);
+  void CheckStringCast(const std::string& src_str, const std::string& expected_str) {
+    for (const auto& out_ty : {utf8(), large_utf8()}) {
+      std::shared_ptr<Array> src = ArrayFromJSON(src_type, src_str);
+      ASSERT_OK_AND_ASSIGN(auto casted_str, Cast(*src, out_ty));
+      ASSERT_EQ(casted_str->type()->id(), out_ty->id());
+      ASSERT_EQ(casted_str->ToString(), expected_str);
+    }
   }
 
  protected:
@@ -2632,20 +2621,18 @@ TEST_F(TestMapScalar, CastListWithInvalidFields) {
 }
 
 TEST_F(TestMapScalar, MapToString) {
-  const std::vector<std::string> expected_str = {
-      "map<string ('x'), int64 ('y')>[{x:string = x, y:int64 = 1}, "
-      "{x:string = y, y:int64 = 8}, {x:string = z, y:int64 = 9}]",
-      "map<string ('x'), int64 ('y')>[{x:string = x, y:int64 = 6}]",
-      "map<string ('x'), int64 ('y')>[{x:string = y, y:int64 = 36}]"};
+  const std::string expected_str = {
+      "[\n  \"map<string, int64>[{key:string = x, value:int64 = 1}, "
+      "{key:string = y, value:int64 = 8}, {key:string = z, value:int64 = 9}]\","
+      "\n  \"map<string, int64>[{key:string = x, value:int64 = 6}]\","
+      "\n  \"map<string, int64>[{key:string = y, value:int64 = 36}]\"\n]"};
+  CheckStringCast(map_json, expected_str);
 
-  const std::vector<std::string> expected_str_nullable = {
-      "map<string ('x'), int64 ('y')>[{x:string = x, y:int64 = 1}, "
-      "{x:string = y, y:int64 = null}, {x:string = z, y:int64 = 9}]",
-      "null", "map<string ('x'), int64 ('y')>[{x:string = y, y:int64 = 36}]"};
-
-  auto src_type =
-      std::make_shared<MapType>(field("x", utf8(), false), field("y", int64()));
-  CheckMapToStringCast(expected_str, expected_str_nullable, src_type);
+  const std::string expected_str_nullable = {
+      "[\n  \"map<string, int64>[{key:string = x, value:int64 = 1}, "
+      "{key:string = y, value:int64 = null}, {key:string = z, value:int64 = 9}]\","
+      "\n  \"null\",\n  \"map<string, int64>[{key:string = y, value:int64 = 36}]\"\n]"};
+  CheckStringCast(map_json_nullable, expected_str_nullable);
 }
 
 static void CheckStructToStruct(
