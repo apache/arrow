@@ -347,6 +347,8 @@ jobs:
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: "${{ github.workspace }}/dist"
       CMAKE_UNITY_BUILD: ON
+    permissions:
+      packages: write
     steps:
       - name: Disable Crash Dialogs
         run: |
