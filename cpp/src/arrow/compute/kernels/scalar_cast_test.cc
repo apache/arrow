@@ -2592,22 +2592,22 @@ TEST_F(TestMapScalar, RenameMap) {
   CheckCast(src, dst);
 }
 
-TEST_F(TestMapScalar, CastMap) {
+TEST_F(TestMapScalar, CastToMap) {
   // Can map keys and values
   CheckMapCast(map(large_utf8(), field("y", int32())));
 }
 
-TEST_F(TestMapScalar, CastList) {
+TEST_F(TestMapScalar, CastToList) {
   // Can cast a map to a list<struct<keys=.., values=..>>
   CheckMapCast(list(struct_({field("a", utf8()), field("b", int64())})));
 }
 
-TEST_F(TestMapScalar, CastLargeList) {
+TEST_F(TestMapScalar, CastToLargeList) {
   // Can cast a map to a large_list<struct<keys=.., values=..>>
   CheckMapCast(large_list(struct_({field("a", utf8()), field("b", int64())})));
 }
 
-TEST_F(TestMapScalar, CastListWithInvalidFields) {
+TEST_F(TestMapScalar, CastToListWithInvalidFields) {
   std::shared_ptr<DataType> src_type = map(utf8(), field("x", list(field("a", int64()))));
   std::shared_ptr<Array> src =
       ArrayFromJSON(src_type, R"([[["1", [1,2,3]]], [["2", [4,5,6]]]])");
@@ -2620,7 +2620,7 @@ TEST_F(TestMapScalar, CastListWithInvalidFields) {
       Cast(src, dst_type));
 }
 
-TEST_F(TestMapScalar, MapToString) {
+TEST_F(TestMapScalar, CastToString) {
   const std::string expected_str = {
       "[\n  \"map<string, int64>[{key:string = x, value:int64 = 1}, "
       "{key:string = y, value:int64 = 8}, {key:string = z, value:int64 = 9}]\","
