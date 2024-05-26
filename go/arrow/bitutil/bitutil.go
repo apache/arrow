@@ -21,7 +21,7 @@ import (
 	"math/bits"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v17/arrow/memory"
 )
 
 var (

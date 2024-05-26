@@ -1084,7 +1084,7 @@ Result<FileDescriptor> FileOpenReadable(const PlatformFilename& file_name) {
   }
 #endif
 
-  return std::move(fd);
+  return fd;
 }
 
 Result<FileDescriptor> FileOpenWritable(const PlatformFilename& file_name,
@@ -1148,7 +1148,7 @@ Result<FileDescriptor> FileOpenWritable(const PlatformFilename& file_name,
     // Seek to end, as O_APPEND does not necessarily do it
     RETURN_NOT_OK(lseek64_compat(fd.fd(), 0, SEEK_END));
   }
-  return std::move(fd);
+  return fd;
 }
 
 Result<int64_t> FileTell(int fd) {
@@ -1967,7 +1967,7 @@ Result<std::unique_ptr<TemporaryDir>> TemporaryDir::Make(const std::string& pref
   for (const auto& base_dir : base_dirs) {
     ARROW_ASSIGN_OR_RAISE(auto ptr, TryCreatingDirectory(base_dir));
     if (ptr) {
-      return std::move(ptr);
+      return ptr;
     }
     // Cannot create in this directory, try the next one
   }

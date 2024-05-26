@@ -64,7 +64,7 @@ structures should be wrapped in capsules. Capsules avoid invalid access by
 attaching a name to the pointer and avoid memory leaks by attaching a destructor.
 Thus, they are much safer than passing pointers as integers.
 
-`PyCapsule`_ allows for a ``name`` to be associated with the capsule, allowing 
+`PyCapsule`_ allows for a ``name`` to be associated with the capsule, allowing
 consumers to verify that the capsule contains the expected kind of data. To make sure
 Arrow structures are recognized, the following names must be used:
 
@@ -133,8 +133,8 @@ Arrays and record batches (contiguous tables) can implement the method
 
     Export the object as a pair of ArrowSchema and ArrowArray structures.
 
-    :param requested_schema: A PyCapsule containing a C ArrowSchema representation 
-        of a requested schema. Conversion to this schema is best-effort. See 
+    :param requested_schema: A PyCapsule containing a C ArrowSchema representation
+        of a requested schema. Conversion to this schema is best-effort. See
         `Schema Requests`_.
     :type requested_schema: PyCapsule or None
 
@@ -152,8 +152,8 @@ Tables / DataFrames and streams can implement the method ``__arrow_c_stream__``.
 
     Export the object as an ArrowArrayStream.
 
-    :param requested_schema: A PyCapsule containing a C ArrowSchema representation 
-        of a requested schema. Conversion to this schema is best-effort. See 
+    :param requested_schema: A PyCapsule containing a C ArrowSchema representation
+        of a requested schema. Conversion to this schema is best-effort. See
         `Schema Requests`_.
     :type requested_schema: PyCapsule or None
 
@@ -192,7 +192,7 @@ schema transformations.
 Protocol Typehints
 ------------------
 
-The following typehints can be copied into your library to annotate that a 
+The following typehints can be copied into your library to annotate that a
 function accepts an object implementing one of these protocols.
 
 .. code-block:: python
@@ -248,7 +248,7 @@ Below is the code to create a PyCapsule for an ``ArrowSchema``. The code for
              }
              free(schema);
          }
-         
+
          PyObject* ExportArrowSchemaPyCapsule() {
              struct ArrowSchema* schema =
                  (struct ArrowSchema*)malloc(sizeof(struct ArrowSchema));
@@ -270,9 +270,9 @@ Below is the code to create a PyCapsule for an ``ArrowSchema``. The code for
              )
              if schema.release != NULL:
                  schema.release(schema)
-         
+
              free(schema)
-         
+
          cdef object export_arrow_schema_py_capsule():
              cdef ArrowSchema* schema = <ArrowSchema*>malloc(sizeof(ArrowSchema))
              # It's recommended to immediately wrap the struct in a capsule, so
@@ -305,7 +305,7 @@ code for ``ArrowArray`` and ``ArrowArrayStream`` is similar.
       .. code-block:: c
 
          #include <Python.h>
-         
+
          // If the capsule is not an ArrowSchema, will return NULL and set an exception.
          struct ArrowSchema* GetArrowSchemaPyCapsule(PyObject* capsule) {
            return PyCapsule_GetPointer(capsule, "arrow_schema");
@@ -316,7 +316,7 @@ code for ``ArrowArray`` and ``ArrowArrayStream`` is similar.
       .. code-block:: cython
 
          cimport cpython
-        
+
          cdef ArrowSchema* get_arrow_schema_py_capsule(object capsule) except NULL:
              return <ArrowSchema*>cpython.PyCapsule_GetPointer(capsule, 'arrow_schema')
 
@@ -429,7 +429,7 @@ implementing the DataFrame Interchange Protocol.
 Comparison to ``__arrow_array__`` protocol
 ------------------------------------------
 
-The :ref:`arrow_array_protocol` protocol is a dunder method that 
+The :ref:`arrow_array_protocol` protocol is a dunder method that
 defines how PyArrow should import an object as an Arrow array. Unlike this
 protocol, it is specific to PyArrow and isn't used by other libraries. It is
 also limited to arrays and does not support schemas, tabular structures, or streams.

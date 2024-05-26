@@ -103,6 +103,7 @@ public final class LargeVarCharVector extends BaseLargeVariableWidthVector {
    * @param index   position of element to get
    * @return array of bytes for non-null element, null otherwise
    */
+  @Override
   public byte[] get(int index) {
     assert index >= 0;
     if (isSet(index) == 0) {
@@ -140,6 +141,7 @@ public final class LargeVarCharVector extends BaseLargeVariableWidthVector {
    * @param index position of element.
    * @param buffer the buffer to write into.
    */
+  @Override
   public void read(int index, ReusableBuffer<?> buffer) {
     final long startOffset = getStartOffset(index);
     final long dataLength = getEndOffset(index) - startOffset;
@@ -298,7 +300,7 @@ public final class LargeVarCharVector extends BaseLargeVariableWidthVector {
    *----------------------------------------------------------------*/
 
   /**
-   * Construct a TransferPair comprising of this and a target vector of
+   * Construct a TransferPair comprising this and a target vector of
    * the same type.
    *
    * @param ref name of the target vector

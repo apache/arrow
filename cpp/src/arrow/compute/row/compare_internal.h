@@ -32,6 +32,16 @@ namespace compute {
 
 class ARROW_EXPORT KeyCompare {
  public:
+  // Clarify the max temp stack usage for CompareColumnsToRows, which might be necessary
+  // for the caller to be aware of (possibly at compile time) to reserve enough stack size
+  // in advance. The CompareColumnsToRows implementation uses three uint8 temp vectors as
+  // buffers for match vectors, all are of size num_rows. Plus extra kMiniBatchLength to
+  // cope with stack padding and aligning.
+  constexpr static int64_t CompareColumnsToRowsTempStackUsage(int64_t num_rows) {
+    return (sizeof(uint8_t) + sizeof(uint8_t) + sizeof(uint8_t)) * num_rows +
+           /*extra=*/util::MiniBatch::kMiniBatchLength;
+  }
+
   // Returns a single 16-bit selection vector of rows that failed comparison.
   // If there is input selection on the left, the resulting selection is a filtered image
   // of input selection.
@@ -43,13 +53,19 @@ class ARROW_EXPORT KeyCompare {
       uint8_t* out_match_bitvector_maybe_null = NULLPTR);
 
  private:
+  static uint32_t ColIdInEncodingOrder(const RowTableImpl& rows, uint32_t id_col,
+                                       bool are_cols_in_encoding_order) {
+    return are_cols_in_encoding_order ? id_col
+                                      : rows.metadata().pos_after_encoding(id_col);
+  }
+
   template <bool use_selection>
   static void NullUpdateColumnToRow(uint32_t id_col, uint32_t num_rows_to_compare,
                                     const uint16_t* sel_left_maybe_null,
                                     const uint32_t* left_to_right_map, LightContext* ctx,
                                     const KeyColumnArray& col, const RowTableImpl& rows,
-                                    uint8_t* match_bytevector,
-                                    bool are_cols_in_encoding_order);
+                                    bool are_cols_in_encoding_order,
+                                    uint8_t* match_bytevector);
 
   template <bool use_selection, class COMPARE_FN>
   static void CompareBinaryColumnToRowHelper(
@@ -92,7 +108,8 @@ class ARROW_EXPORT KeyCompare {
   static uint32_t NullUpdateColumnToRowImp_avx2(
       uint32_t id_col, uint32_t num_rows_to_compare, const uint16_t* sel_left_maybe_null,
       const uint32_t* left_to_right_map, LightContext* ctx, const KeyColumnArray& col,
-      const RowTableImpl& rows, uint8_t* match_bytevector);
+      const RowTableImpl& rows, bool are_cols_in_encoding_order,
+      uint8_t* match_bytevector);
 
   template <bool use_selection, class COMPARE8_FN>
   static uint32_t CompareBinaryColumnToRowHelper_avx2(
@@ -118,13 +135,11 @@ class ARROW_EXPORT KeyCompare {
   static uint32_t AndByteVectors_avx2(uint32_t num_elements, uint8_t* bytevector_A,
                                       const uint8_t* bytevector_B);
 
-  static uint32_t NullUpdateColumnToRow_avx2(bool use_selection, uint32_t id_col,
-                                             uint32_t num_rows_to_compare,
-                                             const uint16_t* sel_left_maybe_null,
-                                             const uint32_t* left_to_right_map,
-                                             LightContext* ctx, const KeyColumnArray& col,
-                                             const RowTableImpl& rows,
-                                             uint8_t* match_bytevector);
+  static uint32_t NullUpdateColumnToRow_avx2(
+      bool use_selection, uint32_t id_col, uint32_t num_rows_to_compare,
+      const uint16_t* sel_left_maybe_null, const uint32_t* left_to_right_map,
+      LightContext* ctx, const KeyColumnArray& col, const RowTableImpl& rows,
+      bool are_cols_in_encoding_order, uint8_t* match_bytevector);
 
   static uint32_t CompareBinaryColumnToRow_avx2(
       bool use_selection, uint32_t offset_within_row, uint32_t num_rows_to_compare,

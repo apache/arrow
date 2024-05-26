@@ -1,3 +1,15 @@
+apache-arrow (16.1.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Raúl Cumplido <raulcumplido@gmail.com>  Thu, 09 May 2024 07:21:29 -0000
+
+apache-arrow (16.0.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Raúl Cumplido <raulcumplido@gmail.com>  Tue, 16 Apr 2024 14:48:07 -0000
+
 apache-arrow (15.0.2-1) unstable; urgency=low
 
   * New upstream release.

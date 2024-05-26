@@ -40,6 +40,22 @@ update_versions() {
     meson.build
   rm -f meson.build.bak
   git add meson.build
+
+  # Add a new version entry only when the next release is a new major release
+  if [ "${type}" = "snapshot" -a \
+       "${next_version}" = "${major_version}.0.0" ]; then
+    sed -i.bak -E -e \
+      "s/^ALL_VERSIONS = \[$/&\\n        (${major_version}, 0),/" \
+      tool/generate-version-header.py
+    rm -f tool/generate-version-header.py.bak
+    git add tool/generate-version-header.py
+  fi
+
+  sed -i.bak -E -e \
+    "s/\"version-string\": \".+\"/\"version-string\": \"${version}\"/" \
+    vcpkg.json
+  rm -f vcpkg.json.bak
+  git add vcpkg.json
   popd
 
   pushd "${ARROW_DIR}/ci/scripts"

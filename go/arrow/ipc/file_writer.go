@@ -21,11 +21,11 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/bitutil"
-	"github.com/apache/arrow/go/v16/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v16/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/bitutil"
+	"github.com/apache/arrow/go/v17/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v17/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v17/arrow/memory"
 )
 
 // PayloadWriter is an interface for injecting a different payloadwriter

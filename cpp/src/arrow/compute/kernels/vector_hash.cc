@@ -530,7 +530,8 @@ Result<std::unique_ptr<KernelState>> HashInit(KernelContext* ctx,
   auto result = std::make_unique<HashKernel>(args.inputs[0].GetSharedPtr(), args.options,
                                              ctx->memory_pool());
   RETURN_NOT_OK(result->Reset());
-  return std::move(result);
+  // R build with openSUSE155 requires an explicit unique_ptr construction
+  return std::unique_ptr<KernelState>(std::move(result));
 }
 
 template <typename Action>

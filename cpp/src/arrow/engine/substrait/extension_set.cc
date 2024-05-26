@@ -288,7 +288,7 @@ Result<ExtensionSet> ExtensionSet::Make(
     }
   }
 
-  return std::move(set);
+  return set;
 }
 
 Result<ExtensionSet::TypeRecord> ExtensionSet::DecodeType(uint32_t anchor) const {
@@ -799,7 +799,7 @@ Result<std::vector<compute::Expression>> GetValueArgs(const SubstraitCall& call,
     ARROW_ASSIGN_OR_RAISE(compute::Expression arg, call.GetValueArg(index));
     expressions.push_back(arg);
   }
-  return std::move(expressions);
+  return expressions;
 }
 
 ExtensionIdRegistry::SubstraitCallToArrow DecodeOptionlessOverflowableArithmetic(
@@ -874,7 +874,7 @@ ExtensionIdRegistry::ArrowToSubstraitCall EncodeOptionlessOverflowableArithmetic
         for (std::size_t i = 0; i < call.arguments.size(); i++) {
           substrait_call.SetValueArg(static_cast<int>(i), call.arguments[i]);
         }
-        return std::move(substrait_call);
+        return substrait_call;
       };
 }
 
@@ -887,7 +887,7 @@ ExtensionIdRegistry::ArrowToSubstraitCall EncodeBasic(Id substrait_fn_id) {
         for (std::size_t i = 0; i < call.arguments.size(); i++) {
           substrait_call.SetValueArg(static_cast<int>(i), call.arguments[i]);
         }
-        return std::move(substrait_call);
+        return substrait_call;
       };
 }
 
@@ -907,7 +907,7 @@ ExtensionIdRegistry::ArrowToSubstraitCall EncodeIsNull(Id substrait_fn_id) {
         for (std::size_t i = 0; i < call.arguments.size(); i++) {
           substrait_call.SetValueArg(static_cast<int>(i), call.arguments[i]);
         }
-        return std::move(substrait_call);
+        return substrait_call;
       };
 }
 

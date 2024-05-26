@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Interfaces to use for defining Flight RPC servers. API should be considered
-// experimental for now
+// Interfaces to use for defining Flight RPC servers.
 
 // Platform-specific defines
 #include "arrow/flight/platform.h"
@@ -231,6 +230,90 @@ arrow::Result<PreparedStatementUpdate> ParseCommandPreparedStatementUpdate(
 
   PreparedStatementUpdate result;
   result.prepared_statement_handle = command.prepared_statement_handle();
+  return result;
+}
+
+arrow::Result<StatementIngest> ParseCommandStatementIngest(
+    const google::protobuf::Any& any) {
+  pb::sql::CommandStatementIngest command;
+  if (!any.UnpackTo(&command)) {
+    return Status::Invalid("Unable to unpack CommandStatementIngest.");
+  }
+
+  StatementIngest result;
+  TableDefinitionOptions table_definition_options;
+  switch (command.table_definition_options().if_not_exist()) {
+    case pb::sql::CommandStatementIngest::TableDefinitionOptions::
+        TABLE_NOT_EXIST_OPTION_UNSPECIFIED:
+      table_definition_options.if_not_exist =
+          TableDefinitionOptionsTableNotExistOption::kUnspecified;
+      break;
+    case pb::sql::CommandStatementIngest::TableDefinitionOptions::
+        TABLE_NOT_EXIST_OPTION_CREATE:
+      table_definition_options.if_not_exist =
+          TableDefinitionOptionsTableNotExistOption::kCreate;
+      break;
+    case pb::sql::CommandStatementIngest::TableDefinitionOptions::
+        TABLE_NOT_EXIST_OPTION_FAIL:
+      table_definition_options.if_not_exist =
+          TableDefinitionOptionsTableNotExistOption::kFail;
+      break;
+
+    default:
+      return Status::Invalid(
+          "Unrecognized TableNotExistOption for "
+          "CommandStatementIngest::TableDefinitionOptions.");
+  }
+
+  switch (command.table_definition_options().if_exists()) {
+    case pb::sql::CommandStatementIngest::TableDefinitionOptions::
+        TABLE_EXISTS_OPTION_UNSPECIFIED:
+      table_definition_options.if_exists =
+          TableDefinitionOptionsTableExistsOption::kUnspecified;
+      break;
+    case pb::sql::CommandStatementIngest::TableDefinitionOptions::
+        TABLE_EXISTS_OPTION_FAIL:
+      table_definition_options.if_exists = TableDefinitionOptionsTableExistsOption::kFail;
+      break;
+    case pb::sql::CommandStatementIngest::TableDefinitionOptions::
+        TABLE_EXISTS_OPTION_APPEND:
+      table_definition_options.if_exists =
+          TableDefinitionOptionsTableExistsOption::kAppend;
+      break;
+    case pb::sql::CommandStatementIngest::TableDefinitionOptions::
+        TABLE_EXISTS_OPTION_REPLACE:
+      table_definition_options.if_exists =
+          TableDefinitionOptionsTableExistsOption::kReplace;
+      break;
+
+    default:
+      return Status::Invalid(
+          "Unrecognized TableExistsOption for "
+          "CommandStatementIngest::TableDefinitionOptions.");
+  }
+
+  result.table_definition_options = table_definition_options;
+  result.table = command.table();
+
+  if (command.has_schema()) {
+    result.schema = command.schema();
+  }
+
+  if (command.has_catalog()) {
+    result.catalog = command.catalog();
+  }
+
+  result.temporary = command.temporary();
+
+  if (command.has_transaction_id()) {
+    result.transaction_id = command.transaction_id();
+  }
+
+  std::unordered_map<std::string, std::string> options;
+  for (const auto& [key, val] : command.options()) {
+    options[key] = val;
+  }
+  result.options = options;
   return result;
 }
 
@@ -767,6 +850,19 @@ Status FlightSqlServerBase::DoPut(const ServerCallContext& context,
     const auto buffer = Buffer::FromString(result.SerializeAsString());
     ARROW_RETURN_NOT_OK(writer->WriteMetadata(*buffer));
     return Status::OK();
+  } else if (any.Is<pb::sql::CommandStatementIngest>()) {
+    ARROW_ASSIGN_OR_RAISE(StatementIngest internal_command,
+                          ParseCommandStatementIngest(any));
+    ARROW_ASSIGN_OR_RAISE(
+        auto record_count,
+        DoPutCommandStatementIngest(context, internal_command, reader.get()));
+
+    pb::sql::DoPutUpdateResult result;
+    result.set_record_count(record_count);
+
+    const auto buffer = Buffer::FromString(result.SerializeAsString());
+    ARROW_RETURN_NOT_OK(writer->WriteMetadata(*buffer));
+    return Status::OK();
   }
 
   return Status::NotImplemented("Command not recognized: ", any.type_url());
@@ -1200,6 +1296,12 @@ arrow::Result<int64_t> FlightSqlServerBase::DoPutCommandStatementUpdate(
 arrow::Result<int64_t> FlightSqlServerBase::DoPutCommandSubstraitPlan(
     const ServerCallContext& context, const StatementSubstraitPlan& command) {
   return Status::NotImplemented("DoPutCommandSubstraitPlan not implemented");
+}
+
+arrow::Result<int64_t> FlightSqlServerBase::DoPutCommandStatementIngest(
+    const ServerCallContext& context, const StatementIngest& command,
+    FlightMessageReader* reader) {
+  return Status::NotImplemented("DoPutCommandStatementIngest not implemented");
 }
 
 const std::shared_ptr<Schema>& SqlSchema::GetCatalogsSchema() {

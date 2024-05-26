@@ -61,6 +61,7 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
     this.initialCapacity = 0;
     for (Field child : container.getField().getChildren()) {
       MinorType minorType = Types.getMinorTypeForArrowType(child.getType());
+      addVectorAsNullable = child.isNullable();
       switch (minorType) {
       case STRUCT:
         struct(child.getName());

@@ -45,7 +45,7 @@ static std::shared_ptr<Buffer> CreateRandomBuffer(int64_t nbytes) {
   auto buffer = *AllocateBuffer(nbytes);
   memset(buffer->mutable_data(), 0, nbytes);
   random_bytes(nbytes, /*seed=*/0, buffer->mutable_data());
-  return std::move(buffer);
+  return buffer;
 }
 
 static void BitBlockCounterBench(benchmark::State& state) {

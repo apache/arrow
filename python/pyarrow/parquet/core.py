@@ -797,8 +797,9 @@ use_byte_stream_split : bool or list, default False
     Specify if the byte_stream_split encoding should be used in general or
     only for some columns. If both dictionary and byte_stream_stream are
     enabled, then dictionary is preferred.
-    The byte_stream_split encoding is valid only for floating-point data types
-    and should be combined with a compression codec.
+    The byte_stream_split encoding is valid for integer, floating-point
+    and fixed-size binary data types (including decimals); it should be
+    combined with a compression codec so as to achieve size reduction.
 column_encoding : string or dict, default None
     Specify the encoding scheme on a per column basis.
     Can only be used when ``use_dictionary`` is set to False, and
@@ -1299,7 +1300,7 @@ Examples
                 f"local file systems, not {type(filesystem)}"
             )
 
-        # check for single fragment dataset
+        # check for single fragment dataset or dataset directory
         single_file = None
         self._base_dir = None
         if not isinstance(path_or_paths, list):
@@ -1313,8 +1314,6 @@ Examples
                     except ValueError:
                         filesystem = LocalFileSystem(use_mmap=memory_map)
                 finfo = filesystem.get_file_info(path_or_paths)
-                if finfo.is_file:
-                    single_file = path_or_paths
                 if finfo.type == FileType.Directory:
                     self._base_dir = path_or_paths
             else:
@@ -1771,6 +1770,7 @@ def read_table(source, *, columns=None, use_threads=True,
             ignore_prefixes=ignore_prefixes,
             pre_buffer=pre_buffer,
             coerce_int96_timestamp_unit=coerce_int96_timestamp_unit,
+            decryption_properties=decryption_properties,
             thrift_string_size_limit=thrift_string_size_limit,
             thrift_container_size_limit=thrift_container_size_limit,
             page_checksum_verification=page_checksum_verification,

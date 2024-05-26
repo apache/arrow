@@ -42,6 +42,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/list_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/unreachable.h"
 
 namespace arrow {
 
@@ -469,6 +470,49 @@ inline void SetListData(VarLengthListLikeArray<TYPE>* self,
   self->values_ = MakeArray(self->data_->child_data[0]);
 }
 
+Result<std::shared_ptr<Array>> FlattenLogicalListRecursively(const Array& in_array,
+                                                             MemoryPool* memory_pool) {
+  std::shared_ptr<Array> array = in_array.Slice(0, in_array.length());
+  for (auto kind = array->type_id(); is_list(kind) || is_list_view(kind);
+       kind = array->type_id()) {
+    switch (kind) {
+      case Type::LIST: {
+        ARROW_ASSIGN_OR_RAISE(
+            array, (checked_cast<const ListArray*>(array.get())->Flatten(memory_pool)));
+        break;
+      }
+      case Type::LARGE_LIST: {
+        ARROW_ASSIGN_OR_RAISE(
+            array,
+            (checked_cast<const LargeListArray*>(array.get())->Flatten(memory_pool)));
+        break;
+      }
+      case Type::LIST_VIEW: {
+        ARROW_ASSIGN_OR_RAISE(
+            array,
+            (checked_cast<const ListViewArray*>(array.get())->Flatten(memory_pool)));
+        break;
+      }
+      case Type::LARGE_LIST_VIEW: {
+        ARROW_ASSIGN_OR_RAISE(
+            array,
+            (checked_cast<const LargeListViewArray*>(array.get())->Flatten(memory_pool)));
+        break;
+      }
+      case Type::FIXED_SIZE_LIST: {
+        ARROW_ASSIGN_OR_RAISE(
+            array,
+            (checked_cast<const FixedSizeListArray*>(array.get())->Flatten(memory_pool)));
+        break;
+      }
+      default:
+        Unreachable("unexpected non-list type");
+        break;
+    }
+  }
+  return array;
+}
+
 }  // namespace internal
 
 // ----------------------------------------------------------------------
@@ -746,7 +790,7 @@ MapArray::MapArray(const std::shared_ptr<DataType>& type, int64_t length,
                    const std::shared_ptr<Array>& items, int64_t null_count,
                    int64_t offset) {
   auto pair_data = ArrayData::Make(type->fields()[0]->type(), keys->data()->length,
-                                   {nullptr}, {keys->data(), items->data()}, 0, offset);
+                                   {nullptr}, {keys->data(), items->data()}, 0);
   auto map_data =
       ArrayData::Make(type, length, std::move(buffers), {pair_data}, null_count, offset);
   SetData(map_data);
@@ -1133,7 +1177,7 @@ void SparseUnionArray::SetData(std::shared_ptr<ArrayData> data) {
 }
 
 void DenseUnionArray::SetData(const std::shared_ptr<ArrayData>& data) {
-  this->UnionArray::SetData(std::move(data));
+  this->UnionArray::SetData(data);
 
   ARROW_CHECK_EQ(data_->type->id(), Type::DENSE_UNION);
   ARROW_CHECK_EQ(data_->buffers.size(), 3);

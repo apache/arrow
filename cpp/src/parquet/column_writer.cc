@@ -379,6 +379,11 @@ class SerializedPageWriter : public PageWriter {
 
   int64_t WriteDataPage(const DataPage& page) override {
     const int64_t uncompressed_size = page.uncompressed_size();
+    if (uncompressed_size > std::numeric_limits<int32_t>::max()) {
+      throw ParquetException("Uncompressed data page size overflows INT32_MAX. Size:",
+                             uncompressed_size);
+    }
+
     std::shared_ptr<Buffer> compressed_data = page.buffer();
     const uint8_t* output_data_buffer = compressed_data->data();
     int64_t output_data_len = compressed_data->size();
@@ -399,11 +404,6 @@ class SerializedPageWriter : public PageWriter {
     }
 
     format::PageHeader page_header;
-
-    if (uncompressed_size > std::numeric_limits<int32_t>::max()) {
-      throw ParquetException("Uncompressed data page size overflows INT32_MAX. Size:",
-                             uncompressed_size);
-    }
     page_header.__set_uncompressed_page_size(static_cast<int32_t>(uncompressed_size));
     page_header.__set_compressed_page_size(static_cast<int32_t>(output_data_len));
 
@@ -1018,13 +1018,13 @@ void ColumnWriterImpl::BuildDataPageV1(int64_t definition_levels_rle_size,
         compressed_data->CopySlice(0, compressed_data->size(), allocator_));
     std::unique_ptr<DataPage> page_ptr = std::make_unique<DataPageV1>(
         compressed_data_copy, num_values, encoding_, Encoding::RLE, Encoding::RLE,
-        uncompressed_size, page_stats, first_row_index);
+        uncompressed_size, std::move(page_stats), first_row_index);
     total_compressed_bytes_ += page_ptr->size() + sizeof(format::PageHeader);
 
     data_pages_.push_back(std::move(page_ptr));
   } else {  // Eagerly write pages
     DataPageV1 page(compressed_data, num_values, encoding_, Encoding::RLE, Encoding::RLE,
-                    uncompressed_size, page_stats, first_row_index);
+                    uncompressed_size, std::move(page_stats), first_row_index);
     WriteDataPage(page);
   }
 }

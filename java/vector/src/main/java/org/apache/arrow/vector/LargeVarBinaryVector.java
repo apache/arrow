@@ -119,6 +119,7 @@ public final class LargeVarBinaryVector extends BaseLargeVariableWidthVector {
    * @param index position of element.
    * @param buffer the buffer to write into.
    */
+  @Override
   public void read(int index, ReusableBuffer<?> buffer) {
     final long startOffset = getStartOffset(index);
     final long dataLength = getEndOffset(index) - startOffset;

@@ -39,6 +39,7 @@
 #include "arrow/io/type_fwd.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/io_util.h"
+#include "arrow/util/string.h"
 #include "arrow/util/uri.h"
 #include "arrow/util/windows_fixup.h"
 
@@ -246,8 +247,20 @@ Result<LocalFileSystemOptions> LocalFileSystemOptions::FromUri(
         std::string(internal::RemoveTrailingSlash(uri.path(), /*preserve_root=*/true));
   }
 
-  // TODO handle use_mmap option
-  return LocalFileSystemOptions();
+  LocalFileSystemOptions options;
+  ARROW_ASSIGN_OR_RAISE(auto params, uri.query_items());
+  for (const auto& [key, value] : params) {
+    if (key == "use_mmap") {
+      if (value.empty()) {
+        options.use_mmap = true;
+        continue;
+      } else {
+        ARROW_ASSIGN_OR_RAISE(options.use_mmap, ::arrow::internal::ParseBoolean(value));
+      }
+      break;
+    }
+  }
+  return options;
 }
 
 LocalFileSystem::LocalFileSystem(const io::IOContext& io_context)
@@ -271,6 +284,11 @@ Result<std::string> LocalFileSystem::PathFromUri(const std::string& uri_string) 
 #endif
   return internal::PathFromUriHelper(uri_string, {"file"}, /*accept_local_paths=*/true,
                                      authority_handling);
+}
+
+Result<std::string> LocalFileSystem::MakeUri(std::string path) const {
+  ARROW_ASSIGN_OR_RAISE(path, DoNormalizePath(std::move(path)));
+  return "file://" + path + (options_.use_mmap ? "?use_mmap" : "");
 }
 
 bool LocalFileSystem::Equals(const FileSystem& other) const {
@@ -506,7 +524,7 @@ class AsyncStatSelector {
     ARROW_ASSIGN_OR_RAISE(
         auto gen,
         MakeBackgroundGenerator(Iterator<FileInfoVector>(DiscoveryImplIterator(
-                                    std::move(dir_fn), nesting_depth, std::move(selector),
+                                    dir_fn, nesting_depth, std::move(selector),
                                     discovery_state, io_context, file_info_batch_size)),
                                 io_context.executor()));
     gen = MakeTransferredGenerator(std::move(gen), io_context.executor());
@@ -685,5 +703,20 @@ Result<std::shared_ptr<io::OutputStream>> LocalFileSystem::OpenAppendStream(
   bool append = true;
   return OpenOutputStreamGeneric(path, truncate, append);
 }
+
+static Result<std::shared_ptr<fs::FileSystem>> LocalFileSystemFactory(
+    const arrow::util::Uri& uri, const io::IOContext& io_context, std::string* out_path) {
+  std::string path;
+  ARROW_ASSIGN_OR_RAISE(auto options, LocalFileSystemOptions::FromUri(uri, &path));
+  if (out_path != nullptr) {
+    *out_path = std::move(path);
+  }
+  return std::make_shared<LocalFileSystem>(options, io_context);
+}
+
+FileSystemRegistrar kLocalFileSystemModule[]{
+    ARROW_REGISTER_FILESYSTEM("file", LocalFileSystemFactory, {}),
+    ARROW_REGISTER_FILESYSTEM("local", LocalFileSystemFactory, {}),
+};
 
 }  // namespace arrow::fs

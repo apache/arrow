@@ -446,13 +446,12 @@ class ThriftDeserializer {
                                      T* deserialized_msg) {
     // Deserialize msg bytes into c++ thrift msg using memory transport.
     auto tmem_transport = CreateReadOnlyMemoryBuffer(const_cast<uint8_t*>(buf), *len);
-    apache::thrift::protocol::TCompactProtocolFactoryT<ThriftBuffer> tproto_factory;
-    // Protect against CPU and memory bombs
-    tproto_factory.setStringSizeLimit(string_size_limit_);
-    tproto_factory.setContainerSizeLimit(container_size_limit_);
-    auto tproto = tproto_factory.getProtocol(tmem_transport);
+    auto tproto = apache::thrift::protocol::TCompactProtocolT<ThriftBuffer>(
+        tmem_transport, string_size_limit_, container_size_limit_);
     try {
-      deserialized_msg->read(tproto.get());
+      deserialized_msg
+          ->template read<apache::thrift::protocol::TCompactProtocolT<ThriftBuffer>>(
+              &tproto);
     } catch (std::exception& e) {
       std::stringstream ss;
       ss << "Couldn't deserialize thrift: " << e.what() << "\n";
