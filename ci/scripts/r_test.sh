@@ -122,7 +122,7 @@ SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
     args <- c(args, paste0('--install-args=\"', install_args, '\"'))
   }
 
-  massage(
+  message(
     'Running rcmdcheck with:\n',
     'build_args: ', build_args,
     'args: ', args,
