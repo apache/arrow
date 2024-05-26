@@ -510,6 +510,90 @@ void AddBinaryToFixedSizeBinaryCast(CastFunction* func) {
   AddBinaryToFixedSizeBinaryCast<FixedSizeBinaryType>(func);
 }
 
+template <typename O, typename I>
+struct ListLikeToStringCastFunctor {
+  using BuilderType = typename TypeTraits<O>::BuilderType;
+
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    const ArraySpan& input = batch[0].array;
+
+    BuilderType builder(ctx->memory_pool());
+    RETURN_NOT_OK(builder.Reserve(input.length));
+
+    std::string type_info = input.type->ToString(true);
+    const ArraySpan& values = input.child_data[0];
+    const auto* offsets = input.GetValues<typename I::offset_type>(1);
+
+    int list_size = -1;
+    if (input.type->id() == Type::FIXED_SIZE_LIST) {
+      list_size = checked_cast<const FixedSizeListType&>(*input.type).list_size();
+    }
+
+    for (int64_t i = 0; i < input.length; ++i) {
+      if (!input.IsValid(i)) {
+        RETURN_NOT_OK(builder.Append("null"));
+        continue;
+      }
+
+      std::ostringstream ss;
+      ss << type_info << "[";
+
+      int64_t start, end;
+      if (input.type->id() == Type::FIXED_SIZE_LIST) {
+        start = i * list_size;
+        end = start + list_size;
+      } else {
+        start = offsets[i];
+        end = offsets[i + 1];
+      }
+
+      for (int64_t j = start; j < end; ++j) {
+        if (j != start) {
+          ss << ", ";
+        }
+        if (values.IsValid(j)) {
+          ss << std::to_string(values.GetValues<int16_t>(1)[j]);
+        } else {
+          ss << "null";
+        }
+      }
+      ss << "]";
+      RETURN_NOT_OK(builder.Append(ss.str()));
+    }
+
+    std::shared_ptr<Array> output_array;
+    RETURN_NOT_OK(builder.Finish(&output_array));
+    out->value = output_array->data();
+    return Status::OK();
+  }
+};
+
+template <typename OutType>
+void AddListLikeToStringCasts(CastFunction* func) {
+  auto out_ty = TypeTraits<OutType>::type_singleton();
+
+  DCHECK_OK(func->AddKernel(Type::LIST, {InputType(Type::LIST)}, out_ty,
+                            ListLikeToStringCastFunctor<OutType, ListType>::Exec,
+                            NullHandling::COMPUTED_NO_PREALLOCATE));
+  DCHECK_OK(func->AddKernel(Type::LARGE_LIST, {InputType(Type::LARGE_LIST)}, out_ty,
+                            ListLikeToStringCastFunctor<OutType, LargeListType>::Exec,
+                            NullHandling::COMPUTED_NO_PREALLOCATE));
+  DCHECK_OK(func->AddKernel(Type::LIST_VIEW, {InputType(Type::LIST_VIEW)}, out_ty,
+                            ListLikeToStringCastFunctor<OutType, ListViewType>::Exec,
+                            NullHandling::COMPUTED_NO_PREALLOCATE));
+  DCHECK_OK(func->AddKernel(Type::LARGE_LIST_VIEW, {InputType(Type::LARGE_LIST_VIEW)},
+                            out_ty,
+                            ListLikeToStringCastFunctor<OutType, LargeListViewType>::Exec,
+                            NullHandling::COMPUTED_NO_PREALLOCATE));
+  DCHECK_OK(func->AddKernel(Type::FIXED_SIZE_LIST, {InputType(Type::FIXED_SIZE_LIST)},
+                            out_ty,
+                            ListLikeToStringCastFunctor<OutType, FixedSizeListType>::Exec,
+                            NullHandling::COMPUTED_NO_PREALLOCATE));
+  DCHECK_OK(func->AddKernel(Type::MAP, {InputType(Type::MAP)}, out_ty,
+                            ListLikeToStringCastFunctor<OutType, MapType>::Exec,
+                            NullHandling::COMPUTED_NO_PREALLOCATE));
+}
+
 }  // namespace
 
 std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
@@ -528,6 +612,7 @@ std::vector<std::shared_ptr<CastFunction>> GetBinaryLikeCasts() {
   AddDecimalToStringCasts<StringType>(cast_string.get());
   AddTemporalToStringCasts<StringType>(cast_string.get());
   AddBinaryToBinaryCast<StringType>(cast_string.get());
+  AddListLikeToStringCasts<StringType>(cast_string.get());
 
   auto cast_large_string =
       std::make_shared<CastFunction>("cast_large_string", Type::LARGE_STRING);
