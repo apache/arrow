@@ -2543,16 +2543,15 @@ TEST(Cast, ListToString) {
   CheckListToStringCast(list_type, nested_list_json, expected_nested_str);
 }
 
-TEST(Cast, CastMap) {
-  const std::string map_json =
-      "[[[\"x\", 1], [\"y\", 8], [\"z\", 9]], [[\"x\", 6]], [[\"y\", 36]]]";
-  const std::string map_json_nullable =
-      "[[[\"x\", 1], [\"y\", null], [\"z\", 9]], null, [[\"y\", 36]]]";
+class TestMapScalar : public ::testing::Test {
+ protected:
+  TestMapScalar() {
+    src_type = map(utf8(), int64());
+    map_json = R"([[["x", 1], ["y", 8], ["z", 9]], [["x", 6]], [["y", 36]]])";
+    map_json_nullable = R"([[["x", 1], ["y", null], ["z", 9]], null, [["y", 36]]])";
+  }
 
-  auto CheckMapCast = [map_json,
-                       map_json_nullable](const std::shared_ptr<DataType>& dst_type) {
-    std::shared_ptr<DataType> src_type =
-        std::make_shared<MapType>(field("x", utf8(), false), field("y", int64()));
+  void CheckMapCast(const std::shared_ptr<DataType>& dst_type) {
     std::shared_ptr<Array> src = ArrayFromJSON(src_type, map_json);
     std::shared_ptr<Array> dst = ArrayFromJSON(dst_type, map_json);
     CheckCast(src, dst);
@@ -2560,30 +2559,71 @@ TEST(Cast, CastMap) {
     src = ArrayFromJSON(src_type, map_json_nullable);
     dst = ArrayFromJSON(dst_type, map_json_nullable);
     CheckCast(src, dst);
-  };
+  }
 
+  void CheckMapToStringCast(const std::vector<std::string>& expected_str,
+                            const std::vector<std::string>& expected_str_nullable,
+                            const std::shared_ptr<DataType>& src_type_) {
+    auto check_cast = [&](const std::string& json,
+                          const std::vector<std::string>& expected) {
+      std::shared_ptr<Array> src = ArrayFromJSON(src_type_, json);
+      for (int64_t i = 0; i < src->length(); ++i) {
+        ASSERT_OK_AND_ASSIGN(auto scalar, src->GetScalar(i));
+        for (const auto& out_ty : {utf8(), large_utf8()}) {
+          ASSERT_OK_AND_ASSIGN(auto casted_str, Cast(scalar, out_ty));
+          ASSERT_EQ(casted_str.scalar()->type->id(), out_ty->id());
+          ASSERT_EQ(casted_str.scalar()->ToString(), expected[i]);
+        }
+      }
+    };
+
+    check_cast(map_json, expected_str);
+    check_cast(map_json_nullable, expected_str_nullable);
+  }
+
+ protected:
+  std::string map_json;
+  std::string map_json_nullable;
+  std::shared_ptr<DataType> src_type;
+};
+
+TEST_F(TestMapScalar, RenameMap) {
   // Can rename fields
   CheckMapCast(std::make_shared<MapType>(field("a", utf8(), false), field("b", int64())));
-  // Can map keys and values
-  CheckMapCast(map(large_utf8(), field("y", int32())));
-  // Can cast a map to a to a list<struct<keys=.., values=..>>
-  CheckMapCast(list(struct_({field("a", utf8()), field("b", int64())})));
-  // Can cast a map to a large_list<struct<keys=.., values=..>>
-  CheckMapCast(large_list(struct_({field("a", utf8()), field("b", int64())})));
 
   // Can rename nested field names
   std::shared_ptr<DataType> src_type = map(utf8(), field("x", list(field("a", int64()))));
   std::shared_ptr<DataType> dst_type = map(utf8(), field("y", list(field("b", int64()))));
 
   std::shared_ptr<Array> src =
-      ArrayFromJSON(src_type, "[[[\"1\", [1,2,3]]], [[\"2\", [4,5,6]]]]");
+      ArrayFromJSON(src_type, R"([[["1", [1,2,3]]], [["2", [4,5,6]]]])");
   std::shared_ptr<Array> dst =
-      ArrayFromJSON(dst_type, "[[[\"1\", [1,2,3]]], [[\"2\", [4,5,6]]]]");
+      ArrayFromJSON(dst_type, R"([[["1", [1,2,3]]], [["2", [4,5,6]]]])");
 
   CheckCast(src, dst);
+}
 
-  // Cannot cast to a list<struct<[fields]>> if there are not exactly 2 fields
-  dst_type = list(
+TEST_F(TestMapScalar, CastMap) {
+  // Can map keys and values
+  CheckMapCast(map(large_utf8(), field("y", int32())));
+}
+
+TEST_F(TestMapScalar, CastList) {
+  // Can cast a map to a list<struct<keys=.., values=..>>
+  CheckMapCast(list(struct_({field("a", utf8()), field("b", int64())})));
+}
+
+TEST_F(TestMapScalar, CastLargeList) {
+  // Can cast a map to a large_list<struct<keys=.., values=..>>
+  CheckMapCast(large_list(struct_({field("a", utf8()), field("b", int64())})));
+}
+
+TEST_F(TestMapScalar, CastListWithInvalidFields) {
+  std::shared_ptr<DataType> src_type = map(utf8(), field("x", list(field("a", int64()))));
+  std::shared_ptr<Array> src =
+      ArrayFromJSON(src_type, R"([[["1", [1,2,3]]], [["2", [4,5,6]]]])");
+
+  std::shared_ptr<DataType> dst_type = list(
       struct_({field("key", int32()), field("value", int64()), field("extra", int64())}));
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       TypeError,
@@ -2591,34 +2631,7 @@ TEST(Cast, CastMap) {
       Cast(src, dst_type));
 }
 
-void CheckMapToStringCast(const std::string& map_json,
-                          const std::string& map_json_nullable,
-                          const std::vector<std::string>& expected_str,
-                          const std::vector<std::string>& expected_str_nullable,
-                          const std::shared_ptr<DataType>& src_type) {
-  auto check_cast = [&](const std::string& json,
-                        const std::vector<std::string>& expected) {
-    std::shared_ptr<Array> src = ArrayFromJSON(src_type, json);
-    for (int64_t i = 0; i < src->length(); ++i) {
-      ASSERT_OK_AND_ASSIGN(auto scalar, src->GetScalar(i));
-      for (const auto& out_ty : {utf8(), large_utf8()}) {
-        ASSERT_OK_AND_ASSIGN(auto casted_str, Cast(scalar, out_ty));
-        ASSERT_EQ(casted_str.scalar()->type->id(), out_ty->id());
-        ASSERT_EQ(casted_str.scalar()->ToString(), expected[i]);
-      }
-    }
-  };
-
-  check_cast(map_json, expected_str);
-  check_cast(map_json_nullable, expected_str_nullable);
-}
-
-TEST(Cast, MapToString) {
-  const std::string map_json =
-      "[[[\"x\", 1], [\"y\", 8], [\"z\", 9]], [[\"x\", 6]], [[\"y\", 36]]]";
-  const std::string map_json_nullable =
-      "[[[\"x\", 1], [\"y\", null], [\"z\", 9]], null, [[\"y\", 36]]]";
-
+TEST_F(TestMapScalar, MapToString) {
   const std::vector<std::string> expected_str = {
       "map<string ('x'), int64 ('y')>[{x:string = x, y:int64 = 1}, "
       "{x:string = y, y:int64 = 8}, {x:string = z, y:int64 = 9}]",
@@ -2632,8 +2645,7 @@ TEST(Cast, MapToString) {
 
   auto src_type =
       std::make_shared<MapType>(field("x", utf8(), false), field("y", int64()));
-  CheckMapToStringCast(map_json, map_json_nullable, expected_str, expected_str_nullable,
-                       src_type);
+  CheckMapToStringCast(expected_str, expected_str_nullable, src_type);
 }
 
 static void CheckStructToStruct(
