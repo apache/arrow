@@ -517,7 +517,8 @@ template <typename O, typename I>
 struct ListLikeToStringCastFunctor {
   using BuilderType = typename TypeTraits<O>::BuilderType;
 
-  static Status AppendValue(const ArraySpan& values, std::stringstream& ss, int64_t j, int64_t start) {
+  static Status AppendValue(const ArraySpan& values, std::stringstream& ss, int64_t j,
+                            int64_t start) {
     if (j != start) {
       ss << ", ";
     }
