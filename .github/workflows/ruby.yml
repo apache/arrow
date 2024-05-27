@@ -323,6 +323,7 @@ jobs:
       ARROW_FLIGHT: ON
       ARROW_FLIGHT_SQL: ON
       ARROW_GANDIVA: OFF
+      ARROW_GLIB_VAPI: "false"
       ARROW_HDFS: OFF
       ARROW_HOME: "${{ github.workspace }}/dist"
       ARROW_JEMALLOC: OFF
