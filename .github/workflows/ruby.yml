@@ -395,14 +395,14 @@ jobs:
       - name: Setup NuGet credentials for vcpkg caching
         shell: bash
         run: |
-          `./vcpkg/vcpkg.exe fetch nuget | tail -n 1` \
+          $(vcpkg/vcpkg.exe fetch nuget | tail -n 1) \
             sources add \
             -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json" \
             -storepasswordincleartext \
             -name "GitHub" \
             -username "$GITHUB_REPOSITORY_OWNER" \
             -password "${{ secrets.GITHUB_TOKEN }}"
-          `./vcpkg/vcpkg.exe fetch nuget | tail -n 1` \
+          $(vcpkg/vcpkg.exe fetch nuget | tail -n 1) \
             setapikey "${{ secrets.GITHUB_TOKEN }}" \
             -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json"
       - name: Build C++ VCPKG dependencies
