@@ -19,7 +19,6 @@
 # The following S3 methods are registered on load if dplyr is present
 
 filter.arrow_dplyr_query <- function(.data, ..., .by = NULL, .preserve = FALSE) {
-  call <- match.call()
   try_arrow_dplyr({
     # TODO something with the .preserve argument
     out <- as_adq(.data)

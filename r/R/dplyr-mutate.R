@@ -24,7 +24,6 @@ mutate.arrow_dplyr_query <- function(.data,
                                      .keep = c("all", "used", "unused", "none"),
                                      .before = NULL,
                                      .after = NULL) {
-  call <- match.call()
   try_arrow_dplyr({
     out <- as_adq(.data)
 

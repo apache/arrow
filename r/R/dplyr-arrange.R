@@ -19,7 +19,6 @@
 # The following S3 methods are registered on load if dplyr is present
 
 arrange.arrow_dplyr_query <- function(.data, ..., .by_group = FALSE) {
-  call <- match.call()
   try_arrow_dplyr({
     .data <- as_adq(.data)
     exprs <- expand_across(.data, quos(...))

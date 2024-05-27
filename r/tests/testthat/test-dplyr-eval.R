@@ -36,7 +36,6 @@ test_that("various paths in arrow_eval", {
 
 test_that("try_arrow_dplyr/abandon_ship adds the right message about collect()", {
   tester <- function(.data, arg) {
-    call <- match.call()
     try_arrow_dplyr({
       if (arg == 0) {
         # This one just stops and doesn't recommend calling collect()

@@ -18,7 +18,6 @@
 # The following S3 methods are registered on load if dplyr is present
 
 summarise.arrow_dplyr_query <- function(.data, ..., .by = NULL, .groups = NULL) {
-  call <- match.call()
   try_arrow_dplyr({
     out <- as_adq(.data)
 

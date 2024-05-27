@@ -199,6 +199,10 @@ validation_error <- function(msg, ...) {
 # * If it's another error, just stop, retry with regular dplyr won't help
 try_arrow_dplyr <- function(expr) {
   parent <- caller_env()
+  # Make sure that the call is available in the parent environment
+  # so that we can use it in abandon_ship, if needed
+  evalq(call <- match.call(), parent)
+
   tryCatch(
     eval(expr, parent),
     arrow_not_supported = function(e) abandon_ship(e, parent)
@@ -208,11 +212,11 @@ try_arrow_dplyr <- function(expr) {
 # Helper to handle unsupported dplyr features
 # * For Table/RecordBatch, we collect() and then call the dplyr method in R
 # * For Dataset, we error and recommend collect()
-# Requires that `env` contains `call` and `.data`
+# Requires that `env` contains `.data`
+# The Table/RB path also requires `call` to be in `env` (try_arrow_dplyr adds it)
+# and that the function being called also exists in the dplyr namespace.
 abandon_ship <- function(err, env) {
   .data <- get(".data", envir = env)
-  call <- get("call", envir = env)
-
   if (query_on_dataset(.data)) {
     # Add a note suggesting `collect()` to the error message.
     # If there are other suggestions already there (with the > arrow name),
@@ -227,6 +231,7 @@ abandon_ship <- function(err, env) {
   }
 
   # Else, warn, collect(), and run in regular dplyr
+  call <- get("call", envir = env)
   rlang::warn(
     message = paste0("In ", format_expr(err$call), ": "),
     body = c("i" = conditionMessage(err), ">" = "Pulling data into R")
