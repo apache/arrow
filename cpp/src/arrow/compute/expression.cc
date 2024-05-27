@@ -789,9 +789,10 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
     auto options = call->options.get();
     RETURN_NOT_OK(executor->Init(&kernel_context, {kernel, types, options}));
 
+    ExecBatch arguments_batch(std::move(arguments), input_length);
+    arguments_batch.selection_vector = input.selection_vector;
     compute::detail::DatumAccumulator listener;
-    RETURN_NOT_OK(
-        executor->Execute(ExecBatch(std::move(arguments), input_length), &listener));
+    RETURN_NOT_OK(executor->Execute(std::move(arguments_batch), &listener));
     const auto out = executor->WrapResults(arguments, listener.values());
 #ifndef NDEBUG
     DCHECK_OK(executor->CheckResultType(out, call->function_name.c_str()));
@@ -802,17 +803,13 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
         arguments[0], ExecuteScalarExpression(call->arguments[0], input, exec_context));
     // Obtain the selection vector from cond.
     ExecBatch if_input = input;
-    ARROW_ASSIGN_OR_RAISE(
-        if_input.selection_vector,
-        SelectionVector::FromMask(*arguments[0].array_as<BooleanArray>()));
+    if_input.selection_vector = std::make_shared<SelectionVector>(arguments[0].array());
     ARROW_ASSIGN_OR_RAISE(arguments[1], ExecuteScalarExpression(call->arguments[1],
                                                                 if_input, exec_context));
     ExecBatch else_input = input;
     // Else input must consider the original selection vector, instead of merely taking
     // false rows from cond.
-    ARROW_ASSIGN_OR_RAISE(
-        else_input.selection_vector,
-        SelectionVector::FromMask(*arguments[0].array_as<BooleanArray>()));
+    else_input.selection_vector = std::make_shared<SelectionVector>(arguments[0].array());
     ARROW_ASSIGN_OR_RAISE(
         arguments[2],
         ExecuteScalarExpression(call->arguments[2], else_input, exec_context));
@@ -827,9 +824,10 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
     auto options = call->options.get();
     RETURN_NOT_OK(executor->Init(&kernel_context, {kernel, types, options}));
 
+    ExecBatch arguments_batch(std::move(arguments), input.length);
+    arguments_batch.selection_vector = input.selection_vector;
     compute::detail::DatumAccumulator listener;
-    RETURN_NOT_OK(
-        executor->Execute(ExecBatch(std::move(arguments), input.length), &listener));
+    RETURN_NOT_OK(executor->Execute(std::move(arguments_batch), &listener));
     const auto out = executor->WrapResults(arguments, listener.values());
 #ifndef NDEBUG
     DCHECK_OK(executor->CheckResultType(out, call->function_name.c_str()));

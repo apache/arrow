@@ -1355,19 +1355,15 @@ const CpuInfo* ExecContext::cpu_info() const { return CpuInfo::GetInstance(); }
 
 SelectionVector::SelectionVector(std::shared_ptr<ArrayData> data)
     : data_(std::move(data)) {
-  DCHECK_EQ(Type::INT32, data_->type->id());
+  DCHECK_EQ(Type::BOOL, data_->type->id());
   DCHECK_EQ(0, data_->GetNullCount());
-  indices_ = data_->GetValues<int32_t>(1);
 }
 
 SelectionVector::SelectionVector(const Array& arr) : SelectionVector(arr.data()) {}
 
-int32_t SelectionVector::length() const { return static_cast<int32_t>(data_->length); }
+std::shared_ptr<ArrayData> SelectionVector::data() const { return data_; }
 
-Result<std::shared_ptr<SelectionVector>> SelectionVector::FromMask(
-    const BooleanArray& arr) {
-  return Status::NotImplemented("FromMask");
-}
+int32_t SelectionVector::length() const { return static_cast<int32_t>(data_->length); }
 
 Result<Datum> CallFunction(const std::string& func_name, const std::vector<Datum>& args,
                            const FunctionOptions* options, ExecContext* ctx) {
