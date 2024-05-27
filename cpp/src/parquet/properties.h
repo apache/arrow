@@ -1180,10 +1180,4 @@ struct ArrowWriteContext {
 PARQUET_EXPORT
 std::shared_ptr<ArrowWriterProperties> default_arrow_writer_properties();
 
-// PLAIN_DICTIONARY is deprecated but used to be used as a dictionary index
-// encoding.
-constexpr bool IsDictionaryIndexEncoding(Encoding::type e) {
-  return e == Encoding::RLE_DICTIONARY || e == Encoding::PLAIN_DICTIONARY;
-}
-
 }  // namespace parquet
