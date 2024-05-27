@@ -27,7 +27,9 @@
 #include "arrow/dataset/file_base.h"
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/path_util.h"
+#ifdef ARROW_S3
 #include "arrow/filesystem/s3fs.h"
+#endif
 #include "arrow/engine/substrait/util.h"
 #include "arrow/engine/substrait/serde.h"
 #include "arrow/engine/substrait/relation.h"
@@ -660,7 +662,9 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_releaseBuffe
 JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_ensureS3Finalized(
     JNIEnv* env, jobject) {
   JNI_METHOD_START
+#ifdef ARROW_S3
   JniAssertOkOrThrow(arrow::fs::EnsureS3Finalized());
+#endif
   JNI_METHOD_END()
 }
 
