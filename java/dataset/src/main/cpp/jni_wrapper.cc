@@ -25,11 +25,8 @@
 #include "arrow/c/helpers.h"
 #include "arrow/dataset/api.h"
 #include "arrow/dataset/file_base.h"
-#include "arrow/filesystem/localfs.h"
+#include "arrow/filesystem/api.h"
 #include "arrow/filesystem/path_util.h"
-#ifdef ARROW_S3
-#include "arrow/filesystem/s3fs.h"
-#endif
 #include "arrow/engine/substrait/util.h"
 #include "arrow/engine/substrait/serde.h"
 #include "arrow/engine/substrait/relation.h"
