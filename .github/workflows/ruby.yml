@@ -366,7 +366,7 @@ jobs:
       - name: Install vcpkg
         shell: bash
         run: |
-          ci/scripts/install_vcpkg.sh "$(cygpath --unix "${VCPKG_ROOT}")"
+          ci/scripts/install_vcpkg.sh "${VCPKG_ROOT}"
       - name: Install meson
         run: |
           python -m pip install meson
