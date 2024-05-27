@@ -313,16 +313,15 @@ jobs:
     strategy:
       fail-fast: false
     env:
-      VCPKG_BINARY_SOURCES: 'clear;nuget,GitHub,readwrite'
-      ARROW_DEPENDENCY_SOURCE: VCPKG
-      ARROW_DEPENDENCY_USE_SHARED: OFF
+      ARROW_ACERO: ON
       ARROW_BOOST_USE_SHARED: OFF
       ARROW_BUILD_BENCHMARKS: OFF
       ARROW_BUILD_SHARED: ON
       ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: OFF
-      ARROW_ACERO: ON
       ARROW_DATASET: ON
+      ARROW_DEPENDENCY_SOURCE: VCPKG
+      ARROW_DEPENDENCY_USE_SHARED: OFF
       ARROW_FLIGHT: ON
       ARROW_FLIGHT_SQL: ON
       ARROW_GANDIVA: OFF
@@ -346,6 +345,7 @@ jobs:
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: "${{ github.workspace }}/dist"
       CMAKE_UNITY_BUILD: ON
+      VCPKG_BINARY_SOURCES: 'clear;nuget,GitHub,readwrite'
     permissions:
       packages: write
     steps:
