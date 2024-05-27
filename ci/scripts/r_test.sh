@@ -90,14 +90,9 @@ SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
   if (as_cran) {
     args <- '--as-cran'
     build_args <- character()
-    env <- c('_R_CHECK_CRAN_INCOMING_REMOTE_'='TRUE')
-
-    # Attempt to install pandoc, this will only work on systems with apt
-    system(c('apt install -y pandoc'))
   } else {
     args <- c('--no-manual', '--ignore-vignettes')
     build_args <- '--no-build-vignettes'
-    env <- c()
   }
 
   if (requireNamespace('reticulate', quietly = TRUE) && reticulate::py_module_available('pyarrow')) {
@@ -115,11 +110,6 @@ SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
       on.exit(tools::pskill(pid_flight), add = TRUE)
   }
 
-  run_donttest <- identical(tolower(Sys.getenv('_R_CHECK_DONTTEST_EXAMPLES_', 'true')), 'true')
-  if (run_donttest) {
-    args <- c(args, '--run-donttest')
-  }
-
   install_args <- Sys.getenv('INSTALL_ARGS')
   if (nzchar(install_args)) {
     args <- c(args, paste0('--install-args=\"', install_args, '\"'))
@@ -128,9 +118,8 @@ SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
   message('Running rcmdcheck with:\n')
   print(build_args)
   print(args)
-  print(env)
 
-  rcmdcheck::rcmdcheck(build_args = build_args, args = args, error_on = 'warning', check_dir = 'check', timeout = 3600, env = env)"
+  rcmdcheck::rcmdcheck(build_args = build_args, args = args, error_on = 'warning', check_dir = 'check', timeout = 3600)"
 echo "$SCRIPT" | ${R_BIN} --no-save
 
 AFTER=$(ls -alh ~/)
