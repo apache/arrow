@@ -32,6 +32,7 @@
 #include "arrow/compute/registry.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
+#include "arrow/util/vector.h"
 
 using testing::Eq;
 using testing::HasSubstr;
@@ -1773,6 +1774,32 @@ TEST(Projection, AugmentWithKnownValues) {
           equal(field_ref("f64"), literal(3.5)),
           is_null(field_ref("str")),
       }));
+}
+
+TEST(Expression, IfElseSpecialForm) {
+  const std::shared_ptr<Schema> input_schema =
+      schema({field("a", int64()), field("b", int64()), field("c", int64()),
+              field("d", int64())});
+  auto input = RecordBatchFromJSON(input_schema, R"([
+      {"a": 0, "b": -1, "c": 0, "d": -1},
+      {"a": 1, "b": -1, "c": 0, "d": -1},
+      {"a": 0, "b": -1, "c": 1, "d": -1},
+      {"a": 1, "b": -1, "c": 1, "d": -1}
+  ])");
+  auto a = field_ref("a");
+  auto b = field_ref("b");
+  auto c = field_ref("c");
+  auto d = field_ref("d");
+  auto zero = literal(0ll);
+  auto one = literal(1ll);
+  auto a_not_zero = not_equal(a, zero);
+  auto one_div_a = call("divide", {one, a});
+  auto if_else_inner = call("if_else", {a_not_zero, one_div_a, zero}, nullptr, true);
+  auto if_else_inner_not_zero = not_equal(if_else_inner, zero);
+  auto if_else_outer =
+      call("if_else", {if_else_inner_not_zero, one_div_a, zero}, nullptr, true);
+  ASSERT_OK_AND_ASSIGN(auto expr, if_else_outer.Bind(*input_schema));
+  ASSERT_OK_AND_ASSIGN(auto result, ExecuteScalarExpression(expr, *input_schema, input));
 }
 
 }  // namespace compute
