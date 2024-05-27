@@ -346,6 +346,7 @@ jobs:
       CMAKE_INSTALL_PREFIX: "${{ github.workspace }}/dist"
       CMAKE_UNITY_BUILD: ON
       VCPKG_BINARY_SOURCES: 'clear;nuget,GitHub,readwrite'
+      VCPKG_ROOT: "${{ github.workspace }}/vcpkg"
     permissions:
       packages: write
     steps:
@@ -365,7 +366,7 @@ jobs:
       - name: Install vcpkg
         shell: bash
         run: |
-          ci/scripts/install_vcpkg.sh ./vcpkg
+          ci/scripts/install_vcpkg.sh "$(cygpath --unix "${VCPKG_ROOT}")"
       - name: Install meson
         run: |
           python -m pip install meson
@@ -412,9 +413,9 @@ jobs:
         shell: cmd
         run: |
           call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          bash -c "VCPKG_ROOT=\"$(pwd)/vcpkg\" ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
+          bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
       - name: Build GLib
         shell: cmd
         run: |
           call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          bash -c "VCPKG_ROOT=\"$(pwd)/vcpkg\" ci/scripts/c_glib_build.sh $(pwd) $(pwd)/build"
+          bash -c "ci/scripts/c_glib_build.sh $(pwd) $(pwd)/build"
