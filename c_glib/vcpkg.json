@@ -1,0 +1,8 @@
+{
+  "name": "arrow-glib",
+  "version-string": "17.0.0-SNAPSHOT",
+  "dependencies": [
+    "glib",
+    "pkgconf"
+  ]
+}

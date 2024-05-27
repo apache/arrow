@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.arrow.memory.ArrowBuf;
+import org.apache.arrow.vector.BaseVariableWidthViewVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.TypeLayout;
 import org.apache.arrow.vector.complex.StructVector;
@@ -87,17 +88,28 @@ public class StructVectorUnloader {
   public ArrowRecordBatch getRecordBatch() {
     List<ArrowFieldNode> nodes = new ArrayList<>();
     List<ArrowBuf> buffers = new ArrayList<>();
+    List<Long> variadicBufferCounts = new ArrayList<>();
     for (FieldVector vector : root.getChildrenFromFields()) {
-      appendNodes(vector, nodes, buffers);
+      appendNodes(vector, nodes, buffers, variadicBufferCounts);
     }
     return new ArrowRecordBatch(root.getValueCount(), nodes, buffers, CompressionUtil.createBodyCompression(codec),
-        alignBuffers);
+        variadicBufferCounts, alignBuffers);
   }
 
-  private void appendNodes(FieldVector vector, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers) {
+  private long getVariadicBufferCount(FieldVector vector) {
+    if (vector instanceof BaseVariableWidthViewVector) {
+      return ((BaseVariableWidthViewVector) vector).getDataBuffers().size();
+    }
+    return 0L;
+  }
+
+  private void appendNodes(FieldVector vector, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers,
+      List<Long> variadicBufferCounts) {
     nodes.add(new ArrowFieldNode(vector.getValueCount(), includeNullCount ? vector.getNullCount() : -1));
     List<ArrowBuf> fieldBuffers = vector.getFieldBuffers();
-    int expectedBufferCount = TypeLayout.getTypeBufferCount(vector.getField().getType());
+    long variadicBufferCount = getVariadicBufferCount(vector);
+    int expectedBufferCount = (int) (TypeLayout.getTypeBufferCount(vector.getField().getType()) + variadicBufferCount);
+    variadicBufferCounts.add(variadicBufferCount);
     if (fieldBuffers.size() != expectedBufferCount) {
       throw new IllegalArgumentException(String.format("wrong number of buffers for field %s in vector %s. found: %s",
           vector.getField(), vector.getClass().getSimpleName(), fieldBuffers));
@@ -106,7 +118,7 @@ public class StructVectorUnloader {
       buffers.add(codec.compress(vector.getAllocator(), buf));
     }
     for (FieldVector child : vector.getChildrenFromFields()) {
-      appendNodes(child, nodes, buffers);
+      appendNodes(child, nodes, buffers, variadicBufferCounts);
     }
   }
 }

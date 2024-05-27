@@ -1223,7 +1223,7 @@ Result<std::shared_ptr<Scalar>> CastImpl(const StringScalar& from,
   ARROW_ASSIGN_OR_RAISE(auto out,
                         Scalar::Parse(std::move(to_type), std::string_view(*from.value)));
   DCHECK(checked_pointer_cast<ToScalar>(out) != nullptr);
-  return std::move(out);
+  return out;
 }
 
 // binary/large binary/large string to string
@@ -1347,7 +1347,7 @@ struct FromTypeVisitor : CastImplVisitor {
     ARROW_ASSIGN_OR_RAISE(
         out_, CastImpl<ToType>(
                   checked_cast<const typename TypeTraits<FromType>::ScalarType&>(from_),
-                  std::move(to_type_)));
+                  to_type_));
     return Status::OK();
   }
 
@@ -1355,8 +1355,8 @@ struct FromTypeVisitor : CastImplVisitor {
   template <typename T1 = ToType>
   typename std::enable_if_t<TypeTraits<T1>::is_parameter_free, Status> Visit(
       const ToType&) {
-    ARROW_ASSIGN_OR_RAISE(out_, MakeScalar(std::move(to_type_),
-                                           checked_cast<const ToScalar&>(from_).value));
+    ARROW_ASSIGN_OR_RAISE(
+        out_, MakeScalar(to_type_, checked_cast<const ToScalar&>(from_).value));
     return Status::OK();
   }
 

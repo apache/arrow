@@ -180,9 +180,7 @@ class Iterator : public util::EqualityComparable<Iterator<T>> {
       ARROW_ASSIGN_OR_RAISE(auto element, maybe_element);
       out.push_back(std::move(element));
     }
-    // ARROW-8193: On gcc-4.8 without the explicit move it tries to use the
-    // copy constructor, which may be deleted on the elements of type T
-    return std::move(out);
+    return out;
   }
 
  private:

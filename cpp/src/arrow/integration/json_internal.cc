@@ -1069,9 +1069,9 @@ Result<std::shared_ptr<DataType>> GetUnion(const RjObject& json_type,
   }
 
   if (mode == UnionMode::SPARSE) {
-    return sparse_union(std::move(children), std::move(type_codes));
+    return sparse_union(children, std::move(type_codes));
   } else {
-    return dense_union(std::move(children), std::move(type_codes));
+    return dense_union(children, std::move(type_codes));
   }
 }
 

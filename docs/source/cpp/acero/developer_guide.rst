@@ -327,8 +327,8 @@ An engine could choose to create a thread task for every execution of a node.  H
 this leads to problems with cache locality.  For example, let's assume we have a basic plan consisting of three
 exec nodes, scan, project, and then filter (this is a very common use case).  Now let's assume there are 100 batches.
 In a task-per-operator model we would have tasks like "Scan Batch 5", "Project Batch 5", and "Filter Batch 5".  Each
-of those tasks is potentially going to access the same data.  For example, maybe the `project` and `filter` nodes need
-to read the same column.  A column which is intially created in a decode phase of the `scan` node.  To maximize cache
+of those tasks is potentially going to access the same data.  For example, maybe the ``project`` and ``filter`` nodes need
+to read the same column.  A column which is intially created in a decode phase of the ``scan`` node.  To maximize cache
 utilization we would need to carefully schedule our tasks to ensure that all three of those tasks are run consecutively
 and assigned to the same CPU core.
 
@@ -412,7 +412,7 @@ Ordered Execution
 =================
 
 Some nodes either establish an ordering to their outgoing batches or they need to be able to process batches in order.
-Acero handles ordering using the `batch_index` property on an ExecBatch.  If a node has a deterministic output order
+Acero handles ordering using the ``batch_index`` property on an ExecBatch.  If a node has a deterministic output order
 then it should apply a batch index on batches that it emits.  For example, the OrderByNode applies a new ordering to
 batches (regardless of the incoming ordering).  The scan node is able to attach an implicit ordering to batches which
 reflects the order of the rows in the files being scanned.
@@ -461,8 +461,8 @@ Acero's tracing is currently half-implemented and there are major gaps in profil
 effort at tracing with open telemetry and most of the necessary pieces are in place.  The main thing currently lacking is
 some kind of effective visualization of the tracing results.
 
-In order to use the tracing that is present today you will need to build with Arrow with `ARROW_WITH_OPENTELEMETRY=ON`.
-Then you will need to set the environment variable `ARROW_TRACING_BACKEND=otlp_http`.  This will configure open telemetry
+In order to use the tracing that is present today you will need to build with Arrow with ``ARROW_WITH_OPENTELEMETRY=ON``.
+Then you will need to set the environment variable ``ARROW_TRACING_BACKEND=otlp_http``.  This will configure open telemetry
 to export trace results (as OTLP) to the HTTP endpoint http://localhost:4318/v1/traces.  You will need to configure an
 open telemetry collector to collect results on that endpoint and you will need to configure a trace viewer of some kind
 such as Jaeger: https://www.jaegertracing.io/docs/1.21/opentelemetry/

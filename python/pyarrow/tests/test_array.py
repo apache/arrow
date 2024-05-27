@@ -3536,6 +3536,14 @@ def test_struct_array_sort():
         {"a": 5, "b": "foo"},
     ]
 
+    sorted_arr = arr.sort()
+    assert sorted_arr.to_pylist() == [
+        {"a": 5, "b": "foo"},
+        {"a": 7, "b": "bar"},
+        {"a": 7, "b": "car"},
+        {"a": 35, "b": "foobar"},
+    ]
+
     arr_with_nulls = pa.StructArray.from_arrays([
         pa.array([5, 7, 7, 35], type=pa.int64()),
         pa.array(["foo", "car", "bar", "foobar"])
@@ -3920,3 +3928,27 @@ def test_list_view_slice(list_view_type):
     j = sliced_array.offsets[1].as_py()
 
     assert sliced_array[0].as_py() == sliced_array.values[i:j].to_pylist() == [4]
+
+
+@pytest.mark.parametrize('numpy_native_dtype', ['u2', 'i4', 'f8'])
+def test_swapped_byte_order_fails(numpy_native_dtype):
+    # ARROW-39129
+
+    numpy_swapped_dtype = np.dtype(numpy_native_dtype).newbyteorder()
+    np_arr = np.arange(10, dtype=numpy_swapped_dtype)
+
+    # Primitive type array, type is inferred from the numpy array
+    with pytest.raises(pa.ArrowNotImplementedError):
+        pa.array(np_arr)
+
+    # Primitive type array, type is explicitly provided
+    with pytest.raises(pa.ArrowNotImplementedError):
+        pa.array(np_arr, type=pa.float64())
+
+    # List type array
+    with pytest.raises(pa.ArrowNotImplementedError):
+        pa.array([np_arr])
+
+    # Struct type array
+    with pytest.raises(pa.ArrowNotImplementedError):
+        pa.StructArray.from_arrays([np_arr], names=['a'])

@@ -1177,7 +1177,7 @@ void SparseUnionArray::SetData(std::shared_ptr<ArrayData> data) {
 }
 
 void DenseUnionArray::SetData(const std::shared_ptr<ArrayData>& data) {
-  this->UnionArray::SetData(std::move(data));
+  this->UnionArray::SetData(data);
 
   ARROW_CHECK_EQ(data_->type->id(), Type::DENSE_UNION);
   ARROW_CHECK_EQ(data_->buffers.size(), 3);

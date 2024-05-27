@@ -551,7 +551,7 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
     int result_size = WriteIndices(buffer->mutable_data(),
                                    static_cast<int>(EstimatedDataEncodedSize()));
     PARQUET_THROW_NOT_OK(buffer->Resize(result_size, false));
-    return std::move(buffer);
+    return buffer;
   }
 
   /// Writes out the encoded dictionary to buffer. buffer must be preallocated to

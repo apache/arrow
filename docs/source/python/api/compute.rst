@@ -173,7 +173,7 @@ variants which detect domain errors where appropriate.
 Comparisons
 -----------
 
-These functions expect two inputs of the same type. If one of the inputs is `null`
+These functions expect two inputs of the same type. If one of the inputs is ``null``
 they return ``null``.
 
 .. autosummary::
@@ -540,7 +540,6 @@ Compute Options
    AssumeTimezoneOptions
    CastOptions
    CountOptions
-   CountOptions
    CumulativeSumOptions
    DayOfWeekOptions
    DictionaryEncodeOptions
@@ -566,7 +565,6 @@ Compute Options
    RoundToMultipleOptions
    RunEndEncodeOptions
    ScalarAggregateOptions
-   ScalarAggregateOptions
    SelectKOptions
    SetLookupOptions
    SliceOptions
@@ -577,7 +575,6 @@ Compute Options
    StrptimeOptions
    StructFieldOptions
    TakeOptions
-   TDigestOptions
    TDigestOptions
    TrimOptions
    VarianceOptions

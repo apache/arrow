@@ -35,6 +35,22 @@
 #include <mutex>
 #include <string_view>
 
+static std::shared_ptr<arrow::io::FileInterface>
+garrow_input_stream_get_raw_file_interface(GArrowFile *file)
+{
+  auto input_stream = GARROW_INPUT_STREAM(file);
+  auto arrow_input_stream = garrow_input_stream_get_raw(input_stream);
+  return arrow_input_stream;
+}
+
+static std::shared_ptr<arrow::io::Readable>
+garrow_input_stream_get_raw_readable_interface(GArrowReadable *readable)
+{
+  auto input_stream = GARROW_INPUT_STREAM(readable);
+  auto arrow_input_stream = garrow_input_stream_get_raw(input_stream);
+  return arrow_input_stream;
+}
+
 G_BEGIN_DECLS
 
 /**
@@ -71,26 +87,10 @@ enum {
   PROP_INPUT_STREAM = 1
 };
 
-static std::shared_ptr<arrow::io::FileInterface>
-garrow_input_stream_get_raw_file_interface(GArrowFile *file)
-{
-  auto input_stream = GARROW_INPUT_STREAM(file);
-  auto arrow_input_stream = garrow_input_stream_get_raw(input_stream);
-  return arrow_input_stream;
-}
-
 static void
 garrow_input_stream_file_interface_init(GArrowFileInterface *iface)
 {
   iface->get_raw = garrow_input_stream_get_raw_file_interface;
-}
-
-static std::shared_ptr<arrow::io::Readable>
-garrow_input_stream_get_raw_readable_interface(GArrowReadable *readable)
-{
-  auto input_stream = GARROW_INPUT_STREAM(readable);
-  auto arrow_input_stream = garrow_input_stream_get_raw(input_stream);
-  return arrow_input_stream;
 }
 
 static void
