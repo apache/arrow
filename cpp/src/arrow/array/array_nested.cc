@@ -827,15 +827,32 @@ Result<std::shared_ptr<Array>> MapArray::FromArraysInternal(
     return Status::Invalid("Map key and item arrays must be equal length");
   }
 
+  if (null_bitmap != nullptr && offsets->null_count() > 0) {
+    return Status::Invalid(
+        "Ambiguous to specify both validity map and offsets with nulls");
+  }
+
+  if (null_bitmap != nullptr && offsets->offset() != 0) {
+    return Status::NotImplemented("Null bitmap with offsets slice not supported.");
+  }
+
   if (offsets->null_count() > 0) {
     ARROW_ASSIGN_OR_RAISE(auto buffers,
-                          CleanListOffsets<MapType>(null_bitmap, *offsets, pool));
+                          CleanListOffsets<MapType>(NULLPTR, *offsets, pool));
     return std::make_shared<MapArray>(type, offsets->length() - 1, std::move(buffers),
                                       keys, items, offsets->null_count(), 0);
   }
 
   using OffsetArrayType = typename TypeTraits<OffsetArrowType>::ArrayType;
   const auto& typed_offsets = checked_cast<const OffsetArrayType&>(*offsets);
+
+  if (null_bitmap != nullptr) {
+    auto buffers = BufferVector({std::move(null_bitmap), typed_offsets.values()});
+    return std::make_shared<MapArray>(type, offsets->length() - 1, std::move(buffers),
+                                      keys, items, /*null_count=*/null_bitmap->size(),
+                                      offsets->offset());
+  }
+
   auto buffers = BufferVector({null_bitmap, typed_offsets.values()});
   return std::make_shared<MapArray>(type, offsets->length() - 1, std::move(buffers), keys,
                                     items, /*null_count=*/0, offsets->offset());
