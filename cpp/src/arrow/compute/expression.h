@@ -48,22 +48,7 @@ class ARROW_EXPORT Expression {
     std::string function_name;
     std::vector<Expression> arguments;
     std::shared_ptr<FunctionOptions> options;
-    // Cached hash value
-    size_t hash;
-
-    // post-Bind properties:
-    std::shared_ptr<Function> function;
-    const Kernel* kernel = NULLPTR;
-    std::shared_ptr<KernelState> kernel_state;
-    TypeHolder type;
-
-    void ComputeHash();
-  };
-
-  struct SpecialCall {
-    std::string function_name;
-    std::vector<Expression> arguments;
-    std::shared_ptr<FunctionOptions> options;
+    bool special_form = false;
     // Cached hash value
     size_t hash;
 
@@ -175,14 +160,15 @@ Expression field_ref(FieldRef ref);
 
 ARROW_EXPORT
 Expression call(std::string function, std::vector<Expression> arguments,
-                std::shared_ptr<FunctionOptions> options = NULLPTR);
+                std::shared_ptr<FunctionOptions> options = NULLPTR,
+                bool special_form = false);
 
 template <typename Options, typename = typename std::enable_if<
                                 std::is_base_of<FunctionOptions, Options>::value>::type>
-Expression call(std::string function, std::vector<Expression> arguments,
-                Options options) {
+Expression call(std::string function, std::vector<Expression> arguments, Options options,
+                bool special_form = false) {
   return call(std::move(function), std::move(arguments),
-              std::make_shared<Options>(std::move(options)));
+              std::make_shared<Options>(std::move(options)), special_form);
 }
 
 /// Assemble a list of all fields referenced by an Expression at any depth.

@@ -72,11 +72,12 @@ Expression field_ref(FieldRef ref) {
 }
 
 Expression call(std::string function, std::vector<Expression> arguments,
-                std::shared_ptr<compute::FunctionOptions> options) {
+                std::shared_ptr<compute::FunctionOptions> options, bool special_form) {
   Expression::Call call;
   call.function_name = std::move(function);
   call.arguments = std::move(arguments);
   call.options = std::move(options);
+  call.special_form = special_form;
   return Expression(std::move(call));
 }
 
@@ -759,42 +760,82 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
 
   std::vector<Datum> arguments(call->arguments.size());
 
-  bool all_scalar = true;
-  for (size_t i = 0; i < arguments.size(); ++i) {
-    ARROW_ASSIGN_OR_RAISE(
-        arguments[i], ExecuteScalarExpression(call->arguments[i], input, exec_context));
-    if (arguments[i].is_array()) {
-      all_scalar = false;
+  if (!call->special_form) {
+    bool all_scalar = true;
+    for (size_t i = 0; i < arguments.size(); ++i) {
+      ARROW_ASSIGN_OR_RAISE(
+          arguments[i], ExecuteScalarExpression(call->arguments[i], input, exec_context));
+      if (arguments[i].is_array()) {
+        all_scalar = false;
+      }
     }
-  }
 
-  int64_t input_length;
-  if (!arguments.empty() && all_scalar) {
-    // all inputs are scalar, so use a 1-long batch to avoid
-    // computing input.length equivalent outputs
-    input_length = 1;
-  } else {
-    input_length = input.length;
-  }
+    int64_t input_length;
+    if (!arguments.empty() && all_scalar) {
+      // all inputs are scalar, so use a 1-long batch to avoid
+      // computing input.length equivalent outputs
+      input_length = 1;
+    } else {
+      input_length = input.length;
+    }
 
-  auto executor = compute::detail::KernelExecutor::MakeScalar();
+    auto executor = compute::detail::KernelExecutor::MakeScalar();
 
-  compute::KernelContext kernel_context(exec_context, call->kernel);
-  kernel_context.SetState(call->kernel_state.get());
+    compute::KernelContext kernel_context(exec_context, call->kernel);
+    kernel_context.SetState(call->kernel_state.get());
 
-  const Kernel* kernel = call->kernel;
-  std::vector<TypeHolder> types = GetTypes(arguments);
-  auto options = call->options.get();
-  RETURN_NOT_OK(executor->Init(&kernel_context, {kernel, types, options}));
+    const Kernel* kernel = call->kernel;
+    std::vector<TypeHolder> types = GetTypes(arguments);
+    auto options = call->options.get();
+    RETURN_NOT_OK(executor->Init(&kernel_context, {kernel, types, options}));
 
-  compute::detail::DatumAccumulator listener;
-  RETURN_NOT_OK(
-      executor->Execute(ExecBatch(std::move(arguments), input_length), &listener));
-  const auto out = executor->WrapResults(arguments, listener.values());
+    compute::detail::DatumAccumulator listener;
+    RETURN_NOT_OK(
+        executor->Execute(ExecBatch(std::move(arguments), input_length), &listener));
+    const auto out = executor->WrapResults(arguments, listener.values());
 #ifndef NDEBUG
-  DCHECK_OK(executor->CheckResultType(out, call->function_name.c_str()));
+    DCHECK_OK(executor->CheckResultType(out, call->function_name.c_str()));
 #endif
-  return out;
+    return out;
+  } else {
+    ARROW_ASSIGN_OR_RAISE(
+        arguments[0], ExecuteScalarExpression(call->arguments[0], input, exec_context));
+    // Obtain the selection vector from cond.
+    ExecBatch if_input = input;
+    ARROW_ASSIGN_OR_RAISE(
+        if_input.selection_vector,
+        SelectionVector::FromMask(*arguments[0].array_as<BooleanArray>()));
+    ARROW_ASSIGN_OR_RAISE(arguments[1], ExecuteScalarExpression(call->arguments[1],
+                                                                if_input, exec_context));
+    ExecBatch else_input = input;
+    // Else input must consider the original selection vector, instead of merely taking
+    // false rows from cond.
+    ARROW_ASSIGN_OR_RAISE(
+        else_input.selection_vector,
+        SelectionVector::FromMask(*arguments[0].array_as<BooleanArray>()));
+    ARROW_ASSIGN_OR_RAISE(
+        arguments[2],
+        ExecuteScalarExpression(call->arguments[2], else_input, exec_context));
+
+    auto executor = compute::detail::KernelExecutor::MakeScalar();
+
+    compute::KernelContext kernel_context(exec_context, call->kernel);
+    kernel_context.SetState(call->kernel_state.get());
+
+    const Kernel* kernel = call->kernel;
+    std::vector<TypeHolder> types = GetTypes(arguments);
+    auto options = call->options.get();
+    RETURN_NOT_OK(executor->Init(&kernel_context, {kernel, types, options}));
+
+    compute::detail::DatumAccumulator listener;
+    RETURN_NOT_OK(
+        executor->Execute(ExecBatch(std::move(arguments), input.length), &listener));
+    const auto out = executor->WrapResults(arguments, listener.values());
+#ifndef NDEBUG
+    DCHECK_OK(executor->CheckResultType(out, call->function_name.c_str()));
+#endif
+    return out;
+  }
 }
 
 namespace {
