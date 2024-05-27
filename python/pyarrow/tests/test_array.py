@@ -1088,21 +1088,23 @@ def test_map_from_arrays():
     assert result.equals(expected)
 
     # error if null bitmap and offsets with nulls passed
-    with pytest.raises(pa.ArrowInvalid, match='Ambiguous to specify both validity map and offsets with nulls'):
+    msg1 = 'Ambiguous to specify both validity map and offsets with nulls'
+    with pytest.raises(pa.ArrowInvalid, match=msg1):
         pa.MapArray.from_arrays(offsets, keys, items, pa.map_(
-        keys.type,
-        items.type),
-        mask=pa.array([False, True, False], type=pa.bool_())
-    )
+            keys.type,
+            items.type),
+            mask=pa.array([False, True, False], type=pa.bool_())
+        )
 
     # error if null bitmap passed to sliced offset
+    msg2 = 'Null bitmap with offsets slice not supported.'
     offsets = pa.array(offsets, pa.int32())
-    with pytest.raises(pa.ArrowNotImplementedError, match='Null bitmap with offsets slice not supported.'):
+    with pytest.raises(pa.ArrowNotImplementedError, match=msg2):
         pa.MapArray.from_arrays(offsets.slice(2), keys, items, pa.map_(
-        keys.type,
-        items.type),
-        mask=pa.array([False, True, False], type=pa.bool_())
-    )
+            keys.type,
+            items.type),
+            mask=pa.array([False, True, False], type=pa.bool_())
+        )
 
     # check invalid usage
     offsets = [0, 1, 3, 5]
