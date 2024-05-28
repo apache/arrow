@@ -74,7 +74,7 @@ class PostBumpVersionsTest < Test::Unit::TestCase
     end
   end
 
-  data(:release_type, [:major, :minor, :patch])
+  data(:next_release_type, [:major, :minor, :patch])
   def test_version_post_tag
     omit_on_release_branch
 
@@ -136,7 +136,7 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         ],
       },
     ]
-    unless release_type == :patch
+    unless next_release_type == :patch
       expected_changes += [
         {
           path: "docs/source/_static/versions.json",
@@ -202,7 +202,7 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         ],
       },
     ]
-    if release_type == :major
+    if next_release_type == :major
       expected_changes += [
         {
           path: "c_glib/tool/generate-version-header.py",
@@ -276,7 +276,7 @@ class PostBumpVersionsTest < Test::Unit::TestCase
 
       import_path = "github.com/apache/arrow/go/v#{@snapshot_major_version}"
       hunks = []
-      if release_type == :major
+      if next_release_type == :major
         lines = File.readlines(path, chomp: true)
         target_lines = lines.each_with_index.select do |line, i|
           line.include?(import_path)
