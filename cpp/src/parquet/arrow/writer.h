@@ -150,7 +150,7 @@ class PARQUET_EXPORT FileWriter {
   ///
   /// WARNING: If `store_schema` is enabled, `ARROW:schema` would be stored
   /// in the key-value metadata. Overwriting this key would result in
-  /// `store_schema` unusable during read.
+  /// `store_schema` being unusable during read.
   virtual ::arrow::Status AddKeyValueMetadata(
       const std::shared_ptr<const ::arrow::KeyValueMetadata>& key_value_metadata) = 0;
   /// \brief Return the file metadata, only available after calling Close().
