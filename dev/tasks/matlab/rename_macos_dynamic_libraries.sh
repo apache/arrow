@@ -48,7 +48,7 @@ set -ex
 # Note that the ToolboxFiles property - the list of files to package - does not include the
 # symbolic link.
 #
-# This is a bug in matlab.addons.toolbox.ToolboxOptions.
+# This is a known limitation with matlab.addons.toolbox.ToolboxOptions.
 #
 # Why is this a problem?
 #
@@ -79,7 +79,7 @@ set -ex
 #
 # Issue Number 2:
 #
-# The platforms that the MATLAB Interface to Arrow supports includen Windows, Linux,
+# The platforms that the MATLAB Interface to Arrow supports Windows, Linux,
 # Intel/AMD-based macOS and ARM-based macOS. Currently, we create one "monolithic" MLTBX file
 # to package the interface that includes all shared libraries for all supported platforms.
 # We do this because the File Exchange <-> GitHub Release integration does not support
@@ -89,8 +89,8 @@ set -ex
 # the names of the shared libraries built by the interface for Intel/AMD-based macOS
 # and ARM-based macOS are identical.For example, building the interface generates the shared
 # library libarrow.1700.0.0.dylib on both platforms. To avoid this duplicate name problem,
-# we need to modify the names of the shared libraries generated for either Intel/AMD-based
-# macOS or ARM-based macOS.
+# we need to uniquify the names of the shared libraries generated for Intel/AMD-based
+# macOS and ARM-based macOS.
 
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <dylib-dir> <arch>"
@@ -113,48 +113,52 @@ ORIG_DIR=$(pwd)
 
 cd ${DYLIB_DIR}
 
-ORIG_LIBARROW_DYLIB="$(find . -name 'libarrow.dylib' | xargs basename)"
-ORIG_LIBARROW_MAJOR_DYLIB="$(find . -name 'libarrow.*.dylib' -type l | xargs basename)"
-ORIG_LIBARROW_MAJOR_MINOR_PATCH_DYLIB="$(echo libarrow.*.*.dylib)"
-ORIG_LIBMEXCLASS_DYLIB="$(find . -name 'libmexclass.dylib' | xargs basename)"
-ORIG_LIBARROWPROXY_DYLIB="$(find . -name 'libarrowproxy.dylib' | xargs basename)"
+LIBARROW_DYLIB="$(find . -name 'libarrow.dylib' | xargs basename)"
+LIBARROW_MAJOR_DYLIB="$(find . -name 'libarrow.*.dylib' -type l | xargs basename)"
+LIBARROW_MAJOR_MINOR_PATCH_DYLIB="$(echo libarrow.*.*.dylib)"
+LIBMEXCLASS_DYLIB="$(find . -name 'libmexclass.dylib' | xargs basename)"
+LIBARROWPROXY_DYLIB="$(find . -name 'libarrowproxy.dylib' | xargs basename)"
 if [$IS_ARM64 -eq 1]; then
   MEX_GATEWAY="$(find . -name 'gateway.mexmaca64' | xargs basename)"
 else
   MEX_GATEWAY="$(find . -name 'gateway.mexmaci64' | xargs basename)"
 fi
 
-MAJOR_MINOR_PATCH_VERSION=${ORIG_LIBARROW_MAJOR_MINOR_PATCH_DYLIB#*.}
+MAJOR_MINOR_PATCH_VERSION=${LIBARROW_MAJOR_MINOR_PATCH_DYLIB#*.}
 MAJOR_MINOR_PATCH_VERSION=${MAJOR_MINOR_PATCH_VERSION%.*}
 
-NEW_LIBARROW_MAJOR_MINOR_PATCH_DYLIB="libarrow_${ARCH}.${MAJOR_MINOR_PATCH_VERSION}.dylib"
-NEW_LIBARROWPROXY_DYLIB="libarrowproxy_${ARCH}.dylib"
-NEW_LIBMEXCLASS_DYLIB="libmexclass_${ARCH}.dylib"
+LIBARROW_ARCH_MAJOR_MINOR_PATCH_DYLIB="libarrow_${ARCH}.${MAJOR_MINOR_PATCH_VERSION}.dylib"
+LIBARROWPROXY_ARCH_DYLIB="libarrowproxy_${ARCH}.dylib"
+LIBMEXCLASS_ARCH_DYLIB="libmexclass_${ARCH}.dylib"
 
 # Delete the symbolic links. These files are not included in the packaged MLTBX file. 
-rm ${ORIG_LIBARROW_MAJOR_DYLIB}
-rm ${ORIG_LIBARROW_DYLIB}
+rm ${LIBARROW_MAJOR_DYLIB}
+rm ${LIBARROW_DYLIB}
 
 # Rename libarrow.*.*.*.dylib to libarrow_(arm64|x64).*.*.*.dylib (e.g. libarrow.1700.0.0.dylib -> libarrow_(arm64|x64).1700.0.0.dylib)
-mv ${ORIG_LIBARROW_MAJOR_MINOR_PATCH_DYLIB} ${NEW_LIBARROW_MAJOR_MINOR_PATCH_DYLIB}
+mv ${LIBARROW_MAJOR_MINOR_PATCH_DYLIB} ${LIBARROW_ARCH_MAJOR_MINOR_PATCH_DYLIB}
+
 # Rename libarrowproxy.dylib to libarrowproxy_(arm64|x64).dylib
-mv ${ORIG_LIBARROWPROXY_DYLIB} ${NEW_LIBARROWPROXY_DYLIB}
+mv ${LIBARROWPROXY_DYLIB} ${LIBARROWPROXY_ARCH_DYLIB}
+
 # Rename libmexclass.dylib to libmexclass_(arm64|x64).dylib
-mv ${ORIG_LIBMEXCLASS_DYLIB} ${NEW_LIBMEXCLASS_DYLIB}
+mv ${LIBMEXCLASS_DYLIB} ${LIBMEXCLASS_ARCH_DYLIB}
 
 # Update the identificaton names of the renamed dynamic libraries
-install_name_tool -id @rpath/${NEW_LIBMEXCLASS_DYLIB} ${NEW_LIBMEXCLASS_DYLIB}
-install_name_tool -id @rpath/${NEW_LIBARROWPROXY_DYLIB} ${NEW_LIBARROWPROXY_DYLIB}
-install_name_tool -id @rpath/${NEW_LIBARROW_MAJOR_MINOR_PATCH_DYLIB} ${NEW_LIBARROW_MAJOR_MINOR_PATCH_DYLIB}
+install_name_tool -id @rpath/${LIBMEXCLASS_ARCH_DYLIB} ${LIBMEXCLASS_ARCH_DYLIB}
+install_name_tool -id @rpath/${LIBARROWPROXY_ARCH_DYLIB} ${LIBARROWPROXY_ARCH_DYLIB}
+install_name_tool -id @rpath/${LIBARROW_ARCH_MAJOR_MINOR_PATCH_DYLIB} ${LIBARROW_ARCH_MAJOR_MINOR_PATCH_DYLIB}
 
 # Change install name of dependent shared library libarrow.*.*.*.dylib to libarrow_arm64.*.*.*.dylib in libarrowproxy_(arm64|x64).dylib
-install_name_tool -change @rpath/${ORIG_LIBARROW_MAJOR_DYLIB} @rpath/${NEW_LIBARROW_MAJOR_MINOR_PATCH_DYLIB} ${NEW_LIBARROWPROXY_DYLIB}
-# Change install name of dependent shared library libmexclass.dylib to libmexclass_(arm64|x64).*.*.*.dylib libarrowproxy_(arm64|x64).dylib
-install_name_tool -change @rpath/${ORIG_LIBMEXCLASS_DYLIB} @rpath/${NEW_LIBMEXCLASS_DYLIB} ${NEW_LIBARROWPROXY_DYLIB}
+install_name_tool -change @rpath/${LIBARROW_MAJOR_DYLIB} @rpath/${LIBARROW_ARCH_MAJOR_MINOR_PATCH_DYLIB} ${LIBARROWPROXY_ARCH_DYLIB}
 
-# Change install name of dependent shared library libmexclass.dylib to libmexclass_(arm64|x64).dylib in gateway.mexmaca64
-install_name_tool -change @rpath/${ORIG_LIBMEXCLASS_DYLIB} @rpath/${NEW_LIBMEXCLASS_DYLIB} ${MEX_GATEWAY}
-# Change install name of dependent shared library libarrowproxy.dylib to libarrowproxy_(arm64|x64).dylib in gateway.mexmaca64
-install_name_tool -change @rpath/${ORIG_LIBARROWPROXY_DYLIB} @rpath/${NEW_LIBARROWPROXY_DYLIB} ${MEX_GATEWAY}
+# Change install name of dependent shared library libmexclass.dylib to libmexclass_(arm64|x64).*.*.*.dylib libarrowproxy_(arm64|x64).dylib
+install_name_tool -change @rpath/${LIBMEXCLASS_DYLIB} @rpath/${LIBMEXCLASS_ARCH_DYLIB} ${LIBARROWPROXY_ARCH_DYLIB}
+
+# Change install name of dependent shared library libmexclass.dylib to libmexclass_(arm64|x64).dylib in gateway.(mexmaca64|mexmaci64)
+install_name_tool -change @rpath/${LIBMEXCLASS_DYLIB} @rpath/${LIBMEXCLASS_ARCH_DYLIB} ${MEX_GATEWAY}
+
+# Change install name of dependent shared library libarrowproxy.dylib to libarrowproxy_(arm64|x64).dylib in gateway.(mexmaca64|mexmaci64)
+install_name_tool -change @rpath/${LIBARROWPROXY_DYLIB} @rpath/${LIBARROWPROXY_ARCH_DYLIB} ${MEX_GATEWAY}
 
 cd ${ORIG_DIR}
