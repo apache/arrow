@@ -180,7 +180,8 @@ Result<std::shared_ptr<ArrowType>> FromInt64(const LogicalType& logical_type) {
 
 Result<std::shared_ptr<ArrowType>> GetArrowType(
     Type::type physical_type, const LogicalType& logical_type, int type_length,
-    const ::arrow::TimeUnit::type int96_arrow_time_unit, bool convert_unknown_logical_type) {
+    const ::arrow::TimeUnit::type int96_arrow_time_unit,
+    bool convert_unknown_logical_type) {
   if (logical_type.is_null()) {
     return ::arrow::null();
   }
@@ -219,7 +220,8 @@ Result<std::shared_ptr<ArrowType>> GetArrowType(
     const ::arrow::TimeUnit::type int96_arrow_time_unit,
     bool convert_unknown_logical_type) {
   return GetArrowType(primitive.physical_type(), *primitive.logical_type(),
-                      primitive.type_length(), int96_arrow_time_unit, convert_unknown_logical_type);
+                      primitive.type_length(), int96_arrow_time_unit,
+                      convert_unknown_logical_type);
 }
 
 }  // namespace parquet::arrow
