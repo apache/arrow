@@ -814,7 +814,20 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    * @param target destination vector for transfer
    */
   public void transferTo(BaseVariableWidthViewVector target) {
-    throw new UnsupportedOperationException("trasferTo function not supported!");
+    compareTypes(target, "transferTo");
+    target.clear();
+    target.validityBuffer = transferBuffer(validityBuffer, target.allocator);
+    target.viewBuffer = transferBuffer(viewBuffer, target.allocator);
+    target.dataBuffers = new ArrayList<>(dataBuffers.size());
+    for (int i = 0; i < dataBuffers.size(); i++) {
+      target.dataBuffers.set(i, transferBuffer(dataBuffers.get(i), target.allocator));
+    }
+
+    target.setLastSet(this.lastSet);
+    if (this.valueCount > 0) {
+      target.setValueCount(this.valueCount);
+    }
+    clear();
   }
 
   /**
@@ -826,7 +839,120 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    */
   public void splitAndTransferTo(int startIndex, int length,
                                  BaseVariableWidthViewVector target) {
-    throw new UnsupportedOperationException("splitAndTransferTo function not supported!");
+    Preconditions.checkArgument(startIndex >= 0 && length >= 0 && startIndex + length <= valueCount,
+        "Invalid parameters startIndex: %s, length: %s for valueCount: %s", startIndex, length, valueCount);
+    compareTypes(target, "splitAndTransferTo");
+    target.clear();
+    if (length > 0) {
+      splitAndTransferValidityBuffer(startIndex, length, target);
+      splitAndTransferViewBuffer(startIndex, length, target);
+      splitAndTransferDataBuffers(startIndex, length, target);
+      target.setLastSet(length - 1);
+      target.setValueCount(length);
+    }
+  }
+
+  /* allocate validity buffer */
+  private void allocateValidityBuffer(final long size) {
+    final int curSize = (int) size;
+    validityBuffer = allocator.buffer(curSize);
+    validityBuffer.readerIndex(0);
+    initValidityBuffer();
+  }
+
+  /*
+   * Transfer the validity.
+   */
+  private void splitAndTransferValidityBuffer(int startIndex, int length,
+      BaseVariableWidthViewVector target) {
+    if (length <= 0) {
+      return;
+    }
+
+    final int firstByteSource = BitVectorHelper.byteIndex(startIndex);
+    final int lastByteSource = BitVectorHelper.byteIndex(valueCount - 1);
+    final int byteSizeTarget = getValidityBufferSizeFromCount(length);
+    final int offset = startIndex % 8;
+
+    if (offset == 0) {
+      // slice
+      if (target.validityBuffer != null) {
+        target.validityBuffer.getReferenceManager().release();
+      }
+      final ArrowBuf slicedValidityBuffer = validityBuffer.slice(firstByteSource, byteSizeTarget);
+      target.validityBuffer = transferBuffer(slicedValidityBuffer, target.allocator);
+      return;
+    }
+
+    /* Copy data
+     * When the first bit starts from the middle of a byte (offset != 0),
+     * copy data from src BitVector.
+     * Each byte in the target is composed by a part in i-th byte,
+     * another part in (i+1)-th byte.
+     */
+    target.allocateValidityBuffer(byteSizeTarget);
+
+    for (int i = 0; i < byteSizeTarget - 1; i++) {
+      byte b1 = BitVectorHelper.getBitsFromCurrentByte(this.validityBuffer, firstByteSource + i, offset);
+      byte b2 = BitVectorHelper.getBitsFromNextByte(this.validityBuffer, firstByteSource + i + 1, offset);
+
+      target.validityBuffer.setByte(i, (b1 + b2));
+    }
+    /* Copying the last piece is done in the following manner:
+     * if the source vector has 1 or more bytes remaining, we copy
+     * the last piece as a byte formed by shifting data
+     * from the current byte and the next byte.
+     *
+     * if the source vector has no more bytes remaining
+     * (we are at the last byte), we copy the last piece as a byte
+     * by shifting data from the current byte.
+     */
+    if ((firstByteSource + byteSizeTarget - 1) < lastByteSource) {
+      byte b1 = BitVectorHelper.getBitsFromCurrentByte(this.validityBuffer,
+          firstByteSource + byteSizeTarget - 1, offset);
+      byte b2 = BitVectorHelper.getBitsFromNextByte(this.validityBuffer,
+          firstByteSource + byteSizeTarget, offset);
+
+      target.validityBuffer.setByte(byteSizeTarget - 1, b1 + b2);
+    } else {
+      byte b1 = BitVectorHelper.getBitsFromCurrentByte(this.validityBuffer,
+          firstByteSource + byteSizeTarget - 1, offset);
+      target.validityBuffer.setByte(byteSizeTarget - 1, b1);
+    }
+  }
+
+  private void splitAndTransferViewBuffer(int startIndex, int length,
+      BaseVariableWidthViewVector target) {
+    final int start = startIndex * ELEMENT_SIZE;
+    final int end = length * ELEMENT_SIZE;
+
+    if (length == 0) {
+      return;
+    }
+
+    if (target.viewBuffer != null) {
+      target.viewBuffer.getReferenceManager().release();
+    }
+
+    final ArrowBuf slicedViewBuffer = viewBuffer.slice(start, end);
+    target.viewBuffer = transferBuffer(slicedViewBuffer, target.allocator);
+  }
+
+  private void splitAndTransferDataBuffers(int startIndex, int length,
+      BaseVariableWidthViewVector target) {
+    for (int i = startIndex; i < length; i++) {
+      final int stringLength = getValueLength(i);
+      if (stringLength > INLINE_SIZE) {
+        final int bufIndex = viewBuffer.getInt(((long) i * ELEMENT_SIZE) +
+            LENGTH_WIDTH + PREFIX_WIDTH);
+        final int bufOffset = viewBuffer.getInt(((long) i * ELEMENT_SIZE) +
+            LENGTH_WIDTH + PREFIX_WIDTH + BUF_INDEX_WIDTH);
+        final ArrowBuf dataBuf = dataBuffers.get(bufIndex);
+        final ArrowBuf slicedDataBuffer = dataBuf.slice(bufOffset, stringLength);
+        ArrowBuf currentDataBuf = target.allocateOrGetLastDataBuffer(stringLength);
+        currentDataBuf.setBytes(currentDataBuf.writerIndex(), slicedDataBuffer, 0, stringLength);
+      }
+    }
   }
 
   /*----------------------------------------------------------------*
@@ -972,7 +1098,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   }
 
   /**
-   * Get the variable length element at specified index as Text.
+   * Get the length of the element at specified index.
    *
    * @param index position of an element to get
    * @return greater than length 0 for a non-null element, 0 otherwise
