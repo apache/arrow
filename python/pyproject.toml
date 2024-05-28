@@ -32,6 +32,10 @@ requires = [
 ]
 build-backend = "setuptools.build_meta"
 
+[options]
+install_requires =
+    numpy >= 1.16.6
+
 [project]
 name = "pyarrow"
 dynamic = ["version"]
