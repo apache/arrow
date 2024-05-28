@@ -1426,6 +1426,8 @@ class AsofJoinNode : public ExecNode {
 #else
     if (value) {
       ProcessNonThreaded();
+    } else if (!process_task_.is_finished()) {
+      EndFromSingleThread();
     }
 #endif
   }
