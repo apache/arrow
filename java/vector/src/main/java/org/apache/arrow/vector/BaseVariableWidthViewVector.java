@@ -820,7 +820,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
     target.viewBuffer = transferBuffer(viewBuffer, target.allocator);
     target.dataBuffers = new ArrayList<>(dataBuffers.size());
     for (int i = 0; i < dataBuffers.size(); i++) {
-      target.dataBuffers.set(i, transferBuffer(dataBuffers.get(i), target.allocator));
+      target.dataBuffers.add(transferBuffer(dataBuffers.get(i), target.allocator));
     }
 
     target.setLastSet(this.lastSet);

@@ -52,6 +52,7 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.ReusableByteArray;
 import org.apache.arrow.vector.util.Text;
+import org.apache.arrow.vector.util.TransferPair;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -1923,6 +1924,190 @@ public class TestVarCharViewVector {
 
       assertArrayEquals(STR1, targetVector.get(0));
       assertArrayEquals(STR2, targetVector.get(1));
+    }
+  }
+
+  /**
+   * ARROW-7831:
+   * ensures that data is transferred from one allocator to another in case of 0-index
+   * start special cases.
+   * We check short strings here.
+   */
+  @Test
+  public void testSplitAndTransfer7() {
+    try (final BufferAllocator targetAllocator = allocator.newChildAllocator("target-alloc", 256, 256);
+        final ViewVarCharVector targetVector = newViewVarCharVector("split-target", targetAllocator)) {
+      try (final BufferAllocator sourceAllocator = allocator.newChildAllocator("source-alloc", 256, 256);
+          final ViewVarCharVector sourceVector = newViewVarCharVector(EMPTY_SCHEMA_PATH, sourceAllocator)) {
+        sourceVector.allocateNew(50, 3);
+
+        sourceVector.set(0, STR4);
+        sourceVector.set(1, STR5);
+        sourceVector.set(2, STR6);
+        sourceVector.setValueCount(3);
+
+        final long allocatedMem = allocator.getAllocatedMemory();
+        final int validityRefCnt = sourceVector.getValidityBuffer().refCnt();
+        final int dataRefCnt = sourceVector.getDataBuffer().refCnt();
+
+        // split and transfer with slice starting at the beginning:
+        // this should not allocate anything new
+        sourceVector.splitAndTransferTo(0, 2, targetVector);
+        assertEquals(allocatedMem, allocator.getAllocatedMemory());
+        // Unlike testSplitAndTransfer1 where the buffers originated from the same allocator,
+        // the refcnts of each buffer for this test should be the same as what
+        // the source allocator ended up with.
+        assertEquals(validityRefCnt, sourceVector.getValidityBuffer().refCnt());
+        assertEquals(dataRefCnt, sourceVector.getDataBuffer().refCnt());
+      }
+      assertArrayEquals(STR4, targetVector.get(0));
+      assertArrayEquals(STR5, targetVector.get(1));
+    }
+  }
+
+  /**
+   * ARROW-7831:
+   * ensures that data is transferred from one allocator to another in case of 0-index
+   * start special cases.
+   * We check long strings here.
+   */
+  @Test
+  public void testSplitAndTransfer8() {
+    final int initialReservation = 1024;
+    final int maxAllocation = initialReservation +
+        BaseVariableWidthViewVector.INITIAL_VIEW_VALUE_ALLOCATION * BaseVariableWidthViewVector.ELEMENT_SIZE;
+    try (final BufferAllocator targetAllocator = allocator.newChildAllocator("target-alloc",
+        initialReservation, maxAllocation);
+        final ViewVarCharVector targetVector = newViewVarCharVector("split-target", targetAllocator)) {
+      try (final BufferAllocator sourceAllocator = allocator.newChildAllocator("source-alloc",
+          initialReservation, maxAllocation);
+          final ViewVarCharVector sourceVector = newViewVarCharVector(EMPTY_SCHEMA_PATH, sourceAllocator)) {
+        sourceVector.allocateNew(48, 3);
+
+        sourceVector.set(0, STR1);
+        sourceVector.set(1, STR2);
+        sourceVector.set(2, STR3);
+        sourceVector.setValueCount(3);
+
+        final long allocatedMem = allocator.getAllocatedMemory();
+        final int validityRefCnt = sourceVector.getValidityBuffer().refCnt();
+        final int dataRefCnt = sourceVector.getDataBuffer().refCnt();
+
+        // split and transfer with slice starting at the beginning:
+        // this should not allocate anything new
+        sourceVector.splitAndTransferTo(0, 2, targetVector);
+        assertTrue(allocatedMem < allocator.getAllocatedMemory());
+        // Unlike testSplitAndTransfer1 where the buffers originated from the same allocator,
+        // the refcnts of each buffer for this test should be the same as what
+        // the source allocator ended up with.
+        assertEquals(validityRefCnt, sourceVector.getValidityBuffer().refCnt());
+        assertEquals(dataRefCnt, sourceVector.getDataBuffer().refCnt());
+      }
+      assertArrayEquals(STR1, targetVector.get(0));
+      assertArrayEquals(STR2, targetVector.get(1));
+    }
+  }
+
+  @Test
+  public void testReallocAfterVectorTransfer1() {
+    try (final ViewVarCharVector vector = new ViewVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
+      /* 4096 values with 16 bytes per record */
+      final int bytesPerRecord = 32;
+      vector.allocateNew(4096 * bytesPerRecord, 4096);
+      int valueCapacity = vector.getValueCapacity();
+      assertTrue(valueCapacity >= 4096);
+
+      /* populate the vector */
+      for (int i = 0; i < valueCapacity; i++) {
+        if ((i & 1) == 1) {
+          vector.set(i, STR1);
+        } else {
+          vector.set(i, STR2);
+        }
+      }
+
+      /* Check the vector output */
+      for (int i = 0; i < valueCapacity; i++) {
+        if ((i & 1) == 1) {
+          assertArrayEquals(STR1, vector.get(i));
+        } else {
+          assertArrayEquals(STR2, vector.get(i));
+        }
+      }
+
+      /* trigger first realloc */
+      vector.setSafe(valueCapacity, STR2, 0, STR2.length);
+      assertTrue(vector.getValueCapacity() >= 2 * valueCapacity);
+      while (vector.getByteCapacity() < bytesPerRecord * vector.getValueCapacity()) {
+        vector.reallocViewBuffer();
+        vector.reallocViewDataBuffer();
+      }
+
+      /* populate the remaining vector */
+      for (int i = valueCapacity; i < vector.getValueCapacity(); i++) {
+        if ((i & 1) == 1) {
+          vector.set(i, STR1);
+        } else {
+          vector.set(i, STR2);
+        }
+      }
+
+      /* Check the vector output */
+      valueCapacity = vector.getValueCapacity();
+      for (int i = 0; i < valueCapacity; i++) {
+        if ((i & 1) == 1) {
+          assertArrayEquals(STR1, vector.get(i));
+        } else {
+          assertArrayEquals(STR2, vector.get(i));
+        }
+      }
+
+      /* trigger second realloc */
+      vector.setSafe(valueCapacity + bytesPerRecord, STR2, 0, STR2.length);
+      assertTrue(vector.getValueCapacity() >= 2 * valueCapacity);
+      while (vector.getByteCapacity() < bytesPerRecord * vector.getValueCapacity()) {
+        vector.reallocViewBuffer();
+        vector.reallocViewDataBuffer();
+      }
+
+      /* populate the remaining vector */
+      for (int i = valueCapacity; i < vector.getValueCapacity(); i++) {
+        if ((i & 1) == 1) {
+          vector.set(i, STR1);
+        } else {
+          vector.set(i, STR2);
+        }
+      }
+
+      /* Check the vector output */
+      valueCapacity = vector.getValueCapacity();
+      for (int i = 0; i < valueCapacity; i++) {
+        if ((i & 1) == 1) {
+          assertArrayEquals(STR1, vector.get(i));
+        } else {
+          assertArrayEquals(STR2, vector.get(i));
+        }
+      }
+
+      /* We are potentially working with 4x the size of vector buffer
+       * that we initially started with.
+       * Now let's transfer the vector.
+       */
+
+      TransferPair transferPair = vector.getTransferPair(allocator);
+      transferPair.transfer();
+      ViewVarCharVector toVector = (ViewVarCharVector) transferPair.getTo();
+      valueCapacity = toVector.getValueCapacity();
+
+      for (int i = 0; i < valueCapacity; i++) {
+        if ((i & 1) == 1) {
+          assertArrayEquals(STR1, toVector.get(i));
+        } else {
+          assertArrayEquals(STR2, toVector.get(i));
+        }
+      }
+
+      toVector.close();
     }
   }
 
