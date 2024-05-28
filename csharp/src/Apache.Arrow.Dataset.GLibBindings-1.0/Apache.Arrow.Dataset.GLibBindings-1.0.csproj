@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net6.0</TargetFrameworks>
+    <Nullable>enable</Nullable>
+    <TreatWarningsErrors>true</TreatWarningsErrors>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PackageId>Apache.Arrow.Dataset.GLibBindings-1.0</PackageId>
+    <RootNamespace>Apache.Arrow.Dataset.GLibBindings</RootNamespace>
+    <Description>GLib based bindings for the Apache Arrow Dataset library</Description>
+    <LangVersion>12</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="GirCore.GObject-2.0" Version="0.5.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Apache.Arrow.GLibBindings-1.0\Apache.Arrow.GLibBindings-1.0.csproj" />
+  </ItemGroup>
+</Project>

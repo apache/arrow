@@ -265,3 +265,7 @@ artifacts/
 
 # add .sln files back because they are ignored by the root .gitignore file
 !*.sln
+
+# Generated gobject source code
+gir_files
+src/*/*/*.Generated.cs

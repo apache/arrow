@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net6.0</TargetFrameworks>
+    <Nullable>enable</Nullable>
+    <TreatWarningsErrors>true</TreatWarningsErrors>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PackageId>Apache.Arrow.GLibBindings-1.0</PackageId>
+    <RootNamespace>Apache.Arrow.GLibBindings</RootNamespace>
+    <Description>GLib based bindings for Apache.Arrow</Description>
+    <LangVersion>12</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="GirCore.GObject-2.0" Version="0.5.0" />
+    <PackageReference Include="GirCore.Gio-2.0" Version="0.5.0" />
+  </ItemGroup>
+</Project>
