@@ -94,19 +94,19 @@ set -ex
 
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <dylib-dir> <arch>"
-  exit
+  exit 1
 fi
 
 DYLIB_DIR=${1}
 ARCH=${2}
 
-if ["$ARCH" == "arm64"]; then
+if [ "$ARCH" == "arm64" ]; then
   IS_ARM64=1
-elif ["$ARCH" == "x64"]; then
+elif [ "$ARCH" == "x64" ]; then
   IS_ARM64=0
 else
   echo "<arch> must be arm64 or x64"
-  exit
+  exit 1
 fi
 
 ORIG_DIR=$(pwd)
