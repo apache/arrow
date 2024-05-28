@@ -193,22 +193,43 @@ struct ListSlice {
 
     auto* pool = ctx->memory_pool();
     ARROW_ASSIGN_OR_RAISE(auto output_type_holder, ListSliceOutputType(opts, *list_type));
+    constexpr auto kInputTypeId = InListType::type_id;
     auto output_type = output_type_holder.GetSharedPtr();
     switch (output_type->id()) {
       case Type::LIST:
-        return BuildArray<ListBuilder>(pool, opts, batch, output_type, out);
+        DCHECK(kInputTypeId == Type::LIST || kInputTypeId == Type::FIXED_SIZE_LIST);
+        if constexpr (kInputTypeId == Type::LIST ||
+                      kInputTypeId == Type::FIXED_SIZE_LIST) {
+          return BuildArray<ListBuilder>(pool, opts, batch, output_type, out);
+        }
+        break;
       case Type::LARGE_LIST:
-        return BuildArray<LargeListBuilder>(pool, opts, batch, output_type, out);
+        DCHECK_EQ(kInputTypeId, Type::LARGE_LIST);
+        if constexpr (kInputTypeId == Type::LARGE_LIST) {
+          return BuildArray<LargeListBuilder>(pool, opts, batch, output_type, out);
+        }
+        break;
       case Type::FIXED_SIZE_LIST:
+        // A fixed-size list can be produced from any list-like input
+        // if ListSliceOptions::return_fixed_size_list is set to true
         return BuildArray<FixedSizeListBuilder>(pool, opts, batch, output_type, out);
       case Type::LIST_VIEW:
-        return BuildArray<ListViewBuilder>(pool, opts, batch, output_type, out);
+        DCHECK_EQ(kInputTypeId, Type::LIST_VIEW);
+        if constexpr (kInputTypeId == Type::LIST_VIEW) {
+          return BuildArray<ListViewBuilder>(pool, opts, batch, output_type, out);
+        }
+        break;
       case Type::LARGE_LIST_VIEW:
-        return BuildArray<LargeListViewBuilder>(pool, opts, batch, output_type, out);
+        DCHECK_EQ(kInputTypeId, Type::LARGE_LIST_VIEW);
+        if constexpr (kInputTypeId == Type::LARGE_LIST_VIEW) {
+          return BuildArray<LargeListViewBuilder>(pool, opts, batch, output_type, out);
+        }
+        break;
       default:
-        Unreachable();
-        return Status::OK();
+        break;
     }
+    Unreachable();
+    return Status::OK();
   }
 
   /// \brief Builds the array of list slices from the input list array
