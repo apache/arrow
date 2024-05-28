@@ -140,6 +140,15 @@ class ARROW_EXPORT SelectionVector {
 
   explicit SelectionVector(const Array& arr);
 
+  Result<std::unique_ptr<SelectionVector>> Copy(
+      const std::shared_ptr<MemoryManager>& mm) const;
+
+  Status Intersect(const ArrayData& other);
+
+  Status Intersect(const SelectionVector& other);
+
+  Status Invert();
+
   std::shared_ptr<ArrayData> data() const;
   int32_t length() const;
 
@@ -418,7 +427,7 @@ struct ARROW_EXPORT ExecSpan {
 
   int64_t length = 0;
   std::vector<ExecValue> values;
-  SelectionVector *selection_vector = NULLPTR;
+  SelectionVector* selection_vector = NULLPTR;
 };
 
 /// \defgroup compute-call-function One-shot calls to compute functions

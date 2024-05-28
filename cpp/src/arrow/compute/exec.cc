@@ -783,7 +783,13 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
   Status Execute(const ExecBatch& batch, ExecListener* listener) override {
     if (batch.selection_vector && !kernel_->selection_vector_aware) {
       // Slow path for selection vector.
-      ExecBatch selected_batch;
+      auto values = batch.values;
+      for (auto& value : values) {
+        if (value.is_scalar()) continue;
+        ARROW_ASSIGN_OR_RAISE(value, Filter(value, batch.selection_vector->data(),
+                                            FilterOptions::Defaults()));
+      }
+      ARROW_ASSIGN_OR_RAISE(ExecBatch selected_batch, ExecBatch::Make(std::move(values)));
       // Gather selected rows into new batch.
       DatumAccumulator new_listener;
       RETURN_NOT_OK(Execute(selected_batch, &new_listener));
@@ -1360,6 +1366,31 @@ SelectionVector::SelectionVector(std::shared_ptr<ArrayData> data)
 }
 
 SelectionVector::SelectionVector(const Array& arr) : SelectionVector(arr.data()) {}
+
+Result<std::unique_ptr<SelectionVector>> SelectionVector::Copy(
+    const std::shared_ptr<MemoryManager>& mm) const {
+  ARROW_ASSIGN_OR_RAISE(auto copy, data_->CopyTo(mm));
+  return std::make_unique<SelectionVector>(std::move(copy));
+}
+
+Status SelectionVector::Intersect(const ArrayData& other) {
+  DCHECK_EQ(Type::BOOL, other.type->id());
+  DCHECK_EQ(data_->length, other.length);
+  ::arrow::internal::BitmapAnd(data_->buffers[1]->data(), data_->offset,
+                               other.buffers[1]->data(), other.offset, data_->length,
+                               data_->offset, data_->buffers[1]->mutable_data());
+  return Status::OK();
+}
+
+Status SelectionVector::Intersect(const SelectionVector& other) {
+  return Intersect(*other.data());
+}
+
+Status SelectionVector::Invert() {
+  ::arrow::internal::InvertBitmap(data_->buffers[1]->data(), data_->offset, data_->length,
+                                  data_->buffers[1]->mutable_data(), data_->offset);
+  return Status::OK();
+}
 
 std::shared_ptr<ArrayData> SelectionVector::data() const { return data_; }
 

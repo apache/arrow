@@ -799,17 +799,24 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
 #endif
     return out;
   } else {
+    auto overall_sel = input.selection_vector;
     ARROW_ASSIGN_OR_RAISE(
         arguments[0], ExecuteScalarExpression(call->arguments[0], input, exec_context));
     // Obtain the selection vector from cond.
+    auto if_sel = std::make_shared<SelectionVector>(arguments[0].array());
+    ARROW_ASSIGN_OR_RAISE(auto else_sel, if_sel->Copy(CPUDevice::memory_manager(exec_context->memory_pool())));
+    RETURN_NOT_OK(else_sel->Invert());
+    if (overall_sel) {
+      RETURN_NOT_OK(if_sel->Intersect(*overall_sel));
+      RETURN_NOT_OK(else_sel->Intersect(*overall_sel));
+    }
+
     ExecBatch if_input = input;
-    if_input.selection_vector = std::make_shared<SelectionVector>(arguments[0].array());
+    if_input.selection_vector = std::move(if_sel);
     ARROW_ASSIGN_OR_RAISE(arguments[1], ExecuteScalarExpression(call->arguments[1],
                                                                 if_input, exec_context));
     ExecBatch else_input = input;
-    // Else input must consider the original selection vector, instead of merely taking
-    // false rows from cond.
-    else_input.selection_vector = std::make_shared<SelectionVector>(arguments[0].array());
+    else_input.selection_vector = std::move(else_sel);
     ARROW_ASSIGN_OR_RAISE(
         arguments[2],
         ExecuteScalarExpression(call->arguments[2], else_input, exec_context));
@@ -825,7 +832,7 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
     RETURN_NOT_OK(executor->Init(&kernel_context, {kernel, types, options}));
 
     ExecBatch arguments_batch(std::move(arguments), input.length);
-    arguments_batch.selection_vector = input.selection_vector;
+    arguments_batch.selection_vector = std::move(overall_sel);
     compute::detail::DatumAccumulator listener;
     RETURN_NOT_OK(executor->Execute(std::move(arguments_batch), &listener));
     const auto out = executor->WrapResults(arguments, listener.values());
