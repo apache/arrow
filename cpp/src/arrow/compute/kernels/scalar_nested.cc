@@ -191,19 +191,20 @@ struct ListSlice {
       return Status::Invalid("`step` must be >= 1, got: ", opts.step);
     }
 
+    auto* pool = ctx->memory_pool();
     ARROW_ASSIGN_OR_RAISE(auto output_type_holder, ListSliceOutputType(opts, *list_type));
     auto output_type = output_type_holder.GetSharedPtr();
     switch (output_type->id()) {
       case Type::LIST:
-        return BuildArray<ListBuilder>(ctx, batch, output_type, out);
+        return BuildArray<ListBuilder>(pool, opts, batch, output_type, out);
       case Type::LARGE_LIST:
-        return BuildArray<LargeListBuilder>(ctx, batch, output_type, out);
+        return BuildArray<LargeListBuilder>(pool, opts, batch, output_type, out);
       case Type::FIXED_SIZE_LIST:
-        return BuildArray<FixedSizeListBuilder>(ctx, batch, output_type, out);
+        return BuildArray<FixedSizeListBuilder>(pool, opts, batch, output_type, out);
       case Type::LIST_VIEW:
-        return BuildArray<ListViewBuilder>(ctx, batch, output_type, out);
+        return BuildArray<ListViewBuilder>(pool, opts, batch, output_type, out);
       case Type::LARGE_LIST_VIEW:
-        return BuildArray<LargeListViewBuilder>(ctx, batch, output_type, out);
+        return BuildArray<LargeListViewBuilder>(pool, opts, batch, output_type, out);
       default:
         Unreachable();
         return Status::OK();
@@ -212,12 +213,12 @@ struct ListSlice {
 
   /// \brief Builds the array of list slices from the input list array
   template <typename BuilderType>
-  static Status BuildArray(KernelContext* ctx, const ExecSpan& batch,
+  static Status BuildArray(MemoryPool* pool, const ListSliceOptions& opts,
+                           const ExecSpan& batch,
                            const std::shared_ptr<DataType>& output_type,
                            ExecResult* out) {
-    const auto& opts = OptionsWrapper<ListSliceOptions>::Get(ctx);
     std::unique_ptr<ArrayBuilder> builder;
-    RETURN_NOT_OK(MakeBuilder(ctx->memory_pool(), output_type, &builder));
+    RETURN_NOT_OK(MakeBuilder(pool, output_type, &builder));
     auto* list_builder = checked_cast<BuilderType*>(builder.get());
     if constexpr (std::is_same_v<InListType, FixedSizeListType>) {
       RETURN_NOT_OK(BuildArrayFromFixedSizeListType(opts.start, opts.step, opts.stop,
