@@ -362,14 +362,14 @@ class SortedMergeNode : public ExecNode {
     return Status::OK();
   }
 
-  void PushTask(bool bOkay) {
+  void PushTask(bool ok) {
 #ifdef ARROW_ENABLE_THREADING
-    process_queue.Push(bOkay);
+    process_queue.Push(ok);
 #else
     if (process_task.is_finished()) {
       return;
     }
-    if (bOkay == kNewTask) {
+    if (ok == kNewTask) {
       PollOnce();
     } else {
       EndFromProcessThread();
