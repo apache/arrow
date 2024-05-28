@@ -1230,9 +1230,7 @@
                     -DBUILD_TESTING=OFF
                     -DCMAKE_BUILD_TYPE=Release
                     -DCMAKE_INSTALL_PREFIX=${arrow.dataset.jni.dist.dir}
-                    -DCMAKE_PREFIX_PATH=${project.basedir}/../java-dist/lib/${os.detected.arch}/cmake
-                    -DProtobuf_USE_STATIC_LIBS=ON
-                    -DProtobuf_ROOT=${project.basedir}/../cpp-jni/protobuf_ep-install</commandlineArgs>
+                    -DCMAKE_PREFIX_PATH=${project.basedir}/../java-dist/lib/${os.detected.arch}/cmake</commandlineArgs>
                   <workingDirectory>../</workingDirectory>
                 </configuration>
               </execution>

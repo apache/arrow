@@ -124,6 +124,11 @@ if("${jemalloc_SOURCE}" STREQUAL "")
   set(jemalloc_SOURCE "BUNDLED")
 endif()
 
+# For backward compatibility. We use bundled Protobuf by default.
+if("${Protobuf_SOURCE}" STREQUAL "")
+  set(Protobuf_SOURCE "BUNDLED")
+endif()
+
 message(STATUS "Using ${ARROW_DEPENDENCY_SOURCE} approach to find dependencies")
 
 if(ARROW_DEPENDENCY_SOURCE STREQUAL "CONDA")
