@@ -42,6 +42,7 @@ import java.util.stream.Stream;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.memory.rounding.DefaultRoundingPolicy;
 import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
@@ -1810,6 +1811,118 @@ public class TestVarCharViewVector {
       assertArrayEquals(STR4, sourceVector.get(0));
       assertArrayEquals(STR5, sourceVector.get(1));
       assertArrayEquals(STR6, sourceVector.get(2));
+    }
+  }
+
+  /**
+   * ARROW-7831:
+   * this checks a vector that got sliced
+   * is still readable after the slice's allocator got closed.
+   */
+  @Test
+  public void testSplitAndTransfer4() {
+    try (final ViewVarCharVector sourceVector = newViewVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
+      try (final ViewVarCharVector targetVector = newViewVarCharVector("split-target", allocator)) {
+        sourceVector.allocateNew(1024 * 10, 1024);
+
+        sourceVector.set(0, STR2);
+        sourceVector.set(1, STR5);
+        sourceVector.set(2, STR6);
+        sourceVector.setValueCount(3);
+
+        final long allocatedMem = allocator.getAllocatedMemory();
+        final int validityRefCnt = sourceVector.getValidityBuffer().refCnt();
+        final int dataRefCnt = sourceVector.getDataBuffer().refCnt();
+
+        sourceVector.splitAndTransferTo(0, 2, targetVector);
+        // split and transfer with slice starting at the beginning:
+        // this should allocate new (first is a long string)
+        assertTrue(allocatedMem < allocator.getAllocatedMemory());
+        // The validity buffer is sliced from the same buffer.See BaseFixedWidthViewVector#allocateBytes.
+        // Therefore, the refcnt of the validity buffer is increased once since the startIndex is 0.
+        assertEquals(validityRefCnt + 1, sourceVector.getValidityBuffer().refCnt());
+        assertEquals(dataRefCnt + 1, sourceVector.getDataBuffer().refCnt());
+      }
+      assertArrayEquals(STR2, sourceVector.get(0));
+      assertArrayEquals(STR5, sourceVector.get(1));
+      assertArrayEquals(STR6, sourceVector.get(2));
+    }
+  }
+
+  /**
+   * ARROW-7831:
+   * this checks a validity splitting where the validity buffer is sliced from the same buffer.
+   * In the case where all the values up to the start of the slice are null/empty.
+   * We check short strings here.
+   */
+  @Test
+  public void testSplitAndTransfer5() {
+    try (final ViewVarCharVector targetVector = newViewVarCharVector("split-target", allocator);
+        final ViewVarCharVector sourceVector = newViewVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
+      sourceVector.allocateNew(1024 * 10, 1024);
+
+      sourceVector.set(0, new byte[0]);
+      sourceVector.setNull(1);
+      sourceVector.set(2, STR4);
+      sourceVector.set(3, STR5);
+      sourceVector.set(4, STR6);
+      sourceVector.setValueCount(5);
+
+      final long allocatedMem = allocator.getAllocatedMemory();
+      final int validityRefCnt = sourceVector.getValidityBuffer().refCnt();
+      final int dataRefCnt = sourceVector.getDataBuffer().refCnt();
+
+      sourceVector.splitAndTransferTo(2, 2, targetVector);
+      // the allocation only consists in the size needed for the validity buffer
+      final long validitySize =
+          DefaultRoundingPolicy.DEFAULT_ROUNDING_POLICY.getRoundedSize(
+              BaseValueVector.getValidityBufferSizeFromCount(2));
+      assertEquals(allocatedMem + validitySize, allocator.getAllocatedMemory());
+      // The validity is sliced from the same buffer.See BaseFixedWidthViewVector#allocateBytes.
+      assertEquals(validityRefCnt, sourceVector.getValidityBuffer().refCnt());
+      assertEquals(dataRefCnt + 1, sourceVector.getDataBuffer().refCnt());
+
+      assertArrayEquals(STR4, targetVector.get(0));
+      assertArrayEquals(STR5, targetVector.get(1));
+    }
+  }
+
+  /**
+   * ARROW-7831:
+   * this checks a validity splitting where the validity buffer is sliced from the same buffer.
+   * In the case where all the values up to the start of the slice are null/empty.
+   * We check long strings here.
+   */
+  @Test
+  public void testSplitAndTransfer6() {
+    try (final ViewVarCharVector targetVector = newViewVarCharVector("split-target", allocator);
+        final ViewVarCharVector sourceVector = newViewVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
+      sourceVector.allocateNew(1024 * 10, 1024);
+
+      sourceVector.set(0, new byte[0]);
+      sourceVector.setNull(1);
+      sourceVector.set(2, STR1);
+      sourceVector.set(3, STR2);
+      sourceVector.set(4, STR3);
+      sourceVector.setValueCount(5);
+
+      final long allocatedMem = allocator.getAllocatedMemory();
+      final int validityRefCnt = sourceVector.getValidityBuffer().refCnt();
+      final int dataRefCnt = sourceVector.getDataBuffer().refCnt();
+
+      sourceVector.splitAndTransferTo(2, 2, targetVector);
+      // the allocation consists in the size needed for the validity buffer and the long string
+      // allocation
+      final long validitySize =
+          DefaultRoundingPolicy.DEFAULT_ROUNDING_POLICY.getRoundedSize(
+              BaseValueVector.getValidityBufferSizeFromCount(2));
+      assertTrue(allocatedMem + validitySize < allocator.getAllocatedMemory());
+      // The validity is sliced from the same buffer.See BaseFixedWidthViewVector#allocateBytes.
+      assertEquals(validityRefCnt, sourceVector.getValidityBuffer().refCnt());
+      assertEquals(dataRefCnt + 1, sourceVector.getDataBuffer().refCnt());
+
+      assertArrayEquals(STR1, targetVector.get(0));
+      assertArrayEquals(STR2, targetVector.get(1));
     }
   }
 

@@ -924,7 +924,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   private void splitAndTransferViewBuffer(int startIndex, int length,
       BaseVariableWidthViewVector target) {
     final int start = startIndex * ELEMENT_SIZE;
-    final int end = length * ELEMENT_SIZE;
+    final int end = start + length * ELEMENT_SIZE;
 
     if (length == 0) {
       return;
@@ -940,7 +940,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
 
   private void splitAndTransferDataBuffers(int startIndex, int length,
       BaseVariableWidthViewVector target) {
-    for (int i = startIndex; i < length; i++) {
+    for (int i = startIndex; i < startIndex + length; i++) {
       final int stringLength = getValueLength(i);
       if (stringLength > INLINE_SIZE) {
         final int bufIndex = viewBuffer.getInt(((long) i * ELEMENT_SIZE) +
