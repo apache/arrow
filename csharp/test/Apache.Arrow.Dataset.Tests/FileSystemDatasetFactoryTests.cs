@@ -1,10 +1,4 @@
-using System;
-using System.Runtime.Versioning;
 using System.Threading.Tasks;
-using Apache.Arrow.C;
-using Apache.Arrow.Dataset.GLibBindings;
-using Apache.Arrow.GLibBindings;
-using Apache.Arrow.Ipc;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -14,46 +8,25 @@ public class FileSystemDatasetFactoryTests
 {
     public FileSystemDatasetFactoryTests(ITestOutputHelper testOutputHelper)
     {
-        Apache.Arrow.Dataset.GLibBindings.Module.Initialize();
         _testOutputHelper = testOutputHelper;
     }
 
     [Fact]
-    [UnsupportedOSPlatform("OSX")]
-    [UnsupportedOSPlatform("Windows")]
     public async Task CreateParquetFileSystemDataset()
     {
-        var fileFormat = ParquetFileFormat.New();
-        using var datasetFactory = FileSystemDatasetFactory.New(fileFormat);
-        datasetFactory.SetFileSystem(LocalFileSystem.New(LocalFileSystemOptions.New()));
-        datasetFactory.AddPath("/home/adam/dev/gross/parquet-issues/hive-partitioning/dataset");
-        using var dataset = datasetFactory.Finish(null);
+        using var fileFormat = new ParquetFileFormat();
+        using var datasetFactory = new FileSystemDatasetFactory(fileFormat);
+        using var dataset = datasetFactory
+            .SetFileSystem(new LocalFileSystem(new LocalFileSystemOptions { UseMmap = true}))
+            .AddPath("/home/adam/dev/gross/parquet-issues/hive-partitioning/dataset")
+            .Finish();
 
         Assert.NotNull(dataset);
 
-        using var glibReader = dataset.ToRecordBatchReader();
-        using var reader = ImportRecordBatchReader(glibReader);
+        using var reader = dataset.ToRecordBatchReader();
         while (await reader.ReadNextRecordBatchAsync() is { } batch)
         {
             _testOutputHelper.WriteLine(batch.ToString());
-        }
-    }
-
-    [UnsupportedOSPlatform("OSX")]
-    [UnsupportedOSPlatform("Windows")]
-    private static unsafe IArrowArrayStream ImportRecordBatchReader(RecordBatchReader glibReader)
-    {
-        var arrayStreamPtr = glibReader.Export();
-        try
-        {
-            return CArrowArrayStreamImporter.ImportArrayStream((CArrowArrayStream*)arrayStreamPtr);
-        }
-        finally
-        {
-            if (arrayStreamPtr != IntPtr.Zero)
-            {
-                GLib.Functions.Free(arrayStreamPtr);
-            }
         }
     }
 

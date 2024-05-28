@@ -33,6 +33,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Apache.Arrow.Dataset.GLibBi
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Apache.Arrow.Dataset.Tests", "test\Apache.Arrow.Dataset.Tests\Apache.Arrow.Dataset.Tests.csproj", "{81878D04-8306-400C-8290-1A29F4C8E7EB}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Apache.Arrow.Dataset", "src\Apache.Arrow.Dataset\Apache.Arrow.Dataset.csproj", "{32CF59E9-1321-44C4-942D-292C658D988A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -99,6 +101,10 @@ Global
 		{81878D04-8306-400C-8290-1A29F4C8E7EB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{81878D04-8306-400C-8290-1A29F4C8E7EB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{81878D04-8306-400C-8290-1A29F4C8E7EB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{32CF59E9-1321-44C4-942D-292C658D988A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{32CF59E9-1321-44C4-942D-292C658D988A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{32CF59E9-1321-44C4-942D-292C658D988A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{32CF59E9-1321-44C4-942D-292C658D988A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

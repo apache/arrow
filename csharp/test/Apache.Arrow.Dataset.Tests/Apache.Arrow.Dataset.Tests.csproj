@@ -15,7 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Apache.Arrow\Apache.Arrow.csproj" />
-    <ProjectReference Include="..\..\src\Apache.Arrow.Dataset.GLibBindings-1.0\Apache.Arrow.Dataset.GLibBindings-1.0.csproj" />
+    <ProjectReference Include="..\..\src\Apache.Arrow.Dataset\Apache.Arrow.Dataset.csproj" />
     <ProjectReference Include="..\Apache.Arrow.Tests\Apache.Arrow.Tests.csproj" />
   </ItemGroup>
 
