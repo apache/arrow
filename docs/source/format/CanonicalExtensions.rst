@@ -297,9 +297,9 @@ For example:
   case, its catalog (``GetTables`` etc.) should reflect the names and types of
   tables in external databases.  These tables may support types it does not
   recognize.  Instead of erroring or silently dropping columns from the
-  catalog, it can use the Other[NA] type to report that a column exists with a
-  particular name and type name in the external database; the Other type lets
-  clients know that the column is not supported, but still exists.
+  catalog, it can use the Other[Null] type to report that a column exists with
+  a particular name and type name in the external database; the Other type
+  lets clients know that the column is not supported, but still exists.
 
 * The ADBC PostgreSQL driver, because of how the PostgreSQL wire protocol
   works, may get bytes for a field whose type it does not recognize (say, a
@@ -320,6 +320,7 @@ Extension parameters:
 * Extension type parameters:
 
   * **type_name** = the name of the unknown type in the external system.
+  * **vendor_name** = the name of the external system.
 
 * Description of the serialization:
 
@@ -330,11 +331,12 @@ Extension parameters:
   For example:
 
   - The PostgreSQL ``polygon`` type may be represented as Other[binary] with
-    metadata ``{"type_name": "polygon"}``.
+    metadata ``{"type_name": "polygon", "vendor_name": "PostgreSQL"}``.
   - The PostgreSQL ``point`` type may be represented as
-    Other[fixed_size_binary[16]] with metadata ``{"type_name": "point"}``.
-  - A Flight SQL service may return an array type as Other[NA] with metadata
-    ``{"type_name": "ARRAY"}``.
+    Other[fixed_size_binary[16]] with metadata
+    ``{"type_name": "point", "vendor_name": "PostgreSQL"}``.
+  - A Flight SQL service may return an array type as Other[Null] with metadata
+    ``{"type_name": "varray", "vendor_name": "Oracle"}``.
 
 =========================
 Community Extension Types
