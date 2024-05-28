@@ -256,7 +256,7 @@ class PrepareTest < Test::Unit::TestCase
       {
         path: "python/pyproject.toml",
         hunks: [
-          ["-fallback_version = '#{@snapshot_version}'",
+          ["-fallback_version = '#{@release_version}a0'",
            "+fallback_version = '#{@release_version}'"],
         ],
       },
