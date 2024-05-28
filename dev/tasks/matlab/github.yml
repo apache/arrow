@@ -58,9 +58,18 @@ jobs:
           name: matlab-arrow-ubuntu.tar.gz
           path: matlab-arrow-ubuntu.tar.gz
 
-  macos-x64:
-    name: AMD64 macOS 12 MATLAB
-    runs-on: macos-12
+  macos:
+    name: ${{ matrix.architecture }} macOS ${{ matrix.macos-version }} MATLAB
+    runs-on: macos-$${{ matrix.macos-version }}
+     strategy:
+      matrix:
+        include:
+            - architecture: AMD64
+              macos-version: "12"
+              architecture-suffix: x64
+            - architecture: ARM64
+              macos-version: "14"
+              architecture-suffix: arm64
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       - name: Install ninja-build
@@ -73,40 +82,18 @@ jobs:
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: arrow/ci/scripts/matlab_build.sh $(pwd)/arrow
-      - name: Update dylib names
-        run: arrow/dev/tasks/matlab/rename_macos_dynamic_libraries.sh arrow/matlab/install/arrow_matlab/+libmexclass/+proxy x64
+      - name: Update dynamic library names
+        run: |
+          arrow/dev/tasks/matlab/rename_macos_dynamic_libraries.sh \
+          arrow/matlab/install/arrow_matlab/+libmexclass/+proxy \
+          ${{ matrix.architecture-suffix }}
       - name: Compress into single artifact
-        run: tar -cvzf matlab-arrow-macos-x64.tar.gz arrow/matlab/install/arrow_matlab
+        run: tar -cvzf matlab-arrow-macos-${{ matrix.architecture-suffix }}.tar.gz arrow/matlab/install/arrow_matlab
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: matlab-arrow-macos-x64.tar.gz
-          path: matlab-arrow-macos-x64.tar.gz
-
-  macos-arm64:
-    name: ARM64 macOS 14 MATLAB
-    runs-on: macos-14
-    steps:
-      {{ macros.github_checkout_arrow()|indent }}
-      - name: Install ninja-build
-        run: brew install ninja
-      - name: Install MATLAB
-        uses: matlab-actions/setup-matlab@v2
-        with:
-          release: R2024a
-      - name: Build MATLAB Interface
-        env:
-        {{ macros.github_set_sccache_envvars()|indent(8) }}
-        run: arrow/ci/scripts/matlab_build.sh $(pwd)/arrow
-      - name: Update dylib names
-        run: arrow/dev/tasks/matlab/rename_macos_dynamic_libraries.sh arrow/matlab/install/arrow_matlab/+libmexclass/+proxy arm64
-      - name: Compress into single artifact
-        run: tar -cvzf matlab-arrow-macos-arm64.tar.gz arrow/matlab/install/arrow_matlab
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: matlab-arrow-macos-arm64.tar.gz
-          path: matlab-arrow-macos-arm64.tar.gz
+          name: matlab-arrow-macos-${{ matrix.architecture-suffix }}.tar.gz
+          path: matlab-arrow-macos-${{ matrix.architecture-suffix }}.tar.gz
 
   windows:
     name: AMD64 Windows 2022 MATLAB
@@ -141,8 +128,8 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - ubuntu
-      - macos-x64
-      - macos-arm64
+      - macos
+      - macos
       - windows
     steps:
       {{ macros.github_checkout_arrow(fetch_depth=0)|indent }}
