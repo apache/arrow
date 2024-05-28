@@ -1062,6 +1062,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             const shared_ptr[CSchema]& schema,
             const vector[shared_ptr[CRecordBatch]]& batches)
 
+        CResult[shared_ptr[CTensor]] ToTensor(c_bool null_to_nan, c_bool row_major,
+                                              CMemoryPool* pool) const
+
         int num_columns()
         int64_t num_rows()
 
