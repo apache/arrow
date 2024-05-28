@@ -891,24 +891,6 @@ TYPED_TEST(TestParquetIO, ZeroChunksTable) {
   ASSERT_EQ(1, out->column(0)->num_chunks());
 }
 
-TYPED_TEST(TestParquetIO, TableWithMetadata) {
-  auto values = std::make_shared<ChunkedArray>(::arrow::ArrayVector{}, ::arrow::int32());
-  auto table =
-      MakeSimpleTable(values, false, ::arrow::KeyValueMetadata::Make({"foo"}, {"bar"}));
-
-  this->ResetSink();
-  ASSERT_OK_NO_THROW(
-      WriteTable(*table, ::arrow::default_memory_pool(), this->sink_, SMALL_SIZE));
-
-  std::shared_ptr<Table> out;
-  std::unique_ptr<FileReader> reader;
-  ASSERT_NO_FATAL_FAILURE(this->ReaderFromSink(&reader));
-  ASSERT_NO_FATAL_FAILURE(this->ReadTableFromFile(std::move(reader), &out));
-  ASSERT_NE(nullptr, out->schema()->metadata());
-  ASSERT_TRUE(out->schema()->metadata()->Contains("foo"));
-  ASSERT_EQ("bar", out->schema()->metadata()->Get("foo"));
-}
-
 TYPED_TEST(TestParquetIO, SingleColumnTableRequiredWrite) {
   std::shared_ptr<Array> values;
   ASSERT_OK(NonNullArray<TypeParam>(SMALL_SIZE, &values));
@@ -5361,6 +5343,27 @@ TEST(TestArrowReadWrite, OperationsOnClosedWriter) {
   ASSERT_OK_AND_ASSIGN(auto record_batch, table->CombineChunksToBatch());
   ASSERT_RAISES(Invalid, writer->WriteRecordBatch(*record_batch));
   ASSERT_RAISES(Invalid, writer->WriteTable(*table, 1));
+}
+
+TEST(TestArrowReadWrite, TableWithMetadata) {
+  auto values = std::make_shared<ChunkedArray>(::arrow::ArrayVector{}, ::arrow::int32());
+  auto table =
+      MakeSimpleTable(values, false, ::arrow::KeyValueMetadata::Make({"foo"}, {"bar"}));
+
+  auto sink = CreateOutputStream();
+  ASSERT_OK_NO_THROW(
+      WriteTable(*table, ::arrow::default_memory_pool(), sink, SMALL_SIZE));
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  std::shared_ptr<Table> out;
+  std::unique_ptr<FileReader> reader;
+  ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
+                              ::arrow::default_memory_pool(), &reader));
+  ASSERT_OK_NO_THROW(reader->ReadTable(&out));
+
+  ASSERT_NE(nullptr, out->schema()->metadata());
+  ASSERT_TRUE(out->schema()->metadata()->Contains("foo"));
+  ASSERT_EQ("bar", out->schema()->metadata()->Get("foo"));
 }
 
 namespace {
