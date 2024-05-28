@@ -405,8 +405,7 @@ jobs:
           $(vcpkg/vcpkg.exe fetch nuget | tail -n 1) \
             setapikey "${{ secrets.GITHUB_TOKEN }}" \
             -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json"
-      - name: Build C++ VCPKG dependencies
-        shell: cmd
+      - name: Build C++ vcpkg dependencies
         run: |
           vcpkg\vcpkg.exe install --triplet x64-windows --x-manifest-root cpp --x-install-root build\cpp\vcpkg_installed
       - name: Build C++
