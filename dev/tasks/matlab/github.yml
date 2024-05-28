@@ -60,9 +60,8 @@ jobs:
 
   macos:
     {% set arch = '${{ matrix.platform.architecture}}' %}
-    {% set macos-version = '${{ matrix.platform.macos-version}}' %}
-    name: {{ arch }} macOS {{ macos-version }} MATLAB
-    runs-on: macos-{{ macos-version }}
+    name: {{ arch }} macOS MATLAB
+    runs-on: macos-{{ '${{ matrix.platform.macos-version }}' }}
      strategy:
       matrix:
         platform:
@@ -84,14 +83,14 @@ jobs:
         run: |
           arrow/dev/tasks/matlab/rename_macos_dynamic_libraries.sh \
           arrow/matlab/install/arrow_matlab/+libmexclass/+proxy \
-          {{ '${{ matrix.architecture-suffix }}' }}
+          {{ '${{ matrix.platform.architecture-suffix }}' }}
       - name: Compress into single artifact
-        run: tar -cvzf matlab-arrow-macos-{{ '${{ matrix.architecture-suffix }}' }}.tar.gz arrow/matlab/install/arrow_matlab
+        run: tar -cvzf matlab-arrow-macos-{{ '${{ matrix.platform.architecture-suffix }}' }}.tar.gz arrow/matlab/install/arrow_matlab
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: matlab-arrow-macos-{{ '${{ matrix.architecture-suffix }}' }}.tar.gz
-          path: matlab-arrow-macos-{{ '${{ matrix.architecture-suffix }}' }}.tar.gz
+          name: matlab-arrow-macos-{{ '${{ matrix.platform.architecture-suffix }}' }}.tar.gz
+          path: matlab-arrow-macos-{{ '${{ matrixplatform.architecture-suffix }}' }}.tar.gz
 
   windows:
     name: AMD64 Windows 2022 MATLAB
