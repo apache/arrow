@@ -1,0 +1,67 @@
+diff --git a/ports/curl/portfile.cmake b/ports/curl/portfile.cmake
+index 7cab6f726..697ab1bb4 100644
+--- a/ports/curl/portfile.cmake
++++ b/ports/curl/portfile.cmake
+@@ -84,9 +84,12 @@ vcpkg_cmake_configure(
+         -DBUILD_TESTING=OFF
+         -DENABLE_CURL_MANUAL=OFF
+         -DCURL_CA_FALLBACK=ON
++        -DCURL_CA_PATH=none
++        -DCURL_CA_BUNDLE=none
+         -DCMAKE_DISABLE_FIND_PACKAGE_Perl=ON
+     OPTIONS_DEBUG
+         -DENABLE_DEBUG=ON
++        ${EXTRA_ARGS_DEBUG}
+ )
+ vcpkg_cmake_install()
+ vcpkg_copy_pdbs()
+diff --git a/ports/llvm/portfile.cmake b/ports/llvm/portfile.cmake
+index a79c72a59..6b7fa6a66 100644
+--- a/ports/llvm/portfile.cmake
++++ b/ports/llvm/portfile.cmake
+@@ -292,6 +292,8 @@ vcpkg_cmake_configure(
+         ${FEATURE_OPTIONS}
+     MAYBE_UNUSED_VARIABLES 
+         COMPILER_RT_ENABLE_IOS
++        BOLT_TOOLS_INSTALL_DIR
++        LIBOMP_INSTALL_ALIASES
+ )
+ 
+ vcpkg_cmake_install(ADD_BIN_TO_PATH)
+diff --git a/ports/snappy/portfile.cmake b/ports/snappy/portfile.cmake
+index 0c7098082..c603c3653 100644
+--- a/ports/snappy/portfile.cmake
++++ b/ports/snappy/portfile.cmake
+@@ -10,6 +10,7 @@ vcpkg_from_github(
+     PATCHES
+         fix_clang-cl_build.patch
+         no-werror.patch
++        "snappy-disable-bmi.patch"
+ )
+ 
+ vcpkg_cmake_configure(
+diff --git a/ports/snappy/snappy-disable-bmi.patch b/ports/snappy/snappy-disable-bmi.patch
+new file mode 100644
+index 000000000..e839c93a4
+--- /dev/null
++++ b/ports/snappy/snappy-disable-bmi.patch
+@@ -0,0 +1,19 @@
++diff --git a/snappy.cc b/snappy.cc
++index d414718..7b49d2a 100644
++--- a/snappy.cc
+++++ b/snappy.cc
++@@ -1014,14 +1014,10 @@ static inline void Report(const char *algorithm, size_t compressed_size,
++ static inline uint32_t ExtractLowBytes(const uint32_t& v, int n) {
++   assert(n >= 0);
++   assert(n <= 4);
++-#if SNAPPY_HAVE_BMI2
++-  return _bzhi_u32(v, 8 * n);
++-#else
++   // This needs to be wider than uint32_t otherwise `mask << 32` will be
++   // undefined.
++   uint64_t mask = 0xffffffff;
++   return v & ~(mask << (8 * n));
++-#endif
++ }
++ 
++ static inline bool LeftShiftOverflows(uint8_t value, uint32_t shift) {
