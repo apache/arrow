@@ -1720,6 +1720,7 @@ public class TestVarCharViewVector {
    * ARROW-7831:
    * this checks a slice taken off a buffer is still readable
    * after that buffer's allocator is closed.
+   * With short strings.
    */
   @Test
   public void testSplitAndTransfer1() {
@@ -1751,6 +1752,12 @@ public class TestVarCharViewVector {
     }
   }
 
+  /**
+   * ARROW-7831:
+   * this checks a slice taken off a buffer is still readable
+   * after that buffer's allocator is closed.
+   * With a long string included.
+   */
   @Test
   public void testSplitAndTransfer2() {
     try (final ViewVarCharVector targetVector = newViewVarCharVector("split-target", allocator)) {
@@ -1785,6 +1792,7 @@ public class TestVarCharViewVector {
    * ARROW-7831:
    * this checks a vector that got sliced
    * is still readable after the slice's allocator got closed.
+   * With short strings.
    */
   @Test
   public void testSplitAndTransfer3() {
@@ -1819,6 +1827,7 @@ public class TestVarCharViewVector {
    * ARROW-7831:
    * this checks a vector that got sliced
    * is still readable after the slice's allocator got closed.
+   * With a long string included.
    */
   @Test
   public void testSplitAndTransfer4() {
@@ -1854,7 +1863,7 @@ public class TestVarCharViewVector {
    * ARROW-7831:
    * this checks a validity splitting where the validity buffer is sliced from the same buffer.
    * In the case where all the values up to the start of the slice are null/empty.
-   * We check short strings here.
+   * With short strings.
    */
   @Test
   public void testSplitAndTransfer5() {
@@ -1880,6 +1889,7 @@ public class TestVarCharViewVector {
               BaseValueVector.getValidityBufferSizeFromCount(2));
       assertEquals(allocatedMem + validitySize, allocator.getAllocatedMemory());
       // The validity is sliced from the same buffer.See BaseFixedWidthViewVector#allocateBytes.
+      // Since values up to the startIndex are empty/null validity refcnt should not change.
       assertEquals(validityRefCnt, sourceVector.getValidityBuffer().refCnt());
       assertEquals(dataRefCnt + 1, sourceVector.getDataBuffer().refCnt());
 
@@ -1892,7 +1902,7 @@ public class TestVarCharViewVector {
    * ARROW-7831:
    * this checks a validity splitting where the validity buffer is sliced from the same buffer.
    * In the case where all the values up to the start of the slice are null/empty.
-   * We check long strings here.
+   * With long strings.
    */
   @Test
   public void testSplitAndTransfer6() {
@@ -1919,6 +1929,7 @@ public class TestVarCharViewVector {
               BaseValueVector.getValidityBufferSizeFromCount(2));
       assertTrue(allocatedMem + validitySize < allocator.getAllocatedMemory());
       // The validity is sliced from the same buffer.See BaseFixedWidthViewVector#allocateBytes.
+      // Since values up to the startIndex are empty/null validity refcnt should not change.
       assertEquals(validityRefCnt, sourceVector.getValidityBuffer().refCnt());
       assertEquals(dataRefCnt + 1, sourceVector.getDataBuffer().refCnt());
 
@@ -1931,7 +1942,7 @@ public class TestVarCharViewVector {
    * ARROW-7831:
    * ensures that data is transferred from one allocator to another in case of 0-index
    * start special cases.
-   * We check short strings here.
+   * With short strings.
    */
   @Test
   public void testSplitAndTransfer7() {
@@ -1969,7 +1980,7 @@ public class TestVarCharViewVector {
    * ARROW-7831:
    * ensures that data is transferred from one allocator to another in case of 0-index
    * start special cases.
-   * We check long strings here.
+   * With long strings.
    */
   @Test
   public void testSplitAndTransfer8() {
