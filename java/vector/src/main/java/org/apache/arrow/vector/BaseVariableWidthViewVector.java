@@ -923,8 +923,8 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
 
   private void splitAndTransferViewBuffer(int startIndex, int length,
       BaseVariableWidthViewVector target) {
-    final int start = startIndex * ELEMENT_SIZE;
-    final int end = start + length * ELEMENT_SIZE;
+    final int startingByte = startIndex * ELEMENT_SIZE;
+    final int lengthInBytes = length * ELEMENT_SIZE;
 
     if (length == 0) {
       return;
@@ -934,7 +934,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
       target.viewBuffer.getReferenceManager().release();
     }
 
-    final ArrowBuf slicedViewBuffer = viewBuffer.slice(start, end);
+    final ArrowBuf slicedViewBuffer = viewBuffer.slice(startingByte, lengthInBytes);
     target.viewBuffer = transferBuffer(slicedViewBuffer, target.allocator);
   }
 

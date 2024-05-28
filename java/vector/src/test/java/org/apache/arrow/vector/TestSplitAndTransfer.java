@@ -67,6 +67,17 @@ public class TestSplitAndTransfer {
     vector.setValueCount(valueCount);
   }
 
+  private void populateViewVarcharVector(final ViewVarCharVector vector, int valueCount, String[] compareArray) {
+    for (int i = 0; i < valueCount; i += 3) {
+      final String s = String.format("%010d", i);
+      vector.set(i, s.getBytes(StandardCharsets.UTF_8));
+      if (compareArray != null) {
+        compareArray[i] = s;
+      }
+    }
+    vector.setValueCount(valueCount);
+  }
+
   private void populateIntVector(final IntVector vector, int valueCount) {
     for (int i = 0; i < valueCount; i++) {
       vector.set(i, i);
@@ -107,6 +118,11 @@ public class TestSplitAndTransfer {
     // BaseVariableWidthVector
     VarCharVector varCharVector = new VarCharVector("", allocator);
     transferPair = varCharVector.getTransferPair(allocator);
+    transferPair.splitAndTransfer(0, 0);
+    assertEquals(0, transferPair.getTo().getValueCount());
+    // BaseVariableWidthViewVector
+    ViewVarCharVector viewVarCharVector = new ViewVarCharVector("", allocator);
+    transferPair = viewVarCharVector.getTransferPair(allocator);
     transferPair.splitAndTransfer(0, 0);
     assertEquals(0, transferPair.getTo().getValueCount());
     // BaseLargeVariableWidthVector
@@ -209,6 +225,39 @@ public class TestSplitAndTransfer {
     }
   }
 
+  @Test /* ViewVarCharVector */
+  public void testView() throws Exception {
+    try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator)) {
+      viewVarCharVector.allocateNew(10000, 1000);
+
+      final int valueCount = 500;
+      final String[] compareArray = new String[valueCount];
+
+      populateViewVarcharVector(viewVarCharVector, valueCount, compareArray);
+
+      final TransferPair tp = viewVarCharVector.getTransferPair(allocator);
+      final ViewVarCharVector newViewVarCharVector = (ViewVarCharVector) tp.getTo();
+      final int[][] startLengths = {{0, 201}, {201, 0}, {201, 200}, {401, 99}};
+
+      for (final int[] startLength : startLengths) {
+        final int start = startLength[0];
+        final int length = startLength[1];
+        tp.splitAndTransfer(start, length);
+        for (int i = 0; i < length; i++) {
+          final boolean expectedSet = ((start + i) % 3) == 0;
+          if (expectedSet) {
+            final byte[] expectedValue = compareArray[start + i].getBytes(StandardCharsets.UTF_8);
+            assertFalse(newViewVarCharVector.isNull(i));
+            assertArrayEquals(expectedValue, newViewVarCharVector.get(i));
+          } else {
+            assertTrue(newViewVarCharVector.isNull(i));
+          }
+        }
+        newViewVarCharVector.clear();
+      }
+    }
+  }
+
   @Test
   public void testMemoryConstrainedTransfer() {
     try (final VarCharVector varCharVector = new VarCharVector("myvector", allocator)) {
@@ -229,6 +278,30 @@ public class TestSplitAndTransfer {
         final int length = startLength[1];
         tp.splitAndTransfer(start, length);
         newVarCharVector.clear();
+      }
+    }
+  }
+
+  @Test
+  public void testMemoryConstrainedTransferViews() {
+    try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator)) {
+      allocator.setLimit(32768); /* set limit of 32KB */
+
+      viewVarCharVector.allocateNew(16000, 1000);
+
+      final int valueCount = 1000;
+
+      populateViewVarcharVector(viewVarCharVector, valueCount, null);
+
+      final TransferPair tp = viewVarCharVector.getTransferPair(allocator);
+      final ViewVarCharVector newViewVarCharVector = (ViewVarCharVector) tp.getTo();
+      final int[][] startLengths = {{0, 700}, {700, 299}};
+
+      for (final int[] startLength : startLengths) {
+        final int start = startLength[0];
+        final int length = startLength[1];
+        tp.splitAndTransfer(start, length);
+        newViewVarCharVector.clear();
       }
     }
   }
