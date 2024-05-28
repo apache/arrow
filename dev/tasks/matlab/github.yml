@@ -129,7 +129,6 @@ jobs:
     needs:
       - ubuntu
       - macos
-      - macos
       - windows
     steps:
       {{ macros.github_checkout_arrow(fetch_depth=0)|indent }}
