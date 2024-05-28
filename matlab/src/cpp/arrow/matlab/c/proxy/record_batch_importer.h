@@ -17,35 +17,21 @@
 
 #pragma once
 
-#include "arrow/record_batch.h"
-
 #include "libmexclass/proxy/Proxy.h"
 
-namespace arrow::matlab::tabular::proxy {
+namespace arrow::matlab::c::proxy {
 
-class RecordBatch : public libmexclass::proxy::Proxy {
+class RecordBatchImporter : public libmexclass::proxy::Proxy {
  public:
-  RecordBatch(std::shared_ptr<arrow::RecordBatch> record_batch);
+  RecordBatchImporter();
 
-  virtual ~RecordBatch() {}
-
-  std::shared_ptr<arrow::RecordBatch> unwrap();
+  ~RecordBatchImporter() = default;
 
   static libmexclass::proxy::MakeResult make(
       const libmexclass::proxy::FunctionArguments& constructor_arguments);
 
  protected:
-  void toString(libmexclass::proxy::method::Context& context);
-  void getNumRows(libmexclass::proxy::method::Context& context);
-  void getNumColumns(libmexclass::proxy::method::Context& context);
-  void getColumnNames(libmexclass::proxy::method::Context& context);
-  void getColumnByIndex(libmexclass::proxy::method::Context& context);
-  void getColumnByName(libmexclass::proxy::method::Context& context);
-  void getSchema(libmexclass::proxy::method::Context& context);
-  void getRowAsString(libmexclass::proxy::method::Context& context);
-  void exportToC(libmexclass::proxy::method::Context& context);
-
-  std::shared_ptr<arrow::RecordBatch> record_batch;
+  void import(libmexclass::proxy::method::Context& context);
 };
 
-}  // namespace arrow::matlab::tabular::proxy
+}  // namespace arrow::matlab::c::proxy
