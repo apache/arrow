@@ -16,7 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -e
+set -ex
 
 #----------------------------------------------------------------------
 # Change this to whatever makes sense for your system
@@ -35,6 +35,7 @@ source $WORKDIR/venv/bin/activate
 git config --global --add safe.directory $ARROW_ROOT
 
 pip install -r $ARROW_ROOT/python/requirements-build.txt
+pip install wheel
 
 #----------------------------------------------------------------------
 # Build C++ library
@@ -73,4 +74,6 @@ python -m pip install --no-deps --no-build-isolation -vv .
 
 pip install -r $ARROW_ROOT/python/requirements-test.txt
 
-py.test pyarrow
+pip freeze
+python -c "import pyarrow.lib"
+pytest -vv -r s ${PYTEST_ARGS} --pyargs pyarrow
