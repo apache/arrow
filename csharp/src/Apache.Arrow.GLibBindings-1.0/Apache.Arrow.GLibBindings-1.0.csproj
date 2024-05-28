@@ -8,6 +8,7 @@
     <RootNamespace>Apache.Arrow.GLibBindings</RootNamespace>
     <Description>GLib based bindings for Apache.Arrow</Description>
     <LangVersion>12</LangVersion>
+    <SignAssembly>false</SignAssembly>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="GirCore.GObject-2.0" Version="0.5.0" />

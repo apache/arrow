@@ -8,6 +8,7 @@
     <RootNamespace>Apache.Arrow.Dataset.GLibBindings</RootNamespace>
     <Description>GLib based bindings for the Apache Arrow Dataset library</Description>
     <LangVersion>12</LangVersion>
+    <SignAssembly>false</SignAssembly>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="GirCore.GObject-2.0" Version="0.5.0" />
