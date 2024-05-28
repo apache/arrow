@@ -118,7 +118,7 @@ LIBARROW_MAJOR_DYLIB="$(find . -name 'libarrow.*.dylib' -type l | xargs basename
 LIBARROW_MAJOR_MINOR_PATCH_DYLIB="$(echo libarrow.*.*.dylib)"
 LIBMEXCLASS_DYLIB="$(find . -name 'libmexclass.dylib' | xargs basename)"
 LIBARROWPROXY_DYLIB="$(find . -name 'libarrowproxy.dylib' | xargs basename)"
-if [$IS_ARM64 -eq 1]; then
+if [ $IS_ARM64 -eq 1 ]; then
   MEX_GATEWAY="$(find . -name 'gateway.mexmaca64' | xargs basename)"
 else
   MEX_GATEWAY="$(find . -name 'gateway.mexmaci64' | xargs basename)"
