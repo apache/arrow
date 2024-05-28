@@ -44,3 +44,8 @@ dotnet run --project tools/gir.core/src/Generation/GirTool/GirTool.csproj -- \
 for gir_dep in ${gir_dependencies[@]}; do
     rm -r "${source_dir}/${gir_dep}"
 done
+
+# Apply patches to fix generated code
+pushd "${csharp_dir}"
+patch -p2 < ./glib_generated_fixes.patch
+popd
