@@ -29,6 +29,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -38,6 +39,7 @@
 #include "arrow/util/time.h"
 #include "arrow/util/visibility.h"
 #include "arrow/vendored/datetime.h"
+#include "arrow/array/array_nested.h"
 
 namespace arrow {
 namespace internal {
@@ -651,6 +653,83 @@ class StringFormatter<MonthDayNanoIntervalType> {
     return append(detail::ViewDigitBuffer(buffer, cursor));
   }
 };
+
+template <>
+class StringFormatter<BaseListScalar> {
+ public:
+  explicit StringFormatter(const DataType* type) : type_(type) {}
+
+  using value_type = BaseListScalar;
+
+  template <typename Appender>
+  Return<Appender> operator()(const BaseListScalar& value, Appender&& append) {
+    std::stringstream ss;
+    ss << type_->ToString() << "[";
+    for (int64_t i = 0; i < value.value->length(); i++) {
+      if (i > 0) ss << ", ";
+      auto item = value.value->GetScalar(i);
+      if (item.ok()) {
+        ss << (*item)->ToString();
+      } else {
+        ss << "<error>";
+      }
+    }
+    ss << ']';
+    return append(std::string_view(ss.str()));
+  }
+
+ private:
+  const DataType* type_;
+};
+
+template <>
+class StringFormatter<StructScalar> {
+ public:
+  explicit StringFormatter(const DataType* type) : type_(type) {}
+
+  using value_type = StructScalar;
+
+  template <typename Appender>
+  Return<Appender> operator()(const StructScalar& value, Appender&& append) {
+    std::stringstream ss;
+    ss << '{';
+    for (int i = 0; static_cast<size_t>(i) < value.value.size(); i++) {
+      if (i > 0) ss << ", ";
+      ss << type_->field(i)->name() << ':' << type_->field(i)->type()->ToString()
+         << " = " << value.value[i]->ToString();
+    }
+    ss << '}';
+    return append(std::string_view(ss.str()));
+  }
+
+ private:
+  const DataType* type_;
+};
+
+template <>
+class StringFormatter<UnionScalar> {
+ public:
+  explicit StringFormatter(const DataType* = nullptr) {}
+
+  using value_type = UnionScalar;
+
+  template <typename Appender>
+  Return<Appender> operator()(const UnionScalar& value, Appender&& append) {
+    std::string result;
+    const auto& union_ty = checked_cast<const UnionType&>(*value.type);
+    const Scalar* selected_value;
+    if (value.type->id() == Type::DENSE_UNION) {
+      selected_value = checked_cast<const DenseUnionScalar&>(value).value.get();
+    } else {
+      const auto& sparse_scalar = checked_cast<const SparseUnionScalar&>(value);
+      selected_value = sparse_scalar.value[sparse_scalar.child_id].get();
+    }
+    result += "union{" + union_ty.field(union_ty.child_ids()[value.type_code])->ToString() +
+              " = " + selected_value->ToString() + '}';
+    return append(std::string_view(result));
+  }
+};
+
 
 }  // namespace internal
 }  // namespace arrow
