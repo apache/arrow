@@ -62,7 +62,7 @@ jobs:
     {% set arch = '${{ matrix.platform.architecture}}' %}
     name: {{ arch }} macOS MATLAB
     runs-on: macos-{{ '${{ matrix.platform.macos-version }}' }}
-     strategy:
+    strategy:
       matrix:
         platform:
             - { architecture: "AMD64", macos-version: "12", architecture-suffix: "x64"}
