@@ -68,7 +68,8 @@ export CMAKE_PREFIX_PATH=${ARROW_HOME}${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}
 export PYARROW_BUILD_TYPE=Debug
 export PYARROW_CMAKE_GENERATOR=Ninja
 
-python setup.py build_ext --inplace
+# Use the same command that we use on python_build.sh
+python -m pip install --no-deps --no-build-isolation -vv .
 
 pip install -r $ARROW_ROOT/python/requirements-test.txt
 
