@@ -1,6 +1,8 @@
+using System;
+
 namespace Apache.Arrow.Dataset;
 
-public class LocalFileSystemOptions
+public sealed class LocalFileSystemOptions : IDisposable
 {
     public bool UseMmap
     {
@@ -11,6 +13,11 @@ public class LocalFileSystemOptions
     static LocalFileSystemOptions()
     {
         GLibBindings.Module.Initialize();
+    }
+
+    public void Dispose()
+    {
+        GObj.Dispose();
     }
 
     internal readonly Apache.Arrow.GLibBindings.LocalFileSystemOptions GObj =

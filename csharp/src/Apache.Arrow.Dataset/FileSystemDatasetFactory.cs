@@ -22,6 +22,12 @@ public class FileSystemDatasetFactory : DatasetFactory
         return this;
     }
 
+    public FileSystemDatasetFactory SetPartitioning(Partitioning partitioning)
+    {
+        GLibFileSystemDatasetFactory.Partitioning = partitioning.GObj;
+        return this;
+    }
+
     public override DatasetBase Finish()
     {
         return new FileSystemDataset(GLibFileSystemDatasetFactory.Finish(null)!);

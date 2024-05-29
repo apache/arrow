@@ -7,7 +7,7 @@ namespace Apache.Arrow.Dataset;
 /// <summary>
 /// Base class for all Dataset implementations
 /// </summary>
-public class DatasetBase : IDisposable
+public abstract class DatasetBase : IDisposable
 {
     protected DatasetBase(GLibBindings.Dataset gLibDataset)
     {

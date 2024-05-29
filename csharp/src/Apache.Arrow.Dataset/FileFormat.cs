@@ -5,11 +5,16 @@ namespace Apache.Arrow.Dataset;
 /// <summary>
 /// Base class for all file format implementations
 /// </summary>
-public class FileFormat : IDisposable
+public abstract class FileFormat : IDisposable
 {
     protected FileFormat(GLibBindings.FileFormat gObj)
     {
         GObj = gObj;
+    }
+
+    public FileWriteOptions DefaultFileWriteOptions()
+    {
+        return new FileWriteOptions(GObj.GetDefaultWriteOptions());
     }
 
     protected virtual void Dispose(bool disposing)
