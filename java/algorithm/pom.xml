@@ -20,10 +20,6 @@
   <name>Arrow Algorithms</name>
   <description>(Experimental/Contrib) A collection of algorithms for working with ValueVectors.</description>
 
-  <properties>
-    <spotless.version>2.30.0</spotless.version>
-  </properties>
-
   <dependencies>
     <dependency>
       <groupId>org.apache.arrow</groupId>
@@ -57,82 +53,44 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-checkstyle-plugin</artifactId>
-        <version>3.1.0</version>
         <configuration>
           <skip>true</skip>
         </configuration>
       </plugin>
+      <plugin>
+        <groupId>com.diffplug.spotless</groupId>
+        <artifactId>spotless-maven-plugin</artifactId>
+        <configuration>
+          <formats>
+            <format>
+              <!-- configure license for xml files -->
+              <includes>
+                <include>pom.xml</include>
+              </includes>
+              <licenseHeader>
+                <file>../spotless/asf-xml.license</file>
+                <delimiter>(&lt;configuration|&lt;project)</delimiter>
+              </licenseHeader>
+            </format>
+            <format>
+              <!-- configure license for java files -->
+              <includes>
+                <include>**/*.java</include>
+              </includes>
+              <licenseHeader>
+                <file>../spotless/asf-java.license</file>
+                <delimiter>package</delimiter>
+              </licenseHeader>
+            </format>
+          </formats>
+          <java>
+            <googleJavaFormat>
+              <version>1.17.0</version>
+              <style>GOOGLE</style>
+            </googleJavaFormat>
+          </java>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
-
-  <profiles>
-    <profile>
-      <id>spotless</id>
-      <activation>
-        <activeByDefault>true</activeByDefault>
-      </activation>
-      <build>
-        <plugins>
-          <plugin>
-            <groupId>com.diffplug.spotless</groupId>
-            <artifactId>spotless-maven-plugin</artifactId>
-            <version>${spotless.version}</version>
-            <configuration>
-              <formats>
-                <format>
-                  <!-- configure license for xml files -->
-                  <includes>
-                    <include>pom.xml</include>
-                  </includes>
-                  <licenseHeader>
-                    <file>../spotless/asf-xml.license</file>
-                    <delimiter>(&lt;configuration|&lt;project)</delimiter>
-                  </licenseHeader>
-                </format>
-                <format>
-                  <!-- configure license for java files -->
-                  <includes>
-                    <include>**/*.java</include>
-                  </includes>
-                  <licenseHeader>
-                    <file>../spotless/asf-java.license</file>
-                    <delimiter>package</delimiter>
-                  </licenseHeader>
-                </format>
-              </formats>
-              <java>
-                <googleJavaFormat>
-                  <version>1.17.0</version>
-                  <style>GOOGLE</style>
-                </googleJavaFormat>
-              </java>
-              <pom>
-                <indent>
-                  <tabs>true</tabs>
-                  <spacesPerTab>2</spacesPerTab>
-                </indent>
-                <indent>
-                  <spaces>true</spaces>
-                  <spacesPerTab>2</spacesPerTab>
-                </indent>
-                <sortPom>
-                  <expandEmptyElements>false</expandEmptyElements>
-                </sortPom>
-              </pom>
-            </configuration>
-            <executions>
-              <execution>
-                <id>spotless-check</id>
-                <goals>
-                  <goal>apply</goal>
-                  <goal>check</goal>
-                </goals>
-                <phase>validate</phase>
-              </execution>
-            </executions>
-          </plugin>
-        </plugins>
-      </build>
-    </profile>
-  </profiles>
 </project>
