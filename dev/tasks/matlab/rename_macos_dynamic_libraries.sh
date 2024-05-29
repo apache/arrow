@@ -109,7 +109,7 @@ else
   exit 1
 fi
 
-ORIG_DIR=$(pwd)
+pushd ${DYLIB_DIR}
 
 cd ${DYLIB_DIR}
 
@@ -161,4 +161,4 @@ install_name_tool -change @rpath/${LIBMEXCLASS_DYLIB} @rpath/${LIBMEXCLASS_ARCH_
 # Change install name of dependent shared library libarrowproxy.dylib to libarrowproxy_(arm64|x64).dylib in gateway.(mexmaca64|mexmaci64)
 install_name_tool -change @rpath/${LIBARROWPROXY_DYLIB} @rpath/${LIBARROWPROXY_ARCH_DYLIB} ${MEX_GATEWAY}
 
-cd ${ORIG_DIR}
+popd
