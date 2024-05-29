@@ -82,8 +82,8 @@ jobs:
       - name: Update dynamic library names
         run: |
           arrow/dev/tasks/matlab/rename_macos_dynamic_libraries.sh \
-          arrow/matlab/install/arrow_matlab/+libmexclass/+proxy \
-          {{ '${{ matrix.platform.architecture-suffix }}' }}
+            arrow/matlab/install/arrow_matlab/+libmexclass/+proxy \
+            {{ '${{ matrix.platform.architecture-suffix }}' }}
       - name: Compress into single artifact
         run: tar -cvzf matlab-arrow-macos-{{ '${{ matrix.platform.architecture-suffix }}' }}.tar.gz arrow/matlab/install/arrow_matlab
       - name: Upload artifacts
