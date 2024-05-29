@@ -166,7 +166,7 @@ CMake
           -DBUILD_TESTING=OFF \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_INSTALL_PREFIX=java-dist
-      $ cmake --build java-cdata --target install --config Release
+      $ cmake --build java-cdata --target install --config Release -j
       $ ls -latr java-dist/lib
       |__ arrow_cdata_jni/
 
@@ -184,7 +184,7 @@ CMake
           -DBUILD_TESTING=OFF ^
           -DCMAKE_BUILD_TYPE=Release ^
           -DCMAKE_INSTALL_PREFIX=java-dist
-      $ cmake --build java-cdata --target install --config Release
+      $ cmake --build java-cdata --target install --config Release -j
       $ dir "java-dist/bin"
       |__ arrow_cdata_jni/
 
@@ -220,7 +220,7 @@ CMake
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_INSTALL_PREFIX=java-dist \
           -DCMAKE_UNITY_BUILD=ON
-      $ cmake --build cpp-jni --target install --config Release
+      $ cmake --build cpp-jni --target install --config Release -j
       $ cmake \
           -S java \
           -B java-jni \
@@ -232,7 +232,7 @@ CMake
           -DCMAKE_PREFIX_PATH=$PWD/java-dist \
           -DProtobuf_ROOT=$PWD/../cpp-jni/protobuf_ep-install \
           -DProtobuf_USE_STATIC_LIBS=ON
-      $ cmake --build java-jni --target install --config Release
+      $ cmake --build java-jni --target install --config Release -j
       $ ls -latr java-dist/lib/
       |__ arrow_dataset_jni/
       |__ arrow_orc_jni/
@@ -283,7 +283,7 @@ CMake
           -DCMAKE_BUILD_TYPE=Release ^
           -DCMAKE_INSTALL_PREFIX=java-dist ^
           -DCMAKE_PREFIX_PATH=$PWD/java-dist
-      $ cmake --build java-jni --target install --config Release
+      $ cmake --build java-jni --target install --config Release -j
       $ dir "java-dist/bin"
       |__ arrow_orc_jni/
       |__ arrow_dataset_jni/
