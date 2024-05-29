@@ -248,75 +248,50 @@ test_that("case_when()", {
       )
   )
 
-  # expected errors (which are caught by abandon_ship() and changed to warnings)
-  # TODO: Find a way to test these directly without abandon_ship() interfering
-  expect_error(
-    # no cases
-    expect_warning(
-      tbl %>%
-        Table$create() %>%
-        transmute(cw = case_when()),
-      "case_when"
-    )
+  # validation errors
+  expect_arrow_eval_error(
+    case_when(),
+    "No cases provided",
+    class = "validation_error"
   )
-  expect_error(
-    # argument not a formula
-    expect_warning(
-      tbl %>%
-        Table$create() %>%
-        transmute(cw = case_when(TRUE ~ FALSE, TRUE)),
-      "case_when"
-    )
+  expect_arrow_eval_error(
+    case_when(TRUE ~ FALSE, TRUE),
+    "Each argument to case_when\\(\\) must be a two-sided formula",
+    class = "validation_error"
   )
-  expect_error(
-    # non-logical R scalar on left side of formula
-    expect_warning(
-      tbl %>%
-        Table$create() %>%
-        transmute(cw = case_when(0L ~ FALSE, TRUE ~ FALSE)),
-      "case_when"
-    )
+  expect_arrow_eval_error(
+    case_when(0L ~ FALSE, TRUE ~ FALSE),
+    "Left side of each formula in case_when\\(\\) must be a logical expression",
+    class = "validation_error"
   )
-  expect_error(
+  expect_arrow_eval_error(
     # non-logical Arrow column reference on left side of formula
-    expect_warning(
-      tbl %>%
-        Table$create() %>%
-        transmute(cw = case_when(int ~ FALSE)),
-      "case_when"
-    )
+    case_when(int ~ FALSE),
+    "Left side of each formula in case_when\\(\\) must be a logical expression",
+    class = "validation_error"
   )
-  expect_error(
-    # non-logical Arrow expression on left side of formula
-    expect_warning(
-      tbl %>%
-        Table$create() %>%
-        transmute(cw = case_when(dbl + 3.14159 ~ TRUE)),
-      "case_when"
-    )
+  expect_arrow_eval_error(
+    # non-logical Arrow column reference on left side of formula
+    case_when(dbl + 3.14159 ~ TRUE),
+    "Left side of each formula in case_when\\(\\) must be a logical expression",
+    class = "validation_error"
   )
-
-  expect_error(
-    expect_warning(
-      tbl %>%
-        arrow_table() %>%
-        mutate(cw = case_when(int > 5 ~ 1, .default = c(0, 1)))
-    ),
-    "`.default` must have size"
+  expect_arrow_eval_error(
+    case_when(int > 5 ~ 1, .default = c(0, 1)),
+    "`.default` must have size 1, not size 2",
+    class = "validation_error"
   )
 
-  expect_warning(
-    tbl %>%
-      arrow_table() %>%
-      mutate(cw = case_when(int > 5 ~ 1, .ptype = integer())),
-    "not supported in Arrow"
+  expect_arrow_eval_error(
+    case_when(int > 5 ~ 1, .ptype = integer()),
+    "`case_when\\(\\)` with `.ptype` specified not supported in Arrow",
+    class = "arrow_not_supported"
   )
 
-  expect_warning(
-    tbl %>%
-      arrow_table() %>%
-      mutate(cw = case_when(int > 5 ~ 1, .size = 10)),
-    "not supported in Arrow"
+  expect_arrow_eval_error(
+    case_when(int > 5 ~ 1, .size = 10),
+    "`case_when\\(\\)` with `.size` specified not supported in Arrow",
+    class = "arrow_not_supported"
   )
 
   compare_dplyr_binding(
@@ -500,9 +475,9 @@ test_that("coalesce()", {
   )
 
   # no arguments
-  expect_error(
-    call_binding("coalesce"),
-    "At least one argument must be supplied to coalesce()",
-    fixed = TRUE
+  expect_arrow_eval_error(
+    coalesce(),
+    "At least one argument must be supplied to coalesce\\(\\)",
+    class = "validation_error"
   )
 })
