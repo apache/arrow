@@ -22,10 +22,7 @@
 #define ARROW_FLAG_NULLABLE 2
 #define ARROW_FLAG_MAP_KEYS_SORTED 4
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>  // Must have this!
-
+#include <stdint.h>  // For int64_t
 
 #ifdef __cplusplus
 extern "C" {
