@@ -23,6 +23,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/io/buffered.h"
+#include "arrow/io/file.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_builders.h"
@@ -1729,7 +1730,7 @@ TEST_F(TestInt32Writer, NoWriteKeyValueMetadata) {
 
 TEST_F(TestInt32Writer, WriteKeyValueMetadata) {
   auto writer = this->BuildWriter();
-  writer->key_value_metadata().Append("hello", "world");
+  writer->AddKeyValueMetadata(KeyValueMetadata::Make({"hello"}, {"world"}));
   writer->Close();
   auto key_value_metadata = metadata_key_value_metadata();
   ASSERT_THAT(key_value_metadata, NotNull());
@@ -1745,7 +1746,7 @@ TEST_F(TestInt32Writer, WriteKeyValueMetadataEndToEnd) {
         sink, std::dynamic_pointer_cast<schema::GroupNode>(schema_.schema_root()));
     auto rg_writer = file_writer->AppendRowGroup();
     auto col_writer = rg_writer->NextColumn();
-    col_writer->key_value_metadata().Append("foo", "bar");
+    col_writer->AddKeyValueMetadata(KeyValueMetadata::Make({"foo"}, {"bar"}));
     file_writer->Close();
   }
   ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
@@ -1761,3 +1762,25 @@ TEST_F(TestInt32Writer, WriteKeyValueMetadataEndToEnd) {
 
 }  // namespace test
 }  // namespace parquet
+
+// TEST(CreateTestFile, Create) {
+// PARQUET_ASSIGN_OR_THROW(
+//     auto sink, arrow::io::FileOutputStream::Open(
+//                    "column-chunk-key-value-metadata.parquet"));
+// auto writer = parquet::ParquetFileWriter::Open(
+//     sink, std::static_pointer_cast<parquet::schema::GroupNode>(
+//               parquet::schema::GroupNode::Make(
+//                   "schema", parquet::Repetition::REQUIRED,
+//                   {parquet::schema::PrimitiveNode::Make(
+//                       "column1", parquet::Repetition::OPTIONAL,
+//                       parquet::Type::INT32),
+// parquet::schema::PrimitiveNode::Make(
+//                       "column2", parquet::Repetition::OPTIONAL,
+//                       parquet::Type::INT32)
+//                   })));
+// auto rg_writer = writer->AppendRowGroup();
+// rg_writer->NextColumn()
+//     ->key_value_metadata()
+//     .Append("foo", "bar");
+// rg_writer->NextColumn();
+// }

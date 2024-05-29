@@ -145,7 +145,7 @@ std::shared_ptr<KeyValueMetadata> CopyKeyValueMetadata(const Metadata& source) {
 }
 
 template <typename Metadata>
-void SetKeyValueMetadata(Metadata& metadata, const KeyValueMetadata& source) {
+void ToThriftKeyValueMetadata(Metadata& metadata, const KeyValueMetadata& source) {
   metadata.key_value_metadata.clear();
   metadata.key_value_metadata.reserve(static_cast<size_t>(source.size()));
   for (int64_t i = 0; i < source.size(); ++i) {
@@ -1550,7 +1550,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     column_chunk_->meta_data.__set_encoding_stats(std::move(thrift_encoding_stats));
 
     if (key_value_metadata_) {
-      SetKeyValueMetadata(column_chunk_->meta_data, *key_value_metadata_);
+      ToThriftKeyValueMetadata(column_chunk_->meta_data, *key_value_metadata_);
     }
 
     const auto& encrypt_md =
@@ -1619,11 +1619,8 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     return column_chunk_->meta_data.total_compressed_size;
   }
 
-  KeyValueMetadata& key_value_metadata() {
-    if (!key_value_metadata_) {
-      key_value_metadata_ = std::make_unique<KeyValueMetadata>();
-    }
-    return *key_value_metadata_;
+  void SetKeyValueMetadata(std::shared_ptr<const KeyValueMetadata> key_value_metadata) {
+    key_value_metadata_ = std::move(key_value_metadata);
   }
 
  private:
@@ -1640,7 +1637,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
   std::unique_ptr<format::ColumnChunk> owned_column_chunk_;
   const std::shared_ptr<WriterProperties> properties_;
   const ColumnDescriptor* column_;
-  std::unique_ptr<KeyValueMetadata> key_value_metadata_;
+  std::shared_ptr<const KeyValueMetadata> key_value_metadata_;
 };
 
 std::unique_ptr<ColumnChunkMetaDataBuilder> ColumnChunkMetaDataBuilder::Make(
@@ -1698,12 +1695,13 @@ void ColumnChunkMetaDataBuilder::SetStatistics(const EncodedStatistics& result) 
   impl_->SetStatistics(result);
 }
 
-int64_t ColumnChunkMetaDataBuilder::total_compressed_size() const {
-  return impl_->total_compressed_size();
+void ColumnChunkMetaDataBuilder::SetKeyValueMetadata(
+    std::shared_ptr<const KeyValueMetadata> key_value_metadata) {
+  impl_->SetKeyValueMetadata(key_value_metadata);
 }
 
-KeyValueMetadata& ColumnChunkMetaDataBuilder::key_value_metadata() {
-  return impl_->key_value_metadata();
+int64_t ColumnChunkMetaDataBuilder::total_compressed_size() const {
+  return impl_->total_compressed_size();
 }
 
 class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
@@ -1900,7 +1898,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
       } else if (key_value_metadata) {
         key_value_metadata_ = key_value_metadata_->Merge(*key_value_metadata);
       }
-      SetKeyValueMetadata(*metadata_, *key_value_metadata_);
+      ToThriftKeyValueMetadata(*metadata_, *key_value_metadata_);
     }
 
     int32_t file_version = 0;

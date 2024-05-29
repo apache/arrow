@@ -184,9 +184,16 @@ class PARQUET_EXPORT ColumnWriter {
   /// \brief The file-level writer properties
   virtual const WriterProperties* properties() = 0;
 
-  /// \brief Return KeyValueMetadata that can be used to store key-value
-  /// metadata in ColumnChunkMetaData.
-  virtual KeyValueMetadata& key_value_metadata() = 0;
+  /// \brief Add key-value metadata to the ColumnChunk.
+  /// \param[in] key_value_metadata the metadata to add.
+  /// \note This will overwrite any existing metadata with the same key.
+  /// \throw ParquetException if Close() has been called.
+  virtual void AddKeyValueMetadata(
+      const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) = 0;
+
+  /// \brief Reset the ColumnChunk key-value metadata.
+  /// \throw ParquetException if Close() has been called.
+  virtual void ResetKeyValueMetadata() = 0;
 
   /// \brief Write Apache Arrow columnar data directly to ColumnWriter. Returns
   /// error status if the array data type is not compatible with the concrete
