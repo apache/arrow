@@ -111,8 +111,6 @@ fi
 
 pushd ${DYLIB_DIR}
 
-cd ${DYLIB_DIR}
-
 LIBARROW_DYLIB="$(find . -name 'libarrow.dylib' | xargs basename)"
 LIBARROW_MAJOR_DYLIB="$(find . -name 'libarrow.*.dylib' -type l | xargs basename)"
 LIBARROW_MAJOR_MINOR_PATCH_DYLIB="$(echo libarrow.*.*.dylib)"
