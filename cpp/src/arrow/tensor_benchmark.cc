@@ -18,6 +18,7 @@
 #include "benchmark/benchmark.h"
 
 #include "arrow/record_batch.h"
+#include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
@@ -51,6 +52,34 @@ static void BatchToTensorSimple(benchmark::State& state) {
   state.SetBytesProcessed(state.iterations() * ty->byte_width() * num_rows * num_cols);
 }
 
+template <typename ValueType, bool row_major>
+static void TableToTensorSimple(benchmark::State& state) {
+  using CType = typename ValueType::c_type;
+  std::shared_ptr<DataType> ty = TypeTraits<ValueType>::type_singleton();
+
+  const int64_t num_cols = state.range(1);
+  const int64_t num_rows = state.range(0) / num_cols / sizeof(CType);
+  arrow::random::RandomArrayGenerator gen_{42};
+
+  std::vector<std::shared_ptr<Field>> fields = {};
+  std::vector<std::shared_ptr<ChunkedArray>> columns = {};
+
+  for (int64_t i = 0; i < num_cols; ++i) {
+    fields.push_back(field("f" + std::to_string(i), ty));
+    ArrayVector arrays = {gen_.ArrayOf(ty, num_rows / 2), gen_.ArrayOf(ty, num_rows / 2)};
+    auto chunks = std::make_shared<ChunkedArray>(arrays, ty);
+    columns.push_back(chunks);
+  }
+  auto schema = std::make_shared<Schema>(std::move(fields));
+  auto table = Table::Make(schema, columns);
+
+  for (auto _ : state) {
+    ASSERT_OK_AND_ASSIGN(auto tensor, table->ToTensor(/*row_major=*/row_major));
+  }
+  state.SetItemsProcessed(state.iterations() * num_rows * num_cols);
+  state.SetBytesProcessed(state.iterations() * ty->byte_width() * num_rows * num_cols);
+}
+
 void SetArgs(benchmark::internal::Benchmark* bench) {
   for (int64_t size : {kL1Size, kL2Size}) {
     for (int64_t num_columns : {3, 30, 300}) {
@@ -64,5 +93,14 @@ BENCHMARK_TEMPLATE(BatchToTensorSimple, Int8Type)->Apply(SetArgs);
 BENCHMARK_TEMPLATE(BatchToTensorSimple, Int16Type)->Apply(SetArgs);
 BENCHMARK_TEMPLATE(BatchToTensorSimple, Int32Type)->Apply(SetArgs);
 BENCHMARK_TEMPLATE(BatchToTensorSimple, Int64Type)->Apply(SetArgs);
+
+#define DECLARE_TABLE_TO_TENSOR_BENCHMARKS(row_major)                            \
+  BENCHMARK_TEMPLATE(TableToTensorSimple, Int8Type, row_major)->Apply(SetArgs);  \
+  BENCHMARK_TEMPLATE(TableToTensorSimple, Int16Type, row_major)->Apply(SetArgs); \
+  BENCHMARK_TEMPLATE(TableToTensorSimple, Int32Type, row_major)->Apply(SetArgs); \
+  BENCHMARK_TEMPLATE(TableToTensorSimple, Int64Type, row_major)->Apply(SetArgs);
+
+DECLARE_TABLE_TO_TENSOR_BENCHMARKS(false);
+DECLARE_TABLE_TO_TENSOR_BENCHMARKS(true);
 
 }  // namespace arrow
