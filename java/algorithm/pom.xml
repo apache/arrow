@@ -67,6 +67,10 @@
               <includes>
                 <include>pom.xml</include>
               </includes>
+              <licenseHeader>
+                <file>${project.basedir}/../dev/license/asf-xml.license</file>
+                <delimiter>(&lt;configuration|&lt;project)</delimiter>
+              </licenseHeader>
             </format>
             <format>
               <!-- configure license for java files -->
@@ -81,7 +85,7 @@
               <style>GOOGLE</style>
             </googleJavaFormat>
             <licenseHeader>
-              <file>../dev/license/asf-java.license</file>
+              <file>${project.basedir}/../dev/license/asf-java.license</file>
               <delimiter>package</delimiter>
             </licenseHeader>
           </java>

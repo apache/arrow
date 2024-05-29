@@ -802,10 +802,6 @@
         <configuration>
           <pom>
             <sortPom></sortPom>
-            <licenseHeader>
-              <file>../dev/license/asf-xml.license</file>
-              <delimiter>(&lt;configuration|&lt;project)</delimiter>
-            </licenseHeader>
           </pom>
         </configuration>
         <executions>
