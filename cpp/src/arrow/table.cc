@@ -437,7 +437,7 @@ Result<std::shared_ptr<Tensor>> Table::ToTensor(bool null_to_nan, bool row_major
                                                 MemoryPool* pool) const {
   if (num_columns() == 0) {
     return Status::TypeError(
-        "Conversion to Tensor for Table without columns/schema is not supported.");
+        "Conversion to Tensor for Tables without columns/schema is not supported.");
   }
   // Check for no validity bitmap of each field
   // if null_to_nan conversion is set to false
