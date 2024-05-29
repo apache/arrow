@@ -15,27 +15,4 @@
 # specific language governing permissions and limitations
 # under the License.
 
-option(
-    'ARROW_BUILD_TESTS',
-    type: 'boolean',
-    description: 'Build tests',
-    value: false
-)
-option(
-    'ARROW_BUILD_INTEGRATION',
-    type: 'boolean',
-    description: 'Build cross-implementation Arrow integration tests',
-    value: false
-)
-option(
-    'ARROW_COMPUTE',
-    type: 'boolean',
-    description: 'Build all Arrow Compute kernels',
-    value: false
-)
-option(
-    'ARROW_IPC',
-    type: 'boolean',
-    description: 'Build the Arrow IPC extension',
-    value: true
-)
+# TODO: add benchmark

@@ -15,6 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# CMake allows you to generate a configuration file from outside
+# of the target directory. By contrast, Meson has a limitation that
+# all outputs go to the build directory corresponding the source
+# tree: https://github.com/mesonbuild/meson/issues/2320#issuecomment-466171587
+# As such, we need to use our subdir('util') to generate the configuration
+# file, but all other tests that util CMakeLists.txt generate need to be
+# declared in this top level build coonfiguration
 subdir('util')
 
 arrow_lib_dependencies = []
@@ -428,5 +435,106 @@ if needs_testing
 
     subdir('testing')
     subdir('array')
-    # TODO: continue down the line of subdir here - follow CMakeLists.txt:1200 onwards
+
+    if get_option('ARROW_COMPUTE')
+      subdir('compute')
+    endif
+    
+    subdir('io')
+    subdir('tensor')
+
+    # CMake includes a vendored subdir - do we need that for meson?
+    # subdir('vendored')
+
+    # N.B. we cannot subdir('util') because we already used that
+    # for the configure_file, and Meson has a stricter structure
+    # than CMake for directory layout
+    utility_test = executable(
+        'utility_test',
+        'util/align_util_test.cc',
+        'util/atfork_test.cc',
+        'util/byte_size_test.cc',
+        'util/byte_stream_split_test.cc',
+        'util/cache_test.cc',
+        'util/checked_cast_test.cc',
+        'util/compression_test.cc',
+        'util/decimal_test.cc',
+        'util/float16_test.cc',
+        'util/fixed_width_test.cc',
+        'util/formatting_util_test.cc',
+        'util/key_value_metadata_test.cc',
+        'util/hashing_test.cc',
+        'util/int_util_test.cc',
+        'util/iterator_test.cc',
+        'util/list_util_test.cc',
+        'util/logging_test.cc',
+        'util/queue_test.cc',
+        'util/range_test.cc',
+        'util/ree_util_test.cc',
+        'util/reflection_test.cc',
+        'util/rows_to_batches_test.cc',
+        'util/small_vector_test.cc',
+        'util/span_test.cc',
+        'util/stl_util_test.cc',
+        'util/string_test.cc',
+        'util/tdigest_test.cc',
+        'util/test_common.cc',
+        'util/time_test.cc',
+        'util/tracing_test.cc',
+        'util/trie_test.cc',
+        'util/uri_test.cc',
+        'util/utf8_util_test.cc',
+        'util/value_parsing_test.cc',
+        include_directories: [root_dir],
+        link_with: [arrow_lib, arrow_testing_lib],
+        dependencies: [gtest_dep, gmock_dep],        
+    )
+    test('utility', utility_test)
+
+    async_utility_test = executable(
+        'async_utility_test',
+        'util/async_generator_test.cc',
+        'util/async_util_test.cc',
+        'util/test_common.cc',
+        include_directories: [root_dir],
+        link_with: [arrow_lib, arrow_testing_lib],
+        dependencies: [gtest_dep, gmock_dep],        
+    )
+    test('async_utility', async_utility_test)
+
+    bit_utility_test = executable(
+        'bit_utility_test',
+        'util/bit_block_counter_test.cc',
+        'util/bit_util_test.cc',
+        'util/rle_encoding_test.cc',
+        include_directories: [root_dir],
+        link_with: [arrow_lib, arrow_testing_lib],
+        dependencies: [gtest_dep, gmock_dep],        
+    )
+    test('bit_utility', bit_utility_test)
+
+    threading_utility_test = executable(
+        'threading_utility_test',
+        'util/cancel_test.cc',
+        'util/counting_semaphore_test.cc',
+        'util/future_test.cc',
+        'util/task_group_test.cc',
+        'util/test_common.cc',
+        'util/thread_pool_test.cc',
+        include_directories: [root_dir],
+        link_with: [arrow_lib, arrow_testing_lib],
+        dependencies: [gtest_dep, gmock_dep],        
+    )
+    test('threading_utility', threading_utility_test)
+
+    crc32_test = executable(
+        'crc32_test',
+        'util/crc32_test.cc',
+        include_directories: [root_dir],
+        link_with: [arrow_lib, arrow_testing_lib],
+        dependencies: [gtest_dep, gmock_dep],        
+    )
+    test('crc32', crc32_test)
+
+    # TODO: util benchmarks
 endif

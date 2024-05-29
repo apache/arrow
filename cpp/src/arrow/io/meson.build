@@ -15,27 +15,23 @@
 # specific language governing permissions and limitations
 # under the License.
 
-option(
-    'ARROW_BUILD_TESTS',
-    type: 'boolean',
-    description: 'Build tests',
-    value: false
-)
-option(
-    'ARROW_BUILD_INTEGRATION',
-    type: 'boolean',
-    description: 'Build cross-implementation Arrow integration tests',
-    value: false
-)
-option(
-    'ARROW_COMPUTE',
-    type: 'boolean',
-    description: 'Build all Arrow Compute kernels',
-    value: false
-)
-option(
-    'ARROW_IPC',
-    type: 'boolean',
-    description: 'Build the Arrow IPC extension',
-    value: true
-)
+if get_option('ARROW_BUILD_TESTS')
+    io_tests = ['buffered', 'compressed', 'file', 'memory']
+
+    foreach io_test : io_tests
+        exc = executable(
+            io_test,
+            io_test + '_test.cc',
+            include_directories: [root_dir],
+            # Don't mangle local stdio.h with system
+            implicit_include_directories: false,            
+            link_with: [arrow_lib, arrow_testing_lib],
+            dependencies: [gtest_dep, gmock_dep],
+        )
+        test(io_test, exc)
+    endforeach
+
+    # TODO: HDFS test
+
+     # TODO: benchmarks
+endif
