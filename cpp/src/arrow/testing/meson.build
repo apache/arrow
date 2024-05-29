@@ -23,7 +23,7 @@ if get_option('ARROW_BUILD_TESTS')
         link_with: [arrow_lib, arrow_testing_lib],
         dependencies: [gtest_dep, gmock_dep],
     )
-    test('random', random_test)
+    test('arrow-random', random_test)
 
     gtest_util_test = executable(
         'gtest_util_test',
@@ -32,6 +32,6 @@ if get_option('ARROW_BUILD_TESTS')
         link_with: [arrow_lib, arrow_testing_lib],
         dependencies: [gtest_dep, gmock_dep],
     )
-    test('gtest_util', gtest_util_test)
+    test('arrow-gtest-util', gtest_util_test)
     # if get_option('ARROW_FILESYSTEM')
 endif

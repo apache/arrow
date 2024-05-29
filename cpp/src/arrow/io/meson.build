@@ -24,7 +24,7 @@ if get_option('ARROW_BUILD_TESTS')
             io_test + '_test.cc',
             include_directories: [root_dir],
             # Don't mangle local stdio.h with system
-            implicit_include_directories: false,            
+            implicit_include_directories: false,
             link_with: [arrow_lib, arrow_testing_lib],
             dependencies: [gtest_dep, gmock_dep],
         )

@@ -16,21 +16,18 @@
 # under the License.
 
 if get_option('ARROW_BUILD_TESTS')
-    concatenate_test = executable(
-        'concatenate_test',
-        'concatenate_test.cc',
-        include_directories: [root_dir],
-        link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],
-    )
-    test('arrow-array-concatenate', concatenate_test)
+    c_tests = ['bridge', 'dlpack']
 
-    diff_test = executable(
-        'diff_test',
-        'diff_test.cc',
-        include_directories: [root_dir],
-        link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],
-    )
-    test('arrow-array-diff', diff_test)
+    foreach c_test : c_tests
+        exc = executable(
+            c_test,
+            c_test + '_test.cc',
+            include_directories: [root_dir],
+            link_with: [arrow_lib, arrow_testing_lib],
+            dependencies: [gtest_dep, gmock_dep],
+        )
+        test('arrow-c-' + c_test, exc)
+    endforeach
+
+    # TODO: benchmarks
 endif

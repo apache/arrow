@@ -24,7 +24,7 @@ if needs_testing
         link_with: [arrow_lib, arrow_testing_lib],
         dependencies: [gtest_dep, gmock_dep],
     )
-    test('scalar_cast', scalar_cast_test)
+    test('arrow-compute-scalar-cast', scalar_cast_test)
 
     scalar_type_test = executable(
         'scalar_type_test',
@@ -36,7 +36,7 @@ if needs_testing
         link_with: [arrow_lib, arrow_testing_lib],
         dependencies: [gtest_dep, gmock_dep],
     )
-    test('scalar_type', scalar_type_test)
+    test('arrow-compute-scalar-type', scalar_type_test)
 
     scalar_if_else_test = executable(
         'scalar_if_else_test',
@@ -46,7 +46,7 @@ if needs_testing
         link_with: [arrow_lib, arrow_testing_lib],
         dependencies: [gtest_dep, gmock_dep],
     )
-    test('scalar_if_else', scalar_if_else_test)
+    test('arrow-compute-scalar-if-else', scalar_if_else_test)
 
     scalar_temporal_test = executable(
         'scalar_temporal_test',
@@ -56,7 +56,7 @@ if needs_testing
         link_with: [arrow_lib, arrow_testing_lib],
         dependencies: [gtest_dep, gmock_dep],
     )
-    test('scalar_temporal', scalar_temporal_test)
+    test('arrow-compute-scalar-temporal', scalar_temporal_test)
 
     scalar_math_test = executable(
         'scalar_math_test',
@@ -68,7 +68,7 @@ if needs_testing
         link_with: [arrow_lib, arrow_testing_lib],
         dependencies: [gtest_dep, gmock_dep],
     )
-    test('scalar_math', scalar_math_test)
+    test('arrow-compute-scalar-math', scalar_math_test)
 
     scalar_utility_test = executable(
         'scalar_utility_test',
@@ -80,7 +80,7 @@ if needs_testing
         link_with: [arrow_lib, arrow_testing_lib],
         dependencies: [gtest_dep, gmock_dep],
     )
-    test('scalar_math', scalar_math_test)
+    test('arrow-compute-scalar-utility', scalar_utility_test)
 
     # Vector kernels
     vector_test = executable(
@@ -97,7 +97,7 @@ if needs_testing
         link_with: [arrow_lib, arrow_testing_lib],
         dependencies: [gtest_dep, gmock_dep],
     )
-    test('vector', vector_test)
+    test('arrow-compute-vector', vector_test)
 
     vector_sort_test = executable(
         'vector_sort_test',
@@ -107,7 +107,7 @@ if needs_testing
         link_with: [arrow_lib, arrow_testing_lib],
         dependencies: [gtest_dep, gmock_dep],
     )
-    test('vector_sort', vector_sort_test)
+    test('arrow-compute-vector-sort', vector_sort_test)
 
     vector_selection_test = executable(
         'vector_selection_test',
@@ -117,7 +117,7 @@ if needs_testing
         link_with: [arrow_lib, arrow_testing_lib],
         dependencies: [gtest_dep, gmock_dep],
     )
-    test('vector_selection', vector_selection_test)
+    test('arrow-compute-vector-selection', vector_selection_test)
 
     # Aggregates
     aggregate_test = executable(
@@ -128,7 +128,7 @@ if needs_testing
         link_with: [arrow_lib, arrow_testing_lib],
         dependencies: [gtest_dep, gmock_dep],
     )
-    test('aggregate_test', aggregate_test)
+    test('arrow-compute-aggregate', aggregate_test)
 
     # Utilities
     kernel_utility_test = executable(
@@ -138,7 +138,7 @@ if needs_testing
         link_with: [arrow_lib, arrow_testing_lib],
         dependencies: [gtest_dep, gmock_dep],
     )
-    test('kernel_utility_test', kernel_utility_test)
+    test('arrow-compute-kernel-utility', kernel_utility_test)
 endif
 
 # TODO: add_benchmarks

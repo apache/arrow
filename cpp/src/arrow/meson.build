@@ -301,8 +301,8 @@ if needs_testing
 
     gflags_dep = dependency('gflags')
     gtest_dep = dependency('gtest', fallback: ['gtest', 'gtest_main_dep'])
-    gmock_dep = dependency('gmock')    
-    
+    gmock_dep = dependency('gmock')
+
     arrow_testing_lib = library(
         'arrow_testing',
         arrow_testing_srcs,
@@ -330,7 +330,7 @@ if needs_testing
         link_with: [arrow_lib, arrow_testing_lib],
         dependencies: [gmock_dep],
     )
-    test('array', array_test)
+    test('arrow-array', array_test)
 
     buffer_test = executable(
         'buffer_test',
@@ -339,7 +339,7 @@ if needs_testing
         link_with: [arrow_lib, arrow_testing_lib],
         dependencies: [gtest_dep],
     )
-    test('buffer', buffer_test)
+    test('arrow-buffer', buffer_test)
 
     if needs_ipc
         extension_type_test = executable(
@@ -349,7 +349,7 @@ if needs_testing
             link_with: [arrow_lib, arrow_testing_lib],
             dependencies: [gtest_dep],
         )
-        test('extension_type', extension_type_test)
+        test('arrow-extension-type', extension_type_test)
     endif
 
     misc_test = executable(
@@ -361,27 +361,27 @@ if needs_testing
         'status_test.cc',
         include_directories: [root_dir],
         link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],        
+        dependencies: [gtest_dep, gmock_dep],
     )
-    test('misc', misc_test)
+    test('arrow-misc', misc_test)
 
     public_api_test = executable(
         'public_api_test',
         'public_api_test.cc',
         include_directories: [root_dir],
         link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],        
+        dependencies: [gtest_dep, gmock_dep],
     )
-    test('public_api', public_api_test)
+    test('arrow-public-api', public_api_test)
 
     scalar_test = executable(
         'scalar_test',
         'scalar_test.cc',
         include_directories: [root_dir],
         link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],        
+        dependencies: [gtest_dep, gmock_dep],
     )
-    test('scalar', scalar_test)
+    test('arrow-scalar', scalar_test)
 
     type_test = executable(
         'type_test',
@@ -389,9 +389,9 @@ if needs_testing
         'type_test.cc',
         include_directories: [root_dir],
         link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],        
+        dependencies: [gtest_dep, gmock_dep],
     )
-    test('type', type_test)
+    test('arrow-type', type_test)
 
     table_test = executable(
         'table_test',
@@ -401,27 +401,27 @@ if needs_testing
         'table_builder_test.cc',
         include_directories: [root_dir],
         link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],        
+        dependencies: [gtest_dep, gmock_dep],
     )
-    test('table', table_test)
+    test('arrow-table', table_test)
 
     tensor_test = executable(
         'tensor_test',
         'tensor_test.cc',
         include_directories: [root_dir],
         link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],        
+        dependencies: [gtest_dep, gmock_dep],
     )
-    test('tensor', tensor_test)
+    test('arrow-tensor', tensor_test)
 
     sparse_tensor_test = executable(
         'sparse_tensor_test',
         'sparse_tensor_test.cc',
         include_directories: [root_dir],
         link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],        
+        dependencies: [gtest_dep, gmock_dep],
     )
-    test('sparse_tensor', sparse_tensor_test)
+    test('arrow-sparse-tensor', sparse_tensor_test)
 
     stl_test = executable(
         'stl_test',
@@ -429,17 +429,17 @@ if needs_testing
         'stl_test.cc',
         include_directories: [root_dir],
         link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],        
+        dependencies: [gtest_dep, gmock_dep],
     )
-    test('stl', stl_test)    
+    test('arrow-stl', stl_test)
 
     subdir('testing')
-    subdir('array')
 
+    subdir('array')
+    subdir('c')
     if get_option('ARROW_COMPUTE')
       subdir('compute')
     endif
-    
     subdir('io')
     subdir('tensor')
 
@@ -487,9 +487,9 @@ if needs_testing
         'util/value_parsing_test.cc',
         include_directories: [root_dir],
         link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],        
+        dependencies: [gtest_dep, gmock_dep],
     )
-    test('utility', utility_test)
+    test('arrow-utility', utility_test)
 
     async_utility_test = executable(
         'async_utility_test',
@@ -498,9 +498,9 @@ if needs_testing
         'util/test_common.cc',
         include_directories: [root_dir],
         link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],        
+        dependencies: [gtest_dep, gmock_dep],
     )
-    test('async_utility', async_utility_test)
+    test('arrow-async-utility', async_utility_test)
 
     bit_utility_test = executable(
         'bit_utility_test',
@@ -509,9 +509,9 @@ if needs_testing
         'util/rle_encoding_test.cc',
         include_directories: [root_dir],
         link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],        
+        dependencies: [gtest_dep, gmock_dep],
     )
-    test('bit_utility', bit_utility_test)
+    test('arrow-bit-utility', bit_utility_test)
 
     threading_utility_test = executable(
         'threading_utility_test',
@@ -523,18 +523,18 @@ if needs_testing
         'util/thread_pool_test.cc',
         include_directories: [root_dir],
         link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],        
+        dependencies: [gtest_dep, gmock_dep],
     )
-    test('threading_utility', threading_utility_test)
+    test('arrow-threading-utility', threading_utility_test)
 
     crc32_test = executable(
         'crc32_test',
         'util/crc32_test.cc',
         include_directories: [root_dir],
         link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],        
+        dependencies: [gtest_dep, gmock_dep],
     )
-    test('crc32', crc32_test)
+    test('arrow-crc32', crc32_test)
 
     # TODO: util benchmarks
 endif

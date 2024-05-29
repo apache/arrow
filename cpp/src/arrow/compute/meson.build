@@ -31,7 +31,7 @@ if get_option('ARROW_BUILD_TESTS')
         link_with: [arrow_lib, arrow_testing_lib],
         dependencies: [gtest_dep, gmock_dep],
     )
-    test('compute_internals', compute_internals_test)
+    test('arrow-compute-internals', compute_internals_test)
 
     compute_expression_test = executable(
         'compute_expression_test',
@@ -40,7 +40,7 @@ if get_option('ARROW_BUILD_TESTS')
         link_with: [arrow_lib, arrow_testing_lib],
         dependencies: [gtest_dep, gmock_dep],
     )
-    test('compute_expression', compute_expression_test)
+    test('arrow-compute-expression', compute_expression_test)
 
     subdir('kernels')
     subdir('row')
