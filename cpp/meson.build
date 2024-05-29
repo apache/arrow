@@ -26,6 +26,7 @@ project(
         'warning_level=2',
         'cpp_std=c++17',
         'c_std=c99',
+        'cpp_args=-Wno-unused-parameter',
     ]
 )
 
