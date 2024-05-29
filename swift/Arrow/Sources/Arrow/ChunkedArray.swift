@@ -17,6 +17,11 @@
 
 import Foundation
 
+public protocol AnyArray {
+    func asAny(_ index: UInt) -> Any?
+    var length: UInt {get}
+}
+
 public protocol AsString {
     func asString(_ index: UInt) -> String
 }
