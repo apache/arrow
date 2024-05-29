@@ -438,15 +438,16 @@ Result<std::shared_ptr<Tensor>> Table::ToTensor(bool null_to_nan, bool row_major
                                                 MemoryPool* pool) const {
   if (num_columns() == 0) {
     return Status::TypeError(
-        "Conversion to Tensor for Tables without columns/schema is not supported.");
+        "Conversion to Tensor for Tables or RecordBatches without columns/schema is "
+        "not supported.");
   }
   // Check for no validity bitmap of each field
   // if null_to_nan conversion is set to false
   for (int i = 0; i < num_columns(); ++i) {
     if (column(i)->null_count() > 0 && !null_to_nan) {
       return Status::TypeError(
-          "Can only convert a Table with no nulls. Set null_to_nan to true to "
-          "convert nulls to NaN");
+          "Can only convert a Table or RecordBatch with no nulls. Set null_to_nan to "
+          "true to convert nulls to NaN");
     }
   }
 

@@ -392,10 +392,11 @@ TEST_F(TestTable, ToTensorUnsupportedMissing) {
 
   auto table = Table::Make(schema, {a0, a1});
 
-  ASSERT_RAISES_WITH_MESSAGE(TypeError,
-                             "Type error: Can only convert a Table with no nulls. Set "
-                             "null_to_nan to true to convert nulls to NaN",
-                             table->ToTensor());
+  ASSERT_RAISES_WITH_MESSAGE(
+      TypeError,
+      "Type error: Can only convert a Table or RecordBatch with no "
+      "nulls. Set null_to_nan to true to convert nulls to NaN",
+      table->ToTensor());
 }
 
 TEST_F(TestTable, ToTensorEmptyTable) {
@@ -427,10 +428,11 @@ TEST_F(TestTable, ToTensorEmptyTable) {
   auto table_no_columns =
       Table::Make(::arrow::schema({}), std::vector<std::shared_ptr<Array>>{});
 
-  ASSERT_RAISES_WITH_MESSAGE(TypeError,
-                             "Type error: Conversion to Tensor for Tables without "
-                             "columns/schema is not supported.",
-                             table_no_columns->ToTensor());
+  ASSERT_RAISES_WITH_MESSAGE(
+      TypeError,
+      "Type error: Conversion to Tensor for Tables or RecordBatches "
+      "without columns/schema is not supported.",
+      table_no_columns->ToTensor());
 }
 
 template <typename DataType>

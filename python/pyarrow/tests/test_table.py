@@ -1135,7 +1135,7 @@ def test_recordbatch_to_tensor_null():
     )
     with pytest.raises(
         pa.ArrowTypeError,
-        match="Can only convert a RecordBatch with no nulls."
+        match="Can only convert a Table or RecordBatch with no nulls."
     ):
         batch.to_tensor()
 
@@ -1421,7 +1421,7 @@ def test_table_to_tensor_null():
     )
     with pytest.raises(
         pa.ArrowTypeError,
-        match="Can only convert a Table with no nulls."
+        match="Can only convert a Table or RecordBatch with no nulls."
     ):
         table.to_tensor()
 
