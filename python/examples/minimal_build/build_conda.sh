@@ -98,6 +98,7 @@ export PYARROW_BUILD_TYPE=Debug
 export PYARROW_CMAKE_GENERATOR=Ninja
 
 # Use the same command that we use on python_build.sh
-python -m pip install --no-deps --no-build-isolation -e .
+python -m pip install --no-deps --no-build-isolation -vv .
+popd
 
-py.test pyarrow
+pytest -vv -r s ${PYTEST_ARGS} --pyargs pyarrow
