@@ -378,6 +378,4 @@ setup(
     cmdclass={
         'build_ext': build_ext
     },
-    tests_require=['pytest', 'pandas', 'hypothesis'],
-    test_suite='pyarrow.tests',
 )
