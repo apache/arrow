@@ -59,7 +59,7 @@ jobs:
           path: matlab-arrow-ubuntu.tar.gz
 
   macos:
-    name:  {{ '${{ matrix.platform.architecture}}' }}  macOS { '${{ matrix.platform.macos-version }}' }} MATLAB
+    name:  {{ '${{ matrix.platform.architecture}}' }}  macOS {{ '${{ matrix.platform.macos-version }}' }} MATLAB
     runs-on: macos-{{ '${{ matrix.platform.macos-version }}' }}
     strategy:
       matrix:
