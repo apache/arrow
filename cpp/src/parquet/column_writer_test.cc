@@ -1762,25 +1762,3 @@ TEST_F(TestInt32Writer, WriteKeyValueMetadataEndToEnd) {
 
 }  // namespace test
 }  // namespace parquet
-
-// TEST(CreateTestFile, Create) {
-// PARQUET_ASSIGN_OR_THROW(
-//     auto sink, arrow::io::FileOutputStream::Open(
-//                    "column-chunk-key-value-metadata.parquet"));
-// auto writer = parquet::ParquetFileWriter::Open(
-//     sink, std::static_pointer_cast<parquet::schema::GroupNode>(
-//               parquet::schema::GroupNode::Make(
-//                   "schema", parquet::Repetition::REQUIRED,
-//                   {parquet::schema::PrimitiveNode::Make(
-//                       "column1", parquet::Repetition::OPTIONAL,
-//                       parquet::Type::INT32),
-// parquet::schema::PrimitiveNode::Make(
-//                       "column2", parquet::Repetition::OPTIONAL,
-//                       parquet::Type::INT32)
-//                   })));
-// auto rg_writer = writer->AppendRowGroup();
-// rg_writer->NextColumn()
-//     ->key_value_metadata()
-//     .Append("foo", "bar");
-// rg_writer->NextColumn();
-// }
