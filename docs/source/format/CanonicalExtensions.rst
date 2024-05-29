@@ -295,11 +295,11 @@ For example:
 
 * A Flight SQL service may support connecting external databases.  In this
   case, its catalog (``GetTables`` etc.) should reflect the names and types of
-  tables in external databases.  These tables may support types it does not
-  recognize.  Instead of erroring or silently dropping columns from the
-  catalog, it can use the Other[Null] type to report that a column exists with
-  a particular name and type name in the external database; the Other type
-  lets clients know that the column is not supported, but still exists.
+  tables in external databases.  But those external systems may support types
+  it does not recognize.  Instead of erroring or silently dropping columns
+  from the catalog, it can use the Other[Null] type to report that a column
+  exists with a particular name and type name in the external database; this
+  lets clients know that a column exists, but is not supported.
 
 * The ADBC PostgreSQL driver, because of how the PostgreSQL wire protocol
   works, may get bytes for a field whose type it does not recognize (say, a
@@ -308,12 +308,20 @@ For example:
   Other[binary] type to return the column data.  The Other type differentiates
   the column from actual binary columns.
 
+Of course, the intermediate system *could* implement a custom extension type
+for these example types.  But there is no way in general that every type can
+be known in advance.  In such cases, the Other type allows the system to
+explicitly note that it does not support some type or field, without silently
+losing data or sending irrelevant errors.  It could also pretend to support
+the types by making up extension types on the fly.  But this misleads
+downstream systems who cannot tell if the type is supported or not.
+
 Extension parameters:
 
 * Extension name: ``arrow.other``.
 
 * The storage type of this extension is any type.  If there is no underlying
-  data, the storage type should be NA.  If there is data (because the system
+  data, the storage type should be Null.  If there is data (because the system
   got bytes or some other data it does not know how to interpret), the storage
   type should preferably be binary or fixed-size binary, but may be any type.
 
@@ -332,11 +340,19 @@ Extension parameters:
 
   - The PostgreSQL ``polygon`` type may be represented as Other[binary] with
     metadata ``{"type_name": "polygon", "vendor_name": "PostgreSQL"}``.
-  - The PostgreSQL ``point`` type may be represented as
-    Other[fixed_size_binary[16]] with metadata
-    ``{"type_name": "point", "vendor_name": "PostgreSQL"}``.
+  - The PostGIS ``geometry`` type may be represented as Other[binary] with
+    metadata ``{"type_name": "geometry", "vendor_name": "PostGIS"}``.
   - A Flight SQL service may return an array type as Other[Null] with metadata
     ``{"type_name": "varray", "vendor_name": "Oracle"}``.
+
+  Applications **should not** try to make conventions around vendor_name and
+  type_name.  In other words, if there is an Other type that multiple systems
+  want to support, instead of agreeing on using particular parameters of the
+  Other type they should create a formal extension type.  The parameters of
+  the Other type are primarily meant for human operators to understand what
+  type was not supported.  Applications may choose to interpret these fields
+  regardless but should be prepared for breakage (if for example the type
+  becomes formally supported).
 
 =========================
 Community Extension Types
