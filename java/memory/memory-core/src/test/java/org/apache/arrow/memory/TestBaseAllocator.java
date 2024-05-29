@@ -1077,6 +1077,8 @@ public class TestBaseAllocator {
           "child2", 1024, MAX_ALLOCATION);
       rootAllocator.verify();
 
+      childAllocator2.buffer(256);
+
       Exception exception = assertThrows(IllegalStateException.class, () -> {
         childAllocator2.close();
       });

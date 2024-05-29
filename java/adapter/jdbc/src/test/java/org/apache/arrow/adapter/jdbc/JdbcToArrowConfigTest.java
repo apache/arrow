@@ -27,7 +27,6 @@ import java.sql.Types;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Locale;
-import java.util.Objects;
 import java.util.TimeZone;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -90,8 +89,8 @@ public class JdbcToArrowConfigTest {
     JdbcToArrowConfigBuilder builder = new JdbcToArrowConfigBuilder(allocator, calendar);
     JdbcToArrowConfig config = builder.build();
 
-    assertTrue(Objects.equals(allocator, config.getAllocator()));
-    assertTrue(Objects.equals(calendar, config.getCalendar()));
+    assertEquals(allocator, config.getAllocator());
+    assertEquals(calendar, config.getCalendar());
 
     Calendar newCalendar = Calendar.getInstance();
     BufferAllocator newAllocator = new RootAllocator(Integer.SIZE);
@@ -99,8 +98,8 @@ public class JdbcToArrowConfigTest {
     builder.setAllocator(newAllocator).setCalendar(newCalendar);
     config = builder.build();
 
-    assertTrue(Objects.equals(newAllocator, config.getAllocator()));
-    assertTrue(Objects.equals(newCalendar, config.getCalendar()));
+    assertEquals(newAllocator, config.getAllocator());
+    assertEquals(newCalendar, config.getCalendar());
   }
 
   @Test
