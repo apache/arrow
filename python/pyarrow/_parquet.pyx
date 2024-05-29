@@ -510,15 +510,11 @@ cdef class ColumnChunkMetaData(_Weakrefable):
     @property
     def metadata(self):
         """Additional metadata as key value pairs (dict[bytes, bytes])."""
-        cdef:
-            unordered_map[c_string, c_string] metadata
-            const CKeyValueMetadata* underlying_metadata
-        underlying_metadata = self.metadata.key_value_metadata().get()
-        if underlying_metadata != NULL:
-            underlying_metadata.ToUnorderedMap(&metadata)
-            return metadata
+        wrapped = pyarrow_wrap_metadata(self.metadata.key_value_metadata())
+        if wrapped is not None:
+            return wrapped.to_dict()
         else:
-            return None
+            return wrapped
 
 
 cdef class SortingColumn:
