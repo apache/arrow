@@ -524,7 +524,7 @@ class AsyncStatSelector {
     ARROW_ASSIGN_OR_RAISE(
         auto gen,
         MakeBackgroundGenerator(Iterator<FileInfoVector>(DiscoveryImplIterator(
-                                    std::move(dir_fn), nesting_depth, std::move(selector),
+                                    dir_fn, nesting_depth, std::move(selector),
                                     discovery_state, io_context, file_info_batch_size)),
                                 io_context.executor()));
     gen = MakeTransferredGenerator(std::move(gen), io_context.executor());

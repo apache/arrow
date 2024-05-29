@@ -80,19 +80,30 @@ public class VectorUnloader {
   public ArrowRecordBatch getRecordBatch() {
     List<ArrowFieldNode> nodes = new ArrayList<>();
     List<ArrowBuf> buffers = new ArrayList<>();
+    List<Long> variadicBufferCounts = new ArrayList<>();
     for (FieldVector vector : root.getFieldVectors()) {
-      appendNodes(vector, nodes, buffers);
+      appendNodes(vector, nodes, buffers, variadicBufferCounts);
     }
     // Do NOT retain buffers in ArrowRecordBatch constructor since we have already retained them.
     return new ArrowRecordBatch(
-        root.getRowCount(), nodes, buffers, CompressionUtil.createBodyCompression(codec), alignBuffers,
-        /*retainBuffers*/ false);
+        root.getRowCount(), nodes, buffers, CompressionUtil.createBodyCompression(codec),
+        variadicBufferCounts, alignBuffers, /*retainBuffers*/ false);
   }
 
-  private void appendNodes(FieldVector vector, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers) {
+  private long getVariadicBufferCount(FieldVector vector) {
+    if (vector instanceof BaseVariableWidthViewVector) {
+      return ((BaseVariableWidthViewVector) vector).getDataBuffers().size();
+    }
+    return 0L;
+  }
+
+  private void appendNodes(FieldVector vector, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers,
+      List<Long> variadicBufferCounts) {
     nodes.add(new ArrowFieldNode(vector.getValueCount(), includeNullCount ? vector.getNullCount() : -1));
     List<ArrowBuf> fieldBuffers = vector.getFieldBuffers();
-    int expectedBufferCount = TypeLayout.getTypeBufferCount(vector.getField().getType());
+    long variadicBufferCount = getVariadicBufferCount(vector);
+    int expectedBufferCount = (int) (TypeLayout.getTypeBufferCount(vector.getField().getType()) + variadicBufferCount);
+    variadicBufferCounts.add(variadicBufferCount);
     if (fieldBuffers.size() != expectedBufferCount) {
       throw new IllegalArgumentException(String.format(
           "wrong number of buffers for field %s in vector %s. found: %s",
@@ -107,7 +118,7 @@ public class VectorUnloader {
       buffers.add(codec.compress(vector.getAllocator(), buf));
     }
     for (FieldVector child : vector.getChildrenFromFields()) {
-      appendNodes(child, nodes, buffers);
+      appendNodes(child, nodes, buffers, variadicBufferCounts);
     }
   }
 

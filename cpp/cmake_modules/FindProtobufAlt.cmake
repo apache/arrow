@@ -31,6 +31,11 @@ endif()
 find_package(protobuf CONFIG ${find_package_args})
 set(ProtobufAlt_FOUND ${protobuf_FOUND})
 if(ProtobufAlt_FOUND)
+  if(Protobuf_PROTOC_EXECUTABLE)
+    # work around https://github.com/protocolbuffers/protobuf/issues/14576
+    set_target_properties(protobuf::protoc PROPERTIES IMPORTED_LOCATION_RELEASE
+                                                      "${Protobuf_PROTOC_EXECUTABLE}")
+  endif()
   set(ProtobufAlt_VERSION ${protobuf_VERSION})
   set(ProtobufAlt_VERSION_MAJOR ${protobuf_VERSION_MAJOR})
   set(ProtobufAlt_VERSION_MINOR ${protobuf_VERSION_MINOR})

@@ -167,7 +167,7 @@ file into an executable linked with the Arrow C++ shared library:
 .. code-block:: makefile
 
    my_example: my_example.cc
-   	$(CXX) -o $@ $(CXXFLAGS) $< $$(pkg-config --cflags --libs arrow)
+       $(CXX) -o $@ $(CXXFLAGS) $< $$(pkg-config --cflags --libs arrow)
 
 Many build systems support pkg-config. For example:
 

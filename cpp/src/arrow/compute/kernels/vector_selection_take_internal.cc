@@ -347,7 +347,7 @@ struct PrimitiveTakeImpl {
   static void Exec(const ArraySpan& values, const ArraySpan& indices,
                    ArrayData* out_arr) {
     DCHECK_EQ(util::FixedWidthInBytes(*values.type), kValueWidth);
-    const auto* values_data = util::OffsetPointerOfFixedWidthValues(values);
+    const auto* values_data = util::OffsetPointerOfFixedByteWidthValues(values);
     const uint8_t* values_is_valid = values.buffers[0].data;
     auto values_offset = values.offset;
 
@@ -588,8 +588,7 @@ Status PrimitiveTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
 
   ArrayData* out_arr = out->array_data().get();
 
-  DCHECK(util::IsFixedWidthLike(values, /*force_null_count=*/false,
-                                /*exclude_dictionary=*/true));
+  DCHECK(util::IsFixedWidthLike(values));
   const int64_t bit_width = util::FixedWidthInBits(*values.type);
 
   // TODO: When neither values nor indices contain nulls, we can skip

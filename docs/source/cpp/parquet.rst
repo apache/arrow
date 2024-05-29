@@ -522,8 +522,8 @@ An Arrow Dictionary type is written out as its value type.  It can still
 be recreated at read time using Parquet metadata (see "Roundtripping Arrow
 types" below).
 
-Roundtripping Arrow types
-~~~~~~~~~~~~~~~~~~~~~~~~~
+Roundtripping Arrow types and schema
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 While there is no bijection between Arrow types and Parquet types, it is
 possible to serialize the Arrow schema as part of the Parquet file metadata.
@@ -531,8 +531,7 @@ This is enabled using :func:`ArrowWriterProperties::store_schema`.
 
 On the read path, the serialized schema will be automatically recognized
 and will recreate the original Arrow data, converting the Parquet data as
-required (for example, a LargeList will be recreated from the Parquet LIST
-type).
+required.
 
 As an example, when serializing an Arrow LargeList to Parquet:
 
@@ -542,12 +541,27 @@ As an example, when serializing an Arrow LargeList to Parquet:
   :func:`ArrowWriterProperties::store_schema` was enabled when writing the file;
   otherwise, it is decoded as an Arrow List.
 
+Parquet field id
+""""""""""""""""
+
+The Parquet format supports an optional integer *field id* which can be assigned
+to a given field. This is used for example in the
+`Apache Iceberg specification <https://github.com/apache/iceberg/blob/main/format/spec.md#column-projection>`__.
+
+On the writer side, if ``PARQUET:field_id`` is present as a metadata key on an
+Arrow field, then its value is parsed as a non-negative integer and is used as
+the field id for the corresponding Parquet field.
+
+On the reader side, Arrow will convert such a field id to a metadata key named
+``PARQUET:field_id`` on the corresponding Arrow field.
+
 Serialization details
 """""""""""""""""""""
 
 The Arrow schema is serialized as a :ref:`Arrow IPC <format-ipc>` schema message,
 then base64-encoded and stored under the ``ARROW:schema`` metadata key in
 the Parquet file metadata.
+
 
 Limitations
 ~~~~~~~~~~~

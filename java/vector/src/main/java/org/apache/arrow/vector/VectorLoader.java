@@ -80,8 +80,13 @@ public class VectorLoader {
         CompressionUtil.CodecType.fromCompressionType(recordBatch.getBodyCompression().getCodec());
     decompressionNeeded = codecType != CompressionUtil.CodecType.NO_COMPRESSION;
     CompressionCodec codec = decompressionNeeded ? factory.createCodec(codecType) : NoCompressionCodec.INSTANCE;
+    Iterator<Long> variadicBufferCounts = null;
+    if (recordBatch.getVariadicBufferCounts() != null && !recordBatch.getVariadicBufferCounts().isEmpty()) {
+      variadicBufferCounts = recordBatch.getVariadicBufferCounts().iterator();
+    }
+
     for (FieldVector fieldVector : root.getFieldVectors()) {
-      loadBuffers(fieldVector, fieldVector.getField(), buffers, nodes, codec);
+      loadBuffers(fieldVector, fieldVector.getField(), buffers, nodes, codec, variadicBufferCounts);
     }
     root.setRowCount(recordBatch.getLength());
     if (nodes.hasNext() || buffers.hasNext()) {
@@ -95,10 +100,16 @@ public class VectorLoader {
       Field field,
       Iterator<ArrowBuf> buffers,
       Iterator<ArrowFieldNode> nodes,
-      CompressionCodec codec) {
+      CompressionCodec codec,
+      Iterator<Long> variadicBufferCounts) {
     checkArgument(nodes.hasNext(), "no more field nodes for field %s and vector %s", field, vector);
     ArrowFieldNode fieldNode = nodes.next();
-    int bufferLayoutCount = TypeLayout.getTypeBufferCount(field.getType());
+    // variadicBufferLayoutCount will be 0 for vectors of type except BaseVariableWidthViewVector
+    long variadicBufferLayoutCount = 0;
+    if (variadicBufferCounts != null) {
+      variadicBufferLayoutCount = variadicBufferCounts.next();
+    }
+    int bufferLayoutCount = (int) (variadicBufferLayoutCount + TypeLayout.getTypeBufferCount(field.getType()));
     List<ArrowBuf> ownBuffers = new ArrayList<>(bufferLayoutCount);
     for (int j = 0; j < bufferLayoutCount; j++) {
       ArrowBuf nextBuf = buffers.next();
@@ -130,7 +141,7 @@ public class VectorLoader {
       for (int i = 0; i < childrenFromFields.size(); i++) {
         Field child = children.get(i);
         FieldVector fieldVector = childrenFromFields.get(i);
-        loadBuffers(fieldVector, child, buffers, nodes, codec);
+        loadBuffers(fieldVector, child, buffers, nodes, codec, variadicBufferCounts);
       }
     }
   }
