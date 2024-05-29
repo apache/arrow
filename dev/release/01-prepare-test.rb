@@ -51,6 +51,45 @@ class PrepareTest < Test::Unit::TestCase
     sh(env, "dev/release/01-prepare.sh", @release_version, @next_version, "0")
   end
 
+  data(:release_type, [nil, :major, :minor, :patch])
+  def test_deb_package_names
+    omit_on_release_branch
+    current_commit = git_current_commit
+    stdout = prepare("DEB_PACKAGE_NAMES")
+    changes = parse_patch(git("log", "-p", "#{current_commit}.."))
+    sampled_changes = changes.collect do |change|
+      first_hunk = change[:hunks][0]
+      first_removed_line = first_hunk.find { |line| line.start_with?("-") }
+      first_added_line = first_hunk.find { |line| line.start_with?("+") }
+      {
+        sampled_diff: [first_removed_line, first_added_line],
+        path: change[:path],
+      }
+    end
+    case release_type
+    when :major, :minor
+      expected_changes = [
+        {
+          sampled_diff: [
+            "-Package: libarrow#{@snapshot_so_version}",
+            "+Package: libarrow#{@so_version}",
+          ],
+          path: "dev/tasks/linux-packages/apache-arrow/debian/control.in",
+        },
+        {
+          sampled_diff: [
+            "-      - libarrow-acero#{@snapshot_so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb",
+            "+      - libarrow-acero#{@so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb",
+          ],
+          path: "dev/tasks/tasks.yml",
+        },
+      ]
+    else
+      expected_changes = []
+    end
+    assert_equal(expected_changes, sampled_changes, "Output:\n#{stdout}")
+  end
+
   def test_linux_packages
     user = "Arrow Developers"
     email = "dev@arrow.apache.org"
@@ -96,7 +135,7 @@ class PrepareTest < Test::Unit::TestCase
     assert_equal(expected_changes, sampled_changes, "Output:\n#{stdout}")
   end
 
-  data(:release_type, [:major, :minor, :patch])
+  data(:next_release_type, [:major, :minor, :patch])
   def test_version_pre_tag
     omit_on_release_branch
 
@@ -158,7 +197,7 @@ class PrepareTest < Test::Unit::TestCase
         ],
       },
     ]
-    unless release_type == :patch
+    unless next_release_type == :patch
       expected_changes += [
         {
           path: "docs/source/_static/versions.json",
@@ -236,7 +275,7 @@ class PrepareTest < Test::Unit::TestCase
         ],
       },
     ]
-    if release_type == :major
+    if next_release_type == :major
       expected_changes += [
         {
           path: "r/pkgdown/assets/versions.json",
