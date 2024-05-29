@@ -1739,6 +1739,15 @@ TEST_F(TestInt32Writer, WriteKeyValueMetadata) {
   ASSERT_THAT(value, "world");
 }
 
+TEST_F(TestInt32Writer, ResetKeyValueMetadata) {
+  auto writer = this->BuildWriter();
+  writer->AddKeyValueMetadata(KeyValueMetadata::Make({"hello"}, {"world"}));
+  writer->ResetKeyValueMetadata();
+  writer->Close();
+  auto key_value_metadata = metadata_key_value_metadata();
+  ASSERT_THAT(key_value_metadata, IsNull());
+}
+
 TEST_F(TestInt32Writer, WriteKeyValueMetadataEndToEnd) {
   auto sink = CreateOutputStream();
   {
