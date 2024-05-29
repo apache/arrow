@@ -2292,8 +2292,7 @@ cdef class _Tabular(_PandasConvertible):
         >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
         >>> table = pa.Table.from_arrays([n_legs, animals], names=["n_legs", "animals"])
         >>> table.to_pydict()
-        {'n_legs': [2, 2, 4, 4, 5, 100], 'animals': [
-            'Flamingo', 'Parrot', ..., 'Centipede']}
+        {'n_legs': [2, 2, 4, 4, 5, 100], 'animals': ['Flamingo', 'Parrot', ..., 'Centipede']}
         """
         entries = []
         for i in range(self.num_columns):
@@ -4990,8 +4989,7 @@ cdef class Table(_Tabular):
         animals: string
         ----
         n_legs: [[2,4,5,100],[2,4,5,100]]
-        animals: [["Flamingo","Horse","Brittle stars","Centipede"],
-            ["Flamingo","Horse","Brittle stars","Centipede"]]
+        animals: [["Flamingo",...,"Centipede"],["Flamingo",...,"Centipede"]]
         """
         cdef:
             vector[shared_ptr[CRecordBatch]] c_batches
