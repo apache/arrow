@@ -26,8 +26,11 @@ project(
         'warning_level=2',
         'cpp_std=c++17',
         'c_std=c99',
-        'cpp_args=-Wno-unused-parameter',
     ]
 )
+
+if host_machine.system() != 'windows'
+    add_project_arguments('-Wno-unused-parameter', language : 'cpp')
+endif
 
 subdir('src/arrow')
