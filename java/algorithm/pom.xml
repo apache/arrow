@@ -67,20 +67,12 @@
               <includes>
                 <include>pom.xml</include>
               </includes>
-              <licenseHeader>
-                <file>../dev/license/asf-xml.license</file>
-                <delimiter>(&lt;configuration|&lt;project)</delimiter>
-              </licenseHeader>
             </format>
             <format>
               <!-- configure license for java files -->
               <includes>
                 <include>**/*.java</include>
               </includes>
-              <licenseHeader>
-                <file>../dev/license/asf-java.license</file>
-                <delimiter>package</delimiter>
-              </licenseHeader>
             </format>
           </formats>
           <java>
@@ -88,6 +80,10 @@
               <version>1.7</version>
               <style>GOOGLE</style>
             </googleJavaFormat>
+            <licenseHeader>
+              <file>../dev/license/asf-java.license</file>
+              <delimiter>package</delimiter>
+            </licenseHeader>
           </java>
         </configuration>
       </plugin>
