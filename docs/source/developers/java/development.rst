@@ -123,8 +123,8 @@ that changes adhere to the style guide.
 Automatically fixing code style issues
 --------------------------------------
 
-- You can also just check the style without building the project with `mvn spotless:check`.
-- The Java code style can be corrected from the command line by using the following commands: `mvn spotless:apply`.
+- You can also just check the style without building the project with ``mvn spotless:check``.
+- The Java code style can be corrected from the command line by using the following commands: ``mvn spotless:apply``.
 
 .. code-block:: bash
 
@@ -176,6 +176,7 @@ This applies the style to all pom.xml files under the current directory or from 
 .. _conbench: https://github.com/conbench/conbench
 .. _checkstyle: https://github.com/apache/arrow/blob/main/java/dev/checkstyle/checkstyle.xml
 .. _Apache Maven pom.xml guidelines: https://maven.apache.org/developers/conventions/code.html#pom-code-convention
+.. _Spotless: https://github.com/diffplug/spotless
 .. _Google Java Style: https://google.github.io/styleguide/javaguide.html
 .. _Eclipse: https://github.com/google/google-java-format?tab=readme-ov-file#eclipse
 .. _IntelliJ: https://github.com/google/google-java-format?tab=readme-ov-file#intellij-android-studio-and-other-jetbrains-ides

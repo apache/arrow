@@ -68,7 +68,7 @@
                 <include>pom.xml</include>
               </includes>
               <licenseHeader>
-                <file>../spotless/asf-xml.license</file>
+                <file>../dev/license/asf-xml.license</file>
                 <delimiter>(&lt;configuration|&lt;project)</delimiter>
               </licenseHeader>
             </format>
@@ -78,14 +78,14 @@
                 <include>**/*.java</include>
               </includes>
               <licenseHeader>
-                <file>../spotless/asf-java.license</file>
+                <file>../dev/license/asf-java.license</file>
                 <delimiter>package</delimiter>
               </licenseHeader>
             </format>
           </formats>
           <java>
             <googleJavaFormat>
-              <version>1.17.0</version>
+              <version>1.7</version>
               <style>GOOGLE</style>
             </googleJavaFormat>
           </java>
