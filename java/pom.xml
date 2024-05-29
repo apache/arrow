@@ -1137,7 +1137,7 @@
                 <phase>generate-resources</phase>
                 <configuration>
                   <executable>cmake</executable>
-                  <commandlineArgs>--build java-jni --target install --config Release</commandlineArgs>
+                  <commandlineArgs>--build java-jni --target install --config Release -j</commandlineArgs>
                   <workingDirectory>../</workingDirectory>
                 </configuration>
               </execution>
@@ -1207,7 +1207,7 @@
                 <phase>generate-resources</phase>
                 <configuration>
                   <executable>cmake</executable>
-                  <commandlineArgs>--build cpp-jni --target install --config Release</commandlineArgs>
+                  <commandlineArgs>--build cpp-jni --target install --config Release -j</commandlineArgs>
                   <workingDirectory>../</workingDirectory>
                   <skip>${cpp.dependencies.builded}</skip>
                 </configuration>
@@ -1244,7 +1244,7 @@
                 <phase>generate-resources</phase>
                 <configuration>
                   <executable>cmake</executable>
-                  <commandlineArgs>--build java-jni --target install --config Release</commandlineArgs>
+                  <commandlineArgs>--build java-jni --target install --config Release -j</commandlineArgs>
                   <workingDirectory>../</workingDirectory>
                 </configuration>
               </execution>
@@ -1353,7 +1353,7 @@
                 <phase>generate-resources</phase>
                 <configuration>
                   <executable>cmake</executable>
-                  <commandlineArgs>--build java-jni --target install --config Release</commandlineArgs>
+                  <commandlineArgs>--build java-jni --target install --config Release -j</commandlineArgs>
                   <workingDirectory>../</workingDirectory>
                 </configuration>
               </execution>
