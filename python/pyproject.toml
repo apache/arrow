@@ -32,15 +32,13 @@ requires = [
 ]
 build-backend = "setuptools.build_meta"
 
-[options]
-install_requires = [
-    "numpy >= 1.16.6"
-]
-
 [project]
 name = "pyarrow"
 dynamic = ["version"]
 requires-python = ">=3.8"
+dependencies = [
+    "numpy >= 1.16.6"
+]
 description = "Python library for Apache Arrow"
 readme = {file = "README.md", content-type = "text/markdown"}
 license = {text = "Apache Software License"}
