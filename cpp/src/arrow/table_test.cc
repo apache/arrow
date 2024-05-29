@@ -434,7 +434,7 @@ TEST_F(TestTable, ToTensorEmptyTable) {
 }
 
 template <typename DataType>
-void CheckTensor(const std::shared_ptr<Tensor>& tensor, const int size,
+void CheckTableToTensor(const std::shared_ptr<Tensor>& tensor, const int size,
                  const std::vector<int64_t> shape, const std::vector<int64_t> f_strides) {
   EXPECT_EQ(size, tensor->size());
   EXPECT_EQ(TypeTraits<DataType>::type_singleton(), tensor->type());
@@ -446,7 +446,7 @@ void CheckTensor(const std::shared_ptr<Tensor>& tensor, const int size,
 }
 
 template <typename DataType>
-void CheckTensorRowMajor(const std::shared_ptr<Tensor>& tensor, const int size,
+void CheckTableToTensorRowMajor(const std::shared_ptr<Tensor>& tensor, const int size,
                          const std::vector<int64_t> shape,
                          const std::vector<int64_t> strides) {
   EXPECT_EQ(size, tensor->size());
@@ -484,7 +484,7 @@ TEST_F(TestTable, ToTensorSupportedNaN) {
 
   EXPECT_FALSE(tensor_expected->Equals(*tensor));
   EXPECT_TRUE(tensor_expected->Equals(*tensor, EqualOptions().nans_equal(true)));
-  CheckTensor<FloatType>(tensor, 18, shape, f_strides);
+  CheckTableToTensor<FloatType>(tensor, 18, shape, f_strides);
 }
 
 TEST_F(TestTable, ToTensorSupportedNullToNan) {
@@ -515,7 +515,7 @@ TEST_F(TestTable, ToTensorSupportedNullToNan) {
   EXPECT_FALSE(tensor_expected->Equals(*tensor));
   EXPECT_TRUE(tensor_expected->Equals(*tensor, EqualOptions().nans_equal(true)));
 
-  CheckTensor<DoubleType>(tensor, 18, shape, f_strides);
+  CheckTableToTensor<DoubleType>(tensor, 18, shape, f_strides);
 
   ASSERT_OK_AND_ASSIGN(auto tensor_row, table->ToTensor(/*null_to_nan=*/true));
   ASSERT_OK(tensor_row->Validate());
@@ -528,7 +528,7 @@ TEST_F(TestTable, ToTensorSupportedNullToNan) {
   EXPECT_FALSE(tensor_expected_row->Equals(*tensor_row));
   EXPECT_TRUE(tensor_expected_row->Equals(*tensor_row, EqualOptions().nans_equal(true)));
 
-  CheckTensorRowMajor<DoubleType>(tensor_row, 18, shape, strides);
+  CheckTableToTensorRowMajor<DoubleType>(tensor_row, 18, shape, strides);
 
   // int32 -> float64
   auto f2 = field("f2", int32());
@@ -546,7 +546,7 @@ TEST_F(TestTable, ToTensorSupportedNullToNan) {
   EXPECT_FALSE(tensor_expected->Equals(*tensor1));
   EXPECT_TRUE(tensor_expected->Equals(*tensor1, EqualOptions().nans_equal(true)));
 
-  CheckTensor<DoubleType>(tensor1, 18, shape, f_strides);
+  CheckTableToTensor<DoubleType>(tensor1, 18, shape, f_strides);
 
   ASSERT_OK_AND_ASSIGN(auto tensor1_row, table1->ToTensor(/*null_to_nan=*/true));
   ASSERT_OK(tensor1_row->Validate());
@@ -554,7 +554,7 @@ TEST_F(TestTable, ToTensorSupportedNullToNan) {
   EXPECT_FALSE(tensor_expected_row->Equals(*tensor1_row));
   EXPECT_TRUE(tensor_expected_row->Equals(*tensor1_row, EqualOptions().nans_equal(true)));
 
-  CheckTensorRowMajor<DoubleType>(tensor1_row, 18, shape, strides);
+  CheckTableToTensorRowMajor<DoubleType>(tensor1_row, 18, shape, strides);
 
   // int8 -> float32
   auto f3 = field("f3", int8());
@@ -580,7 +580,7 @@ TEST_F(TestTable, ToTensorSupportedNullToNan) {
   EXPECT_FALSE(tensor_expected_2->Equals(*tensor2));
   EXPECT_TRUE(tensor_expected_2->Equals(*tensor2, EqualOptions().nans_equal(true)));
 
-  CheckTensor<FloatType>(tensor2, 18, shape, f_strides_2);
+  CheckTableToTensor<FloatType>(tensor2, 18, shape, f_strides_2);
 
   ASSERT_OK_AND_ASSIGN(auto tensor2_row, table2->ToTensor(/*null_to_nan=*/true));
   ASSERT_OK(tensor2_row->Validate());
@@ -594,7 +594,7 @@ TEST_F(TestTable, ToTensorSupportedNullToNan) {
   EXPECT_TRUE(
       tensor2_expected_row->Equals(*tensor2_row, EqualOptions().nans_equal(true)));
 
-  CheckTensorRowMajor<FloatType>(tensor2_row, 18, shape, strides_2);
+  CheckTableToTensorRowMajor<FloatType>(tensor2_row, 18, shape, strides_2);
 }
 
 TEST_F(TestTable, ToTensorSupportedTypesMixed) {
@@ -623,7 +623,7 @@ TEST_F(TestTable, ToTensorSupportedTypesMixed) {
       TensorFromJSON(uint16(), "[1, 2, 3, 4, 5, 6, 7, 8, 9]", shape, f_strides);
 
   EXPECT_TRUE(tensor_expected->Equals(*tensor));
-  CheckTensor<UInt16Type>(tensor, 9, shape, f_strides);
+  CheckTableToTensor<UInt16Type>(tensor, 9, shape, f_strides);
 
   // uint16 + int16 = int32
   std::vector<std::shared_ptr<Field>> fields1 = {f0, f1};
@@ -643,7 +643,7 @@ TEST_F(TestTable, ToTensorSupportedTypesMixed) {
 
   EXPECT_TRUE(tensor_expected_1->Equals(*tensor1));
 
-  CheckTensor<Int32Type>(tensor1, 18, shape1, f_strides_1);
+  CheckTableToTensor<Int32Type>(tensor1, 18, shape1, f_strides_1);
 
   ASSERT_EQ(tensor1->type()->bit_width(), tensor_expected_1->type()->bit_width());
 
@@ -672,7 +672,7 @@ TEST_F(TestTable, ToTensorSupportedTypesMixed) {
   EXPECT_FALSE(tensor_expected_2->Equals(*tensor2));
   EXPECT_TRUE(tensor_expected_2->Equals(*tensor2, EqualOptions().nans_equal(true)));
 
-  CheckTensor<DoubleType>(tensor2, 27, shape2, f_strides_2);
+  CheckTableToTensor<DoubleType>(tensor2, 27, shape2, f_strides_2);
 }
 
 TEST_F(TestTable, ToTensorUnsupportedMixedFloat16) {
@@ -738,7 +738,7 @@ TYPED_TEST_P(TestTableToTensorColumnMajor, SupportedTypes) {
       shape, f_strides);
 
   EXPECT_TRUE(tensor_expected->Equals(*tensor));
-  CheckTensor<DataType>(tensor, 27, shape, f_strides);
+  CheckTableToTensor<DataType>(tensor, 27, shape, f_strides);
 
   // Test offsets
   auto table_slice = table->Slice(1);
@@ -756,7 +756,7 @@ TYPED_TEST_P(TestTableToTensorColumnMajor, SupportedTypes) {
                      shape_sliced, f_strides_sliced);
 
   EXPECT_TRUE(tensor_expected_sliced->Equals(*tensor_sliced));
-  CheckTensor<DataType>(tensor_expected_sliced, 24, shape_sliced, f_strides_sliced);
+  CheckTableToTensor<DataType>(tensor_expected_sliced, 24, shape_sliced, f_strides_sliced);
 
   auto table_slice_1 = table->Slice(1, 5);
 
@@ -773,7 +773,7 @@ TYPED_TEST_P(TestTableToTensorColumnMajor, SupportedTypes) {
                      shape_sliced_1, f_strides_sliced_1);
 
   EXPECT_TRUE(tensor_expected_sliced_1->Equals(*tensor_sliced_1));
-  CheckTensor<DataType>(tensor_expected_sliced_1, 15, shape_sliced_1, f_strides_sliced_1);
+  CheckTableToTensor<DataType>(tensor_expected_sliced_1, 15, shape_sliced_1, f_strides_sliced_1);
 }
 
 REGISTER_TYPED_TEST_SUITE_P(TestTableToTensorColumnMajor, SupportedTypes);
@@ -828,7 +828,7 @@ TYPED_TEST_P(TestTableToTensorRowMajor, SupportedTypes) {
                      shape, strides);
 
   EXPECT_TRUE(tensor_expected->Equals(*tensor));
-  CheckTensorRowMajor<DataType>(tensor, 27, shape, strides);
+  CheckTableToTensorRowMajor<DataType>(tensor, 27, shape, strides);
 
   // Test offsets
   auto table_slice = table->Slice(1);
@@ -845,7 +845,7 @@ TYPED_TEST_P(TestTableToTensorRowMajor, SupportedTypes) {
                      shape_sliced, strides_sliced);
 
   EXPECT_TRUE(tensor_expected_sliced->Equals(*tensor_sliced));
-  CheckTensorRowMajor<DataType>(tensor_sliced, 24, shape_sliced, strides_sliced);
+  CheckTableToTensorRowMajor<DataType>(tensor_sliced, 24, shape_sliced, strides_sliced);
 
   auto table_slice_1 = table->Slice(1, 5);
 
@@ -860,7 +860,7 @@ TYPED_TEST_P(TestTableToTensorRowMajor, SupportedTypes) {
                      shape_sliced_1, strides_sliced_1);
 
   EXPECT_TRUE(tensor_expected_sliced_1->Equals(*tensor_sliced_1));
-  CheckTensorRowMajor<DataType>(tensor_sliced_1, 15, shape_sliced_1, strides_sliced_1);
+  CheckTableToTensorRowMajor<DataType>(tensor_sliced_1, 15, shape_sliced_1, strides_sliced_1);
 }
 
 REGISTER_TYPED_TEST_SUITE_P(TestTableToTensorRowMajor, SupportedTypes);
