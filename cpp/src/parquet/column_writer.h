@@ -21,6 +21,7 @@
 #include <cstring>
 #include <memory>
 
+#include "arrow/type_fwd.h"
 #include "arrow/util/compression.h"
 #include "parquet/exception.h"
 #include "parquet/platform.h"
@@ -29,7 +30,6 @@
 namespace arrow {
 
 class Array;
-class KeyValueMetadata;
 
 namespace bit_util {
 class BitWriter;
