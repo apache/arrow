@@ -234,13 +234,13 @@ class UnmaterializedCompositeTable {
   arrow::Result<std::vector<CompositeEntry>> FlattenSlices(int table_index) {
     std::vector<CompositeEntry> flattened_blocks;
 
-    arrow::RecordBatch* active_rb = nullptr;
+    arrow::RecordBatch* active_rb = NULL;
     size_t start = -1;
     size_t end = -1;
 
     for (const auto& slice : slices) {
       const auto& [batch, block_start, block_end] = slice.components[table_index];
-      if (active_rb == nullptr) {
+      if (active_rb == NULL) {
         active_rb = batch;
         start = block_start;
         end = block_end;
@@ -252,7 +252,7 @@ class UnmaterializedCompositeTable {
         start = block_start;
         end = block_end;
       }
-      DCHECK_NE(active_rb, nullptr);
+      DCHECK_NE(active_rb, NULL);
     }
     // flush the last batch
     flattened_blocks.push_back({active_rb, start, end});
