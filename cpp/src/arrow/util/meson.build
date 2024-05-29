@@ -35,7 +35,11 @@ conf_data.set('ARROW_VERSION_PATCH', ver_patch)
 
 arrow_so_version = ver_major.to_int() * 100 + ver_minor.to_int()
 conf_data.set('ARROW_SO_VERSION', arrow_so_version)
-conf_data.set('ARROW_FULL_SO_VERSION', f'${arrow_so_version}.${ver_patch}.0')
+conf_data.set('ARROW_FULL_SO_VERSION',
+              arrow_so_version.to_string()
+              + '.'
+              + ver_patch
+              + '.0')
 
 compiler = meson.get_compiler('cpp')
 # TODO: the meson compiler names are not the same as CMake
