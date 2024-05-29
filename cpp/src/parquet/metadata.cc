@@ -146,15 +146,15 @@ std::shared_ptr<KeyValueMetadata> CopyKeyValueMetadata(const Metadata& source) {
 
 template <typename Metadata>
 void ToThriftKeyValueMetadata(Metadata& metadata, const KeyValueMetadata& source) {
-  metadata.key_value_metadata.clear();
-  metadata.key_value_metadata.reserve(static_cast<size_t>(source.size()));
+  std::vector<format::KeyValue> key_value_metadata;
+  key_value_metadata.reserve(static_cast<size_t>(source.size()));
   for (int64_t i = 0; i < source.size(); ++i) {
     format::KeyValue kv_pair;
     kv_pair.__set_key(source.key(i));
     kv_pair.__set_value(source.value(i));
-    metadata.key_value_metadata.push_back(kv_pair);
+    key_value_metadata.emplace_back(kv_pair);
   }
-  metadata.__isset.key_value_metadata = true;
+  metadata.__set_key_value_metadata(key_value_metadata);
 }
 
 // MetaData Accessor
