@@ -824,7 +824,8 @@ TYPED_TEST_P(TestTableToTensorRowMajor, SupportedTypes) {
   std::shared_ptr<Tensor> tensor_expected =
       TensorFromJSON(TypeTraits<DataType>::type_singleton(),
                      "[1,   10, 100, 2, 20, 100, 3, 30, 100, 4, 40, 100, 5, 50, 100, 6, "
-                     "60, 100, 7, 70, 100, 8, 80, 100, 9, 90, 100]", shape, strides);
+                     "60, 100, 7, 70, 100, 8, 80, 100, 9, 90, 100]",
+                     shape, strides);
 
   EXPECT_TRUE(tensor_expected->Equals(*tensor));
   CheckTensorRowMajor<DataType>(tensor, 27, shape, strides);
