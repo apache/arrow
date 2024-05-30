@@ -1377,7 +1377,7 @@ gdv_int32 ascii_utf8(const char* data, gdv_int32 data_len) {
   if (data_len == 0) {
     return 0;
   }
-  return static_cast<gdv_int32>(data[0]);
+  return static_cast<gdv_int32>(static_cast<signed char>(data[0]));
 }
 
 // Returns the ASCII character having the binary equivalent to A.

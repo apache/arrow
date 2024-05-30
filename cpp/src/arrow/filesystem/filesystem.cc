@@ -56,16 +56,13 @@
 #include "arrow/util/visibility.h"
 #include "arrow/util/windows_fixup.h"
 
-namespace arrow {
+namespace arrow::fs {
 
-using internal::checked_pointer_cast;
-using internal::TaskHints;
-using io::internal::SubmitIO;
-using util::Uri;
-
-namespace fs {
-
+using arrow::internal::checked_pointer_cast;
 using arrow::internal::GetEnvVar;
+using arrow::internal::TaskHints;
+using arrow::io::internal::SubmitIO;
+using arrow::util::Uri;
 using internal::ConcatAbstractPath;
 using internal::EnsureTrailingSlash;
 using internal::GetAbstractPathParent;
@@ -271,6 +268,11 @@ Result<std::shared_ptr<io::OutputStream>> FileSystem::OpenAppendStream(
 
 Result<std::string> FileSystem::PathFromUri(const std::string& uri_string) const {
   return Status::NotImplemented("PathFromUri is not yet supported on this filesystem");
+}
+
+Result<std::string> FileSystem::MakeUri(std::string path) const {
+  return Status::NotImplemented("MakeUri is not yet supported for ", type_name(),
+                                " filesystems");
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -726,6 +728,10 @@ class FileSystemFactoryRegistry {
           main_registry->scheme_to_factory_.emplace(std::move(scheme), registered);
       if (success) continue;
 
+      if (it->second.ok()) {
+        if (registered->factory == it->second->factory) continue;
+      }
+
       duplicated_schemes.emplace_back(it->first);
     }
     scheme_to_factory_.clear();
@@ -755,8 +761,8 @@ class FileSystemFactoryRegistry {
     RETURN_NOT_OK(CheckValid());
 
     auto [it, success] = scheme_to_factory_.emplace(
-        std::move(scheme), Registered{std::move(factory), std::move(finalizer)});
-    if (success) {
+        std::move(scheme), Registered{factory, std::move(finalizer)});
+    if (success || (it->second.ok() && it->second->factory == factory)) {
       return Status::OK();
     }
 
@@ -852,18 +858,10 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
         auto* factory,
         FileSystemFactoryRegistry::GetInstance()->FactoryForScheme(scheme));
     if (factory != nullptr) {
-      return (*factory)(uri, io_context, out_path);
+      return factory->function(uri, io_context, out_path);
     }
   }
 
-  if (scheme == "file") {
-    std::string path;
-    ARROW_ASSIGN_OR_RAISE(auto options, LocalFileSystemOptions::FromUri(uri, &path));
-    if (out_path != nullptr) {
-      *out_path = path;
-    }
-    return std::make_shared<LocalFileSystem>(options, io_context);
-  }
   if (scheme == "abfs" || scheme == "abfss") {
 #ifdef ARROW_AZURE
     ARROW_ASSIGN_OR_RAISE(auto options, AzureOptions::FromUri(uri, out_path));
@@ -969,5 +967,4 @@ Status Initialize(const FileSystemGlobalOptions& options) {
   return Status::OK();
 }
 
-}  // namespace fs
-}  // namespace arrow
+}  // namespace arrow::fs

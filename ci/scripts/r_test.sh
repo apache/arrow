@@ -46,7 +46,9 @@ if [ "$ARROW_USE_PKG_CONFIG" != "false" ]; then
   export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
   export R_LD_LIBRARY_PATH=${LD_LIBRARY_PATH}
 fi
-export _R_CHECK_COMPILATION_FLAGS_KNOWN_=${ARROW_R_CXXFLAGS}
+
+export _R_CHECK_COMPILATION_FLAGS_KNOWN_="${_R_CHECK_COMPILATION_FLAGS_KNOWN_} ${ARROW_R_CXXFLAGS}"
+
 if [ "$ARROW_R_DEV" = "TRUE" ]; then
   # These are sometimes used in the Arrow C++ build and are not a problem
   export _R_CHECK_COMPILATION_FLAGS_KNOWN_="${_R_CHECK_COMPILATION_FLAGS_KNOWN_} -Wno-attributes -msse4.2 -Wno-noexcept-type -Wno-subobject-linkage"
@@ -108,15 +110,14 @@ SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
       on.exit(tools::pskill(pid_flight), add = TRUE)
   }
 
-  run_donttest <- identical(tolower(Sys.getenv('_R_CHECK_DONTTEST_EXAMPLES_', 'true')), 'true')
-  if (run_donttest) {
-    args <- c(args, '--run-donttest')
-  }
-
   install_args <- Sys.getenv('INSTALL_ARGS')
   if (nzchar(install_args)) {
     args <- c(args, paste0('--install-args=\"', install_args, '\"'))
   }
+
+  message('Running rcmdcheck with:\n')
+  print(build_args)
+  print(args)
 
   rcmdcheck::rcmdcheck(build_args = build_args, args = args, error_on = 'warning', check_dir = 'check', timeout = 3600)"
 echo "$SCRIPT" | ${R_BIN} --no-save

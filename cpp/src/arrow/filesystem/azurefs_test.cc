@@ -392,7 +392,7 @@ class TestGeneric : public ::testing::Test, public GenericFileSystemTest {
   bool allow_move_dir() const override { return false; }
   bool allow_move_file() const override { return true; }
   bool allow_append_to_file() const override { return true; }
-  bool have_directory_mtimes() const override { return false; }
+  bool have_directory_mtimes() const override { return true; }
   bool have_flaky_directory_tree_deletion() const override { return false; }
   bool have_file_metadata() const override { return true; }
   // calloc() used in libxml2's xmlNewGlobalState() is detected as a
@@ -429,6 +429,8 @@ class TestAzuriteGeneric : public TestGeneric {
  protected:
   // Azurite doesn't support moving files over containers.
   bool allow_move_file() const override { return false; }
+  // Azurite doesn't support directory mtime.
+  bool have_directory_mtimes() const override { return false; }
   // DeleteDir() doesn't work with Azurite on macOS
   bool have_flaky_directory_tree_deletion() const override {
     return env_->HasSubmitBatchBug();
@@ -449,6 +451,8 @@ class TestAzureFlatNSGeneric : public TestGeneric {
  protected:
   // Flat namespace account doesn't support moving files over containers.
   bool allow_move_file() const override { return false; }
+  // Flat namespace account doesn't support directory mtime.
+  bool have_directory_mtimes() const override { return false; }
 };
 
 class TestAzureHierarchicalNSGeneric : public TestGeneric {

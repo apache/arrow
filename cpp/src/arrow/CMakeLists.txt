@@ -163,7 +163,7 @@ if(CMAKE_THREAD_LIBS_INIT)
 endif()
 
 if(WIN32)
-  list(APPEND ARROW_SYSTEM_LINK_LIBS "ws2_32.dll")
+  list(APPEND ARROW_SYSTEM_LINK_LIBS "ws2_32")
 endif()
 
 if(NOT WIN32 AND NOT APPLE)
@@ -351,6 +351,12 @@ macro(append_runtime_avx512_src SRCS SRC)
   endif()
 endmacro()
 
+# Write out compile-time configuration constants
+configure_file("util/config.h.cmake" "util/config.h" ESCAPE_QUOTES)
+configure_file("util/config_internal.h.cmake" "util/config_internal.h" ESCAPE_QUOTES)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/util/config.h"
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/util")
+
 set(ARROW_SRCS
     builder.cc
     buffer.cc
@@ -501,6 +507,7 @@ set(ARROW_UTIL_SRCS
     util/decimal.cc
     util/delimiting.cc
     util/dict_util.cc
+    util/fixed_width_internal.cc
     util/float16.cc
     util/formatting.cc
     util/future.cc
@@ -628,14 +635,15 @@ else()
   list(APPEND ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS ArrowTesting::gtest)
 endif()
 if(WIN32)
-  list(APPEND ARROW_TESTING_SHARED_LINK_LIBS "ws2_32.dll")
-  list(APPEND ARROW_TESTING_STATIC_LINK_LIBS "ws2_32.dll")
-  list(APPEND ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS "ws2_32.dll")
+  list(APPEND ARROW_TESTING_SHARED_LINK_LIBS "ws2_32")
+  list(APPEND ARROW_TESTING_STATIC_LINK_LIBS "ws2_32")
+  list(APPEND ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS "ws2_32")
 endif()
 
 set(ARROW_TESTING_SRCS
     io/test_common.cc
     ipc/test_common.cc
+    testing/fixed_width_test_util.cc
     testing/gtest_util.cc
     testing/random.cc
     testing/generator.cc
@@ -715,7 +723,8 @@ set(ARROW_COMPUTE_SRCS
     compute/row/compare_internal.cc
     compute/row/grouper.cc
     compute/row/row_internal.cc
-    compute/util.cc)
+    compute/util.cc
+    compute/util_internal.cc)
 
 append_runtime_avx2_src(ARROW_COMPUTE_SRCS compute/key_hash_internal_avx2.cc)
 append_runtime_avx2_bmi2_src(ARROW_COMPUTE_SRCS compute/key_map_internal_avx2.cc)

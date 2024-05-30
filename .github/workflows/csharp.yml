@@ -46,7 +46,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dotnet: ['7.0.x']
+        dotnet: ['8.0.x']
     steps:
       - name: Install C#
         uses: actions/setup-dotnet@v4
@@ -74,7 +74,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dotnet: ['7.0.x']
+        dotnet: ['8.0.x']
     steps:
       - name: Install C#
         uses: actions/setup-dotnet@v4
@@ -94,19 +94,23 @@ jobs:
         run: ci/scripts/csharp_test.sh $(pwd)
 
   macos:
-    name: AMD64 macOS 11 C# ${{ matrix.dotnet }}
+    name: ARM64 macOS 14 C# ${{ matrix.dotnet }}
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        dotnet: ['7.0.x']
+        dotnet: ['8.0.x']
     steps:
       - name: Install C#
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ matrix.dotnet }}
+      - name: Setup Python
+        uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d # v5.1.0
+        with:
+          python-version: 3.12
       - name: Checkout Arrow
         uses: actions/checkout@v4
         with:

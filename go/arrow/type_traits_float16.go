@@ -19,8 +19,8 @@ package arrow
 import (
 	"unsafe"
 
-	"github.com/apache/arrow/go/v16/arrow/endian"
-	"github.com/apache/arrow/go/v16/arrow/float16"
+	"github.com/apache/arrow/go/v17/arrow/endian"
+	"github.com/apache/arrow/go/v17/arrow/float16"
 )
 
 // Float16 traits

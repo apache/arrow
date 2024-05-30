@@ -17,11 +17,7 @@
 
 #include "arrow/compute/util.h"
 
-#include "arrow/table.h"
-#include "arrow/util/bit_util.h"
-#include "arrow/util/bitmap_ops.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/tracing_internal.h"
 #include "arrow/util/ubsan.h"
 
 namespace arrow {
@@ -30,33 +26,6 @@ using bit_util::CountTrailingZeros;
 using internal::CpuInfo;
 
 namespace util {
-
-void TempVectorStack::alloc(uint32_t num_bytes, uint8_t** data, int* id) {
-  int64_t new_top = top_ + EstimatedAllocationSize(num_bytes);
-  // Stack overflow check (see GH-39582).
-  // XXX cannot return a regular Status because most consumers do not either.
-  ARROW_CHECK_LE(new_top, buffer_size_) << "TempVectorStack::alloc overflow";
-  *data = buffer_->mutable_data() + top_ + sizeof(uint64_t);
-  // We set 8 bytes before the beginning of the allocated range and
-  // 8 bytes after the end to check for stack overflow (which would
-  // result in those known bytes being corrupted).
-  reinterpret_cast<uint64_t*>(buffer_->mutable_data() + top_)[0] = kGuard1;
-  reinterpret_cast<uint64_t*>(buffer_->mutable_data() + new_top)[-1] = kGuard2;
-  *id = num_vectors_++;
-  top_ = new_top;
-}
-
-void TempVectorStack::release(int id, uint32_t num_bytes) {
-  ARROW_DCHECK(num_vectors_ == id + 1);
-  int64_t size = EstimatedAllocationSize(num_bytes);
-  ARROW_DCHECK(reinterpret_cast<const uint64_t*>(buffer_->mutable_data() + top_)[-1] ==
-               kGuard2);
-  ARROW_DCHECK(top_ >= size);
-  top_ -= size;
-  ARROW_DCHECK(reinterpret_cast<const uint64_t*>(buffer_->mutable_data() + top_)[0] ==
-               kGuard1);
-  --num_vectors_;
-}
 
 namespace bit_util {
 

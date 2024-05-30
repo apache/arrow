@@ -874,6 +874,10 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
     if (PyArray_NDIM(ndarray) != 1) {
       return Status::Invalid("Can only convert 1-dimensional array values");
     }
+    if (PyArray_ISBYTESWAPPED(ndarray)) {
+      // TODO
+      return Status::NotImplemented("Byte-swapped arrays not supported");
+    }
     const int64_t size = PyArray_SIZE(ndarray);
     RETURN_NOT_OK(AppendTo(this->list_type_, size));
     RETURN_NOT_OK(this->list_builder_->ValidateOverflow(size));

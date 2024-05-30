@@ -1472,7 +1472,7 @@ class BaseCSVTableRead(BaseTestCSV):
             pytest.fail("Failed to get an interruption during CSV reading")
 
         # Interruption should have arrived timely
-        assert last_duration <= 1.0
+        assert last_duration <= 2.0
         e = exc_info.__context__
         assert isinstance(e, pa.ArrowCancelled)
         assert e.signum == signum

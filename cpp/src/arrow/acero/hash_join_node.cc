@@ -351,7 +351,7 @@ Result<Expression> HashJoinSchema::BindFilter(Expression filter,
                                               const Schema& right_schema,
                                               ExecContext* exec_context) {
   if (filter.IsBound() || filter == literal(true)) {
-    return std::move(filter);
+    return filter;
   }
   // Step 1: Construct filter schema
   FieldVector fields;
@@ -386,7 +386,7 @@ Result<Expression> HashJoinSchema::BindFilter(Expression filter,
                              filter.ToString(), " evaluates to ",
                              filter.type()->ToString());
   }
-  return std::move(filter);
+  return filter;
 }
 
 Expression HashJoinSchema::RewriteFilterToUseFilterSchema(
@@ -497,11 +497,11 @@ struct BloomFilterPushdownContext {
   using BuildFinishedCallback = std::function<Status(size_t, AccumulationQueue)>;
   using FiltersReceivedCallback = std::function<Status(size_t)>;
   using FilterFinishedCallback = std::function<Status(size_t, AccumulationQueue)>;
-  void Init(HashJoinNode* owner, size_t num_threads,
-            RegisterTaskGroupCallback register_task_group_callback,
-            StartTaskGroupCallback start_task_group_callback,
-            FiltersReceivedCallback on_bloom_filters_received, bool disable_bloom_filter,
-            bool use_sync_execution);
+  Status Init(HashJoinNode* owner, size_t num_threads,
+              RegisterTaskGroupCallback register_task_group_callback,
+              StartTaskGroupCallback start_task_group_callback,
+              FiltersReceivedCallback on_bloom_filters_received,
+              bool disable_bloom_filter, bool use_sync_execution);
 
   Status StartProducing(size_t thread_index);
 
@@ -559,8 +559,7 @@ struct BloomFilterPushdownContext {
     std::vector<uint32_t> hashes(batch.length);
     std::vector<uint8_t> bv(bit_vector_bytes);
 
-    ARROW_ASSIGN_OR_RAISE(arrow::util::TempVectorStack * stack,
-                          ctx_->GetTempStack(thread_index));
+    arrow::util::TempVectorStack* stack = &tld_[thread_index].stack;
 
     // Start with full selection for the current batch
     memset(selected.data(), 0xff, bit_vector_bytes);
@@ -654,7 +653,17 @@ struct BloomFilterPushdownContext {
     FiltersReceivedCallback all_received_callback_;
     FilterFinishedCallback on_finished_;
   } eval_;
+
+  static constexpr auto kTempStackUsage =
+      Hashing32::kHashBatchTempStackUsage +
+      (sizeof(uint32_t) + /*extra=*/1) * arrow::util::MiniBatch::kMiniBatchLength;
+
+  struct ThreadLocalData {
+    arrow::util::TempVectorStack stack;
+  };
+  std::vector<ThreadLocalData> tld_;
 };
+
 bool HashJoinSchema::HasDictionaries() const {
   for (int side = 0; side <= 1; ++side) {
     for (int icol = 0; icol < proj_maps[side].num_cols(HashJoinProjection::INPUT);
@@ -930,7 +939,7 @@ class HashJoinNode : public ExecNode, public TracedNode {
     // we will change it back to just the CPU's thread pool capacity.
     size_t num_threads = (GetCpuThreadPoolCapacity() + io::GetIOThreadPoolCapacity() + 1);
 
-    pushdown_context_.Init(
+    RETURN_NOT_OK(pushdown_context_.Init(
         this, num_threads,
         [ctx](std::function<Status(size_t, int64_t)> fn,
               std::function<Status(size_t)> on_finished) {
@@ -940,7 +949,7 @@ class HashJoinNode : public ExecNode, public TracedNode {
           return ctx->StartTaskGroup(task_group_id, num_tasks);
         },
         [this](size_t thread_index) { return OnFiltersReceived(thread_index); },
-        disable_bloom_filter_, use_sync_execution);
+        disable_bloom_filter_, use_sync_execution));
 
     RETURN_NOT_OK(impl_->Init(
         ctx, join_type_, num_threads, &(schema_mgr_->proj_maps[0]),
@@ -1037,7 +1046,7 @@ class HashJoinNode : public ExecNode, public TracedNode {
   BloomFilterPushdownContext pushdown_context_;
 };
 
-void BloomFilterPushdownContext::Init(
+Status BloomFilterPushdownContext::Init(
     HashJoinNode* owner, size_t num_threads,
     RegisterTaskGroupCallback register_task_group_callback,
     StartTaskGroupCallback start_task_group_callback,
@@ -1074,6 +1083,12 @@ void BloomFilterPushdownContext::Init(
         return eval_.on_finished_(thread_index, std::move(eval_.batches_));
       });
   start_task_group_callback_ = std::move(start_task_group_callback);
+  tld_.resize(num_threads);
+  for (auto& local_data : tld_) {
+    RETURN_NOT_OK(local_data.stack.Init(ctx_->memory_pool(), kTempStackUsage));
+  }
+
+  return Status::OK();
 }
 
 Status BloomFilterPushdownContext::StartProducing(size_t thread_index) {
@@ -1124,8 +1139,7 @@ Status BloomFilterPushdownContext::BuildBloomFilter_exec_task(size_t thread_inde
   }
   ARROW_ASSIGN_OR_RAISE(ExecBatch key_batch, ExecBatch::Make(std::move(key_columns)));
 
-  ARROW_ASSIGN_OR_RAISE(arrow::util::TempVectorStack * stack,
-                        ctx_->GetTempStack(thread_index));
+  arrow::util::TempVectorStack* stack = &tld_[thread_index].stack;
   arrow::util::TempVectorHolder<uint32_t> hash_holder(
       stack, arrow::util::MiniBatch::kMiniBatchLength);
   uint32_t* hashes = hash_holder.mutable_data();

@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/apache/arrow/go/v16/arrow/flight"
+	"github.com/apache/arrow/go/v17/arrow/flight"
 	"google.golang.org/protobuf/proto"
 )
 

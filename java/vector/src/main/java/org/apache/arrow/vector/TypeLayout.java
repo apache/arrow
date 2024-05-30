@@ -28,6 +28,7 @@ import org.apache.arrow.vector.BufferLayout.BufferType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeVisitor;
 import org.apache.arrow.vector.types.pojo.ArrowType.Binary;
+import org.apache.arrow.vector.types.pojo.ArrowType.BinaryView;
 import org.apache.arrow.vector.types.pojo.ArrowType.Bool;
 import org.apache.arrow.vector.types.pojo.ArrowType.Date;
 import org.apache.arrow.vector.types.pojo.ArrowType.Decimal;
@@ -46,6 +47,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Time;
 import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
+import org.apache.arrow.vector.types.pojo.ArrowType.Utf8View;
 
 /**
  * The buffer layout of vectors for a given type.
@@ -100,10 +102,20 @@ public class TypeLayout {
       }
 
       @Override
-      public TypeLayout visit(org.apache.arrow.vector.types.pojo.ArrowType.List type) {
+      public TypeLayout visit(ArrowType.List type) {
         List<BufferLayout> vectors = asList(
             BufferLayout.validityVector(),
             BufferLayout.offsetBuffer()
+        );
+        return new TypeLayout(vectors);
+      }
+
+      @Override
+      public TypeLayout visit(ArrowType.ListView type) {
+        List<BufferLayout> vectors = asList(
+                BufferLayout.validityVector(),
+                BufferLayout.offsetBuffer(),
+                BufferLayout.sizeBuffer()
         );
         return new TypeLayout(vectors);
       }
@@ -174,8 +186,18 @@ public class TypeLayout {
       }
 
       @Override
+      public TypeLayout visit(ArrowType.BinaryView type) {
+        return newVariableWidthViewTypeLayout();
+      }
+
+      @Override
       public TypeLayout visit(Utf8 type) {
         return newVariableWidthTypeLayout();
+      }
+
+      @Override
+      public TypeLayout visit(Utf8View type) {
+        return newVariableWidthViewTypeLayout();
       }
 
       @Override
@@ -193,7 +215,12 @@ public class TypeLayout {
           BufferLayout.byteVector());
       }
 
+      private TypeLayout newVariableWidthViewTypeLayout() {
+        return newPrimitiveTypeLayout(BufferLayout.validityVector(), BufferLayout.byteVector());
+      }
+
       private TypeLayout newLargeVariableWidthTypeLayout() {
+        // NOTE: only considers the non variadic buffers
         return newPrimitiveTypeLayout(BufferLayout.validityVector(), BufferLayout.largeOffsetBuffer(),
             BufferLayout.byteVector());
       }
@@ -299,9 +326,15 @@ public class TypeLayout {
       }
 
       @Override
-      public Integer visit(org.apache.arrow.vector.types.pojo.ArrowType.List type) {
+      public Integer visit(ArrowType.List type) {
         // validity buffer + offset buffer
         return 2;
+      }
+
+      @Override
+      public Integer visit(ArrowType.ListView type) {
+        // validity buffer + offset buffer + size buffer
+        return 3;
       }
 
       @Override
@@ -348,8 +381,20 @@ public class TypeLayout {
       }
 
       @Override
+      public Integer visit(BinaryView type) {
+        // NOTE: only consider the validity and view buffers
+        return 2;
+      }
+
+      @Override
       public Integer visit(Utf8 type) {
         return VARIABLE_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
+      public Integer visit(Utf8View type) {
+        // NOTE: only consider the validity and view buffers
+        return 2;
       }
 
       @Override

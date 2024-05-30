@@ -33,7 +33,7 @@ file on disk. In this article, you will:
 
 2. write out a partitioned dataset from a Table.
 
-Pre-requisites 
+Pre-requisites
 ---------------
 
 Before continuing, make sure you have:
@@ -50,7 +50,7 @@ Setup
 Before running some computations, we need to fill in a couple gaps:
 
 1. We need to include necessary headers.
-   
+
 2. A ``main()`` is needed to glue things together.
 
 3. We need data on disk to play with.
@@ -58,8 +58,8 @@ Before running some computations, we need to fill in a couple gaps:
 Includes
 ^^^^^^^^
 
-Before writing C++ code, we need some includes. We'll get ``iostream`` for output, then import Arrow's 
-compute functionality for each file type we'll work with in this article: 
+Before writing C++ code, we need some includes. We'll get ``iostream`` for output, then import Arrow's
+compute functionality for each file type we'll work with in this article:
 
 .. literalinclude:: ../../../../cpp/examples/tutorial_examples/dataset_example.cc
   :language: cpp
@@ -206,7 +206,7 @@ Build Dataset using Factory
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 With a :class:`dataset::FileSystemDatasetFactory` set up, we can actually build our
-:class:`dataset::Dataset` with :func:`dataset::FileSystemDatasetFactory::Finish`, just 
+:class:`dataset::Dataset` with :func:`dataset::FileSystemDatasetFactory::Finish`, just
 like with an :class:`ArrayBuilder` back in the basic tutorial:
 
 .. literalinclude:: ../../../../cpp/examples/tutorial_examples/dataset_example.cc
@@ -228,14 +228,14 @@ dataset, and print those out, along with some small info:
 Move Dataset into Table
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-One way we can do something with :class:`Datasets <dataset::Dataset>` is getting 
-them into a :class:`Table`, where we can do anything we’ve learned we can do to 
-:class:`Tables <Table>` to that :class:`Table`. 
+One way we can do something with :class:`Datasets <dataset::Dataset>` is getting
+them into a :class:`Table`, where we can do anything we’ve learned we can do to
+:class:`Tables <Table>` to that :class:`Table`.
 
 .. seealso:: :doc:`/cpp/streaming_execution` for execution that avoids manifesting the entire dataset in memory.
 
-In order to move a :class:`Dataset’s <dataset::Dataset>` contents into a :class:`Table`, 
-we need a :class:`dataset::Scanner`, which scans the data and outputs it to the :class:`Table`. 
+In order to move a :class:`Dataset’s <dataset::Dataset>` contents into a :class:`Table`,
+we need a :class:`dataset::Scanner`, which scans the data and outputs it to the :class:`Table`.
 First, we get a :class:`dataset::ScannerBuilder` from the :class:`dataset::Dataset`:
 
 .. literalinclude:: ../../../../cpp/examples/tutorial_examples/dataset_example.cc
@@ -305,7 +305,7 @@ Create Scanner for Moving Table Data
 The process for writing a :class:`dataset::Dataset`, once a source of data is available,
 is similar to the reverse of reading it. Before, we used a :class:`dataset::Scanner` in
 order to scan into a :class:`Table` – now, we need one to read out of our
-:class:`TableBatchReader`. To get that :class:`dataset::Scanner`, we’ll make a :class:`dataset::ScannerBuilder` 
+:class:`TableBatchReader`. To get that :class:`dataset::Scanner`, we’ll make a :class:`dataset::ScannerBuilder`
 based on our :class:`TableBatchReader`, then use that Builder to build a :class:`dataset::Scanner`:
 
 .. literalinclude:: ../../../../cpp/examples/tutorial_examples/dataset_example.cc
@@ -343,7 +343,7 @@ Arrow, so we’ll write back out to that:
   :start-after: (Doc section: Write Format)
   :end-before: (Doc section: Write Format)
 
-Configure FileSystemDatasetWriteOptions 
+Configure FileSystemDatasetWriteOptions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In order to write to disk, we need some configuration. We’ll do so via
@@ -435,11 +435,11 @@ tutorials.
 With that, you’ve read and written partitioned datasets! This method,
 with some configuration, will work for any supported dataset format. For
 an example of such a dataset, the NYC Taxi dataset is a well-known
-one, which you can find `here <https://www1.nyc.gov/site/tlc/about/tlc-trip-record-data.page>`_. 
+one, which you can find `here <https://www1.nyc.gov/site/tlc/about/tlc-trip-record-data.page>`_.
 Now you can get larger-than-memory data mapped for use!
 
 Which means that now we have to be able to process this data without
-pulling it all into memory at once. For this, try Acero. 
+pulling it all into memory at once. For this, try Acero.
 
 .. seealso:: :doc:`/cpp/streaming_execution` for more information on Acero.
 

@@ -245,6 +245,18 @@ class ARROW_EXPORT PairwiseOptions : public FunctionOptions {
   int64_t periods = 1;
 };
 
+/// \brief Options for list_flatten function
+class ARROW_EXPORT ListFlattenOptions : public FunctionOptions {
+ public:
+  explicit ListFlattenOptions(bool recursive = false);
+  static constexpr char const kTypeName[] = "ListFlattenOptions";
+  static ListFlattenOptions Defaults() { return ListFlattenOptions(); }
+
+  /// \brief If true, the list is flattened recursively until a non-list
+  /// array is formed.
+  bool recursive = false;
+};
+
 /// @}
 
 /// \brief Filter with a boolean selection filter

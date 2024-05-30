@@ -122,7 +122,10 @@ cmake --build . --target INSTALL --config Release || exit /B 1
 @rem Needed so python-test.exe works
 set PYTHONPATH_ORIGINAL=%PYTHONPATH%
 set PYTHONPATH=%CONDA_PREFIX%\Lib;%CONDA_PREFIX%\Lib\site-packages;%CONDA_PREFIX%\DLLs;%CONDA_PREFIX%;%PYTHONPATH%
-ctest -j%NUMBER_OF_PROCESSORS% --output-on-failure  || exit /B 1
+ctest ^
+  --build-config Release ^
+  --output-on-failure ^
+  --parallel %NUMBER_OF_PROCESSORS% || exit /B 1
 set PYTHONPATH=%PYTHONPATH_ORIGINAL%
 popd
 

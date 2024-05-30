@@ -20,6 +20,7 @@
 #include <gtest/gtest.h>
 #include <numeric>
 
+#include "arrow/memory_pool.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"

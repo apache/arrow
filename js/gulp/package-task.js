@@ -56,7 +56,7 @@ const createMainPackageJson = (target, format) => (orig) => ({
         '.': {
             node: {
                 import: {
-                    types: `./${mainExport}.node.d.mts`,
+                    types: `./${mainExport}.node.d.ts`,
                     default: `./${mainExport}.node.mjs`,
                 },
                 require: {
@@ -65,7 +65,7 @@ const createMainPackageJson = (target, format) => (orig) => ({
                 },
             },
             import: {
-                types: `./${mainExport}.dom.d.mts`,
+                types: `./${mainExport}.dom.d.ts`,
                 default: `./${mainExport}.dom.mjs`,
             },
             require: {
@@ -75,7 +75,7 @@ const createMainPackageJson = (target, format) => (orig) => ({
         },
         './*': {
             import: {
-                types: `./*.d.mts`,
+                types: `./*.d.ts`,
                 default: `./*.mjs`,
             },
             require: {
@@ -127,8 +127,8 @@ const createScopedPackageJSON = (target, format) => (({ name, ...orig }) =>
             sideEffects: format === 'esm' ? false : undefined,
             // include "esm" settings for https://www.npmjs.com/package/esm if building scoped ESM target
             esm:      format === `esm` ? { mode: `auto`, sourceMap: true } : undefined,
-            // set "types" (for TypeScript/VSCode)
-            types:    format === 'umd' ? undefined : `${mainExport}.node.d.ts`,
+            // set "types" to "Arrow.dom" if building scoped UMD target, otherwise "Arrow.node"
+            types:    format === 'umd' ? `${mainExport}.dom.d.ts`: `${mainExport}.node.d.ts`,
         }
     )
 );

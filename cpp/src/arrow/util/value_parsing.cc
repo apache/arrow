@@ -53,8 +53,11 @@ bool StringToFloat(const char* s, size_t length, char decimal_point, uint16_t* o
   float temp_out;
   const auto res =
       ::arrow_vendored::fast_float::from_chars_advanced(s, s + length, temp_out, options);
-  *out = Float16::FromFloat(temp_out).bits();
-  return res.ec == std::errc() && res.ptr == s + length;
+  const bool ok = res.ec == std::errc() && res.ptr == s + length;
+  if (ok) {
+    *out = Float16::FromFloat(temp_out).bits();
+  }
+  return ok;
 }
 
 // ----------------------------------------------------------------------

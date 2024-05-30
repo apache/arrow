@@ -139,7 +139,8 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
   /// This should create the appropriate stream type for the device,
   /// derived from Device::Stream to allow for stream ordered events
   /// and memory allocations.
-  virtual Result<std::shared_ptr<Stream>> MakeStream(unsigned int flags) {
+  virtual Result<std::shared_ptr<Stream>> MakeStream(
+      unsigned int ARROW_ARG_UNUSED(flags)) {
     return NULLPTR;
   }
 
@@ -149,8 +150,9 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
   /// @param release_fn a function to call during destruction, `nullptr` or
   ///        a no-op function can be passed to indicate ownership is maintained
   ///        externally
-  virtual Result<std::shared_ptr<Stream>> WrapStream(void* device_stream,
-                                                     Stream::release_fn_t release_fn) {
+  virtual Result<std::shared_ptr<Stream>> WrapStream(
+      void* ARROW_ARG_UNUSED(device_stream),
+      Stream::release_fn_t ARROW_ARG_UNUSED(release_fn)) {
     return NULLPTR;
   }
 
@@ -246,6 +248,10 @@ class ARROW_EXPORT MemoryManager : public std::enable_shared_from_this<MemoryMan
   /// See also the Buffer::View shorthand.
   static Result<std::shared_ptr<Buffer>> ViewBuffer(
       const std::shared_ptr<Buffer>& source, const std::shared_ptr<MemoryManager>& to);
+
+  /// \brief Copy a slice of a buffer into a CPU pointer
+  static Status CopyBufferSliceToCPU(const std::shared_ptr<Buffer>& buf, int64_t offset,
+                                     int64_t length, uint8_t* out_data);
 
   /// \brief Create a new SyncEvent.
   ///

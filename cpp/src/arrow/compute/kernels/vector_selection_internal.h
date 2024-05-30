@@ -45,12 +45,6 @@ void RegisterSelectionFunction(const std::string& name, FunctionDoc doc,
                                const FunctionOptions* default_options,
                                FunctionRegistry* registry);
 
-/// \brief Allocate an ArrayData for a primitive array with a given length and bit width
-///
-/// \param[in] bit_width 1 or a multiple of 8
-Status PreallocatePrimitiveArrayData(KernelContext* ctx, int64_t length, int bit_width,
-                                     bool allocate_validity, ArrayData* out);
-
 /// \brief Callback type for VisitPlainxREEFilterOutputSegments.
 ///
 /// position is the logical position in the values array relative to its offset.
@@ -70,6 +64,7 @@ void VisitPlainxREEFilterOutputSegments(
     FilterOptions::NullSelectionBehavior null_selection,
     const EmitREEFilterSegment& emit_segment);
 
+Status PrimitiveFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status ListFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status LargeListFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status FSLFilterExec(KernelContext*, const ExecSpan&, ExecResult*);

@@ -550,7 +550,7 @@ struct ValidateArrayImpl {
     if (full_validation) {
       if (data.null_count != kUnknownNullCount) {
         int64_t actual_null_count;
-        if (HasValidityBitmap(data.type->id()) && data.buffers[0]) {
+        if (may_have_validity_bitmap(data.type->id()) && data.buffers[0]) {
           // Do not call GetNullCount() as it would also set the `null_count` member
           actual_null_count = data.length - CountSetBits(data.buffers[0]->data(),
                                                          data.offset, data.length);

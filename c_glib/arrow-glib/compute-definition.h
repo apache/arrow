@@ -21,9 +21,12 @@
 
 #include <glib-object.h>
 
+#include <arrow-glib/version.h>
+
 G_BEGIN_DECLS
 
 #define GARROW_TYPE_FUNCTION_OPTIONS (garrow_function_options_get_type())
+GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(
   GArrowFunctionOptions, garrow_function_options, GARROW, FUNCTION_OPTIONS, GObject)
 struct _GArrowFunctionOptionsClass
@@ -32,6 +35,7 @@ struct _GArrowFunctionOptionsClass
 };
 
 #define GARROW_TYPE_CAST_OPTIONS (garrow_cast_options_get_type())
+GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(
   GArrowCastOptions, garrow_cast_options, GARROW, CAST_OPTIONS, GArrowFunctionOptions)
 struct _GArrowCastOptionsClass
@@ -40,6 +44,7 @@ struct _GArrowCastOptionsClass
 };
 
 #define GARROW_TYPE_EXPRESSION (garrow_expression_get_type())
+GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(GArrowExpression, garrow_expression, GARROW, EXPRESSION, GObject)
 struct _GArrowExpressionClass
 {

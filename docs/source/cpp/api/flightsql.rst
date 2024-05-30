@@ -22,8 +22,6 @@
 Arrow Flight SQL
 ================
 
-.. note:: Flight SQL is currently experimental and APIs are subject to change.
-
 Common Types
 ============
 

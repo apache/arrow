@@ -18,16 +18,12 @@
 # under the License.
 
 import contextlib
-import json
 import os
 import os.path
 from os.path import join as pjoin
-import pathlib
 import re
 import shlex
-import subprocess
 import sys
-import tempfile
 
 if sys.version_info >= (3, 10):
     import sysconfig
@@ -43,14 +39,6 @@ import Cython
 
 # Check if we're running 64-bit Python
 is_64_bit = sys.maxsize > 2**32
-
-is_emscripten = False
-if (
-    sysconfig.get_config_var("SOABI")
-    and sysconfig.get_config_var("SOABI").find("emscripten") != -1
-):
-    is_emscripten = True
-
 
 if Cython.__version__ < '0.29.31':
     raise Exception(
@@ -147,67 +135,8 @@ class build_ext(_build_ext):
                       'bundle the Arrow C++ headers')] +
                     _build_ext.user_options)
 
-    def get_arrow_build_options(self):
-        """
-            read arrow options from cmake
-        """
-        if hasattr(self, "_arrow_build_options"):
-            return self._arrow_build_options
-        self._arrow_build_options = {}
-        # now make a temp folder to run cmake in
-        with tempfile.TemporaryDirectory() as td:
-            old_dir = os.getcwd()
-            os.chdir(td)
-            (pathlib.Path(td) / "CMakeLists.txt").write_text("""
-                cmake_minimum_required(VERSION 3.16)
-                project(dumpvars)
-                find_package(Arrow REQUIRED)
-                include(DefineOptions)
-                config_summary_json()
-                """)
-            cmake_cmdline = ["cmake", ".",
-                             f"-DCMAKE_MODULE_PATH={old_dir}/cmake_modules"]
-            if is_emscripten:
-                cmake_cmdline = ["emcmake"] + cmake_cmdline
-            print("Running cmake to get Arrow options")
-            subprocess.check_call(cmake_cmdline)
-            options_json = (pathlib.Path(td) / "cmake_summary.json").read_text()
-            options = json.loads(options_json)
-            self._arrow_build_options = options
-            os.chdir(old_dir)
-        print("Loaded build options:", self._arrow_build_options)
-        return self._arrow_build_options
-
-    def get_env_option(self, name, default):
-        """
-            Get an option from environment variable. If the variable is not set,
-            a default is used based on arrow cmake options.
-        """
-        if name in os.environ:
-            return strtobool(os.environ.get(name))
-        elif is_emscripten:
-            # on emscripten we need to compute the PYARROW_* flags based
-            # on the ARROW_* flags in the build system. This is because pyodide
-            # build clears environment variables before setup.py is run.
-            special_cases = {
-                "PYARROW_WITH_PARQUET_ENCRYPTION": "PARQUET_REQUIRE_ENCRYPTION"}
-            cmake_default_name = None
-            if name in special_cases:
-                cmake_default_name = special_cases[name]
-            elif name.startswith("PYARROW_WITH_"):
-                cmake_default_name = name.replace("PYARROW_WITH_", "ARROW_")
-            elif name.startswith("PYARROW_"):
-                cmake_default_name = name.replace("PYARROW_", "ARROW_")
-            if cmake_default_name is not None:
-                # get name from arrow cmake options
-                cmake_options = self.get_arrow_build_options()
-                return strtobool(cmake_options.get(cmake_default_name, default))
-            else:
-                return strtobool(default)
-
     def initialize_options(self):
         _build_ext.initialize_options(self)
-
         self.cmake_generator = os.environ.get('PYARROW_CMAKE_GENERATOR')
         if not self.cmake_generator and sys.platform == 'win32':
             self.cmake_generator = 'Visual Studio 15 2017 Win64'
@@ -223,32 +152,26 @@ class build_ext(_build_ext):
             if not hasattr(sys, 'gettotalrefcount'):
                 self.build_type = 'release'
 
-        self.with_azure = self.get_env_option('PYARROW_WITH_AZURE', '0')
-        self.with_gcs = self.get_env_option('PYARROW_WITH_GCS', '0')
-        self.with_s3 = self.get_env_option('PYARROW_WITH_S3', '0')
-        self.with_hdfs = self.get_env_option('PYARROW_WITH_HDFS', '0')
-        self.with_cuda = self.get_env_option('PYARROW_WITH_CUDA', '0')
-        self.with_substrait = self.get_env_option('PYARROW_WITH_SUBSTRAIT', '0')
-        self.with_flight = self.get_env_option('PYARROW_WITH_FLIGHT', '0')
-        self.with_acero = self.get_env_option('PYARROW_WITH_ACERO', '0')
-        self.with_dataset = self.get_env_option('PYARROW_WITH_DATASET', '0')
-        self.with_parquet = self.get_env_option('PYARROW_WITH_PARQUET', '0')
-        self.with_parquet_encryption = self.get_env_option(
-            'PYARROW_WITH_PARQUET_ENCRYPTION', '0')
-        self.with_orc = self.get_env_option('PYARROW_WITH_ORC', '0')
-        self.with_gandiva = self.get_env_option('PYARROW_WITH_GANDIVA', '0')
-        self.generate_coverage = self.get_env_option('PYARROW_GENERATE_COVERAGE', '0')
-        self.bundle_arrow_cpp = self.get_env_option('PYARROW_BUNDLE_ARROW_CPP', '0')
-        self.bundle_cython_cpp = self.get_env_option('PYARROW_BUNDLE_CYTHON_CPP', '0')
+        self.with_azure = None
+        self.with_gcs = None
+        self.with_s3 = None
+        self.with_hdfs = None
+        self.with_cuda = None
+        self.with_substrait = None
+        self.with_flight = None
+        self.with_acero = None
+        self.with_dataset = None
+        self.with_parquet = None
+        self.with_parquet_encryption = None
+        self.with_orc = None
+        self.with_gandiva = None
 
-        self.with_parquet_encryption = (self.with_parquet_encryption and
-                                        self.with_parquet)
-
-        # enforce module dependencies
-        if self.with_substrait:
-            self.with_dataset = True
-        if self.with_dataset:
-            self.with_acero = True
+        self.generate_coverage = strtobool(
+            os.environ.get('PYARROW_GENERATE_COVERAGE', '0'))
+        self.bundle_arrow_cpp = strtobool(
+            os.environ.get('PYARROW_BUNDLE_ARROW_CPP', '0'))
+        self.bundle_cython_cpp = strtobool(
+            os.environ.get('PYARROW_BUNDLE_CYTHON_CPP', '0'))
 
     CYTHON_MODULE_NAMES = [
         'lib',
@@ -326,23 +249,30 @@ class build_ext(_build_ext):
                 cmake_options.append('-D{0}={1}'.format(
                     varname, 'on' if value else 'off'))
 
+            def append_cmake_component(flag, varname):
+                # only pass this to cmake is the user pass the --with-component
+                # flag to setup.py build_ext
+                if flag is not None:
+                    append_cmake_bool(flag, varname)
+
             if self.cmake_generator:
                 cmake_options += ['-G', self.cmake_generator]
 
-            append_cmake_bool(self.with_cuda, 'PYARROW_BUILD_CUDA')
-            append_cmake_bool(self.with_substrait, 'PYARROW_BUILD_SUBSTRAIT')
-            append_cmake_bool(self.with_flight, 'PYARROW_BUILD_FLIGHT')
-            append_cmake_bool(self.with_gandiva, 'PYARROW_BUILD_GANDIVA')
-            append_cmake_bool(self.with_acero, 'PYARROW_BUILD_ACERO')
-            append_cmake_bool(self.with_dataset, 'PYARROW_BUILD_DATASET')
-            append_cmake_bool(self.with_orc, 'PYARROW_BUILD_ORC')
-            append_cmake_bool(self.with_parquet, 'PYARROW_BUILD_PARQUET')
-            append_cmake_bool(self.with_parquet_encryption,
-                              'PYARROW_BUILD_PARQUET_ENCRYPTION')
-            append_cmake_bool(self.with_azure, 'PYARROW_BUILD_AZURE')
-            append_cmake_bool(self.with_gcs, 'PYARROW_BUILD_GCS')
-            append_cmake_bool(self.with_s3, 'PYARROW_BUILD_S3')
-            append_cmake_bool(self.with_hdfs, 'PYARROW_BUILD_HDFS')
+            append_cmake_component(self.with_cuda, 'PYARROW_CUDA')
+            append_cmake_component(self.with_substrait, 'PYARROW_SUBSTRAIT')
+            append_cmake_component(self.with_flight, 'PYARROW_FLIGHT')
+            append_cmake_component(self.with_gandiva, 'PYARROW_GANDIVA')
+            append_cmake_component(self.with_acero, 'PYARROW_ACERO')
+            append_cmake_component(self.with_dataset, 'PYARROW_DATASET')
+            append_cmake_component(self.with_orc, 'PYARROW_ORC')
+            append_cmake_component(self.with_parquet, 'PYARROW_PARQUET')
+            append_cmake_component(self.with_parquet_encryption,
+                                   'PYARROW_PARQUET_ENCRYPTION')
+            append_cmake_component(self.with_azure, 'PYARROW_AZURE')
+            append_cmake_component(self.with_gcs, 'PYARROW_GCS')
+            append_cmake_component(self.with_s3, 'PYARROW_S3')
+            append_cmake_component(self.with_hdfs, 'PYARROW_HDFS')
+
             append_cmake_bool(self.bundle_arrow_cpp,
                               'PYARROW_BUNDLE_ARROW_CPP')
             append_cmake_bool(self.bundle_cython_cpp,
@@ -363,20 +293,14 @@ class build_ext(_build_ext):
                 build_tool_args.append('--')
                 if os.environ.get('PYARROW_BUILD_VERBOSE', '0') == '1':
                     cmake_options.append('-DCMAKE_VERBOSE_MAKEFILE=ON')
-                parallel = os.environ.get('PYARROW_PARALLEL', '')
+                parallel = os.environ.get('PYARROW_PARALLEL')
                 if parallel:
                     build_tool_args.append(f'-j{parallel}')
 
-            if is_emscripten:
-                # Generate the build files
-                print("-- Running emcmake cmake for PyArrow on Emscripten")
-                self.spawn(['emcmake', 'cmake'] + extra_cmake_args +
-                           cmake_options + [source])
-            else:
-                # Generate the build files
-                print("-- Running cmake for PyArrow")
-                self.spawn(['cmake'] + extra_cmake_args + cmake_options + [source])
-                print("-- Finished cmake for PyArrow")
+            # Generate the build files
+            print("-- Running cmake for PyArrow")
+            self.spawn(['cmake'] + extra_cmake_args + cmake_options + [source])
+            print("-- Finished cmake for PyArrow")
 
             print("-- Running cmake --build for PyArrow")
             self.spawn(['cmake', '--build', '.', '--config', self.build_type] +
@@ -391,54 +315,8 @@ class build_ext(_build_ext):
             self._found_names = []
             for name in self.CYTHON_MODULE_NAMES:
                 built_path = pjoin(install_prefix, name + ext_suffix)
-                if not os.path.exists(built_path):
-                    print(f'Did not find {built_path}')
-                    if self._failure_permitted(name):
-                        print(f'Cython module {name} failure permitted')
-                        continue
-                    raise RuntimeError('PyArrow C-extension failed to build:',
-                                       os.path.abspath(built_path))
-
-                self._found_names.append(name)
-
-    def _failure_permitted(self, name):
-        if name == '_parquet' and not self.with_parquet:
-            return True
-        if name == '_parquet_encryption' and not self.with_parquet_encryption:
-            return True
-        if name == '_orc' and not self.with_orc:
-            return True
-        if name == '_flight' and not self.with_flight:
-            return True
-        if name == '_substrait' and not self.with_substrait:
-            return True
-        if name == '_azurefs' and not self.with_azure:
-            return True
-        if name == '_gcsfs' and not self.with_gcs:
-            return True
-        if name == '_s3fs' and not self.with_s3:
-            return True
-        if name == '_hdfs' and not self.with_hdfs:
-            return True
-        if name == '_dataset' and not self.with_dataset:
-            return True
-        if name == '_acero' and not self.with_acero:
-            return True
-        if name == '_exec_plan' and not self.with_acero:
-            return True
-        if name == '_dataset_orc' and not (
-                self.with_orc and self.with_dataset
-        ):
-            return True
-        if name == '_dataset_parquet' and not (
-                self.with_parquet and self.with_dataset
-        ):
-            return True
-        if name == '_cuda' and not self.with_cuda:
-            return True
-        if name == 'gandiva' and not self.with_gandiva:
-            return True
-        return False
+                if os.path.exists(built_path):
+                    self._found_names.append(name)
 
     def _get_build_dir(self):
         # Get the package directory from build_py
@@ -476,7 +354,7 @@ class build_ext(_build_ext):
 
 # If the event of not running from a git clone (e.g. from a git archive
 # or a Python sdist), see if we can set the version number ourselves
-default_version = '16.0.0-SNAPSHOT'
+default_version = '17.0.0-SNAPSHOT'
 if (not os.path.exists('../.git') and
         not os.environ.get('SETUPTOOLS_SCM_PRETEND_VERSION')):
     os.environ['SETUPTOOLS_SCM_PRETEND_VERSION'] = \
