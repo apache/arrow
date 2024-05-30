@@ -100,7 +100,7 @@ SHELL ["/bin/bash","-c"]
 # install selenium and pyodide-build and recent python
  RUN    apt-get update && apt install "software-properties-common" -y -q &&\
      add-apt-repository ppa:deadsnakes/ppa &&\
-     apt install python3.11 -y -q &&\
-     ln -s /usr/bin/python3.11 /usr/bin/python && \
+     apt install python3.12 -y -q &&\
+     ln -s /usr/bin/python3.12 /usr/bin/python && \
      python -m pip install selenium==${selenium_version} &&\
-     python -m pip install pyodide-build==${pyodide_version}
+     python -m pip install --pre pyodide-build==${pyodide_version}
