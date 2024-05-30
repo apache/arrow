@@ -1079,10 +1079,16 @@ def test_map_from_arrays():
             pa.int64()
         ))
 
-    # pass in null bitmap
+    # pass in null bitmap with type
     result = pa.MapArray.from_arrays([0, 2, 2, 6], keys, items, pa.map_(
         keys.type,
         items.type),
+        mask=pa.array([False, True, False], type=pa.bool_())
+    )
+    assert result.equals(expected)
+
+    # pass in null bitmap without the type
+    result = pa.MapArray.from_arrays([0, 2, 2, 6], keys, items,
         mask=pa.array([False, True, False], type=pa.bool_())
     )
     assert result.equals(expected)
