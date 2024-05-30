@@ -20,6 +20,10 @@
   <name>Arrow Algorithms</name>
   <description>(Experimental/Contrib) A collection of algorithms for working with ValueVectors.</description>
 
+  <properties>
+    <checkstyle.config.location>${project.basedir}/../dev/checkstyle/checkstyle-spotless.xml</checkstyle.config.location>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>org.apache.arrow</groupId>
@@ -54,7 +58,7 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-checkstyle-plugin</artifactId>
         <configuration>
-          <skip>true</skip>
+          <configLocation>${checkstyle.config.location}</configLocation>
         </configuration>
       </plugin>
       <plugin>
@@ -66,16 +70,6 @@
               <!-- configure license for xml files -->
               <includes>
                 <include>pom.xml</include>
-              </includes>
-              <licenseHeader>
-                <file>${project.basedir}/../dev/license/asf-xml.license</file>
-                <delimiter>(&lt;configuration|&lt;project)</delimiter>
-              </licenseHeader>
-            </format>
-            <format>
-              <!-- configure license for java files -->
-              <includes>
-                <include>**/*.java</include>
               </includes>
             </format>
           </formats>
