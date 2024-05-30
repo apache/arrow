@@ -45,7 +45,7 @@ assert_array_released = pytest.raises(
     ValueError, match="Cannot import released ArrowArray")
 
 assert_stream_released = pytest.raises(
-    ValueError, match="Cannot import released ArrowArrayStream")
+    ValueError, match="Cannot import released Arrow Stream")
 
 
 def PyCapsule_IsValid(capsule, name):

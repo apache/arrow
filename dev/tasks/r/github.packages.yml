@@ -227,11 +227,20 @@ jobs:
            working-directory: 'arrow'
            extra-packages: cpp11
       - name: Set CRAN like openssl
-        if: contains(matrix.platform.name, 'arm64')
+        if: contains(matrix.platform.name, 'macOS')
+        # The -E forwards the GITHUB_* envvars
+        shell: sudo -E Rscript {0}
         run: |
-          # The arm64 runners contain openssl 1.1.1t in this path that is always included first so we need to override the
-          # default setting of the brew --prefix as root dir to avoid version conflicts.
-          echo "OPENSSL_ROOT_DIR=/opt/R/arm64" >> $GITHUB_ENV
+          # get the mac-recipes version of openssl from CRAN
+          source("https://mac.R-project.org/bin/install.R") 
+          install.libs("openssl")
+
+          # override our cmakes default setting of the brew --prefix as root dir to avoid version conflicts.
+          if (Sys.info()[["machine"]] == "arm64"){
+            cat("OPENSSL_ROOT_DIR=/opt/R/arm64\n", file=Sys.getenv("GITHUB_ENV"), append = TRUE)
+          } else {
+            cat("OPENSSL_ROOT_DIR=/opt/R/x86_64\n", file=Sys.getenv("GITHUB_ENV"), append = TRUE)
+          }
       - name: Build Binary
         id: build
         shell: Rscript {0}
@@ -239,6 +248,7 @@ jobs:
           NOT_CRAN: "false" # actions/setup-r sets this implicitly
           ARROW_R_DEV: "true"
           LIBARROW_BINARY: "true" # has to be set as long as allowlist not updated
+          LIBARROW_BUILD: "false"
           ARROW_R_ENFORCE_CHECKSUM: "true"
           ARROW_R_CHECKSUM_PATH: "{{ '${{ github.workspace }}' }}/repo/libarrow/bin"
         run: |

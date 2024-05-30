@@ -33,6 +33,7 @@ import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -161,7 +162,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   /**
    * Get the buffers that store the data for views in the vector.
    *
-   * @return buffer
+   * @return list of ArrowBuf
    */
   public List<ArrowBuf> getDataBuffers() {
     return dataBuffers;
@@ -368,8 +369,21 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    */
   @Override
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
-    // TODO: https://github.com/apache/arrow/issues/40931
-    throw new UnsupportedOperationException("loadFieldBuffers is not supported for BaseVariableWidthViewVector");
+    ArrowBuf bitBuf = ownBuffers.get(0);
+    ArrowBuf viewBuf = ownBuffers.get(1);
+    List<ArrowBuf> dataBufs = ownBuffers.subList(2, ownBuffers.size());
+
+    this.clear();
+
+    this.viewBuffer = viewBuf.getReferenceManager().retain(viewBuf, allocator);
+    this.validityBuffer = BitVectorHelper.loadValidityBuffer(fieldNode, bitBuf, allocator);
+
+    for (ArrowBuf dataBuf : dataBufs) {
+      this.dataBuffers.add(dataBuf.getReferenceManager().retain(dataBuf, allocator));
+    }
+
+    lastSet = fieldNode.getLength() - 1;
+    valueCount = fieldNode.getLength();
   }
 
   /**
@@ -703,13 +717,6 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    * impact the reference counts for this buffer, so it only should be used for in-context
    * access. Also note that this buffer changes regularly, thus
    * external classes shouldn't hold a reference to it (unless they change it).
-   * <p>
-   * Note: This method only returns validityBuffer and valueBuffer.
-   * But it doesn't return the data buffers.
-   * <p>
-   * TODO: Implement a strategy to retrieve the data buffers.
-   * <a href="https://github.com/apache/arrow/issues/40930">data buffer retrieval.</a>
-   *
    * @param clear Whether to clear vector before returning, the buffers will still be refcounted
    *              but the returned array will be the only reference to them
    * @return The underlying {@link ArrowBuf buffers} that is used by this
@@ -722,9 +729,15 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
     if (getBufferSize() == 0) {
       buffers = new ArrowBuf[0];
     } else {
-      buffers = new ArrowBuf[2];
+      final int dataBufferSize = dataBuffers.size();
+      // validity and view buffers
+      final int fixedBufferSize = 2;
+      buffers = new ArrowBuf[fixedBufferSize + dataBufferSize];
       buffers[0] = validityBuffer;
       buffers[1] = viewBuffer;
+      for (int i = fixedBufferSize; i < fixedBufferSize + dataBufferSize; i++) {
+        buffers[i] = dataBuffers.get(i - fixedBufferSize);
+      }
     }
     if (clear) {
       for (final ArrowBuf buffer : buffers) {
@@ -1322,30 +1335,67 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   /**
    * Copy a cell value from a particular index in source vector to a particular position in this
    * vector.
-   * TODO: Improve functionality to support copying views.
-   * <a href="https://github.com/apache/arrow/issues/40933">Enhance CopyFrom</a>
-   *
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
   @Override
   public void copyFrom(int fromIndex, int thisIndex, ValueVector from) {
-    throw new UnsupportedOperationException("copyFrom is not supported for VariableWidthVector");
+    Preconditions.checkArgument(getMinorType() == from.getMinorType());
+    if (from.isNull(fromIndex)) {
+      BitVectorHelper.unsetBit(validityBuffer, thisIndex);
+    } else {
+      final int viewLength = from.getDataBuffer().getInt((long) fromIndex * ELEMENT_SIZE);
+      BitVectorHelper.setBit(validityBuffer, thisIndex);
+      final int start = thisIndex * ELEMENT_SIZE;
+      final int copyStart = fromIndex * ELEMENT_SIZE;
+      from.getDataBuffer().getBytes(start, viewBuffer, copyStart, ELEMENT_SIZE);
+      if (viewLength > INLINE_SIZE) {
+        final int bufIndex = from.getDataBuffer().getInt(((long) fromIndex * ELEMENT_SIZE) +
+            LENGTH_WIDTH + PREFIX_WIDTH);
+        final int dataOffset = from.getDataBuffer().getInt(((long) fromIndex * ELEMENT_SIZE) +
+            LENGTH_WIDTH + PREFIX_WIDTH + BUF_INDEX_WIDTH);
+        final ArrowBuf dataBuf = ((BaseVariableWidthViewVector) from).dataBuffers.get(bufIndex);
+        final ArrowBuf thisDataBuf = allocateOrGetLastDataBuffer(viewLength);
+        thisDataBuf.setBytes(thisDataBuf.writerIndex(), dataBuf, dataOffset, viewLength);
+        thisDataBuf.writerIndex(thisDataBuf.writerIndex() + viewLength);
+      }
+    }
+    lastSet = thisIndex;
   }
 
   /**
    * Same as {@link #copyFrom(int, int, ValueVector)} except that it handles the case when the
    * capacity of the vector needs to be expanded before copy.
-   * TODO: Improve functionality to support copying views.
-   * <a href="https://github.com/apache/arrow/issues/40933">Enhance CopyFrom</a>
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
   @Override
   public void copyFromSafe(int fromIndex, int thisIndex, ValueVector from) {
-    throw new UnsupportedOperationException("copyFromSafe is not supported for VariableWidthVector");
+    Preconditions.checkArgument(getMinorType() == from.getMinorType());
+    if (from.isNull(fromIndex)) {
+      handleSafe(thisIndex, 0);
+      BitVectorHelper.unsetBit(validityBuffer, thisIndex);
+    } else {
+      final int viewLength = from.getDataBuffer().getInt((long) fromIndex * ELEMENT_SIZE);
+      handleSafe(thisIndex, viewLength);
+      BitVectorHelper.setBit(validityBuffer, thisIndex);
+      final int start = thisIndex * ELEMENT_SIZE;
+      final int copyStart = fromIndex * ELEMENT_SIZE;
+      from.getDataBuffer().getBytes(start, viewBuffer, copyStart, ELEMENT_SIZE);
+      if (viewLength > INLINE_SIZE) {
+        final int bufIndex = from.getDataBuffer().getInt(((long) fromIndex * ELEMENT_SIZE) +
+            LENGTH_WIDTH + PREFIX_WIDTH);
+        final int dataOffset = from.getDataBuffer().getInt(((long) fromIndex * ELEMENT_SIZE) +
+            LENGTH_WIDTH + PREFIX_WIDTH + BUF_INDEX_WIDTH);
+        final ArrowBuf dataBuf = ((BaseVariableWidthViewVector) from).dataBuffers.get(bufIndex);
+        final ArrowBuf thisDataBuf = allocateOrGetLastDataBuffer(viewLength);
+        thisDataBuf.setBytes(thisDataBuf.writerIndex(), dataBuf, dataOffset, viewLength);
+        thisDataBuf.writerIndex(thisDataBuf.writerIndex() + viewLength);
+      }
+    }
+    lastSet = thisIndex;
   }
 
   @Override

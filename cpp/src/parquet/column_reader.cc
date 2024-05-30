@@ -538,11 +538,11 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       page_buffer =
           DecompressIfNeeded(std::move(page_buffer), compressed_len, uncompressed_len);
 
-      return std::make_shared<DataPageV1>(page_buffer, header.num_values,
-                                          LoadEnumSafe(&header.encoding),
-                                          LoadEnumSafe(&header.definition_level_encoding),
-                                          LoadEnumSafe(&header.repetition_level_encoding),
-                                          uncompressed_len, data_page_statistics);
+      return std::make_shared<DataPageV1>(
+          page_buffer, header.num_values, LoadEnumSafe(&header.encoding),
+          LoadEnumSafe(&header.definition_level_encoding),
+          LoadEnumSafe(&header.repetition_level_encoding), uncompressed_len,
+          std::move(data_page_statistics));
     } else if (page_type == PageType::DATA_PAGE_V2) {
       ++page_ordinal_;
       const format::DataPageHeaderV2& header = current_page_header_.data_page_header_v2;
@@ -569,7 +569,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
           page_buffer, header.num_values, header.num_nulls, header.num_rows,
           LoadEnumSafe(&header.encoding), header.definition_levels_byte_length,
           header.repetition_levels_byte_length, uncompressed_len, is_compressed,
-          data_page_statistics);
+          std::move(data_page_statistics));
     } else {
       throw ParquetException(
           "Internal error, we have already skipped non-data pages in ShouldSkipPage()");

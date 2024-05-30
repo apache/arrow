@@ -134,9 +134,9 @@ format_string_replacement <- function(replacement, ignore.case, fixed) {
 # Arrow locale will be supported with ARROW-14126
 stop_if_locale_provided <- function(locale) {
   if (!identical(locale, "en")) {
-    stop("Providing a value for 'locale' other than the default ('en') is not supported in Arrow. ",
-      "To change locale, use 'Sys.setlocale()'",
-      call. = FALSE
+    arrow_not_supported(
+      "Providing a value for 'locale' other than the default ('en')",
+      body = c(">" = "To change locale, use 'Sys.setlocale()'")
     )
   }
 }
@@ -158,10 +158,11 @@ register_bindings_string_join <- function() {
         # handle scalar literal args, and cast all args to string for
         # consistency with base::paste(), base::paste0(), and stringr::str_c()
         if (!inherits(arg, "Expression")) {
-          assert_that(
-            length(arg) == 1,
-            msg = "Literal vectors of length != 1 not supported in string concatenation"
-          )
+          if (length(arg) != 1) {
+            arrow_not_supported(
+              "Literal vectors of length != 1 in string concatenation"
+            )
+          }
           Expression$scalar(as.character(arg))
         } else {
           call_binding("as.character", arg)
@@ -181,12 +182,11 @@ register_bindings_string_join <- function() {
   register_binding(
     "base::paste",
     function(..., sep = " ", collapse = NULL, recycle0 = FALSE) {
-      assert_that(
-        is.null(collapse),
-        msg = "paste() with the collapse argument is not yet supported in Arrow"
-      )
-      if (!inherits(sep, "Expression")) {
-        assert_that(!is.na(sep), msg = "Invalid separator")
+      if (!is.null(collapse)) {
+        arrow_not_supported("`collapse` argument")
+      }
+      if (!inherits(sep, "Expression") && is.na(sep)) {
+        validation_error("Invalid separator")
       }
       arrow_string_join_function(NullHandlingBehavior$REPLACE, "NA")(..., sep)
     },
@@ -196,10 +196,9 @@ register_bindings_string_join <- function() {
   register_binding(
     "base::paste0",
     function(..., collapse = NULL, recycle0 = FALSE) {
-      assert_that(
-        is.null(collapse),
-        msg = "paste0() with the collapse argument is not yet supported in Arrow"
-      )
+      if (!is.null(collapse)) {
+        arrow_not_supported("`collapse` argument")
+      }
       arrow_string_join_function(NullHandlingBehavior$REPLACE, "NA")(..., "")
     },
     notes = "the `collapse` argument is not yet supported"
@@ -208,12 +207,11 @@ register_bindings_string_join <- function() {
   register_binding(
     "stringr::str_c",
     function(..., sep = "", collapse = NULL) {
-      assert_that(
-        is.null(collapse),
-        msg = "str_c() with the collapse argument is not yet supported in Arrow"
-      )
-      if (!inherits(sep, "Expression")) {
-        assert_that(!is.na(sep), msg = "`sep` must be a single string, not `NA`.")
+      if (!is.null(collapse)) {
+        arrow_not_supported("`collapse` argument")
+      }
+      if (!inherits(sep, "Expression") && is.na(sep)) {
+        validation_error("`sep` must be a single string, not `NA`.")
       }
       arrow_string_join_function(NullHandlingBehavior$EMIT_NULL)(..., sep)
     },
@@ -352,10 +350,10 @@ register_bindings_string_regex <- function() {
   arrow_r_string_replace_function <- function(max_replacements) {
     function(pattern, replacement, x, ignore.case = FALSE, fixed = FALSE) {
       if (length(pattern) != 1) {
-        stop("`pattern` must be a length 1 character vector")
+        validation_error("`pattern` must be a length 1 character vector")
       }
       if (length(replacement) != 1) {
-        stop("`replacement` must be a length 1 character vector")
+        validation_error("`replacement` must be a length 1 character vector")
       }
       Expression$create(
         ifelse(fixed && !ignore.case, "replace_substring", "replace_substring_regex"),
@@ -512,14 +510,12 @@ register_bindings_string_other <- function() {
   register_binding(
     "base::substr",
     function(x, start, stop) {
-      assert_that(
-        length(start) == 1,
-        msg = "`start` must be length 1 - other lengths are not supported in Arrow"
-      )
-      assert_that(
-        length(stop) == 1,
-        msg = "`stop` must be length 1 - other lengths are not supported in Arrow"
-      )
+      if (length(start) != 1) {
+        arrow_not_supported("`start` must be length 1 - other lengths")
+      }
+      if (length(stop) != 1) {
+        arrow_not_supported("`stop` must be length 1 - other lengths")
+      }
 
       # substr treats values as if they're on a continuous number line, so values
       # 0 are effectively blank characters - set `start` to 1 here so Arrow mimics
@@ -561,14 +557,12 @@ register_bindings_string_other <- function() {
   })
 
   register_binding("stringr::str_sub", function(string, start = 1L, end = -1L) {
-    assert_that(
-      length(start) == 1,
-      msg = "`start` must be length 1 - other lengths are not supported in Arrow"
-    )
-    assert_that(
-      length(end) == 1,
-      msg = "`end` must be length 1 - other lengths are not supported in Arrow"
-    )
+    if (length(start) != 1) {
+      arrow_not_supported("`start` must be length 1 - other lengths")
+    }
+    if (length(end) != 1) {
+      arrow_not_supported("`end` must be length 1 - other lengths")
+    }
 
     # In stringr::str_sub, an `end` value of -1 means the end of the string, so
     # set it to the maximum integer to match this behavior

@@ -424,7 +424,7 @@ void TaskSchedulerImpl::Abort(AbortContinuationImpl impl) {
 
 std::unique_ptr<TaskScheduler> TaskScheduler::Make() {
   std::unique_ptr<TaskSchedulerImpl> impl{new TaskSchedulerImpl()};
-  return std::move(impl);
+  return impl;
 }
 
 }  // namespace acero

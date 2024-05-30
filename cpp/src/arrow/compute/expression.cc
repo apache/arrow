@@ -1645,7 +1645,7 @@ Expression and_(const std::vector<Expression>& operands) {
 
   Expression folded = operands.front();
   for (auto it = operands.begin() + 1; it != operands.end(); ++it) {
-    folded = and_(std::move(folded), std::move(*it));
+    folded = and_(std::move(folded), *it);
   }
   return folded;
 }
@@ -1659,7 +1659,7 @@ Expression or_(const std::vector<Expression>& operands) {
 
   Expression folded = operands.front();
   for (auto it = operands.begin() + 1; it != operands.end(); ++it) {
-    folded = or_(std::move(folded), std::move(*it));
+    folded = or_(std::move(folded), *it);
   }
   return folded;
 }

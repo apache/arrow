@@ -2985,7 +2985,7 @@ class SwissJoin : public HashJoinImpl {
 
 Result<std::unique_ptr<HashJoinImpl>> HashJoinImpl::MakeSwiss() {
   std::unique_ptr<HashJoinImpl> impl{new SwissJoin()};
-  return std::move(impl);
+  return impl;
 }
 
 }  // namespace acero

@@ -32,7 +32,7 @@
     </dependency>
     <dependency>
       <groupId>org.immutables</groupId>
-      <artifactId>value</artifactId>
+      <artifactId>value-annotations</artifactId>
     </dependency>
     <dependency>
       <groupId>com.fasterxml.jackson.core</groupId>
@@ -199,7 +199,7 @@
             <phase>generate-sources</phase>
             <configuration>
               <config>src/main/codegen/config.fmpp</config>
-              <output>${project.build.directory}/generated-sources</output>
+              <output>${project.build.directory}/generated-sources/fmpp</output>
               <templates>${project.build.directory}/codegen/templates</templates>
             </configuration>
           </execution>
