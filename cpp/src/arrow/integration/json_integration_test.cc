@@ -1177,23 +1177,3 @@ INSTANTIATE_TEST_SUITE_P(TestJsonRoundTrip, TestJsonRoundTrip,
                          ::testing::ValuesIn(kBatchCases));
 
 }  // namespace arrow::internal::integration
-
-int main(int argc, char** argv) {
-  gflags::ParseCommandLineFlags(&argc, &argv, true);
-
-  int ret = 0;
-
-  if (FLAGS_integration) {
-    arrow::Status result =
-        arrow::internal::integration::RunCommand(FLAGS_json, FLAGS_arrow, FLAGS_mode);
-    if (!result.ok()) {
-      std::cout << "Error message: " << result.ToString() << std::endl;
-      ret = 1;
-    }
-  } else {
-    ::testing::InitGoogleTest(&argc, argv);
-    ret = RUN_ALL_TESTS();
-  }
-  gflags::ShutDownCommandLineFlags();
-  return ret;
-}

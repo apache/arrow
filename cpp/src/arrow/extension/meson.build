@@ -16,22 +16,12 @@
 # under the License.
 
 if get_option('ARROW_BUILD_TESTS')
-    io_tests = ['buffered', 'compressed', 'file', 'memory']
-
-    foreach io_test : io_tests
-        exc = executable(
-            io_test,
-            io_test + '_test.cc',
-            include_directories: [root_dir],
-            # Don't mangle local stdio.h with system
-            implicit_include_directories: false,
-            link_with: [arrow_lib, arrow_testing_lib],
-            dependencies: [gtest_dep, gmock_dep],
-        )
-        test('arrow-io-' + io_test, exc)
-    endforeach
-
-    # TODO: HDFS test
-
-     # TODO: benchmarks
+    fixed_shape_tensor_test = executable(
+        'fixed_shape_tensor_test',
+        'fixed_shape_tensor_test.cc',
+        include_directories: [root_dir],
+        link_with: [arrow_lib, arrow_testing_lib],
+        dependencies: [gtest_dep, gmock_dep],
+    )
+    test('arrow-fixed-shape-tensor', fixed_shape_tensor_test)
 endif

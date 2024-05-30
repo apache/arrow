@@ -16,22 +16,18 @@
 # under the License.
 
 if get_option('ARROW_BUILD_TESTS')
-    io_tests = ['buffered', 'compressed', 'file', 'memory']
+    json_test = executable(
+        'json_test',
+        'chunked_builder_test.cc',
+        'chunker_test.cc',
+        'converter_test.cc',
+        'parser_test.cc',
+        'reader_test.cc',
+        include_directories: [root_dir],
+        link_with: [arrow_lib, arrow_testing_lib],
+        dependencies: [gtest_dep, gmock_dep, rapidjson_dep],
+    )
+    test('arrow-json', json_test)
 
-    foreach io_test : io_tests
-        exc = executable(
-            io_test,
-            io_test + '_test.cc',
-            include_directories: [root_dir],
-            # Don't mangle local stdio.h with system
-            implicit_include_directories: false,
-            link_with: [arrow_lib, arrow_testing_lib],
-            dependencies: [gtest_dep, gmock_dep],
-        )
-        test('arrow-io-' + io_test, exc)
-    endforeach
-
-    # TODO: HDFS test
-
-     # TODO: benchmarks
+    # TODO: benchmarks
 endif

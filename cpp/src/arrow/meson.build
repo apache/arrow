@@ -299,7 +299,6 @@ if needs_testing
         'testing/util.cc',
     ]
 
-    gflags_dep = dependency('gflags')
     gtest_dep = dependency('gtest', fallback: ['gtest', 'gtest_main_dep'])
     gmock_dep = dependency('gmock')
 
@@ -433,6 +432,7 @@ if needs_testing
     )
     test('arrow-stl', stl_test)
 
+    subdir('integration')
     subdir('testing')
 
     subdir('array')
@@ -537,4 +537,8 @@ if needs_testing
     test('arrow-crc32', crc32_test)
 
     # TODO: util benchmarks
+
+    subdir('ipc')
+    subdir('json')
+    subdir('extension')
 endif
