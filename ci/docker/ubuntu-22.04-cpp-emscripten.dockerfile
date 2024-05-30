@@ -45,7 +45,8 @@ RUN bash ~/miniforge.sh -b -p /miniforge &&\
 #ENV PATH /miniforge/bin:$PATH
 
 RUN  conda create -y -n py312 python=3.12 -c conda-forge &&\
-     echo "conda activate py312" >> ~/.profile
+     echo "conda activate py312" >> ~/.profile &&\
+     echo "conda activate py312" >> ~/.bashrc
 
 
 #RUN conda init bash && cat ~/.profile && false
