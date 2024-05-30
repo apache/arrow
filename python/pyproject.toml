@@ -65,7 +65,8 @@ test = [
     'pytest',
     'hypothesis',
     'cffi',
-    'pytz'
+    'pytz',
+    'pandas'
 ]
 
 [tool.setuptools]
