@@ -183,25 +183,25 @@ static inline bool ValidateUTF8Inline(const uint8_t* data, int64_t size) {
   switch (size) {
     case 7:
       state = internal::ValidateOneUTF8Byte(data[size - 7], state);
-      break;
+      [[fallthrough]];
     case 6:
       state = internal::ValidateOneUTF8Byte(data[size - 6], state);
-      break;
+      [[fallthrough]];
     case 5:
       state = internal::ValidateOneUTF8Byte(data[size - 5], state);
-      break;
+      [[fallthrough]];
     case 4:
       state = internal::ValidateOneUTF8Byte(data[size - 4], state);
-      break;
+      [[fallthrough]];
     case 3:
       state = internal::ValidateOneUTF8Byte(data[size - 3], state);
-      break;
+      [[fallthrough]];
     case 2:
       state = internal::ValidateOneUTF8Byte(data[size - 2], state);
-      break;
+      [[fallthrough]];
     case 1:
       state = internal::ValidateOneUTF8Byte(data[size - 1], state);
-      break;
+      [[fallthrough]];
     default:
       break;
   }
