@@ -23,11 +23,6 @@ set -ex
 source_dir=${1}/python
 cd ${source_dir}
 
-# apply patch to pyodide 0.25.1
-if [[ $PYODIDE_VERSION == "0.25.1" ]]; then
-    bash scripts/patch_old_pyodide.sh ${1} ${2}
-fi
-
 dist_dir=${2}
 
 # note: this assumes that there is only one wheel built into dist 

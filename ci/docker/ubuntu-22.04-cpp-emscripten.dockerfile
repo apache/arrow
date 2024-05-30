@@ -27,9 +27,9 @@ RUN cd ~ && (ls emsdk || git clone https://github.com/emscripten-core/emsdk.git)
     echo "Installed emsdk to:" ~/emsdk
 
 # install pyodide dist directory to /pyodide
-ARG pyodide_version="0.25.1"
+ARG pyodide_version="0.26.0"
 RUN cd / \
-  && pyodide_dist_url="https://github.com/pyodide/pyodide/releases/download/${pyodide_version}/pyodide-0.25.1.tar.bz2"\
+  && pyodide_dist_url="https://github.com/pyodide/pyodide/releases/download/${pyodide_version}/pyodide-${pyodide_version}.tar.bz2"\
   && wget ${pyodide_dist_url} -O- |tar -xj
 
 # install browsers
