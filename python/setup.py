@@ -40,6 +40,14 @@ import Cython
 # Check if we're running 64-bit Python
 is_64_bit = sys.maxsize > 2**32
 
+is_emscripten = False
+if (
+    sysconfig.get_config_var("SOABI")
+    and sysconfig.get_config_var("SOABI").find("emscripten") != -1
+):
+    is_emscripten = True
+
+
 if Cython.__version__ < '0.29.31':
     raise Exception(
         'Please update your Cython version. Supported Cython >= 0.29.31')
@@ -298,8 +306,14 @@ class build_ext(_build_ext):
                     build_tool_args.append(f'-j{parallel}')
 
             # Generate the build files
-            print("-- Running cmake for PyArrow")
-            self.spawn(['cmake'] + extra_cmake_args + cmake_options + [source])
+            if is_emscripten:
+                print("-- Running emcmake cmake for PyArrow on Emscripten")
+                self.spawn(['emcmake', 'cmake'] + extra_cmake_args +
+                           cmake_options + [source])
+            else:
+                print("-- Running cmake for PyArrow")
+                self.spawn(['cmake'] + extra_cmake_args + cmake_options + [source])
+
             print("-- Finished cmake for PyArrow")
 
             print("-- Running cmake --build for PyArrow")
