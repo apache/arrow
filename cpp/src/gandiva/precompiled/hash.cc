@@ -322,10 +322,10 @@ static gdv_uint32 murmur3_32_buf(const gdv_uint8* key, gdv_int32 len, gdv_int32 
   switch (len & 3) {
     case 3:
       lk1 = (tail[2] & 0xff) << 16;
-      break;
+      [[fallthrough]];
     case 2:
       lk1 |= (tail[1] & 0xff) << 8;
-      break;
+      [[fallthrough]];
     case 1:
       lk1 |= (tail[0] & 0xff);
       lk1 *= c1;
@@ -336,7 +336,6 @@ static gdv_uint32 murmur3_32_buf(const gdv_uint8* key, gdv_int32 len, gdv_int32 
       lk1 = lk1 & UINT_MASK;
 
       lh1 ^= lk1;
-      break;
   }
 
   // finalization
