@@ -25,14 +25,16 @@ for os_name in ${os_names[@]}; do
         cp "${gircore_gir_dir}/${os_name}/${gir_dep}.gir" "${gir_dir}/${os_name}"
     done
 
-    # TODO: Make this work cross platform and merge all platforms in CI build
-    for index in ${!arrow_gobject_libs[*]}; do
-        arrow_lib=${arrow_gobject_libs[$index]}
-        cp "${arrow_gir_dir}/${arrow_lib}.gir" "${gir_dir}/${os_name}"
-        namespace=${namespaces[$index]}
-        sed -i.bak "s/<namespace name=\"\([^\"]*\)\"/<namespace name=\"${namespace}\"/" "${gir_dir}/${os_name}/${arrow_lib}.gir"
-        rm -r "${gir_dir}/${os_name}/${arrow_lib}.gir.bak"
-    done
+done
+
+# TODO: Make this select the appropriate platform and merge all platforms in CI build
+os_name="linux"
+for index in ${!arrow_gobject_libs[*]}; do
+    arrow_lib=${arrow_gobject_libs[$index]}
+    cp "${arrow_gir_dir}/${arrow_lib}.gir" "${gir_dir}/${os_name}"
+    namespace=${namespaces[$index]}
+    sed -i.bak "s/<namespace name=\"\([^\"]*\)\"/<namespace name=\"${namespace}\"/" "${gir_dir}/${os_name}/${arrow_lib}.gir"
+    rm -r "${gir_dir}/${os_name}/${arrow_lib}.gir.bak"
 done
 
 dotnet run --project tools/gir.core/src/Generation/GirTool/GirTool.csproj -- \
