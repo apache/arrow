@@ -37,6 +37,7 @@ def test_buffer_device():
     assert buf.device_type == pa.DeviceAllocationType.CPU
     assert isinstance(buf.device, pa.Device)
     assert isinstance(buf.memory_manager, pa.MemoryManager)
+    assert buf.is_cpu
     assert buf.device.is_cpu
     assert buf.device == pa.default_cpu_memory_manager().device
     assert buf.memory_manager.is_cpu
