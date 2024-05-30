@@ -22,5 +22,5 @@ set -eux
 source_dir=${1}/csharp
 
 pushd ${source_dir}
-dotnet pack -c Release
+dotnet pack Apache.Arrow.sln -c Release
 popd

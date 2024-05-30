@@ -22,5 +22,5 @@ set -ex
 source_dir=${1}/csharp
 
 pushd ${source_dir}
-dotnet build
+dotnet build Apache.Arrow.sln
 popd

@@ -906,13 +906,13 @@ test_csharp() {
 
   pushd csharp
 
-  dotnet test
+  dotnet test Apache.Arrow.sln
 
   if [ "${SOURCE_KIND}" = "local" -o "${SOURCE_KIND}" = "git" ]; then
-    dotnet pack -c Release
+    dotnet pack Apache.Arrow.sln -c Release
   else
     mv dummy.git ../.git
-    dotnet pack -c Release
+    dotnet pack Apache.Arrow.sln -c Release
     mv ../.git dummy.git
   fi
 
