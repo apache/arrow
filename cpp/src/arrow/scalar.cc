@@ -1251,7 +1251,8 @@ CastImpl(const From& from, std::shared_ptr<DataType> to_type) {
 }
 
 template <typename ScalarType>
-Result<std::shared_ptr<Scalar>> CastToStringScalar(const ScalarType& from, std::shared_ptr<DataType> to_type) {
+Result<std::shared_ptr<Scalar>> CastToStringScalar(const ScalarType& from,
+                                                   std::shared_ptr<DataType> to_type) {
   StringFormatter<ScalarType> formatter(from.type.get());
   std::string result;
   auto append = [&result](std::string_view sv) {

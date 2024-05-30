@@ -29,6 +29,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "arrow/array/array_nested.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -39,7 +40,6 @@
 #include "arrow/util/time.h"
 #include "arrow/util/visibility.h"
 #include "arrow/vendored/datetime.h"
-#include "arrow/array/array_nested.h"
 
 namespace arrow {
 namespace internal {
@@ -695,8 +695,8 @@ class StringFormatter<StructScalar> {
     ss << '{';
     for (int i = 0; static_cast<size_t>(i) < value.value.size(); i++) {
       if (i > 0) ss << ", ";
-      ss << type_->field(i)->name() << ':' << type_->field(i)->type()->ToString()
-         << " = " << value.value[i]->ToString();
+      ss << type_->field(i)->name() << ':' << type_->field(i)->type()->ToString() << " = "
+         << value.value[i]->ToString();
     }
     ss << '}';
     return append(std::string_view(ss.str()));
@@ -724,12 +724,12 @@ class StringFormatter<UnionScalar> {
       const auto& sparse_scalar = checked_cast<const SparseUnionScalar&>(value);
       selected_value = sparse_scalar.value[sparse_scalar.child_id].get();
     }
-    result += "union{" + union_ty.field(union_ty.child_ids()[value.type_code])->ToString() +
-              " = " + selected_value->ToString() + '}';
+    result += "union{" +
+              union_ty.field(union_ty.child_ids()[value.type_code])->ToString() + " = " +
+              selected_value->ToString() + '}';
     return append(std::string_view(result));
   }
 };
-
 
 }  // namespace internal
 }  // namespace arrow
