@@ -648,9 +648,9 @@ func TestFloat64BuilderUnmarshalJSON(t *testing.T) {
 
 	arr := bldr.NewFloat64Array()
 	defer arr.Release()
-	
+
 	assert.NotNil(t, arr)
-	
+
 	assert.False(t, math.IsInf(float64(arr.Value(0)), 0), arr.Value(0))
 	assert.True(t, math.IsInf(float64(arr.Value(2)), 1), arr.Value(2))
 	assert.True(t, math.IsNaN(float64(arr.Value(5))), arr.Value(5))
@@ -1276,9 +1276,9 @@ func TestFloat32BuilderUnmarshalJSON(t *testing.T) {
 
 	arr := bldr.NewFloat32Array()
 	defer arr.Release()
-	
+
 	assert.NotNil(t, arr)
-	
+
 	assert.False(t, math.IsInf(float64(arr.Value(0)), 0), arr.Value(0))
 	assert.True(t, math.IsInf(float64(arr.Value(2)), 1), arr.Value(2))
 	assert.True(t, math.IsNaN(float64(arr.Value(5))), arr.Value(5))

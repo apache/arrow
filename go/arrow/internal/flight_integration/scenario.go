@@ -2134,7 +2134,7 @@ func (m *flightSqlScenarioTester) ClosePreparedStatement(_ context.Context, requ
 	return nil
 }
 
-func (m *flightSqlScenarioTester) DoPutPreparedStatementQuery(_ context.Context, cmd flightsql.PreparedStatementQuery, rdr flight.MessageReader, _ flight.MetadataWriter) ([]byte, error){
+func (m *flightSqlScenarioTester) DoPutPreparedStatementQuery(_ context.Context, cmd flightsql.PreparedStatementQuery, rdr flight.MessageReader, _ flight.MetadataWriter) ([]byte, error) {
 	switch string(cmd.GetPreparedStatementHandle()) {
 	case "SELECT PREPARED STATEMENT HANDLE",
 		"SELECT PREPARED STATEMENT WITH TXN HANDLE",

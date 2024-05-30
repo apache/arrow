@@ -22,9 +22,9 @@ import (
 	flatbuffers "github.com/google/flatbuffers/go"
 )
 
-/// ----------------------------------------------------------------------
-/// user defined key value pairs to add custom metadata to arrow
-/// key namespacing is the responsibility of the user
+// / ----------------------------------------------------------------------
+// / user defined key value pairs to add custom metadata to arrow
+// / key namespacing is the responsibility of the user
 type KeyValue struct {
 	_tab flatbuffers.Table
 }
