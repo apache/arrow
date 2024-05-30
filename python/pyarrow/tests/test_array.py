@@ -1089,8 +1089,9 @@ def test_map_from_arrays():
 
     # pass in null bitmap without the type
     result = pa.MapArray.from_arrays([0, 2, 2, 6], keys, items,
-        mask=pa.array([False, True, False], type=pa.bool_())
-    )
+                                     mask=pa.array([False, True, False],
+                                                   type=pa.bool_())
+                                     )
     assert result.equals(expected)
 
     # error if null bitmap and offsets with nulls passed
