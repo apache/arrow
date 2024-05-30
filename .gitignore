@@ -103,3 +103,7 @@ __debug_bin
 
 # Develocity
 .mvn/.gradle-enterprise/
+
+# rat
+filtered_rat.txt
+rat.txt
