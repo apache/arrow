@@ -1738,14 +1738,14 @@ public class TestVarCharViewVector {
         final int dataRefCnt = sourceVector.getDataBuffer().refCnt();
 
         sourceVector.splitAndTransferTo(0, 2, targetVector);
-        // split and transfer with slice starting at the beginning:
-        // this should not allocate anything new (all are inline strings)
-        assertEquals(allocatedMem, allocator.getAllocatedMemory());
+        // we allocate view and data buffers for the target vector
+        assertTrue(allocatedMem < allocator.getAllocatedMemory());
 
         // The validity buffer is sliced from the same buffer.See BaseFixedWidthViewVector#allocateBytes.
         // Therefore, the refcnt of the validity buffer is increased once since the startIndex is 0.
         assertEquals(validityRefCnt + 1, sourceVector.getValidityBuffer().refCnt());
-        assertEquals(dataRefCnt + 1, sourceVector.getDataBuffer().refCnt());
+        // since the new view buffer is allocated, the refcnt is the same as the source vector.
+        assertEquals(dataRefCnt, sourceVector.getDataBuffer().refCnt());
       }
       assertArrayEquals(STR4, targetVector.get(0));
       assertArrayEquals(STR5, targetVector.get(1));
@@ -1774,14 +1774,18 @@ public class TestVarCharViewVector {
         final int dataRefCnt = sourceVector.getDataBuffer().refCnt();
 
         sourceVector.splitAndTransferTo(0, 2, targetVector);
-        // split and transfer with slice starting at the beginning:
-        // this should allocate new (first is a long string)
+        // we allocate view and data buffers for the target vector
         assertTrue(allocatedMem < allocator.getAllocatedMemory());
 
         // The validity buffer is sliced from the same buffer.See BaseFixedWidthViewVector#allocateBytes.
         // Therefore, the refcnt of the validity buffer is increased once since the startIndex is 0.
         assertEquals(validityRefCnt + 1, sourceVector.getValidityBuffer().refCnt());
-        assertEquals(dataRefCnt + 1, sourceVector.getDataBuffer().refCnt());
+        // since the new view buffer is allocated, the refcnt is the same as the source vector.
+        assertEquals(dataRefCnt, sourceVector.getDataBuffer().refCnt());
+
+        assertArrayEquals(STR2, sourceVector.get(0));
+        assertArrayEquals(STR5, sourceVector.get(1));
+        assertArrayEquals(STR6, sourceVector.get(2));
       }
       assertArrayEquals(STR2, targetVector.get(0));
       assertArrayEquals(STR5, targetVector.get(1));
@@ -1809,13 +1813,17 @@ public class TestVarCharViewVector {
         final int validityRefCnt = sourceVector.getValidityBuffer().refCnt();
         final int dataRefCnt = sourceVector.getDataBuffer().refCnt();
 
-        // split and transfer with slice starting at the beginning: this should not allocate anything new
         sourceVector.splitAndTransferTo(0, 2, targetVector);
-        assertEquals(allocatedMem, allocator.getAllocatedMemory());
+        // we allocate view and data buffers for the target vector
+        assertTrue(allocatedMem < allocator.getAllocatedMemory());
         // The validity buffer is sliced from the same buffer.See BaseFixedWidthViewVector#allocateBytes.
         // Therefore, the refcnt of the validity buffer is increased once since the startIndex is 0.
         assertEquals(validityRefCnt + 1, sourceVector.getValidityBuffer().refCnt());
-        assertEquals(dataRefCnt + 1, sourceVector.getDataBuffer().refCnt());
+        // since the new view buffer is allocated, the refcnt is the same as the source vector.
+        assertEquals(dataRefCnt, sourceVector.getDataBuffer().refCnt());
+
+        assertArrayEquals(STR4, targetVector.get(0));
+        assertArrayEquals(STR5, targetVector.get(1));
       }
       assertArrayEquals(STR4, sourceVector.get(0));
       assertArrayEquals(STR5, sourceVector.get(1));
@@ -1845,13 +1853,16 @@ public class TestVarCharViewVector {
         final int dataRefCnt = sourceVector.getDataBuffer().refCnt();
 
         sourceVector.splitAndTransferTo(0, 2, targetVector);
-        // split and transfer with slice starting at the beginning:
-        // this should allocate new (first is a long string)
+        // we allocate view and data buffers for the target vector
         assertTrue(allocatedMem < allocator.getAllocatedMemory());
         // The validity buffer is sliced from the same buffer.See BaseFixedWidthViewVector#allocateBytes.
         // Therefore, the refcnt of the validity buffer is increased once since the startIndex is 0.
         assertEquals(validityRefCnt + 1, sourceVector.getValidityBuffer().refCnt());
-        assertEquals(dataRefCnt + 1, sourceVector.getDataBuffer().refCnt());
+        // since the new view buffer is allocated, the refcnt is the same as the source vector.
+        assertEquals(dataRefCnt, sourceVector.getDataBuffer().refCnt());
+
+        assertArrayEquals(STR2, targetVector.get(0));
+        assertArrayEquals(STR5, targetVector.get(1));
       }
       assertArrayEquals(STR2, sourceVector.get(0));
       assertArrayEquals(STR5, sourceVector.get(1));
@@ -1887,14 +1898,22 @@ public class TestVarCharViewVector {
       final long validitySize =
           DefaultRoundingPolicy.DEFAULT_ROUNDING_POLICY.getRoundedSize(
               BaseValueVector.getValidityBufferSizeFromCount(2));
-      assertEquals(allocatedMem + validitySize, allocator.getAllocatedMemory());
+      // we allocate view and data buffers for the target vector
+      assertTrue(allocatedMem + validitySize < allocator.getAllocatedMemory());
       // The validity is sliced from the same buffer.See BaseFixedWidthViewVector#allocateBytes.
       // Since values up to the startIndex are empty/null validity refcnt should not change.
       assertEquals(validityRefCnt, sourceVector.getValidityBuffer().refCnt());
-      assertEquals(dataRefCnt + 1, sourceVector.getDataBuffer().refCnt());
+      // since the new view buffer is allocated, the refcnt is the same as the source vector.
+      assertEquals(dataRefCnt, sourceVector.getDataBuffer().refCnt());
 
       assertArrayEquals(STR4, targetVector.get(0));
       assertArrayEquals(STR5, targetVector.get(1));
+
+      assertArrayEquals(new byte[0], sourceVector.get(0));
+      assertTrue(sourceVector.isNull(1));
+      assertArrayEquals(STR4, sourceVector.get(2));
+      assertArrayEquals(STR5, sourceVector.get(3));
+      assertArrayEquals(STR6, sourceVector.get(4));
     }
   }
 
@@ -1927,14 +1946,22 @@ public class TestVarCharViewVector {
       final long validitySize =
           DefaultRoundingPolicy.DEFAULT_ROUNDING_POLICY.getRoundedSize(
               BaseValueVector.getValidityBufferSizeFromCount(2));
+      // we allocate view and data buffers for the target vector
       assertTrue(allocatedMem + validitySize < allocator.getAllocatedMemory());
       // The validity is sliced from the same buffer.See BaseFixedWidthViewVector#allocateBytes.
       // Since values up to the startIndex are empty/null validity refcnt should not change.
       assertEquals(validityRefCnt, sourceVector.getValidityBuffer().refCnt());
-      assertEquals(dataRefCnt + 1, sourceVector.getDataBuffer().refCnt());
+      // since the new view buffer is allocated, the refcnt is the same as the source vector.
+      assertEquals(dataRefCnt, sourceVector.getDataBuffer().refCnt());
 
       assertArrayEquals(STR1, targetVector.get(0));
       assertArrayEquals(STR2, targetVector.get(1));
+
+      assertArrayEquals(new byte[0], sourceVector.get(0));
+      assertTrue(sourceVector.isNull(1));
+      assertArrayEquals(STR1, sourceVector.get(2));
+      assertArrayEquals(STR2, sourceVector.get(3));
+      assertArrayEquals(STR3, sourceVector.get(4));
     }
   }
 
@@ -1946,9 +1973,10 @@ public class TestVarCharViewVector {
    */
   @Test
   public void testSplitAndTransfer7() {
-    try (final BufferAllocator targetAllocator = allocator.newChildAllocator("target-alloc", 256, 256);
+    final int maxAllocation = 512;
+    try (final BufferAllocator targetAllocator = allocator.newChildAllocator("target-alloc", 256, maxAllocation);
         final ViewVarCharVector targetVector = newViewVarCharVector("split-target", targetAllocator)) {
-      try (final BufferAllocator sourceAllocator = allocator.newChildAllocator("source-alloc", 256, 256);
+      try (final BufferAllocator sourceAllocator = allocator.newChildAllocator("source-alloc", 256, maxAllocation);
           final ViewVarCharVector sourceVector = newViewVarCharVector(EMPTY_SCHEMA_PATH, sourceAllocator)) {
         sourceVector.allocateNew(50, 3);
 
@@ -1961,15 +1989,19 @@ public class TestVarCharViewVector {
         final int validityRefCnt = sourceVector.getValidityBuffer().refCnt();
         final int dataRefCnt = sourceVector.getDataBuffer().refCnt();
 
-        // split and transfer with slice starting at the beginning:
-        // this should not allocate anything new
         sourceVector.splitAndTransferTo(0, 2, targetVector);
+        // no extra allocation as strings are all inline
         assertEquals(allocatedMem, allocator.getAllocatedMemory());
-        // Unlike testSplitAndTransfer1 where the buffers originated from the same allocator,
+
         // the refcnts of each buffer for this test should be the same as what
         // the source allocator ended up with.
         assertEquals(validityRefCnt, sourceVector.getValidityBuffer().refCnt());
+        // since the new view buffer is allocated, the refcnt is the same as the source vector.
         assertEquals(dataRefCnt, sourceVector.getDataBuffer().refCnt());
+
+        assertArrayEquals(STR4, sourceVector.get(0));
+        assertArrayEquals(STR5, sourceVector.get(1));
+        assertArrayEquals(STR6, sourceVector.get(2));
       }
       assertArrayEquals(STR4, targetVector.get(0));
       assertArrayEquals(STR5, targetVector.get(1));
@@ -1985,6 +2017,10 @@ public class TestVarCharViewVector {
   @Test
   public void testSplitAndTransfer8() {
     final int initialReservation = 1024;
+    // Here we have the target vector being transferred with a long string
+    // hence, the data buffer will be allocated.
+    // The default data buffer allocation takes
+    // BaseVariableWidthViewVector.INITIAL_VIEW_VALUE_ALLOCATION * BaseVariableWidthViewVector.ELEMENT_SIZE
     final int maxAllocation = initialReservation +
         BaseVariableWidthViewVector.INITIAL_VIEW_VALUE_ALLOCATION * BaseVariableWidthViewVector.ELEMENT_SIZE;
     try (final BufferAllocator targetAllocator = allocator.newChildAllocator("target-alloc",
@@ -2004,15 +2040,19 @@ public class TestVarCharViewVector {
         final int validityRefCnt = sourceVector.getValidityBuffer().refCnt();
         final int dataRefCnt = sourceVector.getDataBuffer().refCnt();
 
-        // split and transfer with slice starting at the beginning:
-        // this should not allocate anything new
         sourceVector.splitAndTransferTo(0, 2, targetVector);
+        // we allocate view and data buffers for the target vector
         assertTrue(allocatedMem < allocator.getAllocatedMemory());
-        // Unlike testSplitAndTransfer1 where the buffers originated from the same allocator,
+
         // the refcnts of each buffer for this test should be the same as what
         // the source allocator ended up with.
         assertEquals(validityRefCnt, sourceVector.getValidityBuffer().refCnt());
+        // since the new view buffer is allocated, the refcnt is the same as the source vector.
         assertEquals(dataRefCnt, sourceVector.getDataBuffer().refCnt());
+
+        assertArrayEquals(STR1, sourceVector.get(0));
+        assertArrayEquals(STR2, sourceVector.get(1));
+        assertArrayEquals(STR3, sourceVector.get(2));
       }
       assertArrayEquals(STR1, targetVector.get(0));
       assertArrayEquals(STR2, targetVector.get(1));
@@ -2119,6 +2159,56 @@ public class TestVarCharViewVector {
       }
 
       toVector.close();
+    }
+  }
+
+  /**
+   * ARROW-7831:
+   * ensures that data is transferred from one allocator to another in case of 0-index
+   * start special cases.
+   * With long strings and multiple data buffers.
+   * Check multi-data buffer source copying
+   */
+  @Test
+  public void testSplitAndTransfer9() {
+    try (final ViewVarCharVector targetVector = new ViewVarCharVector("target", allocator)) {
+      String str4 = generateRandomString(35);
+      try (final ViewVarCharVector sourceVector = new ViewVarCharVector("source", allocator)) {
+        sourceVector.allocateNew(48, 4);
+
+        sourceVector.set(0, STR1);
+        sourceVector.set(1, STR2);
+        sourceVector.set(2, STR3);
+        sourceVector.set(3, str4.getBytes(StandardCharsets.UTF_8));
+        sourceVector.setValueCount(4);
+
+        // we should have multiple data buffers
+        assertTrue(sourceVector.getDataBuffers().size() > 1);
+
+        final long allocatedMem = allocator.getAllocatedMemory();
+        final int validityRefCnt = sourceVector.getValidityBuffer().refCnt();
+        final int dataRefCnt = sourceVector.getDataBuffer().refCnt();
+
+        // split and transfer with slice starting at the beginning:
+        // this should not allocate anything new
+        sourceVector.splitAndTransferTo(1, 3, targetVector);
+        // we allocate view and data buffers for the target vector
+        assertTrue(allocatedMem < allocator.getAllocatedMemory());
+
+        // the refcnts of each buffer for this test should be the same as what
+        // the source allocator ended up with.
+        assertEquals(validityRefCnt, sourceVector.getValidityBuffer().refCnt());
+        // since the new view buffer is allocated, the refcnt is the same as the source vector.
+        assertEquals(dataRefCnt, sourceVector.getDataBuffer().refCnt());
+
+        assertArrayEquals(STR1, sourceVector.get(0));
+        assertArrayEquals(STR2, sourceVector.get(1));
+        assertArrayEquals(STR3, sourceVector.get(2));
+        assertArrayEquals(str4.getBytes(StandardCharsets.UTF_8), sourceVector.get(3));
+      }
+      assertArrayEquals(STR2, targetVector.get(0));
+      assertArrayEquals(STR3, targetVector.get(1));
+      assertArrayEquals(str4.getBytes(StandardCharsets.UTF_8), targetVector.get(2));
     }
   }
 

@@ -845,8 +845,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
     target.clear();
     if (length > 0) {
       splitAndTransferValidityBuffer(startIndex, length, target);
-      splitAndTransferViewBuffer(startIndex, length, target);
-      splitAndTransferDataBuffers(startIndex, length, target);
+      splitAndTransferViewBufferAndDataBuffer(startIndex, length, target);
       target.setLastSet(length - 1);
       target.setValueCount(length);
     }
@@ -921,11 +920,18 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
     }
   }
 
-  private void splitAndTransferViewBuffer(int startIndex, int length,
+  /**
+   * In split and transfer, the view buffer and the data buffer will be allocated.
+   * Then the values will be copied from the source vector to the target vector.
+   * Allocation and setting are preferred over transfer
+   * since the buf index and buf offset needs to be overwritten
+   * when large strings are added.
+   * @param startIndex starting index
+   * @param length number of elements to be copied
+   * @param target target vector
+   */
+  private void splitAndTransferViewBufferAndDataBuffer(int startIndex, int length,
       BaseVariableWidthViewVector target) {
-    final int startingByte = startIndex * ELEMENT_SIZE;
-    final int lengthInBytes = length * ELEMENT_SIZE;
-
     if (length == 0) {
       return;
     }
@@ -934,23 +940,55 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
       target.viewBuffer.getReferenceManager().release();
     }
 
-    final ArrowBuf slicedViewBuffer = viewBuffer.slice(startingByte, lengthInBytes);
-    target.viewBuffer = transferBuffer(slicedViewBuffer, target.allocator);
-  }
+    // allocate target view buffer
+    target.viewBuffer = target.allocator.buffer(length * ELEMENT_SIZE);
 
-  private void splitAndTransferDataBuffers(int startIndex, int length,
-      BaseVariableWidthViewVector target) {
     for (int i = startIndex; i < startIndex + length; i++) {
       final int stringLength = getValueLength(i);
-      if (stringLength > INLINE_SIZE) {
-        final int bufIndex = viewBuffer.getInt(((long) i * ELEMENT_SIZE) +
+
+      // keeping track of writing index in the target view buffer
+      int writePosition = (i - startIndex) * ELEMENT_SIZE;
+      // keeping track of reading index in the source view buffer
+      int readPosition = i * ELEMENT_SIZE;
+
+      // to clear the memory segment of view being written to
+      // this is helpful in case of overwriting the value
+      target.viewBuffer.setZero(writePosition, ELEMENT_SIZE);
+
+      // set length
+      target.viewBuffer.setInt(writePosition, stringLength);
+
+      if (stringLength <= INLINE_SIZE) {
+        // handle inline buffer
+        writePosition += LENGTH_WIDTH;
+        readPosition += LENGTH_WIDTH;
+        // set data by copying the required portion from the source buffer
+        target.viewBuffer.setBytes(writePosition, viewBuffer, readPosition, stringLength);
+      } else {
+        // handle non-inline buffer
+        final int readBufIndex = viewBuffer.getInt(((long) i * ELEMENT_SIZE) +
             LENGTH_WIDTH + PREFIX_WIDTH);
-        final int bufOffset = viewBuffer.getInt(((long) i * ELEMENT_SIZE) +
+        final int readBufOffset = viewBuffer.getInt(((long) i * ELEMENT_SIZE) +
             LENGTH_WIDTH + PREFIX_WIDTH + BUF_INDEX_WIDTH);
-        final ArrowBuf dataBuf = dataBuffers.get(bufIndex);
-        final ArrowBuf slicedDataBuffer = dataBuf.slice(bufOffset, stringLength);
+        final ArrowBuf dataBuf = dataBuffers.get(readBufIndex);
+
+        // allocate data buffer
         ArrowBuf currentDataBuf = target.allocateOrGetLastDataBuffer(stringLength);
-        currentDataBuf.setBytes(currentDataBuf.writerIndex(), slicedDataBuffer, 0, stringLength);
+        final long currentOffSet = currentDataBuf.writerIndex();
+
+        writePosition += LENGTH_WIDTH;
+        readPosition += LENGTH_WIDTH;
+        // set prefix
+        target.viewBuffer.setBytes(writePosition, viewBuffer, readPosition, PREFIX_WIDTH);
+        writePosition += PREFIX_WIDTH;
+        // set buf id
+        target.viewBuffer.setInt(writePosition, target.dataBuffers.size() - 1);
+        writePosition += BUF_INDEX_WIDTH;
+        // set offset
+        target.viewBuffer.setInt(writePosition, (int) currentOffSet);
+
+        currentDataBuf.setBytes(currentOffSet, dataBuf, readBufOffset, stringLength);
+        currentDataBuf.writerIndex(currentOffSet + stringLength);
       }
     }
   }

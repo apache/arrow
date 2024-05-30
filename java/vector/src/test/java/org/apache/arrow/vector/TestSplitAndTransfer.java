@@ -225,7 +225,7 @@ public class TestSplitAndTransfer {
     }
   }
 
-  @Test /* ViewVarCharVector */
+  @Test
   public void testView() throws Exception {
     try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator)) {
       viewVarCharVector.allocateNew(10000, 1000);
@@ -285,7 +285,15 @@ public class TestSplitAndTransfer {
   @Test
   public void testMemoryConstrainedTransferInViews() {
     try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator)) {
-      allocator.setLimit(32768); /* set limit of 32KB */
+      // Here we have the target vector being transferred with a long string
+      // hence, the data buffer will be allocated.
+      // The default data buffer allocation takes
+      // BaseVariableWidthViewVector.INITIAL_VIEW_VALUE_ALLOCATION * BaseVariableWidthViewVector.ELEMENT_SIZE
+      // set limit = BaseVariableWidthViewVector.INITIAL_VIEW_VALUE_ALLOCATION *
+      // BaseVariableWidthViewVector.ELEMENT_SIZE
+      final int setLimit = BaseVariableWidthViewVector.INITIAL_VIEW_VALUE_ALLOCATION *
+          BaseVariableWidthViewVector.ELEMENT_SIZE;
+      allocator.setLimit(setLimit);
 
       viewVarCharVector.allocateNew(16000, 1000);
 
