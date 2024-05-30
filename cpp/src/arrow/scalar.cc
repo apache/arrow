@@ -45,6 +45,7 @@ namespace arrow {
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
+using internal::StringFormatter;
 
 bool Scalar::Equals(const Scalar& other, const EqualOptions& options) const {
   return ScalarEquals(*this, other, options);
@@ -1238,7 +1239,7 @@ CastImpl(const From& from, std::shared_ptr<DataType> to_type) {
 
 // formattable to string
 template <typename To, typename From, typename T = typename From::TypeClass,
-          typename Formatter = internal::StringFormatter<T>,
+          typename Formatter = StringFormatter<T>,
           // note: Value unused but necessary to trigger SFINAE if Formatter is
           // undefined
           typename Value = typename Formatter::value_type>
@@ -1249,12 +1250,9 @@ CastImpl(const From& from, std::shared_ptr<DataType> to_type) {
                                         std::move(to_type));
 }
 
-// struct to string
-template <typename To>
-typename std::enable_if_t<std::is_same<To, StringType>::value,
-                          Result<std::shared_ptr<Scalar>>>
-CastImpl(const StructScalar& from, std::shared_ptr<DataType> to_type) {
-  arrow::internal::StringFormatter<StructScalar> formatter(from.type.get());
+template <typename ScalarType>
+Result<std::shared_ptr<Scalar>> CastToStringScalar(const ScalarType& from, std::shared_ptr<DataType> to_type) {
+  StringFormatter<ScalarType> formatter(from.type.get());
   std::string result;
   auto append = [&result](std::string_view sv) {
     result.append(sv);
@@ -1262,6 +1260,14 @@ CastImpl(const StructScalar& from, std::shared_ptr<DataType> to_type) {
   };
   ARROW_RETURN_NOT_OK(formatter(from, append));
   return std::make_shared<StringScalar>(Buffer::FromString(result), std::move(to_type));
+}
+
+// struct to string
+template <typename To>
+typename std::enable_if_t<std::is_same<To, StringType>::value,
+                          Result<std::shared_ptr<Scalar>>>
+CastImpl(const StructScalar& from, std::shared_ptr<DataType> to_type) {
+  return CastToStringScalar(from, std::move(to_type));
 }
 
 // casts between variable-length and fixed-length list types
@@ -1294,14 +1300,7 @@ template <typename To>
 typename std::enable_if_t<std::is_same<To, StringType>::value,
                           Result<std::shared_ptr<Scalar>>>
 CastImpl(const BaseListScalar& from, std::shared_ptr<DataType> to_type) {
-  arrow::internal::StringFormatter<BaseListScalar> formatter(from.type.get());
-  std::string result;
-  auto append = [&result](std::string_view sv) {
-    result.append(sv);
-    return Status::OK();
-  };
-  ARROW_RETURN_NOT_OK(formatter(from, append));
-  return std::make_shared<StringScalar>(Buffer::FromString(result), std::move(to_type));
+  return CastToStringScalar(from, std::move(to_type));
 }
 
 // union types to string
@@ -1309,14 +1308,7 @@ template <typename To>
 typename std::enable_if_t<std::is_same<To, StringType>::value,
                           Result<std::shared_ptr<Scalar>>>
 CastImpl(const UnionScalar& from, std::shared_ptr<DataType> to_type) {
-  arrow::internal::StringFormatter<UnionScalar> formatter(from.type.get());
-  std::string result;
-  auto append = [&result](std::string_view sv) {
-    result.append(sv);
-    return Status::OK();
-  };
-  ARROW_RETURN_NOT_OK(formatter(from, append));
-  return std::make_shared<StringScalar>(Buffer::FromString(result), std::move(to_type));
+  return CastToStringScalar(from, std::move(to_type));
 }
 
 struct CastImplVisitor {
