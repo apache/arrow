@@ -223,42 +223,57 @@ static inline gdv_uint64 murmur3_64_buf(const gdv_uint8* key, gdv_int32 len,
   switch (len & 15) {
     case 15:
       k2 = static_cast<gdv_uint64>(tail[14]) << 48;
+      break;
     case 14:
       k2 ^= static_cast<gdv_uint64>(tail[13]) << 40;
+      break;
     case 13:
       k2 ^= static_cast<gdv_uint64>(tail[12]) << 32;
+      break;
     case 12:
       k2 ^= static_cast<gdv_uint64>(tail[11]) << 24;
+      break;
     case 11:
       k2 ^= static_cast<gdv_uint64>(tail[10]) << 16;
+      break;
     case 10:
       k2 ^= static_cast<gdv_uint64>(tail[9]) << 8;
+      break;
     case 9:
       k2 ^= static_cast<gdv_uint64>(tail[8]);
       k2 *= c2;
       k2 = rotate_left(k2, 33);
       k2 *= c1;
       h2 ^= k2;
+      break;
     case 8:
       k1 ^= static_cast<gdv_uint64>(tail[7]) << 56;
+      break;
     case 7:
       k1 ^= static_cast<gdv_uint64>(tail[6]) << 48;
+      break;
     case 6:
       k1 ^= static_cast<gdv_uint64>(tail[5]) << 40;
+      break;
     case 5:
       k1 ^= static_cast<gdv_uint64>(tail[4]) << 32;
+      break;
     case 4:
       k1 ^= static_cast<gdv_uint64>(tail[3]) << 24;
+      break;
     case 3:
       k1 ^= static_cast<gdv_uint64>(tail[2]) << 16;
+      break;
     case 2:
       k1 ^= static_cast<gdv_uint64>(tail[1]) << 8;
+      break;
     case 1:
       k1 ^= static_cast<gdv_uint64>(tail[0]) << 0;
       k1 *= c1;
       k1 = rotate_left(k1, 31);
       k1 *= c2;
       h1 ^= k1;
+      break;
   }
 
   h1 ^= len;
@@ -308,8 +323,10 @@ static gdv_uint32 murmur3_32_buf(const gdv_uint8* key, gdv_int32 len, gdv_int32 
   switch (len & 3) {
     case 3:
       lk1 = (tail[2] & 0xff) << 16;
+      break;
     case 2:
       lk1 |= (tail[1] & 0xff) << 8;
+      break;
     case 1:
       lk1 |= (tail[0] & 0xff);
       lk1 *= c1;
@@ -320,6 +337,7 @@ static gdv_uint32 murmur3_32_buf(const gdv_uint8* key, gdv_int32 len, gdv_int32 
       lk1 = lk1 & UINT_MASK;
 
       lh1 ^= lk1;
+      break;
   }
 
   // finalization
