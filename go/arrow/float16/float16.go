@@ -175,7 +175,7 @@ func (n Num) Signbit() bool { return (n.bits & 0x8000) != 0 }
 
 func (n Num) IsNaN() bool { return (n.bits & 0x7fff) > 0x7c00 }
 
-func (n Num) IsInf() bool {return (n.bits & 0x7c00) == 0x7c00 }
+func (n Num) IsInf() bool { return (n.bits & 0x7c00) == 0x7c00 }
 
 func (n Num) IsZero() bool { return (n.bits & 0x7fff) == 0 }
 
