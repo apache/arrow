@@ -24,6 +24,7 @@
 G_BEGIN_DECLS
 
 #define GGANDIVA_TYPE_FUNCTION_REGISTRY (ggandiva_function_registry_get_type())
+GGANDIVA_AVAILABLE_IN_14_0
 G_DECLARE_DERIVABLE_TYPE(GGandivaFunctionRegistry,
                          ggandiva_function_registry,
                          GGANDIVA,
@@ -35,14 +36,20 @@ struct _GGandivaFunctionRegistryClass
   GObjectClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_15_0
+GGANDIVA_AVAILABLE_IN_15_0
 GGandivaFunctionRegistry *
 ggandiva_function_registry_default(void);
+
+GGANDIVA_AVAILABLE_IN_14_0
 GGandivaFunctionRegistry *
 ggandiva_function_registry_new(void);
+
+GGANDIVA_AVAILABLE_IN_14_0
 GGandivaNativeFunction *
 ggandiva_function_registry_lookup(GGandivaFunctionRegistry *function_registry,
                                   GGandivaFunctionSignature *function_signature);
+
+GGANDIVA_AVAILABLE_IN_14_0
 GList *
 ggandiva_function_registry_get_native_functions(
   GGandivaFunctionRegistry *function_registry);

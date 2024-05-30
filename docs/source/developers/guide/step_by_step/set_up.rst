@@ -118,10 +118,10 @@ Should give you a result similar to this:
 
 .. code:: console
 
-   origin	https://github.com/<your username>/arrow.git (fetch)
-   origin	https://github.com/<your username>/arrow.git (push)
-   upstream	https://github.com/apache/arrow (fetch)
-   upstream	https://github.com/apache/arrow (push)
+   origin    https://github.com/<your username>/arrow.git (fetch)
+   origin    https://github.com/<your username>/arrow.git (push)
+   upstream  https://github.com/apache/arrow (fetch)
+   upstream  https://github.com/apache/arrow (push)
 
 If you did everything correctly, you should now have a copy of the code
 in the ``arrow`` directory and two remotes that refer to your own GitHub

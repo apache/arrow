@@ -124,7 +124,7 @@ KeyWithMasterId FileKeyUnwrapper::GetDataEncryptionKey(const KeyMaterial& key_ma
     data_key = internal::DecryptKeyLocally(encoded_wrapped_dek, kek_bytes, aad);
   }
 
-  return KeyWithMasterId(std::move(data_key), std::move(master_key_id));
+  return KeyWithMasterId(std::move(data_key), master_key_id);
 }
 
 std::shared_ptr<KmsClient> FileKeyUnwrapper::GetKmsClientFromConfigOrKeyMaterial(

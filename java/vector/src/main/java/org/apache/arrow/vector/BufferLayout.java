@@ -28,12 +28,18 @@ public class BufferLayout {
 
   /**
    * Enumeration of the different logical types a buffer can have.
+   * Data buffer is common to most of the layouts.
+   * Offset buffer is used for variable width types.
+   * Validity buffer is used for nullable types.
+   * Type buffer is used for Union types.
+   * Size buffer is used for ListView and LargeListView types.
    */
   public enum BufferType {
     DATA("DATA"),
     OFFSET("OFFSET"),
     VALIDITY("VALIDITY"),
-    TYPE("TYPE_ID");
+    TYPE("TYPE_ID"),
+    SIZE("SIZE");
 
     private final String name;
 
@@ -57,6 +63,7 @@ public class BufferLayout {
   private static final BufferLayout VALUES_32 = new BufferLayout(BufferType.DATA, 32);
   private static final BufferLayout VALUES_16 = new BufferLayout(BufferType.DATA, 16);
   private static final BufferLayout VALUES_8 = new BufferLayout(BufferType.DATA, 8);
+  private static final BufferLayout SIZE_BUFFER = new BufferLayout(BufferType.SIZE, 32);
 
   public static BufferLayout typeBuffer() {
     return TYPE_BUFFER;
@@ -68,6 +75,10 @@ public class BufferLayout {
 
   public static BufferLayout largeOffsetBuffer() {
     return LARGE_OFFSET_BUFFER;
+  }
+
+  public static BufferLayout sizeBuffer() {
+    return SIZE_BUFFER;
   }
 
   /**

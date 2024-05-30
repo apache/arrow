@@ -118,7 +118,7 @@ This checks the code style of all source code under the current directory or fro
 
     $ mvn checkstyle:check
 
-Maven `pom.xml` style is enforced with Spotless using `Apache Maven pom.xml guidelines`_
+Maven ``pom.xml`` style is enforced with Spotless using `Apache Maven pom.xml guidelines`_
 You can also just check the style without building the project.
 This checks the style of all pom.xml files under the current directory or from within an individual module.
 

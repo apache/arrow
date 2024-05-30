@@ -1962,7 +1962,7 @@ AsyncGenerator<T> MakeFailingGenerator(Status st) {
   return [state]() -> Future<T> {
     auto st = std::move(*state);
     if (!st.ok()) {
-      return std::move(st);
+      return st;
     } else {
       return AsyncGeneratorEnd<T>();
     }

@@ -148,7 +148,7 @@ class JoinBenchmark {
     };
 
     scheduler_ = TaskScheduler::Make();
-    DCHECK_OK(ctx_.Init(settings.num_threads, nullptr));
+    DCHECK_OK(ctx_.Init(nullptr));
 
     auto register_task_group_callback = [&](std::function<Status(size_t, int64_t)> task,
                                             std::function<Status(size_t)> cont) {

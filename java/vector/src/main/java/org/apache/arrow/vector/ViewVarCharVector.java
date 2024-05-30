@@ -48,7 +48,7 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
    * @param allocator allocator for memory management.
    */
   public ViewVarCharVector(String name, BufferAllocator allocator) {
-    this(name, FieldType.nullable(MinorType.VARCHAR.getType()), allocator);
+    this(name, FieldType.nullable(MinorType.VIEWVARCHAR.getType()), allocator);
   }
 
   /**

@@ -26,8 +26,6 @@ import java.util.concurrent.ConcurrentMap;
 
 /**
  * Middleware for handling Flight SQL Sessions including session cookie handling.
- *
- * Currently experimental.
  */
 public class ServerSessionMiddleware implements FlightServerMiddleware {
   Factory factory;

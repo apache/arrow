@@ -37,12 +37,12 @@
     </dependency>
     <dependency>
       <groupId>org.immutables</groupId>
-      <artifactId>value</artifactId>
+      <artifactId>value-annotations</artifactId>
     </dependency>
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-compress</artifactId>
-      <version>1.26.0</version>
+      <version>1.26.2</version>
     </dependency>
     <dependency>
       <groupId>com.github.luben</groupId>

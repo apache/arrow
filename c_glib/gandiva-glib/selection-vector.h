@@ -47,6 +47,7 @@ typedef enum {
 } GGandivaSelectionVectorMode;
 
 #define GGANDIVA_TYPE_SELECTION_VECTOR (ggandiva_selection_vector_get_type())
+GGANDIVA_AVAILABLE_IN_4_0
 G_DECLARE_DERIVABLE_TYPE(
   GGandivaSelectionVector, ggandiva_selection_vector, GGANDIVA, SELECTION_VECTOR, GObject)
 
@@ -65,6 +66,7 @@ ggandiva_selection_vector_to_array(GGandivaSelectionVector *selection_vector);
 
 #define GGANDIVA_TYPE_UINT16_SELECTION_VECTOR                                            \
   (ggandiva_uint16_selection_vector_get_type())
+GGANDIVA_AVAILABLE_IN_4_0
 G_DECLARE_DERIVABLE_TYPE(GGandivaUInt16SelectionVector,
                          ggandiva_uint16_selection_vector,
                          GGANDIVA,
@@ -82,6 +84,7 @@ ggandiva_uint16_selection_vector_new(gint64 max_slots, GError **error);
 
 #define GGANDIVA_TYPE_UINT32_SELECTION_VECTOR                                            \
   (ggandiva_uint32_selection_vector_get_type())
+GGANDIVA_AVAILABLE_IN_4_0
 G_DECLARE_DERIVABLE_TYPE(GGandivaUInt32SelectionVector,
                          ggandiva_uint32_selection_vector,
                          GGANDIVA,
@@ -99,6 +102,7 @@ ggandiva_uint32_selection_vector_new(gint64 max_slots, GError **error);
 
 #define GGANDIVA_TYPE_UINT64_SELECTION_VECTOR                                            \
   (ggandiva_uint64_selection_vector_get_type())
+GGANDIVA_AVAILABLE_IN_4_0
 G_DECLARE_DERIVABLE_TYPE(GGandivaUInt64SelectionVector,
                          ggandiva_uint64_selection_vector,
                          GGANDIVA,

@@ -20,6 +20,7 @@ package org.apache.arrow.vector.compare;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -30,6 +31,8 @@ import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.ViewVarBinaryVector;
+import org.apache.arrow.vector.ViewVarCharVector;
 import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
@@ -174,6 +177,44 @@ public class TestTypeEqualsVisitor {
       typeVisitor =
           new TypeEqualsVisitor(vector2, /* check name */ true, /* check meta data */ true);
       assertFalse(typeVisitor.equals(vector1));
+    }
+  }
+
+  @Test
+  public void testStringViewTypeEquals() {
+    try (final ViewVarCharVector varchar1 = new ViewVarCharVector("varchar1", allocator);
+         final ViewVarCharVector varchar2 = new ViewVarCharVector("varchar2", allocator);
+         final ViewVarBinaryVector binary = new ViewVarBinaryVector("binary", allocator)) {
+      final int valueCount = 2;
+      final byte[] str0 = "apache".getBytes(StandardCharsets.UTF_8);
+      final byte[] str1 = "arrow".getBytes(StandardCharsets.UTF_8);
+
+      // add elements for varchar1
+      varchar1.allocateNew(48, valueCount);
+      varchar1.set(0, str0);
+      varchar1.set(1, str1);
+      varchar1.setValueCount(valueCount);
+
+      // add elements for varchar2 in a difference order
+      varchar2.allocateNew(48, valueCount);
+      varchar2.set(0, str1);
+      varchar2.set(1, str0);
+      varchar2.setValueCount(valueCount);
+
+      // add elements for binary
+      binary.allocateNew(48, valueCount);
+      binary.set(0, str0);
+      binary.set(1, str1);
+      binary.setValueCount(valueCount);
+
+      // compare ignore check name
+      TypeEqualsVisitor visitor = new TypeEqualsVisitor(varchar1, /* check name */ false, /* check meta data */ true);
+      assertTrue(visitor.equals(varchar2));
+      assertFalse(visitor.equals(binary));
+
+      // if we check names, the types should be different
+      visitor = new TypeEqualsVisitor(varchar1, /* check name */ true, /* check meta data */ true);
+      assertFalse(visitor.equals(varchar2));
     }
   }
 }

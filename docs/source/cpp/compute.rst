@@ -514,8 +514,8 @@ Mixed time resolution temporal inputs will be cast to finest input resolution.
   +------------+---------------------------------------------+
 
   It's compatible with Redshift's decimal promotion rules. All decimal digits
-  are preserved for `add`, `subtract` and `multiply` operations. The result
-  precision of `divide` is at least the sum of precisions of both operands with
+  are preserved for ``add``, ``subtract`` and ``multiply`` operations. The result
+  precision of ``divide`` is at least the sum of precisions of both operands with
   enough scale kept. Error is returned if the result precision is beyond the
   decimal value range.
 
@@ -1029,7 +1029,7 @@ These functions trim off characters on both sides (trim), or the left (ltrim) or
 +--------------------------+------------+-------------------------+---------------------+----------------------------------------+---------+
 
 * \(1) Only characters specified in :member:`TrimOptions::characters` will be
-  trimmed off. Both the input string and the `characters` argument are
+  trimmed off. Both the input string and the ``characters`` argument are
   interpreted as ASCII characters.
 
 * \(2) Only trim off ASCII whitespace characters (``'\t'``, ``'\n'``, ``'\v'``,
@@ -1570,7 +1570,7 @@ is the same, even though the UTC years would be different.
 Timezone handling
 ~~~~~~~~~~~~~~~~~
 
-`assume_timezone` function is meant to be used when an external system produces
+``assume_timezone`` function is meant to be used when an external system produces
 "timezone-naive" timestamps which need to be converted to "timezone-aware"
 timestamps (see for example the `definition
 <https://docs.python.org/3/library/datetime.html#aware-and-naive-objects>`__
@@ -1581,11 +1581,11 @@ Input timestamps are assumed to be relative to the timezone given in
 UTC-relative timestamps with the timezone metadata set to the above value.
 An error is returned if the timestamps already have the timezone metadata set.
 
-`local_timestamp` function converts UTC-relative timestamps to local "timezone-naive"
+``local_timestamp`` function converts UTC-relative timestamps to local "timezone-naive"
 timestamps. The timezone is taken from the timezone metadata of the input
-timestamps. This function is the inverse of `assume_timezone`. Please note:
+timestamps. This function is the inverse of ``assume_timezone``. Please note:
 **all temporal functions already operate on timestamps as if they were in local
-time of the metadata provided timezone**. Using `local_timestamp` is only meant to be
+time of the metadata provided timezone**. Using ``local_timestamp`` is only meant to be
 used when an external system expects local timestamps.
 
 +-----------------+-------+-------------+---------------+---------------------------------+-------+
@@ -1649,8 +1649,8 @@ overflow is detected.
 
 * \(1) CumulativeOptions has two optional parameters. The first parameter
   :member:`CumulativeOptions::start` is a starting value for the running
-  accumulation. It has a default value of 0 for `sum`, 1 for `prod`, min of
-  input type for `max`, and max of input type for `min`. Specified values of
+  accumulation. It has a default value of 0 for ``sum``, 1 for ``prod``, min of
+  input type for ``max``, and max of input type for ``min``. Specified values of
   ``start`` must be castable to the input type. The second parameter
   :member:`CumulativeOptions::skip_nulls` is a boolean. When set to
   false (the default), the first encountered null is propagated. When set to

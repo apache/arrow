@@ -129,6 +129,11 @@
        name: "Duration",
        fields: [{name: "unit", type: short, valueType: TimeUnit}],
        complex: false
+    },
+    {
+       name: "ListView",
+       fields: [],
+       complex: true
     }
   ]
 }

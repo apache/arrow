@@ -423,7 +423,8 @@ class BufferedInputStream::Impl : public BufferedBase {
       RETURN_NOT_OK(buffer->Resize(bytes_read, false /* shrink_to_fit */));
       buffer->ZeroPadding();
     }
-    return std::move(buffer);
+    // R build with openSUSE155 requires an explicit shared_ptr construction
+    return std::shared_ptr<Buffer>(std::move(buffer));
   }
 
   // For providing access to the raw file handles
