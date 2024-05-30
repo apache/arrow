@@ -64,6 +64,7 @@ class UnmaterializedCompositeTable {
   /// \param[in] output_col_to_src_ mapping from output column to source table ID and
   /// column ID. Note that src table IDs should range from 0 to num_composite_tables - 1,
   /// inclusive.
+  /// \param[in] pool_ memory pool to use for allocations.
   /// \param[in] contiguous_srcs_ set of source table IDs that are contiguous.
   /// A contiguous source table is one where all slices are from contiguous slices of the
   /// input record batches. This allows the materializer to minimize copies by taking
