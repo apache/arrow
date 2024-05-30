@@ -698,8 +698,8 @@ services:
         arch: ${ARCH}
         clang_tools: ${CLANG_TOOLS}
         llvm: ${LLVM}
-        emscripten_version: "3.1.46" # must use correct emscripten for pyodide version
-        pyodide_version: "0.25.1"
+        emscripten_version: "3.1.58" # must use correct emscripten for pyodide version
+        pyodide_version: "0.26.0"
         chrome_version: "122"
         firefox_version: "122"
         selenium_version: "4.15.2"
@@ -709,7 +709,7 @@ services:
       <<: [*common, *ccache, *sccache, *cpp]
       ARROW_EMSCRIPTEN: "ON"
       UBUNTU: "22.04"
-      PYODIDE_VERSION: "0.25.1"
+      PYODIDE_VERSION: "0.26.0"
       ARROW_BUILD_TYPE: "release"
       ARROW_BUILD_TESTS: "off"
     command: >

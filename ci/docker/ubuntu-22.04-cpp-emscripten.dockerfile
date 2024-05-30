@@ -19,7 +19,41 @@ ARG repo
 ARG arch
 FROM ${repo}:${arch}-ubuntu-22.04-cpp
 
-ARG emscripten_version="3.1.46"
+ARG selenium_version="4.15.2"
+ARG pyodide_version="0.26.0"
+ARG emscripten_version="3.1.58"
+ARG chrome_version="latest"
+ARG firefox_version="latest"
+# Note: geckodriver version needs to be updated manually
+ARG geckodriver_version="0.34.0"
+
+# install selenium and pyodide-build and recent python
+
+# needs to be a login shell so ~/.profile is read
+SHELL ["/bin/bash","--login","-c"]
+
+RUN wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh -O ~/miniforge.sh
+
+RUN bash ~/miniforge.sh -b -p /miniforge &&\
+    source "/miniforge/etc/profile.d/conda.sh" &&\
+    source "/miniforge/etc/profile.d/mamba.sh"  &&\
+    echo ". /miniforge/etc/profile.d/conda.sh" >> ~/.profile &&\
+    echo ". /miniforge/etc/profile.d/mamba.sh" >> ~/.profile &&\
+    conda init bash
+    
+
+#ENV PATH /miniforge/bin:$PATH
+
+RUN  conda create -y -n py312 python=3.12 -c conda-forge &&\
+     echo "conda activate py312" >> ~/.profile
+
+
+#RUN conda init bash && cat ~/.profile && false
+
+RUN python --version && \
+python -m pip install selenium==${selenium_version} &&\
+    python -m pip install --upgrade --pre pyodide-build==${pyodide_version}
+
 RUN cd ~ && (ls emsdk || git clone https://github.com/emscripten-core/emsdk.git) && \
     cd emsdk && \
     ./emsdk install ${emscripten_version} && \
@@ -27,17 +61,12 @@ RUN cd ~ && (ls emsdk || git clone https://github.com/emscripten-core/emsdk.git)
     echo "Installed emsdk to:" ~/emsdk
 
 # install pyodide dist directory to /pyodide
-ARG pyodide_version="0.26.0"
 RUN cd / \
   && pyodide_dist_url="https://github.com/pyodide/pyodide/releases/download/${pyodide_version}/pyodide-${pyodide_version}.tar.bz2"\
   && wget ${pyodide_dist_url} -O- |tar -xj
 
 # install browsers
 
-ARG chrome_version="latest"
-ARG firefox_version="latest"
-# Note: geckodriver version needs to be updated manually
-ARG geckodriver_version="0.34.0"
 
 #============================================
 # Firefox & geckodriver
@@ -89,18 +118,11 @@ RUN if [ $chrome_version = "latest" ]; \
   && echo "Using Chrome version: $(google-chrome --version)" \
   && echo "Using Chrome Driver version: $(chromedriver --version)"
   
-ARG selenium_version="4.15.2"
+
 
 SHELL ["/bin/bash", "--login", "-i", "-c"]
 # install node 18 (needed for async call support)
 RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash -
 RUN nvm install 18
-SHELL ["/bin/bash","-c"]
+SHELL ["/bin/bash","--login","-c"]
 
-# install selenium and pyodide-build and recent python
- RUN    apt-get update && apt install "software-properties-common" -y -q &&\
-     add-apt-repository ppa:deadsnakes/ppa &&\
-     apt install python3.12 -y -q &&\
-     ln -s /usr/bin/python3.12 /usr/bin/python && \
-     python -m pip install selenium==${selenium_version} &&\
-     python -m pip install --pre pyodide-build==${pyodide_version}
