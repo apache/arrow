@@ -669,6 +669,33 @@ def test_allocate_buffer_resizable():
     assert buf.size == 200
 
 
+def test_non_cpu_buffer():
+    cuda = pytest.importorskip("pyarrow.cuda")
+    ctx = cuda.Context(0)
+
+    import numpy as np
+    arr = np.arange(4, dtype=np.int32)
+    cuda_buf = ctx.buffer_from_data(arr)
+
+    arr = pa.Array.from_buffers(pa.int32(), 4, [None, cuda_buf])
+    buf_on_gpu = arr.buffers()[1]
+
+    assert buf_on_gpu.size == cuda_buf.size
+    assert buf_on_gpu.address == cuda_buf.address
+    assert buf_on_gpu.is_cpu == cuda_buf.is_cpu
+
+    msg = "Implemented only for data on CPU device"
+    with pytest.raises(NotImplementedError, match=msg):
+        buf_on_gpu.hex()
+
+    assert buf_on_gpu.is_mutable
+
+    with pytest.raises(NotImplementedError, match=msg):
+        buf_on_gpu[1]
+
+    # TODO: test slice() and to_pybytes() on binary data
+
+
 def test_cache_options():
     opts1 = pa.CacheOptions()
     opts2 = pa.CacheOptions(hole_size_limit=1024)

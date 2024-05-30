@@ -1311,7 +1311,10 @@ cdef class Buffer(_Weakrefable):
         -------
         : bytes
         """
-        return self.buffer.get().ToHexString()
+        if (self.is_cpu):
+            return self.buffer.get().ToHexString()
+        else:
+            raise NotImplementedError("Implemented only for data on CPU device")
 
     @property
     def is_mutable(self):
@@ -1370,6 +1373,9 @@ cdef class Buffer(_Weakrefable):
             return pyarrow_wrap_buffer(parent_buf)
 
     def __getitem__(self, key):
+        if (not self.is_cpu):
+            raise NotImplementedError("Implemented only for data on CPU device")
+
         if isinstance(key, slice):
             if (key.step or 1) != 1:
                 raise IndexError('only slices with step 1 supported')
