@@ -52,6 +52,7 @@ jobs:
       - name: Install pre-commit dependencies
         run: |
           go install golang.org/x/tools/cmd/goimports@latest
+      - run: echo "PATH=$PATH:/home/runner/go/bin" >> $GITHUB_ENV
       - name: Install pre-commit
         run: |
           python -m pip install pre-commit
