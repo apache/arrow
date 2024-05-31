@@ -165,16 +165,16 @@ class NodeDriver:
         js_code = f"""
             python = `{code}`;
             await pyodide.loadPackagesFromImports(python);
-            await pyodide.runPythonAsync(python);
+            python_output = await pyodide.runPythonAsync(python);
         """
         self.last_ret_code = self.execute_js(js_code, wait_for_terminate)
         return self.last_ret_code
 
     def wait_for_done(self):
         # in node we just let it run above
-        # then send EOF
-        self.process.stdin.write(b".exit\n")
-        return self.last_ret_code
+        # then send EOF and join process
+        self.process.stdin.write(b"process.exit(python_output)\n")
+        return self.process.wait()
 
 
 class BrowserDriver:
@@ -207,7 +207,7 @@ class BrowserDriver:
             self.driver.execute_script(
                 f"""
                 let python = `{code}`;
-                window.python_done_callback= (x) => {{window.python_script_done=x}}
+                window.python_done_callback= (x) => {{window.python_script_done=x;}};
                 window.pyworker.postMessage(
                     {{python,isatty:{'true' if sys.stdout.isatty() else 'false'}}});
                 """
@@ -327,4 +327,5 @@ pytest.main([pyarrow_dir,'-v'])
 """,
         wait_for_terminate=False,
     )
-    sys.exit(driver.wait_for_done())
+    print("Wait for done")
+    os._exit(driver.wait_for_done())
