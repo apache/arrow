@@ -477,8 +477,9 @@ build directory and use ``meson test``:
 
 .. code-block::
 
-   $ meson configure -DARROW_BUILD_TESTS=true
+   $ meson configure -DARROW_BUILD_TESTS=true -DARROW_BUILD_BENCHMARKS=true
    $ meson test
+   $ meson test --benchmark
 
 Build Dependency Management
 ===========================
