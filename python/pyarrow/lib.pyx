@@ -21,7 +21,10 @@
 
 import datetime
 import decimal as _pydecimal
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    pass
 import os
 import sys
 
@@ -32,8 +35,12 @@ from pyarrow.includes.common cimport PyObject_to_object
 cimport pyarrow.includes.libarrow_python as libarrow_python
 cimport cpython as cp
 
-# Initialize NumPy C API
-arrow_init_numpy()
+# Initialize NumPy C API only if numpy was able to be imported
+def initialize_numpy():
+    if "numpy" in sys.modules:
+        arrow_init_numpy()
+
+initialize_numpy()
 # Initialize PyArrow C++ API
 # (used from some of our C++ code, see e.g. ARROW-5260)
 import_pyarrow()
