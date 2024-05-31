@@ -144,6 +144,17 @@ repos:
   - repo: https://github.com/golangci/golangci-lint
     rev: v1.59.0
     hooks:
+      # no built-in support for multiple go.mod
+      # https://github.com/golangci/golangci-lint/issues/828
       - id: golangci-lint
-        entry: bash -c 'golangci-lint run --disable-all -E goimports -E gofmt'
+        name: golangci-lint-arrow
+        entry: bash -c 'cd go/arrow && golangci-lint run --fix --disable-all -E goimports -E gofmt'
+        types_or: [ go ]
+      - id: golangci-lint
+        name: golangci-lint-parquet
+        entry: bash -c 'cd go/parquet && golangci-lint run --fix --disable-all -E goimports -E gofmt'
+        types_or: [ go ]
+      - id: golangci-lint
+        name: golangci-lint-internal
+        entry: bash -c 'cd go/internal && golangci-lint run --fix --disable-all -E goimports -E gofmt'
         types_or: [ go ]
