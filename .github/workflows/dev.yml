@@ -49,6 +49,9 @@ jobs:
         uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d # v5.1.0
         with:
           python-version: 3.12
+      - name: Install pre-commit dependencies
+        run: |
+          go install golang.org/x/tools/cmd/goimports@latest
       - name: Install pre-commit
         run: |
           python -m pip install pre-commit
@@ -58,9 +61,6 @@ jobs:
         with:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
-      - name: Install pre-commit dependencies
-        run: |
-          go install golang.org/x/tools/cmd/goimports@latest
       - name: Run pre-commit
         run: |
           pre-commit run --all-files --color=always --show-diff-on-failure
