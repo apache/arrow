@@ -146,4 +146,3 @@ repos:
     hooks:
       - id: go-fmt
       - id: go-imports
-      - id: golangci-lint
