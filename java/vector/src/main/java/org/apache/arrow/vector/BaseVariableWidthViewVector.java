@@ -951,10 +951,6 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
       // keeping track of reading index in the source view buffer
       int readPosition = i * ELEMENT_SIZE;
 
-      // to clear the memory segment of view being written to
-      // this is helpful in case of overwriting the value
-      target.viewBuffer.setZero(writePosition, ELEMENT_SIZE);
-
       // set length
       target.viewBuffer.setInt(writePosition, stringLength);
 
