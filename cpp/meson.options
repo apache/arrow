@@ -16,6 +16,12 @@
 # under the License.
 
 option(
+    'ARROW_BUILD_BENCHMARKS',
+    type: 'boolean',
+    description: 'Build benchmarks',
+    value: false
+)
+option(
     'ARROW_BUILD_TESTS',
     type: 'boolean',
     description: 'Build tests',

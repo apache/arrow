@@ -313,7 +313,6 @@ if needs_testing
 
     arrow_tests = {
         'array': {
-            'exec_name': 'array_test',
             'sources': [
                 'array/array_test.cc',
                 'array/array_binary_test.cc',
@@ -328,12 +327,10 @@ if needs_testing
             'deps': [gmock_dep],
         },
         'buffer': {
-            'exec_name': 'buffer_test',
             'sources': ['buffer_test.cc'],
             'deps': [gtest_dep],
         },
         'misc': {
-            'exec_name': 'misc_test',
             'sources': [
                 'datum_test.cc',
                 'memory_pool_test.cc',
@@ -344,17 +341,14 @@ if needs_testing
             'deps': [gtest_dep, gmock_dep],
         },
         'public-api': {
-            'exec_name': 'public_api_test',
             'sources': ['public_api_test.cc'],
             'deps': [gtest_dep, gmock_dep],
         },
         'scalar': {
-            'exec_name': 'scalar_test',
             'sources': ['scalar_test.cc'],
             'deps': [gtest_dep, gmock_dep],
         },
         'type': {
-            'exec_name': 'type_test',
             'sources': [
                 'field_ref_test.cc',
                 'scalar_test.cc',
@@ -362,7 +356,6 @@ if needs_testing
             'deps': [gtest_dep, gmock_dep],
         },
         'table': {
-            'exec_name': 'table_test',
             'sources': [
                 'chunked_array_test.cc',
                 'record_batch_test.cc',
@@ -372,17 +365,14 @@ if needs_testing
             'deps': [gtest_dep, gmock_dep],
         },
         'tensor': {
-            'exec_name': 'tensor_test',
             'sources': ['tensor_test.cc'],
             'deps': [gtest_dep, gmock_dep],
         },
         'sparse-tensor': {
-            'exec_name': 'sparse_tensor_test',
             'sources': ['sparse_tensor_test.cc'],
             'deps': [gtest_dep, gmock_dep],
         },
         'stl': {
-            'exec_name': 'stl_test',
             'sources': [
                 'stl_iterator_test.cc',
                 'stl_test.cc',
@@ -393,7 +383,7 @@ if needs_testing
 
     foreach testname, test_config : arrow_tests
         exc = executable(
-            test_config['exec_name'],
+            'arrow-' + testname + '-test',
             sources: test_config['sources'],
             include_directories: [root_dir],
             link_with: [arrow_lib, arrow_testing_lib],
@@ -404,7 +394,7 @@ if needs_testing
 
     if needs_ipc
         extension_type_exec = executable(
-            'extension_type_test',
+            'arrow-extension-type-test',
             sources: ['extension_type_test.cc'],
             include_directories: [root_dir],
             link_with: [arrow_lib, arrow_testing_lib],
@@ -433,7 +423,6 @@ if needs_testing
     # than CMake for directory layout
     util_tests = {
         'utility': {
-            'exec_name': 'utility_test',
             'sources': [
                 'util/align_util_test.cc',
                 'util/atfork_test.cc',
@@ -473,7 +462,6 @@ if needs_testing
             'deps': [gtest_dep, gmock_dep],
         },
         'async-utility': {
-            'exec_name': 'async_utility_test',
             'sources': [
                 'util/async_generator_test.cc',
                 'util/async_util_test.cc',
@@ -482,7 +470,6 @@ if needs_testing
             'deps': [gtest_dep, gmock_dep],
         },
         'bit-utility': {
-            'exec_name': 'bit_utility_test',
             'sources': [
                 'util/bit_block_counter_test.cc',
                 'util/bit_util_test.cc',
@@ -491,7 +478,6 @@ if needs_testing
             'deps': [gtest_dep, gmock_dep],
         },
         'threading-utility': {
-            'exec_name': 'threading_utility_test',
             'sources': [
                 'util/cancel_test.cc',
                 'util/counting_semaphore_test.cc',
@@ -503,7 +489,6 @@ if needs_testing
             'deps': [gtest_dep, gmock_dep],
         },
         'crc32': {
-            'exec_name': 'crc32_test',
             'sources': ['util/crc32_test.cc'],
             'deps': [gtest_dep, gmock_dep],
         },
@@ -511,7 +496,7 @@ if needs_testing
 
     foreach testname, test_config : util_tests
         exc = executable(
-            test_config['exec_name'],
+            'arrow-' + testname + '-test',
             sources: test_config['sources'],
             include_directories: [root_dir],
             link_with: [arrow_lib, arrow_testing_lib],
@@ -521,7 +506,91 @@ if needs_testing
         test('arrow-' + testname, exc)
     endforeach
 
-    # TODO: util benchmarks
+    if get_option('ARROW_BUILD_BENCHMARKS')
+        gbenchmark_dep = dependency('benchmark')
+        util_benchmarks = {
+            'bit-block-counter': {
+                'src_name': 'bit_block_counter',
+                'link_with': [arrow_lib, arrow_testing_lib],
+            },
+            'bit-util': {
+                'src_name': 'bit_util',
+                'link_with': [arrow_lib, arrow_testing_lib],
+            },
+            'bitmap-reader': {
+                'src_name': 'bitmap_reader',
+                'link_with': [arrow_lib, arrow_testing_lib],
+            },
+            'cache': {
+                'src_name': 'cache',
+                'link_with': [arrow_lib, arrow_testing_lib],
+            },
+            'compression': {
+                'src_name': 'compression',
+                'link_with': [arrow_lib],
+            },
+            'decimal': {
+                'src_name': 'decimal',
+                'link_with': [arrow_lib],
+            },
+            'hashing': {
+                'src_name': 'hashing',
+                'link_with': [arrow_lib],
+            },
+            'int-util': {
+                'src_name': 'int_util',
+                'link_with': [arrow_lib, arrow_testing_lib],
+            },
+            'machine': {
+                'src_name': 'machine',
+                'link_with': [arrow_lib],
+            },
+            'queue': {
+                'src_name': 'queue',
+                'link_with': [arrow_lib],
+            },
+            'range': {
+                'src_name': 'range',
+                'link_with': [arrow_lib],
+            },
+            'small-vector': {
+                'src_name': 'small_vector',
+                'link_with': [arrow_lib],
+            },
+            'tdigest': {
+                'src_name': 'tdigest',
+                'link_with': [arrow_lib],
+            },
+            'thread-pool': {
+                'src_name': 'thread_pool',
+                'link_with': [arrow_lib],
+            },
+            'trie': {
+                'src_name': 'trie',
+                'link_with': [arrow_lib],
+            },
+            'utf8-util': {
+                'src_name': 'utf8_util',
+                'link_with': [arrow_lib],
+            },
+            'value-parsing': {
+                'src_name': 'value_parsing',
+                'link_with': [arrow_lib],
+            },
+        }
+
+        foreach nm, conf : util_benchmarks
+            exc = executable(
+                nm + '-benchmark',
+                'util/' + conf['src_name'] + '_benchmark.cc',
+                include_directories: [root_dir],
+                link_with: conf['link_with'],
+                dependencies: [gtest_dep, gbenchmark_dep],
+                install_dir: 'util/',
+            )
+            benchmark('arrow-' + nm, exc)
+        endforeach
+    endif
 
 
     if needs_ipc
