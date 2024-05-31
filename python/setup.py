@@ -40,12 +40,10 @@ import Cython
 # Check if we're running 64-bit Python
 is_64_bit = sys.maxsize > 2**32
 
-is_emscripten = False
-if (
+is_emscripten = (
     sysconfig.get_config_var("SOABI")
     and sysconfig.get_config_var("SOABI").find("emscripten") != -1
-):
-    is_emscripten = True
+)
 
 
 if Cython.__version__ < '0.29.31':
