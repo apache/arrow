@@ -38,6 +38,9 @@ import org.apache.calcite.avatica.ConnectionProperty;
  * A {@link ConnectionConfig} for the {@link ArrowFlightConnection}.
  */
 public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl {
+  private static final ArrowFlightConnectionProperty[] ARROW_FLIGHT_CONNECTION_PROPERTY_VALUES
+      = ArrowFlightConnectionProperty.values();
+
   public ArrowFlightConnectionConfigImpl(final Properties properties) {
     super(properties);
   }
@@ -179,11 +182,10 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
    */
   public Map<String, String> getHeaderAttributes() {
     Map<String, String> headers = new HashMap<>();
-    ArrowFlightConnectionProperty[] builtInProperties = ArrowFlightConnectionProperty.values();
     properties.forEach(
         (key, val) -> {
           // For built-in properties before adding new headers
-          if (Arrays.stream(builtInProperties)
+          if (Arrays.stream(ARROW_FLIGHT_CONNECTION_PROPERTY_VALUES)
               .noneMatch(builtInProperty -> builtInProperty.camelName.equalsIgnoreCase(key.toString()))) {
             headers.put(key.toString(), val.toString());
           }
