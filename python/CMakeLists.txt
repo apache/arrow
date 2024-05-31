@@ -429,7 +429,16 @@ if(NOT CMAKE_VERSION VERSION_LESS 3.16)
   target_precompile_headers(arrow_python PUBLIC
                             "$<$<COMPILE_LANGUAGE:CXX>:arrow/python/pch.h>")
 endif()
-target_link_libraries(arrow_python PRIVATE ${PYARROW_CPP_LINK_LIBS})
+
+# on static builds we need to be careful not to link PYARROW_CPP_LINK_LIBS
+# into everything depending on arrow_python, or else we get duplicate
+# libraries. Whereas conversely on shared builds, we need everything
+# to depend on everything, as python loads modules separately
+if(ARROW_BUILD_SHARED)
+  target_link_libraries(arrow_python PUBLIC ${PYARROW_CPP_LINK_LIBS})
+else()
+  target_link_libraries(arrow_python PRIVATE ${PYARROW_CPP_LINK_LIBS})
+endif()
 target_link_libraries(arrow_python PUBLIC Python3::NumPy)
 target_compile_definitions(arrow_python PRIVATE ARROW_PYTHON_EXPORTING)
 install(TARGETS arrow_python
