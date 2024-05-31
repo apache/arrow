@@ -143,8 +143,8 @@ Error Prone
 ===========
 
 In relation to code formatting and standards, ``Error Prone`` compiler analysis may use cache to avoid
-showing the warnings if attempted re-run of `mvn clean install`. To avoid the cache to include the
-warnings, use `mvn clean install -Ddevelocity.cache.local.enabled=false -Ddevelocity.cache.remote.enabled=false`
+showing the warnings if attempted re-run of ``mvn clean install``. To avoid the cache to include the
+warnings, use ``mvn clean install -Ddevelocity.cache.local.enabled=false -Ddevelocity.cache.remote.enabled=false``
 instead.
 
 Also note that Error Prone must be disabled for auto generated content.
