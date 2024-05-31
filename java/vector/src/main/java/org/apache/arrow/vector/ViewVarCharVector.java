@@ -257,9 +257,7 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
    */
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-    // TODO: https://github.com/apache/arrow/issues/40932
-    throw new UnsupportedOperationException(
-        "ViewVarCharVector does not support getTransferPair(String, BufferAllocator)");
+    return new TransferImpl(ref, allocator);
   }
 
   /**
@@ -271,21 +269,53 @@ public final class ViewVarCharVector extends BaseVariableWidthViewVector {
    */
   @Override
   public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
-    // TODO: https://github.com/apache/arrow/issues/40932
-    throw new UnsupportedOperationException(
-        "ViewVarCharVector does not support getTransferPair(Field, BufferAllocator)");
+    return new TransferImpl(field, allocator);
   }
 
   /**
    * Construct a TransferPair with a desired target vector of the same type.
    *
-   * @param target the target for the transfer
+   * @param to the target for the transfer
    * @return {@link TransferPair} (UnsupportedOperationException)
    */
   @Override
-  public TransferPair makeTransferPair(ValueVector target) {
-    // TODO: https://github.com/apache/arrow/issues/40932
-    throw new UnsupportedOperationException(
-        "ViewVarCharVector does not support makeTransferPair(ValueVector)");
+  public TransferPair makeTransferPair(ValueVector to) {
+    return new TransferImpl((ViewVarCharVector) to);
+  }
+
+  private class TransferImpl implements TransferPair {
+    ViewVarCharVector to;
+
+    public TransferImpl(String ref, BufferAllocator allocator) {
+      to = new ViewVarCharVector(ref, field.getFieldType(), allocator);
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator) {
+      to = new ViewVarCharVector(field, allocator);
+    }
+
+    public TransferImpl(ViewVarCharVector to) {
+      this.to = to;
+    }
+
+    @Override
+    public ViewVarCharVector getTo() {
+      return to;
+    }
+
+    @Override
+    public void transfer() {
+      transferTo(to);
+    }
+
+    @Override
+    public void splitAndTransfer(int startIndex, int length) {
+      splitAndTransferTo(startIndex, length, to);
+    }
+
+    @Override
+    public void copyValueSafe(int fromIndex, int toIndex) {
+      to.copyFromSafe(fromIndex, toIndex, ViewVarCharVector.this);
+    }
   }
 }
