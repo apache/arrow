@@ -73,7 +73,7 @@ import java.nio.ByteOrder;
 public final class SparseTensorIndexCOO extends Table {
   public static void ValidateVersion() { Constants.FLATBUFFERS_23_5_26(); }
   public static SparseTensorIndexCOO getRootAsSparseTensorIndexCOO(ByteBuffer _bb) { return getRootAsSparseTensorIndexCOO(_bb, new SparseTensorIndexCOO()); }
-  public static SparseTensorIndexCOO getRootAsSparseTensorIndexCOO(ByteBuffer _bb, SparseTensorIndexCOO obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb); }
+  public static SparseTensorIndexCOO getRootAsSparseTensorIndexCOO(ByteBuffer _bb, SparseTensorIndexCOO obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb)); }
   public void __init(int _i, ByteBuffer _bb) { __reset(_i, _bb); }
   public SparseTensorIndexCOO __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 

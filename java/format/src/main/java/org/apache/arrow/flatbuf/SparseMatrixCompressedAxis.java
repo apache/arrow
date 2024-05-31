@@ -24,7 +24,7 @@ public final class SparseMatrixCompressedAxis {
   public static final short Row = 0;
   public static final short Column = 1;
 
-  private static final String[] names = { "Row", "Column", };
+  public static final String[] names = { "Row", "Column", };
 
   public static String name(int e) { return names[e]; }
 }

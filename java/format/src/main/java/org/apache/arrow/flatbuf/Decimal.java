@@ -45,7 +45,7 @@ import java.nio.ByteOrder;
 public final class Decimal extends Table {
   public static void ValidateVersion() { Constants.FLATBUFFERS_23_5_26(); }
   public static Decimal getRootAsDecimal(ByteBuffer _bb) { return getRootAsDecimal(_bb, new Decimal()); }
-  public static Decimal getRootAsDecimal(ByteBuffer _bb, Decimal obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb); }
+  public static Decimal getRootAsDecimal(ByteBuffer _bb, Decimal obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb)); }
   public void __init(int _i, ByteBuffer _bb) { __reset(_i, _bb); }
   public Decimal __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 

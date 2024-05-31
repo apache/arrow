@@ -25,7 +25,7 @@ public final class Precision {
   public static final short SINGLE = 1;
   public static final short DOUBLE = 2;
 
-  private static final String[] names = { "HALF", "SINGLE", "DOUBLE", };
+  public static final String[] names = { "HALF", "SINGLE", "DOUBLE", };
 
   public static String name(int e) { return names[e]; }
 }

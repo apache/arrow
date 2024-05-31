@@ -28,7 +28,7 @@ public final class Endianness {
   public static final short Little = 0;
   public static final short Big = 1;
 
-  private static final String[] names = { "Little", "Big", };
+  public static final String[] names = { "Little", "Big", };
 
   public static String name(int e) { return names[e]; }
 }

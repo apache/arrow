@@ -39,7 +39,7 @@ import java.nio.ByteOrder;
 public final class DictionaryEncoding extends Table {
   public static void ValidateVersion() { Constants.FLATBUFFERS_23_5_26(); }
   public static DictionaryEncoding getRootAsDictionaryEncoding(ByteBuffer _bb) { return getRootAsDictionaryEncoding(_bb, new DictionaryEncoding()); }
-  public static DictionaryEncoding getRootAsDictionaryEncoding(ByteBuffer _bb, DictionaryEncoding obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb); }
+  public static DictionaryEncoding getRootAsDictionaryEncoding(ByteBuffer _bb, DictionaryEncoding obj) { _bb.order(ByteOrder.LITTLE_ENDIAN); return (obj.__assign(_bb.getInt(_bb.position()) + _bb.position(), _bb)); }
   public void __init(int _i, ByteBuffer _bb) { __reset(_i, _bb); }
   public DictionaryEncoding __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 

@@ -24,7 +24,7 @@ public final class DateUnit {
   public static final short DAY = 0;
   public static final short MILLISECOND = 1;
 
-  private static final String[] names = { "DAY", "MILLISECOND", };
+  public static final String[] names = { "DAY", "MILLISECOND", };
 
   public static String name(int e) { return names[e]; }
 }

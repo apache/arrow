@@ -26,7 +26,7 @@ public final class TimeUnit {
   public static final short MICROSECOND = 2;
   public static final short NANOSECOND = 3;
 
-  private static final String[] names = { "SECOND", "MILLISECOND", "MICROSECOND", "NANOSECOND", };
+  public static final String[] names = { "SECOND", "MILLISECOND", "MICROSECOND", "NANOSECOND", };
 
   public static String name(int e) { return names[e]; }
 }
