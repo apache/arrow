@@ -154,14 +154,14 @@ def _is_primitive(Type type):
 
 def _get_pandas_type(arrow_type, coerce_to_ns=False):
     cdef Type type_id = arrow_type.id
-    if type_id not in _get_pandas_type_map:
+    if type_id not in _get_pandas_type_map():
         return None
     if coerce_to_ns:
         # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
         if type_id == _Type_DURATION:
             return np.dtype('timedelta64[ns]')
         return np.dtype('datetime64[ns]')
-    pandas_type = _get_pandas_type_map[type_id]
+    pandas_type = _get_pandas_type_map()[type_id]
     if isinstance(pandas_type, dict):
         unit = getattr(arrow_type, 'unit', None)
         pandas_type = pandas_type.get(unit, None)
