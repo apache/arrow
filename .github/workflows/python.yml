@@ -87,7 +87,7 @@ jobs:
           - name: conda-python-3.10-no-numpy
             cache: conda-python-3.10
             image: conda-python-no-numpy
-            title: AMD64 Conda Python 3.10 Testing without numpy latest
+            title: AMD64 Conda Python 3.10 Testing without numpy
             python: "3.10"
     env:
       PYTHON: ${{ matrix.python || 3.8 }}

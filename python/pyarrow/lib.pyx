@@ -36,9 +36,12 @@ cimport pyarrow.includes.libarrow_python as libarrow_python
 cimport cpython as cp
 
 # Initialize NumPy C API only if numpy was able to be imported
+
+
 def initialize_numpy():
     if "numpy" in sys.modules:
         arrow_init_numpy()
+
 
 initialize_numpy()
 # Initialize PyArrow C++ API

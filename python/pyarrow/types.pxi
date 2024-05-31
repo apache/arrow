@@ -33,6 +33,8 @@ from cython import sizeof
 
 # These are imprecise because the type (in pandas 0.x) depends on the presence
 # of nulls
+
+
 def _get_pandas_type_map():
     cdef dict _pandas_type_map = {
         _Type_NA: np.object_,  # NaNs
@@ -71,6 +73,7 @@ def _get_pandas_type_map():
         _Type_DECIMAL128: np.object_,
     }
     return _pandas_type_map
+
 
 cdef dict _pep3118_type_map = {
     _Type_INT8: b'b',
