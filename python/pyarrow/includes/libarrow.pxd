@@ -316,6 +316,38 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CProxyMemoryPool" arrow::ProxyMemoryPool"(CMemoryPool):
         CProxyMemoryPool(CMemoryPool*)
 
+    ctypedef enum CDeviceAllocationType "arrow::DeviceAllocationType":
+        CDeviceAllocationType_kCPU "arrow::DeviceAllocationType::kCPU"
+        CDeviceAllocationType_kCUDA "arrow::DeviceAllocationType::kCUDA"
+        CDeviceAllocationType_kCUDA_HOST "arrow::DeviceAllocationType::kCUDA_HOST"
+        CDeviceAllocationType_kOPENCL "arrow::DeviceAllocationType::kOPENCL"
+        CDeviceAllocationType_kVULKAN "arrow::DeviceAllocationType::kVULKAN"
+        CDeviceAllocationType_kMETAL "arrow::DeviceAllocationType::kMETAL"
+        CDeviceAllocationType_kVPI "arrow::DeviceAllocationType::kVPI"
+        CDeviceAllocationType_kROCM "arrow::DeviceAllocationType::kROCM"
+        CDeviceAllocationType_kROCM_HOST "arrow::DeviceAllocationType::kROCM_HOST"
+        CDeviceAllocationType_kEXT_DEV "arrow::DeviceAllocationType::kEXT_DEV"
+        CDeviceAllocationType_kCUDA_MANAGED "arrow::DeviceAllocationType::kCUDA_MANAGED"
+        CDeviceAllocationType_kONEAPI "arrow::DeviceAllocationType::kONEAPI"
+        CDeviceAllocationType_kWEBGPU "arrow::DeviceAllocationType::kWEBGPU"
+        CDeviceAllocationType_kHEXAGON "arrow::DeviceAllocationType::kHEXAGON"
+
+    cdef cppclass CDevice" arrow::Device":
+        const char* type_name()
+        c_string ToString()
+        c_bool Equals(const CDevice& other)
+        int64_t device_id()
+        c_bool is_cpu() const
+        shared_ptr[CMemoryManager] default_memory_manager()
+        CDeviceAllocationType device_type()
+
+    cdef cppclass CMemoryManager" arrow::MemoryManager":
+        const shared_ptr[CDevice] device()
+        c_bool is_cpu() const
+
+    shared_ptr[CMemoryManager] c_default_cpu_memory_manager \
+        " arrow::default_cpu_memory_manager"()
+
     cdef cppclass CBuffer" arrow::Buffer":
         CBuffer(const uint8_t* data, int64_t size)
         const uint8_t* data()
@@ -328,6 +360,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         c_bool is_mutable() const
         c_string ToHexString()
         c_bool Equals(const CBuffer& other)
+        shared_ptr[CDevice] device()
+        const shared_ptr[CMemoryManager] memory_manager()
+        CDeviceAllocationType device_type()
 
     CResult[shared_ptr[CBuffer]] SliceBufferSafe(
         const shared_ptr[CBuffer]& buffer, int64_t offset)
