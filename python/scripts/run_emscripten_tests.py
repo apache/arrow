@@ -322,7 +322,7 @@ with launch_server(dist_dir) as (hostname, port):
     driver.execute_python(
         """
 import pyarrow,pathlib
-pyarrow_dir = pathlib.Path(pyarrow.__file__).parent / "tests"
+pyarrow_dir = pathlib.Path(pyarrow.__file__).parent
 pytest.main([pyarrow_dir,'-v'])
 """,
         wait_for_terminate=False,
