@@ -171,6 +171,9 @@ include "pandas-shim.pxi"
 # Memory pools and allocation
 include "memory.pxi"
 
+# Device type and memory manager
+include "device.pxi"
+
 # DataType, Field, Schema
 include "types.pxi"
 
