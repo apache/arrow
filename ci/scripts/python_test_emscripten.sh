@@ -20,18 +20,18 @@
 # run tests against 
 
 set -ex
-source_dir=${1}/python
-cd ${source_dir}
+build_dir=${1}/python
+cd ${build_dir}
 
-dist_dir=${2}
+pyodide_dist_dir=${2}
 
 # note: this assumes that there is only one wheel built into dist 
 # (which is true if you build using emscripten_python_build.sh)
 echo "-------------- Running emscripten tests in Chrome --------------------"
-python scripts/run_emscripten_tests.py dist/pyarrow*.whl --dist-dir=${dist_dir} --runtime=chrome
+python scripts/run_emscripten_tests.py dist/pyarrow*.whl --dist-dir=${pyodide_dist_dir} --runtime=chrome
 
 echo "-------------- Running emscripten tests in Node ----------------------"
-python scripts/run_emscripten_tests.py dist/pyarrow*.whl --dist-dir=${dist_dir} --runtime=node
+python scripts/run_emscripten_tests.py dist/pyarrow*.whl --dist-dir=${pyodide_dist_dir} --runtime=node
 
 echo "-------------- Running emscripten tests in Firefox -------------------"
-python scripts/run_emscripten_tests.py dist/pyarrow*.whl --dist-dir=${dist_dir} --runtime=firefox
+python scripts/run_emscripten_tests.py dist/pyarrow*.whl --dist-dir=${pyodide_dist_dir} --runtime=firefox

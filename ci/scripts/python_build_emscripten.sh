@@ -19,9 +19,18 @@
 
 set -ex
 
+arrow_dir=${1}
+build_dir=${2}
+
+
 source ~/emsdk/emsdk_env.sh
 
-source_dir=${1}/python
-cd ${source_dir}
-rm -rf dist
+source_dir=${arrow_dir}/python
+python_build_dir=${build_dir}/python
+
+rm -rf ${python_build_dir}
+cp -aL ${source_dir} ${python_build_dir}
+
+pushd python_build_dir
 pyodide build
+popd
