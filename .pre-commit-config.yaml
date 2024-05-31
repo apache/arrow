@@ -141,8 +141,9 @@ repos:
           '--disable',
           'dangling-hyphen,line-too-long',
         ]
-  - repo: https://github.com/dnephin/pre-commit-golang
-    rev: v0.5.1
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v1.59.0
     hooks:
-      - id: go-fmt
-      - id: go-imports
+      - id: golangci-lint
+        entry: bash -c 'golangci-lint run --disable-all -E goimports -E gofmt'
+        types_or: [ go ]
