@@ -311,126 +311,108 @@ if needs_testing
         link_with: [arrow_lib],
     )
 
-    # TODO: direct invocation of this test gives:
-    # undefined symbol: _ZN5arrow7PrintToERKNS_5ArrayEPSo
-    # even in existing Cmake configuration
-    array_test = executable(
-        'array_test',
-        'array/array_test.cc',
-        'array/array_binary_test.cc',
-        'array/array_dict_test.cc',
-        'array/array_list_test.cc',
-        'array/array_list_view_test.cc',
-        'array/array_run_end_test.cc',
-        'array/array_struct_test.cc',
-        'array/array_union_test.cc',
-        'array/array_view_test.cc',
-        include_directories: [root_dir],
-        link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gmock_dep],
-    )
-    test('arrow-array', array_test)
+    arrow_tests = {
+        'array': {
+            'exec_name': 'array_test',
+            'sources': [
+                'array/array_test.cc',
+                'array/array_binary_test.cc',
+                'array/array_dict_test.cc',
+                'array/array_list_test.cc',
+                'array/array_list_view_test.cc',
+                'array/array_run_end_test.cc',
+                'array/array_struct_test.cc',
+                'array/array_union_test.cc',
+                'array/array_view_test.cc',
+            ],
+            'deps': [gmock_dep],
+        },
+        'buffer': {
+            'exec_name': 'buffer_test',
+            'sources': ['buffer_test.cc'],
+            'deps': [gtest_dep],
+        },
+        'misc': {
+            'exec_name': 'misc_test',
+            'sources': [
+                'datum_test.cc',
+                'memory_pool_test.cc',
+                'result_test.cc',
+                'pretty_print_test.cc',
+                'status_test.cc',
+            ],
+            'deps': [gtest_dep, gmock_dep],
+        },
+        'public-api': {
+            'exec_name': 'public_api_test',
+            'sources': ['public_api_test.cc'],
+            'deps': [gtest_dep, gmock_dep],
+        },
+        'scalar': {
+            'exec_name': 'scalar_test',
+            'sources': ['scalar_test.cc'],
+            'deps': [gtest_dep, gmock_dep],
+        },
+        'type': {
+            'exec_name': 'type_test',
+            'sources': [
+                'field_ref_test.cc',
+                'scalar_test.cc',
+            ],
+            'deps': [gtest_dep, gmock_dep],
+        },
+        'table': {
+            'exec_name': 'table_test',
+            'sources': [
+                'chunked_array_test.cc',
+                'record_batch_test.cc',
+                'table_test.cc',
+                'table_builder_test.cc',
+            ],
+            'deps': [gtest_dep, gmock_dep],
+        },
+        'tensor': {
+            'exec_name': 'tensor_test',
+            'sources': ['tensor_test.cc'],
+            'deps': [gtest_dep, gmock_dep],
+        },
+        'sparse-tensor': {
+            'exec_name': 'sparse_tensor_test',
+            'sources': ['sparse_tensor_test.cc'],
+            'deps': [gtest_dep, gmock_dep],
+        },
+        'stl': {
+            'exec_name': 'stl_test',
+            'sources': [
+                'stl_iterator_test.cc',
+                'stl_test.cc',
+            ],
+            'deps': [gtest_dep, gmock_dep],
+        },
+    }
 
-    buffer_test = executable(
-        'buffer_test',
-        'buffer_test.cc',
-        include_directories: [root_dir],
-        link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep],
-    )
-    test('arrow-buffer', buffer_test)
+    foreach testname, test_config : arrow_tests
+        exc = executable(
+            test_config['exec_name'],
+            sources: test_config['sources'],
+            include_directories: [root_dir],
+            link_with: [arrow_lib, arrow_testing_lib],
+            dependencies: test_config['deps']
+        )
+        test('arrow-' + testname, exc)
+    endforeach
 
     if needs_ipc
-        extension_type_test = executable(
+        extension_type_exec = executable(
             'extension_type_test',
-            'extension_type_test.cc',
+            sources: ['extension_type_test.cc'],
             include_directories: [root_dir],
             link_with: [arrow_lib, arrow_testing_lib],
             dependencies: [gtest_dep],
         )
-        test('arrow-extension-type', extension_type_test)
+
+        test('arrow-extension-type', extension_type_exec)
     endif
-
-    misc_test = executable(
-        'misc_test',
-        'datum_test.cc',
-        'memory_pool_test.cc',
-        'result_test.cc',
-        'pretty_print_test.cc',
-        'status_test.cc',
-        include_directories: [root_dir],
-        link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],
-    )
-    test('arrow-misc', misc_test)
-
-    public_api_test = executable(
-        'public_api_test',
-        'public_api_test.cc',
-        include_directories: [root_dir],
-        link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],
-    )
-    test('arrow-public-api', public_api_test)
-
-    scalar_test = executable(
-        'scalar_test',
-        'scalar_test.cc',
-        include_directories: [root_dir],
-        link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],
-    )
-    test('arrow-scalar', scalar_test)
-
-    type_test = executable(
-        'type_test',
-        'field_ref_test.cc',
-        'type_test.cc',
-        include_directories: [root_dir],
-        link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],
-    )
-    test('arrow-type', type_test)
-
-    table_test = executable(
-        'table_test',
-        'chunked_array_test.cc',
-        'record_batch_test.cc',
-        'table_test.cc',
-        'table_builder_test.cc',
-        include_directories: [root_dir],
-        link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],
-    )
-    test('arrow-table', table_test)
-
-    tensor_test = executable(
-        'tensor_test',
-        'tensor_test.cc',
-        include_directories: [root_dir],
-        link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],
-    )
-    test('arrow-tensor', tensor_test)
-
-    sparse_tensor_test = executable(
-        'sparse_tensor_test',
-        'sparse_tensor_test.cc',
-        include_directories: [root_dir],
-        link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],
-    )
-    test('arrow-sparse-tensor', sparse_tensor_test)
-
-    stl_test = executable(
-        'stl_test',
-        'stl_iterator_test.cc',
-        'stl_test.cc',
-        include_directories: [root_dir],
-        link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],
-    )
-    test('arrow-stl', stl_test)
 
     subdir('integration')
     subdir('testing')
@@ -449,96 +431,105 @@ if needs_testing
     # N.B. we cannot subdir('util') because we already used that
     # for the configure_file, and Meson has a stricter structure
     # than CMake for directory layout
-    utility_test = executable(
-        'utility_test',
-        'util/align_util_test.cc',
-        'util/atfork_test.cc',
-        'util/byte_size_test.cc',
-        'util/byte_stream_split_test.cc',
-        'util/cache_test.cc',
-        'util/checked_cast_test.cc',
-        'util/compression_test.cc',
-        'util/decimal_test.cc',
-        'util/float16_test.cc',
-        'util/fixed_width_test.cc',
-        'util/formatting_util_test.cc',
-        'util/key_value_metadata_test.cc',
-        'util/hashing_test.cc',
-        'util/int_util_test.cc',
-        'util/iterator_test.cc',
-        'util/list_util_test.cc',
-        'util/logging_test.cc',
-        'util/queue_test.cc',
-        'util/range_test.cc',
-        'util/ree_util_test.cc',
-        'util/reflection_test.cc',
-        'util/rows_to_batches_test.cc',
-        'util/small_vector_test.cc',
-        'util/span_test.cc',
-        'util/stl_util_test.cc',
-        'util/string_test.cc',
-        'util/tdigest_test.cc',
-        'util/test_common.cc',
-        'util/time_test.cc',
-        'util/tracing_test.cc',
-        'util/trie_test.cc',
-        'util/uri_test.cc',
-        'util/utf8_util_test.cc',
-        'util/value_parsing_test.cc',
-        include_directories: [root_dir],
-        link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],
-    )
-    test('arrow-utility', utility_test)
+    util_tests = {
+        'utility': {
+            'exec_name': 'utility_test',
+            'sources': [
+                'util/align_util_test.cc',
+                'util/atfork_test.cc',
+                'util/byte_size_test.cc',
+                'util/byte_stream_split_test.cc',
+                'util/cache_test.cc',
+                'util/checked_cast_test.cc',
+                'util/compression_test.cc',
+                'util/decimal_test.cc',
+                'util/float16_test.cc',
+                'util/fixed_width_test.cc',
+                'util/formatting_util_test.cc',
+                'util/key_value_metadata_test.cc',
+                'util/hashing_test.cc',
+                'util/int_util_test.cc',
+                'util/iterator_test.cc',
+                'util/list_util_test.cc',
+                'util/logging_test.cc',
+                'util/queue_test.cc',
+                'util/range_test.cc',
+                'util/ree_util_test.cc',
+                'util/reflection_test.cc',
+                'util/rows_to_batches_test.cc',
+                'util/small_vector_test.cc',
+                'util/span_test.cc',
+                'util/stl_util_test.cc',
+                'util/string_test.cc',
+                'util/tdigest_test.cc',
+                'util/test_common.cc',
+                'util/time_test.cc',
+                'util/tracing_test.cc',
+                'util/trie_test.cc',
+                'util/uri_test.cc',
+                'util/utf8_util_test.cc',
+                'util/value_parsing_test.cc',
+            ],
+            'deps': [gtest_dep, gmock_dep],
+        },
+        'async-utility': {
+            'exec_name': 'async_utility_test',
+            'sources': [
+                'util/async_generator_test.cc',
+                'util/async_util_test.cc',
+                'util/test_common.cc',
+            ],
+            'deps': [gtest_dep, gmock_dep],
+        },
+        'bit-utility': {
+            'exec_name': 'bit_utility_test',
+            'sources': [
+                'util/bit_block_counter_test.cc',
+                'util/bit_util_test.cc',
+                'util/rle_encoding_test.cc',
+            ],
+            'deps': [gtest_dep, gmock_dep],
+        },
+        'threading-utility': {
+            'exec_name': 'threading_utility_test',
+            'sources': [
+                'util/cancel_test.cc',
+                'util/counting_semaphore_test.cc',
+                'util/future_test.cc',
+                'util/task_group_test.cc',
+                'util/test_common.cc',
+                'util/thread_pool_test.cc',
+            ],
+            'deps': [gtest_dep, gmock_dep],
+        },
+        'crc32': {
+            'exec_name': 'crc32_test',
+            'sources': ['util/crc32_test.cc'],
+            'deps': [gtest_dep, gmock_dep],
+        },
+    }
 
-    async_utility_test = executable(
-        'async_utility_test',
-        'util/async_generator_test.cc',
-        'util/async_util_test.cc',
-        'util/test_common.cc',
-        include_directories: [root_dir],
-        link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],
-    )
-    test('arrow-async-utility', async_utility_test)
-
-    bit_utility_test = executable(
-        'bit_utility_test',
-        'util/bit_block_counter_test.cc',
-        'util/bit_util_test.cc',
-        'util/rle_encoding_test.cc',
-        include_directories: [root_dir],
-        link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],
-    )
-    test('arrow-bit-utility', bit_utility_test)
-
-    threading_utility_test = executable(
-        'threading_utility_test',
-        'util/cancel_test.cc',
-        'util/counting_semaphore_test.cc',
-        'util/future_test.cc',
-        'util/task_group_test.cc',
-        'util/test_common.cc',
-        'util/thread_pool_test.cc',
-        include_directories: [root_dir],
-        link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],
-    )
-    test('arrow-threading-utility', threading_utility_test)
-
-    crc32_test = executable(
-        'crc32_test',
-        'util/crc32_test.cc',
-        include_directories: [root_dir],
-        link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],
-    )
-    test('arrow-crc32', crc32_test)
+    foreach testname, test_config : util_tests
+        exc = executable(
+            test_config['exec_name'],
+            sources: test_config['sources'],
+            include_directories: [root_dir],
+            link_with: [arrow_lib, arrow_testing_lib],
+            dependencies: test_config['deps'],
+            install_dir: 'util/'
+        )
+        test('arrow-' + testname, exc)
+    endforeach
 
     # TODO: util benchmarks
 
-    subdir('ipc')
-    subdir('json')
-    subdir('extension')
+
+    if needs_ipc
+        subdir('ipc')
+    endif
+
+    if needs_json
+        subdir('json')
+        subdir('extension')
+    endif
 endif
