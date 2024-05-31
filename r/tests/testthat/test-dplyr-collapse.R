@@ -171,19 +171,6 @@ extra: int64 (multiply_checked(total, 5))
 See $.data for the source Arrow object",
     fixed = TRUE
   )
-  expect_output(
-    print(q$.data),
-    "Table (query)
-int: int32
-lgl: bool
-
-* Aggregations:
-total: sum(int)
-* Filter: (dbl > 2)
-* Grouped by lgl
-See $.data for the source Arrow object",
-    fixed = TRUE
-  )
 
   expect_equal(
     q %>%

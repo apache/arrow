@@ -1362,7 +1362,7 @@ class MyMemoryManager : public CPUMemoryManager {
     if (buf.size() > 0) {
       memcpy(dest->mutable_data(), buf.data(), static_cast<size_t>(buf.size()));
     }
-    return std::move(dest);
+    return dest;
   }
 };
 
@@ -4100,6 +4100,23 @@ TEST_F(TestArrayRoundtrip, RegisteredExtension) {
   TestWithArrayFactory(NestedFactory(ExampleUuid));
   TestWithArrayFactory(NestedFactory(ExampleComplex128));
   TestWithArrayFactory(NestedFactory(ExampleDictExtension));
+}
+
+TEST_F(TestArrayRoundtrip, RegisteredExtensionNoMetadata) {
+  auto ext_type = std::make_shared<MetadataOptionalExtensionType>();
+  ExtensionTypeGuard guard(ext_type);
+
+  auto ext_metadata =
+      KeyValueMetadata::Make({"ARROW:extension:name"}, {ext_type->extension_name()});
+  auto ext_field = field("", ext_type->storage_type(), true, std::move(ext_metadata));
+
+  struct ArrowSchema c_schema {};
+  SchemaExportGuard schema_guard(&c_schema);
+  ASSERT_OK(ExportField(*ext_field, &c_schema));
+
+  ASSERT_OK_AND_ASSIGN(auto ext_type_roundtrip, ImportType(&c_schema));
+  ASSERT_EQ(ext_type_roundtrip->id(), Type::EXTENSION);
+  AssertTypeEqual(ext_type_roundtrip, ext_type);
 }
 
 TEST_F(TestArrayRoundtrip, UnregisteredExtension) {

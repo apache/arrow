@@ -37,6 +37,10 @@ GADATASET_AVAILABLE_IN_5_0
 GArrowTable *
 gadataset_scanner_to_table(GADatasetScanner *scanner, GError **error);
 
+GADATASET_AVAILABLE_IN_17_0
+GArrowRecordBatchReader *
+gadataset_scanner_to_record_batch_reader(GADatasetScanner *scanner, GError **error);
+
 #define GADATASET_TYPE_SCANNER_BUILDER (gadataset_scanner_builder_get_type())
 GADATASET_AVAILABLE_IN_5_0
 G_DECLARE_DERIVABLE_TYPE(

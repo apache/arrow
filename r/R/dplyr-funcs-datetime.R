@@ -121,7 +121,7 @@ register_bindings_datetime_utility <- function() {
       precision <- "ymdhms"
     }
     if (!precision %in% names(ISO8601_precision_map)) {
-      abort(
+      validation_error(
         paste(
           "`precision` must be one of the following values:",
           paste(names(ISO8601_precision_map), collapse = ", "),
@@ -325,10 +325,10 @@ register_bindings_datetime_conversion <- function() {
              origin = "1970-01-01",
              tz = "UTC") {
       if (is.null(format) && length(tryFormats) > 1) {
-        abort(
-          paste(
-            "`as.Date()` with multiple `tryFormats` is not supported in Arrow.",
-            "Consider using the lubridate specialised parsing functions `ymd()`, `ymd()`, etc."
+        arrow_not_supported(
+          "`as.Date()` with multiple `tryFormats`",
+          body = c(
+            ">" = "Consider using the lubridate specialised parsing functions `ymd()`, `ymd()`, etc."
           )
         )
       }
@@ -455,15 +455,13 @@ register_bindings_datetime_timezone <- function() {
         arrow_not_supported("`roll_dst` must be 1 or 2 items long; other lengths")
       }
 
-      nonexistent <- switch(
-        roll_dst[1],
+      nonexistent <- switch(roll_dst[1],
         "error" = 0L,
         "boundary" = 2L,
         arrow_not_supported("`roll_dst` value must be 'error' or 'boundary' for nonexistent times; other values")
       )
 
-      ambiguous <- switch(
-        roll_dst[2],
+      ambiguous <- switch(roll_dst[2],
         "error" = 0L,
         "pre" = 1L,
         "post" = 2L,
@@ -651,7 +649,7 @@ register_bindings_duration_helpers <- function() {
   register_binding(
     "lubridate::dpicoseconds",
     function(x = 1) {
-      abort("Duration in picoseconds not supported in Arrow.")
+      arrow_not_supported("Duration in picoseconds")
     },
     notes = "not supported"
   )

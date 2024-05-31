@@ -233,28 +233,40 @@ DeviceAllocationType ArrayData::device_type() const {
   int type = 0;
   for (const auto& buf : buffers) {
     if (!buf) continue;
+#ifdef NDEBUG
+    return buf->device_type();
+#else
     if (type == 0) {
       type = static_cast<int>(buf->device_type());
     } else {
       DCHECK_EQ(type, static_cast<int>(buf->device_type()));
     }
+#endif
   }
 
   for (const auto& child : child_data) {
     if (!child) continue;
+#ifdef NDEBUG
+    return child->device_type();
+#else
     if (type == 0) {
       type = static_cast<int>(child->device_type());
     } else {
       DCHECK_EQ(type, static_cast<int>(child->device_type()));
     }
+#endif
   }
 
   if (dictionary) {
+#ifdef NDEBUG
+    return dictionary->device_type();
+#else
     if (type == 0) {
       type = static_cast<int>(dictionary->device_type());
     } else {
       DCHECK_EQ(type, static_cast<int>(dictionary->device_type()));
     }
+#endif
   }
 
   return type == 0 ? DeviceAllocationType::kCPU : static_cast<DeviceAllocationType>(type);

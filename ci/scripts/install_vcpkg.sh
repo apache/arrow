@@ -25,12 +25,15 @@ if [ "$#" -lt 1 ]; then
 fi
 
 arrow_dir=$(cd -- "$(dirname -- "$0")/../.." && pwd -P)
-default_vcpkg_version=$(source "${arrow_dir}/.env" && echo "$VCPKG" || echo "")
 default_vcpkg_ports_patch="${arrow_dir}/ci/vcpkg/ports.patch"
 
 vcpkg_destination=$1
-vcpkg_version=${2:-$default_vcpkg_version}
+vcpkg_version=${2:-}
 vcpkg_ports_patch=${3:-$default_vcpkg_ports_patch}
+
+if [ -z "${vcpkg_version}" ]; then
+  vcpkg_version=$(source "${arrow_dir}/.env" && echo "$VCPKG")
+fi
 
 # reduce the fetched data using a shallow clone
 git clone --shallow-since=2021-04-01 https://github.com/microsoft/vcpkg ${vcpkg_destination}

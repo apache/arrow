@@ -155,7 +155,7 @@ register_bindings_aggregate <- function() {
 set_agg <- function(...) {
   agg_data <- list2(...)
   # Find the environment where .aggregations is stored
-  target <- find_aggregations_env()
+  target <- find_arrow_mask()
   aggs <- get(".aggregations", target)
   lapply(agg_data[["data"]], function(expr) {
     # If any of the fields referenced in the expression are in .aggregations,
@@ -176,8 +176,8 @@ set_agg <- function(...) {
   Expression$field_ref(tmpname)
 }
 
-find_aggregations_env <- function() {
-  # Find the environment where .aggregations is stored,
+find_arrow_mask <- function() {
+  # Find the arrow_mask environment by looking for .aggregations,
   # it's in parent.env of something in the call stack
   n <- 1
   while (TRUE) {
