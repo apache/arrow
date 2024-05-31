@@ -269,7 +269,7 @@ if "pyarrow" not in sys.modules:
     await pjs.loadPackage("pandas")
     import pytest
     import pandas # import pandas after pyarrow package load for pandas/pyarrow
-                    #functions to work
+                  # functions to work
 import pyarrow
     """,
         wait_for_terminate=True,
