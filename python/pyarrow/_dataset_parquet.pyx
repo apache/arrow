@@ -738,7 +738,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         self.use_buffered_stream = use_buffered_stream
         self.buffer_size = buffer_size
         if pre_buffer and not is_threading_enabled():
-            pre_buffer=False
+            pre_buffer = False
         self.pre_buffer = pre_buffer
         if cache_options is not None:
             self.cache_options = cache_options

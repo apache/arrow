@@ -144,9 +144,9 @@ endif()
 include(SetupCxxFlags)
 
 if($ENV{PYODIDE})
-  # these variables are needed for building pyarrow on Emscripten
-  # if they aren't set, cmake cross compiling fails for python
-  # modules (at least under pyodide it does)
+  # These variables are needed for building PyArrow on Emscripten.
+  # If they aren't set, CMake cross compiling fails for Python
+  # modules (at least under Pyodide it does).
   set(Python3_INCLUDE_DIR $ENV{PYTHONINCLUDE})
   set(Python3_LIBRARY $ENV{CPYTHONLIB})
   set(Python3_NumPy_INCLUDE_DIR $ENV{NUMPY_LIB}/core/include)
@@ -156,7 +156,6 @@ if($ENV{PYODIDE})
   # which is pyodide's way of messing with C++ build parameters.
   set(CMAKE_C_COMPILER emcc)
   set(CMAKE_CXX_COMPILER em++)
-
 endif()
 
 # Add common flags
@@ -424,7 +423,6 @@ if(NOT PYARROW_CPP_LINK_LIBS)
 endif()
 
 add_library(arrow_python SHARED ${PYARROW_CPP_SRCS})
-
 target_include_directories(arrow_python PUBLIC ${PYARROW_CPP_ROOT_DIR}
                                                ${CMAKE_CURRENT_BINARY_DIR}/pyarrow/src)
 if(NOT CMAKE_VERSION VERSION_LESS 3.16)
@@ -671,7 +669,6 @@ if(PYARROW_BUILD_ACERO)
   list(APPEND CYTHON_EXTENSIONS _acero)
 
   if(ARROW_BUILD_SHARED)
-
     if(PYARROW_BUNDLE_ARROW_CPP)
       bundle_arrow_lib(${ARROW_ACERO_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
       if(MSVC)
@@ -681,7 +678,7 @@ if(PYARROW_BUILD_ACERO)
 
     set(ACERO_LINK_LIBS ArrowAcero::arrow_acero_shared)
   else()
-    # ACERO is statically linked into libarrow_python already
+    # Acero is statically linked into libarrow_python already
     set(ACERO_LINK_LIBS)
   endif()
 endif()
@@ -689,7 +686,6 @@ endif()
 # Dataset
 if(PYARROW_BUILD_DATASET)
   if(ARROW_BUILD_SHARED)
-
     if(PYARROW_BUNDLE_ARROW_CPP)
       bundle_arrow_lib(${ARROW_DATASET_SHARED_LIB} SO_VERSION ${ARROW_SO_VERSION})
       if(MSVC)
@@ -703,7 +699,6 @@ if(PYARROW_BUILD_DATASET)
     set(DATASET_LINK_LIBS)
   endif()
   list(APPEND CYTHON_EXTENSIONS _dataset)
-
 endif()
 
 # Parquet
@@ -789,8 +784,8 @@ if(PYARROW_BUILD_SUBSTRAIT)
     endif()
     set(SUBSTRAIT_LINK_LIBS ArrowSubstrait::arrow_substrait_shared)
   else()
-    # only link to the output of substrait, not to libarrow etc.
-    # if we link to the target directly we end up with multiple copies
+    # Only link to the output of substrait, not to libarrow etc.
+    # If we link to the target directly we end up with multiple copies
     # of libarrow / parquet etc.
     set(SUBSTRAIT_LINK_LIBS $<TARGET_FILE:ArrowSubstrait::arrow_substrait_static>)
   endif()
