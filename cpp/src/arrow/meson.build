@@ -581,17 +581,16 @@ if needs_testing
 
         foreach nm, conf : util_benchmarks
             exc = executable(
-                nm + '-benchmark',
+                'arrow-' + nm + '-benchmark',
                 'util/' + conf['src_name'] + '_benchmark.cc',
                 include_directories: [root_dir],
                 link_with: conf['link_with'],
-                dependencies: [gtest_dep, gbenchmark_dep],
+                dependencies: [gbenchmark_dep],
                 install_dir: 'util/',
             )
             benchmark('arrow-' + nm, exc)
         endforeach
     endif
-
 
     if needs_ipc
         subdir('ipc')
