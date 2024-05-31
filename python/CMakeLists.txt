@@ -68,9 +68,6 @@ if(POLICY CMP0095)
   cmake_policy(SET CMP0095 NEW)
 endif()
 
-# this option is used to auto-set defaults for pyarrow build
-option(DUMP_ARROW_ARGUMENTS "Dump the arrow arguments then quit" OFF)
-
 # Use the first Python installation on PATH, not the newest one
 set(Python3_FIND_STRATEGY "LOCATION")
 # On Windows, use registry last, not first
