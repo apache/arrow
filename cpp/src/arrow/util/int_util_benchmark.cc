@@ -145,3 +145,5 @@ BENCHMARK(CheckIndexBoundsUInt32)->Apply(BoundsCheckSetArgs);
 
 }  // namespace internal
 }  // namespace arrow
+
+BENCHMARK_MAIN();

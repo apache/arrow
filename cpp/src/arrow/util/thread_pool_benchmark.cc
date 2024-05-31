@@ -246,3 +246,5 @@ BENCHMARK(ThreadPoolSubmit)->Apply(ThreadPoolSpawn_Customize);
 
 }  // namespace internal
 }  // namespace arrow
+
+BENCHMARK_MAIN();

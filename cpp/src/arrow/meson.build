@@ -299,7 +299,7 @@ if needs_testing
         'testing/util.cc',
     ]
 
-    gtest_dep = dependency('gtest', fallback: ['gtest', 'gtest_main_dep'])
+    gtest_main_dep = dependency('gtest_main')
     gmock_dep = dependency('gmock')
 
     arrow_testing_lib = library(
@@ -307,7 +307,7 @@ if needs_testing
         arrow_testing_srcs,
         include_directories: [root_dir],
         install: true,
-        dependencies: [rapidjson_dep, gtest_dep],
+        dependencies: [rapidjson_dep, gtest_main_dep],
         link_with: [arrow_lib],
     )
 
@@ -328,7 +328,7 @@ if needs_testing
         },
         'buffer': {
             'sources': ['buffer_test.cc'],
-            'deps': [gtest_dep],
+            'deps': [gtest_main_dep],
         },
         'misc': {
             'sources': [
@@ -338,22 +338,22 @@ if needs_testing
                 'pretty_print_test.cc',
                 'status_test.cc',
             ],
-            'deps': [gtest_dep, gmock_dep],
+            'deps': [gtest_main_dep, gmock_dep],
         },
         'public-api': {
             'sources': ['public_api_test.cc'],
-            'deps': [gtest_dep, gmock_dep],
+            'deps': [gtest_main_dep, gmock_dep],
         },
         'scalar': {
             'sources': ['scalar_test.cc'],
-            'deps': [gtest_dep, gmock_dep],
+            'deps': [gtest_main_dep, gmock_dep],
         },
         'type': {
             'sources': [
                 'field_ref_test.cc',
                 'scalar_test.cc',
             ],
-            'deps': [gtest_dep, gmock_dep],
+            'deps': [gtest_main_dep, gmock_dep],
         },
         'table': {
             'sources': [
@@ -362,22 +362,22 @@ if needs_testing
                 'table_test.cc',
                 'table_builder_test.cc',
             ],
-            'deps': [gtest_dep, gmock_dep],
+            'deps': [gtest_main_dep, gmock_dep],
         },
         'tensor': {
             'sources': ['tensor_test.cc'],
-            'deps': [gtest_dep, gmock_dep],
+            'deps': [gtest_main_dep, gmock_dep],
         },
         'sparse-tensor': {
             'sources': ['sparse_tensor_test.cc'],
-            'deps': [gtest_dep, gmock_dep],
+            'deps': [gtest_main_dep, gmock_dep],
         },
         'stl': {
             'sources': [
                 'stl_iterator_test.cc',
                 'stl_test.cc',
             ],
-            'deps': [gtest_dep, gmock_dep],
+            'deps': [gtest_main_dep, gmock_dep],
         },
     }
 
@@ -398,7 +398,7 @@ if needs_testing
             sources: ['extension_type_test.cc'],
             include_directories: [root_dir],
             link_with: [arrow_lib, arrow_testing_lib],
-            dependencies: [gtest_dep],
+            dependencies: [gtest_main_dep],
         )
 
         test('arrow-extension-type', extension_type_exec)
@@ -459,7 +459,7 @@ if needs_testing
                 'util/utf8_util_test.cc',
                 'util/value_parsing_test.cc',
             ],
-            'deps': [gtest_dep, gmock_dep],
+            'deps': [gtest_main_dep, gmock_dep],
         },
         'async-utility': {
             'sources': [
@@ -467,7 +467,7 @@ if needs_testing
                 'util/async_util_test.cc',
                 'util/test_common.cc',
             ],
-            'deps': [gtest_dep, gmock_dep],
+            'deps': [gtest_main_dep, gmock_dep],
         },
         'bit-utility': {
             'sources': [
@@ -475,7 +475,7 @@ if needs_testing
                 'util/bit_util_test.cc',
                 'util/rle_encoding_test.cc',
             ],
-            'deps': [gtest_dep, gmock_dep],
+            'deps': [gtest_main_dep, gmock_dep],
         },
         'threading-utility': {
             'sources': [
@@ -486,11 +486,11 @@ if needs_testing
                 'util/test_common.cc',
                 'util/thread_pool_test.cc',
             ],
-            'deps': [gtest_dep, gmock_dep],
+            'deps': [gtest_main_dep, gmock_dep],
         },
         'crc32': {
             'sources': ['util/crc32_test.cc'],
-            'deps': [gtest_dep, gmock_dep],
+            'deps': [gtest_main_dep, gmock_dep],
         },
     }
 
@@ -507,6 +507,7 @@ if needs_testing
     endforeach
 
     if get_option('ARROW_BUILD_BENCHMARKS')
+        gtest_dep = dependency('gtest')  # does not include main
         gbenchmark_dep = dependency('benchmark')
         util_benchmarks = {
             'bit-block-counter': {
@@ -585,7 +586,7 @@ if needs_testing
                 'util/' + conf['src_name'] + '_benchmark.cc',
                 include_directories: [root_dir],
                 link_with: conf['link_with'],
-                dependencies: [gbenchmark_dep],
+                dependencies: [gbenchmark_dep, gtest_dep],
                 install_dir: 'util/',
             )
             benchmark('arrow-' + nm, exc)

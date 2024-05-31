@@ -23,7 +23,7 @@ if get_option('ARROW_BUILD_TESTS')
       'json_integration_test.cc',
       include_directories: [root_dir],
       link_with: [arrow_lib, arrow_testing_lib],
-      dependencies: [gtest_dep, rapidjson_dep, gflags_dep],
+      dependencies: [gtest_main_dep, rapidjson_dep, gflags_dep],
   )
   test('arrow-json-integration', json_integration_test)
 elif get_option('ARROW_BUILD_INTEGRATION')

@@ -72,3 +72,5 @@ BENCHMARK(memory_latency)->Repetitions(1)->RangeMultiplier(2)->Range(2 << 10, 2 
 #endif  // ARROW_WITH_BENCHMARKS_REFERENCE
 
 }  // namespace arrow
+
+BENCHMARK_MAIN();

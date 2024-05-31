@@ -267,3 +267,5 @@ BENCHMARK_TEMPLATE(ReferenceDecompression, Compression::SNAPPY);
 #endif
 
 }  // namespace arrow::util
+
+BENCHMARK_MAIN();

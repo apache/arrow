@@ -83,3 +83,5 @@ BENCHMARK(SpscQueueThroughput)->UseRealTime();
 
 }  // namespace util
 }  // namespace arrow
+
+BENCHMARK_MAIN();

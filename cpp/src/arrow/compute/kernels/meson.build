@@ -22,7 +22,7 @@ if needs_testing
         'test_util.cc',
         include_directories: [root_dir],
         link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],
+        dependencies: [gtest_main_dep, gmock_dep],
     )
     test('arrow-compute-scalar-cast', scalar_cast_test)
 
@@ -34,7 +34,7 @@ if needs_testing
         'test_util.cc',
         include_directories: [root_dir],
         link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],
+        dependencies: [gtest_main_dep, gmock_dep],
     )
     test('arrow-compute-scalar-type', scalar_type_test)
 
@@ -44,7 +44,7 @@ if needs_testing
         'test_util.cc',
         include_directories: [root_dir],
         link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],
+        dependencies: [gtest_main_dep, gmock_dep],
     )
     test('arrow-compute-scalar-if-else', scalar_if_else_test)
 
@@ -54,7 +54,7 @@ if needs_testing
         'test_util.cc',
         include_directories: [root_dir],
         link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],
+        dependencies: [gtest_main_dep, gmock_dep],
     )
     test('arrow-compute-scalar-temporal', scalar_temporal_test)
 
@@ -66,7 +66,7 @@ if needs_testing
         'test_util.cc',
         include_directories: [root_dir],
         link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],
+        dependencies: [gtest_main_dep, gmock_dep],
     )
     test('arrow-compute-scalar-math', scalar_math_test)
 
@@ -78,7 +78,7 @@ if needs_testing
         'test_util.cc',
         include_directories: [root_dir],
         link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],
+        dependencies: [gtest_main_dep, gmock_dep],
     )
     test('arrow-compute-scalar-utility', scalar_utility_test)
 
@@ -95,7 +95,7 @@ if needs_testing
         'test_util.cc',
         include_directories: [root_dir],
         link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],
+        dependencies: [gtest_main_dep, gmock_dep],
     )
     test('arrow-compute-vector', vector_test)
 
@@ -105,7 +105,7 @@ if needs_testing
         'test_util.cc',
         include_directories: [root_dir],
         link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],
+        dependencies: [gtest_main_dep, gmock_dep],
     )
     test('arrow-compute-vector-sort', vector_sort_test)
 
@@ -115,7 +115,7 @@ if needs_testing
         'test_util.cc',
         include_directories: [root_dir],
         link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],
+        dependencies: [gtest_main_dep, gmock_dep],
     )
     test('arrow-compute-vector-selection', vector_selection_test)
 
@@ -126,7 +126,7 @@ if needs_testing
         'test_util.cc',
         include_directories: [root_dir],
         link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],
+        dependencies: [gtest_main_dep, gmock_dep],
     )
     test('arrow-compute-aggregate', aggregate_test)
 
@@ -136,7 +136,7 @@ if needs_testing
         'codegen_internal_test.cc',
         include_directories: [root_dir],
         link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],
+        dependencies: [gtest_main_dep, gmock_dep],
     )
     test('arrow-compute-kernel-utility', kernel_utility_test)
 endif

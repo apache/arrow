@@ -47,3 +47,5 @@ BENCHMARK(BenchmarkTDigest)->Arg(1 << 12)->Arg(1 << 16)->Arg(1 << 20);
 
 }  // namespace util
 }  // namespace arrow
+
+BENCHMARK_MAIN();

@@ -21,7 +21,7 @@ if get_option('ARROW_BUILD_TESTS')
         'concatenate_test.cc',
         include_directories: [root_dir],
         link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],
+        dependencies: [gtest_main_dep, gmock_dep],
     )
     test('arrow-array-concatenate', concatenate_test)
 
@@ -30,7 +30,7 @@ if get_option('ARROW_BUILD_TESTS')
         'diff_test.cc',
         include_directories: [root_dir],
         link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],
+        dependencies: [gtest_main_dep, gmock_dep],
     )
     test('arrow-array-diff', diff_test)
 endif

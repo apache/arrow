@@ -121,3 +121,5 @@ BENCHMARK(HashLargeStrings);
 
 }  // namespace internal
 }  // namespace arrow
+
+BENCHMARK_MAIN();

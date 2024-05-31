@@ -25,7 +25,7 @@ if get_option('ARROW_BUILD_TESTS')
         'reader_test.cc',
         include_directories: [root_dir],
         link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep, rapidjson_dep],
+        dependencies: [gtest_main_dep, gmock_dep, rapidjson_dep],
     )
     test('arrow-json', json_test)
 

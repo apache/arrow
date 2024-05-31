@@ -220,3 +220,5 @@ BENCHMARK(InlinedTrieLookupNotFound);
 
 }  // namespace internal
 }  // namespace arrow
+
+BENCHMARK_MAIN();

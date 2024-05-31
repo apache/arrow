@@ -21,7 +21,7 @@ if get_option('ARROW_BUILD_TESTS')
         'fixed_shape_tensor_test.cc',
         include_directories: [root_dir],
         link_with: [arrow_lib, arrow_testing_lib],
-        dependencies: [gtest_dep, gmock_dep],
+        dependencies: [gtest_main_dep, gmock_dep],
     )
     test('arrow-fixed-shape-tensor', fixed_shape_tensor_test)
 endif

@@ -111,3 +111,5 @@ BENCHMARK(BitmapWordReaderBench)->Arg(kBufferSize);
 
 }  // namespace bit_util
 }  // namespace arrow
+
+BENCHMARK_MAIN();

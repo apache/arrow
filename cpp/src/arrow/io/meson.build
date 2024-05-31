@@ -26,7 +26,7 @@ if get_option('ARROW_BUILD_TESTS')
             # Don't mangle local stdio.h with system
             implicit_include_directories: false,
             link_with: [arrow_lib, arrow_testing_lib],
-            dependencies: [gtest_dep, gmock_dep],
+            dependencies: [gtest_main_dep, gmock_dep],
         )
         test('arrow-io-' + io_test, exc)
     endforeach
