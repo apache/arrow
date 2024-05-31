@@ -44,6 +44,7 @@ inline Status VisitSequenceGeneric(PyObject* obj, int64_t offset, VisitorFunc&& 
   // VisitorFunc may set to false to terminate iteration
   bool keep_going = true;
 
+#ifdef NUMPY_IMPORT_ARRAY
   if (PyArray_Check(obj)) {
     PyArrayObject* arr_obj = reinterpret_cast<PyArrayObject*>(obj);
     if (PyArray_NDIM(arr_obj) != 1) {
@@ -64,6 +65,8 @@ inline Status VisitSequenceGeneric(PyObject* obj, int64_t offset, VisitorFunc&& 
     // This code path is inefficient: callers should implement dedicated
     // logic for non-object arrays.
   }
+#endif
+
   if (PySequence_Check(obj)) {
     if (PyList_Check(obj) || PyTuple_Check(obj)) {
       // Use fast item access
