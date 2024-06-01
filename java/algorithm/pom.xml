@@ -79,7 +79,7 @@
               <style>GOOGLE</style>
             </googleJavaFormat>
             <licenseHeader>
-              <file>${project.basedir}/../dev/license/asf-java.license</file>
+              <file>${maven.multiModuleProjectDirectory}/java/dev/license/asf-java.license</file>
               <delimiter>package</delimiter>
             </licenseHeader>
           </java>
