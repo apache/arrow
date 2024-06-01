@@ -119,16 +119,14 @@ public class AllocationOutcomeDetails {
 
     @Override
     public String toString() {
-      return new StringBuilder()
-          .append("allocator[" + accountant.getName() + "]")
-          .append(" reservation: " + accountant.getInitReservation())
-          .append(" limit: " + limit)
-          .append(" used: " + used)
-          .append(" requestedSize: " + requestedSize)
-          .append(" allocatedSize: " + allocatedSize)
-          .append(" localAllocationStatus: " + (allocationFailed ? "fail" : "success"))
-          .append("\n")
-          .toString();
+      return "allocator[" + accountant.getName() + "]" +
+          " reservation: " + accountant.getInitReservation() +
+          " limit: " + limit +
+          " used: " + used +
+          " requestedSize: " + requestedSize +
+          " allocatedSize: " + allocatedSize +
+          " localAllocationStatus: " + (allocationFailed ? "fail" : "success") +
+          "\n";
     }
   }
 

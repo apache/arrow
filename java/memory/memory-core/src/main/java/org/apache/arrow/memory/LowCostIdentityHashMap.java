@@ -255,7 +255,7 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
   }
 
   private void computeMaxSize() {
-    threshold = (int) ((long) (elementData.length) * LOAD_FACTOR / 10000);
+    threshold = (int) ((long) elementData.length * LOAD_FACTOR / 10000);
   }
 
   /**
@@ -309,7 +309,6 @@ public class LowCostIdentityHashMap<K, V extends ValueWithKeyIncluded<K>> {
         elementData[index] = null;
       }
     }
-
     return (V) result;
   }
 

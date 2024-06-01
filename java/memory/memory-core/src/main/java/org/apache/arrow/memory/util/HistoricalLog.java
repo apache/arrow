@@ -17,11 +17,14 @@
 
 package org.apache.arrow.memory.util;
 
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedList;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.slf4j.Logger;
+
+import com.google.errorprone.annotations.FormatMethod;
+import com.google.errorprone.annotations.FormatString;
 
 /**
  * Utility class that can be used to log activity within a class
@@ -30,7 +33,7 @@ import org.slf4j.Logger;
  */
 public class HistoricalLog {
 
-  private final LinkedList<Event> history = new LinkedList<>();
+  private final ArrayList<Event> history = new ArrayList<>();
   private final String idString; // the formatted id string
   private final int limit; // the limit on the number of events kept
   private @Nullable Event firstEvent; // the first stack trace recorded
@@ -44,7 +47,8 @@ public class HistoricalLog {
    *                       associated with the object instance is best.
    * @param args           for the format string, or nothing if none are required
    */
-  public HistoricalLog(final String idStringFormat, Object... args) {
+  @FormatMethod
+  public HistoricalLog(@FormatString final String idStringFormat, Object... args) {
     this(Integer.MAX_VALUE, idStringFormat, args);
   }
 
@@ -66,7 +70,8 @@ public class HistoricalLog {
    *                       associated with the object instance is best.
    * @param args           for the format string, or nothing if none are required
    */
-  public HistoricalLog(final int limit, final String idStringFormat, Object... args) {
+  @FormatMethod
+  public HistoricalLog(final int limit, @FormatString final String idStringFormat, Object... args) {
     this.limit = limit;
     this.idString = String.format(idStringFormat, args);
     this.firstEvent = null;
@@ -80,14 +85,15 @@ public class HistoricalLog {
    * @param noteFormat {@link String#format} format string that describes the event
    * @param args       for the format string, or nothing if none are required
    */
-  public synchronized void recordEvent(final String noteFormat, Object... args) {
+  @FormatMethod
+  public synchronized void recordEvent(@FormatString final String noteFormat, Object... args) {
     final String note = String.format(noteFormat, args);
     final Event event = new Event(note);
     if (firstEvent == null) {
       firstEvent = event;
     }
     if (history.size() == limit) {
-      history.removeFirst();
+      history.remove(0);
     }
     history.add(event);
   }

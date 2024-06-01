@@ -26,6 +26,7 @@ package org.apache.arrow.memory;
  * <p>Child allocators can only be created by the root, or other children, so
  * this class is package private.</p>
  */
+@SuppressWarnings("InvalidInlineTag")
 class ChildAllocator extends BaseAllocator {
 
   /**
