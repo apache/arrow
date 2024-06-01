@@ -52,7 +52,6 @@ jobs:
       - name: Install pre-commit dependencies
         run: |
           go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.59.0
-      - run: echo "PATH=$PATH:/home/runner/go/bin" >> $GITHUB_ENV
       - name: Install pre-commit
         run: |
           python -m pip install pre-commit
