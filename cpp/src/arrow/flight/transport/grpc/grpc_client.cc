@@ -520,8 +520,7 @@ class GrpcResultStream : public ResultStream {
   }
 
   Status Init(pb::FlightService::Stub* stub,
-              std::shared_ptr<ClientAuthHandler> auth_handler,
-              const Action& action) {
+              std::shared_ptr<ClientAuthHandler> auth_handler, const Action& action) {
     pb::Action pb_action;
     RETURN_NOT_OK(internal::ToProto(action, &pb_action));
     RETURN_NOT_OK(rpc_.SetToken(std::move(auth_handler)));
@@ -901,8 +900,8 @@ class GrpcClientImpl : public internal::ClientTransport {
 
   Status DoAction(const FlightCallOptions& options, const Action& action,
                   std::unique_ptr<ResultStream>* results) override {
-    ARROW_ASSIGN_OR_RAISE(*results, GrpcResultStream::Make(options, stub_.get(),
-                                                           auth_handler_, action));
+    ARROW_ASSIGN_OR_RAISE(
+        *results, GrpcResultStream::Make(options, stub_.get(), auth_handler_, action));
     return Status::OK();
   }
 
