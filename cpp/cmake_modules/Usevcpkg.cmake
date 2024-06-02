@@ -237,6 +237,9 @@ set(LZ4_ROOT
     CACHE STRING "")
 
 if(CMAKE_HOST_WIN32)
+  set(utf8proc_MSVC_STATIC_LIB_SUFFIX
+      ""
+      CACHE STRING "")
   set(LZ4_MSVC_LIB_PREFIX
       ""
       CACHE STRING "")
