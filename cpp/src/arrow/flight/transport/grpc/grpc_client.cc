@@ -84,7 +84,7 @@ struct ClientRpc {
   }
 
   /// \brief Add an auth token via an auth handler
-  Status SetToken(ClientAuthHandler* auth_handler) {
+  Status SetToken(std::shared_ptr<ClientAuthHandler> auth_handler) {
     if (auth_handler) {
       std::string token;
       RETURN_NOT_OK(auth_handler->GetToken(&token));
@@ -513,17 +513,18 @@ class GrpcResultStream : public ResultStream {
 
   static arrow::Result<std::unique_ptr<GrpcResultStream>> Make(
       const FlightCallOptions& options, pb::FlightService::Stub* stub,
-      ClientAuthHandler* auth_handler, const Action& action) {
+      std::shared_ptr<ClientAuthHandler> auth_handler, const Action& action) {
     auto result = std::make_unique<GrpcResultStream>(options);
-    ARROW_RETURN_NOT_OK(result->Init(stub, auth_handler, action));
+    ARROW_RETURN_NOT_OK(result->Init(stub, std::move(auth_handler), action));
     return result;
   }
 
-  Status Init(pb::FlightService::Stub* stub, ClientAuthHandler* auth_handler,
+  Status Init(pb::FlightService::Stub* stub,
+              std::shared_ptr<ClientAuthHandler> auth_handler,
               const Action& action) {
     pb::Action pb_action;
     RETURN_NOT_OK(internal::ToProto(action, &pb_action));
-    RETURN_NOT_OK(rpc_.SetToken(auth_handler));
+    RETURN_NOT_OK(rpc_.SetToken(std::move(auth_handler)));
     stream_ = stub->DoAction(&rpc_.context, pb_action);
     // GH-15150: wait for initial metadata to allow some side effects to occur
     stream_->WaitForInitialMetadata();
@@ -881,7 +882,7 @@ class GrpcClientImpl : public internal::ClientTransport {
     RETURN_NOT_OK(internal::ToProto(criteria, &pb_criteria));
 
     ClientRpc rpc(options);
-    RETURN_NOT_OK(rpc.SetToken(auth_handler_.get()));
+    RETURN_NOT_OK(rpc.SetToken(auth_handler_));
     std::unique_ptr<::grpc::ClientReader<pb::FlightInfo>> stream(
         stub_->ListFlights(&rpc.context, pb_criteria));
 
@@ -901,7 +902,7 @@ class GrpcClientImpl : public internal::ClientTransport {
   Status DoAction(const FlightCallOptions& options, const Action& action,
                   std::unique_ptr<ResultStream>* results) override {
     ARROW_ASSIGN_OR_RAISE(*results, GrpcResultStream::Make(options, stub_.get(),
-                                                           auth_handler_.get(), action));
+                                                           auth_handler_, action));
     return Status::OK();
   }
 
@@ -910,7 +911,7 @@ class GrpcClientImpl : public internal::ClientTransport {
     pb::Empty empty;
 
     ClientRpc rpc(options);
-    RETURN_NOT_OK(rpc.SetToken(auth_handler_.get()));
+    RETURN_NOT_OK(rpc.SetToken(auth_handler_));
     std::unique_ptr<::grpc::ClientReader<pb::ActionType>> stream(
         stub_->ListActions(&rpc.context, empty));
 
@@ -934,7 +935,7 @@ class GrpcClientImpl : public internal::ClientTransport {
     RETURN_NOT_OK(internal::ToProto(descriptor, &pb_descriptor));
 
     ClientRpc rpc(options);
-    RETURN_NOT_OK(rpc.SetToken(auth_handler_.get()));
+    RETURN_NOT_OK(rpc.SetToken(auth_handler_));
     Status s = FromGrpcStatus(
         stub_->GetFlightInfo(&rpc.context, pb_descriptor, &pb_response), &rpc.context);
     RETURN_NOT_OK(s);
@@ -953,7 +954,7 @@ class GrpcClientImpl : public internal::ClientTransport {
     RETURN_NOT_OK(internal::ToProto(descriptor, &pb_descriptor));
 
     ClientRpc rpc(options);
-    RETURN_NOT_OK(rpc.SetToken(auth_handler_.get()));
+    RETURN_NOT_OK(rpc.SetToken(auth_handler_));
     Status s = FromGrpcStatus(
         stub_->PollFlightInfo(&rpc.context, pb_descriptor, &pb_response), &rpc.context);
     RETURN_NOT_OK(s);
@@ -971,7 +972,7 @@ class GrpcClientImpl : public internal::ClientTransport {
     RETURN_NOT_OK(internal::ToProto(descriptor, &pb_descriptor));
 
     ClientRpc rpc(options);
-    RETURN_NOT_OK(rpc.SetToken(auth_handler_.get()));
+    RETURN_NOT_OK(rpc.SetToken(auth_handler_));
     Status s = FromGrpcStatus(stub_->GetSchema(&rpc.context, pb_descriptor, &pb_response),
                               &rpc.context);
     RETURN_NOT_OK(s);
@@ -987,7 +988,7 @@ class GrpcClientImpl : public internal::ClientTransport {
     RETURN_NOT_OK(internal::ToProto(ticket, &pb_ticket));
 
     auto rpc = std::make_shared<ClientRpc>(options);
-    RETURN_NOT_OK(rpc->SetToken(auth_handler_.get()));
+    RETURN_NOT_OK(rpc->SetToken(auth_handler_));
     std::shared_ptr<::grpc::ClientReader<pb::FlightData>> stream =
         stub_->DoGet(&rpc->context, pb_ticket);
     *out = std::make_unique<GrpcClientGetStream>(std::move(rpc), std::move(stream));
@@ -999,7 +1000,7 @@ class GrpcClientImpl : public internal::ClientTransport {
     using GrpcStream = ::grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>;
 
     auto rpc = std::make_shared<ClientRpc>(options);
-    RETURN_NOT_OK(rpc->SetToken(auth_handler_.get()));
+    RETURN_NOT_OK(rpc->SetToken(auth_handler_));
     std::shared_ptr<GrpcStream> stream = stub_->DoPut(&rpc->context);
     *out = std::make_unique<GrpcClientPutStream>(std::move(rpc), std::move(stream));
     return Status::OK();
@@ -1010,7 +1011,7 @@ class GrpcClientImpl : public internal::ClientTransport {
     using GrpcStream = ::grpc::ClientReaderWriter<pb::FlightData, pb::FlightData>;
 
     auto rpc = std::make_shared<ClientRpc>(options);
-    RETURN_NOT_OK(rpc->SetToken(auth_handler_.get()));
+    RETURN_NOT_OK(rpc->SetToken(auth_handler_));
     std::shared_ptr<GrpcStream> stream = stub_->DoExchange(&rpc->context);
     *out = std::make_unique<GrpcClientExchangeStream>(std::move(rpc), std::move(stream));
     return Status::OK();
@@ -1024,7 +1025,7 @@ class GrpcClientImpl : public internal::ClientTransport {
         UnaryUnaryAsyncCall<FlightInfo, pb::FlightDescriptor, pb::FlightInfo>;
     auto call = std::make_unique<AsyncCall>(options, listener, garbage_bin_);
     LISTENER_NOT_OK(listener, internal::ToProto(descriptor, &call->pb_request));
-    LISTENER_NOT_OK(listener, call->rpc.SetToken(auth_handler_.get()));
+    LISTENER_NOT_OK(listener, call->rpc.SetToken(auth_handler_));
 
     stub_->experimental_async()->GetFlightInfo(&call->rpc.context, &call->pb_request,
                                                &call->pb_response, call.get());
