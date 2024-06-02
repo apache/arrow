@@ -1368,6 +1368,23 @@ TEST_F(TestMapArray, FromArrays) {
   ASSERT_EQ(keys_with_null->length(), tmp_items->length());
   ASSERT_RAISES(Invalid,
                 MapArray::FromArrays(offsets1, keys_with_null, tmp_items, pool_));
+
+  // With null_bitmap
+  ASSERT_OK_AND_ASSIGN(auto map7, MapArray::FromArrays(offsets1, keys, items, pool_,
+                                                       offsets3->data()->buffers[0]));
+  ASSERT_OK(map7->Validate());
+  MapArray expected7(map_type, length, offsets1->data()->buffers[1], keys, items,
+                     offsets3->data()->buffers[0], 1);
+  AssertArraysEqual(expected7, *map7);
+
+  // Null bitmap and offset with null
+  ASSERT_RAISES(Invalid, MapArray::FromArrays(offsets3, keys, items, pool_,
+                                              offsets3->data()->buffers[0]));
+
+  // Null bitmap and offset with offset
+  ASSERT_RAISES(NotImplemented,
+                MapArray::FromArrays(offsets3->Slice(2), keys, items, pool_,
+                                     offsets3->data()->buffers[0]));
 }
 
 TEST_F(TestMapArray, FromArraysEquality) {

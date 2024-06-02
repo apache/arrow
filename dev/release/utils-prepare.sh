@@ -143,7 +143,7 @@ update_versions() {
     DESCRIPTION
   rm -f DESCRIPTION.bak
   git add DESCRIPTION
-  
+
   # Replace dev version with release version
   sed -i.bak -E -e \
     "/^<!--/,/^# arrow /s/^# arrow .+/# arrow ${base_version}/" \
@@ -204,5 +204,66 @@ update_versions() {
                      "${next_version}"
   git add docs/source/_static/versions.json
   git add r/pkgdown/assets/versions.json
+  popd
+}
+
+current_version() {
+  grep ARROW_VERSION "${ARROW_DIR}/cpp/CMakeLists.txt" | \
+    head -n1 | \
+    grep -E -o '([0-9]+\.[0-9]+\.[0-9]+)'
+}
+
+so_version() {
+  local version=$1
+  local major_version=$(echo ${version} | cut -d. -f1)
+  local minor_version=$(echo ${version} | cut -d. -f2)
+  expr ${major_version} \* 100 + ${minor_version}
+}
+
+update_deb_package_names() {
+  local version=$1
+  local next_version=$2
+  echo "Updating .deb package names for ${next_version}"
+  deb_lib_suffix=$(so_version ${version})
+  next_deb_lib_suffix=$(so_version ${next_version})
+  if [ "${deb_lib_suffix}" != "${next_deb_lib_suffix}" ]; then
+    pushd ${ARROW_DIR}/dev/tasks/linux-packages/apache-arrow
+    for target in debian*/lib*${deb_lib_suffix}.install; do
+      git mv \
+        ${target} \
+        $(echo ${target} | sed -e "s/${deb_lib_suffix}/${next_deb_lib_suffix}/")
+    done
+    deb_lib_suffix_substitute_pattern="s/(lib(arrow|gandiva|parquet)[-a-z]*)${deb_lib_suffix}/\\1${next_deb_lib_suffix}/g"
+    sed -i.bak -E -e "${deb_lib_suffix_substitute_pattern}" debian*/control*
+    rm -f debian*/control*.bak
+    git add debian*/control*
+    popd
+
+    pushd ${ARROW_DIR}/dev/tasks
+    sed -i.bak -E -e "${deb_lib_suffix_substitute_pattern}" tasks.yml
+    rm -f tasks.yml.bak
+    git add tasks.yml
+    popd
+
+    pushd ${ARROW_DIR}/dev/release
+    sed -i.bak -E -e "${deb_lib_suffix_substitute_pattern}" rat_exclude_files.txt
+    rm -f rat_exclude_files.txt.bak
+    git add rat_exclude_files.txt
+    git commit -m "MINOR: [Release] Update .deb package names for ${next_version}"
+    popd
+  fi
+}
+
+update_linux_packages() {
+  local version=$1
+  local release_time=$2
+  echo "Updating .deb/.rpm changelogs for ${version}"
+  pushd ${ARROW_DIR}/dev/tasks/linux-packages
+  rake \
+    version:update \
+    ARROW_RELEASE_TIME="${release_time}" \
+    ARROW_VERSION=${version}
+  git add */debian*/changelog */yum/*.spec.in
+  git commit -m "MINOR: [Release] Update .deb/.rpm changelogs for ${version}"
   popd
 }

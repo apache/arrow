@@ -59,8 +59,13 @@ jobs:
           path: matlab-arrow-ubuntu.tar.gz
 
   macos:
-    name: AMD64 macOS 12 MATLAB
-    runs-on: macos-12
+    name:  {{ '${{ matrix.platform.architecture}}' }}  macOS {{ '${{ matrix.platform.macos-version }}' }} MATLAB
+    runs-on: macos-{{ '${{ matrix.platform.macos-version }}' }}
+    strategy:
+      matrix:
+        platform:
+            - { architecture: "AMD64", macos-version: "12", architecture-suffix: "x64"}
+            - { architecture: "ARM64", macos-version: "14", architecture-suffix: "arm64"}
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       - name: Install ninja-build
@@ -73,27 +78,18 @@ jobs:
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: arrow/ci/scripts/matlab_build.sh $(pwd)/arrow
-      - name: Change shared library dependency name
-        # MATLAB's programmatic packaging interface does not properly 
-        # include symbolic link files in the package MLTBX - this is a
-        # bug. As a temporary workaround, change the expected name of the 
-        # Arrow C++ library which libarrowproxy.dylib depends on.
-        # For example, change libarrow.1500.dylib to libarrow.1500.0.0.dylib.
+      - name: Update dynamic library names
         run: |
-           pushd arrow/matlab/install/arrow_matlab/+libmexclass/+proxy
-           SYMLINK_ARROW_LIB="$(find . -name 'libarrow.*.dylib' -type l | xargs basename)"
-           REGULAR_ARROW_LIB="$(echo libarrow.*.*.dylib)"
-           echo "SYMLINK_ARROW_LIB = ${SYMLINK_ARROW_LIB}"
-           echo "REGULAR_ARROW_LIB = ${REGULAR_ARROW_LIB}"
-           install_name_tool -change @rpath/$SYMLINK_ARROW_LIB @rpath/$REGULAR_ARROW_LIB libarrowproxy.dylib
-           popd
+          arrow/dev/tasks/matlab/rename_macos_dynamic_libraries.sh \
+            arrow/matlab/install/arrow_matlab/+libmexclass/+proxy \
+            {{ '${{ matrix.platform.architecture-suffix }}' }}
       - name: Compress into single artifact
-        run: tar -cvzf matlab-arrow-macos.tar.gz arrow/matlab/install/arrow_matlab
+        run: tar -cvzf matlab-arrow-macos-{{ '${{ matrix.platform.architecture-suffix }}' }}.tar.gz arrow/matlab/install/arrow_matlab
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: matlab-arrow-macos.tar.gz
-          path: matlab-arrow-macos.tar.gz
+          name: matlab-arrow-macos-{{ '${{ matrix.platform.architecture-suffix }}' }}.tar.gz
+          path: matlab-arrow-macos-{{ '${{ matrix.platform.architecture-suffix }}' }}.tar.gz
 
   windows:
     name: AMD64 Windows 2022 MATLAB
@@ -140,7 +136,8 @@ jobs:
         run: |
           mv artifacts-downloaded/*/*.tar.gz .
           tar -xzvf matlab-arrow-ubuntu.tar.gz
-          tar -xzvf matlab-arrow-macos.tar.gz
+          tar -xzvf matlab-arrow-macos-x64.tar.gz
+          tar -xzvf matlab-arrow-macos-arm64.tar.gz
           tar -xzvf matlab-arrow-windows.tar.gz
       - name: Copy LICENSE.txt and NOTICE.txt for packaging 
         run: |

@@ -1328,6 +1328,39 @@ cdef class Buffer(_Weakrefable):
         return self.buffer.get().is_cpu()
 
     @property
+    def device(self):
+        """
+        The device where the buffer resides.
+
+        Returns
+        -------
+        Device
+        """
+        return Device.wrap(self.buffer.get().device())
+
+    @property
+    def memory_manager(self):
+        """
+        The memory manager associated with the buffer.
+
+        Returns
+        -------
+        MemoryManager
+        """
+        return MemoryManager.wrap(self.buffer.get().memory_manager())
+
+    @property
+    def device_type(self):
+        """
+        The device type where the buffer resides.
+
+        Returns
+        -------
+        DeviceAllocationType
+        """
+        return _wrap_device_allocation_type(self.buffer.get().device_type())
+
+    @property
     def parent(self):
         cdef shared_ptr[CBuffer] parent_buf = self.buffer.get().parent()
 

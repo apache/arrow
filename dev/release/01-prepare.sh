@@ -39,6 +39,7 @@ release_candidate_branch="release-${version}-rc${rc_number}"
 
 : ${PREPARE_DEFAULT:=1}
 : ${PREPARE_CHANGELOG:=${PREPARE_DEFAULT}}
+: ${PREPARE_DEB_PACKAGE_NAMES:=${PREPARE_DEFAULT}}
 : ${PREPARE_LINUX_PACKAGES:=${PREPARE_DEFAULT}}
 : ${PREPARE_VERSION_PRE_TAG:=${PREPARE_DEFAULT}}
 : ${PREPARE_BRANCH:=${PREPARE_DEFAULT}}
@@ -78,16 +79,12 @@ if [ ${PREPARE_CHANGELOG} -gt 0 ]; then
   git commit -m "MINOR: [Release] Update CHANGELOG.md for $version"
 fi
 
+if [ ${PREPARE_DEB_PACKAGE_NAMES} -gt 0 ]; then
+  update_deb_package_names "$(current_version)" "${version}"
+fi
+
 if [ ${PREPARE_LINUX_PACKAGES} -gt 0 ]; then
-  echo "Updating .deb/.rpm changelogs for $version"
-  cd $SOURCE_DIR/../tasks/linux-packages
-  rake \
-    version:update \
-    ARROW_RELEASE_TIME="$(date +%Y-%m-%dT%H:%M:%S%z)" \
-    ARROW_VERSION=${version}
-  git add */debian*/changelog */yum/*.spec.in
-  git commit -m "MINOR: [Release] Update .deb/.rpm changelogs for $version"
-  cd -
+  update_linux_packages "${version}" "$(date +%Y-%m-%dT%H:%M:%S%z)"
 fi
 
 if [ ${PREPARE_VERSION_PRE_TAG} -gt 0 ]; then

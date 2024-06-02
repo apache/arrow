@@ -137,7 +137,6 @@ articles:
       - developers/workflow
       - developers/debugging
       - developers/docker
-      - developers/writing_bindings
       - developers/install_details
       - developers/data_object_layout
 
