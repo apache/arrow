@@ -17,7 +17,12 @@
 
 import Foundation
 
-public class ArrowArrayBuilder<T: ArrowBufferBuilder, U: ArrowArray<T.ItemType>> {
+public protocol ArrowArrayHolderBuilder {
+    func toHolder() throws -> ArrowArrayHolder
+    func appendAny(_ val: Any?)
+}
+
+public class ArrowArrayBuilder<T: ArrowBufferBuilder, U: ArrowArray<T.ItemType>>: ArrowArrayHolderBuilder {
     let type: ArrowType
     let bufferBuilder: T
     public var length: UInt {return self.bufferBuilder.length}
@@ -34,6 +39,10 @@ public class ArrowArrayBuilder<T: ArrowBufferBuilder, U: ArrowArray<T.ItemType>>
         self.bufferBuilder.append(val)
     }
 
+    public func appendAny(_ val: Any?) {
+        self.bufferBuilder.append(val as? T.ItemType)
+    }
+
     public func finish() throws -> ArrowArray<T.ItemType> {
         let buffers = self.bufferBuilder.finish()
         let arrowData = try ArrowData(self.type, buffers: buffers, nullCount: self.nullCount)
@@ -42,6 +51,10 @@ public class ArrowArrayBuilder<T: ArrowBufferBuilder, U: ArrowArray<T.ItemType>>
 
     public func getStride() -> Int {
         return self.type.getStride()
+    }
+
+    public func toHolder() throws -> ArrowArrayHolder {
+        return try ArrowArrayHolderImpl(self.finish())
     }
 }
 
