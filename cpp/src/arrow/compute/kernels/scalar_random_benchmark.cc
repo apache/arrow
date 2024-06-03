@@ -54,3 +54,5 @@ BENCHMARK(RandomKernelSeed)->Apply(SetArgs);
 
 }  // namespace compute
 }  // namespace arrow
+
+BENCHMARK_MAIN();

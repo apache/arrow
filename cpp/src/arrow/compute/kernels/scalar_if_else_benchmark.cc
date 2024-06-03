@@ -584,3 +584,5 @@ BENCHMARK(ChooseBench64)->Args({kNumItems, 99});
 
 }  // namespace compute
 }  // namespace arrow
+
+BENCHMARK_MAIN();

@@ -37,3 +37,14 @@ if get_option('ARROW_BUILD_TESTS')
 
     # TODO: utility, integration, and fuzzing targets
 endif
+
+if get_option('ARROW_BUILD_BENCHMARKS')
+    exc = executable(
+        'arrow-ipc-read-write-benchmark',
+        'read_write_benchmark.cc',
+        include_directories: [root_dir],
+        link_with: [arrow_lib, arrow_testing_lib],
+        dependencies: [gbenchmark_dep, gtest_dep],
+    )
+    benchmark('arrow-ipc-read-write', exc)
+endif

@@ -159,3 +159,5 @@ DECLARE_ARITHMETIC_CHECKED_BENCHMARKS(ArrayScalarKernel, DivideChecked);
 
 }  // namespace compute
 }  // namespace arrow
+
+BENCHMARK_MAIN();

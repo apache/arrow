@@ -28,6 +28,15 @@ if get_option('ARROW_BUILD_TESTS')
         dependencies: [gtest_main_dep, gmock_dep, rapidjson_dep],
     )
     test('arrow-json', json_test)
+endif
 
-    # TODO: benchmarks
+if get_option('ARROW_BUILD_BENCHMARKS')
+    parser_exc = executable(
+        'arrow-json-parser-benchmark',
+        'parser_benchmark.cc',
+        include_directories: [root_dir],
+        link_with: [arrow_lib],
+        dependencies: [gbenchmark_dep, gtest_dep, rapidjson_dep],
+    )
+    benchmark('arrow-json-parser', parser_exc)
 endif

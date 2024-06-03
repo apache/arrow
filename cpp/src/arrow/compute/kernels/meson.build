@@ -141,4 +141,107 @@ if needs_testing
     test('arrow-compute-kernel-utility', kernel_utility_test)
 endif
 
-# TODO: add_benchmarks
+if get_option('ARROW_BUILD_BENCHMARKS')
+    kernel_benchmarks = {
+        'scalar-arithmetic' : {
+            'src_name': 'scalar_arithmetic',
+            'link_with': [arrow_lib, arrow_testing_lib],
+            'deps': [gbenchmark_dep, gmock_dep],
+        },
+        'scalar-boolean' : {
+            'src_name': 'scalar_boolean',
+            'link_with': [arrow_lib, arrow_testing_lib],
+            'deps': [gbenchmark_dep, gmock_dep],
+        },
+        'scalar-cast' : {
+            'src_name': 'scalar_cast',
+            'link_with': [arrow_lib, arrow_testing_lib],
+            'deps': [gbenchmark_dep, gmock_dep],
+        },
+        'scalar-compare' : {
+            'src_name': 'scalar_compare',
+            'link_with': [arrow_lib, arrow_testing_lib],
+            'deps': [gbenchmark_dep, gmock_dep],
+        },
+        'scalar-if-else' : {
+            'src_name': 'scalar_if_else',
+            'link_with': [arrow_lib, arrow_testing_lib],
+            'deps': [gbenchmark_dep, gtest_dep],
+        },
+        'scalar-random' : {
+            'src_name': 'scalar_random',
+            'link_with': [arrow_lib, arrow_testing_lib],
+            'deps': [gbenchmark_dep, gmock_dep],
+        },
+        'scalar-set-lookup' : {
+            'src_name': 'scalar_set_lookup',
+            'link_with': [arrow_lib, arrow_testing_lib],
+            'deps': [gbenchmark_dep, gmock_dep],
+        },
+        'scalar-string' : {
+            'src_name': 'scalar_string',
+            'link_with': [arrow_lib, arrow_testing_lib],
+            'deps': [gbenchmark_dep, gmock_dep],
+        },
+        'scalar-temporal' : {
+            'src_name': 'scalar_temporal',
+            'link_with': [arrow_lib, arrow_testing_lib],
+            'deps': [gbenchmark_dep, gmock_dep],
+        },
+    }
+
+    foreach nm, conf : kernel_benchmarks
+        exc = executable(
+            'arrow-' + nm + '-benchmark',
+            conf['src_name'] + '_benchmark.cc',
+            include_directories: [root_dir],
+            link_with: conf['link_with'],
+            dependencies: conf['deps'],
+        )
+        benchmark('arrow-' + nm, exc)
+    endforeach
+
+    vector_benchmarks = {
+        'vector-hash' : {
+            'src_name': 'vector_hash',
+            'link_with': [arrow_lib, arrow_testing_lib],
+            'deps': [gbenchmark_dep, gtest_dep],
+        },
+        'vector-sort' : {
+            'src_name': 'vector_sort',
+            'link_with': [arrow_lib, arrow_testing_lib],
+            'deps': [gbenchmark_dep, gmock_dep],
+        },
+        'vector-partition' : {
+            'src_name': 'vector_partition',
+            'link_with': [arrow_lib, arrow_testing_lib],
+            'deps': [gbenchmark_dep, gmock_dep],
+        },
+        'vector-topk' : {
+            'src_name': 'vector_topk',
+            'link_with': [arrow_lib, arrow_testing_lib],
+            'deps': [gbenchmark_dep, gmock_dep],
+        },
+        'vector-replace' : {
+            'src_name': 'vector_replace',
+            'link_with': [arrow_lib, arrow_testing_lib],
+            'deps': [gbenchmark_dep, gtest_dep],
+        },
+        'vector-selection' : {
+            'src_name': 'vector_selection',
+            'link_with': [arrow_lib, arrow_testing_lib],
+            'deps': [gbenchmark_dep, gmock_dep],
+        },
+    }
+
+    foreach nm, conf : vector_benchmarks
+        exc = executable(
+            'arrow-' + nm + '-benchmark',
+            conf['src_name'] + '_benchmark.cc',
+            include_directories: [root_dir],
+            link_with: conf['link_with'],
+            dependencies: conf['deps'],
+        )
+        benchmark('arrow-' + nm, exc)
+    endforeach
+endif

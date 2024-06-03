@@ -32,6 +32,37 @@ if get_option('ARROW_BUILD_TESTS')
     endforeach
 
     # TODO: HDFS test
+endif
 
-     # TODO: benchmarks
+if get_option('ARROW_BUILD_BENCHMARKS')
+    io_benchmarks = {
+        'file': {
+            'src_name': 'file',
+            'link_with': [arrow_lib],
+            'deps': [gbenchmark_dep, gtest_dep],
+        },
+        'memory': {
+            'src_name': 'memory',
+            'link_with': [arrow_lib, arrow_testing_lib],
+            'deps': [gbenchmark_dep, gtest_dep],
+        },
+        'compressed': {
+            'src_name': 'compressed',
+            'link_with': [arrow_lib],
+            'deps': [gbenchmark_dep, gtest_dep],
+        },
+    }
+
+    foreach nm, conf : io_benchmarks
+        exc = executable(
+            'arrow-' + nm + '-benchmark',
+            conf['src_name'] + '_benchmark.cc',
+            include_directories: [root_dir],
+            # Don't mangle local stdio.h with system
+            implicit_include_directories: false,
+            link_with: conf['link_with'],
+            dependencies: conf['deps'],
+        )
+        benchmark('arrow-io' + nm, exc)
+    endforeach
 endif

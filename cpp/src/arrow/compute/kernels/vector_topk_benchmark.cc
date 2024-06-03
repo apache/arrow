@@ -56,3 +56,5 @@ BENCHMARK(SelectKInt64)
 
 }  // namespace compute
 }  // namespace arrow
+
+BENCHMARK_MAIN();

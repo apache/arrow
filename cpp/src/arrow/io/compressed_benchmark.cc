@@ -198,3 +198,5 @@ BENCHMARK_TEMPLATE(CompressedInputStreamNonZeroCopyBufferReturnedByCallee,
 #endif
 
 }  // namespace arrow::io
+
+BENCHMARK_MAIN();

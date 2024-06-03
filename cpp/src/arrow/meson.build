@@ -288,6 +288,10 @@ arrow_lib = library(
     dependencies: [arrow_lib_dependencies, arrow_vcs_config_dep],
 )
 
+if needs_testing or get_option('ARROW_BUILD_BENCHMARKS')
+    gmock_dep = dependency('gmock')
+endif
+
 if needs_testing
     arrow_testing_srcs = [
         'io/test_common.cc',
@@ -300,7 +304,6 @@ if needs_testing
     ]
 
     gtest_main_dep = dependency('gtest_main')
-    gmock_dep = dependency('gmock')
 
     arrow_testing_lib = library(
         'arrow_testing',
@@ -402,6 +405,11 @@ if needs_testing
         )
 
         test('arrow-extension-type', extension_type_exec)
+    endif
+
+    if get_option('ARROW_BUILD_BENCHMARKS')
+        gtest_dep = dependency('gtest')  # does not include main
+        gbenchmark_dep = dependency('benchmark')
     endif
 
     subdir('integration')

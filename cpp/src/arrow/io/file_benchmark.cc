@@ -296,3 +296,5 @@ BENCHMARK(BufferedOutputStreamSmallWritesToPipe)->UseRealTime();
 BENCHMARK(BufferedOutputStreamLargeWritesToPipe)->UseRealTime();
 
 }  // namespace arrow
+
+BENCHMARK_MAIN();

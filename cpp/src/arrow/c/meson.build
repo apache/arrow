@@ -28,6 +28,15 @@ if get_option('ARROW_BUILD_TESTS')
         )
         test('arrow-c-' + c_test, exc)
     endforeach
+endif
 
-    # TODO: benchmarks
+if get_option('ARROW_BUILD_BENCHMARKS')
+    bridge_exc = executable(
+        'arrow-bridge-benchmark',
+        'bridge_benchmark.cc',
+        include_directories: [root_dir],
+        link_with: [arrow_lib, arrow_testing_lib],
+        dependencies: [gbenchmark_dep, gtest_dep],
+    )
+    benchmark('arrow-bridge', bridge_exc)
 endif

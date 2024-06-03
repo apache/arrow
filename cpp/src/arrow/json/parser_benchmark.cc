@@ -232,3 +232,5 @@ BENCHMARK(ParseJSONFields)
 
 }  // namespace json
 }  // namespace arrow
+
+BENCHMARK_MAIN();

@@ -536,3 +536,5 @@ BENCHMARK(ChunkedArrayRankInt64Wide)->Apply(ArrayRankSetArgs);
 
 }  // namespace compute
 }  // namespace arrow
+
+BENCHMARK_MAIN();

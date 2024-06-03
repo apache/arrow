@@ -56,3 +56,5 @@ BENCHMARK(NthToIndicesInt64)
 
 }  // namespace compute
 }  // namespace arrow
+
+BENCHMARK_MAIN();
