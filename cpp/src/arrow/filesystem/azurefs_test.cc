@@ -528,6 +528,13 @@ TEST(AzureFileSystem, InitializeWithWorkloadIdentityCredential) {
   EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
 }
 
+TEST(AzureFileSystem, InitializeWithEnvironmentCredential) {
+  AzureOptions options;
+  options.account_name = "dummy-account-name";
+  ARROW_EXPECT_OK(options.ConfigureEnvironmentCredential());
+  EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
+}
+
 TEST(AzureFileSystem, OptionsCompare) {
   AzureOptions options;
   EXPECT_TRUE(options.Equals(options));
@@ -669,6 +676,15 @@ class TestAzureOptions : public ::testing::Test {
     ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kWorkloadIdentity);
   }
 
+  void TestFromUriCredentialEnvironment() {
+    ASSERT_OK_AND_ASSIGN(
+        auto options,
+        AzureOptions::FromUri("abfs://account.blob.core.windows.net/container/dir/blob?"
+                              "credential_kind=environment",
+                              nullptr));
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kEnvironment);
+  }
+
   void TestFromUriCredentialInvalid() {
     ASSERT_RAISES(Invalid, AzureOptions::FromUri(
                                "abfs://file_system@account.dfs.core.windows.net/dir/file?"
@@ -719,6 +735,9 @@ TEST_F(TestAzureOptions, FromUriCredentialManagedIdentity) {
 }
 TEST_F(TestAzureOptions, FromUriCredentialWorkloadIdentity) {
   TestFromUriCredentialWorkloadIdentity();
+}
+TEST_F(TestAzureOptions, FromUriCredentialEnvironment) {
+  TestFromUriCredentialEnvironment();
 }
 TEST_F(TestAzureOptions, FromUriCredentialInvalid) { TestFromUriCredentialInvalid(); }
 TEST_F(TestAzureOptions, FromUriBlobStorageAuthority) {
