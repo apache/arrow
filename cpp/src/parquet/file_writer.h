@@ -119,7 +119,7 @@ void WriteMetaDataFile(const FileMetaData& file_metadata,
 
 PARQUET_EXPORT
 void WriteEncryptedMetadataFile(
-    const FileMetaData& file_metadata, std::shared_ptr<::arrow::io::OutputStream> sink,
+    const FileMetaData& file_metadata, ::arrow::io::OutputStream* sink,
     std::shared_ptr<FileEncryptionProperties> file_encryption_properties);
 
 PARQUET_EXPORT

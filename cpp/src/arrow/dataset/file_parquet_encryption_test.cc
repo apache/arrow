@@ -243,91 +243,56 @@ TEST_F(DatasetEncryptionTest, ReadSingleFile) {
 }
 
 TEST_F(DatasetEncryptionTest, EncryptedFileMetaDataWrite) {
-  std::string_view kFooterKeyMasterKey = "0123456789012345";
-  std::string_view kFooterKeyMasterKeyId = "footer_key";
-  std::string_view kFooterKeyName = "footer_key";
-  std::string_view kColumnMasterKey = "1234567890123450";
-  std::string_view kColumnMasterKeyId = "col_key";
-
-  auto table_schema = schema({field("a", int64()), field("c", int64()),
-                              field("e", int64()), field("part", utf8())});
-  auto table = TableFromJSON(table_schema, {R"([
-                          [ 0, 9, 1, "a" ],
-                          [ 1, 8, 2, "a" ],
-                          [ 2, 7, 1, "c" ],
-                          [ 3, 6, 2, "c" ],
-                          [ 4, 5, 1, "e" ],
-                          [ 5, 4, 2, "e" ],
-                          [ 6, 3, 1, "g" ],
-                          [ 7, 2, 2, "g" ],
-                          [ 8, 1, 1, "i" ],
-                          [ 9, 0, 2, "i" ]
-                        ])"});
-
-  // Prepare encryption properties.
-  std::unordered_map<std::string, std::string> key_map;
-  key_map.emplace(kColumnMasterKeyId, kColumnMasterKey);
-  key_map.emplace(kFooterKeyMasterKeyId, kFooterKeyMasterKey);
-
-  auto crypto_factory = std::make_shared<parquet::encryption::CryptoFactory>();
-  auto kms_client_factory =
-      std::make_shared<::parquet::encryption::TestOnlyInMemoryKmsClientFactory>(
-          /*wrap_locally=*/true, key_map);
-  crypto_factory->RegisterKmsClientFactory(std::move(kms_client_factory));
-  auto kms_connection_config =
-      std::make_shared<parquet::encryption::KmsConnectionConfig>();
-
   auto encryption_config = std::make_shared<parquet::encryption::EncryptionConfiguration>(
       std::string(kFooterKeyName));
   encryption_config->column_keys = kColumnKeyMapping;
 
-  auto file_encryption_properties = crypto_factory->GetFileEncryptionProperties(
-      *kms_connection_config, *encryption_config);
+  auto decryption_config =
+      std::make_shared<parquet::encryption::DecryptionConfiguration>();
+  auto parquet_decryption_config = std::make_shared<ParquetDecryptionConfig>();
+  parquet_decryption_config->crypto_factory = crypto_factory_;
+  parquet_decryption_config->kms_connection_config = kms_connection_config_;
+  parquet_decryption_config->decryption_config = decryption_config;
+
+  auto file_encryption_properties = crypto_factory_->GetFileEncryptionProperties(
+      *kms_connection_config_, *encryption_config);
+  auto file_decryption_properties = crypto_factory_->GetFileDecryptionProperties(
+      *kms_connection_config_, *decryption_config.get());
+
+  auto reader_properties = parquet::default_reader_properties();
+  reader_properties.file_decryption_properties(file_decryption_properties);
+
   auto writer_properties = ::parquet::WriterProperties::Builder()
                                .encryption(file_encryption_properties)
                                ->build();
 
-  // Create the ReaderProperties object using the FileDecryptionProperties object
-  auto decryption_config =
-      std::make_shared<parquet::encryption::DecryptionConfiguration>();
+  EXPECT_OK_AND_ASSIGN(auto stream, file_system_->OpenOutputStream("/foo.parquet"));
+  ASSERT_OK_NO_THROW(::parquet::arrow::WriteTable(*table_, ::arrow::default_memory_pool(),
+                                                  stream, 3, writer_properties));
+  ARROW_EXPECT_OK(stream->Close());
 
-  auto file_decryption_properties = crypto_factory->GetFileDecryptionProperties(
-      *kms_connection_config, *decryption_config);
-  auto reader_properties = parquet::default_reader_properties();
-  reader_properties.file_decryption_properties(file_decryption_properties);
+  std::shared_ptr<Table> out;
+  ASSERT_OK_AND_ASSIGN(auto input, file_system_->OpenInputFile("/foo.parquet"));
+  std::unique_ptr<parquet::ParquetFileReader> parquet_reader =
+      parquet::ParquetFileReader::Open(input, reader_properties);
 
-  PARQUET_ASSIGN_OR_THROW(
-      auto stream, ::arrow::io::BufferOutputStream::Create(1024, default_memory_pool()));
-  ASSERT_OK_NO_THROW(::parquet::arrow::WriteTable(*table, ::arrow::default_memory_pool(),
-                                                  stream, 10, writer_properties));
+  auto metadata = parquet_reader->metadata();
 
-  EXPECT_OK_AND_ASSIGN(auto buffer, stream->Finish())
+  file_encryption_properties = crypto_factory_->GetFileEncryptionProperties(
+      *kms_connection_config_, *encryption_config);
 
-  // Read entire file as a single Arrow table
-  std::unique_ptr<::parquet::arrow::FileReader> reader;
-  ::parquet::arrow::FileReaderBuilder reader_builder;
-  ASSERT_OK(reader_builder.Open(std::make_shared<::arrow::io::BufferReader>(buffer),
-                                reader_properties));
-  ASSERT_OK(reader_builder.Build(&reader));
-  auto metadata = reader->parquet_reader()->metadata();
+  ASSERT_OK_AND_ASSIGN(stream, file_system_->OpenOutputStream("/_metadata"));
+  WriteEncryptedMetadataFile(*metadata.get(), stream.get(), file_encryption_properties);
+  ARROW_EXPECT_OK(stream->Close());
 
-  PARQUET_ASSIGN_OR_THROW(
-      stream, ::arrow::io::BufferOutputStream::Create(1024, default_memory_pool()));
-  file_encryption_properties = crypto_factory->GetFileEncryptionProperties(
-      *kms_connection_config, *encryption_config);
-  ::parquet::WriteEncryptedMetadataFile(*metadata.get(), stream,
-                                        file_encryption_properties);
-  EXPECT_OK_AND_ASSIGN(buffer, stream->Finish());
+  ASSERT_OK_AND_ASSIGN(auto input2, file_system_->OpenInputFile("/_metadata"));
+  parquet_reader = parquet::ParquetFileReader::Open(input2, reader_properties);
+  auto metadata2 = parquet_reader->metadata();
 
-  ASSERT_OK(reader_builder.Open(std::make_shared<::arrow::io::BufferReader>(buffer),
-                                reader_properties));
-  ASSERT_OK(reader_builder.Build(&reader));
-
-  ASSERT_TRUE(
-      metadata->schema()->Equals(*reader->parquet_reader()->metadata()->schema()));
-  ASSERT_EQ(metadata->num_columns(), reader->parquet_reader()->metadata()->num_columns());
-  ASSERT_EQ(reader->parquet_reader()->metadata()->num_rows(), 0);
-  ASSERT_EQ(reader->parquet_reader()->metadata()->num_row_groups(), 0);
+  ASSERT_EQ(metadata2->num_row_groups(), 4);
+  ASSERT_EQ(metadata2->num_rows(), 10);
+  ASSERT_EQ(metadata2->num_columns(), 4);
+  ASSERT_TRUE(metadata->Equals(*metadata2.get()));
 }
 
 // GH-39444: This test covers the case where parquet dataset scanner crashes when
