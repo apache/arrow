@@ -26,14 +26,15 @@
 // This implementation is a native go implementation for reading and writing the
 // parquet file format.
 //
-// Install
+// # Install
 //
 // You can download the library and cli utilities via:
-//   go get -u github.com/apache/arrow/go/v17/parquet
-//   go install github.com/apache/arrow/go/v17/parquet/cmd/parquet_reader@latest
-//   go install github.com/apache/arrow/go/v17/parquet/cmd/parquet_schema@latest
 //
-// Modules
+//	go get -u github.com/apache/arrow/go/v17/parquet
+//	go install github.com/apache/arrow/go/v17/parquet/cmd/parquet_reader@latest
+//	go install github.com/apache/arrow/go/v17/parquet/cmd/parquet_schema@latest
+//
+// # Modules
 //
 // This top level parquet package contains the basic common types and reader/writer
 // properties along with some utilities that are used throughout the other modules.
@@ -50,13 +51,13 @@
 // The schema module contains the types for manipulating / inspecting / creating
 // parquet file schemas.
 //
-// Primitive Types
+// # Primitive Types
 //
 // The Parquet Primitive Types and their corresponding Go types are Boolean (bool),
 // Int32 (int32), Int64 (int64), Int96 (parquet.Int96), Float (float32), Double (float64),
 // ByteArray (parquet.ByteArray) and FixedLenByteArray (parquet.FixedLenByteArray).
 //
-// Encodings
+// # Encodings
 //
 // The encoding types supported in this package are:
 // Plain, Plain/RLE Dictionary, Delta Binary Packed (only integer types), Delta Byte Array

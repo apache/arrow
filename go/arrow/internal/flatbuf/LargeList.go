@@ -22,8 +22,8 @@ import (
 	flatbuffers "github.com/google/flatbuffers/go"
 )
 
-/// Same as List, but with 64-bit offsets, allowing to represent
-/// extremely large data values.
+// / Same as List, but with 64-bit offsets, allowing to represent
+// / extremely large data values.
 type LargeList struct {
 	_tab flatbuffers.Table
 }

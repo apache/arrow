@@ -551,7 +551,7 @@ func typeToNode(name string, typ reflect.Type, repType parquet.Repetition, info 
 // NewSchemaFromStruct generates a schema from an object type via reflection of
 // the type and reading struct tags for "parquet".
 //
-// Rules
+// # Rules
 //
 // Everything defaults to Required repetition, unless otherwise specified.
 // Pointer types become Optional repetition.
@@ -571,7 +571,7 @@ func typeToNode(name string, typ reflect.Type, repType parquet.Repetition, info 
 //
 // maps will become appropriate Map structures in the schema of the defined key and values.
 //
-// Available Tags
+// # Available Tags
 //
 // name: by default the node will have the same name as the field, this tag let's you specify a name
 //
