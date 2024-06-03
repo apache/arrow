@@ -156,21 +156,22 @@ import com.google.protobuf.ProtocolStringList;
  * supports all current features of Flight SQL.
  */
 public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
-  private static final String DATABASE_URI = "jdbc:derby:target/derbyDB";
   private static final Logger LOGGER = getLogger(FlightSqlExample.class);
-  private static final Calendar DEFAULT_CALENDAR = JdbcToArrowUtils.getUtcCalendar();
+  protected static final Calendar DEFAULT_CALENDAR = JdbcToArrowUtils.getUtcCalendar();
+  public static final String DB_NAME = "derbyDB";
+  private final String databaseUri;
   // ARROW-15315: Use ExecutorService to simulate an async scenario
   private final ExecutorService executorService = Executors.newFixedThreadPool(10);
   private final Location location;
-  private final PoolingDataSource<PoolableConnection> dataSource;
-  private final BufferAllocator rootAllocator = new RootAllocator();
+  protected final PoolingDataSource<PoolableConnection> dataSource;
+  protected final BufferAllocator rootAllocator = new RootAllocator();
   private final Cache<ByteString, StatementContext<PreparedStatement>> preparedStatementLoadingCache;
   private final Cache<ByteString, StatementContext<Statement>> statementLoadingCache;
   private final SqlInfoBuilder sqlInfoBuilder;
 
   public static void main(String[] args) throws Exception {
     Location location = Location.forGrpcInsecure("localhost", 55555);
-    final FlightSqlExample example = new FlightSqlExample(location);
+    final FlightSqlExample example = new FlightSqlExample(location, DB_NAME);
     Location listenLocation = Location.forGrpcInsecure("0.0.0.0", 55555);
     try (final BufferAllocator allocator = new RootAllocator();
          final FlightServer server = FlightServer.builder(allocator, listenLocation, example).build()) {
@@ -179,13 +180,14 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     }
   }
 
-  public FlightSqlExample(final Location location) {
+  public FlightSqlExample(final Location location, final String dbName) {
     // TODO Constructor should not be doing work.
     checkState(
-        removeDerbyDatabaseIfExists() && populateDerbyDatabase(),
+        removeDerbyDatabaseIfExists(dbName) && populateDerbyDatabase(dbName),
         "Failed to reset Derby database!");
+    databaseUri = "jdbc:derby:target/" + dbName;
     final ConnectionFactory connectionFactory =
-        new DriverManagerConnectionFactory(DATABASE_URI, new Properties());
+        new DriverManagerConnectionFactory(databaseUri, new Properties());
     final PoolableConnectionFactory poolableConnectionFactory =
         new PoolableConnectionFactory(connectionFactory, null);
     final ObjectPool<PoolableConnection> connectionPool = new GenericObjectPool<>(poolableConnectionFactory);
@@ -248,9 +250,9 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
 
   }
 
-  private static boolean removeDerbyDatabaseIfExists() {
+  public static boolean removeDerbyDatabaseIfExists(final String dbName) {
     boolean wasSuccess;
-    final Path path = Paths.get("target" + File.separator + "derbyDB");
+    final Path path = Paths.get("target" + File.separator + dbName);
 
     try (final Stream<Path> walk = Files.walk(path)) {
       /*
@@ -262,7 +264,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
        * this not expected.
        */
       wasSuccess = walk.sorted(Comparator.reverseOrder()).map(Path::toFile).map(File::delete)
-          .reduce(Boolean::logicalAnd).orElseThrow(IOException::new);
+              .reduce(Boolean::logicalAnd).orElseThrow(IOException::new);
     } catch (IOException e) {
       /*
        * The only acceptable scenario for an `IOException` to be thrown here is if
@@ -277,9 +279,12 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     return wasSuccess;
   }
 
-  private static boolean populateDerbyDatabase() {
-    try (final Connection connection = DriverManager.getConnection("jdbc:derby:target/derbyDB;create=true");
+  private static boolean populateDerbyDatabase(final String dbName) {
+    try (final Connection connection = DriverManager.getConnection("jdbc:derby:target/" + dbName + ";create=true");
          Statement statement = connection.createStatement()) {
+
+      dropTable(statement, "intTable");
+      dropTable(statement, "foreignTable");
       statement.execute("CREATE TABLE foreignTable (" +
           "id INT not null primary key GENERATED ALWAYS AS IDENTITY (START WITH 1, INCREMENT BY 1), " +
           "foreignName varchar(100), " +
@@ -300,6 +305,18 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
       return false;
     }
     return true;
+  }
+
+  private static void dropTable(final Statement statement, final String tableName) throws SQLException {
+    try {
+      statement.execute("DROP TABLE " + tableName);
+    } catch (SQLException e) {
+      // sql error code for "object does not exist"; which is fine, we're trying to delete the table
+      // see https://db.apache.org/derby/docs/10.17/ref/rrefexcept71493.html
+      if (!"42Y55".equals(e.getSQLState())) {
+        throw e;
+      }
+    }
   }
 
   private static ArrowType getArrowTypeFromJdbcType(final int jdbcDataType, final int precision, final int scale) {
@@ -778,7 +795,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     // Running on another thread
     Future<?> unused = executorService.submit(() -> {
       try {
-        final ByteString preparedStatementHandle = copyFrom(randomUUID().toString().getBytes(StandardCharsets.UTF_8));
+        final ByteString preparedStatementHandle = copyFrom(request.getQuery().getBytes(StandardCharsets.UTF_8));
         // Ownership of the connection will be passed to the context. Do NOT close!
         final Connection connection = dataSource.getConnection();
         final PreparedStatement preparedStatement = connection.prepareStatement(request.getQuery(),
@@ -882,7 +899,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
             while (binder.next()) {
               preparedStatement.addBatch();
             }
-            int[] recordCounts = preparedStatement.executeBatch();
+            final int[] recordCounts = preparedStatement.executeBatch();
             recordCount = Arrays.stream(recordCounts).sum();
           }
 
@@ -928,6 +945,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
             .toRuntimeException());
         return;
       }
+
       ackStream.onCompleted();
     };
   }
@@ -1035,7 +1053,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     final String[] tableTypes =
         protocolSize == 0 ? null : protocolStringList.toArray(new String[protocolSize]);
 
-    try (final Connection connection = DriverManager.getConnection(DATABASE_URI);
+    try (final Connection connection = DriverManager.getConnection(databaseUri);
          final VectorSchemaRoot vectorSchemaRoot = getTablesRoot(
              connection.getMetaData(),
              rootAllocator,
@@ -1086,7 +1104,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     final String schema = command.hasDbSchema() ? command.getDbSchema() : null;
     final String table = command.getTable();
 
-    try (Connection connection = DriverManager.getConnection(DATABASE_URI)) {
+    try (Connection connection = DriverManager.getConnection(databaseUri)) {
       final ResultSet primaryKeys = connection.getMetaData().getPrimaryKeys(catalog, schema, table);
 
       final VarCharVector catalogNameVector = new VarCharVector("catalog_name", rootAllocator);
@@ -1140,7 +1158,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     String schema = command.hasDbSchema() ? command.getDbSchema() : null;
     String table = command.getTable();
 
-    try (Connection connection = DriverManager.getConnection(DATABASE_URI);
+    try (Connection connection = DriverManager.getConnection(databaseUri);
          ResultSet keys = connection.getMetaData().getExportedKeys(catalog, schema, table);
          VectorSchemaRoot vectorSchemaRoot = createVectors(keys)) {
       listener.start(vectorSchemaRoot);
@@ -1165,7 +1183,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     String schema = command.hasDbSchema() ? command.getDbSchema() : null;
     String table = command.getTable();
 
-    try (Connection connection = DriverManager.getConnection(DATABASE_URI);
+    try (Connection connection = DriverManager.getConnection(databaseUri);
          ResultSet keys = connection.getMetaData().getImportedKeys(catalog, schema, table);
          VectorSchemaRoot vectorSchemaRoot = createVectors(keys)) {
       listener.start(vectorSchemaRoot);
@@ -1193,7 +1211,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     final String pkTable = command.getPkTable();
     final String fkTable = command.getFkTable();
 
-    try (Connection connection = DriverManager.getConnection(DATABASE_URI);
+    try (Connection connection = DriverManager.getConnection(databaseUri);
          ResultSet keys = connection.getMetaData()
              .getCrossReference(pkCatalog, pkSchema, pkTable, fkCatalog, fkSchema, fkTable);
          VectorSchemaRoot vectorSchemaRoot = createVectors(keys)) {
@@ -1280,7 +1298,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     }
   }
 
-  private <T extends Message> FlightInfo getFlightInfoForSchema(final T request, final FlightDescriptor descriptor,
+  protected <T extends Message> FlightInfo getFlightInfoForSchema(final T request, final FlightDescriptor descriptor,
                                                                 final Schema schema) {
     final Ticket ticket = new Ticket(pack(request).toByteArray());
     // TODO Support multiple endpoints.
