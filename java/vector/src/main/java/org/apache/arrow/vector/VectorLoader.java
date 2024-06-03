@@ -107,7 +107,7 @@ public class VectorLoader {
     ArrowFieldNode fieldNode = nodes.next();
     // variadicBufferLayoutCount will be 0 for vectors of type except BaseVariableWidthViewVector
     long variadicBufferLayoutCount = 0;
-    if (variadicBufferCounts.hasNext()) {
+    if (vector instanceof BaseVariableWidthViewVector && variadicBufferCounts.hasNext()) {
       variadicBufferLayoutCount = variadicBufferCounts.next();
     }
     int bufferLayoutCount = (int) (variadicBufferLayoutCount + TypeLayout.getTypeBufferCount(field.getType()));

@@ -27,6 +27,7 @@ import java.util.List;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Collections2;
+import org.apache.arrow.vector.BaseVariableWidthViewVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.TypeLayout;
 import org.apache.arrow.vector.complex.StructVector;
@@ -54,7 +55,12 @@ public class StructVectorLoader {
 
   /**
    * Construct with a schema.
-   *
+   * <p>
+   * The schema referred to here can be obtained from the struct vector.
+   * Consider a {@link StructVector} structVector, the schema can be obtained as follows:
+   * <code>
+   * Schema schema = new Schema(structVector.getField().getChildren());
+   * </code>
    * @param schema buffers are added based on schema.
    */
   public StructVectorLoader(Schema schema) {
@@ -111,7 +117,7 @@ public class StructVectorLoader {
     ArrowFieldNode fieldNode = nodes.next();
     // variadicBufferLayoutCount will be 0 for vectors of type except BaseVariableWidthViewVector
     long variadicBufferLayoutCount = 0;
-    if (variadicBufferCounts.hasNext()) {
+    if (vector instanceof BaseVariableWidthViewVector && variadicBufferCounts.hasNext()) {
       variadicBufferLayoutCount = variadicBufferCounts.next();
     }
     int bufferLayoutCount = (int) (variadicBufferLayoutCount + TypeLayout.getTypeBufferCount(field.getType()));
