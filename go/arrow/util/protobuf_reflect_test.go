@@ -17,7 +17,6 @@
 package util
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
@@ -256,8 +255,7 @@ func TestNullRecordFromProtobuf(t *testing.T) {
 	pmr := NewProtobufMessageReflection(&util_message.AllTheTypes{})
 	schema := pmr.Schema()
 	got := pmr.Record(nil)
-	b, _ := got.MarshalJSON()
-	fmt.Println(string(b))
+	_, _ = got.MarshalJSON()
 	jsonStr := `[
 		{
 			"str":"",
@@ -288,7 +286,7 @@ func TestNullRecordFromProtobuf(t *testing.T) {
 	want, _, err := array.RecordFromJSON(memory.NewGoAllocator(), schema, strings.NewReader(jsonStr))
 
 	require.NoError(t, err)
-	require.True(t, array.RecordEqual(got, want), "got: %s\nwant: %s", got, want)
+	require.EqualExportedValues(t, got, want, "got: %s\nwant: %s", got, want)
 }
 
 type testProtobufReflection struct {
