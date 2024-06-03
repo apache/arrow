@@ -177,7 +177,7 @@ common_type <- function(exprs) {
     # * pmin/pmax
     return(first_type)
   }
-  stop("There is no common type in these expressions")
+  validation_error("There is no common type in these expressions")
 }
 
 cast_or_parse <- function(x, type) {

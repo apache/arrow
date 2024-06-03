@@ -532,15 +532,18 @@ class ARROW_EXPORT MapArray : public ListArray {
   /// \param[in] keys Array containing key values
   /// \param[in] items Array containing item values
   /// \param[in] pool MemoryPool in case new offsets array needs to be
+  /// \param[in] null_bitmap Optional validity bitmap
   /// allocated because of null values
   static Result<std::shared_ptr<Array>> FromArrays(
       const std::shared_ptr<Array>& offsets, const std::shared_ptr<Array>& keys,
-      const std::shared_ptr<Array>& items, MemoryPool* pool = default_memory_pool());
+      const std::shared_ptr<Array>& items, MemoryPool* pool = default_memory_pool(),
+      const std::shared_ptr<Buffer>& null_bitmap = NULLPTR);
 
   static Result<std::shared_ptr<Array>> FromArrays(
       std::shared_ptr<DataType> type, const std::shared_ptr<Array>& offsets,
       const std::shared_ptr<Array>& keys, const std::shared_ptr<Array>& items,
-      MemoryPool* pool = default_memory_pool());
+      MemoryPool* pool = default_memory_pool(),
+      const std::shared_ptr<Buffer>& null_bitmap = NULLPTR);
 
   const MapType* map_type() const { return map_type_; }
 
@@ -560,7 +563,7 @@ class ARROW_EXPORT MapArray : public ListArray {
   static Result<std::shared_ptr<Array>> FromArraysInternal(
       std::shared_ptr<DataType> type, const std::shared_ptr<Array>& offsets,
       const std::shared_ptr<Array>& keys, const std::shared_ptr<Array>& items,
-      MemoryPool* pool);
+      MemoryPool* pool, const std::shared_ptr<Buffer>& null_bitmap = NULLPTR);
 
  private:
   const MapType* map_type_;

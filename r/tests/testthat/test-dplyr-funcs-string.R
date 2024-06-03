@@ -172,27 +172,31 @@ test_that("paste, paste0, and str_c", {
   # expected errors
 
   # collapse argument not supported
-  expect_error(
-    call_binding("paste", x, y, collapse = ""),
-    "collapse"
+  expect_arrow_eval_error(
+    paste(chr, int, collapse = ""),
+    "`collapse` argument not supported in Arrow",
+    class = "arrow_not_supported"
   )
-  expect_error(
-    call_binding("paste0", x, y, collapse = ""),
-    "collapse"
+  expect_arrow_eval_error(
+    paste0(chr, int, collapse = ""),
+    "`collapse` argument not supported in Arrow",
+    class = "arrow_not_supported"
   )
-  expect_error(
-    call_binding("str_c", x, y, collapse = ""),
-    "collapse"
+  expect_arrow_eval_error(
+    str_c(chr, int, collapse = ""),
+    "`collapse` argument not supported in Arrow",
+    class = "arrow_not_supported"
   )
-
   # literal vectors of length != 1 not supported
-  expect_error(
-    call_binding("paste", x, character(0), y),
-    "Literal vectors of length != 1 not supported in string concatenation"
+  expect_arrow_eval_error(
+    paste(chr, character(0), int),
+    "Literal vectors of length != 1 in string concatenation not supported in Arrow",
+    class = "arrow_not_supported"
   )
-  expect_error(
-    call_binding("paste", x, c(",", ";"), y),
-    "Literal vectors of length != 1 not supported in string concatenation"
+  expect_arrow_eval_error(
+    paste(chr, c(",", ";"), int),
+    "Literal vectors of length != 1 in string concatenation not supported in Arrow",
+    class = "arrow_not_supported"
   )
 })
 
@@ -602,10 +606,15 @@ test_that("str_to_lower, str_to_upper, and str_to_title", {
   )
 
   # Error checking a single function because they all use the same code path.
-  expect_error(
-    call_binding("str_to_lower", "Apache Arrow", locale = "sp"),
-    "Providing a value for 'locale' other than the default ('en') is not supported in Arrow",
-    fixed = TRUE
+  expect_arrow_eval_error(
+    str_to_lower("Apache Arrow", locale = "sp"),
+    paste(
+      "Providing a value for 'locale' other than the default ('en') not supported in Arrow",
+      "> To change locale, use 'Sys.setlocale()'",
+      sep = "\n"
+    ),
+    fixed = TRUE,
+    class = "arrow_not_supported"
   )
 })
 
@@ -1041,14 +1050,15 @@ test_that("substr with string()", {
     df
   )
 
-  expect_error(
-    call_binding("substr", "Apache Arrow", c(1, 2), 3),
-    "`start` must be length 1 - other lengths are not supported in Arrow"
+  expect_arrow_eval_error(
+    substr("Apache Arrow", c(1, 2), 3),
+    "`start` must be length 1 - other lengths not supported in Arrow",
+    class = "arrow_not_supported"
   )
-
-  expect_error(
-    call_binding("substr", "Apache Arrow", 1, c(2, 3)),
-    "`stop` must be length 1 - other lengths are not supported in Arrow"
+  expect_arrow_eval_error(
+    substr("Apache Arrow", 1, c(2, 3)),
+    "`stop` must be length 1 - other lengths not supported in Arrow",
+    class = "arrow_not_supported"
   )
 })
 
@@ -1169,14 +1179,15 @@ test_that("str_sub", {
     df
   )
 
-  expect_error(
-    call_binding("str_sub", "Apache Arrow", c(1, 2), 3),
-    "`start` must be length 1 - other lengths are not supported in Arrow"
+  expect_arrow_eval_error(
+    str_sub("Apache Arrow", c(1, 2), 3),
+    "`start` must be length 1 - other lengths not supported in Arrow",
+    class = "arrow_not_supported"
   )
-
-  expect_error(
-    call_binding("str_sub", "Apache Arrow", 1, c(2, 3)),
-    "`end` must be length 1 - other lengths are not supported in Arrow"
+  expect_arrow_eval_error(
+    str_sub("Apache Arrow", 1, c(2, 3)),
+    "`end` must be length 1 - other lengths not supported in Arrow",
+    class = "arrow_not_supported"
   )
 })
 

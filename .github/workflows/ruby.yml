@@ -313,15 +313,17 @@ jobs:
     strategy:
       fail-fast: false
     env:
+      ARROW_ACERO: ON
       ARROW_BOOST_USE_SHARED: OFF
       ARROW_BUILD_BENCHMARKS: OFF
       ARROW_BUILD_SHARED: ON
       ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: OFF
-      ARROW_ACERO: ON
       ARROW_DATASET: ON
-      ARROW_FLIGHT: OFF
-      ARROW_FLIGHT_SQL: OFF
+      ARROW_DEPENDENCY_SOURCE: VCPKG
+      ARROW_DEPENDENCY_USE_SHARED: OFF
+      ARROW_FLIGHT: ON
+      ARROW_FLIGHT_SQL: ON
       ARROW_GANDIVA: OFF
       ARROW_HDFS: OFF
       ARROW_HOME: "${{ github.workspace }}/dist"
@@ -337,13 +339,16 @@ jobs:
       ARROW_WITH_LZ4: OFF
       ARROW_WITH_OPENTELEMETRY: OFF
       ARROW_WITH_SNAPPY: ON
-      ARROW_WITH_ZLIB: OFF
+      ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
-      BOOST_SOURCE: BUNDLED
       CMAKE_CXX_STANDARD: "17"
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: "${{ github.workspace }}/dist"
       CMAKE_UNITY_BUILD: ON
+      VCPKG_BINARY_SOURCES: 'clear;nuget,GitHub,readwrite'
+      VCPKG_ROOT: "${{ github.workspace }}/vcpkg"
+    permissions:
+      packages: write
     steps:
       - name: Disable Crash Dialogs
         run: |
@@ -361,7 +366,7 @@ jobs:
       - name: Install vcpkg
         shell: bash
         run: |
-          ci/scripts/install_vcpkg.sh ./vcpkg
+          ci/scripts/install_vcpkg.sh "${VCPKG_ROOT}"
       - name: Install meson
         run: |
           python -m pip install meson
@@ -387,6 +392,22 @@ jobs:
         env:
           # We can invalidate the current cache by updating this.
           CACHE_VERSION: "2024-05-09"
+      - name: Setup NuGet credentials for vcpkg caching
+        shell: bash
+        run: |
+          $(vcpkg/vcpkg.exe fetch nuget | tail -n 1) \
+            sources add \
+            -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json" \
+            -storepasswordincleartext \
+            -name "GitHub" \
+            -username "$GITHUB_REPOSITORY_OWNER" \
+            -password "${{ secrets.GITHUB_TOKEN }}"
+          $(vcpkg/vcpkg.exe fetch nuget | tail -n 1) \
+            setapikey "${{ secrets.GITHUB_TOKEN }}" \
+            -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json"
+      - name: Build C++ vcpkg dependencies
+        run: |
+          vcpkg\vcpkg.exe install --triplet x64-windows --x-manifest-root cpp --x-install-root build\cpp\vcpkg_installed
       - name: Build C++
         shell: cmd
         run: |
@@ -396,4 +417,4 @@ jobs:
         shell: cmd
         run: |
           call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          bash -c "VCPKG_ROOT=\"$(pwd)/vcpkg\" ci/scripts/c_glib_build.sh $(pwd) $(pwd)/build"
+          bash -c "ci/scripts/c_glib_build.sh $(pwd) $(pwd)/build"

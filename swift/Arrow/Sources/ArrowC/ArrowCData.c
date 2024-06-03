@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <stdlib.h>
 #include "include/ArrowCData.h"
 
 void ArrowSwiftClearReleaseSchema(struct ArrowSchema* arrowSchema) {
