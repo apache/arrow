@@ -781,22 +781,6 @@ class KernelExecutorImpl : public KernelExecutor {
 class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
  public:
   Status Execute(const ExecBatch& batch, ExecListener* listener) override {
-    if (batch.selection_vector && !kernel_->selection_vector_aware) {
-      // Slow path for selection vector.
-      auto values = batch.values;
-      for (auto& value : values) {
-        if (value.is_scalar()) continue;
-        ARROW_ASSIGN_OR_RAISE(value, Filter(value, batch.selection_vector->data(),
-                                            FilterOptions::Defaults()));
-      }
-      ARROW_ASSIGN_OR_RAISE(ExecBatch selected_batch, ExecBatch::Make(std::move(values)));
-      // Gather selected rows into new batch.
-      DatumAccumulator new_listener;
-      RETURN_NOT_OK(Execute(selected_batch, &new_listener));
-      // Scatter result according to the original selection vector.
-      return EmitResult(new_listener.values()[0].array(), listener);
-    }
-
     RETURN_NOT_OK(span_iterator_.Init(batch, exec_context()->exec_chunksize()));
 
     if (batch.length == 0) {

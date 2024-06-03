@@ -717,6 +717,8 @@ set(ARROW_COMPUTE_SRCS
     compute/row/compare_internal.cc
     compute/row/grouper.cc
     compute/row/row_internal.cc
+    compute/special_form.cc
+    compute/special_forms/if_else_special_form.cc
     compute/util.cc
     compute/util_internal.cc)
 

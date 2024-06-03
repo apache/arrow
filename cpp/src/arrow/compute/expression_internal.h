@@ -24,6 +24,7 @@
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/cast_internal.h"
+#include "arrow/compute/exec_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
@@ -288,6 +289,41 @@ inline Result<std::shared_ptr<compute::Function>> GetFunction(
   const TypeHolder& to_type =
       ::arrow::internal::checked_cast<const compute::CastOptions&>(*call.options).to_type;
   return GetCastFunction(*to_type);
+}
+
+inline Result<Datum> ExecuteCallNonRecursive(const Expression::Call& call,
+                                             const ExecBatch& input,
+                                             const std::vector<Datum>& arguments,
+                                             ExecContext* exec_context) {
+  auto executor = compute::detail::KernelExecutor::MakeScalar();
+
+  compute::KernelContext kernel_context(exec_context, call.kernel);
+  kernel_context.SetState(call.kernel_state.get());
+
+  const Kernel* kernel = call.kernel;
+  std::vector<TypeHolder> types = GetTypes(arguments);
+  auto options = call.options.get();
+  RETURN_NOT_OK(executor->Init(&kernel_context, {kernel, types, options}));
+
+  bool all_scalar = std::all_of(arguments.begin(), arguments.end(),
+                                [](const Datum& value) { return value.is_scalar(); });
+  int64_t input_length;
+  if (!arguments.empty() && all_scalar) {
+    // all inputs are scalar, so use a 1-long batch to avoid
+    // computing input.length equivalent outputs
+    input_length = 1;
+  } else {
+    input_length = input.length;
+  }
+  ExecBatch arguments_batch(std::move(arguments), input_length);
+  arguments_batch.selection_vector = input.selection_vector;
+  compute::detail::DatumAccumulator listener;
+  RETURN_NOT_OK(executor->Execute(std::move(arguments_batch), &listener));
+  const auto out = executor->WrapResults(arguments, listener.values());
+#ifndef NDEBUG
+  DCHECK_OK(executor->CheckResultType(out, call.function_name.c_str()));
+#endif
+  return out;
 }
 
 }  // namespace compute

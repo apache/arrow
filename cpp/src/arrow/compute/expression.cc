@@ -24,9 +24,9 @@
 
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api_vector.h"
-#include "arrow/compute/exec_internal.h"
 #include "arrow/compute/expression_internal.h"
 #include "arrow/compute/function_internal.h"
+#include "arrow/compute/special_form.h"
 #include "arrow/compute/util.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
@@ -72,12 +72,12 @@ Expression field_ref(FieldRef ref) {
 }
 
 Expression call(std::string function, std::vector<Expression> arguments,
-                std::shared_ptr<compute::FunctionOptions> options, bool special_form) {
+                std::shared_ptr<compute::FunctionOptions> options, bool is_special_form) {
   Expression::Call call;
   call.function_name = std::move(function);
   call.arguments = std::move(arguments);
   call.options = std::move(options);
-  call.special_form = special_form;
+  call.is_special_form = is_special_form;
   return Expression(std::move(call));
 }
 
@@ -120,7 +120,7 @@ const DataType* Expression::type() const {
   return CallNotNull(*this)->type.type;
 }
 
-const bool Expression::selection_vector_aware() const {
+bool Expression::selection_vector_aware() const {
   DCHECK(IsBound());
 
   if (literal() || field_ref()) {
@@ -561,6 +561,11 @@ Result<Expression> BindNonRecursive(Expression::Call call, bool insert_implicit_
 
     ARROW_ASSIGN_OR_RAISE(
         call.type, call.kernel->signature->out_type().Resolve(&kernel_context, types));
+
+    if (call.is_special_form) {
+      ARROW_ASSIGN_OR_RAISE(call.special_form, SpecialForm::Make(call.function_name));
+    }
+
     return Status::OK();
   };
 
@@ -732,6 +737,29 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const Schema& full
   return ExecuteScalarExpression(expr, input, exec_context);
 }
 
+namespace {
+
+// Execute a selection-vector-equipped scalar expression that is not fully
+// selection-vector-aware using slow path: gather/scatter.
+Result<Datum> ExecuteScalarExpressionWithSelSlowPath(const Expression& expr,
+                                                     const ExecBatch& input,
+                                                     compute::ExecContext* exec_context) {
+  DCHECK(!expr.selection_vector_aware() && input.selection_vector);
+  auto values = input.values;
+  for (auto& value : values) {
+    if (value.is_scalar()) continue;
+    ARROW_ASSIGN_OR_RAISE(
+        value, Filter(value, input.selection_vector->data(), FilterOptions::Defaults()));
+  }
+  ARROW_ASSIGN_OR_RAISE(ExecBatch selected_batch, ExecBatch::Make(std::move(values)));
+  ARROW_ASSIGN_OR_RAISE(auto partial_result,
+                        ExecuteScalarExpression(expr, selected_batch, exec_context));
+  // TODO: Scatter.
+  return partial_result;
+}
+
+}  // namespace
+
 Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& input,
                                       compute::ExecContext* exec_context) {
   if (exec_context == nullptr) {
@@ -746,6 +774,10 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
   if (!expr.IsScalarExpression()) {
     return Status::Invalid(
         "ExecuteScalarExpression cannot Execute non-scalar expression ", expr.ToString());
+  }
+
+  if (!expr.selection_vector_aware() && input.selection_vector) {
+    return ExecuteScalarExpressionWithSelSlowPath(expr, input, exec_context);
   }
 
   if (auto lit = expr.literal()) return *lit;
@@ -773,90 +805,16 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
 
   auto call = CallNotNull(expr);
 
-  std::vector<Datum> arguments(call->arguments.size());
-
-  if (!call->special_form) {
-    bool all_scalar = true;
+  if (call->is_special_form) {
+    DCHECK(call->special_form);
+    return call->special_form->Execute(*call, input, exec_context);
+  } else {
+    std::vector<Datum> arguments(call->arguments.size());
     for (size_t i = 0; i < arguments.size(); ++i) {
       ARROW_ASSIGN_OR_RAISE(
           arguments[i], ExecuteScalarExpression(call->arguments[i], input, exec_context));
-      if (arguments[i].is_array()) {
-        all_scalar = false;
-      }
     }
-
-    int64_t input_length;
-    if (!arguments.empty() && all_scalar) {
-      // all inputs are scalar, so use a 1-long batch to avoid
-      // computing input.length equivalent outputs
-      input_length = 1;
-    } else {
-      input_length = input.length;
-    }
-
-    auto executor = compute::detail::KernelExecutor::MakeScalar();
-
-    compute::KernelContext kernel_context(exec_context, call->kernel);
-    kernel_context.SetState(call->kernel_state.get());
-
-    const Kernel* kernel = call->kernel;
-    std::vector<TypeHolder> types = GetTypes(arguments);
-    auto options = call->options.get();
-    RETURN_NOT_OK(executor->Init(&kernel_context, {kernel, types, options}));
-
-    ExecBatch arguments_batch(std::move(arguments), input_length);
-    arguments_batch.selection_vector = input.selection_vector;
-    compute::detail::DatumAccumulator listener;
-    RETURN_NOT_OK(executor->Execute(std::move(arguments_batch), &listener));
-    const auto out = executor->WrapResults(arguments, listener.values());
-#ifndef NDEBUG
-    DCHECK_OK(executor->CheckResultType(out, call->function_name.c_str()));
-#endif
-    return out;
-  } else {
-    auto overall_sel = input.selection_vector;
-    ARROW_ASSIGN_OR_RAISE(
-        arguments[0], ExecuteScalarExpression(call->arguments[0], input, exec_context));
-    // Obtain the selection vector from cond.
-    auto if_sel = std::make_shared<SelectionVector>(arguments[0].array());
-    ARROW_ASSIGN_OR_RAISE(
-        auto else_sel,
-        if_sel->Copy(CPUDevice::memory_manager(exec_context->memory_pool())));
-    RETURN_NOT_OK(else_sel->Invert());
-    if (overall_sel) {
-      RETURN_NOT_OK(if_sel->Intersect(*overall_sel));
-      RETURN_NOT_OK(else_sel->Intersect(*overall_sel));
-    }
-
-    ExecBatch if_input = input;
-    if_input.selection_vector = std::move(if_sel);
-    ARROW_ASSIGN_OR_RAISE(arguments[1], ExecuteScalarExpression(call->arguments[1],
-                                                                if_input, exec_context));
-    ExecBatch else_input = input;
-    else_input.selection_vector = std::move(else_sel);
-    ARROW_ASSIGN_OR_RAISE(
-        arguments[2],
-        ExecuteScalarExpression(call->arguments[2], else_input, exec_context));
-
-    auto executor = compute::detail::KernelExecutor::MakeScalar();
-
-    compute::KernelContext kernel_context(exec_context, call->kernel);
-    kernel_context.SetState(call->kernel_state.get());
-
-    const Kernel* kernel = call->kernel;
-    std::vector<TypeHolder> types = GetTypes(arguments);
-    auto options = call->options.get();
-    RETURN_NOT_OK(executor->Init(&kernel_context, {kernel, types, options}));
-
-    ExecBatch arguments_batch(std::move(arguments), input.length);
-    arguments_batch.selection_vector = std::move(overall_sel);
-    compute::detail::DatumAccumulator listener;
-    RETURN_NOT_OK(executor->Execute(std::move(arguments_batch), &listener));
-    const auto out = executor->WrapResults(arguments, listener.values());
-#ifndef NDEBUG
-    DCHECK_OK(executor->CheckResultType(out, call->function_name.c_str()));
-#endif
-    return out;
+    return ExecuteCallNonRecursive(*call, input, arguments, exec_context);
   }
 }
 
