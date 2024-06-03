@@ -524,6 +524,8 @@ struct ARROW_EXPORT Kernel {
 
   // Additional kernel-specific data
   std::shared_ptr<KernelState> data;
+
+  bool selection_vector_aware = false;
 };
 
 /// \brief The scalar kernel execution API that must be implemented for SCALAR
@@ -566,7 +568,6 @@ struct ARROW_EXPORT ScalarKernel : public Kernel {
   // bitmaps is a reasonable default
   NullHandling::type null_handling = NullHandling::INTERSECTION;
   MemAllocation::type mem_allocation = MemAllocation::PREALLOCATE;
-  bool selection_vector_aware = false;
 };
 
 // ----------------------------------------------------------------------

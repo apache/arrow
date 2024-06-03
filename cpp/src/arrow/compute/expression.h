@@ -57,6 +57,7 @@ class ARROW_EXPORT Expression {
     const Kernel* kernel = NULLPTR;
     std::shared_ptr<KernelState> kernel_state;
     TypeHolder type;
+    bool selection_vector_aware = false;
 
     void ComputeHash();
   };
@@ -118,6 +119,8 @@ class ARROW_EXPORT Expression {
   const DataType* type() const;
   // XXX someday
   // NullGeneralization::type nullable() const;
+
+  const bool selection_vector_aware() const;
 
   struct Parameter {
     FieldRef ref;

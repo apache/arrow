@@ -120,6 +120,16 @@ const DataType* Expression::type() const {
   return CallNotNull(*this)->type.type;
 }
 
+const bool Expression::selection_vector_aware() const {
+  DCHECK(IsBound());
+
+  if (literal() || field_ref()) {
+    return true;
+  }
+
+  return CallNotNull(*this)->selection_vector_aware;
+}
+
 namespace {
 
 std::string PrintDatum(const Datum& datum) {
@@ -573,7 +583,12 @@ Result<Expression> BindNonRecursive(Expression::Call call, bool insert_implicit_
   types = GetTypesWithSmallestLiteralRepresentation(call.arguments);
   ARROW_ASSIGN_OR_RAISE(call.kernel, call.function->DispatchBest(&types));
 
+  call.selection_vector_aware = call.kernel->selection_vector_aware;
+
   for (size_t i = 0; i < types.size(); ++i) {
+    call.selection_vector_aware =
+        call.selection_vector_aware && call.arguments[i].selection_vector_aware();
+
     if (types[i] == call.arguments[i].type()) continue;
 
     if (const Datum* lit = call.arguments[i].literal()) {
@@ -804,7 +819,9 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
         arguments[0], ExecuteScalarExpression(call->arguments[0], input, exec_context));
     // Obtain the selection vector from cond.
     auto if_sel = std::make_shared<SelectionVector>(arguments[0].array());
-    ARROW_ASSIGN_OR_RAISE(auto else_sel, if_sel->Copy(CPUDevice::memory_manager(exec_context->memory_pool())));
+    ARROW_ASSIGN_OR_RAISE(
+        auto else_sel,
+        if_sel->Copy(CPUDevice::memory_manager(exec_context->memory_pool())));
     RETURN_NOT_OK(else_sel->Invert());
     if (overall_sel) {
       RETURN_NOT_OK(if_sel->Intersect(*overall_sel));
