@@ -241,12 +241,14 @@ func TestRecordFromProtobuf(t *testing.T) {
 	got = pmr.Record(nil)
 	jsonStr = `[ { "enum":"OPTION_1" } ]`
 	want, _, err = array.RecordFromJSON(memory.NewGoAllocator(), pmr.Schema(), strings.NewReader(jsonStr))
+	require.NoError(t, err)
 	require.True(t, array.RecordEqual(got, want), "got: %s\nwant: %s", got, want)
 
 	pmr = NewProtobufMessageReflection(&msg, WithExclusionPolicy(onlyEnum), WithEnumHandler(EnumNumber))
 	got = pmr.Record(nil)
 	jsonStr = `[ { "enum":"1" } ]`
 	want, _, err = array.RecordFromJSON(memory.NewGoAllocator(), pmr.Schema(), strings.NewReader(jsonStr))
+	require.NoError(t, err)
 	require.True(t, array.RecordEqual(got, want), "got: %s\nwant: %s", got, want)
 }
 

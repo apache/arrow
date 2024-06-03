@@ -17,7 +17,6 @@
 package util
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 
@@ -860,7 +859,7 @@ func (f ProtobufMessageFieldReflection) AppendValueOrNull(b array.Builder, mem m
 			}
 		}
 	default:
-		return errors.New(fmt.Sprintf("Not able to appendValueOrNull for type %s", b.Type().ID()))
+		return fmt.Errorf("not able to appendValueOrNull for type %s", b.Type().ID())
 	}
 	return nil
 }
