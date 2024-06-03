@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-if get_option('ARROW_BUILD_TESTS')
+if get_option('tests')
     json_test = executable(
         'json_test',
         'chunked_builder_test.cc',
@@ -30,7 +30,7 @@ if get_option('ARROW_BUILD_TESTS')
     test('arrow-json', json_test)
 endif
 
-if get_option('ARROW_BUILD_BENCHMARKS')
+if get_option('benchmarks')
     parser_exc = executable(
         'arrow-json-parser-benchmark',
         'parser_benchmark.cc',

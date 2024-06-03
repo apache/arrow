@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-if get_option('ARROW_BUILD_TESTS')
+if get_option('tests')
     compute_internals_test = executable(
         'internals_test',
         'function_test.cc',
@@ -46,7 +46,7 @@ if get_option('ARROW_BUILD_TESTS')
     subdir('row')
 endif
 
-if get_option('ARROW_BUILD_BENCHMARKS')
+if get_option('benchmarks')
     exc = executable(
         'arrow-function-benchmark',
         'function_benchmark.cc',

@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-if get_option('ARROW_BUILD_TESTS')
+if get_option('tests')
     fixed_shape_tensor_test = executable(
         'fixed_shape_tensor_test',
         'fixed_shape_tensor_test.cc',

@@ -16,31 +16,31 @@
 # under the License.
 
 option(
-    'ARROW_BUILD_BENCHMARKS',
+    'benchmarks',
     type: 'boolean',
     description: 'Build benchmarks',
     value: false
 )
 option(
-    'ARROW_BUILD_TESTS',
+    'tests',
     type: 'boolean',
     description: 'Build tests',
     value: false
 )
 option(
-    'ARROW_BUILD_INTEGRATION',
+    'integration',
     type: 'boolean',
     description: 'Build cross-implementation Arrow integration tests',
     value: false
 )
 option(
-    'ARROW_COMPUTE',
+    'compute',
     type: 'boolean',
     description: 'Build all Arrow Compute kernels',
     value: false
 )
 option(
-    'ARROW_IPC',
+    'ipc',
     type: 'boolean',
     description: 'Build the Arrow IPC extension',
     value: true

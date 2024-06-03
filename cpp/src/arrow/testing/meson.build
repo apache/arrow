@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-if get_option('ARROW_BUILD_TESTS')
+if get_option('tests')
     random_test = executable(
         'random_test',
         'random_test.cc',

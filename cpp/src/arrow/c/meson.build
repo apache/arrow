@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-if get_option('ARROW_BUILD_TESTS')
+if get_option('tests')
     c_tests = ['bridge', 'dlpack']
 
     foreach c_test : c_tests
@@ -30,7 +30,7 @@ if get_option('ARROW_BUILD_TESTS')
     endforeach
 endif
 
-if get_option('ARROW_BUILD_BENCHMARKS')
+if get_option('benchmarks')
     bridge_exc = executable(
         'arrow-bridge-benchmark',
         'bridge_benchmark.cc',

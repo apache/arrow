@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-if get_option('ARROW_BUILD_BENCHMARKS')
+if get_option('benchmarks')
     exc = executable(
         'arrow-gouper-benchmark',
         'grouper_benchmark.cc',

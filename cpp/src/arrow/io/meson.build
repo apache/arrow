@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-if get_option('ARROW_BUILD_TESTS')
+if get_option('tests')
     io_tests = ['buffered', 'compressed', 'file', 'memory']
 
     foreach io_test : io_tests
@@ -34,7 +34,7 @@ if get_option('ARROW_BUILD_TESTS')
     # TODO: HDFS test
 endif
 
-if get_option('ARROW_BUILD_BENCHMARKS')
+if get_option('benchmarks')
     io_benchmarks = {
         'file': {
             'src_name': 'file',

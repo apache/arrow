@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-if get_option('ARROW_BUILD_TESTS')
+if get_option('tests')
     ipc_tests = [
         'feather',
         'json_simple',
@@ -38,7 +38,7 @@ if get_option('ARROW_BUILD_TESTS')
     # TODO: utility, integration, and fuzzing targets
 endif
 
-if get_option('ARROW_BUILD_BENCHMARKS')
+if get_option('benchmarks')
     exc = executable(
         'arrow-ipc-read-write-benchmark',
         'read_write_benchmark.cc',

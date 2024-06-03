@@ -29,10 +29,10 @@ root_dir = include_directories('..')
 hadoop_dir = include_directories('../../thirdparty/hadoop/include')
 flatbuf_dir = include_directories('../../thirdparty/flatbuffers/include')
 
-needs_integration = get_option('ARROW_BUILD_TESTS') # or get_option('ARROW_BUILD_INTEGRATION')
-needs_ipc = get_option('ARROW_IPC') or get_option('ARROW_BUILD_TESTS')
-needs_testing = get_option('ARROW_BUILD_TESTS') # or get_option('ARROW_TESTING')
-needs_json = needs_testing # or get_option('ARROW_JSON')
+needs_integration = get_option('tests') # or get_option('integration')
+needs_ipc = get_option('ipc') or get_option('tests')
+needs_testing = get_option('tests') # or get_option('testing')
+needs_json = needs_testing # or get_option('json')
 
 arrow_srcs = [
     'builder.cc',
@@ -288,7 +288,7 @@ arrow_lib = library(
     dependencies: [arrow_lib_dependencies, arrow_vcs_config_dep],
 )
 
-if needs_testing or get_option('ARROW_BUILD_BENCHMARKS')
+if needs_testing or get_option('benchmarks')
     gmock_dep = dependency('gmock')
 endif
 
@@ -407,7 +407,7 @@ if needs_testing
         test('arrow-extension-type', extension_type_exec)
     endif
 
-    if get_option('ARROW_BUILD_BENCHMARKS')
+    if get_option('benchmarks')
         gtest_dep = dependency('gtest')  # does not include main
         gbenchmark_dep = dependency('benchmark')
     endif
@@ -417,7 +417,7 @@ if needs_testing
 
     subdir('array')
     subdir('c')
-    if get_option('ARROW_COMPUTE')
+    if get_option('compute')
       subdir('compute')
     endif
     subdir('io')
@@ -514,7 +514,7 @@ if needs_testing
         test('arrow-' + testname, exc)
     endforeach
 
-    if get_option('ARROW_BUILD_BENCHMARKS')
+    if get_option('benchmarks')
         gtest_dep = dependency('gtest')  # does not include main
         gbenchmark_dep = dependency('benchmark')
         util_benchmarks = {

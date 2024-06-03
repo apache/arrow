@@ -141,7 +141,7 @@ if needs_testing
     test('arrow-compute-kernel-utility', kernel_utility_test)
 endif
 
-if get_option('ARROW_BUILD_BENCHMARKS')
+if get_option('benchmarks')
     kernel_benchmarks = {
         'scalar-arithmetic' : {
             'src_name': 'scalar_arithmetic',
