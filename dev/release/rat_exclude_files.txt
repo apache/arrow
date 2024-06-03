@@ -12,7 +12,9 @@ ci/etc/*.patch
 ci/vcpkg/*.patch
 CHANGELOG.md
 cpp/CHANGELOG_PARQUET.md
-cpp/subprojects/*
+cpp/subprojects/google-benchmark.wrap
+cpp/subprojects/gtest.wrap
+cpp/subprojects/rapidjson.wrap
 cpp/src/arrow/c/dlpack_abi.h
 cpp/src/arrow/io/mman.h
 cpp/src/arrow/util/random.h
