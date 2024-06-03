@@ -5347,6 +5347,15 @@ BEGIN_CPP11
 	return cpp11::as_sexp(arrow__UnifySchemas(schemas));
 END_CPP11
 }
+// schema.cpp
+void safe_r_metadata(SEXP x);
+extern "C" SEXP _arrow_safe_r_metadata(SEXP x_sexp){
+BEGIN_CPP11
+	arrow::r::Input<SEXP>::type x(x_sexp);
+	safe_r_metadata(x);
+	return R_NilValue;
+END_CPP11
+}
 // table.cpp
 int Table__num_columns(const std::shared_ptr<arrow::Table>& x);
 extern "C" SEXP _arrow_Table__num_columns(SEXP x_sexp){
@@ -6183,6 +6192,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Schema__serialize", (DL_FUNC) &_arrow_Schema__serialize, 1}, 
 		{ "_arrow_Schema__Equals", (DL_FUNC) &_arrow_Schema__Equals, 3}, 
 		{ "_arrow_arrow__UnifySchemas", (DL_FUNC) &_arrow_arrow__UnifySchemas, 1}, 
+		{ "_arrow_safe_r_metadata", (DL_FUNC) &_arrow_safe_r_metadata, 1}, 
 		{ "_arrow_Table__num_columns", (DL_FUNC) &_arrow_Table__num_columns, 1}, 
 		{ "_arrow_Table__num_rows", (DL_FUNC) &_arrow_Table__num_rows, 1}, 
 		{ "_arrow_Table__schema", (DL_FUNC) &_arrow_Table__schema, 1}, 

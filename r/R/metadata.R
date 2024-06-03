@@ -44,21 +44,75 @@
 }
 
 .deserialize_arrow_r_metadata <- function(x) {
-  tryCatch(
-    expr = {
-      out <- unserialize(charToRaw(x))
-
-      # if this is still raw, try decompressing
-      if (is.raw(out)) {
-        out <- unserialize(memDecompress(out, type = "gzip"))
-      }
-      out
-    },
+  tryCatch(safe_unserialize_ascii(x),
     error = function(e) {
+      if (getOption("arrow.debug", FALSE)) {
+        print(conditionMessage(e))
+      }
       warning("Invalid metadata$r", call. = FALSE)
       NULL
     }
   )
+}
+
+safe_unserialize_ascii <- function(x) {
+  # First, check if we can call unserialize() at all
+  # By default, we only call unserialize() in R 4.4.0 or newer
+  # but you can enable it in older versions by setting the option
+  r_4.4_or_newer <- getRversion() >= "4.4"
+  if (!isTRUE(getOption("arrow.unserialize_metadata", r_4.4_or_newer))) {
+    opts <- c(">" = "To enable, set `options(arrow.unserialize_metadata = TRUE)`")
+    if (!r_4.4_or_newer) {
+      opts <- c(
+        opts,
+        ">" = "Or, upgrade to R 4.4.0 or newer"
+      )
+    }
+    rlang::warn(
+      "Unserialization of R metadata is disabled.",
+      body = opts,
+      .frequency = "once",
+      .frequency_id = "arrow.unserialize_metadata"
+    )
+    return(NULL)
+  }
+
+  # Check that this is ASCII serialized data (as in, what we wrote)
+  if (!identical(substr(unclass(x), 1, 1), "A")) {
+    stop("Invalid serialized data")
+  }
+  out <- unserialize(charToRaw(x))
+  # If it's still raw, check for the gzip magic number and uncompress
+  if (is.raw(out) && identical(out[1:2], as.raw(c(31, 139)))) {
+    decompressed <- memDecompress(out, type = "gzip")
+    if (!identical(substr(decompressed, 1, 1), "A")) {
+      stop("Invalid serialized data")
+    }
+    out <- unserialize(decompressed)
+  }
+  if (!is.list(out)) {
+    stop("Invalid serialized data")
+  }
+
+  tryCatch(safe_r_metadata(out), error = function(e) {
+    # This C function will error if the metadata contains elements of types
+    # that are not allowed.
+    if (getOption("arrow.debug", FALSE)) {
+      print(conditionMessage(e))
+    }
+    if (getOption("arrow.unsafe_metadata", FALSE)) {
+      # We've opted-in to unsafe metadata, so we'll just return the metadata
+      # TODO: should we warn here anyway?
+    } else {
+      rlang::warn(
+        "R metadata may contain unsafe elements and has been discarded.",
+        body = c("i" = "If you trust the source, you can set `options(arrow.unsafe_metadata = TRUE)` to use it.")
+      )
+      out <<- NULL
+    }
+  })
+
+  out
 }
 
 #' @importFrom rlang trace_back

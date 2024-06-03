@@ -167,3 +167,91 @@ std::shared_ptr<arrow::Schema> arrow__UnifySchemas(
     const std::vector<std::shared_ptr<arrow::Schema>>& schemas) {
   return ValueOrStop(arrow::UnifySchemas(schemas));
 }
+
+void check_r_metadata_attributes(SEXP x);
+void check_r_metadata_columns(SEXP x);
+
+// [[arrow::export]]
+void safe_r_metadata(SEXP x) {
+  if (Rf_isNull(x)) {
+    return;
+  }
+  if (TYPEOF(x) != VECSXP) {
+    cpp11::stop("R metadata must be a list, not a %s", Rf_type2char(TYPEOF(x)));
+  }
+  // Check the names of the list
+  SEXP names = Rf_getAttrib(x, R_NamesSymbol);
+  if (Rf_isNull(names)) {
+    cpp11::stop("R metadata must have names");
+  }
+  const char* name_str;
+  for (R_xlen_t i = 0; i < Rf_length(names); i++) {
+    name_str = CHAR(STRING_ELT(names, i));
+    // The names may have "attributes" and "columns" only
+    if (strcmp(name_str, "attributes") == 0) {
+      check_r_metadata_attributes(VECTOR_ELT(x, i));
+    } else if (strcmp(name_str, "columns") == 0) {
+      check_r_metadata_columns(VECTOR_ELT(x, i));
+    } else {
+      cpp11::stop("Invalid name '%s' for R metadata", name_str);
+    }
+  }
+}
+
+void check_r_metadata_attributes(SEXP x) {
+  if (Rf_isNull(x)) {
+    return;
+  }
+  if (TYPEOF(x) != VECSXP) {
+    cpp11::stop("attributes must be a list, not a %s", Rf_type2char(TYPEOF(x)));
+  }
+  SEXP attr;
+  for (R_xlen_t i = 0; i < Rf_length(x); i++) {
+    attr = VECTOR_ELT(x, i);
+    switch (TYPEOF(attr)) {
+      // This is effectively an allowlist of types
+      // We could switch this to a blocklist and maybe just exclude environment?
+      // As that's the only thing that could contain an active binding?
+      // TODO: whatever we restrict here on load, we should also restrict when
+      // saving metadata.
+      case VECSXP:
+        // Recurse
+        return check_r_metadata_attributes(attr);
+      case STRSXP:
+        break;
+      case REALSXP:
+        break;
+      case INTSXP:
+        break;
+      case LGLSXP:
+        break;
+      case CPLXSXP:
+        break;
+      case RAWSXP:
+        break;
+      case NILSXP:
+        break;
+      // Should we error on externalptr (which won't be useful) or just allow it?
+      // Should we error on environment (which could be an R6 object)
+      //   or inspect it and make sure there are no active bindings in it?
+      // Should we error on EXPRSXP (e.g. a formula) or just allow it?
+      // Should we error on OBJSXP (S4 objects)?
+      default:
+        cpp11::stop("Invalid attribute type: %s", Rf_type2char(TYPEOF(attr)));
+    }
+  }
+}
+
+void check_r_metadata_columns(SEXP x) {
+  // "columns" is named and each element of "columns" is a list
+  // with "attributes" and/or "columns" elements--i.e. the same as the top-level
+  if (Rf_isNull(x)) {
+    return;
+  }
+  if (TYPEOF(x) != VECSXP) {
+    cpp11::stop("columns must be a list, not a %s", Rf_type2char(TYPEOF(x)));
+  }
+  for (R_xlen_t i = 0; i < Rf_length(x); i++) {
+    safe_r_metadata(VECTOR_ELT(x, i));
+  }
+}
