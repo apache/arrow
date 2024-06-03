@@ -610,7 +610,7 @@ Status WriteMetaDataFile(const FileMetaData& file_metadata,
 }
 
 Status WriteEncryptedMetadataFile(
-    const FileMetaData& file_metadata, std::shared_ptr<::arrow::io::OutputStream> sink,
+    const FileMetaData& file_metadata, ArrowOutputStream* sink,
     std::shared_ptr<FileEncryptionProperties> file_encryption_properties) {
   PARQUET_CATCH_NOT_OK(::parquet::WriteEncryptedMetadataFile(file_metadata, sink,
                                                              file_encryption_properties));

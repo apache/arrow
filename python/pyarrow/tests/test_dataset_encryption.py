@@ -249,7 +249,7 @@ def test_dataset_metadata_encryption_decryption(tempdir):
     write_options = pformat.make_write_options(encryption_config=parquet_encryption_cfg)
 
     path = str(tempdir / "sample_dataset")
-    metadata_file = str(tempdir / "_metadata")
+    metadata_file = str(tempdir / "sample_dataset" / "_metadata")
     mockfs = fs._MockFileSystem()
     mockfs.create_dir(path)
 
@@ -328,6 +328,6 @@ def test_dataset_metadata_encryption_decryption(tempdir):
         metadata_file, decryption_properties=decryption_properties, filesystem=mockfs)
 
     assert metadata.num_columns == 2
-    assert metadata.num_rows == 0
-    assert metadata.num_row_groups == 0
+    assert metadata.num_rows == 6
+    assert metadata.num_row_groups == 4
     assert metadata.schema.to_arrow_schema() == metadata_schema

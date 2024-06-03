@@ -1078,7 +1078,7 @@ cdef class FileMetaData(_Weakrefable):
         with nogil:
             if encryption_properties is not None:
                 check_status(
-                    WriteEncryptedMetadataFile(deref(self._metadata), sink, properties))
+                    WriteEncryptedMetadataFile(deref(self._metadata), sink.get(), properties))
             else:
                 check_status(WriteMetaDataFile(deref(self._metadata), sink.get()))
 
