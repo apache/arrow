@@ -309,6 +309,6 @@ func TestAppendValueOrNull(t *testing.T) {
 		Field:              arrow.Field{Name: "Test", Type: arrow.FixedWidthTypes.Time32s},
 	}
 	got := pmfr.AppendValueOrNull(recordBuilder.Field(0), mem)
-	want := "Not able to appendValueOrNull for type TIME32"
+	want := "not able to appendValueOrNull for type TIME32"
 	assert.EqualErrorf(t, got, want, "Error is: %v, want: %v", got, want)
 }
