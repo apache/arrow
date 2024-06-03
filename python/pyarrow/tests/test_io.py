@@ -693,7 +693,22 @@ def test_non_cpu_buffer():
     with pytest.raises(NotImplementedError, match=msg):
         buf_on_gpu[1]
 
-    # TODO: test slice() and to_pybytes() on binary data
+    buf = pa.py_buffer(b'testing')
+    arr_offsets = pa.array([0, 7], type=pa.int32())
+    offsets_buf = arr_offsets.buffers()[1]
+    arr = pa.BinaryArray.from_buffers(pa.binary(), 1, [None, offsets_buf, buf])
+
+    buf_on_gpu = arr.buffers()[2]
+    buf_on_gpu_sliced = buf_on_gpu.slice(2)
+
+    buf = pa.py_buffer(b'sting')
+    arr_offsets = pa.array([0, 5], type=pa.int32())
+    offsets_buf = arr_offsets.buffers()[1]
+    arr = pa.BinaryArray.from_buffers(pa.binary(), 1, [None, offsets_buf, buf])
+
+    buf_on_gpu_expected = arr.buffers()[2]
+
+    assert buf_on_gpu_sliced.to_pybytes() == buf_on_gpu_expected.to_pybytes()
 
 
 def test_cache_options():
