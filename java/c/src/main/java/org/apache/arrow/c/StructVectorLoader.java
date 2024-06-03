@@ -90,7 +90,7 @@ public class StructVectorLoader {
         .fromCompressionType(recordBatch.getBodyCompression().getCodec());
     decompressionNeeded = codecType != CompressionUtil.CodecType.NO_COMPRESSION;
     CompressionCodec codec = decompressionNeeded ? factory.createCodec(codecType) : NoCompressionCodec.INSTANCE;
-    Iterator<Long> variadicBufferCounts = null;
+    Iterator<Long> variadicBufferCounts = Collections.emptyIterator();
     if (recordBatch.getVariadicBufferCounts() != null && !recordBatch.getVariadicBufferCounts().isEmpty()) {
       variadicBufferCounts = recordBatch.getVariadicBufferCounts().iterator();
     }
@@ -111,7 +111,7 @@ public class StructVectorLoader {
     ArrowFieldNode fieldNode = nodes.next();
     // variadicBufferLayoutCount will be 0 for vectors of type except BaseVariableWidthViewVector
     long variadicBufferLayoutCount = 0;
-    if (variadicBufferCounts != null) {
+    if (variadicBufferCounts.hasNext()) {
       variadicBufferLayoutCount = variadicBufferCounts.next();
     }
     int bufferLayoutCount = (int) (variadicBufferLayoutCount + TypeLayout.getTypeBufferCount(field.getType()));
