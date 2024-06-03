@@ -115,6 +115,13 @@ Result<std::string_view> InputStream::Peek(int64_t ARROW_ARG_UNUSED(nbytes)) {
 
 bool InputStream::supports_zero_copy() const { return false; }
 
+int64_t InputStream::preferred_read_size(std::optional<int64_t> nbytes) const {
+  if (nbytes.has_value()) {
+    return nbytes.value();
+  }
+  return 16 << 10;  // 16 kiB, arbitrary value
+}
+
 Result<std::shared_ptr<const KeyValueMetadata>> InputStream::ReadMetadata() {
   return std::shared_ptr<const KeyValueMetadata>{};
 }

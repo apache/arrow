@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -223,11 +224,6 @@ class ARROW_EXPORT InputStream : virtual public FileInterface, virtual public Re
   /// \param[in] nbytes the maximum number of bytes to see
   virtual Result<std::string_view> Peek(int64_t nbytes);
 
-  /// \brief Return true if InputStream is capable of zero copy Buffer reads
-  ///
-  /// Zero copy reads imply the use of Buffer-returning Read() overloads.
-  virtual bool supports_zero_copy() const;
-
   /// \brief Read and return stream metadata
   ///
   /// If the stream implementation doesn't support metadata, empty metadata
@@ -239,6 +235,36 @@ class ARROW_EXPORT InputStream : virtual public FileInterface, virtual public Re
   virtual Future<std::shared_ptr<const KeyValueMetadata>> ReadMetadataAsync(
       const IOContext& io_context);
   Future<std::shared_ptr<const KeyValueMetadata>> ReadMetadataAsync();
+
+  /// \brief Return true if InputStream is capable of zero copy Buffer reads
+  ///
+  /// Zero copy reads imply the use of Buffer-returning Read() overloads.
+  virtual bool supports_zero_copy() const;
+
+  /// \brief Return the preferred chunk size for reading at least `nbytes`
+  ///
+  /// Different file backends have different performance characteristics
+  /// (especially on the latency / bandwidth spectrum).
+  /// This method informs the caller on a well-performing read size
+  /// for the given logical read size.
+  ///
+  /// Implementations of this method are free to ignore the input `nbytes`
+  /// when computing the return value. The return value might be smaller,
+  /// larger or equal to the input value.
+  ///
+  /// This method should be deterministic: multiple calls on the same object
+  /// with the same input argument will return the same value. Therefore,
+  /// calling it once on a given file should be sufficient.
+  ///
+  /// There are two ways for callers to use this method:
+  /// 1) callers which support readahead into an internal buffer will
+  ///    use the return value as a hint for their internal buffer's size;
+  /// 2) callers which require exact read sizes will use the return value as
+  ///    an advisory chunk size when reading.
+  ///
+  /// \param[in] nbytes the logical number of bytes desired by the caller
+  /// \return an advisory physical chunk size, in bytes
+  virtual int64_t preferred_read_size(std::optional<int64_t> nbytes) const;
 
  protected:
   InputStream() = default;
