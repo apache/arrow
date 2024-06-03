@@ -34,6 +34,33 @@ needs_ipc = get_option('ipc') or get_option('tests')
 needs_testing = get_option('tests') # or get_option('testing')
 needs_json = needs_testing # or get_option('json')
 
+if needs_testing or get_option('benchmarks')
+    gmock_dep = dependency('gmock')
+else
+    gmock_dep = disabler()
+endif
+
+if needs_testing
+    gtest_main_dep = dependency('gtest_main')
+else
+    gtest_main_dep = disabler()
+endif
+
+if get_option('benchmarks')
+    gtest_dep = dependency('gtest')  # does not include main
+    gbenchmark_dep = dependency('benchmark')
+else
+    gtest_dep = disabler()
+    gbenchmark_dep = disabler()
+endif
+
+if needs_integration
+    rapidjson_dep = dependency('rapidjson')
+    arrow_lib_dependencies += rapidjson_dep
+else
+    rapidjson_dep = disabler()
+endif
+
 arrow_srcs = [
     'builder.cc',
     'buffer.cc',
@@ -230,11 +257,8 @@ if needs_integration
         'integration/json_integration.cc',
         'integration/json_internal.cc',
     ]
-
-    rapidjson_dep = dependency('rapidjson')
-    arrow_lib_dependencies += rapidjson_dep
 else
-    arrow_integration_srcs = []
+    arrow_integration_srcs = disabler()
 endif
 
 if needs_ipc
@@ -252,7 +276,7 @@ if needs_ipc
         arrow_ipc_srcs += 'ipc/json_simple.cc'
     endif
 else
-    arrow_ipc_srcs = []
+    arrow_ipc_srcs = disabler()
 endif
 
 if needs_json
@@ -268,7 +292,7 @@ if needs_json
       'json/reader.cc',
   ]
 else
-  arrow_json_srcs = []
+  arrow_json_srcs = disabler()
 endif
 
 arrow_lib = library(
@@ -288,10 +312,6 @@ arrow_lib = library(
     dependencies: [arrow_lib_dependencies, arrow_vcs_config_dep],
 )
 
-if needs_testing or get_option('benchmarks')
-    gmock_dep = dependency('gmock')
-endif
-
 if needs_testing
     arrow_testing_srcs = [
         'io/test_common.cc',
@@ -302,8 +322,6 @@ if needs_testing
         'testing/generator.cc',
         'testing/util.cc',
     ]
-
-    gtest_main_dep = dependency('gtest_main')
 
     arrow_testing_lib = library(
         'arrow_testing',
@@ -405,11 +423,6 @@ if needs_testing
         )
 
         test('arrow-extension-type', extension_type_exec)
-    endif
-
-    if get_option('benchmarks')
-        gtest_dep = dependency('gtest')  # does not include main
-        gbenchmark_dep = dependency('benchmark')
     endif
 
     subdir('integration')
@@ -515,8 +528,6 @@ if needs_testing
     endforeach
 
     if get_option('benchmarks')
-        gtest_dep = dependency('gtest')  # does not include main
-        gbenchmark_dep = dependency('benchmark')
         util_benchmarks = {
             'bit-block-counter': {
                 'src_name': 'bit_block_counter',
