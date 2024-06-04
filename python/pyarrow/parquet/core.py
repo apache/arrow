@@ -1115,7 +1115,8 @@ Examples
 
         Parameters
         ----------
-        key_value_metadata : {Key, Value}
+        key_value_metadata : dict
+            Keys and values must be string-like / coercible to bytes.
         """
         assert self.is_open
         self.writer.add_key_value_metadata(key_value_metadata)

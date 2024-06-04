@@ -24,7 +24,7 @@ from pyarrow.includes.libarrow cimport (CChunkedArray, CScalar, CSchema, CStatus
                                         CKeyValueMetadata, CRandomAccessFile,
                                         COutputStream, CCacheOptions,
                                         TimeUnit, CRecordBatchReader)
-from pyarrow.lib cimport (_Weakrefable, pyarrow_unwrap_metadata, KeyValueMetadata)
+from pyarrow.lib cimport _Weakrefable
 
 
 cdef extern from "parquet/api/schema.h" namespace "parquet::schema" nogil:

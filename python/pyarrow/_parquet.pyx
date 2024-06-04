@@ -29,9 +29,10 @@ from pyarrow.includes.libarrow_python cimport *
 from pyarrow.lib cimport (_Weakrefable, Buffer, Schema,
                           check_status,
                           MemoryPool, maybe_unbox_memory_pool,
-                          Table, NativeFile,
+                          Table, KeyValueMetadata,
                           pyarrow_wrap_chunked_array,
                           pyarrow_wrap_schema,
+                          pyarrow_unwrap_metadata
                           pyarrow_unwrap_schema,
                           pyarrow_wrap_table,
                           pyarrow_wrap_batch,
