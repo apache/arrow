@@ -823,7 +823,6 @@
         <executions>
           <execution>
             <id>spotless-check</id>
-            <phase>validate</phase>
             <goals>
               <goal>check</goal>
             </goals>
