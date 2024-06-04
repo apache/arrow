@@ -1013,6 +1013,18 @@ def test_list_array_types_from_arrays_fail(list_array_type, list_type_factory):
             arr_slice.offsets, arr_slice.values, mask=arr_slice.is_null())
 
 
+def test_map_cast():
+    # GH-38553
+    t = pa.map_(pa.int64(), pa.int64())
+    arr = pa.array([{1: 2}], type=t)
+    result = arr.cast(pa.map_(pa.int32(), pa.int64()))
+
+    t_expected = pa.map_(pa.int32(), pa.int64())
+    expected = pa.array([{1: 2}], type=t_expected)
+
+    assert result.equals(expected)
+
+
 def test_map_labelled():
     #  ARROW-13735
     t = pa.map_(pa.field("name", "string", nullable=False), "int64")
@@ -1105,7 +1117,7 @@ def test_map_from_arrays():
 
     # error if null bitmap passed to sliced offset
     msg2 = 'Null bitmap with offsets slice not supported.'
-    offsets = pa.array(offsets, pa.int32())
+    offsets = pa.array([0, 2, 2, 6], pa.int32())
     with pytest.raises(pa.ArrowNotImplementedError, match=msg2):
         pa.MapArray.from_arrays(offsets.slice(2), keys, items, pa.map_(
             keys.type,

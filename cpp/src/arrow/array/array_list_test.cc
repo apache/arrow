@@ -1383,7 +1383,7 @@ TEST_F(TestMapArray, FromArrays) {
 
   // Null bitmap and offset with offset
   ASSERT_RAISES(NotImplemented,
-                MapArray::FromArrays(offsets3->Slice(2), keys, items, pool_,
+                MapArray::FromArrays(offsets1->Slice(2), keys, items, pool_,
                                      offsets3->data()->buffers[0]));
 }
 
