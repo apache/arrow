@@ -57,7 +57,9 @@ public class StructVectorLoader {
    * Construct with a schema.
    * <p>
    * The schema referred to here can be obtained from the struct vector.
-   * Consider a {@link StructVector} structVector, the schema can be obtained as follows:
+   * The schema here should be the children of a struct vector, not a schema
+   * containing the struct field itself.
+   * For example:
    * <code>
    * Schema schema = new Schema(structVector.getField().getChildren());
    * </code>
