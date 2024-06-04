@@ -528,20 +528,6 @@ class TestS3FS : public S3TestMixin {
       RETURN_NOT_OK(OutcomeToStatus("DeleteObjects", client_->DeleteObjects(req)));
     }
 
-    /**
-    {
-      Aws::S3::Model::DeleteBucketRequest req;
-      req.SetBucket(Aws::String{bucket});
-      RETURN_NOT_OK(OutcomeToStatus("DeleteBucket", client_->DeleteBucket(req)));
-    }
-
-    {
-      Aws::S3::Model::CreateBucketRequest req;
-      req.SetBucket(Aws::String{bucket});
-      RETURN_NOT_OK(OutcomeToStatus("CreateBucket", client_->CreateBucket(req)));
-    }
-    **/
-
     return PopulateTestBucket();
   }
 
