@@ -847,14 +847,13 @@ Result<std::shared_ptr<Array>> MapArray::FromArraysInternal(
   const auto& typed_offsets = checked_cast<const OffsetArrayType&>(*offsets);
 
   BufferVector buffers;
-  int64_t null_count;
-  if (null_bitmap != nullptr) {
-    buffers = BufferVector({std::move(null_bitmap), typed_offsets.values()});
-    null_count = null_bitmap->size();
-  } else {
-    buffers = BufferVector({null_bitmap, typed_offsets.values()});
-    null_count = 0;
+  buffers.resize(2);
+  int64_t null_count = 0;
+  if (null_bitmap) {
+    buffers[0] = std::move(null_bitmap);
+    null_count = -1;
   }
+  buffers[1] = typed_offsets.values();
   return std::make_shared<MapArray>(type, offsets->length() - 1, std::move(buffers), keys,
                                     items, /*null_count=*/null_count, offsets->offset());
 }
