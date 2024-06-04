@@ -102,6 +102,7 @@ __debug_bin
 .envrc
 
 # Develocity
+java/.mvn/.develocity/
 .mvn/.gradle-enterprise/
 .mvn/.develocity/
 

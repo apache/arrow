@@ -21,7 +21,8 @@
   <description>(Experimental/Contrib) A collection of algorithms for working with ValueVectors.</description>
 
   <properties>
-    <checkstyle.config.location>${project.basedir}/../dev/checkstyle/checkstyle-spotless.xml</checkstyle.config.location>
+    <checkstyle.config.location>dev/checkstyle/checkstyle-spotless.xml</checkstyle.config.location>
+    <spotless.java.excludes>none</spotless.java.excludes>
   </properties>
 
   <dependencies>
@@ -51,40 +52,4 @@
       <artifactId>value-annotations</artifactId>
     </dependency>
   </dependencies>
-
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-checkstyle-plugin</artifactId>
-        <configuration>
-          <configLocation>${checkstyle.config.location}</configLocation>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>com.diffplug.spotless</groupId>
-        <artifactId>spotless-maven-plugin</artifactId>
-        <configuration>
-          <formats>
-            <format>
-              <!-- configure license for xml files -->
-              <includes>
-                <include>pom.xml</include>
-              </includes>
-            </format>
-          </formats>
-          <java>
-            <googleJavaFormat>
-              <version>1.7</version>
-              <style>GOOGLE</style>
-            </googleJavaFormat>
-            <licenseHeader>
-              <file>${maven.multiModuleProjectDirectory}/java/dev/license/asf-java.license</file>
-              <delimiter>package</delimiter>
-            </licenseHeader>
-          </java>
-        </configuration>
-      </plugin>
-    </plugins>
-  </build>
 </project>
