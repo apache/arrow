@@ -214,7 +214,7 @@ Result<std::shared_ptr<Tensor>> FixedShapeTensorType::MakeTensor(
     return Status::TypeError("Cannot convert non-fixed-width values to Tensor.");
   }
   const auto& array =
-      internal::checked_pointer_cast<const FixedSizeListScalar>(ext_scalar->value)->value;
+      internal::checked_cast<const FixedSizeListScalar*>(ext_scalar->value.get())->value;
   if (array->null_count() > 0) {
     return Status::Invalid("Cannot convert data with nulls to Tensor.");
   }
@@ -264,6 +264,7 @@ Result<std::shared_ptr<FixedShapeTensorArray>> FixedShapeTensorArray::FromTensor
 
   std::vector<std::string> dim_names;
   if (!tensor->dim_names().empty()) {
+    dim_names.reserve(permutation.size());
     for (auto i : permutation) {
       dim_names.emplace_back(tensor->dim_names()[i]);
     }
