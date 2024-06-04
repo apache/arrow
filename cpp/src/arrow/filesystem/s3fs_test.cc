@@ -922,7 +922,7 @@ TEST_F(TestS3FS, CreateDir) {
 
   // New "directory"
   AssertFileInfo(fs_.get(), "bucket/newdir", FileType::NotFound);
-  ASSERT_OK(fs_->CreateDir("bucket/newdir", /*recursive=*/ false));
+  ASSERT_OK(fs_->CreateDir("bucket/newdir", /*recursive=*/false));
   AssertFileInfo(fs_.get(), "bucket/newdir", FileType::Directory);
 
   // By default CreateDir uses recursvie mode, make it explictly to be false
