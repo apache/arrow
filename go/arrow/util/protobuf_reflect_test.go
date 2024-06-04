@@ -20,13 +20,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v17/arrow"
-	"github.com/stretchr/testify/assert"
-
+	"github.com/apache/arrow/go/v17/arrow"	
 	"github.com/apache/arrow/go/v17/arrow/array"
 	"github.com/apache/arrow/go/v17/arrow/memory"
 	"github.com/apache/arrow/go/v17/arrow/util/util_message"
 	"github.com/huandu/xstrings"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/anypb"
 )
