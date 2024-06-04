@@ -104,9 +104,10 @@ public class StructVectorLoader {
       loadBuffers(fieldVector, fieldVector.getField(), buffers, nodes, codec, variadicBufferCounts);
     }
     result.loadFieldBuffers(new ArrowFieldNode(recordBatch.getLength(), 0), Collections.singletonList(null));
-    if (nodes.hasNext() || buffers.hasNext()) {
-      throw new IllegalArgumentException("not all nodes and buffers were consumed. nodes: " + 
-        Collections2.toList(nodes).toString() + " buffers: " + Collections2.toList(buffers).toString());
+    if (nodes.hasNext() || buffers.hasNext() || variadicBufferCounts.hasNext()) {
+      throw new IllegalArgumentException("not all nodes, buffers and variadicBufferCounts were consumed. nodes: " +
+        Collections2.toString(nodes) + " buffers: " + Collections2.toString(buffers) + " variadicBufferCounts: " +
+          Collections2.toString(variadicBufferCounts));
     }
     return result;
   }
@@ -115,10 +116,14 @@ public class StructVectorLoader {
       CompressionCodec codec, Iterator<Long> variadicBufferCounts) {
     checkArgument(nodes.hasNext(), "no more field nodes for field %s and vector %s", field, vector);
     ArrowFieldNode fieldNode = nodes.next();
-    // variadicBufferLayoutCount will be 0 for vectors of type except BaseVariableWidthViewVector
+    // variadicBufferLayoutCount will be 0 for vectors of a type except BaseVariableWidthViewVector
     long variadicBufferLayoutCount = 0;
-    if (vector instanceof BaseVariableWidthViewVector && variadicBufferCounts.hasNext()) {
-      variadicBufferLayoutCount = variadicBufferCounts.next();
+    if (vector instanceof BaseVariableWidthViewVector) {
+      if (variadicBufferCounts.hasNext()) {
+        variadicBufferLayoutCount = variadicBufferCounts.next();
+      } else {
+        throw new IllegalStateException("No variadicBufferCounts available for BaseVariableWidthViewVector");
+      }
     }
     int bufferLayoutCount = (int) (variadicBufferLayoutCount + TypeLayout.getTypeBufferCount(field.getType()));
     List<ArrowBuf> ownBuffers = new ArrayList<>(bufferLayoutCount);
