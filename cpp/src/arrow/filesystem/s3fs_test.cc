@@ -23,6 +23,8 @@
 #include <utility>
 #include <vector>
 
+#include <aws/s3/model/DeleteObjectsRequest.h>
+#include <aws/s3/model/ListObjectsV2Request.h>
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
@@ -450,25 +452,8 @@ class TestS3FS : public S3TestMixin {
       req.SetBucket(ToAwsString("empty-bucket"));
       ASSERT_OK(OutcomeToStatus("CreateBucket", client_->CreateBucket(req)));
     }
-    {
-      Aws::S3::Model::PutObjectRequest req;
-      req.SetBucket(ToAwsString("bucket"));
-      req.SetKey(ToAwsString("emptydir/"));
-      req.SetBody(std::make_shared<std::stringstream>(""));
-      ASSERT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
-      // NOTE: no need to create intermediate "directories" somedir/ and
-      // somedir/subdir/
-      req.SetKey(ToAwsString("somedir/subdir/subfile"));
-      req.SetBody(std::make_shared<std::stringstream>("sub data"));
-      ASSERT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
-      req.SetKey(ToAwsString("somefile"));
-      req.SetBody(std::make_shared<std::stringstream>("some data"));
-      req.SetContentType("x-arrow/test");
-      ASSERT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
-      req.SetKey(ToAwsString("otherdir/1/2/3/otherfile"));
-      req.SetBody(std::make_shared<std::stringstream>("other data"));
-      ASSERT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
-    }
+
+    ASSERT_OK(PopulateTestBucket());
   }
 
   void TearDown() override {
@@ -476,6 +461,88 @@ class TestS3FS : public S3TestMixin {
     // reset before Aws::ShutdownAPI
     fs_.reset();
     S3TestMixin::TearDown();
+  }
+
+  Status PopulateTestBucket() {
+    Aws::S3::Model::PutObjectRequest req;
+    req.SetBucket(ToAwsString("bucket"));
+    req.SetKey(ToAwsString("emptydir/"));
+    req.SetBody(std::make_shared<std::stringstream>(""));
+    RETURN_NOT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
+    // NOTE: no need to create intermediate "directories" somedir/ and
+    // somedir/subdir/
+    req.SetKey(ToAwsString("somedir/subdir/subfile"));
+    req.SetBody(std::make_shared<std::stringstream>("sub data"));
+    RETURN_NOT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
+    req.SetKey(ToAwsString("somefile"));
+    req.SetBody(std::make_shared<std::stringstream>("some data"));
+    req.SetContentType("x-arrow/test");
+    RETURN_NOT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
+    req.SetKey(ToAwsString("otherdir/1/2/3/otherfile"));
+    req.SetBody(std::make_shared<std::stringstream>("other data"));
+    RETURN_NOT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
+
+    return Status::OK();
+  }
+
+  Status RestoreTestBucket() {
+    // First empty the test bucket, and then re-upload initial test files.
+
+    Aws::Vector<Aws::S3::Model::Object> all_objects;
+    {
+      // Mostly taken from
+      // https://github.com/awsdocs/aws-doc-sdk-examples/blob/main/cpp/example_code/s3/list_objects.cpp
+      Aws::S3::Model::ListObjectsV2Request req;
+      req.WithBucket(Aws::String{"bucket"});
+
+      Aws::String continuation_token;
+      do {
+        if (!continuation_token.empty()) {
+          req.SetContinuationToken(continuation_token);
+        }
+
+        auto outcome = client_->ListObjectsV2(req);
+
+        if (!outcome.IsSuccess()) {
+          return OutcomeToStatus("ListObjectsV2", outcome);
+        } else {
+          Aws::Vector<Aws::S3::Model::Object> objects = outcome.GetResult().GetContents();
+          all_objects.insert(all_objects.end(), objects.begin(), objects.end());
+          continuation_token = outcome.GetResult().GetNextContinuationToken();
+        }
+      } while (!continuation_token.empty());
+    }
+
+    {
+      Aws::S3::Model::DeleteObjectsRequest req;
+
+      Aws::S3::Model::Delete delete_object;
+      for (const auto& object : all_objects) {
+        delete_object.AddObjects(
+            Aws::S3::Model::ObjectIdentifier().WithKey(object.GetKey()));
+      }
+
+      req.SetDelete(delete_object);
+      req.SetBucket(Aws::String{"bucket"});
+
+      RETURN_NOT_OK(OutcomeToStatus("DeleteObjects", client_->DeleteObjects(req)));
+    }
+
+    /**
+    {
+      Aws::S3::Model::DeleteBucketRequest req;
+      req.SetBucket(Aws::String{bucket});
+      RETURN_NOT_OK(OutcomeToStatus("DeleteBucket", client_->DeleteBucket(req)));
+    }
+
+    {
+      Aws::S3::Model::CreateBucketRequest req;
+      req.SetBucket(Aws::String{bucket});
+      RETURN_NOT_OK(OutcomeToStatus("CreateBucket", client_->CreateBucket(req)));
+    }
+    **/
+
+    return PopulateTestBucket();
   }
 
   Result<std::shared_ptr<S3FileSystem>> MakeNewFileSystem(
@@ -586,6 +653,8 @@ class TestS3FS : public S3TestMixin {
     ASSERT_OK(stream->Close());
     ASSERT_TRUE(weak_fs.expired());
     AssertObjectContents(client_.get(), "bucket", "newfile99", "some other data");
+
+    ASSERT_OK(RestoreTestBucket());
   }
 
   void TestOpenOutputStreamAbort() {
@@ -596,6 +665,8 @@ class TestS3FS : public S3TestMixin {
     ASSERT_OK(stream->Abort());
     ASSERT_EQ(stream->closed(), true);
     AssertObjectContents(client_.get(), "bucket", "somefile", "some data");
+
+    ASSERT_OK(RestoreTestBucket());
   }
 
   void TestOpenOutputStreamDestructor() {
@@ -605,6 +676,8 @@ class TestS3FS : public S3TestMixin {
     // Destructor implicitly closes stream and completes the multipart upload.
     stream.reset();
     AssertObjectContents(client_.get(), "bucket", "somefile", "new data");
+
+    ASSERT_OK(RestoreTestBucket());
   }
 
   void TestOpenOutputStreamCloseAsyncDestructor() {
@@ -620,6 +693,8 @@ class TestS3FS : public S3TestMixin {
     stream.reset();
     ASSERT_OK(closeAsyncFut.MoveResult());
     AssertObjectContents(client_.get(), "bucket", "somefile", "new data");
+
+    ASSERT_OK(RestoreTestBucket());
   }
 
  protected:
@@ -828,8 +903,8 @@ TEST_F(TestS3FS, GetFileInfoGenerator) {
 
 TEST_F(TestS3FS, GetFileInfoGeneratorStress) {
   // This test is slow because it needs to create a bunch of seed files.  However, it is
-  // the only test that stresses listing and deleting when there are more than 1000 files
-  // and paging is required.
+  // the only test that stresses listing and deleting when there are more than 1000
+  // files and paging is required.
   constexpr int32_t kNumDirs = 4;
   constexpr int32_t kNumFilesPerDir = 512;
   FileInfoVector expected_infos;
@@ -1195,9 +1270,9 @@ struct S3OptionsTestParameters {
   bool background_writes{false};
   bool allow_delayed_open{false};
 
-  void apply_to_s3_options(S3Options& options) const {
-    options.background_writes = background_writes;
-    options.allow_delayed_open = allow_delayed_open;
+  void ApplyToS3Options(S3Options* options) const {
+    options->background_writes = background_writes;
+    options->allow_delayed_open = allow_delayed_open;
   }
 
   static std::vector<S3OptionsTestParameters> GetCartesianProduct() {
@@ -1208,11 +1283,18 @@ struct S3OptionsTestParameters {
         S3OptionsTestParameters{false, true},
     };
   }
+
+  std::string ToString() const {
+    return std::string{"background_writes = "} + (background_writes ? "true" : "false") +
+           ", allow_delayed_open = " + (allow_delayed_open ? "true" : "false");
+  }
 };
 
 TEST_F(TestS3FS, OpenOutputStream) {
   for (const auto& combination : S3OptionsTestParameters::GetCartesianProduct()) {
-    combination.apply_to_s3_options(options_);
+    ARROW_SCOPED_TRACE(combination.ToString());
+
+    combination.ApplyToS3Options(&options_);
     MakeFileSystem();
     TestOpenOutputStream(combination.allow_delayed_open);
   }
@@ -1220,7 +1302,9 @@ TEST_F(TestS3FS, OpenOutputStream) {
 
 TEST_F(TestS3FS, OpenOutputStreamAbort) {
   for (const auto& combination : S3OptionsTestParameters::GetCartesianProduct()) {
-    combination.apply_to_s3_options(options_);
+    ARROW_SCOPED_TRACE(combination.ToString());
+
+    combination.ApplyToS3Options(&options_);
     MakeFileSystem();
     TestOpenOutputStreamAbort();
   }
@@ -1228,7 +1312,9 @@ TEST_F(TestS3FS, OpenOutputStreamAbort) {
 
 TEST_F(TestS3FS, OpenOutputStreamDestructor) {
   for (const auto& combination : S3OptionsTestParameters::GetCartesianProduct()) {
-    combination.apply_to_s3_options(options_);
+    ARROW_SCOPED_TRACE(combination.ToString());
+
+    combination.ApplyToS3Options(&options_);
     MakeFileSystem();
     TestOpenOutputStreamDestructor();
   }
@@ -1236,7 +1322,9 @@ TEST_F(TestS3FS, OpenOutputStreamDestructor) {
 
 TEST_F(TestS3FS, OpenOutputStreamAsync) {
   for (const auto& combination : S3OptionsTestParameters::GetCartesianProduct()) {
-    combination.apply_to_s3_options(options_);
+    ARROW_SCOPED_TRACE(combination.ToString());
+
+    combination.ApplyToS3Options(&options_);
     MakeFileSystem();
     TestOpenOutputStreamCloseAsyncDestructor();
   }
@@ -1357,8 +1445,8 @@ TEST_F(TestS3FS, CustomRetryStrategy) {
   auto retry_strategy = std::make_shared<TestRetryStrategy>();
   options_.retry_strategy = retry_strategy;
   MakeFileSystem();
-  // Attempt to open file that doesn't exist. Should hit TestRetryStrategy::ShouldRetry()
-  // 3 times before bubbling back up here.
+  // Attempt to open file that doesn't exist. Should hit
+  // TestRetryStrategy::ShouldRetry() 3 times before bubbling back up here.
   ASSERT_RAISES(IOError, fs_->OpenInputStream("nonexistent-bucket/somefile"));
   ASSERT_EQ(retry_strategy->GetErrorsEncountered().size(), 3);
   for (const auto& error : retry_strategy->GetErrorsEncountered()) {

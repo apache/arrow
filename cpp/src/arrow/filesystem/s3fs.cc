@@ -1295,14 +1295,12 @@ std::shared_ptr<const KeyValueMetadata> GetObjectMetadata(const ObjectResult& re
 
 template <typename ObjectRequest>
 struct ObjectMetadataSetter {
-  static constexpr std::string_view kContentTypeKey = "Content-Type";
-
   using Setter = std::function<Status(const std::string& value, ObjectRequest* req)>;
 
   static std::unordered_map<std::string, Setter> GetSetters() {
     return {{"ACL", CannedACLSetter()},
             {"Cache-Control", StringSetter(&ObjectRequest::SetCacheControl)},
-            {std::string{kContentTypeKey}, ContentTypeSetter()},
+            {"Content-Type", ContentTypeSetter()},
             {"Content-Language", StringSetter(&ObjectRequest::SetContentLanguage)},
             {"Expires", DateTimeSetter(&ObjectRequest::SetExpires)}};
   }
@@ -1601,10 +1599,14 @@ class ObjectOutputStream final : public io::OutputStream {
       metadata = default_metadata_;
     }
 
-    if (metadata &&
-        metadata->Contains(ObjectMetadataSetter<ObjectRequest>::kContentTypeKey)) {
+    bool is_content_type_set{false};
+    if (metadata) {
       RETURN_NOT_OK(SetObjectMetadata(metadata, request));
-    } else {
+
+      is_content_type_set = metadata->Contains("Content-Type");
+    }
+
+    if (!is_content_type_set) {
       // If we do not set anything then the SDK will default to application/xml
       // which confuses some tools (https://github.com/apache/arrow/issues/11934)
       // So we instead default to application/octet-stream which is less misleading
@@ -1615,7 +1617,7 @@ class ObjectOutputStream final : public io::OutputStream {
   }
 
   Status CreateMultipartUpload() {
-    DCHECK(ShouldBeMultipartUpload() || !allow_delayed_open_);
+    DCHECK(ShouldBeMultipartUpload());
 
     ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
 
@@ -1632,8 +1634,7 @@ class ObjectOutputStream final : public io::OutputStream {
                                 path_.key, "' in bucket '", path_.bucket, "': "),
           "CreateMultipartUpload", outcome.GetError());
     }
-    upload_id_ = outcome.GetResult().GetUploadId();
-    is_multipart_created_ = true;
+    multipart_upload_id_ = outcome.GetResult().GetUploadId();
 
     return Status::OK();
   }
@@ -1656,13 +1657,13 @@ class ObjectOutputStream final : public io::OutputStream {
       return Status::OK();
     }
 
-    if (is_multipart_created_) {
+    if (IsMultipartCreated()) {
       ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
 
       S3Model::AbortMultipartUploadRequest req;
       req.SetBucket(ToAwsString(path_.bucket));
       req.SetKey(ToAwsString(path_.key));
-      req.SetUploadId(upload_id_);
+      req.SetUploadId(multipart_upload_id_);
 
       auto outcome = client_lock.Move()->AbortMultipartUpload(req);
       if (!outcome.IsSuccess()) {
@@ -1682,14 +1683,14 @@ class ObjectOutputStream final : public io::OutputStream {
 
   // OutputStream interface
 
-  bool ShouldBeMultipartUpload() const { return pos_ > kMultiPartUploadThresholdSize; }
-
-  bool IsMultipartUpload() const {
-    return ShouldBeMultipartUpload() || is_multipart_created_;
+  bool ShouldBeMultipartUpload() const {
+    return pos_ > kMultiPartUploadThresholdSize || !allow_delayed_open_;
   }
 
+  bool IsMultipartCreated() const { return !multipart_upload_id_.empty(); }
+
   Status EnsureReadyToFlushFromClose() {
-    if (IsMultipartUpload()) {
+    if (ShouldBeMultipartUpload()) {
       if (current_part_) {
         // Upload last part
         RETURN_NOT_OK(CommitCurrentPart());
@@ -1725,7 +1726,7 @@ class ObjectOutputStream final : public io::OutputStream {
     S3Model::CompleteMultipartUploadRequest req;
     req.SetBucket(ToAwsString(path_.bucket));
     req.SetKey(ToAwsString(path_.key));
-    req.SetUploadId(upload_id_);
+    req.SetUploadId(multipart_upload_id_);
     req.SetMultipartUpload(std::move(completed_upload));
 
     auto outcome =
@@ -1747,7 +1748,7 @@ class ObjectOutputStream final : public io::OutputStream {
 
     RETURN_NOT_OK(Flush());
 
-    if (is_multipart_created_) {
+    if (IsMultipartCreated()) {
       RETURN_NOT_OK(FinishPartUploadAfterFlush());
     }
 
@@ -1762,7 +1763,7 @@ class ObjectOutputStream final : public io::OutputStream {
     auto self = std::dynamic_pointer_cast<ObjectOutputStream>(shared_from_this());
     // Wait for in-progress uploads to finish (if async writes are enabled)
     return FlushAsync().Then([self]() {
-      if (self->is_multipart_created_) {
+      if (self->IsMultipartCreated()) {
         RETURN_NOT_OK(self->FinishPartUploadAfterFlush());
       }
       return self->CleanupAfterClose();
@@ -1853,7 +1854,7 @@ class ObjectOutputStream final : public io::OutputStream {
   // Upload-related helpers
 
   Status CommitCurrentPart() {
-    if (!is_multipart_created_) {
+    if (!IsMultipartCreated()) {
       RETURN_NOT_OK(CreateMultipartUpload());
     }
 
@@ -1949,8 +1950,9 @@ class ObjectOutputStream final : public io::OutputStream {
     return Status::OK();
   }
 
-  static Status UploadError(const Aws::S3::Model::PutObjectRequest& request,
-                            const Aws::S3::Model::PutObjectOutcome& outcome) {
+  static Status UploadUsingSingleRequestError(
+      const Aws::S3::Model::PutObjectRequest& request,
+      const Aws::S3::Model::PutObjectOutcome& outcome) {
     return ErrorToStatus(
         std::forward_as_tuple("When uploading object with key '", request.GetKey(),
                               "' in bucket '", request.GetBucket(), "': "),
@@ -1968,7 +1970,7 @@ class ObjectOutputStream final : public io::OutputStream {
                                    int32_t part_number,
                                    Aws::S3::Model::PutObjectOutcome outcome) {
       if (!outcome.IsSuccess()) {
-        return UploadError(request, outcome);
+        return UploadUsingSingleRequestError(request, outcome);
       }
       return Status::OK();
     };
@@ -2003,13 +2005,13 @@ class ObjectOutputStream final : public io::OutputStream {
 
   Status UploadPart(const void* data, int64_t nbytes,
                     std::shared_ptr<Buffer> owned_buffer = nullptr) {
-    if (!is_multipart_created_) {
+    if (!IsMultipartCreated()) {
       RETURN_NOT_OK(CreateMultipartUpload());
     }
 
     Aws::S3::Model::UploadPartRequest req{};
     req.SetPartNumber(part_number_);
-    req.SetUploadId(upload_id_);
+    req.SetUploadId(multipart_upload_id_);
 
     auto sync_result_callback = [](const Aws::S3::Model::UploadPartRequest& request,
                                    std::shared_ptr<UploadState> state,
@@ -2046,10 +2048,12 @@ class ObjectOutputStream final : public io::OutputStream {
     } else {
       const auto& outcome = *result;
       if (!outcome.IsSuccess()) {
-        state->status &= UploadError(req, outcome);
+        state->status &= UploadUsingSingleRequestError(req, outcome);
       }
     }
-
+    // GH-41862: avoid potential deadlock if the Future's callback is called
+    // with the mutex taken.
+    lock.unlock();
     state->pending_uploads_completed.MarkFinished(state->status);
   }
 
@@ -2070,6 +2074,9 @@ class ObjectOutputStream final : public io::OutputStream {
     }
     // Notify completion
     if (--state->uploads_in_progress == 0) {
+      // GH-41862: avoid potential deadlock if the Future's callback is called
+      // with the mutex taken.
+      lock.unlock();
       state->pending_uploads_completed.MarkFinished(state->status);
     }
   }
@@ -2098,9 +2105,8 @@ class ObjectOutputStream final : public io::OutputStream {
   const bool background_writes_;
   const bool allow_delayed_open_;
 
-  Aws::String upload_id_;
+  Aws::String multipart_upload_id_;
   bool closed_ = true;
-  bool is_multipart_created_ = false;
   int64_t pos_ = 0;
   int32_t part_number_ = 1;
   std::shared_ptr<io::BufferOutputStream> current_part_;
