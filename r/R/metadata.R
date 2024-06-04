@@ -30,7 +30,7 @@
     }
   }
 
-  out <- serialize(x, NULL, ascii = TRUE)
+  out <- serialize(safe_r_metadata(x, on_save = TRUE), NULL, ascii = TRUE)
 
   # if the metadata is over 100 kB, compress
   if (option_compress_metadata() && object.size(out) > 100000) {
@@ -93,26 +93,49 @@ safe_unserialize_ascii <- function(x) {
   if (!is.list(out)) {
     stop("Invalid serialized data")
   }
+  safe_r_metadata(out)
+}
 
-  tryCatch(safe_r_metadata(out), error = function(e) {
-    # This C function will error if the metadata contains elements of types
-    # that are not allowed.
-    if (getOption("arrow.debug", FALSE)) {
-      print(conditionMessage(e))
+safe_r_metadata <- function(metadata, on_save = FALSE) {
+  # This function recurses through the list x and checks that all elements are
+  # of types that are allowed in R metadata. If it finds an element that is not
+  # allowed, it removes it. If any elements are removed, warn at the end.
+  any_removed <- FALSE
+  # Internal function that we'll recursively apply,
+  # and mutate the `any_removed` variable outside of it
+  check_r_metadata_types_recursive <- function(x) {
+    allowed_types <- c("character", "double", "integer", "logical", "complex", "list", "NULL")
+    if (is.list(x)) {
+      types <- map_chr(x, typeof)
+      x[types == "list"] <- map(x[types == "list"], check_r_metadata_types_recursive)
+      ok <- types %in% allowed_types
+      if (!all(ok)) {
+        any_removed <<- TRUE
+        x <- x[ok]
+      }
     }
+    x
+  }
+  new <- check_r_metadata_types_recursive(metadata)
+
+  # On save: don't warn, just save the filtered metadata
+  if (on_save) {
+    return(new)
+  }
+  # On load: warn if any elements were removed
+  if (any_removed) {
     if (getOption("arrow.unsafe_metadata", FALSE)) {
-      # We've opted-in to unsafe metadata, so we'll just return the metadata
-      # TODO: should we warn here anyway?
+      # We've opted-in to unsafe metadata, so warn but return the original metadata
+      rlang::warn("R metadata may have unsafe elements")
+      new <- metadata
     } else {
       rlang::warn(
-        "R metadata may contain unsafe elements and has been discarded.",
-        body = c("i" = "If you trust the source, you can set `options(arrow.unsafe_metadata = TRUE)` to use it.")
+        "Potentially unsafe elements have been discarded from R metadata.",
+        body = c("i" = "If you trust the source, you can set `options(arrow.unsafe_metadata = TRUE)` to preserve them.")
       )
-      out <<- NULL
     }
-  })
-
-  out
+  }
+  new
 }
 
 #' @importFrom rlang trace_back

@@ -2052,10 +2052,6 @@ arrow__UnifySchemas <- function(schemas) {
   .Call(`_arrow_arrow__UnifySchemas`, schemas)
 }
 
-safe_r_metadata <- function(x) {
-  invisible(.Call(`_arrow_safe_r_metadata`, x))
-}
-
 Table__num_columns <- function(x) {
   .Call(`_arrow_Table__num_columns`, x)
 }
