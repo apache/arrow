@@ -1014,6 +1014,8 @@ class AsofJoinNode : public ExecNode {
     }
   }
 
+#ifdef ARROW_ENABLE_THREADING
+
   template <typename Callable>
   struct Defer {
     Callable callable;
@@ -1100,6 +1102,7 @@ class AsofJoinNode : public ExecNode {
   }
 
   static void ProcessThreadWrapper(AsofJoinNode* node) { node->ProcessThread(); }
+#endif
 
  public:
   AsofJoinNode(ExecPlan* plan, NodeVector inputs, std::vector<std::string> input_labels,
@@ -1131,8 +1134,10 @@ class AsofJoinNode : public ExecNode {
   }
 
   virtual ~AsofJoinNode() {
-    process_.Push(false);  // poison pill
+#ifdef ARROW_ENABLE_THREADING
+    PushProcess(false);
     process_thread_.join();
+#endif
   }
 
   const std::vector<col_index_t>& indices_of_on_key() { return indices_of_on_key_; }
@@ -1410,7 +1415,8 @@ class AsofJoinNode : public ExecNode {
                rb->ToString(), DEBUG_MANIP(std::endl));
 
     ARROW_RETURN_NOT_OK(state_.at(k)->Push(rb));
-    process_.Push(true);
+    PushProcess(true);
+
     return Status::OK();
   }
 
@@ -1425,22 +1431,77 @@ class AsofJoinNode : public ExecNode {
     // The reason for this is that there are cases at the end of a table where we don't
     // know whether the RHS of the join is up-to-date until we know that the table is
     // finished.
-    process_.Push(true);
+    PushProcess(true);
+
     return Status::OK();
   }
+  void PushProcess(bool value) {
+#ifdef ARROW_ENABLE_THREADING
+    process_.Push(value);
+#else
+    if (value) {
+      ProcessNonThreaded();
+    } else if (!process_task_.is_finished()) {
+      EndFromSingleThread();
+    }
+#endif
+  }
 
-  Status StartProducing() override {
 #ifndef ARROW_ENABLE_THREADING
-    return Status::NotImplemented("ASOF join requires threading enabled");
+  bool ProcessNonThreaded() {
+    while (!process_task_.is_finished()) {
+      Result<std::shared_ptr<RecordBatch>> result = ProcessInner();
+
+      if (result.ok()) {
+        auto out_rb = *result;
+        if (!out_rb) break;
+        ExecBatch out_b(*out_rb);
+        out_b.index = batches_produced_++;
+        DEBUG_SYNC(this, "produce batch ", out_b.index, ":", DEBUG_MANIP(std::endl),
+                   out_rb->ToString(), DEBUG_MANIP(std::endl));
+        Status st = output_->InputReceived(this, std::move(out_b));
+        if (!st.ok()) {
+          // this isn't really from a thread,
+          // but we call through to this for consistency
+          EndFromSingleThread(std::move(st));
+          return false;
+        }
+      } else {
+        // this isn't really from a thread,
+        // but we call through to this for consistency
+        EndFromSingleThread(result.status());
+        return false;
+      }
+    }
+    auto& lhs = *state_.at(0);
+    if (lhs.Finished() && !process_task_.is_finished()) {
+      EndFromSingleThread(Status::OK());
+    }
+    return true;
+  }
+
+  void EndFromSingleThread(Status st = Status::OK()) {
+    process_task_.MarkFinished(st);
+    if (st.ok()) {
+      st = output_->InputFinished(this, batches_produced_);
+    }
+    for (const auto& s : state_) {
+      st &= s->ForceShutdown();
+    }
+  }
+
 #endif
 
+  Status StartProducing() override {
     ARROW_ASSIGN_OR_RAISE(process_task_, plan_->query_context()->BeginExternalTask(
                                              "AsofJoinNode::ProcessThread"));
     if (!process_task_.is_valid()) {
       // Plan has already aborted.  Do not start process thread
       return Status::OK();
     }
+#ifdef ARROW_ENABLE_THREADING
     process_thread_ = std::thread(&AsofJoinNode::ProcessThreadWrapper, this);
+#endif
     return Status::OK();
   }
 
@@ -1448,8 +1509,10 @@ class AsofJoinNode : public ExecNode {
   void ResumeProducing(ExecNode* output, int32_t counter) override {}
 
   Status StopProducingImpl() override {
+#ifdef ARROW_ENABLE_THREADING
     process_.Clear();
-    process_.Push(false);
+#endif
+    PushProcess(false);
     return Status::OK();
   }
 
@@ -1479,11 +1542,13 @@ class AsofJoinNode : public ExecNode {
 
   // Backpressure counter common to all inputs
   std::atomic<int32_t> backpressure_counter_;
+#ifdef ARROW_ENABLE_THREADING
   // Queue for triggering processing of a given input
   // (a false value is a poison pill)
   ConcurrentQueue<bool> process_;
   // Worker thread
   std::thread process_thread_;
+#endif
   Future<> process_task_;
 
   // In-progress batches produced
@@ -1511,9 +1576,13 @@ AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
       debug_os_(join_options.debug_opts ? join_options.debug_opts->os : nullptr),
       debug_mutex_(join_options.debug_opts ? join_options.debug_opts->mutex : nullptr),
 #endif
-      backpressure_counter_(1),
+      backpressure_counter_(1)
+#ifdef ARROW_ENABLE_THREADING
+      ,
       process_(),
-      process_thread_() {
+      process_thread_()
+#endif
+{
   for (auto& key_hasher : key_hashers_) {
     key_hasher->node_ = this;
   }

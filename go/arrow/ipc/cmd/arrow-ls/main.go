@@ -18,38 +18,38 @@
 //
 // Examples:
 //
-//  $> arrow-ls ./testdata/primitives.data
-//  version: V4
-//  schema:
-//    fields: 11
-//      - bools: type=bool, nullable
-//      - int8s: type=int8, nullable
-//      - int16s: type=int16, nullable
-//      - int32s: type=int32, nullable
-//      - int64s: type=int64, nullable
-//      - uint8s: type=uint8, nullable
-//      - uint16s: type=uint16, nullable
-//      - uint32s: type=uint32, nullable
-//      - uint64s: type=uint64, nullable
-//      - float32s: type=float32, nullable
-//      - float64s: type=float64, nullable
-//  records: 3
+//	$> arrow-ls ./testdata/primitives.data
+//	version: V4
+//	schema:
+//	  fields: 11
+//	    - bools: type=bool, nullable
+//	    - int8s: type=int8, nullable
+//	    - int16s: type=int16, nullable
+//	    - int32s: type=int32, nullable
+//	    - int64s: type=int64, nullable
+//	    - uint8s: type=uint8, nullable
+//	    - uint16s: type=uint16, nullable
+//	    - uint32s: type=uint32, nullable
+//	    - uint64s: type=uint64, nullable
+//	    - float32s: type=float32, nullable
+//	    - float64s: type=float64, nullable
+//	records: 3
 //
-//  $> gen-arrow-stream | arrow-ls
-//  schema:
-//    fields: 11
-//      - bools: type=bool, nullable
-//      - int8s: type=int8, nullable
-//      - int16s: type=int16, nullable
-//      - int32s: type=int32, nullable
-//      - int64s: type=int64, nullable
-//      - uint8s: type=uint8, nullable
-//      - uint16s: type=uint16, nullable
-//      - uint32s: type=uint32, nullable
-//      - uint64s: type=uint64, nullable
-//      - float32s: type=float32, nullable
-//      - float64s: type=float64, nullable
-//  records: 3
+//	$> gen-arrow-stream | arrow-ls
+//	schema:
+//	  fields: 11
+//	    - bools: type=bool, nullable
+//	    - int8s: type=int8, nullable
+//	    - int16s: type=int16, nullable
+//	    - int32s: type=int32, nullable
+//	    - int64s: type=int64, nullable
+//	    - uint8s: type=uint8, nullable
+//	    - uint16s: type=uint16, nullable
+//	    - uint32s: type=uint32, nullable
+//	    - uint64s: type=uint64, nullable
+//	    - float32s: type=float32, nullable
+//	    - float64s: type=float64, nullable
+//	records: 3
 package main
 
 import (

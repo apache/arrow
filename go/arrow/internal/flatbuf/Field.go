@@ -22,9 +22,9 @@ import (
 	flatbuffers "github.com/google/flatbuffers/go"
 )
 
-/// ----------------------------------------------------------------------
-/// A field represents a named column in a record / row batch or child of a
-/// nested type.
+// / ----------------------------------------------------------------------
+// / A field represents a named column in a record / row batch or child of a
+// / nested type.
 type Field struct {
 	_tab flatbuffers.Table
 }
@@ -45,7 +45,7 @@ func (rcv *Field) Table() flatbuffers.Table {
 	return rcv._tab
 }
 
-/// Name is not required, in i.e. a List
+// / Name is not required, in i.e. a List
 func (rcv *Field) Name() []byte {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(4))
 	if o != 0 {
@@ -54,8 +54,8 @@ func (rcv *Field) Name() []byte {
 	return nil
 }
 
-/// Name is not required, in i.e. a List
-/// Whether or not this field can contain nulls. Should be true in general.
+// / Name is not required, in i.e. a List
+// / Whether or not this field can contain nulls. Should be true in general.
 func (rcv *Field) Nullable() bool {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(6))
 	if o != 0 {
@@ -64,7 +64,7 @@ func (rcv *Field) Nullable() bool {
 	return false
 }
 
-/// Whether or not this field can contain nulls. Should be true in general.
+// / Whether or not this field can contain nulls. Should be true in general.
 func (rcv *Field) MutateNullable(n bool) bool {
 	return rcv._tab.MutateBoolSlot(6, n)
 }
@@ -81,7 +81,7 @@ func (rcv *Field) MutateTypeType(n Type) bool {
 	return rcv._tab.MutateByteSlot(8, byte(n))
 }
 
-/// This is the type of the decoded value if the field is dictionary encoded.
+// / This is the type of the decoded value if the field is dictionary encoded.
 func (rcv *Field) Type(obj *flatbuffers.Table) bool {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(10))
 	if o != 0 {
@@ -91,8 +91,8 @@ func (rcv *Field) Type(obj *flatbuffers.Table) bool {
 	return false
 }
 
-/// This is the type of the decoded value if the field is dictionary encoded.
-/// Present only if the field is dictionary encoded.
+// / This is the type of the decoded value if the field is dictionary encoded.
+// / Present only if the field is dictionary encoded.
 func (rcv *Field) Dictionary(obj *DictionaryEncoding) *DictionaryEncoding {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(12))
 	if o != 0 {
@@ -106,9 +106,9 @@ func (rcv *Field) Dictionary(obj *DictionaryEncoding) *DictionaryEncoding {
 	return nil
 }
 
-/// Present only if the field is dictionary encoded.
-/// children apply only to nested data types like Struct, List and Union. For
-/// primitive types children will have length 0.
+// / Present only if the field is dictionary encoded.
+// / children apply only to nested data types like Struct, List and Union. For
+// / primitive types children will have length 0.
 func (rcv *Field) Children(obj *Field, j int) bool {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(14))
 	if o != 0 {
@@ -129,9 +129,9 @@ func (rcv *Field) ChildrenLength() int {
 	return 0
 }
 
-/// children apply only to nested data types like Struct, List and Union. For
-/// primitive types children will have length 0.
-/// User-defined metadata
+// / children apply only to nested data types like Struct, List and Union. For
+// / primitive types children will have length 0.
+// / User-defined metadata
 func (rcv *Field) CustomMetadata(obj *KeyValue, j int) bool {
 	o := flatbuffers.UOffsetT(rcv._tab.Offset(16))
 	if o != 0 {
@@ -152,7 +152,7 @@ func (rcv *Field) CustomMetadataLength() int {
 	return 0
 }
 
-/// User-defined metadata
+// / User-defined metadata
 func FieldStart(builder *flatbuffers.Builder) {
 	builder.StartObject(7)
 }

@@ -78,6 +78,7 @@ import org.apache.arrow.flight.SetSessionOptionsRequest;
 import org.apache.arrow.flight.SetSessionOptionsResult;
 import org.apache.arrow.flight.SyncPutListener;
 import org.apache.arrow.flight.Ticket;
+import org.apache.arrow.flight.sql.impl.FlightSql;
 import org.apache.arrow.flight.sql.impl.FlightSql.ActionCreatePreparedStatementResult;
 import org.apache.arrow.flight.sql.impl.FlightSql.CommandPreparedStatementQuery;
 import org.apache.arrow.flight.sql.util.TableRef;
@@ -1048,15 +1049,35 @@ public class FlightSqlClient implements AutoCloseable {
     public FlightInfo execute(final CallOption... options) {
       checkOpen();
 
-      final FlightDescriptor descriptor = FlightDescriptor
+      FlightDescriptor descriptor = FlightDescriptor
           .command(Any.pack(CommandPreparedStatementQuery.newBuilder()
                   .setPreparedStatementHandle(preparedStatementResult.getPreparedStatementHandle())
                   .build())
               .toByteArray());
 
       if (parameterBindingRoot != null && parameterBindingRoot.getRowCount() > 0) {
-        try (final SyncPutListener listener = putParameters(descriptor, options)) {
-          listener.getResult();
+        try (final SyncPutListener putListener = putParameters(descriptor, options)) {
+          if (getParameterSchema().getFields().size() > 0 &&
+                  parameterBindingRoot != null &&
+                  parameterBindingRoot.getRowCount() > 0) {
+            final PutResult read = putListener.read();
+            if (read != null) {
+              try (final ArrowBuf metadata = read.getApplicationMetadata()) {
+                final FlightSql.DoPutPreparedStatementResult doPutPreparedStatementResult =
+                        FlightSql.DoPutPreparedStatementResult.parseFrom(metadata.nioBuffer());
+                descriptor = FlightDescriptor
+                        .command(Any.pack(CommandPreparedStatementQuery.newBuilder()
+                                        .setPreparedStatementHandle(
+                                                doPutPreparedStatementResult.getPreparedStatementHandle())
+                                        .build())
+                                .toByteArray());
+              }
+            }
+          }
+        } catch (final InterruptedException | ExecutionException e) {
+          throw CallStatus.CANCELLED.withCause(e).toRuntimeException();
+        } catch (final InvalidProtocolBufferException e) {
+          throw CallStatus.INVALID_ARGUMENT.withCause(e).toRuntimeException();
         }
       }
 

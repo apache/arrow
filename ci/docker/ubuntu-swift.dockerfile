@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM swift:5.7.3
+FROM swift:5.9.0
 
 # Go is needed for generating test data
 RUN apt-get update -y -q && \

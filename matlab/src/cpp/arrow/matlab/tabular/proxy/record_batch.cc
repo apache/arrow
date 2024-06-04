@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "libmexclass/proxy/ProxyManager.h"
-
+#include "arrow/c/bridge.h"
 #include "arrow/matlab/array/proxy/array.h"
 #include "arrow/matlab/array/proxy/wrap.h"
 
@@ -66,6 +65,7 @@ RecordBatch::RecordBatch(std::shared_ptr<arrow::RecordBatch> record_batch)
   REGISTER_METHOD(RecordBatch, getColumnByName);
   REGISTER_METHOD(RecordBatch, getSchema);
   REGISTER_METHOD(RecordBatch, getRowAsString);
+  REGISTER_METHOD(RecordBatch, exportToC);
 }
 
 std::shared_ptr<arrow::RecordBatch> RecordBatch::unwrap() { return record_batch; }
@@ -257,6 +257,21 @@ void RecordBatch::getRowAsString(libmexclass::proxy::method::Context& context) {
                                       arrow::util::UTF8StringToUTF16(row_str_utf8),
                                       context, error::UNICODE_CONVERSION_ERROR_ID);
   context.outputs[0] = factory.createScalar(row_str_utf16);
+}
+
+void RecordBatch::exportToC(libmexclass::proxy::method::Context& context) {
+  namespace mda = ::matlab::data;
+  mda::StructArray opts = context.inputs[0];
+  const mda::TypedArray<uint64_t> array_address_mda = opts[0]["ArrowArrayAddress"];
+  const mda::TypedArray<uint64_t> schema_address_mda = opts[0]["ArrowSchemaAddress"];
+
+  auto arrow_array = reinterpret_cast<struct ArrowArray*>(uint64_t(array_address_mda[0]));
+  auto arrow_schema =
+      reinterpret_cast<struct ArrowSchema*>(uint64_t(schema_address_mda[0]));
+
+  MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(
+      arrow::ExportRecordBatch(*record_batch, arrow_array, arrow_schema), context,
+      error::C_EXPORT_FAILED);
 }
 
 }  // namespace arrow::matlab::tabular::proxy

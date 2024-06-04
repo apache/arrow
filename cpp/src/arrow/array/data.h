@@ -369,7 +369,7 @@ struct ARROW_EXPORT ArrayData {
   /// \see GetNullCount
   int64_t ComputeLogicalNullCount() const;
 
-  /// \brief Returns the device_type of the underlying buffers and children
+  /// \brief Return the device_type of the underlying buffers and children
   ///
   /// If there are no buffers in this ArrayData object, it just returns
   /// DeviceAllocationType::kCPU as a default. We also assume that all buffers

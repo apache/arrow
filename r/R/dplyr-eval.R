@@ -25,30 +25,64 @@ arrow_eval <- function(expr, mask) {
   add_user_functions_to_mask(expr, mask)
 
   # This yields an Expression as long as the `exprs` are implemented in Arrow.
-  # Otherwise, it returns a try-error
+  # Otherwise, it raises a classed error, either:
+  # * arrow_not_supported: the expression is not supported in Arrow; retry with
+  #   regular dplyr may work
+  # * validation_error: the expression is known to be not valid, so don't
+  #   recommend retrying with regular dplyr
   tryCatch(eval_tidy(expr, mask), error = function(e) {
-    # Look for the cases where bad input was given, i.e. this would fail
-    # in regular dplyr anyway, and let those raise those as errors;
-    # else, for things not supported in Arrow return a "try-error",
-    # which we'll handle differently
+    # Inspect why the expression failed, and add the expr as the `call`
+    # for better error messages
     msg <- conditionMessage(e)
-    if (getOption("arrow.debug", FALSE)) print(msg)
-    patterns <- .cache$i18ized_error_pattern
-    if (is.null(patterns)) {
-      patterns <- i18ize_error_messages()
-      # Memoize it
-      .cache$i18ized_error_pattern <- patterns
-    }
-    if (grepl(patterns, msg)) {
+    arrow_debug <- getOption("arrow.debug", FALSE)
+    if (arrow_debug) print(msg)
+
+    # A few cases:
+    # 1. Evaluation raised one of our error classes. Add the expr as the call
+    #    and re-raise it.
+    if (inherits(e, c("validation_error", "arrow_not_supported"))) {
+      e$call <- expr
       stop(e)
     }
 
-    out <- structure(msg, class = "try-error", condition = e)
-    if (grepl("not supported.*Arrow|NotImplemented", msg) || getOption("arrow.debug", FALSE)) {
-      # One of ours. Mark it so that consumers can handle it differently
-      class(out) <- c("arrow-try-error", class(out))
+    # 2. Error is from assert_that: raise as validation_error
+    if (inherits(e, "assertError")) {
+      validation_error(msg, call = expr)
     }
-    invisible(out)
+
+    # 3. Check to see if this is a standard R error message (not found etc.).
+    #    Retry with dplyr won't help.
+    if (grepl(get_standard_error_messages(), msg)) {
+      # Raise the original error: it's actually helpful here
+      validation_error(msg, call = expr)
+    }
+    # 3b. Check to see if this is from match.arg. Retry with dplyr won't help.
+    if (is.language(e$call) && identical(as.character(e$call[[1]]), "match.arg")) {
+      # Raise the original error: it's actually helpful here
+      validation_error(msg, call = expr)
+    }
+
+    # 4. Check for NotImplemented error raised from Arrow C++ code.
+    #    Not sure where exactly we may raise this, but if we see it, it means
+    #    that something isn't supported in Arrow. Retry in dplyr may help?
+    if (grepl("NotImplemented", msg)) {
+      arrow_not_supported(.actual_msg = msg, call = expr)
+    }
+
+
+    # 5. Otherwise, we're not sure why this errored: it's not an error we raised
+    #    explicitly. We'll assume it's because the function it calls isn't
+    #    supported in arrow, and retry with dplyr may help.
+    if (arrow_debug) {
+      arrow_not_supported(.actual_msg = msg, call = expr)
+    } else {
+      # Don't show the original error message unless in debug mode because
+      # it's probably not helpful: like, if you've passed an Expression to a
+      # regular R function that operates on strings, the way it errors would be
+      # more confusing than just saying that the expression is not supported
+      # in arrow.
+      arrow_not_supported("Expression", call = expr)
+    }
   })
 }
 
@@ -93,15 +127,12 @@ add_user_functions_to_mask <- function(expr, mask) {
   invisible()
 }
 
-handle_arrow_not_supported <- function(err, lab) {
-  # Look for informative message from the Arrow function version (see above)
-  if (inherits(err, "arrow-try-error")) {
-    # Include it if found
-    paste0("In ", lab, ", ", as.character(err))
-  } else {
-    # Otherwise be opaque (the original error is probably not useful)
-    paste("Expression", lab, "not supported in Arrow")
+get_standard_error_messages <- function() {
+  if (is.null(.cache$i18ized_error_pattern)) {
+    # Memoize it
+    .cache$i18ized_error_pattern <- i18ize_error_messages()
   }
+  .cache$i18ized_error_pattern
 }
 
 i18ize_error_messages <- function() {
@@ -114,10 +145,101 @@ i18ize_error_messages <- function() {
   paste(map(out, ~ sub("X_____X", ".*", .)), collapse = "|")
 }
 
-# Helper to raise a common error
-arrow_not_supported <- function(msg) {
-  # TODO: raise a classed error?
-  stop(paste(msg, "not supported in Arrow"), call. = FALSE)
+#' Helpers to raise classed errors
+#'
+#' `arrow_not_supported()` and `validation_error()` raise classed errors that
+#' allow us to distinguish between things that are not supported in Arrow and
+#' things that are just invalid input. Additional wrapping in `arrow_eval()`
+#' and `try_arrow_dplyr()` provide more context and suggestions.
+#' Importantly, if `arrow_not_supported` is raised, then retrying the same code
+#' in regular dplyr in R may work. But if `validation_error` is raised, then we
+#' shouldn't recommend retrying with regular dplyr because it will fail there
+#' too.
+#'
+#' Use these in function bindings and in the dplyr methods. Inside of function
+#' bindings, you don't need to provide the `call` argument, as it will be
+#' automatically filled in with the expression that caused the error in
+#' `arrow_eval()`. In dplyr methods, you should provide the `call` argument;
+#' `rlang::caller_call()` often is correct, but you may need to experiment to
+#' find how far up the call stack you need to look.
+#'
+#' You may provide additional information in the `body` argument, a named
+#' character vector. Use `i` for additional information about the error and `>`
+#' to indicate potential solutions or workarounds that don't require pulling the
+#' data into R. If you have an `arrow_not_supported()` error with a `>`
+#' suggestion, when the error is ultimately raised by `try_error_dplyr()`,
+#' `Call collect() first to pull data into R` won't be the only suggestion.
+#'
+#' You can still use `match.arg()` and `assert_that()` for simple input
+#' validation inside of the function bindings. `arrow_eval()` will catch their
+#' errors and re-raise them as `validation_error`.
+#'
+#' @param msg The message to show. `arrow_not_supported()` will append
+#' "not supported in Arrow" to this message.
+#' @param .actual_msg If you don't want to append "not supported in Arrow" to
+#' the message, you can provide the full message here.
+#' @param ... Additional arguments to pass to `rlang::abort()`. Useful arguments
+#' include `call` to provide the call or expression that caused the error, and
+#' `body` to provide additional context about the error.
+#' @keywords internal
+arrow_not_supported <- function(msg,
+                                .actual_msg = paste(msg, "not supported in Arrow"),
+                                ...) {
+  abort(.actual_msg, class = "arrow_not_supported", use_cli_format = TRUE, ...)
+}
+
+#' @rdname arrow_not_supported
+validation_error <- function(msg, ...) {
+  abort(msg, class = "validation_error", use_cli_format = TRUE, ...)
+}
+
+# Wrap the contents of an arrow dplyr verb function in a tryCatch block to
+# handle arrow_not_supported errors:
+# * If it errors because of arrow_not_supported, abandon ship
+# * If it's another error, just stop, retry with regular dplyr won't help
+try_arrow_dplyr <- function(expr) {
+  parent <- caller_env()
+  # Make sure that the call is available in the parent environment
+  # so that we can use it in abandon_ship, if needed
+  evalq(call <- match.call(), parent)
+
+  tryCatch(
+    eval(expr, parent),
+    arrow_not_supported = function(e) abandon_ship(e, parent)
+  )
+}
+
+# Helper to handle unsupported dplyr features
+# * For Table/RecordBatch, we collect() and then call the dplyr method in R
+# * For Dataset, we error and recommend collect()
+# Requires that `env` contains `.data`
+# The Table/RB path also requires `call` to be in `env` (try_arrow_dplyr adds it)
+# and that the function being called also exists in the dplyr namespace.
+abandon_ship <- function(err, env) {
+  .data <- get(".data", envir = env)
+  if (query_on_dataset(.data)) {
+    # Add a note suggesting `collect()` to the error message.
+    # If there are other suggestions already there (with the > arrow name),
+    # collect() isn't the only suggestion, so message differently
+    msg <- ifelse(
+      ">" %in% names(err$body),
+      "Or, call collect() first to pull data into R.",
+      "Call collect() first to pull data into R."
+    )
+    err$body <- c(err$body, ">" = msg)
+    stop(err)
+  }
+
+  # Else, warn, collect(), and run in regular dplyr
+  call <- get("call", envir = env)
+  rlang::warn(
+    message = paste0("In ", format_expr(err$call), ": "),
+    body = c("i" = conditionMessage(err), ">" = "Pulling data into R")
+  )
+  call$.data <- dplyr::collect(.data)
+  dplyr_fun_name <- sub("^(.*?)\\..*", "\\1", as.character(call[[1]]))
+  call[[1]] <- get(dplyr_fun_name, envir = asNamespace("dplyr"))
+  eval(call, env)
 }
 
 # Create a data mask for evaluating a dplyr expression

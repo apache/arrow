@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build !noasm
 // +build !noasm
 
 package utils
@@ -21,13 +22,14 @@ package utils
 import (
 	"os"
 	"strings"
+
+	"golang.org/x/sys/cpu"
 )
-import "golang.org/x/sys/cpu"
 
 var byteToBoolFunc func([]byte, []bool)
 
 func init() {
-    // Added ability to enable extension via environment:
+	// Added ability to enable extension via environment:
 	// ARM_ENABLE_EXT=NEON go test
 	if ext, ok := os.LookupEnv("ARM_ENABLE_EXT"); ok {
 		exts := strings.Split(ext, ",")
