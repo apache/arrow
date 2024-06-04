@@ -21,12 +21,11 @@ package org.apache.arrow.memory;
 /**
  * Child allocator class. Only slightly different from the {@see RootAllocator},
  * in that these can't be created directly, but must be obtained from
- * {@see BufferAllocator#newChildAllocator(AllocatorOwner, long, long, int)}.
+ * {@link BufferAllocator#newChildAllocator(String, AllocationListener, long, long)}.
  *
  * <p>Child allocators can only be created by the root, or other children, so
  * this class is package private.</p>
  */
-@SuppressWarnings("InvalidInlineTag")
 class ChildAllocator extends BaseAllocator {
 
   /**
