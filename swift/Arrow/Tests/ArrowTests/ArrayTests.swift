@@ -245,4 +245,30 @@ final class ArrayTests: XCTestCase {
         try checkHolderForType(ArrowType(ArrowType.ArrowBool))
         try checkHolderForType(ArrowType(ArrowType.ArrowString))
     }
-}
+
+    func testArrowArrayHolderBuilder() throws {
+        let uint8HBuilder: ArrowArrayHolderBuilder =
+            (try ArrowArrayBuilders.loadNumberArrayBuilder() as NumberArrayBuilder<UInt8>)
+        for index in 0..<100 {
+            uint8HBuilder.appendAny(UInt8(index))
+        }
+
+        let uint8Holder = try uint8HBuilder.toHolder()
+        XCTAssertEqual(uint8Holder.nullCount, 0)
+        XCTAssertEqual(uint8Holder.length, 100)
+
+        let stringHBuilder: ArrowArrayHolderBuilder =
+            (try ArrowArrayBuilders.loadStringArrayBuilder())
+         for index in 0..<100 {
+             if index % 10 == 9 {
+                 stringHBuilder.appendAny(nil)
+             } else {
+                 stringHBuilder.appendAny("test" + String(index))
+             }
+         }
+
+        let stringHolder = try stringHBuilder.toHolder()
+        XCTAssertEqual(stringHolder.nullCount, 10)
+        XCTAssertEqual(stringHolder.length, 100)
+    }
+ }
