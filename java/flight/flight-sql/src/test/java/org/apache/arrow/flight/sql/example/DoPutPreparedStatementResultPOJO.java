@@ -15,31 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.c.jni;
+package org.apache.arrow.flight.sql.example;
 
-/**
- * An exception raised by the JNI side of the C Data bridge.
- */
-public final class CDataJniException extends Exception {
-  private final int errno;
+import java.io.Serializable;
 
-  public CDataJniException(int errno, String message) {
-    super(message);
-    this.errno = errno;
+public class DoPutPreparedStatementResultPOJO implements Serializable {
+  private String query;
+  private byte[] parameters;
+
+  public DoPutPreparedStatementResultPOJO(String query, byte[] parameters) {
+    this.query = query;
+    this.parameters = parameters.clone();
   }
 
-  /**
-   * The original error code returned from C.
-   */
-  public int getErrno() {
-    return errno;
+  public String getQuery() {
+    return query;
   }
 
-  @Override
-  public String getMessage() {
-    return "CDataJniException{" +
-        "errno=" + errno +
-        ", message=" + super.getMessage() +
-        '}';
+  public byte[] getParameters() {
+    return parameters;
   }
 }

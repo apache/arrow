@@ -64,7 +64,7 @@ public class NativeUtilTest {
   @Test
   public void testToJavaArray() {
     long[] nativeArray = new long[] { 1, 2, 3 };
-    try (ArrowBuf buffer = allocator.buffer(Long.BYTES * nativeArray.length, null)) {
+    try (ArrowBuf buffer = allocator.buffer(Long.BYTES * ((long) nativeArray.length), null)) {
       for (long value : nativeArray) {
         buffer.writeLong(value);
       }

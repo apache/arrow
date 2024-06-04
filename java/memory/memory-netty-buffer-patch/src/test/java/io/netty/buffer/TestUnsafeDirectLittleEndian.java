@@ -23,7 +23,6 @@ import static org.junit.Assert.assertEquals;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 
 import org.junit.Test;
@@ -34,9 +33,9 @@ import io.netty.buffer.Unpooled;
 import io.netty.buffer.UnsafeDirectLittleEndian;
 
 public class TestUnsafeDirectLittleEndian {
-  private static final boolean LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
 
   @Test
+  @SuppressWarnings("CatchAndPrintStackTrace")
   public void testPrimitiveGetSet() {
     ByteBuf byteBuf = Unpooled.directBuffer(64);
     UnsafeDirectLittleEndian unsafeDirect = new UnsafeDirectLittleEndian(new LargeBuffer(byteBuf));

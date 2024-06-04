@@ -37,6 +37,7 @@ public interface JdbcConsumer<T extends ValueVector> extends AutoCloseable {
   /**
    * Close this consumer, do some clean work such as clear reuse ArrowBuf.
    */
+  @Override
   void close() throws Exception;
 
   /**

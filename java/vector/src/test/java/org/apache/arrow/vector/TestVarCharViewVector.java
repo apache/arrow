@@ -23,6 +23,7 @@ import static org.apache.arrow.vector.TestUtils.newViewVarCharVector;
 import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -2209,6 +2210,85 @@ public class TestVarCharViewVector {
       assertArrayEquals(STR2, targetVector.get(0));
       assertArrayEquals(STR3, targetVector.get(1));
       assertArrayEquals(str4.getBytes(StandardCharsets.UTF_8), targetVector.get(2));
+    }
+  }
+
+  @Test
+  public void testVectorLoadUnloadOnMixedTypes() {
+
+    try (final IntVector vector1 = new IntVector("myvector", allocator);
+        final ViewVarCharVector vector2 = new ViewVarCharVector("myviewvector", allocator)) {
+
+      final int valueCount = 15;
+
+      setVector(vector1, 1, 2, 3, 4, 5, 6);
+      vector1.setValueCount(valueCount);
+
+      setVector(vector2, STR1, STR2, STR3, STR4, STR5, STR6);
+      vector1.setValueCount(valueCount);
+
+      /* Check the vector output */
+      assertEquals(1, vector1.get(0));
+      assertEquals(2, vector1.get(1));
+      assertEquals(3, vector1.get(2));
+      assertEquals(4, vector1.get(3));
+      assertEquals(5, vector1.get(4));
+      assertEquals(6, vector1.get(5));
+
+      Field field1 = vector1.getField();
+      String fieldName1 = field1.getName();
+
+      Field field2 = vector2.getField();
+      String fieldName2 = field2.getName();
+
+      List<Field> fields = new ArrayList<>(2);
+      List<FieldVector> fieldVectors = new ArrayList<>(2);
+
+      fields.add(field1);
+      fields.add(field2);
+      fieldVectors.add(vector1);
+      fieldVectors.add(vector2);
+
+      Schema schema = new Schema(fields);
+
+      VectorSchemaRoot schemaRoot1 = new VectorSchemaRoot(schema, fieldVectors, valueCount);
+      VectorUnloader vectorUnloader = new VectorUnloader(schemaRoot1);
+
+      try (
+          ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
+          BufferAllocator finalVectorsAllocator = allocator.newChildAllocator("new vector", 0, Long.MAX_VALUE);
+          VectorSchemaRoot schemaRoot2 = VectorSchemaRoot.create(schema, finalVectorsAllocator);
+      ) {
+
+        // validating recordBatch contains an output for variadicBufferCounts
+        assertFalse(recordBatch.getVariadicBufferCounts().isEmpty());
+        assertEquals(1, recordBatch.getVariadicBufferCounts().size());
+
+        VectorLoader vectorLoader = new VectorLoader(schemaRoot2);
+        vectorLoader.load(recordBatch);
+
+        IntVector vector3 = (IntVector) schemaRoot2.getVector(fieldName1);
+        vector3.setValueCount(25);
+
+        /* Check the vector output */
+        assertEquals(1, vector3.get(0));
+        assertEquals(2, vector3.get(1));
+        assertEquals(3, vector3.get(2));
+        assertEquals(4, vector3.get(3));
+        assertEquals(5, vector3.get(4));
+        assertEquals(6, vector3.get(5));
+
+        ViewVarCharVector vector4 = (ViewVarCharVector) schemaRoot2.getVector(fieldName2);
+        vector4.setValueCount(25);
+
+        /* Check the vector output */
+        assertArrayEquals(STR1, vector4.get(0));
+        assertArrayEquals(STR2, vector4.get(1));
+        assertArrayEquals(STR3, vector4.get(2));
+        assertArrayEquals(STR4, vector4.get(3));
+        assertArrayEquals(STR5, vector4.get(4));
+        assertArrayEquals(STR6, vector4.get(5));
+      }
     }
   }
 

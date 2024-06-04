@@ -27,7 +27,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  * Pointer to a memory region within an {@link ArrowBuf}.
  * It will be used as the basis for calculating hash code within a vector, and equality determination.
  */
-public final class ArrowBufPointer {
+public final class ArrowBufPointer implements Comparable<ArrowBufPointer> {
 
   /**
    * The hash code when the arrow buffer is null.
@@ -174,6 +174,7 @@ public final class ArrowBufPointer {
    *     a positive integer if this pointer is larger;
    *     a negative integer if this pointer is smaller.
    */
+  @Override
   public int compareTo(ArrowBufPointer that) {
     if (this.buf == null || that.buf == null) {
       if (this.buf == null && that.buf == null) {

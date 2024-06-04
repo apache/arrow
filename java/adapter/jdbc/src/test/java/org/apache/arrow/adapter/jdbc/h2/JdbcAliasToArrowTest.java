@@ -111,8 +111,8 @@ public class JdbcAliasToArrowTest {
       assertEquals(rowCount, vector.getRowCount());
       Schema vectorSchema = vector.getSchema();
       List<Field> vectorFields = vectorSchema.getFields();
-      assertEquals(vectorFields.get(0).getName(), COLUMN_A);
-      assertEquals(vectorFields.get(1).getName(), COLUMN_B);
+      assertEquals(COLUMN_A, vectorFields.get(0).getName());
+      assertEquals(COLUMN_B, vectorFields.get(1).getName());
     }
   }
 

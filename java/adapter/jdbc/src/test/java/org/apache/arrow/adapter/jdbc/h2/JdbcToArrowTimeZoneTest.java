@@ -103,6 +103,7 @@ public class JdbcToArrowTimeZoneTest extends AbstractJdbcToArrowTest {
    * Time and Timestamp datatype.
    */
   @Test
+  @Override
   public void testJdbcToArrowValues() throws SQLException, IOException {
     testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE),
         Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))), false);
@@ -139,6 +140,7 @@ public class JdbcToArrowTimeZoneTest extends AbstractJdbcToArrowTest {
    * @param isIncludeMapVector is this dataset checks includes map column.
    *          Jdbc type to 'map' mapping declared in configuration only manually
    */
+  @Override
   public void testDataSets(VectorSchemaRoot root, boolean isIncludeMapVector) {
     JdbcToArrowTestHelper.assertFieldMetadataIsEmpty(root);
 

@@ -162,7 +162,7 @@ public class MurmurHasher implements ArrowBufHasher {
     if (this == o) {
       return true;
     }
-    if (o == null || getClass() != o.getClass()) {
+    if (!(o instanceof MurmurHasher)) {
       return false;
     }
     MurmurHasher that = (MurmurHasher) o;
