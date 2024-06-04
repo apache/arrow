@@ -1671,8 +1671,20 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
 
   @Override
   public void exportCDataBuffers(List<ArrowBuf> buffers, ArrowBuf buffersPtr, long nullValue) {
-    // TODO: Implement this method
-    throw new UnsupportedOperationException(
-        "exportCDataBuffers is not supported for VariableWidthVector");
+    exportBuffer(validityBuffer, buffers, buffersPtr, nullValue, true);
+
+    if (viewBuffer.capacity() == 0) {
+      // Empty view buffer is allowed here.
+      // We set `retain = false` to explicitly not increase the ref count for the exported buffer.
+      // The ref count of the newly created buffer (i.e., 1) already represents the usage
+      // of the imported side.
+      exportBuffer(allocator.buffer(INITIAL_BYTE_COUNT), buffers, buffersPtr, nullValue, false);
+    } else {
+      exportBuffer(viewBuffer, buffers, buffersPtr, nullValue, true);
+    }
+
+    for (int i = 0; i < dataBuffers.size(); i++) {
+      exportBuffer(dataBuffers.get(i), buffers, buffersPtr, nullValue, true);
+    }
   }
 }
