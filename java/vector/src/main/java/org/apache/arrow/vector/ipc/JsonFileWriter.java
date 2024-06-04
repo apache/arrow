@@ -68,7 +68,7 @@ import org.apache.arrow.vector.UInt2Vector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.dictionary.Dictionary;
+import org.apache.arrow.vector.dictionary.BaseDictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -173,7 +173,7 @@ public class JsonFileWriter implements AutoCloseable {
       generator.writeObjectField("id", id);
 
       generator.writeFieldName("data");
-      Dictionary dictionary = provider.lookup(id);
+      BaseDictionary dictionary = provider.lookup(id);
       FieldVector vector = dictionary.getVector();
       List<Field> fields = Collections.singletonList(vector.getField());
       List<FieldVector> vectors = Collections.singletonList(vector);

@@ -164,7 +164,7 @@ public class ArrowStreamReader extends ArrowReader {
     } else if (result.getMessage().headerType() == MessageHeader.DictionaryBatch) {
       // if it's dictionary message, read dictionary message out and continue to read unless get a batch or eos.
       ArrowDictionaryBatch dictionaryBatch = readDictionary(result);
-      loadDictionary(dictionaryBatch);
+      loadDictionary(dictionaryBatch, false);
       loadedDictionaryCount++;
       return loadNextBatch();
     } else {
@@ -177,10 +177,6 @@ public class ArrowStreamReader extends ArrowReader {
    * When read a record batch, check whether its dictionaries are available.
    */
   private void checkDictionaries() throws IOException {
-    // if all dictionaries are loaded, return.
-    if (loadedDictionaryCount == dictionaries.size()) {
-      return;
-    }
     for (FieldVector vector : getVectorSchemaRoot().getFieldVectors()) {
       DictionaryEncoding encoding = vector.getField().getDictionary();
       if (encoding != null) {

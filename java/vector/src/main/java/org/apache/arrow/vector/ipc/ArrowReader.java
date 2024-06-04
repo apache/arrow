@@ -31,7 +31,7 @@ import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.compression.CompressionCodec;
 import org.apache.arrow.vector.compression.NoCompressionCodec;
-import org.apache.arrow.vector.dictionary.Dictionary;
+import org.apache.arrow.vector.dictionary.BaseDictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
@@ -49,7 +49,7 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
   protected final BufferAllocator allocator;
   private VectorLoader loader;
   private VectorSchemaRoot root;
-  protected Map<Long, Dictionary> dictionaries;
+  protected Map<Long, BaseDictionary> dictionaries;
   private boolean initialized = false;
 
   private final CompressionCodec.Factory compressionFactory;
@@ -80,7 +80,7 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
    * @return Map of dictionaries to dictionary id, empty if no dictionaries loaded
    * @throws IOException if reading of schema fails
    */
-  public Map<Long, Dictionary> getDictionaryVectors() throws IOException {
+  public Map<Long, BaseDictionary> getDictionaryVectors() throws IOException {
     ensureInitialized();
     return dictionaries;
   }
@@ -92,7 +92,7 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
    * @return the requested dictionary or null if not found
    */
   @Override
-  public Dictionary lookup(long id) {
+  public BaseDictionary lookup(long id) {
     if (!initialized) {
       throw new IllegalStateException("Unable to lookup until reader has been initialized");
     }
@@ -141,7 +141,7 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
   public void close(boolean closeReadSource) throws IOException {
     if (initialized) {
       root.close();
-      for (Dictionary dictionary : dictionaries.values()) {
+      for (BaseDictionary dictionary : dictionaries.values()) {
         dictionary.getVector().close();
       }
     }
@@ -149,6 +149,11 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
     if (closeReadSource) {
       closeReadSource();
     }
+  }
+
+  @Override
+  public void resetDictionaries() {
+    dictionaries.values().forEach( dictionary -> dictionary.reset() );
   }
 
   /**
@@ -185,7 +190,7 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
     Schema originalSchema = readSchema();
     List<Field> fields = new ArrayList<>(originalSchema.getFields().size());
     List<FieldVector> vectors = new ArrayList<>(originalSchema.getFields().size());
-    Map<Long, Dictionary> dictionaries = new HashMap<>();
+    Map<Long, BaseDictionary> dictionaries = new HashMap<>();
 
     // Convert fields with dictionaries to have the index type
     for (Field field : originalSchema.getFields()) {
@@ -228,9 +233,9 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
    *
    * @param dictionaryBatch dictionary batch to load
    */
-  protected void loadDictionary(ArrowDictionaryBatch dictionaryBatch) {
+  protected void loadDictionary(ArrowDictionaryBatch dictionaryBatch, boolean validateReplacements) {
     long id = dictionaryBatch.getDictionaryId();
-    Dictionary dictionary = dictionaries.get(id);
+    BaseDictionary dictionary = dictionaries.get(id);
     if (dictionary == null) {
       throw new IllegalArgumentException("Dictionary ID " + id + " not defined in schema");
     }
@@ -242,6 +247,9 @@ public abstract class ArrowReader implements DictionaryProvider, AutoCloseable {
         VectorBatchAppender.batchAppend(vector, deltaVector);
       }
       return;
+    } else if (validateReplacements && getClass() == ArrowFileReader.class) {
+      throw new IllegalStateException("Replacement dictionaries are not supported in " +
+          "the IPC file format. Dictionary ID: " + dictionary.getEncoding().getId());
     }
 
     load(dictionaryBatch, vector);

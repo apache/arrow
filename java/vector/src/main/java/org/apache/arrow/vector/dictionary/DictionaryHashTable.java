@@ -96,9 +96,11 @@ public class DictionaryHashTable {
 
     this.hasher = hasher;
 
-    // build hash table
-    for (int i = 0; i < this.dictionary.getValueCount(); i++) {
-      put(i);
+    if (dictionary != null) {
+      // build hash table
+      for (int i = 0; i < this.dictionary.getValueCount(); i++) {
+        put(i);
+      }
     }
   }
 
@@ -109,6 +111,18 @@ public class DictionaryHashTable {
   public DictionaryHashTable(ValueVector dictionary) {
     this(dictionary, SimpleHasher.INSTANCE);
   }
+
+  /**
+   * Creates an empty table used for batch writing of dictionaries.
+   */
+  public DictionaryHashTable() {
+    this(DEFAULT_INITIAL_CAPACITY, null, SimpleHasher.INSTANCE);
+
+    if (table == EMPTY_TABLE) {
+      inflateTable(threshold);
+    }
+  }
+
 
   /**
    * Compute the capacity with given threshold and create init table.
@@ -192,6 +206,34 @@ public class DictionaryHashTable {
     DictionaryHashTable.Entry e = table[bucketIndex];
     table[bucketIndex] = new DictionaryHashTable.Entry(hash, index, e);
     size++;
+  }
+
+  /**
+   * Returns the corresponding dictionary index entry given a hash code. If the hash has
+   * not been written to the table, returns -1.
+   *
+   * @param hash The hash to lookup.
+   * @return The dictionary index if present, -1 if not.
+   */
+  int getIndex(int hash) {
+    int i = indexFor(hash, table.length);
+    for (DictionaryHashTable.Entry e = table[i]; e != null; e = e.next) {
+      if (e.hash == hash) {
+        return e.index;
+      }
+    }
+    return -1;
+  }
+
+  /**
+   * Adds an entry to the hash table.
+   *
+   * @param hash The hash to add.
+   * @param index The corresponding dictionary index.
+   */
+  void addEntry(int hash, int index) {
+    int bucketIndex = indexFor(hash, table.length);
+    addEntry(hash, index, bucketIndex);
   }
 
   /**

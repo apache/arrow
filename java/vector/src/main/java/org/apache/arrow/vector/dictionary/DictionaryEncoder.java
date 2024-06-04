@@ -38,20 +38,20 @@ import org.apache.arrow.vector.util.TransferPair;
 public class DictionaryEncoder {
 
   private final DictionaryHashTable hashTable;
-  private final Dictionary dictionary;
+  private final BaseDictionary dictionary;
   private final BufferAllocator allocator;
 
   /**
    * Construct an instance.
    */
-  public DictionaryEncoder(Dictionary dictionary, BufferAllocator allocator) {
+  public DictionaryEncoder(BaseDictionary dictionary, BufferAllocator allocator) {
     this (dictionary, allocator, SimpleHasher.INSTANCE);
   }
 
   /**
    * Construct an instance.
    */
-  public DictionaryEncoder(Dictionary dictionary, BufferAllocator allocator, ArrowBufHasher hasher) {
+  public DictionaryEncoder(BaseDictionary dictionary, BufferAllocator allocator, ArrowBufHasher hasher) {
     this.dictionary = dictionary;
     this.allocator = allocator;
     hashTable = new DictionaryHashTable(dictionary.getVector(), hasher);
@@ -64,7 +64,7 @@ public class DictionaryEncoder {
    * @param dictionary dictionary used for encoding
    * @return dictionary encoded vector
    */
-  public static ValueVector encode(ValueVector vector, Dictionary dictionary) {
+  public static ValueVector encode(ValueVector vector, BaseDictionary dictionary) {
     DictionaryEncoder encoder = new DictionaryEncoder(dictionary, vector.getAllocator());
     return encoder.encode(vector);
   }
@@ -76,7 +76,7 @@ public class DictionaryEncoder {
    * @param dictionary dictionary used to decode the values
    * @return vector with values restored from dictionary
    */
-  public static ValueVector decode(ValueVector indices, Dictionary dictionary) {
+  public static ValueVector decode(ValueVector indices, BaseDictionary dictionary) {
     return decode(indices, dictionary, indices.getAllocator());
   }
 
@@ -88,7 +88,7 @@ public class DictionaryEncoder {
    * @param allocator allocator the decoded values use
    * @return vector with values restored from dictionary
    */
-  public static ValueVector decode(ValueVector indices, Dictionary dictionary, BufferAllocator allocator) {
+  public static ValueVector decode(ValueVector indices, BaseDictionary dictionary, BufferAllocator allocator) {
     int count = indices.getValueCount();
     ValueVector dictionaryVector = dictionary.getVector();
     int dictionaryCount = dictionaryVector.getValueCount();
@@ -185,8 +185,11 @@ public class DictionaryEncoder {
   public ValueVector encode(ValueVector vector) {
 
     Field valueField = vector.getField();
-    FieldType indexFieldType = new FieldType(valueField.isNullable(), dictionary.getEncoding().getIndexType(),
-        dictionary.getEncoding(), valueField.getMetadata());
+    FieldType indexFieldType = new FieldType(
+        valueField.isNullable(),
+        dictionary.getEncoding().getIndexType(),
+        dictionary.getEncoding(),
+        valueField.getMetadata());
     Field indexField = new Field(valueField.getName(), indexFieldType, null);
 
     // vector to hold our indices (dictionary encoded values)
@@ -211,8 +214,9 @@ public class DictionaryEncoder {
   /**
    * Decodes a vector with the dictionary in this encoder.
    *
-   * {@link DictionaryEncoder#decode(ValueVector, Dictionary, BufferAllocator)} should be used instead if only decoding
-   * is required as it can avoid building the {@link DictionaryHashTable} which only makes sense when encoding.
+   * {@link DictionaryEncoder#decode(ValueVector, BaseDictionary, BufferAllocator)}
+   * should be used instead if only decoding is required as it can avoid building the
+   * {@link DictionaryHashTable} which only makes sense when encoding.
    */
   public ValueVector decode(ValueVector indices) {
     return decode(indices, dictionary, allocator);

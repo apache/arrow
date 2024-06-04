@@ -27,14 +27,32 @@ import java.io.IOException;
 import java.nio.channels.Channels;
 import java.util.Collections;
 
+import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 public class TestArrowStream extends BaseFileTest {
+
+  // overriding here since a number of other UTs sharing the BaseFileTest class use
+  // legacy JUnit.
+  @BeforeEach
+  public void init() {
+    allocator = new RootAllocator(Integer.MAX_VALUE);
+  }
+
+  @AfterEach
+  public void tearDown() {
+    allocator.close();
+  }
+
   @Test
   public void testEmptyStream() throws IOException {
     Schema schema = MessageSerializerTest.testSchema();
@@ -64,7 +82,7 @@ public class TestArrowStream extends BaseFileTest {
     try (IntVector vector = new IntVector("foo", allocator);) {
       Schema schema = new Schema(Collections.singletonList(vector.getField()));
       try (VectorSchemaRoot root =
-             new VectorSchemaRoot(schema, Collections.singletonList(vector), vector.getValueCount());
+               new VectorSchemaRoot(schema, Collections.singletonList(vector), vector.getValueCount());
            ArrowStreamWriter writer = new ArrowStreamWriter(root, null, Channels.newChannel(os));) {
         vector.setValueCount(0);
         root.setRowCount(0);
@@ -131,7 +149,7 @@ public class TestArrowStream extends BaseFileTest {
     try (IntVector vector = new IntVector("foo", allocator);) {
       Schema schema = new Schema(Collections.singletonList(vector.getField()));
       try (VectorSchemaRoot root =
-             new VectorSchemaRoot(schema, Collections.singletonList(vector), vector.getValueCount());
+               new VectorSchemaRoot(schema, Collections.singletonList(vector), vector.getValueCount());
            ArrowStreamWriter writer = new ArrowStreamWriter(root, null, Channels.newChannel(os));) {
         writeBatchData(writer, vector, root);
       }
@@ -142,6 +160,23 @@ public class TestArrowStream extends BaseFileTest {
     try (ArrowStreamReader reader = new ArrowStreamReader(in, allocator);) {
       IntVector vector = (IntVector) reader.getVectorSchemaRoot().getFieldVectors().get(0);
       validateBatchData(reader, vector);
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("dictionaryParams")
+  public void testMultiBatchDictionaries(DictionaryUTState state) throws Exception {
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    writeDataMultiBatchWithDictionaries(out, state);
+
+    ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
+    out.close();
+
+    try (ArrowStreamReader reader = new ArrowStreamReader(in, allocator)) {
+      for (int i = 0; i < 4; i++) {
+        reader.loadNextBatch();
+        assertBlock(reader, i, state);
+      }
     }
   }
 }

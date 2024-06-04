@@ -33,6 +33,7 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.dictionary.BaseDictionary;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -150,9 +151,9 @@ public class ITTestIPCWithLargeArrowBuffers {
       logger.trace("Verifying encoded vector finished");
 
       // verify dictionary
-      Map<Long, Dictionary> dictVectors = reader.getDictionaryVectors();
+      Map<Long, BaseDictionary> dictVectors = reader.getDictionaryVectors();
       assertEquals(1, dictVectors.size());
-      Dictionary dictionary = dictVectors.get(DICTIONARY_ID);
+      BaseDictionary dictionary = dictVectors.get(DICTIONARY_ID);
       assertNotNull(dictionary);
 
       assertTrue(dictionary.getVector() instanceof BigIntVector);

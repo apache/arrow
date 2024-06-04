@@ -132,7 +132,7 @@ public class NativeScanner implements Scanner {
     }
 
     @Override
-    protected void loadDictionary(ArrowDictionaryBatch dictionaryBatch) {
+    protected void loadDictionary(ArrowDictionaryBatch dictionaryBatch, boolean validateReplacements) {
       throw new UnsupportedOperationException();
     }
 
