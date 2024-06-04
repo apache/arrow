@@ -24,14 +24,12 @@
 bool numpy_imported = false;
 
 int arrow_init_numpy(bool import_numpy) {
-    if (import_numpy) {
-        numpy_imported = true;
-        return arrow::py::import_numpy();
-    } else {
-        return 0;
-    }
+  if (import_numpy) {
+    numpy_imported = true;
+    return arrow::py::import_numpy();
+  } else {
+    return 0;
+  }
 }
 
-bool get_numpy_imported() {
-    return numpy_imported;
-}
+bool get_numpy_imported() { return numpy_imported; }
