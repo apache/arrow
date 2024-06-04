@@ -528,29 +528,51 @@ public class RoundtripTest {
 
   @Test
   public void testViewVector() {
-    // VarCharViewVector with short strings
+    // ViewVarCharVector with short strings
     try (final ViewVarCharVector vector = new ViewVarCharVector("v1", allocator)) {
       setVector(vector, "abc".getBytes(StandardCharsets.UTF_8), "def".getBytes(StandardCharsets.UTF_8), null);
       assertTrue(roundtrip(vector, ViewVarCharVector.class));
     }
 
-    // VarCharViewVector with long strings
+    // ViewVarCharVector with long strings
     try (final ViewVarCharVector vector = new ViewVarCharVector("v2", allocator)) {
       setVector(vector, "01234567890123".getBytes(StandardCharsets.UTF_8),
           "01234567890123567".getBytes(StandardCharsets.UTF_8), null);
       assertTrue(roundtrip(vector, ViewVarCharVector.class));
     }
 
-    // VarBinaryViewVector with short values
+    // ViewVarBinaryVector with short values
     try (final ViewVarBinaryVector vector = new ViewVarBinaryVector("v3", allocator)) {
       setVector(vector, "abc".getBytes(StandardCharsets.UTF_8), "def".getBytes(StandardCharsets.UTF_8), null);
       assertTrue(roundtrip(vector, ViewVarBinaryVector.class));
     }
 
-    // VarBinaryViewVector with long values
+    // ViewVarBinaryVector with long values
     try (final ViewVarBinaryVector vector = new ViewVarBinaryVector("v4", allocator)) {
       setVector(vector, "01234567890123".getBytes(StandardCharsets.UTF_8),
           "01234567890123567".getBytes(StandardCharsets.UTF_8), null);
+      assertTrue(roundtrip(vector, ViewVarBinaryVector.class));
+    }
+
+    List<byte[]> byteArrayList = new ArrayList<>();
+    for (int i = 1; i <= 500; i++) {
+      StringBuilder sb = new StringBuilder(i);
+      for (int j = 0; j < i; j++) {
+        sb.append(j); // or any other character
+      }
+      byte[] bytes = sb.toString().getBytes(StandardCharsets.UTF_8);
+      byteArrayList.add(bytes);
+    }
+
+    // ViewVarCharVector with short long strings with multiple data buffers
+    try (final ViewVarCharVector vector = new ViewVarCharVector("v5", allocator)) {
+      setVector(vector, byteArrayList.toArray(new byte[0][]));
+      assertTrue(roundtrip(vector, ViewVarCharVector.class));
+    }
+
+    // ViewVarBinaryVector with short long strings with multiple data buffers
+    try (final ViewVarBinaryVector vector = new ViewVarBinaryVector("v6", allocator)) {
+      setVector(vector, byteArrayList.toArray(new byte[0][]));
       assertTrue(roundtrip(vector, ViewVarBinaryVector.class));
     }
   }
