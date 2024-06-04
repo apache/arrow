@@ -33,7 +33,7 @@ for (const table of generateRandomTables([10, 20, 30])) {
 
     const numMessages = /* schema message */ 1 +
                         /* recordBatch messages */ table.batches.length +
-                        /* dictionary messages */ numDictionaries
+                        /* dictionary messages */ numDictionaries;
 
     const validate = validateMessageReader.bind(0, numMessages);
     const validateAsync = validateAsyncMessageReader.bind(0, numMessages);

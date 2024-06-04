@@ -285,7 +285,7 @@ export class RecordBatchWriter<T extends TypeMap = any> extends ReadableInterop<
     }
 
     protected _writeDictionaries(batch: RecordBatch<T>) {
-        for (let [id, dictionary] of batch.dictionaries) {
+        for (const [id, dictionary] of batch.dictionaries) {
             const chunks = dictionary?.data ?? [];
             const prevDictionary = this._seenDictionaries.get(id);
             const offset = this._dictionaryDeltaOffsets.get(id) ?? 0;
@@ -294,9 +294,9 @@ export class RecordBatchWriter<T extends TypeMap = any> extends ReadableInterop<
             if (!prevDictionary || prevDictionary.data[0] !== chunks[0]) {
                 // * If `index > 0`, then `isDelta` is true.
                 // * If `index = 0`, then `isDelta` is false, because this is either the initial or a replacement DictionaryMessage.
-                chunks.forEach((chunk, index) => this._writeDictionaryBatch(chunk, id, index > 0));
+                for (const [index, chunk] of chunks.entries()) this._writeDictionaryBatch(chunk, id, index > 0);
             } else if (offset < chunks.length) {
-                chunks.slice(offset).forEach((chunk) => this._writeDictionaryBatch(chunk, id, true));
+                for (const chunk of chunks.slice(offset)) this._writeDictionaryBatch(chunk, id, true);
             }
             this._seenDictionaries.set(id, dictionary);
             this._dictionaryDeltaOffsets.set(id, chunks.length);
