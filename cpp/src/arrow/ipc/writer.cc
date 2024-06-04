@@ -223,7 +223,7 @@ class RecordBatchSerializer {
           result->Resize(actual_length + sizeof(int64_t), /* shrink_to_fit= */ true));
     }
     int64_t prefixed_length_little_endian = bit_util::ToLittleEndian(prefixed_length);
-    memcpy(result->mutable_data(), &prefixed_length_little_endian, sizeof(int64_t));
+    util::SafeStore(result->mutable_data(), prefixed_length);
 
     *out = SliceBuffer(std::move(result), /*offset=*/0, actual_length + sizeof(int64_t));
 
