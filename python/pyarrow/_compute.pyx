@@ -33,7 +33,10 @@ from pyarrow.util import _DEPR_MSG
 from libcpp cimport bool as c_bool
 
 import inspect
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    pass
 import warnings
 
 
@@ -473,7 +476,7 @@ cdef class MetaFunction(Function):
 
 cdef _pack_compute_args(object values, vector[CDatum]* out):
     for val in values:
-        if isinstance(val, (list, np.ndarray)):
+        if "numpy" in sys.modules and isinstance(val, (list, np.ndarray)):
             val = lib.asarray(val)
 
         if isinstance(val, Array):
