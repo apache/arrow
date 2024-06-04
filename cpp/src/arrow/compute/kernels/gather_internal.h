@@ -46,11 +46,10 @@ class GatherBaseCRTP {
   // pre-applied. idx_validity parameters on functions can use the offset they
   // carry to read the validity bitmap as bitmaps can't have pre-applied offsets
   // (they might not align to byte boundaries).
+
   GatherBaseCRTP() = default;
-  GatherBaseCRTP(const GatherBaseCRTP&) = delete;
-  GatherBaseCRTP(GatherBaseCRTP&&) = delete;
-  GatherBaseCRTP& operator=(const GatherBaseCRTP&) = delete;
-  GatherBaseCRTP& operator=(GatherBaseCRTP&&) = delete;
+  ARROW_DISALLOW_COPY_AND_ASSIGN(GatherBaseCRTP);
+  ARROW_DEFAULT_MOVE_AND_ASSIGN(GatherBaseCRTP);
 
  protected:
   ARROW_FORCE_INLINE int64_t ExecuteNoNulls(int64_t idx_length) {
@@ -63,6 +62,20 @@ class GatherBaseCRTP {
 
   // See derived Gather classes below for the meaning of the parameters, pre and
   // post-conditions.
+  //
+  // src_validity is not necessarily the source of the values that are being
+  // gathered (e.g. the source could be a nested fixed-size list array and the
+  // values being gathered are from the innermost buffer), so the ArraySpan is
+  // used solely to check for nulls in the source values and nothing else.
+  //
+  // idx_length is the number of elements in idx and consequently the number of
+  // bits that might be written to out_is_valid. Member `Write*()` functions will be
+  // called with positions from 0 to idx_length - 1.
+  //
+  // If `kOutputIsZeroInitialized` is true, then `WriteZero()` or `WriteZeroSegment()`
+  // doesn't have to be called for resulting null positions. A position is
+  // considered null if either the index or the source value is null at that
+  // position.
   template <bool kOutputIsZeroInitialized, typename IndexCType>
   ARROW_FORCE_INLINE int64_t ExecuteWithNulls(const ArraySpan& src_validity,
                                               int64_t idx_length, const IndexCType* idx,
