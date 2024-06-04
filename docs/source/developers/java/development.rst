@@ -148,10 +148,9 @@ Follow the instructions for:
 - `Eclipse`_
 - `IntelliJ`_
 
-Code style enforced with Checkstyle for most of the modules. The configuration is located at `checkstyle`_.
+Code style enforced with both Spotless and Checkstyle. The configuration is located at `checkstyle`_.
 You can also just check the style without building the project.
 This checks the code style of all source code under the current directory or from within an individual module.
-Checkstyle will be removed once Spotless is fully integrated.
 
 .. code-block::
 
