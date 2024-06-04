@@ -53,6 +53,7 @@ public class SimpleHasher implements ArrowBufHasher {
    * @param length length of the memory region.
    * @return the hash code.
    */
+  @Override
   public int hashCode(long address, long length) {
     int hashValue = 0;
     int index = 0;

@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -95,7 +96,6 @@ import org.apache.arrow.vector.util.ValueVectorUtility;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
-import org.apache.avro.Schema.Type;
 import org.apache.avro.io.Decoder;
 
 /**
@@ -159,7 +159,7 @@ public class AvroToArrowUtils {
 
     final BufferAllocator allocator = config.getAllocator();
 
-    final Type type = schema.getType();
+    final Schema.Type type = schema.getType();
     final LogicalType logicalType = schema.getLogicalType();
 
     final ArrowType arrowType;
@@ -215,7 +215,7 @@ public class AvroToArrowUtils {
           vector = createVector(consumerVector, fieldType, name, allocator);
           consumer = new AvroTimeMillisConsumer((TimeMilliVector) vector);
         } else {
-          arrowType = new ArrowType.Int(32, /*signed=*/true);
+          arrowType = new ArrowType.Int(32, /*isSigned=*/true);
           fieldType = new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
           vector = createVector(consumerVector, fieldType, name, allocator);
           consumer = new AvroIntConsumer((IntVector) vector);
@@ -244,7 +244,7 @@ public class AvroToArrowUtils {
           vector = createVector(consumerVector, fieldType, name, allocator);
           consumer = new AvroTimestampMicrosConsumer((TimeStampMicroVector) vector);
         } else {
-          arrowType = new ArrowType.Int(64, /*signed=*/true);
+          arrowType = new ArrowType.Int(64, /*isSigned=*/true);
           fieldType = new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
           vector = createVector(consumerVector, fieldType, name, allocator);
           consumer = new AvroLongConsumer((BigIntVector) vector);
@@ -278,7 +278,7 @@ public class AvroToArrowUtils {
       case NULL:
         arrowType = new ArrowType.Null();
         fieldType = new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
-        vector = fieldType.createNewSingleVector(name, allocator, /*schemaCallback=*/null);
+        vector = fieldType.createNewSingleVector(name, allocator, /*schemaCallBack=*/null);
         consumer = new AvroNullConsumer((NullVector) vector);
         break;
       default:
@@ -305,7 +305,7 @@ public class AvroToArrowUtils {
   private static Consumer createSkipConsumer(Schema schema) {
 
     SkipFunction skipFunction;
-    Type type = schema.getType();
+    Schema.Type type = schema.getType();
 
     switch (type) {
       case UNION:
@@ -391,7 +391,7 @@ public class AvroToArrowUtils {
     final Set<String> skipFieldNames = config.getSkipFieldNames();
 
     Schema.Type type = schema.getType();
-    if (type == Type.RECORD) {
+    if (type == Schema.Type.RECORD) {
       for (Schema.Field field : schema.getFields()) {
         if (skipFieldNames.contains(field.name())) {
           consumers.add(createSkipConsumer(field.schema()));
@@ -416,7 +416,7 @@ public class AvroToArrowUtils {
 
   private static String getDefaultFieldName(ArrowType type) {
     Types.MinorType minorType = Types.getMinorTypeForArrowType(type);
-    return minorType.name().toLowerCase();
+    return minorType.name().toLowerCase(Locale.ROOT);
   }
 
   private static Field avroSchemaToField(Schema schema, String name, AvroToArrowConfig config) {
@@ -429,7 +429,7 @@ public class AvroToArrowUtils {
       AvroToArrowConfig config,
       Map<String, String> externalProps) {
 
-    final Type type = schema.getType();
+    final Schema.Type type = schema.getType();
     final LogicalType logicalType = schema.getLogicalType();
     final List<Field> children = new ArrayList<>();
     final FieldType fieldType;
@@ -457,7 +457,7 @@ public class AvroToArrowUtils {
         FieldType structFieldType = new FieldType(false, new ArrowType.Struct(), /*dictionary=*/null);
         Field structField = new Field("internal", structFieldType, Arrays.asList(keyField, valueField));
         children.add(structField);
-        fieldType = createFieldType(new ArrowType.Map(/*keySorted=*/false), schema, externalProps);
+        fieldType = createFieldType(new ArrowType.Map(/*keysSorted=*/false), schema, externalProps);
         break;
       case RECORD:
         final Set<String> skipFieldNames = config.getSkipFieldNames();
@@ -509,7 +509,7 @@ public class AvroToArrowUtils {
         } else if (logicalType instanceof LogicalTypes.TimeMillis) {
           intArrowType = new ArrowType.Time(TimeUnit.MILLISECOND, 32);
         } else {
-          intArrowType = new ArrowType.Int(32, /*signed=*/true);
+          intArrowType = new ArrowType.Int(32, /*isSigned=*/true);
         }
         fieldType = createFieldType(intArrowType, schema, externalProps);
         break;
@@ -525,7 +525,7 @@ public class AvroToArrowUtils {
         } else if (logicalType instanceof LogicalTypes.TimestampMicros) {
           longArrowType = new ArrowType.Timestamp(TimeUnit.MICROSECOND, null);
         } else {
-          longArrowType = new ArrowType.Int(64, /*signed=*/true);
+          longArrowType = new ArrowType.Int(64, /*isSigned=*/true);
         }
         fieldType = createFieldType(longArrowType, schema, externalProps);
         break;
@@ -668,7 +668,7 @@ public class AvroToArrowUtils {
       FieldVector consumerVector) {
     final int size = schema.getTypes().size();
 
-    final boolean nullable = schema.getTypes().stream().anyMatch(t -> t.getType() == Type.NULL);
+    final boolean nullable = schema.getTypes().stream().anyMatch(t -> t.getType() == Schema.Type.NULL);
 
     UnionVector unionVector;
     if (consumerVector == null) {
@@ -709,7 +709,7 @@ public class AvroToArrowUtils {
     final Set<String> skipFieldNames = config.getSkipFieldNames();
 
     Schema.Type type = schema.getType();
-    if (type == Type.RECORD) {
+    if (type == Schema.Type.RECORD) {
       for (Schema.Field field : schema.getFields()) {
         if (skipFieldNames.contains(field.name())) {
           consumers.add(createSkipConsumer(field.schema()));

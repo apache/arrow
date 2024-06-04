@@ -101,6 +101,7 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
    * Test Method to test JdbcToArrow Functionality for various H2 DB based datatypes with only one test data file.
    */
   @Test
+  @Override
   public void testJdbcToArrowValues() throws SQLException, IOException {
     testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE),
         Calendar.getInstance()), false);
@@ -149,6 +150,7 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
    * @param isIncludeMapVector is this dataset checks includes map column.
    *          Jdbc type to 'map' mapping declared in configuration only manually
    */
+  @Override
   public void testDataSets(VectorSchemaRoot root, boolean isIncludeMapVector) {
     JdbcToArrowTestHelper.assertFieldMetadataIsEmpty(root);
     assertBigIntVectorValues((BigIntVector) root.getVector(BIGINT), table.getRowCount(),

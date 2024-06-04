@@ -25,6 +25,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.channels.Channels;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 
 import org.apache.arrow.c.ArrowArray;
@@ -104,9 +105,9 @@ public class DictionaryTest {
     // create dictionary and provider
     final VarCharVector dictVector = new VarCharVector("dict", allocator);
     dictVector.allocateNewSafe();
-    dictVector.setSafe(0, "aa".getBytes());
-    dictVector.setSafe(1, "bb".getBytes());
-    dictVector.setSafe(2, "cc".getBytes());
+    dictVector.setSafe(0, "aa".getBytes(StandardCharsets.UTF_8));
+    dictVector.setSafe(1, "bb".getBytes(StandardCharsets.UTF_8));
+    dictVector.setSafe(2, "cc".getBytes(StandardCharsets.UTF_8));
     dictVector.setValueCount(3);
 
     Dictionary dictionary = new Dictionary(dictVector, new DictionaryEncoding(0L, false, /* indexType= */null));
@@ -115,10 +116,10 @@ public class DictionaryTest {
     // create vector and encode it
     final VarCharVector vector = new VarCharVector("vector", allocator);
     vector.allocateNewSafe();
-    vector.setSafe(0, "bb".getBytes());
-    vector.setSafe(1, "bb".getBytes());
-    vector.setSafe(2, "cc".getBytes());
-    vector.setSafe(3, "aa".getBytes());
+    vector.setSafe(0, "bb".getBytes(StandardCharsets.UTF_8));
+    vector.setSafe(1, "bb".getBytes(StandardCharsets.UTF_8));
+    vector.setSafe(2, "cc".getBytes(StandardCharsets.UTF_8));
+    vector.setSafe(3, "aa".getBytes(StandardCharsets.UTF_8));
     vector.setValueCount(4);
 
     // get the encoded vector
@@ -172,11 +173,11 @@ public class DictionaryTest {
       // create dictionary and provider
       DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
       dictVector.allocateNewSafe();
-      dictVector.setSafe(0, "aa".getBytes());
-      dictVector.setSafe(1, "bb".getBytes());
-      dictVector.setSafe(2, "cc".getBytes());
-      dictVector.setSafe(3, "dd".getBytes());
-      dictVector.setSafe(4, "ee".getBytes());
+      dictVector.setSafe(0, "aa".getBytes(StandardCharsets.UTF_8));
+      dictVector.setSafe(1, "bb".getBytes(StandardCharsets.UTF_8));
+      dictVector.setSafe(2, "cc".getBytes(StandardCharsets.UTF_8));
+      dictVector.setSafe(3, "dd".getBytes(StandardCharsets.UTF_8));
+      dictVector.setSafe(4, "ee".getBytes(StandardCharsets.UTF_8));
       dictVector.setValueCount(5);
       Dictionary dictionary = new Dictionary(dictVector, new DictionaryEncoding(0L, false, /* indexType= */null));
       provider.put(dictionary);

@@ -58,6 +58,7 @@ public class MemoryUtil {
   public static final boolean LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
 
   // Java 1.8, 9, 11, 17, 21 becomes 1, 9, 11, 17, and 21.
+  @SuppressWarnings("StringSplitter")
   private static final int majorVersion =
       Integer.parseInt(System.getProperty("java.specification.version").split("\\D+")[0]);
 

@@ -36,15 +36,15 @@ public class TestEndianness {
     final ByteBuf b = NettyArrowBuf.unwrapBuffer(a.buffer(4));
     b.setInt(0, 35);
     if (ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN) {
-      assertEquals(b.getByte(0), 35);
-      assertEquals(b.getByte(1), 0);
-      assertEquals(b.getByte(2), 0);
-      assertEquals(b.getByte(3), 0);
+      assertEquals(35, b.getByte(0));
+      assertEquals(0, b.getByte(1));
+      assertEquals(0, b.getByte(2));
+      assertEquals(0, b.getByte(3));
     } else {
-      assertEquals(b.getByte(0), 0);
-      assertEquals(b.getByte(1), 0);
-      assertEquals(b.getByte(2), 0);
-      assertEquals(b.getByte(3), 35);
+      assertEquals(0, b.getByte(0));
+      assertEquals(0, b.getByte(1));
+      assertEquals(0, b.getByte(2));
+      assertEquals(35, b.getByte(3));
     }
     b.release();
     a.close();
