@@ -922,7 +922,7 @@ TEST_F(TestS3FS, CreateDir) {
 
   // New "directory"
   AssertFileInfo(fs_.get(), "bucket/newdir", FileType::NotFound);
-  ASSERT_OK(fs_->CreateDir("bucket/newdir", false));
+  ASSERT_OK(fs_->CreateDir("bucket/newdir", /*recursive=*/ false));
   AssertFileInfo(fs_.get(), "bucket/newdir", FileType::Directory);
 
   // By default CreateDir uses recursvie mode, make it explictly to be false
@@ -947,7 +947,7 @@ TEST_F(TestS3FS, CreateDir) {
   // check existing before creation
   options_.check_directory_existence_before_creation = true;
   MakeFileSystem();
-  /// New "directory" again
+  // New "directory" again
   AssertFileInfo(fs_.get(), "bucket/checknewdir", FileType::NotFound);
   ASSERT_OK(fs_->CreateDir("bucket/checknewdir"));
   AssertFileInfo(fs_.get(), "bucket/checknewdir", FileType::Directory);
@@ -955,13 +955,13 @@ TEST_F(TestS3FS, CreateDir) {
   ASSERT_RAISES(IOError, fs_->CreateDir("bucket/checknewdir/newsub/newsubsub/newsubsub/",
                                         /*recursive=*/false));
 
-  /// New "directory" again, recursive
+  // New "directory" again, recursive
   ASSERT_OK(fs_->CreateDir("bucket/checknewdir/newsub/newsubsub", /*recursive=*/true));
   AssertFileInfo(fs_.get(), "bucket/checknewdir/newsub", FileType::Directory);
   AssertFileInfo(fs_.get(), "bucket/checknewdir/newsub/newsubsub", FileType::Directory);
   AssertFileInfo(fs_.get(), "bucket/checknewdir/newsub/newsubsub/newsubsub",
                  FileType::NotFound);
-  //// Try creation with the same name
+  // Try creation with the same name
   ASSERT_OK(fs_->CreateDir("bucket/checknewdir/newsub/newsubsub/newsubsub/",
                            /*recursive=*/true));
   AssertFileInfo(fs_.get(), "bucket/checknewdir/newsub", FileType::Directory);

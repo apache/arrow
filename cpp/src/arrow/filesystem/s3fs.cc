@@ -2880,7 +2880,7 @@ Status S3FileSystem::CreateDir(const std::string& s, bool recursive) {
         ARROW_ASSIGN_OR_RAISE(file_info,
                               this->GetFileInfo(path.bucket + kSep + parent_key));
         if (file_info.type() != FileType::NotFound) {
-          /// Found!
+          // Found!
           break;
         } else {
           // remove the kSep and the part
