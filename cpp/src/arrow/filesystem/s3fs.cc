@@ -2860,6 +2860,7 @@ Status S3FileSystem::CreateDir(const std::string& s, bool recursive) {
     return impl_->CreateBucket(path.bucket);
   }
 
+  FileInfo file_info;
   // Create object
   if (recursive) {
     // Ensure bucket exists
@@ -2867,10 +2868,33 @@ Status S3FileSystem::CreateDir(const std::string& s, bool recursive) {
     if (!bucket_exists) {
       RETURN_NOT_OK(impl_->CreateBucket(path.bucket));
     }
+
+    auto key_i = path.key_parts.begin();
+    std::string parent_key{};
+    if (options().check_directory_existence_before_creation) {
+      // Walk up the directory first to find the first existing parent
+      for (const auto& part : path.key_parts) {
+        parent_key += part;
+        parent_key += kSep;
+      }
+      for (key_i = path.key_parts.end(); key_i-- != path.key_parts.begin();) {
+        ARROW_ASSIGN_OR_RAISE(file_info,
+                              this->GetFileInfo(path.bucket + kSep + parent_key));
+        if (file_info.type() != FileType::NotFound) {
+          // Found!
+          break;
+        } else {
+          // remove the kSep and the part
+          parent_key.pop_back();
+          parent_key.erase(parent_key.end() - key_i->size(), parent_key.end());
+        }
+      }
+      key_i++;  // Above for loop moves one extra iterator at the end
+    }
     // Ensure that all parents exist, then the directory itself
-    std::string parent_key;
-    for (const auto& part : path.key_parts) {
-      parent_key += part;
+    // Create all missing directories
+    for (; key_i < path.key_parts.end(); ++key_i) {
+      parent_key += *key_i;
       parent_key += kSep;
       RETURN_NOT_OK(impl_->CreateEmptyDir(path.bucket, parent_key));
     }
@@ -2888,11 +2912,18 @@ Status S3FileSystem::CreateDir(const std::string& s, bool recursive) {
                                "': parent directory does not exist");
       }
     }
-
-    // XXX Should we check that no non-directory entry exists?
-    // Minio does it for us, not sure about other S3 implementations.
-    return impl_->CreateEmptyDir(path.bucket, path.key);
   }
+
+  // Check if the directory exists already
+  if (options().check_directory_existence_before_creation) {
+    ARROW_ASSIGN_OR_RAISE(file_info, this->GetFileInfo(path.full_path));
+    if (file_info.type() != FileType::NotFound) {
+      return Status::OK();
+    }
+  }
+  // XXX Should we check that no non-directory entry exists?
+  // Minio does it for us, not sure about other S3 implementations.
+  return impl_->CreateEmptyDir(path.bucket, path.key);
 }
 
 Status S3FileSystem::DeleteDir(const std::string& s) {
