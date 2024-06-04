@@ -1374,7 +1374,7 @@ TEST_F(TestMapArray, FromArrays) {
                                                        offsets3->data()->buffers[0]));
   ASSERT_OK(map7->Validate());
   MapArray expected7(map_type, length, offsets1->data()->buffers[1], keys, items,
-                     offsets3->data()->buffers[0], 1);
+                     offsets3->data()->buffers[0], 3);
   AssertArraysEqual(expected7, *map7);
 
   // Null bitmap and offset with null
