@@ -63,11 +63,13 @@ class DynamicLibrary:
             names.append(name)
         return names
 
-    def _remove_weak_symbols(self, symbol_info):
+    @classmethod
+    def _remove_weak_symbols(cls, symbol_info):
         return [line for line in symbol_info if not line.endswith(
             (" v", " V", " w", " W"))]
 
-    def _remove_symbol_versions(self, symbol_info):
+    @classmethod
+    def _remove_symbol_versions(cls, symbol_info):
         return [line.split('@')[0].strip() for line in symbol_info]
 
     def list_symbols_for_dependency(self, dependency, remove_symbol_versions=False):
@@ -80,9 +82,8 @@ class DynamicLibrary:
             lines = self._remove_symbol_versions(lines)
         return self._remove_weak_symbols(lines)
 
-    def list_undefined_symbols_for_dependency(self, dependency,
-                                              remove_symbol_versions=False):
-        result = _nm.run('-u', '-P', dependency, stdout=subprocess.PIPE)
+    def list_undefined_symbols_for_dependency(self, remove_symbol_versions=False):
+        result = _nm.run('-u', '-P', self.path, stdout=subprocess.PIPE)
         lines = result.stdout.decode('utf-8').splitlines()
         if remove_symbol_versions:
             lines = self._remove_symbol_versions(lines)
@@ -115,27 +116,26 @@ class DynamicLibrary:
             raise NotImplementedError(f"{system} is not supported")
         return paths
 
+    def check_undefined_symbols(self):
+        # Check for undefined symbols
+        undefined_symbols = self.list_undefined_symbols_for_dependency(
+            remove_symbol_versions=True)
+        expected_lib_paths = self.extract_library_paths(self.path)
+        all_paths = list(expected_lib_paths.values())
 
-def _check_undefined_symbols(dylib):
-    # Check for undefined symbols
-    undefined_symbols = dylib.list_undefined_symbols_for_dependency(
-        dylib.path, remove_symbol_versions=True)
-    expected_lib_paths = dylib.extract_library_paths(dylib.path)
-    all_paths = list(expected_lib_paths.values())
+        for lib_path in all_paths:
+            if lib_path:
+                expected_symbols = set(self.list_symbols_for_dependency(
+                    lib_path, remove_symbol_versions=True))
+                undefined_symbols = [
+                    symbol for symbol in undefined_symbols
+                    if symbol not in expected_symbols]
 
-    for lib_path in all_paths:
-        if lib_path:
-            expected_symbols = dylib.list_symbols_for_dependency(
-                lib_path, remove_symbol_versions=True)
-            undefined_symbols = [
-                symbol for symbol in undefined_symbols
-                if symbol not in expected_symbols]
-
-    if undefined_symbols:
-        undefined_symbols_str = '\n'.join(undefined_symbols)
-        raise DependencyError(
-            f"Undefined symbols found in {dylib.path}:\n{undefined_symbols_str}"
-        )
+        if undefined_symbols:
+            undefined_symbols_str = '\n'.join(undefined_symbols)
+            raise DependencyError(
+                f"Undefined symbols found in {self.path}:\n{undefined_symbols_str}"
+            )
 
 
 def check_dynamic_library_dependencies(path, allowed, disallowed):
@@ -154,7 +154,7 @@ def check_dynamic_library_dependencies(path, allowed, disallowed):
     system = platform.system()
 
     if system == 'Linux':
-        _check_undefined_symbols(dylib)
+        dylib.check_undefined_symbols()
     elif system == 'Darwin':
         # TODO: Implement undefined symbol checking for macOS
         # https://github.com/apache/arrow/issues/40965
