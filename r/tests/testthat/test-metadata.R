@@ -149,6 +149,30 @@ arbitrary\040code\040was\040just\040executed
   )
 })
 
+test_that("Complex or unsafe attributes are pruned from R metadata, if they exist", {
+  tab <- Table$create(example_data[1:6])
+  bad <- new.env()
+  makeActiveBinding("class", function() stop("This should not run"), bad)
+  tab$metadata <- list(r = rawToChar(serialize(list(attributes = bad), NULL, ascii = TRUE)))
+  expect_warning(
+    as.data.frame(tab),
+    "Potentially unsafe elements have been discarded from R metadata.
+i If you trust the source, you can set `options(arrow.unsafe_metadata = TRUE)` to preserve them.",
+    fixed = TRUE
+  )
+  # You can set an option to allow them through.
+  # It still warns, just differently, and it doesn't prune the attributes
+  withr::local_options(list("arrow.unsafe_metadata" = TRUE))
+  expect_warning(
+    expect_warning(
+      as.data.frame(tab),
+      "R metadata may have unsafe elements"
+    ),
+    # This particular example ultimately fails because it's not a list
+    "Invalid metadata$r",
+    fixed = TRUE
+  )
+})
 
 test_that("Metadata serialization compression", {
   # attributes that (when serialized) are just under 100kb are not compressed,
