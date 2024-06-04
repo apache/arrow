@@ -161,33 +161,5 @@
         </plugins>
       </build>
     </profile>
-    <profile>
-      <id>error-prone-jdk8</id>
-      <activation>
-        <jdk>1.8</jdk>
-      </activation>
-      <!-- dependencies for JDK 8 -->
-      <dependencies>
-        <dependency>
-          <groupId>com.google.errorprone</groupId>
-          <artifactId>error_prone_annotations</artifactId>
-          <version>${error_prone_annotations.version.jdk8}</version>
-        </dependency>
-      </dependencies>
-    </profile>
-    <profile>
-      <id>error-prone-jdk11+</id>
-      <activation>
-        <jdk>[11,)</jdk>
-      </activation>
-      <!-- dependencies for JDK 11 and above -->
-      <dependencies>
-        <dependency>
-          <groupId>com.google.errorprone</groupId>
-          <artifactId>error_prone_annotations</artifactId>
-          <version>${error_prone_annotations.version.jdk11}</version>
-        </dependency>
-      </dependencies>
-    </profile>
   </profiles>
 </project>

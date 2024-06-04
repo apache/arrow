@@ -36,9 +36,6 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.immutables.value.Value;
 
-import com.google.errorprone.annotations.FormatMethod;
-import com.google.errorprone.annotations.FormatString;
-
 /**
  * A base-class that implements all functionality of {@linkplain BufferAllocator}s.
  *
@@ -535,8 +532,9 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
     return sb.toString();
   }
 
-  @FormatMethod
-  private void hist(@FormatString String noteFormat, Object... args) {
+  /* Remove @SuppressWarnings after fixing https://github.com/apache/arrow/issues/41951 */
+  @SuppressWarnings("FormatStringAnnotation")
+  private void hist(String noteFormat, Object... args) {
     if (historicalLog != null) {
       historicalLog.recordEvent(noteFormat, args);
     }
