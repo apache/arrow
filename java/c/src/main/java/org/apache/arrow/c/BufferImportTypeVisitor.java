@@ -251,15 +251,17 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
       final int elementSize = BaseVariableWidthViewVector.ELEMENT_SIZE;
       final int lengthWidth = BaseVariableWidthViewVector.LENGTH_WIDTH;
       final int prefixWidth = BaseVariableWidthViewVector.PREFIX_WIDTH;
+      final int lengthPrefixWidth = lengthWidth + prefixWidth;
       // Map to store the data buffer index and the total length of data in that buffer
       Map<Integer, Long> dataBufferInfo = new HashMap<>();
       for (int i = 0; i < fieldNode.getLength(); i++) {
         final int length = view.getInt((long) i * elementSize);
         if (length > BaseVariableWidthViewVector.INLINE_SIZE) {
-          assert maybeValidityBuffer != null;
+          checkState(maybeValidityBuffer != null,
+              "Validity buffer is required for data of type " + type);
           if (BitVectorHelper.get(maybeValidityBuffer, i) == 1) {
             final int bufferIndex =
-                view.getInt(((long) i * elementSize) + lengthWidth + prefixWidth);
+                view.getInt(((long) i * elementSize) + lengthPrefixWidth);
             if (dataBufferInfo.containsKey(bufferIndex)) {
               dataBufferInfo.compute(bufferIndex, (key, value) -> value != null ? value + (long) length : 0);
             } else {
@@ -268,7 +270,7 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
           }
         }
       }
-      // fixed buffers for Utf8View or BinaryView are validity and view buffers
+      // fixed buffers for Utf8View or BinaryView are the validity buffer and the view buffer.
       final int fixedBufferCount = 2;
       // import data buffers
       for (Map.Entry<Integer, Long> entry : dataBufferInfo.entrySet()) {
