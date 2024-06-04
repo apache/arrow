@@ -171,16 +171,16 @@ convenience:
 
 * \(1) Type parameters listed in *italics* denote a data type's child types.
 
-* \(2) Whether a Union type uses the Sparse or Dense layout is denoted by its
-  *mode* parameter.
-
-* \(3) The *bit width* parameter of a Time type is technically redundant as
+* \(2) The *bit width* parameter of a Time type is technically redundant as
   each *unit* mandates a single bit width.
+
+* \(3) Whether a Union type uses the Sparse or Dense layout is denoted by its
+  *mode* parameter.
 
 * \(4) The *index type* of a Dictionary type can only be a signed integer type
   with width 8 to 64 bits.
 
-* \(5) The *run-end type* of a Dictionary type can only be a signed integer type
+* \(5) The *run end type* of a Run-End Encoded type can only be a signed integer type
   with width 16 to 64 bits.
 
 .. note::
@@ -191,8 +191,8 @@ convenience:
    logical types.
 
    The Arrow type system separately provides
-   :ref:`exception types <format_metadata_extension_types>`, which allow
-   adorning standard Arrow data types with richer application-facing semantics
+   :ref:`extension types <format_metadata_extension_types>`, which allow
+   annotating standard Arrow data types with richer application-facing semantics
    (for example defining a "JSON" type laid upon the standard String data type).
 
 
