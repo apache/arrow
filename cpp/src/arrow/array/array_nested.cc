@@ -851,7 +851,7 @@ Result<std::shared_ptr<Array>> MapArray::FromArraysInternal(
   int64_t null_count = 0;
   if (null_bitmap) {
     buffers[0] = std::move(null_bitmap);
-    null_count = internal::CountSetBits(null_bitmap->data(), 0, offsets->length());
+    null_count = -1;
   }
   buffers[1] = typed_offsets.values();
   return std::make_shared<MapArray>(type, offsets->length() - 1, std::move(buffers), keys,
