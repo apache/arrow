@@ -156,8 +156,9 @@ test_that("Complex or unsafe attributes are pruned from R metadata, if they exis
   tab$metadata <- list(r = rawToChar(serialize(list(attributes = bad), NULL, ascii = TRUE)))
   expect_warning(
     as.data.frame(tab),
-    "Potentially unsafe elements have been discarded from R metadata.
-i If you trust the source, you can set `options(arrow.unsafe_metadata = TRUE)` to preserve them.",
+    "Potentially unsafe or invalid elements have been discarded from R metadata.
+i Type: \"environment\"
+> If you trust the source, you can set `options(arrow.unsafe_metadata = TRUE)` to preserve them.",
     fixed = TRUE
   )
   # You can set an option to allow them through.
@@ -166,7 +167,8 @@ i If you trust the source, you can set `options(arrow.unsafe_metadata = TRUE)` t
   expect_warning(
     expect_warning(
       as.data.frame(tab),
-      "R metadata may have unsafe elements"
+      "R metadata may have unsafe or invalid elements
+i Type: \"environment\""
     ),
     # This particular example ultimately fails because it's not a list
     "Invalid metadata$r",

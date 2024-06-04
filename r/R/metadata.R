@@ -89,7 +89,7 @@ safe_r_metadata <- function(metadata, on_save = FALSE) {
   # This function recurses through the list x and checks that all elements are
   # of types that are allowed in R metadata. If it finds an element that is not
   # allowed, it removes it. If any elements are removed, warn at the end.
-  any_removed <- FALSE
+  types_removed <- c()
   # Internal function that we'll recursively apply,
   # and mutate the `any_removed` variable outside of it
   check_r_metadata_types_recursive <- function(x) {
@@ -99,7 +99,7 @@ safe_r_metadata <- function(metadata, on_save = FALSE) {
       x[types == "list"] <- map(x[types == "list"], check_r_metadata_types_recursive)
       ok <- types %in% allowed_types
       if (!all(ok)) {
-        any_removed <<- TRUE
+        types_removed <<- c(types_removed, setdiff(types, allowed_types))
         x <- x[ok]
       }
     }
@@ -112,15 +112,22 @@ safe_r_metadata <- function(metadata, on_save = FALSE) {
     return(new)
   }
   # On load: warn if any elements were removed
-  if (any_removed) {
+  if (length(types_removed)) {
+    types_msg <- paste("Type:", oxford_paste(unique(types_removed)))
     if (getOption("arrow.unsafe_metadata", FALSE)) {
       # We've opted-in to unsafe metadata, so warn but return the original metadata
-      rlang::warn("R metadata may have unsafe elements")
+      rlang::warn(
+        "R metadata may have unsafe or invalid elements",
+        body = c("i" = types_msg)
+      )
       new <- metadata
     } else {
       rlang::warn(
-        "Potentially unsafe elements have been discarded from R metadata.",
-        body = c("i" = "If you trust the source, you can set `options(arrow.unsafe_metadata = TRUE)` to preserve them.")
+        "Potentially unsafe or invalid elements have been discarded from R metadata.",
+        body = c(
+          "i" = types_msg,
+          ">" = "If you trust the source, you can set `options(arrow.unsafe_metadata = TRUE)` to preserve them."
+        )
       )
     }
   }
