@@ -160,6 +160,10 @@ class GatherBaseCRTP {
   }
 };
 
+// A gather primitive for primitive fixed-width types with a integral byte width. If
+// `kWithFactor` is true, the actual width is a runtime multiple of `kValueWidthInbits`
+// (this can be useful for fixed-size list inputs and other input types with unusual byte
+// widths that don't deserve value specialization).
 template <int kValueWidthInBits, typename IndexCType, bool kWithFactor>
 class Gather : public GatherBaseCRTP<Gather<kValueWidthInBits, IndexCType, kWithFactor>> {
  public:
@@ -240,6 +244,8 @@ class Gather : public GatherBaseCRTP<Gather<kValueWidthInBits, IndexCType, kWith
   }
 };
 
+// A gather primitive for boolean inputs. Unlike its counterpart above,
+// this does not support passing a non-trivial factor parameter.
 template <typename IndexCType>
 class Gather</*kValueWidthInBits=*/1, IndexCType, /*kWithFactor=*/false>
     : public GatherBaseCRTP<Gather<1, IndexCType, false>> {
