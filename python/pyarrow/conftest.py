@@ -25,7 +25,10 @@ from pyarrow.lib import is_threading_enabled
 from pyarrow.tests.util import windows_has_tzdata
 import sys
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    pass
 
 groups = [
     'acero',
@@ -46,6 +49,7 @@ groups = [
     'lz4',
     'memory_leak',
     'nopandas',
+    'numpy',
     'orc',
     'pandas',
     'parquet',
@@ -81,6 +85,7 @@ defaults = {
     'lz4': Codec.is_available('lz4'),
     'memory_leak': False,
     'nopandas': False,
+    'numpy': False,
     'orc': False,
     'pandas': False,
     'parquet': False,
@@ -157,6 +162,12 @@ try:
     defaults['pandas'] = True
 except ImportError:
     defaults['nopandas'] = True
+
+try:
+    import numpy  # noqa
+    defaults['numpy'] = True
+except ImportError:
+    pass
 
 try:
     import pyarrow.parquet  # noqa

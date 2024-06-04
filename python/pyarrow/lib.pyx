@@ -40,7 +40,9 @@ cimport cpython as cp
 
 def initialize_numpy():
     if "numpy" in sys.modules:
-        arrow_init_numpy()
+        arrow_init_numpy(True)
+    else:
+        arrow_init_numpy(False)
 
 
 initialize_numpy()

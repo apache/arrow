@@ -1282,7 +1282,9 @@ services:
     environment:
       <<: [*common, *ccache, *sccache]
       PARQUET_REQUIRE_ENCRYPTION:  # inherit
-      PYTEST_ARGS:  # inherit
+      # In the future we are supposed to run all tests.
+      # This is only temporary.
+      TEST_COMMAND:  "pytest -r s --pyargs pyarrow.tests.test_array"
       HYPOTHESIS_PROFILE:  # inherit
       PYARROW_TEST_HYPOTHESIS:  # inherit
     volumes: *conda-volumes
@@ -1291,7 +1293,7 @@ services:
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         pip uninstall numpy -y &&
-        python -c 'import pyarrow as pa; arr = pa.array([1,2,3]); assert len(arr.buffers()) == 2'"]
+        /arrow/ci/scripts/python_test.sh /arrow"]
 
   conda-python-docs:
     # Usage:

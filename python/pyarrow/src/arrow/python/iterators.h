@@ -21,6 +21,7 @@
 
 #include "arrow/array/array_primitive.h"
 
+#include "arrow/python/init.h"
 #include "arrow/python/common.h"
 #include "arrow/python/numpy_internal.h"
 
@@ -44,8 +45,7 @@ inline Status VisitSequenceGeneric(PyObject* obj, int64_t offset, VisitorFunc&& 
   // VisitorFunc may set to false to terminate iteration
   bool keep_going = true;
 
-#ifdef NUMPY_IMPORT_ARRAY
-  if (PyArray_Check(obj)) {
+  if (get_numpy_imported() && PyArray_Check(obj)) {
     PyArrayObject* arr_obj = reinterpret_cast<PyArrayObject*>(obj);
     if (PyArray_NDIM(arr_obj) != 1) {
       return Status::Invalid("Only 1D arrays accepted");
@@ -65,7 +65,6 @@ inline Status VisitSequenceGeneric(PyObject* obj, int64_t offset, VisitorFunc&& 
     // This code path is inefficient: callers should implement dedicated
     // logic for non-object arrays.
   }
-#endif
 
   if (PySequence_Check(obj)) {
     if (PyList_Check(obj) || PyTuple_Check(obj)) {
@@ -104,7 +103,7 @@ inline Status VisitSequence(PyObject* obj, int64_t offset, VisitorFunc&& func) {
 template <class VisitorFunc>
 inline Status VisitSequenceMasked(PyObject* obj, PyObject* mo, int64_t offset,
                                   VisitorFunc&& func) {
-  if (PyArray_Check(mo)) {
+  if (get_numpy_imported() && PyArray_Check(mo)) {
     PyArrayObject* mask = reinterpret_cast<PyArrayObject*>(mo);
     if (PyArray_NDIM(mask) != 1) {
       return Status::Invalid("Mask must be 1D array");

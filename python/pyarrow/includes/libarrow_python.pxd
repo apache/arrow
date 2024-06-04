@@ -249,7 +249,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py::internal" nogil:
 
 
 cdef extern from "arrow/python/init.h":
-    int arrow_init_numpy() except -1
+    int arrow_init_numpy(c_bool import_numpy) except -1
 
 
 cdef extern from "arrow/python/pyarrow.h" namespace "arrow::py":

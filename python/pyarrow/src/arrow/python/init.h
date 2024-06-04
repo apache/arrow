@@ -22,5 +22,6 @@
 
 extern "C" {
 ARROW_PYTHON_EXPORT
-int arrow_init_numpy();
+int arrow_init_numpy(bool import_numpy);
+bool get_numpy_imported();
 }
