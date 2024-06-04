@@ -3441,4 +3441,60 @@ public class TestValueVector {
     }
     target.close();
   }
+
+  @Test
+  public void testVectorLoadUnloadOnNonVariadicVectors() {
+
+    try (final IntVector vector1 = new IntVector("myvector", allocator)) {
+
+      setVector(vector1, 1, 2, 3, 4, 5, 6);
+      vector1.setValueCount(15);
+
+      /* Check the vector output */
+      assertEquals(1, vector1.get(0));
+      assertEquals(2, vector1.get(1));
+      assertEquals(3, vector1.get(2));
+      assertEquals(4, vector1.get(3));
+      assertEquals(5, vector1.get(4));
+      assertEquals(6, vector1.get(5));
+
+      Field field = vector1.getField();
+      String fieldName = field.getName();
+
+      List<Field> fields = new ArrayList<>();
+      List<FieldVector> fieldVectors = new ArrayList<>();
+
+      fields.add(field);
+      fieldVectors.add(vector1);
+
+      Schema schema = new Schema(fields);
+
+      VectorSchemaRoot schemaRoot1 = new VectorSchemaRoot(schema, fieldVectors, vector1.getValueCount());
+      VectorUnloader vectorUnloader = new VectorUnloader(schemaRoot1);
+
+      try (
+          ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
+          BufferAllocator finalVectorsAllocator = allocator.newChildAllocator("new vector", 0, Long.MAX_VALUE);
+          VectorSchemaRoot schemaRoot2 = VectorSchemaRoot.create(schema, finalVectorsAllocator);
+      ) {
+
+        // validating recordBatch doesn't contain an output for variadicBufferCounts
+        assertTrue(recordBatch.getVariadicBufferCounts().isEmpty());
+
+        VectorLoader vectorLoader = new VectorLoader(schemaRoot2);
+        vectorLoader.load(recordBatch);
+
+        IntVector vector2 = (IntVector) schemaRoot2.getVector(fieldName);
+        vector2.setValueCount(25);
+
+        /* Check the vector output */
+        assertEquals(1, vector2.get(0));
+        assertEquals(2, vector2.get(1));
+        assertEquals(3, vector2.get(2));
+        assertEquals(4, vector2.get(3));
+        assertEquals(5, vector2.get(4));
+        assertEquals(6, vector2.get(5));
+      }
+    }
+  }
 }
