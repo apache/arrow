@@ -35,6 +35,7 @@ source $WORKDIR/venv/bin/activate
 git config --global --add safe.directory $ARROW_ROOT
 
 pip install -r $ARROW_ROOT/python/requirements-build.txt
+pip install wheel
 
 #----------------------------------------------------------------------
 # Build C++ library
