@@ -139,12 +139,17 @@ This applies the style to all pom.xml files under the current directory or from 
 .. _Apache Maven pom.xml guidelines: https://maven.apache.org/developers/conventions/code.html#pom-code-convention
 
 
-Error Prone
-===========
+Build Caching
+=============
 
-In relation to code formatting and standards, ``Error Prone`` compiler analysis may use cache to avoid
-showing the warnings if attempted re-run of ``mvn clean install``. To avoid the cache to include the
-warnings, use ``mvn clean install -Ddevelocity.cache.local.enabled=false -Ddevelocity.cache.remote.enabled=false``
-instead.
+Build caching is done through Develocity (formerly Maven Enterprise).  To force
+a build without the cache, run::
 
-Also note that Error Prone must be disabled for auto generated content.
+    mvn clean install -Ddevelocity.cache.local.enabled=false -Ddevelocity.cache.remote.enabled=false
+
+This can be useful to make sure you see all warnings from ErrorProne, for example.
+
+ErrorProne
+==========
+
+ErrorProne should be disabled for generated code.
