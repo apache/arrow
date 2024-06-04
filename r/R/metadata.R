@@ -44,7 +44,7 @@
 }
 
 .deserialize_arrow_r_metadata <- function(x) {
-  tryCatch(safe_unserialize_ascii(x),
+  tryCatch(unserialize_r_metadata(x),
     error = function(e) {
       if (getOption("arrow.debug", FALSE)) {
         print(conditionMessage(e))
@@ -55,45 +55,34 @@
   )
 }
 
-safe_unserialize_ascii <- function(x) {
-  # First, check if we can call unserialize() at all
-  # By default, we only call unserialize() in R 4.4.0 or newer
-  # but you can enable it in older versions by setting the option
-  r_4.4_or_newer <- getRversion() >= "4.4"
-  if (!isTRUE(getOption("arrow.unserialize_metadata", r_4.4_or_newer))) {
-    opts <- c(">" = "To enable, set `options(arrow.unserialize_metadata = TRUE)`")
-    if (!r_4.4_or_newer) {
-      opts <- c(
-        opts,
-        ">" = "Or, upgrade to R 4.4.0 or newer"
-      )
-    }
-    rlang::warn(
-      "Unserialization of R metadata is disabled.",
-      body = opts,
-      .frequency = "once",
-      .frequency_id = "arrow.unserialize_metadata"
-    )
-    return(NULL)
-  }
-
+unserialize_r_metadata <- function(x) {
   # Check that this is ASCII serialized data (as in, what we wrote)
   if (!identical(substr(unclass(x), 1, 1), "A")) {
     stop("Invalid serialized data")
   }
-  out <- unserialize(charToRaw(x))
+  out <- safe_unserialize(charToRaw(x))
   # If it's still raw, check for the gzip magic number and uncompress
   if (is.raw(out) && identical(out[1:2], as.raw(c(31, 139)))) {
     decompressed <- memDecompress(out, type = "gzip")
     if (!identical(substr(decompressed, 1, 1), "A")) {
       stop("Invalid serialized data")
     }
-    out <- unserialize(decompressed)
+    out <- safe_unserialize(decompressed)
   }
   if (!is.list(out)) {
     stop("Invalid serialized data")
   }
   safe_r_metadata(out)
+}
+
+safe_unserialize <- function(x) {
+  # By capturing the data in a list, we can inspect it for promises without
+  # triggering their evaluation.
+  out <- list(unserialize(x))
+  if (typeof(out[[1]]) == "promise") {
+    stop("Serialized data contains a promise object")
+  }
+  out[[1]]
 }
 
 safe_r_metadata <- function(metadata, on_save = FALSE) {

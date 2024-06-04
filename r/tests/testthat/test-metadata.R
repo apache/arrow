@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-withr::local_options(list(arrow.unserialize_metadata = TRUE))
-
 test_that("Schema metadata", {
   s <- schema(b = double())
   expect_equal(s$metadata, empty_named_list())
@@ -118,31 +116,39 @@ test_that("Garbage R metadata doesn't break things", {
     "Invalid metadata$r",
     fixed = TRUE
   )
-})
 
-test_that("On older R versions, metadata serialization is off by default", {
-  skip_if(getRversion() >= "4.4")
-
-  rlang::reset_warning_verbosity("arrow.unserialize_metadata")
-  op <- options(arrow.unserialize_metadata = NULL)
-  on.exit(options(op))
-
-  tab <- Table$create(example_with_metadata)
-  expect_warning(
-    expect_null(tab$metadata$r),
-    "Unserialization of R metadata is disabled.
-> To enable, set `options(arrow.unserialize_metadata = TRUE)`
-> Or, upgrade to R 4.4.0 or newer",
-    fixed = TRUE
-  )
-  rlang::reset_warning_verbosity("arrow.unserialize_metadata")
-
-  options(arrow.unserialize_metadata = TRUE)
-  expect_warning(
-    expect_type(tab$metadata$r, "list"),
+  # https://hiddenlayer.com/research/r-bitrary-code-execution/
+  tab$metadata <- list(r = "A
+3
+262913
+197888
+5
+UTF-8
+5
+252
+6
+1
+262153
+7
+message
+2
+16
+1
+262153
+32
+arbitrary\040code\040was\040just\040executed
+254
+")
+  expect_message(
+    expect_warning(
+      as.data.frame(tab),
+      "Invalid metadata$r",
+      fixed = TRUE
+    ),
     NA
   )
 })
+
 
 test_that("Metadata serialization compression", {
   # attributes that (when serialized) are just under 100kb are not compressed,
