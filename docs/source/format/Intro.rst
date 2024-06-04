@@ -57,18 +57,18 @@ are adjacent in the computer memory:
 
 In a columnar format, on the other hand, the data is organised by column
 instead of by row making analytical operations like filtering, grouping,
-aggregations and others much more efficient. CPU can maintain memory locality
+aggregations and others more efficient because the CPU can maintain memory locality
 and require less memory jumps to process the data. By keeping the data contiguous
 in memory it also enables vectorization of the computations. Most modern
 CPUs have single instructions, multiple data (SIMD) enabling parallel
-processing and execution of instructions on vector data in single CPU
-instructions.
+processing and execution of operations on vector data using a single CPU
+instruction.
 
 .. figure:: ./images/columnar-diagram_3.svg
    :alt: Tabular data being structured column by column in computer memory.
 
 The column is called an ``Array`` in Arrow terminology. Arrays can be of
-different types and the way their values are stored in memory varies between
+different types and the way their values are stored in memory varies among
 types. The specification of how these values are arranged in memory is what we
 call a ``physical memory layout``. One contiguous region of memory that stores
 data for arrays is called a ``Buffer``.
@@ -82,11 +82,11 @@ in an array may be semantically null, whether primitive or nested type.
 
 In Arrow, a dedicated buffer, known as the validity (or "null") bitmap,
 is used alongside the data indicating whether each value in the array is
-null or not. You can think of it as vector of 0 and 1 values, where a 1
-means that the value is not-null ("valid"), while a 0 indicates the value
+null or not: a value of 1
+means that the value is not-null ("valid"), whereas a value of 0 indicates that the value
 is null.
 
-This validity bitmap is optional, i.e. if there are no missing values in
+This validity bitmap is optional: if there are no missing values in
 the array the buffer does not need to be allocated (as in the example
 column 1 in the diagram below).
 
@@ -98,7 +98,7 @@ Fixed Size Primitive Layout
 
 A primitive column represents an array of values where each value
 has the same physical size measured in bytes. Data types that share the
-same fixed size primitive layout are for example signed and unsigned
+same fixed size primitive layout are, for example, signed and unsigned
 integer types, floating point numbers, boolean, decimal and temporal
 types.
 
@@ -124,7 +124,7 @@ types.
 
 .. note::
    Arrow also has a concept of Null type where all values are null. In
-   this case no memory buffers are allocated.
+   this case no buffers are allocated.
 
 Variable length binary and string
 ---------------------------------
@@ -132,8 +132,8 @@ Variable length binary and string
 The bytes of a binary or string column are stored together consecutively
 in a single buffer or region of memory. To know where each element of the
 column starts and ends the physical layout also includes integer offsets.
-The length of the offset buffer is one more than the length of the values
-buffer as the last two elements define the start and the end of the last
+The number of elements of the offset buffer is one more than the length of the
+array as the last two elements define the start and the end of the last
 element in the binary/string column.
 
 Binary and string types share the same physical layout. The one difference
@@ -165,7 +165,7 @@ layout used in `DuckDB`_ and `Velox`_ (and sometimes also called "German style s
 .. _Velox: https://velox-lib.io/
 The main differences to classical binary and string layout is the views buffer.
 It includes the length of the string, and then either contains the characters
-inline (for small strings) or only the first 4 bytes of the string and point to a location in one of
+inline (for small strings) or only the first 4 bytes of the string and an offset into one of
 potentially several data buffers. It also supports binary and strings to be written
 out of order.
 
@@ -261,7 +261,7 @@ the child array.
 Map
 ---
 
-Map type represents nested data where each value is a variable number of
+The Map type represents nested data where each value is a variable number of
 key-value pairs. Its physical representation is the same as a list of ``{key, value}``
 structs.
 
@@ -270,9 +270,9 @@ in the schema, requiring keys to be strings, and the values are stored in in the
 child arrays,
 one for each field. There can be multiple keys and therefore multiple child arrays.
 The map, on the other hand, has one child array holding all the different keys (that
-thus all need to be of the same type but not necessarily strings) and a second
-child array holding all the values, those values need to be of the same type (which
-doesn't have to match the one on the keys).
+thus all need to be of the same type, but not necessarily strings) and a second
+child array holding all the values. The values need to be of the same type; however,
+the type doesn't have to match that of the keys.
 
 Also, the map stores the struct in a list and needs an offset as the list is
 variable shape.
@@ -292,15 +292,17 @@ from a subset of possible Arrow data types. That means that a union array repres
 mixed-type array. Unlike other data types, unions do not have their own validity bitmap
 and the nullness is determined by the child arrays.
 
-Arrow defines two distinct union types, “dense” and “sparse”.
+Arrow defines two distinct union types, "dense" and "sparse".
 
 Dense Union
 ^^^^^^^^^^^
 
-Dense Union has one child array for each type present in the mixed-type array and
+A Dense Union has one child array for each type present in the mixed-type array and
+two buffers of its own:
 
-* **Types buffer:** holds type id for each slot of the array. Type id corresponds
-  to the number of the child array.
+* **Types buffer:** holds type id for each slot of the array. Type id is frequently
+  the index of the child array; however, the relationship between type ID and 
+  the child index is a parameter of the data type.
 * **Offsets buffer:** holds relative offset into the respective child array for each
   array slot.
 
@@ -315,7 +317,7 @@ Sparse union
 ^^^^^^^^^^^^
 
 A sparse union has the same structure as a dense union, with the omission of the offsets
-array. In this case, the child arrays are each equal in length to the length of the union.
+buffer. In this case, the child arrays are each equal in length to the length of the union.
 
 
 .. figure:: ./images/sparse-union-diagram.svg
@@ -328,7 +330,7 @@ array. In this case, the child arrays are each equal in length to the length of 
 Dictionary Encoded Layout
 =========================
 
-Dictionary encoding can be effective when you have data with many repeated values.
+Dictionary encoding can be effective when one has data with many repeated values.
 The values are represented by integers referencing a dictionary usually consisting of
 unique values.
 
@@ -346,7 +348,9 @@ Run-end encoding is well-suited for representing data containing sequences of th
 same value. These sequences are called runs. Run-end encoded array has no buffers
 by itself, but has two child arrays:
 
-*  **Run ends array:** holds the index in the array where each run ends.
+*  **Run ends array:** holds the index in the array where each run ends. The run ends
+    array always begins with 0 and contains one more element than the length of
+    its parent array.
 *  **Values array:** the actual values without repetitions.
 
 .. figure:: ./images/ree-diagram.svg
@@ -362,7 +366,7 @@ Overview of Arrow Terminology
 =============================
 
 **Physical layout**
-A specification for how to arrange values of an array in memory.
+A specification for how to represent values of an array in memory.
 
 **Buffer**
 A contiguous region of memory with a given length. Buffers are used to store data for arrays.
@@ -379,7 +383,7 @@ the same type. Consists of zero or more arrays, the “chunks”.
    Chunked Array is a concept specific to certain implementations such as Arrow C++ and PyArrow.
 
 **RecordBatch**
-A contiguous, two-dimensional data structure which consist of ordered collection of arrays
+A contiguous, two-dimensional data structure which consists of an ordered collection of arrays
 of the same length.
 
 **Schema**
@@ -405,7 +409,7 @@ Extension Types
 ===============
 
 In case the system or application needs to extend standard Arrow data types with
-custom semantics this is enabled by defining extension types or user-defined types.
+custom semantics, this is enabled by defining extension types.
 
 Examples of an extension type are :ref:`uuid_extension` or
 :ref:`fixed_shape_tensor_extension` extension type.
@@ -437,14 +441,14 @@ Example:
 
 * `GeoArrow`_: A collection of Arrow extension types for representing vector geometries
 
-.. _GeoArrow: https://github.com/geoarrow/geoarrow
+.. _GeoArrow: https://geoarrow.org
 
 Sharing Arrow data
 ==================
 
 Arrow memory layout is meant to be a universal standard for representing tabular data in memory,
-not tied to a specific implementation. Next step is the specification for sharing the data
-in Arrow format that is well-defined and unambiguous between applications.
+not tied to a specific implementation. The Arrow standard defines two protocols for
+well-defined and unambiguous communication of Arrow data between applications:
 
 * Protocol to share Arrow data between processes or over the network is called :ref:`format-ipc`.
   The specification for sharing data is called IPC message format which defines how Arrow
