@@ -61,16 +61,16 @@ unserialize_r_metadata <- function(x) {
     stop("Invalid serialized data")
   }
   out <- safe_unserialize(charToRaw(x))
-  # If it's still raw, check for the gzip magic number and uncompress
-  if (is.raw(out) && identical(out[1:2], as.raw(c(31, 139)))) {
+  # If it's still raw, decompress and unserialize again
+  if (is.raw(out)) {
     decompressed <- memDecompress(out, type = "gzip")
-    if (!identical(substr(decompressed, 1, 1), "A")) {
-      stop("Invalid serialized data")
+    if (!identical(rawToChar(decompressed[1]), "A")) {
+      stop("Invalid serialized compressed data")
     }
     out <- safe_unserialize(decompressed)
   }
   if (!is.list(out)) {
-    stop("Invalid serialized data")
+    stop("Invalid serialized data: must be a list")
   }
   safe_r_metadata(out)
 }
