@@ -258,7 +258,7 @@ if needs_integration
         'integration/json_internal.cc',
     ]
 else
-    arrow_integration_srcs = disabler()
+    arrow_integration_srcs = []
 endif
 
 if needs_ipc
@@ -276,7 +276,7 @@ if needs_ipc
         arrow_ipc_srcs += 'ipc/json_simple.cc'
     endif
 else
-    arrow_ipc_srcs = disabler()
+    arrow_ipc_srcs = []
 endif
 
 if needs_json
@@ -292,7 +292,7 @@ if needs_json
       'json/reader.cc',
   ]
 else
-  arrow_json_srcs = disabler()
+  arrow_json_srcs = []
 endif
 
 arrow_lib = library(
