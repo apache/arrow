@@ -106,10 +106,10 @@ jobs:
           node-version: ${{ matrix.node }}
       - name: Build
         shell: bash
-        run: ci/scripts/js_build.sh $(pwd)
+        run: ci/scripts/js_build.sh $(pwd) build
       - name: Test
         shell: bash
-        run: ci/scripts/js_test.sh $(pwd)
+        run: ci/scripts/js_test.sh $(pwd) build
 
   windows:
     name: AMD64 Windows NodeJS ${{ matrix.node }}
@@ -136,7 +136,7 @@ jobs:
           node-version: ${{ matrix.node }}
       - name: Build
         shell: bash
-        run: ci/scripts/js_build.sh $(pwd)
+        run: ci/scripts/js_build.sh $(pwd) build
       - name: Test
         shell: bash
-        run: ci/scripts/js_test.sh $(pwd)
+        run: ci/scripts/js_test.sh $(pwd) build

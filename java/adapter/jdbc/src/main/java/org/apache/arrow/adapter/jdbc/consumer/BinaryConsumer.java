@@ -74,7 +74,7 @@ public abstract class BinaryConsumer extends BaseConsumer<VarBinaryVector> {
         vector.getDataBuffer().setBytes(startOffset + dataLength, reuseBytes, 0, read);
         dataLength += read;
       }
-      offsetBuffer.setInt((currentIndex + 1) * VarBinaryVector.OFFSET_WIDTH, startOffset + dataLength);
+      offsetBuffer.setInt((currentIndex + 1) * ((long) VarBinaryVector.OFFSET_WIDTH), startOffset + dataLength);
       BitVectorHelper.setBit(vector.getValidityBuffer(), currentIndex);
       vector.setLastSet(currentIndex);
     }

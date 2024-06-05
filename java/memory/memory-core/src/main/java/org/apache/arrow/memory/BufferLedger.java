@@ -58,6 +58,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
     return this == allocationManager.getOwningLedger();
   }
 
+  @Override
   public BufferAllocator getKey() {
     return allocator;
   }
@@ -419,7 +420,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BufferAllocator>, Refe
   /**
    * The outcome of a Transfer.
    */
-  public class TransferResult implements OwnershipTransferResult {
+  public static class TransferResult implements OwnershipTransferResult {
 
     // Whether this transfer fit within the target allocator's capacity.
     final boolean allocationFit;

@@ -88,7 +88,7 @@ public abstract class ClobConsumer extends BaseConsumer<VarCharVector> {
 
           ArrowBuf dataBuffer = vector.getDataBuffer();
           ArrowBuf offsetBuffer = vector.getOffsetBuffer();
-          int startIndex = offsetBuffer.getInt(currentIndex * 4);
+          int startIndex = offsetBuffer.getInt(currentIndex * 4L);
           while (read <= length) {
             String str = clob.getSubString(read, readSize);
             byte[] bytes = str.getBytes(StandardCharsets.UTF_8);
@@ -106,7 +106,7 @@ public abstract class ClobConsumer extends BaseConsumer<VarCharVector> {
             totalBytes += bytes.length;
             read += readSize;
           }
-          offsetBuffer.setInt((currentIndex + 1) * 4, startIndex + totalBytes);
+          offsetBuffer.setInt((currentIndex + 1) * 4L, startIndex + totalBytes);
           BitVectorHelper.setBit(vector.getValidityBuffer(), currentIndex);
           vector.setLastSet(currentIndex);
         }
@@ -139,7 +139,7 @@ public abstract class ClobConsumer extends BaseConsumer<VarCharVector> {
 
         ArrowBuf dataBuffer = vector.getDataBuffer();
         ArrowBuf offsetBuffer = vector.getOffsetBuffer();
-        int startIndex = offsetBuffer.getInt(currentIndex * 4);
+        int startIndex = offsetBuffer.getInt(currentIndex * 4L);
         while (read <= length) {
           String str = clob.getSubString(read, readSize);
           byte[] bytes = str.getBytes(StandardCharsets.UTF_8);
@@ -157,7 +157,7 @@ public abstract class ClobConsumer extends BaseConsumer<VarCharVector> {
           totalBytes += bytes.length;
           read += readSize;
         }
-        offsetBuffer.setInt((currentIndex + 1) * 4, startIndex + totalBytes);
+        offsetBuffer.setInt((currentIndex + 1) * 4L, startIndex + totalBytes);
         BitVectorHelper.setBit(vector.getValidityBuffer(), currentIndex);
         vector.setLastSet(currentIndex);
       }

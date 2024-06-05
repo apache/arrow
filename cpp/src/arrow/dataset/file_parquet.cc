@@ -279,7 +279,7 @@ Status ResolveOneFieldRef(
 // names) based on the dataset schema. Returns `false` if no conversion was needed.
 Result<FieldRef> MaybeConvertFieldRef(FieldRef ref, const Schema& dataset_schema) {
   if (ARROW_PREDICT_TRUE(ref.IsNameSequence())) {
-    return std::move(ref);
+    return ref;
   }
 
   ARROW_ASSIGN_OR_RAISE(auto path, ref.FindOne(dataset_schema));
@@ -504,7 +504,8 @@ Result<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
   std::unique_ptr<parquet::arrow::FileReader> arrow_reader;
   RETURN_NOT_OK(parquet::arrow::FileReader::Make(
       options->pool, std::move(reader), std::move(arrow_properties), &arrow_reader));
-  return std::move(arrow_reader);
+  // R build with openSUSE155 requires an explicit shared_ptr construction
+  return std::shared_ptr<parquet::arrow::FileReader>(std::move(arrow_reader));
 }
 
 Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReaderAsync(
@@ -543,7 +544,9 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
                           reader)),
                       std::move(arrow_properties), &arrow_reader));
 
-                  return std::move(arrow_reader);
+                  // R build with openSUSE155 requires an explicit shared_ptr construction
+                  return std::shared_ptr<parquet::arrow::FileReader>(
+                      std::move(arrow_reader));
                 },
                 [path = source.path()](const Status& status)
                     -> Result<std::shared_ptr<parquet::arrow::FileReader>> {

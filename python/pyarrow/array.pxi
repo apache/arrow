@@ -3060,7 +3060,7 @@ cdef class MapArray(ListArray):
     """
 
     @staticmethod
-    def from_arrays(offsets, keys, items, DataType type=None, MemoryPool pool=None):
+    def from_arrays(offsets, keys, items, DataType type=None, MemoryPool pool=None, mask=None):
         """
         Construct MapArray from arrays of int32 offsets and key, item arrays.
 
@@ -3072,6 +3072,8 @@ cdef class MapArray(ListArray):
         type : DataType, optional
             If not specified, a default MapArray with the keys' and items' type is used.
         pool : MemoryPool
+        mask : Array (boolean type), optional
+            Indicate which values are null (True) or not null (False).
 
         Returns
         -------
@@ -3153,24 +3155,27 @@ cdef class MapArray(ListArray):
         cdef:
             Array _offsets, _keys, _items
             shared_ptr[CArray] out
+            shared_ptr[CBuffer] c_mask
         cdef CMemoryPool* cpool = maybe_unbox_memory_pool(pool)
 
         _offsets = asarray(offsets, type='int32')
         _keys = asarray(keys)
         _items = asarray(items)
 
+        c_mask = c_mask_inverted_from_obj(mask, pool)
+
         if type is not None:
             with nogil:
                 out = GetResultValue(
                     CMapArray.FromArraysAndType(
                         type.sp_type, _offsets.sp_array,
-                        _keys.sp_array, _items.sp_array, cpool))
+                        _keys.sp_array, _items.sp_array, cpool, c_mask))
         else:
             with nogil:
                 out = GetResultValue(
                     CMapArray.FromArrays(_offsets.sp_array,
                                          _keys.sp_array,
-                                         _items.sp_array, cpool))
+                                         _items.sp_array, cpool, c_mask))
         cdef Array result = pyarrow_wrap_array(out)
         result.validate()
         return result
@@ -3920,12 +3925,11 @@ cdef class StructArray(Array):
         result : StructArray
         """
         if by is not None:
-            tosort = self._flattened_field(by)
+            tosort, sort_keys = self._flattened_field(by), [("", order)]
         else:
-            tosort = self
+            tosort, sort_keys = self, [(field.name, order) for field in self.type]
         indices = _pc().sort_indices(
-            tosort,
-            options=_pc().SortOptions(sort_keys=[("", order)], **kwargs)
+            tosort, options=_pc().SortOptions(sort_keys=sort_keys, **kwargs)
         )
         return self.take(indices)
 

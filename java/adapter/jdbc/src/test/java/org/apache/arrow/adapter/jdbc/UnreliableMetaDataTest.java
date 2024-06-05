@@ -171,7 +171,6 @@ public class UnreliableMetaDataTest {
     // ARROW-17005: ResultSetMetaData may indicate a field is non-nullable even when there are nulls
     ResultSetUtility.MockResultSetMetaData.MockColumnMetaData columnMetaData =
         ResultSetUtility.MockResultSetMetaData.MockColumnMetaData.builder()
-            .index(1)
             .sqlType(Types.INTEGER)
             .nullable(ResultSetMetaData.columnNoNulls)
             .build();
@@ -257,7 +256,6 @@ public class UnreliableMetaDataTest {
   private ResultSet buildIncorrectPrecisionAndScaleMetaDataResultSet() throws SQLException {
     ResultSetUtility.MockResultSetMetaData.MockColumnMetaData columnMetaData =
         ResultSetUtility.MockResultSetMetaData.MockColumnMetaData.builder()
-            .index(1)
             .sqlType(Types.DECIMAL)
             .precision(0)
             .scale(0)
@@ -277,7 +275,6 @@ public class UnreliableMetaDataTest {
   private ResultSet buildVaryingPrecisionAndScaleResultSet() throws SQLException {
     ResultSetUtility.MockResultSetMetaData.MockColumnMetaData columnMetaData =
         ResultSetUtility.MockResultSetMetaData.MockColumnMetaData.builder()
-            .index(1)
             .sqlType(Types.DECIMAL)
             .precision(0)
             .scale(0)

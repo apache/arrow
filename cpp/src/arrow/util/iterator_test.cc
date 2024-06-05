@@ -146,6 +146,49 @@ void AssertIteratorNext(T expected, Iterator<T>& it) {
   ASSERT_EQ(expected, actual);
 }
 
+template <typename T>
+class DeleteDetectableIterator {
+ public:
+  explicit DeleteDetectableIterator(std::vector<T> values, bool* deleted)
+      : values_(std::move(values)), i_(0), deleted_(deleted) {}
+
+  DeleteDetectableIterator(DeleteDetectableIterator&& source)
+      : values_(std::move(source.values_)), i_(source.i_), deleted_(source.deleted_) {
+    source.deleted_ = nullptr;
+  }
+
+  ~DeleteDetectableIterator() {
+    if (deleted_) {
+      *deleted_ = true;
+    }
+  }
+
+  Result<T> Next() {
+    if (i_ == values_.size()) {
+      return IterationTraits<T>::End();
+    }
+    return std::move(values_[i_++]);
+  }
+
+ private:
+  std::vector<T> values_;
+  size_t i_;
+  bool* deleted_;
+};
+
+// Generic iterator tests
+
+TEST(TestIterator, DeleteOnEnd) {
+  bool deleted = false;
+  Iterator<TestInt> it(DeleteDetectableIterator<TestInt>({1}, &deleted));
+  ASSERT_FALSE(deleted);
+  AssertIteratorNext({1}, it);
+  ASSERT_FALSE(deleted);
+  ASSERT_OK_AND_ASSIGN(auto value, it.Next());
+  ASSERT_TRUE(IsIterationEnd(value));
+  ASSERT_TRUE(deleted);
+}
+
 // --------------------------------------------------------------------
 // Synchronous iterator tests
 

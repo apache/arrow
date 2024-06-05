@@ -49,5 +49,5 @@ public interface BufferManager extends AutoCloseable {
    */
   ArrowBuf getManagedBuffer(long size);
 
-  void close();
+  @Override void close();
 }

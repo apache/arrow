@@ -413,7 +413,7 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
   protected int _getUnsignedMediumLE(int index) {
     this.chk(index, 3);
     long addr = this.addr(index);
-    return PlatformDependent.getByte(addr) & 255 |
+    return (PlatformDependent.getByte(addr) & 255) |
         (Short.reverseBytes(PlatformDependent.getShort(addr + 1L)) & '\uffff') << 8;
   }
 

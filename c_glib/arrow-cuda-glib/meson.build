@@ -31,9 +31,16 @@ cpp_headers = files(
   'cuda.hpp',
 )
 
+version_h = configure_file(
+  input: 'version.h.in',
+  output: 'version.h',
+  command: [python3, generate_version_header_py, '--library', 'GARROW_CUDA', '--version', version, '--input', '@INPUT@', '--output', '@OUTPUT@'],
+)
+
+c_headers += version_h
+
 headers = c_headers + cpp_headers
 install_headers(headers, subdir: 'arrow-cuda-glib')
-
 
 dependencies = [
   arrow_cuda,
@@ -45,6 +52,7 @@ libarrow_cuda_glib = library('arrow-cuda-glib',
                              dependencies: dependencies,
                              implicit_include_directories: false,
                              include_directories: base_include_directories,
+                             cpp_args: ['-DGARROW_CUDA_COMPILATION'],
                              soversion: so_version,
                              version: library_version)
 arrow_cuda_glib = declare_dependency(link_with: libarrow_cuda_glib,

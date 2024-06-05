@@ -118,7 +118,7 @@ This checks the code style of all source code under the current directory or fro
 
     $ mvn checkstyle:check
 
-Maven `pom.xml` style is enforced with Spotless using `Apache Maven pom.xml guidelines`_
+Maven ``pom.xml`` style is enforced with Spotless using `Apache Maven pom.xml guidelines`_
 You can also just check the style without building the project.
 This checks the style of all pom.xml files under the current directory or from within an individual module.
 
@@ -137,3 +137,19 @@ This applies the style to all pom.xml files under the current directory or from 
 .. _conbench: https://github.com/conbench/conbench
 .. _checkstyle: https://github.com/apache/arrow/blob/main/java/dev/checkstyle/checkstyle.xml
 .. _Apache Maven pom.xml guidelines: https://maven.apache.org/developers/conventions/code.html#pom-code-convention
+
+
+Build Caching
+=============
+
+Build caching is done through Develocity (formerly Maven Enterprise).  To force
+a build without the cache, run::
+
+    mvn clean install -Ddevelocity.cache.local.enabled=false -Ddevelocity.cache.remote.enabled=false
+
+This can be useful to make sure you see all warnings from ErrorProne, for example.
+
+ErrorProne
+==========
+
+ErrorProne should be disabled for generated code.

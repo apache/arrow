@@ -74,7 +74,8 @@ func NewAppVersionExplicit(app string, major, minor, patch int) *AppVersion {
 // NewAppVersion parses a "created by" string such as "parquet-go 1.0.0".
 //
 // It also supports handling pre-releases and build info such as
-// 	parquet-cpp version 1.5.0ab-xyz5.5.0+cd (build abcd)
+//
+//	parquet-cpp version 1.5.0ab-xyz5.5.0+cd (build abcd)
 func NewAppVersion(createdby string) *AppVersion {
 	v := &AppVersion{}
 

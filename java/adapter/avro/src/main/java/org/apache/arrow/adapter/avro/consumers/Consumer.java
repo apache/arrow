@@ -53,6 +53,7 @@ public interface Consumer<T extends FieldVector> extends AutoCloseable {
   /**
    * Close this consumer when occurs exception to avoid potential leak.
    */
+  @Override
   void close() throws Exception;
 
   /**

@@ -51,6 +51,7 @@ public class ValidateVectorBufferVisitor implements VectorVisitor<Void, Void> {
 
     if (vector instanceof FieldVector) {
       FieldVector fieldVector = (FieldVector) vector;
+      // TODO: https://github.com/apache/arrow/issues/41734
       int typeBufferCount = TypeLayout.getTypeBufferCount(arrowType);
       validateOrThrow(fieldVector.getFieldBuffers().size() == typeBufferCount,
           "Expected %s buffers in vector of type %s, got %s.",
