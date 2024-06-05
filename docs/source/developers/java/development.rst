@@ -110,12 +110,7 @@ integration tests, you would do:
 Code Style
 ==========
 
-The current Java code styles are configured as follows:
-
-- Indent: Tabs & spaces (2 spaces per tab)
-- Google Java Format: Reformats Java source code to comply with `Google Java Style`_.
-- Configure license headers for Java & XML files
-
+The current Java code follows the `Google Java Style`_ with Apache license headers.
 
 Java code style is checked by `Spotless`_ during the build, and the continuous integration build will verify
 that changes adhere to the style guide.
