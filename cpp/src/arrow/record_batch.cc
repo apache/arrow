@@ -286,9 +286,10 @@ Result<std::shared_ptr<StructArray>> RecordBatch::ToStructArray() const {
 
 Result<std::shared_ptr<Tensor>> RecordBatch::ToTensor(bool null_to_nan, bool row_major,
                                                       MemoryPool* pool) const {
+  std::shared_ptr<Table> table = Table::Make(schema(), columns());
   std::shared_ptr<Tensor> tensor;
   ARROW_RETURN_NOT_OK(
-      internal::RecordBatchToTensor(*this, null_to_nan, row_major, pool, &tensor));
+      internal::TableToTensor(*table, null_to_nan, row_major, pool, &tensor));
   return tensor;
 }
 
