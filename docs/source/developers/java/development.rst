@@ -145,7 +145,7 @@ Example:
 Code Formatter for Intellij IDEA and Eclipse
 --------------------------------------------
 
-Follow the instructions for:
+Follow the instructions to set up google-java-format for:
 
 - `Eclipse`_
 - `IntelliJ`_
