@@ -17,7 +17,12 @@
 
 import weakref
 
-import numpy as np
+import pytest
+
+try:
+    import numpy as np
+except ImportError:
+    pass
 
 import pyarrow as pa
 from pyarrow.lib import StringBuilder, StringViewBuilder
@@ -31,7 +36,8 @@ def test_weakref():
     assert wr() is None
 
 
-def test_string_builder_append():
+@pytest.mark.numpy
+def test_string_builder_append_with_nan():
     sbuilder = StringBuilder()
     sbuilder.append(b"a byte string")
     sbuilder.append("a string")
@@ -48,7 +54,24 @@ def test_string_builder_append():
     assert arr.to_pylist() == expected
 
 
-def test_string_builder_append_values():
+def test_string_builder_append():
+    sbuilder = StringBuilder()
+    sbuilder.append(b"a byte string")
+    sbuilder.append("a string")
+    sbuilder.append(None)
+    assert len(sbuilder) == 3
+    assert sbuilder.null_count == 1
+    arr = sbuilder.finish()
+    assert len(sbuilder) == 0
+    assert isinstance(arr, pa.Array)
+    assert arr.null_count == 1
+    assert arr.type == 'str'
+    expected = ["a byte string", "a string", None]
+    assert arr.to_pylist() == expected
+
+
+@pytest.mark.numpy
+def test_string_builder_append_values_with_nan():
     sbuilder = StringBuilder()
     sbuilder.append_values([np.nan, None, "text", None, "other text"])
     assert sbuilder.null_count == 3
@@ -58,7 +81,18 @@ def test_string_builder_append_values():
     assert arr.to_pylist() == expected
 
 
-def test_string_builder_append_after_finish():
+def test_string_builder_append_values():
+    sbuilder = StringBuilder()
+    sbuilder.append_values([None, "text", None, "other text"])
+    assert sbuilder.null_count == 2
+    arr = sbuilder.finish()
+    assert arr.null_count == 2
+    expected = [None, "text", None, "other text"]
+    assert arr.to_pylist() == expected
+
+
+@pytest.mark.numpy
+def test_string_builder_append_after_finish_with_nan():
     sbuilder = StringBuilder()
     sbuilder.append_values([np.nan, None, "text", None, "other text"])
     arr = sbuilder.finish()
@@ -67,7 +101,17 @@ def test_string_builder_append_after_finish():
     assert arr.to_pylist() == expected
 
 
-def test_string_view_builder():
+def test_string_builder_append_after_finish():
+    sbuilder = StringBuilder()
+    sbuilder.append_values([None, "text", None, "other text"])
+    arr = sbuilder.finish()
+    sbuilder.append("No effect")
+    expected = [None, "text", None, "other text"]
+    assert arr.to_pylist() == expected
+
+
+@pytest.mark.numpy
+def test_string_view_builder_with_nan():
     builder = StringViewBuilder()
     builder.append(b"a byte string")
     builder.append("a string")
@@ -82,5 +126,23 @@ def test_string_view_builder():
     assert arr.type == 'string_view'
     expected = [
         "a byte string", "a string", "a longer not-inlined string", None, None, "text"
+    ]
+    assert arr.to_pylist() == expected
+
+
+def test_string_view_builder():
+    builder = StringViewBuilder()
+    builder.append(b"a byte string")
+    builder.append("a string")
+    builder.append("a longer not-inlined string")
+    builder.append_values([None, "text"])
+    assert len(builder) == 5
+    assert builder.null_count == 1
+    arr = builder.finish()
+    assert isinstance(arr, pa.Array)
+    assert arr.null_count == 1
+    assert arr.type == 'string_view'
+    expected = [
+        "a byte string", "a string", "a longer not-inlined string", None, "text"
     ]
     assert arr.to_pylist() == expected
