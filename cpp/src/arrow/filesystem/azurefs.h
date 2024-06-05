@@ -161,7 +161,7 @@ struct ARROW_EXPORT AzureOptions {
   /// * blob_storage_authority: Set AzureOptions::blob_storage_authority
   /// * dfs_storage_authority: Set AzureOptions::dfs_storage_authority
   /// * enable_tls: If it's "false" or "0", HTTP not HTTPS is used.
-  /// * credential_kind: One of "default", "anonymous", "workload_identity", 
+  /// * credential_kind: One of "default", "anonymous", "workload_identity",
   ///   "environment" or "cli". If "default" is specified, it's
   ///   just ignored.  If "anonymous" is specified,
   ///   AzureOptions::ConfigureAnonymousCredential() is called. If
