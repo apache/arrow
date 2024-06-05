@@ -1271,7 +1271,7 @@ struct S3OptionsTestParameters {
   }
 
   std::string ToString() const {
-    return std::string{"background_writes = "} + (background_writes ? "true" : "false") +
+    return std::string("background_writes = ") + (background_writes ? "true" : "false") +
            ", allow_delayed_open = " + (allow_delayed_open ? "true" : "false");
   }
 };
