@@ -601,44 +601,81 @@ class S3Client : public Aws::S3::S3Client {
  public:
   using Aws::S3::S3Client::S3Client;
 
+  static inline constexpr auto kBucketRegionHeaderName = "x-amz-bucket-region";
+
+  std::string GetBucketRegionFromHeaders(
+      const Aws::Http::HeaderValueCollection& headers) {
+    const auto it = headers.find(ToAwsString(kBucketRegionHeaderName));
+    if (it != headers.end()) {
+      return std::string(FromAwsString(it->second));
+    }
+    return std::string();
+  }
+
+  template <typename ErrorType>
+  Result<std::string> GetBucketRegionFromError(
+      const std::string& bucket, const Aws::Client::AWSError<ErrorType>& error) {
+    std::string region = GetBucketRegionFromHeaders(error.GetResponseHeaders());
+    if (!region.empty()) {
+      return region;
+    } else if (error.GetResponseCode() == Aws::Http::HttpResponseCode::NOT_FOUND) {
+      return Status::IOError("Bucket '", bucket, "' not found");
+    } else {
+      return ErrorToStatus(
+          std::forward_as_tuple("When resolving region for bucket '", bucket, "': "),
+          "HeadBucket", error);
+    }
+  }
+
+#if ARROW_AWS_SDK_VERSION_CHECK(1, 11, 212)
+  // HeadBucketResult::GetBucketRegion appeared in AWS SDK 1.11.212
+  Result<std::string> GetBucketRegion(const std::string& bucket,
+                                      const S3Model::HeadBucketRequest& request) {
+    auto outcome = this->HeadBucket(request);
+    if (!outcome.IsSuccess()) {
+      return GetBucketRegionFromError(bucket, outcome.GetError());
+    }
+    auto&& region = std::move(outcome).GetResult().GetBucketRegion();
+    if (region.empty()) {
+      return Status::IOError("When resolving region for bucket '", request.GetBucket(),
+                             "': missing 'x-amz-bucket-region' header in response");
+    }
+    return region;
+  }
+#else
   // To get a bucket's region, we must extract the "x-amz-bucket-region" header
   // from the response to a HEAD bucket request.
   // Unfortunately, the S3Client APIs don't let us access the headers of successful
   // responses.  So we have to cook a AWS request and issue it ourselves.
-
-  Result<std::string> GetBucketRegion(const S3Model::HeadBucketRequest& request) {
+  Result<std::string> GetBucketRegion(const std::string& bucket,
+                                      const S3Model::HeadBucketRequest& request) {
     auto uri = GeneratePresignedUrl(request.GetBucket(),
                                     /*key=*/"", Aws::Http::HttpMethod::HTTP_HEAD);
     // NOTE: The signer region argument isn't passed here, as there's no easy
     // way of computing it (the relevant method is private).
     auto outcome = MakeRequest(uri, request, Aws::Http::HttpMethod::HTTP_HEAD,
                                Aws::Auth::SIGV4_SIGNER);
-    const auto code = outcome.IsSuccess() ? outcome.GetResult().GetResponseCode()
-                                          : outcome.GetError().GetResponseCode();
-    const auto& headers = outcome.IsSuccess()
-                              ? outcome.GetResult().GetHeaderValueCollection()
-                              : outcome.GetError().GetResponseHeaders();
-
-    const auto it = headers.find(ToAwsString("x-amz-bucket-region"));
-    if (it == headers.end()) {
-      if (code == Aws::Http::HttpResponseCode::NOT_FOUND) {
-        return Status::IOError("Bucket '", request.GetBucket(), "' not found");
-      } else if (!outcome.IsSuccess()) {
-        return ErrorToStatus(std::forward_as_tuple("When resolving region for bucket '",
-                                                   request.GetBucket(), "': "),
-                             "HeadBucket", outcome.GetError());
-      } else {
-        return Status::IOError("When resolving region for bucket '", request.GetBucket(),
-                               "': missing 'x-amz-bucket-region' header in response");
-      }
+    if (!outcome.IsSuccess()) {
+      return GetBucketRegionFromError(bucket, outcome.GetError());
     }
-    return std::string(FromAwsString(it->second));
+    std::string region =
+        GetBucketRegionFromHeaders(outcome.GetResult().GetHeaderValueCollection());
+    if (!region.empty()) {
+      return region;
+    } else if (outcome.GetResult().GetResponseCode() ==
+               Aws::Http::HttpResponseCode::NOT_FOUND) {
+      return Status::IOError("Bucket '", request.GetBucket(), "' not found");
+    } else {
+      return Status::IOError("When resolving region for bucket '", request.GetBucket(),
+                             "': missing 'x-amz-bucket-region' header in response");
+    }
   }
+#endif
 
   Result<std::string> GetBucketRegion(const std::string& bucket) {
     S3Model::HeadBucketRequest req;
     req.SetBucket(ToAwsString(bucket));
-    return GetBucketRegion(req);
+    return GetBucketRegion(bucket, req);
   }
 
   S3Model::CompleteMultipartUploadOutcome CompleteMultipartUploadWithErrorFixup(
