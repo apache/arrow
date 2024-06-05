@@ -24,7 +24,63 @@ requires = [
     # continue using oldest-support-numpy.
     "oldest-supported-numpy>=0.14; python_version<'3.9'",
     "numpy>=1.25; python_version>='3.9'",
-    "setuptools_scm",
-    "setuptools >= 40.1.0",
-    "wheel"
+    # configuring setuptools_scm in pyproject.toml requires
+    # versions released after 2022
+    "setuptools_scm[toml]>=8",
+    "setuptools>=64",
 ]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyarrow"
+dynamic = ["version"]
+requires-python = ">=3.8"
+dependencies = [
+    "numpy >= 1.16.6"
+]
+description = "Python library for Apache Arrow"
+readme = {file = "README.md", content-type = "text/markdown"}
+license = {text = "Apache Software License"}
+classifiers  = [
+    'License :: OSI Approved :: Apache Software License',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Langauge :: Python :: 3.12',
+]
+maintainers = [
+    {name = "Apache Arrow Developers", email = "dev@arrow.apache.org"}
+]
+
+[project.urls]
+Homepage = "https://arrow.apache.org/"
+Documentation = "https://arrow.apache.org/docs/python"
+Repository = "https://github.com/apache/arrow"
+Issues = "https://github.com/apache/arrow/issues"
+
+[project.optional-dependencies]
+test = [
+    'pytest',
+    'hypothesis',
+    'cffi',
+    'pytz',
+    'pandas'
+]
+
+[tool.setuptools]
+zip-safe=false
+include-package-data=true
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.setuptools.package-data]
+pyarrow = ["*.pxd", "*.pyx", "includes/*.pxd"]
+
+[tool.setuptools_scm]
+root = '..'
+version_file = 'pyarrow/_generated_version.py'
+version_scheme = 'guess-next-dev'
+git_describe_command = 'git describe --dirty --tags --long --match "apache-arrow-[0-9]*.*"'
+fallback_version = '17.0.0a0'

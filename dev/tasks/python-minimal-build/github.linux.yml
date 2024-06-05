@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
 {{ macros.github_set_env(env) }}
     steps:
-      {{ macros.github_checkout_arrow(submodules=false)|indent }}
+      {{ macros.github_checkout_arrow(fetch_depth=0, submodules=false)|indent }}
 
       - name: Run minimal build example
         run: |
