@@ -28,7 +28,10 @@ import random
 import sys
 import textwrap
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    pass
 
 try:
     import pandas as pd
@@ -43,27 +46,6 @@ try:
     import pyarrow.substrait as pas
 except ImportError:
     pas = None
-
-all_array_types = [
-    ('bool', [True, False, False, True, True]),
-    ('uint8', np.arange(5)),
-    ('int8', np.arange(5)),
-    ('uint16', np.arange(5)),
-    ('int16', np.arange(5)),
-    ('uint32', np.arange(5)),
-    ('int32', np.arange(5)),
-    ('uint64', np.arange(5, 10)),
-    ('int64', np.arange(5, 10)),
-    ('float', np.arange(0, 0.5, 0.1)),
-    ('double', np.arange(0, 0.5, 0.1)),
-    ('string', ['a', 'b', None, 'ddd', 'ee']),
-    ('binary', [b'a', b'b', b'c', b'ddd', b'ee']),
-    (pa.binary(3), [b'abc', b'bcd', b'cde', b'def', b'efg']),
-    (pa.list_(pa.int8()), [[1, 2], [3, 4], [5, 6], None, [9, 16]]),
-    (pa.large_list(pa.int16()), [[1], [2, 3, 4], [5, 6], None, [9, 16]]),
-    (pa.struct([('a', pa.int8()), ('b', pa.int8())]), [
-        {'a': 1, 'b': 2}, None, {'a': 3, 'b': 4}, None, {'a': 5, 'b': 6}]),
-]
 
 exported_functions = [
     func for (name, func) in sorted(pc.__dict__.items())
@@ -1110,30 +1092,31 @@ def test_binary_join_element_wise():
         'a', 'b', null, options=replace).as_py() is None
 
 
-@pytest.mark.parametrize(('ty', 'values'), all_array_types)
-def test_take(ty, values):
-    arr = pa.array(values, type=ty)
-    for indices_type in [pa.int8(), pa.int64()]:
-        indices = pa.array([0, 4, 2, None], type=indices_type)
-        result = arr.take(indices)
-        result.validate()
-        expected = pa.array([values[0], values[4], values[2], None], type=ty)
-        assert result.equals(expected)
+@pytest.mark.numpy
+def test_take(all_array_types):
+    for ty, values in all_array_types:
+        arr = pa.array(values, type=ty)
+        for indices_type in [pa.int8(), pa.int64()]:
+            indices = pa.array([0, 4, 2, None], type=indices_type)
+            result = arr.take(indices)
+            result.validate()
+            expected = pa.array([values[0], values[4], values[2], None], type=ty)
+            assert result.equals(expected)
 
-        # empty indices
-        indices = pa.array([], type=indices_type)
-        result = arr.take(indices)
-        result.validate()
-        expected = pa.array([], type=ty)
-        assert result.equals(expected)
+            # empty indices
+            indices = pa.array([], type=indices_type)
+            result = arr.take(indices)
+            result.validate()
+            expected = pa.array([], type=ty)
+            assert result.equals(expected)
 
-    indices = pa.array([2, 5])
-    with pytest.raises(IndexError):
-        arr.take(indices)
+        indices = pa.array([2, 5])
+        with pytest.raises(IndexError):
+            arr.take(indices)
 
-    indices = pa.array([2, -1])
-    with pytest.raises(IndexError):
-        arr.take(indices)
+        indices = pa.array([2, -1])
+        with pytest.raises(IndexError):
+            arr.take(indices)
 
 
 def test_take_indices_types():
@@ -1216,14 +1199,15 @@ def test_take_null_type():
     assert len(table.take(indices).column(0)) == 4
 
 
-@pytest.mark.parametrize(('ty', 'values'), all_array_types)
-def test_drop_null(ty, values):
-    arr = pa.array(values, type=ty)
-    result = arr.drop_null()
-    result.validate(full=True)
-    indices = [i for i in range(len(arr)) if arr[i].is_valid]
-    expected = arr.take(pa.array(indices))
-    assert result.equals(expected)
+@pytest.mark.numpy
+def test_drop_null(all_array_types):
+    for ty, values in all_array_types:
+        arr = pa.array(values, type=ty)
+        result = arr.drop_null()
+        result.validate(full=True)
+        indices = [i for i in range(len(arr)) if arr[i].is_valid]
+        expected = arr.take(pa.array(indices))
+        assert result.equals(expected)
 
 
 def test_drop_null_chunked_array():
@@ -1292,17 +1276,18 @@ def test_drop_null_null_type():
     assert len(table.drop_null().column(0)) == 0
 
 
-@pytest.mark.parametrize(('ty', 'values'), all_array_types)
-def test_filter(ty, values):
-    arr = pa.array(values, type=ty)
+@pytest.mark.nump
+def test_filter(all_array_types):
+    for ty, values in all_array_types:
+        arr = pa.array(values, type=ty)
 
-    mask = pa.array([True, False, False, True, None])
-    result = arr.filter(mask, null_selection_behavior='drop')
-    result.validate()
-    assert result.equals(pa.array([values[0], values[3]], type=ty))
-    result = arr.filter(mask, null_selection_behavior='emit_null')
-    result.validate()
-    assert result.equals(pa.array([values[0], values[3], None], type=ty))
+        mask = pa.array([True, False, False, True, None])
+        result = arr.filter(mask, null_selection_behavior='drop')
+        result.validate()
+        assert result.equals(pa.array([values[0], values[3]], type=ty))
+        result = arr.filter(mask, null_selection_behavior='emit_null')
+        result.validate()
+        assert result.equals(pa.array([values[0], values[3], None], type=ty))
 
     # same test with different array type
     mask = np.array([True, False, False, True, None])
@@ -1315,10 +1300,10 @@ def test_filter(ty, values):
     with pytest.raises(NotImplementedError):
         arr.filter(mask)
 
-    # wrong length
-    mask = pa.array([True, False, True])
-    with pytest.raises(ValueError, match="must all be the same length"):
-        arr.filter(mask)
+        # wrong length
+        mask = pa.array([True, False, True])
+        with pytest.raises(ValueError, match="must all be the same length"):
+            arr.filter(mask)
 
 
 def test_filter_chunked_array():
