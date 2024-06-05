@@ -42,7 +42,7 @@ cdef class StringBuilder(_Weakrefable):
         value : string/bytes or np.nan/None
             The value to append to the string array builder.
         """
-        if value is None or value is np.nan:
+        if value is None or ('numpy' in sys.modules and value is np.nan):
             self.builder.get().AppendNull()
         elif isinstance(value, (bytes, str)):
             self.builder.get().Append(tobytes(value))
@@ -108,7 +108,7 @@ cdef class StringViewBuilder(_Weakrefable):
         value : string/bytes or np.nan/None
             The value to append to the string array builder.
         """
-        if value is None or value is np.nan:
+        if value is None or ('numpy' in sys.modules and value is np.nan):
             self.builder.get().AppendNull()
         elif isinstance(value, (bytes, str)):
             self.builder.get().Append(tobytes(value))

@@ -22,7 +22,10 @@ Utility functions for testing
 import contextlib
 import decimal
 import gc
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    pass
 import os
 import random
 import re

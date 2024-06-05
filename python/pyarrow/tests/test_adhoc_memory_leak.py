@@ -17,7 +17,10 @@
 
 import pytest
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:
+    pass
 import pyarrow as pa
 
 import pyarrow.tests.util as test_util
@@ -28,6 +31,7 @@ except ImportError:
     pass
 
 
+@pytest.mark.numpy
 @pytest.mark.memory_leak
 @pytest.mark.pandas
 def test_deserialize_pandas_arrow_7956():

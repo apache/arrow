@@ -427,7 +427,6 @@ def test_array_from_dictionary_scalar():
     assert result.equals(expected)
 
 
-@pytest.mark.numpy
 def test_array_getitem():
     arr = pa.array(range(10, 15))
     lst = arr.to_pylist()
@@ -441,6 +440,11 @@ def test_array_getitem():
         with pytest.raises(IndexError):
             arr[idx]
 
+
+@pytest.mark.numpy
+def test_array_getitem_numpy_scalars():
+    arr = pa.array(range(10, 15))
+    lst = arr.to_pylist()
     # check that numpy scalars are supported
     for idx in range(-len(arr), len(arr)):
         assert arr[np.int32(idx)].as_py() == lst[idx]

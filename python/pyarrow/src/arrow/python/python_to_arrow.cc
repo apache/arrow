@@ -385,7 +385,7 @@ class PyValue {
         default:
           return Status::UnknownError("Invalid time unit");
       }
-    } else if (PyArray_CheckAnyScalarExact(obj)) {
+    } else if (get_numpy_imported() && PyArray_CheckAnyScalarExact(obj)) {
       // validate that the numpy scalar has np.datetime64 dtype
       ARROW_ASSIGN_OR_RAISE(auto numpy_type, NumPyScalarToArrowDataType(obj));
       if (!numpy_type->Equals(*type)) {

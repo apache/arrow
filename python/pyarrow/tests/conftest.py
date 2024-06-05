@@ -25,8 +25,14 @@ import urllib.request
 
 import pytest
 import hypothesis as h
+try:
+    import numpy as np
+except ImportError:
+    pass
+
 from ..conftest import groups, defaults
 
+import pyarrow as pa
 from pyarrow import set_timezone_db_path
 from pyarrow.util import find_free_port
 
@@ -114,6 +120,30 @@ def pytest_runtest_setup(item):
     # Apply test markers to skip tests selectively
     for mark in item.iter_markers():
         item.config.pyarrow.apply_mark(mark)
+
+
+@pytest.fixture
+def all_array_types():
+    return [
+        ('bool', [True, False, False, True, True]),
+        ('uint8', np.arange(5)),
+        ('int8', np.arange(5)),
+        ('uint16', np.arange(5)),
+        ('int16', np.arange(5)),
+        ('uint32', np.arange(5)),
+        ('int32', np.arange(5)),
+        ('uint64', np.arange(5, 10)),
+        ('int64', np.arange(5, 10)),
+        ('float', np.arange(0, 0.5, 0.1)),
+        ('double', np.arange(0, 0.5, 0.1)),
+        ('string', ['a', 'b', None, 'ddd', 'ee']),
+        ('binary', [b'a', b'b', b'c', b'ddd', b'ee']),
+        (pa.binary(3), [b'abc', b'bcd', b'cde', b'def', b'efg']),
+        (pa.list_(pa.int8()), [[1, 2], [3, 4], [5, 6], None, [9, 16]]),
+        (pa.large_list(pa.int16()), [[1], [2, 3, 4], [5, 6], None, [9, 16]]),
+        (pa.struct([('a', pa.int8()), ('b', pa.int8())]), [
+            {'a': 1, 'b': 2}, None, {'a': 3, 'b': 4}, None, {'a': 5, 'b': 6}]),
+    ]
 
 
 @pytest.fixture
