@@ -123,7 +123,7 @@ that changes adhere to the style guide.
 Automatically fixing code style issues
 --------------------------------------
 
-- You can also just check the style without building the project with ``mvn spotless:check``.
+- You can check the style without building the project with ``mvn spotless:check``.
 - The Java code style can be corrected from the command line by using the following commands: ``mvn spotless:apply``.
 
 .. code-block:: bash
