@@ -307,7 +307,7 @@ Status RecordBatchToTensor(const RecordBatch& batch, bool null_to_nan, bool row_
                            MemoryPool* pool, std::shared_ptr<Tensor>* tensor) {
   if (batch.num_columns() == 0) {
     return Status::TypeError(
-        "Conversion to Tensor for RecordBatches without columns/schema is not "
+        "Conversion to Tensor for Tables or RecordBatches without columns/schema is not "
         "supported.");
   }
   // Check for no validity bitmap of each field
@@ -315,8 +315,8 @@ Status RecordBatchToTensor(const RecordBatch& batch, bool null_to_nan, bool row_
   for (int i = 0; i < batch.num_columns(); ++i) {
     if (batch.column(i)->null_count() > 0 && !null_to_nan) {
       return Status::TypeError(
-          "Can only convert a RecordBatch with no nulls. Set null_to_nan to true to "
-          "convert nulls to NaN");
+          "Can only convert a Table or RecordBatch with no nulls. Set null_to_nan to "
+          "true to convert nulls to NaN");
     }
   }
 
