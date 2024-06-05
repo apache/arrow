@@ -17,7 +17,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# run tests against 
+# run tests against Chrome and node.js as representative 
+# WebAssembly platforms (i.e. one browser, one non-browser).
 
 set -ex
 build_dir=${1}/python
@@ -32,6 +33,3 @@ python scripts/run_emscripten_tests.py dist/pyarrow*.whl --dist-dir=${pyodide_di
 
 echo "-------------- Running emscripten tests in Node ----------------------"
 python scripts/run_emscripten_tests.py dist/pyarrow*.whl --dist-dir=${pyodide_dist_dir} --runtime=node
-
-echo "-------------- Running emscripten tests in Firefox -------------------"
-python scripts/run_emscripten_tests.py dist/pyarrow*.whl --dist-dir=${pyodide_dist_dir} --runtime=firefox
