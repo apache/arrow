@@ -31,6 +31,7 @@ on:
       - 'cpp/**'
       - 'docker-compose.yml'
       - 'format/Flight.proto'
+      - 'testing'
   pull_request:
     paths:
       - '.github/workflows/cpp.yml'
@@ -44,6 +45,7 @@ on:
       - 'cpp/**'
       - 'docker-compose.yml'
       - 'format/Flight.proto'
+      - 'testing'
 
 concurrency:
   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
@@ -53,6 +55,7 @@ permissions:
   contents: read
 
 env:
+  ARCHERY_DEBUG: 1
   ARROW_ENABLE_TIMING_TESTS: OFF
   DOCKER_VOLUME_PREFIX: ".docker/"
 
@@ -94,6 +97,7 @@ jobs:
             cat <<JSON >> "$GITHUB_OUTPUT"
           {
             "arch": "arm64v8",
+            "archery-use-docker-cli": "0",
             "clang-tools": "10",
             "image": "ubuntu-cpp",
             "llvm": "10",
@@ -118,6 +122,9 @@ jobs:
         include: ${{ fromJson(needs.docker-targets.outputs.targets) }}
     env:
       ARCH: ${{ matrix.arch }}
+      # By default, use Docker CLI because docker-compose v1 is obsolete,
+      # except where the Docker client version is too old.
+      ARCHERY_USE_DOCKER_CLI: ${{ matrix.archery-use-docker-cli || '1' }}
       ARROW_SIMD_LEVEL: ${{ matrix.simd-level }}
       CLANG_TOOLS: ${{ matrix.clang-tools }}
       LLVM: ${{ matrix.llvm }}
@@ -145,6 +152,8 @@ jobs:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
+          # GH-40558: reduce ASLR to avoid ASAN/LSAN crashes
+          sudo sysctl -w vm.mmap_rnd_bits=28
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
           archery docker run ${{ matrix.image }}
@@ -181,10 +190,18 @@ jobs:
           docker-compose run --rm minimal
 
   macos:
-    name: AMD64 macOS 12 C++
-    runs-on: macos-latest
+    name: ${{ matrix.architecture }} macOS ${{ matrix.macos-version }} C++
+    runs-on: macos-${{ matrix.macos-version }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: AMD64
+            macos-version: "12"
+          - architecture: ARM64
+            macos-version: "14"
     env:
       ARROW_AZURE: ON
       ARROW_BUILD_TESTS: ON
@@ -193,7 +210,7 @@ jobs:
       ARROW_GANDIVA: ON
       ARROW_GCS: ON
       ARROW_HDFS: ON
-      ARROW_HOME: /usr/local
+      ARROW_HOME: /tmp/local
       ARROW_JEMALLOC: ON
       ARROW_ORC: ON
       ARROW_PARQUET: ON
@@ -225,11 +242,11 @@ jobs:
       - name: Install MinIO
         run: |
           $(brew --prefix bash)/bin/bash \
-            ci/scripts/install_minio.sh latest /usr/local
+            ci/scripts/install_minio.sh latest ${ARROW_HOME}
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v5.1.0
         with:
-          python-version: 3.9
+          python-version: 3.12
       - name: Install Google Cloud Storage Testbench
         run: ci/scripts/install_gcs_testbench.sh default
       - name: Install Azurite Storage Emulator
@@ -245,8 +262,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: cpp-ccache-macos-${{ hashFiles('cpp/**') }}
-          restore-keys: cpp-ccache-macos-
+          key: cpp-ccache-macos-${{ matrix.macos-version }}-${{ hashFiles('cpp/**') }}
+          restore-keys: cpp-ccache-macos-${{ matrix.macos-version }}-
       - name: Build
         run: |
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
@@ -448,7 +465,7 @@ jobs:
             https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2022-05-26T05-48-41Z
           chmod +x /usr/local/bin/minio.exe
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v5.1.0
         with:
           python-version: 3.9
       - name: Install Google Cloud Storage Testbench

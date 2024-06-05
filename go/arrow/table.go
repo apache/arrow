@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v16/arrow/internal/debug"
+	"github.com/apache/arrow/go/v17/arrow/internal/debug"
 )
 
 // Table represents a logical sequence of chunked arrays of equal length. It is
@@ -39,6 +39,8 @@ type Table interface {
 
 	Retain()
 	Release()
+
+	fmt.Stringer
 }
 
 // Column is an immutable column data structure consisting of

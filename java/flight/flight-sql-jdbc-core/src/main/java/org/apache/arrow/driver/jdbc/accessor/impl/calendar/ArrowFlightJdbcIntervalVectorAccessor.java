@@ -30,8 +30,11 @@ import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.IntervalDayVector;
+import org.apache.arrow.vector.IntervalMonthDayNanoVector;
 import org.apache.arrow.vector.IntervalYearVector;
+import org.apache.arrow.vector.PeriodDuration;
 import org.apache.arrow.vector.holders.NullableIntervalDayHolder;
+import org.apache.arrow.vector.holders.NullableIntervalMonthDayNanoHolder;
 import org.apache.arrow.vector.holders.NullableIntervalYearHolder;
 
 /**
@@ -94,6 +97,35 @@ public class ArrowFlightJdbcIntervalVectorAccessor extends ArrowFlightJdbcAccess
       }
     };
     objectClass = java.time.Period.class;
+  }
+
+  /**
+   * Instantiate an accessor for a {@link IntervalMonthDayNanoVector}.
+   *
+   * @param vector             an instance of a IntervalMonthDayNanoVector.
+   * @param currentRowSupplier the supplier to track the rows.
+   * @param setCursorWasNull   the consumer to set if value was null.
+   */
+  public ArrowFlightJdbcIntervalVectorAccessor(IntervalMonthDayNanoVector vector,
+                                               IntSupplier currentRowSupplier,
+                                               ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+    super(currentRowSupplier, setCursorWasNull);
+    this.vector = vector;
+    stringGetter = (index) -> {
+      final NullableIntervalMonthDayNanoHolder holder = new NullableIntervalMonthDayNanoHolder();
+      vector.get(index, holder);
+      if (holder.isSet == 0) {
+        return null;
+      } else {
+        final int months = holder.months;
+        final int days = holder.days;
+        final long nanos = holder.nanoseconds;
+        final Period period = Period.ofMonths(months).plusDays(days);
+        final Duration duration = Duration.ofNanos(nanos);
+        return new PeriodDuration(period, duration).toISO8601IntervalString();
+      }
+    };
+    objectClass = PeriodDuration.class;
   }
 
   @Override

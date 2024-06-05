@@ -126,8 +126,10 @@ namespace detail {
 ARROW_EXPORT extern const char digit_pairs[];
 
 // Based on fmtlib's format_int class:
-// Write digits from right to left into a stack allocated buffer
-inline void FormatOneChar(char c, char** cursor) { *--*cursor = c; }
+// Write digits from right to left into a stack allocated buffer.
+// \pre *cursor points to the byte after the one that will be written.
+// \post *cursor points to the byte that was written.
+inline void FormatOneChar(char c, char** cursor) { *(--(*cursor)) = c; }
 
 template <typename Int>
 void FormatOneDigit(Int value, char** cursor) {
@@ -268,6 +270,7 @@ class ARROW_EXPORT FloatToStringFormatter {
   // Returns the number of characters written
   int FormatFloat(float v, char* out_buffer, int out_size);
   int FormatFloat(double v, char* out_buffer, int out_size);
+  int FormatFloat(uint16_t v, char* out_buffer, int out_size);
 
  protected:
   struct Impl;
@@ -302,6 +305,12 @@ class FloatToStringFormatterMixin : public FloatToStringFormatter {
 };
 
 template <>
+class StringFormatter<HalfFloatType> : public FloatToStringFormatterMixin<HalfFloatType> {
+ public:
+  using FloatToStringFormatterMixin::FloatToStringFormatterMixin;
+};
+
+template <>
 class StringFormatter<FloatType> : public FloatToStringFormatterMixin<FloatType> {
  public:
   using FloatToStringFormatterMixin::FloatToStringFormatterMixin;
@@ -319,6 +328,7 @@ class StringFormatter<DoubleType> : public FloatToStringFormatterMixin<DoubleTyp
 namespace detail {
 
 constexpr size_t BufferSizeYYYY_MM_DD() {
+  // "-"? "99999-12-31"
   return 1 + detail::Digits10(99999) + 1 + detail::Digits10(12) + 1 +
          detail::Digits10(31);
 }
@@ -345,6 +355,7 @@ inline void FormatYYYY_MM_DD(arrow_vendored::date::year_month_day ymd, char** cu
 
 template <typename Duration>
 constexpr size_t BufferSizeHH_MM_SS() {
+  // "23:59:59" ("." "9"+)?
   return detail::Digits10(23) + 1 + detail::Digits10(59) + 1 + detail::Digits10(59) + 1 +
          detail::Digits10(Duration::period::den) - 1;
 }
@@ -498,8 +509,9 @@ class StringFormatter<TimestampType> {
       timepoint_days -= days(1);
     }
 
+    // YYYY_MM_DD " " HH_MM_SS "Z"?
     constexpr size_t buffer_size =
-        detail::BufferSizeYYYY_MM_DD() + 1 + detail::BufferSizeHH_MM_SS<Duration>();
+        detail::BufferSizeYYYY_MM_DD() + 1 + detail::BufferSizeHH_MM_SS<Duration>() + 1;
 
     std::array<char, buffer_size> buffer;
     char* cursor = buffer.data() + buffer_size;

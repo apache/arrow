@@ -39,7 +39,6 @@ RUN \
     git \
     glog-devel \
     gobject-introspection-devel \
-    gtk-doc \
     json-devel \
     libarchive \
     libzstd-devel \
@@ -60,5 +59,6 @@ RUN \
     tar \
     thrift-devel \
     vala \
+    which \
     zlib-devel && \
   dnf clean ${quiet} all

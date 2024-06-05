@@ -72,14 +72,28 @@ fi
 # delete current stable docs and restore all previous versioned docs
 rm -rf docs/*
 git checkout "${versioned_paths[@]}"
+# Download and untar released docs in a temp folder
+rm -rf docs_new
+mkdir docs_new
+pushd docs_new
 curl \
   --fail \
   --location \
   --remote-name \
   https://apache.jfrog.io/artifactory/arrow/docs/${version}/docs.tar.gz
 tar xvf docs.tar.gz
-rm -f docs.tar.gz
-git checkout docs/c_glib/index.html
+# Update DOCUMENTATION_OPTIONS.show_version_warning_banner
+find docs \
+  -type f \
+  -exec \
+    sed -i.bak \
+      -e "s/DOCUMENTATION_OPTIONS.show_version_warning_banner = true/DOCUMENTATION_OPTIONS.show_version_warning_banner = false/g" \
+      {} \;
+find ./ -name '*.bak' -delete
+popd
+mv docs_new/docs/* docs/
+rm -rf docs_new
+
 if [ "$is_major_release" = "yes" ] ; then
   previous_series=${previous_version%.*}
   mv docs_temp docs/${previous_series}
@@ -89,20 +103,22 @@ git commit -m "[Website] Update documentations for ${version}"
 
 # Update DOCUMENTATION_OPTIONS.theme_switcher_version_match and
 # DOCUMENTATION_OPTIONS.show_version_warning_banner
-pushd docs/${previous_series}
-find ./ \
-  -type f \
-  -exec \
-    sed -i.bak \
-      -e "s/DOCUMENTATION_OPTIONS.theme_switcher_version_match = '';/DOCUMENTATION_OPTIONS.theme_switcher_version_match = '${previous_version}';/g" \
-      -e "s/DOCUMENTATION_OPTIONS.show_version_warning_banner = false/DOCUMENTATION_OPTIONS.show_version_warning_banner = true/g" \
-      {} \;
-find ./ -name '*.bak' -delete
-popd
-git add docs/${previous_series}
-git commit -m "[Website] Update warning banner for ${previous_series}"
-git clean -d -f -x
-popd
+if [ "$is_major_release" = "yes" ] ; then
+  pushd docs/${previous_series}
+  find ./ \
+    -type f \
+    -exec \
+      sed -i.bak \
+        -e "s/DOCUMENTATION_OPTIONS.theme_switcher_version_match = '';/DOCUMENTATION_OPTIONS.theme_switcher_version_match = '${previous_series}';/g" \
+        -e "s/DOCUMENTATION_OPTIONS.show_version_warning_banner = false/DOCUMENTATION_OPTIONS.show_version_warning_banner = true/g" \
+        {} \;
+  find ./ -name '*.bak' -delete
+  popd
+  git add docs/${previous_series}
+  git commit -m "[Website] Update warning banner for ${previous_series}"
+  git clean -d -f -x
+  popd
+fi
 
 : ${PUSH:=1}
 

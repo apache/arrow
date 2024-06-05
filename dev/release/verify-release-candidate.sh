@@ -20,11 +20,11 @@
 
 # Requirements
 # - Ruby >= 2.3
-# - Maven >= 3.3.9
-# - JDK >=7
+# - Maven >= 3.8.7
+# - JDK >=8
 # - gcc >= 4.8
 # - Node.js >= 18
-# - Go >= 1.19
+# - Go >= 1.21
 # - Docker
 #
 # If using a non-system Boost, set BOOST_ROOT and add Boost libraries to
@@ -185,9 +185,7 @@ test_binary() {
 test_apt() {
   show_header "Testing APT packages"
 
-  for target in "debian:bullseye" \
-                "arm64v8/debian:bullseye" \
-                "debian:bookworm" \
+  for target in "debian:bookworm" \
                 "arm64v8/debian:bookworm" \
                 "debian:trixie" \
                 "arm64v8/debian:trixie" \
@@ -195,8 +193,6 @@ test_apt() {
                 "arm64v8/ubuntu:focal" \
                 "ubuntu:jammy" \
                 "arm64v8/ubuntu:jammy" \
-                "ubuntu:mantic" \
-                "arm64v8/ubuntu:mantic" \
                 "ubuntu:noble" \
                 "arm64v8/ubuntu:noble"; do \
     case "${target}" in
@@ -349,7 +345,7 @@ install_csharp() {
 
   show_info "Ensuring that C# is installed..."
 
-  if dotnet --version | grep 7\.0 > /dev/null 2>&1; then
+  if dotnet --version | grep 8\.0 > /dev/null 2>&1; then
     local csharp_bin=$(dirname $(which dotnet))
     show_info "Found C# at $(which csharp) (.NET $(dotnet --version))"
   else
@@ -357,7 +353,7 @@ install_csharp() {
       show_info "dotnet found but it is the wrong version and will be ignored."
     fi
     local csharp_bin=${ARROW_TMPDIR}/csharp/bin
-    local dotnet_version=7.0.102
+    local dotnet_version=8.0.204
     local dotnet_platform=
     case "$(uname)" in
       Linux)
@@ -407,7 +403,7 @@ install_go() {
     return 0
   fi
 
-  local version=1.19.13
+  local version=1.21.8
   show_info "Installing go version ${version}..."
 
   local arch="$(uname -m)"
@@ -501,6 +497,46 @@ maybe_setup_conda() {
   fi
 }
 
+install_maven() {
+  MAVEN_VERSION=3.8.7
+  if command -v mvn > /dev/null; then
+    # --batch-mode is for disabling output color.
+    SYSTEM_MAVEN_VERSION=$(mvn --batch-mode -v | head -n 1 | awk '{print $3}')
+    show_info "Found Maven version ${SYSTEM_MAVEN_VERSION} at $(command -v mvn)."
+  else
+    SYSTEM_MAVEN_VERSION=0.0.0
+    show_info "Maven installation not found."
+  fi
+
+  if [[ "$MAVEN_VERSION" == "$SYSTEM_MAVEN_VERSION" ]]; then
+    show_info "System Maven version ${SYSTEM_MAVEN_VERSION} matches required Maven version ${MAVEN_VERSION}. Skipping installation."
+  else
+    # Append pipe character to make preview release versions like "X.Y.Z-beta-1" sort
+    # as older than their corresponding release version "X.Y.Z". This works because 
+    # `sort -V` orders the pipe character lower than any version number character.
+    older_version=$(printf '%s\n%s\n' "$SYSTEM_MAVEN_VERSION" "$MAVEN_VERSION" | sed 's/$/|/' | sort -V | sed 's/|$//' | head -n1)
+    if [[ "$older_version" == "$SYSTEM_MAVEN_VERSION" ]]; then
+      show_info "Installing Maven version ${MAVEN_VERSION}..."
+      APACHE_MIRROR="https://www.apache.org/dyn/closer.lua?action=download&filename="
+      curl -sL -o apache-maven-${MAVEN_VERSION}-bin.tar.gz \
+        ${APACHE_MIRROR}/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz
+      tar xzf apache-maven-${MAVEN_VERSION}-bin.tar.gz
+      export PATH=$(pwd)/apache-maven-${MAVEN_VERSION}/bin:$PATH
+      # --batch-mode is for disabling output color.
+      show_info "Installed Maven version $(mvn --batch-mode -v | head -n 1 | awk '{print $3}')"
+    else
+      show_info "System Maven version ${SYSTEM_MAVEN_VERSION} is newer than minimum version ${MAVEN_VERSION}. Skipping installation."
+    fi
+  fi
+}
+
+maybe_setup_maven() {
+  show_info "Ensuring that Maven is installed..."
+  if [ "${USE_CONDA}" -eq 0 ]; then
+    install_maven
+  fi
+}
+
 maybe_setup_virtualenv() {
   # Optionally setup pip virtualenv with the passed dependencies
   local env="venv-${VENV_ENV:-source}"
@@ -567,6 +603,7 @@ maybe_setup_nodejs() {
 test_package_java() {
   show_header "Build and test Java libraries"
 
+  maybe_setup_maven
   maybe_setup_conda maven openjdk
 
   pushd java
@@ -605,8 +642,8 @@ test_package_java() {
         normalized_arch=x86_64
         ;;
     esac
-    mkdir -p ${dist_dir}/${normalized_arch}/
-    mv ${install_dir}/lib/* ${dist_dir}/${normalized_arch}/
+    mkdir -p ${dist_dir}
+    mv ${install_dir}/lib/* ${dist_dir}
     mvn install \
         -Darrow.c.jni.dist.dir=${dist_dir} \
         -Parrow-c-data
@@ -916,7 +953,7 @@ test_go() {
   show_header "Build and test Go libraries"
 
   maybe_setup_go
-  maybe_setup_conda compilers go=1.19
+  maybe_setup_conda compilers go=1.21
 
   pushd go
   go get -v ./...
@@ -1204,6 +1241,8 @@ test_wheels() {
 
 test_jars() {
   show_header "Testing Java JNI jars"
+
+  maybe_setup_maven
   maybe_setup_conda maven python
 
   local download_dir=${ARROW_TMPDIR}/jars

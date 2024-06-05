@@ -23,7 +23,7 @@ if(ARROW_TESTING)
   add_library(arrow_compute_kernels_testing OBJECT test_util.cc)
   # Even though this is still just an object library we still need to "link" our
   # dependencies so that include paths are configured correctly
-  target_link_libraries(arrow_compute_kernels_testing PRIVATE ${ARROW_GTEST_GMOCK})
+  target_link_libraries(arrow_compute_kernels_testing PUBLIC ${ARROW_GTEST_GMOCK})
 endif()
 
 add_arrow_test(scalar_cast_test
@@ -36,13 +36,17 @@ add_arrow_test(scalar_cast_test
 # ----------------------------------------------------------------------
 # Scalar kernels
 
+set(ARROW_COMPUTE_SCALAR_TYPE_TEST_LINK_LIBS arrow_compute_kernels_testing)
+if(ARROW_WITH_UTF8PROC)
+  list(APPEND ARROW_COMPUTE_SCALAR_TYPE_TEST_LINK_LIBS utf8proc::utf8proc)
+endif()
 add_arrow_compute_test(scalar_type_test
                        SOURCES
                        scalar_boolean_test.cc
                        scalar_nested_test.cc
                        scalar_string_test.cc
                        EXTRA_LINK_LIBS
-                       arrow_compute_kernels_testing)
+                       ${ARROW_COMPUTE_SCALAR_TYPE_TEST_LINK_LIBS})
 
 add_arrow_compute_test(scalar_if_else_test
                        SOURCES
@@ -126,7 +130,8 @@ add_arrow_compute_test(aggregate_test
                        SOURCES
                        aggregate_test.cc
                        EXTRA_LINK_LIBS
-                       arrow_compute_kernels_testing)
+                       arrow_compute_kernels_testing
+                       Boost::headers)
 
 # ----------------------------------------------------------------------
 # Utilities

@@ -63,6 +63,10 @@ ARROW_EXPORT int GetAbstractPathDepth(std::string_view path);
 ARROW_EXPORT
 std::pair<std::string, std::string> GetAbstractPathParent(const std::string& s);
 
+// Validate an abstract path.
+ARROW_EXPORT
+Status ValidateAbstractPath(std::string_view path);
+
 // Validate the components of an abstract path.
 ARROW_EXPORT
 Status ValidateAbstractPathParts(const std::vector<std::string>& parts);

@@ -32,8 +32,7 @@ gadataset_key_value_partitioning_options_get_raw(
   GADatasetKeyValuePartitioningOptions *options);
 
 arrow::dataset::HivePartitioningOptions
-gadataset_hive_partitioning_options_get_raw(
-  GADatasetHivePartitioningOptions *options);
+gadataset_hive_partitioning_options_get_raw(GADatasetHivePartitioningOptions *options);
 
 GADatasetPartitioning *
 gadataset_partitioning_new_raw(

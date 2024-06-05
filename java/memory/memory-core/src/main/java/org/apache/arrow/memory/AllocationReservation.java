@@ -84,5 +84,5 @@ public interface AllocationReservation extends AutoCloseable {
    */
   boolean isClosed();
 
-  void close();
+  @Override void close();
 }

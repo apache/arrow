@@ -4469,7 +4469,7 @@ class TestArrowReadDictionary : public ::testing::TestWithParam<double> {
     RETURN_NOT_OK(builder.Open(std::make_shared<BufferReader>(buffer_)));
     RETURN_NOT_OK(builder.properties(properties_)->Build(&reader));
 
-    return std::move(reader);
+    return reader;
   }
 };
 

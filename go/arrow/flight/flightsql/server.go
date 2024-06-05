@@ -20,14 +20,14 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/flight"
-	"github.com/apache/arrow/go/v16/arrow/flight/flightsql/schema_ref"
-	pb "github.com/apache/arrow/go/v16/arrow/flight/gen/flight"
-	"github.com/apache/arrow/go/v16/arrow/internal/debug"
-	"github.com/apache/arrow/go/v16/arrow/ipc"
-	"github.com/apache/arrow/go/v16/arrow/memory"
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/array"
+	"github.com/apache/arrow/go/v17/arrow/flight"
+	"github.com/apache/arrow/go/v17/arrow/flight/flightsql/schema_ref"
+	pb "github.com/apache/arrow/go/v17/arrow/flight/gen/flight"
+	"github.com/apache/arrow/go/v17/arrow/internal/debug"
+	"github.com/apache/arrow/go/v17/arrow/ipc"
+	"github.com/apache/arrow/go/v17/arrow/memory"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -194,6 +194,17 @@ type ActionEndTransactionRequest interface {
 type ActionEndSavepointRequest interface {
 	GetSavepointId() []byte
 	GetAction() EndSavepointRequestType
+}
+
+// StatementIngest represents a bulk ingestion request
+type StatementIngest interface {
+	GetTableDefinitionOptions() *TableDefinitionOptions
+	GetTable() string
+	GetSchema() string
+	GetCatalog() string
+	GetTemporary() bool
+	GetTransactionId() []byte
+	GetOptions() map[string]string
 }
 
 type getXdbcTypeInfo struct {
@@ -499,12 +510,16 @@ func (BaseServer) DoPutCommandSubstraitPlan(context.Context, StatementSubstraitP
 	return 0, status.Error(codes.Unimplemented, "DoPutCommandSubstraitPlan not implemented")
 }
 
-func (BaseServer) DoPutPreparedStatementQuery(context.Context, PreparedStatementQuery, flight.MessageReader, flight.MetadataWriter) error {
-	return status.Error(codes.Unimplemented, "DoPutPreparedStatementQuery not implemented")
+func (BaseServer) DoPutPreparedStatementQuery(context.Context, PreparedStatementQuery, flight.MessageReader, flight.MetadataWriter) ([]byte, error) {
+	return nil, status.Error(codes.Unimplemented, "DoPutPreparedStatementQuery not implemented")
 }
 
 func (BaseServer) DoPutPreparedStatementUpdate(context.Context, PreparedStatementUpdate, flight.MessageReader) (int64, error) {
 	return 0, status.Error(codes.Unimplemented, "DoPutPreparedStatementUpdate not implemented")
+}
+
+func (BaseServer) DoPutCommandStatementIngest(context.Context, StatementIngest, flight.MessageReader) (int64, error) {
+	return 0, status.Error(codes.Unimplemented, "DoPutCommandStatementIngest not implemented")
 }
 
 func (BaseServer) BeginTransaction(context.Context, ActionBeginTransactionRequest) ([]byte, error) {
@@ -546,6 +561,18 @@ func (BaseServer) EndTransaction(context.Context, ActionEndTransactionRequest) e
 
 func (BaseServer) EndSavepoint(context.Context, ActionEndSavepointRequest) error {
 	return status.Error(codes.Unimplemented, "EndSavepoint not implemented")
+}
+
+func (BaseServer) SetSessionOptions(context.Context, *flight.SetSessionOptionsRequest) (*flight.SetSessionOptionsResult, error) {
+	return nil, status.Error(codes.Unimplemented, "SetSessionOptions not implemented")
+}
+
+func (BaseServer) GetSessionOptions(context.Context, *flight.GetSessionOptionsRequest) (*flight.GetSessionOptionsResult, error) {
+	return nil, status.Error(codes.Unimplemented, "GetSessionOptions not implemented")
+}
+
+func (BaseServer) CloseSession(context.Context, *flight.CloseSessionRequest) (*flight.CloseSessionResult, error) {
+	return nil, status.Error(codes.Unimplemented, "CloseSession not implemented")
 }
 
 // Server is the required interface for a FlightSQL server. It is implemented by
@@ -650,7 +677,7 @@ type Server interface {
 	// Currently anything written to the writer will be ignored. It is in the
 	// interface for potential future enhancements to avoid having to change
 	// the interface in the future.
-	DoPutPreparedStatementQuery(context.Context, PreparedStatementQuery, flight.MessageReader, flight.MetadataWriter) error
+	DoPutPreparedStatementQuery(context.Context, PreparedStatementQuery, flight.MessageReader, flight.MetadataWriter) ([]byte, error)
 	// DoPutPreparedStatementUpdate executes an update SQL Prepared statement
 	// for the specified statement handle. The reader allows providing a sequence
 	// of uploaded record batches to bind the parameters to. Returns the number
@@ -676,6 +703,15 @@ type Server interface {
 	PollFlightInfoSubstraitPlan(context.Context, StatementSubstraitPlan, *flight.FlightDescriptor) (*flight.PollInfo, error)
 	// PollFlightInfoPreparedStatement handles polling for query execution.
 	PollFlightInfoPreparedStatement(context.Context, PreparedStatementQuery, *flight.FlightDescriptor) (*flight.PollInfo, error)
+	// SetSessionOptions sets option(s) for the current server session.
+	SetSessionOptions(context.Context, *flight.SetSessionOptionsRequest) (*flight.SetSessionOptionsResult, error)
+	// GetSessionOptions gets option(s) for the current server session.
+	GetSessionOptions(context.Context, *flight.GetSessionOptionsRequest) (*flight.GetSessionOptionsResult, error)
+	// CloseSession closes/invalidates the current server session.
+	CloseSession(context.Context, *flight.CloseSessionRequest) (*flight.CloseSessionResult, error)
+	// DoPutCommandStatementIngest executes a bulk ingestion and returns
+	// the number of affected rows
+	DoPutCommandStatementIngest(context.Context, StatementIngest, flight.MessageReader) (int64, error)
 
 	mustEmbedBaseServer()
 }
@@ -954,7 +990,16 @@ func (f *flightSqlServer) DoPut(stream flight.FlightService_DoPutServer) error {
 		}
 		return stream.Send(out)
 	case *pb.CommandPreparedStatementQuery:
-		return f.srv.DoPutPreparedStatementQuery(stream.Context(), cmd, rdr, &putMetadataWriter{stream})
+		handle, err := f.srv.DoPutPreparedStatementQuery(stream.Context(), cmd, rdr, &putMetadataWriter{stream})
+		if err != nil {
+			return err
+		}
+		result := pb.DoPutPreparedStatementResult{PreparedStatementHandle: handle}
+		out := &flight.PutResult{}
+		if out.AppMetadata, err = proto.Marshal(&result); err != nil {
+			return status.Errorf(codes.Internal, "failed to marshal PutResult: %s", err.Error())
+		}
+		return stream.Send(out)
 	case *pb.CommandPreparedStatementUpdate:
 		recordCount, err := f.srv.DoPutPreparedStatementUpdate(stream.Context(), cmd, rdr)
 		if err != nil {
@@ -967,6 +1012,26 @@ func (f *flightSqlServer) DoPut(stream flight.FlightService_DoPutServer) error {
 			return status.Errorf(codes.Internal, "failed to marshal PutResult: %s", err.Error())
 		}
 		return stream.Send(out)
+	case *pb.CommandStatementIngest:
+		// Even if there was an error, the server may have ingested some records.
+		// For this reason we send PutResult{recordCount} no matter what, potentially followed by an error
+		// if there was one.
+		recordCount, rpcErr := f.srv.DoPutCommandStatementIngest(stream.Context(), cmd, rdr)
+
+		result := pb.DoPutUpdateResult{RecordCount: recordCount}
+		out := &flight.PutResult{}
+		if out.AppMetadata, err = proto.Marshal(&result); err != nil {
+			return status.Errorf(codes.Internal, "failed to marshal PutResult: %s", err.Error())
+		}
+
+		// If we fail to send the recordCount, just return an error outright
+		if err := stream.Send(out); err != nil {
+			return err
+		}
+
+		// We successfully sent the recordCount.
+		// Send the error if one occurred in the RPC, otherwise this is nil.
+		return rpcErr
 	default:
 		return status.Error(codes.InvalidArgument, "the defined request is invalid")
 	}
@@ -1262,6 +1327,69 @@ func (f *flightSqlServer) DoAction(cmd *flight.Action, stream flight.FlightServi
 		}
 
 		return stream.Send(&pb.Result{})
+	case flight.SetSessionOptionsActionType:
+		var (
+			request flight.SetSessionOptionsRequest
+			err     error
+		)
+
+		if err = proto.Unmarshal(cmd.Body, &request); err != nil {
+			return status.Errorf(codes.InvalidArgument, "unable to unmarshal SetSessionOptionsRequest: %s", err.Error())
+		}
+
+		response, err := f.srv.SetSessionOptions(stream.Context(), &request)
+		if err != nil {
+			return err
+		}
+
+		out := &pb.Result{}
+		out.Body, err = proto.Marshal(response)
+		if err != nil {
+			return err
+		}
+		return stream.Send(out)
+	case flight.GetSessionOptionsActionType:
+		var (
+			request flight.GetSessionOptionsRequest
+			err     error
+		)
+
+		if err = proto.Unmarshal(cmd.Body, &request); err != nil {
+			return status.Errorf(codes.InvalidArgument, "unable to unmarshal GetSessionOptionsRequest: %s", err.Error())
+		}
+
+		response, err := f.srv.GetSessionOptions(stream.Context(), &request)
+		if err != nil {
+			return err
+		}
+
+		out := &pb.Result{}
+		out.Body, err = proto.Marshal(response)
+		if err != nil {
+			return err
+		}
+		return stream.Send(out)
+	case flight.CloseSessionActionType:
+		var (
+			request flight.CloseSessionRequest
+			err     error
+		)
+
+		if err = proto.Unmarshal(cmd.Body, &request); err != nil {
+			return status.Errorf(codes.InvalidArgument, "unable to unmarshal CloseSessionRequest: %s", err.Error())
+		}
+
+		response, err := f.srv.CloseSession(stream.Context(), &request)
+		if err != nil {
+			return err
+		}
+
+		out := &pb.Result{}
+		out.Body, err = proto.Marshal(response)
+		if err != nil {
+			return err
+		}
+		return stream.Send(out)
 	default:
 		return status.Error(codes.InvalidArgument, "the defined request is invalid.")
 	}

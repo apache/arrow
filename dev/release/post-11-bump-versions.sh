@@ -41,10 +41,6 @@ version=$1
 next_version=$2
 next_version_snapshot="${next_version}-SNAPSHOT"
 
-current_version=$(grep ARROW_VERSION "${SOURCE_DIR}/../../cpp/CMakeLists.txt" | \
-                    head -n1 | \
-                    grep -E -o '([0-9]+\.[0-9]+\.[0-9]+)')
-
 case "${version}" in
   *.0.0)
     is_major_release=1
@@ -68,52 +64,12 @@ if [ ${BUMP_VERSION_POST_TAG} -gt 0 ]; then
 fi
 
 if [ ${BUMP_DEB_PACKAGE_NAMES} -gt 0 ] && \
-     [ "${next_version}" != "${current_version}" ]; then
-  echo "Updating .deb package names for ${next_version}"
-  so_version() {
-    local version=$1
-    local major_version=$(echo $version | sed -E -e 's/^([0-9]+)\.[0-9]+\.[0-9]+$/\1/')
-    local minor_version=$(echo $version | sed -E -e 's/^[0-9]+\.([0-9]+)\.[0-9]+$/\1/')
-    expr ${major_version} \* 100 + ${minor_version}
-  }
-  deb_lib_suffix=$(so_version $version)
-  next_deb_lib_suffix=$(so_version $next_version)
-  if [ "${deb_lib_suffix}" != "${next_deb_lib_suffix}" ]; then
-    cd $SOURCE_DIR/../tasks/linux-packages/apache-arrow
-    for target in debian*/lib*${deb_lib_suffix}.install; do
-      git mv \
-        ${target} \
-        $(echo $target | sed -e "s/${deb_lib_suffix}/${next_deb_lib_suffix}/")
-    done
-    deb_lib_suffix_substitute_pattern="s/(lib(arrow|gandiva|parquet)[-a-z]*)${deb_lib_suffix}/\\1${next_deb_lib_suffix}/g"
-    sed -i.bak -E -e "${deb_lib_suffix_substitute_pattern}" debian*/control*
-    rm -f debian*/control*.bak
-    git add debian*/control*
-    cd -
-    cd $SOURCE_DIR/../tasks/
-    sed -i.bak -E -e "${deb_lib_suffix_substitute_pattern}" tasks.yml
-    rm -f tasks.yml.bak
-    git add tasks.yml
-    cd -
-    cd $SOURCE_DIR
-    sed -i.bak -E -e "${deb_lib_suffix_substitute_pattern}" rat_exclude_files.txt
-    rm -f rat_exclude_files.txt.bak
-    git add rat_exclude_files.txt
-    git commit -m "MINOR: [Release] Update .deb package names for $next_version"
-    cd -
-  fi
+     [ "${next_version}" != "$(current_version)" ]; then
+  update_deb_package_names "${version}" "${next_version}"
 fi
 
 if [ ${BUMP_LINUX_PACKAGES} -gt 0 ]; then
-  echo "Updating .deb/.rpm changelogs for $version"
-  cd $SOURCE_DIR/../tasks/linux-packages
-  rake \
-    version:update \
-    ARROW_RELEASE_TIME="$(git log -n1 --format=%aI apache-arrow-${version})" \
-    ARROW_VERSION=${version}
-  git add */debian*/changelog */yum/*.spec.in
-  git commit -m "MINOR: [Release] Update .deb/.rpm changelogs for $version"
-  cd -
+  update_linux_packages "${version}" "$(git log -n1 --format=%aI apache-arrow-${version})"
 fi
 
 if [ ${BUMP_PUSH} -gt 0 ]; then

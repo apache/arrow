@@ -75,8 +75,8 @@ namespace fs {
 using ::arrow::internal::checked_pointer_cast;
 using ::arrow::internal::PlatformFilename;
 using ::arrow::internal::ToChars;
-using ::arrow::internal::UriEscape;
 using ::arrow::internal::Zip;
+using ::arrow::util::UriEscape;
 
 using ::arrow::fs::internal::ConnectRetryStrategy;
 using ::arrow::fs::internal::ErrorToStatus;
@@ -150,7 +150,7 @@ class ShortRetryStrategy : public S3RetryStrategy {
 class AwsTestMixin : public ::testing::Test {
  public:
   void SetUp() override {
-#ifdef AWS_CPP_SDK_S3_NOT_SHARED
+#ifdef AWS_CPP_SDK_S3_PRIVATE_STATIC
     auto aws_log_level = Aws::Utils::Logging::LogLevel::Fatal;
     aws_options_.loggingOptions.logLevel = aws_log_level;
     aws_options_.loggingOptions.logger_create_fn = [&aws_log_level] {
@@ -161,13 +161,13 @@ class AwsTestMixin : public ::testing::Test {
   }
 
   void TearDown() override {
-#ifdef AWS_CPP_SDK_S3_NOT_SHARED
+#ifdef AWS_CPP_SDK_S3_PRIVATE_STATIC
     Aws::ShutdownAPI(aws_options_);
 #endif
   }
 
  private:
-#ifdef AWS_CPP_SDK_S3_NOT_SHARED
+#ifdef AWS_CPP_SDK_S3_PRIVATE_STATIC
   Aws::SDKOptions aws_options_;
 #endif
 };
@@ -190,8 +190,11 @@ class S3TestMixin : public AwsTestMixin {
   }
 
   void TearDown() override {
-    client_.reset();  // Aws::S3::S3Client destruction relies on AWS SDK, so it must be
-                      // reset before Aws::ShutdownAPI
+    // Aws::S3::S3Client destruction relies on AWS SDK, so it must be
+    // reset before Aws::ShutdownAPI
+    client_.reset();
+    client_config_.reset();
+
     AwsTestMixin::TearDown();
   }
 
@@ -466,6 +469,13 @@ class TestS3FS : public S3TestMixin {
       req.SetBody(std::make_shared<std::stringstream>("other data"));
       ASSERT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
     }
+  }
+
+  void TearDown() override {
+    // Aws::S3::S3Client destruction relies on AWS SDK, so it must be
+    // reset before Aws::ShutdownAPI
+    fs_.reset();
+    S3TestMixin::TearDown();
   }
 
   Result<std::shared_ptr<S3FileSystem>> MakeNewFileSystem(
@@ -912,8 +922,12 @@ TEST_F(TestS3FS, CreateDir) {
 
   // New "directory"
   AssertFileInfo(fs_.get(), "bucket/newdir", FileType::NotFound);
-  ASSERT_OK(fs_->CreateDir("bucket/newdir"));
+  ASSERT_OK(fs_->CreateDir("bucket/newdir", /*recursive=*/false));
   AssertFileInfo(fs_.get(), "bucket/newdir", FileType::Directory);
+
+  // By default CreateDir uses recursvie mode, make it explictly to be false
+  ASSERT_RAISES(IOError,
+                fs_->CreateDir("bucket/newdir/newsub/newsubsub", /*recursive=*/false));
 
   // New "directory", recursive
   ASSERT_OK(fs_->CreateDir("bucket/newdir/newsub/newsubsub", /*recursive=*/true));
@@ -925,6 +939,35 @@ TEST_F(TestS3FS, CreateDir) {
 
   // URI
   ASSERT_RAISES(Invalid, fs_->CreateDir("s3:bucket/newdir2"));
+
+  // Extraneous slashes
+  ASSERT_RAISES(Invalid, fs_->CreateDir("bucket//somedir"));
+  ASSERT_RAISES(Invalid, fs_->CreateDir("bucket/somedir//newdir"));
+
+  // check existing before creation
+  options_.check_directory_existence_before_creation = true;
+  MakeFileSystem();
+  // New "directory" again
+  AssertFileInfo(fs_.get(), "bucket/checknewdir", FileType::NotFound);
+  ASSERT_OK(fs_->CreateDir("bucket/checknewdir"));
+  AssertFileInfo(fs_.get(), "bucket/checknewdir", FileType::Directory);
+
+  ASSERT_RAISES(IOError, fs_->CreateDir("bucket/checknewdir/newsub/newsubsub/newsubsub/",
+                                        /*recursive=*/false));
+
+  // New "directory" again, recursive
+  ASSERT_OK(fs_->CreateDir("bucket/checknewdir/newsub/newsubsub", /*recursive=*/true));
+  AssertFileInfo(fs_.get(), "bucket/checknewdir/newsub", FileType::Directory);
+  AssertFileInfo(fs_.get(), "bucket/checknewdir/newsub/newsubsub", FileType::Directory);
+  AssertFileInfo(fs_.get(), "bucket/checknewdir/newsub/newsubsub/newsubsub",
+                 FileType::NotFound);
+  // Try creation with the same name
+  ASSERT_OK(fs_->CreateDir("bucket/checknewdir/newsub/newsubsub/newsubsub/",
+                           /*recursive=*/true));
+  AssertFileInfo(fs_.get(), "bucket/checknewdir/newsub", FileType::Directory);
+  AssertFileInfo(fs_.get(), "bucket/checknewdir/newsub/newsubsub", FileType::Directory);
+  AssertFileInfo(fs_.get(), "bucket/checknewdir/newsub/newsubsub/newsubsub",
+                 FileType::Directory);
 }
 
 TEST_F(TestS3FS, DeleteFile) {
@@ -984,6 +1027,10 @@ TEST_F(TestS3FS, DeleteDir) {
 
   // URI
   ASSERT_RAISES(Invalid, fs_->DeleteDir("s3:empty-bucket"));
+
+  // Extraneous slashes
+  ASSERT_RAISES(Invalid, fs_->DeleteDir("bucket//newdir"));
+  ASSERT_RAISES(Invalid, fs_->DeleteDir("bucket/newdir//newsub"));
 }
 
 TEST_F(TestS3FS, DeleteDirContents) {
@@ -1357,6 +1404,14 @@ class TestS3FSGeneric : public S3TestMixin, public GenericFileSystemTest {
     options_.retry_strategy = std::make_shared<ShortRetryStrategy>();
     ASSERT_OK_AND_ASSIGN(s3fs_, S3FileSystem::Make(options_));
     fs_ = std::make_shared<SubTreeFileSystem>("s3fs-test-bucket", s3fs_);
+  }
+
+  void TearDown() override {
+    // Aws::S3::S3Client destruction relies on AWS SDK, so it must be
+    // reset before Aws::ShutdownAPI
+    s3fs_.reset();
+    fs_.reset();
+    S3TestMixin::TearDown();
   }
 
  protected:

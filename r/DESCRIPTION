@@ -1,13 +1,13 @@
 Package: arrow
 Title: Integration to 'Apache' 'Arrow'
-Version: 15.0.0.9000
+Version: 16.1.0.9000
 Authors@R: c(
     person("Neal", "Richardson", email = "neal.p.richardson@gmail.com", role = c("aut")),
     person("Ian", "Cook", email = "ianmcook@gmail.com", role = c("aut")),
-    person("Nic", "Crane", email = "thisisnic@gmail.com", role = c("aut", "cre")),
+    person("Nic", "Crane", email = "thisisnic@gmail.com", role = c("aut")),
     person("Dewey", "Dunnington", role = c("aut"), email = "dewey@fishandwhistle.net", comment = c(ORCID = "0000-0002-9415-4582")),
     person("Romain", "Fran\u00e7ois", role = c("aut"), comment = c(ORCID = "0000-0002-2444-4226")),
-    person("Jonathan", "Keane", email = "jkeane@gmail.com", role = c("aut")),
+    person("Jonathan", "Keane", email = "jkeane@gmail.com", role = c("aut", "cre")),
     person("Drago\u0219", "Moldovan-Gr\u00fcnfeld", email = "dragos.mold@gmail.com", role = c("aut")),
     person("Jeroen", "Ooms", email = "jeroen@berkeley.edu", role = c("aut")),
     person("Jacob", "Wujciak-Jens", email = "jacob@wujciak.de", role = c("aut")),
@@ -21,7 +21,7 @@ Description: 'Apache' 'Arrow' <https://arrow.apache.org/> is a cross-language
     language-independent columnar memory format for flat and hierarchical data,
     organized for efficient analytic operations on modern hardware. This
     package provides an interface to the 'Arrow C++' library.
-Depends: R (>= 3.4)
+Depends: R (>= 4.0)
 License: Apache License (>= 2.0)
 URL: https://github.com/apache/arrow/, https://arrow.apache.org/docs/r/
 BugReports: https://github.com/apache/arrow/issues
@@ -43,8 +43,9 @@ Imports:
     utils,
     vctrs
 Roxygen: list(markdown = TRUE, r6 = FALSE, load = "source")
-RoxygenNote: 7.2.3
+RoxygenNote: 7.3.1
 Config/testthat/edition: 3
+Config/build/bootstrap: TRUE
 Suggests:
     blob,
     curl,
@@ -106,6 +107,7 @@ Collate:
     'dplyr-distinct.R'
     'dplyr-eval.R'
     'dplyr-filter.R'
+    'dplyr-funcs-agg.R'
     'dplyr-funcs-augmented.R'
     'dplyr-funcs-conditional.R'
     'dplyr-funcs-datetime.R'

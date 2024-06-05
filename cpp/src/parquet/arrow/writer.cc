@@ -482,6 +482,14 @@ class FileWriterImpl : public FileWriter {
     return writer_->metadata();
   }
 
+  /// \brief Append the key-value metadata to the file metadata
+  ::arrow::Status AddKeyValueMetadata(
+      const std::shared_ptr<const ::arrow::KeyValueMetadata>& key_value_metadata)
+      override {
+    PARQUET_CATCH_NOT_OK(writer_->AddKeyValueMetadata(key_value_metadata));
+    return Status::OK();
+  }
+
  private:
   friend class FileWriter;
 
@@ -547,8 +555,8 @@ Status GetSchemaMetadata(const ::arrow::Schema& schema, ::arrow::MemoryPool* poo
   // The serialized schema is not UTF-8, which is required for Thrift
   std::string schema_as_string = serialized->ToString();
   std::string schema_base64 = ::arrow::util::base64_encode(schema_as_string);
-  result->Append(kArrowSchemaKey, schema_base64);
-  *out = result;
+  result->Append(kArrowSchemaKey, std::move(schema_base64));
+  *out = std::move(result);
   return Status::OK();
 }
 

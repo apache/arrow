@@ -41,7 +41,7 @@ using internal::checked_cast;
 
 DataTypeLayout ExtensionType::layout() const { return storage_type_->layout(); }
 
-std::string ExtensionType::ToString() const {
+std::string ExtensionType::ToString(bool show_metadata) const {
   std::stringstream ss;
   ss << "extension<" << this->extension_name() << ">";
   return ss.str();

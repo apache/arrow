@@ -42,8 +42,7 @@ import org.apache.arrow.vector.util.TransferPair;
 /**
  * BaseLargeVariableWidthVector is a base class providing functionality for large strings/large bytes types.
  */
-public abstract class BaseLargeVariableWidthVector extends BaseValueVector
-    implements VariableWidthVector, FieldVector, VectorDefinitionSetter {
+public abstract class BaseLargeVariableWidthVector extends BaseValueVector implements VariableWidthFieldVector {
   private static final int DEFAULT_RECORD_BYTE_COUNT = 12;
   private static final int INITIAL_BYTE_COUNT = INITIAL_VALUE_ALLOCATION * DEFAULT_RECORD_BYTE_COUNT;
   private int lastValueCapacity;
@@ -337,6 +336,34 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
   }
 
   /**
+   * Export the buffers of the fields for C Data Interface. This method traverse the buffers and
+   * export buffer and buffer's memory address into a list of buffers and a pointer to the list of buffers.
+   */
+  @Override
+  public void exportCDataBuffers(List<ArrowBuf> buffers, ArrowBuf buffersPtr, long nullValue) {
+    // before flight/IPC, we must bring the vector to a consistent state.
+    // this is because, it is possible that the offset buffers of some trailing values
+    // are not updated. this may cause some data in the data buffer being lost.
+    // for details, please see TestValueVector#testUnloadVariableWidthVector.
+    fillHoles(valueCount);
+
+    exportBuffer(validityBuffer, buffers, buffersPtr, nullValue, true);
+
+    if (offsetBuffer.capacity() == 0) {
+      // Empty offset buffer is allowed for historical reason.
+      // To export it through C Data interface, we need to allocate a buffer with one offset.
+      // We set `retain = false` to explicitly not increase the ref count for the exported buffer.
+      // The ref count of the newly created buffer (i.e., 1) already represents the usage
+      // at imported side.
+      exportBuffer(allocateOffsetBuffer(OFFSET_WIDTH), buffers, buffersPtr, nullValue, false);
+    } else {
+      exportBuffer(offsetBuffer, buffers, buffersPtr, nullValue, true);
+    }
+
+    exportBuffer(valueBuffer, buffers, buffersPtr, nullValue, true);
+  }
+
+  /**
    * Set the reader and writer indexes for the inner buffers.
    */
   private void setReaderAndWriterIndex() {
@@ -456,10 +483,11 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
   }
 
   /* allocate offset buffer */
-  private void allocateOffsetBuffer(final long size) {
-    offsetBuffer = allocator.buffer(size);
+  private ArrowBuf allocateOffsetBuffer(final long size) {
+    ArrowBuf offsetBuffer = allocator.buffer(size);
     offsetBuffer.readerIndex(0);
     initOffsetBuffer();
+    return offsetBuffer;
   }
 
   /* allocate validity buffer */
@@ -734,16 +762,14 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    */
   public void splitAndTransferTo(int startIndex, int length,
                                  BaseLargeVariableWidthVector target) {
-    Preconditions.checkArgument(startIndex >= 0 && startIndex < valueCount,
-        "Invalid startIndex: %s", startIndex);
-    Preconditions.checkArgument(startIndex + length <= valueCount,
-        "Invalid length: %s", length);
+    Preconditions.checkArgument(startIndex >= 0 && length >= 0 && startIndex + length <= valueCount,
+        "Invalid parameters startIndex: %s, length: %s for valueCount: %s", startIndex, length, valueCount);
     compareTypes(target, "splitAndTransferTo");
     target.clear();
-    splitAndTransferValidityBuffer(startIndex, length, target);
-    splitAndTransferOffsetBuffer(startIndex, length, target);
-    target.setLastSet(length - 1);
     if (length > 0) {
+      splitAndTransferValidityBuffer(startIndex, length, target);
+      splitAndTransferOffsetBuffer(startIndex, length, target);
+      target.setLastSet(length - 1);
       target.setValueCount(length);
     }
   }
@@ -760,7 +786,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
     final long start = getStartOffset(startIndex);
     final long end = getStartOffset(startIndex + length);
     final long dataLength = end - start;
-    target.allocateOffsetBuffer((long) (length + 1) * OFFSET_WIDTH);
+    target.offsetBuffer = target.allocateOffsetBuffer((long) (length + 1) * OFFSET_WIDTH);
     for (int i = 0; i < length + 1; i++) {
       final long relativeSourceOffset = getStartOffset(startIndex + i) - start;
       target.offsetBuffer.setLong((long) i * OFFSET_WIDTH, relativeSourceOffset);
@@ -915,6 +941,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    *
    * @param index target index
    */
+  @Override
   public void fillEmpties(int index) {
     handleSafe(index, emptyByteArray.length);
     fillHoles(index);
@@ -928,6 +955,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    *
    * @param value desired index of last non-null element.
    */
+  @Override
   public void setLastSet(int value) {
     lastSet = value;
   }
@@ -937,6 +965,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    *
    * @return index of the last non-null element
    */
+  @Override
   public int getLastSet() {
     return lastSet;
   }
@@ -976,6 +1005,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    * @param index   position of element to get
    * @return greater than 0 length for non-null element, 0 otherwise
    */
+  @Override
   public int getValueLength(int index) {
     assert index >= 0;
     if (isSet(index) == 0) {
@@ -994,6 +1024,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    * @param index   position of the element to set
    * @param value   array of bytes to write
    */
+  @Override
   public void set(int index, byte[] value) {
     assert index >= 0;
     fillHoles(index);
@@ -1010,6 +1041,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    * @param index   position of the element to set
    * @param value   array of bytes to write
    */
+  @Override
   public void setSafe(int index, byte[] value) {
     assert index >= 0;
     handleSafe(index, value.length);
@@ -1028,6 +1060,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    * @param start   start index in array of bytes
    * @param length  length of data in array of bytes
    */
+  @Override
   public void set(int index, byte[] value, int start, int length) {
     assert index >= 0;
     fillHoles(index);
@@ -1064,6 +1097,7 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
    * @param start   start index in ByteBuffer
    * @param length  length of data in ByteBuffer
    */
+  @Override
   public void set(int index, ByteBuffer value, int start, int length) {
     assert index >= 0;
     fillHoles(index);

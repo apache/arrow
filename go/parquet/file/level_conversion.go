@@ -22,11 +22,11 @@ import (
 	"math/bits"
 	"unsafe"
 
-	shared_utils "github.com/apache/arrow/go/v16/internal/utils"
-	"github.com/apache/arrow/go/v16/parquet"
-	"github.com/apache/arrow/go/v16/parquet/internal/bmi"
-	"github.com/apache/arrow/go/v16/parquet/internal/utils"
-	"github.com/apache/arrow/go/v16/parquet/schema"
+	shared_utils "github.com/apache/arrow/go/v17/internal/utils"
+	"github.com/apache/arrow/go/v17/parquet"
+	"github.com/apache/arrow/go/v17/parquet/internal/bmi"
+	"github.com/apache/arrow/go/v17/parquet/internal/utils"
+	"github.com/apache/arrow/go/v17/parquet/schema"
 	"golang.org/x/xerrors"
 )
 

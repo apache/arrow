@@ -720,6 +720,14 @@ cdef class LargeListScalar(ListScalar):
     pass
 
 
+cdef class ListViewScalar(ListScalar):
+    pass
+
+
+cdef class LargeListViewScalar(ListScalar):
+    pass
+
+
 cdef class StructScalar(Scalar, collections.abc.Mapping):
     """
     Concrete class for struct scalars.
@@ -1035,6 +1043,48 @@ cdef class ExtensionScalar(Scalar):
         return pyarrow_wrap_scalar(<shared_ptr[CScalar]> sp_scalar)
 
 
+cdef class FixedShapeTensorScalar(ExtensionScalar):
+    """
+    Concrete class for fixed shape tensor extension scalar.
+    """
+
+    def to_numpy(self):
+        """
+        Convert fixed shape tensor scalar to a numpy.ndarray.
+
+        The resulting ndarray's shape matches the permuted shape of the
+        fixed shape tensor scalar.
+        The conversion is zero-copy.
+
+        Returns
+        -------
+        numpy.ndarray
+        """
+        return self.to_tensor().to_numpy()
+
+    def to_tensor(self):
+        """
+        Convert fixed shape tensor extension scalar to a pyarrow.Tensor, using shape
+        and strides derived from corresponding FixedShapeTensorType.
+
+        The conversion is zero-copy.
+
+        Returns
+        -------
+        pyarrow.Tensor
+            Tensor represented stored in FixedShapeTensorScalar.
+        """
+        cdef:
+            CFixedShapeTensorType* c_type = static_pointer_cast[CFixedShapeTensorType, CDataType](
+                self.wrapped.get().type).get()
+            shared_ptr[CExtensionScalar] scalar = static_pointer_cast[CExtensionScalar, CScalar](self.wrapped)
+            shared_ptr[CTensor] ctensor
+
+        with nogil:
+            ctensor = GetResultValue(c_type.MakeTensor(scalar))
+        return pyarrow_wrap_tensor(ctensor)
+
+
 cdef dict _scalar_classes = {
     _Type_BOOL: BooleanScalar,
     _Type_UINT8: UInt8Scalar,
@@ -1066,6 +1116,8 @@ cdef dict _scalar_classes = {
     _Type_LIST: ListScalar,
     _Type_LARGE_LIST: LargeListScalar,
     _Type_FIXED_SIZE_LIST: FixedSizeListScalar,
+    _Type_LIST_VIEW: ListViewScalar,
+    _Type_LARGE_LIST_VIEW: LargeListViewScalar,
     _Type_STRUCT: StructScalar,
     _Type_MAP: MapScalar,
     _Type_DICTIONARY: DictionaryScalar,

@@ -40,7 +40,7 @@ RUN apt-get update && \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-ARG r=4.2
+ARG r=4.4
 RUN wget -qO- https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc | \
         tee -a /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc && \
     # NOTE: Only R >= 4.0 is available in this repo

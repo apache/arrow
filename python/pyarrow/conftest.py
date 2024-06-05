@@ -24,6 +24,7 @@ import numpy as np
 
 groups = [
     'acero',
+    'azure',
     'brotli',
     'bz2',
     'cython',
@@ -54,6 +55,7 @@ groups = [
 
 defaults = {
     'acero': False,
+    'azure': False,
     'brotli': Codec.is_available('brotli'),
     'bz2': Codec.is_available('bz2'),
     'cython': False,
@@ -143,11 +145,16 @@ except ImportError:
     pass
 
 try:
+    from pyarrow.fs import AzureFileSystem  # noqa
+    defaults['azure'] = True
+except ImportError:
+    pass
+
+try:
     from pyarrow.fs import GcsFileSystem  # noqa
     defaults['gcs'] = True
 except ImportError:
     pass
-
 
 try:
     from pyarrow.fs import S3FileSystem  # noqa

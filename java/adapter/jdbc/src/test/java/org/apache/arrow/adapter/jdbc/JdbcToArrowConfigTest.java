@@ -89,8 +89,8 @@ public class JdbcToArrowConfigTest {
     JdbcToArrowConfigBuilder builder = new JdbcToArrowConfigBuilder(allocator, calendar);
     JdbcToArrowConfig config = builder.build();
 
-    assertTrue(allocator == config.getAllocator());
-    assertTrue(calendar == config.getCalendar());
+    assertEquals(allocator, config.getAllocator());
+    assertEquals(calendar, config.getCalendar());
 
     Calendar newCalendar = Calendar.getInstance();
     BufferAllocator newAllocator = new RootAllocator(Integer.SIZE);
@@ -98,8 +98,8 @@ public class JdbcToArrowConfigTest {
     builder.setAllocator(newAllocator).setCalendar(newCalendar);
     config = builder.build();
 
-    assertTrue(newAllocator == config.getAllocator());
-    assertTrue(newCalendar == config.getCalendar());
+    assertEquals(newAllocator, config.getAllocator());
+    assertEquals(newCalendar, config.getCalendar());
   }
 
   @Test

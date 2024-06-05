@@ -88,7 +88,7 @@ compare_dplyr_binding <- function(expr, tbl, warning = NA, ...) {
 
   if (isTRUE(warning)) {
     # Special-case the simple warning:
-    warning <- "not supported in Arrow; pulling data into R"
+    warning <- "> Pulling data into R"
   }
 
   # Evaluate `expr` on a Table object and compare with `expected`
@@ -288,4 +288,9 @@ split_vector_as_list <- function(vec) {
 
 expect_across_equal <- function(across_expr, expected, tbl) {
   expect_identical(expand_across(as_adq(tbl), across_expr), new_quosures(expected))
+}
+
+expect_arrow_eval_error <- function(expr, ..., .data = example_data) {
+  mask <- arrow_mask(as_adq(.data))
+  expect_error(arrow_eval({{ expr }}, mask), ...)
 }

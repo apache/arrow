@@ -34,6 +34,7 @@
 #include "arrow/util/logging.h"
 
 DEFINE_bool(clear, false, "delete all bucket contents");
+DEFINE_bool(create, false, "create test bucket");
 DEFINE_bool(test, false, "run narrative test against bucket");
 
 DEFINE_bool(verbose, false, "be more verbose (includes AWS warnings)");
@@ -47,8 +48,7 @@ DEFINE_string(region, "", "AWS region");
 DEFINE_string(endpoint, "", "Endpoint override (e.g. '127.0.0.1:9000')");
 DEFINE_string(scheme, "https", "Connection scheme");
 
-namespace arrow {
-namespace fs {
+namespace arrow::fs {
 
 #define ASSERT_RAISES_PRINT(context_msg, error_type, expr) \
   do {                                                     \
@@ -57,8 +57,7 @@ namespace fs {
     PrintError(context_msg, _status_or_result);            \
   } while (0)
 
-std::shared_ptr<FileSystem> MakeFileSystem() {
-  std::shared_ptr<S3FileSystem> s3fs;
+Result<std::shared_ptr<FileSystem>> MakeRootFileSystem() {
   S3Options options;
   if (!FLAGS_access_key.empty()) {
     options = S3Options::FromAccessKey(FLAGS_access_key, FLAGS_secret_key);
@@ -68,8 +67,13 @@ std::shared_ptr<FileSystem> MakeFileSystem() {
   options.endpoint_override = FLAGS_endpoint;
   options.scheme = FLAGS_scheme;
   options.region = FLAGS_region;
-  s3fs = S3FileSystem::Make(options).ValueOrDie();
-  return std::make_shared<SubTreeFileSystem>(FLAGS_bucket, s3fs);
+  options.allow_bucket_creation = FLAGS_create;
+  return S3FileSystem::Make(options);
+}
+
+Result<std::shared_ptr<FileSystem>> MakeFileSystem() {
+  ARROW_ASSIGN_OR_RAISE(auto fs, MakeRootFileSystem());
+  return std::make_shared<SubTreeFileSystem>(FLAGS_bucket, fs);
 }
 
 void PrintError(const std::string& context_msg, const Status& st) {
@@ -90,13 +94,17 @@ void CheckDirectory(FileSystem* fs, const std::string& path) {
 }
 
 void ClearBucket(int argc, char** argv) {
-  auto fs = MakeFileSystem();
-
+  ASSERT_OK_AND_ASSIGN(auto fs, MakeFileSystem());
   ASSERT_OK(fs->DeleteRootDirContents());
 }
 
+void CreateBucket(int argc, char** argv) {
+  ASSERT_OK_AND_ASSIGN(auto fs, MakeRootFileSystem());
+  ASSERT_OK(fs->CreateDir(FLAGS_bucket));
+}
+
 void TestBucket(int argc, char** argv) {
-  auto fs = MakeFileSystem();
+  ASSERT_OK_AND_ASSIGN(auto fs, MakeFileSystem());
   std::vector<FileInfo> infos;
   FileSelector select;
   std::shared_ptr<io::InputStream> is;
@@ -221,21 +229,24 @@ void TestMain(int argc, char** argv) {
                           : (FLAGS_verbose ? S3LogLevel::Warn : S3LogLevel::Fatal);
   ASSERT_OK(InitializeS3(options));
 
-  if (FLAGS_region.empty()) {
+  if (FLAGS_region.empty() && FLAGS_endpoint.empty()) {
     ASSERT_OK_AND_ASSIGN(FLAGS_region, ResolveS3BucketRegion(FLAGS_bucket));
   }
 
+  if (FLAGS_create) {
+    CreateBucket(argc, argv);
+  }
   if (FLAGS_clear) {
     ClearBucket(argc, argv);
-  } else if (FLAGS_test) {
+  }
+  if (FLAGS_test) {
     TestBucket(argc, argv);
   }
 
   ASSERT_OK(FinalizeS3());
 }
 
-}  // namespace fs
-}  // namespace arrow
+}  // namespace arrow::fs
 
 int main(int argc, char** argv) {
   std::stringstream ss;
@@ -244,8 +255,8 @@ int main(int argc, char** argv) {
   gflags::SetUsageMessage(ss.str());
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
-  if (FLAGS_clear + FLAGS_test != 1) {
-    ARROW_LOG(ERROR) << "Need exactly one of --test and --clear";
+  if (FLAGS_clear + FLAGS_test + FLAGS_create != 1) {
+    ARROW_LOG(ERROR) << "Need exactly one of --test, --clear and --create";
     return 2;
   }
   if (FLAGS_bucket.empty()) {

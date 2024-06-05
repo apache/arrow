@@ -24,10 +24,10 @@
 #ifdef _WIN32
 #include "arrow/util/windows_compatibility.h"
 #else
-#include <errno.h>
 #include <fcntl.h>
-#include <stdio.h>
 #include <sys/stat.h>
+#include <cerrno>
+#include <cstdio>
 #endif
 
 #include "arrow/filesystem/filesystem.h"
@@ -39,11 +39,11 @@
 #include "arrow/io/type_fwd.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/io_util.h"
+#include "arrow/util/string.h"
 #include "arrow/util/uri.h"
 #include "arrow/util/windows_fixup.h"
 
-namespace arrow {
-namespace fs {
+namespace arrow::fs {
 
 using ::arrow::internal::IOErrorFromErrno;
 #ifdef _WIN32
@@ -217,9 +217,7 @@ Status StatSelector(const PlatformFilename& dir_fn, const FileSelector& select,
 
 }  // namespace
 
-LocalFileSystemOptions LocalFileSystemOptions::Defaults() {
-  return LocalFileSystemOptions();
-}
+LocalFileSystemOptions LocalFileSystemOptions::Defaults() { return {}; }
 
 bool LocalFileSystemOptions::Equals(const LocalFileSystemOptions& other) const {
   return use_mmap == other.use_mmap && directory_readahead == other.directory_readahead &&
@@ -227,7 +225,7 @@ bool LocalFileSystemOptions::Equals(const LocalFileSystemOptions& other) const {
 }
 
 Result<LocalFileSystemOptions> LocalFileSystemOptions::FromUri(
-    const ::arrow::internal::Uri& uri, std::string* out_path) {
+    const ::arrow::util::Uri& uri, std::string* out_path) {
   if (!uri.username().empty() || !uri.password().empty()) {
     return Status::Invalid("Unsupported username or password in local URI: '",
                            uri.ToString(), "'");
@@ -249,8 +247,20 @@ Result<LocalFileSystemOptions> LocalFileSystemOptions::FromUri(
         std::string(internal::RemoveTrailingSlash(uri.path(), /*preserve_root=*/true));
   }
 
-  // TODO handle use_mmap option
-  return LocalFileSystemOptions();
+  LocalFileSystemOptions options;
+  ARROW_ASSIGN_OR_RAISE(auto params, uri.query_items());
+  for (const auto& [key, value] : params) {
+    if (key == "use_mmap") {
+      if (value.empty()) {
+        options.use_mmap = true;
+        continue;
+      } else {
+        ARROW_ASSIGN_OR_RAISE(options.use_mmap, ::arrow::internal::ParseBoolean(value));
+      }
+      break;
+    }
+  }
+  return options;
 }
 
 LocalFileSystem::LocalFileSystem(const io::IOContext& io_context)
@@ -260,7 +270,7 @@ LocalFileSystem::LocalFileSystem(const LocalFileSystemOptions& options,
                                  const io::IOContext& io_context)
     : FileSystem(io_context), options_(options) {}
 
-LocalFileSystem::~LocalFileSystem() {}
+LocalFileSystem::~LocalFileSystem() = default;
 
 Result<std::string> LocalFileSystem::NormalizePath(std::string path) {
   return DoNormalizePath(std::move(path));
@@ -274,6 +284,11 @@ Result<std::string> LocalFileSystem::PathFromUri(const std::string& uri_string) 
 #endif
   return internal::PathFromUriHelper(uri_string, {"file"}, /*accept_local_paths=*/true,
                                      authority_handling);
+}
+
+Result<std::string> LocalFileSystem::MakeUri(std::string path) const {
+  ARROW_ASSIGN_OR_RAISE(path, DoNormalizePath(std::move(path)));
+  return "file://" + path + (options_.use_mmap ? "?use_mmap" : "");
 }
 
 bool LocalFileSystem::Equals(const FileSystem& other) const {
@@ -509,7 +524,7 @@ class AsyncStatSelector {
     ARROW_ASSIGN_OR_RAISE(
         auto gen,
         MakeBackgroundGenerator(Iterator<FileInfoVector>(DiscoveryImplIterator(
-                                    std::move(dir_fn), nesting_depth, std::move(selector),
+                                    dir_fn, nesting_depth, std::move(selector),
                                     discovery_state, io_context, file_info_batch_size)),
                                 io_context.executor()));
     gen = MakeTransferredGenerator(std::move(gen), io_context.executor());
@@ -689,5 +704,19 @@ Result<std::shared_ptr<io::OutputStream>> LocalFileSystem::OpenAppendStream(
   return OpenOutputStreamGeneric(path, truncate, append);
 }
 
-}  // namespace fs
-}  // namespace arrow
+static Result<std::shared_ptr<fs::FileSystem>> LocalFileSystemFactory(
+    const arrow::util::Uri& uri, const io::IOContext& io_context, std::string* out_path) {
+  std::string path;
+  ARROW_ASSIGN_OR_RAISE(auto options, LocalFileSystemOptions::FromUri(uri, &path));
+  if (out_path != nullptr) {
+    *out_path = std::move(path);
+  }
+  return std::make_shared<LocalFileSystem>(options, io_context);
+}
+
+FileSystemRegistrar kLocalFileSystemModule[]{
+    ARROW_REGISTER_FILESYSTEM("file", LocalFileSystemFactory, {}),
+    ARROW_REGISTER_FILESYSTEM("local", LocalFileSystemFactory, {}),
+};
+
+}  // namespace arrow::fs

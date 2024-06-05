@@ -26,6 +26,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_builders.h"
+#include "arrow/util/config.h"
 
 #include "parquet/column_page.h"
 #include "parquet/column_reader.h"
@@ -483,7 +484,6 @@ using TestByteArrayValuesWriter = TestPrimitiveWriter<ByteArrayType>;
 using TestFixedLengthByteArrayValuesWriter = TestPrimitiveWriter<FLBAType>;
 
 using ::testing::HasSubstr;
-using ::testing::ThrowsMessage;
 
 TYPED_TEST(TestPrimitiveWriter, RequiredPlain) {
   this->TestRequiredWithEncoding(Encoding::PLAIN);
@@ -507,23 +507,33 @@ TEST_F(TestValuesWriterInt32Type, RequiredDeltaBinaryPacked) {
   this->TestRequiredWithEncoding(Encoding::DELTA_BINARY_PACKED);
 }
 
+TEST_F(TestValuesWriterInt32Type, RequiredByteStreamSplit) {
+  this->TestRequiredWithEncoding(Encoding::BYTE_STREAM_SPLIT);
+}
+
 TEST_F(TestValuesWriterInt64Type, RequiredDeltaBinaryPacked) {
   this->TestRequiredWithEncoding(Encoding::DELTA_BINARY_PACKED);
+}
+
+TEST_F(TestValuesWriterInt64Type, RequiredByteStreamSplit) {
+  this->TestRequiredWithEncoding(Encoding::BYTE_STREAM_SPLIT);
 }
 
 TEST_F(TestByteArrayValuesWriter, RequiredDeltaLengthByteArray) {
   this->TestRequiredWithEncoding(Encoding::DELTA_LENGTH_BYTE_ARRAY);
 }
 
-/*
-TYPED_TEST(TestByteArrayValuesWriter, RequiredDeltaByteArray) {
+TEST_F(TestByteArrayValuesWriter, RequiredDeltaByteArray) {
   this->TestRequiredWithEncoding(Encoding::DELTA_BYTE_ARRAY);
 }
 
 TEST_F(TestFixedLengthByteArrayValuesWriter, RequiredDeltaByteArray) {
   this->TestRequiredWithEncoding(Encoding::DELTA_BYTE_ARRAY);
 }
-*/
+
+TEST_F(TestFixedLengthByteArrayValuesWriter, RequiredByteStreamSplit) {
+  this->TestRequiredWithEncoding(Encoding::BYTE_STREAM_SPLIT);
+}
 
 TYPED_TEST(TestPrimitiveWriter, RequiredRLEDictionary) {
   this->TestRequiredWithEncoding(Encoding::RLE_DICTIONARY);
@@ -918,20 +928,27 @@ TEST(TestPageWriter, ThrowsOnPagesTooLarge) {
   DataPageV1 over_compressed_limit(buffer, /*num_values=*/100, Encoding::BIT_PACKED,
                                    Encoding::BIT_PACKED, Encoding::BIT_PACKED,
                                    /*uncompressed_size=*/100);
-  EXPECT_THAT([&]() { pager->WriteDataPage(over_compressed_limit); },
-              ThrowsMessage<ParquetException>(HasSubstr("overflows INT32_MAX")));
+  EXPECT_THROW_THAT([&]() { pager->WriteDataPage(over_compressed_limit); },
+                    ParquetException,
+                    ::testing::Property(&ParquetException::what,
+                                        ::testing::HasSubstr("overflows INT32_MAX")));
   DictionaryPage dictionary_over_compressed_limit(buffer, /*num_values=*/100,
                                                   Encoding::PLAIN);
-  EXPECT_THAT([&]() { pager->WriteDictionaryPage(dictionary_over_compressed_limit); },
-              ThrowsMessage<ParquetException>(HasSubstr("overflows INT32_MAX")));
+  EXPECT_THROW_THAT(
+      [&]() { pager->WriteDictionaryPage(dictionary_over_compressed_limit); },
+      ParquetException,
+      ::testing::Property(&ParquetException::what,
+                          ::testing::HasSubstr("overflows INT32_MAX")));
 
   buffer = std::make_shared<Buffer>(&data, 1);
   DataPageV1 over_uncompressed_limit(
       buffer, /*num_values=*/100, Encoding::BIT_PACKED, Encoding::BIT_PACKED,
       Encoding::BIT_PACKED,
       /*uncompressed_size=*/std::numeric_limits<int32_t>::max() + int64_t{1});
-  EXPECT_THAT([&]() { pager->WriteDataPage(over_compressed_limit); },
-              ThrowsMessage<ParquetException>(HasSubstr("overflows INT32_MAX")));
+  EXPECT_THROW_THAT([&]() { pager->WriteDataPage(over_compressed_limit); },
+                    ParquetException,
+                    ::testing::Property(&ParquetException::what,
+                                        ::testing::HasSubstr("overflows INT32_MAX")));
 }
 
 TEST(TestColumnWriter, RepeatedListsUpdateSpacedBug) {

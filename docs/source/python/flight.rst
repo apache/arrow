@@ -17,6 +17,7 @@
 
 .. currentmodule:: pyarrow.flight
 .. highlight:: python
+.. _flight:
 
 ================
 Arrow Flight RPC

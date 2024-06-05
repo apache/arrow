@@ -46,6 +46,7 @@ ARROW_EXPORT bool IsNullRunEndEncoded(const ArrayData& data, int64_t i);
 ARROW_EXPORT bool UnionMayHaveLogicalNulls(const ArrayData& data);
 ARROW_EXPORT bool RunEndEncodedMayHaveLogicalNulls(const ArrayData& data);
 ARROW_EXPORT bool DictionaryMayHaveLogicalNulls(const ArrayData& data);
+
 }  // namespace internal
 
 // When slicing, we do not know the null count of the sliced range without
@@ -100,6 +101,11 @@ struct ARROW_EXPORT ArrayData {
             int64_t null_count = kUnknownNullCount, int64_t offset = 0)
       : ArrayData(std::move(type), length, null_count, offset) {
     this->buffers = std::move(buffers);
+#ifndef NDEBUG
+    // in debug mode, call the `device_type` function to trigger
+    // the DCHECKs that validate all the buffers are on the same device
+    ARROW_UNUSED(this->device_type());
+#endif
   }
 
   ArrayData(std::shared_ptr<DataType> type, int64_t length,
@@ -109,6 +115,12 @@ struct ARROW_EXPORT ArrayData {
       : ArrayData(std::move(type), length, null_count, offset) {
     this->buffers = std::move(buffers);
     this->child_data = std::move(child_data);
+#ifndef NDEBUG
+    // in debug mode, call the `device_type` function to trigger
+    // the DCHECKs that validate all the buffers (including children)
+    // are on the same device
+    ARROW_UNUSED(this->device_type());
+#endif
   }
 
   static std::shared_ptr<ArrayData> Make(std::shared_ptr<DataType> type, int64_t length,
@@ -356,6 +368,16 @@ struct ARROW_EXPORT ArrayData {
   ///
   /// \see GetNullCount
   int64_t ComputeLogicalNullCount() const;
+
+  /// \brief Return the device_type of the underlying buffers and children
+  ///
+  /// If there are no buffers in this ArrayData object, it just returns
+  /// DeviceAllocationType::kCPU as a default. We also assume that all buffers
+  /// should be allocated on the same device type and perform DCHECKs to confirm
+  /// this in debug mode.
+  ///
+  /// \return DeviceAllocationType
+  DeviceAllocationType device_type() const;
 
   std::shared_ptr<DataType> type;
   int64_t length = 0;

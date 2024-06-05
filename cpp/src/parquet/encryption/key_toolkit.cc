@@ -31,7 +31,7 @@ namespace parquet::encryption {
 
 std::shared_ptr<KmsClient> KeyToolkit::GetKmsClient(
     const KmsConnectionConfig& kms_connection_config, double cache_entry_lifetime_ms) {
-  if (kms_client_factory_ == NULL) {
+  if (kms_client_factory_ == nullptr) {
     throw ParquetException("No KmsClientFactory is registered.");
   }
   auto kms_client_per_kms_instance_cache =

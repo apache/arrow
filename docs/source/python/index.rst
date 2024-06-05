@@ -49,7 +49,6 @@ files into Arrow structures.
    memory
    ipc
    filesystems
-   filesystems_deprecated
    numpy
    pandas
    interchange_protocol

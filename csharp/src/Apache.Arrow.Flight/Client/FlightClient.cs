@@ -107,6 +107,22 @@ namespace Apache.Arrow.Flight.Client
             return call;
         }
 
+        public FlightRecordBatchExchangeCall DoExchange(FlightDescriptor flightDescriptor, Metadata headers = null)
+        {
+            var channel = _client.DoExchange(headers);
+            var requestStream = new FlightClientRecordBatchStreamWriter(channel.RequestStream, flightDescriptor);
+            var responseStream = new FlightClientRecordBatchStreamReader(channel.ResponseStream);
+            var call = new FlightRecordBatchExchangeCall(
+                requestStream,
+                responseStream,
+                channel.ResponseHeadersAsync,
+                channel.GetStatus,
+                channel.GetTrailers,
+                channel.Dispose);
+
+            return call;
+        }
+
         public AsyncServerStreamingCall<FlightResult> DoAction(FlightAction action, Metadata headers = null)
         {
             var stream = _client.DoAction(action.ToProtocol(), headers);

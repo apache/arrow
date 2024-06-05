@@ -17,7 +17,6 @@
     "brotli",
     "bzip2",
     "curl",
-    "flatbuffers",
     "gflags",
     "glog",
     "lz4",
@@ -103,6 +102,16 @@
             "storage"
           ]
         }
+      ]
+    },
+    "azure": {
+      "description": "Azure blob storage support",
+      "dependencies": [
+        "azure-core-cpp",
+        "azure-identity-cpp",
+        "azure-storage-blobs-cpp",
+        "azure-storage-common-cpp",
+        "azure-storage-files-datalake-cpp"
       ]
     },
     "orc": {

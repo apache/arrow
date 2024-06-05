@@ -21,16 +21,17 @@
 #include <memory>
 #include <string>
 
-#ifdef ARROW_WITH_RE2
-#include <re2/re2.h>
-#endif
-
 #include "arrow/array/builder_nested.h"
 #include "arrow/compute/kernels/scalar_string_internal.h"
 #include "arrow/result.h"
+#include "arrow/util/config.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
+
+#ifdef ARROW_WITH_RE2
+#include <re2/re2.h>
+#endif
 
 namespace arrow {
 
@@ -1314,7 +1315,7 @@ struct RegexSubstringMatcher {
       const MatchSubstringOptions& options, bool is_utf8 = true, bool literal = false) {
     auto matcher = std::make_unique<RegexSubstringMatcher>(options, is_utf8, literal);
     RETURN_NOT_OK(RegexStatus(matcher->regex_match_));
-    return std::move(matcher);
+    return matcher;
   }
 
   explicit RegexSubstringMatcher(const MatchSubstringOptions& options,
@@ -1684,7 +1685,7 @@ struct FindSubstringRegex {
                                          bool is_utf8 = true, bool literal = false) {
     auto matcher = FindSubstringRegex(options, is_utf8, literal);
     RETURN_NOT_OK(RegexStatus(*matcher.regex_match_));
-    return std::move(matcher);
+    return matcher;
   }
 
   explicit FindSubstringRegex(const MatchSubstringOptions& options, bool is_utf8 = true,
@@ -1831,7 +1832,7 @@ struct CountSubstringRegex {
                                           bool is_utf8 = true, bool literal = false) {
     CountSubstringRegex counter(options, is_utf8, literal);
     RETURN_NOT_OK(RegexStatus(*counter.regex_match_));
-    return std::move(counter);
+    return counter;
   }
 
   template <typename OutValue, typename... Ignored>
@@ -2054,7 +2055,7 @@ struct RegexSubstringReplacer {
                              std::move(replacement_error));
     }
 
-    return std::move(replacer);
+    return replacer;
   }
 
   // Using RE2::FindAndConsume we can only find the pattern if it is a group, therefore
@@ -2202,7 +2203,7 @@ struct ExtractRegexData {
       }
       data.group_names.emplace_back(item->second);
     }
-    return std::move(data);
+    return data;
   }
 
   Result<TypeHolder> ResolveOutputType(const std::vector<TypeHolder>& types) const {

@@ -30,6 +30,7 @@ jobs:
       ARCH: {{ '${{ matrix.platform.archery_arch }}' }}
       ARCH_ALIAS: {{ '${{ matrix.platform.archery_arch_alias }}' }}
       ARCH_SHORT: {{ '${{ matrix.platform.archery_arch_short }}' }}
+      ARCHERY_USE_DOCKER_CLI: {{ "${{matrix.platform.archery_use_docker_cli || '1'}}" }}
     strategy:
       fail-fast: false
       matrix:
@@ -44,6 +45,7 @@ jobs:
             archery_arch: "arm64v8"
             archery_arch_alias: "aarch64"
             archery_arch_short: "arm64"
+            archery_use_docker_cli: "0"
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_free_space()|indent }}
@@ -78,19 +80,17 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - { runs_on: ["macos-latest"], arch: "x86_64"}
-          - { runs_on: ["self-hosted", "macOS", "arm64", "devops-managed"], arch: "aarch_64" }
+          - { runs_on: ["macos-13"], arch: "x86_64"}
+          - { runs_on: ["macos-14"], arch: "aarch_64" }
     env:
       MACOSX_DEPLOYMENT_TARGET: "10.15"
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       - name: Set up Python
-        if: |
-          !contains(matrix.platform.runs_on, 'self-hosted')
         uses: actions/setup-python@v4
         with:
           cache: 'pip'
-          python-version: 3.8
+          python-version: 3.12
       - name: Install Archery
         shell: bash
         run: pip install -e arrow/dev/archery[all]
@@ -134,9 +134,7 @@ jobs:
         run: |
           set -e
           # make brew Java available to CMake
-          if [ "{{ arch }}" = "aarch_64" ]; then
-            export JAVA_HOME=$(brew --prefix openjdk@11)/libexec/openjdk.jdk/Contents/Home
-          fi
+          export JAVA_HOME=$(brew --prefix openjdk@11)/libexec/openjdk.jdk/Contents/Home
           arrow/ci/scripts/java_jni_macos_build.sh \
             $GITHUB_WORKSPACE/arrow \
             $GITHUB_WORKSPACE/arrow/cpp-build \

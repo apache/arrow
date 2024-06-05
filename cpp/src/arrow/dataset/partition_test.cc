@@ -935,7 +935,7 @@ TEST_F(TestPartitioning, WriteHiveWithSlashesInValues) {
       "experiment/A/f.csv", "experiment/B/f.csv", "experiment/C/k.csv",
       "experiment/M/i.csv"};
   for (auto partition : unique_partitions) {
-    encoded_paths.push_back("part=" + arrow::internal::UriEscape(partition));
+    encoded_paths.push_back("part=" + arrow::util::UriEscape(partition));
   }
 
   ASSERT_EQ(all_dirs.size(), encoded_paths.size());

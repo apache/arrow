@@ -47,6 +47,8 @@ import {
     isReadableDOMStream, isReadableNodeStream
 } from '../util/compat.js';
 
+import type { DuplexOptions, Duplex } from 'node:stream';
+
 /** @ignore */ export type FromArg0 = ArrowJSONLike;
 /** @ignore */ export type FromArg1 = PromiseLike<ArrowJSONLike>;
 /** @ignore */ export type FromArg2 = Iterable<ArrayBufferViewInput> | ArrayBufferViewInput;
@@ -113,13 +115,13 @@ export class RecordBatchReader<T extends TypeMap = any> extends ReadableInterop<
     public [Symbol.asyncIterator](): AsyncIterableIterator<RecordBatch<T>> {
         return (<AsyncIterableIterator<RecordBatch<T>>>this._impl)[Symbol.asyncIterator]();
     }
-    public toDOMStream() {
+    public toDOMStream(): ReadableStream<RecordBatch<T>> {
         return streamAdapters.toDOMStream<RecordBatch<T>>(
             (this.isSync()
                 ? { [Symbol.iterator]: () => this } as Iterable<RecordBatch<T>>
                 : { [Symbol.asyncIterator]: () => this } as AsyncIterable<RecordBatch<T>>));
     }
-    public toNodeStream() {
+    public toNodeStream(): import('stream').Readable {
         return streamAdapters.toNodeStream<RecordBatch<T>>(
             (this.isSync()
                 ? { [Symbol.iterator]: () => this } as Iterable<RecordBatch<T>>
@@ -129,7 +131,7 @@ export class RecordBatchReader<T extends TypeMap = any> extends ReadableInterop<
 
     /** @nocollapse */
     // @ts-ignore
-    public static throughNode(options?: import('stream').DuplexOptions & { autoDestroy: boolean }): import('stream').Duplex {
+    public static throughNode(options?: DuplexOptions & { autoDestroy: boolean }): Duplex {
         throw new Error(`"throughNode" not available in this environment`);
     }
     /** @nocollapse */

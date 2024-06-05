@@ -796,6 +796,8 @@ PARQUET_EXPORT std::string ConvertedTypeToString(ConvertedType::type t);
 
 PARQUET_EXPORT std::string TypeToString(Type::type t);
 
+PARQUET_EXPORT std::string TypeToString(Type::type t, int type_length);
+
 PARQUET_EXPORT std::string FormatStatValue(Type::type parquet_type,
                                            ::std::string_view val);
 

@@ -144,7 +144,7 @@ namespace Apache.Arrow
             {
                 return null;
             }
-            return DecimalUtility.GetDecimal(ValueBuffer, index, Scale, ByteWidth);
+            return DecimalUtility.GetDecimal(ValueBuffer, Offset + index, Scale, ByteWidth);
         }
 
         public IList<decimal?> ToList(bool includeNulls = false)
@@ -177,7 +177,7 @@ namespace Apache.Arrow
             {
                 return null;
             }
-            return DecimalUtility.GetString(ValueBuffer, index, Precision, Scale, ByteWidth);
+            return DecimalUtility.GetString(ValueBuffer, Offset + index, Precision, Scale, ByteWidth);
         }
 
         public SqlDecimal? GetSqlDecimal(int index)
@@ -187,7 +187,7 @@ namespace Apache.Arrow
                 return null;
             }
 
-            return DecimalUtility.GetSqlDecimal128(ValueBuffer, index, Precision, Scale);
+            return DecimalUtility.GetSqlDecimal128(ValueBuffer, Offset + index, Precision, Scale);
         }
 
         int IReadOnlyCollection<SqlDecimal?>.Count => Length;

@@ -5,5 +5,5 @@ Abstract: Apache Arrow Flight SQL GLib provides a client-server framework to int
 Section: Programming
 
 Format: HTML
-Index: /usr/share/gtk-doc/html/arrow-flight-sql-glib/index.html
-Files: /usr/share/gtk-doc/html/arrow-flight-sql-glib/*.html
+Index: /usr/share/doc/libarrow-flight-sql-glib-doc/arrow-flight-sql-glib/index.html
+Files: /usr/share/doc/libarrow-flight-sql-glib-doc/arrow-flight-sql-glib/*.html

@@ -26,7 +26,11 @@ add_arrow_test(filesystem-test
                filesystem_test.cc
                localfs_test.cc
                EXTRA_LABELS
-               filesystem)
+               filesystem
+               DEFINITIONS
+               ARROW_FILESYSTEM_EXAMPLE_LIBPATH="$<TARGET_FILE:arrow_filesystem_example>"
+               EXTRA_DEPENDENCIES
+               arrow_filesystem_example)
 
 if(ARROW_BUILD_BENCHMARKS)
   add_arrow_benchmark(localfs_benchmark
@@ -43,6 +47,7 @@ if(ARROW_GCS)
                  EXTRA_LABELS
                  filesystem
                  EXTRA_LINK_LIBS
+                 google-cloud-cpp::storage
                  Boost::filesystem
                  Boost::system)
 endif()
@@ -52,6 +57,7 @@ if(ARROW_AZURE)
                  EXTRA_LABELS
                  filesystem
                  EXTRA_LINK_LIBS
+                 ${AZURE_SDK_LINK_LIBRARIES}
                  Boost::filesystem
                  Boost::system)
 endif()
@@ -64,6 +70,7 @@ if(ARROW_S3)
                  EXTRA_LABELS
                  filesystem
                  EXTRA_LINK_LIBS
+                 ${AWSSDK_LINK_LIBRARIES}
                  Boost::filesystem
                  Boost::system)
   if(TARGET arrow-s3fs-test)
@@ -71,17 +78,13 @@ if(ARROW_S3)
     get_target_property(AWS_CPP_SDK_S3_TYPE aws-cpp-sdk-s3 TYPE)
     # We need to initialize AWS C++ SDK for direct use (not via
     # arrow::fs::S3FileSystem) in arrow-s3fs-test if we use static AWS
-    # C++ SDK. Because AWS C++ SDK has internal static variables that
-    # aren't shared in libarrow and arrow-s3fs-test. It means that
-    # arrow::fs::InitializeS3() doesn't initialize AWS C++ SDK that is
-    # directly used in arrow-s3fs-test.
-    #
-    # But it seems that internal static variables in AWS C++ SDK are
-    # shared on macOS even if we link static AWS C++ SDK to both
-    # libarrow and arrow-s3fs-test. So we don't need to initialize AWS
-    # C++ SDK in arrow-s3fs-test on macOS.
-    if(AWS_CPP_SDK_S3_TYPE STREQUAL "STATIC_LIBRARY" AND NOT APPLE)
-      list(APPEND ARROW_S3FS_TEST_COMPILE_DEFINITIONS "AWS_CPP_SDK_S3_NOT_SHARED")
+    # C++ SDK and hide symbols of them. Because AWS C++ SDK has
+    # internal static variables that aren't shared in libarrow and
+    # arrow-s3fs-test. It means that arrow::fs::InitializeS3() doesn't
+    # initialize AWS C++ SDK that is directly used in arrow-s3fs-test.
+    if(AWS_CPP_SDK_S3_TYPE STREQUAL "STATIC_LIBRARY"
+       AND CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
+      list(APPEND ARROW_S3FS_TEST_COMPILE_DEFINITIONS "AWS_CPP_SDK_S3_PRIVATE_STATIC")
     endif()
     target_compile_definitions(arrow-s3fs-test
                                PRIVATE ${ARROW_S3FS_TEST_COMPILE_DEFINITIONS})
@@ -102,6 +105,7 @@ if(ARROW_S3)
                         s3fs_benchmark.cc
                         s3_test_util.cc
                         STATIC_LINK_LIBS
+                        ${AWSSDK_LINK_LIBRARIES}
                         ${ARROW_BENCHMARK_LINK_LIBS}
                         Boost::filesystem
                         Boost::system)

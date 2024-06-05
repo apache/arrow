@@ -92,7 +92,7 @@ implemented directly by a vendor-specific "driver" or a vendor-neutral
 
 Version 1.0.0 of the standard corresponds to tag adbc-1.0.0 of the
 repository ``apache/arrow-adbc``, which is commit
-f044edf5256abfb4c091b0ad2acc73afea2c93c0_.  Note that is is separate
+f044edf5256abfb4c091b0ad2acc73afea2c93c0_.  Note that is separate
 from releases of the actual implementations.
 
 See the language-specific pages for details:

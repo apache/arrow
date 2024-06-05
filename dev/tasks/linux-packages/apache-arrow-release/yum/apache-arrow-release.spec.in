@@ -102,6 +102,18 @@ else
 fi
 
 %changelog
+* Thu May 09 2024 Raúl Cumplido <raulcumplido@gmail.com> - 16.1.0-1
+- New upstream release.
+
+* Tue Apr 16 2024 Raúl Cumplido <raulcumplido@gmail.com> - 16.0.0-1
+- New upstream release.
+
+* Wed Mar 13 2024 Raúl Cumplido <raulcumplido@gmail.com> - 15.0.2-1
+- New upstream release.
+
+* Fri Feb 23 2024 Raúl Cumplido <raulcumplido@gmail.com> - 15.0.1-1
+- New upstream release.
+
 * Tue Jan 16 2024 Raúl Cumplido <raulcumplido@gmail.com> - 15.0.0-1
 - New upstream release.
 

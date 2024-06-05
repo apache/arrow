@@ -34,7 +34,8 @@ G_BEGIN_DECLS
  * #GArrowWriteOptions provides options for writing data.
  */
 
-typedef struct GArrowReadOptionsPrivate_ {
+typedef struct GArrowReadOptionsPrivate_
+{
   arrow::ipc::IpcReadOptions options;
   arrow::ipc::DictionaryMemo dictionary_memo;
 } GArrowReadOptionsPrivate;
@@ -44,14 +45,11 @@ enum {
   PROP_READ_OPTIONS_USE_THREADS,
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowReadOptions,
-                           garrow_read_options,
-                           G_TYPE_OBJECT);
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowReadOptions, garrow_read_options, G_TYPE_OBJECT);
 
-#define GARROW_READ_OPTIONS_GET_PRIVATE(obj)                \
-  static_cast<GArrowReadOptionsPrivate *>(                  \
-    garrow_read_options_get_instance_private(               \
-      GARROW_READ_OPTIONS(obj)))
+#define GARROW_READ_OPTIONS_GET_PRIVATE(obj)                                             \
+  static_cast<GArrowReadOptionsPrivate *>(                                               \
+    garrow_read_options_get_instance_private(GARROW_READ_OPTIONS(obj)))
 
 static void
 garrow_read_options_finalize(GObject *object)
@@ -110,9 +108,9 @@ static void
 garrow_read_options_init(GArrowReadOptions *object)
 {
   auto priv = GARROW_READ_OPTIONS_GET_PRIVATE(object);
-  new(&priv->options) arrow::ipc::IpcReadOptions;
+  new (&priv->options) arrow::ipc::IpcReadOptions;
   priv->options = arrow::ipc::IpcReadOptions::Defaults();
-  new(&priv->dictionary_memo) arrow::ipc::DictionaryMemo;
+  new (&priv->dictionary_memo) arrow::ipc::DictionaryMemo;
 }
 
 static void
@@ -120,7 +118,7 @@ garrow_read_options_class_init(GArrowReadOptionsClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->finalize     = garrow_read_options_finalize;
+  gobject_class->finalize = garrow_read_options_finalize;
   gobject_class->set_property = garrow_read_options_set_property;
   gobject_class->get_property = garrow_read_options_get_property;
 
@@ -158,9 +156,7 @@ garrow_read_options_class_init(GArrowReadOptionsClass *klass)
                               "Whether to use the global CPU thread pool",
                               options.use_threads,
                               static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class,
-                                  PROP_READ_OPTIONS_USE_THREADS,
-                                  spec);
+  g_object_class_install_property(gobject_class, PROP_READ_OPTIONS_USE_THREADS, spec);
 }
 
 /**
@@ -191,8 +187,7 @@ garrow_read_options_new(void)
  * Since: 1.0.0
  */
 int *
-garrow_read_options_get_included_fields(GArrowReadOptions *options,
-                                        gsize *n_fields)
+garrow_read_options_get_included_fields(GArrowReadOptions *options, gsize *n_fields)
 {
   auto priv = GARROW_READ_OPTIONS_GET_PRIVATE(options);
   if (priv->options.included_fields.empty()) {
@@ -236,8 +231,8 @@ garrow_read_options_set_included_fields(GArrowReadOptions *options,
   }
 }
 
-
-typedef struct GArrowWriteOptionsPrivate_ {
+typedef struct GArrowWriteOptionsPrivate_
+{
   arrow::ipc::IpcWriteOptions options;
   GArrowCodec *codec;
 } GArrowWriteOptionsPrivate;
@@ -251,14 +246,11 @@ enum {
   PROP_WRITE_OPTIONS_USE_THREADS,
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowWriteOptions,
-                           garrow_write_options,
-                           G_TYPE_OBJECT);
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowWriteOptions, garrow_write_options, G_TYPE_OBJECT);
 
-#define GARROW_WRITE_OPTIONS_GET_PRIVATE(obj)                \
-  static_cast<GArrowWriteOptionsPrivate *>(                  \
-    garrow_write_options_get_instance_private(               \
-      GARROW_WRITE_OPTIONS(obj)))
+#define GARROW_WRITE_OPTIONS_GET_PRIVATE(obj)                                            \
+  static_cast<GArrowWriteOptionsPrivate *>(                                              \
+    garrow_write_options_get_instance_private(GARROW_WRITE_OPTIONS(obj)))
 
 static void
 garrow_write_options_dispose(GObject *object)
@@ -357,7 +349,7 @@ static void
 garrow_write_options_init(GArrowWriteOptions *object)
 {
   auto priv = GARROW_WRITE_OPTIONS_GET_PRIVATE(object);
-  new(&priv->options) arrow::ipc::IpcWriteOptions;
+  new (&priv->options) arrow::ipc::IpcWriteOptions;
   priv->options = arrow::ipc::IpcWriteOptions::Defaults();
   if (priv->options.codec) {
     priv->codec = garrow_codec_new_raw(&(priv->options.codec));
@@ -371,8 +363,8 @@ garrow_write_options_class_init(GArrowWriteOptionsClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->dispose      = garrow_write_options_dispose;
-  gobject_class->finalize     = garrow_write_options_finalize;
+  gobject_class->dispose = garrow_write_options_dispose;
+  gobject_class->finalize = garrow_write_options_finalize;
   gobject_class->set_property = garrow_write_options_set_property;
   gobject_class->get_property = garrow_write_options_get_property;
 
@@ -394,9 +386,7 @@ garrow_write_options_class_init(GArrowWriteOptionsClass *klass)
                               "for field length",
                               options.allow_64bit,
                               static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class,
-                                  PROP_WRITE_OPTIONS_ALLOW_64BIT,
-                                  spec);
+  g_object_class_install_property(gobject_class, PROP_WRITE_OPTIONS_ALLOW_64BIT, spec);
 
   /**
    * GArrowWriteOptions:max-recursion-depth:
@@ -432,9 +422,7 @@ garrow_write_options_class_init(GArrowWriteOptionsClass *klass)
                           G_MAXINT,
                           options.alignment,
                           static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class,
-                                  PROP_WRITE_OPTIONS_ALIGNMENT,
-                                  spec);
+  g_object_class_install_property(gobject_class, PROP_WRITE_OPTIONS_ALIGNMENT, spec);
 
   /**
    * GArrowWriteOptions:write-legacy-ipc-format:
@@ -470,9 +458,7 @@ garrow_write_options_class_init(GArrowWriteOptionsClass *klass)
                              "compressing record batch body buffers.",
                              GARROW_TYPE_CODEC,
                              static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class,
-                                  PROP_WRITE_OPTIONS_CODEC,
-                                  spec);
+  g_object_class_install_property(gobject_class, PROP_WRITE_OPTIONS_CODEC, spec);
 
   /**
    * GArrowWriteOptions:use-threads:
@@ -486,9 +472,7 @@ garrow_write_options_class_init(GArrowWriteOptionsClass *klass)
                               "Whether to use the global CPU thread pool",
                               options.use_threads,
                               static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class,
-                                  PROP_WRITE_OPTIONS_USE_THREADS,
-                                  spec);
+  g_object_class_install_property(gobject_class, PROP_WRITE_OPTIONS_USE_THREADS, spec);
 }
 
 /**

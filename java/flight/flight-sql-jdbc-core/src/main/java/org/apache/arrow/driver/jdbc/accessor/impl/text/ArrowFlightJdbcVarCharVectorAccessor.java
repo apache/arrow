@@ -18,13 +18,13 @@
 package org.apache.arrow.driver.jdbc.accessor.impl.text;
 
 import static java.nio.charset.StandardCharsets.US_ASCII;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import java.io.ByteArrayInputStream;
 import java.io.CharArrayReader;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Time;
@@ -81,7 +81,7 @@ public class ArrowFlightJdbcVarCharVectorAccessor extends ArrowFlightJdbcAccesso
   @Override
   public String getObject() {
     final byte[] bytes = getBytes();
-    return bytes == null ? null : new String(bytes, UTF_8);
+    return bytes == null ? null : new String(bytes, StandardCharsets.UTF_8);
   }
 
   @Override

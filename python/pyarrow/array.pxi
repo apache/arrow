@@ -336,11 +336,23 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
             if pandas_api.have_pandas:
                 values, type = pandas_api.compat.get_datetimetz_type(
                     values, obj.dtype, type)
-            result = _ndarray_to_array(values, mask, type, c_from_pandas, safe,
-                                       pool)
+            if type and type.id == _Type_RUN_END_ENCODED:
+                arr = _ndarray_to_array(
+                    values, mask, type.value_type, c_from_pandas, safe, pool)
+                result = _pc().run_end_encode(arr, run_end_type=type.run_end_type,
+                                              memory_pool=memory_pool)
+            else:
+                result = _ndarray_to_array(values, mask, type, c_from_pandas, safe,
+                                           pool)
     else:
+        if type and type.id == _Type_RUN_END_ENCODED:
+            arr = _sequence_to_array(
+                obj, mask, size, type.value_type, pool, from_pandas)
+            result = _pc().run_end_encode(arr, run_end_type=type.run_end_type,
+                                          memory_pool=memory_pool)
         # ConvertPySequence does strict conversion if type is explicitly passed
-        result = _sequence_to_array(obj, mask, size, type, pool, c_from_pandas)
+        else:
+            result = _sequence_to_array(obj, mask, size, type, pool, c_from_pandas)
 
     if extension_type is not None:
         result = ExtensionArray.from_storage(extension_type, result)
@@ -549,32 +561,9 @@ def _normalize_slice(object arrow_obj, slice key):
         Py_ssize_t start, stop, step
         Py_ssize_t n = len(arrow_obj)
 
-    start = key.start or 0
-    if start < 0:
-        start += n
-        if start < 0:
-            start = 0
-    elif start >= n:
-        start = n
+    start, stop, step = key.indices(n)
 
-    stop = key.stop if key.stop is not None else n
-    if stop < 0:
-        stop += n
-        if stop < 0:
-            stop = 0
-    elif stop >= n:
-        stop = n
-
-    step = key.step or 1
     if step != 1:
-        if step < 0:
-            # Negative steps require some special handling
-            if key.start is None:
-                start = n - 1
-
-            if key.stop is None:
-                stop = -1
-
         indices = np.arange(start, stop, step)
         return arrow_obj.take(indices)
     else:
@@ -1527,11 +1516,28 @@ cdef class Array(_PandasConvertible):
     def _to_pandas(self, options, types_mapper=None, **kwargs):
         return _array_like_to_pandas(self, options, types_mapper=types_mapper)
 
-    def __array__(self, dtype=None):
+    def __array__(self, dtype=None, copy=None):
+        if copy is False:
+            try:
+                values = self.to_numpy(zero_copy_only=True)
+            except ArrowInvalid:
+                raise ValueError(
+                    "Unable to avoid a copy while creating a numpy array as requested.\n"
+                    "If using `np.array(obj, copy=False)` replace it with "
+                    "`np.asarray(obj)` to allow a copy when needed"
+                )
+            # values is already a numpy array at this point, but calling np.array(..)
+            # again to handle the `dtype` keyword with a no-copy guarantee
+            return np.array(values, dtype=dtype, copy=False)
+
         values = self.to_numpy(zero_copy_only=False)
+        if copy is True and is_numeric(self.type.id) and self.null_count == 0:
+            # to_numpy did not yet make a copy (is_numeric = integer/floats, no decimal)
+            return np.array(values, dtype=dtype, copy=True)
+
         if dtype is None:
             return values
-        return values.astype(dtype)
+        return np.asarray(values, dtype=dtype)
 
     def to_numpy(self, zero_copy_only=True, writable=False):
         """
@@ -1573,7 +1579,7 @@ cdef class Array(_PandasConvertible):
         # decoding the dictionary will make sure nulls are correctly handled.
         # Decoding a dictionary does imply a copy by the way,
         # so it can't be done if the user requested a zero_copy.
-        c_options.decode_dictionaries = not zero_copy_only
+        c_options.decode_dictionaries = True
         c_options.zero_copy_only = zero_copy_only
         c_options.to_numpy = True
 
@@ -1584,9 +1590,6 @@ cdef class Array(_PandasConvertible):
         # wrap_array_output uses pandas to convert to Categorical, here
         # always convert to numpy array without pandas dependency
         array = PyObject_to_object(out)
-
-        if isinstance(array, dict):
-            array = np.take(array['dictionary'], array['indices'])
 
         if writable and not array.flags.writeable:
             # if the conversion already needed to a copy, writeable is True
@@ -1777,6 +1780,70 @@ cdef class Array(_PandasConvertible):
             array = GetResultValue(ImportArray(c_array, c_schema))
 
         return pyarrow_wrap_array(array)
+
+    def _export_to_c_device(self, out_ptr, out_schema_ptr=0):
+        """
+        Export to a C ArrowDeviceArray struct, given its pointer.
+
+        If a C ArrowSchema struct pointer is also given, the array type
+        is exported to it at the same time.
+
+        Parameters
+        ----------
+        out_ptr: int
+            The raw pointer to a C ArrowDeviceArray struct.
+        out_schema_ptr: int (optional)
+            The raw pointer to a C ArrowSchema struct.
+
+        Be careful: if you don't pass the ArrowDeviceArray struct to a consumer,
+        array memory will leak.  This is a low-level function intended for
+        expert users.
+        """
+        cdef:
+            void* c_ptr = _as_c_pointer(out_ptr)
+            void* c_schema_ptr = _as_c_pointer(out_schema_ptr,
+                                               allow_null=True)
+        with nogil:
+            check_status(ExportDeviceArray(
+                deref(self.sp_array), <shared_ptr[CSyncEvent]>NULL,
+                <ArrowDeviceArray*> c_ptr, <ArrowSchema*> c_schema_ptr))
+
+    @staticmethod
+    def _import_from_c_device(in_ptr, type):
+        """
+        Import Array from a C ArrowDeviceArray struct, given its pointer
+        and the imported array type.
+
+        Parameters
+        ----------
+        in_ptr: int
+            The raw pointer to a C ArrowDeviceArray struct.
+        type: DataType or int
+            Either a DataType object, or the raw pointer to a C ArrowSchema
+            struct.
+
+        This is a low-level function intended for expert users.
+        """
+        cdef:
+            void* c_ptr = _as_c_pointer(in_ptr)
+            void* c_type_ptr
+            shared_ptr[CArray] c_array
+
+        c_type = pyarrow_unwrap_data_type(type)
+        if c_type == nullptr:
+            # Not a DataType object, perhaps a raw ArrowSchema pointer
+            c_type_ptr = _as_c_pointer(type)
+            with nogil:
+                c_array = GetResultValue(
+                    ImportDeviceArray(<ArrowDeviceArray*> c_ptr,
+                                      <ArrowSchema*> c_type_ptr)
+                )
+        else:
+            with nogil:
+                c_array = GetResultValue(
+                    ImportDeviceArray(<ArrowDeviceArray*> c_ptr, c_type)
+                )
+        return pyarrow_wrap_array(c_array)
 
     def __dlpack__(self, stream=None):
         """Export a primitive array as a DLPack capsule.
@@ -2074,22 +2141,99 @@ cdef class Decimal256Array(FixedSizeBinaryArray):
 
 cdef class BaseListArray(Array):
 
-    def flatten(self):
+    def flatten(self, recursive=False):
         """
-        Unnest this ListArray/LargeListArray by one level.
-
-        The returned Array is logically a concatenation of all the sub-lists
-        in this Array.
+        Unnest this [Large]ListArray/[Large]ListViewArray/FixedSizeListArray
+        according to 'recursive'.
 
         Note that this method is different from ``self.values`` in that
         it takes care of the slicing offset as well as null elements backed
         by non-empty sub-lists.
 
+        Parameters
+        ----------
+        recursive : bool, default False, optional
+            When True, flatten this logical list-array recursively until an
+            array of non-list values is formed.
+
+            When False, flatten only the top level.
+
         Returns
         -------
         result : Array
+
+        Examples
+        --------
+
+        Basic logical list-array's flatten
+        >>> import pyarrow as pa
+        >>> values = [1, 2, 3, 4]
+        >>> offsets = [2, 1, 0]
+        >>> sizes = [2, 2, 2]
+        >>> array = pa.ListViewArray.from_arrays(offsets, sizes, values)
+        >>> array
+        <pyarrow.lib.ListViewArray object at ...>
+        [
+          [
+            3,
+            4
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            1,
+            2
+          ]
+        ]
+        >>> array.flatten()
+        <pyarrow.lib.Int64Array object at ...>
+        [
+          3,
+          4,
+          2,
+          3,
+          1,
+          2
+        ]
+
+        When recursive=True, nested list arrays are flattened recursively
+        until an array of non-list values is formed.
+
+        >>> array = pa.array([
+        ...    None,
+        ...    [
+        ...        [1, None, 2],
+        ...        None,
+        ...        [3, 4]
+        ...    ],
+        ...    [],
+        ...    [
+        ...        [],
+        ...        [5, 6],
+        ...        None
+        ...    ],
+        ...    [
+        ...        [7, 8]
+        ...    ]
+        ... ], type=pa.list_(pa.list_(pa.int64())))
+        >>> array.flatten(True)
+        <pyarrow.lib.Int64Array object at ...>
+        [
+          1,
+          null,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ]
         """
-        return _pc().list_flatten(self)
+        options = _pc().ListFlattenOptions(recursive)
+        return _pc().list_flatten(self, options=options)
 
     def value_parent_indices(self):
         """
@@ -2460,13 +2604,463 @@ cdef class LargeListArray(BaseListArray):
         return pyarrow_wrap_array((<CLargeListArray*> self.ap).offsets())
 
 
+cdef class ListViewArray(BaseListArray):
+    """
+    Concrete class for Arrow arrays of a list view data type.
+    """
+
+    @staticmethod
+    def from_arrays(offsets, sizes, values, DataType type=None, MemoryPool pool=None, mask=None):
+        """
+        Construct ListViewArray from arrays of int32 offsets, sizes, and values.
+
+        Parameters
+        ----------
+        offsets : Array (int32 type)
+        sizes : Array (int32 type)
+        values : Array (any type)
+        type : DataType, optional
+            If not specified, a default ListType with the values' type is
+            used.
+        pool : MemoryPool, optional
+        mask : Array (boolean type), optional
+            Indicate which values are null (True) or not null (False).
+
+        Returns
+        -------
+        list_view_array : ListViewArray
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> values = pa.array([1, 2, 3, 4])
+        >>> offsets = pa.array([0, 1, 2])
+        >>> sizes = pa.array([2, 2, 2])
+        >>> pa.ListViewArray.from_arrays(offsets, sizes, values)
+        <pyarrow.lib.ListViewArray object at ...>
+        [
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ]
+        ]
+        >>> # use a null mask to represent null values
+        >>> mask = pa.array([False, True, False])
+        >>> pa.ListViewArray.from_arrays(offsets, sizes, values, mask=mask)
+        <pyarrow.lib.ListViewArray object at ...>
+        [
+          [
+            1,
+            2
+          ],
+          null,
+          [
+            3,
+            4
+          ]
+        ]
+        >>> # null values can be defined in either offsets or sizes arrays
+        >>> # WARNING: this will result in a copy of the offsets or sizes arrays
+        >>> offsets = pa.array([0, None, 2])
+        >>> pa.ListViewArray.from_arrays(offsets, sizes, values)
+        <pyarrow.lib.ListViewArray object at ...>
+        [
+          [
+            1,
+            2
+          ],
+          null,
+          [
+            3,
+            4
+          ]
+        ]
+        """
+        cdef:
+            Array _offsets, _sizes, _values
+            shared_ptr[CArray] out
+            shared_ptr[CBuffer] c_mask
+            CMemoryPool* cpool = maybe_unbox_memory_pool(pool)
+
+        _offsets = asarray(offsets, type='int32')
+        _sizes = asarray(sizes, type='int32')
+        _values = asarray(values)
+
+        c_mask = c_mask_inverted_from_obj(mask, pool)
+
+        if type is not None:
+            with nogil:
+                out = GetResultValue(
+                    CListViewArray.FromArraysAndType(
+                        type.sp_type, _offsets.ap[0], _sizes.ap[0], _values.ap[0], cpool, c_mask))
+        else:
+            with nogil:
+                out = GetResultValue(
+                    CListViewArray.FromArrays(
+                        _offsets.ap[0], _sizes.ap[0], _values.ap[0], cpool, c_mask))
+        cdef Array result = pyarrow_wrap_array(out)
+        result.validate()
+        return result
+
+    @property
+    def values(self):
+        """
+        Return the underlying array of values which backs the ListViewArray
+        ignoring the array's offset and sizes.
+
+        The values array may be out of order and/or contain additional values
+        that are not found in the logical representation of the array. The only
+        guarantee is that each non-null value in the ListView Array is contiguous.
+
+        Compare with :meth:`flatten`, which returns only the non-null
+        values taking into consideration the array's order and offset.
+
+        Returns
+        -------
+        values : Array
+
+        Examples
+        --------
+        The values include null elements from sub-lists:
+
+        >>> import pyarrow as pa
+        >>> values = [1, 2, None, 3, 4]
+        >>> offsets = [0, 0, 1]
+        >>> sizes = [2, 0, 4]
+        >>> array = pa.ListViewArray.from_arrays(offsets, sizes, values)
+        >>> array
+        <pyarrow.lib.ListViewArray object at ...>
+        [
+          [
+            1,
+            2
+          ],
+          [],
+          [
+            2,
+            null,
+            3,
+            4
+          ]
+        ]
+        >>> array.values
+        <pyarrow.lib.Int64Array object at ...>
+        [
+          1,
+          2,
+          null,
+          3,
+          4
+        ]
+        """
+        cdef CListViewArray* arr = <CListViewArray*> self.ap
+        return pyarrow_wrap_array(arr.values())
+
+    @property
+    def offsets(self):
+        """
+        Return the list offsets as an int32 array.
+
+        The returned array will not have a validity bitmap, so you cannot
+        expect to pass it to `ListViewArray.from_arrays` and get back the same
+        list array if the original one has nulls.
+
+        Returns
+        -------
+        offsets : Int32Array
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> values = [1, 2, None, 3, 4]
+        >>> offsets = [0, 0, 1]
+        >>> sizes = [2, 0, 4]
+        >>> array = pa.ListViewArray.from_arrays(offsets, sizes, values)
+        >>> array.offsets
+        <pyarrow.lib.Int32Array object at ...>
+        [
+          0,
+          0,
+          1
+        ]
+        """
+        return pyarrow_wrap_array((<CListViewArray*> self.ap).offsets())
+
+    @property
+    def sizes(self):
+        """
+        Return the list sizes as an int32 array.
+
+        The returned array will not have a validity bitmap, so you cannot
+        expect to pass it to `ListViewArray.from_arrays` and get back the same
+        list array if the original one has nulls.
+
+        Returns
+        -------
+        sizes : Int32Array
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> values = [1, 2, None, 3, 4]
+        >>> offsets = [0, 0, 1]
+        >>> sizes = [2, 0, 4]
+        >>> array = pa.ListViewArray.from_arrays(offsets, sizes, values)
+        >>> array.sizes
+        <pyarrow.lib.Int32Array object at ...>
+        [
+          2,
+          0,
+          4
+        ]
+        """
+        return pyarrow_wrap_array((<CListViewArray*> self.ap).sizes())
+
+
+cdef class LargeListViewArray(BaseListArray):
+    """
+    Concrete class for Arrow arrays of a large list view data type.
+
+    Identical to ListViewArray, but with 64-bit offsets.
+    """
+    @staticmethod
+    def from_arrays(offsets, sizes, values, DataType type=None, MemoryPool pool=None, mask=None):
+        """
+        Construct LargeListViewArray from arrays of int64 offsets and values.
+
+        Parameters
+        ----------
+        offsets : Array (int64 type)
+        sizes : Array (int64 type)
+        values : Array (any type)
+        type : DataType, optional
+            If not specified, a default ListType with the values' type is
+            used.
+        pool : MemoryPool, optional
+        mask : Array (boolean type), optional
+            Indicate which values are null (True) or not null (False).
+
+        Returns
+        -------
+        list_view_array : LargeListViewArray
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> values = pa.array([1, 2, 3, 4])
+        >>> offsets = pa.array([0, 1, 2])
+        >>> sizes = pa.array([2, 2, 2])
+        >>> pa.LargeListViewArray.from_arrays(offsets, sizes, values)
+        <pyarrow.lib.LargeListViewArray object at ...>
+        [
+          [
+            1,
+            2
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            3,
+            4
+          ]
+        ]
+        >>> # use a null mask to represent null values
+        >>> mask = pa.array([False, True, False])
+        >>> pa.LargeListViewArray.from_arrays(offsets, sizes, values, mask=mask)
+        <pyarrow.lib.LargeListViewArray object at ...>
+        [
+          [
+            1,
+            2
+          ],
+          null,
+          [
+            3,
+            4
+          ]
+        ]
+        >>> # null values can be defined in either offsets or sizes arrays
+        >>> # WARNING: this will result in a copy of the offsets or sizes arrays
+        >>> offsets = pa.array([0, None, 2])
+        >>> pa.LargeListViewArray.from_arrays(offsets, sizes, values)
+        <pyarrow.lib.LargeListViewArray object at ...>
+        [
+          [
+            1,
+            2
+          ],
+          null,
+          [
+            3,
+            4
+          ]
+        ]
+        """
+        cdef:
+            Array _offsets, _sizes, _values
+            shared_ptr[CArray] out
+            shared_ptr[CBuffer] c_mask
+            CMemoryPool* cpool = maybe_unbox_memory_pool(pool)
+
+        _offsets = asarray(offsets, type='int64')
+        _sizes = asarray(sizes, type='int64')
+        _values = asarray(values)
+
+        c_mask = c_mask_inverted_from_obj(mask, pool)
+
+        if type is not None:
+            with nogil:
+                out = GetResultValue(
+                    CLargeListViewArray.FromArraysAndType(
+                        type.sp_type, _offsets.ap[0], _sizes.ap[0], _values.ap[0], cpool, c_mask))
+        else:
+            with nogil:
+                out = GetResultValue(
+                    CLargeListViewArray.FromArrays(
+                        _offsets.ap[0], _sizes.ap[0], _values.ap[0], cpool, c_mask))
+        cdef Array result = pyarrow_wrap_array(out)
+        result.validate()
+        return result
+
+    @property
+    def values(self):
+        """
+        Return the underlying array of values which backs the LargeListArray
+        ignoring the array's offset.
+
+        The values array may be out of order and/or contain additional values
+        that are not found in the logical representation of the array. The only
+        guarantee is that each non-null value in the ListView Array is contiguous.
+
+        Compare with :meth:`flatten`, which returns only the non-null
+        values taking into consideration the array's order and offset.
+
+        Returns
+        -------
+        values : Array
+
+        See Also
+        --------
+        LargeListArray.flatten : ...
+
+        Examples
+        --------
+
+        The values include null elements from sub-lists:
+
+        >>> import pyarrow as pa
+        >>> values = [1, 2, None, 3, 4]
+        >>> offsets = [0, 0, 1]
+        >>> sizes = [2, 0, 4]
+        >>> array = pa.LargeListViewArray.from_arrays(offsets, sizes, values)
+        >>> array
+        <pyarrow.lib.LargeListViewArray object at ...>
+        [
+          [
+            1,
+            2
+          ],
+          [],
+          [
+            2,
+            null,
+            3,
+            4
+          ]
+        ]
+        >>> array.values
+        <pyarrow.lib.Int64Array object at ...>
+        [
+          1,
+          2,
+          null,
+          3,
+          4
+        ]
+        """
+        cdef CLargeListViewArray* arr = <CLargeListViewArray*> self.ap
+        return pyarrow_wrap_array(arr.values())
+
+    @property
+    def offsets(self):
+        """
+        Return the list view offsets as an int64 array.
+
+        The returned array will not have a validity bitmap, so you cannot
+        expect to pass it to `LargeListViewArray.from_arrays` and get back the
+        same list array if the original one has nulls.
+
+        Returns
+        -------
+        offsets : Int64Array
+
+        Examples
+        --------
+
+        >>> import pyarrow as pa
+        >>> values = [1, 2, None, 3, 4]
+        >>> offsets = [0, 0, 1]
+        >>> sizes = [2, 0, 4]
+        >>> array = pa.LargeListViewArray.from_arrays(offsets, sizes, values)
+        >>> array.offsets
+        <pyarrow.lib.Int64Array object at ...>
+        [
+          0,
+          0,
+          1
+        ]
+        """
+        return pyarrow_wrap_array((<CLargeListViewArray*> self.ap).offsets())
+
+    @property
+    def sizes(self):
+        """
+        Return the list view sizes as an int64 array.
+
+        The returned array will not have a validity bitmap, so you cannot
+        expect to pass it to `LargeListViewArray.from_arrays` and get back the
+        same list array if the original one has nulls.
+
+        Returns
+        -------
+        sizes : Int64Array
+
+        Examples
+        --------
+
+        >>> import pyarrow as pa
+        >>> values = [1, 2, None, 3, 4]
+        >>> offsets = [0, 0, 1]
+        >>> sizes = [2, 0, 4]
+        >>> array = pa.LargeListViewArray.from_arrays(offsets, sizes, values)
+        >>> array.sizes
+        <pyarrow.lib.Int64Array object at ...>
+        [
+          2,
+          0,
+          4
+        ]
+        """
+        return pyarrow_wrap_array((<CLargeListViewArray*> self.ap).sizes())
+
+
 cdef class MapArray(ListArray):
     """
     Concrete class for Arrow arrays of a map data type.
     """
 
     @staticmethod
-    def from_arrays(offsets, keys, items, DataType type=None, MemoryPool pool=None):
+    def from_arrays(offsets, keys, items, DataType type=None, MemoryPool pool=None, mask=None):
         """
         Construct MapArray from arrays of int32 offsets and key, item arrays.
 
@@ -2478,6 +3072,8 @@ cdef class MapArray(ListArray):
         type : DataType, optional
             If not specified, a default MapArray with the keys' and items' type is used.
         pool : MemoryPool
+        mask : Array (boolean type), optional
+            Indicate which values are null (True) or not null (False).
 
         Returns
         -------
@@ -2559,24 +3155,27 @@ cdef class MapArray(ListArray):
         cdef:
             Array _offsets, _keys, _items
             shared_ptr[CArray] out
+            shared_ptr[CBuffer] c_mask
         cdef CMemoryPool* cpool = maybe_unbox_memory_pool(pool)
 
         _offsets = asarray(offsets, type='int32')
         _keys = asarray(keys)
         _items = asarray(items)
 
+        c_mask = c_mask_inverted_from_obj(mask, pool)
+
         if type is not None:
             with nogil:
                 out = GetResultValue(
                     CMapArray.FromArraysAndType(
                         type.sp_type, _offsets.sp_array,
-                        _keys.sp_array, _items.sp_array, cpool))
+                        _keys.sp_array, _items.sp_array, cpool, c_mask))
         else:
             with nogil:
                 out = GetResultValue(
                     CMapArray.FromArrays(_offsets.sp_array,
                                          _keys.sp_array,
-                                         _items.sp_array, cpool))
+                                         _items.sp_array, cpool, c_mask))
         cdef Array result = pyarrow_wrap_array(out)
         result.validate()
         return result
@@ -3326,12 +3925,11 @@ cdef class StructArray(Array):
         result : StructArray
         """
         if by is not None:
-            tosort = self._flattened_field(by)
+            tosort, sort_keys = self._flattened_field(by), [("", order)]
         else:
-            tosort = self
+            tosort, sort_keys = self, [(field.name, order) for field in self.type]
         indices = _pc().sort_indices(
-            tosort,
-            options=_pc().SortOptions(sort_keys=[("", order)], **kwargs)
+            tosort, options=_pc().SortOptions(sort_keys=sort_keys, **kwargs)
         )
         return self.take(indices)
 
@@ -3390,7 +3988,7 @@ cdef class RunEndEncodedArray(Array):
         -------
         RunEndEncodedArray
         """
-        logical_length = run_ends[-1] if len(run_ends) > 0 else 0
+        logical_length = scalar(run_ends[-1]).as_py() if len(run_ends) > 0 else 0
         return RunEndEncodedArray._from_arrays(type, True, logical_length,
                                                run_ends, values, 0)
 
@@ -3541,7 +4139,7 @@ cdef class ExtensionArray(Array):
         return result
 
 
-class FixedShapeTensorArray(ExtensionArray):
+cdef class FixedShapeTensorArray(ExtensionArray):
     """
     Concrete class for fixed shape tensor extension arrays.
 
@@ -3582,17 +4180,48 @@ class FixedShapeTensorArray(ExtensionArray):
 
     def to_numpy_ndarray(self):
         """
-        Convert fixed shape tensor extension array to a numpy array (with dim+1).
+        Convert fixed shape tensor extension array to a multi-dimensional numpy.ndarray.
 
-        Note: ``permutation`` should be trivial (``None`` or ``[0, 1, ..., len(shape)-1]``).
+        The resulting ndarray will have (ndim + 1) dimensions.
+        The size of the first dimension will be the length of the fixed shape tensor array
+        and the rest of the dimensions will match the permuted shape of the fixed
+        shape tensor.
+
+        The conversion is zero-copy.
+
+        Returns
+        -------
+        numpy.ndarray
+            Ndarray representing tensors in the fixed shape tensor array concatenated
+            along the first dimension.
         """
-        if self.type.permutation is None or self.type.permutation == list(range(len(self.type.shape))):
-            np_flat = np.asarray(self.storage.flatten())
-            numpy_tensor = np_flat.reshape((len(self),) + tuple(self.type.shape))
-            return numpy_tensor
-        else:
-            raise ValueError(
-                'Only non-permuted tensors can be converted to numpy tensors.')
+
+        return self.to_tensor().to_numpy()
+
+    def to_tensor(self):
+        """
+        Convert fixed shape tensor extension array to a pyarrow.Tensor.
+
+        The resulting Tensor will have (ndim + 1) dimensions.
+        The size of the first dimension will be the length of the fixed shape tensor array
+        and the rest of the dimensions will match the permuted shape of the fixed
+        shape tensor.
+
+        The conversion is zero-copy.
+
+        Returns
+        -------
+        pyarrow.Tensor
+            Tensor representing tensors in the fixed shape tensor array concatenated
+            along the first dimension.
+        """
+
+        cdef:
+            CFixedShapeTensorArray* ext_array = <CFixedShapeTensorArray*>(self.ap)
+            CResult[shared_ptr[CTensor]] ctensor
+        with nogil:
+            ctensor = ext_array.ToTensor()
+        return pyarrow_wrap_tensor(GetResultValue(ctensor))
 
     @staticmethod
     def from_numpy_ndarray(obj):
@@ -3600,9 +4229,7 @@ class FixedShapeTensorArray(ExtensionArray):
         Convert numpy tensors (ndarrays) to a fixed shape tensor extension array.
         The first dimension of ndarray will become the length of the fixed
         shape tensor array.
-
-        Numpy array needs to be C-contiguous in memory
-        (``obj.flags["C_CONTIGUOUS"]==True``).
+        If input array data is not contiguous a copy will be made.
 
         Parameters
         ----------
@@ -3636,17 +4263,25 @@ class FixedShapeTensorArray(ExtensionArray):
           ]
         ]
         """
-        if not obj.flags["C_CONTIGUOUS"]:
-            raise ValueError('The data in the numpy array need to be in a single, '
-                             'C-style contiguous segment.')
+
+        if len(obj.shape) < 2:
+            raise ValueError(
+                "Cannot convert 1D array or scalar to fixed shape tensor array")
+        if np.prod(obj.shape) == 0:
+            raise ValueError("Expected a non-empty ndarray")
+
+        permutation = (-np.array(obj.strides)).argsort(kind='stable')
+        if permutation[0] != 0:
+            raise ValueError('First stride needs to be largest to ensure that '
+                             'individual tensor data is contiguous in memory.')
 
         arrow_type = from_numpy_dtype(obj.dtype)
-        shape = obj.shape[1:]
-        size = obj.size / obj.shape[0]
+        shape = np.take(obj.shape, permutation)
+        values = np.ravel(obj, order="K")
 
         return ExtensionArray.from_storage(
-            fixed_shape_tensor(arrow_type, shape),
-            FixedSizeListArray.from_arrays(np.ravel(obj, order='C'), size)
+            fixed_shape_tensor(arrow_type, shape[1:], permutation=permutation[1:] - 1),
+            FixedSizeListArray.from_arrays(values, shape[1:].prod())
         )
 
 
@@ -3673,6 +4308,8 @@ cdef dict _array_classes = {
     _Type_DOUBLE: DoubleArray,
     _Type_LIST: ListArray,
     _Type_LARGE_LIST: LargeListArray,
+    _Type_LIST_VIEW: ListViewArray,
+    _Type_LARGE_LIST_VIEW: LargeListViewArray,
     _Type_MAP: MapArray,
     _Type_FIXED_SIZE_LIST: FixedSizeListArray,
     _Type_SPARSE_UNION: UnionArray,

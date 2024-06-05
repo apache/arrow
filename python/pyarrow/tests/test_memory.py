@@ -243,13 +243,35 @@ def test_debug_memory_pool_warn(pool_factory):
     assert "Wrong size on deallocation" in res.stderr
 
 
-@pytest.mark.parametrize('pool_factory', supported_factories())
-def test_debug_memory_pool_disabled(pool_factory):
-    res = run_debug_memory_pool(pool_factory.__name__, "")
+def check_debug_memory_pool_disabled(pool_factory, env_value, msg):
+    res = run_debug_memory_pool(pool_factory.__name__, env_value)
     # The subprocess either returned successfully or was killed by a signal
     # (due to writing out of bounds), depending on the underlying allocator.
     if os.name == "posix":
         assert res.returncode <= 0
     else:
         res.check_returncode()
-    assert res.stderr == ""
+    if msg == "":
+        assert res.stderr == ""
+    else:
+        assert msg in res.stderr
+
+
+@pytest.mark.parametrize('pool_factory', supported_factories())
+def test_debug_memory_pool_none(pool_factory):
+    check_debug_memory_pool_disabled(pool_factory, "none", "")
+
+
+@pytest.mark.parametrize('pool_factory', supported_factories())
+def test_debug_memory_pool_empty(pool_factory):
+    check_debug_memory_pool_disabled(pool_factory, "", "")
+
+
+@pytest.mark.parametrize('pool_factory', supported_factories())
+def test_debug_memory_pool_unknown(pool_factory):
+    env_value = "some_arbitrary_value"
+    msg = (
+        f"Invalid value for ARROW_DEBUG_MEMORY_POOL: '{env_value}'. "
+        "Valid values are 'abort', 'trap', 'warn', 'none'."
+    )
+    check_debug_memory_pool_disabled(pool_factory, env_value, msg)

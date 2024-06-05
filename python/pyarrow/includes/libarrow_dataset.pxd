@@ -403,3 +403,11 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             shared_ptr[CFileFormat] format,
             CFileSystemFactoryOptions options
         )
+
+        @staticmethod
+        CResult[shared_ptr[CDatasetFactory]] MakeFromFileInfos "Make"(
+            shared_ptr[CFileSystem] filesystem,
+            vector[CFileInfo] files,
+            shared_ptr[CFileFormat] format,
+            CFileSystemFactoryOptions options
+        )

@@ -154,6 +154,8 @@ def test_set_timezone_db_path_non_windows():
     pa.ListType,
     pa.LargeListType,
     pa.FixedSizeListType,
+    pa.ListViewType,
+    pa.LargeListViewType,
     pa.UnionType,
     pa.SparseUnionType,
     pa.DenseUnionType,
@@ -227,6 +229,8 @@ def test_set_timezone_db_path_non_windows():
     pa.StringViewScalar,
     pa.ListScalar,
     pa.LargeListScalar,
+    pa.ListViewScalar,
+    pa.LargeListViewScalar,
     pa.MapScalar,
     pa.FixedSizeListScalar,
     pa.UnionScalar,
@@ -238,6 +242,8 @@ def test_set_timezone_db_path_non_windows():
     pa.MemoryPool,
     pa.LoggingMemoryPool,
     pa.ProxyMemoryPool,
+    pa.Device,
+    pa.MemoryManager,
 ])
 def test_extension_type_constructor_errors(klass):
     # ARROW-2638: prevent calling extension class constructors directly

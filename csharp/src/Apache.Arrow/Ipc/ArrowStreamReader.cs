@@ -28,6 +28,9 @@ namespace Apache.Arrow.Ipc
     {
         private protected readonly ArrowReaderImplementation _implementation;
 
+        /// <summary>
+        /// May block if the schema hasn't yet been read. To avoid blocking, use GetSchemaAsync.
+        /// </summary>
         public Schema Schema => _implementation.Schema;
 
         public ArrowStreamReader(Stream stream)
@@ -95,6 +98,15 @@ namespace Apache.Arrow.Ipc
             {
                 _implementation.Dispose();
             }
+        }
+
+        public async ValueTask<Schema> GetSchema(CancellationToken cancellationToken = default)
+        {
+            if (!_implementation.HasReadSchema)
+            {
+                await _implementation.ReadSchemaAsync(cancellationToken);
+            }
+            return _implementation.Schema;
         }
 
         public ValueTask<RecordBatch> ReadNextRecordBatchAsync(CancellationToken cancellationToken = default)

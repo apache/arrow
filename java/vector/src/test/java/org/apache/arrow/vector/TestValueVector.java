@@ -21,12 +21,13 @@ import static org.apache.arrow.vector.TestUtils.newVarBinaryVector;
 import static org.apache.arrow.vector.TestUtils.newVarCharVector;
 import static org.apache.arrow.vector.TestUtils.newVector;
 import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
@@ -60,6 +61,7 @@ import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.UnionMode;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
@@ -68,9 +70,9 @@ import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.ReusableByteArray;
 import org.apache.arrow.vector.util.Text;
 import org.apache.arrow.vector.util.TransferPair;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class TestValueVector {
 
@@ -78,7 +80,7 @@ public class TestValueVector {
 
   private BufferAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void init() {
     allocator = new RootAllocator(Long.MAX_VALUE);
   }
@@ -94,7 +96,7 @@ public class TestValueVector {
       (int) (Integer.getInteger("arrow.vector.max_allocation_bytes", Integer.MAX_VALUE) / 7);
   private static final int MAX_VALUE_COUNT_8BYTE = (int) (MAX_VALUE_COUNT / 2);
 
-  @After
+  @AfterEach
   public void terminate() throws Exception {
     allocator.close();
   }
@@ -187,7 +189,7 @@ public class TestValueVector {
       /* vector data should have been zeroed out */
       for (int i = 0; i < capacityBeforeReset; i++) {
         // TODO: test vector.get(i) is 0 after unsafe get added
-        assertEquals("non-zero data not expected at index: " + i, true, vector.isNull(i));
+        assertTrue(vector.isNull(i), "non-zero data not expected at index: " + i);
       }
     }
   }
@@ -275,7 +277,7 @@ public class TestValueVector {
       /* check vector contents */
       j = 1;
       for (int i = 0; i < initialCapacity; i += 2) {
-        assertEquals("unexpected value at index: " + i, j, intVector.get(i));
+        assertEquals(j, intVector.get(i), "unexpected value at index: " + i);
         j++;
       }
 
@@ -297,7 +299,7 @@ public class TestValueVector {
       /* vector data should still be intact after realloc */
       j = 1;
       for (int i = 0; i <= initialCapacity; i += 2) {
-        assertEquals("unexpected value at index: " + i, j, intVector.get(i));
+        assertEquals(j, intVector.get(i), "unexpected value at index: " + i);
         j++;
       }
 
@@ -310,7 +312,7 @@ public class TestValueVector {
 
       /* vector data should have been zeroed out */
       for (int i = 0; i < capacityBeforeRealloc; i++) {
-        assertEquals("non-zero data not expected at index: " + i, true, intVector.isNull(i));
+        assertTrue(intVector.isNull(i), "non-zero data not expected at index: " + i);
       }
     }
   }
@@ -426,7 +428,7 @@ public class TestValueVector {
 
       /* vector data should be zeroed out */
       for (int i = 0; i < capacityBeforeReset; i++) {
-        assertTrue("non-zero data not expected at index: " + i, floatVector.isNull(i));
+        assertTrue(floatVector.isNull(i), "non-zero data not expected at index: " + i);
       }
     }
   }
@@ -525,7 +527,7 @@ public class TestValueVector {
 
       /* vector data should be zeroed out */
       for (int i = 0; i < capacityBeforeReset; i++) {
-        assertTrue("non-zero data not expected at index: " + i, floatVector.isNull(i));
+        assertTrue(floatVector.isNull(i), "non-zero data not expected at index: " + i);
       }
     }
   }
@@ -625,7 +627,7 @@ public class TestValueVector {
 
       /* vector data should be zeroed out */
       for (int i = 0; i < capacityBeforeReset; i++) {
-        assertEquals("non-zero data not expected at index: " + i, true, floatVector.isNull(i));
+        assertTrue(floatVector.isNull(i), "non-zero data not expected at index: " + i);
       }
     }
   }
@@ -723,7 +725,7 @@ public class TestValueVector {
 
       /* vector data should be zeroed out */
       for (int i = 0; i < capacityBeforeReset; i++) {
-        assertEquals("non-zero data not expected at index: " + i, true, floatVector.isNull(i));
+        assertTrue(floatVector.isNull(i), "non-zero data not expected at index: " + i);
       }
     }
   }
@@ -820,7 +822,7 @@ public class TestValueVector {
 
       /* vector data should be zeroed out */
       for (int i = 0; i < capacityBeforeReset; i++) {
-        assertTrue("non-null data not expected at index: " + i, vector.isNull(i));
+        assertTrue(vector.isNull(i), "non-null data not expected at index: " + i);
       }
     }
   }
@@ -919,7 +921,7 @@ public class TestValueVector {
 
       /* vector data should be zeroed out */
       for (int i = 0; i < capacityBeforeReset; i++) {
-        assertTrue("non-null data not expected at index: " + i, vector.isNull(i));
+        assertTrue(vector.isNull(i), "non-null data not expected at index: " + i);
       }
     }
   }
@@ -948,10 +950,10 @@ public class TestValueVector {
       int j = 1;
       for (int i = 0; i <= 1023; i++) {
         if ((i >= 2 && i <= 99) || (i >= 101 && i <= 1021)) {
-          assertTrue("non-null data not expected at index: " + i, vector.isNull(i));
+          assertTrue(vector.isNull(i), "non-null data not expected at index: " + i);
         } else {
-          assertFalse("null data not expected at index: " + i, vector.isNull(i));
-          assertEquals("unexpected value at index: " + i, j, vector.get(i));
+          assertFalse(vector.isNull(i), "null data not expected at index: " + i);
+          assertEquals(j, vector.get(i), "unexpected value at index: " + i);
           j++;
         }
       }
@@ -986,10 +988,10 @@ public class TestValueVector {
       j = 1;
       for (int i = 0; i < (initialCapacity * 2); i++) {
         if ((i > 1023 && i != initialCapacity) || (i >= 2 && i <= 99) || (i >= 101 && i <= 1021)) {
-          assertTrue("non-null data not expected at index: " + i, vector.isNull(i));
+          assertTrue(vector.isNull(i), "non-null data not expected at index: " + i);
         } else {
-          assertFalse("null data not expected at index: " + i, vector.isNull(i));
-          assertEquals("unexpected value at index: " + i, j, vector.get(i));
+          assertFalse(vector.isNull(i), "null data not expected at index: " + i);
+          assertEquals(j, vector.get(i), "unexpected value at index: " + i);
           j++;
         }
       }
@@ -1003,13 +1005,13 @@ public class TestValueVector {
 
       /* vector data should have been zeroed out */
       for (int i = 0; i < capacityBeforeReset; i++) {
-        assertTrue("non-null data not expected at index: " + i, vector.isNull(i));
+        assertTrue(vector.isNull(i), "non-null data not expected at index: " + i);
       }
 
       vector.allocateNew(initialCapacity * 4);
       // vector has been erased
       for (int i = 0; i < initialCapacity * 4; i++) {
-        assertTrue("non-null data not expected at index: " + i, vector.isNull(i));
+        assertTrue(vector.isNull(i), "non-null data not expected at index: " + i);
       }
     }
   }
@@ -1035,10 +1037,10 @@ public class TestValueVector {
 
       for (int i = 0; i < valueCapacity; i++) {
         if ((i & 1) == 1) {
-          assertFalse("unexpected null value at index: " + i, vector.isNull(i));
-          assertEquals("unexpected value at index: " + i, (baseValue + i), vector.get(i));
+          assertFalse(vector.isNull(i), "unexpected null value at index: " + i);
+          assertEquals((baseValue + i), vector.get(i), "unexpected value at index: " + i);
         } else {
-          assertTrue("unexpected non-null value at index: " + i, vector.isNull(i));
+          assertTrue(vector.isNull(i), "unexpected non-null value at index: " + i);
         }
       }
 
@@ -1047,15 +1049,15 @@ public class TestValueVector {
 
       for (int i = 0; i < vector.getValueCapacity(); i++) {
         if (i == valueCapacity) {
-          assertFalse("unexpected null value at index: " + i, vector.isNull(i));
-          assertEquals("unexpected value at index: " + i, 20000000, vector.get(i));
+          assertFalse(vector.isNull(i), "unexpected null value at index: " + i);
+          assertEquals(20000000, vector.get(i), "unexpected value at index: " + i);
         } else if (i < valueCapacity) {
           if ((i & 1) == 1) {
-            assertFalse("unexpected null value at index: " + i, vector.isNull(i));
-            assertEquals("unexpected value at index: " + i, (baseValue + i), vector.get(i));
+            assertFalse(vector.isNull(i), "unexpected null value at index: " + i);
+            assertEquals((baseValue + i), vector.get(i), "unexpected value at index: " + i);
           }
         } else {
-          assertTrue("unexpected non-null value at index: " + i, vector.isNull(i));
+          assertTrue(vector.isNull(i), "unexpected non-null value at index: " + i);
         }
       }
 
@@ -1067,10 +1069,10 @@ public class TestValueVector {
 
       for (int i = 0; i < vector.getValueCapacity(); i++) {
         if (i % 2 == 0) {
-          assertFalse("unexpected null value at index: " + i, vector.isNull(i));
-          assertEquals("unexpected value at index: " + i, (baseValue + i), vector.get(i));
+          assertFalse(vector.isNull(i), "unexpected null value at index: " + i);
+          assertEquals((baseValue + i), vector.get(i), "unexpected value at index: " + i);
         } else {
-          assertTrue("unexpected non-null value at index: " + i, vector.isNull(i));
+          assertTrue(vector.isNull(i), "unexpected non-null value at index: " + i);
         }
       }
 
@@ -1080,13 +1082,13 @@ public class TestValueVector {
 
       for (int i = 0; i < vector.getValueCapacity(); i++) {
         if (i == (valueCapacityBeforeRealloc + 1000)) {
-          assertFalse("unexpected null value at index: " + i, vector.isNull(i));
-          assertEquals("unexpected value at index: " + i, 400000000, vector.get(i));
+          assertFalse(vector.isNull(i), "unexpected null value at index: " + i);
+          assertEquals(400000000, vector.get(i), "unexpected value at index: " + i);
         } else if (i < valueCapacityBeforeRealloc && (i % 2) == 0) {
-          assertFalse("unexpected null value at index: " + i, vector.isNull(i));
-          assertEquals("unexpected value at index: " + i, baseValue + i, vector.get(i));
+          assertFalse(vector.isNull(i), "unexpected null value at index: " + i);
+          assertEquals(baseValue + i, vector.get(i), "unexpected value at index: " + i);
         } else {
-          assertTrue("unexpected non-null value at index: " + i, vector.isNull(i));
+          assertTrue(vector.isNull(i), "unexpected non-null value at index: " + i);
         }
       }
 
@@ -1099,7 +1101,7 @@ public class TestValueVector {
 
       /* vector data should be zeroed out */
       for (int i = 0; i < valueCapacityBeforeReset; i++) {
-        assertTrue("non-null data not expected at index: " + i, vector.isNull(i));
+        assertTrue(vector.isNull(i), "non-null data not expected at index: " + i);
       }
     }
   }
@@ -1346,23 +1348,24 @@ public class TestValueVector {
     }
   }
 
-  @Test(expected = OversizedAllocationException.class)
+  @Test
   public void testReallocateCheckSuccess() {
+    assertThrows(OversizedAllocationException.class, () -> {
+      // Create a new value vector for 1024 integers.
+      try (final VarBinaryVector vector = newVarBinaryVector(EMPTY_SCHEMA_PATH, allocator)) {
+        vector.allocateNew(1024 * 10, 1024);
 
-    // Create a new value vector for 1024 integers.
-    try (final VarBinaryVector vector = newVarBinaryVector(EMPTY_SCHEMA_PATH, allocator)) {
-      vector.allocateNew(1024 * 10, 1024);
+        vector.set(0, STR1);
+        // Check the sample strings.
+        assertArrayEquals(STR1, vector.get(0));
 
-      vector.set(0, STR1);
-      // Check the sample strings.
-      assertArrayEquals(STR1, vector.get(0));
+        // update the index offset to a larger one
+        ArrowBuf offsetBuf = vector.getOffsetBuffer();
+        offsetBuf.setInt(VarBinaryVector.OFFSET_WIDTH, Integer.MAX_VALUE - 5);
 
-      // update the index offset to a larger one
-      ArrowBuf offsetBuf = vector.getOffsetBuffer();
-      offsetBuf.setInt(VarBinaryVector.OFFSET_WIDTH, Integer.MAX_VALUE - 5);
-
-      vector.setValueLengthSafe(1, 6);
-    }
+        vector.setValueLengthSafe(1, 6);
+      }
+    });
   }
 
   @Test
@@ -1550,9 +1553,9 @@ public class TestValueVector {
 
       /* check toVector contents before realloc */
       for (int i = 0; i < toVector.getValueCapacity(); i++) {
-        assertFalse("unexpected null value at index: " + i, toVector.isNull(i));
+        assertFalse(toVector.isNull(i), "unexpected null value at index: " + i);
         double value = toVector.get(i);
-        assertEquals("unexpected value at index: " + i, baseValue + (double) i, value, 0);
+        assertEquals(baseValue + (double) i, value, 0, "unexpected value at index: " + i);
       }
 
       /* now let's realloc the toVector and check contents again */
@@ -1561,11 +1564,11 @@ public class TestValueVector {
 
       for (int i = 0; i < toVector.getValueCapacity(); i++) {
         if (i < capacityAfterRealloc2) {
-          assertFalse("unexpected null value at index: " + i, toVector.isNull(i));
+          assertFalse(toVector.isNull(i), "unexpected null value at index: " + i);
           double value = toVector.get(i);
-          assertEquals("unexpected value at index: " + i, baseValue + (double) i, value, 0);
+          assertEquals(baseValue + (double) i, value, 0, "unexpected value at index: " + i);
         } else {
-          assertTrue("unexpected non-null value at index: " + i, toVector.isNull(i));
+          assertTrue(toVector.isNull(i), "unexpected non-null value at index: " + i);
         }
       }
 
@@ -1920,7 +1923,7 @@ public class TestValueVector {
         if (i % 3 == 0) {
           assertNull(vector.getObject(i));
         } else {
-          assertEquals("unexpected value at index: " + i, Integer.toString(i), vector.getObject(i).toString());
+          assertEquals(Integer.toString(i), vector.getObject(i).toString(), "unexpected value at index: " + i);
         }
       }
 
@@ -1934,7 +1937,7 @@ public class TestValueVector {
         if (i % 3 == 0) {
           assertNull(vector2.getObject(i));
         } else {
-          assertEquals("unexpected value at index: " + i, Integer.toString(i), vector2.getObject(i).toString());
+          assertEquals(Integer.toString(i), vector2.getObject(i).toString(), "unexpected value at index: " + i);
         }
       }
 
@@ -1947,7 +1950,7 @@ public class TestValueVector {
         if (i % 3 == 0) {
           assertNull(vector2.getObject(i));
         } else {
-          assertEquals("unexpected value at index: " + i, Integer.toString(i), vector2.getObject(i).toString());
+          assertEquals(Integer.toString(i), vector2.getObject(i).toString(), "unexpected value at index: " + i);
         }
       }
     }
@@ -1981,7 +1984,7 @@ public class TestValueVector {
         if (i % 3 == 0) {
           assertNull(vector.getObject(i));
         } else {
-          assertEquals("unexpected value at index: " + i, Integer.toString(i), vector.getObject(i).toString());
+          assertEquals(Integer.toString(i), vector.getObject(i).toString(), "unexpected value at index: " + i);
         }
       }
 
@@ -1999,7 +2002,7 @@ public class TestValueVector {
         if (i % 3 == 0) {
           assertNull(vector2.getObject(i));
         } else {
-          assertEquals("unexpected value at index: " + i, Integer.toString(i), vector2.getObject(i).toString());
+          assertEquals(Integer.toString(i), vector2.getObject(i).toString(), "unexpected value at index: " + i);
         }
       }
 
@@ -2012,7 +2015,7 @@ public class TestValueVector {
         if (i % 3 == 0) {
           assertNull(vector2.getObject(i));
         } else {
-          assertEquals("unexpected value at index: " + i, Integer.toString(i), vector2.getObject(i).toString());
+          assertEquals(Integer.toString(i), vector2.getObject(i).toString(), "unexpected value at index: " + i);
         }
       }
     }
@@ -2860,6 +2863,29 @@ public class TestValueVector {
   }
 
   @Test
+  public void testListVectorSetNull() {
+    try (final ListVector vector = ListVector.empty("list", allocator)) {
+      UnionListWriter writer = vector.getWriter();
+      writer.allocate();
+
+      writeListVector(writer, new int[] {1, 2});
+      writeListVector(writer, new int[] {3, 4});
+      writeListVector(writer, new int[] {5, 6});
+      vector.setNull(3);
+      vector.setNull(4);
+      vector.setNull(5);
+      writer.setValueCount(6);
+
+      assertEquals(vector.getObject(0), Arrays.asList(1, 2));
+      assertEquals(vector.getObject(1), Arrays.asList(3, 4));
+      assertEquals(vector.getObject(2), Arrays.asList(5, 6));
+      assertTrue(vector.isNull(3));
+      assertTrue(vector.isNull(4));
+      assertTrue(vector.isNull(5));
+    }
+  }
+
+  @Test
   public void testStructVectorEqualsWithNull() {
 
     try (final StructVector vector1 = StructVector.empty("struct", allocator);
@@ -2952,6 +2978,20 @@ public class TestValueVector {
   }
 
   @Test
+  public void testStructVectorAcceptsDenseUnionChild() {
+    Field childField = new Field("child",
+             FieldType.notNullable(new ArrowType.Union(UnionMode.Dense, new int[] {})),
+             Collections.emptyList());
+    Field structField = new Field("struct",
+             FieldType.notNullable(ArrowType.Struct.INSTANCE),
+             Collections.singletonList(childField));
+
+    try (FieldVector structVec = structField.createVector(allocator)) {
+      assertEquals(structField, structVec.getField());
+    }
+  }
+
+  @Test
   public void testUnionVectorEquals() {
     try (final UnionVector vector1 = new UnionVector("union", allocator, /* field type */ null, /* call-back */ null);
         final UnionVector vector2 = new UnionVector("union", allocator, /* field type */ null, /* call-back */ null);) {
@@ -2983,16 +3023,18 @@ public class TestValueVector {
     }
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testEqualsWithIndexOutOfRange() {
-    try (final IntVector vector1 = new IntVector("int", allocator);
-         final IntVector vector2 = new IntVector("int", allocator)) {
+    assertThrows(IllegalArgumentException.class, () -> {
+      try (final IntVector vector1 = new IntVector("int", allocator);
+          final IntVector vector2 = new IntVector("int", allocator)) {
 
-      setVector(vector1, 1, 2);
-      setVector(vector2, 1, 2);
+        setVector(vector1, 1, 2);
+        setVector(vector2, 1, 2);
 
-      assertTrue(new RangeEqualsVisitor(vector1, vector2).rangeEquals(new Range(2, 3, 1)));
-    }
+        assertTrue(new RangeEqualsVisitor(vector1, vector2).rangeEquals(new Range(2, 3, 1)));
+      }
+    });
   }
 
   @Test
@@ -3358,6 +3400,101 @@ public class TestValueVector {
       long expected = UInt4Vector.MAX_UINT4 & UInt4Vector.PROMOTION_MASK;
       assertEquals(expected, vector.getValueAsLong(0));
       assertEquals(expected, vector.getValueAsLong(1));
+    }
+  }
+
+  @Test
+  public void testSplitAndTransferFixedWithVector1() {
+    RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+    try (BufferAllocator child = allocator.newChildAllocator("child", 0, Long.MAX_VALUE)) {
+      try (IntVector vector = new IntVector("vector", child)) {
+        vector.setSafe(0, 1);
+        vector.setSafe(1, 2);
+        vector.setSafe(2, 3);
+        vector.setValueCount(3);
+
+        TransferPair transferPair = vector.getTransferPair(allocator);
+        transferPair.splitAndTransfer(0, 1);
+        try (IntVector target = (IntVector) transferPair.getTo()) {
+          // no-op try-with-resource
+          assertEquals(1, target.get(0));
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testSplitAndTransferFixedWithVector2() {
+    IntVector target;
+    try (BufferAllocator child = allocator.newChildAllocator("child", 0, Long.MAX_VALUE)) {
+      try (IntVector vector = new IntVector("source", child)) {
+        vector.setSafe(0, 1);
+        vector.setSafe(1, 2);
+        vector.setSafe(2, 3);
+        vector.setValueCount(3);
+
+        TransferPair transferPair = vector.getTransferPair(allocator);
+        transferPair.splitAndTransfer(0, 1);
+        target = (IntVector) transferPair.getTo();
+        assertEquals(1, target.get(0));
+      }
+    }
+    target.close();
+  }
+
+  @Test
+  public void testVectorLoadUnloadOnNonVariadicVectors() {
+
+    try (final IntVector vector1 = new IntVector("myvector", allocator)) {
+
+      setVector(vector1, 1, 2, 3, 4, 5, 6);
+      vector1.setValueCount(15);
+
+      /* Check the vector output */
+      assertEquals(1, vector1.get(0));
+      assertEquals(2, vector1.get(1));
+      assertEquals(3, vector1.get(2));
+      assertEquals(4, vector1.get(3));
+      assertEquals(5, vector1.get(4));
+      assertEquals(6, vector1.get(5));
+
+      Field field = vector1.getField();
+      String fieldName = field.getName();
+
+      List<Field> fields = new ArrayList<>();
+      List<FieldVector> fieldVectors = new ArrayList<>();
+
+      fields.add(field);
+      fieldVectors.add(vector1);
+
+      Schema schema = new Schema(fields);
+
+      VectorSchemaRoot schemaRoot1 = new VectorSchemaRoot(schema, fieldVectors, vector1.getValueCount());
+      VectorUnloader vectorUnloader = new VectorUnloader(schemaRoot1);
+
+      try (
+          ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
+          BufferAllocator finalVectorsAllocator = allocator.newChildAllocator("new vector", 0, Long.MAX_VALUE);
+          VectorSchemaRoot schemaRoot2 = VectorSchemaRoot.create(schema, finalVectorsAllocator);
+      ) {
+
+        // validating recordBatch doesn't contain an output for variadicBufferCounts
+        assertTrue(recordBatch.getVariadicBufferCounts().isEmpty());
+
+        VectorLoader vectorLoader = new VectorLoader(schemaRoot2);
+        vectorLoader.load(recordBatch);
+
+        IntVector vector2 = (IntVector) schemaRoot2.getVector(fieldName);
+        vector2.setValueCount(25);
+
+        /* Check the vector output */
+        assertEquals(1, vector2.get(0));
+        assertEquals(2, vector2.get(1));
+        assertEquals(3, vector2.get(2));
+        assertEquals(4, vector2.get(3));
+        assertEquals(5, vector2.get(4));
+        assertEquals(6, vector2.get(5));
+      }
     }
   }
 }

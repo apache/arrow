@@ -42,3 +42,6 @@ RUN (if "%python%"=="3.8" setx PYTHON_VERSION "3.8.10" && setx PATH "%PATH%;C:\P
     (if "%python%"=="3.12" setx PYTHON_VERSION "3.12.0" && setx PATH "%PATH%;C:\Python312;C:\Python312\Scripts")
 RUN choco install -r -y --no-progress python --version=%PYTHON_VERSION%
 RUN python -m pip install -U pip setuptools
+
+# Install archiver to extract xz archives
+RUN choco install --no-progress -r -y archiver

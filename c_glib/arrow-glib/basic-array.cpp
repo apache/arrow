@@ -157,16 +157,16 @@ G_BEGIN_DECLS
  * you need to use #GArrowTime64ArrayBuilder to create a new array.
  *
  * #GArrowMonthIntervalArray is a class for the month intarval array.
- * It can store zero or more date data. If you don't have Arrow format 
- * data, you need to use #GArrowMonthIntervalArrayBuilder to create a 
+ * It can store zero or more date data. If you don't have Arrow format
+ * data, you need to use #GArrowMonthIntervalArrayBuilder to create a
  * new array.
  *
  * #GArrowDayTimeIntervalArray is a class for the day time intarval array.
- * It can store zero or more date data. If you don't have Arrow format 
- * data, you need to use #GArrowDayTimeIntervalArrayBuilder to create a 
+ * It can store zero or more date data. If you don't have Arrow format
+ * data, you need to use #GArrowDayTimeIntervalArrayBuilder to create a
  * new array.
  *
- * #GArrowMonthDayNanoIntervalArray is a class for the month day nano 
+ * #GArrowMonthDayNanoIntervalArray is a class for the month day nano
  * intarval array. It can store zero or more date data. If you don't
  * have Arrow format data, you need to use #GArrowMonthDayNanoIntervalArray
  * to create a new array.
@@ -185,7 +185,8 @@ G_BEGIN_DECLS
  * extension types.
  */
 
-typedef struct GArrowEqualOptionsPrivate_ {
+typedef struct GArrowEqualOptionsPrivate_
+{
   gboolean approx;
   arrow::EqualOptions options;
 } GArrowEqualOptionsPrivate;
@@ -196,14 +197,11 @@ enum {
   PROP_ABSOLUTE_TOLERANCE,
 };
 
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowEqualOptions,
-                           garrow_equal_options,
-                           G_TYPE_OBJECT)
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowEqualOptions, garrow_equal_options, G_TYPE_OBJECT)
 
-#define GARROW_EQUAL_OPTIONS_GET_PRIVATE(object) \
-  static_cast<GArrowEqualOptionsPrivate *>(      \
-    garrow_equal_options_get_instance_private(   \
-      GARROW_EQUAL_OPTIONS(object)))
+#define GARROW_EQUAL_OPTIONS_GET_PRIVATE(object)                                         \
+  static_cast<GArrowEqualOptionsPrivate *>(                                              \
+    garrow_equal_options_get_instance_private(GARROW_EQUAL_OPTIONS(object)))
 
 static void
 garrow_equal_options_finalize(GObject *object)
@@ -266,7 +264,7 @@ garrow_equal_options_init(GArrowEqualOptions *object)
 {
   auto priv = GARROW_EQUAL_OPTIONS_GET_PRIVATE(object);
   priv->approx = FALSE;
-  new(&priv->options) arrow::EqualOptions;
+  new (&priv->options) arrow::EqualOptions;
   priv->options = arrow::EqualOptions::Defaults();
 }
 
@@ -274,7 +272,7 @@ static void
 garrow_equal_options_class_init(GArrowEqualOptionsClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
-  gobject_class->finalize     = garrow_equal_options_finalize;
+  gobject_class->finalize = garrow_equal_options_finalize;
   gobject_class->set_property = garrow_equal_options_set_property;
   gobject_class->get_property = garrow_equal_options_get_property;
 
@@ -356,8 +354,8 @@ garrow_equal_options_is_approx(GArrowEqualOptions *options)
   return priv->approx;
 }
 
-
-typedef struct GArrowArrayPrivate_ {
+typedef struct GArrowArrayPrivate_
+{
   std::shared_ptr<arrow::Array> array;
   GArrowDataType *value_data_type;
   GArrowBuffer *null_bitmap;
@@ -379,20 +377,15 @@ enum {
   PROP_PARENT,
 };
 
-G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GArrowArray,
-                                    garrow_array,
-                                    G_TYPE_OBJECT)
+G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GArrowArray, garrow_array, G_TYPE_OBJECT)
 
-#define GARROW_ARRAY_GET_PRIVATE(obj)         \
-  static_cast<GArrowArrayPrivate *>(          \
-    garrow_array_get_instance_private(        \
-      GARROW_ARRAY(obj)))
+#define GARROW_ARRAY_GET_PRIVATE(obj)                                                    \
+  static_cast<GArrowArrayPrivate *>(garrow_array_get_instance_private(GARROW_ARRAY(obj)))
 
 G_END_DECLS
 template <typename T>
 const typename T::c_type *
-garrow_array_get_values_raw(std::shared_ptr<arrow::Array> arrow_array,
-                            gint64 *length)
+garrow_array_get_values_raw(std::shared_ptr<arrow::Array> arrow_array, gint64 *length)
 {
   auto arrow_specific_array =
     std::static_pointer_cast<typename arrow::TypeTraits<T>::ArrayType>(arrow_array);
@@ -512,7 +505,7 @@ static void
 garrow_array_init(GArrowArray *object)
 {
   auto priv = GARROW_ARRAY_GET_PRIVATE(object);
-  new(&priv->array) std::shared_ptr<arrow::Array>;
+  new (&priv->array) std::shared_ptr<arrow::Array>;
 }
 
 static void
@@ -520,57 +513,57 @@ garrow_array_class_init(GArrowArrayClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->dispose      = garrow_array_dispose;
-  gobject_class->finalize     = garrow_array_finalize;
+  gobject_class->dispose = garrow_array_dispose;
+  gobject_class->finalize = garrow_array_finalize;
   gobject_class->set_property = garrow_array_set_property;
   gobject_class->get_property = garrow_array_get_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_pointer("array",
-                              "Array",
-                              "The raw std::shared<arrow::Array> *",
-                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
-                                                       G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_pointer(
+    "array",
+    "Array",
+    "The raw std::shared<arrow::Array> *",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_ARRAY, spec);
 
-  spec = g_param_spec_object("value-data-type",
-                             "Value data type",
-                             "The data type of each value",
-                             GARROW_TYPE_DATA_TYPE,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "value-data-type",
+    "Value data type",
+    "The data type of each value",
+    GARROW_TYPE_DATA_TYPE,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_VALUE_DATA_TYPE, spec);
 
-  spec = g_param_spec_object("null-bitmap",
-                             "NULL bitmap",
-                             "The NULL bitmap",
-                             GARROW_TYPE_BUFFER,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "null-bitmap",
+    "NULL bitmap",
+    "The NULL bitmap",
+    GARROW_TYPE_BUFFER,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_NULL_BITMAP, spec);
 
-  spec = g_param_spec_object("buffer1",
-                             "Buffer1",
-                             "The first buffer",
-                             GARROW_TYPE_BUFFER,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "buffer1",
+    "Buffer1",
+    "The first buffer",
+    GARROW_TYPE_BUFFER,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_BUFFER1, spec);
 
-  spec = g_param_spec_object("buffer2",
-                             "Buffer2",
-                             "The second buffer",
-                             GARROW_TYPE_BUFFER,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "buffer2",
+    "Buffer2",
+    "The second buffer",
+    GARROW_TYPE_BUFFER,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_BUFFER2, spec);
 
-  spec = g_param_spec_object("parent",
-                             "Parent",
-                             "The parent array",
-                             GARROW_TYPE_ARRAY,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "parent",
+    "Parent",
+    "The parent array",
+    GARROW_TYPE_ARRAY,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_PARENT, spec);
 }
 
@@ -589,14 +582,11 @@ garrow_array_class_init(GArrowArrayClass *klass)
  * Since: 6.0.0
  */
 GArrowArray *
-garrow_array_import(gpointer c_abi_array,
-                    GArrowDataType *data_type,
-                    GError **error)
+garrow_array_import(gpointer c_abi_array, GArrowDataType *data_type, GError **error)
 {
   auto arrow_data_type = garrow_data_type_get_raw(data_type);
   auto arrow_array_result =
-    arrow::ImportArray(static_cast<ArrowArray *>(c_abi_array),
-                       arrow_data_type);
+    arrow::ImportArray(static_cast<ArrowArray *>(c_abi_array), arrow_data_type);
   if (garrow::check(error, arrow_array_result, "[array][import]")) {
     return garrow_array_new_raw(&(*arrow_array_result));
   } else {
@@ -635,8 +625,7 @@ garrow_array_export(GArrowArray *array,
                                 static_cast<ArrowArray *>(*c_abi_array),
                                 static_cast<ArrowSchema *>(*c_abi_schema));
   } else {
-    status = arrow::ExportArray(*arrow_array,
-                                static_cast<ArrowArray *>(*c_abi_array));
+    status = arrow::ExportArray(*arrow_array, static_cast<ArrowArray *>(*c_abi_array));
   }
   if (garrow::check(error, status, "[array][export]")) {
     return true;
@@ -901,15 +890,15 @@ garrow_array_get_value_type(GArrowArray *array)
  *   values with the base #GArrowArray.
  */
 GArrowArray *
-garrow_array_slice(GArrowArray *array,
-                   gint64 offset,
-                   gint64 length)
+garrow_array_slice(GArrowArray *array, gint64 offset, gint64 length)
 {
   const auto arrow_array = garrow_array_get_raw(array);
   auto arrow_sub_array = arrow_array->Slice(offset, length);
   return garrow_array_new_raw(&arrow_sub_array,
-                              "array", &arrow_sub_array,
-                              "parent", array,
+                              "array",
+                              &arrow_sub_array,
+                              "parent",
+                              array,
                               NULL);
 }
 
@@ -946,9 +935,7 @@ garrow_array_to_string(GArrowArray *array, GError **error)
  * Since: 0.15.0
  */
 GArrowArray *
-garrow_array_view(GArrowArray *array,
-                  GArrowDataType *return_type,
-                  GError **error)
+garrow_array_view(GArrowArray *array, GArrowDataType *return_type, GError **error)
 {
   auto arrow_array_raw = garrow_array_get_raw(array);
   auto arrow_return_type = garrow_data_type_get_raw(return_type);
@@ -979,8 +966,7 @@ garrow_array_diff_unified(GArrowArray *array, GArrowArray *other_array)
   const auto arrow_array = garrow_array_get_raw(array);
   const auto arrow_other_array = garrow_array_get_raw(other_array);
   std::stringstream diff;
-  arrow_array->Equals(arrow_other_array,
-                      arrow::EqualOptions().diff_sink(&diff));
+  arrow_array->Equals(arrow_other_array, arrow::EqualOptions().diff_sink(&diff));
   auto string = diff.str();
   if (string.empty()) {
     return NULL;
@@ -1001,9 +987,7 @@ garrow_array_diff_unified(GArrowArray *array, GArrowArray *other_array)
  * Since: 4.0.0
  */
 GArrowArray *
-garrow_array_concatenate(GArrowArray *array,
-                         GList *other_arrays,
-                         GError **error)
+garrow_array_concatenate(GArrowArray *array, GList *other_arrays, GError **error)
 {
   if (!other_arrays) {
     g_object_ref(array);
@@ -1016,19 +1000,14 @@ garrow_array_concatenate(GArrowArray *array,
     arrow_arrays.push_back(garrow_array_get_raw(other_array));
   }
   auto arrow_concatenated_array = arrow::Concatenate(arrow_arrays);
-  if (garrow::check(error,
-                    arrow_concatenated_array,
-                    "[array][concatenate]")) {
+  if (garrow::check(error, arrow_concatenated_array, "[array][concatenate]")) {
     return garrow_array_new_raw(&(*arrow_concatenated_array));
   } else {
     return NULL;
   }
 }
 
-
-G_DEFINE_TYPE(GArrowNullArray,
-              garrow_null_array,
-              GARROW_TYPE_ARRAY)
+G_DEFINE_TYPE(GArrowNullArray, garrow_null_array, GARROW_TYPE_ARRAY)
 
 static void
 garrow_null_array_init(GArrowNullArray *object)
@@ -1055,10 +1034,7 @@ garrow_null_array_new(gint64 length)
   return GARROW_NULL_ARRAY(array);
 }
 
-
-G_DEFINE_TYPE(GArrowPrimitiveArray,
-              garrow_primitive_array,
-              GARROW_TYPE_ARRAY)
+G_DEFINE_TYPE(GArrowPrimitiveArray, garrow_primitive_array, GARROW_TYPE_ARRAY)
 
 G_END_DECLS
 template <typename T>
@@ -1075,12 +1051,14 @@ garrow_primitive_array_new(gint64 length,
                                                                arrow_data,
                                                                arrow_bitmap,
                                                                n_nulls);
-  auto arrow_array =
-    std::static_pointer_cast<arrow::Array>(arrow_specific_array);
+  auto arrow_array = std::static_pointer_cast<arrow::Array>(arrow_specific_array);
   return garrow_array_new_raw(&arrow_array,
-                              "array", &arrow_array,
-                              "null-bitmap", null_bitmap,
-                              "buffer1", data,
+                              "array",
+                              &arrow_array,
+                              "null-bitmap",
+                              null_bitmap,
+                              "buffer1",
+                              data,
                               NULL);
 };
 
@@ -1101,12 +1079,14 @@ garrow_primitive_array_new(GArrowDataType *data_type,
                                                                arrow_data,
                                                                arrow_bitmap,
                                                                n_nulls);
-  auto arrow_array =
-    std::static_pointer_cast<arrow::Array>(arrow_specific_array);
+  auto arrow_array = std::static_pointer_cast<arrow::Array>(arrow_specific_array);
   return garrow_array_new_raw(&arrow_array,
-                              "array", &arrow_array,
-                              "null-bitmap", null_bitmap,
-                              "buffer1", data,
+                              "array",
+                              &arrow_array,
+                              "null-bitmap",
+                              null_bitmap,
+                              "buffer1",
+                              data,
                               NULL);
 };
 G_BEGIN_DECLS
@@ -1159,10 +1139,7 @@ garrow_primitive_array_get_data_buffer(GArrowPrimitiveArray *array)
   return garrow_buffer_new_raw(&arrow_data);
 }
 
-
-G_DEFINE_TYPE(GArrowBooleanArray,
-              garrow_boolean_array,
-              GARROW_TYPE_PRIMITIVE_ARRAY)
+G_DEFINE_TYPE(GArrowBooleanArray, garrow_boolean_array, GARROW_TYPE_PRIMITIVE_ARRAY)
 
 static void
 garrow_boolean_array_init(GArrowBooleanArray *object)
@@ -1195,10 +1172,8 @@ garrow_boolean_array_new(gint64 length,
                          GArrowBuffer *null_bitmap,
                          gint64 n_nulls)
 {
-  auto array = garrow_primitive_array_new<arrow::BooleanType>(length,
-                                                              data,
-                                                              null_bitmap,
-                                                              n_nulls);
+  auto array =
+    garrow_primitive_array_new<arrow::BooleanType>(length, data, null_bitmap, n_nulls);
   return GARROW_BOOLEAN_ARRAY(array);
 }
 
@@ -1210,8 +1185,7 @@ garrow_boolean_array_new(gint64 length,
  * Returns: The @i-th value.
  */
 gboolean
-garrow_boolean_array_get_value(GArrowBooleanArray *array,
-                               gint64 i)
+garrow_boolean_array_get_value(GArrowBooleanArray *array, gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return static_cast<arrow::BooleanArray *>(arrow_array.get())->Value(i);
@@ -1228,12 +1202,10 @@ garrow_boolean_array_get_value(GArrowBooleanArray *array,
  *   It should be freed with g_free() when no longer needed.
  */
 gboolean *
-garrow_boolean_array_get_values(GArrowBooleanArray *array,
-                                gint64 *length)
+garrow_boolean_array_get_values(GArrowBooleanArray *array, gint64 *length)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
-  auto arrow_boolean_array =
-    std::static_pointer_cast<arrow::BooleanArray>(arrow_array);
+  auto arrow_boolean_array = std::static_pointer_cast<arrow::BooleanArray>(arrow_array);
   *length = arrow_boolean_array->length();
   auto values = static_cast<gboolean *>(g_new(gboolean, *length));
   for (gint64 i = 0; i < *length; ++i) {
@@ -1242,10 +1214,7 @@ garrow_boolean_array_get_values(GArrowBooleanArray *array,
   return values;
 }
 
-
-G_DEFINE_TYPE(GArrowNumericArray,
-              garrow_numeric_array,
-              GARROW_TYPE_PRIMITIVE_ARRAY)
+G_DEFINE_TYPE(GArrowNumericArray, garrow_numeric_array, GARROW_TYPE_PRIMITIVE_ARRAY)
 
 static void
 garrow_numeric_array_init(GArrowNumericArray *object)
@@ -1257,10 +1226,7 @@ garrow_numeric_array_class_init(GArrowNumericArrayClass *klass)
 {
 }
 
-
-G_DEFINE_TYPE(GArrowInt8Array,
-              garrow_int8_array,
-              GARROW_TYPE_NUMERIC_ARRAY)
+G_DEFINE_TYPE(GArrowInt8Array, garrow_int8_array, GARROW_TYPE_NUMERIC_ARRAY)
 
 static void
 garrow_int8_array_init(GArrowInt8Array *object)
@@ -1293,10 +1259,8 @@ garrow_int8_array_new(gint64 length,
                       GArrowBuffer *null_bitmap,
                       gint64 n_nulls)
 {
-  auto array = garrow_primitive_array_new<arrow::Int8Type>(length,
-                                                           data,
-                                                           null_bitmap,
-                                                           n_nulls);
+  auto array =
+    garrow_primitive_array_new<arrow::Int8Type>(length, data, null_bitmap, n_nulls);
   return GARROW_INT8_ARRAY(array);
 }
 
@@ -1308,8 +1272,7 @@ garrow_int8_array_new(gint64 length,
  * Returns: The @i-th value.
  */
 gint8
-garrow_int8_array_get_value(GArrowInt8Array *array,
-                            gint64 i)
+garrow_int8_array_get_value(GArrowInt8Array *array, gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return static_cast<arrow::Int8Array *>(arrow_array.get())->Value(i);
@@ -1323,16 +1286,13 @@ garrow_int8_array_get_value(GArrowInt8Array *array,
  * Returns: (array length=length): The raw values.
  */
 const gint8 *
-garrow_int8_array_get_values(GArrowInt8Array *array,
-                             gint64 *length)
+garrow_int8_array_get_values(GArrowInt8Array *array, gint64 *length)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return garrow_array_get_values_raw<arrow::Int8Type>(arrow_array, length);
 }
 
-G_DEFINE_TYPE(GArrowUInt8Array,
-              garrow_uint8_array,
-              GARROW_TYPE_NUMERIC_ARRAY)
+G_DEFINE_TYPE(GArrowUInt8Array, garrow_uint8_array, GARROW_TYPE_NUMERIC_ARRAY)
 
 static void
 garrow_uint8_array_init(GArrowUInt8Array *object)
@@ -1365,10 +1325,8 @@ garrow_uint8_array_new(gint64 length,
                        GArrowBuffer *null_bitmap,
                        gint64 n_nulls)
 {
-  auto array = garrow_primitive_array_new<arrow::UInt8Type>(length,
-                                                            data,
-                                                            null_bitmap,
-                                                            n_nulls);
+  auto array =
+    garrow_primitive_array_new<arrow::UInt8Type>(length, data, null_bitmap, n_nulls);
   return GARROW_UINT8_ARRAY(array);
 }
 
@@ -1380,8 +1338,7 @@ garrow_uint8_array_new(gint64 length,
  * Returns: The @i-th value.
  */
 guint8
-garrow_uint8_array_get_value(GArrowUInt8Array *array,
-                             gint64 i)
+garrow_uint8_array_get_value(GArrowUInt8Array *array, gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return static_cast<arrow::UInt8Array *>(arrow_array.get())->Value(i);
@@ -1395,17 +1352,13 @@ garrow_uint8_array_get_value(GArrowUInt8Array *array,
  * Returns: (array length=length): The raw values.
  */
 const guint8 *
-garrow_uint8_array_get_values(GArrowUInt8Array *array,
-                              gint64 *length)
+garrow_uint8_array_get_values(GArrowUInt8Array *array, gint64 *length)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return garrow_array_get_values_raw<arrow::UInt8Type>(arrow_array, length);
 }
 
-
-G_DEFINE_TYPE(GArrowInt16Array,
-              garrow_int16_array,
-              GARROW_TYPE_NUMERIC_ARRAY)
+G_DEFINE_TYPE(GArrowInt16Array, garrow_int16_array, GARROW_TYPE_NUMERIC_ARRAY)
 
 static void
 garrow_int16_array_init(GArrowInt16Array *object)
@@ -1438,10 +1391,8 @@ garrow_int16_array_new(gint64 length,
                        GArrowBuffer *null_bitmap,
                        gint64 n_nulls)
 {
-  auto array = garrow_primitive_array_new<arrow::Int16Type>(length,
-                                                            data,
-                                                            null_bitmap,
-                                                            n_nulls);
+  auto array =
+    garrow_primitive_array_new<arrow::Int16Type>(length, data, null_bitmap, n_nulls);
   return GARROW_INT16_ARRAY(array);
 }
 
@@ -1453,8 +1404,7 @@ garrow_int16_array_new(gint64 length,
  * Returns: The @i-th value.
  */
 gint16
-garrow_int16_array_get_value(GArrowInt16Array *array,
-                             gint64 i)
+garrow_int16_array_get_value(GArrowInt16Array *array, gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return static_cast<arrow::Int16Array *>(arrow_array.get())->Value(i);
@@ -1468,17 +1418,13 @@ garrow_int16_array_get_value(GArrowInt16Array *array,
  * Returns: (array length=length): The raw values.
  */
 const gint16 *
-garrow_int16_array_get_values(GArrowInt16Array *array,
-                              gint64 *length)
+garrow_int16_array_get_values(GArrowInt16Array *array, gint64 *length)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return garrow_array_get_values_raw<arrow::Int16Type>(arrow_array, length);
 }
 
-
-G_DEFINE_TYPE(GArrowUInt16Array,
-              garrow_uint16_array,
-              GARROW_TYPE_NUMERIC_ARRAY)
+G_DEFINE_TYPE(GArrowUInt16Array, garrow_uint16_array, GARROW_TYPE_NUMERIC_ARRAY)
 
 static void
 garrow_uint16_array_init(GArrowUInt16Array *object)
@@ -1511,10 +1457,8 @@ garrow_uint16_array_new(gint64 length,
                         GArrowBuffer *null_bitmap,
                         gint64 n_nulls)
 {
-  auto array = garrow_primitive_array_new<arrow::UInt16Type>(length,
-                                                             data,
-                                                             null_bitmap,
-                                                             n_nulls);
+  auto array =
+    garrow_primitive_array_new<arrow::UInt16Type>(length, data, null_bitmap, n_nulls);
   return GARROW_UINT16_ARRAY(array);
 }
 
@@ -1526,8 +1470,7 @@ garrow_uint16_array_new(gint64 length,
  * Returns: The @i-th value.
  */
 guint16
-garrow_uint16_array_get_value(GArrowUInt16Array *array,
-                              gint64 i)
+garrow_uint16_array_get_value(GArrowUInt16Array *array, gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return static_cast<arrow::UInt16Array *>(arrow_array.get())->Value(i);
@@ -1541,17 +1484,13 @@ garrow_uint16_array_get_value(GArrowUInt16Array *array,
  * Returns: (array length=length): The raw values.
  */
 const guint16 *
-garrow_uint16_array_get_values(GArrowUInt16Array *array,
-                               gint64 *length)
+garrow_uint16_array_get_values(GArrowUInt16Array *array, gint64 *length)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return garrow_array_get_values_raw<arrow::UInt16Type>(arrow_array, length);
 }
 
-
-G_DEFINE_TYPE(GArrowInt32Array,
-              garrow_int32_array,
-              GARROW_TYPE_NUMERIC_ARRAY)
+G_DEFINE_TYPE(GArrowInt32Array, garrow_int32_array, GARROW_TYPE_NUMERIC_ARRAY)
 
 static void
 garrow_int32_array_init(GArrowInt32Array *object)
@@ -1584,10 +1523,8 @@ garrow_int32_array_new(gint64 length,
                        GArrowBuffer *null_bitmap,
                        gint64 n_nulls)
 {
-  auto array = garrow_primitive_array_new<arrow::Int32Type>(length,
-                                                            data,
-                                                            null_bitmap,
-                                                            n_nulls);
+  auto array =
+    garrow_primitive_array_new<arrow::Int32Type>(length, data, null_bitmap, n_nulls);
   return GARROW_INT32_ARRAY(array);
 }
 
@@ -1599,8 +1536,7 @@ garrow_int32_array_new(gint64 length,
  * Returns: The @i-th value.
  */
 gint32
-garrow_int32_array_get_value(GArrowInt32Array *array,
-                             gint64 i)
+garrow_int32_array_get_value(GArrowInt32Array *array, gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return static_cast<arrow::Int32Array *>(arrow_array.get())->Value(i);
@@ -1614,17 +1550,13 @@ garrow_int32_array_get_value(GArrowInt32Array *array,
  * Returns: (array length=length): The raw values.
  */
 const gint32 *
-garrow_int32_array_get_values(GArrowInt32Array *array,
-                              gint64 *length)
+garrow_int32_array_get_values(GArrowInt32Array *array, gint64 *length)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return garrow_array_get_values_raw<arrow::Int32Type>(arrow_array, length);
 }
 
-
-G_DEFINE_TYPE(GArrowUInt32Array,
-              garrow_uint32_array,
-              GARROW_TYPE_NUMERIC_ARRAY)
+G_DEFINE_TYPE(GArrowUInt32Array, garrow_uint32_array, GARROW_TYPE_NUMERIC_ARRAY)
 
 static void
 garrow_uint32_array_init(GArrowUInt32Array *object)
@@ -1657,10 +1589,8 @@ garrow_uint32_array_new(gint64 length,
                         GArrowBuffer *null_bitmap,
                         gint64 n_nulls)
 {
-  auto array = garrow_primitive_array_new<arrow::UInt32Type>(length,
-                                                             data,
-                                                             null_bitmap,
-                                                             n_nulls);
+  auto array =
+    garrow_primitive_array_new<arrow::UInt32Type>(length, data, null_bitmap, n_nulls);
   return GARROW_UINT32_ARRAY(array);
 }
 
@@ -1672,8 +1602,7 @@ garrow_uint32_array_new(gint64 length,
  * Returns: The @i-th value.
  */
 guint32
-garrow_uint32_array_get_value(GArrowUInt32Array *array,
-                              gint64 i)
+garrow_uint32_array_get_value(GArrowUInt32Array *array, gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return static_cast<arrow::UInt32Array *>(arrow_array.get())->Value(i);
@@ -1687,17 +1616,13 @@ garrow_uint32_array_get_value(GArrowUInt32Array *array,
  * Returns: (array length=length): The raw values.
  */
 const guint32 *
-garrow_uint32_array_get_values(GArrowUInt32Array *array,
-                               gint64 *length)
+garrow_uint32_array_get_values(GArrowUInt32Array *array, gint64 *length)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return garrow_array_get_values_raw<arrow::UInt32Type>(arrow_array, length);
 }
 
-
-G_DEFINE_TYPE(GArrowInt64Array,
-              garrow_int64_array,
-              GARROW_TYPE_NUMERIC_ARRAY)
+G_DEFINE_TYPE(GArrowInt64Array, garrow_int64_array, GARROW_TYPE_NUMERIC_ARRAY)
 
 static void
 garrow_int64_array_init(GArrowInt64Array *object)
@@ -1730,10 +1655,8 @@ garrow_int64_array_new(gint64 length,
                        GArrowBuffer *null_bitmap,
                        gint64 n_nulls)
 {
-  auto array = garrow_primitive_array_new<arrow::Int64Type>(length,
-                                                            data,
-                                                            null_bitmap,
-                                                            n_nulls);
+  auto array =
+    garrow_primitive_array_new<arrow::Int64Type>(length, data, null_bitmap, n_nulls);
   return GARROW_INT64_ARRAY(array);
 }
 
@@ -1745,8 +1668,7 @@ garrow_int64_array_new(gint64 length,
  * Returns: The @i-th value.
  */
 gint64
-garrow_int64_array_get_value(GArrowInt64Array *array,
-                             gint64 i)
+garrow_int64_array_get_value(GArrowInt64Array *array, gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return static_cast<arrow::Int64Array *>(arrow_array.get())->Value(i);
@@ -1760,19 +1682,14 @@ garrow_int64_array_get_value(GArrowInt64Array *array,
  * Returns: (array length=length): The raw values.
  */
 const gint64 *
-garrow_int64_array_get_values(GArrowInt64Array *array,
-                              gint64 *length)
+garrow_int64_array_get_values(GArrowInt64Array *array, gint64 *length)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
-  auto values =
-    garrow_array_get_values_raw<arrow::Int64Type>(arrow_array, length);
+  auto values = garrow_array_get_values_raw<arrow::Int64Type>(arrow_array, length);
   return reinterpret_cast<const gint64 *>(values);
 }
 
-
-G_DEFINE_TYPE(GArrowUInt64Array,
-              garrow_uint64_array,
-              GARROW_TYPE_NUMERIC_ARRAY)
+G_DEFINE_TYPE(GArrowUInt64Array, garrow_uint64_array, GARROW_TYPE_NUMERIC_ARRAY)
 
 static void
 garrow_uint64_array_init(GArrowUInt64Array *object)
@@ -1805,10 +1722,8 @@ garrow_uint64_array_new(gint64 length,
                         GArrowBuffer *null_bitmap,
                         gint64 n_nulls)
 {
-  auto array = garrow_primitive_array_new<arrow::UInt64Type>(length,
-                                                             data,
-                                                             null_bitmap,
-                                                             n_nulls);
+  auto array =
+    garrow_primitive_array_new<arrow::UInt64Type>(length, data, null_bitmap, n_nulls);
   return GARROW_UINT64_ARRAY(array);
 }
 
@@ -1820,8 +1735,7 @@ garrow_uint64_array_new(gint64 length,
  * Returns: The @i-th value.
  */
 guint64
-garrow_uint64_array_get_value(GArrowUInt64Array *array,
-                              gint64 i)
+garrow_uint64_array_get_value(GArrowUInt64Array *array, gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return static_cast<arrow::UInt64Array *>(arrow_array.get())->Value(i);
@@ -1835,19 +1749,14 @@ garrow_uint64_array_get_value(GArrowUInt64Array *array,
  * Returns: (array length=length): The raw values.
  */
 const guint64 *
-garrow_uint64_array_get_values(GArrowUInt64Array *array,
-                               gint64 *length)
+garrow_uint64_array_get_values(GArrowUInt64Array *array, gint64 *length)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
-  auto values =
-    garrow_array_get_values_raw<arrow::UInt64Type>(arrow_array, length);
+  auto values = garrow_array_get_values_raw<arrow::UInt64Type>(arrow_array, length);
   return reinterpret_cast<const guint64 *>(values);
 }
 
-
-G_DEFINE_TYPE(GArrowHalfFloatArray,
-              garrow_half_float_array,
-              GARROW_TYPE_NUMERIC_ARRAY)
+G_DEFINE_TYPE(GArrowHalfFloatArray, garrow_half_float_array, GARROW_TYPE_NUMERIC_ARRAY)
 
 static void
 garrow_half_float_array_init(GArrowHalfFloatArray *object)
@@ -1880,10 +1789,8 @@ garrow_half_float_array_new(gint64 length,
                             GArrowBuffer *null_bitmap,
                             gint64 n_nulls)
 {
-  auto array = garrow_primitive_array_new<arrow::HalfFloatType>(length,
-                                                                data,
-                                                                null_bitmap,
-                                                                n_nulls);
+  auto array =
+    garrow_primitive_array_new<arrow::HalfFloatType>(length, data, null_bitmap, n_nulls);
   return GARROW_HALF_FLOAT_ARRAY(array);
 }
 
@@ -1897,8 +1804,7 @@ garrow_half_float_array_new(gint64 length,
  * Since: 11.0.0
  */
 guint16
-garrow_half_float_array_get_value(GArrowHalfFloatArray *array,
-                                  gint64 i)
+garrow_half_float_array_get_value(GArrowHalfFloatArray *array, gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return std::static_pointer_cast<arrow::HalfFloatArray>(arrow_array)->Value(i);
@@ -1914,17 +1820,13 @@ garrow_half_float_array_get_value(GArrowHalfFloatArray *array,
  * Since: 11.0.0
  */
 const guint16 *
-garrow_half_float_array_get_values(GArrowHalfFloatArray *array,
-                                   gint64 *length)
+garrow_half_float_array_get_values(GArrowHalfFloatArray *array, gint64 *length)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return garrow_array_get_values_raw<arrow::HalfFloatType>(arrow_array, length);
 }
 
-
-G_DEFINE_TYPE(GArrowFloatArray,
-              garrow_float_array,
-              GARROW_TYPE_NUMERIC_ARRAY)
+G_DEFINE_TYPE(GArrowFloatArray, garrow_float_array, GARROW_TYPE_NUMERIC_ARRAY)
 
 static void
 garrow_float_array_init(GArrowFloatArray *object)
@@ -1957,10 +1859,8 @@ garrow_float_array_new(gint64 length,
                        GArrowBuffer *null_bitmap,
                        gint64 n_nulls)
 {
-  auto array = garrow_primitive_array_new<arrow::FloatType>(length,
-                                                            data,
-                                                            null_bitmap,
-                                                            n_nulls);
+  auto array =
+    garrow_primitive_array_new<arrow::FloatType>(length, data, null_bitmap, n_nulls);
   return GARROW_FLOAT_ARRAY(array);
 }
 
@@ -1972,8 +1872,7 @@ garrow_float_array_new(gint64 length,
  * Returns: The @i-th value.
  */
 gfloat
-garrow_float_array_get_value(GArrowFloatArray *array,
-                             gint64 i)
+garrow_float_array_get_value(GArrowFloatArray *array, gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return static_cast<arrow::FloatArray *>(arrow_array.get())->Value(i);
@@ -1987,17 +1886,13 @@ garrow_float_array_get_value(GArrowFloatArray *array,
  * Returns: (array length=length): The raw values.
  */
 const gfloat *
-garrow_float_array_get_values(GArrowFloatArray *array,
-                              gint64 *length)
+garrow_float_array_get_values(GArrowFloatArray *array, gint64 *length)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return garrow_array_get_values_raw<arrow::FloatType>(arrow_array, length);
 }
 
-
-G_DEFINE_TYPE(GArrowDoubleArray,
-              garrow_double_array,
-              GARROW_TYPE_NUMERIC_ARRAY)
+G_DEFINE_TYPE(GArrowDoubleArray, garrow_double_array, GARROW_TYPE_NUMERIC_ARRAY)
 
 static void
 garrow_double_array_init(GArrowDoubleArray *object)
@@ -2030,10 +1925,8 @@ garrow_double_array_new(gint64 length,
                         GArrowBuffer *null_bitmap,
                         gint64 n_nulls)
 {
-  auto array = garrow_primitive_array_new<arrow::DoubleType>(length,
-                                                             data,
-                                                             null_bitmap,
-                                                             n_nulls);
+  auto array =
+    garrow_primitive_array_new<arrow::DoubleType>(length, data, null_bitmap, n_nulls);
   return GARROW_DOUBLE_ARRAY(array);
 }
 
@@ -2045,8 +1938,7 @@ garrow_double_array_new(gint64 length,
  * Returns: The @i-th value.
  */
 gdouble
-garrow_double_array_get_value(GArrowDoubleArray *array,
-                              gint64 i)
+garrow_double_array_get_value(GArrowDoubleArray *array, gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return static_cast<arrow::DoubleArray *>(arrow_array.get())->Value(i);
@@ -2060,13 +1952,11 @@ garrow_double_array_get_value(GArrowDoubleArray *array,
  * Returns: (array length=length): The raw values.
  */
 const gdouble *
-garrow_double_array_get_values(GArrowDoubleArray *array,
-                               gint64 *length)
+garrow_double_array_get_values(GArrowDoubleArray *array, gint64 *length)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return garrow_array_get_values_raw<arrow::DoubleType>(arrow_array, length);
 }
-
 
 G_END_DECLS
 template <typename BINARY_ARRAY_CLASS>
@@ -2080,30 +1970,30 @@ garrow_base_binary_array_new(gint64 length,
   const auto arrow_value_offsets = garrow_buffer_get_raw(value_offsets);
   const auto arrow_value_data = garrow_buffer_get_raw(value_data);
   const auto arrow_null_bitmap = garrow_buffer_get_raw(null_bitmap);
-  auto arrow_binary_array =
-    std::make_shared<BINARY_ARRAY_CLASS>(length,
-                                         arrow_value_offsets,
-                                         arrow_value_data,
-                                         arrow_null_bitmap,
-                                         n_nulls);
-  auto arrow_array =
-    std::static_pointer_cast<arrow::Array>(arrow_binary_array);
+  auto arrow_binary_array = std::make_shared<BINARY_ARRAY_CLASS>(length,
+                                                                 arrow_value_offsets,
+                                                                 arrow_value_data,
+                                                                 arrow_null_bitmap,
+                                                                 n_nulls);
+  auto arrow_array = std::static_pointer_cast<arrow::Array>(arrow_binary_array);
   return garrow_array_new_raw(&arrow_array,
-                              "array", &arrow_array,
-                              "null-bitmap", null_bitmap,
-                              "buffer1", value_offsets,
-                              "buffer2", value_data,
+                              "array",
+                              &arrow_array,
+                              "null-bitmap",
+                              null_bitmap,
+                              "buffer1",
+                              value_offsets,
+                              "buffer2",
+                              value_data,
                               NULL);
 };
 
 template <typename BINARY_ARRAY_CLASS>
 GBytes *
-garrow_base_binary_array_get_value(GArrowArray *array,
-                                   gint64 i)
+garrow_base_binary_array_get_value(GArrowArray *array, gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(array);
-  auto arrow_binary_array =
-    std::static_pointer_cast<BINARY_ARRAY_CLASS>(arrow_array);
+  auto arrow_binary_array = std::static_pointer_cast<BINARY_ARRAY_CLASS>(arrow_array);
   auto view = arrow_binary_array->GetView(i);
   return g_bytes_new_static(view.data(), view.length());
 };
@@ -2119,8 +2009,7 @@ garrow_base_binary_array_get_data_buffer(GArrowArray *array)
   }
 
   auto arrow_array = garrow_array_get_raw(array);
-  auto arrow_binary_array =
-    std::static_pointer_cast<BINARY_ARRAY_CLASS>(arrow_array);
+  auto arrow_binary_array = std::static_pointer_cast<BINARY_ARRAY_CLASS>(arrow_array);
   auto arrow_data = arrow_binary_array->value_data();
   return garrow_buffer_new_raw(&arrow_data);
 };
@@ -2136,16 +2025,13 @@ garrow_base_binary_array_get_offsets_buffer(GArrowArray *array)
   }
 
   auto arrow_array = garrow_array_get_raw(array);
-  auto arrow_binary_array =
-    std::static_pointer_cast<BINARY_ARRAY_CLASS>(arrow_array);
+  auto arrow_binary_array = std::static_pointer_cast<BINARY_ARRAY_CLASS>(arrow_array);
   auto arrow_offsets = arrow_binary_array->value_offsets();
   return garrow_buffer_new_raw(&arrow_offsets);
 };
 G_BEGIN_DECLS
 
-G_DEFINE_TYPE(GArrowBinaryArray,
-              garrow_binary_array,
-              GARROW_TYPE_ARRAY)
+G_DEFINE_TYPE(GArrowBinaryArray, garrow_binary_array, GARROW_TYPE_ARRAY)
 
 static void
 garrow_binary_array_init(GArrowBinaryArray *object)
@@ -2180,12 +2066,11 @@ garrow_binary_array_new(gint64 length,
                         GArrowBuffer *null_bitmap,
                         gint64 n_nulls)
 {
-  auto binary_array =
-    garrow_base_binary_array_new<arrow::BinaryArray>(length,
-                                                     value_offsets,
-                                                     value_data,
-                                                     null_bitmap,
-                                                     n_nulls);
+  auto binary_array = garrow_base_binary_array_new<arrow::BinaryArray>(length,
+                                                                       value_offsets,
+                                                                       value_data,
+                                                                       null_bitmap,
+                                                                       n_nulls);
   return GARROW_BINARY_ARRAY(binary_array);
 }
 
@@ -2197,11 +2082,9 @@ garrow_binary_array_new(gint64 length,
  * Returns: (transfer full): The @i-th value.
  */
 GBytes *
-garrow_binary_array_get_value(GArrowBinaryArray *array,
-                              gint64 i)
+garrow_binary_array_get_value(GArrowBinaryArray *array, gint64 i)
 {
-  return garrow_base_binary_array_get_value<arrow::BinaryArray>(
-    GARROW_ARRAY(array), i);
+  return garrow_base_binary_array_get_value<arrow::BinaryArray>(GARROW_ARRAY(array), i);
 }
 
 /**
@@ -2246,10 +2129,7 @@ garrow_binary_array_get_offsets_buffer(GArrowBinaryArray *array)
     GARROW_ARRAY(array));
 }
 
-
-G_DEFINE_TYPE(GArrowLargeBinaryArray,
-              garrow_large_binary_array,
-              GARROW_TYPE_ARRAY)
+G_DEFINE_TYPE(GArrowLargeBinaryArray, garrow_large_binary_array, GARROW_TYPE_ARRAY)
 
 static void
 garrow_large_binary_array_init(GArrowLargeBinaryArray *object)
@@ -2303,11 +2183,10 @@ garrow_large_binary_array_new(gint64 length,
  * Since: 0.16.0
  */
 GBytes *
-garrow_large_binary_array_get_value(GArrowLargeBinaryArray *array,
-                                    gint64 i)
+garrow_large_binary_array_get_value(GArrowLargeBinaryArray *array, gint64 i)
 {
-  return garrow_base_binary_array_get_value<arrow::LargeBinaryArray>(
-    GARROW_ARRAY(array), i);
+  return garrow_base_binary_array_get_value<arrow::LargeBinaryArray>(GARROW_ARRAY(array),
+                                                                     i);
 }
 
 /**
@@ -2356,24 +2235,19 @@ garrow_large_binary_array_get_offsets_buffer(GArrowLargeBinaryArray *array)
     GARROW_ARRAY(array));
 }
 
-
 G_END_DECLS
 template <typename STRING_ARRAY_CLASS>
 gchar *
-garrow_base_string_array_get_value(GArrowArray *array,
-                                   gint64 i)
+garrow_base_string_array_get_value(GArrowArray *array, gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(array);
-  auto arrow_string_array =
-    std::static_pointer_cast<STRING_ARRAY_CLASS>(arrow_array);
+  auto arrow_string_array = std::static_pointer_cast<STRING_ARRAY_CLASS>(arrow_array);
   auto view = arrow_string_array->GetView(i);
   return g_strndup(view.data(), view.length());
 };
 G_BEGIN_DECLS
 
-G_DEFINE_TYPE(GArrowStringArray,
-              garrow_string_array,
-              GARROW_TYPE_BINARY_ARRAY)
+G_DEFINE_TYPE(GArrowStringArray, garrow_string_array, GARROW_TYPE_BINARY_ARRAY)
 
 static void
 garrow_string_array_init(GArrowStringArray *object)
@@ -2408,12 +2282,11 @@ garrow_string_array_new(gint64 length,
                         GArrowBuffer *null_bitmap,
                         gint64 n_nulls)
 {
-  auto string_array =
-    garrow_base_binary_array_new<arrow::StringArray>(length,
-                                                     value_offsets,
-                                                     value_data,
-                                                     null_bitmap,
-                                                     n_nulls);
+  auto string_array = garrow_base_binary_array_new<arrow::StringArray>(length,
+                                                                       value_offsets,
+                                                                       value_data,
+                                                                       null_bitmap,
+                                                                       n_nulls);
   return GARROW_STRING_ARRAY(string_array);
 }
 
@@ -2425,13 +2298,10 @@ garrow_string_array_new(gint64 length,
  * Returns: The @i-th UTF-8 encoded string.
  */
 gchar *
-garrow_string_array_get_string(GArrowStringArray *array,
-                               gint64 i)
+garrow_string_array_get_string(GArrowStringArray *array, gint64 i)
 {
-  return garrow_base_string_array_get_value<arrow::StringArray>(
-    GARROW_ARRAY(array), i);
+  return garrow_base_string_array_get_value<arrow::StringArray>(GARROW_ARRAY(array), i);
 }
-
 
 G_DEFINE_TYPE(GArrowLargeStringArray,
               garrow_large_string_array,
@@ -2489,17 +2359,13 @@ garrow_large_string_array_new(gint64 length,
  * Since: 0.16.0
  */
 gchar *
-garrow_large_string_array_get_string(GArrowLargeStringArray *array,
-                                     gint64 i)
+garrow_large_string_array_get_string(GArrowLargeStringArray *array, gint64 i)
 {
-  return garrow_base_string_array_get_value<arrow::LargeStringArray>(
-    GARROW_ARRAY(array), i);
+  return garrow_base_string_array_get_value<arrow::LargeStringArray>(GARROW_ARRAY(array),
+                                                                     i);
 }
 
-
-G_DEFINE_TYPE(GArrowDate32Array,
-              garrow_date32_array,
-              GARROW_TYPE_NUMERIC_ARRAY)
+G_DEFINE_TYPE(GArrowDate32Array, garrow_date32_array, GARROW_TYPE_NUMERIC_ARRAY)
 
 static void
 garrow_date32_array_init(GArrowDate32Array *object)
@@ -2532,10 +2398,8 @@ garrow_date32_array_new(gint64 length,
                         GArrowBuffer *null_bitmap,
                         gint64 n_nulls)
 {
-  auto array = garrow_primitive_array_new<arrow::Date32Type>(length,
-                                                             data,
-                                                             null_bitmap,
-                                                             n_nulls);
+  auto array =
+    garrow_primitive_array_new<arrow::Date32Type>(length, data, null_bitmap, n_nulls);
   return GARROW_DATE32_ARRAY(array);
 }
 
@@ -2549,8 +2413,7 @@ garrow_date32_array_new(gint64 length,
  * Since: 0.7.0
  */
 gint32
-garrow_date32_array_get_value(GArrowDate32Array *array,
-                              gint64 i)
+garrow_date32_array_get_value(GArrowDate32Array *array, gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return static_cast<arrow::Date32Array *>(arrow_array.get())->Value(i);
@@ -2566,17 +2429,13 @@ garrow_date32_array_get_value(GArrowDate32Array *array,
  * Since: 0.7.0
  */
 const gint32 *
-garrow_date32_array_get_values(GArrowDate32Array *array,
-                               gint64 *length)
+garrow_date32_array_get_values(GArrowDate32Array *array, gint64 *length)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return garrow_array_get_values_raw<arrow::Date32Type>(arrow_array, length);
 }
 
-
-G_DEFINE_TYPE(GArrowDate64Array,
-              garrow_date64_array,
-              GARROW_TYPE_NUMERIC_ARRAY)
+G_DEFINE_TYPE(GArrowDate64Array, garrow_date64_array, GARROW_TYPE_NUMERIC_ARRAY)
 
 static void
 garrow_date64_array_init(GArrowDate64Array *object)
@@ -2609,10 +2468,8 @@ garrow_date64_array_new(gint64 length,
                         GArrowBuffer *null_bitmap,
                         gint64 n_nulls)
 {
-  auto array = garrow_primitive_array_new<arrow::Date64Type>(length,
-                                                             data,
-                                                             null_bitmap,
-                                                             n_nulls);
+  auto array =
+    garrow_primitive_array_new<arrow::Date64Type>(length, data, null_bitmap, n_nulls);
   return GARROW_DATE64_ARRAY(array);
 }
 
@@ -2626,8 +2483,7 @@ garrow_date64_array_new(gint64 length,
  * Since: 0.7.0
  */
 gint64
-garrow_date64_array_get_value(GArrowDate64Array *array,
-                              gint64 i)
+garrow_date64_array_get_value(GArrowDate64Array *array, gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return static_cast<arrow::Date64Array *>(arrow_array.get())->Value(i);
@@ -2643,19 +2499,14 @@ garrow_date64_array_get_value(GArrowDate64Array *array,
  * Since: 0.7.0
  */
 const gint64 *
-garrow_date64_array_get_values(GArrowDate64Array *array,
-                               gint64 *length)
+garrow_date64_array_get_values(GArrowDate64Array *array, gint64 *length)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
-  auto values =
-    garrow_array_get_values_raw<arrow::Date64Type>(arrow_array, length);
+  auto values = garrow_array_get_values_raw<arrow::Date64Type>(arrow_array, length);
   return reinterpret_cast<const gint64 *>(values);
 }
 
-
-G_DEFINE_TYPE(GArrowTimestampArray,
-              garrow_timestamp_array,
-              GARROW_TYPE_NUMERIC_ARRAY)
+G_DEFINE_TYPE(GArrowTimestampArray, garrow_timestamp_array, GARROW_TYPE_NUMERIC_ARRAY)
 
 static void
 garrow_timestamp_array_init(GArrowTimestampArray *object)
@@ -2709,8 +2560,7 @@ garrow_timestamp_array_new(GArrowTimestampDataType *data_type,
  * Since: 0.7.0
  */
 gint64
-garrow_timestamp_array_get_value(GArrowTimestampArray *array,
-                                 gint64 i)
+garrow_timestamp_array_get_value(GArrowTimestampArray *array, gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return static_cast<arrow::TimestampArray *>(arrow_array.get())->Value(i);
@@ -2726,19 +2576,14 @@ garrow_timestamp_array_get_value(GArrowTimestampArray *array,
  * Since: 0.7.0
  */
 const gint64 *
-garrow_timestamp_array_get_values(GArrowTimestampArray *array,
-                                  gint64 *length)
+garrow_timestamp_array_get_values(GArrowTimestampArray *array, gint64 *length)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
-  auto values =
-    garrow_array_get_values_raw<arrow::TimestampType>(arrow_array, length);
+  auto values = garrow_array_get_values_raw<arrow::TimestampType>(arrow_array, length);
   return reinterpret_cast<const gint64 *>(values);
 }
 
-
-G_DEFINE_TYPE(GArrowTime32Array,
-              garrow_time32_array,
-              GARROW_TYPE_NUMERIC_ARRAY)
+G_DEFINE_TYPE(GArrowTime32Array, garrow_time32_array, GARROW_TYPE_NUMERIC_ARRAY)
 
 static void
 garrow_time32_array_init(GArrowTime32Array *object)
@@ -2773,12 +2618,11 @@ garrow_time32_array_new(GArrowTime32DataType *data_type,
                         GArrowBuffer *null_bitmap,
                         gint64 n_nulls)
 {
-  auto array =
-    garrow_primitive_array_new<arrow::Time32Type>(GARROW_DATA_TYPE(data_type),
-                                                  length,
-                                                  data,
-                                                  null_bitmap,
-                                                  n_nulls);
+  auto array = garrow_primitive_array_new<arrow::Time32Type>(GARROW_DATA_TYPE(data_type),
+                                                             length,
+                                                             data,
+                                                             null_bitmap,
+                                                             n_nulls);
   return GARROW_TIME32_ARRAY(array);
 }
 
@@ -2792,8 +2636,7 @@ garrow_time32_array_new(GArrowTime32DataType *data_type,
  * Since: 0.7.0
  */
 gint32
-garrow_time32_array_get_value(GArrowTime32Array *array,
-                              gint64 i)
+garrow_time32_array_get_value(GArrowTime32Array *array, gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return static_cast<arrow::Time32Array *>(arrow_array.get())->Value(i);
@@ -2809,17 +2652,13 @@ garrow_time32_array_get_value(GArrowTime32Array *array,
  * Since: 0.7.0
  */
 const gint32 *
-garrow_time32_array_get_values(GArrowTime32Array *array,
-                               gint64 *length)
+garrow_time32_array_get_values(GArrowTime32Array *array, gint64 *length)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return garrow_array_get_values_raw<arrow::Time32Type>(arrow_array, length);
 }
 
-
-G_DEFINE_TYPE(GArrowTime64Array,
-              garrow_time64_array,
-              GARROW_TYPE_NUMERIC_ARRAY)
+G_DEFINE_TYPE(GArrowTime64Array, garrow_time64_array, GARROW_TYPE_NUMERIC_ARRAY)
 
 static void
 garrow_time64_array_init(GArrowTime64Array *object)
@@ -2854,12 +2693,11 @@ garrow_time64_array_new(GArrowTime64DataType *data_type,
                         GArrowBuffer *null_bitmap,
                         gint64 n_nulls)
 {
-  auto array =
-    garrow_primitive_array_new<arrow::Time64Type>(GARROW_DATA_TYPE(data_type),
-                                                  length,
-                                                  data,
-                                                  null_bitmap,
-                                                  n_nulls);
+  auto array = garrow_primitive_array_new<arrow::Time64Type>(GARROW_DATA_TYPE(data_type),
+                                                             length,
+                                                             data,
+                                                             null_bitmap,
+                                                             n_nulls);
   return GARROW_TIME64_ARRAY(array);
 }
 
@@ -2873,8 +2711,7 @@ garrow_time64_array_new(GArrowTime64DataType *data_type,
  * Since: 0.7.0
  */
 gint64
-garrow_time64_array_get_value(GArrowTime64Array *array,
-                              gint64 i)
+garrow_time64_array_get_value(GArrowTime64Array *array, gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return static_cast<arrow::Time64Array *>(arrow_array.get())->Value(i);
@@ -2890,15 +2727,12 @@ garrow_time64_array_get_value(GArrowTime64Array *array,
  * Since: 0.7.0
  */
 const gint64 *
-garrow_time64_array_get_values(GArrowTime64Array *array,
-                               gint64 *length)
+garrow_time64_array_get_values(GArrowTime64Array *array, gint64 *length)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
-  auto values =
-    garrow_array_get_values_raw<arrow::Time64Type>(arrow_array, length);
+  auto values = garrow_array_get_values_raw<arrow::Time64Type>(arrow_array, length);
   return reinterpret_cast<const gint64 *>(values);
 }
-
 
 G_DEFINE_TYPE(GArrowMonthIntervalArray,
               garrow_month_interval_array,
@@ -2952,8 +2786,7 @@ garrow_month_interval_array_new(gint64 length,
  * Since: 8.0.0
  */
 gint32
-garrow_month_interval_array_get_value(GArrowMonthIntervalArray *array,
-                                      gint64 i)
+garrow_month_interval_array_get_value(GArrowMonthIntervalArray *array, gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   return static_cast<arrow::MonthIntervalArray *>(arrow_array.get())->Value(i);
@@ -2969,14 +2802,11 @@ garrow_month_interval_array_get_value(GArrowMonthIntervalArray *array,
  * Since: 8.0.0
  */
 const gint32 *
-garrow_month_interval_array_get_values(GArrowMonthIntervalArray *array,
-                                       gint64 *length)
+garrow_month_interval_array_get_values(GArrowMonthIntervalArray *array, gint64 *length)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
-  return garrow_array_get_values_raw<arrow::MonthIntervalType>(
-    arrow_array, length);
+  return garrow_array_get_values_raw<arrow::MonthIntervalType>(arrow_array, length);
 }
-
 
 G_DEFINE_TYPE(GArrowDayTimeIntervalArray,
               garrow_day_time_interval_array,
@@ -3013,11 +2843,10 @@ garrow_day_time_interval_array_new(gint64 length,
                                    GArrowBuffer *null_bitmap,
                                    gint64 n_nulls)
 {
-  auto array = garrow_primitive_array_new<arrow::DayTimeIntervalType>(
-    length,
-    data,
-    null_bitmap,
-    n_nulls);
+  auto array = garrow_primitive_array_new<arrow::DayTimeIntervalType>(length,
+                                                                      data,
+                                                                      null_bitmap,
+                                                                      n_nulls);
   return GARROW_DAY_TIME_INTERVAL_ARRAY(array);
 }
 
@@ -3031,8 +2860,7 @@ garrow_day_time_interval_array_new(gint64 length,
  * Since: 8.0.0
  */
 GArrowDayMillisecond *
-garrow_day_time_interval_array_get_value(GArrowDayTimeIntervalArray *array,
-                                         gint64 i)
+garrow_day_time_interval_array_get_value(GArrowDayTimeIntervalArray *array, gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   auto arrow_day_time_interval_array =
@@ -3070,14 +2898,12 @@ garrow_day_time_interval_array_get_values(GArrowDayTimeIntervalArray *array)
   return g_list_reverse(values);
 }
 
-
 G_DEFINE_TYPE(GArrowMonthDayNanoIntervalArray,
               garrow_month_day_nano_interval_array,
               GARROW_TYPE_PRIMITIVE_ARRAY)
 
 static void
-garrow_month_day_nano_interval_array_init(
-  GArrowMonthDayNanoIntervalArray *object)
+garrow_month_day_nano_interval_array_init(GArrowMonthDayNanoIntervalArray *object)
 {
 }
 
@@ -3108,11 +2934,10 @@ garrow_month_day_nano_interval_array_new(gint64 length,
                                          GArrowBuffer *null_bitmap,
                                          gint64 n_nulls)
 {
-  auto array = garrow_primitive_array_new<arrow::MonthDayNanoIntervalType>(
-    length,
-    data,
-    null_bitmap,
-    n_nulls);
+  auto array = garrow_primitive_array_new<arrow::MonthDayNanoIntervalType>(length,
+                                                                           data,
+                                                                           null_bitmap,
+                                                                           n_nulls);
   return GARROW_MONTH_DAY_NANO_INTERVAL_ARRAY(array);
 }
 
@@ -3126,9 +2951,8 @@ garrow_month_day_nano_interval_array_new(gint64 length,
  * Since: 8.0.0
  */
 GArrowMonthDayNano *
-garrow_month_day_nano_interval_array_get_value(
-  GArrowMonthDayNanoIntervalArray *array,
-  gint64 i)
+garrow_month_day_nano_interval_array_get_value(GArrowMonthDayNanoIntervalArray *array,
+                                               gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   auto arrow_month_day_nano_interval_array =
@@ -3147,8 +2971,7 @@ garrow_month_day_nano_interval_array_get_value(
  * Since: 8.0.0
  */
 GList *
-garrow_month_day_nano_interval_array_get_values(
-  GArrowMonthDayNanoIntervalArray *array)
+garrow_month_day_nano_interval_array_get_values(GArrowMonthDayNanoIntervalArray *array)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   auto arrow_month_day_nano_interval_array =
@@ -3166,7 +2989,6 @@ garrow_month_day_nano_interval_array_get_values(
   }
   return g_list_reverse(values);
 }
-
 
 G_DEFINE_TYPE(GArrowFixedSizeBinaryArray,
               garrow_fixed_size_binary_array,
@@ -3205,12 +3027,11 @@ garrow_fixed_size_binary_array_new(GArrowFixedSizeBinaryDataType *data_type,
                                    gint64 n_nulls)
 {
   auto array =
-    garrow_primitive_array_new<arrow::FixedSizeBinaryType>(
-      GARROW_DATA_TYPE(data_type),
-      length,
-      data,
-      null_bitmap,
-      n_nulls);
+    garrow_primitive_array_new<arrow::FixedSizeBinaryType>(GARROW_DATA_TYPE(data_type),
+                                                           length,
+                                                           data,
+                                                           null_bitmap,
+                                                           n_nulls);
   return GARROW_FIXED_SIZE_BINARY_ARRAY(array);
 }
 
@@ -3241,15 +3062,13 @@ garrow_fixed_size_binary_array_get_byte_width(GArrowFixedSizeBinaryArray *array)
  * Since: 3.0.0
  */
 GBytes *
-garrow_fixed_size_binary_array_get_value(GArrowFixedSizeBinaryArray *array,
-                                         gint64 i)
+garrow_fixed_size_binary_array_get_value(GArrowFixedSizeBinaryArray *array, gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   auto arrow_binary_array =
     std::static_pointer_cast<arrow::FixedSizeBinaryArray>(arrow_array);
   auto value = arrow_binary_array->GetValue(i);
-  return g_bytes_new_static(value,
-                            arrow_binary_array->byte_width());
+  return g_bytes_new_static(value, arrow_binary_array->byte_width());
 }
 
 /**
@@ -3268,10 +3087,8 @@ garrow_fixed_size_binary_array_get_values_bytes(GArrowFixedSizeBinaryArray *arra
     std::static_pointer_cast<arrow::FixedSizeBinaryArray>(arrow_array);
   auto value = arrow_binary_array->raw_values();
   return g_bytes_new_static(value,
-                            arrow_binary_array->byte_width() *
-                            arrow_array->length());
+                            arrow_binary_array->byte_width() * arrow_array->length());
 }
-
 
 G_DEFINE_TYPE(GArrowDecimal128Array,
               garrow_decimal128_array,
@@ -3298,8 +3115,7 @@ garrow_decimal128_array_class_init(GArrowDecimal128ArrayClass *klass)
  * Since: 0.10.0
  */
 gchar *
-garrow_decimal128_array_format_value(GArrowDecimal128Array *array,
-                                     gint64 i)
+garrow_decimal128_array_format_value(GArrowDecimal128Array *array, gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   auto arrow_decimal128_array =
@@ -3318,8 +3134,7 @@ garrow_decimal128_array_format_value(GArrowDecimal128Array *array,
  * Since: 0.10.0
  */
 GArrowDecimal128 *
-garrow_decimal128_array_get_value(GArrowDecimal128Array *array,
-                                  gint64 i)
+garrow_decimal128_array_get_value(GArrowDecimal128Array *array, gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   auto arrow_decimal128_array =
@@ -3328,7 +3143,6 @@ garrow_decimal128_array_get_value(GArrowDecimal128Array *array,
     std::make_shared<arrow::Decimal128>(arrow_decimal128_array->GetValue(i));
   return garrow_decimal128_new_raw(&arrow_decimal128);
 }
-
 
 G_DEFINE_TYPE(GArrowDecimal256Array,
               garrow_decimal256_array,
@@ -3355,8 +3169,7 @@ garrow_decimal256_array_class_init(GArrowDecimal256ArrayClass *klass)
  * Since: 3.0.0
  */
 gchar *
-garrow_decimal256_array_format_value(GArrowDecimal256Array *array,
-                                     gint64 i)
+garrow_decimal256_array_format_value(GArrowDecimal256Array *array, gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   auto arrow_decimal256_array =
@@ -3375,8 +3188,7 @@ garrow_decimal256_array_format_value(GArrowDecimal256Array *array,
  * Since: 3.0.0
  */
 GArrowDecimal256 *
-garrow_decimal256_array_get_value(GArrowDecimal256Array *array,
-                                  gint64 i)
+garrow_decimal256_array_get_value(GArrowDecimal256Array *array, gint64 i)
 {
   auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
   auto arrow_decimal256_array =
@@ -3386,8 +3198,8 @@ garrow_decimal256_array_get_value(GArrowDecimal256Array *array,
   return garrow_decimal256_new_raw(&arrow_decimal256);
 }
 
-
-typedef struct GArrowExtensionArrayPrivate_ {
+typedef struct GArrowExtensionArrayPrivate_
+{
   GArrowArray *storage;
 } GArrowExtensionArrayPrivate;
 
@@ -3399,10 +3211,9 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowExtensionArray,
                            garrow_extension_array,
                            GARROW_TYPE_ARRAY)
 
-#define GARROW_EXTENSION_ARRAY_GET_PRIVATE(obj)         \
-  static_cast<GArrowExtensionArrayPrivate *>(           \
-    garrow_extension_array_get_instance_private(        \
-      GARROW_EXTENSION_ARRAY(obj)))
+#define GARROW_EXTENSION_ARRAY_GET_PRIVATE(obj)                                          \
+  static_cast<GArrowExtensionArrayPrivate *>(                                            \
+    garrow_extension_array_get_instance_private(GARROW_EXTENSION_ARRAY(obj)))
 
 static void
 garrow_extension_array_dispose(GObject *object)
@@ -3463,17 +3274,17 @@ garrow_extension_array_class_init(GArrowExtensionArrayClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->dispose      = garrow_extension_array_dispose;
+  gobject_class->dispose = garrow_extension_array_dispose;
   gobject_class->set_property = garrow_extension_array_set_property;
   gobject_class->get_property = garrow_extension_array_get_property;
 
   GParamSpec *spec;
-  spec = g_param_spec_object("storage",
-                             "storage",
-                             "The storage array",
-                             GARROW_TYPE_ARRAY,
-                             static_cast<GParamFlags>(G_PARAM_READWRITE |
-                                                      G_PARAM_CONSTRUCT_ONLY));
+  spec = g_param_spec_object(
+    "storage",
+    "storage",
+    "The storage array",
+    GARROW_TYPE_ARRAY,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_STORAGE, spec);
 }
 
@@ -3498,7 +3309,6 @@ garrow_extension_array_get_storage(GArrowExtensionArray *array)
   return garrow_array_new_raw(&(array_priv->array));
 }
 
-
 G_END_DECLS
 
 arrow::EqualOptions *
@@ -3511,9 +3321,7 @@ garrow_equal_options_get_raw(GArrowEqualOptions *equal_options)
 GArrowArray *
 garrow_array_new_raw(std::shared_ptr<arrow::Array> *arrow_array)
 {
-  return garrow_array_new_raw(arrow_array,
-                              "array", arrow_array,
-                              NULL);
+  return garrow_array_new_raw(arrow_array, "array", arrow_array, NULL);
 }
 
 GArrowArray *
@@ -3523,9 +3331,7 @@ garrow_array_new_raw(std::shared_ptr<arrow::Array> *arrow_array,
 {
   va_list args;
   va_start(args, first_property_name);
-  auto array = garrow_array_new_raw_valist(arrow_array,
-                                           first_property_name,
-                                           args);
+  auto array = garrow_array_new_raw_valist(arrow_array, first_property_name, args);
   va_end(args);
   return array;
 }
@@ -3662,19 +3468,15 @@ garrow_array_new_raw_valist(std::shared_ptr<arrow::Array> *arrow_array,
     type = GARROW_TYPE_ARRAY;
     break;
   }
-  return GARROW_ARRAY(g_object_new_valist(type,
-                                          first_property_name,
-                                          args));
+  return GARROW_ARRAY(g_object_new_valist(type, first_property_name, args));
 }
 
 GArrowExtensionArray *
 garrow_extension_array_new_raw(std::shared_ptr<arrow::Array> *arrow_array,
                                GArrowArray *storage)
 {
-  auto array = garrow_array_new_raw(arrow_array,
-                                    "array", arrow_array,
-                                    "storage", storage,
-                                    NULL);
+  auto array =
+    garrow_array_new_raw(arrow_array, "array", arrow_array, "storage", storage, NULL);
   return GARROW_EXTENSION_ARRAY(array);
 }
 

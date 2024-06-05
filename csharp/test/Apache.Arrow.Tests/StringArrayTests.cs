@@ -49,6 +49,37 @@ namespace Apache.Arrow.Tests
                 // Assert
                 Assert.Equal(firstValue, retrievedValue);
             }
+
+            [Theory]
+            [InlineData(null, null)]
+            [InlineData(null, "")]
+            [InlineData(null, "value")]
+            [InlineData("", null)]
+            [InlineData("", "")]
+            [InlineData("", "value")]
+            [InlineData("value", null)]
+            [InlineData("value", "")]
+            [InlineData("value", "value")]
+            public void ReturnsAppendedValueMaterialize(string firstValue, string secondValue)
+            {
+                // Arrange
+                // Create an array with two elements. The second element being null,
+                // empty, or non-empty may influence the underlying BinaryArray
+                // storage such that retrieving an empty first element could result
+                // in an empty span or a 0-length span backed by storage.
+                var array = new StringArray.Builder()
+                    .Append(firstValue)
+                    .Append(secondValue)
+                    .Build();
+
+                // Act
+                array.Materialize();
+                var retrievedValue = array.GetString(0);
+
+                // Assert
+                Assert.True(array.IsMaterialized());
+                Assert.Equal(firstValue, retrievedValue);
+            }
         }
     }
 }

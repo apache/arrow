@@ -17,9 +17,30 @@
   under the License.
 -->
 
-# arrow 15.0.0.9000
+# arrow 16.1.0.9000
 
-# arrow 15.0.0
+# arrow 16.1.0
+
+* R functions that users write that use functions that Arrow supports in dataset queries now can be used in queries too. Previously, only functions that used arithmetic operators worked. For example, `time_hours <- function(mins) mins / 60` worked, but `time_hours_rounded <- function(mins) round(mins / 60)` did not; now both work. These are automatic translations rather than true user-defined functions (UDFs); for UDFs, see `register_scalar_function()`. (#41223)
+* `summarize()` supports more complex expressions, and correctly handles cases where column names are reused in expressions. 
+* The `na_matches` argument to the `dplyr::*_join()` functions is now supported. This argument controls whether `NA` values are considered equal when joining. (#41358)
+
+# arrow 16.1.0
+
+## New features
+
+* Streams can now be written to socket connections (#38897)
+* The Arrow R package now can be built with older versions of the Arrow C++ library (back to 13.0.0) (#39738)
+
+## Minor improvements and fixes
+
+* Dataset and table output printing now truncates schemas longer than 20 items long (#38916)
+* Fixed pointer conversion to Python for latest reticulate to ensure data can be passed between Arrow and PyArrow (#39969) 
+* Check on macOS if we are using GNU libtool is and ensure we use macOS libtool instead (#40259)
+* Fix an error where creating a bundled tarball with all dependencies was failing on Windows (@hutch3232, #40232)
+
+
+# arrow 15.0.1
 
 ##  New features
 
@@ -49,6 +70,17 @@
   when quitting your R session. (#38495)
 * A large number of minor spelling mistakes were fixed (@jsoref, #38929, #38257)
 * The developer documentation has been updated to match changes made in recent releases (#38220)
+
+# arrow 14.0.2.1
+
+##  Minor improvements and fixes
+
+* Check for internet access when building from source and fallback to a
+  minimally scoped Arrow C++ build (#39699).
+* Build from source by default on macOS, use `LIBARROW_BINARY=true` for old behavior (#39861).
+* Support building against older versions of Arrow C++. This is currently opt-in
+  (`ARROW_R_ALLOW_CPP_VERSION_MISMATCH=true`) and requires atleast Arrow C++ 13.0.0 (#39739).
+* Make it possible to use Arrow C++ from Rtools on windows (in future Rtools versions). (#39986).
 
 # arrow 14.0.2
 

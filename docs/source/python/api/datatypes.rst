@@ -60,6 +60,8 @@ These should be used to create Arrow data types and schemas.
    decimal128
    list_
    large_list
+   list_view
+   large_list_view
    map_
    struct
    dictionary
@@ -149,6 +151,8 @@ represents a given data type (such as ``int32``) or general category
    is_list
    is_large_list
    is_fixed_size_list
+   is_list_view
+   is_large_list_view
    is_struct
    is_union
    is_nested

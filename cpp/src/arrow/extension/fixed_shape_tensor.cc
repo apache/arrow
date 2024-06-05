@@ -19,6 +19,8 @@
 #include <sstream>
 
 #include "arrow/extension/fixed_shape_tensor.h"
+#include "arrow/extension/tensor_internal.h"
+#include "arrow/scalar.h"
 
 #include "arrow/array/array_nested.h"
 #include "arrow/array/array_primitive.h"
@@ -86,7 +88,7 @@ bool FixedShapeTensorType::ExtensionEquals(const ExtensionType& other) const {
   if (extension_name() != other.extension_name()) {
     return false;
   }
-  const auto& other_ext = static_cast<const FixedShapeTensorType&>(other);
+  const auto& other_ext = internal::checked_cast<const FixedShapeTensorType&>(other);
 
   auto is_permutation_trivial = [](const std::vector<int64_t>& permutation) {
     for (size_t i = 1; i < permutation.size(); ++i) {
@@ -106,10 +108,10 @@ bool FixedShapeTensorType::ExtensionEquals(const ExtensionType& other) const {
          permutation_equivalent;
 }
 
-std::string FixedShapeTensorType::ToString() const {
+std::string FixedShapeTensorType::ToString(bool show_metadata) const {
   std::stringstream ss;
   ss << "extension<" << this->extension_name()
-     << "[value_type=" << value_type_->ToString()
+     << "[value_type=" << value_type_->ToString(show_metadata)
      << ", shape=" << ::arrow::internal::PrintVector{shape_, ","};
 
   if (!permutation_.empty()) {
@@ -143,7 +145,7 @@ std::string FixedShapeTensorType::Serialize() const {
 
   if (!dim_names_.empty()) {
     rj::Value dim_names(rj::kArrayType);
-    for (std::string v : dim_names_) {
+    for (const std::string& v : dim_names_) {
       dim_names.PushBack(rj::Value{}.SetString(v.c_str(), allocator), allocator);
     }
     document.AddMember(rj::Value("dim_names", allocator), dim_names, allocator);
@@ -199,8 +201,50 @@ std::shared_ptr<Array> FixedShapeTensorType::MakeArray(
     std::shared_ptr<ArrayData> data) const {
   DCHECK_EQ(data->type->id(), Type::EXTENSION);
   DCHECK_EQ("arrow.fixed_shape_tensor",
-            static_cast<const ExtensionType&>(*data->type).extension_name());
+            internal::checked_cast<const ExtensionType&>(*data->type).extension_name());
   return std::make_shared<ExtensionArray>(data);
+}
+
+Result<std::shared_ptr<Tensor>> FixedShapeTensorType::MakeTensor(
+    const std::shared_ptr<ExtensionScalar>& scalar) {
+  const auto ext_scalar = internal::checked_pointer_cast<ExtensionScalar>(scalar);
+  const auto ext_type =
+      internal::checked_pointer_cast<FixedShapeTensorType>(scalar->type);
+  if (!is_fixed_width(*ext_type->value_type())) {
+    return Status::TypeError("Cannot convert non-fixed-width values to Tensor.");
+  }
+  const auto array =
+      internal::checked_pointer_cast<const FixedSizeListScalar>(ext_scalar->value)->value;
+  if (array->null_count() > 0) {
+    return Status::Invalid("Cannot convert data with nulls to Tensor.");
+  }
+  const auto value_type =
+      internal::checked_pointer_cast<FixedWidthType>(ext_type->value_type());
+  const auto byte_width = value_type->byte_width();
+
+  std::vector<int64_t> permutation = ext_type->permutation();
+  if (permutation.empty()) {
+    permutation.resize(ext_type->ndim());
+    std::iota(permutation.begin(), permutation.end(), 0);
+  }
+
+  std::vector<int64_t> shape = ext_type->shape();
+  internal::Permute<int64_t>(permutation, &shape);
+
+  std::vector<std::string> dim_names = ext_type->dim_names();
+  if (!dim_names.empty()) {
+    internal::Permute<std::string>(permutation, &dim_names);
+  }
+
+  std::vector<int64_t> strides;
+  RETURN_NOT_OK(ComputeStrides(*value_type.get(), shape, permutation, &strides));
+  const auto start_position = array->offset() * byte_width;
+  const auto size = std::accumulate(shape.begin(), shape.end(), static_cast<int64_t>(1),
+                                    std::multiplies<>());
+  const auto buffer =
+      SliceBuffer(array->data()->buffers[1], start_position, size * byte_width);
+
+  return Tensor::Make(ext_type->value_type(), buffer, shape, strides, dim_names);
 }
 
 Result<std::shared_ptr<FixedShapeTensorArray>> FixedShapeTensorArray::FromTensor(
@@ -293,53 +337,71 @@ const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
   // To convert an array of n dimensional tensors to a n+1 dimensional tensor we
   // interpret the array's length as the first dimension the new tensor.
 
-  auto ext_arr = std::static_pointer_cast<FixedSizeListArray>(this->storage());
-  auto ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(this->type());
-  ARROW_RETURN_IF(!is_fixed_width(*ext_arr->value_type()),
-                  Status::Invalid(ext_arr->value_type()->ToString(),
-                                  " is not valid data type for a tensor"));
-  auto permutation = ext_type->permutation();
+  const auto ext_type =
+      internal::checked_pointer_cast<FixedShapeTensorType>(this->type());
+  const auto value_type = ext_type->value_type();
+  ARROW_RETURN_IF(
+      !is_fixed_width(*value_type),
+      Status::TypeError(value_type->ToString(), " is not valid data type for a tensor"));
 
-  std::vector<std::string> dim_names;
-  if (!ext_type->dim_names().empty()) {
-    for (auto i : permutation) {
-      dim_names.emplace_back(ext_type->dim_names()[i]);
-    }
-    dim_names.insert(dim_names.begin(), 1, "");
+  // ext_type->permutation() gives us permutation for a single row with values in
+  // range [0, ndim). Here want to create a ndim + 1 dimensional tensor from the entire
+  // array and we assume the first dimension will always have the greatest stride, so it
+  // will get permutation index 0 and remaining values from ext_type->permutation() need
+  // to be shifted to fill the [1, ndim+1) range. Computed permutation will be used to
+  // generate the new tensor's shape, strides and dim_names.
+  std::vector<int64_t> permutation = ext_type->permutation();
+  if (permutation.empty()) {
+    permutation.resize(ext_type->ndim() + 1);
+    std::iota(permutation.begin(), permutation.end(), 0);
   } else {
-    dim_names = {};
+    for (auto i = 0; i < static_cast<int64_t>(ext_type->ndim()); i++) {
+      permutation[i] += 1;
+    }
+    permutation.insert(permutation.begin(), 1, 0);
   }
 
-  std::vector<int64_t> shape;
-  for (int64_t& i : permutation) {
-    shape.emplace_back(ext_type->shape()[i]);
-    ++i;
+  std::vector<std::string> dim_names = ext_type->dim_names();
+  if (!dim_names.empty()) {
+    dim_names.insert(dim_names.begin(), 1, "");
+    internal::Permute<std::string>(permutation, &dim_names);
   }
+
+  std::vector<int64_t> shape = ext_type->shape();
+  auto cell_size = std::accumulate(shape.begin(), shape.end(), static_cast<int64_t>(1),
+                                   std::multiplies<>());
   shape.insert(shape.begin(), 1, this->length());
-  permutation.insert(permutation.begin(), 1, 0);
+  internal::Permute<int64_t>(permutation, &shape);
 
   std::vector<int64_t> tensor_strides;
-  auto value_type = internal::checked_pointer_cast<FixedWidthType>(ext_arr->value_type());
+  const auto fw_value_type = internal::checked_pointer_cast<FixedWidthType>(value_type);
   ARROW_RETURN_NOT_OK(
-      ComputeStrides(*value_type.get(), shape, permutation, &tensor_strides));
-  ARROW_ASSIGN_OR_RAISE(auto buffers, ext_arr->Flatten());
+      ComputeStrides(*fw_value_type.get(), shape, permutation, &tensor_strides));
+
+  const auto raw_buffer = this->storage()->data()->child_data[0]->buffers[1];
   ARROW_ASSIGN_OR_RAISE(
-      auto tensor, Tensor::Make(ext_arr->value_type(), buffers->data()->buffers[1], shape,
-                                tensor_strides, dim_names));
-  return tensor;
+      const auto buffer,
+      SliceBufferSafe(raw_buffer, this->offset() * cell_size * value_type->byte_width()));
+
+  return Tensor::Make(value_type, buffer, shape, tensor_strides, dim_names);
 }
 
 Result<std::shared_ptr<DataType>> FixedShapeTensorType::Make(
     const std::shared_ptr<DataType>& value_type, const std::vector<int64_t>& shape,
     const std::vector<int64_t>& permutation, const std::vector<std::string>& dim_names) {
-  if (!permutation.empty() && shape.size() != permutation.size()) {
-    return Status::Invalid("permutation size must match shape size. Expected: ",
-                           shape.size(), " Got: ", permutation.size());
+  const auto ndim = shape.size();
+  if (!permutation.empty() && ndim != permutation.size()) {
+    return Status::Invalid("permutation size must match shape size. Expected: ", ndim,
+                           " Got: ", permutation.size());
   }
-  if (!dim_names.empty() && shape.size() != dim_names.size()) {
-    return Status::Invalid("dim_names size must match shape size. Expected: ",
-                           shape.size(), " Got: ", dim_names.size());
+  if (!dim_names.empty() && ndim != dim_names.size()) {
+    return Status::Invalid("dim_names size must match shape size. Expected: ", ndim,
+                           " Got: ", dim_names.size());
   }
+  if (!permutation.empty()) {
+    RETURN_NOT_OK(internal::IsPermutationValid(permutation));
+  }
+
   const auto size = std::accumulate(shape.begin(), shape.end(), static_cast<int64_t>(1),
                                     std::multiplies<>());
   return std::make_shared<FixedShapeTensorType>(value_type, static_cast<int32_t>(size),

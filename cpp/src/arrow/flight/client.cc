@@ -591,7 +591,7 @@ arrow::Result<CancelFlightInfoResult> FlightClient::CancelFlightInfo(
   ARROW_ASSIGN_OR_RAISE(auto cancel_result, CancelFlightInfoResult::Deserialize(
                                                 std::string_view(*result->body)));
   ARROW_RETURN_NOT_OK(stream->Drain());
-  return std::move(cancel_result);
+  return cancel_result;
 }
 
 arrow::Result<FlightEndpoint> FlightClient::RenewFlightEndpoint(
@@ -603,7 +603,7 @@ arrow::Result<FlightEndpoint> FlightClient::RenewFlightEndpoint(
   ARROW_ASSIGN_OR_RAISE(auto renewed_endpoint,
                         FlightEndpoint::Deserialize(std::string_view(*result->body)));
   ARROW_RETURN_NOT_OK(stream->Drain());
-  return std::move(renewed_endpoint);
+  return renewed_endpoint;
 }
 
 arrow::Result<std::vector<ActionType>> FlightClient::ListActions(
@@ -711,6 +711,47 @@ arrow::Result<FlightClient::DoExchangeResult> FlightClient::DoExchange(
   RETURN_NOT_OK(stream_writer->Begin());
   result.writer = std::move(stream_writer);
   return result;
+}
+
+::arrow::Result<SetSessionOptionsResult> FlightClient::SetSessionOptions(
+    const FlightCallOptions& options, const SetSessionOptionsRequest& request) {
+  RETURN_NOT_OK(CheckOpen());
+  ARROW_ASSIGN_OR_RAISE(auto body, request.SerializeToString());
+  Action action{ActionType::kSetSessionOptions.type, Buffer::FromString(body)};
+  ARROW_ASSIGN_OR_RAISE(auto stream, DoAction(options, action));
+  ARROW_ASSIGN_OR_RAISE(auto result, stream->Next());
+  ARROW_ASSIGN_OR_RAISE(
+      auto set_session_options_result,
+      SetSessionOptionsResult::Deserialize(std::string_view(*result->body)));
+  ARROW_RETURN_NOT_OK(stream->Drain());
+  return set_session_options_result;
+}
+
+::arrow::Result<GetSessionOptionsResult> FlightClient::GetSessionOptions(
+    const FlightCallOptions& options, const GetSessionOptionsRequest& request) {
+  RETURN_NOT_OK(CheckOpen());
+  ARROW_ASSIGN_OR_RAISE(auto body, request.SerializeToString());
+  Action action{ActionType::kGetSessionOptions.type, Buffer::FromString(body)};
+  ARROW_ASSIGN_OR_RAISE(auto stream, DoAction(options, action));
+  ARROW_ASSIGN_OR_RAISE(auto result, stream->Next());
+  ARROW_ASSIGN_OR_RAISE(
+      auto get_session_options_result,
+      GetSessionOptionsResult::Deserialize(std::string_view(*result->body)));
+  ARROW_RETURN_NOT_OK(stream->Drain());
+  return get_session_options_result;
+}
+
+::arrow::Result<CloseSessionResult> FlightClient::CloseSession(
+    const FlightCallOptions& options, const CloseSessionRequest& request) {
+  RETURN_NOT_OK(CheckOpen());
+  ARROW_ASSIGN_OR_RAISE(auto body, request.SerializeToString());
+  Action action{ActionType::kCloseSession.type, Buffer::FromString(body)};
+  ARROW_ASSIGN_OR_RAISE(auto stream, DoAction(options, action));
+  ARROW_ASSIGN_OR_RAISE(auto result, stream->Next());
+  ARROW_ASSIGN_OR_RAISE(auto close_session_result,
+                        CloseSessionResult::Deserialize(std::string_view(*result->body)));
+  ARROW_RETURN_NOT_OK(stream->Drain());
+  return close_session_result;
 }
 
 Status FlightClient::Close() {

@@ -23,5 +23,8 @@
 
 #include <gandiva-glib/function-signature.h>
 
-GGandivaFunctionSignature *ggandiva_function_signature_new_raw(const gandiva::FunctionSignature *gandiva_function_signature);
-const gandiva::FunctionSignature *ggandiva_function_signature_get_raw(GGandivaFunctionSignature *signature);
+GGandivaFunctionSignature *
+ggandiva_function_signature_new_raw(
+  const gandiva::FunctionSignature *gandiva_function_signature);
+const gandiva::FunctionSignature *
+ggandiva_function_signature_get_raw(GGandivaFunctionSignature *signature);

@@ -36,9 +36,10 @@ sources = files(
   'record-batch.cpp',
   'scalar.cpp',
   'schema.cpp',
-  'table.cpp',
   'table-builder.cpp',
+  'table.cpp',
   'tensor.cpp',
+  'timestamp-parser.cpp',
   'type.cpp',
 )
 
@@ -93,15 +94,15 @@ c_headers = files(
   'error.h',
   'expression.h',
   'field.h',
-  'gobject-type.h',
   'interval.h',
   'memory-pool.h',
   'record-batch.h',
   'scalar.h',
   'schema.h',
-  'table.h',
   'table-builder.h',
+  'table.h',
   'tensor.h',
+  'timestamp-parser.h',
   'type.h',
 )
 
@@ -160,9 +161,10 @@ cpp_headers = files(
   'record-batch.hpp',
   'scalar.hpp',
   'schema.hpp',
-  'table.hpp',
   'table-builder.hpp',
+  'table.hpp',
   'tensor.hpp',
+  'timestamp-parser.hpp',
   'type.hpp',
 )
 
@@ -203,14 +205,12 @@ cpp_internal_headers = files(
   'internal-index.hpp',
 )
 
-version_h_conf = configuration_data()
-version_h_conf.set('GARROW_VERSION_MAJOR', version_major)
-version_h_conf.set('GARROW_VERSION_MINOR', version_minor)
-version_h_conf.set('GARROW_VERSION_MICRO', version_micro)
-version_h_conf.set('GARROW_VERSION_TAG', version_tag)
-version_h = configure_file(input: 'version.h.in',
-                           output: 'version.h',
-                           configuration: version_h_conf)
+version_h = configure_file(
+  input: 'version.h.in',
+  output: 'version.h',
+  command: [python3, generate_version_header_py, '--library', 'GARROW', '--version', version, '--input', '@INPUT@', '--output', '@OUTPUT@'],
+)
+
 c_headers += version_h
 
 enums = gnome.mkenums('enums',
@@ -224,10 +224,8 @@ enums = gnome.mkenums('enums',
 enums_source = enums[0]
 enums_header = enums[1]
 
-
 headers = c_headers + cpp_headers
 install_headers(headers, subdir: meson.project_name())
-
 
 gobject = dependency('gobject-2.0')
 gobject_libdir = gobject.get_variable(pkgconfig: 'libdir')
@@ -251,6 +249,7 @@ libarrow_glib = library('arrow-glib',
                         dependencies: dependencies,
                         implicit_include_directories: false,
                         include_directories: base_include_directories,
+                        cpp_args: ['-DGARROW_COMPILATION'],
                         soversion: so_version,
                         version: library_version)
 arrow_glib = declare_dependency(link_with: libarrow_glib,
@@ -279,18 +278,16 @@ if have_gi
                                       extra_args: [
                                         '--warn-all',
                                       ],
-                                      fatal_warnings: gi_fatal_warnings,
                                       header: 'arrow-glib/arrow-glib.h',
                                       identifier_prefix: 'GArrow',
                                       includes: [
                                         'GObject-2.0',
                                         'Gio-2.0',
                                       ],
-                                      install: true,
                                       namespace: 'Arrow',
-                                      nsversion: api_version,
                                       sources: sources + c_headers + enums,
-                                      symbol_prefix: 'garrow')
+                                      symbol_prefix: 'garrow',
+                                      kwargs: generate_gi_common_args)
 
   if generate_vapi
     arrow_glib_vapi = gnome.generate_vapi('arrow-glib',

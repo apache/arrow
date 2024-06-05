@@ -405,7 +405,7 @@ class PyValue {
     RETURN_NOT_OK(PopulateMonthDayNano<MonthDayNanoField::kMonths>::Field(
         obj, &output.months, &found_attrs));
     // on relativeoffset weeks is a property calculated from days.  On
-    // DateOffset is is a field on its own. timedelta doesn't have a weeks
+    // DateOffset is a field on its own. timedelta doesn't have a weeks
     // attribute.
     PyObject* pandas_date_offset_type = internal::BorrowPandasDataOffsetType();
     bool is_date_offset = pandas_date_offset_type == (PyObject*)Py_TYPE(obj);
@@ -581,7 +581,8 @@ struct PyConverterTrait<
 };
 
 template <typename T>
-struct PyConverterTrait<T, enable_if_list_like<T>> {
+struct PyConverterTrait<
+    T, enable_if_t<is_list_like_type<T>::value || is_list_view_type<T>::value>> {
   using type = PyListConverter<T>;
 };
 
@@ -803,7 +804,6 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
       return this->list_builder_->AppendNull();
     }
 
-    RETURN_NOT_OK(this->list_builder_->Append());
     if (PyArray_Check(value)) {
       RETURN_NOT_OK(AppendNdarray(value));
     } else if (PySequence_Check(value)) {
@@ -824,6 +824,21 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
   }
 
  protected:
+  // MapType does not support args in the Append() method
+  Status AppendTo(const MapType*, int64_t size) { return this->list_builder_->Append(); }
+
+  // FixedSizeListType does not support args in the Append() method
+  Status AppendTo(const FixedSizeListType*, int64_t size) {
+    return this->list_builder_->Append();
+  }
+
+  // ListType requires the size argument in the Append() method
+  // in order to be convertible to a ListViewType. ListViewType
+  // requires the size argument in the Append() method always.
+  Status AppendTo(const BaseListType*, int64_t size) {
+    return this->list_builder_->Append(true, size);
+  }
+
   Status ValidateBuilder(const MapType*) {
     if (this->list_builder_->key_builder()->null_count() > 0) {
       return Status::Invalid("Invalid Map: key field cannot contain null values");
@@ -836,11 +851,14 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
 
   Status AppendSequence(PyObject* value) {
     int64_t size = static_cast<int64_t>(PySequence_Size(value));
+    RETURN_NOT_OK(AppendTo(this->list_type_, size));
     RETURN_NOT_OK(this->list_builder_->ValidateOverflow(size));
     return this->value_converter_->Extend(value, size);
   }
 
   Status AppendIterable(PyObject* value) {
+    auto size = static_cast<int64_t>(PyObject_Size(value));
+    RETURN_NOT_OK(AppendTo(this->list_type_, size));
     PyObject* iterator = PyObject_GetIter(value);
     OwnedRef iter_ref(iterator);
     while (PyObject* item = PyIter_Next(iterator)) {
@@ -856,7 +874,12 @@ class PyListConverter : public ListConverter<T, PyConverter, PyConverterTrait> {
     if (PyArray_NDIM(ndarray) != 1) {
       return Status::Invalid("Can only convert 1-dimensional array values");
     }
+    if (PyArray_ISBYTESWAPPED(ndarray)) {
+      // TODO
+      return Status::NotImplemented("Byte-swapped arrays not supported");
+    }
     const int64_t size = PyArray_SIZE(ndarray);
+    RETURN_NOT_OK(AppendTo(this->list_type_, size));
     RETURN_NOT_OK(this->list_builder_->ValidateOverflow(size));
 
     const auto value_type = this->value_converter_->builder()->type();
@@ -1050,7 +1073,8 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
       case KeyKind::BYTES:
         return AppendDict(dict, bytes_field_names_.obj());
       default:
-        RETURN_NOT_OK(InferKeyKind(PyDict_Items(dict)));
+        OwnedRef item_ref(PyDict_Items(dict));
+        RETURN_NOT_OK(InferKeyKind(item_ref.obj()));
         if (key_kind_ == KeyKind::UNKNOWN) {
           // was unable to infer the type which means that all keys are absent
           return AppendEmpty();
@@ -1096,6 +1120,7 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
   Result<std::pair<PyObject*, PyObject*>> GetKeyValuePair(PyObject* seq, int index) {
     PyObject* pair = PySequence_GetItem(seq, index);
     RETURN_IF_PYERROR();
+    OwnedRef pair_ref(pair);  // ensure reference count is decreased at scope end
     if (!PyTuple_Check(pair) || PyTuple_Size(pair) != 2) {
       return internal::InvalidType(pair, "was expecting tuple of (key, value) pair");
     }

@@ -198,8 +198,7 @@ class UcxServerImpl : public arrow::flight::internal::ServerTransport {
     }
   }
 
-  Status Init(const FlightServerOptions& options,
-              const arrow::internal::Uri& uri) override {
+  Status Init(const FlightServerOptions& options, const arrow::util::Uri& uri) override {
     const auto max_threads = std::max<uint32_t>(8, std::thread::hardware_concurrency());
     ARROW_ASSIGN_OR_RAISE(rpc_pool_, arrow::internal::ThreadPool::Make(max_threads));
 

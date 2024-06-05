@@ -181,13 +181,13 @@ public class AvroToArrowIteratorTest extends AvroTestBase {
       }
     }
 
-    assertEquals(x, targetRows);
+    assertEquals(targetRows, x);
   }
 
   /**
    * Fake avro decoder to test large data.
    */
-  private class FakeDecoder extends Decoder {
+  private static class FakeDecoder extends Decoder {
 
     private int numRows;
 

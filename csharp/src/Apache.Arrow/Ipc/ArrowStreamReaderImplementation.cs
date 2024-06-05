@@ -146,7 +146,7 @@ namespace Apache.Arrow.Ipc
             return new ReadResult(messageLength, result);
         }
 
-        protected virtual async ValueTask ReadSchemaAsync(CancellationToken cancellationToken = default)
+        public override async ValueTask ReadSchemaAsync(CancellationToken cancellationToken = default)
         {
             if (HasReadSchema)
             {
@@ -164,11 +164,11 @@ namespace Apache.Arrow.Ipc
                 EnsureFullRead(buff, bytesRead);
 
                 Google.FlatBuffers.ByteBuffer schemabb = CreateByteBuffer(buff);
-                Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemabb), ref _dictionaryMemo);
+                _schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemabb), ref _dictionaryMemo);
             }
         }
 
-        protected virtual void ReadSchema()
+        public override void ReadSchema()
         {
             if (HasReadSchema)
             {
@@ -184,7 +184,7 @@ namespace Apache.Arrow.Ipc
                 EnsureFullRead(buff, bytesRead);
 
                 Google.FlatBuffers.ByteBuffer schemabb = CreateByteBuffer(buff);
-                Schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemabb), ref _dictionaryMemo);
+                _schema = MessageSerializer.GetSchema(ReadMessage<Flatbuf.Schema>(schemabb), ref _dictionaryMemo);
             }
         }
 

@@ -199,7 +199,7 @@ class GitRemoteCallbacks(PygitRemoteCallbacks):
             raise CrossbowError(msg)
 
         if (allowed_types &
-                pygit2.credentials.GIT_CREDENTIAL_USERPASS_PLAINTEXT):
+                pygit2.credentials.CredentialType.USERPASS_PLAINTEXT):
             return pygit2.UserPass('x-oauth-basic', self.token)
         else:
             return None
@@ -427,8 +427,14 @@ class Repo:
         return branch
 
     def create_tag(self, tag_name, commit_id, message=''):
+        git_object_commit = (
+            pygit2.GIT_OBJECT_COMMIT
+            if getattr(pygit2, 'GIT_OBJECT_COMMIT')
+            else pygit2.GIT_OBJ_COMMIT
+        )
         tag_id = self.repo.create_tag(tag_name, commit_id,
-                                      pygit2.GIT_OBJ_COMMIT, self.signature,
+                                      git_object_commit,
+                                      self.signature,
                                       message)
 
         # append to the pushable references

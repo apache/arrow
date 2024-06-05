@@ -94,14 +94,14 @@ func TestStructOf(t *testing.T) {
 			fields: []Field{{Name: "f1", Type: PrimitiveTypes.Int32}},
 			want: &StructType{
 				fields: []Field{{Name: "f1", Type: PrimitiveTypes.Int32}},
-				index:  map[string][]int{"f1": []int{0}},
+				index:  map[string][]int{"f1": {0}},
 			},
 		},
 		{
 			fields: []Field{{Name: "f1", Type: PrimitiveTypes.Int32, Nullable: true}},
 			want: &StructType{
 				fields: []Field{{Name: "f1", Type: PrimitiveTypes.Int32, Nullable: true}},
-				index:  map[string][]int{"f1": []int{0}},
+				index:  map[string][]int{"f1": {0}},
 			},
 		},
 		{
@@ -114,7 +114,7 @@ func TestStructOf(t *testing.T) {
 					{Name: "f1", Type: PrimitiveTypes.Int32},
 					{Name: "", Type: PrimitiveTypes.Int64},
 				},
-				index: map[string][]int{"f1": []int{0}, "": []int{1}},
+				index: map[string][]int{"f1": {0}, "": {1}},
 			},
 		},
 		{
@@ -127,7 +127,7 @@ func TestStructOf(t *testing.T) {
 					{Name: "f1", Type: PrimitiveTypes.Int32},
 					{Name: "f2", Type: PrimitiveTypes.Int64},
 				},
-				index: map[string][]int{"f1": []int{0}, "f2": []int{1}},
+				index: map[string][]int{"f1": {0}, "f2": {1}},
 			},
 		},
 		{
@@ -142,7 +142,7 @@ func TestStructOf(t *testing.T) {
 					{Name: "f2", Type: PrimitiveTypes.Int64},
 					{Name: "f3", Type: ListOf(PrimitiveTypes.Float64)},
 				},
-				index: map[string][]int{"f1": []int{0}, "f2": []int{1}, "f3": []int{2}},
+				index: map[string][]int{"f1": {0}, "f2": {1}, "f3": {2}},
 			},
 		},
 		{
@@ -157,7 +157,7 @@ func TestStructOf(t *testing.T) {
 					{Name: "f2", Type: PrimitiveTypes.Int64},
 					{Name: "f3", Type: ListOf(ListOf(PrimitiveTypes.Float64))},
 				},
-				index: map[string][]int{"f1": []int{0}, "f2": []int{1}, "f3": []int{2}},
+				index: map[string][]int{"f1": {0}, "f2": {1}, "f3": {2}},
 			},
 		},
 		{
@@ -172,7 +172,7 @@ func TestStructOf(t *testing.T) {
 					{Name: "f2", Type: PrimitiveTypes.Int64},
 					{Name: "f3", Type: ListOf(ListOf(StructOf(Field{Name: "f1", Type: PrimitiveTypes.Float64})))},
 				},
-				index: map[string][]int{"f1": []int{0}, "f2": []int{1}, "f3": []int{2}},
+				index: map[string][]int{"f1": {0}, "f2": {1}, "f3": {2}},
 			},
 		},
 		{
@@ -187,7 +187,7 @@ func TestStructOf(t *testing.T) {
 					{Name: "f2", Type: PrimitiveTypes.Int64},
 					{Name: "f1", Type: PrimitiveTypes.Int64},
 				},
-				index: map[string][]int{"f1": []int{0, 2}, "f2": []int{1}},
+				index: map[string][]int{"f1": {0, 2}, "f2": {1}},
 			},
 		},
 	} {

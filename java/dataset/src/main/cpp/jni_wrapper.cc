@@ -25,9 +25,8 @@
 #include "arrow/c/helpers.h"
 #include "arrow/dataset/api.h"
 #include "arrow/dataset/file_base.h"
-#include "arrow/filesystem/localfs.h"
+#include "arrow/filesystem/api.h"
 #include "arrow/filesystem/path_util.h"
-#include "arrow/filesystem/s3fs.h"
 #include "arrow/engine/substrait/util.h"
 #include "arrow/engine/substrait/serde.h"
 #include "arrow/engine/substrait/relation.h"
@@ -83,6 +82,40 @@ void ThrowIfError(const arrow::Status& status) {
   }
 }
 
+class JNIEnvGuard {
+ public:
+  explicit JNIEnvGuard(JavaVM* vm) : vm_(vm), env_(nullptr), should_detach_(false) {
+    JNIEnv* env;
+    jint code = vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION);
+    if (code == JNI_EDETACHED) {
+      JavaVMAttachArgs args;
+      args.version = JNI_VERSION;
+      args.name = NULL;
+      args.group = NULL;
+      code = vm->AttachCurrentThread(reinterpret_cast<void**>(&env), &args);
+      should_detach_ = (code == JNI_OK);
+    }
+    if (code != JNI_OK) {
+      ThrowPendingException("Failed to attach the current thread to a Java VM");
+    }
+    env_ = env;
+  }
+
+  JNIEnv* env() { return env_; }
+
+  ~JNIEnvGuard() {
+    if (should_detach_) {
+      vm_->DetachCurrentThread();
+      should_detach_ = false;
+    }
+  }
+
+ private:
+  JavaVM* vm_;
+  JNIEnv* env_;
+  bool should_detach_;
+};
+
 template <typename T>
 T JniGetOrThrow(arrow::Result<T> result) {
   const arrow::Status& status = result.status();
@@ -126,23 +159,27 @@ class ReserveFromJava : public arrow::dataset::jni::ReservationListener {
       : vm_(vm), java_reservation_listener_(java_reservation_listener) {}
 
   arrow::Status OnReservation(int64_t size) override {
-    JNIEnv* env;
-    if (vm_->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION) != JNI_OK) {
-      return arrow::Status::Invalid("JNIEnv was not attached to current thread");
+    try {
+      JNIEnvGuard guard(vm_);
+      JNIEnv* env = guard.env();
+      env->CallObjectMethod(java_reservation_listener_, reserve_memory_method, size);
+      RETURN_NOT_OK(arrow::dataset::jni::CheckException(env));
+      return arrow::Status::OK();
+    } catch (const JniPendingException& e) {
+      return arrow::Status::Invalid(e.what());
     }
-    env->CallObjectMethod(java_reservation_listener_, reserve_memory_method, size);
-    RETURN_NOT_OK(arrow::dataset::jni::CheckException(env));
-    return arrow::Status::OK();
   }
 
   arrow::Status OnRelease(int64_t size) override {
-    JNIEnv* env;
-    if (vm_->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION) != JNI_OK) {
-      return arrow::Status::Invalid("JNIEnv was not attached to current thread");
+    try {
+      JNIEnvGuard guard(vm_);
+      JNIEnv* env = guard.env();
+      env->CallObjectMethod(java_reservation_listener_, unreserve_memory_method, size);
+      RETURN_NOT_OK(arrow::dataset::jni::CheckException(env));
+      return arrow::Status::OK();
+    } catch (const JniPendingException& e) {
+      return arrow::Status::Invalid(e.what());
     }
-    env->CallObjectMethod(java_reservation_listener_, unreserve_memory_method, size);
-    RETURN_NOT_OK(arrow::dataset::jni::CheckException(env));
-    return arrow::Status::OK();
   }
 
   jobject GetJavaReservationListener() { return java_reservation_listener_; }
@@ -622,7 +659,9 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_releaseBuffe
 JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_ensureS3Finalized(
     JNIEnv* env, jobject) {
   JNI_METHOD_START
+#ifdef ARROW_S3
   JniAssertOkOrThrow(arrow::fs::EnsureS3Finalized());
+#endif
   JNI_METHOD_END()
 }
 

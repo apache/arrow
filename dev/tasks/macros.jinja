@@ -23,6 +23,10 @@ on:
   push:
     branches:
       - "*-github-*"
+
+env:
+  ARCHERY_DEBUG: 1
+  ARCHERY_USE_DOCKER_CLI: 1
 {% endmacro %}
 
 {%- macro github_checkout_arrow(fetch_depth=1, submodules="recursive", action_v="4") -%}
@@ -55,11 +59,12 @@ on:
 
 {%- macro github_install_archery() -%}
   - name: Set up Python by actions/setup-python
-    if: runner.arch == 'X64'
+    if: |
+      !(runner.os == 'Linux' && runner.arch != 'X64')
     uses: actions/setup-python@v4
     with:
       cache: 'pip'
-      python-version: 3.8
+      python-version: 3.12
   - name: Set up Python by apt
     if: runner.os == 'Linux' && runner.arch != 'X64'
     run: |
@@ -82,10 +87,11 @@ on:
 
 {%- macro github_upload_releases(pattern) -%}
   - name: Set up Python by actions/setup-python
-    if: runner.arch == 'X64'
+    if: |
+      !(runner.os == 'Linux' && runner.arch != 'X64')
     uses: actions/setup-python@v4
     with:
-      python-version: 3.8
+      python-version: 3.12
   - name: Set up Python by apt
     if: runner.os == 'Linux' && runner.arch != 'X64'
     run: |
@@ -239,7 +245,7 @@ on:
       # The GHA runners install of python > 3.10 is incompatible with brew so we
       # have to force overwriting of the symlinks
       # see https://github.com/actions/runner-images/issues/6868
-      brew install --overwrite python@3.11 python@3.10
+      brew install --overwrite python@3.12 python@3.11 python@3.10
 
       set -x
       ARROW_GLIB_FORMULA=$(echo ${ARROW_FORMULA} | sed -e 's/\.rb/-glib.rb/')

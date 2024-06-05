@@ -51,6 +51,7 @@ import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.IntervalDayVector;
+import org.apache.arrow.vector.IntervalMonthDayNanoVector;
 import org.apache.arrow.vector.IntervalYearVector;
 import org.apache.arrow.vector.LargeVarBinaryVector;
 import org.apache.arrow.vector.LargeVarCharVector;
@@ -175,6 +176,9 @@ public class ArrowFlightJdbcAccessorFactory {
           setCursorWasNull);
     } else if (vector instanceof IntervalYearVector) {
       return new ArrowFlightJdbcIntervalVectorAccessor(((IntervalYearVector) vector), getCurrentRow,
+          setCursorWasNull);
+    } else if (vector instanceof IntervalMonthDayNanoVector) {
+      return new ArrowFlightJdbcIntervalVectorAccessor(((IntervalMonthDayNanoVector) vector), getCurrentRow,
           setCursorWasNull);
     } else if (vector instanceof StructVector) {
       return new ArrowFlightJdbcStructVectorAccessor((StructVector) vector, getCurrentRow,

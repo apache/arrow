@@ -44,4 +44,6 @@ public interface ReusableBuffer<T> {
    * @param len       the number of bytes of the new data
    */
   void set(ArrowBuf srcBytes, long start, long len);
+
+  void set(byte[] srcBytes, long start, long len);
 }

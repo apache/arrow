@@ -23,6 +23,8 @@
 
 #include "gtest/gtest.h"
 
+#include "arrow/c/bridge.h"
+#include "arrow/c/util_internal.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/api.h"
 #include "arrow/ipc/dictionary.h"
@@ -38,8 +40,11 @@
 
 namespace arrow {
 
+using internal::ArrayExportGuard;
+using internal::ArrayStreamExportGuard;
 using internal::checked_cast;
 using internal::checked_pointer_cast;
+using internal::SchemaExportGuard;
 
 namespace cuda {
 
@@ -701,6 +706,108 @@ TEST_F(TestCudaArrowIpc, DictionaryWriteRead) {
                                       ipc::IpcReadOptions::Defaults(), &cpu_reader));
 
   CompareBatch(*batch, *cpu_batch);
+}
+
+// ------------------------------------------------------------------------
+// Test C Device Interface export/import with CUDA
+// (equivalent tests for non-CUDA live in bridge_test.cc)
+
+class TestCudaDeviceArrayRoundtrip : public ::testing::Test {
+ public:
+  using ArrayFactory = std::function<Result<std::shared_ptr<Array>>()>;
+
+  static ArrayFactory JSONArrayFactory(std::shared_ptr<DataType> type, const char* json) {
+    return [=]() { return ArrayFromJSON(type, json); };
+  }
+
+  template <typename ArrayFactory>
+  void TestWithArrayFactory(ArrayFactory&& factory) {
+    TestWithArrayFactory(factory, factory);
+  }
+
+  template <typename ArrayFactory, typename ExpectedArrayFactory>
+  void TestWithArrayFactory(ArrayFactory&& factory,
+                            ExpectedArrayFactory&& factory_expected) {
+    ASSERT_OK_AND_ASSIGN(auto manager, cuda::CudaDeviceManager::Instance());
+    ASSERT_OK_AND_ASSIGN(auto device, manager->GetDevice(0));
+    auto mm = device->default_memory_manager();
+
+    std::shared_ptr<Array> array;
+    std::shared_ptr<Array> device_array;
+    ASSERT_OK_AND_ASSIGN(array, factory());
+    ASSERT_OK_AND_ASSIGN(device_array, array->CopyTo(mm));
+
+    struct ArrowDeviceArray c_array {};
+    struct ArrowSchema c_schema {};
+    ArrayExportGuard array_guard(&c_array.array);
+    SchemaExportGuard schema_guard(&c_schema);
+
+    ASSERT_OK(ExportType(*device_array->type(), &c_schema));
+    std::shared_ptr<Device::SyncEvent> sync{nullptr};
+    ASSERT_OK(ExportDeviceArray(*device_array, sync, &c_array));
+
+    std::shared_ptr<Array> device_array_roundtripped;
+    ASSERT_OK_AND_ASSIGN(device_array_roundtripped,
+                         ImportDeviceArray(&c_array, &c_schema));
+    ASSERT_TRUE(ArrowSchemaIsReleased(&c_schema));
+    ASSERT_TRUE(ArrowArrayIsReleased(&c_array.array));
+
+    // Check value of imported array (copy to CPU to assert equality)
+    std::shared_ptr<Array> array_roundtripped;
+    ASSERT_OK_AND_ASSIGN(array_roundtripped,
+                         device_array_roundtripped->CopyTo(default_cpu_memory_manager()));
+    ASSERT_OK(array_roundtripped->ValidateFull());
+    {
+      std::shared_ptr<Array> expected;
+      ASSERT_OK_AND_ASSIGN(expected, factory_expected());
+      AssertTypeEqual(*expected->type(), *array_roundtripped->type());
+      AssertArraysEqual(*expected, *array_roundtripped, true);
+    }
+
+    // Re-export and re-import, now both at once
+    ASSERT_OK(ExportDeviceArray(*device_array, sync, &c_array, &c_schema));
+    device_array_roundtripped.reset();
+    ASSERT_OK_AND_ASSIGN(device_array_roundtripped,
+                         ImportDeviceArray(&c_array, &c_schema));
+    ASSERT_TRUE(ArrowSchemaIsReleased(&c_schema));
+    ASSERT_TRUE(ArrowArrayIsReleased(&c_array.array));
+
+    // Check value of imported array (copy to CPU to assert equality)
+    array_roundtripped.reset();
+    ASSERT_OK_AND_ASSIGN(array_roundtripped,
+                         device_array_roundtripped->CopyTo(default_cpu_memory_manager()));
+    ASSERT_OK(array_roundtripped->ValidateFull());
+    {
+      std::shared_ptr<Array> expected;
+      ASSERT_OK_AND_ASSIGN(expected, factory_expected());
+      AssertTypeEqual(*expected->type(), *array_roundtripped->type());
+      AssertArraysEqual(*expected, *array_roundtripped, true);
+    }
+  }
+
+  void TestWithJSON(std::shared_ptr<DataType> type, const char* json) {
+    TestWithArrayFactory(JSONArrayFactory(type, json));
+  }
+};
+
+TEST_F(TestCudaDeviceArrayRoundtrip, Primitive) { TestWithJSON(int32(), "[4, 5, null]"); }
+
+TEST_F(TestCudaDeviceArrayRoundtrip, Struct) {
+  auto type = struct_({field("ints", int16()), field("strs", utf8())});
+
+  TestWithJSON(type, "[]");
+  TestWithJSON(type, R"([[4, "foo"], [5, "bar"]])");
+  TestWithJSON(type, R"([[4, null], null, [5, "foo"]])");
+}
+
+TEST_F(TestCudaDeviceArrayRoundtrip, Dictionary) {
+  auto factory = []() {
+    auto values = ArrayFromJSON(utf8(), R"(["foo", "bar", "quux"])");
+    auto indices = ArrayFromJSON(uint16(), "[0, 2, 1, null, 1]");
+    return DictionaryArray::FromArrays(dictionary(indices->type(), values->type()),
+                                       indices, values);
+  };
+  TestWithArrayFactory(factory);
 }
 
 }  // namespace cuda

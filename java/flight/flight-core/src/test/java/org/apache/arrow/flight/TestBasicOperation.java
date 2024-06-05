@@ -79,6 +79,12 @@ public class TestBasicOperation {
     Assertions.assertFalse(ArrowMessage.ENABLE_ZERO_COPY_WRITE);
   }
 
+  @Test
+  public void fallbackLocation() {
+    Assertions.assertEquals("arrow-flight-reuse-connection://?",
+            Location.reuseConnection().getUri().toString());
+  }
+
   /**
    * ARROW-6017: we should be able to construct locations for unknown schemes.
    */

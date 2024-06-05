@@ -105,7 +105,7 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
   for (auto i : selected_columns) {
     const ColumnDescriptor* descr = file_metadata->schema()->Column(i);
     stream << "Column " << i << ": " << descr->path()->ToDotString() << " ("
-           << TypeToString(descr->physical_type());
+           << TypeToString(descr->physical_type(), descr->type_length());
     const auto& logical_type = descr->logical_type();
     if (!logical_type->is_none()) {
       stream << " / " << logical_type->ToString();

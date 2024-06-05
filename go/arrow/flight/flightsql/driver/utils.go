@@ -21,16 +21,17 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/array"
 )
 
 // *** GRPC helpers ***
 type grpcCredentials struct {
-	username string
-	password string
-	token    string
-	params   map[string]string
+	username   string
+	password   string
+	token      string
+	params     map[string]string
+	tlsEnabled bool
 }
 
 func (g grpcCredentials) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
@@ -53,7 +54,7 @@ func (g grpcCredentials) GetRequestMetadata(ctx context.Context, uri ...string) 
 }
 
 func (g grpcCredentials) RequireTransportSecurity() bool {
-	return g.token != "" || g.username != ""
+	return g.tlsEnabled && (g.token != "" || g.username != "")
 }
 
 // *** Type conversions ***
@@ -103,6 +104,10 @@ func fromArrowType(arr arrow.Array, idx int) (interface{}, error) {
 		return v.ToTime(ts.TimeUnit()), nil
 	case *array.Date64:
 		return c.Value(idx).ToTime(), nil
+	case *array.Duration:
+		dt := arr.DataType().(*arrow.DurationType)
+		duration := time.Duration(c.Value(idx)) * dt.Unit.Multiplier()
+		return duration, nil
 	case *array.DayTimeInterval:
 		durationDays := time.Duration(c.Value(idx).Days*24) * time.Hour
 		duration := time.Duration(c.Value(idx).Milliseconds) * time.Millisecond

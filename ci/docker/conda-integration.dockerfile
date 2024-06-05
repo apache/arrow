@@ -20,11 +20,11 @@ ARG arch=amd64
 FROM ${repo}:${arch}-conda-cpp
 
 ARG arch=amd64
-ARG maven=3.5
+ARG maven=3.8.7
 ARG node=16
 ARG yarn=1.22
 ARG jdk=8
-ARG go=1.19.13
+ARG go=1.21.8
 
 # Install Archery and integration dependencies
 COPY ci/conda_env_archery.txt /arrow/ci/
@@ -56,7 +56,7 @@ RUN wget -nv -O - https://dl.google.com/go/go${go}.linux-${arch}.tar.gz | tar -x
 
 ENV DOTNET_ROOT=/opt/dotnet \
     PATH=/opt/dotnet:$PATH
-RUN curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin -Channel 7.0 -InstallDir /opt/dotnet
+RUN curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin -Channel 8.0 -InstallDir /opt/dotnet
 
 ENV ARROW_ACERO=OFF \
     ARROW_AZURE=OFF \

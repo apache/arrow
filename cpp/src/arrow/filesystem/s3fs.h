@@ -51,7 +51,7 @@ struct ARROW_EXPORT S3ProxyOptions {
   /// Initialize from URI such as http://username:password@host:port
   /// or http://host:port
   static Result<S3ProxyOptions> FromUri(const std::string& uri);
-  static Result<S3ProxyOptions> FromUri(const ::arrow::internal::Uri& uri);
+  static Result<S3ProxyOptions> FromUri(const ::arrow::util::Uri& uri);
 
   bool Equals(const S3ProxyOptions& other) const;
 };
@@ -166,6 +166,17 @@ struct ARROW_EXPORT S3Options {
   /// Whether to allow deletion of buckets
   bool allow_bucket_deletion = false;
 
+  /// Whether to allow pessimistic directory creation in CreateDir function
+  ///
+  /// By default, CreateDir function will try to create the directory without checking its
+  /// existence. It's an optimization to try directory creation and catch the error,
+  /// rather than issue two dependent I/O calls.
+  /// Though for key/value storage like Google Cloud Storage, too many creation calls will
+  /// breach the rate limit for object mutation operations and cause serious consequences.
+  /// It's also possible you don't have creation access for the parent directory. Set it
+  /// to be true to address these scenarios.
+  bool check_directory_existence_before_creation = false;
+
   /// \brief Default metadata for OpenOutputStream.
   ///
   /// This will be ignored if non-empty metadata is passed to OpenOutputStream.
@@ -232,7 +243,7 @@ struct ARROW_EXPORT S3Options {
   /// generate temporary credentials.
   static S3Options FromAssumeRoleWithWebIdentity();
 
-  static Result<S3Options> FromUri(const ::arrow::internal::Uri& uri,
+  static Result<S3Options> FromUri(const ::arrow::util::Uri& uri,
                                    std::string* out_path = NULLPTR);
   static Result<S3Options> FromUri(const std::string& uri,
                                    std::string* out_path = NULLPTR);
@@ -258,19 +269,24 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
   Result<std::string> PathFromUri(const std::string& uri_string) const override;
 
   /// \cond FALSE
+  using FileSystem::CreateDir;
+  using FileSystem::DeleteDirContents;
+  using FileSystem::DeleteDirContentsAsync;
   using FileSystem::GetFileInfo;
+  using FileSystem::OpenAppendStream;
+  using FileSystem::OpenOutputStream;
   /// \endcond
+
   Result<FileInfo> GetFileInfo(const std::string& path) override;
   Result<std::vector<FileInfo>> GetFileInfo(const FileSelector& select) override;
 
   FileInfoGenerator GetFileInfoGenerator(const FileSelector& select) override;
 
-  Status CreateDir(const std::string& path, bool recursive = true) override;
+  Status CreateDir(const std::string& path, bool recursive) override;
 
   Status DeleteDir(const std::string& path) override;
-  Status DeleteDirContents(const std::string& path, bool missing_dir_ok = false) override;
-  Future<> DeleteDirContentsAsync(const std::string& path,
-                                  bool missing_dir_ok = false) override;
+  Status DeleteDirContents(const std::string& path, bool missing_dir_ok) override;
+  Future<> DeleteDirContentsAsync(const std::string& path, bool missing_dir_ok) override;
   Status DeleteRootDirContents() override;
 
   Status DeleteFile(const std::string& path) override;
@@ -312,11 +328,11 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
   /// implementing your own background execution strategy.
   Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
       const std::string& path,
-      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
+      const std::shared_ptr<const KeyValueMetadata>& metadata) override;
 
   Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
       const std::string& path,
-      const std::shared_ptr<const KeyValueMetadata>& metadata = {}) override;
+      const std::shared_ptr<const KeyValueMetadata>& metadata) override;
 
   /// Create a S3FileSystem instance from the given options.
   static Result<std::shared_ptr<S3FileSystem>> Make(

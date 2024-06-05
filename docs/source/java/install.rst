@@ -29,8 +29,8 @@ Java modules are regularly built and tested on macOS and Linux distributions.
 Java Compatibility
 ==================
 
-Java modules are compatible with JDK 8 and above.
-Currently, JDK 8, 11, 17, and 21 are tested in CI.
+Java modules are compatible with JDK 8 and above. Currently, JDK versions
+8, 11, 17, and 21 are tested in CI. The latest JDK is also tested in CI.
 
 When using Java 9 or later, some JDK internals must be exposed by
 adding ``--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED`` to the ``java`` command:
@@ -61,9 +61,9 @@ Modifying the command above for Flight:
    $ env _JAVA_OPTIONS="--add-reads=org.apache.arrow.flight.core=ALL-UNNAMED --add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED" java -jar ...
 
 Otherwise, you may see errors like ``java.lang.IllegalAccessError: superclass access check failed: class
-org.apache.arrow.flight.ArrowMessage$ArrowBufRetainingCompositeByteBuf (in module org.apache.arrow.flight.core) 
+org.apache.arrow.flight.ArrowMessage$ArrowBufRetainingCompositeByteBuf (in module org.apache.arrow.flight.core)
 cannot access class io.netty.buffer.CompositeByteBuf (in unnamed module ...) because module
-org.apache.arrow.flight.core does not read unnamed module ...
+org.apache.arrow.flight.core does not read unnamed module ...``
 
 Finally, if you are using arrow-dataset, you'll also need to report that JDK internals need to be exposed.
 Modifying the command above for arrow-memory:
@@ -74,8 +74,8 @@ Modifying the command above for arrow-memory:
    # Indirectly via environment variables
    $ env _JAVA_OPTIONS="--add-opens=java.base/java.nio=org.apache.arrow.dataset,org.apache.arrow.memory.core,ALL-UNNAMED" java -jar ...
 
-Otherwise you may see errors such as ``java.lang.RuntimeException: java.lang.reflect.InaccessibleObjectException: 
-Unable to make static void java.nio.Bits.reserveMemory(long,long) accessible: module 
+Otherwise you may see errors such as ``java.lang.RuntimeException: java.lang.reflect.InaccessibleObjectException:
+Unable to make static void java.nio.Bits.reserveMemory(long,long) accessible: module
 java.base does not "opens java.nio" to module org.apache.arrow.dataset``
 
 If using Maven and Surefire for unit testing, :ref:`this argument must
@@ -136,11 +136,6 @@ every module. An alternative to the above would be:
         <dependencies>
             <dependency>
                 <groupId>org.apache.arrow</groupId>
-                <artifactId>arrow-bom</artifactId>
-                <version>${arrow.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.apache.arrow</groupId>
                 <artifactId>arrow-vector</artifactId>
             </dependency>
             <dependency>
@@ -148,6 +143,17 @@ every module. An alternative to the above would be:
                 <artifactId>arrow-memory-netty</artifactId>
             </dependency>
         </dependencies>
+        <dependencyManagement>
+            <dependencies>
+                <dependency>
+                    <groupId>org.apache.arrow</groupId>
+                    <artifactId>arrow-bom</artifactId>
+                    <version>${arrow.version}</version>
+                    <type>pom</type>
+                    <scope>import</scope>
+                </dependency>
+            </dependencies>
+        </dependencyManagement>
     </project>
 
 To use the Arrow Flight dependencies, also add the ``os-maven-plugin``

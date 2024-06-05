@@ -39,6 +39,7 @@ import io.netty.buffer.PooledByteBufAllocatorL;
 public class TestNettyAllocator {
 
   @Test
+  @SuppressWarnings("SynchronizeOnNonFinalField")
   public void testMemoryUsage() {
     ListAppender<ILoggingEvent> memoryLogsAppender = new ListAppender<>();
     memoryLogsAppender.list = Collections.synchronizedList(memoryLogsAppender.list);
@@ -69,9 +70,12 @@ public class TestNettyAllocator {
           break;
         }
       }
-      assertTrue("Log messages are:\n" +
+      synchronized (memoryLogsAppender.list) {
+        assertTrue("Log messages are:\n" +
               memoryLogsAppender.list.stream().map(ILoggingEvent::toString).collect(Collectors.joining("\n")),
-          result);
+            result);
+      }
+
     } finally {
       memoryLogsAppender.stop();
       logger.detachAppender(memoryLogsAppender);

@@ -17,9 +17,11 @@
 
 #include "arrow/flight/types.h"
 
+#include <iomanip>
 #include <memory>
 #include <sstream>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 
 #include "arrow/buffer.h"
@@ -473,12 +475,364 @@ arrow::Result<CancelFlightInfoRequest> CancelFlightInfoRequest::Deserialize(
   return out;
 }
 
-Location::Location() { uri_ = std::make_shared<arrow::internal::Uri>(); }
+static const char* const SetSessionOptionStatusNames[] = {"Unspecified", "InvalidName",
+                                                          "InvalidValue", "Error"};
+static const char* const CloseSessionStatusNames[] = {"Unspecified", "Closed", "Closing",
+                                                      "NotClosable"};
+
+// Helpers for stringifying maps containing various types
+std::string ToString(const SetSessionOptionErrorValue& error_value) {
+  return SetSessionOptionStatusNames[static_cast<int>(error_value)];
+}
+
+std::ostream& operator<<(std::ostream& os,
+                         const SetSessionOptionErrorValue& error_value) {
+  os << ToString(error_value);
+  return os;
+}
+
+std::string ToString(const CloseSessionStatus& status) {
+  return CloseSessionStatusNames[static_cast<int>(status)];
+}
+
+std::ostream& operator<<(std::ostream& os, const CloseSessionStatus& status) {
+  os << ToString(status);
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, std::vector<std::string> values) {
+  os << '[';
+  std::string sep = "";
+  for (const auto& v : values) {
+    os << sep << std::quoted(v);
+    sep = ", ";
+  }
+  os << ']';
+
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const SessionOptionValue& v) {
+  if (std::holds_alternative<std::monostate>(v)) {
+    os << "<EMPTY>";
+  } else {
+    std::visit(
+        [&](const auto& x) {
+          if constexpr (std::is_convertible_v<std::decay_t<decltype(x)>,
+                                              std::string_view>) {
+            os << std::quoted(x);
+          } else {
+            os << x;
+          }
+        },
+        v);
+  }
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, const SetSessionOptionsResult::Error& e) {
+  os << '{' << e.value << '}';
+  return os;
+}
+
+template <typename T>
+std::ostream& operator<<(std::ostream& os, std::map<std::string, T> m) {
+  os << '{';
+  std::string sep = "";
+  if constexpr (std::is_convertible_v<T, std::string_view>) {
+    // std::string, char*, std::string_view
+    for (const auto& [k, v] : m) {
+      os << sep << '[' << k << "]: " << std::quoted(v) << '"';
+      sep = ", ";
+    }
+  } else {
+    for (const auto& [k, v] : m) {
+      os << sep << '[' << k << "]: " << v;
+      sep = ", ";
+    }
+  }
+  os << '}';
+
+  return os;
+}
+
+namespace {
+static bool CompareSessionOptionMaps(const std::map<std::string, SessionOptionValue>& a,
+                                     const std::map<std::string, SessionOptionValue>& b) {
+  if (a.size() != b.size()) {
+    return false;
+  }
+  for (const auto& [k, v] : a) {
+    if (const auto it = b.find(k); it == b.end()) {
+      return false;
+    } else {
+      const auto& b_v = it->second;
+      if (v.index() != b_v.index()) {
+        return false;
+      }
+      if (v != b_v) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+}  // namespace
+
+// SetSessionOptionsRequest
+
+std::string SetSessionOptionsRequest::ToString() const {
+  std::stringstream ss;
+
+  ss << "<SetSessionOptionsRequest session_options=" << session_options << '>';
+
+  return ss.str();
+}
+
+bool SetSessionOptionsRequest::Equals(const SetSessionOptionsRequest& other) const {
+  return CompareSessionOptionMaps(session_options, other.session_options);
+}
+
+arrow::Result<std::string> SetSessionOptionsRequest::SerializeToString() const {
+  pb::SetSessionOptionsRequest pb_request;
+  RETURN_NOT_OK(internal::ToProto(*this, &pb_request));
+
+  std::string out;
+  if (!pb_request.SerializeToString(&out)) {
+    return Status::IOError("Serialized SetSessionOptionsRequest exceeded 2GiB limit");
+  }
+  return out;
+}
+
+arrow::Result<SetSessionOptionsRequest> SetSessionOptionsRequest::Deserialize(
+    std::string_view serialized) {
+  // TODO these & SerializeToString should all be factored out to a superclass
+  pb::SetSessionOptionsRequest pb_request;
+  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    return Status::Invalid(
+        "Serialized SetSessionOptionsRequest size should not exceed 2 GiB");
+  }
+  google::protobuf::io::ArrayInputStream input(serialized.data(),
+                                               static_cast<int>(serialized.size()));
+  if (!pb_request.ParseFromZeroCopyStream(&input)) {
+    return Status::Invalid("Not a valid SetSessionOptionsRequest");
+  }
+  SetSessionOptionsRequest out;
+  RETURN_NOT_OK(internal::FromProto(pb_request, &out));
+  return out;
+}
+
+// SetSessionOptionsResult
+
+std::string SetSessionOptionsResult::ToString() const {
+  std::stringstream ss;
+
+  ss << "<SetSessionOptionsResult errors=" << errors << '>';
+
+  return ss.str();
+}
+
+bool SetSessionOptionsResult::Equals(const SetSessionOptionsResult& other) const {
+  if (errors != other.errors) {
+    return false;
+  }
+  return true;
+}
+
+arrow::Result<std::string> SetSessionOptionsResult::SerializeToString() const {
+  pb::SetSessionOptionsResult pb_result;
+  RETURN_NOT_OK(internal::ToProto(*this, &pb_result));
+
+  std::string out;
+  if (!pb_result.SerializeToString(&out)) {
+    return Status::IOError("Serialized SetSessionOptionsResult exceeded 2GiB limit");
+  }
+  return out;
+}
+
+arrow::Result<SetSessionOptionsResult> SetSessionOptionsResult::Deserialize(
+    std::string_view serialized) {
+  pb::SetSessionOptionsResult pb_result;
+  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    return Status::Invalid(
+        "Serialized SetSessionOptionsResult size should not exceed 2 GiB");
+  }
+  google::protobuf::io::ArrayInputStream input(serialized.data(),
+                                               static_cast<int>(serialized.size()));
+  if (!pb_result.ParseFromZeroCopyStream(&input)) {
+    return Status::Invalid("Not a valid SetSessionOptionsResult");
+  }
+  SetSessionOptionsResult out;
+  RETURN_NOT_OK(internal::FromProto(pb_result, &out));
+  return out;
+}
+
+// GetSessionOptionsRequest
+
+std::string GetSessionOptionsRequest::ToString() const {
+  return "<GetSessionOptionsRequest>";
+}
+
+bool GetSessionOptionsRequest::Equals(const GetSessionOptionsRequest& other) const {
+  return true;
+}
+
+arrow::Result<std::string> GetSessionOptionsRequest::SerializeToString() const {
+  pb::GetSessionOptionsRequest pb_request;
+  RETURN_NOT_OK(internal::ToProto(*this, &pb_request));
+
+  std::string out;
+  if (!pb_request.SerializeToString(&out)) {
+    return Status::IOError("Serialized GetSessionOptionsRequest exceeded 2GiB limit");
+  }
+  return out;
+}
+
+arrow::Result<GetSessionOptionsRequest> GetSessionOptionsRequest::Deserialize(
+    std::string_view serialized) {
+  pb::GetSessionOptionsRequest pb_request;
+  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    return Status::Invalid(
+        "Serialized GetSessionOptionsRequest size should not exceed 2 GiB");
+  }
+  google::protobuf::io::ArrayInputStream input(serialized.data(),
+                                               static_cast<int>(serialized.size()));
+  if (!pb_request.ParseFromZeroCopyStream(&input)) {
+    return Status::Invalid("Not a valid GetSessionOptionsRequest");
+  }
+  GetSessionOptionsRequest out;
+  RETURN_NOT_OK(internal::FromProto(pb_request, &out));
+  return out;
+}
+
+// GetSessionOptionsResult
+
+std::string GetSessionOptionsResult::ToString() const {
+  std::stringstream ss;
+
+  ss << "<GetSessionOptionsResult session_options=" << session_options << '>';
+
+  return ss.str();
+}
+
+bool GetSessionOptionsResult::Equals(const GetSessionOptionsResult& other) const {
+  return CompareSessionOptionMaps(session_options, other.session_options);
+}
+
+arrow::Result<std::string> GetSessionOptionsResult::SerializeToString() const {
+  pb::GetSessionOptionsResult pb_result;
+  RETURN_NOT_OK(internal::ToProto(*this, &pb_result));
+
+  std::string out;
+  if (!pb_result.SerializeToString(&out)) {
+    return Status::IOError("Serialized GetSessionOptionsResult exceeded 2GiB limit");
+  }
+  return out;
+}
+
+arrow::Result<GetSessionOptionsResult> GetSessionOptionsResult::Deserialize(
+    std::string_view serialized) {
+  pb::GetSessionOptionsResult pb_result;
+  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    return Status::Invalid(
+        "Serialized GetSessionOptionsResult size should not exceed 2 GiB");
+  }
+  google::protobuf::io::ArrayInputStream input(serialized.data(),
+                                               static_cast<int>(serialized.size()));
+  if (!pb_result.ParseFromZeroCopyStream(&input)) {
+    return Status::Invalid("Not a valid GetSessionOptionsResult");
+  }
+  GetSessionOptionsResult out;
+  RETURN_NOT_OK(internal::FromProto(pb_result, &out));
+  return out;
+}
+
+// CloseSessionRequest
+
+std::string CloseSessionRequest::ToString() const { return "<CloseSessionRequest>"; }
+
+bool CloseSessionRequest::Equals(const CloseSessionRequest& other) const { return true; }
+
+arrow::Result<std::string> CloseSessionRequest::SerializeToString() const {
+  pb::CloseSessionRequest pb_request;
+  RETURN_NOT_OK(internal::ToProto(*this, &pb_request));
+
+  std::string out;
+  if (!pb_request.SerializeToString(&out)) {
+    return Status::IOError("Serialized CloseSessionRequest exceeded 2GiB limit");
+  }
+  return out;
+}
+
+arrow::Result<CloseSessionRequest> CloseSessionRequest::Deserialize(
+    std::string_view serialized) {
+  pb::CloseSessionRequest pb_request;
+  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    return Status::Invalid("Serialized CloseSessionRequest size should not exceed 2 GiB");
+  }
+  google::protobuf::io::ArrayInputStream input(serialized.data(),
+                                               static_cast<int>(serialized.size()));
+  if (!pb_request.ParseFromZeroCopyStream(&input)) {
+    return Status::Invalid("Not a valid CloseSessionRequest");
+  }
+  CloseSessionRequest out;
+  RETURN_NOT_OK(internal::FromProto(pb_request, &out));
+  return out;
+}
+
+// CloseSessionResult
+
+std::string CloseSessionResult::ToString() const {
+  std::stringstream ss;
+
+  ss << "<CloseSessionResult status=" << status << '>';
+
+  return ss.str();
+}
+
+bool CloseSessionResult::Equals(const CloseSessionResult& other) const {
+  return status == other.status;
+}
+
+arrow::Result<std::string> CloseSessionResult::SerializeToString() const {
+  pb::CloseSessionResult pb_result;
+  RETURN_NOT_OK(internal::ToProto(*this, &pb_result));
+
+  std::string out;
+  if (!pb_result.SerializeToString(&out)) {
+    return Status::IOError("Serialized CloseSessionResult exceeded 2GiB limit");
+  }
+  return out;
+}
+
+arrow::Result<CloseSessionResult> CloseSessionResult::Deserialize(
+    std::string_view serialized) {
+  pb::CloseSessionResult pb_result;
+  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    return Status::Invalid("Serialized CloseSessionResult size should not exceed 2 GiB");
+  }
+  google::protobuf::io::ArrayInputStream input(serialized.data(),
+                                               static_cast<int>(serialized.size()));
+  if (!pb_result.ParseFromZeroCopyStream(&input)) {
+    return Status::Invalid("Not a valid CloseSessionResult");
+  }
+  CloseSessionResult out;
+  RETURN_NOT_OK(internal::FromProto(pb_result, &out));
+  return out;
+}
+
+Location::Location() { uri_ = std::make_shared<arrow::util::Uri>(); }
 
 arrow::Result<Location> Location::Parse(const std::string& uri_string) {
   Location location;
   RETURN_NOT_OK(location.uri_->Parse(uri_string));
   return location;
+}
+
+const Location& Location::ReuseConnection() {
+  static Location kFallback =
+      Location::Parse("arrow-flight-reuse-connection://?").ValueOrDie();
+  return kFallback;
 }
 
 arrow::Result<Location> Location::ForGrpcTcp(const std::string& host, const int port) {
@@ -648,6 +1002,21 @@ const ActionType ActionType::kRenewFlightEndpoint =
                "Extend expiration time of the given FlightEndpoint.\n"
                "Request Message: RenewFlightEndpointRequest\n"
                "Response Message: Renewed FlightEndpoint"};
+const ActionType ActionType::kSetSessionOptions =
+    ActionType{"SetSessionOptions",
+               "Set client session options by name/value pairs.\n"
+               "Request Message: SetSessionOptionsRequest\n"
+               "Response Message: SetSessionOptionsResult"};
+const ActionType ActionType::kGetSessionOptions =
+    ActionType{"GetSessionOptions",
+               "Get current client session options\n"
+               "Request Message: GetSessionOptionsRequest\n"
+               "Response Message: GetSessionOptionsResult"};
+const ActionType ActionType::kCloseSession =
+    ActionType{"CloseSession",
+               "Explicitly close/invalidate the cookie-specified client session.\n"
+               "Request Message: CloseSessionRequest\n"
+               "Response Message: CloseSessionResult"};
 
 bool ActionType::Equals(const ActionType& other) const {
   return type == other.type && description == other.description;

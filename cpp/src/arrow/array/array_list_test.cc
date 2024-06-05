@@ -735,7 +735,7 @@ class TestListArray : public ::testing::Test {
         ArrayFromJSON(type, "[[1, 2], [3], [4], null, [5], [], [6]]"));
     auto sliced_list_array =
         std::dynamic_pointer_cast<ArrayType>(list_array->Slice(3, 4));
-    ASSERT_OK_AND_ASSIGN(auto flattened, list_array->Flatten());
+    ASSERT_OK_AND_ASSIGN(auto flattened, sliced_list_array->Flatten());
     ASSERT_OK(flattened->ValidateFull());
     // Note the difference between values() and Flatten().
     EXPECT_TRUE(flattened->Equals(ArrayFromJSON(int32(), "[5, 6]")));
@@ -761,6 +761,52 @@ class TestListArray : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(auto flattened, list_array->Flatten());
     EXPECT_TRUE(flattened->Equals(ArrayFromJSON(int32(), "[1, 2, 9]")))
         << flattened->ToString();
+  }
+
+  void TestFlattenRecursively() {
+    auto inner_type = std::make_shared<T>(int32());
+    auto type = std::make_shared<T>(inner_type);
+
+    // List types with two nested level: list<list<int32>>
+    auto nested_list_array = std::dynamic_pointer_cast<ArrayType>(ArrayFromJSON(type, R"([
+      [[0, 1, 2], null, [3, null]],
+      [null],
+      [[2, 9], [4], [], [6, 5]]
+    ])"));
+    ASSERT_OK_AND_ASSIGN(auto flattened, nested_list_array->FlattenRecursively());
+    ASSERT_OK(flattened->ValidateFull());
+    ASSERT_EQ(10, flattened->length());
+    ASSERT_TRUE(
+        flattened->Equals(ArrayFromJSON(int32(), "[0, 1, 2, 3, null, 2, 9, 4, 6, 5]")));
+
+    // Empty nested list should flatten until non-list type is reached
+    nested_list_array =
+        std::dynamic_pointer_cast<ArrayType>(ArrayFromJSON(type, R"([null])"));
+    ASSERT_OK_AND_ASSIGN(flattened, nested_list_array->FlattenRecursively());
+    ASSERT_TRUE(flattened->type()->Equals(int32()));
+
+    // List types with three nested level: list<list<fixed_size_list<int32, 2>>>
+    type = std::make_shared<T>(std::make_shared<T>(fixed_size_list(int32(), 2)));
+    nested_list_array = std::dynamic_pointer_cast<ArrayType>(ArrayFromJSON(type, R"([
+      [
+        [[null, 0]],
+        [[3, 7], null]
+      ],
+      [
+        [[4, null], [5, 8]],
+        [[8, null]],
+        null
+      ],
+      [
+        null
+      ]
+    ])"));
+    ASSERT_OK_AND_ASSIGN(flattened, nested_list_array->FlattenRecursively());
+    ASSERT_OK(flattened->ValidateFull());
+    ASSERT_EQ(10, flattened->length());
+    ASSERT_EQ(3, flattened->null_count());
+    ASSERT_TRUE(flattened->Equals(
+        ArrayFromJSON(int32(), "[null, 0, 3, 7, 4, null, 5, 8, 8, null]")));
   }
 
   Status ValidateOffsetsAndSizes(int64_t length, std::vector<offset_type> offsets,
@@ -925,10 +971,12 @@ TYPED_TEST(TestListArray, BuilderPreserveFieldName) {
 TYPED_TEST(TestListArray, FlattenSimple) { this->TestFlattenSimple(); }
 TYPED_TEST(TestListArray, FlattenNulls) { this->TestFlattenNulls(); }
 TYPED_TEST(TestListArray, FlattenAllEmpty) { this->TestFlattenAllEmpty(); }
+TYPED_TEST(TestListArray, FlattenSliced) { this->TestFlattenSliced(); }
 TYPED_TEST(TestListArray, FlattenZeroLength) { this->TestFlattenZeroLength(); }
 TYPED_TEST(TestListArray, TestFlattenNonEmptyBackingNulls) {
   this->TestFlattenNonEmptyBackingNulls();
 }
+TYPED_TEST(TestListArray, FlattenRecursively) { this->TestFlattenRecursively(); }
 
 TYPED_TEST(TestListArray, ValidateDimensions) { this->TestValidateDimensions(); }
 
@@ -1239,7 +1287,7 @@ TEST_F(TestMapArray, ValidateErrorNullKey) {
 }
 
 TEST_F(TestMapArray, FromArrays) {
-  std::shared_ptr<Array> offsets1, offsets2, offsets3, offsets4, keys, items;
+  std::shared_ptr<Array> offsets1, offsets2, offsets3, offsets4, offsets5, keys, items;
 
   std::vector<bool> offsets_is_valid3 = {true, false, true, true};
   std::vector<bool> offsets_is_valid4 = {true, true, false, true};
@@ -1294,6 +1342,20 @@ TEST_F(TestMapArray, FromArrays) {
   // Zero-length offsets
   ASSERT_RAISES(Invalid, MapArray::FromArrays(offsets1->Slice(0, 0), keys, items, pool_));
 
+  // Offseted offsets
+  ASSERT_OK_AND_ASSIGN(auto map5,
+                       MapArray::FromArrays(offsets1->Slice(1), keys, items, pool_));
+  ASSERT_OK(map5->Validate());
+
+  AssertArraysEqual(*expected1.Slice(1), *map5);
+
+  std::vector<MapType::offset_type> offset5_values = {2, 2, 6};
+  ArrayFromVector<OffsetType, offset_type>(offset5_values, &offsets5);
+  ASSERT_OK_AND_ASSIGN(auto map6, MapArray::FromArrays(offsets5, keys, items, pool_));
+  ASSERT_OK(map6->Validate());
+
+  AssertArraysEqual(*map5, *map6);
+
   // Offsets not the right type
   ASSERT_RAISES(TypeError, MapArray::FromArrays(keys, offsets1, items, pool_));
 
@@ -1306,6 +1368,23 @@ TEST_F(TestMapArray, FromArrays) {
   ASSERT_EQ(keys_with_null->length(), tmp_items->length());
   ASSERT_RAISES(Invalid,
                 MapArray::FromArrays(offsets1, keys_with_null, tmp_items, pool_));
+
+  // With null_bitmap
+  ASSERT_OK_AND_ASSIGN(auto map7, MapArray::FromArrays(offsets1, keys, items, pool_,
+                                                       offsets3->data()->buffers[0]));
+  ASSERT_OK(map7->Validate());
+  MapArray expected7(map_type, length, offsets1->data()->buffers[1], keys, items,
+                     offsets3->data()->buffers[0], 1);
+  AssertArraysEqual(expected7, *map7);
+
+  // Null bitmap and offset with null
+  ASSERT_RAISES(Invalid, MapArray::FromArrays(offsets3, keys, items, pool_,
+                                              offsets3->data()->buffers[0]));
+
+  // Null bitmap and offset with offset
+  ASSERT_RAISES(NotImplemented,
+                MapArray::FromArrays(offsets1->Slice(2), keys, items, pool_,
+                                     offsets3->data()->buffers[0]));
 }
 
 TEST_F(TestMapArray, FromArraysEquality) {
@@ -1712,6 +1791,25 @@ TEST_F(TestFixedSizeListArray, Flatten) {
     AssertArraysEqual(*flattened, *ArrayFromJSON(value_type_, "[4, 5]"),
                       /*verbose=*/true);
   }
+}
+
+TEST_F(TestFixedSizeListArray, FlattenRecursively) {
+  // Nested fixed-size list-array: fixed_size_list(fixed_size_list(int32, 2), 2)
+  auto inner_type = fixed_size_list(value_type_, 2);
+  type_ = fixed_size_list(inner_type, 2);
+
+  auto values = std::dynamic_pointer_cast<FixedSizeListArray>(ArrayFromJSON(type_, R"([
+    [[0, 1], [null, 3]],
+    [[7, null], [2, 5]],
+    [null, null]
+  ])"));
+  ASSERT_OK(values->ValidateFull());
+  ASSERT_OK_AND_ASSIGN(auto flattened, values->FlattenRecursively());
+  ASSERT_OK(flattened->ValidateFull());
+  ASSERT_EQ(8, flattened->length());
+  ASSERT_EQ(2, flattened->null_count());
+  AssertArraysEqual(*flattened,
+                    *ArrayFromJSON(value_type_, "[0, 1, null, 3, 7, null, 2, 5]"));
 }
 
 }  // namespace arrow

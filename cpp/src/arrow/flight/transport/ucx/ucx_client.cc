@@ -77,7 +77,7 @@ class ClientConnection {
   ARROW_DEFAULT_MOVE_AND_ASSIGN(ClientConnection);
   ~ClientConnection() { DCHECK(!driver_) << "Connection was not closed!"; }
 
-  Status Init(std::shared_ptr<UcpContext> ucp_context, const arrow::internal::Uri& uri) {
+  Status Init(std::shared_ptr<UcpContext> ucp_context, const arrow::util::Uri& uri) {
     auto status = InitImpl(std::move(ucp_context), uri);
     // Clean up after-the-fact if we fail to initialize
     if (!status.ok()) {
@@ -91,8 +91,7 @@ class ClientConnection {
     return status;
   }
 
-  Status InitImpl(std::shared_ptr<UcpContext> ucp_context,
-                  const arrow::internal::Uri& uri) {
+  Status InitImpl(std::shared_ptr<UcpContext> ucp_context, const arrow::util::Uri& uri) {
     {
       ucs_status_t status;
       ucp_worker_params_t worker_params;
@@ -521,7 +520,7 @@ class UcxClientImpl : public arrow::flight::internal::ClientTransport {
   }
 
   Status Init(const FlightClientOptions& options, const Location& location,
-              const arrow::internal::Uri& uri) override {
+              const arrow::util::Uri& uri) override {
     RETURN_NOT_OK(uri_.Parse(uri.ToString()));
     {
       ucp_config_t* ucp_config;
@@ -721,7 +720,7 @@ class UcxClientImpl : public arrow::flight::internal::ClientTransport {
  private:
   static constexpr size_t kMaxOpenConnections = 3;
 
-  arrow::internal::Uri uri_;
+  arrow::util::Uri uri_;
   std::shared_ptr<UcpContext> ucp_context_;
   std::mutex connections_mutex_;
   std::deque<ClientConnection> connections_;

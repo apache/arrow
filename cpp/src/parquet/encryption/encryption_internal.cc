@@ -55,12 +55,7 @@ class AesEncryptor::AesEncryptorImpl {
   explicit AesEncryptorImpl(ParquetCipher::type alg_id, int key_len, bool metadata,
                             bool write_length);
 
-  ~AesEncryptorImpl() {
-    if (nullptr != ctx_) {
-      EVP_CIPHER_CTX_free(ctx_);
-      ctx_ = nullptr;
-    }
-  }
+  ~AesEncryptorImpl() { WipeOut(); }
 
   int Encrypt(const uint8_t* plaintext, int plaintext_len, const uint8_t* key,
               int key_len, const uint8_t* aad, int aad_len, uint8_t* ciphertext);
@@ -318,12 +313,7 @@ class AesDecryptor::AesDecryptorImpl {
   explicit AesDecryptorImpl(ParquetCipher::type alg_id, int key_len, bool metadata,
                             bool contains_length);
 
-  ~AesDecryptorImpl() {
-    if (nullptr != ctx_) {
-      EVP_CIPHER_CTX_free(ctx_);
-      ctx_ = nullptr;
-    }
-  }
+  ~AesDecryptorImpl() { WipeOut(); }
 
   int Decrypt(const uint8_t* ciphertext, int ciphertext_len, const uint8_t* key,
               int key_len, const uint8_t* aad, int aad_len, uint8_t* plaintext);

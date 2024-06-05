@@ -180,7 +180,6 @@ Example: Create a dataset of names (strings) and ages (32-bit signed integers).
         IntVector ageVector = (IntVector) root.getVector("age");
         VarCharVector nameVector = (VarCharVector) root.getVector("name");
     ){
-        root.setRowCount(3);
         ageVector.allocateNew(3);
         ageVector.set(0, 10);
         ageVector.set(1, 20);
@@ -189,16 +188,17 @@ Example: Create a dataset of names (strings) and ages (32-bit signed integers).
         nameVector.set(0, "Dave".getBytes(StandardCharsets.UTF_8));
         nameVector.set(1, "Peter".getBytes(StandardCharsets.UTF_8));
         nameVector.set(2, "Mary".getBytes(StandardCharsets.UTF_8));
+        root.setRowCount(3);
         System.out.println("VectorSchemaRoot created: \n" + root.contentToTSVString());
     }
 
 .. code-block:: shell
 
     VectorSchemaRoot created:
-    age	    name
-    10	    Dave
-    20	    Peter
-    30	    Mary
+    age      name
+    10      Dave
+    20      Peter
+    30      Mary
 
 
 Interprocess Communication (IPC)
@@ -306,10 +306,10 @@ Example: Read the dataset from the previous example from an Arrow IPC file (rand
 
     Record batches in file: 1
     VectorSchemaRoot read:
-    age	    name
-    10	    Dave
-    20	    Peter
-    30	    Mary
+    age      name
+    10       Dave
+    20       Peter
+    30       Mary
 
 More examples available at `Arrow Java Cookbook`_.
 

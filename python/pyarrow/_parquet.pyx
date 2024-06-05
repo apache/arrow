@@ -29,9 +29,10 @@ from pyarrow.includes.libarrow_python cimport *
 from pyarrow.lib cimport (_Weakrefable, Buffer, Schema,
                           check_status,
                           MemoryPool, maybe_unbox_memory_pool,
-                          Table, NativeFile,
+                          Table, KeyValueMetadata,
                           pyarrow_wrap_chunked_array,
                           pyarrow_wrap_schema,
+                          pyarrow_unwrap_metadata,
                           pyarrow_unwrap_schema,
                           pyarrow_wrap_table,
                           pyarrow_wrap_batch,
@@ -705,6 +706,22 @@ cdef class SortingColumn:
         """Whether null values appear before valid values (bool)."""
         return self.nulls_first
 
+    def to_dict(self):
+        """
+        Get dictionary representation of the SortingColumn.
+
+        Returns
+        -------
+        dict
+            Dictionary with a key for each attribute of this class.
+        """
+        d = dict(
+            column_index=self.column_index,
+            descending=self.descending,
+            nulls_first=self.nulls_first
+        )
+        return d
+
 
 cdef class RowGroupMetaData(_Weakrefable):
     """Metadata for a single row group."""
@@ -848,6 +865,13 @@ cdef class FileMetaData(_Weakrefable):
 
         cdef Buffer buffer = sink.getvalue()
         return _reconstruct_filemetadata, (buffer,)
+
+    def __hash__(self):
+        return hash((self.schema,
+                     self.num_rows,
+                     self.num_row_groups,
+                     self.format_version,
+                     self.serialized_size))
 
     def __repr__(self):
         return """{0}
@@ -1070,6 +1094,9 @@ cdef class ParquetSchema(_Weakrefable):
 
     def __getitem__(self, i):
         return self.column(i)
+
+    def __hash__(self):
+        return hash(self.schema.ToString())
 
     @property
     def names(self):
@@ -2179,6 +2206,15 @@ cdef class ParquetWriter(_Weakrefable):
         with nogil:
             check_status(self.writer.get()
                          .WriteTable(deref(ctable), c_row_group_size))
+
+    def add_key_value_metadata(self, key_value_metadata):
+        cdef:
+            shared_ptr[const CKeyValueMetadata] c_metadata
+
+        c_metadata = pyarrow_unwrap_metadata(KeyValueMetadata(key_value_metadata))
+        with nogil:
+            check_status(self.writer.get()
+                         .AddKeyValueMetadata(c_metadata))
 
     @property
     def metadata(self):

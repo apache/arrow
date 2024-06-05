@@ -74,6 +74,7 @@ COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 
 ENV ARROW_ACERO=ON \
+    ARROW_AZURE=OFF \
     ARROW_BUILD_TESTS=ON \
     ARROW_DATASET=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
