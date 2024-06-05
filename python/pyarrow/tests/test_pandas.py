@@ -4730,12 +4730,12 @@ def make_df_with_timestamps():
     # Some of the milliseconds timestamps deliberately don't fit in the range
     # that is possible with nanosecond timestamps.
     df = pd.DataFrame({
-        'dateTimeMs': [
+        'dateTimeMs': np.array([
             np.datetime64('0001-01-01 00:00', 'ms'),
             np.datetime64('2012-05-02 12:35', 'ms'),
             np.datetime64('2012-05-03 15:42', 'ms'),
             np.datetime64('3000-05-03 15:42', 'ms'),
-        ],
+        ], dtype=object),
         'dateTimeNs': [
             np.datetime64('1991-01-01 00:00', 'ns'),
             np.datetime64('2012-05-02 12:35', 'ns'),
@@ -4743,8 +4743,10 @@ def make_df_with_timestamps():
             np.datetime64('2050-05-03 15:42', 'ns'),
         ],
     })
+    df['dateTimeMs'] = df['dateTimeMs'].astype('object')
     # Not part of what we're testing, just ensuring that the inputs are what we
     # expect.
+    # if Version(pd.__version__) < Version("3.0.0.dev0"):
     assert (df.dateTimeMs.dtype, df.dateTimeNs.dtype) == (
         # O == object, M8[ns] == timestamp64[ns]
         np.dtype("O"), np.dtype("M8[ns]")
