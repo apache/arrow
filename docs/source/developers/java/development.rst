@@ -126,6 +126,8 @@ Automatically fixing code style issues
 - You can check the style without building the project with ``mvn spotless:check``.
 - You can autoformat the source with ``mvn spotless:apply``.
 
+Example:
+
 .. code-block:: bash
 
     The following files had format violations:
