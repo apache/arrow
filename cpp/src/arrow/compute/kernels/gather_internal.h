@@ -34,7 +34,7 @@
 // https://en.wikipedia.org/wiki/Gather/scatter_(vector_addressing)
 
 namespace arrow::internal {
-inline namespace gather_internal {
+
 // CRTP [1] base class for Gather that provides a gathering loop in terms of
 // Write*() methods that must be implemented by the derived class.
 //
@@ -302,5 +302,5 @@ class Gather</*kValueWidthInBits=*/1, IndexCType, /*kWithFactor=*/false>
         src_validity, idx_length_, idx_, idx_validity, out_is_valid);
   }
 };
-}  // namespace gather_internal
+
 }  // namespace arrow::internal
