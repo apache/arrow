@@ -86,12 +86,25 @@ safe_unserialize <- function(x) {
 }
 
 safe_r_metadata <- function(metadata, on_save = FALSE) {
-  # This function recurses through the list x and checks that all elements are
-  # of types that are allowed in R metadata. If it finds an element that is not
-  # allowed, it removes it. If any elements are removed, warn at the end.
+  # This function recurses through the metadata list and checks that all
+  # elements are of types that are allowed in R metadata.
+  # If it finds an element that is not allowed, it removes it.
+  #
+  # This function is used both when saving and loading metadata.
+  # @param on_save: If TRUE, the function will not warn if it removes elements:
+  # we're just cleaning up the metadata for saving. If FALSE, it means we're
+  # loading the metadata, and we'll warn if we find invalid elements.
+  #
+  # When loading metadata, you can optionally keep the invalid elements by
+  # setting `options(arrow.unsafe_metadata = TRUE)`. It will still check
+  # for invalid elements and warn if any are found, though.
+
+  # This variable will be used to store the types of elements that were removed,
+  # if any, so we can give an informative warning if needed.
   types_removed <- c()
+
   # Internal function that we'll recursively apply,
-  # and mutate the `any_removed` variable outside of it
+  # and mutate the `types_removed` variable outside of it.
   check_r_metadata_types_recursive <- function(x) {
     allowed_types <- c("character", "double", "integer", "logical", "complex", "list", "NULL")
     if (is.list(x)) {
@@ -99,6 +112,7 @@ safe_r_metadata <- function(metadata, on_save = FALSE) {
       x[types == "list"] <- map(x[types == "list"], check_r_metadata_types_recursive)
       ok <- types %in% allowed_types
       if (!all(ok)) {
+        # Record the invalid types, then remove the offending elements
         types_removed <<- c(types_removed, setdiff(types, allowed_types))
         x <- x[ok]
       }
