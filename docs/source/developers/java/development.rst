@@ -150,7 +150,11 @@ Follow the instructions to set up google-java-format for:
 - `Eclipse`_
 - `IntelliJ`_
 
-Code style enforced with both Spotless and Checkstyle. The configuration is located at `checkstyle`_.
+
+Checkstyle
+----------
+
+Checkstyle is also used for general linting. The configuration is located at `checkstyle`_.
 You can also just check the style without building the project.
 This checks the code style of all source code under the current directory or from within an individual module.
 
