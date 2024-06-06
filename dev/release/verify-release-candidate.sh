@@ -788,7 +788,7 @@ test_python() {
   pushd python
 
   # Build pyarrow
-  python -m pip install .
+  python -m pip install -e .
 
   # Check mandatory and optional imports
   python -c "
