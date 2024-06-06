@@ -616,7 +616,7 @@ public class ValueVectorDataPopulator {
   }
 
   /**
-   * Populate values for VarCharVector.
+   * Populate values for ViewVarCharVector.
    */
   public static void setVector(ViewVarCharVector vector, String... values) {
     final int length = values.length;
