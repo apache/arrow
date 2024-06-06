@@ -45,7 +45,7 @@ func (b *bufferWriteSeeker) Reserve(nbytes int) {
 	}
 	newCap := utils.Max(b.buf.Cap(), 256)
 	for newCap < b.pos+nbytes {
-		newCap = bitutil.NextPowerOf2(newCap)
+		newCap = bitutil.NextPowerOf2(b.pos + nbytes)
 	}
 	b.buf.Reserve(newCap)
 }

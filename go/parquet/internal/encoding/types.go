@@ -187,7 +187,7 @@ func (b *PooledBufferWriter) Reserve(nbytes int) {
 
 	newCap := utils.Max(b.buf.Cap(), 256)
 	for newCap < b.pos+nbytes {
-		newCap = bitutil.NextPowerOf2(newCap)
+		newCap = bitutil.NextPowerOf2(b.pos + nbytes)
 	}
 	b.buf.Reserve(newCap)
 }
@@ -382,7 +382,7 @@ func (b *BufferWriter) Reserve(nbytes int) {
 	}
 	newCap := utils.Max(b.buffer.Cap(), 256)
 	for newCap < b.pos+nbytes {
-		newCap = bitutil.NextPowerOf2(newCap)
+		newCap = bitutil.NextPowerOf2(b.pos + nbytes)
 	}
 	b.buffer.Reserve(newCap)
 }
