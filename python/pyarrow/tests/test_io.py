@@ -684,6 +684,11 @@ def test_non_cpu_buffer():
     assert buf_on_gpu.address == cuda_buf.address
     assert buf_on_gpu.is_cpu == cuda_buf.is_cpu
 
+    repr1 = "<pyarrow.Buffer address="
+    repr2 = "size=16 is_cpu=False is_mutable=True>"
+    assert repr1 in repr(buf_on_gpu)
+    assert repr2 in repr(buf_on_gpu)
+
     msg = "Implemented only for data on CPU device"
     with pytest.raises(NotImplementedError, match=msg):
         buf_on_gpu.hex()
@@ -708,6 +713,8 @@ def test_non_cpu_buffer():
 
     buf_on_gpu_expected = arr.buffers()[2]
 
+    assert buf_on_gpu_sliced.equals(buf_on_gpu_expected)
+    assert buf.equals(buf_on_gpu_expected)
     assert buf_on_gpu_sliced.to_pybytes() == buf_on_gpu_expected.to_pybytes()
 
 
