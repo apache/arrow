@@ -700,20 +700,17 @@ def test_non_cpu_buffer():
     with pytest.raises(NotImplementedError, match=msg):
         buf_on_gpu[1]
 
-    buf = pa.py_buffer(b'testing')
-    arr_offsets = pa.array([0, 7], type=pa.int32())
-    offsets_buf = arr_offsets.buffers()[1]
-    arr = pa.BinaryArray.from_buffers(pa.binary(), 1, [None, offsets_buf, buf])
+    with pytest.raises(NotImplementedError, match=msg):
+        cuda_buf[1]
 
-    buf_on_gpu = arr.buffers()[2]
+    buf = pa.py_buffer(b'testing')
+    arr = pa.FixedSizeBinaryArray.from_buffers(pa.binary(7), 1, [None, buf])
+    buf_on_gpu = arr.buffers()[1]
     buf_on_gpu_sliced = buf_on_gpu.slice(2)
 
     buf = pa.py_buffer(b'sting')
-    arr_offsets = pa.array([0, 5], type=pa.int32())
-    offsets_buf = arr_offsets.buffers()[1]
-    arr = pa.BinaryArray.from_buffers(pa.binary(), 1, [None, offsets_buf, buf])
-
-    buf_on_gpu_expected = arr.buffers()[2]
+    arr = pa.FixedSizeBinaryArray.from_buffers(pa.binary(5), 1, [None, buf])
+    buf_on_gpu_expected = arr.buffers()[1]
 
     assert buf_on_gpu_sliced.equals(buf_on_gpu_expected)
     assert buf.equals(buf_on_gpu_expected)
