@@ -94,9 +94,7 @@
     <forkCount>2</forkCount>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
     <errorprone.javac.version>9+181-r4173-1</errorprone.javac.version>
-    <error_prone_core.version>2.24.0</error_prone_core.version>
-    <error_prone_annotations.version.jdk11>2.24.0</error_prone_annotations.version.jdk11>
-    <error_prone_annotations.version.jdk8>2.10.0</error_prone_annotations.version.jdk8>
+    <error_prone_core.version>2.28.0</error_prone_core.version>
     <maven-compiler-plugin.version>3.12.1</maven-compiler-plugin.version>
     <mockito.core.version>5.11.0</mockito.core.version>
     <mockito.inline.version>5.2.0</mockito.inline.version>
@@ -946,6 +944,9 @@
            Do not activate Error Prone while running with Eclipse/M2E as it causes incompatibilities
            with other annotation processors.
            See https://github.com/jbosstools/m2e-apt/issues/62 for details
+
+           Note: Maintaining error-prone version with JDK8
+           See https://github.com/google/error-prone/blob/f8e33bc460be82ab22256a7ef8b979d7a2cacaba/docs/installation.md#jdk-8
       -->
       <activation>
         <jdk>1.8</jdk>
@@ -969,6 +970,13 @@
                 <path>
                   <groupId>com.google.errorprone</groupId>
                   <artifactId>error_prone_core</artifactId>
+                  <!--
+                       Reference: https://errorprone.info/docs/installation
+                       Error Prone 2.10.0 is the latest version
+                       to support running on JDK 8.
+                       With right flags it could be upgraded,
+                       but we choose to keep this unchanged for now. 
+                  -->
                   <version>2.10.0</version>
                 </path>
               </annotationProcessorPaths>
