@@ -15,12 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
-
 #include "arrow/extension_type.h"
 
-namespace arrow {
-namespace extension {
+namespace arrow::extension {
 
 class ARROW_EXPORT FixedShapeTensorArray : public ExtensionArray {
  public:
@@ -126,5 +123,4 @@ ARROW_EXPORT std::shared_ptr<DataType> fixed_shape_tensor(
     const std::vector<int64_t>& permutation = {},
     const std::vector<std::string>& dim_names = {});
 
-}  // namespace extension
-}  // namespace arrow
+}  // namespace arrow::extension
