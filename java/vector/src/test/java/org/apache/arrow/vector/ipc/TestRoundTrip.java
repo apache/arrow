@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -68,10 +69,9 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.AfterClass;
-import org.junit.Assume;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.slf4j.Logger;
@@ -100,12 +100,12 @@ public class TestRoundTrip extends BaseFileTest {
     );
   }
 
-  @BeforeClass
+  @BeforeAll
   public static void setUpClass() {
     allocator = new RootAllocator(Integer.MAX_VALUE);
   }
 
-  @AfterClass
+  @AfterAll
   public static void tearDownClass() {
     allocator.close();
   }
@@ -172,7 +172,7 @@ public class TestRoundTrip extends BaseFileTest {
 
   @Test
   public void testUnionV4() throws Exception {
-    Assume.assumeTrue(writeOption.metadataVersion == MetadataVersion.V4);
+    assumeTrue(writeOption.metadataVersion == MetadataVersion.V4);
     final File temp = File.createTempFile("arrow-test-" + name + "-", ".arrow");
     temp.deleteOnExit();
     final ByteArrayOutputStream memoryStream = new ByteArrayOutputStream();
@@ -198,7 +198,7 @@ public class TestRoundTrip extends BaseFileTest {
 
   @Test
   public void testUnionV5() throws Exception {
-    Assume.assumeTrue(writeOption.metadataVersion == MetadataVersion.V5);
+    assumeTrue(writeOption.metadataVersion == MetadataVersion.V5);
     try (final BufferAllocator originalVectorAllocator =
              allocator.newChildAllocator("original vectors", 0, allocator.getLimit());
          final StructVector parent = StructVector.empty("parent", originalVectorAllocator)) {

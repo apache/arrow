@@ -34,7 +34,7 @@ import org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.arrow.vector.ipc.ArrowStreamWriter;
 import org.apache.arrow.vector.ipc.MessageSerializerTest;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class TestArrowStreamPipe {
   Schema schema = MessageSerializerTest.testSchema();

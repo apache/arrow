@@ -25,7 +25,7 @@ import java.math.BigInteger;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class DecimalUtilityTest {
   private static final BigInteger[] MAX_BIG_INT = new BigInteger[]{BigInteger.valueOf(10).pow(38)

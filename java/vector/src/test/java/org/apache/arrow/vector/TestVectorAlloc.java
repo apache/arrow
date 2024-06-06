@@ -39,23 +39,23 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class TestVectorAlloc {
   private BufferAllocator rootAllocator;
 
   private BufferAllocator policyAllocator;
 
-  @Before
+  @BeforeEach
   public void init() {
     rootAllocator = new RootAllocator(Long.MAX_VALUE);
     policyAllocator =
         new RootAllocator(AllocationListener.NOOP, Integer.MAX_VALUE, new CustomPolicy());
   }
 
-  @After
+  @AfterEach
   public void terminate() throws Exception {
     rootAllocator.close();
     policyAllocator.close();

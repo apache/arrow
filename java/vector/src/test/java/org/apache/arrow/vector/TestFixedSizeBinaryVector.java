@@ -30,9 +30,9 @@ import org.apache.arrow.vector.holders.FixedSizeBinaryHolder;
 import org.apache.arrow.vector.holders.NullableFixedSizeBinaryHolder;
 import org.apache.arrow.vector.util.ReusableByteArray;
 import org.apache.arrow.vector.util.TransferPair;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class TestFixedSizeBinaryVector {
   private static final int numValues = 123;
@@ -89,7 +89,7 @@ public class TestFixedSizeBinaryVector {
   }
 
 
-  @Before
+  @BeforeEach
   public void init() throws Exception {
     allocator = new DirtyRootAllocator(Integer.MAX_VALUE, (byte) 100);
     vector = new FixedSizeBinaryVector("fixedSizeBinary", allocator, typeWidth);
@@ -132,7 +132,7 @@ public class TestFixedSizeBinaryVector {
     largeNullableHolder.buffer = largeBuf;
   }
 
-  @After
+  @AfterEach
   public void terminate() throws Exception {
     for (int i = 0; i < numValues; i++) {
       bufs[i].close();

@@ -32,20 +32,20 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.holders.NullableLargeVarBinaryHolder;
 import org.apache.arrow.vector.util.ReusableByteArray;
 import org.apache.arrow.vector.util.TransferPair;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class TestLargeVarBinaryVector {
 
   private BufferAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void prepare() {
     allocator = new RootAllocator(Integer.MAX_VALUE);
   }
 
-  @After
+  @AfterEach
   public void shutdown() {
     allocator.close();
   }

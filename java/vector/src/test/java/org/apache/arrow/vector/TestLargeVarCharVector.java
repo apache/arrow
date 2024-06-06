@@ -43,9 +43,9 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.Text;
 import org.apache.arrow.vector.util.TransferPair;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class TestLargeVarCharVector {
 
@@ -58,12 +58,12 @@ public class TestLargeVarCharVector {
 
   private BufferAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void prepare() {
     allocator = new RootAllocator(Integer.MAX_VALUE);
   }
 
-  @After
+  @AfterEach
   public void shutdown() {
     allocator.close();
   }
@@ -298,39 +298,47 @@ public class TestLargeVarCharVector {
     }
   }
 
-  @Test(expected = OutOfMemoryException.class)
+  @Test
   public void testVectorAllocateNew() {
-    try (RootAllocator smallAllocator = new RootAllocator(200);
-        LargeVarCharVector vector = new LargeVarCharVector("vec", smallAllocator)) {
-      vector.allocateNew();
-    }
+    assertThrows(OutOfMemoryException.class, () -> {
+      try (RootAllocator smallAllocator = new RootAllocator(200);
+          LargeVarCharVector vector = new LargeVarCharVector("vec", smallAllocator)) {
+        vector.allocateNew();
+      }
+    });
   }
 
-  @Test(expected = OversizedAllocationException.class)
+  @Test
   public void testLargeVariableVectorReallocation() {
-    final LargeVarCharVector vector = new LargeVarCharVector("vector", allocator);
-    // edge case 1: value count = MAX_VALUE_ALLOCATION
-    final long expectedAllocationInBytes = BaseValueVector.MAX_ALLOCATION_SIZE;
-    final int expectedOffsetSize = 10;
-    try {
-      vector.allocateNew(expectedAllocationInBytes, 10);
-      assertTrue(expectedOffsetSize <= vector.getValueCapacity());
-      assertTrue(expectedAllocationInBytes <= vector.getDataBuffer().capacity());
-      vector.reAlloc();
-      assertTrue(expectedOffsetSize * 2 <= vector.getValueCapacity());
-      assertTrue(expectedAllocationInBytes * 2 <= vector.getDataBuffer().capacity());
-    } finally {
-      vector.close();
-    }
+    assertThrows(OversizedAllocationException.class, () -> {
+      try (final LargeVarCharVector vector = new LargeVarCharVector("vector", allocator)) {
+        vector.allocateNew(10000, 1000);
+        vector.reAlloc();
+      }
+      final LargeVarCharVector vector = new LargeVarCharVector("vector", allocator);
+      // edge case 1: value count = MAX_VALUE_ALLOCATION
+      final long expectedAllocationInBytes = BaseValueVector.MAX_ALLOCATION_SIZE;
+      final int expectedOffsetSize = 10;
+      try {
+        vector.allocateNew(expectedAllocationInBytes, 10);
+        assertTrue(expectedOffsetSize <= vector.getValueCapacity());
+        assertTrue(expectedAllocationInBytes <= vector.getDataBuffer().capacity());
+        vector.reAlloc();
+        assertTrue(expectedOffsetSize * 2 <= vector.getValueCapacity());
+        assertTrue(expectedAllocationInBytes * 2 <= vector.getDataBuffer().capacity());
+      } finally {
+        vector.close();
+      }
 
-    // common: value count < MAX_VALUE_ALLOCATION
-    try {
-      vector.allocateNew(BaseValueVector.MAX_ALLOCATION_SIZE / 2, 0);
-      vector.reAlloc(); // value allocation reaches to MAX_VALUE_ALLOCATION
-      vector.reAlloc(); // this tests if it overflows
-    } finally {
-      vector.close();
-    }
+      // common: value count < MAX_VALUE_ALLOCATION
+      try {
+        vector.allocateNew(BaseValueVector.MAX_ALLOCATION_SIZE / 2, 0);
+        vector.reAlloc(); // value allocation reaches to MAX_VALUE_ALLOCATION
+        vector.reAlloc(); // this tests if it overflows
+      } finally {
+        vector.close();
+      }
+    });
   }
 
   @Test

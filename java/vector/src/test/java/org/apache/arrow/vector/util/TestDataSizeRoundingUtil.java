@@ -19,7 +19,7 @@ package org.apache.arrow.vector.util;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  * Test cases for {@link DataSizeRoundingUtil}.

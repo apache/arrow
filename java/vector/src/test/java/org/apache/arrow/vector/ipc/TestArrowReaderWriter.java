@@ -88,9 +88,9 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.ByteArrayReadableSeekableByteChannel;
 import org.apache.arrow.vector.util.DictionaryUtility;
 import org.apache.arrow.vector.util.TransferPair;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class TestArrowReaderWriter {
 
@@ -109,7 +109,7 @@ public class TestArrowReaderWriter {
   private Schema schema;
   private Schema encodedSchema;
 
-  @Before
+  @BeforeEach
   public void init() {
     allocator = new RootAllocator(Long.MAX_VALUE);
 
@@ -150,7 +150,7 @@ public class TestArrowReaderWriter {
         new DictionaryEncoding(/*id=*/3L, /*ordered=*/false, /*indexType=*/null));
   }
 
-  @After
+  @AfterEach
   public void terminate() throws Exception {
     dictionaryVector1.close();
     dictionaryVector2.close();

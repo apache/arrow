@@ -30,7 +30,7 @@ import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class TestBufferOwnershipTransfer {
 

@@ -28,19 +28,19 @@ import org.apache.arrow.vector.holders.NullableDurationHolder;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.util.TransferPair;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class TestDurationVector {
   RootAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void init() {
     allocator = new DirtyRootAllocator(Long.MAX_VALUE, (byte) 100);
   }
 
-  @After
+  @AfterEach
   public void terminate() {
     allocator.close();
   }

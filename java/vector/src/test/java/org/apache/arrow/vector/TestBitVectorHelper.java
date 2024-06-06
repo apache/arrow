@@ -26,7 +26,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.memory.util.MemoryUtil;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class TestBitVectorHelper {
   @Test

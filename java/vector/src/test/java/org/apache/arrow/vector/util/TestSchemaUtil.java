@@ -28,7 +28,7 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.SchemaUtility;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class TestSchemaUtil {
 

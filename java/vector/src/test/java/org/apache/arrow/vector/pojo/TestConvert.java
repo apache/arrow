@@ -46,7 +46,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import com.google.flatbuffers.FlatBufferBuilder;
 

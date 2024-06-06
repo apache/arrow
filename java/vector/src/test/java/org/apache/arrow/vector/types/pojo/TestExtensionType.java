@@ -53,7 +53,7 @@ import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType.ExtensionType;
 import org.apache.arrow.vector.util.VectorBatchAppender;
 import org.apache.arrow.vector.validate.ValidateVectorVisitor;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class TestExtensionType {
   /**

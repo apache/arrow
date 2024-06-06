@@ -87,8 +87,8 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.Text;
-import org.junit.After;
-import org.junit.Before;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -100,12 +100,12 @@ public class BaseFileTest {
   protected static final int COUNT = 10;
   protected BufferAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void init() {
     allocator = new RootAllocator(Integer.MAX_VALUE);
   }
 
-  @After
+  @AfterEach
   public void tearDown() {
     allocator.close();
   }

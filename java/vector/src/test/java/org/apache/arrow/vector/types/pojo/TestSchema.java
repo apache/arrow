@@ -49,7 +49,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Time;
 import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class TestSchema {
 

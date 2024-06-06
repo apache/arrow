@@ -42,20 +42,20 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.Text;
 import org.apache.arrow.vector.util.TransferPair;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class TestFixedSizeListVector {
 
   private BufferAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void init() {
     allocator = new DirtyRootAllocator(Long.MAX_VALUE, (byte) 100);
   }
 
-  @After
+  @AfterEach
   public void terminate() throws Exception {
     allocator.close();
   }
@@ -354,27 +354,29 @@ public class TestFixedSizeListVector {
   }
 
 
-  @Test(expected = IllegalStateException.class)
+  @Test
   public void testWriteIllegalData() throws Exception {
-    try (final FixedSizeListVector vector1 = FixedSizeListVector.empty("vector", /*size=*/3, allocator)) {
+    assertThrows(IllegalStateException.class, () -> {
+      try (final FixedSizeListVector vector1 = FixedSizeListVector.empty("vector", /*size=*/3, allocator)) {
 
-      UnionFixedSizeListWriter writer1 = vector1.getWriter();
-      writer1.allocate();
+        UnionFixedSizeListWriter writer1 = vector1.getWriter();
+        writer1.allocate();
 
-      int[] values1 = new int[] {1, 2, 3};
-      int[] values2 = new int[] {4, 5, 6, 7, 8};
+        int[] values1 = new int[]{1, 2, 3};
+        int[] values2 = new int[]{4, 5, 6, 7, 8};
 
-      //set some values
-      writeListVector(vector1, writer1, values1);
-      writeListVector(vector1, writer1, values2);
-      writer1.setValueCount(3);
+        //set some values
+        writeListVector(vector1, writer1, values1);
+        writeListVector(vector1, writer1, values2);
+        writer1.setValueCount(3);
 
-      assertEquals(3, vector1.getValueCount());
-      int[] realValue1 = convertListToIntArray(vector1.getObject(0));
-      assertTrue(Arrays.equals(values1, realValue1));
-      int[] realValue2 = convertListToIntArray(vector1.getObject(1));
-      assertTrue(Arrays.equals(values2, realValue2));
-    }
+        assertEquals(3, vector1.getValueCount());
+        int[] realValue1 = convertListToIntArray(vector1.getObject(0));
+        assertTrue(Arrays.equals(values1, realValue1));
+        int[] realValue2 = convertListToIntArray(vector1.getObject(1));
+        assertTrue(Arrays.equals(values2, realValue2));
+      }
+    });
   }
 
   @Test

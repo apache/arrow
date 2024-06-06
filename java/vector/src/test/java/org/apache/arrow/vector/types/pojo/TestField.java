@@ -28,7 +28,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class TestField {
 

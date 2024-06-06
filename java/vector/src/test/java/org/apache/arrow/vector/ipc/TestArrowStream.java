@@ -31,7 +31,7 @@ import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class TestArrowStream extends BaseFileTest {
   @Test

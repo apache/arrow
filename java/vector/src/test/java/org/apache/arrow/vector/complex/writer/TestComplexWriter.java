@@ -17,6 +17,7 @@
 
 package org.apache.arrow.vector.complex.writer;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -96,10 +97,9 @@ import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.apache.arrow.vector.util.Text;
 import org.apache.arrow.vector.util.TransferPair;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class TestComplexWriter {
 
@@ -107,12 +107,12 @@ public class TestComplexWriter {
 
   private static final int COUNT = 100;
 
-  @Before
+  @BeforeEach
   public void init() {
     allocator = new RootAllocator(Integer.MAX_VALUE);
   }
 
-  @After
+  @AfterEach
   public void terminate() throws Exception {
     allocator.close();
   }
@@ -1187,7 +1187,7 @@ public class TestComplexWriter {
       for (int i = 0; i < numValues; i++) {
         fixedSizeBinaryReader.setPosition(i);
         byte[] readValues = fixedSizeBinaryReader.readByteArray();
-        Assert.assertArrayEquals(values[i], readValues);
+        assertArrayEquals(values[i], readValues);
       }
     }
 
