@@ -836,7 +836,7 @@ Result<std::shared_ptr<Array>> MapArray::FromArraysInternal(
     return Status::NotImplemented("Null bitmap with offsets slice not supported.");
   }
 
-  if (offsets->null_count() > 0) {
+  if (offsets->data()->MayHaveNulls()) {
     ARROW_ASSIGN_OR_RAISE(auto buffers,
                           CleanListOffsets<MapType>(NULLPTR, *offsets, pool));
     return std::make_shared<MapArray>(type, offsets->length() - 1, std::move(buffers),
