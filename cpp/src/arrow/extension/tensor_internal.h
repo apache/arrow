@@ -28,8 +28,9 @@ ARROW_EXPORT
 Status IsPermutationValid(const std::vector<int64_t>& permutation);
 
 ARROW_EXPORT
-Result<std::vector<int64_t>> ComputeStrides(const std::shared_ptr<DataType>& value_type,
-                                            const std::vector<int64_t>& shape,
-                                            const std::vector<int64_t>& permutation);
+Status ComputeStrides(const std::shared_ptr<DataType>& value_type,
+                      const std::vector<int64_t>& shape,
+                      const std::vector<int64_t>& permutation,
+                      std::vector<int64_t>* strides);
 
 }  // namespace arrow::internal
