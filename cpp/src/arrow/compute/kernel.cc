@@ -410,9 +410,9 @@ bool InputType::Matches(const DataType& type) const {
     case InputType::USE_TYPE_MATCHER:
       return type_matcher_->Matches(type);
     case InputType::ANY_TYPE:
-      break;
+      return true;
   }
-  return true;
+  return false;
 }
 
 bool InputType::Matches(const Datum& value) const {
