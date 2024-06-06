@@ -346,6 +346,9 @@ using TakeState = OptionsWrapper<TakeOptions>;
 /// function defined in that file to access values and destination pointers
 /// and DO NOT ASSUME `values.type()` is a primitive type.
 ///
+/// NOTE: Template parameters are types instead of values to let
+/// `TakeIndexDispatch<>` forward `typename... Args`  after the index type.
+///
 /// \pre the indices have been boundschecked
 template <typename IndexCType, typename ValueBitWidthConstant,
           typename OutputIsZeroInitialized = std::false_type,
