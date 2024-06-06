@@ -125,7 +125,7 @@
     <dependency>
       <groupId>org.apache.calcite.avatica</groupId>
       <artifactId>avatica</artifactId>
-      <version>1.24.0</version>
+      <version>1.25.0</version>
     </dependency>
 
     <dependency>
