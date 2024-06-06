@@ -92,7 +92,7 @@ concepts, here is a small glossary to help disambiguate.
 Data Types
 ==========
 
-The `Schema.fbs`_ defines built-in data types supported by the
+The file `Schema.fbs`_ defines built-in data types supported by the
 Arrow columnar format. Each data type uses a well-defined physical layout.
 
 `Schema.fbs`_ is the authoritative source for the description of the
@@ -177,8 +177,8 @@ convenience:
 * \(3) Whether a Union type uses the Sparse or Dense layout is denoted by its
   *mode* parameter.
 
-* \(4) The *index type* of a Dictionary type can only be a signed integer type
-  with width 8 to 64 bits.
+* \(4) The *index type* of a Dictionary type can only be an integer type,
+  preferably signed, with width 8 to 64 bits.
 
 * \(5) The *run end type* of a Run-End Encoded type can only be a signed integer type
   with width 16 to 64 bits.
