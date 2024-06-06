@@ -118,7 +118,7 @@ Defining extension types ("user-defined types")
 
 Arrow has the notion of extension types in the metadata specification as a
 possibility to extend the built-in types. This is done by annotating any of the
-built-in Arrow logical types (the "storage type") with a custom type name and
+built-in Arrow data types (the "storage type") with a custom type name and
 optional serialized representation ("ARROW:extension:name" and
 "ARROW:extension:metadata" keys in the Field’s custom_metadata of an IPC
 message).
