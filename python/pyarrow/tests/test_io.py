@@ -669,7 +669,7 @@ def test_allocate_buffer_resizable():
     assert buf.size == 200
 
 
-def test_non_cpu_buffer():
+def test_non_cpu_buffer(pickle_module):
     cuda = pytest.importorskip("pyarrow.cuda")
     ctx = cuda.Context(0)
 
@@ -702,6 +702,9 @@ def test_non_cpu_buffer():
 
     with pytest.raises(NotImplementedError, match=msg):
         cuda_buf[1]
+
+    with pytest.raises(NotImplementedError, match=msg):
+        pickle_module.dumps(buf_on_gpu, protocol=4)
 
     buf = pa.py_buffer(b'testing')
     arr = pa.FixedSizeBinaryArray.from_buffers(pa.binary(7), 1, [None, buf])

@@ -1442,6 +1442,8 @@ cdef class Buffer(_Weakrefable):
             return self.equals(py_buffer(other))
 
     def __reduce_ex__(self, protocol):
+        if not self.is_cpu:
+            raise NotImplementedError("Implemented only for data on CPU device")
         if protocol >= 5:
             bufobj = pickle.PickleBuffer(self)
         elif self.buffer.get().is_mutable():
