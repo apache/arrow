@@ -673,7 +673,6 @@ def test_non_cpu_buffer():
     cuda = pytest.importorskip("pyarrow.cuda")
     ctx = cuda.Context(0)
 
-    import numpy as np
     arr = np.arange(4, dtype=np.int32)
     cuda_buf = ctx.buffer_from_data(arr)
 
@@ -692,6 +691,9 @@ def test_non_cpu_buffer():
     msg = "Implemented only for data on CPU device"
     with pytest.raises(NotImplementedError, match=msg):
         buf_on_gpu.hex()
+
+    with pytest.raises(NotImplementedError, match=msg):
+        cuda_buf.hex()
 
     assert buf_on_gpu.is_mutable
 
