@@ -289,7 +289,8 @@ std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(
     std::string region = "", std::string endpoint_override = "", std::string scheme = "",
     std::string proxy_options = "", bool background_writes = true,
     bool allow_bucket_creation = false, bool allow_bucket_deletion = false,
-    double connect_timeout = -1, double request_timeout = -1) {
+    bool check_directory_existence_before_creation = false, double connect_timeout = -1,
+    double request_timeout = -1) {
   // We need to ensure that S3 is initialized before we start messing with the
   // options
   StopIfNotOk(fs::EnsureS3Initialized());
@@ -330,6 +331,8 @@ std::shared_ptr<fs::S3FileSystem> fs___S3FileSystem__create(
 
   s3_opts.allow_bucket_creation = allow_bucket_creation;
   s3_opts.allow_bucket_deletion = allow_bucket_deletion;
+  s3_opts.check_directory_existence_before_creation =
+      check_directory_existence_before_creation;
 
   s3_opts.request_timeout = request_timeout;
   s3_opts.connect_timeout = connect_timeout;
