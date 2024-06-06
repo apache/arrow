@@ -461,7 +461,7 @@ public class ListViewVector extends BaseRepeatedValueViewVector
   }
 
   @Override
-  public UnionListReader getReader() {
+  public FieldReader getReader() {
     // TODO: https://github.com/apache/arrow/issues/41569
     throw new UnsupportedOperationException(
         "ListViewVector does not support getReader operation yet.");
