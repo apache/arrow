@@ -48,9 +48,7 @@ import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.Rule;
 import org.junit.jupiter.api.Test;
-import org.junit.rules.ExpectedException;
 
 public class MessageSerializerTest {
 
@@ -154,9 +152,6 @@ public class MessageSerializerTest {
     assertEquals(schema, deserialized);
   }
 
-  @Rule
-  public ExpectedException expectedEx = ExpectedException.none();
-
   @Test
   public void testSerializeRecordBatchV4() throws IOException {
     byte[] validity = new byte[]{(byte) 255, 0};
@@ -243,5 +238,4 @@ public class MessageSerializerTest {
     assertArrayEquals(validity, MessageSerializerTest.array(buffers.get(0)));
     assertArrayEquals(values, MessageSerializerTest.array(buffers.get(1)));
   }
-
 }
