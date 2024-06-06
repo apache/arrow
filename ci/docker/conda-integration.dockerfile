@@ -46,6 +46,7 @@ RUN mamba install -q -y \
 # (rustfmt is needed for tonic-build to compile the protobuf definitions)
 # GH-41637: Version pinned at 1.77 because the glibc for conda-cpp is currently too old
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --profile=minimal -y && \
+    $HOME/.cargo/bin/rustup override set 1.77 && \
     $HOME/.cargo/bin/rustup toolchain install 1.77 && \
     $HOME/.cargo/bin/rustup component add rustfmt
 
