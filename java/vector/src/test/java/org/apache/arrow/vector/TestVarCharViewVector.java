@@ -2243,12 +2243,7 @@ public class TestVarCharViewVector {
 
     TransferPair transferPair = vector.getTransferPair(allocator);
     transferPair.transfer();
-    BaseVariableWidthViewVector toVector;
-    if (vector instanceof ViewVarCharVector) {
-      toVector = (ViewVarCharVector) transferPair.getTo();
-    } else {
-      toVector = (ViewVarBinaryVector) transferPair.getTo();
-    }
+    BaseVariableWidthViewVector toVector = (BaseVariableWidthViewVector) transferPair.getTo();
     valueCapacity = toVector.getValueCapacity();
 
     for (int i = 0; i < valueCapacity; i++) {

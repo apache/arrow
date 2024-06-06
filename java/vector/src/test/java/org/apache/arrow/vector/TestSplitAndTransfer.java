@@ -239,12 +239,7 @@ public class TestSplitAndTransfer {
     populateBaseVariableWidthViewVector(vector, valueCount, compareArray);
 
     final TransferPair tp = vector.getTransferPair(allocator);
-    final BaseVariableWidthViewVector newVector;
-    if (vector instanceof ViewVarCharVector) {
-      newVector = (ViewVarCharVector) tp.getTo();
-    } else {
-      newVector = (ViewVarBinaryVector) tp.getTo();
-    }
+    final BaseVariableWidthViewVector newVector = (BaseVariableWidthViewVector) tp.getTo();;
     final int[][] startLengths = {{0, 201}, {201, 0}, {201, 200}, {401, 99}};
 
     for (final int[] startLength : startLengths) {
@@ -321,12 +316,7 @@ public class TestSplitAndTransfer {
     populateBaseVariableWidthViewVector(vector, valueCount, null);
 
     final TransferPair tp = vector.getTransferPair(allocator);
-    final BaseVariableWidthViewVector newVector;
-    if (vector instanceof ViewVarCharVector) {
-      newVector = (ViewVarCharVector) tp.getTo();
-    } else {
-      newVector = (ViewVarBinaryVector) tp.getTo();
-    }
+    final BaseVariableWidthViewVector newVector = (BaseVariableWidthViewVector) tp.getTo();
 
     final int[][] startLengths = {{0, 700}, {700, 299}};
 
@@ -391,12 +381,7 @@ public class TestSplitAndTransfer {
     populateBaseVariableWidthViewVector(vector, valueCount, compareArray);
 
     final TransferPair tp = vector.getTransferPair(allocator);
-    final BaseVariableWidthViewVector newVector;
-    if (vector instanceof ViewVarCharVector) {
-      newVector = (ViewVarCharVector) tp.getTo();
-    } else {
-      newVector = (ViewVarBinaryVector) tp.getTo();
-    }
+    final BaseVariableWidthViewVector newVector = (BaseVariableWidthViewVector) tp.getTo();
     tp.transfer();
 
     assertEquals(0, vector.valueCount);
@@ -484,13 +469,7 @@ public class TestSplitAndTransfer {
     populateBaseVariableWidthViewVector(vector, valueCount, null);
 
     final TransferPair tp = vector.getTransferPair(allocator);
-    BaseVariableWidthViewVector newVector;
-
-    if (vector instanceof ViewVarCharVector) {
-      newVector = (ViewVarCharVector) tp.getTo();
-    } else {
-      newVector = (ViewVarBinaryVector) tp.getTo();
-    }
+    BaseVariableWidthViewVector newVector = (BaseVariableWidthViewVector) tp.getTo();
 
     tp.splitAndTransfer(0, 0);
     assertEquals(0, newVector.getValueCount());
@@ -536,13 +515,7 @@ public class TestSplitAndTransfer {
     populateBaseVariableWidthViewVector(vector, valueCount, null);
 
     final TransferPair tp = vector.getTransferPair(allocator);
-    BaseVariableWidthViewVector newViewVarCharVector;
-
-    if (vector instanceof ViewVarCharVector) {
-      newViewVarCharVector = (ViewVarCharVector) tp.getTo();
-    } else {
-      newViewVarCharVector = (ViewVarBinaryVector) tp.getTo();
-    }
+    BaseVariableWidthViewVector newViewVarCharVector = (BaseVariableWidthViewVector) tp.getTo();
 
     tp.splitAndTransfer(0, valueCount);
     assertEquals(valueCount, newViewVarCharVector.getValueCount());
