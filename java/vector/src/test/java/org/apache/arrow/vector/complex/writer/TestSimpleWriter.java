@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector.complex.writer;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.nio.ByteBuffer;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -148,7 +150,7 @@ public class TestSimpleWriter {
       String input = "testInput";
       writer.writeVarChar(input);
       String result = vector.getObject(0).toString();
-      Assert.assertEquals(input, result);
+      assertEquals(input, result);
     }
   }
 
@@ -159,7 +161,7 @@ public class TestSimpleWriter {
       String input = "testInput";
       writer.writeVarChar(new Text(input));
       String result = vector.getObject(0).toString();
-      Assert.assertEquals(input, result);
+      assertEquals(input, result);
     }
   }
 
@@ -170,7 +172,7 @@ public class TestSimpleWriter {
       String input = "testInput";
       writer.writeLargeVarChar(input);
       String result = vector.getObject(0).toString();
-      Assert.assertEquals(input, result);
+      assertEquals(input, result);
     }
   }
 
@@ -181,7 +183,7 @@ public class TestSimpleWriter {
       String input = "testInput";
       writer.writeLargeVarChar(new Text(input));
       String result = vector.getObject(0).toString();
-      Assert.assertEquals(input, result);
+      assertEquals(input, result);
     }
   }
 }

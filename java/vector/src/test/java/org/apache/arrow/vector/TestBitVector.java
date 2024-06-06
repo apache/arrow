@@ -17,10 +17,10 @@
 
 package org.apache.arrow.vector;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.stream.IntStream;
 
@@ -30,7 +30,6 @@ import org.apache.arrow.memory.util.hash.MurmurHasher;
 import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
 import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -124,8 +123,9 @@ public class TestBitVector {
           for (int i = 0; i < length; i++) {
             int actual = toVector.get(i);
             int expected = sourceVector.get(start + i);
-            assertEquals("different data values not expected --> sourceVector index: " + (start + i) +
-                " toVector index: " + i, expected, actual);
+            assertEquals(expected, actual,
+                    "different data values not expected --> sourceVector index: " + (start + i) +
+                            " toVector index: " + i);
           }
         }
       }
@@ -167,8 +167,9 @@ public class TestBitVector {
           for (int i = 0; i < length; i++) {
             int actual = toVector.get(i);
             int expected = sourceVector.get(start + i);
-            assertEquals("different data values not expected --> sourceVector index: " + (start + i) +
-                " toVector index: " + i, expected, actual);
+            assertEquals(expected, actual,
+                    "different data values not expected --> sourceVector index: " + (start + i) +
+                            " toVector index: " + i);
           }
         }
       }
@@ -218,8 +219,9 @@ public class TestBitVector {
           for (int i = 0; i < length; i++) {
             int actual = toVector.get(i);
             int expected = sourceVector.get(start + i);
-            assertEquals("different data values not expected --> sourceVector index: " + (start + i) +
-                " toVector index: " + i, expected, actual);
+            assertEquals(expected, actual,
+                    "different data values not expected --> sourceVector index: " + (start + i) +
+                            " toVector index: " + i);
           }
         }
       }
@@ -241,9 +243,9 @@ public class TestBitVector {
 
       for (int i = 0; i < valueCapacity; i++) {
         if ((i & 1) == 1) {
-          assertEquals("unexpected cleared bit at index: " + i, 1, vector.get(i));
+          assertEquals(1, vector.get(i), "unexpected cleared bit at index: " + i);
         } else {
-          assertTrue("unexpected set bit at index: " + i, vector.isNull(i));
+          assertTrue(vector.isNull(i), "unexpected set bit at index: " + i);
         }
       }
 
@@ -259,9 +261,9 @@ public class TestBitVector {
 
       for (int i = 0; i < valueCapacity * 2; i++) {
         if (((i & 1) == 1) || (i == valueCapacity)) {
-          assertEquals("unexpected cleared bit at index: " + i, 1, vector.get(i));
+          assertEquals(1, vector.get(i), "unexpected cleared bit at index: " + i);
         } else {
-          assertTrue("unexpected set bit at index: " + i, vector.isNull(i));
+          assertTrue(vector.isNull(i), "unexpected set bit at index: " + i);
         }
       }
 
@@ -277,9 +279,9 @@ public class TestBitVector {
 
       for (int i = 0; i < valueCapacity * 4; i++) {
         if (((i & 1) == 1) || (i == valueCapacity) || (i == valueCapacity * 2)) {
-          assertEquals("unexpected cleared bit at index: " + i, 1, vector.get(i));
+          assertEquals(1, vector.get(i), "unexpected cleared bit at index: " + i);
         } else {
-          assertTrue("unexpected set bit at index: " + i, vector.isNull(i));
+          assertTrue(vector.isNull(i), "unexpected set bit at index: " + i);
         }
       }
 
@@ -297,12 +299,12 @@ public class TestBitVector {
         if (i <= valueCapacity * 4) {
           if (((i & 1) == 1) || (i == valueCapacity) ||
                   (i == valueCapacity * 2) || (i == valueCapacity * 4)) {
-            assertEquals("unexpected cleared bit at index: " + i, 1, toVector.get(i));
+            assertEquals(1, toVector.get(i), "unexpected cleared bit at index: " + i);
           } else {
-            assertTrue("unexpected set bit at index: " + i, toVector.isNull(i));
+            assertTrue(toVector.isNull(i), "unexpected set bit at index: " + i);
           }
         } else {
-          assertTrue("unexpected set bit at index: " + i, toVector.isNull(i));
+          assertTrue(toVector.isNull(i), "unexpected set bit at index: " + i);
         }
       }
 
@@ -325,9 +327,9 @@ public class TestBitVector {
 
       for (int i = 0; i < valueCapacity; i++) {
         if ((i & 1) == 1) {
-          assertFalse("unexpected cleared bit at index: " + i, vector.isNull(i));
+          assertFalse(vector.isNull(i), "unexpected cleared bit at index: " + i);
         } else {
-          assertTrue("unexpected set bit at index: " + i, vector.isNull(i));
+          assertTrue(vector.isNull(i), "unexpected set bit at index: " + i);
         }
       }
 
@@ -343,9 +345,9 @@ public class TestBitVector {
 
       for (int i = 0; i < valueCapacity * 2; i++) {
         if (((i & 1) == 1) || (i == valueCapacity)) {
-          assertFalse("unexpected cleared bit at index: " + i, vector.isNull(i));
+          assertFalse(vector.isNull(i), "unexpected cleared bit at index: " + i);
         } else {
-          assertTrue("unexpected set bit at index: " + i, vector.isNull(i));
+          assertTrue(vector.isNull(i), "unexpected set bit at index: " + i);
         }
       }
 
@@ -361,9 +363,9 @@ public class TestBitVector {
 
       for (int i = 0; i < valueCapacity * 4; i++) {
         if (((i & 1) == 1) || (i == valueCapacity) || (i == valueCapacity * 2)) {
-          assertFalse("unexpected cleared bit at index: " + i, vector.isNull(i));
+          assertFalse(vector.isNull(i), "unexpected cleared bit at index: " + i);
         } else {
-          assertTrue("unexpected set bit at index: " + i, vector.isNull(i));
+          assertTrue(vector.isNull(i), "unexpected set bit at index: " + i);
         }
       }
 
@@ -381,12 +383,12 @@ public class TestBitVector {
         if (i <= valueCapacity * 4) {
           if (((i & 1) == 1) || (i == valueCapacity) ||
                   (i == valueCapacity * 2) || (i == valueCapacity * 4)) {
-            assertFalse("unexpected cleared bit at index: " + i, toVector.isNull(i));
+            assertFalse(toVector.isNull(i), "unexpected cleared bit at index: " + i);
           } else {
-            assertTrue("unexpected set bit at index: " + i, toVector.isNull(i));
+            assertTrue(toVector.isNull(i), "unexpected set bit at index: " + i);
           }
         } else {
-          assertTrue("unexpected set bit at index: " + i, toVector.isNull(i));
+          assertTrue(toVector.isNull(i), "unexpected set bit at index: " + i);
         }
       }
 
@@ -500,13 +502,13 @@ public class TestBitVector {
       bitVector.allocateNew(length);
       bitVector.setRangeToOne(start, count);
       for (int i = 0; i < start; i++) {
-        Assert.assertTrue(desc + i, bitVector.isNull(i));
+        assertTrue(bitVector.isNull(i), desc + i);
       }
       for (int i = start; i < start + count; i++) {
-        Assert.assertEquals(desc + i, 1, bitVector.get(i));
+        assertEquals(1, bitVector.get(i), desc + i);
       }
       for (int i = start + count; i < length; i++) {
-        Assert.assertTrue(desc + i, bitVector.isNull(i));
+        assertTrue(bitVector.isNull(i), desc + i);
       }
     }
   }

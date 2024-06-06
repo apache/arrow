@@ -23,11 +23,12 @@ import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 import static org.apache.arrow.vector.TestUtils.newVarCharVector;
 import static org.apache.arrow.vector.TestUtils.newVector;
 import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -90,7 +91,6 @@ import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.jupiter.api.Assertions;
 
 public class TestArrowReaderWriter {
 
@@ -386,18 +386,18 @@ public class TestArrowReaderWriter {
           assertEquals(dictionaryVector4.getValueCount(), readDictionaryVector.getValueCount());
           final BiFunction<ValueVector, ValueVector, Boolean> typeComparatorIgnoreName =
               (v1, v2) -> new TypeEqualsVisitor(v1, false, true).equals(v2);
-          assertTrue("Dictionary vectors are not equal",
-              new RangeEqualsVisitor(dictionaryVector4, readDictionaryVector,
-                  typeComparatorIgnoreName)
-                      .rangeEquals(new Range(0, 0, dictionaryVector4.getValueCount())));
+          assertTrue(new RangeEqualsVisitor(dictionaryVector4, readDictionaryVector,
+                          typeComparatorIgnoreName).rangeEquals(new Range(0, 0,
+                          dictionaryVector4.getValueCount())),
+                  "Dictionary vectors are not equal");
 
           // Assert the decoded vector is correct
           try (final ValueVector readVector =
               DictionaryEncoder.decode(readEncoded, readDictionary)) {
             assertEquals(vector.getValueCount(), readVector.getValueCount());
-            assertTrue("Decoded vectors are not equal",
-                new RangeEqualsVisitor(vector, readVector, typeComparatorIgnoreName)
-                    .rangeEquals(new Range(0, 0, vector.getValueCount())));
+            assertTrue(new RangeEqualsVisitor(vector, readVector, typeComparatorIgnoreName)
+                    .rangeEquals(new Range(0, 0, vector.getValueCount())),
+                    "Decoded vectors are not equal");
           }
         }
       }
@@ -986,7 +986,7 @@ public class TestArrowReaderWriter {
     System.arraycopy(magicBytes, 0, data, footerOffset + 4, ArrowMagic.MAGIC_LENGTH);
 
     // test file reader
-    InvalidArrowFileException e = Assertions.assertThrows(InvalidArrowFileException.class, () -> {
+    InvalidArrowFileException e = assertThrows(InvalidArrowFileException.class, () -> {
       try (SeekableReadChannel channel = new SeekableReadChannel(new ByteArrayReadableSeekableByteChannel(data));
            ArrowFileReader reader = new ArrowFileReader(channel, allocator)) {
         reader.getVectorSchemaRoot().getSchema();

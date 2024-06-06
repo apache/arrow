@@ -17,10 +17,10 @@
 
 package org.apache.arrow.vector;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -130,10 +130,10 @@ public class TestDenseUnionVector {
 
       duv.setValueCount(4);
 
-      assertEquals(42, duv.getObject(0));
-      assertEquals(43, duv.getObject(1));
-      assertEquals(3.14, duv.getObject(2));
-      assertEquals(44, duv.getObject(3));
+      assertEquals(duv.getObject(0), 42);
+      assertEquals(duv.getObject(1), 43);
+      assertEquals(duv.getObject(2), 3.14);
+      assertEquals(duv.getObject(3), 44);
     }
   }
 
@@ -262,8 +262,8 @@ public class TestDenseUnionVector {
 
           /* check the toVector output after doing the splitAndTransfer */
           for (int i = 0; i < length; i++) {
-            assertEquals("Different data at indexes: " + (start + i) + "and " + i, sourceVector.getObject(start + i),
-                    toVector.getObject(i));
+            assertEquals(sourceVector.getObject(start + i), toVector.getObject(i),
+                    "Different data at indexes: " + (start + i) + "and " + i);
           }
         }
       }
@@ -356,7 +356,8 @@ public class TestDenseUnionVector {
 
           /* check the toVector output after doing the splitAndTransfer */
           for (int i = 0; i < length; i++) {
-            assertEquals("Different values at index: " + i, sourceVector.getObject(start + i), toVector.getObject(i));
+            assertEquals(sourceVector.getObject(start + i), toVector.getObject(i),
+                    "Different values at index: " + i);
           }
         }
       }

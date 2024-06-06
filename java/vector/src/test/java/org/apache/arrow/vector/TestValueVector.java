@@ -2142,7 +2142,8 @@ public class TestValueVector {
 
       try (
           ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
-          BufferAllocator finalVectorsAllocator = allocator.newChildAllocator("new vector", 0, Long.MAX_VALUE);
+          BufferAllocator finalVectorsAllocator = allocator.newChildAllocator("new vector", 0,
+                  Long.MAX_VALUE);
           VectorSchemaRoot schemaRoot2 = VectorSchemaRoot.create(schema, finalVectorsAllocator);
       ) {
 
@@ -2381,12 +2382,14 @@ public class TestValueVector {
       vector.setInitialCapacity(defaultCapacity, 0.1);
       vector.allocateNew();
       assertEquals(defaultCapacity, vector.getValueCapacity());
-      assertEquals(CommonUtil.nextPowerOfTwo((int) (defaultCapacity * 0.1)), vector.getDataBuffer().capacity());
+      assertEquals(CommonUtil.nextPowerOfTwo((int) (defaultCapacity * 0.1)), vector.getDataBuffer()
+                      .capacity());
 
       vector.setInitialCapacity(defaultCapacity, 0.01);
       vector.allocateNew();
       assertEquals(defaultCapacity, vector.getValueCapacity());
-      assertEquals(CommonUtil.nextPowerOfTwo((int) (defaultCapacity * 0.01)), vector.getDataBuffer().capacity());
+      assertEquals(CommonUtil.nextPowerOfTwo((int) (defaultCapacity * 0.01)), vector.getDataBuffer()
+                      .capacity());
 
       vector.setInitialCapacity(5, 0.01);
       vector.allocateNew();

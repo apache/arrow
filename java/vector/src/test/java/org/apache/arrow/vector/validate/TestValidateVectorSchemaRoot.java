@@ -19,8 +19,8 @@ package org.apache.arrow.vector.validate;
 
 import static org.apache.arrow.vector.util.ValueVectorUtility.validate;
 import static org.apache.arrow.vector.util.ValueVectorUtility.validateFull;
-import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -95,7 +95,8 @@ public class TestValidateVectorSchemaRoot {
       validate(root);
       e = assertThrows(ValidateUtil.ValidateException.class,
           () -> validateFull(root));
-      assertTrue(e.getMessage().contains("The values in positions 0 and 1 of the offset buffer are decreasing"));
+      assertTrue(e.getMessage().contains("The values in positions 0 and 1 of the offset buffer are " +
+              "decreasing"));
     }
   }
 }

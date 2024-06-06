@@ -18,12 +18,12 @@
 package org.apache.arrow.vector.ipc;
 
 import static org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvider;
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -188,11 +188,11 @@ public class TestRoundTrip extends BaseFileTest {
           new ArrowStreamWriter(root, null, Channels.newChannel(memoryStream), writeOption);
         }
       });
-      assertTrue(e.getMessage(), e.getMessage().contains("Cannot write union with V4 metadata"));
+      assertTrue(e.getMessage().contains("Cannot write union with V4 metadata"), e.getMessage());
       e = assertThrows(IllegalArgumentException.class, () -> {
         new ArrowStreamWriter(root, null, Channels.newChannel(memoryStream), writeOption);
       });
-      assertTrue(e.getMessage(), e.getMessage().contains("Cannot write union with V4 metadata"));
+      assertTrue(e.getMessage().contains("Cannot write union with V4 metadata"), e.getMessage());
     }
   }
 
@@ -539,10 +539,10 @@ public class TestRoundTrip extends BaseFileTest {
       assertEquals(counts.length, recordBatches.size());
       long previousOffset = 0;
       for (ArrowBlock rbBlock : recordBatches) {
-        assertTrue(rbBlock.getOffset() + " > " + previousOffset, rbBlock.getOffset() > previousOffset);
+        assertTrue(rbBlock.getOffset() > previousOffset, rbBlock.getOffset() + " > " + previousOffset);
         previousOffset = rbBlock.getOffset();
         arrowReader.loadRecordBatch(rbBlock);
-        assertEquals("RB #" + i, counts[i], root.getRowCount());
+        assertEquals(counts[i], root.getRowCount(), "RB #" + i);
         validator.accept(counts[i], root);
         try (final ArrowRecordBatch batch = unloader.getRecordBatch()) {
           List<ArrowBuffer> buffersLayout = batch.getBuffersLayout();
@@ -566,7 +566,7 @@ public class TestRoundTrip extends BaseFileTest {
 
       for (int n = 0; n < counts.length; n++) {
         assertTrue(arrowReader.loadNextBatch());
-        assertEquals("RB #" + i, counts[i], root.getRowCount());
+        assertEquals(counts[i], root.getRowCount(), "RB #" + i);
         validator.accept(counts[i], root);
         try (final ArrowRecordBatch batch = unloader.getRecordBatch()) {
           final List<ArrowBuffer> buffersLayout = batch.getBuffersLayout();

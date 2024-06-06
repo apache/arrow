@@ -17,8 +17,8 @@
 
 package org.apache.arrow.vector.testing;
 
-import static junit.framework.TestCase.assertTrue;
 import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 

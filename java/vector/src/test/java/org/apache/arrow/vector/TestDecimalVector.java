@@ -17,10 +17,10 @@
 
 package org.apache.arrow.vector;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -80,7 +80,7 @@ public class TestDecimalVector {
 
       for (int i = 0; i < intValues.length; i++) {
         BigDecimal value = decimalVector.getObject(i);
-        assertEquals("unexpected data at index: " + i, values[i], value);
+        assertEquals(values[i], value, "unexpected data at index: " + i);
       }
     }
   }

@@ -17,9 +17,9 @@
 
 package org.apache.arrow.vector.complex.impl;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.ByteBuffer;
@@ -128,35 +128,35 @@ public class TestPromotableWriter {
 
       final UnionVector uv = v.getChild("A", UnionVector.class);
 
-      assertFalse("0 shouldn't be null", uv.isNull(0));
-      assertEquals(false, uv.getObject(0));
+      assertFalse(uv.isNull(0), "0 shouldn't be null");
+      assertEquals(uv.getObject(0), false);
 
-      assertFalse("1 shouldn't be null", uv.isNull(1));
-      assertEquals(true, uv.getObject(1));
+      assertFalse(uv.isNull(1), "1 shouldn't be null");
+      assertEquals(uv.getObject(1), true);
 
-      assertFalse("2 shouldn't be null", uv.isNull(2));
-      assertEquals(10, uv.getObject(2));
+      assertFalse(uv.isNull(2), "2 shouldn't be null");
+      assertEquals(uv.getObject(2), 10);
 
-      assertNull("3 should be null", uv.getObject(3));
+      assertNull(uv.getObject(3), "3 should be null");
 
-      assertFalse("4 shouldn't be null", uv.isNull(4));
-      assertEquals(100, uv.getObject(4));
+      assertFalse(uv.isNull(4), "4 shouldn't be null");
+      assertEquals(uv.getObject(4), 100);
 
-      assertFalse("5 shouldn't be null", uv.isNull(5));
-      assertEquals(123123L, uv.getObject(5));
+      assertFalse(uv.isNull(5), "5 shouldn't be null");
+      assertEquals(uv.getObject(5), 123123L);
 
-      assertFalse("6 shouldn't be null", uv.isNull(6));
+      assertFalse(uv.isNull(6), "6 shouldn't be null");
       NullableTimeStampMilliTZHolder readBackHolder = new NullableTimeStampMilliTZHolder();
       uv.getTimeStampMilliTZVector().get(6, readBackHolder);
-      assertEquals(12345L, readBackHolder.value);
-      assertEquals("UTC", readBackHolder.timezone);
+      assertEquals(readBackHolder.value, 12345L);
+      assertEquals(readBackHolder.timezone, "UTC");
 
-      assertFalse("7 shouldn't be null", uv.isNull(7));
-      assertEquals(444413L, ((java.time.Duration) uv.getObject(7)).getSeconds());
+      assertFalse(uv.isNull(7), "7 shouldn't be null");
+      assertEquals(((java.time.Duration) uv.getObject(7)).getSeconds(), 444413L);
 
-      assertFalse("8 shouldn't be null", uv.isNull(8));
-      assertEquals(18978,
-          ByteBuffer.wrap(uv.getFixedSizeBinaryVector().get(8)).order(ByteOrder.nativeOrder()).getInt());
+      assertFalse(uv.isNull(8), "8 shouldn't be null");
+      assertEquals(ByteBuffer.wrap(uv.getFixedSizeBinaryVector().get(8)).order(ByteOrder.nativeOrder())
+                      .getInt(), 18978);
 
       container.clear();
       container.allocateNew();
@@ -172,10 +172,10 @@ public class TestPromotableWriter {
 
       Field childField1 = container.getField().getChildren().get(0).getChildren().get(0);
       Field childField2 = container.getField().getChildren().get(0).getChildren().get(1);
-      assertEquals("Child field should be union type: " +
-          childField1.getName(), ArrowTypeID.Union, childField1.getType().getTypeID());
-      assertEquals("Child field should be decimal type: " +
-          childField2.getName(), ArrowTypeID.Decimal, childField2.getType().getTypeID());
+      assertEquals(ArrowTypeID.Union, childField1.getType().getTypeID(),
+              "Child field should be union type: " + childField1.getName());
+      assertEquals(ArrowTypeID.Decimal, childField2.getType().getTypeID(),
+              "Child field should be decimal type: " + childField2.getName());
 
       buf.close();
     }
@@ -203,7 +203,8 @@ public class TestPromotableWriter {
       ListVector lv = ListVector.empty("name", allocator);
       lv.addOrGetVector(childTypeOfListInContainer);
       assertEquals(childTypeOfListInContainer.getType(), Types.MinorType.NULL.getType());
-      assertEquals(lv.getChildrenFromFields().get(0).getMinorType().getType(), Types.MinorType.NULL.getType());
+      assertEquals(lv.getChildrenFromFields().get(0).getMinorType().getType(), Types.MinorType.NULL
+              .getType());
 
       writer.start();
       writer.list("list").startList();
@@ -220,7 +221,8 @@ public class TestPromotableWriter {
       // we expect same behaviour from listvector
       lv.addOrGetVector(childTypeOfListInContainer);
       assertEquals(childTypeOfListInContainer.getType(), Types.MinorType.FLOAT4.getType());
-      assertEquals(lv.getChildrenFromFields().get(0).getMinorType().getType(), Types.MinorType.FLOAT4.getType());
+      assertEquals(lv.getChildrenFromFields().get(0).getMinorType().getType(), Types.MinorType.FLOAT4
+                      .getType());
 
       lv.close();
     }
@@ -248,7 +250,8 @@ public class TestPromotableWriter {
       ListVector lv = ListVector.empty("name", allocator);
       lv.addOrGetVector(childTypeOfListInContainer);
       assertEquals(childTypeOfListInContainer.getType(), Types.MinorType.NULL.getType());
-      assertEquals(lv.getChildrenFromFields().get(0).getMinorType().getType(), Types.MinorType.NULL.getType());
+      assertEquals(lv.getChildrenFromFields().get(0).getMinorType().getType(), Types.MinorType.NULL
+                      .getType());
 
       writer.start();
       writer.list("list").startList();
@@ -261,7 +264,8 @@ public class TestPromotableWriter {
       holder.timezone = "SomeTimeZone";
       IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
           () -> writer.list("list").timeStampMilliTZ().write(holder));
-      assertEquals("holder.timezone: SomeTimeZone not equal to vector timezone: FakeTimeZone", ex.getMessage());
+      assertEquals("holder.timezone: SomeTimeZone not equal to vector timezone: FakeTimeZone",
+              ex.getMessage());
 
       writer.list("list").endList();
       writer.end();
@@ -305,7 +309,8 @@ public class TestPromotableWriter {
       ListVector lv = ListVector.empty("name", allocator);
       lv.addOrGetVector(childTypeOfListInContainer);
       assertEquals(childTypeOfListInContainer.getType(), Types.MinorType.NULL.getType());
-      assertEquals(lv.getChildrenFromFields().get(0).getMinorType().getType(), Types.MinorType.NULL.getType());
+      assertEquals(lv.getChildrenFromFields().get(0).getMinorType().getType(), Types.MinorType.NULL
+                      .getType());
 
       writer.start();
       writer.list("list").startList();
@@ -362,7 +367,8 @@ public class TestPromotableWriter {
       ListVector lv = ListVector.empty("name", allocator);
       lv.addOrGetVector(childTypeOfListInContainer);
       assertEquals(childTypeOfListInContainer.getType(), Types.MinorType.NULL.getType());
-      assertEquals(lv.getChildrenFromFields().get(0).getMinorType().getType(), Types.MinorType.NULL.getType());
+      assertEquals(lv.getChildrenFromFields().get(0).getMinorType().getType(), Types.MinorType.NULL
+                      .getType());
 
       writer.start();
       writer.list("list").startList();

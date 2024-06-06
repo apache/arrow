@@ -17,10 +17,10 @@
 
 package org.apache.arrow.vector;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -80,7 +80,7 @@ public class TestDecimal256Vector {
 
       for (int i = 0; i < intValues.length; i++) {
         BigDecimal value = decimalVector.getObject(i);
-        assertEquals("unexpected data at index: " + i, values[i], value);
+        assertEquals(values[i], value, "unexpected data at index: " + i);
       }
     }
   }
@@ -104,7 +104,8 @@ public class TestDecimal256Vector {
         BigDecimal decimal = new BigDecimal(BigInteger.valueOf(12345), 2);
         UnsupportedOperationException ue =
             assertThrows(UnsupportedOperationException.class, () -> decimalVector.setSafe(0, decimal));
-        assertEquals("BigDecimal precision cannot be greater than that in the Arrow vector: 5 > 4", ue.getMessage());
+        assertEquals("BigDecimal precision cannot be greater than that in the Arrow vector: 5 > 4", ue
+                .getMessage());
       }
     }
   }

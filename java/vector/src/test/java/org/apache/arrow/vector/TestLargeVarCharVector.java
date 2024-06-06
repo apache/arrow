@@ -17,12 +17,14 @@
 
 package org.apache.arrow.vector;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -42,10 +44,8 @@ import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.Text;
 import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.jupiter.api.Assertions;
 
 public class TestLargeVarCharVector {
 
@@ -162,7 +162,7 @@ public class TestLargeVarCharVector {
 
       final TransferPair tp = largeVarCharVector.makeTransferPair(newLargeVarCharVector);
 
-      IllegalArgumentException e = Assertions.assertThrows(
+      IllegalArgumentException e = assertThrows(
           IllegalArgumentException.class,
           () -> tp.splitAndTransfer(valueCount, 10));
 
@@ -181,7 +181,7 @@ public class TestLargeVarCharVector {
 
       final TransferPair tp = largeVarCharVector.makeTransferPair(newLargeVarCharVector);
 
-      IllegalArgumentException e = Assertions.assertThrows(
+      IllegalArgumentException e = assertThrows(
           IllegalArgumentException.class,
           () -> tp.splitAndTransfer(0, valueCount * 2));
 
@@ -784,7 +784,7 @@ public class TestLargeVarCharVector {
 
       try {
         vector.set(initialCapacity, "foo".getBytes(StandardCharsets.UTF_8));
-        Assert.fail("Expected out of bounds exception");
+        fail("Expected out of bounds exception");
       } catch (Exception e) {
         // ok
       }

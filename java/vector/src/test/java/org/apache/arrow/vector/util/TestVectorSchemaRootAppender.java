@@ -17,8 +17,8 @@
 
 package org.apache.arrow.vector.util;
 
-import static junit.framework.TestCase.assertEquals;
 import static org.apache.arrow.vector.util.TestVectorAppender.assertVectorsEqual;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.arrow.memory.BufferAllocator;

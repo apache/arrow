@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.nio.charset.StandardCharsets;
 
 import org.apache.arrow.memory.ArrowBuf;
@@ -26,7 +28,6 @@ import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -72,8 +73,8 @@ public class TestVarCharListVector {
 
       writer.setValueCount(2);
 
-      Assert.assertEquals(2, vector.getValueCount());
-      Assert.assertEquals(2, vector.getDataVector().getValueCount());
+      assertEquals(2, vector.getValueCount());
+      assertEquals(2, vector.getDataVector().getValueCount());
     }
   }
 }

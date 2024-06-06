@@ -17,8 +17,8 @@
 
 package org.apache.arrow.vector;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertSame;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.types.IntervalUnit;

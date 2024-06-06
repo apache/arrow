@@ -17,7 +17,8 @@
 
 package org.apache.arrow.vector.complex;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -73,7 +74,8 @@ public class TestDenseUnionBufferSize {
       assertEquals(overhead * count + intVector.getBufferSize() + varBinaryVector.getBufferSize(),
               duv.getBufferSize());
 
-      assertEquals(overhead * (aCount + 1) + intVector.getBufferSizeFor(aCount) + varBinaryVector.getBufferSizeFor(1),
+      assertEquals(overhead * (aCount + 1) + intVector.getBufferSizeFor(aCount) + varBinaryVector
+                      .getBufferSizeFor(1),
               duv.getBufferSizeFor(aCount + 1));
 
     }

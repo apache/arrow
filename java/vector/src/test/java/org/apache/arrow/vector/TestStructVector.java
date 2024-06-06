@@ -17,7 +17,11 @@
 
 package org.apache.arrow.vector;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -40,7 +44,6 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -64,7 +67,7 @@ public class TestStructVector {
     metadata.put("k1", "v1");
     FieldType type = new FieldType(true, Struct.INSTANCE, null, metadata);
     try (StructVector vector = new StructVector("struct", allocator, type, null)) {
-      Assert.assertEquals(vector.getField().getMetadata(), type.getMetadata());
+      assertEquals(vector.getField().getMetadata(), type.getMetadata());
     }
   }
 
@@ -108,8 +111,8 @@ public class TestStructVector {
       /*
        * Verify that the buffer sizes haven't changed.
        */
-      Assert.assertEquals(vector.getValidityBuffer().capacity(), savedValidityBufferCapacity);
-      Assert.assertEquals(vector.getValueCapacity(), savedValueCapacity);
+      assertEquals(vector.getValidityBuffer().capacity(), savedValidityBufferCapacity);
+      assertEquals(vector.getValueCapacity(), savedValueCapacity);
     }
   }
 
