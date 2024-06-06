@@ -37,53 +37,7 @@
 
 namespace rj = arrow::rapidjson;
 
-namespace arrow {
-
-namespace extension {
-
-namespace {
-
-Status ComputeStrides(const std::shared_ptr<DataType>& value_type,
-                      const std::vector<int64_t>& shape,
-                      const std::vector<int64_t>& permutation,
-                      std::vector<int64_t>* strides) {
-  auto fixed_width_type = internal::checked_pointer_cast<FixedWidthType>(value_type);
-  if (permutation.empty()) {
-    return internal::ComputeRowMajorStrides(*fixed_width_type.get(), shape, strides);
-  }
-  const int byte_width = value_type->byte_width();
-
-  int64_t remaining = 0;
-  if (!shape.empty() && shape.front() > 0) {
-    remaining = byte_width;
-    for (auto i : permutation) {
-      if (i > 0) {
-        if (internal::MultiplyWithOverflow(remaining, shape[i], &remaining)) {
-          return Status::Invalid(
-              "Strides computed from shape would not fit in 64-bit integer");
-        }
-      }
-    }
-  }
-
-  if (remaining == 0) {
-    strides->assign(shape.size(), byte_width);
-    return Status::OK();
-  }
-
-  strides->push_back(remaining);
-  for (auto i : permutation) {
-    if (i > 0) {
-      remaining /= shape[i];
-      strides->push_back(remaining);
-    }
-  }
-  internal::Permute(permutation, strides);
-
-  return Status::OK();
-}
-
-}  // namespace
+namespace arrow::extension {
 
 bool FixedShapeTensorType::ExtensionEquals(const ExtensionType& other) const {
   if (extension_name() != other.extension_name()) {
@@ -238,7 +192,8 @@ Result<std::shared_ptr<Tensor>> FixedShapeTensorType::MakeTensor(
   }
 
   std::vector<int64_t> strides;
-  RETURN_NOT_OK(ComputeStrides(value_type, shape, permutation, &strides));
+  RETURN_NOT_OK(
+      internal::ComputeStrides(ext_type.value_type(), shape, permutation, &strides));
   const auto start_position = array->offset() * byte_width;
   const auto size = std::accumulate(shape.begin(), shape.end(), static_cast<int64_t>(1),
                                     std::multiplies<>());
@@ -377,9 +332,8 @@ const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
   internal::Permute<int64_t>(permutation, &shape);
 
   std::vector<int64_t> tensor_strides;
-  const auto* fw_value_type = internal::checked_cast<FixedWidthType*>(value_type.get());
   ARROW_RETURN_NOT_OK(
-      ComputeStrides(*fw_value_type, shape, permutation, &tensor_strides));
+      internal::ComputeStrides(value_type, shape, permutation, &tensor_strides));
 
   const auto& raw_buffer = this->storage()->data()->child_data[0]->buffers[1];
   ARROW_ASSIGN_OR_RAISE(
@@ -413,10 +367,9 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Make(
 
 const std::vector<int64_t>& FixedShapeTensorType::strides() {
   if (strides_.empty()) {
-    auto value_type = internal::checked_cast<FixedWidthType*>(this->value_type_.get());
     std::vector<int64_t> tensor_strides;
-    ARROW_CHECK_OK(
-        ComputeStrides(*value_type, this->shape(), this->permutation(), &tensor_strides));
+    ARROW_CHECK_OK(internal::ComputeStrides(this->value_type_, this->shape(),
+                                            this->permutation(), &tensor_strides));
     strides_ = tensor_strides;
   }
   return strides_;
@@ -431,5 +384,4 @@ std::shared_ptr<DataType> fixed_shape_tensor(const std::shared_ptr<DataType>& va
   return maybe_type.MoveValueUnsafe();
 }
 
-}  // namespace extension
-}  // namespace arrow
+}  // namespace arrow::extension

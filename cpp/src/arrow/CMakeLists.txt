@@ -994,6 +994,7 @@ endif()
 if(ARROW_JSON)
   arrow_add_object_library(ARROW_JSON
                            extension/fixed_shape_tensor.cc
+                           extension/opaque.cc
                            extension/tensor_internal.cc
                            extension/variable_shape_tensor.cc
                            json/options.cc
