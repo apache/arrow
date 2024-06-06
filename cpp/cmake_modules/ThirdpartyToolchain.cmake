@@ -2819,11 +2819,13 @@ macro(build_utf8proc)
 endmacro()
 
 if(ARROW_WITH_UTF8PROC)
-  resolve_dependency(utf8proc
-                     PC_PACKAGE_NAMES
-                     libutf8proc
-                     REQUIRED_VERSION
-                     "2.2.0")
+  set(utf8proc_resolve_dependency_args utf8proc PC_PACKAGE_NAMES libutf8proc)
+  if(NOT VCPKG_TOOLCHAIN)
+    # utf8proc in vcpkg doesn't provide version information:
+    # https://github.com/microsoft/vcpkg/issues/39176
+    list(APPEND utf8proc_resolve_dependency_args REQUIRED_VERSION "2.2.0")
+  endif()
+  resolve_dependency(${utf8proc_resolve_dependency_args})
 endif()
 
 macro(build_cares)
