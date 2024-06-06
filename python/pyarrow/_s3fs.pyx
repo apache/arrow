@@ -244,10 +244,10 @@ cdef class S3FileSystem(FileSystem):
         passed in a URI query parameter.
     check_directory_existence_before_creation : bool, default false
         Whether to check the directory existence before creating it.
-        if false, when creating a directory the code will not check if it already
+        If false, when creating a directory the code will not check if it already
         exists or not. It's an optimization to try directory creation and catch the error,
-          rather than issue two dependent I/O calls.
-        if true, when creating a directory the code will only create the directory when necessary
+        rather than issue two dependent I/O calls.
+        If true, when creating a directory the code will only create the directory when necessary
         at the cost of extra I/O calls. This can be used for key/value cloud storage which has
         a hard rate limit to number of object mutation operations or scenerios such as
         the directories already exist and you do not have creation access.
