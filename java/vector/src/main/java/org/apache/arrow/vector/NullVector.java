@@ -38,7 +38,7 @@ import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.TransferPair;
 
 /** A null type vector. */
-public class NullVector implements FieldVector {
+public class NullVector implements FieldVector, ValueIterableVector<Object> {
 
   private int valueCount;
 

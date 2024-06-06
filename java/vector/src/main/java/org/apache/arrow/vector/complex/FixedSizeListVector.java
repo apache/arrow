@@ -41,6 +41,7 @@ import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.BufferBacked;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.ValueIterableVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.compare.VectorVisitor;
@@ -60,7 +61,7 @@ import org.apache.arrow.vector.util.TransferPair;
 
 /** A ListVector where every list value is of the same size. */
 public class FixedSizeListVector extends BaseValueVector
-    implements BaseListVector, PromotableVector {
+    implements BaseListVector, PromotableVector, ValueIterableVector<List<?>> {
 
   public static FixedSizeListVector empty(String name, int size, BufferAllocator allocator) {
     FieldType fieldType = FieldType.nullable(new ArrowType.FixedSizeList(size));
