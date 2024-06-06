@@ -36,7 +36,6 @@
 namespace arrow {
 
 using FixedShapeTensorType = extension::FixedShapeTensorType;
-using arrow::ipc::test::RoundtripBatch;
 using extension::fixed_shape_tensor;
 using extension::FixedShapeTensorArray;
 
@@ -536,7 +535,7 @@ TEST_F(TestFixedShapeTensorType, ComputeStrides) {
   ASSERT_EQ(ext_type_6->Serialize(), R"({"shape":[3,4,7],"permutation":[1,2,0]})");
   auto ext_type_7 = internal::checked_pointer_cast<FixedShapeTensorType>(
       fixed_shape_tensor(int32(), {3, 4, 7}, {2, 0, 1}, {}));
-  ASSERT_EQ(ext_type_7->strides(), (std::vector<int64_t>{4, 112, 28}));
+  ASSERT_EQ(ext_type_7->strides(), (std::vector<int64_t>{4, 112, 16}));
   ASSERT_EQ(ext_type_7->Serialize(), R"({"shape":[3,4,7],"permutation":[2,0,1]})");
 }
 
@@ -607,7 +606,7 @@ TEST_F(TestFixedShapeTensorType, GetTensor) {
     // Get tensor from extension array with non-trivial permutation
     ASSERT_OK_AND_ASSIGN(auto expected_permuted_tensor,
                          Tensor::Make(value_type_, Buffer::Wrap(element_values[i]),
-                                      {4, 3}, {8, 32}, {"y", "x"}));
+                                      {4, 3}, {8, 24}, {"y", "x"}));
     ASSERT_OK_AND_ASSIGN(scalar, permuted_array->GetScalar(i));
     ASSERT_OK_AND_ASSIGN(auto actual_permuted_tensor,
                          exact_permuted_ext_type->MakeTensor(

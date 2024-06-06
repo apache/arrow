@@ -36,8 +36,7 @@
 
 namespace rj = arrow::rapidjson;
 
-namespace arrow {
-namespace extension {
+namespace arrow::extension {
 
 bool VariableShapeTensorType::ExtensionEquals(const ExtensionType& other) const {
   if (extension_name() != other.extension_name()) {
@@ -206,35 +205,35 @@ std::shared_ptr<Array> VariableShapeTensorType::MakeArray(
 
 Result<std::shared_ptr<Tensor>> VariableShapeTensorType::MakeTensor(
     const std::shared_ptr<ExtensionScalar>& scalar) {
-  const auto tensor_scalar = internal::checked_pointer_cast<StructScalar>(scalar->value);
-  const auto ext_type =
-      internal::checked_pointer_cast<VariableShapeTensorType>(scalar->type);
+  const auto& tensor_scalar = internal::checked_cast<const StructScalar&>(*scalar->value);
+  const auto& ext_type =
+      internal::checked_cast<const VariableShapeTensorType&>(*scalar->type);
 
-  ARROW_ASSIGN_OR_RAISE(const auto data_scalar, tensor_scalar->field(0));
-  ARROW_ASSIGN_OR_RAISE(const auto shape_scalar, tensor_scalar->field(1));
-  ARROW_CHECK(tensor_scalar->is_valid);
+  ARROW_ASSIGN_OR_RAISE(const auto data_scalar, tensor_scalar.field(0));
+  ARROW_ASSIGN_OR_RAISE(const auto shape_scalar, tensor_scalar.field(1));
+  ARROW_CHECK(tensor_scalar.is_valid);
   const auto data_array =
       internal::checked_pointer_cast<BaseListScalar>(data_scalar)->value;
   const auto shape_array = internal::checked_pointer_cast<Int32Array>(
       internal::checked_pointer_cast<FixedSizeListScalar>(shape_scalar)->value);
 
-  const auto value_type =
-      internal::checked_pointer_cast<FixedWidthType>(ext_type->value_type());
+  const auto& value_type =
+      internal::checked_cast<const FixedWidthType&>(*ext_type.value_type());
 
   if (data_array->null_count() > 0) {
     return Status::Invalid("Cannot convert data with nulls to Tensor.");
   }
 
-  auto permutation = ext_type->permutation();
+  auto permutation = ext_type.permutation();
   if (permutation.empty()) {
-    permutation.resize(ext_type->ndim());
+    permutation.resize(ext_type.ndim());
     std::iota(permutation.begin(), permutation.end(), 0);
   }
 
-  ARROW_CHECK_EQ(shape_array->length(), ext_type->ndim());
+  ARROW_CHECK_EQ(shape_array->length(), ext_type.ndim());
   std::vector<int64_t> shape;
-  shape.reserve(ext_type->ndim());
-  for (int64_t j = 0; j < static_cast<int64_t>(ext_type->ndim()); ++j) {
+  shape.reserve(ext_type.ndim());
+  for (int64_t j = 0; j < static_cast<int64_t>(ext_type.ndim()); ++j) {
     const auto size_value = shape_array->Value(j);
     if (size_value < 0) {
       return Status::Invalid("shape must have non-negative values");
@@ -242,16 +241,17 @@ Result<std::shared_ptr<Tensor>> VariableShapeTensorType::MakeTensor(
     shape.push_back(std::move(size_value));
   }
 
-  std::vector<std::string> dim_names = ext_type->dim_names();
+  std::vector<std::string> dim_names = ext_type.dim_names();
   if (!dim_names.empty()) {
     internal::Permute<std::string>(permutation, &dim_names);
   }
 
-  ARROW_ASSIGN_OR_RAISE(std::vector<int64_t> strides,
-                        internal::ComputeStrides(value_type, shape, permutation));
+  std::vector<int64_t> strides;
+  ARROW_RETURN_NOT_OK(
+      internal::ComputeStrides(ext_type.value_type(), shape, permutation, &strides));
   internal::Permute<int64_t>(permutation, &shape);
 
-  const auto byte_width = value_type->byte_width();
+  const auto byte_width = value_type.byte_width();
   const auto start_position = data_array->offset() * byte_width;
   const auto size = std::accumulate(shape.begin(), shape.end(), static_cast<int64_t>(1),
                                     std::multiplies<>());
@@ -260,8 +260,8 @@ Result<std::shared_ptr<Tensor>> VariableShapeTensorType::MakeTensor(
       const auto buffer,
       SliceBufferSafe(data_array->data()->buffers[1], start_position, size * byte_width));
 
-  return Tensor::Make(value_type, std::move(buffer), std::move(shape), std::move(strides),
-                      ext_type->dim_names());
+  return Tensor::Make(ext_type.value_type(), std::move(buffer), std::move(shape),
+                      std::move(strides), ext_type.dim_names());
 }
 
 Result<std::shared_ptr<DataType>> VariableShapeTensorType::Make(
@@ -311,5 +311,4 @@ std::shared_ptr<DataType> variable_shape_tensor(
   return maybe_type.MoveValueUnsafe();
 }
 
-}  // namespace extension
-}  // namespace arrow
+}  // namespace arrow::extension
