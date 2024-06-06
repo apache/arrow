@@ -1689,8 +1689,8 @@ TEST(TestSchemaNodeCreation, FactoryEquivalence) {
 }
 
 TEST(TestSchemaNodeCreation, FactoryUnknownLogicalType) {
-  NodePtr node = PrimitiveNode::Make("string", Repetition::REQUIRED,
-                                     StringLogicalType::Make(), Type::BYTE_ARRAY);
+  auto node = PrimitiveNode::Make("string", Repetition::REQUIRED,
+                                  StringLogicalType::Make(), Type::BYTE_ARRAY);
 
   format::SchemaElement string_intermediary;
   node->ToParquet(&string_intermediary);
@@ -1699,6 +1699,11 @@ TEST(TestSchemaNodeCreation, FactoryUnknownLogicalType) {
   node = PrimitiveNode::FromParquet(&string_intermediary);
   ASSERT_FALSE(node->logical_type()->is_valid());
   ASSERT_EQ(node->logical_type()->ToString(), "Undefined");
+
+  auto primitive_node =
+      ::arrow::internal::checked_pointer_cast<PrimitiveNode, Node>(node);
+  ASSERT_EQ(GetSortOrder(node->logical_type(), primitive_node->physical_type()),
+            SortOrder::UNKNOWN);
 }
 
 TEST(TestSchemaNodeCreation, FactoryExceptions) {
