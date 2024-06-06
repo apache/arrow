@@ -474,8 +474,8 @@ Status FixedWidthTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult*
           ctx, values, indices, out_arr);
       break;
     default:
-      if (values.type->id() == Type::FIXED_SIZE_BINARY ||
-          values.type->id() == Type::FIXED_SIZE_LIST) {
+      if (ARROW_PREDICT_TRUE(values.type->id() == Type::FIXED_SIZE_BINARY ||
+                             values.type->id() == Type::FIXED_SIZE_LIST)) {
         int64_t byte_width = util::FixedWidthInBytes(*values.type);
         // 0-length fixed-size binary or lists were handled above on `case 0`
         DCHECK_GT(byte_width, 0);
