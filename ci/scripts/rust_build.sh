@@ -35,16 +35,14 @@ export PARQUET_TEST_DATA=${arrow_dir}/cpp/submodules/parquet-testing/data
 
 if [ "${ARCHERY_INTEGRATION_WITH_RUST}" -eq "0" ]; then
   echo "====================================================================="
-  echo "Not building the Rust implementation."
+  echo "Not building Rust because ARCHERY_INTEGRATION_WITH_RUST=0"
   echo "====================================================================="
   exit 0;
 elif [ ! -d "${source_dir}" ]; then
   echo "====================================================================="
-  echo "The Rust source is missing. Please clone the arrow-rs repository"
-  echo "to arrow/rust before running the integration tests:"
-  echo "  git clone https://github.com/apache/arrow-rs.git path/to/arrow/rust"
+  echo "Not building Rust because '${source_dir}' does not exist"
   echo "====================================================================="
-  exit 1;
+  exit 0;
 fi
 
 set -x

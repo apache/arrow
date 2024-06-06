@@ -29,16 +29,14 @@ build_dir=${2}/nanoarrow
 
 if [ "${ARCHERY_INTEGRATION_WITH_NANOARROW}" -eq "0" ]; then
   echo "====================================================================="
-  echo "Not building nanoarrow"
+  echo "Not building nanoarrow because ARCHERY_INTEGRATION_WITH_NANOARROW=0"
   echo "====================================================================="
   exit 0;
 elif [ ! -d "${source_dir}" ]; then
   echo "====================================================================="
-  echo "The nanoarrow source is missing. Please clone the arrow-nanoarrow repository"
-  echo "to arrow/nanoarrow before running the integration tests:"
-  echo "  git clone https://github.com/apache/arrow-nanoarrow.git path/to/arrow/nanoarrow"
+  echo "Not building nanoarrow because '${source_dir}' does not exist"
   echo "====================================================================="
-  exit 1;
+  exit 0;
 fi
 
 set -x
