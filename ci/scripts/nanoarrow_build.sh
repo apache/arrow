@@ -27,6 +27,11 @@ build_dir=${2}/nanoarrow
 # integration tests. Testing of the nanoarrow implementation in normal CI is handled
 # by github workflows in the arrow-nanoarrow repository.
 
+# Include in the integration test by default if the source directory is present
+if [ -z  "${ARCHERY_INTEGRATION_WITH_NANOARROW}" ]; then
+  ARCHERY_INTEGRATION_WITH_NANOARROW="1"
+fi
+
 if [ "${ARCHERY_INTEGRATION_WITH_NANOARROW}" -eq "0" ]; then
   echo "====================================================================="
   echo "Not building nanoarrow because ARCHERY_INTEGRATION_WITH_NANOARROW=0"

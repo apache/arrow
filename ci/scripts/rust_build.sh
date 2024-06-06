@@ -33,6 +33,11 @@ export RUSTFLAGS="-C debuginfo=1"
 export ARROW_TEST_DATA=${arrow_dir}/testing/data
 export PARQUET_TEST_DATA=${arrow_dir}/cpp/submodules/parquet-testing/data
 
+# Include in the integration test by default if the source directory is present
+if [ -z  "${ARCHERY_INTEGRATION_WITH_RUST}" ]; then
+  ARCHERY_INTEGRATION_WITH_RUST="1"
+fi
+
 if [ "${ARCHERY_INTEGRATION_WITH_RUST}" -eq "0" ]; then
   echo "====================================================================="
   echo "Not building Rust because ARCHERY_INTEGRATION_WITH_RUST=0"
