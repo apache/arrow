@@ -688,6 +688,8 @@ def test_non_cpu_buffer(pickle_module):
     assert repr1 in repr(buf_on_gpu)
     assert repr2 in repr(buf_on_gpu)
 
+    assert buf_on_gpu.equals(cuda_buf)
+
     msg = "Implemented only for data on CPU device"
     with pytest.raises(NotImplementedError, match=msg):
         buf_on_gpu.hex()
@@ -705,6 +707,9 @@ def test_non_cpu_buffer(pickle_module):
 
     with pytest.raises(NotImplementedError, match=msg):
         pickle_module.dumps(buf_on_gpu, protocol=4)
+
+    with pytest.raises(NotImplementedError, match=msg):
+        pickle_module.dumps(cuda_buf, protocol=4)
 
     buf = pa.py_buffer(b'testing')
     arr = pa.FixedSizeBinaryArray.from_buffers(pa.binary(7), 1, [None, buf])

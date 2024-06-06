@@ -1286,6 +1286,10 @@ cdef class Buffer(_Weakrefable):
                 f"is_cpu={self.is_cpu} "
                 f"is_mutable={self.is_mutable}>")
 
+    def _assert_cpu(self):
+        if not self.is_cpu:
+            raise NotImplementedError("Implemented only for data on CPU device")
+
     @property
     def size(self):
         """
@@ -1311,10 +1315,8 @@ cdef class Buffer(_Weakrefable):
         -------
         : bytes
         """
-        if self.is_cpu:
-            return self.buffer.get().ToHexString()
-        else:
-            raise NotImplementedError("Implemented only for data on CPU device")
+        self._assert_cpu()
+        return self.buffer.get().ToHexString()
 
     @property
     def is_mutable(self):
@@ -1373,8 +1375,7 @@ cdef class Buffer(_Weakrefable):
             return pyarrow_wrap_buffer(parent_buf)
 
     def __getitem__(self, key):
-        if not self.is_cpu:
-            raise NotImplementedError("Implemented only for data on CPU device")
+        self._assert_cpu()
 
         if isinstance(key, slice):
             if (key.step or 1) != 1:
@@ -1442,8 +1443,8 @@ cdef class Buffer(_Weakrefable):
             return self.equals(py_buffer(other))
 
     def __reduce_ex__(self, protocol):
-        if not self.is_cpu:
-            raise NotImplementedError("Implemented only for data on CPU device")
+        self._assert_cpu()
+
         if protocol >= 5:
             bufobj = pickle.PickleBuffer(self)
         elif self.buffer.get().is_mutable():
