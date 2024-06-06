@@ -689,7 +689,7 @@ TEST_F(TestConvertParquetSchema, ParquetUndefinedType) {
 
   // Make a node and intentionally modify it such that it comes back
   // as NoLogicalType::Make()
-  NodePtr node = PrimitiveNode::Make("string", Repetition::REQUIRED,
+  NodePtr node = PrimitiveNode::Make("undefined", Repetition::OPTIONAL,
                                      StringLogicalType::Make(), Type::BYTE_ARRAY);
 
   format::SchemaElement string_intermediary;
@@ -700,7 +700,7 @@ TEST_F(TestConvertParquetSchema, ParquetUndefinedType) {
   parquet_fields.push_back(std::move(node));
 
   // With default options, this should error
-  ASSERT_OK(ConvertSchema(parquet_fields));
+  ASSERT_NOT_OK(ConvertSchema(parquet_fields));
 
   // With an opt-in, the field should be converted according to its storage
   ArrowReaderProperties props;
@@ -708,7 +708,7 @@ TEST_F(TestConvertParquetSchema, ParquetUndefinedType) {
   ASSERT_OK(ConvertSchema(parquet_fields, nullptr, props));
 
   std::vector<std::shared_ptr<Field>> arrow_fields;
-  arrow_fields.push_back(::arrow::field("string", UTF8));
+  arrow_fields.push_back(::arrow::field("undefined", BINARY));
   auto arrow_schema = ::arrow::schema(arrow_fields);
 
   ASSERT_NO_FATAL_FAILURE(CheckFlatSchema(arrow_schema));
