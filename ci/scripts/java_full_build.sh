@@ -53,8 +53,7 @@ mvn clean \
     -Parrow-c-data \
     -Parrow-jni \
     -Darrow.cpp.build.dir=$dist_dir \
-    -Darrow.c.jni.dist.dir=$dist_dir \
-    -DdescriptorId=source-release
+    -Darrow.c.jni.dist.dir=$dist_dir
 
 # copy all jar, zip and pom files to the distribution folder
 find ~/.m2/repository/org/apache/arrow \
