@@ -183,6 +183,10 @@ class TestPythonIntegration(unittest.TestCase):
     def test_string_array(self):
         self.round_trip_array(lambda: pa.array([None, "a", "bb", "ccc"]))
 
+    def test_stringview_array(self):
+        self.round_trip_array(lambda: pa.array([None, "a", "bb", "ccc"], type=pa.string_view())
+        self.round_trip_array(lambda: pa.array([None, "a", "bb"*10, "c"*13], type=pa.string_view())
+
     def test_decimal_array(self):
         data = [
             round(decimal.Decimal(722.82), 2),
