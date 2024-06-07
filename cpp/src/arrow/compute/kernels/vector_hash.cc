@@ -698,7 +698,7 @@ void AddHashKernels(VectorFunction* func, VectorKernel base, OutputType out_ty) 
     DCHECK_OK(func->AddKernel(base));
   }
 
-  // Parametric types that we want matching to be depededent only on type id
+  // Parametric types that we want matching to be dependent only on type id
   auto parametric_types = {Type::TIME32, Type::TIME64, Type::TIMESTAMP, Type::DURATION,
                            Type::FIXED_SIZE_BINARY};
   for (const auto& type_id : parametric_types) {
