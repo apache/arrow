@@ -16,10 +16,10 @@
  */
 package org.apache.arrow.adapter.jdbc;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -75,15 +75,15 @@ public class UnreliableMetaDataTest {
   public void testUnreliableMetaDataPrecisionAndScale() throws Exception {
     ResultSet rs = buildIncorrectPrecisionAndScaleMetaDataResultSet();
     ResultSetMetaData rsmd = rs.getMetaData();
-    assertEquals("Column type should be Types.DECIMAL", Types.DECIMAL, rsmd.getColumnType(1));
-    assertEquals("Column scale should be zero", 0, rsmd.getScale(1));
-    assertEquals("Column precision should be zero", 0, rsmd.getPrecision(1));
+    assertEquals(Types.DECIMAL, rsmd.getColumnType(1), "Column type should be Types.DECIMAL");
+    assertEquals(0, rsmd.getScale(1), "Column scale should be zero");
+    assertEquals(0, rsmd.getPrecision(1), "Column precision should be zero");
     rs.next();
     BigDecimal bd1 = rs.getBigDecimal(1);
-    assertEquals("Value should be 1000000000000000.01", new BigDecimal("1000000000000000.01"), bd1);
-    assertEquals("Value scale should be 2", 2, bd1.scale());
-    assertEquals("Value precision should be 18", 18, bd1.precision());
-    assertFalse("No more rows!", rs.next());
+    assertEquals(new BigDecimal("1000000000000000.01"), bd1, "Value should be 1000000000000000.01");
+    assertEquals(2, bd1.scale(), "Value scale should be 2");
+    assertEquals(18, bd1.precision(), "Value precision should be 18");
+    assertFalse(rs.next(), "No more rows!");
 
     // reset the ResultSet:
     rs.beforeFirst();
@@ -122,20 +122,19 @@ public class UnreliableMetaDataTest {
   public void testInconsistentPrecisionAndScale() throws Exception {
     ResultSet rs = buildVaryingPrecisionAndScaleResultSet();
     ResultSetMetaData rsmd = rs.getMetaData();
-    assertEquals("Column type should be Types.DECIMAL", Types.DECIMAL, rsmd.getColumnType(1));
-    assertEquals("Column scale should be zero", 0, rsmd.getScale(1));
-    assertEquals("Column precision should be zero", 0, rsmd.getPrecision(1));
+    assertEquals(Types.DECIMAL, rsmd.getColumnType(1), "Column type should be Types.DECIMAL");
+    assertEquals(0, rsmd.getScale(1), "Column scale should be zero");
+    assertEquals(0, rsmd.getPrecision(1), "Column precision should be zero");
     rs.next();
     BigDecimal bd1 = rs.getBigDecimal(1);
-    assertEquals("Value should be 1000000000000000.01", new BigDecimal("1000000000000000.01"), bd1);
-    assertEquals("Value scale should be 2", 2, bd1.scale());
-    assertEquals("Value precision should be 18", 18, bd1.precision());
+    assertEquals(new BigDecimal("1000000000000000.01"), bd1, "Value should be 1000000000000000.01");
+    assertEquals(2, bd1.scale(), "Value scale should be 2");
+    assertEquals(18, bd1.precision(), "Value precision should be 18");
     rs.next();
     BigDecimal bd2 = rs.getBigDecimal(1);
-    assertEquals(
-        "Value should be 1000000000300.0000001", new BigDecimal("1000000000300.0000001"), bd2);
-    assertEquals("Value scale should be 7", 7, bd2.scale());
-    assertEquals("Value precision should be 20", 20, bd2.precision());
+    assertEquals(new BigDecimal("1000000000300.0000001"), bd2, "Value should be 1000000000300.0000001");
+    assertEquals(7, bd2.scale(), "Value scale should be 7");
+    assertEquals(20, bd2.precision(), "Value precision should be 20");
     rs.beforeFirst();
     JdbcFieldInfo explicitMappingField = new JdbcFieldInfo(Types.DECIMAL, 20, 7);
     Map<Integer, JdbcFieldInfo> explicitMapping = new HashMap<>();

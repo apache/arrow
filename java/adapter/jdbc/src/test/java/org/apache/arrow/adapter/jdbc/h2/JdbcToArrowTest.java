@@ -17,7 +17,7 @@
 package org.apache.arrow.adapter.jdbc.h2;
 
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.*;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.IOException;
 import java.sql.ResultSet;
