@@ -27,16 +27,13 @@ import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /** Test cases for {@link VariableWidthOutOfPlaceVectorSorter}. */
 public class TestVariableWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSorter {
 
   private BufferAllocator allocator;
-
-  public TestVariableWidthOutOfPlaceVectorSorter(boolean generalSorter) {
-    super(generalSorter);
-  }
 
   <V extends BaseVariableWidthVector> OutOfPlaceVectorSorter<V> getSorter() {
     return generalSorter
@@ -54,8 +51,10 @@ public class TestVariableWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVecto
     allocator.close();
   }
 
-  @Test
-  public void testSortString() {
+  @ParameterizedTest
+  @MethodSource("getParameter")
+  public void testSortString(boolean generalSorter) {
+    setup(generalSorter);
     try (VarCharVector vec = new VarCharVector("", allocator)) {
       vec.allocateNew(100, 10);
       vec.setValueCount(10);

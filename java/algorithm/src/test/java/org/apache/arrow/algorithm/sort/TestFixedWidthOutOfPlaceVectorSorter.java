@@ -33,16 +33,13 @@ import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /** Test cases for {@link FixedWidthOutOfPlaceVectorSorter}. */
 public class TestFixedWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSorter {
 
   private BufferAllocator allocator;
-
-  public TestFixedWidthOutOfPlaceVectorSorter(boolean generalSorter) {
-    super(generalSorter);
-  }
 
   <V extends BaseFixedWidthVector> OutOfPlaceVectorSorter<V> getSorter() {
     return generalSorter
@@ -60,8 +57,10 @@ public class TestFixedWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSo
     allocator.close();
   }
 
-  @Test
-  public void testSortByte() {
+  @ParameterizedTest
+  @MethodSource("getParameter")
+  public void testSortByte(boolean generalSorter) {
+    setup(generalSorter);
     try (TinyIntVector vec = new TinyIntVector("", allocator)) {
       vec.allocateNew(10);
       vec.setValueCount(10);
@@ -108,8 +107,10 @@ public class TestFixedWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSo
     }
   }
 
-  @Test
-  public void testSortShort() {
+  @ParameterizedTest
+  @MethodSource("getParameter")
+  public void testSortShort(boolean generalSorter) {
+    setup(generalSorter);
     try (SmallIntVector vec = new SmallIntVector("", allocator)) {
       vec.allocateNew(10);
       vec.setValueCount(10);
@@ -156,8 +157,10 @@ public class TestFixedWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSo
     }
   }
 
-  @Test
-  public void testSortInt() {
+  @ParameterizedTest
+  @MethodSource("getParameter")
+  public void testSortInt(boolean generalSorter) {
+    setup(generalSorter);
     try (IntVector vec = new IntVector("", allocator)) {
       vec.allocateNew(10);
       vec.setValueCount(10);
@@ -204,8 +207,10 @@ public class TestFixedWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSo
     }
   }
 
-  @Test
-  public void testSortLong() {
+  @ParameterizedTest
+  @MethodSource("getParameter")
+  public void testSortLong(boolean generalSorter) {
+    setup(generalSorter);
     try (BigIntVector vec = new BigIntVector("", allocator)) {
       vec.allocateNew(10);
       vec.setValueCount(10);
@@ -252,8 +257,10 @@ public class TestFixedWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSo
     }
   }
 
-  @Test
-  public void testSortFloat() {
+  @ParameterizedTest
+  @MethodSource("getParameter")
+  public void testSortFloat(boolean generalSorter) {
+    setup(generalSorter);
     try (Float4Vector vec = new Float4Vector("", allocator)) {
       vec.allocateNew(10);
       vec.setValueCount(10);
@@ -300,8 +307,10 @@ public class TestFixedWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSo
     }
   }
 
-  @Test
-  public void testSortDouble() {
+  @ParameterizedTest
+  @MethodSource("getParameter")
+  public void testSortDouble(boolean generalSorter) {
+    setup(generalSorter);
     try (Float8Vector vec = new Float8Vector("", allocator)) {
       vec.allocateNew(10);
       vec.setValueCount(10);
@@ -348,8 +357,10 @@ public class TestFixedWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSo
     }
   }
 
-  @Test
-  public void testSortInt2() {
+  @ParameterizedTest
+  @MethodSource("getParameter")
+  public void testSortInt2(boolean generalSorter) {
+    setup(generalSorter);
     try (IntVector vec = new IntVector("", allocator)) {
       ValueVectorDataPopulator.setVector(
           vec, 0, 1, 2, 3, 4, 5, 30, 31, 32, 33, 34, 35, 60, 61, 62, 63, 64, 65, 6, 7, 8, 9, 10, 11,
