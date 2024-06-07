@@ -201,6 +201,28 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
   }
 
   @Override
+  public ListWriter listView(String name) {
+    String finalName = handleCase(name);
+    FieldWriter writer = fields.get(finalName);
+    int vectorCount = container.size();
+    if(writer == null) {
+      FieldType fieldType = new FieldType(addVectorAsNullable, MinorType.LISTVIEW.getType(), null, null);
+      writer = new PromotableWriter(container.addOrGet(name, fieldType, ListViewVector.class), container, getNullableStructWriterFactory());
+      if (container.size() > vectorCount) {
+        writer.allocate();
+      }
+      writer.setPosition(idx());
+      fields.put(finalName, writer);
+    } else {
+      if (writer instanceof PromotableWriter) {
+        // ensure writers are initialized
+        ((PromotableWriter)writer).getWriter(MinorType.LISTVIEW);
+      }
+    }
+    return writer;
+  }
+
+  @Override
   public MapWriter map(String name) {
     return map(name, false);
   }
