@@ -31,9 +31,9 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarCharVector;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
@@ -73,13 +73,13 @@ public class TestParallelSearcher {
     return params;
   }
 
-  @Before
+  @BeforeEach
   public void prepare() {
     allocator = new RootAllocator(1024 * 1024);
     threadPool = Executors.newFixedThreadPool(threadCount);
   }
 
-  @After
+  @AfterEach
   public void shutdown() {
     allocator.close();
     threadPool.shutdown();
