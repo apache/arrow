@@ -311,10 +311,6 @@ public class TestLargeVarCharVector {
   @Test
   public void testLargeVariableVectorReallocation() {
     assertThrows(OversizedAllocationException.class, () -> {
-      try (final LargeVarCharVector vector = new LargeVarCharVector("vector", allocator)) {
-        vector.allocateNew(10000, 1000);
-        vector.reAlloc();
-      }
       final LargeVarCharVector vector = new LargeVarCharVector("vector", allocator);
       // edge case 1: value count = MAX_VALUE_ALLOCATION
       final long expectedAllocationInBytes = BaseValueVector.MAX_ALLOCATION_SIZE;
