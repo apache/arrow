@@ -1438,10 +1438,11 @@ null input value is converted into a null output value.
   available). If the output type is (Large)ListView, then sizes are
   derived from the offsets.
 
-* \(4) If output type is list-like, offsets might have to be rebuilt to be
-  sorted and spaced correctly. If output type is a list-view type, the offsets
-  and sizes are unchanged. In any case, the list values are cast from the input
-  value type to the output value type (if a conversion is available).
+* \(4) If output type is list-like, offsets (consequently, the values array)
+  might have to be rebuilt to be sorted and spaced adequately. If output type is
+  a list-view type, the offsets and sizes are unchanged. In any case, the list
+  values are cast from the input value type to the output value type (if a
+  conversion is available).
 
 * \(5) Offsets are unchanged, the keys and values are cast from respective input
   to output types (if a conversion is available). If output type is a list of
