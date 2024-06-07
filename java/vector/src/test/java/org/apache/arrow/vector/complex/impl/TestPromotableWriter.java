@@ -173,9 +173,9 @@ public class TestPromotableWriter {
       Field childField1 = container.getField().getChildren().get(0).getChildren().get(0);
       Field childField2 = container.getField().getChildren().get(0).getChildren().get(1);
       assertEquals(ArrowTypeID.Union, childField1.getType().getTypeID(),
-              "Child field should be union type: " + childField1.getName());
+          "Child field should be union type: " + childField1.getName());
       assertEquals(ArrowTypeID.Decimal, childField2.getType().getTypeID(),
-              "Child field should be decimal type: " + childField2.getName());
+          "Child field should be decimal type: " + childField2.getName());
 
       buf.close();
     }

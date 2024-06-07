@@ -163,8 +163,7 @@ public class TestCopyFrom {
         if (i % 3 == 0) {
           assertNull(vector.getObject(i));
         } else {
-          assertEquals(Integer.toString(i), vector.getObject(i).toString(),
-                  "unexpected value at index: " + i);
+          assertEquals(Integer.toString(i), vector.getObject(i).toString(), "unexpected value at index: " + i);
         }
       }
 
@@ -182,8 +181,7 @@ public class TestCopyFrom {
         if (i % 3 == 0) {
           assertNull(vector2.getObject(i));
         } else {
-          assertEquals(Integer.toString(i), vector2.getObject(i).toString(),
-                  "unexpected value at index: " + i);
+          assertEquals(Integer.toString(i), vector2.getObject(i).toString(), "unexpected value at index: " + i);
         }
       }
 
@@ -197,8 +195,7 @@ public class TestCopyFrom {
         if (i % 3 == 0) {
           assertNull(vector2.getObject(i));
         } else {
-          assertEquals(Integer.toString(i), vector2.getObject(i).toString(),
-                  "unexpected value at index: " + i);
+          assertEquals(Integer.toString(i), vector2.getObject(i).toString(), "unexpected value at index: " + i);
         }
       }
     }

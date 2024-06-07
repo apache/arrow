@@ -248,8 +248,7 @@ public class TestValidateVectorFull {
 
       ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
           vector::validateFull);
-      assertTrue(e.getMessage().contains("The values in positions 0 and 1 of the offset buffer are " +
-              "decreasing"));
+      assertTrue(e.getMessage().contains("The values in positions 0 and 1 of the offset buffer are decreasing"));
     }
   }
 

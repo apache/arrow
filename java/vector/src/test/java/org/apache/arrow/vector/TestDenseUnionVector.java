@@ -263,7 +263,7 @@ public class TestDenseUnionVector {
           /* check the toVector output after doing the splitAndTransfer */
           for (int i = 0; i < length; i++) {
             assertEquals(sourceVector.getObject(start + i), toVector.getObject(i),
-                    "Different data at indexes: " + (start + i) + "and " + i);
+                "Different data at indexes: " + (start + i) + "and " + i);
           }
         }
       }
@@ -357,7 +357,7 @@ public class TestDenseUnionVector {
           /* check the toVector output after doing the splitAndTransfer */
           for (int i = 0; i < length; i++) {
             assertEquals(sourceVector.getObject(start + i), toVector.getObject(i),
-                    "Different values at index: " + i);
+                "Different values at index: " + i);
           }
         }
       }

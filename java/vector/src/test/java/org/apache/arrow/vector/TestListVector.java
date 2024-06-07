@@ -439,14 +439,14 @@ public class TestListVector {
                     toOffsetBuffer.getInt(i * ListVector.OFFSET_WIDTH);
 
             assertEquals(dataLength1, dataLength2,
-                    "Different data lengths at index: " + i + " and start: " + start);
+                "Different data lengths at index: " + i + " and start: " + start);
 
             offset1 = offsetBuffer.getInt((start + i) * ListVector.OFFSET_WIDTH);
             offset2 = toOffsetBuffer.getInt(i * ListVector.OFFSET_WIDTH);
 
             for (int j = 0; j < dataLength1; j++) {
               assertEquals(dataVector.getObject(offset1), dataVector1.getObject(offset2),
-                      "Different data at indexes: " + offset1 + " and " + offset2);
+                  "Different data at indexes: " + offset1 + " and " + offset2);
 
               offset1++;
               offset2++;

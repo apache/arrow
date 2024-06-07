@@ -90,10 +90,8 @@ public class TestExtensionType {
 
         final Field field = readerRoot.getSchema().getFields().get(0);
         final UuidType expectedType = new UuidType();
-        assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_NAME),
-            expectedType.extensionName());
-        assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_METADATA),
-            expectedType.serialize());
+        assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_NAME), expectedType.extensionName());
+        assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_METADATA), expectedType.serialize());
 
         final ExtensionTypeVector deserialized = (ExtensionTypeVector) readerRoot.getFieldVectors().get(0);
         assertEquals(vector.getValueCount(), deserialized.getValueCount());
@@ -147,10 +145,8 @@ public class TestExtensionType {
 
         final Field field = readerRoot.getSchema().getFields().get(0);
         final UuidType expectedType = new UuidType();
-        assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_NAME),
-            expectedType.extensionName());
-        assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_METADATA),
-            expectedType.serialize());
+        assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_NAME), expectedType.extensionName());
+        assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_METADATA), expectedType.serialize());
 
         final FixedSizeBinaryVector deserialized = (FixedSizeBinaryVector) readerRoot.getFieldVectors().get(0);
         assertEquals(vector.getValueCount(), deserialized.getValueCount());

@@ -156,14 +156,14 @@ public class BaseFileTest {
       assertEquals((Short) uint1Values[i % uint1Values.length],
           ((UInt1Vector) root.getVector("uint1")).getObjectNoOverflow(i));
       assertEquals((Character) uint2Values[i % uint2Values.length],
-              (Character) ((UInt2Vector) root.getVector("uint2")).get(i),
-              "Failed for index: " + i);
+          (Character) ((UInt2Vector) root.getVector("uint2")).get(i),
+          "Failed for index: " + i);
       assertEquals((Long) uint4Values[i % uint4Values.length],
-              ((UInt4Vector) root.getVector("uint4")).getObjectNoOverflow(i),
-              "Failed for index: " + i);
+          ((UInt4Vector) root.getVector("uint4")).getObjectNoOverflow(i),
+          "Failed for index: " + i);
       assertEquals(uint8Values[i % uint8Values.length],
-              ((UInt8Vector) root.getVector("uint8")).getObjectNoOverflow(i),
-              "Failed for index: " + i);
+          ((UInt8Vector) root.getVector("uint8")).getObjectNoOverflow(i),
+          "Failed for index: " + i);
       assertEquals(Long.valueOf(i), root.getVector("bigInt").getObject(i));
       assertEquals(i == 0 ? Float.NaN : i, root.getVector("float").getObject(i));
     }

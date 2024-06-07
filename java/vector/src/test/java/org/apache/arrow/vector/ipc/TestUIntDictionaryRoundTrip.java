@@ -166,8 +166,7 @@ public class TestUIntDictionaryRoundTrip {
       encodedVector1.setValueCount(vectorLength);
       setVector(dictionaryVector, dictionaryItems);
       byte[] data = writeData(streamMode, encodedVector1);
-      readData(
-          streamMode, data, encodedVector1.getField(),
+      readData(streamMode, data, encodedVector1.getField(),
           (vector, index) -> (int) ((UInt1Vector) vector).getValueAsLong(index), 8L, indices, dictionaryItems);
     }
   }
