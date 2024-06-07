@@ -125,17 +125,8 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
     return importBuffer(type, 1, capacity);
   }
 
-  private ArrowBuf importView(ArrowType type) {
-    final long capacity = (long) fieldNode.getLength() * BaseVariableWidthViewVector.ELEMENT_SIZE;
-    return importBuffer(type, 1, capacity);
-  }
-
   private ArrowBuf importData(ArrowType type, long capacity) {
     return importBuffer(type, 2, capacity);
-  }
-
-  private ArrowBuf importViewData(ArrowType type, int index, long capacity) {
-    return importBuffer(type, index, capacity);
   }
 
   private ArrowBuf maybeImportBitmap(ArrowType type) {
@@ -242,7 +233,8 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
   }
 
   private List<ArrowBuf> visitVariableWidthView(ArrowType type) {
-    try (ArrowBuf view = importView(type)) {
+    final int viewBufferIndex = 1;
+    try (ArrowBuf view = importFixedBytes(type, viewBufferIndex, BaseVariableWidthViewVector.ELEMENT_SIZE)) {
       List<ArrowBuf> buffers = new ArrayList<>();
       view.getReferenceManager().retain();
       ArrowBuf maybeValidityBuffer = maybeImportBitmap(type);
@@ -274,7 +266,7 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
       final int fixedBufferCount = 2;
       // import data buffers
       for (Map.Entry<Integer, Long> entry : dataBufferInfo.entrySet()) {
-        buffers.add(importViewData(type, entry.getKey() + fixedBufferCount, entry.getValue()));
+        buffers.add(importBuffer(type, entry.getKey() + fixedBufferCount, entry.getValue()));
       }
       return buffers;
     }

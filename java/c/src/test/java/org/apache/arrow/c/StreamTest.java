@@ -188,10 +188,11 @@ final class StreamTest {
       ints.setSafe(1, 2);
       ints.setSafe(2, 4);
       ints.setSafe(3, 8);
-      strs.setSafe(0, "".getBytes(StandardCharsets.UTF_8));
-      strs.setSafe(1, "a".getBytes(StandardCharsets.UTF_8));
-      strs.setSafe(2, "bc1234567890bc".getBytes(StandardCharsets.UTF_8));
-      strs.setSafe(3, "defg1234567890defg".getBytes(StandardCharsets.UTF_8));
+      strs.setSafe(0, new byte[0]);
+      strs.setSafe(1, new byte[]{97});
+      strs.setSafe(2, new byte[] {98, 99, 49, 50, 51, 52, 53, 54, 55, 56, 57, 48, 98, 99});
+      strs.setSafe(3, new byte[] {100, 101, 102, 103, 49, 50, 51, 52, 53, 54, 55, 56, 57, 48,
+          100, 101, 102, 103});
       root.setRowCount(4);
       batches.add(unloader.getRecordBatch());
 
@@ -200,9 +201,9 @@ final class StreamTest {
       ints.setNull(1);
       ints.setSafe(2, 4);
       ints.setNull(3);
-      strs.setSafe(0, "".getBytes(StandardCharsets.UTF_8));
+      strs.setSafe(0, new byte[0]);
       strs.setNull(1);
-      strs.setSafe(2, "bc1234567890bc".getBytes(StandardCharsets.UTF_8));
+      strs.setSafe(2, new byte[] {98, 99, 49, 50, 51, 52, 53, 54, 55, 56, 57, 48, 98, 99});
       strs.setNull(3);
       root.setRowCount(4);
       batches.add(unloader.getRecordBatch());
