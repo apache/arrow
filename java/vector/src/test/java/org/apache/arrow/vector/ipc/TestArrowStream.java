@@ -17,9 +17,9 @@
 
 package org.apache.arrow.vector.ipc;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -31,8 +31,7 @@ import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class TestArrowStream extends BaseFileTest {
   @Test
@@ -44,15 +43,15 @@ public class TestArrowStream extends BaseFileTest {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     ArrowStreamWriter writer = new ArrowStreamWriter(root, null, out);
     writer.close();
-    Assert.assertTrue(out.size() > 0);
+    assertTrue(out.size() > 0);
 
     ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
     try (ArrowStreamReader reader = new ArrowStreamReader(in, allocator)) {
       assertEquals(schema, reader.getVectorSchemaRoot().getSchema());
       // Empty should return false
-      Assert.assertFalse(reader.loadNextBatch());
+      assertFalse(reader.loadNextBatch());
       assertEquals(0, reader.getVectorSchemaRoot().getRowCount());
-      Assert.assertFalse(reader.loadNextBatch());
+      assertFalse(reader.loadNextBatch());
       assertEquals(0, reader.getVectorSchemaRoot().getRowCount());
     }
   }

@@ -18,10 +18,10 @@
 package org.apache.arrow.vector.ipc;
 
 import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -29,9 +29,9 @@ import java.io.IOException;
 import java.nio.channels.Channels;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Map;
 import java.util.function.ToIntBiFunction;
+import java.util.stream.Stream;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -51,41 +51,34 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.ByteArrayReadableSeekableByteChannel;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Test the round-trip of dictionary encoding,
  * with unsigned integer as indices.
  */
-@RunWith(Parameterized.class)
 public class TestUIntDictionaryRoundTrip {
-
-  private final boolean streamMode;
-
-  public TestUIntDictionaryRoundTrip(boolean streamMode) {
-    this.streamMode = streamMode;
-  }
 
   private BufferAllocator allocator;
 
   private DictionaryProvider.MapDictionaryProvider dictionaryProvider;
 
-  @Before
+  @BeforeEach
   public void init() {
     allocator = new RootAllocator(Long.MAX_VALUE);
     dictionaryProvider = new DictionaryProvider.MapDictionaryProvider();
   }
 
-  @After
+  @AfterEach
   public void terminate() throws Exception {
     allocator.close();
   }
 
-  private byte[] writeData(FieldVector encodedVector) throws IOException {
+  private byte[] writeData(boolean streamMode, FieldVector encodedVector) throws IOException {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     VectorSchemaRoot root =
         new VectorSchemaRoot(
@@ -102,6 +95,7 @@ public class TestUIntDictionaryRoundTrip {
   }
 
   private void readData(
+      boolean streamMode,
       byte[] data,
       Field expectedField,
       ToIntBiFunction<ValueVector, Integer> valGetter,
@@ -156,8 +150,9 @@ public class TestUIntDictionaryRoundTrip {
     return field.createVector(allocator);
   }
 
-  @Test
-  public void testUInt1RoundTrip() throws IOException {
+  @ParameterizedTest(name = "stream mode = {0}")
+  @MethodSource("getRepeat")
+  public void testUInt1RoundTrip(boolean streamMode) throws IOException {
     final int vectorLength = UInt1Vector.MAX_UINT1 & UInt1Vector.PROMOTION_MASK;
     try (VarCharVector dictionaryVector = new VarCharVector("dictionary", allocator);
          UInt1Vector encodedVector1 = (UInt1Vector) createEncodedVector(8, dictionaryVector)) {
@@ -170,15 +165,15 @@ public class TestUIntDictionaryRoundTrip {
       }
       encodedVector1.setValueCount(vectorLength);
       setVector(dictionaryVector, dictionaryItems);
-      byte[] data = writeData(encodedVector1);
-      readData(
-          data, encodedVector1.getField(), (vector, index) -> (int) ((UInt1Vector) vector).getValueAsLong(index),
-          8L, indices, dictionaryItems);
+      byte[] data = writeData(streamMode, encodedVector1);
+      readData(streamMode, data, encodedVector1.getField(),
+          (vector, index) -> (int) ((UInt1Vector) vector).getValueAsLong(index), 8L, indices, dictionaryItems);
     }
   }
 
-  @Test
-  public void testUInt2RoundTrip() throws IOException {
+  @ParameterizedTest(name = "stream mode = {0}")
+  @MethodSource("getRepeat")
+  public void testUInt2RoundTrip(boolean streamMode) throws IOException {
     try (VarCharVector dictionaryVector = new VarCharVector("dictionary", allocator);
         UInt2Vector encodedVector2 = (UInt2Vector) createEncodedVector(16, dictionaryVector)) {
       int[] indices = new int[]{1, 3, 5, 7, 9, UInt2Vector.MAX_UINT2};
@@ -190,14 +185,15 @@ public class TestUIntDictionaryRoundTrip {
       setVector(encodedVector2, (char) 1, (char) 3, (char) 5, (char) 7, (char) 9, UInt2Vector.MAX_UINT2);
       setVector(dictionaryVector, dictItems);
 
-      byte[] data = writeData(encodedVector2);
-      readData(data, encodedVector2.getField(), (vector, index) -> (int) ((UInt2Vector) vector).getValueAsLong(index),
-          16L, indices, dictItems);
+      byte[] data = writeData(streamMode, encodedVector2);
+      readData(streamMode, data, encodedVector2.getField(),
+          (vector, index) -> (int) ((UInt2Vector) vector).getValueAsLong(index), 16L, indices, dictItems);
     }
   }
 
-  @Test
-  public void testUInt4RoundTrip() throws IOException {
+  @ParameterizedTest(name = "stream mode = {0}")
+  @MethodSource("getRepeat")
+  public void testUInt4RoundTrip(boolean streamMode) throws IOException {
     final int dictLength = 10;
     try (VarCharVector dictionaryVector = new VarCharVector("dictionary", allocator);
         UInt4Vector encodedVector4 = (UInt4Vector) createEncodedVector(32, dictionaryVector)) {
@@ -211,14 +207,15 @@ public class TestUIntDictionaryRoundTrip {
       setVector(dictionaryVector, dictItems);
 
       setVector(encodedVector4, 1, 3, 5, 7, 9);
-      byte[] data = writeData(encodedVector4);
-      readData(data, encodedVector4.getField(), (vector, index) -> (int) ((UInt4Vector) vector).getValueAsLong(index),
-          32L, indices, dictItems);
+      byte[] data = writeData(streamMode, encodedVector4);
+      readData(streamMode, data, encodedVector4.getField(),
+          (vector, index) -> (int) ((UInt4Vector) vector).getValueAsLong(index), 32L, indices, dictItems);
     }
   }
 
-  @Test
-  public void testUInt8RoundTrip() throws IOException {
+  @ParameterizedTest(name = "stream mode = {0}")
+  @MethodSource("getRepeat")
+  public void testUInt8RoundTrip(boolean streamMode) throws IOException {
     final int dictLength = 10;
     try (VarCharVector dictionaryVector = new VarCharVector("dictionary", allocator);
         UInt8Vector encodedVector8 = (UInt8Vector) createEncodedVector(64, dictionaryVector)) {
@@ -231,17 +228,16 @@ public class TestUIntDictionaryRoundTrip {
       setVector(encodedVector8, 1L, 3L, 5L, 7L, 9L);
       setVector(dictionaryVector, dictItems);
 
-      byte[] data = writeData(encodedVector8);
-      readData(data, encodedVector8.getField(), (vector, index) -> (int) ((UInt8Vector) vector).getValueAsLong(index),
-          64L, indices, dictItems);
+      byte[] data = writeData(streamMode, encodedVector8);
+      readData(streamMode, data, encodedVector8.getField(),
+          (vector, index) -> (int) ((UInt8Vector) vector).getValueAsLong(index), 64L, indices, dictItems);
     }
   }
 
-  @Parameterized.Parameters(name = "stream mode = {0}")
-  public static Collection<Object[]> getRepeat() {
-    return Arrays.asList(
-        new Object[]{true},
-        new Object[]{false}
+  static Stream<Arguments> getRepeat() {
+    return Stream.of(
+        Arguments.of(true),
+        Arguments.of(false)
     );
   }
 }

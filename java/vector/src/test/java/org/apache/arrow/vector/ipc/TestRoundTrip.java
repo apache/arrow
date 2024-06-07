@@ -18,12 +18,13 @@
 package org.apache.arrow.vector.ipc;
 
 import static org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvider;
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -33,14 +34,13 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.channels.Channels;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
+import java.util.stream.Stream;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -68,55 +68,47 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.AfterClass;
-import org.junit.Assume;
-import org.junit.BeforeClass;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@RunWith(Parameterized.class)
 public class TestRoundTrip extends BaseFileTest {
   private static final Logger LOGGER = LoggerFactory.getLogger(TestRoundTrip.class);
   private static BufferAllocator allocator;
-  private final String name;
-  private final IpcOption writeOption;
 
-  public TestRoundTrip(String name, IpcOption writeOption) {
-    this.name = name;
-    this.writeOption = writeOption;
-  }
-
-  @Parameterized.Parameters(name = "options = {0}")
-  public static Collection<Object[]> getWriteOption() {
+  static Stream<Object[]> getWriteOption() {
     final IpcOption legacy = new IpcOption(true, MetadataVersion.V4);
     final IpcOption version4 = new IpcOption(false, MetadataVersion.V4);
-    return Arrays.asList(
+    return Stream.of(
         new Object[] {"V4Legacy", legacy},
         new Object[] {"V4", version4},
         new Object[] {"V5", IpcOption.DEFAULT}
     );
   }
 
-  @BeforeClass
+  @BeforeAll
   public static void setUpClass() {
     allocator = new RootAllocator(Integer.MAX_VALUE);
   }
 
-  @AfterClass
+  @AfterAll
   public static void tearDownClass() {
     allocator.close();
   }
 
-  @Test
-  public void testStruct() throws Exception {
+  @ParameterizedTest(name = "options = {0}")
+  @MethodSource("getWriteOption")
+  public void testStruct(String name, IpcOption writeOption) throws Exception {
     try (final BufferAllocator originalVectorAllocator =
              allocator.newChildAllocator("original vectors", 0, allocator.getLimit());
          final StructVector parent = StructVector.empty("parent", originalVectorAllocator)) {
       writeData(COUNT, parent);
       roundTrip(
+          name,
+          writeOption,
           new VectorSchemaRoot(parent.getChild("root")),
           /* dictionaryProvider */null,
           TestRoundTrip::writeSingleBatch,
@@ -125,13 +117,16 @@ public class TestRoundTrip extends BaseFileTest {
     }
   }
 
-  @Test
-  public void testComplex() throws Exception {
+  @ParameterizedTest(name = "options = {0}")
+  @MethodSource("getWriteOption")
+  public void testComplex(String name, IpcOption writeOption) throws Exception {
     try (final BufferAllocator originalVectorAllocator =
              allocator.newChildAllocator("original vectors", 0, allocator.getLimit());
          final StructVector parent = StructVector.empty("parent", originalVectorAllocator)) {
       writeComplexData(COUNT, parent);
       roundTrip(
+          name,
+          writeOption,
           new VectorSchemaRoot(parent.getChild("root")),
           /* dictionaryProvider */null,
           TestRoundTrip::writeSingleBatch,
@@ -140,14 +135,17 @@ public class TestRoundTrip extends BaseFileTest {
     }
   }
 
-  @Test
-  public void testMultipleRecordBatches() throws Exception {
+  @ParameterizedTest(name = "options = {0}")
+  @MethodSource("getWriteOption")
+  public void testMultipleRecordBatches(String name, IpcOption writeOption) throws Exception {
     int[] counts = {10, 5};
     try (final BufferAllocator originalVectorAllocator =
              allocator.newChildAllocator("original vectors", 0, allocator.getLimit());
          final StructVector parent = StructVector.empty("parent", originalVectorAllocator)) {
       writeData(counts[0], parent);
       roundTrip(
+          name,
+          writeOption,
           new VectorSchemaRoot(parent.getChild("root")),
           /* dictionaryProvider */null,
           (root, writer) -> {
@@ -170,9 +168,10 @@ public class TestRoundTrip extends BaseFileTest {
     }
   }
 
-  @Test
-  public void testUnionV4() throws Exception {
-    Assume.assumeTrue(writeOption.metadataVersion == MetadataVersion.V4);
+  @ParameterizedTest(name = "options = {0}")
+  @MethodSource("getWriteOption")
+  public void testUnionV4(String name, IpcOption writeOption) throws Exception {
+    assumeTrue(writeOption.metadataVersion == MetadataVersion.V4);
     final File temp = File.createTempFile("arrow-test-" + name + "-", ".arrow");
     temp.deleteOnExit();
     final ByteArrayOutputStream memoryStream = new ByteArrayOutputStream();
@@ -188,17 +187,18 @@ public class TestRoundTrip extends BaseFileTest {
           new ArrowStreamWriter(root, null, Channels.newChannel(memoryStream), writeOption);
         }
       });
-      assertTrue(e.getMessage(), e.getMessage().contains("Cannot write union with V4 metadata"));
+      assertTrue(e.getMessage().contains("Cannot write union with V4 metadata"), e.getMessage());
       e = assertThrows(IllegalArgumentException.class, () -> {
         new ArrowStreamWriter(root, null, Channels.newChannel(memoryStream), writeOption);
       });
-      assertTrue(e.getMessage(), e.getMessage().contains("Cannot write union with V4 metadata"));
+      assertTrue(e.getMessage().contains("Cannot write union with V4 metadata"), e.getMessage());
     }
   }
 
-  @Test
-  public void testUnionV5() throws Exception {
-    Assume.assumeTrue(writeOption.metadataVersion == MetadataVersion.V5);
+  @ParameterizedTest(name = "options = {0}")
+  @MethodSource("getWriteOption")
+  public void testUnionV5(String name, IpcOption writeOption) throws Exception {
+    assumeTrue(writeOption.metadataVersion == MetadataVersion.V5);
     try (final BufferAllocator originalVectorAllocator =
              allocator.newChildAllocator("original vectors", 0, allocator.getLimit());
          final StructVector parent = StructVector.empty("parent", originalVectorAllocator)) {
@@ -206,6 +206,8 @@ public class TestRoundTrip extends BaseFileTest {
       VectorSchemaRoot root = new VectorSchemaRoot(parent.getChild("root"));
       validateUnionData(COUNT, root);
       roundTrip(
+          name,
+          writeOption,
           root,
           /* dictionaryProvider */null,
           TestRoundTrip::writeSingleBatch,
@@ -214,8 +216,9 @@ public class TestRoundTrip extends BaseFileTest {
     }
   }
 
-  @Test
-  public void testTiny() throws Exception {
+  @ParameterizedTest(name = "options = {0}")
+  @MethodSource("getWriteOption")
+  public void testTiny(String name, IpcOption writeOption) throws Exception {
     try (final VectorSchemaRoot root = VectorSchemaRoot.create(MessageSerializerTest.testSchema(), allocator)) {
       root.getFieldVectors().get(0).allocateNew();
       int count = 16;
@@ -227,6 +230,8 @@ public class TestRoundTrip extends BaseFileTest {
       root.setRowCount(count);
 
       roundTrip(
+          name,
+          writeOption,
           root,
           /* dictionaryProvider */null,
           TestRoundTrip::writeSingleBatch,
@@ -247,8 +252,9 @@ public class TestRoundTrip extends BaseFileTest {
     }
   }
 
-  @Test
-  public void testMetadata() throws Exception {
+  @ParameterizedTest(name = "options = {0}")
+  @MethodSource("getWriteOption")
+  public void testMetadata(String name, IpcOption writeOption) throws Exception {
     List<Field> childFields = new ArrayList<>();
     childFields.add(new Field("varchar-child", new FieldType(true, ArrowType.Utf8.INSTANCE, null, metadata(1)), null));
     childFields.add(new Field("float-child",
@@ -283,6 +289,8 @@ public class TestRoundTrip extends BaseFileTest {
         }
       };
       roundTrip(
+          name,
+          writeOption,
           root,
           /* dictionaryProvider */null,
           TestRoundTrip::writeSingleBatch,
@@ -298,14 +306,17 @@ public class TestRoundTrip extends BaseFileTest {
     return Collections.unmodifiableMap(map);
   }
 
-  @Test
-  public void testFlatDictionary() throws Exception {
+  @ParameterizedTest(name = "options = {0}")
+  @MethodSource("getWriteOption")
+  public void testFlatDictionary(String name, IpcOption writeOption) throws Exception {
     AtomicInteger numDictionaryBlocksWritten = new AtomicInteger();
     MapDictionaryProvider provider = new MapDictionaryProvider();
     try (final BufferAllocator originalVectorAllocator =
              allocator.newChildAllocator("original vectors", 0, allocator.getLimit());
          final VectorSchemaRoot root = writeFlatDictionaryData(originalVectorAllocator, provider)) {
       roundTrip(
+          name,
+          writeOption,
           root,
           provider,
           (ignored, writer) -> {
@@ -339,8 +350,9 @@ public class TestRoundTrip extends BaseFileTest {
     }
   }
 
-  @Test
-  public void testNestedDictionary() throws Exception {
+  @ParameterizedTest(name = "options = {0}")
+  @MethodSource("getWriteOption")
+  public void testNestedDictionary(String name, IpcOption writeOption) throws Exception {
     AtomicInteger numDictionaryBlocksWritten = new AtomicInteger();
     MapDictionaryProvider provider = new MapDictionaryProvider();
     // data being written:
@@ -356,6 +368,8 @@ public class TestRoundTrip extends BaseFileTest {
         validateNestedDictionary(readRoot, streamReader);
       };
       roundTrip(
+          name,
+          writeOption,
           root,
           provider,
           (ignored, writer) -> {
@@ -376,8 +390,9 @@ public class TestRoundTrip extends BaseFileTest {
     }
   }
 
-  @Test
-  public void testFixedSizeBinary() throws Exception {
+  @ParameterizedTest(name = "options = {0}")
+  @MethodSource("getWriteOption")
+  public void testFixedSizeBinary(String name, IpcOption writeOption) throws Exception {
     final int count = 10;
     final int typeWidth = 11;
     byte[][] byteValues = new byte[count][typeWidth];
@@ -405,6 +420,8 @@ public class TestRoundTrip extends BaseFileTest {
       parent.setValueCount(count);
 
       roundTrip(
+          name,
+          writeOption,
           new VectorSchemaRoot(parent),
           /* dictionaryProvider */null,
           TestRoundTrip::writeSingleBatch,
@@ -413,8 +430,9 @@ public class TestRoundTrip extends BaseFileTest {
     }
   }
 
-  @Test
-  public void testFixedSizeList() throws Exception {
+  @ParameterizedTest(name = "options = {0}")
+  @MethodSource("getWriteOption")
+  public void testFixedSizeList(String name, IpcOption writeOption) throws Exception {
     BiConsumer<Integer, VectorSchemaRoot> validator = (expectedCount, root) -> {
       for (int i = 0; i < expectedCount; i++) {
         assertEquals(Collections2.asImmutableList(i + 0.1f, i + 10.1f), root.getVector("float-pairs")
@@ -441,6 +459,8 @@ public class TestRoundTrip extends BaseFileTest {
       parent.setValueCount(COUNT);
 
       roundTrip(
+          name,
+          writeOption,
           new VectorSchemaRoot(parent),
           /* dictionaryProvider */null,
           TestRoundTrip::writeSingleBatch,
@@ -449,8 +469,9 @@ public class TestRoundTrip extends BaseFileTest {
     }
   }
 
-  @Test
-  public void testVarBinary() throws Exception {
+  @ParameterizedTest(name = "options = {0}")
+  @MethodSource("getWriteOption")
+  public void testVarBinary(String name, IpcOption writeOption) throws Exception {
     try (final BufferAllocator originalVectorAllocator =
              allocator.newChildAllocator("original vectors", 0, allocator.getLimit());
          final StructVector parent = StructVector.empty("parent", originalVectorAllocator)) {
@@ -459,6 +480,8 @@ public class TestRoundTrip extends BaseFileTest {
       validateVarBinary(COUNT, root);
 
       roundTrip(
+          name,
+          writeOption,
           root,
           /* dictionaryProvider */null,
           TestRoundTrip::writeSingleBatch,
@@ -467,8 +490,9 @@ public class TestRoundTrip extends BaseFileTest {
     }
   }
 
-  @Test
-  public void testReadWriteMultipleBatches() throws IOException {
+  @ParameterizedTest(name = "options = {0}")
+  @MethodSource("getWriteOption")
+  public void testReadWriteMultipleBatches(String name, IpcOption writeOption) throws IOException {
     File file = new File("target/mytest_nulls_multibatch.arrow");
     int numBlocksWritten = 0;
 
@@ -491,12 +515,15 @@ public class TestRoundTrip extends BaseFileTest {
     }
   }
 
-  @Test
-  public void testMap() throws Exception {
+  @ParameterizedTest(name = "options = {0}")
+  @MethodSource("getWriteOption")
+  public void testMap(String name, IpcOption writeOption) throws Exception {
     try (final BufferAllocator originalVectorAllocator =
              allocator.newChildAllocator("original vectors", 0, allocator.getLimit());
          final VectorSchemaRoot root = writeMapData(originalVectorAllocator)) {
       roundTrip(
+          name,
+          writeOption,
           root,
           /* dictionaryProvider */null,
           TestRoundTrip::writeSingleBatch,
@@ -505,12 +532,15 @@ public class TestRoundTrip extends BaseFileTest {
     }
   }
 
-  @Test
-  public void testListAsMap() throws Exception {
+  @ParameterizedTest(name = "options = {0}")
+  @MethodSource("getWriteOption")
+  public void testListAsMap(String name, IpcOption writeOption) throws Exception {
     try (final BufferAllocator originalVectorAllocator =
              allocator.newChildAllocator("original vectors", 0, allocator.getLimit());
          final VectorSchemaRoot root = writeListAsMapData(originalVectorAllocator)) {
       roundTrip(
+          name,
+          writeOption,
           root,
           /* dictionaryProvider */null,
           TestRoundTrip::writeSingleBatch,
@@ -539,10 +569,10 @@ public class TestRoundTrip extends BaseFileTest {
       assertEquals(counts.length, recordBatches.size());
       long previousOffset = 0;
       for (ArrowBlock rbBlock : recordBatches) {
-        assertTrue(rbBlock.getOffset() + " > " + previousOffset, rbBlock.getOffset() > previousOffset);
+        assertTrue(rbBlock.getOffset() > previousOffset, rbBlock.getOffset() + " > " + previousOffset);
         previousOffset = rbBlock.getOffset();
         arrowReader.loadRecordBatch(rbBlock);
-        assertEquals("RB #" + i, counts[i], root.getRowCount());
+        assertEquals(counts[i], root.getRowCount(), "RB #" + i);
         validator.accept(counts[i], root);
         try (final ArrowRecordBatch batch = unloader.getRecordBatch()) {
           List<ArrowBuffer> buffersLayout = batch.getBuffersLayout();
@@ -566,7 +596,7 @@ public class TestRoundTrip extends BaseFileTest {
 
       for (int n = 0; n < counts.length; n++) {
         assertTrue(arrowReader.loadNextBatch());
-        assertEquals("RB #" + i, counts[i], root.getRowCount());
+        assertEquals(counts[i], root.getRowCount(), "RB #" + i);
         validator.accept(counts[i], root);
         try (final ArrowRecordBatch batch = unloader.getRecordBatch()) {
           final List<ArrowBuffer> buffersLayout = batch.getBuffersLayout();
@@ -590,7 +620,7 @@ public class TestRoundTrip extends BaseFileTest {
     void accept(T t, U u) throws Exception;
   }
 
-  private void roundTrip(VectorSchemaRoot root, DictionaryProvider provider,
+  private void roundTrip(String name, IpcOption writeOption, VectorSchemaRoot root, DictionaryProvider provider,
                          CheckedBiConsumer<VectorSchemaRoot, ArrowWriter> writer,
                          CheckedConsumer<? super ArrowFileReader> fileValidator,
                          CheckedConsumer<? super ArrowStreamReader> streamValidator) throws Exception {

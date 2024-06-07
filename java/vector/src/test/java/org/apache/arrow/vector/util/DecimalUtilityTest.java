@@ -17,14 +17,15 @@
 
 package org.apache.arrow.vector.util;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class DecimalUtilityTest {
   private static final BigInteger[] MAX_BIG_INT = new BigInteger[]{BigInteger.valueOf(10).pow(38)
@@ -45,7 +46,7 @@ public class DecimalUtilityTest {
           DecimalUtility.writeLongToArrowBuf((long) val, buf, 0, byteLengths[x]);
           BigDecimal actual = DecimalUtility.getBigDecimalFromArrowBuf(buf, 0, 0, byteLengths[x]);
           BigDecimal expected = BigDecimal.valueOf(val);
-          Assert.assertEquals(expected, actual);
+          assertEquals(expected, actual);
         }
       }
     }
@@ -64,7 +65,7 @@ public class DecimalUtilityTest {
           DecimalUtility.writeByteArrayToArrowBuf(BigInteger.valueOf(val).toByteArray(), buf, 0, byteLengths[x]);
           BigDecimal actual = DecimalUtility.getBigDecimalFromArrowBuf(buf, 0, 0, byteLengths[x]);
           BigDecimal expected = BigDecimal.valueOf(val);
-          Assert.assertEquals(expected, actual);
+          assertEquals(expected, actual);
         }
 
         long [] longValues = new long[] {Long.MIN_VALUE, 0 , Long.MAX_VALUE};
@@ -73,7 +74,7 @@ public class DecimalUtilityTest {
           DecimalUtility.writeByteArrayToArrowBuf(BigInteger.valueOf(val).toByteArray(), buf, 0, byteLengths[x]);
           BigDecimal actual = DecimalUtility.getBigDecimalFromArrowBuf(buf, 0, 0, byteLengths[x]);
           BigDecimal expected = BigDecimal.valueOf(val);
-          Assert.assertEquals(expected, actual);
+          assertEquals(expected, actual);
         }
 
         BigInteger [] decimals = new BigInteger[] {MAX_BIG_INT[x], new BigInteger("0"), MIN_BIG_INT[x]};
@@ -82,7 +83,7 @@ public class DecimalUtilityTest {
           DecimalUtility.writeByteArrayToArrowBuf(val.toByteArray(), buf, 0, byteLengths[x]);
           BigDecimal actual = DecimalUtility.getBigDecimalFromArrowBuf(buf, 0, 0, byteLengths[x]);
           BigDecimal expected = new BigDecimal(val);
-          Assert.assertEquals(expected, actual);
+          assertEquals(expected, actual);
         }
       }
     }
@@ -101,7 +102,7 @@ public class DecimalUtilityTest {
           DecimalUtility.writeBigDecimalToArrowBuf(BigDecimal.valueOf(val), buf, 0, byteLengths[x]);
           BigDecimal actual = DecimalUtility.getBigDecimalFromArrowBuf(buf, 0, 0, byteLengths[x]);
           BigDecimal expected = BigDecimal.valueOf(val);
-          Assert.assertEquals(expected, actual);
+          assertEquals(expected, actual);
         }
 
         long [] longValues = new long[] {Long.MIN_VALUE, 0 , Long.MAX_VALUE};
@@ -110,7 +111,7 @@ public class DecimalUtilityTest {
           DecimalUtility.writeBigDecimalToArrowBuf(BigDecimal.valueOf(val), buf, 0, byteLengths[x]);
           BigDecimal actual = DecimalUtility.getBigDecimalFromArrowBuf(buf, 0, 0, byteLengths[x]);
           BigDecimal expected = BigDecimal.valueOf(val);
-          Assert.assertEquals(expected, actual);
+          assertEquals(expected, actual);
         }
 
         BigInteger [] decimals = new BigInteger[] {MAX_BIG_INT[x], new BigInteger("0"), MIN_BIG_INT[x]};
@@ -119,7 +120,7 @@ public class DecimalUtilityTest {
           DecimalUtility.writeBigDecimalToArrowBuf(new BigDecimal(val), buf, 0, byteLengths[x]);
           BigDecimal actual = DecimalUtility.getBigDecimalFromArrowBuf(buf, 0, 0, byteLengths[x]);
           BigDecimal expected = new BigDecimal(val);
-          Assert.assertEquals(expected, actual);
+          assertEquals(expected, actual);
         }
       }
     }

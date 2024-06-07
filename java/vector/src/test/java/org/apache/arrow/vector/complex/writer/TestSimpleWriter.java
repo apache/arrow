@@ -17,6 +17,9 @@
 
 package org.apache.arrow.vector.complex.writer;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.nio.ByteBuffer;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -30,21 +33,20 @@ import org.apache.arrow.vector.complex.impl.LargeVarCharWriterImpl;
 import org.apache.arrow.vector.complex.impl.VarBinaryWriterImpl;
 import org.apache.arrow.vector.complex.impl.VarCharWriterImpl;
 import org.apache.arrow.vector.util.Text;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class TestSimpleWriter {
 
   private BufferAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void init() {
     allocator = new RootAllocator(Integer.MAX_VALUE);
   }
 
-  @After
+  @AfterEach
   public void terminate() throws Exception {
     allocator.close();
   }
@@ -56,7 +58,7 @@ public class TestSimpleWriter {
       byte[] input = new byte[] { 0x01, 0x02 };
       writer.writeVarBinary(input);
       byte[] result = vector.get(0);
-      Assert.assertArrayEquals(input, result);
+      assertArrayEquals(input, result);
     }
   }
 
@@ -67,7 +69,7 @@ public class TestSimpleWriter {
       byte[] input = new byte[] { 0x01, 0x02 };
       writer.writeVarBinary(input, 1, 1);
       byte[] result = vector.get(0);
-      Assert.assertArrayEquals(new byte[] { 0x02 }, result);
+      assertArrayEquals(new byte[] { 0x02 }, result);
     }
   }
 
@@ -79,7 +81,7 @@ public class TestSimpleWriter {
       ByteBuffer buffer = ByteBuffer.wrap(input);
       writer.writeVarBinary(buffer);
       byte[] result = vector.get(0);
-      Assert.assertArrayEquals(input, result);
+      assertArrayEquals(input, result);
     }
   }
 
@@ -91,7 +93,7 @@ public class TestSimpleWriter {
       ByteBuffer buffer = ByteBuffer.wrap(input);
       writer.writeVarBinary(buffer, 1, 1);
       byte[] result = vector.get(0);
-      Assert.assertArrayEquals(new byte[] { 0x02 }, result);
+      assertArrayEquals(new byte[] { 0x02 }, result);
     }
   }
 
@@ -102,7 +104,7 @@ public class TestSimpleWriter {
       byte[] input = new byte[] { 0x01, 0x02 };
       writer.writeLargeVarBinary(input);
       byte[] result = vector.get(0);
-      Assert.assertArrayEquals(input, result);
+      assertArrayEquals(input, result);
     }
   }
 
@@ -113,7 +115,7 @@ public class TestSimpleWriter {
       byte[] input = new byte[] { 0x01, 0x02 };
       writer.writeLargeVarBinary(input, 1, 1);
       byte[] result = vector.get(0);
-      Assert.assertArrayEquals(new byte[] { 0x02 }, result);
+      assertArrayEquals(new byte[] { 0x02 }, result);
     }
   }
 
@@ -125,7 +127,7 @@ public class TestSimpleWriter {
       ByteBuffer buffer = ByteBuffer.wrap(input);
       writer.writeLargeVarBinary(buffer);
       byte[] result = vector.get(0);
-      Assert.assertArrayEquals(input, result);
+      assertArrayEquals(input, result);
     }
   }
 
@@ -137,7 +139,7 @@ public class TestSimpleWriter {
       ByteBuffer buffer = ByteBuffer.wrap(input);
       writer.writeLargeVarBinary(buffer, 1, 1);
       byte[] result = vector.get(0);
-      Assert.assertArrayEquals(new byte[] { 0x02 }, result);
+      assertArrayEquals(new byte[] { 0x02 }, result);
     }
   }
 
@@ -148,7 +150,7 @@ public class TestSimpleWriter {
       String input = "testInput";
       writer.writeVarChar(input);
       String result = vector.getObject(0).toString();
-      Assert.assertEquals(input, result);
+      assertEquals(input, result);
     }
   }
 
@@ -159,7 +161,7 @@ public class TestSimpleWriter {
       String input = "testInput";
       writer.writeVarChar(new Text(input));
       String result = vector.getObject(0).toString();
-      Assert.assertEquals(input, result);
+      assertEquals(input, result);
     }
   }
 
@@ -170,7 +172,7 @@ public class TestSimpleWriter {
       String input = "testInput";
       writer.writeLargeVarChar(input);
       String result = vector.getObject(0).toString();
-      Assert.assertEquals(input, result);
+      assertEquals(input, result);
     }
   }
 
@@ -181,7 +183,7 @@ public class TestSimpleWriter {
       String input = "testInput";
       writer.writeLargeVarChar(new Text(input));
       String result = vector.getObject(0).toString();
-      Assert.assertEquals(input, result);
+      assertEquals(input, result);
     }
   }
 }
