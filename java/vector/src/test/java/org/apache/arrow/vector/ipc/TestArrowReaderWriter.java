@@ -386,18 +386,19 @@ public class TestArrowReaderWriter {
           assertEquals(dictionaryVector4.getValueCount(), readDictionaryVector.getValueCount());
           final BiFunction<ValueVector, ValueVector, Boolean> typeComparatorIgnoreName =
               (v1, v2) -> new TypeEqualsVisitor(v1, false, true).equals(v2);
-          assertTrue(new RangeEqualsVisitor(dictionaryVector4, readDictionaryVector,
-                          typeComparatorIgnoreName).rangeEquals(new Range(0, 0,
-                          dictionaryVector4.getValueCount())),
-                  "Dictionary vectors are not equal");
+          assertTrue(
+              new RangeEqualsVisitor(dictionaryVector4, readDictionaryVector, typeComparatorIgnoreName)
+                  .rangeEquals(new Range(0, 0, dictionaryVector4.getValueCount())),
+              "Dictionary vectors are not equal");
 
           // Assert the decoded vector is correct
           try (final ValueVector readVector =
               DictionaryEncoder.decode(readEncoded, readDictionary)) {
             assertEquals(vector.getValueCount(), readVector.getValueCount());
-            assertTrue(new RangeEqualsVisitor(vector, readVector, typeComparatorIgnoreName)
+            assertTrue(
+                new RangeEqualsVisitor(vector, readVector, typeComparatorIgnoreName)
                     .rangeEquals(new Range(0, 0, vector.getValueCount())),
-                    "Decoded vectors are not equal");
+                "Decoded vectors are not equal");
           }
         }
       }

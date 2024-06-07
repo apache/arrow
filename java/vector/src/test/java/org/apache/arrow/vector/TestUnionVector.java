@@ -284,7 +284,7 @@ public class TestUnionVector {
           /* check the toVector output after doing the splitAndTransfer */
           for (int i = 0; i < length; i++) {
             assertEquals(sourceVector.getObject(start + i), toVector.getObject(i),
-                    "Different data at indexes: " + (start + i) + "and " + i);
+                "Different data at indexes: " + (start + i) + "and " + i);
           }
         }
       }
@@ -505,23 +505,19 @@ public class TestUnionVector {
         new UnionVector(EMPTY_SCHEMA_PATH, allocator, /* field type */ null, /* call-back */ null)) {
       IllegalArgumentException e1 = assertThrows(IllegalArgumentException.class,
           () -> vector.getTimeStampMilliTZVector());
-      assertEquals("No TimeStampMilliTZ present. Provide ArrowType argument to create a new vector",
-              e1.getMessage());
+      assertEquals("No TimeStampMilliTZ present. Provide ArrowType argument to create a new vector", e1.getMessage());
 
       IllegalArgumentException e2 = assertThrows(IllegalArgumentException.class,
           () -> vector.getDurationVector());
-      assertEquals("No Duration present. Provide ArrowType argument to create a new vector",
-              e2.getMessage());
+      assertEquals("No Duration present. Provide ArrowType argument to create a new vector", e2.getMessage());
 
       IllegalArgumentException e3 = assertThrows(IllegalArgumentException.class,
           () -> vector.getFixedSizeBinaryVector());
-      assertEquals("No FixedSizeBinary present. Provide ArrowType argument to create a new vector",
-              e3.getMessage());
+      assertEquals("No FixedSizeBinary present. Provide ArrowType argument to create a new vector", e3.getMessage());
 
       IllegalArgumentException e4 = assertThrows(IllegalArgumentException.class,
           () -> vector.getDecimalVector());
-      assertEquals("No Decimal present. Provide ArrowType argument to create a new vector",
-              e4.getMessage());
+      assertEquals("No Decimal present. Provide ArrowType argument to create a new vector", e4.getMessage());
     }
   }
 

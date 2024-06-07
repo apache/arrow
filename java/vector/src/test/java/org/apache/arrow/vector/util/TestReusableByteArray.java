@@ -60,11 +60,9 @@ public class TestReusableByteArray {
       assertEquals(str.getBytes(StandardCharsets.UTF_8).length, byteArray.getLength());
       assertArrayEquals(str.getBytes(StandardCharsets.UTF_8), Arrays.copyOfRange(byteArray.getBuffer(), 0,
           (int) byteArray.getLength()));
-      assertEquals(Base64.getEncoder().encodeToString(str.getBytes(StandardCharsets.UTF_8)),
-              byteArray.toString());
+      assertEquals(Base64.getEncoder().encodeToString(str.getBytes(StandardCharsets.UTF_8)), byteArray.toString());
       assertEquals(new ReusableByteArray(str.getBytes(StandardCharsets.UTF_8)), byteArray);
-      assertEquals(new ReusableByteArray(str.getBytes(StandardCharsets.UTF_8)).hashCode(),
-              byteArray.hashCode());
+      assertEquals(new ReusableByteArray(str.getBytes(StandardCharsets.UTF_8)).hashCode(), byteArray.hashCode());
 
       // Test a longer string. Should require reallocation.
       final String str2 = "test_longer";
@@ -75,11 +73,9 @@ public class TestReusableByteArray {
       assertEquals(str2.getBytes(StandardCharsets.UTF_8).length, byteArray.getLength());
       assertArrayEquals(str2.getBytes(StandardCharsets.UTF_8), Arrays.copyOfRange(byteArray.getBuffer(), 0,
           (int) byteArray.getLength()));
-      assertEquals(Base64.getEncoder().encodeToString(str2.getBytes(StandardCharsets.UTF_8)),
-              byteArray.toString());
+      assertEquals(Base64.getEncoder().encodeToString(str2.getBytes(StandardCharsets.UTF_8)), byteArray.toString());
       assertEquals(new ReusableByteArray(str2.getBytes(StandardCharsets.UTF_8)), byteArray);
-      assertEquals(new ReusableByteArray(str2.getBytes(StandardCharsets.UTF_8)).hashCode(),
-              byteArray.hashCode());
+      assertEquals(new ReusableByteArray(str2.getBytes(StandardCharsets.UTF_8)).hashCode(), byteArray.hashCode());
 
       // Verify reallocation needed.
       assertNotSame(oldBuffer, byteArray.getBuffer());
@@ -94,11 +90,9 @@ public class TestReusableByteArray {
       assertEquals(str3.getBytes(StandardCharsets.UTF_8).length, byteArray.getLength());
       assertArrayEquals(str3.getBytes(StandardCharsets.UTF_8), Arrays.copyOfRange(byteArray.getBuffer(), 0,
           (int) byteArray.getLength()));
-      assertEquals(Base64.getEncoder().encodeToString(str3.getBytes(StandardCharsets.UTF_8)),
-              byteArray.toString());
+      assertEquals(Base64.getEncoder().encodeToString(str3.getBytes(StandardCharsets.UTF_8)), byteArray.toString());
       assertEquals(new ReusableByteArray(str3.getBytes(StandardCharsets.UTF_8)), byteArray);
-      assertEquals(new ReusableByteArray(str3.getBytes(StandardCharsets.UTF_8)).hashCode(),
-              byteArray.hashCode());
+      assertEquals(new ReusableByteArray(str3.getBytes(StandardCharsets.UTF_8)).hashCode(), byteArray.hashCode());
 
       // Verify reallocation was not needed.
       assertSame(oldBuffer, byteArray.getBuffer());

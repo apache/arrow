@@ -141,8 +141,7 @@ public class TestExtensionType {
         final VectorSchemaRoot readerRoot = reader.getVectorSchemaRoot();
         assertEquals(1, readerRoot.getSchema().getFields().size());
         assertEquals("a", readerRoot.getSchema().getFields().get(0).getName());
-        assertTrue(readerRoot.getSchema().getFields().get(0).getType() instanceof ArrowType
-                .FixedSizeBinary);
+        assertTrue(readerRoot.getSchema().getFields().get(0).getType() instanceof ArrowType.FixedSizeBinary);
         assertEquals(16,
             ((ArrowType.FixedSizeBinary) readerRoot.getSchema().getFields().get(0).getType()).getByteWidth());
 
@@ -216,10 +215,8 @@ public class TestExtensionType {
 
         final Field field = readerRoot.getSchema().getFields().get(0);
         final LocationType expectedType = new LocationType();
-        assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_NAME),
-                expectedType.extensionName());
-        assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_METADATA),
-                expectedType.serialize());
+        assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_NAME), expectedType.extensionName());
+        assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_METADATA), expectedType.serialize());
 
         final ExtensionTypeVector deserialized = (ExtensionTypeVector) readerRoot.getFieldVectors().get(0);
         assertTrue(deserialized instanceof LocationVector);

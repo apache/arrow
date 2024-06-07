@@ -100,8 +100,7 @@ public class TestCopyFrom {
         if (i % 3 == 0) {
           assertNull(vector.getObject(i));
         } else {
-          assertEquals(Integer.toString(i), vector.getObject(i).toString(),
-                  "unexpected value at index: " + i);
+          assertEquals(Integer.toString(i), vector.getObject(i).toString(), "unexpected value at index: " + i);
         }
       }
 
@@ -115,8 +114,7 @@ public class TestCopyFrom {
         if (i % 3 == 0) {
           assertNull(vector2.getObject(i));
         } else {
-          assertEquals(Integer.toString(i), vector2.getObject(i).toString(),
-                  "unexpected value at index: " + i);
+          assertEquals(Integer.toString(i), vector2.getObject(i).toString(), "unexpected value at index: " + i);
         }
       }
 
@@ -130,8 +128,7 @@ public class TestCopyFrom {
         if (i % 3 == 0) {
           assertNull(vector2.getObject(i));
         } else {
-          assertEquals(Integer.toString(i), vector2.getObject(i).toString(),
-                  "unexpected value at index: " + i);
+          assertEquals(Integer.toString(i), vector2.getObject(i).toString(), "unexpected value at index: " + i);
         }
       }
     }
@@ -501,8 +498,7 @@ public class TestCopyFrom {
         if ((i & 1) == 0) {
           assertNull(vector1.getObject(i));
         } else {
-          assertEquals(123456.7865 + (double) i, vector1.get(i), 0,
-                  "unexpected value at index: " + i);
+          assertEquals(123456.7865 + (double) i, vector1.get(i), 0, "unexpected value at index: " + i);
         }
       }
 
@@ -529,10 +525,7 @@ public class TestCopyFrom {
         if (((i & 1) == 0) || (i >= initialCapacity)) {
           assertNull(vector2.getObject(i));
         } else {
-          assertEquals(
-                  123456.7865 + (double) i,
-                  vector2.get(i), 0,
-                  "unexpected value at index: " + i);
+          assertEquals(123456.7865 + (double) i, vector2.get(i), 0, "unexpected value at index: " + i);
         }
       }
     }

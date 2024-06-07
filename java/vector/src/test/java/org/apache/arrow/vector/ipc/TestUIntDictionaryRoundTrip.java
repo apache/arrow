@@ -168,8 +168,7 @@ public class TestUIntDictionaryRoundTrip {
       byte[] data = writeData(streamMode, encodedVector1);
       readData(
           streamMode, data, encodedVector1.getField(),
-          (vector, index) -> (int) ((UInt1Vector) vector).getValueAsLong(index),
-          8L, indices, dictionaryItems);
+          (vector, index) -> (int) ((UInt1Vector) vector).getValueAsLong(index), 8L, indices, dictionaryItems);
     }
   }
 
@@ -189,8 +188,7 @@ public class TestUIntDictionaryRoundTrip {
 
       byte[] data = writeData(streamMode, encodedVector2);
       readData(streamMode, data, encodedVector2.getField(),
-          (vector, index) -> (int) ((UInt2Vector) vector).getValueAsLong(index),
-          16L, indices, dictItems);
+          (vector, index) -> (int) ((UInt2Vector) vector).getValueAsLong(index), 16L, indices, dictItems);
     }
   }
 
@@ -212,8 +210,7 @@ public class TestUIntDictionaryRoundTrip {
       setVector(encodedVector4, 1, 3, 5, 7, 9);
       byte[] data = writeData(streamMode, encodedVector4);
       readData(streamMode, data, encodedVector4.getField(),
-          (vector, index) -> (int) ((UInt4Vector) vector).getValueAsLong(index),
-          32L, indices, dictItems);
+          (vector, index) -> (int) ((UInt4Vector) vector).getValueAsLong(index), 32L, indices, dictItems);
     }
   }
 
@@ -234,8 +231,7 @@ public class TestUIntDictionaryRoundTrip {
 
       byte[] data = writeData(streamMode, encodedVector8);
       readData(streamMode, data, encodedVector8.getField(),
-          (vector, index) -> (int) ((UInt8Vector) vector).getValueAsLong(index),
-          64L, indices, dictItems);
+          (vector, index) -> (int) ((UInt8Vector) vector).getValueAsLong(index), 64L, indices, dictItems);
     }
   }
 

@@ -259,8 +259,7 @@ public class TestVectorReAlloc {
       
       // verify that the validity buffer and value buffer have capacity for at least 'count' elements.
       assertTrue(vector.getValidityBuffer().capacity() >= DataSizeRoundingUtil.divideBy8Ceil(count));
-      assertTrue(vector.getOffsetBuffer().capacity() >= (count + 1) * BaseVariableWidthVector
-              .OFFSET_WIDTH);
+      assertTrue(vector.getOffsetBuffer().capacity() >= (count + 1) * BaseVariableWidthVector.OFFSET_WIDTH);
     }
   }
 
@@ -273,8 +272,7 @@ public class TestVectorReAlloc {
       
       // verify that the validity buffer and value buffer have capacity for at least 'count' elements.
       assertTrue(vector.getValidityBuffer().capacity() >= DataSizeRoundingUtil.divideBy8Ceil(count));
-      assertTrue(vector.getOffsetBuffer().capacity() >= (count + 1) * BaseLargeVariableWidthVector
-              .OFFSET_WIDTH);
+      assertTrue(vector.getOffsetBuffer().capacity() >= (count + 1) * BaseLargeVariableWidthVector.OFFSET_WIDTH);
     }
   }
 
@@ -287,8 +285,7 @@ public class TestVectorReAlloc {
 
       // verify that the validity buffer and value buffer have capacity for at least 'count' elements.
       assertTrue(vector.getValidityBuffer().capacity() >= DataSizeRoundingUtil.divideBy8Ceil(count));
-      assertTrue(vector.getOffsetBuffer().capacity() >= (count + 1) * BaseVariableWidthVector
-              .OFFSET_WIDTH);
+      assertTrue(vector.getOffsetBuffer().capacity() >= (count + 1) * BaseVariableWidthVector.OFFSET_WIDTH);
     }
   }
 
@@ -301,8 +298,7 @@ public class TestVectorReAlloc {
 
       // verify that the validity buffer and value buffer have capacity for at least 'count' elements.
       assertTrue(vector.getValidityBuffer().capacity() >= DataSizeRoundingUtil.divideBy8Ceil(count));
-      assertTrue(vector.getOffsetBuffer().capacity() >= (count + 1) * BaseLargeVariableWidthVector
-              .OFFSET_WIDTH);
+      assertTrue(vector.getOffsetBuffer().capacity() >= (count + 1) * BaseLargeVariableWidthVector.OFFSET_WIDTH);
     }
   }
 
@@ -345,8 +341,7 @@ public class TestVectorReAlloc {
 
   @Test
   public void testRepeatedValueVectorClearAndSet() throws Exception {
-    try (final ListVector vector = new ListVector("", allocator, FieldType.nullable(MinorType.INT.getType()),
-            null)) {
+    try (final ListVector vector = new ListVector("", allocator, FieldType.nullable(MinorType.INT.getType()), null)) {
       vector.allocateNewSafe(); // Initial allocation
       UnionListWriter writer = vector.getWriter();
 

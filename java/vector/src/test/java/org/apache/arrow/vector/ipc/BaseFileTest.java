@@ -286,8 +286,7 @@ public class BaseFileTest {
       Object timestampMilliVal = root.getVector("timestamp-milli").getObject(i);
       assertEquals(dtMilli, timestampMilliVal);
       Object timestampMilliTZVal = root.getVector("timestamp-milliTZ").getObject(i);
-      assertEquals(dt.atZone(ZoneId.of("Europe/Paris")).toInstant().toEpochMilli(),
-              timestampMilliTZVal);
+      assertEquals(dt.atZone(ZoneId.of("Europe/Paris")).toInstant().toEpochMilli(), timestampMilliTZVal);
       Object timestampNanoVal = root.getVector("timestamp-nano").getObject(i);
       assertEquals(dt, timestampNanoVal);
     }

@@ -130,10 +130,10 @@ public class TestDenseUnionVector {
 
       duv.setValueCount(4);
 
-      assertEquals(duv.getObject(0), 42);
-      assertEquals(duv.getObject(1), 43);
-      assertEquals(duv.getObject(2), 3.14);
-      assertEquals(duv.getObject(3), 44);
+      assertEquals(42, duv.getObject(0));
+      assertEquals(43, duv.getObject(1));
+      assertEquals(3.14, duv.getObject(2));
+      assertEquals(44, duv.getObject(3));
     }
   }
 

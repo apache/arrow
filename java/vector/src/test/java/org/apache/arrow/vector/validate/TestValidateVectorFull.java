@@ -79,8 +79,7 @@ public class TestValidateVectorFull {
 
       ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
           () -> validateFull(vector));
-      assertTrue(e.getMessage().contains("The values in positions 0 and 1 of the offset buffer are " +
-              "decreasing"));
+      assertTrue(e.getMessage().contains("The values in positions 0 and 1 of the offset buffer are decreasing"));
     }
   }
 
@@ -97,8 +96,7 @@ public class TestValidateVectorFull {
 
       ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
           () -> validateFull(vector));
-      assertTrue(e.getMessage().contains("The values in positions 0 and 1 of the large offset buffer are " +
-              "decreasing"));
+      assertTrue(e.getMessage().contains("The values in positions 0 and 1 of the large offset buffer are decreasing"));
     }
   }
 
@@ -115,8 +113,7 @@ public class TestValidateVectorFull {
 
       ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
           () -> validateFull(vector));
-      assertTrue(e.getMessage().contains("The values in positions 0 and 1 of the offset buffer are " +
-              "decreasing"));
+      assertTrue(e.getMessage().contains("The values in positions 0 and 1 of the offset buffer are decreasing"));
     }
   }
 
@@ -133,8 +130,7 @@ public class TestValidateVectorFull {
 
       ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
           () -> validateFull(vector));
-      assertTrue(e.getMessage().contains("The values in positions 0 and 1 of the large offset buffer are " +
-              "decreasing"));
+      assertTrue(e.getMessage().contains("The values in positions 0 and 1 of the large offset buffer are decreasing"));
     }
   }
 
@@ -164,13 +160,11 @@ public class TestValidateVectorFull {
 
       ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
           () -> validateFull(strVector));
-      assertTrue(e.getMessage().contains("The values in positions 0 and 1 of the offset buffer are " +
-              "decreasing"));
+      assertTrue(e.getMessage().contains("The values in positions 0 and 1 of the offset buffer are decreasing"));
 
       e = assertThrows(ValidateUtil.ValidateException.class,
           () -> validateFull(vector));
-      assertTrue(e.getMessage().contains("The values in positions 0 and 1 of the offset buffer are " +
-              ""));
+      assertTrue(e.getMessage().contains("The values in positions 0 and 1 of the offset buffer are decreasing"));
     }
   }
 

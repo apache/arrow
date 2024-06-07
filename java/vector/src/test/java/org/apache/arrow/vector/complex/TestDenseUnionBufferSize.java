@@ -74,8 +74,7 @@ public class TestDenseUnionBufferSize {
       assertEquals(overhead * count + intVector.getBufferSize() + varBinaryVector.getBufferSize(),
               duv.getBufferSize());
 
-      assertEquals(overhead * (aCount + 1) + intVector.getBufferSizeFor(aCount) + varBinaryVector
-                      .getBufferSizeFor(1),
+      assertEquals(overhead * (aCount + 1) + intVector.getBufferSizeFor(aCount) + varBinaryVector.getBufferSizeFor(1),
               duv.getBufferSizeFor(aCount + 1));
 
     }

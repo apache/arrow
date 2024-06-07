@@ -95,8 +95,7 @@ public class TestValidateVectorSchemaRoot {
       validate(root);
       e = assertThrows(ValidateUtil.ValidateException.class,
           () -> validateFull(root));
-      assertTrue(e.getMessage().contains("The values in positions 0 and 1 of the offset buffer are " +
-              "decreasing"));
+      assertTrue(e.getMessage().contains("The values in positions 0 and 1 of the offset buffer are decreasing"));
     }
   }
 }

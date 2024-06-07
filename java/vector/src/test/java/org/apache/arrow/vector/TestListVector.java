@@ -944,8 +944,7 @@ public class TestListVector {
       holder.value = 77777;
       IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
           () -> writer.timeStampMilliTZ().write(holder));
-      assertEquals("holder.timezone: AsdfTimeZone not equal to vector timezone: SomeFakeTimeZone",
-              ex.getMessage());
+      assertEquals("holder.timezone: AsdfTimeZone not equal to vector timezone: SomeFakeTimeZone", ex.getMessage());
 
       writer.endList();
       vector.setValueCount(1);

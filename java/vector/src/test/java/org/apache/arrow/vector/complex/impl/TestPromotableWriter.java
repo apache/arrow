@@ -129,34 +129,34 @@ public class TestPromotableWriter {
       final UnionVector uv = v.getChild("A", UnionVector.class);
 
       assertFalse(uv.isNull(0), "0 shouldn't be null");
-      assertEquals(uv.getObject(0), false);
+      assertEquals(false, uv.getObject(0));
 
       assertFalse(uv.isNull(1), "1 shouldn't be null");
-      assertEquals(uv.getObject(1), true);
+      assertEquals(true, uv.getObject(1));
 
       assertFalse(uv.isNull(2), "2 shouldn't be null");
-      assertEquals(uv.getObject(2), 10);
+      assertEquals(10, uv.getObject(2));
 
       assertNull(uv.getObject(3), "3 should be null");
 
       assertFalse(uv.isNull(4), "4 shouldn't be null");
-      assertEquals(uv.getObject(4), 100);
+      assertEquals(100, uv.getObject(4));
 
       assertFalse(uv.isNull(5), "5 shouldn't be null");
-      assertEquals(uv.getObject(5), 123123L);
+      assertEquals(123123L, uv.getObject(5));
 
       assertFalse(uv.isNull(6), "6 shouldn't be null");
       NullableTimeStampMilliTZHolder readBackHolder = new NullableTimeStampMilliTZHolder();
       uv.getTimeStampMilliTZVector().get(6, readBackHolder);
-      assertEquals(readBackHolder.value, 12345L);
-      assertEquals(readBackHolder.timezone, "UTC");
+      assertEquals(12345L, readBackHolder.value);
+      assertEquals("UTC", readBackHolder.timezone);
 
       assertFalse(uv.isNull(7), "7 shouldn't be null");
-      assertEquals(((java.time.Duration) uv.getObject(7)).getSeconds(), 444413L);
+      assertEquals(444413L, ((java.time.Duration) uv.getObject(7)).getSeconds());
 
       assertFalse(uv.isNull(8), "8 shouldn't be null");
-      assertEquals(ByteBuffer.wrap(uv.getFixedSizeBinaryVector().get(8)).order(ByteOrder.nativeOrder())
-                      .getInt(), 18978);
+      assertEquals(18978,
+          ByteBuffer.wrap(uv.getFixedSizeBinaryVector().get(8)).order(ByteOrder.nativeOrder()).getInt());
 
       container.clear();
       container.allocateNew();
@@ -203,8 +203,7 @@ public class TestPromotableWriter {
       ListVector lv = ListVector.empty("name", allocator);
       lv.addOrGetVector(childTypeOfListInContainer);
       assertEquals(childTypeOfListInContainer.getType(), Types.MinorType.NULL.getType());
-      assertEquals(lv.getChildrenFromFields().get(0).getMinorType().getType(), Types.MinorType.NULL
-              .getType());
+      assertEquals(lv.getChildrenFromFields().get(0).getMinorType().getType(), Types.MinorType.NULL.getType());
 
       writer.start();
       writer.list("list").startList();
@@ -221,8 +220,7 @@ public class TestPromotableWriter {
       // we expect same behaviour from listvector
       lv.addOrGetVector(childTypeOfListInContainer);
       assertEquals(childTypeOfListInContainer.getType(), Types.MinorType.FLOAT4.getType());
-      assertEquals(lv.getChildrenFromFields().get(0).getMinorType().getType(), Types.MinorType.FLOAT4
-                      .getType());
+      assertEquals(lv.getChildrenFromFields().get(0).getMinorType().getType(), Types.MinorType.FLOAT4.getType());
 
       lv.close();
     }
@@ -250,8 +248,7 @@ public class TestPromotableWriter {
       ListVector lv = ListVector.empty("name", allocator);
       lv.addOrGetVector(childTypeOfListInContainer);
       assertEquals(childTypeOfListInContainer.getType(), Types.MinorType.NULL.getType());
-      assertEquals(lv.getChildrenFromFields().get(0).getMinorType().getType(), Types.MinorType.NULL
-                      .getType());
+      assertEquals(lv.getChildrenFromFields().get(0).getMinorType().getType(), Types.MinorType.NULL.getType());
 
       writer.start();
       writer.list("list").startList();
@@ -264,8 +261,7 @@ public class TestPromotableWriter {
       holder.timezone = "SomeTimeZone";
       IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
           () -> writer.list("list").timeStampMilliTZ().write(holder));
-      assertEquals("holder.timezone: SomeTimeZone not equal to vector timezone: FakeTimeZone",
-              ex.getMessage());
+      assertEquals("holder.timezone: SomeTimeZone not equal to vector timezone: FakeTimeZone", ex.getMessage());
 
       writer.list("list").endList();
       writer.end();
@@ -309,8 +305,7 @@ public class TestPromotableWriter {
       ListVector lv = ListVector.empty("name", allocator);
       lv.addOrGetVector(childTypeOfListInContainer);
       assertEquals(childTypeOfListInContainer.getType(), Types.MinorType.NULL.getType());
-      assertEquals(lv.getChildrenFromFields().get(0).getMinorType().getType(), Types.MinorType.NULL
-                      .getType());
+      assertEquals(lv.getChildrenFromFields().get(0).getMinorType().getType(), Types.MinorType.NULL.getType());
 
       writer.start();
       writer.list("list").startList();
@@ -367,8 +362,7 @@ public class TestPromotableWriter {
       ListVector lv = ListVector.empty("name", allocator);
       lv.addOrGetVector(childTypeOfListInContainer);
       assertEquals(childTypeOfListInContainer.getType(), Types.MinorType.NULL.getType());
-      assertEquals(lv.getChildrenFromFields().get(0).getMinorType().getType(), Types.MinorType.NULL
-                      .getType());
+      assertEquals(lv.getChildrenFromFields().get(0).getMinorType().getType(), Types.MinorType.NULL.getType());
 
       writer.start();
       writer.list("list").startList();

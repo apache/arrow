@@ -219,7 +219,7 @@ public class TestComplexWriter {
       if (i % 2 == 0) {
         assertTrue(struct.isSet(), "index is set: " + i);
         assertNotNull(struct.readObject(), "index is set: " + i);
-        assertEquals(struct.reader("nested").readLong().longValue(), i);
+        assertEquals(i, struct.reader("nested").readLong().longValue());
       } else {
         assertFalse(struct.isSet(), "index is not set: " + i);
         assertNull(struct.readObject(), "index is not set: " + i);
