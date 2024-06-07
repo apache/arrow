@@ -39,7 +39,7 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueIterableVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.compare.VectorVisitor;
-import org.apache.arrow.vector.complex.impl.UnionListReader;
+import org.apache.arrow.vector.complex.impl.UnionListViewReader;
 import org.apache.arrow.vector.complex.impl.UnionListViewWriter;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
@@ -73,7 +73,7 @@ public class ListViewVector extends BaseRepeatedValueViewVector
     implements PromotableVector, ValueIterableVector<List<?>> {
 
   protected ArrowBuf validityBuffer;
-  protected UnionListReader reader;
+  protected UnionListViewReader reader;
   private CallBack callBack;
   protected Field field;
   protected int validityAllocationSizeInBytes;
@@ -455,16 +455,13 @@ public class ListViewVector extends BaseRepeatedValueViewVector
 
   @Override
   protected FieldReader getReaderImpl() {
-    // TODO: https://github.com/apache/arrow/issues/41569
-    throw new UnsupportedOperationException(
-        "ListViewVector does not support getReaderImpl operation yet.");
+    return new UnionListViewReader(this);
   }
 
   @Override
-  public FieldReader getReader() {
-    // TODO: https://github.com/apache/arrow/issues/41569
-    throw new UnsupportedOperationException(
-        "ListViewVector does not support getReader operation yet.");
+  public UnionListViewReader getReader() {
+    reader = (UnionListViewReader) super.getReader();
+    return reader;
   }
 
   /**
