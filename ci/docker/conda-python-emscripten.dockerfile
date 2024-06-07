@@ -17,36 +17,21 @@
 
 ARG repo
 ARG arch
-FROM ${repo}:${arch}-ubuntu-22.04-cpp
+ARG python="3.12"
+FROM ${repo}:${arch}-conda-python-${python}
 
 ARG selenium_version="4.15.2"
 ARG pyodide_version="0.26.0"
 ARG emscripten_version="3.1.58"
 ARG chrome_version="latest"
+ARG required_python_min="(3,12)"
+# fail if python version < 3.12
+RUN echo "check PYTHON>=${required_python_min}" && python -c "import sys;sys.exit(0 if sys.version_info>=${required_python_min} else 1)"
 
 # install selenium and pyodide-build and recent python
 
 # needs to be a login shell so ~/.profile is read
 SHELL ["/bin/bash","--login","-c"]
-
-RUN wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh -O ~/miniforge.sh
-
-RUN bash ~/miniforge.sh -b -p /miniforge &&\
-    source "/miniforge/etc/profile.d/conda.sh" &&\
-    source "/miniforge/etc/profile.d/mamba.sh"  &&\
-    echo ". /miniforge/etc/profile.d/conda.sh" >> ~/.profile &&\
-    echo ". /miniforge/etc/profile.d/mamba.sh" >> ~/.profile &&\
-    conda init bash
-    
-
-#ENV PATH /miniforge/bin:$PATH
-
-RUN  conda create -y -n py312 python=3.12 -c conda-forge &&\
-     echo "conda activate py312" >> ~/.profile &&\
-     echo "conda activate py312" >> ~/.bashrc
-
-
-#RUN conda init bash && cat ~/.profile && false
 
 RUN python --version && \
 python -m pip install selenium==${selenium_version} &&\
@@ -58,14 +43,17 @@ RUN cd ~ && (ls emsdk || git clone https://github.com/emscripten-core/emsdk.git)
     ./emsdk activate ${emscripten_version} && \
     echo "Installed emsdk to:" ~/emsdk
 
+# make sure zlib is cached in the EMSDK folder
+RUN source ~/emsdk/emsdk_env.sh && embuilder --pic build zlib
+
 # install pyodide dist directory to /pyodide
 RUN cd / \
   && pyodide_dist_url="https://github.com/pyodide/pyodide/releases/download/${pyodide_version}/pyodide-${pyodide_version}.tar.bz2"\
   && wget ${pyodide_dist_url} -O- |tar -xj
 
 # install chrome for testing browser based runner
-
-RUN apt install -y -q zip
+# zip needed for chrome, libpthread stubs installs pthread module to cmake
+RUN apt-get update && apt-get install -y -q zip libpthread-stubs0-dev
 
 RUN if [ $chrome_version = "latest" ]; \
   then CHROME_VERSION_FULL=$(wget --no-verbose -O - "https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_STABLE"); \
@@ -92,4 +80,3 @@ SHELL ["/bin/bash", "--login", "-i", "-c"]
 RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash -
 RUN nvm install 18
 SHELL ["/bin/bash","--login","-c"]
-
