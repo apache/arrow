@@ -24,17 +24,24 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.Collections;
 import java.util.Locale;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 
+import com.sun.jna.Library;
+import com.sun.jna.NativeLibrary;
+
 /**
  * This class handles loading of the jni library, and acts as a bridge for the native functions.
  */
 class JniLoader {
   private static final String LIBRARY_NAME = "gandiva_jni";
+
+  private static final int RTLD_GLOBAL = 0x00100;
+  private static final int RTLD_LAZY = 0x00001; 
 
   private static volatile JniLoader INSTANCE;
   private static volatile long defaultConfiguration = 0L;
@@ -73,6 +80,10 @@ class JniLoader {
     final String libraryToLoad =
         LIBRARY_NAME + "/" + getNormalizedArch() + "/" + System.mapLibraryName(LIBRARY_NAME);
     final File libraryFile = moveFileFromJarToTemp(tmpDir, libraryToLoad, LIBRARY_NAME);
+    NativeLibrary.getInstance(
+        libraryFile.getAbsolutePath(),
+        Collections.singletonMap(Library.OPTION_OPEN_FLAGS, new Integer(RTLD_LAZY | RTLD_GLOBAL))
+    );
     System.load(libraryFile.getAbsolutePath());
   }
 
