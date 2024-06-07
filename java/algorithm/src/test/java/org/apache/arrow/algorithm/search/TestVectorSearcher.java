@@ -17,7 +17,7 @@
 package org.apache.arrow.algorithm.search;
 
 import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.OFFSET_WIDTH;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.nio.charset.StandardCharsets;
 import org.apache.arrow.algorithm.sort.DefaultVectorComparators;

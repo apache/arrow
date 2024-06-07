@@ -17,7 +17,7 @@
 package org.apache.arrow.algorithm.sort;
 
 import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.OFFSET_WIDTH;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -64,7 +64,6 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.jupiter.api.Assertions;
 
 /** Test cases for {@link DefaultVectorComparators}. */
 public class TestDefaultVectorComparator {
@@ -278,8 +277,8 @@ public class TestDefaultVectorComparator {
       assertTrue(comparator.compare(1, 3) > 0);
       assertTrue(comparator.compare(2, 5) > 0);
       assertTrue(comparator.compare(4, 5) < 0);
-      Assertions.assertEquals(0, comparator.compare(1, 6));
-      Assertions.assertEquals(0, comparator.compare(0, 7));
+      assertEquals(0, comparator.compare(1, 6));
+      assertEquals(0, comparator.compare(0, 7));
       assertTrue(comparator.compare(8, 9) < 0);
       assertTrue(comparator.compare(4, 8) < 0);
       assertTrue(comparator.compare(5, 9) < 0);

@@ -16,8 +16,8 @@
  */
 package org.apache.arrow.algorithm.sort;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
@@ -26,7 +26,6 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -87,9 +86,9 @@ public class TestVariableWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVecto
       sorter.sortOutOfPlace(vec, sortedVec, comparator);
 
       // verify results
-      Assert.assertEquals(vec.getValueCount(), sortedVec.getValueCount());
-      Assert.assertEquals(vec.getByteCapacity(), sortedVec.getByteCapacity());
-      Assert.assertEquals(vec.getLastSet(), sortedVec.getLastSet());
+      assertEquals(vec.getValueCount(), sortedVec.getValueCount());
+      assertEquals(vec.getByteCapacity(), sortedVec.getByteCapacity());
+      assertEquals(vec.getLastSet(), sortedVec.getLastSet());
 
       assertTrue(sortedVec.isNull(0));
       assertTrue(sortedVec.isNull(1));

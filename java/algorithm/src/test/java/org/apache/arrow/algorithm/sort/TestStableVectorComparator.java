@@ -16,7 +16,7 @@
  */
 package org.apache.arrow.algorithm.sort;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
@@ -27,7 +27,6 @@ import org.apache.arrow.vector.VarCharVector;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.jupiter.api.Assertions;
 
 /** Test cases for {@link StableVectorComparator}. */
 public class TestStableVectorComparator {
@@ -67,7 +66,7 @@ public class TestStableVectorComparator {
       assertTrue(stableComparator.compare(2, 3) < 0);
       assertTrue(stableComparator.compare(1, 3) < 0);
       assertTrue(stableComparator.compare(3, 1) > 0);
-      Assertions.assertEquals(0, stableComparator.compare(3, 3));
+      assertEquals(0, stableComparator.compare(3, 3));
     }
   }
 

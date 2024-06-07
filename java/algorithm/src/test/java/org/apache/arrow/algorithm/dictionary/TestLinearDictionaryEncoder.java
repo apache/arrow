@@ -16,10 +16,10 @@
  */
 package org.apache.arrow.algorithm.dictionary;
 
-import static junit.framework.TestCase.assertTrue;
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -33,7 +33,6 @@ import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryEncoder;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -350,7 +349,7 @@ public class TestLinearDictionaryEncoder {
         assertEquals(vector.getClass(), decoded.getClass());
         assertEquals(vector.getValueCount(), decoded.getValueCount());
         for (int i = 0; i < 5; i++) {
-          Assert.assertTrue(Arrays.equals(vector.getObject(i), decoded.getObject(i)));
+          assertTrue(Arrays.equals(vector.getObject(i), decoded.getObject(i)));
         }
       }
     }
