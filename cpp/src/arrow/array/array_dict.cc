@@ -298,20 +298,6 @@ struct CompactTransposeMapVisitor {
   }
 };
 
-Result<std::unique_ptr<Buffer>> CompactTransposeMap(
-    const std::shared_ptr<ArrayData>& data, MemoryPool* pool,
-    std::shared_ptr<Array>& out_compact_dictionary) {
-  if (data->type->id() != Type::DICTIONARY) {
-    return Status::TypeError("Expected dictionary type");
-  }
-
-  const auto& dict_type = checked_cast<const DictionaryType&>(*data->type);
-  CompactTransposeMapVisitor visitor{data, pool, nullptr, nullptr};
-  RETURN_NOT_OK(VisitTypeInline(*dict_type.index_type(), &visitor));
-
-  out_compact_dictionary = visitor.out_compact_dictionary;
-  return std::move(visitor.output_map);
-}
 }  // namespace
 
 Result<std::shared_ptr<Array>> DictionaryArray::Transpose(
@@ -324,9 +310,11 @@ Result<std::shared_ptr<Array>> DictionaryArray::Transpose(
 }
 
 Result<std::shared_ptr<Array>> DictionaryArray::Compact(MemoryPool* pool) const {
-  std::shared_ptr<Array> compact_dictionary;
-  ARROW_ASSIGN_OR_RAISE(std::unique_ptr<Buffer> transpose_map,
-                        CompactTransposeMap(this->data_, pool, compact_dictionary));
+  CompactTransposeMapVisitor visitor{data_, pool, nullptr, nullptr};
+  RETURN_NOT_OK(VisitTypeInline(*dict_type_->index_type(), &visitor));
+
+  std::shared_ptr<Array> compact_dictionary = std::move(visitor.out_compact_dictionary);
+  std::unique_ptr<Buffer> transpose_map = std::move(visitor.output_map);
 
   if (transpose_map == nullptr) {
     return std::make_shared<DictionaryArray>(this->data_);
