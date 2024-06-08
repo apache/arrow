@@ -38,7 +38,8 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Calendar;
-import java.util.Collection;
+import java.util.stream.Stream;
+
 import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfig;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfigBuilder;
@@ -64,15 +65,14 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.jupiter.api.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameters;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * JUnit Test Class which contains methods to test JDBC to Arrow data conversion functionality with
  * various data types for H2 database using multiple test data files.
  */
-@RunWith(Parameterized.class)
 public class JdbcToArrowDataTypesTest extends AbstractJdbcToArrowTest {
 
   private static final String BIGINT = "big_int";
@@ -118,15 +118,6 @@ public class JdbcToArrowDataTypesTest extends AbstractJdbcToArrowTest {
   };
 
   /**
-   * Constructor which populates the table object for each test iteration.
-   *
-   * @param table Table object
-   */
-  public JdbcToArrowDataTypesTest(Table table) {
-    this.table = table;
-  }
-
-  /**
    * Get the test data as a collection of Table objects for each test iteration.
    *
    * @return Collection of Table objects
@@ -134,20 +125,18 @@ public class JdbcToArrowDataTypesTest extends AbstractJdbcToArrowTest {
    * @throws ClassNotFoundException on error
    * @throws IOException on error
    */
-  @Parameters
-  public static Collection<Object[]> getTestData()
-      throws SQLException, ClassNotFoundException, IOException {
-    return Arrays.asList(prepareTestData(testFiles, JdbcToArrowDataTypesTest.class));
+  public static Stream<Arguments> getTestData() throws SQLException, ClassNotFoundException, IOException {
+    return Arrays.stream(prepareTestData(testFiles, JdbcToArrowMapDataTypeTest.class)).map(Arguments::of);
   }
 
-  /** Test Method to test JdbcToArrow Functionality for various H2 DB based datatypes. */
-  @Test
-  @Override
-  public void testJdbcToArrowValues() throws SQLException, IOException {
-    testDataSets(
-        sqlToArrow(
-            conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()),
-        false);
+  /**
+   * Test Method to test JdbcToArrow Functionality for various H2 DB based datatypes.
+   */
+  @ParameterizedTest
+  @MethodSource("getTestData")
+  public void testJdbcToArrowValues(Table table) throws SQLException, IOException {
+    testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE),
+        Calendar.getInstance()), false);
     testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE)), false);
     testDataSets(
         sqlToArrow(

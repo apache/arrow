@@ -25,8 +25,6 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Calendar;
-import java.util.Collection;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
 import org.apache.arrow.adapter.jdbc.ArrowVectorIterator;
@@ -58,14 +56,14 @@ import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.jupiter.api.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * JUnit Test Class which contains methods to test JDBC to Arrow data conversion functionality with
  * various data types for H2 database using single test data file.
  */
-@RunWith(Parameterized.class)
 public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
 
   private static final String[] testFiles = {"h2/test1_all_datatypes_h2.yml"};
@@ -89,25 +87,20 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
    * @throws ClassNotFoundException on error
    * @throws IOException on error
    */
-  @Parameterized.Parameters(name = "table = {0}, reuse batch = {1}")
-  public static Collection<Object[]> getTestData()
-      throws SQLException, ClassNotFoundException, IOException {
+  public static Stream<Arguments> getTestData() throws SQLException, ClassNotFoundException, IOException {
     return Arrays.stream(prepareTestData(testFiles, JdbcToArrowTest.class))
-        .flatMap(row -> Stream.of(new Object[] {row[0], true}, new Object[] {row[0], false}))
-        .collect(Collectors.toList());
+        .flatMap(row -> Stream.of(Arguments.of(row[0], true), Arguments.of(row[0], false)));
   }
 
   /**
    * Test Method to test JdbcToArrow Functionality for various H2 DB based datatypes with only one
    * test data file.
    */
-  @Test
-  @Override
-  public void testJdbcToArrowValues() throws SQLException, IOException {
-    testDataSets(
-        sqlToArrow(
-            conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()),
-        false);
+  @ParameterizedTest
+  @MethodSource("getTestData")
+  public void testJdbcToArrowValues(Table table) throws SQLException, IOException {
+    testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE),
+        Calendar.getInstance()), false);
     testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE)), false);
     testDataSets(
         sqlToArrow(

@@ -38,8 +38,6 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.util.ValueVectorUtility;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 
 /** Class to abstract out some common test functionality for testing JDBC to Arrow. */
 public abstract class AbstractJdbcToArrowTest {
@@ -94,7 +92,6 @@ public abstract class AbstractJdbcToArrowTest {
    * @throws SQLException on error
    * @throws ClassNotFoundException on error
    */
-  @BeforeEach
   public void setUp() throws SQLException, ClassNotFoundException {
     TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
     String url = "jdbc:h2:mem:JdbcToArrowTest";
@@ -146,11 +143,11 @@ public abstract class AbstractJdbcToArrowTest {
   /**
    * Abstract method to implement test Functionality to test JdbcToArrow methods.
    *
+   * @param table Table object
    * @throws SQLException on error
    * @throws IOException on error
    */
-  @Test
-  public abstract void testJdbcToArrowValues() throws SQLException, IOException;
+  public abstract void testJdbcToArrowValues(Table table) throws SQLException, IOException, ClassNotFoundException;
 
   /**
    * Abstract method to implement logic to assert test various datatype values.

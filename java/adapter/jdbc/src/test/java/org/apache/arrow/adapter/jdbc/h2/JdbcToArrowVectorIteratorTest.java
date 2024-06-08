@@ -70,10 +70,9 @@ import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.junit.jupiter.api.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
-@RunWith(Parameterized.class)
 public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
 
   /**
@@ -86,8 +85,8 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
     super(table, reuseVectorSchemaRoot);
   }
 
-  @Test
-  @Override
+  @ParameterizedTest
+  @MethodSource("getTestData")
   public void testJdbcToArrowValues() throws SQLException, IOException {
     JdbcToArrowConfig config =
         new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance())

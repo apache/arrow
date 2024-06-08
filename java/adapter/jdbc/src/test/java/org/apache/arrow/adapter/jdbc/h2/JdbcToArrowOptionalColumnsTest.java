@@ -22,32 +22,23 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Arrays;
-import java.util.Collection;
+import java.util.stream.Stream;
+
 import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper;
 import org.apache.arrow.adapter.jdbc.Table;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.junit.jupiter.api.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * JUnit Test Class which contains methods to test JDBC to Arrow data conversion functionality for
  * (non-)optional columns, in particular with regard to the ensuing VectorSchemaRoot's schema.
  */
-@RunWith(Parameterized.class)
 public class JdbcToArrowOptionalColumnsTest extends AbstractJdbcToArrowTest {
   private static final String[] testFiles = {"h2/test1_null_and_notnull.yml"};
-
-  /**
-   * Constructor which populates the table object for each test iteration.
-   *
-   * @param table Table object
-   */
-  public JdbcToArrowOptionalColumnsTest(Table table) {
-    this.table = table;
-  }
 
   /**
    * Get the test data as a collection of Table objects for each test iteration.
@@ -57,19 +48,17 @@ public class JdbcToArrowOptionalColumnsTest extends AbstractJdbcToArrowTest {
    * @throws ClassNotFoundException on error
    * @throws IOException on error
    */
-  @Parameterized.Parameters
-  public static Collection<Object[]> getTestData()
-      throws SQLException, ClassNotFoundException, IOException {
-    return Arrays.asList(prepareTestData(testFiles, JdbcToArrowOptionalColumnsTest.class));
+  public static Stream<Arguments> getTestData() throws SQLException, ClassNotFoundException, IOException {
+    return Arrays.stream(prepareTestData(testFiles, JdbcToArrowOptionalColumnsTest.class)).map(Arguments::of);
   }
 
   /**
    * Test Method to test JdbcToArrow Functionality for dealing with nullable and non-nullable
    * columns.
    */
-  @Test
-  @Override
-  public void testJdbcToArrowValues() throws SQLException, IOException {
+  @ParameterizedTest
+  @MethodSource("getTestData")
+  public void testJdbcToArrowValues(Table table) throws SQLException, IOException {
     testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE)), false);
   }
 
