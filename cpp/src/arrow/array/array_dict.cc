@@ -215,21 +215,21 @@ Result<std::shared_ptr<ArrayData>> TransposeDictIndices(
 struct CompactTransposeMapVisitor {
   const std::shared_ptr<ArrayData>& data;
   arrow::MemoryPool* pool;
-  std::unique_ptr<Buffer> out_transpose_map;
-  std::shared_ptr<Array> out_compact_dictionary;
+  std::unique_ptr<Buffer>* out_transpose_map;
+  std::shared_ptr<Array>* out_compact_dictionary;
 
   template <typename IndexArrowType>
   Status CompactTransposeMapImpl() {
     int64_t index_length = data->length;
     int64_t dict_length = data->dictionary->length;
     if (dict_length == 0) {
-      out_transpose_map = nullptr;
-      out_compact_dictionary = nullptr;
+      *out_transpose_map = nullptr;
+      *out_compact_dictionary = nullptr;
       return Status::OK();
     } else if (index_length == 0) {
-      ARROW_ASSIGN_OR_RAISE(out_compact_dictionary,
+      ARROW_ASSIGN_OR_RAISE(*out_compact_dictionary,
                             MakeEmptyArray(data->dictionary->type, pool));
-      ARROW_ASSIGN_OR_RAISE(out_transpose_map, AllocateBuffer(0, pool))
+      ARROW_ASSIGN_OR_RAISE(*out_transpose_map, AllocateBuffer(0, pool))
       return Status::OK();
     }
 
@@ -255,8 +255,8 @@ struct CompactTransposeMapVisitor {
 
       if (dict_used_count == dict_length) {
         // The dictionary is already compact, so just return here
-        out_transpose_map = nullptr;
-        out_compact_dictionary = nullptr;
+        *out_transpose_map = nullptr;
+        *out_compact_dictionary = nullptr;
         return Status::OK();
       }
     }
@@ -266,9 +266,9 @@ struct CompactTransposeMapVisitor {
     using arrow::compute::TakeOptions;
     BuilderType dict_indices_builder(pool);
     ARROW_RETURN_NOT_OK(dict_indices_builder.Reserve(dict_used_count));
-    ARROW_ASSIGN_OR_RAISE(out_transpose_map,
+    ARROW_ASSIGN_OR_RAISE(*out_transpose_map,
                           AllocateBuffer(dict_length * sizeof(int32_t), pool));
-    auto* output_map_raw = out_transpose_map->mutable_data_as<int32_t>();
+    auto* output_map_raw = (*out_transpose_map)->mutable_data_as<int32_t>();
     int32_t current_index = 0;
     for (CType i = 0; i < dict_len; i++) {
       if (dict_used[i]) {
@@ -284,7 +284,7 @@ struct CompactTransposeMapVisitor {
     ARROW_ASSIGN_OR_RAISE(auto compacted_dict_res,
                           Take(Datum(data->dictionary), compacted_dict_indices,
                                TakeOptions::NoBoundsCheck()));
-    out_compact_dictionary = compacted_dict_res.make_array();
+    *out_compact_dictionary = compacted_dict_res.make_array();
     return Status::OK();
   }
 
@@ -310,11 +310,10 @@ Result<std::shared_ptr<Array>> DictionaryArray::Transpose(
 }
 
 Result<std::shared_ptr<Array>> DictionaryArray::Compact(MemoryPool* pool) const {
-  CompactTransposeMapVisitor visitor{data_, pool, nullptr, nullptr};
+  std::shared_ptr<Array> compact_dictionary;
+  std::unique_ptr<Buffer> transpose_map;
+  CompactTransposeMapVisitor visitor{data_, pool, &transpose_map, &compact_dictionary};
   RETURN_NOT_OK(VisitTypeInline(*dict_type_->index_type(), &visitor));
-
-  std::shared_ptr<Array> compact_dictionary = std::move(visitor.out_compact_dictionary);
-  std::unique_ptr<Buffer> transpose_map = std::move(visitor.out_transpose_map);
 
   if (transpose_map == nullptr) {
     return std::make_shared<DictionaryArray>(this->data_);
