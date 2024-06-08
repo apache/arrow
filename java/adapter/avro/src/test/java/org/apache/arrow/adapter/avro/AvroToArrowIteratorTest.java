@@ -44,18 +44,19 @@ import org.apache.avro.io.Decoder;
 import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.EncoderFactory;
 import org.apache.avro.util.Utf8;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class AvroToArrowIteratorTest extends AvroTestBase {
 
-  @Override
+  @BeforeEach
   public void init() {
     final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
     this.config = new AvroToArrowConfigBuilder(allocator).setTargetBatchSize(3).build();
   }
 
   private AvroToArrowVectorIterator convert(Schema schema, List data) throws Exception {
-    File dataFile = TMP.newFile();
+    File dataFile = tempDir.resolve("test.avro").toFile();
 
     BinaryEncoder encoder =
         new EncoderFactory().directBinaryEncoder(new FileOutputStream(dataFile), null);

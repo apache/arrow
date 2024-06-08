@@ -32,7 +32,7 @@ import org.apache.arrow.vector.util.DateUtility;
 import org.apache.avro.Conversions;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericFixed;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class AvroLogicalTypesTest extends AvroTestBase {
 

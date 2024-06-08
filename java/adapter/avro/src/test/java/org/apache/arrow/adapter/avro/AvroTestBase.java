@@ -26,6 +26,7 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.arrow.memory.BufferAllocator;
@@ -43,17 +44,17 @@ import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.io.EncoderFactory;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.io.TempDir;
 
 public class AvroTestBase {
 
-  @ClassRule public static final TemporaryFolder TMP = new TemporaryFolder();
+  @TempDir
+  protected Path tempDir;
 
   protected AvroToArrowConfig config;
 
-  @Before
+  @BeforeEach
   public void init() {
     BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
     config = new AvroToArrowConfigBuilder(allocator).build();
@@ -82,7 +83,7 @@ public class AvroTestBase {
   }
 
   protected VectorSchemaRoot writeAndRead(Schema schema, List data) throws Exception {
-    File dataFile = TMP.newFile();
+    File dataFile = tempDir.resolve("test.avro").toFile();
 
     BinaryEncoder encoder =
         new EncoderFactory().directBinaryEncoder(new FileOutputStream(dataFile), null);

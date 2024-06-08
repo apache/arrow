@@ -31,7 +31,7 @@ import org.apache.arrow.vector.types.Types;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class AvroSkipFieldTest extends AvroTestBase {
 
