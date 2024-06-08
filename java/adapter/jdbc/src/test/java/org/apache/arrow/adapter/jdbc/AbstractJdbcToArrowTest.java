@@ -37,9 +37,9 @@ import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.util.ValueVectorUtility;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /** Class to abstract out some common test functionality for testing JDBC to Arrow. */
 public abstract class AbstractJdbcToArrowTest {
@@ -94,7 +94,7 @@ public abstract class AbstractJdbcToArrowTest {
    * @throws SQLException on error
    * @throws ClassNotFoundException on error
    */
-  @Before
+  @BeforeEach
   public void setUp() throws SQLException, ClassNotFoundException {
     TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
     String url = "jdbc:h2:mem:JdbcToArrowTest";
@@ -114,7 +114,7 @@ public abstract class AbstractJdbcToArrowTest {
    *
    * @throws SQLException on error
    */
-  @After
+  @AfterEach
   public void destroy() throws SQLException {
     if (conn != null) {
       conn.close();

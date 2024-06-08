@@ -38,8 +38,8 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
@@ -73,7 +73,7 @@ public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
    * @throws SQLException on error
    * @throws ClassNotFoundException on error
    */
-  @Before
+  @BeforeEach
   @Override
   public void setUp() throws SQLException, ClassNotFoundException {
     String url = "jdbc:h2:mem:JdbcToArrowTest?characterEncoding=UTF-8";

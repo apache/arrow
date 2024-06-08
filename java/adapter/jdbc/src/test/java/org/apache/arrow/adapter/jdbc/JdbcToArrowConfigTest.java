@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.Types;
@@ -29,7 +30,7 @@ import java.util.Locale;
 import java.util.TimeZone;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class JdbcToArrowConfigTest {
 
@@ -37,14 +38,18 @@ public class JdbcToArrowConfigTest {
   private static final Calendar calendar =
       Calendar.getInstance(TimeZone.getTimeZone("UTC"), Locale.ROOT);
 
-  @Test(expected = NullPointerException.class)
+  @Test
   public void testConfigNullArguments() {
-    new JdbcToArrowConfig(null, null);
+    assertThrows(NullPointerException.class, () -> {
+      new JdbcToArrowConfig(null, null);
+    });
   }
 
-  @Test(expected = NullPointerException.class)
+  @Test
   public void testBuilderNullArguments() {
-    new JdbcToArrowConfigBuilder(null, null);
+    assertThrows(NullPointerException.class, () -> {
+      new JdbcToArrowConfigBuilder(null, null);
+    });
   }
 
   @Test
@@ -60,20 +65,26 @@ public class JdbcToArrowConfigTest {
     assertNull(config.getCalendar());
   }
 
-  @Test(expected = NullPointerException.class)
+  @Test
   public void testConfigNullAllocator() {
-    new JdbcToArrowConfig(null, calendar);
+    assertThrows(NullPointerException.class, () -> {
+      new JdbcToArrowConfig(null, calendar);
+    });
   }
 
-  @Test(expected = NullPointerException.class)
+  @Test
   public void testBuilderNullAllocator() {
-    new JdbcToArrowConfigBuilder(null, calendar);
+    assertThrows(NullPointerException.class, () -> {
+      new JdbcToArrowConfigBuilder(null, calendar);
+    });
   }
 
-  @Test(expected = NullPointerException.class)
+  @Test
   public void testSetNullAllocator() {
-    JdbcToArrowConfigBuilder builder = new JdbcToArrowConfigBuilder(allocator, calendar);
-    builder.setAllocator(null);
+    assertThrows(NullPointerException.class, () -> {
+      JdbcToArrowConfigBuilder builder = new JdbcToArrowConfigBuilder(allocator, calendar);
+      builder.setAllocator(null);
+    });
   }
 
   @Test

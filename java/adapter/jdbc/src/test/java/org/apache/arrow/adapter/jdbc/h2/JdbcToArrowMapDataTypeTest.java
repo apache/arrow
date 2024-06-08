@@ -28,7 +28,7 @@ import org.apache.arrow.adapter.jdbc.JdbcToArrowConfigBuilder;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.MapVector;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /** Test MapConsumer with OTHER jdbc type. */
 public class JdbcToArrowMapDataTypeTest extends AbstractJdbcToArrowTest {

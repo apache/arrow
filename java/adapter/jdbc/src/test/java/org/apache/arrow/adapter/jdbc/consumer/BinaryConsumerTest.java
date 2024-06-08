@@ -24,7 +24,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.VarBinaryVector;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class BinaryConsumerTest extends AbstractConsumerTest {
 
