@@ -26,6 +26,7 @@
 
 #include "parquet/exception.h"
 #include "parquet/platform.h"
+#include "parquet/properties.h"
 #include "parquet/types.h"
 
 namespace arrow {
@@ -472,5 +473,10 @@ std::unique_ptr<typename EncodingTraits<DType>::Decoder> MakeTypedDecoder(
   std::unique_ptr<Decoder> base = MakeDecoder(DType::type_num, encoding, descr, pool);
   return std::unique_ptr<OutType>(dynamic_cast<OutType*>(base.release()));
 }
+
+PARQUET_EXPORT
+Encoding::type ChooseNonDictEncoding(Type::type data_type,
+                                     ParquetVersion::type parquet_version,
+                                     ParquetDataPageVersion datapage_version);
 
 }  // namespace parquet
