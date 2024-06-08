@@ -219,7 +219,7 @@ struct CompactTransposeMapVisitor {
   std::shared_ptr<Array>* out_compact_dictionary;
 
   template <typename IndexArrowType>
-  Status CompactTransposeMapImpl() {
+  ARROW_NOINLINE Status CompactTransposeMapImpl() {
     int64_t index_length = data->length;
     int64_t dict_length = data->dictionary->length;
     if (dict_length == 0) {
