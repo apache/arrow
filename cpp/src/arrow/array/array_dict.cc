@@ -213,13 +213,16 @@ Result<std::shared_ptr<ArrayData>> TransposeDictIndices(
 }
 
 struct CompactTransposeMapVisitor {
-  const std::shared_ptr<ArrayData>& data;
-  arrow::MemoryPool* pool;
-  std::unique_ptr<Buffer>* out_transpose_map;
-  std::shared_ptr<Array>* out_compact_dictionary;
+  const std::shared_ptr<ArrayData>& data_;
+  arrow::MemoryPool* pool_;
+  std::unique_ptr<Buffer>* out_transpose_map_;
+  std::shared_ptr<Array>* out_compact_dictionary_;
 
   template <typename IndexArrowType>
-  Status CompactTransposeMapImpl() {
+  static Status CompactTransposeMapImpl(const std::shared_ptr<ArrayData>& data,
+                                        arrow::MemoryPool* pool,
+                                        std::unique_ptr<Buffer>* out_transpose_map,
+                                        std::shared_ptr<Array>* out_compact_dictionary) {
     int64_t index_length = data->length;
     int64_t dict_length = data->dictionary->length;
     if (dict_length == 0) {
@@ -290,7 +293,8 @@ struct CompactTransposeMapVisitor {
 
   template <typename Type>
   enable_if_integer<Type, Status> Visit(const Type&) {
-    return CompactTransposeMapImpl<Type>();
+    return CompactTransposeMapImpl<Type>(data_, pool_, out_transpose_map_,
+                                         out_compact_dictionary_);
   }
 
   Status Visit(const DataType& type) {
