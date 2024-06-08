@@ -212,95 +212,78 @@ Result<std::shared_ptr<ArrayData>> TransposeDictIndices(
   return out_data;
 }
 
-struct CompactTransposeMapVisitor {
-  const std::shared_ptr<ArrayData>& data_;
-  arrow::MemoryPool* pool_;
-  std::unique_ptr<Buffer>* out_transpose_map_;
-  std::shared_ptr<Array>* out_compact_dictionary_;
-
-  template <typename IndexArrowType>
-  static Status CompactTransposeMapImpl(const std::shared_ptr<ArrayData>& data,
-                                        arrow::MemoryPool* pool,
-                                        std::unique_ptr<Buffer>* out_transpose_map,
-                                        std::shared_ptr<Array>* out_compact_dictionary) {
-    int64_t index_length = data->length;
-    int64_t dict_length = data->dictionary->length;
-    if (dict_length == 0) {
-      *out_transpose_map = nullptr;
-      *out_compact_dictionary = nullptr;
-      return Status::OK();
-    } else if (index_length == 0) {
-      ARROW_ASSIGN_OR_RAISE(*out_compact_dictionary,
-                            MakeEmptyArray(data->dictionary->type, pool));
-      ARROW_ASSIGN_OR_RAISE(*out_transpose_map, AllocateBuffer(0, pool))
-      return Status::OK();
-    }
-
-    using CType = typename IndexArrowType::c_type;
-    const CType* indices_data = data->GetValues<CType>(1);
-    std::vector<bool> dict_used(dict_length, false);
-    CType dict_len = static_cast<CType>(dict_length);
-    int64_t dict_used_count = 0;
-    for (int64_t i = 0; i < index_length; i++) {
-      if (data->IsNull(i)) {
-        continue;
-      }
-
-      CType current_index = indices_data[i];
-      if (current_index < 0 || current_index >= dict_len) {
-        return Status::IndexError(
-            "Index out of bounds while compacting dictionary array: ", current_index,
-            "(dictionary is ", dict_length, " long) at position ", i);
-      }
-      if (dict_used[current_index]) continue;
-      dict_used[current_index] = true;
-      dict_used_count++;
-
-      if (dict_used_count == dict_length) {
-        // The dictionary is already compact, so just return here
-        *out_transpose_map = nullptr;
-        *out_compact_dictionary = nullptr;
-        return Status::OK();
-      }
-    }
-
-    using BuilderType = NumericBuilder<IndexArrowType>;
-    using arrow::compute::Take;
-    using arrow::compute::TakeOptions;
-    BuilderType dict_indices_builder(pool);
-    ARROW_RETURN_NOT_OK(dict_indices_builder.Reserve(dict_used_count));
-    ARROW_ASSIGN_OR_RAISE(*out_transpose_map,
-                          AllocateBuffer(dict_length * sizeof(int32_t), pool));
-    auto* output_map_raw = (*out_transpose_map)->mutable_data_as<int32_t>();
-    int32_t current_index = 0;
-    for (CType i = 0; i < dict_len; i++) {
-      if (dict_used[i]) {
-        dict_indices_builder.UnsafeAppend(i);
-        output_map_raw[i] = current_index;
-        current_index++;
-      } else {
-        output_map_raw[i] = -1;
-      }
-    }
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Array> compacted_dict_indices,
-                          dict_indices_builder.Finish());
-    ARROW_ASSIGN_OR_RAISE(auto compacted_dict_res,
-                          Take(Datum(data->dictionary), compacted_dict_indices,
-                               TakeOptions::NoBoundsCheck()));
-    *out_compact_dictionary = compacted_dict_res.make_array();
+template <typename IndexArrowType>
+static Status CompactTransposeMap(const std::shared_ptr<ArrayData>& data,
+                                  arrow::MemoryPool* pool,
+                                  std::unique_ptr<Buffer>* out_transpose_map,
+                                  std::shared_ptr<Array>* out_compact_dictionary) {
+  int64_t index_length = data->length;
+  int64_t dict_length = data->dictionary->length;
+  if (dict_length == 0) {
+    *out_transpose_map = nullptr;
+    *out_compact_dictionary = nullptr;
+    return Status::OK();
+  } else if (index_length == 0) {
+    ARROW_ASSIGN_OR_RAISE(*out_compact_dictionary,
+                          MakeEmptyArray(data->dictionary->type, pool));
+    ARROW_ASSIGN_OR_RAISE(*out_transpose_map, AllocateBuffer(0, pool))
     return Status::OK();
   }
 
-  template <typename Type>
-  enable_if_integer<Type, Status> Visit(const Type&) {
-    return CompactTransposeMapImpl<Type>(data_, pool_, out_transpose_map_,
-                                         out_compact_dictionary_);
+  using CType = typename IndexArrowType::c_type;
+  const CType* indices_data = data->GetValues<CType>(1);
+  std::vector<bool> dict_used(dict_length, false);
+  CType dict_len = static_cast<CType>(dict_length);
+  int64_t dict_used_count = 0;
+  for (int64_t i = 0; i < index_length; i++) {
+    if (data->IsNull(i)) {
+      continue;
+    }
+
+    CType current_index = indices_data[i];
+    if (current_index < 0 || current_index >= dict_len) {
+      return Status::IndexError(
+          "Index out of bounds while compacting dictionary array: ", current_index,
+          "(dictionary is ", dict_length, " long) at position ", i);
+    }
+    if (dict_used[current_index]) continue;
+    dict_used[current_index] = true;
+    dict_used_count++;
+
+    if (dict_used_count == dict_length) {
+      // The dictionary is already compact, so just return here
+      *out_transpose_map = nullptr;
+      *out_compact_dictionary = nullptr;
+      return Status::OK();
+    }
   }
 
-  Status Visit(const DataType& type) {
-    return Status::TypeError("Expected an Index Type of Int or UInt");
+  using BuilderType = NumericBuilder<IndexArrowType>;
+  using arrow::compute::Take;
+  using arrow::compute::TakeOptions;
+  BuilderType dict_indices_builder(pool);
+  ARROW_RETURN_NOT_OK(dict_indices_builder.Reserve(dict_used_count));
+  ARROW_ASSIGN_OR_RAISE(*out_transpose_map,
+                        AllocateBuffer(dict_length * sizeof(int32_t), pool));
+  auto* output_map_raw = (*out_transpose_map)->mutable_data_as<int32_t>();
+  int32_t current_index = 0;
+  for (CType i = 0; i < dict_len; i++) {
+    if (dict_used[i]) {
+      dict_indices_builder.UnsafeAppend(i);
+      output_map_raw[i] = current_index;
+      current_index++;
+    } else {
+      output_map_raw[i] = -1;
+    }
   }
-};
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Array> compacted_dict_indices,
+                        dict_indices_builder.Finish());
+  ARROW_ASSIGN_OR_RAISE(auto compacted_dict_res,
+                        Take(Datum(data->dictionary), compacted_dict_indices,
+                             TakeOptions::NoBoundsCheck()));
+  *out_compact_dictionary = compacted_dict_res.make_array();
+  return Status::OK();
+}
 
 }  // namespace
 
@@ -316,8 +299,42 @@ Result<std::shared_ptr<Array>> DictionaryArray::Transpose(
 Result<std::shared_ptr<Array>> DictionaryArray::Compact(MemoryPool* pool) const {
   std::shared_ptr<Array> compact_dictionary;
   std::unique_ptr<Buffer> transpose_map;
-  CompactTransposeMapVisitor visitor{data_, pool, &transpose_map, &compact_dictionary};
-  RETURN_NOT_OK(VisitTypeInline(*dict_type_->index_type(), &visitor));
+  switch (dict_type_->index_type()->id()) {
+    case Type::UINT8:
+      RETURN_NOT_OK(CompactTransposeMap<UInt8Type>(data_, pool, &transpose_map,
+                                                   &compact_dictionary));
+      break;
+    case Type::INT8:
+      RETURN_NOT_OK(CompactTransposeMap<Int8Type>(data_, pool, &transpose_map,
+                                                  &compact_dictionary));
+      break;
+    case Type::UINT16:
+      RETURN_NOT_OK(CompactTransposeMap<UInt16Type>(data_, pool, &transpose_map,
+                                                    &compact_dictionary));
+      break;
+    case Type::INT16:
+      RETURN_NOT_OK(CompactTransposeMap<Int16Type>(data_, pool, &transpose_map,
+                                                   &compact_dictionary));
+      break;
+    case Type::UINT32:
+      RETURN_NOT_OK(CompactTransposeMap<UInt32Type>(data_, pool, &transpose_map,
+                                                    &compact_dictionary));
+      break;
+    case Type::INT32:
+      RETURN_NOT_OK(CompactTransposeMap<Int32Type>(data_, pool, &transpose_map,
+                                                   &compact_dictionary));
+      break;
+    case Type::UINT64:
+      RETURN_NOT_OK(CompactTransposeMap<UInt64Type>(data_, pool, &transpose_map,
+                                                    &compact_dictionary));
+      break;
+    case Type::INT64:
+      RETURN_NOT_OK(CompactTransposeMap<Int64Type>(data_, pool, &transpose_map,
+                                                   &compact_dictionary));
+      break;
+    default:
+      return Status::TypeError("Expected an Index Type of Int or UInt");
+  }
 
   if (transpose_map == nullptr) {
     return std::make_shared<DictionaryArray>(this->data_);
