@@ -47,7 +47,9 @@ public class JdbcToArrowMapDataTypeTest extends AbstractJdbcToArrowTest {
    */
   @ParameterizedTest
   @MethodSource("getTestData")
-  public void testJdbcToArrowValues(Table table) throws SQLException, IOException {
+  public void testJdbcToArrowValues(Table table) throws SQLException, IOException, ClassNotFoundException {
+    this.initializeDatabase(table);
+
     this.table = getTable("h2/test1_map_h2.yml", JdbcToArrowMapDataTypeTest.class);
     Calendar calendar = Calendar.getInstance();
     ResultSetMetaData rsmd = getQueryMetaData(table.getQuery());

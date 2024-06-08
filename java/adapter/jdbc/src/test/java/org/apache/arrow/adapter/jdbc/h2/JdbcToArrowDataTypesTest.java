@@ -64,7 +64,6 @@ import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -134,7 +133,9 @@ public class JdbcToArrowDataTypesTest extends AbstractJdbcToArrowTest {
    */
   @ParameterizedTest
   @MethodSource("getTestData")
-  public void testJdbcToArrowValues(Table table) throws SQLException, IOException {
+  public void testJdbcToArrowValues(Table table) throws SQLException, IOException, ClassNotFoundException {
+    this.initializeDatabase(table);
+
     testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE),
         Calendar.getInstance()), false);
     testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE)), false);
@@ -172,12 +173,14 @@ public class JdbcToArrowDataTypesTest extends AbstractJdbcToArrowTest {
         false);
   }
 
-  @Test
-  public void testJdbcSchemaMetadata() throws SQLException {
-    JdbcToArrowConfig config =
-        new JdbcToArrowConfigBuilder(new RootAllocator(0), Calendar.getInstance(), true)
-            .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
-            .build();
+  @ParameterizedTest
+  @MethodSource("getTestData")
+  public void testJdbcSchemaMetadata(Table table) throws SQLException, ClassNotFoundException {
+    this.initializeDatabase(table);
+
+    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(0), Calendar.getInstance(), true)
+        .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
+        .build();
     ResultSetMetaData rsmd = conn.createStatement().executeQuery(table.getQuery()).getMetaData();
     Schema schema = JdbcToArrowUtils.jdbcToArrowSchema(rsmd, config);
     JdbcToArrowTestHelper.assertFieldMetadataMatchesResultSetMetadata(rsmd, schema);

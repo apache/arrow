@@ -92,7 +92,9 @@ public abstract class AbstractJdbcToArrowTest {
    * @throws SQLException on error
    * @throws ClassNotFoundException on error
    */
-  public void setUp() throws SQLException, ClassNotFoundException {
+  protected void initializeDatabase(Table table) throws SQLException, ClassNotFoundException {
+    this.table = table;
+
     TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
     String url = "jdbc:h2:mem:JdbcToArrowTest";
     String driver = "org.h2.Driver";

@@ -39,7 +39,6 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -57,12 +56,13 @@ public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
     "h2/test1_charset_kr_h2.yml"
   };
 
-  private void initializeDatabase(Table table) throws SQLException, ClassNotFoundException {
+  public void initializeDatabase(Table table) throws SQLException, ClassNotFoundException {
+    this.table = table;
+
     String url = "jdbc:h2:mem:JdbcToArrowTest?characterEncoding=UTF-8";
     String driver = "org.h2.Driver";
     Class.forName(driver);
     conn = DriverManager.getConnection(url);
-    this.table = table;
     try (Statement stmt = conn.createStatement();) {
       stmt.executeUpdate(table.getCreate());
       for (String insert : table.getData()) {
@@ -90,7 +90,8 @@ public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
   @ParameterizedTest
   @MethodSource("getTestData")
   public void testJdbcToArrowValues(Table table) throws SQLException, IOException, ClassNotFoundException {
-    initializeDatabase(table);
+    this.initializeDatabase(table);
+
     testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE),
         Calendar.getInstance()), false);
     testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE)), false);
@@ -126,10 +127,12 @@ public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
         false);
   }
 
-  @Test
-  public void testJdbcSchemaMetadata() throws SQLException {
-    JdbcToArrowConfig config =
-        new JdbcToArrowConfigBuilder(new RootAllocator(0), Calendar.getInstance(), true).build();
+  @ParameterizedTest
+  @MethodSource("getTestData")
+  public void testJdbcSchemaMetadata(Table table) throws SQLException, ClassNotFoundException {
+    this.initializeDatabase(table);
+
+    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(0), Calendar.getInstance(), true).build();
     ResultSetMetaData rsmd = conn.createStatement().executeQuery(table.getQuery()).getMetaData();
     Schema schema = JdbcToArrowUtils.jdbcToArrowSchema(rsmd, config);
     JdbcToArrowTestHelper.assertFieldMetadataMatchesResultSetMetadata(rsmd, schema);

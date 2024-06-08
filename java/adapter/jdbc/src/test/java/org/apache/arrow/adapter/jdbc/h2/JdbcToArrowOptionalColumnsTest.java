@@ -58,7 +58,9 @@ public class JdbcToArrowOptionalColumnsTest extends AbstractJdbcToArrowTest {
    */
   @ParameterizedTest
   @MethodSource("getTestData")
-  public void testJdbcToArrowValues(Table table) throws SQLException, IOException {
+  public void testJdbcToArrowValues(Table table) throws SQLException, IOException, ClassNotFoundException {
+    this.initializeDatabase(table);
+
     testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE)), false);
   }
 

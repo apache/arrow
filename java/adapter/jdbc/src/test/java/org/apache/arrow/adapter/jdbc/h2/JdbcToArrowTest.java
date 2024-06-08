@@ -55,7 +55,6 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -67,17 +66,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
 
   private static final String[] testFiles = {"h2/test1_all_datatypes_h2.yml"};
-
-  /**
-   * Constructor which populates the table object for each test iteration.
-   *
-   * @param table Table object
-   * @param reuseVectorSchemaRoot A flag indicating if we should reuse vector schema roots.
-   */
-  public JdbcToArrowTest(Table table, boolean reuseVectorSchemaRoot) {
-    this.table = table;
-    this.reuseVectorSchemaRoot = reuseVectorSchemaRoot;
-  }
 
   /**
    * Get the test data as a collection of Table objects for each test iteration.
@@ -98,7 +86,9 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
    */
   @ParameterizedTest
   @MethodSource("getTestData")
-  public void testJdbcToArrowValues(Table table) throws SQLException, IOException {
+  public void testJdbcToArrowValues(Table table) throws SQLException, IOException, ClassNotFoundException {
+    this.initializeDatabase(table);
+
     testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE),
         Calendar.getInstance()), false);
     testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE)), false);
@@ -139,8 +129,11 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
         true);
   }
 
-  @Test
-  public void testJdbcSchemaMetadata() throws SQLException {
+  @ParameterizedTest
+  @MethodSource("getTestData")
+  public void testJdbcSchemaMetadata(Table table) throws SQLException, ClassNotFoundException {
+    this.initializeDatabase(table);
+
     Calendar calendar = Calendar.getInstance();
     ResultSetMetaData rsmd = getQueryMetaData(table.getQuery());
     JdbcToArrowConfig config =
@@ -259,8 +252,11 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
     }
   }
 
-  @Test
-  public void runLargeNumberOfRows() throws IOException, SQLException {
+  @ParameterizedTest
+  @MethodSource("getTestData")
+  public void runLargeNumberOfRows(Table table) throws IOException, SQLException, ClassNotFoundException {
+    this.initializeDatabase(table);
+
     BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
     int x = 0;
     final int targetRows = 600000;

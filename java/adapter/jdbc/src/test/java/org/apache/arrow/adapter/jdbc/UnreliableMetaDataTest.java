@@ -29,10 +29,11 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Stream;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
@@ -42,19 +43,13 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /** Test options for dealing with unreliable ResultSetMetaData from JDBC drivers. */
-@RunWith(Parameterized.class)
 public class UnreliableMetaDataTest {
-  private final boolean reuseVectorSchemaRoot;
   private BufferAllocator allocator;
-
-  public UnreliableMetaDataTest(boolean reuseVectorSchemaRoot) {
-    this.reuseVectorSchemaRoot = reuseVectorSchemaRoot;
-  }
 
   @BeforeEach
   public void beforeEach() {
@@ -66,13 +61,13 @@ public class UnreliableMetaDataTest {
     allocator.close();
   }
 
-  @Parameterized.Parameters(name = "reuseVectorSchemaRoot = {0}")
-  public static Collection<Object[]> getTestData() {
-    return Arrays.asList(new Object[][] {{false}, {true}});
+  public static Stream<Arguments> getTestData() {
+    return Arrays.stream(new Object[][] { {false}, {true} }).map(Arguments::of);
   }
 
-  @Test
-  public void testUnreliableMetaDataPrecisionAndScale() throws Exception {
+  @ParameterizedTest
+  @MethodSource("getTestData")
+  public void testUnreliableMetaDataPrecisionAndScale(boolean reuseVectorSchemaRoot) throws Exception {
     ResultSet rs = buildIncorrectPrecisionAndScaleMetaDataResultSet();
     ResultSetMetaData rsmd = rs.getMetaData();
     assertEquals(Types.DECIMAL, rsmd.getColumnType(1), "Column type should be Types.DECIMAL");
@@ -118,8 +113,9 @@ public class UnreliableMetaDataTest {
     }
   }
 
-  @Test
-  public void testInconsistentPrecisionAndScale() throws Exception {
+  @ParameterizedTest
+  @MethodSource("getTestData")
+  public void testInconsistentPrecisionAndScale(boolean reuseVectorSchemaRoot) throws Exception {
     ResultSet rs = buildVaryingPrecisionAndScaleResultSet();
     ResultSetMetaData rsmd = rs.getMetaData();
     assertEquals(Types.DECIMAL, rsmd.getColumnType(1), "Column type should be Types.DECIMAL");
@@ -169,8 +165,9 @@ public class UnreliableMetaDataTest {
     }
   }
 
-  @Test
-  public void testIncorrectNullability() throws Exception {
+  @ParameterizedTest
+  @MethodSource("getTestData")
+  public void testIncorrectNullability(boolean reuseVectorSchemaRoot) throws Exception {
     // ARROW-17005: ResultSetMetaData may indicate a field is non-nullable even when there are nulls
     ResultSetUtility.MockResultSetMetaData.MockColumnMetaData columnMetaData =
         ResultSetUtility.MockResultSetMetaData.MockColumnMetaData.builder()
