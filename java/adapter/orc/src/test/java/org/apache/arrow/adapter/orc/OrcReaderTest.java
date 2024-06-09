@@ -45,7 +45,7 @@ import org.junit.jupiter.api.io.TempDir;
 public class OrcReaderTest {
 
   @TempDir
-  File testFolder;
+  public File testFolder;
 
   private static final int MAX_ALLOCATION = 8 * 1024;
   private static RootAllocator allocator;
