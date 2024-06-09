@@ -51,6 +51,13 @@ def setup_jvm():
     kwargs = {}
     # This will be the default behaviour in jpype 0.8+
     kwargs['convertStrings'] = False
+
+    # For debugging purpose please uncomment the following, and include *jvm_args, before **kwargs
+    # in startJVM function call
+    # jvm_args = [
+    #     "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
+    # ]
+
     jpype.startJVM(jpype.getDefaultJVMPath(), "-Djava.class.path=" + jar_path, **kwargs)
 
 
@@ -184,7 +191,36 @@ class TestPythonIntegration(unittest.TestCase):
         self.round_trip_array(lambda: pa.array([None, "a", "bb", "ccc"]))
 
     def test_stringview_array(self):
+        # with nulls short strings
+        self.round_trip_array(lambda: pa.array([None, "a", "bb", "c"], type=pa.string_view()))
+        # with nulls long and strings
         self.round_trip_array(lambda: pa.array([None, "a", "bb"*10, "c"*13], type=pa.string_view()))
+        # without nulls short strings
+        self.round_trip_array(lambda: pa.array(["a", "bb", "c"], type=pa.string_view()))
+        # without nulls long and strings
+        self.round_trip_array(lambda: pa.array(["a", "bb"*10, "c"*13], type=pa.string_view()))
+        # with multiple data buffers
+        data = []
+        for i in range(1, 501):
+            s = ''.join(str(j) for j in range(i))
+            data.append(s)
+        self.round_trip_array(lambda: pa.array(data, type=pa.string_view()))
+
+    def test_binaryview_array(self):
+        # with nulls short strings
+        self.round_trip_array(lambda: pa.array([None, b"a", b"bb", b"c"], type=pa.binary_view()))
+        # with nulls long and strings
+        self.round_trip_array(lambda: pa.array([None, b"a", b"bb"*10, b"c"*13], type=pa.binary_view()))
+        # without nulls short strings
+        self.round_trip_array(lambda: pa.array([b"a", b"bb", b"c"], type=pa.binary_view()))
+        # without nulls long and strings
+        self.round_trip_array(lambda: pa.array([b"a", b"bb"*10, b"c"*13], type=pa.binary_view()))
+        # with multiple data buffers
+        data = []
+        for i in range(1, 501):
+            s = bytes(''.join(str(j) for j in range(i)), 'utf-8')
+            data.append(s)
+        self.round_trip_array(lambda: pa.array(data, type=pa.binary_view()))
 
     def test_decimal_array(self):
         data = [

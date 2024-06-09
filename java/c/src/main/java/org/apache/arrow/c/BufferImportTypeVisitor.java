@@ -22,16 +22,13 @@ import static org.apache.arrow.util.Preconditions.checkState;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.VisibleForTesting;
 import org.apache.arrow.vector.BaseVariableWidthViewVector;
-import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.DurationVector;
@@ -56,7 +53,6 @@ import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.apache.arrow.vector.types.pojo.ArrowType.ListView;
 import org.apache.arrow.vector.util.DataSizeRoundingUtil;
 
 /** Import buffers from a C Data Interface struct. */
@@ -240,33 +236,22 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
       ArrowBuf maybeValidityBuffer = maybeImportBitmap(type);
       buffers.add(maybeValidityBuffer);
       buffers.add(view);
-      final int elementSize = BaseVariableWidthViewVector.ELEMENT_SIZE;
-      final int lengthWidth = BaseVariableWidthViewVector.LENGTH_WIDTH;
-      final int prefixWidth = BaseVariableWidthViewVector.PREFIX_WIDTH;
-      final int lengthPrefixWidth = lengthWidth + prefixWidth;
-      // Map to store the data buffer index and the total length of data in that buffer
-      Map<Integer, Long> dataBufferInfo = new HashMap<>();
-      for (int i = 0; i < fieldNode.getLength(); i++) {
-        final int length = view.getInt((long) i * elementSize);
-        if (length > BaseVariableWidthViewVector.INLINE_SIZE) {
-          checkState(maybeValidityBuffer != null,
-              "Validity buffer is required for data of type " + type);
-          if (BitVectorHelper.get(maybeValidityBuffer, i) == 1) {
-            final int bufferIndex =
-                view.getInt(((long) i * elementSize) + lengthPrefixWidth);
-            if (dataBufferInfo.containsKey(bufferIndex)) {
-              dataBufferInfo.compute(bufferIndex, (key, value) -> value != null ? value + (long) length : 0);
-            } else {
-              dataBufferInfo.put(bufferIndex, (long) length);
-            }
-          }
+
+      final int variadicSizeBufferIndex = this.buffers.length - 1;
+      final long numOfVariadicBuffers = this.buffers.length - 3;
+      final long variadicSizeBufferCapacity = numOfVariadicBuffers * Long.BYTES;
+      // 0th buffer is validity buffer
+      // 1st buffer is view buffer
+      // 2nd buffer onwards are variadic buffer
+      // N-1 (this.buffers.length - 1) buffer is variadic size buffer
+      final int variadicBufferReadOffset = 2;
+      try (ArrowBuf variadicSizeBufferPrime = importBuffer(type, variadicSizeBufferIndex,
+          variadicSizeBufferCapacity)) {
+        variadicSizeBufferPrime.getReferenceManager().retain();
+        for (int i = 0; i < numOfVariadicBuffers; i++) {
+          long size = variadicSizeBufferPrime.getLong((long) i * Long.BYTES);
+          buffers.add(importBuffer(type, i + variadicBufferReadOffset, size));
         }
-      }
-      // fixed buffers for Utf8View or BinaryView are the validity buffer and the view buffer.
-      final int fixedBufferCount = 2;
-      // import data buffers
-      for (Map.Entry<Integer, Long> entry : dataBufferInfo.entrySet()) {
-        buffers.add(importBuffer(type, entry.getKey() + fixedBufferCount, entry.getValue()));
       }
       return buffers;
     }
@@ -416,8 +401,7 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
   }
 
   @Override
-  public List<ArrowBuf> visit(ListView type) {
-    throw new UnsupportedOperationException(
-        "Importing buffers for view type: " + type + " not supported");
+  public List<ArrowBuf> visit(ArrowType.ListView type) {
+    throw new UnsupportedOperationException("Importing buffers for view type: " + type + " not supported");
   }
 }

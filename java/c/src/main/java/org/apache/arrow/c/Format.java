@@ -228,7 +228,7 @@ final class Format {
       case Utf8View:
         return "vu";
       case BinaryView:
-        return "VZ";
+        return "vz";
       case NONE:
         throw new IllegalArgumentException("Arrow type ID is NONE");
       default:
@@ -311,7 +311,7 @@ final class Format {
         return new ArrowType.Map(keysSorted);
       case "vu":
         return new ArrowType.Utf8View();
-      case "VZ":
+      case "vz":
         return new ArrowType.BinaryView();
       default:
         String[] parts = format.split(":", 2);

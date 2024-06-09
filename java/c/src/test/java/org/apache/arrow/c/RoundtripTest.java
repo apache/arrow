@@ -526,6 +526,14 @@ public class RoundtripTest {
     }
   }
 
+  private String generateString(String str, int repetition) {
+    StringBuilder aRepeated = new StringBuilder();
+    for (int i = 0; i < repetition; i++) {
+      aRepeated.append(str);
+    }
+    return aRepeated.toString();
+  }
+
   @Test
   public void testViewVector() {
     // ViewVarCharVector with short strings
@@ -573,6 +581,13 @@ public class RoundtripTest {
     // ViewVarBinaryVector with short long strings with multiple data buffers
     try (final ViewVarBinaryVector vector = new ViewVarBinaryVector("v6", allocator)) {
       setVector(vector, byteArrayList.toArray(new byte[0][]));
+      assertTrue(roundtrip(vector, ViewVarBinaryVector.class));
+    }
+
+    try (final ViewVarBinaryVector vector = new ViewVarBinaryVector("v4", allocator)) {
+      setVector(vector, null, generateString("a", 123).getBytes(StandardCharsets.UTF_8),
+          generateString("bb", 7).getBytes(StandardCharsets.UTF_8),
+          generateString("cc", 10).getBytes(StandardCharsets.UTF_8));
       assertTrue(roundtrip(vector, ViewVarBinaryVector.class));
     }
   }

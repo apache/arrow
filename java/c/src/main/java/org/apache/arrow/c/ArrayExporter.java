@@ -26,6 +26,7 @@ import org.apache.arrow.c.jni.JniWrapper;
 import org.apache.arrow.c.jni.PrivateData;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.BaseVariableWidthViewVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
@@ -90,8 +91,34 @@ final class ArrayExporter {
       }
 
       if (buffers != null) {
+        final long bufferSize = buffers.size();
+        /*
+        * For Variadic types, an additional buffer is kept to store
+        * the size of each variadic buffer since that information
+        * cannot be retrieved in the import component.
+        * Here, the dataBufferReqCount is calculated to determine
+        * the additional number of buffers required.
+        * Also note that if the bufferSize is greater than 2, it means
+        * there is one or more data buffers.
+        * Thus, the dataBufferReqCount is set to 1 to get additional buffer
+        * for to store variadic size buffer.
+        * If it is not the case, the dataBuffer is not present.
+        * According to the spec and C Data interface in C++, there must be
+        * at least 3 data buffers present at the import component.
+        * Thus, the dataBufferReqCount is set to 2 to get additional buffer
+        * for empty dataBuffer and the variadic size buffer.
+        */
+        int dataBufferReqCount = 0;
+        if (vector instanceof BaseVariableWidthViewVector) {
+          if (bufferSize > 2) {
+            dataBufferReqCount = 1;
+          } else {
+            dataBufferReqCount = 2;
+          }
+        }
+
         data.buffers = new ArrayList<>(buffers.size());
-        data.buffers_ptrs = allocator.buffer((long) buffers.size() * Long.BYTES);
+        data.buffers_ptrs = allocator.buffer((bufferSize + dataBufferReqCount) * Long.BYTES);
         vector.exportCDataBuffers(data.buffers, data.buffers_ptrs, NULL);
       }
 
