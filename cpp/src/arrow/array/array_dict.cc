@@ -224,11 +224,14 @@ Status CompactTransposeMap(const std::shared_ptr<ArrayData>& data,
   DCHECK_GT(index_length, 0);
   DCHECK_GT(dict_length, 0);
 
+  ARROW_ASSIGN_OR_RAISE(auto dict_used_bitmap_buffer,
+                        AllocateEmptyBitmap(dict_length, pool));
+  auto* dict_used = dict_used_bitmap_buffer->mutable_data();
+  int64_t dict_used_count = 0;
+
   using CType = typename IndexArrowType::c_type;
   const CType* indices_data = data->GetValues<CType>(1);
-  std::vector<bool> dict_used(dict_length, false);
   CType dict_len = static_cast<CType>(dict_length);
-  int64_t dict_used_count = 0;
   for (int64_t i = 0; i < index_length; i++) {
     if (data->IsNull(i)) {
       continue;
@@ -240,10 +243,10 @@ Status CompactTransposeMap(const std::shared_ptr<ArrayData>& data,
           "Index out of bounds while compacting dictionary array: ", current_index,
           "(dictionary is ", dict_length, " long) at position ", i);
     }
-    if (dict_used[current_index]) {
+    if (bit_util::GetBit(dict_used, current_index)) {
       continue;
     }
-    dict_used[current_index] = true;
+    bit_util::SetBit(dict_used, current_index);
     dict_used_count++;
 
     if (dict_used_count == dict_length) {
@@ -264,7 +267,7 @@ Status CompactTransposeMap(const std::shared_ptr<ArrayData>& data,
   auto* output_map_raw = (*out_transpose_map)->mutable_data_as<int32_t>();
   int32_t current_index = 0;
   for (CType i = 0; i < dict_len; i++) {
-    if (dict_used[i]) {
+    if (bit_util::GetBit(dict_used, i)) {
       dict_indices_builder.UnsafeAppend(i);
       output_map_raw[i] = current_index;
       current_index++;
