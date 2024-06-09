@@ -51,7 +51,7 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.ByteArrayReadableSeekableByteChannel;
-import org.junit.After;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -70,7 +70,7 @@ public class TestArrowReaderWriterWithCompression {
     root = null;
   }
 
-  @After
+  @AfterEach
   public void tearDown() {
     if (root != null) {
       root.close();
