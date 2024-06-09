@@ -56,7 +56,7 @@ public class AvroToArrowIteratorTest extends AvroTestBase {
   }
 
   private AvroToArrowVectorIterator convert(Schema schema, List data) throws Exception {
-    File dataFile = tempDir.resolve("test.avro").toFile();
+    File dataFile = new File(TMP, "test.avro");
 
     BinaryEncoder encoder =
         new EncoderFactory().directBinaryEncoder(new FileOutputStream(dataFile), null);

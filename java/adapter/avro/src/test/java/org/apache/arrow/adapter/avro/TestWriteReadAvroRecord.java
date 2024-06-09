@@ -37,11 +37,11 @@ import org.junit.jupiter.api.io.TempDir;
 
 public class TestWriteReadAvroRecord {
 
-  private static File dataFile;
+  public static File dataFile;
 
   @BeforeAll
   public static void setup(@TempDir Path tempDir) {
-    dataFile = tempDir.resolve("test.avro").toFile();
+    dataFile = new File(tempDir.toFile(), "test.avro");
   }
 
   @Test

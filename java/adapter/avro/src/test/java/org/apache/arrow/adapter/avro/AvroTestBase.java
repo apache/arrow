@@ -26,7 +26,6 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.arrow.memory.BufferAllocator;
@@ -50,7 +49,7 @@ import org.junit.jupiter.api.io.TempDir;
 public class AvroTestBase {
 
   @TempDir
-  protected Path tempDir;
+  public File TMP;
 
   protected AvroToArrowConfig config;
 
@@ -83,7 +82,7 @@ public class AvroTestBase {
   }
 
   protected VectorSchemaRoot writeAndRead(Schema schema, List data) throws Exception {
-    File dataFile = tempDir.resolve("test.avro").toFile();
+    File dataFile = new File(TMP, "test.avro");
 
     BinaryEncoder encoder =
         new EncoderFactory().directBinaryEncoder(new FileOutputStream(dataFile), null);
