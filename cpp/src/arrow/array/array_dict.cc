@@ -36,6 +36,7 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
@@ -267,11 +268,17 @@ Status CompactTransposeMap(const std::shared_ptr<ArrayData>& data,
                         AllocateBuffer(dict_length * sizeof(int32_t), pool));
   auto* output_map_raw = (*out_transpose_map)->mutable_data_as<int32_t>();
   memset(output_map_raw, 0xff, dict_length * sizeof(int32_t));
+  ::arrow::internal::SetBitRunReader reader(dict_used, 0, dict_length);
   int32_t current_index = 0;
-  for (int64_t i = 0; i < dict_length; i++) {
-    if (bit_util::GetBit(dict_used, i)) {
-      dict_indices_builder.UnsafeAppend(static_cast<CType>(i));
-      output_map_raw[i] = current_index;
+  for (;;) {
+    const auto run = reader.NextRun();
+    if (run.length == 0) {
+      break;
+    }
+    for (int64_t i = 0; i < run.length; i++) {
+      const int64_t index = run.position + i;
+      dict_indices_builder.UnsafeAppend(static_cast<CType>(index));
+      output_map_raw[index] = current_index;
       current_index++;
     }
   }
