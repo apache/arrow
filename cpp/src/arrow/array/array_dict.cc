@@ -278,12 +278,12 @@ Result<std::shared_ptr<Array>> CompactTransposeMap(const std::shared_ptr<ArrayDa
   const int64_t index_length = data->length;
   const int64_t dict_length = data->dictionary->length;
 
-  if (dict_length == 0) {
+  if (ARROW_PREDICT_FALSE(dict_length == 0)) {
     // If the dictionary is empty, we can return the original
     // array because it can't get any more compact.
     return std::make_shared<DictionaryArray>(data);
   }
-  if (index_length == 0) {
+  if (ARROW_PREDICT_FALSE(index_length == 0)) {
     ARROW_ASSIGN_OR_RAISE(auto compact_dictionary,
                           MakeEmptyArray(data->dictionary->type, pool));
     ARROW_ASSIGN_OR_RAISE(auto transpose_map, AllocateBuffer(0, pool))
@@ -297,7 +297,7 @@ Result<std::shared_ptr<Array>> CompactTransposeMap(const std::shared_ptr<ArrayDa
   using CType = typename IndexArrowType::c_type;
   ARROW_ASSIGN_OR_RAISE(int64_t dict_used_count,
                         PopulateBitmapOfUsedIndices<CType>(*data, dict_used));
-  if (dict_used_count == dict_length) {
+  if (ARROW_PREDICT_FALSE(dict_used_count == dict_length)) {
     // The dictionary is already compact, so just return here
     return std::make_shared<DictionaryArray>(data);
   }
