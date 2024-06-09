@@ -260,10 +260,11 @@ Status CompactTransposeMap(const std::shared_ptr<ArrayData>& data,
     }
   }
 
-  using BuilderType = NumericBuilder<IndexArrowType>;
+  using IndicesArrayType = typename TypeTraits<IndexArrowType>::ArrayType;
   DCHECK_LE(dict_used_count, std::numeric_limits<int32_t>::max());
-  BuilderType dict_indices_builder(pool);
-  ARROW_RETURN_NOT_OK(dict_indices_builder.Reserve(dict_used_count));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> dict_indices_buffer,
+                        AllocateBuffer(dict_used_count * sizeof(CType), pool));
+  auto* compact_dict_indices = dict_indices_buffer->mutable_data_as<CType>();
   ARROW_ASSIGN_OR_RAISE(*out_transpose_map,
                         AllocateBuffer(dict_length * sizeof(int32_t), pool));
   auto* output_map_raw = (*out_transpose_map)->mutable_data_as<int32_t>();
@@ -277,16 +278,17 @@ Status CompactTransposeMap(const std::shared_ptr<ArrayData>& data,
     }
     for (int64_t i = 0; i < run.length; i++) {
       const int64_t index = run.position + i;
-      dict_indices_builder.UnsafeAppend(static_cast<CType>(index));
+      compact_dict_indices[current_index] = static_cast<CType>(index);
       output_map_raw[index] = current_index;
       current_index++;
     }
   }
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Array> compacted_dict_indices,
-                        dict_indices_builder.Finish());
+  DCHECK_EQ(current_index, dict_used_count);
+  std::shared_ptr<arrow::Array> compacted_dict_indices_array =
+      std::make_shared<IndicesArrayType>(dict_used_count, dict_indices_buffer);
   ARROW_ASSIGN_OR_RAISE(
       auto compacted_dict_res,
-      arrow::compute::Take(Datum(data->dictionary), compacted_dict_indices,
+      arrow::compute::Take(Datum(data->dictionary), compacted_dict_indices_array,
                            arrow::compute::TakeOptions::NoBoundsCheck()));
   *out_compact_dictionary = compacted_dict_res.make_array();
   return Status::OK();
