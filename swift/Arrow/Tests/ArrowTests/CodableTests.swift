@@ -30,7 +30,7 @@ final class CodableTests: XCTestCase {
         public var propUInt32: UInt32
         public var propUInt64: UInt64
         public var propFloat: Float
-        public var propDouble: Double
+        public var propDouble: Double?
         public var propString: String
         public var propDate: Date
 
@@ -53,7 +53,6 @@ final class CodableTests: XCTestCase {
 
     func testArrowKeyedDecoder() throws { // swiftlint:disable:this function_body_length
         let date1 = Date(timeIntervalSinceReferenceDate: 86400 * 5000 + 352)
-
         let boolBuilder = try ArrowArrayBuilders.loadBoolArrayBuilder()
         let int8Builder: NumberArrayBuilder<Int8> = try ArrowArrayBuilders.loadNumberArrayBuilder()
         let int16Builder: NumberArrayBuilder<Int16> = try ArrowArrayBuilders.loadNumberArrayBuilder()
@@ -78,7 +77,7 @@ final class CodableTests: XCTestCase {
         uint32Builder.append(70, 71, 72)
         uint64Builder.append(80, 81, 82)
         floatBuilder.append(90.1, 91.1, 92.1)
-        doubleBuilder.append(100.1, 101.1, 102.1)
+        doubleBuilder.append(101.1, nil, nil)
         stringBuilder.append("test0", "test1", "test2")
         dateBuilder.append(date1, date1, date1)
         let result = RecordBatch.Builder()
@@ -102,7 +101,6 @@ final class CodableTests: XCTestCase {
             var testClasses = try decoder.decode(TestClass.self)
             for index in 0..<testClasses.count {
                 let testClass = testClasses[index]
-                var col = 0
                 XCTAssertEqual(testClass.propBool, index % 2 == 0 ? false : true)
                 XCTAssertEqual(testClass.propInt8, Int8(index + 10))
                 XCTAssertEqual(testClass.propInt16, Int16(index + 20))
@@ -113,7 +111,11 @@ final class CodableTests: XCTestCase {
                 XCTAssertEqual(testClass.propUInt32, UInt32(index + 70))
                 XCTAssertEqual(testClass.propUInt64, UInt64(index + 80))
                 XCTAssertEqual(testClass.propFloat, Float(index) + 90.1)
-                XCTAssertEqual(testClass.propDouble, Double(index) + 100.1)
+                if index == 0 {
+                    XCTAssertEqual(testClass.propDouble, 101.1)
+                } else {
+                    XCTAssertEqual(testClass.propDouble, nil)
+                }
                 XCTAssertEqual(testClass.propString, "test\(index)")
                 XCTAssertEqual(testClass.propDate, date1)
             }
@@ -122,9 +124,9 @@ final class CodableTests: XCTestCase {
         }
     }
 
-    func testArrowSingleDecoder() throws {
+    func testArrowSingleDecoderWithoutNull() throws {
         let int8Builder: NumberArrayBuilder<Int8> = try ArrowArrayBuilders.loadNumberArrayBuilder()
-        int8Builder.append(10, 11, 12, nil)
+        int8Builder.append(10, 11, 12)
         let result = RecordBatch.Builder()
             .addColumn("propInt8", arrowArray: try int8Builder.toHolder())
             .finish()
@@ -134,7 +136,28 @@ final class CodableTests: XCTestCase {
             let testData = try decoder.decode(Int8?.self)
             for index in 0..<testData.count {
                 let val: Int8? = testData[index]
-                if val != nil {
+                XCTAssertEqual(val!, Int8(index + 10))
+            }
+        case .failure(let err):
+            throw err
+        }
+    }
+
+    func testArrowSingleDecoderWithNull() throws {
+        let int8WNilBuilder: NumberArrayBuilder<Int8> = try ArrowArrayBuilders.loadNumberArrayBuilder()
+        int8WNilBuilder.append(10, nil, 12, nil)
+        let resultWNil = RecordBatch.Builder()
+            .addColumn("propInt8", arrowArray: try int8WNilBuilder.toHolder())
+            .finish()
+        switch resultWNil {
+        case .success(let rb):
+            let decoder = ArrowDecoder(rb)
+            let testData = try decoder.decode(Int8?.self)
+            for index in 0..<testData.count {
+                let val: Int8? = testData[index]
+                if index % 2 == 1 {
+                    XCTAssertNil(val)
+                } else {
                     XCTAssertEqual(val!, Int8(index + 10))
                 }
             }
@@ -143,11 +166,11 @@ final class CodableTests: XCTestCase {
         }
     }
 
-    func testArrowUnkeyedDecoder() throws {
+    func testArrowUnkeyedDecoderWithoutNull() throws {
         let int8Builder: NumberArrayBuilder<Int8> = try ArrowArrayBuilders.loadNumberArrayBuilder()
         let stringBuilder = try ArrowArrayBuilders.loadStringArrayBuilder()
-        int8Builder.append(10, 11, 12)
-        stringBuilder.append("test0", "test1", "test2")
+        int8Builder.append(10, 11, 12, 13)
+        stringBuilder.append("test0", "test1", "test2", "test3")
         let result = RecordBatch.Builder()
             .addColumn("propInt8", arrowArray: try int8Builder.toHolder())
             .addColumn("propString", arrowArray: try stringBuilder.toHolder())
@@ -167,4 +190,32 @@ final class CodableTests: XCTestCase {
         }
     }
 
+    func testArrowUnkeyedDecoderWithNull() throws {
+        let int8Builder: NumberArrayBuilder<Int8> = try ArrowArrayBuilders.loadNumberArrayBuilder()
+        let stringWNilBuilder = try ArrowArrayBuilders.loadStringArrayBuilder()
+        int8Builder.append(10, 11, 12, 13)
+        stringWNilBuilder.append(nil, "test1", nil, "test3")
+        let resultWNil = RecordBatch.Builder()
+            .addColumn("propInt8", arrowArray: try int8Builder.toHolder())
+            .addColumn("propString", arrowArray: try stringWNilBuilder.toHolder())
+            .finish()
+        switch resultWNil {
+        case .success(let rb):
+            let decoder = ArrowDecoder(rb)
+            let testData = try decoder.decode([Int8: String?].self)
+            var index: Int8 = 0
+            for data in testData {
+                let str = data[10 + index]
+                if index % 2 == 0 {
+                    XCTAssertNil(str!)
+                } else {
+                    XCTAssertEqual(str, "test\(index)")
+                }
+                index += 1
+            }
+        case .failure(let err):
+            throw err
+        }
+
+    }
 }
