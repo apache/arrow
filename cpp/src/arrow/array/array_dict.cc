@@ -231,14 +231,16 @@ Status CompactTransposeMap(const std::shared_ptr<ArrayData>& data,
 
   using CType = typename IndexArrowType::c_type;
   const CType* indices_data = data->GetValues<CType>(1);
-  CType dict_len = static_cast<CType>(dict_length);
+  auto max_index = static_cast<CType>(
+      std::min(static_cast<uint64_t>(std::numeric_limits<CType>::max()),
+               static_cast<uint64_t>(dict_length - 1)));
   for (int64_t i = 0; i < index_length; i++) {
     if (data->IsNull(i)) {
       continue;
     }
 
     CType current_index = indices_data[i];
-    if (current_index < 0 || current_index >= dict_len) {
+    if (current_index < 0 || current_index > max_index) {
       return Status::IndexError(
           "Index out of bounds while compacting dictionary array: ", current_index,
           " (dictionary is ", dict_length, " long) at position ", i);
@@ -267,9 +269,9 @@ Status CompactTransposeMap(const std::shared_ptr<ArrayData>& data,
   auto* output_map_raw = (*out_transpose_map)->mutable_data_as<int32_t>();
   memset(output_map_raw, 0xff, dict_length * sizeof(int32_t));
   int32_t current_index = 0;
-  for (CType i = 0; i < dict_len; i++) {
+  for (int64_t i = 0; i < dict_length; i++) {
     if (bit_util::GetBit(dict_used, i)) {
-      dict_indices_builder.UnsafeAppend(i);
+      dict_indices_builder.UnsafeAppend(static_cast<CType>(i));
       output_map_raw[i] = current_index;
       current_index++;
     }
