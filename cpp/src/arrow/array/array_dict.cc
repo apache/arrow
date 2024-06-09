@@ -260,8 +260,7 @@ Status CompactTransposeMap(const std::shared_ptr<ArrayData>& data,
   }
 
   using BuilderType = NumericBuilder<IndexArrowType>;
-  using arrow::compute::Take;
-  using arrow::compute::TakeOptions;
+  DCHECK_LE(dict_used_count, std::numeric_limits<int32_t>::max());
   BuilderType dict_indices_builder(pool);
   ARROW_RETURN_NOT_OK(dict_indices_builder.Reserve(dict_used_count));
   ARROW_ASSIGN_OR_RAISE(*out_transpose_map,
@@ -278,9 +277,10 @@ Status CompactTransposeMap(const std::shared_ptr<ArrayData>& data,
   }
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Array> compacted_dict_indices,
                         dict_indices_builder.Finish());
-  ARROW_ASSIGN_OR_RAISE(auto compacted_dict_res,
-                        Take(Datum(data->dictionary), compacted_dict_indices,
-                             TakeOptions::NoBoundsCheck()));
+  ARROW_ASSIGN_OR_RAISE(
+      auto compacted_dict_res,
+      arrow::compute::Take(Datum(data->dictionary), compacted_dict_indices,
+                           arrow::compute::TakeOptions::NoBoundsCheck()));
   *out_compact_dictionary = compacted_dict_res.make_array();
   return Status::OK();
 }
