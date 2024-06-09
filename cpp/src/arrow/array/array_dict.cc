@@ -243,9 +243,9 @@ Result<int64_t> PopulateBitmapOfUsedIndices(const ArrayData& data,
 
     IndexCType current_index = indices_data[i];
     if (current_index < 0 || current_index > max_index) {
-      return Status::IndexError(
-          "Index out of bounds while compacting dictionary array: ", current_index,
-          " (dictionary is ", dict_length, " long) at position ", i);
+      return Status::IndexError("Index out of bounds while compacting dictionary array: ",
+                                internal::UpcastInt(current_index), " (dictionary is ",
+                                dict_length, " long) at position ", i);
     }
     if (bit_util::GetBit(out_dict_used_bitmap, current_index)) {
       continue;
