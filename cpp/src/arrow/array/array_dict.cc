@@ -213,6 +213,54 @@ Result<std::shared_ptr<ArrayData>> TransposeDictIndices(
   return out_data;
 }
 
+/// \pre data.length > 0
+/// \pre data.dictionary->length > 0
+/// \pre out_dict_used_bitmap is a pointer to a zero-initialized
+///      allocation of BytesForBits(data.dictionary->length)
+///
+/// \tparam IndexCType the C type of the dictionary indices
+/// \param data the dictionary array data
+/// \param out_dict_used_bitmap a bitmap of used indices in the dictionary
+/// \return the number of used indices in the dictionary
+template <typename IndexCType>
+Result<int64_t> PopulateBitmapOfUsedIndices(const ArrayData& data,
+                                            uint8_t* out_dict_used_bitmap) {
+  DCHECK_EQ(data.type->id(), Type::DICTIONARY);
+  int64_t index_length = data.length;
+  int64_t dict_length = data.dictionary->length;
+  DCHECK_GT(index_length, 0);
+  DCHECK_GT(dict_length, 0);
+
+  const auto* indices_data = data.GetValues<IndexCType>(1);
+  const auto max_index = static_cast<IndexCType>(
+      std::min(static_cast<uint64_t>(std::numeric_limits<IndexCType>::max()),
+               static_cast<uint64_t>(dict_length - 1)));
+  int64_t dict_used_count = 0;
+  for (int64_t i = 0; i < index_length; i++) {
+    if (data.IsNull(i)) {
+      continue;
+    }
+
+    IndexCType current_index = indices_data[i];
+    if (current_index < 0 || current_index > max_index) {
+      return Status::IndexError(
+          "Index out of bounds while compacting dictionary array: ", current_index,
+          " (dictionary is ", dict_length, " long) at position ", i);
+    }
+    if (bit_util::GetBit(out_dict_used_bitmap, current_index)) {
+      continue;
+    }
+    bit_util::SetBit(out_dict_used_bitmap, current_index);
+    dict_used_count++;
+
+    if (dict_used_count == dict_length) {
+      // All bits in out_dict_used_bitmap are set
+      break;
+    }
+  }
+  return dict_used_count;
+}
+
 /// \pre data->length > 0
 /// \pre data->dictionary->length > 0
 template <typename IndexArrowType>
@@ -228,36 +276,14 @@ Status CompactTransposeMap(const std::shared_ptr<ArrayData>& data,
   ARROW_ASSIGN_OR_RAISE(auto dict_used_bitmap_buffer,
                         AllocateEmptyBitmap(dict_length, pool));
   auto* dict_used = dict_used_bitmap_buffer->mutable_data();
-  int64_t dict_used_count = 0;
-
   using CType = typename IndexArrowType::c_type;
-  const CType* indices_data = data->GetValues<CType>(1);
-  auto max_index = static_cast<CType>(
-      std::min(static_cast<uint64_t>(std::numeric_limits<CType>::max()),
-               static_cast<uint64_t>(dict_length - 1)));
-  for (int64_t i = 0; i < index_length; i++) {
-    if (data->IsNull(i)) {
-      continue;
-    }
-
-    CType current_index = indices_data[i];
-    if (current_index < 0 || current_index > max_index) {
-      return Status::IndexError(
-          "Index out of bounds while compacting dictionary array: ", current_index,
-          " (dictionary is ", dict_length, " long) at position ", i);
-    }
-    if (bit_util::GetBit(dict_used, current_index)) {
-      continue;
-    }
-    bit_util::SetBit(dict_used, current_index);
-    dict_used_count++;
-
-    if (dict_used_count == dict_length) {
-      // The dictionary is already compact, so just return here
-      *out_transpose_map = nullptr;
-      *out_compact_dictionary = nullptr;
-      return Status::OK();
-    }
+  ARROW_ASSIGN_OR_RAISE(int64_t dict_used_count,
+                        PopulateBitmapOfUsedIndices<CType>(*data, dict_used));
+  if (dict_used_count == dict_length) {
+    // The dictionary is already compact, so just return here
+    *out_transpose_map = nullptr;
+    *out_compact_dictionary = nullptr;
+    return Status::OK();
   }
 
   using IndicesArrayType = typename TypeTraits<IndexArrowType>::ArrayType;
