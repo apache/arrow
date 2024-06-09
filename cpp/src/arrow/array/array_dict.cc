@@ -265,14 +265,13 @@ Status CompactTransposeMap(const std::shared_ptr<ArrayData>& data,
   ARROW_ASSIGN_OR_RAISE(*out_transpose_map,
                         AllocateBuffer(dict_length * sizeof(int32_t), pool));
   auto* output_map_raw = (*out_transpose_map)->mutable_data_as<int32_t>();
+  memset(output_map_raw, 0xff, dict_length * sizeof(int32_t));
   int32_t current_index = 0;
   for (CType i = 0; i < dict_len; i++) {
     if (bit_util::GetBit(dict_used, i)) {
       dict_indices_builder.UnsafeAppend(i);
       output_map_raw[i] = current_index;
       current_index++;
-    } else {
-      output_map_raw[i] = -1;
     }
   }
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Array> compacted_dict_indices,
