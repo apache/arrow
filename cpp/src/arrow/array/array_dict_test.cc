@@ -33,6 +33,7 @@
 #include "arrow/table.h"
 #include "arrow/testing/builder.h"
 #include "arrow/testing/extension_type.h"
+#include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
@@ -1428,19 +1429,22 @@ TEST(TestDictionary, IndicesArray) {
   ASSERT_OK(arr->indices()->ValidateFull());
 }
 
+void CheckDictionaryCompact(const std::shared_ptr<Array>& input,
+                            const std::shared_ptr<Array>& expected) {
+  const auto& input_ref = checked_cast<const DictionaryArray&>(*input);
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> actual, input_ref.Compact());
+  AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+}
+
 void CheckDictionaryCompact(const std::shared_ptr<DataType>& dict_type,
                             const std::string& input_dictionary_json,
                             const std::string& input_index_json,
                             const std::string& expected_dictionary_json,
                             const std::string& expected_index_json) {
   auto input = DictArrayFromJSON(dict_type, input_index_json, input_dictionary_json);
-  const DictionaryArray& input_ref = checked_cast<const DictionaryArray&>(*input);
-
   auto expected =
       DictArrayFromJSON(dict_type, expected_index_json, expected_dictionary_json);
-
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> actual, input_ref.Compact());
-  AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+  CheckDictionaryCompact(input, expected);
 }
 
 TEST(TestDictionary, Compact) {
@@ -1497,6 +1501,35 @@ TEST(TestDictionary, Compact) {
                            "[7, 4, 7, 7, 7, 7, 4, 7, 7]", "[12, 8]",
                            "[1, 0, 1, 1, 1, 1, 0, 1, 1]");
   }
+}
+
+TEST(TestDictionary, CompactWithCompleteDictionary) {
+  auto dict_type = std::make_shared<DictionaryType>(int8(), utf8());
+  auto value_generator = gen::Random(dict_type->value_type());
+
+  constexpr int kNumValues = 128;
+  ASSERT_OK_AND_ASSIGN(auto dict_values, value_generator->Generate(kNumValues));
+  std::shared_ptr<Array> input;
+  {
+    Int8Builder index_builder;
+    // value 0 is not used, so the dictionary can be compacted
+    for (int i = 1; i < kNumValues; ++i) {
+      ASSERT_OK(index_builder.Append(static_cast<int8_t>(i)));
+    }
+    ASSERT_OK_AND_ASSIGN(auto indices, index_builder.Finish());
+    input = std::make_shared<DictionaryArray>(dict_type, indices, dict_values);
+  }
+  std::shared_ptr<Array> expected;
+  {
+    Int8Builder index_builder;
+    for (int i = 0; i < kNumValues - 1; ++i) {
+      ASSERT_OK(index_builder.Append(static_cast<int8_t>(i)));
+    }
+    ASSERT_OK_AND_ASSIGN(auto indices, index_builder.Finish());
+    auto sliced_dict_values = dict_values->Slice(1, kNumValues - 1);
+    expected = std::make_shared<DictionaryArray>(dict_type, indices, sliced_dict_values);
+  }
+  CheckDictionaryCompact(input, expected);
 }
 
 TEST(TestDictionaryUnifier, Numeric) {

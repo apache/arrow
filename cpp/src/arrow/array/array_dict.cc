@@ -241,7 +241,7 @@ Status CompactTransposeMap(const std::shared_ptr<ArrayData>& data,
     if (current_index < 0 || current_index >= dict_len) {
       return Status::IndexError(
           "Index out of bounds while compacting dictionary array: ", current_index,
-          "(dictionary is ", dict_length, " long) at position ", i);
+          " (dictionary is ", dict_length, " long) at position ", i);
     }
     if (bit_util::GetBit(dict_used, current_index)) {
       continue;
