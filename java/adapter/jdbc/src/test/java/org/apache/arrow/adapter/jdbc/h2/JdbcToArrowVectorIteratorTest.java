@@ -94,7 +94,8 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
 
   @ParameterizedTest
   @MethodSource("getTestData")
-  public void testVectorSchemaRootReuse(Table table) throws SQLException, IOException, ClassNotFoundException {
+  public void testVectorSchemaRootReuse(Table table, boolean reuseVectorSchemaRoot)
+      throws SQLException, IOException, ClassNotFoundException {
     this.initializeDatabase(table);
 
     Integer[][] intValues = {
@@ -188,7 +189,8 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
 
   @ParameterizedTest
   @MethodSource("getTestData")
-  public void testTimeStampConsumer(Table table) throws SQLException, IOException, ClassNotFoundException {
+  public void testTimeStampConsumer(Table table, boolean reuseVectorSchemaRoot)
+      throws SQLException, IOException, ClassNotFoundException {
     this.initializeDatabase(table);
 
     final String sql = "select timestamp_field11 from table1";
@@ -535,7 +537,7 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
 
   @ParameterizedTest
   @MethodSource("getTestData")
-  public void testJdbcToArrowCustomTypeConversion(Table table)
+  public void testJdbcToArrowCustomTypeConversion(Table table, boolean reuseVectorSchemaRoot)
       throws SQLException, IOException, ClassNotFoundException {
     this.initializeDatabase(table);
 

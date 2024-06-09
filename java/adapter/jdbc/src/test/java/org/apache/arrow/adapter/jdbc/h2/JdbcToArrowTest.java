@@ -131,7 +131,8 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
 
   @ParameterizedTest
   @MethodSource("getTestData")
-  public void testJdbcSchemaMetadata(Table table) throws SQLException, ClassNotFoundException {
+  public void testJdbcSchemaMetadata(Table table, boolean reuseVectorSchemaRoot)
+      throws SQLException, ClassNotFoundException {
     this.initializeDatabase(table);
 
     Calendar calendar = Calendar.getInstance();
@@ -254,7 +255,8 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
 
   @ParameterizedTest
   @MethodSource("getTestData")
-  public void runLargeNumberOfRows(Table table) throws IOException, SQLException, ClassNotFoundException {
+  public void runLargeNumberOfRows(Table table, boolean reuseVectorSchemaRoot)
+      throws IOException, SQLException, ClassNotFoundException {
     this.initializeDatabase(table);
 
     BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);

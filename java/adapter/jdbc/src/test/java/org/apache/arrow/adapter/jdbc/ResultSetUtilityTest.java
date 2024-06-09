@@ -46,7 +46,7 @@ public class ResultSetUtilityTest {
         ArrowVectorIterator iter = JdbcToArrow.sqlToArrowVectorIterator(rs, config);
         assertTrue(iter.hasNext(), "Iterator on zero row ResultSet should haveNext() before use");
         VectorSchemaRoot root = iter.next();
-        assertNotNull(root, "Iterator on zero row ResultSet should haveNext() before use");
+        assertNotNull(root, "VectorSchemaRoot from first next() result should never be null");
         assertEquals(0, root.getRowCount(), "VectorSchemaRoot from empty ResultSet should have zero rows");
         assertFalse(iter.hasNext(), "hasNext() should return false on empty ResultSets after initial next() call");
       }
