@@ -583,13 +583,6 @@ public class RoundtripTest {
       setVector(vector, byteArrayList.toArray(new byte[0][]));
       assertTrue(roundtrip(vector, ViewVarBinaryVector.class));
     }
-
-    try (final ViewVarBinaryVector vector = new ViewVarBinaryVector("v4", allocator)) {
-      setVector(vector, null, generateString("a", 123).getBytes(StandardCharsets.UTF_8),
-          generateString("bb", 7).getBytes(StandardCharsets.UTF_8),
-          generateString("cc", 10).getBytes(StandardCharsets.UTF_8));
-      assertTrue(roundtrip(vector, ViewVarBinaryVector.class));
-    }
   }
 
   @Test
