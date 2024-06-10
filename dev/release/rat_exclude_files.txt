@@ -63,6 +63,7 @@ go.work.sum
 go/go.sum
 go/arrow/Gopkg.lock
 go/arrow/flight/gen/flight/*.pb.go
+go/arrow/util/util_message/*.pb.go
 go/arrow/internal/cpu/*
 go/arrow/type_string.go
 go/arrow/cdata/test/go.sum
@@ -150,3 +151,4 @@ r/tools/nixlibs-allowlist.txt
 ruby/red-arrow/.yardopts
 .github/pull_request_template.md
 swift/data-generator/swift-datagen/go.sum
+swift/CDataWGo/go.sum

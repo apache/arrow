@@ -14,19 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.algorithm.sort;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
-/**
- * Test cases for out-of-place sorters.
- */
+/** Test cases for out-of-place sorters. */
 @RunWith(Parameterized.class)
 public abstract class TestOutOfPlaceVectorSorter {
 

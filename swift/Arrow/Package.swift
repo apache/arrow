@@ -26,28 +26,34 @@ let package = Package(
         .macOS(.v10_14)
     ],
     products: [
-        // Products define the executables and libraries a package produces, and make them visible to other packages.
         .library(
             name: "Arrow",
-            targets: ["Arrow"]),
+            targets: ["Arrow"])
     ],
     dependencies: [
         // The latest version of flatbuffers v23.5.26 was built in May 26, 2023
         // and therefore doesn't include the unaligned buffer swift changes.
         // This can be changed back to using the tag once a new version of
         // flatbuffers has been released.
-        .package(url: "https://github.com/google/flatbuffers.git", branch: "master")
+        .package(url: "https://github.com/google/flatbuffers.git", branch: "master"),
+        .package(
+              url: "https://github.com/apple/swift-atomics.git",
+              .upToNextMajor(from: "1.2.0") // or `.upToNextMinor
+            )
     ],
     targets: [
-        // Targets are the basic building blocks of a package. A target can define a module or a test suite.
-        // Targets can depend on other targets in this package, and on products in packages this package depends on.
+        .target(
+            name: "ArrowC",
+            path: "Sources/ArrowC"
+        ),
         .target(
             name: "Arrow",
-            dependencies: [
-                .product(name: "FlatBuffers", package: "flatbuffers")
+            dependencies: ["ArrowC",
+                .product(name: "FlatBuffers", package: "flatbuffers"),
+                .product(name: "Atomics", package: "swift-atomics")
             ]),
         .testTarget(
             name: "ArrowTests",
-            dependencies: ["Arrow"]),
+            dependencies: ["Arrow", "ArrowC"])
     ]
 )

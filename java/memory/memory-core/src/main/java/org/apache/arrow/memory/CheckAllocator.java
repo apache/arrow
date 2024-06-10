@@ -60,6 +60,7 @@ final class CheckAllocator {
     }
   }
 
+  @SuppressWarnings("URLEqualsHashCode")
   private static Set<URL> scanClasspath() {
     // LinkedHashSet appropriate here because it preserves insertion order
     // during iteration

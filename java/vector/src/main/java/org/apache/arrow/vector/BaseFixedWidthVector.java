@@ -674,8 +674,8 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
         if (target.validityBuffer != null) {
           target.validityBuffer.getReferenceManager().release();
         }
-        target.validityBuffer = validityBuffer.slice(firstByteSource, byteSizeTarget);
-        target.validityBuffer.getReferenceManager().retain(1);
+        ArrowBuf slicedValidityBuffer = validityBuffer.slice(firstByteSource, byteSizeTarget);
+        target.validityBuffer = transferBuffer(slicedValidityBuffer, target.allocator);
         target.refreshValueCapacity();
       } else {
         /* Copy data

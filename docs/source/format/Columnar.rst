@@ -70,21 +70,131 @@ concepts, here is a small glossary to help disambiguate.
   without taking into account any value semantics. For example, a
   32-bit signed integer array and 32-bit floating point array have the
   same layout.
-* **Parent** and **child arrays**: names to express relationships
-  between physical value arrays in a nested type structure. For
-  example, a ``List<T>``-type parent array has a T-type array as its
-  child (see more on lists below).
+* **Data type**: An application-facing semantic value type that is
+  implemented using some physical layout. For example, Decimal128
+  values are stored as 16 bytes in a fixed-size binary
+  layout. A timestamp may be stored as 64-bit fixed-size layout.
 * **Primitive type**: a data type having no child types. This includes
   such types as fixed bit-width, variable-size binary, and null types.
 * **Nested type**: a data type whose full structure depends on one or
   more other child types. Two fully-specified nested types are equal
   if and only if their child types are equal. For example, ``List<U>``
   is distinct from ``List<V>`` iff U and V are different types.
-* **Logical type**: An application-facing semantic value type that is
-  implemented using some physical layout. For example, Decimal
-  values are stored as 16 bytes in a fixed-size binary
-  layout. Similarly, strings can be stored as ``List<1-byte>``. A
-  timestamp may be stored as 64-bit fixed-size layout.
+* **Parent** and **child arrays**: names to express relationships
+  between physical value arrays in a nested type structure. For
+  example, a ``List<T>``-type parent array has a T-type array as its
+  child (see more on lists below).
+* **Parametric type**: a type which requires additional parameters
+  for full determination of its semantics. For example, all nested types
+  are parametric by construction. A timestamp is also parametric as it needs
+  a unit (such as microseconds) and a timezone.
+
+Data Types
+==========
+
+The file `Schema.fbs`_ defines built-in data types supported by the
+Arrow columnar format. Each data type uses a well-defined physical layout.
+
+`Schema.fbs`_ is the authoritative source for the description of the
+standard Arrow data types. However, we also provide the below table for
+convenience:
+
++--------------------+------------------------------+------------------------------------------------------------+
+| Type               | Type Parameters *(1)*        | Physical Memory Layout                                     |
++====================+==============================+============================================================+
+| Null               |                              | Null                                                       |
++--------------------+------------------------------+------------------------------------------------------------+
+| Boolean            |                              | Fixed-size Primitive                                       |
++--------------------+------------------------------+------------------------------------------------------------+
+| Int                | * bit width                  | *" (same as above)*                                        |
+|                    | * signedness                 |                                                            |
++--------------------+------------------------------+------------------------------------------------------------+
+| Floating Point     | * precision                  | *"*                                                        |
++--------------------+------------------------------+------------------------------------------------------------+
+| Decimal            | * bit width                  | *"*                                                        |
+|                    | * scale                      |                                                            |
+|                    | * precision                  |                                                            |
++--------------------+------------------------------+------------------------------------------------------------+
+| Date               | * unit                       | *"*                                                        |
++--------------------+------------------------------+------------------------------------------------------------+
+| Time               | * bit width *(2)*            | *"*                                                        |
+|                    | * unit                       |                                                            |
++--------------------+------------------------------+------------------------------------------------------------+
+| Timestamp          | * unit                       | *"*                                                        |
+|                    | * timezone                   |                                                            |
++--------------------+------------------------------+------------------------------------------------------------+
+| Interval           | * unit                       | *"*                                                        |
++--------------------+------------------------------+------------------------------------------------------------+
+| Duration           | * unit                       | *"*                                                        |
++--------------------+------------------------------+------------------------------------------------------------+
+| Fixed-Size Binary  | * byte width                 | Fixed-size Binary                                          |
++--------------------+------------------------------+------------------------------------------------------------+
+| Binary             |                              | Variable-size Binary with 32-bit offsets                   |
++--------------------+------------------------------+------------------------------------------------------------+
+| Utf8               |                              | *"*                                                        |
++--------------------+------------------------------+------------------------------------------------------------+
+| Large Binary       |                              | Variable-size Binary with 64-bit offsets                   |
++--------------------+------------------------------+------------------------------------------------------------+
+| Large Utf8         |                              | *"*                                                        |
++--------------------+------------------------------+------------------------------------------------------------+
+| Binary View        |                              | Variable-size Binary View                                  |
++--------------------+------------------------------+------------------------------------------------------------+
+| Utf8 View          |                              | *"*                                                        |
++--------------------+------------------------------+------------------------------------------------------------+
+| Fixed-Size List    | * *value type*               | Fixed-size List                                            |
+|                    | * list size                  |                                                            |
++--------------------+------------------------------+------------------------------------------------------------+
+| List               | * *value type*               | Variable-size List with 32-bit offsets                     |
++--------------------+------------------------------+------------------------------------------------------------+
+| Large List         | * *value type*               | Variable-size List with 64-bit offsets                     |
++--------------------+------------------------------+------------------------------------------------------------+
+| List View          | * *value type*               | Variable-size List View with 32-bit offsets and sizes      |
++--------------------+------------------------------+------------------------------------------------------------+
+| Large List View    | * *value type*               | Variable-size List View with 64-bit offsets and sizes      |
++--------------------+------------------------------+------------------------------------------------------------+
+| Struct             | * *children*                 | Struct                                                     |
++--------------------+------------------------------+------------------------------------------------------------+
+| Map                | * *children*                 | Variable-size List of Structs                              |
+|                    | * keys sortedness            |                                                            |
++--------------------+------------------------------+------------------------------------------------------------+
+| Union              | * *children*                 | Dense or Sparse Union *(3)*                                |
+|                    | * mode                       |                                                            |
+|                    | * type ids                   |                                                            |
++--------------------+------------------------------+------------------------------------------------------------+
+| Dictionary         | * *index type* *(4)*         | Dictionary Encoded                                         |
+|                    | * *value type*               |                                                            |
+|                    | * orderedness                |                                                            |
++--------------------+------------------------------+------------------------------------------------------------+
+| Run-End Encoded    | * *run end type* *(5)*       | Run-End Encoded                                            |
+|                    | * *value type*               |                                                            |
++--------------------+------------------------------+------------------------------------------------------------+
+
+* \(1) Type parameters listed in *italics* denote a data type's child types.
+
+* \(2) The *bit width* parameter of a Time type is technically redundant as
+  each *unit* mandates a single bit width.
+
+* \(3) Whether a Union type uses the Sparse or Dense layout is denoted by its
+  *mode* parameter.
+
+* \(4) The *index type* of a Dictionary type can only be an integer type,
+  preferably signed, with width 8 to 64 bits.
+
+* \(5) The *run end type* of a Run-End Encoded type can only be a signed integer type
+  with width 16 to 64 bits.
+
+.. note::
+   Sometimes the term "logical type" is used to denote the Arrow data types
+   and distinguish them from their respective physical layouts. However,
+   unlike other type systems such as `Apache Parquet <https://parquet.apache.org/>`__'s,
+   the Arrow type system doesn't have separate notions of physical types and
+   logical types.
+
+   The Arrow type system separately provides
+   :ref:`extension types <format_metadata_extension_types>`, which allow
+   annotating standard Arrow data types with richer application-facing semantics
+   (for example defining a "JSON" type laid upon the standard String data type).
+
 
 .. _format_layout:
 
@@ -93,7 +203,7 @@ Physical Memory Layout
 
 Arrays are defined by a few pieces of metadata and data:
 
-* A logical data type.
+* A data type.
 * A sequence of buffers.
 * A length as a 64-bit signed integer. Implementations are permitted
   to be limited to 32-bit lengths, see more on this below.
@@ -103,8 +213,8 @@ Arrays are defined by a few pieces of metadata and data:
 Nested arrays additionally have a sequence of one or more sets of
 these items, called the **child arrays**.
 
-Each logical data type has a well-defined physical layout. Here are
-the different physical layouts defined by Arrow:
+Each data type has a well-defined physical layout. Here are the different
+physical layouts defined by Arrow:
 
 * **Primitive (fixed-size)**: a sequence of values each having the
   same byte or bit width
@@ -138,7 +248,7 @@ the different physical layouts defined by Arrow:
 * **Run-End Encoded (REE)**: a nested layout consisting of two child arrays,
   one representing values, and one representing the logical index where
   the run of a corresponding value ends.
-* **Null**: a sequence of all null values, having null logical type
+* **Null**: a sequence of all null values.
 
 The Arrow columnar memory layout only applies to *data* and not
 *metadata*. Implementations are free to represent metadata in-memory
@@ -313,7 +423,7 @@ arrays have a single values buffer, variable-size binary have an
 **offsets** buffer and **data** buffer.
 
 The offsets buffer contains ``length + 1`` signed integers (either
-32-bit or 64-bit, depending on the logical type), which encode the
+32-bit or 64-bit, depending on the data type), which encode the
 start position of each slot in the data buffer. The length of the
 value in each slot is computed using the difference between the offset
 at that slot's index and the subsequent offset. For example, the
@@ -1070,17 +1180,6 @@ of memory buffers for each layout.
    "Dictionary-encoded",validity,data (indices),,
    "Run-end encoded",,,,
 
-Logical Types
-=============
-
-The `Schema.fbs`_ defines built-in logical types supported by the
-Arrow columnar format. Each logical type uses one of the above
-physical layouts. Nested logical types may have different physical
-layouts depending on the particular realization of the type.
-
-We do not go into detail about the logical types definitions in this
-document as we consider `Schema.fbs`_ to be authoritative.
-
 .. _format-ipc:
 
 Serialization and Interprocess Communication (IPC)
@@ -1160,17 +1259,16 @@ Schema message
 --------------
 
 The Flatbuffers files `Schema.fbs`_ contains the definitions for all
-built-in logical data types and the ``Schema`` metadata type which
-represents the schema of a given record batch. A schema consists of
-an ordered sequence of fields, each having a name and type. A
-serialized ``Schema`` does not contain any data buffers, only type
-metadata.
+built-in data types and the ``Schema`` metadata type which represents
+the schema of a given record batch. A schema consists of an ordered
+sequence of fields, each having a name and type. A serialized ``Schema``
+does not contain any data buffers, only type metadata.
 
 The ``Field`` Flatbuffers type contains the metadata for a single
 array. This includes:
 
 * The field's name
-* The field's logical type
+* The field's data type
 * Whether the field is semantically nullable. While this has no
   bearing on the array's physical layout, many systems distinguish
   nullable and non-nullable fields and we want to allow them to

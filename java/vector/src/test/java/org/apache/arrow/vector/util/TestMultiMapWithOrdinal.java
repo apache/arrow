@@ -17,8 +17,11 @@
 
 package org.apache.arrow.vector.util;
 
-import org.junit.Assert;
-import org.junit.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import org.junit.jupiter.api.Test;
 
 public class TestMultiMapWithOrdinal {
 
@@ -27,33 +30,33 @@ public class TestMultiMapWithOrdinal {
     MultiMapWithOrdinal<String, String> map = new MultiMapWithOrdinal<>();
 
     map.put("x", "1", false);
-    Assert.assertEquals(1, map.size());
+    assertEquals(1, map.size());
     map.remove("x", "1");
-    Assert.assertTrue(map.isEmpty());
+    assertTrue(map.isEmpty());
     map.put("x", "1", false);
     map.put("x", "2", false);
     map.put("y", "0", false);
-    Assert.assertEquals(3, map.size());
-    Assert.assertEquals(2, map.getAll("x").size());
-    Assert.assertEquals("1", map.getAll("x").stream().findFirst().get());
-    Assert.assertEquals("1", map.getByOrdinal(0));
-    Assert.assertEquals("2", map.getByOrdinal(1));
-    Assert.assertEquals("0", map.getByOrdinal(2));
-    Assert.assertTrue(map.remove("x", "1"));
-    Assert.assertFalse(map.remove("x", "1"));
-    Assert.assertEquals("0", map.getByOrdinal(0));
-    Assert.assertEquals(2, map.size());
+    assertEquals(3, map.size());
+    assertEquals(2, map.getAll("x").size());
+    assertEquals("1", map.getAll("x").stream().findFirst().get());
+    assertEquals("1", map.getByOrdinal(0));
+    assertEquals("2", map.getByOrdinal(1));
+    assertEquals("0", map.getByOrdinal(2));
+    assertTrue(map.remove("x", "1"));
+    assertFalse(map.remove("x", "1"));
+    assertEquals("0", map.getByOrdinal(0));
+    assertEquals(2, map.size());
     map.put("x", "3", true);
-    Assert.assertEquals(1, map.getAll("x").size());
-    Assert.assertEquals("3", map.getAll("x").stream().findFirst().get());
+    assertEquals(1, map.getAll("x").size());
+    assertEquals("3", map.getAll("x").stream().findFirst().get());
     map.put("z", "4", false);
-    Assert.assertEquals(3, map.size());
+    assertEquals(3, map.size());
     map.put("z", "5", false);
     map.put("z", "6", false);
-    Assert.assertEquals(5, map.size());
+    assertEquals(5, map.size());
     map.removeAll("z");
-    Assert.assertEquals(2, map.size());
-    Assert.assertFalse(map.containsKey("z"));
+    assertEquals(2, map.size());
+    assertFalse(map.containsKey("z"));
 
 
   }

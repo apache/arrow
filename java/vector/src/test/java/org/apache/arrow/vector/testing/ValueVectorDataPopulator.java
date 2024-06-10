@@ -17,7 +17,7 @@
 
 package org.apache.arrow.vector.testing;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;

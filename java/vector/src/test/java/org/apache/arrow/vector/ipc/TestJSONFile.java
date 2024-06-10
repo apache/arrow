@@ -17,9 +17,9 @@
 
 package org.apache.arrow.vector.ipc;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.io.File;
 import java.io.IOException;
@@ -43,8 +43,7 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.Validator;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -342,7 +341,7 @@ public class TestJSONFile extends BaseFileTest {
       // initialize vectors
       try (VectorSchemaRoot root = reader.read();) {
         FieldVector vector = root.getVector("struct_nullable");
-        Assert.assertEquals(7, vector.getValueCount());
+        assertEquals(7, vector.getValueCount());
       }
     }
   }

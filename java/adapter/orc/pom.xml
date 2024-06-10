@@ -24,9 +24,13 @@
   <packaging>jar</packaging>
   <name>Arrow Orc Adapter</name>
   <description>(Experimental/Contrib)A JNI wrapper for the C++ ORC reader implementation.</description>
+
   <properties>
     <arrow.cpp.build.dir>../../../cpp/release-build/</arrow.cpp.build.dir>
+    <checkstyle.config.location>dev/checkstyle/checkstyle-spotless.xml</checkstyle.config.location>
+    <spotless.java.excludes>none</spotless.java.excludes>
   </properties>
+
   <dependencies>
     <dependency>
       <groupId>org.apache.arrow</groupId>
@@ -46,7 +50,7 @@
     </dependency>
     <dependency>
       <groupId>org.immutables</groupId>
-      <artifactId>value</artifactId>
+      <artifactId>value-annotations</artifactId>
     </dependency>
     <dependency>
       <groupId>org.apache.orc</groupId>
@@ -134,5 +138,22 @@
         </includes>
       </resource>
     </resources>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>analyze</id>
+            <configuration>
+              <ignoredDependencies combine.children="append">
+                <!-- indirect use of org.apache.arrow.flatbuf.Message in OrcStripeReader -->
+                <ignoredDependency>org.apache.arrow:arrow-format</ignoredDependency>
+              </ignoredDependencies>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
   </build>
 </project>

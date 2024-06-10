@@ -19,8 +19,8 @@ package org.apache.arrow.vector.types.pojo;
 
 import static org.apache.arrow.vector.types.pojo.Schema.METADATA_KEY;
 import static org.apache.arrow.vector.types.pojo.Schema.METADATA_VALUE;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -28,7 +28,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class TestField {
 
@@ -57,7 +57,7 @@ public class TestField {
 
   private void jsonContains(String json, String... strings) {
     for (String string : strings) {
-      assertTrue(json + " contains " + string, json.contains(string));
+      assertTrue(json.contains(string), json + " contains " + string);
     }
   }
 }

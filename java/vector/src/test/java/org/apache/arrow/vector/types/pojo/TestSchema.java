@@ -20,8 +20,8 @@ package org.apache.arrow.vector.types.pojo;
 import static java.util.Arrays.asList;
 import static org.apache.arrow.vector.types.pojo.Schema.METADATA_KEY;
 import static org.apache.arrow.vector.types.pojo.Schema.METADATA_VALUE;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -49,7 +49,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.Time;
 import org.apache.arrow.vector.types.pojo.ArrowType.Timestamp;
 import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.ArrowType.Utf8;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class TestSchema {
 
@@ -280,13 +280,13 @@ public class TestSchema {
 
   private void validateHashCode(Object o1, Object o2) {
     assertEquals(o1, o2);
-    assertEquals(o1 + " == " + o2, o1.hashCode(), o2.hashCode());
+    assertEquals(o1.hashCode(), o2.hashCode(), o1 + " == " + o2);
   }
 
   private void contains(Schema schema, String... s) {
     String json = schema.toJson();
     for (String string : s) {
-      assertTrue(json + " contains " + string, json.contains(string));
+      assertTrue(json.contains(string), json + " contains " + string);
     }
   }
 

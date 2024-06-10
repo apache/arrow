@@ -17,8 +17,8 @@
 
 package org.apache.arrow.vector;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 
@@ -34,20 +34,20 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType.FixedSizeList;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.apache.arrow.vector.types.pojo.FieldType;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class TestVectorReset {
 
   private BufferAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void init() {
     allocator = new RootAllocator(Long.MAX_VALUE);
   }
 
-  @After
+  @AfterEach
   public void terminate() throws Exception {
     allocator.close();
   }
@@ -84,6 +84,18 @@ public class TestVectorReset {
   @Test
   public void testVariableTypeReset() {
     try (final VarCharVector vector = new VarCharVector("VarChar", allocator)) {
+      vector.allocateNewSafe();
+      vector.set(0, "a".getBytes(StandardCharsets.UTF_8));
+      vector.setLastSet(0);
+      vector.setValueCount(1);
+      resetVectorAndVerify(vector, vector.getBuffers(false));
+      assertEquals(-1, vector.getLastSet());
+    }
+  }
+
+  @Test
+  public void testVariableViewTypeReset() {
+    try (final ViewVarCharVector vector = new ViewVarCharVector("ViewVarChar", allocator)) {
       vector.allocateNewSafe();
       vector.set(0, "a".getBytes(StandardCharsets.UTF_8));
       vector.setLastSet(0);

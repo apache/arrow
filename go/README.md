@@ -48,7 +48,7 @@ func main() {
 
 DSN option keys are expressed as `k=v`, delimited with `;`. 
 Some options keys are defined in ADBC, others are defined in the FlightSQL ADBC driver.
-- Arrow ADBC [developer doc](https://arrow.apache.org/adbc/main/driver/go/flight_sql.html#client-options)
+- Arrow ADBC [developer doc](https://arrow.apache.org/adbc/main/driver/flight_sql.html#client-options)
 - ADBC [source code](https://github.com/apache/arrow-adbc/blob/3d12fad1bae21029a8ff25604d6e65760c3f65bd/go/adbc/adbc.go#L149-L158)
 - FlightSQL driver option keys [source code](https://github.com/apache/arrow-adbc/blob/3d12fad1bae21029a8ff25604d6e65760c3f65bd/go/adbc/driver/flightsql/flightsql_adbc.go#L70-L81)
 

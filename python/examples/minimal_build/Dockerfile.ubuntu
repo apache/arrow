@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM ubuntu:focal
+FROM ubuntu:jammy
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -32,6 +32,7 @@ RUN apt-get update -y -q && \
       python3-dev \
       python3-pip \
       python3-venv \
+      tzdata \
       && \
       apt-get clean && rm -rf /var/lib/apt/lists*
 

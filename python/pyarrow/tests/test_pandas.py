@@ -221,6 +221,17 @@ class TestConvertMetadata:
         )
         _check_pandas_roundtrip(df, preserve_index=True)
 
+    def test_column_index_names_with_decimal(self):
+        # GH-41503: Test valid roundtrip with decimal value in column index
+        df = pd.DataFrame(
+            [[decimal.Decimal(5), decimal.Decimal(6)]],
+            columns=pd.MultiIndex.from_product(
+                [[decimal.Decimal(1)], [decimal.Decimal(2), decimal.Decimal(3)]]
+            ),
+            index=[decimal.Decimal(4)],
+        )
+        _check_pandas_roundtrip(df, preserve_index=True)
+
     def test_range_index_shortcut(self):
         # ARROW-1639
         index_name = 'foo'

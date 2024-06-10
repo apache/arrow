@@ -28,14 +28,35 @@ build_root=${2}
 : ${BUILD_DOCS_C_GLIB:=OFF}
 with_doc=$([ "${BUILD_DOCS_C_GLIB}" == "ON" ] && echo "true" || echo "false")
 
-export PKG_CONFIG_PATH=${ARROW_HOME}/lib/pkgconfig
+
+if [ -n "${MSYSTEM:-}" ]; then
+  # Fix ARROW_HOME when running under MSYS2
+  export ARROW_HOME="$(cygpath --unix "${ARROW_HOME}")"
+fi
+
+meson_pkg_config_path="${ARROW_HOME}/lib/pkgconfig"
 
 mkdir -p ${build_dir}
 
+if [ -n "${VCPKG_ROOT:-}" ]; then
+  vcpkg_install_root="${build_root}/vcpkg_installed"
+  $VCPKG_ROOT/vcpkg install --x-manifest-root=${source_dir} --x-install-root=${vcpkg_install_root}
+  export PKG_CONFIG="${vcpkg_install_root}/x64-windows/tools/pkgconf/pkgconf.exe"
+  meson_pkg_config_path="${vcpkg_install_root}/x64-windows/lib/pkgconfig:${meson_pkg_config_path}"
+fi
+
+if [ -n "${VCToolsInstallDir:-}" -a -n "${MSYSTEM:-}" ]; then
+  # Meson finds the gnu link.exe instead of MSVC link.exe when running in MSYS2/git bash,
+  # so we need to make sure the MSCV link.exe is first in $PATH
+  export PATH="$(cygpath --unix "${VCToolsInstallDir}")/bin/HostX64/x64:${PATH}"
+fi
+
 # Build with Meson
 meson setup \
+      --backend=ninja \
       --prefix=$ARROW_HOME \
       --libdir=lib \
+      --pkg-config-path="${meson_pkg_config_path}" \
       -Ddoc=${with_doc} \
       -Dvapi=${ARROW_GLIB_VAPI} \
       -Dwerror=${ARROW_GLIB_WERROR} \

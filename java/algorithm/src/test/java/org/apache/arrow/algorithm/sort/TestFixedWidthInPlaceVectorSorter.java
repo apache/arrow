@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.algorithm.sort;
 
 import static org.junit.Assert.assertEquals;
@@ -22,7 +21,6 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
 import java.util.stream.IntStream;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
@@ -32,9 +30,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-/**
- * Test cases for {@link FixedWidthInPlaceVectorSorter}.
- */
+/** Test cases for {@link FixedWidthInPlaceVectorSorter}. */
 public class TestFixedWidthInPlaceVectorSorter {
 
   private BufferAllocator allocator;
@@ -69,7 +65,8 @@ public class TestFixedWidthInPlaceVectorSorter {
 
       // sort the vector
       FixedWidthInPlaceVectorSorter sorter = new FixedWidthInPlaceVectorSorter();
-      VectorValueComparator<IntVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
+      VectorValueComparator<IntVector> comparator =
+          DefaultVectorComparators.createDefaultComparator(vec);
 
       sorter.sortInPlace(vec, comparator);
 
@@ -90,8 +87,8 @@ public class TestFixedWidthInPlaceVectorSorter {
   }
 
   /**
-   * Tests the worst case for quick sort.
-   * It may cause stack overflow if the algorithm is implemented as a recursive algorithm.
+   * Tests the worst case for quick sort. It may cause stack overflow if the algorithm is
+   * implemented as a recursive algorithm.
    */
   @Test
   public void testSortLargeIncreasingInt() {
@@ -107,7 +104,8 @@ public class TestFixedWidthInPlaceVectorSorter {
 
       // sort the vector
       FixedWidthInPlaceVectorSorter sorter = new FixedWidthInPlaceVectorSorter();
-      VectorValueComparator<IntVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
+      VectorValueComparator<IntVector> comparator =
+          DefaultVectorComparators.createDefaultComparator(vec);
 
       sorter.sortInPlace(vec, comparator);
 
@@ -133,7 +131,8 @@ public class TestFixedWidthInPlaceVectorSorter {
       vec.setValueCount(vectorLength);
 
       FixedWidthInPlaceVectorSorter sorter = new FixedWidthInPlaceVectorSorter();
-      VectorValueComparator<IntVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
+      VectorValueComparator<IntVector> comparator =
+          DefaultVectorComparators.createDefaultComparator(vec);
 
       try (IntVector pivotBuffer = (IntVector) vec.getField().createVector(allocator)) {
         // setup internal data structures
@@ -164,16 +163,15 @@ public class TestFixedWidthInPlaceVectorSorter {
     }
   }
 
-  /**
-   * Evaluates choosing pivot for all possible permutations of 3 numbers.
-   */
+  /** Evaluates choosing pivot for all possible permutations of 3 numbers. */
   @Test
   public void testChoosePivotAllPermutes() {
     try (IntVector vec = new IntVector("", allocator)) {
       vec.allocateNew(3);
 
       FixedWidthInPlaceVectorSorter sorter = new FixedWidthInPlaceVectorSorter();
-      VectorValueComparator<IntVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
+      VectorValueComparator<IntVector> comparator =
+          DefaultVectorComparators.createDefaultComparator(vec);
 
       try (IntVector pivotBuffer = (IntVector) vec.getField().createVector(allocator)) {
         // setup internal data structures
@@ -216,25 +214,25 @@ public class TestFixedWidthInPlaceVectorSorter {
   @Test
   public void testSortInt2() {
     try (IntVector vector = new IntVector("vector", allocator)) {
-      ValueVectorDataPopulator.setVector(vector,
-          0, 1, 2, 3, 4, 5, 30, 31, 32, 33,
-          34, 35, 60, 61, 62, 63, 64, 65, 6, 7,
-          8, 9, 10, 11, 36, 37, 38, 39, 40, 41,
-          66, 67, 68, 69, 70, 71);
+      ValueVectorDataPopulator.setVector(
+          vector, 0, 1, 2, 3, 4, 5, 30, 31, 32, 33, 34, 35, 60, 61, 62, 63, 64, 65, 6, 7, 8, 9, 10,
+          11, 36, 37, 38, 39, 40, 41, 66, 67, 68, 69, 70, 71);
 
       FixedWidthInPlaceVectorSorter sorter = new FixedWidthInPlaceVectorSorter();
-      VectorValueComparator<IntVector> comparator = DefaultVectorComparators.createDefaultComparator(vector);
+      VectorValueComparator<IntVector> comparator =
+          DefaultVectorComparators.createDefaultComparator(vector);
 
       sorter.sortInPlace(vector, comparator);
 
       int[] actual = new int[vector.getValueCount()];
-      IntStream.range(0, vector.getValueCount()).forEach(
-          i -> actual[i] = vector.get(i));
+      IntStream.range(0, vector.getValueCount()).forEach(i -> actual[i] = vector.get(i));
 
       assertArrayEquals(
-          new int[]{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-              11, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
-              40, 41, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71}, actual);
+          new int[] {
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41,
+            60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71
+          },
+          actual);
     }
   }
 }

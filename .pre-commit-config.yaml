@@ -40,7 +40,7 @@ repos:
     hooks:
       - id: flake8
         name: Python Format
-        files: ^(python|dev|integration)/
+        files: ^(python|dev|c_glib|integration)/
         types:
           - file
           - python
@@ -127,7 +127,7 @@ repos:
           ?^cpp/cmake_modules/FindNumPy\.cmake$|
           ?^cpp/cmake_modules/FindPythonLibsNew\.cmake$|
           ?^cpp/cmake_modules/UseCython\.cmake$|
-          ?^cpp/src/arrow/util/config\.h\.cmake$|
+          ?^cpp/src/arrow/util/.*\.h\.cmake$|
           )
   - repo: https://github.com/sphinx-contrib/sphinx-lint
     rev: v0.9.1
@@ -141,3 +141,17 @@ repos:
           '--disable',
           'dangling-hyphen,line-too-long',
         ]
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v1.59.0
+    hooks:
+      # no built-in support for multiple go.mod
+      # https://github.com/golangci/golangci-lint/issues/828
+      - id: golangci-lint-full
+        name: golangci-lint-full-arrow
+        entry: bash -c 'cd go/arrow && golangci-lint run'
+      - id: golangci-lint-full
+        name: golangci-lint-full-parquet
+        entry: bash -c 'cd go/parquet && golangci-lint run'
+      - id: golangci-lint-full
+        name: golangci-lint-full-internal
+        entry: bash -c 'cd go/internal && golangci-lint run'

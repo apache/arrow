@@ -29,9 +29,10 @@ from pyarrow.includes.libarrow_python cimport *
 from pyarrow.lib cimport (_Weakrefable, Buffer, Schema,
                           check_status,
                           MemoryPool, maybe_unbox_memory_pool,
-                          Table, NativeFile,
+                          Table, KeyValueMetadata,
                           pyarrow_wrap_chunked_array,
                           pyarrow_wrap_schema,
+                          pyarrow_unwrap_metadata,
                           pyarrow_unwrap_schema,
                           pyarrow_wrap_table,
                           pyarrow_wrap_batch,
@@ -2205,6 +2206,15 @@ cdef class ParquetWriter(_Weakrefable):
         with nogil:
             check_status(self.writer.get()
                          .WriteTable(deref(ctable), c_row_group_size))
+
+    def add_key_value_metadata(self, key_value_metadata):
+        cdef:
+            shared_ptr[const CKeyValueMetadata] c_metadata
+
+        c_metadata = pyarrow_unwrap_metadata(KeyValueMetadata(key_value_metadata))
+        with nogil:
+            check_status(self.writer.get()
+                         .AddKeyValueMetadata(c_metadata))
 
     @property
     def metadata(self):

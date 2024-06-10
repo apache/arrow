@@ -200,22 +200,29 @@ function(arrow_add_object_library PREFIX)
   set(SOURCES ${ARGN})
   string(TOLOWER "${PREFIX}" prefix)
   if(WIN32)
-    add_library(${prefix}_shared OBJECT ${SOURCES})
-    add_library(${prefix}_static OBJECT ${SOURCES})
-    set_target_properties(${prefix}_shared PROPERTIES POSITION_INDEPENDENT_CODE ON)
-    set_target_properties(${prefix}_static PROPERTIES POSITION_INDEPENDENT_CODE ON)
-    target_compile_definitions(${prefix}_shared PRIVATE ARROW_EXPORTING)
-    target_compile_definitions(${prefix}_static PRIVATE ARROW_STATIC)
-    target_compile_features(${prefix}_shared PRIVATE cxx_std_17)
-    target_compile_features(${prefix}_static PRIVATE cxx_std_17)
-    set(${PREFIX}_TARGET_SHARED
-        ${prefix}_shared
-        PARENT_SCOPE)
-    set(${PREFIX}_TARGET_STATIC
-        ${prefix}_static
-        PARENT_SCOPE)
+    set(targets)
+    if(ARROW_BUILD_SHARED)
+      add_library(${prefix}_shared OBJECT ${SOURCES})
+      set_target_properties(${prefix}_shared PROPERTIES POSITION_INDEPENDENT_CODE ON)
+      target_compile_definitions(${prefix}_shared PRIVATE ARROW_EXPORTING)
+      target_compile_features(${prefix}_shared PRIVATE cxx_std_17)
+      set(${PREFIX}_TARGET_SHARED
+          ${prefix}_shared
+          PARENT_SCOPE)
+      list(APPEND targets ${prefix}_shared)
+    endif()
+    if(ARROW_BUILD_STATIC)
+      add_library(${prefix}_static OBJECT ${SOURCES})
+      set_target_properties(${prefix}_static PROPERTIES POSITION_INDEPENDENT_CODE ON)
+      target_compile_definitions(${prefix}_static PRIVATE ARROW_STATIC)
+      target_compile_features(${prefix}_static PRIVATE cxx_std_17)
+      set(${PREFIX}_TARGET_STATIC
+          ${prefix}_static
+          PARENT_SCOPE)
+      list(APPEND targets ${prefix}_static)
+    endif()
     set(${PREFIX}_TARGETS
-        ${prefix}_shared ${prefix}_static
+        ${targets}
         PARENT_SCOPE)
   else()
     add_library(${prefix} OBJECT ${SOURCES})
@@ -350,6 +357,12 @@ macro(append_runtime_avx512_src SRCS SRC)
     set_source_files_properties(${SRC} PROPERTIES COMPILE_FLAGS ${ARROW_AVX512_FLAG})
   endif()
 endmacro()
+
+# Write out compile-time configuration constants
+configure_file("util/config.h.cmake" "util/config.h" ESCAPE_QUOTES)
+configure_file("util/config_internal.h.cmake" "util/config_internal.h" ESCAPE_QUOTES)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/util/config.h"
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/util")
 
 set(ARROW_SRCS
     builder.cc

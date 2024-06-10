@@ -14,15 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.algorithm.sort;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.IntVector;
 
-/**
- * An off heap implementation of stack with int elements.
- */
+/** An off heap implementation of stack with int elements. */
 class OffHeapIntStack implements AutoCloseable {
 
   private static final int INIT_SIZE = 128;

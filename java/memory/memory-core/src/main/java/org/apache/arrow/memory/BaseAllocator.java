@@ -532,6 +532,8 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
     return sb.toString();
   }
 
+  /* Remove @SuppressWarnings after fixing https://github.com/apache/arrow/issues/41951 */
+  @SuppressWarnings("FormatStringAnnotation")
   private void hist(String noteFormat, Object... args) {
     if (historicalLog != null) {
       historicalLog.recordEvent(noteFormat, args);

@@ -729,7 +729,7 @@ Result<std::shared_ptr<DataType>> MaybeMergeListTypes(
         auto item_field,
         left.item_field()->MergeWith(
             *right.item_field()->WithName(left.item_field()->name()), options));
-    return map(std::move(key_field->type()), std::move(item_field),
+    return map(key_field->type(), std::move(item_field),
                /*keys_sorted=*/left.keys_sorted() && right.keys_sorted());
   } else if (promoted_type->id() == Type::STRUCT && other_type->id() == Type::STRUCT) {
     return MergeStructs(promoted_type, other_type, options);
@@ -1696,7 +1696,7 @@ class NestedSelector {
       }
     }
 
-    return std::move(child_data);
+    return child_data;
   }
 
   static Result<std::shared_ptr<Array>> GetChild(const Array& array, int i,
