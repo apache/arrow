@@ -94,7 +94,7 @@ TEST(BloomFilterBuilderTest, BasicRoundTrip) {
   bloom_filter_options.ndv = 100;
   properties_builder.enable_bloom_filter_options(bloom_filter_options, "c1");
   auto writer_properties = properties_builder.build();
-  auto builder = BloomFilterBuilder::Make(&schema, writer_properties.get());
+  auto builder = internal::BloomFilterBuilder::Make(&schema, writer_properties.get());
 
   auto append_values_to_bloom_filter = [&](const std::vector<uint64_t>& insert_hashes) {
     builder->AppendRowGroup();
@@ -164,7 +164,7 @@ TEST(BloomFilterBuilderTest, InvalidOperations) {
   properties_builder.enable_bloom_filter_options(bloom_filter_options, "c1");
   properties_builder.enable_bloom_filter_options(bloom_filter_options, "c2");
   auto properties = properties_builder.build();
-  auto builder = BloomFilterBuilder::Make(&schema, properties.get());
+  auto builder = internal::BloomFilterBuilder::Make(&schema, properties.get());
   // AppendRowGroup() is not called and expect throw.
   EXPECT_THROW_THAT(
       [&]() { builder->GetOrCreateBloomFilter(0); }, ParquetException,
@@ -208,7 +208,7 @@ TEST(BloomFilterBuilderTest, GetOrCreate) {
   properties_builder.enable_bloom_filter_options(bloom_filter_options, "c1");
   properties_builder.enable_bloom_filter_options(bloom_filter_options, "c2");
   auto properties = properties_builder.build();
-  auto builder = BloomFilterBuilder::Make(&schema, properties.get());
+  auto builder = internal::BloomFilterBuilder::Make(&schema, properties.get());
   // AppendRowGroup() is not called and expect throw.
   ASSERT_THROW(builder->GetOrCreateBloomFilter(0), ParquetException);
 

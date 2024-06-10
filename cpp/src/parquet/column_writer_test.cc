@@ -1749,7 +1749,8 @@ TestBloomFilterWriter<TestType>::BuildWriterWithBloomFilter(
       ColumnChunkMetaDataBuilder::Make(this->writer_properties_, this->descr_);
   std::unique_ptr<PageWriter> pager = PageWriter::Open(
       this->sink_, column_properties.compression(), this->metadata_.get());
-  builder_ = BloomFilterBuilder::Make(&this->schema_, this->writer_properties_.get());
+  builder_ =
+      internal::BloomFilterBuilder::Make(&this->schema_, this->writer_properties_.get());
   // Initial RowGroup
   builder_->AppendRowGroup();
   bloom_filter_ = builder_->GetOrCreateBloomFilter(0);
