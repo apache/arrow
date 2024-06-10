@@ -26,9 +26,11 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.apache.arrow.driver.jdbc.client.utils.ClientAuthenticationUtils;
 import org.apache.arrow.flight.CallOption;
+import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.CloseSessionRequest;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightClientMiddleware;
@@ -60,7 +62,6 @@ import org.apache.calcite.avatica.Meta.StatementType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 
 /**
@@ -75,6 +76,7 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
   private final Set<CallOption> options = new HashSet<>();
   private final Builder builder;
   private final String catalog;
+  private boolean setCatalogInSession = false;
 
   ArrowFlightSqlClientHandler(
           final FlightSqlClient sqlClient,
@@ -86,6 +88,9 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
     this.sqlClient = Preconditions.checkNotNull(sqlClient);
     this.builder = builder;
     this.catalog = catalog;
+    if (hasCatalog()) {
+      setCatalogInSession = true;
+    }
   }
 
   /**
@@ -228,7 +233,7 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
   }
 
   private boolean hasCatalog() {
-    return !Strings.isNullOrEmpty(catalog);
+    return Optional.ofNullable(catalog).isPresent();
   }
 
   /**
@@ -284,18 +289,23 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
    * @return a new prepared statement.
    */
   public PreparedStatement prepare(final String query) {
-    if (hasCatalog()) {
+    if (setCatalogInSession) {
       final SetSessionOptionsRequest setSessionOptionRequest =
               new SetSessionOptionsRequest(ImmutableMap.<String, SessionOptionValue>builder()
                       .put(CATALOG, SessionOptionValueFactory.makeSessionOptionValue(catalog))
                       .build());
       final SetSessionOptionsResult result = sqlClient.setSessionOptions(setSessionOptionRequest, getOptions());
+      setCatalogInSession = false;
+
       if (result.hasErrors()) {
         Map<String, SetSessionOptionsResult.Error> errors = result.getErrors();
         for (Map.Entry<String, SetSessionOptionsResult.Error> error : errors.entrySet()) {
           LOGGER.warn(error.toString());
         }
-        throw new RuntimeException(String.format("Cannot set session option for catalog = %s", catalog));
+        throw new CallStatus(FlightStatusCode.INVALID_ARGUMENT)
+                .withDescription(
+                        String.format("Cannot set session option for catalog = %s. Check log for details.", catalog))
+                .toRuntimeException();
       }
     }
 
