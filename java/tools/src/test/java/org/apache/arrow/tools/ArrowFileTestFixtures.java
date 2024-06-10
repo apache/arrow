@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.tools;
 
 import java.io.File;
@@ -22,7 +21,6 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -56,11 +54,11 @@ public class ArrowFileTestFixtures {
 
   static void validateOutput(File testOutFile, BufferAllocator allocator) throws Exception {
     // read
-    try (BufferAllocator readerAllocator = allocator.newChildAllocator("reader", 0, Integer
-        .MAX_VALUE);
-         FileInputStream fileInputStream = new FileInputStream(testOutFile);
-         ArrowFileReader arrowReader = new ArrowFileReader(fileInputStream.getChannel(),
-             readerAllocator)) {
+    try (BufferAllocator readerAllocator =
+            allocator.newChildAllocator("reader", 0, Integer.MAX_VALUE);
+        FileInputStream fileInputStream = new FileInputStream(testOutFile);
+        ArrowFileReader arrowReader =
+            new ArrowFileReader(fileInputStream.getChannel(), readerAllocator)) {
       VectorSchemaRoot root = arrowReader.getVectorSchemaRoot();
       for (ArrowBlock rbBlock : arrowReader.getRecordBlocks()) {
         if (!arrowReader.loadRecordBatch(rbBlock)) {
@@ -82,19 +80,17 @@ public class ArrowFileTestFixtures {
   static void write(FieldVector parent, File file) throws FileNotFoundException, IOException {
     VectorSchemaRoot root = new VectorSchemaRoot(parent);
     try (FileOutputStream fileOutputStream = new FileOutputStream(file);
-         ArrowFileWriter arrowWriter = new ArrowFileWriter(root, null, fileOutputStream
-             .getChannel())) {
+        ArrowFileWriter arrowWriter =
+            new ArrowFileWriter(root, null, fileOutputStream.getChannel())) {
       arrowWriter.writeBatch();
     }
   }
 
-
-  static void writeInput(File testInFile, BufferAllocator allocator) throws
-      FileNotFoundException, IOException {
+  static void writeInput(File testInFile, BufferAllocator allocator)
+      throws FileNotFoundException, IOException {
     int count = ArrowFileTestFixtures.COUNT;
-    try (
-        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0,
-            Integer.MAX_VALUE);
+    try (BufferAllocator vectorAllocator =
+            allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
         NonNullableStructVector parent = NonNullableStructVector.empty("parent", vectorAllocator)) {
       writeData(count, parent);
       write(parent.getChild("root"), testInFile);
