@@ -161,7 +161,7 @@ pushd /arrow/python
 python setup.py bdist_wheel
 
 echo "=== Strip symbols from wheel ==="
-mkdir dist/temp-fix-wheel
+mkdir -p dist/temp-fix-wheel
 mv dist/pyarrow-*.whl dist/temp-fix-wheel
 
 pushd dist/temp-fix-wheel
