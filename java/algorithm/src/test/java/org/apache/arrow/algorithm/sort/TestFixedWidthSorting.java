@@ -20,7 +20,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Stream;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BaseFixedWidthVector;
@@ -35,6 +34,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+
 /** Test sorting fixed width vectors with random data. */
 public class TestFixedWidthSorting<V extends BaseFixedWidthVector, U extends Comparable<U>> {
 
@@ -70,7 +70,10 @@ public class TestFixedWidthSorting<V extends BaseFixedWidthVector, U extends Com
     }
   }
 
-  void sortInPlace(int length, double nullFraction, Function<BufferAllocator, V> vectorGenerator,
+  void sortInPlace(
+      int length,
+      double nullFraction,
+      Function<BufferAllocator, V> vectorGenerator,
       TestSortingUtil.DataGenerator<V, U> dataGenerator) {
     try (V vector = vectorGenerator.apply(allocator)) {
       U[] array = dataGenerator.populate(vector, length, nullFraction);
@@ -86,7 +89,10 @@ public class TestFixedWidthSorting<V extends BaseFixedWidthVector, U extends Com
     }
   }
 
-  void sortOutOfPlace(int length, double nullFraction, Function<BufferAllocator, V> vectorGenerator,
+  void sortOutOfPlace(
+      int length,
+      double nullFraction,
+      Function<BufferAllocator, V> vectorGenerator,
       TestSortingUtil.DataGenerator<V, U> dataGenerator) {
     try (V vector = vectorGenerator.apply(allocator)) {
       U[] array = dataGenerator.populate(vector, length, nullFraction);
@@ -123,8 +129,7 @@ public class TestFixedWidthSorting<V extends BaseFixedWidthVector, U extends Com
                   "TinyIntVector",
                   (Function<BufferAllocator, TinyIntVector>)
                       allocator -> new TinyIntVector("vector", allocator),
-                  TestSortingUtil.TINY_INT_GENERATOR
-              ));
+                  TestSortingUtil.TINY_INT_GENERATOR));
 
           params.add(
               Arguments.of(
@@ -134,8 +139,7 @@ public class TestFixedWidthSorting<V extends BaseFixedWidthVector, U extends Com
                   "SmallIntVector",
                   (Function<BufferAllocator, SmallIntVector>)
                       allocator -> new SmallIntVector("vector", allocator),
-                  TestSortingUtil.SMALL_INT_GENERATOR
-              ));
+                  TestSortingUtil.SMALL_INT_GENERATOR));
 
           params.add(
               Arguments.of(
@@ -145,8 +149,7 @@ public class TestFixedWidthSorting<V extends BaseFixedWidthVector, U extends Com
                   "IntVector",
                   (Function<BufferAllocator, IntVector>)
                       allocator -> new IntVector("vector", allocator),
-                  TestSortingUtil.INT_GENERATOR
-              ));
+                  TestSortingUtil.INT_GENERATOR));
 
           params.add(
               Arguments.of(
@@ -156,8 +159,7 @@ public class TestFixedWidthSorting<V extends BaseFixedWidthVector, U extends Com
                   "BigIntVector",
                   (Function<BufferAllocator, BigIntVector>)
                       allocator -> new BigIntVector("vector", allocator),
-                  TestSortingUtil.LONG_GENERATOR
-              ));
+                  TestSortingUtil.LONG_GENERATOR));
 
           params.add(
               Arguments.of(
@@ -167,8 +169,7 @@ public class TestFixedWidthSorting<V extends BaseFixedWidthVector, U extends Com
                   "Float4Vector",
                   (Function<BufferAllocator, Float4Vector>)
                       allocator -> new Float4Vector("vector", allocator),
-                  TestSortingUtil.FLOAT_GENERATOR
-              ));
+                  TestSortingUtil.FLOAT_GENERATOR));
 
           params.add(
               Arguments.of(
@@ -178,8 +179,7 @@ public class TestFixedWidthSorting<V extends BaseFixedWidthVector, U extends Com
                   "Float8Vector",
                   (Function<BufferAllocator, Float8Vector>)
                       allocator -> new Float8Vector("vector", allocator),
-                  TestSortingUtil.DOUBLE_GENERATOR
-              ));
+                  TestSortingUtil.DOUBLE_GENERATOR));
         }
       }
     }

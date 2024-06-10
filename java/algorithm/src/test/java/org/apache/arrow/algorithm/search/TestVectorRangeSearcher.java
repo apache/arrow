@@ -19,7 +19,6 @@ package org.apache.arrow.algorithm.search;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.stream.Stream;
-
 import org.apache.arrow.algorithm.sort.DefaultVectorComparators;
 import org.apache.arrow.algorithm.sort.VectorValueComparator;
 import org.apache.arrow.memory.BufferAllocator;
@@ -30,6 +29,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+
 /** Test cases for {@link VectorRangeSearcher}. */
 public class TestVectorRangeSearcher {
 
@@ -181,11 +181,6 @@ public class TestVectorRangeSearcher {
   }
 
   public static Stream<Arguments> getRepeat() {
-    return Stream.of(
-      Arguments.of(1),
-      Arguments.of(2),
-      Arguments.of(5),
-      Arguments.of(10)
-    );
+    return Stream.of(Arguments.of(1), Arguments.of(2), Arguments.of(5), Arguments.of(10));
   }
 }

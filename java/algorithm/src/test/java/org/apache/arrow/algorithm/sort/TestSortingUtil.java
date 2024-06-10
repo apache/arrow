@@ -34,6 +34,7 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.testing.RandomDataGenerator;
 import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
+
 /** Utilities for sorting related utilities. */
 public class TestSortingUtil {
 
