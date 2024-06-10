@@ -529,6 +529,19 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   }
 
   /** Set the reader and writer indexes for the inner buffers. */
+  /**
+   * Retrieves the export buffer count for the C Data Interface.
+   * The exported buffers are the validity and value buffers.
+   * @return the number of buffers to be exported
+   */
+  @Override
+  public int getExportedCDataBuffers() {
+    return 2;
+  }
+
+  /**
+   * Set the reader and writer indexes for the inner buffers.
+   */
   private void setReaderAndWriterIndex() {
     validityBuffer.readerIndex(0);
     valueBuffer.readerIndex(0);

@@ -181,6 +181,16 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
     return result;
   }
 
+  /**
+   * Retrieves the export buffer count for the C Data Interface.
+   * The exported buffer is the type buffer.
+   * @return the number of buffers to be exported
+   */
+  @Override
+  public int getExportBufferCount() {
+    return 1;
+  }
+
   private void setReaderAndWriterIndex() {
     typeBuffer.readerIndex(0);
     typeBuffer.writerIndex(valueCount * TYPE_WIDTH);

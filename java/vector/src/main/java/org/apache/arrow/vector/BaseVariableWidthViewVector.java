@@ -1670,30 +1670,32 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
   }
 
   /**
-   * Get the number of variadic buffers required for exporting in
-   * C Data interface.
+   * Retrieves the export buffer count for the C Data Interface.
    * For Variadic types, an additional buffer is kept to store
    * the size of each variadic buffer since that information
    * cannot be retrieved in the C Data import.
-   * It is calculated to determine
-   * the additional number of buffers required.
-   * Also note that if the bufferSize is greater than 2, it means
-   * there is one or more data buffers.
-   * Thus, the count is set to 1 to get additional buffer
-   * for to store variadic size buffer.
-   * If it is not the case, the dataBuffer is not present.
-   * According to the spec and C Data interface in C++, there must be
-   * at least three data buffers present at the import component.
-   * Thus, the dataBufferReqCount is set to 2 to get additional buffer
-   * for empty dataBuffer and the variadic size buffer.
-   * @return number of variadic buffers required
+   * When there are dataBuffers, the count is set to 3 + dataBuffers.size().
+   * Three is formed by validity, view, variadic size buffer.
+   * If it is not the case, the dataBuffer is not present;
+   * four buffers are required.
+   * They are view buffer, validity buffer,
+   * empty view buffer, and variadic size buffer.
+   * Note that the Java library only allocates a data buffer
+   * when long strings are present.
+   * In the C Data Interface,
+   * the binary view import expects at least three buffers.
+   * The variadic size buffer is merely allocated to determine the
+   * number of elements per each variadic buffer, and it is not part
+   * of the imported data.
+   * Thus, an empty data buffer is allocated to meet this requirement.
+   * @return the number of buffers to be exported
    */
   @Override
-  public int getExportVariadicBufferCount() {
+  public int getExportedCDataBuffers() {
     if (dataBuffers.isEmpty()) {
-      return 2;
+      return 4;
     } else {
-      return 1;
+      return 3 + dataBuffers.size();
     }
   }
 

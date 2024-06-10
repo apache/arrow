@@ -187,6 +187,15 @@ public class FixedSizeListVector extends BaseValueVector
     return result;
   }
 
+  /**
+   * Retrieves the export buffer count for the C Data Interface.
+   * The exported buffer is the validity buffer.
+   * @return the number of buffers to be exported
+   */
+  public int getExportedCDataBuffers() {
+    return 1;
+  }
+
   private void setReaderAndWriterIndex() {
     validityBuffer.readerIndex(0);
     validityBuffer.writerIndex(getValidityBufferSizeFromCount(valueCount));

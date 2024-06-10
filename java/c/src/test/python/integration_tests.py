@@ -205,22 +205,39 @@ class TestPythonIntegration(unittest.TestCase):
             s = ''.join(str(j) for j in range(i))
             data.append(s)
         self.round_trip_array(lambda: pa.array(data, type=pa.string_view()))
+        # empty strings
+        self.round_trip_array(lambda: pa.array(["", "bb" * 10, "c", "", "d", ""], type=pa.string_view()))
+        # null value variations
+        self.round_trip_array(lambda: pa.array(["bb" * 10, None, "", "d", None], type=pa.string_view()))
+        # empty array
+        self.round_trip_array(lambda: pa.array([], type=pa.string_view()))
+        # all null array
+        self.round_trip_array(lambda: pa.array([None, None, None], type=pa.string_view()))
 
     def test_binaryview_array(self):
-        # with nulls short strings
-        self.round_trip_array(lambda: pa.array([None, b"a", b"bb", b"c"], type=pa.binary_view()))
-        # with nulls long and strings
-        self.round_trip_array(lambda: pa.array([None, b"a", b"bb"*10, b"c"*13], type=pa.binary_view()))
-        # without nulls short strings
-        self.round_trip_array(lambda: pa.array([b"a", b"bb", b"c"], type=pa.binary_view()))
-        # without nulls long and strings
-        self.round_trip_array(lambda: pa.array([b"a", b"bb"*10, b"c"*13], type=pa.binary_view()))
+        # with nulls short binary values
+        self.round_trip_array(lambda: pa.array([None, bytes([97]), bytes([98, 98]), bytes([99])], type=pa.binary_view()))
+        # with nulls long binary values
+        self.round_trip_array(lambda: pa.array([None, bytes([97]), bytes([98, 98] * 10), bytes([99] * 13)], type=pa.binary_view()))
+        # without nulls short binary values
+        self.round_trip_array(lambda: pa.array([bytes([97]), bytes([98, 98]), bytes([99])], type=pa.binary_view()))
+        # without nulls long binary values
+        self.round_trip_array(lambda: pa.array([bytes([97]), bytes([98, 98] * 10), bytes([99] * 13)], type=pa.binary_view()))
         # with multiple data buffers
         data = []
         for i in range(1, 501):
-            s = bytes(''.join(str(j) for j in range(i)), 'utf-8')
+            s = bytes((j % 256 for j in range(i)))
             data.append(s)
         self.round_trip_array(lambda: pa.array(data, type=pa.binary_view()))
+        # empty binary values
+        self.round_trip_array(lambda: pa.array([bytes([]), bytes([97, 97]) * 10, bytes([98]), bytes([]), bytes([97]), bytes([])],
+                                               type=pa.binary_view()))
+        # null value variations
+        self.round_trip_array(lambda: pa.array([bytes([97, 97]) * 10, None, bytes([]), bytes([99]), None], type=pa.binary_view()))
+        # empty array
+        self.round_trip_array(lambda: pa.array([], type=pa.binary_view()))
+        # all null array
+        self.round_trip_array(lambda: pa.array([None, None, None], type=pa.binary_view()))
 
     def test_decimal_array(self):
         data = [
