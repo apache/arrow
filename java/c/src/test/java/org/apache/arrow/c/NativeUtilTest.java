@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.c;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -22,8 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-
-import org.apache.arrow.c.NativeUtil;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.memory.util.LargeMemoryUtil;
@@ -49,10 +46,11 @@ public class NativeUtilTest {
   @Test
   public void testString() {
     String javaString = "abc";
-    byte[] nativeString = new byte[] { 97, 98, 99, 0 };
+    byte[] nativeString = new byte[] {97, 98, 99, 0};
     try (ArrowBuf buffer = NativeUtil.toNativeString(allocator, javaString)) {
       int totalSize = LargeMemoryUtil.checkedCastToInt(buffer.readableBytes());
-      ByteBuffer reader = MemoryUtil.directBuffer(buffer.memoryAddress(), totalSize).order(ByteOrder.nativeOrder());
+      ByteBuffer reader =
+          MemoryUtil.directBuffer(buffer.memoryAddress(), totalSize).order(ByteOrder.nativeOrder());
       byte[] result = new byte[totalSize];
       reader.get(result);
       assertArrayEquals(nativeString, result);
@@ -63,7 +61,7 @@ public class NativeUtilTest {
 
   @Test
   public void testToJavaArray() {
-    long[] nativeArray = new long[] { 1, 2, 3 };
+    long[] nativeArray = new long[] {1, 2, 3};
     try (ArrowBuf buffer = allocator.buffer(Long.BYTES * ((long) nativeArray.length), null)) {
       for (long value : nativeArray) {
         buffer.writeLong(value);
@@ -78,5 +76,4 @@ public class NativeUtilTest {
     long[] actual = NativeUtil.toJavaArray(0xDEADBEEF, 0);
     assertEquals(0, actual.length);
   }
-
 }

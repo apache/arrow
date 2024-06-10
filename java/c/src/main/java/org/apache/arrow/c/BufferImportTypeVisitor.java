@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.c;
 
 import static org.apache.arrow.c.NativeUtil.NULL;
@@ -24,7 +23,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -56,9 +54,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.ListView;
 import org.apache.arrow.vector.util.DataSizeRoundingUtil;
 
-/**
- * Import buffers from a C Data Interface struct.
- */
+/** Import buffers from a C Data Interface struct. */
 class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBuf>>, AutoCloseable {
   private final BufferAllocator allocator;
   private final ReferenceCountedArrowArray underlyingAllocation;
@@ -66,8 +62,11 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
   private final long[] buffers;
   private final List<ArrowBuf> imported;
 
-  BufferImportTypeVisitor(BufferAllocator allocator, ReferenceCountedArrowArray underlyingAllocation,
-                          ArrowFieldNode fieldNode, long[] buffers) {
+  BufferImportTypeVisitor(
+      BufferAllocator allocator,
+      ReferenceCountedArrowArray underlyingAllocation,
+      ArrowFieldNode fieldNode,
+      long[] buffers) {
     this.allocator = allocator;
     this.underlyingAllocation = underlyingAllocation;
     this.fieldNode = fieldNode;
@@ -83,14 +82,18 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
   @VisibleForTesting
   ArrowBuf importBuffer(ArrowType type, int index, long capacity) {
     checkState(
-            buffers.length > index,
-            "Expected at least %s buffers for type %s, but found %s", index + 1, type, buffers.length);
+        buffers.length > index,
+        "Expected at least %s buffers for type %s, but found %s",
+        index + 1,
+        type,
+        buffers.length);
     long bufferPtr = buffers[index];
 
     if (bufferPtr == NULL) {
       // C array may be NULL but only accept that if expected capacity is zero too
       if (capacity != 0) {
-        throw new IllegalStateException(String.format("Buffer %s for type %s cannot be null", index, type));
+        throw new IllegalStateException(
+            String.format("Buffer %s for type %s cannot be null", index, type));
       } else {
         // no data in the C array, return an empty buffer
         return allocator.getEmpty();
@@ -124,18 +127,24 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
   private ArrowBuf maybeImportBitmap(ArrowType type) {
     checkState(
         buffers.length > 0,
-        "Expected at least %s buffers for type %s, but found %s", 1, type, buffers.length);
+        "Expected at least %s buffers for type %s, but found %s",
+        1,
+        type,
+        buffers.length);
     if (buffers[0] == NULL) {
       return null;
     }
-    return importFixedBits(type, 0, /*bitsPerSlot=*/1);
+    return importFixedBits(type, 0, /*bitsPerSlot=*/ 1);
   }
 
   @Override
   public List<ArrowBuf> visit(ArrowType.Null type) {
     checkState(
         buffers.length == 0,
-        "Expected %s buffers for type %s, but found %s", 0, type, buffers.length);
+        "Expected %s buffers for type %s, but found %s",
+        0,
+        type,
+        buffers.length);
     return Collections.emptyList();
   }
 
@@ -151,7 +160,8 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
 
   @Override
   public List<ArrowBuf> visit(ArrowType.LargeList type) {
-    return Arrays.asList(maybeImportBitmap(type), importOffsets(type, LargeListVector.OFFSET_WIDTH));
+    return Arrays.asList(
+        maybeImportBitmap(type), importOffsets(type, LargeListVector.OFFSET_WIDTH));
   }
 
   @Override
@@ -165,7 +175,8 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
       case Sparse:
         return Collections.singletonList(importFixedBytes(type, 0, UnionVector.TYPE_WIDTH));
       case Dense:
-        return Arrays.asList(importFixedBytes(type, 0, DenseUnionVector.TYPE_WIDTH),
+        return Arrays.asList(
+            importFixedBytes(type, 0, DenseUnionVector.TYPE_WIDTH),
             importFixedBytes(type, 1, DenseUnionVector.OFFSET_WIDTH));
       default:
         throw new UnsupportedOperationException("Importing buffers for union type: " + type);
@@ -186,11 +197,14 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
   public List<ArrowBuf> visit(ArrowType.FloatingPoint type) {
     switch (type.getPrecision()) {
       case HALF:
-        return Arrays.asList(maybeImportBitmap(type), importFixedBytes(type, 1, /*bytesPerSlot=*/2));
+        return Arrays.asList(
+            maybeImportBitmap(type), importFixedBytes(type, 1, /*bytesPerSlot=*/ 2));
       case SINGLE:
-        return Arrays.asList(maybeImportBitmap(type), importFixedBytes(type, 1, Float4Vector.TYPE_WIDTH));
+        return Arrays.asList(
+            maybeImportBitmap(type), importFixedBytes(type, 1, Float4Vector.TYPE_WIDTH));
       case DOUBLE:
-        return Arrays.asList(maybeImportBitmap(type), importFixedBytes(type, 1, Float8Vector.TYPE_WIDTH));
+        return Arrays.asList(
+            maybeImportBitmap(type), importFixedBytes(type, 1, Float8Vector.TYPE_WIDTH));
       default:
         throw new UnsupportedOperationException("Importing buffers for type: " + type);
     }
@@ -203,7 +217,10 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
       final int end = offsets.getInt(fieldNode.getLength() * (long) VarCharVector.OFFSET_WIDTH);
       checkState(
           end >= start,
-          "Offset buffer for type %s is malformed: start: %s, end: %s", type, start, end);
+          "Offset buffer for type %s is malformed: start: %s, end: %s",
+          type,
+          start,
+          end);
       final int len = end - start;
       offsets.getReferenceManager().retain();
       return Arrays.asList(maybeImportBitmap(type), offsets, importData(type, len));
@@ -212,17 +229,22 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
 
   @Override
   public List<ArrowBuf> visit(ArrowType.Utf8View type) {
-    throw new UnsupportedOperationException("Importing buffers for view type: " + type + " not supported");
+    throw new UnsupportedOperationException(
+        "Importing buffers for view type: " + type + " not supported");
   }
 
   @Override
   public List<ArrowBuf> visit(ArrowType.LargeUtf8 type) {
     try (ArrowBuf offsets = importOffsets(type, LargeVarCharVector.OFFSET_WIDTH)) {
       final long start = offsets.getLong(0);
-      final long end = offsets.getLong(fieldNode.getLength() * (long) LargeVarCharVector.OFFSET_WIDTH);
+      final long end =
+          offsets.getLong(fieldNode.getLength() * (long) LargeVarCharVector.OFFSET_WIDTH);
       checkState(
           end >= start,
-          "Offset buffer for type %s is malformed: start: %s, end: %s", type, start, end);
+          "Offset buffer for type %s is malformed: start: %s, end: %s",
+          type,
+          start,
+          end);
       final long len = end - start;
       offsets.getReferenceManager().retain();
       return Arrays.asList(maybeImportBitmap(type), offsets, importData(type, len));
@@ -236,7 +258,10 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
       final int end = offsets.getInt(fieldNode.getLength() * (long) VarBinaryVector.OFFSET_WIDTH);
       checkState(
           end >= start,
-          "Offset buffer for type %s is malformed: start: %s, end: %s", type, start, end);
+          "Offset buffer for type %s is malformed: start: %s, end: %s",
+          type,
+          start,
+          end);
       final int len = end - start;
       offsets.getReferenceManager().retain();
       return Arrays.asList(maybeImportBitmap(type), offsets, importData(type, len));
@@ -245,7 +270,8 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
 
   @Override
   public List<ArrowBuf> visit(ArrowType.BinaryView type) {
-    throw new UnsupportedOperationException("Importing buffers for view type: " + type + " not supported");
+    throw new UnsupportedOperationException(
+        "Importing buffers for view type: " + type + " not supported");
   }
 
   @Override
@@ -253,10 +279,14 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
     try (ArrowBuf offsets = importOffsets(type, LargeVarBinaryVector.OFFSET_WIDTH)) {
       final long start = offsets.getLong(0);
       // TODO: need better tests to cover the failure when I forget to multiply by offset width
-      final long end = offsets.getLong(fieldNode.getLength() * (long) LargeVarBinaryVector.OFFSET_WIDTH);
+      final long end =
+          offsets.getLong(fieldNode.getLength() * (long) LargeVarBinaryVector.OFFSET_WIDTH);
       checkState(
           end >= start,
-          "Offset buffer for type %s is malformed: start: %s, end: %s", type, start, end);
+          "Offset buffer for type %s is malformed: start: %s, end: %s",
+          type,
+          start,
+          end);
       final long len = end - start;
       offsets.getReferenceManager().retain();
       return Arrays.asList(maybeImportBitmap(type), offsets, importData(type, len));
@@ -270,7 +300,7 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
 
   @Override
   public List<ArrowBuf> visit(ArrowType.Bool type) {
-    return Arrays.asList(maybeImportBitmap(type), importFixedBits(type, 1, /*bitsPerSlot=*/1));
+    return Arrays.asList(maybeImportBitmap(type), importFixedBits(type, 1, /*bitsPerSlot=*/ 1));
   }
 
   @Override
@@ -282,9 +312,11 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
   public List<ArrowBuf> visit(ArrowType.Date type) {
     switch (type.getUnit()) {
       case DAY:
-        return Arrays.asList(maybeImportBitmap(type), importFixedBytes(type, 1, DateDayVector.TYPE_WIDTH));
+        return Arrays.asList(
+            maybeImportBitmap(type), importFixedBytes(type, 1, DateDayVector.TYPE_WIDTH));
       case MILLISECOND:
-        return Arrays.asList(maybeImportBitmap(type), importFixedBytes(type, 1, DateMilliVector.TYPE_WIDTH));
+        return Arrays.asList(
+            maybeImportBitmap(type), importFixedBytes(type, 1, DateMilliVector.TYPE_WIDTH));
       default:
         throw new UnsupportedOperationException("Importing buffers for type: " + type);
     }
@@ -294,13 +326,17 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
   public List<ArrowBuf> visit(ArrowType.Time type) {
     switch (type.getUnit()) {
       case SECOND:
-        return Arrays.asList(maybeImportBitmap(type), importFixedBytes(type, 1, TimeSecVector.TYPE_WIDTH));
+        return Arrays.asList(
+            maybeImportBitmap(type), importFixedBytes(type, 1, TimeSecVector.TYPE_WIDTH));
       case MILLISECOND:
-        return Arrays.asList(maybeImportBitmap(type), importFixedBytes(type, 1, TimeMilliVector.TYPE_WIDTH));
+        return Arrays.asList(
+            maybeImportBitmap(type), importFixedBytes(type, 1, TimeMilliVector.TYPE_WIDTH));
       case MICROSECOND:
-        return Arrays.asList(maybeImportBitmap(type), importFixedBytes(type, 1, TimeMicroVector.TYPE_WIDTH));
+        return Arrays.asList(
+            maybeImportBitmap(type), importFixedBytes(type, 1, TimeMicroVector.TYPE_WIDTH));
       case NANOSECOND:
-        return Arrays.asList(maybeImportBitmap(type), importFixedBytes(type, 1, TimeNanoVector.TYPE_WIDTH));
+        return Arrays.asList(
+            maybeImportBitmap(type), importFixedBytes(type, 1, TimeNanoVector.TYPE_WIDTH));
       default:
         throw new UnsupportedOperationException("Importing buffers for type: " + type);
     }
@@ -308,18 +344,23 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
 
   @Override
   public List<ArrowBuf> visit(ArrowType.Timestamp type) {
-    return Arrays.asList(maybeImportBitmap(type), importFixedBytes(type, 1, TimeStampVector.TYPE_WIDTH));
+    return Arrays.asList(
+        maybeImportBitmap(type), importFixedBytes(type, 1, TimeStampVector.TYPE_WIDTH));
   }
 
   @Override
   public List<ArrowBuf> visit(ArrowType.Interval type) {
     switch (type.getUnit()) {
       case YEAR_MONTH:
-        return Arrays.asList(maybeImportBitmap(type), importFixedBytes(type, 1, IntervalYearVector.TYPE_WIDTH));
+        return Arrays.asList(
+            maybeImportBitmap(type), importFixedBytes(type, 1, IntervalYearVector.TYPE_WIDTH));
       case DAY_TIME:
-        return Arrays.asList(maybeImportBitmap(type), importFixedBytes(type, 1, IntervalDayVector.TYPE_WIDTH));
+        return Arrays.asList(
+            maybeImportBitmap(type), importFixedBytes(type, 1, IntervalDayVector.TYPE_WIDTH));
       case MONTH_DAY_NANO:
-        return Arrays.asList(maybeImportBitmap(type), importFixedBytes(type, 1, IntervalMonthDayNanoVector.TYPE_WIDTH));
+        return Arrays.asList(
+            maybeImportBitmap(type),
+            importFixedBytes(type, 1, IntervalMonthDayNanoVector.TYPE_WIDTH));
       default:
         throw new UnsupportedOperationException("Importing buffers for type: " + type);
     }
@@ -327,11 +368,13 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
 
   @Override
   public List<ArrowBuf> visit(ArrowType.Duration type) {
-    return Arrays.asList(maybeImportBitmap(type), importFixedBytes(type, 1, DurationVector.TYPE_WIDTH));
+    return Arrays.asList(
+        maybeImportBitmap(type), importFixedBytes(type, 1, DurationVector.TYPE_WIDTH));
   }
 
   @Override
   public List<ArrowBuf> visit(ListView type) {
-    throw new UnsupportedOperationException("Importing buffers for view type: " + type + " not supported");
+    throw new UnsupportedOperationException(
+        "Importing buffers for view type: " + type + " not supported");
   }
 }

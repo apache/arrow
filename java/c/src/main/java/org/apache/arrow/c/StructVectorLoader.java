@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.c;
 
 import static org.apache.arrow.util.Preconditions.checkArgument;
@@ -23,7 +22,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Collections2;
@@ -39,30 +37,27 @@ import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 
-/**
- * Loads buffers into {@link StructVector}.
- */
+/** Loads buffers into {@link StructVector}. */
 public class StructVectorLoader {
 
   private final Schema schema;
   private final CompressionCodec.Factory factory;
 
   /**
-   * A flag indicating if decompression is needed. This will affect the behavior
-   * of releasing buffers.
+   * A flag indicating if decompression is needed. This will affect the behavior of releasing
+   * buffers.
    */
   private boolean decompressionNeeded;
 
   /**
    * Construct with a schema.
-   * <p>
-   * The schema referred to here can be obtained from the struct vector.
-   * The schema here should be the children of a struct vector, not a schema
-   * containing the struct field itself.
-   * For example:
-   * <code>
+   *
+   * <p>The schema referred to here can be obtained from the struct vector. The schema here should
+   * be the children of a struct vector, not a schema containing the struct field itself. For
+   * example: <code>
    * Schema schema = new Schema(structVector.getField().getChildren());
    * </code>
+   *
    * @param schema buffers are added based on schema.
    */
   public StructVectorLoader(Schema schema) {
@@ -72,7 +67,7 @@ public class StructVectorLoader {
   /**
    * Construct with a schema and a compression codec factory.
    *
-   * @param schema  buffers are added based on schema.
+   * @param schema buffers are added based on schema.
    * @param factory the factory to create codec.
    */
   public StructVectorLoader(Schema schema, CompressionCodec.Factory factory) {
@@ -82,9 +77,8 @@ public class StructVectorLoader {
 
   /**
    * Loads the record batch into the struct vector.
-   * 
-   * <p>
-   * This will not close the record batch.
+   *
+   * <p>This will not close the record batch.
    *
    * @param recordBatch the batch to load
    */
@@ -94,28 +88,40 @@ public class StructVectorLoader {
 
     Iterator<ArrowBuf> buffers = recordBatch.getBuffers().iterator();
     Iterator<ArrowFieldNode> nodes = recordBatch.getNodes().iterator();
-    CompressionUtil.CodecType codecType = CompressionUtil.CodecType
-        .fromCompressionType(recordBatch.getBodyCompression().getCodec());
+    CompressionUtil.CodecType codecType =
+        CompressionUtil.CodecType.fromCompressionType(recordBatch.getBodyCompression().getCodec());
     decompressionNeeded = codecType != CompressionUtil.CodecType.NO_COMPRESSION;
-    CompressionCodec codec = decompressionNeeded ? factory.createCodec(codecType) : NoCompressionCodec.INSTANCE;
+    CompressionCodec codec =
+        decompressionNeeded ? factory.createCodec(codecType) : NoCompressionCodec.INSTANCE;
     Iterator<Long> variadicBufferCounts = Collections.emptyIterator();
-    if (recordBatch.getVariadicBufferCounts() != null && !recordBatch.getVariadicBufferCounts().isEmpty()) {
+    if (recordBatch.getVariadicBufferCounts() != null
+        && !recordBatch.getVariadicBufferCounts().isEmpty()) {
       variadicBufferCounts = recordBatch.getVariadicBufferCounts().iterator();
     }
     for (FieldVector fieldVector : result.getChildrenFromFields()) {
       loadBuffers(fieldVector, fieldVector.getField(), buffers, nodes, codec, variadicBufferCounts);
     }
-    result.loadFieldBuffers(new ArrowFieldNode(recordBatch.getLength(), 0), Collections.singletonList(null));
+    result.loadFieldBuffers(
+        new ArrowFieldNode(recordBatch.getLength(), 0), Collections.singletonList(null));
     if (nodes.hasNext() || buffers.hasNext() || variadicBufferCounts.hasNext()) {
-      throw new IllegalArgumentException("not all nodes, buffers and variadicBufferCounts were consumed. nodes: " +
-        Collections2.toString(nodes) + " buffers: " + Collections2.toString(buffers) + " variadicBufferCounts: " +
-          Collections2.toString(variadicBufferCounts));
+      throw new IllegalArgumentException(
+          "not all nodes, buffers and variadicBufferCounts were consumed. nodes: "
+              + Collections2.toString(nodes)
+              + " buffers: "
+              + Collections2.toString(buffers)
+              + " variadicBufferCounts: "
+              + Collections2.toString(variadicBufferCounts));
     }
     return result;
   }
 
-  private void loadBuffers(FieldVector vector, Field field, Iterator<ArrowBuf> buffers, Iterator<ArrowFieldNode> nodes,
-      CompressionCodec codec, Iterator<Long> variadicBufferCounts) {
+  private void loadBuffers(
+      FieldVector vector,
+      Field field,
+      Iterator<ArrowBuf> buffers,
+      Iterator<ArrowFieldNode> nodes,
+      CompressionCodec codec,
+      Iterator<Long> variadicBufferCounts) {
     checkArgument(nodes.hasNext(), "no more field nodes for field %s and vector %s", field, vector);
     ArrowFieldNode fieldNode = nodes.next();
     // variadicBufferLayoutCount will be 0 for vectors of a type except BaseVariableWidthViewVector
@@ -124,16 +130,19 @@ public class StructVectorLoader {
       if (variadicBufferCounts.hasNext()) {
         variadicBufferLayoutCount = variadicBufferCounts.next();
       } else {
-        throw new IllegalStateException("No variadicBufferCounts available for BaseVariableWidthViewVector");
+        throw new IllegalStateException(
+            "No variadicBufferCounts available for BaseVariableWidthViewVector");
       }
     }
-    int bufferLayoutCount = (int) (variadicBufferLayoutCount + TypeLayout.getTypeBufferCount(field.getType()));
+    int bufferLayoutCount =
+        (int) (variadicBufferLayoutCount + TypeLayout.getTypeBufferCount(field.getType()));
     List<ArrowBuf> ownBuffers = new ArrayList<>(bufferLayoutCount);
     for (int j = 0; j < bufferLayoutCount; j++) {
       ArrowBuf nextBuf = buffers.next();
       // for vectors without nulls, the buffer is empty, so there is no need to
       // decompress it.
-      ArrowBuf bufferToAdd = nextBuf.writerIndex() > 0 ? codec.decompress(vector.getAllocator(), nextBuf) : nextBuf;
+      ArrowBuf bufferToAdd =
+          nextBuf.writerIndex() > 0 ? codec.decompress(vector.getAllocator(), nextBuf) : nextBuf;
       ownBuffers.add(bufferToAdd);
       if (decompressionNeeded) {
         // decompression performed
@@ -154,8 +163,10 @@ public class StructVectorLoader {
     List<Field> children = field.getChildren();
     if (children.size() > 0) {
       List<FieldVector> childrenFromFields = vector.getChildrenFromFields();
-      checkArgument(children.size() == childrenFromFields.size(),
-          "should have as many children as in the schema: found %s expected %s", childrenFromFields.size(),
+      checkArgument(
+          children.size() == childrenFromFields.size(),
+          "should have as many children as in the schema: found %s expected %s",
+          childrenFromFields.size(),
           children.size());
       for (int i = 0; i < childrenFromFields.size(); i++) {
         Field child = children.get(i);
