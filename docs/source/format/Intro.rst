@@ -92,8 +92,8 @@ in an array may be semantically null, whether primitive or nested data type.
 In Arrow, a dedicated buffer, known as the validity (or "null") bitmap,
 is used alongside the data indicating whether each value in the array is
 null or not: a value of 1
-means that the value is not-null ("valid"), whereas a value of 0 indicates that the value
-is null.
+means that the value is not-null ("valid"), whereas a value of 0 indicates
+that the value is null.
 
 This validity bitmap is optional: if there are no missing values in
 the array the buffer does not need to be allocated (as in the example
@@ -138,9 +138,9 @@ data types.
 Variable length binary and string
 ---------------------------------
 
-The bytes of all elements in a binary or string column are stored together consecutively
-in a single buffer or region of memory. To know where each element of the
-column starts and ends the physical layout also includes integer offsets.
+The bytes of all elements in a binary or string column are stored together
+consecutively in a single buffer or region of memory. To know where each element
+of the column starts and ends the physical layout also includes integer offsets.
 The number of elements of the offset buffer is one more than the length of the
 array as the last two elements define the start and the end of the last
 element in the binary/string column.
@@ -166,17 +166,19 @@ then multiple chunks are needed.
 Variable length binary and string view
 --------------------------------------
 
-This layout is an alternative for the variable length binary layout and is adapted from TU Munich's `UmbraDB`_ and is similar to the string
-layout used in `DuckDB`_ and `Velox`_ (and sometimes also called "German style strings").
+This layout is an alternative for the variable length binary layout and is adapted
+from TU Munich's `UmbraDB`_ and is similar to the string layout used in `DuckDB`_ and
+`Velox`_ (and sometimes also called "German style strings").
 
 .. _UmbraDB: https://umbra-db.com/
 .. _DuckDB: https://duckdb.com
 .. _Velox: https://velox-lib.io/
 The main differences to the classical binary and string layout is the views buffer.
 It includes the length of the string, and then either contains the characters
-inline (for small strings) or only the first 4 bytes of the string and an offset into one of
-potentially several data buffers. Because it uses an offset and length to refer to the data buffer, the bytes of all elements do not need to be stored together consecutively in one buffer, and thus it supports the bytes to be written
-out of order.
+inline (for small strings) or only the first 4 bytes of the string and an offset into
+one of potentially several data buffers. Because it uses an offset and length to refer
+to the data buffer, the bytes of all elements do not need to be stored together
+consecutively in one buffer, and thus it supports the bytes to be written out of order.
 
 These properties are important for efficient string processing. The prefix
 enables a profitable fast path for string comparisons, which are frequently
@@ -309,9 +311,9 @@ Dense Union
 A Dense Union has one child array for each data type present in the mixed-type array and
 two buffers of its own:
 
-* **Types buffer:** holds data type id for each slot of the array. Data type id is frequently
-  the index of the child array; however, the relationship between data type ID and 
-  the child index is a parameter of the data type.
+* **Types buffer:** holds data type id for each slot of the array. Data type id is
+  frequently the index of the child array; however, the relationship between data type
+  ID and the child index is a parameter of the data type.
 * **Offsets buffer:** holds relative offset into the respective child array for each
   array slot.
 
