@@ -740,8 +740,8 @@ cdef class NativeFile(_Weakrefable):
 
     def _download_nothreads(self, stream_or_path, buffer_size=None):
         """
-            Internal method to do a download without separate threads, queues etc.
-            Called by download above if is_threading_enabled() == False
+        Internal method to do a download without separate threads, queues etc.
+        Called by download above if is_threading_enabled() == False
         """
         cdef:
             int64_t bytes_read = 0
@@ -853,8 +853,8 @@ cdef class NativeFile(_Weakrefable):
 
     def _upload_nothreads(self, stream, buffer_size=None):
         """
-            Internal method to do an upload without separate threads, queues etc.
-            Called by upload above if is_threading_enabled() == False
+        Internal method to do an upload without separate threads, queues etc.
+        Called by upload above if is_threading_enabled() == False
         """
         self._assert_writable()
 
