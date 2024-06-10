@@ -121,6 +121,7 @@ x-hierarchy:
           - conda-python-docs
         - conda-python-cython2
         - conda-python-dask
+        - conda-python-emscripten
         - conda-python-hdfs
         - conda-python-java-integration
         - conda-python-jpype
@@ -157,8 +158,7 @@ x-hierarchy:
   - ubuntu-csharp
   - ubuntu-cpp-sanitizer
   - ubuntu-cpp-thread-sanitizer
-  - ubuntu-cpp-emscripten:
-    - ubuntu-cpp-emscripten-python
+  - ubuntu-cpp-emscripten
   - ubuntu-r-sanitizer
   - ubuntu-r-valgrind
   - ubuntu-swift
@@ -680,45 +680,6 @@ services:
       UBUNTU:
     command: *cpp-command
 
-  ubuntu-cpp-emscripten-python:
-    # Usage:
-    #   docker-compose build ubuntu-cpp-emscripten-python
-    #   docker-compose run --rm ubuntu-cpp-emscripten-python
-    # Parameters:
-    #   ARCH: amd64, arm64v8, ...
-    #   UBUNTU: 22.04
-    image: ${REPO}:${ARCH}-ubuntu-22.04-cpp-emscripten
-    build:
-      context: .
-      dockerfile: ci/docker/ubuntu-22.04-cpp-emscripten.dockerfile
-      cache_from:
-        - ${REPO}:${ARCH}-ubuntu-22.04-cpp-emscripten
-      args:
-        repo: ${REPO}
-        arch: ${ARCH}
-        clang_tools: ${CLANG_TOOLS}
-        llvm: ${LLVM}
-        emscripten_version: "3.1.58" # must use correct emscripten for pyodide version
-        pyodide_version: "0.26.0"
-        chrome_version: "122"
-        firefox_version: "122"
-        selenium_version: "4.15.2"
-    shm_size: *shm-size
-    volumes: *ubuntu-volumes
-    environment:
-      <<: [*common, *ccache, *sccache, *cpp]
-      ARROW_EMSCRIPTEN: "ON"
-      UBUNTU: "22.04"
-      PYODIDE_VERSION: "0.26.0"
-      ARROW_BUILD_TYPE: "release"
-      ARROW_BUILD_TESTS: "off"
-    command: >
-      /bin/bash -c "
-        source ~/.nvm/nvm.sh &&
-        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_build_emscripten.sh /arrow /build &&
-        /arrow/ci/scripts/python_test_emscripten.sh /build /pyodide"
-
   fedora-cpp:
     # Usage:
     #   docker-compose build fedora-cpp
@@ -914,6 +875,46 @@ services:
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/python_test.sh /arrow"]
+
+  conda-python-emscripten:
+    # Usage:
+    #   docker-compose build conda-python-emscripten
+    #   docker-compose run --rm conda-python-emscripten
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   UBUNTU: 22.04
+    image: ${REPO}:${ARCH}-conda-python-emscripten
+    build:
+      context: .
+      dockerfile: ci/docker/conda-python-emscripten.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-conda-python-${PYTHON}
+      args:
+        repo: ${REPO}
+        arch: ${ARCH}
+        clang_tools: ${CLANG_TOOLS}
+        llvm: ${LLVM}
+        emscripten_version: "3.1.58" # must use correct emscripten for pyodide version
+        pyodide_version: "0.26.0"
+        chrome_version: "122"
+        selenium_version: "4.15.2"
+        required_python_min: "(3,12)"
+        python: ${PYTHON}
+    shm_size: *shm-size
+    volumes: *ubuntu-volumes
+    environment:
+      <<: [*common, *ccache, *sccache, *cpp]
+      ARROW_EMSCRIPTEN: "ON"
+      ARROW_DEPENDENCY_SOURCE: "BUNDLED"
+      UBUNTU: "22.04"
+      PYODIDE_VERSION: "0.26.0"
+      ARROW_BUILD_TYPE: "release"
+      ARROW_BUILD_TESTS: "off"
+    command: ["
+        source ~/.nvm/nvm.sh &&
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_build_emscripten.sh /arrow /build &&
+        /arrow/ci/scripts/python_test_emscripten.sh /build /pyodide"]
 
   ubuntu-cuda-python:
     # Usage:
