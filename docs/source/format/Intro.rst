@@ -67,18 +67,18 @@ instruction.
 .. figure:: ./images/columnar-diagram_3.svg
    :alt: Tabular data being structured column by column in computer memory.
 
-The column is called an ``Array`` in Arrow terminology. Arrays can be of
-different types and the way their values are stored in memory varies among
-types. The specification of how these values are arranged in memory is what we
-call a ``physical memory layout``. One contiguous region of memory that stores
-data for arrays is called a ``Buffer``.
+The column is called an **Array** in Arrow terminology. Arrays can be of
+different data types and the way their values are stored in memory varies among
+the data types. The specification of how these values are arranged in memory is
+what we call a **physical memory layout**. One contiguous region of memory that
+stores data for arrays is called a **Buffer**.
 
 
 Support for null values
 =======================
 
 Arrow supports missing values or "nulls" for all data types: any value
-in an array may be semantically null, whether primitive or nested type.
+in an array may be semantically null, whether primitive or nested data type.
 
 In Arrow, a dedicated buffer, known as the validity (or "null") bitmap,
 is used alongside the data indicating whether each value in the array is
@@ -99,8 +99,8 @@ Fixed Size Primitive Layout
 A primitive column represents an array of values where each value
 has the same physical size measured in bytes. Data types that share the
 same fixed size primitive layout are, for example, signed and unsigned
-integer types, floating point numbers, boolean, decimal and temporal
-types.
+integer data types, floating point numbers, boolean, decimal and temporal
+data types.
 
 .. figure:: ./images/primitive-diagram.svg
    :alt: Diagram is showing the difference between the primitive data
@@ -123,7 +123,7 @@ types.
       Physical layout diagram for boolean data type.
 
 .. note::
-   Arrow also has a concept of Null type where all values are null. In
+   Arrow also has a concept of Null data type where all values are null. In
    this case no buffers are allocated.
 
 Variable length binary and string
@@ -136,14 +136,14 @@ The number of elements of the offset buffer is one more than the length of the
 array as the last two elements define the start and the end of the last
 element in the binary/string column.
 
-Binary and string types share the same physical layout. The one difference
-between them is that the string type is utf-8 binary and assumes to contain
+Binary and string data types share the same physical layout. The one difference
+between them is that the string data type is utf-8 binary and assumes to contain
 utf-8 encoded strings.
 
 The difference between binary/string and large binary/string is in the offset
-type. In the first case that is int32 and in the second it is int64.
+data type. In the first case that is int32 and in the second it is int64.
 
-The limitation of types using 32 bit offsets is that they have a max size of
+The limitation of data types using 32 bit offsets is that they have a max size of
 2GB per array. One can still use the non-large variants for bigger data, but
 then multiple chunks are needed.
 
@@ -185,23 +185,23 @@ values buffers.
 Nested layouts
 ==============
 
-Nested types introduce the concept of parent and child arrays. They express
-relationships between physical value arrays in a nested type structure.
+Nested data types introduce the concept of parent and child arrays. They express
+relationships between physical value arrays in a nested data type structure.
 
-Nested types depend on one or more other child data types. For instance, List
-is a nested type (parent) that has one child (the data types of the values in
+Nested data types depend on one or more other child data types. For instance, List
+is a nested data type (parent) that has one child (the data types of the values in
 the list).
 
 List
 ----
 
-The list type enables representing an array where each element is a sequence
-of elements of the same type. The layout is similar to binary or string type
-as it has an offsets buffer to define where the sequence of values for each
+The list data type enables representing an array where each element is a sequence
+of elements of the same data type. The layout is similar to binary or string data
+type as it has an offsets buffer to define where the sequence of values for each
 element starts and ends, with all the values being stored consecutively
 in a values child array.
 
-The offsets in the list type are int32 while in the large list the offsets
+The offsets in the list data type are int32 while in the large list the offsets
 are int64.
 
 .. figure:: ./images/var-list-diagram.svg
@@ -228,7 +228,7 @@ offset buffer is no longer needed.
 List and large list view
 ------------------------
 
-List view type allows arrays to specify out-of-order offsets.
+List view data type allows arrays to specify out-of-order offsets.
 
 .. figure:: ./images/var-list-view-diagram.svg
    :alt: Diagram is showing the difference between the variable size list view
@@ -240,7 +240,7 @@ List view type allows arrays to specify out-of-order offsets.
 Struct
 ------
 
-A struct is a nested type parameterized by an ordered sequence of types.
+A struct is a nested data type parameterized by an ordered sequence of data types.
 
 * There is one child array for each field
 * Child arrays are independent and need not be adjacent to each other in
@@ -261,18 +261,18 @@ the child array.
 Map
 ---
 
-The Map type represents nested data where each value is a variable number of
+The Map data type represents nested data where each value is a variable number of
 key-value pairs. Its physical representation is the same as a list of ``{key, value}``
 structs.
 
-The difference between the struct and map types is that a struct holds the key
+The difference between the struct and map data types is that a struct holds the key
 in the schema, requiring keys to be strings, and the values are stored in in the
 child arrays,
 one for each field. There can be multiple keys and therefore multiple child arrays.
 The map, on the other hand, has one child array holding all the different keys (that
-thus all need to be of the same type, but not necessarily strings) and a second
-child array holding all the values. The values need to be of the same type; however,
-the type doesn't have to match that of the keys.
+thus all need to be of the same data type, but not necessarily strings) and a second
+child array holding all the values. The values need to be of the same data type; however,
+the data type doesn't have to match that of the keys.
 
 Also, the map stores the struct in a list and needs an offset as the list is
 variable shape.
@@ -287,21 +287,21 @@ variable shape.
 Union
 -----
 
-The union is a nested type where each slot in the union has a value with a type chosen
-from a subset of possible Arrow data types. That means that a union array represents a
-mixed-type array. Unlike other data types, unions do not have their own validity bitmap
+The union is a nested data type where each slot in the union has a value with a data type
+chosen from a subset of possible Arrow data types. That means that a union array represents
+a mixed-type array. Unlike other data types, unions do not have their own validity bitmap
 and the nullness is determined by the child arrays.
 
-Arrow defines two distinct union types, "dense" and "sparse".
+Arrow defines two distinct union data types, "dense" and "sparse".
 
 Dense Union
 ^^^^^^^^^^^
 
-A Dense Union has one child array for each type present in the mixed-type array and
+A Dense Union has one child array for each data type present in the mixed-type array and
 two buffers of its own:
 
-* **Types buffer:** holds type id for each slot of the array. Type id is frequently
-  the index of the child array; however, the relationship between type ID and 
+* **Types buffer:** holds data type id for each slot of the array. Data type id is frequently
+  the index of the child array; however, the relationship between data type ID and 
   the child index is a parameter of the data type.
 * **Offsets buffer:** holds relative offset into the respective child array for each
   array slot.
@@ -375,11 +375,11 @@ A contiguous region of memory with a given length. Buffers are used to store dat
 
 **Array**
 A contiguous, one-dimensional sequence of values with known length where all values have the
-same type. An array consists of zero or more buffers.
+same data type. An array consists of zero or more buffers.
 
 **Chunked Array**
 A discontiguous, one-dimensional sequence of values with known length where all values have
-the same type. Consists of zero or more arrays, the “chunks”.
+the same data type. Consists of zero or more arrays, the “chunks”.
 
 .. note::
    Chunked Array is a concept specific to certain implementations such as Arrow C++ and PyArrow.
