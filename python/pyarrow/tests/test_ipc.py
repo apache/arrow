@@ -20,7 +20,6 @@ import io
 import pathlib
 import pytest
 import socket
-import sys
 import threading
 import weakref
 
@@ -896,8 +895,7 @@ def socket_fixture():
     return SocketStreamFixture()
 
 
-@pytest.mark.skipif(sys.platform == "emscripten",
-                    reason="Emscripten doesn't support sockets")
+@pytest.mark.sockets
 def test_socket_simple_roundtrip(socket_fixture):
     socket_fixture.start_server(do_read_all=False)
     writer_batches = socket_fixture.write_batches()
@@ -909,8 +907,7 @@ def test_socket_simple_roundtrip(socket_fixture):
         assert reader_batches[i].equals(batch)
 
 
-@pytest.mark.skipif(sys.platform == "emscripten",
-                    reason="Emscripten doesn't support sockets")
+@pytest.mark.sockets
 def test_socket_read_all(socket_fixture):
     socket_fixture.start_server(do_read_all=True)
     writer_batches = socket_fixture.write_batches()

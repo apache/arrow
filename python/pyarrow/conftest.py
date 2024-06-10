@@ -52,6 +52,7 @@ groups = [
     's3',
     'slow',
     'snappy',
+    'sockets',
     'substrait',
     'threading',
     'zstd',
@@ -85,15 +86,19 @@ defaults = {
     's3': False,
     'slow': False,
     'snappy': Codec.is_available('snappy'),
+    'sockets': True,
     'substrait': False,
     'threading': is_threading_enabled(),
     'zstd': Codec.is_available('zstd'),
 }
 
 if sys.platform == "emscripten":
-    # emscripten doesn't support multiprocessing or gdb
+    # Emscripten doesn't support subprocess,
+    # multiprocessing, gdb or socket based
+    # networking
     defaults['gdb'] = False
     defaults['processes'] = False
+    defaults['sockets'] = False
 
 try:
     import cython  # noqa
