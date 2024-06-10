@@ -272,9 +272,12 @@ Result<std::shared_ptr<Array>> TransposeAndMakeArrayNoInline(
   return MakeArray(std::move(transposed));
 }
 
-template <typename IndexArrowType>
+template <typename IndexCType>
 Result<std::shared_ptr<Array>> CompactTransposeMap(const std::shared_ptr<ArrayData>& data,
                                                    arrow::MemoryPool* pool) {
+  using IndexArrowType = typename CTypeTraits<IndexCType>::ArrowType;
+  using IndicesArrayType = typename TypeTraits<IndexArrowType>::ArrayType;
+
   const int64_t index_length = data->length;
   const int64_t dict_length = data->dictionary->length;
 
@@ -294,24 +297,22 @@ Result<std::shared_ptr<Array>> CompactTransposeMap(const std::shared_ptr<ArrayDa
   ARROW_ASSIGN_OR_RAISE(auto dict_used_bitmap_buffer,
                         AllocateEmptyBitmap(dict_length, pool));
   auto* dict_used = dict_used_bitmap_buffer->mutable_data();
-  using CType = typename IndexArrowType::c_type;
   ARROW_ASSIGN_OR_RAISE(int64_t dict_used_count,
-                        PopulateBitmapOfUsedIndices<CType>(*data, dict_used));
+                        PopulateBitmapOfUsedIndices<IndexCType>(*data, dict_used));
   if (ARROW_PREDICT_FALSE(dict_used_count == dict_length)) {
     // The dictionary is already compact, so just return here
     return std::make_shared<DictionaryArray>(data);
   }
 
-  using IndicesArrayType = typename TypeTraits<IndexArrowType>::ArrayType;
   DCHECK_LE(dict_used_count, std::numeric_limits<int32_t>::max());
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> dict_indices_buffer,
-                        AllocateBuffer(dict_used_count * sizeof(CType), pool));
-  auto* compact_dict_indices = dict_indices_buffer->mutable_data_as<CType>();
+                        AllocateBuffer(dict_used_count * sizeof(IndexCType), pool));
+  auto* compact_dict_indices = dict_indices_buffer->mutable_data_as<IndexCType>();
   ARROW_ASSIGN_OR_RAISE(auto transpose_map,
                         AllocateBuffer(dict_length * sizeof(int32_t), pool));
   auto* output_map_raw = transpose_map->mutable_data_as<int32_t>();
   memset(output_map_raw, 0xff, dict_length * sizeof(int32_t));
-  ::arrow::internal::SetBitRunReader reader(dict_used, 0, dict_length);
+  internal::SetBitRunReader reader(dict_used, 0, dict_length);
   int32_t current_index = 0;
   for (;;) {
     const auto run = reader.NextRun();
@@ -320,7 +321,7 @@ Result<std::shared_ptr<Array>> CompactTransposeMap(const std::shared_ptr<ArrayDa
     }
     for (int64_t i = 0; i < run.length; i++) {
       const int64_t index = run.position + i;
-      compact_dict_indices[current_index] = static_cast<CType>(index);
+      compact_dict_indices[current_index] = static_cast<IndexCType>(index);
       output_map_raw[index] = current_index;
       current_index++;
     }
@@ -351,21 +352,21 @@ Result<std::shared_ptr<Array>> DictionaryArray::Transpose(
 Result<std::shared_ptr<Array>> DictionaryArray::Compact(MemoryPool* pool) const {
   switch (dict_type_->index_type()->id()) {
     case Type::UINT8:
-      return CompactTransposeMap<UInt8Type>(data_, pool);
+      return CompactTransposeMap<uint8_t>(data_, pool);
     case Type::INT8:
-      return CompactTransposeMap<Int8Type>(data_, pool);
+      return CompactTransposeMap<int8_t>(data_, pool);
     case Type::UINT16:
-      return CompactTransposeMap<UInt16Type>(data_, pool);
+      return CompactTransposeMap<uint16_t>(data_, pool);
     case Type::INT16:
-      return CompactTransposeMap<Int16Type>(data_, pool);
+      return CompactTransposeMap<int16_t>(data_, pool);
     case Type::UINT32:
-      return CompactTransposeMap<UInt32Type>(data_, pool);
+      return CompactTransposeMap<uint32_t>(data_, pool);
     case Type::INT32:
-      return CompactTransposeMap<Int32Type>(data_, pool);
+      return CompactTransposeMap<int32_t>(data_, pool);
     case Type::UINT64:
-      return CompactTransposeMap<UInt64Type>(data_, pool);
+      return CompactTransposeMap<uint64_t>(data_, pool);
     case Type::INT64:
-      return CompactTransposeMap<Int64Type>(data_, pool);
+      return CompactTransposeMap<int64_t>(data_, pool);
     default:
       return Status::TypeError("Expected an Index Type of Int or UInt");
   }
