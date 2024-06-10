@@ -19,6 +19,12 @@
 Introduction
 ************
 
+Apache Arrow was born from the need for a set of standards around
+tabular data representation and interchange between systems.
+The adoption of these standards reduce computing costs of data
+serialization/deserialization and implementation costs across
+systems implemented in different programming languages.
+
 The Apache Arrow specification can be implemented in any programming
 language but official implementations for many languages are available.
 An implementation consists of format definitions using the constructs
