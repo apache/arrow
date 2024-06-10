@@ -41,7 +41,7 @@ public class TestFixedWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSo
 
   private BufferAllocator allocator;
 
-  <V extends BaseFixedWidthVector> OutOfPlaceVectorSorter<V> getSorter() {
+  <V extends BaseFixedWidthVector> OutOfPlaceVectorSorter<V> getSorter(boolean generalSorter) {
     return generalSorter
         ? new GeneralOutOfPlaceVectorSorter<>()
         : new FixedWidthOutOfPlaceVectorSorter<>();
@@ -60,7 +60,6 @@ public class TestFixedWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSo
   @ParameterizedTest
   @MethodSource("getParameter")
   public void testSortByte(boolean generalSorter) {
-    setup(generalSorter);
     try (TinyIntVector vec = new TinyIntVector("", allocator)) {
       vec.allocateNew(10);
       vec.setValueCount(10);
@@ -78,7 +77,7 @@ public class TestFixedWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSo
       vec.set(9, 2);
 
       // sort the vector
-      OutOfPlaceVectorSorter<TinyIntVector> sorter = getSorter();
+      OutOfPlaceVectorSorter<TinyIntVector> sorter = getSorter(generalSorter);
       VectorValueComparator<TinyIntVector> comparator =
           DefaultVectorComparators.createDefaultComparator(vec);
 
@@ -110,7 +109,6 @@ public class TestFixedWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSo
   @ParameterizedTest
   @MethodSource("getParameter")
   public void testSortShort(boolean generalSorter) {
-    setup(generalSorter);
     try (SmallIntVector vec = new SmallIntVector("", allocator)) {
       vec.allocateNew(10);
       vec.setValueCount(10);
@@ -128,7 +126,7 @@ public class TestFixedWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSo
       vec.set(9, 2);
 
       // sort the vector
-      OutOfPlaceVectorSorter<SmallIntVector> sorter = getSorter();
+      OutOfPlaceVectorSorter<SmallIntVector> sorter = getSorter(generalSorter);
       VectorValueComparator<SmallIntVector> comparator =
           DefaultVectorComparators.createDefaultComparator(vec);
 
@@ -160,7 +158,6 @@ public class TestFixedWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSo
   @ParameterizedTest
   @MethodSource("getParameter")
   public void testSortInt(boolean generalSorter) {
-    setup(generalSorter);
     try (IntVector vec = new IntVector("", allocator)) {
       vec.allocateNew(10);
       vec.setValueCount(10);
@@ -178,7 +175,7 @@ public class TestFixedWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSo
       vec.set(9, 2);
 
       // sort the vector
-      OutOfPlaceVectorSorter<IntVector> sorter = getSorter();
+      OutOfPlaceVectorSorter<IntVector> sorter = getSorter(generalSorter);
       VectorValueComparator<IntVector> comparator =
           DefaultVectorComparators.createDefaultComparator(vec);
 
@@ -210,7 +207,6 @@ public class TestFixedWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSo
   @ParameterizedTest
   @MethodSource("getParameter")
   public void testSortLong(boolean generalSorter) {
-    setup(generalSorter);
     try (BigIntVector vec = new BigIntVector("", allocator)) {
       vec.allocateNew(10);
       vec.setValueCount(10);
@@ -228,7 +224,7 @@ public class TestFixedWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSo
       vec.set(9, 2L);
 
       // sort the vector
-      OutOfPlaceVectorSorter<BigIntVector> sorter = getSorter();
+      OutOfPlaceVectorSorter<BigIntVector> sorter = getSorter(generalSorter);
       VectorValueComparator<BigIntVector> comparator =
           DefaultVectorComparators.createDefaultComparator(vec);
 
@@ -260,7 +256,6 @@ public class TestFixedWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSo
   @ParameterizedTest
   @MethodSource("getParameter")
   public void testSortFloat(boolean generalSorter) {
-    setup(generalSorter);
     try (Float4Vector vec = new Float4Vector("", allocator)) {
       vec.allocateNew(10);
       vec.setValueCount(10);
@@ -278,7 +273,7 @@ public class TestFixedWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSo
       vec.set(9, 2f);
 
       // sort the vector
-      OutOfPlaceVectorSorter<Float4Vector> sorter = getSorter();
+      OutOfPlaceVectorSorter<Float4Vector> sorter = getSorter(generalSorter);
       VectorValueComparator<Float4Vector> comparator =
           DefaultVectorComparators.createDefaultComparator(vec);
 
@@ -310,7 +305,6 @@ public class TestFixedWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSo
   @ParameterizedTest
   @MethodSource("getParameter")
   public void testSortDouble(boolean generalSorter) {
-    setup(generalSorter);
     try (Float8Vector vec = new Float8Vector("", allocator)) {
       vec.allocateNew(10);
       vec.setValueCount(10);
@@ -328,7 +322,7 @@ public class TestFixedWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSo
       vec.set(9, 2);
 
       // sort the vector
-      OutOfPlaceVectorSorter<Float8Vector> sorter = getSorter();
+      OutOfPlaceVectorSorter<Float8Vector> sorter = getSorter(generalSorter);
       VectorValueComparator<Float8Vector> comparator =
           DefaultVectorComparators.createDefaultComparator(vec);
 
@@ -360,14 +354,13 @@ public class TestFixedWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSo
   @ParameterizedTest
   @MethodSource("getParameter")
   public void testSortInt2(boolean generalSorter) {
-    setup(generalSorter);
     try (IntVector vec = new IntVector("", allocator)) {
       ValueVectorDataPopulator.setVector(
           vec, 0, 1, 2, 3, 4, 5, 30, 31, 32, 33, 34, 35, 60, 61, 62, 63, 64, 65, 6, 7, 8, 9, 10, 11,
           36, 37, 38, 39, 40, 41, 66, 67, 68, 69, 70, 71);
 
       // sort the vector
-      OutOfPlaceVectorSorter<IntVector> sorter = getSorter();
+      OutOfPlaceVectorSorter<IntVector> sorter = getSorter(generalSorter);
       VectorValueComparator<IntVector> comparator =
           DefaultVectorComparators.createDefaultComparator(vec);
 

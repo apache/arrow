@@ -18,8 +18,8 @@ package org.apache.arrow.algorithm.search;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.util.Arrays;
-import java.util.Collection;
+import java.util.stream.Stream;
+
 import org.apache.arrow.algorithm.sort.DefaultVectorComparators;
 import org.apache.arrow.algorithm.sort.VectorValueComparator;
 import org.apache.arrow.memory.BufferAllocator;
@@ -27,21 +27,14 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /** Test cases for {@link VectorRangeSearcher}. */
-@RunWith(Parameterized.class)
 public class TestVectorRangeSearcher {
 
   private BufferAllocator allocator;
-
-  private int repeat;
-
-  public TestVectorRangeSearcher(int repeat) {
-    this.repeat = repeat;
-  }
 
   @BeforeEach
   public void prepare() {
@@ -53,8 +46,9 @@ public class TestVectorRangeSearcher {
     allocator.close();
   }
 
-  @Test
-  public void testGetLowerBounds() {
+  @ParameterizedTest
+  @MethodSource("getRepeat")
+  public void testGetLowerBounds(int repeat) {
     final int maxValue = 100;
     try (IntVector intVector = new IntVector("int vec", allocator)) {
       // allocate vector
@@ -84,8 +78,9 @@ public class TestVectorRangeSearcher {
     }
   }
 
-  @Test
-  public void testGetLowerBoundsNegative() {
+  @ParameterizedTest
+  @MethodSource("getRepeat")
+  public void testGetLowerBoundsNegative(int repeat) {
     final int maxValue = 100;
     try (IntVector intVector = new IntVector("int vec", allocator);
         IntVector negVector = new IntVector("neg vec", allocator)) {
@@ -119,8 +114,9 @@ public class TestVectorRangeSearcher {
     }
   }
 
-  @Test
-  public void testGetUpperBounds() {
+  @ParameterizedTest
+  @MethodSource("getRepeat")
+  public void testGetUpperBounds(int repeat) {
     final int maxValue = 100;
     try (IntVector intVector = new IntVector("int vec", allocator)) {
       // allocate vector
@@ -149,8 +145,9 @@ public class TestVectorRangeSearcher {
     }
   }
 
-  @Test
-  public void testGetUpperBoundsNegative() {
+  @ParameterizedTest
+  @MethodSource("getRepeat")
+  public void testGetUpperBoundsNegative(int repeat) {
     final int maxValue = 100;
     try (IntVector intVector = new IntVector("int vec", allocator);
         IntVector negVector = new IntVector("neg vec", allocator)) {
@@ -184,8 +181,12 @@ public class TestVectorRangeSearcher {
     }
   }
 
-  @Parameterized.Parameters(name = "repeat = {0}")
-  public static Collection<Object[]> getRepeat() {
-    return Arrays.asList(new Object[] {1}, new Object[] {2}, new Object[] {5}, new Object[] {10});
+  public static Stream<Arguments> getRepeat() {
+    return Stream.of(
+      Arguments.of(1),
+      Arguments.of(2),
+      Arguments.of(5),
+      Arguments.of(10)
+    );
   }
 }

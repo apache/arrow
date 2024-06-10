@@ -16,6 +16,7 @@
  */
 package org.apache.arrow.algorithm.sort;
 
+import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -23,7 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.function.Function;
@@ -35,25 +35,16 @@ import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.util.Text;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /** Test sorting variable width vectors with random data. */
-@RunWith(Parameterized.class)
 public class TestVariableWidthSorting<V extends BaseVariableWidthVector, U extends Comparable<U>> {
 
   static final int[] VECTOR_LENGTHS = new int[] {2, 5, 10, 50, 100, 1000, 3000};
 
   static final double[] NULL_FRACTIONS = {0, 0.1, 0.3, 0.5, 0.7, 0.9, 1};
-
-  private final int length;
-
-  private final double nullFraction;
-
-  private final Function<BufferAllocator, V> vectorGenerator;
-
-  private final TestSortingUtil.DataGenerator<V, U> dataGenerator;
 
   private BufferAllocator allocator;
 
@@ -67,24 +58,21 @@ public class TestVariableWidthSorting<V extends BaseVariableWidthVector, U exten
     allocator.close();
   }
 
-  public TestVariableWidthSorting(
+  @ParameterizedTest
+  @MethodSource("getParameters")
+  public void testSort(
       int length,
       double nullFraction,
-      String desc,
       Function<BufferAllocator, V> vectorGenerator,
       TestSortingUtil.DataGenerator<V, U> dataGenerator) {
-    this.length = length;
-    this.nullFraction = nullFraction;
-    this.vectorGenerator = vectorGenerator;
-    this.dataGenerator = dataGenerator;
+    sortOutOfPlace(length, nullFraction, vectorGenerator, dataGenerator);
   }
 
-  @Test
-  public void testSort() {
-    sortOutOfPlace();
-  }
-
-  void sortOutOfPlace() {
+  void sortOutOfPlace(
+      int length,
+      double nullFraction,
+      Function<BufferAllocator, V> vectorGenerator,
+      TestSortingUtil.DataGenerator<V, U> dataGenerator) {
     try (V vector = vectorGenerator.apply(allocator)) {
       U[] array = dataGenerator.populate(vector, length, nullFraction);
       Arrays.sort(array, (Comparator<? super U>) new StringComparator());
@@ -108,23 +96,20 @@ public class TestVariableWidthSorting<V extends BaseVariableWidthVector, U exten
     }
   }
 
-  @Parameterized.Parameters(name = "length = {0}, null fraction = {1}, vector = {2}")
-  public static Collection<Object[]> getParameters() {
-    List<Object[]> params = new ArrayList<>();
+  public static Stream<Arguments> getParameters() {
+    List<Arguments> params = new ArrayList<>();
     for (int length : VECTOR_LENGTHS) {
       for (double nullFrac : NULL_FRACTIONS) {
         params.add(
-            new Object[] {
-              length,
-              nullFrac,
-              "VarCharVector",
-              (Function<BufferAllocator, VarCharVector>)
-                  allocator -> new VarCharVector("vector", allocator),
-              TestSortingUtil.STRING_GENERATOR
-            });
+            Arguments.of(
+                length,
+                nullFrac,
+                (Function<BufferAllocator, VarCharVector>)
+                    allocator -> new VarCharVector("vector", allocator),
+                TestSortingUtil.STRING_GENERATOR));
       }
     }
-    return params;
+    return params.stream();
   }
 
   /** Verify results as byte arrays. */

@@ -35,7 +35,7 @@ public class TestVariableWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVecto
 
   private BufferAllocator allocator;
 
-  <V extends BaseVariableWidthVector> OutOfPlaceVectorSorter<V> getSorter() {
+  <V extends BaseVariableWidthVector> OutOfPlaceVectorSorter<V> getSorter(boolean generalSorter) {
     return generalSorter
         ? new GeneralOutOfPlaceVectorSorter<>()
         : new VariableWidthOutOfPlaceVectorSorter<V>();
@@ -54,7 +54,6 @@ public class TestVariableWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVecto
   @ParameterizedTest
   @MethodSource("getParameter")
   public void testSortString(boolean generalSorter) {
-    setup(generalSorter);
     try (VarCharVector vec = new VarCharVector("", allocator)) {
       vec.allocateNew(100, 10);
       vec.setValueCount(10);
@@ -72,7 +71,7 @@ public class TestVariableWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVecto
       vec.set(9, "yes".getBytes(StandardCharsets.UTF_8));
 
       // sort the vector
-      OutOfPlaceVectorSorter<BaseVariableWidthVector> sorter = getSorter();
+      OutOfPlaceVectorSorter<BaseVariableWidthVector> sorter = getSorter(generalSorter);
       VectorValueComparator<BaseVariableWidthVector> comparator =
           DefaultVectorComparators.createDefaultComparator(vec);
 
