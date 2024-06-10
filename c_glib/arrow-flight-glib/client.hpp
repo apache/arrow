@@ -23,17 +23,23 @@
 
 #include <arrow-flight-glib/client.h>
 
+GAFLIGHT_EXTERN
 GAFlightStreamReader *
 gaflight_stream_reader_new_raw(arrow::flight::FlightStreamReader *flight_reader,
                                gboolean is_owner);
 
+GAFLIGHT_EXTERN
 arrow::flight::FlightCallOptions *
 gaflight_call_options_get_raw(GAFlightCallOptions *options);
 
+GAFLIGHT_EXTERN
 arrow::flight::FlightClientOptions *
 gaflight_client_options_get_raw(GAFlightClientOptions *options);
 
+GAFLIGHT_EXTERN
 std::shared_ptr<arrow::flight::FlightClient>
 gaflight_client_get_raw(GAFlightClient *client);
+
+GAFLIGHT_EXTERN
 GAFlightClient *
 gaflight_client_new_raw(std::shared_ptr<arrow::flight::FlightClient> *flight_client);

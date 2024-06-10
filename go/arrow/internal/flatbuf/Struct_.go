@@ -22,9 +22,9 @@ import (
 	flatbuffers "github.com/google/flatbuffers/go"
 )
 
-/// A Struct_ in the flatbuffer metadata is the same as an Arrow Struct
-/// (according to the physical memory layout). We used Struct_ here as
-/// Struct is a reserved word in Flatbuffers
+// / A Struct_ in the flatbuffer metadata is the same as an Arrow Struct
+// / (according to the physical memory layout). We used Struct_ here as
+// / Struct is a reserved word in Flatbuffers
 type Struct_ struct {
 	_tab flatbuffers.Table
 }

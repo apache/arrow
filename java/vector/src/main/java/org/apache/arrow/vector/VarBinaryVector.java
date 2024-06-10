@@ -120,6 +120,7 @@ public final class VarBinaryVector extends BaseVariableWidthVector {
    * @param index position of element.
    * @param buffer the buffer to write into.
    */
+  @Override
   public void read(int index, ReusableBuffer<?> buffer) {
     final int startOffset = getStartOffset(index);
     final int dataLength = getEndOffset(index) - startOffset;

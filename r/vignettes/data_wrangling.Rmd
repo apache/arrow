@@ -165,33 +165,7 @@ sw2 %>%
   transmute(name, height, mass, res = residuals(lm(mass ~ height)))
 ```
 
-Because window functions are not supported, computing an aggregation like `mean()` on a grouped table or within a rowwise operation like `filter()` is not supported:
-
-```{r}
-sw %>%
-  select(1:4) %>%
-  filter(!is.na(hair_color)) %>%
-  group_by(hair_color) %>%
-  filter(height < mean(height, na.rm = TRUE))
-```
-
-This operation is sometimes referred to as a windowed aggregate and can be accomplished in Arrow by computing the aggregation separately, for example within a join operation:
-
-```{r}
-sw %>%
-  select(1:4) %>%
-  filter(!is.na(hair_color)) %>%
-  left_join(
-    sw %>%
-      group_by(hair_color) %>%
-      summarize(mean_height = mean(height, na.rm = TRUE))
-    ) %>%
-  filter(height < mean_height) %>%
-  select(!mean_height) %>%
-  collect()
-```
-
-Alternatively, [DuckDB](https:\www.duckdb.org) supports Arrow natively, so you can pass the `Table` object to DuckDB without paying a performance penalty using the helper function `to_duckdb()` and pass the object back to Arrow with `to_arrow()`:
+For some operations, you can use [DuckDB](https://www.duckdb.org). It supports Arrow natively, so you can pass the `Dataset` or query object to DuckDB without paying a performance penalty using the helper function `to_duckdb()` and pass the object back to Arrow with `to_arrow()`:
 
 ```{r}
 sw %>%

@@ -14,9 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -30,7 +31,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.TimeZone;
 import java.util.function.Function;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.Preconditions;
@@ -41,12 +41,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-
-/**
- * Class to abstract out some common test functionality for testing JDBC to Arrow.
- */
+/** Class to abstract out some common test functionality for testing JDBC to Arrow. */
 public abstract class AbstractJdbcToArrowTest {
 
   protected static final String BIGINT = "BIGINT_FIELD5";
@@ -69,7 +64,8 @@ public abstract class AbstractJdbcToArrowTest {
   protected static final String TINYINT = "TINYINT_FIELD3";
   protected static final String VARCHAR = "VARCHAR_FIELD13";
   protected static final String NULL = "NULL_FIELD18";
-  protected static final Map<String, JdbcFieldInfo> ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP = new HashMap<>();
+  protected static final Map<String, JdbcFieldInfo> ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP =
+      new HashMap<>();
 
   static {
     ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP.put(LIST, new JdbcFieldInfo(Types.INTEGER));
@@ -86,11 +82,11 @@ public abstract class AbstractJdbcToArrowTest {
    * @return Table object
    * @throws IOException on error
    */
-  protected static Table getTable(String ymlFilePath, @SuppressWarnings("rawtypes") Class clss) throws IOException {
-    return new ObjectMapper(new YAMLFactory()).readValue(
-            clss.getClassLoader().getResourceAsStream(ymlFilePath), Table.class);
+  protected static Table getTable(String ymlFilePath, @SuppressWarnings("rawtypes") Class clss)
+      throws IOException {
+    return new ObjectMapper(new YAMLFactory())
+        .readValue(clss.getClassLoader().getResourceAsStream(ymlFilePath), Table.class);
   }
-
 
   /**
    * This method creates Connection object and DB table and also populate data into table for test.
@@ -105,7 +101,7 @@ public abstract class AbstractJdbcToArrowTest {
     String driver = "org.h2.Driver";
     Class.forName(driver);
     conn = DriverManager.getConnection(url);
-    try (Statement stmt = conn.createStatement();) {
+    try (Statement stmt = conn.createStatement(); ) {
       stmt.executeUpdate(table.getCreate());
       for (String insert : table.getData()) {
         stmt.executeUpdate(insert);
@@ -136,12 +132,13 @@ public abstract class AbstractJdbcToArrowTest {
    * @throws ClassNotFoundException on error
    * @throws IOException on error
    */
-  public static Object[][] prepareTestData(String[] testFiles, @SuppressWarnings("rawtypes") Class clss)
+  public static Object[][] prepareTestData(
+      String[] testFiles, @SuppressWarnings("rawtypes") Class clss)
       throws SQLException, ClassNotFoundException, IOException {
     Object[][] tableArr = new Object[testFiles.length][];
     int i = 0;
     for (String testFile : testFiles) {
-      tableArr[i++] = new Object[]{getTable(testFile, clss)};
+      tableArr[i++] = new Object[] {getTable(testFile, clss)};
     }
     return tableArr;
   }
@@ -159,86 +156,90 @@ public abstract class AbstractJdbcToArrowTest {
    * Abstract method to implement logic to assert test various datatype values.
    *
    * @param root VectorSchemaRoot for test
-   * @param isIncludeMapVector is this dataset checks includes map column.
-   *          Jdbc type to 'map' mapping declared in configuration only manually
+   * @param isIncludeMapVector is this dataset checks includes map column. Jdbc type to 'map'
+   *     mapping declared in configuration only manually
    */
   public abstract void testDataSets(VectorSchemaRoot root, boolean isIncludeMapVector);
 
   /**
-   * For the given SQL query, execute and fetch the data from Relational DB and convert it to Arrow objects.
-   * This method uses the default Calendar instance with default TimeZone and Locale as returned by the JVM.
-   * If you wish to use specific TimeZone or Locale for any Date, Time and Timestamp datasets, you may want use
-   * overloaded API that taken Calendar object instance.
+   * For the given SQL query, execute and fetch the data from Relational DB and convert it to Arrow
+   * objects. This method uses the default Calendar instance with default TimeZone and Locale as
+   * returned by the JVM. If you wish to use specific TimeZone or Locale for any Date, Time and
+   * Timestamp datasets, you may want use overloaded API that taken Calendar object instance.
    *
-   * This method is for test only.
+   * <p>This method is for test only.
    *
-   * @param connection Database connection to be used. This method will not close the passed connection object. Since
-   *                   the caller has passed the connection object it's the responsibility of the caller to close or
-   *                   return the connection to the pool.
-   * @param query      The DB Query to fetch the data.
-   * @param allocator  Memory allocator
+   * @param connection Database connection to be used. This method will not close the passed
+   *     connection object. Since the caller has passed the connection object it's the
+   *     responsibility of the caller to close or return the connection to the pool.
+   * @param query The DB Query to fetch the data.
+   * @param allocator Memory allocator
    * @return Arrow Data Objects {@link VectorSchemaRoot}
-   * @throws SQLException Propagate any SQL Exceptions to the caller after closing any resources opened such as
-   *                      ResultSet and Statement objects.
+   * @throws SQLException Propagate any SQL Exceptions to the caller after closing any resources
+   *     opened such as ResultSet and Statement objects.
    */
   public VectorSchemaRoot sqlToArrow(Connection connection, String query, BufferAllocator allocator)
       throws SQLException, IOException {
     Preconditions.checkNotNull(allocator, "Memory allocator object cannot be null");
 
-    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(allocator, JdbcToArrowUtils.getUtcCalendar())
-        .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
-        .build();
+    JdbcToArrowConfig config =
+        new JdbcToArrowConfigBuilder(allocator, JdbcToArrowUtils.getUtcCalendar())
+            .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
+            .build();
     return sqlToArrow(connection, query, config);
   }
 
   /**
-   * For the given SQL query, execute and fetch the data from Relational DB and convert it to Arrow objects.
+   * For the given SQL query, execute and fetch the data from Relational DB and convert it to Arrow
+   * objects.
    *
-   * This method is for test only.
+   * <p>This method is for test only.
    *
-   * @param connection Database connection to be used. This method will not close the passed connection object. Since
-   *                   the caller has passed the connection object it's the responsibility of the caller to close or
-   *                   return the connection to the pool.
-   * @param query      The DB Query to fetch the data.
-   * @param allocator  Memory allocator
-   * @param calendar   Calendar object to use to handle Date, Time and Timestamp datasets.
+   * @param connection Database connection to be used. This method will not close the passed
+   *     connection object. Since the caller has passed the connection object it's the
+   *     responsibility of the caller to close or return the connection to the pool.
+   * @param query The DB Query to fetch the data.
+   * @param allocator Memory allocator
+   * @param calendar Calendar object to use to handle Date, Time and Timestamp datasets.
    * @return Arrow Data Objects {@link VectorSchemaRoot}
-   * @throws SQLException Propagate any SQL Exceptions to the caller after closing any resources opened such as
-   *                      ResultSet and Statement objects.
+   * @throws SQLException Propagate any SQL Exceptions to the caller after closing any resources
+   *     opened such as ResultSet and Statement objects.
    */
   public VectorSchemaRoot sqlToArrow(
-      Connection connection,
-      String query,
-      BufferAllocator allocator,
-      Calendar calendar) throws SQLException, IOException {
+      Connection connection, String query, BufferAllocator allocator, Calendar calendar)
+      throws SQLException, IOException {
 
     Preconditions.checkNotNull(allocator, "Memory allocator object cannot be null");
     Preconditions.checkNotNull(calendar, "Calendar object cannot be null");
 
-    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(allocator, calendar)
-        .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
-        .build();
+    JdbcToArrowConfig config =
+        new JdbcToArrowConfigBuilder(allocator, calendar)
+            .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
+            .build();
     return sqlToArrow(connection, query, config);
   }
 
   /**
-   * For the given SQL query, execute and fetch the data from Relational DB and convert it to Arrow objects.
+   * For the given SQL query, execute and fetch the data from Relational DB and convert it to Arrow
+   * objects.
    *
-   * This method is for test only.
+   * <p>This method is for test only.
    *
-   * @param connection Database connection to be used. This method will not close the passed connection object.
-   *                   Since the caller has passed the connection object it's the responsibility of the caller
-   *                   to close or return the connection to the pool.
-   * @param query      The DB Query to fetch the data.
-   * @param config     Configuration
+   * @param connection Database connection to be used. This method will not close the passed
+   *     connection object. Since the caller has passed the connection object it's the
+   *     responsibility of the caller to close or return the connection to the pool.
+   * @param query The DB Query to fetch the data.
+   * @param config Configuration
    * @return Arrow Data Objects {@link VectorSchemaRoot}
-   * @throws SQLException Propagate any SQL Exceptions to the caller after closing any resources opened such as
-   *                      ResultSet and Statement objects.
+   * @throws SQLException Propagate any SQL Exceptions to the caller after closing any resources
+   *     opened such as ResultSet and Statement objects.
    */
-  public static VectorSchemaRoot sqlToArrow(Connection connection, String query, JdbcToArrowConfig config)
+  public static VectorSchemaRoot sqlToArrow(
+      Connection connection, String query, JdbcToArrowConfig config)
       throws SQLException, IOException {
     Preconditions.checkNotNull(connection, "JDBC connection object cannot be null");
-    Preconditions.checkArgument(query != null && query.length() > 0, "SQL query cannot be null or empty");
+    Preconditions.checkArgument(
+        query != null && query.length() > 0, "SQL query cannot be null or empty");
 
     try (Statement stmt = connection.createStatement()) {
       return sqlToArrow(stmt.executeQuery(query), config);
@@ -246,10 +247,10 @@ public abstract class AbstractJdbcToArrowTest {
   }
 
   /**
-   * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow objects. This
-   * method uses the default RootAllocator and Calendar object.
+   * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow
+   * objects. This method uses the default RootAllocator and Calendar object.
    *
-   * This method is for test only.
+   * <p>This method is for test only.
    *
    * @param resultSet ResultSet to use to fetch the data from underlying database
    * @return Arrow Data Objects {@link VectorSchemaRoot}
@@ -262,9 +263,10 @@ public abstract class AbstractJdbcToArrowTest {
   }
 
   /**
-   * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow objects.
+   * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow
+   * objects.
    *
-   * This method is for test only.
+   * <p>This method is for test only.
    *
    * @param resultSet ResultSet to use to fetch the data from underlying database
    * @param allocator Memory allocator
@@ -275,62 +277,69 @@ public abstract class AbstractJdbcToArrowTest {
       throws SQLException, IOException {
     Preconditions.checkNotNull(allocator, "Memory Allocator object cannot be null");
 
-    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(allocator, JdbcToArrowUtils.getUtcCalendar())
-        .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
-        .build();
+    JdbcToArrowConfig config =
+        new JdbcToArrowConfigBuilder(allocator, JdbcToArrowUtils.getUtcCalendar())
+            .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
+            .build();
     return sqlToArrow(resultSet, config);
   }
 
   /**
-   * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow objects.
+   * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow
+   * objects.
    *
-   * This method is for test only.
+   * <p>This method is for test only.
    *
    * @param resultSet ResultSet to use to fetch the data from underlying database
-   * @param calendar  Calendar instance to use for Date, Time and Timestamp datasets, or <code>null</code> if none.
+   * @param calendar Calendar instance to use for Date, Time and Timestamp datasets, or <code>null
+   *     </code> if none.
    * @return Arrow Data Objects {@link VectorSchemaRoot}
    * @throws SQLException on error
    */
-  public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, Calendar calendar) throws SQLException, IOException {
+  public static VectorSchemaRoot sqlToArrow(ResultSet resultSet, Calendar calendar)
+      throws SQLException, IOException {
     Preconditions.checkNotNull(resultSet, "JDBC ResultSet object cannot be null");
 
-    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), calendar)
-        .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
-        .build();
+    JdbcToArrowConfig config =
+        new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), calendar)
+            .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
+            .build();
     return sqlToArrow(resultSet, config);
   }
 
   /**
-   * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow objects.
+   * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow
+   * objects.
    *
-   * This method is for test only.
+   * <p>This method is for test only.
    *
    * @param resultSet ResultSet to use to fetch the data from underlying database
    * @param allocator Memory allocator to use.
-   * @param calendar  Calendar instance to use for Date, Time and Timestamp datasets, or <code>null</code> if none.
+   * @param calendar Calendar instance to use for Date, Time and Timestamp datasets, or <code>null
+   *     </code> if none.
    * @return Arrow Data Objects {@link VectorSchemaRoot}
    * @throws SQLException on error
    */
   public static VectorSchemaRoot sqlToArrow(
-      ResultSet resultSet,
-      BufferAllocator allocator,
-      Calendar calendar)
+      ResultSet resultSet, BufferAllocator allocator, Calendar calendar)
       throws SQLException, IOException {
     Preconditions.checkNotNull(allocator, "Memory Allocator object cannot be null");
 
-    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(allocator, calendar)
-        .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
-        .build();
+    JdbcToArrowConfig config =
+        new JdbcToArrowConfigBuilder(allocator, calendar)
+            .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
+            .build();
     return sqlToArrow(resultSet, config);
   }
 
   /**
-   * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow objects.
+   * For the given JDBC {@link ResultSet}, fetch the data from Relational DB and convert it to Arrow
+   * objects.
    *
-   * This method is for test only.
+   * <p>This method is for test only.
    *
    * @param resultSet ResultSet to use to fetch the data from underlying database
-   * @param config    Configuration of the conversion from JDBC to Arrow.
+   * @param config Configuration of the conversion from JDBC to Arrow.
    * @return Arrow Data Objects {@link VectorSchemaRoot}
    * @throws SQLException on error
    */
@@ -339,8 +348,10 @@ public abstract class AbstractJdbcToArrowTest {
     Preconditions.checkNotNull(resultSet, "JDBC ResultSet object cannot be null");
     Preconditions.checkNotNull(config, "The configuration cannot be null");
 
-    VectorSchemaRoot root = VectorSchemaRoot.create(
-        JdbcToArrowUtils.jdbcToArrowSchema(resultSet.getMetaData(), config), config.getAllocator());
+    VectorSchemaRoot root =
+        VectorSchemaRoot.create(
+            JdbcToArrowUtils.jdbcToArrowSchema(resultSet.getMetaData(), config),
+            config.getAllocator());
     if (config.getTargetBatchSize() != JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE) {
       ValueVectorUtility.preAllocate(root, config.getTargetBatchSize());
     }
@@ -350,12 +361,14 @@ public abstract class AbstractJdbcToArrowTest {
 
   /**
    * Register MAP_FIELD20 as ArrowType.Map
-   * @param calendar  Calendar instance to use for Date, Time and Timestamp datasets, or <code>null</code> if none.
+   *
+   * @param calendar Calendar instance to use for Date, Time and Timestamp datasets, or <code>null
+   *     </code> if none.
    * @param rsmd ResultSetMetaData to lookup column name from result set metadata
    * @return typeConverter instance with mapping column to Map type
    */
   protected Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter(
-          Calendar calendar, ResultSetMetaData rsmd) {
+      Calendar calendar, ResultSetMetaData rsmd) {
     return (jdbcFieldInfo) -> {
       String columnLabel = null;
       try {
@@ -377,5 +390,4 @@ public abstract class AbstractJdbcToArrowTest {
   protected ResultSetMetaData getQueryMetaData(String query) throws SQLException {
     return conn.createStatement().executeQuery(query).getMetaData();
   }
-
 }

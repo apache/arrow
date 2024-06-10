@@ -19,10 +19,10 @@ package org.apache.arrow.vector.ipc;
 
 import static java.util.Arrays.asList;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -48,9 +48,7 @@ import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.junit.jupiter.api.Test;
 
 public class MessageSerializerTest {
 
@@ -154,9 +152,6 @@ public class MessageSerializerTest {
     assertEquals(schema, deserialized);
   }
 
-  @Rule
-  public ExpectedException expectedEx = ExpectedException.none();
-
   @Test
   public void testSerializeRecordBatchV4() throws IOException {
     byte[] validity = new byte[]{(byte) 255, 0};
@@ -243,5 +238,4 @@ public class MessageSerializerTest {
     assertArrayEquals(validity, MessageSerializerTest.array(buffers.get(0)));
     assertArrayEquals(values, MessageSerializerTest.array(buffers.get(1)));
   }
-
 }

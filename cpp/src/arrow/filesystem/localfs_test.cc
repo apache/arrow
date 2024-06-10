@@ -154,15 +154,16 @@ TEST(FileSystemFromUri, RuntimeRegisteredFactory) {
   EXPECT_THAT(FileSystemFromUri("slowfile2:///hey/yo", &path),
               Raises(StatusCode::Invalid));
 
-  EXPECT_THAT(RegisterFileSystemFactory("slowfile2", {SlowFileSystemFactory, "", 0}),
-              Ok());
+  EXPECT_THAT(
+      RegisterFileSystemFactory("slowfile2", {SlowFileSystemFactory, __FILE__, __LINE__}),
+      Ok());
 
   ASSERT_OK_AND_ASSIGN(auto fs, FileSystemFromUri("slowfile2:///hey/yo", &path));
   EXPECT_EQ(path, "/hey/yo");
   EXPECT_EQ(fs->type_name(), "slow");
 
   EXPECT_THAT(
-      RegisterFileSystemFactory("slowfile2", {SlowFileSystemFactory, "", 0}),
+      RegisterFileSystemFactory("slowfile2", {SlowFileSystemFactory, __FILE__, __LINE__}),
       Raises(StatusCode::KeyError,
              testing::HasSubstr("Attempted to register factory for scheme 'slowfile2' "
                                 "but that scheme is already registered")));
@@ -542,7 +543,7 @@ struct DirTreeCreator {
   Result<FileInfoVector> Create(const std::string& base) {
     FileInfoVector infos;
     RETURN_NOT_OK(Create(base, 0, &infos));
-    return std::move(infos);
+    return infos;
   }
 
   Status Create(const std::string& base, int depth, FileInfoVector* infos) {

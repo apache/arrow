@@ -22,6 +22,7 @@ import static org.apache.arrow.vector.validate.ValidateUtil.validateOrThrow;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseLargeVariableWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
+import org.apache.arrow.vector.BaseVariableWidthViewVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateDayVector;
@@ -306,6 +307,11 @@ public class ValidateVectorTypeVisitor implements VectorVisitor<Void, Void> {
       validateVectorCommon(vector, ArrowType.LargeBinary.class);
     }
     return null;
+  }
+
+  @Override
+  public Void visit(BaseVariableWidthViewVector vector, Void value) {
+    throw new UnsupportedOperationException("View vectors are not supported.");
   }
 
   @Override

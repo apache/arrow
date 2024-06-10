@@ -18,6 +18,7 @@
 package org.apache.arrow.c;
 
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 import org.apache.arrow.util.Preconditions;
@@ -127,7 +128,7 @@ final class Format {
                 String.format("Int type with bitwidth %d is unsupported", type.getBitWidth()));
         }
         if (type.getIsSigned()) {
-          format = format.toLowerCase();
+          format = format.toLowerCase(Locale.ROOT);
         }
         return format;
       }

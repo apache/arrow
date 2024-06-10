@@ -14,14 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.algorithm.search;
 
 import static org.junit.Assert.assertEquals;
 
 import java.util.Arrays;
 import java.util.Collection;
-
 import org.apache.arrow.algorithm.sort.DefaultVectorComparators;
 import org.apache.arrow.algorithm.sort.VectorValueComparator;
 import org.apache.arrow.memory.BufferAllocator;
@@ -33,9 +31,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
-/**
- * Test cases for {@link VectorRangeSearcher}.
- */
+/** Test cases for {@link VectorRangeSearcher}. */
 @RunWith(Parameterized.class)
 public class TestVectorRangeSearcher {
 
@@ -78,9 +74,11 @@ public class TestVectorRangeSearcher {
       }
 
       // do search
-      VectorValueComparator<IntVector> comparator = DefaultVectorComparators.createDefaultComparator(intVector);
+      VectorValueComparator<IntVector> comparator =
+          DefaultVectorComparators.createDefaultComparator(intVector);
       for (int i = 0; i < maxValue; i++) {
-        int result = VectorRangeSearcher.getFirstMatch(intVector, comparator, intVector, i * repeat);
+        int result =
+            VectorRangeSearcher.getFirstMatch(intVector, comparator, intVector, i * repeat);
         assertEquals(i * ((long) repeat), result);
       }
     }
@@ -112,7 +110,8 @@ public class TestVectorRangeSearcher {
       }
 
       // do search
-      VectorValueComparator<IntVector> comparator = DefaultVectorComparators.createDefaultComparator(intVector);
+      VectorValueComparator<IntVector> comparator =
+          DefaultVectorComparators.createDefaultComparator(intVector);
       for (int i = 0; i < maxValue; i++) {
         int result = VectorRangeSearcher.getFirstMatch(intVector, comparator, negVector, i);
         assertEquals(-1, result);
@@ -141,7 +140,8 @@ public class TestVectorRangeSearcher {
       }
 
       // do search
-      VectorValueComparator<IntVector> comparator = DefaultVectorComparators.createDefaultComparator(intVector);
+      VectorValueComparator<IntVector> comparator =
+          DefaultVectorComparators.createDefaultComparator(intVector);
       for (int i = 0; i < maxValue; i++) {
         int result = VectorRangeSearcher.getLastMatch(intVector, comparator, intVector, i * repeat);
         assertEquals((i + 1) * repeat - 1, result);
@@ -153,7 +153,7 @@ public class TestVectorRangeSearcher {
   public void testGetUpperBoundsNegative() {
     final int maxValue = 100;
     try (IntVector intVector = new IntVector("int vec", allocator);
-         IntVector negVector = new IntVector("neg vec", allocator)) {
+        IntVector negVector = new IntVector("neg vec", allocator)) {
       // allocate vector
       intVector.allocateNew(maxValue * repeat);
       intVector.setValueCount(maxValue * repeat);
@@ -175,7 +175,8 @@ public class TestVectorRangeSearcher {
       }
 
       // do search
-      VectorValueComparator<IntVector> comparator = DefaultVectorComparators.createDefaultComparator(intVector);
+      VectorValueComparator<IntVector> comparator =
+          DefaultVectorComparators.createDefaultComparator(intVector);
       for (int i = 0; i < maxValue; i++) {
         int result = VectorRangeSearcher.getLastMatch(intVector, comparator, negVector, i);
         assertEquals(-1, result);
@@ -185,11 +186,6 @@ public class TestVectorRangeSearcher {
 
   @Parameterized.Parameters(name = "repeat = {0}")
   public static Collection<Object[]> getRepeat() {
-    return Arrays.asList(
-      new Object[]{1},
-      new Object[]{2},
-      new Object[]{5},
-      new Object[]{10}
-    );
+    return Arrays.asList(new Object[] {1}, new Object[] {2}, new Object[] {5}, new Object[] {10});
   }
 }

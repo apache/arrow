@@ -14,29 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc.consumer;
 
 import java.io.IOException;
 import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.ListVector;
 
 /**
- * Consumer which consume array type values from {@link ResultSet}.
- * Write the data to {@link org.apache.arrow.vector.complex.ListVector}.
+ * Consumer which consume array type values from {@link ResultSet}. Write the data to {@link
+ * org.apache.arrow.vector.complex.ListVector}.
  */
 public abstract class ArrayConsumer extends BaseConsumer<ListVector> {
 
-  /**
-   * Creates a consumer for {@link ListVector}.
-   */
+  /** Creates a consumer for {@link ListVector}. */
   public static ArrayConsumer createConsumer(
-        ListVector vector, JdbcConsumer delegate, int index, boolean nullable) {
+      ListVector vector, JdbcConsumer delegate, int index, boolean nullable) {
     if (nullable) {
       return new ArrayConsumer.NullableArrayConsumer(vector, delegate, index);
     } else {
@@ -50,9 +46,7 @@ public abstract class ArrayConsumer extends BaseConsumer<ListVector> {
 
   protected int innerVectorIndex = 0;
 
-  /**
-   * Instantiate a ArrayConsumer.
-   */
+  /** Instantiate a ArrayConsumer. */
   public ArrayConsumer(ListVector vector, JdbcConsumer delegate, int index) {
     super(vector, index);
     this.delegate = delegate;
@@ -81,14 +75,10 @@ public abstract class ArrayConsumer extends BaseConsumer<ListVector> {
     }
   }
 
-  /**
-   * Nullable consumer for {@link ListVector}.
-   */
+  /** Nullable consumer for {@link ListVector}. */
   static class NullableArrayConsumer extends ArrayConsumer {
 
-    /**
-     * Instantiate a nullable array consumer.
-     */
+    /** Instantiate a nullable array consumer. */
     public NullableArrayConsumer(ListVector vector, JdbcConsumer delegate, int index) {
       super(vector, delegate, index);
     }
@@ -113,14 +103,10 @@ public abstract class ArrayConsumer extends BaseConsumer<ListVector> {
     }
   }
 
-  /**
-   * Non-nullable consumer for {@link ListVector}.
-   */
+  /** Non-nullable consumer for {@link ListVector}. */
   static class NonNullableArrayConsumer extends ArrayConsumer {
 
-    /**
-     * Instantiate a nullable array consumer.
-     */
+    /** Instantiate a nullable array consumer. */
     public NonNullableArrayConsumer(ListVector vector, JdbcConsumer delegate, int index) {
       super(vector, delegate, index);
     }

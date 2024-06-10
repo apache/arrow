@@ -1119,24 +1119,10 @@ func (p *PreparedStatement) Execute(ctx context.Context, opts ...grpc.CallOption
 		return nil, err
 	}
 
-	if p.hasBindParameters() {
-		pstream, err := p.client.Client.DoPut(ctx, opts...)
-		if err != nil {
-			return nil, err
-		}
-		wr, err := p.writeBindParameters(pstream, desc)
-		if err != nil {
-			return nil, err
-		}
-		if err = wr.Close(); err != nil {
-			return nil, err
-		}
-		pstream.CloseSend()
-		if err = p.captureDoPutPreparedStatementHandle(pstream); err != nil {
-			return nil, err
-		}
+	desc, err = p.bindParameters(ctx, desc, opts...)
+	if err != nil {
+		return nil, err
 	}
-
 	return p.client.getFlightInfo(ctx, desc, opts...)
 }
 
@@ -1156,23 +1142,9 @@ func (p *PreparedStatement) ExecutePut(ctx context.Context, opts ...grpc.CallOpt
 		return err
 	}
 
-	if p.hasBindParameters() {
-		pstream, err := p.client.Client.DoPut(ctx, opts...)
-		if err != nil {
-			return err
-		}
-
-		wr, err := p.writeBindParameters(pstream, desc)
-		if err != nil {
-			return err
-		}
-		if err = wr.Close(); err != nil {
-			return err
-		}
-		pstream.CloseSend()
-		if err = p.captureDoPutPreparedStatementHandle(pstream); err != nil {
-			return err
-		}
+	_, err = p.bindParameters(ctx, desc, opts...)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -1200,23 +1172,9 @@ func (p *PreparedStatement) ExecutePoll(ctx context.Context, retryDescriptor *fl
 	}
 
 	if retryDescriptor == nil {
-		if p.hasBindParameters() {
-			pstream, err := p.client.Client.DoPut(ctx, opts...)
-			if err != nil {
-				return nil, err
-			}
-
-			wr, err := p.writeBindParameters(pstream, desc)
-			if err != nil {
-				return nil, err
-			}
-			if err = wr.Close(); err != nil {
-				return nil, err
-			}
-			pstream.CloseSend()
-			if err = p.captureDoPutPreparedStatementHandle(pstream); err != nil {
-				return nil, err
-			}
+		desc, err = p.bindParameters(ctx, desc, opts...)
+		if err != nil {
+			return nil, err
 		}
 	}
 	return p.client.Client.PollFlightInfo(ctx, desc, opts...)
@@ -1248,7 +1206,7 @@ func (p *PreparedStatement) ExecuteUpdate(ctx context.Context, opts ...grpc.Call
 		return
 	}
 	if p.hasBindParameters() {
-		wr, err = p.writeBindParameters(pstream, desc)
+		wr, err = p.writeBindParametersToStream(pstream, desc)
 		if err != nil {
 			return
 		}
@@ -1283,7 +1241,36 @@ func (p *PreparedStatement) hasBindParameters() bool {
 	return (p.paramBinding != nil && p.paramBinding.NumRows() > 0) || (p.streamBinding != nil)
 }
 
-func (p *PreparedStatement) writeBindParameters(pstream pb.FlightService_DoPutClient, desc *pb.FlightDescriptor) (*flight.Writer, error) {
+func (p *PreparedStatement) bindParameters(ctx context.Context, desc *pb.FlightDescriptor, opts ...grpc.CallOption) (*flight.FlightDescriptor, error) {
+	if p.hasBindParameters() {
+		pstream, err := p.client.Client.DoPut(ctx, opts...)
+		if err != nil {
+			return nil, err
+		}
+		wr, err := p.writeBindParametersToStream(pstream, desc)
+		if err != nil {
+			return nil, err
+		}
+		if err = wr.Close(); err != nil {
+			return nil, err
+		}
+		pstream.CloseSend()
+		if err = p.captureDoPutPreparedStatementHandle(pstream); err != nil {
+			return nil, err
+		}
+
+		cmd := pb.CommandPreparedStatementQuery{PreparedStatementHandle: p.handle}
+		desc, err = descForCommand(&cmd)
+		if err != nil {
+			return nil, err
+		}
+		return desc, nil
+	}
+	return desc, nil
+}
+
+// XXX: this does not capture the updated handle. Prefer bindParameters.
+func (p *PreparedStatement) writeBindParametersToStream(pstream pb.FlightService_DoPutClient, desc *pb.FlightDescriptor) (*flight.Writer, error) {
 	if p.paramBinding != nil {
 		wr := flight.NewRecordWriter(pstream, ipc.WithSchema(p.paramBinding.Schema()))
 		wr.SetFlightDescriptor(desc)

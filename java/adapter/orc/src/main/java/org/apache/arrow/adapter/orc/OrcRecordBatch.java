@@ -14,27 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.orc;
 
 import java.util.Arrays;
 import java.util.List;
 
-/**
- * Wrapper for record batch meta and native memory.
- */
+/** Wrapper for record batch meta and native memory. */
 class OrcRecordBatch {
   final int length;
 
-  /**
-   * Nodes correspond to the pre-ordered flattened logical schema.
-   */
+  /** Nodes correspond to the pre-ordered flattened logical schema. */
   final List<OrcFieldNode> nodes;
 
   final List<OrcMemoryJniWrapper> buffers;
 
   /**
    * Construct a new instance.
+   *
    * @param length number of records included in current batch
    * @param nodes meta data for each fields
    * @param buffers buffers for underlying data

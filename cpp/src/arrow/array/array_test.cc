@@ -478,6 +478,7 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
       ASSERT_EQ(array->type(), type);
       ASSERT_OK(array->ValidateFull());
       ASSERT_EQ(array->length(), length);
+      ASSERT_EQ(array->device_type(), DeviceAllocationType::kCPU);
       if (is_union(type->id())) {
         ASSERT_EQ(array->null_count(), 0);
         ASSERT_EQ(array->ComputeLogicalNullCount(), length);
@@ -719,6 +720,7 @@ TEST_F(TestArray, TestMakeArrayFromScalar) {
       ASSERT_OK(array->ValidateFull());
       ASSERT_EQ(array->length(), length);
       ASSERT_EQ(array->null_count(), 0);
+      ASSERT_EQ(array->device_type(), DeviceAllocationType::kCPU);
 
       // test case for ARROW-13321
       for (int64_t i : {int64_t{0}, length / 2, length - 1}) {
@@ -744,6 +746,7 @@ TEST_F(TestArray, TestMakeArrayFromScalarSliced) {
     auto sliced = array->Slice(1, 4);
     ASSERT_EQ(sliced->length(), 4);
     ASSERT_EQ(sliced->null_count(), 0);
+    ASSERT_EQ(array->device_type(), DeviceAllocationType::kCPU);
     ARROW_EXPECT_OK(sliced->ValidateFull());
   }
 }
@@ -758,6 +761,7 @@ TEST_F(TestArray, TestMakeArrayFromDictionaryScalar) {
   ASSERT_OK(array->ValidateFull());
   ASSERT_EQ(array->length(), 4);
   ASSERT_EQ(array->null_count(), 0);
+  ASSERT_EQ(array->device_type(), DeviceAllocationType::kCPU);
 
   for (int i = 0; i < 4; i++) {
     ASSERT_OK_AND_ASSIGN(auto item, array->GetScalar(i));
@@ -797,6 +801,7 @@ TEST_F(TestArray, TestMakeEmptyArray) {
     ASSERT_OK_AND_ASSIGN(auto array, MakeEmptyArray(type));
     ASSERT_OK(array->ValidateFull());
     ASSERT_EQ(array->length(), 0);
+
     CheckSpanRoundTrip(*array);
   }
 }
@@ -827,6 +832,9 @@ TEST_F(TestArray, TestFillFromScalar) {
 // GH-40069: Data-race when concurrent calling ArraySpan::FillFromScalar of the same
 // scalar instance.
 TEST_F(TestArray, TestConcurrentFillFromScalar) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
   for (auto type : TestArrayUtilitiesAgainstTheseTypes()) {
     ARROW_SCOPED_TRACE("type = ", type->ToString());
     for (auto seed : {0u, 0xdeadbeef, 42u}) {

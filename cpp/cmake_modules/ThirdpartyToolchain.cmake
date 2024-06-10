@@ -1263,7 +1263,7 @@ endif()
 # - S3FS and Flight benchmarks need Boost at runtime.
 if(ARROW_BUILD_INTEGRATION
    OR ARROW_BUILD_TESTS
-   OR (ARROW_FLIGHT AND ARROW_BUILD_BENCHMARKS)
+   OR (ARROW_FLIGHT AND (ARROW_TESTING OR ARROW_BUILD_BENCHMARKS))
    OR (ARROW_S3 AND ARROW_BUILD_BENCHMARKS))
   set(ARROW_USE_BOOST TRUE)
   set(ARROW_BOOST_REQUIRE_LIBRARY TRUE)
@@ -2819,11 +2819,13 @@ macro(build_utf8proc)
 endmacro()
 
 if(ARROW_WITH_UTF8PROC)
-  resolve_dependency(utf8proc
-                     PC_PACKAGE_NAMES
-                     libutf8proc
-                     REQUIRED_VERSION
-                     "2.2.0")
+  set(utf8proc_resolve_dependency_args utf8proc PC_PACKAGE_NAMES libutf8proc)
+  if(NOT VCPKG_TOOLCHAIN)
+    # utf8proc in vcpkg doesn't provide version information:
+    # https://github.com/microsoft/vcpkg/issues/39176
+    list(APPEND utf8proc_resolve_dependency_args REQUIRED_VERSION "2.2.0")
+  endif()
+  resolve_dependency(${utf8proc_resolve_dependency_args})
 endif()
 
 macro(build_cares)
@@ -4522,7 +4524,7 @@ macro(build_orc)
       "-DSNAPPY_HOME=${ORC_SNAPPY_ROOT}"
       "-DSNAPPY_LIBRARY=$<TARGET_FILE:${Snappy_TARGET}>"
       "-DLZ4_LIBRARY=$<TARGET_FILE:LZ4::lz4>"
-      "-DLZ4_STATIC_LIBRARY=$<TARGET_FILE:LZ4::lz4>"
+      "-DLZ4_STATIC_LIB=$<TARGET_FILE:LZ4::lz4>"
       "-DLZ4_INCLUDE_DIR=${ORC_LZ4_ROOT}/include"
       "-DSNAPPY_INCLUDE_DIR=${ORC_SNAPPY_INCLUDE_DIR}"
       "-DZSTD_HOME=${ORC_ZSTD_ROOT}"
@@ -5348,9 +5350,3 @@ if(ARROW_WITH_UCX)
 endif()
 
 message(STATUS "All bundled static libraries: ${ARROW_BUNDLED_STATIC_LIBS}")
-
-# Write out the package configurations.
-
-configure_file("src/arrow/util/config.h.cmake" "src/arrow/util/config.h" ESCAPE_QUOTES)
-install(FILES "${ARROW_BINARY_DIR}/src/arrow/util/config.h"
-        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/util")

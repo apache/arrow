@@ -19,6 +19,8 @@ package org.apache.arrow.memory.util;
 
 import static org.junit.Assert.assertEquals;
 
+import java.nio.charset.StandardCharsets;
+
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -121,9 +123,9 @@ public class TestByteFunctionHelpers {
       String rightStr = rightStrings[i];
 
       ArrowBuf left = allocator.buffer(SIZE);
-      left.setBytes(0, leftStr.getBytes());
+      left.setBytes(0, leftStr.getBytes(StandardCharsets.UTF_8));
       ArrowBuf right = allocator.buffer(SIZE);
-      right.setBytes(0, rightStr.getBytes());
+      right.setBytes(0, rightStr.getBytes(StandardCharsets.UTF_8));
 
       assertEquals(leftStr.compareTo(rightStr) < 0 ? -1 : 1,
           ByteFunctionHelpers.compare(left, 0, leftStr.length(), right, 0, rightStr.length()));

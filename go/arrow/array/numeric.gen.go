@@ -307,7 +307,7 @@ func (a *Float64) MarshalJSON() ([]byte, error) {
 		default:
 			vals[i] = f
 		}
-		
+
 	}
 
 	return json.Marshal(vals)

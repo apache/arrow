@@ -17,8 +17,7 @@
 
 package org.apache.arrow.vector;
 
-import static org.junit.Assert.assertEquals;
-
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.time.Duration;
 import java.time.Period;
@@ -29,20 +28,20 @@ import org.apache.arrow.vector.holders.NullableIntervalMonthDayNanoHolder;
 import org.apache.arrow.vector.types.IntervalUnit;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class TestIntervalMonthDayNanoVector {
 
   private BufferAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void init() {
     allocator = new DirtyRootAllocator(Long.MAX_VALUE, (byte) 100);
   }
 
-  @After
+  @AfterEach
   public void terminate() throws Exception {
     allocator.close();
   }

@@ -22,10 +22,10 @@ import (
 	flatbuffers "github.com/google/flatbuffers/go"
 )
 
-/// A union is a complex type with children in Field
-/// By default ids in the type vector refer to the offsets in the children
-/// optionally typeIds provides an indirection between the child offset and the type id
-/// for each child `typeIds[offset]` is the id used in the type vector
+// / A union is a complex type with children in Field
+// / By default ids in the type vector refer to the offsets in the children
+// / optionally typeIds provides an indirection between the child offset and the type id
+// / for each child `typeIds[offset]` is the id used in the type vector
 type Union struct {
 	_tab flatbuffers.Table
 }

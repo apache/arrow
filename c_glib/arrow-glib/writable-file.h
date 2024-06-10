@@ -24,9 +24,11 @@
 G_BEGIN_DECLS
 
 #define GARROW_TYPE_WRITABLE_FILE (garrow_writable_file_get_type())
+GARROW_AVAILABLE_IN_ALL
 G_DECLARE_INTERFACE(
   GArrowWritableFile, garrow_writable_file, GARROW, WRITABLE_FILE, GObject)
 
+GARROW_AVAILABLE_IN_ALL
 gboolean
 garrow_writable_file_write_at(GArrowWritableFile *writable_file,
                               gint64 position,

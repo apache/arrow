@@ -566,7 +566,7 @@ Result<std::unique_ptr<ORCFileReader>> ORCFileReader::Open(
 #endif
   auto result = std::unique_ptr<ORCFileReader>(new ORCFileReader());
   RETURN_NOT_OK(result->impl_->Open(file, pool));
-  return std::move(result);
+  return result;
 }
 
 Result<std::shared_ptr<const KeyValueMetadata>> ORCFileReader::ReadMetadata() {
@@ -837,7 +837,7 @@ Result<std::unique_ptr<ORCFileWriter>> ORCFileWriter::Open(
       std::unique_ptr<ORCFileWriter>(new ORCFileWriter());
   Status status = result->impl_->Open(output_stream, writer_options);
   RETURN_NOT_OK(status);
-  return std::move(result);
+  return result;
 }
 
 Status ORCFileWriter::Write(const Table& table) { return impl_->Write(table); }

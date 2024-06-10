@@ -2141,22 +2141,99 @@ cdef class Decimal256Array(FixedSizeBinaryArray):
 
 cdef class BaseListArray(Array):
 
-    def flatten(self):
+    def flatten(self, recursive=False):
         """
-        Unnest this ListArray/LargeListArray by one level.
-
-        The returned Array is logically a concatenation of all the sub-lists
-        in this Array.
+        Unnest this [Large]ListArray/[Large]ListViewArray/FixedSizeListArray
+        according to 'recursive'.
 
         Note that this method is different from ``self.values`` in that
         it takes care of the slicing offset as well as null elements backed
         by non-empty sub-lists.
 
+        Parameters
+        ----------
+        recursive : bool, default False, optional
+            When True, flatten this logical list-array recursively until an
+            array of non-list values is formed.
+
+            When False, flatten only the top level.
+
         Returns
         -------
         result : Array
+
+        Examples
+        --------
+
+        Basic logical list-array's flatten
+        >>> import pyarrow as pa
+        >>> values = [1, 2, 3, 4]
+        >>> offsets = [2, 1, 0]
+        >>> sizes = [2, 2, 2]
+        >>> array = pa.ListViewArray.from_arrays(offsets, sizes, values)
+        >>> array
+        <pyarrow.lib.ListViewArray object at ...>
+        [
+          [
+            3,
+            4
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            1,
+            2
+          ]
+        ]
+        >>> array.flatten()
+        <pyarrow.lib.Int64Array object at ...>
+        [
+          3,
+          4,
+          2,
+          3,
+          1,
+          2
+        ]
+
+        When recursive=True, nested list arrays are flattened recursively
+        until an array of non-list values is formed.
+
+        >>> array = pa.array([
+        ...    None,
+        ...    [
+        ...        [1, None, 2],
+        ...        None,
+        ...        [3, 4]
+        ...    ],
+        ...    [],
+        ...    [
+        ...        [],
+        ...        [5, 6],
+        ...        None
+        ...    ],
+        ...    [
+        ...        [7, 8]
+        ...    ]
+        ... ], type=pa.list_(pa.list_(pa.int64())))
+        >>> array.flatten(True)
+        <pyarrow.lib.Int64Array object at ...>
+        [
+          1,
+          null,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ]
         """
-        return _pc().list_flatten(self)
+        options = _pc().ListFlattenOptions(recursive)
+        return _pc().list_flatten(self, options=options)
 
     def value_parent_indices(self):
         """
@@ -2527,7 +2604,7 @@ cdef class LargeListArray(BaseListArray):
         return pyarrow_wrap_array((<CLargeListArray*> self.ap).offsets())
 
 
-cdef class ListViewArray(Array):
+cdef class ListViewArray(BaseListArray):
     """
     Concrete class for Arrow arrays of a list view data type.
     """
@@ -2747,69 +2824,8 @@ cdef class ListViewArray(Array):
         """
         return pyarrow_wrap_array((<CListViewArray*> self.ap).sizes())
 
-    def flatten(self, memory_pool=None):
-        """
-        Unnest this ListViewArray by one level.
 
-        The returned Array is logically a concatenation of all the sub-lists
-        in this Array.
-
-        Note that this method is different from ``self.values`` in that
-        it takes care of the slicing offset as well as null elements backed
-        by non-empty sub-lists.
-
-        Parameters
-        ----------
-        memory_pool : MemoryPool, optional
-
-        Returns
-        -------
-        result : Array
-
-        Examples
-        --------
-
-        >>> import pyarrow as pa
-        >>> values = [1, 2, 3, 4]
-        >>> offsets = [2, 1, 0]
-        >>> sizes = [2, 2, 2]
-        >>> array = pa.ListViewArray.from_arrays(offsets, sizes, values)
-        >>> array
-        <pyarrow.lib.ListViewArray object at ...>
-        [
-          [
-            3,
-            4
-          ],
-          [
-            2,
-            3
-          ],
-          [
-            1,
-            2
-          ]
-        ]
-        >>> array.flatten()
-        <pyarrow.lib.Int64Array object at ...>
-        [
-          3,
-          4,
-          2,
-          3,
-          1,
-          2
-        ]
-        """
-        cdef CMemoryPool* cpool = maybe_unbox_memory_pool(memory_pool)
-        with nogil:
-            out = GetResultValue((<CListViewArray*> self.ap).Flatten(cpool))
-        cdef Array result = pyarrow_wrap_array(out)
-        result.validate()
-        return result
-
-
-cdef class LargeListViewArray(Array):
+cdef class LargeListViewArray(BaseListArray):
     """
     Concrete class for Arrow arrays of a large list view data type.
 
@@ -3037,67 +3053,6 @@ cdef class LargeListViewArray(Array):
         """
         return pyarrow_wrap_array((<CLargeListViewArray*> self.ap).sizes())
 
-    def flatten(self, memory_pool=None):
-        """
-        Unnest this LargeListViewArray by one level.
-
-        The returned Array is logically a concatenation of all the sub-lists
-        in this Array.
-
-        Note that this method is different from ``self.values`` in that
-        it takes care of the slicing offset as well as null elements backed
-        by non-empty sub-lists.
-
-        Parameters
-        ----------
-        memory_pool : MemoryPool, optional
-
-        Returns
-        -------
-        result : Array
-
-        Examples
-        --------
-
-        >>> import pyarrow as pa
-        >>> values = [1, 2, 3, 4]
-        >>> offsets = [2, 1, 0]
-        >>> sizes = [2, 2, 2]
-        >>> array = pa.LargeListViewArray.from_arrays(offsets, sizes, values)
-        >>> array
-        <pyarrow.lib.LargeListViewArray object at ...>
-        [
-          [
-            3,
-            4
-          ],
-          [
-            2,
-            3
-          ],
-          [
-            1,
-            2
-          ]
-        ]
-        >>> array.flatten()
-        <pyarrow.lib.Int64Array object at ...>
-        [
-          3,
-          4,
-          2,
-          3,
-          1,
-          2
-        ]
-        """
-        cdef CMemoryPool* cpool = maybe_unbox_memory_pool(memory_pool)
-        with nogil:
-            out = GetResultValue((<CLargeListViewArray*> self.ap).Flatten(cpool))
-        cdef Array result = pyarrow_wrap_array(out)
-        result.validate()
-        return result
-
 
 cdef class MapArray(ListArray):
     """
@@ -3105,7 +3060,7 @@ cdef class MapArray(ListArray):
     """
 
     @staticmethod
-    def from_arrays(offsets, keys, items, DataType type=None, MemoryPool pool=None):
+    def from_arrays(offsets, keys, items, DataType type=None, MemoryPool pool=None, mask=None):
         """
         Construct MapArray from arrays of int32 offsets and key, item arrays.
 
@@ -3117,6 +3072,8 @@ cdef class MapArray(ListArray):
         type : DataType, optional
             If not specified, a default MapArray with the keys' and items' type is used.
         pool : MemoryPool
+        mask : Array (boolean type), optional
+            Indicate which values are null (True) or not null (False).
 
         Returns
         -------
@@ -3198,24 +3155,27 @@ cdef class MapArray(ListArray):
         cdef:
             Array _offsets, _keys, _items
             shared_ptr[CArray] out
+            shared_ptr[CBuffer] c_mask
         cdef CMemoryPool* cpool = maybe_unbox_memory_pool(pool)
 
         _offsets = asarray(offsets, type='int32')
         _keys = asarray(keys)
         _items = asarray(items)
 
+        c_mask = c_mask_inverted_from_obj(mask, pool)
+
         if type is not None:
             with nogil:
                 out = GetResultValue(
                     CMapArray.FromArraysAndType(
                         type.sp_type, _offsets.sp_array,
-                        _keys.sp_array, _items.sp_array, cpool))
+                        _keys.sp_array, _items.sp_array, cpool, c_mask))
         else:
             with nogil:
                 out = GetResultValue(
                     CMapArray.FromArrays(_offsets.sp_array,
                                          _keys.sp_array,
-                                         _items.sp_array, cpool))
+                                         _items.sp_array, cpool, c_mask))
         cdef Array result = pyarrow_wrap_array(out)
         result.validate()
         return result
@@ -3965,12 +3925,11 @@ cdef class StructArray(Array):
         result : StructArray
         """
         if by is not None:
-            tosort = self._flattened_field(by)
+            tosort, sort_keys = self._flattened_field(by), [("", order)]
         else:
-            tosort = self
+            tosort, sort_keys = self, [(field.name, order) for field in self.type]
         indices = _pc().sort_indices(
-            tosort,
-            options=_pc().SortOptions(sort_keys=[("", order)], **kwargs)
+            tosort, options=_pc().SortOptions(sort_keys=sort_keys, **kwargs)
         )
         return self.take(indices)
 
@@ -4029,7 +3988,7 @@ cdef class RunEndEncodedArray(Array):
         -------
         RunEndEncodedArray
         """
-        logical_length = run_ends[-1] if len(run_ends) > 0 else 0
+        logical_length = scalar(run_ends[-1]).as_py() if len(run_ends) > 0 else 0
         return RunEndEncodedArray._from_arrays(type, True, logical_length,
                                                run_ends, values, 0)
 

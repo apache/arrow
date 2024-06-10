@@ -717,7 +717,7 @@ Status Decimal128::FromString(const char* s, Decimal128* out, int32_t* precision
 Result<Decimal128> Decimal128::FromString(std::string_view s) {
   Decimal128 out;
   RETURN_NOT_OK(FromString(s, &out, nullptr, nullptr));
-  return std::move(out);
+  return out;
 }
 
 Result<Decimal128> Decimal128::FromString(const std::string& s) {
@@ -850,7 +850,7 @@ Status Decimal256::FromString(const char* s, Decimal256* out, int32_t* precision
 Result<Decimal256> Decimal256::FromString(std::string_view s) {
   Decimal256 out;
   RETURN_NOT_OK(FromString(s, &out, nullptr, nullptr));
-  return std::move(out);
+  return out;
 }
 
 Result<Decimal256> Decimal256::FromString(const std::string& s) {

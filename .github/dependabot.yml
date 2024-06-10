@@ -23,30 +23,35 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "MINOR: [CI] "
+    open-pull-requests-limit: 10
   - package-ecosystem: "gomod"
     directory: "/go/"
     schedule:
       interval: "weekly"
     commit-message:
       prefix: "MINOR: [Go] "
+    open-pull-requests-limit: 10
   - package-ecosystem: "maven"
     directory: "/java/"
     schedule:
       interval: "weekly"
     commit-message:
       prefix: "MINOR: [Java] "
+    open-pull-requests-limit: 10
   - package-ecosystem: "npm"
     directory: "/js/"
     schedule:
       interval: "monthly"
     commit-message:
       prefix: "MINOR: [JS] "
+    open-pull-requests-limit: 10
   - package-ecosystem: "nuget"
     directory: "/csharp/"
     schedule:
       interval: "weekly"
     commit-message:
       prefix: "MINOR: [C#] "
+    open-pull-requests-limit: 10
     ignore:
       - dependency-name: "Microsoft.Extensions.*"
         update-types:

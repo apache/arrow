@@ -17,11 +17,11 @@
 
 package org.apache.arrow.vector;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -44,21 +44,21 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class TestUnionVector {
   private static final String EMPTY_SCHEMA_PATH = "";
 
   private BufferAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void init() {
     allocator = new DirtyRootAllocator(Long.MAX_VALUE, (byte) 100);
   }
 
-  @After
+  @AfterEach
   public void terminate() throws Exception {
     allocator.close();
   }
@@ -283,8 +283,8 @@ public class TestUnionVector {
 
           /* check the toVector output after doing the splitAndTransfer */
           for (int i = 0; i < length; i++) {
-            assertEquals("Different data at indexes: " + (start + i) + "and " + i, sourceVector.getObject(start + i),
-                toVector.getObject(i));
+            assertEquals(sourceVector.getObject(start + i), toVector.getObject(i),
+                "Different data at indexes: " + (start + i) + "and " + i);
           }
         }
       }
@@ -373,7 +373,8 @@ public class TestUnionVector {
 
           /* check the toVector output after doing the splitAndTransfer */
           for (int i = 0; i < length; i++) {
-            assertEquals("Different values at index: " + i, sourceVector.getObject(start + i), toVector.getObject(i));
+            assertEquals(sourceVector.getObject(start + i), toVector.getObject(i),
+                "Different values at index: " + i);
           }
         }
       }

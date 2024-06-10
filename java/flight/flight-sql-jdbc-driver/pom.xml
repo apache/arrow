@@ -15,7 +15,6 @@
     <groupId>org.apache.arrow</groupId>
     <artifactId>arrow-flight</artifactId>
     <version>17.0.0-SNAPSHOT</version>
-    <relativePath>../pom.xml</relativePath>
   </parent>
 
   <artifactId>flight-sql-jdbc-driver</artifactId>

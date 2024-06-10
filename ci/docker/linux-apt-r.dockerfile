@@ -35,7 +35,7 @@ ENV LANG=C.UTF-8
 # Build R
 # [1] https://www.digitalocean.com/community/tutorials/how-to-install-r-on-ubuntu-18-04
 # [2] https://linuxize.com/post/how-to-install-r-on-ubuntu-18-04/#installing-r-packages-from-cran
-ARG r=3.6
+ARG r=4.4
 RUN apt-get update -y && \
     apt-get install -y \
         dirmngr \
@@ -113,7 +113,6 @@ ENV \
     ARROW_GANDIVA=OFF \
     ARROW_HDFS=OFF \
     ARROW_JSON=ON \
-    ARROW_NO_DEPRECATED_API=ON \
     ARROW_ORC=OFF \
     ARROW_PARQUET=ON \
     ARROW_S3=ON \

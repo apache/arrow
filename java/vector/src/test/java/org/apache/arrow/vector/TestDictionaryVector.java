@@ -19,7 +19,11 @@ package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.TestUtils.*;
 import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -49,9 +53,9 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.Text;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class TestDictionaryVector {
 
@@ -63,12 +67,12 @@ public class TestDictionaryVector {
 
   byte[][] data = new byte[][] {zero, one, two};
 
-  @Before
+  @BeforeEach
   public void init() {
     allocator = new DirtyRootAllocator(Long.MAX_VALUE, (byte) 100);
   }
 
-  @After
+  @AfterEach
   public void terminate() throws Exception {
     allocator.close();
   }
@@ -896,7 +900,7 @@ public class TestDictionaryVector {
         assertEquals("Dictionary encoding not defined for value:" + new Text(two), e.getMessage());
       }
     }
-    assertEquals("encode memory leak", 0, allocator.getAllocatedMemory());
+    assertEquals(0, allocator.getAllocatedMemory(), "encode memory leak");
 
     // test no memory leak when decode
     try (final IntVector indices = newVector(IntVector.class, "", Types.MinorType.INT, allocator);
@@ -914,7 +918,7 @@ public class TestDictionaryVector {
         assertEquals("Provided dictionary does not contain value for index 3", e.getMessage());
       }
     }
-    assertEquals("decode memory leak", 0, allocator.getAllocatedMemory());
+    assertEquals(0, allocator.getAllocatedMemory(), "decode memory leak");
   }
 
   @Test
@@ -942,7 +946,7 @@ public class TestDictionaryVector {
         assertEquals("Dictionary encoding not defined for value:20", e.getMessage());
       }
     }
-    assertEquals("list encode memory leak", 0, allocator.getAllocatedMemory());
+    assertEquals(0, allocator.getAllocatedMemory(), "list encode memory leak");
 
     try (final ListVector indices = ListVector.empty("indices", allocator);
          final ListVector dictionaryVector = ListVector.empty("dict", allocator)) {
@@ -966,7 +970,7 @@ public class TestDictionaryVector {
         assertEquals("Provided dictionary does not contain value for index 3", e.getMessage());
       }
     }
-    assertEquals("list decode memory leak", 0, allocator.getAllocatedMemory());
+    assertEquals(0, allocator.getAllocatedMemory(), "list decode memory leak");
   }
 
   @Test
@@ -1003,7 +1007,7 @@ public class TestDictionaryVector {
         assertEquals("Dictionary encoding not defined for value:baz", e.getMessage());
       }
     }
-    assertEquals("struct encode memory leak", 0, allocator.getAllocatedMemory());
+    assertEquals(0, allocator.getAllocatedMemory(), "struct encode memory leak");
 
     try (final StructVector indices = StructVector.empty("indices", allocator);
          final VarCharVector dictVector1 = new VarCharVector("f0", allocator);
@@ -1040,7 +1044,7 @@ public class TestDictionaryVector {
         assertEquals("Provided dictionary does not contain value for index 3", e.getMessage());
       }
     }
-    assertEquals("struct decode memory leak", 0, allocator.getAllocatedMemory());
+    assertEquals(0, allocator.getAllocatedMemory(), "struct decode memory leak");
   }
 
   private void testDictionary(Dictionary dictionary, ToIntBiFunction<ValueVector, Integer> valGetter) {

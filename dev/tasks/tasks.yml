@@ -65,7 +65,7 @@ groups:
     - r-binary-packages
     - ubuntu-*
     - wheel-*
-    - test-ubuntu-*-docs
+    - test-debian-*-docs
 
 {############################# Testing tasks #################################}
 
@@ -409,7 +409,7 @@ tasks:
       arrow_jemalloc: "ON"
       python_version: "{{ python_version }}"
       macos_deployment_target: "{{ macos_version }}"
-      runs_on: "macos-latest"
+      runs_on: "macos-13"
       vcpkg_arch: "amd64"
     artifacts:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-{{ platform_tag }}.whl
@@ -451,8 +451,7 @@ tasks:
 
 {############################## Linux PKGS ####################################}
 
-{% for target in ["debian-bullseye",
-                  "debian-bookworm",
+{% for target in ["debian-bookworm",
                   "debian-trixie",
                   "ubuntu-focal",
                   "ubuntu-jammy",
@@ -748,7 +747,6 @@ tasks:
       - arrow-jdbc-{no_rc_snapshot_version}.pom
       - arrow-maven-plugins-{no_rc_snapshot_version}-cyclonedx.json
       - arrow-maven-plugins-{no_rc_snapshot_version}-cyclonedx.xml
-      - arrow-maven-plugins-{no_rc_snapshot_version}-src.zip
       - arrow-maven-plugins-{no_rc_snapshot_version}.pom
       - arrow-memory-core-{no_rc_snapshot_version}-cyclonedx.json
       - arrow-memory-core-{no_rc_snapshot_version}-cyclonedx.xml
@@ -852,7 +850,6 @@ tasks:
       - module-info-compiler-maven-plugin-{no_rc_snapshot_version}-cyclonedx.xml
       - module-info-compiler-maven-plugin-{no_rc_snapshot_version}-javadoc.jar
       - module-info-compiler-maven-plugin-{no_rc_snapshot_version}-sources.jar
-      - module-info-compiler-maven-plugin-{no_rc_snapshot_version}-src.zip
       - module-info-compiler-maven-plugin-{no_rc_snapshot_version}.jar
       - module-info-compiler-maven-plugin-{no_rc_snapshot_version}.pom
 
@@ -888,12 +885,12 @@ tasks:
       - r-lib__libarrow__bin__darwin-arm64-openssl-3.0__arrow-{no_rc_r_version}\.zip
       - r-lib__libarrow__bin__darwin-x86_64-openssl-1.1__arrow-{no_rc_r_version}\.zip
       - r-lib__libarrow__bin__darwin-x86_64-openssl-3.0__arrow-{no_rc_r_version}\.zip
+      - r-pkg__bin__windows__contrib__4.4__arrow_{no_rc_r_version}\.zip
       - r-pkg__bin__windows__contrib__4.3__arrow_{no_rc_r_version}\.zip
-      - r-pkg__bin__windows__contrib__4.2__arrow_{no_rc_r_version}\.zip
+      - r-pkg__bin__macosx__big-sur-x86_64__contrib__4.4__arrow_{no_rc_r_version}\.tgz
       - r-pkg__bin__macosx__big-sur-x86_64__contrib__4.3__arrow_{no_rc_r_version}\.tgz
-      - r-pkg__bin__macosx__contrib__4.2__arrow_{no_rc_r_version}\.tgz
+      - r-pkg__bin__macosx__big-sur-arm64__contrib__4.4__arrow_{no_rc_r_version}\.tgz
       - r-pkg__bin__macosx__big-sur-arm64__contrib__4.3__arrow_{no_rc_r_version}\.tgz
-      - r-pkg__bin__macosx__big-sur-arm64__contrib__4.2__arrow_{no_rc_r_version}\.tgz
       - r-pkg__src__contrib__arrow_{no_rc_r_version}\.tar\.gz
 
 
@@ -1356,10 +1353,10 @@ tasks:
       r_tag: latest
       r_custom_ccache: true
 
-{% for r_org, r_image, r_tag in [("rhub", "ubuntu-gcc-release", "latest"),
+{% for r_org, r_image, r_tag in [("rhub", "ubuntu-release", "latest"),
                                  ("rocker", "r-ver", "latest"),
                                  ("rstudio", "r-base", "4.2-focal"),
-                                 ("rstudio", "r-base", "4.1-opensuse153")] %}
+                                 ("rstudio", "r-base", "4.1-opensuse155")] %}
   test-r-{{ r_org }}-{{ r_image }}-{{ r_tag }}:
     ci: azure
     template: r/azure.linux.yml
@@ -1377,9 +1374,9 @@ tasks:
     template: r/azure.linux.yml
     params:
       r_org: rhub
-      r_image: debian-gcc-devel-lto
+      r_image: gcc13
       r_tag: latest
-      flags: '-e NOT_CRAN=false -e INSTALL_ARGS=--use-LTO'
+      flags: '-e INSTALL_ARGS=--use-LTO'
 
   # This one has -flto=auto
   test-r-ubuntu-22.04:
@@ -1411,15 +1408,6 @@ tasks:
         GCC_VERSION: 12
       image: ubuntu-r-only-r
 
-  test-r-rstudio-r-base-4.2-centos7-devtoolset-8:
-    ci: azure
-    template: r/azure.linux.yml
-    params:
-      r_org: rstudio
-      r_image: r-base
-      r_tag: 4.2-centos7
-      devtoolset_version: 8
-
   test-r-minimal-build:
     ci: azure
     template: r/azure.linux.yml
@@ -1437,13 +1425,13 @@ tasks:
         R_PRUNE_DEPS: TRUE
       image: ubuntu-r-sanitizer
 
-  test-fedora-r-clang-sanitizer:
+  test-r-clang-sanitizer:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
         R_PRUNE_DEPS: TRUE
-      image: fedora-r-clang-sanitizer
+      image: r-clang-sanitizer
 
   {% for go_version, staticcheck in [("1.21", "v0.4.7"), ("1.22", "latest")] %}
   test-debian-12-go-{{ go_version }}:
@@ -1458,15 +1446,15 @@ tasks:
   {% endfor %}
 
   # be sure to update binary-task.rb when upgrading ubuntu
-  test-ubuntu-22.04-docs:
+  test-debian-12-docs:
     ci: github
     template: docs/github.linux.yml
     params:
       env:
-        UBUNTU: 22.04
+        JDK: 17
       pr_number: Unset
       flags: "-v $PWD/build/:/build/"
-      image: ubuntu-docs
+      image: debian-docs
       publish: false
     artifacts:
       - docs.tar.gz
@@ -1594,8 +1582,8 @@ tasks:
     template: docs/github.linux.yml
     params:
       env:
-        UBUNTU: 22.04
+        JDK: 17
       pr_number: Unset
       flags: "-v $PWD/build/:/build/"
-      image: ubuntu-docs
+      image: debian-docs
       publish: true

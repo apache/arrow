@@ -171,30 +171,7 @@ extra: int64 (multiply_checked(total, 5))
 See $.data for the source Arrow object",
     fixed = TRUE
   )
-  expect_output(
-    print(q$.data),
-    "Table (query)
-int: int32
-lgl: bool
 
-* Aggregations:
-total: sum(int)
-* Filter: (dbl > 2)
-* Grouped by lgl
-See $.data for the source Arrow object",
-    fixed = TRUE
-  )
-
-  skip_if(getRversion() < "3.6.0", "TODO investigate why these aren't equal")
-  # On older R versions:
-  #  ── Failure (test-dplyr-collapse.R:172:3): Properties of collapsed query ────────
-  # head(q, 1) %>% collect() not equal to tibble::tibble(lgl = FALSE, total = 8L, extra = 40).
-  # Component "total": Mean relative difference: 0.3846154
-  # Component "extra": Mean relative difference: 0.3846154
-  # ── Failure (test-dplyr-collapse.R:176:3): Properties of collapsed query ────────
-  # tail(q, 1) %>% collect() not equal to tibble::tibble(lgl = NA, total = 25L, extra = 125).
-  # Component "total": Mean relative difference: 0.9230769
-  # Component "extra": Mean relative difference: 0.9230769
   expect_equal(
     q %>%
       arrange(lgl) %>%

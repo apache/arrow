@@ -58,7 +58,7 @@ export ARROW_ORC
 : ${VCPKG_ROOT:=/opt/vcpkg}
 : ${VCPKG_FEATURE_FLAGS:=-manifests}
 : ${VCPKG_TARGET_TRIPLET:=${VCPKG_DEFAULT_TRIPLET:-x64-linux-static-${CMAKE_BUILD_TYPE}}}
-: ${GANDIVA_CXX_FLAGS:=-isystem;${devtoolset_include_cpp};-isystem;${devtoolset_include_cpp}/x86_64-redhat-linux;-isystem;-lpthread}
+: ${GANDIVA_CXX_FLAGS:=-isystem;${devtoolset_include_cpp};-isystem;${devtoolset_include_cpp}/x86_64-redhat-linux;-lpthread}
 
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
   echo "=== ccache statistics before build ==="

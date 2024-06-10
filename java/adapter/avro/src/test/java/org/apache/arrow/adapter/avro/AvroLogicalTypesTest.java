@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.avro;
 
 import static junit.framework.TestCase.assertNull;
@@ -27,7 +26,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.util.DateUtility;
@@ -43,13 +41,13 @@ public class AvroLogicalTypesTest extends AvroTestBase {
     Schema schema = getSchema("logical/test_timestamp_micros.avsc");
 
     List<Long> data = Arrays.asList(10000L, 20000L, 30000L, 40000L, 50000L);
-    List<LocalDateTime> expected = Arrays.asList(
-        DateUtility.getLocalDateTimeFromEpochMicro(10000),
-        DateUtility.getLocalDateTimeFromEpochMicro(20000),
-        DateUtility.getLocalDateTimeFromEpochMicro(30000),
-        DateUtility.getLocalDateTimeFromEpochMicro(40000),
-        DateUtility.getLocalDateTimeFromEpochMicro(50000)
-    );
+    List<LocalDateTime> expected =
+        Arrays.asList(
+            DateUtility.getLocalDateTimeFromEpochMicro(10000),
+            DateUtility.getLocalDateTimeFromEpochMicro(20000),
+            DateUtility.getLocalDateTimeFromEpochMicro(30000),
+            DateUtility.getLocalDateTimeFromEpochMicro(40000),
+            DateUtility.getLocalDateTimeFromEpochMicro(50000));
 
     VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
@@ -62,13 +60,13 @@ public class AvroLogicalTypesTest extends AvroTestBase {
     Schema schema = getSchema("logical/test_timestamp_millis.avsc");
 
     List<Long> data = Arrays.asList(10000L, 20000L, 30000L, 40000L, 50000L);
-    List<LocalDateTime> expected = Arrays.asList(
-        DateUtility.getLocalDateTimeFromEpochMilli(10000),
-        DateUtility.getLocalDateTimeFromEpochMilli(20000),
-        DateUtility.getLocalDateTimeFromEpochMilli(30000),
-        DateUtility.getLocalDateTimeFromEpochMilli(40000),
-        DateUtility.getLocalDateTimeFromEpochMilli(50000)
-    );
+    List<LocalDateTime> expected =
+        Arrays.asList(
+            DateUtility.getLocalDateTimeFromEpochMilli(10000),
+            DateUtility.getLocalDateTimeFromEpochMilli(20000),
+            DateUtility.getLocalDateTimeFromEpochMilli(30000),
+            DateUtility.getLocalDateTimeFromEpochMilli(40000),
+            DateUtility.getLocalDateTimeFromEpochMilli(50000));
 
     VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
@@ -93,13 +91,13 @@ public class AvroLogicalTypesTest extends AvroTestBase {
     Schema schema = getSchema("logical/test_time_millis.avsc");
 
     List<Integer> data = Arrays.asList(100, 200, 300, 400, 500);
-    List<LocalDateTime> expected = Arrays.asList(
-        DateUtility.getLocalDateTimeFromEpochMilli(100),
-        DateUtility.getLocalDateTimeFromEpochMilli(200),
-        DateUtility.getLocalDateTimeFromEpochMilli(300),
-        DateUtility.getLocalDateTimeFromEpochMilli(400),
-        DateUtility.getLocalDateTimeFromEpochMilli(500)
-    );
+    List<LocalDateTime> expected =
+        Arrays.asList(
+            DateUtility.getLocalDateTimeFromEpochMilli(100),
+            DateUtility.getLocalDateTimeFromEpochMilli(200),
+            DateUtility.getLocalDateTimeFromEpochMilli(300),
+            DateUtility.getLocalDateTimeFromEpochMilli(400),
+            DateUtility.getLocalDateTimeFromEpochMilli(500));
 
     VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
@@ -137,7 +135,6 @@ public class AvroLogicalTypesTest extends AvroTestBase {
     VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
     checkPrimitiveResult(expected, vector);
-
   }
 
   @Test
@@ -174,10 +171,9 @@ public class AvroLogicalTypesTest extends AvroTestBase {
       data.add(buffer);
     }
 
-    IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
-        () -> writeAndRead(schema, data));
+    IllegalArgumentException e =
+        assertThrows(IllegalArgumentException.class, () -> writeAndRead(schema, data));
     assertTrue(e.getMessage().contains("Precision must be in range of 1 to 38"));
-
   }
 
   @Test
@@ -197,5 +193,4 @@ public class AvroLogicalTypesTest extends AvroTestBase {
     Schema schema3 = getSchema("logical/test_decimal_invalid4.avsc");
     assertNull(schema3.getLogicalType());
   }
-
 }

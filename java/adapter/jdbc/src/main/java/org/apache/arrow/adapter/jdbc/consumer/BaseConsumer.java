@@ -14,13 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc.consumer;
 
 import org.apache.arrow.vector.ValueVector;
 
 /**
  * Base class for all consumers.
+ *
  * @param <V> vector type.
  */
 public abstract class BaseConsumer<V extends ValueVector> implements JdbcConsumer<V> {
@@ -33,6 +33,7 @@ public abstract class BaseConsumer<V extends ValueVector> implements JdbcConsume
 
   /**
    * Constructs a new consumer.
+   *
    * @param vector the underlying vector for the consumer.
    * @param index the column id for the consumer.
    */

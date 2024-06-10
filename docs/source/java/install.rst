@@ -63,7 +63,7 @@ Modifying the command above for Flight:
 Otherwise, you may see errors like ``java.lang.IllegalAccessError: superclass access check failed: class
 org.apache.arrow.flight.ArrowMessage$ArrowBufRetainingCompositeByteBuf (in module org.apache.arrow.flight.core)
 cannot access class io.netty.buffer.CompositeByteBuf (in unnamed module ...) because module
-org.apache.arrow.flight.core does not read unnamed module ...
+org.apache.arrow.flight.core does not read unnamed module ...``
 
 Finally, if you are using arrow-dataset, you'll also need to report that JDK internals need to be exposed.
 Modifying the command above for arrow-memory:

@@ -56,17 +56,19 @@ public class ArrowRecordBatch implements ArrowMessage {
 
   private final List<ArrowBuffer> buffersLayout;
 
+  private final List<Long> variadicBufferCounts;
+
   private boolean closed = false;
 
   public ArrowRecordBatch(
       int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers) {
-    this(length, nodes, buffers, NoCompressionCodec.DEFAULT_BODY_COMPRESSION, true);
+    this(length, nodes, buffers, NoCompressionCodec.DEFAULT_BODY_COMPRESSION, null, true);
   }
 
   public ArrowRecordBatch(
       int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers,
       ArrowBodyCompression bodyCompression) {
-    this(length, nodes, buffers, bodyCompression, true);
+    this(length, nodes, buffers, bodyCompression, null, true);
   }
 
   /**
@@ -81,7 +83,7 @@ public class ArrowRecordBatch implements ArrowMessage {
   public ArrowRecordBatch(
       int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers,
       ArrowBodyCompression bodyCompression, boolean alignBuffers) {
-    this(length, nodes, buffers, bodyCompression, alignBuffers, /*retainBuffers*/ true);
+    this(length, nodes, buffers, bodyCompression, null, alignBuffers, /*retainBuffers*/ true);
   }
 
   /**
@@ -98,12 +100,48 @@ public class ArrowRecordBatch implements ArrowMessage {
   public ArrowRecordBatch(
       int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers,
       ArrowBodyCompression bodyCompression, boolean alignBuffers, boolean retainBuffers) {
+    this(length, nodes, buffers, bodyCompression, null, alignBuffers, retainBuffers);
+  }
+
+  /**
+   * Construct a record batch from nodes.
+   *
+   * @param length  how many rows in this batch
+   * @param nodes   field level info
+   * @param buffers will be retained until this recordBatch is closed
+   * @param bodyCompression compression info.
+   * @param variadicBufferCounts the number of buffers in each variadic section.
+   * @param alignBuffers Whether to align buffers to an 8 byte boundary.
+   */
+  public ArrowRecordBatch(
+      int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers,
+      ArrowBodyCompression bodyCompression, List<Long> variadicBufferCounts, boolean alignBuffers) {
+    this(length, nodes, buffers, bodyCompression, variadicBufferCounts, alignBuffers, /*retainBuffers*/ true);
+  }
+
+  /**
+   * Construct a record batch from nodes.
+   *
+   * @param length  how many rows in this batch
+   * @param nodes   field level info
+   * @param buffers will be retained until this recordBatch is closed
+   * @param bodyCompression compression info.
+   * @param variadicBufferCounts the number of buffers in each variadic section.
+   * @param alignBuffers Whether to align buffers to an 8 byte boundary.
+   * @param retainBuffers Whether to retain() each source buffer in the constructor. If false, the caller is
+   *                      responsible for retaining the buffers beforehand.
+   */
+  public ArrowRecordBatch(
+      int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers,
+      ArrowBodyCompression bodyCompression, List<Long> variadicBufferCounts, boolean alignBuffers,
+      boolean retainBuffers) {
     super();
     this.length = length;
     this.nodes = nodes;
     this.buffers = buffers;
     Preconditions.checkArgument(bodyCompression != null, "body compression cannot be null");
     this.bodyCompression = bodyCompression;
+    this.variadicBufferCounts = variadicBufferCounts;
     List<ArrowBuffer> arrowBuffers = new ArrayList<>(buffers.size());
     long offset = 0;
     for (ArrowBuf arrowBuf : buffers) {
@@ -129,12 +167,14 @@ public class ArrowRecordBatch implements ArrowMessage {
   // to distinguish this from the public constructor.
   private ArrowRecordBatch(
       boolean dummy, int length, List<ArrowFieldNode> nodes,
-      List<ArrowBuf> buffers, ArrowBodyCompression bodyCompression) {
+      List<ArrowBuf> buffers, ArrowBodyCompression bodyCompression,
+      List<Long> variadicBufferCounts) {
     this.length = length;
     this.nodes = nodes;
     this.buffers = buffers;
     Preconditions.checkArgument(bodyCompression != null, "body compression cannot be null");
     this.bodyCompression = bodyCompression;
+    this.variadicBufferCounts = variadicBufferCounts;
     this.closed = false;
     List<ArrowBuffer> arrowBuffers = new ArrayList<>();
     long offset = 0;
@@ -180,6 +220,14 @@ public class ArrowRecordBatch implements ArrowMessage {
   }
 
   /**
+   * Get the record batch variadic buffer counts.
+   * @return the variadic buffer counts
+   */
+  public List<Long> getVariadicBufferCounts() {
+    return variadicBufferCounts;
+  }
+
+  /**
    * Create a new ArrowRecordBatch which has the same information as this batch but whose buffers
    * are owned by that Allocator.
    *
@@ -195,7 +243,7 @@ public class ArrowRecordBatch implements ArrowMessage {
             .writerIndex(buf.writerIndex()))
         .collect(Collectors.toList());
     close();
-    return new ArrowRecordBatch(false, length, nodes, newBufs, bodyCompression);
+    return new ArrowRecordBatch(false, length, nodes, newBufs, bodyCompression, variadicBufferCounts);
   }
 
   /**
@@ -217,6 +265,24 @@ public class ArrowRecordBatch implements ArrowMessage {
     if (bodyCompression.getCodec() != NoCompressionCodec.COMPRESSION_TYPE) {
       compressOffset = bodyCompression.writeTo(builder);
     }
+
+    // Start the variadicBufferCounts vector.
+    int variadicBufferCountsOffset = 0;
+    if (variadicBufferCounts != null && !variadicBufferCounts.isEmpty()) {
+      variadicBufferCountsOffset = variadicBufferCounts.size();
+      int elementSizeInBytes = 8; // Size of long in bytes
+      builder.startVector(elementSizeInBytes, variadicBufferCountsOffset, elementSizeInBytes);
+
+      // Add each long to the builder. Note that elements should be added in reverse order.
+      for (int i = variadicBufferCounts.size() - 1; i >= 0; i--) {
+        long value = variadicBufferCounts.get(i);
+        builder.addLong(value);
+      }
+
+      // End the vector. This returns an offset that you can use to refer to the vector.
+      variadicBufferCountsOffset = builder.endVector();
+    }
+
     RecordBatch.startRecordBatch(builder);
     RecordBatch.addLength(builder, length);
     RecordBatch.addNodes(builder, nodesOffset);
@@ -224,6 +290,12 @@ public class ArrowRecordBatch implements ArrowMessage {
     if (bodyCompression.getCodec() != NoCompressionCodec.COMPRESSION_TYPE) {
       RecordBatch.addCompression(builder, compressOffset);
     }
+
+    // Add the variadicBufferCounts to the RecordBatch
+    if (variadicBufferCounts != null && !variadicBufferCounts.isEmpty()) {
+      RecordBatch.addVariadicBufferCounts(builder, variadicBufferCountsOffset);
+    }
+
     return RecordBatch.endRecordBatch(builder);
   }
 
@@ -247,8 +319,13 @@ public class ArrowRecordBatch implements ArrowMessage {
 
   @Override
   public String toString() {
+    int variadicBufCount = 0;
+    if (variadicBufferCounts != null && !variadicBufferCounts.isEmpty()) {
+      variadicBufCount = variadicBufferCounts.size();
+    }
     return "ArrowRecordBatch [length=" + length + ", nodes=" + nodes + ", #buffers=" + buffers.size() +
-      ", buffersLayout=" + buffersLayout + ", closed=" + closed + "]";
+        ", #variadicBufferCounts=" + variadicBufCount + ", buffersLayout=" + buffersLayout +
+        ", closed=" + closed + "]";
   }
 
   /**

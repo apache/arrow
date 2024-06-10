@@ -14,16 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.orc;
 
-/**
- * JNI wrapper for orc stripe reader.
- */
+/** JNI wrapper for orc stripe reader. */
 class OrcStripeReaderJniWrapper {
 
   /**
    * Get the schema of current stripe.
+   *
    * @param readerId id of the stripe reader instance.
    * @return serialized schema.
    */
@@ -31,14 +29,15 @@ class OrcStripeReaderJniWrapper {
 
   /**
    * Load next record batch.
+   *
    * @param readerId id of the stripe reader instance.
-   * @return loaded record batch, return null when reached
-   *     the end of current stripe.
+   * @return loaded record batch, return null when reached the end of current stripe.
    */
   static native OrcRecordBatch next(long readerId);
 
   /**
    * Release resources of underlying reader.
+   *
    * @param readerId id of the stripe reader instance.
    */
   static native void close(long readerId);

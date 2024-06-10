@@ -17,16 +17,16 @@
 
 package org.apache.arrow.vector;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.memory.util.MemoryUtil;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class TestBitVectorHelper {
   @Test
