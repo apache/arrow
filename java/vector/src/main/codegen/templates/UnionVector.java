@@ -187,7 +187,7 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
    * @return the number of buffers to be exported
    */
   @Override
-  public int getExportBufferCount() {
+  public int getExportedCDataBuffers() {
     return 1;
   }
 

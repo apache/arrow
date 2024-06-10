@@ -207,7 +207,7 @@ public class DenseUnionVector extends AbstractContainerVector implements FieldVe
    * @return the number of buffers to be exported
    */
   @Override
-  public int getExportBufferCount() {
+  public int getExportedCDataBuffers() {
     return 2;
   }
 
