@@ -187,7 +187,7 @@ unzip $wheel_name
 rm $wheel_name
 for filename in $(ls pyarrow/*.so pyarrow/*.so.*); do
     echo "Stripping debug symbols from: $filename";
-    strip --strip-debug $filename
+    strip -S $filename
 done
 # Zip wheel again after stripping symbols
 zip -r $wheel_name .
