@@ -1898,8 +1898,13 @@ class ObjectOutputStream final : public io::OutputStream {
     if (--state->parts_in_progress == 0) {
       // GH-41862: avoid potential deadlock if the Future's callback is called
       // with the mutex taken.
+      auto fut = state->pending_parts_completed;
       lock.unlock();
-      state->pending_parts_completed.MarkFinished(state->status);
+      // State could be mutated concurrently if another thread writes to the
+      // stream, but in this case the Flush() call is only advisory anyway.
+      // Besides, it's not generally sound to write to an OutputStream from
+      // several threads at once.
+      fut.MarkFinished(state->status);
     }
   }
 
