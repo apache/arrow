@@ -218,6 +218,8 @@ cdef class SignalStopHandler:
                 maybe_source.status().Warn()
             else:
                 self._stop_token.init(deref(maybe_source).token())
+                # signals don't work on Emscripten without threads.
+                # and possibly other single-thread environments.
                 if not is_threading_enabled():
                     self._enabled = False
                 else:

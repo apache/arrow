@@ -119,7 +119,6 @@ def test_release_unused():
     pool.release_unused()
 
 
-@pytest.mark.processes
 def check_env_var(name, expected, *, expect_warning=False):
     code = f"""if 1:
         import pyarrow as pa
@@ -218,7 +217,6 @@ def run_debug_memory_pool(pool_factory, env_value):
     return res
 
 
-@pytest.mark.processes
 @pytest.mark.parametrize('pool_factory', supported_factories())
 def test_debug_memory_pool_abort(pool_factory):
     res = run_debug_memory_pool(pool_factory.__name__, "abort")
@@ -229,7 +227,6 @@ def test_debug_memory_pool_abort(pool_factory):
     assert "Wrong size on deallocation" in res.stderr
 
 
-@pytest.mark.processes
 @pytest.mark.parametrize('pool_factory', supported_factories())
 def test_debug_memory_pool_trap(pool_factory):
     res = run_debug_memory_pool(pool_factory.__name__, "trap")

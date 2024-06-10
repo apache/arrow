@@ -18,6 +18,7 @@
 from importlib import resources
 from pathlib import Path
 from shutil import copytree
+import warnings
 
 try:
     import js
@@ -41,7 +42,8 @@ try:
                         Path("/etc/").mkdir(parents=True, exist_ok=True)
                         localtime_path.symlink_to(tzpath / timezone)
             except (ImportError, IOError):
-                print("Arrow couldn't install timezone db to /usr/share/zoneinfo")
+                warnings.warn(
+                    "Arrow couldn't install timezone db to /usr/share/zoneinfo")
 
 except ImportError:
     pass
