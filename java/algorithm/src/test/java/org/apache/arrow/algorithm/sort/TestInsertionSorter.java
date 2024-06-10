@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.algorithm.sort;
 
 import static org.junit.Assert.assertFalse;
@@ -28,9 +27,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-/**
- * Test cases for {@link InsertionSorter}.
- */
+/** Test cases for {@link InsertionSorter}. */
 public class TestInsertionSorter {
 
   private BufferAllocator allocator;
@@ -49,7 +46,7 @@ public class TestInsertionSorter {
 
   private void testSortIntVectorRange(int start, int end, int[] expected) {
     try (IntVector vector = new IntVector("vector", allocator);
-         IntVector buffer = new IntVector("buffer", allocator)) {
+        IntVector buffer = new IntVector("buffer", allocator)) {
 
       buffer.allocateNew(1);
 
@@ -81,7 +78,7 @@ public class TestInsertionSorter {
 
   private void testSortIndicesRange(int start, int end, int[] expectedIndices) {
     try (IntVector vector = new IntVector("vector", allocator);
-         IntVector indices = new IntVector("indices", allocator)) {
+        IntVector indices = new IntVector("indices", allocator)) {
 
       ValueVectorDataPopulator.setVector(vector, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0);
       ValueVectorDataPopulator.setVector(indices, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);

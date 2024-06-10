@@ -237,7 +237,7 @@
         <artifactId>maven-checkstyle-plugin</artifactId>
         <configuration>
           <configLocation>../dev/checkstyle/checkstyle.xml</configLocation>
-          <headerLocation>../dev/checkstyle/checkstyle.license</headerLocation>
+          <headerLocation>../dev/license/asf-java.license</headerLocation>
           <suppressionsLocation>../dev/checkstyle/suppressions.xml</suppressionsLocation>
           <includeTestSourceDirectory>true</includeTestSourceDirectory>
           <inputEncoding>UTF-8</inputEncoding>

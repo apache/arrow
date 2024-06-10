@@ -92,12 +92,15 @@
     <dep.avro.version>1.11.3</dep.avro.version>
     <arrow.vector.classifier></arrow.vector.classifier>
     <forkCount>2</forkCount>
+    <checkstyle.config.location>dev/checkstyle/checkstyle.xml</checkstyle.config.location>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
     <errorprone.javac.version>9+181-r4173-1</errorprone.javac.version>
     <error_prone_core.version>2.28.0</error_prone_core.version>
     <mockito.core.version>5.11.0</mockito.core.version>
     <mockito.inline.version>5.2.0</mockito.inline.version>
     <checker.framework.version>3.43.0</checker.framework.version>
+    <!-- replace with placeholder value 'none' string to enable java formatting in submodules -->
+    <spotless.java.excludes>**/*.java</spotless.java.excludes>
     <doclint>none</doclint>
     <additionalparam>-Xdoclint:none</additionalparam>
     <!-- org.apache:apache overrides -->
@@ -701,8 +704,8 @@
         <artifactId>maven-checkstyle-plugin</artifactId>
         <configuration>
           <excludes>**/module-info.java</excludes>
-          <configLocation>dev/checkstyle/checkstyle.xml</configLocation>
-          <headerLocation>dev/checkstyle/checkstyle.license</headerLocation>
+          <configLocation>${checkstyle.config.location}</configLocation>
+          <headerLocation>dev/license/asf-java.license</headerLocation>
           <suppressionsLocation>dev/checkstyle/suppressions.xml</suppressionsLocation>
           <includeTestSourceDirectory>true</includeTestSourceDirectory>
           <inputEncoding>UTF-8</inputEncoding>
@@ -803,6 +806,19 @@
           <pom>
             <sortPom></sortPom>
           </pom>
+          <java>
+            <excludes>
+              <exclude>${spotless.java.excludes}</exclude>
+            </excludes>
+            <googleJavaFormat>
+              <version>1.7</version>
+              <style>GOOGLE</style>
+            </googleJavaFormat>
+            <licenseHeader>
+              <file>${maven.multiModuleProjectDirectory}/dev/license/asf-java.license</file>
+              <delimiter>package</delimiter>
+            </licenseHeader>
+          </java>
         </configuration>
         <executions>
           <execution>
@@ -929,7 +945,7 @@
                        Error Prone 2.10.0 is the latest version
                        to support running on JDK 8.
                        With right flags it could be upgraded,
-                       but we choose to keep this unchanged for now. 
+                       but we choose to keep this unchanged for now.
                   -->
                   <version>2.10.0</version>
                 </path>

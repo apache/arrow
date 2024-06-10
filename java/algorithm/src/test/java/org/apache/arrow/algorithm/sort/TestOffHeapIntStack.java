@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.algorithm.sort;
 
 import static junit.framework.TestCase.assertEquals;
@@ -26,9 +25,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-/**
- * Test cases for {@link OffHeapIntStack}.
- */
+/** Test cases for {@link OffHeapIntStack}. */
 public class TestOffHeapIntStack {
 
   private BufferAllocator allocator;
