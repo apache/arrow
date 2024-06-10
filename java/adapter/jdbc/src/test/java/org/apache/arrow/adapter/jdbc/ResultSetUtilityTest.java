@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc;
 
 import static org.junit.Assert.assertEquals;
@@ -26,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -36,20 +34,24 @@ import org.junit.Test;
 public class ResultSetUtilityTest {
   @Test
   public void testZeroRowResultSet() throws Exception {
-    for (boolean reuseVectorSchemaRoot : new boolean[]{false, true}) {
+    for (boolean reuseVectorSchemaRoot : new boolean[] {false, true}) {
       try (BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE)) {
         ResultSet rs = ResultSetUtility.generateEmptyResultSet();
-        JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(
-            allocator, JdbcToArrowUtils.getUtcCalendar(), /* include metadata */ false)
-            .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
-            .build();
+        JdbcToArrowConfig config =
+            new JdbcToArrowConfigBuilder(
+                    allocator, JdbcToArrowUtils.getUtcCalendar(), /* include metadata */ false)
+                .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
+                .build();
 
         ArrowVectorIterator iter = JdbcToArrow.sqlToArrowVectorIterator(rs, config);
         assertTrue("Iterator on zero row ResultSet should haveNext() before use", iter.hasNext());
         VectorSchemaRoot root = iter.next();
         assertNotNull("VectorSchemaRoot from first next() result should never be null", root);
-        assertEquals("VectorSchemaRoot from empty ResultSet should have zero rows", 0, root.getRowCount());
-        assertFalse("hasNext() should return false on empty ResultSets after initial next() call", iter.hasNext());
+        assertEquals(
+            "VectorSchemaRoot from empty ResultSet should have zero rows", 0, root.getRowCount());
+        assertFalse(
+            "hasNext() should return false on empty ResultSets after initial next() call",
+            iter.hasNext());
       }
     }
   }
@@ -99,7 +101,8 @@ public class ResultSetUtilityTest {
 
   @Test
   public void testMockDataTypes() throws SQLException {
-    ResultSetUtility.MockDataElement element = new ResultSetUtility.MockDataElement(1L, Types.NUMERIC);
+    ResultSetUtility.MockDataElement element =
+        new ResultSetUtility.MockDataElement(1L, Types.NUMERIC);
     assertEquals(1L, element.getLong());
     assertEquals(1, element.getInt());
     assertEquals("1", element.getString());
