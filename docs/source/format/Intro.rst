@@ -15,28 +15,25 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-*****************************************
-Introduction to the Arrow Columnar Format
-*****************************************
+************
+Introduction
+************
 
-Apache Arrow was born with the idea to define a set of standards for
-data representation and interchange between languages and systems to
-avoid costs of data serialization/deserialization and in order to
-avoid reinventing the wheel in each of those systems and languages.
+The Apache Arrow specification can be implemented in any programming
+language but official implementations for many languages are available.
+An implementation consists of format definitions using the constructs
+offered by the language and common in-memory data processing algorithms
+(e.g. slicing and concatenating). Users can extend and use the utilities
+provided by the Apache Arrow implementation in their programming
+language of choice. Some implementations are further ahead and feature a
+vast set of algorithms for in-memory analytical data processing.
 
-Each system or language requires their own format definitions, implementation
-of common algorithms, etcetera. In our heterogeneous environments we
-often have to move data from one system or language to accommodate our
-workflows that meant copy and convert the data between them, which is
-quite costly.
-
-Apart from this initial vision, Arrow has grown to also develop a
-multi-language collection of libraries for solving problems related to
-in-memory analytical data processing. This includes such topics as:
-
-* Zero-copy shared memory and RPC-based data movement
-* Reading and writing file formats (like CSV, `Apache ORC`_, and `Apache Parquet`_)
-* In-memory analytics and query processing
+As the format gets more adoption, it becomes easier for data processing
+systems to exchange tabular data. Among other things, an agreed upon
+in-memory format, enables the implementations of zero-copy IPC protocols
+(inter-process communication without copying data in memory) and
+more efficient reading and writing of file formats like CSV, `Apache ORC`_,
+and `Apache Parquet`_.
 
 .. _Apache ORC: https://orc.apache.org/
 .. _Apache Parquet: https://parquet.apache.org/
