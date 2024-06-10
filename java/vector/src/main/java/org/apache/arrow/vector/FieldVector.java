@@ -56,6 +56,15 @@ public interface FieldVector extends ValueVector {
    */
   List<ArrowBuf> getFieldBuffers();
 
+
+  /**
+   * Retrieves the variadic buffer count.
+   * @return the number of variadic buffers
+  */
+  default int getExportVariadicBufferCount() {
+    return 0;
+  }
+
   /**
    * Export a given buffer and its memory address into a list of buffers and a pointer to the list
    * of buffers.

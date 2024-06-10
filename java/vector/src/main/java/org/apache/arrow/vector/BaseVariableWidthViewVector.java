@@ -1670,6 +1670,34 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
   }
 
   /**
+   * Get the number of variadic buffers required for exporting in
+   * C Data interface.
+   * For Variadic types, an additional buffer is kept to store
+   * the size of each variadic buffer since that information
+   * cannot be retrieved in the C Data import.
+   * It is calculated to determine
+   * the additional number of buffers required.
+   * Also note that if the bufferSize is greater than 2, it means
+   * there is one or more data buffers.
+   * Thus, the count is set to 1 to get additional buffer
+   * for to store variadic size buffer.
+   * If it is not the case, the dataBuffer is not present.
+   * According to the spec and C Data interface in C++, there must be
+   * at least three data buffers present at the import component.
+   * Thus, the dataBufferReqCount is set to 2 to get additional buffer
+   * for empty dataBuffer and the variadic size buffer.
+   * @return number of variadic buffers required
+   */
+  @Override
+  public int getExportVariadicBufferCount() {
+    if (dataBuffers.isEmpty()) {
+      return 2;
+    } else {
+      return 1;
+    }
+  }
+
+  /**
    * Get the data buffer of the vector.
    * Note that an additional buffer is appended to store
    * the size of each variadic buffer's size.
