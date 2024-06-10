@@ -26,9 +26,7 @@ import xml.etree.ElementTree as ET
 
 jpype = pytest.importorskip("jpype")
 
-pytestmark = pytest.mark.skipif(
-    sys.platform == "emscripten", reason="Emscripten can't run processes"
-)
+pytestmark = pytest.mark.processes
 
 
 @pytest.fixture(scope="session")
