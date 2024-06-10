@@ -177,7 +177,7 @@ values buffers.
 
 .. figure:: ./images/var-string-view-diagram.svg
    :alt: Diagram is showing the difference between the variable length
-         string view data type presented in a Table and the dataactually
+         string view data type presented in a Table and the data actually
          stored in computer memory.
 
    Physical layout diagram for variable length string view data type.
@@ -220,7 +220,7 @@ offset buffer is no longer needed.
 
 .. figure:: ./images/fixed-list-diagram.svg
    :alt: Diagram is showing the difference between the fixed size list data
-         type presented in a Table and the dataactually stored in computer
+         type presented in a Table and the data actually stored in computer
          memory.
 
    Physical layout diagram for fixed size list data type.
@@ -232,7 +232,7 @@ List view data type allows arrays to specify out-of-order offsets.
 
 .. figure:: ./images/var-list-view-diagram.svg
    :alt: Diagram is showing the difference between the variable size list view
-         data type presented in a Table and the dataactually stored in
+         data type presented in a Table and the data actually stored in
          computer memory.
 
    Physical layout diagram for variable size list view data type.
@@ -253,7 +253,7 @@ the child array.
 
 .. figure:: ./images/struct-diagram.svg
    :alt: Diagram is showing the difference between the struct data type
-         presented in a Table and the dataactually stored in computer
+         presented in a Table and the data actually stored in computer
          memory.
 
    Physical layout diagram for struct data type.
@@ -279,7 +279,7 @@ variable shape.
 
 .. figure:: ./images/map-diagram.svg
    :alt: Diagram is showing the difference between the map data type
-         presented in a Table and the dataactually stored in computer
+         presented in a Table and the data actually stored in computer
          memory.
 
    Physical layout diagram for map data type.
@@ -308,7 +308,7 @@ two buffers of its own:
 
 .. figure:: ./images/dense-union-diagram.svg
    :alt: Diagram is showing the difference between the dense union data type
-         presented in a Table and the dataactually stored in computer
+         presented in a Table and the data actually stored in computer
          memory.
 
    Physical layout diagram for dense union data type.
@@ -322,7 +322,7 @@ buffer. In this case, the child arrays are each equal in length to the length of
 
 .. figure:: ./images/sparse-union-diagram.svg
    :alt: Diagram is showing the difference between the sparse union data type
-         presented in a Table and the dataactually stored in computer
+         presented in a Table and the data actually stored in computer
          memory.
 
    Physical layout diagram for sparse union data type.
@@ -336,7 +336,7 @@ unique values.
 
 .. figure:: ./images/dictionary-diagram.svg
    :alt: Diagram is showing the difference between the dictionary data type
-         presented in a Table and the dataactually stored in computer
+         presented in a Table and the data actually stored in computer
          memory.
 
    Physical layout diagram for dictionary data type.
@@ -357,7 +357,7 @@ Note that nulls of the parent array are strictly represented in the values array
 
 .. figure:: ./images/ree-diagram.svg
    :alt: Diagram is showing the difference between the run-end encoded data
-         type presented in a Table and the dataactually stored in computer
+         type presented in a Table and the data actually stored in computer
          memory.
 
    Physical layout diagram for run-end encoded data type.
