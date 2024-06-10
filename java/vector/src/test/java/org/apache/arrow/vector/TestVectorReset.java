@@ -14,14 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -120,10 +118,11 @@ public class TestVectorReset {
   @Test
   public void testListTypeReset() {
     try (final ListVector variableList =
-           new ListVector("VarList", allocator, FieldType.nullable(MinorType.INT.getType()), null);
-         final FixedSizeListVector fixedList =
-            new FixedSizeListVector("FixedList", allocator, FieldType.nullable(new FixedSizeList(2)), null)
-    ) {
+            new ListVector(
+                "VarList", allocator, FieldType.nullable(MinorType.INT.getType()), null);
+        final FixedSizeListVector fixedList =
+            new FixedSizeListVector(
+                "FixedList", allocator, FieldType.nullable(new FixedSizeList(2)), null)) {
       // ListVector
       variableList.allocateNewSafe();
       variableList.startNewValue(0);
@@ -143,14 +142,16 @@ public class TestVectorReset {
   @Test
   public void testStructTypeReset() {
     try (final NonNullableStructVector nonNullableStructVector =
-           new NonNullableStructVector("Struct", allocator, FieldType.nullable(MinorType.INT.getType()), null);
-         final StructVector structVector =
-            new StructVector("NullableStruct", allocator, FieldType.nullable(MinorType.INT.getType()), null)
-    ) {
+            new NonNullableStructVector(
+                "Struct", allocator, FieldType.nullable(MinorType.INT.getType()), null);
+        final StructVector structVector =
+            new StructVector(
+                "NullableStruct", allocator, FieldType.nullable(MinorType.INT.getType()), null)) {
       // NonNullableStructVector
       nonNullableStructVector.allocateNewSafe();
-      IntVector structChild = nonNullableStructVector
-          .addOrGet("child", FieldType.nullable(new Int(32, true)), IntVector.class);
+      IntVector structChild =
+          nonNullableStructVector.addOrGet(
+              "child", FieldType.nullable(new Int(32, true)), IntVector.class);
       structChild.setNull(0);
       nonNullableStructVector.setValueCount(1);
       resetVectorAndVerify(nonNullableStructVector, nonNullableStructVector.getBuffers(false));
@@ -165,9 +166,9 @@ public class TestVectorReset {
 
   @Test
   public void testUnionTypeReset() {
-    try (final UnionVector vector = new UnionVector("Union", allocator, /* field type */ null, /* call-back */ null);
-         final IntVector dataVector = new IntVector("Int", allocator)
-    ) {
+    try (final UnionVector vector =
+            new UnionVector("Union", allocator, /* field type */ null, /* call-back */ null);
+        final IntVector dataVector = new IntVector("Int", allocator)) {
       vector.getBufferSize();
       vector.allocateNewSafe();
       dataVector.allocateNewSafe();

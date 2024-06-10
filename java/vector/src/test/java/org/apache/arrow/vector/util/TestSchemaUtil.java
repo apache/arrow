@@ -14,20 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.util;
 
 import static java.util.Arrays.asList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.IOException;
-
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.apache.arrow.vector.util.SchemaUtility;
 import org.junit.jupiter.api.Test;
 
 public class TestSchemaUtil {
@@ -38,11 +35,12 @@ public class TestSchemaUtil {
 
   @Test
   public void testSerializationAndDeserialization() throws IOException {
-    Schema schema = new Schema(asList(
-        field("a", false, new ArrowType.Null()),
-        field("b", true, new ArrowType.Utf8()),
-        field("c", true, new ArrowType.Binary()))
-    );
+    Schema schema =
+        new Schema(
+            asList(
+                field("a", false, new ArrowType.Null()),
+                field("b", true, new ArrowType.Utf8()),
+                field("c", true, new ArrowType.Binary())));
 
     byte[] serialized = SchemaUtility.serialize(schema);
     Schema deserialized = SchemaUtility.deserialize(serialized, new RootAllocator(Long.MAX_VALUE));

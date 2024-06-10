@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.pojo;
 
 import static org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE;
@@ -22,12 +21,12 @@ import static org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
+import com.google.flatbuffers.FlatBufferBuilder;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.Collections2;
@@ -48,11 +47,7 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.jupiter.api.Test;
 
-import com.google.flatbuffers.FlatBufferBuilder;
-
-/**
- * Test conversion between Flatbuf and Pojo field representations.
- */
+/** Test conversion between Flatbuf and Pojo field representations. */
 public class TestConvert {
 
   @Test
@@ -65,7 +60,9 @@ public class TestConvert {
   public void complex() {
     java.util.List<Field> children = new ArrayList<>();
     children.add(new Field("child1", FieldType.nullable(Utf8.INSTANCE), null));
-    children.add(new Field("child2", FieldType.nullable(new FloatingPoint(SINGLE)), Collections.emptyList()));
+    children.add(
+        new Field(
+            "child2", FieldType.nullable(new FloatingPoint(SINGLE)), Collections.emptyList()));
 
     Field initialField = new Field("a", FieldType.nullable(Struct.INSTANCE), children);
     run(initialField);
@@ -75,8 +72,9 @@ public class TestConvert {
   public void list() throws Exception {
     java.util.List<Field> children = new ArrayList<>();
     try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-         ListVector writeVector = ListVector.empty("list", allocator);
-         FixedSizeListVector writeFixedVector = FixedSizeListVector.empty("fixedlist", 5, allocator)) {
+        ListVector writeVector = ListVector.empty("list", allocator);
+        FixedSizeListVector writeFixedVector =
+            FixedSizeListVector.empty("fixedlist", 5, allocator)) {
       Field listVectorField = writeVector.getField();
       children.add(listVectorField);
       Field listFixedVectorField = writeFixedVector.getField();
@@ -88,7 +86,8 @@ public class TestConvert {
     parent.add(initialField);
     FlatBufferBuilder builder = new FlatBufferBuilder();
     builder.finish(initialField.getField(builder));
-    org.apache.arrow.flatbuf.Field flatBufField = org.apache.arrow.flatbuf.Field.getRootAsField(builder.dataBuffer());
+    org.apache.arrow.flatbuf.Field flatBufField =
+        org.apache.arrow.flatbuf.Field.getRootAsField(builder.dataBuffer());
     Field finalField = Field.convertField(flatBufField);
     assertEquals(initialField, finalField);
     assertFalse(finalField.toString().contains("[DEFAULT]"));
@@ -110,7 +109,9 @@ public class TestConvert {
   public void schema() {
     java.util.List<Field> children = new ArrayList<>();
     children.add(new Field("child1", FieldType.nullable(Utf8.INSTANCE), null));
-    children.add(new Field("child2", FieldType.nullable(new FloatingPoint(SINGLE)), Collections.emptyList()));
+    children.add(
+        new Field(
+            "child2", FieldType.nullable(new FloatingPoint(SINGLE)), Collections.emptyList()));
     Schema initialSchema = new Schema(children);
     run(initialSchema);
   }
@@ -119,7 +120,9 @@ public class TestConvert {
   public void schemaMetadata() {
     java.util.List<Field> children = new ArrayList<>();
     children.add(new Field("child1", FieldType.nullable(Utf8.INSTANCE), null));
-    children.add(new Field("child2", FieldType.nullable(new FloatingPoint(SINGLE)), Collections.emptyList()));
+    children.add(
+        new Field(
+            "child2", FieldType.nullable(new FloatingPoint(SINGLE)), Collections.emptyList()));
     Map<String, String> metadata = new HashMap<>();
     metadata.put("key1", "value1");
     metadata.put("key2", "value2");
@@ -131,21 +134,45 @@ public class TestConvert {
   public void nestedSchema() {
     java.util.List<Field> children = new ArrayList<>();
     children.add(new Field("child1", FieldType.nullable(Utf8.INSTANCE), null));
-    children.add(new Field("child2", FieldType.nullable(new FloatingPoint(SINGLE)), Collections.emptyList()));
-    children.add(new Field("child3", FieldType.nullable(new Struct()), Collections2.asImmutableList(
-        new Field("child3.1", FieldType.nullable(Utf8.INSTANCE), null),
-        new Field("child3.2", FieldType.nullable(new FloatingPoint(DOUBLE)), Collections.emptyList())
-    )));
-    children.add(new Field("child4", FieldType.nullable(new List()), Collections2.asImmutableList(
-        new Field("child4.1", FieldType.nullable(Utf8.INSTANCE), null)
-    )));
-    children.add(new Field("child5", FieldType.nullable(
-        new Union(UnionMode.Sparse, new int[] {MinorType.TIMESTAMPMILLI.ordinal(), MinorType.FLOAT8.ordinal()})),
-          Collections2.asImmutableList(
-            new Field("child5.1", FieldType.nullable(new Timestamp(TimeUnit.MILLISECOND, null)), null),
-            new Field("child5.2", FieldType.nullable(new FloatingPoint(DOUBLE)), Collections.emptyList()),
-            new Field("child5.3", FieldType.nullable(new Timestamp(TimeUnit.MILLISECOND, "UTC")), null)
-          )));
+    children.add(
+        new Field(
+            "child2", FieldType.nullable(new FloatingPoint(SINGLE)), Collections.emptyList()));
+    children.add(
+        new Field(
+            "child3",
+            FieldType.nullable(new Struct()),
+            Collections2.asImmutableList(
+                new Field("child3.1", FieldType.nullable(Utf8.INSTANCE), null),
+                new Field(
+                    "child3.2",
+                    FieldType.nullable(new FloatingPoint(DOUBLE)),
+                    Collections.emptyList()))));
+    children.add(
+        new Field(
+            "child4",
+            FieldType.nullable(new List()),
+            Collections2.asImmutableList(
+                new Field("child4.1", FieldType.nullable(Utf8.INSTANCE), null))));
+    children.add(
+        new Field(
+            "child5",
+            FieldType.nullable(
+                new Union(
+                    UnionMode.Sparse,
+                    new int[] {MinorType.TIMESTAMPMILLI.ordinal(), MinorType.FLOAT8.ordinal()})),
+            Collections2.asImmutableList(
+                new Field(
+                    "child5.1",
+                    FieldType.nullable(new Timestamp(TimeUnit.MILLISECOND, null)),
+                    null),
+                new Field(
+                    "child5.2",
+                    FieldType.nullable(new FloatingPoint(DOUBLE)),
+                    Collections.emptyList()),
+                new Field(
+                    "child5.3",
+                    FieldType.nullable(new Timestamp(TimeUnit.MILLISECOND, "UTC")),
+                    null))));
     Schema initialSchema = new Schema(children);
     run(initialSchema);
   }
@@ -153,7 +180,8 @@ public class TestConvert {
   private void run(Field initialField) {
     FlatBufferBuilder builder = new FlatBufferBuilder();
     builder.finish(initialField.getField(builder));
-    org.apache.arrow.flatbuf.Field flatBufField = org.apache.arrow.flatbuf.Field.getRootAsField(builder.dataBuffer());
+    org.apache.arrow.flatbuf.Field flatBufField =
+        org.apache.arrow.flatbuf.Field.getRootAsField(builder.dataBuffer());
     Field finalField = Field.convertField(flatBufField);
     assertEquals(initialField, finalField);
   }

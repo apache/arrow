@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -24,7 +23,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -61,10 +59,11 @@ public class TestDecimalVector {
 
   @Test
   public void testValuesWriteRead() {
-    try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
-        new ArrowType.Decimal(10, scale, 128), allocator);) {
+    try (DecimalVector decimalVector =
+        TestUtils.newVector(
+            DecimalVector.class, "decimal", new ArrowType.Decimal(10, scale, 128), allocator); ) {
 
-      try (DecimalVector oldConstructor = new DecimalVector("decimal", allocator, 10, scale);) {
+      try (DecimalVector oldConstructor = new DecimalVector("decimal", allocator, 10, scale); ) {
         assertEquals(decimalVector.getField().getType(), oldConstructor.getField().getType());
       }
 
@@ -87,8 +86,9 @@ public class TestDecimalVector {
 
   @Test
   public void testBigDecimalDifferentScaleAndPrecision() {
-    try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
-        new ArrowType.Decimal(4, 2, 128), allocator);) {
+    try (DecimalVector decimalVector =
+        TestUtils.newVector(
+            DecimalVector.class, "decimal", new ArrowType.Decimal(4, 2, 128), allocator); ) {
       decimalVector.allocateNew();
 
       // test BigDecimal with different scale
@@ -117,8 +117,9 @@ public class TestDecimalVector {
 
   @Test
   public void testWriteBigEndian() {
-    try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
-        new ArrowType.Decimal(38, 9, 128), allocator);) {
+    try (DecimalVector decimalVector =
+        TestUtils.newVector(
+            DecimalVector.class, "decimal", new ArrowType.Decimal(38, 9, 128), allocator); ) {
       decimalVector.allocateNew();
       BigDecimal decimal1 = new BigDecimal("123456789.000000000");
       BigDecimal decimal2 = new BigDecimal("11.123456789");
@@ -162,8 +163,9 @@ public class TestDecimalVector {
 
   @Test
   public void testLongReadWrite() {
-    try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
-            new ArrowType.Decimal(38, 0, 128), allocator)) {
+    try (DecimalVector decimalVector =
+        TestUtils.newVector(
+            DecimalVector.class, "decimal", new ArrowType.Decimal(38, 0, 128), allocator)) {
       decimalVector.allocateNew();
 
       long[] longValues = {0L, -2L, Long.MAX_VALUE, Long.MIN_VALUE, 187L};
@@ -180,11 +182,11 @@ public class TestDecimalVector {
     }
   }
 
-
   @Test
   public void testBigDecimalReadWrite() {
-    try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
-        new ArrowType.Decimal(38, 9, 128), allocator);) {
+    try (DecimalVector decimalVector =
+        TestUtils.newVector(
+            DecimalVector.class, "decimal", new ArrowType.Decimal(38, 9, 128), allocator); ) {
       decimalVector.allocateNew();
       BigDecimal decimal1 = new BigDecimal("123456789.000000000");
       BigDecimal decimal2 = new BigDecimal("11.123456789");
@@ -218,29 +220,31 @@ public class TestDecimalVector {
   }
 
   /**
-   * Test {@link DecimalVector#setBigEndian(int, byte[])} which takes BE layout input and stores in native-endian (NE)
-   * layout.
-   * Cases to cover: input byte array in different lengths in range [1-16] and negative values.
+   * Test {@link DecimalVector#setBigEndian(int, byte[])} which takes BE layout input and stores in
+   * native-endian (NE) layout. Cases to cover: input byte array in different lengths in range
+   * [1-16] and negative values.
    */
   @Test
   public void decimalBE2NE() {
-    try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
-        new ArrowType.Decimal(21, 2, 128), allocator)) {
+    try (DecimalVector decimalVector =
+        TestUtils.newVector(
+            DecimalVector.class, "decimal", new ArrowType.Decimal(21, 2, 128), allocator)) {
       decimalVector.allocateNew();
 
-      BigInteger[] testBigInts = new BigInteger[] {
-          new BigInteger("0"),
-          new BigInteger("-1"),
-          new BigInteger("23"),
-          new BigInteger("234234"),
-          new BigInteger("-234234234"),
-          new BigInteger("234234234234"),
-          new BigInteger("-56345345345345"),
-          new BigInteger("29823462983462893462934679234653456345"), // converts to 16 byte array
-          new BigInteger("-3894572983475982374598324598234346536"), // converts to 16 byte array
-          new BigInteger("-345345"),
-          new BigInteger("754533")
-      };
+      BigInteger[] testBigInts =
+          new BigInteger[] {
+            new BigInteger("0"),
+            new BigInteger("-1"),
+            new BigInteger("23"),
+            new BigInteger("234234"),
+            new BigInteger("-234234234"),
+            new BigInteger("234234234234"),
+            new BigInteger("-56345345345345"),
+            new BigInteger("29823462983462893462934679234653456345"), // converts to 16 byte array
+            new BigInteger("-3894572983475982374598324598234346536"), // converts to 16 byte array
+            new BigInteger("-345345"),
+            new BigInteger("754533")
+          };
 
       int insertionIdx = 0;
       insertionIdx++; // insert a null
@@ -256,7 +260,9 @@ public class TestDecimalVector {
         decimalVector.setBigEndian(insertionIdx, new byte[17]);
         fail("above statement should have failed");
       } catch (IllegalArgumentException ex) {
-        assertTrue(ex.getMessage().equals("Invalid decimal value length. Valid length in [1 - 16], got 17"));
+        assertTrue(
+            ex.getMessage()
+                .equals("Invalid decimal value length. Valid length in [1 - 16], got 17"));
       }
       decimalVector.setValueCount(insertionIdx);
 
@@ -274,9 +280,10 @@ public class TestDecimalVector {
 
   @Test
   public void setUsingArrowBufOfInts() {
-    try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
-            new ArrowType.Decimal(5, 2, 128), allocator);
-         ArrowBuf buf = allocator.buffer(8);) {
+    try (DecimalVector decimalVector =
+            TestUtils.newVector(
+                DecimalVector.class, "decimal", new ArrowType.Decimal(5, 2, 128), allocator);
+        ArrowBuf buf = allocator.buffer(8); ) {
       decimalVector.allocateNew();
 
       // add a positive value equivalent to 705.32
@@ -291,21 +298,21 @@ public class TestDecimalVector {
 
       decimalVector.setValueCount(2);
 
-      BigDecimal [] expectedValues = new BigDecimal[] {BigDecimal.valueOf(705.32), BigDecimal
-              .valueOf(-705.32)};
-      for (int i = 0; i < 2; i ++) {
+      BigDecimal[] expectedValues =
+          new BigDecimal[] {BigDecimal.valueOf(705.32), BigDecimal.valueOf(-705.32)};
+      for (int i = 0; i < 2; i++) {
         BigDecimal value = decimalVector.getObject(i);
         assertEquals(expectedValues[i], value);
       }
     }
-
   }
 
   @Test
   public void setUsingArrowLongBytes() {
-    try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
-            new ArrowType.Decimal(18, 0, 128), allocator);
-         ArrowBuf buf = allocator.buffer(16);) {
+    try (DecimalVector decimalVector =
+            TestUtils.newVector(
+                DecimalVector.class, "decimal", new ArrowType.Decimal(18, 0, 128), allocator);
+        ArrowBuf buf = allocator.buffer(16); ) {
       decimalVector.allocateNew();
 
       long val = Long.MAX_VALUE;
@@ -318,9 +325,9 @@ public class TestDecimalVector {
 
       decimalVector.setValueCount(2);
 
-      BigDecimal [] expectedValues = new BigDecimal[] {BigDecimal.valueOf(Long.MAX_VALUE), BigDecimal
-              .valueOf(Long.MIN_VALUE)};
-      for (int i = 0; i < 2; i ++) {
+      BigDecimal[] expectedValues =
+          new BigDecimal[] {BigDecimal.valueOf(Long.MAX_VALUE), BigDecimal.valueOf(Long.MIN_VALUE)};
+      for (int i = 0; i < 2; i++) {
         BigDecimal value = decimalVector.getObject(i);
         assertEquals(expectedValues[i], value);
       }
@@ -329,20 +336,27 @@ public class TestDecimalVector {
 
   @Test
   public void setUsingArrowBufOfBEBytes() {
-    try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
-            new ArrowType.Decimal(5, 2, 128), allocator);
-         ArrowBuf buf = allocator.buffer(9);) {
-      BigDecimal [] expectedValues = new BigDecimal[] {BigDecimal.valueOf(705.32), BigDecimal
-              .valueOf(-705.32), BigDecimal.valueOf(705.32)};
+    try (DecimalVector decimalVector =
+            TestUtils.newVector(
+                DecimalVector.class, "decimal", new ArrowType.Decimal(5, 2, 128), allocator);
+        ArrowBuf buf = allocator.buffer(9); ) {
+      BigDecimal[] expectedValues =
+          new BigDecimal[] {
+            BigDecimal.valueOf(705.32), BigDecimal.valueOf(-705.32), BigDecimal.valueOf(705.32)
+          };
       verifyWritingArrowBufWithBigEndianBytes(decimalVector, buf, expectedValues, 3);
     }
 
-    try (DecimalVector decimalVector = TestUtils.newVector(DecimalVector.class, "decimal",
-            new ArrowType.Decimal(36, 2, 128), allocator);
-         ArrowBuf buf = allocator.buffer(45);) {
-      BigDecimal[] expectedValues = new BigDecimal[] {new BigDecimal("2982346298346289346293467923465345.63"),
-                                                      new BigDecimal("-2982346298346289346293467923465345.63"),
-                                                      new BigDecimal("2982346298346289346293467923465345.63")};
+    try (DecimalVector decimalVector =
+            TestUtils.newVector(
+                DecimalVector.class, "decimal", new ArrowType.Decimal(36, 2, 128), allocator);
+        ArrowBuf buf = allocator.buffer(45); ) {
+      BigDecimal[] expectedValues =
+          new BigDecimal[] {
+            new BigDecimal("2982346298346289346293467923465345.63"),
+            new BigDecimal("-2982346298346289346293467923465345.63"),
+            new BigDecimal("2982346298346289346293467923465345.63")
+          };
       verifyWritingArrowBufWithBigEndianBytes(decimalVector, buf, expectedValues, 15);
     }
   }
@@ -352,23 +366,23 @@ public class TestDecimalVector {
     final DecimalVector fromVector = new DecimalVector("decimal", allocator, 10, scale);
     final TransferPair transferPair = fromVector.getTransferPair(fromVector.getField(), allocator);
     final DecimalVector toVector = (DecimalVector) transferPair.getTo();
-    // Field inside a new vector created by reusing a field should be the same in memory as the original field.
+    // Field inside a new vector created by reusing a field should be the same in memory as the
+    // original field.
     assertSame(fromVector.getField(), toVector.getField());
   }
 
-  private void verifyWritingArrowBufWithBigEndianBytes(DecimalVector decimalVector,
-                                                       ArrowBuf buf, BigDecimal[] expectedValues,
-                                                       int length) {
+  private void verifyWritingArrowBufWithBigEndianBytes(
+      DecimalVector decimalVector, ArrowBuf buf, BigDecimal[] expectedValues, int length) {
     decimalVector.allocateNew();
     for (int i = 0; i < expectedValues.length; i++) {
-      byte []bigEndianBytes = expectedValues[i].unscaledValue().toByteArray();
-      buf.setBytes(length * i , bigEndianBytes, 0 , bigEndianBytes.length);
+      byte[] bigEndianBytes = expectedValues[i].unscaledValue().toByteArray();
+      buf.setBytes(length * i, bigEndianBytes, 0, bigEndianBytes.length);
       decimalVector.setBigEndianSafe(i, length * i, buf, bigEndianBytes.length);
     }
 
     decimalVector.setValueCount(3);
 
-    for (int i = 0; i < expectedValues.length; i ++) {
+    for (int i = 0; i < expectedValues.length; i++) {
       BigDecimal value = decimalVector.getObject(i);
       assertEquals(expectedValues[i], value);
     }

@@ -14,14 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.ipc.message;
 
+import com.google.flatbuffers.FlatBufferBuilder;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
-
 import org.apache.arrow.flatbuf.RecordBatch;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -31,23 +30,18 @@ import org.apache.arrow.vector.util.DataSizeRoundingUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.flatbuffers.FlatBufferBuilder;
-
 /**
- * POJO representation of a RecordBatch IPC message (https://arrow.apache.org/docs/format/Columnar.html#recordbatch-message).
+ * POJO representation of a RecordBatch IPC message
+ * (https://arrow.apache.org/docs/format/Columnar.html#recordbatch-message).
  */
 public class ArrowRecordBatch implements ArrowMessage {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(ArrowRecordBatch.class);
 
-  /**
-   * Number of records.
-   */
+  /** Number of records. */
   private final int length;
 
-  /**
-   * Nodes correspond to the pre-ordered flattened logical schema.
-   */
+  /** Nodes correspond to the pre-ordered flattened logical schema. */
   private final List<ArrowFieldNode> nodes;
 
   private final List<ArrowBuf> buffers;
@@ -60,13 +54,14 @@ public class ArrowRecordBatch implements ArrowMessage {
 
   private boolean closed = false;
 
-  public ArrowRecordBatch(
-      int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers) {
+  public ArrowRecordBatch(int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers) {
     this(length, nodes, buffers, NoCompressionCodec.DEFAULT_BODY_COMPRESSION, null, true);
   }
 
   public ArrowRecordBatch(
-      int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers,
+      int length,
+      List<ArrowFieldNode> nodes,
+      List<ArrowBuf> buffers,
       ArrowBodyCompression bodyCompression) {
     this(length, nodes, buffers, bodyCompression, null, true);
   }
@@ -74,66 +69,88 @@ public class ArrowRecordBatch implements ArrowMessage {
   /**
    * Construct a record batch from nodes.
    *
-   * @param length  how many rows in this batch
-   * @param nodes   field level info
+   * @param length how many rows in this batch
+   * @param nodes field level info
    * @param buffers will be retained until this recordBatch is closed
    * @param bodyCompression compression info.
    * @param alignBuffers Whether to align buffers to an 8 byte boundary.
    */
   public ArrowRecordBatch(
-      int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers,
-      ArrowBodyCompression bodyCompression, boolean alignBuffers) {
+      int length,
+      List<ArrowFieldNode> nodes,
+      List<ArrowBuf> buffers,
+      ArrowBodyCompression bodyCompression,
+      boolean alignBuffers) {
     this(length, nodes, buffers, bodyCompression, null, alignBuffers, /*retainBuffers*/ true);
   }
 
   /**
    * Construct a record batch from nodes.
    *
-   * @param length  how many rows in this batch
-   * @param nodes   field level info
+   * @param length how many rows in this batch
+   * @param nodes field level info
    * @param buffers will be retained until this recordBatch is closed
    * @param bodyCompression compression info.
    * @param alignBuffers Whether to align buffers to an 8 byte boundary.
-   * @param retainBuffers Whether to retain() each source buffer in the constructor. If false, the caller is
-   *                      responsible for retaining the buffers beforehand.
+   * @param retainBuffers Whether to retain() each source buffer in the constructor. If false, the
+   *     caller is responsible for retaining the buffers beforehand.
    */
   public ArrowRecordBatch(
-      int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers,
-      ArrowBodyCompression bodyCompression, boolean alignBuffers, boolean retainBuffers) {
+      int length,
+      List<ArrowFieldNode> nodes,
+      List<ArrowBuf> buffers,
+      ArrowBodyCompression bodyCompression,
+      boolean alignBuffers,
+      boolean retainBuffers) {
     this(length, nodes, buffers, bodyCompression, null, alignBuffers, retainBuffers);
   }
 
   /**
    * Construct a record batch from nodes.
    *
-   * @param length  how many rows in this batch
-   * @param nodes   field level info
+   * @param length how many rows in this batch
+   * @param nodes field level info
    * @param buffers will be retained until this recordBatch is closed
    * @param bodyCompression compression info.
    * @param variadicBufferCounts the number of buffers in each variadic section.
    * @param alignBuffers Whether to align buffers to an 8 byte boundary.
    */
   public ArrowRecordBatch(
-      int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers,
-      ArrowBodyCompression bodyCompression, List<Long> variadicBufferCounts, boolean alignBuffers) {
-    this(length, nodes, buffers, bodyCompression, variadicBufferCounts, alignBuffers, /*retainBuffers*/ true);
+      int length,
+      List<ArrowFieldNode> nodes,
+      List<ArrowBuf> buffers,
+      ArrowBodyCompression bodyCompression,
+      List<Long> variadicBufferCounts,
+      boolean alignBuffers) {
+    this(
+        length,
+        nodes,
+        buffers,
+        bodyCompression,
+        variadicBufferCounts,
+        alignBuffers, /*retainBuffers*/
+        true);
   }
 
   /**
    * Construct a record batch from nodes.
    *
-   * @param length  how many rows in this batch
-   * @param nodes   field level info
+   * @param length how many rows in this batch
+   * @param nodes field level info
    * @param buffers will be retained until this recordBatch is closed
    * @param bodyCompression compression info.
    * @param variadicBufferCounts the number of buffers in each variadic section.
    * @param alignBuffers Whether to align buffers to an 8 byte boundary.
-   * @param retainBuffers Whether to retain() each source buffer in the constructor. If false, the caller is
-   *                      responsible for retaining the buffers beforehand.
+   * @param retainBuffers Whether to retain() each source buffer in the constructor. If false, the
+   *     caller is responsible for retaining the buffers beforehand.
    */
   public ArrowRecordBatch(
-      int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers,
-      ArrowBodyCompression bodyCompression, List<Long> variadicBufferCounts, boolean alignBuffers,
+      int length,
+      List<ArrowFieldNode> nodes,
+      List<ArrowBuf> buffers,
+      ArrowBodyCompression bodyCompression,
+      List<Long> variadicBufferCounts,
+      boolean alignBuffers,
       boolean retainBuffers) {
     super();
     this.length = length;
@@ -166,8 +183,11 @@ public class ArrowRecordBatch implements ArrowMessage {
   // <code>retain</code> method is not called, so the first <code>dummy</code> parameter is used
   // to distinguish this from the public constructor.
   private ArrowRecordBatch(
-      boolean dummy, int length, List<ArrowFieldNode> nodes,
-      List<ArrowBuf> buffers, ArrowBodyCompression bodyCompression,
+      boolean dummy,
+      int length,
+      List<ArrowFieldNode> nodes,
+      List<ArrowBuf> buffers,
+      ArrowBodyCompression bodyCompression,
       List<Long> variadicBufferCounts) {
     this.length = length;
     this.nodes = nodes;
@@ -221,6 +241,7 @@ public class ArrowRecordBatch implements ArrowMessage {
 
   /**
    * Get the record batch variadic buffer counts.
+   *
    * @return the variadic buffer counts
    */
   public List<Long> getVariadicBufferCounts() {
@@ -236,14 +257,18 @@ public class ArrowRecordBatch implements ArrowMessage {
    * @return A cloned ArrowRecordBatch
    */
   public ArrowRecordBatch cloneWithTransfer(final BufferAllocator allocator) {
-    final List<ArrowBuf> newBufs = buffers.stream()
-        .map(buf ->
-          (buf.getReferenceManager().transferOwnership(buf, allocator)
-            .getTransferredBuffer())
-            .writerIndex(buf.writerIndex()))
-        .collect(Collectors.toList());
+    final List<ArrowBuf> newBufs =
+        buffers.stream()
+            .map(
+                buf ->
+                    (buf.getReferenceManager()
+                            .transferOwnership(buf, allocator)
+                            .getTransferredBuffer())
+                        .writerIndex(buf.writerIndex()))
+            .collect(Collectors.toList());
     close();
-    return new ArrowRecordBatch(false, length, nodes, newBufs, bodyCompression, variadicBufferCounts);
+    return new ArrowRecordBatch(
+        false, length, nodes, newBufs, bodyCompression, variadicBufferCounts);
   }
 
   /**
@@ -304,9 +329,7 @@ public class ArrowRecordBatch implements ArrowMessage {
     return visitor.visit(this);
   }
 
-  /**
-   * Releases the buffers.
-   */
+  /** Releases the buffers. */
   @Override
   public void close() {
     if (!closed) {
@@ -323,14 +346,22 @@ public class ArrowRecordBatch implements ArrowMessage {
     if (variadicBufferCounts != null && !variadicBufferCounts.isEmpty()) {
       variadicBufCount = variadicBufferCounts.size();
     }
-    return "ArrowRecordBatch [length=" + length + ", nodes=" + nodes + ", #buffers=" + buffers.size() +
-        ", #variadicBufferCounts=" + variadicBufCount + ", buffersLayout=" + buffersLayout +
-        ", closed=" + closed + "]";
+    return "ArrowRecordBatch [length="
+        + length
+        + ", nodes="
+        + nodes
+        + ", #buffers="
+        + buffers.size()
+        + ", #variadicBufferCounts="
+        + variadicBufCount
+        + ", buffersLayout="
+        + buffersLayout
+        + ", closed="
+        + closed
+        + "]";
   }
 
-  /**
-   * Computes the size of the serialized body for this recordBatch.
-   */
+  /** Computes the size of the serialized body for this recordBatch. */
   @Override
   public long computeBodyLength() {
     long size = 0;
@@ -338,8 +369,8 @@ public class ArrowRecordBatch implements ArrowMessage {
     List<ArrowBuf> buffers = getBuffers();
     List<ArrowBuffer> buffersLayout = getBuffersLayout();
     if (buffers.size() != buffersLayout.size()) {
-      throw new IllegalStateException("the layout does not match: " +
-          buffers.size() + " != " + buffersLayout.size());
+      throw new IllegalStateException(
+          "the layout does not match: " + buffers.size() + " != " + buffersLayout.size());
     }
 
     for (int i = 0; i < buffers.size(); i++) {
@@ -352,5 +383,4 @@ public class ArrowRecordBatch implements ArrowMessage {
     }
     return size;
   }
-
 }

@@ -1,18 +1,19 @@
 /*
- * Copyright 2014 The Netty Project
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * The Netty Project licenses this file to you under the Apache License, version 2.0 (the
- * "License"); you may not use this file except in compliance with the License. You may obtain a
- * copy of the License at:
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
- * https://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software distributed under the License
- * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
- * or implied. See the License for the specific language governing permissions and limitations under
- * the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-
 package org.apache.arrow.vector.util;
 
 import java.util.AbstractCollection;
@@ -25,37 +26,29 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 
 /**
- * A vendored specialized copy of Netty's IntObjectHashMap for use within Arrow.
- * Avoids requiring Netty in the Arrow core just for this one class.
+ * A vendored specialized copy of Netty's IntObjectHashMap for use within Arrow. Avoids requiring
+ * Netty in the Arrow core just for this one class.
  *
  * @param <V> The value type stored in the map.
  */
 class IntObjectHashMap<V> implements IntObjectMap<V> {
 
-  /**
-   * Default initial capacity. Used if not specified in the constructor
-   */
+  /** Default initial capacity. Used if not specified in the constructor */
   public static final int DEFAULT_CAPACITY = 8;
 
-  /**
-   * Default load factor. Used if not specified in the constructor
-   */
+  /** Default load factor. Used if not specified in the constructor */
   public static final float DEFAULT_LOAD_FACTOR = 0.5f;
 
   /**
-   * Placeholder for null values, so we can use the actual null to mean available.
-   * (Better than using a placeholder for available: less references for GC processing.)
+   * Placeholder for null values, so we can use the actual null to mean available. (Better than
+   * using a placeholder for available: less references for GC processing.)
    */
   private static final Object NULL_VALUE = new Object();
 
-  /**
-   * The maximum number of elements allowed without allocating more space.
-   */
+  /** The maximum number of elements allowed without allocating more space. */
   private int maxSize;
 
-  /**
-   * The load factor for the map. Used to calculate {@link #maxSize}.
-   */
+  /** The load factor for the map. Used to calculate {@link #maxSize}. */
   private final float loadFactor;
 
   private int[] keys;
@@ -65,12 +58,13 @@ class IntObjectHashMap<V> implements IntObjectMap<V> {
 
   private final Set<Integer> keySet = new KeySet();
   private final Set<Entry<Integer, V>> entrySet = new EntrySet();
-  private final Iterable<PrimitiveEntry<V>> entries = new Iterable<PrimitiveEntry<V>>() {
-    @Override
-    public Iterator<PrimitiveEntry<V>> iterator() {
-      return new PrimitiveIterator();
-    }
-  };
+  private final Iterable<PrimitiveEntry<V>> entries =
+      new Iterable<PrimitiveEntry<V>>() {
+        @Override
+        public Iterator<PrimitiveEntry<V>> iterator() {
+          return new PrimitiveIterator();
+        }
+      };
 
   public IntObjectHashMap() {
     this(DEFAULT_CAPACITY, DEFAULT_LOAD_FACTOR);
@@ -361,32 +355,26 @@ class IntObjectHashMap<V> implements IntObjectMap<V> {
     }
   }
 
-  /**
-   * Returns the hashed index for the given key.
-   */
+  /** Returns the hashed index for the given key. */
   private int hashIndex(int key) {
-    // The array lengths are always a power of two, so we can use a bitmask to stay inside the array bounds.
+    // The array lengths are always a power of two, so we can use a bitmask to stay inside the array
+    // bounds.
     return hashCode(key) & mask;
   }
 
-  /**
-   * Returns the hash code for the key.
-   */
+  /** Returns the hash code for the key. */
   private static int hashCode(int key) {
     return key;
   }
 
-  /**
-   * Get the next sequential index after {@code index} and wraps if necessary.
-   */
+  /** Get the next sequential index after {@code index} and wraps if necessary. */
   private int probeNext(int index) {
-    // The array lengths are always a power of two, so we can use a bitmask to stay inside the array bounds.
+    // The array lengths are always a power of two, so we can use a bitmask to stay inside the array
+    // bounds.
     return (index + 1) & mask;
   }
 
-  /**
-   * Grows the map size after an insertion. If necessary, performs a rehash of the map.
-   */
+  /** Grows the map size after an insertion. If necessary, performs a rehash of the map. */
   private void growSize() {
     size++;
 
@@ -424,8 +412,8 @@ class IntObjectHashMap<V> implements IntObjectMap<V> {
     for (V value = values[i]; value != null; value = values[i = probeNext(i)]) {
       int key = keys[i];
       int bucket = hashIndex(key);
-      if (i < bucket && (bucket <= nextFree || nextFree <= i) ||
-          bucket <= nextFree && nextFree <= i) {
+      if (i < bucket && (bucket <= nextFree || nextFree <= i)
+          || bucket <= nextFree && nextFree <= i) {
         // Move the displaced entry "back" to the first available position.
         keys[nextFree] = key;
         values[nextFree] = value;
@@ -438,9 +426,7 @@ class IntObjectHashMap<V> implements IntObjectMap<V> {
     return nextFree != index;
   }
 
-  /**
-   * Calculates the maximum size allowed before rehashing.
-   */
+  /** Calculates the maximum size allowed before rehashing. */
   private int calcMaxSize(int capacity) {
     // Clip the upper bound so that there will always be at least one available slot.
     int upperBound = capacity - 1;
@@ -501,8 +487,9 @@ class IntObjectHashMap<V> implements IntObjectMap<V> {
         if (!first) {
           sb.append(", ");
         }
-        sb.append(keyToString(keys[i])).append('=').append(value == this ? "(this Map)" :
-            toExternal(value));
+        sb.append(keyToString(keys[i]))
+            .append('=')
+            .append(value == this ? "(this Map)" : toExternal(value));
         first = false;
       }
     }
@@ -517,9 +504,7 @@ class IntObjectHashMap<V> implements IntObjectMap<V> {
     return Integer.toString(key);
   }
 
-  /**
-   * Set implementation for iterating over the entries of the map.
-   */
+  /** Set implementation for iterating over the entries of the map. */
   private final class EntrySet extends AbstractSet<Entry<Integer, V>> {
     @Override
     public Iterator<Entry<Integer, V>> iterator() {
@@ -532,9 +517,7 @@ class IntObjectHashMap<V> implements IntObjectMap<V> {
     }
   }
 
-  /**
-   * Set implementation for iterating over the keys.
-   */
+  /** Set implementation for iterating over the keys. */
   private final class KeySet extends AbstractSet<Integer> {
     @Override
     public int size() {
@@ -593,7 +576,8 @@ class IntObjectHashMap<V> implements IntObjectMap<V> {
   }
 
   /**
-   * Iterator over primitive entries. Entry key/values are overwritten by each call to {@link #next()}.
+   * Iterator over primitive entries. Entry key/values are overwritten by each call to {@link
+   * #next()}.
    */
   private final class PrimitiveIterator implements Iterator<PrimitiveEntry<V>>, PrimitiveEntry<V> {
     private int prevIndex = -1;
@@ -601,8 +585,7 @@ class IntObjectHashMap<V> implements IntObjectMap<V> {
     private int entryIndex = -1;
 
     private void scanNext() {
-      while (++nextIndex != values.length && values[nextIndex] == null) {
-      }
+      while (++nextIndex != values.length && values[nextIndex] == null) {}
     }
 
     @Override
@@ -633,8 +616,10 @@ class IntObjectHashMap<V> implements IntObjectMap<V> {
         throw new IllegalStateException("next must be called before each remove.");
       }
       if (removeAt(prevIndex)) {
-        // removeAt may move elements "back" in the array if they have been displaced because their spot in the
-        // array was occupied when they were inserted. If this occurs then the nextIndex is now invalid and
+        // removeAt may move elements "back" in the array if they have been displaced because their
+        // spot in the
+        // array was occupied when they were inserted. If this occurs then the nextIndex is now
+        // invalid and
         // should instead point to the prevIndex which now holds an element which was "moved back".
         nextIndex = prevIndex;
       }
@@ -660,9 +645,7 @@ class IntObjectHashMap<V> implements IntObjectMap<V> {
     }
   }
 
-  /**
-   * Iterator used by the {@link Map} interface.
-   */
+  /** Iterator used by the {@link Map} interface. */
   private final class MapIterator implements Iterator<Entry<Integer, V>> {
     private final PrimitiveIterator iter = new PrimitiveIterator();
 
@@ -688,9 +671,7 @@ class IntObjectHashMap<V> implements IntObjectMap<V> {
     }
   }
 
-  /**
-   * A single entry in the map.
-   */
+  /** A single entry in the map. */
   final class MapEntry implements Entry<Integer, V> {
     private final int entryIndex;
 

@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
@@ -32,27 +31,28 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
- * TimeStampMicroTZVector implements a fixed width vector (8 bytes) of
- * timestamp (microsecond resolution) values which could be null. A validity buffer
- * (bit vector) is maintained to track which elements in the vector are null.
+ * TimeStampMicroTZVector implements a fixed width vector (8 bytes) of timestamp (microsecond
+ * resolution) values which could be null. A validity buffer (bit vector) is maintained to track
+ * which elements in the vector are null.
  */
 public final class TimeStampMicroTZVector extends TimeStampVector {
   private final String timeZone;
 
   /**
-   * Instantiate a TimeStampMicroTZVector. This doesn't allocate any memory for
-   * the data in vector.
+   * Instantiate a TimeStampMicroTZVector. This doesn't allocate any memory for the data in vector.
    *
    * @param name name of the vector
    * @param allocator allocator for memory management.
    */
   public TimeStampMicroTZVector(String name, BufferAllocator allocator, String timeZone) {
-    this(name, FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MICROSECOND, timeZone)), allocator);
+    this(
+        name,
+        FieldType.nullable(new ArrowType.Timestamp(TimeUnit.MICROSECOND, timeZone)),
+        allocator);
   }
 
   /**
-   * Instantiate a TimeStampMicroTZVector. This doesn't allocate any memory for
-   * the data in vector.
+   * Instantiate a TimeStampMicroTZVector. This doesn't allocate any memory for the data in vector.
    *
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
@@ -65,8 +65,7 @@ public final class TimeStampMicroTZVector extends TimeStampVector {
   }
 
   /**
-   * Instantiate a TimeStampMicroTZVector. This doesn't allocate any memory for
-   * the data in vector.
+   * Instantiate a TimeStampMicroTZVector. This doesn't allocate any memory for the data in vector.
    *
    * @param field Field materialized by this vector
    * @param allocator allocator for memory management.
@@ -83,8 +82,7 @@ public final class TimeStampMicroTZVector extends TimeStampVector {
   }
 
   /**
-   * Get minor type for this vector. The vector holds values belonging
-   * to a particular type.
+   * Get minor type for this vector. The vector holds values belonging to a particular type.
    *
    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
    */
@@ -102,20 +100,17 @@ public final class TimeStampMicroTZVector extends TimeStampVector {
     return this.timeZone;
   }
 
-
   /*----------------------------------------------------------------*
-   |                                                                |
-   |          vector value retrieval methods                        |
-   |                                                                |
-   *----------------------------------------------------------------*/
-
+  |                                                                |
+  |          vector value retrieval methods                        |
+  |                                                                |
+  *----------------------------------------------------------------*/
 
   /**
-   * Get the element at the given index from the vector and
-   * sets the state in holder. If element at given index
-   * is null, holder.isSet will be zero.
+   * Get the element at the given index from the vector and sets the state in holder. If element at
+   * given index is null, holder.isSet will be zero.
    *
-   * @param index   position of element
+   * @param index position of element
    */
   public void get(int index, NullableTimeStampMicroTZHolder holder) {
     if (NULL_CHECKING_ENABLED && isSet(index) == 0) {
@@ -130,7 +125,7 @@ public final class TimeStampMicroTZVector extends TimeStampVector {
   /**
    * Same as {@link #get(int)}.
    *
-   * @param index   position of element
+   * @param index position of element
    * @return element at given index
    */
   @Override
@@ -142,28 +137,28 @@ public final class TimeStampMicroTZVector extends TimeStampVector {
     }
   }
 
-
   /*----------------------------------------------------------------*
-   |                                                                |
-   |          vector value setter methods                           |
-   |                                                                |
-   *----------------------------------------------------------------*/
-
+  |                                                                |
+  |          vector value setter methods                           |
+  |                                                                |
+  *----------------------------------------------------------------*/
 
   /**
-   * Set the element at the given index to the value set in data holder.
-   * If the value in holder is not indicated as set, element in the
-   * at the given index will be null.
+   * Set the element at the given index to the value set in data holder. If the value in holder is
+   * not indicated as set, element in the at the given index will be null.
    *
-   * @param index   position of element
-   * @param holder  nullable data holder for value of element
+   * @param index position of element
+   * @param holder nullable data holder for value of element
    */
-  public void set(int index, NullableTimeStampMicroTZHolder holder) throws IllegalArgumentException {
+  public void set(int index, NullableTimeStampMicroTZHolder holder)
+      throws IllegalArgumentException {
     if (holder.isSet < 0) {
       throw new IllegalArgumentException();
     } else if (!this.timeZone.equals(holder.timezone)) {
       throw new IllegalArgumentException(
-          String.format("holder.timezone: %s not equal to vector timezone: %s", holder.timezone, this.timeZone));
+          String.format(
+              "holder.timezone: %s not equal to vector timezone: %s",
+              holder.timezone, this.timeZone));
     } else if (holder.isSet > 0) {
       BitVectorHelper.setBit(validityBuffer, index);
       setValue(index, holder.value);
@@ -175,55 +170,53 @@ public final class TimeStampMicroTZVector extends TimeStampVector {
   /**
    * Set the element at the given index to the value set in data holder.
    *
-   * @param index   position of element
-   * @param holder  data holder for value of element
+   * @param index position of element
+   * @param holder data holder for value of element
    */
   public void set(int index, TimeStampMicroTZHolder holder) {
     if (!this.timeZone.equals(holder.timezone)) {
       throw new IllegalArgumentException(
-          String.format("holder.timezone: %s not equal to vector timezone: %s", holder.timezone, this.timeZone));
+          String.format(
+              "holder.timezone: %s not equal to vector timezone: %s",
+              holder.timezone, this.timeZone));
     }
     BitVectorHelper.setBit(validityBuffer, index);
     setValue(index, holder.value);
   }
 
   /**
-   * Same as {@link #set(int, NullableTimeStampMicroTZHolder)} except that it handles the
-   * case when index is greater than or equal to existing
-   * value capacity {@link #getValueCapacity()}.
+   * Same as {@link #set(int, NullableTimeStampMicroTZHolder)} except that it handles the case when
+   * index is greater than or equal to existing value capacity {@link #getValueCapacity()}.
    *
-   * @param index   position of element
-   * @param holder  nullable data holder for value of element
+   * @param index position of element
+   * @param holder nullable data holder for value of element
    */
-  public void setSafe(int index, NullableTimeStampMicroTZHolder holder) throws IllegalArgumentException {
+  public void setSafe(int index, NullableTimeStampMicroTZHolder holder)
+      throws IllegalArgumentException {
     handleSafe(index);
     set(index, holder);
   }
 
   /**
-   * Same as {@link #set(int, TimeStampMicroTZHolder)} except that it handles the
-   * case when index is greater than or equal to existing
-   * value capacity {@link #getValueCapacity()}.
+   * Same as {@link #set(int, TimeStampMicroTZHolder)} except that it handles the case when index is
+   * greater than or equal to existing value capacity {@link #getValueCapacity()}.
    *
-   * @param index   position of element
-   * @param holder  data holder for value of element
+   * @param index position of element
+   * @param holder data holder for value of element
    */
   public void setSafe(int index, TimeStampMicroTZHolder holder) {
     handleSafe(index);
     set(index, holder);
   }
 
-
   /*----------------------------------------------------------------*
-   |                                                                |
-   |                      vector transfer                           |
-   |                                                                |
-   *----------------------------------------------------------------*/
-
+  |                                                                |
+  |                      vector transfer                           |
+  |                                                                |
+  *----------------------------------------------------------------*/
 
   /**
-   * Construct a TransferPair comprising this and a target vector of
-   * the same type.
+   * Construct a TransferPair comprising this and a target vector of the same type.
    *
    * @param ref name of the target vector
    * @param allocator allocator for the target vector
@@ -231,14 +224,12 @@ public final class TimeStampMicroTZVector extends TimeStampVector {
    */
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-    TimeStampMicroTZVector to = new TimeStampMicroTZVector(ref,
-            field.getFieldType(), allocator);
+    TimeStampMicroTZVector to = new TimeStampMicroTZVector(ref, field.getFieldType(), allocator);
     return new TransferImpl(to);
   }
 
   /**
-   * Construct a TransferPair comprising this and a target vector of
-   * the same type.
+   * Construct a TransferPair comprising this and a target vector of the same type.
    *
    * @param field Field object used by the target vector
    * @param allocator allocator for the target vector

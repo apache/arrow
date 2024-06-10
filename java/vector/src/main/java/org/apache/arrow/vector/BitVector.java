@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
@@ -36,9 +35,8 @@ import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
- * BitVector implements a fixed width (1 bit) vector of
- * boolean values which could be null. Each value in the vector corresponds
- * to a single bit in the underlying data stream backing the vector.
+ * BitVector implements a fixed width (1 bit) vector of boolean values which could be null. Each
+ * value in the vector corresponds to a single bit in the underlying data stream backing the vector.
  */
 public final class BitVector extends BaseFixedWidthVector {
 
@@ -47,10 +45,9 @@ public final class BitVector extends BaseFixedWidthVector {
   private static final int HASH_CODE_FOR_ONE = 19;
 
   /**
-   * Instantiate a BitVector. This doesn't allocate any memory for
-   * the data in vector.
+   * Instantiate a BitVector. This doesn't allocate any memory for the data in vector.
    *
-   * @param name      name of the vector
+   * @param name name of the vector
    * @param allocator allocator for memory management.
    */
   public BitVector(String name, BufferAllocator allocator) {
@@ -58,10 +55,9 @@ public final class BitVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Instantiate a BitVector. This doesn't allocate any memory for
-   * the data in vector.
+   * Instantiate a BitVector. This doesn't allocate any memory for the data in vector.
    *
-   * @param name      name of the vector
+   * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
    * @param allocator allocator for memory management.
    */
@@ -70,8 +66,7 @@ public final class BitVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Instantiate a BitVector. This doesn't allocate any memory for
-   * the data in vector.
+   * Instantiate a BitVector. This doesn't allocate any memory for the data in vector.
    *
    * @param field the Field materialized by this vector
    * @param allocator allocator for memory management.
@@ -86,8 +81,7 @@ public final class BitVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Get minor type for this vector. The vector holds values belonging
-   * to a particular type.
+   * Get minor type for this vector. The vector holds values belonging to a particular type.
    *
    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
    */
@@ -97,8 +91,8 @@ public final class BitVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Sets the desired value capacity for the vector. This function doesn't
-   * allocate any memory for the vector.
+   * Sets the desired value capacity for the vector. This function doesn't allocate any memory for
+   * the vector.
    *
    * @param valueCount desired number of elements in the vector
    */
@@ -120,8 +114,7 @@ public final class BitVector extends BaseFixedWidthVector {
    * Get the potential buffer size for a particular number of records.
    *
    * @param count desired number of elements in the vector
-   * @return estimated size of underlying buffers if the vector holds
-   *         a given number of elements
+   * @return estimated size of underlying buffers if the vector holds a given number of elements
    */
   @Override
   public int getBufferSizeFor(final int count) {
@@ -142,31 +135,34 @@ public final class BitVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Slice this vector at desired index and length and transfer the
-   * corresponding data to the target vector.
+   * Slice this vector at desired index and length and transfer the corresponding data to the target
+   * vector.
    *
    * @param startIndex start position of the split in source vector.
-   * @param length     length of the split.
-   * @param target     destination vector
+   * @param length length of the split.
+   * @param target destination vector
    */
   @Override
   public void splitAndTransferTo(int startIndex, int length, BaseFixedWidthVector target) {
-    Preconditions.checkArgument(startIndex >= 0 && length >= 0 && startIndex + length <= valueCount,
-        "Invalid parameters startIndex: %s, length: %s for valueCount: %s", startIndex, length, valueCount);
+    Preconditions.checkArgument(
+        startIndex >= 0 && length >= 0 && startIndex + length <= valueCount,
+        "Invalid parameters startIndex: %s, length: %s for valueCount: %s",
+        startIndex,
+        length,
+        valueCount);
     compareTypes(target, "splitAndTransferTo");
     target.clear();
-    target.validityBuffer = splitAndTransferBuffer(startIndex, length, validityBuffer, target.validityBuffer);
-    target.valueBuffer = splitAndTransferBuffer(startIndex, length, valueBuffer, target.valueBuffer);
+    target.validityBuffer =
+        splitAndTransferBuffer(startIndex, length, validityBuffer, target.validityBuffer);
+    target.valueBuffer =
+        splitAndTransferBuffer(startIndex, length, valueBuffer, target.valueBuffer);
     target.refreshValueCapacity();
 
     target.setValueCount(length);
   }
 
   private ArrowBuf splitAndTransferBuffer(
-      int startIndex,
-      int length,
-      ArrowBuf sourceBuffer,
-      ArrowBuf destBuffer) {
+      int startIndex, int length, ArrowBuf sourceBuffer, ArrowBuf destBuffer) {
     int firstByteSource = BitVectorHelper.byteIndex(startIndex);
     int lastByteSource = BitVectorHelper.byteIndex(valueCount - 1);
     int byteSizeTarget = getValidityBufferSizeFromCount(length);
@@ -192,8 +188,10 @@ public final class BitVector extends BaseFixedWidthVector {
         destBuffer.setZero(0, destBuffer.capacity());
 
         for (int i = 0; i < byteSizeTarget - 1; i++) {
-          byte b1 = BitVectorHelper.getBitsFromCurrentByte(sourceBuffer, firstByteSource + i, offset);
-          byte b2 = BitVectorHelper.getBitsFromNextByte(sourceBuffer, firstByteSource + i + 1, offset);
+          byte b1 =
+              BitVectorHelper.getBitsFromCurrentByte(sourceBuffer, firstByteSource + i, offset);
+          byte b2 =
+              BitVectorHelper.getBitsFromNextByte(sourceBuffer, firstByteSource + i + 1, offset);
 
           destBuffer.setByte(i, (b1 + b2));
         }
@@ -208,15 +206,18 @@ public final class BitVector extends BaseFixedWidthVector {
          * by shifting data from the current byte.
          */
         if ((firstByteSource + byteSizeTarget - 1) < lastByteSource) {
-          byte b1 = BitVectorHelper.getBitsFromCurrentByte(sourceBuffer,
-                  firstByteSource + byteSizeTarget - 1, offset);
-          byte b2 = BitVectorHelper.getBitsFromNextByte(sourceBuffer,
-                  firstByteSource + byteSizeTarget, offset);
+          byte b1 =
+              BitVectorHelper.getBitsFromCurrentByte(
+                  sourceBuffer, firstByteSource + byteSizeTarget - 1, offset);
+          byte b2 =
+              BitVectorHelper.getBitsFromNextByte(
+                  sourceBuffer, firstByteSource + byteSizeTarget, offset);
 
           destBuffer.setByte(byteSizeTarget - 1, b1 + b2);
         } else {
-          byte b1 = BitVectorHelper.getBitsFromCurrentByte(sourceBuffer,
-                  firstByteSource + byteSizeTarget - 1, offset);
+          byte b1 =
+              BitVectorHelper.getBitsFromCurrentByte(
+                  sourceBuffer, firstByteSource + byteSizeTarget - 1, offset);
           destBuffer.setByte(byteSizeTarget - 1, b1);
         }
       }
@@ -225,12 +226,11 @@ public final class BitVector extends BaseFixedWidthVector {
     return destBuffer;
   }
 
-
   /*----------------------------------------------------------------*
-   |                                                                |
-   |          vector value retrieval methods                        |
-   |                                                                |
-   *----------------------------------------------------------------*/
+  |                                                                |
+  |          vector value retrieval methods                        |
+  |                                                                |
+  *----------------------------------------------------------------*/
 
   private int getBit(int index) {
     final int byteIndex = index >> 3;
@@ -253,9 +253,8 @@ public final class BitVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Get the element at the given index from the vector and
-   * sets the state in holder. If element at given index
-   * is null, holder.isSet will be zero.
+   * Get the element at the given index from the vector and sets the state in holder. If element at
+   * given index is null, holder.isSet will be zero.
    *
    * @param index position of element
    */
@@ -284,12 +283,12 @@ public final class BitVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Copy a cell value from a particular index in source vector to a particular
-   * position in this vector.
+   * Copy a cell value from a particular index in source vector to a particular position in this
+   * vector.
    *
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
-   * @param from      source vector
+   * @param from source vector
    */
   @Override
   public void copyFrom(int fromIndex, int thisIndex, ValueVector from) {
@@ -304,11 +303,10 @@ public final class BitVector extends BaseFixedWidthVector {
   }
 
   /*----------------------------------------------------------------*
-   |                                                                |
-   |          vector value setter methods                           |
-   |                                                                |
-   *----------------------------------------------------------------*/
-
+  |                                                                |
+  |          vector value setter methods                           |
+  |                                                                |
+  *----------------------------------------------------------------*/
 
   /**
    * Set the element at the given index to the given value.
@@ -326,11 +324,10 @@ public final class BitVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Set the element at the given index to the value set in data holder.
-   * If the value in holder is not indicated as set, element in the
-   * at the given index will be null.
+   * Set the element at the given index to the value set in data holder. If the value in holder is
+   * not indicated as set, element in the at the given index will be null.
    *
-   * @param index  position of element
+   * @param index position of element
    * @param holder nullable data holder for value of element
    */
   public void set(int index, NullableBitHolder holder) throws IllegalArgumentException {
@@ -351,7 +348,7 @@ public final class BitVector extends BaseFixedWidthVector {
   /**
    * Set the element at the given index to the value set in data holder.
    *
-   * @param index  position of element
+   * @param index position of element
    * @param holder data holder for value of element
    */
   public void set(int index, BitHolder holder) {
@@ -364,9 +361,8 @@ public final class BitVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Same as {@link #set(int, int)} except that it handles the
-   * case when index is greater than or equal to existing
-   * value capacity {@link #getValueCapacity()}.
+   * Same as {@link #set(int, int)} except that it handles the case when index is greater than or
+   * equal to existing value capacity {@link #getValueCapacity()}.
    *
    * @param index position of element
    * @param value value of element
@@ -377,11 +373,10 @@ public final class BitVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Same as {@link #set(int, NullableBitHolder)} except that it handles the
-   * case when index is greater than or equal to existing
-   * value capacity {@link #getValueCapacity()}.
+   * Same as {@link #set(int, NullableBitHolder)} except that it handles the case when index is
+   * greater than or equal to existing value capacity {@link #getValueCapacity()}.
    *
-   * @param index  position of element
+   * @param index position of element
    * @param holder nullable data holder for value of element
    */
   public void setSafe(int index, NullableBitHolder holder) throws IllegalArgumentException {
@@ -390,11 +385,10 @@ public final class BitVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Same as {@link #set(int, BitHolder)} except that it handles the
-   * case when index is greater than or equal to existing
-   * value capacity {@link #getValueCapacity()}.
+   * Same as {@link #set(int, BitHolder)} except that it handles the case when index is greater than
+   * or equal to existing value capacity {@link #getValueCapacity()}.
    *
-   * @param index  position of element
+   * @param index position of element
    * @param holder data holder for value of element
    */
   public void setSafe(int index, BitHolder holder) {
@@ -403,8 +397,8 @@ public final class BitVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Store the given value at a particular position in the vector. isSet indicates
-   * whether the value is NULL or not.
+   * Store the given value at a particular position in the vector. isSet indicates whether the value
+   * is NULL or not.
    *
    * @param index position of the new value
    * @param isSet 0 for NULL value, 1 otherwise
@@ -419,9 +413,8 @@ public final class BitVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Same as {@link #set(int, int, int)} except that it handles the case
-   * when index is greater than or equal to current value capacity of the
-   * vector.
+   * Same as {@link #set(int, int, int)} except that it handles the case when index is greater than
+   * or equal to current value capacity of the vector.
    *
    * @param index position of the new value
    * @param isSet 0 for NULL value, 1 otherwise
@@ -443,8 +436,8 @@ public final class BitVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Same as {@link #setToOne(int)} except that it handles the case when
-   * index is greater than or equal to current value capacity of the vector.
+   * Same as {@link #setToOne(int)} except that it handles the case when index is greater than or
+   * equal to current value capacity of the vector.
    *
    * @param index position of the element
    */
@@ -485,7 +478,7 @@ public final class BitVector extends BaseFixedWidthVector {
    * Set count bits to 1 in data starting at firstBitIndex.
    *
    * @param firstBitIndex the index of the first bit to set
-   * @param count         the number of bits to set
+   * @param count the number of bits to set
    */
   public void setRangeToOne(int firstBitIndex, int count) {
     int startByteIndex = BitVectorHelper.byteIndex(firstBitIndex);
@@ -524,19 +517,16 @@ public final class BitVector extends BaseFixedWidthVector {
     }
   }
 
-
   /*----------------------------------------------------------------*
-   |                                                                |
-   |                      vector transfer                           |
-   |                                                                |
-   *----------------------------------------------------------------*/
-
+  |                                                                |
+  |                      vector transfer                           |
+  |                                                                |
+  *----------------------------------------------------------------*/
 
   /**
-   * Construct a TransferPair comprising this and a target vector of
-   * the same type.
+   * Construct a TransferPair comprising this and a target vector of the same type.
    *
-   * @param ref       name of the target vector
+   * @param ref name of the target vector
    * @param allocator allocator for the target vector
    * @return {@link TransferPair}
    */
@@ -546,8 +536,7 @@ public final class BitVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Construct a TransferPair comprising this and a target vector of
-   * the same type.
+   * Construct a TransferPair comprising this and a target vector of the same type.
    *
    * @param field Field object used by the target vector
    * @param allocator allocator for the target vector

@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.ipc;
 
 import static java.util.Arrays.asList;
@@ -33,7 +32,6 @@ import java.nio.channels.Channels;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -72,7 +70,7 @@ public class MessageSerializerTest {
   @Test
   public void testIntToBytes() {
     byte[] bytes = new byte[4];
-    int[] values = new int[]{1, 15, 1 << 8, 1 << 16, Integer.MAX_VALUE};
+    int[] values = new int[] {1, 15, 1 << 8, 1 << 16, Integer.MAX_VALUE};
     for (int v : values) {
       assertEquals(intToByteRoundtrip(v, bytes), v);
     }
@@ -127,13 +125,12 @@ public class MessageSerializerTest {
   public void testSchemaMessageSerialization() throws IOException {
     Schema schema = testSchema();
     ByteArrayOutputStream out = new ByteArrayOutputStream();
-    long size = MessageSerializer.serialize(
-        new WriteChannel(Channels.newChannel(out)), schema);
+    long size = MessageSerializer.serialize(new WriteChannel(Channels.newChannel(out)), schema);
     assertEquals(size, out.toByteArray().length);
 
     ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
-    Schema deserialized = MessageSerializer.deserializeSchema(
-        new ReadChannel(Channels.newChannel(in)));
+    Schema deserialized =
+        MessageSerializer.deserializeSchema(new ReadChannel(Channels.newChannel(in)));
     assertEquals(schema, deserialized);
     assertEquals(1, deserialized.getFields().size());
   }
@@ -141,29 +138,31 @@ public class MessageSerializerTest {
   @Test
   public void testSchemaDictionaryMessageSerialization() throws IOException {
     DictionaryEncoding dictionary = new DictionaryEncoding(9L, false, new ArrowType.Int(8, true));
-    Field field = new Field("test", new FieldType(true, ArrowType.Utf8.INSTANCE, dictionary, null), null);
+    Field field =
+        new Field("test", new FieldType(true, ArrowType.Utf8.INSTANCE, dictionary, null), null);
     Schema schema = new Schema(Collections.singletonList(field));
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     long size = MessageSerializer.serialize(new WriteChannel(Channels.newChannel(out)), schema);
     assertEquals(size, out.toByteArray().length);
 
     ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
-    Schema deserialized = MessageSerializer.deserializeSchema(new ReadChannel(Channels.newChannel(in)));
+    Schema deserialized =
+        MessageSerializer.deserializeSchema(new ReadChannel(Channels.newChannel(in)));
     assertEquals(schema, deserialized);
   }
 
   @Test
   public void testSerializeRecordBatchV4() throws IOException {
-    byte[] validity = new byte[]{(byte) 255, 0};
+    byte[] validity = new byte[] {(byte) 255, 0};
     // second half is "undefined"
-    byte[] values = new byte[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+    byte[] values = new byte[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
 
     BufferAllocator alloc = new RootAllocator(Long.MAX_VALUE);
     ArrowBuf validityb = buf(alloc, validity);
     ArrowBuf valuesb = buf(alloc, values);
 
-    ArrowRecordBatch batch = new ArrowRecordBatch(
-        16, asList(new ArrowFieldNode(16, 8)), asList(validityb, valuesb));
+    ArrowRecordBatch batch =
+        new ArrowRecordBatch(16, asList(new ArrowFieldNode(16, 8)), asList(validityb, valuesb));
 
     // avoid writing legacy ipc format by default
     IpcOption option = new IpcOption(false, MetadataVersion.V4);
@@ -179,16 +178,16 @@ public class MessageSerializerTest {
 
   @Test
   public void testSerializeRecordBatchV5() throws Exception {
-    byte[] validity = new byte[]{(byte) 255, 0};
+    byte[] validity = new byte[] {(byte) 255, 0};
     // second half is "undefined"
-    byte[] values = new byte[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+    byte[] values = new byte[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
 
     BufferAllocator alloc = new RootAllocator(Long.MAX_VALUE);
     ArrowBuf validityb = buf(alloc, validity);
     ArrowBuf valuesb = buf(alloc, values);
 
-    ArrowRecordBatch batch = new ArrowRecordBatch(
-        16, asList(new ArrowFieldNode(16, 8)), asList(validityb, valuesb));
+    ArrowRecordBatch batch =
+        new ArrowRecordBatch(16, asList(new ArrowFieldNode(16, 8)), asList(validityb, valuesb));
 
     // avoid writing legacy ipc format by default
     IpcOption option = new IpcOption(false, MetadataVersion.V5);
@@ -209,20 +208,25 @@ public class MessageSerializerTest {
 
     {
       byte[] validBytes = out.toByteArray();
-      byte[] missingBytes = Arrays.copyOfRange(validBytes, /*from=*/0, validBytes.length - 1);
+      byte[] missingBytes = Arrays.copyOfRange(validBytes, /*from=*/ 0, validBytes.length - 1);
 
       ByteArrayInputStream in = new ByteArrayInputStream(missingBytes);
       ReadChannel channel = new ReadChannel(Channels.newChannel(in));
 
-      assertThrows(IOException.class, () -> MessageSerializer.deserializeMessageBatch(channel, alloc));
+      assertThrows(
+          IOException.class, () -> MessageSerializer.deserializeMessageBatch(channel, alloc));
     }
 
     alloc.close();
   }
 
   public static Schema testSchema() {
-    return new Schema(asList(new Field(
-        "testField", FieldType.nullable(new ArrowType.Int(8, true)), Collections.<Field>emptyList())));
+    return new Schema(
+        asList(
+            new Field(
+                "testField",
+                FieldType.nullable(new ArrowType.Int(8, true)),
+                Collections.<Field>emptyList())));
   }
 
   // Verifies batch contents matching test schema.

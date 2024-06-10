@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.types;
 
 import static org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE;
@@ -153,16 +152,12 @@ import org.apache.arrow.vector.util.CallBack;
 /** An enumeration of all logical types supported by this library. */
 public class Types {
 
-  /**
-   * The actual enumeration of types.
-   */
+  /** The actual enumeration of types. */
   public enum MinorType {
     NULL(Null.INSTANCE) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new NullVector(field.getName());
       }
 
@@ -174,10 +169,9 @@ public class Types {
     STRUCT(Struct.INSTANCE) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
-        return new StructVector(field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new StructVector(
+            field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
       }
 
       @Override
@@ -188,9 +182,7 @@ public class Types {
     TINYINT(new Int(8, true)) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new TinyIntVector(field, allocator);
       }
 
@@ -202,9 +194,7 @@ public class Types {
     SMALLINT(new Int(16, true)) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new SmallIntVector(field, allocator);
       }
 
@@ -216,9 +206,7 @@ public class Types {
     INT(new Int(32, true)) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new IntVector(field, allocator);
       }
 
@@ -230,9 +218,7 @@ public class Types {
     BIGINT(new Int(64, true)) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new BigIntVector(field, allocator);
       }
 
@@ -244,9 +230,7 @@ public class Types {
     DATEDAY(new Date(DateUnit.DAY)) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new DateDayVector(field, allocator);
       }
 
@@ -258,9 +242,7 @@ public class Types {
     DATEMILLI(new Date(DateUnit.MILLISECOND)) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new DateMilliVector(field, allocator);
       }
 
@@ -272,9 +254,7 @@ public class Types {
     TIMESEC(new Time(TimeUnit.SECOND, 32)) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new TimeSecVector(field, allocator);
       }
 
@@ -286,9 +266,7 @@ public class Types {
     TIMEMILLI(new Time(TimeUnit.MILLISECOND, 32)) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new TimeMilliVector(field, allocator);
       }
 
@@ -300,9 +278,7 @@ public class Types {
     TIMEMICRO(new Time(TimeUnit.MICROSECOND, 64)) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new TimeMicroVector(field, allocator);
       }
 
@@ -314,9 +290,7 @@ public class Types {
     TIMENANO(new Time(TimeUnit.NANOSECOND, 64)) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new TimeNanoVector(field, allocator);
       }
 
@@ -329,9 +303,7 @@ public class Types {
     TIMESTAMPSEC(new Timestamp(org.apache.arrow.vector.types.TimeUnit.SECOND, null)) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new TimeStampSecVector(field, allocator);
       }
 
@@ -344,9 +316,7 @@ public class Types {
     TIMESTAMPMILLI(new Timestamp(org.apache.arrow.vector.types.TimeUnit.MILLISECOND, null)) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new TimeStampMilliVector(field, allocator);
       }
 
@@ -359,9 +329,7 @@ public class Types {
     TIMESTAMPMICRO(new Timestamp(org.apache.arrow.vector.types.TimeUnit.MICROSECOND, null)) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new TimeStampMicroVector(field, allocator);
       }
 
@@ -374,9 +342,7 @@ public class Types {
     TIMESTAMPNANO(new Timestamp(org.apache.arrow.vector.types.TimeUnit.NANOSECOND, null)) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new TimeStampNanoVector(field, allocator);
       }
 
@@ -388,9 +354,7 @@ public class Types {
     INTERVALDAY(new Interval(IntervalUnit.DAY_TIME)) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new IntervalDayVector(field, allocator);
       }
 
@@ -402,9 +366,7 @@ public class Types {
     INTERVALMONTHDAYNANO(new Interval(IntervalUnit.MONTH_DAY_NANO)) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new IntervalMonthDayNanoVector(field, allocator);
       }
 
@@ -416,9 +378,7 @@ public class Types {
     DURATION(null) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new DurationVector(field, allocator);
       }
 
@@ -428,13 +388,10 @@ public class Types {
       }
     },
 
-
     INTERVALYEAR(new Interval(IntervalUnit.YEAR_MONTH)) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new IntervalYearVector(field, allocator);
       }
 
@@ -445,7 +402,8 @@ public class Types {
     },
     FLOAT2(new FloatingPoint(HALF)) {
       @Override
-      public FieldVector getNewVector(Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
+      public FieldVector getNewVector(
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new Float2Vector(field, allocator);
       }
 
@@ -458,9 +416,7 @@ public class Types {
     FLOAT4(new FloatingPoint(SINGLE)) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new Float4Vector(field, allocator);
       }
 
@@ -473,9 +429,7 @@ public class Types {
     FLOAT8(new FloatingPoint(DOUBLE)) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new Float8Vector(field, allocator);
       }
 
@@ -487,9 +441,7 @@ public class Types {
     BIT(Bool.INSTANCE) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new BitVector(field, allocator);
       }
 
@@ -501,9 +453,7 @@ public class Types {
     VARCHAR(Utf8.INSTANCE) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new VarCharVector(field, allocator);
       }
 
@@ -515,9 +465,7 @@ public class Types {
     VIEWVARCHAR(Utf8View.INSTANCE) {
       @Override
       public FieldVector getNewVector(
-              Field field,
-              BufferAllocator allocator,
-              CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new ViewVarCharVector(field, allocator);
       }
 
@@ -529,9 +477,7 @@ public class Types {
     LARGEVARCHAR(LargeUtf8.INSTANCE) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new LargeVarCharVector(field, allocator);
       }
 
@@ -543,9 +489,7 @@ public class Types {
     LARGEVARBINARY(LargeBinary.INSTANCE) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new LargeVarBinaryVector(field, allocator);
       }
 
@@ -557,9 +501,7 @@ public class Types {
     VARBINARY(Binary.INSTANCE) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new VarBinaryVector(field, allocator);
       }
 
@@ -571,9 +513,7 @@ public class Types {
     VIEWVARBINARY(BinaryView.INSTANCE) {
       @Override
       public FieldVector getNewVector(
-              Field field,
-              BufferAllocator allocator,
-              CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new ViewVarBinaryVector(field, allocator);
       }
 
@@ -585,9 +525,7 @@ public class Types {
     DECIMAL(null) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new DecimalVector(field, allocator);
       }
 
@@ -599,9 +537,7 @@ public class Types {
     DECIMAL256(null) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new Decimal256Vector(field, allocator);
       }
 
@@ -613,9 +549,7 @@ public class Types {
     FIXEDSIZEBINARY(null) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new FixedSizeBinaryVector(field, allocator);
       }
 
@@ -627,9 +561,7 @@ public class Types {
     UINT1(new Int(8, false)) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new UInt1Vector(field, allocator);
       }
 
@@ -641,9 +573,7 @@ public class Types {
     UINT2(new Int(16, false)) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new UInt2Vector(field, allocator);
       }
 
@@ -655,9 +585,7 @@ public class Types {
     UINT4(new Int(32, false)) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new UInt4Vector(field, allocator);
       }
 
@@ -669,9 +597,7 @@ public class Types {
     UINT8(new Int(64, false)) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new UInt8Vector(field, allocator);
       }
 
@@ -683,10 +609,9 @@ public class Types {
     LIST(List.INSTANCE) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
-        return new ListVector(field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new ListVector(
+            field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
       }
 
       @Override
@@ -697,10 +622,9 @@ public class Types {
     LISTVIEW(ListView.INSTANCE) {
       @Override
       public FieldVector getNewVector(
-              Field field,
-              BufferAllocator allocator,
-              CallBack schemaChangeCallback) {
-        return new ListViewVector(field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new ListViewVector(
+            field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
       }
 
       @Override
@@ -710,8 +634,10 @@ public class Types {
     },
     LARGELIST(ArrowType.LargeList.INSTANCE) {
       @Override
-      public FieldVector getNewVector(Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
-        return new LargeListVector(field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
+      public FieldVector getNewVector(
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new LargeListVector(
+            field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
       }
 
       @Override
@@ -722,29 +648,27 @@ public class Types {
     FIXED_SIZE_LIST(null) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
-        return new FixedSizeListVector(field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new FixedSizeListVector(
+            field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
       }
 
       @Override
       public FieldWriter getNewFieldWriter(ValueVector vector) {
-        throw new UnsupportedOperationException("FieldWriter not implemented for FixedSizeList " +
-          "type");
+        throw new UnsupportedOperationException(
+            "FieldWriter not implemented for FixedSizeList " + "type");
       }
     },
     UNION(new Union(Sparse, null)) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         if (field.getFieldType().getDictionary() != null) {
-          throw new UnsupportedOperationException("Dictionary encoding not supported for complex " +
-              "types");
+          throw new UnsupportedOperationException(
+              "Dictionary encoding not supported for complex " + "types");
         }
-        return new UnionVector(field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
+        return new UnionVector(
+            field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
       }
 
       @Override
@@ -755,14 +679,13 @@ public class Types {
     DENSEUNION(new Union(Dense, null)) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         if (field.getFieldType().getDictionary() != null) {
-          throw new UnsupportedOperationException("Dictionary encoding not supported for complex " +
-              "types");
+          throw new UnsupportedOperationException(
+              "Dictionary encoding not supported for complex " + "types");
         }
-        return new DenseUnionVector(field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
+        return new DenseUnionVector(
+            field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
       }
 
       @Override
@@ -773,10 +696,9 @@ public class Types {
     MAP(null) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
-        return new MapVector(field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return new MapVector(
+            field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
       }
 
       @Override
@@ -787,9 +709,7 @@ public class Types {
     TIMESTAMPSECTZ(null) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new TimeStampSecTZVector(field, allocator);
       }
 
@@ -801,9 +721,7 @@ public class Types {
     TIMESTAMPMILLITZ(null) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new TimeStampMilliTZVector(field, allocator);
       }
 
@@ -815,9 +733,7 @@ public class Types {
     TIMESTAMPMICROTZ(null) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new TimeStampMicroTZVector(field, allocator);
       }
 
@@ -829,9 +745,7 @@ public class Types {
     TIMESTAMPNANOTZ(null) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
         return new TimeStampNanoTZVector(field, allocator);
       }
 
@@ -843,16 +757,17 @@ public class Types {
     EXTENSIONTYPE(null) {
       @Override
       public FieldVector getNewVector(
-          Field field,
-          BufferAllocator allocator,
-          CallBack schemaChangeCallback) {
-        return ((ExtensionType) field.getFieldType().getType()).getNewVector(field.getName(),
-            field.getFieldType(), allocator);
+          Field field, BufferAllocator allocator, CallBack schemaChangeCallback) {
+        return ((ExtensionType) field.getFieldType().getType())
+            .getNewVector(field.getName(), field.getFieldType(), allocator);
       }
 
       @Override
       public FieldWriter getNewFieldWriter(ValueVector vector) {
-        return ((ExtensionTypeVector) vector).getUnderlyingVector().getMinorType().getNewFieldWriter(vector);
+        return ((ExtensionTypeVector) vector)
+            .getUnderlyingVector()
+            .getMinorType()
+            .getNewFieldWriter(vector);
       }
     },
     ;
@@ -863,9 +778,7 @@ public class Types {
       this.type = type;
     }
 
-    /**
-     * Returns the {@link ArrowType} equivalent of this type.
-     */
+    /** Returns the {@link ArrowType} equivalent of this type. */
     public final ArrowType getType() {
       if (type == null) {
         throw new UnsupportedOperationException("Cannot get simple type for type " + name());
@@ -884,212 +797,209 @@ public class Types {
 
     /** Constructs a new vector for the given type. */
     public abstract FieldVector getNewVector(
-        Field field,
-        BufferAllocator allocator,
-        CallBack schemaChangeCallback);
+        Field field, BufferAllocator allocator, CallBack schemaChangeCallback);
 
     public abstract FieldWriter getNewFieldWriter(ValueVector vector);
   }
 
-  /**
-   * Maps the ArrowType to the java implementations MinorType.
-   */
+  /** Maps the ArrowType to the java implementations MinorType. */
   public static MinorType getMinorTypeForArrowType(ArrowType arrowType) {
-    return arrowType.accept(new ArrowTypeVisitor<MinorType>() {
-      @Override
-      public MinorType visit(Null type) {
-        return MinorType.NULL;
-      }
+    return arrowType.accept(
+        new ArrowTypeVisitor<MinorType>() {
+          @Override
+          public MinorType visit(Null type) {
+            return MinorType.NULL;
+          }
 
-      @Override
-      public MinorType visit(Struct type) {
-        return MinorType.STRUCT;
-      }
+          @Override
+          public MinorType visit(Struct type) {
+            return MinorType.STRUCT;
+          }
 
-      @Override
-      public MinorType visit(List type) {
-        return MinorType.LIST;
-      }
+          @Override
+          public MinorType visit(List type) {
+            return MinorType.LIST;
+          }
 
-      @Override
-      public MinorType visit(FixedSizeList type) {
-        return MinorType.FIXED_SIZE_LIST;
-      }
+          @Override
+          public MinorType visit(FixedSizeList type) {
+            return MinorType.FIXED_SIZE_LIST;
+          }
 
-      @Override
-      public MinorType visit(Union type) {
-        switch (type.getMode()) {
-          case Sparse:
-            return MinorType.UNION;
-          case Dense:
-            return MinorType.DENSEUNION;
-          default:
-            throw new IllegalArgumentException("only Dense or Sparse unions supported: " + type);
-        }
-      }
+          @Override
+          public MinorType visit(Union type) {
+            switch (type.getMode()) {
+              case Sparse:
+                return MinorType.UNION;
+              case Dense:
+                return MinorType.DENSEUNION;
+              default:
+                throw new IllegalArgumentException(
+                    "only Dense or Sparse unions supported: " + type);
+            }
+          }
 
-      @Override
-      public MinorType visit(Map type) {
-        return MinorType.MAP;
-      }
+          @Override
+          public MinorType visit(Map type) {
+            return MinorType.MAP;
+          }
 
-      @Override
-      public MinorType visit(ArrowType.LargeList type) {
-        return MinorType.LARGELIST;
-      }
+          @Override
+          public MinorType visit(ArrowType.LargeList type) {
+            return MinorType.LARGELIST;
+          }
 
-      @Override
-      public MinorType visit(Int type) {
-        switch (type.getBitWidth()) {
-          case 8:
-            return type.getIsSigned() ? MinorType.TINYINT : MinorType.UINT1;
-          case 16:
-            return type.getIsSigned() ? MinorType.SMALLINT : MinorType.UINT2;
-          case 32:
-            return type.getIsSigned() ? MinorType.INT : MinorType.UINT4;
-          case 64:
-            return type.getIsSigned() ? MinorType.BIGINT : MinorType.UINT8;
-          default:
-            throw new IllegalArgumentException("only 8, 16, 32, 64 supported: " + type);
-        }
-      }
+          @Override
+          public MinorType visit(Int type) {
+            switch (type.getBitWidth()) {
+              case 8:
+                return type.getIsSigned() ? MinorType.TINYINT : MinorType.UINT1;
+              case 16:
+                return type.getIsSigned() ? MinorType.SMALLINT : MinorType.UINT2;
+              case 32:
+                return type.getIsSigned() ? MinorType.INT : MinorType.UINT4;
+              case 64:
+                return type.getIsSigned() ? MinorType.BIGINT : MinorType.UINT8;
+              default:
+                throw new IllegalArgumentException("only 8, 16, 32, 64 supported: " + type);
+            }
+          }
 
-      @Override
-      public MinorType visit(FloatingPoint type) {
-        switch (type.getPrecision()) {
-          case HALF:
-            return MinorType.FLOAT2;
-          case SINGLE:
-            return MinorType.FLOAT4;
-          case DOUBLE:
-            return MinorType.FLOAT8;
-          default:
-            throw new IllegalArgumentException("unknown precision: " + type);
-        }
-      }
+          @Override
+          public MinorType visit(FloatingPoint type) {
+            switch (type.getPrecision()) {
+              case HALF:
+                return MinorType.FLOAT2;
+              case SINGLE:
+                return MinorType.FLOAT4;
+              case DOUBLE:
+                return MinorType.FLOAT8;
+              default:
+                throw new IllegalArgumentException("unknown precision: " + type);
+            }
+          }
 
-      @Override
-      public MinorType visit(Utf8 type) {
-        return MinorType.VARCHAR;
-      }
+          @Override
+          public MinorType visit(Utf8 type) {
+            return MinorType.VARCHAR;
+          }
 
-      @Override
-      public MinorType visit(Utf8View type) {
-        return MinorType.VIEWVARCHAR;
-      }
+          @Override
+          public MinorType visit(Utf8View type) {
+            return MinorType.VIEWVARCHAR;
+          }
 
-      @Override
-      public Types.MinorType visit(LargeUtf8 type) {
-        return MinorType.LARGEVARCHAR;
-      }
+          @Override
+          public Types.MinorType visit(LargeUtf8 type) {
+            return MinorType.LARGEVARCHAR;
+          }
 
-      @Override
-      public MinorType visit(Binary type) {
-        return MinorType.VARBINARY;
-      }
+          @Override
+          public MinorType visit(Binary type) {
+            return MinorType.VARBINARY;
+          }
 
-      @Override
-      public MinorType visit(BinaryView type) {
-        return MinorType.VIEWVARBINARY;
-      }
+          @Override
+          public MinorType visit(BinaryView type) {
+            return MinorType.VIEWVARBINARY;
+          }
 
-      @Override
-      public MinorType visit(LargeBinary type) {
-        return MinorType.LARGEVARBINARY;
-      }
+          @Override
+          public MinorType visit(LargeBinary type) {
+            return MinorType.LARGEVARBINARY;
+          }
 
-      @Override
-      public MinorType visit(Bool type) {
-        return MinorType.BIT;
-      }
+          @Override
+          public MinorType visit(Bool type) {
+            return MinorType.BIT;
+          }
 
-      @Override
-      public MinorType visit(Decimal type) {
-        if (type.getBitWidth() == 256) {
-          return MinorType.DECIMAL256;
-        }
-        return MinorType.DECIMAL;
-      }
+          @Override
+          public MinorType visit(Decimal type) {
+            if (type.getBitWidth() == 256) {
+              return MinorType.DECIMAL256;
+            }
+            return MinorType.DECIMAL;
+          }
 
-      @Override
-      public MinorType visit(FixedSizeBinary type) {
-        return MinorType.FIXEDSIZEBINARY;
-      }
+          @Override
+          public MinorType visit(FixedSizeBinary type) {
+            return MinorType.FIXEDSIZEBINARY;
+          }
 
-      @Override
-      public MinorType visit(Date type) {
-        switch (type.getUnit()) {
-          case DAY:
-            return MinorType.DATEDAY;
-          case MILLISECOND:
-            return MinorType.DATEMILLI;
-          default:
-            throw new IllegalArgumentException("unknown unit: " + type);
-        }
-      }
+          @Override
+          public MinorType visit(Date type) {
+            switch (type.getUnit()) {
+              case DAY:
+                return MinorType.DATEDAY;
+              case MILLISECOND:
+                return MinorType.DATEMILLI;
+              default:
+                throw new IllegalArgumentException("unknown unit: " + type);
+            }
+          }
 
-      @Override
-      public MinorType visit(Time type) {
-        switch (type.getUnit()) {
-          case SECOND:
-            return MinorType.TIMESEC;
-          case MILLISECOND:
-            return MinorType.TIMEMILLI;
-          case MICROSECOND:
-            return MinorType.TIMEMICRO;
-          case NANOSECOND:
-            return MinorType.TIMENANO;
-          default:
-            throw new IllegalArgumentException("unknown unit: " + type);
-        }
-      }
+          @Override
+          public MinorType visit(Time type) {
+            switch (type.getUnit()) {
+              case SECOND:
+                return MinorType.TIMESEC;
+              case MILLISECOND:
+                return MinorType.TIMEMILLI;
+              case MICROSECOND:
+                return MinorType.TIMEMICRO;
+              case NANOSECOND:
+                return MinorType.TIMENANO;
+              default:
+                throw new IllegalArgumentException("unknown unit: " + type);
+            }
+          }
 
-      @Override
-      public MinorType visit(Timestamp type) {
-        String tz = type.getTimezone();
-        switch (type.getUnit()) {
-          case SECOND:
-            return tz == null ? MinorType.TIMESTAMPSEC : MinorType.TIMESTAMPSECTZ;
-          case MILLISECOND:
-            return tz == null ? MinorType.TIMESTAMPMILLI : MinorType.TIMESTAMPMILLITZ;
-          case MICROSECOND:
-            return tz == null ? MinorType.TIMESTAMPMICRO : MinorType.TIMESTAMPMICROTZ;
-          case NANOSECOND:
-            return tz == null ? MinorType.TIMESTAMPNANO : MinorType.TIMESTAMPNANOTZ;
-          default:
-            throw new IllegalArgumentException("unknown unit: " + type);
-        }
-      }
+          @Override
+          public MinorType visit(Timestamp type) {
+            String tz = type.getTimezone();
+            switch (type.getUnit()) {
+              case SECOND:
+                return tz == null ? MinorType.TIMESTAMPSEC : MinorType.TIMESTAMPSECTZ;
+              case MILLISECOND:
+                return tz == null ? MinorType.TIMESTAMPMILLI : MinorType.TIMESTAMPMILLITZ;
+              case MICROSECOND:
+                return tz == null ? MinorType.TIMESTAMPMICRO : MinorType.TIMESTAMPMICROTZ;
+              case NANOSECOND:
+                return tz == null ? MinorType.TIMESTAMPNANO : MinorType.TIMESTAMPNANOTZ;
+              default:
+                throw new IllegalArgumentException("unknown unit: " + type);
+            }
+          }
 
-      @Override
-      public MinorType visit(Interval type) {
-        switch (type.getUnit()) {
-          case DAY_TIME:
-            return MinorType.INTERVALDAY;
-          case YEAR_MONTH:
-            return MinorType.INTERVALYEAR;
-          case MONTH_DAY_NANO:
-            return MinorType.INTERVALMONTHDAYNANO;
-          default:
-            throw new IllegalArgumentException("unknown unit: " + type);
-        }
-      }
+          @Override
+          public MinorType visit(Interval type) {
+            switch (type.getUnit()) {
+              case DAY_TIME:
+                return MinorType.INTERVALDAY;
+              case YEAR_MONTH:
+                return MinorType.INTERVALYEAR;
+              case MONTH_DAY_NANO:
+                return MinorType.INTERVALMONTHDAYNANO;
+              default:
+                throw new IllegalArgumentException("unknown unit: " + type);
+            }
+          }
 
-      @Override
-      public MinorType visit(Duration type) {
-        return MinorType.DURATION;
-      }
+          @Override
+          public MinorType visit(Duration type) {
+            return MinorType.DURATION;
+          }
 
-      @Override
-      public MinorType visit(ListView type) {
-        return MinorType.LISTVIEW;
-      }
+          @Override
+          public MinorType visit(ListView type) {
+            return MinorType.LISTVIEW;
+          }
 
-      @Override
-      public MinorType visit(ExtensionType type) {
-        return MinorType.EXTENSIONTYPE;
-      }
-    });
+          @Override
+          public MinorType visit(ExtensionType type) {
+            return MinorType.EXTENSIONTYPE;
+          }
+        });
   }
-
 }

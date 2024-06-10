@@ -14,14 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.complex;
 
 import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
 
 import java.util.Collections;
 import java.util.Iterator;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.util.CommonUtil;
@@ -211,20 +209,17 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
   }
 
   /**
-   * Specialized version of setInitialTotalCapacity() for ListViewVector.
-   * This is used by some callers when they want to explicitly control and be
-   * conservative about memory allocated for inner data vector.
-   * This is very useful when we are working with memory constraints for a query
-   * and have a fixed amount of memory reserved for the record batch.
-   * In such cases, we are likely to face OOM or related problems when
-   * we reserve memory for a record batch with value count x and
-   * do setInitialCapacity(x) such that each vector allocates only
-   * what is necessary and not the default amount, but the multiplier
-   * forces the memory requirement to go beyond what was needed.
+   * Specialized version of setInitialTotalCapacity() for ListViewVector. This is used by some
+   * callers when they want to explicitly control and be conservative about memory allocated for
+   * inner data vector. This is very useful when we are working with memory constraints for a query
+   * and have a fixed amount of memory reserved for the record batch. In such cases, we are likely
+   * to face OOM or related problems when we reserve memory for a record batch with value count x
+   * and do setInitialCapacity(x) such that each vector allocates only what is necessary and not the
+   * default amount, but the multiplier forces the memory requirement to go beyond what was needed.
    *
    * @param numRecords value count
-   * @param totalNumberOfElements the total number of elements to allow
-   *                              for in this vector across all records.
+   * @param totalNumberOfElements the total number of elements to allow for in this vector across
+   *     all records.
    */
   public void setInitialTotalCapacity(int numRecords, int totalNumberOfElements) {
     offsetAllocationSizeInBytes = numRecords * OFFSET_WIDTH;
@@ -266,8 +261,9 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
       innerVectorValueCount += sizeBuffer.getInt(i * SIZE_WIDTH);
     }
 
-    return (valueCount * OFFSET_WIDTH) + (valueCount * SIZE_WIDTH) +
-        vector.getBufferSizeFor(innerVectorValueCount);
+    return (valueCount * OFFSET_WIDTH)
+        + (valueCount * SIZE_WIDTH)
+        + vector.getBufferSizeFor(innerVectorValueCount);
   }
 
   @Override
@@ -343,8 +339,8 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
   }
 
   /**
-   * Initialize the data vector (and execute callback) if it hasn't already been done,
-   * returns the data vector.
+   * Initialize the data vector (and execute callback) if it hasn't already been done, returns the
+   * data vector.
    */
   public <T extends ValueVector> AddOrGetResult<T> addOrGetVector(FieldType fieldType) {
     boolean created = false;
@@ -352,15 +348,18 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
       vector = fieldType.createNewSingleVector(defaultDataVectorName, allocator, repeatedCallBack);
       // returned vector must have the same field
       created = true;
-      if (repeatedCallBack != null &&
-              // not a schema change if changing from ZeroVector to ZeroVector
-              (fieldType.getType().getTypeID() != ArrowType.ArrowTypeID.Null)) {
+      if (repeatedCallBack != null
+          &&
+          // not a schema change if changing from ZeroVector to ZeroVector
+          (fieldType.getType().getTypeID() != ArrowType.ArrowTypeID.Null)) {
         repeatedCallBack.doWork();
       }
     }
 
     if (vector.getField().getType().getTypeID() != fieldType.getType().getTypeID()) {
-      final String msg = String.format("Inner vector type mismatch. Requested type: [%s], actual type: [%s]",
+      final String msg =
+          String.format(
+              "Inner vector type mismatch. Requested type: [%s], actual type: [%s]",
               fieldType.getType().getTypeID(), vector.getField().getType().getTypeID());
       throw new SchemaChangeRuntimeException(msg);
     }
@@ -377,6 +376,7 @@ public abstract class BaseRepeatedValueViewVector extends BaseValueVector
 
   /**
    * Start a new value at the given index.
+   *
    * @param index the index to start the new value at
    * @return the offset in the data vector where the new value starts
    */

@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.complex;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -36,14 +35,22 @@ public class TestDenseUnionBufferSize {
   @Test
   public void testBufferSize() {
     try (BufferAllocator allocator = new RootAllocator();
-         DenseUnionVector duv = new DenseUnionVector("duv", allocator,
-                 FieldType.nullable(new ArrowType.Union(UnionMode.Dense, null)), null)) {
+        DenseUnionVector duv =
+            new DenseUnionVector(
+                "duv",
+                allocator,
+                FieldType.nullable(new ArrowType.Union(UnionMode.Dense, null)),
+                null)) {
 
       byte aTypeId = 42;
       byte bTypeId = 7;
 
-      duv.addVector(aTypeId, new IntVector("a", FieldType.notNullable(new ArrowType.Int(32, true)), allocator));
-      duv.addVector(bTypeId, new VarBinaryVector("b", FieldType.notNullable(new ArrowType.Binary()), allocator));
+      duv.addVector(
+          aTypeId,
+          new IntVector("a", FieldType.notNullable(new ArrowType.Int(32, true)), allocator));
+      duv.addVector(
+          bTypeId,
+          new VarBinaryVector("b", FieldType.notNullable(new ArrowType.Binary()), allocator));
 
       NullableIntHolder intHolder = new NullableIntHolder();
       NullableVarBinaryHolder varBinaryHolder = new NullableVarBinaryHolder();
@@ -71,12 +78,15 @@ public class TestDenseUnionBufferSize {
 
       long overhead = DenseUnionVector.TYPE_WIDTH + DenseUnionVector.OFFSET_WIDTH;
 
-      assertEquals(overhead * count + intVector.getBufferSize() + varBinaryVector.getBufferSize(),
-              duv.getBufferSize());
+      assertEquals(
+          overhead * count + intVector.getBufferSize() + varBinaryVector.getBufferSize(),
+          duv.getBufferSize());
 
-      assertEquals(overhead * (aCount + 1) + intVector.getBufferSizeFor(aCount) + varBinaryVector.getBufferSizeFor(1),
-              duv.getBufferSizeFor(aCount + 1));
-
+      assertEquals(
+          overhead * (aCount + 1)
+              + intVector.getBufferSizeFor(aCount)
+              + varBinaryVector.getBufferSizeFor(1),
+          duv.getBufferSizeFor(aCount + 1));
     }
   }
 }

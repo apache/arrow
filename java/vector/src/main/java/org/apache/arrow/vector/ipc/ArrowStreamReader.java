@@ -14,14 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.ipc;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
-
 import org.apache.arrow.flatbuf.MessageHeader;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -38,9 +36,7 @@ import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.validate.MetadataV4UnionChecker;
 
-/**
- * This class reads from an input stream and produces ArrowRecordBatches.
- */
+/** This class reads from an input stream and produces ArrowRecordBatches. */
 public class ArrowStreamReader extends ArrowReader {
 
   private MessageChannelReader messageReader;
@@ -55,7 +51,9 @@ public class ArrowStreamReader extends ArrowReader {
    * @param compressionFactory the factory to create compression codec.
    */
   public ArrowStreamReader(
-      MessageChannelReader messageReader, BufferAllocator allocator, CompressionCodec.Factory compressionFactory) {
+      MessageChannelReader messageReader,
+      BufferAllocator allocator,
+      CompressionCodec.Factory compressionFactory) {
     super(allocator, compressionFactory);
     this.messageReader = messageReader;
   }
@@ -78,7 +76,9 @@ public class ArrowStreamReader extends ArrowReader {
    * @param compressionFactory the factory to create compression codec.
    */
   public ArrowStreamReader(
-      ReadableByteChannel in, BufferAllocator allocator, CompressionCodec.Factory compressionFactory) {
+      ReadableByteChannel in,
+      BufferAllocator allocator,
+      CompressionCodec.Factory compressionFactory) {
     this(new MessageChannelReader(new ReadChannel(in), allocator), allocator, compressionFactory);
   }
 
@@ -157,25 +157,26 @@ public class ArrowStreamReader extends ArrowReader {
         bodyBuffer = allocator.getEmpty();
       }
 
-      ArrowRecordBatch batch = MessageSerializer.deserializeRecordBatch(result.getMessage(), bodyBuffer);
+      ArrowRecordBatch batch =
+          MessageSerializer.deserializeRecordBatch(result.getMessage(), bodyBuffer);
       loadRecordBatch(batch);
       checkDictionaries();
       return true;
     } else if (result.getMessage().headerType() == MessageHeader.DictionaryBatch) {
-      // if it's dictionary message, read dictionary message out and continue to read unless get a batch or eos.
+      // if it's dictionary message, read dictionary message out and continue to read unless get a
+      // batch or eos.
       ArrowDictionaryBatch dictionaryBatch = readDictionary(result);
       loadDictionary(dictionaryBatch);
       loadedDictionaryCount++;
       return loadNextBatch();
     } else {
-      throw new IOException("Expected RecordBatch or DictionaryBatch but header was " +
-          result.getMessage().headerType());
+      throw new IOException(
+          "Expected RecordBatch or DictionaryBatch but header was "
+              + result.getMessage().headerType());
     }
   }
 
-  /**
-   * When read a record batch, check whether its dictionaries are available.
-   */
+  /** When read a record batch, check whether its dictionaries are available. */
   private void checkDictionaries() throws IOException {
     // if all dictionaries are loaded, return.
     if (loadedDictionaryCount == dictionaries.size()) {
@@ -184,8 +185,10 @@ public class ArrowStreamReader extends ArrowReader {
     for (FieldVector vector : getVectorSchemaRoot().getFieldVectors()) {
       DictionaryEncoding encoding = vector.getField().getDictionary();
       if (encoding != null) {
-        // if the dictionaries it needs is not available and the vector is not all null, something was wrong.
-        if (!dictionaries.containsKey(encoding.getId()) && vector.getNullCount() < vector.getValueCount()) {
+        // if the dictionaries it needs is not available and the vector is not all null, something
+        // was wrong.
+        if (!dictionaries.containsKey(encoding.getId())
+            && vector.getNullCount() < vector.getValueCount()) {
           throw new IOException("The dictionary was not available, id was:" + encoding.getId());
         }
       }
@@ -210,10 +213,10 @@ public class ArrowStreamReader extends ArrowReader {
     }
 
     final Schema schema = MessageSerializer.deserializeSchema(result.getMessage());
-    MetadataV4UnionChecker.checkRead(schema, MetadataVersion.fromFlatbufID(result.getMessage().version()));
+    MetadataV4UnionChecker.checkRead(
+        schema, MetadataVersion.fromFlatbufID(result.getMessage().version()));
     return schema;
   }
-
 
   private ArrowDictionaryBatch readDictionary(MessageResult result) throws IOException {
 
