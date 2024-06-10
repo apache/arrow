@@ -230,28 +230,28 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
 
   private List<ArrowBuf> visitVariableWidthView(ArrowType type) {
     final int viewBufferIndex = 1;
-    try (ArrowBuf view = importFixedBytes(type, viewBufferIndex, BaseVariableWidthViewVector.ELEMENT_SIZE)) {
-      List<ArrowBuf> buffers = new ArrayList<>();
-      view.getReferenceManager().retain();
-      ArrowBuf maybeValidityBuffer = maybeImportBitmap(type);
-      buffers.add(maybeValidityBuffer);
-      buffers.add(view);
+    final int variadicSizeBufferIndex = this.buffers.length - 1;
+    final long numOfVariadicBuffers = this.buffers.length - 3;
+    final long variadicSizeBufferCapacity = numOfVariadicBuffers * Long.BYTES;
+    List<ArrowBuf> buffers = new ArrayList<>();
 
-      final int variadicSizeBufferIndex = this.buffers.length - 1;
-      final long numOfVariadicBuffers = this.buffers.length - 3;
-      final long variadicSizeBufferCapacity = numOfVariadicBuffers * Long.BYTES;
+    try (ArrowBuf variadicSizeBuffer = importBuffer(type, variadicSizeBufferIndex,
+        variadicSizeBufferCapacity)) {
+      ArrowBuf maybeValidityBuffer = maybeImportBitmap(type);
+      try (ArrowBuf view = importFixedBytes(type, viewBufferIndex, BaseVariableWidthViewVector.ELEMENT_SIZE)) {
+        view.getReferenceManager().retain();
+        buffers.add(maybeValidityBuffer);
+        buffers.add(view);
+      }
       // 0th buffer is validity buffer
       // 1st buffer is view buffer
       // 2nd buffer onwards are variadic buffer
       // N-1 (this.buffers.length - 1) buffer is variadic size buffer
       final int variadicBufferReadOffset = 2;
-      try (ArrowBuf variadicSizeBufferPrime = importBuffer(type, variadicSizeBufferIndex,
-          variadicSizeBufferCapacity)) {
-        variadicSizeBufferPrime.getReferenceManager().retain();
-        for (int i = 0; i < numOfVariadicBuffers; i++) {
-          long size = variadicSizeBufferPrime.getLong((long) i * Long.BYTES);
-          buffers.add(importBuffer(type, i + variadicBufferReadOffset, size));
-        }
+      variadicSizeBuffer.getReferenceManager().retain();
+      for (int i = 0; i < numOfVariadicBuffers; i++) {
+        long size = variadicSizeBuffer.getLong((long) i * Long.BYTES);
+        buffers.add(importBuffer(type, i + variadicBufferReadOffset, size));
       }
       return buffers;
     }
