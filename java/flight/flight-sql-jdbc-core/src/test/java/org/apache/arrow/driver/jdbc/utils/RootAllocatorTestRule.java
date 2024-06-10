@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.utils;
 
 import java.math.BigDecimal;
@@ -22,7 +21,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -103,31 +101,32 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
    * @return Float8Vector
    */
   public Float8Vector createFloat8Vector() {
-    double[] doubleVectorValues = new double[] {
-        0,
-        1,
-        -1,
-        Byte.MIN_VALUE,
-        Byte.MAX_VALUE,
-        Short.MIN_VALUE,
-        Short.MAX_VALUE,
-        Integer.MIN_VALUE,
-        Integer.MAX_VALUE,
-        Long.MIN_VALUE,
-        Long.MAX_VALUE,
-        Float.MAX_VALUE,
-        -Float.MAX_VALUE,
-        Float.NEGATIVE_INFINITY,
-        Float.POSITIVE_INFINITY,
-        Float.MIN_VALUE,
-        -Float.MIN_VALUE,
-        Double.MAX_VALUE,
-        -Double.MAX_VALUE,
-        Double.NEGATIVE_INFINITY,
-        Double.POSITIVE_INFINITY,
-        Double.MIN_VALUE,
-        -Double.MIN_VALUE,
-    };
+    double[] doubleVectorValues =
+        new double[] {
+          0,
+          1,
+          -1,
+          Byte.MIN_VALUE,
+          Byte.MAX_VALUE,
+          Short.MIN_VALUE,
+          Short.MAX_VALUE,
+          Integer.MIN_VALUE,
+          Integer.MAX_VALUE,
+          Long.MIN_VALUE,
+          Long.MAX_VALUE,
+          Float.MAX_VALUE,
+          -Float.MAX_VALUE,
+          Float.NEGATIVE_INFINITY,
+          Float.POSITIVE_INFINITY,
+          Float.MIN_VALUE,
+          -Float.MIN_VALUE,
+          Double.MAX_VALUE,
+          -Double.MAX_VALUE,
+          Double.NEGATIVE_INFINITY,
+          Double.POSITIVE_INFINITY,
+          Double.MIN_VALUE,
+          -Double.MIN_VALUE,
+        };
 
     Float8Vector result = new Float8Vector("", this.getRootAllocator());
     result.setValueCount(MAX_VALUE);
@@ -158,25 +157,26 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
    */
   public Float4Vector createFloat4Vector() {
 
-    float[] floatVectorValues = new float[] {
-        0,
-        1,
-        -1,
-        Byte.MIN_VALUE,
-        Byte.MAX_VALUE,
-        Short.MIN_VALUE,
-        Short.MAX_VALUE,
-        Integer.MIN_VALUE,
-        Integer.MAX_VALUE,
-        Long.MIN_VALUE,
-        Long.MAX_VALUE,
-        Float.MAX_VALUE,
-        -Float.MAX_VALUE,
-        Float.NEGATIVE_INFINITY,
-        Float.POSITIVE_INFINITY,
-        Float.MIN_VALUE,
-        -Float.MIN_VALUE,
-    };
+    float[] floatVectorValues =
+        new float[] {
+          0,
+          1,
+          -1,
+          Byte.MIN_VALUE,
+          Byte.MAX_VALUE,
+          Short.MIN_VALUE,
+          Short.MAX_VALUE,
+          Integer.MIN_VALUE,
+          Integer.MAX_VALUE,
+          Long.MIN_VALUE,
+          Long.MAX_VALUE,
+          Float.MAX_VALUE,
+          -Float.MAX_VALUE,
+          Float.NEGATIVE_INFINITY,
+          Float.POSITIVE_INFINITY,
+          Float.MIN_VALUE,
+          -Float.MIN_VALUE,
+        };
 
     Float4Vector result = new Float4Vector("", this.getRootAllocator());
     result.setValueCount(MAX_VALUE);
@@ -198,17 +198,18 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
    */
   public IntVector createIntVector() {
 
-    int[] intVectorValues = new int[] {
-        0,
-        1,
-        -1,
-        Byte.MIN_VALUE,
-        Byte.MAX_VALUE,
-        Short.MIN_VALUE,
-        Short.MAX_VALUE,
-        Integer.MIN_VALUE,
-        Integer.MAX_VALUE,
-    };
+    int[] intVectorValues =
+        new int[] {
+          0,
+          1,
+          -1,
+          Byte.MIN_VALUE,
+          Byte.MAX_VALUE,
+          Short.MIN_VALUE,
+          Short.MAX_VALUE,
+          Integer.MIN_VALUE,
+          Integer.MAX_VALUE,
+        };
 
     IntVector result = new IntVector("", this.getRootAllocator());
     result.setValueCount(MAX_VALUE);
@@ -230,15 +231,10 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
    */
   public SmallIntVector createSmallIntVector() {
 
-    short[] smallIntVectorValues = new short[] {
-        0,
-        1,
-        -1,
-        Byte.MIN_VALUE,
-        Byte.MAX_VALUE,
-        Short.MIN_VALUE,
-        Short.MAX_VALUE,
-    };
+    short[] smallIntVectorValues =
+        new short[] {
+          0, 1, -1, Byte.MIN_VALUE, Byte.MAX_VALUE, Short.MIN_VALUE, Short.MAX_VALUE,
+        };
 
     SmallIntVector result = new SmallIntVector("", this.getRootAllocator());
     result.setValueCount(MAX_VALUE);
@@ -260,13 +256,10 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
    */
   public TinyIntVector createTinyIntVector() {
 
-    byte[] byteVectorValues = new byte[] {
-        0,
-        1,
-        -1,
-        Byte.MIN_VALUE,
-        Byte.MAX_VALUE,
-    };
+    byte[] byteVectorValues =
+        new byte[] {
+          0, 1, -1, Byte.MIN_VALUE, Byte.MAX_VALUE,
+        };
 
     TinyIntVector result = new TinyIntVector("", this.getRootAllocator());
     result.setValueCount(MAX_VALUE);
@@ -288,19 +281,20 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
    */
   public BigIntVector createBigIntVector() {
 
-    long[] longVectorValues = new long[] {
-        0,
-        1,
-        -1,
-        Byte.MIN_VALUE,
-        Byte.MAX_VALUE,
-        Short.MIN_VALUE,
-        Short.MAX_VALUE,
-        Integer.MIN_VALUE,
-        Integer.MAX_VALUE,
-        Long.MIN_VALUE,
-        Long.MAX_VALUE,
-    };
+    long[] longVectorValues =
+        new long[] {
+          0,
+          1,
+          -1,
+          Byte.MIN_VALUE,
+          Byte.MAX_VALUE,
+          Short.MIN_VALUE,
+          Short.MAX_VALUE,
+          Integer.MIN_VALUE,
+          Integer.MAX_VALUE,
+          Long.MIN_VALUE,
+          Long.MAX_VALUE,
+        };
 
     BigIntVector result = new BigIntVector("", this.getRootAllocator());
     result.setValueCount(MAX_VALUE);
@@ -322,13 +316,10 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
    */
   public UInt1Vector createUInt1Vector() {
 
-    short[] uInt1VectorValues = new short[] {
-        0,
-        1,
-        -1,
-        Byte.MIN_VALUE,
-        Byte.MAX_VALUE,
-    };
+    short[] uInt1VectorValues =
+        new short[] {
+          0, 1, -1, Byte.MIN_VALUE, Byte.MAX_VALUE,
+        };
 
     UInt1Vector result = new UInt1Vector("", this.getRootAllocator());
     result.setValueCount(MAX_VALUE);
@@ -350,15 +341,10 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
    */
   public UInt2Vector createUInt2Vector() {
 
-    int[] uInt2VectorValues = new int[] {
-        0,
-        1,
-        -1,
-        Byte.MIN_VALUE,
-        Byte.MAX_VALUE,
-        Short.MIN_VALUE,
-        Short.MAX_VALUE,
-    };
+    int[] uInt2VectorValues =
+        new int[] {
+          0, 1, -1, Byte.MIN_VALUE, Byte.MAX_VALUE, Short.MIN_VALUE, Short.MAX_VALUE,
+        };
 
     UInt2Vector result = new UInt2Vector("", this.getRootAllocator());
     result.setValueCount(MAX_VALUE);
@@ -380,18 +366,18 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
    */
   public UInt4Vector createUInt4Vector() {
 
-
-    int[] uInt4VectorValues = new int[] {
-        0,
-        1,
-        -1,
-        Byte.MIN_VALUE,
-        Byte.MAX_VALUE,
-        Short.MIN_VALUE,
-        Short.MAX_VALUE,
-        Integer.MIN_VALUE,
-        Integer.MAX_VALUE
-    };
+    int[] uInt4VectorValues =
+        new int[] {
+          0,
+          1,
+          -1,
+          Byte.MIN_VALUE,
+          Byte.MAX_VALUE,
+          Short.MIN_VALUE,
+          Short.MAX_VALUE,
+          Integer.MIN_VALUE,
+          Integer.MAX_VALUE
+        };
 
     UInt4Vector result = new UInt4Vector("", this.getRootAllocator());
     result.setValueCount(MAX_VALUE);
@@ -413,19 +399,20 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
    */
   public UInt8Vector createUInt8Vector() {
 
-    long[] uInt8VectorValues = new long[] {
-        0,
-        1,
-        -1,
-        Byte.MIN_VALUE,
-        Byte.MAX_VALUE,
-        Short.MIN_VALUE,
-        Short.MAX_VALUE,
-        Integer.MIN_VALUE,
-        Integer.MAX_VALUE,
-        Long.MIN_VALUE,
-        Long.MAX_VALUE
-    };
+    long[] uInt8VectorValues =
+        new long[] {
+          0,
+          1,
+          -1,
+          Byte.MIN_VALUE,
+          Byte.MAX_VALUE,
+          Short.MIN_VALUE,
+          Short.MAX_VALUE,
+          Integer.MIN_VALUE,
+          Integer.MAX_VALUE,
+          Long.MIN_VALUE,
+          Long.MAX_VALUE
+        };
 
     UInt8Vector result = new UInt8Vector("", this.getRootAllocator());
     result.setValueCount(MAX_VALUE);
@@ -504,20 +491,21 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
    */
   public DecimalVector createDecimalVector() {
 
-    BigDecimal[] bigDecimalValues = new BigDecimal[] {
-        new BigDecimal(0),
-        new BigDecimal(1),
-        new BigDecimal(-1),
-        new BigDecimal(Byte.MIN_VALUE),
-        new BigDecimal(Byte.MAX_VALUE),
-        new BigDecimal(-Short.MAX_VALUE),
-        new BigDecimal(Short.MIN_VALUE),
-        new BigDecimal(Integer.MIN_VALUE),
-        new BigDecimal(Integer.MAX_VALUE),
-        new BigDecimal(Long.MIN_VALUE),
-        new BigDecimal(-Long.MAX_VALUE),
-        new BigDecimal("170141183460469231731687303715884105727")
-    };
+    BigDecimal[] bigDecimalValues =
+        new BigDecimal[] {
+          new BigDecimal(0),
+          new BigDecimal(1),
+          new BigDecimal(-1),
+          new BigDecimal(Byte.MIN_VALUE),
+          new BigDecimal(Byte.MAX_VALUE),
+          new BigDecimal(-Short.MAX_VALUE),
+          new BigDecimal(Short.MIN_VALUE),
+          new BigDecimal(Integer.MIN_VALUE),
+          new BigDecimal(Integer.MAX_VALUE),
+          new BigDecimal(Long.MIN_VALUE),
+          new BigDecimal(-Long.MAX_VALUE),
+          new BigDecimal("170141183460469231731687303715884105727")
+        };
 
     DecimalVector result = new DecimalVector("ID", this.getRootAllocator(), 39, 0);
     result.setValueCount(MAX_VALUE);
@@ -539,30 +527,31 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
    */
   public Decimal256Vector createDecimal256Vector() {
 
-    BigDecimal[] bigDecimalValues = new BigDecimal[] {
-        new BigDecimal(0),
-        new BigDecimal(1),
-        new BigDecimal(-1),
-        new BigDecimal(Byte.MIN_VALUE),
-        new BigDecimal(Byte.MAX_VALUE),
-        new BigDecimal(-Short.MAX_VALUE),
-        new BigDecimal(Short.MIN_VALUE),
-        new BigDecimal(Integer.MIN_VALUE),
-        new BigDecimal(Integer.MAX_VALUE),
-        new BigDecimal(Long.MIN_VALUE),
-        new BigDecimal(-Long.MAX_VALUE),
-        new BigDecimal("170141183460469231731687303715884105727"),
-        new BigDecimal("17014118346046923173168234157303715884105727"),
-        new BigDecimal("1701411834604692317316823415265417303715884105727"),
-        new BigDecimal("-17014118346046923173168234152654115451237303715884105727"),
-        new BigDecimal("-17014118346046923173168234152654115451231545157303715884105727"),
-        new BigDecimal("1701411834604692315815656534152654115451231545157303715884105727"),
-        new BigDecimal("30560141183460469231581565634152654115451231545157303715884105727"),
-        new BigDecimal(
-            "57896044618658097711785492504343953926634992332820282019728792003956564819967"),
-        new BigDecimal(
-            "-56896044618658097711785492504343953926634992332820282019728792003956564819967")
-    };
+    BigDecimal[] bigDecimalValues =
+        new BigDecimal[] {
+          new BigDecimal(0),
+          new BigDecimal(1),
+          new BigDecimal(-1),
+          new BigDecimal(Byte.MIN_VALUE),
+          new BigDecimal(Byte.MAX_VALUE),
+          new BigDecimal(-Short.MAX_VALUE),
+          new BigDecimal(Short.MIN_VALUE),
+          new BigDecimal(Integer.MIN_VALUE),
+          new BigDecimal(Integer.MAX_VALUE),
+          new BigDecimal(Long.MIN_VALUE),
+          new BigDecimal(-Long.MAX_VALUE),
+          new BigDecimal("170141183460469231731687303715884105727"),
+          new BigDecimal("17014118346046923173168234157303715884105727"),
+          new BigDecimal("1701411834604692317316823415265417303715884105727"),
+          new BigDecimal("-17014118346046923173168234152654115451237303715884105727"),
+          new BigDecimal("-17014118346046923173168234152654115451231545157303715884105727"),
+          new BigDecimal("1701411834604692315815656534152654115451231545157303715884105727"),
+          new BigDecimal("30560141183460469231581565634152654115451231545157303715884105727"),
+          new BigDecimal(
+              "57896044618658097711785492504343953926634992332820282019728792003956564819967"),
+          new BigDecimal(
+              "-56896044618658097711785492504343953926634992332820282019728792003956564819967")
+        };
 
     Decimal256Vector result = new Decimal256Vector("ID", this.getRootAllocator(), 77, 0);
     result.setValueCount(MAX_VALUE);
@@ -764,13 +753,14 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
 
     IntStream range = IntStream.range(0, MAX_VALUE);
 
-    range.forEach(row -> {
-      writer.startList();
-      writer.setPosition(row);
-      IntStream.range(0, 5).map(j -> j * row).forEach(writer::writeInt);
-      writer.setValueCount(5);
-      writer.endList();
-    });
+    range.forEach(
+        row -> {
+          writer.startList();
+          writer.setPosition(row);
+          IntStream.range(0, 5).map(j -> j * row).forEach(writer::writeInt);
+          writer.setValueCount(5);
+          writer.endList();
+        });
 
     valueVector.setValueCount(MAX_VALUE);
 
@@ -785,13 +775,14 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
 
     IntStream range = IntStream.range(0, MAX_VALUE);
 
-    range.forEach(row -> {
-      writer.startList();
-      writer.setPosition(row);
-      IntStream.range(0, 5).map(j -> j * row).forEach(writer::writeInt);
-      writer.setValueCount(5);
-      writer.endList();
-    });
+    range.forEach(
+        row -> {
+          writer.startList();
+          writer.setPosition(row);
+          IntStream.range(0, 5).map(j -> j * row).forEach(writer::writeInt);
+          writer.setValueCount(5);
+          writer.endList();
+        });
 
     valueVector.setValueCount(MAX_VALUE);
 
@@ -806,13 +797,14 @@ public class RootAllocatorTestRule implements TestRule, AutoCloseable {
 
     IntStream range = IntStream.range(0, MAX_VALUE);
 
-    range.forEach(row -> {
-      writer.startList();
-      writer.setPosition(row);
-      IntStream.range(0, 5).map(j -> j * row).forEach(writer::writeInt);
-      writer.setValueCount(5);
-      writer.endList();
-    });
+    range.forEach(
+        row -> {
+          writer.startList();
+          writer.setPosition(row);
+          IntStream.range(0, 5).map(j -> j * row).forEach(writer::writeInt);
+          writer.setValueCount(5);
+          writer.endList();
+        });
 
     valueVector.setValueCount(MAX_VALUE);
 

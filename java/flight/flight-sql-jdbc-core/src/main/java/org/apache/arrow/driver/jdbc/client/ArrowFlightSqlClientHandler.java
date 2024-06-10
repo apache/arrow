@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.client;
 
 import java.io.IOException;
@@ -27,7 +26,6 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
 import org.apache.arrow.driver.jdbc.client.utils.ClientAuthenticationUtils;
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.FlightClient;
@@ -56,9 +54,7 @@ import org.apache.calcite.avatica.Meta.StatementType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * A {@link FlightSqlClient} handler.
- */
+/** A {@link FlightSqlClient} handler. */
 public final class ArrowFlightSqlClientHandler implements AutoCloseable {
   private static final Logger LOGGER = LoggerFactory.getLogger(ArrowFlightSqlClientHandler.class);
 
@@ -66,9 +62,10 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
   private final Set<CallOption> options = new HashSet<>();
   private final Builder builder;
 
-  ArrowFlightSqlClientHandler(final FlightSqlClient sqlClient,
-                              final Builder builder,
-                              final Collection<CallOption> credentialOptions) {
+  ArrowFlightSqlClientHandler(
+      final FlightSqlClient sqlClient,
+      final Builder builder,
+      final Collection<CallOption> credentialOptions) {
     this.options.addAll(builder.options);
     this.options.addAll(credentialOptions);
     this.sqlClient = Preconditions.checkNotNull(sqlClient);
@@ -76,15 +73,15 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
   }
 
   /**
-   * Creates a new {@link ArrowFlightSqlClientHandler} from the provided {@code client} and {@code options}.
+   * Creates a new {@link ArrowFlightSqlClientHandler} from the provided {@code client} and {@code
+   * options}.
    *
-   * @param client  the {@link FlightClient} to manage under a {@link FlightSqlClient} wrapper.
+   * @param client the {@link FlightClient} to manage under a {@link FlightSqlClient} wrapper.
    * @param options the {@link CallOption}s to persist in between subsequent client calls.
    * @return a new {@link ArrowFlightSqlClientHandler}.
    */
-  public static ArrowFlightSqlClientHandler createNewHandler(final FlightClient client,
-                                                             final Builder builder,
-                                                             final Collection<CallOption> options) {
+  public static ArrowFlightSqlClientHandler createNewHandler(
+      final FlightClient client, final Builder builder, final Collection<CallOption> options) {
     return new ArrowFlightSqlClientHandler(new FlightSqlClient(client), builder, options);
   }
 
@@ -98,13 +95,14 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
   }
 
   /**
-   * Makes an RPC "getStream" request based on the provided {@link FlightInfo}
-   * object. Retrieves the result of the query previously prepared with "getInfo."
+   * Makes an RPC "getStream" request based on the provided {@link FlightInfo} object. Retrieves the
+   * result of the query previously prepared with "getInfo."
    *
    * @param flightInfo The {@link FlightInfo} instance from which to fetch results.
    * @return a {@code FlightStream} of results.
    */
-  public List<CloseableEndpointStreamPair> getStreams(final FlightInfo flightInfo) throws SQLException {
+  public List<CloseableEndpointStreamPair> getStreams(final FlightInfo flightInfo)
+      throws SQLException {
     final ArrayList<CloseableEndpointStreamPair> endpoints =
         new ArrayList<>(flightInfo.getEndpoints().size());
 
@@ -112,25 +110,31 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
       for (FlightEndpoint endpoint : flightInfo.getEndpoints()) {
         if (endpoint.getLocations().isEmpty()) {
           // Create a stream using the current client only and do not close the client at the end.
-          endpoints.add(new CloseableEndpointStreamPair(
-              sqlClient.getStream(endpoint.getTicket(), getOptions()), null));
+          endpoints.add(
+              new CloseableEndpointStreamPair(
+                  sqlClient.getStream(endpoint.getTicket(), getOptions()), null));
         } else {
           // Clone the builder and then set the new endpoint on it.
 
-          // GH-38574: Currently a new FlightClient will be made for each partition that returns a non-empty Location
-          // then disposed of. It may be better to cache clients because a server may report the same Locations.
-          // It would also be good to identify when the reported location is the same as the original connection's
+          // GH-38574: Currently a new FlightClient will be made for each partition that returns a
+          // non-empty Location
+          // then disposed of. It may be better to cache clients because a server may report the
+          // same Locations.
+          // It would also be good to identify when the reported location is the same as the
+          // original connection's
           // Location and skip creating a FlightClient in that scenario.
           List<Exception> exceptions = new ArrayList<>();
           CloseableEndpointStreamPair stream = null;
           for (Location location : endpoint.getLocations()) {
             final URI endpointUri = location.getUri();
             if (endpointUri.getScheme().equals(LocationSchemes.REUSE_CONNECTION)) {
-              stream = new CloseableEndpointStreamPair(
+              stream =
+                  new CloseableEndpointStreamPair(
                       sqlClient.getStream(endpoint.getTicket(), getOptions()), null);
               break;
             }
-            final Builder builderForEndpoint = new Builder(ArrowFlightSqlClientHandler.this.builder)
+            final Builder builderForEndpoint =
+                new Builder(ArrowFlightSqlClientHandler.this.builder)
                     .withHost(endpointUri.getHost())
                     .withPort(endpointUri.getPort())
                     .withEncryption(endpointUri.getScheme().equals(LocationSchemes.GRPC_TLS));
@@ -138,9 +142,11 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
             ArrowFlightSqlClientHandler endpointHandler = null;
             try {
               endpointHandler = builderForEndpoint.build();
-              stream = new CloseableEndpointStreamPair(
-                      endpointHandler.sqlClient.getStream(endpoint.getTicket(),
-                              endpointHandler.getOptions()), endpointHandler.sqlClient);
+              stream =
+                  new CloseableEndpointStreamPair(
+                      endpointHandler.sqlClient.getStream(
+                          endpoint.getTicket(), endpointHandler.getOptions()),
+                      endpointHandler.sqlClient);
               // Make sure we actually get data from the server
               stream.getStream().getSchema();
             } catch (Exception ex) {
@@ -182,8 +188,7 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
   }
 
   /**
-   * Makes an RPC "getInfo" request based on the provided {@code query}
-   * object.
+   * Makes an RPC "getInfo" request based on the provided {@code query} object.
    *
    * @param query The query.
    * @return a {@code FlightStream} of results.
@@ -201,9 +206,7 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
     }
   }
 
-  /**
-   * A prepared statement handler.
-   */
+  /** A prepared statement handler. */
   public interface PreparedStatement extends AutoCloseable {
     /**
      * Executes this {@link PreparedStatement}.
@@ -294,9 +297,9 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
           preparedStatement.close(getOptions());
         } catch (FlightRuntimeException fre) {
           // ARROW-17785: suppress exceptions caused by flaky gRPC layer
-          if (fre.status().code().equals(FlightStatusCode.UNAVAILABLE) ||
-              (fre.status().code().equals(FlightStatusCode.INTERNAL) &&
-                  fre.getMessage().contains("Connection closed after GOAWAY"))) {
+          if (fre.status().code().equals(FlightStatusCode.UNAVAILABLE)
+              || (fre.status().code().equals(FlightStatusCode.INTERNAL)
+                  && fre.getMessage().contains("Connection closed after GOAWAY"))) {
             LOGGER.warn("Supressed error closing PreparedStatement", fre);
             return;
           }
@@ -319,12 +322,12 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
    * Makes an RPC "getImportedKeys" request based on the provided info.
    *
    * @param catalog The catalog name. Must match the catalog name as it is stored in the database.
-   *                Retrieves those without a catalog. Null means that the catalog name should not be used to
-   *                narrow the search.
-   * @param schema  The schema name. Must match the schema name as it is stored in the database.
-   *                "" retrieves those without a schema. Null means that the schema name should not be used to narrow
-   *                the search.
-   * @param table   The table name. Must match the table name as it is stored in the database.
+   *     Retrieves those without a catalog. Null means that the catalog name should not be used to
+   *     narrow the search.
+   * @param schema The schema name. Must match the schema name as it is stored in the database. ""
+   *     retrieves those without a schema. Null means that the schema name should not be used to
+   *     narrow the search.
+   * @param table The table name. Must match the table name as it is stored in the database.
    * @return a {@code FlightStream} of results.
    */
   public FlightInfo getImportedKeys(final String catalog, final String schema, final String table) {
@@ -335,12 +338,12 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
    * Makes an RPC "getExportedKeys" request based on the provided info.
    *
    * @param catalog The catalog name. Must match the catalog name as it is stored in the database.
-   *                Retrieves those without a catalog. Null means that the catalog name should not be used to
-   *                narrow the search.
-   * @param schema  The schema name. Must match the schema name as it is stored in the database.
-   *                "" retrieves those without a schema. Null means that the schema name should not be used to narrow
-   *                the search.
-   * @param table   The table name. Must match the table name as it is stored in the database.
+   *     Retrieves those without a catalog. Null means that the catalog name should not be used to
+   *     narrow the search.
+   * @param schema The schema name. Must match the schema name as it is stored in the database. ""
+   *     retrieves those without a schema. Null means that the schema name should not be used to
+   *     narrow the search.
+   * @param table The table name. Must match the table name as it is stored in the database.
    * @return a {@code FlightStream} of results.
    */
   public FlightInfo getExportedKeys(final String catalog, final String schema, final String table) {
@@ -350,11 +353,11 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
   /**
    * Makes an RPC "getSchemas" request based on the provided info.
    *
-   * @param catalog       The catalog name. Must match the catalog name as it is stored in the database.
-   *                      Retrieves those without a catalog. Null means that the catalog name should not be used to
-   *                      narrow the search.
-   * @param schemaPattern The schema name pattern. Must match the schema name as it is stored in the database.
-   *                      Null means that schema name should not be used to narrow down the search.
+   * @param catalog The catalog name. Must match the catalog name as it is stored in the database.
+   *     Retrieves those without a catalog. Null means that the catalog name should not be used to
+   *     narrow the search.
+   * @param schemaPattern The schema name pattern. Must match the schema name as it is stored in the
+   *     database. Null means that schema name should not be used to narrow down the search.
    * @return a {@code FlightStream} of results.
    */
   public FlightInfo getSchemas(final String catalog, final String schemaPattern) {
@@ -373,24 +376,28 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
   /**
    * Makes an RPC "getTables" request based on the provided info.
    *
-   * @param catalog          The catalog name. Must match the catalog name as it is stored in the database.
-   *                         Retrieves those without a catalog. Null means that the catalog name should not be used to
-   *                         narrow the search.
-   * @param schemaPattern    The schema name pattern. Must match the schema name as it is stored in the database.
-   *                         "" retrieves those without a schema. Null means that the schema name should not be used to
-   *                         narrow the search.
-   * @param tableNamePattern The table name pattern. Must match the table name as it is stored in the database.
-   * @param types            The list of table types, which must be from the list of table types to include.
-   *                         Null returns all types.
-   * @param includeSchema    Whether to include schema.
+   * @param catalog The catalog name. Must match the catalog name as it is stored in the database.
+   *     Retrieves those without a catalog. Null means that the catalog name should not be used to
+   *     narrow the search.
+   * @param schemaPattern The schema name pattern. Must match the schema name as it is stored in the
+   *     database. "" retrieves those without a schema. Null means that the schema name should not
+   *     be used to narrow the search.
+   * @param tableNamePattern The table name pattern. Must match the table name as it is stored in
+   *     the database.
+   * @param types The list of table types, which must be from the list of table types to include.
+   *     Null returns all types.
+   * @param includeSchema Whether to include schema.
    * @return a {@code FlightStream} of results.
    */
-  public FlightInfo getTables(final String catalog, final String schemaPattern,
-                              final String tableNamePattern,
-                              final List<String> types, final boolean includeSchema) {
+  public FlightInfo getTables(
+      final String catalog,
+      final String schemaPattern,
+      final String tableNamePattern,
+      final List<String> types,
+      final boolean includeSchema) {
 
-    return sqlClient.getTables(catalog, schemaPattern, tableNamePattern, types, includeSchema,
-        getOptions());
+    return sqlClient.getTables(
+        catalog, schemaPattern, tableNamePattern, types, includeSchema, getOptions());
   }
 
   /**
@@ -406,12 +413,12 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
    * Makes an RPC "getPrimaryKeys" request based on the provided info.
    *
    * @param catalog The catalog name; must match the catalog name as it is stored in the database.
-   *                "" retrieves those without a catalog.
-   *                Null means that the catalog name should not be used to narrow the search.
-   * @param schema  The schema name; must match the schema name as it is stored in the database.
-   *                "" retrieves those without a schema. Null means that the schema name should not be used to narrow
-   *                the search.
-   * @param table   The table name. Must match the table name as it is stored in the database.
+   *     "" retrieves those without a catalog. Null means that the catalog name should not be used
+   *     to narrow the search.
+   * @param schema The schema name; must match the schema name as it is stored in the database. ""
+   *     retrieves those without a schema. Null means that the schema name should not be used to
+   *     narrow the search.
+   * @param table The table name. Must match the table name as it is stored in the database.
    * @return a {@code FlightStream} of results.
    */
   public FlightInfo getPrimaryKeys(final String catalog, final String schema, final String table) {
@@ -422,90 +429,80 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
    * Makes an RPC "getCrossReference" request based on the provided info.
    *
    * @param pkCatalog The catalog name. Must match the catalog name as it is stored in the database.
-   *                  Retrieves those without a catalog. Null means that the catalog name should not be used to
-   *                  narrow the search.
-   * @param pkSchema  The schema name. Must match the schema name as it is stored in the database.
-   *                  "" retrieves those without a schema. Null means that the schema name should not be used to narrow
-   *                  the search.
-   * @param pkTable   The table name. Must match the table name as it is stored in the database.
+   *     Retrieves those without a catalog. Null means that the catalog name should not be used to
+   *     narrow the search.
+   * @param pkSchema The schema name. Must match the schema name as it is stored in the database. ""
+   *     retrieves those without a schema. Null means that the schema name should not be used to
+   *     narrow the search.
+   * @param pkTable The table name. Must match the table name as it is stored in the database.
    * @param fkCatalog The catalog name. Must match the catalog name as it is stored in the database.
-   *                  Retrieves those without a catalog. Null means that the catalog name should not be used to
-   *                  narrow the search.
-   * @param fkSchema  The schema name. Must match the schema name as it is stored in the database.
-   *                  "" retrieves those without a schema. Null means that the schema name should not be used to narrow
-   *                  the search.
-   * @param fkTable   The table name. Must match the table name as it is stored in the database.
+   *     Retrieves those without a catalog. Null means that the catalog name should not be used to
+   *     narrow the search.
+   * @param fkSchema The schema name. Must match the schema name as it is stored in the database. ""
+   *     retrieves those without a schema. Null means that the schema name should not be used to
+   *     narrow the search.
+   * @param fkTable The table name. Must match the table name as it is stored in the database.
    * @return a {@code FlightStream} of results.
    */
-  public FlightInfo getCrossReference(String pkCatalog, String pkSchema, String pkTable,
-                                      String fkCatalog, String fkSchema, String fkTable) {
-    return sqlClient.getCrossReference(TableRef.of(pkCatalog, pkSchema, pkTable),
+  public FlightInfo getCrossReference(
+      String pkCatalog,
+      String pkSchema,
+      String pkTable,
+      String fkCatalog,
+      String fkSchema,
+      String fkTable) {
+    return sqlClient.getCrossReference(
+        TableRef.of(pkCatalog, pkSchema, pkTable),
         TableRef.of(fkCatalog, fkSchema, fkTable),
         getOptions());
   }
 
-  /**
-   * Builder for {@link ArrowFlightSqlClientHandler}.
-   */
+  /** Builder for {@link ArrowFlightSqlClientHandler}. */
   public static final class Builder {
     private final Set<FlightClientMiddleware.Factory> middlewareFactories = new HashSet<>();
     private final Set<CallOption> options = new HashSet<>();
     private String host;
     private int port;
 
-    @VisibleForTesting
-    String username;
+    @VisibleForTesting String username;
 
-    @VisibleForTesting
-    String password;
+    @VisibleForTesting String password;
 
-    @VisibleForTesting
-    String trustStorePath;
+    @VisibleForTesting String trustStorePath;
 
-    @VisibleForTesting
-    String trustStorePassword;
+    @VisibleForTesting String trustStorePassword;
 
-    @VisibleForTesting
-    String token;
+    @VisibleForTesting String token;
 
-    @VisibleForTesting
-    boolean useEncryption = true;
+    @VisibleForTesting boolean useEncryption = true;
 
-    @VisibleForTesting
-    boolean disableCertificateVerification;
+    @VisibleForTesting boolean disableCertificateVerification;
 
-    @VisibleForTesting
-    boolean useSystemTrustStore = true;
+    @VisibleForTesting boolean useSystemTrustStore = true;
 
-    @VisibleForTesting
-    String tlsRootCertificatesPath;
+    @VisibleForTesting String tlsRootCertificatesPath;
 
-    @VisibleForTesting
-    String clientCertificatePath;
+    @VisibleForTesting String clientCertificatePath;
 
-    @VisibleForTesting
-    String clientKeyPath;
+    @VisibleForTesting String clientKeyPath;
 
-    @VisibleForTesting
-    private BufferAllocator allocator;
+    @VisibleForTesting private BufferAllocator allocator;
 
-    @VisibleForTesting
-    boolean retainCookies = true;
+    @VisibleForTesting boolean retainCookies = true;
 
-    @VisibleForTesting
-    boolean retainAuth = true;
+    @VisibleForTesting boolean retainAuth = true;
 
-    // These two middleware are for internal use within build() and should not be exposed by builder APIs.
+    // These two middleware are for internal use within build() and should not be exposed by builder
+    // APIs.
     // Note that these middleware may not necessarily be registered.
     @VisibleForTesting
-    ClientIncomingAuthHeaderMiddleware.Factory authFactory
-        = new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
+    ClientIncomingAuthHeaderMiddleware.Factory authFactory =
+        new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
 
     @VisibleForTesting
     ClientCookieMiddleware.Factory cookieFactory = new ClientCookieMiddleware.Factory();
 
-    public Builder() {
-    }
+    public Builder() {}
 
     /**
      * Copies the builder.
@@ -623,7 +620,8 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
      * @param disableCertificateVerification whether to disable certificate verification.
      * @return this instance.
      */
-    public Builder withDisableCertificateVerification(final boolean disableCertificateVerification) {
+    public Builder withDisableCertificateVerification(
+        final boolean disableCertificateVerification) {
       this.disableCertificateVerification = disableCertificateVerification;
       return this;
     }
@@ -640,8 +638,8 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
     }
 
     /**
-     * Sets the TLS root certificate path as an alternative to using the System
-     * or other Trust Store.  The path must contain a valid PEM file.
+     * Sets the TLS root certificate path as an alternative to using the System or other Trust
+     * Store. The path must contain a valid PEM file.
      *
      * @param tlsRootCertificatesPath the TLS root certificate path (if TLS is required).
      * @return this instance.
@@ -672,12 +670,12 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
       this.clientKeyPath = clientKeyPath;
       return this;
     }
-    
+
     /**
      * Sets the token used in the token authentication.
      *
      * @param token the token value.
-     * @return      this builder instance.
+     * @return this builder instance.
      */
     public Builder withToken(final String token) {
       this.token = token;
@@ -691,15 +689,16 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
      * @return this instance.
      */
     public Builder withBufferAllocator(final BufferAllocator allocator) {
-      this.allocator = allocator
-          .newChildAllocator("ArrowFlightSqlClientHandler", 0, allocator.getLimit());
+      this.allocator =
+          allocator.newChildAllocator("ArrowFlightSqlClientHandler", 0, allocator.getLimit());
       return this;
     }
 
     /**
      * Indicates if cookies should be re-used by connections spawned for getStreams() calls.
+     *
      * @param retainCookies The flag indicating if cookies should be re-used.
-     * @return      this builder instance.
+     * @return this builder instance.
      */
     public Builder withRetainCookies(boolean retainCookies) {
       this.retainCookies = retainCookies;
@@ -707,11 +706,11 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
     }
 
     /**
-     * Indicates if bearer tokens negotiated should be re-used by connections
-     * spawned for getStreams() calls.
+     * Indicates if bearer tokens negotiated should be re-used by connections spawned for
+     * getStreams() calls.
      *
      * @param retainAuth The flag indicating if auth tokens should be re-used.
-     * @return      this builder instance.
+     * @return this builder instance.
      */
     public Builder withRetainAuth(boolean retainAuth) {
       this.retainAuth = retainAuth;
@@ -719,7 +718,8 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
     }
 
     /**
-     * Adds the provided {@code factories} to the list of {@link #middlewareFactories} of this handler.
+     * Adds the provided {@code factories} to the list of {@link #middlewareFactories} of this
+     * handler.
      *
      * @param factories the factories to add.
      * @return this instance.
@@ -729,7 +729,8 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
     }
 
     /**
-     * Adds the provided {@code factories} to the list of {@link #middlewareFactories} of this handler.
+     * Adds the provided {@code factories} to the list of {@link #middlewareFactories} of this
+     * handler.
      *
      * @param factories the factories to add.
      * @return this instance.
@@ -768,13 +769,16 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
      * @throws SQLException on error.
      */
     public ArrowFlightSqlClientHandler build() throws SQLException {
-      // Copy middleware so that the build method doesn't change the state of the builder fields itself.
-      Set<FlightClientMiddleware.Factory> buildTimeMiddlewareFactories = new HashSet<>(this.middlewareFactories);
+      // Copy middleware so that the build method doesn't change the state of the builder fields
+      // itself.
+      Set<FlightClientMiddleware.Factory> buildTimeMiddlewareFactories =
+          new HashSet<>(this.middlewareFactories);
       FlightClient client = null;
       boolean isUsingUserPasswordAuth = username != null && token == null;
 
       try {
-        // Token should take priority since some apps pass in a username/password even when a token is provided
+        // Token should take priority since some apps pass in a username/password even when a token
+        // is provided
         if (isUsingUserPasswordAuth) {
           buildTimeMiddlewareFactories.add(authFactory);
         }
@@ -797,13 +801,15 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
           } else {
             if (tlsRootCertificatesPath != null) {
               clientBuilder.trustedCertificates(
-                      ClientAuthenticationUtils.getTlsRootCertificatesStream(tlsRootCertificatesPath));
+                  ClientAuthenticationUtils.getTlsRootCertificatesStream(tlsRootCertificatesPath));
             } else if (useSystemTrustStore) {
               clientBuilder.trustedCertificates(
-                  ClientAuthenticationUtils.getCertificateInputStreamFromSystem(trustStorePassword));
+                  ClientAuthenticationUtils.getCertificateInputStreamFromSystem(
+                      trustStorePassword));
             } else if (trustStorePath != null) {
               clientBuilder.trustedCertificates(
-                  ClientAuthenticationUtils.getCertificateStream(trustStorePath, trustStorePassword));
+                  ClientAuthenticationUtils.getCertificateStream(
+                      trustStorePath, trustStorePassword));
             }
           }
 
@@ -818,7 +824,8 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
         final ArrayList<CallOption> credentialOptions = new ArrayList<>();
         if (isUsingUserPasswordAuth) {
           // If the authFactory has already been used for a handshake, use the existing token.
-          // This can occur if the authFactory is being re-used for a new connection spawned for getStream().
+          // This can occur if the authFactory is being re-used for a new connection spawned for
+          // getStream().
           if (authFactory.getCredentialCallOption() != null) {
             credentialOptions.add(authFactory.getCredentialCallOption());
           } else {
@@ -830,12 +837,16 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
         } else if (token != null) {
           credentialOptions.add(
               ClientAuthenticationUtils.getAuthenticate(
-                  client, new CredentialCallOption(new BearerCredentialWriter(token)), options.toArray(
-                          new CallOption[0])));
+                  client,
+                  new CredentialCallOption(new BearerCredentialWriter(token)),
+                  options.toArray(new CallOption[0])));
         }
         return ArrowFlightSqlClientHandler.createNewHandler(client, this, credentialOptions);
 
-      } catch (final IllegalArgumentException | GeneralSecurityException | IOException | FlightRuntimeException e) {
+      } catch (final IllegalArgumentException
+          | GeneralSecurityException
+          | IOException
+          | FlightRuntimeException e) {
         final SQLException originalException = new SQLException(e);
         if (client != null) {
           try {

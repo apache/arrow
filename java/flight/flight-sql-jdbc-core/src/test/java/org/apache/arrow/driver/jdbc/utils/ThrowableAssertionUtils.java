@@ -14,16 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.utils;
 
 /**
- * Utility class to avoid upgrading JUnit to version >= 4.13 and keep using code to assert a {@link Throwable}.
- * This should be removed as soon as we can use the proper assertThrows/checkThrows.
+ * Utility class to avoid upgrading JUnit to version >= 4.13 and keep using code to assert a {@link
+ * Throwable}. This should be removed as soon as we can use the proper assertThrows/checkThrows.
  */
 public class ThrowableAssertionUtils {
-  private ThrowableAssertionUtils() {
-  }
+  private ThrowableAssertionUtils() {}
 
   public static void simpleAssertThrowableClass(
       final Class<? extends Throwable> expectedThrowable, final ThrowingRunnable runnable) {
@@ -33,15 +31,17 @@ public class ThrowableAssertionUtils {
       if (expectedThrowable.isInstance(actualThrown)) {
         return;
       } else {
-        final String mismatchMessage = String.format("unexpected exception type thrown;\nexpected: %s\nactual: %s",
-            formatClass(expectedThrowable),
-            formatClass(actualThrown.getClass()));
+        final String mismatchMessage =
+            String.format(
+                "unexpected exception type thrown;\nexpected: %s\nactual: %s",
+                formatClass(expectedThrowable), formatClass(actualThrown.getClass()));
 
         throw new AssertionError(mismatchMessage, actualThrown);
       }
     }
-    final String notThrownMessage = String.format("expected %s to be thrown, but nothing was thrown",
-        formatClass(expectedThrowable));
+    final String notThrownMessage =
+        String.format(
+            "expected %s to be thrown, but nothing was thrown", formatClass(expectedThrowable));
     throw new AssertionError(notThrownMessage);
   }
 

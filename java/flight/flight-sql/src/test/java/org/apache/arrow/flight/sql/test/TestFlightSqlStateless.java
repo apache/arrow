@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.sql.test;
 
 import static org.apache.arrow.flight.sql.util.FlightStreamUtils.getResults;
@@ -40,9 +39,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-/**
- * Test direct usage of Flight SQL workflows.
- */
+/** Test direct usage of Flight SQL workflows. */
 public class TestFlightSqlStateless extends TestFlightSql {
 
   @BeforeAll
@@ -61,8 +58,11 @@ public class TestFlightSqlStateless extends TestFlightSql {
     allocator = new RootAllocator(Integer.MAX_VALUE);
 
     final Location serverLocation = Location.forGrpcInsecure(LOCALHOST, 0);
-    server = FlightServer.builder(allocator, serverLocation,
-                    new FlightSqlStatelessExample(serverLocation, FlightSqlStatelessExample.DB_NAME))
+    server =
+        FlightServer.builder(
+                allocator,
+                serverLocation,
+                new FlightSqlStatelessExample(serverLocation, FlightSqlStatelessExample.DB_NAME))
             .build()
             .start();
 
@@ -75,7 +75,8 @@ public class TestFlightSqlStateless extends TestFlightSql {
   public void testSimplePreparedStatementResultsWithParameterBinding() throws Exception {
     try (PreparedStatement prepare = sqlClient.prepare("SELECT * FROM intTable WHERE id = ?")) {
       final Schema parameterSchema = prepare.getParameterSchema();
-      try (final VectorSchemaRoot insertRoot = VectorSchemaRoot.create(parameterSchema, allocator)) {
+      try (final VectorSchemaRoot insertRoot =
+          VectorSchemaRoot.create(parameterSchema, allocator)) {
         insertRoot.allocateNew();
 
         final IntVector valueVector = (IntVector) insertRoot.getVector(0);
@@ -85,12 +86,13 @@ public class TestFlightSqlStateless extends TestFlightSql {
         prepare.setParameters(insertRoot);
         final FlightInfo flightInfo = prepare.execute();
 
-        for (FlightEndpoint endpoint: flightInfo.getEndpoints()) {
+        for (FlightEndpoint endpoint : flightInfo.getEndpoints()) {
           try (FlightStream stream = sqlClient.getStream(endpoint.getTicket())) {
             Assertions.assertAll(
                 () -> MatcherAssert.assertThat(stream.getSchema(), is(SCHEMA_INT_TABLE)),
-                () -> MatcherAssert.assertThat(getResults(stream), is(EXPECTED_RESULTS_FOR_PARAMETER_BINDING))
-            );
+                () ->
+                    MatcherAssert.assertThat(
+                        getResults(stream), is(EXPECTED_RESULTS_FOR_PARAMETER_BINDING)));
           }
         }
       }
