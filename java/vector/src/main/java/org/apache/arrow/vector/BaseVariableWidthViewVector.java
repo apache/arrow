@@ -1675,12 +1675,12 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
    * the size of each variadic buffer since that information
    * cannot be retrieved in the C Data import.
    * When there are dataBuffers, the count is set to 3 + dataBuffers.size().
-   * Three is formed by validity, view, variadic size buffer.
-   * If it is not the case, the dataBuffer is not present;
+   * Three is formed by validity, view, and variadic size buffer.
+   * If it is not the case, i.e., the dataBuffer is not present;
    * four buffers are required.
    * They are view buffer, validity buffer,
-   * empty view buffer, and variadic size buffer.
-   * Note that the Java library only allocates a data buffer
+   * empty data buffer, and variadic size buffer.
+   * Note that the Java library only allocates data buffers
    * when long strings are present.
    * In the C Data Interface,
    * the binary view import expects at least three buffers.
