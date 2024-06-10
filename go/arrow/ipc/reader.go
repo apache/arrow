@@ -214,7 +214,7 @@ func (r *Reader) getInitialDicts() bool {
 func (r *Reader) next() bool {
 	defer func() {
 		if pErr := recover(); pErr != nil {
-			err = utils.FormatRecoveredError("arrow/ipc: unknown error while reading", pErr)
+			r.err = utils.FormatRecoveredError("arrow/ipc: unknown error while reading", pErr)
 		}
 	}()
 	if r.schema == nil {

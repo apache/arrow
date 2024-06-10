@@ -27,7 +27,7 @@ import (
 	"github.com/apache/arrow/go/v17/arrow/internal/debug"
 	"github.com/apache/arrow/go/v17/arrow/ipc"
 	"github.com/apache/arrow/go/v17/arrow/memory"
-	"github.com/apache/arrow/go/v17/utils"
+	"github.com/apache/arrow/go/v17/internal/utils"
 )
 
 // DataStreamReader is an interface for receiving flight data messages on a stream

@@ -30,7 +30,6 @@ import (
 	shared_utils "github.com/apache/arrow/go/v17/internal/utils"
 	"github.com/apache/arrow/go/v17/parquet"
 	"github.com/apache/arrow/go/v17/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v17/parquet/internal/utils"
 	"github.com/apache/arrow/go/v17/parquet/schema"
 )
 
@@ -311,7 +310,7 @@ func (s *Int32Statistics) EncodeMax() []byte {
 func (s *Int32Statistics) Encode() (enc EncodedStatistics, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = utils.FormatRecoveredError("unknown error type thrown from panic", r)
+			err = shared_utils.FormatRecoveredError("unknown error type thrown from panic", r)
 		}
 	}()
 	if s.HasMinMax() {
@@ -604,7 +603,7 @@ func (s *Int64Statistics) EncodeMax() []byte {
 func (s *Int64Statistics) Encode() (enc EncodedStatistics, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = utils.FormatRecoveredError("unknown error type thrown from panic", r)
+			err = shared_utils.FormatRecoveredError("unknown error type thrown from panic", r)
 		}
 	}()
 	if s.HasMinMax() {
@@ -882,7 +881,7 @@ func (s *Int96Statistics) EncodeMax() []byte {
 func (s *Int96Statistics) Encode() (enc EncodedStatistics, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = utils.FormatRecoveredError("unknown error type thrown from panic", r)
+			err = shared_utils.FormatRecoveredError("unknown error type thrown from panic", r)
 		}
 	}()
 	if s.HasMinMax() {
@@ -1174,7 +1173,7 @@ func (s *Float32Statistics) EncodeMax() []byte {
 func (s *Float32Statistics) Encode() (enc EncodedStatistics, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = utils.FormatRecoveredError("unknown error type thrown from panic", r)
+			err = shared_utils.FormatRecoveredError("unknown error type thrown from panic", r)
 		}
 	}()
 	if s.HasMinMax() {
@@ -1466,7 +1465,7 @@ func (s *Float64Statistics) EncodeMax() []byte {
 func (s *Float64Statistics) Encode() (enc EncodedStatistics, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = utils.FormatRecoveredError("unknown error type thrown from panic", r)
+			err = shared_utils.FormatRecoveredError("unknown error type thrown from panic", r)
 		}
 	}()
 	if s.HasMinMax() {
@@ -1744,7 +1743,7 @@ func (s *BooleanStatistics) EncodeMax() []byte {
 func (s *BooleanStatistics) Encode() (enc EncodedStatistics, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = utils.FormatRecoveredError("unknown error type thrown from panic", r)
+			err = shared_utils.FormatRecoveredError("unknown error type thrown from panic", r)
 		}
 	}()
 	if s.HasMinMax() {
@@ -2051,7 +2050,7 @@ func (s *ByteArrayStatistics) EncodeMax() []byte {
 func (s *ByteArrayStatistics) Encode() (enc EncodedStatistics, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = utils.FormatRecoveredError("unknown error type thrown from panic", r)
+			err = shared_utils.FormatRecoveredError("unknown error type thrown from panic", r)
 		}
 	}()
 	if s.HasMinMax() {
@@ -2361,7 +2360,7 @@ func (s *FixedLenByteArrayStatistics) EncodeMax() []byte {
 func (s *FixedLenByteArrayStatistics) Encode() (enc EncodedStatistics, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = utils.FormatRecoveredError("unknown error type thrown from panic", r)
+			err = shared_utils.FormatRecoveredError("unknown error type thrown from panic", r)
 		}
 	}()
 	if s.HasMinMax() {
@@ -2662,7 +2661,7 @@ func (s *Float16Statistics) EncodeMax() []byte {
 func (s *Float16Statistics) Encode() (enc EncodedStatistics, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = utils.FormatRecoveredError("unknown error type thrown from panic", r)
+			err = shared_utils.FormatRecoveredError("unknown error type thrown from panic", r)
 		}
 	}()
 	if s.HasMinMax() {
