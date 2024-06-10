@@ -401,7 +401,9 @@ Arrays. All Chunked Arrays have the same length, but may have different types. D
 may be chunked differently.
 
 .. note::
-   Table is a concept specific to certain implementations such as Arrow C++ and PyArrow.
+   Table is a concept specific to certain implementations such as Arrow C++ and PyArrow. In Java
+   implementation, for example, a Table is not a collection of Chunked Arrays but a collection of
+   RecordBatches.
 
 .. image:: ../cpp/tables-versus-record-batches.svg
    :alt: A graphical representation of an Arrow Table and a
