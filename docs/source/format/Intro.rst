@@ -44,18 +44,21 @@ in-memory analytical data processing. This includes such topics as:
 Arrow Columnar Format
 =====================
 
+Apache Arrow focuses on tabular data so let's consider we have data
+which are tabular so they can be organized into a table:
+
 .. figure:: ./images/columnar-diagram_1.svg
    :scale: 70%
    :alt: Diagram with tabular data of 4 rows and columns.
 
-Data can be represented in memory using a row based format or a column
-based format. The row based format stores data by row meaning the rows
+This kind of data can be represented in memory using a row based format or a
+column based format. The row based format stores data by row meaning the rows
 are adjacent in the computer memory:
 
 .. figure:: ./images/columnar-diagram_2.svg
    :alt: Tabular data being structured row by row in computer memory.
 
-In a columnar format, on the other hand, the data is organised by column
+In a columnar format, on the other hand, the data is organized by column
 instead of by row making analytical operations like filtering, grouping,
 aggregations and others more efficient because the CPU can maintain memory locality
 and require less memory jumps to process the data. By keeping the data contiguous
@@ -63,6 +66,9 @@ in memory it also enables vectorization of the computations. Most modern
 CPUs have single instructions, multiple data (SIMD) enabling parallel
 processing and execution of operations on vector data using a single CPU
 instruction.
+
+Apache Arrow is solving this exact problem. It is the specification that
+uses the columnar layout.
 
 .. figure:: ./images/columnar-diagram_3.svg
    :alt: Tabular data being structured column by column in computer memory.
