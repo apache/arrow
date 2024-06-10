@@ -101,7 +101,7 @@ class ARROW_EXPORT Table {
   static Result<std::shared_ptr<Table>> FromChunkedStructArray(
       const std::shared_ptr<ChunkedArray>& array);
 
-  /// \brief Convert table with one data type to Tensor
+  /// \brief Convert Table to Tensor
   ///
   /// Create a Tensor object with shape (number of rows, number of columns) and
   /// strides (type size in bytes, type size in bytes * number of rows).
