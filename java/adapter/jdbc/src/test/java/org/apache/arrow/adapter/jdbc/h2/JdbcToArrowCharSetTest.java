@@ -28,7 +28,6 @@ import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.stream.Stream;
-
 import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfig;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfigBuilder;
@@ -63,7 +62,7 @@ public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
     String driver = "org.h2.Driver";
     Class.forName(driver);
     conn = DriverManager.getConnection(url);
-    try (Statement stmt = conn.createStatement();) {
+    try (Statement stmt = conn.createStatement(); ) {
       stmt.executeUpdate(table.getCreate());
       for (String insert : table.getData()) {
         stmt.executeUpdate(insert);
@@ -79,8 +78,10 @@ public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
    * @throws ClassNotFoundException on error
    * @throws IOException on error
    */
-  public static Stream<Arguments> getTestData() throws SQLException, ClassNotFoundException, IOException {
-    return Arrays.stream(prepareTestData(testFiles, JdbcToArrowCharSetTest.class)).map(Arguments::of);
+  public static Stream<Arguments> getTestData()
+      throws SQLException, ClassNotFoundException, IOException {
+    return Arrays.stream(prepareTestData(testFiles, JdbcToArrowCharSetTest.class))
+        .map(Arguments::of);
   }
 
   /**
@@ -89,11 +90,14 @@ public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
    */
   @ParameterizedTest
   @MethodSource("getTestData")
-  public void testJdbcToArrowValues(Table table) throws SQLException, IOException, ClassNotFoundException {
+  public void testJdbcToArrowValues(Table table)
+      throws SQLException, IOException, ClassNotFoundException {
     this.initializeDatabase(table);
 
-    testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE),
-        Calendar.getInstance()), false);
+    testDataSets(
+        sqlToArrow(
+            conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()),
+        false);
     testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE)), false);
     testDataSets(
         sqlToArrow(
@@ -132,7 +136,8 @@ public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
   public void testJdbcSchemaMetadata(Table table) throws SQLException, ClassNotFoundException {
     this.initializeDatabase(table);
 
-    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(0), Calendar.getInstance(), true).build();
+    JdbcToArrowConfig config =
+        new JdbcToArrowConfigBuilder(new RootAllocator(0), Calendar.getInstance(), true).build();
     ResultSetMetaData rsmd = conn.createStatement().executeQuery(table.getQuery()).getMetaData();
     Schema schema = JdbcToArrowUtils.jdbcToArrowSchema(rsmd, config);
     JdbcToArrowTestHelper.assertFieldMetadataMatchesResultSetMetadata(rsmd, schema);

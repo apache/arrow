@@ -23,7 +23,6 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.stream.Stream;
-
 import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper;
 import org.apache.arrow.adapter.jdbc.Table;
@@ -48,8 +47,10 @@ public class JdbcToArrowOptionalColumnsTest extends AbstractJdbcToArrowTest {
    * @throws ClassNotFoundException on error
    * @throws IOException on error
    */
-  public static Stream<Arguments> getTestData() throws SQLException, ClassNotFoundException, IOException {
-    return Arrays.stream(prepareTestData(testFiles, JdbcToArrowOptionalColumnsTest.class)).map(Arguments::of);
+  public static Stream<Arguments> getTestData()
+      throws SQLException, ClassNotFoundException, IOException {
+    return Arrays.stream(prepareTestData(testFiles, JdbcToArrowOptionalColumnsTest.class))
+        .map(Arguments::of);
   }
 
   /**
@@ -58,7 +59,8 @@ public class JdbcToArrowOptionalColumnsTest extends AbstractJdbcToArrowTest {
    */
   @ParameterizedTest
   @MethodSource("getTestData")
-  public void testJdbcToArrowValues(Table table) throws SQLException, IOException, ClassNotFoundException {
+  public void testJdbcToArrowValues(Table table)
+      throws SQLException, IOException, ClassNotFoundException {
     this.initializeDatabase(table);
 
     testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE)), false);

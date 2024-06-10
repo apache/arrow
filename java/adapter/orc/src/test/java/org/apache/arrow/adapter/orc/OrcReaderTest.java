@@ -23,7 +23,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.IntVector;
@@ -44,8 +43,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 public class OrcReaderTest {
 
-  @TempDir
-  public File testFolder;
+  @TempDir public File testFolder;
 
   private static final int MAX_ALLOCATION = 8 * 1024;
   private static RootAllocator allocator;

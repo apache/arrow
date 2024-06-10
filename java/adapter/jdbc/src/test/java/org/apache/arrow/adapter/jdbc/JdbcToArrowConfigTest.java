@@ -40,16 +40,20 @@ public class JdbcToArrowConfigTest {
 
   @Test
   public void testConfigNullArguments() {
-    assertThrows(NullPointerException.class, () -> {
-      new JdbcToArrowConfig(null, null);
-    });
+    assertThrows(
+        NullPointerException.class,
+        () -> {
+          new JdbcToArrowConfig(null, null);
+        });
   }
 
   @Test
   public void testBuilderNullArguments() {
-    assertThrows(NullPointerException.class, () -> {
-      new JdbcToArrowConfigBuilder(null, null);
-    });
+    assertThrows(
+        NullPointerException.class,
+        () -> {
+          new JdbcToArrowConfigBuilder(null, null);
+        });
   }
 
   @Test
@@ -67,24 +71,30 @@ public class JdbcToArrowConfigTest {
 
   @Test
   public void testConfigNullAllocator() {
-    assertThrows(NullPointerException.class, () -> {
-      new JdbcToArrowConfig(null, calendar);
-    });
+    assertThrows(
+        NullPointerException.class,
+        () -> {
+          new JdbcToArrowConfig(null, calendar);
+        });
   }
 
   @Test
   public void testBuilderNullAllocator() {
-    assertThrows(NullPointerException.class, () -> {
-      new JdbcToArrowConfigBuilder(null, calendar);
-    });
+    assertThrows(
+        NullPointerException.class,
+        () -> {
+          new JdbcToArrowConfigBuilder(null, calendar);
+        });
   }
 
   @Test
   public void testSetNullAllocator() {
-    assertThrows(NullPointerException.class, () -> {
-      JdbcToArrowConfigBuilder builder = new JdbcToArrowConfigBuilder(allocator, calendar);
-      builder.setAllocator(null);
-    });
+    assertThrows(
+        NullPointerException.class,
+        () -> {
+          JdbcToArrowConfigBuilder builder = new JdbcToArrowConfigBuilder(allocator, calendar);
+          builder.setAllocator(null);
+        });
   }
 
   @Test

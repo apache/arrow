@@ -27,7 +27,6 @@ import java.util.Arrays;
 import java.util.Calendar;
 import java.util.TimeZone;
 import java.util.stream.Stream;
-
 import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfig;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfigBuilder;
@@ -80,8 +79,10 @@ public class JdbcToArrowTimeZoneTest extends AbstractJdbcToArrowTest {
    * @throws ClassNotFoundException on error
    * @throws IOException on error
    */
-  public static Stream<Arguments> getTestData() throws SQLException, ClassNotFoundException, IOException {
-    return Arrays.stream(prepareTestData(testFiles, JdbcToArrowTimeZoneTest.class)).map(Arguments::of);
+  public static Stream<Arguments> getTestData()
+      throws SQLException, ClassNotFoundException, IOException {
+    return Arrays.stream(prepareTestData(testFiles, JdbcToArrowTimeZoneTest.class))
+        .map(Arguments::of);
   }
 
   /**
@@ -90,18 +91,36 @@ public class JdbcToArrowTimeZoneTest extends AbstractJdbcToArrowTest {
    */
   @ParameterizedTest
   @MethodSource("getTestData")
-  public void testJdbcToArrowValues(Table table) throws SQLException, IOException, ClassNotFoundException {
+  public void testJdbcToArrowValues(Table table)
+      throws SQLException, IOException, ClassNotFoundException {
     this.initializeDatabase(table);
 
-    testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE),
-        Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))), false);
-    testDataSets(sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
-        new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))), false);
-    testDataSets(sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
-        Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))), false);
-    testDataSets(sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
-        new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE),
-            Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))).build()), false);
+    testDataSets(
+        sqlToArrow(
+            conn,
+            table.getQuery(),
+            new RootAllocator(Integer.MAX_VALUE),
+            Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))),
+        false);
+    testDataSets(
+        sqlToArrow(
+            conn.createStatement().executeQuery(table.getQuery()),
+            new RootAllocator(Integer.MAX_VALUE),
+            Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))),
+        false);
+    testDataSets(
+        sqlToArrow(
+            conn.createStatement().executeQuery(table.getQuery()),
+            Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))),
+        false);
+    testDataSets(
+        sqlToArrow(
+            conn.createStatement().executeQuery(table.getQuery()),
+            new JdbcToArrowConfigBuilder(
+                    new RootAllocator(Integer.MAX_VALUE),
+                    Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone())))
+                .build()),
+        false);
     testDataSets(
         sqlToArrow(
             conn.createStatement().executeQuery(table.getQuery()),

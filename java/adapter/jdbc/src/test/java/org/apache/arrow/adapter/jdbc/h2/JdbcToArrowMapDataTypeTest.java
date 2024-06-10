@@ -24,7 +24,6 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.Calendar;
 import java.util.stream.Stream;
-
 import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfigBuilder;
 import org.apache.arrow.adapter.jdbc.Table;
@@ -39,15 +38,15 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class JdbcToArrowMapDataTypeTest extends AbstractJdbcToArrowTest {
 
   public static Stream<Arguments> getTestData() throws IOException {
-    return Stream.of(Arguments.of(getTable("h2/test1_map_h2.yml", JdbcToArrowMapDataTypeTest.class)));
+    return Stream.of(
+        Arguments.of(getTable("h2/test1_map_h2.yml", JdbcToArrowMapDataTypeTest.class)));
   }
 
-  /**
-   * Test Method to test JdbcToArrow Functionality for Map form Types.OTHER column
-   */
+  /** Test Method to test JdbcToArrow Functionality for Map form Types.OTHER column */
   @ParameterizedTest
   @MethodSource("getTestData")
-  public void testJdbcToArrowValues(Table table) throws SQLException, IOException, ClassNotFoundException {
+  public void testJdbcToArrowValues(Table table)
+      throws SQLException, IOException, ClassNotFoundException {
     this.initializeDatabase(table);
 
     Calendar calendar = Calendar.getInstance();

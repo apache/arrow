@@ -76,14 +76,15 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
 
   @ParameterizedTest
   @MethodSource("getTestData")
-  public void testJdbcToArrowValues(Table table) throws SQLException, IOException, ClassNotFoundException {
+  public void testJdbcToArrowValues(Table table)
+      throws SQLException, IOException, ClassNotFoundException {
     this.initializeDatabase(table);
 
-    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE),
-        Calendar.getInstance())
-        .setTargetBatchSize(3)
-        .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
-        .build();
+    JdbcToArrowConfig config =
+        new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance())
+            .setTargetBatchSize(3)
+            .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
+            .build();
 
     ArrowVectorIterator iterator =
         JdbcToArrow.sqlToArrowVectorIterator(
@@ -171,7 +172,8 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
 
   @ParameterizedTest
   @MethodSource("getTestData")
-  public void testJdbcToArrowValuesNoLimit(Table table) throws SQLException, IOException, ClassNotFoundException {
+  public void testJdbcToArrowValuesNoLimit(Table table)
+      throws SQLException, IOException, ClassNotFoundException {
     this.initializeDatabase(table);
 
     JdbcToArrowConfig config =
@@ -541,10 +543,11 @@ public class JdbcToArrowVectorIteratorTest extends JdbcToArrowTest {
       throws SQLException, IOException, ClassNotFoundException {
     this.initializeDatabase(table);
 
-    JdbcToArrowConfigBuilder builder = new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE),
-        Calendar.getInstance()).setTargetBatchSize(JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE)
-        .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
-        .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP);
+    JdbcToArrowConfigBuilder builder =
+        new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance())
+            .setTargetBatchSize(JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE)
+            .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
+            .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP);
 
     // first experiment, using default type converter
     JdbcToArrowConfig config = builder.build();

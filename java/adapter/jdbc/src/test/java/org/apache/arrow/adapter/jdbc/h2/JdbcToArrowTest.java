@@ -75,7 +75,8 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
    * @throws ClassNotFoundException on error
    * @throws IOException on error
    */
-  public static Stream<Arguments> getTestData() throws SQLException, ClassNotFoundException, IOException {
+  public static Stream<Arguments> getTestData()
+      throws SQLException, ClassNotFoundException, IOException {
     return Arrays.stream(prepareTestData(testFiles, JdbcToArrowTest.class))
         .flatMap(row -> Stream.of(Arguments.of(row[0], true), Arguments.of(row[0], false)));
   }
@@ -86,11 +87,14 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
    */
   @ParameterizedTest
   @MethodSource("getTestData")
-  public void testJdbcToArrowValues(Table table) throws SQLException, IOException, ClassNotFoundException {
+  public void testJdbcToArrowValues(Table table)
+      throws SQLException, IOException, ClassNotFoundException {
     this.initializeDatabase(table);
 
-    testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE),
-        Calendar.getInstance()), false);
+    testDataSets(
+        sqlToArrow(
+            conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()),
+        false);
     testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE)), false);
     testDataSets(
         sqlToArrow(

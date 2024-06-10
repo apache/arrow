@@ -48,8 +48,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 public class AvroTestBase {
 
-  @TempDir
-  public File TMP;
+  @TempDir public File TMP;
 
   protected AvroToArrowConfig config;
 

@@ -33,7 +33,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Stream;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
@@ -62,12 +61,13 @@ public class UnreliableMetaDataTest {
   }
 
   public static Stream<Arguments> getTestData() {
-    return Arrays.stream(new Object[][] { {false}, {true} }).map(Arguments::of);
+    return Arrays.stream(new Object[][] {{false}, {true}}).map(Arguments::of);
   }
 
   @ParameterizedTest
   @MethodSource("getTestData")
-  public void testUnreliableMetaDataPrecisionAndScale(boolean reuseVectorSchemaRoot) throws Exception {
+  public void testUnreliableMetaDataPrecisionAndScale(boolean reuseVectorSchemaRoot)
+      throws Exception {
     ResultSet rs = buildIncorrectPrecisionAndScaleMetaDataResultSet();
     ResultSetMetaData rsmd = rs.getMetaData();
     assertEquals(Types.DECIMAL, rsmd.getColumnType(1), "Column type should be Types.DECIMAL");
@@ -128,7 +128,8 @@ public class UnreliableMetaDataTest {
     assertEquals(18, bd1.precision(), "Value precision should be 18");
     rs.next();
     BigDecimal bd2 = rs.getBigDecimal(1);
-    assertEquals(new BigDecimal("1000000000300.0000001"), bd2, "Value should be 1000000000300.0000001");
+    assertEquals(
+        new BigDecimal("1000000000300.0000001"), bd2, "Value should be 1000000000300.0000001");
     assertEquals(7, bd2.scale(), "Value scale should be 7");
     assertEquals(20, bd2.precision(), "Value precision should be 20");
     rs.beforeFirst();
