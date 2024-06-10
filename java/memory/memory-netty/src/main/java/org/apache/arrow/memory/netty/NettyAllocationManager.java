@@ -14,62 +14,56 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory.netty;
 
+import io.netty.buffer.PooledByteBufAllocatorL;
+import io.netty.buffer.UnsafeDirectLittleEndian;
+import io.netty.util.internal.PlatformDependent;
 import org.apache.arrow.memory.AllocationManager;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReferenceManager;
 
-import io.netty.buffer.PooledByteBufAllocatorL;
-import io.netty.buffer.UnsafeDirectLittleEndian;
-import io.netty.util.internal.PlatformDependent;
-
 /**
- * The default implementation of {@link AllocationManager}. The implementation is responsible for managing when memory
- * is allocated and returned to the Netty-based PooledByteBufAllocatorL.
+ * The default implementation of {@link AllocationManager}. The implementation is responsible for
+ * managing when memory is allocated and returned to the Netty-based PooledByteBufAllocatorL.
  */
 public class NettyAllocationManager extends AllocationManager {
 
-  public static final AllocationManager.Factory FACTORY = new AllocationManager.Factory() {
+  public static final AllocationManager.Factory FACTORY =
+      new AllocationManager.Factory() {
 
-    @Override
-    public AllocationManager create(BufferAllocator accountingAllocator, long size) {
-      return new NettyAllocationManager(accountingAllocator, size);
-    }
+        @Override
+        public AllocationManager create(BufferAllocator accountingAllocator, long size) {
+          return new NettyAllocationManager(accountingAllocator, size);
+        }
 
-    @Override
-    public ArrowBuf empty() {
-      return EMPTY_BUFFER;
-    }
-  };
+        @Override
+        public ArrowBuf empty() {
+          return EMPTY_BUFFER;
+        }
+      };
 
   /**
-   * The default cut-off value for switching allocation strategies.
-   * If the request size is not greater than the cut-off value, we will allocate memory by
-   * {@link PooledByteBufAllocatorL} APIs,
-   * otherwise, we will use {@link PlatformDependent} APIs.
+   * The default cut-off value for switching allocation strategies. If the request size is not
+   * greater than the cut-off value, we will allocate memory by {@link PooledByteBufAllocatorL}
+   * APIs, otherwise, we will use {@link PlatformDependent} APIs.
    */
   public static final int DEFAULT_ALLOCATION_CUTOFF_VALUE = Integer.MAX_VALUE;
 
   private static final PooledByteBufAllocatorL INNER_ALLOCATOR = new PooledByteBufAllocatorL();
   static final UnsafeDirectLittleEndian EMPTY = INNER_ALLOCATOR.empty;
-  static final ArrowBuf EMPTY_BUFFER = new ArrowBuf(ReferenceManager.NO_OP,
-      null,
-      0,
-      NettyAllocationManager.EMPTY.memoryAddress());
+  static final ArrowBuf EMPTY_BUFFER =
+      new ArrowBuf(ReferenceManager.NO_OP, null, 0, NettyAllocationManager.EMPTY.memoryAddress());
   static final long CHUNK_SIZE = INNER_ALLOCATOR.getChunkSize();
 
   private final long allocatedSize;
   private final UnsafeDirectLittleEndian memoryChunk;
   private final long allocatedAddress;
 
-  /**
-   * The cut-off value for switching allocation strategies.
-   */
-
-  NettyAllocationManager(BufferAllocator accountingAllocator, long requestedSize, int allocationCutOffValue) {
+  /** The cut-off value for switching allocation strategies. */
+  NettyAllocationManager(
+      BufferAllocator accountingAllocator, long requestedSize, int allocationCutOffValue) {
     super(accountingAllocator);
 
     if (requestedSize > allocationCutOffValue) {
@@ -89,9 +83,9 @@ public class NettyAllocationManager extends AllocationManager {
 
   /**
    * Get the underlying memory chunk managed by this AllocationManager.
-   * @return the underlying memory chunk if the request size is not greater than the
-   *          cutoff value provided in the constructor , or null otherwise.
    *
+   * @return the underlying memory chunk if the request size is not greater than the cutoff value
+   *     provided in the constructor , or null otherwise.
    * @deprecated this method will be removed in a future release.
    */
   @Deprecated
@@ -122,5 +116,4 @@ public class NettyAllocationManager extends AllocationManager {
   public long getSize() {
     return allocatedSize;
   }
-
 }

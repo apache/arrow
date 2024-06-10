@@ -27,4 +27,9 @@
     <module>memory-netty</module>
   </modules>
 
+  <properties>
+    <checkstyle.config.location>dev/checkstyle/checkstyle-spotless.xml</checkstyle.config.location>
+    <spotless.java.excludes>none</spotless.java.excludes>
+  </properties>
+
 </project>

@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory.netty;
 
 import static org.junit.Assert.assertEquals;
@@ -29,26 +28,28 @@ import org.apache.arrow.memory.BufferLedger;
 import org.apache.arrow.memory.RootAllocator;
 import org.junit.Test;
 
-/**
- * Test cases for {@link NettyAllocationManager}.
- */
+/** Test cases for {@link NettyAllocationManager}. */
 public class TestNettyAllocationManager {
 
   static int CUSTOMIZED_ALLOCATION_CUTOFF_VALUE = 1024;
 
   private RootAllocator createCustomizedAllocator() {
-    return new RootAllocator(RootAllocator.configBuilder()
-        .allocationManagerFactory(new AllocationManager.Factory() {
-          @Override
-          public AllocationManager create(BufferAllocator accountingAllocator, long size) {
-            return new NettyAllocationManager(accountingAllocator, size, CUSTOMIZED_ALLOCATION_CUTOFF_VALUE);
-          }
+    return new RootAllocator(
+        RootAllocator.configBuilder()
+            .allocationManagerFactory(
+                new AllocationManager.Factory() {
+                  @Override
+                  public AllocationManager create(BufferAllocator accountingAllocator, long size) {
+                    return new NettyAllocationManager(
+                        accountingAllocator, size, CUSTOMIZED_ALLOCATION_CUTOFF_VALUE);
+                  }
 
-          @Override
-          public ArrowBuf empty() {
-            return null;
-          }
-        }).build());
+                  @Override
+                  public ArrowBuf empty() {
+                    return null;
+                  }
+                })
+            .build());
   }
 
   private void readWriteArrowBuf(ArrowBuf buffer) {
@@ -64,14 +65,12 @@ public class TestNettyAllocationManager {
     }
   }
 
-  /**
-   * Test the allocation strategy for small buffers..
-   */
+  /** Test the allocation strategy for small buffers.. */
   @Test
   public void testSmallBufferAllocation() {
     final long bufSize = CUSTOMIZED_ALLOCATION_CUTOFF_VALUE - 512L;
     try (RootAllocator allocator = createCustomizedAllocator();
-         ArrowBuf buffer = allocator.buffer(bufSize)) {
+        ArrowBuf buffer = allocator.buffer(bufSize)) {
 
       assertTrue(buffer.getReferenceManager() instanceof BufferLedger);
       BufferLedger bufferLedger = (BufferLedger) buffer.getReferenceManager();
@@ -88,14 +87,12 @@ public class TestNettyAllocationManager {
     }
   }
 
-  /**
-   * Test the allocation strategy for large buffers..
-   */
+  /** Test the allocation strategy for large buffers.. */
   @Test
   public void testLargeBufferAllocation() {
     final long bufSize = CUSTOMIZED_ALLOCATION_CUTOFF_VALUE + 1024L;
     try (RootAllocator allocator = createCustomizedAllocator();
-         ArrowBuf buffer = allocator.buffer(bufSize)) {
+        ArrowBuf buffer = allocator.buffer(bufSize)) {
       assertTrue(buffer.getReferenceManager() instanceof BufferLedger);
       BufferLedger bufferLedger = (BufferLedger) buffer.getReferenceManager();
 
