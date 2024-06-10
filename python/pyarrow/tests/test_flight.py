@@ -180,20 +180,16 @@ class MetadataFlightServer(FlightServerBase):
     def do_put(self, context, descriptor, reader, writer):
         counter = 0
         expected_data = [-10, -5, 0, 5, 10]
-        while True:
-            try:
-                batch, buf = reader.read_chunk()
-                assert batch.equals(pa.RecordBatch.from_arrays(
-                    [pa.array([expected_data[counter]])],
-                    ['a']
-                ))
-                assert buf is not None
-                client_counter, = struct.unpack('<i', buf.to_pybytes())
-                assert counter == client_counter
-                writer.write(struct.pack('<i', counter))
-                counter += 1
-            except StopIteration:
-                return
+        for batch, buf in reader:
+            assert batch.equals(pa.RecordBatch.from_arrays(
+                [pa.array([expected_data[counter]])],
+                ['a']
+            ))
+            assert buf is not None
+            client_counter, = struct.unpack('<i', buf.to_pybytes())
+            assert counter == client_counter
+            writer.write(struct.pack('<i', counter))
+            counter += 1
 
     @staticmethod
     def number_batches(table):
@@ -1516,15 +1512,11 @@ def test_flight_do_get_metadata():
             FlightClient(('localhost', server.port)) as client:
         reader = client.do_get(flight.Ticket(b''))
         idx = 0
-        while True:
-            try:
-                batch, metadata = reader.read_chunk()
-                batches.append(batch)
-                server_idx, = struct.unpack('<i', metadata.to_pybytes())
-                assert idx == server_idx
-                idx += 1
-            except StopIteration:
-                break
+        for batch, metadata in reader:
+            batches.append(batch)
+            server_idx, = struct.unpack('<i', metadata.to_pybytes())
+            assert idx == server_idx
+            idx += 1
         data = pa.Table.from_batches(batches)
         assert data.equals(table)
 
