@@ -79,6 +79,9 @@ the data types. The specification of how these values are arranged in memory is
 what we call a **physical memory layout**. One contiguous region of memory that
 stores data for arrays is called a **Buffer**.
 
+Next sections give an introduction to Arrow Columnar Format explaining the
+different physical layouts. The full specification of the format can be found
+at :ref:`format_columnar`.
 
 Support for null values
 =======================
