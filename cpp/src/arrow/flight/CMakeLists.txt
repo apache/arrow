@@ -157,6 +157,10 @@ set(ARROW_FLIGHT_SRCS
     transport/grpc/util_internal.cc
     types.cc)
 
+if(ARROW_WITH_OPENTELEMETRY)
+  list(APPEND ARROW_FLIGHT_SRCS otel_logging.cc)
+endif()
+
 if(MSVC)
   # Protobuf generated files trigger spurious warnings on MSVC.
   foreach(GENERATED_SOURCE "${CMAKE_CURRENT_BINARY_DIR}/Flight.pb.cc"

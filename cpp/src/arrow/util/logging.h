@@ -46,6 +46,7 @@ namespace arrow {
 namespace util {
 
 enum class ArrowLogLevel : int {
+  ARROW_TRACE = -2,
   ARROW_DEBUG = -1,
   ARROW_INFO = 0,
   ARROW_WARNING = 1,
