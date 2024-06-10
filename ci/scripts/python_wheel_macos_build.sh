@@ -185,7 +185,7 @@ wheel_name=$(ls pyarrow-*.whl)
 # Unzip and remove old wheel
 unzip $wheel_name
 rm $wheel_name
-for filename in $(ls pyarrow/*.so pyarrow/*.so.*); do
+for filename in $(ls pyarrow/*.dylib pyarrow/*.so); do
     echo "Stripping debug symbols from: $filename";
     strip -S $filename
 done
