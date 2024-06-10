@@ -910,6 +910,8 @@ TEST(Expression, ExecuteCallWithNoArguments) {
 }
 
 TEST(Expression, ExecuteChunkedArray) {
+  // GH-41923: compute should generate the right result if input
+  // ExecBatch is `chunked_array`.
   auto input_schema = struct_({field("a", struct_({
                                               field("a", float64()),
                                               field("b", float64()),
