@@ -137,8 +137,8 @@ array as the last two elements define the start and the end of the last
 element in the binary/string column.
 
 Binary and string types share the same physical layout. The one difference
-between them is that the string type is utf-8 binary and will produce an
-invalid result if the bytes are not valid utf-8.
+between them is that the string type is utf-8 binary and assumes to contain
+utf-8 encoded strings.
 
 The difference between binary/string and large binary/string is in the offset
 type. In the first case that is int32 and in the second it is int64.
