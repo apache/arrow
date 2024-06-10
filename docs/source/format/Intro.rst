@@ -389,8 +389,11 @@ A contiguous, two-dimensional data structure which consists of an ordered collec
 of the same length.
 
 **Schema**
-A collection of fields with optional metadata that determines all the data types of an object
-like a RecordBatch or Table.
+An ordered collection of fields that communicates all the data types of an object
+like a RecordBatch or Table. Schemas can contain optional key/value metadata.
+
+A Field includes a field name, a data type, a nullability flag and optional key-value metadata
+for a specific column in a RecordBatch.
 
 **Table**
 A discontiguous, two-dimensional chunk of data consisting of an ordered collection of Chunked
