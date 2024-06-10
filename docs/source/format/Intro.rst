@@ -346,12 +346,14 @@ Run-End Encoded Layout
 
 Run-end encoding is well-suited for representing data containing sequences of the
 same value. These sequences are called runs. Run-end encoded array has no buffers
-by itself, but has two child arrays:
+of its own, but has two child arrays:
 
 *  **Run ends array:** holds the index in the array where each run ends. The run ends
     array always begins with 0 and contains one more element than the length of
     its parent array.
-*  **Values array:** the actual values without repetitions.
+*  **Values array:** the actual values without repetitions (together with null values).
+
+Note that nulls of the parent array are strictly represented in the values array.
 
 .. figure:: ./images/ree-diagram.svg
    :alt: Diagram is showing the difference between the run-end encoded data
