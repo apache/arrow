@@ -146,6 +146,7 @@ private struct ArrowUnkeyedDecoding: UnkeyedDecodingContainer {
             type == UInt32?.self || type == UInt64?.self ||
             type == String?.self || type == Double?.self ||
             type == Float?.self || type == Date?.self ||
+            type == Bool?.self || type == Bool.self ||
             type == Int8.self || type == Int16.self ||
             type == Int32.self || type == Int64.self ||
             type == UInt8.self || type == UInt16.self ||
@@ -359,7 +360,8 @@ private struct ArrowSingleValueDecoding: SingleValueDecodingContainer {
             type == UInt8.self || type == UInt16.self ||
             type == UInt32.self || type == UInt64.self ||
             type == String.self || type == Double.self ||
-            type == Float.self || type == Date.self {
+            type == Float.self || type == Date.self ||
+            type == Bool.self {
             return try self.decoder.doDecode(0)!
         } else {
             throw ArrowError.invalid("Type \(type) is currently not supported")
