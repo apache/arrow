@@ -14,18 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc.binder;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Types;
-
 import org.apache.arrow.vector.Float4Vector;
 
-/**
- * A binder for 32-bit floats.
- */
+/** A binder for 32-bit floats. */
 public class Float4Binder extends BaseColumnBinder<Float4Vector> {
   public Float4Binder(Float4Vector vector) {
     this(vector, Types.REAL);
@@ -36,7 +32,8 @@ public class Float4Binder extends BaseColumnBinder<Float4Vector> {
   }
 
   @Override
-  public void bind(PreparedStatement statement, int parameterIndex, int rowIndex) throws SQLException {
+  public void bind(PreparedStatement statement, int parameterIndex, int rowIndex)
+      throws SQLException {
     final float value = vector.getDataBuffer().getFloat((long) rowIndex * Float4Vector.TYPE_WIDTH);
     statement.setFloat(parameterIndex, value);
   }

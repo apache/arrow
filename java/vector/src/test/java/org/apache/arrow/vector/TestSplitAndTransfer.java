@@ -17,10 +17,11 @@
 
 package org.apache.arrow.vector;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -38,25 +39,36 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Struct;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class TestSplitAndTransfer {
   private BufferAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void init() {
     allocator = new RootAllocator(Long.MAX_VALUE);
   }
 
-  @After
+  @AfterEach
   public void terminate() throws Exception {
     allocator.close();
   }
 
   private void populateVarcharVector(final VarCharVector vector, int valueCount, String[] compareArray) {
+    for (int i = 0; i < valueCount; i += 3) {
+      final String s = String.format("%010d", i);
+      vector.set(i, s.getBytes(StandardCharsets.UTF_8));
+      if (compareArray != null) {
+        compareArray[i] = s;
+      }
+    }
+    vector.setValueCount(valueCount);
+  }
+
+  private void populateBaseVariableWidthViewVector(final BaseVariableWidthViewVector vector, int valueCount,
+      String[] compareArray) {
     for (int i = 0; i < valueCount; i += 3) {
       final String s = String.format("%010d", i);
       vector.set(i, s.getBytes(StandardCharsets.UTF_8));
@@ -107,6 +119,16 @@ public class TestSplitAndTransfer {
     // BaseVariableWidthVector
     VarCharVector varCharVector = new VarCharVector("", allocator);
     transferPair = varCharVector.getTransferPair(allocator);
+    transferPair.splitAndTransfer(0, 0);
+    assertEquals(0, transferPair.getTo().getValueCount());
+    // BaseVariableWidthViewVector: ViewVarCharVector
+    ViewVarCharVector viewVarCharVector = new ViewVarCharVector("", allocator);
+    transferPair = viewVarCharVector.getTransferPair(allocator);
+    transferPair.splitAndTransfer(0, 0);
+    assertEquals(0, transferPair.getTo().getValueCount());
+    // BaseVariableWidthVector: ViewVarBinaryVector
+    ViewVarBinaryVector viewVarBinaryVector = new ViewVarBinaryVector("", allocator);
+    transferPair = viewVarBinaryVector.getTransferPair(allocator);
     transferPair.splitAndTransfer(0, 0);
     assertEquals(0, transferPair.getTo().getValueCount());
     // BaseLargeVariableWidthVector
@@ -209,6 +231,49 @@ public class TestSplitAndTransfer {
     }
   }
 
+  private void testView(BaseVariableWidthViewVector vector) {
+    vector.allocateNew(10000, 1000);
+    final int valueCount = 500;
+    final String[] compareArray = new String[valueCount];
+
+    populateBaseVariableWidthViewVector(vector, valueCount, compareArray);
+
+    final TransferPair tp = vector.getTransferPair(allocator);
+    final BaseVariableWidthViewVector newVector = (BaseVariableWidthViewVector) tp.getTo();;
+    final int[][] startLengths = {{0, 201}, {201, 0}, {201, 200}, {401, 99}};
+
+    for (final int[] startLength : startLengths) {
+      final int start = startLength[0];
+      final int length = startLength[1];
+      tp.splitAndTransfer(start, length);
+      for (int i = 0; i < length; i++) {
+        final boolean expectedSet = ((start + i) % 3) == 0;
+        if (expectedSet) {
+          final byte[] expectedValue = compareArray[start + i].getBytes(StandardCharsets.UTF_8);
+          assertFalse(newVector.isNull(i));
+          assertArrayEquals(expectedValue, newVector.get(i));
+        } else {
+          assertTrue(newVector.isNull(i));
+        }
+      }
+      newVector.clear();
+    }
+  }
+
+  @Test
+  public void testUtf8View() {
+    try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator)) {
+      testView(viewVarCharVector);
+    }
+  }
+
+  @Test
+  public void testBinaryView() throws Exception {
+    try (final ViewVarBinaryVector viewVarBinaryVector = new ViewVarBinaryVector("myvector", allocator)) {
+      testView(viewVarBinaryVector);
+    }
+  }
+
   @Test
   public void testMemoryConstrainedTransfer() {
     try (final VarCharVector varCharVector = new VarCharVector("myvector", allocator)) {
@@ -230,6 +295,50 @@ public class TestSplitAndTransfer {
         tp.splitAndTransfer(start, length);
         newVarCharVector.clear();
       }
+    }
+  }
+
+  private void testMemoryConstrainedTransferInViews(BaseVariableWidthViewVector vector) {
+    // Here we have the target vector being transferred with a long string
+    // hence, the data buffer will be allocated.
+    // The default data buffer allocation takes
+    // BaseVariableWidthViewVector.INITIAL_VIEW_VALUE_ALLOCATION * BaseVariableWidthViewVector.ELEMENT_SIZE
+    // set limit = BaseVariableWidthViewVector.INITIAL_VIEW_VALUE_ALLOCATION *
+    // BaseVariableWidthViewVector.ELEMENT_SIZE
+    final int setLimit = BaseVariableWidthViewVector.INITIAL_VIEW_VALUE_ALLOCATION *
+        BaseVariableWidthViewVector.ELEMENT_SIZE;
+    allocator.setLimit(setLimit);
+
+    vector.allocateNew(16000, 1000);
+
+    final int valueCount = 1000;
+
+    populateBaseVariableWidthViewVector(vector, valueCount, null);
+
+    final TransferPair tp = vector.getTransferPair(allocator);
+    final BaseVariableWidthViewVector newVector = (BaseVariableWidthViewVector) tp.getTo();
+
+    final int[][] startLengths = {{0, 700}, {700, 299}};
+
+    for (final int[] startLength : startLengths) {
+      final int start = startLength[0];
+      final int length = startLength[1];
+      tp.splitAndTransfer(start, length);
+      newVector.clear();
+    }
+  }
+
+  @Test
+  public void testMemoryConstrainedTransferInUtf8Views() {
+    try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator)) {
+      testMemoryConstrainedTransferInViews(viewVarCharVector);
+    }
+  }
+
+  @Test
+  public void testMemoryConstrainedTransferInBinaryViews() {
+    try (final ViewVarBinaryVector viewVarBinaryVector = new ViewVarBinaryVector("myvector", allocator)) {
+      testMemoryConstrainedTransferInViews(viewVarBinaryVector);
     }
   }
 
@@ -261,6 +370,48 @@ public class TestSplitAndTransfer {
       }
 
       newVarCharVector.clear();
+    }
+  }
+
+  private void testTransferInViews(BaseVariableWidthViewVector vector) {
+    vector.allocateNew(16000, 1000);
+
+    final int valueCount = 500;
+    final String[] compareArray = new String[valueCount];
+    populateBaseVariableWidthViewVector(vector, valueCount, compareArray);
+
+    final TransferPair tp = vector.getTransferPair(allocator);
+    final BaseVariableWidthViewVector newVector = (BaseVariableWidthViewVector) tp.getTo();
+    tp.transfer();
+
+    assertEquals(0, vector.valueCount);
+    assertEquals(valueCount, newVector.valueCount);
+
+    for (int i = 0; i < valueCount; i++) {
+      final boolean expectedSet = (i % 3) == 0;
+      if (expectedSet) {
+        final byte[] expectedValue = compareArray[i].getBytes(StandardCharsets.UTF_8);
+        assertFalse(newVector.isNull(i));
+        assertArrayEquals(expectedValue, newVector.get(i));
+      } else {
+        assertTrue(newVector.isNull(i));
+      }
+    }
+
+    newVector.clear();
+  }
+
+  @Test
+  public void testTransferInUtf8Views() {
+    try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator)) {
+      testTransferInViews(viewVarCharVector);
+    }
+  }
+
+  @Test
+  public void testTransferInBinaryViews() {
+    try (final ViewVarBinaryVector viewVarBinaryVector = new ViewVarBinaryVector("myvector", allocator)) {
+      testTransferInViews(viewVarBinaryVector);
     }
   }
 
@@ -312,6 +463,34 @@ public class TestSplitAndTransfer {
     }
   }
 
+  private void testSplitAndTransferNonInViews(BaseVariableWidthViewVector vector) {
+    vector.allocateNew(16000, 1000);
+    final int valueCount = 500;
+    populateBaseVariableWidthViewVector(vector, valueCount, null);
+
+    final TransferPair tp = vector.getTransferPair(allocator);
+    BaseVariableWidthViewVector newVector = (BaseVariableWidthViewVector) tp.getTo();
+
+    tp.splitAndTransfer(0, 0);
+    assertEquals(0, newVector.getValueCount());
+
+    newVector.clear();
+  }
+
+  @Test
+  public void testSplitAndTransferNonInUtf8Views() {
+    try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator)) {
+      testSplitAndTransferNonInViews(viewVarCharVector);
+    }
+  }
+
+  @Test
+  public void testSplitAndTransferNonInBinaryViews() {
+    try (final ViewVarBinaryVector viewVarBinaryVector = new ViewVarBinaryVector("myvector", allocator)) {
+      testSplitAndTransferNonInViews(viewVarBinaryVector);
+    }
+  }
+
   @Test
   public void testSplitAndTransferAll() {
     try (final VarCharVector varCharVector = new VarCharVector("myvector", allocator)) {
@@ -330,6 +509,34 @@ public class TestSplitAndTransfer {
     }
   }
 
+  private void testSplitAndTransferAllInViews(BaseVariableWidthViewVector vector) {
+    vector.allocateNew(16000, 1000);
+    final int valueCount = 500;
+    populateBaseVariableWidthViewVector(vector, valueCount, null);
+
+    final TransferPair tp = vector.getTransferPair(allocator);
+    BaseVariableWidthViewVector newViewVarCharVector = (BaseVariableWidthViewVector) tp.getTo();
+
+    tp.splitAndTransfer(0, valueCount);
+    assertEquals(valueCount, newViewVarCharVector.getValueCount());
+
+    newViewVarCharVector.clear();
+  }
+
+  @Test
+  public void testSplitAndTransferAllInUtf8Views() {
+    try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator)) {
+      testSplitAndTransferAllInViews(viewVarCharVector);
+    }
+  }
+
+  @Test
+  public void testSplitAndTransferAllInBinaryViews() {
+    try (final ViewVarBinaryVector viewVarBinaryVector = new ViewVarBinaryVector("myvector", allocator)) {
+      testSplitAndTransferAllInViews(viewVarBinaryVector);
+    }
+  }
+
   @Test
   public void testInvalidStartIndex() {
     try (final VarCharVector varCharVector = new VarCharVector("myvector", allocator);
@@ -341,13 +548,45 @@ public class TestSplitAndTransfer {
 
       final TransferPair tp = varCharVector.makeTransferPair(newVarCharVector);
 
-      IllegalArgumentException e = Assertions.assertThrows(
+      IllegalArgumentException e = assertThrows(
           IllegalArgumentException.class,
           () -> tp.splitAndTransfer(valueCount, 10));
 
       assertEquals("Invalid parameters startIndex: 500, length: 10 for valueCount: 500", e.getMessage());
 
       newVarCharVector.clear();
+    }
+  }
+
+  private void testInvalidStartIndexInViews(BaseVariableWidthViewVector vector, BaseVariableWidthViewVector newVector) {
+    vector.allocateNew(16000, 1000);
+    final int valueCount = 500;
+    populateBaseVariableWidthViewVector(vector, valueCount, null);
+
+    final TransferPair tp = vector.makeTransferPair(newVector);
+
+    IllegalArgumentException e = assertThrows(
+        IllegalArgumentException.class,
+        () -> tp.splitAndTransfer(valueCount, 10));
+
+    assertEquals("Invalid parameters startIndex: 500, length: 10 for valueCount: 500", e.getMessage());
+
+    newVector.clear();
+  }
+
+  @Test
+  public void testInvalidStartIndexInUtf8Views() {
+    try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator);
+        final ViewVarCharVector newViewVarCharVector = new ViewVarCharVector("newvector", allocator)) {
+      testInvalidStartIndexInViews(viewVarCharVector, newViewVarCharVector);
+    }
+  }
+
+  @Test
+  public void testInvalidStartIndexInBinaryViews() {
+    try (final ViewVarBinaryVector viewVarBinaryVector = new ViewVarBinaryVector("myvector", allocator);
+        final ViewVarBinaryVector newViewVarBinaryVector = new ViewVarBinaryVector("newvector", allocator)) {
+      testInvalidStartIndexInViews(viewVarBinaryVector, newViewVarBinaryVector);
     }
   }
 
@@ -362,13 +601,45 @@ public class TestSplitAndTransfer {
 
       final TransferPair tp = varCharVector.makeTransferPair(newVarCharVector);
 
-      IllegalArgumentException e = Assertions.assertThrows(
+      IllegalArgumentException e = assertThrows(
           IllegalArgumentException.class,
           () -> tp.splitAndTransfer(0, valueCount * 2));
 
       assertEquals("Invalid parameters startIndex: 0, length: 1000 for valueCount: 500", e.getMessage());
 
       newVarCharVector.clear();
+    }
+  }
+
+  private void testInvalidLengthInViews(BaseVariableWidthViewVector vector, BaseVariableWidthViewVector newVector) {
+    vector.allocateNew(16000, 1000);
+    final int valueCount = 500;
+    populateBaseVariableWidthViewVector(vector, valueCount, null);
+
+    final TransferPair tp = vector.makeTransferPair(newVector);
+
+    IllegalArgumentException e = assertThrows(
+        IllegalArgumentException.class,
+        () -> tp.splitAndTransfer(0, valueCount * 2));
+
+    assertEquals("Invalid parameters startIndex: 0, length: 1000 for valueCount: 500", e.getMessage());
+
+    newVector.clear();
+  }
+
+  @Test
+  public void testInvalidLengthInUtf8Views() {
+    try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator);
+        final ViewVarCharVector newViewVarCharVector = new ViewVarCharVector("newvector", allocator)) {
+      testInvalidLengthInViews(viewVarCharVector, newViewVarCharVector);
+    }
+  }
+
+  @Test
+  public void testInvalidLengthInBinaryViews() {
+    try (final ViewVarBinaryVector viewVarBinaryVector = new ViewVarBinaryVector("myvector", allocator);
+        final ViewVarBinaryVector newViewVarBinaryVector = new ViewVarBinaryVector("newvector", allocator)) {
+      testInvalidLengthInViews(viewVarBinaryVector, newViewVarBinaryVector);
     }
   }
 
@@ -390,6 +661,36 @@ public class TestSplitAndTransfer {
     }
   }
 
+  private void testZeroStartIndexAndLengthInViews(BaseVariableWidthViewVector vector,
+      BaseVariableWidthViewVector newVector) {
+    vector.allocateNew(0, 0);
+    final int valueCount = 0;
+    populateBaseVariableWidthViewVector(vector, valueCount, null);
+
+    final TransferPair tp = vector.makeTransferPair(newVector);
+
+    tp.splitAndTransfer(0, 0);
+    assertEquals(valueCount, newVector.getValueCount());
+
+    newVector.clear();
+  }
+
+  @Test
+  public void testZeroStartIndexAndLengthInUtf8Views() {
+    try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator);
+        final ViewVarCharVector newViewVarCharVector = new ViewVarCharVector("newvector", allocator)) {
+      testZeroStartIndexAndLengthInViews(viewVarCharVector, newViewVarCharVector);
+    }
+  }
+
+  @Test
+  public void testZeroStartIndexAndLengthInBinaryViews() {
+    try (final ViewVarBinaryVector viewVarBinaryVector = new ViewVarBinaryVector("myvector", allocator);
+        final ViewVarBinaryVector newViewVarBinaryVector = new ViewVarBinaryVector("newvector", allocator)) {
+      testZeroStartIndexAndLengthInViews(viewVarBinaryVector, newViewVarBinaryVector);
+    }
+  }
+
   @Test
   public void testZeroLength() {
     try (final VarCharVector varCharVector = new VarCharVector("myvector", allocator);
@@ -405,6 +706,35 @@ public class TestSplitAndTransfer {
       assertEquals(0, newVarCharVector.getValueCount());
 
       newVarCharVector.clear();
+    }
+  }
+
+  private void testZeroLengthInViews(BaseVariableWidthViewVector vector, BaseVariableWidthViewVector newVector) {
+    vector.allocateNew(16000, 1000);
+    final int valueCount = 500;
+    populateBaseVariableWidthViewVector(vector, valueCount, null);
+
+    final TransferPair tp = vector.makeTransferPair(newVector);
+
+    tp.splitAndTransfer(500, 0);
+    assertEquals(0, newVector.getValueCount());
+
+    newVector.clear();
+  }
+
+  @Test
+  public void testZeroLengthInUtf8Views() {
+    try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator);
+        final ViewVarCharVector newViewVarCharVector = new ViewVarCharVector("newvector", allocator)) {
+      testZeroLengthInViews(viewVarCharVector, newViewVarCharVector);
+    }
+  }
+
+  @Test
+  public void testZeroLengthInBinaryViews() {
+    try (final ViewVarBinaryVector viewVarBinaryVector = new ViewVarBinaryVector("myvector", allocator);
+        final ViewVarBinaryVector newViewVarBinaryVector = new ViewVarBinaryVector("newvector", allocator)) {
+      testZeroLengthInViews(viewVarBinaryVector, newViewVarBinaryVector);
     }
   }
 

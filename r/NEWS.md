@@ -25,13 +25,22 @@
 * `summarize()` supports more complex expressions, and correctly handles cases where column names are reused in expressions. 
 * The `na_matches` argument to the `dplyr::*_join()` functions is now supported. This argument controls whether `NA` values are considered equal when joining. (#41358)
 
-# arrow 16.0.0
+# arrow 16.1.0
 
-# arrow 15.0.2
+## New features
+
+* Streams can now be written to socket connections (#38897)
+* The Arrow R package now can be built with older versions of the Arrow C++ library (back to 13.0.0) (#39738)
+
+## Minor improvements and fixes
+
+* Dataset and table output printing now truncates schemas longer than 20 items long (#38916)
+* Fixed pointer conversion to Python for latest reticulate to ensure data can be passed between Arrow and PyArrow (#39969) 
+* Check on macOS if we are using GNU libtool is and ensure we use macOS libtool instead (#40259)
+* Fix an error where creating a bundled tarball with all dependencies was failing on Windows (@hutch3232, #40232)
+
 
 # arrow 15.0.1
-
-# arrow 15.0.0
 
 ##  New features
 

@@ -33,6 +33,7 @@ import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -813,7 +814,20 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    * @param target destination vector for transfer
    */
   public void transferTo(BaseVariableWidthViewVector target) {
-    throw new UnsupportedOperationException("trasferTo function not supported!");
+    compareTypes(target, "transferTo");
+    target.clear();
+    target.validityBuffer = transferBuffer(validityBuffer, target.allocator);
+    target.viewBuffer = transferBuffer(viewBuffer, target.allocator);
+    target.dataBuffers = new ArrayList<>(dataBuffers.size());
+    for (int i = 0; i < dataBuffers.size(); i++) {
+      target.dataBuffers.add(transferBuffer(dataBuffers.get(i), target.allocator));
+    }
+
+    target.setLastSet(this.lastSet);
+    if (this.valueCount > 0) {
+      target.setValueCount(this.valueCount);
+    }
+    clear();
   }
 
   /**
@@ -825,7 +839,154 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
    */
   public void splitAndTransferTo(int startIndex, int length,
                                  BaseVariableWidthViewVector target) {
-    throw new UnsupportedOperationException("splitAndTransferTo function not supported!");
+    Preconditions.checkArgument(startIndex >= 0 && length >= 0 && startIndex + length <= valueCount,
+        "Invalid parameters startIndex: %s, length: %s for valueCount: %s", startIndex, length, valueCount);
+    compareTypes(target, "splitAndTransferTo");
+    target.clear();
+    if (length > 0) {
+      splitAndTransferValidityBuffer(startIndex, length, target);
+      splitAndTransferViewBufferAndDataBuffer(startIndex, length, target);
+      target.setLastSet(length - 1);
+      target.setValueCount(length);
+    }
+  }
+
+  /* allocate validity buffer */
+  private void allocateValidityBuffer(final long size) {
+    final int curSize = (int) size;
+    validityBuffer = allocator.buffer(curSize);
+    validityBuffer.readerIndex(0);
+    initValidityBuffer();
+  }
+
+  /*
+   * Transfer the validity.
+   */
+  private void splitAndTransferValidityBuffer(int startIndex, int length,
+      BaseVariableWidthViewVector target) {
+    if (length <= 0) {
+      return;
+    }
+
+    final int firstByteSource = BitVectorHelper.byteIndex(startIndex);
+    final int lastByteSource = BitVectorHelper.byteIndex(valueCount - 1);
+    final int byteSizeTarget = getValidityBufferSizeFromCount(length);
+    final int offset = startIndex % 8;
+
+    if (offset == 0) {
+      // slice
+      if (target.validityBuffer != null) {
+        target.validityBuffer.getReferenceManager().release();
+      }
+      final ArrowBuf slicedValidityBuffer = validityBuffer.slice(firstByteSource, byteSizeTarget);
+      target.validityBuffer = transferBuffer(slicedValidityBuffer, target.allocator);
+      return;
+    }
+
+    /* Copy data
+     * When the first bit starts from the middle of a byte (offset != 0),
+     * copy data from src BitVector.
+     * Each byte in the target is composed by a part in i-th byte,
+     * another part in (i+1)-th byte.
+     */
+    target.allocateValidityBuffer(byteSizeTarget);
+
+    for (int i = 0; i < byteSizeTarget - 1; i++) {
+      byte b1 = BitVectorHelper.getBitsFromCurrentByte(this.validityBuffer, firstByteSource + i, offset);
+      byte b2 = BitVectorHelper.getBitsFromNextByte(this.validityBuffer, firstByteSource + i + 1, offset);
+
+      target.validityBuffer.setByte(i, (b1 + b2));
+    }
+    /* Copying the last piece is done in the following manner:
+     * if the source vector has 1 or more bytes remaining, we copy
+     * the last piece as a byte formed by shifting data
+     * from the current byte and the next byte.
+     *
+     * if the source vector has no more bytes remaining
+     * (we are at the last byte), we copy the last piece as a byte
+     * by shifting data from the current byte.
+     */
+    if ((firstByteSource + byteSizeTarget - 1) < lastByteSource) {
+      byte b1 = BitVectorHelper.getBitsFromCurrentByte(this.validityBuffer,
+          firstByteSource + byteSizeTarget - 1, offset);
+      byte b2 = BitVectorHelper.getBitsFromNextByte(this.validityBuffer,
+          firstByteSource + byteSizeTarget, offset);
+
+      target.validityBuffer.setByte(byteSizeTarget - 1, b1 + b2);
+    } else {
+      byte b1 = BitVectorHelper.getBitsFromCurrentByte(this.validityBuffer,
+          firstByteSource + byteSizeTarget - 1, offset);
+      target.validityBuffer.setByte(byteSizeTarget - 1, b1);
+    }
+  }
+
+  /**
+   * In split and transfer, the view buffer and the data buffer will be allocated.
+   * Then the values will be copied from the source vector to the target vector.
+   * Allocation and setting are preferred over transfer
+   * since the buf index and buf offset needs to be overwritten
+   * when large strings are added.
+   * @param startIndex starting index
+   * @param length number of elements to be copied
+   * @param target target vector
+   */
+  private void splitAndTransferViewBufferAndDataBuffer(int startIndex, int length,
+      BaseVariableWidthViewVector target) {
+    if (length == 0) {
+      return;
+    }
+
+    if (target.viewBuffer != null) {
+      target.viewBuffer.getReferenceManager().release();
+    }
+
+    // allocate target view buffer
+    target.viewBuffer = target.allocator.buffer(length * ELEMENT_SIZE);
+
+    for (int i = startIndex; i < startIndex + length; i++) {
+      final int stringLength = getValueLength(i);
+
+      // keeping track of writing index in the target view buffer
+      int writePosition = (i - startIndex) * ELEMENT_SIZE;
+      // keeping track of reading index in the source view buffer
+      int readPosition = i * ELEMENT_SIZE;
+
+      // set length
+      target.viewBuffer.setInt(writePosition, stringLength);
+
+      if (stringLength <= INLINE_SIZE) {
+        // handle inline buffer
+        writePosition += LENGTH_WIDTH;
+        readPosition += LENGTH_WIDTH;
+        // set data by copying the required portion from the source buffer
+        target.viewBuffer.setBytes(writePosition, viewBuffer, readPosition, stringLength);
+      } else {
+        // handle non-inline buffer
+        final int readBufIndex = viewBuffer.getInt(((long) i * ELEMENT_SIZE) +
+            LENGTH_WIDTH + PREFIX_WIDTH);
+        final int readBufOffset = viewBuffer.getInt(((long) i * ELEMENT_SIZE) +
+            LENGTH_WIDTH + PREFIX_WIDTH + BUF_INDEX_WIDTH);
+        final ArrowBuf dataBuf = dataBuffers.get(readBufIndex);
+
+        // allocate data buffer
+        ArrowBuf currentDataBuf = target.allocateOrGetLastDataBuffer(stringLength);
+        final long currentOffSet = currentDataBuf.writerIndex();
+
+        writePosition += LENGTH_WIDTH;
+        readPosition += LENGTH_WIDTH;
+        // set prefix
+        target.viewBuffer.setBytes(writePosition, viewBuffer, readPosition, PREFIX_WIDTH);
+        writePosition += PREFIX_WIDTH;
+        // set buf id
+        target.viewBuffer.setInt(writePosition, target.dataBuffers.size() - 1);
+        writePosition += BUF_INDEX_WIDTH;
+        // set offset
+        target.viewBuffer.setInt(writePosition, (int) currentOffSet);
+
+        currentDataBuf.setBytes(currentOffSet, dataBuf, readBufOffset, stringLength);
+        currentDataBuf.writerIndex(currentOffSet + stringLength);
+      }
+    }
   }
 
   /*----------------------------------------------------------------*
@@ -971,7 +1132,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   }
 
   /**
-   * Get the variable length element at specified index as Text.
+   * Get the length of the element at specified index.
    *
    * @param index position of an element to get
    * @return greater than length 0 for a non-null element, 0 otherwise
@@ -1334,30 +1495,67 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector implem
   /**
    * Copy a cell value from a particular index in source vector to a particular position in this
    * vector.
-   * TODO: Improve functionality to support copying views.
-   * <a href="https://github.com/apache/arrow/issues/40933">Enhance CopyFrom</a>
-   *
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
   @Override
   public void copyFrom(int fromIndex, int thisIndex, ValueVector from) {
-    throw new UnsupportedOperationException("copyFrom is not supported for VariableWidthVector");
+    Preconditions.checkArgument(getMinorType() == from.getMinorType());
+    if (from.isNull(fromIndex)) {
+      BitVectorHelper.unsetBit(validityBuffer, thisIndex);
+    } else {
+      final int viewLength = from.getDataBuffer().getInt((long) fromIndex * ELEMENT_SIZE);
+      BitVectorHelper.setBit(validityBuffer, thisIndex);
+      final int start = thisIndex * ELEMENT_SIZE;
+      final int copyStart = fromIndex * ELEMENT_SIZE;
+      from.getDataBuffer().getBytes(start, viewBuffer, copyStart, ELEMENT_SIZE);
+      if (viewLength > INLINE_SIZE) {
+        final int bufIndex = from.getDataBuffer().getInt(((long) fromIndex * ELEMENT_SIZE) +
+            LENGTH_WIDTH + PREFIX_WIDTH);
+        final int dataOffset = from.getDataBuffer().getInt(((long) fromIndex * ELEMENT_SIZE) +
+            LENGTH_WIDTH + PREFIX_WIDTH + BUF_INDEX_WIDTH);
+        final ArrowBuf dataBuf = ((BaseVariableWidthViewVector) from).dataBuffers.get(bufIndex);
+        final ArrowBuf thisDataBuf = allocateOrGetLastDataBuffer(viewLength);
+        thisDataBuf.setBytes(thisDataBuf.writerIndex(), dataBuf, dataOffset, viewLength);
+        thisDataBuf.writerIndex(thisDataBuf.writerIndex() + viewLength);
+      }
+    }
+    lastSet = thisIndex;
   }
 
   /**
    * Same as {@link #copyFrom(int, int, ValueVector)} except that it handles the case when the
    * capacity of the vector needs to be expanded before copy.
-   * TODO: Improve functionality to support copying views.
-   * <a href="https://github.com/apache/arrow/issues/40933">Enhance CopyFrom</a>
    * @param fromIndex position to copy from in source vector
    * @param thisIndex position to copy to in this vector
    * @param from source vector
    */
   @Override
   public void copyFromSafe(int fromIndex, int thisIndex, ValueVector from) {
-    throw new UnsupportedOperationException("copyFromSafe is not supported for VariableWidthVector");
+    Preconditions.checkArgument(getMinorType() == from.getMinorType());
+    if (from.isNull(fromIndex)) {
+      handleSafe(thisIndex, 0);
+      BitVectorHelper.unsetBit(validityBuffer, thisIndex);
+    } else {
+      final int viewLength = from.getDataBuffer().getInt((long) fromIndex * ELEMENT_SIZE);
+      handleSafe(thisIndex, viewLength);
+      BitVectorHelper.setBit(validityBuffer, thisIndex);
+      final int start = thisIndex * ELEMENT_SIZE;
+      final int copyStart = fromIndex * ELEMENT_SIZE;
+      from.getDataBuffer().getBytes(start, viewBuffer, copyStart, ELEMENT_SIZE);
+      if (viewLength > INLINE_SIZE) {
+        final int bufIndex = from.getDataBuffer().getInt(((long) fromIndex * ELEMENT_SIZE) +
+            LENGTH_WIDTH + PREFIX_WIDTH);
+        final int dataOffset = from.getDataBuffer().getInt(((long) fromIndex * ELEMENT_SIZE) +
+            LENGTH_WIDTH + PREFIX_WIDTH + BUF_INDEX_WIDTH);
+        final ArrowBuf dataBuf = ((BaseVariableWidthViewVector) from).dataBuffers.get(bufIndex);
+        final ArrowBuf thisDataBuf = allocateOrGetLastDataBuffer(viewLength);
+        thisDataBuf.setBytes(thisDataBuf.writerIndex(), dataBuf, dataOffset, viewLength);
+        thisDataBuf.writerIndex(thisDataBuf.writerIndex() + viewLength);
+      }
+    }
+    lastSet = thisIndex;
   }
 
   @Override

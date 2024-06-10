@@ -205,14 +205,12 @@ public final class ViewVarBinaryVector extends BaseVariableWidthViewVector {
    */
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
-    // TODO: https://github.com/apache/arrow/issues/40932
-    throw new UnsupportedOperationException("Unsupported operation");
+    return new TransferImpl(ref, allocator);
   }
 
   @Override
   public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
-    // TODO: https://github.com/apache/arrow/issues/40932
-    throw new UnsupportedOperationException("Unsupported operation");
+    return new TransferImpl(field, allocator);
   }
 
   /**
@@ -223,7 +221,42 @@ public final class ViewVarBinaryVector extends BaseVariableWidthViewVector {
    */
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
-    // TODO: https://github.com/apache/arrow/issues/40932
-    throw new UnsupportedOperationException("Unsupported operation");
+    return new TransferImpl((ViewVarBinaryVector) to);
+  }
+
+  private class TransferImpl implements TransferPair {
+    ViewVarBinaryVector to;
+
+    public TransferImpl(String ref, BufferAllocator allocator) {
+      to = new ViewVarBinaryVector(ref, field.getFieldType(), allocator);
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator) {
+      to = new ViewVarBinaryVector(field, allocator);
+    }
+
+    public TransferImpl(ViewVarBinaryVector to) {
+      this.to = to;
+    }
+
+    @Override
+    public ViewVarBinaryVector getTo() {
+      return to;
+    }
+
+    @Override
+    public void transfer() {
+      transferTo(to);
+    }
+
+    @Override
+    public void splitAndTransfer(int startIndex, int length) {
+      splitAndTransferTo(startIndex, length, to);
+    }
+
+    @Override
+    public void copyValueSafe(int fromIndex, int toIndex) {
+      to.copyFromSafe(fromIndex, toIndex, ViewVarBinaryVector.this);
+    }
   }
 }

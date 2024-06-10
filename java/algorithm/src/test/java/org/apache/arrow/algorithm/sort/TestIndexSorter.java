@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.algorithm.sort;
 
 import static org.junit.Assert.assertEquals;
@@ -28,9 +27,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-/**
- * Test cases for {@link IndexSorter}.
- */
+/** Test cases for {@link IndexSorter}. */
 public class TestIndexSorter {
 
   private BufferAllocator allocator;
@@ -56,14 +53,15 @@ public class TestIndexSorter {
 
       // sort the index
       IndexSorter<IntVector> indexSorter = new IndexSorter<>();
-      DefaultVectorComparators.IntComparator intComparator = new DefaultVectorComparators.IntComparator();
+      DefaultVectorComparators.IntComparator intComparator =
+          new DefaultVectorComparators.IntComparator();
       intComparator.attachVector(vec);
 
       IntVector indices = new IntVector("", allocator);
       indices.setValueCount(10);
       indexSorter.sort(vec, indices, intComparator);
 
-      int[] expected = new int[]{6, 9, 1, 3, 0, 4, 5, 7, 2, 8};
+      int[] expected = new int[] {6, 9, 1, 3, 0, 4, 5, 7, 2, 8};
 
       for (int i = 0; i < expected.length; i++) {
         assertTrue(!indices.isNull(i));
@@ -74,8 +72,8 @@ public class TestIndexSorter {
   }
 
   /**
-   * Tests the worst case for quick sort.
-   * It may cause stack overflow if the algorithm is implemented as a recursive algorithm.
+   * Tests the worst case for quick sort. It may cause stack overflow if the algorithm is
+   * implemented as a recursive algorithm.
    */
   @Test
   public void testSortLargeIncreasingInt() {
@@ -91,7 +89,8 @@ public class TestIndexSorter {
 
       // sort the vector
       IndexSorter<IntVector> indexSorter = new IndexSorter<>();
-      DefaultVectorComparators.IntComparator intComparator = new DefaultVectorComparators.IntComparator();
+      DefaultVectorComparators.IntComparator intComparator =
+          new DefaultVectorComparators.IntComparator();
       intComparator.attachVector(vec);
 
       try (IntVector indices = new IntVector("", allocator)) {
@@ -110,7 +109,7 @@ public class TestIndexSorter {
   public void testChoosePivot() {
     final int vectorLength = 100;
     try (IntVector vec = new IntVector("vector", allocator);
-         IntVector indices = new IntVector("indices", allocator)) {
+        IntVector indices = new IntVector("indices", allocator)) {
       vec.allocateNew(vectorLength);
       indices.allocateNew(vectorLength);
 
@@ -122,7 +121,8 @@ public class TestIndexSorter {
       vec.setValueCount(vectorLength);
       indices.setValueCount(vectorLength);
 
-      VectorValueComparator<IntVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
+      VectorValueComparator<IntVector> comparator =
+          DefaultVectorComparators.createDefaultComparator(vec);
 
       // setup internal data structures
       comparator.attachVector(vec);
@@ -147,17 +147,16 @@ public class TestIndexSorter {
     }
   }
 
-  /**
-   * Evaluates choosing pivot for all possible permutations of 3 numbers.
-   */
+  /** Evaluates choosing pivot for all possible permutations of 3 numbers. */
   @Test
   public void testChoosePivotAllPermutes() {
     try (IntVector vec = new IntVector("vector", allocator);
-         IntVector indices = new IntVector("indices", allocator)) {
+        IntVector indices = new IntVector("indices", allocator)) {
       vec.allocateNew();
       indices.allocateNew();
 
-      VectorValueComparator<IntVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
+      VectorValueComparator<IntVector> comparator =
+          DefaultVectorComparators.createDefaultComparator(vec);
 
       // setup internal data structures
       comparator.attachVector(vec);

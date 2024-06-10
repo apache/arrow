@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.algorithm.dictionary;
 
 import static junit.framework.TestCase.assertTrue;
@@ -23,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
@@ -32,9 +30,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-/**
- * Test cases for {@link HashTableBasedDictionaryBuilder}.
- */
+/** Test cases for {@link HashTableBasedDictionaryBuilder}. */
 public class TestHashTableBasedDictionaryBuilder {
 
   private BufferAllocator allocator;
@@ -52,7 +48,7 @@ public class TestHashTableBasedDictionaryBuilder {
   @Test
   public void testBuildVariableWidthDictionaryWithNull() {
     try (VarCharVector vec = new VarCharVector("", allocator);
-         VarCharVector dictionary = new VarCharVector("", allocator)) {
+        VarCharVector dictionary = new VarCharVector("", allocator)) {
 
       vec.allocateNew(100, 10);
       vec.setValueCount(10);
@@ -72,27 +68,34 @@ public class TestHashTableBasedDictionaryBuilder {
       vec.set(9, "abc".getBytes(StandardCharsets.UTF_8));
 
       HashTableBasedDictionaryBuilder<VarCharVector> dictionaryBuilder =
-              new HashTableBasedDictionaryBuilder<>(dictionary, true);
+          new HashTableBasedDictionaryBuilder<>(dictionary, true);
 
       int result = dictionaryBuilder.addValues(vec);
 
       assertEquals(7, result);
       assertEquals(7, dictionary.getValueCount());
 
-      assertEquals("hello", new String(Objects.requireNonNull(dictionary.get(0)), StandardCharsets.UTF_8));
-      assertEquals("abc", new String(Objects.requireNonNull(dictionary.get(1)), StandardCharsets.UTF_8));
+      assertEquals(
+          "hello", new String(Objects.requireNonNull(dictionary.get(0)), StandardCharsets.UTF_8));
+      assertEquals(
+          "abc", new String(Objects.requireNonNull(dictionary.get(1)), StandardCharsets.UTF_8));
       assertNull(dictionary.get(2));
-      assertEquals("world", new String(Objects.requireNonNull(dictionary.get(3)), StandardCharsets.UTF_8));
-      assertEquals("12", new String(Objects.requireNonNull(dictionary.get(4)), StandardCharsets.UTF_8));
-      assertEquals("dictionary", new String(Objects.requireNonNull(dictionary.get(5)), StandardCharsets.UTF_8));
-      assertEquals("good", new String(Objects.requireNonNull(dictionary.get(6)), StandardCharsets.UTF_8));
+      assertEquals(
+          "world", new String(Objects.requireNonNull(dictionary.get(3)), StandardCharsets.UTF_8));
+      assertEquals(
+          "12", new String(Objects.requireNonNull(dictionary.get(4)), StandardCharsets.UTF_8));
+      assertEquals(
+          "dictionary",
+          new String(Objects.requireNonNull(dictionary.get(5)), StandardCharsets.UTF_8));
+      assertEquals(
+          "good", new String(Objects.requireNonNull(dictionary.get(6)), StandardCharsets.UTF_8));
     }
   }
 
   @Test
   public void testBuildVariableWidthDictionaryWithoutNull() {
     try (VarCharVector vec = new VarCharVector("", allocator);
-         VarCharVector dictionary = new VarCharVector("", allocator)) {
+        VarCharVector dictionary = new VarCharVector("", allocator)) {
 
       vec.allocateNew(100, 10);
       vec.setValueCount(10);
@@ -112,27 +115,33 @@ public class TestHashTableBasedDictionaryBuilder {
       vec.set(9, "abc".getBytes(StandardCharsets.UTF_8));
 
       HashTableBasedDictionaryBuilder<VarCharVector> dictionaryBuilder =
-              new HashTableBasedDictionaryBuilder<>(dictionary, false);
+          new HashTableBasedDictionaryBuilder<>(dictionary, false);
 
       int result = dictionaryBuilder.addValues(vec);
 
       assertEquals(6, result);
       assertEquals(6, dictionary.getValueCount());
 
-      assertEquals("hello", new String(Objects.requireNonNull(dictionary.get(0)), StandardCharsets.UTF_8));
-      assertEquals("abc", new String(Objects.requireNonNull(dictionary.get(1)), StandardCharsets.UTF_8));
-      assertEquals("world", new String(Objects.requireNonNull(dictionary.get(2)), StandardCharsets.UTF_8));
-      assertEquals("12", new String(Objects.requireNonNull(dictionary.get(3)), StandardCharsets.UTF_8));
-      assertEquals("dictionary", new String(Objects.requireNonNull(dictionary.get(4)), StandardCharsets.UTF_8));
-      assertEquals("good", new String(Objects.requireNonNull(dictionary.get(5)), StandardCharsets.UTF_8));
-
+      assertEquals(
+          "hello", new String(Objects.requireNonNull(dictionary.get(0)), StandardCharsets.UTF_8));
+      assertEquals(
+          "abc", new String(Objects.requireNonNull(dictionary.get(1)), StandardCharsets.UTF_8));
+      assertEquals(
+          "world", new String(Objects.requireNonNull(dictionary.get(2)), StandardCharsets.UTF_8));
+      assertEquals(
+          "12", new String(Objects.requireNonNull(dictionary.get(3)), StandardCharsets.UTF_8));
+      assertEquals(
+          "dictionary",
+          new String(Objects.requireNonNull(dictionary.get(4)), StandardCharsets.UTF_8));
+      assertEquals(
+          "good", new String(Objects.requireNonNull(dictionary.get(5)), StandardCharsets.UTF_8));
     }
   }
 
   @Test
   public void testBuildFixedWidthDictionaryWithNull() {
     try (IntVector vec = new IntVector("", allocator);
-         IntVector dictionary = new IntVector("", allocator)) {
+        IntVector dictionary = new IntVector("", allocator)) {
       vec.allocateNew(10);
       vec.setValueCount(10);
 
@@ -151,7 +160,7 @@ public class TestHashTableBasedDictionaryBuilder {
       vec.setNull(9);
 
       HashTableBasedDictionaryBuilder<IntVector> dictionaryBuilder =
-              new HashTableBasedDictionaryBuilder<>(dictionary, true);
+          new HashTableBasedDictionaryBuilder<>(dictionary, true);
 
       int result = dictionaryBuilder.addValues(vec);
 
@@ -169,7 +178,7 @@ public class TestHashTableBasedDictionaryBuilder {
   @Test
   public void testBuildFixedWidthDictionaryWithoutNull() {
     try (IntVector vec = new IntVector("", allocator);
-         IntVector dictionary = new IntVector("", allocator)) {
+        IntVector dictionary = new IntVector("", allocator)) {
       vec.allocateNew(10);
       vec.setValueCount(10);
 
@@ -188,7 +197,7 @@ public class TestHashTableBasedDictionaryBuilder {
       vec.setNull(9);
 
       HashTableBasedDictionaryBuilder<IntVector> dictionaryBuilder =
-              new HashTableBasedDictionaryBuilder<>(dictionary, false);
+          new HashTableBasedDictionaryBuilder<>(dictionary, false);
 
       int result = dictionaryBuilder.addValues(vec);
 
@@ -199,7 +208,6 @@ public class TestHashTableBasedDictionaryBuilder {
       assertEquals(8, dictionary.get(1));
       assertEquals(32, dictionary.get(2));
       assertEquals(16, dictionary.get(3));
-
     }
   }
 }

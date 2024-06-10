@@ -18,9 +18,9 @@
 package org.apache.arrow.vector;
 
 import static java.util.Arrays.asList;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -44,21 +44,20 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class TestVectorUnloadLoad {
 
   private BufferAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void init() {
     allocator = new RootAllocator(Long.MAX_VALUE);
   }
 
-  @After
+  @AfterEach
   public void terminate() throws Exception {
     allocator.close();
   }
@@ -116,9 +115,9 @@ public class TestVectorUnloadLoad {
         FieldReader bigIntReader = newRoot.getVector("bigInt").getReader();
         for (int i = 0; i < count; i++) {
           intReader.setPosition(i);
-          Assert.assertEquals(i, intReader.readInteger().intValue());
+          assertEquals(i, intReader.readInteger().intValue());
           bigIntReader.setPosition(i);
-          Assert.assertEquals(i, bigIntReader.readLong().longValue());
+          assertEquals(i, bigIntReader.readLong().longValue());
         }
       }
     }
@@ -188,7 +187,7 @@ public class TestVectorUnloadLoad {
             for (int j = 0; j < i % 4 + 1; j++) {
               expected.add(i);
             }
-            Assert.assertEquals(expected, reader.readObject());
+            assertEquals(expected, reader.readObject());
           }
         }
 
@@ -256,9 +255,9 @@ public class TestVectorUnloadLoad {
       IntVector intDefinedVector = (IntVector) newRoot.getVector("intDefined");
       IntVector intNullVector = (IntVector) newRoot.getVector("intNull");
       for (int i = 0; i < count; i++) {
-        assertFalse("#" + i, intDefinedVector.isNull(i));
-        assertEquals("#" + i, i, intDefinedVector.get(i));
-        assertTrue("#" + i, intNullVector.isNull(i));
+        assertFalse(intDefinedVector.isNull(i), "#" + i);
+        assertEquals(i, intDefinedVector.get(i), "#" + i);
+        assertTrue(intNullVector.isNull(i), "#" + i);
       }
       intDefinedVector.setSafe(count + 10, 1234);
       assertTrue(intDefinedVector.isNull(count + 1));
@@ -319,13 +318,13 @@ public class TestVectorUnloadLoad {
           vectorLoader.load(recordBatch);
 
           List<FieldVector> targets = newRoot.getFieldVectors();
-          Assert.assertEquals(sources.size(), targets.size());
+          assertEquals(sources.size(), targets.size());
           for (int k = 0; k < sources.size(); k++) {
             IntVector src = (IntVector) sources.get(k);
             IntVector tgt = (IntVector) targets.get(k);
-            Assert.assertEquals(src.getValueCount(), tgt.getValueCount());
+            assertEquals(src.getValueCount(), tgt.getValueCount());
             for (int i = 0; i < count; i++) {
-              Assert.assertEquals(src.get(i), tgt.get(i));
+              assertEquals(src.get(i), tgt.get(i));
             }
           }
         }

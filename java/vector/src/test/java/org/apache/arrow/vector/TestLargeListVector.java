@@ -17,11 +17,11 @@
 
 package org.apache.arrow.vector;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -39,21 +39,20 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class TestLargeListVector {
 
   private BufferAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void init() {
     allocator = new DirtyRootAllocator(Long.MAX_VALUE, (byte) 100);
   }
 
-  @After
+  @AfterEach
   public void terminate() throws Exception {
     allocator.close();
   }
@@ -91,11 +90,11 @@ public class TestLargeListVector {
 
       // assert the output vector is correct
       FieldReader reader = outVector.getReader();
-      Assert.assertTrue("shouldn't be null", reader.isSet());
+      assertTrue(reader.isSet(), "shouldn't be null");
       reader.setPosition(1);
-      Assert.assertFalse("should be null", reader.isSet());
+      assertFalse(reader.isSet(), "should be null");
       reader.setPosition(2);
-      Assert.assertTrue("shouldn't be null", reader.isSet());
+      assertTrue(reader.isSet(), "shouldn't be null");
 
 
       /* index 0 */
@@ -433,15 +432,15 @@ public class TestLargeListVector {
             dataLength2 = (int) toOffsetBuffer.getLong((i + 1) * LargeListVector.OFFSET_WIDTH) -
                     (int) toOffsetBuffer.getLong(i * LargeListVector.OFFSET_WIDTH);
 
-            assertEquals("Different data lengths at index: " + i + " and start: " + start,
-                    dataLength1, dataLength2);
+            assertEquals(dataLength1, dataLength2,
+                "Different data lengths at index: " + i + " and start: " + start);
 
             offset1 = (int) offsetBuffer.getLong((start + i) * LargeListVector.OFFSET_WIDTH);
             offset2 = (int) toOffsetBuffer.getLong(i * LargeListVector.OFFSET_WIDTH);
 
             for (int j = 0; j < dataLength1; j++) {
-              assertEquals("Different data at indexes: " + offset1 + " and " + offset2,
-                      dataVector.getObject(offset1), dataVector1.getObject(offset2));
+              assertEquals(dataVector.getObject(offset1), dataVector1.getObject(offset2),
+                  "Different data at indexes: " + offset1 + " and " + offset2);
 
               offset1++;
               offset2++;

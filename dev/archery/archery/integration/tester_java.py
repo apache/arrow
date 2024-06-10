@@ -28,7 +28,7 @@ from .util import run_cmd, log
 
 ARROW_BUILD_ROOT = os.environ.get(
     'ARROW_BUILD_ROOT',
-    Path(__file__).resolve().parents[5]
+    Path(__file__).resolve().parents[4]
 )
 
 

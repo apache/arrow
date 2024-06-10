@@ -374,7 +374,7 @@ public class TestBaseAllocator {
       assertEquals(1, arrowBuf1.getInt(0));
 
       try {
-        final ArrowBuf arrowBuf2 = allocator.buffer(1);
+        allocator.buffer(1);
         fail("allocated memory beyond max allowed");
       } catch (OutOfMemoryException e) {
         // expected
@@ -1077,7 +1077,7 @@ public class TestBaseAllocator {
           "child2", 1024, MAX_ALLOCATION);
       rootAllocator.verify();
 
-      ArrowBuf buff = childAllocator2.buffer(256);
+      childAllocator2.buffer(256);
 
       Exception exception = assertThrows(IllegalStateException.class, () -> {
         childAllocator2.close();

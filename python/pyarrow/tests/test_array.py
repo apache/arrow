@@ -1013,6 +1013,18 @@ def test_list_array_types_from_arrays_fail(list_array_type, list_type_factory):
             arr_slice.offsets, arr_slice.values, mask=arr_slice.is_null())
 
 
+def test_map_cast():
+    # GH-38553
+    t = pa.map_(pa.int64(), pa.int64())
+    arr = pa.array([{1: 2}], type=t)
+    result = arr.cast(pa.map_(pa.int32(), pa.int64()))
+
+    t_expected = pa.map_(pa.int32(), pa.int64())
+    expected = pa.array([{1: 2}], type=t_expected)
+
+    assert result.equals(expected)
+
+
 def test_map_labelled():
     #  ARROW-13735
     t = pa.map_(pa.field("name", "string", nullable=False), "int64")
@@ -1078,6 +1090,40 @@ def test_map_from_arrays():
             # Larger than the original i4
             pa.int64()
         ))
+
+    # pass in null bitmap with type
+    result = pa.MapArray.from_arrays([0, 2, 2, 6], keys, items, pa.map_(
+        keys.type,
+        items.type),
+        mask=pa.array([False, True, False], type=pa.bool_())
+    )
+    assert result.equals(expected)
+
+    # pass in null bitmap without the type
+    result = pa.MapArray.from_arrays([0, 2, 2, 6], keys, items,
+                                     mask=pa.array([False, True, False],
+                                                   type=pa.bool_())
+                                     )
+    assert result.equals(expected)
+
+    # error if null bitmap and offsets with nulls passed
+    msg1 = 'Ambiguous to specify both validity map and offsets with nulls'
+    with pytest.raises(pa.ArrowInvalid, match=msg1):
+        pa.MapArray.from_arrays(offsets, keys, items, pa.map_(
+            keys.type,
+            items.type),
+            mask=pa.array([False, True, False], type=pa.bool_())
+        )
+
+    # error if null bitmap passed to sliced offset
+    msg2 = 'Null bitmap with offsets slice not supported.'
+    offsets = pa.array([0, 2, 2, 6], pa.int32())
+    with pytest.raises(pa.ArrowNotImplementedError, match=msg2):
+        pa.MapArray.from_arrays(offsets.slice(2), keys, items, pa.map_(
+            keys.type,
+            items.type),
+            mask=pa.array([False, True, False], type=pa.bool_())
+        )
 
     # check invalid usage
     offsets = [0, 1, 3, 5]

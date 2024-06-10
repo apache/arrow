@@ -17,8 +17,9 @@
 
 package org.apache.arrow.vector.ipc;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
 import java.nio.channels.Pipe;
@@ -33,8 +34,7 @@ import org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.arrow.vector.ipc.ArrowStreamWriter;
 import org.apache.arrow.vector.ipc.MessageSerializerTest;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class TestArrowStreamPipe {
   Schema schema = MessageSerializerTest.testSchema();
@@ -75,7 +75,7 @@ public class TestArrowStreamPipe {
         root.close();
       } catch (IOException e) {
         e.printStackTrace();
-        Assert.fail(e.toString()); // have to explicitly fail since we're in a separate thread
+        fail(e.toString()); // have to explicitly fail since we're in a separate thread
       }
     }
 
@@ -103,14 +103,14 @@ public class TestArrowStreamPipe {
             return false;
           }
           VectorSchemaRoot root = getVectorSchemaRoot();
-          Assert.assertEquals(16, root.getRowCount());
+          assertEquals(16, root.getRowCount());
           TinyIntVector vector = (TinyIntVector) root.getFieldVectors().get(0);
-          Assert.assertEquals((byte) (batchesRead - 1), vector.get(0));
+          assertEquals((byte) (batchesRead - 1), vector.get(0));
           for (int i = 1; i < 16; i++) {
             if (i < 8) {
-              Assert.assertEquals((byte) (i + 1), vector.get(i));
+              assertEquals((byte) (i + 1), vector.get(i));
             } else {
-              Assert.assertTrue(vector.isNull(i));
+              assertTrue(vector.isNull(i));
             }
           }
 
@@ -129,7 +129,7 @@ public class TestArrowStreamPipe {
         reader.close();
       } catch (IOException e) {
         e.printStackTrace();
-        Assert.fail(e.toString()); // have to explicitly fail since we're in a separate thread
+        fail(e.toString()); // have to explicitly fail since we're in a separate thread
       }
     }
 

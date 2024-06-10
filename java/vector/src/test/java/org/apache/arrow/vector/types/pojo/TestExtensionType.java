@@ -17,10 +17,12 @@
 
 package org.apache.arrow.vector.types.pojo;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
 import java.io.IOException;
@@ -51,8 +53,7 @@ import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType.ExtensionType;
 import org.apache.arrow.vector.util.VectorBatchAppender;
 import org.apache.arrow.vector.validate.ValidateVectorVisitor;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class TestExtensionType {
   /**
@@ -85,21 +86,19 @@ public class TestExtensionType {
           final ArrowFileReader reader = new ArrowFileReader(channel, allocator)) {
         reader.loadNextBatch();
         final VectorSchemaRoot readerRoot = reader.getVectorSchemaRoot();
-        Assert.assertEquals(root.getSchema(), readerRoot.getSchema());
+        assertEquals(root.getSchema(), readerRoot.getSchema());
 
         final Field field = readerRoot.getSchema().getFields().get(0);
         final UuidType expectedType = new UuidType();
-        Assert.assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_NAME),
-            expectedType.extensionName());
-        Assert.assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_METADATA),
-            expectedType.serialize());
+        assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_NAME), expectedType.extensionName());
+        assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_METADATA), expectedType.serialize());
 
         final ExtensionTypeVector deserialized = (ExtensionTypeVector) readerRoot.getFieldVectors().get(0);
-        Assert.assertEquals(vector.getValueCount(), deserialized.getValueCount());
+        assertEquals(vector.getValueCount(), deserialized.getValueCount());
         for (int i = 0; i < vector.getValueCount(); i++) {
-          Assert.assertEquals(vector.isNull(i), deserialized.isNull(i));
+          assertEquals(vector.isNull(i), deserialized.isNull(i));
           if (!vector.isNull(i)) {
-            Assert.assertEquals(vector.getObject(i), deserialized.getObject(i));
+            assertEquals(vector.getObject(i), deserialized.getObject(i));
           }
         }
       }
@@ -138,29 +137,27 @@ public class TestExtensionType {
           final ArrowFileReader reader = new ArrowFileReader(channel, allocator)) {
         reader.loadNextBatch();
         final VectorSchemaRoot readerRoot = reader.getVectorSchemaRoot();
-        Assert.assertEquals(1, readerRoot.getSchema().getFields().size());
-        Assert.assertEquals("a", readerRoot.getSchema().getFields().get(0).getName());
-        Assert.assertTrue(readerRoot.getSchema().getFields().get(0).getType() instanceof ArrowType.FixedSizeBinary);
-        Assert.assertEquals(16,
+        assertEquals(1, readerRoot.getSchema().getFields().size());
+        assertEquals("a", readerRoot.getSchema().getFields().get(0).getName());
+        assertTrue(readerRoot.getSchema().getFields().get(0).getType() instanceof ArrowType.FixedSizeBinary);
+        assertEquals(16,
             ((ArrowType.FixedSizeBinary) readerRoot.getSchema().getFields().get(0).getType()).getByteWidth());
 
         final Field field = readerRoot.getSchema().getFields().get(0);
         final UuidType expectedType = new UuidType();
-        Assert.assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_NAME),
-            expectedType.extensionName());
-        Assert.assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_METADATA),
-            expectedType.serialize());
+        assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_NAME), expectedType.extensionName());
+        assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_METADATA), expectedType.serialize());
 
         final FixedSizeBinaryVector deserialized = (FixedSizeBinaryVector) readerRoot.getFieldVectors().get(0);
-        Assert.assertEquals(vector.getValueCount(), deserialized.getValueCount());
+        assertEquals(vector.getValueCount(), deserialized.getValueCount());
         for (int i = 0; i < vector.getValueCount(); i++) {
-          Assert.assertEquals(vector.isNull(i), deserialized.isNull(i));
+          assertEquals(vector.isNull(i), deserialized.isNull(i));
           if (!vector.isNull(i)) {
             final UUID uuid = vector.getObject(i);
             final ByteBuffer bb = ByteBuffer.allocate(16);
             bb.putLong(uuid.getMostSignificantBits());
             bb.putLong(uuid.getLeastSignificantBits());
-            Assert.assertArrayEquals(bb.array(), deserialized.get(i));
+            assertArrayEquals(bb.array(), deserialized.get(i));
           }
         }
       }
@@ -210,26 +207,24 @@ public class TestExtensionType {
            final ArrowFileReader reader = new ArrowFileReader(channel, allocator)) {
         reader.loadNextBatch();
         final VectorSchemaRoot readerRoot = reader.getVectorSchemaRoot();
-        Assert.assertEquals(root.getSchema(), readerRoot.getSchema());
+        assertEquals(root.getSchema(), readerRoot.getSchema());
 
         final Field field = readerRoot.getSchema().getFields().get(0);
         final LocationType expectedType = new LocationType();
-        Assert.assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_NAME),
-                expectedType.extensionName());
-        Assert.assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_METADATA),
-                expectedType.serialize());
+        assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_NAME), expectedType.extensionName());
+        assertEquals(field.getMetadata().get(ExtensionType.EXTENSION_METADATA_KEY_METADATA), expectedType.serialize());
 
         final ExtensionTypeVector deserialized = (ExtensionTypeVector) readerRoot.getFieldVectors().get(0);
-        Assert.assertTrue(deserialized instanceof LocationVector);
-        Assert.assertEquals("location", deserialized.getName());
+        assertTrue(deserialized instanceof LocationVector);
+        assertEquals("location", deserialized.getName());
         StructVector deserStruct = (StructVector) deserialized.getUnderlyingVector();
-        Assert.assertNotNull(deserStruct.getChild("Latitude"));
-        Assert.assertNotNull(deserStruct.getChild("Longitude"));
-        Assert.assertEquals(vector.getValueCount(), deserialized.getValueCount());
+        assertNotNull(deserStruct.getChild("Latitude"));
+        assertNotNull(deserStruct.getChild("Longitude"));
+        assertEquals(vector.getValueCount(), deserialized.getValueCount());
         for (int i = 0; i < vector.getValueCount(); i++) {
-          Assert.assertEquals(vector.isNull(i), deserialized.isNull(i));
+          assertEquals(vector.isNull(i), deserialized.isNull(i));
           if (!vector.isNull(i)) {
-            Assert.assertEquals(vector.getObject(i), deserialized.getObject(i));
+            assertEquals(vector.getObject(i), deserialized.getObject(i));
           }
         }
       }

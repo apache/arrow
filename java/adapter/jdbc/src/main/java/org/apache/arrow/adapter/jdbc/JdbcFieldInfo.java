@@ -14,25 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc;
 
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
-
 import org.apache.arrow.util.Preconditions;
 
 /**
- * This class represents the information about a JDBC ResultSet Field that is
- * needed to construct an {@link org.apache.arrow.vector.types.pojo.ArrowType}.
- * Currently, this is:
+ * This class represents the information about a JDBC ResultSet Field that is needed to construct an
+ * {@link org.apache.arrow.vector.types.pojo.ArrowType}. Currently, this is:
+ *
  * <ul>
- *   <li>The JDBC {@link java.sql.Types} type.</li>
- *   <li>The nullability.</li>
- *   <li>The field's precision (used for {@link java.sql.Types#DECIMAL} and {@link java.sql.Types#NUMERIC} types).</li>
- *   <li>The field's scale (used for {@link java.sql.Types#DECIMAL} and {@link java.sql.Types#NUMERIC} types).</li>
+ *   <li>The JDBC {@link java.sql.Types} type.
+ *   <li>The nullability.
+ *   <li>The field's precision (used for {@link java.sql.Types#DECIMAL} and {@link
+ *       java.sql.Types#NUMERIC} types).
+ *   <li>The field's scale (used for {@link java.sql.Types#DECIMAL} and {@link
+ *       java.sql.Types#NUMERIC} types).
  * </ul>
  */
 public class JdbcFieldInfo {
@@ -45,12 +45,13 @@ public class JdbcFieldInfo {
   private final int displaySize;
 
   /**
-   * Builds a <code>JdbcFieldInfo</code> using only the {@link java.sql.Types} type.  Do not use this constructor
-   * if the field type is {@link java.sql.Types#DECIMAL} or {@link java.sql.Types#NUMERIC}; the precision and
-   * scale will be set to <code>0</code>.
+   * Builds a <code>JdbcFieldInfo</code> using only the {@link java.sql.Types} type. Do not use this
+   * constructor if the field type is {@link java.sql.Types#DECIMAL} or {@link
+   * java.sql.Types#NUMERIC}; the precision and scale will be set to <code>0</code>.
    *
    * @param jdbcType The {@link java.sql.Types} type.
-   * @throws IllegalArgumentException if jdbcType is {@link java.sql.Types#DECIMAL} or {@link java.sql.Types#NUMERIC}.
+   * @throws IllegalArgumentException if jdbcType is {@link java.sql.Types#DECIMAL} or {@link
+   *     java.sql.Types#NUMERIC}.
    */
   public JdbcFieldInfo(int jdbcType) {
     Preconditions.checkArgument(
@@ -67,7 +68,8 @@ public class JdbcFieldInfo {
 
   /**
    * Builds a <code>JdbcFieldInfo</code> from the {@link java.sql.Types} type, precision, and scale.
-   * Use this constructor for {@link java.sql.Types#DECIMAL} and {@link java.sql.Types#NUMERIC} types.
+   * Use this constructor for {@link java.sql.Types#DECIMAL} and {@link java.sql.Types#NUMERIC}
+   * types.
    *
    * @param jdbcType The {@link java.sql.Types} type.
    * @param precision The field's numeric precision.
@@ -84,11 +86,13 @@ public class JdbcFieldInfo {
   }
 
   /**
-   * Builds a <code>JdbcFieldInfo</code> from the {@link java.sql.Types} type, nullability, precision, and scale.
+   * Builds a <code>JdbcFieldInfo</code> from the {@link java.sql.Types} type, nullability,
+   * precision, and scale.
    *
    * @param jdbcType The {@link java.sql.Types} type.
    * @param nullability The nullability. Must be one of {@link ResultSetMetaData#columnNoNulls},
-   *     {@link ResultSetMetaData#columnNullable}, or {@link ResultSetMetaData#columnNullableUnknown}.
+   *     {@link ResultSetMetaData#columnNullable}, or {@link
+   *     ResultSetMetaData#columnNullableUnknown}.
    * @param precision The field's numeric precision.
    * @param scale The field's numeric scale.
    */
@@ -103,7 +107,8 @@ public class JdbcFieldInfo {
   }
 
   /**
-   * Builds a <code>JdbcFieldInfo</code> from the corresponding {@link java.sql.ResultSetMetaData} column.
+   * Builds a <code>JdbcFieldInfo</code> from the corresponding {@link java.sql.ResultSetMetaData}
+   * column.
    *
    * @param rsmd The {@link java.sql.ResultSetMetaData} to get the field information from.
    * @param column The column to get the field information for (on a 1-based index).
@@ -113,10 +118,12 @@ public class JdbcFieldInfo {
    */
   public JdbcFieldInfo(ResultSetMetaData rsmd, int column) throws SQLException {
     Preconditions.checkNotNull(rsmd, "ResultSetMetaData cannot be null.");
-    Preconditions.checkArgument(column > 0, "ResultSetMetaData columns have indices starting at 1.");
+    Preconditions.checkArgument(
+        column > 0, "ResultSetMetaData columns have indices starting at 1.");
     Preconditions.checkArgument(
         column <= rsmd.getColumnCount(),
-        "The index must be within the number of columns (1 to %s, inclusive)", rsmd.getColumnCount());
+        "The index must be within the number of columns (1 to %s, inclusive)",
+        rsmd.getColumnCount());
 
     this.column = column;
     this.jdbcType = rsmd.getColumnType(column);
@@ -128,8 +135,8 @@ public class JdbcFieldInfo {
   }
 
   /**
-   * Builds a <code>JdbcFieldInfo</code> from the corresponding row from a {@link java.sql.DatabaseMetaData#getColumns}
-   * ResultSet.
+   * Builds a <code>JdbcFieldInfo</code> from the corresponding row from a {@link
+   * java.sql.DatabaseMetaData#getColumns} ResultSet.
    *
    * @param rs The {@link java.sql.ResultSet} to get the field information from.
    * @throws SQLException If the column information cannot be retrieved.
@@ -144,51 +151,42 @@ public class JdbcFieldInfo {
     this.displaySize = rs.getInt("CHAR_OCTET_LENGTH");
   }
 
-  /**
-   * The {@link java.sql.Types} type.
-   */
+  /** The {@link java.sql.Types} type. */
   public int getJdbcType() {
     return jdbcType;
   }
 
-  /**
-   * The nullability.
-   */
+  /** The nullability. */
   public int isNullable() {
     return nullability;
   }
 
   /**
-   * The numeric precision, for {@link java.sql.Types#NUMERIC}  and {@link java.sql.Types#DECIMAL} types.
+   * The numeric precision, for {@link java.sql.Types#NUMERIC} and {@link java.sql.Types#DECIMAL}
+   * types.
    */
   public int getPrecision() {
     return precision;
   }
 
   /**
-   * The numeric scale, for {@link java.sql.Types#NUMERIC}  and {@link java.sql.Types#DECIMAL} types.
+   * The numeric scale, for {@link java.sql.Types#NUMERIC} and {@link java.sql.Types#DECIMAL} types.
    */
   public int getScale() {
     return scale;
   }
 
-  /**
-   * The column index for query column.
-   */
+  /** The column index for query column. */
   public int getColumn() {
     return column;
   }
 
-  /**
-   * The type name as reported by the database.
-   */
+  /** The type name as reported by the database. */
   public String getTypeName() {
     return typeName;
   }
 
-  /**
-   * The max number of characters for the column.
-   */
+  /** The max number of characters for the column. */
   public int getDisplaySize() {
     return displaySize;
   }

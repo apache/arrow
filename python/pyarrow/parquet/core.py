@@ -1108,6 +1108,19 @@ Examples
         if self.file_handle is not None:
             self.file_handle.close()
 
+    def add_key_value_metadata(self, key_value_metadata):
+        """
+        Add key-value metadata to the file.
+        This will overwrite any existing metadata with the same key.
+
+        Parameters
+        ----------
+        key_value_metadata : dict
+            Keys and values must be string-like / coercible to bytes.
+        """
+        assert self.is_open
+        self.writer.add_key_value_metadata(key_value_metadata)
+
 
 def _get_pandas_index_columns(keyvalues):
     return (json.loads(keyvalues[b'pandas'].decode('utf8'))
