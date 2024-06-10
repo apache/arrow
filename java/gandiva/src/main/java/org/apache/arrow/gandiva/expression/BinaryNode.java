@@ -14,17 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.gandiva.expression;
 
+import com.google.protobuf.ByteString;
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
 
-import com.google.protobuf.ByteString;
-
-/**
- * Used to represent expression tree nodes representing binary constants.
- */
+/** Used to represent expression tree nodes representing binary constants. */
 class BinaryNode implements TreeNode {
   private final byte[] value;
 
@@ -34,12 +30,9 @@ class BinaryNode implements TreeNode {
 
   @Override
   public GandivaTypes.TreeNode toProtobuf() throws GandivaException {
-    GandivaTypes.BinaryNode binaryNode = GandivaTypes.BinaryNode.newBuilder()
-        .setValue(ByteString.copyFrom(value))
-        .build();
+    GandivaTypes.BinaryNode binaryNode =
+        GandivaTypes.BinaryNode.newBuilder().setValue(ByteString.copyFrom(value)).build();
 
-    return GandivaTypes.TreeNode.newBuilder()
-        .setBinaryNode(binaryNode)
-        .build();
+    return GandivaTypes.TreeNode.newBuilder().setBinaryNode(binaryNode).build();
   }
 }
