@@ -14,11 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory;
 
 import java.util.concurrent.TimeUnit;
-
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Mode;
@@ -32,9 +30,7 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-/**
- * Benchmarks for {@link ArrowBuf}.
- */
+/** Benchmarks for {@link ArrowBuf}. */
 @State(Scope.Benchmark)
 public class ArrowBufBenchmarks {
 
@@ -46,18 +42,14 @@ public class ArrowBufBenchmarks {
 
   private ArrowBuf buffer;
 
-  /**
-   * Setup benchmarks.
-   */
+  /** Setup benchmarks. */
   @Setup
   public void prepare() {
     allocator = new RootAllocator(ALLOCATOR_CAPACITY);
     buffer = allocator.buffer(BUFFER_CAPACITY);
   }
 
-  /**
-   * Tear down benchmarks.
-   */
+  /** Tear down benchmarks. */
   @TearDown
   public void tearDown() {
     buffer.close();
@@ -72,10 +64,8 @@ public class ArrowBufBenchmarks {
   }
 
   public static void main(String[] args) throws RunnerException {
-    Options opt = new OptionsBuilder()
-            .include(ArrowBufBenchmarks.class.getSimpleName())
-            .forks(1)
-            .build();
+    Options opt =
+        new OptionsBuilder().include(ArrowBufBenchmarks.class.getSimpleName()).forks(1).build();
 
     new Runner(opt).run();
   }

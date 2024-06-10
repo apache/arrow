@@ -14,11 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory.util;
 
 import java.util.concurrent.TimeUnit;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -36,15 +34,14 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-/**
- * Benchmarks for {@link ByteFunctionHelpers}.
- */
+/** Benchmarks for {@link ByteFunctionHelpers}. */
 public class ByteFunctionHelpersBenchmarks {
 
   private static final int ALLOCATOR_CAPACITY = 1024 * 1024;
 
   /**
-   * State object for the {@link ByteFunctionHelpersBenchmarks#arrowBufEquals(ArrowEqualState)} benchmark.
+   * State object for the {@link ByteFunctionHelpersBenchmarks#arrowBufEquals(ArrowEqualState)}
+   * benchmark.
    */
   @State(Scope.Benchmark)
   public static class ArrowEqualState {
@@ -81,12 +78,18 @@ public class ByteFunctionHelpersBenchmarks {
   @BenchmarkMode(Mode.AverageTime)
   @OutputTimeUnit(TimeUnit.NANOSECONDS)
   public void arrowBufEquals(ArrowEqualState state) {
-    ByteFunctionHelpers.equal(state.buffer1, 0, ArrowEqualState.BUFFER_CAPACITY - 1,
-            state.buffer2, 0, ArrowEqualState.BUFFER_CAPACITY - 1);
+    ByteFunctionHelpers.equal(
+        state.buffer1,
+        0,
+        ArrowEqualState.BUFFER_CAPACITY - 1,
+        state.buffer2,
+        0,
+        ArrowEqualState.BUFFER_CAPACITY - 1);
   }
 
   /**
-   * State object for the {@link ByteFunctionHelpersBenchmarks#arrowBufArrayEquals(ArrowArrayEqualState)} benchmark.
+   * State object for the {@link
+   * ByteFunctionHelpersBenchmarks#arrowBufArrayEquals(ArrowArrayEqualState)} benchmark.
    */
   @State(Scope.Benchmark)
   public static class ArrowArrayEqualState {
@@ -123,15 +126,20 @@ public class ByteFunctionHelpersBenchmarks {
   @OutputTimeUnit(TimeUnit.NANOSECONDS)
   public int arrowBufArrayEquals(ArrowArrayEqualState state) {
     return ByteFunctionHelpers.compare(
-            state.buffer1, 0, ArrowArrayEqualState.BUFFER_CAPACITY,
-            state.buffer2, 0, ArrowArrayEqualState.BUFFER_CAPACITY);
+        state.buffer1,
+        0,
+        ArrowArrayEqualState.BUFFER_CAPACITY,
+        state.buffer2,
+        0,
+        ArrowArrayEqualState.BUFFER_CAPACITY);
   }
 
   public static void main(String[] args) throws RunnerException {
-    Options opt = new OptionsBuilder()
-        .include(ByteFunctionHelpersBenchmarks.class.getSimpleName())
-        .forks(1)
-        .build();
+    Options opt =
+        new OptionsBuilder()
+            .include(ByteFunctionHelpersBenchmarks.class.getSimpleName())
+            .forks(1)
+            .build();
 
     new Runner(opt).run();
   }

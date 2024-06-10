@@ -14,11 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import java.util.concurrent.TimeUnit;
-
 import org.apache.arrow.memory.BoundsChecking;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -35,9 +33,7 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-/**
- * Benchmarks for {@link Float8Vector}.
- */
+/** Benchmarks for {@link Float8Vector}. */
 @State(Scope.Benchmark)
 public class Float8Benchmarks {
   // checkstyle:off: MissingJavadocMethod
@@ -52,9 +48,7 @@ public class Float8Benchmarks {
 
   private Float8Vector fromVector;
 
-  /**
-   * Setup benchmarks.
-   */
+  /** Setup benchmarks. */
   @Setup
   public void prepare() {
     allocator = new RootAllocator(ALLOCATOR_CAPACITY);
@@ -74,9 +68,7 @@ public class Float8Benchmarks {
     fromVector.setValueCount(VECTOR_LENGTH);
   }
 
-  /**
-   * Tear down benchmarks.
-   */
+  /** Tear down benchmarks. */
   @TearDown
   public void tearDown() {
     vector.close();
@@ -85,10 +77,11 @@ public class Float8Benchmarks {
   }
 
   /**
-   * Test reading/writing on {@link Float8Vector}.
-   * The performance of this benchmark is influenced by the states of two flags:
-   * 1. The flag for boundary checking. For details, please see {@link BoundsChecking}.
-   * 2. The flag for null checking in get methods. For details, please see {@link NullCheckingForGet}.
+   * Test reading/writing on {@link Float8Vector}. The performance of this benchmark is influenced
+   * by the states of two flags: 1. The flag for boundary checking. For details, please see {@link
+   * BoundsChecking}. 2. The flag for null checking in get methods. For details, please see {@link
+   * NullCheckingForGet}.
+   *
    * @return useless. To avoid DCE by JIT.
    */
   @Benchmark
@@ -112,11 +105,9 @@ public class Float8Benchmarks {
     }
   }
 
-  public static void main(String [] args) throws RunnerException {
-    Options opt = new OptionsBuilder()
-            .include(Float8Benchmarks.class.getSimpleName())
-            .forks(1)
-            .build();
+  public static void main(String[] args) throws RunnerException {
+    Options opt =
+        new OptionsBuilder().include(Float8Benchmarks.class.getSimpleName()).forks(1).build();
 
     new Runner(opt).run();
   }
