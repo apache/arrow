@@ -19,6 +19,7 @@ import codecs
 import decimal
 from functools import partial
 import itertools
+import string
 import sys
 import unicodedata
 
@@ -26,11 +27,13 @@ import numpy as np
 
 import pyarrow as pa
 
-
 KILOBYTE = 1 << 10
 MEGABYTE = KILOBYTE * KILOBYTE
 
 DEFAULT_NONE_PROB = 0.3
+
+# Copied from https://github.com/pandas-dev/pandas for use in rands() below
+RANDS_CHARS = np.array(list(string.ascii_letters + string.digits), dtype=(np.str_, 1))
 
 
 def _multiplicate_sequence(base, target_size):
@@ -347,3 +350,12 @@ class BuiltinsGenerator(object):
         }
         data = factories[kind](n)
         return ty, data
+
+
+def rands(nchars) -> str:
+    """
+    Generate one random byte string.
+
+    Copied from https://github.com/pandas-dev/pandas.
+    """
+    return "".join(np.random.default_rng(2).choice(RANDS_CHARS, nchars))
