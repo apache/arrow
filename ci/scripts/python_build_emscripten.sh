@@ -31,6 +31,6 @@ python_build_dir=${build_dir}/python
 rm -rf ${python_build_dir}
 cp -aL ${source_dir} ${python_build_dir}
 
-pushd python_build_dir
+pushd ${python_build_dir}
 pyodide build
 popd
