@@ -195,10 +195,10 @@ the list).
 List
 ----
 
-The list type enables values of the same type being stacked together in a
-sequence of values in each column slot. The layout is similar to binary or
-string type as it has offsets buffer to define where the sequence of values
-starts and ends with all the values of the column being stored consecutively
+The list type enables representing an array where each element is a sequence
+of elements of the same type. The layout is similar to binary or string type
+as it has an offsets buffer to define where the sequence of values for each
+element starts and ends, with all the values being stored consecutively
 in a values child array.
 
 The offsets in the list type are int32 while in the large list the offsets
