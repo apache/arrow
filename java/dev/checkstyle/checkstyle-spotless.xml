@@ -89,7 +89,7 @@
         <module name="RightCurly">
             <property name="option" value="alone"/>
             <property name="tokens" value="CLASS_DEF, METHOD_DEF, CTOR_DEF, LITERAL_FOR, LITERAL_WHILE, LITERAL_DO, STATIC_INIT, INSTANCE_INIT"/>
-        </module> -->
+        </module>
         <module name="WhitespaceAround">
             <property name="allowEmptyConstructors" value="true"/>
             <property name="allowEmptyMethods" value="true"/>
@@ -99,7 +99,7 @@
              value="WhitespaceAround: ''{0}'' is not followed by whitespace. Empty blocks may only be represented as '{}' when not part of a multi-block statement (4.1.3)"/>
              <message key="ws.notPreceded"
              value="WhitespaceAround: ''{0}'' is not preceded with whitespace."/>
-        </module>
+        </module> -->
         <module name="WhitespaceAfter">
             <property name="tokens" value="COMMA, SEMI, TYPECAST"/>
         </module>

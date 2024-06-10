@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc.h2;
 
 import static org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest.sqlToArrow;
@@ -28,7 +27,6 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
-
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -40,10 +38,8 @@ import org.junit.Test;
 public class JdbcAliasToArrowTest {
   private Connection conn = null;
 
-  private static final String CREATE_STATEMENT =
-      "CREATE TABLE example_table (id INTEGER);";
-  private static final String INSERT_STATEMENT =
-      "INSERT INTO example_table (id) VALUES (?);";
+  private static final String CREATE_STATEMENT = "CREATE TABLE example_table (id INTEGER);";
+  private static final String INSERT_STATEMENT = "INSERT INTO example_table (id) VALUES (?);";
   private static final String QUERY = "SELECT id as a, id as b FROM example_table;";
   private static final String DROP_STATEMENT = "DROP TABLE example_table;";
   private static final String ORIGINAL_COLUMN_NAME = "ID";
@@ -62,10 +58,9 @@ public class JdbcAliasToArrowTest {
   }
 
   /**
-   * Test h2 database query with alias for column name and column label.
-   * To verify reading field alias from an H2 database works as expected.
-   * If this test fails, something is either wrong with the setup,
-   * or the H2 SQL behavior changed.
+   * Test h2 database query with alias for column name and column label. To verify reading field
+   * alias from an H2 database works as expected. If this test fails, something is either wrong with
+   * the setup, or the H2 SQL behavior changed.
    */
   @Test
   public void testReadH2Alias() throws Exception {
@@ -96,8 +91,8 @@ public class JdbcAliasToArrowTest {
   }
 
   /**
-   * Test jdbc query results with alias to arrow works expected.
-   * Arrow result schema name should be field alias name.
+   * Test jdbc query results with alias to arrow works expected. Arrow result schema name should be
+   * field alias name.
    */
   @Test
   public void testJdbcAliasToArrow() throws Exception {
@@ -105,8 +100,7 @@ public class JdbcAliasToArrowTest {
     insertRows(rowCount);
 
     try (ResultSet resultSet = conn.createStatement().executeQuery(QUERY)) {
-      final VectorSchemaRoot vector =
-          sqlToArrow(resultSet, new RootAllocator(Integer.MAX_VALUE));
+      final VectorSchemaRoot vector = sqlToArrow(resultSet, new RootAllocator(Integer.MAX_VALUE));
 
       assertEquals(rowCount, vector.getRowCount());
       Schema vectorSchema = vector.getSchema();

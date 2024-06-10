@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc;
 
 import static org.junit.Assert.assertEquals;
@@ -28,7 +27,6 @@ import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.TimeZone;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.junit.Test;
@@ -36,7 +34,8 @@ import org.junit.Test;
 public class JdbcToArrowConfigTest {
 
   private static final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-  private static final Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"), Locale.ROOT);
+  private static final Calendar calendar =
+      Calendar.getInstance(TimeZone.getTimeZone("UTC"), Locale.ROOT);
 
   @Test(expected = NullPointerException.class)
   public void testConfigNullArguments() {
@@ -116,13 +115,29 @@ public class JdbcToArrowConfigTest {
     config = new JdbcToArrowConfigBuilder(allocator, calendar, true).build();
     assertTrue(config.shouldIncludeMetadata());
 
-    config = new JdbcToArrowConfig(allocator, calendar, /* include metadata */ true,
-        /* reuse vector schema root */ true, null, null, JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE, null);
+    config =
+        new JdbcToArrowConfig(
+            allocator,
+            calendar, /* include metadata */
+            true,
+            /* reuse vector schema root */ true,
+            null,
+            null,
+            JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE,
+            null);
     assertTrue(config.shouldIncludeMetadata());
     assertTrue(config.isReuseVectorSchemaRoot());
 
-    config = new JdbcToArrowConfig(allocator, calendar, /* include metadata */ false,
-        /* reuse vector schema root */ false, null, null, JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE, null);
+    config =
+        new JdbcToArrowConfig(
+            allocator,
+            calendar, /* include metadata */
+            false,
+            /* reuse vector schema root */ false,
+            null,
+            null,
+            JdbcToArrowConfig.NO_LIMIT_BATCH_SIZE,
+            null);
     assertFalse(config.shouldIncludeMetadata());
     assertFalse(config.isReuseVectorSchemaRoot());
   }
