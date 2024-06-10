@@ -58,12 +58,6 @@
 // `clang -S -emit-llvm` can be used to check how the generated code changes with
 // your specific use of this macro.
 //
-// ARROW_COMPILER_UNREACHABLE is a hint to the compiler that a certain code path can
-// never be reached. This can be used to suppress warnings about missing return
-// statements and reduce binary size. But be careful, as the compiler will assume that
-// the code is unreachable and may make decisions based on that assumption that could
-// lead to UB if the code path is actually reachable.
-//
 // [1] https://lobste.rs/s/uwgtkt/don_t_use_likely_unlikely_attributes#c_xi3wmc
 // [2] "Portable assumptions"
 //     https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p1774r4.pdf
@@ -105,7 +99,6 @@
   }
 #endif  // __GNUC__ >= 13
 #endif
-#define ARROW_COMPILER_UNREACHABLE __builtin_unreachable()
 #elif defined(_MSC_VER)  // MSVC
 #define ARROW_NORETURN __declspec(noreturn)
 #define ARROW_NOINLINE __declspec(noinline)
@@ -115,7 +108,6 @@
 #define ARROW_PREFETCH(addr)
 #define ARROW_RESTRICT __restrict
 #define ARROW_COMPILER_ASSUME(expr) __assume(expr)
-#define ARROW_COMPILER_UNREACHABLE __assume(0)
 #else
 #define ARROW_NORETURN
 #define ARROW_NOINLINE
@@ -125,7 +117,6 @@
 #define ARROW_PREFETCH(addr)
 #define ARROW_RESTRICT
 #define ARROW_COMPILER_ASSUME(expr)
-#define ARROW_COMPILER_UNREACHABLE
 #endif
 
 // ----------------------------------------------------------------------

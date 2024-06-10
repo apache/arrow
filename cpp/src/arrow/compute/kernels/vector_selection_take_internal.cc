@@ -411,10 +411,10 @@ Status TakeIndexDispatch(KernelContext* ctx, const ArraySpan& values,
       return TakeImpl<uint16_t, Args...>::Exec(ctx, values, indices, out, factor);
     case 4:
       return TakeImpl<uint32_t, Args...>::Exec(ctx, values, indices, out, factor);
-    case 8:
+    default:
+      DCHECK_EQ(indices.type->byte_width(), 8);
       return TakeImpl<uint64_t, Args...>::Exec(ctx, values, indices, out, factor);
   }
-  ARROW_COMPILER_UNREACHABLE;
 }
 
 }  // namespace
