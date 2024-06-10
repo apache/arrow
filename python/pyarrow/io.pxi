@@ -1431,6 +1431,9 @@ cdef class Buffer(_Weakrefable):
         are_equal : bool
             True if buffer contents and size are equal
         """
+        self._assert_cpu()
+        other._assert_cpu()
+
         cdef c_bool result = False
         with nogil:
             result = self.buffer.get().Equals(deref(other.buffer.get()))
