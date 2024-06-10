@@ -94,13 +94,18 @@ in an array may be semantically null, whether primitive or nested data type.
 
 In Arrow, a dedicated buffer, known as the validity (or "null") bitmap,
 is used alongside the data indicating whether each value in the array is
-null or not: a value of 1
-means that the value is not-null ("valid"), whereas a value of 0 indicates
-that the value is null.
+null or not: a value of 1 means that the value is not-null ("valid"), whereas
+a value of 0 indicates that the value is null.
 
 This validity bitmap is optional: if there are no missing values in
 the array the buffer does not need to be allocated (as in the example
 column 1 in the diagram below).
+
+.. note::
+
+   We read validity bitmaps right-to-left within a group of 8 bits due to
+   `bit-endianness <https://en.wikipedia.org/wiki/Bit_numbering>`_ being
+   used.
 
 Primitive layouts
 =================
