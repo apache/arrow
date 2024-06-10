@@ -55,6 +55,7 @@ public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
     "h2/test1_charset_kr_h2.yml"
   };
 
+  @Override
   public void initializeDatabase(Table table) throws SQLException, ClassNotFoundException {
     this.table = table;
 
