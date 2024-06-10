@@ -14,24 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc.consumer;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-
 import org.apache.arrow.vector.IntVector;
 
 /**
- * Consumer which consume int type values from {@link ResultSet}.
- * Write the data to {@link org.apache.arrow.vector.IntVector}.
+ * Consumer which consume int type values from {@link ResultSet}. Write the data to {@link
+ * org.apache.arrow.vector.IntVector}.
  */
 public class IntConsumer {
 
-  /**
-   * Creates a consumer for {@link IntVector}.
-   */
-  public static JdbcConsumer<IntVector> createConsumer(IntVector vector, int index, boolean nullable) {
+  /** Creates a consumer for {@link IntVector}. */
+  public static JdbcConsumer<IntVector> createConsumer(
+      IntVector vector, int index, boolean nullable) {
     if (nullable) {
       return new NullableIntConsumer(vector, index);
     } else {
@@ -39,14 +36,10 @@ public class IntConsumer {
     }
   }
 
-  /**
-   * Nullable consumer for int.
-   */
+  /** Nullable consumer for int. */
   static class NullableIntConsumer extends BaseConsumer<IntVector> {
 
-    /**
-     * Instantiate a IntConsumer.
-     */
+    /** Instantiate a IntConsumer. */
     public NullableIntConsumer(IntVector vector, int index) {
       super(vector, index);
     }
@@ -63,14 +56,10 @@ public class IntConsumer {
     }
   }
 
-  /**
-   * Non-nullable consumer for int.
-   */
+  /** Non-nullable consumer for int. */
   static class NonNullableIntConsumer extends BaseConsumer<IntVector> {
 
-    /**
-     * Instantiate a IntConsumer.
-     */
+    /** Instantiate a IntConsumer. */
     public NonNullableIntConsumer(IntVector vector, int index) {
       super(vector, index);
     }

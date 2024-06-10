@@ -49,21 +49,13 @@ fi
 # build the entire project
 mvn clean \
     install \
-    assembly:single \
-    source:jar \
-    javadoc:jar \
     -Papache-release \
     -Parrow-c-data \
     -Parrow-jni \
     -Darrow.cpp.build.dir=$dist_dir \
-    -Darrow.c.jni.dist.dir=$dist_dir \
-    -DdescriptorId=source-release
+    -Darrow.c.jni.dist.dir=$dist_dir
 
 # copy all jar, zip and pom files to the distribution folder
-find . \
-     "(" -name "*-javadoc.jar" -o -name "*-sources.jar" ")" \
-     -exec echo {} ";" \
-     -exec cp {} $dist_dir ";"
 find ~/.m2/repository/org/apache/arrow \
      "(" \
      -name "*.jar" -o \

@@ -3149,20 +3149,20 @@ std::shared_ptr<DataType> time64(TimeUnit::type unit) {
   return std::make_shared<Time64Type>(unit);
 }
 
-std::shared_ptr<DataType> list(const std::shared_ptr<DataType>& value_type) {
-  return std::make_shared<ListType>(value_type);
+std::shared_ptr<DataType> list(std::shared_ptr<DataType> value_type) {
+  return std::make_shared<ListType>(std::move(value_type));
 }
 
-std::shared_ptr<DataType> list(const std::shared_ptr<Field>& value_field) {
-  return std::make_shared<ListType>(value_field);
+std::shared_ptr<DataType> list(std::shared_ptr<Field> value_field) {
+  return std::make_shared<ListType>(std::move(value_field));
 }
 
-std::shared_ptr<DataType> large_list(const std::shared_ptr<DataType>& value_type) {
-  return std::make_shared<LargeListType>(value_type);
+std::shared_ptr<DataType> large_list(std::shared_ptr<DataType> value_type) {
+  return std::make_shared<LargeListType>(std::move(value_type));
 }
 
-std::shared_ptr<DataType> large_list(const std::shared_ptr<Field>& value_field) {
-  return std::make_shared<LargeListType>(value_field);
+std::shared_ptr<DataType> large_list(std::shared_ptr<Field> value_field) {
+  return std::make_shared<LargeListType>(std::move(value_field));
 }
 
 std::shared_ptr<DataType> map(std::shared_ptr<DataType> key_type,
@@ -3183,14 +3183,14 @@ std::shared_ptr<DataType> map(std::shared_ptr<Field> key_field,
                                    keys_sorted);
 }
 
-std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<DataType>& value_type,
+std::shared_ptr<DataType> fixed_size_list(std::shared_ptr<DataType> value_type,
                                           int32_t list_size) {
-  return std::make_shared<FixedSizeListType>(value_type, list_size);
+  return std::make_shared<FixedSizeListType>(std::move(value_type), list_size);
 }
 
-std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<Field>& value_field,
+std::shared_ptr<DataType> fixed_size_list(std::shared_ptr<Field> value_field,
                                           int32_t list_size) {
-  return std::make_shared<FixedSizeListType>(value_field, list_size);
+  return std::make_shared<FixedSizeListType>(std::move(value_field), list_size);
 }
 
 std::shared_ptr<DataType> list_view(std::shared_ptr<DataType> value_type) {

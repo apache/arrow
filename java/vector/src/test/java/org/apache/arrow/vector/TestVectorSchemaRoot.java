@@ -17,10 +17,11 @@
 
 package org.apache.arrow.vector;
 
-import static junit.framework.TestCase.assertTrue;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -35,20 +36,20 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class TestVectorSchemaRoot {
 
   private BufferAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void init() {
     allocator = new RootAllocator(Long.MAX_VALUE);
   }
 
-  @After
+  @AfterEach
   public void terminate() {
     allocator.close();
   }
@@ -226,20 +227,22 @@ public class TestVectorSchemaRoot {
     }
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testSliceWithInvalidParam() {
-    try (final IntVector intVector = new IntVector("intVector", allocator);
-         final Float4Vector float4Vector = new Float4Vector("float4Vector", allocator)) {
-      intVector.setValueCount(10);
-      float4Vector.setValueCount(10);
-      for (int i = 0; i < 10; i++) {
-        intVector.setSafe(i, i);
-        float4Vector.setSafe(i, i + 0.1f);
-      }
-      final VectorSchemaRoot original = new VectorSchemaRoot(Arrays.asList(intVector, float4Vector));
+    assertThrows(IllegalArgumentException.class, () -> {
+      try (final IntVector intVector = new IntVector("intVector", allocator);
+           final Float4Vector float4Vector = new Float4Vector("float4Vector", allocator)) {
+        intVector.setValueCount(10);
+        float4Vector.setValueCount(10);
+        for (int i = 0; i < 10; i++) {
+          intVector.setSafe(i, i);
+          float4Vector.setSafe(i, i + 0.1f);
+        }
+        final VectorSchemaRoot original = new VectorSchemaRoot(Arrays.asList(intVector, float4Vector));
 
-      original.slice(0, 20);
-    }
+        original.slice(0, 20);
+      }
+    });
   }
 
   @Test

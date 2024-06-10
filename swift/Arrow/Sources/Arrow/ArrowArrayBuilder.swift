@@ -35,6 +35,18 @@ public class ArrowArrayBuilder<T: ArrowBufferBuilder, U: ArrowArray<T.ItemType>>
         self.bufferBuilder = try T()
     }
 
+    public func append(_ vals: T.ItemType?...) {
+        for val in vals {
+            self.bufferBuilder.append(val)
+        }
+    }
+
+    public func append(_ vals: [T.ItemType?]) {
+        for val in vals {
+            self.bufferBuilder.append(val)
+        }
+    }
+
     public func append(_ val: T.ItemType?) {
         self.bufferBuilder.append(val)
     }

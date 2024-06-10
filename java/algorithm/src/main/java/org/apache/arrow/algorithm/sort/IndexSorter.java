@@ -14,39 +14,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.algorithm.sort;
 
 import java.util.stream.IntStream;
-
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.ValueVector;
 
 /**
  * Sorter for the indices of a vector.
+ *
  * @param <V> vector type.
  */
 public class IndexSorter<V extends ValueVector> {
 
   /**
-   * If the number of items is smaller than this threshold, we will use another algorithm to sort the data.
+   * If the number of items is smaller than this threshold, we will use another algorithm to sort
+   * the data.
    */
   public static final int CHANGE_ALGORITHM_THRESHOLD = 15;
 
-  /**
-   * Comparator for vector indices.
-   */
+  /** Comparator for vector indices. */
   private VectorValueComparator<V> comparator;
 
-  /**
-   * Vector indices to sort.
-   */
+  /** Vector indices to sort. */
   private IntVector indices;
 
   /**
-   * Sorts indices, by quick-sort. Suppose the vector is denoted by v.
-   * After calling this method, the following relations hold:
-   * v(indices[0]) <= v(indices[1]) <= ...
+   * Sorts indices, by quick-sort. Suppose the vector is denoted by v. After calling this method,
+   * the following relations hold: v(indices[0]) <= v(indices[1]) <= ...
+   *
    * @param vector the vector whose indices need to be sorted.
    * @param indices the vector for storing the sorted indices.
    * @param comparator the comparator to sort indices.
@@ -100,11 +96,9 @@ public class IndexSorter<V extends ValueVector> {
     }
   }
 
-  /**
-   *  Select the pivot as the median of 3 samples.
-   */
+  /** Select the pivot as the median of 3 samples. */
   static <T extends ValueVector> int choosePivot(
-          int low, int high, IntVector indices, VectorValueComparator<T> comparator) {
+      int low, int high, IntVector indices, VectorValueComparator<T> comparator) {
     // we need at least 3 items
     if (high - low + 1 < FixedWidthInPlaceVectorSorter.STOP_CHOOSING_PIVOT_THRESHOLD) {
       return indices.get(low);
@@ -149,8 +143,9 @@ public class IndexSorter<V extends ValueVector> {
 
   /**
    * Partition a range of values in a vector into two parts, with elements in one part smaller than
-   * elements from the other part. The partition is based on the element indices, so it does
-   * not modify the underlying vector.
+   * elements from the other part. The partition is based on the element indices, so it does not
+   * modify the underlying vector.
+   *
    * @param low the lower bound of the range.
    * @param high the upper bound of the range.
    * @param indices vector element indices.
@@ -159,7 +154,7 @@ public class IndexSorter<V extends ValueVector> {
    * @return the index of the split point.
    */
   public static <T extends ValueVector> int partition(
-          int low, int high, IntVector indices, VectorValueComparator<T> comparator) {
+      int low, int high, IntVector indices, VectorValueComparator<T> comparator) {
     int pivotIndex = choosePivot(low, high, indices, comparator);
 
     while (low < high) {

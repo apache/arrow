@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.algorithm.sort;
 
 import static org.junit.Assert.assertEquals;
@@ -22,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VarCharVector;
@@ -31,9 +29,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.jupiter.api.Assertions;
 
-/**
- * Test cases for {@link StableVectorComparator}.
- */
+/** Test cases for {@link StableVectorComparator}. */
 public class TestStableVectorComparator {
 
   private BufferAllocator allocator;
@@ -62,7 +58,8 @@ public class TestStableVectorComparator {
       vec.set(4, "a".getBytes(StandardCharsets.UTF_8));
 
       VectorValueComparator<VarCharVector> comparator = new TestVarCharSorter();
-      VectorValueComparator<VarCharVector> stableComparator = new StableVectorComparator<>(comparator);
+      VectorValueComparator<VarCharVector> stableComparator =
+          new StableVectorComparator<>(comparator);
       stableComparator.attachVector(vec);
 
       assertTrue(stableComparator.compare(0, 1) > 0);
@@ -95,10 +92,12 @@ public class TestStableVectorComparator {
       // sort the vector
       VariableWidthOutOfPlaceVectorSorter sorter = new VariableWidthOutOfPlaceVectorSorter();
       VectorValueComparator<VarCharVector> comparator = new TestVarCharSorter();
-      VectorValueComparator<VarCharVector> stableComparator = new StableVectorComparator<>(comparator);
+      VectorValueComparator<VarCharVector> stableComparator =
+          new StableVectorComparator<>(comparator);
 
       try (VarCharVector sortedVec =
-              (VarCharVector) vec.getField().getFieldType().createNewSingleVector("", allocator, null)) {
+          (VarCharVector)
+              vec.getField().getFieldType().createNewSingleVector("", allocator, null)) {
         sortedVec.allocateNew(vec.getByteCapacity(), vec.getValueCount());
         sortedVec.setLastSet(vec.getValueCount() - 1);
         sortedVec.setValueCount(vec.getValueCount());
@@ -107,23 +106,32 @@ public class TestStableVectorComparator {
 
         // verify results
         // the results are stable
-        assertEquals("0", new String(Objects.requireNonNull(sortedVec.get(0)), StandardCharsets.UTF_8));
-        assertEquals("01", new String(Objects.requireNonNull(sortedVec.get(1)), StandardCharsets.UTF_8));
-        assertEquals("0c", new String(Objects.requireNonNull(sortedVec.get(2)), StandardCharsets.UTF_8));
-        assertEquals("a", new String(Objects.requireNonNull(sortedVec.get(3)), StandardCharsets.UTF_8));
-        assertEquals("abc", new String(Objects.requireNonNull(sortedVec.get(4)), StandardCharsets.UTF_8));
-        assertEquals("aa", new String(Objects.requireNonNull(sortedVec.get(5)), StandardCharsets.UTF_8));
-        assertEquals("a1", new String(Objects.requireNonNull(sortedVec.get(6)), StandardCharsets.UTF_8));
-        assertEquals("abcdefg", new String(Objects.requireNonNull(sortedVec.get(7)), StandardCharsets.UTF_8));
-        assertEquals("accc", new String(Objects.requireNonNull(sortedVec.get(8)), StandardCharsets.UTF_8));
-        assertEquals("afds", new String(Objects.requireNonNull(sortedVec.get(9)), StandardCharsets.UTF_8));
+        assertEquals(
+            "0", new String(Objects.requireNonNull(sortedVec.get(0)), StandardCharsets.UTF_8));
+        assertEquals(
+            "01", new String(Objects.requireNonNull(sortedVec.get(1)), StandardCharsets.UTF_8));
+        assertEquals(
+            "0c", new String(Objects.requireNonNull(sortedVec.get(2)), StandardCharsets.UTF_8));
+        assertEquals(
+            "a", new String(Objects.requireNonNull(sortedVec.get(3)), StandardCharsets.UTF_8));
+        assertEquals(
+            "abc", new String(Objects.requireNonNull(sortedVec.get(4)), StandardCharsets.UTF_8));
+        assertEquals(
+            "aa", new String(Objects.requireNonNull(sortedVec.get(5)), StandardCharsets.UTF_8));
+        assertEquals(
+            "a1", new String(Objects.requireNonNull(sortedVec.get(6)), StandardCharsets.UTF_8));
+        assertEquals(
+            "abcdefg",
+            new String(Objects.requireNonNull(sortedVec.get(7)), StandardCharsets.UTF_8));
+        assertEquals(
+            "accc", new String(Objects.requireNonNull(sortedVec.get(8)), StandardCharsets.UTF_8));
+        assertEquals(
+            "afds", new String(Objects.requireNonNull(sortedVec.get(9)), StandardCharsets.UTF_8));
       }
     }
   }
 
-  /**
-   * Utility comparator that compares varchars by the first character.
-   */
+  /** Utility comparator that compares varchars by the first character. */
   private static class TestVarCharSorter extends VectorValueComparator<VarCharVector> {
 
     @Override

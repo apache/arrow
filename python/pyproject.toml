@@ -47,7 +47,7 @@ classifiers  = [
     'Programming Language :: Python :: 3.9',
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
-    'Programming Langauge :: Python :: 3.12',
+    'Programming Language :: Python :: 3.12',
 ]
 maintainers = [
     {name = "Apache Arrow Developers", email = "dev@arrow.apache.org"}

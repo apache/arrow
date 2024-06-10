@@ -17,7 +17,10 @@
 
 package org.apache.arrow.vector;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.nio.charset.StandardCharsets;
 
@@ -37,22 +40,21 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.DataSizeRoundingUtil;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 
 public class TestVectorReAlloc {
 
   private BufferAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void init() {
     allocator = new RootAllocator(Long.MAX_VALUE);
   }
 
-  @After
+  @AfterEach
   public void terminate() throws Exception {
     allocator.close();
   }
@@ -68,7 +70,7 @@ public class TestVectorReAlloc {
 
       try {
         vector.set(initialCapacity, 0);
-        Assert.fail("Expected out of bounds exception");
+        fail("Expected out of bounds exception");
       } catch (Exception e) {
         // ok
       }
@@ -92,7 +94,7 @@ public class TestVectorReAlloc {
 
       try {
         vector.set(initialCapacity, "foo".getBytes(StandardCharsets.UTF_8));
-        Assert.fail("Expected out of bounds exception");
+        fail("Expected out of bounds exception");
       } catch (Exception e) {
         // ok
       }
@@ -101,7 +103,7 @@ public class TestVectorReAlloc {
       assertTrue(vector.getValueCapacity() >= 2 * initialCapacity);
 
       vector.set(initialCapacity, "foo".getBytes(StandardCharsets.UTF_8));
-      assertEquals("foo", new String(vector.get(initialCapacity), StandardCharsets.UTF_8));
+      assertEquals(new String(vector.get(initialCapacity), StandardCharsets.UTF_8), "foo");
     }
   }
 
@@ -117,7 +119,7 @@ public class TestVectorReAlloc {
 
       try {
         vector.getInnerValueCountAt(2014);
-        Assert.fail("Expected out of bounds exception");
+        fail("Expected out of bounds exception");
       } catch (Exception e) {
         // ok
       }
@@ -140,7 +142,7 @@ public class TestVectorReAlloc {
 
       try {
         vector.getObject(513);
-        Assert.fail("Expected out of bounds exception");
+        fail("Expected out of bounds exception");
       } catch (Exception e) {
         // ok
       }
@@ -161,7 +163,7 @@ public class TestVectorReAlloc {
       for (int i = 0; i < numNullValues1; i++) {
         v1.setNull(i);
       }
-      Assert.assertTrue(v1.getBufferSizeFor(numNullValues1) > 0);
+      assertTrue(v1.getBufferSizeFor(numNullValues1) > 0);
     }
 
     try (final BaseLargeVariableWidthVector v2 = new LargeVarCharVector("var2", allocator)) {
@@ -171,7 +173,7 @@ public class TestVectorReAlloc {
       for (int i = 0; i < numNullValues2; i++) {
         v2.setNull(i);
       }
-      Assert.assertTrue(v2.getBufferSizeFor(numNullValues2) > 0);
+      assertTrue(v2.getBufferSizeFor(numNullValues2) > 0);
     }
   }
 
@@ -194,7 +196,7 @@ public class TestVectorReAlloc {
       /*
        * Verify that the buffer sizes haven't changed.
        */
-      Assert.assertEquals(vector.getValueCapacity(), savedValueCapacity);
+      assertEquals(vector.getValueCapacity(), savedValueCapacity);
     }
   }
 
@@ -218,8 +220,8 @@ public class TestVectorReAlloc {
       /*
        * Verify that the buffer sizes haven't changed.
        */
-      Assert.assertEquals(vector.getValueCapacity(), savedValueCapacity);
-      Assert.assertEquals(vector.valueBuffer.capacity(), savedValueBufferSize);
+      assertEquals(vector.getValueCapacity(), savedValueCapacity);
+      assertEquals(vector.valueBuffer.capacity(), savedValueBufferSize);
     }
   }
 
@@ -243,8 +245,8 @@ public class TestVectorReAlloc {
       /*
        * Verify that the buffer sizes haven't changed.
        */
-      Assert.assertEquals(vector.getValueCapacity(), savedValueCapacity);
-      Assert.assertEquals(vector.valueBuffer.capacity(), savedValueBufferSize);
+      assertEquals(vector.getValueCapacity(), savedValueCapacity);
+      assertEquals(vector.valueBuffer.capacity(), savedValueBufferSize);
     }
   }
 
@@ -256,8 +258,8 @@ public class TestVectorReAlloc {
       vector.allocateNew(count);
       
       // verify that the validity buffer and value buffer have capacity for at least 'count' elements.
-      Assert.assertTrue(vector.getValidityBuffer().capacity() >= DataSizeRoundingUtil.divideBy8Ceil(count));
-      Assert.assertTrue(vector.getOffsetBuffer().capacity() >= (count + 1) * BaseVariableWidthVector.OFFSET_WIDTH);
+      assertTrue(vector.getValidityBuffer().capacity() >= DataSizeRoundingUtil.divideBy8Ceil(count));
+      assertTrue(vector.getOffsetBuffer().capacity() >= (count + 1) * BaseVariableWidthVector.OFFSET_WIDTH);
     }
   }
 
@@ -269,8 +271,8 @@ public class TestVectorReAlloc {
       vector.allocateNew(count);
       
       // verify that the validity buffer and value buffer have capacity for at least 'count' elements.
-      Assert.assertTrue(vector.getValidityBuffer().capacity() >= DataSizeRoundingUtil.divideBy8Ceil(count));
-      Assert.assertTrue(vector.getOffsetBuffer().capacity() >= (count + 1) * BaseLargeVariableWidthVector.OFFSET_WIDTH);
+      assertTrue(vector.getValidityBuffer().capacity() >= DataSizeRoundingUtil.divideBy8Ceil(count));
+      assertTrue(vector.getOffsetBuffer().capacity() >= (count + 1) * BaseLargeVariableWidthVector.OFFSET_WIDTH);
     }
   }
 
@@ -282,8 +284,8 @@ public class TestVectorReAlloc {
       AllocationHelper.allocateNew(vector, count);
 
       // verify that the validity buffer and value buffer have capacity for at least 'count' elements.
-      Assert.assertTrue(vector.getValidityBuffer().capacity() >= DataSizeRoundingUtil.divideBy8Ceil(count));
-      Assert.assertTrue(vector.getOffsetBuffer().capacity() >= (count + 1) * BaseVariableWidthVector.OFFSET_WIDTH);
+      assertTrue(vector.getValidityBuffer().capacity() >= DataSizeRoundingUtil.divideBy8Ceil(count));
+      assertTrue(vector.getOffsetBuffer().capacity() >= (count + 1) * BaseVariableWidthVector.OFFSET_WIDTH);
     }
   }
 
@@ -295,8 +297,8 @@ public class TestVectorReAlloc {
       AllocationHelper.allocateNew(vector, count);
 
       // verify that the validity buffer and value buffer have capacity for at least 'count' elements.
-      Assert.assertTrue(vector.getValidityBuffer().capacity() >= DataSizeRoundingUtil.divideBy8Ceil(count));
-      Assert.assertTrue(vector.getOffsetBuffer().capacity() >= (count + 1) * BaseLargeVariableWidthVector.OFFSET_WIDTH);
+      assertTrue(vector.getValidityBuffer().capacity() >= DataSizeRoundingUtil.divideBy8Ceil(count));
+      assertTrue(vector.getOffsetBuffer().capacity() >= (count + 1) * BaseLargeVariableWidthVector.OFFSET_WIDTH);
     }
   }
 
@@ -314,7 +316,7 @@ public class TestVectorReAlloc {
       }
 
       // should be deterministic, and not cause a run-away increase in capacity.
-      Assert.assertEquals(vector.getValueCapacity(), savedValueCapacity);
+      assertEquals(vector.getValueCapacity(), savedValueCapacity);
     }
   }
 
@@ -333,7 +335,7 @@ public class TestVectorReAlloc {
       }
 
       // should be deterministic, and not cause a run-away increase in capacity.
-      Assert.assertEquals(vector.getValueCapacity(), savedValueCapacity);
+      assertEquals(vector.getValueCapacity(), savedValueCapacity);
     }
   }
 
@@ -359,7 +361,7 @@ public class TestVectorReAlloc {
       }
 
       // should be deterministic, and not cause a run-away increase in capacity.
-      Assert.assertEquals(vector.getValueCapacity(), savedValueCapacity);
+      assertEquals(vector.getValueCapacity(), savedValueCapacity);
     }
   }
 
@@ -386,7 +388,7 @@ public class TestVectorReAlloc {
       }
 
       // should be deterministic, and not cause a run-away increase in capacity.
-      Assert.assertEquals(vector.getValueCapacity(), savedValueCapacity);
+      assertEquals(vector.getValueCapacity(), savedValueCapacity);
     }
   }
 
@@ -415,7 +417,7 @@ public class TestVectorReAlloc {
       }
 
       // should be deterministic, and not cause a run-away increase in capacity.
-      Assert.assertEquals(vector.getValueCapacity(), savedValueCapacity);
+      assertEquals(vector.getValueCapacity(), savedValueCapacity);
     }
   }
 
@@ -440,7 +442,7 @@ public class TestVectorReAlloc {
       }
 
       // should be deterministic, and not cause a run-away increase in capacity.
-      Assert.assertEquals(vector.getValueCapacity(), savedValueCapacity);
+      assertEquals(vector.getValueCapacity(), savedValueCapacity);
     }
   }
 
@@ -468,7 +470,7 @@ public class TestVectorReAlloc {
       }
 
       // should be deterministic, and not cause a run-away increase in capacity.
-      Assert.assertEquals(vector.getValueCapacity(), savedValueCapacity);
+      assertEquals(vector.getValueCapacity(), savedValueCapacity);
     }
   }
 }

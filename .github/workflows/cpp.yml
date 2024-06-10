@@ -21,6 +21,7 @@ on:
   push:
     paths:
       - '.github/workflows/cpp.yml'
+      - 'ci/conda_env_*'
       - 'ci/docker/**'
       - 'ci/scripts/cpp_*'
       - 'ci/scripts/install_azurite.sh'
@@ -35,6 +36,7 @@ on:
   pull_request:
     paths:
       - '.github/workflows/cpp.yml'
+      - 'ci/conda_env_*'
       - 'ci/docker/**'
       - 'ci/scripts/cpp_*'
       - 'ci/scripts/install_azurite.sh'

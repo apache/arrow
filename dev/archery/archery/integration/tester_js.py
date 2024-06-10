@@ -24,7 +24,7 @@ from .util import run_cmd, log
 
 ARROW_BUILD_ROOT = os.environ.get(
     'ARROW_BUILD_ROOT',
-    Path(__file__).resolve().parents[5]
+    Path(__file__).resolve().parents[4]
 )
 ARROW_JS_ROOT = os.path.join(ARROW_BUILD_ROOT, 'js')
 _EXE_PATH = os.path.join(ARROW_JS_ROOT, 'bin')

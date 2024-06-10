@@ -14,23 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.avro.consumers;
 
 import java.io.IOException;
-
 import org.apache.arrow.vector.IntVector;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer which consume int type values from avro decoder.
- * Write the data to {@link IntVector}.
+ * Consumer which consume int type values from avro decoder. Write the data to {@link IntVector}.
  */
 public class AvroIntConsumer extends BaseAvroConsumer<IntVector> {
 
-  /**
-   * Instantiate a AvroIntConsumer.
-   */
+  /** Instantiate a AvroIntConsumer. */
   public AvroIntConsumer(IntVector vector) {
     super(vector);
   }

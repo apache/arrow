@@ -110,7 +110,46 @@ integration tests, you would do:
 Code Style
 ==========
 
-Java code style is enforced with Checkstyle. The configuration is located at `checkstyle`_.
+The current Java code follows the `Google Java Style`_ with Apache license headers.
+
+Java code style is checked by `Spotless`_ during the build, and the continuous integration build will verify
+that changes adhere to the style guide.
+
+Automatically fixing code style issues
+--------------------------------------
+
+- You can check the style without building the project with ``mvn spotless:check``.
+- You can autoformat the source with ``mvn spotless:apply``.
+
+Example:
+
+.. code-block:: bash
+
+    The following files had format violations:
+        src/main/java/org/apache/arrow/algorithm/rank/VectorRank.java
+            @@ -15,7 +15,6 @@
+            ·*·limitations·under·the·License.
+            ·*/
+
+            -
+            package·org.apache.arrow.algorithm.rank;
+
+            import·java.util.stream.IntStream;
+    Run 'mvn spotless:apply' to fix these violations.
+
+Code Formatter for Intellij IDEA and Eclipse
+--------------------------------------------
+
+Follow the instructions to set up google-java-format for:
+
+- `Eclipse`_
+- `IntelliJ`_
+
+
+Checkstyle
+----------
+
+Checkstyle is also used for general linting. The configuration is located at `checkstyle`_.
 You can also just check the style without building the project.
 This checks the code style of all source code under the current directory or from within an individual module.
 
@@ -137,7 +176,10 @@ This applies the style to all pom.xml files under the current directory or from 
 .. _conbench: https://github.com/conbench/conbench
 .. _checkstyle: https://github.com/apache/arrow/blob/main/java/dev/checkstyle/checkstyle.xml
 .. _Apache Maven pom.xml guidelines: https://maven.apache.org/developers/conventions/code.html#pom-code-convention
-
+.. _Spotless: https://github.com/diffplug/spotless
+.. _Google Java Style: https://google.github.io/styleguide/javaguide.html
+.. _Eclipse: https://github.com/google/google-java-format?tab=readme-ov-file#eclipse
+.. _IntelliJ: https://github.com/google/google-java-format?tab=readme-ov-file#intellij-android-studio-and-other-jetbrains-ides
 
 Build Caching
 =============

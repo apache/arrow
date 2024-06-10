@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc;
 
 import static org.junit.Assert.assertEquals;
@@ -34,7 +33,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
@@ -48,9 +46,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
-/**
- * Test options for dealing with unreliable ResultSetMetaData from JDBC drivers.
- */
+/** Test options for dealing with unreliable ResultSetMetaData from JDBC drivers. */
 @RunWith(Parameterized.class)
 public class UnreliableMetaDataTest {
   private final boolean reuseVectorSchemaRoot;
@@ -72,7 +68,7 @@ public class UnreliableMetaDataTest {
 
   @Parameterized.Parameters(name = "reuseVectorSchemaRoot = {0}")
   public static Collection<Object[]> getTestData() {
-    return Arrays.asList(new Object[][] { {false}, {true} });
+    return Arrays.asList(new Object[][] {{false}, {true}});
   }
 
   @Test
@@ -91,13 +87,15 @@ public class UnreliableMetaDataTest {
 
     // reset the ResultSet:
     rs.beforeFirst();
-    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(
-        allocator, JdbcToArrowUtils.getUtcCalendar(), /* include metadata */ false)
-        .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
-        .build();
+    JdbcToArrowConfig config =
+        new JdbcToArrowConfigBuilder(
+                allocator, JdbcToArrowUtils.getUtcCalendar(), /* include metadata */ false)
+            .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
+            .build();
     try (ArrowVectorIterator iter = JdbcToArrow.sqlToArrowVectorIterator(rs, config)) {
       assertTrue(iter.hasNext());
-      assertThrows(RuntimeException.class, iter::next, "Expected to fail due to mismatched metadata!");
+      assertThrows(
+          RuntimeException.class, iter::next, "Expected to fail due to mismatched metadata!");
     }
 
     // reset the ResultSet:
@@ -105,11 +103,12 @@ public class UnreliableMetaDataTest {
     JdbcFieldInfo explicitMappingField = new JdbcFieldInfo(Types.DECIMAL, 18, 2);
     Map<Integer, JdbcFieldInfo> explicitMapping = new HashMap<>();
     explicitMapping.put(1, explicitMappingField);
-    config = new JdbcToArrowConfigBuilder(
-        allocator, JdbcToArrowUtils.getUtcCalendar(), /* include metadata */ false)
-        .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
-        .setExplicitTypesByColumnIndex(explicitMapping)
-        .build();
+    config =
+        new JdbcToArrowConfigBuilder(
+                allocator, JdbcToArrowUtils.getUtcCalendar(), /* include metadata */ false)
+            .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
+            .setExplicitTypesByColumnIndex(explicitMapping)
+            .build();
 
     try (ArrowVectorIterator iter = JdbcToArrow.sqlToArrowVectorIterator(rs, config)) {
       while (iter.hasNext()) {
@@ -133,7 +132,8 @@ public class UnreliableMetaDataTest {
     assertEquals("Value precision should be 18", 18, bd1.precision());
     rs.next();
     BigDecimal bd2 = rs.getBigDecimal(1);
-    assertEquals("Value should be 1000000000300.0000001", new BigDecimal("1000000000300.0000001"), bd2);
+    assertEquals(
+        "Value should be 1000000000300.0000001", new BigDecimal("1000000000300.0000001"), bd2);
     assertEquals("Value scale should be 7", 7, bd2.scale());
     assertEquals("Value precision should be 20", 20, bd2.precision());
     rs.beforeFirst();
@@ -141,23 +141,27 @@ public class UnreliableMetaDataTest {
     Map<Integer, JdbcFieldInfo> explicitMapping = new HashMap<>();
     explicitMapping.put(1, explicitMappingField);
 
-    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(
-        allocator, JdbcToArrowUtils.getUtcCalendar(), /* include metadata */ false)
-        .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
-        .setExplicitTypesByColumnIndex(explicitMapping)
-        .build();
+    JdbcToArrowConfig config =
+        new JdbcToArrowConfigBuilder(
+                allocator, JdbcToArrowUtils.getUtcCalendar(), /* include metadata */ false)
+            .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
+            .setExplicitTypesByColumnIndex(explicitMapping)
+            .build();
     try (ArrowVectorIterator iter = JdbcToArrow.sqlToArrowVectorIterator(rs, config)) {
       assertTrue(iter.hasNext());
-      assertThrows(RuntimeException.class, iter::next,
+      assertThrows(
+          RuntimeException.class,
+          iter::next,
           "This is expected to fail due to inconsistent BigDecimal scales, while strict matching is enabled.");
     }
     // Reuse same ResultSet, with RoundingMode.UNNECESSARY set to coerce BigDecimal scale as needed:
-    config = new JdbcToArrowConfigBuilder(
-        allocator, JdbcToArrowUtils.getUtcCalendar(), /* include metadata */ false)
-        .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
-        .setExplicitTypesByColumnIndex(explicitMapping)
-        .setBigDecimalRoundingMode(RoundingMode.UNNECESSARY)
-        .build();
+    config =
+        new JdbcToArrowConfigBuilder(
+                allocator, JdbcToArrowUtils.getUtcCalendar(), /* include metadata */ false)
+            .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
+            .setExplicitTypesByColumnIndex(explicitMapping)
+            .setBigDecimalRoundingMode(RoundingMode.UNNECESSARY)
+            .build();
     try (ArrowVectorIterator iter = JdbcToArrow.sqlToArrowVectorIterator(rs, config)) {
       while (iter.hasNext()) {
         VectorSchemaRoot root = iter.next();
@@ -174,23 +178,29 @@ public class UnreliableMetaDataTest {
             .sqlType(Types.INTEGER)
             .nullable(ResultSetMetaData.columnNoNulls)
             .build();
-    ResultSetMetaData metadata = new ResultSetUtility.MockResultSetMetaData(Collections.singletonList(columnMetaData));
-    final ResultSetUtility.MockResultSet.Builder resultSetBuilder = ResultSetUtility.MockResultSet.builder()
-        .setMetaData(metadata)
-        .addDataElement(new ResultSetUtility.MockDataElement(1024, Types.INTEGER))
-        .finishRow()
-        .addDataElement(new ResultSetUtility.MockDataElement(null, Types.INTEGER))
-        .finishRow();
-    final Schema notNullSchema = new Schema(
-        Collections.singletonList(Field.notNullable(/*name=*/null, new ArrowType.Int(32, true))));
-    final Schema nullSchema = new Schema(
-        Collections.singletonList(Field.nullable(/*name=*/null, new ArrowType.Int(32, true))));
+    ResultSetMetaData metadata =
+        new ResultSetUtility.MockResultSetMetaData(Collections.singletonList(columnMetaData));
+    final ResultSetUtility.MockResultSet.Builder resultSetBuilder =
+        ResultSetUtility.MockResultSet.builder()
+            .setMetaData(metadata)
+            .addDataElement(new ResultSetUtility.MockDataElement(1024, Types.INTEGER))
+            .finishRow()
+            .addDataElement(new ResultSetUtility.MockDataElement(null, Types.INTEGER))
+            .finishRow();
+    final Schema notNullSchema =
+        new Schema(
+            Collections.singletonList(
+                Field.notNullable(/*name=*/ null, new ArrowType.Int(32, true))));
+    final Schema nullSchema =
+        new Schema(
+            Collections.singletonList(Field.nullable(/*name=*/ null, new ArrowType.Int(32, true))));
 
     try (final ResultSet rs = resultSetBuilder.build()) {
-      JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(
-          allocator, JdbcToArrowUtils.getUtcCalendar(), /* include metadata */ false)
-          .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
-          .build();
+      JdbcToArrowConfig config =
+          new JdbcToArrowConfigBuilder(
+                  allocator, JdbcToArrowUtils.getUtcCalendar(), /* include metadata */ false)
+              .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
+              .build();
       try (ArrowVectorIterator iter = JdbcToArrow.sqlToArrowVectorIterator(rs, config)) {
         assertTrue(iter.hasNext());
         final VectorSchemaRoot root = iter.next();
@@ -208,14 +218,16 @@ public class UnreliableMetaDataTest {
 
       // Override the nullability to get the correct result
       final Map<Integer, JdbcFieldInfo> typeMapping = new HashMap<>();
-      JdbcFieldInfo realFieldInfo = new JdbcFieldInfo(
-          Types.INTEGER, ResultSetMetaData.columnNullable, /*precision*/0, /*scale*/0);
+      JdbcFieldInfo realFieldInfo =
+          new JdbcFieldInfo(
+              Types.INTEGER, ResultSetMetaData.columnNullable, /*precision*/ 0, /*scale*/ 0);
       typeMapping.put(1, realFieldInfo);
-      config = new JdbcToArrowConfigBuilder(
-          allocator, JdbcToArrowUtils.getUtcCalendar(), /* include metadata */ false)
-          .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
-          .setExplicitTypesByColumnIndex(typeMapping)
-          .build();
+      config =
+          new JdbcToArrowConfigBuilder(
+                  allocator, JdbcToArrowUtils.getUtcCalendar(), /* include metadata */ false)
+              .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
+              .setExplicitTypesByColumnIndex(typeMapping)
+              .build();
       try (ArrowVectorIterator iter = JdbcToArrow.sqlToArrowVectorIterator(rs, config)) {
         assertTrue(iter.hasNext());
         final VectorSchemaRoot root = iter.next();
@@ -231,14 +243,16 @@ public class UnreliableMetaDataTest {
       rs.beforeFirst();
 
       // columnNullableUnknown won't override the metadata
-      realFieldInfo = new JdbcFieldInfo(
-          Types.INTEGER, ResultSetMetaData.columnNullableUnknown, /*precision*/0, /*scale*/0);
+      realFieldInfo =
+          new JdbcFieldInfo(
+              Types.INTEGER, ResultSetMetaData.columnNullableUnknown, /*precision*/ 0, /*scale*/ 0);
       typeMapping.put(1, realFieldInfo);
-      config = new JdbcToArrowConfigBuilder(
-          allocator, JdbcToArrowUtils.getUtcCalendar(), /* include metadata */ false)
-          .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
-          .setExplicitTypesByColumnIndex(typeMapping)
-          .build();
+      config =
+          new JdbcToArrowConfigBuilder(
+                  allocator, JdbcToArrowUtils.getUtcCalendar(), /* include metadata */ false)
+              .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
+              .setExplicitTypesByColumnIndex(typeMapping)
+              .build();
       try (ArrowVectorIterator iter = JdbcToArrow.sqlToArrowVectorIterator(rs, config)) {
         assertTrue(iter.hasNext());
         final VectorSchemaRoot root = iter.next();
@@ -266,8 +280,8 @@ public class UnreliableMetaDataTest {
     return ResultSetUtility.MockResultSet.builder()
         .setMetaData(metadata)
         .addDataElement(
-            new ResultSetUtility.MockDataElement(new BigDecimal("1000000000000000.01"), Types.DECIMAL)
-        )
+            new ResultSetUtility.MockDataElement(
+                new BigDecimal("1000000000000000.01"), Types.DECIMAL))
         .finishRow()
         .build();
   }
@@ -285,12 +299,12 @@ public class UnreliableMetaDataTest {
     return ResultSetUtility.MockResultSet.builder()
         .setMetaData(metadata)
         .addDataElement(
-            new ResultSetUtility.MockDataElement(new BigDecimal("1000000000000000.01"), Types.DECIMAL)
-        )
+            new ResultSetUtility.MockDataElement(
+                new BigDecimal("1000000000000000.01"), Types.DECIMAL))
         .finishRow()
         .addDataElement(
-            new ResultSetUtility.MockDataElement(new BigDecimal("1000000000300.0000001"), Types.DECIMAL)
-        )
+            new ResultSetUtility.MockDataElement(
+                new BigDecimal("1000000000300.0000001"), Types.DECIMAL))
         .finishRow()
         .build();
   }
