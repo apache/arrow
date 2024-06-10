@@ -706,6 +706,9 @@ def test_non_cpu_buffer(pickle_module):
         cuda_buf[1]
 
     with pytest.raises(NotImplementedError, match=msg):
+        buf_on_gpu.to_pybytes()
+
+    with pytest.raises(NotImplementedError, match=msg):
         pickle_module.dumps(buf_on_gpu, protocol=4)
 
     with pytest.raises(NotImplementedError, match=msg):
@@ -717,14 +720,15 @@ def test_non_cpu_buffer(pickle_module):
     buf_on_gpu = arr.buffers()[1]
     buf_on_gpu_sliced = buf_on_gpu.slice(2)
 
+    assert cuda_buf.slice(2).to_pybytes() == b'sting'
+
     arr = np.array([b'sting'])
     cuda_buf = ctx.buffer_from_data(arr)
     arr = pa.FixedSizeBinaryArray.from_buffers(pa.binary(5), 1, [None, cuda_buf])
     buf_on_gpu_expected = arr.buffers()[1]
 
+    breakpoint()
     # assert buf_on_gpu_sliced.equals(buf_on_gpu_expected)
-    assert cuda_buf.equals(buf_on_gpu_expected)
-    # assert buf_on_gpu_sliced.to_pybytes() == b'sting'
 
 
 def test_cache_options():

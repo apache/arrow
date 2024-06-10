@@ -1461,6 +1461,8 @@ cdef class Buffer(_Weakrefable):
         """
         Return this buffer as a Python bytes object. Memory is copied.
         """
+        self._assert_cpu()
+
         return cp.PyBytes_FromStringAndSize(
             <const char*>self.buffer.get().data(),
             self.buffer.get().size())
