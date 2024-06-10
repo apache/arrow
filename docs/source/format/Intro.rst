@@ -373,7 +373,8 @@ Note that nulls of the parent array are strictly represented in the values array
 
    Physical layout diagram for run-end encoded data type.
 
-.. link to All types overview https://github.com/apache/arrow/issues/14752
+.. seealso::
+   Table of all Arrow :ref:`data_types`.
 
 Overview of Arrow Terminology
 =============================

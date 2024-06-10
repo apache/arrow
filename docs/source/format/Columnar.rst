@@ -89,6 +89,8 @@ concepts, here is a small glossary to help disambiguate.
   are parametric by construction. A timestamp is also parametric as it needs
   a unit (such as microseconds) and a timezone.
 
+.. _data_types:
+
 Data Types
 ==========
 
