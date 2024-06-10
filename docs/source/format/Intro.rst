@@ -205,9 +205,9 @@ List
 ----
 
 The list data type enables representing an array where each element is a sequence
-of elements of the same data type. The layout is similar to binary or string data
-type as it has an offsets buffer to define where the sequence of values for each
-element starts and ends, with all the values being stored consecutively
+of elements of the same data type. The layout is similar to variable-size binary
+or string layout as it has an offsets buffer to define where the sequence of values
+for each element starts and ends, with all the values being stored consecutively
 in a values child array.
 
 The offsets in the list data type are int32 while in the large list the offsets
