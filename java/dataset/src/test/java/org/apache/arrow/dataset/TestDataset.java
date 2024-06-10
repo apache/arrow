@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.dataset;
 
 import java.io.IOException;
@@ -26,7 +25,6 @@ import java.util.Spliterators;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-
 import org.apache.arrow.dataset.file.FileFormat;
 import org.apache.arrow.dataset.file.FileSystemDatasetFactory;
 import org.apache.arrow.dataset.jni.NativeMemoryPool;
@@ -49,7 +47,6 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 
-
 public abstract class TestDataset {
   private BufferAllocator allocator = null;
 
@@ -67,7 +64,8 @@ public abstract class TestDataset {
     return allocator;
   }
 
-  protected List<ArrowRecordBatch> collectResultFromFactory(DatasetFactory factory, ScanOptions options) {
+  protected List<ArrowRecordBatch> collectResultFromFactory(
+      DatasetFactory factory, ScanOptions options) {
     final Dataset dataset = factory.finish();
     final Scanner scanner = dataset.newScan(options);
     try {
@@ -108,17 +106,20 @@ public abstract class TestDataset {
   }
 
   protected void assertParquetFileEquals(String expectedURI, String actualURI) throws Exception {
-    final FileSystemDatasetFactory expectedFactory = new FileSystemDatasetFactory(
-        rootAllocator(), NativeMemoryPool.getDefault(), FileFormat.PARQUET, expectedURI);
-    final FileSystemDatasetFactory actualFactory = new FileSystemDatasetFactory(
-        rootAllocator(), NativeMemoryPool.getDefault(), FileFormat.PARQUET, actualURI);
-    List<ArrowRecordBatch> expectedBatches = collectResultFromFactory(expectedFactory,
-        new ScanOptions(new String[0], 100));
-    List<ArrowRecordBatch> actualBatches = collectResultFromFactory(actualFactory,
-        new ScanOptions(new String[0], 100));
-    try (
-        VectorSchemaRoot expectVsr = VectorSchemaRoot.create(expectedFactory.inspect(), rootAllocator());
-        VectorSchemaRoot actualVsr = VectorSchemaRoot.create(actualFactory.inspect(), rootAllocator())) {
+    final FileSystemDatasetFactory expectedFactory =
+        new FileSystemDatasetFactory(
+            rootAllocator(), NativeMemoryPool.getDefault(), FileFormat.PARQUET, expectedURI);
+    final FileSystemDatasetFactory actualFactory =
+        new FileSystemDatasetFactory(
+            rootAllocator(), NativeMemoryPool.getDefault(), FileFormat.PARQUET, actualURI);
+    List<ArrowRecordBatch> expectedBatches =
+        collectResultFromFactory(expectedFactory, new ScanOptions(new String[0], 100));
+    List<ArrowRecordBatch> actualBatches =
+        collectResultFromFactory(actualFactory, new ScanOptions(new String[0], 100));
+    try (VectorSchemaRoot expectVsr =
+            VectorSchemaRoot.create(expectedFactory.inspect(), rootAllocator());
+        VectorSchemaRoot actualVsr =
+            VectorSchemaRoot.create(actualFactory.inspect(), rootAllocator())) {
 
       // fast-fail by comparing metadata
       Assert.assertEquals(expectedBatches.toString(), actualBatches.toString());
@@ -150,7 +151,8 @@ public abstract class TestDataset {
   }
 
   protected <T> Stream<T> stream(Iterator<T> iterator) {
-    return StreamSupport.stream(Spliterators.spliteratorUnknownSize(iterator, Spliterator.ORDERED), false);
+    return StreamSupport.stream(
+        Spliterators.spliteratorUnknownSize(iterator, Spliterator.ORDERED), false);
   }
 
   protected <T> List<T> collect(Iterator<T> iterator) {
