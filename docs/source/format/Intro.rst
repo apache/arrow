@@ -106,8 +106,8 @@ Fixed Size Primitive Layout
 ---------------------------
 
 A primitive column represents an array of values where each value
-has the same physical size measured in bytes. Data types that share the
-same fixed size primitive layout are, for example, signed and unsigned
+has the same physical size measured in bytes. Data types that use the
+fixed size primitive layout are, for example, signed and unsigned
 integer data types, floating point numbers, boolean, decimal and temporal
 data types.
 
@@ -138,7 +138,7 @@ data types.
 Variable length binary and string
 ---------------------------------
 
-The bytes of a binary or string column are stored together consecutively
+The bytes of all elements in a binary or string column are stored together consecutively
 in a single buffer or region of memory. To know where each element of the
 column starts and ends the physical layout also includes integer offsets.
 The number of elements of the offset buffer is one more than the length of the
@@ -172,10 +172,10 @@ layout used in `DuckDB`_ and `Velox`_ (and sometimes also called "German style s
 .. _UmbraDB: https://umbra-db.com/
 .. _DuckDB: https://duckdb.com
 .. _Velox: https://velox-lib.io/
-The main differences to classical binary and string layout is the views buffer.
+The main differences to the classical binary and string layout is the views buffer.
 It includes the length of the string, and then either contains the characters
 inline (for small strings) or only the first 4 bytes of the string and an offset into one of
-potentially several data buffers. It also supports binary and strings to be written
+potentially several data buffers. Because it uses an offset and length to refer to the data buffer, the bytes of all elements do not need to be stored together consecutively in one buffer, and thus it supports the bytes to be written
 out of order.
 
 These properties are important for efficient string processing. The prefix
