@@ -14,25 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc.consumer;
 
 import java.nio.charset.StandardCharsets;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-
 import org.apache.arrow.vector.VarCharVector;
 
 /**
- * Consumer which consume varchar type values from {@link ResultSet}.
- * Write the data to {@link org.apache.arrow.vector.VarCharVector}.
+ * Consumer which consume varchar type values from {@link ResultSet}. Write the data to {@link
+ * org.apache.arrow.vector.VarCharVector}.
  */
 public abstract class VarCharConsumer {
 
-  /**
-   * Creates a consumer for {@link VarCharVector}.
-   */
-  public static JdbcConsumer<VarCharVector> createConsumer(VarCharVector vector, int index, boolean nullable) {
+  /** Creates a consumer for {@link VarCharVector}. */
+  public static JdbcConsumer<VarCharVector> createConsumer(
+      VarCharVector vector, int index, boolean nullable) {
     if (nullable) {
       return new NullableVarCharConsumer(vector, index);
     } else {
@@ -40,14 +37,10 @@ public abstract class VarCharConsumer {
     }
   }
 
-  /**
-   * Nullable consumer for var char.
-   */
+  /** Nullable consumer for var char. */
   static class NullableVarCharConsumer extends BaseConsumer<VarCharVector> {
 
-    /**
-     * Instantiate a VarCharConsumer.
-     */
+    /** Instantiate a VarCharConsumer. */
     public NullableVarCharConsumer(VarCharVector vector, int index) {
       super(vector, index);
     }
@@ -63,14 +56,10 @@ public abstract class VarCharConsumer {
     }
   }
 
-  /**
-   * Non-nullable consumer for var char.
-   */
+  /** Non-nullable consumer for var char. */
   static class NonNullableVarCharConsumer extends BaseConsumer<VarCharVector> {
 
-    /**
-     * Instantiate a VarCharConsumer.
-     */
+    /** Instantiate a VarCharConsumer. */
     public NonNullableVarCharConsumer(VarCharVector vector, int index) {
       super(vector, index);
     }

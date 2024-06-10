@@ -141,3 +141,17 @@ repos:
           '--disable',
           'dangling-hyphen,line-too-long',
         ]
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v1.59.0
+    hooks:
+      # no built-in support for multiple go.mod
+      # https://github.com/golangci/golangci-lint/issues/828
+      - id: golangci-lint-full
+        name: golangci-lint-full-arrow
+        entry: bash -c 'cd go/arrow && golangci-lint run'
+      - id: golangci-lint-full
+        name: golangci-lint-full-parquet
+        entry: bash -c 'cd go/parquet && golangci-lint run'
+      - id: golangci-lint-full
+        name: golangci-lint-full-internal
+        entry: bash -c 'cd go/internal && golangci-lint run'

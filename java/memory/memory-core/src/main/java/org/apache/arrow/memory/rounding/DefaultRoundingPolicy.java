@@ -44,20 +44,16 @@ public class DefaultRoundingPolicy implements RoundingPolicy {
 
   static {
     int defaultPageSize = Integer.getInteger("org.apache.memory.allocator.pageSize", 8192);
-    Throwable pageSizeFallbackCause = null;
     try {
       validateAndCalculatePageShifts(defaultPageSize);
     } catch (Throwable t) {
-      pageSizeFallbackCause = t;
       defaultPageSize = 8192;
     }
 
     int defaultMaxOrder = Integer.getInteger("org.apache.memory.allocator.maxOrder", 11);
-    Throwable maxOrderFallbackCause = null;
     try {
       validateAndCalculateChunkSize(defaultPageSize, defaultMaxOrder);
     } catch (Throwable t) {
-      maxOrderFallbackCause = t;
       defaultMaxOrder = 11;
     }
     DEFAULT_CHUNK_SIZE = validateAndCalculateChunkSize(defaultPageSize, defaultMaxOrder);

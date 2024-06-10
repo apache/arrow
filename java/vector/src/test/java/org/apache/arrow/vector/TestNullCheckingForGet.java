@@ -17,11 +17,13 @@
 
 package org.apache.arrow.vector;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.lang.reflect.Field;
 import java.net.URLClassLoader;
 
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  * Test cases for {@link NullCheckingForGet}.
@@ -63,7 +65,7 @@ public class TestNullCheckingForGet {
     ClassLoader classLoader = copyClassLoader();
     if (classLoader != null) {
       boolean nullCheckingEnabled = getFlagValue(classLoader);
-      Assert.assertTrue(nullCheckingEnabled);
+      assertTrue(nullCheckingEnabled);
     }
   }
 
@@ -79,7 +81,7 @@ public class TestNullCheckingForGet {
     ClassLoader classLoader = copyClassLoader();
     if (classLoader != null) {
       boolean nullCheckingEnabled = getFlagValue(classLoader);
-      Assert.assertFalse(nullCheckingEnabled);
+      assertFalse(nullCheckingEnabled);
     }
 
     // restore system property

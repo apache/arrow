@@ -16,7 +16,7 @@
 
 package array_test
 
-import (	
+import (
 	"math"
 	"reflect"
 	"testing"
@@ -144,7 +144,7 @@ func TestFloat16MarshalJSON(t *testing.T) {
 
 	bldr := array.NewFloat16Builder(pool)
 	defer bldr.Release()
-	
+
 	jsonstr := `[0, 1, 2, 3, "NaN", "NaN", 4, 5, "+Inf", "-Inf"]`
 
 	bldr.Append(float16.New(0))
@@ -157,7 +157,6 @@ func TestFloat16MarshalJSON(t *testing.T) {
 	bldr.Append(float16.New(5))
 	bldr.Append(float16.Inf())
 	bldr.Append(float16.Inf().Negate())
-
 
 	expected := bldr.NewFloat16Array()
 	defer expected.Release()
@@ -172,7 +171,7 @@ func TestFloat32MarshalJSON(t *testing.T) {
 
 	bldr := array.NewFloat32Builder(pool)
 	defer bldr.Release()
-	
+
 	jsonstr := `[0, 1, "+Inf", 2, 3, "NaN", "NaN", 4, 5, "-Inf"]`
 
 	bldr.Append(0)
@@ -186,10 +185,9 @@ func TestFloat32MarshalJSON(t *testing.T) {
 	bldr.Append(5)
 	bldr.Append(float32(math.Inf(-1)))
 
-
 	expected := bldr.NewFloat32Array()
 	defer expected.Release()
-	
+
 	expected_json, err := expected.MarshalJSON()
 	assert.NoError(t, err)
 
@@ -223,7 +221,7 @@ func TestFloat64MarshalJSON(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.JSONEq(t, jsonstr, string(expected_json))
-	
+
 }
 
 func TestUnmarshalSpecialFloat(t *testing.T) {

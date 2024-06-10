@@ -24,37 +24,33 @@
   <description>(Contrib/Experimental) A library for converting Avro data to Arrow data.</description>
   <url>http://maven.apache.org</url>
 
-  <dependencies>
+  <properties>
+    <checkstyle.config.location>dev/checkstyle/checkstyle-spotless.xml</checkstyle.config.location>
+    <spotless.java.excludes>none</spotless.java.excludes>
+  </properties>
 
-    <!-- https://mvnrepository.com/artifact/org.apache.arrow/arrow-memory-core -->
+  <dependencies>
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-memory-core</artifactId>
     </dependency>
-
-    <!-- https://mvnrepository.com/artifact/org.apache.arrow/arrow-memory-netty -->
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-memory-netty</artifactId>
       <scope>runtime</scope>
     </dependency>
-
-    <!-- https://mvnrepository.com/artifact/org.apache.arrow/arrow-vector -->
     <dependency>
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-vector</artifactId>
     </dependency>
-
     <dependency>
       <groupId>org.immutables</groupId>
       <artifactId>value-annotations</artifactId>
     </dependency>
-
     <dependency>
       <groupId>org.apache.avro</groupId>
       <artifactId>avro</artifactId>
       <version>${dep.avro.version}</version>
     </dependency>
   </dependencies>
-
 </project>

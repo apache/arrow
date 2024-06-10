@@ -87,63 +87,72 @@ public class TestFlightSql {
       Field.nullable("FOREIGNID", MinorType.INT.getType())));
   private static final List<List<String>> EXPECTED_RESULTS_FOR_STAR_SELECT_QUERY = ImmutableList.of(
       asList("1", "one", "1", "1"), asList("2", "zero", "0", "1"), asList("3", "negative one", "-1", "1"));
-  private static final List<List<String>> EXPECTED_RESULTS_FOR_PARAMETER_BINDING = ImmutableList.of(
+  protected static final List<List<String>> EXPECTED_RESULTS_FOR_PARAMETER_BINDING = ImmutableList.of(
       asList("1", "one", "1", "1"));
   private static final Map<String, String> GET_SQL_INFO_EXPECTED_RESULTS_MAP = new LinkedHashMap<>();
-  private static final String LOCALHOST = "localhost";
-  private static BufferAllocator allocator;
-  private static FlightServer server;
-  private static FlightSqlClient sqlClient;
+  protected static final String LOCALHOST = "localhost";
+  protected static BufferAllocator allocator;
+  protected static FlightServer server;
+  protected static FlightSqlClient sqlClient;
 
   @BeforeAll
   public static void setUp() throws Exception {
+    setUpClientServer();
+    setUpExpectedResultsMap();
+  }
+
+  private static void setUpClientServer() throws Exception {
     allocator = new RootAllocator(Integer.MAX_VALUE);
 
     final Location serverLocation = Location.forGrpcInsecure(LOCALHOST, 0);
-    server = FlightServer.builder(allocator, serverLocation, new FlightSqlExample(serverLocation))
-        .build()
-        .start();
+    server = FlightServer.builder(allocator, serverLocation,
+                    new FlightSqlExample(serverLocation, FlightSqlExample.DB_NAME))
+            .build()
+            .start();
 
     final Location clientLocation = Location.forGrpcInsecure(LOCALHOST, server.getPort());
     sqlClient = new FlightSqlClient(FlightClient.builder(allocator, clientLocation).build());
+  }
 
+  protected static void setUpExpectedResultsMap() {
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
-        .put(Integer.toString(FlightSql.SqlInfo.FLIGHT_SQL_SERVER_NAME_VALUE), "Apache Derby");
+            .put(Integer.toString(FlightSql.SqlInfo.FLIGHT_SQL_SERVER_NAME_VALUE), "Apache Derby");
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
-        .put(Integer.toString(FlightSql.SqlInfo.FLIGHT_SQL_SERVER_VERSION_VALUE), "10.14.2.0 - (1828579)");
+            .put(Integer.toString(FlightSql.SqlInfo.FLIGHT_SQL_SERVER_VERSION_VALUE), "10.14.2.0 - (1828579)");
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
-        .put(Integer.toString(FlightSql.SqlInfo.FLIGHT_SQL_SERVER_ARROW_VERSION_VALUE), "10.14.2.0 - (1828579)");
+            .put(Integer.toString(FlightSql.SqlInfo.FLIGHT_SQL_SERVER_ARROW_VERSION_VALUE), "10.14.2.0 - (1828579)");
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
-        .put(Integer.toString(FlightSql.SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY_VALUE), "false");
+            .put(Integer.toString(FlightSql.SqlInfo.FLIGHT_SQL_SERVER_READ_ONLY_VALUE), "false");
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
-        .put(Integer.toString(FlightSql.SqlInfo.SQL_ALL_TABLES_ARE_SELECTABLE_VALUE), "true");
+            .put(Integer.toString(FlightSql.SqlInfo.SQL_ALL_TABLES_ARE_SELECTABLE_VALUE), "true");
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
-        .put(
-            Integer.toString(FlightSql.SqlInfo.SQL_NULL_ORDERING_VALUE),
-            Integer.toString(FlightSql.SqlNullOrdering.SQL_NULLS_SORTED_AT_END_VALUE));
+            .put(
+                    Integer.toString(FlightSql.SqlInfo.SQL_NULL_ORDERING_VALUE),
+                    Integer.toString(FlightSql.SqlNullOrdering.SQL_NULLS_SORTED_AT_END_VALUE));
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
-        .put(Integer.toString(FlightSql.SqlInfo.SQL_DDL_CATALOG_VALUE), "false");
+            .put(Integer.toString(FlightSql.SqlInfo.SQL_DDL_CATALOG_VALUE), "false");
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
-        .put(Integer.toString(FlightSql.SqlInfo.SQL_DDL_SCHEMA_VALUE), "true");
+            .put(Integer.toString(FlightSql.SqlInfo.SQL_DDL_SCHEMA_VALUE), "true");
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
-        .put(Integer.toString(FlightSql.SqlInfo.SQL_DDL_TABLE_VALUE), "true");
+            .put(Integer.toString(FlightSql.SqlInfo.SQL_DDL_TABLE_VALUE), "true");
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
-        .put(
-            Integer.toString(FlightSql.SqlInfo.SQL_IDENTIFIER_CASE_VALUE),
-            Integer.toString(SqlSupportedCaseSensitivity.SQL_CASE_SENSITIVITY_UPPERCASE_VALUE));
+            .put(
+                    Integer.toString(FlightSql.SqlInfo.SQL_IDENTIFIER_CASE_VALUE),
+                    Integer.toString(SqlSupportedCaseSensitivity.SQL_CASE_SENSITIVITY_UPPERCASE_VALUE));
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
-        .put(Integer.toString(FlightSql.SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR_VALUE), "\"");
+            .put(Integer.toString(FlightSql.SqlInfo.SQL_IDENTIFIER_QUOTE_CHAR_VALUE), "\"");
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
-        .put(
-            Integer.toString(FlightSql.SqlInfo.SQL_QUOTED_IDENTIFIER_CASE_VALUE),
-            Integer.toString(SqlSupportedCaseSensitivity.SQL_CASE_SENSITIVITY_CASE_INSENSITIVE_VALUE));
+            .put(
+                    Integer.toString(FlightSql.SqlInfo.SQL_QUOTED_IDENTIFIER_CASE_VALUE),
+                    Integer.toString(SqlSupportedCaseSensitivity.SQL_CASE_SENSITIVITY_CASE_INSENSITIVE_VALUE));
     GET_SQL_INFO_EXPECTED_RESULTS_MAP
-        .put(Integer.toString(FlightSql.SqlInfo.SQL_MAX_COLUMNS_IN_TABLE_VALUE), "42");
+            .put(Integer.toString(FlightSql.SqlInfo.SQL_MAX_COLUMNS_IN_TABLE_VALUE), "42");
   }
 
   @AfterAll
   public static void tearDown() throws Exception {
     close(sqlClient, server, allocator);
+    FlightSqlExample.removeDerbyDatabaseIfExists(FlightSqlExample.DB_NAME);
   }
 
   private static List<List<String>> getNonConformingResultsForGetSqlInfo(final List<? extends List<String>> results) {

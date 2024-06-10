@@ -1226,6 +1226,11 @@ def test_s3_options(pickle_module):
     assert isinstance(fs, S3FileSystem)
     assert pickle_module.loads(pickle_module.dumps(fs)) == fs
 
+    fs = S3FileSystem(allow_bucket_creation=True, allow_bucket_deletion=True,
+                      check_directory_existence_before_creation=True)
+    assert isinstance(fs, S3FileSystem)
+    assert pickle_module.loads(pickle_module.dumps(fs)) == fs
+
     fs = S3FileSystem(request_timeout=0.5, connect_timeout=0.25)
     assert isinstance(fs, S3FileSystem)
     assert pickle_module.loads(pickle_module.dumps(fs)) == fs

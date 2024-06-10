@@ -17,7 +17,12 @@
 
 package org.apache.arrow.vector.complex.writer;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
@@ -92,10 +97,9 @@ import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.apache.arrow.vector.util.Text;
 import org.apache.arrow.vector.util.TransferPair;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class TestComplexWriter {
 
@@ -103,12 +107,12 @@ public class TestComplexWriter {
 
   private static final int COUNT = 100;
 
-  @Before
+  @BeforeEach
   public void init() {
     allocator = new RootAllocator(Integer.MAX_VALUE);
   }
 
-  @After
+  @AfterEach
   public void terminate() throws Exception {
     allocator.close();
   }
@@ -119,8 +123,8 @@ public class TestComplexWriter {
     StructReader rootReader = new SingleStructReaderImpl(parent).reader("root");
     for (int i = 0; i < COUNT; i++) {
       rootReader.setPosition(i);
-      Assert.assertEquals(i, rootReader.reader("int").readInteger().intValue());
-      Assert.assertEquals(i, rootReader.reader("bigInt").readLong().longValue());
+      assertEquals(i, rootReader.reader("int").readInteger().intValue());
+      assertEquals(i, rootReader.reader("bigInt").readLong().longValue());
     }
 
     parent.close();
@@ -210,15 +214,15 @@ public class TestComplexWriter {
     StructReader rootReader = new SingleStructReaderImpl(structVector).reader("root");
     for (int i = 0; i < COUNT; i++) {
       rootReader.setPosition(i);
-      assertTrue("index is set: " + i, rootReader.isSet());
+      assertTrue(rootReader.isSet(), "index is set: " + i);
       FieldReader struct = rootReader.reader("struct");
       if (i % 2 == 0) {
-        assertTrue("index is set: " + i, struct.isSet());
-        assertNotNull("index is set: " + i, struct.readObject());
+        assertTrue(struct.isSet(), "index is set: " + i);
+        assertNotNull(struct.readObject(), "index is set: " + i);
         assertEquals(i, struct.reader("nested").readLong().longValue());
       } else {
-        assertFalse("index is not set: " + i, struct.isSet());
-        assertNull("index is not set: " + i, struct.readObject());
+        assertFalse(struct.isSet(), "index is not set: " + i);
+        assertNull(struct.readObject(), "index is not set: " + i);
       }
     }
   }
@@ -245,11 +249,11 @@ public class TestComplexWriter {
       StructReader rootReader = new SingleStructReaderImpl(parent).reader("root");
 
       rootReader.setPosition(0);
-      assertTrue("row 0 list is not set", rootReader.reader("list").isSet());
+      assertTrue(rootReader.reader("list").isSet(), "row 0 list is not set");
       assertEquals(Long.valueOf(0), rootReader.reader("list").reader().readLong());
 
       rootReader.setPosition(1);
-      assertFalse("row 1 list is set", rootReader.reader("list").isSet());
+      assertFalse(rootReader.reader("list").isSet(), "row 1 list is set");
     }
   }
 
@@ -312,9 +316,9 @@ public class TestComplexWriter {
         for (int j = 0; j < i % 7; j++) {
           listReader.next();
           if (j % 2 == 0) {
-            assertFalse("index is set: " + j, listReader.reader().isSet());
+            assertFalse(listReader.reader().isSet(), "index is set: " + j);
           } else {
-            assertTrue("index is not set: " + j, listReader.reader().isSet());
+            assertTrue(listReader.reader().isSet(), "index is not set: " + j);
             assertEquals(j, listReader.reader().readInteger().intValue());
           }
         }
@@ -392,7 +396,7 @@ public class TestComplexWriter {
         for (int j = 0; j < i % 7; j++) {
           listReader.next();
           if (j % 2 == 0) {
-            assertFalse("index is set: " + j, listReader.reader().isSet());
+            assertFalse(listReader.reader().isSet(), "index is set: " + j);
           } else {
             NullableTimeStampMilliTZHolder actual = new NullableTimeStampMilliTZHolder();
             listReader.reader().read(actual);
@@ -430,7 +434,7 @@ public class TestComplexWriter {
         for (int j = 0; j < i % 7; j++) {
           listReader.next();
           if (j % 2 == 0) {
-            assertFalse("index is set: " + j, listReader.reader().isSet());
+            assertFalse(listReader.reader().isSet(), "index is set: " + j);
           } else {
             NullableDurationHolder actual = new NullableDurationHolder();
             listReader.reader().read(actual);
@@ -472,7 +476,7 @@ public class TestComplexWriter {
         for (int j = 0; j < i % 7; j++) {
           listReader.next();
           if (j % 2 == 0) {
-            assertFalse("index is set: " + j, listReader.reader().isSet());
+            assertFalse(listReader.reader().isSet(), "index is set: " + j);
           } else {
             NullableFixedSizeBinaryHolder actual = new NullableFixedSizeBinaryHolder();
             listReader.reader().read(actual);
@@ -505,11 +509,11 @@ public class TestComplexWriter {
       for (int i = 0; i < COUNT; i++) {
         listReader.setPosition(i);
         if (i % 2 == 0) {
-          assertTrue("index is set: " + i, listReader.isSet());
-          assertEquals("correct length at: " + i, i % 7, ((List<?>) listReader.readObject()).size());
+          assertTrue(listReader.isSet(), "index is set: " + i);
+          assertEquals(i % 7, ((List<?>) listReader.readObject()).size(), "correct length at: " + i);
         } else {
-          assertFalse("index is not set: " + i, listReader.isSet());
-          assertNull("index is not set: " + i, listReader.readObject());
+          assertFalse(listReader.isSet(), "index is not set: " + i);
+          assertNull(listReader.readObject(), "index is not set: " + i);
         }
       }
     }
@@ -537,8 +541,8 @@ public class TestComplexWriter {
         listReader.setPosition(i);
         for (int j = 0; j < i % 7; j++) {
           listReader.next();
-          Assert.assertEquals("record: " + i, j, listReader.reader().reader("int").readInteger().intValue());
-          Assert.assertEquals(j, listReader.reader().reader("bigInt").readLong().longValue());
+          assertEquals(j, listReader.reader().reader("int").readInteger().intValue(), "record: " + i);
+          assertEquals(j, listReader.reader().reader("bigInt").readLong().longValue());
         }
       }
     }
@@ -601,7 +605,7 @@ public class TestComplexWriter {
         FieldReader innerListReader = listReader.reader();
         for (int k = 0; k < i % 13; k++) {
           innerListReader.next();
-          Assert.assertEquals("record: " + i, k, innerListReader.reader().readInteger().intValue());
+          assertEquals(k, innerListReader.reader().readInteger().intValue(), "record: " + i);
         }
       }
     }
@@ -673,9 +677,9 @@ public class TestComplexWriter {
         for (int k = 0; k < i % 13; k++) {
           innerListReader.next();
           if (k % 2 == 0) {
-            Assert.assertEquals("record: " + i, k, innerListReader.reader().readInteger().intValue());
+            assertEquals(k, innerListReader.reader().readInteger().intValue(), "record: " + i);
           } else {
-            Assert.assertEquals("record: " + i, k, innerListReader.reader().readLong().longValue());
+            assertEquals(k, innerListReader.reader().readLong().longValue(), "record: " + i);
           }
         }
       }
@@ -724,11 +728,11 @@ public class TestComplexWriter {
         UnionMapReader mapReader = (UnionMapReader) listReader.reader();
         for (int k = 0; k < i % 13; k++) {
           mapReader.next();
-          Assert.assertEquals("record key: " + i, k, mapReader.key().readInteger().intValue());
+          assertEquals(k, mapReader.key().readInteger().intValue(), "record key: " + i);
           if (k % 2 == 0) {
-            Assert.assertEquals("record value: " + i, k, mapReader.value().readLong().longValue());
+            assertEquals(k, mapReader.value().readLong().longValue(), "record value: " + i);
           } else {
-            Assert.assertNull("record value: " + i, mapReader.value().readLong());
+            assertNull(mapReader.value().readLong(), "record value: " + i);
           }
         }
       }
@@ -772,24 +776,24 @@ public class TestComplexWriter {
     for (int i = 0; i < COUNT; i++) {
       unionReader.setPosition(i);
       if (i % 5 == 0) {
-        Assert.assertEquals(i, unionReader.readInteger().intValue());
+        assertEquals(i, unionReader.readInteger().intValue());
       } else if (i % 5 == 1) {
         NullableTimeStampMilliTZHolder holder = new NullableTimeStampMilliTZHolder();
         unionReader.read(holder);
-        Assert.assertEquals(i, holder.value);
-        Assert.assertEquals("AsdfTimeZone", holder.timezone);
+        assertEquals(i, holder.value);
+        assertEquals("AsdfTimeZone", holder.timezone);
       } else if (i % 5 == 2) {
         NullableDurationHolder holder = new NullableDurationHolder();
         unionReader.read(holder);
-        Assert.assertEquals(i, holder.value);
-        Assert.assertEquals(TimeUnit.NANOSECOND, holder.unit);
+        assertEquals(i, holder.value);
+        assertEquals(TimeUnit.NANOSECOND, holder.unit);
       } else if (i % 5 == 3) {
         NullableFixedSizeBinaryHolder holder = new NullableFixedSizeBinaryHolder();
         unionReader.read(holder);
         assertEquals(i, holder.buffer.getInt(0));
         assertEquals(4, holder.byteWidth);
       } else {
-        Assert.assertEquals((float) i, unionReader.readFloat(), 1e-12);
+        assertEquals((float) i, unionReader.readFloat(), 1e-12);
       }
     }
     vector.close();
@@ -808,12 +812,12 @@ public class TestComplexWriter {
         bigIntWriter.writeBigInt(i);
       }
       Field field = parent.getField().getChildren().get(0).getChildren().get(0);
-      Assert.assertEquals("a", field.getName());
-      Assert.assertEquals(Int.TYPE_TYPE, field.getType().getTypeID());
+      assertEquals("a", field.getName());
+      assertEquals(Int.TYPE_TYPE, field.getType().getTypeID());
       Int intType = (Int) field.getType();
 
-      Assert.assertEquals(64, intType.getBitWidth());
-      Assert.assertTrue(intType.getIsSigned());
+      assertEquals(64, intType.getBitWidth());
+      assertTrue(intType.getIsSigned());
       for (int i = 100; i < 200; i++) {
         VarCharWriter varCharWriter = rootWriter.varChar("a");
         varCharWriter.setPosition(i);
@@ -824,23 +828,23 @@ public class TestComplexWriter {
         tempBuf.close();
       }
       field = parent.getField().getChildren().get(0).getChildren().get(0);
-      Assert.assertEquals("a", field.getName());
-      Assert.assertEquals(Union.TYPE_TYPE, field.getType().getTypeID());
-      Assert.assertEquals(Int.TYPE_TYPE, field.getChildren().get(0).getType().getTypeID());
-      Assert.assertEquals(Utf8.TYPE_TYPE, field.getChildren().get(1).getType().getTypeID());
+      assertEquals("a", field.getName());
+      assertEquals(Union.TYPE_TYPE, field.getType().getTypeID());
+      assertEquals(Int.TYPE_TYPE, field.getChildren().get(0).getType().getTypeID());
+      assertEquals(Utf8.TYPE_TYPE, field.getChildren().get(1).getType().getTypeID());
       StructReader rootReader = new SingleStructReaderImpl(parent).reader("root");
       for (int i = 0; i < 100; i++) {
         rootReader.setPosition(i);
         FieldReader reader = rootReader.reader("a");
         Long value = reader.readLong();
-        Assert.assertNotNull("index: " + i, value);
-        Assert.assertEquals(i, value.intValue());
+        assertNotNull(value, "index: " + i);
+        assertEquals(i, value.intValue());
       }
       for (int i = 100; i < 200; i++) {
         rootReader.setPosition(i);
         FieldReader reader = rootReader.reader("a");
         Text value = reader.readText();
-        Assert.assertEquals(Integer.toString(i), value.toString());
+        assertEquals(Integer.toString(i), value.toString());
       }
     }
   }
@@ -857,14 +861,14 @@ public class TestComplexWriter {
       rootWriter.varChar("a");
 
       Field field = parent.getField().getChildren().get(0).getChildren().get(0);
-      Assert.assertEquals("a", field.getName());
-      Assert.assertEquals(ArrowTypeID.Union, field.getType().getTypeID());
+      assertEquals("a", field.getName());
+      assertEquals(ArrowTypeID.Union, field.getType().getTypeID());
 
-      Assert.assertEquals(ArrowTypeID.Int, field.getChildren().get(0).getType().getTypeID());
+      assertEquals(ArrowTypeID.Int, field.getChildren().get(0).getType().getTypeID());
       Int intType = (Int) field.getChildren().get(0).getType();
-      Assert.assertEquals(64, intType.getBitWidth());
-      Assert.assertTrue(intType.getIsSigned());
-      Assert.assertEquals(ArrowTypeID.Utf8, field.getChildren().get(1).getType().getTypeID());
+      assertEquals(64, intType.getBitWidth());
+      assertTrue(intType.getIsSigned());
+      assertEquals(ArrowTypeID.Utf8, field.getChildren().get(1).getType().getTypeID());
     }
   }
 
@@ -901,18 +905,18 @@ public class TestComplexWriter {
 
       List<Field> fieldsCaseSensitive = parent.getField().getChildren().get(0).getChildren();
       Set<String> fieldNamesCaseSensitive = getFieldNames(fieldsCaseSensitive);
-      Assert.assertEquals(11, fieldNamesCaseSensitive.size());
-      Assert.assertTrue(fieldNamesCaseSensitive.contains("int_field"));
-      Assert.assertTrue(fieldNamesCaseSensitive.contains("Int_Field"));
-      Assert.assertTrue(fieldNamesCaseSensitive.contains("float_field"));
-      Assert.assertTrue(fieldNamesCaseSensitive.contains("Float_Field"));
-      Assert.assertTrue(fieldNamesCaseSensitive.contains("struct_field"));
-      Assert.assertTrue(fieldNamesCaseSensitive.contains("struct_field::char_field"));
-      Assert.assertTrue(fieldNamesCaseSensitive.contains("struct_field::Char_Field"));
-      Assert.assertTrue(fieldNamesCaseSensitive.contains("list_field"));
-      Assert.assertTrue(fieldNamesCaseSensitive.contains("list_field::$data$"));
-      Assert.assertTrue(fieldNamesCaseSensitive.contains("list_field::$data$::bit_field"));
-      Assert.assertTrue(fieldNamesCaseSensitive.contains("list_field::$data$::Bit_Field"));
+      assertEquals(11, fieldNamesCaseSensitive.size());
+      assertTrue(fieldNamesCaseSensitive.contains("int_field"));
+      assertTrue(fieldNamesCaseSensitive.contains("Int_Field"));
+      assertTrue(fieldNamesCaseSensitive.contains("float_field"));
+      assertTrue(fieldNamesCaseSensitive.contains("Float_Field"));
+      assertTrue(fieldNamesCaseSensitive.contains("struct_field"));
+      assertTrue(fieldNamesCaseSensitive.contains("struct_field::char_field"));
+      assertTrue(fieldNamesCaseSensitive.contains("struct_field::Char_Field"));
+      assertTrue(fieldNamesCaseSensitive.contains("list_field"));
+      assertTrue(fieldNamesCaseSensitive.contains("list_field::$data$"));
+      assertTrue(fieldNamesCaseSensitive.contains("list_field::$data$::bit_field"));
+      assertTrue(fieldNamesCaseSensitive.contains("list_field::$data$::Bit_Field"));
 
       // test case-insensitive StructWriter
       ComplexWriter writerCaseInsensitive = new ComplexWriterImpl("rootCaseInsensitive", parent, false, false);
@@ -932,14 +936,14 @@ public class TestComplexWriter {
 
       List<Field> fieldsCaseInsensitive = parent.getField().getChildren().get(1).getChildren();
       Set<String> fieldNamesCaseInsensitive = getFieldNames(fieldsCaseInsensitive);
-      Assert.assertEquals(7, fieldNamesCaseInsensitive.size());
-      Assert.assertTrue(fieldNamesCaseInsensitive.contains("int_field"));
-      Assert.assertTrue(fieldNamesCaseInsensitive.contains("float_field"));
-      Assert.assertTrue(fieldNamesCaseInsensitive.contains("struct_field"));
-      Assert.assertTrue(fieldNamesCaseInsensitive.contains("struct_field::char_field"));
-      Assert.assertTrue(fieldNamesCaseSensitive.contains("list_field"));
-      Assert.assertTrue(fieldNamesCaseSensitive.contains("list_field::$data$"));
-      Assert.assertTrue(fieldNamesCaseSensitive.contains("list_field::$data$::bit_field"));
+      assertEquals(7, fieldNamesCaseInsensitive.size());
+      assertTrue(fieldNamesCaseInsensitive.contains("int_field"));
+      assertTrue(fieldNamesCaseInsensitive.contains("float_field"));
+      assertTrue(fieldNamesCaseInsensitive.contains("struct_field"));
+      assertTrue(fieldNamesCaseInsensitive.contains("struct_field::char_field"));
+      assertTrue(fieldNamesCaseSensitive.contains("list_field"));
+      assertTrue(fieldNamesCaseSensitive.contains("list_field::$data$"));
+      assertTrue(fieldNamesCaseSensitive.contains("list_field::$data$::bit_field"));
     }
   }
 
@@ -976,15 +980,15 @@ public class TestComplexWriter {
         FieldReader secReader = rootReader.reader("sec");
         secReader.setPosition(0);
         LocalDateTime secDateTime = secReader.readLocalDateTime();
-        Assert.assertEquals(expectedSecDateTime, secDateTime);
+        assertEquals(expectedSecDateTime, secDateTime);
         long secLong = secReader.readLong();
-        Assert.assertEquals(expectedSecs, secLong);
+        assertEquals(expectedSecs, secLong);
       }
       {
         FieldReader secTZReader = rootReader.reader("secTZ");
         secTZReader.setPosition(1);
         long secTZLong = secTZReader.readLong();
-        Assert.assertEquals(expectedSecs, secTZLong);
+        assertEquals(expectedSecs, secTZLong);
       }
     }
   }
@@ -1022,27 +1026,27 @@ public class TestComplexWriter {
         FieldReader milliReader = rootReader.reader("milli");
         milliReader.setPosition(0);
         LocalDateTime milliDateTime = milliReader.readLocalDateTime();
-        Assert.assertEquals(expectedMilliDateTime, milliDateTime);
+        assertEquals(expectedMilliDateTime, milliDateTime);
         long milliLong = milliReader.readLong();
-        Assert.assertEquals(expectedMillis, milliLong);
+        assertEquals(expectedMillis, milliLong);
       }
       {
         FieldReader milliTZReader = rootReader.reader("milliTZ");
         milliTZReader.setPosition(0);
         long milliTZLong = milliTZReader.readLong();
-        Assert.assertEquals(expectedMillis, milliTZLong);
+        assertEquals(expectedMillis, milliTZLong);
       }
     }
   }
 
   private void checkTimestampField(Field field, String name) {
-    Assert.assertEquals(name, field.getName());
-    Assert.assertEquals(ArrowType.Timestamp.TYPE_TYPE, field.getType().getTypeID());
+    assertEquals(name, field.getName());
+    assertEquals(ArrowType.Timestamp.TYPE_TYPE, field.getType().getTypeID());
   }
 
   private void checkTimestampTZField(Field field, String name, String tz) {
     checkTimestampField(field, name);
-    Assert.assertEquals(tz, ((Timestamp) field.getType()).getTimezone());
+    assertEquals(tz, ((Timestamp) field.getType()).getTimezone());
   }
 
   @Test
@@ -1079,15 +1083,15 @@ public class TestComplexWriter {
         FieldReader microReader = rootReader.reader("micro");
         microReader.setPosition(0);
         LocalDateTime microDateTime = microReader.readLocalDateTime();
-        Assert.assertEquals(expectedMicroDateTime, microDateTime);
+        assertEquals(expectedMicroDateTime, microDateTime);
         long microLong = microReader.readLong();
-        Assert.assertEquals(expectedMicros, microLong);
+        assertEquals(expectedMicros, microLong);
       }
       {
         FieldReader microReader = rootReader.reader("microTZ");
         microReader.setPosition(1);
         long microLong = microReader.readLong();
-        Assert.assertEquals(expectedMicros, microLong);
+        assertEquals(expectedMicros, microLong);
       }
     }
   }
@@ -1125,18 +1129,18 @@ public class TestComplexWriter {
         FieldReader nanoReader = rootReader.reader("nano");
         nanoReader.setPosition(0);
         LocalDateTime nanoDateTime = nanoReader.readLocalDateTime();
-        Assert.assertEquals(expectedNanoDateTime, nanoDateTime);
+        assertEquals(expectedNanoDateTime, nanoDateTime);
         long nanoLong = nanoReader.readLong();
-        Assert.assertEquals(expectedNanos, nanoLong);
+        assertEquals(expectedNanos, nanoLong);
       }
       {
         FieldReader nanoReader = rootReader.reader("nanoTZ");
         nanoReader.setPosition(0);
         long nanoLong = nanoReader.readLong();
-        Assert.assertEquals(expectedNanos, nanoLong);
+        assertEquals(expectedNanos, nanoLong);
         NullableTimeStampNanoTZHolder h = new NullableTimeStampNanoTZHolder();
         nanoReader.read(h);
-        Assert.assertEquals(expectedNanos, h.value);
+        assertEquals(expectedNanos, h.value);
       }
     }
 
@@ -1173,8 +1177,8 @@ public class TestComplexWriter {
 
       // schema
       List<Field> children = parent.getField().getChildren().get(0).getChildren();
-      Assert.assertEquals(fieldName, children.get(0).getName());
-      Assert.assertEquals(ArrowType.FixedSizeBinary.TYPE_TYPE, children.get(0).getType().getTypeID());
+      assertEquals(fieldName, children.get(0).getName());
+      assertEquals(ArrowType.FixedSizeBinary.TYPE_TYPE, children.get(0).getType().getTypeID());
 
       // read
       StructReader rootReader = new SingleStructReaderImpl(parent).reader("root");
@@ -1183,7 +1187,7 @@ public class TestComplexWriter {
       for (int i = 0; i < numValues; i++) {
         fixedSizeBinaryReader.setPosition(i);
         byte[] readValues = fixedSizeBinaryReader.readByteArray();
-        Assert.assertArrayEquals(values[i], readValues);
+        assertArrayEquals(values[i], readValues);
       }
     }
 
@@ -1369,17 +1373,17 @@ public class TestComplexWriter {
       for (int i = 0; i < COUNT; i++) {
         listReader.setPosition(i);
         if (i % 2 == 0) {
-          Assert.assertTrue(listReader.isSet());
+          assertTrue(listReader.isSet());
           listReader.next();
           if (i % 4 == 0) {
-            Assert.assertNull(listReader.reader().readInteger());
+            assertNull(listReader.reader().readInteger());
           } else {
-            Assert.assertEquals(i, listReader.reader().readInteger().intValue());
+            assertEquals(i, listReader.reader().readInteger().intValue());
             listReader.next();
-            Assert.assertEquals(i * 2, listReader.reader().readInteger().intValue());
+            assertEquals(i * 2, listReader.reader().readInteger().intValue());
           }
         } else {
-          Assert.assertFalse(listReader.isSet());
+          assertFalse(listReader.isSet());
         }
       }
     }
@@ -1419,20 +1423,20 @@ public class TestComplexWriter {
       for (int i = 0; i < COUNT; i++) {
         listReader.setPosition(i);
         if (i % 2 == 0) {
-          Assert.assertTrue(listReader.isSet());
+          assertTrue(listReader.isSet());
           listReader.next();
           if (i % 4 == 0) {
-            Assert.assertFalse(listReader.reader().isSet());
+            assertFalse(listReader.reader().isSet());
           } else {
             listReader.reader().next();
-            Assert.assertFalse(listReader.reader().reader().isSet());
+            assertFalse(listReader.reader().reader().isSet());
             listReader.reader().next();
-            Assert.assertEquals(i, listReader.reader().reader().readInteger().intValue());
+            assertEquals(i, listReader.reader().reader().readInteger().intValue());
             listReader.reader().next();
-            Assert.assertEquals(i * 2, listReader.reader().reader().readInteger().intValue());
+            assertEquals(i * 2, listReader.reader().reader().readInteger().intValue());
           }
         } else {
-          Assert.assertFalse(listReader.isSet());
+          assertFalse(listReader.isSet());
         }
       }
     }
@@ -1478,23 +1482,23 @@ public class TestComplexWriter {
       for (int i = 0; i < COUNT; i++) {
         listReader.setPosition(i);
         if (i % 4 == 0) {
-          Assert.assertFalse(listReader.isSet());
+          assertFalse(listReader.isSet());
         } else {
-          Assert.assertTrue(listReader.isSet());
+          assertTrue(listReader.isSet());
           listReader.next();
           if (i % 4 == 1) {
-            Assert.assertFalse(listReader.reader().isSet());
+            assertFalse(listReader.reader().isSet());
           } else if (i % 4 == 2) {
             listReader.reader().next();
-            Assert.assertFalse(listReader.reader().reader().isSet());
+            assertFalse(listReader.reader().reader().isSet());
           } else {
             listReader.reader().next();
             listReader.reader().reader().next();
-            Assert.assertFalse(listReader.reader().reader().reader().isSet());
+            assertFalse(listReader.reader().reader().reader().isSet());
             listReader.reader().reader().next();
-            Assert.assertEquals(i, listReader.reader().reader().reader().readInteger().intValue());
+            assertEquals(i, listReader.reader().reader().reader().readInteger().intValue());
             listReader.reader().reader().next();
-            Assert.assertEquals(i * 2, listReader.reader().reader().reader().readInteger().intValue());
+            assertEquals(i * 2, listReader.reader().reader().reader().readInteger().intValue());
           }
         }
       }
@@ -1507,7 +1511,7 @@ public class TestComplexWriter {
       structVector.addOrGetList("childList1");
       NullableStructReaderImpl structReader = structVector.getReader();
       FieldReader childListReader = structReader.reader("childList1");
-      Assert.assertNotNull(childListReader);
+      assertNotNull(childListReader);
     }
 
     try (StructVector structVector = StructVector.empty("struct2", allocator)) {
@@ -1523,9 +1527,9 @@ public class TestComplexWriter {
       NullableStructReaderImpl structReader = structVector.getReader();
       FieldReader childListReader = structReader.reader("childList2");
       int size = childListReader.size();
-      Assert.assertEquals(1, size);
+      assertEquals(1, size);
       int data = childListReader.reader().readInteger();
-      Assert.assertEquals(10, data);
+      assertEquals(10, data);
     }
 
     try (StructVector structVector = StructVector.empty("struct3", allocator)) {
@@ -1545,9 +1549,9 @@ public class TestComplexWriter {
       structReader.setPosition(3);
       FieldReader childListReader = structReader.reader("childList3");
       int size = childListReader.size();
-      Assert.assertEquals(1, size);
+      assertEquals(1, size);
       int data = ((List<Integer>) childListReader.readObject()).get(0);
-      Assert.assertEquals(3, data);
+      assertEquals(3, data);
     }
 
     try (StructVector structVector = StructVector.empty("struct4", allocator)) {
@@ -1564,7 +1568,7 @@ public class TestComplexWriter {
       structReader.setPosition(3);
       FieldReader childListReader = structReader.reader("childList4");
       int size = childListReader.size();
-      Assert.assertEquals(0, size);
+      assertEquals(0, size);
     }
   }
 
@@ -1618,7 +1622,7 @@ public class TestComplexWriter {
       mapWriter.endMap();
       writer.setValueCount(1);
       UnionMapReader mapReader = (UnionMapReader) new SingleStructReaderImpl(parent).reader("root");
-      Assert.assertNull(mapReader.key().readInteger());
+      assertNull(mapReader.key().readInteger());
       assertEquals(1, mapReader.value().readInteger().intValue());
     }
   }

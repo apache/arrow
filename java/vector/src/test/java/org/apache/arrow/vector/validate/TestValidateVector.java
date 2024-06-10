@@ -19,8 +19,8 @@ package org.apache.arrow.vector.validate;
 
 import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
 import static org.apache.arrow.vector.util.ValueVectorUtility.validate;
-import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.Charset;
 import java.util.Arrays;
@@ -44,15 +44,15 @@ import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class TestValidateVector {
 
   private BufferAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void init() {
     allocator = new RootAllocator(Long.MAX_VALUE);
   }
@@ -62,7 +62,7 @@ public class TestValidateVector {
   private static final byte[] STR2 = "BBBBBBBBB2".getBytes(utf8Charset);
   private static final byte[] STR3 = "CCCC3".getBytes(utf8Charset);
 
-  @After
+  @AfterEach
   public void terminate() throws Exception {
     allocator.close();
   }

@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc;
 
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowUtils.isColumnNullable;
@@ -23,7 +22,6 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.Iterator;
-
 import org.apache.arrow.adapter.jdbc.consumer.CompositeJdbcConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.JdbcConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.exceptions.JdbcConsumerException;
@@ -35,9 +33,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.ValueVectorUtility;
 
-/**
- * VectorSchemaRoot iterator for partially converting JDBC data.
- */
+/** VectorSchemaRoot iterator for partially converting JDBC data. */
 public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoCloseable {
 
   private final ResultSet resultSet;
@@ -54,13 +50,12 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
 
   private final int targetBatchSize;
 
-  // This is used to track whether the ResultSet has been fully read, and is needed specifically for cases where there
+  // This is used to track whether the ResultSet has been fully read, and is needed specifically for
+  // cases where there
   // is a ResultSet having zero rows (empty):
   private boolean readComplete = false;
 
-  /**
-   * Construct an instance.
-   */
+  /** Construct an instance. */
   private ArrowVectorIterator(ResultSet resultSet, JdbcToArrowConfig config) throws SQLException {
     this.resultSet = resultSet;
     this.config = config;
@@ -73,12 +68,8 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
     this.nextBatch = config.isReuseVectorSchemaRoot() ? createVectorSchemaRoot() : null;
   }
 
-  /**
-   * Create a ArrowVectorIterator to partially convert data.
-   */
-  public static ArrowVectorIterator create(
-      ResultSet resultSet,
-      JdbcToArrowConfig config)
+  /** Create a ArrowVectorIterator to partially convert data. */
+  public static ArrowVectorIterator create(ResultSet resultSet, JdbcToArrowConfig config)
       throws SQLException {
     ArrowVectorIterator iterator = null;
     try {
@@ -142,10 +133,18 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
 
   private void initialize(VectorSchemaRoot root) throws SQLException {
     for (int i = 1; i <= consumers.length; i++) {
-      final JdbcFieldInfo columnFieldInfo = JdbcToArrowUtils.getJdbcFieldInfoForColumn(rsmd, i, config);
+      final JdbcFieldInfo columnFieldInfo =
+          JdbcToArrowUtils.getJdbcFieldInfoForColumn(rsmd, i, config);
       ArrowType arrowType = config.getJdbcToArrowTypeConverter().apply(columnFieldInfo);
-      consumers[i - 1] = config.getJdbcConsumerGetter().apply(
-          arrowType, i, isColumnNullable(resultSet.getMetaData(), i, columnFieldInfo), root.getVector(i - 1), config);
+      consumers[i - 1] =
+          config
+              .getJdbcConsumerGetter()
+              .apply(
+                  arrowType,
+                  i,
+                  isColumnNullable(resultSet.getMetaData(), i, columnFieldInfo),
+                  root.getVector(i - 1),
+                  config);
     }
   }
 
@@ -170,16 +169,17 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
   }
 
   /**
-   * Gets the next vector.
-   * If {@link JdbcToArrowConfig#isReuseVectorSchemaRoot()} is false,
-   * the client is responsible for freeing its resources.
+   * Gets the next vector. If {@link JdbcToArrowConfig#isReuseVectorSchemaRoot()} is false, the
+   * client is responsible for freeing its resources.
+   *
    * @throws JdbcConsumerException on error from VectorConsumer
    */
   @Override
   public VectorSchemaRoot next() {
     Preconditions.checkArgument(hasNext());
     try {
-      VectorSchemaRoot ret = config.isReuseVectorSchemaRoot() ? nextBatch : createVectorSchemaRoot();
+      VectorSchemaRoot ret =
+          config.isReuseVectorSchemaRoot() ? nextBatch : createVectorSchemaRoot();
       load(ret);
       return ret;
     } catch (Exception e) {
@@ -193,8 +193,9 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
   }
 
   /**
-   * Clean up resources ONLY WHEN THE {@link VectorSchemaRoot} HOLDING EACH BATCH IS REUSED. If a new VectorSchemaRoot
-   * is created for each batch, each root must be closed manually by the client code.
+   * Clean up resources ONLY WHEN THE {@link VectorSchemaRoot} HOLDING EACH BATCH IS REUSED. If a
+   * new VectorSchemaRoot is created for each batch, each root must be closed manually by the client
+   * code.
    */
   @Override
   public void close() {

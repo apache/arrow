@@ -352,59 +352,9 @@ class build_ext(_build_ext):
                 for name in self.get_names()]
 
 
-# If the event of not running from a git clone (e.g. from a git archive
-# or a Python sdist), see if we can set the version number ourselves
-default_version = '17.0.0-SNAPSHOT'
-if (not os.path.exists('../.git') and
-        not os.environ.get('SETUPTOOLS_SCM_PRETEND_VERSION')):
-    os.environ['SETUPTOOLS_SCM_PRETEND_VERSION'] = \
-        default_version.replace('-SNAPSHOT', 'a0')
-
-
-# See https://github.com/pypa/setuptools_scm#configuration-parameters
-scm_version_write_to_prefix = os.environ.get(
-    'SETUPTOOLS_SCM_VERSION_WRITE_TO_PREFIX', setup_dir)
-
-
-def parse_git(root, **kwargs):
-    """
-    Parse function for setuptools_scm that ignores tags for non-C++
-    subprojects, e.g. apache-arrow-js-XXX tags.
-    """
-    from setuptools_scm.git import parse
-    kwargs['describe_command'] =\
-        'git describe --dirty --tags --long --match "apache-arrow-[0-9]*.*"'
-    return parse(root, **kwargs)
-
-
-def guess_next_dev_version(version):
-    if version.exact:
-        return version.format_with('{tag}')
-    else:
-        def guess_next_version(tag_version):
-            return default_version.replace('-SNAPSHOT', '')
-        return version.format_next_version(guess_next_version)
-
-
-with open('README.md') as f:
-    long_description = f.read()
-
-
 class BinaryDistribution(Distribution):
     def has_ext_modules(foo):
         return True
-
-
-install_requires = (
-    'numpy >= 1.16.6',
-)
-
-
-# Only include pytest-runner in setup_requires if we're invoking tests
-if {'pytest', 'test', 'ptr'}.intersection(sys.argv):
-    setup_requires = ['pytest-runner']
-else:
-    setup_requires = []
 
 
 if strtobool(os.environ.get('PYARROW_INSTALL_TESTS', '1')):
@@ -420,47 +370,12 @@ else:
 
 
 setup(
-    name='pyarrow',
     packages=packages,
-    zip_safe=False,
-    package_data={'pyarrow': ['*.pxd', '*.pyx', 'includes/*.pxd']},
-    include_package_data=True,
     exclude_package_data=exclude_package_data,
     distclass=BinaryDistribution,
     # Dummy extension to trigger build_ext
     ext_modules=[Extension('__dummy__', sources=[])],
     cmdclass={
         'build_ext': build_ext
-    },
-    use_scm_version={
-        'root': os.path.dirname(setup_dir),
-        'parse': parse_git,
-        'write_to': os.path.join(scm_version_write_to_prefix,
-                                 'pyarrow/_generated_version.py'),
-        'version_scheme': guess_next_dev_version
-    },
-    setup_requires=['setuptools_scm', 'cython >= 0.29.31'] + setup_requires,
-    install_requires=install_requires,
-    tests_require=['pytest', 'pandas', 'hypothesis'],
-    python_requires='>=3.8',
-    description='Python library for Apache Arrow',
-    long_description=long_description,
-    long_description_content_type='text/markdown',
-    classifiers=[
-        'License :: OSI Approved :: Apache Software License',
-        'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3.9',
-        'Programming Language :: Python :: 3.10',
-        'Programming Language :: Python :: 3.11',
-        'Programming Language :: Python :: 3.12',
-    ],
-    license='Apache License, Version 2.0',
-    maintainer='Apache Arrow Developers',
-    maintainer_email='dev@arrow.apache.org',
-    test_suite='pyarrow.tests',
-    url='https://arrow.apache.org/',
-    project_urls={
-        'Documentation': 'https://arrow.apache.org/docs/python',
-        'Source': 'https://github.com/apache/arrow',
     },
 )
