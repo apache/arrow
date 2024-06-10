@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.tools;
 
 import static java.util.Arrays.asList;
@@ -23,6 +22,7 @@ import static org.apache.arrow.vector.types.Types.MinorType.VARCHAR;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.UnknownHostException;
@@ -30,7 +30,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
@@ -59,8 +58,6 @@ import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import com.google.common.collect.ImmutableList;
-
 public class EchoServerTest {
 
   private static EchoServer server;
@@ -71,16 +68,17 @@ public class EchoServerTest {
   public static void startEchoServer() throws IOException {
     server = new EchoServer(0);
     serverPort = server.port();
-    serverThread = new Thread() {
-      @Override
-      public void run() {
-        try {
-          server.run();
-        } catch (IOException e) {
-          e.printStackTrace();
-        }
-      }
-    };
+    serverThread =
+        new Thread() {
+          @Override
+          public void run() {
+            try {
+              server.run();
+            } catch (IOException e) {
+              e.printStackTrace();
+            }
+          }
+        };
     serverThread.start();
   }
 
@@ -90,16 +88,13 @@ public class EchoServerTest {
     serverThread.join();
   }
 
-  private void testEchoServer(int serverPort,
-                              Field field,
-                              TinyIntVector vector,
-                              int batches)
+  private void testEchoServer(int serverPort, Field field, TinyIntVector vector, int batches)
       throws UnknownHostException, IOException {
     VectorSchemaRoot root = new VectorSchemaRoot(asList(field), asList((FieldVector) vector), 0);
     try (BufferAllocator alloc = new RootAllocator(Long.MAX_VALUE);
-         Socket socket = new Socket("localhost", serverPort);
-         ArrowStreamWriter writer = new ArrowStreamWriter(root, null, socket.getOutputStream());
-         ArrowStreamReader reader = new ArrowStreamReader(socket.getInputStream(), alloc)) {
+        Socket socket = new Socket("localhost", serverPort);
+        ArrowStreamWriter writer = new ArrowStreamWriter(root, null, socket.getOutputStream());
+        ArrowStreamReader reader = new ArrowStreamReader(socket.getInputStream(), alloc)) {
       writer.start();
       for (int i = 0; i < batches; i++) {
         vector.allocateNew(16);
@@ -115,8 +110,8 @@ public class EchoServerTest {
 
       assertEquals(new Schema(asList(field)), reader.getVectorSchemaRoot().getSchema());
 
-      TinyIntVector readVector = (TinyIntVector) reader.getVectorSchemaRoot()
-          .getFieldVectors().get(0);
+      TinyIntVector readVector =
+          (TinyIntVector) reader.getVectorSchemaRoot().getFieldVectors().get(0);
       for (int i = 0; i < batches; i++) {
         Assert.assertTrue(reader.loadNextBatch());
         assertEquals(16, reader.getVectorSchemaRoot().getRowCount());
@@ -136,10 +131,11 @@ public class EchoServerTest {
   public void basicTest() throws InterruptedException, IOException {
     BufferAllocator alloc = new RootAllocator(Long.MAX_VALUE);
 
-    Field field = new Field(
-        "testField",
-        new FieldType(true, new ArrowType.Int(8, true), null, null),
-        Collections.<Field>emptyList());
+    Field field =
+        new Field(
+            "testField",
+            new FieldType(true, new ArrowType.Int(8, true), null, null),
+            Collections.<Field>emptyList());
     TinyIntVector vector =
         new TinyIntVector("testField", FieldType.nullable(TINYINT.getType()), alloc);
 
@@ -157,32 +153,32 @@ public class EchoServerTest {
   public void testFlatDictionary() throws IOException {
     DictionaryEncoding writeEncoding = new DictionaryEncoding(1L, false, null);
     try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-         IntVector writeVector =
-             new IntVector(
-                 "varchar",
-                 new FieldType(true, MinorType.INT.getType(), writeEncoding, null),
-                 allocator);
-         VarCharVector writeDictionaryVector =
-             new VarCharVector(
-                 "dict",
-                 FieldType.nullable(VARCHAR.getType()),
-                 allocator)) {
+        IntVector writeVector =
+            new IntVector(
+                "varchar",
+                new FieldType(true, MinorType.INT.getType(), writeEncoding, null),
+                allocator);
+        VarCharVector writeDictionaryVector =
+            new VarCharVector("dict", FieldType.nullable(VARCHAR.getType()), allocator)) {
 
       ValueVectorDataPopulator.setVector(writeVector, 0, 1, null, 2, 1, 2);
-      ValueVectorDataPopulator.setVector(writeDictionaryVector, "foo".getBytes(StandardCharsets.UTF_8),
-          "bar".getBytes(StandardCharsets.UTF_8), "baz".getBytes(StandardCharsets.UTF_8));
+      ValueVectorDataPopulator.setVector(
+          writeDictionaryVector,
+          "foo".getBytes(StandardCharsets.UTF_8),
+          "bar".getBytes(StandardCharsets.UTF_8),
+          "baz".getBytes(StandardCharsets.UTF_8));
 
       List<Field> fields = ImmutableList.of(writeVector.getField());
       List<FieldVector> vectors = ImmutableList.of((FieldVector) writeVector);
       VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors, 6);
 
-      DictionaryProvider writeProvider = new MapDictionaryProvider(
-          new Dictionary(writeDictionaryVector, writeEncoding));
+      DictionaryProvider writeProvider =
+          new MapDictionaryProvider(new Dictionary(writeDictionaryVector, writeEncoding));
 
       try (Socket socket = new Socket("localhost", serverPort);
-           ArrowStreamWriter writer = new ArrowStreamWriter(root, writeProvider, socket
-               .getOutputStream());
-           ArrowStreamReader reader = new ArrowStreamReader(socket.getInputStream(), allocator)) {
+          ArrowStreamWriter writer =
+              new ArrowStreamWriter(root, writeProvider, socket.getOutputStream());
+          ArrowStreamReader reader = new ArrowStreamReader(socket.getInputStream(), allocator)) {
         writer.start();
         writer.writeBatch();
         writer.end();
@@ -221,9 +217,9 @@ public class EchoServerTest {
   public void testNestedDictionary() throws IOException {
     DictionaryEncoding writeEncoding = new DictionaryEncoding(2L, false, null);
     try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-         VarCharVector writeDictionaryVector =
-             new VarCharVector("dictionary", FieldType.nullable(VARCHAR.getType()), allocator);
-         ListVector writeVector = ListVector.empty("list", allocator)) {
+        VarCharVector writeDictionaryVector =
+            new VarCharVector("dictionary", FieldType.nullable(VARCHAR.getType()), allocator);
+        ListVector writeVector = ListVector.empty("list", allocator)) {
 
       // data being written:
       // [['foo', 'bar'], ['foo'], ['bar']] -> [[0, 1], [0], [1]]
@@ -252,13 +248,13 @@ public class EchoServerTest {
       List<FieldVector> vectors = ImmutableList.of((FieldVector) writeVector);
       VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors, 3);
 
-      DictionaryProvider writeProvider = new MapDictionaryProvider(
-          new Dictionary(writeDictionaryVector, writeEncoding));
+      DictionaryProvider writeProvider =
+          new MapDictionaryProvider(new Dictionary(writeDictionaryVector, writeEncoding));
 
       try (Socket socket = new Socket("localhost", serverPort);
-           ArrowStreamWriter writer = new ArrowStreamWriter(root, writeProvider, socket
-               .getOutputStream());
-           ArrowStreamReader reader = new ArrowStreamReader(socket.getInputStream(), allocator)) {
+          ArrowStreamWriter writer =
+              new ArrowStreamWriter(root, writeProvider, socket.getOutputStream());
+          ArrowStreamReader reader = new ArrowStreamReader(socket.getInputStream(), allocator)) {
         writer.start();
         writer.writeBatch();
         writer.end();
@@ -271,8 +267,8 @@ public class EchoServerTest {
         Assert.assertNotNull(readVector);
 
         Assert.assertNull(readVector.getField().getDictionary());
-        DictionaryEncoding readEncoding = readVector.getField().getChildren().get(0)
-            .getDictionary();
+        DictionaryEncoding readEncoding =
+            readVector.getField().getChildren().get(0).getDictionary();
         Assert.assertNotNull(readEncoding);
         Assert.assertEquals(2L, readEncoding.getId());
 
