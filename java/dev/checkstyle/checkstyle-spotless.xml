@@ -60,6 +60,7 @@
       <property name="eachLine" value="true"/>
     </module>
 
+    <!-- Commenting to avoid conflict with spotless plugin -->
     <!--
     <module name="LineLength">
         <property name="max" value="120"/>
