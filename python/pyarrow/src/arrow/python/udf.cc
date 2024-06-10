@@ -28,10 +28,8 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
-#if PY_VERSION_HEX >= 0x030D00A4
-#define __Py_IsFinalizing Py_IsFinalizing
-#else
-#define __Py_IsFinalizing _Py_IsFinalizing
+#if PY_VERSION_HEX < 0x030D00A4
+#define Py_IsFinalizing() _Py_IsFinalizing()
 #endif
 namespace arrow {
 using compute::ExecSpan;
@@ -52,7 +50,7 @@ struct PythonUdfKernelState : public compute::KernelState {
   // function needs to be destroyed at process exit
   // and Python may no longer be initialized.
   ~PythonUdfKernelState() {
-    if (__Py_IsFinalizing()) {
+    if (Py_IsFinalizing()) {
       function->detach();
     }
   }
@@ -69,7 +67,7 @@ struct PythonUdfKernelInit {
   // function needs to be destroyed at process exit
   // and Python may no longer be initialized.
   ~PythonUdfKernelInit() {
-    if (__Py_IsFinalizing()) {
+    if (Py_IsFinalizing()) {
       function->detach();
     }
   }
@@ -137,7 +135,7 @@ struct PythonTableUdfKernelInit {
   // function needs to be destroyed at process exit
   // and Python may no longer be initialized.
   ~PythonTableUdfKernelInit() {
-    if (__Py_IsFinalizing()) {
+    if (Py_IsFinalizing()) {
       function_maker->detach();
     }
   }
@@ -178,7 +176,7 @@ struct PythonUdfScalarAggregatorImpl : public ScalarUdfAggregator {
   };
 
   ~PythonUdfScalarAggregatorImpl() override {
-    if (__Py_IsFinalizing()) {
+    if (Py_IsFinalizing()) {
       function->detach();
     }
   }
@@ -275,7 +273,7 @@ struct PythonUdfHashAggregatorImpl : public HashUdfAggregator {
   };
 
   ~PythonUdfHashAggregatorImpl() override {
-    if (__Py_IsFinalizing()) {
+    if (Py_IsFinalizing()) {
       function->detach();
     }
   }
