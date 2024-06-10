@@ -176,6 +176,24 @@ pushd ${source_dir}/python
 python setup.py bdist_wheel
 popd
 
+echo "=== Strip symbols from wheel ==="
+mkdir ${source_dir}/python/dist/temp-fix-wheel
+mv ${source_dir}/python/dist/pyarrow-*.whl ${source_dir}/python/dist/temp-fix-wheel
+
+pushd ${source_dir}/python/dist/temp-fix-wheel
+wheel_name=$(ls pyarrow-*.whl)
+# Unzip and remove old wheel
+unzip $wheel_name
+rm $wheel_name
+for filename in $(ls pyarrow/*.so pyarrow/*.so.*); do
+    echo "Stripping debug symbols from: $filename";
+    strip --strip-debug $filename
+done
+# Zip wheel again after stripping symbols
+zip -r $wheel_name .
+mv $wheel_name ..
+popd
+
 echo "=== (${PYTHON_VERSION}) Show dynamic libraries the wheel depend on ==="
 deps=$(delocate-listdeps ${source_dir}/python/dist/*.whl)
 
