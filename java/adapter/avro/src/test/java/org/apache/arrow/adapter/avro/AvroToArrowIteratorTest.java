@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.avro;
 
 import static org.junit.Assert.assertEquals;
@@ -28,7 +27,6 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -59,11 +57,11 @@ public class AvroToArrowIteratorTest extends AvroTestBase {
   private AvroToArrowVectorIterator convert(Schema schema, List data) throws Exception {
     File dataFile = TMP.newFile();
 
-    BinaryEncoder
-        encoder = new EncoderFactory().directBinaryEncoder(new FileOutputStream(dataFile), null);
+    BinaryEncoder encoder =
+        new EncoderFactory().directBinaryEncoder(new FileOutputStream(dataFile), null);
     DatumWriter writer = new GenericDatumWriter(schema);
-    BinaryDecoder
-        decoder = new DecoderFactory().directBinaryDecoder(new FileInputStream(dataFile), null);
+    BinaryDecoder decoder =
+        new DecoderFactory().directBinaryDecoder(new FileInputStream(dataFile), null);
 
     for (Object value : data) {
       writer.write(value, encoder);
@@ -107,7 +105,7 @@ public class AvroToArrowIteratorTest extends AvroTestBase {
 
     List<VectorSchemaRoot> roots = new ArrayList<>();
     List<FieldVector> vectors = new ArrayList<>();
-    try (AvroToArrowVectorIterator iterator = convert(schema, data);) {
+    try (AvroToArrowVectorIterator iterator = convert(schema, data); ) {
       while (iterator.hasNext()) {
         VectorSchemaRoot root = iterator.next();
         FieldVector vector = root.getFieldVectors().get(0);
@@ -117,7 +115,6 @@ public class AvroToArrowIteratorTest extends AvroTestBase {
     }
     checkPrimitiveResult(expected, vectors);
     AutoCloseables.close(roots);
-
   }
 
   @Test
@@ -140,18 +137,18 @@ public class AvroToArrowIteratorTest extends AvroTestBase {
     }
     checkRecordResult(schema, data, roots);
     AutoCloseables.close(roots);
-
   }
 
   @Test
   public void testArrayType() throws Exception {
     Schema schema = getSchema("test_array.avsc");
-    List<List<?>> data = Arrays.asList(
-        Arrays.asList("11", "222", "999"),
-        Arrays.asList("12222", "2333", "1000"),
-        Arrays.asList("1rrr", "2ggg"),
-        Arrays.asList("1vvv", "2bbb"),
-        Arrays.asList("1fff", "2"));
+    List<List<?>> data =
+        Arrays.asList(
+            Arrays.asList("11", "222", "999"),
+            Arrays.asList("12222", "2333", "1000"),
+            Arrays.asList("1rrr", "2ggg"),
+            Arrays.asList("1vvv", "2bbb"),
+            Arrays.asList("1fff", "2"));
 
     List<VectorSchemaRoot> roots = new ArrayList<>();
     List<ListVector> vectors = new ArrayList<>();
@@ -172,8 +169,9 @@ public class AvroToArrowIteratorTest extends AvroTestBase {
     int x = 0;
     final int targetRows = 600000;
     Decoder fakeDecoder = new FakeDecoder(targetRows);
-    try (AvroToArrowVectorIterator iter = AvroToArrow.avroToArrowIterator(schema, fakeDecoder,
-            new AvroToArrowConfigBuilder(config.getAllocator()).build())) {
+    try (AvroToArrowVectorIterator iter =
+        AvroToArrow.avroToArrowIterator(
+            schema, fakeDecoder, new AvroToArrowConfigBuilder(config.getAllocator()).build())) {
       while (iter.hasNext()) {
         VectorSchemaRoot root = iter.next();
         x += root.getRowCount();
@@ -184,9 +182,7 @@ public class AvroToArrowIteratorTest extends AvroTestBase {
     assertEquals(targetRows, x);
   }
 
-  /**
-   * Fake avro decoder to test large data.
-   */
+  /** Fake avro decoder to test large data. */
   private static class FakeDecoder extends Decoder {
 
     private int numRows;
@@ -204,8 +200,7 @@ public class AvroToArrowIteratorTest extends AvroTestBase {
     }
 
     @Override
-    public void readNull() throws IOException {
-    }
+    public void readNull() throws IOException {}
 
     @Override
     public boolean readBoolean() throws IOException {
@@ -243,9 +238,7 @@ public class AvroToArrowIteratorTest extends AvroTestBase {
     }
 
     @Override
-    public void skipString() throws IOException {
-
-    }
+    public void skipString() throws IOException {}
 
     @Override
     public ByteBuffer readBytes(ByteBuffer old) throws IOException {
@@ -253,9 +246,7 @@ public class AvroToArrowIteratorTest extends AvroTestBase {
     }
 
     @Override
-    public void skipBytes() throws IOException {
-
-    }
+    public void skipBytes() throws IOException {}
 
     @Override
     public void readFixed(byte[] bytes, int start, int length) throws IOException {
@@ -264,9 +255,7 @@ public class AvroToArrowIteratorTest extends AvroTestBase {
     }
 
     @Override
-    public void skipFixed(int length) throws IOException {
-
-    }
+    public void skipFixed(int length) throws IOException {}
 
     @Override
     public int readEnum() throws IOException {

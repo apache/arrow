@@ -14,27 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.avro.consumers;
 
 import java.io.IOException;
-
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer which consume nested record type values from avro decoder.
- * Write the data to {@link org.apache.arrow.vector.complex.StructVector}.
+ * Consumer which consume nested record type values from avro decoder. Write the data to {@link
+ * org.apache.arrow.vector.complex.StructVector}.
  */
 public class AvroStructConsumer extends BaseAvroConsumer<StructVector> {
 
   private final Consumer[] delegates;
 
-  /**
-   * Instantiate a AvroStructConsumer.
-   */
+  /** Instantiate a AvroStructConsumer. */
   public AvroStructConsumer(StructVector vector, Consumer[] delegates) {
     super(vector);
     this.delegates = delegates;
@@ -49,7 +45,6 @@ public class AvroStructConsumer extends BaseAvroConsumer<StructVector> {
     }
     vector.setIndexDefined(currentIndex);
     currentIndex++;
-
   }
 
   @Override

@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.avro;
 
 import static org.junit.Assert.assertEquals;
@@ -22,7 +21,6 @@ import static org.junit.Assert.assertEquals;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.file.DataFileWriter;
@@ -36,11 +34,9 @@ import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
-
 public class TestWriteReadAvroRecord {
 
-  @ClassRule
-  public static final TemporaryFolder TMP = new TemporaryFolder();
+  @ClassRule public static final TemporaryFolder TMP = new TemporaryFolder();
 
   @Test
   public void testWriteAndRead() throws Exception {
@@ -48,7 +44,7 @@ public class TestWriteReadAvroRecord {
     File dataFile = TMP.newFile();
     Schema schema = AvroTestBase.getSchema("test.avsc");
 
-    //write data to disk
+    // write data to disk
     GenericRecord user1 = new GenericData.Record(schema);
     user1.put("name", "Alyssa");
     user1.put("favorite_number", 256);
@@ -65,10 +61,10 @@ public class TestWriteReadAvroRecord {
     dataFileWriter.append(user2);
     dataFileWriter.close();
 
-    //read data from disk
+    // read data from disk
     DatumReader<GenericRecord> datumReader = new GenericDatumReader<GenericRecord>(schema);
-    DataFileReader<GenericRecord>
-        dataFileReader = new DataFileReader<GenericRecord>(dataFile, datumReader);
+    DataFileReader<GenericRecord> dataFileReader =
+        new DataFileReader<GenericRecord>(dataFile, datumReader);
     List<GenericRecord> result = new ArrayList<>();
     while (dataFileReader.hasNext()) {
       GenericRecord user = dataFileReader.next();
@@ -86,5 +82,4 @@ public class TestWriteReadAvroRecord {
     assertEquals(7, deUser2.get("favorite_number"));
     assertEquals("red", deUser2.get("favorite_color").toString());
   }
-
 }
