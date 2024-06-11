@@ -14,21 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.netty.buffer;
 
+import io.netty.util.internal.PlatformDependent;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteOrder;
 import java.util.concurrent.atomic.AtomicLong;
 
-import io.netty.util.internal.PlatformDependent;
-
 /**
- * The underlying class we use for little-endian access to memory. Is used underneath ArrowBufs
- * to abstract away the
- * Netty classes and underlying Netty memory management.
+ * The underlying class we use for little-endian access to memory. Is used underneath ArrowBufs to
+ * abstract away the Netty classes and underlying Netty memory management.
  */
 public class UnsafeDirectLittleEndian extends WrappedByteBuf {
   private static final AtomicLong ID_GENERATOR = new AtomicLong(0);

@@ -14,39 +14,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory.util;
 
 import java.nio.ByteOrder;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BoundsChecking;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.memory.util.hash.SimpleHasher;
 
-/**
- * Utility methods for memory comparison at a byte level.
- */
+/** Utility methods for memory comparison at a byte level. */
 public class ByteFunctionHelpers {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ByteFunctionHelpers.class);
+  static final org.slf4j.Logger logger =
+      org.slf4j.LoggerFactory.getLogger(ByteFunctionHelpers.class);
 
   private static final boolean LITTLE_ENDIAN = ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN;
 
-  private ByteFunctionHelpers() {
-  }
+  private ByteFunctionHelpers() {}
 
   /**
    * Helper function to check for equality of bytes in two ArrowBufs.
    *
-   * @param left   Left ArrowBuf for comparison
+   * @param left Left ArrowBuf for comparison
    * @param lStart start offset in the buffer
-   * @param lEnd   end offset in the buffer
-   * @param right  Right ArrowBuf for comparison
+   * @param lEnd end offset in the buffer
+   * @param right Right ArrowBuf for comparison
    * @param rStart start offset in the buffer
-   * @param rEnd   end offset in the buffer
+   * @param rEnd end offset in the buffer
    * @return 1 if equals, 0 otherwise
    */
-  public static int equal(final ArrowBuf left, long lStart, long lEnd, final ArrowBuf right, long rStart, long rEnd) {
+  public static int equal(
+      final ArrowBuf left, long lStart, long lEnd, final ArrowBuf right, long rStart, long rEnd) {
     if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
       left.checkBytes(lStart, lEnd);
       right.checkBytes(rStart, rEnd);
@@ -54,8 +51,8 @@ public class ByteFunctionHelpers {
     return memEqual(left.memoryAddress(), lStart, lEnd, right.memoryAddress(), rStart, rEnd);
   }
 
-  private static int memEqual(final long laddr, long lStart, long lEnd, final long raddr, long rStart,
-                                    final long rEnd) {
+  private static int memEqual(
+      final long laddr, long lStart, long lEnd, final long raddr, long rStart, final long rEnd) {
 
     long n = lEnd - lStart;
     if (n == rEnd - rStart) {
@@ -117,21 +114,16 @@ public class ByteFunctionHelpers {
    *
    * <p>Function will check data before completing in the case that
    *
-   * @param left   Left ArrowBuf to compare
+   * @param left Left ArrowBuf to compare
    * @param lStart start offset in the buffer
-   * @param lEnd   end offset in the buffer
-   * @param right  Right ArrowBuf to compare
+   * @param lEnd end offset in the buffer
+   * @param right Right ArrowBuf to compare
    * @param rStart start offset in the buffer
-   * @param rEnd   end offset in the buffer
+   * @param rEnd end offset in the buffer
    * @return 1 if left input is greater, -1 if left input is smaller, 0 otherwise
    */
   public static int compare(
-      final ArrowBuf left,
-      long lStart,
-      long lEnd,
-      final ArrowBuf right,
-      long rStart,
-      long rEnd) {
+      final ArrowBuf left, long lStart, long lEnd, final ArrowBuf right, long rStart, long rEnd) {
     if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
       left.checkBytes(lStart, lEnd);
       right.checkBytes(rStart, rEnd);
@@ -140,12 +132,7 @@ public class ByteFunctionHelpers {
   }
 
   private static int memcmp(
-      final long laddr,
-      long lStart,
-      long lEnd,
-      final long raddr,
-      long rStart,
-      final long rEnd) {
+      final long laddr, long lStart, long lEnd, final long raddr, long rStart, final long rEnd) {
     long lLen = lEnd - lStart;
     long rLen = rEnd - rStart;
     long n = Math.min(rLen, lLen);
@@ -214,37 +201,30 @@ public class ByteFunctionHelpers {
     }
 
     return lLen > rLen ? 1 : -1;
-
   }
 
   /**
    * Helper function to compare a set of bytes in ArrowBuf to a ByteArray.
    *
-   * @param left   Left ArrowBuf for comparison purposes
+   * @param left Left ArrowBuf for comparison purposes
    * @param lStart start offset in the buffer
-   * @param lEnd   end offset in the buffer
-   * @param right  second input to be compared
+   * @param lEnd end offset in the buffer
+   * @param right second input to be compared
    * @param rStart start offset in the byte array
-   * @param rEnd   end offset in the byte array
+   * @param rEnd end offset in the byte array
    * @return 1 if left input is greater, -1 if left input is smaller, 0 otherwise
    */
   public static int compare(
-      final ArrowBuf left,
-      int lStart,
-      int lEnd,
-      final byte[] right,
-      int rStart,
-      final int rEnd) {
+      final ArrowBuf left, int lStart, int lEnd, final byte[] right, int rStart, final int rEnd) {
     if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
       left.checkBytes(lStart, lEnd);
     }
     return memcmp(left.memoryAddress(), lStart, lEnd, right, rStart, rEnd);
   }
 
-
   /**
-   * Compares the two specified {@code long} values, treating them as unsigned values between
-   * {@code 0} and {@code 2^64 - 1} inclusive.
+   * Compares the two specified {@code long} values, treating them as unsigned values between {@code
+   * 0} and {@code 2^64 - 1} inclusive.
    *
    * @param a the first unsigned {@code long} to compare
    * @param b the second unsigned {@code long} to compare
@@ -260,12 +240,7 @@ public class ByteFunctionHelpers {
   }
 
   private static int memcmp(
-      final long laddr,
-      int lStart,
-      int lEnd,
-      final byte[] right,
-      int rStart,
-      final int rEnd) {
+      final long laddr, int lStart, int lEnd, final byte[] right, int rStart, final int rEnd) {
     int lLen = lEnd - lStart;
     int rLen = rEnd - rStart;
     int n = Math.min(rLen, lLen);
@@ -319,9 +294,7 @@ public class ByteFunctionHelpers {
     return lLen > rLen ? 1 : -1;
   }
 
-  /**
-   * Compute hashCode with the given {@link ArrowBuf} and start/end index.
-   */
+  /** Compute hashCode with the given {@link ArrowBuf} and start/end index. */
   public static int hash(final ArrowBuf buf, long start, long end) {
 
     return hash(SimpleHasher.INSTANCE, buf, start, end);
@@ -339,9 +312,7 @@ public class ByteFunctionHelpers {
     return hasher.hashCode(buf, start, end - start);
   }
 
-  /**
-   * Generate a new hashCode with the given current hashCode and new hashCode.
-   */
+  /** Generate a new hashCode with the given current hashCode and new hashCode. */
   public static int combineHash(int currentHash, int newHash) {
     return currentHash * 31 + newHash;
   }
