@@ -30,4 +30,4 @@ int arrow_init_numpy() {
 }
 
 bool has_numpy() { return numpy_imported; }
-} // namespace arrow::py
+}  // namespace arrow::py
