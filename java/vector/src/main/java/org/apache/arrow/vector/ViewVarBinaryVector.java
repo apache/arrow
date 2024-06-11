@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
@@ -31,8 +30,8 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
- * ViewVarBinaryVector implements a variable width view vector of binary values which could be NULL. A
- * validity buffer (bit vector) is maintained to track which elements in the vector are null.
+ * ViewVarBinaryVector implements a variable width view vector of binary values which could be NULL.
+ * A validity buffer (bit vector) is maintained to track which elements in the vector are null.
  */
 public final class ViewVarBinaryVector extends BaseVariableWidthViewVector {
 
@@ -179,8 +178,8 @@ public final class ViewVarBinaryVector extends BaseVariableWidthViewVector {
   }
 
   /**
-   * Same as {@link #set(int, NullableViewVarBinaryHolder)} except that it handles the case where index
-   * and length of a new element are beyond the existing capacity of the vector.
+   * Same as {@link #set(int, NullableViewVarBinaryHolder)} except that it handles the case where
+   * index and length of a new element are beyond the existing capacity of the vector.
    *
    * @param index position of the element to set
    * @param holder holder that carries data buffer.

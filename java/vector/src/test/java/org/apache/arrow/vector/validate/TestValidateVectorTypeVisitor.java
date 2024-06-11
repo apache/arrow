@@ -14,13 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.validate;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.function.Supplier;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
@@ -74,9 +72,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/**
- * Test cases for {@link ValidateVectorTypeVisitor}.
- */
+/** Test cases for {@link ValidateVectorTypeVisitor}. */
 public class TestValidateVectorTypeVisitor {
 
   private BufferAllocator allocator;
@@ -94,16 +90,18 @@ public class TestValidateVectorTypeVisitor {
   }
 
   private void testPositiveCase(Supplier<ValueVector> vectorGenerator) {
-    try (ValueVector vector = vectorGenerator.get();) {
+    try (ValueVector vector = vectorGenerator.get(); ) {
       vector.accept(visitor, null);
     }
   }
 
   private void testNegativeCase(Supplier<ValueVector> vectorGenerator) {
     try (ValueVector vector = vectorGenerator.get()) {
-      assertThrows(ValidateUtil.ValidateException.class, () -> {
-        vector.accept(visitor, null);
-      });
+      assertThrows(
+          ValidateUtil.ValidateException.class,
+          () -> {
+            vector.accept(visitor, null);
+          });
     }
   }
 
@@ -126,8 +124,10 @@ public class TestValidateVectorTypeVisitor {
     testPositiveCase(() -> new DateDayVector("vector", allocator));
     testPositiveCase(() -> new DateMilliVector("vector", allocator));
 
-    testPositiveCase(() -> new DurationVector(
-        "vector", FieldType.nullable(new ArrowType.Duration(TimeUnit.SECOND)), allocator));
+    testPositiveCase(
+        () ->
+            new DurationVector(
+                "vector", FieldType.nullable(new ArrowType.Duration(TimeUnit.SECOND)), allocator));
 
     // float vectors
     testPositiveCase(() -> new Float4Vector("vector", allocator));
@@ -160,96 +160,173 @@ public class TestValidateVectorTypeVisitor {
   public void testFixedWidthVectorsNegative() {
     // integer vectors
     testNegativeCase(
-        () -> new TinyIntVector("vector", FieldType.nullable(Types.MinorType.INT.getType()), allocator));
+        () ->
+            new TinyIntVector(
+                "vector", FieldType.nullable(Types.MinorType.INT.getType()), allocator));
     testNegativeCase(
-        () -> new SmallIntVector("vector", FieldType.nullable(Types.MinorType.INT.getType()), allocator));
+        () ->
+            new SmallIntVector(
+                "vector", FieldType.nullable(Types.MinorType.INT.getType()), allocator));
     testNegativeCase(
-        () -> new BigIntVector("vector", FieldType.nullable(Types.MinorType.SMALLINT.getType()), allocator));
+        () ->
+            new BigIntVector(
+                "vector", FieldType.nullable(Types.MinorType.SMALLINT.getType()), allocator));
     testNegativeCase(
-        () -> new BigIntVector("vector", FieldType.nullable(Types.MinorType.SMALLINT.getType()), allocator));
+        () ->
+            new BigIntVector(
+                "vector", FieldType.nullable(Types.MinorType.SMALLINT.getType()), allocator));
     testNegativeCase(
-        () -> new UInt1Vector("vector", FieldType.nullable(Types.MinorType.SMALLINT.getType()), allocator));
+        () ->
+            new UInt1Vector(
+                "vector", FieldType.nullable(Types.MinorType.SMALLINT.getType()), allocator));
     testNegativeCase(
-        () -> new UInt2Vector("vector", FieldType.nullable(Types.MinorType.SMALLINT.getType()), allocator));
+        () ->
+            new UInt2Vector(
+                "vector", FieldType.nullable(Types.MinorType.SMALLINT.getType()), allocator));
     testNegativeCase(
-        () -> new UInt4Vector("vector", FieldType.nullable(Types.MinorType.SMALLINT.getType()), allocator));
+        () ->
+            new UInt4Vector(
+                "vector", FieldType.nullable(Types.MinorType.SMALLINT.getType()), allocator));
     testNegativeCase(
-        () -> new UInt8Vector("vector", FieldType.nullable(Types.MinorType.SMALLINT.getType()), allocator));
+        () ->
+            new UInt8Vector(
+                "vector", FieldType.nullable(Types.MinorType.SMALLINT.getType()), allocator));
 
     testNegativeCase(
-        () -> new BitVector("vector", FieldType.nullable(Types.MinorType.BIGINT.getType()), allocator));
-    testNegativeCase(
-        () -> new DecimalVector("vector", allocator, 30, -16));
+        () ->
+            new BitVector(
+                "vector", FieldType.nullable(Types.MinorType.BIGINT.getType()), allocator));
+    testNegativeCase(() -> new DecimalVector("vector", allocator, 30, -16));
 
     // date vectors
     testNegativeCase(
-        () -> new DateDayVector("vector", FieldType.nullable(Types.MinorType.FLOAT4.getType()), allocator));
+        () ->
+            new DateDayVector(
+                "vector", FieldType.nullable(Types.MinorType.FLOAT4.getType()), allocator));
     testNegativeCase(
-        () -> new DateMilliVector("vector", FieldType.nullable(Types.MinorType.BIGINT.getType()), allocator));
+        () ->
+            new DateMilliVector(
+                "vector", FieldType.nullable(Types.MinorType.BIGINT.getType()), allocator));
 
     // float pont vectors
     testNegativeCase(
-        () -> new Float4Vector("vector", FieldType.nullable(Types.MinorType.BIGINT.getType()), allocator));
+        () ->
+            new Float4Vector(
+                "vector", FieldType.nullable(Types.MinorType.BIGINT.getType()), allocator));
     testNegativeCase(
-        () -> new Float8Vector("vector", FieldType.nullable(Types.MinorType.BIGINT.getType()), allocator));
+        () ->
+            new Float8Vector(
+                "vector", FieldType.nullable(Types.MinorType.BIGINT.getType()), allocator));
 
     // interval vectors
     testNegativeCase(
-        () -> new IntervalDayVector("vector", FieldType.nullable(Types.MinorType.INT.getType()), allocator));
+        () ->
+            new IntervalDayVector(
+                "vector", FieldType.nullable(Types.MinorType.INT.getType()), allocator));
     testNegativeCase(
-        () -> new IntervalYearVector("vector", FieldType.nullable(Types.MinorType.BIGINT.getType()), allocator));
+        () ->
+            new IntervalYearVector(
+                "vector", FieldType.nullable(Types.MinorType.BIGINT.getType()), allocator));
 
     // time vectors
     testNegativeCase(
-        () -> new TimeMilliVector("vector", FieldType.nullable(Types.MinorType.BIGINT.getType()), allocator));
+        () ->
+            new TimeMilliVector(
+                "vector", FieldType.nullable(Types.MinorType.BIGINT.getType()), allocator));
     testNegativeCase(
-        () -> new TimeMicroVector("vector", FieldType.nullable(Types.MinorType.BIGINT.getType()), allocator));
+        () ->
+            new TimeMicroVector(
+                "vector", FieldType.nullable(Types.MinorType.BIGINT.getType()), allocator));
     testNegativeCase(
-        () -> new TimeNanoVector("vector", FieldType.nullable(Types.MinorType.BIGINT.getType()), allocator));
+        () ->
+            new TimeNanoVector(
+                "vector", FieldType.nullable(Types.MinorType.BIGINT.getType()), allocator));
     testNegativeCase(
-        () -> new TimeSecVector("vector", FieldType.nullable(Types.MinorType.BIGINT.getType()), allocator));
+        () ->
+            new TimeSecVector(
+                "vector", FieldType.nullable(Types.MinorType.BIGINT.getType()), allocator));
 
     // time stamp vectors
+    testNegativeCase(() -> new TimeStampMicroTZVector("vector", allocator, null));
     testNegativeCase(
-        () -> new TimeStampMicroTZVector("vector", allocator, null));
+        () ->
+            new TimeStampMicroVector(
+                "vector", FieldType.nullable(Types.MinorType.BIGINT.getType()), allocator));
+    testNegativeCase(() -> new TimeStampMilliTZVector("vector", allocator, null));
     testNegativeCase(
-        () -> new TimeStampMicroVector("vector", FieldType.nullable(Types.MinorType.BIGINT.getType()), allocator));
+        () ->
+            new TimeStampMilliVector(
+                "vector", FieldType.nullable(Types.MinorType.BIGINT.getType()), allocator));
+    testNegativeCase(() -> new TimeStampNanoTZVector("vector", allocator, null));
     testNegativeCase(
-        () -> new TimeStampMilliTZVector("vector", allocator, null));
+        () ->
+            new TimeStampNanoVector(
+                "vector", FieldType.nullable(Types.MinorType.BIGINT.getType()), allocator));
+    testNegativeCase(() -> new TimeStampSecTZVector("vector", allocator, null));
     testNegativeCase(
-        () -> new TimeStampMilliVector("vector", FieldType.nullable(Types.MinorType.BIGINT.getType()), allocator));
-    testNegativeCase(
-        () -> new TimeStampNanoTZVector("vector", allocator, null));
-    testNegativeCase(
-        () -> new TimeStampNanoVector("vector", FieldType.nullable(Types.MinorType.BIGINT.getType()), allocator));
-    testNegativeCase(
-        () -> new TimeStampSecTZVector("vector", allocator, null));
-    testNegativeCase(
-        () -> new TimeStampSecVector("vector", FieldType.nullable(Types.MinorType.BIGINT.getType()), allocator));
+        () ->
+            new TimeStampSecVector(
+                "vector", FieldType.nullable(Types.MinorType.BIGINT.getType()), allocator));
   }
 
   @Test
   public void testDecimalVector() {
-    testPositiveCase(() ->
-            new DecimalVector("dec", FieldType.nullable(ArrowType.Decimal.createDecimal(10, 10, 128)), allocator));
-    testPositiveCase(() ->
-            new DecimalVector("dec", FieldType.nullable(ArrowType.Decimal.createDecimal(38, 10, 128)), allocator));
-    testPositiveCase(() ->
-            new Decimal256Vector("dec", FieldType.nullable(ArrowType.Decimal.createDecimal(50, 10, 256)), allocator));
-    testPositiveCase(() ->
-            new Decimal256Vector("dec", FieldType.nullable(ArrowType.Decimal.createDecimal(76, 10, 256)), allocator));
-    testNegativeCase(() ->
-            new DecimalVector("dec", FieldType.nullable(ArrowType.Decimal.createDecimal(50, 10, 128)), allocator));
-    testNegativeCase(() ->
-            new Decimal256Vector("dec", FieldType.nullable(ArrowType.Decimal.createDecimal(100, 10, 256)), allocator));
-    testNegativeCase(() ->
-            new DecimalVector("dec", FieldType.nullable(ArrowType.Decimal.createDecimal(0, 10, 128)), allocator));
-    testNegativeCase(() ->
-            new Decimal256Vector("dec", FieldType.nullable(ArrowType.Decimal.createDecimal(-1, 10, 256)), allocator));
-    testNegativeCase(() ->
-            new Decimal256Vector("dec", FieldType.nullable(ArrowType.Decimal.createDecimal(30, 10, 64)), allocator));
-    testNegativeCase(() ->
-            new Decimal256Vector("dec", FieldType.nullable(ArrowType.Decimal.createDecimal(10, 20, 256)), allocator));
+    testPositiveCase(
+        () ->
+            new DecimalVector(
+                "dec",
+                FieldType.nullable(ArrowType.Decimal.createDecimal(10, 10, 128)),
+                allocator));
+    testPositiveCase(
+        () ->
+            new DecimalVector(
+                "dec",
+                FieldType.nullable(ArrowType.Decimal.createDecimal(38, 10, 128)),
+                allocator));
+    testPositiveCase(
+        () ->
+            new Decimal256Vector(
+                "dec",
+                FieldType.nullable(ArrowType.Decimal.createDecimal(50, 10, 256)),
+                allocator));
+    testPositiveCase(
+        () ->
+            new Decimal256Vector(
+                "dec",
+                FieldType.nullable(ArrowType.Decimal.createDecimal(76, 10, 256)),
+                allocator));
+    testNegativeCase(
+        () ->
+            new DecimalVector(
+                "dec",
+                FieldType.nullable(ArrowType.Decimal.createDecimal(50, 10, 128)),
+                allocator));
+    testNegativeCase(
+        () ->
+            new Decimal256Vector(
+                "dec",
+                FieldType.nullable(ArrowType.Decimal.createDecimal(100, 10, 256)),
+                allocator));
+    testNegativeCase(
+        () ->
+            new DecimalVector(
+                "dec", FieldType.nullable(ArrowType.Decimal.createDecimal(0, 10, 128)), allocator));
+    testNegativeCase(
+        () ->
+            new Decimal256Vector(
+                "dec",
+                FieldType.nullable(ArrowType.Decimal.createDecimal(-1, 10, 256)),
+                allocator));
+    testNegativeCase(
+        () ->
+            new Decimal256Vector(
+                "dec", FieldType.nullable(ArrowType.Decimal.createDecimal(30, 10, 64)), allocator));
+    testNegativeCase(
+        () ->
+            new Decimal256Vector(
+                "dec",
+                FieldType.nullable(ArrowType.Decimal.createDecimal(10, 20, 256)),
+                allocator));
   }
 
   @Test
@@ -261,9 +338,13 @@ public class TestValidateVectorTypeVisitor {
   @Test
   public void testVariableWidthVectorsNegative() {
     testNegativeCase(
-        () -> new VarCharVector("vector", FieldType.nullable(Types.MinorType.INT.getType()), allocator));
+        () ->
+            new VarCharVector(
+                "vector", FieldType.nullable(Types.MinorType.INT.getType()), allocator));
     testNegativeCase(
-        () -> new VarBinaryVector("vector", FieldType.nullable(Types.MinorType.INT.getType()), allocator));
+        () ->
+            new VarBinaryVector(
+                "vector", FieldType.nullable(Types.MinorType.INT.getType()), allocator));
   }
 
   @Test
@@ -275,9 +356,13 @@ public class TestValidateVectorTypeVisitor {
   @Test
   public void testLargeVariableWidthVectorsNegative() {
     testNegativeCase(
-        () -> new LargeVarCharVector("vector", FieldType.nullable(Types.MinorType.INT.getType()), allocator));
+        () ->
+            new LargeVarCharVector(
+                "vector", FieldType.nullable(Types.MinorType.INT.getType()), allocator));
     testNegativeCase(
-        () -> new LargeVarBinaryVector("vector", FieldType.nullable(Types.MinorType.INT.getType()), allocator));
+        () ->
+            new LargeVarBinaryVector(
+                "vector", FieldType.nullable(Types.MinorType.INT.getType()), allocator));
   }
 
   @Test
@@ -285,7 +370,9 @@ public class TestValidateVectorTypeVisitor {
     testPositiveCase(() -> ListVector.empty("vector", allocator));
 
     testNegativeCase(
-        () -> new ListVector("vector", allocator, FieldType.nullable(Types.MinorType.INT.getType()), null));
+        () ->
+            new ListVector(
+                "vector", allocator, FieldType.nullable(Types.MinorType.INT.getType()), null));
   }
 
   @Test
@@ -293,7 +380,9 @@ public class TestValidateVectorTypeVisitor {
     testPositiveCase(() -> LargeListVector.empty("vector", allocator));
 
     testNegativeCase(
-        () -> new LargeListVector("vector", allocator, FieldType.nullable(Types.MinorType.INT.getType()), null));
+        () ->
+            new LargeListVector(
+                "vector", allocator, FieldType.nullable(Types.MinorType.INT.getType()), null));
   }
 
   @Test
@@ -306,7 +395,9 @@ public class TestValidateVectorTypeVisitor {
     testPositiveCase(() -> StructVector.empty("vector", allocator));
 
     testNegativeCase(
-        () -> new StructVector("vector", allocator, FieldType.nullable(Types.MinorType.INT.getType()), null));
+        () ->
+            new StructVector(
+                "vector", allocator, FieldType.nullable(Types.MinorType.INT.getType()), null));
   }
 
   @Test

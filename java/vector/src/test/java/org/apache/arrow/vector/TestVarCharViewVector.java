@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.TestUtils.newVector;
@@ -41,7 +40,6 @@ import java.util.function.BiConsumer;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -62,7 +60,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-
 
 public class TestVarCharViewVector {
 
@@ -133,13 +130,22 @@ public class TestVarCharViewVector {
       assertEquals(new String(view3, StandardCharsets.UTF_8), str3);
 
       assertTrue(viewVarCharVector.dataBuffers.isEmpty());
-      
-      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(0)).getBuffer(),
-          StandardCharsets.UTF_8), str1);
-      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(1)).getBuffer(),
-          StandardCharsets.UTF_8), str2);
-      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(2)).getBuffer(),
-          StandardCharsets.UTF_8), str3);
+
+      assertEquals(
+          new String(
+              Objects.requireNonNull(viewVarCharVector.getObject(0)).getBuffer(),
+              StandardCharsets.UTF_8),
+          str1);
+      assertEquals(
+          new String(
+              Objects.requireNonNull(viewVarCharVector.getObject(1)).getBuffer(),
+              StandardCharsets.UTF_8),
+          str2);
+      assertEquals(
+          new String(
+              Objects.requireNonNull(viewVarCharVector.getObject(2)).getBuffer(),
+              StandardCharsets.UTF_8),
+          str3);
     }
   }
 
@@ -176,14 +182,26 @@ public class TestVarCharViewVector {
 
       assertEquals(1, viewVarCharVector.dataBuffers.size());
 
-      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(0)).getBuffer(),
-          StandardCharsets.UTF_8), str1);
-      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(1)).getBuffer(),
-          StandardCharsets.UTF_8), str2);
-      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(2)).getBuffer(),
-          StandardCharsets.UTF_8), str3);
-      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(3)).getBuffer(),
-          StandardCharsets.UTF_8), str4);
+      assertEquals(
+          new String(
+              Objects.requireNonNull(viewVarCharVector.getObject(0)).getBuffer(),
+              StandardCharsets.UTF_8),
+          str1);
+      assertEquals(
+          new String(
+              Objects.requireNonNull(viewVarCharVector.getObject(1)).getBuffer(),
+              StandardCharsets.UTF_8),
+          str2);
+      assertEquals(
+          new String(
+              Objects.requireNonNull(viewVarCharVector.getObject(2)).getBuffer(),
+              StandardCharsets.UTF_8),
+          str3);
+      assertEquals(
+          new String(
+              Objects.requireNonNull(viewVarCharVector.getObject(3)).getBuffer(),
+              StandardCharsets.UTF_8),
+          str4);
     }
   }
 
@@ -220,14 +238,26 @@ public class TestVarCharViewVector {
 
       assertEquals(2, viewVarCharVector.dataBuffers.size());
 
-      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(0)).getBuffer(),
-          StandardCharsets.UTF_8), str1);
-      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(1)).getBuffer(),
-          StandardCharsets.UTF_8), str2);
-      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(2)).getBuffer(),
-          StandardCharsets.UTF_8), str3);
-      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(3)).getBuffer(),
-          StandardCharsets.UTF_8), str4);
+      assertEquals(
+          new String(
+              Objects.requireNonNull(viewVarCharVector.getObject(0)).getBuffer(),
+              StandardCharsets.UTF_8),
+          str1);
+      assertEquals(
+          new String(
+              Objects.requireNonNull(viewVarCharVector.getObject(1)).getBuffer(),
+              StandardCharsets.UTF_8),
+          str2);
+      assertEquals(
+          new String(
+              Objects.requireNonNull(viewVarCharVector.getObject(2)).getBuffer(),
+              StandardCharsets.UTF_8),
+          str3);
+      assertEquals(
+          new String(
+              Objects.requireNonNull(viewVarCharVector.getObject(3)).getBuffer(),
+              StandardCharsets.UTF_8),
+          str4);
     }
   }
 
@@ -273,33 +303,54 @@ public class TestVarCharViewVector {
 
       assertEquals(1, viewVarCharVector.dataBuffers.size());
 
-      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(0)).getBuffer(),
-          StandardCharsets.UTF_8), str1);
-      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(1)).getBuffer(),
-          StandardCharsets.UTF_8), str2);
-      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(2)).getBuffer(),
-          StandardCharsets.UTF_8), str3);
-      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(3)).getBuffer(),
-          StandardCharsets.UTF_8), str4);
-      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(4)).getBuffer(),
-          StandardCharsets.UTF_8), str1);
-      assertEquals(new String(Objects.requireNonNull(viewVarCharVector.getObject(5)).getBuffer(),
-          StandardCharsets.UTF_8), str6);
+      assertEquals(
+          new String(
+              Objects.requireNonNull(viewVarCharVector.getObject(0)).getBuffer(),
+              StandardCharsets.UTF_8),
+          str1);
+      assertEquals(
+          new String(
+              Objects.requireNonNull(viewVarCharVector.getObject(1)).getBuffer(),
+              StandardCharsets.UTF_8),
+          str2);
+      assertEquals(
+          new String(
+              Objects.requireNonNull(viewVarCharVector.getObject(2)).getBuffer(),
+              StandardCharsets.UTF_8),
+          str3);
+      assertEquals(
+          new String(
+              Objects.requireNonNull(viewVarCharVector.getObject(3)).getBuffer(),
+              StandardCharsets.UTF_8),
+          str4);
+      assertEquals(
+          new String(
+              Objects.requireNonNull(viewVarCharVector.getObject(4)).getBuffer(),
+              StandardCharsets.UTF_8),
+          str1);
+      assertEquals(
+          new String(
+              Objects.requireNonNull(viewVarCharVector.getObject(5)).getBuffer(),
+              StandardCharsets.UTF_8),
+          str6);
     }
   }
 
   @Test
   public void testAllocationIndexOutOfBounds() {
-    assertThrows(IndexOutOfBoundsException.class, () -> {
-      try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("myvector", allocator)) {
-        viewVarCharVector.allocateNew(32, 3);
-        final int valueCount = 3;
-        viewVarCharVector.set(0, STR1);
-        viewVarCharVector.set(1, STR2);
-        viewVarCharVector.set(2, STR2);
-        viewVarCharVector.setValueCount(valueCount);
-      }
-    });
+    assertThrows(
+        IndexOutOfBoundsException.class,
+        () -> {
+          try (final ViewVarCharVector viewVarCharVector =
+              new ViewVarCharVector("myvector", allocator)) {
+            viewVarCharVector.allocateNew(32, 3);
+            final int valueCount = 3;
+            viewVarCharVector.set(0, STR1);
+            viewVarCharVector.set(1, STR2);
+            viewVarCharVector.set(2, STR2);
+            viewVarCharVector.setValueCount(valueCount);
+          }
+        });
   }
 
   @Test
@@ -429,8 +480,9 @@ public class TestVarCharViewVector {
 
   @Test
   public void testReAllocVariableWidthViewVector() {
-    try (final ViewVarCharVector vector = newVector(ViewVarCharVector.class, EMPTY_SCHEMA_PATH,
-            Types.MinorType.VIEWVARCHAR, allocator)) {
+    try (final ViewVarCharVector vector =
+        newVector(
+            ViewVarCharVector.class, EMPTY_SCHEMA_PATH, Types.MinorType.VIEWVARCHAR, allocator)) {
       final int capacityLimit = 4095;
       final int overLimitIndex = 200;
       vector.setInitialCapacity(capacityLimit);
@@ -456,8 +508,10 @@ public class TestVarCharViewVector {
       assertArrayEquals(STR2, vector.get(initialCapacity - 1));
       assertArrayEquals(STR3, vector.get(initialCapacity + overLimitIndex));
 
-      // Set the valueCount to be more than valueCapacity of current allocation. This is possible for ValueVectors
-      // as we don't call setSafe for null values, but we do call setValueCount when the current batch is processed.
+      // Set the valueCount to be more than valueCapacity of current allocation. This is possible
+      // for ValueVectors
+      // as we don't call setSafe for null values, but we do call setValueCount when the current
+      // batch is processed.
       vector.setValueCount(vector.getValueCapacity() + overLimitIndex);
     }
   }
@@ -670,7 +724,8 @@ public class TestVarCharViewVector {
       vector.setInitialCapacity(defaultCapacity);
       vector.allocateNew();
       assertEquals(defaultCapacity, vector.getValueCapacity());
-      assertEquals(CommonUtil.nextPowerOfTwo(defaultCapacity * viewSize), vector.getDataBuffer().capacity());
+      assertEquals(
+          CommonUtil.nextPowerOfTwo(defaultCapacity * viewSize), vector.getDataBuffer().capacity());
 
       double density = 4.0;
       final int valueCount = 5;
@@ -693,8 +748,19 @@ public class TestVarCharViewVector {
 
   @Test
   public void testGetPointerVariableWidthViews() {
-    final String[] sampleData = new String[]{
-        "abc", "1234567890123", "def", null, "hello world java", "aaaaa", "world", "2019", null, "0717"};
+    final String[] sampleData =
+        new String[] {
+          "abc",
+          "1234567890123",
+          "def",
+          null,
+          "hello world java",
+          "aaaaa",
+          "world",
+          "2019",
+          null,
+          "0717"
+        };
 
     try (ViewVarCharVector vec1 = new ViewVarCharVector("vec1", allocator);
         ViewVarCharVector vec2 = new ViewVarCharVector("vec2", allocator)) {
@@ -729,8 +795,10 @@ public class TestVarCharViewVector {
 
   @Test
   public void testGetNullFromVariableWidthViewVector() {
-    try (final ViewVarCharVector varCharViewVector = new ViewVarCharVector("viewvarcharvec", allocator);
-        final ViewVarBinaryVector varBinaryViewVector = new ViewVarBinaryVector("viewvarbinary", allocator)) {
+    try (final ViewVarCharVector varCharViewVector =
+            new ViewVarCharVector("viewvarcharvec", allocator);
+        final ViewVarBinaryVector varBinaryViewVector =
+            new ViewVarBinaryVector("viewvarbinary", allocator)) {
       varCharViewVector.allocateNew(16, 1);
       varBinaryViewVector.allocateNew(16, 1);
 
@@ -757,7 +825,8 @@ public class TestVarCharViewVector {
 
   @Test
   public void testUnloadVariableWidthViewVector() {
-    try (final ViewVarCharVector viewVarCharVector = new ViewVarCharVector("view var char", allocator)) {
+    try (final ViewVarCharVector viewVarCharVector =
+        new ViewVarCharVector("view var char", allocator)) {
       viewVarCharVector.allocateNew(16, 2);
       viewVarCharVector.setValueCount(2);
       viewVarCharVector.set(0, "abcd".getBytes(StandardCharsets.UTF_8));
@@ -782,23 +851,29 @@ public class TestVarCharViewVector {
   @Test
   public void testUnSupportedOffSet() {
     // offset is not a feature required in ViewVarCharVector
-    assertThrows(UnsupportedOperationException.class, () -> {
-      try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
+    assertThrows(
+        UnsupportedOperationException.class,
+        () -> {
+          try (final ViewVarCharVector vector = new ViewVarCharVector("myviewvector", allocator)) {
 
-        setVector(vector, STR1, STR2);
-        vector.setValueCount(2);
+            setVector(vector, STR1, STR2);
+            vector.setValueCount(2);
 
-        /* check the vector output */
-        assertArrayEquals(STR1, vector.get(0));
-        assertArrayEquals(STR2, vector.get(1));
+            /* check the vector output */
+            assertArrayEquals(STR1, vector.get(0));
+            assertArrayEquals(STR2, vector.get(1));
 
-        vector.getOffsetBuffer();
-      }
-    });
+            vector.getOffsetBuffer();
+          }
+        });
   }
 
-  private void validateViewBuffer(int index, ViewVarCharVector vector, byte[] expectedData,
-      int expectedBufId, int expectedOffSet) {
+  private void validateViewBuffer(
+      int index,
+      ViewVarCharVector vector,
+      byte[] expectedData,
+      int expectedBufId,
+      int expectedOffSet) {
     final ArrowBuf viewBuffer = vector.viewBuffer;
     int writePosition = index * BaseVariableWidthViewVector.ELEMENT_SIZE;
     final int prefixBufWidth = BaseVariableWidthViewVector.PREFIX_WIDTH;
@@ -821,10 +896,12 @@ public class TestVarCharViewVector {
       int bufId = viewBuffer.getInt(writePosition + lengthBufWidth + prefixBufWidth);
       assertEquals(expectedBufId, bufId);
       // validate offset
-      int offset = viewBuffer.getInt(writePosition +
-          lengthBufWidth +
-          prefixBufWidth +
-          BaseVariableWidthViewVector.BUF_INDEX_WIDTH);
+      int offset =
+          viewBuffer.getInt(
+              writePosition
+                  + lengthBufWidth
+                  + prefixBufWidth
+                  + BaseVariableWidthViewVector.BUF_INDEX_WIDTH);
       assertEquals(expectedOffSet, offset);
     }
     // validate retrieved data
@@ -843,7 +920,7 @@ public class TestVarCharViewVector {
       assertEquals(0, vector.dataBuffers.size());
       assertArrayEquals(STR0, vector.get(0));
 
-      validateViewBuffer(0, vector, STR0, /*NA*/-1, /*NA*/-1);
+      validateViewBuffer(0, vector, STR0, /*NA*/ -1, /*NA*/ -1);
 
       // set long string
       vector.set(0, STR3);
@@ -869,9 +946,9 @@ public class TestVarCharViewVector {
       vector.set(1, STR7);
       vector.setValueCount(3);
 
-      validateViewBuffer(0, vector, STR0, /*NA*/-1, /*NA*/-1);
+      validateViewBuffer(0, vector, STR0, /*NA*/ -1, /*NA*/ -1);
       validateViewBuffer(1, vector, STR7, 0, 0);
-      validateViewBuffer(2, vector, STR6, /*NA*/-1, /*NA*/-1);
+      validateViewBuffer(2, vector, STR6, /*NA*/ -1, /*NA*/ -1);
     }
 
     // Overwriting in the middle of the buffer with a mix of short and long strings.
@@ -893,13 +970,13 @@ public class TestVarCharViewVector {
       vector.set(2, STR8);
       vector.setValueCount(5);
 
-      validateViewBuffer(0, vector, STR0, /*NA*/-1, /*NA*/-1);
+      validateViewBuffer(0, vector, STR0, /*NA*/ -1, /*NA*/ -1);
       validateViewBuffer(1, vector, STR3, 0, 0);
       // Since we did overwrite index 2 with STR8, and as we are using append-only approach,
       // it will be appended to the data buffer.
       // Thus, it will be stored in the dataBuffer in order i.e. [STR3, STR7, STR8].
       validateViewBuffer(2, vector, STR8, 0, STR3.length + STR7.length);
-      validateViewBuffer(3, vector, STR6, /*NA*/-1, /*NA*/-1);
+      validateViewBuffer(3, vector, STR6, /*NA*/ -1, /*NA*/ -1);
       validateViewBuffer(4, vector, STR7, 0, STR3.length);
     }
 
@@ -933,11 +1010,11 @@ public class TestVarCharViewVector {
       vector.set(2, longStringBytes);
       vector.setValueCount(5);
 
-      validateViewBuffer(0, vector, STR0, /*NA*/-1, /*NA*/-1);
+      validateViewBuffer(0, vector, STR0, /*NA*/ -1, /*NA*/ -1);
       validateViewBuffer(1, vector, STR3, 0, 0);
       // overwritten long string will be stored in the new data buffer.
       validateViewBuffer(2, vector, longStringBytes, 1, 0);
-      validateViewBuffer(3, vector, STR6, /*NA*/-1, /*NA*/-1);
+      validateViewBuffer(3, vector, STR6, /*NA*/ -1, /*NA*/ -1);
       validateViewBuffer(4, vector, STR7, 0, STR3.length);
     }
   }
@@ -954,7 +1031,7 @@ public class TestVarCharViewVector {
       vector.set(0, STR0);
       vector.setValueCount(1);
 
-      validateViewBuffer(0, vector, STR0, /*NA*/-1, /*NA*/-1);
+      validateViewBuffer(0, vector, STR0, /*NA*/ -1, /*NA*/ -1);
     }
 
     // Overwriting in the middle of the buffer when existing buffers are all longs.
@@ -973,7 +1050,7 @@ public class TestVarCharViewVector {
       vector.setValueCount(3);
 
       validateViewBuffer(0, vector, STR3, 0, 0);
-      validateViewBuffer(1, vector, STR6, /*NA*/-1, /*NA*/-1);
+      validateViewBuffer(1, vector, STR6, /*NA*/ -1, /*NA*/ -1);
       // since the append-only approach is used,
       // STR8 will still be in the first data buffer in dataBuffers.
       validateViewBuffer(2, vector, STR7, 0, STR3.length + STR8.length);
@@ -999,12 +1076,12 @@ public class TestVarCharViewVector {
       vector.setValueCount(5);
 
       validateViewBuffer(0, vector, STR3, 0, 0);
-      validateViewBuffer(1, vector, STR5, /*NA*/-1, /*NA*/-1);
-      validateViewBuffer(2, vector, STR0, /*NA*/-1, /*NA*/-1);
+      validateViewBuffer(1, vector, STR5, /*NA*/ -1, /*NA*/ -1);
+      validateViewBuffer(2, vector, STR0, /*NA*/ -1, /*NA*/ -1);
       // since the append-only approach is used,
       // STR7 will still be in the first data buffer in dataBuffers.
       validateViewBuffer(3, vector, STR8, 0, STR3.length + STR7.length);
-      validateViewBuffer(4, vector, STR6, /*NA*/-1, /*NA*/-1);
+      validateViewBuffer(4, vector, STR6, /*NA*/ -1, /*NA*/ -1);
     }
   }
 
@@ -1081,13 +1158,12 @@ public class TestVarCharViewVector {
       vector.setValueCount(5);
 
       validateViewBuffer(0, vector, STR3, 0, 0);
-      validateViewBuffer(1, vector, STR5, /*NA*/-1, /*NA*/-1);
+      validateViewBuffer(1, vector, STR5, /*NA*/ -1, /*NA*/ -1);
       // since the append-only approach is used,
       // STR7 will still be in the first data buffer in dataBuffers.
-      validateViewBuffer(2, vector, STR2, 0, STR3.length +
-          STR7.length + STR8.length);
+      validateViewBuffer(2, vector, STR2, 0, STR3.length + STR7.length + STR8.length);
       validateViewBuffer(3, vector, STR8, 0, STR3.length + STR7.length);
-      validateViewBuffer(4, vector, STR6, /*NA*/-1, /*NA*/-1);
+      validateViewBuffer(4, vector, STR6, /*NA*/ -1, /*NA*/ -1);
     }
   }
 
@@ -1169,12 +1245,12 @@ public class TestVarCharViewVector {
       vector.setValueCount(5);
 
       validateViewBuffer(0, vector, STR3, 0, 0);
-      validateViewBuffer(1, vector, STR5, /*NA*/-1, /*NA*/-1);
+      validateViewBuffer(1, vector, STR5, /*NA*/ -1, /*NA*/ -1);
       // since the append-only approach is used,
       // STR7 will still be in the first data buffer in dataBuffers.
       validateViewBuffer(2, vector, longerStringBytes, 0, STR3.length + STR7.length + STR2.length);
       validateViewBuffer(3, vector, STR2, 0, STR3.length + STR7.length);
-      validateViewBuffer(4, vector, STR6, /*NA*/-1, /*NA*/-1);
+      validateViewBuffer(4, vector, STR6, /*NA*/ -1, /*NA*/ -1);
     }
   }
 
@@ -1195,7 +1271,6 @@ public class TestVarCharViewVector {
       vector.setValueCount(1);
       assertEquals(1, vector.dataBuffers.size());
       assertArrayEquals(STR3, vector.get(0));
-
     }
 
     // Overwriting in the middle of the buffer when existing buffers are all shorts.
@@ -1464,7 +1539,6 @@ public class TestVarCharViewVector {
       assertArrayEquals(longerStringBytes, vector.get(2));
       assertArrayEquals(STR2, vector.get(3));
       assertArrayEquals(STR6, vector.get(4));
-
     }
   }
 
@@ -1498,14 +1572,14 @@ public class TestVarCharViewVector {
 
       Schema schema = new Schema(fields);
 
-      VectorSchemaRoot schemaRoot1 = new VectorSchemaRoot(schema, fieldVectors, vector1.getValueCount());
+      VectorSchemaRoot schemaRoot1 =
+          new VectorSchemaRoot(schema, fieldVectors, vector1.getValueCount());
       VectorUnloader vectorUnloader = new VectorUnloader(schemaRoot1);
 
-      try (
-          ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
-          BufferAllocator finalVectorsAllocator = allocator.newChildAllocator("new vector", 0, Long.MAX_VALUE);
-          VectorSchemaRoot schemaRoot2 = VectorSchemaRoot.create(schema, finalVectorsAllocator);
-      ) {
+      try (ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
+          BufferAllocator finalVectorsAllocator =
+              allocator.newChildAllocator("new vector", 0, Long.MAX_VALUE);
+          VectorSchemaRoot schemaRoot2 = VectorSchemaRoot.create(schema, finalVectorsAllocator); ) {
 
         VectorLoader vectorLoader = new VectorLoader(schemaRoot2);
         vectorLoader.load(recordBatch);
@@ -1532,18 +1606,28 @@ public class TestVarCharViewVector {
 
   static Stream<Arguments> vectorCreatorProvider() {
     return Stream.of(
-        Arguments.of((Function<BufferAllocator, BaseVariableWidthViewVector>)
-            (allocator -> newVector(ViewVarBinaryVector.class, EMPTY_SCHEMA_PATH,
-                Types.MinorType.VIEWVARBINARY, allocator))),
-        Arguments.of((Function<BufferAllocator, BaseVariableWidthViewVector>)
-            (allocator -> newVector(ViewVarCharVector.class, EMPTY_SCHEMA_PATH,
-                Types.MinorType.VIEWVARCHAR, allocator)))
-    );
+        Arguments.of(
+            (Function<BufferAllocator, BaseVariableWidthViewVector>)
+                (allocator ->
+                    newVector(
+                        ViewVarBinaryVector.class,
+                        EMPTY_SCHEMA_PATH,
+                        Types.MinorType.VIEWVARBINARY,
+                        allocator))),
+        Arguments.of(
+            (Function<BufferAllocator, BaseVariableWidthViewVector>)
+                (allocator ->
+                    newVector(
+                        ViewVarCharVector.class,
+                        EMPTY_SCHEMA_PATH,
+                        Types.MinorType.VIEWVARCHAR,
+                        allocator))));
   }
 
   @ParameterizedTest
   @MethodSource({"vectorCreatorProvider"})
-  public void testCopyFromWithNulls(Function<BufferAllocator, BaseVariableWidthViewVector> vectorCreator) {
+  public void testCopyFromWithNulls(
+      Function<BufferAllocator, BaseVariableWidthViewVector> vectorCreator) {
     try (final BaseVariableWidthViewVector vector = vectorCreator.apply(allocator);
         final BaseVariableWidthViewVector vector2 = vectorCreator.apply(allocator)) {
       final int initialCapacity = 1024;
@@ -1581,11 +1665,13 @@ public class TestVarCharViewVector {
         if (i % 3 == 0) {
           assertNull(vector.getObject(i));
         } else if (i % 3 == 1) {
-          assertArrayEquals(Integer.toString(i).getBytes(StandardCharsets.UTF_8),
-               vector.get(i),
+          assertArrayEquals(
+              Integer.toString(i).getBytes(StandardCharsets.UTF_8),
+              vector.get(i),
               "unexpected value at index: " + i);
         } else {
-          assertArrayEquals((i + prefixString).getBytes(StandardCharsets.UTF_8),
+          assertArrayEquals(
+              (i + prefixString).getBytes(StandardCharsets.UTF_8),
               vector.get(i),
               "unexpected value at index: " + i);
         }
@@ -1601,11 +1687,13 @@ public class TestVarCharViewVector {
         if (i % 3 == 0) {
           assertNull(vector2.getObject(i));
         } else if (i % 3 == 1) {
-          assertArrayEquals(Integer.toString(i).getBytes(StandardCharsets.UTF_8),
+          assertArrayEquals(
+              Integer.toString(i).getBytes(StandardCharsets.UTF_8),
               vector.get(i),
               "unexpected value at index: " + i);
         } else {
-          assertArrayEquals((i + prefixString).getBytes(StandardCharsets.UTF_8),
+          assertArrayEquals(
+              (i + prefixString).getBytes(StandardCharsets.UTF_8),
               vector.get(i),
               "unexpected value at index: " + i);
         }
@@ -1619,11 +1707,13 @@ public class TestVarCharViewVector {
         if (i % 3 == 0) {
           assertNull(vector2.getObject(i));
         } else if (i % 3 == 1) {
-          assertArrayEquals(Integer.toString(i).getBytes(StandardCharsets.UTF_8),
+          assertArrayEquals(
+              Integer.toString(i).getBytes(StandardCharsets.UTF_8),
               vector.get(i),
               "unexpected value at index: " + i);
         } else {
-          assertArrayEquals((i + prefixString).getBytes(StandardCharsets.UTF_8),
+          assertArrayEquals(
+              (i + prefixString).getBytes(StandardCharsets.UTF_8),
               vector.get(i),
               "unexpected value at index: " + i);
         }
@@ -1633,7 +1723,8 @@ public class TestVarCharViewVector {
 
   @ParameterizedTest
   @MethodSource("vectorCreatorProvider")
-  public void testCopyFromSafeWithNulls(Function<BufferAllocator, BaseVariableWidthViewVector> vectorCreator) {
+  public void testCopyFromSafeWithNulls(
+      Function<BufferAllocator, BaseVariableWidthViewVector> vectorCreator) {
     try (final BaseVariableWidthViewVector vector = vectorCreator.apply(allocator);
         final BaseVariableWidthViewVector vector2 = vectorCreator.apply(allocator)) {
 
@@ -1671,11 +1762,13 @@ public class TestVarCharViewVector {
         if (i % 3 == 0) {
           assertNull(vector.getObject(i));
         } else if (i % 3 == 1) {
-          assertArrayEquals(Integer.toString(i).getBytes(StandardCharsets.UTF_8),
+          assertArrayEquals(
+              Integer.toString(i).getBytes(StandardCharsets.UTF_8),
               vector.get(i),
               "unexpected value at index: " + i);
         } else {
-          assertArrayEquals((i + prefixString).getBytes(StandardCharsets.UTF_8),
+          assertArrayEquals(
+              (i + prefixString).getBytes(StandardCharsets.UTF_8),
               vector.get(i),
               "unexpected value at index: " + i);
         }
@@ -1691,11 +1784,13 @@ public class TestVarCharViewVector {
         if (i % 3 == 0) {
           assertNull(vector2.getObject(i));
         } else if (i % 3 == 1) {
-          assertArrayEquals(Integer.toString(i).getBytes(StandardCharsets.UTF_8),
+          assertArrayEquals(
+              Integer.toString(i).getBytes(StandardCharsets.UTF_8),
               vector.get(i),
               "unexpected value at index: " + i);
         } else {
-          assertArrayEquals((i + prefixString).getBytes(StandardCharsets.UTF_8),
+          assertArrayEquals(
+              (i + prefixString).getBytes(StandardCharsets.UTF_8),
               vector.get(i),
               "unexpected value at index: " + i);
         }
@@ -1710,11 +1805,13 @@ public class TestVarCharViewVector {
         if (i % 3 == 0) {
           assertNull(vector2.getObject(i));
         } else if (i % 3 == 1) {
-          assertArrayEquals(Integer.toString(i).getBytes(StandardCharsets.UTF_8),
+          assertArrayEquals(
+              Integer.toString(i).getBytes(StandardCharsets.UTF_8),
               vector.get(i),
               "unexpected value at index: " + i);
         } else {
-          assertArrayEquals((i + prefixString).getBytes(StandardCharsets.UTF_8),
+          assertArrayEquals(
+              (i + prefixString).getBytes(StandardCharsets.UTF_8),
               vector.get(i),
               "unexpected value at index: " + i);
         }
@@ -1736,8 +1833,12 @@ public class TestVarCharViewVector {
     return binaryDataArray;
   }
 
-  private void testSplitAndTransferOnSlicedBufferHelper(BaseVariableWidthViewVector targetVector,
-      BaseVariableWidthViewVector sourceVector, int startIndex, int length, byte[][] data) {
+  private void testSplitAndTransferOnSlicedBufferHelper(
+      BaseVariableWidthViewVector targetVector,
+      BaseVariableWidthViewVector sourceVector,
+      int startIndex,
+      int length,
+      byte[][] data) {
     sourceVector.allocateNew(1024 * 10, 1024);
 
     for (int i = 0; i < data.length; i++) {
@@ -1753,7 +1854,8 @@ public class TestVarCharViewVector {
     // we allocate view and data buffers for the target vector
     assertTrue(allocatedMem < allocator.getAllocatedMemory());
 
-    // The validity buffer is sliced from the same buffer.See BaseFixedWidthViewVector#allocateBytes.
+    // The validity buffer is sliced from the same buffer.See
+    // BaseFixedWidthViewVector#allocateBytes.
     // Therefore, the refcnt of the validity buffer is increased once since the startIndex is 0.
     assertEquals(validityRefCnt + 1, sourceVector.getValidityBuffer().refCnt());
     // since the new view buffer is allocated, the refcnt is the same as the source vector.
@@ -1761,78 +1863,86 @@ public class TestVarCharViewVector {
   }
 
   /**
-   * ARROW-7831:
-   * this checks a slice taken off a buffer is still readable
-   * after that buffer's allocator is closed.
-   * With short strings.
+   * ARROW-7831: this checks a slice taken off a buffer is still readable after that buffer's
+   * allocator is closed. With short strings.
    */
   @Test
   public void testSplitAndTransferWithShortStringOnSlicedBuffer() {
-    final byte [][] data = new byte[][]{STR4, STR5, STR6};
+    final byte[][] data = new byte[][] {STR4, STR5, STR6};
     final int startIndex = 0;
     final int length = 2;
 
-    BiConsumer<BaseVariableWidthViewVector, byte[][]> validateVector = (targetVector, expectedData) -> {
-      IntStream.range(startIndex, length).forEach(i ->
-          assertArrayEquals(expectedData[i], targetVector.get(i - startIndex)));
-    };
+    BiConsumer<BaseVariableWidthViewVector, byte[][]> validateVector =
+        (targetVector, expectedData) -> {
+          IntStream.range(startIndex, length)
+              .forEach(i -> assertArrayEquals(expectedData[i], targetVector.get(i - startIndex)));
+        };
 
     try (final ViewVarCharVector targetVector = newViewVarCharVector("split-target", allocator)) {
-      try (final ViewVarCharVector sourceVector = newViewVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
-        testSplitAndTransferOnSlicedBufferHelper(targetVector, sourceVector,
-            startIndex, length, data);
+      try (final ViewVarCharVector sourceVector =
+          newViewVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
+        testSplitAndTransferOnSlicedBufferHelper(
+            targetVector, sourceVector, startIndex, length, data);
       }
       validateVector.accept(targetVector, data);
     }
 
-    final byte [][] binaryData = generateBinaryDataArray(3, 10);
+    final byte[][] binaryData = generateBinaryDataArray(3, 10);
 
-    try (final ViewVarBinaryVector targetVector = newViewVarBinaryVector("split-target", allocator)) {
-      try (final ViewVarBinaryVector sourceVector = newViewVarBinaryVector(EMPTY_SCHEMA_PATH, allocator)) {
-        testSplitAndTransferOnSlicedBufferHelper(targetVector, sourceVector,
-            startIndex, length, binaryData);
+    try (final ViewVarBinaryVector targetVector =
+        newViewVarBinaryVector("split-target", allocator)) {
+      try (final ViewVarBinaryVector sourceVector =
+          newViewVarBinaryVector(EMPTY_SCHEMA_PATH, allocator)) {
+        testSplitAndTransferOnSlicedBufferHelper(
+            targetVector, sourceVector, startIndex, length, binaryData);
       }
       validateVector.accept(targetVector, binaryData);
     }
   }
 
   /**
-   * ARROW-7831:
-   * this checks a slice taken off a buffer is still readable
-   * after that buffer's allocator is closed.
-   * With a long string included.
+   * ARROW-7831: this checks a slice taken off a buffer is still readable after that buffer's
+   * allocator is closed. With a long string included.
    */
   @Test
   public void testSplitAndTransferWithLongStringsOnSlicedBuffer() {
-    final byte [][] data = new byte[][]{STR2, STR5, STR6};
+    final byte[][] data = new byte[][] {STR2, STR5, STR6};
     final int startIndex = 0;
     final int length = 2;
 
-    BiConsumer<BaseVariableWidthViewVector, byte[][]> validateVector = (targetVector, expectedData) -> {
-      IntStream.range(startIndex, length).forEach(i ->
-          assertArrayEquals(expectedData[i], targetVector.get(i - startIndex)));
-    };
+    BiConsumer<BaseVariableWidthViewVector, byte[][]> validateVector =
+        (targetVector, expectedData) -> {
+          IntStream.range(startIndex, length)
+              .forEach(i -> assertArrayEquals(expectedData[i], targetVector.get(i - startIndex)));
+        };
 
     try (final ViewVarCharVector targetVector = newViewVarCharVector("split-target", allocator)) {
-      try (final ViewVarCharVector sourceVector = newViewVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
-        testSplitAndTransferOnSlicedBufferHelper(targetVector, sourceVector,
-            startIndex, length, data);
+      try (final ViewVarCharVector sourceVector =
+          newViewVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
+        testSplitAndTransferOnSlicedBufferHelper(
+            targetVector, sourceVector, startIndex, length, data);
       }
       validateVector.accept(targetVector, data);
     }
 
-    final byte [][] binaryData = generateBinaryDataArray(3, 18);
-    try (final ViewVarBinaryVector targetVector = newViewVarBinaryVector("split-target", allocator)) {
-      try (final ViewVarBinaryVector sourceVector = newViewVarBinaryVector(EMPTY_SCHEMA_PATH, allocator)) {
-        testSplitAndTransferOnSlicedBufferHelper(targetVector, sourceVector,
-            startIndex, length, binaryData);
+    final byte[][] binaryData = generateBinaryDataArray(3, 18);
+    try (final ViewVarBinaryVector targetVector =
+        newViewVarBinaryVector("split-target", allocator)) {
+      try (final ViewVarBinaryVector sourceVector =
+          newViewVarBinaryVector(EMPTY_SCHEMA_PATH, allocator)) {
+        testSplitAndTransferOnSlicedBufferHelper(
+            targetVector, sourceVector, startIndex, length, binaryData);
       }
       validateVector.accept(targetVector, binaryData);
     }
   }
 
-  private void testSplitAndTransferOnSlicedVectorHelper(BaseVariableWidthViewVector sourceVector,
-      BaseVariableWidthViewVector targetVector, int startIndex, int length, byte[][] data) {
+  private void testSplitAndTransferOnSlicedVectorHelper(
+      BaseVariableWidthViewVector sourceVector,
+      BaseVariableWidthViewVector targetVector,
+      int startIndex,
+      int length,
+      byte[][] data) {
     sourceVector.allocateNew(1024 * 10, 1024);
 
     for (int i = 0; i < data.length; i++) {
@@ -1847,90 +1957,98 @@ public class TestVarCharViewVector {
     sourceVector.splitAndTransferTo(startIndex, length, targetVector);
     // we allocate view and data buffers for the target vector
     assertTrue(allocatedMem < allocator.getAllocatedMemory());
-    // The validity buffer is sliced from the same buffer.See BaseFixedWidthViewVector#allocateBytes.
+    // The validity buffer is sliced from the same buffer.See
+    // BaseFixedWidthViewVector#allocateBytes.
     // Therefore, the refcnt of the validity buffer is increased once since the startIndex is 0.
     assertEquals(validityRefCnt + 1, sourceVector.getValidityBuffer().refCnt());
     // since the new view buffer is allocated, the refcnt is the same as the source vector.
     assertEquals(dataRefCnt, sourceVector.getDataBuffer().refCnt());
 
-    for (int i = startIndex; i < length ; i++) {
+    for (int i = startIndex; i < length; i++) {
       assertArrayEquals(data[i], targetVector.get(i - startIndex));
     }
   }
 
   /**
-   * ARROW-7831:
-   * this checks a vector that got sliced
-   * is still readable after the slice's allocator got closed.
-   * With short strings.
+   * ARROW-7831: this checks a vector that got sliced is still readable after the slice's allocator
+   * got closed. With short strings.
    */
   @Test
   public void testSplitAndTransferWithShortStringsOnSlicedVector() {
-    byte [][] data = new byte[][]{STR4, STR5, STR6};
+    byte[][] data = new byte[][] {STR4, STR5, STR6};
     final int startIndex = 0;
     final int length = 2;
 
-    BiConsumer<BaseVariableWidthViewVector, byte[][]> validateVector = (sourceVector, expectedData) -> {
-      IntStream.range(startIndex, length).forEach(i ->
-          assertArrayEquals(expectedData[i], sourceVector.get(i)));
-    };
+    BiConsumer<BaseVariableWidthViewVector, byte[][]> validateVector =
+        (sourceVector, expectedData) -> {
+          IntStream.range(startIndex, length)
+              .forEach(i -> assertArrayEquals(expectedData[i], sourceVector.get(i)));
+        };
 
-    try (final ViewVarCharVector sourceVector = newViewVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
+    try (final ViewVarCharVector sourceVector =
+        newViewVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
       try (final ViewVarCharVector targetVector = newViewVarCharVector("split-target", allocator)) {
-        testSplitAndTransferOnSlicedVectorHelper(sourceVector, targetVector,
-            startIndex, length, data);
+        testSplitAndTransferOnSlicedVectorHelper(
+            sourceVector, targetVector, startIndex, length, data);
       }
       validateVector.accept(sourceVector, data);
     }
 
-    byte [][] binaryData = generateBinaryDataArray(3, 10);
-    try (final ViewVarBinaryVector sourceVector = newViewVarBinaryVector(EMPTY_SCHEMA_PATH, allocator)) {
-      try (final ViewVarBinaryVector targetVector = newViewVarBinaryVector("split-target", allocator)) {
-        testSplitAndTransferOnSlicedVectorHelper(sourceVector, targetVector,
-            startIndex, length, binaryData);
+    byte[][] binaryData = generateBinaryDataArray(3, 10);
+    try (final ViewVarBinaryVector sourceVector =
+        newViewVarBinaryVector(EMPTY_SCHEMA_PATH, allocator)) {
+      try (final ViewVarBinaryVector targetVector =
+          newViewVarBinaryVector("split-target", allocator)) {
+        testSplitAndTransferOnSlicedVectorHelper(
+            sourceVector, targetVector, startIndex, length, binaryData);
       }
       validateVector.accept(sourceVector, binaryData);
     }
   }
 
   /**
-   * ARROW-7831:
-   * this checks a vector that got sliced
-   * is still readable after the slice's allocator got closed.
-   * With a long string included.
+   * ARROW-7831: this checks a vector that got sliced is still readable after the slice's allocator
+   * got closed. With a long string included.
    */
   @Test
   public void testSplitAndTransferWithLongStringsOnSlicedVector() {
-    final byte [][] data = new byte[][]{STR2, STR5, STR6};
+    final byte[][] data = new byte[][] {STR2, STR5, STR6};
     final int startIndex = 0;
     final int length = 2;
 
-    BiConsumer<BaseVariableWidthViewVector, byte[][]> validateVector = (sourceVector, expectedData) -> {
-      IntStream.range(startIndex, length).forEach(i ->
-          assertArrayEquals(expectedData[i], sourceVector.get(i)));
-    };
+    BiConsumer<BaseVariableWidthViewVector, byte[][]> validateVector =
+        (sourceVector, expectedData) -> {
+          IntStream.range(startIndex, length)
+              .forEach(i -> assertArrayEquals(expectedData[i], sourceVector.get(i)));
+        };
 
-    try (final ViewVarCharVector sourceVector = newViewVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
+    try (final ViewVarCharVector sourceVector =
+        newViewVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
       try (final ViewVarCharVector targetVector = newViewVarCharVector("split-target", allocator)) {
-        testSplitAndTransferOnSlicedVectorHelper(sourceVector, targetVector,
-            startIndex, length, data);
+        testSplitAndTransferOnSlicedVectorHelper(
+            sourceVector, targetVector, startIndex, length, data);
       }
       validateVector.accept(sourceVector, data);
     }
 
-    final byte [][] binaryData = generateBinaryDataArray(3, 20);
-    try (final ViewVarBinaryVector sourceVector = newViewVarBinaryVector(EMPTY_SCHEMA_PATH, allocator)) {
-      try (final ViewVarBinaryVector targetVector = newViewVarBinaryVector("split-target", allocator)) {
-        testSplitAndTransferOnSlicedVectorHelper(sourceVector, targetVector,
-            startIndex, length, binaryData);
+    final byte[][] binaryData = generateBinaryDataArray(3, 20);
+    try (final ViewVarBinaryVector sourceVector =
+        newViewVarBinaryVector(EMPTY_SCHEMA_PATH, allocator)) {
+      try (final ViewVarBinaryVector targetVector =
+          newViewVarBinaryVector("split-target", allocator)) {
+        testSplitAndTransferOnSlicedVectorHelper(
+            sourceVector, targetVector, startIndex, length, binaryData);
       }
       validateVector.accept(sourceVector, binaryData);
     }
   }
 
   private void testSplitAndTransferOnValiditySplitHelper(
-      BaseVariableWidthViewVector targetVector, BaseVariableWidthViewVector sourceVector,
-      int startIndex, int length, byte[][] data) {
+      BaseVariableWidthViewVector targetVector,
+      BaseVariableWidthViewVector sourceVector,
+      int startIndex,
+      int length,
+      byte[][] data) {
     sourceVector.allocateNew(1024 * 10, 1024);
 
     sourceVector.set(0, new byte[0]);
@@ -1975,64 +2093,70 @@ public class TestVarCharViewVector {
   }
 
   /**
-   * ARROW-7831:
-   * this checks a validity splitting where the validity buffer is sliced from the same buffer.
-   * In the case where all the values up to the start of the slice are null/empty.
-   * With short strings.
+   * ARROW-7831: this checks a validity splitting where the validity buffer is sliced from the same
+   * buffer. In the case where all the values up to the start of the slice are null/empty. With
+   * short strings.
    */
   @Test
   public void testSplitAndTransferWithShortStringsOnValiditySplit() {
-    final byte [][] data = new byte[][]{new byte[0], null, STR4, STR5, STR6};
+    final byte[][] data = new byte[][] {new byte[0], null, STR4, STR5, STR6};
     final int startIndex = 2;
     final int length = 2;
 
     try (final ViewVarCharVector targetVector = newViewVarCharVector("split-target", allocator);
         final ViewVarCharVector sourceVector = newViewVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
-      testSplitAndTransferOnValiditySplitHelper(targetVector, sourceVector,
-          startIndex, length, data);
+      testSplitAndTransferOnValiditySplitHelper(
+          targetVector, sourceVector, startIndex, length, data);
     }
 
-    final byte [][] binaryData = generateBinaryDataArray(5, 10);
+    final byte[][] binaryData = generateBinaryDataArray(5, 10);
     binaryData[0] = new byte[0];
     binaryData[1] = null;
-    try (final ViewVarBinaryVector targetVector = newViewVarBinaryVector("split-target", allocator);
-        final ViewVarBinaryVector sourceVector = newViewVarBinaryVector(EMPTY_SCHEMA_PATH, allocator)) {
-      testSplitAndTransferOnValiditySplitHelper(targetVector, sourceVector,
-          startIndex, length, binaryData);
+    try (final ViewVarBinaryVector targetVector =
+            newViewVarBinaryVector("split-target", allocator);
+        final ViewVarBinaryVector sourceVector =
+            newViewVarBinaryVector(EMPTY_SCHEMA_PATH, allocator)) {
+      testSplitAndTransferOnValiditySplitHelper(
+          targetVector, sourceVector, startIndex, length, binaryData);
     }
   }
 
   /**
-   * ARROW-7831:
-   * this checks a validity splitting where the validity buffer is sliced from the same buffer.
-   * In the case where all the values up to the start of the slice are null/empty.
-   * With long strings.
+   * ARROW-7831: this checks a validity splitting where the validity buffer is sliced from the same
+   * buffer. In the case where all the values up to the start of the slice are null/empty. With long
+   * strings.
    */
   @Test
   public void testSplitAndTransferWithLongStringsOnValiditySplit() {
-    final byte [][] data = new byte[][]{new byte[0], null, STR1, STR2, STR3};
+    final byte[][] data = new byte[][] {new byte[0], null, STR1, STR2, STR3};
     final int startIndex = 2;
     final int length = 2;
 
     try (final ViewVarCharVector targetVector = newViewVarCharVector("split-target", allocator);
         final ViewVarCharVector sourceVector = newViewVarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
-      testSplitAndTransferOnValiditySplitHelper(targetVector, sourceVector,
-          startIndex, length, data);
+      testSplitAndTransferOnValiditySplitHelper(
+          targetVector, sourceVector, startIndex, length, data);
     }
 
-    final byte [][] binaryData = generateBinaryDataArray(5, 18);
+    final byte[][] binaryData = generateBinaryDataArray(5, 18);
     binaryData[0] = new byte[0];
     binaryData[1] = null;
 
-    try (final ViewVarBinaryVector targetVector = newViewVarBinaryVector("split-target", allocator);
-        final ViewVarBinaryVector sourceVector = newViewVarBinaryVector(EMPTY_SCHEMA_PATH, allocator)) {
-      testSplitAndTransferOnValiditySplitHelper(targetVector, sourceVector,
-          startIndex, length, data);
+    try (final ViewVarBinaryVector targetVector =
+            newViewVarBinaryVector("split-target", allocator);
+        final ViewVarBinaryVector sourceVector =
+            newViewVarBinaryVector(EMPTY_SCHEMA_PATH, allocator)) {
+      testSplitAndTransferOnValiditySplitHelper(
+          targetVector, sourceVector, startIndex, length, data);
     }
   }
 
-  private void testSplitAndTransferOnAllocatorToAllocator(BaseVariableWidthViewVector targetVector,
-      BaseVariableWidthViewVector sourceVector, int startIndex, int length, byte[][] data) {
+  private void testSplitAndTransferOnAllocatorToAllocator(
+      BaseVariableWidthViewVector targetVector,
+      BaseVariableWidthViewVector sourceVector,
+      int startIndex,
+      int length,
+      byte[][] data) {
     sourceVector.allocateNew(50, data.length);
 
     for (int i = 0; i < data.length; i++) {
@@ -2066,50 +2190,55 @@ public class TestVarCharViewVector {
   }
 
   /**
-   * ARROW-7831:
-   * ensures that data is transferred from one allocator to another in case of 0-index
-   * start special cases.
-   * With short strings.
+   * ARROW-7831: ensures that data is transferred from one allocator to another in case of 0-index
+   * start special cases. With short strings.
    */
   @Test
   public void testSplitAndTransferWithShortStringsOnAllocatorToAllocator() {
     final int maxAllocation = 512;
-    final byte [][] data = new byte[][]{STR4, STR5, STR6};
+    final byte[][] data = new byte[][] {STR4, STR5, STR6};
     final int startIndex = 0;
     final int length = 2;
 
-    BiConsumer<BaseVariableWidthViewVector, byte[][]> validateVector = (targetVector, expectedData) -> {
-      IntStream.range(startIndex, length).forEach(i ->
-          assertArrayEquals(expectedData[i], targetVector.get(i - startIndex)));
-    };
+    BiConsumer<BaseVariableWidthViewVector, byte[][]> validateVector =
+        (targetVector, expectedData) -> {
+          IntStream.range(startIndex, length)
+              .forEach(i -> assertArrayEquals(expectedData[i], targetVector.get(i - startIndex)));
+        };
 
-    try (final BufferAllocator targetAllocator = allocator.newChildAllocator("target-alloc", 256, maxAllocation);
-        final ViewVarCharVector targetVector = newViewVarCharVector("split-target", targetAllocator)) {
-      try (final BufferAllocator sourceAllocator = allocator.newChildAllocator("source-alloc", 256, maxAllocation);
-          final ViewVarCharVector sourceVector = newViewVarCharVector(EMPTY_SCHEMA_PATH, sourceAllocator)) {
-        testSplitAndTransferOnAllocatorToAllocator(targetVector, sourceVector,
-            startIndex, length, data);
+    try (final BufferAllocator targetAllocator =
+            allocator.newChildAllocator("target-alloc", 256, maxAllocation);
+        final ViewVarCharVector targetVector =
+            newViewVarCharVector("split-target", targetAllocator)) {
+      try (final BufferAllocator sourceAllocator =
+              allocator.newChildAllocator("source-alloc", 256, maxAllocation);
+          final ViewVarCharVector sourceVector =
+              newViewVarCharVector(EMPTY_SCHEMA_PATH, sourceAllocator)) {
+        testSplitAndTransferOnAllocatorToAllocator(
+            targetVector, sourceVector, startIndex, length, data);
       }
       validateVector.accept(targetVector, data);
     }
 
-    final byte [][] binaryData = generateBinaryDataArray(3, 10);
-    try (final BufferAllocator targetAllocator = allocator.newChildAllocator("target-alloc", 256, maxAllocation);
-        final ViewVarBinaryVector targetVector = newViewVarBinaryVector("split-target", targetAllocator)) {
-      try (final BufferAllocator sourceAllocator = allocator.newChildAllocator("source-alloc", 256, maxAllocation);
-          final ViewVarBinaryVector sourceVector = newViewVarBinaryVector(EMPTY_SCHEMA_PATH, sourceAllocator)) {
-        testSplitAndTransferOnAllocatorToAllocator(targetVector, sourceVector,
-            startIndex, length, binaryData);
+    final byte[][] binaryData = generateBinaryDataArray(3, 10);
+    try (final BufferAllocator targetAllocator =
+            allocator.newChildAllocator("target-alloc", 256, maxAllocation);
+        final ViewVarBinaryVector targetVector =
+            newViewVarBinaryVector("split-target", targetAllocator)) {
+      try (final BufferAllocator sourceAllocator =
+              allocator.newChildAllocator("source-alloc", 256, maxAllocation);
+          final ViewVarBinaryVector sourceVector =
+              newViewVarBinaryVector(EMPTY_SCHEMA_PATH, sourceAllocator)) {
+        testSplitAndTransferOnAllocatorToAllocator(
+            targetVector, sourceVector, startIndex, length, binaryData);
       }
       validateVector.accept(targetVector, binaryData);
     }
   }
 
   /**
-   * ARROW-7831:
-   * ensures that data is transferred from one allocator to another in case of 0-index
-   * start special cases.
-   * With long strings.
+   * ARROW-7831: ensures that data is transferred from one allocator to another in case of 0-index
+   * start special cases. With long strings.
    */
   @Test
   public void testSplitAndTransferWithLongStringsOnAllocatorToAllocator() {
@@ -2117,47 +2246,55 @@ public class TestVarCharViewVector {
     // Here we have the target vector being transferred with a long string
     // hence, the data buffer will be allocated.
     // The default data buffer allocation takes
-    // BaseVariableWidthViewVector.INITIAL_VIEW_VALUE_ALLOCATION * BaseVariableWidthViewVector.ELEMENT_SIZE
-    final byte [][] data = new byte[][]{STR1, STR2, STR3};
+    // BaseVariableWidthViewVector.INITIAL_VIEW_VALUE_ALLOCATION *
+    // BaseVariableWidthViewVector.ELEMENT_SIZE
+    final byte[][] data = new byte[][] {STR1, STR2, STR3};
     final int startIndex = 0;
     final int length = 2;
 
-    BiConsumer<BaseVariableWidthViewVector, byte[][]> validateVector = (targetVector, expectedData) -> {
-      IntStream.range(startIndex, length).forEach(i ->
-          assertArrayEquals(expectedData[i], targetVector.get(i - startIndex)));
-    };
+    BiConsumer<BaseVariableWidthViewVector, byte[][]> validateVector =
+        (targetVector, expectedData) -> {
+          IntStream.range(startIndex, length)
+              .forEach(i -> assertArrayEquals(expectedData[i], targetVector.get(i - startIndex)));
+        };
 
-    final int maxAllocation = initialReservation +
-        BaseVariableWidthViewVector.INITIAL_VIEW_VALUE_ALLOCATION * BaseVariableWidthViewVector.ELEMENT_SIZE;
-    try (final BufferAllocator targetAllocator = allocator.newChildAllocator("target-alloc",
-        initialReservation, maxAllocation);
-        final ViewVarCharVector targetVector = newViewVarCharVector("split-target", targetAllocator)) {
-      try (final BufferAllocator sourceAllocator = allocator.newChildAllocator("source-alloc",
-          initialReservation, maxAllocation);
-          final ViewVarCharVector sourceVector = newViewVarCharVector(EMPTY_SCHEMA_PATH, sourceAllocator)) {
-        testSplitAndTransferOnAllocatorToAllocator(targetVector, sourceVector,
-            startIndex, length, data);
+    final int maxAllocation =
+        initialReservation
+            + BaseVariableWidthViewVector.INITIAL_VIEW_VALUE_ALLOCATION
+                * BaseVariableWidthViewVector.ELEMENT_SIZE;
+    try (final BufferAllocator targetAllocator =
+            allocator.newChildAllocator("target-alloc", initialReservation, maxAllocation);
+        final ViewVarCharVector targetVector =
+            newViewVarCharVector("split-target", targetAllocator)) {
+      try (final BufferAllocator sourceAllocator =
+              allocator.newChildAllocator("source-alloc", initialReservation, maxAllocation);
+          final ViewVarCharVector sourceVector =
+              newViewVarCharVector(EMPTY_SCHEMA_PATH, sourceAllocator)) {
+        testSplitAndTransferOnAllocatorToAllocator(
+            targetVector, sourceVector, startIndex, length, data);
       }
       validateVector.accept(targetVector, data);
     }
 
-    final byte [][] binaryData = generateBinaryDataArray(3, 18);
+    final byte[][] binaryData = generateBinaryDataArray(3, 18);
 
-    try (final BufferAllocator targetAllocator = allocator.newChildAllocator("target-alloc",
-        initialReservation, maxAllocation);
-        final ViewVarBinaryVector targetVector = newViewVarBinaryVector("split-target", targetAllocator)) {
-      try (final BufferAllocator sourceAllocator = allocator.newChildAllocator("source-alloc",
-          initialReservation, maxAllocation);
-          final ViewVarBinaryVector sourceVector = newViewVarBinaryVector(EMPTY_SCHEMA_PATH, sourceAllocator)) {
-        testSplitAndTransferOnAllocatorToAllocator(targetVector, sourceVector,
-            startIndex, length, binaryData);
+    try (final BufferAllocator targetAllocator =
+            allocator.newChildAllocator("target-alloc", initialReservation, maxAllocation);
+        final ViewVarBinaryVector targetVector =
+            newViewVarBinaryVector("split-target", targetAllocator)) {
+      try (final BufferAllocator sourceAllocator =
+              allocator.newChildAllocator("source-alloc", initialReservation, maxAllocation);
+          final ViewVarBinaryVector sourceVector =
+              newViewVarBinaryVector(EMPTY_SCHEMA_PATH, sourceAllocator)) {
+        testSplitAndTransferOnAllocatorToAllocator(
+            targetVector, sourceVector, startIndex, length, binaryData);
       }
       validateVector.accept(targetVector, binaryData);
     }
   }
 
-  private void testReallocAfterVectorTransferHelper(BaseVariableWidthViewVector vector,
-      byte[] str1, byte[] str2) {
+  private void testReallocAfterVectorTransferHelper(
+      BaseVariableWidthViewVector vector, byte[] str1, byte[] str2) {
     /* 4096 values with 16 bytes per record */
     final int bytesPerRecord = 32;
     vector.allocateNew(4096 * bytesPerRecord, 4096);
@@ -2263,13 +2400,17 @@ public class TestVarCharViewVector {
     }
 
     try (final ViewVarBinaryVector vector = new ViewVarBinaryVector(EMPTY_SCHEMA_PATH, allocator)) {
-      testReallocAfterVectorTransferHelper(vector, generateRandomBinaryData(12),
-          generateRandomBinaryData(13));
+      testReallocAfterVectorTransferHelper(
+          vector, generateRandomBinaryData(12), generateRandomBinaryData(13));
     }
   }
 
-  private void testSplitAndTransferWithMultipleDataBuffersHelper(BaseVariableWidthViewVector sourceVector,
-      BaseVariableWidthViewVector targetVector, int startIndex, int length, byte[][] data) {
+  private void testSplitAndTransferWithMultipleDataBuffersHelper(
+      BaseVariableWidthViewVector sourceVector,
+      BaseVariableWidthViewVector targetVector,
+      int startIndex,
+      int length,
+      byte[][] data) {
     sourceVector.allocateNew(48, 4);
 
     for (int i = 0; i < data.length; i++) {
@@ -2302,36 +2443,35 @@ public class TestVarCharViewVector {
   }
 
   /**
-   * ARROW-7831:
-   * ensures that data is transferred from one allocator to another in case of 0-index
-   * start special cases.
-   * With long strings and multiple data buffers.
-   * Check multi-data buffer source copying
+   * ARROW-7831: ensures that data is transferred from one allocator to another in case of 0-index
+   * start special cases. With long strings and multiple data buffers. Check multi-data buffer
+   * source copying
    */
   @Test
   public void testSplitAndTransferWithMultipleDataBuffers() {
     final String str4 = generateRandomString(35);
-    final byte[][] data = new byte[][]{STR1, STR2, STR3, str4.getBytes(StandardCharsets.UTF_8)};
+    final byte[][] data = new byte[][] {STR1, STR2, STR3, str4.getBytes(StandardCharsets.UTF_8)};
     final int startIndex = 1;
     final int length = 3;
 
-    BiConsumer<BaseVariableWidthViewVector, byte[][]> validateVector = (targetVector, expectedData) -> {
-      IntStream.range(startIndex, length).forEach(i ->
-          assertArrayEquals(expectedData[i], targetVector.get(i - startIndex)));
-    };
+    BiConsumer<BaseVariableWidthViewVector, byte[][]> validateVector =
+        (targetVector, expectedData) -> {
+          IntStream.range(startIndex, length)
+              .forEach(i -> assertArrayEquals(expectedData[i], targetVector.get(i - startIndex)));
+        };
 
     try (final ViewVarCharVector targetVector = new ViewVarCharVector("target", allocator)) {
       try (final ViewVarCharVector sourceVector = new ViewVarCharVector("source", allocator)) {
-        testSplitAndTransferWithMultipleDataBuffersHelper(sourceVector, targetVector,
-            startIndex, length, data);
+        testSplitAndTransferWithMultipleDataBuffersHelper(
+            sourceVector, targetVector, startIndex, length, data);
       }
       validateVector.accept(targetVector, data);
     }
 
     try (final ViewVarBinaryVector targetVector = new ViewVarBinaryVector("target", allocator)) {
       try (final ViewVarBinaryVector sourceVector = new ViewVarBinaryVector("source", allocator)) {
-        testSplitAndTransferWithMultipleDataBuffersHelper(sourceVector, targetVector,
-            startIndex, length, data);
+        testSplitAndTransferWithMultipleDataBuffersHelper(
+            sourceVector, targetVector, startIndex, length, data);
       }
       validateVector.accept(targetVector, data);
     }
@@ -2378,11 +2518,10 @@ public class TestVarCharViewVector {
       VectorSchemaRoot schemaRoot1 = new VectorSchemaRoot(schema, fieldVectors, valueCount);
       VectorUnloader vectorUnloader = new VectorUnloader(schemaRoot1);
 
-      try (
-          ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
-          BufferAllocator finalVectorsAllocator = allocator.newChildAllocator("new vector", 0, Long.MAX_VALUE);
-          VectorSchemaRoot schemaRoot2 = VectorSchemaRoot.create(schema, finalVectorsAllocator);
-      ) {
+      try (ArrowRecordBatch recordBatch = vectorUnloader.getRecordBatch();
+          BufferAllocator finalVectorsAllocator =
+              allocator.newChildAllocator("new vector", 0, Long.MAX_VALUE);
+          VectorSchemaRoot schemaRoot2 = VectorSchemaRoot.create(schema, finalVectorsAllocator); ) {
 
         // validating recordBatch contains an output for variadicBufferCounts
         assertFalse(recordBatch.getVariadicBufferCounts().isEmpty());

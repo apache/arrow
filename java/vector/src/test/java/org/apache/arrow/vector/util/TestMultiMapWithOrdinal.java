@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.util;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -57,7 +56,5 @@ public class TestMultiMapWithOrdinal {
     map.removeAll("z");
     assertEquals(2, map.size());
     assertFalse(map.containsKey("z"));
-
-
   }
 }

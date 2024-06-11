@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.TestUtils.newVector;
@@ -28,7 +27,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Period;
 import java.util.Objects;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -100,7 +98,10 @@ public class TestCopyFrom {
         if (i % 3 == 0) {
           assertNull(vector.getObject(i));
         } else {
-          assertEquals(Integer.toString(i), vector.getObject(i).toString(), "unexpected value at index: " + i);
+          assertEquals(
+              Integer.toString(i),
+              vector.getObject(i).toString(),
+              "unexpected value at index: " + i);
         }
       }
 
@@ -114,7 +115,10 @@ public class TestCopyFrom {
         if (i % 3 == 0) {
           assertNull(vector2.getObject(i));
         } else {
-          assertEquals(Integer.toString(i), vector2.getObject(i).toString(), "unexpected value at index: " + i);
+          assertEquals(
+              Integer.toString(i),
+              vector2.getObject(i).toString(),
+              "unexpected value at index: " + i);
         }
       }
 
@@ -128,7 +132,10 @@ public class TestCopyFrom {
         if (i % 3 == 0) {
           assertNull(vector2.getObject(i));
         } else {
-          assertEquals(Integer.toString(i), vector2.getObject(i).toString(), "unexpected value at index: " + i);
+          assertEquals(
+              Integer.toString(i),
+              vector2.getObject(i).toString(),
+              "unexpected value at index: " + i);
         }
       }
     }
@@ -163,7 +170,10 @@ public class TestCopyFrom {
         if (i % 3 == 0) {
           assertNull(vector.getObject(i));
         } else {
-          assertEquals(Integer.toString(i), vector.getObject(i).toString(), "unexpected value at index: " + i);
+          assertEquals(
+              Integer.toString(i),
+              vector.getObject(i).toString(),
+              "unexpected value at index: " + i);
         }
       }
 
@@ -181,7 +191,10 @@ public class TestCopyFrom {
         if (i % 3 == 0) {
           assertNull(vector2.getObject(i));
         } else {
-          assertEquals(Integer.toString(i), vector2.getObject(i).toString(), "unexpected value at index: " + i);
+          assertEquals(
+              Integer.toString(i),
+              vector2.getObject(i).toString(),
+              "unexpected value at index: " + i);
         }
       }
 
@@ -195,7 +208,10 @@ public class TestCopyFrom {
         if (i % 3 == 0) {
           assertNull(vector2.getObject(i));
         } else {
-          assertEquals(Integer.toString(i), vector2.getObject(i).toString(), "unexpected value at index: " + i);
+          assertEquals(
+              Integer.toString(i),
+              vector2.getObject(i).toString(),
+              "unexpected value at index: " + i);
         }
       }
     }
@@ -495,7 +511,8 @@ public class TestCopyFrom {
         if ((i & 1) == 0) {
           assertNull(vector1.getObject(i));
         } else {
-          assertEquals(123456.7865 + (double) i, vector1.get(i), 0, "unexpected value at index: " + i);
+          assertEquals(
+              123456.7865 + (double) i, vector1.get(i), 0, "unexpected value at index: " + i);
         }
       }
 
@@ -522,7 +539,8 @@ public class TestCopyFrom {
         if (((i & 1) == 0) || (i >= initialCapacity)) {
           assertNull(vector2.getObject(i));
         } else {
-          assertEquals(123456.7865 + (double) i, vector2.get(i), 0, "unexpected value at index: " + i);
+          assertEquals(
+              123456.7865 + (double) i, vector2.get(i), 0, "unexpected value at index: " + i);
         }
       }
     }
@@ -1053,16 +1071,15 @@ public class TestCopyFrom {
     }
   }
 
-  @Test //https://issues.apache.org/jira/browse/ARROW-7837
+  @Test // https://issues.apache.org/jira/browse/ARROW-7837
   public void testCopySafeArrow7837() {
     // this test exposes a bug in `handleSafe` where
     // it reads a stale index and as a result missed a required resize of the value vector.
     try (VarCharVector vc1 = new VarCharVector("vc1", allocator);
-         VarCharVector vc2 = new VarCharVector("vc2", allocator);
-    ) {
-      //initial size is carefully set in order to force the second 'copyFromSafe' operation
+        VarCharVector vc2 = new VarCharVector("vc2", allocator); ) {
+      // initial size is carefully set in order to force the second 'copyFromSafe' operation
       // to trigger a reallocation of the vector.
-      vc2.setInitialCapacity(/*valueCount*/20, /*density*/0.5);
+      vc2.setInitialCapacity(/*valueCount*/ 20, /*density*/ 0.5);
 
       vc1.setSafe(0, "1234567890".getBytes(StandardCharsets.UTF_8));
       assertFalse(vc1.isNull(0));
@@ -1081,6 +1098,4 @@ public class TestCopyFrom {
       assertEquals("1234567890", Objects.requireNonNull(vc2.getObject(5)).toString());
     }
   }
-
-
 }

@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.types.pojo;
 
 import static java.util.Arrays.asList;
@@ -27,7 +26,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
-
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.IntervalUnit;
@@ -63,84 +61,87 @@ public class TestSchema {
 
   @Test
   public void testComplex() throws IOException {
-    Schema schema = new Schema(asList(
-        field("a", false, new Int(8, true)),
-        field("b", new Struct(),
-            field("c", new Int(16, true)),
-            field("d", new Utf8())),
-        field("e", new List(), field(null, new Date(DateUnit.MILLISECOND))),
-        field("f", new FloatingPoint(FloatingPointPrecision.SINGLE)),
-        field("g", new Timestamp(TimeUnit.MILLISECOND, "UTC")),
-        field("h", new Timestamp(TimeUnit.MICROSECOND, null)),
-        field("i", new Interval(IntervalUnit.DAY_TIME)),
-        field("j", new ArrowType.Duration(TimeUnit.SECOND))
-    ));
+    Schema schema =
+        new Schema(
+            asList(
+                field("a", false, new Int(8, true)),
+                field("b", new Struct(), field("c", new Int(16, true)), field("d", new Utf8())),
+                field("e", new List(), field(null, new Date(DateUnit.MILLISECOND))),
+                field("f", new FloatingPoint(FloatingPointPrecision.SINGLE)),
+                field("g", new Timestamp(TimeUnit.MILLISECOND, "UTC")),
+                field("h", new Timestamp(TimeUnit.MICROSECOND, null)),
+                field("i", new Interval(IntervalUnit.DAY_TIME)),
+                field("j", new ArrowType.Duration(TimeUnit.SECOND))));
     roundTrip(schema);
     assertEquals(
-        "Schema<a: Int(8, true) not null, b: Struct<c: Int(16, true), d: Utf8>, e: List<Date(MILLISECOND)>, " +
-          "f: FloatingPoint(SINGLE), g: Timestamp(MILLISECOND, UTC), h: Timestamp(MICROSECOND, null), " +
-          "i: Interval(DAY_TIME), j: Duration(SECOND)>",
+        "Schema<a: Int(8, true) not null, b: Struct<c: Int(16, true), d: Utf8>, e: List<Date(MILLISECOND)>, "
+            + "f: FloatingPoint(SINGLE), g: Timestamp(MILLISECOND, UTC), h: Timestamp(MICROSECOND, null), "
+            + "i: Interval(DAY_TIME), j: Duration(SECOND)>",
         schema.toString());
   }
 
   @Test
   public void testAll() throws IOException {
-    Schema schema = new Schema(asList(
-        field("a", false, new Null()),
-        field("b", new Struct(), field("ba", new Null())),
-        field("c", new List(), field("ca", new Null())),
-        field("d", new Union(UnionMode.Sparse, new int[] {1, 2, 3}), field("da", new Null())),
-        field("e", new Int(8, true)),
-        field("f", new FloatingPoint(FloatingPointPrecision.SINGLE)),
-        field("g", new Utf8()),
-        field("h", new Binary()),
-        field("i", new Bool()),
-        field("j", new Decimal(5, 5, 128)),
-        field("k", new Date(DateUnit.DAY)),
-        field("l", new Date(DateUnit.MILLISECOND)),
-        field("m", new Time(TimeUnit.SECOND, 32)),
-        field("n", new Time(TimeUnit.MILLISECOND, 32)),
-        field("o", new Time(TimeUnit.MICROSECOND, 64)),
-        field("p", new Time(TimeUnit.NANOSECOND, 64)),
-        field("q", new Timestamp(TimeUnit.MILLISECOND, "UTC")),
-        field("r", new Timestamp(TimeUnit.MICROSECOND, null)),
-        field("s", new Interval(IntervalUnit.DAY_TIME)),
-        field("t", new FixedSizeBinary(100)),
-        field("u", new Duration(TimeUnit.SECOND)),
-        field("v", new Duration(TimeUnit.MICROSECOND))
-    ));
+    Schema schema =
+        new Schema(
+            asList(
+                field("a", false, new Null()),
+                field("b", new Struct(), field("ba", new Null())),
+                field("c", new List(), field("ca", new Null())),
+                field(
+                    "d", new Union(UnionMode.Sparse, new int[] {1, 2, 3}), field("da", new Null())),
+                field("e", new Int(8, true)),
+                field("f", new FloatingPoint(FloatingPointPrecision.SINGLE)),
+                field("g", new Utf8()),
+                field("h", new Binary()),
+                field("i", new Bool()),
+                field("j", new Decimal(5, 5, 128)),
+                field("k", new Date(DateUnit.DAY)),
+                field("l", new Date(DateUnit.MILLISECOND)),
+                field("m", new Time(TimeUnit.SECOND, 32)),
+                field("n", new Time(TimeUnit.MILLISECOND, 32)),
+                field("o", new Time(TimeUnit.MICROSECOND, 64)),
+                field("p", new Time(TimeUnit.NANOSECOND, 64)),
+                field("q", new Timestamp(TimeUnit.MILLISECOND, "UTC")),
+                field("r", new Timestamp(TimeUnit.MICROSECOND, null)),
+                field("s", new Interval(IntervalUnit.DAY_TIME)),
+                field("t", new FixedSizeBinary(100)),
+                field("u", new Duration(TimeUnit.SECOND)),
+                field("v", new Duration(TimeUnit.MICROSECOND))));
     roundTrip(schema);
   }
 
   @Test
   public void testUnion() throws IOException {
-    Schema schema = new Schema(asList(
-        field("d", new Union(UnionMode.Sparse, new int[] {1, 2, 3}), field("da", new Null()))
-    ));
+    Schema schema =
+        new Schema(
+            asList(
+                field(
+                    "d",
+                    new Union(UnionMode.Sparse, new int[] {1, 2, 3}),
+                    field("da", new Null()))));
     roundTrip(schema);
     contains(schema, "Sparse");
   }
 
   @Test
   public void testDate() throws IOException {
-    Schema schema = new Schema(asList(
-        field("a", new Date(DateUnit.DAY)),
-        field("b", new Date(DateUnit.MILLISECOND))
-    ));
+    Schema schema =
+        new Schema(
+            asList(field("a", new Date(DateUnit.DAY)), field("b", new Date(DateUnit.MILLISECOND))));
     roundTrip(schema);
-    assertEquals(
-        "Schema<a: Date(DAY), b: Date(MILLISECOND)>",
-        schema.toString());
+    assertEquals("Schema<a: Date(DAY), b: Date(MILLISECOND)>", schema.toString());
   }
 
   @Test
   public void testTime() throws IOException {
-    Schema schema = new Schema(asList(
-        field("a", new Time(TimeUnit.SECOND, 32)),
-        field("b", new Time(TimeUnit.MILLISECOND, 32)),
-        field("c", new Time(TimeUnit.MICROSECOND, 64)),
-        field("d", new Time(TimeUnit.NANOSECOND, 64))
-    ));
+    Schema schema =
+        new Schema(
+            asList(
+                field("a", new Time(TimeUnit.SECOND, 32)),
+                field("b", new Time(TimeUnit.MILLISECOND, 32)),
+                field("c", new Time(TimeUnit.MICROSECOND, 64)),
+                field("d", new Time(TimeUnit.NANOSECOND, 64))));
     roundTrip(schema);
     assertEquals(
         "Schema<a: Time(SECOND, 32), b: Time(MILLISECOND, 32), c: Time(MICROSECOND, 64), d: Time(NANOSECOND, 64)>",
@@ -149,53 +150,57 @@ public class TestSchema {
 
   @Test
   public void testTS() throws IOException {
-    Schema schema = new Schema(asList(
-        field("a", new Timestamp(TimeUnit.SECOND, "UTC")),
-        field("b", new Timestamp(TimeUnit.MILLISECOND, "UTC")),
-        field("c", new Timestamp(TimeUnit.MICROSECOND, "UTC")),
-        field("d", new Timestamp(TimeUnit.NANOSECOND, "UTC")),
-        field("e", new Timestamp(TimeUnit.SECOND, null)),
-        field("f", new Timestamp(TimeUnit.MILLISECOND, null)),
-        field("g", new Timestamp(TimeUnit.MICROSECOND, null)),
-        field("h", new Timestamp(TimeUnit.NANOSECOND, null))
-    ));
+    Schema schema =
+        new Schema(
+            asList(
+                field("a", new Timestamp(TimeUnit.SECOND, "UTC")),
+                field("b", new Timestamp(TimeUnit.MILLISECOND, "UTC")),
+                field("c", new Timestamp(TimeUnit.MICROSECOND, "UTC")),
+                field("d", new Timestamp(TimeUnit.NANOSECOND, "UTC")),
+                field("e", new Timestamp(TimeUnit.SECOND, null)),
+                field("f", new Timestamp(TimeUnit.MILLISECOND, null)),
+                field("g", new Timestamp(TimeUnit.MICROSECOND, null)),
+                field("h", new Timestamp(TimeUnit.NANOSECOND, null))));
     roundTrip(schema);
     assertEquals(
-        "Schema<a: Timestamp(SECOND, UTC), b: Timestamp(MILLISECOND, UTC), c: Timestamp(MICROSECOND, UTC), " +
-          "d: Timestamp(NANOSECOND, UTC), e: Timestamp(SECOND, null), f: Timestamp(MILLISECOND, null), " +
-          "g: Timestamp(MICROSECOND, null), h: Timestamp(NANOSECOND, null)>",
+        "Schema<a: Timestamp(SECOND, UTC), b: Timestamp(MILLISECOND, UTC), c: Timestamp(MICROSECOND, UTC), "
+            + "d: Timestamp(NANOSECOND, UTC), e: Timestamp(SECOND, null), f: Timestamp(MILLISECOND, null), "
+            + "g: Timestamp(MICROSECOND, null), h: Timestamp(NANOSECOND, null)>",
         schema.toString());
   }
 
   @Test
   public void testInterval() throws IOException {
-    Schema schema = new Schema(asList(
-        field("a", new Interval(IntervalUnit.YEAR_MONTH)),
-        field("b", new Interval(IntervalUnit.DAY_TIME))
-    ));
+    Schema schema =
+        new Schema(
+            asList(
+                field("a", new Interval(IntervalUnit.YEAR_MONTH)),
+                field("b", new Interval(IntervalUnit.DAY_TIME))));
     roundTrip(schema);
     contains(schema, "YEAR_MONTH", "DAY_TIME");
   }
 
   @Test
   public void testRoundTripDurationInterval() throws IOException {
-    Schema schema = new Schema(asList(
-        field("a", new Duration(TimeUnit.SECOND)),
-        field("b", new Duration(TimeUnit.MILLISECOND)),
-        field("c", new Duration(TimeUnit.MICROSECOND)),
-        field("d", new Duration(TimeUnit.NANOSECOND))
-    ));
+    Schema schema =
+        new Schema(
+            asList(
+                field("a", new Duration(TimeUnit.SECOND)),
+                field("b", new Duration(TimeUnit.MILLISECOND)),
+                field("c", new Duration(TimeUnit.MICROSECOND)),
+                field("d", new Duration(TimeUnit.NANOSECOND))));
     roundTrip(schema);
     contains(schema, "SECOND", "MILLI", "MICRO", "NANO");
   }
 
   @Test
   public void testFP() throws IOException {
-    Schema schema = new Schema(asList(
-        field("a", new FloatingPoint(FloatingPointPrecision.HALF)),
-        field("b", new FloatingPoint(FloatingPointPrecision.SINGLE)),
-        field("c", new FloatingPoint(FloatingPointPrecision.DOUBLE))
-    ));
+    Schema schema =
+        new Schema(
+            asList(
+                field("a", new FloatingPoint(FloatingPointPrecision.HALF)),
+                field("b", new FloatingPoint(FloatingPointPrecision.SINGLE)),
+                field("c", new FloatingPoint(FloatingPointPrecision.DOUBLE))));
     roundTrip(schema);
     contains(schema, "HALF", "SINGLE", "DOUBLE");
   }
@@ -205,44 +210,47 @@ public class TestSchema {
     Map<String, String> metadata = new HashMap<>(1);
     metadata.put("testKey", "testValue");
 
-    java.util.List<Field> fields = asList(
-        field("a", false, new Int(8, true)),
-        field("b", new Struct(),
-            field("c", new Int(16, true)),
-            field("d", new Utf8())),
-        field("e", new List(), field(null, new Date(DateUnit.MILLISECOND)))
-    );
+    java.util.List<Field> fields =
+        asList(
+            field("a", false, new Int(8, true)),
+            field("b", new Struct(), field("c", new Int(16, true)), field("d", new Utf8())),
+            field("e", new List(), field(null, new Date(DateUnit.MILLISECOND))));
     Schema schema = new Schema(fields, metadata);
     roundTrip(schema);
-    contains(schema, "\"" + METADATA_KEY + "\" : \"testKey\"", "\"" + METADATA_VALUE + "\" : \"testValue\"");
+    contains(
+        schema,
+        "\"" + METADATA_KEY + "\" : \"testKey\"",
+        "\"" + METADATA_VALUE + "\" : \"testValue\"");
   }
 
   @Test
   public void testMessageSerialization() {
-    Schema schema = new Schema(asList(
-        field("a", false, new Null()),
-        field("b", new Struct(), field("ba", new Null())),
-        field("c", new List(), field("ca", new Null())),
-        field("d", new Union(UnionMode.Sparse, new int[] {1, 2, 3}), field("da", new Null())),
-        field("e", new Int(8, true)),
-        field("f", new FloatingPoint(FloatingPointPrecision.SINGLE)),
-        field("g", new Utf8()),
-        field("h", new Binary()),
-        field("i", new Bool()),
-        field("j", new Decimal(5, 5, 128)),
-        field("k", new Date(DateUnit.DAY)),
-        field("l", new Date(DateUnit.MILLISECOND)),
-        field("m", new Time(TimeUnit.SECOND, 32)),
-        field("n", new Time(TimeUnit.MILLISECOND, 32)),
-        field("o", new Time(TimeUnit.MICROSECOND, 64)),
-        field("p", new Time(TimeUnit.NANOSECOND, 64)),
-        field("q", new Timestamp(TimeUnit.MILLISECOND, "UTC")),
-        field("r", new Timestamp(TimeUnit.MICROSECOND, null)),
-        field("s", new Interval(IntervalUnit.DAY_TIME)),
-        field("t", new FixedSizeBinary(100)),
-        field("u", new Duration(TimeUnit.SECOND)),
-        field("v", new Duration(TimeUnit.MICROSECOND))
-    ));
+    Schema schema =
+        new Schema(
+            asList(
+                field("a", false, new Null()),
+                field("b", new Struct(), field("ba", new Null())),
+                field("c", new List(), field("ca", new Null())),
+                field(
+                    "d", new Union(UnionMode.Sparse, new int[] {1, 2, 3}), field("da", new Null())),
+                field("e", new Int(8, true)),
+                field("f", new FloatingPoint(FloatingPointPrecision.SINGLE)),
+                field("g", new Utf8()),
+                field("h", new Binary()),
+                field("i", new Bool()),
+                field("j", new Decimal(5, 5, 128)),
+                field("k", new Date(DateUnit.DAY)),
+                field("l", new Date(DateUnit.MILLISECOND)),
+                field("m", new Time(TimeUnit.SECOND, 32)),
+                field("n", new Time(TimeUnit.MILLISECOND, 32)),
+                field("o", new Time(TimeUnit.MICROSECOND, 64)),
+                field("p", new Time(TimeUnit.NANOSECOND, 64)),
+                field("q", new Timestamp(TimeUnit.MILLISECOND, "UTC")),
+                field("r", new Timestamp(TimeUnit.MICROSECOND, null)),
+                field("s", new Interval(IntervalUnit.DAY_TIME)),
+                field("t", new FixedSizeBinary(100)),
+                field("u", new Duration(TimeUnit.SECOND)),
+                field("v", new Duration(TimeUnit.MICROSECOND))));
     roundTripMessage(schema);
   }
 
@@ -264,7 +272,8 @@ public class TestSchema {
     assertEquals(schema.hashCode(), actual.hashCode());
   }
 
-  private void validateFieldsHashcode(java.util.List<Field> schemaFields, java.util.List<Field> actualFields) {
+  private void validateFieldsHashcode(
+      java.util.List<Field> schemaFields, java.util.List<Field> actualFields) {
     assertEquals(schemaFields.size(), actualFields.size());
     if (schemaFields.size() == 0) {
       return;
@@ -289,5 +298,4 @@ public class TestSchema {
       assertTrue(json.contains(string), json + " contains " + string);
     }
   }
-
 }

@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.ipc;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -28,7 +27,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
-
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.IntVector;
@@ -45,14 +43,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Integration test for reading/writing {@link org.apache.arrow.vector.VectorSchemaRoot} with
- * large (more than 2GB) buffers by {@link ArrowReader} and {@link ArrowWriter}..
- * To run this test, please make sure there is at least 8GB free memory, and 8GB
- * free.disk space in the system.
+ * Integration test for reading/writing {@link org.apache.arrow.vector.VectorSchemaRoot} with large
+ * (more than 2GB) buffers by {@link ArrowReader} and {@link ArrowWriter}.. To run this test, please
+ * make sure there is at least 8GB free memory, and 8GB free.disk space in the system.
  */
 public class ITTestIPCWithLargeArrowBuffers {
 
-  private static final Logger logger = LoggerFactory.getLogger(ITTestIPCWithLargeArrowBuffers.class);
+  private static final Logger logger =
+      LoggerFactory.getLogger(ITTestIPCWithLargeArrowBuffers.class);
 
   // 4GB buffer size
   static final long BUFFER_SIZE = 4 * 1024 * 1024 * 1024L;
@@ -78,12 +76,13 @@ public class ITTestIPCWithLargeArrowBuffers {
   private void testWriteLargeArrowData(boolean streamMode) throws IOException {
     // simulate encoding big int as int
     try (RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-         BigIntVector dictVector = new BigIntVector("dic vector", allocator);
-         FileOutputStream out = new FileOutputStream(FILE_NAME);
-         IntVector encodedVector = (IntVector) ENCODED_VECTOR_FIELD.createVector(allocator)) {
+        BigIntVector dictVector = new BigIntVector("dic vector", allocator);
+        FileOutputStream out = new FileOutputStream(FILE_NAME);
+        IntVector encodedVector = (IntVector) ENCODED_VECTOR_FIELD.createVector(allocator)) {
 
       // prepare dictionary provider.
-      DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
+      DictionaryProvider.MapDictionaryProvider provider =
+          new DictionaryProvider.MapDictionaryProvider();
       Dictionary dictionary = new Dictionary(dictVector, DICTIONARY_ENCODING);
       provider.put(dictionary);
 
@@ -107,11 +106,14 @@ public class ITTestIPCWithLargeArrowBuffers {
 
       // build vector schema root and write data.
       try (VectorSchemaRoot root =
-               new VectorSchemaRoot(
-                   Arrays.asList(ENCODED_VECTOR_FIELD), Arrays.asList(encodedVector), ENCODED_VECTOR_SIZE);
-           ArrowWriter writer = streamMode ?
-               new ArrowStreamWriter(root, provider, out) :
-               new ArrowFileWriter(root, provider, out.getChannel())) {
+              new VectorSchemaRoot(
+                  Arrays.asList(ENCODED_VECTOR_FIELD),
+                  Arrays.asList(encodedVector),
+                  ENCODED_VECTOR_SIZE);
+          ArrowWriter writer =
+              streamMode
+                  ? new ArrowStreamWriter(root, provider, out)
+                  : new ArrowFileWriter(root, provider, out.getChannel())) {
         writer.start();
         writer.writeBatch();
         writer.end();
@@ -124,10 +126,11 @@ public class ITTestIPCWithLargeArrowBuffers {
 
   private void testReadLargeArrowData(boolean streamMode) throws IOException {
     try (RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-         FileInputStream in = new FileInputStream(FILE_NAME);
-         ArrowReader reader = streamMode ?
-             new ArrowStreamReader(in, allocator) :
-             new ArrowFileReader(in.getChannel(), allocator)) {
+        FileInputStream in = new FileInputStream(FILE_NAME);
+        ArrowReader reader =
+            streamMode
+                ? new ArrowStreamReader(in, allocator)
+                : new ArrowFileReader(in.getChannel(), allocator)) {
 
       // verify schema
       Schema readSchema = reader.getVectorSchemaRoot().getSchema();

@@ -14,13 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.complex;
 
-/**
- * Get and set position in a particular data structure.
- *
- */
+/** Get and set position in a particular data structure. */
 @SuppressWarnings("unused") // Used in when instantiating freemarker templates.
 public interface Positionable {
   int getPosition();

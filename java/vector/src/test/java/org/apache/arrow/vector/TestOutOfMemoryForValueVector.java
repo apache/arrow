@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -26,9 +25,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/**
- * This class tests cases where we expect to receive {@link OutOfMemoryException}.
- */
+/** This class tests cases where we expect to receive {@link OutOfMemoryException}. */
 public class TestOutOfMemoryForValueVector {
 
   private static final String EMPTY_SCHEMA_PATH = "";
@@ -42,38 +39,46 @@ public class TestOutOfMemoryForValueVector {
 
   @Test
   public void variableWidthVectorAllocateNew() {
-    assertThrows(OutOfMemoryException.class, () -> {
-      try (VarCharVector vector = new VarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
-        vector.allocateNew();
-      }
-    });
+    assertThrows(
+        OutOfMemoryException.class,
+        () -> {
+          try (VarCharVector vector = new VarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
+            vector.allocateNew();
+          }
+        });
   }
 
   @Test
   public void variableWidthVectorAllocateNewCustom() {
-    assertThrows(OutOfMemoryException.class, () -> {
-      try (VarCharVector vector = new VarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
-        vector.allocateNew(2342, 234);
-      }
-    });
+    assertThrows(
+        OutOfMemoryException.class,
+        () -> {
+          try (VarCharVector vector = new VarCharVector(EMPTY_SCHEMA_PATH, allocator)) {
+            vector.allocateNew(2342, 234);
+          }
+        });
   }
 
   @Test
   public void fixedWidthVectorAllocateNew() {
-    assertThrows(OutOfMemoryException.class, () -> {
-      try (IntVector vector = new IntVector(EMPTY_SCHEMA_PATH, allocator)) {
-        vector.allocateNew();
-      }
-    });
+    assertThrows(
+        OutOfMemoryException.class,
+        () -> {
+          try (IntVector vector = new IntVector(EMPTY_SCHEMA_PATH, allocator)) {
+            vector.allocateNew();
+          }
+        });
   }
 
   @Test
   public void fixedWidthVectorAllocateNewCustom() {
-    assertThrows(OutOfMemoryException.class, () -> {
-      try (IntVector vector = new IntVector(EMPTY_SCHEMA_PATH, allocator)) {
-        vector.allocateNew(2342);
-      }
-    });
+    assertThrows(
+        OutOfMemoryException.class,
+        () -> {
+          try (IntVector vector = new IntVector(EMPTY_SCHEMA_PATH, allocator)) {
+            vector.allocateNew(2342);
+          }
+        });
   }
 
   @AfterEach

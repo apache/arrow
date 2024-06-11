@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -22,7 +21,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.memory.RootAllocator;
@@ -105,12 +103,18 @@ public class TestBufferOwnershipTransfer {
 
     final Pointer<Boolean> trigger1 = new Pointer<>();
     final Pointer<Boolean> trigger2 = new Pointer<>();
-    final ListVector v1 = new ListVector("v1", allocator,
-        FieldType.nullable(ArrowType.Null.INSTANCE),
-        newTriggerCallback(trigger1));
-    final ListVector v2 = new ListVector("v2", allocator,
-        FieldType.nullable(ArrowType.Null.INSTANCE),
-        newTriggerCallback(trigger2));
+    final ListVector v1 =
+        new ListVector(
+            "v1",
+            allocator,
+            FieldType.nullable(ArrowType.Null.INSTANCE),
+            newTriggerCallback(trigger1));
+    final ListVector v2 =
+        new ListVector(
+            "v2",
+            allocator,
+            FieldType.nullable(ArrowType.Null.INSTANCE),
+            newTriggerCallback(trigger2));
 
     try {
       // since we are working with empty vectors, their internal
