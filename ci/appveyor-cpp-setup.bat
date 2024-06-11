@@ -81,6 +81,8 @@ mamba create -n arrow -y -c conda-forge ^
   "fsspec" ^
   "python=%PYTHON%" ^
   || exit /B
+@rem TEMP test with numpy 2.0 RC
+pip install --pre --upgrade numpy || exit /B
 conda list -n arrow
 
 @rem
