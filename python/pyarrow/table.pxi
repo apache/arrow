@@ -3509,7 +3509,7 @@ cdef class RecordBatch(_Tabular):
         b: [10,20,30,40,null]
 
         Convert a RecordBatch to row-major Tensor with null values
-        written as ``NaN``s
+        written as ``NaN``:
 
         >>> batch.to_tensor(null_to_nan=True)
         <pyarrow.Tensor>
@@ -3523,7 +3523,7 @@ cdef class RecordBatch(_Tabular):
                [ 4., 40.],
                [nan, nan]])
 
-        Convert a RecordBatch to column-major Tensor
+        Convert a RecordBatch to column-major Tensor:
 
         >>> batch.to_tensor(null_to_nan=True, row_major=False)
         <pyarrow.Tensor>
@@ -4908,7 +4908,7 @@ cdef class Table(_Tabular):
         a: [[1,2],[3,4,null]]
         b: [[10,20,30],[40,null]]
 
-        Convert a Table to row-major Tensor with null values written as ``NaN``s:
+        Convert a Table to row-major Tensor with null values written as ``NaN``:
 
         >>> table.to_tensor(null_to_nan=True)
         <pyarrow.Tensor>
