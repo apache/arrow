@@ -14,18 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.ipc.message;
 
 import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 
+import com.google.flatbuffers.FlatBufferBuilder;
 import org.apache.arrow.flatbuf.FieldNode;
 
-import com.google.flatbuffers.FlatBufferBuilder;
-
-/**
- * Metadata about Vectors/Arrays that is written to a channel.
- */
+/** Metadata about Vectors/Arrays that is written to a channel. */
 public class ArrowFieldNode implements FBSerializable {
 
   private final int length;
@@ -60,5 +56,4 @@ public class ArrowFieldNode implements FBSerializable {
   public String toString() {
     return "ArrowFieldNode [length=" + length + ", nullCount=" + nullCount + "]";
   }
-
 }

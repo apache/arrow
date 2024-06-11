@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.avro;
 
 import static org.junit.Assert.assertEquals;
@@ -29,7 +28,6 @@ import java.lang.reflect.Method;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
@@ -51,8 +49,7 @@ import org.junit.rules.TemporaryFolder;
 
 public class AvroTestBase {
 
-  @ClassRule
-  public static final TemporaryFolder TMP = new TemporaryFolder();
+  @ClassRule public static final TemporaryFolder TMP = new TemporaryFolder();
 
   protected AvroToArrowConfig config;
 
@@ -64,18 +61,21 @@ public class AvroTestBase {
 
   public static Schema getSchema(String schemaName) throws Exception {
     try {
-      // Attempt to use JDK 9 behavior of getting the module then the resource stream from the module.
+      // Attempt to use JDK 9 behavior of getting the module then the resource stream from the
+      // module.
       // Note that this code is caller-sensitive.
       Method getModuleMethod = Class.class.getMethod("getModule");
       Object module = getModuleMethod.invoke(TestWriteReadAvroRecord.class);
-      Method getResourceAsStreamFromModule = module.getClass().getMethod("getResourceAsStream", String.class);
-      try (InputStream is = (InputStream) getResourceAsStreamFromModule.invoke(module, "/schema/" + schemaName)) {
-        return new Schema.Parser()
-            .parse(is);
+      Method getResourceAsStreamFromModule =
+          module.getClass().getMethod("getResourceAsStream", String.class);
+      try (InputStream is =
+          (InputStream) getResourceAsStreamFromModule.invoke(module, "/schema/" + schemaName)) {
+        return new Schema.Parser().parse(is);
       }
     } catch (NoSuchMethodException ex) {
       // Use JDK8 behavior.
-      try (InputStream is = TestWriteReadAvroRecord.class.getResourceAsStream("/schema/" + schemaName)) {
+      try (InputStream is =
+          TestWriteReadAvroRecord.class.getResourceAsStream("/schema/" + schemaName)) {
         return new Schema.Parser().parse(is);
       }
     }
@@ -84,11 +84,11 @@ public class AvroTestBase {
   protected VectorSchemaRoot writeAndRead(Schema schema, List data) throws Exception {
     File dataFile = TMP.newFile();
 
-    BinaryEncoder
-        encoder = new EncoderFactory().directBinaryEncoder(new FileOutputStream(dataFile), null);
+    BinaryEncoder encoder =
+        new EncoderFactory().directBinaryEncoder(new FileOutputStream(dataFile), null);
     DatumWriter writer = new GenericDatumWriter(schema);
-    BinaryDecoder
-        decoder = new DecoderFactory().directBinaryDecoder(new FileInputStream(dataFile), null);
+    BinaryDecoder decoder =
+        new DecoderFactory().directBinaryDecoder(new FileInputStream(dataFile), null);
 
     for (Object value : data) {
       writer.write(value, encoder);
@@ -157,10 +157,10 @@ public class AvroTestBase {
 
       checkPrimitiveResult(fieldData, root.getFieldVectors().get(i));
     }
-
   }
 
-  protected void checkNestedRecordResult(Schema schema, List<GenericRecord> data, VectorSchemaRoot root) {
+  protected void checkNestedRecordResult(
+      Schema schema, List<GenericRecord> data, VectorSchemaRoot root) {
     assertEquals(data.size(), root.getRowCount());
     assertTrue(schema.getFields().size() == 1);
 
@@ -176,9 +176,7 @@ public class AvroTestBase {
 
       checkPrimitiveResult(fieldData, structVector.getChildrenFromFields().get(i));
     }
-
   }
-
 
   // belows are for iterator api
 
@@ -194,10 +192,12 @@ public class AvroTestBase {
     }
   }
 
-  protected void checkRecordResult(Schema schema, List<GenericRecord> data, List<VectorSchemaRoot> roots) {
-    roots.forEach(root -> {
-      assertEquals(schema.getFields().size(), root.getFieldVectors().size());
-    });
+  protected void checkRecordResult(
+      Schema schema, List<GenericRecord> data, List<VectorSchemaRoot> roots) {
+    roots.forEach(
+        root -> {
+          assertEquals(schema.getFields().size(), root.getFieldVectors().size());
+        });
 
     for (int i = 0; i < schema.getFields().size(); i++) {
       List fieldData = new ArrayList();
@@ -210,7 +210,6 @@ public class AvroTestBase {
 
       checkPrimitiveResult(fieldData, vectors);
     }
-
   }
 
   protected void checkPrimitiveResult(List data, List<FieldVector> vectors) {

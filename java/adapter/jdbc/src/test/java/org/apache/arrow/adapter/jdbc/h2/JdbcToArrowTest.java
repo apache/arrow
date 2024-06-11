@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc.h2;
 
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.*;
@@ -29,7 +28,6 @@ import java.util.Calendar;
 import java.util.Collection;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
 import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
 import org.apache.arrow.adapter.jdbc.ArrowVectorIterator;
 import org.apache.arrow.adapter.jdbc.JdbcToArrow;
@@ -64,8 +62,8 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 /**
- * JUnit Test Class which contains methods to test JDBC to Arrow data conversion functionality with various data types
- * for H2 database using single test data file.
+ * JUnit Test Class which contains methods to test JDBC to Arrow data conversion functionality with
+ * various data types for H2 database using single test data file.
  */
 @RunWith(Parameterized.class)
 public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
@@ -92,53 +90,72 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
    * @throws IOException on error
    */
   @Parameterized.Parameters(name = "table = {0}, reuse batch = {1}")
-  public static Collection<Object[]> getTestData() throws SQLException, ClassNotFoundException, IOException {
-    return Arrays.stream(prepareTestData(testFiles, JdbcToArrowTest.class)).flatMap(row ->
-      Stream.of(new Object[] {row[0], true}, new Object[] {row[0], false})).collect(Collectors.toList());
+  public static Collection<Object[]> getTestData()
+      throws SQLException, ClassNotFoundException, IOException {
+    return Arrays.stream(prepareTestData(testFiles, JdbcToArrowTest.class))
+        .flatMap(row -> Stream.of(new Object[] {row[0], true}, new Object[] {row[0], false}))
+        .collect(Collectors.toList());
   }
 
   /**
-   * Test Method to test JdbcToArrow Functionality for various H2 DB based datatypes with only one test data file.
+   * Test Method to test JdbcToArrow Functionality for various H2 DB based datatypes with only one
+   * test data file.
    */
   @Test
   @Override
   public void testJdbcToArrowValues() throws SQLException, IOException {
-    testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE),
-        Calendar.getInstance()), false);
+    testDataSets(
+        sqlToArrow(
+            conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()),
+        false);
     testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE)), false);
-    testDataSets(sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
-        new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()), false);
+    testDataSets(
+        sqlToArrow(
+            conn.createStatement().executeQuery(table.getQuery()),
+            new RootAllocator(Integer.MAX_VALUE),
+            Calendar.getInstance()),
+        false);
     testDataSets(sqlToArrow(conn.createStatement().executeQuery(table.getQuery())), false);
-    testDataSets(sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
-        new RootAllocator(Integer.MAX_VALUE)), false);
-    testDataSets(sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
-        Calendar.getInstance()), false);
+    testDataSets(
+        sqlToArrow(
+            conn.createStatement().executeQuery(table.getQuery()),
+            new RootAllocator(Integer.MAX_VALUE)),
+        false);
+    testDataSets(
+        sqlToArrow(conn.createStatement().executeQuery(table.getQuery()), Calendar.getInstance()),
+        false);
     Calendar calendar = Calendar.getInstance();
     ResultSetMetaData rsmd = getQueryMetaData(table.getQuery());
-    testDataSets(sqlToArrow(
-        conn.createStatement().executeQuery(table.getQuery()),
-        new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance())
-            .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
-            .setJdbcToArrowTypeConverter(jdbcToArrowTypeConverter(calendar, rsmd))
-            .build()), true);
-    testDataSets(sqlToArrow(
-        conn,
-        table.getQuery(),
-        new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), calendar)
-            .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
-            .setJdbcToArrowTypeConverter(jdbcToArrowTypeConverter(calendar, rsmd))
-            .build()), true);
+    testDataSets(
+        sqlToArrow(
+            conn.createStatement().executeQuery(table.getQuery()),
+            new JdbcToArrowConfigBuilder(
+                    new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance())
+                .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
+                .setJdbcToArrowTypeConverter(jdbcToArrowTypeConverter(calendar, rsmd))
+                .build()),
+        true);
+    testDataSets(
+        sqlToArrow(
+            conn,
+            table.getQuery(),
+            new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), calendar)
+                .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
+                .setJdbcToArrowTypeConverter(jdbcToArrowTypeConverter(calendar, rsmd))
+                .build()),
+        true);
   }
 
   @Test
   public void testJdbcSchemaMetadata() throws SQLException {
     Calendar calendar = Calendar.getInstance();
     ResultSetMetaData rsmd = getQueryMetaData(table.getQuery());
-    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(new RootAllocator(0), calendar, true)
-        .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
-        .setJdbcToArrowTypeConverter(jdbcToArrowTypeConverter(calendar, rsmd))
-        .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
-        .build();
+    JdbcToArrowConfig config =
+        new JdbcToArrowConfigBuilder(new RootAllocator(0), calendar, true)
+            .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
+            .setJdbcToArrowTypeConverter(jdbcToArrowTypeConverter(calendar, rsmd))
+            .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
+            .build();
     Schema schema = JdbcToArrowUtils.jdbcToArrowSchema(rsmd, config);
     JdbcToArrowTestHelper.assertFieldMetadataMatchesResultSetMetadata(rsmd, schema);
   }
@@ -147,71 +164,105 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
    * This method calls the assert methods for various DataSets.
    *
    * @param root VectorSchemaRoot for test
-   * @param isIncludeMapVector is this dataset checks includes map column.
-   *          Jdbc type to 'map' mapping declared in configuration only manually
+   * @param isIncludeMapVector is this dataset checks includes map column. Jdbc type to 'map'
+   *     mapping declared in configuration only manually
    */
   @Override
   public void testDataSets(VectorSchemaRoot root, boolean isIncludeMapVector) {
     JdbcToArrowTestHelper.assertFieldMetadataIsEmpty(root);
-    assertBigIntVectorValues((BigIntVector) root.getVector(BIGINT), table.getRowCount(),
+    assertBigIntVectorValues(
+        (BigIntVector) root.getVector(BIGINT),
+        table.getRowCount(),
         getLongValues(table.getValues(), BIGINT));
 
-    assertTinyIntVectorValues((TinyIntVector) root.getVector(TINYINT), table.getRowCount(),
+    assertTinyIntVectorValues(
+        (TinyIntVector) root.getVector(TINYINT),
+        table.getRowCount(),
         getIntValues(table.getValues(), TINYINT));
 
-    assertSmallIntVectorValues((SmallIntVector) root.getVector(SMALLINT), table.getRowCount(),
+    assertSmallIntVectorValues(
+        (SmallIntVector) root.getVector(SMALLINT),
+        table.getRowCount(),
         getIntValues(table.getValues(), SMALLINT));
 
-    assertVarBinaryVectorValues((VarBinaryVector) root.getVector(BINARY), table.getRowCount(),
+    assertVarBinaryVectorValues(
+        (VarBinaryVector) root.getVector(BINARY),
+        table.getRowCount(),
         getBinaryValues(table.getValues(), BINARY));
 
-    assertVarBinaryVectorValues((VarBinaryVector) root.getVector(BLOB), table.getRowCount(),
+    assertVarBinaryVectorValues(
+        (VarBinaryVector) root.getVector(BLOB),
+        table.getRowCount(),
         getBinaryValues(table.getValues(), BLOB));
 
-    assertVarcharVectorValues((VarCharVector) root.getVector(CLOB), table.getRowCount(),
+    assertVarcharVectorValues(
+        (VarCharVector) root.getVector(CLOB),
+        table.getRowCount(),
         getCharArray(table.getValues(), CLOB));
 
-    assertVarcharVectorValues((VarCharVector) root.getVector(VARCHAR), table.getRowCount(),
+    assertVarcharVectorValues(
+        (VarCharVector) root.getVector(VARCHAR),
+        table.getRowCount(),
         getCharArray(table.getValues(), VARCHAR));
 
-    assertVarcharVectorValues((VarCharVector) root.getVector(CHAR), table.getRowCount(),
+    assertVarcharVectorValues(
+        (VarCharVector) root.getVector(CHAR),
+        table.getRowCount(),
         getCharArray(table.getValues(), CHAR));
 
-    assertIntVectorValues((IntVector) root.getVector(INT), table.getRowCount(),
-        getIntValues(table.getValues(), INT));
+    assertIntVectorValues(
+        (IntVector) root.getVector(INT), table.getRowCount(), getIntValues(table.getValues(), INT));
 
-    assertBitVectorValues((BitVector) root.getVector(BIT), table.getRowCount(),
-        getIntValues(table.getValues(), BIT));
+    assertBitVectorValues(
+        (BitVector) root.getVector(BIT), table.getRowCount(), getIntValues(table.getValues(), BIT));
 
-    assertBooleanVectorValues((BitVector) root.getVector(BOOL), table.getRowCount(),
+    assertBooleanVectorValues(
+        (BitVector) root.getVector(BOOL),
+        table.getRowCount(),
         getBooleanValues(table.getValues(), BOOL));
 
-    assertDateVectorValues((DateDayVector) root.getVector(DATE), table.getRowCount(),
+    assertDateVectorValues(
+        (DateDayVector) root.getVector(DATE),
+        table.getRowCount(),
         getIntValues(table.getValues(), DATE));
 
-    assertTimeVectorValues((TimeMilliVector) root.getVector(TIME), table.getRowCount(),
+    assertTimeVectorValues(
+        (TimeMilliVector) root.getVector(TIME),
+        table.getRowCount(),
         getLongValues(table.getValues(), TIME));
 
-    assertTimeStampVectorValues((TimeStampVector) root.getVector(TIMESTAMP), table.getRowCount(),
+    assertTimeStampVectorValues(
+        (TimeStampVector) root.getVector(TIMESTAMP),
+        table.getRowCount(),
         getLongValues(table.getValues(), TIMESTAMP));
 
-    assertDecimalVectorValues((DecimalVector) root.getVector(DECIMAL), table.getRowCount(),
+    assertDecimalVectorValues(
+        (DecimalVector) root.getVector(DECIMAL),
+        table.getRowCount(),
         getDecimalValues(table.getValues(), DECIMAL));
 
-    assertFloat8VectorValues((Float8Vector) root.getVector(DOUBLE), table.getRowCount(),
+    assertFloat8VectorValues(
+        (Float8Vector) root.getVector(DOUBLE),
+        table.getRowCount(),
         getDoubleValues(table.getValues(), DOUBLE));
 
-    assertFloat4VectorValues((Float4Vector) root.getVector(REAL), table.getRowCount(),
+    assertFloat4VectorValues(
+        (Float4Vector) root.getVector(REAL),
+        table.getRowCount(),
         getFloatValues(table.getValues(), REAL));
 
     assertNullVectorValues((NullVector) root.getVector(NULL), table.getRowCount());
 
-    assertListVectorValues((ListVector) root.getVector(LIST), table.getRowCount(),
+    assertListVectorValues(
+        (ListVector) root.getVector(LIST),
+        table.getRowCount(),
         getListValues(table.getValues(), LIST));
 
     if (isIncludeMapVector) {
-      assertMapVectorValues((MapVector) root.getVector(MAP), table.getRowCount(),
-              getMapValues(table.getValues(), MAP));
+      assertMapVectorValues(
+          (MapVector) root.getVector(MAP),
+          table.getRowCount(),
+          getMapValues(table.getValues(), MAP));
     }
   }
 
@@ -221,11 +272,12 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
     int x = 0;
     final int targetRows = 600000;
     ResultSet rs = ResultSetUtility.generateBasicResultSet(targetRows);
-    JdbcToArrowConfig config = new JdbcToArrowConfigBuilder(
-        allocator, JdbcToArrowUtils.getUtcCalendar(), /* include metadata */ false)
-        .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
-        .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
-        .build();
+    JdbcToArrowConfig config =
+        new JdbcToArrowConfigBuilder(
+                allocator, JdbcToArrowUtils.getUtcCalendar(), /* include metadata */ false)
+            .setReuseVectorSchemaRoot(reuseVectorSchemaRoot)
+            .setArraySubTypeByColumnNameMap(ARRAY_SUB_TYPE_BY_COLUMN_NAME_MAP)
+            .build();
 
     try (ArrowVectorIterator iter = JdbcToArrow.sqlToArrowVectorIterator(rs, config)) {
       while (iter.hasNext()) {

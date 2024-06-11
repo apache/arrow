@@ -14,24 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import java.nio.ByteBuffer;
-
 import org.apache.arrow.memory.ReusableBuffer;
 
-/**
-* A base interface for common functionalities in variable width vectors.
-*/
-public interface VariableWidthFieldVector extends VariableWidthVector, FieldVector, VectorDefinitionSetter {
+/** A base interface for common functionalities in variable width vectors. */
+public interface VariableWidthFieldVector
+    extends VariableWidthVector, FieldVector, VectorDefinitionSetter {
 
   /**
    * Set the variable length element at the specified index to the supplied byte array.
    *
    * @param index position of the element to set
    * @param value array of bytes with data
-  */
+   */
   void set(int index, byte[] value);
 
   /**
@@ -56,8 +53,8 @@ public interface VariableWidthFieldVector extends VariableWidthVector, FieldVect
 
   /**
    * Set the variable length element at the specified index to the supplied byte array, and it
-   * handles the case where index and length of a new element are beyond the existing capacity of the
-   * vector.
+   * handles the case where index and length of a new element are beyond the existing capacity of
+   * the vector.
    *
    * @param index position of the element to set
    * @param value array of bytes to write
@@ -91,7 +88,7 @@ public interface VariableWidthFieldVector extends VariableWidthVector, FieldVect
    *
    * @param index position of the element to get
    * @return byte array with the data
-  */
+   */
   byte[] get(int index);
 
   /**
@@ -125,9 +122,8 @@ public interface VariableWidthFieldVector extends VariableWidthVector, FieldVect
   int getValueLength(int index);
 
   /**
-   * Create holes in the vector upto the given index (exclusive).
-   * Holes will be created from the current last-set position in
-   * the vector.
+   * Create holes in the vector upto the given index (exclusive). Holes will be created from the
+   * current last-set position in the vector.
    *
    * @param index target index
    */

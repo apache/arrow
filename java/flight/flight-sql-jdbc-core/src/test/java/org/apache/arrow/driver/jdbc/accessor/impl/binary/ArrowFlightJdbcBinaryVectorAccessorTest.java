@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.accessor.impl.binary;
 
 import static java.nio.charset.StandardCharsets.US_ASCII;
@@ -26,7 +25,6 @@ import java.io.Reader;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.function.Supplier;
-
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
 import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
@@ -51,47 +49,53 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
   @ClassRule
   public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
 
-  @Rule
-  public final ErrorCollector collector = new ErrorCollector();
+  @Rule public final ErrorCollector collector = new ErrorCollector();
 
   private ValueVector vector;
   private final Supplier<ValueVector> vectorSupplier;
 
   private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcBinaryVectorAccessor>
-      accessorSupplier = (vector, getCurrentRow) -> {
-        ArrowFlightJdbcAccessorFactory.WasNullConsumer noOpWasNullConsumer = (boolean wasNull) -> {
-        };
-        if (vector instanceof VarBinaryVector) {
-          return new ArrowFlightJdbcBinaryVectorAccessor(((VarBinaryVector) vector), getCurrentRow,
-              noOpWasNullConsumer);
-        } else if (vector instanceof LargeVarBinaryVector) {
-          return new ArrowFlightJdbcBinaryVectorAccessor(((LargeVarBinaryVector) vector),
-              getCurrentRow, noOpWasNullConsumer);
-        } else if (vector instanceof FixedSizeBinaryVector) {
-          return new ArrowFlightJdbcBinaryVectorAccessor(((FixedSizeBinaryVector) vector),
-              getCurrentRow, noOpWasNullConsumer);
-        }
-        return null;
-      };
+      accessorSupplier =
+          (vector, getCurrentRow) -> {
+            ArrowFlightJdbcAccessorFactory.WasNullConsumer noOpWasNullConsumer =
+                (boolean wasNull) -> {};
+            if (vector instanceof VarBinaryVector) {
+              return new ArrowFlightJdbcBinaryVectorAccessor(
+                  ((VarBinaryVector) vector), getCurrentRow, noOpWasNullConsumer);
+            } else if (vector instanceof LargeVarBinaryVector) {
+              return new ArrowFlightJdbcBinaryVectorAccessor(
+                  ((LargeVarBinaryVector) vector), getCurrentRow, noOpWasNullConsumer);
+            } else if (vector instanceof FixedSizeBinaryVector) {
+              return new ArrowFlightJdbcBinaryVectorAccessor(
+                  ((FixedSizeBinaryVector) vector), getCurrentRow, noOpWasNullConsumer);
+            }
+            return null;
+          };
 
   private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcBinaryVectorAccessor>
-      accessorIterator =
-      new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
+      accessorIterator = new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
 
   @Parameterized.Parameters(name = "{1}")
   public static Collection<Object[]> data() {
-    return Arrays.asList(new Object[][] {
-        {(Supplier<ValueVector>) () -> rootAllocatorTestRule.createVarBinaryVector(),
-            "VarBinaryVector"},
-        {(Supplier<ValueVector>) () -> rootAllocatorTestRule.createLargeVarBinaryVector(),
-            "LargeVarBinaryVector"},
-        {(Supplier<ValueVector>) () -> rootAllocatorTestRule.createFixedSizeBinaryVector(),
-            "FixedSizeBinaryVector"},
-    });
+    return Arrays.asList(
+        new Object[][] {
+          {
+            (Supplier<ValueVector>) () -> rootAllocatorTestRule.createVarBinaryVector(),
+            "VarBinaryVector"
+          },
+          {
+            (Supplier<ValueVector>) () -> rootAllocatorTestRule.createLargeVarBinaryVector(),
+            "LargeVarBinaryVector"
+          },
+          {
+            (Supplier<ValueVector>) () -> rootAllocatorTestRule.createFixedSizeBinaryVector(),
+            "FixedSizeBinaryVector"
+          },
+        });
   }
 
-  public ArrowFlightJdbcBinaryVectorAccessorTest(Supplier<ValueVector> vectorSupplier,
-                                                 String vectorType) {
+  public ArrowFlightJdbcBinaryVectorAccessorTest(
+      Supplier<ValueVector> vectorSupplier, String vectorType) {
     this.vectorSupplier = vectorSupplier;
   }
 
@@ -107,7 +111,9 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
 
   @Test
   public void testShouldGetStringReturnExpectedString() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcBinaryVectorAccessor::getString,
+    accessorIterator.assertAccessorGetter(
+        vector,
+        ArrowFlightJdbcBinaryVectorAccessor::getString,
         (accessor) -> is(new String(accessor.getBytes(), UTF_8)));
   }
 
@@ -116,14 +122,15 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
     vector.reset();
     vector.setValueCount(5);
 
-    accessorIterator
-        .assertAccessorGetter(vector, ArrowFlightJdbcBinaryVectorAccessor::getString,
-            CoreMatchers.nullValue());
+    accessorIterator.assertAccessorGetter(
+        vector, ArrowFlightJdbcBinaryVectorAccessor::getString, CoreMatchers.nullValue());
   }
 
   @Test
   public void testShouldGetBytesReturnExpectedByteArray() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcBinaryVectorAccessor::getBytes,
+    accessorIterator.assertAccessorGetter(
+        vector,
+        ArrowFlightJdbcBinaryVectorAccessor::getBytes,
         (accessor, currentRow) -> {
           if (vector instanceof VarBinaryVector) {
             return is(((VarBinaryVector) vector).get(currentRow));
@@ -148,7 +155,9 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
 
   @Test
   public void testShouldGetObjectReturnAsGetBytes() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcBinaryVectorAccessor::getObject,
+    accessorIterator.assertAccessorGetter(
+        vector,
+        ArrowFlightJdbcBinaryVectorAccessor::getObject,
         (accessor) -> is(accessor.getBytes()));
   }
 
@@ -164,12 +173,14 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
 
   @Test
   public void testShouldGetUnicodeStreamReturnCorrectInputStream() throws Exception {
-    accessorIterator.iterate(vector, (accessor, currentRow) -> {
-      InputStream inputStream = accessor.getUnicodeStream();
-      String actualString = IOUtils.toString(inputStream, UTF_8);
-      collector.checkThat(accessor.wasNull(), is(false));
-      collector.checkThat(actualString, is(accessor.getString()));
-    });
+    accessorIterator.iterate(
+        vector,
+        (accessor, currentRow) -> {
+          InputStream inputStream = accessor.getUnicodeStream();
+          String actualString = IOUtils.toString(inputStream, UTF_8);
+          collector.checkThat(accessor.wasNull(), is(false));
+          collector.checkThat(actualString, is(accessor.getString()));
+        });
   }
 
   @Test
@@ -184,12 +195,14 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
 
   @Test
   public void testShouldGetAsciiStreamReturnCorrectInputStream() throws Exception {
-    accessorIterator.iterate(vector, (accessor, currentRow) -> {
-      InputStream inputStream = accessor.getAsciiStream();
-      String actualString = IOUtils.toString(inputStream, US_ASCII);
-      collector.checkThat(accessor.wasNull(), is(false));
-      collector.checkThat(actualString, is(accessor.getString()));
-    });
+    accessorIterator.iterate(
+        vector,
+        (accessor, currentRow) -> {
+          InputStream inputStream = accessor.getAsciiStream();
+          String actualString = IOUtils.toString(inputStream, US_ASCII);
+          collector.checkThat(accessor.wasNull(), is(false));
+          collector.checkThat(actualString, is(accessor.getString()));
+        });
   }
 
   @Test
@@ -204,12 +217,14 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
 
   @Test
   public void testShouldGetBinaryStreamReturnCurrentInputStream() throws Exception {
-    accessorIterator.iterate(vector, (accessor, currentRow) -> {
-      InputStream inputStream = accessor.getBinaryStream();
-      String actualString = IOUtils.toString(inputStream, UTF_8);
-      collector.checkThat(accessor.wasNull(), is(false));
-      collector.checkThat(actualString, is(accessor.getString()));
-    });
+    accessorIterator.iterate(
+        vector,
+        (accessor, currentRow) -> {
+          InputStream inputStream = accessor.getBinaryStream();
+          String actualString = IOUtils.toString(inputStream, UTF_8);
+          collector.checkThat(accessor.wasNull(), is(false));
+          collector.checkThat(actualString, is(accessor.getString()));
+        });
   }
 
   @Test
@@ -224,12 +239,14 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
 
   @Test
   public void testShouldGetCharacterStreamReturnCorrectReader() throws Exception {
-    accessorIterator.iterate(vector, (accessor, currentRow) -> {
-      Reader characterStream = accessor.getCharacterStream();
-      String actualString = IOUtils.toString(characterStream);
-      collector.checkThat(accessor.wasNull(), is(false));
-      collector.checkThat(actualString, is(accessor.getString()));
-    });
+    accessorIterator.iterate(
+        vector,
+        (accessor, currentRow) -> {
+          Reader characterStream = accessor.getCharacterStream();
+          String actualString = IOUtils.toString(characterStream);
+          collector.checkThat(accessor.wasNull(), is(false));
+          collector.checkThat(actualString, is(accessor.getString()));
+        });
   }
 
   @Test

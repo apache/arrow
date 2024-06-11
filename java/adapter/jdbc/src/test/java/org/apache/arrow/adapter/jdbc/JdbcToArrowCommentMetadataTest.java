@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -32,7 +31,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -45,7 +43,8 @@ import org.junit.Test;
 
 public class JdbcToArrowCommentMetadataTest {
 
-  private static final String COMMENT = "comment"; //use this metadata key for interoperability with Spark StructType
+  private static final String COMMENT =
+      "comment"; // use this metadata key for interoperability with Spark StructType
   private Connection conn = null;
 
   /**
@@ -56,7 +55,8 @@ public class JdbcToArrowCommentMetadataTest {
    */
   @Before
   public void setUp() throws SQLException, ClassNotFoundException {
-    String url = "jdbc:h2:mem:JdbcToArrowTest?characterEncoding=UTF-8;INIT=runscript from 'classpath:/h2/comment.sql'";
+    String url =
+        "jdbc:h2:mem:JdbcToArrowTest?characterEncoding=UTF-8;INIT=runscript from 'classpath:/h2/comment.sql'";
     String driver = "org.h2.Driver";
     Class.forName(driver);
     conn = DriverManager.getConnection(url);
@@ -70,7 +70,8 @@ public class JdbcToArrowCommentMetadataTest {
     }
   }
 
-  private static Field field(String name, boolean nullable, ArrowType type, Map<String, String> metadata) {
+  private static Field field(
+      String name, boolean nullable, ArrowType type, Map<String, String> metadata) {
     return new Field(name, new FieldType(nullable, type, null, metadata), Collections.emptyList());
   }
 
@@ -90,16 +91,26 @@ public class JdbcToArrowCommentMetadataTest {
   public void schemaComment() throws Exception {
     boolean includeMetadata = false;
     Schema schema = getSchemaWithCommentFromQuery(includeMetadata);
-    Schema expectedSchema = new Schema(Arrays.asList(
-        field("ID", false, Types.MinorType.BIGINT.getType(),
-            metadata("comment", "Record identifier")),
-        field("NAME", true, Types.MinorType.VARCHAR.getType(),
-            metadata("comment", "Name of record")),
-        field("COLUMN1", true, Types.MinorType.BIT.getType(),
-            metadata()),
-        field("COLUMNN", true, Types.MinorType.INT.getType(),
-            metadata("comment", "Informative description of columnN"))
-        ), metadata("comment", "This is super special table with valuable data"));
+    Schema expectedSchema =
+        new Schema(
+            Arrays.asList(
+                field(
+                    "ID",
+                    false,
+                    Types.MinorType.BIGINT.getType(),
+                    metadata("comment", "Record identifier")),
+                field(
+                    "NAME",
+                    true,
+                    Types.MinorType.VARCHAR.getType(),
+                    metadata("comment", "Name of record")),
+                field("COLUMN1", true, Types.MinorType.BIT.getType(), metadata()),
+                field(
+                    "COLUMNN",
+                    true,
+                    Types.MinorType.INT.getType(),
+                    metadata("comment", "Informative description of columnN"))),
+            metadata("comment", "This is super special table with valuable data"));
     assertThat(schema).isEqualTo(expectedSchema);
   }
 
@@ -107,47 +118,60 @@ public class JdbcToArrowCommentMetadataTest {
   public void schemaCommentWithDatabaseMetadata() throws Exception {
     boolean includeMetadata = true;
     Schema schema = getSchemaWithCommentFromQuery(includeMetadata);
-    Schema expectedSchema = new Schema(Arrays.asList(
-        field("ID", false, Types.MinorType.BIGINT.getType(),
-            metadata(
-                "SQL_CATALOG_NAME", "JDBCTOARROWTEST?CHARACTERENCODING=UTF-8",
-                "SQL_SCHEMA_NAME", "PUBLIC",
-                "SQL_TABLE_NAME", "TABLE1",
-                "SQL_COLUMN_NAME", "ID",
-                "SQL_TYPE", "BIGINT",
-                "comment", "Record identifier"
-            )),
-        field("NAME", true, Types.MinorType.VARCHAR.getType(),
-            metadata(
-                "SQL_CATALOG_NAME", "JDBCTOARROWTEST?CHARACTERENCODING=UTF-8",
-                "SQL_SCHEMA_NAME", "PUBLIC",
-                "SQL_TABLE_NAME", "TABLE1",
-                "SQL_COLUMN_NAME", "NAME",
-                "SQL_TYPE", "CHARACTER VARYING",
-                "comment", "Name of record")),
-        field("COLUMN1", true, Types.MinorType.BIT.getType(),
-            metadata(
-                "SQL_CATALOG_NAME", "JDBCTOARROWTEST?CHARACTERENCODING=UTF-8",
-                "SQL_SCHEMA_NAME", "PUBLIC",
-                "SQL_TABLE_NAME", "TABLE1",
-                "SQL_COLUMN_NAME", "COLUMN1",
-                "SQL_TYPE", "BOOLEAN")),
-        field("COLUMNN", true, Types.MinorType.INT.getType(),
-            metadata(
-                "SQL_CATALOG_NAME", "JDBCTOARROWTEST?CHARACTERENCODING=UTF-8",
-                "SQL_SCHEMA_NAME", "PUBLIC",
-                "SQL_TABLE_NAME", "TABLE1",
-                "SQL_COLUMN_NAME", "COLUMNN",
-                "SQL_TYPE", "INTEGER",
-                "comment", "Informative description of columnN"))
-    ), metadata("comment", "This is super special table with valuable data"));
+    Schema expectedSchema =
+        new Schema(
+            Arrays.asList(
+                field(
+                    "ID",
+                    false,
+                    Types.MinorType.BIGINT.getType(),
+                    metadata(
+                        "SQL_CATALOG_NAME", "JDBCTOARROWTEST?CHARACTERENCODING=UTF-8",
+                        "SQL_SCHEMA_NAME", "PUBLIC",
+                        "SQL_TABLE_NAME", "TABLE1",
+                        "SQL_COLUMN_NAME", "ID",
+                        "SQL_TYPE", "BIGINT",
+                        "comment", "Record identifier")),
+                field(
+                    "NAME",
+                    true,
+                    Types.MinorType.VARCHAR.getType(),
+                    metadata(
+                        "SQL_CATALOG_NAME", "JDBCTOARROWTEST?CHARACTERENCODING=UTF-8",
+                        "SQL_SCHEMA_NAME", "PUBLIC",
+                        "SQL_TABLE_NAME", "TABLE1",
+                        "SQL_COLUMN_NAME", "NAME",
+                        "SQL_TYPE", "CHARACTER VARYING",
+                        "comment", "Name of record")),
+                field(
+                    "COLUMN1",
+                    true,
+                    Types.MinorType.BIT.getType(),
+                    metadata(
+                        "SQL_CATALOG_NAME", "JDBCTOARROWTEST?CHARACTERENCODING=UTF-8",
+                        "SQL_SCHEMA_NAME", "PUBLIC",
+                        "SQL_TABLE_NAME", "TABLE1",
+                        "SQL_COLUMN_NAME", "COLUMN1",
+                        "SQL_TYPE", "BOOLEAN")),
+                field(
+                    "COLUMNN",
+                    true,
+                    Types.MinorType.INT.getType(),
+                    metadata(
+                        "SQL_CATALOG_NAME", "JDBCTOARROWTEST?CHARACTERENCODING=UTF-8",
+                        "SQL_SCHEMA_NAME", "PUBLIC",
+                        "SQL_TABLE_NAME", "TABLE1",
+                        "SQL_COLUMN_NAME", "COLUMNN",
+                        "SQL_TYPE", "INTEGER",
+                        "comment", "Informative description of columnN"))),
+            metadata("comment", "This is super special table with valuable data"));
     assertThat(schema).isEqualTo(expectedSchema);
     /* corresponding Apache Spark DDL after conversion:
-        ID BIGINT NOT NULL COMMENT 'Record identifier',
-        NAME STRING COMMENT 'Name of record',
-        COLUMN1 BOOLEAN,
-        COLUMNN INT COMMENT 'Informative description of columnN'
-     */
+       ID BIGINT NOT NULL COMMENT 'Record identifier',
+       NAME STRING COMMENT 'Name of record',
+       COLUMN1 BOOLEAN,
+       COLUMNN INT COMMENT 'Informative description of columnN'
+    */
     assertThat(schema).isEqualTo(expectedSchema);
   }
 
@@ -156,19 +180,25 @@ public class JdbcToArrowCommentMetadataTest {
     try (Statement statement = conn.createStatement()) {
       try (ResultSet resultSet = statement.executeQuery("select * from table1")) {
         ResultSetMetaData resultSetMetaData = resultSet.getMetaData();
-        Map<Integer, Map<String, String>> columnCommentByColumnIndex = getColumnComments(metaData, resultSetMetaData);
+        Map<Integer, Map<String, String>> columnCommentByColumnIndex =
+            getColumnComments(metaData, resultSetMetaData);
 
         String tableName = getTableNameFromResultSetMetaData(resultSetMetaData);
         String tableComment = getTableComment(metaData, tableName);
-        JdbcToArrowConfig config = new JdbcToArrowConfigBuilder()
-                .setAllocator(new RootAllocator()).setSchemaMetadata(Collections.singletonMap(COMMENT, tableComment))
-                .setColumnMetadataByColumnIndex(columnCommentByColumnIndex).setIncludeMetadata(includeMetadata).build();
+        JdbcToArrowConfig config =
+            new JdbcToArrowConfigBuilder()
+                .setAllocator(new RootAllocator())
+                .setSchemaMetadata(Collections.singletonMap(COMMENT, tableComment))
+                .setColumnMetadataByColumnIndex(columnCommentByColumnIndex)
+                .setIncludeMetadata(includeMetadata)
+                .build();
         return JdbcToArrowUtils.jdbcToArrowSchema(resultSetMetaData, config);
       }
     }
   }
 
-  private String getTableNameFromResultSetMetaData(ResultSetMetaData resultSetMetaData) throws SQLException {
+  private String getTableNameFromResultSetMetaData(ResultSetMetaData resultSetMetaData)
+      throws SQLException {
     Set<String> tablesFromQuery = new HashSet<>();
     for (int idx = 1, columnCount = resultSetMetaData.getColumnCount(); idx <= columnCount; idx++) {
       String tableName = resultSetMetaData.getTableName(idx);
@@ -182,11 +212,16 @@ public class JdbcToArrowCommentMetadataTest {
     throw new RuntimeException("Table metadata is absent or ambiguous");
   }
 
-  private Map<Integer, Map<String, String>> getColumnComments(DatabaseMetaData metaData,
-                                                 ResultSetMetaData resultSetMetaData) throws SQLException {
+  private Map<Integer, Map<String, String>> getColumnComments(
+      DatabaseMetaData metaData, ResultSetMetaData resultSetMetaData) throws SQLException {
     Map<Integer, Map<String, String>> columnCommentByColumnIndex = new HashMap<>();
-    for (int columnIdx = 1, columnCount = resultSetMetaData.getColumnCount(); columnIdx <= columnCount; columnIdx++) {
-      String columnComment = getColumnComment(metaData, resultSetMetaData.getTableName(columnIdx),
+    for (int columnIdx = 1, columnCount = resultSetMetaData.getColumnCount();
+        columnIdx <= columnCount;
+        columnIdx++) {
+      String columnComment =
+          getColumnComment(
+              metaData,
+              resultSetMetaData.getTableName(columnIdx),
               resultSetMetaData.getColumnName(columnIdx));
       if (columnComment != null && !columnComment.isEmpty()) {
         columnCommentByColumnIndex.put(columnIdx, Collections.singletonMap(COMMENT, columnComment));
@@ -216,7 +251,8 @@ public class JdbcToArrowCommentMetadataTest {
     throw new RuntimeException("Table comment not found");
   }
 
-  private String getColumnComment(DatabaseMetaData metaData, String tableName, String columnName) throws SQLException {
+  private String getColumnComment(DatabaseMetaData metaData, String tableName, String columnName)
+      throws SQLException {
     try (ResultSet tableMetadata = metaData.getColumns(null, null, tableName, columnName)) {
       if (tableMetadata.next()) {
         return tableMetadata.getString("REMARKS");

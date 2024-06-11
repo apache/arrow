@@ -179,10 +179,10 @@ class PostBumpVersionsTest < Test::Unit::TestCase
         ],
       },
       {
-        path: "python/setup.py",
+        path: "python/pyproject.toml",
         hunks: [
-          ["-default_version = '#{@snapshot_version}'",
-           "+default_version = '#{@next_snapshot_version}'"],
+          ["-fallback_version = '#{@release_version}a0'",
+           "+fallback_version = '#{@next_version}a0'"],
         ],
       },
       {

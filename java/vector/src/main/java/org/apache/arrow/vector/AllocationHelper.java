@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import org.apache.arrow.vector.complex.RepeatedFixedWidthVectorLike;
@@ -22,8 +21,7 @@ import org.apache.arrow.vector.complex.RepeatedVariableWidthVectorLike;
 
 /** Helper utility methods for allocating storage for Vectors. */
 public class AllocationHelper {
-  private AllocationHelper() {
-  }
+  private AllocationHelper() {}
 
   /**
    * Allocates the vector.
@@ -43,14 +41,12 @@ public class AllocationHelper {
    * @param v The vector the allocate.
    * @param valueCount The number of elements to allocate.
    * @param bytesPerValue The bytes per value to use for allocating underlying storage
-   * @param childValCount  If <code>v</code> is a repeated vector, this is number of child elements to allocate.
+   * @param childValCount If <code>v</code> is a repeated vector, this is number of child elements
+   *     to allocate.
    * @throws org.apache.arrow.memory.OutOfMemoryException if it can't allocate the memory.
    */
   public static void allocatePrecomputedChildCount(
-      ValueVector v,
-      int valueCount,
-      int bytesPerValue,
-      int childValCount) {
+      ValueVector v, int valueCount, int bytesPerValue, int childValCount) {
     if (v instanceof FixedWidthVector) {
       ((FixedWidthVector) v).allocateNew(valueCount);
     } else if (v instanceof VariableWidthVector) {
@@ -58,7 +54,8 @@ public class AllocationHelper {
     } else if (v instanceof RepeatedFixedWidthVectorLike) {
       ((RepeatedFixedWidthVectorLike) v).allocateNew(valueCount, childValCount);
     } else if (v instanceof RepeatedVariableWidthVectorLike) {
-      ((RepeatedVariableWidthVectorLike) v).allocateNew(childValCount * bytesPerValue, valueCount, childValCount);
+      ((RepeatedVariableWidthVectorLike) v)
+          .allocateNew(childValCount * bytesPerValue, valueCount, childValCount);
     } else {
       v.allocateNew();
     }
@@ -70,17 +67,19 @@ public class AllocationHelper {
    * @param v The vector the allocate.
    * @param valueCount The number of elements to allocate.
    * @param bytesPerValue The bytes per value to use for allocating underlying storage
-   * @param repeatedPerTop  If <code>v</code> is a repeated vector, this is assumed number of elements per child.
+   * @param repeatedPerTop If <code>v</code> is a repeated vector, this is assumed number of
+   *     elements per child.
    * @throws org.apache.arrow.memory.OutOfMemoryException if it can't allocate the memory
    */
-  public static void allocate(ValueVector v, int valueCount, int bytesPerValue, int repeatedPerTop) {
+  public static void allocate(
+      ValueVector v, int valueCount, int bytesPerValue, int repeatedPerTop) {
     allocatePrecomputedChildCount(v, valueCount, bytesPerValue, repeatedPerTop * valueCount);
   }
 
   /**
    * Allocates the exact amount if v is fixed width, otherwise falls back to dynamic allocation.
    *
-   * @param v          value vector we are trying to allocate
+   * @param v value vector we are trying to allocate
    * @param valueCount size we are trying to allocate
    * @throws org.apache.arrow.memory.OutOfMemoryException if it can't allocate the memory
    */

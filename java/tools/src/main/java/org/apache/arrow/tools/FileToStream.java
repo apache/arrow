@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.tools;
 
 import java.io.File;
@@ -22,7 +21,6 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -30,16 +28,13 @@ import org.apache.arrow.vector.ipc.ArrowFileReader;
 import org.apache.arrow.vector.ipc.ArrowStreamWriter;
 
 /**
- * Converts an Arrow file to an Arrow stream. The file should be specified as the
- * first argument and the output is written to standard out.
+ * Converts an Arrow file to an Arrow stream. The file should be specified as the first argument and
+ * the output is written to standard out.
  */
 public class FileToStream {
-  private FileToStream() {
-  }
+  private FileToStream() {}
 
-  /**
-   * Reads an Arrow file from in and writes it back to out.
-   */
+  /** Reads an Arrow file from in and writes it back to out. */
   public static void convert(FileInputStream in, OutputStream out) throws IOException {
     BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
     try (ArrowFileReader reader = new ArrowFileReader(in.getChannel(), allocator)) {
@@ -61,8 +56,8 @@ public class FileToStream {
   }
 
   /**
-   * Main method.  The first arg is the file path.  The second, optional argument,
-   * is an output file location (defaults to standard out).
+   * Main method. The first arg is the file path. The second, optional argument, is an output file
+   * location (defaults to standard out).
    */
   public static void main(String[] args) throws IOException {
     if (args.length != 1 && args.length != 2) {
@@ -71,8 +66,7 @@ public class FileToStream {
     }
 
     FileInputStream in = new FileInputStream(new File(args[0]));
-    OutputStream out = args.length == 1 ?
-        System.out : new FileOutputStream(new File(args[1]));
+    OutputStream out = args.length == 1 ? System.out : new FileOutputStream(new File(args[1]));
 
     convert(in, out);
   }

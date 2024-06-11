@@ -14,24 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.maven.plugins;
 
 import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 
-/**
- * A maven plugin for compiler module-info files in main code with JDK8.
- */
+/** A maven plugin for compiler module-info files in main code with JDK8. */
 @Mojo(name = "compile", defaultPhase = LifecyclePhase.COMPILE)
 public class ModuleInfoCompilerPlugin extends BaseModuleInfoCompilerPlugin {
 
-  @Parameter(defaultValue = "${project.compileSourceRoots}", property = "compileSourceRoots",
+  @Parameter(
+      defaultValue = "${project.compileSourceRoots}",
+      property = "compileSourceRoots",
       required = true)
   private final List<String> compileSourceRoots = new ArrayList<>();
 

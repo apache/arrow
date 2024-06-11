@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.accessor.impl.text;
 
 import static java.nio.charset.StandardCharsets.US_ASCII;
@@ -36,7 +35,6 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.TimeZone;
 import java.util.function.IntSupplier;
-
 import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcDateVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeStampVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeVectorAccessor;
@@ -57,7 +55,6 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
-
 @RunWith(MockitoJUnitRunner.class)
 public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
@@ -69,21 +66,18 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
   @ClassRule
   public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
 
-  @Mock
-  private ArrowFlightJdbcVarCharVectorAccessor.Getter getter;
+  @Mock private ArrowFlightJdbcVarCharVectorAccessor.Getter getter;
 
-  @Rule
-  public ErrorCollector collector = new ErrorCollector();
+  @Rule public ErrorCollector collector = new ErrorCollector();
 
-  @Rule
-  public ExpectedException thrown = ExpectedException.none();
+  @Rule public ExpectedException thrown = ExpectedException.none();
 
   @Before
   public void setUp() {
     IntSupplier currentRowSupplier = () -> 0;
     accessor =
-        new ArrowFlightJdbcVarCharVectorAccessor(getter, currentRowSupplier, (boolean wasNull) -> {
-        });
+        new ArrowFlightJdbcVarCharVectorAccessor(
+            getter, currentRowSupplier, (boolean wasNull) -> {});
   }
 
   @Test
@@ -313,7 +307,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
   }
 
   @Test
-  public void testShouldBigDecimalWithParametersThrowsExceptionForNonNumericValue() throws Exception {
+  public void testShouldBigDecimalWithParametersThrowsExceptionForNonNumericValue()
+      throws Exception {
     Text value = new Text("Invalid value for BigDecimal.");
     when(getter.get(0)).thenReturn(value.copyBytes());
 
@@ -501,8 +496,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     Calendar calendar = Calendar.getInstance();
     calendar.setTime(result);
 
-    collector.checkThat(dateTimeFormat.format(calendar.getTime()),
-        equalTo("2021-07-02T00:00:00.000Z"));
+    collector.checkThat(
+        dateTimeFormat.format(calendar.getTime()), equalTo("2021-07-02T00:00:00.000Z"));
   }
 
   @Test
@@ -516,8 +511,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     calendar = Calendar.getInstance(TimeZone.getTimeZone("Etc/UTC"));
     calendar.setTime(result);
 
-    collector.checkThat(dateTimeFormat.format(calendar.getTime()),
-        equalTo("2021-07-02T03:00:00.000Z"));
+    collector.checkThat(
+        dateTimeFormat.format(calendar.getTime()), equalTo("2021-07-02T03:00:00.000Z"));
   }
 
   @Test
@@ -575,8 +570,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     Calendar calendar = Calendar.getInstance();
     calendar.setTime(result);
 
-    collector.checkThat(dateTimeFormat.format(calendar.getTime()),
-        equalTo("2021-07-02T02:30:00.000Z"));
+    collector.checkThat(
+        dateTimeFormat.format(calendar.getTime()), equalTo("2021-07-02T02:30:00.000Z"));
   }
 
   @Test
@@ -590,8 +585,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     calendar = Calendar.getInstance(TimeZone.getTimeZone("Etc/UTC"));
     calendar.setTime(result);
 
-    collector.checkThat(dateTimeFormat.format(calendar.getTime()),
-        equalTo("2021-07-02T05:30:00.000Z"));
+    collector.checkThat(
+        dateTimeFormat.format(calendar.getTime()), equalTo("2021-07-02T05:30:00.000Z"));
   }
 
   private void assertGetBoolean(Text value, boolean expectedResult) throws SQLException {
@@ -602,7 +597,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
   private void assertGetBooleanForSQLException(Text value) {
     when(getter.get(0)).thenReturn(value == null ? null : value.copyBytes());
-    ThrowableAssertionUtils.simpleAssertThrowableClass(SQLException.class, () -> accessor.getBoolean());
+    ThrowableAssertionUtils.simpleAssertThrowableClass(
+        SQLException.class, () -> accessor.getBoolean());
   }
 
   @Test
@@ -649,8 +645,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     try (final InputStream result = accessor.getUnicodeStream()) {
       byte[] resultBytes = toByteArray(result);
 
-      collector.checkThat(new String(resultBytes, UTF_8),
-          equalTo(value.toString()));
+      collector.checkThat(new String(resultBytes, UTF_8), equalTo(value.toString()));
     }
   }
 
@@ -683,9 +678,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
   public void testShouldGetTimeStampBeConsistentWithTimeStampAccessor() throws Exception {
     try (TimeStampVector timeStampVector = rootAllocatorTestRule.createTimeStampMilliVector()) {
       ArrowFlightJdbcTimeStampVectorAccessor timeStampVectorAccessor =
-          new ArrowFlightJdbcTimeStampVectorAccessor(timeStampVector, () -> 0,
-              (boolean wasNull) -> {
-              });
+          new ArrowFlightJdbcTimeStampVectorAccessor(
+              timeStampVector, () -> 0, (boolean wasNull) -> {});
 
       Text value = new Text(timeStampVectorAccessor.getString());
       when(getter.get(0)).thenReturn(value.copyBytes());
@@ -699,8 +693,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
   public void testShouldGetTimeBeConsistentWithTimeAccessor() throws Exception {
     try (TimeMilliVector timeVector = rootAllocatorTestRule.createTimeMilliVector()) {
       ArrowFlightJdbcTimeVectorAccessor timeVectorAccessor =
-          new ArrowFlightJdbcTimeVectorAccessor(timeVector, () -> 0, (boolean wasNull) -> {
-          });
+          new ArrowFlightJdbcTimeVectorAccessor(timeVector, () -> 0, (boolean wasNull) -> {});
 
       Text value = new Text(timeVectorAccessor.getString());
       when(getter.get(0)).thenReturn(value.copyBytes());
@@ -714,8 +707,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
   public void testShouldGetDateBeConsistentWithDateAccessor() throws Exception {
     try (DateMilliVector dateVector = rootAllocatorTestRule.createDateMilliVector()) {
       ArrowFlightJdbcDateVectorAccessor dateVectorAccessor =
-          new ArrowFlightJdbcDateVectorAccessor(dateVector, () -> 0, (boolean wasNull) -> {
-          });
+          new ArrowFlightJdbcDateVectorAccessor(dateVector, () -> 0, (boolean wasNull) -> {});
 
       Text value = new Text(dateVectorAccessor.getString());
       when(getter.get(0)).thenReturn(value.copyBytes());

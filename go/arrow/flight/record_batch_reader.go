@@ -27,6 +27,7 @@ import (
 	"github.com/apache/arrow/go/v17/arrow/internal/debug"
 	"github.com/apache/arrow/go/v17/arrow/ipc"
 	"github.com/apache/arrow/go/v17/arrow/memory"
+	"github.com/apache/arrow/go/v17/internal/utils"
 )
 
 // DataStreamReader is an interface for receiving flight data messages on a stream
@@ -217,7 +218,7 @@ func StreamChunksFromReader(rdr array.RecordReader, ch chan<- StreamChunk) {
 	defer close(ch)
 	defer func() {
 		if err := recover(); err != nil {
-			ch <- StreamChunk{Err: fmt.Errorf("panic while reading: %s", err)}
+			ch <- StreamChunk{Err: utils.FormatRecoveredError("panic while reading", err)}
 		}
 	}()
 
@@ -243,7 +244,7 @@ func ConcatenateReaders(rdrs []array.RecordReader, ch chan<- StreamChunk) {
 		}
 
 		if err := recover(); err != nil {
-			ch <- StreamChunk{Err: fmt.Errorf("panic while reading: %s", err)}
+			ch <- StreamChunk{Err: utils.FormatRecoveredError("panic while reading", err)}
 		}
 	}()
 

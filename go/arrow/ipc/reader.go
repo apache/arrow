@@ -30,6 +30,7 @@ import (
 	"github.com/apache/arrow/go/v17/arrow/internal/dictutils"
 	"github.com/apache/arrow/go/v17/arrow/internal/flatbuf"
 	"github.com/apache/arrow/go/v17/arrow/memory"
+	"github.com/apache/arrow/go/v17/internal/utils"
 )
 
 // Reader reads records from an io.Reader.
@@ -60,7 +61,7 @@ type Reader struct {
 func NewReaderFromMessageReader(r MessageReader, opts ...Option) (reader *Reader, err error) {
 	defer func() {
 		if pErr := recover(); pErr != nil {
-			err = fmt.Errorf("arrow/ipc: unknown error while reading: %v", pErr)
+			err = utils.FormatRecoveredError("arrow/ipc: unknown error while reading", pErr)
 		}
 	}()
 	cfg := newConfig()
@@ -213,7 +214,7 @@ func (r *Reader) getInitialDicts() bool {
 func (r *Reader) next() bool {
 	defer func() {
 		if pErr := recover(); pErr != nil {
-			r.err = fmt.Errorf("arrow/ipc: unknown error while reading: %v", pErr)
+			r.err = utils.FormatRecoveredError("arrow/ipc: unknown error while reading", pErr)
 		}
 	}()
 	if r.schema == nil {

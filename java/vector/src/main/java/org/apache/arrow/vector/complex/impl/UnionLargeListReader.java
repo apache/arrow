@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.complex.impl;
 
 import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
@@ -27,9 +26,7 @@ import org.apache.arrow.vector.holders.UnionHolder;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 
-/**
- * {@link FieldReader} for list of union types.
- */
+/** {@link FieldReader} for list of union types. */
 public class UnionLargeListReader extends AbstractFieldReader {
 
   private LargeListVector vector;
@@ -88,14 +85,17 @@ public class UnionLargeListReader extends AbstractFieldReader {
 
   @Override
   public int size() {
-    int size = checkedCastToInt(maxOffset - currentOffset - 1); //todo revisit when int64 vectors are done
+    int size =
+        checkedCastToInt(maxOffset - currentOffset - 1); // todo revisit when int64 vectors are done
     return size < 0 ? 0 : size;
   }
 
   @Override
   public boolean next() {
     if (currentOffset + 1 < maxOffset) {
-      data.getReader().setPosition(checkedCastToInt(++currentOffset)); // todo revisit when int64 vectors are done
+      data.getReader()
+          .setPosition(
+              checkedCastToInt(++currentOffset)); // todo revisit when int64 vectors are done
       return true;
     } else {
       return false;

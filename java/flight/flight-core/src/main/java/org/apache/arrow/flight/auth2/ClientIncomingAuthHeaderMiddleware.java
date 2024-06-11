@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.auth2;
 
 import org.apache.arrow.flight.CallHeaders;
@@ -23,22 +22,20 @@ import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightClientMiddleware;
 import org.apache.arrow.flight.grpc.CredentialCallOption;
 
-/**
- * Middleware for capturing bearer tokens sent back from the Flight server.
- */
+/** Middleware for capturing bearer tokens sent back from the Flight server. */
 public class ClientIncomingAuthHeaderMiddleware implements FlightClientMiddleware {
   private final Factory factory;
 
-  /**
-   * Factory used within FlightClient.
-   */
+  /** Factory used within FlightClient. */
   public static class Factory implements FlightClientMiddleware.Factory {
     private final ClientHeaderHandler headerHandler;
     private CredentialCallOption credentialCallOption = null;
 
     /**
      * Construct a factory with the given header handler.
-     * @param headerHandler The header handler that will be used for handling incoming headers from the flight server.
+     *
+     * @param headerHandler The header handler that will be used for handling incoming headers from
+     *     the flight server.
      */
     public Factory(ClientHeaderHandler headerHandler) {
       this.headerHandler = headerHandler;
@@ -63,16 +60,14 @@ public class ClientIncomingAuthHeaderMiddleware implements FlightClientMiddlewar
   }
 
   @Override
-  public void onBeforeSendingHeaders(CallHeaders outgoingHeaders) {
-  }
+  public void onBeforeSendingHeaders(CallHeaders outgoingHeaders) {}
 
   @Override
   public void onHeadersReceived(CallHeaders incomingHeaders) {
     factory.setCredentialCallOption(
-            factory.headerHandler.getCredentialCallOptionFromIncomingHeaders(incomingHeaders));
+        factory.headerHandler.getCredentialCallOptionFromIncomingHeaders(incomingHeaders));
   }
 
   @Override
-  public void onCallCompleted(CallStatus status) {
-  }
+  public void onCallCompleted(CallStatus status) {}
 }

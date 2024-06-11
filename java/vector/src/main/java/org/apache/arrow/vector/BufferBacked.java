@@ -14,15 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 
-/**
- * Content is backed by a buffer and can be loaded/unloaded.
- */
+/** Content is backed by a buffer and can be loaded/unloaded. */
 public interface BufferBacked {
 
   void load(ArrowFieldNode fieldNode, ArrowBuf data);

@@ -521,6 +521,13 @@ TEST(AzureFileSystem, InitializeWithManagedIdentityCredential) {
   EXPECT_OK_AND_ASSIGN(fs, AzureFileSystem::Make(options));
 }
 
+TEST(AzureFileSystem, InitializeWithCLICredential) {
+  AzureOptions options;
+  options.account_name = "dummy-account-name";
+  ARROW_EXPECT_OK(options.ConfigureCLICredential());
+  EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
+}
+
 TEST(AzureFileSystem, InitializeWithWorkloadIdentityCredential) {
   AzureOptions options;
   options.account_name = "dummy-account-name";
@@ -667,6 +674,15 @@ class TestAzureOptions : public ::testing::Test {
     ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kManagedIdentity);
   }
 
+  void TestFromUriCredentialCLI() {
+    ASSERT_OK_AND_ASSIGN(
+        auto options,
+        AzureOptions::FromUri("abfs://account.blob.core.windows.net/container/dir/blob?"
+                              "credential_kind=cli",
+                              nullptr));
+    ASSERT_EQ(options.credential_kind_, AzureOptions::CredentialKind::kCLI);
+  }
+
   void TestFromUriCredentialWorkloadIdentity() {
     ASSERT_OK_AND_ASSIGN(
         auto options,
@@ -733,6 +749,7 @@ TEST_F(TestAzureOptions, FromUriCredentialClientSecret) {
 TEST_F(TestAzureOptions, FromUriCredentialManagedIdentity) {
   TestFromUriCredentialManagedIdentity();
 }
+TEST_F(TestAzureOptions, FromUriCredentialCLI) { TestFromUriCredentialCLI(); }
 TEST_F(TestAzureOptions, FromUriCredentialWorkloadIdentity) {
   TestFromUriCredentialWorkloadIdentity();
 }

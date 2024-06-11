@@ -14,13 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.orc;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.stream.Collectors;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.ipc.ArrowReader;
@@ -33,19 +31,16 @@ import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.ByteArrayReadableSeekableByteChannel;
 
-/**
- * Orc stripe that load data into ArrowRecordBatch.
- */
+/** Orc stripe that load data into ArrowRecordBatch. */
 public class OrcStripeReader extends ArrowReader {
-  /**
-   * reference to native stripe reader instance.
-   */
+  /** reference to native stripe reader instance. */
   private final long nativeInstanceId;
 
   /**
    * Construct a new instance.
-   * @param nativeInstanceId nativeInstanceId of the stripe reader instance, obtained by
-   *           calling nextStripeReader from OrcReaderJniWrapper
+   *
+   * @param nativeInstanceId nativeInstanceId of the stripe reader instance, obtained by calling
+   *     nextStripeReader from OrcReaderJniWrapper
    * @param allocator memory allocator for accounting.
    */
   OrcStripeReader(long nativeInstanceId, BufferAllocator allocator) {
@@ -62,18 +57,20 @@ public class OrcStripeReader extends ArrowReader {
 
     ArrayList<ArrowBuf> buffers = new ArrayList<>();
     for (OrcMemoryJniWrapper buffer : recordBatch.buffers) {
-      buffers.add(new ArrowBuf(
+      buffers.add(
+          new ArrowBuf(
               new OrcReferenceManager(buffer),
               null,
               (int) buffer.getSize(),
               buffer.getMemoryAddress()));
     }
 
-    loadRecordBatch(new ArrowRecordBatch(
+    loadRecordBatch(
+        new ArrowRecordBatch(
             recordBatch.length,
             recordBatch.nodes.stream()
-              .map(buf -> new ArrowFieldNode(buf.getLength(), buf.getNullCount()))
-              .collect(Collectors.toList()),
+                .map(buf -> new ArrowFieldNode(buf.getLength(), buf.getNullCount()))
+                .collect(Collectors.toList()),
             buffers));
     return true;
   }
@@ -82,7 +79,6 @@ public class OrcStripeReader extends ArrowReader {
   public long bytesRead() {
     return 0;
   }
-
 
   @Override
   protected void closeReadSource() throws IOException {
@@ -94,9 +90,8 @@ public class OrcStripeReader extends ArrowReader {
     byte[] schemaBytes = OrcStripeReaderJniWrapper.getSchema(nativeInstanceId);
 
     try (MessageChannelReader schemaReader =
-           new MessageChannelReader(
-                new ReadChannel(
-                new ByteArrayReadableSeekableByteChannel(schemaBytes)), allocator)) {
+        new MessageChannelReader(
+            new ReadChannel(new ByteArrayReadableSeekableByteChannel(schemaBytes)), allocator)) {
 
       MessageResult result = schemaReader.readNext();
       if (result == null) {

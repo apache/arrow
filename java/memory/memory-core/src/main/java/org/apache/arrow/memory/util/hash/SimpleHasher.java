@@ -14,41 +14,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory.util.hash;
-
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.util.MemoryUtil;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
- * A simple hasher that calculates the hash code of integers as is,
- * and does not perform any finalization. So the computation is extremely
- * efficient.
- * <p>
- *   This algorithm only provides the most basic semantics for the hash code. That is,
- *   if two objects are equal, they must have equal hash code. However, the quality of the
- *   produced hash code may not be good. In other words, the generated hash codes are
- *   far from being uniformly distributed in the universe.
- * </p>
- * <p>
- *   Therefore, this algorithm is suitable only for scenarios where the most basic semantics
- *   of the hash code is required (e.g. in scenarios that require fast and proactive data pruning)
- * </p>
- * <p>
- *   An object of this class is stateless, so it can be shared between threads.
- * </p>
+ * A simple hasher that calculates the hash code of integers as is, and does not perform any
+ * finalization. So the computation is extremely efficient.
+ *
+ * <p>This algorithm only provides the most basic semantics for the hash code. That is, if two
+ * objects are equal, they must have equal hash code. However, the quality of the produced hash code
+ * may not be good. In other words, the generated hash codes are far from being uniformly
+ * distributed in the universe.
+ *
+ * <p>Therefore, this algorithm is suitable only for scenarios where the most basic semantics of the
+ * hash code is required (e.g. in scenarios that require fast and proactive data pruning)
+ *
+ * <p>An object of this class is stateless, so it can be shared between threads.
  */
 public class SimpleHasher implements ArrowBufHasher {
 
   public static SimpleHasher INSTANCE = new SimpleHasher();
 
-  protected SimpleHasher() {
-  }
+  protected SimpleHasher() {}
 
   /**
    * Calculates the hash code for a memory region.
+   *
    * @param address start address of the memory region.
    * @param length length of the memory region.
    * @return the hash code.
@@ -83,6 +77,7 @@ public class SimpleHasher implements ArrowBufHasher {
 
   /**
    * Calculates the hash code for a memory region.
+   *
    * @param buf the buffer for the memory region.
    * @param offset offset within the buffer for the memory region.
    * @param length length of the memory region.

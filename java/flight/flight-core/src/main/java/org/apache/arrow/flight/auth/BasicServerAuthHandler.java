@@ -14,21 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.auth;
 
+import com.google.protobuf.InvalidProtocolBufferException;
 import java.util.Iterator;
 import java.util.Optional;
-
 import org.apache.arrow.flight.impl.Flight.BasicAuth;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.protobuf.InvalidProtocolBufferException;
-
-/**
- * A ServerAuthHandler for username/password authentication.
- */
+/** A ServerAuthHandler for username/password authentication. */
 public class BasicServerAuthHandler implements ServerAuthHandler {
 
   private static final Logger logger = LoggerFactory.getLogger(BasicServerAuthHandler.class);
@@ -39,15 +34,12 @@ public class BasicServerAuthHandler implements ServerAuthHandler {
     this.authValidator = authValidator;
   }
 
-  /**
-   * Interface that this handler delegates for determining if credentials are valid.
-   */
+  /** Interface that this handler delegates for determining if credentials are valid. */
   public interface BasicAuthValidator {
 
     byte[] getToken(String username, String password) throws Exception;
 
     Optional<String> isValid(byte[] token);
-
   }
 
   @Override

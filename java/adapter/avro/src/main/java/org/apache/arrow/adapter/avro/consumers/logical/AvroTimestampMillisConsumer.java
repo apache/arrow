@@ -14,24 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.avro.consumers.logical;
 
 import java.io.IOException;
-
 import org.apache.arrow.adapter.avro.consumers.BaseAvroConsumer;
 import org.apache.arrow.vector.TimeStampMilliVector;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer which consume date timestamp-millis values from avro decoder.
- * Write the data to {@link TimeStampMilliVector}.
+ * Consumer which consume date timestamp-millis values from avro decoder. Write the data to {@link
+ * TimeStampMilliVector}.
  */
 public class AvroTimestampMillisConsumer extends BaseAvroConsumer<TimeStampMilliVector> {
 
-  /**
-   * Instantiate a AvroTimestampMillisConsumer.
-   */
+  /** Instantiate a AvroTimestampMillisConsumer. */
   public AvroTimestampMillisConsumer(TimeStampMilliVector vector) {
     super(vector);
   }

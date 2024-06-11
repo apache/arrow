@@ -119,6 +119,7 @@ struct ARROW_EXPORT AzureOptions {
     kStorageSharedKey,
     kClientSecret,
     kManagedIdentity,
+    kCLI,
     kWorkloadIdentity,
     kEnvironment,
   } credential_kind_ = CredentialKind::kDefault;
@@ -160,14 +161,15 @@ struct ARROW_EXPORT AzureOptions {
   /// * blob_storage_authority: Set AzureOptions::blob_storage_authority
   /// * dfs_storage_authority: Set AzureOptions::dfs_storage_authority
   /// * enable_tls: If it's "false" or "0", HTTP not HTTPS is used.
-  /// * credential_kind: One of "default", "anonymous",
-  ///   "workload_identity" or "environment". If "default" is specified, it's
+  /// * credential_kind: One of "default", "anonymous", "workload_identity",
+  ///   "environment" or "cli". If "default" is specified, it's
   ///   just ignored.  If "anonymous" is specified,
   ///   AzureOptions::ConfigureAnonymousCredential() is called. If
   ///   "workload_identity" is specified,
-  ///   AzureOptions::ConfigureWorkloadIdentityCredential() is called, If
+  ///   AzureOptions::ConfigureWorkloadIdentityCredential() is called. If
   ///   "environment" is specified,
-  ///   AzureOptions::ConfigureEnvironmentCredential() is called.
+  ///   AzureOptions::ConfigureEnvironmentCredential() is called. If "cli" is
+  ///   specified, AzureOptions::ConfigureCLICredential() is called.
   /// * tenant_id: You must specify "client_id" and "client_secret"
   ///   too. AzureOptions::ConfigureClientSecretCredential() is called.
   /// * client_id: If you don't specify "tenant_id" and
@@ -190,6 +192,7 @@ struct ARROW_EXPORT AzureOptions {
                                          const std::string& client_id,
                                          const std::string& client_secret);
   Status ConfigureManagedIdentityCredential(const std::string& client_id = std::string());
+  Status ConfigureCLICredential();
   Status ConfigureWorkloadIdentityCredential();
   Status ConfigureEnvironmentCredential();
 

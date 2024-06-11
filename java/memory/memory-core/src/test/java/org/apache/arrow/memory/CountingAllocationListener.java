@@ -14,18 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory;
 
-import org.apache.arrow.memory.AllocationListener;
-import org.apache.arrow.memory.AllocationOutcome;
-import org.apache.arrow.memory.BufferAllocator;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
- * Counting allocation listener.
- * It counts the number of times it has been invoked, and how much memory allocation it has seen
- * When set to 'expand on fail', it attempts to expand the associated allocator's limit.
+ * Counting allocation listener. It counts the number of times it has been invoked, and how much
+ * memory allocation it has seen When set to 'expand on fail', it attempts to expand the associated
+ * allocator's limit.
  */
 final class CountingAllocationListener implements AllocationListener {
   private int numPreCalls;
@@ -35,8 +31,7 @@ final class CountingAllocationListener implements AllocationListener {
   private long totalMem;
   private long currentMem;
   private boolean expandOnFail;
-  @Nullable
-  BufferAllocator expandAlloc;
+  @Nullable BufferAllocator expandAlloc;
   long expandLimit;
 
   CountingAllocationListener() {
@@ -65,15 +60,14 @@ final class CountingAllocationListener implements AllocationListener {
   public boolean onFailedAllocation(long size, AllocationOutcome outcome) {
     if (expandOnFail) {
       if (expandAlloc == null) {
-        throw new IllegalStateException("expandAlloc must be non-null because this " +
-            "listener is set to expand on failure.");
+        throw new IllegalStateException(
+            "expandAlloc must be non-null because this " + "listener is set to expand on failure.");
       }
       expandAlloc.setLimit(expandLimit);
       return true;
     }
     return false;
   }
-
 
   @Override
   public void onRelease(long size) {

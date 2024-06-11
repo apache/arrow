@@ -14,13 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.authentication;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
-
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.auth2.BasicCallHeaderAuthenticator;
@@ -42,20 +40,28 @@ public class UserPasswordAuthentication implements Authentication {
   @Override
   public CallHeaderAuthenticator authenticate() {
     return new GeneratedBearerTokenAuthenticator(
-        new BasicCallHeaderAuthenticator((username, password) -> {
-          if (validCredentials.containsKey(username) && getCredentials(username).equals(password)) {
-            return () -> username;
-          }
-          throw CallStatus.UNAUTHENTICATED.withDescription("Invalid credentials.").toRuntimeException();
-        }));
+        new BasicCallHeaderAuthenticator(
+            (username, password) -> {
+              if (validCredentials.containsKey(username)
+                  && getCredentials(username).equals(password)) {
+                return () -> username;
+              }
+              throw CallStatus.UNAUTHENTICATED
+                  .withDescription("Invalid credentials.")
+                  .toRuntimeException();
+            }));
   }
 
   @Override
   public void populateProperties(Properties properties) {
-    validCredentials.forEach((key, value) -> {
-      properties.put(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.USER.camelName(), key);
-      properties.put(ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.PASSWORD.camelName(), value);
-    });
+    validCredentials.forEach(
+        (key, value) -> {
+          properties.put(
+              ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.USER.camelName(), key);
+          properties.put(
+              ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.PASSWORD.camelName(),
+              value);
+        });
   }
 
   public static class Builder {

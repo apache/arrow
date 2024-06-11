@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.avro;
 
 import java.io.EOFException;
@@ -22,7 +21,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
-
 import org.apache.arrow.adapter.avro.consumers.CompositeAvroConsumer;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.FieldVector;
@@ -32,9 +30,7 @@ import org.apache.arrow.vector.util.ValueVectorUtility;
 import org.apache.avro.Schema;
 import org.apache.avro.io.Decoder;
 
-/**
- * VectorSchemaRoot iterator for partially converting avro data.
- */
+/** VectorSchemaRoot iterator for partially converting avro data. */
 public class AvroToArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoCloseable {
 
   public static final int NO_LIMIT_BATCH_SIZE = -1;
@@ -53,28 +49,18 @@ public class AvroToArrowVectorIterator implements Iterator<VectorSchemaRoot>, Au
 
   private final int targetBatchSize;
 
-  /**
-   * Construct an instance.
-   */
-  private AvroToArrowVectorIterator(
-      Decoder decoder,
-      Schema schema,
-      AvroToArrowConfig config) {
+  /** Construct an instance. */
+  private AvroToArrowVectorIterator(Decoder decoder, Schema schema, AvroToArrowConfig config) {
 
     this.decoder = decoder;
     this.schema = schema;
     this.config = config;
     this.targetBatchSize = config.getTargetBatchSize();
-
   }
 
-  /**
-   * Create a ArrowVectorIterator to partially convert data.
-   */
+  /** Create a ArrowVectorIterator to partially convert data. */
   public static AvroToArrowVectorIterator create(
-      Decoder decoder,
-      Schema schema,
-      AvroToArrowConfig config) {
+      Decoder decoder, Schema schema, AvroToArrowConfig config) {
 
     AvroToArrowVectorIterator iterator = new AvroToArrowVectorIterator(decoder, schema, config);
     try {
@@ -136,9 +122,10 @@ public class AvroToArrowVectorIterator implements Iterator<VectorSchemaRoot>, Au
       ValueVectorUtility.preAllocate(root, targetBatchSize);
     }
 
-    long validConsumerCount = compositeConsumer.getConsumers().stream().filter(c ->
-        !c.skippable()).count();
-    Preconditions.checkArgument(root.getFieldVectors().size() == validConsumerCount,
+    long validConsumerCount =
+        compositeConsumer.getConsumers().stream().filter(c -> !c.skippable()).count();
+    Preconditions.checkArgument(
+        root.getFieldVectors().size() == validConsumerCount,
         "Schema root vectors size not equals to consumers size.");
 
     compositeConsumer.resetConsumerVectors(root);
@@ -159,9 +146,7 @@ public class AvroToArrowVectorIterator implements Iterator<VectorSchemaRoot>, Au
     return nextBatch != null;
   }
 
-  /**
-   * Gets the next vector. The user is responsible for freeing its resources.
-   */
+  /** Gets the next vector. The user is responsible for freeing its resources. */
   @Override
   public VectorSchemaRoot next() {
     Preconditions.checkArgument(hasNext());
@@ -175,9 +160,7 @@ public class AvroToArrowVectorIterator implements Iterator<VectorSchemaRoot>, Au
     return returned;
   }
 
-  /**
-   * Clean up resources.
-   */
+  /** Clean up resources. */
   @Override
   public void close() {
     if (nextBatch != null) {

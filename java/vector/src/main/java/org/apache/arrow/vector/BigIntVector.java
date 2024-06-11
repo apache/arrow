@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
@@ -31,16 +30,14 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
- * BigIntVector implements a fixed width vector (8 bytes) of
- * integer values which could be null. A validity buffer (bit vector) is
- * maintained to track which elements in the vector are null.
+ * BigIntVector implements a fixed width vector (8 bytes) of integer values which could be null. A
+ * validity buffer (bit vector) is maintained to track which elements in the vector are null.
  */
 public final class BigIntVector extends BaseFixedWidthVector implements BaseIntVector {
   public static final byte TYPE_WIDTH = 8;
 
   /**
-   * Instantiate a BigIntVector. This doesn't allocate any memory for
-   * the data in vector.
+   * Instantiate a BigIntVector. This doesn't allocate any memory for the data in vector.
    *
    * @param name name of the vector
    * @param allocator allocator for memory management.
@@ -50,8 +47,7 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
   }
 
   /**
-   * Instantiate a BigIntVector. This doesn't allocate any memory for
-   * the data in vector.
+   * Instantiate a BigIntVector. This doesn't allocate any memory for the data in vector.
    *
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
@@ -62,8 +58,7 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
   }
 
   /**
-   * Instantiate a BigIntVector. This doesn't allocate any memory for
-   * the data in vector.
+   * Instantiate a BigIntVector. This doesn't allocate any memory for the data in vector.
    *
    * @param field field materialized by this vector
    * @param allocator allocator for memory management.
@@ -78,8 +73,8 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
   }
 
   /**
-   * Get minor type for this vector. The vector holds values belonging
-   * to a particular type.
+   * Get minor type for this vector. The vector holds values belonging to a particular type.
+   *
    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
    */
   @Override
@@ -87,17 +82,16 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
     return MinorType.BIGINT;
   }
 
-
   /*----------------------------------------------------------------*
-   |                                                                |
-   |          vector value retrieval methods                        |
-   |                                                                |
-   *----------------------------------------------------------------*/
+  |                                                                |
+  |          vector value retrieval methods                        |
+  |                                                                |
+  *----------------------------------------------------------------*/
 
   /**
    * Get the element at the given index from the vector.
    *
-   * @param index   position of element
+   * @param index position of element
    * @return element at given index
    */
   public long get(int index) throws IllegalStateException {
@@ -108,11 +102,10 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
   }
 
   /**
-   * Get the element at the given index from the vector and
-   * sets the state in holder. If element at given index
-   * is null, holder.isSet will be zero.
+   * Get the element at the given index from the vector and sets the state in holder. If element at
+   * given index is null, holder.isSet will be zero.
    *
-   * @param index   position of element
+   * @param index position of element
    */
   public void get(int index, NullableBigIntHolder holder) {
     if (isSet(index) == 0) {
@@ -126,7 +119,7 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
   /**
    * Same as {@link #get(int)}.
    *
-   * @param index   position of element
+   * @param index position of element
    * @return element at given index
    */
   @Override
@@ -139,11 +132,10 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
   }
 
   /*----------------------------------------------------------------*
-   |                                                                |
-   |          vector value setter methods                           |
-   |                                                                |
-   *----------------------------------------------------------------*/
-
+  |                                                                |
+  |          vector value setter methods                           |
+  |                                                                |
+  *----------------------------------------------------------------*/
 
   private void setValue(int index, long value) {
     valueBuffer.setLong((long) index * TYPE_WIDTH, value);
@@ -152,8 +144,8 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
   /**
    * Set the element at the given index to the given value.
    *
-   * @param index   position of element
-   * @param value   value of element
+   * @param index position of element
+   * @param value value of element
    */
   public void set(int index, long value) {
     BitVectorHelper.setBit(validityBuffer, index);
@@ -161,12 +153,11 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
   }
 
   /**
-   * Set the element at the given index to the value set in data holder.
-   * If the value in holder is not indicated as set, element in the
-   * at the given index will be null.
+   * Set the element at the given index to the value set in data holder. If the value in holder is
+   * not indicated as set, element in the at the given index will be null.
    *
-   * @param index   position of element
-   * @param holder  nullable data holder for value of element
+   * @param index position of element
+   * @param holder nullable data holder for value of element
    */
   public void set(int index, NullableBigIntHolder holder) throws IllegalArgumentException {
     if (holder.isSet < 0) {
@@ -182,8 +173,8 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
   /**
    * Set the element at the given index to the value set in data holder.
    *
-   * @param index   position of element
-   * @param holder  data holder for value of element
+   * @param index position of element
+   * @param holder data holder for value of element
    */
   public void set(int index, BigIntHolder holder) {
     BitVectorHelper.setBit(validityBuffer, index);
@@ -191,12 +182,11 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
   }
 
   /**
-   * Same as {@link #set(int, long)} except that it handles the
-   * case when index is greater than or equal to existing
-   * value capacity {@link #getValueCapacity()}.
+   * Same as {@link #set(int, long)} except that it handles the case when index is greater than or
+   * equal to existing value capacity {@link #getValueCapacity()}.
    *
-   * @param index   position of element
-   * @param value   value of element
+   * @param index position of element
+   * @param value value of element
    */
   public void setSafe(int index, long value) {
     handleSafe(index);
@@ -204,12 +194,11 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
   }
 
   /**
-   * Same as {@link #set(int, NullableBigIntHolder)} except that it handles the
-   * case when index is greater than or equal to existing
-   * value capacity {@link #getValueCapacity()}.
+   * Same as {@link #set(int, NullableBigIntHolder)} except that it handles the case when index is
+   * greater than or equal to existing value capacity {@link #getValueCapacity()}.
    *
-   * @param index   position of element
-   * @param holder  nullable data holder for value of element
+   * @param index position of element
+   * @param holder nullable data holder for value of element
    */
   public void setSafe(int index, NullableBigIntHolder holder) throws IllegalArgumentException {
     handleSafe(index);
@@ -217,12 +206,11 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
   }
 
   /**
-   * Same as {@link #set(int, BigIntHolder)} except that it handles the
-   * case when index is greater than or equal to existing
-   * value capacity {@link #getValueCapacity()}.
+   * Same as {@link #set(int, BigIntHolder)} except that it handles the case when index is greater
+   * than or equal to existing value capacity {@link #getValueCapacity()}.
    *
-   * @param index   position of element
-   * @param holder  data holder for value of element
+   * @param index position of element
+   * @param holder data holder for value of element
    */
   public void setSafe(int index, BigIntHolder holder) {
     handleSafe(index);
@@ -230,8 +218,9 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
   }
 
   /**
-   * Store the given value at a particular position in the vector. isSet indicates
-   * whether the value is NULL or not.
+   * Store the given value at a particular position in the vector. isSet indicates whether the value
+   * is NULL or not.
+   *
    * @param index position of the new value
    * @param isSet 0 for NULL value, 1 otherwise
    * @param value element value
@@ -245,9 +234,9 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
   }
 
   /**
-   * Same as {@link #set(int, int, long)} except that it handles the case
-   * when index is greater than or equal to current value capacity of the
-   * vector.
+   * Same as {@link #set(int, int, long)} except that it handles the case when index is greater than
+   * or equal to current value capacity of the vector.
+   *
    * @param index position of the new value
    * @param isSet 0 for NULL value, 1 otherwise
    * @param value element value
@@ -258,8 +247,7 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
   }
 
   /**
-   * Given a data buffer, get the value stored at a particular position
-   * in the vector.
+   * Given a data buffer, get the value stored at a particular position in the vector.
    *
    * <p>This method should not be used externally.
    *
@@ -271,17 +259,14 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
     return buffer.getLong((long) index * TYPE_WIDTH);
   }
 
-
   /*----------------------------------------------------------------*
-   |                                                                |
-   |                      vector transfer                           |
-   |                                                                |
-   *----------------------------------------------------------------*/
-
+  |                                                                |
+  |                      vector transfer                           |
+  |                                                                |
+  *----------------------------------------------------------------*/
 
   /**
-   * Construct a TransferPair comprising this and a target vector of
-   * the same type.
+   * Construct a TransferPair comprising this and a target vector of the same type.
    *
    * @param ref name of the target vector
    * @param allocator allocator for the target vector
@@ -293,8 +278,7 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
   }
 
   /**
-   * Construct a TransferPair comprising of this and a target vector of
-   * the same type.
+   * Construct a TransferPair comprising of this and a target vector of the same type.
    *
    * @param field Field object used by the target vector
    * @param allocator allocator for the target vector

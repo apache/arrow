@@ -1,0 +1,56 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+import "google/protobuf/any.proto";
+
+option go_package = "../util_message";
+
+message ExampleMessage {
+  string field1 = 1;
+}
+
+message AllTheTypes {
+  string str = 1;
+  int32 int32 = 2;
+  int64 int64 = 3;
+  sint32 sint32 = 4;
+  sint64 sin64 = 5;
+  uint32 uint32 = 6;
+  uint64 uint64 = 7;
+  fixed32 fixed32 = 8;
+  fixed64 fixed64 = 9;
+  sfixed32 sfixed32 = 10;
+  bool bool = 11;
+  bytes bytes = 12;
+  double double = 13;
+  ExampleEnum enum = 14;
+  ExampleMessage message = 15;
+  oneof oneof {
+    string oneofstring = 16;
+    ExampleMessage oneofmessage = 17;
+  }
+  google.protobuf.Any any = 18;
+  map<int32, string> simple_map = 19;
+  map<string, ExampleMessage> complex_map = 20;
+  repeated string simple_list = 21;
+  repeated ExampleMessage complex_list = 22;
+
+  enum ExampleEnum {
+    OPTION_0 = 0;
+    OPTION_1 = 1;
+  }
+}
