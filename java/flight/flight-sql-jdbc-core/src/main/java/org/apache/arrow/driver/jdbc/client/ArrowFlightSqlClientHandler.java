@@ -99,7 +99,8 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
       final Builder builder,
       final Collection<CallOption> options,
       final Optional<String> catalog) {
-    final ArrowFlightSqlClientHandler handler = new ArrowFlightSqlClientHandler(new FlightSqlClient(client), builder, options, catalog);
+    final ArrowFlightSqlClientHandler handler =
+        new ArrowFlightSqlClientHandler(new FlightSqlClient(client), builder, options, catalog);
     handler.setSetCatalogInSessionIfPresent();
     return handler;
   }
@@ -272,18 +273,16 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
     void close();
   }
 
-  /**
-   * A connection is created with catalog set as a session option.
-   */
+  /** A connection is created with catalog set as a session option. */
   private void setSetCatalogInSessionIfPresent() {
     if (catalog.isPresent()) {
       final SetSessionOptionsRequest setSessionOptionRequest =
-              new SetSessionOptionsRequest(
-                      ImmutableMap.<String, SessionOptionValue>builder()
-                              .put(CATALOG, SessionOptionValueFactory.makeSessionOptionValue(catalog.get()))
-                              .build());
+          new SetSessionOptionsRequest(
+              ImmutableMap.<String, SessionOptionValue>builder()
+                  .put(CATALOG, SessionOptionValueFactory.makeSessionOptionValue(catalog.get()))
+                  .build());
       final SetSessionOptionsResult result =
-              sqlClient.setSessionOptions(setSessionOptionRequest, getOptions());
+          sqlClient.setSessionOptions(setSessionOptionRequest, getOptions());
 
       if (result.hasErrors()) {
         Map<String, SetSessionOptionsResult.Error> errors = result.getErrors();
@@ -291,10 +290,10 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
           LOGGER.warn(error.toString());
         }
         throw CallStatus.INVALID_ARGUMENT
-                .withDescription(
-                        String.format(
-                                "Cannot set session option for catalog = %s. Check log for details.", catalog))
-                .toRuntimeException();
+            .withDescription(
+                String.format(
+                    "Cannot set session option for catalog = %s. Check log for details.", catalog))
+            .toRuntimeException();
       }
     }
   }

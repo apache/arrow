@@ -24,7 +24,6 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import java.util.Optional;
-
 import org.apache.arrow.driver.jdbc.FlightServerTestRule;
 import org.apache.arrow.driver.jdbc.utils.CoreMockedSqlProducers;
 import org.apache.arrow.memory.BufferAllocator;
@@ -150,8 +149,7 @@ public class ArrowFlightSqlClientHandlerBuilderTest {
 
   @Test
   public void testCatalog() {
-    ArrowFlightSqlClientHandler.Builder rootBuilder =
-            new ArrowFlightSqlClientHandler.Builder();
+    ArrowFlightSqlClientHandler.Builder rootBuilder = new ArrowFlightSqlClientHandler.Builder();
 
     rootBuilder.withCatalog(null);
     assertFalse(rootBuilder.catalog.isPresent());
