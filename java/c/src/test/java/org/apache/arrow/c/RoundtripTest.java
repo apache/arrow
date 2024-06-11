@@ -538,27 +538,41 @@ public class RoundtripTest {
   public void testViewVector() {
     // ViewVarCharVector with short strings
     try (final ViewVarCharVector vector = new ViewVarCharVector("v1", allocator)) {
-      setVector(vector, "abc".getBytes(StandardCharsets.UTF_8), "def".getBytes(StandardCharsets.UTF_8), null);
+      setVector(
+          vector,
+          "abc".getBytes(StandardCharsets.UTF_8),
+          "def".getBytes(StandardCharsets.UTF_8),
+          null);
       assertTrue(roundtrip(vector, ViewVarCharVector.class));
     }
 
     // ViewVarCharVector with long strings
     try (final ViewVarCharVector vector = new ViewVarCharVector("v2", allocator)) {
-      setVector(vector, "01234567890123".getBytes(StandardCharsets.UTF_8),
-          "01234567890123567".getBytes(StandardCharsets.UTF_8), null);
+      setVector(
+          vector,
+          "01234567890123".getBytes(StandardCharsets.UTF_8),
+          "01234567890123567".getBytes(StandardCharsets.UTF_8),
+          null);
       assertTrue(roundtrip(vector, ViewVarCharVector.class));
     }
 
     // ViewVarBinaryVector with short values
     try (final ViewVarBinaryVector vector = new ViewVarBinaryVector("v3", allocator)) {
-      setVector(vector, "abc".getBytes(StandardCharsets.UTF_8), "def".getBytes(StandardCharsets.UTF_8), null);
+      setVector(
+          vector,
+          "abc".getBytes(StandardCharsets.UTF_8),
+          "def".getBytes(StandardCharsets.UTF_8),
+          null);
       assertTrue(roundtrip(vector, ViewVarBinaryVector.class));
     }
 
     // ViewVarBinaryVector with long values
     try (final ViewVarBinaryVector vector = new ViewVarBinaryVector("v4", allocator)) {
-      setVector(vector, "01234567890123".getBytes(StandardCharsets.UTF_8),
-          "01234567890123567".getBytes(StandardCharsets.UTF_8), null);
+      setVector(
+          vector,
+          "01234567890123".getBytes(StandardCharsets.UTF_8),
+          "01234567890123567".getBytes(StandardCharsets.UTF_8),
+          null);
       assertTrue(roundtrip(vector, ViewVarBinaryVector.class));
     }
 

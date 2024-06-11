@@ -283,8 +283,9 @@ public class LargeListVector extends BaseValueVector
   }
 
   /**
-   * Retrieves the export buffer count for the C Data Interface.
-   * The exported buffers are the validity and offset buffers.
+   * Retrieves the export buffer count for the C Data Interface. The exported buffers are the
+   * validity and offset buffers.
+   *
    * @return the number of buffers to be exported
    */
   @Override

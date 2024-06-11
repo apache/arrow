@@ -138,8 +138,11 @@ final class StreamTest {
 
   @Test
   public void roundtripStringViews() throws Exception {
-    final Schema schema = new Schema(Arrays.asList(Field.nullable("ints", new ArrowType.Int(32, true)),
-        Field.nullable("string_views", new ArrowType.Utf8View())));
+    final Schema schema =
+        new Schema(
+            Arrays.asList(
+                Field.nullable("ints", new ArrowType.Int(32, true)),
+                Field.nullable("string_views", new ArrowType.Utf8View())));
     final List<ArrowRecordBatch> batches = new ArrayList<>();
     try (final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
       final IntVector ints = (IntVector) root.getVector(0);
@@ -175,8 +178,11 @@ final class StreamTest {
 
   @Test
   public void roundtripBinaryViews() throws Exception {
-    final Schema schema = new Schema(Arrays.asList(Field.nullable("ints", new ArrowType.Int(32, true)),
-        Field.nullable("binary_views", new ArrowType.BinaryView())));
+    final Schema schema =
+        new Schema(
+            Arrays.asList(
+                Field.nullable("ints", new ArrowType.Int(32, true)),
+                Field.nullable("binary_views", new ArrowType.BinaryView())));
     final List<ArrowRecordBatch> batches = new ArrayList<>();
     try (final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
       final IntVector ints = (IntVector) root.getVector(0);
@@ -189,10 +195,13 @@ final class StreamTest {
       ints.setSafe(2, 4);
       ints.setSafe(3, 8);
       strs.setSafe(0, new byte[0]);
-      strs.setSafe(1, new byte[]{97});
+      strs.setSafe(1, new byte[] {97});
       strs.setSafe(2, new byte[] {98, 99, 49, 50, 51, 52, 53, 54, 55, 56, 57, 48, 98, 99});
-      strs.setSafe(3, new byte[] {100, 101, 102, 103, 49, 50, 51, 52, 53, 54, 55, 56, 57, 48,
-          100, 101, 102, 103});
+      strs.setSafe(
+          3,
+          new byte[] {
+            100, 101, 102, 103, 49, 50, 51, 52, 53, 54, 55, 56, 57, 48, 100, 101, 102, 103
+          });
       root.setRowCount(4);
       batches.add(unloader.getRecordBatch());
 

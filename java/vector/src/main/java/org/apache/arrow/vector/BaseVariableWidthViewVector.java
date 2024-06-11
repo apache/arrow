@@ -1670,24 +1670,17 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
   }
 
   /**
-   * Retrieves the export buffer count for the C Data Interface.
-   * For Variadic types, an additional buffer is kept to store
-   * the size of each variadic buffer since that information
-   * cannot be retrieved in the C Data import.
-   * When there are dataBuffers, the count is set to 3 + dataBuffers.size().
-   * Three is formed by validity, view, and variadic size buffer.
-   * If it is not the case, i.e., the dataBuffer is not present;
-   * four buffers are required.
-   * They are view buffer, validity buffer,
-   * empty data buffer, and variadic size buffer.
-   * Note that the Java library only allocates data buffers
-   * when long strings are present.
-   * In the C Data Interface,
-   * the binary view import expects at least three buffers.
-   * The variadic size buffer is merely allocated to determine the
-   * number of elements per each variadic buffer, and it is not part
-   * of the imported data.
-   * Thus, an empty data buffer is allocated to meet this requirement.
+   * Retrieves the export buffer count for the C Data Interface. For Variadic types, an additional
+   * buffer is kept to store the size of each variadic buffer since that information cannot be
+   * retrieved in the C Data import. When there are dataBuffers, the count is set to 3 +
+   * dataBuffers.size(). Three is formed by validity, view, and variadic size buffer. If it is not
+   * the case, i.e., the dataBuffer is not present; four buffers are required. They are view buffer,
+   * validity buffer, empty data buffer, and variadic size buffer. Note that the Java library only
+   * allocates data buffers when long strings are present. In the C Data Interface, the binary view
+   * import expects at least three buffers. The variadic size buffer is merely allocated to
+   * determine the number of elements per each variadic buffer, and it is not part of the imported
+   * data. Thus, an empty data buffer is allocated to meet this requirement.
+   *
    * @return the number of buffers to be exported
    */
   @Override
@@ -1700,13 +1693,13 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
   }
 
   /**
-   * Get the data buffer of the vector.
-   * Note that an additional buffer is appended to store
-   * the size of each variadic buffer's size.
+   * Get the data buffer of the vector. Note that an additional buffer is appended to store the size
+   * of each variadic buffer's size.
+   *
    * @param buffers list of buffers to be exported
    * @param buffersPtr buffer to store the pointers to the exported buffers
    * @param nullValue null value
-  */
+   */
   @Override
   public void exportCDataBuffers(List<ArrowBuf> buffers, ArrowBuf buffersPtr, long nullValue) {
     exportBuffer(validityBuffer, buffers, buffersPtr, nullValue, true);
@@ -1745,7 +1738,8 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
       for (int i = 0; i < valueCount; i++) {
         int length = getValueLength(i);
         if (length > 12) {
-          final int bufIndex = viewBuffer.getInt(((long) i * ELEMENT_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH);
+          final int bufIndex =
+              viewBuffer.getInt(((long) i * ELEMENT_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH);
           long variadicSizeBufIndex = (long) bufIndex * Long.BYTES;
           long currentBufLength = variadicSizeBuffer.getLong(variadicSizeBufIndex);
           variadicSizeBuffer.setLong(variadicSizeBufIndex, currentBufLength + length);

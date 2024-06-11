@@ -58,8 +58,9 @@ public interface FieldVector extends ValueVector {
 
   /**
    * Retrieves the export buffer count for the C Data Interface.
+   *
    * @return the number of variadic buffers
-  */
+   */
   int getExportedCDataBuffers();
 
   /**

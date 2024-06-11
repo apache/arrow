@@ -340,10 +340,11 @@ public abstract class BaseLargeVariableWidthVector extends BaseValueVector
   }
 
   /**
-   * Retrieves the export buffer count for the C Data Interface.
-   * The exported buffers are the validity buffer, offset, and value buffers.
+   * Retrieves the export buffer count for the C Data Interface. The exported buffers are the
+   * validity buffer, offset, and value buffers.
+   *
    * @return the number of buffers to be exported
-  */
+   */
   @Override
   public int getExportedCDataBuffers() {
     return 3;

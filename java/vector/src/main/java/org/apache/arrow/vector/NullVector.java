@@ -222,8 +222,8 @@ public class NullVector implements FieldVector, ValueIterableVector<Object> {
   }
 
   /**
-   * Retrieves the export buffer count for the C Data Interface.
-   * No buffers are exported.
+   * Retrieves the export buffer count for the C Data Interface. No buffers are exported.
+   *
    * @return the number of buffers to be exported
    */
   @Override

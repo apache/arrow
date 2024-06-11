@@ -23,7 +23,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -235,10 +234,11 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
     final long variadicSizeBufferCapacity = numOfVariadicBuffers * Long.BYTES;
     List<ArrowBuf> buffers = new ArrayList<>();
 
-    try (ArrowBuf variadicSizeBuffer = importBuffer(type, variadicSizeBufferIndex,
-        variadicSizeBufferCapacity)) {
+    try (ArrowBuf variadicSizeBuffer =
+        importBuffer(type, variadicSizeBufferIndex, variadicSizeBufferCapacity)) {
       ArrowBuf maybeValidityBuffer = maybeImportBitmap(type);
-      try (ArrowBuf view = importFixedBytes(type, viewBufferIndex, BaseVariableWidthViewVector.ELEMENT_SIZE)) {
+      try (ArrowBuf view =
+          importFixedBytes(type, viewBufferIndex, BaseVariableWidthViewVector.ELEMENT_SIZE)) {
         view.getReferenceManager().retain();
         buffers.add(maybeValidityBuffer);
         buffers.add(view);
@@ -402,6 +402,7 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
 
   @Override
   public List<ArrowBuf> visit(ArrowType.ListView type) {
-    throw new UnsupportedOperationException("Importing buffers for view type: " + type + " not supported");
+    throw new UnsupportedOperationException(
+        "Importing buffers for view type: " + type + " not supported");
   }
 }
