@@ -29,8 +29,11 @@ under the License.
   <packaging>jar</packaging>
   <name>Arrow Java C Data Interface</name>
   <description>Java implementation of C Data Interface</description>
+
   <properties>
     <arrow.c.jni.dist.dir>./build</arrow.c.jni.dist.dir>
+    <checkstyle.config.location>dev/checkstyle/checkstyle-spotless.xml</checkstyle.config.location>
+    <spotless.java.excludes>none</spotless.java.excludes>
   </properties>
 
   <dependencies>

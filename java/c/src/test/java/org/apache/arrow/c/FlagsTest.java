@@ -14,14 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.c;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
-
-import org.apache.arrow.c.Flags;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -31,46 +28,66 @@ import org.junit.jupiter.api.Test;
 public class FlagsTest {
   @Test
   public void testForFieldNullableOrderedDict() {
-    FieldType fieldType = new FieldType(true, ArrowType.Binary.INSTANCE,
-        new DictionaryEncoding(123L, true, new ArrowType.Int(8, true)));
+    FieldType fieldType =
+        new FieldType(
+            true,
+            ArrowType.Binary.INSTANCE,
+            new DictionaryEncoding(123L, true, new ArrowType.Int(8, true)));
 
-    assertEquals(Flags.ARROW_FLAG_DICTIONARY_ORDERED | Flags.ARROW_FLAG_NULLABLE,
+    assertEquals(
+        Flags.ARROW_FLAG_DICTIONARY_ORDERED | Flags.ARROW_FLAG_NULLABLE,
         Flags.forField(new Field("Name", fieldType, new ArrayList<>())));
   }
 
   @Test
   public void testForFieldOrderedDict() {
-    FieldType fieldType = new FieldType(false, ArrowType.Binary.INSTANCE,
-        new DictionaryEncoding(123L, true, new ArrowType.Int(8, true)));
-    assertEquals(Flags.ARROW_FLAG_DICTIONARY_ORDERED, Flags.forField(new Field("Name", fieldType, new ArrayList<>())));
+    FieldType fieldType =
+        new FieldType(
+            false,
+            ArrowType.Binary.INSTANCE,
+            new DictionaryEncoding(123L, true, new ArrowType.Int(8, true)));
+    assertEquals(
+        Flags.ARROW_FLAG_DICTIONARY_ORDERED,
+        Flags.forField(new Field("Name", fieldType, new ArrayList<>())));
   }
 
   @Test
   public void testForFieldNullableDict() {
-    FieldType fieldType = new FieldType(true, ArrowType.Binary.INSTANCE,
-        new DictionaryEncoding(123L, false, new ArrowType.Int(8, true)));
-    assertEquals(Flags.ARROW_FLAG_NULLABLE, Flags.forField(new Field("Name", fieldType, new ArrayList<>())));
+    FieldType fieldType =
+        new FieldType(
+            true,
+            ArrowType.Binary.INSTANCE,
+            new DictionaryEncoding(123L, false, new ArrowType.Int(8, true)));
+    assertEquals(
+        Flags.ARROW_FLAG_NULLABLE, Flags.forField(new Field("Name", fieldType, new ArrayList<>())));
   }
 
   @Test
   public void testForFieldNullable() {
     FieldType fieldType = new FieldType(true, ArrowType.Binary.INSTANCE, null);
-    assertEquals(Flags.ARROW_FLAG_NULLABLE, Flags.forField(new Field("Name", fieldType, new ArrayList<>())));
+    assertEquals(
+        Flags.ARROW_FLAG_NULLABLE, Flags.forField(new Field("Name", fieldType, new ArrayList<>())));
   }
 
   @Test
   public void testForFieldNullableOrderedSortedMap() {
     ArrowType.Map type = new ArrowType.Map(true);
-    FieldType fieldType = new FieldType(true, type, new DictionaryEncoding(123L, true, new ArrowType.Int(8, true)));
-    assertEquals(Flags.ARROW_FLAG_DICTIONARY_ORDERED | Flags.ARROW_FLAG_NULLABLE | Flags.ARROW_FLAG_MAP_KEYS_SORTED,
+    FieldType fieldType =
+        new FieldType(true, type, new DictionaryEncoding(123L, true, new ArrowType.Int(8, true)));
+    assertEquals(
+        Flags.ARROW_FLAG_DICTIONARY_ORDERED
+            | Flags.ARROW_FLAG_NULLABLE
+            | Flags.ARROW_FLAG_MAP_KEYS_SORTED,
         Flags.forField(new Field("Name", fieldType, new ArrayList<>())));
   }
 
   @Test
   public void testForFieldNullableOrderedMap() {
     ArrowType.Map type = new ArrowType.Map(false);
-    FieldType fieldType = new FieldType(true, type, new DictionaryEncoding(123L, true, new ArrowType.Int(8, true)));
-    assertEquals(Flags.ARROW_FLAG_DICTIONARY_ORDERED | Flags.ARROW_FLAG_NULLABLE,
+    FieldType fieldType =
+        new FieldType(true, type, new DictionaryEncoding(123L, true, new ArrowType.Int(8, true)));
+    assertEquals(
+        Flags.ARROW_FLAG_DICTIONARY_ORDERED | Flags.ARROW_FLAG_NULLABLE,
         Flags.forField(new Field("Name", fieldType, new ArrayList<>())));
   }
 }
