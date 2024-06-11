@@ -122,6 +122,9 @@ BuildRequires:	json-devel
 %endif
 BuildRequires:	libzstd-devel
 BuildRequires:	lz4-devel %{lz4_requirement}
+%if %{use_mimalloc}
+BuildRequires:	mimalloc-devel
+%endif
 BuildRequires:	ninja-build
 BuildRequires:	openssl-devel
 BuildRequires:	pkgconfig
@@ -285,6 +288,9 @@ Requires:	json-devel
 %endif
 Requires:	libzstd-devel
 Requires:	lz4-devel %{lz4_requirement}
+%if %{use_mimalloc}
+Requires:	mimalloc-devel
+%endif
 Requires:	openssl-devel
 %if %{have_rapidjson}
 Requires:	rapidjson-devel

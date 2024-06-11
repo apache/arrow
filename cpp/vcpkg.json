@@ -38,6 +38,7 @@
     "grpc",
     "gtest",
     "lz4",
+    "mimalloc",
     "openssl",
     "orc",
     "protobuf",

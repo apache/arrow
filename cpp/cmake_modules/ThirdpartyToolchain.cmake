@@ -58,6 +58,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     jemalloc
     LLVM
     lz4
+    mimalloc
     nlohmann_json
     opentelemetry-cpp
     orc
@@ -200,6 +201,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_jemalloc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "lz4")
     build_lz4()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "mimalloc")
+    build_mimalloc()
   elseif("${DEPENDENCY_NAME}" STREQUAL "nlohmann_json")
     build_nlohmann_json()
   elseif("${DEPENDENCY_NAME}" STREQUAL "opentelemetry-cpp")
@@ -2194,7 +2197,7 @@ endif()
 # ----------------------------------------------------------------------
 # mimalloc - Cross-platform high-performance allocator, from Microsoft
 
-if(ARROW_MIMALLOC)
+macro(build_mimalloc)
   if(NOT ARROW_ENABLE_THREADING)
     message(FATAL_ERROR "Can't use mimalloc with ARROW_ENABLE_THREADING=OFF")
   endif()
@@ -2234,20 +2237,24 @@ if(ARROW_MIMALLOC)
 
   file(MAKE_DIRECTORY ${MIMALLOC_INCLUDE_DIR})
 
-  add_library(mimalloc::mimalloc STATIC IMPORTED)
-  set_target_properties(mimalloc::mimalloc PROPERTIES IMPORTED_LOCATION
-                                                      "${MIMALLOC_STATIC_LIB}")
-  target_include_directories(mimalloc::mimalloc BEFORE
-                             INTERFACE "${MIMALLOC_INCLUDE_DIR}")
-  target_link_libraries(mimalloc::mimalloc INTERFACE Threads::Threads)
+  add_library(mimalloc STATIC IMPORTED)
+  set_target_properties(mimalloc PROPERTIES IMPORTED_LOCATION "${MIMALLOC_STATIC_LIB}")
+  target_include_directories(mimalloc BEFORE INTERFACE "${MIMALLOC_INCLUDE_DIR}")
+  target_link_libraries(mimalloc INTERFACE Threads::Threads)
   if(WIN32)
-    target_link_libraries(mimalloc::mimalloc INTERFACE "bcrypt.lib" "psapi.lib")
+    target_link_libraries(mimalloc INTERFACE "bcrypt.lib" "psapi.lib")
   endif()
-  add_dependencies(mimalloc::mimalloc mimalloc_ep)
+  add_dependencies(mimalloc mimalloc_ep)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS mimalloc::mimalloc)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS mimalloc)
 
   set(mimalloc_VENDORED TRUE)
+endmacro()
+
+if(ARROW_MIMALLOC)
+  set(CMAKE_FIND_DEBUG_MODE ON)
+  resolve_dependency(mimalloc)
+  set(CMAKE_FIND_DEBUG_MODE OFF)
 endif()
 
 # ----------------------------------------------------------------------
