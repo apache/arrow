@@ -220,12 +220,9 @@ env:
 
 {%- macro azure_upload_anaconda(pattern) -%}
   {%- if arrow.is_default_branch() -%}
-  - task: Bash@3
-    inputs:
-      targetType: inline
-      script: |
+  - bash: |
         conda create -y -n azure_upload_anaconda -c conda-forge anaconda-client
-        conda activate azure_upload_anaconda
+        source activate azure_upload_anaconda
         anaconda -t $(CROSSBOW_ANACONDA_TOKEN) upload --force {{ pattern }}
   {% endif %}
 {% endmacro %}
