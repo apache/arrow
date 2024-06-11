@@ -103,8 +103,7 @@ class ARROW_EXPORT Table {
 
   /// \brief Convert Table to Tensor
   ///
-  /// Create a Tensor object with shape (number of rows, number of columns) and
-  /// strides (type size in bytes, type size in bytes * number of rows).
+  /// Create a Tensor object.
   ///
   /// \param[in] null_to_nan if true, convert nulls to NaN
   /// \param[in] row_major if true, create row-major Tensor else column-major Tensor
