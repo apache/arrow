@@ -18,8 +18,7 @@ package org.apache.arrow.tools;
 
 import static org.apache.arrow.tools.ArrowFileTestFixtures.validateOutput;
 import static org.apache.arrow.tools.ArrowFileTestFixtures.writeInput;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.File;
 import org.apache.arrow.memory.BufferAllocator;

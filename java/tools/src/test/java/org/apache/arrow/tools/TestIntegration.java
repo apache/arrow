@@ -20,9 +20,9 @@ import static org.apache.arrow.tools.ArrowFileTestFixtures.validateOutput;
 import static org.apache.arrow.tools.ArrowFileTestFixtures.write;
 import static org.apache.arrow.tools.ArrowFileTestFixtures.writeData;
 import static org.apache.arrow.tools.ArrowFileTestFixtures.writeInput;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter.NopIndenter;
@@ -205,7 +205,7 @@ public class TestIntegration {
     String o;
     int j = 0;
     while ((i = orig.readLine()) != null && (o = rt.readLine()) != null) {
-      assertEquals("line: " + j, i, o);
+      assertEquals(i, o, "line: " + j);
       ++j;
     }
   }
@@ -253,7 +253,7 @@ public class TestIntegration {
     String o;
     int j = 0;
     while ((i = orig.readLine()) != null && (o = rt.readLine()) != null) {
-      assertEquals("line: " + j, i, o);
+      assertEquals(i, o, "line: " + j);
       ++j;
     }
   }
@@ -342,8 +342,8 @@ public class TestIntegration {
       integration.run(args3);
       fail("should have failed");
     } catch (IllegalArgumentException e) {
-      assertTrue(e.getMessage(), e.getMessage().contains("Different values in column"));
-      assertTrue(e.getMessage(), e.getMessage().contains("999"));
+      assertTrue(e.getMessage().contains("Different values in column"), e.getMessage());
+      assertTrue(e.getMessage().contains("999"), e.getMessage());
     }
   }
 }
