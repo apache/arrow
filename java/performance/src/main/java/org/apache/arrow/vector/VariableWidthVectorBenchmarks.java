@@ -14,11 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import java.util.concurrent.TimeUnit;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -36,9 +34,7 @@ import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
-/**
- * Benchmarks for {@link BaseVariableWidthVector}.
- */
+/** Benchmarks for {@link BaseVariableWidthVector}. */
 @State(Scope.Benchmark)
 public class VariableWidthVectorBenchmarks {
   // checkstyle:off: MissingJavadocMethod
@@ -56,9 +52,7 @@ public class VariableWidthVectorBenchmarks {
 
   private VarCharVector vector;
 
-  /**
-   * Setup benchmarks.
-   */
+  /** Setup benchmarks. */
   @Setup
   public void prepare() {
     allocator = new RootAllocator(ALLOCATOR_CAPACITY);
@@ -68,9 +62,7 @@ public class VariableWidthVectorBenchmarks {
     arrowBuff.setBytes(0, bytes, 0, bytes.length);
   }
 
-  /**
-   * Tear down benchmarks.
-   */
+  /** Tear down benchmarks. */
   @TearDown
   public void tearDown() {
     arrowBuff.close();
@@ -80,6 +72,7 @@ public class VariableWidthVectorBenchmarks {
 
   /**
    * Test {@link BaseVariableWidthVector#getValueCapacity()}.
+   *
    * @return useless. To avoid DCE by JIT.
    */
   @Benchmark
@@ -119,9 +112,9 @@ public class VariableWidthVectorBenchmarks {
     return vector.getBufferSize();
   }
 
-
-  public static void main(String [] args) throws RunnerException {
-    Options opt = new OptionsBuilder()
+  public static void main(String[] args) throws RunnerException {
+    Options opt =
+        new OptionsBuilder()
             .include(VariableWidthVectorBenchmarks.class.getSimpleName())
             .forks(1)
             .build();
