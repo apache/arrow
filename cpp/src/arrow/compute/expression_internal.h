@@ -291,6 +291,7 @@ inline Result<std::shared_ptr<compute::Function>> GetFunction(
   return GetCastFunction(*to_type);
 }
 
+// Execute a call expression with all arguments already evaluated.
 inline Result<Datum> ExecuteCallNonRecursive(const Expression::Call& call,
                                              const ExecBatch& input,
                                              const std::vector<Datum>& arguments,
