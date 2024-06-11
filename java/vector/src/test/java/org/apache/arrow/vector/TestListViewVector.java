@@ -1656,6 +1656,60 @@ public class TestListViewVector {
     }
   }
 
+  private int validateSizeBufferAndCalculateMinOffset(int start, int splitLength, ArrowBuf fromOffsetBuffer,
+      ArrowBuf fromSizeBuffer, ArrowBuf toSizeBuffer) {
+    int minOffset = fromOffsetBuffer.getInt((long) start * ListViewVector.OFFSET_WIDTH);
+    int fromDataLength;
+    int toDataLength;
+
+    for (int i = 0; i < splitLength; i++) {
+      fromDataLength = fromSizeBuffer.getInt((long) (start + i) * ListViewVector.SIZE_WIDTH);
+      toDataLength = toSizeBuffer.getInt((long) (i) * ListViewVector.SIZE_WIDTH);
+
+      /* validate size */
+      assertEquals(fromDataLength, toDataLength,
+          "Different data lengths at index: " + i + " and start: " + start);
+
+      /* calculate minimum offset */
+      int currentOffset = fromOffsetBuffer.getInt((long) (start + i) * ListViewVector.OFFSET_WIDTH);
+      if (currentOffset < minOffset) {
+        minOffset = currentOffset;
+      }
+    }
+
+    return minOffset;
+  }
+
+  private void validateOffsetBuffer(int start, int splitLength, ArrowBuf fromOffsetBuffer,
+      ArrowBuf toOffsetBuffer, int minOffset) {
+    int offset1;
+    int offset2;
+
+    for (int i = 0; i < splitLength; i++) {
+      offset1 = fromOffsetBuffer.getInt((long) (start + i) * ListViewVector.OFFSET_WIDTH);
+      offset2 = toOffsetBuffer.getInt((long) (i) * ListViewVector.OFFSET_WIDTH);
+      assertEquals(offset1 - minOffset, offset2,
+          "Different offset values at index: " + i + " and start: " + start);
+    }
+  }
+
+  private void validateDataBuffer(int start, int splitLength, ArrowBuf fromOffsetBuffer, ArrowBuf fromSizeBuffer,
+      BigIntVector fromDataVector, ArrowBuf toOffsetBuffer, BigIntVector toDataVector) {
+    int dataLength;
+    Long fromValue;
+    for (int i = 0; i < splitLength; i++) {
+      dataLength = fromSizeBuffer.getInt((long) (start + i) * ListViewVector.SIZE_WIDTH);
+      for (int j = 0; j < dataLength; j++) {
+        fromValue = fromDataVector.getObject(
+            (fromOffsetBuffer.getInt((long) (start + i) * ListViewVector.OFFSET_WIDTH) + j));
+        Long toValue = toDataVector.getObject(
+            (toOffsetBuffer.getInt((long) i * ListViewVector.OFFSET_WIDTH) + j));
+        assertEquals(fromValue, toValue,
+            "Different data values at index: " + i + " and start: " + start);
+      }
+    }
+  }
+
   @Test
   public void testSplitAndTransfer() throws Exception {
     try (ListViewVector listViewVector = ListViewVector.empty("sourceVector", allocator)) {
@@ -1824,12 +1878,6 @@ public class TestListViewVector {
           int start = transferLength[0];
           int splitLength = transferLength[1];
 
-          int dataLength1 = 0;
-          int dataLength2;
-
-          int offset1;
-          int offset2;
-
           transferPair.splitAndTransfer(start, splitLength);
 
           /* get offsetBuffer of toVector */
@@ -1839,42 +1887,15 @@ public class TestListViewVector {
           final ArrowBuf toSizeBuffer = toVector.getSizeBuffer();
 
           /* get dataVector of toVector */
-          BigIntVector dataVector1 = (BigIntVector) toVector.getDataVector();
+          BigIntVector toDataVector = (BigIntVector) toVector.getDataVector();
 
           /* validate size buffers */
-          int minOffset = offsetBuffer.getInt((long) start * ListViewVector.OFFSET_WIDTH);
-          for (int i = 0; i < splitLength; i++) {
-            dataLength1 = sizeBuffer.getInt((long) (start + i) * ListViewVector.SIZE_WIDTH);
-            dataLength2 = toSizeBuffer.getInt((long) (i) * ListViewVector.SIZE_WIDTH);
-
-            /* calculate minimum offset */
-            int currentOffset = offsetBuffer.getInt((long) (start + i) * ListViewVector.OFFSET_WIDTH);
-            if (currentOffset < minOffset) {
-              minOffset = currentOffset;
-            }
-            assertEquals(dataLength1, dataLength2,
-                "Different data lengths at index: " + i + " and start: " + start);
-          }
+          int minOffset = validateSizeBufferAndCalculateMinOffset(start, splitLength,
+              offsetBuffer, sizeBuffer, toSizeBuffer);
           /* validate offset buffers */
-          for (int i = 0; i < splitLength; i++) {
-            offset1 = offsetBuffer.getInt((long) (start + i) * ListViewVector.OFFSET_WIDTH);
-            offset2 = toOffsetBuffer.getInt((long) (i) * ListViewVector.OFFSET_WIDTH);
-            assertEquals(offset1 - minOffset, offset2,
-                "Different offset values at index: " + i + " and start: " + start);
-          }
+          validateOffsetBuffer(start, splitLength, offsetBuffer, toOffsetBuffer, minOffset);
           /* validate data */
-          System.out.println(listViewVector);
-          System.out.println(toVector);
-          for (int i = 0; i < splitLength; i++) {
-            dataLength1 = sizeBuffer.getInt((long) (start + i) * ListViewVector.SIZE_WIDTH);
-            for (int j = 0; j < dataLength1; j++) {
-              actual = dataVector.getObject(
-                  (offsetBuffer.getInt((long) (start + i) * ListViewVector.OFFSET_WIDTH) + j));
-              Long actual1 = dataVector1.getObject(
-                  (toOffsetBuffer.getInt((long) i * ListViewVector.OFFSET_WIDTH) + j));
-              assertEquals(actual, actual1, "Different data values at index: " + i + " and start: " + start);
-            }
-          }
+          validateDataBuffer(start, splitLength, offsetBuffer, sizeBuffer, dataVector, toOffsetBuffer, toDataVector);
         }
       }
     }
