@@ -245,7 +245,7 @@ tasks:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
-      config: linux_64_cuda_compiler_versionNone
+      config: linux_64_c_compiler_version12c_stdlib_version2.12cuda_compilerNonecuda_compiler_versionNonecxx_compiler_version12
     artifacts:
       - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.conda
@@ -257,7 +257,7 @@ tasks:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
-      config: linux_64_cuda_compiler_version11.2
+      config: linux_64_c_compiler_version11c_stdlib_version2.17cuda_compilernvcccuda_compiler_version11.8cxx_compiler_version11
     artifacts:
       - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cuda.conda
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cuda.conda
@@ -271,7 +271,7 @@ tasks:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
-      config: linux_aarch64_cuda_compiler_versionNone
+      config: linux_aarch64_c_compiler_version13cuda_compiler_versionNonecxx_compiler_version13.yaml
     artifacts:
       - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.conda
@@ -283,7 +283,7 @@ tasks:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
-      config: linux_aarch64_cuda_compiler_version11.2
+      config: linux_aarch64_c_compiler_version10cuda_compiler_version11.8cxx_compiler_version10
     artifacts:
       - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cuda.conda
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cuda.conda
@@ -297,7 +297,7 @@ tasks:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
-      config: linux_ppc64le_cuda_compiler_versionNone
+      config: linux_ppc64le_c_compiler_version13cuda_compiler_versionNonecxx_compiler_version13
     artifacts:
       - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.conda
@@ -309,7 +309,7 @@ tasks:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
-      config: linux_ppc64le_cuda_compiler_version11.2
+      config: linux_ppc64le_c_compiler_version10cuda_compiler_version11.8cxx_compiler_version10
     artifacts:
       - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cuda.conda
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cuda.conda
@@ -351,7 +351,7 @@ tasks:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
-      config: win_64_cuda_compiler_versionNone
+      config: win_64_cuda_compiler_versionNonewin_64_cuda_compilerNonecuda_compiler_versionNone
     artifacts:
       - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cpu.conda
@@ -363,7 +363,7 @@ tasks:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
-      config: win_64_cuda_compiler_version11.2
+      config: win_64_cuda_compilernvcccuda_compiler_version11.8
     artifacts:
       - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cuda.conda
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cuda.conda
