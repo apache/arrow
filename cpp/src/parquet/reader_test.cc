@@ -1079,16 +1079,16 @@ Column 1
 
 class TestJSONWithLocalFile : public ::testing::Test {
  public:
-  static std::string readFromLocalFile(std::string_view localFileName) {
+  static std::string ReadFromLocalFile(std::string_view local_file_name) {
     std::stringstream ss;
     // empty list means print all
     std::list<int> columns;
 
     auto reader =
-        ParquetFileReader::OpenFile(data_file(localFileName.data()), /*memory_map=*/false,
-                                    default_reader_properties());
+        ParquetFileReader::OpenFile(data_file(local_file_name.data()),
+                                    /*memory_map=*/false, default_reader_properties());
     ParquetFilePrinter printer(reader.get());
-    printer.JSONPrint(ss, columns, localFileName.data());
+    printer.JSONPrint(ss, columns, local_file_name.data());
 
     return ss.str();
   }
@@ -1148,14 +1148,14 @@ TEST_F(TestJSONWithLocalFile, JSONOutput) {
 }
 )###";
 
-  std::string json_content = readFromLocalFile("alltypes_plain.parquet");
+  std::string json_content = ReadFromLocalFile("alltypes_plain.parquet");
   ASSERT_EQ(json_output, json_content);
 }
 
 TEST_F(TestJSONWithLocalFile, JSONOutputFLBA) {
   // min-max stats for FLBA contains non-utf8 output, so we don't check
   // the whole json output.
-  std::string json_content = readFromLocalFile("fixed_length_byte_array.parquet");
+  std::string json_content = ReadFromLocalFile("fixed_length_byte_array.parquet");
 
   std::string json_contains = R"###({
   "FileName": "fixed_length_byte_array.parquet",
