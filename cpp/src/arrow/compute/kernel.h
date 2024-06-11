@@ -525,6 +525,10 @@ struct ARROW_EXPORT Kernel {
   // Additional kernel-specific data
   std::shared_ptr<KernelState> data;
 
+  /// \brief Indicates whether the kernel is selection-vector-aware. A
+  /// selection-vector-aware kernel is able to emit a partial result based on a given
+  /// selection vector without having to gathering the input and scattering the output,
+  /// aka. the "slow path", in the caller.
   bool selection_vector_aware = false;
 };
 

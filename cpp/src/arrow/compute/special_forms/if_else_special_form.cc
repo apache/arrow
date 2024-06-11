@@ -36,6 +36,7 @@ Result<Datum> IfElseSpecialForm::Execute(const Expression::Call& call,
   ARROW_ASSIGN_OR_RAISE(arguments[0],
                         ExecuteScalarExpression(call.arguments[0], input, exec_context));
   // Use cond as selection vector for IF.
+  // TODO: Consider chunked array for arguments[0].
   auto if_sel = std::make_shared<SelectionVector>(arguments[0].array());
   // Duplicate and invert cond as selection vector for ELSE.
   ARROW_ASSIGN_OR_RAISE(

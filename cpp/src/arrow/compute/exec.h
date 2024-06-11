@@ -427,6 +427,7 @@ struct ARROW_EXPORT ExecSpan {
 
   int64_t length = 0;
   std::vector<ExecValue> values;
+  // A non-owning selection vector to be used by selection-vector-aware kernels.
   SelectionVector* selection_vector = NULLPTR;
 };
 

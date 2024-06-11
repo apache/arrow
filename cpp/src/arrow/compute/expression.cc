@@ -591,8 +591,7 @@ Result<Expression> BindNonRecursive(Expression::Call call, bool insert_implicit_
   call.selection_vector_aware = call.kernel->selection_vector_aware;
 
   for (size_t i = 0; i < types.size(); ++i) {
-    call.selection_vector_aware =
-        call.selection_vector_aware && call.arguments[i].selection_vector_aware();
+    call.selection_vector_aware &= call.arguments[i].selection_vector_aware();
 
     if (types[i] == call.arguments[i].type()) continue;
 
@@ -739,8 +738,9 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const Schema& full
 
 namespace {
 
-// Execute a selection-vector-equipped scalar expression that is not fully
-// selection-vector-aware using slow path: gather/scatter.
+// Execute a scalar expression that is not fully selection-vector-aware on a batch
+// carrying a valid selection vector using the slow path: gathering the input and
+// scattering the output.
 Result<Datum> ExecuteScalarExpressionWithSelSlowPath(const Expression& expr,
                                                      const ExecBatch& input,
                                                      compute::ExecContext* exec_context) {
@@ -806,9 +806,12 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
   auto call = CallNotNull(expr);
 
   if (call->is_special_form) {
+    // Let the special form take over the execution using its own logic of argument
+    // evaluation.
     DCHECK(call->special_form);
     return call->special_form->Execute(*call, input, exec_context);
   } else {
+    // Eagerly evaluate all the arguments.
     std::vector<Datum> arguments(call->arguments.size());
     for (size_t i = 0; i < arguments.size(); ++i) {
       ARROW_ASSIGN_OR_RAISE(

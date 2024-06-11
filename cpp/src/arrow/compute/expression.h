@@ -48,6 +48,8 @@ class ARROW_EXPORT Expression {
     std::string function_name;
     std::vector<Expression> arguments;
     std::shared_ptr<FunctionOptions> options;
+    // Whether this call is a special form (e.g. if-else). If true, the `special_form`
+    // field will be resolved in binding.
     bool is_special_form = false;
     // Cached hash value
     size_t hash;
@@ -57,8 +59,9 @@ class ARROW_EXPORT Expression {
     const Kernel* kernel = NULLPTR;
     std::shared_ptr<KernelState> kernel_state;
     TypeHolder type;
+    // Whether the entire call (including all its arguments) is selection-vector-aware
     bool selection_vector_aware = false;
-    std::shared_ptr<SpecialForm> special_form{};
+    std::shared_ptr<SpecialForm> special_form = nullptr;
 
     void ComputeHash();
   };
@@ -121,6 +124,10 @@ class ARROW_EXPORT Expression {
   // XXX someday
   // NullGeneralization::type nullable() const;
 
+  /// Whether the entire expression (including all its subexpressions) is
+  /// selection-vector-aware. If true, then the expression can be executed using the "fast
+  /// path" - all kernels directly working on the selection vector. Otherwise the
+  /// execution takes the "slow path" - gathering the input and scattering the output.
   bool selection_vector_aware() const;
 
   struct Parameter {
