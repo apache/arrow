@@ -16,6 +16,7 @@
  */
 package org.apache.arrow.driver.jdbc.client;
 
+import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.net.URI;
 import java.security.GeneralSecurityException;
@@ -62,11 +63,7 @@ import org.apache.calcite.avatica.Meta.StatementType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.ImmutableMap;
-
-/**
- * A {@link FlightSqlClient} handler.
- */
+/** A {@link FlightSqlClient} handler. */
 public final class ArrowFlightSqlClientHandler implements AutoCloseable {
   private static final Logger LOGGER = LoggerFactory.getLogger(ArrowFlightSqlClientHandler.class);
   // JDBC connection string query parameter
@@ -75,22 +72,18 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
   private final FlightSqlClient sqlClient;
   private final Set<CallOption> options = new HashSet<>();
   private final Builder builder;
-  private final String catalog;
-  private boolean setCatalogInSession = false;
+  private final Optional<String> catalog;
 
   ArrowFlightSqlClientHandler(
-          final FlightSqlClient sqlClient,
-          final Builder builder,
-          final Collection<CallOption> credentialOptions,
-          final String catalog) {
+      final FlightSqlClient sqlClient,
+      final Builder builder,
+      final Collection<CallOption> credentialOptions,
+      final Optional<String> catalog) {
     this.options.addAll(builder.options);
     this.options.addAll(credentialOptions);
     this.sqlClient = Preconditions.checkNotNull(sqlClient);
     this.builder = builder;
     this.catalog = catalog;
-    if (hasCatalog()) {
-      setCatalogInSession = true;
-    }
   }
 
   /**
@@ -101,11 +94,14 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
    * @param options the {@link CallOption}s to persist in between subsequent client calls.
    * @return a new {@link ArrowFlightSqlClientHandler}.
    */
-  public static ArrowFlightSqlClientHandler createNewHandler(final FlightClient client,
-                                                             final Builder builder,
-                                                             final Collection<CallOption> options,
-                                                             final String catalog) {
-    return new ArrowFlightSqlClientHandler(new FlightSqlClient(client), builder, options, catalog);
+  static ArrowFlightSqlClientHandler createNewHandler(
+      final FlightClient client,
+      final Builder builder,
+      final Collection<CallOption> options,
+      final Optional<String> catalog) {
+    final ArrowFlightSqlClientHandler handler = new ArrowFlightSqlClientHandler(new FlightSqlClient(client), builder, options, catalog);
+    handler.setSetCatalogInSessionIfPresent();
+    return handler;
   }
 
   /**
@@ -222,7 +218,7 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
 
   @Override
   public void close() throws SQLException {
-    if (hasCatalog()) {
+    if (catalog.isPresent()) {
       sqlClient.closeSession(new CloseSessionRequest(), getOptions());
     }
     try {
@@ -232,13 +228,7 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
     }
   }
 
-  private boolean hasCatalog() {
-    return Optional.ofNullable(catalog).isPresent();
-  }
-
-  /**
-   * A prepared statement handler.
-   */
+  /** A prepared statement handler. */
   public interface PreparedStatement extends AutoCloseable {
     /**
      * Executes this {@link PreparedStatement}.
@@ -283,32 +273,39 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
   }
 
   /**
-   * Creates a new {@link PreparedStatement} for the given {@code query}.
-   *
-   * @param query the SQL query.
-   * @return a new prepared statement.
+   * A connection is created with catalog set as a session option.
    */
-  public PreparedStatement prepare(final String query) {
-    if (setCatalogInSession) {
+  private void setSetCatalogInSessionIfPresent() {
+    if (catalog.isPresent()) {
       final SetSessionOptionsRequest setSessionOptionRequest =
-              new SetSessionOptionsRequest(ImmutableMap.<String, SessionOptionValue>builder()
-                      .put(CATALOG, SessionOptionValueFactory.makeSessionOptionValue(catalog))
-                      .build());
-      final SetSessionOptionsResult result = sqlClient.setSessionOptions(setSessionOptionRequest, getOptions());
-      setCatalogInSession = false;
+              new SetSessionOptionsRequest(
+                      ImmutableMap.<String, SessionOptionValue>builder()
+                              .put(CATALOG, SessionOptionValueFactory.makeSessionOptionValue(catalog.get()))
+                              .build());
+      final SetSessionOptionsResult result =
+              sqlClient.setSessionOptions(setSessionOptionRequest, getOptions());
 
       if (result.hasErrors()) {
         Map<String, SetSessionOptionsResult.Error> errors = result.getErrors();
         for (Map.Entry<String, SetSessionOptionsResult.Error> error : errors.entrySet()) {
           LOGGER.warn(error.toString());
         }
-        throw new CallStatus(FlightStatusCode.INVALID_ARGUMENT)
+        throw CallStatus.INVALID_ARGUMENT
                 .withDescription(
-                        String.format("Cannot set session option for catalog = %s. Check log for details.", catalog))
+                        String.format(
+                                "Cannot set session option for catalog = %s. Check log for details.", catalog))
                 .toRuntimeException();
       }
     }
+  }
 
+  /**
+   * Creates a new {@link PreparedStatement} for the given {@code query}.
+   *
+   * @param query the SQL query.
+   * @return a new prepared statement.
+   */
+  public PreparedStatement prepare(final String query) {
     final FlightSqlClient.PreparedStatement preparedStatement =
         sqlClient.prepare(query, getOptions());
     return new PreparedStatement() {
@@ -544,10 +541,10 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
 
     @VisibleForTesting boolean retainAuth = true;
 
-    @VisibleForTesting
-    String catalog;
+    @VisibleForTesting Optional<String> catalog = Optional.empty();
 
-    // These two middleware are for internal use within build() and should not be exposed by builder APIs.
+    // These two middleware are for internal use within build() and should not be exposed by builder
+    // APIs.
     // Note that these middleware may not necessarily be registered.
     @VisibleForTesting
     ClientIncomingAuthHeaderMiddleware.Factory authFactory =
@@ -818,12 +815,13 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
     }
 
     /**
-     * Sets the catalog for this handler.
+     * Sets the catalog for this handler if it is not empty or contains only spaces.
+     *
      * @param catalog the catalog
      * @return this instance.
      */
     public Builder withCatalog(final String catalog) {
-      this.catalog = catalog;
+      this.catalog = Optional.ofNullable(catalog).map(String::trim).filter(str -> !str.isEmpty());
       return this;
     }
 
@@ -906,7 +904,8 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
                   new CredentialCallOption(new BearerCredentialWriter(token)),
                   options.toArray(new CallOption[0])));
         }
-        return ArrowFlightSqlClientHandler.createNewHandler(client, this, credentialOptions, catalog);
+        return ArrowFlightSqlClientHandler.createNewHandler(
+            client, this, credentialOptions, catalog);
 
       } catch (final IllegalArgumentException
           | GeneralSecurityException

@@ -105,13 +105,15 @@ public final class ArrowFlightConnectionConfigImplTest {
           {
             THREAD_POOL_SIZE,
             RANDOM.nextInt(getRuntime().availableProcessors()),
-            (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::threadPoolSize
+            (Function<ArrowFlightConnectionConfigImpl, ?>)
+                ArrowFlightConnectionConfigImpl::threadPoolSize
           },
           {
             CATALOG,
             "catalog",
-            (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::getCatalog
+            (Function<ArrowFlightConnectionConfigImpl, ?>)
+                ArrowFlightConnectionConfigImpl::getCatalog
           },
-    });
+        });
   }
 }

@@ -156,6 +156,7 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
 
   /**
    * The catalog to which a connection is made.
+   *
    * @return the catalog.
    */
   public String getCatalog() {
