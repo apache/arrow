@@ -4024,7 +4024,8 @@ def test_non_cpu_array():
     cuda_validity_buf = ctx.buffer_from_data(validity)
     arr = pa.Array.from_buffers(pa.int32(), 4, [None, cuda_data_buf])
     arr2 = pa.Array.from_buffers(pa.int32(), 4, [None, cuda_data_buf])
-    arr_with_nulls = pa.Array.from_buffers(pa.int32(), 4, [cuda_validity_buf, cuda_data_buf])
+    arr_with_nulls = pa.Array.from_buffers(
+        pa.int32(), 4, [cuda_validity_buf, cuda_data_buf])
 
     # Supported
     arr.validate()
@@ -4050,7 +4051,7 @@ def test_non_cpu_array():
     with pytest.raises(NotImplementedError):
         arr.value_counts()
     with pytest.raises(NotImplementedError):
-        arr.null_count
+        arr_with_nulls.null_count
     with pytest.raises(NotImplementedError):
         arr.nbytes
     with pytest.raises(NotImplementedError):
