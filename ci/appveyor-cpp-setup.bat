@@ -84,7 +84,7 @@ mamba create -n arrow -y -c conda-forge ^
 @rem TEMP test with numpy 2.0 RC
 call activate arrow
 python -m pip install --pre --upgrade numpy || exit /B
-call deactivate arrow
+call deactivate
 conda list -n arrow
 
 @rem
