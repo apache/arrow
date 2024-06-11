@@ -200,11 +200,11 @@ class TestPythonIntegration(unittest.TestCase):
         # without nulls long and strings
         self.round_trip_array(lambda: pa.array(["a", "bb"*10, "c"*13], type=pa.string_view()))
         # with multiple data buffers
-        data = []
-        for i in range(1, 501):
-            s = ''.join(str(j) for j in range(i))
-            data.append(s)
-        self.round_trip_array(lambda: pa.array(data, type=pa.string_view()))
+        arr1 = pa.array(["a", "bb", "c"], type=pa.string_view())
+        arr2 = pa.array(["b", "ee" * 10, "f" * 20], type=pa.string_view())
+        arr3 = pa.array(["c", "abc" * 20, "efg" * 30], type=pa.string_view())
+        arr4 = pa.array(["d", "abcd" * 100, "efgh" * 200], type=pa.string_view())
+        self.round_trip_array(lambda: pa.concat_arrays([arr1, arr2, arr3, arr4]))
         # empty strings
         self.round_trip_array(lambda: pa.array(["", "bb" * 10, "c", "", "d", ""], type=pa.string_view()))
         # null value variations
@@ -224,11 +224,11 @@ class TestPythonIntegration(unittest.TestCase):
         # without nulls long binary values
         self.round_trip_array(lambda: pa.array([bytes([97]), bytes([98, 98] * 10), bytes([99] * 13)], type=pa.binary_view()))
         # with multiple data buffers
-        data = []
-        for i in range(1, 501):
-            s = bytes((j % 256 for j in range(i)))
-            data.append(s)
-        self.round_trip_array(lambda: pa.array(data, type=pa.binary_view()))
+        arr1 = pa.array([bytes([97]), bytes([98, 98]), bytes([99])], type=pa.binary_view())
+        arr2 = pa.array([bytes([98]), bytes([98, 98] * 10), bytes([99] * 13)], type=pa.binary_view())
+        arr3 = pa.array([bytes([99]), bytes([98, 100] * 100), bytes([99, 100]) * 30], type=pa.binary_view())
+        arr4 = pa.array([bytes([100]), bytes([98, 100, 101] * 200), bytes([98, 99]) * 300], type=pa.binary_view())
+        self.round_trip_array(lambda: pa.concat_arrays([arr1, arr2, arr3, arr4]))
         # empty binary values
         self.round_trip_array(lambda: pa.array([bytes([]), bytes([97, 97]) * 10, bytes([98]), bytes([]), bytes([97]), bytes([])],
                                                type=pa.binary_view()))
