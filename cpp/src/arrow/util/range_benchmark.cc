@@ -132,3 +132,5 @@ BENCHMARK(lazy_postinc);
 #endif  // ARROW_WITH_BENCHMARKS_REFERENCE
 
 }  // namespace arrow
+
+BENCHMARK_MAIN();

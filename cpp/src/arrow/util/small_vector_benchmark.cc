@@ -342,3 +342,5 @@ LONG_VECTOR_BENCHMARKS(SMALL_VECTOR);
 
 }  // namespace internal
 }  // namespace arrow
+
+BENCHMARK_MAIN();

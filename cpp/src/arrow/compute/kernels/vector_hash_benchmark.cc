@@ -257,3 +257,5 @@ BENCHMARK(UniqueUInt8)->Apply(UInt8SetArgs);
 
 }  // namespace compute
 }  // namespace arrow
+
+BENCHMARK_MAIN();

@@ -88,3 +88,5 @@ BENCHMARK(ReplaceWithMaskHighSelectivityBench)->Args({kLongLength, 99});
 
 }  // namespace compute
 }  // namespace arrow
+
+BENCHMARK_MAIN();

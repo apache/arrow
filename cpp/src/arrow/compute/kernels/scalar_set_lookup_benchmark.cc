@@ -166,3 +166,5 @@ BENCHMARK(IsInInt32LargeSet)->RangeMultiplier(100)->Range(1000, 1000000);
 
 }  // namespace compute
 }  // namespace arrow
+
+BENCHMARK_MAIN();

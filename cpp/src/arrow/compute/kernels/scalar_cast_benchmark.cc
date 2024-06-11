@@ -115,3 +115,5 @@ BENCHMARK(CastDoubleToInt32Unsafe)->Apply(CastSetArgs);
 
 }  // namespace compute
 }  // namespace arrow
+
+BENCHMARK_MAIN();

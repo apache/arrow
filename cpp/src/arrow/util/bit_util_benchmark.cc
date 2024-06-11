@@ -553,3 +553,5 @@ BENCHMARK(BenchmarkBitmapVisitUInt64And)->Ranges(AND_BENCHMARK_RANGES);
 
 }  // namespace bit_util
 }  // namespace arrow
+
+BENCHMARK_MAIN();
