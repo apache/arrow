@@ -28,8 +28,28 @@
 namespace arrow {
 namespace compute {
 
+/// The concept "special form" is borrowed from Lisp
+/// (https://courses.cs.northwestern.edu/325/readings/special-forms.html). Velox also uses
+/// the same term. A special form behaves like a function call except that it has special
+/// evaluation rules, mostly for arguments.
+/// For example, the `if_else(cond, expr1, expr2)` special form first evaluates the
+/// argument `cond` and obtains a boolean array:
+///   [true, false, true, false]
+/// then the argument `expr1` should ONLY be evaluated for row:
+///   [0, 2]
+/// and the argument `expr2` should ONLY be evaluated for row:
+///   [1, 3]
+/// Consider, if `expr1`/`expr2` has some observable side-effects (e.g., division by zero
+/// error) on row [1, 3]/[0, 2], these side-effects would be undesirably observed if
+/// evaluated using a regular function call, which always evaluates all its arguments
+/// eagerly.
+/// Other special forms include `case_when`, `and`, and `or`, etc.
+/// In a vectorized execution engine, a special form normally takes advantage of
+/// "selection vector" to mask rows of arguments to be evaluated.
 class ARROW_EXPORT SpecialForm {
  public:
+  /// A poor man's factory method to create a special form by name.
+  /// TODO: More formal factory, a registry maybe?
   static Result<std::unique_ptr<SpecialForm>> Make(const std::string& name);
 
   virtual ~SpecialForm() = default;

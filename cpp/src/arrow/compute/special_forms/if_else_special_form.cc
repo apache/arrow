@@ -29,16 +29,17 @@ namespace compute {
 Result<Datum> IfElseSpecialForm::Execute(const Expression::Call& call,
                                          const ExecBatch& input,
                                          ExecContext* exec_context) {
-  DCHECK(!call.kernel->selection_vector_aware);
-  DCHECK(!input.selection_vector);
+  // The kernel (if_else) is not selection-vector-aware, so the input should not have a
+  // selection vector.
+  DCHECK(!call.kernel->selection_vector_aware && !input.selection_vector);
 
   std::vector<Datum> arguments(call.arguments.size());
   ARROW_ASSIGN_OR_RAISE(arguments[0],
                         ExecuteScalarExpression(call.arguments[0], input, exec_context));
-  // Use cond as selection vector for IF.
+  // Use cond as selection vector for IF branch.
   // TODO: Consider chunked array for arguments[0].
   auto if_sel = std::make_shared<SelectionVector>(arguments[0].array());
-  // Duplicate and invert cond as selection vector for ELSE.
+  // Duplicate and invert cond as selection vector for ELSE branch.
   ARROW_ASSIGN_OR_RAISE(
       auto else_sel,
       if_sel->Copy(CPUDevice::memory_manager(exec_context->memory_pool())));
@@ -53,6 +54,7 @@ Result<Datum> IfElseSpecialForm::Execute(const Expression::Call& call,
   ARROW_ASSIGN_OR_RAISE(
       arguments[2], ExecuteScalarExpression(call.arguments[2], else_input, exec_context));
 
+  // Leveraging if_else kernel with all arguments evaluated.
   return ExecuteCallNonRecursive(call, input, arguments, exec_context);
 }
 
