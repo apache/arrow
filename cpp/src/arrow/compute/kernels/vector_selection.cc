@@ -68,12 +68,10 @@ using TakeState = OptionsWrapper<TakeOptions>;
 // ----------------------------------------------------------------------
 // DropNull Implementation
 
-Result<std::shared_ptr<arrow::BooleanArray>> GetDropNullFilter(const Array& values,
-                                                               MemoryPool* memory_pool) {
-  auto bitmap_buffer = values.null_bitmap();
-  std::shared_ptr<arrow::BooleanArray> out_array = std::make_shared<BooleanArray>(
-      values.length(), bitmap_buffer, nullptr, 0, values.offset());
-  return out_array;
+std::shared_ptr<arrow::BooleanArray> MakeDropNullFilter(const Array& values) {
+  auto& bitmap_buffer = values.null_bitmap();
+  return std::make_shared<BooleanArray>(values.length(), bitmap_buffer, nullptr, 0,
+                                        values.offset());
 }
 
 Result<Datum> DropNullArray(const std::shared_ptr<Array>& values, ExecContext* ctx) {
@@ -86,8 +84,7 @@ Result<Datum> DropNullArray(const std::shared_ptr<Array>& values, ExecContext* c
   if (values->type()->id() == Type::type::NA) {
     return std::make_shared<NullArray>(0);
   }
-  ARROW_ASSIGN_OR_RAISE(auto drop_null_filter,
-                        GetDropNullFilter(*values, ctx->memory_pool()));
+  auto drop_null_filter = Datum{MakeDropNullFilter(*values)};
   return Filter(values, drop_null_filter, FilterOptions::Defaults(), ctx);
 }
 
