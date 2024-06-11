@@ -40,6 +40,7 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.util.TransferPair;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -1652,6 +1653,230 @@ public class TestListViewVector {
       assertEquals(Short.valueOf("12"), resultSet.get(1));
 
       listViewVector.validate();
+    }
+  }
+
+  @Test
+  public void testSplitAndTransfer() throws Exception {
+    try (ListViewVector listViewVector = ListViewVector.empty("sourceVector", allocator)) {
+
+      /* Explicitly add the dataVector */
+      MinorType type = MinorType.BIGINT;
+      listViewVector.addOrGetVector(FieldType.nullable(type.getType()));
+
+      UnionListViewWriter listViewWriter = listViewVector.getWriter();
+
+      /* allocate memory */
+      listViewWriter.allocate();
+
+      /* populate data */
+      listViewWriter.setPosition(0);
+      listViewWriter.startList();
+      listViewWriter.bigInt().writeBigInt(10);
+      listViewWriter.bigInt().writeBigInt(11);
+      listViewWriter.bigInt().writeBigInt(12);
+      listViewWriter.endList();
+
+      listViewWriter.setPosition(1);
+      listViewWriter.startList();
+      listViewWriter.bigInt().writeBigInt(13);
+      listViewWriter.bigInt().writeBigInt(14);
+      listViewWriter.endList();
+
+      listViewWriter.setPosition(2);
+      listViewWriter.startList();
+      listViewWriter.bigInt().writeBigInt(15);
+      listViewWriter.bigInt().writeBigInt(16);
+      listViewWriter.bigInt().writeBigInt(17);
+      listViewWriter.bigInt().writeBigInt(18);
+      listViewWriter.endList();
+
+      listViewWriter.setPosition(3);
+      listViewWriter.startList();
+      listViewWriter.bigInt().writeBigInt(19);
+      listViewWriter.endList();
+
+      listViewWriter.setPosition(4);
+      listViewWriter.startList();
+      listViewWriter.bigInt().writeBigInt(20);
+      listViewWriter.bigInt().writeBigInt(21);
+      listViewWriter.bigInt().writeBigInt(22);
+      listViewWriter.bigInt().writeBigInt(23);
+      listViewWriter.endList();
+
+      listViewVector.setValueCount(5);
+
+      /* get offset buffer */
+      final ArrowBuf offsetBuffer = listViewVector.getOffsetBuffer();
+
+      /* get size buffer */
+      final ArrowBuf sizeBuffer = listViewVector.getSizeBuffer();
+
+      /* get dataVector */
+      BigIntVector dataVector = (BigIntVector) listViewVector.getDataVector();
+
+      /* check the vector output */
+
+      int index = 0;
+      int offset;
+      int size = 0;
+      Long actual;
+
+      /* index 0 */
+      assertFalse(listViewVector.isNull(index));
+      offset = offsetBuffer.getInt(index * ListViewVector.OFFSET_WIDTH);
+      assertEquals(Integer.toString(0), Integer.toString(offset));
+
+      actual = dataVector.getObject(offset);
+      assertEquals(Long.valueOf(10), actual);
+      offset++;
+      actual = dataVector.getObject(offset);
+      assertEquals(Long.valueOf(11), actual);
+      offset++;
+      actual = dataVector.getObject(offset);
+      assertEquals(Long.valueOf(12), actual);
+      assertEquals(Integer.toString(3), Integer.toString(sizeBuffer.getInt(index * ListViewVector.SIZE_WIDTH)));
+
+      /* index 1 */
+      index++;
+      assertFalse(listViewVector.isNull(index));
+      offset = offsetBuffer.getInt(index * ListViewVector.OFFSET_WIDTH);
+      assertEquals(Integer.toString(3), Integer.toString(offset));
+
+      actual = dataVector.getObject(offset);
+      assertEquals(Long.valueOf(13), actual);
+      offset++;
+      size++;
+      actual = dataVector.getObject(offset);
+      assertEquals(Long.valueOf(14), actual);
+      size++;
+      assertEquals(Integer.toString(size), Integer.toString(sizeBuffer.getInt(index * ListViewVector.SIZE_WIDTH)));
+
+      /* index 2 */
+      size = 0;
+      index++;
+      assertFalse(listViewVector.isNull(index));
+      offset = offsetBuffer.getInt(index * ListViewVector.OFFSET_WIDTH);
+      assertEquals(Integer.toString(5), Integer.toString(offset));
+      size++;
+
+      actual = dataVector.getObject(offset);
+      assertEquals(Long.valueOf(15), actual);
+      offset++;
+      size++;
+      actual = dataVector.getObject(offset);
+      assertEquals(Long.valueOf(16), actual);
+      offset++;
+      size++;
+      actual = dataVector.getObject(offset);
+      assertEquals(Long.valueOf(17), actual);
+      offset++;
+      size++;
+      actual = dataVector.getObject(offset);
+      assertEquals(Long.valueOf(18), actual);
+      assertEquals(Integer.toString(size), Integer.toString(sizeBuffer.getInt(index * ListViewVector.SIZE_WIDTH)));
+
+
+      /* index 3 */
+      size = 0;
+      index++;
+      assertFalse(listViewVector.isNull(index));
+      offset = offsetBuffer.getInt(index * ListViewVector.OFFSET_WIDTH);
+      assertEquals(Integer.toString(9), Integer.toString(offset));
+
+      actual = dataVector.getObject(offset);
+      assertEquals(Long.valueOf(19), actual);
+      size++;
+      assertEquals(Integer.toString(size), Integer.toString(sizeBuffer.getInt(index * ListViewVector.SIZE_WIDTH)));
+
+      /* index 4 */
+      size = 0;
+      index++;
+      assertFalse(listViewVector.isNull(index));
+      offset = offsetBuffer.getInt(index * ListViewVector.OFFSET_WIDTH);
+      assertEquals(Integer.toString(10), Integer.toString(offset));
+
+      actual = dataVector.getObject(offset);
+      assertEquals(Long.valueOf(20), actual);
+      offset++;
+      size++;
+      actual = dataVector.getObject(offset);
+      assertEquals(Long.valueOf(21), actual);
+      offset++;
+      size++;
+      actual = dataVector.getObject(offset);
+      assertEquals(Long.valueOf(22), actual);
+      offset++;
+      size++;
+      actual = dataVector.getObject(offset);
+      assertEquals(Long.valueOf(23), actual);
+      size++;
+      assertEquals(Integer.toString(size), Integer.toString(sizeBuffer.getInt(index * ListViewVector.SIZE_WIDTH)));
+
+      /* do split and transfer */
+      try (ListViewVector toVector = ListViewVector.empty("toVector", allocator)) {
+
+        TransferPair transferPair = listViewVector.makeTransferPair(toVector);
+
+        int[][] transferLengths = {{0, 2}, {3, 1}, {4, 1}};
+
+        for (final int[] transferLength : transferLengths) {
+          int start = transferLength[0];
+          int splitLength = transferLength[1];
+
+          int dataLength1 = 0;
+          int dataLength2;
+
+          int offset1;
+          int offset2;
+
+          transferPair.splitAndTransfer(start, splitLength);
+
+          /* get offsetBuffer of toVector */
+          final ArrowBuf toOffsetBuffer = toVector.getOffsetBuffer();
+
+          /* get sizeBuffer of toVector */
+          final ArrowBuf toSizeBuffer = toVector.getSizeBuffer();
+
+          /* get dataVector of toVector */
+          BigIntVector dataVector1 = (BigIntVector) toVector.getDataVector();
+
+          /* validate size buffers */
+          int minOffset = offsetBuffer.getInt((long) start * ListViewVector.OFFSET_WIDTH);
+          for (int i = 0; i < splitLength; i++) {
+            dataLength1 = sizeBuffer.getInt((long) (start + i) * ListViewVector.SIZE_WIDTH);
+            dataLength2 = toSizeBuffer.getInt((long) (i) * ListViewVector.SIZE_WIDTH);
+
+            /* calculate minimum offset */
+            int currentOffset = offsetBuffer.getInt((long) (start + i) * ListViewVector.OFFSET_WIDTH);
+            if (currentOffset < minOffset) {
+              minOffset = currentOffset;
+            }
+            assertEquals(dataLength1, dataLength2,
+                "Different data lengths at index: " + i + " and start: " + start);
+          }
+          /* validate offset buffers */
+          for (int i = 0; i < splitLength; i++) {
+            offset1 = offsetBuffer.getInt((long) (start + i) * ListViewVector.OFFSET_WIDTH);
+            offset2 = toOffsetBuffer.getInt((long) (i) * ListViewVector.OFFSET_WIDTH);
+            assertEquals(offset1 - minOffset, offset2,
+                "Different offset values at index: " + i + " and start: " + start);
+          }
+          /* validate data */
+          System.out.println(listViewVector);
+          System.out.println(toVector);
+          for (int i = 0; i < splitLength; i++) {
+            dataLength1 = sizeBuffer.getInt((long) (start + i) * ListViewVector.SIZE_WIDTH);
+            for (int j = 0; j < dataLength1; j++) {
+              actual = dataVector.getObject(
+                  (offsetBuffer.getInt((long) (start + i) * ListViewVector.OFFSET_WIDTH) + j));
+              Long actual1 = dataVector1.getObject(
+                  (toOffsetBuffer.getInt((long) i * ListViewVector.OFFSET_WIDTH) + j));
+              assertEquals(actual, actual1, "Different data values at index: " + i + " and start: " + start);
+            }
+          }
+        }
+      }
     }
   }
 
