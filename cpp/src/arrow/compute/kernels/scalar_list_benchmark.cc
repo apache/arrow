@@ -33,18 +33,11 @@ constexpr auto kSeed = 0x94378165;
 const auto kSliceStart = 2;
 const auto kSliceStop = 10;
 
-template <typename InListType, typename ValueType, int32_t kFixedListSize = 0>
-static void BenchmarkListSlice(benchmark::State& state, const ListSliceOptions& opts) {
+static void BenchmarkListSlice(benchmark::State& state, const ListSliceOptions& opts,
+                               std::shared_ptr<DataType> list_ty) {
   RegressionArgs args(state, /*size_is_bytes=*/false);
-  auto value_ty = TypeTraits<ValueType>::type_singleton();
-  std::shared_ptr<DataType> list_ty;
-  if constexpr (std::is_same_v<InListType, FixedSizeListType>) {
-    list_ty = std::make_shared<FixedSizeListType>(std::move(value_ty), kFixedListSize);
-  } else {
-    list_ty = std::make_shared<InListType>(std::move(value_ty));
-  }
   auto rand = random::RandomArrayGenerator(kSeed);
-  auto array = rand.ArrayOf(list_ty, args.size, args.null_proportion);
+  auto array = rand.ArrayOf(std::move(list_ty), args.size, args.null_proportion);
   auto ctx = default_exec_context();
   std::vector<Datum> input_args = {std::move(array)};
   for (auto _ : state) {
@@ -56,14 +49,14 @@ template <typename InListType = ListType>
 static void ListSliceInt64List(benchmark::State& state) {
   ListSliceOptions opts;
   opts.start = kSliceStart;
-  BenchmarkListSlice<InListType, Int64Type>(state, opts);
+  BenchmarkListSlice(state, opts, std::make_shared<InListType>(int64()));
 }
 
 template <typename InListType = ListType>
 static void ListSliceStringList(benchmark::State& state) {
   ListSliceOptions opts;
   opts.start = kSliceStart;
-  BenchmarkListSlice<InListType, StringType>(state, opts);
+  BenchmarkListSlice(state, opts, std::make_shared<InListType>(utf8()));
 }
 
 template <typename InListType = ListType>
@@ -71,7 +64,7 @@ static void ListSliceInt64ListWithStop(benchmark::State& state) {
   ListSliceOptions opts;
   opts.start = kSliceStart;
   opts.stop = kSliceStop;
-  BenchmarkListSlice<InListType, Int64Type>(state, opts);
+  BenchmarkListSlice(state, opts, std::make_shared<InListType>(int64()));
 }
 
 template <typename InListType = ListType>
@@ -79,7 +72,7 @@ static void ListSliceStringListWithStop(benchmark::State& state) {
   ListSliceOptions opts;
   opts.start = kSliceStart;
   opts.stop = kSliceStop;
-  BenchmarkListSlice<InListType, StringType>(state, opts);
+  BenchmarkListSlice(state, opts, std::make_shared<InListType>(utf8()));
 }
 
 template <typename InListType = ListType>
@@ -88,7 +81,7 @@ static void ListSliceInt64ListWithStepAndStop(benchmark::State& state) {
   opts.start = kSliceStart;
   opts.step = 2;
   opts.stop = kSliceStop;
-  BenchmarkListSlice<InListType, Int64Type>(state, opts);
+  BenchmarkListSlice(state, opts, std::make_shared<InListType>(int64()));
 }
 
 template <typename InListType = ListType>
@@ -97,7 +90,7 @@ static void ListSliceStringListWithStepAndStop(benchmark::State& state) {
   opts.start = kSliceStart;
   opts.step = 2;
   opts.stop = kSliceStop;
-  BenchmarkListSlice<InListType, StringType>(state, opts);
+  BenchmarkListSlice(state, opts, std::make_shared<InListType>(utf8()));
 }
 
 static void ListSliceInt64ListView(benchmark::State& state) {
@@ -129,7 +122,7 @@ static void ListSliceInt64ListToFSL(benchmark::State& state) {
   opts.start = kSliceStart;
   opts.stop = kSliceStop;
   opts.return_fixed_size_list = true;
-  BenchmarkListSlice<ListType, Int64Type>(state, opts);
+  BenchmarkListSlice(state, opts, std::make_shared<ListType>(int64()));
 }
 
 static void ListSliceStringListToFSL(benchmark::State& state) {
@@ -137,7 +130,7 @@ static void ListSliceStringListToFSL(benchmark::State& state) {
   opts.start = kSliceStart;
   opts.stop = kSliceStop;
   opts.return_fixed_size_list = true;
-  BenchmarkListSlice<ListType, StringType>(state, opts);
+  BenchmarkListSlice(state, opts, std::make_shared<ListType>(utf8()));
 }
 
 BENCHMARK(ListSliceInt64List)->Apply(RegressionSetArgs);
