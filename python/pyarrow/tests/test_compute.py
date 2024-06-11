@@ -1276,7 +1276,7 @@ def test_drop_null_null_type():
     assert len(table.drop_null().column(0)) == 0
 
 
-@pytest.mark.nump
+@pytest.mark.numpy
 def test_filter(all_array_types):
     for ty, values in all_array_types:
         arr = pa.array(values, type=ty)
