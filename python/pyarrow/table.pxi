@@ -1413,7 +1413,8 @@ cdef class ChunkedArray(_PandasConvertible):
                     chunked = self.cast(target_type, safe=True)
                 except ArrowInvalid as e:
                     raise ValueError(
-                        f"Could not cast {self.type} to requested type {target_type}: {e}"
+                        f"Could not cast {self.type} to requested type {
+                            target_type}: {e}"
                     )
             else:
                 chunked = self
@@ -3659,15 +3660,11 @@ cdef class RecordBatch(_Tabular):
         """
         self._assert_cpu()
         cdef:
-            shared_ptr[CRecordBatch] c_record_batch
             shared_ptr[CTensor] c_tensor
             CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
 
-        c_record_batch = pyarrow_unwrap_batch(self)
         with nogil:
-            c_tensor = GetResultValue(
-                <CResult[shared_ptr[CTensor]]>deref(c_record_batch).ToTensor(null_to_nan,
-                                                                             row_major, pool))
+            c_tensor = GetResultValue(self.batch.ToTensor(null_to_nan, row_major, pool))
         return pyarrow_wrap_tensor(c_tensor)
 
     def copy_to(self, destination):
@@ -3798,7 +3795,8 @@ cdef class RecordBatch(_Tabular):
                     inner_batch = pyarrow_unwrap_batch(casted_batch)
                 except ArrowInvalid as e:
                     raise ValueError(
-                        f"Could not cast {self.schema} to requested schema {target_schema}: {e}"
+                        f"Could not cast {self.schema} to requested schema {
+                            target_schema}: {e}"
                     )
             else:
                 inner_batch = self.sp_batch
@@ -5152,15 +5150,11 @@ cdef class Table(_Tabular):
                [nan, nan]])
         """
         cdef:
-            shared_ptr[CTable] c_table
             shared_ptr[CTensor] c_tensor
             CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
 
-        c_table = pyarrow_unwrap_table(self)
         with nogil:
-            c_tensor = GetResultValue(
-                <CResult[shared_ptr[CTensor]]>deref(c_table).ToTensor(null_to_nan,
-                                                                      row_major, pool))
+            c_tensor = GetResultValue(self.table.ToTensor(null_to_nan, row_major, pool))
         return pyarrow_wrap_tensor(c_tensor)
 
     def to_reader(self, max_chunksize=None):
