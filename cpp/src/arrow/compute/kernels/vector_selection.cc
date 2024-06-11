@@ -182,19 +182,16 @@ class DropNullMetaFunction : public MetaFunction {
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
                             ExecContext* ctx) const override {
-    switch (args[0].kind()) {
-      case Datum::ARRAY: {
-        return DropNullArray(args[0].make_array(), ctx);
-      } break;
-      case Datum::CHUNKED_ARRAY: {
-        return DropNullChunkedArray(args[0].chunked_array(), ctx);
-      } break;
-      case Datum::RECORD_BATCH: {
-        return DropNullRecordBatch(args[0].record_batch(), ctx);
-      } break;
-      case Datum::TABLE: {
-        return DropNullTable(args[0].table(), ctx);
-      } break;
+    auto& values = args[0];
+    switch (values.kind()) {
+      case Datum::ARRAY:
+        return DropNullArray(values.make_array(), ctx);
+      case Datum::CHUNKED_ARRAY:
+        return DropNullChunkedArray(values.chunked_array(), ctx);
+      case Datum::RECORD_BATCH:
+        return DropNullRecordBatch(values.record_batch(), ctx);
+      case Datum::TABLE:
+        return DropNullTable(values.table(), ctx);
       default:
         break;
     }
