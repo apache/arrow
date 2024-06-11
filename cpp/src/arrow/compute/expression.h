@@ -61,7 +61,7 @@ class ARROW_EXPORT Expression {
     TypeHolder type;
     // Whether the entire call (including all its arguments) is selection-vector-aware
     bool selection_vector_aware = false;
-    std::shared_ptr<SpecialForm> special_form = nullptr;
+    std::shared_ptr<SpecialForm> special_form = NULLPTR;
 
     void ComputeHash();
   };
