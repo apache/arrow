@@ -14,15 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
+import com.fasterxml.jackson.databind.util.ByteBufferBackedInputStream;
+import com.google.common.collect.ImmutableList;
+import com.google.protobuf.ByteString;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.util.Objects;
-
 import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.vector.ipc.ReadChannel;
 import org.apache.arrow.vector.ipc.WriteChannel;
@@ -30,10 +31,6 @@ import org.apache.arrow.vector.ipc.message.IpcOption;
 import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.validate.MetadataV4UnionChecker;
-
-import com.fasterxml.jackson.databind.util.ByteBufferBackedInputStream;
-import com.google.common.collect.ImmutableList;
-import com.google.protobuf.ByteString;
 
 /**
  * Opaque result returned after executing a getSchema request.
@@ -49,9 +46,7 @@ public class SchemaResult {
     this(schema, IpcOption.DEFAULT);
   }
 
-  /**
-   * Create a schema result with specific IPC options for serialization.
-   */
+  /** Create a schema result with specific IPC options for serialization. */
   public SchemaResult(Schema schema, IpcOption option) {
     Objects.requireNonNull(schema);
     MetadataV4UnionChecker.checkForUnion(schema.getFields().iterator(), option.metadataVersion);
@@ -63,9 +58,7 @@ public class SchemaResult {
     return schema;
   }
 
-  /**
-   * Converts to the protocol buffer representation.
-   */
+  /** Converts to the protocol buffer representation. */
   Flight.SchemaResult toProtocol() {
     // Encode schema in a Message payload
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -75,20 +68,18 @@ public class SchemaResult {
       throw new RuntimeException(e);
     }
     return Flight.SchemaResult.newBuilder()
-            .setSchema(ByteString.copyFrom(baos.toByteArray()))
-            .build();
-
+        .setSchema(ByteString.copyFrom(baos.toByteArray()))
+        .build();
   }
 
-  /**
-   * Converts from the protocol buffer representation.
-   */
+  /** Converts from the protocol buffer representation. */
   static SchemaResult fromProtocol(Flight.SchemaResult pbSchemaResult) {
     try {
       final ByteBuffer schemaBuf = pbSchemaResult.getSchema().asReadOnlyByteBuffer();
-      Schema schema = pbSchemaResult.getSchema().size() > 0 ?
-              MessageSerializer.deserializeSchema(
-                      new ReadChannel(Channels.newChannel(new ByteBufferBackedInputStream(schemaBuf))))
+      Schema schema =
+          pbSchemaResult.getSchema().size() > 0
+              ? MessageSerializer.deserializeSchema(
+                  new ReadChannel(Channels.newChannel(new ByteBufferBackedInputStream(schemaBuf))))
               : new Schema(ImmutableList.of());
       return new SchemaResult(schema);
     } catch (IOException e) {

@@ -14,30 +14,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.auth2;
 
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.grpc.CredentialCallOption;
 
-/**
- * Interface for client side header parsing and conversion to CredentialCallOption.
- */
+/** Interface for client side header parsing and conversion to CredentialCallOption. */
 public interface ClientHeaderHandler {
   /**
    * Parses the incoming headers and converts them into a CredentialCallOption.
+   *
    * @param incomingHeaders Incoming headers to parse.
    * @return An instance of CredentialCallOption.
    */
   CredentialCallOption getCredentialCallOptionFromIncomingHeaders(CallHeaders incomingHeaders);
-  
-  /**
-   * An client header handler that does nothing.
-   */
-  ClientHeaderHandler NO_OP = new ClientHeaderHandler() {
-    @Override
-    public CredentialCallOption getCredentialCallOptionFromIncomingHeaders(CallHeaders incomingHeaders) {
-      return null;
-    }
-  };
+
+  /** An client header handler that does nothing. */
+  ClientHeaderHandler NO_OP =
+      new ClientHeaderHandler() {
+        @Override
+        public CredentialCallOption getCredentialCallOptionFromIncomingHeaders(
+            CallHeaders incomingHeaders) {
+          return null;
+        }
+      };
 }

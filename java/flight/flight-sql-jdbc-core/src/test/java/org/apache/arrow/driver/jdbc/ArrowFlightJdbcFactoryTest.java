@@ -14,13 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc;
 
+import com.google.common.collect.ImmutableMap;
 import java.lang.reflect.Constructor;
 import java.sql.Connection;
 import java.util.Properties;
-
 import org.apache.arrow.driver.jdbc.authentication.UserPasswordAuthentication;
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
 import org.apache.arrow.driver.jdbc.utils.MockFlightSqlProducer;
@@ -33,26 +32,24 @@ import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
 
-import com.google.common.collect.ImmutableMap;
-
-/**
- * Tests for {@link ArrowFlightJdbcDriver}.
- */
+/** Tests for {@link ArrowFlightJdbcDriver}. */
 public class ArrowFlightJdbcFactoryTest {
 
-  @ClassRule
-  public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE;
+  @ClassRule public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE;
   private static final MockFlightSqlProducer PRODUCER = new MockFlightSqlProducer();
 
   static {
     UserPasswordAuthentication authentication =
-        new UserPasswordAuthentication.Builder().user("user1", "pass1").user("user2", "pass2")
+        new UserPasswordAuthentication.Builder()
+            .user("user1", "pass1")
+            .user("user2", "pass2")
             .build();
 
-    FLIGHT_SERVER_TEST_RULE = new FlightServerTestRule.Builder()
-        .authentication(authentication)
-        .producer(PRODUCER)
-        .build();
+    FLIGHT_SERVER_TEST_RULE =
+        new FlightServerTestRule.Builder()
+            .authentication(authentication)
+            .producer(PRODUCER)
+            .build();
   }
 
   private BufferAllocator allocator;
@@ -77,13 +74,21 @@ public class ArrowFlightJdbcFactoryTest {
     ArrowFlightJdbcFactory factory = constructor.newInstance();
 
     final Properties properties = new Properties();
-    properties.putAll(ImmutableMap.of(
-        ArrowFlightConnectionProperty.HOST.camelName(), "localhost",
-        ArrowFlightConnectionProperty.PORT.camelName(), 32010,
-        ArrowFlightConnectionProperty.USE_ENCRYPTION.camelName(), false));
+    properties.putAll(
+        ImmutableMap.of(
+            ArrowFlightConnectionProperty.HOST.camelName(),
+            "localhost",
+            ArrowFlightConnectionProperty.PORT.camelName(),
+            32010,
+            ArrowFlightConnectionProperty.USE_ENCRYPTION.camelName(),
+            false));
 
-    try (Connection connection = factory.newConnection(driver, constructor.newInstance(),
-        "jdbc:arrow-flight-sql://localhost:32010", properties)) {
+    try (Connection connection =
+        factory.newConnection(
+            driver,
+            constructor.newInstance(),
+            "jdbc:arrow-flight-sql://localhost:32010",
+            properties)) {
       assert connection.isValid(300);
     }
   }

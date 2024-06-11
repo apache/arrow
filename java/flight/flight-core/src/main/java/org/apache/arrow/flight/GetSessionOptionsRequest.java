@@ -14,23 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-
 import org.apache.arrow.flight.impl.Flight;
 
-/**
- * A request to get current session options.
- */
+/** A request to get current session options. */
 public class GetSessionOptionsRequest {
-  public GetSessionOptionsRequest() {
-  }
+  public GetSessionOptionsRequest() {}
 
-  GetSessionOptionsRequest(Flight.GetSessionOptionsRequest proto) {
-  }
+  GetSessionOptionsRequest(Flight.GetSessionOptionsRequest proto) {}
 
   Flight.GetSessionOptionsRequest toProtocol() {
     return Flight.GetSessionOptionsRequest.getDefaultInstance();
@@ -39,7 +33,8 @@ public class GetSessionOptionsRequest {
   /**
    * Get the serialized form of this protocol message.
    *
-   * <p>Intended to help interoperability by allowing non-Flight services to still return Flight types.
+   * <p>Intended to help interoperability by allowing non-Flight services to still return Flight
+   * types.
    */
   public ByteBuffer serialize() {
     return ByteBuffer.wrap(toProtocol().toByteArray());
@@ -48,7 +43,8 @@ public class GetSessionOptionsRequest {
   /**
    * Parse the serialized form of this protocol message.
    *
-   * <p>Intended to help interoperability by allowing Flight clients to obtain stream info from non-Flight services.
+   * <p>Intended to help interoperability by allowing Flight clients to obtain stream info from
+   * non-Flight services.
    *
    * @param serialized The serialized form of the message, as returned by {@link #serialize()}.
    * @return The deserialized message.

@@ -14,33 +14,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
 import java.util.Set;
 
-/**
- * A set of metadata key value pairs for a call (request or response).
- */
+/** A set of metadata key value pairs for a call (request or response). */
 public interface CallHeaders {
-  /**
-   * Get the value of a metadata key. If multiple values are present, then get the last one.
-   */
+  /** Get the value of a metadata key. If multiple values are present, then get the last one. */
   String get(String key);
 
-  /**
-   * Get the value of a metadata key. If multiple values are present, then get the last one.
-   */
+  /** Get the value of a metadata key. If multiple values are present, then get the last one. */
   byte[] getByte(String key);
 
-  /**
-   * Get all values present for the given metadata key.
-   */
+  /** Get all values present for the given metadata key. */
   Iterable<String> getAll(String key);
 
-  /**
-   * Get all values present for the given metadata key.
-   */
+  /** Get all values present for the given metadata key. */
   Iterable<byte[]> getAllByte(String key);
 
   /**

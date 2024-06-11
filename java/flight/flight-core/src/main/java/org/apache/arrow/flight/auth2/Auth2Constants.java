@@ -14,18 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.auth2;
 
-/**
- * Constants used in authorization of flight connections.
- */
+/** Constants used in authorization of flight connections. */
 public final class Auth2Constants {
   public static final String PEER_IDENTITY_KEY = "arrow-flight-peer-identity";
   public static final String BEARER_PREFIX = "Bearer ";
   public static final String BASIC_PREFIX = "Basic ";
   public static final String AUTHORIZATION_HEADER = "Authorization";
 
-  private Auth2Constants() {
-  }
+  private Auth2Constants() {}
 }

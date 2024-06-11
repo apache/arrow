@@ -14,22 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
 import java.util.Objects;
-
 import org.apache.arrow.flight.FlightProducer.ServerStreamListener;
 import org.apache.arrow.flight.FlightProducer.StreamListener;
 
 /**
- * The result of a Flight RPC, consisting of a status code with an optional description and/or exception that led
- * to the status.
+ * The result of a Flight RPC, consisting of a status code with an optional description and/or
+ * exception that led to the status.
  *
- * <p>If raised or sent through {@link StreamListener#onError(Throwable)} or
- * {@link ServerStreamListener#error(Throwable)}, the client call will raise the same error (a
- * {@link FlightRuntimeException} with the same {@link FlightStatusCode} and description). The exception within, if
- * present, will not be sent to the client.
+ * <p>If raised or sent through {@link StreamListener#onError(Throwable)} or {@link
+ * ServerStreamListener#error(Throwable)}, the client call will raise the same error (a {@link
+ * FlightRuntimeException} with the same {@link FlightStatusCode} and description). The exception
+ * within, if present, will not be sent to the client.
  */
 public class CallStatus {
 
@@ -49,7 +47,8 @@ public class CallStatus {
   public static final CallStatus UNAUTHORIZED = FlightStatusCode.UNAUTHORIZED.toStatus();
   public static final CallStatus UNIMPLEMENTED = FlightStatusCode.UNIMPLEMENTED.toStatus();
   public static final CallStatus UNAVAILABLE = FlightStatusCode.UNAVAILABLE.toStatus();
-  public static final CallStatus RESOURCE_EXHAUSTED = FlightStatusCode.RESOURCE_EXHAUSTED.toStatus();
+  public static final CallStatus RESOURCE_EXHAUSTED =
+      FlightStatusCode.RESOURCE_EXHAUSTED.toStatus();
 
   /**
    * Create a new status.
@@ -58,7 +57,8 @@ public class CallStatus {
    * @param cause An exception that resulted in this status (or null).
    * @param description A description of the status (or null).
    */
-  public CallStatus(FlightStatusCode code, Throwable cause, String description, ErrorFlightMetadata metadata) {
+  public CallStatus(
+      FlightStatusCode code, Throwable cause, String description, ErrorFlightMetadata metadata) {
     this.code = Objects.requireNonNull(code);
     this.cause = cause;
     this.description = description == null ? "" : description;
@@ -74,23 +74,17 @@ public class CallStatus {
     this(code, /* no cause */ null, /* no description */ null, /* no metadata */ null);
   }
 
-  /**
-   * The status code describing the result of the RPC.
-   */
+  /** The status code describing the result of the RPC. */
   public FlightStatusCode code() {
     return code;
   }
 
-  /**
-   * The exception that led to this result. May be null.
-   */
+  /** The exception that led to this result. May be null. */
   public Throwable cause() {
     return cause;
   }
 
-  /**
-   * A description of the result.
-   */
+  /** A description of the result. */
   public String description() {
     return description;
   }
@@ -98,47 +92,47 @@ public class CallStatus {
   /**
    * Metadata associated with the exception.
    *
-   * May be null.
+   * <p>May be null.
    */
   public ErrorFlightMetadata metadata() {
     return metadata;
   }
 
-  /**
-   * Return a copy of this status with an error message.
-   */
+  /** Return a copy of this status with an error message. */
   public CallStatus withDescription(String message) {
     return new CallStatus(code, cause, message, metadata);
   }
 
   /**
-   * Return a copy of this status with the given exception as the cause. This will not be sent over the wire.
+   * Return a copy of this status with the given exception as the cause. This will not be sent over
+   * the wire.
    */
   public CallStatus withCause(Throwable t) {
     return new CallStatus(code, t, description, metadata);
   }
 
-  /**
-   * Return a copy of this status with associated exception metadata.
-   */
+  /** Return a copy of this status with associated exception metadata. */
   public CallStatus withMetadata(ErrorFlightMetadata metadata) {
     return new CallStatus(code, cause, description, metadata);
   }
 
-  /**
-   * Convert the status to an equivalent exception.
-   */
+  /** Convert the status to an equivalent exception. */
   public FlightRuntimeException toRuntimeException() {
     return new FlightRuntimeException(this);
   }
 
   @Override
   public String toString() {
-    return "CallStatus{" +
-        "code=" + code +
-        ", cause=" + cause +
-        ", description='" + description +
-        "', metadata='" + metadata + '\'' +
-        '}';
+    return "CallStatus{"
+        + "code="
+        + code
+        + ", cause="
+        + cause
+        + ", description='"
+        + description
+        + "', metadata='"
+        + metadata
+        + '\''
+        + '}';
   }
 }

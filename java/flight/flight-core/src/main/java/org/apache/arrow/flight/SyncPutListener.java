@@ -14,20 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-
 import org.apache.arrow.flight.grpc.StatusUtils;
 import org.apache.arrow.memory.ArrowBuf;
 
 /**
- * A listener for server-sent application metadata messages during a Flight DoPut. This class wraps the messages in a
- * synchronous interface.
+ * A listener for server-sent application metadata messages during a Flight DoPut. This class wraps
+ * the messages in a synchronous interface.
  */
 public final class SyncPutListener implements FlightClient.PutListener, AutoCloseable {
 
@@ -55,8 +53,8 @@ public final class SyncPutListener implements FlightClient.PutListener, AutoClos
   /**
    * Get the next message from the server, blocking until it is available.
    *
-   * @return The next message, or null if the server is done sending messages. The caller assumes ownership of the
-   *     metadata and must remember to close it.
+   * @return The next message, or null if the server is done sending messages. The caller assumes
+   *     ownership of the metadata and must remember to close it.
    * @throws InterruptedException if interrupted while waiting.
    * @throws ExecutionException if the server sent an error, or if there was an internal error.
    */
@@ -65,14 +63,17 @@ public final class SyncPutListener implements FlightClient.PutListener, AutoClos
   }
 
   /**
-   * Get the next message from the server, blocking for the specified amount of time until it is available.
+   * Get the next message from the server, blocking for the specified amount of time until it is
+   * available.
    *
-   * @return The next message, or null if the server is done sending messages or no message arrived before the timeout.
-   *     The caller assumes ownership of the metadata and must remember to close it.
+   * @return The next message, or null if the server is done sending messages or no message arrived
+   *     before the timeout. The caller assumes ownership of the metadata and must remember to close
+   *     it.
    * @throws InterruptedException if interrupted while waiting.
    * @throws ExecutionException if the server sent an error, or if there was an internal error.
    */
-  public PutResult poll(long timeout, TimeUnit unit) throws InterruptedException, ExecutionException {
+  public PutResult poll(long timeout, TimeUnit unit)
+      throws InterruptedException, ExecutionException {
     return unwrap(queue.poll(timeout, unit));
   }
 
@@ -108,11 +109,12 @@ public final class SyncPutListener implements FlightClient.PutListener, AutoClos
 
   @Override
   public void close() {
-    queue.forEach(o -> {
-      if (o instanceof PutResult) {
-        ((PutResult) o).close();
-      }
-    });
+    queue.forEach(
+        o -> {
+          if (o instanceof PutResult) {
+            ((PutResult) o).close();
+          }
+        });
   }
 
   @Override
