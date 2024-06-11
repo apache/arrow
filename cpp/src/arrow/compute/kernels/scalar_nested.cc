@@ -155,7 +155,7 @@ Result<TypeHolder> ListSliceOutputType(const ListSliceOptions& opts,
   if (return_fixed_size_list) {
     auto stop = EffectiveSliceStop(opts, input_list_type);
     if (!stop.has_value()) {
-      return Status::NotImplemented(
+      return Status::Invalid(
           "Unable to produce FixedSizeListArray from non-FixedSizeListArray without "
           "`stop` being set.");
     }

@@ -210,7 +210,7 @@ TEST(TestScalarNested, ListSliceFixedOutput) {
         CheckScalarUnary("list_slice", input, expected, &args);
       } else {
         EXPECT_RAISES_WITH_MESSAGE_THAT(
-            NotImplemented,
+            Invalid,
             ::testing::HasSubstr("Unable to produce FixedSizeListArray from "
                                  "non-FixedSizeListArray without `stop` being set."),
             CallFunction("list_slice", {input}, &args));
@@ -331,10 +331,9 @@ TEST(TestScalarNested, ListSliceBadParameters) {
   // stop not set and FixedSizeList requested with variable sized input
   args.stop = std::nullopt;
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      NotImplemented,
-      ::testing::HasSubstr("NotImplemented: Unable to produce FixedSizeListArray from "
-                           "non-FixedSizeListArray without "
-                           "`stop` being set."),
+      Invalid,
+      ::testing::HasSubstr("Invalid: Unable to produce FixedSizeListArray from "
+                           "non-FixedSizeListArray without `stop` being set."),
       CallFunction("list_slice", {input}, &args));
   // Catch step must be >= 1
   args.start = 0;
