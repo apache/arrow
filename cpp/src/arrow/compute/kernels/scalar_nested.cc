@@ -241,6 +241,7 @@ struct ListSlice {
     std::unique_ptr<ArrayBuilder> builder;
     RETURN_NOT_OK(MakeBuilder(pool, output_type, &builder));
     auto* list_builder = checked_cast<BuilderType*>(builder.get());
+    RETURN_NOT_OK(list_builder->Resize(batch[0].array.length));
     if constexpr (std::is_same_v<InListType, FixedSizeListType>) {
       RETURN_NOT_OK(BuildArrayFromFixedSizeListType(opts.start, opts.step, opts.stop,
                                                     batch, list_builder));
