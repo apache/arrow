@@ -71,8 +71,7 @@ bool IsColumnChunkFullyDictionaryEncoded(const ColumnChunkMetaData& col) {
   }
   // The following pages should be dictionary encoded data pages.
   for (size_t idx = 1; idx < encoding_stats.size(); ++idx) {
-    if ((encoding_stats[idx].encoding != Encoding::RLE_DICTIONARY &&
-         encoding_stats[idx].encoding != Encoding::PLAIN_DICTIONARY) ||
+    if (!IsDictionaryIndexEncoding(encoding_stats[idx].encoding) ||
         (encoding_stats[idx].page_type != PageType::DATA_PAGE &&
          encoding_stats[idx].page_type != PageType::DATA_PAGE_V2)) {
       // Return false if any following page is not a dictionary encoded data

@@ -811,4 +811,10 @@ PARQUET_EXPORT SortOrder::type GetSortOrder(ConvertedType::type converted,
 PARQUET_EXPORT SortOrder::type GetSortOrder(
     const std::shared_ptr<const LogicalType>& logical_type, Type::type primitive);
 
+// PLAIN_DICTIONARY is deprecated but used to be used as a dictionary index
+// encoding.
+constexpr bool IsDictionaryIndexEncoding(Encoding::type e) {
+  return e == Encoding::RLE_DICTIONARY || e == Encoding::PLAIN_DICTIONARY;
+}
+
 }  // namespace parquet
