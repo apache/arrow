@@ -82,7 +82,8 @@ mamba create -n arrow -y -c conda-forge ^
   "python=%PYTHON%" ^
   || exit /B
 @rem TEMP test with numpy 2.0 RC
-pip install --pre --upgrade numpy || exit /B
+call activate arrow
+python -m pip install --pre --upgrade numpy || exit /B
 conda list -n arrow
 
 @rem
