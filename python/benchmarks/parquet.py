@@ -22,7 +22,7 @@ try:
     import pyarrow.parquet as pq
 except ImportError:
     pq = None
-from .common import rands
+from pyarrow.tests.util import rands
 
 
 class ParquetWriteBinary(object):

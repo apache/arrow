@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 
 import pyarrow as pa
-from .common import rands
+from pyarrow.tests.util import rands
 
 
 class PandasConversionsBase(object):

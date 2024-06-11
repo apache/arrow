@@ -19,7 +19,6 @@ import codecs
 import decimal
 from functools import partial
 import itertools
-import string
 import sys
 import unicodedata
 
@@ -347,15 +346,3 @@ class BuiltinsGenerator(object):
         }
         data = factories[kind](n)
         return ty, data
-
-
-# RANDS_CHARS and rands are copyright pandas, see
-# https://github.com/pandas-dev/pandas/blob/main/LICENSE.
-RANDS_CHARS = np.array(list(string.ascii_letters + string.digits), dtype=(np.str_, 1))
-
-
-def rands(nchars) -> str:
-    """
-    Generate one random byte string.
-    """
-    return "".join(np.random.default_rng(2).choice(RANDS_CHARS, nchars))
