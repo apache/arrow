@@ -83,7 +83,8 @@ public class TestFileRoundtrip {
 
     String[] args = {"-i", testInFile.getAbsolutePath(), "-o", testOutFile.getAbsolutePath()};
 
-    // In JUnit 5, since the file itself is not created, the exception and message will be different.
+    // In JUnit 5, since the file itself is not created, the exception and message will be
+    // different.
     Exception exception =
         assertThrows(
             InvalidArrowFileException.class,
