@@ -248,8 +248,8 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py::internal" nogil:
     CResult[PyObject*] StringToTzinfo(c_string)
 
 
-cdef extern from "arrow/python/init.h":
-    int arrow_init_numpy(c_bool import_numpy) except -1
+cdef extern from "arrow/python/numpy_init.h" namespace "arrow::py":
+    int arrow_init_numpy() except -1
 
 
 cdef extern from "arrow/python/pyarrow.h" namespace "arrow::py":

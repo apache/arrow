@@ -24,7 +24,7 @@ import decimal as _pydecimal
 try:
     import numpy as np
 except ImportError:
-    pass
+    np = None
 import os
 import sys
 
@@ -38,14 +38,9 @@ cimport cpython as cp
 # Initialize NumPy C API only if numpy was able to be imported
 
 
-def initialize_numpy():
-    if "numpy" in sys.modules:
-        arrow_init_numpy(True)
-    else:
-        arrow_init_numpy(False)
+if np is not None:
+    arrow_init_numpy()
 
-
-initialize_numpy()
 # Initialize PyArrow C++ API
 # (used from some of our C++ code, see e.g. ARROW-5260)
 import_pyarrow()
