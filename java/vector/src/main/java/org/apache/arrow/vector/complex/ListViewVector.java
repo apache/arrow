@@ -495,14 +495,12 @@ public class ListViewVector extends BaseRepeatedValueViewVector
         to.offsetBuffer = to.allocateBuffers((long) length * OFFSET_WIDTH);
         to.sizeBuffer = to.allocateBuffers((long) length * SIZE_WIDTH);
 
-        /* splitAndTransfer the offset buffer and validity buffer */
+        /* splitAndTransfer the size buffer */
         int maxOffsetAndSizeSum = -1;
         int minOffsetValue = -1;
         for (int i = 0; i < length; i++) {
           final int offsetValue = offsetBuffer.getInt((long) (startIndex + i) * OFFSET_WIDTH);
           final int sizeValue = sizeBuffer.getInt((long) (startIndex + i) * SIZE_WIDTH);
-          final int relativeOffset = offsetValue - startPoint;
-          to.offsetBuffer.setInt((long) i * OFFSET_WIDTH, relativeOffset);
           to.sizeBuffer.setInt((long) i * SIZE_WIDTH, sizeValue);
           if (maxOffsetAndSizeSum < offsetValue + sizeValue) {
             maxOffsetAndSizeSum = offsetValue + sizeValue;
@@ -510,6 +508,13 @@ public class ListViewVector extends BaseRepeatedValueViewVector
           if (minOffsetValue == -1 || minOffsetValue > offsetValue) {
             minOffsetValue = offsetValue;
           }
+        }
+
+        /* splitAndTransfer the offset buffer */
+        for (int i = 0; i < length; i++) {
+          final int offsetValue = offsetBuffer.getInt((long) (startIndex + i) * OFFSET_WIDTH);
+          final int relativeOffset = offsetValue - minOffsetValue;
+          to.offsetBuffer.setInt((long) i * OFFSET_WIDTH, relativeOffset);
         }
 
         /* splitAndTransfer the validity buffer */

@@ -1710,15 +1710,57 @@ public class TestListViewVector {
     }
   }
 
+  /**
+   * Validate split and transfer of data from fromVector to toVector.
+   * Note that this method assumes that the child vector is BigIntVector.
+   * @param start start index
+   * @param splitLength length of data to split and transfer
+   * @param fromVector fromVector
+   * @param toVector toVector
+   */
+  private void validateSplitAndTransfer(TransferPair transferPair, int start, int splitLength,
+      ListViewVector fromVector, ListViewVector toVector) {
+
+    transferPair.splitAndTransfer(start, splitLength);
+
+    /* get offsetBuffer of toVector */
+    final ArrowBuf toOffsetBuffer = toVector.getOffsetBuffer();
+
+    /* get sizeBuffer of toVector */
+    final ArrowBuf toSizeBuffer = toVector.getSizeBuffer();
+
+    /* get dataVector of toVector */
+    BigIntVector toDataVector = (BigIntVector) toVector.getDataVector();
+
+    /* get offsetBuffer of toVector */
+    final ArrowBuf fromOffsetBuffer = fromVector.getOffsetBuffer();
+
+    /* get sizeBuffer of toVector */
+    final ArrowBuf fromSizeBuffer = fromVector.getSizeBuffer();
+
+    /* get dataVector of toVector */
+    BigIntVector fromDataVector = (BigIntVector) fromVector.getDataVector();
+
+    /* validate size buffers */
+    int minOffset = validateSizeBufferAndCalculateMinOffset(start, splitLength,
+        fromOffsetBuffer, fromSizeBuffer, toSizeBuffer);
+    /* validate offset buffers */
+    validateOffsetBuffer(start, splitLength, fromOffsetBuffer,
+        toOffsetBuffer, minOffset);
+    /* validate data */
+    validateDataBuffer(start, splitLength, fromOffsetBuffer, fromSizeBuffer,
+        fromDataVector, toOffsetBuffer, toDataVector);
+  }
+
   @Test
   public void testSplitAndTransfer() throws Exception {
-    try (ListViewVector listViewVector = ListViewVector.empty("sourceVector", allocator)) {
+    try (ListViewVector fromVector = ListViewVector.empty("sourceVector", allocator)) {
 
       /* Explicitly add the dataVector */
       MinorType type = MinorType.BIGINT;
-      listViewVector.addOrGetVector(FieldType.nullable(type.getType()));
+      fromVector.addOrGetVector(FieldType.nullable(type.getType()));
 
-      UnionListViewWriter listViewWriter = listViewVector.getWriter();
+      UnionListViewWriter listViewWriter = fromVector.getWriter();
 
       /* allocate memory */
       listViewWriter.allocate();
@@ -1758,16 +1800,16 @@ public class TestListViewVector {
       listViewWriter.bigInt().writeBigInt(23);
       listViewWriter.endList();
 
-      listViewVector.setValueCount(5);
+      fromVector.setValueCount(5);
 
       /* get offset buffer */
-      final ArrowBuf offsetBuffer = listViewVector.getOffsetBuffer();
+      final ArrowBuf offsetBuffer = fromVector.getOffsetBuffer();
 
       /* get size buffer */
-      final ArrowBuf sizeBuffer = listViewVector.getSizeBuffer();
+      final ArrowBuf sizeBuffer = fromVector.getSizeBuffer();
 
       /* get dataVector */
-      BigIntVector dataVector = (BigIntVector) listViewVector.getDataVector();
+      BigIntVector dataVector = (BigIntVector) fromVector.getDataVector();
 
       /* check the vector output */
 
@@ -1777,7 +1819,7 @@ public class TestListViewVector {
       Long actual;
 
       /* index 0 */
-      assertFalse(listViewVector.isNull(index));
+      assertFalse(fromVector.isNull(index));
       offset = offsetBuffer.getInt(index * ListViewVector.OFFSET_WIDTH);
       assertEquals(Integer.toString(0), Integer.toString(offset));
 
@@ -1793,7 +1835,7 @@ public class TestListViewVector {
 
       /* index 1 */
       index++;
-      assertFalse(listViewVector.isNull(index));
+      assertFalse(fromVector.isNull(index));
       offset = offsetBuffer.getInt(index * ListViewVector.OFFSET_WIDTH);
       assertEquals(Integer.toString(3), Integer.toString(offset));
 
@@ -1809,7 +1851,7 @@ public class TestListViewVector {
       /* index 2 */
       size = 0;
       index++;
-      assertFalse(listViewVector.isNull(index));
+      assertFalse(fromVector.isNull(index));
       offset = offsetBuffer.getInt(index * ListViewVector.OFFSET_WIDTH);
       assertEquals(Integer.toString(5), Integer.toString(offset));
       size++;
@@ -1834,7 +1876,7 @@ public class TestListViewVector {
       /* index 3 */
       size = 0;
       index++;
-      assertFalse(listViewVector.isNull(index));
+      assertFalse(fromVector.isNull(index));
       offset = offsetBuffer.getInt(index * ListViewVector.OFFSET_WIDTH);
       assertEquals(Integer.toString(9), Integer.toString(offset));
 
@@ -1846,7 +1888,7 @@ public class TestListViewVector {
       /* index 4 */
       size = 0;
       index++;
-      assertFalse(listViewVector.isNull(index));
+      assertFalse(fromVector.isNull(index));
       offset = offsetBuffer.getInt(index * ListViewVector.OFFSET_WIDTH);
       assertEquals(Integer.toString(10), Integer.toString(offset));
 
@@ -1869,33 +1911,136 @@ public class TestListViewVector {
 
       /* do split and transfer */
       try (ListViewVector toVector = ListViewVector.empty("toVector", allocator)) {
-
-        TransferPair transferPair = listViewVector.makeTransferPair(toVector);
-
         int[][] transferLengths = {{0, 2}, {3, 1}, {4, 1}};
+        TransferPair transferPair = fromVector.makeTransferPair(toVector);
 
         for (final int[] transferLength : transferLengths) {
           int start = transferLength[0];
           int splitLength = transferLength[1];
+          validateSplitAndTransfer(transferPair, start, splitLength, fromVector, toVector);
+        }
+      }
+    }
+  }
 
-          transferPair.splitAndTransfer(start, splitLength);
+  @Test
+  public void testOutOfOrderOffsetSplitAndTransfer() {
+    // [[12, -7, 25], null, [0, -127, 127, 50], [], [50, 12]]
+    try (ListViewVector fromVector = ListViewVector.empty("fromVector", allocator)) {
+      // Allocate buffers in listViewVector by calling `allocateNew` method.
+      fromVector.allocateNew();
 
-          /* get offsetBuffer of toVector */
-          final ArrowBuf toOffsetBuffer = toVector.getOffsetBuffer();
+      // Initialize the child vector using `initializeChildrenFromFields` method.
 
-          /* get sizeBuffer of toVector */
-          final ArrowBuf toSizeBuffer = toVector.getSizeBuffer();
+      FieldType fieldType = new FieldType(true, new ArrowType.Int(64, true),
+          null, null);
+      Field field = new Field("child-vector", fieldType, null);
+      fromVector.initializeChildrenFromFields(Collections.singletonList(field));
 
-          /* get dataVector of toVector */
-          BigIntVector toDataVector = (BigIntVector) toVector.getDataVector();
+      // Set values in the child vector.
+      FieldVector fieldVector = fromVector.getDataVector();
+      fieldVector.clear();
 
-          /* validate size buffers */
-          int minOffset = validateSizeBufferAndCalculateMinOffset(start, splitLength,
-              offsetBuffer, sizeBuffer, toSizeBuffer);
-          /* validate offset buffers */
-          validateOffsetBuffer(start, splitLength, offsetBuffer, toOffsetBuffer, minOffset);
-          /* validate data */
-          validateDataBuffer(start, splitLength, offsetBuffer, sizeBuffer, dataVector, toOffsetBuffer, toDataVector);
+      BigIntVector childVector = (BigIntVector) fieldVector;
+
+      childVector.allocateNew(7);
+
+      childVector.set(0, 0);
+      childVector.set(1, -127);
+      childVector.set(2, 127);
+      childVector.set(3, 50);
+      childVector.set(4, 12);
+      childVector.set(5, -7);
+      childVector.set(6, 25);
+
+      childVector.setValueCount(7);
+
+      // Set validity, offset and size buffers using `setValidity`,
+      //  `setOffset` and `setSize` methods.
+      fromVector.setValidity(0, 1);
+      fromVector.setValidity(1, 0);
+      fromVector.setValidity(2, 1);
+      fromVector.setValidity(3, 1);
+      fromVector.setValidity(4, 1);
+
+      fromVector.setOffset(0, 4);
+      fromVector.setOffset(1, 7);
+      fromVector.setOffset(2, 0);
+      fromVector.setOffset(3, 0);
+      fromVector.setOffset(4, 3);
+
+      fromVector.setSize(0, 3);
+      fromVector.setSize(1, 0);
+      fromVector.setSize(2, 4);
+      fromVector.setSize(3, 0);
+      fromVector.setSize(4, 2);
+
+      // Set value count using `setValueCount` method.
+      fromVector.setValueCount(5);
+
+      final ArrowBuf offSetBuffer = fromVector.getOffsetBuffer();
+      final ArrowBuf sizeBuffer = fromVector.getSizeBuffer();
+
+      // check offset buffer
+      assertEquals(4, offSetBuffer.getInt(0 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(7, offSetBuffer.getInt(1 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(0, offSetBuffer.getInt(2 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(0, offSetBuffer.getInt(3 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+      assertEquals(3, offSetBuffer.getInt(4 * BaseRepeatedValueViewVector.OFFSET_WIDTH));
+
+      // check size buffer
+      assertEquals(3, sizeBuffer.getInt(0 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+      assertEquals(0, sizeBuffer.getInt(1 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+      assertEquals(4, sizeBuffer.getInt(2 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+      assertEquals(0, sizeBuffer.getInt(3 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+      assertEquals(2, sizeBuffer.getInt(4 * BaseRepeatedValueViewVector.SIZE_WIDTH));
+
+      // check child vector
+      assertEquals(0, ((BigIntVector) fromVector.getDataVector()).get(0));
+      assertEquals(-127, ((BigIntVector) fromVector.getDataVector()).get(1));
+      assertEquals(127, ((BigIntVector) fromVector.getDataVector()).get(2));
+      assertEquals(50, ((BigIntVector) fromVector.getDataVector()).get(3));
+      assertEquals(12, ((BigIntVector) fromVector.getDataVector()).get(4));
+      assertEquals(-7, ((BigIntVector) fromVector.getDataVector()).get(5));
+      assertEquals(25, ((BigIntVector) fromVector.getDataVector()).get(6));
+
+      // check values
+      Object result = fromVector.getObject(0);
+      ArrayList<Long> resultSet = (ArrayList<Long>) result;
+      assertEquals(3, resultSet.size());
+      assertEquals(Long.valueOf(12), resultSet.get(0));
+      assertEquals(Long.valueOf(-7), resultSet.get(1));
+      assertEquals(Long.valueOf(25), resultSet.get(2));
+
+      assertTrue(fromVector.isNull(1));
+
+      result = fromVector.getObject(2);
+      resultSet = (ArrayList<Long>) result;
+      assertEquals(4, resultSet.size());
+      assertEquals(Long.valueOf(0), resultSet.get(0));
+      assertEquals(Long.valueOf(-127), resultSet.get(1));
+      assertEquals(Long.valueOf(127), resultSet.get(2));
+      assertEquals(Long.valueOf(50), resultSet.get(3));
+
+      assertTrue(fromVector.isEmpty(3));
+
+      result = fromVector.getObject(4);
+      resultSet = (ArrayList<Long>) result;
+      assertEquals(2, resultSet.size());
+      assertEquals(Long.valueOf(50), resultSet.get(0));
+      assertEquals(Long.valueOf(12), resultSet.get(1));
+
+      fromVector.validate();
+
+      /* do split and transfer */
+      try (ListViewVector toVector = ListViewVector.empty("toVector", allocator)) {
+        int[][] transferLengths = {{2, 3}, {0, 1}, {0, 3}};
+        TransferPair transferPair = fromVector.makeTransferPair(toVector);
+
+        for (final int[] transferLength : transferLengths) {
+          int start = transferLength[0];
+          int splitLength = transferLength[1];
+          validateSplitAndTransfer(transferPair, start, splitLength, fromVector, toVector);
         }
       }
     }
