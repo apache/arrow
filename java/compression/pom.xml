@@ -28,6 +28,11 @@ under the License.
   <name>Arrow Compression</name>
   <description>(Experimental/Contrib) A library for working with the compression/decompression of Arrow data.</description>
 
+  <properties>
+    <checkstyle.config.location>dev/checkstyle/checkstyle-spotless.xml</checkstyle.config.location>
+    <spotless.java.excludes>none</spotless.java.excludes>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>org.apache.arrow</groupId>
