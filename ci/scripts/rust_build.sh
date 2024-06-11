@@ -34,7 +34,7 @@ export ARROW_TEST_DATA=${arrow_dir}/testing/data
 export PARQUET_TEST_DATA=${arrow_dir}/cpp/submodules/parquet-testing/data
 
 # Include in the integration test by default if the source directory is present
-if [ -z  "${ARCHERY_INTEGRATION_WITH_RUST}" ]; then
+if [ -z "${ARCHERY_INTEGRATION_WITH_RUST}" ]; then
   ARCHERY_INTEGRATION_WITH_RUST="1"
 fi
 
