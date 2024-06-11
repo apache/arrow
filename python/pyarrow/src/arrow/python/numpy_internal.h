@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include "arrow/python/init.h"
+#include "arrow/python/numpy_init.h"
 #include "arrow/python/numpy_interop.h"
 
 #include "arrow/status.h"
@@ -156,7 +156,7 @@ inline Status VisitNumpyArrayInline(PyArrayObject* arr, VISITOR* visitor) {
 namespace internal {
 
 inline bool PyFloatScalar_Check(PyObject* obj) {
-  if (get_numpy_imported()) {
+  if (has_numpy()) {
     return PyFloat_Check(obj) || PyArray_IsScalar(obj, Floating);
   } else {
     return PyFloat_Check(obj);
@@ -164,7 +164,7 @@ inline bool PyFloatScalar_Check(PyObject* obj) {
 }
 
 inline bool PyIntScalar_Check(PyObject* obj) {
-  if (get_numpy_imported()) {
+  if (has_numpy()) {
     return PyLong_Check(obj) || PyArray_IsScalar(obj, Integer);
   } else {
     return PyLong_Check(obj);
@@ -172,7 +172,7 @@ inline bool PyIntScalar_Check(PyObject* obj) {
 }
 
 inline bool PyBoolScalar_Check(PyObject* obj) {
-  if (get_numpy_imported()) {
+  if (has_numpy()) {
     return PyBool_Check(obj) || PyArray_IsScalar(obj, Bool);
   } else {
     return PyBool_Check(obj);
