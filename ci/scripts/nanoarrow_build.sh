@@ -28,7 +28,7 @@ build_dir=${2}/nanoarrow
 # by github workflows in the arrow-nanoarrow repository.
 
 # Include in the integration test by default if the source directory is present
-if [ -z  "${ARCHERY_INTEGRATION_WITH_NANOARROW}" ]; then
+if [ -z "${ARCHERY_INTEGRATION_WITH_NANOARROW}" ]; then
   ARCHERY_INTEGRATION_WITH_NANOARROW="1"
 fi
 
