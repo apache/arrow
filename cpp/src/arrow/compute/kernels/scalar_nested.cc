@@ -134,7 +134,7 @@ std::string ToString(const std::optional<T>& o) {
 /// \param stop User-provided stop or the length of the input list
 int64_t ListSliceLength(int64_t start, int64_t step, int64_t stop) {
   DCHECK_GE(step, 1);
-  const auto size = std::max(stop - start, static_cast<int64_t>(0));
+  const auto size = std::max<int64_t>(stop - start, 0);
   return bit_util::CeilDiv(size, step);
 }
 
