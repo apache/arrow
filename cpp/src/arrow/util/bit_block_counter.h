@@ -480,35 +480,6 @@ static void VisitBitBlocksVoid(const uint8_t* bitmap, int64_t offset, int64_t le
 }
 
 template <typename VisitNotNull, typename VisitNull>
-static void VisitBitBlocksWithSelVoid(const uint8_t* bitmap, int64_t offset,
-                                      int64_t length, const int32_t* sel,
-                                      int64_t sel_length, VisitNotNull&& visit_not_null,
-                                      VisitNull&& visit_null) {
-  internal::OptionalBitBlockCounter bit_counter(bitmap, offset, length);
-  int64_t position = 0;
-  while (position < length) {
-    internal::BitBlockCount block = bit_counter.NextBlock();
-    if (block.AllSet()) {
-      for (int64_t i = 0; i < block.length; ++i, ++position) {
-        visit_not_null(position);
-      }
-    } else if (block.NoneSet()) {
-      for (int64_t i = 0; i < block.length; ++i, ++position) {
-        visit_null();
-      }
-    } else {
-      for (int64_t i = 0; i < block.length; ++i, ++position) {
-        if (bit_util::GetBit(bitmap, offset + position)) {
-          visit_not_null(position);
-        } else {
-          visit_null();
-        }
-      }
-    }
-  }
-}
-
-template <typename VisitNotNull, typename VisitNull>
 static Status VisitTwoBitBlocks(const uint8_t* left_bitmap, int64_t left_offset,
                                 const uint8_t* right_bitmap, int64_t right_offset,
                                 int64_t length, VisitNotNull&& visit_not_null,
@@ -567,50 +538,6 @@ static void VisitTwoBitBlocksVoid(const uint8_t* left_bitmap, int64_t left_offse
       return VisitBitBlocksVoid(left_bitmap, left_offset, length,
                                 std::forward<VisitNotNull>(visit_not_null),
                                 std::forward<VisitNull>(visit_null));
-    }
-  }
-  BinaryBitBlockCounter bit_counter(left_bitmap, left_offset, right_bitmap, right_offset,
-                                    length);
-  int64_t position = 0;
-  while (position < length) {
-    BitBlockCount block = bit_counter.NextAndWord();
-    if (block.AllSet()) {
-      for (int64_t i = 0; i < block.length; ++i, ++position) {
-        visit_not_null(position);
-      }
-    } else if (block.NoneSet()) {
-      for (int64_t i = 0; i < block.length; ++i, ++position) {
-        visit_null();
-      }
-    } else {
-      for (int64_t i = 0; i < block.length; ++i, ++position) {
-        if (bit_util::GetBit(left_bitmap, left_offset + position) &&
-            bit_util::GetBit(right_bitmap, right_offset + position)) {
-          visit_not_null(position);
-        } else {
-          visit_null();
-        }
-      }
-    }
-  }
-}
-
-template <typename VisitNotNull, typename VisitNull>
-static void VisitTwoBitBlocksWithSelVoid(const uint8_t* left_bitmap, int64_t left_offset,
-                                         const uint8_t* right_bitmap,
-                                         int64_t right_offset, const int32_t* sel,
-                                         int64_t length, VisitNotNull&& visit_not_null,
-                                         VisitNull&& visit_null) {
-  if (left_bitmap == NULLPTR || right_bitmap == NULLPTR) {
-    // At most one bitmap is present
-    if (left_bitmap == NULLPTR) {
-      return VisitBitBlocksWithSelVoid(right_bitmap, right_offset, length,
-                                       std::forward<VisitNotNull>(visit_not_null),
-                                       std::forward<VisitNull>(visit_null));
-    } else {
-      return VisitBitBlocksWithSelVoid(left_bitmap, left_offset, length,
-                                       std::forward<VisitNotNull>(visit_not_null),
-                                       std::forward<VisitNull>(visit_null));
     }
   }
   BinaryBitBlockCounter bit_counter(left_bitmap, left_offset, right_bitmap, right_offset,
