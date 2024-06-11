@@ -418,6 +418,9 @@ AzureOptions::MakeDataLakeServiceClient() const {
 
 Result<std::string> AzureOptions::GenerateSASToken(
     Storage::Sas::BlobSasBuilder* builder, Blobs::BlobServiceClient* client) const {
+  using SasProtocol = Storage::Sas::SasProtocol;
+  builder->Protocol =
+      blob_storage_scheme == "http" ? SasProtocol::HttpsAndHttp : SasProtocol::HttpsOnly;
   if (storage_shared_key_credential_) {
     return builder->GenerateSasToken(*storage_shared_key_credential_);
   } else {
