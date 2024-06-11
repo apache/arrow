@@ -4012,3 +4012,88 @@ def test_swapped_byte_order_fails(numpy_native_dtype):
     # Struct type array
     with pytest.raises(pa.ArrowNotImplementedError):
         pa.StructArray.from_arrays([np_arr], names=['a'])
+
+
+def test_non_cpu_array():
+    cuda = pytest.importorskip("pyarrow.cuda")
+    ctx = cuda.Context(0)
+
+    data = np.arange(4, dtype=np.int32)
+    validity = np.array([True, False, True, False], dtype=np.bool_)
+    cuda_data_buf = ctx.buffer_from_data(data)
+    cuda_validity_buf = ctx.buffer_from_data(validity)
+    arr = pa.Array.from_buffers(pa.int32(), 4, [None, cuda_data_buf])
+    arr2 = pa.Array.from_buffers(pa.int32(), 4, [None, cuda_data_buf])
+    arr_with_nulls = pa.Array.from_buffers(pa.int32(), 4, [cuda_validity_buf, cuda_data_buf])
+
+    # Supported
+    arr.validate()
+    arr.validate(full=True)
+    assert arr.offset() == 0
+    assert arr.buffers() == [None, cuda_data_buf]
+    assert arr.device_type == pa.DeviceAllocationType.CUDA
+    assert arr.is_cpu is False
+
+    # Not Supported
+    with pytest.raises(NotImplementedError):
+        arr.diff(arr2)
+    with pytest.raises(NotImplementedError):
+        arr.cast(pa.int64())
+    with pytest.raises(NotImplementedError):
+        arr.view(pa.int64())
+    with pytest.raises(NotImplementedError):
+        arr.sum()
+    with pytest.raises(NotImplementedError):
+        arr.unique()
+    with pytest.raises(NotImplementedError):
+        arr.dictionary_encode()
+    with pytest.raises(NotImplementedError):
+        arr.value_counts()
+    with pytest.raises(NotImplementedError):
+        arr.null_count
+    with pytest.raises(NotImplementedError):
+        arr.nbytes
+    with pytest.raises(NotImplementedError):
+        arr.get_total_buffer_size()
+    with pytest.raises(NotImplementedError):
+        [i for i in iter(arr)]
+    with pytest.raises(NotImplementedError):
+        repr(arr)
+    with pytest.raises(NotImplementedError):
+        str(arr)
+    with pytest.raises(NotImplementedError):
+        arr == arr2
+    with pytest.raises(NotImplementedError):
+        arr.is_null()
+    with pytest.raises(NotImplementedError):
+        arr.is_nan()
+    with pytest.raises(NotImplementedError):
+        arr.is_valid()
+    with pytest.raises(NotImplementedError):
+        arr.fill_null(0)
+    with pytest.raises(NotImplementedError):
+        arr.__getitem__(0)
+    with pytest.raises(NotImplementedError):
+        arr.getitem(0)
+    with pytest.raises(NotImplementedError):
+        arr.slice()
+    with pytest.raises(NotImplementedError):
+        arr.take([0])
+    with pytest.raises(NotImplementedError):
+        arr.drop_null()
+    with pytest.raises(NotImplementedError):
+        arr.filter([True, True, False, False])
+    with pytest.raises(NotImplementedError):
+        arr.index(0)
+    with pytest.raises(NotImplementedError):
+        arr.sort()
+    with pytest.raises(NotImplementedError):
+        arr.__array__()
+    with pytest.raises(NotImplementedError):
+        arr.to_numpy()
+    with pytest.raises(NotImplementedError):
+        arr.to_list()
+    with pytest.raises(NotImplementedError):
+        arr.__dlpack__()
+    with pytest.raises(NotImplementedError):
+        arr.__dlpack_device__()
