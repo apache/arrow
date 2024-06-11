@@ -288,7 +288,7 @@ class [[nodiscard]] Result : public util::EqualityComparable<Result<T>> {
   constexpr bool ok() const { return status_.ok(); }
 
   /// \brief Equivalent to ok().
-  // operator bool() const { return ok(); }
+  constexpr explicit operator bool() const { return ok(); }
 
   /// Gets the stored status object, or an OK status if a `T` value is stored.
   ///
