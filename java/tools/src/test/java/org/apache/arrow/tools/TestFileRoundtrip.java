@@ -21,38 +21,42 @@ import static org.apache.arrow.tools.ArrowFileTestFixtures.writeInput;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.File;
+import java.io.IOException;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.ipc.InvalidArrowFileException;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 public class TestFileRoundtrip {
 
-  @Rule public TemporaryFolder testFolder = new TemporaryFolder();
-  @Rule public TemporaryFolder testAnotherFolder = new TemporaryFolder();
+  @TempDir public File testFolder;
 
   private BufferAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void init() {
     allocator = new RootAllocator(Integer.MAX_VALUE);
   }
 
-  @After
+  @AfterEach
   public void tearDown() {
     allocator.close();
   }
 
   @Test
   public void test() throws Exception {
-    File testInFile = testFolder.newFile("testIn.arrow");
-    File testOutFile = testFolder.newFile("testOut.arrow");
+    File testInFile = new File(testFolder, "testIn.arrow");
+    File testOutFile = new File(testFolder, "testOut.arrow");
 
     writeInput(testInFile, allocator);
+
+    if (!testOutFile.exists()) {
+      if (!testOutFile.createNewFile()) {
+        throw new IOException("Failed to create file: " + testOutFile);
+      }
+    }
 
     String[] args = {"-i", testInFile.getAbsolutePath(), "-o", testOutFile.getAbsolutePath()};
     int result = new FileRoundtrip(System.err).run(args);

@@ -56,9 +56,9 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.Text;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 public class EchoServerTest {
 
@@ -66,7 +66,7 @@ public class EchoServerTest {
   private static int serverPort;
   private static Thread serverThread;
 
-  @BeforeClass
+  @BeforeAll
   public static void startEchoServer() throws IOException {
     server = new EchoServer(0);
     serverPort = server.port();
@@ -84,7 +84,7 @@ public class EchoServerTest {
     serverThread.start();
   }
 
-  @AfterClass
+  @AfterAll
   public static void stopEchoServer() throws IOException, InterruptedException {
     server.close();
     serverThread.join();
