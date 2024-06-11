@@ -28,6 +28,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
+// Py_IsFinalizing added in Python 3.13.0a4
 #if PY_VERSION_HEX < 0x030D00A4
 #define Py_IsFinalizing() _Py_IsFinalizing()
 #endif
