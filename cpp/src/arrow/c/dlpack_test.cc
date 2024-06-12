@@ -152,7 +152,7 @@ void CheckDLTensor(const std::shared_ptr<Tensor>& t,
   ASSERT_EQ(DLDeviceType::kDLCPU, dltensor.device.device_type);
   ASSERT_EQ(0, dltensor.device.device_id);
 
-  ASSERT_OK_AND_ASSIGN(auto device, arrow::dlpack::ExportTensorDevice(t));
+  ASSERT_OK_AND_ASSIGN(auto device, arrow::dlpack::ExportDevice(t));
   ASSERT_EQ(DLDeviceType::kDLCPU, device.device_type);
   ASSERT_EQ(0, device.device_id);
 
