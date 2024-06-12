@@ -224,6 +224,8 @@ env:
       conda create -y -n azure_upload_anaconda -c conda-forge anaconda-client
       source activate azure_upload_anaconda
       anaconda -t $(CROSSBOW_ANACONDA_TOKEN) upload --force {{ pattern }}
+    displayName: Upload packages to Anaconda
+
   {% endif %}
 {% endmacro %}
 
