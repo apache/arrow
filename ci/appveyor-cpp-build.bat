@@ -115,8 +115,6 @@ popd
 @rem Build and install pyarrow
 @rem
 
-python -m pip install --pre --upgrade numpy || exit /B
-
 pushd python
 
 set PYARROW_CMAKE_GENERATOR=%GENERATOR%
