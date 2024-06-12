@@ -154,7 +154,7 @@ Result<DLManagedTensor*> ExportTensor(const std::shared_ptr<Tensor>& t) {
   if (t->size() == 0) {
     ctx->tensor.dl_tensor.data = NULL;
   } else {
-    ctx->tensor.dl_tensor.data = const_cast<uint8_t*>(t->raw_data());
+    ctx->tensor.dl_tensor.data = t->raw_mutable_data();
   }
 
   ctx->tensor.dl_tensor.device = device;
