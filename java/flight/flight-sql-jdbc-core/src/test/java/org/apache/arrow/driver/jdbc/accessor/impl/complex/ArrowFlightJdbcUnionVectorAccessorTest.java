@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.accessor.impl.complex;
 
 import static org.hamcrest.CoreMatchers.equalTo;
@@ -23,7 +22,6 @@ import static org.hamcrest.CoreMatchers.is;
 import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.List;
-
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
 import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.complex.UnionVector;
@@ -43,20 +41,18 @@ public class ArrowFlightJdbcUnionVectorAccessorTest {
   @ClassRule
   public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
 
-  @Rule
-  public final ErrorCollector collector = new ErrorCollector();
+  @Rule public final ErrorCollector collector = new ErrorCollector();
 
   private UnionVector vector;
 
   private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcUnionVectorAccessor>
       accessorSupplier =
-          (vector, getCurrentRow) -> new ArrowFlightJdbcUnionVectorAccessor((UnionVector) vector,
-              getCurrentRow, (boolean wasNull) -> {
-          });
+          (vector, getCurrentRow) ->
+              new ArrowFlightJdbcUnionVectorAccessor(
+                  (UnionVector) vector, getCurrentRow, (boolean wasNull) -> {});
 
   private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcUnionVectorAccessor>
-      accessorIterator =
-      new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
+      accessorIterator = new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
 
   @Before
   public void setup() {
@@ -96,12 +92,8 @@ public class ArrowFlightJdbcUnionVectorAccessorTest {
   @Test
   public void getObject() throws Exception {
     List<Object> result = accessorIterator.toList(vector);
-    List<Object> expected = Arrays.asList(
-        Long.MAX_VALUE,
-        Math.PI,
-        new Timestamp(1625702400000L),
-        null,
-        null);
+    List<Object> expected =
+        Arrays.asList(Long.MAX_VALUE, Math.PI, new Timestamp(1625702400000L), null, null);
 
     collector.checkThat(result, is(expected));
   }
@@ -111,8 +103,7 @@ public class ArrowFlightJdbcUnionVectorAccessorTest {
     vector.reset();
     vector.setValueCount(5);
 
-    accessorIterator.assertAccessorGetter(vector,
-        AbstractArrowFlightJdbcUnionVectorAccessor::getObject,
-        equalTo(null));
+    accessorIterator.assertAccessorGetter(
+        vector, AbstractArrowFlightJdbcUnionVectorAccessor::getObject, equalTo(null));
   }
 }

@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.accessor.impl.calendar;
 
 import static org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcDateVectorAccessor.getTimeUnitForVector;
@@ -31,7 +30,6 @@ import java.util.Collection;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
-
 import org.apache.arrow.driver.jdbc.accessor.impl.text.ArrowFlightJdbcVarCharVectorAccessor;
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
 import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
@@ -58,42 +56,44 @@ public class ArrowFlightJdbcDateVectorAccessorTest {
   @ClassRule
   public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
 
-  @Rule
-  public final ErrorCollector collector = new ErrorCollector();
+  @Rule public final ErrorCollector collector = new ErrorCollector();
 
   private BaseFixedWidthVector vector;
   private final Supplier<BaseFixedWidthVector> vectorSupplier;
 
   private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcDateVectorAccessor>
-      accessorSupplier = (vector, getCurrentRow) -> {
-        if (vector instanceof DateDayVector) {
-          return new ArrowFlightJdbcDateVectorAccessor((DateDayVector) vector, getCurrentRow,
-              (boolean wasNull) -> {
-              });
-        } else if (vector instanceof DateMilliVector) {
-          return new ArrowFlightJdbcDateVectorAccessor((DateMilliVector) vector, getCurrentRow,
-              (boolean wasNull) -> {
-              });
-        }
-        return null;
-      };
+      accessorSupplier =
+          (vector, getCurrentRow) -> {
+            if (vector instanceof DateDayVector) {
+              return new ArrowFlightJdbcDateVectorAccessor(
+                  (DateDayVector) vector, getCurrentRow, (boolean wasNull) -> {});
+            } else if (vector instanceof DateMilliVector) {
+              return new ArrowFlightJdbcDateVectorAccessor(
+                  (DateMilliVector) vector, getCurrentRow, (boolean wasNull) -> {});
+            }
+            return null;
+          };
 
   private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcDateVectorAccessor>
-      accessorIterator =
-      new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
+      accessorIterator = new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
 
   @Parameterized.Parameters(name = "{1}")
   public static Collection<Object[]> data() {
-    return Arrays.asList(new Object[][] {
-        {(Supplier<DateDayVector>) () -> rootAllocatorTestRule.createDateDayVector(),
-            "DateDayVector"},
-        {(Supplier<DateMilliVector>) () -> rootAllocatorTestRule.createDateMilliVector(),
-            "DateMilliVector"},
-    });
+    return Arrays.asList(
+        new Object[][] {
+          {
+            (Supplier<DateDayVector>) () -> rootAllocatorTestRule.createDateDayVector(),
+            "DateDayVector"
+          },
+          {
+            (Supplier<DateMilliVector>) () -> rootAllocatorTestRule.createDateMilliVector(),
+            "DateMilliVector"
+          },
+        });
   }
 
-  public ArrowFlightJdbcDateVectorAccessorTest(Supplier<BaseFixedWidthVector> vectorSupplier,
-                                               String vectorType) {
+  public ArrowFlightJdbcDateVectorAccessorTest(
+      Supplier<BaseFixedWidthVector> vectorSupplier, String vectorType) {
     this.vectorSupplier = vectorSupplier;
   }
 
@@ -109,13 +109,17 @@ public class ArrowFlightJdbcDateVectorAccessorTest {
 
   @Test
   public void testShouldGetTimestampReturnValidTimestampWithoutCalendar() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getTimestamp(null),
+    accessorIterator.assertAccessorGetter(
+        vector,
+        accessor -> accessor.getTimestamp(null),
         (accessor, currentRow) -> is(getTimestampForVector(currentRow)));
   }
 
   @Test
   public void testShouldGetObjectWithDateClassReturnValidDateWithoutCalendar() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getObject(Date.class),
+    accessorIterator.assertAccessorGetter(
+        vector,
+        accessor -> accessor.getObject(Date.class),
         (accessor, currentRow) -> is(new Date(getTimestampForVector(currentRow).getTime())));
   }
 
@@ -124,15 +128,17 @@ public class ArrowFlightJdbcDateVectorAccessorTest {
     TimeZone timeZone = TimeZone.getTimeZone(AMERICA_VANCOUVER);
     Calendar calendar = Calendar.getInstance(timeZone);
 
-    accessorIterator.iterate(vector, (accessor, currentRow) -> {
-      final Timestamp resultWithoutCalendar = accessor.getTimestamp(null);
-      final Timestamp result = accessor.getTimestamp(calendar);
+    accessorIterator.iterate(
+        vector,
+        (accessor, currentRow) -> {
+          final Timestamp resultWithoutCalendar = accessor.getTimestamp(null);
+          final Timestamp result = accessor.getTimestamp(calendar);
 
-      long offset = timeZone.getOffset(resultWithoutCalendar.getTime());
+          long offset = timeZone.getOffset(resultWithoutCalendar.getTime());
 
-      collector.checkThat(resultWithoutCalendar.getTime() - result.getTime(), is(offset));
-      collector.checkThat(accessor.wasNull(), is(false));
-    });
+          collector.checkThat(resultWithoutCalendar.getTime() - result.getTime(), is(offset));
+          collector.checkThat(accessor.wasNull(), is(false));
+        });
   }
 
   @Test
@@ -145,7 +151,9 @@ public class ArrowFlightJdbcDateVectorAccessorTest {
 
   @Test
   public void testShouldGetDateReturnValidDateWithoutCalendar() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, accessor -> accessor.getDate(null),
+    accessorIterator.assertAccessorGetter(
+        vector,
+        accessor -> accessor.getDate(null),
         (accessor, currentRow) -> is(new Date(getTimestampForVector(currentRow).getTime())));
   }
 
@@ -154,15 +162,17 @@ public class ArrowFlightJdbcDateVectorAccessorTest {
     TimeZone timeZone = TimeZone.getTimeZone(AMERICA_VANCOUVER);
     Calendar calendar = Calendar.getInstance(timeZone);
 
-    accessorIterator.iterate(vector, (accessor, currentRow) -> {
-      final Date resultWithoutCalendar = accessor.getDate(null);
-      final Date result = accessor.getDate(calendar);
+    accessorIterator.iterate(
+        vector,
+        (accessor, currentRow) -> {
+          final Date resultWithoutCalendar = accessor.getDate(null);
+          final Date result = accessor.getDate(calendar);
 
-      long offset = timeZone.getOffset(resultWithoutCalendar.getTime());
+          long offset = timeZone.getOffset(resultWithoutCalendar.getTime());
 
-      collector.checkThat(resultWithoutCalendar.getTime() - result.getTime(), is(offset));
-      collector.checkThat(accessor.wasNull(), is(false));
-    });
+          collector.checkThat(resultWithoutCalendar.getTime() - result.getTime(), is(offset));
+          collector.checkThat(accessor.wasNull(), is(false));
+        });
   }
 
   @Test
@@ -190,9 +200,8 @@ public class ArrowFlightJdbcDateVectorAccessorTest {
 
   @Test
   public void testShouldGetObjectClass() throws Exception {
-    accessorIterator
-        .assertAccessorGetter(vector, ArrowFlightJdbcDateVectorAccessor::getObjectClass,
-            equalTo(Date.class));
+    accessorIterator.assertAccessorGetter(
+        vector, ArrowFlightJdbcDateVectorAccessor::getObjectClass, equalTo(Date.class));
   }
 
   @Test
@@ -208,47 +217,51 @@ public class ArrowFlightJdbcDateVectorAccessorTest {
 
   @Test
   public void testValidateGetStringTimeZoneConsistency() throws Exception {
-    accessorIterator.iterate(vector, (accessor, currentRow) -> {
-      final TimeZone defaultTz = TimeZone.getDefault();
-      try {
-        final String string = accessor.getString(); // Should always be UTC as no calendar is provided
+    accessorIterator.iterate(
+        vector,
+        (accessor, currentRow) -> {
+          final TimeZone defaultTz = TimeZone.getDefault();
+          try {
+            final String string =
+                accessor.getString(); // Should always be UTC as no calendar is provided
 
-        // Validate with UTC
-        Date date = accessor.getDate(null);
-        TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
-        collector.checkThat(date.toString(), is(string));
+            // Validate with UTC
+            Date date = accessor.getDate(null);
+            TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+            collector.checkThat(date.toString(), is(string));
 
-        // Validate with different TZ
-        TimeZone.setDefault(TimeZone.getTimeZone(AMERICA_VANCOUVER));
-        collector.checkThat(date.toString(), not(string));
+            // Validate with different TZ
+            TimeZone.setDefault(TimeZone.getTimeZone(AMERICA_VANCOUVER));
+            collector.checkThat(date.toString(), not(string));
 
-        collector.checkThat(accessor.wasNull(), is(false));
-      } finally {
-        // Set default Tz back
-        TimeZone.setDefault(defaultTz);
-      }
-    });
+            collector.checkThat(accessor.wasNull(), is(false));
+          } finally {
+            // Set default Tz back
+            TimeZone.setDefault(defaultTz);
+          }
+        });
   }
 
   private void assertGetStringIsConsistentWithVarCharAccessor(Calendar calendar) throws Exception {
-    try (VarCharVector varCharVector = new VarCharVector("",
-        rootAllocatorTestRule.getRootAllocator())) {
+    try (VarCharVector varCharVector =
+        new VarCharVector("", rootAllocatorTestRule.getRootAllocator())) {
       varCharVector.allocateNew(1);
       ArrowFlightJdbcVarCharVectorAccessor varCharVectorAccessor =
-          new ArrowFlightJdbcVarCharVectorAccessor(varCharVector, () -> 0, (boolean wasNull) -> {
+          new ArrowFlightJdbcVarCharVectorAccessor(varCharVector, () -> 0, (boolean wasNull) -> {});
+
+      accessorIterator.iterate(
+          vector,
+          (accessor, currentRow) -> {
+            final String string = accessor.getString();
+            varCharVector.set(0, new Text(string));
+            varCharVector.setValueCount(1);
+
+            Date dateFromVarChar = varCharVectorAccessor.getDate(calendar);
+            Date date = accessor.getDate(calendar);
+
+            collector.checkThat(date, is(dateFromVarChar));
+            collector.checkThat(accessor.wasNull(), is(false));
           });
-
-      accessorIterator.iterate(vector, (accessor, currentRow) -> {
-        final String string = accessor.getString();
-        varCharVector.set(0, new Text(string));
-        varCharVector.setValueCount(1);
-
-        Date dateFromVarChar = varCharVectorAccessor.getDate(calendar);
-        Date date = accessor.getDate(calendar);
-
-        collector.checkThat(date, is(dateFromVarChar));
-        collector.checkThat(accessor.wasNull(), is(false));
-      });
     }
   }
 }

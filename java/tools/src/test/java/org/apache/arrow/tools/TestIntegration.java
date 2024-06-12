@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.tools;
 
 import static org.apache.arrow.tools.ArrowFileTestFixtures.validateOutput;
@@ -25,13 +24,16 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
+import com.fasterxml.jackson.core.util.DefaultPrettyPrinter.NopIndenter;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.Map;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.tools.Integration.Command;
@@ -48,15 +50,9 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
-import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
-import com.fasterxml.jackson.core.util.DefaultPrettyPrinter.NopIndenter;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-
 public class TestIntegration {
 
-  @Rule
-  public TemporaryFolder testFolder = new TemporaryFolder();
+  @Rule public TemporaryFolder testFolder = new TemporaryFolder();
 
   private BufferAllocator allocator;
   private ObjectMapper om = new ObjectMapper();
@@ -69,11 +65,10 @@ public class TestIntegration {
     om.enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS);
   }
 
-  static void writeInputFloat(File testInFile, BufferAllocator allocator, double... f) throws
-      FileNotFoundException, IOException {
-    try (
-        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0,
-            Integer.MAX_VALUE);
+  static void writeInputFloat(File testInFile, BufferAllocator allocator, double... f)
+      throws FileNotFoundException, IOException {
+    try (BufferAllocator vectorAllocator =
+            allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
         NonNullableStructVector parent = NonNullableStructVector.empty("parent", vectorAllocator)) {
       ComplexWriter writer = new ComplexWriterImpl("root", parent);
       StructWriter rootWriter = writer.rootAsStruct();
@@ -87,12 +82,11 @@ public class TestIntegration {
     }
   }
 
-  static void writeInput2(File testInFile, BufferAllocator allocator) throws
-      FileNotFoundException, IOException {
+  static void writeInput2(File testInFile, BufferAllocator allocator)
+      throws FileNotFoundException, IOException {
     int count = ArrowFileTestFixtures.COUNT;
-    try (
-        BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0,
-            Integer.MAX_VALUE);
+    try (BufferAllocator vectorAllocator =
+            allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE);
         NonNullableStructVector parent = NonNullableStructVector.empty("parent", vectorAllocator)) {
       writeData(count, parent);
       ComplexWriter writer = new ComplexWriterImpl("root", parent);
@@ -132,27 +126,47 @@ public class TestIntegration {
     Integration integration = new Integration();
 
     // convert it to json
-    String[] args1 = {"-arrow", testInFile.getAbsolutePath(), "-json", testJSONFile
-        .getAbsolutePath(), "-command", Command.ARROW_TO_JSON.name()};
+    String[] args1 = {
+      "-arrow",
+      testInFile.getAbsolutePath(),
+      "-json",
+      testJSONFile.getAbsolutePath(),
+      "-command",
+      Command.ARROW_TO_JSON.name()
+    };
     integration.run(args1);
 
     // convert back to arrow
-    String[] args2 = {"-arrow", testOutFile.getAbsolutePath(), "-json", testJSONFile
-        .getAbsolutePath(), "-command", Command.JSON_TO_ARROW.name()};
+    String[] args2 = {
+      "-arrow",
+      testOutFile.getAbsolutePath(),
+      "-json",
+      testJSONFile.getAbsolutePath(),
+      "-command",
+      Command.JSON_TO_ARROW.name()
+    };
     integration.run(args2);
 
     // check it is the same
     validateOutput(testOutFile, allocator);
 
     // validate arrow against json
-    String[] args3 = {"-arrow", testInFile.getAbsolutePath(), "-json", testJSONFile
-        .getAbsolutePath(), "-command", Command.VALIDATE.name()};
+    String[] args3 = {
+      "-arrow",
+      testInFile.getAbsolutePath(),
+      "-json",
+      testJSONFile.getAbsolutePath(),
+      "-command",
+      Command.VALIDATE.name()
+    };
     integration.run(args3);
   }
 
   @Test
   public void testJSONRoundTripWithVariableWidth() throws Exception {
-    File testJSONFile = new File("../../docs/source/format/integration_json_examples/simple.json").getCanonicalFile();
+    File testJSONFile =
+        new File("../../docs/source/format/integration_json_examples/simple.json")
+            .getCanonicalFile();
     if (!testJSONFile.exists()) {
       testJSONFile = new File("../docs/source/format/integration_json_examples/simple.json");
     }
@@ -164,13 +178,25 @@ public class TestIntegration {
     Integration integration = new Integration();
 
     // convert to arrow
-    String[] args1 = {"-arrow", testOutFile.getAbsolutePath(), "-json", testJSONFile
-        .getAbsolutePath(), "-command", Command.JSON_TO_ARROW.name()};
+    String[] args1 = {
+      "-arrow",
+      testOutFile.getAbsolutePath(),
+      "-json",
+      testJSONFile.getAbsolutePath(),
+      "-command",
+      Command.JSON_TO_ARROW.name()
+    };
     integration.run(args1);
 
     // convert back to json
-    String[] args2 = {"-arrow", testOutFile.getAbsolutePath(), "-json", testRoundTripJSONFile
-        .getAbsolutePath(), "-command", Command.ARROW_TO_JSON.name()};
+    String[] args2 = {
+      "-arrow",
+      testOutFile.getAbsolutePath(),
+      "-json",
+      testRoundTripJSONFile.getAbsolutePath(),
+      "-command",
+      Command.ARROW_TO_JSON.name()
+    };
     integration.run(args2);
 
     BufferedReader orig = readNormalized(testJSONFile);
@@ -186,7 +212,9 @@ public class TestIntegration {
 
   @Test
   public void testJSONRoundTripWithStruct() throws Exception {
-    File testJSONFile = new File("../../docs/source/format/integration_json_examples/struct.json").getCanonicalFile();
+    File testJSONFile =
+        new File("../../docs/source/format/integration_json_examples/struct.json")
+            .getCanonicalFile();
     if (!testJSONFile.exists()) {
       testJSONFile = new File("../docs/source/format/integration_json_examples/struct.json");
     }
@@ -198,13 +226,25 @@ public class TestIntegration {
     Integration integration = new Integration();
 
     // convert to arrow
-    String[] args1 = {"-arrow", testOutFile.getAbsolutePath(), "-json", testJSONFile
-        .getAbsolutePath(), "-command", Command.JSON_TO_ARROW.name()};
+    String[] args1 = {
+      "-arrow",
+      testOutFile.getAbsolutePath(),
+      "-json",
+      testJSONFile.getAbsolutePath(),
+      "-command",
+      Command.JSON_TO_ARROW.name()
+    };
     integration.run(args1);
 
     // convert back to json
-    String[] args2 = {"-arrow", testOutFile.getAbsolutePath(), "-json", testRoundTripJSONFile
-        .getAbsolutePath(), "-command", Command.ARROW_TO_JSON.name()};
+    String[] args2 = {
+      "-arrow",
+      testOutFile.getAbsolutePath(),
+      "-json",
+      testRoundTripJSONFile.getAbsolutePath(),
+      "-command",
+      Command.ARROW_TO_JSON.name()
+    };
     integration.run(args2);
 
     BufferedReader orig = readNormalized(testJSONFile);
@@ -224,9 +264,7 @@ public class TestIntegration {
     return new BufferedReader(new StringReader(normalized));
   }
 
-  /**
-   * The test should not be sensitive to small variations in float representation.
-   */
+  /** The test should not be sensitive to small variations in float representation. */
   @Test
   public void testFloat() throws Exception {
     File testValidInFile = testFolder.newFile("testValidFloatIn.arrow");
@@ -242,13 +280,25 @@ public class TestIntegration {
     Integration integration = new Integration();
 
     // convert the "valid" file to json
-    String[] args1 = {"-arrow", testValidInFile.getAbsolutePath(), "-json", testJSONFile
-        .getAbsolutePath(), "-command", Command.ARROW_TO_JSON.name()};
+    String[] args1 = {
+      "-arrow",
+      testValidInFile.getAbsolutePath(),
+      "-json",
+      testJSONFile.getAbsolutePath(),
+      "-command",
+      Command.ARROW_TO_JSON.name()
+    };
     integration.run(args1);
 
     // compare the "invalid" file to the "valid" json
-    String[] args3 = {"-arrow", testInvalidInFile.getAbsolutePath(), "-json", testJSONFile
-        .getAbsolutePath(), "-command", Command.VALIDATE.name()};
+    String[] args3 = {
+      "-arrow",
+      testInvalidInFile.getAbsolutePath(),
+      "-json",
+      testJSONFile.getAbsolutePath(),
+      "-command",
+      Command.VALIDATE.name()
+    };
     // this should fail
     integration.run(args3);
   }
@@ -268,13 +318,25 @@ public class TestIntegration {
     Integration integration = new Integration();
 
     // convert the "valid" file to json
-    String[] args1 = {"-arrow", testValidInFile.getAbsolutePath(), "-json", testJSONFile
-        .getAbsolutePath(), "-command", Command.ARROW_TO_JSON.name()};
+    String[] args1 = {
+      "-arrow",
+      testValidInFile.getAbsolutePath(),
+      "-json",
+      testJSONFile.getAbsolutePath(),
+      "-command",
+      Command.ARROW_TO_JSON.name()
+    };
     integration.run(args1);
 
     // compare the "invalid" file to the "valid" json
-    String[] args3 = {"-arrow", testInvalidInFile.getAbsolutePath(), "-json", testJSONFile
-        .getAbsolutePath(), "-command", Command.VALIDATE.name()};
+    String[] args3 = {
+      "-arrow",
+      testInvalidInFile.getAbsolutePath(),
+      "-json",
+      testJSONFile.getAbsolutePath(),
+      "-command",
+      Command.VALIDATE.name()
+    };
     // this should fail
     try {
       integration.run(args3);
@@ -283,6 +345,5 @@ public class TestIntegration {
       assertTrue(e.getMessage(), e.getMessage().contains("Different values in column"));
       assertTrue(e.getMessage(), e.getMessage().contains("999"));
     }
-
   }
 }

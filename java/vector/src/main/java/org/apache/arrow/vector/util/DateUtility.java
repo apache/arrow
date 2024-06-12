@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.util;
 
 import java.time.Instant;
@@ -26,14 +25,15 @@ import java.util.TimeZone;
 
 /** Utility class for Date, DateTime, TimeStamp, Interval data types. */
 public class DateUtility {
-  private DateUtility() {
-  }
+  private DateUtility() {}
 
   private static final String UTC = "UTC";
 
   public static final DateTimeFormatter formatDate = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-  public static final DateTimeFormatter formatTimeStampMilli = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
-  public static final DateTimeFormatter formatTimeStampTZ = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS ZZZ");
+  public static final DateTimeFormatter formatTimeStampMilli =
+      DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
+  public static final DateTimeFormatter formatTimeStampTZ =
+      DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS ZZZ");
   public static final DateTimeFormatter formatTime = DateTimeFormatter.ofPattern("HH:mm:ss.SSS");
 
   public static DateTimeFormatter dateTimeTZFormat = null;
@@ -56,8 +56,13 @@ public class DateUtility {
       DateTimeFormatter optionalSec = DateTimeFormatter.ofPattern(".SSS");
       DateTimeFormatter optionalZone = DateTimeFormatter.ofPattern(" ZZZ");
 
-      dateTimeTZFormat = new DateTimeFormatterBuilder().append(dateFormatter).appendOptional(optionalTime)
-        .appendOptional(optionalSec).appendOptional(optionalZone).toFormatter();
+      dateTimeTZFormat =
+          new DateTimeFormatterBuilder()
+              .append(dateFormatter)
+              .appendOptional(optionalTime)
+              .appendOptional(optionalSec)
+              .appendOptional(optionalZone)
+              .toFormatter();
     }
 
     return dateTimeTZFormat;
@@ -68,7 +73,11 @@ public class DateUtility {
     if (timeFormat == null) {
       DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
       DateTimeFormatter optionalSec = DateTimeFormatter.ofPattern(".SSS");
-      timeFormat = new DateTimeFormatterBuilder().append(timeFormatter).appendOptional(optionalSec).toFormatter();
+      timeFormat =
+          new DateTimeFormatterBuilder()
+              .append(timeFormatter)
+              .appendOptional(optionalSec)
+              .toFormatter();
     }
     return timeFormat;
   }
@@ -81,14 +90,13 @@ public class DateUtility {
    * @return LocalDateTime object with timeZone offset
    */
   public static LocalDateTime getLocalDateTimeFromEpochMilli(long epochMillis, String timeZone) {
-    final LocalDateTime localDateTime = LocalDateTime.ofInstant(
-         Instant.ofEpochMilli(epochMillis), TimeZone.getTimeZone(timeZone).toZoneId());
+    final LocalDateTime localDateTime =
+        LocalDateTime.ofInstant(
+            Instant.ofEpochMilli(epochMillis), TimeZone.getTimeZone(timeZone).toZoneId());
     return localDateTime;
   }
 
-  /**
-   * Convert milliseconds from epoch to a LocalDateTime with UTC offset.
-   */
+  /** Convert milliseconds from epoch to a LocalDateTime with UTC offset. */
   public static LocalDateTime getLocalDateTimeFromEpochMilli(long epochMillis) {
     return getLocalDateTimeFromEpochMilli(epochMillis, UTC);
   }
@@ -103,12 +111,11 @@ public class DateUtility {
   public static LocalDateTime getLocalDateTimeFromEpochMicro(long epochMicros, String timeZone) {
     final long millis = java.util.concurrent.TimeUnit.MICROSECONDS.toMillis(epochMicros);
     final long addl_micros = epochMicros - (millis * 1000);
-    return DateUtility.getLocalDateTimeFromEpochMilli(millis, timeZone).plus(addl_micros, ChronoUnit.MICROS);
+    return DateUtility.getLocalDateTimeFromEpochMilli(millis, timeZone)
+        .plus(addl_micros, ChronoUnit.MICROS);
   }
 
-  /**
-   * Convert microseconds from epoch to a LocalDateTime with UTC offset.
-   */
+  /** Convert microseconds from epoch to a LocalDateTime with UTC offset. */
   public static LocalDateTime getLocalDateTimeFromEpochMicro(long epochMicros) {
     return getLocalDateTimeFromEpochMicro(epochMicros, UTC);
   }
@@ -126,9 +133,7 @@ public class DateUtility {
     return DateUtility.getLocalDateTimeFromEpochMilli(millis, timeZone).plusNanos(addl_nanos);
   }
 
-  /**
-   * Convert nanoseconds from epoch to a LocalDateTime with UTC offset.
-   */
+  /** Convert nanoseconds from epoch to a LocalDateTime with UTC offset. */
   public static LocalDateTime getLocalDateTimeFromEpochNano(long epochNanos) {
     return getLocalDateTimeFromEpochNano(epochNanos, UTC);
   }

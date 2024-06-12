@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.accessor.impl.calendar;
 
 import static org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcDateVectorGetter.Getter;
@@ -29,7 +28,6 @@ import java.sql.Timestamp;
 import java.util.Calendar;
 import java.util.concurrent.TimeUnit;
 import java.util.function.IntSupplier;
-
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.driver.jdbc.utils.DateTimeUtils;
@@ -37,9 +35,7 @@ import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.ValueVector;
 
-/**
- * Accessor for the Arrow types: {@link DateDayVector} and {@link DateMilliVector}.
- */
+/** Accessor for the Arrow types: {@link DateDayVector} and {@link DateMilliVector}. */
 public class ArrowFlightJdbcDateVectorAccessor extends ArrowFlightJdbcAccessor {
 
   private final Getter getter;
@@ -49,12 +45,14 @@ public class ArrowFlightJdbcDateVectorAccessor extends ArrowFlightJdbcAccessor {
   /**
    * Instantiate an accessor for a {@link DateDayVector}.
    *
-   * @param vector             an instance of a DateDayVector.
+   * @param vector an instance of a DateDayVector.
    * @param currentRowSupplier the supplier to track the lines.
-   * @param setCursorWasNull   the consumer to set if value was null.
+   * @param setCursorWasNull the consumer to set if value was null.
    */
-  public ArrowFlightJdbcDateVectorAccessor(DateDayVector vector, IntSupplier currentRowSupplier,
-                                           ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+  public ArrowFlightJdbcDateVectorAccessor(
+      DateDayVector vector,
+      IntSupplier currentRowSupplier,
+      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
     super(currentRowSupplier, setCursorWasNull);
     this.holder = new Holder();
     this.getter = createGetter(vector);
@@ -64,11 +62,13 @@ public class ArrowFlightJdbcDateVectorAccessor extends ArrowFlightJdbcAccessor {
   /**
    * Instantiate an accessor for a {@link DateMilliVector}.
    *
-   * @param vector             an instance of a DateMilliVector.
+   * @param vector an instance of a DateMilliVector.
    * @param currentRowSupplier the supplier to track the lines.
    */
-  public ArrowFlightJdbcDateVectorAccessor(DateMilliVector vector, IntSupplier currentRowSupplier,
-                                           ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
+  public ArrowFlightJdbcDateVectorAccessor(
+      DateMilliVector vector,
+      IntSupplier currentRowSupplier,
+      ArrowFlightJdbcAccessorFactory.WasNullConsumer setCursorWasNull) {
     super(currentRowSupplier, setCursorWasNull);
     this.holder = new Holder();
     this.getter = createGetter(vector);

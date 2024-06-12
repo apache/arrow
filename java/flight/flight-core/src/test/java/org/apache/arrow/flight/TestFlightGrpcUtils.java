@@ -14,15 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.google.protobuf.Empty;
+import io.grpc.BindableService;
+import io.grpc.ConnectivityState;
+import io.grpc.ManagedChannel;
+import io.grpc.Server;
+import io.grpc.inprocess.InProcessChannelBuilder;
+import io.grpc.inprocess.InProcessServerBuilder;
+import io.grpc.stub.StreamObserver;
 import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
 import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -31,19 +37,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import com.google.protobuf.Empty;
-
-import io.grpc.BindableService;
-import io.grpc.ConnectivityState;
-import io.grpc.ManagedChannel;
-import io.grpc.Server;
-import io.grpc.inprocess.InProcessChannelBuilder;
-import io.grpc.inprocess.InProcessServerBuilder;
-import io.grpc.stub.StreamObserver;
-
-/**
- * Unit test which adds 2 services to same server end point.
- */
+/** Unit test which adds 2 services to same server end point. */
 public class TestFlightGrpcUtils {
   private Server server;
   private BufferAllocator allocator;
@@ -51,21 +45,22 @@ public class TestFlightGrpcUtils {
 
   @BeforeEach
   public void setup() throws IOException {
-    //Defines flight service
+    // Defines flight service
     allocator = new RootAllocator(Integer.MAX_VALUE);
     final NoOpFlightProducer producer = new NoOpFlightProducer();
     final ServerAuthHandler authHandler = ServerAuthHandler.NO_OP;
     final ExecutorService exec = Executors.newCachedThreadPool();
-    final BindableService flightBindingService = FlightGrpcUtils.createFlightService(allocator, producer,
-        authHandler, exec);
+    final BindableService flightBindingService =
+        FlightGrpcUtils.createFlightService(allocator, producer, authHandler, exec);
 
-    //initializes server with 2 services - FlightBindingService & TestService
+    // initializes server with 2 services - FlightBindingService & TestService
     serverName = InProcessServerBuilder.generateName();
-    server = InProcessServerBuilder.forName(serverName)
-        .directExecutor()
-        .addService(flightBindingService)
-        .addService(new TestServiceAdapter())
-        .build();
+    server =
+        InProcessServerBuilder.forName(serverName)
+            .directExecutor()
+            .addService(flightBindingService)
+            .addService(new TestServiceAdapter())
+            .build();
     server.start();
   }
 
@@ -75,39 +70,45 @@ public class TestFlightGrpcUtils {
   }
 
   /**
-   * This test checks if multiple gRPC services can be added to the same
-   * server endpoint and if they can be used by different clients via the same channel.
+   * This test checks if multiple gRPC services can be added to the same server endpoint and if they
+   * can be used by different clients via the same channel.
+   *
    * @throws IOException If server fails to start.
    */
   @Test
   public void testMultipleGrpcServices() throws IOException {
-    //Initializes channel so that multiple clients can communicate with server
-    final ManagedChannel managedChannel = InProcessChannelBuilder.forName(serverName)
-            .directExecutor()
-            .build();
+    // Initializes channel so that multiple clients can communicate with server
+    final ManagedChannel managedChannel =
+        InProcessChannelBuilder.forName(serverName).directExecutor().build();
 
-    //Defines flight client and calls service method. Since we use a NoOpFlightProducer we expect the service
-    //to throw a RunTimeException
+    // Defines flight client and calls service method. Since we use a NoOpFlightProducer we expect
+    // the service
+    // to throw a RunTimeException
     final FlightClient flightClient = FlightGrpcUtils.createFlightClient(allocator, managedChannel);
     final Iterable<ActionType> actionTypes = flightClient.listActions();
-    assertThrows(FlightRuntimeException.class, () -> actionTypes.forEach(
-        actionType -> System.out.println(actionType.toString())));
+    assertThrows(
+        FlightRuntimeException.class,
+        () -> actionTypes.forEach(actionType -> System.out.println(actionType.toString())));
 
-    //Define Test client as a blocking stub and call test method which correctly returns an empty protobuf object
-    final TestServiceGrpc.TestServiceBlockingStub blockingStub = TestServiceGrpc.newBlockingStub(managedChannel);
-    Assertions.assertEquals(Empty.newBuilder().build(), blockingStub.test(Empty.newBuilder().build()));
+    // Define Test client as a blocking stub and call test method which correctly returns an empty
+    // protobuf object
+    final TestServiceGrpc.TestServiceBlockingStub blockingStub =
+        TestServiceGrpc.newBlockingStub(managedChannel);
+    Assertions.assertEquals(
+        Empty.newBuilder().build(), blockingStub.test(Empty.newBuilder().build()));
   }
 
   @Test
   public void testShutdown() throws IOException, InterruptedException {
-    //Initializes channel so that multiple clients can communicate with server
-    final ManagedChannel managedChannel = InProcessChannelBuilder.forName(serverName)
-        .directExecutor()
-        .build();
+    // Initializes channel so that multiple clients can communicate with server
+    final ManagedChannel managedChannel =
+        InProcessChannelBuilder.forName(serverName).directExecutor().build();
 
-    //Defines flight client and calls service method. Since we use a NoOpFlightProducer we expect the service
-    //to throw a RunTimeException
-    final FlightClient flightClient = FlightGrpcUtils.createFlightClientWithSharedChannel(allocator, managedChannel);
+    // Defines flight client and calls service method. Since we use a NoOpFlightProducer we expect
+    // the service
+    // to throw a RunTimeException
+    final FlightClient flightClient =
+        FlightGrpcUtils.createFlightClientWithSharedChannel(allocator, managedChannel);
 
     // Should be a no-op.
     flightClient.close();
@@ -119,10 +120,9 @@ public class TestFlightGrpcUtils {
 
   @Test
   public void testProxyChannel() throws IOException, InterruptedException {
-    //Initializes channel so that multiple clients can communicate with server
-    final ManagedChannel managedChannel = InProcessChannelBuilder.forName(serverName)
-        .directExecutor()
-        .build();
+    // Initializes channel so that multiple clients can communicate with server
+    final ManagedChannel managedChannel =
+        InProcessChannelBuilder.forName(serverName).directExecutor().build();
 
     final FlightGrpcUtils.NonClosingProxyManagedChannel proxyChannel =
         new FlightGrpcUtils.NonClosingProxyManagedChannel(managedChannel);
@@ -148,10 +148,9 @@ public class TestFlightGrpcUtils {
 
   @Test
   public void testProxyChannelWithClosedChannel() throws IOException, InterruptedException {
-    //Initializes channel so that multiple clients can communicate with server
-    final ManagedChannel managedChannel = InProcessChannelBuilder.forName(serverName)
-        .directExecutor()
-        .build();
+    // Initializes channel so that multiple clients can communicate with server
+    final ManagedChannel managedChannel =
+        InProcessChannelBuilder.forName(serverName).directExecutor().build();
 
     final FlightGrpcUtils.NonClosingProxyManagedChannel proxyChannel =
         new FlightGrpcUtils.NonClosingProxyManagedChannel(managedChannel);
@@ -173,13 +172,12 @@ public class TestFlightGrpcUtils {
     Assertions.assertEquals(ConnectivityState.SHUTDOWN, managedChannel.getState(false));
   }
 
-  /**
-   * Private class used for testing purposes that overrides service behavior.
-   */
+  /** Private class used for testing purposes that overrides service behavior. */
   private static class TestServiceAdapter extends TestServiceGrpc.TestServiceImplBase {
 
     /**
      * gRPC service that receives an empty object & returns and empty protobuf object.
+     *
      * @param request google.protobuf.Empty
      * @param responseObserver google.protobuf.Empty
      */
@@ -190,4 +188,3 @@ public class TestFlightGrpcUtils {
     }
   }
 }
-

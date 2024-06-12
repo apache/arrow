@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.c;
 
 import static org.apache.arrow.c.NativeUtil.NULL;
@@ -23,7 +22,6 @@ import static org.apache.arrow.util.Preconditions.checkNotNull;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-
 import org.apache.arrow.c.jni.CDataJniException;
 import org.apache.arrow.c.jni.JniWrapper;
 import org.apache.arrow.memory.ArrowBuf;
@@ -33,8 +31,8 @@ import org.apache.arrow.memory.util.MemoryUtil;
 
 /**
  * C Stream Interface ArrowArrayStream.
- * <p>
- * Represents a wrapper for the following C structure:
+ *
+ * <p>Represents a wrapper for the following C structure:
  *
  * <pre>
  * struct ArrowArrayStream {
@@ -52,9 +50,7 @@ public class ArrowArrayStream implements BaseStruct {
 
   private ArrowBuf data;
 
-  /**
-   * Snapshot of the ArrowArrayStream raw data.
-   */
+  /** Snapshot of the ArrowArrayStream raw data. */
   public static class Snapshot {
     public long get_schema;
     public long get_next;
@@ -62,9 +58,7 @@ public class ArrowArrayStream implements BaseStruct {
     public long release;
     public long private_data;
 
-    /**
-     * Initialize empty ArrowArray snapshot.
-     */
+    /** Initialize empty ArrowArray snapshot. */
     public Snapshot() {
       get_schema = NULL;
       get_next = NULL;
@@ -76,20 +70,21 @@ public class ArrowArrayStream implements BaseStruct {
 
   /**
    * Create ArrowArrayStream from an existing memory address.
-   * <p>
-   * The resulting ArrowArrayStream does not own the memory.
+   *
+   * <p>The resulting ArrowArrayStream does not own the memory.
    *
    * @param memoryAddress Memory address to wrap
    * @return A new ArrowArrayStream instance
    */
   public static ArrowArrayStream wrap(long memoryAddress) {
-    return new ArrowArrayStream(new ArrowBuf(ReferenceManager.NO_OP, null, ArrowArrayStream.SIZE_OF, memoryAddress));
+    return new ArrowArrayStream(
+        new ArrowBuf(ReferenceManager.NO_OP, null, ArrowArrayStream.SIZE_OF, memoryAddress));
   }
 
   /**
    * Create ArrowArrayStream by allocating memory.
-   * <p>
-   * The resulting ArrowArrayStream owns the memory.
+   *
+   * <p>The resulting ArrowArrayStream owns the memory.
    *
    * @param allocator Allocator for memory allocations
    * @return A new ArrowArrayStream instance
@@ -105,9 +100,7 @@ public class ArrowArrayStream implements BaseStruct {
     this.data = data;
   }
 
-  /**
-   * Mark the array as released.
-   */
+  /** Mark the array as released. */
   public void markReleased() {
     directBuffer().putLong(INDEX_RELEASE_CALLBACK, NULL);
   }
@@ -126,6 +119,7 @@ public class ArrowArrayStream implements BaseStruct {
 
   /**
    * Get the schema of the stream.
+   *
    * @param schema The ArrowSchema struct to output to
    * @throws IOException if the stream returns an error
    */
@@ -140,6 +134,7 @@ public class ArrowArrayStream implements BaseStruct {
 
   /**
    * Get the next batch in the stream.
+   *
    * @param array The ArrowArray struct to output to
    * @throws IOException if the stream returns an error
    */
@@ -161,7 +156,8 @@ public class ArrowArrayStream implements BaseStruct {
   }
 
   private ByteBuffer directBuffer() {
-    return MemoryUtil.directBuffer(memoryAddress(), ArrowArrayStream.SIZE_OF).order(ByteOrder.nativeOrder());
+    return MemoryUtil.directBuffer(memoryAddress(), ArrowArrayStream.SIZE_OF)
+        .order(ByteOrder.nativeOrder());
   }
 
   /**
@@ -180,9 +176,7 @@ public class ArrowArrayStream implements BaseStruct {
     return snapshot;
   }
 
-  /**
-   * Write values from Snapshot to the underlying ArrowArrayStream memory buffer.
-   */
+  /** Write values from Snapshot to the underlying ArrowArrayStream memory buffer. */
   public void save(ArrowArrayStream.Snapshot snapshot) {
     directBuffer()
         .putLong(snapshot.get_schema)

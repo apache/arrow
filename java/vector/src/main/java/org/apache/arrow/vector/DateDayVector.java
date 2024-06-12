@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
@@ -31,17 +30,15 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
- * DateDayVector implements a fixed width (4 bytes) vector of
- * date values which could be null. A validity buffer (bit vector) is
- * maintained to track which elements in the vector are null.
+ * DateDayVector implements a fixed width (4 bytes) vector of date values which could be null. A
+ * validity buffer (bit vector) is maintained to track which elements in the vector are null.
  */
 public final class DateDayVector extends BaseFixedWidthVector {
 
   public static final byte TYPE_WIDTH = 4;
 
   /**
-   * Instantiate a DateDayVector. This doesn't allocate any memory for
-   * the data in vector.
+   * Instantiate a DateDayVector. This doesn't allocate any memory for the data in vector.
    *
    * @param name name of the vector
    * @param allocator allocator for memory management.
@@ -51,8 +48,7 @@ public final class DateDayVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Instantiate a DateDayVector. This doesn't allocate any memory for
-   * the data in vector.
+   * Instantiate a DateDayVector. This doesn't allocate any memory for the data in vector.
    *
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
@@ -63,8 +59,7 @@ public final class DateDayVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Instantiate a DateDayVector. This doesn't allocate any memory for
-   * the data in vector.
+   * Instantiate a DateDayVector. This doesn't allocate any memory for the data in vector.
    *
    * @param field Field materialized by this vector
    * @param allocator allocator for memory management.
@@ -79,8 +74,8 @@ public final class DateDayVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Get minor type for this vector. The vector holds values belonging
-   * to a particular type.
+   * Get minor type for this vector. The vector holds values belonging to a particular type.
+   *
    * @return {@link org.apache.arrow.vector.types.Types.MinorType}
    */
   @Override
@@ -88,18 +83,16 @@ public final class DateDayVector extends BaseFixedWidthVector {
     return MinorType.DATEDAY;
   }
 
-
   /*----------------------------------------------------------------*
-   |                                                                |
-   |          vector value retrieval methods                        |
-   |                                                                |
-   *----------------------------------------------------------------*/
-
+  |                                                                |
+  |          vector value retrieval methods                        |
+  |                                                                |
+  *----------------------------------------------------------------*/
 
   /**
    * Get the element at the given index from the vector.
    *
-   * @param index   position of element
+   * @param index position of element
    * @return element at given index
    */
   public int get(int index) throws IllegalStateException {
@@ -110,11 +103,10 @@ public final class DateDayVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Get the element at the given index from the vector and
-   * sets the state in holder. If element at given index
-   * is null, holder.isSet will be zero.
+   * Get the element at the given index from the vector and sets the state in holder. If element at
+   * given index is null, holder.isSet will be zero.
    *
-   * @param index   position of element
+   * @param index position of element
    */
   public void get(int index, NullableDateDayHolder holder) {
     if (isSet(index) == 0) {
@@ -128,7 +120,7 @@ public final class DateDayVector extends BaseFixedWidthVector {
   /**
    * Same as {@link #get(int)}.
    *
-   * @param index   position of element
+   * @param index position of element
    * @return element at given index
    */
   @Override
@@ -141,11 +133,10 @@ public final class DateDayVector extends BaseFixedWidthVector {
   }
 
   /*----------------------------------------------------------------*
-   |                                                                |
-   |          vector value setter methods                           |
-   |                                                                |
-   *----------------------------------------------------------------*/
-
+  |                                                                |
+  |          vector value setter methods                           |
+  |                                                                |
+  *----------------------------------------------------------------*/
 
   private void setValue(int index, int value) {
     valueBuffer.setInt((long) index * TYPE_WIDTH, value);
@@ -154,8 +145,8 @@ public final class DateDayVector extends BaseFixedWidthVector {
   /**
    * Set the element at the given index to the given value.
    *
-   * @param index   position of element
-   * @param value   value of element
+   * @param index position of element
+   * @param value value of element
    */
   public void set(int index, int value) {
     BitVectorHelper.setBit(validityBuffer, index);
@@ -163,12 +154,11 @@ public final class DateDayVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Set the element at the given index to the value set in data holder.
-   * If the value in holder is not indicated as set, element in the
-   * at the given index will be null.
+   * Set the element at the given index to the value set in data holder. If the value in holder is
+   * not indicated as set, element in the at the given index will be null.
    *
-   * @param index   position of element
-   * @param holder  nullable data holder for value of element
+   * @param index position of element
+   * @param holder nullable data holder for value of element
    */
   public void set(int index, NullableDateDayHolder holder) throws IllegalArgumentException {
     if (holder.isSet < 0) {
@@ -184,8 +174,8 @@ public final class DateDayVector extends BaseFixedWidthVector {
   /**
    * Set the element at the given index to the value set in data holder.
    *
-   * @param index   position of element
-   * @param holder  data holder for value of element
+   * @param index position of element
+   * @param holder data holder for value of element
    */
   public void set(int index, DateDayHolder holder) {
     BitVectorHelper.setBit(validityBuffer, index);
@@ -193,12 +183,11 @@ public final class DateDayVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Same as {@link #set(int, int)} except that it handles the
-   * case when index is greater than or equal to existing
-   * value capacity {@link #getValueCapacity()}.
+   * Same as {@link #set(int, int)} except that it handles the case when index is greater than or
+   * equal to existing value capacity {@link #getValueCapacity()}.
    *
-   * @param index   position of element
-   * @param value   value of element
+   * @param index position of element
+   * @param value value of element
    */
   public void setSafe(int index, int value) {
     handleSafe(index);
@@ -206,12 +195,11 @@ public final class DateDayVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Same as {@link #set(int, NullableDateDayHolder)} except that it handles the
-   * case when index is greater than or equal to existing
-   * value capacity {@link #getValueCapacity()}.
+   * Same as {@link #set(int, NullableDateDayHolder)} except that it handles the case when index is
+   * greater than or equal to existing value capacity {@link #getValueCapacity()}.
    *
-   * @param index   position of element
-   * @param holder  nullable data holder for value of element
+   * @param index position of element
+   * @param holder nullable data holder for value of element
    */
   public void setSafe(int index, NullableDateDayHolder holder) throws IllegalArgumentException {
     handleSafe(index);
@@ -219,12 +207,11 @@ public final class DateDayVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Same as {@link #set(int, DateDayHolder)} except that it handles the
-   * case when index is greater than or equal to existing
-   * value capacity {@link #getValueCapacity()}.
+   * Same as {@link #set(int, DateDayHolder)} except that it handles the case when index is greater
+   * than or equal to existing value capacity {@link #getValueCapacity()}.
    *
-   * @param index   position of element
-   * @param holder  data holder for value of element
+   * @param index position of element
+   * @param holder data holder for value of element
    */
   public void setSafe(int index, DateDayHolder holder) {
     handleSafe(index);
@@ -232,8 +219,8 @@ public final class DateDayVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Store the given value at a particular position in the vector. isSet indicates
-   * whether the value is NULL or not.
+   * Store the given value at a particular position in the vector. isSet indicates whether the value
+   * is NULL or not.
    *
    * @param index position of the new value
    * @param isSet 0 for NULL value, 1 otherwise
@@ -248,9 +235,8 @@ public final class DateDayVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Same as {@link #set(int, int, int)} except that it handles the case
-   * when index is greater than or equal to current value capacity of the
-   * vector.
+   * Same as {@link #set(int, int, int)} except that it handles the case when index is greater than
+   * or equal to current value capacity of the vector.
    *
    * @param index position of the new value
    * @param isSet 0 for NULL value, 1 otherwise
@@ -262,8 +248,7 @@ public final class DateDayVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Given a data buffer, get the value stored at a particular position
-   * in the vector.
+   * Given a data buffer, get the value stored at a particular position in the vector.
    *
    * <p>This method should not be used externally.
    *
@@ -275,17 +260,14 @@ public final class DateDayVector extends BaseFixedWidthVector {
     return buffer.getInt((long) index * TYPE_WIDTH);
   }
 
-
   /*----------------------------------------------------------------*
-   |                                                                |
-   |                      vector transfer                           |
-   |                                                                |
-   *----------------------------------------------------------------*/
-
+  |                                                                |
+  |                      vector transfer                           |
+  |                                                                |
+  *----------------------------------------------------------------*/
 
   /**
-   * Construct a TransferPair comprising this and a target vector of
-   * the same type.
+   * Construct a TransferPair comprising this and a target vector of the same type.
    *
    * @param ref name of the target vector
    * @param allocator allocator for the target vector
@@ -297,8 +279,7 @@ public final class DateDayVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Construct a TransferPair comprising this and a target vector of
-   * the same type.
+   * Construct a TransferPair comprising this and a target vector of the same type.
    *
    * @param field Field object used by the target vector
    * @param allocator allocator for the target vector

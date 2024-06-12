@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.utils;
 
 import static org.apache.arrow.util.AutoCloseables.close;
@@ -23,7 +22,6 @@ import static org.mockito.MockitoAnnotations.openMocks;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
-
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
 import org.junit.After;
 import org.junit.Assert;
@@ -39,13 +37,11 @@ import org.mockito.Mock;
 @RunWith(Parameterized.class)
 public final class ArrowFlightConnectionPropertyTest {
 
-  @Mock
-  public Properties properties;
+  @Mock public Properties properties;
 
   private AutoCloseable mockitoResource;
 
-  @Parameter
-  public ArrowFlightConnectionProperty arrowFlightConnectionProperty;
+  @Parameter public ArrowFlightConnectionProperty arrowFlightConnectionProperty;
 
   @Before
   public void setUp() {
@@ -59,21 +55,22 @@ public final class ArrowFlightConnectionPropertyTest {
 
   @Test
   public void testWrapIsUnsupported() {
-    ThrowableAssertionUtils.simpleAssertThrowableClass(UnsupportedOperationException.class,
-        () -> arrowFlightConnectionProperty.wrap(properties));
+    ThrowableAssertionUtils.simpleAssertThrowableClass(
+        UnsupportedOperationException.class, () -> arrowFlightConnectionProperty.wrap(properties));
   }
 
   @Test
   public void testRequiredPropertyThrows() {
     Assume.assumeTrue(arrowFlightConnectionProperty.required());
-    ThrowableAssertionUtils.simpleAssertThrowableClass(IllegalStateException.class,
-        () -> arrowFlightConnectionProperty.get(new Properties()));
+    ThrowableAssertionUtils.simpleAssertThrowableClass(
+        IllegalStateException.class, () -> arrowFlightConnectionProperty.get(new Properties()));
   }
 
   @Test
   public void testOptionalPropertyReturnsDefault() {
     Assume.assumeTrue(!arrowFlightConnectionProperty.required());
-    Assert.assertEquals(arrowFlightConnectionProperty.defaultValue(),
+    Assert.assertEquals(
+        arrowFlightConnectionProperty.defaultValue(),
         arrowFlightConnectionProperty.get(new Properties()));
   }
 
@@ -82,7 +79,8 @@ public final class ArrowFlightConnectionPropertyTest {
     final ArrowFlightConnectionProperty[] arrowFlightConnectionProperties =
         ArrowFlightConnectionProperty.values();
     final List<Object[]> parameters = new ArrayList<>(arrowFlightConnectionProperties.length);
-    for (final ArrowFlightConnectionProperty arrowFlightConnectionProperty : arrowFlightConnectionProperties) {
+    for (final ArrowFlightConnectionProperty arrowFlightConnectionProperty :
+        arrowFlightConnectionProperties) {
       parameters.add(new Object[] {arrowFlightConnectionProperty});
     }
     return parameters;

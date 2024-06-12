@@ -14,15 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.gandiva.evaluator;
 
 import org.apache.arrow.gandiva.ipc.GandivaTypes.SelectionVectorType;
 import org.apache.arrow.memory.ArrowBuf;
 
-/**
- * Selection vector with records of arrow type INT32.
- */
+/** Selection vector with records of arrow type INT32. */
 public class SelectionVectorInt32 extends SelectionVector {
 
   public SelectionVectorInt32(ArrowBuf buffer) {

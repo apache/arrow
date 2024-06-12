@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.table;
 
 import java.util.ArrayList;
@@ -22,7 +21,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.FieldVector;
@@ -38,8 +36,8 @@ import org.apache.arrow.vector.util.TransferPair;
 
 /**
  * Abstract base class for Table.
- * <p>
- * This API is EXPERIMENTAL.
+ *
+ * <p>This API is EXPERIMENTAL.
  */
 public abstract class BaseTable implements AutoCloseable {
 
@@ -58,7 +56,9 @@ public abstract class BaseTable implements AutoCloseable {
   /** The schema for the table. */
   protected Schema schema;
 
-  /** The number of rows of data in the table; not necessarily the same as the table row capacity. */
+  /**
+   * The number of rows of data in the table; not necessarily the same as the table row capacity.
+   */
   protected int rowCount;
 
   /**
@@ -123,16 +123,14 @@ public abstract class BaseTable implements AutoCloseable {
    * Returns a FieldReader for the field at the given vector index.
    *
    * @param index The 0-based index of the field desired.
-   * @return  A FieldReader for the requested field
+   * @return A FieldReader for the requested field
    */
   public FieldReader getReader(int index) {
     Preconditions.checkArgument(index >= 0 && index < fieldVectors.size());
     return fieldVectors.get(index).getReader();
   }
 
-  /**
-   * Returns the schema for this Table.
-   */
+  /** Returns the schema for this Table. */
   public Schema getSchema() {
     return schema;
   }
@@ -245,8 +243,8 @@ public abstract class BaseTable implements AutoCloseable {
   }
 
   /**
-   * Returns the vector with the given name, or throws IllegalArgumentException if the name is not found. Names are
-   * case-sensitive.
+   * Returns the vector with the given name, or throws IllegalArgumentException if the name is not
+   * found. Names are case-sensitive.
    *
    * @param columnName The name of the vector
    * @return the Vector with the given name, or null
@@ -258,7 +256,8 @@ public abstract class BaseTable implements AutoCloseable {
         return entry.getValue();
       }
     }
-    throw new IllegalArgumentException(String.format("No vector named '%s' is present in the table", columnName));
+    throw new IllegalArgumentException(
+        String.format("No vector named '%s' is present in the table", columnName));
   }
 
   /**
@@ -270,10 +269,9 @@ public abstract class BaseTable implements AutoCloseable {
     return fieldVectors.get(columnIndex);
   }
 
-
   /**
-   * Returns a copy of the vector with the given name, or throws IllegalArgumentException if the name is not found.
-   * Names are case-sensitive.
+   * Returns a copy of the vector with the given name, or throws IllegalArgumentException if the
+   * name is not found. Names are case-sensitive.
    *
    * @param columnName The name of the vector to copy
    * @return A copy of the Vector with the given name
@@ -293,7 +291,8 @@ public abstract class BaseTable implements AutoCloseable {
         return copy;
       }
     }
-    throw new IllegalStateException(String.format("No vector named '%s' is present in the table", columnName));
+    throw new IllegalStateException(
+        String.format("No vector named '%s' is present in the table", columnName));
   }
 
   /**
@@ -314,16 +313,14 @@ public abstract class BaseTable implements AutoCloseable {
 
   /**
    * Returns an immutable Row object holding a reference to this table. The default character
-   * encoding used by the cursor to decode Strings will be StandardCharsets.UTF_8 as this is the only charset
-   * supported in Arrow format.
+   * encoding used by the cursor to decode Strings will be StandardCharsets.UTF_8 as this is the
+   * only charset supported in Arrow format.
    */
   public Row immutableRow() {
     return new Row(this);
   }
 
-  /**
-   * Returns a tab separated value of vectors (based on their java object representation).
-   */
+  /** Returns a tab separated value of vectors (based on their java object representation). */
   public String contentToTSVString() {
     StringBuilder sb = new StringBuilder();
     List<Object> row = new ArrayList<>(schema.getFields().size());
@@ -379,10 +376,11 @@ public abstract class BaseTable implements AutoCloseable {
 
   /**
    * Returns a ValueVector containing the decoded version of the vector with the given name.
-   * @param vectorName    The name of the vector to decode
-   * @param dictionaryId  The identifier for the dictionary to use when decoding. Must match the id returned by the
-   *                      dictionary's getId() method.
-   * @return  A ValueVector
+   *
+   * @param vectorName The name of the vector to decode
+   * @param dictionaryId The identifier for the dictionary to use when decoding. Must match the id
+   *     returned by the dictionary's getId() method.
+   * @return A ValueVector
    */
   public ValueVector decode(String vectorName, long dictionaryId) {
     Dictionary dictionary = getDictionary(dictionaryId);
@@ -399,10 +397,11 @@ public abstract class BaseTable implements AutoCloseable {
 
   /**
    * Returns a ValueVector containing the encoded version of the vector with the given name.
-   * @param vectorName    The name of the vector to encode
-   * @param dictionaryId  The identifier for the dictionary to use when encoding. Must match the id returned by the
-   *                      dictionary's getId() method.
-   * @return  A ValueVector
+   *
+   * @param vectorName The name of the vector to encode
+   * @param dictionaryId The identifier for the dictionary to use when encoding. Must match the id
+   *     returned by the dictionary's getId() method.
+   * @return A ValueVector
    */
   public ValueVector encode(String vectorName, long dictionaryId) {
     Dictionary dictionary = getDictionary(dictionaryId);
@@ -417,7 +416,8 @@ public abstract class BaseTable implements AutoCloseable {
 
   /**
    * Returns the dictionary with given id.
-   * @param dictionaryId  A long integer that is the id returned by the dictionary's getId() method
+   *
+   * @param dictionaryId A long integer that is the id returned by the dictionary's getId() method
    */
   private Dictionary getDictionary(long dictionaryId) {
     if (dictionaryProvider == null) {

@@ -14,19 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory.netty;
 
 import static org.junit.Assert.assertEquals;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.NettyArrowBuf;
 import java.nio.ByteOrder;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.junit.Test;
-
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.NettyArrowBuf;
 
 public class TestEndianness {
 
@@ -49,5 +46,4 @@ public class TestEndianness {
     b.release();
     a.close();
   }
-
 }

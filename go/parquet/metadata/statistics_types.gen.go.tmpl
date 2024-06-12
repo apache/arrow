@@ -464,14 +464,7 @@ func (s *{{.Name}}Statistics) EncodeMax() []byte{
 func (s *{{.Name}}Statistics) Encode() (enc EncodedStatistics, err error) {
   defer func() {
     if r := recover(); r != nil {
-      switch r := r.(type) {
-			case error:
-				err = r
-			case string:
-				err = xerrors.New(r)
-			default:
-				err = fmt.Errorf("unknown error type thrown from panic: %v", r)
-			}
+      err = shared_utils.FormatRecoveredError("unknown error type thrown from panic", r)
     }
   }()
   if s.HasMinMax() {

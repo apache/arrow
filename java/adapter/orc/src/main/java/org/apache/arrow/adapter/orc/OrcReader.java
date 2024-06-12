@@ -14,44 +14,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.orc;
 
 import java.io.IOException;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.ipc.ArrowReader;
 
 /**
- *  Orc Reader that allow accessing orc stripes in Orc file.
- *  This orc reader basically acts like an ArrowReader iterator that
- *  iterate over orc stripes. Each stripe will be accessed via an
- *  ArrowReader.
+ * Orc Reader that allow accessing orc stripes in Orc file. This orc reader basically acts like an
+ * ArrowReader iterator that iterate over orc stripes. Each stripe will be accessed via an
+ * ArrowReader.
  */
 public class OrcReader implements AutoCloseable {
   private final OrcReaderJniWrapper jniWrapper;
   private BufferAllocator allocator;
 
-  /**
-   * reference to native reader instance.
-   */
+  /** reference to native reader instance. */
   private final long nativeInstanceId;
 
   /**
    * Create an OrcReader that iterate over orc stripes.
+   *
    * @param filePath file path to target file, currently only support local file.
    * @param allocator allocator provided to ArrowReader.
    * @throws IOException throws exception in case of file not found
    */
-  public OrcReader(String filePath, BufferAllocator allocator) throws IOException, IllegalAccessException {
+  public OrcReader(String filePath, BufferAllocator allocator)
+      throws IOException, IllegalAccessException {
     this.allocator = allocator;
     this.jniWrapper = OrcReaderJniWrapper.getInstance();
     this.nativeInstanceId = jniWrapper.open(filePath);
   }
 
   /**
-   * Seek to designated row. Invoke NextStripeReader() after seek
-   * will return stripe reader starting from designated row.
+   * Seek to designated row. Invoke NextStripeReader() after seek will return stripe reader starting
+   * from designated row.
+   *
    * @param rowNumber the rows number to seek
    * @return true if seek operation is succeeded
    */

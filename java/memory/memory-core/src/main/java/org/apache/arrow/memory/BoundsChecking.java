@@ -14,19 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory;
 
 /**
  * Configuration class to determine if bounds checking should be turned on or off.
  *
- * <p>
- * Bounds checking is on by default.  You can disable it by setting either the system property or
- * the environmental variable to "true". The system property can be "arrow.enable_unsafe_memory_access"
- * or "drill.enable_unsafe_memory_access". The latter is deprecated. The environmental variable is named
- * "ARROW_ENABLE_UNSAFE_MEMORY_ACCESS".
- * When both the system property and the environmental variable are set, the system property takes precedence.
- * </p>
+ * <p>Bounds checking is on by default. You can disable it by setting either the system property or
+ * the environmental variable to "true". The system property can be
+ * "arrow.enable_unsafe_memory_access" or "drill.enable_unsafe_memory_access". The latter is
+ * deprecated. The environmental variable is named "ARROW_ENABLE_UNSAFE_MEMORY_ACCESS". When both
+ * the system property and the environmental variable are set, the system property takes precedence.
  */
 public class BoundsChecking {
 
@@ -37,9 +34,11 @@ public class BoundsChecking {
     String envProperty = System.getenv("ARROW_ENABLE_UNSAFE_MEMORY_ACCESS");
     String oldProperty = System.getProperty("drill.enable_unsafe_memory_access");
     if (oldProperty != null) {
-      logger.warn("\"drill.enable_unsafe_memory_access\" has been renamed to \"arrow.enable_unsafe_memory_access\"");
-      logger.warn("\"arrow.enable_unsafe_memory_access\" can be set to: " +
-              " true (to not check) or false (to check, default)");
+      logger.warn(
+          "\"drill.enable_unsafe_memory_access\" has been renamed to \"arrow.enable_unsafe_memory_access\"");
+      logger.warn(
+          "\"arrow.enable_unsafe_memory_access\" can be set to: "
+              + " true (to not check) or false (to check, default)");
     }
     String newProperty = System.getProperty("arrow.enable_unsafe_memory_access");
 
@@ -57,7 +56,5 @@ public class BoundsChecking {
     BOUNDS_CHECKING_ENABLED = !"true".equals(unsafeFlagValue);
   }
 
-  private BoundsChecking() {
-  }
-
+  private BoundsChecking() {}
 }

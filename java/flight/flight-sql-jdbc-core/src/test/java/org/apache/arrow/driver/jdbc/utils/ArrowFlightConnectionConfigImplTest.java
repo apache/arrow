@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.utils;
 
 import static java.lang.Runtime.getRuntime;
@@ -31,7 +30,6 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Random;
 import java.util.function.Function;
-
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
 import org.junit.Before;
 import org.junit.Rule;
@@ -50,11 +48,9 @@ public final class ArrowFlightConnectionConfigImplTest {
   private final Properties properties = new Properties();
   private ArrowFlightConnectionConfigImpl arrowFlightConnectionConfig;
 
-  @Rule
-  public final ErrorCollector collector = new ErrorCollector();
+  @Rule public final ErrorCollector collector = new ErrorCollector();
 
-  @Parameter
-  public ArrowFlightConnectionProperty property;
+  @Parameter public ArrowFlightConnectionProperty property;
 
   @Parameter(value = 1)
   public Object value;
@@ -70,27 +66,47 @@ public final class ArrowFlightConnectionConfigImplTest {
 
   @Test
   public void testGetProperty() {
-    collector.checkThat(arrowFlightConnectionConfigFunction.apply(arrowFlightConnectionConfig),
-        is(value));
+    collector.checkThat(
+        arrowFlightConnectionConfigFunction.apply(arrowFlightConnectionConfig), is(value));
   }
 
   @Parameters(name = "<{0}> as <{1}>")
   public static List<Object[]> provideParameters() {
-    return asList(new Object[][] {
-        {HOST, "host",
-            (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::getHost},
-        {PORT,
+    return asList(
+        new Object[][] {
+          {
+            HOST,
+            "host",
+            (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::getHost
+          },
+          {
+            PORT,
             RANDOM.nextInt(Short.toUnsignedInt(Short.MAX_VALUE)),
-            (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::getPort},
-        {USER, "user",
-            (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::getUser},
-        {PASSWORD, "password",
-            (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::getPassword},
-        {USE_ENCRYPTION, RANDOM.nextBoolean(),
-            (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::useEncryption},
-        {THREAD_POOL_SIZE,
+            (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::getPort
+          },
+          {
+            USER,
+            "user",
+            (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::getUser
+          },
+          {
+            PASSWORD,
+            "password",
+            (Function<ArrowFlightConnectionConfigImpl, ?>)
+                ArrowFlightConnectionConfigImpl::getPassword
+          },
+          {
+            USE_ENCRYPTION,
+            RANDOM.nextBoolean(),
+            (Function<ArrowFlightConnectionConfigImpl, ?>)
+                ArrowFlightConnectionConfigImpl::useEncryption
+          },
+          {
+            THREAD_POOL_SIZE,
             RANDOM.nextInt(getRuntime().availableProcessors()),
-            (Function<ArrowFlightConnectionConfigImpl, ?>) ArrowFlightConnectionConfigImpl::threadPoolSize},
-    });
+            (Function<ArrowFlightConnectionConfigImpl, ?>)
+                ArrowFlightConnectionConfigImpl::threadPoolSize
+          },
+        });
   }
 }

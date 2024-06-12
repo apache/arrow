@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.complex;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -37,7 +36,8 @@ import org.apache.arrow.vector.util.ValueVectorUtility;
  * <p>This class implements common functionality of composite vectors.
  */
 public abstract class AbstractContainerVector implements ValueVector, DensityAwareVector {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AbstractContainerVector.class);
+  static final org.slf4j.Logger logger =
+      org.slf4j.LoggerFactory.getLogger(AbstractContainerVector.class);
 
   protected final String name;
   protected final BufferAllocator allocator;
@@ -49,9 +49,7 @@ public abstract class AbstractContainerVector implements ValueVector, DensityAwa
     this.callBack = callBack;
   }
 
-  /**
-   * Representation of vector suitable for debugging.
-   */
+  /** Representation of vector suitable for debugging. */
   @Override
   public String toString() {
     return ValueVectorUtility.getToString(this, 0, getValueCount());
@@ -70,7 +68,8 @@ public abstract class AbstractContainerVector implements ValueVector, DensityAwa
   }
 
   /**
-   * Returns a {@link org.apache.arrow.vector.ValueVector} corresponding to the given field name if exists or null.
+   * Returns a {@link org.apache.arrow.vector.ValueVector} corresponding to the given field name if
+   * exists or null.
    *
    * @param name the name of the child to return
    * @return the corresponding FieldVector
@@ -79,9 +78,7 @@ public abstract class AbstractContainerVector implements ValueVector, DensityAwa
     return getChild(name, FieldVector.class);
   }
 
-  /**
-   * Clears out all underlying child vectors.
-   */
+  /** Clears out all underlying child vectors. */
   @Override
   public void close() {
     for (ValueVector vector : (Iterable<ValueVector>) this) {
@@ -93,8 +90,11 @@ public abstract class AbstractContainerVector implements ValueVector, DensityAwa
     if (clazz.isAssignableFrom(v.getClass())) {
       return clazz.cast(v);
     }
-    throw new IllegalStateException(String.format("Vector requested [%s] was different than type stored [%s]. Arrow " +
-      "doesn't yet support heterogeneous types.", clazz.getSimpleName(), v.getClass().getSimpleName()));
+    throw new IllegalStateException(
+        String.format(
+            "Vector requested [%s] was different than type stored [%s]. Arrow "
+                + "doesn't yet support heterogeneous types.",
+            clazz.getSimpleName(), v.getClass().getSimpleName()));
   }
 
   protected boolean supportsDirectRead() {
@@ -104,8 +104,10 @@ public abstract class AbstractContainerVector implements ValueVector, DensityAwa
   // return the number of child vectors
   public abstract int size();
 
-  // add a new vector with the input FieldType or return the existing vector if we already added one with the same name
-  public abstract <T extends FieldVector> T addOrGet(String name, FieldType fieldType, Class<T> clazz);
+  // add a new vector with the input FieldType or return the existing vector if we already added one
+  // with the same name
+  public abstract <T extends FieldVector> T addOrGet(
+      String name, FieldType fieldType, Class<T> clazz);
 
   // return the child vector with the input name
   public abstract <T extends FieldVector> T getChild(String name, Class<T> clazz);
@@ -126,7 +128,8 @@ public abstract class AbstractContainerVector implements ValueVector, DensityAwa
   }
 
   public FixedSizeListVector addOrGetFixedSizeList(String name, int listSize) {
-    return addOrGet(name, FieldType.nullable(new FixedSizeList(listSize)), FixedSizeListVector.class);
+    return addOrGet(
+        name, FieldType.nullable(new FixedSizeList(listSize)), FixedSizeListVector.class);
   }
 
   public MapVector addOrGetMap(String name, boolean keysSorted) {

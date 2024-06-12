@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.orc;
 
 import static org.junit.Assert.assertEquals;
@@ -24,8 +23,6 @@ import static org.junit.Assert.assertNull;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-
-
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.IntVector;
@@ -45,11 +42,9 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
-
 public class OrcReaderTest {
 
-  @Rule
-  public TemporaryFolder testFolder = new TemporaryFolder();
+  @Rule public TemporaryFolder testFolder = new TemporaryFolder();
 
   private static final int MAX_ALLOCATION = 8 * 1024;
   private static RootAllocator allocator;
@@ -64,8 +59,10 @@ public class OrcReaderTest {
     TypeDescription schema = TypeDescription.fromString("struct<x:int,y:string>");
     File testFile = new File(testFolder.getRoot(), "test-orc");
 
-    Writer writer = OrcFile.createWriter(new Path(testFile.getAbsolutePath()),
-                                    OrcFile.writerOptions(new Configuration()).setSchema(schema));
+    Writer writer =
+        OrcFile.createWriter(
+            new Path(testFile.getAbsolutePath()),
+            OrcFile.writerOptions(new Configuration()).setSchema(schema));
     VectorizedRowBatch batch = schema.createRowBatch();
     LongColumnVector longColumnVector = (LongColumnVector) batch.cols[0];
     BytesColumnVector bytesColumnVector = (BytesColumnVector) batch.cols[1];

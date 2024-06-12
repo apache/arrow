@@ -14,16 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.grpc;
 
+import io.grpc.Metadata;
+import io.grpc.Status;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightStatusCode;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-
-import io.grpc.Metadata;
-import io.grpc.Status;
 
 public class TestStatusUtils {
 

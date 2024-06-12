@@ -14,17 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.ipc.message;
 
 import com.google.flatbuffers.FlatBufferBuilder;
 
-/**
- * Interface for serializing to FlatBuffers.
- */
+/** Interface for serializing to FlatBuffers. */
 public interface FBSerializable {
-  /**
-   * Returns the number of bytes taken to serialize the data in builder after writing to it.
-   */
+  /** Returns the number of bytes taken to serialize the data in builder after writing to it. */
   int writeTo(FlatBufferBuilder builder);
 }

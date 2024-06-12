@@ -14,13 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.validate;
 
 import static org.apache.arrow.vector.util.ValueVectorUtility.validate;
 import static org.apache.arrow.vector.util.ValueVectorUtility.validateFull;
-import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -29,20 +28,20 @@ import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class TestValidateVectorSchemaRoot {
 
   private BufferAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void init() {
     allocator = new RootAllocator(Long.MAX_VALUE);
   }
 
-  @After
+  @AfterEach
   public void terminate() throws Exception {
     allocator.close();
   }
@@ -50,7 +49,7 @@ public class TestValidateVectorSchemaRoot {
   @Test
   public void testValidatePositive() {
     try (IntVector intVector = new IntVector("int vector", allocator);
-         VarCharVector strVector = new VarCharVector("var char vector", allocator)) {
+        VarCharVector strVector = new VarCharVector("var char vector", allocator)) {
 
       VectorSchemaRoot root = VectorSchemaRoot.of(intVector, strVector);
 
@@ -69,7 +68,7 @@ public class TestValidateVectorSchemaRoot {
   @Test
   public void testValidateNegative() {
     try (IntVector intVector = new IntVector("int vector", allocator);
-         VarCharVector strVector = new VarCharVector("var char vector", allocator)) {
+        VarCharVector strVector = new VarCharVector("var char vector", allocator)) {
 
       VectorSchemaRoot root = VectorSchemaRoot.of(intVector, strVector);
 
@@ -80,12 +79,15 @@ public class TestValidateVectorSchemaRoot {
       root.setRowCount(4);
       intVector.setValueCount(5);
       strVector.setValueCount(5);
-      ValidateUtil.ValidateException e = assertThrows(ValidateUtil.ValidateException.class,
-          () -> validate(root));
-      assertTrue(e.getMessage().contains("Child vector and vector schema root have different value counts"));
-      e = assertThrows(ValidateUtil.ValidateException.class,
-          () -> validateFull(root));
-      assertTrue(e.getMessage().contains("Child vector and vector schema root have different value counts"));
+      ValidateUtil.ValidateException e =
+          assertThrows(ValidateUtil.ValidateException.class, () -> validate(root));
+      assertTrue(
+          e.getMessage()
+              .contains("Child vector and vector schema root have different value counts"));
+      e = assertThrows(ValidateUtil.ValidateException.class, () -> validateFull(root));
+      assertTrue(
+          e.getMessage()
+              .contains("Child vector and vector schema root have different value counts"));
 
       // valid problems with the child vector
       root.setRowCount(5);
@@ -93,9 +95,10 @@ public class TestValidateVectorSchemaRoot {
       offsetBuf.setInt(0, 100);
       offsetBuf.setInt(8, 50);
       validate(root);
-      e = assertThrows(ValidateUtil.ValidateException.class,
-          () -> validateFull(root));
-      assertTrue(e.getMessage().contains("The values in positions 0 and 1 of the offset buffer are decreasing"));
+      e = assertThrows(ValidateUtil.ValidateException.class, () -> validateFull(root));
+      assertTrue(
+          e.getMessage()
+              .contains("The values in positions 0 and 1 of the offset buffer are decreasing"));
     }
   }
 }

@@ -14,14 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.c;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReferenceManager;
@@ -59,42 +57,56 @@ class ArrowArrayUtilityTest {
   void importBuffer() throws Exception {
     // Note values are all dummy values here
     try (BufferImportTypeVisitor notEmptyDataVisitor =
-        new BufferImportTypeVisitor(allocator, dummyHandle, new ArrowFieldNode(/* length= */ 1, 0), new long[]{0})) {
+        new BufferImportTypeVisitor(
+            allocator, dummyHandle, new ArrowFieldNode(/* length= */ 1, 0), new long[] {0})) {
 
       // Too few buffers
-      assertThrows(IllegalStateException.class, () -> notEmptyDataVisitor.importBuffer(new ArrowType.Bool(), 1, 1));
+      assertThrows(
+          IllegalStateException.class,
+          () -> notEmptyDataVisitor.importBuffer(new ArrowType.Bool(), 1, 1));
 
       // Null where one isn't expected
-      assertThrows(IllegalStateException.class, () -> notEmptyDataVisitor.importBuffer(new ArrowType.Bool(), 0, 1));
+      assertThrows(
+          IllegalStateException.class,
+          () -> notEmptyDataVisitor.importBuffer(new ArrowType.Bool(), 0, 1));
 
       // Expected capacity not zero but c array ptr is NULL (zero)
-      assertThrows(IllegalStateException.class, () -> notEmptyDataVisitor.importBuffer(new ArrowType.Bool(), 0, 1));
+      assertThrows(
+          IllegalStateException.class,
+          () -> notEmptyDataVisitor.importBuffer(new ArrowType.Bool(), 0, 1));
 
       // Expected capacity is zero and c array ptr is NULL (zero)
-      assertThat(notEmptyDataVisitor.importBuffer(new ArrowType.Bool(), 0, 0)).isEqualTo(allocator.getEmpty());
+      assertThat(notEmptyDataVisitor.importBuffer(new ArrowType.Bool(), 0, 0))
+          .isEqualTo(allocator.getEmpty());
     }
 
     try (BufferImportTypeVisitor emptyDataVisitor =
-        new BufferImportTypeVisitor(allocator, dummyHandle, new ArrowFieldNode(/* length= */ 0, 0), new long[]{0})) {
+        new BufferImportTypeVisitor(
+            allocator, dummyHandle, new ArrowFieldNode(/* length= */ 0, 0), new long[] {0})) {
 
       // Too few buffers
-      assertThrows(IllegalStateException.class, () -> emptyDataVisitor.importBuffer(new ArrowType.Bool(), 1, 1));
+      assertThrows(
+          IllegalStateException.class,
+          () -> emptyDataVisitor.importBuffer(new ArrowType.Bool(), 1, 1));
 
       // Expected capacity not zero but c array ptr is NULL (zero)
-      assertThrows(IllegalStateException.class, () -> emptyDataVisitor.importBuffer(new ArrowType.Bool(), 0, 1));
+      assertThrows(
+          IllegalStateException.class,
+          () -> emptyDataVisitor.importBuffer(new ArrowType.Bool(), 0, 1));
 
       // Expected capacity is zero and c array ptr is NULL (zero)
-      assertThat(emptyDataVisitor.importBuffer(new ArrowType.Bool(), 0, 0)).isEqualTo(allocator.getEmpty());
+      assertThat(emptyDataVisitor.importBuffer(new ArrowType.Bool(), 0, 0))
+          .isEqualTo(allocator.getEmpty());
     }
   }
-
 
   @Test
   void cleanupAfterFailure() throws Exception {
     // Note values are all dummy values here
     long address = MemoryUtil.UNSAFE.allocateMemory(16);
     try (BufferImportTypeVisitor visitor =
-             new BufferImportTypeVisitor(allocator, dummyHandle, new ArrowFieldNode(0, 0), new long[] {address})) {
+        new BufferImportTypeVisitor(
+            allocator, dummyHandle, new ArrowFieldNode(0, 0), new long[] {address})) {
       // This fails, but only after we've already imported a buffer.
       assertThrows(IllegalStateException.class, () -> visitor.visit(new ArrowType.Int(32, true)));
     } finally {
@@ -111,7 +123,7 @@ class ArrowArrayUtilityTest {
     long baseline = allocator.getAllocatedMemory();
     ArrowFieldNode fieldNode = new ArrowFieldNode(fieldLength, 0);
     try (BufferImportTypeVisitor visitor =
-             new BufferImportTypeVisitor(allocator, dummyHandle, fieldNode, new long[] {0, address})) {
+        new BufferImportTypeVisitor(allocator, dummyHandle, fieldNode, new long[] {0, address})) {
       List<ArrowBuf> buffers = visitor.visit(new ArrowType.Int(32, true));
       assertThat(buffers).hasSize(2);
       assertThat(buffers.get(0)).isNull();

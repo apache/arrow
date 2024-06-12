@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.ipc;
 
 /**
- * Exception indicating a problem with an Arrow File (https://arrow.apache.org/docs/format/IPC.html#file-format).
+ * Exception indicating a problem with an Arrow File
+ * (https://arrow.apache.org/docs/format/IPC.html#file-format).
  */
 public class InvalidArrowFileException extends RuntimeException {
   private static final long serialVersionUID = 1L;
@@ -26,5 +26,4 @@ public class InvalidArrowFileException extends RuntimeException {
   public InvalidArrowFileException(String message) {
     super(message);
   }
-
 }

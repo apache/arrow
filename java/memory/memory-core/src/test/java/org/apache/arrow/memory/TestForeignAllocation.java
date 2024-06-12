@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory;
 
 import static org.junit.Assert.assertEquals;
@@ -22,14 +21,6 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import org.apache.arrow.memory.AllocationListener;
-import org.apache.arrow.memory.AllocationOutcome;
-import org.apache.arrow.memory.ArrowBuf;
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.ForeignAllocation;
-import org.apache.arrow.memory.OutOfMemoryException;
-import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.memory.util.MemoryUtil;
 import org.junit.After;
 import org.junit.Before;
@@ -118,13 +109,14 @@ public class TestForeignAllocation {
     final long limit = 2 * bufferSize - 1;
 
     final List<ArrowBuf> buffersToBeFreed = new ArrayList<>();
-    final AllocationListener listener = new AllocationListener() {
-      @Override
-      public boolean onFailedAllocation(long size, AllocationOutcome outcome) {
-        buffersToBeFreed.forEach(ArrowBuf::close);
-        return true;
-      }
-    };
+    final AllocationListener listener =
+        new AllocationListener() {
+          @Override
+          public boolean onFailedAllocation(long size, AllocationOutcome outcome) {
+            buffersToBeFreed.forEach(ArrowBuf::close);
+            return true;
+          }
+        };
 
     try (BufferAllocator listenedAllocator =
         allocator.newChildAllocator("child", listener, 0L, limit)) {
@@ -133,7 +125,8 @@ public class TestForeignAllocation {
       UnsafeForeignAllocation allocation = new UnsafeForeignAllocation(bufferSize);
       try (final ArrowBuf buffer2 = listenedAllocator.wrapForeignAllocation(allocation)) {
         assertEquals(bufferSize, buffer2.capacity());
-        assertEquals(0, buffer1.getReferenceManager().getRefCount()); // buffer1 was closed by listener
+        assertEquals(
+            0, buffer1.getReferenceManager().getRefCount()); // buffer1 was closed by listener
       }
     }
   }

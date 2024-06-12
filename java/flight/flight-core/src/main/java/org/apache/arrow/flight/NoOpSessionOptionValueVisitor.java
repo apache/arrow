@@ -14,48 +14,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
 /**
  * A helper to facilitate easier anonymous subclass declaration.
  *
- * Implementations need only override callbacks for types they wish to do something with.
+ * <p>Implementations need only override callbacks for types they wish to do something with.
  *
  * @param <T> Return type of the visit operation.
  */
 public class NoOpSessionOptionValueVisitor<T> implements SessionOptionValueVisitor<T> {
-  /**
-   * A callback to handle SessionOptionValue containing a String.
-   */
+  /** A callback to handle SessionOptionValue containing a String. */
   public T visit(String value) {
     return null;
   }
 
-  /**
-   * A callback to handle SessionOptionValue containing a boolean.
-   */
+  /** A callback to handle SessionOptionValue containing a boolean. */
   public T visit(boolean value) {
     return null;
   }
 
-  /**
-   * A callback to handle SessionOptionValue containing a long.
-   */
+  /** A callback to handle SessionOptionValue containing a long. */
   public T visit(long value) {
     return null;
   }
 
-  /**
-   * A callback to handle SessionOptionValue containing a double.
-   */
+  /** A callback to handle SessionOptionValue containing a double. */
   public T visit(double value) {
     return null;
   }
 
-  /**
-   * A callback to handle SessionOptionValue containing an array of String.
-   */
+  /** A callback to handle SessionOptionValue containing an array of String. */
   public T visit(String[] value) {
     return null;
   }
@@ -63,8 +52,8 @@ public class NoOpSessionOptionValueVisitor<T> implements SessionOptionValueVisit
   /**
    * A callback to handle SessionOptionValue containing no value.
    *
-   * By convention, an attempt to set a valueless SessionOptionValue should
-   * attempt to unset or clear the named option value on the server.
+   * <p>By convention, an attempt to set a valueless SessionOptionValue should attempt to unset or
+   * clear the named option value on the server.
    */
   public T visit(Void value) {
     return null;

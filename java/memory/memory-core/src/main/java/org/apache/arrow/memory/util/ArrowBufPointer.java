@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory.util;
 
 import org.apache.arrow.memory.ArrowBuf;
@@ -24,14 +23,12 @@ import org.apache.arrow.util.Preconditions;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
- * Pointer to a memory region within an {@link ArrowBuf}.
- * It will be used as the basis for calculating hash code within a vector, and equality determination.
+ * Pointer to a memory region within an {@link ArrowBuf}. It will be used as the basis for
+ * calculating hash code within a vector, and equality determination.
  */
 public final class ArrowBufPointer implements Comparable<ArrowBufPointer> {
 
-  /**
-   * The hash code when the arrow buffer is null.
-   */
+  /** The hash code when the arrow buffer is null. */
   public static final int NULL_HASH_CODE = 0;
 
   private @Nullable ArrowBuf buf;
@@ -44,20 +41,17 @@ public final class ArrowBufPointer implements Comparable<ArrowBufPointer> {
 
   private final ArrowBufHasher hasher;
 
-  /**
-   * A flag indicating if the underlying memory region has changed.
-   */
+  /** A flag indicating if the underlying memory region has changed. */
   private boolean hashCodeChanged = false;
 
-  /**
-   * The default constructor.
-   */
+  /** The default constructor. */
   public ArrowBufPointer() {
     this(SimpleHasher.INSTANCE);
   }
 
   /**
    * Constructs an arrow buffer pointer with the specified hasher.
+   *
    * @param hasher the hasher to use.
    */
   public ArrowBufPointer(ArrowBufHasher hasher) {
@@ -68,6 +62,7 @@ public final class ArrowBufPointer implements Comparable<ArrowBufPointer> {
 
   /**
    * Constructs an Arrow buffer pointer.
+   *
    * @param buf the underlying {@link ArrowBuf}, which can be null.
    * @param offset the start off set of the memory region pointed to.
    * @param length the length off set of the memory region pointed to.
@@ -78,6 +73,7 @@ public final class ArrowBufPointer implements Comparable<ArrowBufPointer> {
 
   /**
    * Constructs an Arrow buffer pointer.
+   *
    * @param buf the underlying {@link ArrowBuf}, which can be null.
    * @param offset the start off set of the memory region pointed to.
    * @param length the length off set of the memory region pointed to.
@@ -91,11 +87,11 @@ public final class ArrowBufPointer implements Comparable<ArrowBufPointer> {
 
   /**
    * Sets this pointer.
+   *
    * @param buf the underlying {@link ArrowBuf}, which can be null.
    * @param offset the start off set of the memory region pointed to.
    * @param length the length off set of the memory region pointed to.
    */
-
   public void set(ArrowBuf buf, long offset, long length) {
     this.buf = buf;
     this.offset = offset;
@@ -106,6 +102,7 @@ public final class ArrowBufPointer implements Comparable<ArrowBufPointer> {
 
   /**
    * Gets the underlying buffer, or null if the underlying data is invalid or null.
+   *
    * @return the underlying buffer, if any, or null if the underlying data is invalid or null.
    */
   public @Nullable ArrowBuf getBuf() {
@@ -145,8 +142,9 @@ public final class ArrowBufPointer implements Comparable<ArrowBufPointer> {
       }
     }
 
-    return ByteFunctionHelpers.equal(buf, offset, offset + length,
-            other.buf, other.offset, other.offset + other.length) != 0;
+    return ByteFunctionHelpers.equal(
+            buf, offset, offset + length, other.buf, other.offset, other.offset + other.length)
+        != 0;
   }
 
   @Override
@@ -167,12 +165,11 @@ public final class ArrowBufPointer implements Comparable<ArrowBufPointer> {
   }
 
   /**
-   * Compare two arrow buffer pointers.
-   * The comparison is based on lexicographic order.
+   * Compare two arrow buffer pointers. The comparison is based on lexicographic order.
+   *
    * @param that the other pointer to compare.
-   * @return 0 if the two pointers are equal;
-   *     a positive integer if this pointer is larger;
-   *     a negative integer if this pointer is smaller.
+   * @return 0 if the two pointers are equal; a positive integer if this pointer is larger; a
+   *     negative integer if this pointer is smaller.
    */
   @Override
   public int compareTo(ArrowBufPointer that) {
@@ -185,7 +182,12 @@ public final class ArrowBufPointer implements Comparable<ArrowBufPointer> {
       }
     }
 
-    return ByteFunctionHelpers.compare(this.buf, this.offset, this.offset + this.length,
-            that.buf, that.offset, that.offset + that.length);
+    return ByteFunctionHelpers.compare(
+        this.buf,
+        this.offset,
+        this.offset + this.length,
+        that.buf,
+        that.offset,
+        that.offset + that.length);
   }
 }

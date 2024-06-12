@@ -1444,7 +1444,7 @@ cdef class Array(_PandasConvertible):
         """
         return _pc().drop_null(self)
 
-    def filter(self, Array mask, *, null_selection_behavior='drop'):
+    def filter(self, object mask, *, null_selection_behavior='drop'):
         """
         Select values from an array.
 
