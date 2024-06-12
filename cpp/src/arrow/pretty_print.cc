@@ -496,8 +496,7 @@ Status PrettyPrint(const ChunkedArray& chunked_arr, const PrettyPrintOptions& op
     } else {
       PrettyPrintOptions chunk_options = options;
       chunk_options.indent += options.indent_size;
-      ArrayPrinter printer(chunk_options, sink);
-      RETURN_NOT_OK(printer.Print(*chunked_arr.chunk(i)));
+      RETURN_NOT_OK(PrettyPrint(*chunked_arr.chunk(i), chunk_options, sink));
     }
   }
   if (!options.skip_new_lines) {
