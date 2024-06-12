@@ -52,8 +52,9 @@ RUN cd / \
   && wget ${pyodide_dist_url} -O- |tar -xj
 
 # install chrome for testing browser based runner
-# zip needed for chrome, libpthread stubs installs pthread module to cmake
-RUN apt-get update && apt-get install -y -q zip libpthread-stubs0-dev
+# zip needed for chrome, libpthread stubs installs pthread module to cmake, build-essential makes
+# sure that unix make is available in isolated python environments
+RUN apt-get update && apt-get install -y -q zip libpthread-stubs0-dev build-essential
 
 RUN if [ $chrome_version = "latest" ]; \
   then CHROME_VERSION_FULL=$(wget --no-verbose -O - "https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_STABLE"); \

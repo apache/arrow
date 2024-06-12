@@ -31,6 +31,10 @@ python_build_dir=${build_dir}/python
 rm -rf ${python_build_dir}
 cp -aL ${source_dir} ${python_build_dir}
 
+# conda sets LDFLAGS / CFLAGS etc. which break
+# emcmake so we unset them
+unset LDFLAGS CFLAGS CXXFLAGS CPPFLAGS
+
 pushd ${python_build_dir}
 pyodide build
 popd
