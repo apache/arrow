@@ -70,12 +70,12 @@ Result<DLManagedTensor*> ExportArray(const std::shared_ptr<Array>& arr) {
   // Define DLDevice struct and check if array type is supported
   // by the DLPack protocol at the same time. Raise TypeError if not.
   // Supported data types: int, uint, float with no validity buffer.
-  ARROW_ASSIGN_OR_RAISE(auto device, ExportDevice(arr))
+  ARROW_ASSIGN_OR_RAISE(DLDevice device, ExportDevice(arr))
 
   // Define the DLDataType struct
   const DataType& type = *arr->type();
   std::shared_ptr<ArrayData> data = arr->data();
-  ARROW_ASSIGN_OR_RAISE(auto dlpack_type, GetDLDataType(type));
+  ARROW_ASSIGN_OR_RAISE(DLDataType dlpack_type, GetDLDataType(type));
 
   // Create ManagerCtx that will serve as the owner of the DLManagedTensor
   std::unique_ptr<ManagerCtx> ctx(new ManagerCtx);
@@ -140,17 +140,17 @@ struct TensorManagerCtx {
 
 Result<DLManagedTensor*> ExportTensor(const std::shared_ptr<Tensor>& t) {
   // Define the DLDataType struct
-  std::shared_ptr<DataType> type = t->type();
-  ARROW_ASSIGN_OR_RAISE(auto dlpack_type, GetDLDataType(*type.get()));
+  const DataType& type = *t->type();
+  ARROW_ASSIGN_OR_RAISE(DLDataType dlpack_type, GetDLDataType(type));
 
   // Define DLDevice struct
-  ARROW_ASSIGN_OR_RAISE(auto device, ExportTensorDevice(t))
+  ARROW_ASSIGN_OR_RAISE(DLDevice device, ExportTensorDevice(t))
 
   // Create ManagerCtx that will serve as the owner of the DLManagedTensor
   std::unique_ptr<TensorManagerCtx> ctx(new TensorManagerCtx);
 
   // Define the data pointer to the DLTensor
-  // If array is of length 0, data pointer should be NULL
+  // If tensor is of length 0, data pointer should be NULL
   if (t->size() == 0) {
     ctx->tensor.dl_tensor.data = NULL;
   } else {
