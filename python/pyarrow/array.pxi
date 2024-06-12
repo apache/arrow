@@ -1108,7 +1108,6 @@ cdef class Array(_PandasConvertible):
         array : pyarrow.Array or pyarrow.ChunkedArray
             ChunkedArray is returned if object data overflows binary buffer.
         """
-        self._assert_cpu()
         return array(obj, mask=mask, type=type, safe=safe, from_pandas=True,
                      memory_pool=memory_pool)
 
@@ -1300,7 +1299,6 @@ cdef class Array(_PandasConvertible):
         return self.to_string(**kwargs)
 
     def __str__(self):
-        self._assert_cpu()
         return self.to_string()
 
     def __eq__(self, other):
