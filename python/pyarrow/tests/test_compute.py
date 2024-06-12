@@ -3570,7 +3570,7 @@ def test_list_slice_output_fixed(start, stop, step, expected, value_type,
     if stop is None and list_type != "fixed":
         msg = ("Unable to produce FixedSizeListArray from "
                "non-FixedSizeListArray without `stop` being set.")
-        with pytest.raises(pa.ArrowNotImplementedError, match=msg):
+        with pytest.raises(pa.ArrowInvalid, match=msg):
             pc.list_slice(*args)
     else:
         result = pc.list_slice(*args)
