@@ -51,7 +51,8 @@ import org.apache.arrow.vector.util.TransferPair;
  * A Struct vector consists of nullability/validity buffer and children vectors that make up the
  * struct's fields. The children vectors are handled by the parent class.
  */
-public class StructVector extends NonNullableStructVector implements FieldVector, ValueIterableVector<Map<String, ?>> {
+public class StructVector extends NonNullableStructVector
+    implements FieldVector, ValueIterableVector<Map<String, ?>> {
 
   /**
    * Construct a new empty instance which replaces an existing field with the new one in case of

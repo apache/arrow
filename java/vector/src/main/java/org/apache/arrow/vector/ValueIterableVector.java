@@ -14,15 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import java.util.Iterator;
 
 public interface ValueIterableVector<T> extends ValueVector {
   /**
-   * Get an Iterable that can be used to iterate over the values in the
-   * vector.
+   * Get an Iterable that can be used to iterate over the values in the vector.
    *
    * @return an Iterable for the vector's values
    */
@@ -30,11 +28,13 @@ public interface ValueIterableVector<T> extends ValueVector {
     return new Iterator<T>() {
       private int index = 0;
 
-      @Override public boolean hasNext() {
+      @Override
+      public boolean hasNext() {
         return index < ValueIterableVector.this.getValueCount();
       }
 
-      @Override public T next() {
+      @Override
+      public T next() {
         return (T) ValueIterableVector.this.getObject(index++);
       }
     };

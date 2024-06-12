@@ -46,7 +46,8 @@ import org.apache.arrow.vector.util.TransferPair;
  * A struct vector that has no null values (and no validity buffer). Child Vectors are handled in
  * {@link AbstractStructVector}.
  */
-public class NonNullableStructVector extends AbstractStructVector implements ValueIterableVector<Map<String, ?>> {
+public class NonNullableStructVector extends AbstractStructVector
+    implements ValueIterableVector<Map<String, ?>> {
 
   /**
    * Construct a new empty instance which replaces an existing field with the new one in case of

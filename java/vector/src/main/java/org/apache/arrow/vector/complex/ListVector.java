@@ -67,7 +67,8 @@ import org.apache.arrow.vector.util.TransferPair;
  *
  * The latter two are managed by its superclass.
  */
-public class ListVector extends BaseRepeatedValueVector implements PromotableVector, ValueIterableVector<List<?>> {
+public class ListVector extends BaseRepeatedValueVector
+    implements PromotableVector, ValueIterableVector<List<?>> {
 
   public static ListVector empty(String name, BufferAllocator allocator) {
     return new ListVector(name, allocator, FieldType.nullable(ArrowType.List.INSTANCE), null);
