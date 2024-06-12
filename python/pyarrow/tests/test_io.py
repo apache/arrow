@@ -673,10 +673,9 @@ def test_non_cpu_buffer(pickle_module):
     cuda = pytest.importorskip("pyarrow.cuda")
     ctx = cuda.Context(0)
 
-    arr = np.arange(4, dtype=np.int32)
+    arr = np.array([b'testing'])
     cuda_buf = ctx.buffer_from_data(arr)
-
-    arr = pa.Array.from_buffers(pa.int32(), 4, [None, cuda_buf])
+    arr = pa.FixedSizeBinaryArray.from_buffers(pa.binary(7), 1, [None, cuda_buf])
     buf_on_gpu = arr.buffers()[1]
 
     assert buf_on_gpu.size == cuda_buf.size
@@ -685,7 +684,7 @@ def test_non_cpu_buffer(pickle_module):
     assert buf_on_gpu.is_mutable
 
     repr1 = "<pyarrow.Buffer address="
-    repr2 = "size=16 is_cpu=False is_mutable=True>"
+    repr2 = "size=7 is_cpu=False is_mutable=True>"
     assert repr1 in repr(buf_on_gpu)
     assert repr2 in repr(buf_on_gpu)
 
@@ -713,11 +712,6 @@ def test_non_cpu_buffer(pickle_module):
 
     with pytest.raises(NotImplementedError, match=msg):
         pickle_module.dumps(cuda_buf, protocol=4)
-
-    arr = np.array([b'testing'])
-    cuda_buf = ctx.buffer_from_data(arr)
-    arr = pa.FixedSizeBinaryArray.from_buffers(pa.binary(7), 1, [None, cuda_buf])
-    buf_on_gpu = arr.buffers()[1]
 
     buf_on_gpu_sliced = buf_on_gpu.slice(2)
     cuda_sliced = cuda.CudaBuffer.from_buffer(buf_on_gpu_sliced)
