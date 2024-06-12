@@ -112,28 +112,21 @@ def test_dlpack(value_type, np_type_str):
 
 @check_bytes_allocated
 @pytest.mark.parametrize('np_type',
-    [
-        np.uint8,
-        np.uint16,
-        np.uint32,
-        np.uint64,
-        np.int8,
-        np.int16,
-        np.int32,
-        np.int64,
-        np.float16,
-        np.float32,
-        np.float64,
-    ]
-)
+                         [np.uint8, np.uint16, np.uint32, np.uint64,
+                          np.int8, np.int16, np.int32, np.int64,
+                          np.float16, np.float32, np.float64,])
 def test_tensor_dlpack(np_type):
     if Version(np.__version__) < Version("1.24.0"):
         pytest.skip("No dlpack support in numpy versions older than 1.22.0, "
                     "strict keyword in assert_array_equal added in numpy version "
                     "1.24.0")
 
-    arr = np.array([1,2,3, 4, 5, 6, 1, 1])
-    expected = np.ndarray((2,2,2), buffer=arr, dtype=np_type)
+    arr = np.array([1, 2, 3, 4, 5, 6, 1, 1])
+    expected = np.ndarray((2, 2, 2), dtype=np_type, buffer=arr)
+    t = pa.Tensor.from_numpy(expected)
+    check_dlpack_export(t, expected)
+
+    expected = np.ndarray((2, 2, 2), dtype=np_type, buffer=arr, order='F')
     t = pa.Tensor.from_numpy(expected)
     check_dlpack_export(t, expected)
 
