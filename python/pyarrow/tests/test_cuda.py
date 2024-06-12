@@ -313,7 +313,8 @@ def test_CudaBuffer(size):
         assert cbuf[s].to_pybytes() == arr[s].tobytes()
 
     sbuf = cbuf.slice(size//4, size//2)
-    assert sbuf.parent == cbuf
+    cbuf_parent = cuda.CudaBuffer.from_buffer(sbuf.parent)
+    assert cbuf_parent.to_pybytes() == cbuf.to_pybytes()
 
     with pytest.raises(TypeError,
                        match="Do not call CudaBuffer's constructor directly"):
