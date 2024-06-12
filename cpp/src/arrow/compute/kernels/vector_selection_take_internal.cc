@@ -717,7 +717,7 @@ const FunctionDoc take_doc(
     {"input", "indices"}, "TakeOptions");
 
 // Metafunction for dispatching to different Take implementations other than
-// Array-Array.
+// [Chunked]Array-[Chunked]Array.
 class TakeMetaFunction : public MetaFunction {
  public:
   TakeMetaFunction()
