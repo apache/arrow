@@ -49,7 +49,9 @@ Result<std::unique_ptr<FunctionOptions>> FunctionOptionsType::Deserialize(
   return Status::NotImplemented("Deserialize for ", type_name());
 }
 
-std::string FunctionOptions::ToString() const { return options_type()->Stringify(*this); }
+std::string FunctionOptions::ToString() const {
+  return options_type()->Stringify(*this) + ", filter = " + get_filter().ToString();
+}
 
 bool FunctionOptions::Equals(const FunctionOptions& other) const {
   if (this == &other) return true;

@@ -642,6 +642,8 @@ struct ARROW_EXPORT VectorKernel : public Kernel {
 // ----------------------------------------------------------------------
 // ScalarAggregateKernel (for ScalarAggregateFunction)
 
+using ScalarAggregateFilter =
+    std::function<Result<ExecBatch>(KernelContext*, const ExecSpan&, const Expression&)>;
 using ScalarAggregateConsume = Status (*)(KernelContext*, const ExecSpan&);
 using ScalarAggregateMerge = Status (*)(KernelContext*, KernelState&&, KernelState*);
 // Finalize returns Datum to permit multiple return values
@@ -659,21 +661,23 @@ using ScalarAggregateFinalize = Status (*)(KernelContext*, Datum*);
 ///   KernelState in the KernelContext.
 struct ARROW_EXPORT ScalarAggregateKernel : public Kernel {
   ScalarAggregateKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
-                        ScalarAggregateConsume consume, ScalarAggregateMerge merge,
-                        ScalarAggregateFinalize finalize, const bool ordered)
+                        ScalarAggregateFilter filter, ScalarAggregateConsume consume,
+                        ScalarAggregateMerge merge, ScalarAggregateFinalize finalize,
+                        const bool ordered)
       : Kernel(std::move(sig), std::move(init)),
+        filter(filter),
         consume(consume),
         merge(merge),
         finalize(finalize),
         ordered(ordered) {}
 
   ScalarAggregateKernel(std::vector<InputType> in_types, OutputType out_type,
-                        KernelInit init, ScalarAggregateConsume consume,
-                        ScalarAggregateMerge merge, ScalarAggregateFinalize finalize,
-                        const bool ordered)
+                        KernelInit init, ScalarAggregateFilter filter,
+                        ScalarAggregateConsume consume, ScalarAggregateMerge merge,
+                        ScalarAggregateFinalize finalize, const bool ordered)
       : ScalarAggregateKernel(
             KernelSignature::Make(std::move(in_types), std::move(out_type)),
-            std::move(init), consume, merge, finalize, ordered) {}
+            std::move(init), filter, consume, merge, finalize, ordered) {}
 
   /// \brief Merge a vector of KernelStates into a single KernelState.
   /// The merged state will be returned and will be set on the KernelContext.
@@ -681,6 +685,7 @@ struct ARROW_EXPORT ScalarAggregateKernel : public Kernel {
       const ScalarAggregateKernel* kernel, KernelContext* ctx,
       std::vector<std::unique_ptr<KernelState>> states);
 
+  ScalarAggregateFilter filter;
   ScalarAggregateConsume consume;
   ScalarAggregateMerge merge;
   ScalarAggregateFinalize finalize;
@@ -698,6 +703,9 @@ struct ARROW_EXPORT ScalarAggregateKernel : public Kernel {
 // HashAggregateKernel (for HashAggregateFunction)
 
 using HashAggregateResize = Status (*)(KernelContext*, int64_t);
+using HashAggregateFilter = std::function<Result<ExecBatch>(
+    KernelContext*, const ExecSpan&, const Datum&,
+    const std::vector<int>& agg_src_fieldset, const Expression&)>;
 using HashAggregateConsume = Status (*)(KernelContext*, const ExecSpan&);
 using HashAggregateMerge = Status (*)(KernelContext*, KernelState&&, const ArrayData&);
 
@@ -720,25 +728,28 @@ struct ARROW_EXPORT HashAggregateKernel : public Kernel {
   HashAggregateKernel() = default;
 
   HashAggregateKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
-                      HashAggregateResize resize, HashAggregateConsume consume,
-                      HashAggregateMerge merge, HashAggregateFinalize finalize,
-                      const bool ordered)
+                      HashAggregateResize resize, HashAggregateFilter filter,
+                      HashAggregateConsume consume, HashAggregateMerge merge,
+                      HashAggregateFinalize finalize, const bool ordered)
       : Kernel(std::move(sig), std::move(init)),
         resize(resize),
+        filter(filter),
         consume(consume),
         merge(merge),
         finalize(finalize),
         ordered(ordered) {}
 
   HashAggregateKernel(std::vector<InputType> in_types, OutputType out_type,
-                      KernelInit init, HashAggregateConsume consume,
-                      HashAggregateResize resize, HashAggregateMerge merge,
-                      HashAggregateFinalize finalize, const bool ordered)
+                      KernelInit init, HashAggregateFilter filter,
+                      HashAggregateConsume consume, HashAggregateResize resize,
+                      HashAggregateMerge merge, HashAggregateFinalize finalize,
+                      const bool ordered)
       : HashAggregateKernel(
             KernelSignature::Make(std::move(in_types), std::move(out_type)),
-            std::move(init), resize, consume, merge, finalize, ordered) {}
+            std::move(init), resize, filter, consume, merge, finalize, ordered) {}
 
   HashAggregateResize resize;
+  HashAggregateFilter filter;
   HashAggregateConsume consume;
   HashAggregateMerge merge;
   HashAggregateFinalize finalize;
