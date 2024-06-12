@@ -196,6 +196,9 @@ struct ListSlice {
     constexpr auto kInputTypeId = InListType::type_id;
     auto output_type = output_type_holder.GetSharedPtr();
     switch (output_type->id()) {
+      // The various `if constexpr` guards below avoid generating
+      // ListSlice<InListType>::BuildArray<ListBuilder> specializations
+      // that will never be invoked at runtime.
       case Type::LIST:
         DCHECK(kInputTypeId == Type::LIST || kInputTypeId == Type::FIXED_SIZE_LIST);
         if constexpr (kInputTypeId == Type::LIST ||
