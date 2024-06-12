@@ -19,7 +19,6 @@ package org.apache.arrow.adapter.avro;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.File;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.avro.Schema;
@@ -31,21 +30,16 @@ import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.io.DatumReader;
 import org.apache.avro.io.DatumWriter;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 public class TestWriteReadAvroRecord {
 
-  public static File dataFile;
-
-  @BeforeAll
-  public static void setup(@TempDir Path tempDir) {
-    dataFile = new File(tempDir.toFile(), "test.avro");
-  }
+  @TempDir public static File TMP;
 
   @Test
   public void testWriteAndRead() throws Exception {
+    File dataFile = new File(TMP, "test.avro");
     Schema schema = AvroTestBase.getSchema("test.avsc");
 
     // write data to disk
