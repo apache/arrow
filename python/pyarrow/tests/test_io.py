@@ -688,6 +688,14 @@ def test_non_cpu_buffer(pickle_module):
     assert repr1 in repr(buf_on_gpu)
     assert repr2 in repr(buf_on_gpu)
 
+    buf_on_gpu_sliced = buf_on_gpu.slice(2)
+    cuda_sliced = cuda.CudaBuffer.from_buffer(buf_on_gpu_sliced)
+    assert cuda_sliced.to_pybytes() == b'sting'
+
+    buf_on_gpu_sliced = buf_on_gpu[slice(2, 4, 1)]
+    cuda_sliced = cuda.CudaBuffer.from_buffer(buf_on_gpu_sliced)
+    assert cuda_sliced.to_pybytes() == b'st'
+
     msg = "Implemented only for data on CPU device"
     with pytest.raises(NotImplementedError, match=msg):
         buf_on_gpu.equals(cuda_buf)
@@ -713,13 +721,8 @@ def test_non_cpu_buffer(pickle_module):
     with pytest.raises(NotImplementedError, match=msg):
         pickle_module.dumps(cuda_buf, protocol=4)
 
-    buf_on_gpu_sliced = buf_on_gpu.slice(2)
-    cuda_sliced = cuda.CudaBuffer.from_buffer(buf_on_gpu_sliced)
-    assert cuda_sliced.to_pybytes() == b'sting'
-
-    buf_on_gpu_sliced = buf_on_gpu[slice(2,4,1)]
-    cuda_sliced = cuda.CudaBuffer.from_buffer(buf_on_gpu_sliced)
-    assert cuda_sliced.to_pybytes() == b'st'
+    with pytest.raises(NotImplementedError, match=msg):
+        memoryview(buf_on_gpu)
 
 
 def test_cache_options():

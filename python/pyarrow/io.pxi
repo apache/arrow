@@ -1470,6 +1470,8 @@ cdef class Buffer(_Weakrefable):
             self.buffer.get().size())
 
     def __getbuffer__(self, cp.Py_buffer* buffer, int flags):
+        self._assert_cpu()
+
         if self.buffer.get().is_mutable():
             buffer.readonly = 0
         else:
