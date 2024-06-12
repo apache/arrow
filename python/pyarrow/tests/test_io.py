@@ -707,7 +707,7 @@ def test_non_cpu_buffer(pickle_module):
     with pytest.raises(NotImplementedError, match=msg):
         buf_on_gpu_sliced.equals(cuda_buf_short)
     arr_short = pa.FixedSizeBinaryArray.from_buffers(
-        pa.binary(5), 1,[None, cuda_buf_short]
+        pa.binary(5), 1, [None, cuda_buf_short]
     )
     buf_on_gpu_short = arr_short.buffers()[1]
     with pytest.raises(NotImplementedError, match=msg):
