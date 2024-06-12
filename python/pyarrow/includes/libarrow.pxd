@@ -1458,7 +1458,7 @@ cdef extern from "arrow/c/dlpack.h" namespace "arrow::dlpack" nogil:
         const shared_ptr[CTensor]& tensor)
 
     CResult[DLDevice] ExportDevice(const shared_ptr[CArray]& arr)
-    CResult[DLDevice] ExportTensorDevice(const shared_ptr[CTensor]& tensor)
+    CResult[DLDevice] ExportDevice(const shared_ptr[CTensor]& tensor)
 
 
 cdef extern from "arrow/builder.h" namespace "arrow" nogil:
