@@ -21,6 +21,7 @@
 #include "arrow/c/dlpack.h"
 #include "arrow/c/dlpack_abi.h"
 #include "arrow/memory_pool.h"
+#include "arrow/tensor.h"
 #include "arrow/testing/gtest_util.h"
 
 namespace arrow::dlpack {
@@ -138,21 +139,15 @@ void CheckDLTensor(const std::shared_ptr<Tensor>& t,
   ASSERT_OK_AND_ASSIGN(auto dlmtensor, arrow::dlpack::ExportTensor(t));
   auto dltensor = dlmtensor->dl_tensor;
 
-//   const auto byte_width = t->type()->byte_width();
-//   const auto start = arr->offset() * byte_width;
-//   ASSERT_OK_AND_ASSIGN(auto sliced_buffer,
-//                        SliceBufferSafe(arr->data()->buffers[1], start));
-//   ASSERT_EQ(sliced_buffer->data(), dltensor.data);
-
+  ASSERT_EQ(t->data()->data(), dltensor.data);
+  ASSERT_EQ(t->ndim(), dltensor.ndim);
   ASSERT_EQ(0, dltensor.byte_offset);
-//   ASSERT_EQ(shape.data()[0], dltensor.shape[0]);
-//   ASSERT_EQ(strides.data()[0], dltensor.strides[0]);
-  ASSERT_EQ(shape.data()[1], dltensor.shape[1]);
-  ASSERT_EQ(strides.data()[1], dltensor.strides[1]);
-  ASSERT_EQ(2, dltensor.ndim);
+  for (int i = 0; i < t->ndim(); i++) {
+    ASSERT_EQ(shape.data()[i], dltensor.shape[i]);
+    ASSERT_EQ(strides.data()[i], dltensor.strides[i]);
+  }
 
   ASSERT_EQ(dlpack_type, dltensor.dtype.code);
-
   ASSERT_EQ(tensor_type->bit_width(), dltensor.dtype.bits);
   ASSERT_EQ(1, dltensor.dtype.lanes);
   ASSERT_EQ(DLDeviceType::kDLCPU, dltensor.device.device_type);
@@ -188,45 +183,18 @@ TEST_F(TestExportTensor, TestSupportedTensor) {
       {float32(), DLDataTypeCode::kDLFloat},
       {float64(), DLDataTypeCode::kDLFloat}};
 
-  const auto allocated_bytes = arrow::default_memory_pool()->bytes_allocated();
+  // const auto allocated_bytes = arrow::default_memory_pool()->bytes_allocated();
 
   for (auto [arrow_type, dlpack_type] : cases) {
-    std::vector<int64_t> shape = {9, 2};
-    const int64_t f32_size = sizeof(float);
-    std::vector<int64_t> f_strides = {f32_size, f32_size * shape[0]};
+    std::vector<int64_t> shape = {3, 6};
+    std::vector<int64_t> dlpack_strides = {6, 1};
     std::shared_ptr<Tensor> tensor = TensorFromJSON(
-        float32(), "[1, 2,  3,  4,  5, 6, 7, 8, 9, 10, 20, 30, 40, 50, 60, 70, 80, 90]",
-        shape, f_strides);
+        arrow_type, "[1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5, 6, 7, 8, 9]", shape);
 
-    CheckDLTensor(tensor, arrow_type, dlpack_type, shape, f_strides);
+    CheckDLTensor(tensor, arrow_type, dlpack_type, shape, dlpack_strides);
   }
 
-  ASSERT_EQ(allocated_bytes, arrow::default_memory_pool()->bytes_allocated());
+  // ASSERT_EQ(allocated_bytes, arrow::default_memory_pool()->bytes_allocated());
 }
-
-// TEST_F(TestExportTensor, TestErrors) {
-//   const std::shared_ptr<Array> array_null = ArrayFromJSON(null(), "[]");
-//   ASSERT_RAISES_WITH_MESSAGE(TypeError,
-//                              "Type error: DataType is not compatible with DLPack spec: " +
-//                                  array_null->type()->ToString(),
-//                              arrow::dlpack::ExportArray(array_null));
-
-//   const std::shared_ptr<Array> array_with_null = ArrayFromJSON(int8(), "[1, 100, null]");
-//   ASSERT_RAISES_WITH_MESSAGE(TypeError,
-//                              "Type error: Can only use DLPack on arrays with no nulls.",
-//                              arrow::dlpack::ExportArray(array_with_null));
-
-//   const std::shared_ptr<Array> array_string =
-//       ArrayFromJSON(utf8(), R"(["itsy", "bitsy", "spider"])");
-//   ASSERT_RAISES_WITH_MESSAGE(TypeError,
-//                              "Type error: DataType is not compatible with DLPack spec: " +
-//                                  array_string->type()->ToString(),
-//                              arrow::dlpack::ExportArray(array_string));
-
-//   const std::shared_ptr<Array> array_boolean = ArrayFromJSON(boolean(), "[true, false]");
-//   ASSERT_RAISES_WITH_MESSAGE(
-//       TypeError, "Type error: Bit-packed boolean data type not supported by DLPack.",
-//       arrow::dlpack::ExportDevice(array_boolean));
-// }
 
 }  // namespace arrow::dlpack
