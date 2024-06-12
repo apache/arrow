@@ -560,15 +560,6 @@ class TakeMetaFunction : public MetaFunction {
     return array_take_func->Execute(args, &options, ctx);
   }
 
-  static Result<std::shared_ptr<ArrayData>> TakeAAA(const std::vector<Datum>& args,
-                                                    const TakeOptions& options,
-                                                    ExecContext* ctx) {
-    DCHECK_EQ(args[0].kind(), Datum::ARRAY);
-    DCHECK_EQ(args[1].kind(), Datum::ARRAY);
-    ARROW_ASSIGN_OR_RAISE(Datum result, CallArrayTake(args, options, ctx));
-    return result.array();
-  }
-
   static Result<std::shared_ptr<Array>> ChunkedArrayAsArray(
       const std::shared_ptr<ChunkedArray>& values, MemoryPool* pool) {
     switch (values->num_chunks()) {
@@ -579,6 +570,16 @@ class TakeMetaFunction : public MetaFunction {
       default:
         return Concatenate(values->chunks(), pool);
     }
+  }
+
+ private:
+  static Result<std::shared_ptr<ArrayData>> TakeAAA(const std::vector<Datum>& args,
+                                                    const TakeOptions& options,
+                                                    ExecContext* ctx) {
+    DCHECK_EQ(args[0].kind(), Datum::ARRAY);
+    DCHECK_EQ(args[1].kind(), Datum::ARRAY);
+    ARROW_ASSIGN_OR_RAISE(Datum result, CallArrayTake(args, options, ctx));
+    return result.array();
   }
 
   static Result<std::shared_ptr<ArrayData>> TakeCAA(
@@ -676,6 +677,7 @@ class TakeMetaFunction : public MetaFunction {
     return Table::Make(table->schema(), std::move(columns));
   }
 
+ public:
   Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                             const FunctionOptions* options,
                             ExecContext* ctx) const override {
@@ -709,7 +711,8 @@ class TakeMetaFunction : public MetaFunction {
           return TakeTCT(args[0].table(), args[1].chunked_array(), take_opts, ctx);
         }
         break;
-      default:
+      case Datum::NONE:
+      case Datum::SCALAR:
         break;
     }
     return Status::NotImplemented(
