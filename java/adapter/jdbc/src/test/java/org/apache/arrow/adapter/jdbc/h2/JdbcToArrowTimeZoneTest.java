@@ -123,25 +123,6 @@ public class JdbcToArrowTimeZoneTest extends AbstractJdbcToArrowTest {
         false);
     testDataSets(
         sqlToArrow(
-            conn.createStatement().executeQuery(table.getQuery()),
-            new RootAllocator(Integer.MAX_VALUE),
-            Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))),
-        false);
-    testDataSets(
-        sqlToArrow(
-            conn.createStatement().executeQuery(table.getQuery()),
-            Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone()))),
-        false);
-    testDataSets(
-        sqlToArrow(
-            conn.createStatement().executeQuery(table.getQuery()),
-            new JdbcToArrowConfigBuilder(
-                    new RootAllocator(Integer.MAX_VALUE),
-                    Calendar.getInstance(TimeZone.getTimeZone(table.getTimezone())))
-                .build()),
-        false);
-    testDataSets(
-        sqlToArrow(
             conn,
             table.getQuery(),
             new JdbcToArrowConfigBuilder(
