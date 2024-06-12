@@ -159,7 +159,7 @@ void CheckDLTensor(const std::shared_ptr<Tensor>& t,
   dlmtensor->deleter(dlmtensor);
 }
 
-TEST_F(TestExportTensor, TestSupportedTensor) {
+TEST_F(TestExportTensor, TestTensor) {
   const std::vector<std::pair<std::shared_ptr<DataType>, DLDataTypeCode>> cases = {
       {int8(), DLDataTypeCode::kDLInt},
       {uint8(), DLDataTypeCode::kDLUInt},
@@ -194,6 +194,21 @@ TEST_F(TestExportTensor, TestSupportedTensor) {
   }
 
   ASSERT_EQ(allocated_bytes, arrow::default_memory_pool()->bytes_allocated());
+}
+
+TEST_F(TestExportTensor, TestTensorStrided) {
+  std::vector<int64_t> shape = {2, 2, 2};
+  std::vector<int64_t> strides = {sizeof(float) * 4, sizeof(float) * 2, sizeof(float) * 1};
+  std::vector<int64_t> dlpack_strides = {4, 2, 1};
+  std::shared_ptr<Tensor> tensor = TensorFromJSON(float32(), "[1, 2, 3, 4, 5, 6, 1, 1]", shape, strides);
+
+  CheckDLTensor(tensor, float32(), DLDataTypeCode::kDLFloat, shape, dlpack_strides);
+
+  std::vector<int64_t> f_strides = {sizeof(float) * 1, sizeof(float) * 2, sizeof(float) * 4};
+  std::vector<int64_t> f_dlpack_strides = {1, 2, 4};
+  std::shared_ptr<Tensor> f_tensor = TensorFromJSON(float32(), "[1, 2, 3, 4, 5, 6, 1, 1]", shape, f_strides);
+
+  CheckDLTensor(f_tensor, float32(), DLDataTypeCode::kDLFloat, shape, f_dlpack_strides);
 }
 
 }  // namespace arrow::dlpack
