@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -23,9 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.Connection;
-
 import javax.sql.PooledConnection;
-
 import org.apache.arrow.driver.jdbc.authentication.UserPasswordAuthentication;
 import org.apache.arrow.driver.jdbc.utils.ConnectionWrapper;
 import org.apache.arrow.driver.jdbc.utils.MockFlightSqlProducer;
@@ -35,8 +32,7 @@ import org.junit.ClassRule;
 import org.junit.Test;
 
 public class ArrowFlightJdbcConnectionPoolDataSourceTest {
-  @ClassRule
-  public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE;
+  @ClassRule public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE;
 
   private static final MockFlightSqlProducer PRODUCER = new MockFlightSqlProducer();
 
@@ -47,10 +43,11 @@ public class ArrowFlightJdbcConnectionPoolDataSourceTest {
             .user("user2", "pass2")
             .build();
 
-    FLIGHT_SERVER_TEST_RULE = new FlightServerTestRule.Builder()
-        .authentication(authentication)
-        .producer(PRODUCER)
-        .build();
+    FLIGHT_SERVER_TEST_RULE =
+        new FlightServerTestRule.Builder()
+            .authentication(authentication)
+            .producer(PRODUCER)
+            .build();
   }
 
   private ArrowFlightJdbcConnectionPoolDataSource dataSource;
@@ -111,7 +108,8 @@ public class ArrowFlightJdbcConnectionPoolDataSourceTest {
 
     assertSame(pooledConnection, pooledConnection2);
     assertNotSame(connection, connection2);
-    assertSame(connection.unwrap(ArrowFlightConnection.class),
+    assertSame(
+        connection.unwrap(ArrowFlightConnection.class),
         connection2.unwrap(ArrowFlightConnection.class));
   }
 
@@ -133,7 +131,8 @@ public class ArrowFlightJdbcConnectionPoolDataSourceTest {
 
     assertNotSame(pooledConnection, pooledConnection2);
     assertNotSame(connection, connection2);
-    assertNotSame(connection.unwrap(ArrowFlightConnection.class),
+    assertNotSame(
+        connection.unwrap(ArrowFlightConnection.class),
         connection2.unwrap(ArrowFlightConnection.class));
   }
 }

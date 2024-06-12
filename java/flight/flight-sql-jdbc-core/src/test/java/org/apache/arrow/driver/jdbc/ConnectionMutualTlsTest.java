@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -29,7 +28,6 @@ import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Properties;
-
 import org.apache.arrow.driver.jdbc.authentication.UserPasswordAuthentication;
 import org.apache.arrow.driver.jdbc.client.ArrowFlightSqlClientHandler;
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
@@ -43,13 +41,10 @@ import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
 
-/**
- * Tests encrypted connections.
- */
+/** Tests encrypted connections. */
 public class ConnectionMutualTlsTest {
 
-  @ClassRule
-  public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE;
+  @ClassRule public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE;
   private static final String tlsRootCertsPath;
   private static final String clientMTlsCertPath;
   private static final String badClientMTlsCertPath;
@@ -60,15 +55,15 @@ public class ConnectionMutualTlsTest {
   private static final String passTest = "pass1";
 
   static {
-    final FlightSqlTestCertificates.CertKeyPair
-        certKey = FlightSqlTestCertificates.exampleTlsCerts().get(0);
+    final FlightSqlTestCertificates.CertKeyPair certKey =
+        FlightSqlTestCertificates.exampleTlsCerts().get(0);
 
     tlsRootCertsPath = certKey.cert.getPath();
 
     final File serverMTlsCACert = FlightSqlTestCertificates.exampleCACert();
 
-    final FlightSqlTestCertificates.CertKeyPair
-        clientMTlsCertKey = FlightSqlTestCertificates.exampleTlsCerts().get(1);
+    final FlightSqlTestCertificates.CertKeyPair clientMTlsCertKey =
+        FlightSqlTestCertificates.exampleTlsCerts().get(1);
 
     clientMTlsCertPath = clientMTlsCertKey.cert.getPath();
     clientMTlsKeyPath = clientMTlsCertKey.key.getPath();
@@ -76,16 +71,16 @@ public class ConnectionMutualTlsTest {
     badClientMTlsCertPath = clientMTlsCertPath + ".bad";
     badClientMTlsKeyPath = clientMTlsKeyPath + ".bad";
 
-    UserPasswordAuthentication authentication = new UserPasswordAuthentication.Builder()
-            .user(userTest, passTest)
-            .build();
+    UserPasswordAuthentication authentication =
+        new UserPasswordAuthentication.Builder().user(userTest, passTest).build();
 
-    FLIGHT_SERVER_TEST_RULE = new FlightServerTestRule.Builder()
-        .authentication(authentication)
-        .useEncryption(certKey.cert, certKey.key)
-        .useMTlsClientVerification(serverMTlsCACert)
-        .producer(PRODUCER)
-        .build();
+    FLIGHT_SERVER_TEST_RULE =
+        new FlightServerTestRule.Builder()
+            .authentication(authentication)
+            .useEncryption(certKey.cert, certKey.key)
+            .useMTlsClientVerification(serverMTlsCACert)
+            .producer(PRODUCER)
+            .build();
   }
 
   private BufferAllocator allocator;
@@ -110,17 +105,17 @@ public class ConnectionMutualTlsTest {
   public void testGetEncryptedClientAuthenticated() throws Exception {
 
     try (ArrowFlightSqlClientHandler client =
-             new ArrowFlightSqlClientHandler.Builder()
-                 .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
-                 .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
-                 .withUsername(userTest)
-                 .withPassword(passTest)
-                 .withTlsRootCertificates(tlsRootCertsPath)
-                 .withClientCertificate(clientMTlsCertPath)
-                 .withClientKey(clientMTlsKeyPath)
-                 .withBufferAllocator(allocator)
-                 .withEncryption(true)
-                 .build()) {
+        new ArrowFlightSqlClientHandler.Builder()
+            .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
+            .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
+            .withUsername(userTest)
+            .withPassword(passTest)
+            .withTlsRootCertificates(tlsRootCertsPath)
+            .withClientCertificate(clientMTlsCertPath)
+            .withClientKey(clientMTlsKeyPath)
+            .withBufferAllocator(allocator)
+            .withEncryption(true)
+            .build()) {
       assertNotNull(client);
     }
   }
@@ -132,21 +127,24 @@ public class ConnectionMutualTlsTest {
   @Test
   public void testGetEncryptedClientWithBadMTlsCertPath() {
 
-    assertThrows(SQLException.class, () -> {
-      try (ArrowFlightSqlClientHandler handler = new ArrowFlightSqlClientHandler.Builder()
-          .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
-          .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
-          .withUsername(userTest)
-          .withPassword(passTest)
-          .withTlsRootCertificates(tlsRootCertsPath)
-          .withClientCertificate(badClientMTlsCertPath)
-          .withClientKey(clientMTlsKeyPath)
-          .withBufferAllocator(allocator)
-          .withEncryption(true)
-          .build()) {
-        fail();
-      }
-    });
+    assertThrows(
+        SQLException.class,
+        () -> {
+          try (ArrowFlightSqlClientHandler handler =
+              new ArrowFlightSqlClientHandler.Builder()
+                  .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
+                  .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
+                  .withUsername(userTest)
+                  .withPassword(passTest)
+                  .withTlsRootCertificates(tlsRootCertsPath)
+                  .withClientCertificate(badClientMTlsCertPath)
+                  .withClientKey(clientMTlsKeyPath)
+                  .withBufferAllocator(allocator)
+                  .withEncryption(true)
+                  .build()) {
+            fail();
+          }
+        });
   }
 
   /**
@@ -156,21 +154,24 @@ public class ConnectionMutualTlsTest {
   @Test
   public void testGetEncryptedClientWithBadMTlsKeyPath() {
 
-    assertThrows(SQLException.class, () -> {
-      try (ArrowFlightSqlClientHandler handler = new ArrowFlightSqlClientHandler.Builder()
-          .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
-          .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
-          .withUsername(userTest)
-          .withPassword(passTest)
-          .withTlsRootCertificates(tlsRootCertsPath)
-          .withClientCertificate(clientMTlsCertPath)
-          .withClientKey(badClientMTlsKeyPath)
-          .withBufferAllocator(allocator)
-          .withEncryption(true)
-          .build()) {
-        fail();
-      }
-    });
+    assertThrows(
+        SQLException.class,
+        () -> {
+          try (ArrowFlightSqlClientHandler handler =
+              new ArrowFlightSqlClientHandler.Builder()
+                  .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
+                  .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
+                  .withUsername(userTest)
+                  .withPassword(passTest)
+                  .withTlsRootCertificates(tlsRootCertsPath)
+                  .withClientCertificate(clientMTlsCertPath)
+                  .withClientKey(badClientMTlsKeyPath)
+                  .withBufferAllocator(allocator)
+                  .withEncryption(true)
+                  .build()) {
+            fail();
+          }
+        });
   }
 
   /**
@@ -181,21 +182,21 @@ public class ConnectionMutualTlsTest {
   @Test
   public void testGetNonAuthenticatedEncryptedClientNoAuth() throws Exception {
     try (ArrowFlightSqlClientHandler client =
-             new ArrowFlightSqlClientHandler.Builder()
-                 .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
-                 .withTlsRootCertificates(tlsRootCertsPath)
-                 .withClientCertificate(clientMTlsCertPath)
-                 .withClientKey(clientMTlsKeyPath)
-                 .withBufferAllocator(allocator)
-                 .withEncryption(true)
-                 .build()) {
+        new ArrowFlightSqlClientHandler.Builder()
+            .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
+            .withTlsRootCertificates(tlsRootCertsPath)
+            .withClientCertificate(clientMTlsCertPath)
+            .withClientKey(clientMTlsKeyPath)
+            .withBufferAllocator(allocator)
+            .withEncryption(true)
+            .build()) {
       assertNotNull(client);
     }
   }
 
   /**
-   * Check if an encrypted connection can be established successfully when the
-   * provided valid credentials and a valid TLS Root Certs path.
+   * Check if an encrypted connection can be established successfully when the provided valid
+   * credentials and a valid TLS Root Certs path.
    *
    * @throws Exception on error.
    */
@@ -204,18 +205,14 @@ public class ConnectionMutualTlsTest {
     final Properties properties = new Properties();
 
     properties.put(ArrowFlightConnectionProperty.HOST.camelName(), "localhost");
-    properties.put(ArrowFlightConnectionProperty.PORT.camelName(),
-        FLIGHT_SERVER_TEST_RULE.getPort());
-    properties.put(ArrowFlightConnectionProperty.USER.camelName(),
-        userTest);
-    properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(),
-        passTest);
-    properties.put(ArrowFlightConnectionProperty.TLS_ROOT_CERTS.camelName(),
-        tlsRootCertsPath);
-    properties.put(ArrowFlightConnectionProperty.CLIENT_CERTIFICATE.camelName(),
-        clientMTlsCertPath);
-    properties.put(ArrowFlightConnectionProperty.CLIENT_KEY.camelName(),
-        clientMTlsKeyPath);
+    properties.put(
+        ArrowFlightConnectionProperty.PORT.camelName(), FLIGHT_SERVER_TEST_RULE.getPort());
+    properties.put(ArrowFlightConnectionProperty.USER.camelName(), userTest);
+    properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(), passTest);
+    properties.put(ArrowFlightConnectionProperty.TLS_ROOT_CERTS.camelName(), tlsRootCertsPath);
+    properties.put(
+        ArrowFlightConnectionProperty.CLIENT_CERTIFICATE.camelName(), clientMTlsCertPath);
+    properties.put(ArrowFlightConnectionProperty.CLIENT_KEY.camelName(), clientMTlsKeyPath);
 
     final ArrowFlightJdbcDataSource dataSource =
         ArrowFlightJdbcDataSource.createNewDataSource(properties);
@@ -225,8 +222,8 @@ public class ConnectionMutualTlsTest {
   }
 
   /**
-   * Check if an encrypted connection can be established successfully when not
-   * providing authentication.
+   * Check if an encrypted connection can be established successfully when not providing
+   * authentication.
    *
    * @throws Exception on error.
    */
@@ -234,22 +231,26 @@ public class ConnectionMutualTlsTest {
   public void testGetNonAuthenticatedEncryptedConnection() throws Exception {
     final Properties properties = new Properties();
 
-    properties.put(ArrowFlightConnectionProperty.HOST.camelName(), FLIGHT_SERVER_TEST_RULE.getHost());
-    properties.put(ArrowFlightConnectionProperty.PORT.camelName(), FLIGHT_SERVER_TEST_RULE.getPort());
+    properties.put(
+        ArrowFlightConnectionProperty.HOST.camelName(), FLIGHT_SERVER_TEST_RULE.getHost());
+    properties.put(
+        ArrowFlightConnectionProperty.PORT.camelName(), FLIGHT_SERVER_TEST_RULE.getPort());
     properties.put(ArrowFlightConnectionProperty.USE_ENCRYPTION.camelName(), true);
     properties.put(ArrowFlightConnectionProperty.TLS_ROOT_CERTS.camelName(), tlsRootCertsPath);
-    properties.put(ArrowFlightConnectionProperty.CLIENT_CERTIFICATE.camelName(), clientMTlsCertPath);
+    properties.put(
+        ArrowFlightConnectionProperty.CLIENT_CERTIFICATE.camelName(), clientMTlsCertPath);
     properties.put(ArrowFlightConnectionProperty.CLIENT_KEY.camelName(), clientMTlsKeyPath);
 
-    final ArrowFlightJdbcDataSource dataSource = ArrowFlightJdbcDataSource.createNewDataSource(properties);
+    final ArrowFlightJdbcDataSource dataSource =
+        ArrowFlightJdbcDataSource.createNewDataSource(properties);
     try (final Connection connection = dataSource.getConnection()) {
       assertTrue(connection.isValid(300));
     }
   }
 
   /**
-   * Check if an encrypted connection can be established successfully when connecting through
-   * the DriverManager using just a connection url.
+   * Check if an encrypted connection can be established successfully when connecting through the
+   * DriverManager using just a connection url.
    *
    * @throws Exception on error.
    */
@@ -258,9 +259,10 @@ public class ConnectionMutualTlsTest {
     final Driver driver = new ArrowFlightJdbcDriver();
     DriverManager.registerDriver(driver);
 
-    final String jdbcUrl = String.format(
-            "jdbc:arrow-flight-sql://localhost:%s?user=%s&password=%s" +
-                    "&useEncryption=true&%s=%s&%s=%s&%s=%s",
+    final String jdbcUrl =
+        String.format(
+            "jdbc:arrow-flight-sql://localhost:%s?user=%s&password=%s"
+                + "&useEncryption=true&%s=%s&%s=%s&%s=%s",
             FLIGHT_SERVER_TEST_RULE.getPort(),
             userTest,
             passTest,
@@ -277,14 +279,15 @@ public class ConnectionMutualTlsTest {
   }
 
   /**
-   * Check if an encrypted connection can be established successfully when connecting through the DriverManager using
-   * a connection url and properties with String K-V pairs.
+   * Check if an encrypted connection can be established successfully when connecting through the
+   * DriverManager using a connection url and properties with String K-V pairs.
    *
    * @throws Exception on error.
    */
   @Test
-  public void testTLSConnectionPropertyTrueCorrectCastUrlAndPropertiesUsingSetPropertyWithDriverManager()
-      throws Exception {
+  public void
+      testTLSConnectionPropertyTrueCorrectCastUrlAndPropertiesUsingSetPropertyWithDriverManager()
+          throws Exception {
     final Driver driver = new ArrowFlightJdbcDriver();
     DriverManager.registerDriver(driver);
 
@@ -292,14 +295,15 @@ public class ConnectionMutualTlsTest {
 
     properties.setProperty(ArrowFlightConnectionProperty.USER.camelName(), userTest);
     properties.setProperty(ArrowFlightConnectionProperty.PASSWORD.camelName(), passTest);
-    properties.setProperty(ArrowFlightConnectionProperty.TLS_ROOT_CERTS.camelName(), tlsRootCertsPath);
+    properties.setProperty(
+        ArrowFlightConnectionProperty.TLS_ROOT_CERTS.camelName(), tlsRootCertsPath);
     properties.setProperty(ArrowFlightConnectionProperty.USE_ENCRYPTION.camelName(), "true");
-    properties.setProperty(ArrowFlightConnectionProperty.CLIENT_CERTIFICATE.camelName(), clientMTlsCertPath);
+    properties.setProperty(
+        ArrowFlightConnectionProperty.CLIENT_CERTIFICATE.camelName(), clientMTlsCertPath);
     properties.setProperty(ArrowFlightConnectionProperty.CLIENT_KEY.camelName(), clientMTlsKeyPath);
 
-    final String jdbcUrl = String.format(
-            "jdbc:arrow-flight-sql://localhost:%s",
-            FLIGHT_SERVER_TEST_RULE.getPort());
+    final String jdbcUrl =
+        String.format("jdbc:arrow-flight-sql://localhost:%s", FLIGHT_SERVER_TEST_RULE.getPort());
 
     try (Connection connection = DriverManager.getConnection(jdbcUrl, properties)) {
       assertTrue(connection.isValid(0));
@@ -307,8 +311,8 @@ public class ConnectionMutualTlsTest {
   }
 
   /**
-   * Check if an encrypted connection can be established successfully when connecting through the DriverManager using
-   * a connection url and properties with Object K-V pairs.
+   * Check if an encrypted connection can be established successfully when connecting through the
+   * DriverManager using a connection url and properties with Object K-V pairs.
    *
    * @throws Exception on error.
    */
@@ -324,12 +328,12 @@ public class ConnectionMutualTlsTest {
     properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(), passTest);
     properties.put(ArrowFlightConnectionProperty.USE_ENCRYPTION.camelName(), true);
     properties.put(ArrowFlightConnectionProperty.TLS_ROOT_CERTS.camelName(), tlsRootCertsPath);
-    properties.put(ArrowFlightConnectionProperty.CLIENT_CERTIFICATE.camelName(), clientMTlsCertPath);
+    properties.put(
+        ArrowFlightConnectionProperty.CLIENT_CERTIFICATE.camelName(), clientMTlsCertPath);
     properties.put(ArrowFlightConnectionProperty.CLIENT_KEY.camelName(), clientMTlsKeyPath);
 
-    final String jdbcUrl = String.format(
-            "jdbc:arrow-flight-sql://localhost:%s",
-            FLIGHT_SERVER_TEST_RULE.getPort());
+    final String jdbcUrl =
+        String.format("jdbc:arrow-flight-sql://localhost:%s", FLIGHT_SERVER_TEST_RULE.getPort());
 
     try (Connection connection = DriverManager.getConnection(jdbcUrl, properties)) {
       assertTrue(connection.isValid(0));
@@ -337,8 +341,8 @@ public class ConnectionMutualTlsTest {
   }
 
   /**
-   * Check if an encrypted connection can be established successfully when connecting through the DriverManager using
-   * just a connection url and using 0 and 1 as ssl values.
+   * Check if an encrypted connection can be established successfully when connecting through the
+   * DriverManager using just a connection url and using 0 and 1 as ssl values.
    *
    * @throws Exception on error.
    */
@@ -348,9 +352,10 @@ public class ConnectionMutualTlsTest {
     final Driver driver = new ArrowFlightJdbcDriver();
     DriverManager.registerDriver(driver);
 
-    final String jdbcUrl = String.format(
-            "jdbc:arrow-flight-sql://localhost:%s?user=%s&password=%s" +
-                    "&useEncryption=1&useSystemTrustStore=0&%s=%s&%s=%s&%s=%s",
+    final String jdbcUrl =
+        String.format(
+            "jdbc:arrow-flight-sql://localhost:%s?user=%s&password=%s"
+                + "&useEncryption=1&useSystemTrustStore=0&%s=%s&%s=%s&%s=%s",
             FLIGHT_SERVER_TEST_RULE.getPort(),
             userTest,
             passTest,
@@ -367,14 +372,16 @@ public class ConnectionMutualTlsTest {
   }
 
   /**
-   * Check if an encrypted connection can be established successfully when connecting through the DriverManager using
-   * a connection url and properties with String K-V pairs and using 0 and 1 as ssl values.
+   * Check if an encrypted connection can be established successfully when connecting through the
+   * DriverManager using a connection url and properties with String K-V pairs and using 0 and 1 as
+   * ssl values.
    *
    * @throws Exception on error.
    */
   @Test
-  public void testTLSConnectionPropertyTrueIntegerCorrectCastUrlAndPropertiesUsingSetPropertyWithDriverManager()
-      throws Exception {
+  public void
+      testTLSConnectionPropertyTrueIntegerCorrectCastUrlAndPropertiesUsingSetPropertyWithDriverManager()
+          throws Exception {
     final Driver driver = new ArrowFlightJdbcDriver();
     DriverManager.registerDriver(driver);
 
@@ -382,12 +389,15 @@ public class ConnectionMutualTlsTest {
 
     properties.setProperty(ArrowFlightConnectionProperty.USER.camelName(), userTest);
     properties.setProperty(ArrowFlightConnectionProperty.PASSWORD.camelName(), passTest);
-    properties.setProperty(ArrowFlightConnectionProperty.TLS_ROOT_CERTS.camelName(), tlsRootCertsPath);
+    properties.setProperty(
+        ArrowFlightConnectionProperty.TLS_ROOT_CERTS.camelName(), tlsRootCertsPath);
     properties.setProperty(ArrowFlightConnectionProperty.USE_ENCRYPTION.camelName(), "1");
-    properties.setProperty(ArrowFlightConnectionProperty.CLIENT_CERTIFICATE.camelName(), clientMTlsCertPath);
+    properties.setProperty(
+        ArrowFlightConnectionProperty.CLIENT_CERTIFICATE.camelName(), clientMTlsCertPath);
     properties.setProperty(ArrowFlightConnectionProperty.CLIENT_KEY.camelName(), clientMTlsKeyPath);
 
-    final String jdbcUrl = String.format("jdbc:arrow-flight-sql://localhost:%s", FLIGHT_SERVER_TEST_RULE.getPort());
+    final String jdbcUrl =
+        String.format("jdbc:arrow-flight-sql://localhost:%s", FLIGHT_SERVER_TEST_RULE.getPort());
 
     try (Connection connection = DriverManager.getConnection(jdbcUrl, properties)) {
       assertTrue(connection.isValid(0));
@@ -395,14 +405,16 @@ public class ConnectionMutualTlsTest {
   }
 
   /**
-   * Check if an encrypted connection can be established successfully when connecting through the DriverManager using
-   * a connection url and properties with Object K-V pairs and using 0 and 1 as ssl values.
+   * Check if an encrypted connection can be established successfully when connecting through the
+   * DriverManager using a connection url and properties with Object K-V pairs and using 0 and 1 as
+   * ssl values.
    *
    * @throws Exception on error.
    */
   @Test
-  public void testTLSConnectionPropertyTrueIntegerCorrectCastUrlAndPropertiesUsingPutWithDriverManager()
-      throws Exception {
+  public void
+      testTLSConnectionPropertyTrueIntegerCorrectCastUrlAndPropertiesUsingPutWithDriverManager()
+          throws Exception {
     final Driver driver = new ArrowFlightJdbcDriver();
     DriverManager.registerDriver(driver);
 
@@ -412,11 +424,12 @@ public class ConnectionMutualTlsTest {
     properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(), passTest);
     properties.put(ArrowFlightConnectionProperty.USE_ENCRYPTION.camelName(), 1);
     properties.put(ArrowFlightConnectionProperty.TLS_ROOT_CERTS.camelName(), tlsRootCertsPath);
-    properties.put(ArrowFlightConnectionProperty.CLIENT_CERTIFICATE.camelName(), clientMTlsCertPath);
+    properties.put(
+        ArrowFlightConnectionProperty.CLIENT_CERTIFICATE.camelName(), clientMTlsCertPath);
     properties.put(ArrowFlightConnectionProperty.CLIENT_KEY.camelName(), clientMTlsKeyPath);
 
-    final String jdbcUrl = String.format("jdbc:arrow-flight-sql://localhost:%s",
-            FLIGHT_SERVER_TEST_RULE.getPort());
+    final String jdbcUrl =
+        String.format("jdbc:arrow-flight-sql://localhost:%s", FLIGHT_SERVER_TEST_RULE.getPort());
 
     try (Connection connection = DriverManager.getConnection(jdbcUrl, properties)) {
       assertTrue(connection.isValid(0));
