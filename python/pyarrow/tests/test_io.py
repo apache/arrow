@@ -697,7 +697,7 @@ def test_non_cpu_buffer(pickle_module):
     assert cuda_sliced.to_pybytes() == b'st'
 
     # Sliced buffers with same address
-    assert buf_on_gpu.equals(cuda_buf)
+    assert buf_on_gpu_sliced.equals(cuda_buf[2:4])
 
     msg = "Implemented only for data on CPU device"
 
