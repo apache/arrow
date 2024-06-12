@@ -3398,7 +3398,7 @@ def test_numpy_array_protocol():
     result = np.asarray(arr)
     np.testing.assert_array_equal(result, expected)
 
-    if Version(np.__version__) < Version("2.0"):
+    if Version(np.__version__) < Version("2.0.0.dev0"):
         # copy keyword is not strict and not passed down to __array__
         result = np.array(arr, copy=False)
         np.testing.assert_array_equal(result, expected)
