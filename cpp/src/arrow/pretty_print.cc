@@ -417,9 +417,8 @@ Status ArrayPrinter::WriteValidityBitmap(const Array& array) {
 Result<std::shared_ptr<Array>> CopyStartEndToCPU(const Array& arr, int window) {
   std::shared_ptr<Array> arr_sliced;
   if (arr.length() > (2 * window + 1)) {
-    ARROW_ASSIGN_OR_RAISE(
-        auto arr_start,
-        arr.Slice(0, window + 1)->CopyTo(default_cpu_memory_manager()));
+    ARROW_ASSIGN_OR_RAISE(auto arr_start,
+                          arr.Slice(0, window + 1)->CopyTo(default_cpu_memory_manager()));
     ARROW_ASSIGN_OR_RAISE(
         auto arr_end,
         arr.Slice(arr.length() - window - 1)->CopyTo(default_cpu_memory_manager()));
