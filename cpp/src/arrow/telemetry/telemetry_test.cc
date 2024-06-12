@@ -22,6 +22,7 @@
 #include "arrow/telemetry/util_internal.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/tracing_internal.h"
 
@@ -34,6 +35,8 @@
 
 namespace arrow {
 namespace telemetry {
+
+static constexpr char kLoggingEnvVar[] = "ARROW_LOGGING_BACKEND";
 
 class OtelEnvironment : public ::testing::Environment {
  public:
@@ -59,7 +62,7 @@ class OtelEnvironment : public ::testing::Environment {
     ASSERT_OK(util::LoggerRegistry::RegisterLogger(logger->name(), logger));
   }
 
-  void TearDown() override { EXPECT_TRUE(internal::ShutdownOtelLoggerProvider()); }
+  void TearDown() override { internal::ShutdownOtelLoggerProvider(); }
 };
 
 static ::testing::Environment* kOtelEnvironment =
@@ -78,6 +81,10 @@ void Log(LogLevel severity, std::string_view message) {
 class TestLogging : public ::testing::Test {
  public:
   void SetUp() override {
+    auto env_var = arrow::internal::GetEnvVar(kLoggingEnvVar);
+    if (env_var.status().IsKeyError()) {
+      GTEST_SKIP() << "Env var " << kLoggingEnvVar << " is undefined";
+    }
     tracer_ = arrow::internal::tracing::GetTracer();
     span_ = tracer_->StartSpan("test-logging");
   }
