@@ -332,7 +332,8 @@ public class TestExtensionType {
     }
   }
 
-  static class UuidVector extends ExtensionTypeVector<FixedSizeBinaryVector> implements ValueIterableVector<UUID> {
+  static class UuidVector extends ExtensionTypeVector<FixedSizeBinaryVector>
+      implements ValueIterableVector<UUID> {
 
     public UuidVector(
         String name, BufferAllocator allocator, FixedSizeBinaryVector underlyingVector) {
