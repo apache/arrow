@@ -692,7 +692,7 @@ def test_non_cpu_buffer(pickle_module):
     cuda_sliced = cuda.CudaBuffer.from_buffer(buf_on_gpu_sliced)
     assert cuda_sliced.to_pybytes() == b'sting'
 
-    buf_on_gpu_sliced = buf_on_gpu[slice(2, 4, 1)]
+    buf_on_gpu_sliced = buf_on_gpu[2:4]
     cuda_sliced = cuda.CudaBuffer.from_buffer(buf_on_gpu_sliced)
     assert cuda_sliced.to_pybytes() == b'st'
 
