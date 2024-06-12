@@ -198,15 +198,19 @@ TEST_F(TestExportTensor, TestTensor) {
 
 TEST_F(TestExportTensor, TestTensorStrided) {
   std::vector<int64_t> shape = {2, 2, 2};
-  std::vector<int64_t> strides = {sizeof(float) * 4, sizeof(float) * 2, sizeof(float) * 1};
+  std::vector<int64_t> strides = {sizeof(float) * 4, sizeof(float) * 2,
+                                  sizeof(float) * 1};
   std::vector<int64_t> dlpack_strides = {4, 2, 1};
-  std::shared_ptr<Tensor> tensor = TensorFromJSON(float32(), "[1, 2, 3, 4, 5, 6, 1, 1]", shape, strides);
+  std::shared_ptr<Tensor> tensor =
+      TensorFromJSON(float32(), "[1, 2, 3, 4, 5, 6, 1, 1]", shape, strides);
 
   CheckDLTensor(tensor, float32(), DLDataTypeCode::kDLFloat, shape, dlpack_strides);
 
-  std::vector<int64_t> f_strides = {sizeof(float) * 1, sizeof(float) * 2, sizeof(float) * 4};
+  std::vector<int64_t> f_strides = {sizeof(float) * 1, sizeof(float) * 2,
+                                    sizeof(float) * 4};
   std::vector<int64_t> f_dlpack_strides = {1, 2, 4};
-  std::shared_ptr<Tensor> f_tensor = TensorFromJSON(float32(), "[1, 2, 3, 4, 5, 6, 1, 1]", shape, f_strides);
+  std::shared_ptr<Tensor> f_tensor =
+      TensorFromJSON(float32(), "[1, 2, 3, 4, 5, 6, 1, 1]", shape, f_strides);
 
   CheckDLTensor(f_tensor, float32(), DLDataTypeCode::kDLFloat, shape, f_dlpack_strides);
 }
