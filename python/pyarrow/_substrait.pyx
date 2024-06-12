@@ -133,7 +133,7 @@ def run_query(plan, *, table_provider=None, use_threads=True):
         c_bool c_use_threads
 
     c_use_threads = use_threads
-    if isinstance(plan, bytes):
+    if isinstance(plan, (bytes, memoryview)):
         c_buf_plan = pyarrow_unwrap_buffer(py_buffer(plan))
     elif isinstance(plan, Buffer):
         c_buf_plan = pyarrow_unwrap_buffer(plan)
@@ -185,6 +185,89 @@ def _parse_json_plan(plan):
     with nogil:
         c_buf_plan = GetResultValue(c_res_buffer)
     return pyarrow_wrap_buffer(c_buf_plan)
+
+
+def serialize_schema(schema):
+    """
+    Serialize a schema into Substrait
+
+    Parameters
+    ----------
+    schema : Schema
+        The schema to serialize
+
+    Returns
+    -------
+    Buffer
+        A NamedStruct message containing the serialized schema
+    """
+    cdef:
+        CResult[shared_ptr[CBuffer]] c_res_buffer
+        shared_ptr[CBuffer] c_buffer
+        CConversionOptions c_conversion_options
+        CExtensionSet c_extensions
+        CResult[CExtensionSetTypeRecord] c_typerecord_res
+        CResult[uint32_t] c_res_type
+        uint32_t c_type_id
+        cpp_string_view c_empty_str
+        CSubstraitId c_id = CSubstraitId(c_empty_str, c_empty_str)
+        dict extension_types = {}
+
+    for field in schema:
+        c_res_type = c_extensions.EncodeType(
+            deref(pyarrow_unwrap_data_type(field.type)))
+        if not c_res_type.ok():
+            continue
+        c_type_id = GetResultValue(c_res_type)
+        c_typerecord_res = c_extensions.DecodeType(c_type_id)
+        c_id = GetResultValue(c_typerecord_res).id
+        extension_types[frombytes(c_id.name.data())] = {
+            "anchor": c_type_id,
+            "uri": frombytes(c_id.uri.data())
+        }
+
+    with nogil:
+        c_res_buffer = SerializeSchema(deref((<Schema> schema).sp_schema), &c_extensions, c_conversion_options)
+        c_buffer = GetResultValue(c_res_buffer)
+
+    return extension_types, memoryview(pyarrow_wrap_buffer(c_buffer))
+
+
+def deserialize_schema(buf):
+    """
+    Deserialize a NamedStruct Substrait message into a Schema object
+
+    Parameters
+    ----------
+    buf : Buffer or bytes
+        The message to deserialize
+
+    Returns
+    -------
+    Schema
+        The deserialized schema
+    """
+    cdef:
+        shared_ptr[CBuffer] c_buffer
+        CResult[shared_ptr[CSchema]] c_res_schema
+        shared_ptr[CSchema] c_schema
+        CConversionOptions c_conversion_options
+        CExtensionSet c_extensions
+
+    if isinstance(buf, (bytes, memoryview)):
+        c_buffer = pyarrow_unwrap_buffer(py_buffer(buf))
+    elif isinstance(buf, Buffer):
+        c_buffer = pyarrow_unwrap_buffer(buf)
+    else:
+        raise TypeError(
+            f"Expected 'pyarrow.Buffer' or bytes, got '{type(buf)}'")
+
+    with nogil:
+        c_res_schema = DeserializeSchema(
+            deref(c_buffer), c_extensions, c_conversion_options)
+        c_schema = GetResultValue(c_res_schema)
+
+    return pyarrow_wrap_schema(c_schema)
 
 
 def serialize_expressions(exprs, names, schema, *, allow_arrow_extensions=False):
@@ -245,7 +328,7 @@ def serialize_expressions(exprs, names, schema, *, allow_arrow_extensions=False)
     with nogil:
         c_res_buffer = SerializeExpressions(c_bound_exprs, c_conversion_options)
         c_buffer = GetResultValue(c_res_buffer)
-    return pyarrow_wrap_buffer(c_buffer)
+    return memoryview(pyarrow_wrap_buffer(c_buffer))
 
 
 cdef class BoundExpressions(_Weakrefable):
@@ -290,6 +373,32 @@ cdef class BoundExpressions(_Weakrefable):
         self.init(bound_expressions)
         return self
 
+    @classmethod
+    def from_substrait(cls, message):
+        """
+        Convert a Substrait message into a BoundExpressions object
+
+        Parameters
+        ----------
+        message : Buffer or bytes or protobuf Message
+            The message to convert to a BoundExpressions object
+
+        Returns
+        -------
+        BoundExpressions
+            The converted expressions, their names, and the bound schema
+        """
+        if isinstance(message, (bytes, memoryview)):
+            return deserialize_expressions(message)
+        elif isinstance(message, Buffer):
+            return deserialize_expressions(message)
+        else:
+            try:
+                return deserialize_expressions(message.SerializeToString())
+            except AttributeError:
+                raise TypeError(
+                    f"Expected 'pyarrow.Buffer' or bytes or protobuf Message, got '{type(message)}'")
+
 
 def deserialize_expressions(buf):
     """
@@ -310,7 +419,7 @@ def deserialize_expressions(buf):
         CResult[CBoundExpressions] c_res_bound_exprs
         CBoundExpressions c_bound_exprs
 
-    if isinstance(buf, bytes):
+    if isinstance(buf, (bytes, memoryview)):
         c_buffer = pyarrow_unwrap_buffer(py_buffer(buf))
     elif isinstance(buf, Buffer):
         c_buffer = pyarrow_unwrap_buffer(buf)
