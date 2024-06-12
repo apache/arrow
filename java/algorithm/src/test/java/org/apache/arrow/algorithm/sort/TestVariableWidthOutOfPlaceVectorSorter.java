@@ -16,8 +16,8 @@
  */
 package org.apache.arrow.algorithm.sort;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
@@ -25,38 +25,35 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.VarCharVector;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /** Test cases for {@link VariableWidthOutOfPlaceVectorSorter}. */
 public class TestVariableWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVectorSorter {
 
   private BufferAllocator allocator;
 
-  public TestVariableWidthOutOfPlaceVectorSorter(boolean generalSorter) {
-    super(generalSorter);
-  }
-
-  <V extends BaseVariableWidthVector> OutOfPlaceVectorSorter<V> getSorter() {
+  <V extends BaseVariableWidthVector> OutOfPlaceVectorSorter<V> getSorter(boolean generalSorter) {
     return generalSorter
         ? new GeneralOutOfPlaceVectorSorter<>()
         : new VariableWidthOutOfPlaceVectorSorter<V>();
   }
 
-  @Before
+  @BeforeEach
   public void prepare() {
     allocator = new RootAllocator(1024 * 1024);
   }
 
-  @After
+  @AfterEach
   public void shutdown() {
     allocator.close();
   }
 
-  @Test
-  public void testSortString() {
+  @ParameterizedTest
+  @MethodSource("getParameter")
+  public void testSortString(boolean generalSorter) {
     try (VarCharVector vec = new VarCharVector("", allocator)) {
       vec.allocateNew(100, 10);
       vec.setValueCount(10);
@@ -74,7 +71,7 @@ public class TestVariableWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVecto
       vec.set(9, "yes".getBytes(StandardCharsets.UTF_8));
 
       // sort the vector
-      OutOfPlaceVectorSorter<BaseVariableWidthVector> sorter = getSorter();
+      OutOfPlaceVectorSorter<BaseVariableWidthVector> sorter = getSorter(generalSorter);
       VectorValueComparator<BaseVariableWidthVector> comparator =
           DefaultVectorComparators.createDefaultComparator(vec);
 
@@ -87,9 +84,9 @@ public class TestVariableWidthOutOfPlaceVectorSorter extends TestOutOfPlaceVecto
       sorter.sortOutOfPlace(vec, sortedVec, comparator);
 
       // verify results
-      Assert.assertEquals(vec.getValueCount(), sortedVec.getValueCount());
-      Assert.assertEquals(vec.getByteCapacity(), sortedVec.getByteCapacity());
-      Assert.assertEquals(vec.getLastSet(), sortedVec.getLastSet());
+      assertEquals(vec.getValueCount(), sortedVec.getValueCount());
+      assertEquals(vec.getByteCapacity(), sortedVec.getByteCapacity());
+      assertEquals(vec.getLastSet(), sortedVec.getLastSet());
 
       assertTrue(sortedVec.isNull(0));
       assertTrue(sortedVec.isNull(1));

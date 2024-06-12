@@ -17,26 +17,18 @@
 package org.apache.arrow.algorithm.sort;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import java.util.stream.Stream;
+import org.junit.jupiter.params.provider.Arguments;
 
 /** Test cases for out-of-place sorters. */
-@RunWith(Parameterized.class)
 public abstract class TestOutOfPlaceVectorSorter {
 
-  protected final boolean generalSorter;
-
-  public TestOutOfPlaceVectorSorter(boolean generalSorter) {
-    this.generalSorter = generalSorter;
-  }
-
-  @Parameterized.Parameters(name = "general sorter = {0}")
-  public static Collection<Object[]> getParameter() {
-    List<Object[]> params = new ArrayList<>();
-    params.add(new Object[] {true});
-    params.add(new Object[] {false});
-    return params;
+  public static Stream<Arguments> getParameter() {
+    List<Arguments> args = new ArrayList<>();
+    for (boolean generalSorter : new boolean[] {false, true}) {
+      args.add(Arguments.of(generalSorter));
+    }
+    return args.stream();
   }
 }

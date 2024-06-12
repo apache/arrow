@@ -16,10 +16,10 @@
  */
 package org.apache.arrow.algorithm.dictionary;
 
-import static junit.framework.TestCase.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -32,9 +32,9 @@ import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryEncoder;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /** Test cases for {@link HashTableDictionaryEncoder}. */
 public class TestHashTableDictionaryEncoder {
@@ -51,12 +51,12 @@ public class TestHashTableDictionaryEncoder {
 
   byte[][] data = new byte[][] {zero, one, two};
 
-  @Before
+  @BeforeEach
   public void prepare() {
     allocator = new RootAllocator(1024 * 1024);
   }
 
-  @After
+  @AfterEach
   public void shutdown() {
     allocator.close();
   }

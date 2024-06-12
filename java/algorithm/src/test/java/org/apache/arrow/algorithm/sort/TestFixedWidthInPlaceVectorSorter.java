@@ -16,31 +16,30 @@
  */
 package org.apache.arrow.algorithm.sort;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.stream.IntStream;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /** Test cases for {@link FixedWidthInPlaceVectorSorter}. */
 public class TestFixedWidthInPlaceVectorSorter {
 
   private BufferAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void prepare() {
     allocator = new RootAllocator(1024 * 1024);
   }
 
-  @After
+  @AfterEach
   public void shutdown() {
     allocator.close();
   }
@@ -71,18 +70,18 @@ public class TestFixedWidthInPlaceVectorSorter {
       sorter.sortInPlace(vec, comparator);
 
       // verify results
-      Assert.assertEquals(10, vec.getValueCount());
+      assertEquals(10, vec.getValueCount());
 
       assertTrue(vec.isNull(0));
       assertTrue(vec.isNull(1));
-      Assert.assertEquals(2, vec.get(2));
-      Assert.assertEquals(8, vec.get(3));
-      Assert.assertEquals(10, vec.get(4));
-      Assert.assertEquals(10, vec.get(5));
-      Assert.assertEquals(12, vec.get(6));
-      Assert.assertEquals(17, vec.get(7));
-      Assert.assertEquals(23, vec.get(8));
-      Assert.assertEquals(35, vec.get(9));
+      assertEquals(2, vec.get(2));
+      assertEquals(8, vec.get(3));
+      assertEquals(10, vec.get(4));
+      assertEquals(10, vec.get(5));
+      assertEquals(12, vec.get(6));
+      assertEquals(17, vec.get(7));
+      assertEquals(23, vec.get(8));
+      assertEquals(35, vec.get(9));
     }
   }
 
@@ -110,10 +109,10 @@ public class TestFixedWidthInPlaceVectorSorter {
       sorter.sortInPlace(vec, comparator);
 
       // verify results
-      Assert.assertEquals(vectorLength, vec.getValueCount());
+      assertEquals(vectorLength, vec.getValueCount());
 
       for (int i = 0; i < vectorLength; i++) {
-        Assert.assertEquals(i, vec.get(i));
+        assertEquals(i, vec.get(i));
       }
     }
   }
