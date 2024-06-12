@@ -21,8 +21,10 @@
 
 import datetime
 import decimal as _pydecimal
+HAS_NUMPY=False
 try:
     import numpy as np
+    HAS_NUMPY=True
 except ImportError:
     np = None
 import os
