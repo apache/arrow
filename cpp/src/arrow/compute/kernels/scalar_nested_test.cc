@@ -130,8 +130,12 @@ TEST(TestScalarNested, ListElementInvalid) {
 
 using VarLenListLikeTypeFactory =
     std::shared_ptr<DataType> (*)(std::shared_ptr<DataType>);
-constexpr VarLenListLikeTypeFactory kVarLenListTypeFactories[] = {
-    list, large_list, list_view, large_list_view};
+static const VarLenListLikeTypeFactory kVarLenListTypeFactories[] = {
+    list,
+    large_list,
+    list_view,
+    large_list_view,
+};
 
 TEST(TestScalarNested, ListSliceVariableOutput) {
   const auto value_types = {float32(), int32()};
