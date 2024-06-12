@@ -49,7 +49,6 @@ void CheckDLTensor(const std::shared_ptr<Array>& arr,
   ASSERT_EQ(1, dltensor.ndim);
 
   ASSERT_EQ(dlpack_type, dltensor.dtype.code);
-
   ASSERT_EQ(arrow_type->bit_width(), dltensor.dtype.bits);
   ASSERT_EQ(1, dltensor.dtype.lanes);
   ASSERT_EQ(DLDeviceType::kDLCPU, dltensor.device.device_type);
@@ -183,7 +182,7 @@ TEST_F(TestExportTensor, TestSupportedTensor) {
       {float32(), DLDataTypeCode::kDLFloat},
       {float64(), DLDataTypeCode::kDLFloat}};
 
-  // const auto allocated_bytes = arrow::default_memory_pool()->bytes_allocated();
+  const auto allocated_bytes = arrow::default_memory_pool()->bytes_allocated();
 
   for (auto [arrow_type, dlpack_type] : cases) {
     std::vector<int64_t> shape = {3, 6};
@@ -194,7 +193,7 @@ TEST_F(TestExportTensor, TestSupportedTensor) {
     CheckDLTensor(tensor, arrow_type, dlpack_type, shape, dlpack_strides);
   }
 
-  // ASSERT_EQ(allocated_bytes, arrow::default_memory_pool()->bytes_allocated());
+  ASSERT_EQ(allocated_bytes, arrow::default_memory_pool()->bytes_allocated());
 }
 
 }  // namespace arrow::dlpack
