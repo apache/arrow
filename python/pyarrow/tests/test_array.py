@@ -487,7 +487,7 @@ def test_array_slice():
             res.validate()
             expected = arr.to_pylist()[start:stop]
             assert res.to_pylist() == expected
-            if "numpy" in sys.modules:
+            if pa.HAS_NUMPY:
                 assert res.to_numpy().tolist() == expected
 
 

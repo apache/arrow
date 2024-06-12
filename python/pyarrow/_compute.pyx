@@ -24,7 +24,7 @@ from cython.operator cimport dereference as deref
 
 from collections import namedtuple
 
-from pyarrow.lib import frombytes, tobytes, ArrowInvalid
+from pyarrow.lib import frombytes, tobytes, ArrowInvalid, HAS_NUMPY
 from pyarrow.lib cimport *
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
@@ -476,7 +476,7 @@ cdef class MetaFunction(Function):
 
 cdef _pack_compute_args(object values, vector[CDatum]* out):
     for val in values:
-        if "numpy" in sys.modules and isinstance(val, (list, np.ndarray)):
+        if HAS_NUMPY and isinstance(val, (list, np.ndarray)):
             val = lib.asarray(val)
 
         if isinstance(val, Array):
