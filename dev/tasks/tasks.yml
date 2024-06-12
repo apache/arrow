@@ -1196,6 +1196,15 @@ tasks:
       image: conda-python
 {% endfor %}
 
+  test-conda-python-emscripten:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 22.04
+      image: conda-python-emscripten
+
+
   test-conda-python-3.11-hypothesis:
     ci: github
     template: docker-tests/github.linux.yml
