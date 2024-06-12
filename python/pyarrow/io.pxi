@@ -1375,8 +1375,6 @@ cdef class Buffer(_Weakrefable):
             return pyarrow_wrap_buffer(parent_buf)
 
     def __getitem__(self, key):
-        self._assert_cpu()
-
         if isinstance(key, slice):
             if (key.step or 1) != 1:
                 raise IndexError('only slices with step 1 supported')
@@ -1385,6 +1383,7 @@ cdef class Buffer(_Weakrefable):
         return self.getitem(_normalize_index(key, self.size))
 
     cdef getitem(self, int64_t i):
+        self._assert_cpu()
         return self.buffer.get().data()[i]
 
     def slice(self, offset=0, length=None):
