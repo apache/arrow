@@ -19,22 +19,7 @@ package org.apache.arrow.vector;
 
 import java.util.Iterator;
 
-public interface ValueIterableVector<T> {
-  /**
-   * Gets the number of values.
-   *
-   * @return number of values in the vector
-   */
-  int getValueCount();
-
-  /**
-   * Get friendly type object from the vector.
-   *
-   * @param index index of object to get
-   * @return friendly type object
-   */
-  Object getObject(int index);
-
+public interface ValueIterableVector<T> extends ValueVector {
   /**
    * Get an Iterable that can be used to iterate over the values in the
    * vector.
