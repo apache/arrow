@@ -1430,8 +1430,11 @@ cdef class Buffer(_Weakrefable):
         are_equal : bool
             True if buffer contents and size are equal
         """
-        self._assert_cpu()
-        other._assert_cpu()
+        if not self.is_cpu and not other.is_cpu:
+            if self.address != other.address:
+                raise NotImplementedError(
+                    "Implemented only for data on CPU device or data with equal addresses"
+                    )
 
         cdef c_bool result = False
         with nogil:

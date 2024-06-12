@@ -696,12 +696,22 @@ def test_non_cpu_buffer(pickle_module):
     cuda_sliced = cuda.CudaBuffer.from_buffer(buf_on_gpu_sliced)
     assert cuda_sliced.to_pybytes() == b'st'
 
-    msg = "Implemented only for data on CPU device"
-    with pytest.raises(NotImplementedError, match=msg):
-        buf_on_gpu.equals(cuda_buf)
+    # Sliced buffers with same address
+    assert buf_on_gpu.equals(cuda_buf)
 
+    msg = "Implemented only for data on CPU device"
+
+    # Buffers with different addresses
+    arr_short = np.array([b'sting'])
+    cuda_buf_short = ctx.buffer_from_data(arr_short)
     with pytest.raises(NotImplementedError, match=msg):
-        cuda_buf.equals(buf_on_gpu)
+        buf_on_gpu_sliced.equals(cuda_buf_short)
+    arr_short = pa.FixedSizeBinaryArray.from_buffers(
+        pa.binary(5), 1,[None, cuda_buf_short]
+    )
+    buf_on_gpu_short = arr_short.buffers()[1]
+    with pytest.raises(NotImplementedError, match=msg):
+        buf_on_gpu_sliced.equals(buf_on_gpu_short)
 
     with pytest.raises(NotImplementedError, match=msg):
         buf_on_gpu.hex()
