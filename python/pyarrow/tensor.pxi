@@ -336,7 +336,7 @@ strides: {self.strides}"""
             CPU = 1, see cpp/src/arrow/c/dpack_abi.h) and index of the
             device which is 0 by default for CPU.
         """
-        device = GetResultValue(ExportTensorDevice(self.sp_tensor))
+        device = GetResultValue(ExportDevice(self.sp_tensor))
         return device.device_type, device.device_id
 
 

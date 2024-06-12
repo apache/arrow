@@ -144,7 +144,7 @@ Result<DLManagedTensor*> ExportTensor(const std::shared_ptr<Tensor>& t) {
   ARROW_ASSIGN_OR_RAISE(DLDataType dlpack_type, GetDLDataType(type));
 
   // Define DLDevice struct
-  ARROW_ASSIGN_OR_RAISE(DLDevice device, ExportTensorDevice(t))
+  ARROW_ASSIGN_OR_RAISE(DLDevice device, ExportDevice(t))
 
   // Create ManagerCtx that will serve as the owner of the DLManagedTensor
   std::unique_ptr<TensorManagerCtx> ctx(new TensorManagerCtx);
@@ -181,7 +181,7 @@ Result<DLManagedTensor*> ExportTensor(const std::shared_ptr<Tensor>& t) {
   return &ctx.release()->tensor;
 }
 
-Result<DLDevice> ExportTensorDevice(const std::shared_ptr<Tensor>& t) {
+Result<DLDevice> ExportDevice(const std::shared_ptr<Tensor>& t) {
   // Define DLDevice struct
   DLDevice device;
   if (t->data()->device_type() == DeviceAllocationType::kCPU) {

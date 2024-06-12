@@ -52,6 +52,6 @@ ARROW_EXPORT
 Result<DLDevice> ExportDevice(const std::shared_ptr<Array>& arr);
 
 ARROW_EXPORT
-Result<DLDevice> ExportTensorDevice(const std::shared_ptr<Tensor>& t);
+Result<DLDevice> ExportDevice(const std::shared_ptr<Tensor>& t);
 
 }  // namespace arrow::dlpack
