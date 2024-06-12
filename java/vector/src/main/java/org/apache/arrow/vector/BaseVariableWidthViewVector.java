@@ -1749,4 +1749,40 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
       exportBuffer(variadicSizeBuffer, buffers, buffersPtr, nullValue, false);
     }
   }
+
+  /**
+   * Method used by Json Writer to read a variable width element from the variable width view vector
+   * and write to Json.
+   *
+   * <p>This method should not be used externally.
+   *
+   * @param viewBuffer buffer storing the variable width vector elements
+   * @param dataBuffers buffer storing the offsets of variable width vector elements
+   * @param index position of the element in the vector
+   * @return array of bytes
+   */
+  public static byte[] get(
+      final ArrowBuf viewBuffer, final List<ArrowBuf> dataBuffers, int index, boolean isView) {
+    System.out.println(index + ": " + dataBuffers.size());
+    final int dataLength = viewBuffer.getInt((long) index * ELEMENT_SIZE);
+    byte[] result;
+    if (isView) {
+      result = new byte[ELEMENT_SIZE];
+      viewBuffer.getBytes((long) index * ELEMENT_SIZE, result, 0, ELEMENT_SIZE);
+    } else {
+      result = new byte[dataLength];
+      if (dataLength > INLINE_SIZE) {
+        // data is in the data buffer
+        // get buffer index
+        final int bufferIndex =
+            viewBuffer.getInt(((long) index * ELEMENT_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH);
+        // get data offset
+        final int dataOffset =
+            viewBuffer.getInt(
+                ((long) index * ELEMENT_SIZE) + LENGTH_WIDTH + PREFIX_WIDTH + BUF_INDEX_WIDTH);
+        dataBuffers.get(bufferIndex).getBytes(dataOffset, result, 0, dataLength);
+      }
+    }
+    return result;
+  }
 }

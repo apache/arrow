@@ -85,13 +85,13 @@ public class TypeLayout {
                     throw new UnsupportedOperationException(
                         "Unsupported Union Mode: " + type.getMode());
                 }
-                return new TypeLayout(vectors);
+                return new TypeLayout(vectors, true);
               }
 
               @Override
               public TypeLayout visit(Struct type) {
                 List<BufferLayout> vectors = asList(BufferLayout.validityVector());
-                return new TypeLayout(vectors);
+                return new TypeLayout(vectors, true);
               }
 
               @Override
@@ -103,7 +103,7 @@ public class TypeLayout {
               public TypeLayout visit(ArrowType.List type) {
                 List<BufferLayout> vectors =
                     asList(BufferLayout.validityVector(), BufferLayout.offsetBuffer());
-                return new TypeLayout(vectors);
+                return new TypeLayout(vectors, true);
               }
 
               @Override
@@ -113,27 +113,27 @@ public class TypeLayout {
                         BufferLayout.validityVector(),
                         BufferLayout.offsetBuffer(),
                         BufferLayout.sizeBuffer());
-                return new TypeLayout(vectors);
+                return new TypeLayout(vectors, true);
               }
 
               @Override
               public TypeLayout visit(ArrowType.LargeList type) {
                 List<BufferLayout> vectors =
                     asList(BufferLayout.validityVector(), BufferLayout.largeOffsetBuffer());
-                return new TypeLayout(vectors);
+                return new TypeLayout(vectors, true);
               }
 
               @Override
               public TypeLayout visit(FixedSizeList type) {
                 List<BufferLayout> vectors = asList(BufferLayout.validityVector());
-                return new TypeLayout(vectors);
+                return new TypeLayout(vectors, true);
               }
 
               @Override
               public TypeLayout visit(Map type) {
                 List<BufferLayout> vectors =
                     asList(BufferLayout.validityVector(), BufferLayout.offsetBuffer());
-                return new TypeLayout(vectors);
+                return new TypeLayout(vectors, true);
               }
 
               @Override
@@ -210,8 +210,8 @@ public class TypeLayout {
               }
 
               private TypeLayout newVariableWidthViewTypeLayout() {
-                return newPrimitiveTypeLayout(
-                    BufferLayout.validityVector(), BufferLayout.byteVector());
+                return new TypeLayout(
+                    false, BufferLayout.validityVector(), BufferLayout.byteVector());
               }
 
               private TypeLayout newLargeVariableWidthTypeLayout() {
@@ -223,7 +223,7 @@ public class TypeLayout {
               }
 
               private TypeLayout newPrimitiveTypeLayout(BufferLayout... vectors) {
-                return new TypeLayout(asList(vectors));
+                return new TypeLayout(asList(vectors), true);
               }
 
               public TypeLayout newFixedWidthTypeLayout(BufferLayout dataVector) {
@@ -232,7 +232,7 @@ public class TypeLayout {
 
               @Override
               public TypeLayout visit(Null type) {
-                return new TypeLayout(Collections.<BufferLayout>emptyList());
+                return new TypeLayout(Collections.<BufferLayout>emptyList(), true);
               }
 
               @Override
@@ -433,13 +433,22 @@ public class TypeLayout {
 
   private final List<BufferLayout> bufferLayouts;
 
-  public TypeLayout(List<BufferLayout> bufferLayouts) {
+  private final boolean isFixedBufferCount;
+
+  /**
+   * Constructs a new {@link TypeLayout}.
+   *
+   * @param bufferLayouts the individual {@linkplain BufferLayout}s for the given type
+   * @param isFixedBufferCount whether the number of buffers is fixed
+   */
+  public TypeLayout(List<BufferLayout> bufferLayouts, boolean isFixedBufferCount) {
     super();
     this.bufferLayouts = Preconditions.checkNotNull(bufferLayouts);
+    this.isFixedBufferCount = isFixedBufferCount;
   }
 
-  public TypeLayout(BufferLayout... bufferLayouts) {
-    this(asList(bufferLayouts));
+  public TypeLayout(boolean isFixedBufferCount, BufferLayout... bufferLayouts) {
+    this(asList(bufferLayouts), isFixedBufferCount);
   }
 
   /** Returns the individual {@linkplain BufferLayout}s for the given type. */
@@ -457,6 +466,10 @@ public class TypeLayout {
       types.add(vector.getType());
     }
     return types;
+  }
+
+  public boolean isFixedBufferCount() {
+    return isFixedBufferCount;
   }
 
   @Override

@@ -45,6 +45,7 @@ import org.apache.arrow.vector.LargeVarCharVector;
 import org.apache.arrow.vector.SchemaChangeCallBack;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.ViewVarCharVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
@@ -1699,6 +1700,26 @@ public class TestComplexWriter {
 
       VarCharVector vector =
           parent.getChild("root", StructVector.class).getChild("c", VarCharVector.class);
+
+      assertEquals("row1", vector.getObject(0).toString());
+      assertEquals("row2", vector.getObject(1).toString());
+    }
+  }
+
+  @Test
+  public void structWriterVarCharViewHelpers() {
+    try (NonNullableStructVector parent = NonNullableStructVector.empty("parent", allocator)) {
+      ComplexWriter writer = new ComplexWriterImpl("root", parent, false, true);
+      StructWriter rootWriter = writer.rootAsStruct();
+      rootWriter.start();
+      rootWriter.setPosition(0);
+      rootWriter.viewVarChar("c").writeViewVarChar(new Text("row1"));
+      rootWriter.setPosition(1);
+      rootWriter.viewVarChar("c").writeViewVarChar("row2");
+      rootWriter.end();
+
+      ViewVarCharVector vector =
+          parent.getChild("root", StructVector.class).getChild("c", ViewVarCharVector.class);
 
       assertEquals("row1", vector.getObject(0).toString());
       assertEquals("row2", vector.getObject(1).toString());

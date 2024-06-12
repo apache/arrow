@@ -35,6 +35,7 @@ import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseLargeVariableWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
+import org.apache.arrow.vector.BaseVariableWidthViewVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.BufferLayout.BufferType;
@@ -199,20 +200,34 @@ public class JsonFileWriter implements AutoCloseable {
 
   private void writeFromVectorIntoJson(Field field, FieldVector vector) throws IOException {
     // TODO: https://github.com/apache/arrow/issues/41733
-    List<BufferType> vectorTypes = TypeLayout.getTypeLayout(field.getType()).getBufferTypes();
+    TypeLayout typeLayout = TypeLayout.getTypeLayout(field.getType());
+    List<BufferType> vectorTypes = typeLayout.getBufferTypes();
     List<ArrowBuf> vectorBuffers = vector.getFieldBuffers();
-    if (vectorTypes.size() != vectorBuffers.size()) {
-      throw new IllegalArgumentException(
-          "vector types and inner vector buffers are not the same size: "
-              + vectorTypes.size()
-              + " != "
-              + vectorBuffers.size());
+    int variadicBufferCount = 0;
+
+    if (typeLayout.isFixedBufferCount()) {
+      if (vectorTypes.size() != vectorBuffers.size()) {
+        throw new IllegalArgumentException(
+            "vector types and inner vector buffers are not the same size: "
+                + vectorTypes.size()
+                + " != "
+                + vectorBuffers.size());
+      }
+    } else {
+      variadicBufferCount = vectorBuffers.size() - vectorTypes.size();
+      for (int i = 0; i < variadicBufferCount; i++) {
+        vectorTypes.add(DATA);
+      }
     }
+
     generator.writeStartObject();
     {
       generator.writeObjectField("name", field.getName());
       int valueCount = vector.getValueCount();
       generator.writeObjectField("count", valueCount);
+      if (vector instanceof BaseVariableWidthViewVector) {
+        generator.writeObjectField("variadicBufferCount", variadicBufferCount);
+      }
 
       for (int v = 0; v < vectorTypes.size(); v++) {
         BufferType bufferType = vectorTypes.get(v);
@@ -227,6 +242,21 @@ public class JsonFileWriter implements AutoCloseable {
               && (vector.getMinorType() == MinorType.VARCHAR
                   || vector.getMinorType() == MinorType.VARBINARY)) {
             writeValueToGenerator(bufferType, vectorBuffer, vectorBuffers.get(v - 1), vector, i);
+          } else if (bufferType.equals(DATA)
+              && (vector.getMinorType() == MinorType.VIEWVARCHAR
+                  || vector.getMinorType() == MinorType.VIEWVARBINARY)) {
+            if (v == 1) {
+              // writing views
+              ArrowBuf viewBuffer = vectorBuffers.get(v);
+              List<ArrowBuf> dataBuffers = vectorBuffers.subList(v + 1, vectorBuffers.size());
+              writeValueToVariadicGenerator(bufferType, viewBuffer, dataBuffers, vector, i, true);
+            }
+            if (v == 2) {
+              // writing data buffers
+              ArrowBuf viewBuffer = vectorBuffers.get(v - 1);
+              List<ArrowBuf> dataBuffers = vectorBuffers.subList(v, vectorBuffers.size());
+              writeValueToVariadicGenerator(bufferType, viewBuffer, dataBuffers, vector, i, false);
+            }
           } else if (bufferType.equals(OFFSET)
               && vector.getValueCount() == 0
               && (vector.getMinorType() == MinorType.LIST
@@ -274,6 +304,45 @@ public class JsonFileWriter implements AutoCloseable {
       }
     }
     generator.writeEndObject();
+  }
+
+  private void writeValueToVariadicGenerator(
+      BufferType bufferType,
+      ArrowBuf viewBuffer,
+      List<ArrowBuf> dataBuffers,
+      FieldVector vector,
+      final int index,
+      boolean isView)
+      throws IOException {
+    if (bufferType.equals(DATA)) {
+      switch (vector.getMinorType()) {
+        case VIEWVARCHAR:
+          {
+            Preconditions.checkNotNull(viewBuffer);
+            byte[] b = (BaseVariableWidthViewVector.get(viewBuffer, dataBuffers, index, isView));
+            if (isView) {
+              generator.writeBinary(b);
+            } else {
+              generator.writeString(new String(b, "UTF-8"));
+            }
+            break;
+          }
+        case VIEWVARBINARY:
+          {
+            Preconditions.checkNotNull(viewBuffer);
+            byte[] b = BaseVariableWidthViewVector.get(viewBuffer, dataBuffers, index, isView);
+            if (isView) {
+              generator.writeBinary(b);
+            } else {
+              String hexString = Hex.encodeHexString(b);
+              generator.writeObject(hexString);
+            }
+            break;
+          }
+        default:
+          throw new UnsupportedOperationException("minor type: " + vector.getMinorType());
+      }
+    }
   }
 
   private void writeValueToGenerator(

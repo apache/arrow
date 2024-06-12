@@ -27,6 +27,7 @@ import static org.apache.arrow.vector.BufferLayout.BufferType.VALIDITY;
 
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonParser.Feature;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.MappingJsonFactory;
@@ -47,6 +48,7 @@ import java.util.Set;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.BaseVariableWidthViewVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.BufferLayout.BufferType;
@@ -65,8 +67,10 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
-import org.apache.arrow.vector.types.Types;
+import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.ArrowType.Null;
+import org.apache.arrow.vector.types.pojo.ArrowType.Union;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.DecimalUtility;
@@ -105,7 +109,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
                 .configure(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS, true));
     this.parser = jsonFactory.createParser(inputFile);
     // Allow reading NaN for floating point values
-    this.parser.configure(JsonParser.Feature.ALLOW_NON_NUMERIC_NUMBERS, true);
+    this.parser.configure(Feature.ALLOW_NON_NUMERIC_NUMBERS, true);
   }
 
   @Override
@@ -580,6 +584,14 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
           }
         };
 
+    BufferReader VIEWVARCHAR =
+        new BufferReader() {
+          @Override
+          protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
+            return readStringValues(allocator, count);
+          }
+        };
+
     BufferReader LARGEVARCHAR =
         new BufferReader() {
           @Override
@@ -596,6 +608,14 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
           }
         };
 
+    BufferReader VIEWVARBINARY =
+        new BufferReader() {
+          @Override
+          protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
+            return readBinaryValues(allocator, count);
+          }
+        };
+
     BufferReader LARGEVARBINARY =
         new BufferReader() {
           @Override
@@ -605,8 +625,80 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         };
   }
 
+  private ArrowBuf readViewIntoBuffer(
+      BufferAllocator allocator, BufferType bufferType, MinorType type, int count)
+      throws IOException {
+    BufferReader reader =
+        new BufferReader() {
+
+          private ArrowBuf readBinaryValues(BufferAllocator allocator, int cout)
+              throws IOException {
+            ArrayList<byte[]> values = new ArrayList<>(count);
+            long bufferSize = 0L;
+            for (int i = 0; i < count; i++) {
+              parser.nextToken();
+              final byte[] value = parser.getBinaryValue();
+              values.add(value);
+              bufferSize += value.length;
+            }
+
+            ArrowBuf buf = allocator.buffer(bufferSize);
+
+            for (byte[] value : values) {
+              buf.writeBytes(value);
+            }
+            return buf;
+          }
+
+          @Override
+          protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
+            return readBinaryValues(allocator, count);
+          }
+        };
+    return reader.readBuffer(allocator, count);
+  }
+
+  private ArrowBuf readDataBufferIntoBuffer(
+      BufferAllocator allocator, BufferType bufferType, MinorType type, int count)
+      throws IOException {
+    BufferReader reader =
+        new BufferReader() {
+
+          private ArrowBuf readBinaryValues(BufferAllocator allocator, int count)
+              throws IOException {
+            ArrayList<byte[]> values = new ArrayList<>(count);
+            long bufferSize = 0L;
+            for (int i = 0; i < count; i++) {
+              parser.nextToken();
+              final byte[] value;
+              if (type == MinorType.VIEWVARCHAR) {
+                value = parser.getValueAsString().getBytes(StandardCharsets.UTF_8);
+              } else {
+                value = decodeHexSafe(parser.readValueAs(String.class));
+                ;
+              }
+              values.add(value);
+              bufferSize += value.length;
+            }
+
+            ArrowBuf buf = allocator.buffer(bufferSize);
+
+            for (byte[] value : values) {
+              buf.writeBytes(value);
+            }
+            return buf;
+          }
+
+          @Override
+          protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
+            return readBinaryValues(allocator, count);
+          }
+        };
+    return reader.readBuffer(allocator, count);
+  }
+
   private ArrowBuf readIntoBuffer(
-      BufferAllocator allocator, BufferType bufferType, Types.MinorType type, int count)
+      BufferAllocator allocator, BufferType bufferType, MinorType type, int count)
       throws IOException {
     ArrowBuf buf;
 
@@ -617,9 +709,9 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     if (bufferType.equals(VALIDITY)) {
       reader = helper.BIT;
     } else if (bufferType.equals(OFFSET)) {
-      if (type == Types.MinorType.LARGELIST
-          || type == Types.MinorType.LARGEVARCHAR
-          || type == Types.MinorType.LARGEVARBINARY) {
+      if (type == MinorType.LARGELIST
+          || type == MinorType.LARGEVARCHAR
+          || type == MinorType.LARGEVARBINARY) {
         reader = helper.INT8;
       } else {
         reader = helper.INT4;
@@ -679,6 +771,12 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         case VARBINARY:
           reader = helper.VARBINARY;
           break;
+        case VIEWVARBINARY:
+          reader = helper.VIEWVARBINARY;
+          break;
+        case VIEWVARCHAR:
+          reader = helper.VIEWVARCHAR;
+          break;
         case LARGEVARBINARY:
           reader = helper.LARGEVARBINARY;
           break;
@@ -737,7 +835,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     // TODO: https://github.com/apache/arrow/issues/41733
     TypeLayout typeLayout = TypeLayout.getTypeLayout(type);
     List<BufferType> vectorTypes = typeLayout.getBufferTypes();
-    ArrowBuf[] vectorBuffers = new ArrowBuf[vectorTypes.size()];
+    ArrowBuf[] vectorBuffers;
     /*
      * The order of inner buffers is :
      * Fixed width vector:
@@ -766,25 +864,50 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
        * be doing loadFieldBuffers.
        */
       int valueCount = readNextField("count", Integer.class);
+
+      if (vector instanceof BaseVariableWidthViewVector) {
+        int variadicBufferCount = readNextField("variadicBufferCount", Integer.class);
+        for (int i = 0; i < variadicBufferCount; i++) {
+          vectorTypes.add(DATA);
+        }
+      }
+
+      vectorBuffers = new ArrowBuf[vectorTypes.size()];
       vector.setInitialCapacity(valueCount);
 
       for (int v = 0; v < vectorTypes.size(); v++) {
         BufferType bufferType = vectorTypes.get(v);
         nextFieldIs(bufferType.getName());
         int innerBufferValueCount = valueCount;
-        if (bufferType.equals(OFFSET) && !(type instanceof ArrowType.Union)) {
+        if (bufferType.equals(OFFSET) && !(type instanceof Union)) {
           /* offset buffer has 1 additional value capacity except for dense unions */
           innerBufferValueCount = valueCount + 1;
         }
 
-        vectorBuffers[v] =
-            readIntoBuffer(allocator, bufferType, vector.getMinorType(), innerBufferValueCount);
+        if (vector instanceof BaseVariableWidthViewVector) {
+          if (v == 0) {
+            // read validity buffer
+            vectorBuffers[v] =
+                readIntoBuffer(allocator, bufferType, vector.getMinorType(), valueCount);
+          } else if (v == 1) {
+            // read view buffer
+            vectorBuffers[v] =
+                readViewIntoBuffer(allocator, bufferType, vector.getMinorType(), valueCount);
+          } else {
+            // read data buffer
+            vectorBuffers[v] =
+                readDataBufferIntoBuffer(allocator, bufferType, vector.getMinorType(), valueCount);
+          }
+        } else {
+          vectorBuffers[v] =
+              readIntoBuffer(allocator, bufferType, vector.getMinorType(), innerBufferValueCount);
+        }
       }
 
       int nullCount = 0;
-      if (type instanceof ArrowType.Null) {
+      if (type instanceof Null) {
         nullCount = valueCount;
-      } else if (!(type instanceof ArrowType.Union)) {
+      } else if (!(type instanceof Union)) {
         nullCount = BitVectorHelper.getNullCount(vectorBuffers[0], valueCount);
       }
       final ArrowFieldNode fieldNode = new ArrowFieldNode(valueCount, nullCount);
