@@ -16,6 +16,12 @@
  */
 package org.apache.arrow.driver.jdbc.accessor.impl.complex;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -27,7 +33,6 @@ import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.impl.UnionMapWriter;
 import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Rule;
@@ -109,14 +114,14 @@ public class ArrowFlightJdbcMapVectorAccessorTest {
     expected.put(1, 11);
     expected.put(2, 22);
     expected.put(3, 33);
-    Assert.assertEquals(expected, accessor.getObject());
-    Assert.assertFalse(accessor.wasNull());
+    assertEquals(expected, accessor.getObject());
+    assertFalse(accessor.wasNull());
 
     cursor.next();
     expected = new JsonStringHashMap<>();
     expected.put(2, null);
-    Assert.assertEquals(expected, accessor.getObject());
-    Assert.assertFalse(accessor.wasNull());
+    assertEquals(expected, accessor.getObject());
+    assertFalse(accessor.wasNull());
 
     cursor.next();
     expected = new JsonStringHashMap<>();
@@ -124,8 +129,8 @@ public class ArrowFlightJdbcMapVectorAccessorTest {
     expected.put(1, 2001);
     expected.put(2, 2002);
     expected.put(3, 2003);
-    Assert.assertEquals(expected, accessor.getObject());
-    Assert.assertFalse(accessor.wasNull());
+    assertEquals(expected, accessor.getObject());
+    assertFalse(accessor.wasNull());
   }
 
   @Test
@@ -134,8 +139,8 @@ public class ArrowFlightJdbcMapVectorAccessorTest {
     ArrowFlightJdbcMapVectorAccessor accessor =
         new ArrowFlightJdbcMapVectorAccessor(vector, () -> 0, (boolean wasNull) -> {});
 
-    Assert.assertNull(accessor.getObject());
-    Assert.assertTrue(accessor.wasNull());
+    assertNull(accessor.getObject());
+    assertTrue(accessor.wasNull());
   }
 
   @Test
@@ -146,59 +151,59 @@ public class ArrowFlightJdbcMapVectorAccessorTest {
             vector, cursor::getCurrentRow, (boolean wasNull) -> {});
 
     Array array = accessor.getArray();
-    Assert.assertNotNull(array);
-    Assert.assertFalse(accessor.wasNull());
+    assertNotNull(array);
+    assertFalse(accessor.wasNull());
 
     try (ResultSet resultSet = array.getResultSet()) {
-      Assert.assertTrue(resultSet.next());
+      assertTrue(resultSet.next());
       Map<?, ?> entry = resultSet.getObject(1, Map.class);
-      Assert.assertEquals(1, entry.get("key"));
-      Assert.assertEquals(11, entry.get("value"));
-      Assert.assertTrue(resultSet.next());
+      assertEquals(1, entry.get("key"));
+      assertEquals(11, entry.get("value"));
+      assertTrue(resultSet.next());
       entry = resultSet.getObject(1, Map.class);
-      Assert.assertEquals(2, entry.get("key"));
-      Assert.assertEquals(22, entry.get("value"));
-      Assert.assertTrue(resultSet.next());
+      assertEquals(2, entry.get("key"));
+      assertEquals(22, entry.get("value"));
+      assertTrue(resultSet.next());
       entry = resultSet.getObject(1, Map.class);
-      Assert.assertEquals(3, entry.get("key"));
-      Assert.assertEquals(33, entry.get("value"));
-      Assert.assertFalse(resultSet.next());
+      assertEquals(3, entry.get("key"));
+      assertEquals(33, entry.get("value"));
+      assertFalse(resultSet.next());
     }
 
     cursor.next();
     array = accessor.getArray();
-    Assert.assertNotNull(array);
-    Assert.assertFalse(accessor.wasNull());
+    assertNotNull(array);
+    assertFalse(accessor.wasNull());
     try (ResultSet resultSet = array.getResultSet()) {
-      Assert.assertTrue(resultSet.next());
+      assertTrue(resultSet.next());
       Map<?, ?> entry = resultSet.getObject(1, Map.class);
-      Assert.assertEquals(2, entry.get("key"));
-      Assert.assertNull(entry.get("value"));
-      Assert.assertFalse(resultSet.next());
+      assertEquals(2, entry.get("key"));
+      assertNull(entry.get("value"));
+      assertFalse(resultSet.next());
     }
 
     cursor.next();
     array = accessor.getArray();
-    Assert.assertNotNull(array);
-    Assert.assertFalse(accessor.wasNull());
+    assertNotNull(array);
+    assertFalse(accessor.wasNull());
     try (ResultSet resultSet = array.getResultSet()) {
-      Assert.assertTrue(resultSet.next());
+      assertTrue(resultSet.next());
       Map<?, ?> entry = resultSet.getObject(1, Map.class);
-      Assert.assertEquals(0, entry.get("key"));
-      Assert.assertEquals(2000, entry.get("value"));
-      Assert.assertTrue(resultSet.next());
+      assertEquals(0, entry.get("key"));
+      assertEquals(2000, entry.get("value"));
+      assertTrue(resultSet.next());
       entry = resultSet.getObject(1, Map.class);
-      Assert.assertEquals(1, entry.get("key"));
-      Assert.assertEquals(2001, entry.get("value"));
-      Assert.assertTrue(resultSet.next());
+      assertEquals(1, entry.get("key"));
+      assertEquals(2001, entry.get("value"));
+      assertTrue(resultSet.next());
       entry = resultSet.getObject(1, Map.class);
-      Assert.assertEquals(2, entry.get("key"));
-      Assert.assertEquals(2002, entry.get("value"));
-      Assert.assertTrue(resultSet.next());
+      assertEquals(2, entry.get("key"));
+      assertEquals(2002, entry.get("value"));
+      assertTrue(resultSet.next());
       entry = resultSet.getObject(1, Map.class);
-      Assert.assertEquals(3, entry.get("key"));
-      Assert.assertEquals(2003, entry.get("value"));
-      Assert.assertFalse(resultSet.next());
+      assertEquals(3, entry.get("key"));
+      assertEquals(2003, entry.get("value"));
+      assertFalse(resultSet.next());
     }
   }
 
@@ -210,7 +215,7 @@ public class ArrowFlightJdbcMapVectorAccessorTest {
     ArrowFlightJdbcMapVectorAccessor accessor =
         new ArrowFlightJdbcMapVectorAccessor(vector, () -> 0, (boolean wasNull) -> {});
 
-    Assert.assertNull(accessor.getArray());
-    Assert.assertTrue(accessor.wasNull());
+    assertNull(accessor.getArray());
+    assertTrue(accessor.wasNull());
   }
 }

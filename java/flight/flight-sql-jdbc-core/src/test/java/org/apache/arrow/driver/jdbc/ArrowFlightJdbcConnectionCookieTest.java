@@ -16,11 +16,13 @@
  */
 package org.apache.arrow.driver.jdbc;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import org.apache.arrow.driver.jdbc.utils.CoreMockedSqlProducers;
-import org.junit.Assert;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
@@ -40,11 +42,11 @@ public class ArrowFlightJdbcConnectionCookieTest {
         Statement statement = connection.createStatement()) {
 
       // Expect client didn't receive cookies before any operation
-      Assert.assertNull(FLIGHT_SERVER_TEST_RULE.getMiddlewareCookieFactory().getCookie());
+      assertNull(FLIGHT_SERVER_TEST_RULE.getMiddlewareCookieFactory().getCookie());
 
       // Run another action for check if the cookies was sent by the server.
       statement.execute(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD);
-      Assert.assertEquals("k=v", FLIGHT_SERVER_TEST_RULE.getMiddlewareCookieFactory().getCookie());
+      assertEquals("k=v", FLIGHT_SERVER_TEST_RULE.getMiddlewareCookieFactory().getCookie());
     }
   }
 }

@@ -22,6 +22,7 @@ import static org.apache.commons.io.IOUtils.toByteArray;
 import static org.apache.commons.io.IOUtils.toCharArray;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.instanceOf;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.mockito.Mockito.when;
 
 import java.io.InputStream;
@@ -44,7 +45,6 @@ import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.TimeMilliVector;
 import org.apache.arrow.vector.TimeStampVector;
 import org.apache.arrow.vector.util.Text;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Rule;
@@ -658,7 +658,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     try (final InputStream result = accessor.getAsciiStream()) {
       byte[] resultBytes = toByteArray(result);
 
-      Assert.assertArrayEquals(valueAscii, resultBytes);
+      assertArrayEquals(valueAscii, resultBytes);
     }
   }
 

@@ -16,6 +16,9 @@
  */
 package org.apache.arrow.driver.jdbc;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
@@ -26,7 +29,6 @@ import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -54,14 +56,14 @@ public class ArrowFlightJdbcArrayTest {
   public void testShouldGetBaseTypeNameReturnCorrectTypeName() {
     ArrowFlightJdbcArray arrowFlightJdbcArray =
         new ArrowFlightJdbcArray(dataVector, 0, dataVector.getValueCount());
-    Assert.assertEquals("INTEGER", arrowFlightJdbcArray.getBaseTypeName());
+    assertEquals("INTEGER", arrowFlightJdbcArray.getBaseTypeName());
   }
 
   @Test
   public void testShouldGetBaseTypeReturnCorrectType() {
     ArrowFlightJdbcArray arrowFlightJdbcArray =
         new ArrowFlightJdbcArray(dataVector, 0, dataVector.getValueCount());
-    Assert.assertEquals(Types.INTEGER, arrowFlightJdbcArray.getBaseType());
+    assertEquals(Types.INTEGER, arrowFlightJdbcArray.getBaseType());
   }
 
   @Test
@@ -74,7 +76,7 @@ public class ArrowFlightJdbcArrayTest {
     for (int i = 0; i < expected.length; i++) {
       expected[i] = dataVector.getObject(i);
     }
-    Assert.assertArrayEquals(array, expected);
+    assertArrayEquals(array, expected);
   }
 
   @Test
@@ -87,7 +89,7 @@ public class ArrowFlightJdbcArrayTest {
     for (int i = 0; i < expected.length; i++) {
       expected[i] = dataVector.getObject(i + 1);
     }
-    Assert.assertArrayEquals(array, expected);
+    assertArrayEquals(array, expected);
   }
 
   @Test(expected = ArrayIndexOutOfBoundsException.class)
@@ -121,7 +123,7 @@ public class ArrowFlightJdbcArrayTest {
     try (ResultSet resultSet = arrowFlightJdbcArray.getResultSet()) {
       int count = 0;
       while (resultSet.next()) {
-        Assert.assertEquals((Object) resultSet.getInt(1), dataVector.getObject(count));
+        assertEquals((Object) resultSet.getInt(1), dataVector.getObject(count));
         count++;
       }
     }
@@ -134,10 +136,10 @@ public class ArrowFlightJdbcArrayTest {
     try (ResultSet resultSet = arrowFlightJdbcArray.getResultSet(3, 5)) {
       int count = 0;
       while (resultSet.next()) {
-        Assert.assertEquals((Object) resultSet.getInt(1), dataVector.getObject(count + 3));
+        assertEquals((Object) resultSet.getInt(1), dataVector.getObject(count + 3));
         count++;
       }
-      Assert.assertEquals(5, count);
+      assertEquals(5, count);
     }
   }
 
@@ -149,7 +151,7 @@ public class ArrowFlightJdbcArrayTest {
     JsonStringArrayList<Object> array = new JsonStringArrayList<>();
     array.addAll(Arrays.asList((Object[]) arrowFlightJdbcArray.getArray()));
 
-    Assert.assertEquals(array.toString(), arrowFlightJdbcArray.toString());
+    assertEquals(array.toString(), arrowFlightJdbcArray.toString());
   }
 
   @Test(expected = SQLFeatureNotSupportedException.class)

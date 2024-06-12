@@ -18,7 +18,7 @@ package org.apache.arrow.driver.jdbc.utils;
 
 import static org.apache.arrow.driver.jdbc.utils.SqlTypes.getSqlTypeIdFromArrowType;
 import static org.apache.arrow.driver.jdbc.utils.SqlTypes.getSqlTypeNameFromArrowType;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.sql.Types;
 import org.apache.arrow.vector.types.DateUnit;

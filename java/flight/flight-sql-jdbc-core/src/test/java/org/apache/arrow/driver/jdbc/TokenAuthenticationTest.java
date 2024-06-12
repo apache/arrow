@@ -16,13 +16,15 @@
  */
 package org.apache.arrow.driver.jdbc;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.fail;
+
 import java.sql.Connection;
 import java.sql.SQLException;
 import org.apache.arrow.driver.jdbc.authentication.TokenAuthentication;
 import org.apache.arrow.driver.jdbc.utils.MockFlightSqlProducer;
 import org.apache.arrow.util.AutoCloseables;
 import org.junit.AfterClass;
-import org.junit.Assert;
 import org.junit.ClassRule;
 import org.junit.Test;
 
@@ -47,14 +49,14 @@ public class TokenAuthenticationTest {
   @Test(expected = SQLException.class)
   public void connectUsingTokenAuthenticationShouldFail() throws SQLException {
     try (Connection ignored = FLIGHT_SERVER_TEST_RULE.getConnection(false, "invalid")) {
-      Assert.fail();
+      fail();
     }
   }
 
   @Test
   public void connectUsingTokenAuthenticationShouldSuccess() throws SQLException {
     try (Connection connection = FLIGHT_SERVER_TEST_RULE.getConnection(false, "1234")) {
-      Assert.assertFalse(connection.isClosed());
+      assertFalse(connection.isClosed());
     }
   }
 }

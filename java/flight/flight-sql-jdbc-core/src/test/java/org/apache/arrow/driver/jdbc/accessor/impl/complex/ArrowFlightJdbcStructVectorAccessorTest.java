@@ -18,6 +18,7 @@ package org.apache.arrow.driver.jdbc.accessor.impl.complex;
 
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.sql.SQLException;
 import java.sql.Struct;
@@ -38,7 +39,6 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Rule;
@@ -203,8 +203,8 @@ public class ArrowFlightJdbcStructVectorAccessorTest {
       ArrowFlightJdbcStructVectorAccessor accessor =
           new ArrowFlightJdbcStructVectorAccessor(rootVector, () -> 0, (boolean wasNull) -> {});
 
-      Assert.assertEquals(expected, accessor.getObject());
-      Assert.assertEquals(expected.toString(), accessor.getString());
+      assertEquals(expected, accessor.getObject());
+      assertEquals(expected.toString(), accessor.getString());
     }
   }
 }

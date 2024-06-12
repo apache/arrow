@@ -18,6 +18,7 @@ package org.apache.arrow.driver.jdbc;
 
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -28,7 +29,6 @@ import java.sql.Types;
 import org.apache.arrow.driver.jdbc.utils.CoreMockedSqlProducers;
 import org.hamcrest.CoreMatchers;
 import org.junit.AfterClass;
-import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Rule;
@@ -107,7 +107,7 @@ public class ResultSetMetadataTest {
   public void testShouldGetColumnTypesNameFromOutOfBoundIndex() throws SQLException {
     metadata.getColumnTypeName(4);
 
-    Assert.fail();
+    fail();
   }
 
   /**
@@ -136,7 +136,7 @@ public class ResultSetMetadataTest {
   public void testShouldGetColumnNameFromOutOfBoundIndex() throws SQLException {
     metadata.getColumnName(4);
 
-    Assert.fail();
+    fail();
   }
 
   /**
@@ -228,6 +228,6 @@ public class ResultSetMetadataTest {
   public void testShouldGetColumnTypesFromOutOfBoundIndex() throws SQLException {
     metadata.getColumnType(4);
 
-    Assert.fail();
+    fail();
   }
 }

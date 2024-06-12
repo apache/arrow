@@ -14,8 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.driver.jdbc.accessor;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -24,7 +27,7 @@ import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
-import org.junit.Assert;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
@@ -36,7 +39,8 @@ public class ArrowFlightJdbcAccessorTest {
   static class MockedArrowFlightJdbcAccessor extends ArrowFlightJdbcAccessor {
 
     protected MockedArrowFlightJdbcAccessor() {
-      super(() -> 0, (boolean wasNull) -> {});
+      super(() -> 0, (boolean wasNull) -> {
+      });
     }
 
     @Override
@@ -45,7 +49,8 @@ public class ArrowFlightJdbcAccessorTest {
     }
   }
 
-  @Mock MockedArrowFlightJdbcAccessor accessor;
+  @Mock
+  MockedArrowFlightJdbcAccessor accessor;
 
   @Test
   public void testShouldGetObjectWithByteClassReturnGetByte() throws SQLException {
@@ -54,7 +59,7 @@ public class ArrowFlightJdbcAccessorTest {
 
     when(accessor.getObject(Byte.class)).thenCallRealMethod();
 
-    Assert.assertEquals(accessor.getObject(Byte.class), (Object) expected);
+    assertEquals(accessor.getObject(Byte.class), (Object) expected);
     verify(accessor).getByte();
   }
 
@@ -65,7 +70,7 @@ public class ArrowFlightJdbcAccessorTest {
 
     when(accessor.getObject(Short.class)).thenCallRealMethod();
 
-    Assert.assertEquals(accessor.getObject(Short.class), (Object) expected);
+    assertEquals(accessor.getObject(Short.class), (Object) expected);
     verify(accessor).getShort();
   }
 
@@ -76,7 +81,7 @@ public class ArrowFlightJdbcAccessorTest {
 
     when(accessor.getObject(Integer.class)).thenCallRealMethod();
 
-    Assert.assertEquals(accessor.getObject(Integer.class), (Object) expected);
+    assertEquals(accessor.getObject(Integer.class), (Object) expected);
     verify(accessor).getInt();
   }
 
@@ -87,7 +92,7 @@ public class ArrowFlightJdbcAccessorTest {
 
     when(accessor.getObject(Long.class)).thenCallRealMethod();
 
-    Assert.assertEquals(accessor.getObject(Long.class), (Object) expected);
+    assertEquals(accessor.getObject(Long.class), (Object) expected);
     verify(accessor).getLong();
   }
 
@@ -98,7 +103,7 @@ public class ArrowFlightJdbcAccessorTest {
 
     when(accessor.getObject(Float.class)).thenCallRealMethod();
 
-    Assert.assertEquals(accessor.getObject(Float.class), (Object) expected);
+    assertEquals(accessor.getObject(Float.class), (Object) expected);
     verify(accessor).getFloat();
   }
 
@@ -109,7 +114,7 @@ public class ArrowFlightJdbcAccessorTest {
 
     when(accessor.getObject(Double.class)).thenCallRealMethod();
 
-    Assert.assertEquals(accessor.getObject(Double.class), (Object) expected);
+    assertEquals(accessor.getObject(Double.class), (Object) expected);
     verify(accessor).getDouble();
   }
 
@@ -119,7 +124,7 @@ public class ArrowFlightJdbcAccessorTest {
 
     when(accessor.getObject(Boolean.class)).thenCallRealMethod();
 
-    Assert.assertEquals(true, accessor.getObject(Boolean.class));
+    assertEquals(true, accessor.getObject(Boolean.class));
     verify(accessor).getBoolean();
   }
 
@@ -130,7 +135,7 @@ public class ArrowFlightJdbcAccessorTest {
 
     when(accessor.getObject(BigDecimal.class)).thenCallRealMethod();
 
-    Assert.assertEquals(expected, accessor.getObject(BigDecimal.class));
+    assertEquals(expected, accessor.getObject(BigDecimal.class));
     verify(accessor).getBigDecimal();
   }
 
@@ -141,7 +146,7 @@ public class ArrowFlightJdbcAccessorTest {
 
     when(accessor.getObject(String.class)).thenCallRealMethod();
 
-    Assert.assertEquals(expected, accessor.getObject(String.class));
+    assertEquals(expected, accessor.getObject(String.class));
     verify(accessor).getString();
   }
 
@@ -152,7 +157,7 @@ public class ArrowFlightJdbcAccessorTest {
 
     when(accessor.getObject(byte[].class)).thenCallRealMethod();
 
-    Assert.assertArrayEquals(accessor.getObject(byte[].class), expected);
+    assertArrayEquals(accessor.getObject(byte[].class), expected);
     verify(accessor).getBytes();
   }
 
@@ -163,7 +168,7 @@ public class ArrowFlightJdbcAccessorTest {
 
     when(accessor.getObject(Object.class)).thenCallRealMethod();
 
-    Assert.assertEquals(expected, accessor.getObject(Object.class));
+    assertEquals(expected, accessor.getObject(Object.class));
     verify(accessor).getObject();
   }
 

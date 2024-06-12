@@ -14,21 +14,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.apache.arrow.driver.jdbc;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.sql.Connection;
+
 import javax.sql.PooledConnection;
+
 import org.apache.arrow.driver.jdbc.authentication.UserPasswordAuthentication;
 import org.apache.arrow.driver.jdbc.utils.ConnectionWrapper;
 import org.apache.arrow.driver.jdbc.utils.MockFlightSqlProducer;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Test;
 
 public class ArrowFlightJdbcConnectionPoolDataSourceTest {
-  @ClassRule public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE;
+  @ClassRule
+  public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE;
 
   private static final MockFlightSqlProducer PRODUCER = new MockFlightSqlProducer();
 
@@ -39,11 +47,10 @@ public class ArrowFlightJdbcConnectionPoolDataSourceTest {
             .user("user2", "pass2")
             .build();
 
-    FLIGHT_SERVER_TEST_RULE =
-        new FlightServerTestRule.Builder()
-            .authentication(authentication)
-            .producer(PRODUCER)
-            .build();
+    FLIGHT_SERVER_TEST_RULE = new FlightServerTestRule.Builder()
+        .authentication(authentication)
+        .producer(PRODUCER)
+        .build();
   }
 
   private ArrowFlightJdbcConnectionPoolDataSource dataSource;
@@ -62,18 +69,18 @@ public class ArrowFlightJdbcConnectionPoolDataSourceTest {
   public void testShouldInnerConnectionIsClosedReturnCorrectly() throws Exception {
     PooledConnection pooledConnection = dataSource.getPooledConnection();
     Connection connection = pooledConnection.getConnection();
-    Assert.assertFalse(connection.isClosed());
+    assertFalse(connection.isClosed());
     connection.close();
-    Assert.assertTrue(connection.isClosed());
+    assertTrue(connection.isClosed());
   }
 
   @Test
   public void testShouldInnerConnectionShouldIgnoreDoubleClose() throws Exception {
     PooledConnection pooledConnection = dataSource.getPooledConnection();
     Connection connection = pooledConnection.getConnection();
-    Assert.assertFalse(connection.isClosed());
+    assertFalse(connection.isClosed());
     connection.close();
-    Assert.assertTrue(connection.isClosed());
+    assertTrue(connection.isClosed());
   }
 
   @Test
@@ -81,31 +88,30 @@ public class ArrowFlightJdbcConnectionPoolDataSourceTest {
       throws Exception {
     PooledConnection pooledConnection = dataSource.getPooledConnection();
     Connection connection = pooledConnection.getConnection();
-    Assert.assertFalse(connection.isClosed());
+    assertFalse(connection.isClosed());
     pooledConnection.close();
-    Assert.assertTrue(connection.isClosed());
+    assertTrue(connection.isClosed());
   }
 
   @Test
   public void testShouldReuseConnectionsOnPool() throws Exception {
     PooledConnection pooledConnection = dataSource.getPooledConnection("user1", "pass1");
     ConnectionWrapper connection = ((ConnectionWrapper) pooledConnection.getConnection());
-    Assert.assertFalse(connection.isClosed());
+    assertFalse(connection.isClosed());
     connection.close();
-    Assert.assertTrue(connection.isClosed());
-    Assert.assertFalse(connection.unwrap(ArrowFlightConnection.class).isClosed());
+    assertTrue(connection.isClosed());
+    assertFalse(connection.unwrap(ArrowFlightConnection.class).isClosed());
 
     PooledConnection pooledConnection2 = dataSource.getPooledConnection("user1", "pass1");
     ConnectionWrapper connection2 = ((ConnectionWrapper) pooledConnection2.getConnection());
-    Assert.assertFalse(connection2.isClosed());
+    assertFalse(connection2.isClosed());
     connection2.close();
-    Assert.assertTrue(connection2.isClosed());
-    Assert.assertFalse(connection2.unwrap(ArrowFlightConnection.class).isClosed());
+    assertTrue(connection2.isClosed());
+    assertFalse(connection2.unwrap(ArrowFlightConnection.class).isClosed());
 
-    Assert.assertSame(pooledConnection, pooledConnection2);
-    Assert.assertNotSame(connection, connection2);
-    Assert.assertSame(
-        connection.unwrap(ArrowFlightConnection.class),
+    assertSame(pooledConnection, pooledConnection2);
+    assertNotSame(connection, connection2);
+    assertSame(connection.unwrap(ArrowFlightConnection.class),
         connection2.unwrap(ArrowFlightConnection.class));
   }
 
@@ -113,22 +119,21 @@ public class ArrowFlightJdbcConnectionPoolDataSourceTest {
   public void testShouldNotMixConnectionsForDifferentUsers() throws Exception {
     PooledConnection pooledConnection = dataSource.getPooledConnection("user1", "pass1");
     ConnectionWrapper connection = ((ConnectionWrapper) pooledConnection.getConnection());
-    Assert.assertFalse(connection.isClosed());
+    assertFalse(connection.isClosed());
     connection.close();
-    Assert.assertTrue(connection.isClosed());
-    Assert.assertFalse(connection.unwrap(ArrowFlightConnection.class).isClosed());
+    assertTrue(connection.isClosed());
+    assertFalse(connection.unwrap(ArrowFlightConnection.class).isClosed());
 
     PooledConnection pooledConnection2 = dataSource.getPooledConnection("user2", "pass2");
     ConnectionWrapper connection2 = ((ConnectionWrapper) pooledConnection2.getConnection());
-    Assert.assertFalse(connection2.isClosed());
+    assertFalse(connection2.isClosed());
     connection2.close();
-    Assert.assertTrue(connection2.isClosed());
-    Assert.assertFalse(connection2.unwrap(ArrowFlightConnection.class).isClosed());
+    assertTrue(connection2.isClosed());
+    assertFalse(connection2.unwrap(ArrowFlightConnection.class).isClosed());
 
-    Assert.assertNotSame(pooledConnection, pooledConnection2);
-    Assert.assertNotSame(connection, connection2);
-    Assert.assertNotSame(
-        connection.unwrap(ArrowFlightConnection.class),
+    assertNotSame(pooledConnection, pooledConnection2);
+    assertNotSame(connection, connection2);
+    assertNotSame(connection.unwrap(ArrowFlightConnection.class),
         connection2.unwrap(ArrowFlightConnection.class));
   }
 }
