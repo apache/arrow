@@ -23,7 +23,9 @@
 namespace arrow::matlab::io::ipc::proxy {
 
 RecordBatchFileReader::RecordBatchFileReader(const std::shared_ptr<arrow::ipc::RecordBatchFileReader> reader)
-  : reader{std::move(reader)} {}
+  : reader{std::move(reader)} {
+    REGISTER_METHOD(RecordBatchFileReader, getNumRecordBatches);
+  }
 
 libmexclass::proxy::MakeResult RecordBatchFileReader::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
   namespace mda = ::matlab::data;
@@ -47,4 +49,15 @@ libmexclass::proxy::MakeResult RecordBatchFileReader::make(const libmexclass::pr
 
   return std::make_shared<RecordBatchFileReaderProxy>(std::move(reader));
 }
+
+void RecordBatchFileReader::getNumRecordBatches(libmexclass::proxy::method::Context& context) {
+  namespace mda = ::matlab::data;
+
+  mda::ArrayFactory factory;
+  const auto num_batches = reader->num_record_batches();
+  context.outputs[0] = factory.createScalar(num_batches);
+}
+
+
+
 } // namespace arrow::matlab::io::ipc::proxy 

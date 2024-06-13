@@ -32,6 +32,9 @@ class RecordBatchFileReader : public libmexclass::proxy::Proxy {
 
   protected:
     std::shared_ptr<arrow::ipc::RecordBatchFileReader> reader;
+
+    void getNumRecordBatches(libmexclass::proxy::method::Context& context);
+
 };
 
 } // namespace arrow::matlab::io::ipc::proxy 
