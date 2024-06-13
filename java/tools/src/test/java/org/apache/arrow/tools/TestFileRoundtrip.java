@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.tools;
 
 import static org.apache.arrow.tools.ArrowFileTestFixtures.validateOutput;
@@ -22,7 +21,6 @@ import static org.apache.arrow.tools.ArrowFileTestFixtures.writeInput;
 import static org.junit.Assert.assertEquals;
 
 import java.io.File;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.junit.After;
@@ -33,8 +31,7 @@ import org.junit.rules.TemporaryFolder;
 
 public class TestFileRoundtrip {
 
-  @Rule
-  public TemporaryFolder testFolder = new TemporaryFolder();
+  @Rule public TemporaryFolder testFolder = new TemporaryFolder();
 
   private BufferAllocator allocator;
 
@@ -61,5 +58,4 @@ public class TestFileRoundtrip {
 
     validateOutput(testOutFile, allocator);
   }
-
 }

@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.grpc;
 
 import io.grpc.Metadata;
@@ -23,8 +22,8 @@ import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 
 /**
- * An interceptor for specifying the number of bytes that can be queued before a call with an output stream
- * gets blocked by backpressure.
+ * An interceptor for specifying the number of bytes that can be queued before a call with an output
+ * stream gets blocked by backpressure.
  */
 public class ServerBackpressureThresholdInterceptor implements ServerInterceptor {
 
@@ -35,8 +34,8 @@ public class ServerBackpressureThresholdInterceptor implements ServerInterceptor
   }
 
   @Override
-  public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(ServerCall<ReqT, RespT> call, Metadata headers,
-       ServerCallHandler<ReqT, RespT> next) {
+  public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
+      ServerCall<ReqT, RespT> call, Metadata headers, ServerCallHandler<ReqT, RespT> next) {
     call.setOnReadyThreshold(numBytes);
     return next.startCall(call, headers);
   }

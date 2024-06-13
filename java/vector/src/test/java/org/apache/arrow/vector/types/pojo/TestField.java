@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.types.pojo;
 
 import static org.apache.arrow.vector.types.pojo.Schema.METADATA_KEY;
@@ -26,13 +25,13 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
 import org.junit.jupiter.api.Test;
 
 public class TestField {
 
-  private static Field field(String name, boolean nullable, ArrowType type, Map<String, String> metadata) {
+  private static Field field(
+      String name, boolean nullable, ArrowType type, Map<String, String> metadata) {
     return new Field(name, new FieldType(nullable, type, null, metadata), Collections.emptyList());
   }
 
@@ -41,14 +40,16 @@ public class TestField {
     Map<String, String> metadata = new HashMap<>(1);
     metadata.put("testKey", "testValue");
 
-    Schema schema = new Schema(Collections.singletonList(
-        field("a", false, new Int(8, true), metadata)
-    ));
+    Schema schema =
+        new Schema(Collections.singletonList(field("a", false, new Int(8, true), metadata)));
 
     String json = schema.toJson();
     Schema actual = Schema.fromJSON(json);
 
-    jsonContains(json, "\"" + METADATA_KEY + "\" : \"testKey\"", "\"" + METADATA_VALUE + "\" : \"testValue\"");
+    jsonContains(
+        json,
+        "\"" + METADATA_KEY + "\" : \"testKey\"",
+        "\"" + METADATA_VALUE + "\" : \"testValue\"");
 
     Map<String, String> actualMetadata = actual.getFields().get(0).getMetadata();
     assertEquals(1, actualMetadata.size());

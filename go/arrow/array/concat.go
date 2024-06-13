@@ -520,12 +520,7 @@ func concat(data []arrow.ArrayData, mem memory.Allocator) (arr arrow.ArrayData, 
 	out := &Data{refCount: 1, dtype: data[0].DataType(), nulls: 0}
 	defer func() {
 		if pErr := recover(); pErr != nil {
-			switch e := pErr.(type) {
-			case error:
-				err = fmt.Errorf("arrow/concat: %w", e)
-			default:
-				err = fmt.Errorf("arrow/concat: %v", pErr)
-			}
+			err = utils.FormatRecoveredError("arrow/concat", pErr)
 		}
 		if err != nil {
 			out.Release()

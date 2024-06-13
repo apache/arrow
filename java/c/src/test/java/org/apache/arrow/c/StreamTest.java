@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.c;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -30,7 +29,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
@@ -70,7 +68,8 @@ final class StreamTest {
 
   @Test
   public void testRoundtripInts() throws Exception {
-    final Schema schema = new Schema(Collections.singletonList(Field.nullable("ints", new ArrowType.Int(32, true))));
+    final Schema schema =
+        new Schema(Collections.singletonList(Field.nullable("ints", new ArrowType.Int(32, true))));
     final List<ArrowRecordBatch> batches = new ArrayList<>();
     try (final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
       final IntVector ints = (IntVector) root.getVector(0);
@@ -97,8 +96,11 @@ final class StreamTest {
 
   @Test
   public void roundtripStrings() throws Exception {
-    final Schema schema = new Schema(Arrays.asList(Field.nullable("ints", new ArrowType.Int(32, true)),
-        Field.nullable("strs", new ArrowType.Utf8())));
+    final Schema schema =
+        new Schema(
+            Arrays.asList(
+                Field.nullable("ints", new ArrowType.Int(32, true)),
+                Field.nullable("strs", new ArrowType.Utf8())));
     final List<ArrowRecordBatch> batches = new ArrayList<>();
     try (final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
       final IntVector ints = (IntVector) root.getVector(0);
@@ -136,11 +138,16 @@ final class StreamTest {
   public void roundtripDictionary() throws Exception {
     final ArrowType.Int indexType = new ArrowType.Int(32, true);
     final DictionaryEncoding encoding = new DictionaryEncoding(0L, false, indexType);
-    final Schema schema = new Schema(Collections.singletonList(
-        new Field("dict", new FieldType(/*nullable=*/true, indexType, encoding), Collections.emptyList())));
+    final Schema schema =
+        new Schema(
+            Collections.singletonList(
+                new Field(
+                    "dict",
+                    new FieldType(/*nullable=*/ true, indexType, encoding),
+                    Collections.emptyList())));
     final List<ArrowRecordBatch> batches = new ArrayList<>();
     try (final CDataDictionaryProvider provider = new CDataDictionaryProvider();
-         final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
+        final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
       final VarCharVector dictionary = new VarCharVector("values", allocator);
       dictionary.allocateNew();
       dictionary.setSafe(0, "foo".getBytes(StandardCharsets.UTF_8));
@@ -173,22 +180,27 @@ final class StreamTest {
   @Test
   public void importReleasedStream() {
     try (final ArrowArrayStream stream = ArrowArrayStream.allocateNew(allocator)) {
-      Exception e = assertThrows(IllegalStateException.class, () -> Data.importArrayStream(allocator, stream));
+      Exception e =
+          assertThrows(
+              IllegalStateException.class, () -> Data.importArrayStream(allocator, stream));
       assertThat(e).hasMessageContaining("Cannot import released ArrowArrayStream");
     }
   }
 
   @Test
   public void getNextError() throws Exception {
-    final Schema schema = new Schema(Collections.singletonList(Field.nullable("ints", new ArrowType.Int(32, true))));
+    final Schema schema =
+        new Schema(Collections.singletonList(Field.nullable("ints", new ArrowType.Int(32, true))));
     final List<ArrowRecordBatch> batches = new ArrayList<>();
-    try (final ArrowReader source = new InMemoryArrowReader(allocator, schema, batches,
-        new DictionaryProvider.MapDictionaryProvider()) {
-      @Override
-      public boolean loadNextBatch() throws IOException {
-        throw new IOException("Failed to load batch!");
-      }
-    }; final ArrowArrayStream stream = ArrowArrayStream.allocateNew(allocator)) {
+    try (final ArrowReader source =
+            new InMemoryArrowReader(
+                allocator, schema, batches, new DictionaryProvider.MapDictionaryProvider()) {
+              @Override
+              public boolean loadNextBatch() throws IOException {
+                throw new IOException("Failed to load batch!");
+              }
+            };
+        final ArrowArrayStream stream = ArrowArrayStream.allocateNew(allocator)) {
       Data.exportArrayStream(allocator, source, stream);
       try (final ArrowReader reader = Data.importArrayStream(allocator, stream)) {
         assertThat(reader.getVectorSchemaRoot().getSchema()).isEqualTo(schema);
@@ -201,15 +213,18 @@ final class StreamTest {
 
   @Test
   public void getSchemaError() throws Exception {
-    final Schema schema = new Schema(Collections.singletonList(Field.nullable("ints", new ArrowType.Int(32, true))));
+    final Schema schema =
+        new Schema(Collections.singletonList(Field.nullable("ints", new ArrowType.Int(32, true))));
     final List<ArrowRecordBatch> batches = new ArrayList<>();
-    try (final ArrowReader source = new InMemoryArrowReader(allocator, schema, batches,
-        new DictionaryProvider.MapDictionaryProvider()) {
-      @Override
-      protected Schema readSchema() {
-        throw new IllegalArgumentException("Failed to read schema!");
-      }
-    }; final ArrowArrayStream stream = ArrowArrayStream.allocateNew(allocator)) {
+    try (final ArrowReader source =
+            new InMemoryArrowReader(
+                allocator, schema, batches, new DictionaryProvider.MapDictionaryProvider()) {
+              @Override
+              protected Schema readSchema() {
+                throw new IllegalArgumentException("Failed to read schema!");
+              }
+            };
+        final ArrowArrayStream stream = ArrowArrayStream.allocateNew(allocator)) {
       Data.exportArrayStream(allocator, source, stream);
       try (final ArrowReader reader = Data.importArrayStream(allocator, stream)) {
         final IOException e = assertThrows(IOException.class, reader::getVectorSchemaRoot);
@@ -219,11 +234,12 @@ final class StreamTest {
     }
   }
 
-  void roundtrip(Schema schema, List<ArrowRecordBatch> batches, DictionaryProvider provider) throws Exception {
+  void roundtrip(Schema schema, List<ArrowRecordBatch> batches, DictionaryProvider provider)
+      throws Exception {
     ArrowReader source = new InMemoryArrowReader(allocator, schema, batches, provider);
 
     try (final ArrowArrayStream stream = ArrowArrayStream.allocateNew(allocator);
-         final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
+        final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
       final VectorLoader loader = new VectorLoader(root);
       Data.exportArrayStream(allocator, source, stream);
 
@@ -260,24 +276,24 @@ final class StreamTest {
   private static void assertVectorsEqual(FieldVector expected, FieldVector actual) {
     assertThat(actual.getField().getType()).isEqualTo(expected.getField().getType());
     assertThat(actual.getValueCount()).isEqualTo(expected.getValueCount());
-    final Range range = new Range(/*leftStart=*/0, /*rightStart=*/0, expected.getValueCount());
-    assertThat(new RangeEqualsVisitor(expected, actual)
-        .rangeEquals(range))
+    final Range range = new Range(/*leftStart=*/ 0, /*rightStart=*/ 0, expected.getValueCount());
+    assertThat(new RangeEqualsVisitor(expected, actual).rangeEquals(range))
         .as("Vectors were not equal.\nExpected: %s\nGot: %s", expected, actual)
         .isTrue();
   }
 
-  /**
-   * An ArrowReader backed by a fixed list of batches.
-   */
+  /** An ArrowReader backed by a fixed list of batches. */
   static class InMemoryArrowReader extends ArrowReader {
     private final Schema schema;
     private final List<ArrowRecordBatch> batches;
     private final DictionaryProvider provider;
     private int nextBatch;
 
-    InMemoryArrowReader(BufferAllocator allocator, Schema schema, List<ArrowRecordBatch> batches,
-                        DictionaryProvider provider) {
+    InMemoryArrowReader(
+        BufferAllocator allocator,
+        Schema schema,
+        List<ArrowRecordBatch> batches,
+        DictionaryProvider provider) {
       super(allocator);
       this.schema = schema;
       this.batches = batches;
@@ -297,7 +313,8 @@ final class StreamTest {
 
     @Override
     public Map<Long, Dictionary> getDictionaryVectors() {
-      return getDictionaryIds().stream().collect(Collectors.toMap(Function.identity(), this::lookup));
+      return getDictionaryIds().stream()
+          .collect(Collectors.toMap(Function.identity(), this::lookup));
     }
 
     @Override

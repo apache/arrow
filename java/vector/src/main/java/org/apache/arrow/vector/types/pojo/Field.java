@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.types.pojo;
 
 import static org.apache.arrow.util.Preconditions.checkNotNull;
@@ -22,6 +21,12 @@ import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.DATA_VECTO
 import static org.apache.arrow.vector.types.pojo.ArrowType.getTypeForField;
 import static org.apache.arrow.vector.types.pojo.Schema.convertMetadata;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.flatbuffers.FlatBufferBuilder;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -31,7 +36,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.stream.Collectors;
-
 import org.apache.arrow.flatbuf.KeyValue;
 import org.apache.arrow.flatbuf.Type;
 import org.apache.arrow.memory.BufferAllocator;
@@ -41,16 +45,7 @@ import org.apache.arrow.vector.types.pojo.ArrowType.ExtensionType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonInclude.Include;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.flatbuffers.FlatBufferBuilder;
-
-/**
- * A POJO abstraction for the Flatbuffer description of Vector Type.
- */
+/** A POJO abstraction for the Flatbuffer description of Vector Type. */
 public class Field {
 
   private static final Logger logger = LoggerFactory.getLogger(Field.class);
@@ -102,21 +97,18 @@ public class Field {
   public Field(String name, FieldType fieldType, List<Field> children) {
     this.name = name;
     this.fieldType = checkNotNull(fieldType);
-    this.children = children == null ? Collections.emptyList() : Collections2.toImmutableList(children);
+    this.children =
+        children == null ? Collections.emptyList() : Collections2.toImmutableList(children);
   }
 
-  /**
-   * Construct a new vector of this type using the given allocator.
-   */
+  /** Construct a new vector of this type using the given allocator. */
   public FieldVector createVector(BufferAllocator allocator) {
     FieldVector vector = fieldType.createNewSingleVector(this, allocator, null);
     vector.initializeChildrenFromFields(children);
     return vector;
   }
 
-  /**
-   * Constructs a new instance from a flatbuffer representation of the field.
-   */
+  /** Constructs a new instance from a flatbuffer representation of the field. */
   public static Field convertField(org.apache.arrow.flatbuf.Field field) {
     Map<String, String> metadata = new HashMap<>();
     for (int i = 0; i < field.customMetadataLength(); i++) {
@@ -133,7 +125,8 @@ public class Field {
 
     if (metadata.containsKey(ExtensionType.EXTENSION_METADATA_KEY_NAME)) {
       final String extensionName = metadata.get(ExtensionType.EXTENSION_METADATA_KEY_NAME);
-      final String extensionMetadata = metadata.getOrDefault(ExtensionType.EXTENSION_METADATA_KEY_METADATA, "");
+      final String extensionMetadata =
+          metadata.getOrDefault(ExtensionType.EXTENSION_METADATA_KEY_METADATA, "");
       ExtensionType extensionType = ExtensionTypeRegistry.lookup(extensionName);
       if (extensionType != null) {
         type = extensionType.deserialize(type, extensionMetadata);
@@ -164,17 +157,19 @@ public class Field {
   }
 
   /**
-   * Helper method to ensure backward compatibility with schemas generated prior to ARROW-1347, ARROW-1663.
+   * Helper method to ensure backward compatibility with schemas generated prior to ARROW-1347,
+   * ARROW-1663.
    *
    * @param field the field to check
    * @param originalChildField original field which name might be mutated
    * @return original or mutated field
    */
-  private static Field mutateOriginalNameIfNeeded(org.apache.arrow.flatbuf.Field field, Field originalChildField) {
-    if ((field.typeType() == Type.List || field.typeType() == Type.FixedSizeList) &&
-        originalChildField.getName().equals("[DEFAULT]")) {
-      return
-        new Field(DATA_VECTOR_NAME,
+  private static Field mutateOriginalNameIfNeeded(
+      org.apache.arrow.flatbuf.Field field, Field originalChildField) {
+    if ((field.typeType() == Type.List || field.typeType() == Type.FixedSizeList)
+        && originalChildField.getName().equals("[DEFAULT]")) {
+      return new Field(
+          DATA_VECTOR_NAME,
           originalChildField.isNullable(),
           originalChildField.getType(),
           originalChildField.getDictionary(),
@@ -216,7 +211,8 @@ public class Field {
       KeyValue.addValue(builder, valueOffset);
       metadataOffsets[i] = KeyValue.endKeyValue(builder);
     }
-    int metadataOffset = org.apache.arrow.flatbuf.Field.createCustomMetadataVector(builder, metadataOffsets);
+    int metadataOffset =
+        org.apache.arrow.flatbuf.Field.createCustomMetadataVector(builder, metadataOffsets);
     org.apache.arrow.flatbuf.Field.startField(builder);
     if (name != null) {
       org.apache.arrow.flatbuf.Field.addName(builder, nameOffset);
@@ -280,12 +276,12 @@ public class Field {
       return false;
     }
     Field that = (Field) obj;
-    return Objects.equals(this.name, that.name) &&
-        this.isNullable() == that.isNullable() &&
-        Objects.equals(this.getType(), that.getType()) &&
-        Objects.equals(this.getDictionary(), that.getDictionary()) &&
-        Objects.equals(this.getMetadata(), that.getMetadata()) &&
-        Objects.equals(this.children, that.children);
+    return Objects.equals(this.name, that.name)
+        && this.isNullable() == that.isNullable()
+        && Objects.equals(this.getType(), that.getType())
+        && Objects.equals(this.getDictionary(), that.getDictionary())
+        && Objects.equals(this.getMetadata(), that.getMetadata())
+        && Objects.equals(this.children, that.children);
   }
 
   @Override
@@ -299,9 +295,8 @@ public class Field {
       sb.append("[dictionary: ").append(getDictionary().getId()).append("]");
     }
     if (!children.isEmpty()) {
-      sb.append("<").append(children.stream()
-          .map(t -> t.toString())
-          .collect(Collectors.joining(", ")))
+      sb.append("<")
+          .append(children.stream().map(t -> t.toString()).collect(Collectors.joining(", ")))
           .append(">");
     }
     if (!isNullable()) {

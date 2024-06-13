@@ -1,14 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Licensed to the Apache Software Foundation (ASF) under one or more contributor
-  license agreements. See the NOTICE file distributed with this work for additional
-  information regarding copyright ownership. The ASF licenses this file to
-  You under the Apache License, Version 2.0 (the "License"); you may not use
-  this file except in compliance with the License. You may obtain a copy of
-  the License at http://www.apache.org/licenses/LICENSE-2.0 Unless required
-  by applicable law or agreed to in writing, software distributed under the
-  License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS
-  OF ANY KIND, either express or implied. See the License for the specific
-  language governing permissions and limitations under the License. -->
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
@@ -83,21 +91,24 @@
     <dep.junit.jupiter.version>5.10.2</dep.junit.jupiter.version>
     <dep.slf4j.version>2.0.13</dep.slf4j.version>
     <dep.guava-bom.version>33.2.1-jre</dep.guava-bom.version>
-    <dep.netty-bom.version>4.1.108.Final</dep.netty-bom.version>
+    <dep.netty-bom.version>4.1.110.Final</dep.netty-bom.version>
     <dep.grpc-bom.version>1.63.0</dep.grpc-bom.version>
     <dep.protobuf-bom.version>3.25.1</dep.protobuf-bom.version>
-    <dep.jackson-bom.version>2.17.0</dep.jackson-bom.version>
+    <dep.jackson-bom.version>2.17.1</dep.jackson-bom.version>
     <dep.hadoop.version>3.4.0</dep.hadoop.version>
     <dep.fbs.version>23.5.26</dep.fbs.version>
     <dep.avro.version>1.11.3</dep.avro.version>
     <arrow.vector.classifier></arrow.vector.classifier>
     <forkCount>2</forkCount>
+    <checkstyle.config.location>dev/checkstyle/checkstyle.xml</checkstyle.config.location>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
     <errorprone.javac.version>9+181-r4173-1</errorprone.javac.version>
     <error_prone_core.version>2.28.0</error_prone_core.version>
     <mockito.core.version>5.11.0</mockito.core.version>
     <mockito.inline.version>5.2.0</mockito.inline.version>
     <checker.framework.version>3.43.0</checker.framework.version>
+    <!-- replace with placeholder value 'none' string to enable java formatting in submodules -->
+    <spotless.java.excludes>**/*.java</spotless.java.excludes>
     <doclint>none</doclint>
     <additionalparam>-Xdoclint:none</additionalparam>
     <!-- org.apache:apache overrides -->
@@ -339,7 +350,7 @@
         <plugin>
           <groupId>org.jacoco</groupId>
           <artifactId>jacoco-maven-plugin</artifactId>
-          <version>0.8.11</version>
+          <version>0.8.12</version>
         </plugin>
 
         <!--This plugin's configuration is used to store Eclipse m2e settings
@@ -500,7 +511,7 @@
         <plugin>
           <groupId>org.codehaus.mojo</groupId>
           <artifactId>build-helper-maven-plugin</artifactId>
-          <version>1.9.1</version>
+          <version>3.6.0</version>
         </plugin>
         <plugin>
           <groupId>org.codehaus.mojo</groupId>
@@ -701,8 +712,8 @@
         <artifactId>maven-checkstyle-plugin</artifactId>
         <configuration>
           <excludes>**/module-info.java</excludes>
-          <configLocation>dev/checkstyle/checkstyle.xml</configLocation>
-          <headerLocation>dev/checkstyle/checkstyle.license</headerLocation>
+          <configLocation>${checkstyle.config.location}</configLocation>
+          <headerLocation>dev/license/asf-java.license</headerLocation>
           <suppressionsLocation>dev/checkstyle/suppressions.xml</suppressionsLocation>
           <includeTestSourceDirectory>true</includeTestSourceDirectory>
           <inputEncoding>UTF-8</inputEncoding>
@@ -801,8 +812,25 @@
         <artifactId>spotless-maven-plugin</artifactId>
         <configuration>
           <pom>
+            <licenseHeader>
+              <file>${maven.multiModuleProjectDirectory}/dev/license/asf-xml.license</file>
+              <delimiter>(&lt;configuration|&lt;project)</delimiter>
+            </licenseHeader>
             <sortPom></sortPom>
           </pom>
+          <java>
+            <excludes>
+              <exclude>${spotless.java.excludes}</exclude>
+            </excludes>
+            <googleJavaFormat>
+              <version>1.7</version>
+              <style>GOOGLE</style>
+            </googleJavaFormat>
+            <licenseHeader>
+              <file>${maven.multiModuleProjectDirectory}/dev/license/asf-java.license</file>
+              <delimiter>package</delimiter>
+            </licenseHeader>
+          </java>
         </configuration>
         <executions>
           <execution>
@@ -929,7 +957,7 @@
                        Error Prone 2.10.0 is the latest version
                        to support running on JDK 8.
                        With right flags it could be upgraded,
-                       but we choose to keep this unchanged for now. 
+                       but we choose to keep this unchanged for now.
                   -->
                   <version>2.10.0</version>
                 </path>

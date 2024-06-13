@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.compare;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -23,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
@@ -62,7 +60,7 @@ public class TestTypeEqualsVisitor {
   @Test
   public void testTypeEqualsWithName() {
     try (final IntVector right = new IntVector("int", allocator);
-         final IntVector left1 = new IntVector("int", allocator);
+        final IntVector left1 = new IntVector("int", allocator);
         final IntVector left2 = new IntVector("int2", allocator)) {
 
       TypeEqualsVisitor visitor = new TypeEqualsVisitor(right);
@@ -75,14 +73,14 @@ public class TestTypeEqualsVisitor {
   public void testTypeEqualsWithMetadata() {
     Map<String, String> metadata = new HashMap<>();
     metadata.put("key1", "value1");
-    FieldType typeWithoutMeta = new FieldType(true, new ArrowType.Int(32, true),
-        null, null);
-    FieldType typeWithMeta = new FieldType(true, new ArrowType.Int(32, true),
-        null, metadata);
+    FieldType typeWithoutMeta = new FieldType(true, new ArrowType.Int(32, true), null, null);
+    FieldType typeWithMeta = new FieldType(true, new ArrowType.Int(32, true), null, metadata);
 
-    try (IntVector right = (IntVector) typeWithoutMeta.createNewSingleVector("int", allocator, null);
-         IntVector left1 = (IntVector) typeWithoutMeta.createNewSingleVector("int", allocator, null);
-         IntVector left2 = (IntVector) typeWithMeta.createNewSingleVector("int", allocator, null)) {
+    try (IntVector right =
+            (IntVector) typeWithoutMeta.createNewSingleVector("int", allocator, null);
+        IntVector left1 =
+            (IntVector) typeWithoutMeta.createNewSingleVector("int", allocator, null);
+        IntVector left2 = (IntVector) typeWithMeta.createNewSingleVector("int", allocator, null)) {
 
       TypeEqualsVisitor visitor = new TypeEqualsVisitor(right);
       assertTrue(visitor.equals(left1));
@@ -93,8 +91,8 @@ public class TestTypeEqualsVisitor {
   @Test
   public void testListTypeEquals() {
     try (final ListVector right = ListVector.empty("list", allocator);
-         final ListVector left1 = ListVector.empty("list", allocator);
-         final ListVector left2 = ListVector.empty("list", allocator)) {
+        final ListVector left1 = ListVector.empty("list", allocator);
+        final ListVector left2 = ListVector.empty("list", allocator)) {
 
       right.addOrGetVector(FieldType.nullable(new ArrowType.Utf8()));
       left1.addOrGetVector(FieldType.nullable(new ArrowType.Utf8()));
@@ -109,8 +107,8 @@ public class TestTypeEqualsVisitor {
   @Test
   public void testStructTypeEquals() {
     try (final StructVector right = StructVector.empty("struct", allocator);
-         final StructVector left1 = StructVector.empty("struct", allocator);
-         final StructVector left2 = StructVector.empty("struct", allocator)) {
+        final StructVector left1 = StructVector.empty("struct", allocator);
+        final StructVector left2 = StructVector.empty("struct", allocator)) {
 
       right.addOrGet("child", FieldType.nullable(new ArrowType.Utf8()), VarCharVector.class);
       left1.addOrGet("child", FieldType.nullable(new ArrowType.Utf8()), VarCharVector.class);
@@ -124,9 +122,12 @@ public class TestTypeEqualsVisitor {
 
   @Test
   public void testUnionTypeEquals() {
-    try (final UnionVector right = new UnionVector("union", allocator, /* field type */ null, /* call-back */ null);
-         final UnionVector left1 = new UnionVector("union", allocator, /* field type */ null, /* call-back */ null);
-         final UnionVector left2 = new UnionVector("union", allocator, /* field type */ null, /* call-back */ null)) {
+    try (final UnionVector right =
+            new UnionVector("union", allocator, /* field type */ null, /* call-back */ null);
+        final UnionVector left1 =
+            new UnionVector("union", allocator, /* field type */ null, /* call-back */ null);
+        final UnionVector left2 =
+            new UnionVector("union", allocator, /* field type */ null, /* call-back */ null)) {
 
       right.addVector(new IntVector("int", allocator));
       left1.addVector(new IntVector("int", allocator));
@@ -141,15 +142,19 @@ public class TestTypeEqualsVisitor {
   @Test
   public void testDenseUnionTypeEquals() {
     try (DenseUnionVector vector1 = new DenseUnionVector("vector1", allocator, null, null);
-         DenseUnionVector vector2 = new DenseUnionVector("vector2", allocator, null, null)) {
+        DenseUnionVector vector2 = new DenseUnionVector("vector2", allocator, null, null)) {
       vector1.allocateNew();
       vector2.allocateNew();
 
       // set children for vector1
-      byte intTypeId = vector1.registerNewTypeId(Field.nullable("int", Types.MinorType.INT.getType()));
-      byte longTypeId = vector1.registerNewTypeId(Field.nullable("long", Types.MinorType.BIGINT.getType()));
-      byte floatTypeId = vector1.registerNewTypeId(Field.nullable("float", Types.MinorType.FLOAT4.getType()));
-      byte doubleTypeId = vector1.registerNewTypeId(Field.nullable("double", Types.MinorType.FLOAT8.getType()));
+      byte intTypeId =
+          vector1.registerNewTypeId(Field.nullable("int", Types.MinorType.INT.getType()));
+      byte longTypeId =
+          vector1.registerNewTypeId(Field.nullable("long", Types.MinorType.BIGINT.getType()));
+      byte floatTypeId =
+          vector1.registerNewTypeId(Field.nullable("float", Types.MinorType.FLOAT4.getType()));
+      byte doubleTypeId =
+          vector1.registerNewTypeId(Field.nullable("double", Types.MinorType.FLOAT8.getType()));
 
       vector1.addVector(floatTypeId, new Float4Vector("", allocator));
       vector1.addVector(longTypeId, new BigIntVector("", allocator));
@@ -158,9 +163,12 @@ public class TestTypeEqualsVisitor {
 
       // set children for vector2
       intTypeId = vector2.registerNewTypeId(Field.nullable("int", Types.MinorType.INT.getType()));
-      longTypeId = vector2.registerNewTypeId(Field.nullable("long", Types.MinorType.BIGINT.getType()));
-      floatTypeId = vector2.registerNewTypeId(Field.nullable("float", Types.MinorType.FLOAT4.getType()));
-      doubleTypeId = vector2.registerNewTypeId(Field.nullable("double", Types.MinorType.FLOAT8.getType()));
+      longTypeId =
+          vector2.registerNewTypeId(Field.nullable("long", Types.MinorType.BIGINT.getType()));
+      floatTypeId =
+          vector2.registerNewTypeId(Field.nullable("float", Types.MinorType.FLOAT4.getType()));
+      doubleTypeId =
+          vector2.registerNewTypeId(Field.nullable("double", Types.MinorType.FLOAT8.getType()));
 
       // add vectors in a different order
       vector2.addVector(intTypeId, new IntVector("", allocator));
@@ -183,8 +191,8 @@ public class TestTypeEqualsVisitor {
   @Test
   public void testStringViewTypeEquals() {
     try (final ViewVarCharVector varchar1 = new ViewVarCharVector("varchar1", allocator);
-         final ViewVarCharVector varchar2 = new ViewVarCharVector("varchar2", allocator);
-         final ViewVarBinaryVector binary = new ViewVarBinaryVector("binary", allocator)) {
+        final ViewVarCharVector varchar2 = new ViewVarCharVector("varchar2", allocator);
+        final ViewVarBinaryVector binary = new ViewVarBinaryVector("binary", allocator)) {
       final int valueCount = 2;
       final byte[] str0 = "apache".getBytes(StandardCharsets.UTF_8);
       final byte[] str1 = "arrow".getBytes(StandardCharsets.UTF_8);
@@ -208,7 +216,8 @@ public class TestTypeEqualsVisitor {
       binary.setValueCount(valueCount);
 
       // compare ignore check name
-      TypeEqualsVisitor visitor = new TypeEqualsVisitor(varchar1, /* check name */ false, /* check meta data */ true);
+      TypeEqualsVisitor visitor =
+          new TypeEqualsVisitor(varchar1, /* check name */ false, /* check meta data */ true);
       assertTrue(visitor.equals(varchar2));
       assertFalse(visitor.equals(binary));
 

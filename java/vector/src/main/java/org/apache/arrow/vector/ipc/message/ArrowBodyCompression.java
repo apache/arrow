@@ -14,16 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.ipc.message;
 
+import com.google.flatbuffers.FlatBufferBuilder;
 import org.apache.arrow.flatbuf.BodyCompression;
 
-import com.google.flatbuffers.FlatBufferBuilder;
-
-/**
- * Compression information about data written to a channel.
- */
+/** Compression information about data written to a channel. */
 public class ArrowBodyCompression implements FBSerializable {
 
   private final byte codec;

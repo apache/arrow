@@ -14,18 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.holders;
 
 /**
  * Wrapper object for an individual value in Arrow.
  *
- * <p>ValueHolders are designed to be mutable wrapper objects for defining clean
- * APIs that access data in Arrow. For performance, object creation is avoided
- * at all costs throughout execution. For this reason, ValueHolders are
- * disallowed from implementing any methods, this allows for them to be
- * replaced by their java primitive inner members during optimization of
- * run-time generated code.
+ * <p>ValueHolders are designed to be mutable wrapper objects for defining clean APIs that access
+ * data in Arrow. For performance, object creation is avoided at all costs throughout execution. For
+ * this reason, ValueHolders are disallowed from implementing any methods, this allows for them to
+ * be replaced by their java primitive inner members during optimization of run-time generated code.
  */
-public interface ValueHolder {
-}
+public interface ValueHolder {}

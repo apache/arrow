@@ -14,21 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.gandiva.expression;
 
+import com.google.protobuf.ByteString;
 import java.math.BigDecimal;
 import java.nio.charset.Charset;
 import java.util.Set;
-
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.ipc.GandivaTypes;
 
-import com.google.protobuf.ByteString;
-
-/**
- * In Node representation in java.
- */
+/** In Node representation in java. */
 public class InNode implements TreeNode {
   private static final Charset charset = Charset.forName("UTF-8");
 
@@ -44,9 +39,17 @@ public class InNode implements TreeNode {
   private final Integer precision;
   private final Integer scale;
 
-  private InNode(Set<Integer> values, Set<Long> longValues, Set<String> stringValues, Set<byte[]>
-          binaryValues, Set<BigDecimal> decimalValues, Integer precision, Integer scale,
-                 Set<Float> floatValues, Set<Double> doubleValues, TreeNode node) {
+  private InNode(
+      Set<Integer> values,
+      Set<Long> longValues,
+      Set<String> stringValues,
+      Set<byte[]> binaryValues,
+      Set<BigDecimal> decimalValues,
+      Integer precision,
+      Integer scale,
+      Set<Float> floatValues,
+      Set<Double> doubleValues,
+      TreeNode node) {
     this.intValues = values;
     this.longValues = longValues;
     this.decimalValues = decimalValues;
@@ -62,67 +65,58 @@ public class InNode implements TreeNode {
   /**
    * Makes an IN node for int values.
    *
-   * @param node      Node with the 'IN' clause.
+   * @param node Node with the 'IN' clause.
    * @param intValues Int values to build the IN node.
    * @return InNode referring to tree node.
    */
   public static InNode makeIntInExpr(TreeNode node, Set<Integer> intValues) {
-    return new InNode(intValues,
-            null, null, null, null, null, null, null,
-            null, node);
+    return new InNode(intValues, null, null, null, null, null, null, null, null, node);
   }
 
   /**
    * Makes an IN node for long values.
    *
-   * @param node      Node with the 'IN' clause.
+   * @param node Node with the 'IN' clause.
    * @param longValues Long values to build the IN node.
    * @return InNode referring to tree node.
    */
   public static InNode makeLongInExpr(TreeNode node, Set<Long> longValues) {
-    return new InNode(null, longValues,
-            null, null, null, null, null, null,
-            null, node);
+    return new InNode(null, longValues, null, null, null, null, null, null, null, node);
   }
 
   /**
    * Makes an IN node for float values.
    *
-   * @param node      Node with the 'IN' clause.
+   * @param node Node with the 'IN' clause.
    * @param floatValues Float values to build the IN node.
    * @return InNode referring to tree node.
    */
   public static InNode makeFloatInExpr(TreeNode node, Set<Float> floatValues) {
-    return new InNode(null, null, null, null, null, null,
-            null, floatValues, null, node);
+    return new InNode(null, null, null, null, null, null, null, floatValues, null, node);
   }
 
   /**
    * Makes an IN node for double values.
    *
-   * @param node      Node with the 'IN' clause.
+   * @param node Node with the 'IN' clause.
    * @param doubleValues Double values to build the IN node.
    * @return InNode referring to tree node.
    */
   public static InNode makeDoubleInExpr(TreeNode node, Set<Double> doubleValues) {
-    return new InNode(null, null, null, null, null,
-            null, null, null, doubleValues, node);
+    return new InNode(null, null, null, null, null, null, null, null, doubleValues, node);
   }
 
-  public static InNode makeDecimalInExpr(TreeNode node, Set<BigDecimal> decimalValues,
-                                         Integer precision, Integer scale) {
-    return new InNode(null, null, null, null,
-            decimalValues, precision, scale, null, null, node);
+  public static InNode makeDecimalInExpr(
+      TreeNode node, Set<BigDecimal> decimalValues, Integer precision, Integer scale) {
+    return new InNode(null, null, null, null, decimalValues, precision, scale, null, null, node);
   }
 
   public static InNode makeStringInExpr(TreeNode node, Set<String> stringValues) {
-    return new InNode(null, null, stringValues, null,
-            null, null, null, null, null, node);
+    return new InNode(null, null, stringValues, null, null, null, null, null, null, node);
   }
 
   public static InNode makeBinaryInExpr(TreeNode node, Set<byte[]> binaryValues) {
-    return new InNode(null, null, null, binaryValues,
-            null, null, null, null, null, node);
+    return new InNode(null, null, null, binaryValues, null, null, null, null, null, node);
   }
 
   @Override
@@ -133,40 +127,71 @@ public class InNode implements TreeNode {
 
     if (intValues != null) {
       GandivaTypes.IntConstants.Builder intConstants = GandivaTypes.IntConstants.newBuilder();
-      intValues.stream().forEach(val -> intConstants.addIntValues(GandivaTypes.IntNode.newBuilder()
-              .setValue(val).build()));
+      intValues.stream()
+          .forEach(
+              val ->
+                  intConstants.addIntValues(
+                      GandivaTypes.IntNode.newBuilder().setValue(val).build()));
       inNode.setIntValues(intConstants.build());
     } else if (longValues != null) {
       GandivaTypes.LongConstants.Builder longConstants = GandivaTypes.LongConstants.newBuilder();
-      longValues.stream().forEach(val -> longConstants.addLongValues(GandivaTypes.LongNode.newBuilder()
-              .setValue(val).build()));
+      longValues.stream()
+          .forEach(
+              val ->
+                  longConstants.addLongValues(
+                      GandivaTypes.LongNode.newBuilder().setValue(val).build()));
       inNode.setLongValues(longConstants.build());
     } else if (floatValues != null) {
       GandivaTypes.FloatConstants.Builder floatConstants = GandivaTypes.FloatConstants.newBuilder();
-      floatValues.stream().forEach(val -> floatConstants.addFloatValues(GandivaTypes.FloatNode.newBuilder()
-              .setValue(val).build()));
+      floatValues.stream()
+          .forEach(
+              val ->
+                  floatConstants.addFloatValues(
+                      GandivaTypes.FloatNode.newBuilder().setValue(val).build()));
       inNode.setFloatValues(floatConstants.build());
     } else if (doubleValues != null) {
-      GandivaTypes.DoubleConstants.Builder doubleConstants = GandivaTypes.DoubleConstants.newBuilder();
-      doubleValues.stream().forEach(val -> doubleConstants.addDoubleValues(GandivaTypes.DoubleNode.newBuilder()
-              .setValue(val).build()));
+      GandivaTypes.DoubleConstants.Builder doubleConstants =
+          GandivaTypes.DoubleConstants.newBuilder();
+      doubleValues.stream()
+          .forEach(
+              val ->
+                  doubleConstants.addDoubleValues(
+                      GandivaTypes.DoubleNode.newBuilder().setValue(val).build()));
       inNode.setDoubleValues(doubleConstants.build());
     } else if (decimalValues != null) {
-      GandivaTypes.DecimalConstants.Builder decimalConstants = GandivaTypes.DecimalConstants.newBuilder();
-      decimalValues.stream().forEach(val -> decimalConstants.addDecimalValues(GandivaTypes.DecimalNode.newBuilder()
-              .setValue(val.toPlainString()).setPrecision(precision).setScale(scale).build()));
+      GandivaTypes.DecimalConstants.Builder decimalConstants =
+          GandivaTypes.DecimalConstants.newBuilder();
+      decimalValues.stream()
+          .forEach(
+              val ->
+                  decimalConstants.addDecimalValues(
+                      GandivaTypes.DecimalNode.newBuilder()
+                          .setValue(val.toPlainString())
+                          .setPrecision(precision)
+                          .setScale(scale)
+                          .build()));
       inNode.setDecimalValues(decimalConstants.build());
     } else if (stringValues != null) {
-      GandivaTypes.StringConstants.Builder stringConstants = GandivaTypes.StringConstants
-              .newBuilder();
-      stringValues.stream().forEach(val -> stringConstants.addStringValues(GandivaTypes.StringNode
-              .newBuilder().setValue(ByteString.copyFrom(val.getBytes(charset))).build()));
+      GandivaTypes.StringConstants.Builder stringConstants =
+          GandivaTypes.StringConstants.newBuilder();
+      stringValues.stream()
+          .forEach(
+              val ->
+                  stringConstants.addStringValues(
+                      GandivaTypes.StringNode.newBuilder()
+                          .setValue(ByteString.copyFrom(val.getBytes(charset)))
+                          .build()));
       inNode.setStringValues(stringConstants.build());
     } else if (binaryValues != null) {
-      GandivaTypes.BinaryConstants.Builder binaryConstants = GandivaTypes.BinaryConstants
-              .newBuilder();
-      binaryValues.stream().forEach(val -> binaryConstants.addBinaryValues(GandivaTypes.BinaryNode
-              .newBuilder().setValue(ByteString.copyFrom(val)).build()));
+      GandivaTypes.BinaryConstants.Builder binaryConstants =
+          GandivaTypes.BinaryConstants.newBuilder();
+      binaryValues.stream()
+          .forEach(
+              val ->
+                  binaryConstants.addBinaryValues(
+                      GandivaTypes.BinaryNode.newBuilder()
+                          .setValue(ByteString.copyFrom(val))
+                          .build()));
       inNode.setBinaryValues(binaryConstants.build());
     }
     GandivaTypes.TreeNode.Builder builder = GandivaTypes.TreeNode.newBuilder();

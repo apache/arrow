@@ -137,7 +137,7 @@ class TracingServerMiddlewareFactory : public ServerMiddlewareFactory {
     options.kind = otel::trace::SpanKind::kServer;
     options.parent = otel::trace::GetSpan(new_otel_context)->GetContext();
 
-    auto* tracer = arrow::internal::tracing::GetTracer();
+    auto tracer = otel::trace::Provider::GetTracerProvider()->GetTracer("arrow");
     auto method_name = ToString(info.method);
     auto span = tracer->StartSpan(
         method_name,

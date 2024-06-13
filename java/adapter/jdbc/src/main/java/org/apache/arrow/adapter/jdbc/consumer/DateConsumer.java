@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc.consumer;
 
 import java.sql.Date;
@@ -22,19 +21,16 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Calendar;
 import java.util.concurrent.TimeUnit;
-
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DateMilliVector;
 
 /**
- * Consumer which consume date type values from {@link ResultSet}.
- * Write the data to {@link org.apache.arrow.vector.DateDayVector}.
+ * Consumer which consume date type values from {@link ResultSet}. Write the data to {@link
+ * org.apache.arrow.vector.DateDayVector}.
  */
 public class DateConsumer {
 
-  /**
-   * Creates a consumer for {@link DateMilliVector}.
-   */
+  /** Creates a consumer for {@link DateMilliVector}. */
   public static JdbcConsumer<DateDayVector> createConsumer(
       DateDayVector vector, int index, boolean nullable, Calendar calendar) {
     if (nullable) {
@@ -44,23 +40,17 @@ public class DateConsumer {
     }
   }
 
-  /**
-   * Nullable consumer for date.
-   */
+  /** Nullable consumer for date. */
   static class NullableDateConsumer extends BaseConsumer<DateDayVector> {
 
     protected final Calendar calendar;
 
-    /**
-     * Instantiate a DateConsumer.
-     */
+    /** Instantiate a DateConsumer. */
     public NullableDateConsumer(DateDayVector vector, int index) {
-      this(vector, index, /* calendar */null);
+      this(vector, index, /* calendar */ null);
     }
 
-    /**
-     * Instantiate a DateConsumer.
-     */
+    /** Instantiate a DateConsumer. */
     public NullableDateConsumer(DateDayVector vector, int index, Calendar calendar) {
       super(vector, index);
       this.calendar = calendar;
@@ -68,8 +58,10 @@ public class DateConsumer {
 
     @Override
     public void consume(ResultSet resultSet) throws SQLException {
-      Date date = calendar == null ? resultSet.getDate(columnIndexInResultSet) :
-          resultSet.getDate(columnIndexInResultSet, calendar);
+      Date date =
+          calendar == null
+              ? resultSet.getDate(columnIndexInResultSet)
+              : resultSet.getDate(columnIndexInResultSet, calendar);
       if (!resultSet.wasNull()) {
         // for fixed width vectors, we have allocated enough memory proactively,
         // so there is no need to call the setSafe method here.
@@ -79,23 +71,17 @@ public class DateConsumer {
     }
   }
 
-  /**
-   * Non-nullable consumer for date.
-   */
+  /** Non-nullable consumer for date. */
   static class NonNullableDateConsumer extends BaseConsumer<DateDayVector> {
 
     protected final Calendar calendar;
 
-    /**
-     * Instantiate a DateConsumer.
-     */
+    /** Instantiate a DateConsumer. */
     public NonNullableDateConsumer(DateDayVector vector, int index) {
-      this(vector, index, /* calendar */null);
+      this(vector, index, /* calendar */ null);
     }
 
-    /**
-     * Instantiate a DateConsumer.
-     */
+    /** Instantiate a DateConsumer. */
     public NonNullableDateConsumer(DateDayVector vector, int index, Calendar calendar) {
       super(vector, index);
       this.calendar = calendar;
@@ -103,8 +89,10 @@ public class DateConsumer {
 
     @Override
     public void consume(ResultSet resultSet) throws SQLException {
-      Date date = calendar == null ? resultSet.getDate(columnIndexInResultSet) :
-          resultSet.getDate(columnIndexInResultSet, calendar);
+      Date date =
+          calendar == null
+              ? resultSet.getDate(columnIndexInResultSet)
+              : resultSet.getDate(columnIndexInResultSet, calendar);
       // for fixed width vectors, we have allocated enough memory proactively,
       // so there is no need to call the setSafe method here.
       vector.set(currentIndex, Math.toIntExact(TimeUnit.MILLISECONDS.toDays(date.getTime())));
@@ -112,5 +100,3 @@ public class DateConsumer {
     }
   }
 }
-
-

@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.sql;
 
 import static java.util.stream.IntStream.range;
@@ -22,6 +21,7 @@ import static org.apache.arrow.flight.FlightProducer.ServerStreamListener;
 import static org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedTransaction;
 import static org.apache.arrow.flight.sql.util.SqlInfoOptionsUtils.createBitmaskFromEnums;
 
+import com.google.protobuf.ProtocolMessageEnum;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.ObjIntConsumer;
-
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlInfo;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlNullOrdering;
 import org.apache.arrow.flight.sql.impl.FlightSql.SqlOuterJoinsSupportLevel;
@@ -59,24 +58,24 @@ import org.apache.arrow.vector.holders.NullableBitHolder;
 import org.apache.arrow.vector.holders.NullableIntHolder;
 import org.apache.arrow.vector.holders.NullableVarCharHolder;
 
-import com.google.protobuf.ProtocolMessageEnum;
-
 /**
- * Auxiliary class meant to facilitate the implementation of {@link FlightSqlProducer#getStreamSqlInfo}.
- * <p>
- * Usage requires the user to add the required SqlInfo values using the {@code with*} methods
- * like {@link SqlInfoBuilder#withFlightSqlServerName(String)}, and request it back
- * through the {@link SqlInfoBuilder#send(List, ServerStreamListener)} method.
+ * Auxiliary class meant to facilitate the implementation of {@link
+ * FlightSqlProducer#getStreamSqlInfo}.
+ *
+ * <p>Usage requires the user to add the required SqlInfo values using the {@code with*} methods
+ * like {@link SqlInfoBuilder#withFlightSqlServerName(String)}, and request it back through the
+ * {@link SqlInfoBuilder#send(List, ServerStreamListener)} method.
  */
 @SuppressWarnings({"unused"})
 public class SqlInfoBuilder {
   private final Map<Integer, ObjIntConsumer<VectorSchemaRoot>> providers = new HashMap<>();
 
   /**
-   * Gets a {@link NullableVarCharHolder} from the provided {@code string} using the provided {@code buf}.
+   * Gets a {@link NullableVarCharHolder} from the provided {@code string} using the provided {@code
+   * buf}.
    *
    * @param string the {@link StandardCharsets#UTF_8}-encoded text input to store onto the holder.
-   * @param buf    the {@link ArrowBuf} from which to create the new holder.
+   * @param buf the {@link ArrowBuf} from which to create the new holder.
    * @return a new {@link NullableVarCharHolder} with the provided input data {@code string}.
    */
   public static NullableVarCharHolder getHolderForUtf8(final String string, final ArrowBuf buf) {
@@ -292,7 +291,8 @@ public class SqlInfoBuilder {
   /**
    * Sets a value for {@link SqlInfo#SQL_SUPPORTS_DIFFERENT_TABLE_CORRELATION_NAMES} in the builder.
    *
-   * @param value the value for {@link SqlInfo#SQL_SUPPORTS_DIFFERENT_TABLE_CORRELATION_NAMES} to be set.
+   * @param value the value for {@link SqlInfo#SQL_SUPPORTS_DIFFERENT_TABLE_CORRELATION_NAMES} to be
+   *     set.
    * @return the SqlInfoBuilder itself.
    */
   public SqlInfoBuilder withSqlSupportsDifferentTableCorrelationNames(final boolean value) {
@@ -342,7 +342,8 @@ public class SqlInfoBuilder {
   /**
    * Sets a value for {@link SqlInfo#SQL_SUPPORTS_INTEGRITY_ENHANCEMENT_FACILITY} in the builder.
    *
-   * @param value the value for {@link SqlInfo#SQL_SUPPORTS_INTEGRITY_ENHANCEMENT_FACILITY} to be set.
+   * @param value the value for {@link SqlInfo#SQL_SUPPORTS_INTEGRITY_ENHANCEMENT_FACILITY} to be
+   *     set.
    * @return the SqlInfoBuilder itself.
    */
   public SqlInfoBuilder withSqlSupportsIntegrityEnhancementFacility(final boolean value) {
@@ -412,23 +413,23 @@ public class SqlInfoBuilder {
   /**
    * Sets a value for {@link SqlInfo#SQL_DATA_DEFINITION_CAUSES_TRANSACTION_COMMIT} in the builder.
    *
-   * @param value the value for {@link SqlInfo#SQL_DATA_DEFINITION_CAUSES_TRANSACTION_COMMIT} to be set.
+   * @param value the value for {@link SqlInfo#SQL_DATA_DEFINITION_CAUSES_TRANSACTION_COMMIT} to be
+   *     set.
    * @return the SqlInfoBuilder itself.
    */
   public SqlInfoBuilder withSqlDataDefinitionCausesTransactionCommit(final boolean value) {
-    return withBooleanProvider(SqlInfo.SQL_DATA_DEFINITION_CAUSES_TRANSACTION_COMMIT_VALUE,
-        value);
+    return withBooleanProvider(SqlInfo.SQL_DATA_DEFINITION_CAUSES_TRANSACTION_COMMIT_VALUE, value);
   }
 
   /**
    * Sets a value for {@link SqlInfo#SQL_DATA_DEFINITIONS_IN_TRANSACTIONS_IGNORED} in the builder.
    *
-   * @param value the value for {@link SqlInfo#SQL_DATA_DEFINITIONS_IN_TRANSACTIONS_IGNORED} to be set.
+   * @param value the value for {@link SqlInfo#SQL_DATA_DEFINITIONS_IN_TRANSACTIONS_IGNORED} to be
+   *     set.
    * @return the SqlInfoBuilder itself.
    */
   public SqlInfoBuilder withSqlDataDefinitionsInTransactionsIgnored(final boolean value) {
-    return withBooleanProvider(SqlInfo.SQL_DATA_DEFINITIONS_IN_TRANSACTIONS_IGNORED_VALUE,
-        value);
+    return withBooleanProvider(SqlInfo.SQL_DATA_DEFINITIONS_IN_TRANSACTIONS_IGNORED_VALUE, value);
   }
 
   /**
@@ -472,14 +473,16 @@ public class SqlInfoBuilder {
   }
 
   /**
-   * Sets a value for {@link SqlInfo#SQL_STORED_FUNCTIONS_USING_CALL_SYNTAX_SUPPORTED} in the builder.
+   * Sets a value for {@link SqlInfo#SQL_STORED_FUNCTIONS_USING_CALL_SYNTAX_SUPPORTED} in the
+   * builder.
    *
-   * @param value the value for {@link SqlInfo#SQL_STORED_FUNCTIONS_USING_CALL_SYNTAX_SUPPORTED} to be set.
+   * @param value the value for {@link SqlInfo#SQL_STORED_FUNCTIONS_USING_CALL_SYNTAX_SUPPORTED} to
+   *     be set.
    * @return the SqlInfoBuilder itself.
    */
   public SqlInfoBuilder withSqlStoredFunctionsUsingCallSyntaxSupported(final boolean value) {
-    return withBooleanProvider(SqlInfo.SQL_STORED_FUNCTIONS_USING_CALL_SYNTAX_SUPPORTED_VALUE,
-        value);
+    return withBooleanProvider(
+        SqlInfo.SQL_STORED_FUNCTIONS_USING_CALL_SYNTAX_SUPPORTED_VALUE, value);
   }
 
   /**
@@ -758,7 +761,8 @@ public class SqlInfoBuilder {
    * @param values the value for {@link SqlInfo#SQL_ANSI92_SUPPORTED_LEVEL} to be set.
    * @return the SqlInfoBuilder itself.
    */
-  public SqlInfoBuilder withSqlAnsi92SupportedLevel(final SupportedAnsi92SqlGrammarLevel... values) {
+  public SqlInfoBuilder withSqlAnsi92SupportedLevel(
+      final SupportedAnsi92SqlGrammarLevel... values) {
     return withEnumProvider(SqlInfo.SQL_ANSI92_SUPPORTED_LEVEL_VALUE, values);
   }
 
@@ -778,7 +782,8 @@ public class SqlInfoBuilder {
    * @param values the value for {@link SqlInfo#SQL_CATALOGS_SUPPORTED_ACTIONS} to be set.
    * @return the SqlInfoBuilder itself.
    */
-  public SqlInfoBuilder withSqlCatalogsSupportedActions(final SqlSupportedElementActions... values) {
+  public SqlInfoBuilder withSqlCatalogsSupportedActions(
+      final SqlSupportedElementActions... values) {
     return withEnumProvider(SqlInfo.SQL_CATALOGS_SUPPORTED_ACTIONS_VALUE, values);
   }
 
@@ -788,7 +793,8 @@ public class SqlInfoBuilder {
    * @param values the value for {@link SqlInfo#SQL_SUPPORTED_POSITIONED_COMMANDS} to be set.
    * @return the SqlInfoBuilder itself.
    */
-  public SqlInfoBuilder withSqlSupportedPositionedCommands(final SqlSupportedPositionedCommands... values) {
+  public SqlInfoBuilder withSqlSupportedPositionedCommands(
+      final SqlSupportedPositionedCommands... values) {
     return withEnumProvider(SqlInfo.SQL_SUPPORTED_POSITIONED_COMMANDS_VALUE, values);
   }
 
@@ -825,10 +831,12 @@ public class SqlInfoBuilder {
   /**
    * Sets a value for {@link SqlInfo#SQL_SUPPORTED_TRANSACTIONS_ISOLATION_LEVELS} in the builder.
    *
-   * @param values the values for {@link SqlInfo#SQL_SUPPORTED_TRANSACTIONS_ISOLATION_LEVELS} to be set.
+   * @param values the values for {@link SqlInfo#SQL_SUPPORTED_TRANSACTIONS_ISOLATION_LEVELS} to be
+   *     set.
    * @return the SqlInfoBuilder itself.
    */
-  public SqlInfoBuilder withSqlSupportedTransactionsIsolationLevels(final SqlTransactionIsolationLevel... values) {
+  public SqlInfoBuilder withSqlSupportedTransactionsIsolationLevels(
+      final SqlTransactionIsolationLevel... values) {
     return withEnumProvider(SqlInfo.SQL_SUPPORTED_TRANSACTIONS_ISOLATION_LEVELS_VALUE, values);
   }
 
@@ -839,8 +847,7 @@ public class SqlInfoBuilder {
    * @return the SqlInfoBuilder itself.
    */
   public SqlInfoBuilder withSqlSupportedResultSetTypes(final SqlSupportedResultSetType... values) {
-    return withEnumProvider(SqlInfo.SQL_SUPPORTED_RESULT_SET_TYPES_VALUE, values
-    );
+    return withEnumProvider(SqlInfo.SQL_SUPPORTED_RESULT_SET_TYPES_VALUE, values);
   }
 
   /**
@@ -921,8 +928,7 @@ public class SqlInfoBuilder {
     return this;
   }
 
-  private SqlInfoBuilder withBooleanProvider(final int sqlInfo,
-                                             final boolean value) {
+  private SqlInfoBuilder withBooleanProvider(final int sqlInfo, final boolean value) {
     addProvider(sqlInfo, (root, index) -> setDataForBooleanField(root, index, sqlInfo, value));
     return this;
   }
@@ -932,14 +938,13 @@ public class SqlInfoBuilder {
     return this;
   }
 
-  private SqlInfoBuilder withStringArrayProvider(final int sqlInfo,
-                                                 final String[] value) {
+  private SqlInfoBuilder withStringArrayProvider(final int sqlInfo, final String[] value) {
     addProvider(sqlInfo, (root, index) -> setDataVarCharListField(root, index, sqlInfo, value));
     return this;
   }
 
-  private SqlInfoBuilder withIntToIntListMapProvider(final int sqlInfo,
-                                                     final Map<Integer, List<Integer>> value) {
+  private SqlInfoBuilder withIntToIntListMapProvider(
+      final int sqlInfo, final Map<Integer, List<Integer>> value) {
     addProvider(sqlInfo, (root, index) -> setIntToIntListMapField(root, index, sqlInfo, value));
     return this;
   }
@@ -947,7 +952,7 @@ public class SqlInfoBuilder {
   /**
    * Send the requested information to given ServerStreamListener.
    *
-   * @param infos    List of SqlInfo to be sent.
+   * @param infos List of SqlInfo to be sent.
    * @param listener ServerStreamListener to send data to.
    */
   public void send(List<Integer> infos, final ServerStreamListener listener) {
@@ -955,9 +960,8 @@ public class SqlInfoBuilder {
       infos = new ArrayList<>(providers.keySet());
     }
     try (final BufferAllocator allocator = new RootAllocator();
-         final VectorSchemaRoot root = VectorSchemaRoot.create(
-             FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA,
-             allocator)) {
+        final VectorSchemaRoot root =
+            VectorSchemaRoot.create(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA, allocator)) {
       final int rows = infos.size();
       for (int i = 0; i < rows; i++) {
         providers.get(infos.get(i)).accept(root, i);
@@ -977,8 +981,11 @@ public class SqlInfoBuilder {
     infoName.setSafe(index, info);
   }
 
-  private void setValues(final VectorSchemaRoot root, final int index, final byte typeId,
-                         final Consumer<DenseUnionVector> dataSetter) {
+  private void setValues(
+      final VectorSchemaRoot root,
+      final int index,
+      final byte typeId,
+      final Consumer<DenseUnionVector> dataSetter) {
     final DenseUnionVector values = (DenseUnionVector) root.getVector("value");
     values.setTypeId(index, typeId);
     dataSetter.accept(values);
@@ -991,23 +998,24 @@ public class SqlInfoBuilder {
    */
   private void onCreateArrowBuf(final Consumer<ArrowBuf> executor) {
     try (final BufferAllocator allocator = new RootAllocator();
-         final ArrowBuf buf = allocator.buffer(1024)) {
+        final ArrowBuf buf = allocator.buffer(1024)) {
       executor.accept(buf);
     }
   }
 
-  private void setDataForUtf8Field(final VectorSchemaRoot root, final int index,
-                                   final int sqlInfo, final String value) {
+  private void setDataForUtf8Field(
+      final VectorSchemaRoot root, final int index, final int sqlInfo, final String value) {
     setInfoName(root, index, sqlInfo);
-    onCreateArrowBuf(buf -> {
-      final Consumer<DenseUnionVector> producer =
-          values -> values.setSafe(index, getHolderForUtf8(value, buf));
-      setValues(root, index, (byte) 0, producer);
-    });
+    onCreateArrowBuf(
+        buf -> {
+          final Consumer<DenseUnionVector> producer =
+              values -> values.setSafe(index, getHolderForUtf8(value, buf));
+          setValues(root, index, (byte) 0, producer);
+        });
   }
 
-  private void setDataForIntField(final VectorSchemaRoot root, final int index,
-                                  final int sqlInfo, final int value) {
+  private void setDataForIntField(
+      final VectorSchemaRoot root, final int index, final int sqlInfo, final int value) {
     setInfoName(root, index, sqlInfo);
     final NullableIntHolder dataHolder = new NullableIntHolder();
     dataHolder.isSet = 1;
@@ -1015,8 +1023,8 @@ public class SqlInfoBuilder {
     setValues(root, index, (byte) 3, values -> values.setSafe(index, dataHolder));
   }
 
-  private void setDataForBigIntField(final VectorSchemaRoot root, final int index,
-                                     final int sqlInfo, final long value) {
+  private void setDataForBigIntField(
+      final VectorSchemaRoot root, final int index, final int sqlInfo, final long value) {
     setInfoName(root, index, sqlInfo);
     final NullableBigIntHolder dataHolder = new NullableBigIntHolder();
     dataHolder.isSet = 1;
@@ -1024,8 +1032,8 @@ public class SqlInfoBuilder {
     setValues(root, index, (byte) 2, values -> values.setSafe(index, dataHolder));
   }
 
-  private void setDataForBooleanField(final VectorSchemaRoot root, final int index,
-                                      final int sqlInfo, final boolean value) {
+  private void setDataForBooleanField(
+      final VectorSchemaRoot root, final int index, final int sqlInfo, final boolean value) {
     setInfoName(root, index, sqlInfo);
     final NullableBitHolder dataHolder = new NullableBitHolder();
     dataHolder.isSet = 1;
@@ -1033,9 +1041,8 @@ public class SqlInfoBuilder {
     setValues(root, index, (byte) 1, values -> values.setSafe(index, dataHolder));
   }
 
-  private void setDataVarCharListField(final VectorSchemaRoot root, final int index,
-                                       final int sqlInfo,
-                                       final String[] values) {
+  private void setDataVarCharListField(
+      final VectorSchemaRoot root, final int index, final int sqlInfo, final String[] values) {
     final DenseUnionVector denseUnion = (DenseUnionVector) root.getVector("value");
     final ListVector listVector = denseUnion.getList((byte) 4);
     final int listIndex = listVector.getValueCount();
@@ -1049,11 +1056,14 @@ public class SqlInfoBuilder {
     writer.startList();
     final int length = values.length;
     range(0, length)
-        .forEach(i -> onCreateArrowBuf(buf -> {
-          final byte[] bytes = values[i].getBytes(StandardCharsets.UTF_8);
-          buf.setBytes(0, bytes);
-          writer.writeVarChar(0, bytes.length, buf);
-        }));
+        .forEach(
+            i ->
+                onCreateArrowBuf(
+                    buf -> {
+                      final byte[] bytes = values[i].getBytes(StandardCharsets.UTF_8);
+                      buf.setBytes(0, bytes);
+                      writer.writeVarChar(0, bytes.length, buf);
+                    }));
     writer.endList();
     writer.setValueCount(listVectorValueCount);
 
@@ -1062,9 +1072,11 @@ public class SqlInfoBuilder {
     setInfoName(root, index, sqlInfo);
   }
 
-  private void setIntToIntListMapField(final VectorSchemaRoot root, final int index,
-                                       final int sqlInfo,
-                                       final Map<Integer, List<Integer>> values) {
+  private void setIntToIntListMapField(
+      final VectorSchemaRoot root,
+      final int index,
+      final int sqlInfo,
+      final Map<Integer, List<Integer>> values) {
     final DenseUnionVector denseUnion = (DenseUnionVector) root.getVector("value");
     final MapVector mapVector = denseUnion.getMap((byte) 5);
     final int mapIndex = mapVector.getValueCount();
@@ -1074,17 +1086,18 @@ public class SqlInfoBuilder {
     final UnionMapWriter mapWriter = mapVector.getWriter();
     mapWriter.setPosition(mapIndex);
     mapWriter.startMap();
-    values.forEach((key, value) -> {
-      mapWriter.startEntry();
-      mapWriter.key().integer().writeInt(key);
-      final BaseWriter.ListWriter listWriter = mapWriter.value().list();
-      listWriter.startList();
-      for (final int v : value) {
-        listWriter.integer().writeInt(v);
-      }
-      listWriter.endList();
-      mapWriter.endEntry();
-    });
+    values.forEach(
+        (key, value) -> {
+          mapWriter.startEntry();
+          mapWriter.key().integer().writeInt(key);
+          final BaseWriter.ListWriter listWriter = mapWriter.value().list();
+          listWriter.startList();
+          for (final int v : value) {
+            listWriter.integer().writeInt(v);
+          }
+          listWriter.endList();
+          mapWriter.endEntry();
+        });
     mapWriter.endMap();
     mapWriter.setValueCount(mapIndex + 1);
 

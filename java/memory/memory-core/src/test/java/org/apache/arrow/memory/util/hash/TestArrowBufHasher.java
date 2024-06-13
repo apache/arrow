@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory.util.hash;
 
 import static org.junit.Assert.assertEquals;
@@ -24,7 +23,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Collection;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -34,9 +32,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
-/**
- * Test cases for {@link ArrowBufHasher} and its subclasses.
- */
+/** Test cases for {@link ArrowBufHasher} and its subclasses. */
 @RunWith(Parameterized.class)
 public class TestArrowBufHasher {
 
@@ -63,7 +59,7 @@ public class TestArrowBufHasher {
   @Test
   public void testHasher() {
     try (ArrowBuf buf1 = allocator.buffer(BUFFER_LENGTH);
-         ArrowBuf buf2 = allocator.buffer(BUFFER_LENGTH)) {
+        ArrowBuf buf2 = allocator.buffer(BUFFER_LENGTH)) {
       // prepare data
       for (int i = 0; i < BUFFER_LENGTH / 4; i++) {
         buf1.setFloat(i * 4L, i / 10.0f);
@@ -83,8 +79,8 @@ public class TestArrowBufHasher {
     }
   }
 
-  private void verifyHashCodesEqual(ArrowBuf buf1, int offset1, int length1,
-                                    ArrowBuf buf2, int offset2, int length2) {
+  private void verifyHashCodesEqual(
+      ArrowBuf buf1, int offset1, int length1, ArrowBuf buf2, int offset2, int length2) {
     int hashCode1 = hasher.hashCode(buf1, offset1, length1);
     int hashCode2 = hasher.hashCode(buf2, offset2, length2);
     assertEquals(hashCode1, hashCode2);
@@ -98,35 +94,40 @@ public class TestArrowBufHasher {
         buf.setFloat(i * 4L, i / 10.0f);
       }
 
-      assertThrows(IllegalArgumentException.class, () -> {
-        hasher.hashCode(buf, 0, -1);
-      });
+      assertThrows(
+          IllegalArgumentException.class,
+          () -> {
+            hasher.hashCode(buf, 0, -1);
+          });
 
-      assertThrows(IndexOutOfBoundsException.class, () -> {
-        hasher.hashCode(buf, 0, 1028);
-      });
+      assertThrows(
+          IndexOutOfBoundsException.class,
+          () -> {
+            hasher.hashCode(buf, 0, 1028);
+          });
 
-      assertThrows(IndexOutOfBoundsException.class, () -> {
-        hasher.hashCode(buf, 500, 1000);
-      });
+      assertThrows(
+          IndexOutOfBoundsException.class,
+          () -> {
+            hasher.hashCode(buf, 500, 1000);
+          });
     }
   }
 
   @Test
   public void testHasherLessThanInt() {
     try (ArrowBuf buf1 = allocator.buffer(4);
-         ArrowBuf buf2 = allocator.buffer(4)) {
+        ArrowBuf buf2 = allocator.buffer(4)) {
       buf1.writeBytes("foo1".getBytes(StandardCharsets.UTF_8));
       buf2.writeBytes("bar2".getBytes(StandardCharsets.UTF_8));
 
-      for (int i = 1; i <= 4; i ++) {
+      for (int i = 1; i <= 4; i++) {
         verifyHashCodeNotEqual(buf1, i, buf2, i);
       }
     }
   }
 
-  private void verifyHashCodeNotEqual(ArrowBuf buf1, int length1,
-                                      ArrowBuf buf2, int length2) {
+  private void verifyHashCodeNotEqual(ArrowBuf buf1, int length1, ArrowBuf buf2, int length2) {
     int hashCode1 = hasher.hashCode(buf1, 0, length1);
     int hashCode2 = hasher.hashCode(buf2, 0, length2);
     assertNotEquals(hashCode1, hashCode2);
@@ -135,11 +136,7 @@ public class TestArrowBufHasher {
   @Parameterized.Parameters(name = "hasher = {0}")
   public static Collection<Object[]> getHasher() {
     return Arrays.asList(
-      new Object[] {SimpleHasher.class.getSimpleName(),
-        SimpleHasher.INSTANCE},
-      new Object[] {MurmurHasher.class.getSimpleName(),
-        new MurmurHasher()
-      }
-    );
+        new Object[] {SimpleHasher.class.getSimpleName(), SimpleHasher.INSTANCE},
+        new Object[] {MurmurHasher.class.getSimpleName(), new MurmurHasher()});
   }
 }

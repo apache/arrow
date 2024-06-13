@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.utils;
 
 import java.util.Arrays;
@@ -22,7 +21,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
-
 import org.apache.arrow.driver.jdbc.ArrowFlightConnection;
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallOption;
@@ -33,10 +31,7 @@ import org.apache.calcite.avatica.ConnectionConfig;
 import org.apache.calcite.avatica.ConnectionConfigImpl;
 import org.apache.calcite.avatica.ConnectionProperty;
 
-
-/**
- * A {@link ConnectionConfig} for the {@link ArrowFlightConnection}.
- */
+/** A {@link ConnectionConfig} for the {@link ArrowFlightConnection}. */
 public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl {
   public ArrowFlightConnectionConfigImpl(final Properties properties) {
     super(properties);
@@ -77,7 +72,6 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
   public String getPassword() {
     return ArrowFlightConnectionProperty.PASSWORD.getString(properties);
   }
-
 
   public String getToken() {
     return ArrowFlightConnectionProperty.TOKEN.getString(properties);
@@ -145,16 +139,16 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
   }
 
   /**
-   * Indicates if sub-connections created for stream retrieval
-   * should reuse cookies from the main connection.
+   * Indicates if sub-connections created for stream retrieval should reuse cookies from the main
+   * connection.
    */
   public boolean retainCookies() {
     return ArrowFlightConnectionProperty.RETAIN_COOKIES.getBoolean(properties);
   }
 
   /**
-   * Indicates if sub-connections created for stream retrieval
-   * should reuse bearer tokens created from the main connection.
+   * Indicates if sub-connections created for stream retrieval should reuse bearer tokens created
+   * from the main connection.
    */
   public boolean retainAuth() {
     return ArrowFlightConnectionProperty.RETAIN_AUTH.getBoolean(properties);
@@ -184,16 +178,15 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
         (key, val) -> {
           // For built-in properties before adding new headers
           if (Arrays.stream(builtInProperties)
-              .noneMatch(builtInProperty -> builtInProperty.camelName.equalsIgnoreCase(key.toString()))) {
+              .noneMatch(
+                  builtInProperty -> builtInProperty.camelName.equalsIgnoreCase(key.toString()))) {
             headers.put(key.toString(), val.toString());
           }
         });
     return headers;
   }
 
-  /**
-   * Custom {@link ConnectionProperty} for the {@link ArrowFlightConnectionConfigImpl}.
-   */
+  /** Custom {@link ConnectionProperty} for the {@link ArrowFlightConnectionConfigImpl}. */
   public enum ArrowFlightConnectionProperty implements ConnectionProperty {
     HOST("host", null, Type.STRING, true),
     PORT("port", null, Type.NUMBER, true),
@@ -217,8 +210,11 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
     private final Type type;
     private final boolean required;
 
-    ArrowFlightConnectionProperty(final String camelName, final Object defaultValue,
-                                  final Type type, final boolean required) {
+    ArrowFlightConnectionProperty(
+        final String camelName,
+        final Object defaultValue,
+        final Type type,
+        final boolean required) {
       this.camelName = Preconditions.checkNotNull(camelName);
       this.defaultValue = defaultValue;
       this.type = Preconditions.checkNotNull(type);
@@ -239,7 +235,8 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
       }
       if (required) {
         if (value == null) {
-          throw new IllegalStateException(String.format("Required property not provided: <%s>.", this));
+          throw new IllegalStateException(
+              String.format("Required property not provided: <%s>.", this));
         }
         return value;
       } else {

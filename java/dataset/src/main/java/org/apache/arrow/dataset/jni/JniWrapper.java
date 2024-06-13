@@ -14,14 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.dataset.jni;
 
 import java.nio.ByteBuffer;
 
-/**
- * JNI wrapper for Dataset API's native implementation.
- */
+/** JNI wrapper for Dataset API's native implementation. */
 public class JniWrapper {
 
   private static final JniWrapper INSTANCE = new JniWrapper();
@@ -31,8 +28,7 @@ public class JniWrapper {
     return INSTANCE;
   }
 
-  private JniWrapper() {
-  }
+  private JniWrapper() {}
 
   /**
    * Release the DatasetFactory by destroying its reference held by JNI wrapper.
@@ -70,17 +66,21 @@ public class JniWrapper {
    * Create Scanner from a Dataset and get the native pointer of the Dataset.
    *
    * @param datasetId the native pointer of the arrow::dataset::Dataset instance.
-   * @param columns desired column names.
-   *                Columns not in this list will not be emitted when performing scan operation. Null equals
-   *                to "all columns".
+   * @param columns desired column names. Columns not in this list will not be emitted when
+   *     performing scan operation. Null equals to "all columns".
    * @param substraitProjection substrait extended expression to evaluate for project new columns
    * @param substraitFilter substrait extended expression to evaluate for apply filter
    * @param batchSize batch size of scanned record batches.
    * @param memoryPool identifier of memory pool used in the native scanner.
    * @return the native pointer of the arrow::dataset::Scanner instance.
    */
-  public native long createScanner(long datasetId, String[] columns, ByteBuffer substraitProjection,
-                                   ByteBuffer substraitFilter, long batchSize, long memoryPool);
+  public native long createScanner(
+      long datasetId,
+      String[] columns,
+      ByteBuffer substraitProjection,
+      ByteBuffer substraitFilter,
+      long batchSize,
+      long memoryPool);
 
   /**
    * Get a serialized schema from native instance of a Scanner.
@@ -102,8 +102,8 @@ public class JniWrapper {
    * Read next record batch from the specified scanner.
    *
    * @param scannerId the native pointer of the arrow::dataset::Scanner instance.
-   * @param arrowArray pointer to an empty {@link org.apache.arrow.c.ArrowArray} struct to
-   *                    store C++ side record batch that conforms to C data interface.
+   * @param arrowArray pointer to an empty {@link org.apache.arrow.c.ArrowArray} struct to store C++
+   *     side record batch that conforms to C data interface.
    * @return true if valid record batch is returned; false if stream ended.
    */
   public native boolean nextRecordBatch(long scannerId, long arrowArray);
@@ -116,8 +116,8 @@ public class JniWrapper {
   public native void releaseBuffer(long bufferId);
 
   /**
-   * Ensure the S3 APIs are shutdown, but only if not already done. If the S3 APIs are uninitialized,
-   * then this is a noop.
+   * Ensure the S3 APIs are shutdown, but only if not already done. If the S3 APIs are
+   * uninitialized, then this is a noop.
    */
   public native void ensureS3Finalized();
 }

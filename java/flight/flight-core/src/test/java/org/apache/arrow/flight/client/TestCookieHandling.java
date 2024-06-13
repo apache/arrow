@@ -14,14 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.client;
 
 import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
 import static org.apache.arrow.flight.Location.forGrpcInsecure;
 
 import java.io.IOException;
-
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallInfo;
 import org.apache.arrow.flight.CallStatus;
@@ -186,7 +184,8 @@ public class TestCookieHandling {
     headersToSend.insert(SET_COOKIE_HEADER, "firstKey=firstVal");
     headersToSend.insert(SET_COOKIE_HEADER, "secondKey=secondVal");
     cookieMiddleware.onHeadersReceived(headersToSend);
-    Assertions.assertEquals("firstKey=firstVal; secondKey=secondVal", cookieMiddleware.getValidCookiesAsString());
+    Assertions.assertEquals(
+        "firstKey=firstVal; secondKey=secondVal", cookieMiddleware.getValidCookiesAsString());
   }
 
   @Test
@@ -199,9 +198,7 @@ public class TestCookieHandling {
     Assertions.assertEquals("k=v", testFactory.clientCookieMiddleware.getValidCookiesAsString());
   }
 
-  /**
-   * A server middleware component that injects SET_COOKIE_HEADER into the outgoing headers.
-   */
+  /** A server middleware component that injects SET_COOKIE_HEADER into the outgoing headers. */
   static class SetCookieHeaderInjector implements FlightServerMiddleware {
     private final Factory factory;
 
@@ -217,21 +214,17 @@ public class TestCookieHandling {
     }
 
     @Override
-    public void onCallCompleted(CallStatus status) {
-
-    }
+    public void onCallCompleted(CallStatus status) {}
 
     @Override
-    public void onCallErrored(Throwable err) {
-
-    }
+    public void onCallErrored(Throwable err) {}
 
     static class Factory implements FlightServerMiddleware.Factory<SetCookieHeaderInjector> {
       private boolean receivedCookieHeader = false;
 
       @Override
-      public SetCookieHeaderInjector onCallStarted(CallInfo info, CallHeaders incomingHeaders,
-                                                   RequestContext context) {
+      public SetCookieHeaderInjector onCallStarted(
+          CallInfo info, CallHeaders incomingHeaders, RequestContext context) {
         receivedCookieHeader = null != incomingHeaders.get(COOKIE_HEADER);
         return new SetCookieHeaderInjector(this);
       }
@@ -250,21 +243,23 @@ public class TestCookieHandling {
   }
 
   private void startServerAndClient() throws IOException {
-    final FlightProducer flightProducer = new NoOpFlightProducer() {
-      @Override
-      public void listFlights(CallContext context, Criteria criteria,
-                              StreamListener<FlightInfo> listener) {
-        listener.onCompleted();
-      }
-    };
+    final FlightProducer flightProducer =
+        new NoOpFlightProducer() {
+          @Override
+          public void listFlights(
+              CallContext context, Criteria criteria, StreamListener<FlightInfo> listener) {
+            listener.onCompleted();
+          }
+        };
 
-    this.server = FlightServer
-        .builder(allocator, forGrpcInsecure(LOCALHOST, 0), flightProducer)
-        .middleware(FlightServerMiddleware.Key.of("test"), new SetCookieHeaderInjector.Factory())
-        .build().start();
+    this.server =
+        FlightServer.builder(allocator, forGrpcInsecure(LOCALHOST, 0), flightProducer)
+            .middleware(
+                FlightServerMiddleware.Key.of("test"), new SetCookieHeaderInjector.Factory())
+            .build()
+            .start();
 
-    this.client = FlightClient.builder(allocator, server.getLocation())
-            .intercept(testFactory)
-            .build();
+    this.client =
+        FlightClient.builder(allocator, server.getLocation()).intercept(testFactory).build();
   }
 }

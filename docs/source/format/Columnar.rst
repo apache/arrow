@@ -1172,6 +1172,7 @@ of memory buffers for each layout.
    "Variable Binary",validity,offsets,data,
    "Variable Binary View",validity,views,,data
    "List",validity,offsets,,
+   "List View",validity,offsets,sizes,
    "Fixed-size List",validity,,,
    "Struct",validity,,,
    "Sparse Union",type ids,,,

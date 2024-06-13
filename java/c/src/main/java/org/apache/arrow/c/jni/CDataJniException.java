@@ -14,12 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.c.jni;
 
-/**
- * An exception raised by the JNI side of the C Data bridge.
- */
+/** An exception raised by the JNI side of the C Data bridge. */
 public final class CDataJniException extends Exception {
   private final int errno;
 
@@ -28,18 +25,13 @@ public final class CDataJniException extends Exception {
     this.errno = errno;
   }
 
-  /**
-   * The original error code returned from C.
-   */
+  /** The original error code returned from C. */
   public int getErrno() {
     return errno;
   }
 
   @Override
   public String getMessage() {
-    return "CDataJniException{" +
-        "errno=" + errno +
-        ", message=" + super.getMessage() +
-        '}';
+    return "CDataJniException{" + "errno=" + errno + ", message=" + super.getMessage() + '}';
   }
 }

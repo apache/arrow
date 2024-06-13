@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.netty.buffer;
 
+import io.netty.util.internal.PlatformDependent;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -25,7 +25,6 @@ import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
 import java.nio.channels.GatheringByteChannel;
 import java.nio.channels.ScatteringByteChannel;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BoundsChecking;
 import org.apache.arrow.memory.BufferAllocator;
@@ -34,11 +33,7 @@ import org.apache.arrow.memory.util.LargeMemoryUtil;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.util.VisibleForTesting;
 
-import io.netty.util.internal.PlatformDependent;
-
-/**
- * Netty specific wrapper over ArrowBuf for use in Netty framework.
- */
+/** Netty specific wrapper over ArrowBuf for use in Netty framework. */
 public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
 
   private final ArrowBuf arrowBuf;
@@ -49,14 +44,12 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
   /**
    * Constructs a new instance.
    *
-   * @param arrowBuf        The buffer to wrap.
+   * @param arrowBuf The buffer to wrap.
    * @param bufferAllocator The allocator for the buffer.
-   * @param length          The length of this buffer.
+   * @param length The length of this buffer.
    */
   public NettyArrowBuf(
-      final ArrowBuf arrowBuf,
-      final BufferAllocator bufferAllocator,
-      final int length) {
+      final ArrowBuf arrowBuf, final BufferAllocator bufferAllocator, final int length) {
     super(length);
     this.arrowBuf = arrowBuf;
     this.arrowByteBufAllocator = new ArrowByteBufAllocator(bufferAllocator);
@@ -105,13 +98,15 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
       length = newCapacity;
       return this;
     }
-    throw new UnsupportedOperationException("Buffers don't support resizing that increases the size.");
+    throw new UnsupportedOperationException(
+        "Buffers don't support resizing that increases the size.");
   }
 
   @Override
   public ByteBuf unwrap() {
 
-    // According to Netty's ByteBuf interface, unwrap() should return null if the buffer cannot be unwrapped
+    // According to Netty's ByteBuf interface, unwrap() should return null if the buffer cannot be
+    // unwrapped
     // https://github.com/netty/netty/blob/9fe796e10a433b6cd20ad78b2c39cd56b86ccd2e/buffer/src/main/java/io/netty/buffer/ByteBuf.java#L305
 
     // Throwing here breaks toString() in AbstractByteBuf
@@ -234,10 +229,9 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return nioBuffer(readerIndex(), readableBytes());
   }
 
-
   /**
-   * Returns a buffer that is zero positioned but points
-   * to a slice of the original buffer starting at given index.
+   * Returns a buffer that is zero positioned but points to a slice of the original buffer starting
+   * at given index.
    */
   @Override
   public ByteBuffer nioBuffer(int index, int length) {
@@ -248,8 +242,8 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   /**
-   * Returns a buffer that is zero positioned but points
-   * to a slice of the original buffer starting at given index.
+   * Returns a buffer that is zero positioned but points to a slice of the original buffer starting
+   * at given index.
    */
   public ByteBuffer nioBuffer(long index, int length) {
     chk(index, length);
@@ -264,7 +258,8 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
    * @return ByteBuffer
    */
   private ByteBuffer getDirectBuffer(long index) {
-    return PlatformDependent.directBuffer(addr(index), LargeMemoryUtil.checkedCastToInt(length - index));
+    return PlatformDependent.directBuffer(
+        addr(index), LargeMemoryUtil.checkedCastToInt(length - index));
   }
 
   @Override
@@ -294,11 +289,11 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
   /**
    * Determine if the requested {@code index} and {@code length} will fit within {@code capacity}.
    *
-   * @param index    The starting index.
-   * @param length   The length which will be utilized (starting from {@code index}).
+   * @param index The starting index.
+   * @param length The length which will be utilized (starting from {@code index}).
    * @param capacity The capacity that {@code index + length} is allowed to be within.
-   * @return {@code true} if the requested {@code index} and {@code length} will fit within {@code capacity}.
-   * {@code false} if this would result in an index out of bounds exception.
+   * @return {@code true} if the requested {@code index} and {@code length} will fit within {@code
+   *     capacity}. {@code false} if this would result in an index out of bounds exception.
    */
   private static boolean isOutOfBounds(int index, int length, int capacity) {
     return (index | length | (index + length) | (capacity - (index + length))) < 0;
@@ -413,17 +408,15 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
   protected int _getUnsignedMediumLE(int index) {
     this.chk(index, 3);
     long addr = this.addr(index);
-    return (PlatformDependent.getByte(addr) & 255) |
-        (Short.reverseBytes(PlatformDependent.getShort(addr + 1L)) & '\uffff') << 8;
+    return (PlatformDependent.getByte(addr) & 255)
+        | (Short.reverseBytes(PlatformDependent.getShort(addr + 1L)) & '\uffff') << 8;
   }
 
-
   /*-------------------------------------------------*
-   |                                                 |
-   |            get() APIs                           |
-   |                                                 |
-   *-------------------------------------------------*/
-
+  |                                                 |
+  |            get() APIs                           |
+  |                                                 |
+  *-------------------------------------------------*/
 
   @Override
   protected byte _getByte(int index) {
@@ -483,13 +476,11 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return arrowBuf.getLong(index);
   }
 
-
   /*-------------------------------------------------*
-   |                                                 |
-   |            set() APIs                           |
-   |                                                 |
-   *-------------------------------------------------*/
-
+  |                                                 |
+  |            set() APIs                           |
+  |                                                 |
+  *-------------------------------------------------*/
 
   @Override
   protected void _setByte(int index, int value) {
@@ -524,10 +515,9 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   /**
-   * Helper function to do bounds checking at a particular
-   * index for particular length of data.
+   * Helper function to do bounds checking at a particular index for particular length of data.
    *
-   * @param index       index (0 based relative to this ArrowBuf)
+   * @param index index (0 based relative to this ArrowBuf)
    * @param fieldLength provided length of data for get/set
    */
   private void chk(long index, long fieldLength) {
@@ -539,8 +529,9 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
         throw new IllegalArgumentException("length: " + fieldLength + " (expected: >= 0)");
       }
       if (index < 0 || index > capacity() - fieldLength) {
-        throw new IndexOutOfBoundsException(String.format(
-            "index: %d, length: %d (expected: range(0, %d))", index, fieldLength, capacity()));
+        throw new IndexOutOfBoundsException(
+            String.format(
+                "index: %d, length: %d (expected: range(0, %d))", index, fieldLength, capacity()));
       }
     }
   }
@@ -615,17 +606,15 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
     return this;
   }
 
-  /**
-   * unwrap arrow buffer into a netty buffer.
-   */
+  /** unwrap arrow buffer into a netty buffer. */
   public static NettyArrowBuf unwrapBuffer(ArrowBuf buf) {
-    final NettyArrowBuf nettyArrowBuf = new NettyArrowBuf(
-        buf,
-        buf.getReferenceManager().getAllocator(),
-        LargeMemoryUtil.checkedCastToInt(buf.capacity()));
+    final NettyArrowBuf nettyArrowBuf =
+        new NettyArrowBuf(
+            buf,
+            buf.getReferenceManager().getAllocator(),
+            LargeMemoryUtil.checkedCastToInt(buf.capacity()));
     nettyArrowBuf.readerIndex(LargeMemoryUtil.checkedCastToInt(buf.readerIndex()));
     nettyArrowBuf.writerIndex(LargeMemoryUtil.checkedCastToInt(buf.writerIndex()));
     return nettyArrowBuf;
   }
-
 }

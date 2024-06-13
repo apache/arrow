@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -114,7 +113,7 @@ public class TestBitVectorHelper {
   public void testAllBitsSet() {
     final int bufferLength = 32 * 1024;
     try (RootAllocator allocator = new RootAllocator(bufferLength);
-         ArrowBuf validityBuffer = allocator.buffer(bufferLength)) {
+        ArrowBuf validityBuffer = allocator.buffer(bufferLength)) {
 
       MemoryUtil.UNSAFE.setMemory(validityBuffer.memoryAddress(), bufferLength, (byte) -1);
       int bitLength = 1024;
@@ -155,8 +154,8 @@ public class TestBitVectorHelper {
   public void testConcatBits() {
     try (RootAllocator allocator = new RootAllocator(1024 * 1024)) {
       try (ArrowBuf buf1 = allocator.buffer(1024);
-           ArrowBuf buf2 = allocator.buffer(1024);
-           ArrowBuf output = allocator.buffer(1024)) {
+          ArrowBuf buf2 = allocator.buffer(1024);
+          ArrowBuf output = allocator.buffer(1024)) {
 
         buf1.setZero(0, buf1.capacity());
         buf2.setZero(0, buf2.capacity());
@@ -191,7 +190,7 @@ public class TestBitVectorHelper {
   public void testConcatBitsInPlace() {
     try (RootAllocator allocator = new RootAllocator(1024 * 1024)) {
       try (ArrowBuf buf1 = allocator.buffer(1024);
-           ArrowBuf buf2 = allocator.buffer(1024)) {
+          ArrowBuf buf2 = allocator.buffer(1024)) {
 
         buf1.setZero(0, buf1.capacity());
         buf2.setZero(0, buf2.capacity());
@@ -247,14 +246,14 @@ public class TestBitVectorHelper {
       // null
       fieldNode = new ArrowFieldNode(1024, 1024);
       try (ArrowBuf src = allocator.buffer(128);
-           ArrowBuf dst = BitVectorHelper.loadValidityBuffer(fieldNode, src, allocator)) {
+          ArrowBuf dst = BitVectorHelper.loadValidityBuffer(fieldNode, src, allocator)) {
         assertEquals(128, allocator.getAllocatedMemory());
       }
 
       // ... similarly if all values are not null
       fieldNode = new ArrowFieldNode(1024, 0);
       try (ArrowBuf src = allocator.buffer(128);
-           ArrowBuf dst = BitVectorHelper.loadValidityBuffer(fieldNode, src, allocator)) {
+          ArrowBuf dst = BitVectorHelper.loadValidityBuffer(fieldNode, src, allocator)) {
         assertEquals(128, allocator.getAllocatedMemory());
       }
 
@@ -277,7 +276,8 @@ public class TestBitVectorHelper {
     }
   }
 
-  private void concatAndVerify(ArrowBuf buf1, int count1, ArrowBuf buf2, int count2, ArrowBuf output) {
+  private void concatAndVerify(
+      ArrowBuf buf1, int count1, ArrowBuf buf2, int count2, ArrowBuf output) {
     BitVectorHelper.concatBits(buf1, count1, buf2, count2, output);
     int outputIdx = 0;
     for (int i = 0; i < count1; i++, outputIdx++) {

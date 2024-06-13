@@ -25,6 +25,7 @@ import (
 	"github.com/apache/arrow/go/v17/arrow"
 	"github.com/apache/arrow/go/v17/arrow/decimal128"
 	"github.com/apache/arrow/go/v17/internal/types"
+	"github.com/apache/arrow/go/v17/internal/utils"
 	avro "github.com/hamba/avro/v2"
 )
 
@@ -76,14 +77,7 @@ func ArrowSchemaFromAvro(schema avro.Schema) (s *arrow.Schema, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			s = nil
-			switch x := r.(type) {
-			case string:
-				err = fmt.Errorf("invalid avro schema: %s", x)
-			case error:
-				err = fmt.Errorf("invalid avro schema: %w", x)
-			default:
-				err = fmt.Errorf("invalid avro schema: unknown error")
-			}
+			err = utils.FormatRecoveredError("invalid avro schema", r)
 		}
 	}()
 	n := newSchemaNode()

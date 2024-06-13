@@ -14,15 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.gandiva.evaluator;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
+import com.google.common.collect.Lists;
 import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.gandiva.expression.Condition;
 import org.apache.arrow.gandiva.expression.ExpressionTree;
@@ -36,8 +35,6 @@ import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.Test;
-
-import com.google.common.collect.Lists;
 
 public class FilterProjectTest extends BaseEvaluatorTest {
 
@@ -54,25 +51,34 @@ public class FilterProjectTest extends BaseEvaluatorTest {
     Filter filter = Filter.make(schema, condition);
 
     ExpressionTree expression = TreeBuilder.makeExpression("add", Lists.newArrayList(a, b), c);
-    Projector projector = Projector.make(schema, Lists.newArrayList(expression), SelectionVectorType.SV_INT16);
+    Projector projector =
+        Projector.make(schema, Lists.newArrayList(expression), SelectionVectorType.SV_INT16);
 
     int numRows = 16;
-    byte[] validity = new byte[]{(byte) 255, 0};
+    byte[] validity = new byte[] {(byte) 255, 0};
     // second half is "undefined"
-    int[] aValues = new int[]{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
-    int[] bValues = new int[]{2, 1, 4, 3, 6, 5, 8, 7, 10, 9, 12, 11, 14, 13, 14, 15};
+    int[] aValues = new int[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+    int[] bValues = new int[] {2, 1, 4, 3, 6, 5, 8, 7, 10, 9, 12, 11, 14, 13, 14, 15};
     int[] expected = {3, 7, 11, 15};
 
     verifyTestCaseFor16(filter, projector, numRows, validity, aValues, bValues, expected);
   }
 
-  private void verifyTestCaseFor16(Filter filter, Projector projector, int numRows, byte[] validity,
-                              int[] aValues, int[] bValues, int[] expected) throws GandivaException {
+  private void verifyTestCaseFor16(
+      Filter filter,
+      Projector projector,
+      int numRows,
+      byte[] validity,
+      int[] aValues,
+      int[] bValues,
+      int[] expected)
+      throws GandivaException {
     ArrowBuf validitya = buf(validity);
     ArrowBuf valuesa = intBuf(aValues);
     ArrowBuf validityb = buf(validity);
     ArrowBuf valuesb = intBuf(bValues);
-    ArrowRecordBatch batch = new ArrowRecordBatch(
+    ArrowRecordBatch batch =
+        new ArrowRecordBatch(
             numRows,
             Lists.newArrayList(new ArrowFieldNode(numRows, 0), new ArrowFieldNode(numRows, 0)),
             Lists.newArrayList(validitya, valuesa, validityb, valuesb));

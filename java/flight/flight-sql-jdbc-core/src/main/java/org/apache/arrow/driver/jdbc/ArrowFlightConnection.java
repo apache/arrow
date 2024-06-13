@@ -14,16 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc;
 
 import static org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.replaceSemiColons;
 
+import io.netty.util.concurrent.DefaultThreadFactory;
 import java.sql.SQLException;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
 import org.apache.arrow.driver.jdbc.client.ArrowFlightSqlClientHandler;
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl;
 import org.apache.arrow.flight.FlightClient;
@@ -33,11 +32,7 @@ import org.apache.arrow.util.Preconditions;
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.AvaticaFactory;
 
-import io.netty.util.concurrent.DefaultThreadFactory;
-
-/**
- * Connection to the Arrow Flight server.
- */
+/** Connection to the Arrow Flight server. */
 public final class ArrowFlightConnection extends AvaticaConnection {
 
   private final BufferAllocator allocator;
@@ -48,19 +43,22 @@ public final class ArrowFlightConnection extends AvaticaConnection {
   /**
    * Creates a new {@link ArrowFlightConnection}.
    *
-   * @param driver        the {@link ArrowFlightJdbcDriver} to use.
-   * @param factory       the {@link AvaticaFactory} to use.
-   * @param url           the URL to use.
-   * @param properties    the {@link Properties} to use.
-   * @param config        the {@link ArrowFlightConnectionConfigImpl} to use.
-   * @param allocator     the {@link BufferAllocator} to use.
+   * @param driver the {@link ArrowFlightJdbcDriver} to use.
+   * @param factory the {@link AvaticaFactory} to use.
+   * @param url the URL to use.
+   * @param properties the {@link Properties} to use.
+   * @param config the {@link ArrowFlightConnectionConfigImpl} to use.
+   * @param allocator the {@link BufferAllocator} to use.
    * @param clientHandler the {@link ArrowFlightSqlClientHandler} to use.
    */
-  private ArrowFlightConnection(final ArrowFlightJdbcDriver driver, final AvaticaFactory factory,
-                                final String url, final Properties properties,
-                                final ArrowFlightConnectionConfigImpl config,
-                                final BufferAllocator allocator,
-                                final ArrowFlightSqlClientHandler clientHandler) {
+  private ArrowFlightConnection(
+      final ArrowFlightJdbcDriver driver,
+      final AvaticaFactory factory,
+      final String url,
+      final Properties properties,
+      final ArrowFlightConnectionConfigImpl config,
+      final BufferAllocator allocator,
+      final ArrowFlightSqlClientHandler clientHandler) {
     super(driver, factory, url, properties);
     this.config = Preconditions.checkNotNull(config, "Config cannot be null.");
     this.allocator = Preconditions.checkNotNull(allocator, "Allocator cannot be null.");
@@ -70,28 +68,31 @@ public final class ArrowFlightConnection extends AvaticaConnection {
   /**
    * Creates a new {@link ArrowFlightConnection} to a {@link FlightClient}.
    *
-   * @param driver     the {@link ArrowFlightJdbcDriver} to use.
-   * @param factory    the {@link AvaticaFactory} to use.
-   * @param url        the URL to establish the connection to.
+   * @param driver the {@link ArrowFlightJdbcDriver} to use.
+   * @param factory the {@link AvaticaFactory} to use.
+   * @param url the URL to establish the connection to.
    * @param properties the {@link Properties} to use for this session.
-   * @param allocator  the {@link BufferAllocator} to use.
+   * @param allocator the {@link BufferAllocator} to use.
    * @return a new {@link ArrowFlightConnection}.
    * @throws SQLException on error.
    */
-  static ArrowFlightConnection createNewConnection(final ArrowFlightJdbcDriver driver,
-                                                   final AvaticaFactory factory,
-                                                   String url, final Properties properties,
-                                                   final BufferAllocator allocator)
+  static ArrowFlightConnection createNewConnection(
+      final ArrowFlightJdbcDriver driver,
+      final AvaticaFactory factory,
+      String url,
+      final Properties properties,
+      final BufferAllocator allocator)
       throws SQLException {
     url = replaceSemiColons(url);
     final ArrowFlightConnectionConfigImpl config = new ArrowFlightConnectionConfigImpl(properties);
     final ArrowFlightSqlClientHandler clientHandler = createNewClientHandler(config, allocator);
-    return new ArrowFlightConnection(driver, factory, url, properties, config, allocator, clientHandler);
+    return new ArrowFlightConnection(
+        driver, factory, url, properties, config, allocator, clientHandler);
   }
 
   private static ArrowFlightSqlClientHandler createNewClientHandler(
-      final ArrowFlightConnectionConfigImpl config,
-      final BufferAllocator allocator) throws SQLException {
+      final ArrowFlightConnectionConfigImpl config, final BufferAllocator allocator)
+      throws SQLException {
     try {
       return new ArrowFlightSqlClientHandler.Builder()
           .withHost(config.getHost())
@@ -154,10 +155,11 @@ public final class ArrowFlightConnection extends AvaticaConnection {
    * @return the {@link #executorService}.
    */
   synchronized ExecutorService getExecutorService() {
-    return executorService = executorService == null ?
-        Executors.newFixedThreadPool(config.threadPoolSize(),
-            new DefaultThreadFactory(getClass().getSimpleName())) :
-        executorService;
+    return executorService =
+        executorService == null
+            ? Executors.newFixedThreadPool(
+                config.threadPoolSize(), new DefaultThreadFactory(getClass().getSimpleName()))
+            : executorService;
   }
 
   @Override

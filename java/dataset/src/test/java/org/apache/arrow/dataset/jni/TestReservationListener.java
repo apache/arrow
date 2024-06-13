@@ -14,12 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.dataset.jni;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
-
 import org.apache.arrow.dataset.ParquetWriteSupport;
 import org.apache.arrow.dataset.TestDataset;
 import org.apache.arrow.dataset.file.FileFormat;
@@ -35,18 +33,18 @@ import org.junit.rules.TemporaryFolder;
 
 public class TestReservationListener extends TestDataset {
 
-  @ClassRule
-  public static final TemporaryFolder TMP = new TemporaryFolder();
+  @ClassRule public static final TemporaryFolder TMP = new TemporaryFolder();
 
   public static final String AVRO_SCHEMA_USER = "user.avsc";
 
   @Test
   public void testDirectReservationListener() throws Exception {
-    ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
+    ParquetWriteSupport writeSupport =
+        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
     NativeMemoryPool pool = NativeMemoryPool.createListenable(DirectReservationListener.instance());
-    FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(),
-        pool, FileFormat.PARQUET,
-        writeSupport.getOutputURI());
+    FileSystemDatasetFactory factory =
+        new FileSystemDatasetFactory(
+            rootAllocator(), pool, FileFormat.PARQUET, writeSupport.getOutputURI());
     ScanOptions options = new ScanOptions(100);
     long initReservation = DirectReservationListener.instance().getCurrentDirectMemReservation();
     List<ArrowRecordBatch> datum = collectResultFromFactory(factory, options);
@@ -60,22 +58,25 @@ public class TestReservationListener extends TestDataset {
 
   @Test
   public void testCustomReservationListener() throws Exception {
-    ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
+    ParquetWriteSupport writeSupport =
+        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
     final AtomicLong reserved = new AtomicLong(0L);
-    ReservationListener listener = new ReservationListener() {
-      @Override
-      public void reserve(long size) {
-        reserved.getAndAdd(size);
-      }
+    ReservationListener listener =
+        new ReservationListener() {
+          @Override
+          public void reserve(long size) {
+            reserved.getAndAdd(size);
+          }
 
-      @Override
-      public void unreserve(long size) {
-        reserved.getAndAdd(-size);
-      }
-    };
+          @Override
+          public void unreserve(long size) {
+            reserved.getAndAdd(-size);
+          }
+        };
     NativeMemoryPool pool = NativeMemoryPool.createListenable(listener);
-    FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(),
-        pool, FileFormat.PARQUET, writeSupport.getOutputURI());
+    FileSystemDatasetFactory factory =
+        new FileSystemDatasetFactory(
+            rootAllocator(), pool, FileFormat.PARQUET, writeSupport.getOutputURI());
     ScanOptions options = new ScanOptions(100);
     long initReservation = reserved.get();
     List<ArrowRecordBatch> datum = collectResultFromFactory(factory, options);
@@ -90,27 +91,33 @@ public class TestReservationListener extends TestDataset {
   @Test
   public void testErrorThrownFromReservationListener() throws Exception {
     final String errorMessage = "ERROR_MESSAGE";
-    ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
+    ParquetWriteSupport writeSupport =
+        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
     final AtomicLong reserved = new AtomicLong(0L);
-    ReservationListener listener = new ReservationListener() {
-      @Override
-      public void reserve(long size) {
-        throw new IllegalArgumentException(errorMessage);
-      }
+    ReservationListener listener =
+        new ReservationListener() {
+          @Override
+          public void reserve(long size) {
+            throw new IllegalArgumentException(errorMessage);
+          }
 
-      @Override
-      public void unreserve(long size) {
-        // no-op
-      }
-    };
+          @Override
+          public void unreserve(long size) {
+            // no-op
+          }
+        };
     NativeMemoryPool pool = NativeMemoryPool.createListenable(listener);
-    FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(),
-        pool, FileFormat.PARQUET, writeSupport.getOutputURI());
+    FileSystemDatasetFactory factory =
+        new FileSystemDatasetFactory(
+            rootAllocator(), pool, FileFormat.PARQUET, writeSupport.getOutputURI());
     ScanOptions options = new ScanOptions(100);
     long initReservation = reserved.get();
-    Assertions.assertThrows(IllegalArgumentException.class, () -> {
-      collectResultFromFactory(factory, options);
-    }, errorMessage);
+    Assertions.assertThrows(
+        IllegalArgumentException.class,
+        () -> {
+          collectResultFromFactory(factory, options);
+        },
+        errorMessage);
     long reservation = reserved.get();
     AutoCloseables.close(pool);
     long finalReservation = reserved.get();

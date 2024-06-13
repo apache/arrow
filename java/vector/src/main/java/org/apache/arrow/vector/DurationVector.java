@@ -14,14 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static org.apache.arrow.vector.NullCheckingForGet.NULL_CHECKING_ENABLED;
 
 import java.time.Duration;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.impl.DurationReaderImpl;
@@ -36,10 +34,9 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
- * DurationVector implements a fixed width vector (8 bytes) of
- * a configurable TimeUnit granularity duration values which could be null.
- * A validity buffer (bit vector) is maintained to track which elements in the
- * vector are null.
+ * DurationVector implements a fixed width vector (8 bytes) of a configurable TimeUnit granularity
+ * duration values which could be null. A validity buffer (bit vector) is maintained to track which
+ * elements in the vector are null.
  */
 public final class DurationVector extends BaseFixedWidthVector {
   public static final byte TYPE_WIDTH = 8;
@@ -47,8 +44,7 @@ public final class DurationVector extends BaseFixedWidthVector {
   private final TimeUnit unit;
 
   /**
-   * Instantiate a DurationVector. This doesn't allocate any memory for
-   * the data in vector.
+   * Instantiate a DurationVector. This doesn't allocate any memory for the data in vector.
    *
    * @param name name of the vector
    * @param fieldType type of Field materialized by this vector
@@ -59,8 +55,7 @@ public final class DurationVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Instantiate a DurationVector. This doesn't allocate any memory for
-   * the data in vector.
+   * Instantiate a DurationVector. This doesn't allocate any memory for the data in vector.
    *
    * @param field field materialized by this vector
    * @param allocator allocator for memory management.
@@ -76,8 +71,7 @@ public final class DurationVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Get minor type for this vector. The vector holds values belonging
-   * to a particular type.
+   * Get minor type for this vector. The vector holds values belonging to a particular type.
    *
    * @return {@link MinorType}
    */
@@ -86,21 +80,19 @@ public final class DurationVector extends BaseFixedWidthVector {
     return MinorType.DURATION;
   }
 
-
   /*----------------------------------------------------------------*
-   |                                                                |
-   |          vector value retrieval methods                        |
-   |                                                                |
-   *----------------------------------------------------------------*/
+  |                                                                |
+  |          vector value retrieval methods                        |
+  |                                                                |
+  *----------------------------------------------------------------*/
 
   /**
-   * Given a data buffer, get the value stored at a particular position
-   * in the vector.
+   * Given a data buffer, get the value stored at a particular position in the vector.
    *
    * <p>This method should not be used externally.
    *
    * @param buffer data buffer
-   * @param index  position of the element.
+   * @param index position of the element.
    * @return value stored at the index.
    */
   public static long get(final ArrowBuf buffer, final int index) {
@@ -110,7 +102,7 @@ public final class DurationVector extends BaseFixedWidthVector {
   /**
    * Get the element at the given index from the vector.
    *
-   * @param index   position of element
+   * @param index position of element
    * @return element at given index
    */
   public ArrowBuf get(int index) throws IllegalStateException {
@@ -121,11 +113,10 @@ public final class DurationVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Get the element at the given index from the vector and
-   * sets the state in holder. If element at given index
-   * is null, holder.isSet will be zero.
+   * Get the element at the given index from the vector and sets the state in holder. If element at
+   * given index is null, holder.isSet will be zero.
    *
-   * @param index   position of element
+   * @param index position of element
    */
   public void get(int index, NullableDurationHolder holder) {
     if (isSet(index) == 0) {
@@ -140,7 +131,7 @@ public final class DurationVector extends BaseFixedWidthVector {
   /**
    * Same as {@link #get(int)}.
    *
-   * @param index   position of element
+   * @param index position of element
    * @return element at given index
    */
   @Override
@@ -155,7 +146,7 @@ public final class DurationVector extends BaseFixedWidthVector {
   /**
    * Same as {@link #getObject(int)} but does not check for null.
    *
-   * @param index   position of element
+   * @param index position of element
    * @return element at given index
    */
   public Duration getObjectNotNull(int index) {
@@ -163,9 +154,7 @@ public final class DurationVector extends BaseFixedWidthVector {
     return toDuration(value, unit);
   }
 
-  /**
-   * Converts the given value and unit to the appropriate {@link Duration}.
-   */
+  /** Converts the given value and unit to the appropriate {@link Duration}. */
   public static Duration toDuration(long value, TimeUnit unit) {
     switch (unit) {
       case SECOND:
@@ -199,24 +188,22 @@ public final class DurationVector extends BaseFixedWidthVector {
     return new StringBuilder(getObject(index).toString());
   }
 
-  /**
-   * Gets the time unit of the duration.
-   */
+  /** Gets the time unit of the duration. */
   public TimeUnit getUnit() {
     return unit;
   }
 
   /*----------------------------------------------------------------*
-   |                                                                |
-   |          vector value setter methods                           |
-   |                                                                |
-   *----------------------------------------------------------------*/
+  |                                                                |
+  |          vector value setter methods                           |
+  |                                                                |
+  *----------------------------------------------------------------*/
 
   /**
    * Set the element at the given index to the given value.
    *
-   * @param index   position of element
-   * @param value   value of element
+   * @param index position of element
+   * @param value value of element
    */
   public void set(int index, ArrowBuf value) {
     BitVectorHelper.setBit(validityBuffer, index);
@@ -226,8 +213,8 @@ public final class DurationVector extends BaseFixedWidthVector {
   /**
    * Set the element at the given index to the given value.
    *
-   * @param index          position of element
-   * @param value   The duration value (in the timeunit associated with this vector)
+   * @param index position of element
+   * @param value The duration value (in the timeunit associated with this vector)
    */
   public void set(int index, long value) {
     final long offsetIndex = (long) index * TYPE_WIDTH;
@@ -236,12 +223,11 @@ public final class DurationVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Set the element at the given index to the value set in data holder.
-   * If the value in holder is not indicated as set, element in the
-   * at the given index will be null.
+   * Set the element at the given index to the value set in data holder. If the value in holder is
+   * not indicated as set, element in the at the given index will be null.
    *
-   * @param index   position of element
-   * @param holder  nullable data holder for value of element
+   * @param index position of element
+   * @param holder nullable data holder for value of element
    */
   public void set(int index, NullableDurationHolder holder) throws IllegalArgumentException {
     if (holder.isSet < 0) {
@@ -259,8 +245,8 @@ public final class DurationVector extends BaseFixedWidthVector {
   /**
    * Set the element at the given index to the value set in data holder.
    *
-   * @param index   position of element
-   * @param holder  data holder for value of element
+   * @param index position of element
+   * @param holder data holder for value of element
    */
   public void set(int index, DurationHolder holder) {
     if (!this.unit.equals(holder.unit)) {
@@ -271,12 +257,11 @@ public final class DurationVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Same as {@link #set(int, ArrowBuf)} except that it handles the
-   * case when index is greater than or equal to existing
-   * value capacity {@link #getValueCapacity()}.
+   * Same as {@link #set(int, ArrowBuf)} except that it handles the case when index is greater than
+   * or equal to existing value capacity {@link #getValueCapacity()}.
    *
-   * @param index   position of element
-   * @param value   value of element
+   * @param index position of element
+   * @param value value of element
    */
   public void setSafe(int index, ArrowBuf value) {
     handleSafe(index);
@@ -284,12 +269,11 @@ public final class DurationVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Same as {@link #set(int, long)} except that it handles the
-   * case when index is greater than or equal to existing
-   * value capacity {@link #getValueCapacity()}.
+   * Same as {@link #set(int, long)} except that it handles the case when index is greater than or
+   * equal to existing value capacity {@link #getValueCapacity()}.
    *
-   * @param index          position of element
-   * @param value   duration in the time unit this vector was constructed with
+   * @param index position of element
+   * @param value duration in the time unit this vector was constructed with
    */
   public void setSafe(int index, long value) {
     handleSafe(index);
@@ -297,12 +281,11 @@ public final class DurationVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Same as {@link #set(int, NullableDurationHolder)} except that it handles the
-   * case when index is greater than or equal to existing
-   * value capacity {@link #getValueCapacity()}.
+   * Same as {@link #set(int, NullableDurationHolder)} except that it handles the case when index is
+   * greater than or equal to existing value capacity {@link #getValueCapacity()}.
    *
-   * @param index   position of element
-   * @param holder  nullable data holder for value of element
+   * @param index position of element
+   * @param holder nullable data holder for value of element
    */
   public void setSafe(int index, NullableDurationHolder holder) throws IllegalArgumentException {
     handleSafe(index);
@@ -310,12 +293,11 @@ public final class DurationVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Same as {@link #set(int, DurationHolder)} except that it handles the
-   * case when index is greater than or equal to existing
-   * value capacity {@link #getValueCapacity()}.
+   * Same as {@link #set(int, DurationHolder)} except that it handles the case when index is greater
+   * than or equal to existing value capacity {@link #getValueCapacity()}.
    *
-   * @param index   position of element
-   * @param holder  data holder for value of element
+   * @param index position of element
+   * @param holder data holder for value of element
    */
   public void setSafe(int index, DurationHolder holder) {
     handleSafe(index);
@@ -323,8 +305,8 @@ public final class DurationVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Store the given value at a particular position in the vector. isSet indicates
-   * whether the value is NULL or not.
+   * Store the given value at a particular position in the vector. isSet indicates whether the value
+   * is NULL or not.
    *
    * @param index position of the new value
    * @param isSet 0 for NULL value, 1 otherwise
@@ -339,9 +321,8 @@ public final class DurationVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Same as {@link #set(int, int, long)} except that it handles the case
-   * when index is greater than or equal to current value capacity of the
-   * vector.
+   * Same as {@link #set(int, int, long)} except that it handles the case when index is greater than
+   * or equal to current value capacity of the vector.
    *
    * @param index position of the new value
    * @param isSet 0 for NULL value, 1 otherwise
@@ -352,17 +333,14 @@ public final class DurationVector extends BaseFixedWidthVector {
     set(index, isSet, value);
   }
 
-
   /*----------------------------------------------------------------*
-   |                                                                |
-   |                      vector transfer                           |
-   |                                                                |
-   *----------------------------------------------------------------*/
-
+  |                                                                |
+  |                      vector transfer                           |
+  |                                                                |
+  *----------------------------------------------------------------*/
 
   /**
-   * Construct a TransferPair comprising of this and a target vector of
-   * the same type.
+   * Construct a TransferPair comprising of this and a target vector of the same type.
    *
    * @param ref name of the target vector
    * @param allocator allocator for the target vector
@@ -374,8 +352,7 @@ public final class DurationVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Construct a TransferPair comprising this and a target vector of
-   * the same type.
+   * Construct a TransferPair comprising this and a target vector of the same type.
    *
    * @param field Field object used by the target vector
    * @param allocator allocator for the target vector

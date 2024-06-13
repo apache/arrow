@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.dataset;
 
 import java.io.ByteArrayOutputStream;
@@ -28,7 +27,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-
 import org.apache.arrow.dataset.file.DatasetFileWriter;
 import org.apache.arrow.dataset.file.FileFormat;
 import org.apache.arrow.memory.BufferAllocator;
@@ -86,56 +84,73 @@ import org.junit.rules.TemporaryFolder;
 
 public class TestAllTypes extends TestDataset {
 
-  @ClassRule
-  public static final TemporaryFolder TMP = new TemporaryFolder();
+  @ClassRule public static final TemporaryFolder TMP = new TemporaryFolder();
 
   private VectorSchemaRoot generateAllTypesVector(BufferAllocator allocator) {
     // Notes:
     // - IntervalMonthDayNano is not supported by Parquet.
-    // - Map (GH-38250) and SparseUnion are resulting in serialization errors when writing with the Dataset API.
-    // "Unhandled type for Arrow to Parquet schema conversion" errors: IntervalDay, IntervalYear, DenseUnion
+    // - Map (GH-38250) and SparseUnion are resulting in serialization errors when writing with the
+    // Dataset API.
+    // "Unhandled type for Arrow to Parquet schema conversion" errors: IntervalDay, IntervalYear,
+    // DenseUnion
     List<Field> childFields = new ArrayList<>();
-    childFields.add(new Field("int-child",
-        new FieldType(false, new ArrowType.Int(32, true), null, null), null));
-    Field structField = new Field("struct",
-        new FieldType(true, ArrowType.Struct.INSTANCE, null, null), childFields);
-    Field[] fields = new Field[] {
-        Field.nullablePrimitive("null", ArrowType.Null.INSTANCE),
-        Field.nullablePrimitive("bool", ArrowType.Bool.INSTANCE),
-        Field.nullablePrimitive("int8", new ArrowType.Int(8, true)),
-        Field.nullablePrimitive("int16", new ArrowType.Int(16, true)),
-        Field.nullablePrimitive("int32", new ArrowType.Int(32, true)),
-        Field.nullablePrimitive("int64", new ArrowType.Int(64, true)),
-        Field.nullablePrimitive("uint8", new ArrowType.Int(8, false)),
-        Field.nullablePrimitive("uint16", new ArrowType.Int(16, false)),
-        Field.nullablePrimitive("uint32", new ArrowType.Int(32, false)),
-        Field.nullablePrimitive("uint64", new ArrowType.Int(64, false)),
-        Field.nullablePrimitive("float16", new ArrowType.FloatingPoint(FloatingPointPrecision.HALF)),
-        Field.nullablePrimitive("float32", new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)),
-        Field.nullablePrimitive("float64", new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)),
-        Field.nullablePrimitive("utf8", ArrowType.Utf8.INSTANCE),
-        Field.nullablePrimitive("binary", ArrowType.Binary.INSTANCE),
-        Field.nullablePrimitive("largeutf8", ArrowType.LargeUtf8.INSTANCE),
-        Field.nullablePrimitive("largebinary", ArrowType.LargeBinary.INSTANCE),
-        Field.nullablePrimitive("fixed_size_binary", new ArrowType.FixedSizeBinary(1)),
-        Field.nullablePrimitive("date_ms", new ArrowType.Date(DateUnit.MILLISECOND)),
-        Field.nullablePrimitive("time_ms", new ArrowType.Time(TimeUnit.MILLISECOND, 32)),
-        Field.nullablePrimitive("timestamp_ms", new ArrowType.Timestamp(TimeUnit.MILLISECOND, null)),
-        Field.nullablePrimitive("timestamptz_ms", new ArrowType.Timestamp(TimeUnit.MILLISECOND, "UTC")),
-        Field.nullablePrimitive("time_ns", new ArrowType.Time(TimeUnit.NANOSECOND, 64)),
-        Field.nullablePrimitive("timestamp_ns", new ArrowType.Timestamp(TimeUnit.NANOSECOND, null)),
-        Field.nullablePrimitive("timestamptz_ns", new ArrowType.Timestamp(TimeUnit.NANOSECOND, "UTC")),
-        Field.nullablePrimitive("duration", new ArrowType.Duration(TimeUnit.MILLISECOND)),
-        Field.nullablePrimitive("decimal128", new ArrowType.Decimal(10, 2, 128)),
-        Field.nullablePrimitive("decimal256", new ArrowType.Decimal(10, 2, 256)),
-        new Field("list", FieldType.nullable(ArrowType.List.INSTANCE),
-            Collections.singletonList(Field.nullable("items", new ArrowType.Int(32, true)))),
-        new Field("largelist", FieldType.nullable(ArrowType.LargeList.INSTANCE),
-            Collections.singletonList(Field.nullable("items", new ArrowType.Int(32, true)))),
-        new Field("fixedsizelist", FieldType.nullable(new ArrowType.FixedSizeList(2)),
-            Collections.singletonList(Field.nullable("items", new ArrowType.Int(32, true)))),
-        structField
-    };
+    childFields.add(
+        new Field(
+            "int-child", new FieldType(false, new ArrowType.Int(32, true), null, null), null));
+    Field structField =
+        new Field(
+            "struct", new FieldType(true, ArrowType.Struct.INSTANCE, null, null), childFields);
+    Field[] fields =
+        new Field[] {
+          Field.nullablePrimitive("null", ArrowType.Null.INSTANCE),
+          Field.nullablePrimitive("bool", ArrowType.Bool.INSTANCE),
+          Field.nullablePrimitive("int8", new ArrowType.Int(8, true)),
+          Field.nullablePrimitive("int16", new ArrowType.Int(16, true)),
+          Field.nullablePrimitive("int32", new ArrowType.Int(32, true)),
+          Field.nullablePrimitive("int64", new ArrowType.Int(64, true)),
+          Field.nullablePrimitive("uint8", new ArrowType.Int(8, false)),
+          Field.nullablePrimitive("uint16", new ArrowType.Int(16, false)),
+          Field.nullablePrimitive("uint32", new ArrowType.Int(32, false)),
+          Field.nullablePrimitive("uint64", new ArrowType.Int(64, false)),
+          Field.nullablePrimitive(
+              "float16", new ArrowType.FloatingPoint(FloatingPointPrecision.HALF)),
+          Field.nullablePrimitive(
+              "float32", new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)),
+          Field.nullablePrimitive(
+              "float64", new ArrowType.FloatingPoint(FloatingPointPrecision.DOUBLE)),
+          Field.nullablePrimitive("utf8", ArrowType.Utf8.INSTANCE),
+          Field.nullablePrimitive("binary", ArrowType.Binary.INSTANCE),
+          Field.nullablePrimitive("largeutf8", ArrowType.LargeUtf8.INSTANCE),
+          Field.nullablePrimitive("largebinary", ArrowType.LargeBinary.INSTANCE),
+          Field.nullablePrimitive("fixed_size_binary", new ArrowType.FixedSizeBinary(1)),
+          Field.nullablePrimitive("date_ms", new ArrowType.Date(DateUnit.MILLISECOND)),
+          Field.nullablePrimitive("time_ms", new ArrowType.Time(TimeUnit.MILLISECOND, 32)),
+          Field.nullablePrimitive(
+              "timestamp_ms", new ArrowType.Timestamp(TimeUnit.MILLISECOND, null)),
+          Field.nullablePrimitive(
+              "timestamptz_ms", new ArrowType.Timestamp(TimeUnit.MILLISECOND, "UTC")),
+          Field.nullablePrimitive("time_ns", new ArrowType.Time(TimeUnit.NANOSECOND, 64)),
+          Field.nullablePrimitive(
+              "timestamp_ns", new ArrowType.Timestamp(TimeUnit.NANOSECOND, null)),
+          Field.nullablePrimitive(
+              "timestamptz_ns", new ArrowType.Timestamp(TimeUnit.NANOSECOND, "UTC")),
+          Field.nullablePrimitive("duration", new ArrowType.Duration(TimeUnit.MILLISECOND)),
+          Field.nullablePrimitive("decimal128", new ArrowType.Decimal(10, 2, 128)),
+          Field.nullablePrimitive("decimal256", new ArrowType.Decimal(10, 2, 256)),
+          new Field(
+              "list",
+              FieldType.nullable(ArrowType.List.INSTANCE),
+              Collections.singletonList(Field.nullable("items", new ArrowType.Int(32, true)))),
+          new Field(
+              "largelist",
+              FieldType.nullable(ArrowType.LargeList.INSTANCE),
+              Collections.singletonList(Field.nullable("items", new ArrowType.Int(32, true)))),
+          new Field(
+              "fixedsizelist",
+              FieldType.nullable(new ArrowType.FixedSizeList(2)),
+              Collections.singletonList(Field.nullable("items", new ArrowType.Int(32, true)))),
+          structField
+        };
     VectorSchemaRoot root = VectorSchemaRoot.create(new Schema(Arrays.asList(fields)), allocator);
     root.allocateNew();
     root.setRowCount(2);
@@ -201,7 +216,8 @@ public class TestAllTypes extends TestDataset {
     ((DurationVector) root.getVector("duration")).set(1, 0);
     ((DecimalVector) root.getVector("decimal128")).set(1, 0);
     ((Decimal256Vector) root.getVector("decimal256")).set(1, 0);
-    UnionFixedSizeListWriter fixedListWriter = ((FixedSizeListVector) root.getVector("fixedsizelist")).getWriter();
+    UnionFixedSizeListWriter fixedListWriter =
+        ((FixedSizeListVector) root.getVector("fixedsizelist")).getWriter();
     fixedListWriter.allocate();
     fixedListWriter.setPosition(1);
     fixedListWriter.startList();
@@ -215,7 +231,8 @@ public class TestAllTypes extends TestDataset {
     listWriter.integer().writeInt(1);
     listWriter.endList();
 
-    UnionLargeListWriter largeListWriter = ((LargeListVector) root.getVector("largelist")).getWriter();
+    UnionLargeListWriter largeListWriter =
+        ((LargeListVector) root.getVector("largelist")).getWriter();
     largeListWriter.allocate();
     largeListWriter.setPosition(1);
     largeListWriter.startList();
@@ -227,11 +244,9 @@ public class TestAllTypes extends TestDataset {
   }
 
   private byte[] serializeFile(VectorSchemaRoot root) {
-    try (
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
+    try (ByteArrayOutputStream out = new ByteArrayOutputStream();
         WritableByteChannel channel = Channels.newChannel(out);
-        ArrowStreamWriter writer = new ArrowStreamWriter(root, null, channel)
-    ) {
+        ArrowStreamWriter writer = new ArrowStreamWriter(root, null, channel)) {
       writer.start();
       writer.writeBatch();
       writer.end();
@@ -250,15 +265,18 @@ public class TestAllTypes extends TestDataset {
           TMP.create();
           final File writtenFolder = TMP.newFolder();
           final String writtenParquet = writtenFolder.toURI().toString();
-          DatasetFileWriter.write(rootAllocator(), reader, FileFormat.PARQUET,
-              writtenParquet);
+          DatasetFileWriter.write(rootAllocator(), reader, FileFormat.PARQUET, writtenParquet);
 
-          // Load the reference file from the test resources and write to a temporary file on the OS.
-          String referenceFile = ArrowTestDataUtil.getTestDataRoot()
-              .resolve("parquet")
-              .resolve("alltypes-java.parquet")
-              .toUri().toString();
-          assertParquetFileEquals(referenceFile,
+          // Load the reference file from the test resources and write to a temporary file on the
+          // OS.
+          String referenceFile =
+              ArrowTestDataUtil.getTestDataRoot()
+                  .resolve("parquet")
+                  .resolve("alltypes-java.parquet")
+                  .toUri()
+                  .toString();
+          assertParquetFileEquals(
+              referenceFile,
               Objects.requireNonNull(writtenFolder.listFiles())[0].toURI().toString());
         }
       }

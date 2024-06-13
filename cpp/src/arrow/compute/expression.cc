@@ -763,9 +763,7 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
   for (size_t i = 0; i < arguments.size(); ++i) {
     ARROW_ASSIGN_OR_RAISE(
         arguments[i], ExecuteScalarExpression(call->arguments[i], input, exec_context));
-    if (arguments[i].is_array()) {
-      all_scalar = false;
-    }
+    all_scalar &= arguments[i].is_scalar();
   }
 
   int64_t input_length;

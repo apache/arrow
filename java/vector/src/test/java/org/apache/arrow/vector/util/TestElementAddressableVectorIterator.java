@@ -14,14 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.util;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.nio.charset.StandardCharsets;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.memory.util.ArrowBufPointer;
@@ -31,9 +29,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-/**
- * Test cases for {@link ElementAddressableVectorIterator}.
- */
+/** Test cases for {@link ElementAddressableVectorIterator}. */
 public class TestElementAddressableVectorIterator {
 
   private final int VECTOR_LENGTH = 100;
@@ -66,7 +62,8 @@ public class TestElementAddressableVectorIterator {
       }
 
       // iterate
-      ElementAddressableVectorIterator<IntVector> it = new ElementAddressableVectorIterator<>(intVector);
+      ElementAddressableVectorIterator<IntVector> it =
+          new ElementAddressableVectorIterator<>(intVector);
       int index = 0;
       while (it.hasNext()) {
         ArrowBufPointer pt;
@@ -105,7 +102,8 @@ public class TestElementAddressableVectorIterator {
       }
 
       // iterate
-      ElementAddressableVectorIterator<VarCharVector> it = new ElementAddressableVectorIterator<>(strVector);
+      ElementAddressableVectorIterator<VarCharVector> it =
+          new ElementAddressableVectorIterator<>(strVector);
       int index = 0;
       while (it.hasNext()) {
         ArrowBufPointer pt;
