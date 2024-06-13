@@ -28,7 +28,9 @@
 namespace arrow::matlab::io::ipc::proxy {
 
 RecordBatchFileWriter::RecordBatchFileWriter(const std::shared_ptr<arrow::ipc::RecordBatchWriter> writer)
-  : writer{std::move(writer)} {}
+  : writer{std::move(writer)} {
+    REGISTER_METHOD(RecordBatchFileWriter, writeRecordBatch);
+  }
 
 libmexclass::proxy::MakeResult RecordBatchFileWriter::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
   namespace mda = ::matlab::data;
@@ -57,6 +59,22 @@ libmexclass::proxy::MakeResult RecordBatchFileWriter::make(const libmexclass::pr
                         "arrow:matlab:MakeFailed");
 
   return std::make_shared<RecordBatchFileWriterProxy>(std::move(writer));
+}
+
+void RecordBatchFileWriter::writeRecordBatch(libmexclass::proxy::method::Context& context) {
+  namespace mda = ::matlab::data;
+  using RecordBatchProxy = ::arrow::matlab::tabular::proxy::RecordBatch;
+
+  mda::StructArray opts = context.inputs[0];
+  const mda::TypedArray<uint64_t> record_batch_proxy_id_mda = opts[0]["RecordBatchProxyID"];
+  const uint64_t record_batch_proxy_id = record_batch_proxy_id_mda[0];
+
+  auto proxy = libmexclass::proxy::ProxyManager::getProxy(record_batch_proxy_id);
+  auto record_batch_proxy = std::static_pointer_cast<RecordBatchProxy>(proxy);
+  auto record_batch = record_batch_proxy->unwrap();
+
+  MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(writer->WriteRecordBatch(*record_batch), 
+                                      context, error::IPC_RECORD_BATCH_WRITE_FAILED);
 }
 
 } // namespace arrow::matlab::io::ipc::proxy 

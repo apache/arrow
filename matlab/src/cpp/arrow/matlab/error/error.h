@@ -242,5 +242,6 @@ static const char* ARRAY_SLICE_FAILED_TO_CREATE_ARRAY_PROXY =
     "arrow:array:slice:FailedToCreateArrayProxy";
 static const char* C_EXPORT_FAILED = "arrow:c:export:ExportFailed";
 static const char* C_IMPORT_FAILED = "arrow:c:import:ImportFailed";
+static const char* IPC_RECORD_BATCH_WRITE_FAILED = "arrow:io:ipc:FailedToWriteRecordBatch";
 
 }  // namespace arrow::matlab::error
