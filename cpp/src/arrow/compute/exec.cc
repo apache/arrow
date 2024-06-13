@@ -1034,9 +1034,23 @@ class VectorExecutor : public KernelExecutorImpl<VectorKernel> {
     output_num_buffers_ = static_cast<int>(output_type_.type->layout().buffers.size());
 
     // Decide if we need to preallocate memory for this kernel
-    validity_preallocated_ =
-        (kernel_->null_handling != NullHandling::COMPUTED_NO_PREALLOCATE &&
-         kernel_->null_handling != NullHandling::OUTPUT_NOT_NULL);
+    validity_preallocated_ = false;
+    if (output_type_.type->id() != Type::NA) {
+      if (kernel_->null_handling == NullHandling::COMPUTED_PREALLOCATE) {
+        // Override the flag if kernel asks for pre-allocation
+        validity_preallocated_ = true;
+      } else if (kernel_->null_handling == NullHandling::INTERSECTION) {
+        bool elide_validity_bitmap = true;
+        for (const auto& arg : batch.values) {
+          auto null_gen = NullGeneralization::Get(arg) == NullGeneralization::ALL_VALID;
+
+          // If not all valid, this becomes false
+          elide_validity_bitmap = elide_validity_bitmap && null_gen;
+        }
+        validity_preallocated_ = !elide_validity_bitmap;
+      }
+    }
+
     if (kernel_->mem_allocation == MemAllocation::PREALLOCATE) {
       data_preallocated_.clear();
       ComputeDataPreallocate(*output_type_.type, &data_preallocated_);
