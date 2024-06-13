@@ -864,7 +864,7 @@ Result<std::shared_ptr<Array>> MapArray::FromArrays(const std::shared_ptr<Array>
                                                     MemoryPool* pool,
                                                     std::shared_ptr<Buffer> null_bitmap) {
   return FromArraysInternal(std::make_shared<MapType>(keys->type(), items->type()),
-                            offsets, keys, items, pool, null_bitmap);
+                            offsets, keys, items, pool, std::move(null_bitmap));
 }
 
 Result<std::shared_ptr<Array>> MapArray::FromArrays(std::shared_ptr<DataType> type,
