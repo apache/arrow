@@ -21,6 +21,7 @@
 
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/discovery.h"
+#include "arrow/dataset/file_parquet.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/test_util_internal.h"
 #include "arrow/filesystem/mockfs.h"
@@ -799,6 +800,63 @@ TEST(TestDictPartitionColumn, SelectPartitionColumnFilterPhysicalColumn) {
   ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
   AssertArraysEqual(*table->column(0)->chunk(0),
                     *ArrayFromJSON(partition_field->type(), R"(["one"])"));
+}
+
+namespace fs = arrow::fs;
+namespace ds = arrow::dataset;
+namespace cp = arrow::compute;
+
+arrow::Result<std::shared_ptr<fs::FileSystem>> GetFileSystemFromUri(
+    const std::string& uri, std::string* path) {
+  return fs::FileSystemFromUri(uri, path);
+}
+
+arrow::Result<std::shared_ptr<ds::Dataset>> GetDatasetFromDirectory(
+    std::shared_ptr<fs::FileSystem> fs, std::shared_ptr<ds::ParquetFileFormat> format,
+    std::string dir) {
+  // Find all files under `path`
+  fs::FileSelector s;
+  s.base_dir = dir;
+  s.recursive = true;
+
+  ds::FileSystemFactoryOptions options;
+  // The factory will try to build a child dataset.
+  ARROW_ASSIGN_OR_RAISE(auto factory,
+                        ds::FileSystemDatasetFactory::Make(fs, s, format, options));
+
+  // Try to infer a common schema for all files.
+  ARROW_ASSIGN_OR_RAISE(auto schema, factory->Inspect({}));
+  // Caller can optionally decide another schema as long as it is compatible
+  // with the previous one, e.g. `factory->Finish(compatible_schema)`.
+  ARROW_ASSIGN_OR_RAISE(auto child, factory->Finish());
+
+  ds::DatasetVector children{1, child};
+  auto dataset = ds::UnionDataset::Make(std::move(schema), std::move(children));
+
+  return dataset;
+}
+
+arrow::Result<std::shared_ptr<ds::Scanner>> GetScannerFromDataset(
+    std::shared_ptr<ds::Dataset> dataset) {
+  ARROW_ASSIGN_OR_RAISE(auto scanner_builder, dataset->NewScan());
+
+  ARROW_RETURN_NOT_OK(scanner_builder->UseThreads(true));
+
+  return scanner_builder->Finish();
+}
+
+TEST(GH41813, GH41813) {
+  std::string uri =
+      "file:///Users/zanmato/Downloads/arrow_segfault_reproducer_2/data/reduced_attempt3";
+  std::string path;
+  auto format = std::make_shared<ds::ParquetFileFormat>();
+  ASSERT_OK_AND_ASSIGN(auto fs, GetFileSystemFromUri(uri, &path));
+  ASSERT_OK_AND_ASSIGN(auto dataset, GetDatasetFromDirectory(fs, format, path));
+
+  ASSERT_OK_AND_ASSIGN(auto scanner, GetScannerFromDataset(dataset));
+
+  ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
+  std::cout << "Table size: " << table->num_rows() << "\n";
 }
 
 }  // namespace dataset
