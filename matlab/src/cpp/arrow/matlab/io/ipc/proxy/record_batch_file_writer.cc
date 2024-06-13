@@ -20,6 +20,7 @@
 #include "arrow/matlab/io/ipc/proxy/record_batch_file_writer.h"
 #include "arrow/matlab/tabular/proxy/record_batch.h"
 #include "arrow/matlab/tabular/proxy/schema.h"
+#include "arrow/matlab/tabular/proxy/table.h"
 #include "arrow/util/utf8.h"
 
 #include "libmexclass/proxy/ProxyManager.h"
@@ -30,6 +31,7 @@ namespace arrow::matlab::io::ipc::proxy {
 RecordBatchFileWriter::RecordBatchFileWriter(const std::shared_ptr<arrow::ipc::RecordBatchWriter> writer)
   : writer{std::move(writer)} {
     REGISTER_METHOD(RecordBatchFileWriter, writeRecordBatch);
+    REGISTER_METHOD(RecordBatchFileWriter, writeTable);
   }
 
 libmexclass::proxy::MakeResult RecordBatchFileWriter::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
@@ -74,6 +76,22 @@ void RecordBatchFileWriter::writeRecordBatch(libmexclass::proxy::method::Context
   auto record_batch = record_batch_proxy->unwrap();
 
   MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(writer->WriteRecordBatch(*record_batch), 
+                                      context, error::IPC_RECORD_BATCH_WRITE_FAILED);
+}
+
+void RecordBatchFileWriter::writeTable(libmexclass::proxy::method::Context& context) {
+  namespace mda = ::matlab::data;
+  using TableProxy = ::arrow::matlab::tabular::proxy::Table;
+
+  mda::StructArray opts = context.inputs[0];
+  const mda::TypedArray<uint64_t> table_proxy_id_mda = opts[0]["TableProxyID"];
+  const uint64_t table_proxy_id = table_proxy_id_mda[0];
+
+  auto proxy = libmexclass::proxy::ProxyManager::getProxy(table_proxy_id);
+  auto table_proxy = std::static_pointer_cast<TableProxy>(proxy);
+  auto table = table_proxy->unwrap();
+
+  MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(writer->WriteTable(*table), 
                                       context, error::IPC_RECORD_BATCH_WRITE_FAILED);
 }
 

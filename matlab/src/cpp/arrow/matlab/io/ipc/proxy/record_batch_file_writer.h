@@ -33,6 +33,8 @@ class RecordBatchFileWriter : public libmexclass::proxy::Proxy {
 
     void writeRecordBatch(libmexclass::proxy::method::Context& context);
 
+    void writeTable(libmexclass::proxy::method::Context& context);
+
 };
 
 } // namespace arrow::matlab::io::ipc::proxy 
