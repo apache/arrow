@@ -243,5 +243,6 @@ static const char* ARRAY_SLICE_FAILED_TO_CREATE_ARRAY_PROXY =
 static const char* C_EXPORT_FAILED = "arrow:c:export:ExportFailed";
 static const char* C_IMPORT_FAILED = "arrow:c:import:ImportFailed";
 static const char* IPC_RECORD_BATCH_WRITE_FAILED = "arrow:io:ipc:FailedToWriteRecordBatch";
+static const char* IPC_RECORD_BATCH_READER_OPEN_FAILED = "arrow:io:ipc:FailedToOpenRecordBatchReader";
 
 }  // namespace arrow::matlab::error

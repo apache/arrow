@@ -15,7 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/io/file.h"
+#include "arrow/matlab/error/error.h"
 #include "arrow/matlab/io/ipc/proxy/record_batch_file_reader.h"
+#include "arrow/util/utf8.h"
 
 namespace arrow::matlab::io::ipc::proxy {
 
@@ -23,6 +26,25 @@ RecordBatchFileReader::RecordBatchFileReader(const std::shared_ptr<arrow::ipc::R
   : reader{std::move(reader)} {}
 
 libmexclass::proxy::MakeResult RecordBatchFileReader::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
-  return libmexclass::error::Error{"arrow:matlab:NotImplemented", "Not Implemented"};
+  namespace mda = ::matlab::data;
+  using RecordBatchFileReaderProxy = arrow::matlab::io::ipc::proxy::RecordBatchFileReader;
+
+  const mda::StructArray opts = constructor_arguments[0];
+
+  const mda::StringArray filename_mda = opts[0]["Filename"];
+  const auto filename_utf16 = std::u16string(filename_mda[0]);
+  MATLAB_ASSIGN_OR_ERROR(const auto filename_utf8,
+                        arrow::util::UTF16StringToUTF8(filename_utf16),
+                        error::UNICODE_CONVERSION_ERROR_ID);
+
+  MATLAB_ASSIGN_OR_ERROR(auto input_stream,
+                        arrow::io::ReadableFile::Open(filename_utf8),
+                        error::FAILED_TO_OPEN_FILE_FOR_WRITE);
+  
+  MATLAB_ASSIGN_OR_ERROR(auto reader, 
+                        arrow::ipc::RecordBatchFileReader::Open(input_stream),
+                        error::IPC_RECORD_BATCH_READER_OPEN_FAILED);
+
+  return std::make_shared<RecordBatchFileReaderProxy>(std::move(reader));
 }
 } // namespace arrow::matlab::io::ipc::proxy 
