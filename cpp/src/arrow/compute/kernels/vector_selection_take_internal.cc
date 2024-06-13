@@ -545,9 +545,6 @@ const FunctionDoc take_doc(
 
 // Metafunction for dispatching to different Take implementations other than
 // Array-Array.
-//
-// TODO: Revamp approach to executing Take operations. In addition to being
-// overly complex dispatching, there is no parallelization.
 class TakeMetaFunction : public MetaFunction {
  public:
   TakeMetaFunction()
