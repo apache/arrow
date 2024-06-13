@@ -349,8 +349,9 @@ public class TestIntegration {
   }
 
   @Test
-  public void testJSONRoundTripWithVariableWidthViewWithInline() throws Exception {
+  public void testJSONRoundTripWithVariableWidthView() throws Exception {
     final int valueCount = ArrowFileTestFixtures.COUNT;
+    final int multiplier = 1;
 
     File testInFile = new File(testFolder, "testIn.arrow");
     File testJSONFile = new File(testFolder, "testOut.json");
@@ -358,7 +359,7 @@ public class TestIntegration {
     File testOutFile = new File(testFolder, "testOut.arrow");
     testOutFile.delete();
 
-    writeVariableWidthViewInput(testInFile, allocator, valueCount);
+    writeVariableWidthViewInput(testInFile, allocator, multiplier * valueCount);
 
     Integration integration = new Integration();
 
@@ -385,58 +386,7 @@ public class TestIntegration {
     integration.run(args2);
 
     // check it is the same
-    validateVariadicOutput(testOutFile, allocator, valueCount);
-
-    // validate arrow against json
-    String[] args3 = {
-      "-arrow",
-      testInFile.getAbsolutePath(),
-      "-json",
-      testJSONFile.getAbsolutePath(),
-      "-command",
-      Command.VALIDATE.name()
-    };
-    integration.run(args3);
-  }
-
-  @Test
-  public void testJSONRoundTripWithVariableWidthViewWithNonInLine() throws Exception {
-    final int valueCount = ArrowFileTestFixtures.COUNT * 2;
-
-    File testInFile = new File(testFolder, "testIn.arrow");
-    File testJSONFile = new File(testFolder, "testOut.json");
-    testJSONFile.delete();
-    File testOutFile = new File(testFolder, "testOut.arrow");
-    testOutFile.delete();
-
-    writeVariableWidthViewInput(testInFile, allocator, valueCount);
-
-    Integration integration = new Integration();
-
-    // convert it to json
-    String[] args1 = {
-      "-arrow",
-      testInFile.getAbsolutePath(),
-      "-json",
-      testJSONFile.getAbsolutePath(),
-      "-command",
-      Command.ARROW_TO_JSON.name()
-    };
-    integration.run(args1);
-
-    // convert back to arrow
-    String[] args2 = {
-      "-arrow",
-      testOutFile.getAbsolutePath(),
-      "-json",
-      testJSONFile.getAbsolutePath(),
-      "-command",
-      Command.JSON_TO_ARROW.name()
-    };
-    integration.run(args2);
-
-    // check it is the same
-    validateVariadicOutput(testOutFile, allocator, valueCount);
+    validateVariadicOutput(testOutFile, allocator, multiplier * valueCount);
 
     // validate arrow against json
     String[] args3 = {

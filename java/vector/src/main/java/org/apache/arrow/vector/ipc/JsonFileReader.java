@@ -24,6 +24,7 @@ import static org.apache.arrow.vector.BufferLayout.BufferType.DATA;
 import static org.apache.arrow.vector.BufferLayout.BufferType.OFFSET;
 import static org.apache.arrow.vector.BufferLayout.BufferType.TYPE;
 import static org.apache.arrow.vector.BufferLayout.BufferType.VALIDITY;
+import static org.apache.arrow.vector.BufferLayout.BufferType.VARIADIC_DATA_BUFFERS;
 
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
@@ -36,9 +37,10 @@ import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -626,20 +628,58 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
   }
 
   private ArrowBuf readViewIntoBuffer(
-      BufferAllocator allocator, BufferType bufferType, MinorType type, int count)
+      BufferAllocator allocator,
+      BufferType bufferType,
+      MinorType type,
+      int count,
+      int[] dataBufferElementCount)
       throws IOException {
     BufferReader reader =
         new BufferReader() {
 
-          private ArrowBuf readBinaryValues(BufferAllocator allocator, int cout)
+          private ArrowBuf readBinaryValues(BufferAllocator allocator, int count)
               throws IOException {
             ArrayList<byte[]> values = new ArrayList<>(count);
             long bufferSize = 0L;
+            dataBufferElementCount[0] = 0;
+            dataBufferElementCount[1] = 0;
             for (int i = 0; i < count; i++) {
-              parser.nextToken();
-              final byte[] value = parser.getBinaryValue();
+              readToken(START_OBJECT);
+              byte[] value = new byte[BaseVariableWidthViewVector.ELEMENT_SIZE];
+              final int length = readNextField("SIZE", Integer.class);
+              if (length > BaseVariableWidthViewVector.INLINE_SIZE) {
+                dataBufferElementCount[1]++;
+                // PREFIX_HEX
+                final byte[] prefix = decodeHexSafe(readNextField("PREFIX_HEX", String.class));
+                // BUFFER_INDEX
+                final int bufferIndex = readNextField("BUFFER_INDEX", Integer.class);
+                if (dataBufferElementCount[0] < bufferIndex + 1) {
+                  dataBufferElementCount[0] = bufferIndex + 1;
+                }
+                // OFFSET
+                final int offset = readNextField("OFFSET", Integer.class);
+                ByteBuffer buffer =
+                    ByteBuffer.allocate(BaseVariableWidthViewVector.ELEMENT_SIZE)
+                        .order(ByteOrder.LITTLE_ENDIAN); // Allocate a ByteBuffer of size 16 bytes
+                buffer.putInt(length); // Write 'length' to bytes 0-3
+                buffer.put(prefix); // Write 'prefix' to bytes 4-7
+                buffer.putInt(bufferIndex); // Write 'bufferIndex' to bytes 8-11
+                buffer.putInt(offset); // Write 'offset' to bytes 12-15
+                value = buffer.array(); // Convert the ByteBuffer to a byte array
+
+              } else {
+                // in-line
+                ByteBuffer buffer =
+                    ByteBuffer.allocate(BaseVariableWidthViewVector.ELEMENT_SIZE)
+                        .order(ByteOrder.LITTLE_ENDIAN); // Allocate a ByteBuffer of size 16 bytes
+                buffer.putInt(length); // Write 'length' to bytes 0-3
+                // INLINE
+                buffer.put(decodeHexSafe(readNextField("INLINED", String.class)));
+                value = buffer.array(); // Convert the ByteBuffer to a byte array
+              }
               values.add(value);
-              bufferSize += value.length;
+              bufferSize += BaseVariableWidthViewVector.ELEMENT_SIZE;
+              readToken(END_OBJECT);
             }
 
             ArrowBuf buf = allocator.buffer(bufferSize);
@@ -647,6 +687,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
             for (byte[] value : values) {
               buf.writeBytes(value);
             }
+
             return buf;
           }
 
@@ -658,8 +699,20 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     return reader.readBuffer(allocator, count);
   }
 
-  private ArrowBuf readDataBufferIntoBuffer(
-      BufferAllocator allocator, BufferType bufferType, MinorType type, int count)
+  private class ViewBufferReader {
+    protected ArrowBuf read(BufferAllocator allocator, int count) throws IOException {
+      return null;
+    }
+
+    ArrowBuf readBuffer(BufferAllocator allocator, int count) throws IOException {
+      readToken(START_ARRAY);
+      ArrowBuf buf = read(allocator, count);
+      readToken(END_ARRAY);
+      return buf;
+    }
+  }
+
+  private ArrowBuf readDataBufferIntoBuffer(BufferAllocator allocator, MinorType type, int count)
       throws IOException {
     BufferReader reader =
         new BufferReader() {
@@ -668,6 +721,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
               throws IOException {
             ArrayList<byte[]> values = new ArrayList<>(count);
             long bufferSize = 0L;
+
             for (int i = 0; i < count; i++) {
               parser.nextToken();
               final byte[] value;
@@ -675,7 +729,6 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
                 value = parser.getValueAsString().getBytes(StandardCharsets.UTF_8);
               } else {
                 value = decodeHexSafe(parser.readValueAs(String.class));
-                ;
               }
               values.add(value);
               bufferSize += value.length;
@@ -835,7 +888,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
     // TODO: https://github.com/apache/arrow/issues/41733
     TypeLayout typeLayout = TypeLayout.getTypeLayout(type);
     List<BufferType> vectorTypes = typeLayout.getBufferTypes();
-    ArrowBuf[] vectorBuffers;
+    List<ArrowBuf> vectorBuffers = new ArrayList<>(vectorTypes.size());
     /*
      * The order of inner buffers is :
      * Fixed width vector:
@@ -851,6 +904,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
      * locally as we read from Json parser and do loadFieldBuffers on the vector followed by
      * releasing the local buffers.
      */
+    final int[] dataBufferMetadata = new int[2];
     readToken(START_OBJECT);
     {
       // If currently reading dictionaries, field name is not important so don't check
@@ -865,14 +919,6 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
        */
       int valueCount = readNextField("count", Integer.class);
 
-      if (vector instanceof BaseVariableWidthViewVector) {
-        int variadicBufferCount = readNextField("variadicBufferCount", Integer.class);
-        for (int i = 0; i < variadicBufferCount; i++) {
-          vectorTypes.add(DATA);
-        }
-      }
-
-      vectorBuffers = new ArrowBuf[vectorTypes.size()];
       vector.setInitialCapacity(valueCount);
 
       for (int v = 0; v < vectorTypes.size(); v++) {
@@ -887,20 +933,27 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         if (vector instanceof BaseVariableWidthViewVector) {
           if (v == 0) {
             // read validity buffer
-            vectorBuffers[v] =
-                readIntoBuffer(allocator, bufferType, vector.getMinorType(), valueCount);
+            vectorBuffers.add(
+                readIntoBuffer(allocator, bufferType, vector.getMinorType(), valueCount));
           } else if (v == 1) {
             // read view buffer
-            vectorBuffers[v] =
-                readViewIntoBuffer(allocator, bufferType, vector.getMinorType(), valueCount);
+            vectorBuffers.add(
+                readViewIntoBuffer(
+                    allocator, bufferType, vector.getMinorType(), valueCount, dataBufferMetadata));
+            if (dataBufferMetadata[0] > 0) {
+              // we have variadic buffers
+              for (int i = 0; i < dataBufferMetadata[0]; i++) {
+                vectorTypes.add(VARIADIC_DATA_BUFFERS);
+              }
+            }
           } else {
-            // read data buffer
-            vectorBuffers[v] =
-                readDataBufferIntoBuffer(allocator, bufferType, vector.getMinorType(), valueCount);
+            // read data buffer (TODO: loop for each variadic buffer present)
+            vectorBuffers.add(
+                readDataBufferIntoBuffer(allocator, vector.getMinorType(), dataBufferMetadata[1]));
           }
         } else {
-          vectorBuffers[v] =
-              readIntoBuffer(allocator, bufferType, vector.getMinorType(), innerBufferValueCount);
+          vectorBuffers.add(
+              readIntoBuffer(allocator, bufferType, vector.getMinorType(), innerBufferValueCount));
         }
       }
 
@@ -908,10 +961,10 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
       if (type instanceof Null) {
         nullCount = valueCount;
       } else if (!(type instanceof Union)) {
-        nullCount = BitVectorHelper.getNullCount(vectorBuffers[0], valueCount);
+        nullCount = BitVectorHelper.getNullCount(vectorBuffers.get(0), valueCount);
       }
       final ArrowFieldNode fieldNode = new ArrowFieldNode(valueCount, nullCount);
-      vector.loadFieldBuffers(fieldNode, Arrays.asList(vectorBuffers));
+      vector.loadFieldBuffers(fieldNode, vectorBuffers);
 
       /* read child vectors (if any) */
       List<Field> fields = field.getChildren();
@@ -933,6 +986,12 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         }
         readToken(END_ARRAY);
       }
+    }
+    if (dataBufferMetadata[1] == 0 && vector instanceof BaseVariableWidthViewVector) {
+      // facilitating the reading of empty databuffer
+      parser.nextToken();
+      readToken(START_ARRAY);
+      readToken(END_ARRAY);
     }
     readToken(END_OBJECT);
 

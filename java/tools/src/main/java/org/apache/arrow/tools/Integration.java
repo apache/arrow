@@ -154,31 +154,24 @@ public class Integration {
     JSON_TO_ARROW(false, true) {
       @Override
       public void execute(File arrowFile, File jsonFile) throws IOException {
-        System.err.println(">>>>JSON_TO_ARROW start");
         try (BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
             JsonFileReader reader = new JsonFileReader(jsonFile, allocator)) {
           Schema schema = reader.start();
           LOGGER.debug("Input file size: " + jsonFile.length());
           LOGGER.debug("Found schema: " + schema);
-          System.err.println("Input file size: " + jsonFile.length());
-          System.err.println("Found schema: " + schema);
           try (FileOutputStream fileOutputStream = new FileOutputStream(arrowFile);
               VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
               // TODO json dictionaries
               ArrowFileWriter arrowWriter =
                   new ArrowFileWriter(root, reader, fileOutputStream.getChannel())) {
-            System.err.println("ArrowFileWriter writing: " + arrowFile);
             arrowWriter.start();
-            System.err.println("ArrowFileWriter start done");
             while (reader.read(root)) {
               arrowWriter.writeBatch();
             }
             arrowWriter.end();
-            System.err.println("ArrowFileWriter write done");
           }
           LOGGER.debug("Output file size: " + arrowFile.length());
         }
-        System.err.println(">>>>JSON_TO_ARROW end");
       }
     },
     VALIDATE(true, true) {

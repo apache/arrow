@@ -211,7 +211,7 @@ public class TypeLayout {
 
               private TypeLayout newVariableWidthViewTypeLayout() {
                 return new TypeLayout(
-                    false, BufferLayout.validityVector(), BufferLayout.byteVector());
+                    false, BufferLayout.validityVector(), BufferLayout.viewVector());
               }
 
               private TypeLayout newLargeVariableWidthTypeLayout() {

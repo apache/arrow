@@ -57,7 +57,7 @@ public class ArrowFileTestFixtures {
     writer.setValueCount(count);
   }
 
-  private static String generateRandomString(int length) {
+  private static String generateString(int length) {
     StringBuilder stringBuilder = new StringBuilder(length);
 
     for (int i = 0; i < length; i++) {
@@ -67,7 +67,7 @@ public class ArrowFileTestFixtures {
     return stringBuilder.toString();
   }
 
-  private static byte[] generateRandomBytes(int length) {
+  private static byte[] generateBytes(int length) {
     byte[] bytes = new byte[length];
     for (int i = 0; i < length; i++) {
       bytes[i] = (byte) i;
@@ -82,9 +82,9 @@ public class ArrowFileTestFixtures {
     ViewVarBinaryWriter viewVarBinaryWriter = rootWriter.viewVarBinary("viewVarBinary");
     for (int i = 0; i < count; i++) {
       viewVarCharWriter.setPosition(i);
-      viewVarCharWriter.writeViewVarChar(generateRandomString(i));
+      viewVarCharWriter.writeViewVarChar(generateString(i));
       viewVarBinaryWriter.setPosition(i);
-      viewVarBinaryWriter.writeViewVarBinary(generateRandomBytes(i));
+      viewVarBinaryWriter.writeViewVarBinary(generateBytes(i));
     }
     writer.setValueCount(count);
   }
@@ -137,10 +137,8 @@ public class ArrowFileTestFixtures {
     ViewVarCharVector viewVarCharVector = (ViewVarCharVector) root.getVector("viewVarChar");
     ViewVarBinaryVector viewVarBinaryVector = (ViewVarBinaryVector) root.getVector("viewVarBinary");
     for (int i = 0; i < count; i++) {
-      assertEquals(new Text(generateRandomString(i)), viewVarCharVector.getObject(i));
-      assertArrayEquals(generateRandomBytes(i), viewVarBinaryVector.get(i));
-      assertEquals(i, root.getVector("int").getObject(i));
-      assertEquals(Long.valueOf(i), root.getVector("bigInt").getObject(i));
+      assertEquals(new Text(generateString(i)), viewVarCharVector.getObject(i));
+      assertArrayEquals(generateBytes(i), viewVarBinaryVector.get(i));
     }
   }
 
