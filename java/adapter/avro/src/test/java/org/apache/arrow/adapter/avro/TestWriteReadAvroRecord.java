@@ -53,20 +53,22 @@ public class TestWriteReadAvroRecord {
     user2.put("favorite_color", "red");
 
     DatumWriter<GenericRecord> datumWriter = new GenericDatumWriter<GenericRecord>(schema);
-    DataFileWriter<GenericRecord> dataFileWriter = new DataFileWriter<GenericRecord>(datumWriter);
-    dataFileWriter.create(schema, dataFile);
-    dataFileWriter.append(user1);
-    dataFileWriter.append(user2);
-    dataFileWriter.close();
+    try (DataFileWriter<GenericRecord> dataFileWriter =
+        new DataFileWriter<GenericRecord>(datumWriter)) {
+      dataFileWriter.create(schema, dataFile);
+      dataFileWriter.append(user1);
+      dataFileWriter.append(user2);
+    }
 
     // read data from disk
     DatumReader<GenericRecord> datumReader = new GenericDatumReader<GenericRecord>(schema);
-    DataFileReader<GenericRecord> dataFileReader =
-        new DataFileReader<GenericRecord>(dataFile, datumReader);
     List<GenericRecord> result = new ArrayList<>();
-    while (dataFileReader.hasNext()) {
-      GenericRecord user = dataFileReader.next();
-      result.add(user);
+    try (DataFileReader<GenericRecord> dataFileReader =
+        new DataFileReader<GenericRecord>(dataFile, datumReader)) {
+      while (dataFileReader.hasNext()) {
+        GenericRecord user = dataFileReader.next();
+        result.add(user);
+      }
     }
 
     assertEquals(2, result.size());
