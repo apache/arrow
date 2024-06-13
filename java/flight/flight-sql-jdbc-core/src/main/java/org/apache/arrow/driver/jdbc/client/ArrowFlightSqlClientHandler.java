@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import javax.annotation.Nullable;
 import org.apache.arrow.driver.jdbc.client.utils.ClientAuthenticationUtils;
 import org.apache.arrow.flight.CallOption;
 import org.apache.arrow.flight.CallStatus;
@@ -814,13 +815,13 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
     }
 
     /**
-     * Sets the catalog for this handler if it is not empty or contains only spaces.
+     * Sets the catalog for this handler if it is not null.
      *
      * @param catalog the catalog
      * @return this instance.
      */
-    public Builder withCatalog(final String catalog) {
-      this.catalog = Optional.ofNullable(catalog).map(String::trim).filter(str -> !str.isEmpty());
+    public Builder withCatalog(@Nullable final String catalog) {
+      this.catalog = Optional.ofNullable(catalog);
       return this;
     }
 

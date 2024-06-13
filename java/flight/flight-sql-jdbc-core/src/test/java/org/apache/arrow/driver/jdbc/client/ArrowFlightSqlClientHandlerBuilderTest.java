@@ -155,17 +155,19 @@ public class ArrowFlightSqlClientHandlerBuilderTest {
     assertFalse(rootBuilder.catalog.isPresent());
 
     rootBuilder.withCatalog("");
-    assertFalse(rootBuilder.catalog.isPresent());
+    assertTrue(rootBuilder.catalog.isPresent());
 
     rootBuilder.withCatalog("   ");
-    assertFalse(rootBuilder.catalog.isPresent());
-
-    rootBuilder.withCatalog("noSpaces");
     assertTrue(rootBuilder.catalog.isPresent());
-    assertEquals("noSpaces", rootBuilder.catalog.get());
 
-    rootBuilder.withCatalog("  spaces ");
+    final String noSpaces = "noSpaces";
+    rootBuilder.withCatalog(noSpaces);
     assertTrue(rootBuilder.catalog.isPresent());
-    assertEquals("spaces", rootBuilder.catalog.get());
+    assertEquals(noSpaces, rootBuilder.catalog.get());
+
+    final String nameWithSpaces = "  spaces ";
+    rootBuilder.withCatalog(nameWithSpaces);
+    assertTrue(rootBuilder.catalog.isPresent());
+    assertEquals(nameWithSpaces, rootBuilder.catalog.get());
   }
 }
