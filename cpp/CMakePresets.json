@@ -221,6 +221,14 @@
       }
     },
     {
+      "name": "features-valgrind",
+      "hidden": true,
+      "cacheVariables": {
+        "ARROW_RUNTIME_SIMD_LEVEL": "AVX2",
+        "ARROW_TEST_MEMCHECK": "ON"
+      }
+    },
+    {
       "name": "ninja-debug-minimal",
       "inherits": [
         "base-debug",
@@ -329,6 +337,46 @@
         "features-maximal"
       ],
       "displayName": "Debug build with everything enabled (except benchmarks)",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-debug-valgrind-basic",
+      "inherits": [
+        "base-debug",
+        "features-basic",
+        "features-valgrind"
+      ],
+      "displayName": "Debug build for Valgrind with reduced dependencies",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-debug-valgrind",
+      "inherits": [
+        "base-debug",
+        "features-main",
+        "features-valgrind"
+      ],
+      "displayName": "Debug build for Valgrind with more optional components",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-debug-valgrind-minimal",
+      "inherits": [
+        "base-debug",
+        "features-minimal",
+        "features-valgrind"
+      ],
+      "displayName": "Debug build for Valgrind without anything enabled",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-debug-valgrind-maximal",
+      "inherits": [
+        "base-debug",
+        "features-maximal",
+        "features-valgrind"
+      ],
+      "displayName": "Debug build for Valgrind with everything enabled",
       "cacheVariables": {}
     },
     {
