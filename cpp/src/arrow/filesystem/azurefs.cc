@@ -366,6 +366,10 @@ Result<std::unique_ptr<Blobs::BlobServiceClient>> AzureOptions::MakeBlobServiceC
   if (account_name.empty()) {
     return Status::Invalid("AzureOptions doesn't contain a valid account name");
   }
+  if (!(blob_storage_scheme == "http" || blob_storage_scheme == "https")) {
+    return Status::Invalid("AzureOptions::blob_storage_scheme must be http or https: ",
+                           blob_storage_scheme);
+  }
   switch (credential_kind_) {
     case CredentialKind::kAnonymous:
       return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name));
@@ -392,6 +396,10 @@ Result<std::unique_ptr<DataLake::DataLakeServiceClient>>
 AzureOptions::MakeDataLakeServiceClient() const {
   if (account_name.empty()) {
     return Status::Invalid("AzureOptions doesn't contain a valid account name");
+  }
+  if (!(dfs_storage_scheme == "http" || dfs_storage_scheme == "https")) {
+    return Status::Invalid("AzureOptions::dfs_storage_scheme must be http or https: ",
+                           dfs_storage_scheme);
   }
   switch (credential_kind_) {
     case CredentialKind::kAnonymous:
