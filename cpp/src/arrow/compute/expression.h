@@ -48,6 +48,9 @@ class ARROW_EXPORT Expression {
     std::string function_name;
     std::vector<Expression> arguments;
     std::shared_ptr<FunctionOptions> options;
+    // Whether this call is a special form (e.g. if-else). If true, the `special_form`
+    // field will be resolved in binding.
+    bool is_special_form = false;
     // Cached hash value
     size_t hash;
 
@@ -56,6 +59,9 @@ class ARROW_EXPORT Expression {
     const Kernel* kernel = NULLPTR;
     std::shared_ptr<KernelState> kernel_state;
     TypeHolder type;
+    // Whether the entire call (including all its arguments) is selection-vector-aware
+    bool selection_vector_aware = false;
+    std::shared_ptr<SpecialForm> special_form = NULLPTR;
 
     void ComputeHash();
   };
@@ -118,6 +124,12 @@ class ARROW_EXPORT Expression {
   // XXX someday
   // NullGeneralization::type nullable() const;
 
+  /// Whether the entire expression (including all its subexpressions) is
+  /// selection-vector-aware. If true, then the expression can be executed using the "fast
+  /// path" - all kernels directly working on the selection vector. Otherwise the
+  /// execution takes the "slow path" - gathering the input and scattering the output.
+  bool selection_vector_aware() const;
+
   struct Parameter {
     FieldRef ref;
 
@@ -159,14 +171,15 @@ Expression field_ref(FieldRef ref);
 
 ARROW_EXPORT
 Expression call(std::string function, std::vector<Expression> arguments,
-                std::shared_ptr<FunctionOptions> options = NULLPTR);
+                std::shared_ptr<FunctionOptions> options = NULLPTR,
+                bool is_special_form = false);
 
 template <typename Options, typename = typename std::enable_if<
                                 std::is_base_of<FunctionOptions, Options>::value>::type>
-Expression call(std::string function, std::vector<Expression> arguments,
-                Options options) {
+Expression call(std::string function, std::vector<Expression> arguments, Options options,
+                bool is_special_form = false) {
   return call(std::move(function), std::move(arguments),
-              std::make_shared<Options>(std::move(options)));
+              std::make_shared<Options>(std::move(options)), is_special_form);
 }
 
 /// Assemble a list of all fields referenced by an Expression at any depth.

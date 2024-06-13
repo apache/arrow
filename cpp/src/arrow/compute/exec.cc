@@ -1345,19 +1345,40 @@ const CpuInfo* ExecContext::cpu_info() const { return CpuInfo::GetInstance(); }
 
 SelectionVector::SelectionVector(std::shared_ptr<ArrayData> data)
     : data_(std::move(data)) {
-  DCHECK_EQ(Type::INT32, data_->type->id());
+  DCHECK_EQ(Type::BOOL, data_->type->id());
   DCHECK_EQ(0, data_->GetNullCount());
-  indices_ = data_->GetValues<int32_t>(1);
 }
 
 SelectionVector::SelectionVector(const Array& arr) : SelectionVector(arr.data()) {}
 
-int32_t SelectionVector::length() const { return static_cast<int32_t>(data_->length); }
-
-Result<std::shared_ptr<SelectionVector>> SelectionVector::FromMask(
-    const BooleanArray& arr) {
-  return Status::NotImplemented("FromMask");
+Result<std::unique_ptr<SelectionVector>> SelectionVector::Copy(
+    const std::shared_ptr<MemoryManager>& mm) const {
+  ARROW_ASSIGN_OR_RAISE(auto copy, data_->CopyTo(mm));
+  return std::make_unique<SelectionVector>(std::move(copy));
 }
+
+Status SelectionVector::Intersect(const ArrayData& other) {
+  DCHECK_EQ(Type::BOOL, other.type->id());
+  DCHECK_EQ(data_->length, other.length);
+  ::arrow::internal::BitmapAnd(data_->buffers[1]->data(), data_->offset,
+                               other.buffers[1]->data(), other.offset, data_->length,
+                               data_->offset, data_->buffers[1]->mutable_data());
+  return Status::OK();
+}
+
+Status SelectionVector::Intersect(const SelectionVector& other) {
+  return Intersect(*other.data());
+}
+
+Status SelectionVector::Invert() {
+  ::arrow::internal::InvertBitmap(data_->buffers[1]->data(), data_->offset, data_->length,
+                                  data_->buffers[1]->mutable_data(), data_->offset);
+  return Status::OK();
+}
+
+std::shared_ptr<ArrayData> SelectionVector::data() const { return data_; }
+
+int32_t SelectionVector::length() const { return static_cast<int32_t>(data_->length); }
 
 Result<Datum> CallFunction(const std::string& func_name, const std::vector<Datum>& args,
                            const FunctionOptions* options, ExecContext* ctx) {

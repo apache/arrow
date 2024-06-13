@@ -140,15 +140,20 @@ class ARROW_EXPORT SelectionVector {
 
   explicit SelectionVector(const Array& arr);
 
-  /// \brief Create SelectionVector from boolean mask
-  static Result<std::shared_ptr<SelectionVector>> FromMask(const BooleanArray& arr);
+  Result<std::unique_ptr<SelectionVector>> Copy(
+      const std::shared_ptr<MemoryManager>& mm) const;
 
-  const int32_t* indices() const { return indices_; }
+  Status Intersect(const ArrayData& other);
+
+  Status Intersect(const SelectionVector& other);
+
+  Status Invert();
+
+  std::shared_ptr<ArrayData> data() const;
   int32_t length() const;
 
  private:
   std::shared_ptr<ArrayData> data_;
-  const int32_t* indices_;
 };
 
 /// An index to represent that a batch does not belong to an ordered stream
@@ -422,6 +427,8 @@ struct ARROW_EXPORT ExecSpan {
 
   int64_t length = 0;
   std::vector<ExecValue> values;
+  // A non-owning selection vector to be used by selection-vector-aware kernels.
+  SelectionVector* selection_vector = NULLPTR;
 };
 
 /// \defgroup compute-call-function One-shot calls to compute functions

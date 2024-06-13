@@ -15,45 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// NOTE: API is EXPERIMENTAL and will change without going through a
+// deprecation cycle.
+
 #pragma once
 
-#include "arrow/util/visibility.h"
+#include "arrow/compute/special_form.h"
 
 namespace arrow {
-
-struct Datum;
-struct TypeHolder;
-
 namespace compute {
 
-class Function;
-class ScalarAggregateFunction;
-class FunctionExecutor;
-class FunctionOptions;
-class FunctionRegistry;
-
-/// \brief Return the process-global function registry.
-// Defined in registry.cc
-ARROW_EXPORT FunctionRegistry* GetFunctionRegistry();
-
-class CastOptions;
-
-struct ExecBatch;
-class ExecContext;
-class KernelContext;
-
-struct Kernel;
-struct ScalarKernel;
-struct ScalarAggregateKernel;
-struct VectorKernel;
-
-struct KernelState;
-
-class Expression;
-class SpecialForm;
-
-ARROW_EXPORT ExecContext* default_exec_context();
-ARROW_EXPORT ExecContext* threaded_exec_context();
+class ARROW_EXPORT IfElseSpecialForm : public SpecialForm {
+ public:
+  Result<Datum> Execute(const Expression::Call& call, const ExecBatch& input,
+                        ExecContext* exec_context) override;
+};
 
 }  // namespace compute
 }  // namespace arrow
