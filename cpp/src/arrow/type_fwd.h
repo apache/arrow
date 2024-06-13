@@ -89,6 +89,9 @@ using ChunkedArrayVector = std::vector<std::shared_ptr<ChunkedArray>>;
 using RecordBatchVector = std::vector<std::shared_ptr<RecordBatch>>;
 using RecordBatchIterator = Iterator<std::shared_ptr<RecordBatch>>;
 
+template <typename TypeClass>
+class TypedArrayStatistics;
+
 class DictionaryType;
 class DictionaryArray;
 struct DictionaryScalar;
@@ -102,6 +105,7 @@ class FixedWidthType;
 
 class BooleanType;
 class BooleanArray;
+using BooleanArrayStatistics = TypedArrayStatistics<BooleanType>;
 class BooleanBuilder;
 struct BooleanScalar;
 
@@ -215,11 +219,12 @@ class NumericBuilder;
 template <typename TypeClass>
 class NumericTensor;
 
-#define _NUMERIC_TYPE_DECL(KLASS)                     \
-  class KLASS##Type;                                  \
-  using KLASS##Array = NumericArray<KLASS##Type>;     \
-  using KLASS##Builder = NumericBuilder<KLASS##Type>; \
-  struct KLASS##Scalar;                               \
+#define _NUMERIC_TYPE_DECL(KLASS)                                   \
+  class KLASS##Type;                                                \
+  using KLASS##Array = NumericArray<KLASS##Type>;                   \
+  using KLASS##ArrayStatistics = TypedArrayStatistics<KLASS##Type>; \
+  using KLASS##Builder = NumericBuilder<KLASS##Type>;               \
+  struct KLASS##Scalar;                                             \
   using KLASS##Tensor = NumericTensor<KLASS##Type>;
 
 _NUMERIC_TYPE_DECL(Int8)
