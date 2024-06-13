@@ -1273,7 +1273,7 @@ def test_record_batch_reader_cast():
     with pytest.raises(pa.lib.ArrowTypeError, match='Field 0 cannot be cast'):
         reader.cast(pa.schema([pa.field('a', pa.list_(pa.int32()))]))
 
-    # Cast to same type should always work also for date32
+    # Cast to same type should always work (also for types without a T->T cast function)
     # (https://github.com/apache/arrow/issues/41884)
     schema_src = pa.schema([pa.field('a', pa.date32())])
     arr = pa.array([datetime.date(2024, 6, 11)], type=pa.date32())
