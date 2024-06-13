@@ -883,7 +883,7 @@ Result<std::shared_ptr<Array>> MapArray::FromArrays(std::shared_ptr<DataType> ty
   if (!map_type.item_type()->Equals(items->type())) {
     return Status::TypeError("Mismatching map items type");
   }
-  return FromArraysInternal(std::move(type), offsets, keys, items, pool, null_bitmap);
+  return FromArraysInternal(std::move(type), offsets, keys, items, pool, std::move(null_bitmap));
 }
 
 Status MapArray::ValidateChildData(
