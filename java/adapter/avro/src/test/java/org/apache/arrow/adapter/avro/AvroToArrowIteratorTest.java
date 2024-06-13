@@ -58,15 +58,18 @@ public class AvroToArrowIteratorTest extends AvroTestBase {
   private AvroToArrowVectorIterator convert(Schema schema, List data) throws Exception {
     File dataFile = new File(TMP, "test.avro");
 
-    BinaryEncoder encoder =
-        new EncoderFactory().directBinaryEncoder(new FileOutputStream(dataFile), null);
-    DatumWriter writer = new GenericDatumWriter(schema);
-    BinaryDecoder decoder =
-        new DecoderFactory().directBinaryDecoder(new FileInputStream(dataFile), null);
+    try (FileOutputStream fos = new FileOutputStream(dataFile)) {
+      BinaryEncoder encoder = EncoderFactory.get().directBinaryEncoder(fos, null);
+      DatumWriter<Object> writer = new GenericDatumWriter<>(schema);
 
-    for (Object value : data) {
-      writer.write(value, encoder);
+      for (Object value : data) {
+        writer.write(value, encoder);
+      }
+      encoder.flush();
     }
+
+    FileInputStream fis = new FileInputStream(dataFile);
+    BinaryDecoder decoder = DecoderFactory.get().directBinaryDecoder(fis, null);
 
     return AvroToArrow.avroToArrowIterator(schema, decoder, config);
   }
