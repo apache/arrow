@@ -69,9 +69,9 @@ should_fix_eol_repositories=no
 # Switch all repos to point to to vault.centos.org, use for EOL distros
 fix_eol_repositories() {
   sed -i \
-    -e 's/mirrorlist/#mirrorlist/' \
-    -e 's/#baseurl/baseurl/' \
-    -e 's/mirror.centos.org/vault.centos.org/' \
+    -e 's/^mirrorlist/#mirrorlist/' \
+    -e 's/^#baseurl/baseurl/' \
+    -e 's/mirror\.centos\.org/vault.centos.org/' \
     /etc/yum.repos.d/*.repo
 }
 
