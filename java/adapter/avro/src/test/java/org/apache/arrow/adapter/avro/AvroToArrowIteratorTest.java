@@ -55,6 +55,18 @@ public class AvroToArrowIteratorTest extends AvroTestBase {
     this.config = new AvroToArrowConfigBuilder(allocator).setTargetBatchSize(3).build();
   }
 
+  private void writeDataToFile(Schema schema, List<?> data, File dataFile) throws Exception {
+    try (FileOutputStream fos = new FileOutputStream(dataFile)) {
+      BinaryEncoder encoder = EncoderFactory.get().directBinaryEncoder(fos, null);
+      DatumWriter<Object> writer = new GenericDatumWriter<>(schema);
+
+      for (Object value : data) {
+        writer.write(value, encoder);
+      }
+      encoder.flush();
+    }
+  }
+
   private AvroToArrowVectorIterator convert(Schema schema, FileInputStream fis) throws Exception {
     BinaryDecoder decoder = DecoderFactory.get().directBinaryDecoder(fis, null);
     return AvroToArrow.avroToArrowIterator(schema, decoder, config);
@@ -66,15 +78,7 @@ public class AvroToArrowIteratorTest extends AvroTestBase {
     List<String> data = Arrays.asList("v1", "v2", "v3", "v4", "v5");
 
     File dataFile = new File(TMP, "test.avro");
-    try (FileOutputStream fos = new FileOutputStream(dataFile)) {
-      BinaryEncoder encoder = EncoderFactory.get().directBinaryEncoder(fos, null);
-      DatumWriter<Object> writer = new GenericDatumWriter<>(schema);
-
-      for (Object value : data) {
-        writer.write(value, encoder);
-      }
-      encoder.flush();
-    }
+    writeDataToFile(schema, data, dataFile);
 
     List<VectorSchemaRoot> roots = new ArrayList<>();
     List<FieldVector> vectors = new ArrayList<>();
@@ -106,15 +110,7 @@ public class AvroToArrowIteratorTest extends AvroTestBase {
     }
 
     File dataFile = new File(TMP, "test.avro");
-    try (FileOutputStream fos = new FileOutputStream(dataFile)) {
-      BinaryEncoder encoder = EncoderFactory.get().directBinaryEncoder(fos, null);
-      DatumWriter<Object> writer = new GenericDatumWriter<>(schema);
-
-      for (Object value : data) {
-        writer.write(value, encoder);
-      }
-      encoder.flush();
-    }
+    writeDataToFile(schema, data, dataFile);
 
     List<VectorSchemaRoot> roots = new ArrayList<>();
     List<FieldVector> vectors = new ArrayList<>();
@@ -144,15 +140,7 @@ public class AvroToArrowIteratorTest extends AvroTestBase {
     }
 
     File dataFile = new File(TMP, "test.avro");
-    try (FileOutputStream fos = new FileOutputStream(dataFile)) {
-      BinaryEncoder encoder = EncoderFactory.get().directBinaryEncoder(fos, null);
-      DatumWriter<Object> writer = new GenericDatumWriter<>(schema);
-
-      for (Object value : data) {
-        writer.write(value, encoder);
-      }
-      encoder.flush();
-    }
+    writeDataToFile(schema, data, dataFile);
 
     List<VectorSchemaRoot> roots = new ArrayList<>();
     try (FileInputStream fis = new FileInputStream(dataFile);
@@ -177,15 +165,7 @@ public class AvroToArrowIteratorTest extends AvroTestBase {
             Arrays.asList("1fff", "2"));
 
     File dataFile = new File(TMP, "test.avro");
-    try (FileOutputStream fos = new FileOutputStream(dataFile)) {
-      BinaryEncoder encoder = EncoderFactory.get().directBinaryEncoder(fos, null);
-      DatumWriter<Object> writer = new GenericDatumWriter<>(schema);
-
-      for (Object value : data) {
-        writer.write(value, encoder);
-      }
-      encoder.flush();
-    }
+    writeDataToFile(schema, data, dataFile);
 
     List<VectorSchemaRoot> roots = new ArrayList<>();
     List<ListVector> vectors = new ArrayList<>();
