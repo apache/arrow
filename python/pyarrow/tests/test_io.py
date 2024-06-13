@@ -673,8 +673,8 @@ def test_non_cpu_buffer(pickle_module):
     cuda = pytest.importorskip("pyarrow.cuda")
     ctx = cuda.Context(0)
 
-    arr = np.array([b'testing'])
-    cuda_buf = ctx.buffer_from_data(arr)
+    data = np.array([b'testing'])
+    cuda_buf = ctx.buffer_from_data(data)
     arr = pa.FixedSizeBinaryArray.from_buffers(pa.binary(7), 1, [None, cuda_buf])
     buf_on_gpu = arr.buffers()[1]
 
@@ -699,8 +699,12 @@ def test_non_cpu_buffer(pickle_module):
     # Sliced buffers with same address
     assert buf_on_gpu_sliced.equals(cuda_buf[2:4])
 
-    msg = "Implemented only for data on CPU device"
+    # Buffers on different devices
+    msg_device = "Device on which the data resides differs between buffers"
+    with pytest.raises(ValueError, match=msg_device):
+        buf_on_gpu.equals(pa.py_buffer(data))
 
+    msg = "Implemented only for data on CPU device"
     # Buffers with different addresses
     arr_short = np.array([b'sting'])
     cuda_buf_short = ctx.buffer_from_data(arr_short)

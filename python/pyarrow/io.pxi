@@ -1430,11 +1430,17 @@ cdef class Buffer(_Weakrefable):
         are_equal : bool
             True if buffer contents and size are equal
         """
+        if self.device != other.device:
+            raise ValueError(
+                "Device on which the data resides differs between buffers: "
+                f"{self.device.type_name} and {other.device.type_name}."
+            )
         if not self.is_cpu and not other.is_cpu:
             if self.address != other.address:
                 raise NotImplementedError(
-                    "Implemented only for data on CPU device or data with equal addresses"
-                    )
+                    "Implemented only for data on CPU device or data with equal "
+                    "addresses"
+                )
 
         cdef c_bool result = False
         with nogil:
