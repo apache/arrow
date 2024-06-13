@@ -14,18 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.util;
 
 import java.util.Arrays;
 import java.util.Base64;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.ReusableBuffer;
 
-/**
- * A wrapper around byte arrays for repeated writing.
- */
+/** A wrapper around byte arrays for repeated writing. */
 public class ReusableByteArray implements ReusableBuffer<byte[]> {
 
   protected static final byte[] EMPTY_BYTES = new byte[0];
@@ -116,12 +112,12 @@ public class ReusableByteArray implements ReusableBuffer<byte[]> {
   }
 
   /**
-   * Sets the capacity of this object to <em>at least</em> <code>len</code> bytes. If the
-   * current buffer is longer, then the capacity and existing content of the buffer are unchanged.
-   * If <code>len</code> is larger than the current capacity, the Text object's capacity is
-   * increased to match.
+   * Sets the capacity of this object to <em>at least</em> <code>len</code> bytes. If the current
+   * buffer is longer, then the capacity and existing content of the buffer are unchanged. If <code>
+   * len</code> is larger than the current capacity, the Text object's capacity is increased to
+   * match.
    *
-   * @param len      the number of bytes we need
+   * @param len the number of bytes we need
    * @param keepData should the old data be kept
    */
   protected void setCapacity(int len, boolean keepData) {

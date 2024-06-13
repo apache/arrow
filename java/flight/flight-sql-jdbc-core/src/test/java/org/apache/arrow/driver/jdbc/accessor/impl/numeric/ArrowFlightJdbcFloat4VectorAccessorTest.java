@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
 import static org.hamcrest.CoreMatchers.equalTo;
@@ -23,7 +22,6 @@ import static org.hamcrest.CoreMatchers.is;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.SQLException;
-
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
 import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.Float4Vector;
@@ -41,23 +39,20 @@ public class ArrowFlightJdbcFloat4VectorAccessorTest {
   @ClassRule
   public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
 
-  @Rule
-  public final ErrorCollector collector = new ErrorCollector();
+  @Rule public final ErrorCollector collector = new ErrorCollector();
 
-  @Rule
-  public ExpectedException exceptionCollector = ExpectedException.none();
+  @Rule public ExpectedException exceptionCollector = ExpectedException.none();
 
   private Float4Vector vector;
 
   private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcFloat4VectorAccessor>
       accessorSupplier =
-          (vector, getCurrentRow) -> new ArrowFlightJdbcFloat4VectorAccessor((Float4Vector) vector,
-              getCurrentRow, (boolean wasNull) -> {
-          });
+          (vector, getCurrentRow) ->
+              new ArrowFlightJdbcFloat4VectorAccessor(
+                  (Float4Vector) vector, getCurrentRow, (boolean wasNull) -> {});
 
   private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcFloat4VectorAccessor>
-      accessorIterator =
-      new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
+      accessorIterator = new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
 
   @Before
   public void setup() {
@@ -71,55 +66,61 @@ public class ArrowFlightJdbcFloat4VectorAccessorTest {
 
   @Test
   public void testShouldGetFloatMethodFromFloat4Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcFloat4VectorAccessor::getFloat,
+    accessorIterator.assertAccessorGetter(
+        vector,
+        ArrowFlightJdbcFloat4VectorAccessor::getFloat,
         (accessor, currentRow) -> is(vector.get(currentRow)));
   }
 
   @Test
   public void testShouldGetObjectMethodFromFloat4Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcFloat4VectorAccessor::getObject,
+    accessorIterator.assertAccessorGetter(
+        vector,
+        ArrowFlightJdbcFloat4VectorAccessor::getObject,
         (accessor) -> is(accessor.getFloat()));
   }
 
   @Test
   public void testShouldGetStringMethodFromFloat4Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcFloat4VectorAccessor::getString,
+    accessorIterator.assertAccessorGetter(
+        vector,
+        ArrowFlightJdbcFloat4VectorAccessor::getString,
         accessor -> is(Float.toString(accessor.getFloat())));
   }
 
   @Test
   public void testShouldGetStringMethodFromFloat4VectorWithNull() throws Exception {
-    try (final Float4Vector float4Vector = new Float4Vector("ID",
-        rootAllocatorTestRule.getRootAllocator())) {
+    try (final Float4Vector float4Vector =
+        new Float4Vector("ID", rootAllocatorTestRule.getRootAllocator())) {
       float4Vector.setNull(0);
       float4Vector.setValueCount(1);
 
-      accessorIterator.assertAccessorGetter(float4Vector,
-          ArrowFlightJdbcFloat4VectorAccessor::getString,
-          CoreMatchers.nullValue());
+      accessorIterator.assertAccessorGetter(
+          float4Vector, ArrowFlightJdbcFloat4VectorAccessor::getString, CoreMatchers.nullValue());
     }
   }
 
   @Test
   public void testShouldGetFloatMethodFromFloat4VectorWithNull() throws Exception {
-    try (final Float4Vector float4Vector = new Float4Vector("ID",
-        rootAllocatorTestRule.getRootAllocator())) {
+    try (final Float4Vector float4Vector =
+        new Float4Vector("ID", rootAllocatorTestRule.getRootAllocator())) {
       float4Vector.setNull(0);
       float4Vector.setValueCount(1);
 
-      accessorIterator.assertAccessorGetter(float4Vector,
-          ArrowFlightJdbcFloat4VectorAccessor::getFloat, is(0.0f));
+      accessorIterator.assertAccessorGetter(
+          float4Vector, ArrowFlightJdbcFloat4VectorAccessor::getFloat, is(0.0f));
     }
   }
 
   @Test
   public void testShouldGetBigDecimalMethodFromFloat4VectorWithNull() throws Exception {
-    try (final Float4Vector float4Vector = new Float4Vector("ID",
-        rootAllocatorTestRule.getRootAllocator())) {
+    try (final Float4Vector float4Vector =
+        new Float4Vector("ID", rootAllocatorTestRule.getRootAllocator())) {
       float4Vector.setNull(0);
       float4Vector.setValueCount(1);
 
-      accessorIterator.assertAccessorGetter(float4Vector,
+      accessorIterator.assertAccessorGetter(
+          float4Vector,
           ArrowFlightJdbcFloat4VectorAccessor::getBigDecimal,
           CoreMatchers.nullValue());
     }
@@ -127,79 +128,96 @@ public class ArrowFlightJdbcFloat4VectorAccessorTest {
 
   @Test
   public void testShouldGetObjectMethodFromFloat4VectorWithNull() throws Exception {
-    try (final Float4Vector float4Vector = new Float4Vector("ID",
-        rootAllocatorTestRule.getRootAllocator())) {
+    try (final Float4Vector float4Vector =
+        new Float4Vector("ID", rootAllocatorTestRule.getRootAllocator())) {
       float4Vector.setNull(0);
       float4Vector.setValueCount(1);
 
-      accessorIterator.assertAccessorGetter(float4Vector,
-          ArrowFlightJdbcFloat4VectorAccessor::getObject,
-          CoreMatchers.nullValue());
+      accessorIterator.assertAccessorGetter(
+          float4Vector, ArrowFlightJdbcFloat4VectorAccessor::getObject, CoreMatchers.nullValue());
     }
   }
 
   @Test
   public void testShouldGetBooleanMethodFromFloat4Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcFloat4VectorAccessor::getBoolean,
+    accessorIterator.assertAccessorGetter(
+        vector,
+        ArrowFlightJdbcFloat4VectorAccessor::getBoolean,
         accessor -> is(accessor.getFloat() != 0.0f));
   }
 
   @Test
   public void testShouldGetByteMethodFromFloat4Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcFloat4VectorAccessor::getByte,
+    accessorIterator.assertAccessorGetter(
+        vector,
+        ArrowFlightJdbcFloat4VectorAccessor::getByte,
         accessor -> is((byte) accessor.getFloat()));
   }
 
   @Test
   public void testShouldGetShortMethodFromFloat4Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcFloat4VectorAccessor::getShort,
+    accessorIterator.assertAccessorGetter(
+        vector,
+        ArrowFlightJdbcFloat4VectorAccessor::getShort,
         accessor -> is((short) accessor.getFloat()));
   }
 
   @Test
   public void testShouldGetIntMethodFromFloat4Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcFloat4VectorAccessor::getInt,
+    accessorIterator.assertAccessorGetter(
+        vector,
+        ArrowFlightJdbcFloat4VectorAccessor::getInt,
         accessor -> is((int) accessor.getFloat()));
   }
 
   @Test
   public void testShouldGetLongMethodFromFloat4Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcFloat4VectorAccessor::getLong,
+    accessorIterator.assertAccessorGetter(
+        vector,
+        ArrowFlightJdbcFloat4VectorAccessor::getLong,
         accessor -> is((long) accessor.getFloat()));
   }
 
   @Test
   public void testShouldGetDoubleMethodFromFloat4Vector() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcFloat4VectorAccessor::getDouble,
+    accessorIterator.assertAccessorGetter(
+        vector,
+        ArrowFlightJdbcFloat4VectorAccessor::getDouble,
         accessor -> is((double) accessor.getFloat()));
   }
 
   @Test
   public void testShouldGetBigDecimalMethodFromFloat4Vector() throws Exception {
-    accessorIterator.iterate(vector, (accessor, currentRow) -> {
-      float value = accessor.getFloat();
-      if (Float.isInfinite(value) || Float.isNaN(value)) {
-        exceptionCollector.expect(SQLException.class);
-      }
-      collector.checkThat(accessor.getBigDecimal(), is(BigDecimal.valueOf(value)));
-    });
+    accessorIterator.iterate(
+        vector,
+        (accessor, currentRow) -> {
+          float value = accessor.getFloat();
+          if (Float.isInfinite(value) || Float.isNaN(value)) {
+            exceptionCollector.expect(SQLException.class);
+          }
+          collector.checkThat(accessor.getBigDecimal(), is(BigDecimal.valueOf(value)));
+        });
   }
 
   @Test
   public void testShouldGetBigDecimalWithScaleMethodFromFloat4Vector() throws Exception {
-    accessorIterator.iterate(vector, (accessor, currentRow) -> {
-      float value = accessor.getFloat();
-      if (Float.isInfinite(value) || Float.isNaN(value)) {
-        exceptionCollector.expect(SQLException.class);
-      }
-      collector.checkThat(accessor.getBigDecimal(9),
-          is(BigDecimal.valueOf(value).setScale(9, RoundingMode.HALF_UP)));
-    });
+    accessorIterator.iterate(
+        vector,
+        (accessor, currentRow) -> {
+          float value = accessor.getFloat();
+          if (Float.isInfinite(value) || Float.isNaN(value)) {
+            exceptionCollector.expect(SQLException.class);
+          }
+          collector.checkThat(
+              accessor.getBigDecimal(9),
+              is(BigDecimal.valueOf(value).setScale(9, RoundingMode.HALF_UP)));
+        });
   }
 
   @Test
   public void testShouldGetObjectClass() throws Exception {
-    accessorIterator.assertAccessorGetter(vector,
+    accessorIterator.assertAccessorGetter(
+        vector,
         ArrowFlightJdbcFloat4VectorAccessor::getObjectClass,
         accessor -> equalTo(Float.class));
   }

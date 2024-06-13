@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.utils;
 
 import static org.hamcrest.CoreMatchers.is;
@@ -22,7 +21,6 @@ import static org.hamcrest.CoreMatchers.nullValue;
 import static org.mockito.Mockito.mock;
 
 import java.util.concurrent.CompletionService;
-
 import org.apache.arrow.driver.jdbc.client.CloseableEndpointStreamPair;
 import org.junit.Before;
 import org.junit.Rule;
@@ -32,16 +30,12 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
-/**
- * Tests for {@link FlightEndpointDataQueue}.
- */
+/** Tests for {@link FlightEndpointDataQueue}. */
 @RunWith(MockitoJUnitRunner.class)
 public class FlightEndpointDataQueueTest {
 
-  @Rule
-  public final ErrorCollector collector = new ErrorCollector();
-  @Mock
-  private CompletionService<CloseableEndpointStreamPair> mockedService;
+  @Rule public final ErrorCollector collector = new ErrorCollector();
+  @Mock private CompletionService<CloseableEndpointStreamPair> mockedService;
   private FlightEndpointDataQueue queue;
 
   @Before
@@ -57,24 +51,27 @@ public class FlightEndpointDataQueueTest {
   @Test
   public void testNextShouldThrowExceptionUponClose() throws Exception {
     queue.close();
-    ThrowableAssertionUtils.simpleAssertThrowableClass(IllegalStateException.class, () -> queue.next());
+    ThrowableAssertionUtils.simpleAssertThrowableClass(
+        IllegalStateException.class, () -> queue.next());
   }
 
   @Test
   public void testEnqueueShouldThrowExceptionUponClose() throws Exception {
     queue.close();
-    ThrowableAssertionUtils.simpleAssertThrowableClass(IllegalStateException.class,
-        () -> queue.enqueue(mock(CloseableEndpointStreamPair.class)));
+    ThrowableAssertionUtils.simpleAssertThrowableClass(
+        IllegalStateException.class, () -> queue.enqueue(mock(CloseableEndpointStreamPair.class)));
   }
 
   @Test
   public void testCheckOpen() throws Exception {
-    collector.checkSucceeds(() -> {
-      queue.checkOpen();
-      return true;
-    });
+    collector.checkSucceeds(
+        () -> {
+          queue.checkOpen();
+          return true;
+        });
     queue.close();
-    ThrowableAssertionUtils.simpleAssertThrowableClass(IllegalStateException.class, () -> queue.checkOpen());
+    ThrowableAssertionUtils.simpleAssertThrowableClass(
+        IllegalStateException.class, () -> queue.checkOpen());
   }
 
   @Test

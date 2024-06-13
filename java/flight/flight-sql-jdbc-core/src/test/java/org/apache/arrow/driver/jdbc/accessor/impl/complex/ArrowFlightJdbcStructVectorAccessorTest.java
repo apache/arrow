@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.accessor.impl.complex;
 
 import static org.hamcrest.CoreMatchers.equalTo;
@@ -24,7 +23,6 @@ import java.sql.SQLException;
 import java.sql.Struct;
 import java.util.HashMap;
 import java.util.Map;
-
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
 import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
 import org.apache.arrow.vector.Float8Vector;
@@ -52,20 +50,18 @@ public class ArrowFlightJdbcStructVectorAccessorTest {
   @ClassRule
   public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
 
-  @Rule
-  public final ErrorCollector collector = new ErrorCollector();
+  @Rule public final ErrorCollector collector = new ErrorCollector();
 
   private StructVector vector;
 
   private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcStructVectorAccessor>
       accessorSupplier =
-          (vector, getCurrentRow) -> new ArrowFlightJdbcStructVectorAccessor((StructVector) vector,
-              getCurrentRow, (boolean wasNull) -> {
-          });
+          (vector, getCurrentRow) ->
+              new ArrowFlightJdbcStructVectorAccessor(
+                  (StructVector) vector, getCurrentRow, (boolean wasNull) -> {});
 
   private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcStructVectorAccessor>
-      accessorIterator =
-      new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
+      accessorIterator = new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
 
   @Before
   public void setUp() throws Exception {
@@ -78,8 +74,8 @@ public class ArrowFlightJdbcStructVectorAccessorTest {
     IntVector intVector =
         vector.addOrGet("int", FieldType.nullable(Types.MinorType.INT.getType()), IntVector.class);
     Float8Vector float8Vector =
-        vector.addOrGet("float8", FieldType.nullable(Types.MinorType.FLOAT8.getType()),
-            Float8Vector.class);
+        vector.addOrGet(
+            "float8", FieldType.nullable(Types.MinorType.FLOAT8.getType()), Float8Vector.class);
 
     intVector.setSafe(0, 100);
     float8Vector.setSafe(0, 100.05);
@@ -98,14 +94,17 @@ public class ArrowFlightJdbcStructVectorAccessorTest {
 
   @Test
   public void testShouldGetObjectClassReturnMapClass() throws Exception {
-    accessorIterator.assertAccessorGetter(vector,
+    accessorIterator.assertAccessorGetter(
+        vector,
         ArrowFlightJdbcStructVectorAccessor::getObjectClass,
         (accessor, currentRow) -> equalTo(Map.class));
   }
 
   @Test
   public void testShouldGetObjectReturnValidMap() throws Exception {
-    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcStructVectorAccessor::getObject,
+    accessorIterator.assertAccessorGetter(
+        vector,
+        ArrowFlightJdbcStructVectorAccessor::getObject,
         (accessor, currentRow) -> {
           Map<String, Object> expected = new HashMap<>();
           expected.put("int", 100 * (currentRow + 1));
@@ -119,37 +118,40 @@ public class ArrowFlightJdbcStructVectorAccessorTest {
   public void testShouldGetObjectReturnNull() throws Exception {
     vector.setNull(0);
     vector.setNull(1);
-    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcStructVectorAccessor::getObject,
+    accessorIterator.assertAccessorGetter(
+        vector,
+        ArrowFlightJdbcStructVectorAccessor::getObject,
         (accessor, currentRow) -> nullValue());
   }
 
   @Test
   public void testShouldGetStructReturnValidStruct() throws Exception {
-    accessorIterator.iterate(vector, (accessor, currentRow) -> {
-      Struct struct = accessor.getStruct();
-      assert struct != null;
+    accessorIterator.iterate(
+        vector,
+        (accessor, currentRow) -> {
+          Struct struct = accessor.getStruct();
+          assert struct != null;
 
-      Object[] expected = new Object[] {
-          100 * (currentRow + 1),
-          100.05 * (currentRow + 1)
-      };
+          Object[] expected = new Object[] {100 * (currentRow + 1), 100.05 * (currentRow + 1)};
 
-      collector.checkThat(struct.getAttributes(), equalTo(expected));
-    });
+          collector.checkThat(struct.getAttributes(), equalTo(expected));
+        });
   }
 
   @Test
   public void testShouldGetStructReturnNull() throws Exception {
     vector.setNull(0);
     vector.setNull(1);
-    accessorIterator.assertAccessorGetter(vector, ArrowFlightJdbcStructVectorAccessor::getStruct,
+    accessorIterator.assertAccessorGetter(
+        vector,
+        ArrowFlightJdbcStructVectorAccessor::getStruct,
         (accessor, currentRow) -> nullValue());
   }
 
   @Test
   public void testShouldGetObjectWorkWithNestedComplexData() throws SQLException {
-    try (StructVector rootVector = StructVector.empty("",
-        rootAllocatorTestRule.getRootAllocator())) {
+    try (StructVector rootVector =
+        StructVector.empty("", rootAllocatorTestRule.getRootAllocator())) {
       StructVector structVector = rootVector.addOrGetStruct("struct");
 
       FieldType intFieldType = FieldType.nullable(Types.MinorType.INT.getType());
@@ -199,8 +201,7 @@ public class ArrowFlightJdbcStructVectorAccessorTest {
       expected.put("union", true);
 
       ArrowFlightJdbcStructVectorAccessor accessor =
-          new ArrowFlightJdbcStructVectorAccessor(rootVector, () -> 0, (boolean wasNull) -> {
-          });
+          new ArrowFlightJdbcStructVectorAccessor(rootVector, () -> 0, (boolean wasNull) -> {});
 
       Assert.assertEquals(expected, accessor.getObject());
       Assert.assertEquals(expected.toString(), accessor.getString());

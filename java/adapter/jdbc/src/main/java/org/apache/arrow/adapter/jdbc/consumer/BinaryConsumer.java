@@ -14,27 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc.consumer;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.VarBinaryVector;
 
 /**
- * Consumer which consume binary type values from {@link ResultSet}.
- * Write the data to {@link org.apache.arrow.vector.VarBinaryVector}.
+ * Consumer which consume binary type values from {@link ResultSet}. Write the data to {@link
+ * org.apache.arrow.vector.VarBinaryVector}.
  */
 public abstract class BinaryConsumer extends BaseConsumer<VarBinaryVector> {
 
-  /**
-   * Creates a consumer for {@link VarBinaryVector}.
-   */
+  /** Creates a consumer for {@link VarBinaryVector}. */
   public static BinaryConsumer createConsumer(VarBinaryVector vector, int index, boolean nullable) {
     if (nullable) {
       return new NullableBinaryConsumer(vector, index);
@@ -45,9 +41,7 @@ public abstract class BinaryConsumer extends BaseConsumer<VarBinaryVector> {
 
   private final byte[] reuseBytes = new byte[1024];
 
-  /**
-   * Instantiate a BinaryConsumer.
-   */
+  /** Instantiate a BinaryConsumer. */
   public BinaryConsumer(VarBinaryVector vector, int index) {
     super(vector, index);
     if (vector != null) {
@@ -55,9 +49,7 @@ public abstract class BinaryConsumer extends BaseConsumer<VarBinaryVector> {
     }
   }
 
-  /**
-   * consume a InputStream.
-   */
+  /** consume a InputStream. */
   public void consume(InputStream is) throws IOException {
     if (is != null) {
       while (currentIndex >= vector.getValueCapacity()) {
@@ -74,7 +66,8 @@ public abstract class BinaryConsumer extends BaseConsumer<VarBinaryVector> {
         vector.getDataBuffer().setBytes(startOffset + dataLength, reuseBytes, 0, read);
         dataLength += read;
       }
-      offsetBuffer.setInt((currentIndex + 1) * ((long) VarBinaryVector.OFFSET_WIDTH), startOffset + dataLength);
+      offsetBuffer.setInt(
+          (currentIndex + 1) * ((long) VarBinaryVector.OFFSET_WIDTH), startOffset + dataLength);
       BitVectorHelper.setBit(vector.getValidityBuffer(), currentIndex);
       vector.setLastSet(currentIndex);
     }
@@ -91,14 +84,10 @@ public abstract class BinaryConsumer extends BaseConsumer<VarBinaryVector> {
     this.currentIndex = 0;
   }
 
-  /**
-   * Consumer for nullable binary data.
-   */
+  /** Consumer for nullable binary data. */
   static class NullableBinaryConsumer extends BinaryConsumer {
-    
-    /**
-     * Instantiate a BinaryConsumer.
-     */
+
+    /** Instantiate a BinaryConsumer. */
     public NullableBinaryConsumer(VarBinaryVector vector, int index) {
       super(vector, index);
     }
@@ -113,14 +102,10 @@ public abstract class BinaryConsumer extends BaseConsumer<VarBinaryVector> {
     }
   }
 
-  /**
-   * Consumer for non-nullable binary data.
-   */
+  /** Consumer for non-nullable binary data. */
   static class NonNullableBinaryConsumer extends BinaryConsumer {
 
-    /**
-     * Instantiate a BinaryConsumer.
-     */
+    /** Instantiate a BinaryConsumer. */
     public NonNullableBinaryConsumer(VarBinaryVector vector, int index) {
       super(vector, index);
     }

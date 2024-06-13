@@ -747,7 +747,6 @@ tasks:
       - arrow-jdbc-{no_rc_snapshot_version}.pom
       - arrow-maven-plugins-{no_rc_snapshot_version}-cyclonedx.json
       - arrow-maven-plugins-{no_rc_snapshot_version}-cyclonedx.xml
-      - arrow-maven-plugins-{no_rc_snapshot_version}-src.zip
       - arrow-maven-plugins-{no_rc_snapshot_version}.pom
       - arrow-memory-core-{no_rc_snapshot_version}-cyclonedx.json
       - arrow-memory-core-{no_rc_snapshot_version}-cyclonedx.xml
@@ -851,7 +850,6 @@ tasks:
       - module-info-compiler-maven-plugin-{no_rc_snapshot_version}-cyclonedx.xml
       - module-info-compiler-maven-plugin-{no_rc_snapshot_version}-javadoc.jar
       - module-info-compiler-maven-plugin-{no_rc_snapshot_version}-sources.jar
-      - module-info-compiler-maven-plugin-{no_rc_snapshot_version}-src.zip
       - module-info-compiler-maven-plugin-{no_rc_snapshot_version}.jar
       - module-info-compiler-maven-plugin-{no_rc_snapshot_version}.pom
 

@@ -14,25 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory.patch;
-
-import org.apache.arrow.memory.BufferAllocator;
 
 import io.netty.buffer.AbstractByteBufAllocator;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.CompositeByteBuf;
 import io.netty.buffer.ExpandableByteBuf;
 import io.netty.buffer.NettyArrowBuf;
+import org.apache.arrow.memory.BufferAllocator;
 
 /**
  * An implementation of ByteBufAllocator that wraps a Arrow BufferAllocator. This allows the RPC
- * layer to be accounted
- * and managed using Arrow's BufferAllocator infrastructure. The only thin different from a
- * typical BufferAllocator is
- * the signature and the fact that this Allocator returns ExpandableByteBufs which enable
- * otherwise non-expandable
- * ArrowBufs to be expandable.
+ * layer to be accounted and managed using Arrow's BufferAllocator infrastructure. The only thin
+ * different from a typical BufferAllocator is the signature and the fact that this Allocator
+ * returns ExpandableByteBufs which enable otherwise non-expandable ArrowBufs to be expandable.
  *
  * @deprecated This class may be removed in a future release.
  */
@@ -59,7 +54,8 @@ public class ArrowByteBufAllocator extends AbstractByteBufAllocator {
 
   @Override
   public ByteBuf buffer(int initialCapacity) {
-    return new ExpandableByteBuf(NettyArrowBuf.unwrapBuffer(allocator.buffer(initialCapacity)), allocator);
+    return new ExpandableByteBuf(
+        NettyArrowBuf.unwrapBuffer(allocator.buffer(initialCapacity)), allocator);
   }
 
   @Override

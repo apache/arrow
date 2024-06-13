@@ -14,24 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import java.util.List;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.Field;
 
 /**
- * A vector corresponding to a Field in the schema.
- * It has inner vectors backed by buffers (validity, offsets, data, ...)
+ * A vector corresponding to a Field in the schema. It has inner vectors backed by buffers
+ * (validity, offsets, data, ...)
  */
 public interface FieldVector extends ValueVector {
 
   /**
-   * Initializes the child vectors
-   * to be later loaded with loadBuffers.
+   * Initializes the child vectors to be later loaded with loadBuffers.
    *
    * @param children the schema
    */
@@ -45,10 +42,9 @@ public interface FieldVector extends ValueVector {
   List<FieldVector> getChildrenFromFields();
 
   /**
-   * Loads data in the vectors.
-   * (ownBuffers must be the same size as getFieldVectors())
+   * Loads data in the vectors. (ownBuffers must be the same size as getFieldVectors())
    *
-   * @param fieldNode  the fieldNode
+   * @param fieldNode the fieldNode
    * @param ownBuffers the buffers for this Field (own buffers only, children not included)
    */
   void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers);
@@ -61,7 +57,8 @@ public interface FieldVector extends ValueVector {
   List<ArrowBuf> getFieldBuffers();
 
   /**
-   * Export a given buffer and its memory address into a list of buffers and a pointer to the list of buffers.
+   * Export a given buffer and its memory address into a list of buffers and a pointer to the list
+   * of buffers.
    *
    * @param buffer the buffer to export
    * @param buffers the list of buffers
@@ -70,11 +67,11 @@ public interface FieldVector extends ValueVector {
    * @param retain whether to retain the buffer when exporting
    */
   default void exportBuffer(
-          ArrowBuf buffer,
-          List<ArrowBuf> buffers,
-          ArrowBuf buffersPtr,
-          long nullValue,
-          boolean retain) {
+      ArrowBuf buffer,
+      List<ArrowBuf> buffers,
+      ArrowBuf buffersPtr,
+      long nullValue,
+      boolean retain) {
     if (buffer != null) {
       if (retain) {
         buffer.getReferenceManager().retain();
@@ -88,10 +85,11 @@ public interface FieldVector extends ValueVector {
 
   /**
    * Export the buffers of the fields for C Data Interface. This method traverse the buffers and
-   * export buffer and buffer's memory address into a list of buffers and a pointer to the list of buffers.
+   * export buffer and buffer's memory address into a list of buffers and a pointer to the list of
+   * buffers.
    *
-   * By default, when exporting a buffer, it will increase ref count for exported buffer that counts
-   * the usage at imported side.
+   * <p>By default, when exporting a buffer, it will increase ref count for exported buffer that
+   * counts the usage at imported side.
    */
   default void exportCDataBuffers(List<ArrowBuf> buffers, ArrowBuf buffersPtr, long nullValue) {
     List<ArrowBuf> fieldBuffers = getFieldBuffers();
@@ -104,8 +102,8 @@ public interface FieldVector extends ValueVector {
   /**
    * Get the inner vectors.
    *
-   * @deprecated This API will be removed as the current implementations no longer support inner vectors.
-   *
+   * @deprecated This API will be removed as the current implementations no longer support inner
+   *     vectors.
    * @return the inner vectors for this field as defined by the TypeLayout
    */
   @Deprecated

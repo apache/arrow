@@ -14,17 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory;
 
-
 /**
- * Child allocator class. Only slightly different from the {@see RootAllocator},
- * in that these can't be created directly, but must be obtained from
- * {@link BufferAllocator#newChildAllocator(String, AllocationListener, long, long)}.
+ * Child allocator class. Only slightly different from the {@see RootAllocator}, in that these can't
+ * be created directly, but must be obtained from {@link BufferAllocator#newChildAllocator(String,
+ * AllocationListener, long, long)}.
  *
- * <p>Child allocators can only be created by the root, or other children, so
- * this class is package private.</p>
+ * <p>Child allocators can only be created by the root, or other children, so this class is package
+ * private.
  */
 class ChildAllocator extends BaseAllocator {
 
@@ -32,13 +30,10 @@ class ChildAllocator extends BaseAllocator {
    * Constructor.
    *
    * @param parentAllocator parent allocator -- the one creating this child
-   * @param name            the name of this child allocator
-   * @param config          configuration of this child allocator
+   * @param name the name of this child allocator
+   * @param config configuration of this child allocator
    */
-  ChildAllocator(
-          BaseAllocator parentAllocator,
-          String name,
-          Config config) {
+  ChildAllocator(BaseAllocator parentAllocator, String name, Config config) {
     super(parentAllocator, name, config);
   }
 }

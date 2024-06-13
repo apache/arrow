@@ -19,6 +19,7 @@ package file
 import (
     "fmt"
 
+    "github.com/apache/arrow/go/v17/internal/utils"
     "github.com/apache/arrow/go/v17/parquet"
     "github.com/apache/arrow/go/v17/parquet/metadata"
     "github.com/apache/arrow/go/v17/parquet/internal/encoding"
@@ -69,14 +70,7 @@ func New{{.Name}}ColumnChunkWriter(meta *metadata.ColumnChunkMetaDataBuilder, pa
 func (w *{{.Name}}ColumnChunkWriter) WriteBatch(values []{{.name}}, defLevels, repLevels []int16) (valueOffset int64, err error) {
   defer func() {
     if r := recover(); r != nil {
-      switch r := r.(type) {
-      case string:
-        err = xerrors.New(r)
-      case error:
-        err = r
-      default:
-        err = fmt.Errorf("unknown error type: %s", r)
-      }
+      err = utils.FormatRecoveredError("unknown error type", r)
     }
   }()
   // We check for DataPage limits only after we have inserted the values. If a user
@@ -155,14 +149,7 @@ func (w *{{.Name}}ColumnChunkWriter) WriteBatchSpaced(values []{{.name}}, defLev
 func (w *{{.Name}}ColumnChunkWriter) WriteDictIndices(indices arrow.Array, defLevels, repLevels []int16) (err error) {
   defer func() {
     if r := recover(); r != nil {
-      switch r := r.(type) {
-      case string:
-        err = errors.New(r)
-      case error:
-        err = r
-      default:
-        err = fmt.Errorf("unknown error type: %s", r)
-      }
+      err = utils.FormatRecoveredError("unknown error type", r)
     }
   }()
 

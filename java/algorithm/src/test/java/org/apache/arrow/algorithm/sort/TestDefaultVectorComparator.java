@@ -14,11 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.algorithm.sort;
 
 import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.OFFSET_WIDTH;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -62,24 +61,21 @@ import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-/**
- * Test cases for {@link DefaultVectorComparators}.
- */
+/** Test cases for {@link DefaultVectorComparators}. */
 public class TestDefaultVectorComparator {
 
   private BufferAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void prepare() {
     allocator = new RootAllocator(1024 * 1024);
   }
 
-  @After
+  @AfterEach
   public void shutdown() {
     allocator.close();
   }
@@ -111,9 +107,9 @@ public class TestDefaultVectorComparator {
   @Test
   public void testCompareLists() {
     try (ListVector listVector1 = createListVector(10);
-         ListVector listVector2 = createListVector(11)) {
+        ListVector listVector2 = createListVector(11)) {
       VectorValueComparator<ListVector> comparator =
-              DefaultVectorComparators.createDefaultComparator(listVector1);
+          DefaultVectorComparators.createDefaultComparator(listVector1);
       comparator.attachVectors(listVector1, listVector2);
 
       // prefix is smaller
@@ -121,11 +117,11 @@ public class TestDefaultVectorComparator {
     }
 
     try (ListVector listVector1 = createListVector(11);
-         ListVector listVector2 = createListVector(11)) {
+        ListVector listVector2 = createListVector(11)) {
       ((IntVector) listVector2.getDataVector()).set(10, 110);
 
       VectorValueComparator<ListVector> comparator =
-              DefaultVectorComparators.createDefaultComparator(listVector1);
+          DefaultVectorComparators.createDefaultComparator(listVector1);
       comparator.attachVectors(listVector1, listVector2);
 
       // breaking tie by the last element
@@ -133,10 +129,10 @@ public class TestDefaultVectorComparator {
     }
 
     try (ListVector listVector1 = createListVector(10);
-         ListVector listVector2 = createListVector(10)) {
+        ListVector listVector2 = createListVector(10)) {
 
       VectorValueComparator<ListVector> comparator =
-              DefaultVectorComparators.createDefaultComparator(listVector1);
+          DefaultVectorComparators.createDefaultComparator(listVector1);
       comparator.attachVectors(listVector1, listVector2);
 
       // list vector elements equal
@@ -149,9 +145,9 @@ public class TestDefaultVectorComparator {
     for (int i = 1; i < 10; i++) {
       for (int j = 1; j < 10; j++) {
         try (ListVector listVector1 = createListVector(10);
-             ListVector listVector2 = createListVector(11)) {
+            ListVector listVector2 = createListVector(11)) {
           VectorValueComparator<ListVector> comparator =
-                  DefaultVectorComparators.createDefaultComparator(listVector1);
+              DefaultVectorComparators.createDefaultComparator(listVector1);
           comparator.attachVectors(listVector1, listVector2);
 
           VectorValueComparator<ListVector> copyComparator = comparator.createNew();
@@ -185,7 +181,7 @@ public class TestDefaultVectorComparator {
   @Test
   public void testCompareFixedSizeLists() {
     try (FixedSizeListVector listVector1 = createFixedSizeListVector(10);
-         FixedSizeListVector listVector2 = createFixedSizeListVector(11)) {
+        FixedSizeListVector listVector2 = createFixedSizeListVector(11)) {
       VectorValueComparator<FixedSizeListVector> comparator =
           DefaultVectorComparators.createDefaultComparator(listVector1);
       comparator.attachVectors(listVector1, listVector2);
@@ -195,7 +191,7 @@ public class TestDefaultVectorComparator {
     }
 
     try (FixedSizeListVector listVector1 = createFixedSizeListVector(11);
-         FixedSizeListVector listVector2 = createFixedSizeListVector(11)) {
+        FixedSizeListVector listVector2 = createFixedSizeListVector(11)) {
       ((IntVector) listVector2.getDataVector()).set(10, 110);
 
       VectorValueComparator<FixedSizeListVector> comparator =
@@ -207,7 +203,7 @@ public class TestDefaultVectorComparator {
     }
 
     try (FixedSizeListVector listVector1 = createFixedSizeListVector(10);
-         FixedSizeListVector listVector2 = createFixedSizeListVector(10)) {
+        FixedSizeListVector listVector2 = createFixedSizeListVector(10)) {
 
       VectorValueComparator<FixedSizeListVector> comparator =
           DefaultVectorComparators.createDefaultComparator(listVector1);
@@ -236,7 +232,7 @@ public class TestDefaultVectorComparator {
       vec.set(9, Byte.MIN_VALUE);
 
       VectorValueComparator<UInt1Vector> comparator =
-              DefaultVectorComparators.createDefaultComparator(vec);
+          DefaultVectorComparators.createDefaultComparator(vec);
       comparator.attachVector(vec);
 
       assertTrue(comparator.compare(0, 1) < 0);
@@ -259,14 +255,21 @@ public class TestDefaultVectorComparator {
       vec.allocateNew(10);
 
       ValueVectorDataPopulator.setVector(
-          vec, null, (char) (Character.MAX_VALUE - 1), Character.MAX_VALUE, (char) 0, (char) 1,
-          (char) 2, (char) (Character.MAX_VALUE - 1), null,
+          vec,
+          null,
+          (char) (Character.MAX_VALUE - 1),
+          Character.MAX_VALUE,
+          (char) 0,
+          (char) 1,
+          (char) 2,
+          (char) (Character.MAX_VALUE - 1),
+          null,
           '\u7FFF', // value for the max 16-byte signed integer
           '\u8000' // value for the min 16-byte signed integer
-      );
+          );
 
       VectorValueComparator<UInt2Vector> comparator =
-              DefaultVectorComparators.createDefaultComparator(vec);
+          DefaultVectorComparators.createDefaultComparator(vec);
       comparator.attachVector(vec);
 
       assertTrue(comparator.compare(0, 1) < 0);
@@ -274,8 +277,8 @@ public class TestDefaultVectorComparator {
       assertTrue(comparator.compare(1, 3) > 0);
       assertTrue(comparator.compare(2, 5) > 0);
       assertTrue(comparator.compare(4, 5) < 0);
-      Assertions.assertEquals(0, comparator.compare(1, 6));
-      Assertions.assertEquals(0, comparator.compare(0, 7));
+      assertEquals(0, comparator.compare(1, 6));
+      assertEquals(0, comparator.compare(0, 7));
       assertTrue(comparator.compare(8, 9) < 0);
       assertTrue(comparator.compare(4, 8) < 0);
       assertTrue(comparator.compare(5, 9) < 0);
@@ -301,7 +304,7 @@ public class TestDefaultVectorComparator {
       vec.set(9, Integer.MIN_VALUE);
 
       VectorValueComparator<UInt4Vector> comparator =
-              DefaultVectorComparators.createDefaultComparator(vec);
+          DefaultVectorComparators.createDefaultComparator(vec);
       comparator.attachVector(vec);
 
       assertTrue(comparator.compare(0, 1) < 0);
@@ -336,7 +339,7 @@ public class TestDefaultVectorComparator {
       vec.set(9, Long.MIN_VALUE);
 
       VectorValueComparator<UInt8Vector> comparator =
-              DefaultVectorComparators.createDefaultComparator(vec);
+          DefaultVectorComparators.createDefaultComparator(vec);
       comparator.attachVector(vec);
 
       assertTrue(comparator.compare(0, 1) < 0);
@@ -358,7 +361,16 @@ public class TestDefaultVectorComparator {
     try (Float4Vector vec = new Float4Vector("", allocator)) {
       vec.allocateNew(9);
       ValueVectorDataPopulator.setVector(
-          vec, -1.1f, 0.0f, 1.0f, null, 1.0f, 2.0f, Float.NaN, Float.NaN, Float.POSITIVE_INFINITY,
+          vec,
+          -1.1f,
+          0.0f,
+          1.0f,
+          null,
+          1.0f,
+          2.0f,
+          Float.NaN,
+          Float.NaN,
+          Float.POSITIVE_INFINITY,
           Float.NEGATIVE_INFINITY);
 
       VectorValueComparator<Float4Vector> comparator =
@@ -393,7 +405,16 @@ public class TestDefaultVectorComparator {
     try (Float8Vector vec = new Float8Vector("", allocator)) {
       vec.allocateNew(9);
       ValueVectorDataPopulator.setVector(
-          vec, -1.1, 0.0, 1.0, null, 1.0, 2.0, Double.NaN, Double.NaN, Double.POSITIVE_INFINITY,
+          vec,
+          -1.1,
+          0.0,
+          1.0,
+          null,
+          1.0,
+          2.0,
+          Double.NaN,
+          Double.NaN,
+          Double.POSITIVE_INFINITY,
           Double.NEGATIVE_INFINITY);
 
       VectorValueComparator<Float8Vector> comparator =
@@ -488,8 +509,15 @@ public class TestDefaultVectorComparator {
     try (SmallIntVector vec = new SmallIntVector("", allocator)) {
       vec.allocateNew(8);
       ValueVectorDataPopulator.setVector(
-          vec, (short) -1, (short) 0, (short) 1, null, (short) 1, (short) 5,
-          (short) (Short.MIN_VALUE + 1), Short.MAX_VALUE);
+          vec,
+          (short) -1,
+          (short) 0,
+          (short) 1,
+          null,
+          (short) 1,
+          (short) 5,
+          (short) (Short.MIN_VALUE + 1),
+          Short.MAX_VALUE);
 
       VectorValueComparator<SmallIntVector> comparator =
           DefaultVectorComparators.createDefaultComparator(vec);
@@ -519,8 +547,15 @@ public class TestDefaultVectorComparator {
     try (TinyIntVector vec = new TinyIntVector("", allocator)) {
       vec.allocateNew(8);
       ValueVectorDataPopulator.setVector(
-          vec, (byte) -1, (byte) 0, (byte) 1, null, (byte) 1, (byte) 5,
-          (byte) (Byte.MIN_VALUE + 1), Byte.MAX_VALUE);
+          vec,
+          (byte) -1,
+          (byte) 0,
+          (byte) 1,
+          null,
+          (byte) 1,
+          (byte) 5,
+          (byte) (Byte.MIN_VALUE + 1),
+          Byte.MAX_VALUE);
 
       VectorValueComparator<TinyIntVector> comparator =
           DefaultVectorComparators.createDefaultComparator(vec);
@@ -549,8 +584,7 @@ public class TestDefaultVectorComparator {
   public void testCompareBit() {
     try (BitVector vec = new BitVector("", allocator)) {
       vec.allocateNew(6);
-      ValueVectorDataPopulator.setVector(
-          vec, 1, 2, 0, 0, -1, null);
+      ValueVectorDataPopulator.setVector(vec, 1, 2, 0, 0, -1, null);
 
       VectorValueComparator<BitVector> comparator =
           DefaultVectorComparators.createDefaultComparator(vec);
@@ -691,7 +725,8 @@ public class TestDefaultVectorComparator {
   @Test
   public void testCompareDuration() {
     try (DurationVector vec =
-             new DurationVector("", FieldType.nullable(new ArrowType.Duration(TimeUnit.MILLISECOND)), allocator)) {
+        new DurationVector(
+            "", FieldType.nullable(new ArrowType.Duration(TimeUnit.MILLISECOND)), allocator)) {
       vec.allocateNew(8);
       ValueVectorDataPopulator.setVector(
           vec, -1L, 0L, 1L, null, 1L, 5L, Long.MIN_VALUE + 1L, Long.MAX_VALUE);
@@ -722,7 +757,8 @@ public class TestDefaultVectorComparator {
   @Test
   public void testCompareIntervalDay() {
     try (IntervalDayVector vec =
-             new IntervalDayVector("", FieldType.nullable(new ArrowType.Duration(TimeUnit.MILLISECOND)), allocator)) {
+        new IntervalDayVector(
+            "", FieldType.nullable(new ArrowType.Duration(TimeUnit.MILLISECOND)), allocator)) {
       vec.allocateNew(8);
       vec.set(0, -1, 0);
       vec.set(1, 0, 0);
@@ -755,8 +791,7 @@ public class TestDefaultVectorComparator {
 
   @Test
   public void testCompareTimeMicro() {
-    try (TimeMicroVector vec =
-             new TimeMicroVector("", allocator)) {
+    try (TimeMicroVector vec = new TimeMicroVector("", allocator)) {
       vec.allocateNew(8);
       ValueVectorDataPopulator.setVector(
           vec, -1L, 0L, 1L, null, 1L, 5L, Long.MIN_VALUE + 1L, Long.MAX_VALUE);
@@ -816,8 +851,7 @@ public class TestDefaultVectorComparator {
 
   @Test
   public void testCompareTimeNano() {
-    try (TimeNanoVector vec =
-             new TimeNanoVector("", allocator)) {
+    try (TimeNanoVector vec = new TimeNanoVector("", allocator)) {
       vec.allocateNew(8);
       ValueVectorDataPopulator.setVector(
           vec, -1L, 0L, 1L, null, 1L, 5L, Long.MIN_VALUE + 1L, Long.MAX_VALUE);
@@ -877,8 +911,7 @@ public class TestDefaultVectorComparator {
 
   @Test
   public void testCompareTimeStamp() {
-    try (TimeStampMilliVector vec =
-             new TimeStampMilliVector("", allocator)) {
+    try (TimeStampMilliVector vec = new TimeStampMilliVector("", allocator)) {
       vec.allocateNew(8);
       ValueVectorDataPopulator.setVector(
           vec, -1L, 0L, 1L, null, 1L, 5L, Long.MIN_VALUE + 1L, Long.MAX_VALUE);
@@ -909,7 +942,7 @@ public class TestDefaultVectorComparator {
   @Test
   public void testCompareFixedSizeBinary() {
     try (FixedSizeBinaryVector vector1 = new FixedSizeBinaryVector("test1", allocator, 2);
-         FixedSizeBinaryVector vector2 = new FixedSizeBinaryVector("test1", allocator, 3)) {
+        FixedSizeBinaryVector vector2 = new FixedSizeBinaryVector("test1", allocator, 3)) {
       vector1.allocateNew();
       vector2.allocateNew();
       vector1.set(0, new byte[] {1, 1});
@@ -923,7 +956,7 @@ public class TestDefaultVectorComparator {
     }
 
     try (FixedSizeBinaryVector vector1 = new FixedSizeBinaryVector("test1", allocator, 3);
-         FixedSizeBinaryVector vector2 = new FixedSizeBinaryVector("test1", allocator, 3)) {
+        FixedSizeBinaryVector vector2 = new FixedSizeBinaryVector("test1", allocator, 3)) {
       vector1.allocateNew();
       vector2.allocateNew();
       vector1.set(0, new byte[] {1, 1, 0});
@@ -937,7 +970,7 @@ public class TestDefaultVectorComparator {
     }
 
     try (FixedSizeBinaryVector vector1 = new FixedSizeBinaryVector("test1", allocator, 3);
-         FixedSizeBinaryVector vector2 = new FixedSizeBinaryVector("test1", allocator, 3)) {
+        FixedSizeBinaryVector vector2 = new FixedSizeBinaryVector("test1", allocator, 3)) {
       vector1.allocateNew();
       vector2.allocateNew();
       vector1.set(0, new byte[] {1, 1, 1});
@@ -953,8 +986,8 @@ public class TestDefaultVectorComparator {
 
   @Test
   public void testCompareNull() {
-    try (NullVector vec = new NullVector("test",
-        FieldType.notNullable(new ArrowType.Int(32, false)))) {
+    try (NullVector vec =
+        new NullVector("test", FieldType.notNullable(new ArrowType.Int(32, false)))) {
       vec.setValueCount(2);
 
       VectorValueComparator<NullVector> comparator =
@@ -967,12 +1000,14 @@ public class TestDefaultVectorComparator {
 
   @Test
   public void testCheckNullsOnCompareIsFalseForNonNullableVector() {
-    try (IntVector vec = new IntVector("not nullable",
-            FieldType.notNullable(new ArrowType.Int(32, false)), allocator)) {
+    try (IntVector vec =
+        new IntVector(
+            "not nullable", FieldType.notNullable(new ArrowType.Int(32, false)), allocator)) {
 
       ValueVectorDataPopulator.setVector(vec, 1, 2, 3, 4);
 
-      final VectorValueComparator<IntVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
+      final VectorValueComparator<IntVector> comparator =
+          DefaultVectorComparators.createDefaultComparator(vec);
       comparator.attachVector(vec);
 
       assertFalse(comparator.checkNullsOnCompare());
@@ -981,16 +1016,17 @@ public class TestDefaultVectorComparator {
 
   @Test
   public void testCheckNullsOnCompareIsTrueForNullableVector() {
-    try (IntVector vec = new IntVector("nullable", FieldType.nullable(
-            new ArrowType.Int(32, false)), allocator);
-         IntVector vec2 = new IntVector("not-nullable", FieldType.notNullable(
-                 new ArrowType.Int(32, false)), allocator)
-    ) {
+    try (IntVector vec =
+            new IntVector("nullable", FieldType.nullable(new ArrowType.Int(32, false)), allocator);
+        IntVector vec2 =
+            new IntVector(
+                "not-nullable", FieldType.notNullable(new ArrowType.Int(32, false)), allocator)) {
 
       ValueVectorDataPopulator.setVector(vec, 1, null, 3, 4);
       ValueVectorDataPopulator.setVector(vec2, 1, 2, 3, 4);
 
-      final VectorValueComparator<IntVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
+      final VectorValueComparator<IntVector> comparator =
+          DefaultVectorComparators.createDefaultComparator(vec);
       comparator.attachVector(vec);
       assertTrue(comparator.checkNullsOnCompare());
 
@@ -1001,17 +1037,18 @@ public class TestDefaultVectorComparator {
 
   @Test
   public void testCheckNullsOnCompareIsFalseWithNoNulls() {
-    try (IntVector vec = new IntVector("nullable", FieldType.nullable(
-            new ArrowType.Int(32, false)), allocator);
-         IntVector vec2 = new IntVector("also-nullable", FieldType.nullable(
-                 new ArrowType.Int(32, false)), allocator)
-    ) {
+    try (IntVector vec =
+            new IntVector("nullable", FieldType.nullable(new ArrowType.Int(32, false)), allocator);
+        IntVector vec2 =
+            new IntVector(
+                "also-nullable", FieldType.nullable(new ArrowType.Int(32, false)), allocator)) {
 
       // no null values
       ValueVectorDataPopulator.setVector(vec, 1, 2, 3, 4);
       ValueVectorDataPopulator.setVector(vec2, 1, 2, 3, 4);
 
-      final VectorValueComparator<IntVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
+      final VectorValueComparator<IntVector> comparator =
+          DefaultVectorComparators.createDefaultComparator(vec);
       comparator.attachVector(vec);
       assertFalse(comparator.checkNullsOnCompare());
 
@@ -1022,13 +1059,14 @@ public class TestDefaultVectorComparator {
 
   @Test
   public void testCheckNullsOnCompareIsTrueWithEmptyVectors() {
-    try (IntVector vec = new IntVector("nullable", FieldType.nullable(
-            new ArrowType.Int(32, false)), allocator);
-         IntVector vec2 = new IntVector("also-nullable", FieldType.nullable(
-                 new ArrowType.Int(32, false)), allocator)
-    ) {
+    try (IntVector vec =
+            new IntVector("nullable", FieldType.nullable(new ArrowType.Int(32, false)), allocator);
+        IntVector vec2 =
+            new IntVector(
+                "also-nullable", FieldType.nullable(new ArrowType.Int(32, false)), allocator)) {
 
-      final VectorValueComparator<IntVector> comparator = DefaultVectorComparators.createDefaultComparator(vec);
+      final VectorValueComparator<IntVector> comparator =
+          DefaultVectorComparators.createDefaultComparator(vec);
       comparator.attachVector(vec2);
       assertTrue(comparator.checkNullsOnCompare());
 

@@ -14,26 +14,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector;
 
 import static org.apache.arrow.vector.TestUtils.newVector;
-import static org.junit.Assert.*;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Period;
 import java.util.Objects;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.types.Types.MinorType;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /*
  * Tested field types:
@@ -60,12 +59,12 @@ public class TestCopyFrom {
 
   private BufferAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void init() {
     allocator = new RootAllocator(Long.MAX_VALUE);
   }
 
-  @After
+  @AfterEach
   public void terminate() throws Exception {
     allocator.close();
   }
@@ -100,9 +99,9 @@ public class TestCopyFrom {
           assertNull(vector.getObject(i));
         } else {
           assertEquals(
-              "unexpected value at index: " + i,
               Integer.toString(i),
-              vector.getObject(i).toString());
+              vector.getObject(i).toString(),
+              "unexpected value at index: " + i);
         }
       }
 
@@ -117,9 +116,9 @@ public class TestCopyFrom {
           assertNull(vector2.getObject(i));
         } else {
           assertEquals(
-              "unexpected value at index: " + i,
               Integer.toString(i),
-              vector2.getObject(i).toString());
+              vector2.getObject(i).toString(),
+              "unexpected value at index: " + i);
         }
       }
 
@@ -134,9 +133,9 @@ public class TestCopyFrom {
           assertNull(vector2.getObject(i));
         } else {
           assertEquals(
-              "unexpected value at index: " + i,
               Integer.toString(i),
-              vector2.getObject(i).toString());
+              vector2.getObject(i).toString(),
+              "unexpected value at index: " + i);
         }
       }
     }
@@ -172,9 +171,9 @@ public class TestCopyFrom {
           assertNull(vector.getObject(i));
         } else {
           assertEquals(
-              "unexpected value at index: " + i,
               Integer.toString(i),
-              vector.getObject(i).toString());
+              vector.getObject(i).toString(),
+              "unexpected value at index: " + i);
         }
       }
 
@@ -193,9 +192,9 @@ public class TestCopyFrom {
           assertNull(vector2.getObject(i));
         } else {
           assertEquals(
-              "unexpected value at index: " + i,
               Integer.toString(i),
-              vector2.getObject(i).toString());
+              vector2.getObject(i).toString(),
+              "unexpected value at index: " + i);
         }
       }
 
@@ -210,9 +209,9 @@ public class TestCopyFrom {
           assertNull(vector2.getObject(i));
         } else {
           assertEquals(
-              "unexpected value at index: " + i,
               Integer.toString(i),
-              vector2.getObject(i).toString());
+              vector2.getObject(i).toString(),
+              "unexpected value at index: " + i);
         }
       }
     }
@@ -247,7 +246,7 @@ public class TestCopyFrom {
         if ((i & 1) == 0) {
           assertNull(vector1.getObject(i));
         } else {
-          assertEquals("unexpected value at index: " + i, 1000 + i, vector1.get(i));
+          assertEquals(1000 + i, vector1.get(i), "unexpected value at index: " + i);
         }
       }
 
@@ -274,7 +273,7 @@ public class TestCopyFrom {
         if (((i & 1) == 0) || (i >= initialCapacity)) {
           assertNull(vector2.getObject(i));
         } else {
-          assertEquals("unexpected value at index: " + i, 1000 + i, vector2.get(i));
+          assertEquals(1000 + i, vector2.get(i), "unexpected value at index: " + i);
         }
       }
     }
@@ -309,7 +308,7 @@ public class TestCopyFrom {
         if ((i & 1) == 0) {
           assertNull(vector1.getObject(i));
         } else {
-          assertEquals("unexpected value at index: " + i, 10000000000L + (long) i, vector1.get(i));
+          assertEquals(10000000000L + (long) i, vector1.get(i), "unexpected value at index: " + i);
         }
       }
 
@@ -336,7 +335,7 @@ public class TestCopyFrom {
         if (((i & 1) == 0) || (i >= initialCapacity)) {
           assertNull(vector2.getObject(i));
         } else {
-          assertEquals("unexpected value at index: " + i, 10000000000L + (long) i, vector2.get(i));
+          assertEquals(10000000000L + (long) i, vector2.get(i), "unexpected value at index: " + i);
         }
       }
     }
@@ -450,7 +449,7 @@ public class TestCopyFrom {
         if ((i & 1) == 0) {
           assertNull(vector1.getObject(i));
         } else {
-          assertEquals("unexpected value at index: " + i, 100.25f + (float) i, vector1.get(i), 0);
+          assertEquals(100.25f + (float) i, vector1.get(i), 0, "unexpected value at index: " + i);
         }
       }
 
@@ -477,7 +476,7 @@ public class TestCopyFrom {
         if (((i & 1) == 0) || (i >= initialCapacity)) {
           assertNull(vector2.getObject(i));
         } else {
-          assertEquals("unexpected value at index: " + i, 100.25f + i * 1.0f, vector2.get(i), 0);
+          assertEquals(100.25f + i * 1.0f, vector2.get(i), 0, "unexpected value at index: " + i);
         }
       }
     }
@@ -513,7 +512,7 @@ public class TestCopyFrom {
           assertNull(vector1.getObject(i));
         } else {
           assertEquals(
-              "unexpected value at index: " + i, 123456.7865 + (double) i, vector1.get(i), 0);
+              123456.7865 + (double) i, vector1.get(i), 0, "unexpected value at index: " + i);
         }
       }
 
@@ -541,7 +540,7 @@ public class TestCopyFrom {
           assertNull(vector2.getObject(i));
         } else {
           assertEquals(
-              "unexpected value at index: " + i, 123456.7865 + (double) i, vector2.get(i), 0);
+              123456.7865 + (double) i, vector2.get(i), 0, "unexpected value at index: " + i);
         }
       }
     }
@@ -715,7 +714,7 @@ public class TestCopyFrom {
         if ((i & 1) == 0) {
           assertNull(vector1.getObject(i));
         } else {
-          assertEquals("unexpected value at index: " + i, val + (short) i, vector1.get(i));
+          assertEquals(val + (short) i, vector1.get(i), "unexpected value at index: " + i);
         }
       }
 
@@ -742,7 +741,7 @@ public class TestCopyFrom {
         if (((i & 1) == 0) || (i >= initialCapacity)) {
           assertNull(vector2.getObject(i));
         } else {
-          assertEquals("unexpected value at index: " + i, val + (short) i, vector2.get(i));
+          assertEquals(val + (short) i, vector2.get(i), "unexpected value at index: " + i);
         }
       }
     }
@@ -778,7 +777,7 @@ public class TestCopyFrom {
         if ((i & 1) == 0) {
           assertNull(vector1.getObject(i));
         } else {
-          assertEquals("unexpected value at index: " + i, val + (long) i, vector1.get(i));
+          assertEquals(val + (long) i, vector1.get(i), "unexpected value at index: " + i);
         }
       }
 
@@ -805,7 +804,7 @@ public class TestCopyFrom {
         if (((i & 1) == 0) || (i >= initialCapacity)) {
           assertNull(vector2.getObject(i));
         } else {
-          assertEquals("unexpected value at index: " + i, val + (long) i, vector2.get(i));
+          assertEquals(val + (long) i, vector2.get(i), "unexpected value at index: " + i);
         }
       }
     }
@@ -841,7 +840,7 @@ public class TestCopyFrom {
         if ((i & 1) == 0) {
           assertNull(vector1.getObject(i));
         } else {
-          assertEquals("unexpected value at index: " + i, val + i, vector1.get(i));
+          assertEquals(val + i, vector1.get(i), "unexpected value at index: " + i);
         }
       }
 
@@ -868,7 +867,7 @@ public class TestCopyFrom {
         if (((i & 1) == 0) || (i >= initialCapacity)) {
           assertNull(vector2.getObject(i));
         } else {
-          assertEquals("unexpected value at index: " + i, val + i, vector2.get(i));
+          assertEquals(val + i, vector2.get(i), "unexpected value at index: " + i);
         }
       }
     }
@@ -906,7 +905,7 @@ public class TestCopyFrom {
         if ((i & 1) == 0) {
           assertNull(vector1.getObject(i));
         } else {
-          assertEquals("unexpected value at index: " + i, val, vector1.get(i));
+          assertEquals(val, vector1.get(i), "unexpected value at index: " + i);
           val++;
         }
       }
@@ -934,7 +933,7 @@ public class TestCopyFrom {
         if (((i & 1) == 0) || (i >= initialCapacity)) {
           assertNull(vector2.getObject(i));
         } else {
-          assertEquals("unexpected value at index: " + i, val, vector2.get(i));
+          assertEquals(val, vector2.get(i), "unexpected value at index: " + i);
           val++;
         }
       }
@@ -1039,7 +1038,7 @@ public class TestCopyFrom {
         if ((i & 1) == 0) {
           assertNull(vector1.getObject(i));
         } else {
-          assertEquals("unexpected value at index: " + i, val + (long) i, vector1.get(i));
+          assertEquals(val + (long) i, vector1.get(i), "unexpected value at index: " + i);
         }
       }
 
@@ -1066,22 +1065,21 @@ public class TestCopyFrom {
         if (((i & 1) == 0) || (i >= initialCapacity)) {
           assertNull(vector2.getObject(i));
         } else {
-          assertEquals("unexpected value at index: " + i, val + (long) i, vector2.get(i));
+          assertEquals(val + (long) i, vector2.get(i), "unexpected value at index: " + i);
         }
       }
     }
   }
 
-  @Test //https://issues.apache.org/jira/browse/ARROW-7837
+  @Test // https://issues.apache.org/jira/browse/ARROW-7837
   public void testCopySafeArrow7837() {
     // this test exposes a bug in `handleSafe` where
     // it reads a stale index and as a result missed a required resize of the value vector.
     try (VarCharVector vc1 = new VarCharVector("vc1", allocator);
-         VarCharVector vc2 = new VarCharVector("vc2", allocator);
-    ) {
-      //initial size is carefully set in order to force the second 'copyFromSafe' operation
+        VarCharVector vc2 = new VarCharVector("vc2", allocator); ) {
+      // initial size is carefully set in order to force the second 'copyFromSafe' operation
       // to trigger a reallocation of the vector.
-      vc2.setInitialCapacity(/*valueCount*/20, /*density*/0.5);
+      vc2.setInitialCapacity(/*valueCount*/ 20, /*density*/ 0.5);
 
       vc1.setSafe(0, "1234567890".getBytes(StandardCharsets.UTF_8));
       assertFalse(vc1.isNull(0));
@@ -1100,6 +1098,4 @@ public class TestCopyFrom {
       assertEquals("1234567890", Objects.requireNonNull(vc2.getObject(5)).toString());
     }
   }
-
-
 }

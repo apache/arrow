@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc;
 
 import static java.lang.String.format;
@@ -30,6 +29,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableSet;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -45,7 +45,6 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
-
 import org.apache.arrow.driver.jdbc.utils.CoreMockedSqlProducers;
 import org.apache.arrow.driver.jdbc.utils.FallbackFlightSqlProducer;
 import org.apache.arrow.driver.jdbc.utils.PartitionedFlightSqlProducer;
@@ -72,17 +71,16 @@ import org.junit.Test;
 import org.junit.jupiter.api.Assertions;
 import org.junit.rules.ErrorCollector;
 
-import com.google.common.collect.ImmutableSet;
-
 public class ResultSetTest {
   private static final Random RANDOM = new Random(10);
+
   @ClassRule
-  public static final FlightServerTestRule SERVER_TEST_RULE = FlightServerTestRule
-      .createStandardTestRule(CoreMockedSqlProducers.getLegacyProducer());
+  public static final FlightServerTestRule SERVER_TEST_RULE =
+      FlightServerTestRule.createStandardTestRule(CoreMockedSqlProducers.getLegacyProducer());
+
   private static Connection connection;
 
-  @Rule
-  public final ErrorCollector collector = new ErrorCollector();
+  @Rule public final ErrorCollector collector = new ErrorCollector();
 
   @BeforeClass
   public static void setup() throws SQLException {
@@ -109,8 +107,8 @@ public class ResultSetTest {
   @Test
   public void testShouldRunSelectQuery() throws Exception {
     try (Statement statement = connection.createStatement();
-         ResultSet resultSet = statement.executeQuery(
-             CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
+        ResultSet resultSet =
+            statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
       CoreMockedSqlProducers.assertLegacyRegularSqlResultSet(resultSet, collector);
     }
   }
@@ -118,8 +116,8 @@ public class ResultSetTest {
   @Test
   public void testShouldExecuteQueryNotBlockIfClosedBeforeEnd() throws Exception {
     try (Statement statement = connection.createStatement();
-         ResultSet resultSet = statement.executeQuery(
-             CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
+        ResultSet resultSet =
+            statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
 
       for (int i = 0; i < 7500; i++) {
         assertTrue(resultSet.next());
@@ -128,16 +126,16 @@ public class ResultSetTest {
   }
 
   /**
-   * Tests whether the {@link ArrowFlightJdbcDriver} query only returns only the
-   * amount of value set by {@link org.apache.calcite.avatica.AvaticaStatement#setMaxRows(int)}.
+   * Tests whether the {@link ArrowFlightJdbcDriver} query only returns only the amount of value set
+   * by {@link org.apache.calcite.avatica.AvaticaStatement#setMaxRows(int)}.
    *
    * @throws Exception If the connection fails to be established.
    */
   @Test
   public void testShouldRunSelectQuerySettingMaxRowLimit() throws Exception {
     try (Statement statement = connection.createStatement();
-         ResultSet resultSet = statement.executeQuery(
-             CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
+        ResultSet resultSet =
+            statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
 
       final int maxRowsLimit = 3;
       statement.setMaxRows(maxRowsLimit);
@@ -158,8 +156,7 @@ public class ResultSetTest {
   }
 
   /**
-   * Tests whether the {@link ArrowFlightJdbcDriver} fails upon attempting
-   * to run an invalid query.
+   * Tests whether the {@link ArrowFlightJdbcDriver} fails upon attempting to run an invalid query.
    *
    * @throws Exception If the connection fails to be established.
    */
@@ -167,22 +164,22 @@ public class ResultSetTest {
   public void testShouldThrowExceptionUponAttemptingToExecuteAnInvalidSelectQuery()
       throws Exception {
     try (Statement statement = connection.createStatement();
-         ResultSet result = statement.executeQuery("SELECT * FROM SHOULD-FAIL")) {
+        ResultSet result = statement.executeQuery("SELECT * FROM SHOULD-FAIL")) {
       fail();
     }
   }
 
   /**
-   * Tests whether the {@link ArrowFlightJdbcDriver} query only returns only the
-   * amount of value set by {@link org.apache.calcite.avatica.AvaticaStatement#setLargeMaxRows(long)} (int)}.
+   * Tests whether the {@link ArrowFlightJdbcDriver} query only returns only the amount of value set
+   * by {@link org.apache.calcite.avatica.AvaticaStatement#setLargeMaxRows(long)} (int)}.
    *
    * @throws Exception If the connection fails to be established.
    */
   @Test
   public void testShouldRunSelectQuerySettingLargeMaxRowLimit() throws Exception {
     try (Statement statement = connection.createStatement();
-         ResultSet resultSet = statement.executeQuery(
-             CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
+        ResultSet resultSet =
+            statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
       final long maxRowsLimit = 3;
       statement.setLargeMaxRows(maxRowsLimit);
 
@@ -206,8 +203,8 @@ public class ResultSetTest {
       throws SQLException {
     final Set<Integer> counts = new HashSet<>();
     try (final Statement statement = connection.createStatement();
-         final ResultSet resultSet = statement.executeQuery(
-             CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
+        final ResultSet resultSet =
+            statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
       while (resultSet.next()) {
         counts.add(resultSet.getMetaData().getColumnCount());
       }
@@ -224,7 +221,8 @@ public class ResultSetTest {
   @Test
   public void testShouldCloseStatementWhenIsCloseOnCompletion() throws Exception {
     try (Statement statement = connection.createStatement();
-        ResultSet resultSet = statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
+        ResultSet resultSet =
+            statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
 
       statement.closeOnCompletion();
 
@@ -235,15 +233,17 @@ public class ResultSetTest {
   }
 
   /**
-   * Tests whether the {@link ArrowFlightJdbcDriver} close the statement after complete ResultSet with max rows limit
-   * when call {@link org.apache.calcite.avatica.AvaticaStatement#closeOnCompletion()}.
+   * Tests whether the {@link ArrowFlightJdbcDriver} close the statement after complete ResultSet
+   * with max rows limit when call {@link
+   * org.apache.calcite.avatica.AvaticaStatement#closeOnCompletion()}.
    *
    * @throws Exception If the connection fails to be established.
    */
   @Test
   public void testShouldCloseStatementWhenIsCloseOnCompletionWithMaxRowsLimit() throws Exception {
     try (Statement statement = connection.createStatement();
-         ResultSet resultSet = statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
+        ResultSet resultSet =
+            statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
 
       final long maxRowsLimit = 3;
       statement.setLargeMaxRows(maxRowsLimit);
@@ -256,8 +256,9 @@ public class ResultSetTest {
   }
 
   /**
-   * Tests whether the {@link ArrowFlightJdbcDriver} not close the statement after complete ResultSet with max rows
-   * limit when call {@link org.apache.calcite.avatica.AvaticaStatement#closeOnCompletion()}.
+   * Tests whether the {@link ArrowFlightJdbcDriver} not close the statement after complete
+   * ResultSet with max rows limit when call {@link
+   * org.apache.calcite.avatica.AvaticaStatement#closeOnCompletion()}.
    *
    * @throws Exception If the connection fails to be established.
    */
@@ -265,8 +266,8 @@ public class ResultSetTest {
   public void testShouldNotCloseStatementWhenIsNotCloseOnCompletionWithMaxRowsLimit()
       throws Exception {
     try (Statement statement = connection.createStatement();
-         ResultSet resultSet = statement.executeQuery(
-             CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
+        ResultSet resultSet =
+            statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
 
       final long maxRowsLimit = 3;
       statement.setLargeMaxRows(maxRowsLimit);
@@ -281,8 +282,8 @@ public class ResultSetTest {
   @Test
   public void testShouldCancelQueryUponCancelAfterQueryingResultSet() throws SQLException {
     try (final Statement statement = connection.createStatement();
-         final ResultSet resultSet = statement.executeQuery(
-             CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
+        final ResultSet resultSet =
+            statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
       final int column = RANDOM.nextInt(resultSet.getMetaData().getColumnCount()) + 1;
       collector.checkThat(resultSet.isClosed(), is(false));
       collector.checkThat(resultSet.next(), is(true));
@@ -301,20 +302,22 @@ public class ResultSetTest {
     try (final Statement statement = connection.createStatement()) {
       final CountDownLatch latch = new CountDownLatch(1);
       final Set<Exception> exceptions = synchronizedSet(new HashSet<>(1));
-      final Thread thread = new Thread(() -> {
-        try (final ResultSet resultSet = statement.executeQuery(
-            CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
-          final int cachedColumnCount = resultSet.getMetaData().getColumnCount();
-          Thread.sleep(300);
-          while (resultSet.next()) {
-            resultSet.getObject(RANDOM.nextInt(cachedColumnCount) + 1);
-          }
-        } catch (final SQLException | InterruptedException e) {
-          exceptions.add(e);
-        } finally {
-          latch.countDown();
-        }
-      });
+      final Thread thread =
+          new Thread(
+              () -> {
+                try (final ResultSet resultSet =
+                    statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
+                  final int cachedColumnCount = resultSet.getMetaData().getColumnCount();
+                  Thread.sleep(300);
+                  while (resultSet.next()) {
+                    resultSet.getObject(RANDOM.nextInt(cachedColumnCount) + 1);
+                  }
+                } catch (final SQLException | InterruptedException e) {
+                  exceptions.add(e);
+                } finally {
+                  latch.countDown();
+                }
+              });
       thread.setName("Test Case: interrupt query execution before first retrieval");
       thread.start();
       statement.cancel();
@@ -331,18 +334,21 @@ public class ResultSetTest {
   }
 
   @Test
-  public void testShouldInterruptFlightStreamsIfQueryIsCancelledMidProcessingForTimeConsumingQueries()
-      throws SQLException, InterruptedException {
+  public void
+      testShouldInterruptFlightStreamsIfQueryIsCancelledMidProcessingForTimeConsumingQueries()
+          throws SQLException, InterruptedException {
     final String query = CoreMockedSqlProducers.LEGACY_CANCELLATION_SQL_CMD;
     try (final Statement statement = connection.createStatement()) {
       final Set<Exception> exceptions = synchronizedSet(new HashSet<>(1));
-      final Thread thread = new Thread(() -> {
-        try (final ResultSet ignored = statement.executeQuery(query)) {
-          fail();
-        } catch (final SQLException e) {
-          exceptions.add(e);
-        }
-      });
+      final Thread thread =
+          new Thread(
+              () -> {
+                try (final ResultSet ignored = statement.executeQuery(query)) {
+                  fail();
+                } catch (final SQLException e) {
+                  exceptions.add(e);
+                }
+              });
       thread.setName("Test Case: interrupt query execution mid-process");
       thread.setPriority(Thread.MAX_PRIORITY);
       thread.start();
@@ -356,8 +362,10 @@ public class ResultSetTest {
               .reduce(StringBuilder::append)
               .orElseThrow(IllegalStateException::new)
               .toString(),
-          anyOf(is(format("Error while executing SQL \"%s\": Query canceled", query)),
-              allOf(containsString(format("Error while executing SQL \"%s\"", query)),
+          anyOf(
+              is(format("Error while executing SQL \"%s\": Query canceled", query)),
+              allOf(
+                  containsString(format("Error while executing SQL \"%s\"", query)),
                   anyOf(containsString("CANCELLED"), containsString("Cancelling")))));
     }
   }
@@ -375,14 +383,11 @@ public class ResultSetTest {
       } catch (final Exception e) {
         exceptions.add(e);
       }
-      final Throwable comparisonCause = exceptions.stream()
-          .findFirst()
-          .orElseThrow(RuntimeException::new)
-          .getCause()
-          .getCause();
-      collector.checkThat(comparisonCause,
-          is(instanceOf(SQLTimeoutException.class)));
-      collector.checkThat(comparisonCause.getMessage(),
+      final Throwable comparisonCause =
+          exceptions.stream().findFirst().orElseThrow(RuntimeException::new).getCause().getCause();
+      collector.checkThat(comparisonCause, is(instanceOf(SQLTimeoutException.class)));
+      collector.checkThat(
+          comparisonCause.getMessage(),
           is(format("Query timed out after %d %s", timeoutValue, timeoutUnit)));
     }
   }
@@ -402,8 +407,9 @@ public class ResultSetTest {
   @Test
   public void testPartitionedFlightServer() throws Exception {
     // Arrange
-    final Schema schema = new Schema(
-        Arrays.asList(Field.nullablePrimitive("int_column", new ArrowType.Int(32, true))));
+    final Schema schema =
+        new Schema(
+            Arrays.asList(Field.nullablePrimitive("int_column", new ArrowType.Int(32, true))));
     try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
         VectorSchemaRoot firstPartition = VectorSchemaRoot.create(schema, allocator);
         VectorSchemaRoot secondPartition = VectorSchemaRoot.create(schema, allocator)) {
@@ -413,48 +419,55 @@ public class ResultSetTest {
       ((IntVector) secondPartition.getVector(0)).set(0, 2);
 
       // Construct the data-only nodes first.
-      FlightProducer firstProducer = new PartitionedFlightSqlProducer.DataOnlyFlightSqlProducer(
-          new Ticket("first".getBytes(StandardCharsets.UTF_8)), firstPartition);
-      FlightProducer secondProducer = new PartitionedFlightSqlProducer.DataOnlyFlightSqlProducer(
-          new Ticket("second".getBytes(StandardCharsets.UTF_8)), secondPartition);
+      FlightProducer firstProducer =
+          new PartitionedFlightSqlProducer.DataOnlyFlightSqlProducer(
+              new Ticket("first".getBytes(StandardCharsets.UTF_8)), firstPartition);
+      FlightProducer secondProducer =
+          new PartitionedFlightSqlProducer.DataOnlyFlightSqlProducer(
+              new Ticket("second".getBytes(StandardCharsets.UTF_8)), secondPartition);
 
-      final FlightServer.Builder firstBuilder = FlightServer.builder(
-          allocator, forGrpcInsecure("localhost", 0), firstProducer);
+      final FlightServer.Builder firstBuilder =
+          FlightServer.builder(allocator, forGrpcInsecure("localhost", 0), firstProducer);
 
-      final FlightServer.Builder secondBuilder = FlightServer.builder(
-          allocator, forGrpcInsecure("localhost", 0), secondProducer);
+      final FlightServer.Builder secondBuilder =
+          FlightServer.builder(allocator, forGrpcInsecure("localhost", 0), secondProducer);
 
       // Run the data-only nodes so that we can get the Locations they are running at.
       try (FlightServer firstServer = firstBuilder.build();
-           FlightServer secondServer = secondBuilder.build()) {
+          FlightServer secondServer = secondBuilder.build()) {
         firstServer.start();
         secondServer.start();
         final FlightEndpoint firstEndpoint =
-            new FlightEndpoint(new Ticket("first".getBytes(StandardCharsets.UTF_8)), firstServer.getLocation());
+            new FlightEndpoint(
+                new Ticket("first".getBytes(StandardCharsets.UTF_8)), firstServer.getLocation());
 
         final FlightEndpoint secondEndpoint =
-            new FlightEndpoint(new Ticket("second".getBytes(StandardCharsets.UTF_8)), secondServer.getLocation());
+            new FlightEndpoint(
+                new Ticket("second".getBytes(StandardCharsets.UTF_8)), secondServer.getLocation());
 
         // Finally start the root node.
-        try (final PartitionedFlightSqlProducer rootProducer = new PartitionedFlightSqlProducer(
-            schema, firstEndpoint, secondEndpoint);
-             FlightServer rootServer = FlightServer.builder(
-                 allocator, forGrpcInsecure("localhost", 0), rootProducer)
-                 .build()
-                 .start();
-             Connection newConnection = DriverManager.getConnection(String.format(
-                 "jdbc:arrow-flight-sql://%s:%d/?useEncryption=false",
-                 rootServer.getLocation().getUri().getHost(), rootServer.getPort()));
-             Statement newStatement = newConnection.createStatement();
-             // Act
-             ResultSet result = newStatement.executeQuery("Select partitioned_data")) {
+        try (final PartitionedFlightSqlProducer rootProducer =
+                new PartitionedFlightSqlProducer(schema, firstEndpoint, secondEndpoint);
+            FlightServer rootServer =
+                FlightServer.builder(allocator, forGrpcInsecure("localhost", 0), rootProducer)
+                    .build()
+                    .start();
+            Connection newConnection =
+                DriverManager.getConnection(
+                    String.format(
+                        "jdbc:arrow-flight-sql://%s:%d/?useEncryption=false",
+                        rootServer.getLocation().getUri().getHost(), rootServer.getPort()));
+            Statement newStatement = newConnection.createStatement();
+            // Act
+            ResultSet result = newStatement.executeQuery("Select partitioned_data")) {
           List<Integer> resultData = new ArrayList<>();
           while (result.next()) {
             resultData.add(result.getInt(1));
           }
 
           // Assert
-          assertEquals(firstPartition.getRowCount() + secondPartition.getRowCount(), resultData.size());
+          assertEquals(
+              firstPartition.getRowCount() + secondPartition.getRowCount(), resultData.size());
           assertTrue(resultData.contains(((IntVector) firstPartition.getVector(0)).get(0)));
           assertTrue(resultData.contains(((IntVector) secondPartition.getVector(0)).get(0)));
         }
@@ -464,29 +477,36 @@ public class ResultSetTest {
 
   @Test
   public void testPartitionedFlightServerIgnoreFailure() throws Exception {
-    final Schema schema = new Schema(
-            Collections.singletonList(Field.nullablePrimitive("int_column", new ArrowType.Int(32, true))));
+    final Schema schema =
+        new Schema(
+            Collections.singletonList(
+                Field.nullablePrimitive("int_column", new ArrowType.Int(32, true))));
     try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
       final FlightEndpoint firstEndpoint =
-              new FlightEndpoint(new Ticket("first".getBytes(StandardCharsets.UTF_8)),
-                      Location.forGrpcInsecure("127.0.0.2", 1234),
-                      Location.forGrpcInsecure("127.0.0.3", 1234));
+          new FlightEndpoint(
+              new Ticket("first".getBytes(StandardCharsets.UTF_8)),
+              Location.forGrpcInsecure("127.0.0.2", 1234),
+              Location.forGrpcInsecure("127.0.0.3", 1234));
 
-      try (final PartitionedFlightSqlProducer rootProducer = new PartitionedFlightSqlProducer(
-              schema, firstEndpoint);
-           FlightServer rootServer = FlightServer.builder(
-                           allocator, forGrpcInsecure("localhost", 0), rootProducer)
-                   .build()
-                   .start();
-           Connection newConnection = DriverManager.getConnection(String.format(
-                   "jdbc:arrow-flight-sql://%s:%d/?useEncryption=false",
-                   rootServer.getLocation().getUri().getHost(), rootServer.getPort()));
-           Statement newStatement = newConnection.createStatement()) {
-        final SQLException e = Assertions.assertThrows(SQLException.class, () -> {
-          ResultSet result = newStatement.executeQuery("Select partitioned_data");
-          while (result.next()) {
-          }
-        });
+      try (final PartitionedFlightSqlProducer rootProducer =
+              new PartitionedFlightSqlProducer(schema, firstEndpoint);
+          FlightServer rootServer =
+              FlightServer.builder(allocator, forGrpcInsecure("localhost", 0), rootProducer)
+                  .build()
+                  .start();
+          Connection newConnection =
+              DriverManager.getConnection(
+                  String.format(
+                      "jdbc:arrow-flight-sql://%s:%d/?useEncryption=false",
+                      rootServer.getLocation().getUri().getHost(), rootServer.getPort()));
+          Statement newStatement = newConnection.createStatement()) {
+        final SQLException e =
+            Assertions.assertThrows(
+                SQLException.class,
+                () -> {
+                  ResultSet result = newStatement.executeQuery("Select partitioned_data");
+                  while (result.next()) {}
+                });
         final Throwable cause = e.getCause();
         Assertions.assertTrue(cause instanceof FlightRuntimeException);
         final FlightRuntimeException fre = (FlightRuntimeException) cause;
@@ -498,41 +518,48 @@ public class ResultSetTest {
   @Test
   public void testPartitionedFlightServerAllFailure() throws Exception {
     // Arrange
-    final Schema schema = new Schema(
-            Collections.singletonList(Field.nullablePrimitive("int_column", new ArrowType.Int(32, true))));
+    final Schema schema =
+        new Schema(
+            Collections.singletonList(
+                Field.nullablePrimitive("int_column", new ArrowType.Int(32, true))));
     try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-         VectorSchemaRoot firstPartition = VectorSchemaRoot.create(schema, allocator)) {
+        VectorSchemaRoot firstPartition = VectorSchemaRoot.create(schema, allocator)) {
       firstPartition.setRowCount(1);
       ((IntVector) firstPartition.getVector(0)).set(0, 1);
 
       // Construct the data-only nodes first.
-      FlightProducer firstProducer = new PartitionedFlightSqlProducer.DataOnlyFlightSqlProducer(
+      FlightProducer firstProducer =
+          new PartitionedFlightSqlProducer.DataOnlyFlightSqlProducer(
               new Ticket("first".getBytes(StandardCharsets.UTF_8)), firstPartition);
 
-      final FlightServer.Builder firstBuilder = FlightServer.builder(
-              allocator, forGrpcInsecure("localhost", 0), firstProducer);
+      final FlightServer.Builder firstBuilder =
+          FlightServer.builder(allocator, forGrpcInsecure("localhost", 0), firstProducer);
 
       // Run the data-only nodes so that we can get the Locations they are running at.
       try (FlightServer firstServer = firstBuilder.build()) {
         firstServer.start();
         final Location badLocation = Location.forGrpcInsecure("127.0.0.2", 1234);
         final FlightEndpoint firstEndpoint =
-                new FlightEndpoint(new Ticket("first".getBytes(StandardCharsets.UTF_8)),
-                        badLocation, firstServer.getLocation());
+            new FlightEndpoint(
+                new Ticket("first".getBytes(StandardCharsets.UTF_8)),
+                badLocation,
+                firstServer.getLocation());
 
         // Finally start the root node.
-        try (final PartitionedFlightSqlProducer rootProducer = new PartitionedFlightSqlProducer(
-                schema, firstEndpoint);
-             FlightServer rootServer = FlightServer.builder(
-                             allocator, forGrpcInsecure("localhost", 0), rootProducer)
-                     .build()
-                     .start();
-             Connection newConnection = DriverManager.getConnection(String.format(
-                     "jdbc:arrow-flight-sql://%s:%d/?useEncryption=false",
-                     rootServer.getLocation().getUri().getHost(), rootServer.getPort()));
-             Statement newStatement = newConnection.createStatement();
-             // Act
-             ResultSet result = newStatement.executeQuery("Select partitioned_data")) {
+        try (final PartitionedFlightSqlProducer rootProducer =
+                new PartitionedFlightSqlProducer(schema, firstEndpoint);
+            FlightServer rootServer =
+                FlightServer.builder(allocator, forGrpcInsecure("localhost", 0), rootProducer)
+                    .build()
+                    .start();
+            Connection newConnection =
+                DriverManager.getConnection(
+                    String.format(
+                        "jdbc:arrow-flight-sql://%s:%d/?useEncryption=false",
+                        rootServer.getLocation().getUri().getHost(), rootServer.getPort()));
+            Statement newStatement = newConnection.createStatement();
+            // Act
+            ResultSet result = newStatement.executeQuery("Select partitioned_data")) {
           List<Integer> resultData = new ArrayList<>();
           while (result.next()) {
             resultData.add(result.getInt(1));
@@ -548,23 +575,27 @@ public class ResultSetTest {
 
   @Test
   public void testFallbackFlightServer() throws Exception {
-    final Schema schema = new Schema(
+    final Schema schema =
+        new Schema(
             Collections.singletonList(Field.nullable("int_column", Types.MinorType.INT.getType())));
     try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-         VectorSchemaRoot resultData = VectorSchemaRoot.create(schema, allocator)) {
+        VectorSchemaRoot resultData = VectorSchemaRoot.create(schema, allocator)) {
       resultData.setRowCount(1);
       ((IntVector) resultData.getVector(0)).set(0, 1);
 
-      try (final FallbackFlightSqlProducer rootProducer = new FallbackFlightSqlProducer(resultData);
-           FlightServer rootServer = FlightServer.builder(
-                           allocator, forGrpcInsecure("localhost", 0), rootProducer)
-                   .build()
-                   .start();
-           Connection newConnection = DriverManager.getConnection(String.format(
-                   "jdbc:arrow-flight-sql://%s:%d/?useEncryption=false",
-                   rootServer.getLocation().getUri().getHost(), rootServer.getPort()));
-           Statement newStatement = newConnection.createStatement();
-           ResultSet result = newStatement.executeQuery("fallback")) {
+      try (final FallbackFlightSqlProducer rootProducer =
+              new FallbackFlightSqlProducer(resultData);
+          FlightServer rootServer =
+              FlightServer.builder(allocator, forGrpcInsecure("localhost", 0), rootProducer)
+                  .build()
+                  .start();
+          Connection newConnection =
+              DriverManager.getConnection(
+                  String.format(
+                      "jdbc:arrow-flight-sql://%s:%d/?useEncryption=false",
+                      rootServer.getLocation().getUri().getHost(), rootServer.getPort()));
+          Statement newStatement = newConnection.createStatement();
+          ResultSet result = newStatement.executeQuery("fallback")) {
         List<Integer> actualData = new ArrayList<>();
         while (result.next()) {
           actualData.add(result.getInt(1));
@@ -579,23 +610,27 @@ public class ResultSetTest {
 
   @Test
   public void testFallbackSecondFlightServer() throws Exception {
-    final Schema schema = new Schema(
+    final Schema schema =
+        new Schema(
             Collections.singletonList(Field.nullable("int_column", Types.MinorType.INT.getType())));
     try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-         VectorSchemaRoot resultData = VectorSchemaRoot.create(schema, allocator)) {
+        VectorSchemaRoot resultData = VectorSchemaRoot.create(schema, allocator)) {
       resultData.setRowCount(1);
       ((IntVector) resultData.getVector(0)).set(0, 1);
 
-      try (final FallbackFlightSqlProducer rootProducer = new FallbackFlightSqlProducer(resultData);
-           FlightServer rootServer = FlightServer.builder(
-                           allocator, forGrpcInsecure("localhost", 0), rootProducer)
-                   .build()
-                   .start();
-           Connection newConnection = DriverManager.getConnection(String.format(
-                   "jdbc:arrow-flight-sql://%s:%d/?useEncryption=false",
-                   rootServer.getLocation().getUri().getHost(), rootServer.getPort()));
-           Statement newStatement = newConnection.createStatement();
-           ResultSet result = newStatement.executeQuery("fallback with error")) {
+      try (final FallbackFlightSqlProducer rootProducer =
+              new FallbackFlightSqlProducer(resultData);
+          FlightServer rootServer =
+              FlightServer.builder(allocator, forGrpcInsecure("localhost", 0), rootProducer)
+                  .build()
+                  .start();
+          Connection newConnection =
+              DriverManager.getConnection(
+                  String.format(
+                      "jdbc:arrow-flight-sql://%s:%d/?useEncryption=false",
+                      rootServer.getLocation().getUri().getHost(), rootServer.getPort()));
+          Statement newStatement = newConnection.createStatement();
+          ResultSet result = newStatement.executeQuery("fallback with error")) {
         List<Integer> actualData = new ArrayList<>();
         while (result.next()) {
           actualData.add(result.getInt(1));
@@ -611,8 +646,8 @@ public class ResultSetTest {
   @Test
   public void testShouldRunSelectQueryWithEmptyVectorsEmbedded() throws Exception {
     try (Statement statement = connection.createStatement();
-         ResultSet resultSet = statement.executeQuery(
-             CoreMockedSqlProducers.LEGACY_REGULAR_WITH_EMPTY_SQL_CMD)) {
+        ResultSet resultSet =
+            statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_WITH_EMPTY_SQL_CMD)) {
       long rowCount = 0;
       while (resultSet.next()) {
         ++rowCount;
@@ -624,10 +659,11 @@ public class ResultSetTest {
   @Test
   public void testResultSetAppMetadata() throws Exception {
     try (Statement statement = connection.createStatement();
-         ResultSet resultSet = statement.executeQuery(
-             CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
-      assertArrayEquals(((ArrowFlightJdbcFlightStreamResultSet) resultSet).getAppMetadata(),
-              "foo".getBytes(StandardCharsets.UTF_8));
+        ResultSet resultSet =
+            statement.executeQuery(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD)) {
+      assertArrayEquals(
+          ((ArrowFlightJdbcFlightStreamResultSet) resultSet).getAppMetadata(),
+          "foo".getBytes(StandardCharsets.UTF_8));
     }
   }
 }

@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc;
 
 import static org.hamcrest.CoreMatchers.allOf;
@@ -32,7 +31,6 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-
 import org.apache.arrow.driver.jdbc.utils.MockFlightSqlProducer;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -52,9 +50,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
 
-/**
- * Tests for {@link ArrowFlightStatement#execute}.
- */
+/** Tests for {@link ArrowFlightStatement#execute}. */
 public class ArrowFlightStatementExecuteTest {
   private static final String SAMPLE_QUERY_CMD = "SELECT * FROM this_test";
   private static final int SAMPLE_QUERY_ROWS = Byte.MAX_VALUE;
@@ -68,11 +64,12 @@ public class ArrowFlightStatementExecuteTest {
       "UPDATE this_large_table SET this_large_field = that_large_field FROM this_large_test WHERE this_large_condition";
   private static final long SAMPLE_LARGE_UPDATE_COUNT = Long.MAX_VALUE;
   private static final MockFlightSqlProducer PRODUCER = new MockFlightSqlProducer();
-  @ClassRule
-  public static final FlightServerTestRule SERVER_TEST_RULE = FlightServerTestRule.createStandardTestRule(PRODUCER);
 
-  @Rule
-  public final ErrorCollector collector = new ErrorCollector();
+  @ClassRule
+  public static final FlightServerTestRule SERVER_TEST_RULE =
+      FlightServerTestRule.createStandardTestRule(PRODUCER);
+
+  @Rule public final ErrorCollector collector = new ErrorCollector();
   private Connection connection;
   private Statement statement;
 
@@ -81,22 +78,24 @@ public class ArrowFlightStatementExecuteTest {
     PRODUCER.addSelectQuery(
         SAMPLE_QUERY_CMD,
         SAMPLE_QUERY_SCHEMA,
-        Collections.singletonList(listener -> {
-          try (final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-               final VectorSchemaRoot root = VectorSchemaRoot.create(SAMPLE_QUERY_SCHEMA,
-                   allocator)) {
-            final UInt1Vector vector = (UInt1Vector) root.getVector(VECTOR_NAME);
-            IntStream.range(0, SAMPLE_QUERY_ROWS).forEach(index -> vector.setSafe(index, index));
-            vector.setValueCount(SAMPLE_QUERY_ROWS);
-            root.setRowCount(SAMPLE_QUERY_ROWS);
-            listener.start(root);
-            listener.putNext();
-          } catch (final Throwable throwable) {
-            listener.error(throwable);
-          } finally {
-            listener.completed();
-          }
-        }));
+        Collections.singletonList(
+            listener -> {
+              try (final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+                  final VectorSchemaRoot root =
+                      VectorSchemaRoot.create(SAMPLE_QUERY_SCHEMA, allocator)) {
+                final UInt1Vector vector = (UInt1Vector) root.getVector(VECTOR_NAME);
+                IntStream.range(0, SAMPLE_QUERY_ROWS)
+                    .forEach(index -> vector.setSafe(index, index));
+                vector.setValueCount(SAMPLE_QUERY_ROWS);
+                root.setRowCount(SAMPLE_QUERY_ROWS);
+                listener.start(root);
+                listener.putNext();
+              } catch (final Throwable throwable) {
+                listener.error(throwable);
+              } finally {
+                listener.completed();
+              }
+            }));
     PRODUCER.addUpdateQuery(SAMPLE_UPDATE_QUERY, SAMPLE_UPDATE_COUNT);
     PRODUCER.addUpdateQuery(SAMPLE_LARGE_UPDATE_QUERY, SAMPLE_LARGE_UPDATE_COUNT);
   }
@@ -119,10 +118,11 @@ public class ArrowFlightStatementExecuteTest {
 
   @Test
   public void testExecuteShouldRunSelectQuery() throws SQLException {
-    collector.checkThat(statement.execute(SAMPLE_QUERY_CMD),
-        is(true)); // Means this is a SELECT query.
+    collector.checkThat(
+        statement.execute(SAMPLE_QUERY_CMD), is(true)); // Means this is a SELECT query.
     final Set<Byte> numbers =
-        IntStream.range(0, SAMPLE_QUERY_ROWS).boxed()
+        IntStream.range(0, SAMPLE_QUERY_ROWS)
+            .boxed()
             .map(Integer::byteValue)
             .collect(Collectors.toCollection(HashSet::new));
     try (final ResultSet resultSet = statement.getResultSet()) {
@@ -142,8 +142,8 @@ public class ArrowFlightStatementExecuteTest {
 
   @Test
   public void testExecuteShouldRunUpdateQueryForSmallUpdate() throws SQLException {
-    collector.checkThat(statement.execute(SAMPLE_UPDATE_QUERY),
-        is(false)); // Means this is an UPDATE query.
+    collector.checkThat(
+        statement.execute(SAMPLE_UPDATE_QUERY), is(false)); // Means this is an UPDATE query.
     collector.checkThat(
         (long) statement.getUpdateCount(),
         is(allOf(equalTo(statement.getLargeUpdateCount()), equalTo(SAMPLE_UPDATE_COUNT))));
@@ -158,8 +158,10 @@ public class ArrowFlightStatementExecuteTest {
     collector.checkThat(updateCountLarge, is(equalTo(SAMPLE_LARGE_UPDATE_COUNT)));
     collector.checkThat(
         updateCountSmall,
-        is(allOf(equalTo((long) AvaticaUtils.toSaturatedInt(updateCountLarge)),
-            not(equalTo(updateCountLarge)))));
+        is(
+            allOf(
+                equalTo((long) AvaticaUtils.toSaturatedInt(updateCountLarge)),
+                not(equalTo(updateCountLarge)))));
     collector.checkThat(statement.getResultSet(), is(nullValue()));
   }
 

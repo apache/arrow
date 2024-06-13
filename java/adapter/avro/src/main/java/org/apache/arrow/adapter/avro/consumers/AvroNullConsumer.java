@@ -14,17 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.avro.consumers;
 
 import java.io.IOException;
-
 import org.apache.arrow.vector.NullVector;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer which consume null type values from avro decoder.
- * Corresponding to {@link org.apache.arrow.vector.NullVector}.
+ * Consumer which consume null type values from avro decoder. Corresponding to {@link
+ * org.apache.arrow.vector.NullVector}.
  */
 public class AvroNullConsumer extends BaseAvroConsumer<NullVector> {
 

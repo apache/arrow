@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
 import java.io.File;
@@ -23,14 +22,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
-
 import org.apache.arrow.vector.test.util.ArrowTestDataUtil;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.function.Executable;
 
-/**
- * Utility methods and constants for testing flight servers.
- */
+/** Utility methods and constants for testing flight servers. */
 public class FlightTestUtil {
 
   public static final String LOCALHOST = "localhost";
@@ -47,9 +43,12 @@ public class FlightTestUtil {
     final Path root = getFlightTestDataRoot();
     final Path cert0Pem = root.resolve("cert0.pem");
     if (!Files.exists(cert0Pem)) {
-      throw new RuntimeException(cert0Pem + " doesn't exist. Make sure submodules are initialized (see https://arrow.apache.org/docs/dev/developers/java/building.html#building)");
+      throw new RuntimeException(
+          cert0Pem
+              + " doesn't exist. Make sure submodules are initialized (see https://arrow.apache.org/docs/dev/developers/java/building.html#building)");
     }
-    return Arrays.asList(new CertKeyPair(cert0Pem.toFile(), root.resolve("cert0.pkcs1").toFile()),
+    return Arrays.asList(
+        new CertKeyPair(cert0Pem.toFile(), root.resolve("cert0.pkcs1").toFile()),
         new CertKeyPair(root.resolve("cert1.pem").toFile(), root.resolve("cert1.pkcs1").toFile()));
   }
 
@@ -57,7 +56,10 @@ public class FlightTestUtil {
     try {
       Class<?> epoll = Class.forName("io.netty.channel.epoll.Epoll");
       return (Boolean) epoll.getMethod("isAvailable").invoke(null);
-    } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+    } catch (ClassNotFoundException
+        | NoSuchMethodException
+        | IllegalAccessException
+        | InvocationTargetException e) {
       return false;
     }
   }
@@ -66,7 +68,10 @@ public class FlightTestUtil {
     try {
       Class<?> kqueue = Class.forName("io.netty.channel.kqueue.KQueue");
       return (Boolean) kqueue.getMethod("isAvailable").invoke(null);
-    } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+    } catch (ClassNotFoundException
+        | NoSuchMethodException
+        | IllegalAccessException
+        | InvocationTargetException e) {
       return false;
     }
   }
@@ -77,6 +82,7 @@ public class FlightTestUtil {
 
   /**
    * Assert that the given runnable fails with a Flight exception of the given code.
+   *
    * @param code The expected Flight status code.
    * @param r The code to run.
    * @return The thrown status.
@@ -98,6 +104,5 @@ public class FlightTestUtil {
     }
   }
 
-  private FlightTestUtil() {
-  }
+  private FlightTestUtil() {}
 }

@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.sql.test;
 
 import static java.util.Arrays.asList;
@@ -25,9 +24,11 @@ import static org.apache.arrow.util.AutoCloseables.close;
 import static org.apache.arrow.vector.types.Types.MinorType.INT;
 import static org.hamcrest.CoreMatchers.is;
 
+import com.google.common.collect.ImmutableList;
+import com.google.protobuf.Any;
+import com.google.protobuf.Message;
 import java.util.Collections;
 import java.util.List;
-
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightClient;
 import org.apache.arrow.flight.FlightDescriptor;
@@ -57,23 +58,21 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import com.google.common.collect.ImmutableList;
-import com.google.protobuf.Any;
-import com.google.protobuf.Message;
-
 public class TestFlightSqlStreams {
 
   /**
-   * A limited {@link FlightSqlProducer} for testing GetTables, GetTableTypes, GetSqlInfo, and limited SQL commands.
+   * A limited {@link FlightSqlProducer} for testing GetTables, GetTableTypes, GetSqlInfo, and
+   * limited SQL commands.
    */
   private static class FlightSqlTestProducer extends BasicFlightSqlProducer {
 
-    // Note that for simplicity the getStream* implementations are blocking, but a proper FlightSqlProducer should
+    // Note that for simplicity the getStream* implementations are blocking, but a proper
+    // FlightSqlProducer should
     // have non-blocking implementations of getStream*.
 
     private static final String FIXED_QUERY = "SELECT 1 AS c1 FROM test_table";
-    private static final Schema FIXED_SCHEMA = new Schema(asList(
-        Field.nullable("c1", Types.MinorType.INT.getType())));
+    private static final Schema FIXED_SCHEMA =
+        new Schema(asList(Field.nullable("c1", Types.MinorType.INT.getType())));
 
     private BufferAllocator allocator;
 
@@ -82,39 +81,45 @@ public class TestFlightSqlStreams {
     }
 
     @Override
-    protected <T extends Message> List<FlightEndpoint> determineEndpoints(T request, FlightDescriptor flightDescriptor,
-                                                                          Schema schema) {
-      if (request instanceof FlightSql.CommandGetTables ||
-          request instanceof FlightSql.CommandGetTableTypes ||
-          request instanceof FlightSql.CommandGetXdbcTypeInfo ||
-          request instanceof FlightSql.CommandGetSqlInfo) {
-        return Collections.singletonList(new FlightEndpoint(new Ticket(Any.pack(request).toByteArray())));
-      } else if (request instanceof FlightSql.CommandStatementQuery &&
-          ((FlightSql.CommandStatementQuery) request).getQuery().equals(FIXED_QUERY)) {
+    protected <T extends Message> List<FlightEndpoint> determineEndpoints(
+        T request, FlightDescriptor flightDescriptor, Schema schema) {
+      if (request instanceof FlightSql.CommandGetTables
+          || request instanceof FlightSql.CommandGetTableTypes
+          || request instanceof FlightSql.CommandGetXdbcTypeInfo
+          || request instanceof FlightSql.CommandGetSqlInfo) {
+        return Collections.singletonList(
+            new FlightEndpoint(new Ticket(Any.pack(request).toByteArray())));
+      } else if (request instanceof FlightSql.CommandStatementQuery
+          && ((FlightSql.CommandStatementQuery) request).getQuery().equals(FIXED_QUERY)) {
 
-        // Tickets from CommandStatementQuery requests should be built using TicketStatementQuery then packed() into
-        // a ticket. The content of the statement handle is specific to the FlightSqlProducer. It does not need to
+        // Tickets from CommandStatementQuery requests should be built using TicketStatementQuery
+        // then packed() into
+        // a ticket. The content of the statement handle is specific to the FlightSqlProducer. It
+        // does not need to
         // be the query. It can be a query ID for example.
-        FlightSql.TicketStatementQuery ticketStatementQuery = FlightSql.TicketStatementQuery.newBuilder()
-            .setStatementHandle(((FlightSql.CommandStatementQuery) request).getQueryBytes())
-            .build();
-        return Collections.singletonList(new FlightEndpoint(new Ticket(Any.pack(ticketStatementQuery).toByteArray())));
+        FlightSql.TicketStatementQuery ticketStatementQuery =
+            FlightSql.TicketStatementQuery.newBuilder()
+                .setStatementHandle(((FlightSql.CommandStatementQuery) request).getQueryBytes())
+                .build();
+        return Collections.singletonList(
+            new FlightEndpoint(new Ticket(Any.pack(ticketStatementQuery).toByteArray())));
       }
       throw CallStatus.UNIMPLEMENTED.withDescription("Not implemented.").toRuntimeException();
     }
 
     @Override
-    public FlightInfo getFlightInfoStatement(FlightSql.CommandStatementQuery command,
-                                             CallContext context, FlightDescriptor descriptor) {
+    public FlightInfo getFlightInfoStatement(
+        FlightSql.CommandStatementQuery command, CallContext context, FlightDescriptor descriptor) {
       return generateFlightInfo(command, descriptor, FIXED_SCHEMA);
     }
 
     @Override
-    public void getStreamStatement(FlightSql.TicketStatementQuery ticket,
-                                   CallContext context, ServerStreamListener listener) {
+    public void getStreamStatement(
+        FlightSql.TicketStatementQuery ticket, CallContext context, ServerStreamListener listener) {
       final String query = ticket.getStatementHandle().toStringUtf8();
       if (!query.equals(FIXED_QUERY)) {
-        listener.error(CallStatus.UNIMPLEMENTED.withDescription("Not implemented.").toRuntimeException());
+        listener.error(
+            CallStatus.UNIMPLEMENTED.withDescription("Not implemented.").toRuntimeException());
       }
 
       try (VectorSchemaRoot root = VectorSchemaRoot.create(FIXED_SCHEMA, allocator)) {
@@ -127,9 +132,10 @@ public class TestFlightSqlStreams {
     }
 
     @Override
-    public void getStreamSqlInfo(FlightSql.CommandGetSqlInfo command, CallContext context,
-                                 ServerStreamListener listener) {
-      try (VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_SQL_INFO_SCHEMA, allocator)) {
+    public void getStreamSqlInfo(
+        FlightSql.CommandGetSqlInfo command, CallContext context, ServerStreamListener listener) {
+      try (VectorSchemaRoot root =
+          VectorSchemaRoot.create(Schemas.GET_SQL_INFO_SCHEMA, allocator)) {
         root.setRowCount(0);
         listener.start(root);
         listener.putNext();
@@ -138,9 +144,12 @@ public class TestFlightSqlStreams {
     }
 
     @Override
-    public void getStreamTypeInfo(FlightSql.CommandGetXdbcTypeInfo request,
-                                  CallContext context, ServerStreamListener listener) {
-      try (VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_TYPE_INFO_SCHEMA, allocator)) {
+    public void getStreamTypeInfo(
+        FlightSql.CommandGetXdbcTypeInfo request,
+        CallContext context,
+        ServerStreamListener listener) {
+      try (VectorSchemaRoot root =
+          VectorSchemaRoot.create(Schemas.GET_TYPE_INFO_SCHEMA, allocator)) {
         root.setRowCount(1);
         ((VarCharVector) root.getVector("type_name")).setSafe(0, new Text("Integer"));
         ((IntVector) root.getVector("data_type")).setSafe(0, INT.ordinal());
@@ -148,9 +157,11 @@ public class TestFlightSqlStreams {
         root.getVector("literal_prefix").setNull(0);
         root.getVector("literal_suffix").setNull(0);
         root.getVector("create_params").setNull(0);
-        ((IntVector) root.getVector("nullable")).setSafe(0, FlightSql.Nullable.NULLABILITY_NULLABLE.getNumber());
+        ((IntVector) root.getVector("nullable"))
+            .setSafe(0, FlightSql.Nullable.NULLABILITY_NULLABLE.getNumber());
         ((BitVector) root.getVector("case_sensitive")).setSafe(0, 1);
-        ((IntVector) root.getVector("nullable")).setSafe(0, FlightSql.Searchable.SEARCHABLE_FULL.getNumber());
+        ((IntVector) root.getVector("nullable"))
+            .setSafe(0, FlightSql.Searchable.SEARCHABLE_FULL.getNumber());
         ((BitVector) root.getVector("unsigned_attribute")).setSafe(0, 1);
         root.getVector("fixed_prec_scale").setNull(0);
         ((BitVector) root.getVector("auto_increment")).setSafe(0, 1);
@@ -169,9 +180,10 @@ public class TestFlightSqlStreams {
     }
 
     @Override
-    public void getStreamTables(FlightSql.CommandGetTables command, CallContext context,
-                                ServerStreamListener listener) {
-      try (VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_TABLES_SCHEMA_NO_SCHEMA, allocator)) {
+    public void getStreamTables(
+        FlightSql.CommandGetTables command, CallContext context, ServerStreamListener listener) {
+      try (VectorSchemaRoot root =
+          VectorSchemaRoot.create(Schemas.GET_TABLES_SCHEMA_NO_SCHEMA, allocator)) {
         root.setRowCount(1);
         root.getVector("catalog_name").setNull(0);
         root.getVector("db_schema_name").setNull(0);
@@ -186,7 +198,8 @@ public class TestFlightSqlStreams {
 
     @Override
     public void getStreamTableTypes(CallContext context, ServerStreamListener listener) {
-      try (VectorSchemaRoot root = VectorSchemaRoot.create(Schemas.GET_TABLE_TYPES_SCHEMA, allocator)) {
+      try (VectorSchemaRoot root =
+          VectorSchemaRoot.create(Schemas.GET_TABLE_TYPES_SCHEMA, allocator)) {
         root.setRowCount(1);
         ((VarCharVector) root.getVector("table_type")).setSafe(0, new Text("TABLE"));
 
@@ -207,9 +220,10 @@ public class TestFlightSqlStreams {
     allocator = new RootAllocator(Integer.MAX_VALUE);
 
     final Location serverLocation = Location.forGrpcInsecure("localhost", 0);
-    server = FlightServer.builder(allocator, serverLocation, new FlightSqlTestProducer(allocator))
-        .build()
-        .start();
+    server =
+        FlightServer.builder(allocator, serverLocation, new FlightSqlTestProducer(allocator))
+            .build()
+            .start();
 
     final Location clientLocation = Location.forGrpcInsecure("localhost", server.getPort());
     sqlClient = new FlightSqlClient(FlightClient.builder(allocator, clientLocation).build());
@@ -227,37 +241,39 @@ public class TestFlightSqlStreams {
   @Test
   public void testGetTablesResultNoSchema() throws Exception {
     try (final FlightStream stream =
-             sqlClient.getStream(
-                 sqlClient.getTables(null, null, null, null, false)
-                     .getEndpoints().get(0).getTicket())) {
+        sqlClient.getStream(
+            sqlClient.getTables(null, null, null, null, false).getEndpoints().get(0).getTicket())) {
       Assertions.assertAll(
-          () -> MatcherAssert.assertThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_TABLES_SCHEMA_NO_SCHEMA)),
+          () ->
+              MatcherAssert.assertThat(
+                  stream.getSchema(), is(FlightSqlProducer.Schemas.GET_TABLES_SCHEMA_NO_SCHEMA)),
           () -> {
             final List<List<String>> results = getResults(stream);
-            final List<List<String>> expectedResults = ImmutableList.of(
-                // catalog_name | schema_name | table_name | table_type | table_schema
-                asList(null, null, "test_table", "TABLE"));
+            final List<List<String>> expectedResults =
+                ImmutableList.of(
+                    // catalog_name | schema_name | table_name | table_type | table_schema
+                    asList(null, null, "test_table", "TABLE"));
             MatcherAssert.assertThat(results, is(expectedResults));
-          }
-      );
+          });
     }
   }
 
   @Test
   public void testGetTableTypesResult() throws Exception {
     try (final FlightStream stream =
-             sqlClient.getStream(sqlClient.getTableTypes().getEndpoints().get(0).getTicket())) {
+        sqlClient.getStream(sqlClient.getTableTypes().getEndpoints().get(0).getTicket())) {
       Assertions.assertAll(
-          () -> MatcherAssert.assertThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_TABLE_TYPES_SCHEMA)),
+          () ->
+              MatcherAssert.assertThat(
+                  stream.getSchema(), is(FlightSqlProducer.Schemas.GET_TABLE_TYPES_SCHEMA)),
           () -> {
             final List<List<String>> tableTypes = getResults(stream);
-            final List<List<String>> expectedTableTypes = ImmutableList.of(
-                // table_type
-                singletonList("TABLE")
-            );
+            final List<List<String>> expectedTableTypes =
+                ImmutableList.of(
+                    // table_type
+                    singletonList("TABLE"));
             MatcherAssert.assertThat(tableTypes, is(expectedTableTypes));
-          }
-      );
+          });
     }
   }
 
@@ -266,9 +282,10 @@ public class TestFlightSqlStreams {
     final FlightInfo info = sqlClient.getSqlInfo();
     try (final FlightStream stream = sqlClient.getStream(info.getEndpoints().get(0).getTicket())) {
       Assertions.assertAll(
-          () -> MatcherAssert.assertThat(stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA)),
-          () -> MatcherAssert.assertThat(getResults(stream), is(emptyList()))
-      );
+          () ->
+              MatcherAssert.assertThat(
+                  stream.getSchema(), is(FlightSqlProducer.Schemas.GET_SQL_INFO_SCHEMA)),
+          () -> MatcherAssert.assertThat(getResults(stream), is(emptyList())));
     }
   }
 
@@ -280,9 +297,11 @@ public class TestFlightSqlStreams {
 
       final List<List<String>> results = getResults(stream);
 
-      final List<List<String>> matchers = ImmutableList.of(
-          asList("Integer", "4", "400", null, null, "3", "true", null, "true", null, "true",
-              "Integer", null, null, "4", null, "10", null));
+      final List<List<String>> matchers =
+          ImmutableList.of(
+              asList(
+                  "Integer", "4", "400", null, null, "3", "true", null, "true", null, "true",
+                  "Integer", null, null, "4", null, "10", null));
 
       MatcherAssert.assertThat(results, is(matchers));
     }
@@ -290,12 +309,18 @@ public class TestFlightSqlStreams {
 
   @Test
   public void testExecuteQuery() throws Exception {
-    try (final FlightStream stream = sqlClient
-        .getStream(sqlClient.execute(FlightSqlTestProducer.FIXED_QUERY).getEndpoints().get(0).getTicket())) {
+    try (final FlightStream stream =
+        sqlClient.getStream(
+            sqlClient
+                .execute(FlightSqlTestProducer.FIXED_QUERY)
+                .getEndpoints()
+                .get(0)
+                .getTicket())) {
       Assertions.assertAll(
-          () -> MatcherAssert.assertThat(stream.getSchema(), is(FlightSqlTestProducer.FIXED_SCHEMA)),
-          () -> MatcherAssert.assertThat(getResults(stream), is(singletonList(singletonList("1"))))
-      );
+          () ->
+              MatcherAssert.assertThat(stream.getSchema(), is(FlightSqlTestProducer.FIXED_SCHEMA)),
+          () ->
+              MatcherAssert.assertThat(getResults(stream), is(singletonList(singletonList("1")))));
     }
   }
 }

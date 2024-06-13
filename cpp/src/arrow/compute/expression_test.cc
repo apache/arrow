@@ -909,6 +909,41 @@ TEST(Expression, ExecuteCallWithNoArguments) {
   EXPECT_EQ(actual.length(), kCount);
 }
 
+TEST(Expression, ExecuteChunkedArray) {
+  // GH-41923: compute should generate the right result if input
+  // ExecBatch is `chunked_array`.
+  auto input_schema = struct_({field("a", struct_({
+                                              field("a", float64()),
+                                              field("b", float64()),
+                                          }))});
+
+  auto chunked_array_input = ChunkedArrayFromJSON(input_schema, {R"([
+    {"a": {"a": 6.125, "b": 3.375}},
+    {"a": {"a": 0.0,   "b": 1}}
+  ])",
+                                                                 R"([
+    {"a": {"a": -1,    "b": 4.75}}
+  ])"});
+
+  ASSERT_OK_AND_ASSIGN(auto table_input,
+                       Table::FromChunkedStructArray(chunked_array_input));
+
+  auto expr = add(field_ref(FieldRef("a", "a")), field_ref(FieldRef("a", "b")));
+
+  ASSERT_OK_AND_ASSIGN(expr, expr.Bind(input_schema));
+  std::vector<Datum> inputs{table_input->column(0)};
+  ExecBatch batch{inputs, 3};
+
+  ASSERT_OK_AND_ASSIGN(Datum res, ExecuteScalarExpression(expr, batch));
+
+  AssertDatumsEqual(res, ArrayFromJSON(float64(),
+                                       R"([
+    9.5,
+    1,
+    3.75
+  ])"));
+}
+
 TEST(Expression, ExecuteDictionaryTransparent) {
   ExpectExecute(
       equal(field_ref("a"), field_ref("b")),

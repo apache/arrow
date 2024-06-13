@@ -1146,6 +1146,15 @@ void ValidateTakeImpl(const std::shared_ptr<Array>& values,
   for (int64_t i = 0; i < indices->length(); ++i) {
     if (typed_indices->IsNull(i) || typed_values->IsNull(typed_indices->Value(i))) {
       ASSERT_TRUE(result->IsNull(i)) << i;
+      // The value of a null element is undefined, but right
+      // out of the Take kernel it is expected to be 0.
+      if constexpr (is_primitive(ValuesType::type_id)) {
+        if constexpr (ValuesType::type_id == Type::BOOL) {
+          ASSERT_EQ(typed_result->Value(i), false);
+        } else {
+          ASSERT_EQ(typed_result->Value(i), 0);
+        }
+      }
     } else {
       ASSERT_FALSE(result->IsNull(i)) << i;
       ASSERT_EQ(typed_result->GetView(i), typed_values->GetView(typed_indices->Value(i)))
@@ -1522,9 +1531,13 @@ TEST_F(TestTakeKernelWithFixedSizeList, TakeFixedSizeListInt32) {
   CheckTake(fixed_size_list(int32(), 3), list_json, "[3, 0, 0, 3]",
             "[[7, 8, null], null, null, [7, 8, null]]");
   CheckTake(fixed_size_list(int32(), 3), list_json, "[0, 1, 2, 3]", list_json);
+
+  // No nulls in inner list values trigger the use of FixedWidthTakeExec() in
+  // FSLTakeExec()
+  std::string no_nulls_list_json = "[[0, 0, 0], [1, 2, 3], [4, 5, 6], [7, 8, 9]]";
   CheckTake(
-      fixed_size_list(int32(), 3), list_json, "[2, 2, 2, 2, 2, 2, 1]",
-      "[[4, 5, 6], [4, 5, 6], [4, 5, 6], [4, 5, 6], [4, 5, 6], [4, 5, 6], [1, null, 3]]");
+      fixed_size_list(int32(), 3), no_nulls_list_json, "[2, 2, 2, 2, 2, 2, 1]",
+      "[[4, 5, 6], [4, 5, 6], [4, 5, 6], [4, 5, 6], [4, 5, 6], [4, 5, 6], [1, 2, 3]]");
 
   this->TestNoValidityBitmapButUnknownNullCount(fixed_size_list(int32(), 3),
                                                 "[[1, null, 3], [4, 5, 6], [7, 8, null]]",

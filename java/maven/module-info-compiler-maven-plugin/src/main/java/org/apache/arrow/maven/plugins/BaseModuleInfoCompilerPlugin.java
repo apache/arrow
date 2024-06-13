@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.maven.plugins;
 
 import java.io.File;
@@ -28,14 +27,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
-
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.glavo.mic.ModuleInfoCompiler;
 
-/**
- * Compiles the first module-info.java file in the project purely syntactically.
- */
+/** Compiles the first module-info.java file in the project purely syntactically. */
 public abstract class BaseModuleInfoCompilerPlugin extends AbstractMojo {
   protected abstract List<String> getSourceRoots();
 
@@ -60,9 +56,10 @@ public abstract class BaseModuleInfoCompilerPlugin extends AbstractMojo {
 
       // Invoke the compiler,
       ModuleInfoCompiler compiler = new ModuleInfoCompiler();
-      try (Reader reader = new InputStreamReader(Files.newInputStream(moduleInfoFile.get().toPath()),
-          StandardCharsets.UTF_8);
-           OutputStream output = Files.newOutputStream(targetPath)) {
+      try (Reader reader =
+              new InputStreamReader(
+                  Files.newInputStream(moduleInfoFile.get().toPath()), StandardCharsets.UTF_8);
+          OutputStream output = Files.newOutputStream(targetPath)) {
         compiler.compile(reader, output);
         getLog().info("Successfully wrote module-info.class file.");
       } catch (IOException ex) {
@@ -73,18 +70,17 @@ public abstract class BaseModuleInfoCompilerPlugin extends AbstractMojo {
     }
   }
 
-  /**
-   * Finds the first module-info.java file in the set of source directories.
-   */
+  /** Finds the first module-info.java file in the set of source directories. */
   private Optional<File> findFirstModuleInfo(List<String> sourceDirectories) {
     if (sourceDirectories == null) {
       return Optional.empty();
     }
 
-    return sourceDirectories.stream().map(Paths::get)
-        .map(sourcePath ->
-            sourcePath.toFile().listFiles(file ->
-                file.getName().equals("module-info.java")))
+    return sourceDirectories.stream()
+        .map(Paths::get)
+        .map(
+            sourcePath ->
+                sourcePath.toFile().listFiles(file -> file.getName().equals("module-info.java")))
         .filter(matchingFiles -> matchingFiles != null && matchingFiles.length != 0)
         .map(matchingFiles -> matchingFiles[0])
         .findAny();

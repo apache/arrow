@@ -220,15 +220,12 @@ env:
 
 {%- macro azure_upload_anaconda(pattern) -%}
   {%- if arrow.is_default_branch() -%}
-  - task: CondaEnvironment@1
-    inputs:
-      packageSpecs: 'anaconda-client'
-      installOptions: '-c conda-forge'
-      updateConda: no
-  - script: |
-      conda install -y anaconda-client
+  - bash: |
+      conda create -y -n azure_upload_anaconda -c conda-forge anaconda-client
+      source activate azure_upload_anaconda
       anaconda -t $(CROSSBOW_ANACONDA_TOKEN) upload --force {{ pattern }}
     displayName: Upload packages to Anaconda
+
   {% endif %}
 {% endmacro %}
 
@@ -407,4 +404,3 @@ env:
   {{ key }}: "{{ value }}"
   {% endfor %}
 {% endmacro %}
-

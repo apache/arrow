@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.adapter.jdbc.h2;
 
 import static junit.framework.TestCase.assertTrue;
@@ -24,7 +23,6 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collection;
-
 import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper;
 import org.apache.arrow.adapter.jdbc.Table;
@@ -40,9 +38,7 @@ import org.junit.runners.Parameterized;
  */
 @RunWith(Parameterized.class)
 public class JdbcToArrowOptionalColumnsTest extends AbstractJdbcToArrowTest {
-  private static final String[] testFiles = {
-    "h2/test1_null_and_notnull.yml"
-  };
+  private static final String[] testFiles = {"h2/test1_null_and_notnull.yml"};
 
   /**
    * Constructor which populates the table object for each test iteration.
@@ -57,17 +53,19 @@ public class JdbcToArrowOptionalColumnsTest extends AbstractJdbcToArrowTest {
    * Get the test data as a collection of Table objects for each test iteration.
    *
    * @return Collection of Table objects
-   * @throws SQLException           on error
+   * @throws SQLException on error
    * @throws ClassNotFoundException on error
-   * @throws IOException            on error
+   * @throws IOException on error
    */
   @Parameterized.Parameters
-  public static Collection<Object[]> getTestData() throws SQLException, ClassNotFoundException, IOException {
+  public static Collection<Object[]> getTestData()
+      throws SQLException, ClassNotFoundException, IOException {
     return Arrays.asList(prepareTestData(testFiles, JdbcToArrowOptionalColumnsTest.class));
   }
 
   /**
-   * Test Method to test JdbcToArrow Functionality for dealing with nullable and non-nullable columns.
+   * Test Method to test JdbcToArrow Functionality for dealing with nullable and non-nullable
+   * columns.
    */
   @Test
   @Override
@@ -76,12 +74,13 @@ public class JdbcToArrowOptionalColumnsTest extends AbstractJdbcToArrowTest {
   }
 
   /**
-   * This method calls the assert methods for various DataSets. We verify that a SQL `NULL` column becomes
-   * nullable in the VectorSchemaRoot, and that a SQL `NOT NULL` column becomes non-nullable.
+   * This method calls the assert methods for various DataSets. We verify that a SQL `NULL` column
+   * becomes nullable in the VectorSchemaRoot, and that a SQL `NOT NULL` column becomes
+   * non-nullable.
    *
    * @param root VectorSchemaRoot for test
-   * @param isIncludeMapVector is this dataset checks includes map column.
-   *          Jdbc type to 'map' mapping declared in configuration only manually
+   * @param isIncludeMapVector is this dataset checks includes map column. Jdbc type to 'map'
+   *     mapping declared in configuration only manually
    */
   @Override
   public void testDataSets(VectorSchemaRoot root, boolean isIncludeMapVector) {
@@ -90,5 +89,4 @@ public class JdbcToArrowOptionalColumnsTest extends AbstractJdbcToArrowTest {
     assertTrue(root.getSchema().getFields().get(0).isNullable());
     assertFalse(root.getSchema().getFields().get(1).isNullable());
   }
-
 }

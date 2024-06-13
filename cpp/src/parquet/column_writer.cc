@@ -1205,10 +1205,6 @@ Status ConvertDictionaryToDense(const ::arrow::Array& array, MemoryPool* pool,
   return Status::OK();
 }
 
-static inline bool IsDictionaryEncoding(Encoding::type encoding) {
-  return encoding == Encoding::PLAIN_DICTIONARY;
-}
-
 template <typename DType>
 class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<DType> {
  public:
@@ -1565,7 +1561,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   }
 
   void FallbackToPlainEncoding() {
-    if (IsDictionaryEncoding(current_encoder_->encoding())) {
+    if (IsDictionaryIndexEncoding(current_encoder_->encoding())) {
       WriteDictionaryPage();
       // Serialize the buffered Dictionary Indices
       FlushBufferedDataPages();
@@ -1661,7 +1657,7 @@ Status TypedColumnWriterImpl<DType>::WriteArrowDictionary(
                            maybe_parent_nulls);
   };
 
-  if (!IsDictionaryEncoding(current_encoder_->encoding()) ||
+  if (!IsDictionaryIndexEncoding(current_encoder_->encoding()) ||
       !DictionaryDirectWriteSupported(array)) {
     // No longer dictionary-encoding for whatever reason, maybe we never were
     // or we decided to stop. Note that WriteArrow can be invoked multiple

@@ -14,15 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
+import com.google.common.collect.ImmutableList;
 import java.util.TreeSet;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VarCharVector;
@@ -35,11 +34,7 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.jupiter.api.Test;
 
-import com.google.common.collect.ImmutableList;
-
-/**
- * Test cases for {@link DictionaryUtils}.
- */
+/** Test cases for {@link DictionaryUtils}. */
 public class TestDictionaryUtils {
 
   @Test
@@ -47,9 +42,9 @@ public class TestDictionaryUtils {
     FieldType varcharType = new FieldType(true, new ArrowType.Utf8(), null);
     FieldType intType = new FieldType(true, new ArrowType.Int(32, true), null);
 
-    ImmutableList<Field> build = ImmutableList.of(
-            new Field("stringCol", varcharType, null),
-            new Field("intCol", intType, null));
+    ImmutableList<Field> build =
+        ImmutableList.of(
+            new Field("stringCol", varcharType, null), new Field("intCol", intType, null));
 
     Schema schema = new Schema(build);
     Schema newSchema = DictionaryUtils.generateSchema(schema, null, new TreeSet<>());
@@ -62,18 +57,19 @@ public class TestDictionaryUtils {
   public void testCreateSchema() {
     try (BufferAllocator allocator = new RootAllocator(1024)) {
       DictionaryEncoding dictionaryEncoding =
-              new DictionaryEncoding(0, true, new ArrowType.Int(8, true));
+          new DictionaryEncoding(0, true, new ArrowType.Int(8, true));
       VarCharVector dictVec = new VarCharVector("dict vector", allocator);
       Dictionary dictionary = new Dictionary(dictVec, dictionaryEncoding);
       DictionaryProvider dictProvider = new DictionaryProvider.MapDictionaryProvider(dictionary);
       TreeSet<Long> dictionaryUsed = new TreeSet<>();
 
-      FieldType encodedVarcharType = new FieldType(true, new ArrowType.Int(8, true), dictionaryEncoding);
+      FieldType encodedVarcharType =
+          new FieldType(true, new ArrowType.Int(8, true), dictionaryEncoding);
       FieldType intType = new FieldType(true, new ArrowType.Int(32, true), null);
 
-      ImmutableList<Field> build = ImmutableList.of(
-              new Field("stringCol", encodedVarcharType, null),
-              new Field("intCol", intType, null));
+      ImmutableList<Field> build =
+          ImmutableList.of(
+              new Field("stringCol", encodedVarcharType, null), new Field("intCol", intType, null));
 
       Schema schema = new Schema(build);
       Schema newSchema = DictionaryUtils.generateSchema(schema, dictProvider, dictionaryUsed);

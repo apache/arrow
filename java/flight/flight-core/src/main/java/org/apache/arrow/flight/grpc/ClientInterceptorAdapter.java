@@ -14,18 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.grpc;
-
-import java.util.ArrayList;
-import java.util.List;
-
-import org.apache.arrow.flight.CallInfo;
-import org.apache.arrow.flight.CallStatus;
-import org.apache.arrow.flight.FlightClientMiddleware;
-import org.apache.arrow.flight.FlightMethod;
-import org.apache.arrow.flight.FlightRuntimeException;
-import org.apache.arrow.flight.FlightStatusCode;
 
 import io.grpc.CallOptions;
 import io.grpc.Channel;
@@ -37,11 +26,20 @@ import io.grpc.Metadata;
 import io.grpc.MethodDescriptor;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
+import java.util.ArrayList;
+import java.util.List;
+import org.apache.arrow.flight.CallInfo;
+import org.apache.arrow.flight.CallStatus;
+import org.apache.arrow.flight.FlightClientMiddleware;
+import org.apache.arrow.flight.FlightMethod;
+import org.apache.arrow.flight.FlightRuntimeException;
+import org.apache.arrow.flight.FlightStatusCode;
 
 /**
  * An adapter between Flight client middleware and gRPC interceptors.
  *
- * <p>This is implemented as a single gRPC interceptor that runs all Flight client middleware sequentially.
+ * <p>This is implemented as a single gRPC interceptor that runs all Flight client middleware
+ * sequentially.
  */
 public class ClientInterceptorAdapter implements ClientInterceptor {
 
@@ -52,8 +50,8 @@ public class ClientInterceptorAdapter implements ClientInterceptor {
   }
 
   @Override
-  public <ReqT, RespT> ClientCall<ReqT, RespT> interceptCall(MethodDescriptor<ReqT, RespT> method,
-      CallOptions callOptions, Channel next) {
+  public <ReqT, RespT> ClientCall<ReqT, RespT> interceptCall(
+      MethodDescriptor<ReqT, RespT> method, CallOptions callOptions, Channel next) {
     final List<FlightClientMiddleware> middleware = new ArrayList<>();
     final CallInfo info = new CallInfo(FlightMethod.fromProtocol(method.getFullMethodName()));
 
@@ -73,15 +71,17 @@ public class ClientInterceptorAdapter implements ClientInterceptor {
   }
 
   /**
-   * The ClientCallListener which hooks into the gRPC request cycle and actually runs middleware at certain points.
+   * The ClientCallListener which hooks into the gRPC request cycle and actually runs middleware at
+   * certain points.
    */
-  private static class FlightClientCallListener<RespT> extends SimpleForwardingClientCallListener<RespT> {
+  private static class FlightClientCallListener<RespT>
+      extends SimpleForwardingClientCallListener<RespT> {
 
     private final List<FlightClientMiddleware> middleware;
     boolean receivedHeaders;
 
-    public FlightClientCallListener(ClientCall.Listener<RespT> responseListener,
-        List<FlightClientMiddleware> middleware) {
+    public FlightClientCallListener(
+        ClientCall.Listener<RespT> responseListener, List<FlightClientMiddleware> middleware) {
       super(responseListener);
       this.middleware = middleware;
       receivedHeaders = false;
@@ -103,8 +103,10 @@ public class ClientInterceptorAdapter implements ClientInterceptor {
     public void onClose(Status status, Metadata trailers) {
       try {
         if (!receivedHeaders) {
-          // gRPC doesn't always send response headers if the call errors or completes immediately, but instead
-          // consolidates them with the trailers. If we never got headers, assume this happened and run the header
+          // gRPC doesn't always send response headers if the call errors or completes immediately,
+          // but instead
+          // consolidates them with the trailers. If we never got headers, assume this happened and
+          // run the header
           // callback with the trailers.
           final MetadataAdapter adapter = new MetadataAdapter(trailers);
           middleware.forEach(m -> m.onHeadersReceived(adapter));
@@ -121,11 +123,13 @@ public class ClientInterceptorAdapter implements ClientInterceptor {
   /**
    * The gRPC ClientCall which hooks into the gRPC request cycle and injects our ClientCallListener.
    */
-  private static class FlightClientCall<ReqT, RespT> extends SimpleForwardingClientCall<ReqT, RespT> {
+  private static class FlightClientCall<ReqT, RespT>
+      extends SimpleForwardingClientCall<ReqT, RespT> {
 
     private final List<FlightClientMiddleware> middleware;
 
-    public FlightClientCall(ClientCall<ReqT, RespT> clientCall, List<FlightClientMiddleware> middleware) {
+    public FlightClientCall(
+        ClientCall<ReqT, RespT> clientCall, List<FlightClientMiddleware> middleware) {
       super(clientCall);
       this.middleware = middleware;
     }
@@ -140,7 +144,8 @@ public class ClientInterceptorAdapter implements ClientInterceptor {
 
     @Override
     public void cancel(String message, Throwable cause) {
-      final CallStatus flightStatus = new CallStatus(FlightStatusCode.CANCELLED, cause, message, null);
+      final CallStatus flightStatus =
+          new CallStatus(FlightStatusCode.CANCELLED, cause, message, null);
       middleware.forEach(m -> m.onCallCompleted(flightStatus));
       super.cancel(message, cause);
     }

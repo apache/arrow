@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory.rounding;
 
 import org.apache.arrow.memory.util.CommonUtil;
@@ -22,9 +21,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The default rounding policy. That is, if the requested size is within the chunk size,
- * the rounded size will be the next power of two. Otherwise, the rounded size
- * will be identical to the requested size.
+ * The default rounding policy. That is, if the requested size is within the chunk size, the rounded
+ * size will be the next power of two. Otherwise, the rounded size will be identical to the
+ * requested size.
  */
 public class DefaultRoundingPolicy implements RoundingPolicy {
   private static final Logger logger = LoggerFactory.getLogger(DefaultRoundingPolicy.class);
@@ -33,14 +32,12 @@ public class DefaultRoundingPolicy implements RoundingPolicy {
   /**
    * The variables here and the static block calculates the DEFAULT_CHUNK_SIZE.
    *
-   * <p>
-   *   It was copied from {@link io.netty.buffer.PooledByteBufAllocator}.
-   * </p>
+   * <p>It was copied from {@link io.netty.buffer.PooledByteBufAllocator}.
    */
   private static final int MIN_PAGE_SIZE = 4096;
+
   private static final int MAX_CHUNK_SIZE = (int) (((long) Integer.MAX_VALUE + 1) / 2);
   private static final long DEFAULT_CHUNK_SIZE;
-
 
   static {
     int defaultPageSize = Integer.getInteger("org.apache.memory.allocator.pageSize", 8192);
@@ -65,7 +62,8 @@ public class DefaultRoundingPolicy implements RoundingPolicy {
 
   private static int validateAndCalculatePageShifts(int pageSize) {
     if (pageSize < MIN_PAGE_SIZE) {
-      throw new IllegalArgumentException("pageSize: " + pageSize + " (expected: " + MIN_PAGE_SIZE + ")");
+      throw new IllegalArgumentException(
+          "pageSize: " + pageSize + " (expected: " + MIN_PAGE_SIZE + ")");
     }
 
     if ((pageSize & pageSize - 1) != 0) {
@@ -83,20 +81,21 @@ public class DefaultRoundingPolicy implements RoundingPolicy {
 
     // Ensure the resulting chunkSize does not overflow.
     int chunkSize = pageSize;
-    for (int i = maxOrder; i > 0; i --) {
+    for (int i = maxOrder; i > 0; i--) {
       if (chunkSize > MAX_CHUNK_SIZE / 2) {
-        throw new IllegalArgumentException(String.format(
-            "pageSize (%d) << maxOrder (%d) must not exceed %d", pageSize, maxOrder, MAX_CHUNK_SIZE));
+        throw new IllegalArgumentException(
+            String.format(
+                "pageSize (%d) << maxOrder (%d) must not exceed %d",
+                pageSize, maxOrder, MAX_CHUNK_SIZE));
       }
       chunkSize <<= 1;
     }
     return chunkSize;
   }
 
-  /**
-   * The singleton instance.
-   */
-  public static final DefaultRoundingPolicy DEFAULT_ROUNDING_POLICY = new DefaultRoundingPolicy(DEFAULT_CHUNK_SIZE);
+  /** The singleton instance. */
+  public static final DefaultRoundingPolicy DEFAULT_ROUNDING_POLICY =
+      new DefaultRoundingPolicy(DEFAULT_CHUNK_SIZE);
 
   private DefaultRoundingPolicy(long chunkSize) {
     this.chunkSize = chunkSize;
@@ -104,7 +103,6 @@ public class DefaultRoundingPolicy implements RoundingPolicy {
 
   @Override
   public long getRoundedSize(long requestSize) {
-    return requestSize < chunkSize ?
-            CommonUtil.nextPowerOfTwo(requestSize) : requestSize;
+    return requestSize < chunkSize ? CommonUtil.nextPowerOfTwo(requestSize) : requestSize;
   }
 }

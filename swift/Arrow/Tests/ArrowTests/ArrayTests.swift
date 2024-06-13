@@ -18,7 +18,7 @@
 import XCTest
 @testable import Arrow
 
-final class ArrayTests: XCTestCase {
+final class ArrayTests: XCTestCase { // swiftlint:disable:this type_body_length
     func testPrimitiveArray() throws {
         // This is an example of a functional test case.
         // Use XCTAssert and related functions to verify your tests produce the correct
@@ -271,4 +271,40 @@ final class ArrayTests: XCTestCase {
         XCTAssertEqual(stringHolder.nullCount, 10)
         XCTAssertEqual(stringHolder.length, 100)
     }
- }
+
+    func testAddVArgs() throws {
+        let arrayBuilder: NumberArrayBuilder<UInt8> = try ArrowArrayBuilders.loadNumberArrayBuilder()
+        arrayBuilder.append(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
+        XCTAssertEqual(arrayBuilder.length, 10)
+        XCTAssertEqual(try arrayBuilder.finish()[2], 2)
+        let doubleBuilder: NumberArrayBuilder<Double> = try ArrowArrayBuilders.loadNumberArrayBuilder()
+        doubleBuilder.append(0, 1.1, 2.2, 3.3, 4.4, 5.5, 6.6, 7.7, 8.8)
+        XCTAssertEqual(doubleBuilder.length, 9)
+        XCTAssertEqual(try doubleBuilder.finish()[4], 4.4)
+        let stringBuilder = try ArrowArrayBuilders.loadStringArrayBuilder()
+        stringBuilder.append("0", "1", "2", "3", "4", "5", "6")
+        XCTAssertEqual(stringBuilder.length, 7)
+        XCTAssertEqual(try stringBuilder.finish()[4], "4")
+        let boolBuilder = try ArrowArrayBuilders.loadBoolArrayBuilder()
+        boolBuilder.append(true, false, true, false)
+        XCTAssertEqual(try boolBuilder.finish()[2], true)
+    }
+
+    func testAddArray() throws {
+        let arrayBuilder: NumberArrayBuilder<UInt8> = try ArrowArrayBuilders.loadNumberArrayBuilder()
+        arrayBuilder.append([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+        XCTAssertEqual(arrayBuilder.length, 10)
+        XCTAssertEqual(try arrayBuilder.finish()[2], 2)
+        let doubleBuilder: NumberArrayBuilder<Double> = try ArrowArrayBuilders.loadNumberArrayBuilder()
+        doubleBuilder.append([0, 1.1, 2.2, 3.3, 4.4, 5.5, 6.6, 7.7, 8.8])
+        XCTAssertEqual(doubleBuilder.length, 9)
+        XCTAssertEqual(try doubleBuilder.finish()[4], 4.4)
+        let stringBuilder = try ArrowArrayBuilders.loadStringArrayBuilder()
+        stringBuilder.append(["0", "1", "2", "3", "4", "5", "6"])
+        XCTAssertEqual(stringBuilder.length, 7)
+        XCTAssertEqual(try stringBuilder.finish()[4], "4")
+        let boolBuilder = try ArrowArrayBuilders.loadBoolArrayBuilder()
+        boolBuilder.append([true, false, true, false])
+        XCTAssertEqual(try boolBuilder.finish()[2], true)
+    }
+}

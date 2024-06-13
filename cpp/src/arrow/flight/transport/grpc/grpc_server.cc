@@ -28,6 +28,7 @@
 #include <grpcpp/grpcpp.h>
 
 #include "arrow/buffer.h"
+#include "arrow/flight/otel_logging_internal.h"
 #include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/server.h"
 #include "arrow/flight/server_middleware.h"
@@ -36,6 +37,7 @@
 #include "arrow/flight/transport/grpc/util_internal.h"
 #include "arrow/flight/transport_server.h"
 #include "arrow/flight/types.h"
+#include "arrow/util/logger.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/uri.h"
 
@@ -402,6 +404,7 @@ class GrpcServiceHandler final : public FlightService::Service {
   ::grpc::Status GetFlightInfo(ServerContext* context,
                                const pb::FlightDescriptor* request,
                                pb::FlightInfo* response) {
+    ARROW_FLIGHT_OTELLOG_SERVER(INFO, "[Example message] func=", __func__);
     GrpcServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         CheckAuth(FlightMethod::GetFlightInfo, context, flight_context));
