@@ -35,6 +35,9 @@ class RecordBatchFileReader : public libmexclass::proxy::Proxy {
 
     void getNumRecordBatches(libmexclass::proxy::method::Context& context);
 
+    void getSchema(libmexclass::proxy::method::Context& context);
+
+
 };
 
 } // namespace arrow::matlab::io::ipc::proxy 

@@ -18,13 +18,18 @@
 #include "arrow/io/file.h"
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/io/ipc/proxy/record_batch_file_reader.h"
+#include "arrow/matlab/tabular/proxy/schema.h"
 #include "arrow/util/utf8.h"
+
+#include "libmexclass/proxy/ProxyManager.h"
 
 namespace arrow::matlab::io::ipc::proxy {
 
 RecordBatchFileReader::RecordBatchFileReader(const std::shared_ptr<arrow::ipc::RecordBatchFileReader> reader)
   : reader{std::move(reader)} {
     REGISTER_METHOD(RecordBatchFileReader, getNumRecordBatches);
+    REGISTER_METHOD(RecordBatchFileReader, getSchema);
+
   }
 
 libmexclass::proxy::MakeResult RecordBatchFileReader::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
@@ -57,6 +62,22 @@ void RecordBatchFileReader::getNumRecordBatches(libmexclass::proxy::method::Cont
   const auto num_batches = reader->num_record_batches();
   context.outputs[0] = factory.createScalar(num_batches);
 }
+
+void RecordBatchFileReader::getSchema(libmexclass::proxy::method::Context& context) {
+  namespace mda = ::matlab::data;
+  using SchemaProxy = arrow::matlab::tabular::proxy::Schema;
+
+  auto schema = reader->schema();
+  
+  auto schema_proxy = std::make_shared<SchemaProxy>(std::move(schema));
+  const auto schema_proxy_id = libmexclass::proxy::ProxyManager::manageProxy(schema_proxy);
+
+  mda::ArrayFactory factory;
+  const auto schema_proxy_id_mda = factory.createScalar(schema_proxy_id);
+  context.outputs[0] = schema_proxy_id_mda;
+
+}
+
 
 
 
