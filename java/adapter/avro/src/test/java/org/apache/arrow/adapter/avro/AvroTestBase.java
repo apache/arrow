@@ -83,17 +83,19 @@ public class AvroTestBase {
   protected VectorSchemaRoot writeAndRead(Schema schema, List data) throws Exception {
     File dataFile = new File(TMP, "test.avro");
 
-    BinaryEncoder encoder =
-        new EncoderFactory().directBinaryEncoder(new FileOutputStream(dataFile), null);
-    DatumWriter writer = new GenericDatumWriter(schema);
-    BinaryDecoder decoder =
-        new DecoderFactory().directBinaryDecoder(new FileInputStream(dataFile), null);
+    try (FileOutputStream fos = new FileOutputStream(dataFile);
+         FileInputStream fis = new FileInputStream(dataFile)) {
 
-    for (Object value : data) {
-      writer.write(value, encoder);
+      BinaryEncoder encoder = new EncoderFactory().directBinaryEncoder(fos, null);
+      DatumWriter<Object> writer = new GenericDatumWriter<>(schema);
+      BinaryDecoder decoder = new DecoderFactory().directBinaryDecoder(fis, null);
+
+      for (Object value : data) {
+        writer.write(value, encoder);
+      }
+
+      return AvroToArrow.avroToArrow(schema, decoder, config);
     }
-
-    return AvroToArrow.avroToArrow(schema, decoder, config);
   }
 
   protected void checkArrayResult(List<List<?>> expected, ListVector vector) {
