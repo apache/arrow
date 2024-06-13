@@ -84,7 +84,7 @@ public class AvroTestBase {
     File dataFile = new File(TMP, "test.avro");
 
     try (FileOutputStream fos = new FileOutputStream(dataFile);
-         FileInputStream fis = new FileInputStream(dataFile)) {
+        FileInputStream fis = new FileInputStream(dataFile)) {
 
       BinaryEncoder encoder = new EncoderFactory().directBinaryEncoder(fos, null);
       DatumWriter<Object> writer = new GenericDatumWriter<>(schema);
