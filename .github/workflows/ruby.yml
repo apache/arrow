@@ -346,6 +346,7 @@ jobs:
       CMAKE_UNITY_BUILD: ON
       VCPKG_BINARY_SOURCES: 'clear;nuget,GitHub,readwrite'
       VCPKG_ROOT: "${{ github.workspace }}/vcpkg"
+      VCPKG_TRIPLET: x64-windows
     permissions:
       packages: write
     steps:
@@ -411,7 +412,7 @@ jobs:
             -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json"
       - name: Build C++ vcpkg dependencies
         run: |
-          vcpkg\vcpkg.exe install --triplet x64-windows --x-manifest-root cpp --x-install-root build\cpp\vcpkg_installed
+          vcpkg\vcpkg.exe install --triplet $env:VCPKG_TRIPLET --x-manifest-root cpp --x-install-root build\cpp\vcpkg_installed
       - name: Build C++
         shell: cmd
         run: |
@@ -442,3 +443,5 @@ jobs:
           $build_dir = "$(ridk exec cygpath --unix "$(Get-Location)\build")"
           $ErrorActionPreference = "Continue"
           ridk exec bash ci\scripts\c_glib_test.sh "${source_dir}" "${build_dir}"
+        env:
+          ARROW_DLL_PATH: "${{ env.ARROW_HOME }}/bin;${{ github.workspace }}/build/vcpkg_installed/${{ env.VCPKG_TRIPLET }}/bin;${{ github.workspace }}/build/cpp/vcpkg_installed/${{ env.VCPKG_TRIPLET }}/bin;${{ github.workspace }}/build/cpp/vcpkg_installed/${{ env.VCPKG_TRIPLET }}/debug/bin"
