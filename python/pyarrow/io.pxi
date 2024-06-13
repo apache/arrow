@@ -1435,7 +1435,7 @@ cdef class Buffer(_Weakrefable):
                 "Device on which the data resides differs between buffers: "
                 f"{self.device.type_name} and {other.device.type_name}."
             )
-        if not self.is_cpu and not other.is_cpu:
+        if not self.is_cpu:
             if self.address != other.address:
                 raise NotImplementedError(
                     "Implemented only for data on CPU device or data with equal "
