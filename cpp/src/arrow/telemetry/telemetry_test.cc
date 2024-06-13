@@ -43,6 +43,13 @@ class OtelEnvironment : public ::testing::Environment {
   static constexpr std::string_view kLoggerName = "arrow-telemetry-test";
 
   void SetUp() override {
+    auto maybe_env_var = arrow::internal::GetEnvVar(kLoggingEnvVar);
+    // The env variable is required to be set to obtain a valid logger, so if it hasn't
+    // been set in the environment then we do that here.
+    if (maybe_env_var.status().IsKeyError()) {
+      ASSERT_OK(arrow::internal::SetEnvVar(kLoggingEnvVar, "arrow_otlp_stderr"));
+    }
+
     // Implicitly sets up span processors + tracer provider
     auto tracer = arrow::internal::tracing::GetTracer();
     ARROW_UNUSED(tracer);
@@ -62,7 +69,7 @@ class OtelEnvironment : public ::testing::Environment {
     ASSERT_OK(util::LoggerRegistry::RegisterLogger(logger->name(), logger));
   }
 
-  void TearDown() override { internal::ShutdownOtelLoggerProvider(); }
+  void TearDown() override { EXPECT_TRUE(internal::ShutdownOtelLoggerProvider()); }
 };
 
 static ::testing::Environment* kOtelEnvironment =
@@ -81,10 +88,6 @@ void Log(LogLevel severity, std::string_view message) {
 class TestLogging : public ::testing::Test {
  public:
   void SetUp() override {
-    auto env_var = arrow::internal::GetEnvVar(kLoggingEnvVar);
-    if (env_var.status().IsKeyError()) {
-      GTEST_SKIP() << "Env var " << kLoggingEnvVar << " is undefined";
-    }
     tracer_ = arrow::internal::tracing::GetTracer();
     span_ = tracer_->StartSpan("test-logging");
   }
