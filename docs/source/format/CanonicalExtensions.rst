@@ -283,47 +283,22 @@ UUID
    A specific UUID version is not required or guaranteed. This extension represents
    UUIDs as FixedSizeBinary(16) with big-endian notation and does not interpret the bytes in any way.
 
-Other
-=====
+Unknown
+=======
 
-Other represents a type or array that one Arrow-based system received from an
-external (likely non-Arrow) system, but cannot interpret itself.  In this
-case, the Other type explicitly communicates the name and presence of a field
-to downstream clients.
-
-For example:
-
-* A Flight SQL service may support connecting external databases.  In this
-  case, its catalog (``GetTables`` etc.) should reflect the names and types of
-  tables in external databases.  But those external systems may support types
-  it does not recognize.  Instead of erroring or silently dropping columns
-  from the catalog, it can use the Other[Null] type to report that a column
-  exists with a particular name and type name in the external database; this
-  lets clients know that a column exists, but is not supported.
-
-* The ADBC PostgreSQL driver, because of how the PostgreSQL wire protocol
-  works, may get bytes for a field whose type it does not recognize (say, a
-  geospatial type).  It can still return the bytes to the application which
-  may be able to parse the data itself.  In that case, it can use the
-  Other[binary] type to return the column data.  The Other type differentiates
-  the column from actual binary columns.
-
-Of course, the intermediate system *could* implement a custom extension type
-for these example types.  But there is no way in general that every type can
-be known in advance.  In such cases, the Other type allows the system to
-explicitly note that it does not support some type or field, without silently
-losing data or sending irrelevant errors.  It could also pretend to support
-the types by making up extension types on the fly.  But this misleads
-downstream systems who cannot tell if the type is supported or not.
+Unknown represents a type or array that an Arrow-based system received from an
+external (often non-Arrow) system, which it cannot interpret itself or did not
+have support for in advance.  In this case, it can pass on Unknown to its own
+clients to communicate that a field exists, but that it cannot interpret the
+field or data.
 
 Extension parameters:
 
-* Extension name: ``arrow.other``.
+* Extension name: ``arrow.unknown``.
 
 * The storage type of this extension is any type.  If there is no underlying
-  data, the storage type should be Null.  If there is data (because the system
-  got bytes or some other data it does not know how to interpret), the storage
-  type should preferably be binary or fixed-size binary, but may be any type.
+  data, the storage type should be Null.  If there is data, the storage type
+  should preferably be binary or fixed-size binary, but may be any type.
 
 * Extension type parameters:
 
@@ -336,23 +311,103 @@ Extension parameters:
   additional fields may be added, but all fields current and future are never
   required to interpret the array.
 
-  For example:
+Examples:
 
-  - The PostgreSQL ``polygon`` type may be represented as Other[binary] with
-    metadata ``{"type_name": "polygon", "vendor_name": "PostgreSQL"}``.
-  - The PostGIS ``geometry`` type may be represented as Other[binary] with
-    metadata ``{"type_name": "geometry", "vendor_name": "PostGIS"}``.
-  - A Flight SQL service may return an array type as Other[Null] with metadata
-    ``{"type_name": "varray", "vendor_name": "Oracle"}``.
+* Consider a Flight SQL service that supports connecting external databases.
+  Its clients may request the names and types of columns of tables in those
+  databases, but then there may be types that the Flight SQL service does not
+  recognize, due to lack of support or because those systems have their own
+  extensions or user-defined types.
 
-  Applications **should not** try to make conventions around vendor_name and
-  type_name.  In other words, if there is an Other type that multiple systems
-  want to support, instead of agreeing on using particular parameters of the
-  Other type they should create a formal extension type.  The parameters of
-  the Other type are primarily meant for human operators to understand what
-  type was not supported.  Applications may choose to interpret these fields
-  regardless but should be prepared for breakage (if for example the type
-  becomes formally supported).
+  The Flight SQL service can use the Unknown[Null] type to report that a
+  column exists with a particular name and type name in the external database.
+  This lets clients know that a column exists, but is not supported.  Null is
+  used as the storage type here because only schemas are involved.
+
+  The client would presumably not be able to query such columns from the
+  Flight SQL service, but there may be other columns in the table that it
+  could query, or it could prepare a query that references the unknown column
+  in an expression and produces a result that *is* supported.  The Unknown
+  type is a better experience than erroring or silently dropping columns from
+  the catalog.
+
+  An example of the extension metadata would be::
+
+    {"type_name": "varray", "vendor_name": "Oracle"}
+
+* The ADBC PostgreSQL driver may get bytes for a field whose type it does not
+  recognize.  This is because of how PostgreSQL and its wire protocol work:
+  the driver will always get bytes for fields and must implement support for
+  all potential types to interpret those bytes.  But the driver cannot know
+  about all types in advance, as there may be extensions (e.g. PostGIS for
+  geospatial functionality).
+
+  Beacuse the driver still has the raw bytes, it can use Unknown[Binary] to
+  return those bytes to the application, which may be able to parse the data
+  itself.  Unknown differentiates the column from an actual binary column.
+
+  An example of the extension metadata would be::
+
+    {"type_name": "geometry", "vendor_name": "PostGIS"}
+
+* The ADBC PostgreSQL driver may also get bytes for a field whose type it can
+  only partially recognize.  For example, PostgreSQL supports `composite types
+  <https://www.postgresql.org/docs/current/rowtypes.html>`_ that ascribe new
+  semantics to existing types, somewhat like Arrow extension types.
+
+  The driver would be able to parse the underlying type in this case.
+  However, the driver may still with to use the Unknown type.  Consider the
+  example in the PostgreSQL documentation above of a ``complex`` type.  Just
+  mapping the type to a plain Arrow ``struct`` type would lose the semantics
+  of that custom type.  In this case, the driver can use Unknown[Struct].  The
+  driver would never actually be able to directly support the type in this
+  example, since these types are defined by database administrators, not by
+  the developers.
+
+  An example of the extension metadata would be::
+
+    {"type_name": "database_name.schema_name.complex", "vendor_name": "PostgreSQL"}
+
+* The JDBC adapter in the Arrow Java libraries converts JDBC result sets into
+  Arrow arrays, and also to get Arrow schemas from result sets.  JDBC,
+  however, allows drivers to return `arbitrary Java objects
+  <https://docs.oracle.com/javase/8/docs/api/java/sql/Types.html#OTHER>`_.
+
+  Currently, the JDBC adapter simply errors, making usage of the adapter a
+  minefield where results are all-or-nothing, even if an application just
+  wants to fetch a schema.  Instead, the driver could use Unknown[Null] as a
+  placeholder during schema conversion, only erroring if the application tries
+  to fetch the actual data.  That way, clients could at least introspect
+  tables and queries to decide whether it can proceed to query the data, or
+  only query certain columns.
+
+  An example of the extension metadata would be::
+
+    {"type_name": "OTHER", "vendor_name": "JDBC driver name"}
+
+Of course, the intermediate system *could* implement custom extension types in
+these cases.  But there is no way that every type can be known in advance, as
+discussed specifically for each example.  In such cases, the Unknown type
+allows the system to explicitly note that it does not support some type or
+field, without silently losing data or sending irrelevant errors.
+
+Another option would be to pretend to support the type and make up new
+extension types on the fly.  But this misleads downstream systems who cannot
+tell if the type is truly supported or not by the intermediate Arrow
+application (the Flight SQL service, or the JDBC adapter, etc.), which
+particularly matters for the Flight SQL and JDBC examples.
+
+Applications **should not** make conventions around vendor_name and type_name.
+In other words, if there is a type that multiple systems want to support, they
+should create a formal extension type.  They *should not* try to agree on
+particular parameters of the Unknown type to recognize.  These parameters are
+primarily meant for human end users to understand what type was not supported.
+Of course, applications may choose to interpret these fields regardless but
+must be prepared for breakage (if for example the type becomes formally
+supported with a custom extension type in a later software revision).
+
+Unknown is not about file formats.  Considerations such as JSON or other file
+formats, or MIME types, are irrelevant.
 
 =========================
 Community Extension Types
