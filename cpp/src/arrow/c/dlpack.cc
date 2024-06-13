@@ -133,7 +133,6 @@ Result<DLDevice> ExportDevice(const std::shared_ptr<Array>& arr) {
 
 struct TensorManagerCtx {
   std::shared_ptr<Tensor> t;
-  std::vector<int64_t> shape;
   std::vector<int64_t> strides;
   DLManagedTensor tensor;
 };
@@ -146,7 +145,7 @@ Result<DLManagedTensor*> ExportTensor(const std::shared_ptr<Tensor>& t) {
   // Define DLDevice struct
   ARROW_ASSIGN_OR_RAISE(DLDevice device, ExportDevice(t))
 
-  // Create ManagerCtx that will serve as the owner of the DLManagedTensor
+  // Create TensorManagerCtx that will serve as the owner of the DLManagedTensor
   std::unique_ptr<TensorManagerCtx> ctx(new TensorManagerCtx);
 
   // Define the data pointer to the DLTensor
@@ -161,22 +160,19 @@ Result<DLManagedTensor*> ExportTensor(const std::shared_ptr<Tensor>& t) {
   ctx->tensor.dl_tensor.ndim = t->ndim();
   ctx->tensor.dl_tensor.dtype = dlpack_type;
 
-  std::vector<int64_t>* shape_arr = &ctx->shape;
+  ctx->tensor.dl_tensor.shape = const_cast<int64_t*>(t->shape().data());
   std::vector<int64_t>* strides_arr = &ctx->strides;
-  shape_arr->resize(t->ndim());
   strides_arr->resize(t->ndim());
   for (int i = 0; i < t->ndim(); i++) {
-    (*shape_arr)[i] = t->shape().data()[i];
     (*strides_arr)[i] = t->strides().data()[i] / t->type()->byte_width();
   }
-  ctx->tensor.dl_tensor.shape = shape_arr->data();
   ctx->tensor.dl_tensor.strides = strides_arr->data();
   ctx->tensor.dl_tensor.byte_offset = 0;
 
   ctx->t = std::move(t);
   ctx->tensor.manager_ctx = ctx.get();
   ctx->tensor.deleter = [](struct DLManagedTensor* self) {
-    delete reinterpret_cast<ManagerCtx*>(self->manager_ctx);
+    delete reinterpret_cast<TensorManagerCtx*>(self->manager_ctx);
   };
   return &ctx.release()->tensor;
 }
