@@ -25,10 +25,6 @@ from pyarrow.lib import is_threading_enabled
 from pyarrow.tests.util import windows_has_tzdata
 import sys
 
-try:
-    import numpy as np
-except ImportError:
-    pass
 
 groups = [
     'acero',
@@ -338,6 +334,7 @@ def unary_agg_func_fixture():
     Register a unary aggregate function (mean)
     """
     from pyarrow import compute as pc
+    import numpy as np
 
     def func(ctx, x):
         return pa.scalar(np.nanmean(x))
@@ -363,6 +360,7 @@ def varargs_agg_func_fixture():
     Register a unary aggregate function
     """
     from pyarrow import compute as pc
+    import numpy as np
 
     def func(ctx, *args):
         sum = 0.0
