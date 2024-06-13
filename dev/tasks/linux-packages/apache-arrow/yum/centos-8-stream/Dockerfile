@@ -25,7 +25,7 @@ ARG DEBUG
 RUN sed -i \
   -e 's/^mirrorlist/#mirrorlist/' \
   -e 's/^#baseurl/baseurl/' \
-  -e 's/mirror\\.centos\\.org/vault.centos.org/' \
+  -e 's/mirror\.centos\.org/vault.centos.org/' \
   /etc/yum.repos.d/*.repo
 
 RUN \
