@@ -69,12 +69,6 @@ public class FileRoundtrip {
               "Failed to create parent directory: " + parentDir.getAbsolutePath());
         }
       }
-      if (!f.exists()) {
-        if (!f.createNewFile()) {
-          throw new IOException(
-              type + " file not found and could not be created: " + f.getAbsolutePath());
-        }
-      }
     }
     return f;
   }
