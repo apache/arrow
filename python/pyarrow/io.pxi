@@ -1286,6 +1286,10 @@ cdef class Buffer(_Weakrefable):
                 f"is_cpu={self.is_cpu} "
                 f"is_mutable={self.is_mutable}>")
 
+    def _assert_cpu(self):
+        if not self.is_cpu:
+            raise NotImplementedError("Implemented only for data on CPU device")
+
     @property
     def size(self):
         """
@@ -1311,6 +1315,7 @@ cdef class Buffer(_Weakrefable):
         -------
         : bytes
         """
+        self._assert_cpu()
         return self.buffer.get().ToHexString()
 
     @property
@@ -1378,6 +1383,7 @@ cdef class Buffer(_Weakrefable):
         return self.getitem(_normalize_index(key, self.size))
 
     cdef getitem(self, int64_t i):
+        self._assert_cpu()
         return self.buffer.get().data()[i]
 
     def slice(self, offset=0, length=None):
@@ -1424,6 +1430,18 @@ cdef class Buffer(_Weakrefable):
         are_equal : bool
             True if buffer contents and size are equal
         """
+        if self.device != other.device:
+            raise ValueError(
+                "Device on which the data resides differs between buffers: "
+                f"{self.device.type_name} and {other.device.type_name}."
+            )
+        if not self.is_cpu:
+            if self.address != other.address:
+                raise NotImplementedError(
+                    "Implemented only for data on CPU device or data with equal "
+                    "addresses"
+                )
+
         cdef c_bool result = False
         with nogil:
             result = self.buffer.get().Equals(deref(other.buffer.get()))
@@ -1436,6 +1454,8 @@ cdef class Buffer(_Weakrefable):
             return self.equals(py_buffer(other))
 
     def __reduce_ex__(self, protocol):
+        self._assert_cpu()
+
         if protocol >= 5:
             bufobj = pickle.PickleBuffer(self)
         elif self.buffer.get().is_mutable():
@@ -1452,11 +1472,15 @@ cdef class Buffer(_Weakrefable):
         """
         Return this buffer as a Python bytes object. Memory is copied.
         """
+        self._assert_cpu()
+
         return cp.PyBytes_FromStringAndSize(
             <const char*>self.buffer.get().data(),
             self.buffer.get().size())
 
     def __getbuffer__(self, cp.Py_buffer* buffer, int flags):
+        self._assert_cpu()
+
         if self.buffer.get().is_mutable():
             buffer.readonly = 0
         else:
