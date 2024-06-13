@@ -112,6 +112,7 @@ public final class ArrowFlightConnection extends AvaticaConnection {
           .withCallOptions(config.toCallOption())
           .withRetainCookies(config.retainCookies())
           .withRetainAuth(config.retainAuth())
+          .withCatalog(config.getCatalog())
           .build();
     } catch (final SQLException e) {
       try {
@@ -171,6 +172,7 @@ public final class ArrowFlightConnection extends AvaticaConnection {
 
   @Override
   public void close() throws SQLException {
+    clientHandler.close();
     if (executorService != null) {
       executorService.shutdown();
     }

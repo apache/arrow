@@ -16,12 +16,14 @@
  */
 package org.apache.arrow.driver.jdbc.client;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
+import java.util.Optional;
 import org.apache.arrow.driver.jdbc.FlightServerTestRule;
 import org.apache.arrow.driver.jdbc.utils.CoreMockedSqlProducers;
 import org.apache.arrow.memory.BufferAllocator;
@@ -142,5 +144,30 @@ public class ArrowFlightSqlClientHandlerBuilderTest {
     assertNull(builder.tlsRootCertificatesPath);
     assertNull(builder.clientCertificatePath);
     assertNull(builder.clientKeyPath);
+    assertEquals(Optional.empty(), builder.catalog);
+  }
+
+  @Test
+  public void testCatalog() {
+    ArrowFlightSqlClientHandler.Builder rootBuilder = new ArrowFlightSqlClientHandler.Builder();
+
+    rootBuilder.withCatalog(null);
+    assertFalse(rootBuilder.catalog.isPresent());
+
+    rootBuilder.withCatalog("");
+    assertTrue(rootBuilder.catalog.isPresent());
+
+    rootBuilder.withCatalog("   ");
+    assertTrue(rootBuilder.catalog.isPresent());
+
+    final String noSpaces = "noSpaces";
+    rootBuilder.withCatalog(noSpaces);
+    assertTrue(rootBuilder.catalog.isPresent());
+    assertEquals(noSpaces, rootBuilder.catalog.get());
+
+    final String nameWithSpaces = "  spaces ";
+    rootBuilder.withCatalog(nameWithSpaces);
+    assertTrue(rootBuilder.catalog.isPresent());
+    assertEquals(nameWithSpaces, rootBuilder.catalog.get());
   }
 }

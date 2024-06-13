@@ -155,6 +155,15 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
   }
 
   /**
+   * The catalog to which a connection is made.
+   *
+   * @return the catalog.
+   */
+  public String getCatalog() {
+    return ArrowFlightConnectionProperty.CATALOG.getString(properties);
+  }
+
+  /**
    * Gets the {@link CallOption}s from this {@link ConnectionConfig}.
    *
    * @return the call options.
@@ -203,7 +212,8 @@ public final class ArrowFlightConnectionConfigImpl extends ConnectionConfigImpl 
     THREAD_POOL_SIZE("threadPoolSize", 1, Type.NUMBER, false),
     TOKEN("token", null, Type.STRING, false),
     RETAIN_COOKIES("retainCookies", true, Type.BOOLEAN, false),
-    RETAIN_AUTH("retainAuth", true, Type.BOOLEAN, false);
+    RETAIN_AUTH("retainAuth", true, Type.BOOLEAN, false),
+    CATALOG("catalog", null, Type.STRING, false);
 
     private final String camelName;
     private final Object defaultValue;

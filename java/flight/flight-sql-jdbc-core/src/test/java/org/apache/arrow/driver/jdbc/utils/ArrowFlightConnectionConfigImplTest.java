@@ -18,6 +18,7 @@ package org.apache.arrow.driver.jdbc.utils;
 
 import static java.lang.Runtime.getRuntime;
 import static java.util.Arrays.asList;
+import static org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.CATALOG;
 import static org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.HOST;
 import static org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.PASSWORD;
 import static org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.PORT;
@@ -106,6 +107,12 @@ public final class ArrowFlightConnectionConfigImplTest {
             RANDOM.nextInt(getRuntime().availableProcessors()),
             (Function<ArrowFlightConnectionConfigImpl, ?>)
                 ArrowFlightConnectionConfigImpl::threadPoolSize
+          },
+          {
+            CATALOG,
+            "catalog",
+            (Function<ArrowFlightConnectionConfigImpl, ?>)
+                ArrowFlightConnectionConfigImpl::getCatalog
           },
         });
   }
