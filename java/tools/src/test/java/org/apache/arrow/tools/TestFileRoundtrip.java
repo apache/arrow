@@ -19,10 +19,12 @@ package org.apache.arrow.tools;
 import static org.apache.arrow.tools.ArrowFileTestFixtures.validateOutput;
 import static org.apache.arrow.tools.ArrowFileTestFixtures.writeInput;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 
 import java.io.File;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.ipc.InvalidArrowFileException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -32,6 +34,7 @@ import org.junit.rules.TemporaryFolder;
 public class TestFileRoundtrip {
 
   @Rule public TemporaryFolder testFolder = new TemporaryFolder();
+  @Rule public TemporaryFolder testAnotherFolder = new TemporaryFolder();
 
   private BufferAllocator allocator;
 
@@ -57,5 +60,37 @@ public class TestFileRoundtrip {
     assertEquals(0, result);
 
     validateOutput(testOutFile, allocator);
+  }
+
+  @Test
+  public void testDiffFolder() throws Exception {
+    File testInFile = testFolder.newFile("testIn.arrow");
+    File testOutFile = testAnotherFolder.newFile("testOut.arrow");
+
+    writeInput(testInFile, allocator);
+
+    String[] args = {"-i", testInFile.getAbsolutePath(), "-o", testOutFile.getAbsolutePath()};
+    int result = new FileRoundtrip(System.err).run(args);
+    assertEquals(0, result);
+
+    validateOutput(testOutFile, allocator);
+  }
+
+  @Test
+  public void testNotPreparedInput() throws Exception {
+    File testInFile = testFolder.newFile("testIn.arrow");
+    File testOutFile = testFolder.newFile("testOut.arrow");
+
+    String[] args = {"-i", testInFile.getAbsolutePath(), "-o", testOutFile.getAbsolutePath()};
+
+    // In JUnit 5, since the file itself is not created, the exception and message will be
+    // different.
+    Exception exception =
+        assertThrows(
+            InvalidArrowFileException.class,
+            () -> {
+              new FileRoundtrip(System.err).run(args);
+            });
+    assertEquals("file too small: 0", exception.getMessage());
   }
 }
