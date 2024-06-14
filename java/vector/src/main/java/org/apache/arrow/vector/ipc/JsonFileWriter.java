@@ -216,7 +216,7 @@ public class JsonFileWriter implements AutoCloseable {
       }
     } else {
       variadicBufferCount = vectorBuffers.size() - vectorTypes.size();
-      for (int i = 0; i < variadicBufferCount; i++) {
+      if (variadicBufferCount > 0) {
         vectorTypes.add(VARIADIC_DATA_BUFFERS);
       }
     }
@@ -230,6 +230,8 @@ public class JsonFileWriter implements AutoCloseable {
       for (int v = 0; v < vectorTypes.size(); v++) {
         BufferType bufferType = vectorTypes.get(v);
         ArrowBuf vectorBuffer = vectorBuffers.get(v);
+        // Note that in JSON format we cannot have VARIADIC_DATA_BUFFERS repeated,
+        // thus the values are only written to a single entity.
         generator.writeArrayFieldStart(bufferType.getName());
         final int bufferValueCount =
             (bufferType.equals(OFFSET) && vector.getMinorType() != MinorType.DENSEUNION)
@@ -250,12 +252,11 @@ public class JsonFileWriter implements AutoCloseable {
           } else if (bufferType.equals(VARIADIC_DATA_BUFFERS)
               && (vector.getMinorType() == MinorType.VIEWVARCHAR
                   || vector.getMinorType() == MinorType.VIEWVARBINARY)) {
-            ArrowBuf viewBuffer = vectorBuffers.get(v - 1);
+            ArrowBuf viewBuffer = vectorBuffers.get(1);
             List<ArrowBuf> dataBuffers = vectorBuffers.subList(v, vectorBuffers.size());
-            if (variadicBufferCount == 0) {
-              continue;
+            if (!dataBuffers.isEmpty()) {
+              writeValueToDataBufferGenerator(bufferType, viewBuffer, dataBuffers, vector, i);
             }
-            writeValueToDataBufferGenerator(bufferType, viewBuffer, dataBuffers, vector, i);
           } else if (bufferType.equals(OFFSET)
               && vector.getValueCount() == 0
               && (vector.getMinorType() == MinorType.LIST
@@ -343,7 +344,12 @@ public class JsonFileWriter implements AutoCloseable {
       generator.writeObject(dataOffset);
     } else {
       generator.writeFieldName("INLINED");
-      generator.writeString(Hex.encodeHexString(b));
+      if (vector.getMinorType() == MinorType.VIEWVARCHAR) {
+        generator.writeString(new String(b, "UTF-8"));
+      } else {
+        // VIEWVARBINARY
+        generator.writeString(Hex.encodeHexString(b));
+      }
     }
     generator.writeEndObject();
   }
@@ -357,6 +363,7 @@ public class JsonFileWriter implements AutoCloseable {
       throws IOException {
     if (bufferType.equals(VARIADIC_DATA_BUFFERS)) {
       Preconditions.checkNotNull(viewBuffer);
+      Preconditions.checkArgument(!dataBuffers.isEmpty());
       byte[] b = BaseVariableWidthViewVector.get(viewBuffer, dataBuffers, index, false);
       if (b.length > BaseVariableWidthViewVector.INLINE_SIZE) {
         switch (vector.getMinorType()) {
