@@ -16,11 +16,11 @@
  */
 package org.apache.arrow.adapter.jdbc;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -28,7 +28,7 @@ import java.sql.Types;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /** Tests of the ResultSetUtility. */
 public class ResultSetUtilityTest {
@@ -44,14 +44,14 @@ public class ResultSetUtilityTest {
                 .build();
 
         ArrowVectorIterator iter = JdbcToArrow.sqlToArrowVectorIterator(rs, config);
-        assertTrue("Iterator on zero row ResultSet should haveNext() before use", iter.hasNext());
+        assertTrue(iter.hasNext(), "Iterator on zero row ResultSet should haveNext() before use");
         VectorSchemaRoot root = iter.next();
-        assertNotNull("VectorSchemaRoot from first next() result should never be null", root);
+        assertNotNull(root, "VectorSchemaRoot from first next() result should never be null");
         assertEquals(
-            "VectorSchemaRoot from empty ResultSet should have zero rows", 0, root.getRowCount());
+            0, root.getRowCount(), "VectorSchemaRoot from empty ResultSet should have zero rows");
         assertFalse(
-            "hasNext() should return false on empty ResultSets after initial next() call",
-            iter.hasNext());
+            iter.hasNext(),
+            "hasNext() should return false on empty ResultSets after initial next() call");
       }
     }
   }

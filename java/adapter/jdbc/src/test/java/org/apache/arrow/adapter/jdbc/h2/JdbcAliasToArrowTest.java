@@ -17,7 +17,7 @@
 package org.apache.arrow.adapter.jdbc.h2;
 
 import static org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest.sqlToArrow;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -31,9 +31,9 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class JdbcAliasToArrowTest {
   private Connection conn = null;
@@ -46,7 +46,7 @@ public class JdbcAliasToArrowTest {
   private static final String COLUMN_A = "A";
   private static final String COLUMN_B = "B";
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     String url = "jdbc:h2:mem:JdbcAliasToArrowTest";
     String driver = "org.h2.Driver";
@@ -110,7 +110,7 @@ public class JdbcAliasToArrowTest {
     }
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws SQLException {
     try (Statement stmt = conn.createStatement()) {
       stmt.executeUpdate(DROP_STATEMENT);

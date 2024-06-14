@@ -16,9 +16,9 @@
  */
 package org.apache.arrow.adapter.orc;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
@@ -37,19 +37,18 @@ import org.apache.hadoop.hive.ql.exec.vector.VectorizedRowBatch;
 import org.apache.orc.OrcFile;
 import org.apache.orc.TypeDescription;
 import org.apache.orc.Writer;
-import org.junit.BeforeClass;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 public class OrcReaderTest {
 
-  @Rule public TemporaryFolder testFolder = new TemporaryFolder();
+  @TempDir public File testFolder;
 
   private static final int MAX_ALLOCATION = 8 * 1024;
   private static RootAllocator allocator;
 
-  @BeforeClass
+  @BeforeAll
   public static void beforeClass() {
     allocator = new RootAllocator(MAX_ALLOCATION);
   }
@@ -57,7 +56,7 @@ public class OrcReaderTest {
   @Test
   public void testOrcJniReader() throws Exception {
     TypeDescription schema = TypeDescription.fromString("struct<x:int,y:string>");
-    File testFile = new File(testFolder.getRoot(), "test-orc");
+    File testFile = new File(testFolder, "test-orc");
 
     Writer writer =
         OrcFile.createWriter(

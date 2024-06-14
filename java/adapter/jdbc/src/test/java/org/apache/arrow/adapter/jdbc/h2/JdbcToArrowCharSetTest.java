@@ -27,7 +27,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Calendar;
-import java.util.Collection;
+import java.util.stream.Stream;
 import org.apache.arrow.adapter.jdbc.AbstractJdbcToArrowTest;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfig;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfigBuilder;
@@ -38,17 +38,14 @@ import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameters;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * JUnit Test Class which contains methods to test JDBC to Arrow data conversion functionality with
  * UTF-8 Charset, including the multi-byte CJK characters for H2 database.
  */
-@RunWith(Parameterized.class)
 public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
 
   private static final String[] testFiles = {
@@ -58,24 +55,10 @@ public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
     "h2/test1_charset_kr_h2.yml"
   };
 
-  /**
-   * Constructor which populates the table object for each test iteration.
-   *
-   * @param table Table oject
-   */
-  public JdbcToArrowCharSetTest(Table table) {
-    this.table = table;
-  }
-
-  /**
-   * This method creates Connection object and DB table and also populate data into table for test.
-   *
-   * @throws SQLException on error
-   * @throws ClassNotFoundException on error
-   */
-  @Before
   @Override
-  public void setUp() throws SQLException, ClassNotFoundException {
+  public void initializeDatabase(Table table) throws SQLException, ClassNotFoundException {
+    this.table = table;
+
     String url = "jdbc:h2:mem:JdbcToArrowTest?characterEncoding=UTF-8";
     String driver = "org.h2.Driver";
     Class.forName(driver);
@@ -96,19 +79,22 @@ public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
    * @throws ClassNotFoundException on error
    * @throws IOException on error
    */
-  @Parameters
-  public static Collection<Object[]> getTestData()
+  public static Stream<Arguments> getTestData()
       throws SQLException, ClassNotFoundException, IOException {
-    return Arrays.asList(prepareTestData(testFiles, JdbcToArrowCharSetTest.class));
+    return Arrays.stream(prepareTestData(testFiles, JdbcToArrowCharSetTest.class))
+        .map(Arguments::of);
   }
 
   /**
    * Test Method to test JdbcToArrow Functionality for various H2 DB based datatypes with UTF-8
    * Charset, including the multi-byte CJK characters.
    */
-  @Test
-  @Override
-  public void testJdbcToArrowValues() throws SQLException, IOException {
+  @ParameterizedTest
+  @MethodSource("getTestData")
+  public void testJdbcToArrowValues(Table table)
+      throws SQLException, IOException, ClassNotFoundException {
+    this.initializeDatabase(table);
+
     testDataSets(
         sqlToArrow(
             conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()),
@@ -146,8 +132,11 @@ public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
         false);
   }
 
-  @Test
-  public void testJdbcSchemaMetadata() throws SQLException {
+  @ParameterizedTest
+  @MethodSource("getTestData")
+  public void testJdbcSchemaMetadata(Table table) throws SQLException, ClassNotFoundException {
+    this.initializeDatabase(table);
+
     JdbcToArrowConfig config =
         new JdbcToArrowConfigBuilder(new RootAllocator(0), Calendar.getInstance(), true).build();
     ResultSetMetaData rsmd = conn.createStatement().executeQuery(table.getQuery()).getMetaData();

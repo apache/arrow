@@ -16,7 +16,7 @@
  */
 package org.apache.arrow.adapter.avro;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -31,7 +31,7 @@ import org.apache.arrow.vector.types.Types;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class AvroSkipFieldTest extends AvroTestBase {
 

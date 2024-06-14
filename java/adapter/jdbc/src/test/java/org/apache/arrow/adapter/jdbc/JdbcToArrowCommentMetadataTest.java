@@ -37,9 +37,9 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class JdbcToArrowCommentMetadataTest {
 
@@ -53,7 +53,7 @@ public class JdbcToArrowCommentMetadataTest {
    * @throws SQLException on error
    * @throws ClassNotFoundException on error
    */
-  @Before
+  @BeforeEach
   public void setUp() throws SQLException, ClassNotFoundException {
     String url =
         "jdbc:h2:mem:JdbcToArrowTest?characterEncoding=UTF-8;INIT=runscript from 'classpath:/h2/comment.sql'";
@@ -62,7 +62,7 @@ public class JdbcToArrowCommentMetadataTest {
     conn = DriverManager.getConnection(url);
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws SQLException {
     if (conn != null) {
       conn.close();
