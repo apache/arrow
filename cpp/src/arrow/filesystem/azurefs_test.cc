@@ -731,6 +731,38 @@ class TestAzureOptions : public ::testing::Test {
                                "unknown=invalid",
                                nullptr));
   }
+
+  void TestMakeBlobServiceClientInvalidAccountName() {
+    AzureOptions options;
+    ASSERT_RAISES_WITH_MESSAGE(
+        Invalid, "Invalid: AzureOptions doesn't contain a valid account name",
+        options.MakeBlobServiceClient());
+  }
+
+  void TestMakeBlobServiceClientInvalidBlobStorageScheme() {
+    AzureOptions options;
+    options.account_name = "user";
+    options.blob_storage_scheme = "abfs";
+    ASSERT_RAISES_WITH_MESSAGE(
+        Invalid, "Invalid: AzureOptions::blob_storage_scheme must be http or https: abfs",
+        options.MakeBlobServiceClient());
+  }
+
+  void TestMakeDataLakeServiceClientInvalidAccountName() {
+    AzureOptions options;
+    ASSERT_RAISES_WITH_MESSAGE(
+        Invalid, "Invalid: AzureOptions doesn't contain a valid account name",
+        options.MakeDataLakeServiceClient());
+  }
+
+  void TestMakeDataLakeServiceClientInvalidDfsStorageScheme() {
+    AzureOptions options;
+    options.account_name = "user";
+    options.dfs_storage_scheme = "abfs";
+    ASSERT_RAISES_WITH_MESSAGE(
+        Invalid, "Invalid: AzureOptions::dfs_storage_scheme must be http or https: abfs",
+        options.MakeDataLakeServiceClient());
+  }
 };
 
 TEST_F(TestAzureOptions, FromUriBlobStorage) { TestFromUriBlobStorage(); }
@@ -763,6 +795,18 @@ TEST_F(TestAzureOptions, FromUriBlobStorageAuthority) {
 TEST_F(TestAzureOptions, FromUriDfsStorageAuthority) { TestFromUriDfsStorageAuthority(); }
 TEST_F(TestAzureOptions, FromUriInvalidQueryParameter) {
   TestFromUriInvalidQueryParameter();
+}
+TEST_F(TestAzureOptions, MakeBlobServiceClientInvalidAccountName) {
+  TestMakeBlobServiceClientInvalidAccountName();
+}
+TEST_F(TestAzureOptions, MakeBlobServiceClientInvalidBlobStorageScheme) {
+  TestMakeBlobServiceClientInvalidBlobStorageScheme();
+}
+TEST_F(TestAzureOptions, MakeDataLakeServiceClientInvalidAccountName) {
+  TestMakeDataLakeServiceClientInvalidAccountName();
+}
+TEST_F(TestAzureOptions, MakeDataLakeServiceClientInvalidDfsStorageScheme) {
+  TestMakeDataLakeServiceClientInvalidDfsStorageScheme();
 }
 
 class TestAzureFileSystem : public ::testing::Test {
