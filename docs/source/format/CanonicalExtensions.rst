@@ -311,6 +311,43 @@ Extension parameters:
   additional fields may be added, but all fields current and future are never
   required to interpret the array.
 
+Rationale
+---------
+
+Arrow systems often wrap non-Arrow systems, and so they must be prepared to
+handle data types and data that don't have an equivalent Arrow type.  A hard
+error is not useful to clients.  A client may still want to know of the
+existence of a field, or the types of other, supported fields, without getting
+an error just because of an unrecognized type in one column.  Similarly,
+dropping unsupported fields/columns is also a poor solution.
+
+Of course, the Arrow system can use extension types.  But it cannot have an
+extension type prepared for every possible type in advance; the non-Arrow
+system can have its own extension mechanisms.  It could "make up" a fresh
+extension type on-the-fly.  But this misleads downstream systems who cannot
+tell if the type is truly supported or not by the intermediate Arrow
+application.
+
+The Unknown type is superior in all cases.  Because it explicitly means that
+the *intermediate* system does not support a type, it can be used to
+explicitly declare an unsupported field or column, without silently losing
+data or sending irrelevant errors.  In other words: if an Arrow system
+encounters a non-Arrow type it was not prepared to handle at runtime, it can
+use Unknown to pass the type along to an Arrow client.
+
+Applications **should not** make conventions around vendor_name and type_name.
+If there is a type that multiple systems want to support, they should create a
+formal extension type.  They *should not* try to agree to use particular
+parameters of the Unknown type.  These parameters are meant for human end
+users to understand what type was not supported.  Of course, applications may
+interpret these fields regardless but must be prepared for breakage (if for
+example the type becomes formally supported with a custom extension type in a
+later software revision).
+
+Unknown is not about file formats.  Considerations such as JSON or other file
+formats, or MIME types, are irrelevant, and Unknown should not be used as a
+generic container for file format data (XML/JSON/etc.).
+
 Examples:
 
 * Consider a Flight SQL service that supports connecting external databases.
@@ -325,11 +362,13 @@ Examples:
   used as the storage type here because only schemas are involved.
 
   The client would presumably not be able to query such columns from the
-  Flight SQL service, but there may be other columns in the table that it
-  could query, or it could prepare a query that references the unknown column
-  in an expression and produces a result that *is* supported.  The Unknown
-  type is a better experience than erroring or silently dropping columns from
-  the catalog.
+  service, but there may be other columns that it could query, or it could
+  prepare a query that references the unknown column in an expression and
+  produces a result that *is* supported.  The server could make up an
+  extension type on the fly, but then the client wouldn't be able to tell if
+  it can try to query the column or not, while with Unknown, it knows the
+  column is unsupported.  So as discussed above, Unknown is superior to all
+  alternatives.
 
   An example of the extension metadata would be::
 
@@ -337,14 +376,15 @@ Examples:
 
 * The ADBC PostgreSQL driver may get bytes for a field whose type it does not
   recognize.  This is because of how PostgreSQL and its wire protocol work:
-  the driver will always get bytes for fields and must implement support for
-  all potential types to interpret those bytes.  But the driver cannot know
-  about all types in advance, as there may be extensions (e.g. PostGIS for
-  geospatial functionality).
+  values come from the server as length-prefixed bytes, so the driver will
+  always have bytes for fields and needs to know how to parse them.  But the
+  driver cannot know about all types in advance, as there may be extensions
+  (e.g. PostGIS for geospatial functionality).
 
   Beacuse the driver still has the raw bytes, it can use Unknown[Binary] to
-  return those bytes to the application, which may be able to parse the data
-  itself.  Unknown differentiates the column from an actual binary column.
+  still return those bytes to the application, which may be able to parse the
+  data itself.  Unknown differentiates the column from an actual binary
+  column and makes it clear that the value is unparsed.
 
   An example of the extension metadata would be::
 
@@ -355,14 +395,21 @@ Examples:
   <https://www.postgresql.org/docs/current/rowtypes.html>`_ that ascribe new
   semantics to existing types, somewhat like Arrow extension types.
 
-  The driver would be able to parse the underlying type in this case.
-  However, the driver may still with to use the Unknown type.  Consider the
-  example in the PostgreSQL documentation above of a ``complex`` type.  Just
+  The driver would be able to parse the underlying bytes in this case.
+  However, the driver may still want to use the Unknown type.  Consider the
+  example in the PostgreSQL documentation above of a ``complex`` type.  Simply
   mapping the type to a plain Arrow ``struct`` type would lose the semantics
-  of that custom type.  In this case, the driver can use Unknown[Struct].  The
-  driver would never actually be able to directly support the type in this
-  example, since these types are defined by database administrators, not by
-  the developers.
+  of that custom type, just like how an Arrow system deciding to treat all
+  extension types by dropping the extension metadata would be undesirable.
+  Meanwhile, dynamically generating an extension type would also be wrong
+  semantically - for instance, there may be an actual extension type that
+  should be used.
+
+  Instead, the driver can use Unknown[Struct] to pass on the composite type
+  info.  The driver would never actually be able to directly support the type
+  in this example, since these types are defined by database administrators,
+  not by the developers, and the driver developers can never know about all
+  these possibilities.
 
   An example of the extension metadata would be::
 
@@ -373,41 +420,17 @@ Examples:
   however, allows drivers to return `arbitrary Java objects
   <https://docs.oracle.com/javase/8/docs/api/java/sql/Types.html#OTHER>`_.
 
-  Currently, the JDBC adapter simply errors, making usage of the adapter a
-  minefield where results are all-or-nothing, even if an application just
-  wants to fetch a schema.  Instead, the driver could use Unknown[Null] as a
+  Without the extension type, the JDBC adapter would simply error, making the
+  adapter a minefield where results are all-or-nothing, even if an application
+  just wants a schema.  Instead, the driver could use Unknown[Null] as a
   placeholder during schema conversion, only erroring if the application tries
   to fetch the actual data.  That way, clients could at least introspect
-  tables and queries to decide whether it can proceed to query the data, or
+  tables and queries to decide whether it can proceed to fetch the data, or
   only query certain columns.
 
   An example of the extension metadata would be::
 
     {"type_name": "OTHER", "vendor_name": "JDBC driver name"}
-
-Of course, the intermediate system *could* implement custom extension types in
-these cases.  But there is no way that every type can be known in advance, as
-discussed specifically for each example.  In such cases, the Unknown type
-allows the system to explicitly note that it does not support some type or
-field, without silently losing data or sending irrelevant errors.
-
-Another option would be to pretend to support the type and make up new
-extension types on the fly.  But this misleads downstream systems who cannot
-tell if the type is truly supported or not by the intermediate Arrow
-application (the Flight SQL service, or the JDBC adapter, etc.), which
-particularly matters for the Flight SQL and JDBC examples.
-
-Applications **should not** make conventions around vendor_name and type_name.
-In other words, if there is a type that multiple systems want to support, they
-should create a formal extension type.  They *should not* try to agree on
-particular parameters of the Unknown type to recognize.  These parameters are
-primarily meant for human end users to understand what type was not supported.
-Of course, applications may choose to interpret these fields regardless but
-must be prepared for breakage (if for example the type becomes formally
-supported with a custom extension type in a later software revision).
-
-Unknown is not about file formats.  Considerations such as JSON or other file
-formats, or MIME types, are irrelevant.
 
 =========================
 Community Extension Types
