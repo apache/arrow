@@ -58,6 +58,15 @@ except ImportError:
     except ImportError:
         __version__ = None
 
+# On emscripten in browser we need to load the timezones from tzdata
+# package into where arrow expects them to be, otherwise all time
+# handling will break.
+# n.b. this needs to happen before lib is imported or else bad things happen
+if _sys.platform == 'emscripten':
+    from ._emscripten_timezones import setup_emscripten_timezone_database
+    setup_emscripten_timezone_database()
+
+
 # ARROW-8684: Disable GC while initializing Cython extension module,
 # to workaround Cython bug in https://github.com/cython/cython/issues/3603
 _gc_enabled = _gc.isenabled()
@@ -432,9 +441,3 @@ def get_library_dirs():
     return library_dirs
 
 
-# On emscripten in browser we need to load the timezones from tzdata
-# package into where arrow expects them to be, otherwise all time
-# handling will break.
-if _sys.platform == 'emscripten':
-    from ._emscripten_timezones import setup_emscripten_timezone_database
-    setup_emscripten_timezone_database()

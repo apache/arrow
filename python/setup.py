@@ -431,11 +431,17 @@ else:
     exclude_package_data = {"pyarrow": ["tests*"]}
 
 
+package_data = {'pyarrow': ['*.pxd', '*.pyx', 'includes/*.pxd']}
+if is_emscripten:
+    package_data['pyarrow'].append('_emscripten_tzdb/*')
+else:
+    exclude_package_data |= {"pyarrow": ["_emscripten_tzdb"]}
+
 setup(
     name='pyarrow',
     packages=packages,
     zip_safe=False,
-    package_data={'pyarrow': ['*.pxd', '*.pyx', 'includes/*.pxd']},
+    package_data=package_data,
     include_package_data=True,
     exclude_package_data=exclude_package_data,
     distclass=BinaryDistribution,

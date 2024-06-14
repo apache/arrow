@@ -30,7 +30,8 @@ try:
         if not Path("/usr/share/zoneinfo").exists():
             Path("/usr/share/").mkdir(parents=True, exist_ok=True)
             try:
-                tzpath = resources.files("tzdata").joinpath("zoneinfo")
+                tzpath = resources.files("pyarrow").joinpath(
+                    "_emscripten_tzdb/zoneinfo")
                 copytree(tzpath, "/usr/share/zoneinfo", dirs_exist_ok=True)
                 localtime_path = Path("/etc/localtime")
                 if not localtime_path.exists():
