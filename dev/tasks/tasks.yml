@@ -1202,6 +1202,7 @@ tasks:
     params:
       env:
         UBUNTU: 22.04
+        PYTHON: 3.12        
       image: conda-python-emscripten
 
 
