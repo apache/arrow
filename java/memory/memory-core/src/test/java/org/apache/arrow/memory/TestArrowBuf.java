@@ -16,11 +16,6 @@
  */
 package org.apache.arrow.memory;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.assertTrue;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
@@ -32,6 +27,12 @@ import java.util.Arrays;
 import org.apache.arrow.memory.util.Float16;
 import org.junit.Test;
 import org.slf4j.LoggerFactory;
+
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestArrowBuf {
 
@@ -143,7 +144,7 @@ public class TestArrowBuf {
     ((Logger) LoggerFactory.getLogger("org.apache.arrow")).setLevel(Level.TRACE);
     try (BufferAllocator allocator = new RootAllocator(128)) {
       allocator.buffer(2);
-      Exception e = assertThrows(IllegalStateException.class, () -> allocator.close());
+      Exception e = assertThrows(IllegalStateException.class, allocator::close);
       assertFalse(e.getMessage().contains("event log for:"));
     } finally {
       ((Logger) LoggerFactory.getLogger("org.apache.arrow")).setLevel(null);
@@ -164,15 +165,15 @@ public class TestArrowBuf {
         allocator.buffer(2);
         Exception e = assertThrows(IllegalStateException.class, allocator::close);
         assertTrue(
-            "Exception had the following message: " + e.getMessage(),
-            e.getMessage().contains("event log for:")); // JDK8, JDK11
+            e.getMessage().contains("event log for:"), // JDK8, JDK11
+            "Exception had the following message: " + e.getMessage());
       } finally {
         fieldDebug.set(null, false);
       }
     } catch (Exception e) {
       assertTrue(
-          "Exception had the following toString(): " + e.toString(),
-          e.toString().contains("java.lang.NoSuchFieldException: modifiers")); // JDK17+
+          e.toString().contains("java.lang.NoSuchFieldException: modifiers"),
+          "Exception had the following toString(): " + e); // JDK17+
     } finally {
       ((Logger) LoggerFactory.getLogger("org.apache.arrow")).setLevel(null);
     }

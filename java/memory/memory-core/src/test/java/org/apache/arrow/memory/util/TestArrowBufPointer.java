@@ -16,10 +16,10 @@
  */
 package org.apache.arrow.memory.util;
 
-import static junit.framework.TestCase.assertEquals;
-import static junit.framework.TestCase.assertNotSame;
-import static junit.framework.TestCase.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
@@ -58,11 +58,11 @@ public class TestArrowBufPointer {
 
       ArrowBufPointer ptr1 = new ArrowBufPointer(null, 0, 100);
       ArrowBufPointer ptr2 = new ArrowBufPointer(null, 100, 5032);
-      assertTrue(ptr1.equals(ptr2));
+      assertEquals(ptr1, ptr2);
       for (int i = 0; i < BUFFER_LENGTH / 4; i++) {
         ptr1.set(buf1, i * 4L, 4);
         ptr2.set(buf2, i * 4L, 4);
-        assertTrue(ptr1.equals(ptr2));
+        assertEquals(ptr1, ptr2);
       }
     }
   }
@@ -144,7 +144,7 @@ public class TestArrowBufPointer {
       ArrowBufPointer pointer2 = new ArrowBufPointer(buf, 0, 10, new CounterHasher());
 
       // the two pointers cannot be equal, since they have different hashers
-      assertFalse(pointer1.equals(pointer2));
+      assertNotEquals(pointer1, pointer2);
     }
   }
 

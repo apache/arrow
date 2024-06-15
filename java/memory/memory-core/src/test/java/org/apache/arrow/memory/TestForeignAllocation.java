@@ -16,15 +16,15 @@
  */
 package org.apache.arrow.memory;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.arrow.memory.util.MemoryUtil;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestForeignAllocation {
   BufferAllocator allocator;

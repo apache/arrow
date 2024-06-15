@@ -16,7 +16,8 @@
  */
 package org.apache.arrow.memory;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import org.junit.Assert;
 import org.junit.Test;
@@ -151,7 +152,7 @@ public class TestAccountant {
     assertEquals(2, parent.getAllocatedMemory());
 
     boolean withinLimit = child.forceAllocate(10);
-    assertEquals(false, withinLimit);
+    assertFalse(withinLimit);
 
     // at new limit
     assertEquals(child.getAllocatedMemory(), 11);

@@ -16,8 +16,9 @@
  */
 package org.apache.arrow.util;
 
-import static org.junit.Assert.fail;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -72,6 +73,6 @@ public class TestCollections2 {
     iterator.next();
 
     assertEquals("[bar, baz]", Collections2.toString(iterator));
-    assertEquals(false, iterator.hasNext());
+    assertFalse(iterator.hasNext());
   }
 }

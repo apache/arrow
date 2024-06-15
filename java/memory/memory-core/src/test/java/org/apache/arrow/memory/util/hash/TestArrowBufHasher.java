@@ -16,8 +16,8 @@
  */
 package org.apache.arrow.memory.util.hash;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.charset.StandardCharsets;
@@ -40,7 +40,7 @@ public class TestArrowBufHasher {
 
   private BufferAllocator allocator;
 
-  private ArrowBufHasher hasher;
+  private final ArrowBufHasher hasher;
 
   public TestArrowBufHasher(String name, ArrowBufHasher hasher) {
     this.hasher = hasher;
@@ -96,21 +96,15 @@ public class TestArrowBufHasher {
 
       assertThrows(
           IllegalArgumentException.class,
-          () -> {
-            hasher.hashCode(buf, 0, -1);
-          });
+          () -> hasher.hashCode(buf, 0, -1));
 
       assertThrows(
           IndexOutOfBoundsException.class,
-          () -> {
-            hasher.hashCode(buf, 0, 1028);
-          });
+          () -> hasher.hashCode(buf, 0, 1028));
 
       assertThrows(
           IndexOutOfBoundsException.class,
-          () -> {
-            hasher.hashCode(buf, 500, 1000);
-          });
+          () -> hasher.hashCode(buf, 500, 1000));
     }
   }
 
