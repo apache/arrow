@@ -16,9 +16,10 @@
  */
 package org.apache.arrow.memory;
 
+import org.junit.jupiter.api.Test;
+
 import java.lang.reflect.Field;
 import java.net.URLClassLoader;
-import org.junit.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;

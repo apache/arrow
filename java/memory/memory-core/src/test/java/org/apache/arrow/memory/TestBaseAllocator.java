@@ -35,9 +35,9 @@ import org.apache.arrow.memory.AllocationOutcomeDetails.Entry;
 import org.apache.arrow.memory.rounding.RoundingPolicy;
 import org.apache.arrow.memory.rounding.SegmentRoundingPolicy;
 import org.apache.arrow.memory.util.AssertionUtil;
-import org.junit.Ignore;
-import org.junit.Test;
-import org.junit.jupiter.api.Assertions;
+
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 import sun.misc.Unsafe;
 
 public class TestBaseAllocator {
@@ -83,18 +83,19 @@ public class TestBaseAllocator {
     }
   }
 
-  @Test(expected = IllegalStateException.class)
+  @Test
   public void testRootAllocator_closeWithOutstanding() throws Exception {
-    try {
-      try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
-        final ArrowBuf arrowBuf = rootAllocator.buffer(512);
-        assertNotNull(arrowBuf, "allocation failed");
-      }
-    } finally {
-      /*
-       * We expect there to be one unreleased underlying buffer because we're closing
-       * without releasing it.
-       */
+    assertThrows(IllegalStateException.class, () -> {
+      try {
+        try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
+          final ArrowBuf arrowBuf = rootAllocator.buffer(512);
+          assertNotNull(arrowBuf, "allocation failed");
+        }
+      } finally {
+        /*
+         * We expect there to be one unreleased underlying buffer because we're closing
+         * without releasing it.
+         */
       /*
       // ------------------------------- DEBUG ---------------------------------
       final int bufferCount = UnsafeDirectLittleEndian.getBufferCount();
@@ -102,11 +103,13 @@ public class TestBaseAllocator {
       assertEquals(1, bufferCount);
       // ------------------------------- DEBUG ---------------------------------
       */
-    }
+      }
+    });
+
   }
 
   @Test
-  @Ignore
+  @Disabled
   public void testRootAllocator_getEmpty() throws Exception {
     try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
       final ArrowBuf arrowBuf = rootAllocator.buffer(0);
@@ -117,13 +120,15 @@ public class TestBaseAllocator {
     }
   }
 
-  @Ignore // TODO(DRILL-2740)
-  @Test(expected = IllegalStateException.class)
+  @Disabled // TODO(DRILL-2740)
+  @Test
   public void testAllocator_unreleasedEmpty() throws Exception {
-    try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
-      @SuppressWarnings("unused")
-      final ArrowBuf arrowBuf = rootAllocator.buffer(0);
-    }
+    assertThrows(IllegalStateException.class, () -> {
+      try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
+        @SuppressWarnings("unused")
+        final ArrowBuf arrowBuf = rootAllocator.buffer(0);
+      }
+    });
   }
 
   @Test
@@ -280,20 +285,21 @@ public class TestBaseAllocator {
     }
   }
 
-  @Test(expected = IllegalStateException.class)
+  @Test
   public void testRootAllocator_createChildDontClose() throws Exception {
-    try {
-      try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
-        final BufferAllocator childAllocator =
-            rootAllocator.newChildAllocator("createChildDontClose", 0, MAX_ALLOCATION);
-        final ArrowBuf arrowBuf = childAllocator.buffer(512);
-        assertNotNull(arrowBuf, "allocation failed");
-      }
-    } finally {
-      /*
-       * We expect one underlying buffer because we closed a child allocator without
-       * releasing the buffer allocated from it.
-       */
+    assertThrows(IllegalStateException.class, () -> {
+      try {
+        try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
+          final BufferAllocator childAllocator =
+                  rootAllocator.newChildAllocator("createChildDontClose", 0, MAX_ALLOCATION);
+          final ArrowBuf arrowBuf = childAllocator.buffer(512);
+          assertNotNull(arrowBuf, "allocation failed");
+        }
+      } finally {
+        /*
+         * We expect one underlying buffer because we closed a child allocator without
+         * releasing the buffer allocated from it.
+         */
       /*
       // ------------------------------- DEBUG ---------------------------------
       final int bufferCount = UnsafeDirectLittleEndian.getBufferCount();
@@ -301,7 +307,8 @@ public class TestBaseAllocator {
       assertEquals(1, bufferCount);
       // ------------------------------- DEBUG ---------------------------------
       */
-    }
+      }
+    });
   }
 
   @Test
@@ -348,7 +355,7 @@ public class TestBaseAllocator {
   @Test
   public void testSegmentAllocator_smallSegment() {
     IllegalArgumentException e =
-        Assertions.assertThrows(
+        assertThrows(
             IllegalArgumentException.class, () -> new SegmentRoundingPolicy(128));
     assertEquals("The segment size cannot be smaller than 1024", e.getMessage());
   }
@@ -356,7 +363,7 @@ public class TestBaseAllocator {
   @Test
   public void testSegmentAllocator_segmentSizeNotPowerOf2() {
     IllegalArgumentException e =
-        Assertions.assertThrows(
+        assertThrows(
             IllegalArgumentException.class, () -> new SegmentRoundingPolicy(4097));
     assertEquals("The segment size must be a power of 2", e.getMessage());
   }
@@ -668,16 +675,16 @@ public class TestBaseAllocator {
           AllocationOutcomeDetails.Entry first = iterator.next();
           assertEquals(MAX_ALLOCATION / 4, first.getAllocatedSize());
           assertEquals(2 * MAX_ALLOCATION, first.getRequestedSize());
-          assertEquals(false, first.isAllocationFailed());
+          assertFalse(first.isAllocationFailed());
 
           AllocationOutcomeDetails.Entry second = iterator.next();
           assertEquals(MAX_ALLOCATION / 4, second.getAllocatedSize());
           assertEquals(2 * MAX_ALLOCATION - MAX_ALLOCATION / 4, second.getRequestedSize());
-          assertEquals(false, second.isAllocationFailed());
+          assertFalse(second.isAllocationFailed());
 
           AllocationOutcomeDetails.Entry third = iterator.next();
           assertEquals(0, third.getAllocatedSize());
-          assertEquals(true, third.isAllocationFailed());
+          assertTrue(third.isAllocationFailed());
 
           assertFalse(iterator.hasNext());
         }
@@ -1076,13 +1083,14 @@ public class TestBaseAllocator {
   // The test passes if run individually with -Dtest=TestBaseAllocator#testMemoryLeakWithReservation
   // but fails generally since the assertion status cannot be changed once the class is initialized.
   // So setting the test to @ignore
-  @Test(expected = IllegalStateException.class)
-  @Ignore
+  @Test
+  @Disabled
   public void testMemoryLeakWithReservation() throws Exception {
     // disabling assertion status
     AssertionUtil.class
         .getClassLoader()
         .setClassAssertionStatus(AssertionUtil.class.getName(), false);
+
     try (RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
       ChildAllocator childAllocator1 =
           (ChildAllocator) rootAllocator.newChildAllocator("child1", 1024, MAX_ALLOCATION);
@@ -1094,21 +1102,11 @@ public class TestBaseAllocator {
 
       childAllocator2.buffer(256);
 
-      Exception exception =
-          assertThrows(
-              IllegalStateException.class,
-              () -> {
-                childAllocator2.close();
-              });
+      Exception exception = assertThrows(IllegalStateException.class, childAllocator2::close);
       String exMessage = exception.getMessage();
       assertTrue(exMessage.contains("Memory leaked: (256)"));
 
-      exception =
-          assertThrows(
-              IllegalStateException.class,
-              () -> {
-                childAllocator1.close();
-              });
+      exception = assertThrows(IllegalStateException.class, childAllocator1::close);
       exMessage = exception.getMessage();
       assertTrue(exMessage.contains("Memory leaked: (256)"));
     }

@@ -25,7 +25,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
 import org.apache.arrow.memory.util.Float16;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -36,30 +36,31 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestArrowBuf {
 
-  @Test(expected = IndexOutOfBoundsException.class)
+  @Test
   public void testSliceOutOfBoundsLength_RaisesIndexOutOfBoundsException() {
     try (BufferAllocator allocator = new RootAllocator(128);
-        ArrowBuf buf = allocator.buffer(2)) {
+         ArrowBuf buf = allocator.buffer(2)) {
       assertEquals(2, buf.capacity());
-      buf.slice(0, 3);
+      assertThrows(IndexOutOfBoundsException.class, () -> buf.slice(0, 3));
     }
   }
 
-  @Test(expected = IndexOutOfBoundsException.class)
+  @Test
   public void testSliceOutOfBoundsIndexPlusLength_RaisesIndexOutOfBoundsException() {
     try (BufferAllocator allocator = new RootAllocator(128);
         ArrowBuf buf = allocator.buffer(2)) {
       assertEquals(2, buf.capacity());
-      buf.slice(1, 2);
+      assertThrows(IndexOutOfBoundsException.class, () -> buf.slice(1, 2));
+
     }
   }
 
-  @Test(expected = IndexOutOfBoundsException.class)
+  @Test
   public void testSliceOutOfBoundsIndex_RaisesIndexOutOfBoundsException() {
     try (BufferAllocator allocator = new RootAllocator(128);
         ArrowBuf buf = allocator.buffer(2)) {
       assertEquals(2, buf.capacity());
-      buf.slice(3, 0);
+      assertThrows(IndexOutOfBoundsException.class, () -> buf.slice(3, 0));
     }
   }
 

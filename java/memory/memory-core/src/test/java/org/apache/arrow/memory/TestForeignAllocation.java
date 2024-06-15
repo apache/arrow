@@ -19,22 +19,24 @@ package org.apache.arrow.memory;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.arrow.memory.util.MemoryUtil;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestForeignAllocation {
   BufferAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void before() {
     allocator = new RootAllocator();
   }
 
-  @After
+  @AfterEach
   public void after() {
     allocator.close();
   }
@@ -82,26 +84,27 @@ public class TestForeignAllocation {
     assertEquals(16, listener.getTotalMem());
   }
 
-  @Test(expected = OutOfMemoryException.class)
-  public void wrapForeignAllocationFailedWithAllocationListener() {
-    final long bufferSize = 16;
-    final long limit = bufferSize - 1;
-
-    final CountingAllocationListener listener = new CountingAllocationListener();
-    try (BufferAllocator listenedAllocator =
-        allocator.newChildAllocator("child", listener, 0L, limit)) {
-      UnsafeForeignAllocation allocation = new UnsafeForeignAllocation(bufferSize);
-      try {
-        assertEquals(0, listenedAllocator.getAllocatedMemory());
-        ArrowBuf buf = listenedAllocator.wrapForeignAllocation(allocation);
-        assertEquals(bufferSize, buf.capacity());
-        buf.close();
-        assertTrue(allocation.released);
-      } finally {
-        allocation.release0();
-      }
+    @Test
+    public void wrapForeignAllocationFailedWithAllocationListener() {
+        assertThrows(OutOfMemoryException.class, () -> {
+            final long bufferSize = 16;
+            final long limit = bufferSize - 1;
+            final CountingAllocationListener listener = new CountingAllocationListener();
+            try (BufferAllocator listenedAllocator =
+                         allocator.newChildAllocator("child", listener, 0L, limit)) {
+                UnsafeForeignAllocation allocation = new UnsafeForeignAllocation(bufferSize);
+                try {
+                    assertEquals(0, listenedAllocator.getAllocatedMemory());
+                    ArrowBuf buf = listenedAllocator.wrapForeignAllocation(allocation);
+                    assertEquals(bufferSize, buf.capacity());
+                    buf.close();
+                    assertTrue(allocation.released);
+                } finally {
+                    allocation.release0();
+                }
+            }
+        });
     }
-  }
 
   @Test
   public void wrapForeignAllocationWithAllocationListenerReclaimingSpace() {

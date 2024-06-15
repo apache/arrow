@@ -16,11 +16,11 @@
  */
 package org.apache.arrow.memory;
 
+import org.junit.jupiter.api.Test;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-
-import org.junit.Assert;
-import org.junit.Test;
+import static org.junit.jupiter.api.Assertions.fail;
 
 public class TestAccountant {
 
@@ -57,7 +57,7 @@ public class TestAccountant {
                 }
               } catch (Exception ex) {
                 ex.printStackTrace();
-                Assert.fail(ex.getMessage());
+                fail(ex.getMessage());
               }
             }
           };
