@@ -19,9 +19,10 @@ package org.apache.arrow.tools;
 import static org.apache.arrow.tools.ArrowFileTestFixtures.validateOutput;
 import static org.apache.arrow.tools.ArrowFileTestFixtures.writeInput;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
-import java.io.IOException;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.junit.jupiter.api.AfterEach;
@@ -32,6 +33,7 @@ import org.junit.jupiter.api.io.TempDir;
 public class TestFileRoundtrip {
 
   @TempDir public File testFolder;
+  @TempDir public File testAnotherFolder;
 
   private BufferAllocator allocator;
 
@@ -52,12 +54,6 @@ public class TestFileRoundtrip {
 
     writeInput(testInFile, allocator);
 
-    if (!testOutFile.exists()) {
-      if (!testOutFile.createNewFile()) {
-        throw new IOException("Failed to create file: " + testOutFile);
-      }
-    }
-
     String[] args = {"-i", testInFile.getAbsolutePath(), "-o", testOutFile.getAbsolutePath()};
     int result = new FileRoundtrip(System.err).run(args);
     assertEquals(0, result);
@@ -67,8 +63,8 @@ public class TestFileRoundtrip {
 
   @Test
   public void testDiffFolder() throws Exception {
-    File testInFile = testFolder.newFile("testIn.arrow");
-    File testOutFile = testAnotherFolder.newFile("testOut.arrow");
+    File testInFile = new File(testFolder, "testIn.arrow");
+    File testOutFile = new File(testAnotherFolder, "testOut.arrow");
 
     writeInput(testInFile, allocator);
 
@@ -81,19 +77,17 @@ public class TestFileRoundtrip {
 
   @Test
   public void testNotPreparedInput() throws Exception {
-    File testInFile = testFolder.newFile("testIn.arrow");
-    File testOutFile = testFolder.newFile("testOut.arrow");
+    File testInFile = new File(testFolder, "testIn.arrow");
+    File testOutFile = new File(testFolder, "testOut.arrow");
 
     String[] args = {"-i", testInFile.getAbsolutePath(), "-o", testOutFile.getAbsolutePath()};
-
-    // In JUnit 5, since the file itself is not created, the exception and message will be
-    // different.
     Exception exception =
         assertThrows(
-            InvalidArrowFileException.class,
+            IllegalArgumentException.class,
             () -> {
               new FileRoundtrip(System.err).run(args);
             });
-    assertEquals("file too small: 0", exception.getMessage());
+
+    assertTrue(exception.getMessage().contains("input file not found"));
   }
 }
