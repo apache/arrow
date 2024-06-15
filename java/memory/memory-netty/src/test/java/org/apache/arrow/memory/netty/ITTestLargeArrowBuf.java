@@ -16,14 +16,15 @@
  */
 package org.apache.arrow.memory.netty;
 
-import static org.junit.Assert.assertEquals;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Integration test for large (more than 2GB) {@link org.apache.arrow.memory.ArrowBuf}. To run this

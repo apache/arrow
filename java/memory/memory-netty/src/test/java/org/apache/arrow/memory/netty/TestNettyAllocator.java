@@ -16,8 +16,6 @@
  */
 package org.apache.arrow.memory.netty;
 
-import static org.junit.Assert.assertTrue;
-
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
@@ -27,8 +25,10 @@ import java.util.Collections;
 import java.util.stream.Collectors;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.ReferenceManager;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Test netty allocators. */
 public class TestNettyAllocator {
@@ -75,11 +75,11 @@ public class TestNettyAllocator {
       }
       synchronized (memoryLogsAppender.list) {
         assertTrue(
+            result,
             "Log messages are:\n"
                 + memoryLogsAppender.list.stream()
                     .map(ILoggingEvent::toString)
-                    .collect(Collectors.joining("\n")),
-            result);
+                    .collect(Collectors.joining("\n")));
       }
 
     } finally {
