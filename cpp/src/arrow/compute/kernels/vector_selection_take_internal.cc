@@ -824,15 +824,9 @@ class TakeMetaFunction : public MetaFunction {
     const auto& take_opts = static_cast<const TakeOptions&>(*options);
     switch (args[0].kind()) {
       case Datum::ARRAY:
-        // "array_take" can handle AA->A and AC->C cases directly
-        // (via their VectorKernel::exec and VectorKernel::exec_chunked)
-        if (index_kind == Datum::ARRAY || index_kind == Datum::CHUNKED_ARRAY) {
-          return CallArrayTake(args, take_opts, ctx);
-        }
-        break;
       case Datum::CHUNKED_ARRAY:
-        // "array_take" can handle CA->C and CC->C cases directly
-        // (via their VectorKernel::exec_chunked)
+        // "array_take" can handle AA->A, AC->C, CA->C, CC->C cases directly
+        // (via their VectorKernel::exec and VectorKernel::exec_chunked)
         if (index_kind == Datum::ARRAY || index_kind == Datum::CHUNKED_ARRAY) {
           return CallArrayTake(args, take_opts, ctx);
         }
