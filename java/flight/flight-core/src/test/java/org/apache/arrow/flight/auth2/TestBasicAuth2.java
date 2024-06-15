@@ -18,6 +18,9 @@ package org.apache.arrow.flight.auth2;
 
 import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
 import static org.apache.arrow.flight.Location.forGrpcInsecure;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -42,7 +45,6 @@ import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -170,7 +172,7 @@ public class TestBasicAuth2 {
     client.listFlights(Criteria.ALL, bearerToken);
     try (final FlightStream s = client.getStream(new Ticket(new byte[1]), bearerToken)) {
       while (s.next()) {
-        Assertions.assertEquals(4095, s.getRoot().getRowCount());
+        assertEquals(4095, s.getRoot().getRowCount());
       }
     }
   }
@@ -188,8 +190,7 @@ public class TestBasicAuth2 {
   private void testValidAuth(FlightClient client) {
     final CredentialCallOption bearerToken =
         client.authenticateBasicToken(USERNAME_1, PASSWORD_1).get();
-    Assertions.assertTrue(
-        ImmutableList.copyOf(client.listFlights(Criteria.ALL, bearerToken)).isEmpty());
+    assertTrue(ImmutableList.copyOf(client.listFlights(Criteria.ALL, bearerToken)).isEmpty());
   }
 
   private void testValidAuthWithMultipleClientsWithSameCredentials(
@@ -198,10 +199,8 @@ public class TestBasicAuth2 {
         client1.authenticateBasicToken(USERNAME_1, PASSWORD_1).get();
     final CredentialCallOption bearerToken2 =
         client2.authenticateBasicToken(USERNAME_1, PASSWORD_1).get();
-    Assertions.assertTrue(
-        ImmutableList.copyOf(client1.listFlights(Criteria.ALL, bearerToken1)).isEmpty());
-    Assertions.assertTrue(
-        ImmutableList.copyOf(client2.listFlights(Criteria.ALL, bearerToken2)).isEmpty());
+    assertTrue(ImmutableList.copyOf(client1.listFlights(Criteria.ALL, bearerToken1)).isEmpty());
+    assertTrue(ImmutableList.copyOf(client2.listFlights(Criteria.ALL, bearerToken2)).isEmpty());
   }
 
   private void testValidAuthWithMultipleClientsWithDifferentCredentials(
@@ -210,10 +209,8 @@ public class TestBasicAuth2 {
         client1.authenticateBasicToken(USERNAME_1, PASSWORD_1).get();
     final CredentialCallOption bearerToken2 =
         client2.authenticateBasicToken(USERNAME_2, PASSWORD_2).get();
-    Assertions.assertTrue(
-        ImmutableList.copyOf(client1.listFlights(Criteria.ALL, bearerToken1)).isEmpty());
-    Assertions.assertTrue(
-        ImmutableList.copyOf(client2.listFlights(Criteria.ALL, bearerToken2)).isEmpty());
+    assertTrue(ImmutableList.copyOf(client1.listFlights(Criteria.ALL, bearerToken1)).isEmpty());
+    assertTrue(ImmutableList.copyOf(client2.listFlights(Criteria.ALL, bearerToken2)).isEmpty());
   }
 
   private void testInvalidAuth(FlightClient client) {
@@ -226,12 +223,12 @@ public class TestBasicAuth2 {
 
     FlightTestUtil.assertCode(
         FlightStatusCode.UNAUTHENTICATED,
-        () -> client.listFlights(Criteria.ALL).forEach(action -> Assertions.fail()));
+        () -> client.listFlights(Criteria.ALL).forEach(action -> fail()));
   }
 
   private void didntAuth(FlightClient client) {
     FlightTestUtil.assertCode(
         FlightStatusCode.UNAUTHENTICATED,
-        () -> client.listFlights(Criteria.ALL).forEach(action -> Assertions.fail()));
+        () -> client.listFlights(Criteria.ALL).forEach(action -> fail()));
   }
 }

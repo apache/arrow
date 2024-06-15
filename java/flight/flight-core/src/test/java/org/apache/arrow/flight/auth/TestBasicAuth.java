@@ -16,8 +16,11 @@
  */
 package org.apache.arrow.flight.auth;
 
+import static junit.framework.TestCase.assertEquals;
 import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
 import static org.apache.arrow.flight.Location.forGrpcInsecure;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
@@ -42,7 +45,6 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -60,7 +62,7 @@ public class TestBasicAuth {
   @Test
   public void validAuth() {
     client.authenticateBasic(USERNAME, PASSWORD);
-    Assertions.assertTrue(ImmutableList.copyOf(client.listFlights(Criteria.ALL)).size() == 0);
+    assertTrue(ImmutableList.copyOf(client.listFlights(Criteria.ALL)).size() == 0);
   }
 
   @Test
@@ -69,7 +71,7 @@ public class TestBasicAuth {
     client.listFlights(Criteria.ALL);
     try (final FlightStream s = client.getStream(new Ticket(new byte[1]))) {
       while (s.next()) {
-        Assertions.assertEquals(4095, s.getRoot().getRowCount());
+        assertEquals(4095, s.getRoot().getRowCount());
       }
     }
   }
@@ -85,7 +87,7 @@ public class TestBasicAuth {
     FlightTestUtil.assertCode(
         FlightStatusCode.UNAUTHENTICATED,
         () -> {
-          client.listFlights(Criteria.ALL).forEach(action -> Assertions.fail());
+          client.listFlights(Criteria.ALL).forEach(action -> fail());
         });
   }
 
@@ -94,7 +96,7 @@ public class TestBasicAuth {
     FlightTestUtil.assertCode(
         FlightStatusCode.UNAUTHENTICATED,
         () -> {
-          client.listFlights(Criteria.ALL).forEach(action -> Assertions.fail());
+          client.listFlights(Criteria.ALL).forEach(action -> fail());
         });
   }
 

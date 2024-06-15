@@ -44,9 +44,9 @@ import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /** Tests to ensure custom headers are passed along to the server for each command. */
 public class CustomHeaderTest {
@@ -61,7 +61,7 @@ public class CustomHeaderTest {
           "bar", "foo",
           "answer", "42");
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     allocator = new RootAllocator(Integer.MAX_VALUE);
     headersMiddleware = new TestCustomHeaderMiddleware.Factory();
@@ -81,7 +81,7 @@ public class CustomHeaderTest {
     client = FlightClient.builder(allocator, server.getLocation()).build();
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws Exception {
     allocator.getChildAllocators().forEach(BufferAllocator::close);
     AutoCloseables.close(allocator, server, client);

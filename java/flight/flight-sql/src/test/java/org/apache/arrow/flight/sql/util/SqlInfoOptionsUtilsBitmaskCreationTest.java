@@ -21,9 +21,9 @@ import static org.apache.arrow.flight.sql.util.AdhocTestOption.OPTION_A;
 import static org.apache.arrow.flight.sql.util.AdhocTestOption.OPTION_B;
 import static org.apache.arrow.flight.sql.util.AdhocTestOption.OPTION_C;
 import static org.apache.arrow.flight.sql.util.SqlInfoOptionsUtils.createBitmaskFromEnums;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -47,6 +47,6 @@ public final class SqlInfoOptionsUtilsBitmaskCreationTest {
   @MethodSource("provideParameters")
   public void testShouldBuildBitmaskFromEnums(
       AdhocTestOption[] adhocTestOptions, long expectedBitmask) {
-    Assertions.assertEquals(createBitmaskFromEnums(adhocTestOptions), expectedBitmask);
+    assertEquals(createBitmaskFromEnums(adhocTestOptions), expectedBitmask);
   }
 }
