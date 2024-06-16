@@ -27,7 +27,7 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.calcite.avatica.ColumnMetaData;
 import org.apache.calcite.avatica.proto.Common;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class ConvertUtilsTest {
 

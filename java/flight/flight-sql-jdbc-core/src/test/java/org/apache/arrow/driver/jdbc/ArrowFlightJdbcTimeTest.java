@@ -22,7 +22,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.time.LocalTime;
 import java.util.concurrent.TimeUnit;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class ArrowFlightJdbcTimeTest {
 

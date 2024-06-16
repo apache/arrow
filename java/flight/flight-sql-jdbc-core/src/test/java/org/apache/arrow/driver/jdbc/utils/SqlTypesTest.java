@@ -27,7 +27,7 @@ import org.apache.arrow.vector.types.IntervalUnit;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.UnionMode;
 import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class SqlTypesTest {
 

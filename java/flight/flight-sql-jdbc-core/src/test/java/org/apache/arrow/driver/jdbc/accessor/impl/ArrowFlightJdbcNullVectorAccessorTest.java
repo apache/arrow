@@ -19,7 +19,7 @@ package org.apache.arrow.driver.jdbc.accessor.impl;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class ArrowFlightJdbcNullVectorAccessorTest {
 
