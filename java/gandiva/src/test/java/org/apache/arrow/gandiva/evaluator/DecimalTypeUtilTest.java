@@ -19,7 +19,7 @@ package org.apache.arrow.gandiva.evaluator;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class DecimalTypeUtilTest {
 

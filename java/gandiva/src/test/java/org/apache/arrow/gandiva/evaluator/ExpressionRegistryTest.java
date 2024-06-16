@@ -22,7 +22,7 @@ import com.google.common.collect.Lists;
 import java.util.Set;
 import org.apache.arrow.gandiva.exceptions.GandivaException;
 import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class ExpressionRegistryTest {
 

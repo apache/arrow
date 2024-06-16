@@ -28,7 +28,7 @@ import org.apache.arrow.gandiva.ipc.GandivaTypes;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class TreeBuilderTest {
 

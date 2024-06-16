@@ -19,6 +19,7 @@ package org.apache.arrow.gandiva.evaluator;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.common.collect.Lists;
@@ -58,17 +59,13 @@ import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.Ignore;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 public class ProjectorTest extends BaseEvaluatorTest {
 
   private Charset utf8Charset = Charset.forName("UTF-8");
   private Charset utf16Charset = Charset.forName("UTF-16");
-
-  @Rule public ExpectedException thrown = ExpectedException.none();
 
   List<ArrowBuf> varBufs(String[] strings, Charset charset) {
     ArrowBuf offsetsBuffer = allocator.buffer((strings.length + 1) * 4);
@@ -160,7 +157,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
   }
 
   // Will be fixed by https://issues.apache.org/jira/browse/ARROW-4371
-  @Ignore
+  @Disabled
   @Test
   public void testMakeProjector() throws GandivaException {
     Field a = Field.nullable("a", int64);
@@ -2146,7 +2143,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     releaseValueVectors(output);
   }
 
-  @Test(expected = GandivaException.class)
+  @Test
   public void testCastIntInvalidValue() throws Exception {
     Field inField = Field.nullable("input", new ArrowType.Utf8());
     TreeNode inNode = TreeBuilder.makeField(inField);
@@ -2173,13 +2170,18 @@ public class ProjectorTest extends BaseEvaluatorTest {
       intVector.allocateNew(numRows);
       output.add(intVector);
     }
-    try {
-      eval.evaluate(batch, output);
-    } finally {
-      eval.close();
-      releaseRecordBatch(batch);
-      releaseValueVectors(output);
-    }
+
+    assertThrows(
+        GandivaException.class,
+        () -> {
+          try {
+            eval.evaluate(batch, output);
+          } finally {
+            eval.close();
+            releaseRecordBatch(batch);
+            releaseValueVectors(output);
+          }
+        });
   }
 
   @Test
@@ -2266,7 +2268,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     releaseValueVectors(output);
   }
 
-  @Test(expected = GandivaException.class)
+  @Test
   public void testCastFloatInvalidValue() throws Exception {
     Field inField = Field.nullable("input", new ArrowType.Utf8());
     TreeNode inNode = TreeBuilder.makeField(inField);
@@ -2294,13 +2296,18 @@ public class ProjectorTest extends BaseEvaluatorTest {
       float8Vector.allocateNew(numRows);
       output.add(float8Vector);
     }
-    try {
-      eval.evaluate(batch, output);
-    } finally {
-      eval.close();
-      releaseRecordBatch(batch);
-      releaseValueVectors(output);
-    }
+
+    assertThrows(
+        GandivaException.class,
+        () -> {
+          try {
+            eval.evaluate(batch, output);
+          } finally {
+            eval.close();
+            releaseRecordBatch(batch);
+            releaseValueVectors(output);
+          }
+        });
   }
 
   @Test
