@@ -873,7 +873,7 @@ sorting_columns : Sequence of SortingColumn, default None
     Specify the sort order of the data being written. The writer does not sort
     the data nor does it verify that the data is sorted. The sort order is
     written to the row group metadata, which can then be used by readers.
-store_decimal_as_integer : bool or list, default False
+store_decimal_as_integer : bool, default False
     Allow decimals with 1 <= precision <= 18 to be stored as integers.
     In Parquet, DECIMAL can be stored in any of the following physical types:
     - int32: for 1 <= precision <= 9.
