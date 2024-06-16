@@ -16,10 +16,10 @@
  */
 package org.apache.arrow.dataset.file;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.primitives.Primitives;
@@ -62,7 +62,6 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.hadoop.fs.Path;
 import org.apache.orc.TypeDescription;
-import org.junit.Assert;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.jupiter.api.Assertions;
@@ -557,10 +556,10 @@ public class TestFileSystemDataset extends TestNativeDataset {
         }
       }
     }
-    Assert.assertEquals(
-        "Mismatched data read from Parquet, actual: " + json.writeValueAsString(actualSet) + ";",
+    assertEquals(
         expectedSet,
-        actualSet);
+        actualSet,
+        "Mismatched data read from Parquet, actual: " + json.writeValueAsString(actualSet) + ";");
   }
 
   private void checkParquetReadResult(

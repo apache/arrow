@@ -16,6 +16,8 @@
  */
 package org.apache.arrow.dataset.file;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import java.io.File;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -30,7 +32,6 @@ import org.apache.arrow.dataset.scanner.ScanOptions;
 import org.apache.arrow.dataset.scanner.Scanner;
 import org.apache.arrow.dataset.source.Dataset;
 import org.apache.commons.io.FileUtils;
-import org.junit.Assert;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -100,7 +101,7 @@ public class TestDatasetFileWriter extends TestDataset {
                     return writtenFolder.toURI().relativize(file.toURI()).toString();
                   })
               .collect(Collectors.toSet());
-      Assert.assertEquals(expectedOutputFiles, outputFiles);
+      assertEquals(expectedOutputFiles, outputFiles);
     }
   }
 }

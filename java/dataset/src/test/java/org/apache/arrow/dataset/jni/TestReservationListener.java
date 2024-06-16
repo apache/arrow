@@ -16,6 +16,10 @@
  */
 package org.apache.arrow.dataset.jni;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.arrow.dataset.ParquetWriteSupport;
@@ -25,10 +29,8 @@ import org.apache.arrow.dataset.file.FileSystemDatasetFactory;
 import org.apache.arrow.dataset.scanner.ScanOptions;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
-import org.junit.Assert;
 import org.junit.ClassRule;
 import org.junit.Test;
-import org.junit.jupiter.api.Assertions;
 import org.junit.rules.TemporaryFolder;
 
 public class TestReservationListener extends TestDataset {
@@ -52,8 +54,8 @@ public class TestReservationListener extends TestDataset {
     AutoCloseables.close(datum);
     AutoCloseables.close(pool);
     long finalReservation = DirectReservationListener.instance().getCurrentDirectMemReservation();
-    Assert.assertTrue(reservation >= initReservation);
-    Assert.assertEquals(initReservation, finalReservation);
+    assertTrue(reservation >= initReservation);
+    assertEquals(initReservation, finalReservation);
   }
 
   @Test
@@ -84,8 +86,8 @@ public class TestReservationListener extends TestDataset {
     AutoCloseables.close(datum);
     AutoCloseables.close(pool);
     long finalReservation = reserved.get();
-    Assert.assertTrue(reservation >= initReservation);
-    Assert.assertEquals(initReservation, finalReservation);
+    assertTrue(reservation >= initReservation);
+    assertEquals(initReservation, finalReservation);
   }
 
   @Test
@@ -112,7 +114,7 @@ public class TestReservationListener extends TestDataset {
             rootAllocator(), pool, FileFormat.PARQUET, writeSupport.getOutputURI());
     ScanOptions options = new ScanOptions(100);
     long initReservation = reserved.get();
-    Assertions.assertThrows(
+    assertThrows(
         IllegalArgumentException.class,
         () -> {
           collectResultFromFactory(factory, options);
@@ -121,7 +123,7 @@ public class TestReservationListener extends TestDataset {
     long reservation = reserved.get();
     AutoCloseables.close(pool);
     long finalReservation = reserved.get();
-    Assert.assertEquals(initReservation, reservation);
-    Assert.assertEquals(initReservation, finalReservation);
+    assertEquals(initReservation, reservation);
+    assertEquals(initReservation, finalReservation);
   }
 }

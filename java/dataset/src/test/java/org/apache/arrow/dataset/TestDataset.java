@@ -16,6 +16,9 @@
  */
 package org.apache.arrow.dataset;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -44,7 +47,6 @@ import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 
 public abstract class TestDataset {
@@ -122,9 +124,9 @@ public abstract class TestDataset {
             VectorSchemaRoot.create(actualFactory.inspect(), rootAllocator())) {
 
       // fast-fail by comparing metadata
-      Assert.assertEquals(expectedBatches.toString(), actualBatches.toString());
+      assertEquals(expectedBatches.toString(), actualBatches.toString());
       // compare ArrowRecordBatches
-      Assert.assertEquals(expectedBatches.size(), actualBatches.size());
+      assertEquals(expectedBatches.size(), actualBatches.size());
       VectorLoader expectLoader = new VectorLoader(expectVsr);
       VectorLoader actualLoader = new VectorLoader(actualVsr);
       for (int i = 0; i < expectedBatches.size(); i++) {
@@ -134,7 +136,7 @@ public abstract class TestDataset {
           FieldVector vector = expectVsr.getFieldVectors().get(i);
           FieldVector otherVector = actualVsr.getFieldVectors().get(i);
           // TODO: ARROW-18140 Use VectorSchemaRoot#equals() method to compare
-          Assert.assertTrue(VectorEqualsVisitor.vectorEquals(vector, otherVector));
+          assertTrue(VectorEqualsVisitor.vectorEquals(vector, otherVector));
         }
       }
     } finally {
