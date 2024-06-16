@@ -26,6 +26,7 @@ import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -68,7 +69,6 @@ import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.jupiter.api.Assertions;
 import org.junit.rules.ErrorCollector;
 
 public class ResultSetTest {
@@ -501,16 +501,16 @@ public class ResultSetTest {
                       rootServer.getLocation().getUri().getHost(), rootServer.getPort()));
           Statement newStatement = newConnection.createStatement()) {
         final SQLException e =
-            Assertions.assertThrows(
+            assertThrows(
                 SQLException.class,
                 () -> {
                   ResultSet result = newStatement.executeQuery("Select partitioned_data");
                   while (result.next()) {}
                 });
         final Throwable cause = e.getCause();
-        Assertions.assertTrue(cause instanceof FlightRuntimeException);
+        assertTrue(cause instanceof FlightRuntimeException);
         final FlightRuntimeException fre = (FlightRuntimeException) cause;
-        Assertions.assertEquals(FlightStatusCode.UNAVAILABLE, fre.status().code());
+        assertEquals(FlightStatusCode.UNAVAILABLE, fre.status().code());
       }
     }
   }
