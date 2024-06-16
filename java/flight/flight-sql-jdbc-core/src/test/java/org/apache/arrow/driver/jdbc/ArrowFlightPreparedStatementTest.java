@@ -42,34 +42,34 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.Text;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 public class ArrowFlightPreparedStatementTest {
 
   public static final MockFlightSqlProducer PRODUCER = CoreMockedSqlProducers.getLegacyProducer();
 
-  @ClassRule
-  public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE =
-      FlightServerTestRule.createStandardTestRule(PRODUCER);
+  @RegisterExtension
+  public static final FlightServerTestExtension FLIGHT_SERVER_TEST_EXTENSION =
+      FlightServerTestExtension.createStandardTestExtension(PRODUCER);
 
   private static Connection connection;
 
-  @BeforeClass
+  @BeforeAll
   public static void setup() throws SQLException {
-    connection = FLIGHT_SERVER_TEST_RULE.getConnection(false);
+    connection = FLIGHT_SERVER_TEST_EXTENSION.getConnection(false);
   }
 
-  @AfterClass
+  @AfterAll
   public static void tearDown() throws SQLException {
     connection.close();
   }
 
-  @Before
+  @BeforeEach
   public void before() {
     PRODUCER.clearActionTypeCounter();
   }
@@ -132,7 +132,7 @@ public class ArrowFlightPreparedStatementTest {
   }
 
   @Test
-  @Ignore("https://github.com/apache/arrow/issues/34741: flaky test")
+  @Disabled("https://github.com/apache/arrow/issues/34741: flaky test")
   public void testPreparedStatementExecutionOnce() throws SQLException {
     final PreparedStatement statement =
         connection.prepareStatement(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD);

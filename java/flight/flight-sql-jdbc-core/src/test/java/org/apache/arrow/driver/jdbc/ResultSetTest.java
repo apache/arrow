@@ -66,26 +66,27 @@ import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 public class ResultSetTest {
   private static final Random RANDOM = new Random(10);
 
-  @ClassRule
-  public static final FlightServerTestRule SERVER_TEST_RULE =
-      FlightServerTestRule.createStandardTestRule(CoreMockedSqlProducers.getLegacyProducer());
+  @RegisterExtension
+  public static final FlightServerTestExtension FLIGHT_SERVER_TEST_EXTENSION =
+      FlightServerTestExtension.createStandardTestExtension(
+          CoreMockedSqlProducers.getLegacyProducer());
 
   private static Connection connection;
 
-  @BeforeClass
+  @BeforeAll
   public static void setup() throws SQLException {
-    connection = SERVER_TEST_RULE.getConnection(false);
+    connection = FLIGHT_SERVER_TEST_EXTENSION.getConnection(false);
   }
 
-  @AfterClass
+  @AfterAll
   public static void tearDown() throws SQLException {
     connection.close();
   }
@@ -158,13 +159,16 @@ public class ResultSetTest {
    *
    * @throws Exception If the connection fails to be established.
    */
-  @Test(expected = SQLException.class)
-  public void testShouldThrowExceptionUponAttemptingToExecuteAnInvalidSelectQuery()
-      throws Exception {
-    try (Statement statement = connection.createStatement();
-        ResultSet result = statement.executeQuery("SELECT * FROM SHOULD-FAIL")) {
-      fail();
-    }
+  @Test
+  public void testShouldThrowExceptionUponAttemptingToExecuteAnInvalidSelectQuery() {
+    assertThrows(
+        SQLException.class,
+        () -> {
+          try (Statement statement = connection.createStatement();
+              ResultSet resultSet = statement.executeQuery("SELECT * FROM SHOULD-FAIL")) {
+            fail();
+          }
+        });
   }
 
   /**

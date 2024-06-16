@@ -23,6 +23,7 @@ import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -38,12 +39,12 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.calcite.avatica.AvaticaUtils;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 /** Tests for {@link ArrowFlightStatement#executeUpdate}. */
 public class ArrowFlightStatementExecuteUpdateTest {
@@ -59,14 +60,14 @@ public class ArrowFlightStatementExecuteUpdateTest {
           Collections.singletonList(Field.nullable("placeholder", MinorType.VARCHAR.getType())));
   private static final MockFlightSqlProducer PRODUCER = new MockFlightSqlProducer();
 
-  @ClassRule
-  public static final FlightServerTestRule SERVER_TEST_RULE =
-      FlightServerTestRule.createStandardTestRule(PRODUCER);
+  @RegisterExtension
+  public static final FlightServerTestExtension FLIGHT_SERVER_TEST_EXTENSION =
+      FlightServerTestExtension.createStandardTestExtension(PRODUCER);
 
   public Connection connection;
   public Statement statement;
 
-  @BeforeClass
+  @BeforeAll
   public static void setUpBeforeClass() {
     PRODUCER.addUpdateQuery(UPDATE_SAMPLE_QUERY, UPDATE_SAMPLE_QUERY_AFFECTED_COLS);
     PRODUCER.addUpdateQuery(LARGE_UPDATE_SAMPLE_QUERY, LARGE_UPDATE_SAMPLE_QUERY_AFFECTED_COLS);
@@ -88,18 +89,18 @@ public class ArrowFlightStatementExecuteUpdateTest {
             }));
   }
 
-  @Before
+  @BeforeEach
   public void setUp() throws SQLException {
-    connection = SERVER_TEST_RULE.getConnection(false);
+    connection = FLIGHT_SERVER_TEST_EXTENSION.getConnection(false);
     statement = connection.createStatement();
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws Exception {
     AutoCloseables.close(statement, connection);
   }
 
-  @AfterClass
+  @AfterAll
   public static void tearDownAfterClass() throws Exception {
     AutoCloseables.close(PRODUCER);
   }
@@ -133,28 +134,40 @@ public class ArrowFlightStatementExecuteUpdateTest {
         is(LARGE_UPDATE_SAMPLE_QUERY_AFFECTED_COLS));
   }
 
-  @Test(expected = SQLFeatureNotSupportedException.class)
+  @Test
   // TODO Implement `Statement#executeUpdate(String, int)`
   public void testExecuteUpdateUnsupportedWithDriverFlag() throws SQLException {
-    assertThat(
-        statement.executeUpdate(UPDATE_SAMPLE_QUERY, Statement.RETURN_GENERATED_KEYS),
-        is(UPDATE_SAMPLE_QUERY_AFFECTED_COLS));
+    assertThrows(
+        SQLFeatureNotSupportedException.class,
+        () -> {
+          assertThat(
+              statement.executeUpdate(UPDATE_SAMPLE_QUERY, Statement.NO_GENERATED_KEYS),
+              is(UPDATE_SAMPLE_QUERY_AFFECTED_COLS));
+        });
   }
 
-  @Test(expected = SQLFeatureNotSupportedException.class)
+  @Test
   // TODO Implement `Statement#executeUpdate(String, int[])`
   public void testExecuteUpdateUnsupportedWithArrayOfInts() throws SQLException {
-    assertThat(
-        statement.executeUpdate(UPDATE_SAMPLE_QUERY, new int[0]),
-        is(UPDATE_SAMPLE_QUERY_AFFECTED_COLS));
+    assertThrows(
+        SQLFeatureNotSupportedException.class,
+        () -> {
+          assertThat(
+              statement.executeUpdate(UPDATE_SAMPLE_QUERY, new int[0]),
+              is(UPDATE_SAMPLE_QUERY_AFFECTED_COLS));
+        });
   }
 
-  @Test(expected = SQLFeatureNotSupportedException.class)
+  @Test
   // TODO Implement `Statement#executeUpdate(String, String[])`
   public void testExecuteUpdateUnsupportedWithArraysOfStrings() throws SQLException {
-    assertThat(
-        statement.executeUpdate(UPDATE_SAMPLE_QUERY, new String[0]),
-        is(UPDATE_SAMPLE_QUERY_AFFECTED_COLS));
+    assertThrows(
+        SQLFeatureNotSupportedException.class,
+        () -> {
+          assertThat(
+              statement.executeUpdate(UPDATE_SAMPLE_QUERY, new String[0]),
+              is(UPDATE_SAMPLE_QUERY_AFFECTED_COLS));
+        });
   }
 
   @Test

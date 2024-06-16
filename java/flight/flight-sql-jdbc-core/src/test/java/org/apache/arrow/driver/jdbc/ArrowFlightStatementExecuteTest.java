@@ -42,12 +42,12 @@ import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.calcite.avatica.AvaticaUtils;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 /** Tests for {@link ArrowFlightStatement#execute}. */
 public class ArrowFlightStatementExecuteTest {
@@ -64,14 +64,14 @@ public class ArrowFlightStatementExecuteTest {
   private static final long SAMPLE_LARGE_UPDATE_COUNT = Long.MAX_VALUE;
   private static final MockFlightSqlProducer PRODUCER = new MockFlightSqlProducer();
 
-  @ClassRule
-  public static final FlightServerTestRule SERVER_TEST_RULE =
-      FlightServerTestRule.createStandardTestRule(PRODUCER);
+  @RegisterExtension
+  public static final FlightServerTestExtension FLIGHT_SERVER_TEST_EXTENSION =
+      FlightServerTestExtension.createStandardTestExtension(PRODUCER);
 
   private Connection connection;
   private Statement statement;
 
-  @BeforeClass
+  @BeforeAll
   public static void setUpBeforeClass() {
     PRODUCER.addSelectQuery(
         SAMPLE_QUERY_CMD,
@@ -98,18 +98,18 @@ public class ArrowFlightStatementExecuteTest {
     PRODUCER.addUpdateQuery(SAMPLE_LARGE_UPDATE_QUERY, SAMPLE_LARGE_UPDATE_COUNT);
   }
 
-  @Before
+  @BeforeEach
   public void setUp() throws SQLException {
-    connection = SERVER_TEST_RULE.getConnection(false);
+    connection = FLIGHT_SERVER_TEST_EXTENSION.getConnection(false);
     statement = connection.createStatement();
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws Exception {
     AutoCloseables.close(statement, connection);
   }
 
-  @AfterClass
+  @AfterAll
   public static void tearDownAfterClass() throws Exception {
     AutoCloseables.close(PRODUCER);
   }

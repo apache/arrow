@@ -19,7 +19,7 @@ package org.apache.arrow.driver.jdbc;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -29,23 +29,24 @@ import java.sql.Statement;
 import java.sql.Types;
 import org.apache.arrow.driver.jdbc.utils.CoreMockedSqlProducers;
 import org.hamcrest.CoreMatchers;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 public class ResultSetMetadataTest {
   private static ResultSetMetaData metadata;
 
   private static Connection connection;
 
-  @ClassRule
-  public static final FlightServerTestRule SERVER_TEST_RULE =
-      FlightServerTestRule.createStandardTestRule(CoreMockedSqlProducers.getLegacyProducer());
+  @RegisterExtension
+  public static final FlightServerTestExtension FLIGHT_SERVER_TEST_EXTENSION =
+      FlightServerTestExtension.createStandardTestExtension(
+          CoreMockedSqlProducers.getLegacyProducer());
 
-  @BeforeClass
+  @BeforeAll
   public static void setup() throws SQLException {
-    connection = SERVER_TEST_RULE.getConnection(false);
+    connection = FLIGHT_SERVER_TEST_EXTENSION.getConnection(false);
 
     try (Statement statement = connection.createStatement();
         ResultSet resultSet =
@@ -54,7 +55,7 @@ public class ResultSetMetadataTest {
     }
   }
 
-  @AfterClass
+  @AfterAll
   public static void teardown() throws SQLException {
     connection.close();
   }
@@ -97,14 +98,14 @@ public class ResultSetMetadataTest {
   /**
    * Test if {@link ResultSetMetaData#getColumnTypeName(int)} passing an column index that does not
    * exist.
-   *
-   * @throws SQLException in case of error.
    */
-  @Test(expected = IndexOutOfBoundsException.class)
-  public void testShouldGetColumnTypesNameFromOutOfBoundIndex() throws SQLException {
-    metadata.getColumnTypeName(4);
-
-    fail();
+  @Test
+  public void testShouldGetColumnTypesNameFromOutOfBoundIndex() {
+    assertThrows(
+        IndexOutOfBoundsException.class,
+        () -> {
+          metadata.getColumnTypeName(4);
+        });
   }
 
   /**
@@ -126,14 +127,10 @@ public class ResultSetMetadataTest {
   /**
    * Test {@link ResultSetMetaData#getColumnTypeName(int)} passing an column index that does not
    * exist.
-   *
-   * @throws SQLException in case of error.
    */
-  @Test(expected = IndexOutOfBoundsException.class)
-  public void testShouldGetColumnNameFromOutOfBoundIndex() throws SQLException {
-    metadata.getColumnName(4);
-
-    fail();
+  @Test
+  public void testShouldGetColumnNameFromOutOfBoundIndex() {
+    assertThrows(IndexOutOfBoundsException.class, () -> metadata.getColumnName(4));
   }
 
   /**
@@ -218,13 +215,9 @@ public class ResultSetMetadataTest {
   /**
    * Test if {@link ResultSetMetaData#getColumnTypeName(int)} passing an column index that does not
    * exist.
-   *
-   * @throws SQLException in case of error.
    */
-  @Test(expected = IndexOutOfBoundsException.class)
-  public void testShouldGetColumnTypesFromOutOfBoundIndex() throws SQLException {
-    metadata.getColumnType(4);
-
-    fail();
+  @Test
+  public void testShouldGetColumnTypesFromOutOfBoundIndex() {
+    assertThrows(IndexOutOfBoundsException.class, () -> metadata.getColumnType(4));
   }
 }

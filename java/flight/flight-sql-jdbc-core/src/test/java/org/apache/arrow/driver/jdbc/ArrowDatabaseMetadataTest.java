@@ -81,10 +81,10 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.Text;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 /** Class containing the tests from the {@link ArrowDatabaseMetadata}. */
 @SuppressWarnings("DoubleBraceInitialization")
@@ -94,13 +94,13 @@ public class ArrowDatabaseMetadataTest {
   private static final MockFlightSqlProducer FLIGHT_SQL_PRODUCER_EMPTY_SQLINFO =
       new MockFlightSqlProducer();
 
-  @ClassRule
-  public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE =
-      FlightServerTestRule.createStandardTestRule(FLIGHT_SQL_PRODUCER);
+  @RegisterExtension
+  public static final FlightServerTestExtension FLIGHT_SERVER_TEST_EXTENSION =
+      FlightServerTestExtension.createStandardTestExtension(FLIGHT_SQL_PRODUCER);
 
-  @ClassRule
-  public static final FlightServerTestRule FLIGHT_SERVER_EMPTY_SQLINFO_TEST_RULE =
-      FlightServerTestRule.createStandardTestRule(FLIGHT_SQL_PRODUCER_EMPTY_SQLINFO);
+  @RegisterExtension
+  public static final FlightServerTestExtension FLIGHT_SERVER_EMPTY_SQLINFO_TEST_RULE =
+      FlightServerTestExtension.createStandardTestExtension(FLIGHT_SQL_PRODUCER_EMPTY_SQLINFO);
 
   private static final int ROW_COUNT = 10;
   private static final List<List<Object>> EXPECTED_GET_CATALOGS_RESULTS =
@@ -341,9 +341,9 @@ public class ArrowDatabaseMetadataTest {
 
   public final ResultSetTestUtils resultSetTestUtils = new ResultSetTestUtils();
 
-  @BeforeClass
+  @BeforeAll
   public static void setUpBeforeClass() throws SQLException {
-    connection = FLIGHT_SERVER_TEST_RULE.getConnection(false);
+    connection = FLIGHT_SERVER_TEST_EXTENSION.getConnection(false);
 
     final Message commandGetCatalogs = CommandGetCatalogs.getDefaultInstance();
     final Consumer<ServerStreamListener> commandGetCatalogsResultProducer =
@@ -655,7 +655,7 @@ public class ArrowDatabaseMetadataTest {
             EXPECTED_STORED_FUNCTIONS_USING_CALL_SYNTAX_SUPPORTED);
   }
 
-  @AfterClass
+  @AfterAll
   public static void tearDown() throws Exception {
     AutoCloseables.close(connection, FLIGHT_SQL_PRODUCER, FLIGHT_SQL_PRODUCER_EMPTY_SQLINFO);
   }

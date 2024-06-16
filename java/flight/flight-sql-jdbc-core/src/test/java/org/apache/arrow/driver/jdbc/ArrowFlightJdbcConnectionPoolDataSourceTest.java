@@ -26,13 +26,14 @@ import javax.sql.PooledConnection;
 import org.apache.arrow.driver.jdbc.authentication.UserPasswordAuthentication;
 import org.apache.arrow.driver.jdbc.utils.ConnectionWrapper;
 import org.apache.arrow.driver.jdbc.utils.MockFlightSqlProducer;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 public class ArrowFlightJdbcConnectionPoolDataSourceTest {
-  @ClassRule public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE;
+
+  @RegisterExtension public static final FlightServerTestExtension FLIGHT_SERVER_TEST_EXTENSION;
 
   private static final MockFlightSqlProducer PRODUCER = new MockFlightSqlProducer();
 
@@ -43,8 +44,8 @@ public class ArrowFlightJdbcConnectionPoolDataSourceTest {
             .user("user2", "pass2")
             .build();
 
-    FLIGHT_SERVER_TEST_RULE =
-        new FlightServerTestRule.Builder()
+    FLIGHT_SERVER_TEST_EXTENSION =
+        new FlightServerTestExtension.Builder()
             .authentication(authentication)
             .producer(PRODUCER)
             .build();
@@ -52,12 +53,12 @@ public class ArrowFlightJdbcConnectionPoolDataSourceTest {
 
   private ArrowFlightJdbcConnectionPoolDataSource dataSource;
 
-  @Before
+  @BeforeEach
   public void setUp() {
-    dataSource = FLIGHT_SERVER_TEST_RULE.createConnectionPoolDataSource(false);
+    dataSource = FLIGHT_SERVER_TEST_EXTENSION.createConnectionPoolDataSource(false);
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws Exception {
     dataSource.close();
   }

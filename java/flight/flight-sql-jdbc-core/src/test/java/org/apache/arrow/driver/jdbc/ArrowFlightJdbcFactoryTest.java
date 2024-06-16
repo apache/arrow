@@ -27,15 +27,15 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.calcite.avatica.UnregisteredDriver;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 /** Tests for {@link ArrowFlightJdbcDriver}. */
 public class ArrowFlightJdbcFactoryTest {
 
-  @ClassRule public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE;
+  @RegisterExtension public static final FlightServerTestExtension FLIGHT_SERVER_TEST_EXTENSION;
   private static final MockFlightSqlProducer PRODUCER = new MockFlightSqlProducer();
 
   static {
@@ -45,8 +45,8 @@ public class ArrowFlightJdbcFactoryTest {
             .user("user2", "pass2")
             .build();
 
-    FLIGHT_SERVER_TEST_RULE =
-        new FlightServerTestRule.Builder()
+    FLIGHT_SERVER_TEST_EXTENSION =
+        new FlightServerTestExtension.Builder()
             .authentication(authentication)
             .producer(PRODUCER)
             .build();
@@ -55,13 +55,13 @@ public class ArrowFlightJdbcFactoryTest {
   private BufferAllocator allocator;
   private ArrowFlightJdbcConnectionPoolDataSource dataSource;
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     allocator = new RootAllocator(Long.MAX_VALUE);
-    dataSource = FLIGHT_SERVER_TEST_RULE.createConnectionPoolDataSource();
+    dataSource = FLIGHT_SERVER_TEST_EXTENSION.createConnectionPoolDataSource();
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws Exception {
     AutoCloseables.close(dataSource, allocator);
   }

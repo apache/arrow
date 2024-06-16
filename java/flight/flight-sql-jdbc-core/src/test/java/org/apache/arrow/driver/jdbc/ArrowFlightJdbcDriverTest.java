@@ -35,15 +35,15 @@ import org.apache.arrow.driver.jdbc.utils.MockFlightSqlProducer;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 /** Tests for {@link ArrowFlightJdbcDriver}. */
 public class ArrowFlightJdbcDriverTest {
 
-  @ClassRule public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE;
+  @RegisterExtension public static final FlightServerTestExtension FLIGHT_SERVER_TEST_EXTENSION;
   private static final MockFlightSqlProducer PRODUCER = new MockFlightSqlProducer();
 
   static {
@@ -53,8 +53,8 @@ public class ArrowFlightJdbcDriverTest {
             .user("user2", "pass2")
             .build();
 
-    FLIGHT_SERVER_TEST_RULE =
-        new FlightServerTestRule.Builder()
+    FLIGHT_SERVER_TEST_EXTENSION =
+        new FlightServerTestExtension.Builder()
             .authentication(authentication)
             .producer(PRODUCER)
             .build();
@@ -63,13 +63,13 @@ public class ArrowFlightJdbcDriverTest {
   private BufferAllocator allocator;
   private ArrowFlightJdbcConnectionPoolDataSource dataSource;
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     allocator = new RootAllocator(Long.MAX_VALUE);
-    dataSource = FLIGHT_SERVER_TEST_RULE.createConnectionPoolDataSource();
+    dataSource = FLIGHT_SERVER_TEST_EXTENSION.createConnectionPoolDataSource();
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws Exception {
     Collection<BufferAllocator> childAllocators = allocator.getChildAllocators();
     AutoCloseables.close(childAllocators.toArray(new AutoCloseable[0]));
@@ -206,12 +206,14 @@ public class ArrowFlightJdbcDriverTest {
    *
    * @throws SQLException If an error occurs.
    */
-  @Test(expected = SQLException.class)
+  @Test
   public void testShouldThrowExceptionWhenAttemptingToConnectToMalformedUrl() throws SQLException {
     final Driver driver = new ArrowFlightJdbcDriver();
     final String malformedUri = "yes:??/chainsaw.i=T333";
 
-    driver.connect(malformedUri, dataSource.getProperties("flight", "flight123"));
+    assertThrows(
+        SQLException.class,
+        () -> driver.connect(malformedUri, dataSource.getProperties("flight", "flight123")));
   }
 
   /**
@@ -219,15 +221,18 @@ public class ArrowFlightJdbcDriverTest {
    *
    * @throws SQLException If an error occurs.
    */
-  @Test(expected = SQLException.class)
+  @Test
   public void testShouldThrowExceptionWhenAttemptingToConnectToUrlNoPrefix() throws SQLException {
     final Driver driver = new ArrowFlightJdbcDriver();
     final String malformedUri = "localhost:32010";
 
-    driver.connect(
-        malformedUri,
-        dataSource.getProperties(
-            dataSource.getConfig().getUser(), dataSource.getConfig().getPassword()));
+    assertThrows(
+        SQLException.class,
+        () ->
+            driver.connect(
+                malformedUri,
+                dataSource.getProperties(
+                    dataSource.getConfig().getUser(), dataSource.getConfig().getPassword())));
   }
 
   /** Tests whether an exception is thrown upon attempting to connect to a malformed URI. */

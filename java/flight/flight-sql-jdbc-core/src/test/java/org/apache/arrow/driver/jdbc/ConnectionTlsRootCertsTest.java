@@ -35,15 +35,15 @@ import org.apache.arrow.driver.jdbc.utils.MockFlightSqlProducer;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 /** Tests encrypted connections. */
 public class ConnectionTlsRootCertsTest {
 
-  @ClassRule public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE;
+  @RegisterExtension public static final FlightServerTestExtension FLIGHT_SERVER_TEST_EXTENSION;
   private static final String tlsRootCertsPath;
   private static final String badTlsRootCertsPath;
   private static final MockFlightSqlProducer PRODUCER = new MockFlightSqlProducer();
@@ -61,8 +61,8 @@ public class ConnectionTlsRootCertsTest {
     UserPasswordAuthentication authentication =
         new UserPasswordAuthentication.Builder().user(userTest, passTest).build();
 
-    FLIGHT_SERVER_TEST_RULE =
-        new FlightServerTestRule.Builder()
+    FLIGHT_SERVER_TEST_EXTENSION =
+        new FlightServerTestExtension.Builder()
             .authentication(authentication)
             .useEncryption(certKey.cert, certKey.key)
             .producer(PRODUCER)
@@ -71,12 +71,12 @@ public class ConnectionTlsRootCertsTest {
 
   private BufferAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     allocator = new RootAllocator(Long.MAX_VALUE);
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws Exception {
     allocator.getChildAllocators().forEach(BufferAllocator::close);
     AutoCloseables.close(allocator);
@@ -92,8 +92,8 @@ public class ConnectionTlsRootCertsTest {
 
     try (ArrowFlightSqlClientHandler client =
         new ArrowFlightSqlClientHandler.Builder()
-            .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
-            .withPort(FLIGHT_SERVER_TEST_RULE.getPort())
+            .withHost(FLIGHT_SERVER_TEST_EXTENSION.getHost())
+            .withPort(FLIGHT_SERVER_TEST_EXTENSION.getPort())
             .withUsername(userTest)
             .withPassword(passTest)
             .withTlsRootCertificates(tlsRootCertsPath)
@@ -115,7 +115,7 @@ public class ConnectionTlsRootCertsTest {
         () -> {
           try (ArrowFlightSqlClientHandler handler =
               new ArrowFlightSqlClientHandler.Builder()
-                  .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
+                  .withHost(FLIGHT_SERVER_TEST_EXTENSION.getHost())
                   .withTlsRootCertificates(badTlsRootCertsPath)
                   .withBufferAllocator(allocator)
                   .withEncryption(true)
@@ -134,7 +134,7 @@ public class ConnectionTlsRootCertsTest {
   public void testGetNonAuthenticatedEncryptedClientNoAuth() throws Exception {
     try (ArrowFlightSqlClientHandler client =
         new ArrowFlightSqlClientHandler.Builder()
-            .withHost(FLIGHT_SERVER_TEST_RULE.getHost())
+            .withHost(FLIGHT_SERVER_TEST_EXTENSION.getHost())
             .withTlsRootCertificates(tlsRootCertsPath)
             .withBufferAllocator(allocator)
             .withEncryption(true)
@@ -155,7 +155,7 @@ public class ConnectionTlsRootCertsTest {
 
     properties.put(ArrowFlightConnectionProperty.HOST.camelName(), "localhost");
     properties.put(
-        ArrowFlightConnectionProperty.PORT.camelName(), FLIGHT_SERVER_TEST_RULE.getPort());
+        ArrowFlightConnectionProperty.PORT.camelName(), FLIGHT_SERVER_TEST_EXTENSION.getPort());
     properties.put(ArrowFlightConnectionProperty.USER.camelName(), userTest);
     properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(), passTest);
     properties.put(ArrowFlightConnectionProperty.TLS_ROOT_CERTS.camelName(), tlsRootCertsPath);
@@ -178,9 +178,9 @@ public class ConnectionTlsRootCertsTest {
     final Properties properties = new Properties();
 
     properties.put(
-        ArrowFlightConnectionProperty.HOST.camelName(), FLIGHT_SERVER_TEST_RULE.getHost());
+        ArrowFlightConnectionProperty.HOST.camelName(), FLIGHT_SERVER_TEST_EXTENSION.getHost());
     properties.put(
-        ArrowFlightConnectionProperty.PORT.camelName(), FLIGHT_SERVER_TEST_RULE.getPort());
+        ArrowFlightConnectionProperty.PORT.camelName(), FLIGHT_SERVER_TEST_EXTENSION.getPort());
     properties.put(ArrowFlightConnectionProperty.USE_ENCRYPTION.camelName(), true);
     properties.put(ArrowFlightConnectionProperty.TLS_ROOT_CERTS.camelName(), tlsRootCertsPath);
 
@@ -207,7 +207,7 @@ public class ConnectionTlsRootCertsTest {
             String.format(
                 "jdbc:arrow-flight-sql://localhost:%s?user=%s&password=%s"
                     + "&useEncryption=true&%s=%s",
-                FLIGHT_SERVER_TEST_RULE.getPort(),
+                FLIGHT_SERVER_TEST_EXTENSION.getPort(),
                 userTest,
                 passTest,
                 ArrowFlightConnectionProperty.TLS_ROOT_CERTS.camelName(),
@@ -240,7 +240,7 @@ public class ConnectionTlsRootCertsTest {
     try (final Connection connection =
         DriverManager.getConnection(
             String.format(
-                "jdbc:arrow-flight-sql://localhost:%s", FLIGHT_SERVER_TEST_RULE.getPort()),
+                "jdbc:arrow-flight-sql://localhost:%s", FLIGHT_SERVER_TEST_EXTENSION.getPort()),
             properties)) {
       assertTrue(connection.isValid(0));
     }
@@ -268,7 +268,7 @@ public class ConnectionTlsRootCertsTest {
     try (final Connection connection =
         DriverManager.getConnection(
             String.format(
-                "jdbc:arrow-flight-sql://localhost:%s", FLIGHT_SERVER_TEST_RULE.getPort()),
+                "jdbc:arrow-flight-sql://localhost:%s", FLIGHT_SERVER_TEST_EXTENSION.getPort()),
             properties)) {
       assertTrue(connection.isValid(0));
     }
@@ -291,7 +291,7 @@ public class ConnectionTlsRootCertsTest {
             String.format(
                 "jdbc:arrow-flight-sql://localhost:%s?user=%s&password=%s"
                     + "&useEncryption=1&useSystemTrustStore=0&%s=%s",
-                FLIGHT_SERVER_TEST_RULE.getPort(),
+                FLIGHT_SERVER_TEST_EXTENSION.getPort(),
                 userTest,
                 passTest,
                 ArrowFlightConnectionProperty.TLS_ROOT_CERTS.camelName(),
@@ -325,7 +325,7 @@ public class ConnectionTlsRootCertsTest {
     try (final Connection connection =
         DriverManager.getConnection(
             String.format(
-                "jdbc:arrow-flight-sql://localhost:%s", FLIGHT_SERVER_TEST_RULE.getPort()),
+                "jdbc:arrow-flight-sql://localhost:%s", FLIGHT_SERVER_TEST_EXTENSION.getPort()),
             properties)) {
       assertTrue(connection.isValid(0));
     }
@@ -355,7 +355,7 @@ public class ConnectionTlsRootCertsTest {
     try (final Connection connection =
         DriverManager.getConnection(
             String.format(
-                "jdbc:arrow-flight-sql://localhost:%s", FLIGHT_SERVER_TEST_RULE.getPort()),
+                "jdbc:arrow-flight-sql://localhost:%s", FLIGHT_SERVER_TEST_EXTENSION.getPort()),
             properties)) {
       assertTrue(connection.isValid(0));
     }
