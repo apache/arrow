@@ -1947,17 +1947,9 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
 
     if isinstance(store_decimal_as_integer, bool):
         if store_decimal_as_integer:
-            props.encoding(ParquetEncoding_BYTE_STREAM_SPLIT)
-    elif store_decimal_as_integer is not None:
-        for column in store_decimal_as_integer:
-            if column_encoding is None:
-                column_encoding = {column: 'BYTE_STREAM_SPLIT'}
-            elif column_encoding.get(column, None) is None:
-                column_encoding[column] = 'BYTE_STREAM_SPLIT'
-            else:
-                raise ValueError(
-                    "'store_decimal_as_integer' cannot be passed"
-                    "together with 'column_encoding'")
+            props.enable_store_decimal_as_integer()
+        else:
+            props.disable_store_decimal_as_integer()
     
     # column_encoding
     # encoding map - encode individual columns
