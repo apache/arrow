@@ -42,7 +42,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class ArrowFlightJdbcBaseIntVectorAccessorUnitTest {
 
   @RegisterExtension
-  public static RootAllocatorTestExtension rootAllocatorTestExtension = new RootAllocatorTestExtension();
+  public static RootAllocatorTestExtension rootAllocatorTestExtension =
+      new RootAllocatorTestExtension();
 
   private static UInt4Vector int4Vector;
   private static UInt8Vector int8Vector;
