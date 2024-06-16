@@ -22,7 +22,6 @@ import org.apache.arrow.memory.AllocationManager;
 import org.apache.arrow.memory.DefaultAllocationManagerOption;
 import org.junit.jupiter.api.Test;
 
-
 /** Test cases for {@link AllocationManager}. */
 public class TestAllocationManagerNetty {
 

@@ -22,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.charset.StandardCharsets;
 import java.util.stream.Stream;
-
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -32,14 +31,12 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-
 /** Test cases for {@link ArrowBufHasher} and its subclasses. */
 public class TestArrowBufHasher {
 
   private final int BUFFER_LENGTH = 1024;
 
   private BufferAllocator allocator;
-
 
   @BeforeEach
   public void prepare() {
@@ -76,7 +73,13 @@ public class TestArrowBufHasher {
   }
 
   private void verifyHashCodesEqual(
-      ArrowBufHasher hasher, ArrowBuf buf1, int offset1, int length1, ArrowBuf buf2, int offset2, int length2) {
+      ArrowBufHasher hasher,
+      ArrowBuf buf1,
+      int offset1,
+      int length1,
+      ArrowBuf buf2,
+      int offset2,
+      int length2) {
     int hashCode1 = hasher.hashCode(buf1, offset1, length1);
     int hashCode2 = hasher.hashCode(buf2, offset2, length2);
     assertEquals(hashCode1, hashCode2);
@@ -91,17 +94,11 @@ public class TestArrowBufHasher {
         buf.setFloat(i * 4L, i / 10.0f);
       }
 
-      assertThrows(
-          IllegalArgumentException.class,
-          () -> hasher.hashCode(buf, 0, -1));
+      assertThrows(IllegalArgumentException.class, () -> hasher.hashCode(buf, 0, -1));
 
-      assertThrows(
-          IndexOutOfBoundsException.class,
-          () -> hasher.hashCode(buf, 0, 1028));
+      assertThrows(IndexOutOfBoundsException.class, () -> hasher.hashCode(buf, 0, 1028));
 
-      assertThrows(
-          IndexOutOfBoundsException.class,
-          () -> hasher.hashCode(buf, 500, 1000));
+      assertThrows(IndexOutOfBoundsException.class, () -> hasher.hashCode(buf, 500, 1000));
     }
   }
 
@@ -119,7 +116,8 @@ public class TestArrowBufHasher {
     }
   }
 
-  private void verifyHashCodeNotEqual(ArrowBufHasher hasher, ArrowBuf buf1, int length1, ArrowBuf buf2, int length2) {
+  private void verifyHashCodeNotEqual(
+      ArrowBufHasher hasher, ArrowBuf buf1, int length1, ArrowBuf buf2, int length2) {
     int hashCode1 = hasher.hashCode(buf1, 0, length1);
     int hashCode2 = hasher.hashCode(buf2, 0, length2);
     assertNotEquals(hashCode1, hashCode2);
@@ -127,8 +125,7 @@ public class TestArrowBufHasher {
 
   private static Stream<Arguments> getHasher() {
     return Stream.of(
-            Arguments.of(SimpleHasher.class.getSimpleName(), SimpleHasher.INSTANCE),
-            Arguments.of(MurmurHasher.class.getSimpleName(), new MurmurHasher())
-    );
+        Arguments.of(SimpleHasher.class.getSimpleName(), SimpleHasher.INSTANCE),
+        Arguments.of(MurmurHasher.class.getSimpleName(), new MurmurHasher()));
   }
 }

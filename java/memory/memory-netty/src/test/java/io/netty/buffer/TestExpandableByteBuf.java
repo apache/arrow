@@ -16,13 +16,12 @@
  */
 package io.netty.buffer;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-
 
 public class TestExpandableByteBuf {
 

@@ -16,6 +16,11 @@
  */
 package org.apache.arrow.memory;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
@@ -28,18 +33,12 @@ import org.apache.arrow.memory.util.Float16;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 public class TestArrowBuf {
 
   @Test
   public void testSliceOutOfBoundsLength_RaisesIndexOutOfBoundsException() {
     try (BufferAllocator allocator = new RootAllocator(128);
-         ArrowBuf buf = allocator.buffer(2)) {
+        ArrowBuf buf = allocator.buffer(2)) {
       assertEquals(2, buf.capacity());
       assertThrows(IndexOutOfBoundsException.class, () -> buf.slice(0, 3));
     }
@@ -51,7 +50,6 @@ public class TestArrowBuf {
         ArrowBuf buf = allocator.buffer(2)) {
       assertEquals(2, buf.capacity());
       assertThrows(IndexOutOfBoundsException.class, () -> buf.slice(1, 2));
-
     }
   }
 

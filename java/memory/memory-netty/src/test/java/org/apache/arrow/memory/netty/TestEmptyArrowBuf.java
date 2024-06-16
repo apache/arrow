@@ -16,7 +16,8 @@
  */
 package org.apache.arrow.memory.netty;
 
-
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import io.netty.buffer.PooledByteBufAllocatorL;
 import org.apache.arrow.memory.ArrowBuf;
@@ -25,10 +26,6 @@ import org.apache.arrow.memory.RootAllocator;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-
 
 public class TestEmptyArrowBuf {
 

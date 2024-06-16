@@ -16,8 +16,6 @@
  */
 package org.apache.arrow.util;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -27,7 +25,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-
+import org.junit.jupiter.api.Test;
 
 /** Tests for {@code Collections2} class. */
 public class TestCollections2 {

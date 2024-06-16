@@ -16,13 +16,12 @@
  */
 package org.apache.arrow.memory;
 
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Field;
 import java.net.URLClassLoader;
-
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
 
 /** Test cases for evaluating the value of {@link BoundsChecking#BOUNDS_CHECKING_ENABLED}. */
 public class TestBoundaryChecking {

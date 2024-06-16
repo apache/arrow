@@ -16,12 +16,10 @@
  */
 package org.apache.arrow.memory;
 
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-
+import org.junit.jupiter.api.Test;
 
 public class TestOpens {
   /** Instantiating the RootAllocator should poke MemoryUtil and fail. */

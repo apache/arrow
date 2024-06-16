@@ -16,15 +16,14 @@
  */
 package org.apache.arrow.memory.util;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URLClassLoader;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 public class TestLargeMemoryUtil {
 
@@ -59,8 +58,7 @@ public class TestLargeMemoryUtil {
   private void checkExpectedOverflow(ClassLoader classLoader, long value) {
     InvocationTargetException ex =
         Assertions.assertThrows(
-            InvocationTargetException.class,
-            () -> checkedCastToInt(classLoader, value));
+            InvocationTargetException.class, () -> checkedCastToInt(classLoader, value));
     assertInstanceOf(ArithmeticException.class, ex.getCause());
     assertEquals("integer overflow", ex.getCause().getMessage());
   }
@@ -94,10 +92,8 @@ public class TestLargeMemoryUtil {
       ClassLoader classLoader = copyClassLoader();
       if (classLoader != null) {
         assertEquals(Integer.MAX_VALUE, checkedCastToInt(classLoader, Integer.MAX_VALUE));
-        assertEquals(
-            Integer.MIN_VALUE, checkedCastToInt(classLoader, Integer.MAX_VALUE + 1L));
-        assertEquals(
-            Integer.MAX_VALUE, checkedCastToInt(classLoader, Integer.MIN_VALUE - 1L));
+        assertEquals(Integer.MIN_VALUE, checkedCastToInt(classLoader, Integer.MAX_VALUE + 1L));
+        assertEquals(Integer.MAX_VALUE, checkedCastToInt(classLoader, Integer.MIN_VALUE - 1L));
       }
     } finally {
       // restore system property
