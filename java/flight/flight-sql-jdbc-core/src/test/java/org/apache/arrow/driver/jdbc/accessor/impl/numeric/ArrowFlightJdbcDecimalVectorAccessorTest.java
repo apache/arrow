@@ -33,9 +33,7 @@ import org.hamcrest.CoreMatchers;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ErrorCollector;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
@@ -44,8 +42,6 @@ public class ArrowFlightJdbcDecimalVectorAccessorTest {
 
   @ClassRule
   public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
-
-  @Rule public final ErrorCollector collector = new ErrorCollector();
 
   private final Supplier<ValueVector> vectorSupplier;
   private ValueVector vector;
@@ -67,7 +63,7 @@ public class ArrowFlightJdbcDecimalVectorAccessorTest {
           };
 
   private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcDecimalVectorAccessor>
-      accessorIterator = new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
+      accessorIterator = new AccessorTestUtils.AccessorIterator<>(accessorSupplier);
 
   @Parameterized.Parameters(name = "{1}")
   public static Collection<Object[]> data() {

@@ -17,6 +17,7 @@
 package org.apache.arrow.driver.jdbc.utils;
 
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -28,7 +29,6 @@ import java.util.function.Supplier;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessor;
 import org.apache.arrow.vector.ValueVector;
 import org.hamcrest.Matcher;
-import org.junit.rules.ErrorCollector;
 
 public class AccessorTestUtils {
   @FunctionalInterface
@@ -70,11 +70,9 @@ public class AccessorTestUtils {
   }
 
   public static class AccessorIterator<T extends ArrowFlightJdbcAccessor> {
-    private final ErrorCollector collector;
     private final AccessorSupplier<T> accessorSupplier;
 
-    public AccessorIterator(ErrorCollector collector, AccessorSupplier<T> accessorSupplier) {
-      this.collector = collector;
+    public AccessorIterator(AccessorSupplier<T> accessorSupplier) {
       this.accessorSupplier = accessorSupplier;
     }
 
@@ -113,8 +111,8 @@ public class AccessorTestUtils {
             R object = getter.apply(accessor);
             boolean wasNull = accessor.wasNull();
 
-            collector.checkThat(object, matcherGetter.get(accessor, currentRow));
-            collector.checkThat(wasNull, is(accessor.getObject() == null));
+            assertThat(object, matcherGetter.get(accessor, currentRow));
+            assertThat(wasNull, is(accessor.getObject() == null));
           });
     }
 

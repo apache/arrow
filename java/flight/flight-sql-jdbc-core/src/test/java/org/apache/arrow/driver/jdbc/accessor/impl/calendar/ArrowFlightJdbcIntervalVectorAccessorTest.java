@@ -39,9 +39,7 @@ import org.apache.arrow.vector.ValueVector;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ErrorCollector;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
@@ -50,8 +48,6 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
 
   @ClassRule
   public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
-
-  @Rule public final ErrorCollector collector = new ErrorCollector();
 
   private final Supplier<ValueVector> vectorSupplier;
   private ValueVector vector;
@@ -75,7 +71,7 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
           };
 
   final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcIntervalVectorAccessor> accessorIterator =
-      new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
+      new AccessorTestUtils.AccessorIterator<>(accessorSupplier);
 
   @Parameterized.Parameters(name = "{1}")
   public static Collection<Object[]> data() {

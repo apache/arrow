@@ -26,6 +26,7 @@ import static org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl
 import static org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.USER;
 import static org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty.USE_ENCRYPTION;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.List;
 import java.util.Properties;
@@ -33,9 +34,7 @@ import java.util.Random;
 import java.util.function.Function;
 import org.apache.arrow.driver.jdbc.utils.ArrowFlightConnectionConfigImpl.ArrowFlightConnectionProperty;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ErrorCollector;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
@@ -48,8 +47,6 @@ public final class ArrowFlightConnectionConfigImplTest {
 
   private final Properties properties = new Properties();
   private ArrowFlightConnectionConfigImpl arrowFlightConnectionConfig;
-
-  @Rule public final ErrorCollector collector = new ErrorCollector();
 
   @Parameter public ArrowFlightConnectionProperty property;
 
@@ -67,8 +64,7 @@ public final class ArrowFlightConnectionConfigImplTest {
 
   @Test
   public void testGetProperty() {
-    collector.checkThat(
-        arrowFlightConnectionConfigFunction.apply(arrowFlightConnectionConfig), is(value));
+    assertThat(arrowFlightConnectionConfigFunction.apply(arrowFlightConnectionConfig), is(value));
   }
 
   @Parameters(name = "<{0}> as <{1}>")

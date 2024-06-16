@@ -18,6 +18,7 @@ package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -31,15 +32,12 @@ import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ErrorCollector;
 import org.junit.rules.ExpectedException;
 
 public class ArrowFlightJdbcFloat8VectorAccessorTest {
 
   @ClassRule
   public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
-
-  @Rule public final ErrorCollector collector = new ErrorCollector();
 
   @Rule public ExpectedException exceptionCollector = ExpectedException.none();
 
@@ -53,7 +51,7 @@ public class ArrowFlightJdbcFloat8VectorAccessorTest {
                   (Float8Vector) vector, getCurrentRow, (boolean wasNull) -> {});
 
   private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcFloat8VectorAccessor>
-      accessorIterator = new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
+      accessorIterator = new AccessorTestUtils.AccessorIterator<>(accessorSupplier);
 
   @Before
   public void setup() {
@@ -148,7 +146,7 @@ public class ArrowFlightJdbcFloat8VectorAccessorTest {
           if (Double.isInfinite(value) || Double.isNaN(value)) {
             exceptionCollector.expect(SQLException.class);
           }
-          collector.checkThat(accessor.getBigDecimal(), is(BigDecimal.valueOf(value)));
+          assertThat(accessor.getBigDecimal(), is(BigDecimal.valueOf(value)));
         });
   }
 
@@ -187,7 +185,7 @@ public class ArrowFlightJdbcFloat8VectorAccessorTest {
           if (Double.isInfinite(value) || Double.isNaN(value)) {
             exceptionCollector.expect(SQLException.class);
           }
-          collector.checkThat(
+          assertThat(
               accessor.getBigDecimal(9),
               is(BigDecimal.valueOf(value).setScale(9, RoundingMode.HALF_UP)));
         });

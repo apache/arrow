@@ -19,6 +19,8 @@ package org.apache.arrow.driver.jdbc.utils;
 import static java.lang.String.format;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertAll;
 
 import com.google.common.collect.ImmutableList;
 import java.sql.Date;
@@ -50,7 +52,6 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.Text;
-import org.junit.rules.ErrorCollector;
 
 /** Standard {@link MockFlightSqlProducer} instances for tests. */
 // TODO Remove this once all tests are refactor to use only the queries they need.
@@ -286,11 +287,10 @@ public final class CoreMockedSqlProducers {
    * MockFlightSqlProducer}.
    *
    * @param resultSet the result set.
-   * @param collector the {@link ErrorCollector} to use.
    * @throws SQLException on error.
    */
-  public static void assertLegacyRegularSqlResultSet(
-      final ResultSet resultSet, final ErrorCollector collector) throws SQLException {
+  public static void assertLegacyRegularSqlResultSet(final ResultSet resultSet)
+      throws SQLException {
     final int expectedRowCount = 50_000;
 
     final long[] expectedIds = new long[expectedRowCount];
@@ -324,12 +324,16 @@ public final class CoreMockedSqlProducers {
       actualHireDates.add((Date) resultSet.getObject(5));
       actualLastSales.add((Timestamp) resultSet.getObject(6));
     }
-    collector.checkThat(actualRowCount, is(equalTo(expectedRowCount)));
-    collector.checkThat(actualIds, is(expectedIds));
-    collector.checkThat(actualNames, is(expectedNames));
-    collector.checkThat(actualAges, is(expectedAges));
-    collector.checkThat(actualSalaries, is(expectedSalaries));
-    collector.checkThat(actualHireDates, is(expectedHireDates));
-    collector.checkThat(actualLastSales, is(expectedLastSales));
+
+    final int finalActualRowCount = actualRowCount;
+    assertAll(
+        "ResultSet values are as expected",
+        () -> assertThat(finalActualRowCount, is(equalTo(expectedRowCount))),
+        () -> assertThat(actualIds, is(expectedIds)),
+        () -> assertThat(actualNames, is(expectedNames)),
+        () -> assertThat(actualAges, is(expectedAges)),
+        () -> assertThat(actualSalaries, is(expectedSalaries)),
+        () -> assertThat(actualHireDates, is(expectedHireDates)),
+        () -> assertThat(actualLastSales, is(expectedLastSales)));
   }
 }

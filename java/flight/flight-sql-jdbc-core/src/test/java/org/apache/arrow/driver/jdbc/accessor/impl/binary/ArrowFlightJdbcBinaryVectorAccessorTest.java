@@ -19,6 +19,7 @@ package org.apache.arrow.driver.jdbc.accessor.impl.binary;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.io.InputStream;
 import java.io.Reader;
@@ -37,9 +38,7 @@ import org.hamcrest.CoreMatchers;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ErrorCollector;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
@@ -48,8 +47,6 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
 
   @ClassRule
   public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
-
-  @Rule public final ErrorCollector collector = new ErrorCollector();
 
   private ValueVector vector;
   private final Supplier<ValueVector> vectorSupplier;
@@ -73,7 +70,7 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
           };
 
   private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcBinaryVectorAccessor>
-      accessorIterator = new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
+      accessorIterator = new AccessorTestUtils.AccessorIterator<>(accessorSupplier);
 
   @Parameterized.Parameters(name = "{1}")
   public static Collection<Object[]> data() {
@@ -149,8 +146,8 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
     vector.setValueCount(5);
 
     ArrowFlightJdbcBinaryVectorAccessor accessor = accessorSupplier.supply(vector, () -> 0);
-    collector.checkThat(accessor.getBytes(), CoreMatchers.equalTo(null));
-    collector.checkThat(accessor.wasNull(), is(true));
+    assertThat(accessor.getBytes(), CoreMatchers.equalTo(null));
+    assertThat(accessor.wasNull(), is(true));
   }
 
   @Test
@@ -167,8 +164,8 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
     vector.setValueCount(5);
 
     ArrowFlightJdbcBinaryVectorAccessor accessor = accessorSupplier.supply(vector, () -> 0);
-    collector.checkThat(accessor.getObject(), CoreMatchers.equalTo(null));
-    collector.checkThat(accessor.wasNull(), is(true));
+    assertThat(accessor.getObject(), CoreMatchers.equalTo(null));
+    assertThat(accessor.wasNull(), is(true));
   }
 
   @Test
@@ -178,8 +175,8 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
         (accessor, currentRow) -> {
           InputStream inputStream = accessor.getUnicodeStream();
           String actualString = IOUtils.toString(inputStream, UTF_8);
-          collector.checkThat(accessor.wasNull(), is(false));
-          collector.checkThat(actualString, is(accessor.getString()));
+          assertThat(accessor.wasNull(), is(false));
+          assertThat(actualString, is(accessor.getString()));
         });
   }
 
@@ -189,8 +186,8 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
     vector.setValueCount(5);
 
     ArrowFlightJdbcBinaryVectorAccessor accessor = accessorSupplier.supply(vector, () -> 0);
-    collector.checkThat(accessor.getUnicodeStream(), CoreMatchers.equalTo(null));
-    collector.checkThat(accessor.wasNull(), is(true));
+    assertThat(accessor.getUnicodeStream(), CoreMatchers.equalTo(null));
+    assertThat(accessor.wasNull(), is(true));
   }
 
   @Test
@@ -200,8 +197,8 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
         (accessor, currentRow) -> {
           InputStream inputStream = accessor.getAsciiStream();
           String actualString = IOUtils.toString(inputStream, US_ASCII);
-          collector.checkThat(accessor.wasNull(), is(false));
-          collector.checkThat(actualString, is(accessor.getString()));
+          assertThat(accessor.wasNull(), is(false));
+          assertThat(actualString, is(accessor.getString()));
         });
   }
 
@@ -211,8 +208,8 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
     vector.setValueCount(5);
 
     ArrowFlightJdbcBinaryVectorAccessor accessor = accessorSupplier.supply(vector, () -> 0);
-    collector.checkThat(accessor.getAsciiStream(), CoreMatchers.equalTo(null));
-    collector.checkThat(accessor.wasNull(), is(true));
+    assertThat(accessor.getAsciiStream(), CoreMatchers.equalTo(null));
+    assertThat(accessor.wasNull(), is(true));
   }
 
   @Test
@@ -222,8 +219,8 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
         (accessor, currentRow) -> {
           InputStream inputStream = accessor.getBinaryStream();
           String actualString = IOUtils.toString(inputStream, UTF_8);
-          collector.checkThat(accessor.wasNull(), is(false));
-          collector.checkThat(actualString, is(accessor.getString()));
+          assertThat(accessor.wasNull(), is(false));
+          assertThat(actualString, is(accessor.getString()));
         });
   }
 
@@ -233,8 +230,8 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
     vector.setValueCount(5);
 
     ArrowFlightJdbcBinaryVectorAccessor accessor = accessorSupplier.supply(vector, () -> 0);
-    collector.checkThat(accessor.getBinaryStream(), CoreMatchers.equalTo(null));
-    collector.checkThat(accessor.wasNull(), is(true));
+    assertThat(accessor.getBinaryStream(), CoreMatchers.equalTo(null));
+    assertThat(accessor.wasNull(), is(true));
   }
 
   @Test
@@ -244,8 +241,8 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
         (accessor, currentRow) -> {
           Reader characterStream = accessor.getCharacterStream();
           String actualString = IOUtils.toString(characterStream);
-          collector.checkThat(accessor.wasNull(), is(false));
-          collector.checkThat(actualString, is(accessor.getString()));
+          assertThat(accessor.wasNull(), is(false));
+          assertThat(actualString, is(accessor.getString()));
         });
   }
 
@@ -255,7 +252,7 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
     vector.setValueCount(5);
 
     ArrowFlightJdbcBinaryVectorAccessor accessor = accessorSupplier.supply(vector, () -> 0);
-    collector.checkThat(accessor.getCharacterStream(), CoreMatchers.equalTo(null));
-    collector.checkThat(accessor.wasNull(), is(true));
+    assertThat(accessor.getCharacterStream(), CoreMatchers.equalTo(null));
+    assertThat(accessor.wasNull(), is(true));
   }
 }

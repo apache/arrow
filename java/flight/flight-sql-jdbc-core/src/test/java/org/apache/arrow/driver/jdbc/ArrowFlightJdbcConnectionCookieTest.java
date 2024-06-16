@@ -24,13 +24,9 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import org.apache.arrow.driver.jdbc.utils.CoreMockedSqlProducers;
 import org.junit.ClassRule;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ErrorCollector;
 
 public class ArrowFlightJdbcConnectionCookieTest {
-
-  @Rule public final ErrorCollector collector = new ErrorCollector();
 
   @ClassRule
   public static final FlightServerTestRule FLIGHT_SERVER_TEST_RULE =

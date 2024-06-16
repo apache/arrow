@@ -18,6 +18,7 @@ package org.apache.arrow.driver.jdbc.accessor.impl.complex;
 
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.sql.Timestamp;
 import java.util.Arrays;
@@ -33,16 +34,12 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ErrorCollector;
 
 public class ArrowFlightJdbcDenseUnionVectorAccessorTest {
 
   @ClassRule
   public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
-
-  @Rule public final ErrorCollector collector = new ErrorCollector();
 
   private DenseUnionVector vector;
 
@@ -57,7 +54,7 @@ public class ArrowFlightJdbcDenseUnionVectorAccessorTest {
                   });
 
   private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcDenseUnionVectorAccessor>
-      accessorIterator = new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
+      accessorIterator = new AccessorTestUtils.AccessorIterator<>(accessorSupplier);
 
   @Before
   public void setup() throws Exception {
@@ -108,7 +105,7 @@ public class ArrowFlightJdbcDenseUnionVectorAccessorTest {
     List<Object> expected =
         Arrays.asList(Long.MAX_VALUE, Math.PI, new Timestamp(1625702400000L), null, null);
 
-    collector.checkThat(result, is(expected));
+    assertThat(result, is(expected));
   }
 
   @Test

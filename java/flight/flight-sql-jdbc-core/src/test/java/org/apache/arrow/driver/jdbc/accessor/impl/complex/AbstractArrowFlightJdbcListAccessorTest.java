@@ -17,6 +17,7 @@
 package org.apache.arrow.driver.jdbc.accessor.impl.complex;
 
 import static org.hamcrest.CoreMatchers.equalTo;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.sql.Array;
 import java.sql.ResultSet;
@@ -35,9 +36,7 @@ import org.hamcrest.CoreMatchers;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ErrorCollector;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
@@ -46,8 +45,6 @@ public class AbstractArrowFlightJdbcListAccessorTest {
 
   @ClassRule
   public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
-
-  @Rule public final ErrorCollector collector = new ErrorCollector();
 
   private final Supplier<ValueVector> vectorSupplier;
   private ValueVector vector;
@@ -71,7 +68,7 @@ public class AbstractArrowFlightJdbcListAccessorTest {
           };
 
   final AccessorTestUtils.AccessorIterator<AbstractArrowFlightJdbcListVectorAccessor>
-      accessorIterator = new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
+      accessorIterator = new AccessorTestUtils.AccessorIterator<>(accessorSupplier);
 
   @Parameterized.Parameters(name = "{1}")
   public static Collection<Object[]> data() {
@@ -143,7 +140,7 @@ public class AbstractArrowFlightJdbcListAccessorTest {
 
           Object[] arrayObject = (Object[]) array.getArray();
 
-          collector.checkThat(
+          assertThat(
               arrayObject,
               equalTo(
                   new Object[] {0, currentRow, currentRow * 2, currentRow * 3, currentRow * 4}));
@@ -170,7 +167,7 @@ public class AbstractArrowFlightJdbcListAccessorTest {
 
           Object[] arrayObject = (Object[]) array.getArray(1, 3);
 
-          collector.checkThat(
+          assertThat(
               arrayObject, equalTo(new Object[] {currentRow, currentRow * 2, currentRow * 3}));
         });
   }
@@ -187,10 +184,10 @@ public class AbstractArrowFlightJdbcListAccessorTest {
             int count = 0;
             while (rs.next()) {
               final int value = rs.getInt(1);
-              collector.checkThat(value, equalTo(currentRow * count));
+              assertThat(value, equalTo(currentRow * count));
               count++;
             }
-            collector.checkThat(count, equalTo(5));
+            assertThat(count, equalTo(5));
           }
         });
   }

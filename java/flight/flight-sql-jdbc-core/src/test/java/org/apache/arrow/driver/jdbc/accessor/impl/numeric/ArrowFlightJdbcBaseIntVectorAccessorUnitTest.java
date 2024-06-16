@@ -34,9 +34,7 @@ import org.hamcrest.CoreMatchers;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ErrorCollector;
 import org.junit.runner.RunWith;
 import org.mockito.junit.MockitoJUnitRunner;
 
@@ -51,7 +49,6 @@ public class ArrowFlightJdbcBaseIntVectorAccessorUnitTest {
   private static SmallIntVector smallIntVector;
   private static IntVector intVector;
   private static BigIntVector bigIntVector;
-  @Rule public final ErrorCollector collector = new ErrorCollector();
 
   private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcBaseIntVectorAccessor>
       accessorSupplier =
@@ -87,7 +84,7 @@ public class ArrowFlightJdbcBaseIntVectorAccessorUnitTest {
           };
 
   private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcBaseIntVectorAccessor>
-      accessorIterator = new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
+      accessorIterator = new AccessorTestUtils.AccessorIterator<>(accessorSupplier);
 
   @BeforeClass
   public static void setup() {

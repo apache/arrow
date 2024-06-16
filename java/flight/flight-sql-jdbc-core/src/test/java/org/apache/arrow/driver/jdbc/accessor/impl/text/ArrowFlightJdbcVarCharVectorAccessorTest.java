@@ -22,6 +22,7 @@ import static org.apache.commons.io.IOUtils.toByteArray;
 import static org.apache.commons.io.IOUtils.toCharArray;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.instanceOf;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.mockito.Mockito.when;
 
@@ -49,7 +50,6 @@ import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ErrorCollector;
 import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
@@ -68,8 +68,6 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
   @Mock private ArrowFlightJdbcVarCharVectorAccessor.Getter getter;
 
-  @Rule public ErrorCollector collector = new ErrorCollector();
-
   @Rule public ExpectedException thrown = ExpectedException.none();
 
   @Before
@@ -85,7 +83,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     when(getter.get(0)).thenReturn(null);
     final String result = accessor.getString();
 
-    collector.checkThat(result, equalTo(null));
+    assertThat(result, equalTo(null));
   }
 
   @Test
@@ -95,8 +93,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
     final String result = accessor.getString();
 
-    collector.checkThat(result, instanceOf(String.class));
-    collector.checkThat(result, equalTo(value.toString()));
+    assertThat(result, instanceOf(String.class));
+    assertThat(result, equalTo(value.toString()));
   }
 
   @Test
@@ -106,8 +104,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
     final String result = accessor.getObject();
 
-    collector.checkThat(result, instanceOf(String.class));
-    collector.checkThat(result, equalTo(value.toString()));
+    assertThat(result, instanceOf(String.class));
+    assertThat(result, equalTo(value.toString()));
   }
 
   @Test
@@ -144,8 +142,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
     byte result = accessor.getByte();
 
-    collector.checkThat(result, instanceOf(Byte.class));
-    collector.checkThat(result, equalTo((byte) 127));
+    assertThat(result, instanceOf(Byte.class));
+    assertThat(result, equalTo((byte) 127));
   }
 
   @Test
@@ -155,8 +153,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
     byte result = accessor.getByte();
 
-    collector.checkThat(result, instanceOf(Byte.class));
-    collector.checkThat(result, equalTo((byte) -128));
+    assertThat(result, instanceOf(Byte.class));
+    assertThat(result, equalTo((byte) -128));
   }
 
   @Test
@@ -193,8 +191,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
     short result = accessor.getShort();
 
-    collector.checkThat(result, instanceOf(Short.class));
-    collector.checkThat(result, equalTo((short) 32767));
+    assertThat(result, instanceOf(Short.class));
+    assertThat(result, equalTo((short) 32767));
   }
 
   @Test
@@ -204,8 +202,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
     short result = accessor.getShort();
 
-    collector.checkThat(result, instanceOf(Short.class));
-    collector.checkThat(result, equalTo((short) -32768));
+    assertThat(result, instanceOf(Short.class));
+    assertThat(result, equalTo((short) -32768));
   }
 
   @Test
@@ -242,8 +240,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
     int result = accessor.getInt();
 
-    collector.checkThat(result, instanceOf(Integer.class));
-    collector.checkThat(result, equalTo(2147483647));
+    assertThat(result, instanceOf(Integer.class));
+    assertThat(result, equalTo(2147483647));
   }
 
   @Test
@@ -253,8 +251,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
     int result = accessor.getInt();
 
-    collector.checkThat(result, instanceOf(Integer.class));
-    collector.checkThat(result, equalTo(-2147483648));
+    assertThat(result, instanceOf(Integer.class));
+    assertThat(result, equalTo(-2147483648));
   }
 
   @Test
@@ -291,8 +289,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
     long result = accessor.getLong();
 
-    collector.checkThat(result, instanceOf(Long.class));
-    collector.checkThat(result, equalTo(9223372036854775807L));
+    assertThat(result, instanceOf(Long.class));
+    assertThat(result, equalTo(9223372036854775807L));
   }
 
   @Test
@@ -302,8 +300,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
     long result = accessor.getLong();
 
-    collector.checkThat(result, instanceOf(Long.class));
-    collector.checkThat(result, equalTo(-9223372036854775808L));
+    assertThat(result, instanceOf(Long.class));
+    assertThat(result, equalTo(-9223372036854775808L));
   }
 
   @Test
@@ -332,8 +330,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
     BigDecimal result = accessor.getBigDecimal();
 
-    collector.checkThat(result, instanceOf(BigDecimal.class));
-    collector.checkThat(result, equalTo(new BigDecimal("9223372036854775807000.999")));
+    assertThat(result, instanceOf(BigDecimal.class));
+    assertThat(result, equalTo(new BigDecimal("9223372036854775807000.999")));
   }
 
   @Test
@@ -343,8 +341,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
     BigDecimal result = accessor.getBigDecimal();
 
-    collector.checkThat(result, instanceOf(BigDecimal.class));
-    collector.checkThat(result, equalTo(new BigDecimal("-9223372036854775807000.999")));
+    assertThat(result, instanceOf(BigDecimal.class));
+    assertThat(result, equalTo(new BigDecimal("-9223372036854775807000.999")));
   }
 
   @Test
@@ -363,8 +361,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
     double result = accessor.getDouble();
 
-    collector.checkThat(result, instanceOf(Double.class));
-    collector.checkThat(result, equalTo(1.7976931348623157E308D));
+    assertThat(result, instanceOf(Double.class));
+    assertThat(result, equalTo(1.7976931348623157E308D));
   }
 
   @Test
@@ -374,8 +372,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
     double result = accessor.getDouble();
 
-    collector.checkThat(result, instanceOf(Double.class));
-    collector.checkThat(result, equalTo(-1.7976931348623157E308D));
+    assertThat(result, instanceOf(Double.class));
+    assertThat(result, equalTo(-1.7976931348623157E308D));
   }
 
   @Test
@@ -385,8 +383,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
     double result = accessor.getDouble();
 
-    collector.checkThat(result, instanceOf(Double.class));
-    collector.checkThat(result, equalTo(Double.POSITIVE_INFINITY));
+    assertThat(result, instanceOf(Double.class));
+    assertThat(result, equalTo(Double.POSITIVE_INFINITY));
   }
 
   @Test
@@ -396,8 +394,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
     double result = accessor.getDouble();
 
-    collector.checkThat(result, instanceOf(Double.class));
-    collector.checkThat(result, equalTo(Double.NEGATIVE_INFINITY));
+    assertThat(result, instanceOf(Double.class));
+    assertThat(result, equalTo(Double.NEGATIVE_INFINITY));
   }
 
   @Test
@@ -407,8 +405,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
     double result = accessor.getDouble();
 
-    collector.checkThat(result, instanceOf(Double.class));
-    collector.checkThat(result, equalTo(Double.NaN));
+    assertThat(result, instanceOf(Double.class));
+    assertThat(result, equalTo(Double.NaN));
   }
 
   @Test
@@ -427,8 +425,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
     float result = accessor.getFloat();
 
-    collector.checkThat(result, instanceOf(Float.class));
-    collector.checkThat(result, equalTo(3.4028235E38F));
+    assertThat(result, instanceOf(Float.class));
+    assertThat(result, equalTo(3.4028235E38F));
   }
 
   @Test
@@ -438,8 +436,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
     float result = accessor.getFloat();
 
-    collector.checkThat(result, instanceOf(Float.class));
-    collector.checkThat(result, equalTo(-3.4028235E38F));
+    assertThat(result, instanceOf(Float.class));
+    assertThat(result, equalTo(-3.4028235E38F));
   }
 
   @Test
@@ -449,8 +447,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
     float result = accessor.getFloat();
 
-    collector.checkThat(result, instanceOf(Float.class));
-    collector.checkThat(result, equalTo(Float.POSITIVE_INFINITY));
+    assertThat(result, instanceOf(Float.class));
+    assertThat(result, equalTo(Float.POSITIVE_INFINITY));
   }
 
   @Test
@@ -460,8 +458,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
     float result = accessor.getFloat();
 
-    collector.checkThat(result, instanceOf(Float.class));
-    collector.checkThat(result, equalTo(Float.NEGATIVE_INFINITY));
+    assertThat(result, instanceOf(Float.class));
+    assertThat(result, equalTo(Float.NEGATIVE_INFINITY));
   }
 
   @Test
@@ -471,8 +469,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
     float result = accessor.getFloat();
 
-    collector.checkThat(result, instanceOf(Float.class));
-    collector.checkThat(result, equalTo(Float.NaN));
+    assertThat(result, instanceOf(Float.class));
+    assertThat(result, equalTo(Float.NaN));
   }
 
   @Test
@@ -491,13 +489,12 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
     Date result = accessor.getDate(null);
 
-    collector.checkThat(result, instanceOf(Date.class));
+    assertThat(result, instanceOf(Date.class));
 
     Calendar calendar = Calendar.getInstance();
     calendar.setTime(result);
 
-    collector.checkThat(
-        dateTimeFormat.format(calendar.getTime()), equalTo("2021-07-02T00:00:00.000Z"));
+    assertThat(dateTimeFormat.format(calendar.getTime()), equalTo("2021-07-02T00:00:00.000Z"));
   }
 
   @Test
@@ -511,8 +508,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     calendar = Calendar.getInstance(TimeZone.getTimeZone("Etc/UTC"));
     calendar.setTime(result);
 
-    collector.checkThat(
-        dateTimeFormat.format(calendar.getTime()), equalTo("2021-07-02T03:00:00.000Z"));
+    assertThat(dateTimeFormat.format(calendar.getTime()), equalTo("2021-07-02T03:00:00.000Z"));
   }
 
   @Test
@@ -534,7 +530,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     Calendar calendar = Calendar.getInstance();
     calendar.setTime(result);
 
-    collector.checkThat(timeFormat.format(calendar.getTime()), equalTo("02:30:00.000Z"));
+    assertThat(timeFormat.format(calendar.getTime()), equalTo("02:30:00.000Z"));
   }
 
   @Test
@@ -548,7 +544,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     calendar = Calendar.getInstance(TimeZone.getTimeZone("Etc/UTC"));
     calendar.setTime(result);
 
-    collector.checkThat(timeFormat.format(calendar.getTime()), equalTo("05:30:00.000Z"));
+    assertThat(timeFormat.format(calendar.getTime()), equalTo("05:30:00.000Z"));
   }
 
   @Test
@@ -570,8 +566,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     Calendar calendar = Calendar.getInstance();
     calendar.setTime(result);
 
-    collector.checkThat(
-        dateTimeFormat.format(calendar.getTime()), equalTo("2021-07-02T02:30:00.000Z"));
+    assertThat(dateTimeFormat.format(calendar.getTime()), equalTo("2021-07-02T02:30:00.000Z"));
   }
 
   @Test
@@ -585,14 +580,13 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     calendar = Calendar.getInstance(TimeZone.getTimeZone("Etc/UTC"));
     calendar.setTime(result);
 
-    collector.checkThat(
-        dateTimeFormat.format(calendar.getTime()), equalTo("2021-07-02T05:30:00.000Z"));
+    assertThat(dateTimeFormat.format(calendar.getTime()), equalTo("2021-07-02T05:30:00.000Z"));
   }
 
   private void assertGetBoolean(Text value, boolean expectedResult) throws SQLException {
     when(getter.get(0)).thenReturn(value == null ? null : value.copyBytes());
     boolean result = accessor.getBoolean();
-    collector.checkThat(result, equalTo(expectedResult));
+    assertThat(result, equalTo(expectedResult));
   }
 
   private void assertGetBooleanForSQLException(Text value) {
@@ -633,8 +627,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
     final byte[] result = accessor.getBytes();
 
-    collector.checkThat(result, instanceOf(byte[].class));
-    collector.checkThat(result, equalTo(value.toString().getBytes(UTF_8)));
+    assertThat(result, instanceOf(byte[].class));
+    assertThat(result, equalTo(value.toString().getBytes(UTF_8)));
   }
 
   @Test
@@ -645,7 +639,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     try (final InputStream result = accessor.getUnicodeStream()) {
       byte[] resultBytes = toByteArray(result);
 
-      collector.checkThat(new String(resultBytes, UTF_8), equalTo(value.toString()));
+      assertThat(new String(resultBytes, UTF_8), equalTo(value.toString()));
     }
   }
 
@@ -670,7 +664,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
     try (Reader result = accessor.getCharacterStream()) {
       char[] resultChars = toCharArray(result);
 
-      collector.checkThat(new String(resultChars), equalTo(value.toString()));
+      assertThat(new String(resultChars), equalTo(value.toString()));
     }
   }
 
@@ -685,7 +679,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
       when(getter.get(0)).thenReturn(value.copyBytes());
 
       Timestamp timestamp = accessor.getTimestamp(null);
-      collector.checkThat(timestamp, equalTo(timeStampVectorAccessor.getTimestamp(null)));
+      assertThat(timestamp, equalTo(timeStampVectorAccessor.getTimestamp(null)));
     }
   }
 
@@ -699,7 +693,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
       when(getter.get(0)).thenReturn(value.copyBytes());
 
       Time time = accessor.getTime(null);
-      collector.checkThat(time, equalTo(timeVectorAccessor.getTime(null)));
+      assertThat(time, equalTo(timeVectorAccessor.getTime(null)));
     }
   }
 
@@ -713,13 +707,13 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
       when(getter.get(0)).thenReturn(value.copyBytes());
 
       Date date = accessor.getDate(null);
-      collector.checkThat(date, equalTo(dateVectorAccessor.getDate(null)));
+      assertThat(date, equalTo(dateVectorAccessor.getDate(null)));
     }
   }
 
   @Test
   public void testShouldGetObjectClassReturnString() {
     final Class<?> clazz = accessor.getObjectClass();
-    collector.checkThat(clazz, equalTo(String.class));
+    assertThat(clazz, equalTo(String.class));
   }
 }

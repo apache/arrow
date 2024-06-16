@@ -28,22 +28,19 @@ import org.apache.arrow.vector.BitVector;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ErrorCollector;
 
 public class ArrowFlightJdbcBitVectorAccessorTest {
   @ClassRule
   public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
 
-  @Rule public final ErrorCollector collector = new ErrorCollector();
   private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcBitVectorAccessor>
       accessorSupplier =
           (vector, getCurrentRow) ->
               new ArrowFlightJdbcBitVectorAccessor(
                   (BitVector) vector, getCurrentRow, (boolean wasNull) -> {});
   private final AccessorIterator<ArrowFlightJdbcBitVectorAccessor> accessorIterator =
-      new AccessorIterator<>(collector, accessorSupplier);
+      new AccessorIterator<>(accessorSupplier);
   private BitVector vector;
   private BitVector vectorWithNull;
   private boolean[] arrayToAssert;

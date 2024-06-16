@@ -18,6 +18,7 @@ package org.apache.arrow.driver.jdbc.accessor.impl.complex;
 
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.nullValue;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.sql.SQLException;
@@ -41,16 +42,12 @@ import org.apache.arrow.vector.util.JsonStringHashMap;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ErrorCollector;
 
 public class ArrowFlightJdbcStructVectorAccessorTest {
 
   @ClassRule
   public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
-
-  @Rule public final ErrorCollector collector = new ErrorCollector();
 
   private StructVector vector;
 
@@ -61,7 +58,7 @@ public class ArrowFlightJdbcStructVectorAccessorTest {
                   (StructVector) vector, getCurrentRow, (boolean wasNull) -> {});
 
   private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcStructVectorAccessor>
-      accessorIterator = new AccessorTestUtils.AccessorIterator<>(collector, accessorSupplier);
+      accessorIterator = new AccessorTestUtils.AccessorIterator<>(accessorSupplier);
 
   @Before
   public void setUp() throws Exception {
@@ -134,7 +131,7 @@ public class ArrowFlightJdbcStructVectorAccessorTest {
 
           Object[] expected = new Object[] {100 * (currentRow + 1), 100.05 * (currentRow + 1)};
 
-          collector.checkThat(struct.getAttributes(), equalTo(expected));
+          assertThat(struct.getAttributes(), equalTo(expected));
         });
   }
 

@@ -17,6 +17,8 @@
 package org.apache.arrow.driver.jdbc;
 
 import static org.hamcrest.CoreMatchers.equalTo;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.nio.charset.StandardCharsets;
@@ -45,9 +47,7 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Ignore;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ErrorCollector;
 
 public class ArrowFlightPreparedStatementTest {
 
@@ -58,8 +58,6 @@ public class ArrowFlightPreparedStatementTest {
       FlightServerTestRule.createStandardTestRule(PRODUCER);
 
   private static Connection connection;
-
-  @Rule public final ErrorCollector collector = new ErrorCollector();
 
   @BeforeClass
   public static void setup() throws SQLException {
@@ -81,7 +79,7 @@ public class ArrowFlightPreparedStatementTest {
     final String query = CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD;
     try (final PreparedStatement preparedStatement = connection.prepareStatement(query);
         final ResultSet resultSet = preparedStatement.executeQuery()) {
-      CoreMockedSqlProducers.assertLegacyRegularSqlResultSet(resultSet, collector);
+      CoreMockedSqlProducers.assertLegacyRegularSqlResultSet(resultSet);
     }
   }
 
@@ -154,13 +152,15 @@ public class ArrowFlightPreparedStatementTest {
   public void testReturnColumnCount() throws SQLException {
     final String query = CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD;
     try (final PreparedStatement psmt = connection.prepareStatement(query)) {
-      collector.checkThat("ID", equalTo(psmt.getMetaData().getColumnName(1)));
-      collector.checkThat("Name", equalTo(psmt.getMetaData().getColumnName(2)));
-      collector.checkThat("Age", equalTo(psmt.getMetaData().getColumnName(3)));
-      collector.checkThat("Salary", equalTo(psmt.getMetaData().getColumnName(4)));
-      collector.checkThat("Hire Date", equalTo(psmt.getMetaData().getColumnName(5)));
-      collector.checkThat("Last Sale", equalTo(psmt.getMetaData().getColumnName(6)));
-      collector.checkThat(6, equalTo(psmt.getMetaData().getColumnCount()));
+      assertAll(
+          "Column count is as expected",
+          () -> assertThat("ID", equalTo(psmt.getMetaData().getColumnName(1))),
+          () -> assertThat("Name", equalTo(psmt.getMetaData().getColumnName(2))),
+          () -> assertThat("Age", equalTo(psmt.getMetaData().getColumnName(3))),
+          () -> assertThat("Salary", equalTo(psmt.getMetaData().getColumnName(4))),
+          () -> assertThat("Hire Date", equalTo(psmt.getMetaData().getColumnName(5))),
+          () -> assertThat("Last Sale", equalTo(psmt.getMetaData().getColumnName(6))),
+          () -> assertThat(6, equalTo(psmt.getMetaData().getColumnCount())));
     }
   }
 

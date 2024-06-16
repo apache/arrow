@@ -21,6 +21,7 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.CoreMatchers.nullValue;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -46,9 +47,7 @@ import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.ErrorCollector;
 
 /** Tests for {@link ArrowFlightStatement#execute}. */
 public class ArrowFlightStatementExecuteTest {
@@ -69,7 +68,6 @@ public class ArrowFlightStatementExecuteTest {
   public static final FlightServerTestRule SERVER_TEST_RULE =
       FlightServerTestRule.createStandardTestRule(PRODUCER);
 
-  @Rule public final ErrorCollector collector = new ErrorCollector();
   private Connection connection;
   private Statement statement;
 
@@ -118,8 +116,7 @@ public class ArrowFlightStatementExecuteTest {
 
   @Test
   public void testExecuteShouldRunSelectQuery() throws SQLException {
-    collector.checkThat(
-        statement.execute(SAMPLE_QUERY_CMD), is(true)); // Means this is a SELECT query.
+    assertThat(statement.execute(SAMPLE_QUERY_CMD), is(true)); // Means this is a SELECT query.
     final Set<Byte> numbers =
         IntStream.range(0, SAMPLE_QUERY_ROWS)
             .boxed()
@@ -127,49 +124,48 @@ public class ArrowFlightStatementExecuteTest {
             .collect(Collectors.toCollection(HashSet::new));
     try (final ResultSet resultSet = statement.getResultSet()) {
       final int columnCount = resultSet.getMetaData().getColumnCount();
-      collector.checkThat(columnCount, is(1));
+      assertThat(columnCount, is(1));
       int rowCount = 0;
       for (; resultSet.next(); rowCount++) {
-        collector.checkThat(numbers.remove(resultSet.getByte(1)), is(true));
+        assertThat(numbers.remove(resultSet.getByte(1)), is(true));
       }
-      collector.checkThat(rowCount, is(equalTo(SAMPLE_QUERY_ROWS)));
+      assertThat(rowCount, is(equalTo(SAMPLE_QUERY_ROWS)));
     }
-    collector.checkThat(numbers, is(Collections.emptySet()));
-    collector.checkThat(
+    assertThat(numbers, is(Collections.emptySet()));
+    assertThat(
         (long) statement.getUpdateCount(),
         is(allOf(equalTo(statement.getLargeUpdateCount()), equalTo(-1L))));
   }
 
   @Test
   public void testExecuteShouldRunUpdateQueryForSmallUpdate() throws SQLException {
-    collector.checkThat(
-        statement.execute(SAMPLE_UPDATE_QUERY), is(false)); // Means this is an UPDATE query.
-    collector.checkThat(
+    assertThat(statement.execute(SAMPLE_UPDATE_QUERY), is(false)); // Means this is an UPDATE query.
+    assertThat(
         (long) statement.getUpdateCount(),
         is(allOf(equalTo(statement.getLargeUpdateCount()), equalTo(SAMPLE_UPDATE_COUNT))));
-    collector.checkThat(statement.getResultSet(), is(nullValue()));
+    assertThat(statement.getResultSet(), is(nullValue()));
   }
 
   @Test
   public void testExecuteShouldRunUpdateQueryForLargeUpdate() throws SQLException {
-    collector.checkThat(statement.execute(SAMPLE_LARGE_UPDATE_QUERY), is(false)); // UPDATE query.
+    assertThat(statement.execute(SAMPLE_LARGE_UPDATE_QUERY), is(false)); // UPDATE query.
     final long updateCountSmall = statement.getUpdateCount();
     final long updateCountLarge = statement.getLargeUpdateCount();
-    collector.checkThat(updateCountLarge, is(equalTo(SAMPLE_LARGE_UPDATE_COUNT)));
-    collector.checkThat(
+    assertThat(updateCountLarge, is(equalTo(SAMPLE_LARGE_UPDATE_COUNT)));
+    assertThat(
         updateCountSmall,
         is(
             allOf(
                 equalTo((long) AvaticaUtils.toSaturatedInt(updateCountLarge)),
                 not(equalTo(updateCountLarge)))));
-    collector.checkThat(statement.getResultSet(), is(nullValue()));
+    assertThat(statement.getResultSet(), is(nullValue()));
   }
 
   @Test
   public void testUpdateCountShouldStartOnZero() throws SQLException {
-    collector.checkThat(
+    assertThat(
         (long) statement.getUpdateCount(),
         is(allOf(equalTo(statement.getLargeUpdateCount()), equalTo(0L))));
-    collector.checkThat(statement.getResultSet(), is(nullValue()));
+    assertThat(statement.getResultSet(), is(nullValue()));
   }
 }
