@@ -1830,7 +1830,9 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         dictionary_pagesize_limit=None,
         write_page_index=False,
         write_page_checksum=False,
-        sorting_columns=None) except *:
+        sorting_columns=None,
+        store_decimal_as_integer=False) except *:
+    
     """General writer properties"""
     cdef:
         shared_ptr[WriterProperties] properties
@@ -1941,6 +1943,22 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
                     "'use_byte_stream_split' cannot be passed"
                     "together with 'column_encoding'")
 
+    # store_decimal_as_integer
+
+    if isinstance(store_decimal_as_integer, bool):
+        if store_decimal_as_integer:
+            props.encoding(ParquetEncoding_BYTE_STREAM_SPLIT)
+    elif store_decimal_as_integer is not None:
+        for column in store_decimal_as_integer:
+            if column_encoding is None:
+                column_encoding = {column: 'BYTE_STREAM_SPLIT'}
+            elif column_encoding.get(column, None) is None:
+                column_encoding[column] = 'BYTE_STREAM_SPLIT'
+            else:
+                raise ValueError(
+                    "'store_decimal_as_integer' cannot be passed"
+                    "together with 'column_encoding'")
+    
     # column_encoding
     # encoding map - encode individual columns
 
@@ -2114,6 +2132,7 @@ cdef class ParquetWriter(_Weakrefable):
         int64_t write_batch_size
         int64_t dictionary_pagesize_limit
         object store_schema
+        object store_decimal_as_integer
 
     def __cinit__(self, where, Schema schema not None, use_dictionary=None,
                   compression=None, version=None,
@@ -2135,7 +2154,8 @@ cdef class ParquetWriter(_Weakrefable):
                   store_schema=True,
                   write_page_index=False,
                   write_page_checksum=False,
-                  sorting_columns=None):
+                  sorting_columns=None,
+                  store_decimal_as_integer=False):
         cdef:
             shared_ptr[WriterProperties] properties
             shared_ptr[ArrowWriterProperties] arrow_properties
@@ -2169,6 +2189,7 @@ cdef class ParquetWriter(_Weakrefable):
             write_page_index=write_page_index,
             write_page_checksum=write_page_checksum,
             sorting_columns=sorting_columns,
+            store_decimal_as_integer=store_decimal_as_integer,
         )
         arrow_properties = _create_arrow_writer_properties(
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
