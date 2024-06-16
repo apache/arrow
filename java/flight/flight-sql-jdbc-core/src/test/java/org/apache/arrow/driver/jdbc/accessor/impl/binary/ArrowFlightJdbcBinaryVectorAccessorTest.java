@@ -23,33 +23,30 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.io.InputStream;
 import java.io.Reader;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
-import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
+import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestExtension;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.LargeVarBinaryVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.commons.io.IOUtils;
 import org.hamcrest.CoreMatchers;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
-@RunWith(Parameterized.class)
 public class ArrowFlightJdbcBinaryVectorAccessorTest {
 
-  @ClassRule
-  public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
+  @RegisterExtension
+  public static RootAllocatorTestExtension rootAllocatorTestExtension =
+      new RootAllocatorTestExtension();
 
   private ValueVector vector;
-  private final Supplier<ValueVector> vectorSupplier;
 
   private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcBinaryVectorAccessor>
       accessorSupplier =
@@ -72,50 +69,43 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
   private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcBinaryVectorAccessor>
       accessorIterator = new AccessorTestUtils.AccessorIterator<>(accessorSupplier);
 
-  @Parameterized.Parameters(name = "{1}")
-  public static Collection<Object[]> data() {
-    return Arrays.asList(
-        new Object[][] {
-          {
-            (Supplier<ValueVector>) () -> rootAllocatorTestRule.createVarBinaryVector(),
-            "VarBinaryVector"
-          },
-          {
-            (Supplier<ValueVector>) () -> rootAllocatorTestRule.createLargeVarBinaryVector(),
-            "LargeVarBinaryVector"
-          },
-          {
-            (Supplier<ValueVector>) () -> rootAllocatorTestRule.createFixedSizeBinaryVector(),
-            "FixedSizeBinaryVector"
-          },
-        });
+  public static Stream<Arguments> data() {
+    return Stream.of(
+        Arguments.of(
+            (Supplier<ValueVector>) () -> rootAllocatorTestExtension.createVarBinaryVector(),
+            "VarBinaryVector"),
+        Arguments.of(
+            (Supplier<ValueVector>) () -> rootAllocatorTestExtension.createLargeVarBinaryVector(),
+            "LargeVarBinaryVector"),
+        Arguments.of(
+            (Supplier<ValueVector>) () -> rootAllocatorTestExtension.createFixedSizeBinaryVector(),
+            "FixedSizeBinaryVector"));
   }
 
-  public ArrowFlightJdbcBinaryVectorAccessorTest(
-      Supplier<ValueVector> vectorSupplier, String vectorType) {
-    this.vectorSupplier = vectorSupplier;
-  }
-
-  @Before
-  public void setup() {
+  public void setup(Supplier<ValueVector> vectorSupplier) {
     this.vector = vectorSupplier.get();
   }
 
-  @After
+  @AfterEach
   public void tearDown() {
     this.vector.close();
   }
 
-  @Test
-  public void testShouldGetStringReturnExpectedString() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetStringReturnExpectedString(Supplier<ValueVector> vectorSupplier)
+      throws Exception {
+    setup(vectorSupplier);
     accessorIterator.assertAccessorGetter(
         vector,
         ArrowFlightJdbcBinaryVectorAccessor::getString,
         (accessor) -> is(new String(accessor.getBytes(), UTF_8)));
   }
 
-  @Test
-  public void testShouldGetStringReturnNull() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetStringReturnNull(Supplier<ValueVector> vectorSupplier) throws Exception {
+    setup(vectorSupplier);
     vector.reset();
     vector.setValueCount(5);
 
@@ -123,8 +113,11 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
         vector, ArrowFlightJdbcBinaryVectorAccessor::getString, CoreMatchers.nullValue());
   }
 
-  @Test
-  public void testShouldGetBytesReturnExpectedByteArray() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetBytesReturnExpectedByteArray(Supplier<ValueVector> vectorSupplier)
+      throws Exception {
+    setup(vectorSupplier);
     accessorIterator.assertAccessorGetter(
         vector,
         ArrowFlightJdbcBinaryVectorAccessor::getBytes,
@@ -140,8 +133,10 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
         });
   }
 
-  @Test
-  public void testShouldGetBytesReturnNull() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetBytesReturnNull(Supplier<ValueVector> vectorSupplier) {
+    setup(vectorSupplier);
     vector.reset();
     vector.setValueCount(5);
 
@@ -150,16 +145,21 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
     assertThat(accessor.wasNull(), is(true));
   }
 
-  @Test
-  public void testShouldGetObjectReturnAsGetBytes() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetObjectReturnAsGetBytes(Supplier<ValueVector> vectorSupplier)
+      throws Exception {
+    setup(vectorSupplier);
     accessorIterator.assertAccessorGetter(
         vector,
         ArrowFlightJdbcBinaryVectorAccessor::getObject,
         (accessor) -> is(accessor.getBytes()));
   }
 
-  @Test
-  public void testShouldGetObjectReturnNull() {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetObjectReturnNull(Supplier<ValueVector> vectorSupplier) {
+    setup(vectorSupplier);
     vector.reset();
     vector.setValueCount(5);
 
@@ -168,8 +168,11 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
     assertThat(accessor.wasNull(), is(true));
   }
 
-  @Test
-  public void testShouldGetUnicodeStreamReturnCorrectInputStream() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetUnicodeStreamReturnCorrectInputStream(
+      Supplier<ValueVector> vectorSupplier) throws Exception {
+    setup(vectorSupplier);
     accessorIterator.iterate(
         vector,
         (accessor, currentRow) -> {
@@ -180,8 +183,10 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
         });
   }
 
-  @Test
-  public void testShouldGetUnicodeStreamReturnNull() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetUnicodeStreamReturnNull(Supplier<ValueVector> vectorSupplier) {
+    setup(vectorSupplier);
     vector.reset();
     vector.setValueCount(5);
 
@@ -190,8 +195,11 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
     assertThat(accessor.wasNull(), is(true));
   }
 
-  @Test
-  public void testShouldGetAsciiStreamReturnCorrectInputStream() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetAsciiStreamReturnCorrectInputStream(Supplier<ValueVector> vectorSupplier)
+      throws Exception {
+    setup(vectorSupplier);
     accessorIterator.iterate(
         vector,
         (accessor, currentRow) -> {
@@ -202,8 +210,10 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
         });
   }
 
-  @Test
-  public void testShouldGetAsciiStreamReturnNull() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetAsciiStreamReturnNull(Supplier<ValueVector> vectorSupplier) {
+    setup(vectorSupplier);
     vector.reset();
     vector.setValueCount(5);
 
@@ -212,8 +222,11 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
     assertThat(accessor.wasNull(), is(true));
   }
 
-  @Test
-  public void testShouldGetBinaryStreamReturnCurrentInputStream() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetBinaryStreamReturnCurrentInputStream(
+      Supplier<ValueVector> vectorSupplier) throws Exception {
+    setup(vectorSupplier);
     accessorIterator.iterate(
         vector,
         (accessor, currentRow) -> {
@@ -224,8 +237,10 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
         });
   }
 
-  @Test
-  public void testShouldGetBinaryStreamReturnNull() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetBinaryStreamReturnNull(Supplier<ValueVector> vectorSupplier) {
+    setup(vectorSupplier);
     vector.reset();
     vector.setValueCount(5);
 
@@ -234,8 +249,11 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
     assertThat(accessor.wasNull(), is(true));
   }
 
-  @Test
-  public void testShouldGetCharacterStreamReturnCorrectReader() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetCharacterStreamReturnCorrectReader(Supplier<ValueVector> vectorSupplier)
+      throws Exception {
+    setup(vectorSupplier);
     accessorIterator.iterate(
         vector,
         (accessor, currentRow) -> {
@@ -246,8 +264,10 @@ public class ArrowFlightJdbcBinaryVectorAccessorTest {
         });
   }
 
-  @Test
-  public void testShouldGetCharacterStreamReturnNull() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetCharacterStreamReturnNull(Supplier<ValueVector> vectorSupplier) {
+    setup(vectorSupplier);
     vector.reset();
     vector.setValueCount(5);
 

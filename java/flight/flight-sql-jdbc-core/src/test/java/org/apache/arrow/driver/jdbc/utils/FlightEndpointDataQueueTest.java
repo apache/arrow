@@ -24,20 +24,20 @@ import static org.mockito.Mockito.mock;
 
 import java.util.concurrent.CompletionService;
 import org.apache.arrow.driver.jdbc.client.CloseableEndpointStreamPair;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 /** Tests for {@link FlightEndpointDataQueue}. */
-@RunWith(MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
 public class FlightEndpointDataQueueTest {
 
   @Mock private CompletionService<CloseableEndpointStreamPair> mockedService;
   private FlightEndpointDataQueue queue;
 
-  @Before
+  @BeforeEach
   public void setUp() {
     queue = new FlightEndpointDataQueue(mockedService);
   }

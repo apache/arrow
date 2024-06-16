@@ -27,25 +27,26 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Map;
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
-import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
+import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestExtension;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.impl.UnionMapWriter;
 import org.apache.arrow.vector.util.JsonStringHashMap;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 public class ArrowFlightJdbcMapVectorAccessorTest {
-  @ClassRule
-  public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
+  @RegisterExtension
+  public static RootAllocatorTestExtension rootAllocatorTestExtension =
+      new RootAllocatorTestExtension();
 
   private MapVector vector;
 
-  @Before
+  @BeforeEach
   public void setup() {
-    vector = MapVector.empty("", rootAllocatorTestRule.getRootAllocator(), false);
+    vector = MapVector.empty("", rootAllocatorTestExtension.getRootAllocator(), false);
     UnionMapWriter writer = vector.getWriter();
     writer.allocate();
     writer.setPosition(0); // optional
@@ -94,7 +95,7 @@ public class ArrowFlightJdbcMapVectorAccessorTest {
     writer.setValueCount(3);
   }
 
-  @After
+  @AfterEach
   public void tearDown() {
     vector.close();
   }

@@ -25,31 +25,29 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.time.Duration;
 import java.time.Period;
 import java.time.format.DateTimeParseException;
-import java.util.Arrays;
-import java.util.Collection;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 import org.apache.arrow.driver.jdbc.accessor.ArrowFlightJdbcAccessorFactory;
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
-import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
+import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestExtension;
 import org.apache.arrow.vector.IntervalDayVector;
 import org.apache.arrow.vector.IntervalMonthDayNanoVector;
 import org.apache.arrow.vector.IntervalYearVector;
 import org.apache.arrow.vector.PeriodDuration;
 import org.apache.arrow.vector.ValueVector;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
-@RunWith(Parameterized.class)
 public class ArrowFlightJdbcIntervalVectorAccessorTest {
 
-  @ClassRule
-  public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
+  @RegisterExtension
+  public static RootAllocatorTestExtension rootAllocatorTestExtension =
+      new RootAllocatorTestExtension();
 
-  private final Supplier<ValueVector> vectorSupplier;
   private ValueVector vector;
 
   private final AccessorTestUtils.AccessorSupplier<ArrowFlightJdbcIntervalVectorAccessor>
@@ -73,15 +71,13 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
   final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcIntervalVectorAccessor> accessorIterator =
       new AccessorTestUtils.AccessorIterator<>(accessorSupplier);
 
-  @Parameterized.Parameters(name = "{1}")
-  public static Collection<Object[]> data() {
-    return Arrays.asList(
-        new Object[][] {
-          {
+  public static Stream<Arguments> data() {
+    return Stream.of(
+        Arguments.of(
             (Supplier<ValueVector>)
                 () -> {
                   IntervalDayVector vector =
-                      new IntervalDayVector("", rootAllocatorTestRule.getRootAllocator());
+                      new IntervalDayVector("", rootAllocatorTestExtension.getRootAllocator());
 
                   int valueCount = 10;
                   vector.setValueCount(valueCount);
@@ -90,13 +86,12 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
                   }
                   return vector;
                 },
-            "IntervalDayVector"
-          },
-          {
+            "IntervalDayVector"),
+        Arguments.of(
             (Supplier<ValueVector>)
                 () -> {
                   IntervalYearVector vector =
-                      new IntervalYearVector("", rootAllocatorTestRule.getRootAllocator());
+                      new IntervalYearVector("", rootAllocatorTestExtension.getRootAllocator());
 
                   int valueCount = 10;
                   vector.setValueCount(valueCount);
@@ -105,13 +100,13 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
                   }
                   return vector;
                 },
-            "IntervalYearVector"
-          },
-          {
+            "IntervalYearVector"),
+        Arguments.of(
             (Supplier<ValueVector>)
                 () -> {
                   IntervalMonthDayNanoVector vector =
-                      new IntervalMonthDayNanoVector("", rootAllocatorTestRule.getRootAllocator());
+                      new IntervalMonthDayNanoVector(
+                          "", rootAllocatorTestExtension.getRootAllocator());
 
                   int valueCount = 10;
                   vector.setValueCount(valueCount);
@@ -120,36 +115,36 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
                   }
                   return vector;
                 },
-            "IntervalMonthDayNanoVector"
-          },
-        });
+            "IntervalMonthDayNanoVector"));
   }
 
-  public ArrowFlightJdbcIntervalVectorAccessorTest(
-      Supplier<ValueVector> vectorSupplier, String vectorType) {
-    this.vectorSupplier = vectorSupplier;
-  }
-
-  @Before
-  public void setup() {
+  public void setup(Supplier<ValueVector> vectorSupplier) {
     this.vector = vectorSupplier.get();
   }
 
-  @After
+  @AfterEach
   public void tearDown() {
-    this.vector.close();
+    if (this.vector != null) {
+      this.vector.close();
+    }
   }
 
-  @Test
-  public void testShouldGetObjectReturnValidObject() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetObjectReturnValidObject(Supplier<ValueVector> vectorSupplier)
+      throws Exception {
+    setup(vectorSupplier);
     accessorIterator.assertAccessorGetter(
         vector,
         ArrowFlightJdbcIntervalVectorAccessor::getObject,
         (accessor, currentRow) -> is(getExpectedObject(vector, currentRow)));
   }
 
-  @Test
-  public void testShouldGetObjectPassingObjectClassAsParameterReturnValidObject() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetObjectPassingObjectClassAsParameterReturnValidObject(
+      Supplier<ValueVector> vectorSupplier) throws Exception {
+    setup(vectorSupplier);
     Class<?> objectClass = getExpectedObjectClassForVector(vector);
     accessorIterator.assertAccessorGetter(
         vector,
@@ -157,8 +152,10 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
         (accessor, currentRow) -> is(getExpectedObject(vector, currentRow)));
   }
 
-  @Test
-  public void testShouldGetObjectReturnNull() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetObjectReturnNull(Supplier<ValueVector> vectorSupplier) throws Exception {
+    setup(vectorSupplier);
     setAllNullOnVector(vector);
     accessorIterator.assertAccessorGetter(
         vector,
@@ -252,16 +249,21 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
     assertEquals("-1567 00:00:00.000", formatIntervalDay(Duration.ofDays(-1567)));
   }
 
-  @Test
-  public void testShouldGetStringReturnCorrectString() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetStringReturnCorrectString(Supplier<ValueVector> vectorSupplier)
+      throws Exception {
+    setup(vectorSupplier);
     accessorIterator.assertAccessorGetter(
         vector,
         ArrowFlightJdbcIntervalVectorAccessor::getString,
         (accessor, currentRow) -> is(getStringOnVector(vector, currentRow)));
   }
 
-  @Test
-  public void testShouldGetStringReturnNull() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetStringReturnNull(Supplier<ValueVector> vectorSupplier) throws Exception {
+    setup(vectorSupplier);
     setAllNullOnVector(vector);
     accessorIterator.assertAccessorGetter(
         vector,
@@ -269,8 +271,11 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
         (accessor, currentRow) -> equalTo(null));
   }
 
-  @Test
-  public void testShouldGetObjectClassReturnCorrectClass() throws Exception {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetObjectClassReturnCorrectClass(Supplier<ValueVector> vectorSupplier)
+      throws Exception {
+    setup(vectorSupplier);
     Class<?> expectedObjectClass = getExpectedObjectClassForVector(vector);
     accessorIterator.assertAccessorGetter(
         vector,

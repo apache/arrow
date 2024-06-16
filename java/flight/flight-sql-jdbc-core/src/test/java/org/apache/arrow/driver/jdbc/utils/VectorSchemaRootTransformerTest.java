@@ -34,19 +34,22 @@ import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 public class VectorSchemaRootTransformerTest {
 
-  @Rule public RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
-  private final BufferAllocator rootAllocator = rootAllocatorTestRule.getRootAllocator();
+  @RegisterExtension
+  public static RootAllocatorTestExtension rootAllocatorTestExtension =
+      new RootAllocatorTestExtension();
+
+  private final BufferAllocator rootAllocator = rootAllocatorTestExtension.getRootAllocator();
 
   @Test
   public void testTransformerBuilderWorksCorrectly() throws Exception {
-    final VarBinaryVector field1 = rootAllocatorTestRule.createVarBinaryVector("FIELD_1");
-    final VarBinaryVector field2 = rootAllocatorTestRule.createVarBinaryVector("FIELD_2");
-    final VarBinaryVector field3 = rootAllocatorTestRule.createVarBinaryVector("FIELD_3");
+    final VarBinaryVector field1 = rootAllocatorTestExtension.createVarBinaryVector("FIELD_1");
+    final VarBinaryVector field2 = rootAllocatorTestExtension.createVarBinaryVector("FIELD_2");
+    final VarBinaryVector field3 = rootAllocatorTestExtension.createVarBinaryVector("FIELD_3");
 
     try (final VectorSchemaRoot originalRoot = VectorSchemaRoot.of(field1, field2, field3);
         final VectorSchemaRoot clonedRoot = cloneVectorSchemaRoot(originalRoot)) {

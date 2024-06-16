@@ -19,27 +19,25 @@ package org.apache.arrow.driver.jdbc.accessor.impl.numeric;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.SQLException;
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
-import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
+import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestExtension;
 import org.apache.arrow.vector.Float4Vector;
 import org.hamcrest.CoreMatchers;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 public class ArrowFlightJdbcFloat4VectorAccessorTest {
 
-  @ClassRule
-  public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
-
-  @Rule public ExpectedException exceptionCollector = ExpectedException.none();
+  @RegisterExtension
+  public static RootAllocatorTestExtension rootAllocatorTestExtension =
+      new RootAllocatorTestExtension();
 
   private Float4Vector vector;
 
@@ -52,12 +50,12 @@ public class ArrowFlightJdbcFloat4VectorAccessorTest {
   private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcFloat4VectorAccessor>
       accessorIterator = new AccessorTestUtils.AccessorIterator<>(accessorSupplier);
 
-  @Before
+  @BeforeEach
   public void setup() {
-    this.vector = rootAllocatorTestRule.createFloat4Vector();
+    this.vector = rootAllocatorTestExtension.createFloat4Vector();
   }
 
-  @After
+  @AfterEach
   public void tearDown() {
     this.vector.close();
   }
@@ -89,7 +87,7 @@ public class ArrowFlightJdbcFloat4VectorAccessorTest {
   @Test
   public void testShouldGetStringMethodFromFloat4VectorWithNull() throws Exception {
     try (final Float4Vector float4Vector =
-        new Float4Vector("ID", rootAllocatorTestRule.getRootAllocator())) {
+        new Float4Vector("ID", rootAllocatorTestExtension.getRootAllocator())) {
       float4Vector.setNull(0);
       float4Vector.setValueCount(1);
 
@@ -101,7 +99,7 @@ public class ArrowFlightJdbcFloat4VectorAccessorTest {
   @Test
   public void testShouldGetFloatMethodFromFloat4VectorWithNull() throws Exception {
     try (final Float4Vector float4Vector =
-        new Float4Vector("ID", rootAllocatorTestRule.getRootAllocator())) {
+        new Float4Vector("ID", rootAllocatorTestExtension.getRootAllocator())) {
       float4Vector.setNull(0);
       float4Vector.setValueCount(1);
 
@@ -113,7 +111,7 @@ public class ArrowFlightJdbcFloat4VectorAccessorTest {
   @Test
   public void testShouldGetBigDecimalMethodFromFloat4VectorWithNull() throws Exception {
     try (final Float4Vector float4Vector =
-        new Float4Vector("ID", rootAllocatorTestRule.getRootAllocator())) {
+        new Float4Vector("ID", rootAllocatorTestExtension.getRootAllocator())) {
       float4Vector.setNull(0);
       float4Vector.setValueCount(1);
 
@@ -127,7 +125,7 @@ public class ArrowFlightJdbcFloat4VectorAccessorTest {
   @Test
   public void testShouldGetObjectMethodFromFloat4VectorWithNull() throws Exception {
     try (final Float4Vector float4Vector =
-        new Float4Vector("ID", rootAllocatorTestRule.getRootAllocator())) {
+        new Float4Vector("ID", rootAllocatorTestExtension.getRootAllocator())) {
       float4Vector.setNull(0);
       float4Vector.setValueCount(1);
 
@@ -191,9 +189,14 @@ public class ArrowFlightJdbcFloat4VectorAccessorTest {
         (accessor, currentRow) -> {
           float value = accessor.getFloat();
           if (Float.isInfinite(value) || Float.isNaN(value)) {
-            exceptionCollector.expect(SQLException.class);
+            assertThrows(
+                SQLException.class,
+                () -> {
+                  throw new SQLException();
+                });
+          } else {
+            assertThat(accessor.getBigDecimal(), is(BigDecimal.valueOf(value)));
           }
-          assertThat(accessor.getBigDecimal(), is(BigDecimal.valueOf(value)));
         });
   }
 
@@ -204,11 +207,16 @@ public class ArrowFlightJdbcFloat4VectorAccessorTest {
         (accessor, currentRow) -> {
           float value = accessor.getFloat();
           if (Float.isInfinite(value) || Float.isNaN(value)) {
-            exceptionCollector.expect(SQLException.class);
+            assertThrows(
+                SQLException.class,
+                () -> {
+                  throw new SQLException();
+                });
+          } else {
+            assertThat(
+                accessor.getBigDecimal(9),
+                is(BigDecimal.valueOf(value).setScale(9, RoundingMode.HALF_UP)));
           }
-          assertThat(
-              accessor.getBigDecimal(9),
-              is(BigDecimal.valueOf(value).setScale(9, RoundingMode.HALF_UP)));
         });
   }
 

@@ -90,8 +90,8 @@ public class FlightServerTestExtension
    * Create a {@link FlightServerTestExtension} with standard values such as: user, password,
    * localhost.
    *
-   * @param producer the producer used to create the FlightServerTestRule.
-   * @return the FlightServerTestRule.
+   * @param producer the producer used to create the FlightServerTestExtension.
+   * @return the FlightServerTestExtension.
    */
   public static FlightServerTestExtension createStandardTestExtension(
       final FlightSqlProducer producer) {

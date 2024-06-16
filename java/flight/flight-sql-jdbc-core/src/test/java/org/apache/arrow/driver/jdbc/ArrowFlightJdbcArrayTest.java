@@ -18,6 +18,7 @@ package org.apache.arrow.driver.jdbc;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -25,29 +26,31 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Types;
 import java.util.Arrays;
 import java.util.HashMap;
-import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
+import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestExtension;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.util.JsonStringArrayList;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-@RunWith(MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
 public class ArrowFlightJdbcArrayTest {
 
-  @Rule public RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
+  @RegisterExtension
+  public static RootAllocatorTestExtension rootAllocatorTestExtension =
+      new RootAllocatorTestExtension();
 
   IntVector dataVector;
 
-  @Before
+  @BeforeEach
   public void setup() {
-    dataVector = rootAllocatorTestRule.createIntVector();
+    dataVector = rootAllocatorTestExtension.createIntVector();
   }
 
-  @After
+  @AfterEach
   public void tearDown() {
     this.dataVector.close();
   }
@@ -92,28 +95,31 @@ public class ArrowFlightJdbcArrayTest {
     assertArrayEquals(array, expected);
   }
 
-  @Test(expected = ArrayIndexOutOfBoundsException.class)
+  @Test
   public void testShouldGetArrayWithOffsetsThrowArrayIndexOutOfBoundsException()
       throws SQLException {
     ArrowFlightJdbcArray arrowFlightJdbcArray =
         new ArrowFlightJdbcArray(dataVector, 0, dataVector.getValueCount());
-    arrowFlightJdbcArray.getArray(0, dataVector.getValueCount() + 1);
+    assertThrows(
+        ArrayIndexOutOfBoundsException.class,
+        () -> arrowFlightJdbcArray.getArray(0, dataVector.getValueCount() + 1));
   }
 
-  @Test(expected = SQLFeatureNotSupportedException.class)
+  @Test
   public void testShouldGetArrayWithMapNotBeSupported() throws SQLException {
     ArrowFlightJdbcArray arrowFlightJdbcArray =
         new ArrowFlightJdbcArray(dataVector, 0, dataVector.getValueCount());
     HashMap<String, Class<?>> map = new HashMap<>();
-    arrowFlightJdbcArray.getArray(map);
+    assertThrows(SQLFeatureNotSupportedException.class, () -> arrowFlightJdbcArray.getArray(map));
   }
 
-  @Test(expected = SQLFeatureNotSupportedException.class)
+  @Test
   public void testShouldGetArrayWithOffsetsAndMapNotBeSupported() throws SQLException {
     ArrowFlightJdbcArray arrowFlightJdbcArray =
         new ArrowFlightJdbcArray(dataVector, 0, dataVector.getValueCount());
     HashMap<String, Class<?>> map = new HashMap<>();
-    arrowFlightJdbcArray.getArray(0, 5, map);
+    assertThrows(
+        SQLFeatureNotSupportedException.class, () -> arrowFlightJdbcArray.getArray(0, 5, map));
   }
 
   @Test
@@ -154,19 +160,21 @@ public class ArrowFlightJdbcArrayTest {
     assertEquals(array.toString(), arrowFlightJdbcArray.toString());
   }
 
-  @Test(expected = SQLFeatureNotSupportedException.class)
+  @Test
   public void testShouldGetResultSetWithMapNotBeSupported() throws SQLException {
     ArrowFlightJdbcArray arrowFlightJdbcArray =
         new ArrowFlightJdbcArray(dataVector, 0, dataVector.getValueCount());
     HashMap<String, Class<?>> map = new HashMap<>();
-    arrowFlightJdbcArray.getResultSet(map);
+    assertThrows(
+        SQLFeatureNotSupportedException.class, () -> arrowFlightJdbcArray.getResultSet(map));
   }
 
-  @Test(expected = SQLFeatureNotSupportedException.class)
+  @Test
   public void testShouldGetResultSetWithOffsetsAndMapNotBeSupported() throws SQLException {
     ArrowFlightJdbcArray arrowFlightJdbcArray =
         new ArrowFlightJdbcArray(dataVector, 0, dataVector.getValueCount());
     HashMap<String, Class<?>> map = new HashMap<>();
-    arrowFlightJdbcArray.getResultSet(0, 5, map);
+    assertThrows(
+        SQLFeatureNotSupportedException.class, () -> arrowFlightJdbcArray.getResultSet(0, 5, map));
   }
 }

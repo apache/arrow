@@ -26,7 +26,7 @@ import java.sql.Struct;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.arrow.driver.jdbc.utils.AccessorTestUtils;
-import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
+import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestExtension;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.complex.ListVector;
@@ -39,15 +39,16 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.JsonStringHashMap;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.RegisterExtension;
 
 public class ArrowFlightJdbcStructVectorAccessorTest {
 
-  @ClassRule
-  public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
+  @RegisterExtension
+  public static RootAllocatorTestExtension rootAllocatorTestExtension =
+      new RootAllocatorTestExtension();
 
   private StructVector vector;
 
@@ -60,12 +61,12 @@ public class ArrowFlightJdbcStructVectorAccessorTest {
   private final AccessorTestUtils.AccessorIterator<ArrowFlightJdbcStructVectorAccessor>
       accessorIterator = new AccessorTestUtils.AccessorIterator<>(accessorSupplier);
 
-  @Before
+  @BeforeEach
   public void setUp() throws Exception {
     Map<String, String> metadata = new HashMap<>();
     metadata.put("k1", "v1");
     FieldType type = new FieldType(true, ArrowType.Struct.INSTANCE, null, metadata);
-    vector = new StructVector("", rootAllocatorTestRule.getRootAllocator(), type, null);
+    vector = new StructVector("", rootAllocatorTestExtension.getRootAllocator(), type, null);
     vector.allocateNew();
 
     IntVector intVector =
@@ -84,7 +85,7 @@ public class ArrowFlightJdbcStructVectorAccessorTest {
     vector.setValueCount(2);
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws Exception {
     vector.close();
   }
@@ -148,7 +149,7 @@ public class ArrowFlightJdbcStructVectorAccessorTest {
   @Test
   public void testShouldGetObjectWorkWithNestedComplexData() throws SQLException {
     try (StructVector rootVector =
-        StructVector.empty("", rootAllocatorTestRule.getRootAllocator())) {
+        StructVector.empty("", rootAllocatorTestExtension.getRootAllocator())) {
       StructVector structVector = rootVector.addOrGetStruct("struct");
 
       FieldType intFieldType = FieldType.nullable(Types.MinorType.INT.getType());

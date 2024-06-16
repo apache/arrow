@@ -24,6 +24,7 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.when;
 
 import java.io.InputStream;
@@ -40,22 +41,20 @@ import java.util.function.IntSupplier;
 import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcDateVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeStampVectorAccessor;
 import org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeVectorAccessor;
-import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestRule;
+import org.apache.arrow.driver.jdbc.utils.RootAllocatorTestExtension;
 import org.apache.arrow.driver.jdbc.utils.ThrowableAssertionUtils;
 import org.apache.arrow.vector.DateMilliVector;
 import org.apache.arrow.vector.TimeMilliVector;
 import org.apache.arrow.vector.TimeStampVector;
 import org.apache.arrow.vector.util.Text;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-@RunWith(MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
 public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
   private ArrowFlightJdbcVarCharVectorAccessor accessor;
@@ -63,14 +62,13 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
       new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
   private final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss.SSSXXX");
 
-  @ClassRule
-  public static RootAllocatorTestRule rootAllocatorTestRule = new RootAllocatorTestRule();
+  @RegisterExtension
+  public static RootAllocatorTestExtension rootAllocatorTestExtension =
+      new RootAllocatorTestExtension();
 
   @Mock private ArrowFlightJdbcVarCharVectorAccessor.Getter getter;
 
-  @Rule public ExpectedException thrown = ExpectedException.none();
-
-  @Before
+  @BeforeEach
   public void setUp() {
     IntSupplier currentRowSupplier = () -> 0;
     accessor =
@@ -109,30 +107,27 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
   }
 
   @Test
-  public void testShouldGetByteThrowsExceptionForNonNumericValue() throws Exception {
+  public void testShouldGetByteThrowsExceptionForNonNumericValue() {
     Text value = new Text("Invalid value for byte.");
     when(getter.get(0)).thenReturn(value.copyBytes());
 
-    thrown.expect(SQLException.class);
-    accessor.getByte();
+    assertThrows(SQLException.class, () -> accessor.getByte());
   }
 
   @Test
-  public void testShouldGetByteThrowsExceptionForOutOfRangePositiveValue() throws Exception {
+  public void testShouldGetByteThrowsExceptionForOutOfRangePositiveValue() {
     Text value = new Text("128");
     when(getter.get(0)).thenReturn(value.copyBytes());
 
-    thrown.expect(SQLException.class);
-    accessor.getByte();
+    assertThrows(SQLException.class, () -> accessor.getByte());
   }
 
   @Test
-  public void testShouldGetByteThrowsExceptionForOutOfRangeNegativeValue() throws Exception {
+  public void testShouldGetByteThrowsExceptionForOutOfRangeNegativeValue() {
     Text value = new Text("-129");
     when(getter.get(0)).thenReturn(value.copyBytes());
 
-    thrown.expect(SQLException.class);
-    accessor.getByte();
+    assertThrows(SQLException.class, () -> accessor.getByte());
   }
 
   @Test
@@ -158,30 +153,27 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
   }
 
   @Test
-  public void testShouldGetShortThrowsExceptionForNonNumericValue() throws Exception {
+  public void testShouldGetShortThrowsExceptionForNonNumericValue() {
     Text value = new Text("Invalid value for short.");
     when(getter.get(0)).thenReturn(value.copyBytes());
 
-    thrown.expect(SQLException.class);
-    accessor.getShort();
+    assertThrows(SQLException.class, () -> accessor.getShort());
   }
 
   @Test
-  public void testShouldGetShortThrowsExceptionForOutOfRangePositiveValue() throws Exception {
+  public void testShouldGetShortThrowsExceptionForOutOfRangePositiveValue() {
     Text value = new Text("32768");
     when(getter.get(0)).thenReturn(value.copyBytes());
 
-    thrown.expect(SQLException.class);
-    accessor.getShort();
+    assertThrows(SQLException.class, () -> accessor.getShort());
   }
 
   @Test
-  public void testShouldGetShortThrowsExceptionForOutOfRangeNegativeValue() throws Exception {
+  public void testShouldGetShortThrowsExceptionForOutOfRangeNegativeValue() {
     Text value = new Text("-32769");
     when(getter.get(0)).thenReturn(value.copyBytes());
 
-    thrown.expect(SQLException.class);
-    accessor.getShort();
+    assertThrows(SQLException.class, () -> accessor.getShort());
   }
 
   @Test
@@ -207,30 +199,27 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
   }
 
   @Test
-  public void testShouldGetIntThrowsExceptionForNonNumericValue() throws Exception {
+  public void testShouldGetIntThrowsExceptionForNonNumericValue() {
     Text value = new Text("Invalid value for int.");
     when(getter.get(0)).thenReturn(value.copyBytes());
 
-    thrown.expect(SQLException.class);
-    accessor.getInt();
+    assertThrows(SQLException.class, () -> accessor.getInt());
   }
 
   @Test
-  public void testShouldGetIntThrowsExceptionForOutOfRangePositiveValue() throws Exception {
+  public void testShouldGetIntThrowsExceptionForOutOfRangePositiveValue() {
     Text value = new Text("2147483648");
     when(getter.get(0)).thenReturn(value.copyBytes());
 
-    thrown.expect(SQLException.class);
-    accessor.getInt();
+    assertThrows(SQLException.class, () -> accessor.getInt());
   }
 
   @Test
-  public void testShouldGetIntThrowsExceptionForOutOfRangeNegativeValue() throws Exception {
+  public void testShouldGetIntThrowsExceptionForOutOfRangeNegativeValue() {
     Text value = new Text("-2147483649");
     when(getter.get(0)).thenReturn(value.copyBytes());
 
-    thrown.expect(SQLException.class);
-    accessor.getInt();
+    assertThrows(SQLException.class, () -> accessor.getInt());
   }
 
   @Test
@@ -256,30 +245,27 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
   }
 
   @Test
-  public void testShouldGetLongThrowsExceptionForNonNumericValue() throws Exception {
+  public void testShouldGetLongThrowsExceptionForNonNumericValue() {
     Text value = new Text("Invalid value for long.");
     when(getter.get(0)).thenReturn(value.copyBytes());
 
-    thrown.expect(SQLException.class);
-    accessor.getLong();
+    assertThrows(SQLException.class, () -> accessor.getLong());
   }
 
   @Test
-  public void testShouldGetLongThrowsExceptionForOutOfRangePositiveValue() throws Exception {
+  public void testShouldGetLongThrowsExceptionForOutOfRangePositiveValue() {
     Text value = new Text("9223372036854775808");
     when(getter.get(0)).thenReturn(value.copyBytes());
 
-    thrown.expect(SQLException.class);
-    accessor.getLong();
+    assertThrows(SQLException.class, () -> accessor.getLong());
   }
 
   @Test
-  public void testShouldGetLongThrowsExceptionForOutOfRangeNegativeValue() throws Exception {
+  public void testShouldGetLongThrowsExceptionForOutOfRangeNegativeValue() {
     Text value = new Text("-9223372036854775809");
     when(getter.get(0)).thenReturn(value.copyBytes());
 
-    thrown.expect(SQLException.class);
-    accessor.getLong();
+    assertThrows(SQLException.class, () -> accessor.getLong());
   }
 
   @Test
@@ -305,22 +291,19 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
   }
 
   @Test
-  public void testShouldBigDecimalWithParametersThrowsExceptionForNonNumericValue()
-      throws Exception {
+  public void testShouldBigDecimalWithParametersThrowsExceptionForNonNumericValue() {
     Text value = new Text("Invalid value for BigDecimal.");
     when(getter.get(0)).thenReturn(value.copyBytes());
 
-    thrown.expect(SQLException.class);
-    accessor.getBigDecimal(1);
+    assertThrows(SQLException.class, () -> accessor.getBigDecimal(1));
   }
 
   @Test
-  public void testShouldGetBigDecimalThrowsExceptionForNonNumericValue() throws Exception {
+  public void testShouldGetBigDecimalThrowsExceptionForNonNumericValue() {
     Text value = new Text("Invalid value for BigDecimal.");
     when(getter.get(0)).thenReturn(value.copyBytes());
 
-    thrown.expect(SQLException.class);
-    accessor.getBigDecimal();
+    assertThrows(SQLException.class, () -> accessor.getBigDecimal());
   }
 
   @Test
@@ -346,12 +329,11 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
   }
 
   @Test
-  public void testShouldGetDoubleThrowsExceptionForNonNumericValue() throws Exception {
+  public void testShouldGetDoubleThrowsExceptionForNonNumericValue() {
     Text value = new Text("Invalid value for double.");
     when(getter.get(0)).thenReturn(value.copyBytes());
 
-    thrown.expect(SQLException.class);
-    accessor.getDouble();
+    assertThrows(SQLException.class, () -> accessor.getDouble());
   }
 
   @Test
@@ -410,12 +392,11 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
   }
 
   @Test
-  public void testShouldGetFloatThrowsExceptionForNonNumericValue() throws Exception {
+  public void testShouldGetFloatThrowsExceptionForNonNumericValue() {
     Text value = new Text("Invalid value for float.");
     when(getter.get(0)).thenReturn(value.copyBytes());
 
-    thrown.expect(SQLException.class);
-    accessor.getFloat();
+    assertThrows(SQLException.class, () -> accessor.getFloat());
   }
 
   @Test
@@ -474,12 +455,11 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
   }
 
   @Test
-  public void testShouldGetDateThrowsExceptionForNonDateValue() throws Exception {
+  public void testShouldGetDateThrowsExceptionForNonDateValue() {
     Text value = new Text("Invalid value for date.");
     when(getter.get(0)).thenReturn(value.copyBytes());
 
-    thrown.expect(SQLException.class);
-    accessor.getDate(null);
+    assertThrows(SQLException.class, () -> accessor.getDate(null));
   }
 
   @Test
@@ -512,12 +492,11 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
   }
 
   @Test
-  public void testShouldGetTimeThrowsExceptionForNonTimeValue() throws Exception {
+  public void testShouldGetTimeThrowsExceptionForNonTimeValue() {
     Text value = new Text("Invalid value for time.");
     when(getter.get(0)).thenReturn(value.copyBytes());
 
-    thrown.expect(SQLException.class);
-    accessor.getTime(null);
+    assertThrows(SQLException.class, () -> accessor.getTime(null));
   }
 
   @Test
@@ -548,12 +527,11 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
   }
 
   @Test
-  public void testShouldGetTimestampThrowsExceptionForNonTimeValue() throws Exception {
+  public void testShouldGetTimestampThrowsExceptionForNonTimeValue() {
     Text value = new Text("Invalid value for timestamp.");
     when(getter.get(0)).thenReturn(value.copyBytes());
 
-    thrown.expect(SQLException.class);
-    accessor.getTimestamp(null);
+    assertThrows(SQLException.class, () -> accessor.getTimestamp(null));
   }
 
   @Test
@@ -670,7 +648,8 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
   @Test
   public void testShouldGetTimeStampBeConsistentWithTimeStampAccessor() throws Exception {
-    try (TimeStampVector timeStampVector = rootAllocatorTestRule.createTimeStampMilliVector()) {
+    try (TimeStampVector timeStampVector =
+        rootAllocatorTestExtension.createTimeStampMilliVector()) {
       ArrowFlightJdbcTimeStampVectorAccessor timeStampVectorAccessor =
           new ArrowFlightJdbcTimeStampVectorAccessor(
               timeStampVector, () -> 0, (boolean wasNull) -> {});
@@ -685,7 +664,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
   @Test
   public void testShouldGetTimeBeConsistentWithTimeAccessor() throws Exception {
-    try (TimeMilliVector timeVector = rootAllocatorTestRule.createTimeMilliVector()) {
+    try (TimeMilliVector timeVector = rootAllocatorTestExtension.createTimeMilliVector()) {
       ArrowFlightJdbcTimeVectorAccessor timeVectorAccessor =
           new ArrowFlightJdbcTimeVectorAccessor(timeVector, () -> 0, (boolean wasNull) -> {});
 
@@ -699,7 +678,7 @@ public class ArrowFlightJdbcVarCharVectorAccessorTest {
 
   @Test
   public void testShouldGetDateBeConsistentWithDateAccessor() throws Exception {
-    try (DateMilliVector dateVector = rootAllocatorTestRule.createDateMilliVector()) {
+    try (DateMilliVector dateVector = rootAllocatorTestExtension.createDateMilliVector()) {
       ArrowFlightJdbcDateVectorAccessor dateVectorAccessor =
           new ArrowFlightJdbcDateVectorAccessor(dateVector, () -> 0, (boolean wasNull) -> {});
 

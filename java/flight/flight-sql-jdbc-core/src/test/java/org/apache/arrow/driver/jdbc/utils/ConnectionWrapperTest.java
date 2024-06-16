@@ -39,14 +39,14 @@ import java.util.Random;
 import org.apache.arrow.driver.jdbc.ArrowFlightConnection;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.calcite.avatica.AvaticaConnection;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-@RunWith(MockitoJUnitRunner.class)
+@ExtendWith(MockitoExtension.class)
 public final class ConnectionWrapperTest {
 
   private static final String SCHEMA_NAME = "SCHEMA";
@@ -67,12 +67,12 @@ public final class ConnectionWrapperTest {
   @Mock public AvaticaConnection underlyingConnection;
   private ConnectionWrapper connectionWrapper;
 
-  @Before
+  @BeforeEach
   public void setUp() {
     connectionWrapper = new ConnectionWrapper(underlyingConnection);
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws Exception {
     AutoCloseables.close(connectionWrapper, underlyingConnection);
   }

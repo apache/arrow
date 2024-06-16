@@ -44,8 +44,7 @@ import org.junit.jupiter.api.extension.RegisterExtension;
 /** Tests encrypted connections. */
 public class ConnectionMutualTlsTest {
 
-  @RegisterExtension
-  public static final FlightServerTestExtension FLIGHT_SERVER_TEST_EXTENSION;
+  @RegisterExtension public static final FlightServerTestExtension FLIGHT_SERVER_TEST_EXTENSION;
   private static final String tlsRootCertsPath;
   private static final String clientMTlsCertPath;
   private static final String badClientMTlsCertPath;
