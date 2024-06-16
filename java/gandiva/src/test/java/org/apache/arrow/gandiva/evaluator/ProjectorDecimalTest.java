@@ -841,14 +841,14 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
 
   @Test
   public void testInvalidDecimal() throws GandivaException {
+    Decimal decimalType = new Decimal(0, 0, 128);
+    Field int64f = Field.nullable("int64", int64);
+
+    Schema schema = new Schema(Lists.newArrayList(int64f));
     IllegalArgumentException exception =
         assertThrows(
             IllegalArgumentException.class,
             () -> {
-              Decimal decimalType = new Decimal(0, 0, 128);
-              Field int64f = Field.nullable("int64", int64);
-
-              Schema schema = new Schema(Lists.newArrayList(int64f));
               Projector eval =
                   Projector.make(
                       schema,
@@ -865,14 +865,14 @@ public class ProjectorDecimalTest extends org.apache.arrow.gandiva.evaluator.Bas
 
   @Test
   public void testInvalidDecimalGt38() throws GandivaException {
+    Decimal decimalType = new Decimal(42, 0, 128);
+    Field int64f = Field.nullable("int64", int64);
+
+    Schema schema = new Schema(Lists.newArrayList(int64f));
     IllegalArgumentException exception =
         assertThrows(
             IllegalArgumentException.class,
             () -> {
-              Decimal decimalType = new Decimal(42, 0, 128);
-              Field int64f = Field.nullable("int64", int64);
-
-              Schema schema = new Schema(Lists.newArrayList(int64f));
               Projector eval =
                   Projector.make(
                       schema,
