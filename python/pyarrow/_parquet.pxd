@@ -594,6 +594,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     write_page_index=*,
     write_page_checksum=*,
     sorting_columns=*,
+    store_decimal_as_integer=*,
 ) except *
 
 
