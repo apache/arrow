@@ -16,11 +16,14 @@
  */
 package org.apache.arrow.memory.unsafe;
 
-import static org.junit.Assert.assertEquals;
+
 
 import org.apache.arrow.memory.AllocationManager;
 import org.apache.arrow.memory.DefaultAllocationManagerOption;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 
 /** Test cases for {@link AllocationManager}. */
 public class TestAllocationManagerUnsafe {
