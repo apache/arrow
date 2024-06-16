@@ -16,10 +16,10 @@
  */
 package org.apache.arrow.gandiva.evaluator;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -58,7 +58,6 @@ import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
@@ -192,7 +191,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     long timeToMakeProjector = (System.currentTimeMillis() - startTime);
     // should be getting the projector from the cache;
     // giving 5ms for varying system load.
-    Assert.assertTrue(timeToMakeProjector < 5L);
+    assertTrue(timeToMakeProjector < 5L);
 
     evaluator1.close();
     evaluator2.close();
@@ -221,7 +220,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
       exceptionThrown = true;
     }
 
-    Assert.assertTrue(exceptionThrown);
+    assertTrue(exceptionThrown);
 
     // allow GC to collect any temp resources.
     Thread.sleep(1000);
@@ -234,7 +233,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
       exceptionThrown = true;
     }
 
-    Assert.assertTrue(exceptionThrown);
+    assertTrue(exceptionThrown);
   }
 
   @Test
@@ -327,10 +326,10 @@ public class ProjectorTest extends BaseEvaluatorTest {
     try {
       eval.evaluate(batch, output);
     } catch (GandivaException e) {
-      Assert.assertTrue(e.getMessage().contains("divide by zero"));
+      assertTrue(e.getMessage().contains("divide by zero"));
       exceptionThrown = true;
     }
-    Assert.assertTrue(exceptionThrown);
+    assertTrue(exceptionThrown);
 
     // free buffers
     releaseRecordBatch(batch);
@@ -408,7 +407,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     executors.shutdown();
     executors.awaitTermination(100, java.util.concurrent.TimeUnit.SECONDS);
     test.close();
-    Assert.assertEquals(errorCountExp.intValue(), errorCount.intValue());
+    assertEquals(errorCountExp.intValue(), errorCount.intValue());
   }
 
   @Test
@@ -717,11 +716,11 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     // match expected output.
     for (int i = 0; i < numRows - 1; i++) {
-      assertFalse("Expect none value equals null", outVector.isNull(i));
+      assertFalse(outVector.isNull(i), "Expect none value equals null");
       assertEquals(expected[i], new String(outVector.get(i)));
     }
 
-    assertTrue("Last value must be null", outVector.isNull(numRows - 1));
+    assertTrue(outVector.isNull(numRows - 1), "Last value must be null");
 
     releaseRecordBatch(batch);
     releaseValueVectors(output);
@@ -775,14 +774,14 @@ public class ProjectorTest extends BaseEvaluatorTest {
     // match expected output.
     NullableIntervalDayHolder holder = new NullableIntervalDayHolder();
     for (int i = 0; i < numRows - 1; i++) {
-      assertFalse("Expect none value equals null", outVector.isNull(i));
+      assertFalse(outVector.isNull(i), "Expect none value equals null");
       outVector.get(i, holder);
 
       assertEquals(expected[i][0], holder.days);
       assertEquals(expected[i][1], holder.milliseconds);
     }
 
-    assertTrue("Last value must be null", outVector.isNull(numRows - 1));
+    assertTrue(outVector.isNull(numRows - 1), "Last value must be null");
 
     releaseRecordBatch(batch);
     releaseValueVectors(output);
@@ -836,7 +835,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
     // match expected output.
     NullableIntervalYearHolder holder = new NullableIntervalYearHolder();
     for (int i = 0; i < numRows - 1; i++) {
-      assertFalse("Expect none value equals null", outVector.isNull(i));
+      assertFalse(outVector.isNull(i), "Expect none value equals null");
       outVector.get(i, holder);
 
       int numberMonths =
@@ -847,7 +846,7 @@ public class ProjectorTest extends BaseEvaluatorTest {
       assertEquals(numberMonths, holder.value);
     }
 
-    assertTrue("Last value must be null", outVector.isNull(numRows - 1));
+    assertTrue(outVector.isNull(numRows - 1), "Last value must be null");
 
     releaseRecordBatch(batch);
     releaseValueVectors(output);
@@ -2590,11 +2589,11 @@ public class ProjectorTest extends BaseEvaluatorTest {
 
     // match expected output.
     for (int i = 0; i < numRows - 1; i++) {
-      assertFalse("Expect none value equals null", outVector.isNull(i));
+      assertFalse(outVector.isNull(i), "Expect none value equals null");
       assertEquals(expected[i], new String(outVector.get(i)));
     }
 
-    assertTrue("Last value must be null", outVector.isNull(numRows - 1));
+    assertTrue(outVector.isNull(numRows - 1), "Last value must be null");
 
     releaseRecordBatch(batch);
     releaseValueVectors(output);
