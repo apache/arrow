@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.File;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.arrow.dataset.ParquetWriteSupport;
@@ -29,20 +30,19 @@ import org.apache.arrow.dataset.file.FileSystemDatasetFactory;
 import org.apache.arrow.dataset.scanner.ScanOptions;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
-import org.junit.ClassRule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 public class TestReservationListener extends TestDataset {
 
-  @ClassRule public static final TemporaryFolder TMP = new TemporaryFolder();
+  @TempDir public File TMP;
 
   public static final String AVRO_SCHEMA_USER = "user.avsc";
 
   @Test
   public void testDirectReservationListener() throws Exception {
     ParquetWriteSupport writeSupport =
-        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
+        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP, 1, "a");
     NativeMemoryPool pool = NativeMemoryPool.createListenable(DirectReservationListener.instance());
     FileSystemDatasetFactory factory =
         new FileSystemDatasetFactory(
@@ -61,7 +61,7 @@ public class TestReservationListener extends TestDataset {
   @Test
   public void testCustomReservationListener() throws Exception {
     ParquetWriteSupport writeSupport =
-        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
+        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP, 1, "a");
     final AtomicLong reserved = new AtomicLong(0L);
     ReservationListener listener =
         new ReservationListener() {
@@ -94,7 +94,7 @@ public class TestReservationListener extends TestDataset {
   public void testErrorThrownFromReservationListener() throws Exception {
     final String errorMessage = "ERROR_MESSAGE";
     ParquetWriteSupport writeSupport =
-        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
+        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP, 1, "a");
     final AtomicLong reserved = new AtomicLong(0L);
     ReservationListener listener =
         new ReservationListener() {

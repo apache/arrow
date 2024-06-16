@@ -46,18 +46,18 @@ import org.apache.arrow.vector.compare.VectorEqualsVisitor;
 import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.After;
-import org.junit.Before;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 
 public abstract class TestDataset {
   private BufferAllocator allocator = null;
 
-  @Before
+  @BeforeEach
   public void setUp() {
     allocator = new RootAllocator(Long.MAX_VALUE);
   }
 
-  @After
+  @AfterEach
   public void tearDown() {
     allocator.close();
   }

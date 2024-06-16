@@ -32,24 +32,23 @@ import org.apache.arrow.dataset.scanner.ScanOptions;
 import org.apache.arrow.dataset.scanner.Scanner;
 import org.apache.arrow.dataset.source.Dataset;
 import org.apache.commons.io.FileUtils;
-import org.junit.ClassRule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 public class TestDatasetFileWriter extends TestDataset {
 
-  @ClassRule public static final TemporaryFolder TMP = new TemporaryFolder();
+  @TempDir public File TMP;
 
   public static final String AVRO_SCHEMA_USER = "user.avsc";
 
   @Test
   public void testParquetWriteSimple() throws Exception {
     ParquetWriteSupport writeSupport =
-        ParquetWriteSupport.writeTempFile(
-            AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a", 2, "b", 3, "c", 2, "d");
+        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP, 1, "a", 2, "b", 3, "c", 2, "d");
     String sampleParquet = writeSupport.getOutputURI();
     ScanOptions options = new ScanOptions(new String[0], 100);
-    final File writtenFolder = TMP.newFolder();
+    final File writtenFolder = new File(TMP, "writtenFolder");
+    writtenFolder.mkdirs();
     final String writtenParquet = writtenFolder.toURI().toString();
     try (FileSystemDatasetFactory factory =
             new FileSystemDatasetFactory(
@@ -66,11 +65,11 @@ public class TestDatasetFileWriter extends TestDataset {
   @Test
   public void testParquetWriteWithPartitions() throws Exception {
     ParquetWriteSupport writeSupport =
-        ParquetWriteSupport.writeTempFile(
-            AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a", 2, "b", 3, "c", 2, "d");
+        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP, 1, "a", 2, "b", 3, "c", 2, "d");
     String sampleParquet = writeSupport.getOutputURI();
     ScanOptions options = new ScanOptions(new String[0], 100);
-    final File writtenFolder = TMP.newFolder();
+    final File writtenFolder = new File(TMP, "writtenFolder");
+    writtenFolder.mkdirs();
     final String writtenParquet = writtenFolder.toURI().toString();
 
     try (FileSystemDatasetFactory factory =
