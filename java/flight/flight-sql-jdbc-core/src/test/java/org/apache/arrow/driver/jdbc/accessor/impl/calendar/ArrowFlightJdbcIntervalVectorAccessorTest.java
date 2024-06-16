@@ -36,7 +36,6 @@ import org.apache.arrow.vector.IntervalYearVector;
 import org.apache.arrow.vector.PeriodDuration;
 import org.apache.arrow.vector.ValueVector;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -197,8 +196,10 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
     return null;
   }
 
-  @Test
-  public void testShouldGetIntervalYear() {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetIntervalYear(Supplier<ValueVector> vectorSupplier) {
+    setup(vectorSupplier);
     assertEquals("-002-00", formatIntervalYear(Period.parse("P-2Y")));
     assertEquals("-001-01", formatIntervalYear(Period.parse("P-1Y-1M")));
     assertEquals("-001-02", formatIntervalYear(Period.parse("P-1Y-2M")));
@@ -213,8 +214,10 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
     assertEquals("+011-01", formatIntervalYear(Period.parse("P+11Y1M")));
   }
 
-  @Test
-  public void testShouldGetIntervalDay() {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testShouldGetIntervalDay(Supplier<ValueVector> vectorSupplier) {
+    setup(vectorSupplier);
     assertEquals("-001 00:00:00.000", formatIntervalDay(Duration.parse("PT-24H")));
     assertEquals("+001 00:00:00.000", formatIntervalDay(Duration.parse("PT+24H")));
     assertEquals("-000 01:00:00.000", formatIntervalDay(Duration.parse("PT-1H")));
@@ -243,8 +246,10 @@ public class ArrowFlightJdbcIntervalVectorAccessorTest {
     assertEquals("+000 22:22:22.222", formatIntervalDay(Duration.parse("PT+22H22M22.222S")));
   }
 
-  @Test
-  public void testIntervalDayWithJodaPeriodObject() {
+  @ParameterizedTest
+  @MethodSource("data")
+  public void testIntervalDayWithJodaPeriodObject(Supplier<ValueVector> vectorSupplier) {
+    setup(vectorSupplier);
     assertEquals("+1567 00:00:00.000", formatIntervalDay(Duration.ofDays(1567)));
     assertEquals("-1567 00:00:00.000", formatIntervalDay(Duration.ofDays(-1567)));
   }
