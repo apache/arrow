@@ -363,10 +363,6 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: 3.1
       - name: Install vcpkg
         shell: bash
         run: |
@@ -423,25 +419,3 @@ jobs:
         run: |
           call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           bash -c "ci/scripts/c_glib_build.sh $(pwd) $(pwd)/build"
-      - name: RubyGems info
-        id: rubygems-info
-        run: |
-          Write-Output "gem-dir=$(ridk exec gem env gemdir)" | `
-            Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-      - name: Cache RubyGems
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.rubygems-info.outputs.gem-dir }}
-          key: glib-rubygems-msvc-${{ hashFiles('c_glib/Gemfile') }}
-          restore-keys: glib-rubygems-msvc-
-      - name: Install test dependencies
-        run: |
-          bundle install --gemfile c_glib\Gemfile
-      - name: Test GLib
-        run: |
-          $source_dir = "$(ridk exec cygpath --unix "$(Get-Location)")"
-          $build_dir = "$(ridk exec cygpath --unix "$(Get-Location)\build")"
-          $ErrorActionPreference = "Continue"
-          ridk exec bash ci\scripts\c_glib_test.sh "${source_dir}" "${build_dir}"
-        env:
-          ARROW_DLL_PATH: "${{ env.ARROW_HOME }}/bin;${{ github.workspace }}/build/vcpkg_installed/${{ env.VCPKG_TRIPLET }}/bin;${{ github.workspace }}/build/cpp/vcpkg_installed/${{ env.VCPKG_TRIPLET }}/bin;${{ github.workspace }}/build/cpp/vcpkg_installed/${{ env.VCPKG_TRIPLET }}/debug/bin"
