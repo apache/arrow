@@ -357,6 +357,44 @@ def test_byte_stream_split():
                          use_dictionary=False)
 
 
+def test_store_decimal_as_integer():
+    # This is only a smoke test.
+    arr_float = pa.array(list(map(float, range(100))))
+    arr_int = pa.array(list(map(int, range(100))))
+    arr_bool = pa.array([True, False] * 50)
+    data_float = [arr_float, arr_float]
+    table = pa.Table.from_arrays(data_float, names=['a', 'b'])
+
+    # Check with byte_stream_split for both columns.
+    _check_roundtrip(table, expected=table, compression="gzip",
+                     use_dictionary=False, use_byte_stream_split=True)
+
+    # Check with byte_stream_split for column 'b' and dictionary
+    # for column 'a'.
+    _check_roundtrip(table, expected=table, compression="gzip",
+                     use_dictionary=['a'],
+                     use_byte_stream_split=['b'])
+
+    # Check with a collision for both columns.
+    _check_roundtrip(table, expected=table, compression="gzip",
+                     use_dictionary=['a', 'b'],
+                     use_byte_stream_split=['a', 'b'])
+
+    # Check with mixed column types.
+    mixed_table = pa.Table.from_arrays([arr_float, arr_float, arr_int, arr_int],
+                                       names=['a', 'b', 'c', 'd'])
+    _check_roundtrip(mixed_table, expected=mixed_table,
+                     use_dictionary=['b', 'd'],
+                     use_byte_stream_split=['a', 'c'])
+
+    # Try to use the wrong data type with the byte_stream_split encoding.
+    # This should throw an exception.
+    table = pa.Table.from_arrays([arr_bool], names=['tmp'])
+    with pytest.raises(IOError, match='BYTE_STREAM_SPLIT only supports'):
+        _check_roundtrip(table, expected=table, use_byte_stream_split=True,
+                         use_dictionary=False)
+
+
 def test_column_encoding():
     arr_float = pa.array(list(map(float, range(100))))
     arr_int = pa.array(list(map(int, range(100))))
