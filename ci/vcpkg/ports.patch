@@ -1,11 +1,11 @@
 diff --git a/ports/curl/portfile.cmake b/ports/curl/portfile.cmake
-index bdc544e9e..53f6bbc3b 100644
+index 7cab6f726..697ab1bb4 100644
 --- a/ports/curl/portfile.cmake
 +++ b/ports/curl/portfile.cmake
-@@ -74,9 +74,12 @@ vcpkg_cmake_configure(
-         -DENABLE_MANUAL=OFF
+@@ -84,9 +84,12 @@ vcpkg_cmake_configure(
+         -DBUILD_TESTING=OFF
+         -DENABLE_CURL_MANUAL=OFF
          -DCURL_CA_FALLBACK=ON
-         -DCURL_USE_LIBPSL=OFF
 +        -DCURL_CA_PATH=none
 +        -DCURL_CA_BUNDLE=none
          -DCMAKE_DISABLE_FIND_PACKAGE_Perl=ON
@@ -15,6 +15,19 @@ index bdc544e9e..53f6bbc3b 100644
  )
  vcpkg_cmake_install()
  vcpkg_copy_pdbs()
+diff --git a/ports/llvm/portfile.cmake b/ports/llvm/portfile.cmake
+index a79c72a59..6b7fa6a66 100644
+--- a/ports/llvm/portfile.cmake
++++ b/ports/llvm/portfile.cmake
+@@ -292,6 +292,8 @@ vcpkg_cmake_configure(
+         ${FEATURE_OPTIONS}
+     MAYBE_UNUSED_VARIABLES 
+         COMPILER_RT_ENABLE_IOS
++        BOLT_TOOLS_INSTALL_DIR
++        LIBOMP_INSTALL_ALIASES
+ )
+ 
+ vcpkg_cmake_install(ADD_BIN_TO_PATH)
 diff --git a/ports/snappy/portfile.cmake b/ports/snappy/portfile.cmake
 index 0c7098082..c603c3653 100644
 --- a/ports/snappy/portfile.cmake
@@ -52,16 +65,3 @@ index 000000000..e839c93a4
 + }
 + 
 + static inline bool LeftShiftOverflows(uint8_t value, uint32_t shift) {
-diff --git a/ports/llvm/portfile.cmake b/ports/llvm/portfile.cmake
-index bf9397b66..c3112b673 100644
---- a/ports/llvm/portfile.cmake
-+++ b/ports/llvm/portfile.cmake
-@@ -293,6 +293,8 @@ vcpkg_cmake_configure(
-         ${FEATURE_OPTIONS}
-     MAYBE_UNUSED_VARIABLES 
-         COMPILER_RT_ENABLE_IOS
-+        BOLT_TOOLS_INSTALL_DIR
-+        LIBOMP_INSTALL_ALIASES
- )
- 
- vcpkg_cmake_install(ADD_BIN_TO_PATH)
