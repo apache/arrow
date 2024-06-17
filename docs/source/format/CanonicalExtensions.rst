@@ -298,7 +298,7 @@ Extension parameters:
 
 * The storage type of this extension is any type.  If there is no underlying
   data, the storage type should be Null.  If there is data, the storage type
-  should preferably be binary or fixed-size binary, but may be any type.
+  may be any type.
 
 * Extension type parameters:
 
