@@ -253,6 +253,14 @@ uint32_t KeyCompare::CompareBinaryColumnToRowHelper_avx2(
 
 namespace {
 
+/// Intrinsics `_mm256_i32gather_epi32/64` treat the `vindex` as signed integer, and we
+/// are using `uint32_t` to represent the offset, in range of [0, 4G), within the row
+/// table. When the offset is larger than `0x80000000` (2GB), those intrinsics will treat
+/// it as negative offset and gather the data from undesired address. To avoid this issue,
+/// we normalize the addresses by translating `base` `0x80000000` higher, and `offset`
+/// `0x80000000` lower. This way, the offset is always in range of [-2G, 2G) and those
+/// intrinsics are safe.
+
 inline __m256i UnsignedOffsetSafeGather32(int const* base, __m256i offset,
                                           const int scale = 1) {
   auto normalized_base = base + 0x80000000ull / sizeof(int);
