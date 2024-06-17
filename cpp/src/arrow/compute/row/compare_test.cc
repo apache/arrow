@@ -183,7 +183,7 @@ TEST(KeyCompare, CompareColumnsToRowsLarge) {
   // The var length column should be a little smaller than 2GB to WAR the capacity
   // limitation in the builder.
   constexpr int32_t var_length = two_gb / num_rows - 1;
-  const int32_t fixed_length = uint64()->byte_width();
+  const int32_t fixed_length = uint32()->byte_width();
   // The overall size should be larger than 2GB.
   ASSERT_GT((var_length + fixed_length) * num_rows, two_gb);
 
@@ -193,7 +193,7 @@ TEST(KeyCompare, CompareColumnsToRowsLarge) {
 
   // A fixed length array containing random numbers.
   ASSERT_OK_AND_ASSIGN(auto column_fixed_length,
-                       ::arrow::gen::Random(uint64())->Generate(num_rows));
+                       ::arrow::gen::Random(uint32())->Generate(num_rows));
   // A var length array containing 'X' repeated var_length times.
   ASSERT_OK_AND_ASSIGN(
       auto column_var_length,
