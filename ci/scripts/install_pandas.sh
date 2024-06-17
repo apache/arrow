@@ -31,6 +31,8 @@ if [ "${numpy}" = "nightly" ]; then
   pip install --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple --pre numpy
 elif [ "${numpy}" = "latest" ]; then
   pip install numpy
+elif [ "${numpy}" = "~="* ]; then
+  pip install numpy${numpy}
 else
   pip install numpy==${numpy}
 fi
@@ -41,6 +43,8 @@ elif [ "${pandas}" = "nightly" ]; then
   pip install --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple --pre pandas
 elif [ "${pandas}" = "latest" ]; then
   pip install pandas
+elif [ "${pandas}" = "~="* ]; then
+  pip install pandas${pandas}
 else
   pip install pandas==${pandas}
 fi
