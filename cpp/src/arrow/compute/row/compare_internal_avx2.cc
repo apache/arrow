@@ -252,6 +252,24 @@ uint32_t KeyCompare::CompareBinaryColumnToRowHelper_avx2(
   }
 }
 
+namespace {
+
+inline __m256i UnsignedOffsetSafeGather32(int const* base, __m256i offset,
+                                          const int scale = 1) {
+  auto normalized_base = base + 0x80000000ull / sizeof(int);
+  __m256i normalized_offset = _mm256_sub_epi32(offset, _mm256_set1_epi32(0x80000000));
+  return _mm256_i32gather_epi32(normalized_base, normalized_offset, 1);
+}
+
+inline __m256i UnsignedOffsetSafeGather64(long long const* base, __m128i offset,
+                                          const int scale = 1) {
+  auto normalized_base = base + 0x80000000ull / sizeof(long long);
+  __m128i normalized_offset = _mm_sub_epi32(offset, _mm_set1_epi32(0x80000000));
+  return _mm256_i32gather_epi64(normalized_base, normalized_offset, 1);
+}
+
+}  // namespace
+
 template <int column_width>
 inline uint64_t CompareSelected8_avx2(const uint8_t* left_base, const uint8_t* right_base,
                                       __m256i irow_left, __m256i offset_right,
@@ -282,11 +300,7 @@ inline uint64_t CompareSelected8_avx2(const uint8_t* left_base, const uint8_t* r
       ARROW_DCHECK(false);
   }
 
-  // const int* normalized_right_base = (const int*)(right_base + 0x80000000ull);
-  // __m256i normalized_offset_right =
-  //     _mm256_sub_epi32(offset_right, _mm256_set1_epi32(0x80000000));
-  // __m256i right = _mm256_i32gather_epi32(normalized_right_base, normalized_offset_right, 1);
-  __m256i right = _mm256_i32gather_epi32(right_base, offset_right, 1);
+  __m256i right = UnsignedOffsetSafeGather32((int const*)right_base, offset_right, 1);
   if (column_width != sizeof(uint32_t)) {
     constexpr uint32_t mask = column_width == 0 || column_width == 1 ? 0xff : 0xffff;
     right = _mm256_and_si256(right, _mm256_set1_epi32(mask));
@@ -335,11 +349,7 @@ inline uint64_t Compare8_avx2(const uint8_t* left_base, const uint8_t* right_bas
       ARROW_DCHECK(false);
   }
 
-  // const int* normalized_right_base = (const int*)(right_base + 0x80000000ull);
-  // __m256i normalized_offset_right =
-  //     _mm256_sub_epi32(offset_right, _mm256_set1_epi32(0x80000000));
-  // __m256i right = _mm256_i32gather_epi32(normalized_right_base, normalized_offset_right, 1);
-  __m256i right = _mm256_i32gather_epi32(right_base, offset_right, 1);
+  __m256i right = UnsignedOffsetSafeGather32((int const*)right_base, offset_right, 1);
   if (column_width != sizeof(uint32_t)) {
     constexpr uint32_t mask = column_width == 0 || column_width == 1 ? 0xff : 0xffff;
     right = _mm256_and_si256(right, _mm256_set1_epi32(mask));
@@ -376,9 +386,9 @@ inline uint64_t Compare8_64bit_avx2(const uint8_t* left_base, const uint8_t* rig
   auto right_base_i64 =
       reinterpret_cast<const arrow::util::int64_for_gather_t*>(right_base);
   __m256i right_lo =
-      _mm256_i32gather_epi64(right_base_i64, _mm256_castsi256_si128(offset_right), 1);
-  __m256i right_hi = _mm256_i32gather_epi64(right_base_i64,
-                                            _mm256_extracti128_si256(offset_right, 1), 1);
+      UnsignedOffsetSafeGather64(right_base_i64, _mm256_castsi256_si128(offset_right), 1);
+  __m256i right_hi = UnsignedOffsetSafeGather64(
+      right_base_i64, _mm256_extracti128_si256(offset_right, 1), 1);
   uint32_t result_lo = _mm256_movemask_epi8(_mm256_cmpeq_epi64(left_lo, right_lo));
   uint32_t result_hi = _mm256_movemask_epi8(_mm256_cmpeq_epi64(left_hi, right_hi));
   return result_lo | (static_cast<uint64_t>(result_hi) << 32);

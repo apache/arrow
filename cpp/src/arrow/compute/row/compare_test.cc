@@ -173,33 +173,44 @@ TEST(KeyCompare, CompareColumnsToRowsLarge) {
     GTEST_SKIP() << "Test only works on 64-bit platforms";
   }
 
-  // The idea of this case is to create a row table using one fixed length column and one
+  // The idea of this case is to create a row table using several fixed length columns one
   // var length column (so the row is hence var length and has offset buffer), with the
   // overall data size exceeding 2GB. Then compare each row with itself.
   constexpr int64_t two_gb = 2ll * 1024ll * 1024ll * 1024ll;
   // The compare function requires the row id of the left column to be uint16_t, hence the
   // number of rows.
   constexpr int64_t num_rows = std::numeric_limits<uint16_t>::max() + 1;
+  const std::vector<std::shared_ptr<DataType>> fixed_length_types{uint64(), uint32()};
   // The var length column should be a little smaller than 2GB to WAR the capacity
   // limitation in the var length builder.
   constexpr int32_t var_length = two_gb / num_rows - 1;
-  const int32_t fixed_length = uint32()->byte_width();
+  auto row_size =
+      std::accumulate(fixed_length_types.begin(), fixed_length_types.end(), var_length,
+                      [](int64_t acc, const std::shared_ptr<DataType>& type) {
+                        return acc + type->byte_width();
+                      });
   // The overall size should be larger than 2GB.
-  ASSERT_GT((var_length + fixed_length) * num_rows, two_gb);
+  ASSERT_GT(row_size * num_rows, two_gb);
 
   MemoryPool* pool = default_memory_pool();
   TempVectorStack stack;
   ASSERT_OK(stack.Init(pool, KeyCompare::CompareColumnsToRowsTempStackUsage(num_rows)));
 
-  // A fixed length array containing random numbers.
-  ASSERT_OK_AND_ASSIGN(auto column_fixed_length,
-                       ::arrow::gen::Random(uint32())->Generate(num_rows));
-  // A var length array containing 'X' repeated var_length times.
-  ASSERT_OK_AND_ASSIGN(
-      auto column_var_length,
-      ::arrow::gen::Constant(std::make_shared<BinaryScalar>(std::string(var_length, 'X')))
-          ->Generate(num_rows));
-  ExecBatch batch({column_fixed_length, column_var_length}, num_rows);
+  std::vector<Datum> columns;
+  {
+    // Several fixed length arrays containing random content.
+    for (const auto& type : fixed_length_types) {
+      ASSERT_OK_AND_ASSIGN(auto column, ::arrow::gen::Random(type)->Generate(num_rows));
+      columns.push_back(std::move(column));
+    }
+    // A var length array containing 'X' repeated var_length times.
+    ASSERT_OK_AND_ASSIGN(auto column_var_length,
+                         ::arrow::gen::Constant(
+                             std::make_shared<BinaryScalar>(std::string(var_length, 'X')))
+                             ->Generate(num_rows));
+    columns.push_back(std::move(column_var_length));
+  }
+  ExecBatch batch(std::move(columns), num_rows);
 
   std::vector<KeyColumnMetadata> column_metadatas;
   ASSERT_OK(ColumnMetadatasFromExecBatch(batch, &column_metadatas));
@@ -231,16 +242,43 @@ TEST(KeyCompare, CompareColumnsToRowsLarge) {
   LightContext ctx{CpuInfo::GetInstance()->hardware_flags(), &stack};
 
   {
+    // No selection, output no match row ids.
     uint32_t num_rows_no_match;
     std::vector<uint16_t> row_ids_out(num_rows);
-    KeyCompare::CompareColumnsToRows(num_rows, NULLPTR, row_ids_left.data(), &ctx,
-                                     &num_rows_no_match, row_ids_out.data(),
+    KeyCompare::CompareColumnsToRows(
+        num_rows, /*sel_left_maybe_null=*/NULLPTR, row_ids_left.data(), &ctx,
+        &num_rows_no_match, row_ids_out.data(), column_arrays, row_table, true, NULLPTR);
+    ASSERT_EQ(num_rows_no_match, 0);
+  }
+
+  {
+    // With selection, output no match row ids.
+    uint32_t num_rows_no_match;
+    std::vector<uint16_t> row_ids_out(num_rows);
+    std::vector<uint16_t> selection_left(num_rows);
+    std::iota(selection_left.begin(), selection_left.end(), 0);
+    KeyCompare::CompareColumnsToRows(num_rows, selection_left.data(), row_ids_left.data(),
+                                     &ctx, &num_rows_no_match, row_ids_out.data(),
                                      column_arrays, row_table, true, NULLPTR);
     ASSERT_EQ(num_rows_no_match, 0);
   }
 
   {
+    // No selection, output match bit vector.
     std::vector<uint8_t> match_bitvector(BytesForBits(num_rows));
+    KeyCompare::CompareColumnsToRows(
+        num_rows, /*sel_left_maybe_null=*/NULLPTR, row_ids_left.data(), &ctx, NULLPTR,
+        NULLPTR, column_arrays, row_table, true, match_bitvector.data());
+
+    ASSERT_EQ(arrow::internal::CountSetBits(match_bitvector.data(), 0, num_rows),
+              num_rows);
+  }
+
+  {
+    // With selection, output match bit vector.
+    std::vector<uint8_t> match_bitvector(BytesForBits(num_rows));
+    std::vector<uint16_t> selection_left(num_rows);
+    std::iota(selection_left.begin(), selection_left.end(), 0);
     KeyCompare::CompareColumnsToRows(num_rows, NULLPTR, row_ids_left.data(), &ctx,
                                      NULLPTR, NULLPTR, column_arrays, row_table, true,
                                      match_bitvector.data());
