@@ -21,8 +21,8 @@ import static org.apache.arrow.tools.ArrowFileTestFixtures.write;
 import static org.apache.arrow.tools.ArrowFileTestFixtures.writeData;
 import static org.apache.arrow.tools.ArrowFileTestFixtures.writeInput;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter.NopIndenter;
@@ -335,12 +335,11 @@ public class TestIntegration {
       Command.VALIDATE.name()
     };
     // this should fail
-    try {
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> {
       integration.run(args3);
-      fail("should have failed");
-    } catch (IllegalArgumentException e) {
-      assertTrue(e.getMessage().contains("Different values in column"), e.getMessage());
-      assertTrue(e.getMessage().contains("999"), e.getMessage());
-    }
+    });
+
+    assertTrue(e.getMessage().contains("Different values in column"), e.getMessage());
+    assertTrue(e.getMessage().contains("999"), e.getMessage());
   }
 }
