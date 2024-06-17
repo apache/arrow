@@ -335,9 +335,12 @@ public class TestIntegration {
       Command.VALIDATE.name()
     };
     // this should fail
-    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> {
-      integration.run(args3);
-    });
+    IllegalArgumentException e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> {
+              integration.run(args3);
+            });
 
     assertTrue(e.getMessage().contains("Different values in column"), e.getMessage());
     assertTrue(e.getMessage().contains("999"), e.getMessage());

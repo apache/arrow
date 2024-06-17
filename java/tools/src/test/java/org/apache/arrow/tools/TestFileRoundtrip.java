@@ -23,8 +23,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.ipc.InvalidArrowFileException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -76,7 +78,7 @@ public class TestFileRoundtrip {
   }
 
   @Test
-  public void testNotPreparedInput() throws Exception {
+  public void testNotFoundInput() {
     File testInFile = new File(testFolder, "testIn.arrow");
     File testOutFile = new File(testFolder, "testOut.arrow");
 
@@ -89,5 +91,24 @@ public class TestFileRoundtrip {
             });
 
     assertTrue(exception.getMessage().contains("input file not found"));
+  }
+
+  @Test
+  public void testSmallSizeInput() throws Exception {
+    File testInFile = new File(testFolder, "testIn.arrow");
+    File testOutFile = new File(testFolder, "testOut.arrow");
+
+    // create an empty file
+    new FileOutputStream(testInFile).close();
+
+    String[] args = {"-i", testInFile.getAbsolutePath(), "-o", testOutFile.getAbsolutePath()};
+    Exception exception =
+        assertThrows(
+            InvalidArrowFileException.class,
+            () -> {
+              new FileRoundtrip(System.err).run(args);
+            });
+
+    assertEquals("file too small: 0", exception.getMessage());
   }
 }
