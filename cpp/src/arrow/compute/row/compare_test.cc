@@ -17,10 +17,11 @@
 
 #include <numeric>
 
-#include "arrow/array/builder_binary.h"
 #include "arrow/compute/row/compare_internal.h"
+#include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
+#include "arrow/util/bitmap_ops.h"
 
 namespace arrow {
 namespace compute {
@@ -165,92 +166,88 @@ TEST(KeyCompare, CompareColumnsToRowsTempStackUsage) {
   }
 }
 
-// Specialized case for GH-41813.
+// Compare columns to rows at offsets over 2GB within a row table.
+// Certain AVX2 instructions may behave unexpectedly causing troubles like GH-41813.
 TEST(KeyCompare, CompareColumnsToRowsLarge) {
   if constexpr (sizeof(void*) == 4) {
     GTEST_SKIP() << "Test only works on 64-bit platforms";
   }
 
-  constexpr auto fsb_length = 128 * 1024 * 1024;
+  // The idea of this case is to create a row table using one fixed length column and one
+  // var length column (so the row is hence var length and has offset buffer), with the
+  // overall data size exceeding 2GB. Then compare each row with itself.
+  constexpr int64_t two_gb = 2ll * 1024ll * 1024ll * 1024ll;
+  // The compare function requires the row id of the left column to be uint16_t, hence the
+  // number of rows.
+  constexpr int64_t num_rows = std::numeric_limits<uint16_t>::max() + 1;
+  // The var length column should be a little smaller than 2GB to WAR the capacity
+  // limitation in the builder.
+  constexpr int32_t var_length = two_gb / num_rows - 1;
+  const int32_t fixed_length = uint64()->byte_width();
+  // The overall size should be larger than 2GB.
+  ASSERT_GT((var_length + fixed_length) * num_rows, two_gb);
 
-  constexpr auto num_rows_base = 18;
   MemoryPool* pool = default_memory_pool();
   TempVectorStack stack;
-  ASSERT_OK(
-      stack.Init(pool, KeyCompare::CompareColumnsToRowsTempStackUsage(num_rows_base)));
+  ASSERT_OK(stack.Init(pool, KeyCompare::CompareColumnsToRowsTempStackUsage(num_rows)));
 
-  // An array containing 17 null rows and one 'X...' row.
-  std::shared_ptr<FixedSizeBinaryArray> column_fsb;
-  {
-    FixedSizeBinaryBuilder builder(fixed_size_binary(fsb_length), pool);
-    ASSERT_OK(builder.Reserve(num_rows_base));
-    std::string x(fsb_length, 'X'), y(fsb_length, 'Y');
-    for (int i = 0; i < num_rows_base - 1; ++i) {
-      ASSERT_OK(builder.Append(x.data()));
-    }
-    ASSERT_OK(builder.Append(y.data()));
-    ASSERT_OK(builder.Finish(&column_fsb));
-  }
-  std::shared_ptr<BinaryArray> column_binary;
-  {
-    BinaryBuilder builder(binary(), pool);
-    ASSERT_OK(builder.AppendNulls(num_rows_base));
-    ASSERT_OK(builder.Finish(&column_binary));
-  }
-  ExecBatch batch_base({column_fsb, column_binary}, num_rows_base);
+  // A fixed length array containing random numbers.
+  ASSERT_OK_AND_ASSIGN(auto column_fixed_length,
+                       ::arrow::gen::Random(uint64())->Generate(num_rows));
+  // A var length array containing 'X' repeated var_length times.
+  ASSERT_OK_AND_ASSIGN(
+      auto column_var_length,
+      ::arrow::gen::Constant(std::make_shared<BinaryScalar>(std::string(var_length, 'X')))
+          ->Generate(num_rows));
+  ExecBatch batch({column_fixed_length, column_var_length}, num_rows);
 
-  std::vector<KeyColumnMetadata> column_metadatas_base;
-  ASSERT_OK(ColumnMetadatasFromExecBatch(batch_base, &column_metadatas_base));
-  std::vector<KeyColumnArray> column_arrays_base;
-  ASSERT_OK(ColumnArraysFromExecBatch(batch_base, &column_arrays_base));
+  std::vector<KeyColumnMetadata> column_metadatas;
+  ASSERT_OK(ColumnMetadatasFromExecBatch(batch, &column_metadatas));
+  std::vector<KeyColumnArray> column_arrays;
+  ASSERT_OK(ColumnArraysFromExecBatch(batch, &column_arrays));
 
+  // The row table (right side).
   RowTableMetadata table_metadata_right;
-  table_metadata_right.FromColumnMetadataVector(column_metadatas_base, sizeof(uint64_t),
+  table_metadata_right.FromColumnMetadataVector(column_metadatas, sizeof(uint64_t),
                                                 sizeof(uint64_t));
-
   RowTableImpl row_table;
   ASSERT_OK(row_table.Init(pool, table_metadata_right));
-
-  // Encode row table with 18 rows, so that the last row is placed at over 2GB offset.
-  constexpr auto num_rows_right = num_rows_base;
-  RowTableEncoder row_encoder;
-  row_encoder.Init(column_metadatas_base, sizeof(uint64_t), sizeof(uint64_t));
-  row_encoder.PrepareEncodeSelected(0, num_rows_right, column_arrays_base);
-  std::array<uint16_t, num_rows_right> row_ids_right;
+  std::vector<uint16_t> row_ids_right(num_rows);
   std::iota(row_ids_right.begin(), row_ids_right.end(), 0);
-  // for (int i = 0; i < num_rows_right - 1; ++i) {
-  //   row_ids_right[i] = 0;
-  // }
-  // row_ids_right[num_rows_right - 1] = 1;
-  ASSERT_OK(row_encoder.EncodeSelected(&row_table, num_rows_right, row_ids_right.data()));
+  RowTableEncoder row_encoder;
+  row_encoder.Init(column_metadatas, sizeof(uint64_t), sizeof(uint64_t));
+  row_encoder.PrepareEncodeSelected(0, num_rows, column_arrays);
+  ASSERT_OK(row_encoder.EncodeSelected(&row_table, static_cast<uint32_t>(num_rows),
+                                       row_ids_right.data()));
 
-  ASSERT_GT(row_table.offsets()[num_rows_right - 1], 0x80000000u);
+  ASSERT_TRUE(row_table.offsets());
+  // The whole point of this test.
+  ASSERT_GT(row_table.offsets()[num_rows - 1], two_gb);
 
-  constexpr auto num_rows_left = 16;
-  std::vector<uint32_t> row_ids_left(num_rows_left, num_rows_base - 1);
+  // The left rows.
+  std::vector<uint32_t> row_ids_left(num_rows);
+  std::iota(row_ids_left.begin(), row_ids_left.end(), 0);
 
   LightContext ctx{CpuInfo::GetInstance()->hardware_flags(), &stack};
 
   {
     uint32_t num_rows_no_match;
-    std::vector<uint16_t> row_ids_out(num_rows_left);
-    KeyCompare::CompareColumnsToRows(num_rows_left, NULLPTR, row_ids_left.data(), &ctx,
+    std::vector<uint16_t> row_ids_out(num_rows);
+    KeyCompare::CompareColumnsToRows(num_rows, NULLPTR, row_ids_left.data(), &ctx,
                                      &num_rows_no_match, row_ids_out.data(),
-                                     column_arrays_base, row_table, true, NULLPTR);
+                                     column_arrays, row_table, true, NULLPTR);
     ASSERT_EQ(num_rows_no_match, 0);
-    ASSERT_EQ(row_ids_out[0], 0);
   }
 
-  // {
-  //   std::vector<uint8_t> match_bitvector(BytesForBits(num_rows));
-  //   KeyCompare::CompareColumnsToRows(num_rows, NULLPTR, row_ids_left.data(), &ctx,
-  //                                    NULLPTR, NULLPTR, column_arrays_left, row_table,
-  //                                    true, match_bitvector.data());
-  //   for (int i = 0; i < num_rows; ++i) {
-  //     SCOPED_TRACE(i);
-  //     ASSERT_EQ(arrow::bit_util::GetBit(match_bitvector.data(), i), i != 6);
-  //   }
-  // }
+  {
+    std::vector<uint8_t> match_bitvector(BytesForBits(num_rows));
+    KeyCompare::CompareColumnsToRows(num_rows, NULLPTR, row_ids_left.data(), &ctx,
+                                     NULLPTR, NULLPTR, column_arrays, row_table, true,
+                                     match_bitvector.data());
+
+    ASSERT_EQ(arrow::internal::CountSetBits(match_bitvector.data(), 0, num_rows),
+              num_rows);
+  }
 }
 
 }  // namespace compute
