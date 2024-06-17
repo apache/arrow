@@ -4189,7 +4189,7 @@ def float16():
       32256
     ]
     >>> a.to_pylist()
-    [1.5, nan]
+    [np.float16(1.5), np.float16(nan)]
     """
     return primitive_type(_Type_HALF_FLOAT)
 
