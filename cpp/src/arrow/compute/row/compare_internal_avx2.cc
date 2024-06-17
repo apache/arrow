@@ -268,9 +268,9 @@ inline __m256i UnsignedOffsetSafeGather32(int const* base, __m256i offset,
   return _mm256_i32gather_epi32(normalized_base, normalized_offset, 1);
 }
 
-inline __m256i UnsignedOffsetSafeGather64(long long const* base, __m128i offset,
-                                          const int scale = 1) {
-  auto normalized_base = base + 0x80000000ull / sizeof(long long);
+inline __m256i UnsignedOffsetSafeGather64(arrow::util::int64_for_gather_t const* base,
+                                          __m128i offset, const int scale = 1) {
+  auto normalized_base = base + 0x80000000ull / sizeof(arrow::util::int64_for_gather_t);
   __m128i normalized_offset = _mm_sub_epi32(offset, _mm_set1_epi32(0x80000000));
   return _mm256_i32gather_epi64(normalized_base, normalized_offset, 1);
 }

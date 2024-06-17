@@ -173,9 +173,9 @@ TEST(KeyCompare, CompareColumnsToRowsLarge) {
     GTEST_SKIP() << "Test only works on 64-bit platforms";
   }
 
-  // The idea of this case is to create a row table using several fixed length columns one
-  // var length column (so the row is hence var length and has offset buffer), with the
-  // overall data size exceeding 2GB. Then compare each row with itself.
+  // The idea of this case is to create a row table using several fixed length columns and
+  // one var length column (so the row is hence var length and has offset buffer), with
+  // the overall data size exceeding 2GB. Then compare each row with itself.
   constexpr int64_t two_gb = 2ll * 1024ll * 1024ll * 1024ll;
   // The compare function requires the row id of the left column to be uint16_t, hence the
   // number of rows.
