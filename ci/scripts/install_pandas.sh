@@ -31,10 +31,10 @@ if [ "${numpy}" = "nightly" ]; then
   pip install --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple --pre numpy
 elif [ "${numpy}" = "latest" ]; then
   pip install numpy
-elif [ "${numpy}" = "~="* ]; then
-  pip install numpy${numpy}
-else
+elif [ "${numpy}" = [0-9]* ]; then
   pip install numpy==${numpy}
+else
+  pip install numpy${numpy}
 fi
 
 if [ "${pandas}" = "upstream_devel" ]; then
@@ -43,8 +43,8 @@ elif [ "${pandas}" = "nightly" ]; then
   pip install --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple --pre pandas
 elif [ "${pandas}" = "latest" ]; then
   pip install pandas
-elif [ "${pandas}" = "~="* ]; then
-  pip install pandas${pandas}
-else
+elif [ "${pandas}" = [0-9]* ]; then
   pip install pandas==${pandas}
+else
+  pip install pandas${pandas}
 fi
