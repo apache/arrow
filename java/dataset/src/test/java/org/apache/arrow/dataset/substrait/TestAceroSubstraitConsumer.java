@@ -516,8 +516,10 @@ public class TestAceroSubstraitConsumer extends TestDataset {
       int rowcount = 0;
       while (reader.loadNextBatch()) {
         final ValueIterableVector<Boolean> booleanVector =
-            (ValueIterableVector<Boolean>) reader.getVectorSchemaRoot().getVector("filter_id_lower_than_20");
-        assertThat(booleanVector.getValueIterable(),
+            (ValueIterableVector<Boolean>)
+                reader.getVectorSchemaRoot().getVector("filter_id_lower_than_20");
+        assertThat(
+            booleanVector.getValueIterable(),
             IsIterableContainingInOrder.contains(true, true, true, false, false));
         rowcount += reader.getVectorSchemaRoot().getRowCount();
       }
@@ -625,13 +627,17 @@ public class TestAceroSubstraitConsumer extends TestDataset {
       int rowcount = 0;
       while (reader.loadNextBatch()) {
         final ValueIterableVector<Integer> sumVector =
-            (ValueIterableVector<Integer>) reader.getVectorSchemaRoot().getVector("add_two_to_column_a");
+            (ValueIterableVector<Integer>)
+                reader.getVectorSchemaRoot().getVector("add_two_to_column_a");
         assertThat(sumVector.getValueIterable(), IsIterableContainingInOrder.contains(21, 3, 13));
         final ValueIterableVector<Text> nameVector =
-            (ValueIterableVector<Text>) reader.getVectorSchemaRoot().getVector("conccat_column_a_and_b");
-        assertThat(nameVector.getValueIterable(),
+            (ValueIterableVector<Text>)
+                reader.getVectorSchemaRoot().getVector("conccat_column_a_and_b");
+        assertThat(
+            nameVector.getValueIterable(),
             IsIterableContainingInOrder.contains(
-                new Text("value_19 - value_19"), new Text("value_1 - value_1"),
+                new Text("value_19 - value_19"),
+                new Text("value_1 - value_1"),
                 new Text("value_11 - value_11")));
         rowcount += reader.getVectorSchemaRoot().getRowCount();
       }
