@@ -16,10 +16,10 @@
  */
 package org.apache.arrow.dataset.substrait;
 
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.io.File;
 import java.nio.ByteBuffer;
@@ -299,8 +299,10 @@ public class TestAceroSubstraitConsumer extends TestDataset {
         assertThat(idVector.getValueIterable(), IsIterableContainingInOrder.contains(19, 1, 11));
         final ValueIterableVector<Text> nameVector =
             (ValueIterableVector<Text>) reader.getVectorSchemaRoot().getVector("name");
-        assertThat(nameVector.getValueIterable(), IsIterableContainingInOrder.contains(
-            new Text("value_19"), new Text("value_1"), new Text("value_11")));
+        assertThat(
+            nameVector.getValueIterable(),
+            IsIterableContainingInOrder.contains(
+                new Text("value_19"), new Text("value_1"), new Text("value_11")));
       }
       assertEquals(3, rowcount);
     }
@@ -448,14 +450,20 @@ public class TestAceroSubstraitConsumer extends TestDataset {
       int rowcount = 0;
       while (reader.loadNextBatch()) {
         final ValueIterableVector<Integer> sumVector =
-            (ValueIterableVector<Integer>) reader.getVectorSchemaRoot().getVector("add_two_to_column_a");
-        assertThat(sumVector.getValueIterable(), IsIterableContainingInOrder.contains(21, 3, 13, 23, 47));
+            (ValueIterableVector<Integer>)
+                reader.getVectorSchemaRoot().getVector("add_two_to_column_a");
+        assertThat(
+            sumVector.getValueIterable(), IsIterableContainingInOrder.contains(21, 3, 13, 23, 47));
         final ValueIterableVector<Text> nameVector =
-            (ValueIterableVector<Text>) reader.getVectorSchemaRoot().getVector("concat_column_a_and_b");
-        assertThat(nameVector.getValueIterable(),
+            (ValueIterableVector<Text>)
+                reader.getVectorSchemaRoot().getVector("concat_column_a_and_b");
+        assertThat(
+            nameVector.getValueIterable(),
             IsIterableContainingInOrder.contains(
-                new Text("value_19 - value_19"), new Text("value_1 - value_1"),
-                new Text("value_11 - value_11"), new Text("value_21 - value_21"),
+                new Text("value_19 - value_19"),
+                new Text("value_1 - value_1"),
+                new Text("value_11 - value_11"),
+                new Text("value_21 - value_21"),
                 new Text("value_45 - value_45")));
         rowcount += reader.getVectorSchemaRoot().getRowCount();
       }
