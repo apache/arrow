@@ -28,7 +28,7 @@ require (
 	github.com/google/flatbuffers v24.3.25+incompatible
 	github.com/klauspost/asmfmt v1.3.2
 	github.com/klauspost/compress v1.17.9
-	github.com/klauspost/cpuid/v2 v2.2.7
+	github.com/klauspost/cpuid/v2 v2.2.8
 	github.com/minio/asm2plan9s v0.0.0-20200509001527-cdd76441f9d8
 	github.com/minio/c2goasm v0.0.0-20190812172519-36a3d3bbc4f3
 	github.com/pierrec/lz4/v4 v4.1.21
