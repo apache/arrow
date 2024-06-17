@@ -16,7 +16,6 @@
 // under the License.
 
 #include <immintrin.h>
-#include <iostream>
 
 #include "arrow/compute/row/compare_internal.h"
 #include "arrow/compute/util.h"
@@ -687,19 +686,6 @@ uint32_t KeyCompare::CompareVarBinaryColumnToRow_avx2(
   }
 
   return num_rows_to_compare;
-}
-
-void RossiTest() {
-  size_t size = 0x100000000ull + 2 * sizeof(uint32_t);
-  uint32_t* data = new uint32_t[size / sizeof(uint32_t)];
-  data[0] = 0xDEADBEEF;
-  data[0x100000000ull / sizeof(uint32_t) + 1] = 0xFEEBDAED;
-  __m256i offset = _mm256_setr_epi32(-4, 0, 0, 0, 0, 0, 0, 0);
-  __m256i content = _mm256_i32gather_epi32(data + 1, offset, 1);
-  std::cout << "Content: " << std::hex << _mm256_extract_epi32(content, 0) << std::endl;
-  int32_t i_2g = 0x80000000;
-  int32_t i_over_2g = 0x800000AB;
-  std::cout << std::hex << i_over_2g - i_2g << std::endl;
 }
 
 }  // namespace compute

@@ -21,7 +21,6 @@
 
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/discovery.h"
-#include "arrow/dataset/file_parquet.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/test_util_internal.h"
 #include "arrow/filesystem/mockfs.h"
@@ -800,83 +799,6 @@ TEST(TestDictPartitionColumn, SelectPartitionColumnFilterPhysicalColumn) {
   ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
   AssertArraysEqual(*table->column(0)->chunk(0),
                     *ArrayFromJSON(partition_field->type(), R"(["one"])"));
-}
-
-namespace ac = arrow::acero;
-namespace cp = arrow::compute;
-namespace ds = arrow::dataset;
-namespace fs = arrow::fs;
-
-arrow::Result<std::shared_ptr<fs::FileSystem>> GetFileSystemFromUri(
-    const std::string& uri, std::string* path) {
-  return fs::FileSystemFromUri(uri, path);
-}
-
-arrow::Result<std::shared_ptr<ds::Dataset>> GetDatasetFromDirectory(
-    std::shared_ptr<fs::FileSystem> fs, std::shared_ptr<ds::ParquetFileFormat> format,
-    std::string dir) {
-  // Find all files under `path`
-  fs::FileSelector s;
-  s.base_dir = dir;
-  s.recursive = true;
-
-  ds::FileSystemFactoryOptions options;
-  options.partitioning = DirectoryPartitioning::MakeFactory({"year", "month"});
-  // The factory will try to build a child dataset.
-  ARROW_ASSIGN_OR_RAISE(auto factory,
-                        ds::FileSystemDatasetFactory::Make(fs, s, format, options));
-
-  // Try to infer a common schema for all files.
-  ARROW_ASSIGN_OR_RAISE(auto schema, factory->Inspect({}));
-  // Caller can optionally decide another schema as long as it is compatible
-  // with the previous one, e.g. `factory->Finish(compatible_schema)`.
-  ARROW_ASSIGN_OR_RAISE(auto child, factory->Finish());
-
-  ds::DatasetVector children{1, child};
-  auto dataset = ds::UnionDataset::Make(std::move(schema), std::move(children));
-
-  return dataset;
-}
-
-arrow::Result<std::shared_ptr<ds::Scanner>> GetScannerFromDataset(
-    std::shared_ptr<ds::Dataset> dataset) {
-  ARROW_ASSIGN_OR_RAISE(auto scanner_builder, dataset->NewScan());
-
-  ARROW_RETURN_NOT_OK(scanner_builder->UseThreads(true));
-
-  return scanner_builder->Finish();
-}
-
-arrow::Status ExecutePlanAndCollectAsTable(ac::Declaration plan) {
-  // collect sink_reader into a Table
-  std::shared_ptr<arrow::Table> response_table;
-  ARROW_ASSIGN_OR_RAISE(response_table, ac::DeclarationToTable(std::move(plan)));
-
-  std::cout << "Results : " << response_table->ToString() << std::endl;
-
-  return arrow::Status::OK();
-}
-
-TEST(GH41813, GH41813) {
-  std::string uri =
-      "file:///Users/zanmato/Downloads/arrow_segfault_reproducer_2/data/reduced_attempt3";
-  std::string path;
-  auto format = std::make_shared<ds::ParquetFileFormat>();
-  ASSERT_OK_AND_ASSIGN(auto fs, GetFileSystemFromUri(uri, &path));
-  ASSERT_OK_AND_ASSIGN(auto dataset, GetDatasetFromDirectory(fs, format, path));
-  ASSERT_OK_AND_ASSIGN(auto scanner, GetScannerFromDataset(dataset));
-  auto scan_options = std::make_shared<arrow::dataset::ScanOptions>();
-  scan_options->projection = cp::project({}, {});  // create empty projection
-  auto scan_node_options = arrow::dataset::ScanNodeOptions{dataset, scan_options};
-  ac::Declaration scan{"scan", std::move(scan_node_options)};
-
-  auto count_options = std::make_shared<cp::CountOptions>(cp::CountOptions::ONLY_VALID);
-  auto aggregate_options = ac::AggregateNodeOptions{
-      /*aggregates=*/{{"hash_count", count_options, "date", "count(date)"}},
-      /*keys=*/{"year", "month", "cid"}};
-  ac::Declaration aggregate{"aggregate", {std::move(scan)}, std::move(aggregate_options)};
-
-  ASSERT_OK(ExecutePlanAndCollectAsTable(std::move(aggregate)));
 }
 
 }  // namespace dataset

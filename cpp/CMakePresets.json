@@ -259,19 +259,6 @@
       "cacheVariables": {}
     },
     {
-      "name": "fix-41813",
-      "inherits": [
-        "base-debug",
-        "features-main"
-      ],
-      "displayName": "Fix 41813",
-      "cacheVariables": {
-        "ARROW_JEMALLOC": "OFF",
-        "ARROW_MIMALLOC": "OFF",
-        "ARROW_USE_ASAN": "ON"
-      }
-    },
-    {
       "name": "ninja-debug-cuda",
       "inherits": [
         "base-debug",
