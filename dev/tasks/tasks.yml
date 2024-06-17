@@ -1498,7 +1498,7 @@ tasks:
                                                                      ("3.10", "latest", "latest", False),
                                                                      ("3.10", "nightly", "nightly", False),
                                                                      ("3.11", "upstream_devel", "nightly", False)] %}
-  test-conda-python-{{ python_version }}-pandas-{{ pandas_version }}:
+  test-conda-python-{{ python_version }}-pandas-{{ pandas_version }}-numpy-{{ numpy_version }}:
     ci: github
     template: docker-tests/github.linux.yml
     params:
