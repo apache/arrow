@@ -32,6 +32,7 @@
 #include <thrift/transport/TBufferTransports.h>
 
 #include "parquet_types.h"
+#include "parquet/thrift_internal.h"
 
 using apache::thrift::protocol::TCompactProtocol;
 using apache::thrift::transport::TMemoryBuffer;
@@ -77,11 +78,10 @@ std::pair<char*, size_t> MmapFile(const std::string& fname) {
 }
 
 template <typename T>
-bool Deserialize(const char* data, size_t len, T* obj) {
-  TMemoryBuffer buf(reinterpret_cast<uint8_t*>(const_cast<char*>(data)), len);
-  TCompactProtocol proto(std::shared_ptr<TTransport>(&buf, [](auto*) {}));
+bool Deserialize(const char* data, uint32_t len, T* obj) {
+  parquet::ThriftDeserializer des(10 << 20, 10 << 20);
   try {
-    obj->read(&proto);
+    des.DeserializeMessage(reinterpret_cast<const uint8_t*>(data), &len, obj);
     return true;
   } catch (const std::exception& e) {
     std::cerr << "Failed to deserialize: " << e.what() << "\n";
@@ -91,14 +91,9 @@ bool Deserialize(const char* data, size_t len, T* obj) {
 
 template <typename T>
 bool Serialize(const T& obj, std::string* out) {
-  TMemoryBuffer buf;
-  TCompactProtocol proto(std::shared_ptr<TTransport>(&buf, [](auto*) {}));
+  parquet::ThriftSerializer ser(10 << 20);
   try {
-    obj.write(&proto);
-    uint8_t* data;
-    uint32_t len;
-    buf.getBuffer(&data, &len);
-    out->assign(reinterpret_cast<char*>(data), len);
+    ser.SerializeToString(&obj, out);
     return true;
   } catch (const std::exception& e) {
     std::cerr << "Failed to serialize: " << e.what() << "\n";
