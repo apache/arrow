@@ -269,7 +269,6 @@ TEST(KeyCompare, CompareColumnsToRowsLarge) {
     KeyCompare::CompareColumnsToRows(
         num_rows, /*sel_left_maybe_null=*/NULLPTR, row_ids_left.data(), &ctx, NULLPTR,
         NULLPTR, column_arrays, row_table, true, match_bitvector.data());
-
     ASSERT_EQ(arrow::internal::CountSetBits(match_bitvector.data(), 0, num_rows),
               num_rows);
   }
@@ -282,7 +281,6 @@ TEST(KeyCompare, CompareColumnsToRowsLarge) {
     KeyCompare::CompareColumnsToRows(num_rows, NULLPTR, row_ids_left.data(), &ctx,
                                      NULLPTR, NULLPTR, column_arrays, row_table, true,
                                      match_bitvector.data());
-
     ASSERT_EQ(arrow::internal::CountSetBits(match_bitvector.data(), 0, num_rows),
               num_rows);
   }
