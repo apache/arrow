@@ -181,7 +181,7 @@ TEST(KeyCompare, CompareColumnsToRowsLarge) {
   // number of rows.
   constexpr int64_t num_rows = std::numeric_limits<uint16_t>::max() + 1;
   // The var length column should be a little smaller than 2GB to WAR the capacity
-  // limitation in the builder.
+  // limitation in the var length builder.
   constexpr int32_t var_length = two_gb / num_rows - 1;
   const int32_t fixed_length = uint32()->byte_width();
   // The overall size should be larger than 2GB.
