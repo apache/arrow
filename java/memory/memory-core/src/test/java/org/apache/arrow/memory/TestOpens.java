@@ -19,7 +19,7 @@ package org.apache.arrow.memory;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class TestOpens {
   /** Instantiating the RootAllocator should poke MemoryUtil and fail. */

@@ -16,48 +16,41 @@
  */
 package org.apache.arrow.memory.util.hash;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.Collection;
+import java.util.stream.Stream;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /** Test cases for {@link ArrowBufHasher} and its subclasses. */
-@RunWith(Parameterized.class)
 public class TestArrowBufHasher {
 
   private final int BUFFER_LENGTH = 1024;
 
   private BufferAllocator allocator;
 
-  private ArrowBufHasher hasher;
-
-  public TestArrowBufHasher(String name, ArrowBufHasher hasher) {
-    this.hasher = hasher;
-  }
-
-  @Before
+  @BeforeEach
   public void prepare() {
     allocator = new RootAllocator(1024 * 1024);
   }
 
-  @After
+  @AfterEach
   public void shutdown() {
     allocator.close();
   }
 
-  @Test
-  public void testHasher() {
+  @ParameterizedTest(name = "hasher = {0}")
+  @MethodSource("getHasher")
+  void testHasher(String name, ArrowBufHasher hasher) {
     try (ArrowBuf buf1 = allocator.buffer(BUFFER_LENGTH);
         ArrowBuf buf2 = allocator.buffer(BUFFER_LENGTH)) {
       // prepare data
@@ -66,77 +59,73 @@ public class TestArrowBufHasher {
         buf2.setFloat(i * 4L, i / 10.0f);
       }
 
-      verifyHashCodesEqual(buf1, 0, 100, buf2, 0, 100);
-      verifyHashCodesEqual(buf1, 1, 5, buf2, 1, 5);
-      verifyHashCodesEqual(buf1, 10, 17, buf2, 10, 17);
-      verifyHashCodesEqual(buf1, 33, 25, buf2, 33, 25);
-      verifyHashCodesEqual(buf1, 22, 22, buf2, 22, 22);
-      verifyHashCodesEqual(buf1, 123, 333, buf2, 123, 333);
-      verifyHashCodesEqual(buf1, 374, 1, buf2, 374, 1);
-      verifyHashCodesEqual(buf1, 11, 0, buf2, 11, 0);
-      verifyHashCodesEqual(buf1, 75, 25, buf2, 75, 25);
-      verifyHashCodesEqual(buf1, 0, 1024, buf2, 0, 1024);
+      verifyHashCodesEqual(hasher, buf1, 0, 100, buf2, 0, 100);
+      verifyHashCodesEqual(hasher, buf1, 1, 5, buf2, 1, 5);
+      verifyHashCodesEqual(hasher, buf1, 10, 17, buf2, 10, 17);
+      verifyHashCodesEqual(hasher, buf1, 33, 25, buf2, 33, 25);
+      verifyHashCodesEqual(hasher, buf1, 22, 22, buf2, 22, 22);
+      verifyHashCodesEqual(hasher, buf1, 123, 333, buf2, 123, 333);
+      verifyHashCodesEqual(hasher, buf1, 374, 1, buf2, 374, 1);
+      verifyHashCodesEqual(hasher, buf1, 11, 0, buf2, 11, 0);
+      verifyHashCodesEqual(hasher, buf1, 75, 25, buf2, 75, 25);
+      verifyHashCodesEqual(hasher, buf1, 0, 1024, buf2, 0, 1024);
     }
   }
 
   private void verifyHashCodesEqual(
-      ArrowBuf buf1, int offset1, int length1, ArrowBuf buf2, int offset2, int length2) {
+      ArrowBufHasher hasher,
+      ArrowBuf buf1,
+      int offset1,
+      int length1,
+      ArrowBuf buf2,
+      int offset2,
+      int length2) {
     int hashCode1 = hasher.hashCode(buf1, offset1, length1);
     int hashCode2 = hasher.hashCode(buf2, offset2, length2);
     assertEquals(hashCode1, hashCode2);
   }
 
-  @Test
-  public void testHasherNegative() {
+  @ParameterizedTest(name = "hasher = {0}")
+  @MethodSource("getHasher")
+  public void testHasherNegative(String name, ArrowBufHasher hasher) {
     try (ArrowBuf buf = allocator.buffer(BUFFER_LENGTH)) {
       // prepare data
       for (int i = 0; i < BUFFER_LENGTH / 4; i++) {
         buf.setFloat(i * 4L, i / 10.0f);
       }
 
-      assertThrows(
-          IllegalArgumentException.class,
-          () -> {
-            hasher.hashCode(buf, 0, -1);
-          });
+      assertThrows(IllegalArgumentException.class, () -> hasher.hashCode(buf, 0, -1));
 
-      assertThrows(
-          IndexOutOfBoundsException.class,
-          () -> {
-            hasher.hashCode(buf, 0, 1028);
-          });
+      assertThrows(IndexOutOfBoundsException.class, () -> hasher.hashCode(buf, 0, 1028));
 
-      assertThrows(
-          IndexOutOfBoundsException.class,
-          () -> {
-            hasher.hashCode(buf, 500, 1000);
-          });
+      assertThrows(IndexOutOfBoundsException.class, () -> hasher.hashCode(buf, 500, 1000));
     }
   }
 
-  @Test
-  public void testHasherLessThanInt() {
+  @ParameterizedTest(name = "hasher = {0}")
+  @MethodSource("getHasher")
+  public void testHasherLessThanInt(String name, ArrowBufHasher hasher) {
     try (ArrowBuf buf1 = allocator.buffer(4);
         ArrowBuf buf2 = allocator.buffer(4)) {
       buf1.writeBytes("foo1".getBytes(StandardCharsets.UTF_8));
       buf2.writeBytes("bar2".getBytes(StandardCharsets.UTF_8));
 
       for (int i = 1; i <= 4; i++) {
-        verifyHashCodeNotEqual(buf1, i, buf2, i);
+        verifyHashCodeNotEqual(hasher, buf1, i, buf2, i);
       }
     }
   }
 
-  private void verifyHashCodeNotEqual(ArrowBuf buf1, int length1, ArrowBuf buf2, int length2) {
+  private void verifyHashCodeNotEqual(
+      ArrowBufHasher hasher, ArrowBuf buf1, int length1, ArrowBuf buf2, int length2) {
     int hashCode1 = hasher.hashCode(buf1, 0, length1);
     int hashCode2 = hasher.hashCode(buf2, 0, length2);
     assertNotEquals(hashCode1, hashCode2);
   }
 
-  @Parameterized.Parameters(name = "hasher = {0}")
-  public static Collection<Object[]> getHasher() {
-    return Arrays.asList(
-        new Object[] {SimpleHasher.class.getSimpleName(), SimpleHasher.INSTANCE},
-        new Object[] {MurmurHasher.class.getSimpleName(), new MurmurHasher()});
+  private static Stream<Arguments> getHasher() {
+    return Stream.of(
+        Arguments.of(SimpleHasher.class.getSimpleName(), SimpleHasher.INSTANCE),
+        Arguments.of(MurmurHasher.class.getSimpleName(), new MurmurHasher()));
   }
 }

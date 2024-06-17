@@ -16,28 +16,29 @@
  */
 package org.apache.arrow.memory.netty;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import io.netty.buffer.PooledByteBufAllocatorL;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.memory.RootAllocator;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 public class TestEmptyArrowBuf {
 
   private static final int MAX_ALLOCATION = 8 * 1024;
   private static RootAllocator allocator;
 
-  @BeforeClass
+  @BeforeAll
   public static void beforeClass() {
     allocator = new RootAllocator(MAX_ALLOCATION);
   }
 
   /** Ensure the allocator is closed. */
-  @AfterClass
+  @AfterAll
   public static void afterClass() {
     if (allocator != null) {
       allocator.close();
@@ -75,8 +76,8 @@ public class TestEmptyArrowBuf {
     assertEquals(0, buf.getActualMemoryConsumed());
     assertEquals(0, buf.getReferenceManager().getSize());
     assertEquals(0, buf.getReferenceManager().getAccountedSize());
-    assertEquals(false, buf.getReferenceManager().release());
-    assertEquals(false, buf.getReferenceManager().release(2));
+    assertFalse(buf.getReferenceManager().release());
+    assertFalse(buf.getReferenceManager().release(2));
     assertEquals(0, buf.getReferenceManager().getAllocator().getLimit());
     assertEquals(
         buf, buf.getReferenceManager().transferOwnership(buf, allocator).getTransferredBuffer());

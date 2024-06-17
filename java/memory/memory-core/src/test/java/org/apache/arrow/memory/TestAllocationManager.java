@@ -16,9 +16,9 @@
  */
 package org.apache.arrow.memory;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /** Test cases for {@link AllocationManager}. */
 public class TestAllocationManager {

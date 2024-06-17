@@ -16,15 +16,15 @@
  */
 package org.apache.arrow.memory.unsafe;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 import org.apache.arrow.memory.AllocationManager;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.BufferLedger;
 import org.apache.arrow.memory.RootAllocator;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /** Test cases for {@link UnsafeAllocationManager}. */
 public class TestUnsafeAllocationManager {
@@ -55,12 +55,12 @@ public class TestUnsafeAllocationManager {
     final long bufSize = 4096L;
     try (BufferAllocator allocator = createUnsafeAllocator();
         ArrowBuf buffer = allocator.buffer(bufSize)) {
-      assertTrue(buffer.getReferenceManager() instanceof BufferLedger);
+      assertInstanceOf(BufferLedger.class, buffer.getReferenceManager());
       BufferLedger bufferLedger = (BufferLedger) buffer.getReferenceManager();
 
       // make sure we are using unsafe allocation manager
       AllocationManager allocMgr = bufferLedger.getAllocationManager();
-      assertTrue(allocMgr instanceof UnsafeAllocationManager);
+      assertInstanceOf(UnsafeAllocationManager.class, allocMgr);
       UnsafeAllocationManager unsafeMgr = (UnsafeAllocationManager) allocMgr;
 
       assertEquals(bufSize, unsafeMgr.getSize());

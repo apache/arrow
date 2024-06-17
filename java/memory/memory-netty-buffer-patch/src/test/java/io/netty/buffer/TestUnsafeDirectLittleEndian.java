@@ -16,13 +16,13 @@
  */
 package io.netty.buffer;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class TestUnsafeDirectLittleEndian {
 
@@ -30,20 +30,7 @@ public class TestUnsafeDirectLittleEndian {
   @SuppressWarnings("CatchAndPrintStackTrace")
   public void testPrimitiveGetSet() {
     ByteBuf byteBuf = Unpooled.directBuffer(64);
-    UnsafeDirectLittleEndian unsafeDirect = new UnsafeDirectLittleEndian(new LargeBuffer(byteBuf));
-
-    unsafeDirect.setByte(0, Byte.MAX_VALUE);
-    unsafeDirect.setByte(1, -1); // 0xFF
-    unsafeDirect.setShort(2, Short.MAX_VALUE);
-    unsafeDirect.setShort(4, -2); // 0xFFFE
-    unsafeDirect.setInt(8, Integer.MAX_VALUE);
-    unsafeDirect.setInt(12, -66052); // 0xFFFE FDFC
-    unsafeDirect.setLong(16, Long.MAX_VALUE);
-    unsafeDirect.setLong(24, -4295098372L); // 0xFFFF FFFE FFFD FFFC
-    unsafeDirect.setFloat(32, 1.23F);
-    unsafeDirect.setFloat(36, -1.23F);
-    unsafeDirect.setDouble(40, 1.234567D);
-    unsafeDirect.setDouble(48, -1.234567D);
+    UnsafeDirectLittleEndian unsafeDirect = getUnsafeDirectLittleEndian(byteBuf);
 
     assertEquals(Byte.MAX_VALUE, unsafeDirect.getByte(0));
     assertEquals(-1, unsafeDirect.getByte(1));
@@ -69,5 +56,23 @@ public class TestUnsafeDirectLittleEndian {
     } catch (IOException e) {
       e.printStackTrace();
     }
+  }
+
+  private static UnsafeDirectLittleEndian getUnsafeDirectLittleEndian(ByteBuf byteBuf) {
+    UnsafeDirectLittleEndian unsafeDirect = new UnsafeDirectLittleEndian(new LargeBuffer(byteBuf));
+
+    unsafeDirect.setByte(0, Byte.MAX_VALUE);
+    unsafeDirect.setByte(1, -1); // 0xFF
+    unsafeDirect.setShort(2, Short.MAX_VALUE);
+    unsafeDirect.setShort(4, -2); // 0xFFFE
+    unsafeDirect.setInt(8, Integer.MAX_VALUE);
+    unsafeDirect.setInt(12, -66052); // 0xFFFE FDFC
+    unsafeDirect.setLong(16, Long.MAX_VALUE);
+    unsafeDirect.setLong(24, -4295098372L); // 0xFFFF FFFE FFFD FFFC
+    unsafeDirect.setFloat(32, 1.23F);
+    unsafeDirect.setFloat(36, -1.23F);
+    unsafeDirect.setDouble(40, 1.234567D);
+    unsafeDirect.setDouble(48, -1.234567D);
+    return unsafeDirect;
   }
 }

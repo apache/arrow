@@ -16,15 +16,16 @@
  */
 package org.apache.arrow.util;
 
-import static org.junit.Assert.fail;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /** Tests for {@code Collections2} class. */
 public class TestCollections2 {
@@ -72,6 +73,6 @@ public class TestCollections2 {
     iterator.next();
 
     assertEquals("[bar, baz]", Collections2.toString(iterator));
-    assertEquals(false, iterator.hasNext());
+    assertFalse(iterator.hasNext());
   }
 }
