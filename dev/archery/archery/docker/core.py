@@ -340,18 +340,9 @@ class DockerCompose(Command):
         service = self.config.get(service_name)
 
         args = []
-        if user is not None:
-            args.extend(['-u', user])
 
-        if env is not None:
-            for k, v in env.items():
-                args.extend(['-e', '{}={}'.format(k, v)])
-
-        if volumes is not None:
-            for volume in volumes:
-                args.extend(['--volume', volume])
-
-        if self.config.using_docker or service['need_gpu'] or resource_limit:
+        use_docker = self.config.using_docker or service['need_gpu'] or resource_limit
+        if use_docker:
             # use gpus, requires docker>=19.03
             if service['need_gpu']:
                 args.extend(['--gpus', 'all'])
@@ -396,6 +387,18 @@ class DockerCompose(Command):
             # name which we refer as image in general
             args.append(service['image'])
 
+        if user is not None:
+            args.extend(['-u', user])
+
+        if env is not None:
+            for k, v in env.items():
+                args.extend(['-e', '{}={}'.format(k, v)])
+
+        if volumes is not None:
+            for volume in volumes:
+                args.extend(['--volume', volume])
+
+        if use_docker:
             # add command from compose if it wasn't overridden
             if command is not None:
                 args.append(command)
