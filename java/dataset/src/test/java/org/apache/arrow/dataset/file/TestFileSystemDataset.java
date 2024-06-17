@@ -16,10 +16,10 @@
  */
 package org.apache.arrow.dataset.file;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.primitives.Primitives;
@@ -62,22 +62,19 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.hadoop.fs.Path;
 import org.apache.orc.TypeDescription;
-import org.junit.Assert;
-import org.junit.ClassRule;
-import org.junit.Test;
-import org.junit.jupiter.api.Assertions;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 public class TestFileSystemDataset extends TestNativeDataset {
 
-  @ClassRule public static final TemporaryFolder TMP = new TemporaryFolder();
+  @TempDir public File TMP;
 
   public static final String AVRO_SCHEMA_USER = "user.avsc";
 
   @Test
   public void testBaseParquetRead() throws Exception {
     ParquetWriteSupport writeSupport =
-        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
+        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP, 1, "a");
 
     FileSystemDatasetFactory factory =
         new FileSystemDatasetFactory(
@@ -105,9 +102,9 @@ public class TestFileSystemDataset extends TestNativeDataset {
   @Test
   public void testMultipleParquetReadFromUris() throws Exception {
     ParquetWriteSupport writeSupport1 =
-        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
+        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP, 1, "a");
     ParquetWriteSupport writeSupport2 =
-        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 2, "b");
+        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP, 2, "b");
     String expectedJsonUnordered = "[[1,\"a\"],[2,\"b\"]]";
 
     ScanOptions options = new ScanOptions(1);
@@ -140,8 +137,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
                     NativeMemoryPool.getDefault(),
                     FileFormat.PARQUET,
                     new String[] {"https://example.com", "file:///test/location"}));
-    Assertions.assertEquals(
-        "Unrecognized filesystem type in URI: https://example.com", exc.getMessage());
+    assertEquals("Unrecognized filesystem type in URI: https://example.com", exc.getMessage());
   }
 
   @Test
@@ -155,7 +151,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
                     NativeMemoryPool.getDefault(),
                     FileFormat.PARQUET,
                     new String[] {"file:///test/location", "s3:///test/bucket/file"}));
-    Assertions.assertTrue(
+    assertTrue(
         exc.getMessage()
             .startsWith(
                 "The filesystem expected a URI with one of the schemes (file) but received s3"));
@@ -164,7 +160,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
   @Test
   public void testParquetProjectSingleColumn() throws Exception {
     ParquetWriteSupport writeSupport =
-        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
+        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP, 1, "a");
 
     FileSystemDatasetFactory factory =
         new FileSystemDatasetFactory(
@@ -194,8 +190,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
   @Test
   public void testParquetBatchSize() throws Exception {
     ParquetWriteSupport writeSupport =
-        ParquetWriteSupport.writeTempFile(
-            AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a", 2, "b", 3, "c");
+        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP, 1, "a", 2, "b", 3, "c");
 
     ScanOptions options = new ScanOptions(1);
     FileSystemDatasetFactory factory =
@@ -218,7 +213,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
 
   @Test
   public void testParquetDirectoryRead() throws Exception {
-    final File outputFolder = TMP.newFolder();
+    final File outputFolder = TMP;
     ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, outputFolder, 1, "a", 2, "b", 3, "c");
     ParquetWriteSupport.writeTempFile(
         AVRO_SCHEMA_USER, outputFolder, 4, "e", 5, "f", 6, "g", 7, "h");
@@ -246,7 +241,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
   @Test
   public void testEmptyProjectSelectsZeroColumns() throws Exception {
     ParquetWriteSupport writeSupport =
-        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
+        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP, 1, "a");
 
     FileSystemDatasetFactory factory =
         new FileSystemDatasetFactory(
@@ -272,7 +267,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
   @Test
   public void testNullProjectSelectsAllColumns() throws Exception {
     ParquetWriteSupport writeSupport =
-        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
+        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP, 1, "a");
 
     FileSystemDatasetFactory factory =
         new FileSystemDatasetFactory(
@@ -299,7 +294,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
   @Test
   public void testNoErrorWhenCloseAgain() throws Exception {
     ParquetWriteSupport writeSupport =
-        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
+        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP, 1, "a");
 
     FileSystemDatasetFactory factory =
         new FileSystemDatasetFactory(
@@ -321,7 +316,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
   @Test
   public void testErrorThrownWhenScanBatchesAgain() throws Exception {
     ParquetWriteSupport writeSupport =
-        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
+        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP, 1, "a");
 
     FileSystemDatasetFactory factory =
         new FileSystemDatasetFactory(
@@ -336,7 +331,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
     AutoCloseables.close(datum);
     UnsupportedOperationException uoe =
         assertThrows(UnsupportedOperationException.class, scanner::scanBatches);
-    Assertions.assertEquals(
+    assertEquals(
         "NativeScanner can only be executed once. Create a new scanner instead", uoe.getMessage());
 
     AutoCloseables.close(scanner, dataset, factory);
@@ -346,7 +341,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
   public void testScanBatchesInOtherThread() throws Exception {
     ExecutorService executor = Executors.newSingleThreadExecutor();
     ParquetWriteSupport writeSupport =
-        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
+        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP, 1, "a");
 
     FileSystemDatasetFactory factory =
         new FileSystemDatasetFactory(
@@ -366,7 +361,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
   @Test
   public void testErrorThrownWhenScanBatchesAfterScannerClose() throws Exception {
     ParquetWriteSupport writeSupport =
-        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
+        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP, 1, "a");
 
     FileSystemDatasetFactory factory =
         new FileSystemDatasetFactory(
@@ -386,7 +381,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
   @Test
   public void testErrorThrownWhenReadAfterNativeReaderClose() throws Exception {
     ParquetWriteSupport writeSupport =
-        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
+        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP, 1, "a");
 
     FileSystemDatasetFactory factory =
         new FileSystemDatasetFactory(
@@ -406,7 +401,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
 
   @Test
   public void testBaseArrowIpcRead() throws Exception {
-    File dataFile = TMP.newFile();
+    File dataFile = new File(TMP, "datafile");
     Schema sourceSchema =
         new Schema(Collections.singletonList(Field.nullable("ints", new ArrowType.Int(32, true))));
     try (VectorSchemaRoot root = VectorSchemaRoot.create(sourceSchema, rootAllocator());
@@ -446,7 +441,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
   @Test
   public void testBaseOrcRead() throws Exception {
     String dataName = "test-orc";
-    String basePath = TMP.getRoot().getAbsolutePath();
+    String basePath = TMP.getAbsolutePath();
 
     TypeDescription orcSchema = TypeDescription.fromString("struct<ints:int>");
     Path path = new Path(basePath, dataName);
@@ -477,7 +472,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
   public void testBaseCsvRead() throws Exception {
     TextBasedWriteSupport writeSupport =
         TextBasedWriteSupport.writeTempFile(
-            TMP.newFolder(), ".csv", "Name,Language", "Juno,Java", "Peter,Python", "Celin,C++");
+            TMP, ".csv", "Name,Language", "Juno,Java", "Peter,Python", "Celin,C++");
     String expectedJsonUnordered =
         "[[\"Juno\", \"Java\"], [\"Peter\", \"Python\"], [\"Celin\", \"C++\"]]";
     ScanOptions options = new ScanOptions(100);
@@ -505,7 +500,7 @@ public class TestFileSystemDataset extends TestNativeDataset {
   public void testBaseJsonRead() throws Exception {
     TextBasedWriteSupport writeSupport =
         TextBasedWriteSupport.writeTempFile(
-            TMP.newFolder(),
+            TMP,
             ".json",
             "{\"Type\": \"Compiled\", \"Language\": \"Java\"}",
             "{\"Type\": \"Interpreted\", \"Language\": \"Python\"}");
@@ -557,10 +552,10 @@ public class TestFileSystemDataset extends TestNativeDataset {
         }
       }
     }
-    Assert.assertEquals(
-        "Mismatched data read from Parquet, actual: " + json.writeValueAsString(actualSet) + ";",
+    assertEquals(
         expectedSet,
-        actualSet);
+        actualSet,
+        "Mismatched data read from Parquet, actual: " + json.writeValueAsString(actualSet) + ";");
   }
 
   private void checkParquetReadResult(

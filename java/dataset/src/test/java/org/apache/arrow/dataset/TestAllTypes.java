@@ -17,11 +17,12 @@
 package org.apache.arrow.dataset;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.IOException;
 import java.nio.channels.Channels;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.channels.WritableByteChannel;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -78,13 +79,12 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.ByteArrayReadableSeekableByteChannel;
 import org.apache.arrow.vector.util.Text;
-import org.junit.ClassRule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 public class TestAllTypes extends TestDataset {
 
-  @ClassRule public static final TemporaryFolder TMP = new TemporaryFolder();
+  @TempDir public Path TMP;
 
   private VectorSchemaRoot generateAllTypesVector(BufferAllocator allocator) {
     // Notes:
@@ -262,9 +262,8 @@ public class TestAllTypes extends TestDataset {
       byte[] featherData = serializeFile(root);
       try (SeekableByteChannel channel = new ByteArrayReadableSeekableByteChannel(featherData)) {
         try (ArrowStreamReader reader = new ArrowStreamReader(channel, rootAllocator())) {
-          TMP.create();
-          final File writtenFolder = TMP.newFolder();
-          final String writtenParquet = writtenFolder.toURI().toString();
+          final Path writtenFolder = Files.createTempDirectory(TMP, "writtenFolder");
+          final String writtenParquet = writtenFolder.toUri().toString();
           DatasetFileWriter.write(rootAllocator(), reader, FileFormat.PARQUET, writtenParquet);
 
           // Load the reference file from the test resources and write to a temporary file on the
@@ -277,7 +276,7 @@ public class TestAllTypes extends TestDataset {
                   .toString();
           assertParquetFileEquals(
               referenceFile,
-              Objects.requireNonNull(writtenFolder.listFiles())[0].toURI().toString());
+              Objects.requireNonNull(writtenFolder.toFile().listFiles())[0].toURI().toString());
         }
       }
     }

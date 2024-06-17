@@ -16,10 +16,11 @@
  */
 package org.apache.arrow.dataset.substrait;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThrows;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -43,13 +44,13 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.ClassRule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 public class TestAceroSubstraitConsumer extends TestDataset {
 
-  @ClassRule public static final TemporaryFolder TMP = new TemporaryFolder();
+  @TempDir public File TMP;
+
   public static final String AVRO_SCHEMA_USER = "user.avsc";
 
   @Test
@@ -72,8 +73,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
                     "NAME", new FieldType(true, new ArrowType.Utf8(), null, metadataName), null)),
             Collections.emptyMap());
     ParquetWriteSupport writeSupport =
-        ParquetWriteSupport.writeTempFile(
-            AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a", 11, "b", 21, "c");
+        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP, 1, "a", 11, "b", 21, "c");
     try (ArrowReader arrowReader =
         new AceroSubstraitConsumer(rootAllocator())
             .runQuery(
@@ -108,8 +108,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
                 Field.nullable("NAME", new ArrowType.Utf8())),
             Collections.emptyMap());
     ParquetWriteSupport writeSupport =
-        ParquetWriteSupport.writeTempFile(
-            AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a", 11, "b", 21, "c");
+        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP, 1, "a", 11, "b", 21, "c");
     ScanOptions options = new ScanOptions(/*batchSize*/ 32768);
     try (DatasetFactory datasetFactory =
             new FileSystemDatasetFactory(
@@ -144,7 +143,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
     }
   }
 
-  @Test(expected = RuntimeException.class)
+  @Test
   public void testRunQueryNamedTableWithException() throws Exception {
     // Query:
     // SELECT id, name FROM Users
@@ -158,8 +157,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
                 Field.nullable("NAME", new ArrowType.Utf8())),
             Collections.emptyMap());
     ParquetWriteSupport writeSupport =
-        ParquetWriteSupport.writeTempFile(
-            AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a", 11, "b", 21, "c");
+        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP, 1, "a", 11, "b", 21, "c");
     ScanOptions options = new ScanOptions(/*batchSize*/ 32768);
     try (DatasetFactory datasetFactory =
             new FileSystemDatasetFactory(
@@ -172,24 +170,28 @@ public class TestAceroSubstraitConsumer extends TestDataset {
         ArrowReader reader = scanner.scanBatches()) {
       Map<String, ArrowReader> mapTableToArrowReader = new HashMap<>();
       mapTableToArrowReader.put("USERS_INVALID_MAP", reader);
-      try (ArrowReader arrowReader =
-          new AceroSubstraitConsumer(rootAllocator())
-              .runQuery(
-                  new String(
-                      Files.readAllBytes(
-                          Paths.get(
-                              TestAceroSubstraitConsumer.class
-                                  .getClassLoader()
-                                  .getResource("substrait/named_table_users.json")
-                                  .toURI()))),
-                  mapTableToArrowReader)) {
-        assertEquals(schema, arrowReader.getVectorSchemaRoot().getSchema());
-        int rowcount = 0;
-        while (arrowReader.loadNextBatch()) {
-          rowcount += arrowReader.getVectorSchemaRoot().getRowCount();
-        }
-        assertEquals(3, rowcount);
-      }
+      assertThrows(
+          RuntimeException.class,
+          () -> {
+            try (ArrowReader arrowReader =
+                new AceroSubstraitConsumer(rootAllocator())
+                    .runQuery(
+                        new String(
+                            Files.readAllBytes(
+                                Paths.get(
+                                    TestAceroSubstraitConsumer.class
+                                        .getClassLoader()
+                                        .getResource("substrait/named_table_users.json")
+                                        .toURI()))),
+                        mapTableToArrowReader)) {
+              assertEquals(schema, arrowReader.getVectorSchemaRoot().getSchema());
+              int rowcount = 0;
+              while (arrowReader.loadNextBatch()) {
+                rowcount += arrowReader.getVectorSchemaRoot().getRowCount();
+              }
+              assertEquals(3, rowcount);
+            }
+          });
     }
   }
 
@@ -211,8 +213,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
         "Gl8SXQpROk8KBhIECgICAxIvCi0KAgoAEh4KAklECgROQU1FEhIKBCoCEAEKC"
             + "LIBBQiWARgBGAI6BwoFVVNFUlMaCBIGCgISACIAGgoSCAoEEgIIASIAEgJJRBIETkFNRQ==";
     ParquetWriteSupport writeSupport =
-        ParquetWriteSupport.writeTempFile(
-            AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a", 11, "b", 21, "c");
+        ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP, 1, "a", 11, "b", 21, "c");
     ScanOptions options = new ScanOptions(/*batchSize*/ 32768);
     try (DatasetFactory datasetFactory =
             new FileSystemDatasetFactory(
@@ -260,7 +261,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
     ParquetWriteSupport writeSupport =
         ParquetWriteSupport.writeTempFile(
             AVRO_SCHEMA_USER,
-            TMP.newFolder(),
+            TMP,
             19,
             "value_19",
             1,
@@ -322,7 +323,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
     ParquetWriteSupport writeSupport =
         ParquetWriteSupport.writeTempFile(
             AVRO_SCHEMA_USER,
-            TMP.newFolder(),
+            TMP,
             19,
             "value_19",
             1,
@@ -364,7 +365,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
     ParquetWriteSupport writeSupport =
         ParquetWriteSupport.writeTempFile(
             AVRO_SCHEMA_USER,
-            TMP.newFolder(),
+            TMP,
             19,
             "value_19",
             1,
@@ -414,7 +415,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
     ParquetWriteSupport writeSupport =
         ParquetWriteSupport.writeTempFile(
             AVRO_SCHEMA_USER,
-            TMP.newFolder(),
+            TMP,
             19,
             "value_19",
             1,
@@ -478,7 +479,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
     ParquetWriteSupport writeSupport =
         ParquetWriteSupport.writeTempFile(
             AVRO_SCHEMA_USER,
-            TMP.newFolder(),
+            TMP,
             19,
             "value_19",
             1,
@@ -531,7 +532,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
     ParquetWriteSupport writeSupport =
         ParquetWriteSupport.writeTempFile(
             AVRO_SCHEMA_USER,
-            TMP.newFolder(),
+            TMP,
             19,
             "value_19",
             1,
@@ -588,7 +589,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
     ParquetWriteSupport writeSupport =
         ParquetWriteSupport.writeTempFile(
             AVRO_SCHEMA_USER,
-            TMP.newFolder(),
+            TMP,
             19,
             "value_19",
             1,
