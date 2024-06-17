@@ -68,7 +68,7 @@ under the License.
         <plugin>
           <groupId>pl.project13.maven</groupId>
           <artifactId>git-commit-id-plugin</artifactId>
-          <version>4.0.5</version>
+          <version>4.9.10</version>
         </plugin>
         <plugin>
           <groupId>org.cyclonedx</groupId>
