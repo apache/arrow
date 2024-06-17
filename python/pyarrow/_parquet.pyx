@@ -1832,7 +1832,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         write_page_checksum=False,
         sorting_columns=None,
         store_decimal_as_integer=False) except *:
-    
+
     """General writer properties"""
     cdef:
         shared_ptr[WriterProperties] properties
@@ -1950,7 +1950,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
             props.enable_store_decimal_as_integer()
         else:
             props.disable_store_decimal_as_integer()
-    
+
     # column_encoding
     # encoding map - encode individual columns
 
