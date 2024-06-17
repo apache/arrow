@@ -43,7 +43,7 @@ elif [ "${pandas}" = "nightly" ]; then
   pip install --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple --pre pandas
 elif [ "${pandas}" = "latest" ]; then
   pip install pandas
-elif [[ "${pandas}" = [0-9]* ]]; then
+elif [[ ${pandas} = [0-9]* ]]; then
   pip install pandas==${pandas}
 else
   pip install pandas${pandas}
