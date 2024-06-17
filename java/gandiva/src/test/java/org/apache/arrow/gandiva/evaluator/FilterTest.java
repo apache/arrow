@@ -16,6 +16,8 @@
  */
 package org.apache.arrow.gandiva.evaluator;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import java.nio.charset.Charset;
@@ -32,8 +34,7 @@ import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class FilterTest extends BaseEvaluatorTest {
 
@@ -130,7 +131,7 @@ public class FilterTest extends BaseEvaluatorTest {
     releaseRecordBatch(batch);
     selectionBuffer.close();
     filter.close();
-    Assert.assertArrayEquals(expected, actual);
+    assertArrayEquals(expected, actual);
   }
 
   @Test
@@ -173,7 +174,7 @@ public class FilterTest extends BaseEvaluatorTest {
     releaseRecordBatch(batch);
     selectionBuffer.close();
     filter.close();
-    Assert.assertArrayEquals(expected, actual);
+    assertArrayEquals(expected, actual);
   }
 
   @Test
@@ -323,6 +324,6 @@ public class FilterTest extends BaseEvaluatorTest {
     selectionBuffer.close();
     filter.close();
 
-    Assert.assertArrayEquals(expected, actual);
+    assertArrayEquals(expected, actual);
   }
 }

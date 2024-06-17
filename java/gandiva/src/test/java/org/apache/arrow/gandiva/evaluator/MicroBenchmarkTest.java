@@ -16,6 +16,8 @@
  */
 package org.apache.arrow.gandiva.evaluator;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import com.google.common.collect.Lists;
 import java.util.List;
 import org.apache.arrow.gandiva.expression.Condition;
@@ -24,11 +26,10 @@ import org.apache.arrow.gandiva.expression.TreeBuilder;
 import org.apache.arrow.gandiva.expression.TreeNode;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.Assert;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
-@Ignore
+@Disabled
 public class MicroBenchmarkTest extends BaseEvaluatorTest {
 
   private double toleranceRatio = 4.0;
@@ -60,7 +61,7 @@ public class MicroBenchmarkTest extends BaseEvaluatorTest {
             16 * THOUSAND,
             4);
     System.out.println("Time taken for projecting 1m records of add3 is " + timeTaken + "ms");
-    Assert.assertTrue(timeTaken <= 13 * toleranceRatio);
+    assertTrue(timeTaken <= 13 * toleranceRatio);
   }
 
   @Test
@@ -124,7 +125,7 @@ public class MicroBenchmarkTest extends BaseEvaluatorTest {
             16 * THOUSAND,
             4);
     System.out.println("Time taken for projecting 10m records of nestedIf is " + timeTaken + "ms");
-    Assert.assertTrue(timeTaken <= 15 * toleranceRatio);
+    assertTrue(timeTaken <= 15 * toleranceRatio);
   }
 
   @Test
@@ -154,6 +155,6 @@ public class MicroBenchmarkTest extends BaseEvaluatorTest {
             16 * THOUSAND,
             4);
     System.out.println("Time taken for filtering 10m records of a+b<c is " + timeTaken + "ms");
-    Assert.assertTrue(timeTaken <= 12 * toleranceRatio);
+    assertTrue(timeTaken <= 12 * toleranceRatio);
   }
 }
