@@ -394,7 +394,7 @@ def test_store_decimal_as_integer():
     _check_roundtrip(mixed_table,
                      expected=mixed_table,
                      use_dictionary=False,
-                     store_decimal_as_integer=True) 
+                     store_decimal_as_integer=True)
 
 
 def test_column_encoding():
