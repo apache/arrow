@@ -386,7 +386,7 @@ def test_store_decimal_as_integer():
   
     # Check with mixed column types.
     mixed_table = pa.Table.from_arrays([arr_decimal_1_9, arr_decimal_10_18, 
-                                        arr_decimal_gt18, aar_bool],
+                                        arr_decimal_gt18, arr_bool],
                                        names=['a', 'b', 'c', 'd'])
     _check_roundtrip(mixed_table, expected=mixed_table, use_dictionary=False,
                      store_decimal_as_integer=True)
