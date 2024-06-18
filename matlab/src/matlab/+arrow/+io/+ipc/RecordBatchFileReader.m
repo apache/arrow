@@ -18,13 +18,18 @@
 
 classdef RecordBatchFileReader < matlab.mixin.Scalar
 
-    properties
-        
+    properties(SetAccess=private, GetAccess=public, Hidden)
+        Proxy
     end
 
     methods
         function obj = RecordBatchFileReader(filename)
-        
+            arguments
+                filename(1, 1) string {mustBeNonzeroLengthText} 
+            end
+            args = struct(Filename=filename);
+            proxyName = "arrow.io.ipc.proxy.RecordBatchFileReader";
+            obj.Proxy = arrow.internal.proxy.create(proxyName, args);
         end
     end
 end
