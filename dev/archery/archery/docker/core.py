@@ -383,10 +383,6 @@ class DockerCompose(Command):
                     args.append(f'--memory={memory}')
                     args.append(f'--memory-swap={memory}')
 
-            # get the actual docker image name instead of the compose service
-            # name which we refer as image in general
-            args.append(service['image'])
-
         if user is not None:
             args.extend(['-u', user])
 
@@ -399,6 +395,10 @@ class DockerCompose(Command):
                 args.extend(['--volume', volume])
 
         if use_docker:
+            # get the actual docker image name instead of the compose service
+            # name which we refer as image in general
+            args.append(service['image'])
+
             # add command from compose if it wasn't overridden
             if command is not None:
                 args.append(command)
