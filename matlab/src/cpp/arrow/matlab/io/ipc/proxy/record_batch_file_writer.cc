@@ -30,6 +30,7 @@ namespace arrow::matlab::io::ipc::proxy {
 
 RecordBatchFileWriter::RecordBatchFileWriter(const std::shared_ptr<arrow::ipc::RecordBatchWriter> writer)
   : writer{std::move(writer)} {
+    REGISTER_METHOD(RecordBatchFileWriter, close);
     REGISTER_METHOD(RecordBatchFileWriter, writeRecordBatch);
     REGISTER_METHOD(RecordBatchFileWriter, writeTable);
   }
@@ -94,5 +95,10 @@ void RecordBatchFileWriter::writeTable(libmexclass::proxy::method::Context& cont
   MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(writer->WriteTable(*table), 
                                       context, error::IPC_RECORD_BATCH_WRITE_FAILED);
 }
+
+void RecordBatchFileWriter::close(libmexclass::proxy::method::Context& context) {
+    MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(writer->Close(), context, error::IPC_RECORD_BATCH_WRITE_CLOSE_FAILED);
+}
+
 
 } // namespace arrow::matlab::io::ipc::proxy 
