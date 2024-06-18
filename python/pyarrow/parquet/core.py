@@ -761,9 +761,9 @@ use_deprecated_int96_timestamps : bool, default None
     by flavor argument. This take priority over the coerce_timestamps option.
 coerce_timestamps : str, default None
     Cast timestamps to a particular resolution. If omitted, defaults are chosen
-    depending on `version`. By default, for ``version='1.0'`` (the default)
-    and ``version='2.4'``, nanoseconds are cast to microseconds ('us'), while
-    for other `version` values, they are written natively without loss
+    depending on `version`. For ``version='1.0'`` and ``version='2.4'``,
+    nanoseconds are cast to microseconds ('us'), while for
+    ``version='2.6'`` (the default), they are written natively without loss
     of resolution.  Seconds are always cast to milliseconds ('ms') by default,
     as Parquet does not have any temporal type with seconds resolution.
     If the casting results in loss of data, it will raise an exception
