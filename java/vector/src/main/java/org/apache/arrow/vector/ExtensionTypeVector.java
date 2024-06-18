@@ -236,8 +236,8 @@ public abstract class ExtensionTypeVector<T extends ValueVector & FieldVector>
    * @return the number of buffers to be exported
    */
   @Override
-  public int getExportedCDataBuffers() {
-    return underlyingVector.getExportedCDataBuffers();
+  public int getExportedCDataBufferCount() {
+    return underlyingVector.getExportedCDataBufferCount();
   }
 
   /**

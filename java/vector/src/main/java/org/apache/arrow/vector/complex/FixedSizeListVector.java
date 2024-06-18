@@ -193,7 +193,7 @@ public class FixedSizeListVector extends BaseValueVector
    *
    * @return the number of buffers to be exported
    */
-  public int getExportedCDataBuffers() {
+  public int getExportedCDataBufferCount() {
     return 1;
   }
 

@@ -536,7 +536,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    * @return the number of buffers to be exported
    */
   @Override
-  public int getExportedCDataBuffers() {
+  public int getExportedCDataBufferCount() {
     return 2;
   }
 

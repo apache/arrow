@@ -234,27 +234,25 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
     final long variadicSizeBufferCapacity = numOfVariadicBuffers * Long.BYTES;
     List<ArrowBuf> buffers = new ArrayList<>();
 
-    try (ArrowBuf variadicSizeBuffer =
-        importBuffer(type, variadicSizeBufferIndex, variadicSizeBufferCapacity)) {
-      ArrowBuf maybeValidityBuffer = maybeImportBitmap(type);
-      try (ArrowBuf view =
-          importFixedBytes(type, viewBufferIndex, BaseVariableWidthViewVector.ELEMENT_SIZE)) {
-        view.getReferenceManager().retain();
-        buffers.add(maybeValidityBuffer);
-        buffers.add(view);
-      }
-      // 0th buffer is validity buffer
-      // 1st buffer is view buffer
-      // 2nd buffer onwards are variadic buffer
-      // N-1 (this.buffers.length - 1) buffer is variadic size buffer
-      final int variadicBufferReadOffset = 2;
-      variadicSizeBuffer.getReferenceManager().retain();
-      for (int i = 0; i < numOfVariadicBuffers; i++) {
-        long size = variadicSizeBuffer.getLong((long) i * Long.BYTES);
-        buffers.add(importBuffer(type, i + variadicBufferReadOffset, size));
-      }
-      return buffers;
+    ArrowBuf variadicSizeBuffer =
+        importBuffer(type, variadicSizeBufferIndex, variadicSizeBufferCapacity);
+
+    ArrowBuf view =
+        importFixedBytes(type, viewBufferIndex, BaseVariableWidthViewVector.ELEMENT_SIZE);
+    buffers.add(maybeImportBitmap(type));
+    buffers.add(view);
+
+    // 0th buffer is validity buffer
+    // 1st buffer is view buffer
+    // 2nd buffer onwards are variadic buffer
+    // N-1 (this.buffers.length - 1) buffer is variadic size buffer
+    final int variadicBufferReadOffset = 2;
+    for (int i = 0; i < numOfVariadicBuffers; i++) {
+      long size = variadicSizeBuffer.getLong((long) i * Long.BYTES);
+      buffers.add(importBuffer(type, i + variadicBufferReadOffset, size));
     }
+
+    return buffers;
   }
 
   @Override

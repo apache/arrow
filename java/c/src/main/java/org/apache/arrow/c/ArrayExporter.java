@@ -90,9 +90,9 @@ final class ArrayExporter {
       }
 
       if (buffers != null) {
-        data.buffers = new ArrayList<>(buffers.size());
+        data.buffers = new ArrayList<>(vector.getExportedCDataBufferCount());
         data.buffers_ptrs =
-            allocator.buffer((long) (vector.getExportedCDataBuffers()) * Long.BYTES);
+            allocator.buffer((long) (vector.getExportedCDataBufferCount()) * Long.BYTES);
         vector.exportCDataBuffers(data.buffers, data.buffers_ptrs, NULL);
       }
 

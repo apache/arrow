@@ -247,7 +247,7 @@ public class ListVector extends BaseRepeatedValueVector
    * @return the number of buffers to be exported
    */
   @Override
-  public int getExportedCDataBuffers() {
+  public int getExportedCDataBufferCount() {
     return 2;
   }
 

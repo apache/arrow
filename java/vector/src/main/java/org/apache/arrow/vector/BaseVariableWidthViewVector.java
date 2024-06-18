@@ -1684,7 +1684,7 @@ public abstract class BaseVariableWidthViewVector extends BaseValueVector
    * @return the number of buffers to be exported
    */
   @Override
-  public int getExportedCDataBuffers() {
+  public int getExportedCDataBufferCount() {
     if (dataBuffers.isEmpty()) {
       return 4;
     } else {
