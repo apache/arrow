@@ -14,13 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.complex;
 
 import static org.apache.arrow.util.Preconditions.checkArgument;
 
 import java.util.List;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.AddOrGetResult;
@@ -40,10 +38,10 @@ import org.apache.arrow.vector.util.TransferPair;
 
 /**
  * A MapVector is used to store entries of key/value pairs. It is a container vector that is
- * composed of a list of struct values with "key" and "value" fields. The MapVector is nullable,
- * but if a map is set at a given index, there must be an entry. In other words, the StructVector
- * data is non-nullable. Also for a given entry, the "key" is non-nullable, however the "value" can
- * be null.
+ * composed of a list of struct values with "key" and "value" fields. The MapVector is nullable, but
+ * if a map is set at a given index, there must be an entry. In other words, the StructVector data
+ * is non-nullable. Also for a given entry, the "key" is non-nullable, however the "value" can be
+ * null.
  */
 public class MapVector extends ListVector {
 
@@ -88,36 +86,39 @@ public class MapVector extends ListVector {
    */
   @Override
   public void initializeChildrenFromFields(List<Field> children) {
-    checkArgument(children.size() == 1, "Maps have one List child. Found: %s", children.isEmpty() ? "none" : children);
+    checkArgument(
+        children.size() == 1,
+        "Maps have one List child. Found: %s",
+        children.isEmpty() ? "none" : children);
 
     Field structField = children.get(0);
     MinorType minorType = Types.getMinorTypeForArrowType(structField.getType());
-    checkArgument(minorType == MinorType.STRUCT && !structField.isNullable(),
+    checkArgument(
+        minorType == MinorType.STRUCT && !structField.isNullable(),
         "Map data should be a non-nullable struct type");
-    checkArgument(structField.getChildren().size() == 2,
-        "Map data should be a struct with 2 children. Found: %s", children);
+    checkArgument(
+        structField.getChildren().size() == 2,
+        "Map data should be a struct with 2 children. Found: %s",
+        children);
 
     Field keyField = structField.getChildren().get(0);
     checkArgument(!keyField.isNullable(), "Map data key type should be a non-nullable");
 
     AddOrGetResult<FieldVector> addOrGetVector = addOrGetVector(structField.getFieldType());
-    checkArgument(addOrGetVector.isCreated(), "Child vector already existed: %s", addOrGetVector.getVector());
+    checkArgument(
+        addOrGetVector.isCreated(), "Child vector already existed: %s", addOrGetVector.getVector());
 
     addOrGetVector.getVector().initializeChildrenFromFields(structField.getChildren());
     this.field = new Field(this.field.getName(), this.field.getFieldType(), children);
   }
 
-  /**
-   * Get the writer for this MapVector instance.
-   */
+  /** Get the writer for this MapVector instance. */
   @Override
   public UnionMapWriter getWriter() {
     return new UnionMapWriter(this);
   }
 
-  /**
-   * Get the reader for this MapVector instance.
-   */
+  /** Get the reader for this MapVector instance. */
   @Override
   public UnionMapReader getReader() {
     if (reader == null) {
@@ -179,9 +180,8 @@ public class MapVector extends ListVector {
     }
 
     /**
-     * Transfer this vector'data to another vector. The memory associated
-     * with this vector is transferred to the allocator of target vector
-     * for accounting and management purposes.
+     * Transfer this vector'data to another vector. The memory associated with this vector is
+     * transferred to the allocator of target vector for accounting and management purposes.
      */
     @Override
     public void transfer() {
@@ -197,22 +197,29 @@ public class MapVector extends ListVector {
     }
 
     /**
-     * Slice this vector at desired index and length and transfer the
-     * corresponding data to the target vector.
+     * Slice this vector at desired index and length and transfer the corresponding data to the
+     * target vector.
+     *
      * @param startIndex start position of the split in source vector.
      * @param length length of the split.
      */
     @Override
     public void splitAndTransfer(int startIndex, int length) {
-      Preconditions.checkArgument(startIndex >= 0 && length >= 0 && startIndex + length <= valueCount,
-              "Invalid parameters startIndex: %s, length: %s for valueCount: %s", startIndex, length, valueCount);
+      Preconditions.checkArgument(
+          startIndex >= 0 && length >= 0 && startIndex + length <= valueCount,
+          "Invalid parameters startIndex: %s, length: %s for valueCount: %s",
+          startIndex,
+          length,
+          valueCount);
       final int startPoint = offsetBuffer.getInt(startIndex * OFFSET_WIDTH);
-      final int sliceLength = offsetBuffer.getInt((startIndex + length) * OFFSET_WIDTH) - startPoint;
+      final int sliceLength =
+          offsetBuffer.getInt((startIndex + length) * OFFSET_WIDTH) - startPoint;
       to.clear();
       to.offsetBuffer = to.allocateOffsetBuffer((length + 1) * OFFSET_WIDTH);
       /* splitAndTransfer offset buffer */
       for (int i = 0; i < length + 1; i++) {
-        final int relativeOffset = offsetBuffer.getInt((startIndex + i) * OFFSET_WIDTH) - startPoint;
+        final int relativeOffset =
+            offsetBuffer.getInt((startIndex + i) * OFFSET_WIDTH) - startPoint;
         to.offsetBuffer.setInt(i * OFFSET_WIDTH, relativeOffset);
       }
       /* splitAndTransfer validity buffer */
@@ -250,8 +257,11 @@ public class MapVector extends ListVector {
           target.allocateValidityBuffer(byteSizeTarget);
 
           for (int i = 0; i < byteSizeTarget - 1; i++) {
-            byte b1 = BitVectorHelper.getBitsFromCurrentByte(validityBuffer, firstByteSource + i, offset);
-            byte b2 = BitVectorHelper.getBitsFromNextByte(validityBuffer, firstByteSource + i + 1, offset);
+            byte b1 =
+                BitVectorHelper.getBitsFromCurrentByte(validityBuffer, firstByteSource + i, offset);
+            byte b2 =
+                BitVectorHelper.getBitsFromNextByte(
+                    validityBuffer, firstByteSource + i + 1, offset);
 
             target.validityBuffer.setByte(i, (b1 + b2));
           }
@@ -266,15 +276,18 @@ public class MapVector extends ListVector {
            * by shifting data from the current byte.
            */
           if ((firstByteSource + byteSizeTarget - 1) < lastByteSource) {
-            byte b1 = BitVectorHelper.getBitsFromCurrentByte(validityBuffer,
-                    firstByteSource + byteSizeTarget - 1, offset);
-            byte b2 = BitVectorHelper.getBitsFromNextByte(validityBuffer,
-                    firstByteSource + byteSizeTarget, offset);
+            byte b1 =
+                BitVectorHelper.getBitsFromCurrentByte(
+                    validityBuffer, firstByteSource + byteSizeTarget - 1, offset);
+            byte b2 =
+                BitVectorHelper.getBitsFromNextByte(
+                    validityBuffer, firstByteSource + byteSizeTarget, offset);
 
             target.validityBuffer.setByte(byteSizeTarget - 1, b1 + b2);
           } else {
-            byte b1 = BitVectorHelper.getBitsFromCurrentByte(validityBuffer,
-                    firstByteSource + byteSizeTarget - 1, offset);
+            byte b1 =
+                BitVectorHelper.getBitsFromCurrentByte(
+                    validityBuffer, firstByteSource + byteSizeTarget - 1, offset);
             target.validityBuffer.setByte(byteSizeTarget - 1, b1);
           }
         }

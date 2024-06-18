@@ -99,8 +99,8 @@ can be called from a function in another language.  After a function is defined 
 C++ we must create the binding manually to use it in that implementation.
 
 .. note::
-	There is much you can learn by checking **Pull Requests**
-	and **unit tests** for similar issues.
+  There is much you can learn by checking **Pull Requests**
+  and **unit tests** for similar issues.
 
 .. tab-set::
 

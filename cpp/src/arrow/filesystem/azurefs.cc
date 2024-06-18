@@ -117,8 +117,12 @@ Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
         credential_kind = CredentialKind::kDefault;
       } else if (kv.second == "anonymous") {
         credential_kind = CredentialKind::kAnonymous;
+      } else if (kv.second == "cli") {
+        credential_kind = CredentialKind::kCLI;
       } else if (kv.second == "workload_identity") {
         credential_kind = CredentialKind::kWorkloadIdentity;
+      } else if (kv.second == "environment") {
+        credential_kind = CredentialKind::kEnvironment;
       } else {
         // Other credential kinds should be inferred from the given
         // parameters automatically.
@@ -168,8 +172,14 @@ Status AzureOptions::ExtractFromUriQuery(const Uri& uri) {
       case CredentialKind::kAnonymous:
         RETURN_NOT_OK(ConfigureAnonymousCredential());
         break;
+      case CredentialKind::kCLI:
+        RETURN_NOT_OK(ConfigureCLICredential());
+        break;
       case CredentialKind::kWorkloadIdentity:
         RETURN_NOT_OK(ConfigureWorkloadIdentityCredential());
+        break;
+      case CredentialKind::kEnvironment:
+        RETURN_NOT_OK(ConfigureEnvironmentCredential());
         break;
       default:
         // Default credential
@@ -250,8 +260,10 @@ bool AzureOptions::Equals(const AzureOptions& other) const {
       return storage_shared_key_credential_->AccountName ==
              other.storage_shared_key_credential_->AccountName;
     case CredentialKind::kClientSecret:
+    case CredentialKind::kCLI:
     case CredentialKind::kManagedIdentity:
     case CredentialKind::kWorkloadIdentity:
+    case CredentialKind::kEnvironment:
       return token_credential_->GetCredentialName() ==
              other.token_credential_->GetCredentialName();
   }
@@ -276,6 +288,13 @@ std::string BuildBaseUrl(const std::string& scheme, const std::string& authority
   }
   url += "/";
   return url;
+}
+
+template <typename... PrefixArgs>
+Status ExceptionToStatus(const Storage::StorageException& exception,
+                         PrefixArgs&&... prefix_args) {
+  return Status::IOError(std::forward<PrefixArgs>(prefix_args)..., " Azure Error: [",
+                         exception.ErrorCode, "] ", exception.what());
 }
 }  // namespace
 
@@ -324,9 +343,21 @@ Status AzureOptions::ConfigureManagedIdentityCredential(const std::string& clien
   return Status::OK();
 }
 
+Status AzureOptions::ConfigureCLICredential() {
+  credential_kind_ = CredentialKind::kCLI;
+  token_credential_ = std::make_shared<Azure::Identity::AzureCliCredential>();
+  return Status::OK();
+}
+
 Status AzureOptions::ConfigureWorkloadIdentityCredential() {
   credential_kind_ = CredentialKind::kWorkloadIdentity;
   token_credential_ = std::make_shared<Azure::Identity::WorkloadIdentityCredential>();
+  return Status::OK();
+}
+
+Status AzureOptions::ConfigureEnvironmentCredential() {
+  credential_kind_ = CredentialKind::kEnvironment;
+  token_credential_ = std::make_shared<Azure::Identity::EnvironmentCredential>();
   return Status::OK();
 }
 
@@ -334,6 +365,10 @@ Result<std::unique_ptr<Blobs::BlobServiceClient>> AzureOptions::MakeBlobServiceC
     const {
   if (account_name.empty()) {
     return Status::Invalid("AzureOptions doesn't contain a valid account name");
+  }
+  if (!(blob_storage_scheme == "http" || blob_storage_scheme == "https")) {
+    return Status::Invalid("AzureOptions::blob_storage_scheme must be http or https: ",
+                           blob_storage_scheme);
   }
   switch (credential_kind_) {
     case CredentialKind::kAnonymous:
@@ -345,7 +380,9 @@ Result<std::unique_ptr<Blobs::BlobServiceClient>> AzureOptions::MakeBlobServiceC
       [[fallthrough]];
     case CredentialKind::kClientSecret:
     case CredentialKind::kManagedIdentity:
+    case CredentialKind::kCLI:
     case CredentialKind::kWorkloadIdentity:
+    case CredentialKind::kEnvironment:
       return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name),
                                                         token_credential_);
     case CredentialKind::kStorageSharedKey:
@@ -360,6 +397,10 @@ AzureOptions::MakeDataLakeServiceClient() const {
   if (account_name.empty()) {
     return Status::Invalid("AzureOptions doesn't contain a valid account name");
   }
+  if (!(dfs_storage_scheme == "http" || dfs_storage_scheme == "https")) {
+    return Status::Invalid("AzureOptions::dfs_storage_scheme must be http or https: ",
+                           dfs_storage_scheme);
+  }
   switch (credential_kind_) {
     case CredentialKind::kAnonymous:
       return std::make_unique<DataLake::DataLakeServiceClient>(
@@ -371,7 +412,9 @@ AzureOptions::MakeDataLakeServiceClient() const {
       [[fallthrough]];
     case CredentialKind::kClientSecret:
     case CredentialKind::kManagedIdentity:
+    case CredentialKind::kCLI:
     case CredentialKind::kWorkloadIdentity:
+    case CredentialKind::kEnvironment:
       return std::make_unique<DataLake::DataLakeServiceClient>(
           AccountDfsUrl(account_name), token_credential_);
     case CredentialKind::kStorageSharedKey:
@@ -379,6 +422,25 @@ AzureOptions::MakeDataLakeServiceClient() const {
           AccountDfsUrl(account_name), storage_shared_key_credential_);
   }
   return Status::Invalid("AzureOptions doesn't contain a valid auth configuration");
+}
+
+Result<std::string> AzureOptions::GenerateSASToken(
+    Storage::Sas::BlobSasBuilder* builder, Blobs::BlobServiceClient* client) const {
+  using SasProtocol = Storage::Sas::SasProtocol;
+  builder->Protocol =
+      blob_storage_scheme == "http" ? SasProtocol::HttpsAndHttp : SasProtocol::HttpsOnly;
+  if (storage_shared_key_credential_) {
+    return builder->GenerateSasToken(*storage_shared_key_credential_);
+  } else {
+    // GH-39344: This part isn't tested. This may not work.
+    try {
+      auto delegation_key_response = client->GetUserDelegationKey(builder->ExpiresOn);
+      return builder->GenerateSasToken(delegation_key_response.Value, account_name);
+    } catch (const Storage::StorageException& exception) {
+      return ExceptionToStatus(exception, "GetUserDelegationKey failed for '",
+                               client->GetUrl(), "'.");
+    }
+  }
 }
 
 namespace {
@@ -449,13 +511,6 @@ struct AzureLocation {
     return status.ok() ? status : Status::Invalid(status.message(), " in location ", all);
   }
 };
-
-template <typename... PrefixArgs>
-Status ExceptionToStatus(const Storage::StorageException& exception,
-                         PrefixArgs&&... prefix_args) {
-  return Status::IOError(std::forward<PrefixArgs>(prefix_args)..., " Azure Error: [",
-                         exception.ErrorCode, "] ", exception.what());
-}
 
 Status PathNotFound(const AzureLocation& location) {
   return ::arrow::fs::internal::PathNotFound(location.all);
@@ -829,7 +884,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
       DCHECK_LE(bytes_read, nbytes);
       RETURN_NOT_OK(buffer->Resize(bytes_read));
     }
-    return std::move(buffer);
+    return buffer;
   }
 
   Result<int64_t> Read(int64_t nbytes, void* out) override {
@@ -841,7 +896,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
   Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override {
     ARROW_ASSIGN_OR_RAISE(auto buffer, ReadAt(pos_, nbytes));
     pos_ += buffer->size();
-    return std::move(buffer);
+    return buffer;
   }
 
  private:
@@ -1177,6 +1232,15 @@ Status CreateContainerIfNotExists(const std::string& container_name,
     return ExceptionToStatus(exception, "Failed to create a container: ", container_name,
                              ": ", container_client.GetUrl());
   }
+}
+
+FileInfo FileInfoFromPath(std::string_view container,
+                          const DataLake::Models::PathItem& path) {
+  FileInfo info{internal::ConcatAbstractPath(container, path.Name),
+                path.IsDirectory ? FileType::Directory : FileType::File};
+  info.set_size(path.FileSize);
+  info.set_mtime(std::chrono::system_clock::time_point{path.LastModified});
+  return info;
 }
 
 FileInfo DirectoryFileInfoFromPath(std::string_view path) {
@@ -1576,7 +1640,7 @@ class AzureFileSystem::Impl {
   }
 
  private:
-  /// \pref location.container is not empty.
+  /// \pre location.container is not empty.
   template <typename ContainerClient>
   Status CheckDirExists(const ContainerClient& container_client,
                         const AzureLocation& location) {
@@ -1621,6 +1685,50 @@ class AzureFileSystem::Impl {
     auto result = (offset == std::string_view::npos) ? s : s.substr(offset);
     DCHECK(!result.empty() && result.back() != internal::kSep);
     return result;
+  }
+
+  /// \brief List the paths at the root of a filesystem or some dir in a filesystem.
+  ///
+  /// \pre adlfs_client is the client for the filesystem named like the first
+  /// segment of select.base_dir.
+  Status GetFileInfoWithSelectorFromFileSystem(
+      const DataLake::DataLakeFileSystemClient& adlfs_client,
+      const Core::Context& context, Azure::Nullable<int32_t> page_size_hint,
+      const FileSelector& select, FileInfoVector* acc_results) {
+    ARROW_ASSIGN_OR_RAISE(auto base_location, AzureLocation::FromString(select.base_dir));
+
+    auto directory_client = adlfs_client.GetDirectoryClient(base_location.path);
+    bool found = false;
+    DataLake::ListPathsOptions options;
+    options.PageSizeHint = page_size_hint;
+
+    try {
+      auto list_response = directory_client.ListPaths(select.recursive, options, context);
+      for (; list_response.HasPage(); list_response.MoveToNextPage(context)) {
+        if (list_response.Paths.empty()) {
+          continue;
+        }
+        found = true;
+        for (const auto& path : list_response.Paths) {
+          if (path.Name == base_location.path && !path.IsDirectory) {
+            return NotADir(base_location);
+          }
+          acc_results->push_back(FileInfoFromPath(base_location.container, path));
+        }
+      }
+    } catch (const Storage::StorageException& exception) {
+      if (IsContainerNotFound(exception) || exception.ErrorCode == "PathNotFound") {
+        found = false;
+      } else {
+        return ExceptionToStatus(exception,
+                                 "Failed to list paths in a directory: ", select.base_dir,
+                                 ": ", directory_client.GetUrl());
+      }
+    }
+
+    return found || select.allow_not_found
+               ? Status::OK()
+               : ::arrow::fs::internal::PathNotFound(select.base_dir);
   }
 
   /// \brief List the blobs at the root of a container or some dir in a container.
@@ -1772,6 +1880,20 @@ class AzureFileSystem::Impl {
       return VisitContainers(context, std::move(on_container));
     }
 
+    auto adlfs_client = GetFileSystemClient(base_location.container);
+    ARROW_ASSIGN_OR_RAISE(auto hns_support, HierarchicalNamespaceSupport(adlfs_client));
+    if (hns_support == HNSSupport::kContainerNotFound) {
+      if (select.allow_not_found) {
+        return Status::OK();
+      } else {
+        return ::arrow::fs::internal::PathNotFound(select.base_dir);
+      }
+    }
+    if (hns_support == HNSSupport::kEnabled) {
+      return GetFileInfoWithSelectorFromFileSystem(adlfs_client, context, page_size_hint,
+                                                   select, acc_results);
+    }
+    DCHECK_EQ(hns_support, HNSSupport::kDisabled);
     auto container_client =
         blob_service_client_->GetBlobContainerClient(base_location.container);
     return GetFileInfoWithSelectorFromContainer(container_client, context, page_size_hint,
@@ -2157,6 +2279,17 @@ class AzureFileSystem::Impl {
                                Azure::Nullable<std::string> lease_id = {}) {
     DCHECK(!location.container.empty());
     DCHECK(!location.path.empty());
+    ARROW_ASSIGN_OR_RAISE(auto file_info, GetFileInfo(adlfs_client, location, lease_id));
+    if (file_info.type() == FileType::NotFound) {
+      if (require_dir_to_exist) {
+        return PathNotFound(location);
+      } else {
+        return Status::OK();
+      }
+    }
+    if (file_info.type() != FileType::Directory) {
+      return NotADir(location);
+    }
     auto directory_client = adlfs_client.GetDirectoryClient(
         std::string(internal::RemoveTrailingSlash(location.path)));
     DataLake::DeleteDirectoryOptions options;
@@ -2200,6 +2333,9 @@ class AzureFileSystem::Impl {
                   kDelimiter, path.Name, ": ", sub_directory_client.GetUrl());
             }
           } else {
+            if (path.Name == location.path) {
+              return NotADir(location);
+            }
             auto sub_file_client = adlfs_client.GetFileClient(path.Name);
             try {
               sub_file_client.Delete();
@@ -2787,8 +2923,20 @@ class AzureFileSystem::Impl {
     if (src == dest) {
       return Status::OK();
     }
+    std::string sas_token;
+    {
+      Storage::Sas::BlobSasBuilder builder;
+      std::chrono::seconds available_period(60);
+      builder.ExpiresOn = std::chrono::system_clock::now() + available_period;
+      builder.BlobContainerName = src.container;
+      builder.BlobName = src.path;
+      builder.Resource = Storage::Sas::BlobSasResource::Blob;
+      builder.SetPermissions(Storage::Sas::BlobSasPermissions::Read);
+      ARROW_ASSIGN_OR_RAISE(
+          sas_token, options_.GenerateSASToken(&builder, blob_service_client_.get()));
+    }
+    auto src_url = GetBlobClient(src.container, src.path).GetUrl() + sas_token;
     auto dest_blob_client = GetBlobClient(dest.container, dest.path);
-    auto src_url = GetBlobClient(src.container, src.path).GetUrl();
     if (!dest.path.empty()) {
       auto dest_parent = dest.parent();
       if (!dest_parent.path.empty()) {

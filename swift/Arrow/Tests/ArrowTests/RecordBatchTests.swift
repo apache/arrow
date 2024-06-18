@@ -29,8 +29,8 @@ final class RecordBatchTests: XCTestCase {
         stringBuilder.append("test22")
         stringBuilder.append("test33")
 
-        let intHolder = ArrowArrayHolder(try uint8Builder.finish())
-        let stringHolder = ArrowArrayHolder(try stringBuilder.finish())
+        let intHolder = ArrowArrayHolderImpl(try uint8Builder.finish())
+        let stringHolder = ArrowArrayHolderImpl(try stringBuilder.finish())
         let result = RecordBatch.Builder()
             .addColumn("col1", arrowArray: intHolder)
             .addColumn("col2", arrowArray: stringHolder)

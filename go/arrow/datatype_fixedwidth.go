@@ -22,7 +22,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/apache/arrow/go/v16/internal/json"
+	"github.com/apache/arrow/go/v17/internal/json"
 
 	"golang.org/x/xerrors"
 )

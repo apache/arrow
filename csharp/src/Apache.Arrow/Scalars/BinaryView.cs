@@ -83,7 +83,7 @@ namespace Apache.Arrow.Scalars
         public bool IsInline => Length <= MaxInlineLength;
 
 #if NET5_0_OR_GREATER
-        public ReadOnlySpan<byte> Bytes => MemoryMarshal.CreateReadOnlySpan<byte>(ref Unsafe.AsRef(_inline[0]), IsInline ? Length : PrefixLength);
+        public ReadOnlySpan<byte> Bytes => MemoryMarshal.CreateReadOnlySpan<byte>(ref Unsafe.AsRef(in _inline[0]), IsInline ? Length : PrefixLength);
 #else
         public unsafe ReadOnlySpan<byte> Bytes => new ReadOnlySpan<byte>(Unsafe.AsPointer(ref _inline[0]), IsInline ? Length : PrefixLength);
 #endif

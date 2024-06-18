@@ -21,9 +21,12 @@
 
 #include <arrow-glib/arrow-glib.h>
 
+#include <arrow-dataset-glib/version.h>
+
 G_BEGIN_DECLS
 
 #define GADATASET_TYPE_DATASET (gadataset_dataset_get_type())
+GADATASET_AVAILABLE_IN_5_0
 G_DECLARE_DERIVABLE_TYPE(GADatasetDataset, gadataset_dataset, GADATASET, DATASET, GObject)
 struct _GADatasetDatasetClass
 {

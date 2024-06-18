@@ -59,7 +59,8 @@ env:
 
 {%- macro github_install_archery() -%}
   - name: Set up Python by actions/setup-python
-    if: runner.arch == 'X64'
+    if: |
+      !(runner.os == 'Linux' && runner.arch != 'X64')
     uses: actions/setup-python@v4
     with:
       cache: 'pip'
@@ -86,7 +87,8 @@ env:
 
 {%- macro github_upload_releases(pattern) -%}
   - name: Set up Python by actions/setup-python
-    if: runner.arch == 'X64'
+    if: |
+      !(runner.os == 'Linux' && runner.arch != 'X64')
     uses: actions/setup-python@v4
     with:
       python-version: 3.12
@@ -218,15 +220,12 @@ env:
 
 {%- macro azure_upload_anaconda(pattern) -%}
   {%- if arrow.is_default_branch() -%}
-  - task: CondaEnvironment@1
-    inputs:
-      packageSpecs: 'anaconda-client'
-      installOptions: '-c conda-forge'
-      updateConda: no
-  - script: |
-      conda install -y anaconda-client
+  - bash: |
+      conda create -y -n azure_upload_anaconda -c conda-forge anaconda-client
+      source activate azure_upload_anaconda
       anaconda -t $(CROSSBOW_ANACONDA_TOKEN) upload --force {{ pattern }}
     displayName: Upload packages to Anaconda
+
   {% endif %}
 {% endmacro %}
 
@@ -405,4 +404,3 @@ env:
   {{ key }}: "{{ value }}"
   {% endfor %}
 {% endmacro %}
-

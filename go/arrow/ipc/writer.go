@@ -26,15 +26,15 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v16/arrow"
-	"github.com/apache/arrow/go/v16/arrow/array"
-	"github.com/apache/arrow/go/v16/arrow/bitutil"
-	"github.com/apache/arrow/go/v16/arrow/internal"
-	"github.com/apache/arrow/go/v16/arrow/internal/debug"
-	"github.com/apache/arrow/go/v16/arrow/internal/dictutils"
-	"github.com/apache/arrow/go/v16/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v16/arrow/memory"
-	"github.com/apache/arrow/go/v16/internal/utils"
+	"github.com/apache/arrow/go/v17/arrow"
+	"github.com/apache/arrow/go/v17/arrow/array"
+	"github.com/apache/arrow/go/v17/arrow/bitutil"
+	"github.com/apache/arrow/go/v17/arrow/internal"
+	"github.com/apache/arrow/go/v17/arrow/internal/debug"
+	"github.com/apache/arrow/go/v17/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v17/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v17/arrow/memory"
+	"github.com/apache/arrow/go/v17/internal/utils"
 )
 
 type swriter struct {
@@ -151,7 +151,7 @@ func (w *Writer) Close() error {
 func (w *Writer) Write(rec arrow.Record) (err error) {
 	defer func() {
 		if pErr := recover(); pErr != nil {
-			err = fmt.Errorf("arrow/ipc: unknown error while writing: %v", pErr)
+			err = utils.FormatRecoveredError("arrow/ipc: unknown error while writing", pErr)
 		}
 	}()
 

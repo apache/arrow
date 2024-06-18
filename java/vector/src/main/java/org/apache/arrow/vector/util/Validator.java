@@ -14,14 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.util;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.dictionary.Dictionary;
@@ -31,9 +29,7 @@ import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 
-/**
- * Utility class for validating arrow data structures.
- */
+/** Utility class for validating arrow data structures. */
 public class Validator {
 
   /**
@@ -49,9 +45,7 @@ public class Validator {
     }
   }
 
-  /**
-   * Validate two Dictionary encodings and dictionaries with id's from the encodings.
-   */
+  /** Validate two Dictionary encodings and dictionaries with id's from the encodings. */
   public static void compareDictionaries(
       List<DictionaryEncoding> encodings1,
       List<DictionaryEncoding> encodings2,
@@ -59,14 +53,14 @@ public class Validator {
       DictionaryProvider provider2) {
 
     if (encodings1.size() != encodings2.size()) {
-      throw new IllegalArgumentException("Different dictionary encoding count:\n" +
-        encodings1.size() + "\n" + encodings2.size());
+      throw new IllegalArgumentException(
+          "Different dictionary encoding count:\n" + encodings1.size() + "\n" + encodings2.size());
     }
 
     for (int i = 0; i < encodings1.size(); i++) {
       if (!encodings1.get(i).equals(encodings2.get(i))) {
-        throw new IllegalArgumentException("Different dictionary encodings:\n" + encodings1.get(i) +
-          "\n" + encodings2.get(i));
+        throw new IllegalArgumentException(
+            "Different dictionary encodings:\n" + encodings1.get(i) + "\n" + encodings2.get(i));
       }
 
       long id = encodings1.get(i).getId();
@@ -74,8 +68,14 @@ public class Validator {
       Dictionary dict2 = provider2.lookup(id);
 
       if (dict1 == null || dict2 == null) {
-        throw new IllegalArgumentException("The DictionaryProvider did not contain the required " +
-          "dictionary with id: " + id + "\n" + dict1 + "\n" + dict2);
+        throw new IllegalArgumentException(
+            "The DictionaryProvider did not contain the required "
+                + "dictionary with id: "
+                + id
+                + "\n"
+                + dict1
+                + "\n"
+                + dict2);
       }
 
       try {
@@ -86,19 +86,16 @@ public class Validator {
     }
   }
 
-  /**
-   * Validate two dictionary providers are equal in structure and contents.
-   */
+  /** Validate two dictionary providers are equal in structure and contents. */
   public static void compareDictionaryProviders(
-          DictionaryProvider provider1,
-          DictionaryProvider provider2) {
+      DictionaryProvider provider1, DictionaryProvider provider2) {
     List<Long> ids1 = new ArrayList(provider1.getDictionaryIds());
     List<Long> ids2 = new ArrayList(provider2.getDictionaryIds());
     java.util.Collections.sort(ids1);
     java.util.Collections.sort(ids2);
     if (!ids1.equals(ids2)) {
-      throw new IllegalArgumentException("Different ids in dictionary providers:\n" +
-              ids1 + "\n" + ids2);
+      throw new IllegalArgumentException(
+          "Different ids in dictionary providers:\n" + ids1 + "\n" + ids2);
     }
     for (long id : ids1) {
       Dictionary dict1 = provider1.lookup(id);
@@ -121,13 +118,14 @@ public class Validator {
   public static void compareVectorSchemaRoot(VectorSchemaRoot root1, VectorSchemaRoot root2) {
     compareSchemas(root2.getSchema(), root1.getSchema());
     if (root1.getRowCount() != root2.getRowCount()) {
-      throw new IllegalArgumentException("Different row count:\n" + root1.getRowCount() + " != " + root2.getRowCount());
+      throw new IllegalArgumentException(
+          "Different row count:\n" + root1.getRowCount() + " != " + root2.getRowCount());
     }
     List<FieldVector> vectors1 = root1.getFieldVectors();
     List<FieldVector> vectors2 = root2.getFieldVectors();
     if (vectors1.size() != vectors2.size()) {
-      throw new IllegalArgumentException("Different column count:\n" + vectors1.toString() +
-        "\n!=\n" + vectors2.toString());
+      throw new IllegalArgumentException(
+          "Different column count:\n" + vectors1.toString() + "\n!=\n" + vectors2.toString());
     }
     for (int i = 0; i < vectors1.size(); i++) {
       compareFieldVectors(vectors1.get(i), vectors2.get(i));
@@ -144,20 +142,32 @@ public class Validator {
   public static void compareFieldVectors(FieldVector vector1, FieldVector vector2) {
     Field field1 = vector1.getField();
     if (!field1.equals(vector2.getField())) {
-      throw new IllegalArgumentException("Different Fields:\n" + field1 + "\n!=\n" +
-        vector2.getField());
+      throw new IllegalArgumentException(
+          "Different Fields:\n" + field1 + "\n!=\n" + vector2.getField());
     }
     int valueCount = vector1.getValueCount();
     if (valueCount != vector2.getValueCount()) {
-      throw new IllegalArgumentException("Different value count for field " + field1 + " : " +
-        valueCount + " != " + vector2.getValueCount());
+      throw new IllegalArgumentException(
+          "Different value count for field "
+              + field1
+              + " : "
+              + valueCount
+              + " != "
+              + vector2.getValueCount());
     }
     for (int j = 0; j < valueCount; j++) {
       Object obj1 = vector1.getObject(j);
       Object obj2 = vector2.getObject(j);
       if (!equals(field1.getType(), obj1, obj2)) {
         throw new IllegalArgumentException(
-            "Different values in column:\n" + field1 + " at index " + j + ": " + obj1 + " != " + obj2);
+            "Different values in column:\n"
+                + field1
+                + " at index "
+                + j
+                + ": "
+                + obj1
+                + " != "
+                + obj2);
       }
     }
   }
@@ -174,8 +184,9 @@ public class Validator {
         default:
           throw new UnsupportedOperationException("unsupported precision: " + fpType);
       }
-    } else if (type instanceof ArrowType.Binary || type instanceof ArrowType.LargeBinary ||
-        type instanceof ArrowType.FixedSizeBinary) {
+    } else if (type instanceof ArrowType.Binary
+        || type instanceof ArrowType.LargeBinary
+        || type instanceof ArrowType.FixedSizeBinary) {
       return Arrays.equals((byte[]) o1, (byte[]) o2);
     } else if (o1 instanceof byte[] && o2 instanceof byte[]) {
       return Arrays.equals((byte[]) o1, (byte[]) o2);

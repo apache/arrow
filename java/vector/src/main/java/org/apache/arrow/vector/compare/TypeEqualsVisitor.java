@@ -14,15 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.vector.compare;
 
 import java.util.List;
 import java.util.Objects;
-
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseLargeVariableWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
+import org.apache.arrow.vector.BaseVariableWidthViewVector;
 import org.apache.arrow.vector.ExtensionTypeVector;
 import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.ValueVector;
@@ -34,9 +33,7 @@ import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.types.pojo.Field;
 
-/**
- * Visitor to compare type equals for vectors.
- */
+/** Visitor to compare type equals for vectors. */
 public class TypeEqualsVisitor implements VectorVisitor<Boolean, Void> {
 
   private final ValueVector right;
@@ -44,15 +41,14 @@ public class TypeEqualsVisitor implements VectorVisitor<Boolean, Void> {
   private final boolean checkName;
   private final boolean checkMetadata;
 
-  /**
-   * Construct an instance.
-   */
+  /** Construct an instance. */
   public TypeEqualsVisitor(ValueVector right) {
-    this (right, true, true);
+    this(right, true, true);
   }
 
   /**
    * Construct an instance.
+   *
    * @param right right vector
    * @param checkName whether checks names
    * @param checkMetadata whether checks metadata
@@ -63,9 +59,7 @@ public class TypeEqualsVisitor implements VectorVisitor<Boolean, Void> {
     this.checkMetadata = checkMetadata;
   }
 
-  /**
-   * Check type equals without passing IN param in VectorVisitor.
-   */
+  /** Check type equals without passing IN param in VectorVisitor. */
   public boolean equals(ValueVector left) {
     return left.accept(this, null);
   }
@@ -82,6 +76,11 @@ public class TypeEqualsVisitor implements VectorVisitor<Boolean, Void> {
 
   @Override
   public Boolean visit(BaseLargeVariableWidthVector left, Void value) {
+    return compareField(left.getField(), right.getField());
+  }
+
+  @Override
+  public Boolean visit(BaseVariableWidthViewVector left, Void value) {
     return compareField(left.getField(), right.getField());
   }
 
@@ -131,12 +130,12 @@ public class TypeEqualsVisitor implements VectorVisitor<Boolean, Void> {
       return true;
     }
 
-    return (!checkName || Objects.equals(leftField.getName(), rightField.getName())) &&
-        Objects.equals(leftField.isNullable(), rightField.isNullable()) &&
-        Objects.equals(leftField.getType(), rightField.getType()) &&
-        Objects.equals(leftField.getDictionary(), rightField.getDictionary()) &&
-        (!checkMetadata || Objects.equals(leftField.getMetadata(), rightField.getMetadata())) &&
-        compareChildren(leftField.getChildren(), rightField.getChildren());
+    return (!checkName || Objects.equals(leftField.getName(), rightField.getName()))
+        && Objects.equals(leftField.isNullable(), rightField.isNullable())
+        && Objects.equals(leftField.getType(), rightField.getType())
+        && Objects.equals(leftField.getDictionary(), rightField.getDictionary())
+        && (!checkMetadata || Objects.equals(leftField.getMetadata(), rightField.getMetadata()))
+        && compareChildren(leftField.getChildren(), rightField.getChildren());
   }
 
   private boolean compareChildren(List<Field> leftChildren, List<Field> rightChildren) {

@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.dataset.file;
 
 import org.apache.arrow.dataset.jni.JniLoader;
@@ -31,8 +30,7 @@ public class JniWrapper {
     return INSTANCE;
   }
 
-  private JniWrapper() {
-  }
+  private JniWrapper() {}
 
   /**
    * Create FileSystemDatasetFactory and return its native pointer. The pointer is pointing to a
@@ -65,14 +63,14 @@ public class JniWrapper {
    * @param uri target file uri
    * @param partitionColumns columns used to partition output files
    * @param maxPartitions maximum partitions to be included in written files
-   * @param baseNameTemplate file name template used to make partitions. E.g. "dat_{i}", i is current partition
-   *                         ID around all written files.
+   * @param baseNameTemplate file name template used to make partitions. E.g. "dat_{i}", i is
+   *     current partition ID around all written files.
    */
-  public native void writeFromScannerToFile(long streamAddress,
-                                            long fileFormat,
-                                            String uri,
-                                            String[] partitionColumns,
-                                            int maxPartitions,
-                                            String baseNameTemplate);
-
+  public native void writeFromScannerToFile(
+      long streamAddress,
+      long fileFormat,
+      String uri,
+      String[] partitionColumns,
+      int maxPartitions,
+      String baseNameTemplate);
 }

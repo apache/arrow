@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc;
 
 import static java.lang.String.format;
@@ -29,7 +28,6 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.util.Collections;
-
 import org.apache.arrow.driver.jdbc.utils.MockFlightSqlProducer;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -48,9 +46,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
 
-/**
- * Tests for {@link ArrowFlightStatement#executeUpdate}.
- */
+/** Tests for {@link ArrowFlightStatement#executeUpdate}. */
 public class ArrowFlightStatementExecuteUpdateTest {
   private static final String UPDATE_SAMPLE_QUERY =
       "UPDATE sample_table SET sample_col = sample_val WHERE sample_condition";
@@ -63,11 +59,12 @@ public class ArrowFlightStatementExecuteUpdateTest {
       new Schema(
           Collections.singletonList(Field.nullable("placeholder", MinorType.VARCHAR.getType())));
   private static final MockFlightSqlProducer PRODUCER = new MockFlightSqlProducer();
-  @ClassRule
-  public static final FlightServerTestRule SERVER_TEST_RULE = FlightServerTestRule.createStandardTestRule(PRODUCER);
 
-  @Rule
-  public final ErrorCollector collector = new ErrorCollector();
+  @ClassRule
+  public static final FlightServerTestRule SERVER_TEST_RULE =
+      FlightServerTestRule.createStandardTestRule(PRODUCER);
+
+  @Rule public final ErrorCollector collector = new ErrorCollector();
   public Connection connection;
   public Statement statement;
 
@@ -78,18 +75,19 @@ public class ArrowFlightStatementExecuteUpdateTest {
     PRODUCER.addSelectQuery(
         REGULAR_QUERY_SAMPLE,
         REGULAR_QUERY_SCHEMA,
-        Collections.singletonList(listener -> {
-          try (final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-               final VectorSchemaRoot root = VectorSchemaRoot.create(REGULAR_QUERY_SCHEMA,
-                   allocator)) {
-            listener.start(root);
-            listener.putNext();
-          } catch (final Throwable throwable) {
-            listener.error(throwable);
-          } finally {
-            listener.completed();
-          }
-        }));
+        Collections.singletonList(
+            listener -> {
+              try (final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+                  final VectorSchemaRoot root =
+                      VectorSchemaRoot.create(REGULAR_QUERY_SCHEMA, allocator)) {
+                listener.start(root);
+                listener.putNext();
+              } catch (final Throwable throwable) {
+                listener.error(throwable);
+              } finally {
+                listener.completed();
+              }
+            }));
   }
 
   @Before
@@ -111,8 +109,8 @@ public class ArrowFlightStatementExecuteUpdateTest {
   @Test
   public void testExecuteUpdateShouldReturnNumColsAffectedForNumRowsFittingInt()
       throws SQLException {
-    collector.checkThat(statement.executeUpdate(UPDATE_SAMPLE_QUERY),
-        is(UPDATE_SAMPLE_QUERY_AFFECTED_COLS));
+    collector.checkThat(
+        statement.executeUpdate(UPDATE_SAMPLE_QUERY), is(UPDATE_SAMPLE_QUERY_AFFECTED_COLS));
   }
 
   @Test
@@ -122,10 +120,13 @@ public class ArrowFlightStatementExecuteUpdateTest {
     final long expectedRowCountRaw = LARGE_UPDATE_SAMPLE_QUERY_AFFECTED_COLS;
     collector.checkThat(
         result,
-        is(allOf(
-            not(equalTo(expectedRowCountRaw)),
-            equalTo((long) AvaticaUtils.toSaturatedInt(
-                expectedRowCountRaw))))); // Because of long-to-integer overflow.
+        is(
+            allOf(
+                not(equalTo(expectedRowCountRaw)),
+                equalTo(
+                    (long)
+                        AvaticaUtils.toSaturatedInt(
+                            expectedRowCountRaw))))); // Because of long-to-integer overflow.
   }
 
   @Test
@@ -161,10 +162,10 @@ public class ArrowFlightStatementExecuteUpdateTest {
 
   @Test
   public void testExecuteShouldExecuteUpdateQueryAutomatically() throws SQLException {
-    collector.checkThat(statement.execute(UPDATE_SAMPLE_QUERY),
-        is(false)); // Meaning there was an update query.
-    collector.checkThat(statement.execute(REGULAR_QUERY_SAMPLE),
-        is(true)); // Meaning there was a select query.
+    collector.checkThat(
+        statement.execute(UPDATE_SAMPLE_QUERY), is(false)); // Meaning there was an update query.
+    collector.checkThat(
+        statement.execute(REGULAR_QUERY_SAMPLE), is(true)); // Meaning there was a select query.
   }
 
   @Test

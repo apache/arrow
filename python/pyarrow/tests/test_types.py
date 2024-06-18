@@ -1331,7 +1331,32 @@ def test_schema_import_c_schema_interface():
         def __arrow_c_schema__(self):
             return self.schema.__arrow_c_schema__()
 
-    schema = pa.schema([pa.field("field_name", pa.int32())])
+    schema = pa.schema([pa.field("field_name", pa.int32())], metadata={"a": "b"})
+    assert schema.metadata == {b"a": b"b"}
     wrapped_schema = Wrapper(schema)
 
     assert pa.schema(wrapped_schema) == schema
+    assert pa.schema(wrapped_schema).metadata == {b"a": b"b"}
+    assert pa.schema(wrapped_schema, metadata={"a": "c"}).metadata == {b"a": b"c"}
+
+
+def test_field_import_c_schema_interface():
+    class Wrapper:
+        def __init__(self, field):
+            self.field = field
+
+        def __arrow_c_schema__(self):
+            return self.field.__arrow_c_schema__()
+
+    field = pa.field("field_name", pa.int32(), metadata={"key": "value"})
+    wrapped_field = Wrapper(field)
+
+    assert pa.field(wrapped_field) == field
+
+    with pytest.raises(ValueError, match="cannot specify 'type'"):
+        pa.field(wrapped_field, type=pa.int64())
+
+    # override nullable or metadata
+    assert pa.field(wrapped_field, nullable=False).nullable is False
+    result = pa.field(wrapped_field, metadata={"other": "meta"})
+    assert result.metadata == {b"other": b"meta"}

@@ -12,7 +12,7 @@
 
 The R `{arrow}` package provides access to many of the features of the [Apache Arrow C++ library](https://arrow.apache.org/docs/cpp/index.html) for R users. The goal of arrow is to provide an Arrow C++ backend to `{dplyr}`, and access to the Arrow C++ library through familiar base R and tidyverse functions, or `{R6}` classes.
 
-To learn more about the Apache Arrow project, see the parent documentation of the [Arrow Project](https://arrow.apache.org/). The Arrow project provides functionality for a wide range of data analysis tasks to store, process and move data fast. See the [read/write article](articles/read_write.html) to learn about reading and writing data files, [data wrangling](articles/data_wrangling.html) to learn how to use dplyr syntax with arrow objects, and the [function documentation](reference/acero.html) for a full list of supported functions within dplyr queries.
+To learn more about the Apache Arrow project, see the parent documentation of the [Arrow Project](https://arrow.apache.org/). The Arrow project provides functionality for a wide range of data analysis tasks to store, process and move data fast. See the [read/write article](https://arrow.apache.org/docs/r/articles/read_write.html) to learn about reading and writing data files, [data wrangling](https://arrow.apache.org/docs/r/articles/data_wrangling.html) to learn how to use dplyr syntax with arrow objects, and the [function documentation](https://arrow.apache.org/docs/r/reference/acero.html) for a full list of supported functions within dplyr queries.
 
 ## Installation
 
@@ -33,11 +33,11 @@ There are some special cases to note:
 
 - On macOS, the R you use with Arrow should match the architecture of the machine you are using. If you're using an ARM (aka M1, M2, etc.) processor use R compiled for arm64. If you're using an Intel based mac, use R compiled for x86. Using R and Arrow compiled for Intel based macs on an ARM based mac will result in segfaults and crashes.
 
-- On Linux the installation process can sometimes be more involved because CRAN does not host binaries for Linux. For more information please see the [installation guide](articles/install.html).
+- On Linux the installation process can sometimes be more involved because CRAN does not host binaries for Linux. For more information please see the [installation guide](https://arrow.apache.org/docs/r/articles/install.html).
 
 - If you are compiling arrow from source, please note that as of version 10.0.0, arrow requires C++17 to build. This has implications on Windows and CentOS 7. For Windows users it means you need to be running an R version of 4.0 or later. On CentOS 7, it means you need to install a newer compiler than the default system compiler gcc. See the [installation details article](https://arrow.apache.org/docs/r/articles/developers/install_details.html) for guidance.
 
-- Development versions of arrow are released nightly. For information on how to installl nighhtly builds please see the [installing nightly builds](articles/install_nightly.html) article.
+- Development versions of arrow are released nightly. For information on how to installl nightly builds please see the [installing nightly builds](https://arrow.apache.org/docs/r/articles/install_nightly.html) article.
 
 ## What can the arrow package do?
 

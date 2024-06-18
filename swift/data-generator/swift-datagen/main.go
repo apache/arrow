@@ -22,8 +22,8 @@ import (
 
 	"github.com/apache/arrow/go/v12/arrow"
 	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/memory"
 	"github.com/apache/arrow/go/v12/arrow/ipc"
+	"github.com/apache/arrow/go/v12/arrow/memory"
 )
 
 func writeBytes(rec arrow.Record, file_name string) {
@@ -42,7 +42,6 @@ func writeBytes(rec arrow.Record, file_name string) {
 	rr.Close()
 }
 
-
 func writeBoolData() {
 	alloc := memory.NewGoAllocator()
 	schema := arrow.NewSchema([]arrow.Field{
@@ -53,13 +52,12 @@ func writeBoolData() {
 	b := array.NewRecordBuilder(alloc, schema)
 	defer b.Release()
 
-	b.Field(0).(*array.BooleanBuilder).AppendValues([]bool{true, false,}, nil)
+	b.Field(0).(*array.BooleanBuilder).AppendValues([]bool{true, false}, nil)
 	b.Field(0).(*array.BooleanBuilder).AppendNull()
-	b.Field(0).(*array.BooleanBuilder).AppendValues([]bool{false, true,}, nil)
+	b.Field(0).(*array.BooleanBuilder).AppendValues([]bool{false, true}, nil)
 	b.Field(1).(*array.StringBuilder).AppendValues([]string{"zero", "one", "two", "three", "four"}, nil)
 	rec := b.NewRecord()
 	defer rec.Release()
-
 
 	writeBytes(rec, "testdata_bool.arrow")
 }
@@ -81,11 +79,10 @@ func writeDoubleData() {
 	rec := b.NewRecord()
 	defer rec.Release()
 
-
 	writeBytes(rec, "testdata_double.arrow")
 }
 
 func main() {
-	writeBoolData();
-	writeDoubleData();
+	writeBoolData()
+	writeDoubleData()
 }

@@ -752,7 +752,7 @@ void GenericFileSystemTest::TestGetFileInfoSelector(FileSystem* fs) {
 }
 
 void GenericFileSystemTest::TestGetFileInfoGenerator(FileSystem* fs) {
-#ifdef ADDRESS_SANITIZER
+#if defined(ADDRESS_SANITIZER) || defined(ARROW_VALGRIND)
   if (have_false_positive_memory_leak_with_generator()) {
     GTEST_SKIP() << "Filesystem have false positive memory leak with generator";
   }

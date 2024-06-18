@@ -91,7 +91,7 @@ static void TableJoinOverhead(benchmark::State& state,
     ASSERT_OK(DeclarationToStatus(std::move(join_node), /*use_threads=*/false));
   }
 
-  state.counters["input_rows_per_second"] = benchmark::Counter(
+  state.counters["rows_per_second"] = benchmark::Counter(
       static_cast<double>(state.iterations() * (left_table_stats.rows + right_hand_rows)),
       benchmark::Counter::kIsRate);
 

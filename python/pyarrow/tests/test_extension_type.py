@@ -251,20 +251,46 @@ def test_ext_type_repr():
     assert repr(ty) == "IntegerType(DataType(int64))"
 
 
-def test_ext_type__lifetime():
+def test_ext_type_lifetime():
     ty = UuidType()
     wr = weakref.ref(ty)
     del ty
     assert wr() is None
 
 
-def test_ext_type__storage_type():
+def test_ext_type_storage_type():
     ty = UuidType()
     assert ty.storage_type == pa.binary(16)
     assert ty.__class__ is UuidType
     ty = ParamExtType(5)
     assert ty.storage_type == pa.binary(5)
     assert ty.__class__ is ParamExtType
+
+
+def test_ext_type_byte_width():
+    # Test for fixed-size binary types
+    ty = UuidType()
+    assert ty.byte_width == 16
+    ty = ParamExtType(5)
+    assert ty.byte_width == 5
+
+    # Test for non fixed-size binary types
+    ty = LabelType()
+    with pytest.raises(ValueError, match="Non-fixed width type"):
+        _ = ty.byte_width
+
+
+def test_ext_type_bit_width():
+    # Test for fixed-size binary types
+    ty = UuidType()
+    assert ty.bit_width == 128
+    ty = ParamExtType(5)
+    assert ty.bit_width == 40
+
+    # Test for non fixed-size binary types
+    ty = LabelType()
+    with pytest.raises(ValueError, match="Non-fixed width type"):
+        _ = ty.bit_width
 
 
 def test_ext_type_as_py():

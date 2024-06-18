@@ -41,7 +41,8 @@ Result<std::shared_ptr<Buffer>> Buffer::CopySlice(const int64_t start,
 
   ARROW_ASSIGN_OR_RAISE(auto new_buffer, AllocateResizableBuffer(nbytes, pool));
   std::memcpy(new_buffer->mutable_data(), data() + start, static_cast<size_t>(nbytes));
-  return std::move(new_buffer);
+  // R build with openSUSE155 requires an explicit shared_ptr construction
+  return std::shared_ptr<Buffer>(std::move(new_buffer));
 }
 
 Buffer::Buffer() : Buffer(memory_pool::internal::kZeroSizeArea, 0) {}
@@ -185,7 +186,8 @@ Result<std::shared_ptr<Buffer>> AllocateBitmap(int64_t length, MemoryPool* pool)
   if (buf->size() > 0) {
     buf->mutable_data()[buf->size() - 1] = 0;
   }
-  return std::move(buf);
+  // R build with openSUSE155 requires an explicit shared_ptr construction
+  return std::shared_ptr<Buffer>(std::move(buf));
 }
 
 Result<std::shared_ptr<Buffer>> AllocateEmptyBitmap(int64_t length, MemoryPool* pool) {
@@ -197,7 +199,8 @@ Result<std::shared_ptr<Buffer>> AllocateEmptyBitmap(int64_t length, int64_t alig
   ARROW_ASSIGN_OR_RAISE(auto buf,
                         AllocateBuffer(bit_util::BytesForBits(length), alignment, pool));
   memset(buf->mutable_data(), 0, static_cast<size_t>(buf->size()));
-  return std::move(buf);
+  // R build with openSUSE155 requires an explicit shared_ptr construction
+  return std::shared_ptr<Buffer>(std::move(buf));
 }
 
 Status AllocateEmptyBitmap(int64_t length, std::shared_ptr<Buffer>* out) {
@@ -219,7 +222,8 @@ Result<std::shared_ptr<Buffer>> ConcatenateBuffers(
       out_data += buffer->size();
     }
   }
-  return std::move(out);
+  // R build with openSUSE155 requires an explicit shared_ptr construction
+  return std::shared_ptr<Buffer>(std::move(out));
 }
 
 }  // namespace arrow

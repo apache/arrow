@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.memory;
 
 import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
@@ -26,7 +25,6 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.ReadOnlyBufferException;
 import java.util.concurrent.atomic.AtomicLong;
-
 import org.apache.arrow.memory.BaseAllocator.Verbosity;
 import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.memory.util.HistoricalLog;
@@ -36,24 +34,18 @@ import org.apache.arrow.util.VisibleForTesting;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
- * ArrowBuf serves as a facade over underlying memory by providing
- * several access APIs to read/write data into a chunk of direct
- * memory. All the accounting, ownership and reference management
- * is done by {@link ReferenceManager} and ArrowBuf can work
- * with a custom user provided implementation of ReferenceManager
- * <p>
- * Two important instance variables of an ArrowBuf:
- * (1) address - starting virtual address in the underlying memory
- * chunk that this ArrowBuf has access to
- * (2) length - length (in bytes) in the underlying memory chunk
- * that this ArrowBuf has access to
- * </p>
- * <p>
- * The management (allocation, deallocation, reference counting etc) for
- * the memory chunk is not done by ArrowBuf.
- * Default implementation of ReferenceManager, allocation is in
- * {@link BaseAllocator}, {@link BufferLedger} and {@link AllocationManager}
- * </p>
+ * ArrowBuf serves as a facade over underlying memory by providing several access APIs to read/write
+ * data into a chunk of direct memory. All the accounting, ownership and reference management is
+ * done by {@link ReferenceManager} and ArrowBuf can work with a custom user provided implementation
+ * of ReferenceManager
+ *
+ * <p>Two important instance variables of an ArrowBuf: (1) address - starting virtual address in the
+ * underlying memory chunk that this ArrowBuf has access to (2) length - length (in bytes) in the
+ * underlying memory chunk that this ArrowBuf has access to
+ *
+ * <p>The management (allocation, deallocation, reference counting etc) for the memory chunk is not
+ * done by ArrowBuf. Default implementation of ReferenceManager, allocation is in {@link
+ * BaseAllocator}, {@link BufferLedger} and {@link AllocationManager}
  */
 public final class ArrowBuf implements AutoCloseable {
 
@@ -73,14 +65,17 @@ public final class ArrowBuf implements AutoCloseable {
   private final long addr;
   private long readerIndex;
   private long writerIndex;
-  private final @Nullable HistoricalLog historicalLog = BaseAllocator.DEBUG ?
-          new HistoricalLog(BaseAllocator.DEBUG_LOG_LENGTH, "ArrowBuf[%d]", id) : null;
+  private final @Nullable HistoricalLog historicalLog =
+      BaseAllocator.DEBUG
+          ? new HistoricalLog(BaseAllocator.DEBUG_LOG_LENGTH, "ArrowBuf[%d]", id)
+          : null;
   private volatile long capacity;
 
   /**
    * Constructs a new ArrowBuf.
    *
-   * @param referenceManager The memory manager to track memory usage and reference count of this buffer
+   * @param referenceManager The memory manager to track memory usage and reference count of this
+   *     buffer
    * @param capacity The capacity in bytes of this buffer
    */
   public ArrowBuf(
@@ -107,11 +102,10 @@ public final class ArrowBuf implements AutoCloseable {
    * Allows a function to determine whether not reading a particular string of bytes is valid.
    *
    * <p>Will throw an exception if the memory is not readable for some reason. Only doesn't
-   * something in the case that
-   * AssertionUtil.BOUNDS_CHECKING_ENABLED is true.
+   * something in the case that AssertionUtil.BOUNDS_CHECKING_ENABLED is true.
    *
    * @param start The starting position of the bytes to be read.
-   * @param end   The exclusive endpoint of the bytes to be read.
+   * @param end The exclusive endpoint of the bytes to be read.
    */
   public void checkBytes(long start, long end) {
     if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
@@ -119,9 +113,7 @@ public final class ArrowBuf implements AutoCloseable {
     }
   }
 
-  /**
-   * For get/set operations, reference count should be >= 1.
-   */
+  /** For get/set operations, reference count should be >= 1. */
   private void ensureAccessible() {
     if (this.refCnt() == 0) {
       throw new IllegalStateException("Ref count should be >= 1 for accessing the ArrowBuf");
@@ -130,6 +122,7 @@ public final class ArrowBuf implements AutoCloseable {
 
   /**
    * Get reference manager for this ArrowBuf.
+   *
    * @return user provided implementation of {@link ReferenceManager}
    */
   public ReferenceManager getReferenceManager() {
@@ -141,7 +134,7 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Adjusts the capacity of this buffer.  Size increases are NOT supported.
+   * Adjusts the capacity of this buffer. Size increases are NOT supported.
    *
    * @param newCapacity Must be in in the range [0, length).
    */
@@ -158,42 +151,36 @@ public final class ArrowBuf implements AutoCloseable {
       return this;
     }
 
-    throw new UnsupportedOperationException("Buffers don't support resizing that increases the size.");
+    throw new UnsupportedOperationException(
+        "Buffers don't support resizing that increases the size.");
   }
 
-  /**
-   * Returns the byte order of elements in this buffer.
-   */
+  /** Returns the byte order of elements in this buffer. */
   public ByteOrder order() {
     return ByteOrder.nativeOrder();
   }
 
-  /**
-   * Returns the number of bytes still available to read in this buffer.
-   */
+  /** Returns the number of bytes still available to read in this buffer. */
   public long readableBytes() {
-    Preconditions.checkState(writerIndex >= readerIndex,
-            "Writer index cannot be less than reader index");
+    Preconditions.checkState(
+        writerIndex >= readerIndex, "Writer index cannot be less than reader index");
     return writerIndex - readerIndex;
   }
 
   /**
-   * Returns the number of bytes still available to write into this buffer before capacity is reached.
+   * Returns the number of bytes still available to write into this buffer before capacity is
+   * reached.
    */
   public long writableBytes() {
     return capacity() - writerIndex;
   }
 
-  /**
-   * Returns a slice of only the readable bytes in the buffer.
-   */
+  /** Returns a slice of only the readable bytes in the buffer. */
   public ArrowBuf slice() {
     return slice(readerIndex, readableBytes());
   }
 
-  /**
-   *  Returns a slice (view) starting at <code>index</code> with the given <code>length</code>.
-   */
+  /** Returns a slice (view) starting at <code>index</code> with the given <code>length</code>. */
   public ArrowBuf slice(long index, long length) {
 
     Preconditions.checkPositionIndex(index, this.capacity);
@@ -209,17 +196,12 @@ public final class ArrowBuf implements AutoCloseable {
     return newBuf;
   }
 
-  /**
-   * Make a nio byte buffer from this arrowbuf.
-   */
+  /** Make a nio byte buffer from this arrowbuf. */
   public ByteBuffer nioBuffer() {
     return nioBuffer(readerIndex, checkedCastToInt(readableBytes()));
   }
 
-
-  /**
-   *  Make a nio byte buffer from this ArrowBuf.
-   */
+  /** Make a nio byte buffer from this ArrowBuf. */
   public ByteBuffer nioBuffer(long index, int length) {
     chk(index, length);
     return getDirectBuffer(index, length);
@@ -283,22 +265,18 @@ public final class ArrowBuf implements AutoCloseable {
     return addr + index;
   }
 
-
-
   /*-------------------------------------------------*
-   | Following are a set of fast path data set and   |
-   | get APIs to write/read data from ArrowBuf       |
-   | at a given index (0 based relative to this      |
-   | ArrowBuf and not relative to the underlying     |
-   | memory chunk).                                  |
-   |                                                 |
-   *-------------------------------------------------*/
-
-
+  | Following are a set of fast path data set and   |
+  | get APIs to write/read data from ArrowBuf       |
+  | at a given index (0 based relative to this      |
+  | ArrowBuf and not relative to the underlying     |
+  | memory chunk).                                  |
+  |                                                 |
+  *-------------------------------------------------*/
 
   /**
-   * Helper function to do bounds checking at a particular
-   * index for particular length of data.
+   * Helper function to do bounds checking at a particular index for particular length of data.
+   *
    * @param index index (0 based relative to this ArrowBuf)
    * @param length provided length of data for get/set
    */
@@ -317,16 +295,17 @@ public final class ArrowBuf implements AutoCloseable {
       if (historicalLog != null) {
         historicalLog.logHistory(logger);
       }
-      throw new IndexOutOfBoundsException(String.format(
-        "index: %d, length: %d (expected: range(0, %d))", index, fieldLength, capacity()));
+      throw new IndexOutOfBoundsException(
+          String.format(
+              "index: %d, length: %d (expected: range(0, %d))", index, fieldLength, capacity()));
     }
   }
 
   /**
-   * Get long value stored at a particular index in the
-   * underlying memory chunk this ArrowBuf has access to.
-   * @param index index (0 based relative to this ArrowBuf)
-   *              where the value will be read from
+   * Get long value stored at a particular index in the underlying memory chunk this ArrowBuf has
+   * access to.
+   *
+   * @param index index (0 based relative to this ArrowBuf) where the value will be read from
    * @return 8 byte long value
    */
   public long getLong(long index) {
@@ -335,10 +314,10 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Set long value at a particular index in the
-   * underlying memory chunk this ArrowBuf has access to.
-   * @param index index (0 based relative to this ArrowBuf)
-   *              where the value will be written
+   * Set long value at a particular index in the underlying memory chunk this ArrowBuf has access
+   * to.
+   *
+   * @param index index (0 based relative to this ArrowBuf) where the value will be written
    * @param value value to write
    */
   public void setLong(long index, long value) {
@@ -347,10 +326,10 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Get float value stored at a particular index in the
-   * underlying memory chunk this ArrowBuf has access to.
-   * @param index index (0 based relative to this ArrowBuf)
-   *              where the value will be read from
+   * Get float value stored at a particular index in the underlying memory chunk this ArrowBuf has
+   * access to.
+   *
+   * @param index index (0 based relative to this ArrowBuf) where the value will be read from
    * @return 4 byte float value
    */
   public float getFloat(long index) {
@@ -358,10 +337,10 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Set float value at a particular index in the
-   * underlying memory chunk this ArrowBuf has access to.
-   * @param index index (0 based relative to this ArrowBuf)
-   *              where the value will be written
+   * Set float value at a particular index in the underlying memory chunk this ArrowBuf has access
+   * to.
+   *
+   * @param index index (0 based relative to this ArrowBuf) where the value will be written
    * @param value value to write
    */
   public void setFloat(long index, float value) {
@@ -370,10 +349,10 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Get double value stored at a particular index in the
-   * underlying memory chunk this ArrowBuf has access to.
-   * @param index index (0 based relative to this ArrowBuf)
-   *              where the value will be read from
+   * Get double value stored at a particular index in the underlying memory chunk this ArrowBuf has
+   * access to.
+   *
+   * @param index index (0 based relative to this ArrowBuf) where the value will be read from
    * @return 8 byte double value
    */
   public double getDouble(long index) {
@@ -381,10 +360,10 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Set double value at a particular index in the
-   * underlying memory chunk this ArrowBuf has access to.
-   * @param index index (0 based relative to this ArrowBuf)
-   *              where the value will be written
+   * Set double value at a particular index in the underlying memory chunk this ArrowBuf has access
+   * to.
+   *
+   * @param index index (0 based relative to this ArrowBuf) where the value will be written
    * @param value value to write
    */
   public void setDouble(long index, double value) {
@@ -393,10 +372,10 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Get char value stored at a particular index in the
-   * underlying memory chunk this ArrowBuf has access to.
-   * @param index index (0 based relative to this ArrowBuf)
-   *              where the value will be read from
+   * Get char value stored at a particular index in the underlying memory chunk this ArrowBuf has
+   * access to.
+   *
+   * @param index index (0 based relative to this ArrowBuf) where the value will be read from
    * @return 2 byte char value
    */
   public char getChar(long index) {
@@ -404,10 +383,10 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Set char value at a particular index in the
-   * underlying memory chunk this ArrowBuf has access to.
-   * @param index index (0 based relative to this ArrowBuf)
-   *              where the value will be written
+   * Set char value at a particular index in the underlying memory chunk this ArrowBuf has access
+   * to.
+   *
+   * @param index index (0 based relative to this ArrowBuf) where the value will be written
    * @param value value to write
    */
   public void setChar(long index, int value) {
@@ -416,10 +395,10 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Get int value stored at a particular index in the
-   * underlying memory chunk this ArrowBuf has access to.
-   * @param index index (0 based relative to this ArrowBuf)
-   *              where the value will be read from
+   * Get int value stored at a particular index in the underlying memory chunk this ArrowBuf has
+   * access to.
+   *
+   * @param index index (0 based relative to this ArrowBuf) where the value will be read from
    * @return 4 byte int value
    */
   public int getInt(long index) {
@@ -428,10 +407,9 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Set int value at a particular index in the
-   * underlying memory chunk this ArrowBuf has access to.
-   * @param index index (0 based relative to this ArrowBuf)
-   *              where the value will be written
+   * Set int value at a particular index in the underlying memory chunk this ArrowBuf has access to.
+   *
+   * @param index index (0 based relative to this ArrowBuf) where the value will be written
    * @param value value to write
    */
   public void setInt(long index, int value) {
@@ -440,10 +418,10 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Get short value stored at a particular index in the
-   * underlying memory chunk this ArrowBuf has access to.
-   * @param index index (0 based relative to this ArrowBuf)
-   *              where the value will be read from
+   * Get short value stored at a particular index in the underlying memory chunk this ArrowBuf has
+   * access to.
+   *
+   * @param index index (0 based relative to this ArrowBuf) where the value will be read from
    * @return 2 byte short value
    */
   public short getShort(long index) {
@@ -452,10 +430,10 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Set short value at a particular index in the
-   * underlying memory chunk this ArrowBuf has access to.
-   * @param index index (0 based relative to this ArrowBuf)
-   *              where the value will be written
+   * Set short value at a particular index in the underlying memory chunk this ArrowBuf has access
+   * to.
+   *
+   * @param index index (0 based relative to this ArrowBuf) where the value will be written
    * @param value value to write
    */
   public void setShort(long index, int value) {
@@ -463,10 +441,10 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Set short value at a particular index in the
-   * underlying memory chunk this ArrowBuf has access to.
-   * @param index index (0 based relative to this ArrowBuf)
-   *              where the value will be written
+   * Set short value at a particular index in the underlying memory chunk this ArrowBuf has access
+   * to.
+   *
+   * @param index index (0 based relative to this ArrowBuf) where the value will be written
    * @param value value to write
    */
   public void setShort(long index, short value) {
@@ -475,10 +453,10 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Set byte value at a particular index in the
-   * underlying memory chunk this ArrowBuf has access to.
-   * @param index index (0 based relative to this ArrowBuf)
-   *              where the value will be written
+   * Set byte value at a particular index in the underlying memory chunk this ArrowBuf has access
+   * to.
+   *
+   * @param index index (0 based relative to this ArrowBuf) where the value will be written
    * @param value value to write
    */
   public void setByte(long index, int value) {
@@ -487,10 +465,10 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Set byte value at a particular index in the
-   * underlying memory chunk this ArrowBuf has access to.
-   * @param index index (0 based relative to this ArrowBuf)
-   *              where the value will be written
+   * Set byte value at a particular index in the underlying memory chunk this ArrowBuf has access
+   * to.
+   *
+   * @param index index (0 based relative to this ArrowBuf) where the value will be written
    * @param value value to write
    */
   public void setByte(long index, byte value) {
@@ -499,10 +477,10 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Get byte value stored at a particular index in the
-   * underlying memory chunk this ArrowBuf has access to.
-   * @param index index (0 based relative to this ArrowBuf)
-   *              where the value will be read from
+   * Get byte value stored at a particular index in the underlying memory chunk this ArrowBuf has
+   * access to.
+   *
+   * @param index index (0 based relative to this ArrowBuf) where the value will be read from
    * @return byte value
    */
   public byte getByte(long index) {
@@ -510,20 +488,16 @@ public final class ArrowBuf implements AutoCloseable {
     return MemoryUtil.UNSAFE.getByte(addr(index));
   }
 
-
-
   /*--------------------------------------------------*
-   | Following are another set of data set APIs       |
-   | that directly work with writerIndex              |
-   |                                                  |
-   *--------------------------------------------------*/
-
-
+  | Following are another set of data set APIs       |
+  | that directly work with writerIndex              |
+  |                                                  |
+  *--------------------------------------------------*/
 
   /**
-   * Helper function to do bound checking w.r.t writerIndex
-   * by checking if we can set "length" bytes of data at the
-   * writerIndex in this ArrowBuf.
+   * Helper function to do bound checking w.r.t writerIndex by checking if we can set "length" bytes
+   * of data at the writerIndex in this ArrowBuf.
+   *
    * @param length provided length of data for set
    */
   private void ensureWritable(final int length) {
@@ -534,15 +508,17 @@ public final class ArrowBuf implements AutoCloseable {
       // check bounds
       if (length > writableBytes()) {
         throw new IndexOutOfBoundsException(
-          String.format("writerIndex(%d) + length(%d) exceeds capacity(%d)", writerIndex, length, capacity()));
+            String.format(
+                "writerIndex(%d) + length(%d) exceeds capacity(%d)",
+                writerIndex, length, capacity()));
       }
     }
   }
 
   /**
-   * Helper function to do bound checking w.r.t readerIndex
-   * by checking if we can read "length" bytes of data at the
-   * readerIndex in this ArrowBuf.
+   * Helper function to do bound checking w.r.t readerIndex by checking if we can read "length"
+   * bytes of data at the readerIndex in this ArrowBuf.
+   *
    * @param length provided length of data for get
    */
   private void ensureReadable(final int length) {
@@ -553,13 +529,16 @@ public final class ArrowBuf implements AutoCloseable {
       // check bounds
       if (length > readableBytes()) {
         throw new IndexOutOfBoundsException(
-          String.format("readerIndex(%d) + length(%d) exceeds writerIndex(%d)", readerIndex, length, writerIndex));
+            String.format(
+                "readerIndex(%d) + length(%d) exceeds writerIndex(%d)",
+                readerIndex, length, writerIndex));
       }
     }
   }
 
   /**
    * Read the byte at readerIndex.
+   *
    * @return byte value
    */
   public byte readByte() {
@@ -571,6 +550,7 @@ public final class ArrowBuf implements AutoCloseable {
 
   /**
    * Read dst.length bytes at readerIndex into dst byte array
+   *
    * @param dst byte array where the data will be written
    */
   public void readBytes(byte[] dst) {
@@ -581,6 +561,7 @@ public final class ArrowBuf implements AutoCloseable {
 
   /**
    * Set the provided byte value at the writerIndex.
+   *
    * @param value value to set
    */
   public void writeByte(byte value) {
@@ -590,8 +571,8 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Set the lower order byte for the provided value at
-   * the writerIndex.
+   * Set the lower order byte for the provided value at the writerIndex.
+   *
    * @param value value to be set
    */
   public void writeByte(int value) {
@@ -601,8 +582,8 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Write the bytes from given byte array into this
-   * ArrowBuf starting at writerIndex.
+   * Write the bytes from given byte array into this ArrowBuf starting at writerIndex.
+   *
    * @param src src byte array
    */
   public void writeBytes(byte[] src) {
@@ -611,8 +592,9 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Write the bytes from given byte array starting at srcIndex
-   * into this ArrowBuf starting at writerIndex.
+   * Write the bytes from given byte array starting at srcIndex into this ArrowBuf starting at
+   * writerIndex.
+   *
    * @param src src byte array
    * @param srcIndex index in the byte array where the copy will being from
    * @param length length of data to copy
@@ -625,6 +607,7 @@ public final class ArrowBuf implements AutoCloseable {
 
   /**
    * Set the provided int value as short at the writerIndex.
+   *
    * @param value value to set
    */
   public void writeShort(int value) {
@@ -635,6 +618,7 @@ public final class ArrowBuf implements AutoCloseable {
 
   /**
    * Set the provided int value at the writerIndex.
+   *
    * @param value value to set
    */
   public void writeInt(int value) {
@@ -645,6 +629,7 @@ public final class ArrowBuf implements AutoCloseable {
 
   /**
    * Set the provided long value at the writerIndex.
+   *
    * @param value value to set
    */
   public void writeLong(long value) {
@@ -655,6 +640,7 @@ public final class ArrowBuf implements AutoCloseable {
 
   /**
    * Set the provided float value at the writerIndex.
+   *
    * @param value value to set
    */
   public void writeFloat(float value) {
@@ -665,6 +651,7 @@ public final class ArrowBuf implements AutoCloseable {
 
   /**
    * Set the provided double value at the writerIndex.
+   *
    * @param value value to set
    */
   public void writeDouble(double value) {
@@ -673,21 +660,21 @@ public final class ArrowBuf implements AutoCloseable {
     writerIndex += DOUBLE_SIZE;
   }
 
-
   /*--------------------------------------------------*
-   | Following are another set of data set/get APIs   |
-   | that read and write stream of bytes from/to byte |
-   | arrays, ByteBuffer, ArrowBuf etc                 |
-   |                                                  |
-   *--------------------------------------------------*/
+  | Following are another set of data set/get APIs   |
+  | that read and write stream of bytes from/to byte |
+  | arrays, ByteBuffer, ArrowBuf etc                 |
+  |                                                  |
+  *--------------------------------------------------*/
 
   /**
    * Determine if the requested {@code index} and {@code length} will fit within {@code capacity}.
+   *
    * @param index The starting index.
    * @param length The length which will be utilized (starting from {@code index}).
    * @param capacity The capacity that {@code index + length} is allowed to be within.
-   * @return {@code true} if the requested {@code index} and {@code length} will fit within {@code capacity}.
-   * {@code false} if this would result in an index out of bounds exception.
+   * @return {@code true} if the requested {@code index} and {@code length} will fit within {@code
+   *     capacity}. {@code false} if this would result in an index out of bounds exception.
    */
   private static boolean isOutOfBounds(long index, long length, long capacity) {
     return (index | length | (index + length) | (capacity - (index + length))) < 0;
@@ -699,17 +686,19 @@ public final class ArrowBuf implements AutoCloseable {
       this.ensureAccessible();
       // check bounds
       if (isOutOfBounds(index, fieldLength, this.capacity())) {
-        throw new IndexOutOfBoundsException(String.format("index: %d, length: %d (expected: range(0, %d))",
+        throw new IndexOutOfBoundsException(
+            String.format(
+                "index: %d, length: %d (expected: range(0, %d))",
                 index, fieldLength, this.capacity()));
       }
     }
   }
 
   /**
-   * Copy data from this ArrowBuf at a given index in into destination
-   * byte array.
-   * @param index starting index (0 based relative to the portion of memory)
-   *              this ArrowBuf has access to
+   * Copy data from this ArrowBuf at a given index in into destination byte array.
+   *
+   * @param index starting index (0 based relative to the portion of memory) this ArrowBuf has
+   *     access to
    * @param dst byte array to copy the data into
    */
   public void getBytes(long index, byte[] dst) {
@@ -718,8 +707,8 @@ public final class ArrowBuf implements AutoCloseable {
 
   /**
    * Copy data from this ArrowBuf at a given index into destination byte array.
-   * @param index index (0 based relative to the portion of memory
-   *              this ArrowBuf has access to)
+   *
+   * @param index index (0 based relative to the portion of memory this ArrowBuf has access to)
    * @param dst byte array to copy the data into
    * @param dstIndex starting index in dst byte array to copy into
    * @param length length of data to copy from this ArrowBuf
@@ -732,20 +721,22 @@ public final class ArrowBuf implements AutoCloseable {
     // bound check for dst byte array where the data will be copied to
     if (isOutOfBounds(dstIndex, length, dst.length)) {
       // not enough space to copy "length" bytes into dst array from dstIndex onwards
-      throw new IndexOutOfBoundsException("Not enough space to copy data into destination" + dstIndex);
+      throw new IndexOutOfBoundsException(
+          "Not enough space to copy data into destination" + dstIndex);
     }
     if (length != 0) {
       // copy "length" bytes from this ArrowBuf starting at addr(index) address
       // into dst byte array at dstIndex onwards
-      MemoryUtil.copyMemory(null, addr(index), dst, MemoryUtil.BYTE_ARRAY_BASE_OFFSET + dstIndex, length);
+      MemoryUtil.copyMemory(
+          null, addr(index), dst, MemoryUtil.BYTE_ARRAY_BASE_OFFSET + dstIndex, length);
     }
   }
 
   /**
-   * Copy data from a given byte array into this ArrowBuf starting at
-   * a given index.
-   * @param index starting index (0 based relative to the portion of memory)
-   *              this ArrowBuf has access to
+   * Copy data from a given byte array into this ArrowBuf starting at a given index.
+   *
+   * @param index starting index (0 based relative to the portion of memory) this ArrowBuf has
+   *     access to
    * @param src byte array to copy the data from
    */
   public void setBytes(long index, byte[] src) {
@@ -753,10 +744,10 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Copy data from a given byte array starting at the given source index into
-   * this ArrowBuf at a given index.
-   * @param index index (0 based relative to the portion of memory this ArrowBuf
-   *              has access to)
+   * Copy data from a given byte array starting at the given source index into this ArrowBuf at a
+   * given index.
+   *
+   * @param index index (0 based relative to the portion of memory this ArrowBuf has access to)
    * @param src src byte array to copy the data from
    * @param srcIndex index in the byte array where the copy will start from
    * @param length length of data to copy from byte array
@@ -769,20 +760,21 @@ public final class ArrowBuf implements AutoCloseable {
     // bound check for src byte array where the data will be copied from
     if (isOutOfBounds(srcIndex, length, src.length)) {
       // not enough space to copy "length" bytes into dst array from dstIndex onwards
-      throw new IndexOutOfBoundsException("Not enough space to copy data from byte array" + srcIndex);
+      throw new IndexOutOfBoundsException(
+          "Not enough space to copy data from byte array" + srcIndex);
     }
     if (length > 0) {
       // copy "length" bytes from src byte array at the starting index (srcIndex)
       // into this ArrowBuf starting at address "addr(index)"
-      MemoryUtil.copyMemory(src, MemoryUtil.BYTE_ARRAY_BASE_OFFSET + srcIndex, null, addr(index), length);
+      MemoryUtil.copyMemory(
+          src, MemoryUtil.BYTE_ARRAY_BASE_OFFSET + srcIndex, null, addr(index), length);
     }
   }
 
   /**
-   * Copy data from this ArrowBuf at a given index into the destination
-   * ByteBuffer.
-   * @param index index (0 based relative to the portion of memory this ArrowBuf
-   *              has access to)
+   * Copy data from this ArrowBuf at a given index into the destination ByteBuffer.
+   *
+   * @param index index (0 based relative to the portion of memory this ArrowBuf has access to)
    * @param dst dst ByteBuffer where the data will be copied into
    */
   public void getBytes(long index, ByteBuffer dst) {
@@ -809,20 +801,25 @@ public final class ArrowBuf implements AutoCloseable {
         // index dstIndex
         final int dstIndex = dst.arrayOffset() + dst.position();
         MemoryUtil.copyMemory(
-                null, srcAddress, dst.array(), MemoryUtil.BYTE_ARRAY_BASE_OFFSET + dstIndex, dst.remaining());
+            null,
+            srcAddress,
+            dst.array(),
+            MemoryUtil.BYTE_ARRAY_BASE_OFFSET + dstIndex,
+            dst.remaining());
         // after copy, bump the next write position for the dst ByteBuffer
         dst.position(dst.position() + dst.remaining());
       } else {
-        throw new UnsupportedOperationException("Copy from this ArrowBuf to ByteBuffer is not supported");
+        throw new UnsupportedOperationException(
+            "Copy from this ArrowBuf to ByteBuffer is not supported");
       }
     }
   }
 
   /**
-   * Copy data into this ArrowBuf at a given index onwards from
-   * a source ByteBuffer.
-   * @param index index index (0 based relative to the portion of memory
-   *              this ArrowBuf has access to)
+   * Copy data into this ArrowBuf at a given index onwards from a source ByteBuffer.
+   *
+   * @param index index index (0 based relative to the portion of memory this ArrowBuf has access
+   *     to)
    * @param src src ByteBuffer where the data will be copied from
    */
   public void setBytes(long index, ByteBuffer src) {
@@ -845,7 +842,7 @@ public final class ArrowBuf implements AutoCloseable {
         // index srcIndex into this ArrowBuf starting at address dstAddress
         final int srcIndex = src.arrayOffset() + src.position();
         MemoryUtil.copyMemory(
-                src.array(), MemoryUtil.BYTE_ARRAY_BASE_OFFSET + srcIndex, null, dstAddress, length);
+            src.array(), MemoryUtil.BYTE_ARRAY_BASE_OFFSET + srcIndex, null, dstAddress, length);
         // after copy, bump the next read position for the src ByteBuffer
         src.position(src.position() + length);
       } else {
@@ -879,14 +876,12 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Copy data into this ArrowBuf at a given index onwards from
-   * a source ByteBuffer starting at a given srcIndex for a certain
-   * length.
-   * @param index index (0 based relative to the portion of memory
-   *              this ArrowBuf has access to)
+   * Copy data into this ArrowBuf at a given index onwards from a source ByteBuffer starting at a
+   * given srcIndex for a certain length.
+   *
+   * @param index index (0 based relative to the portion of memory this ArrowBuf has access to)
    * @param src src ByteBuffer where the data will be copied from
-   * @param srcIndex starting index in the src ByteBuffer where the data copy
-   *                 will start from
+   * @param srcIndex starting index in the src ByteBuffer where the data copy will start from
    * @param length length of data to copy from src ByteBuffer
    */
   public void setBytes(long index, ByteBuffer src, int srcIndex, int length) {
@@ -912,13 +907,12 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Copy a given length of data from this ArrowBuf starting at a given index
-   * into a dst ArrowBuf at dstIndex.
-   * @param index index (0 based relative to the portion of memory
-   *              this ArrowBuf has access to)
+   * Copy a given length of data from this ArrowBuf starting at a given index into a dst ArrowBuf at
+   * dstIndex.
+   *
+   * @param index index (0 based relative to the portion of memory this ArrowBuf has access to)
    * @param dst dst ArrowBuf where the data will be copied into
-   * @param dstIndex index (0 based relative to the portion of memory
-   *              dst ArrowBuf has access to)
+   * @param dstIndex index (0 based relative to the portion of memory dst ArrowBuf has access to)
    * @param length length of data to copy
    */
   public void getBytes(long index, ArrowBuf dst, long dstIndex, int length) {
@@ -928,8 +922,9 @@ public final class ArrowBuf implements AutoCloseable {
     Preconditions.checkArgument(dst != null, "expecting a valid ArrowBuf");
     // bound check for dst ArrowBuf
     if (isOutOfBounds(dstIndex, length, dst.capacity())) {
-      throw new IndexOutOfBoundsException(String.format("index: %d, length: %d (expected: range(0, %d))",
-        dstIndex, length, dst.capacity()));
+      throw new IndexOutOfBoundsException(
+          String.format(
+              "index: %d, length: %d (expected: range(0, %d))", dstIndex, length, dst.capacity()));
     }
     if (length != 0) {
       // copy length bytes of data from this ArrowBuf starting at
@@ -942,13 +937,12 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Copy data from src ArrowBuf starting at index srcIndex into this
-   * ArrowBuf at given index.
-   * @param index index index (0 based relative to the portion of memory
-   *              this ArrowBuf has access to)
+   * Copy data from src ArrowBuf starting at index srcIndex into this ArrowBuf at given index.
+   *
+   * @param index index index (0 based relative to the portion of memory this ArrowBuf has access
+   *     to)
    * @param src src ArrowBuf where the data will be copied from
-   * @param srcIndex starting index in the src ArrowBuf where the copy
-   *                 will begin from
+   * @param srcIndex starting index in the src ArrowBuf where the copy will begin from
    * @param length length of data to copy from src ArrowBuf
    */
   public void setBytes(long index, ArrowBuf src, long srcIndex, long length) {
@@ -958,8 +952,9 @@ public final class ArrowBuf implements AutoCloseable {
     Preconditions.checkArgument(src != null, "expecting a valid ArrowBuf");
     // bound check for src ArrowBuf
     if (isOutOfBounds(srcIndex, length, src.capacity())) {
-      throw new IndexOutOfBoundsException(String.format("index: %d, length: %d (expected: range(0, %d))",
-        index, length, src.capacity()));
+      throw new IndexOutOfBoundsException(
+          String.format(
+              "index: %d, length: %d (expected: range(0, %d))", index, length, src.capacity()));
     }
     if (length != 0) {
       // copy length bytes of data from src ArrowBuf starting at
@@ -972,11 +967,11 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Copy readableBytes() number of bytes from src ArrowBuf
-   * starting from its readerIndex into this ArrowBuf starting
-   * at the given index.
-   * @param index index index (0 based relative to the portion of memory
-   *              this ArrowBuf has access to)
+   * Copy readableBytes() number of bytes from src ArrowBuf starting from its readerIndex into this
+   * ArrowBuf starting at the given index.
+   *
+   * @param index index index (0 based relative to the portion of memory this ArrowBuf has access
+   *     to)
    * @param src src ArrowBuf where the data will be copied from
    */
   public void setBytes(long index, ArrowBuf src) {
@@ -992,10 +987,10 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Copy a certain length of bytes from given InputStream
-   * into this ArrowBuf at the provided index.
-   * @param index index index (0 based relative to the portion of memory
-   *              this ArrowBuf has access to)
+   * Copy a certain length of bytes from given InputStream into this ArrowBuf at the provided index.
+   *
+   * @param index index index (0 based relative to the portion of memory this ArrowBuf has access
+   *     to)
    * @param in src stream to copy from
    * @param length length of data to copy
    * @return number of bytes copied from stream into ArrowBuf
@@ -1019,10 +1014,10 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Copy a certain length of bytes from this ArrowBuf at a given
-   * index into the given OutputStream.
-   * @param index index index (0 based relative to the portion of memory
-   *              this ArrowBuf has access to)
+   * Copy a certain length of bytes from this ArrowBuf at a given index into the given OutputStream.
+   *
+   * @param index index index (0 based relative to the portion of memory this ArrowBuf has access
+   *     to)
    * @param out dst stream to copy data into
    * @param length length of data to copy
    * @throws IOException on failing to write to stream
@@ -1046,8 +1041,9 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Returns the possible memory consumed by this ArrowBuf in the worse case scenario.
-   * (not shared, connected to larger underlying buffer of allocated memory)
+   * Returns the possible memory consumed by this ArrowBuf in the worse case scenario. (not shared,
+   * connected to larger underlying buffer of allocated memory)
+   *
    * @return Size in bytes.
    */
   public long getPossibleMemoryConsumed() {
@@ -1057,6 +1053,7 @@ public final class ArrowBuf implements AutoCloseable {
   /**
    * Return that is Accounted for by this buffer (and its potentially shared siblings within the
    * context of the associated allocator).
+   *
    * @return Size in bytes.
    */
   public long getActualMemoryConsumed() {
@@ -1066,7 +1063,7 @@ public final class ArrowBuf implements AutoCloseable {
   /**
    * Return the buffer's byte contents in the form of a hex dump.
    *
-   * @param start  the starting byte index
+   * @param start the starting byte index
    * @param length how many bytes to log
    * @return A hex dump in a String.
    */
@@ -1092,6 +1089,7 @@ public final class ArrowBuf implements AutoCloseable {
 
   /**
    * Get the integer id assigned to this ArrowBuf for debugging purposes.
+   *
    * @return integer id
    */
   public long getId() {
@@ -1099,12 +1097,11 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Print information of this buffer into <code>sb</code> at the given
-   * indentation and verbosity level.
+   * Print information of this buffer into <code>sb</code> at the given indentation and verbosity
+   * level.
    *
-   * <p>It will include history if BaseAllocator.DEBUG is true and
-   * the verbosity.includeHistoricalLog are true.
-   *
+   * <p>It will include history if BaseAllocator.DEBUG is true and the
+   * verbosity.includeHistoricalLog are true.
    */
   @VisibleForTesting
   public void print(StringBuilder sb, int indent, Verbosity verbosity) {
@@ -1120,7 +1117,6 @@ public final class ArrowBuf implements AutoCloseable {
    * Print detailed information of this buffer into <code>sb</code>.
    *
    * <p>Most information will only be present if BaseAllocator.DEBUG is true.
-   *
    */
   public void print(StringBuilder sb, int indent) {
     print(sb, indent, Verbosity.LOG_WITH_STACKTRACE);
@@ -1128,6 +1124,7 @@ public final class ArrowBuf implements AutoCloseable {
 
   /**
    * Get the index at which the next byte will be read from.
+   *
    * @return reader index
    */
   public long readerIndex() {
@@ -1136,6 +1133,7 @@ public final class ArrowBuf implements AutoCloseable {
 
   /**
    * Get the index at which next byte will be written to.
+   *
    * @return writer index
    */
   public long writerIndex() {
@@ -1144,6 +1142,7 @@ public final class ArrowBuf implements AutoCloseable {
 
   /**
    * Set the reader index for this ArrowBuf.
+   *
    * @param readerIndex new reader index
    * @return this ArrowBuf
    */
@@ -1154,6 +1153,7 @@ public final class ArrowBuf implements AutoCloseable {
 
   /**
    * Set the writer index for this ArrowBuf.
+   *
    * @param writerIndex new writer index
    * @return this ArrowBuf
    */
@@ -1163,10 +1163,10 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Zero-out the bytes in this ArrowBuf starting at
-   * the given index for the given length.
-   * @param index index index (0 based relative to the portion of memory
-   *              this ArrowBuf has access to)
+   * Zero-out the bytes in this ArrowBuf starting at the given index for the given length.
+   *
+   * @param index index index (0 based relative to the portion of memory this ArrowBuf has access
+   *     to)
    * @param length length of bytes to zero-out
    * @return this ArrowBuf
    */
@@ -1180,8 +1180,9 @@ public final class ArrowBuf implements AutoCloseable {
 
   /**
    * Sets all bits to one in the specified range.
-   * @param index index index (0 based relative to the portion of memory
-   *              this ArrowBuf has access to)
+   *
+   * @param index index index (0 based relative to the portion of memory this ArrowBuf has access
+   *     to)
    * @param length length of bytes to set.
    * @return this ArrowBuf
    * @deprecated use {@link ArrowBuf#setOne(long, long)} instead.
@@ -1197,8 +1198,9 @@ public final class ArrowBuf implements AutoCloseable {
 
   /**
    * Sets all bits to one in the specified range.
-   * @param index index index (0 based relative to the portion of memory
-   *              this ArrowBuf has access to)
+   *
+   * @param index index index (0 based relative to the portion of memory this ArrowBuf has access
+   *     to)
    * @param length length of bytes to set.
    * @return this ArrowBuf
    */
@@ -1211,8 +1213,8 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
-   * Returns <code>this</code> if size is less than {@link #capacity()}, otherwise
-   * delegates to {@link BufferManager#replace(ArrowBuf, long)} to get a new buffer.
+   * Returns <code>this</code> if size is less than {@link #capacity()}, otherwise delegates to
+   * {@link BufferManager#replace(ArrowBuf, long)} to get a new buffer.
    */
   public ArrowBuf reallocIfNeeded(final long size) {
     Preconditions.checkArgument(size >= 0, "reallocation size must be non-negative");
@@ -1223,7 +1225,7 @@ public final class ArrowBuf implements AutoCloseable {
       return bufferManager.replace(this, size);
     } else {
       throw new UnsupportedOperationException(
-              "Realloc is only available in the context of operator's UDFs");
+          "Realloc is only available in the context of operator's UDFs");
     }
   }
 

@@ -16,7 +16,7 @@
 # under the License.
 
 {
-   # `testthat::skip()`s cause a valgrind error that does not show up on CRAN. 
+   # `testthat::skip()`s cause a valgrind error that does not show up on CRAN.
    <testthat_skip_error>
    Memcheck:Cond
    fun:gregexpr_Regexc
@@ -31,4 +31,22 @@
    fun:FORCE_PROMISE
    fun:getvar
    fun:bcEval
+}
+{
+   # This also doesn't seem to cause issues on CRAN, so suppress it.
+   <Memcheck_possible_leak>
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:malloc
+   fun:libdeflate_alloc_compressor
+   fun:do_memCompress
+   fun:bcEval_loop
+   fun:bcEval
+   fun:Rf_eval
+   fun:R_execClosure
+   fun:applyClosure_core
+   fun:Rf_applyClosure
+   fun:Rf_eval
+   fun:do_set
+   fun:Rf_eval
 }

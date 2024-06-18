@@ -1069,9 +1069,9 @@ Result<std::shared_ptr<DataType>> GetUnion(const RjObject& json_type,
   }
 
   if (mode == UnionMode::SPARSE) {
-    return sparse_union(std::move(children), std::move(type_codes));
+    return sparse_union(children, std::move(type_codes));
   } else {
-    return dense_union(std::move(children), std::move(type_codes));
+    return dense_union(children, std::move(type_codes));
   }
 }
 
@@ -1849,7 +1849,7 @@ class ArrayReader {
   Result<std::shared_ptr<ArrayData>> Parse() {
     ARROW_ASSIGN_OR_RAISE(length_, GetMemberInt<int32_t>(obj_, "count"));
 
-    if (::arrow::internal::HasValidityBitmap(type_->id())) {
+    if (::arrow::internal::may_have_validity_bitmap(type_->id())) {
       // Null and union types don't have a validity bitmap
       RETURN_NOT_OK(ParseValidityBitmap());
     }

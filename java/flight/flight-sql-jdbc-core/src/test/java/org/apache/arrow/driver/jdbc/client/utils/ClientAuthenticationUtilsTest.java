@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.client.utils;
 
 import static org.mockito.Mockito.mock;
@@ -30,7 +29,6 @@ import java.security.cert.CertificateException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Enumeration;
-
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.junit.Assert;
 import org.junit.Test;
@@ -42,8 +40,7 @@ import org.mockito.junit.MockitoJUnitRunner;
 
 @RunWith(MockitoJUnitRunner.class)
 public class ClientAuthenticationUtilsTest {
-  @Mock
-  KeyStore keyStoreMock;
+  @Mock KeyStore keyStoreMock;
 
   @Test
   public void testGetCertificatesInputStream() throws IOException, KeyStoreException {
@@ -61,29 +58,27 @@ public class ClientAuthenticationUtilsTest {
   }
 
   @Test
-  public void testGetKeyStoreInstance() throws IOException,
-      KeyStoreException, CertificateException, NoSuchAlgorithmException {
+  public void testGetKeyStoreInstance()
+      throws IOException, KeyStoreException, CertificateException, NoSuchAlgorithmException {
     try (MockedStatic<KeyStore> keyStoreMockedStatic = Mockito.mockStatic(KeyStore.class)) {
       keyStoreMockedStatic
           .when(() -> ClientAuthenticationUtils.getKeyStoreInstance(Mockito.any()))
           .thenReturn(keyStoreMock);
 
       KeyStore receiveKeyStore = ClientAuthenticationUtils.getKeyStoreInstance("test1");
-      Mockito
-          .verify(keyStoreMock)
-          .load(null, null);
+      Mockito.verify(keyStoreMock).load(null, null);
 
       Assert.assertEquals(receiveKeyStore, keyStoreMock);
     }
   }
 
   @Test
-  public void testGetDefaultKeyStoreInstancePassword() throws IOException,
-          KeyStoreException, CertificateException, NoSuchAlgorithmException {
+  public void testGetDefaultKeyStoreInstancePassword()
+      throws IOException, KeyStoreException, CertificateException, NoSuchAlgorithmException {
     try (MockedStatic<KeyStore> keyStoreMockedStatic = Mockito.mockStatic(KeyStore.class)) {
 
       keyStoreMockedStatic
-         .when(() -> ClientAuthenticationUtils.getDefaultKeyStoreInstance("changeit"))
+          .when(() -> ClientAuthenticationUtils.getDefaultKeyStoreInstance("changeit"))
           .thenReturn(keyStoreMock);
       KeyStore receiveKeyStore = ClientAuthenticationUtils.getDefaultKeyStoreInstance("changeit");
       Assert.assertEquals(receiveKeyStore, keyStoreMock);
@@ -91,8 +86,8 @@ public class ClientAuthenticationUtilsTest {
   }
 
   @Test
-  public void testGetDefaultKeyStoreInstanceNoPassword() throws IOException,
-          KeyStoreException, CertificateException, NoSuchAlgorithmException {
+  public void testGetDefaultKeyStoreInstanceNoPassword()
+      throws IOException, KeyStoreException, CertificateException, NoSuchAlgorithmException {
     try (MockedStatic<KeyStore> keyStoreMockedStatic = Mockito.mockStatic(KeyStore.class)) {
 
       keyStoreMockedStatic
@@ -103,44 +98,44 @@ public class ClientAuthenticationUtilsTest {
     }
   }
 
-
   @Test
-  public void testGetCertificateInputStreamFromMacSystem() throws IOException,
-      KeyStoreException, CertificateException, NoSuchAlgorithmException {
+  public void testGetCertificateInputStreamFromMacSystem()
+      throws IOException, KeyStoreException, CertificateException, NoSuchAlgorithmException {
     InputStream mock = mock(InputStream.class);
 
     try (MockedStatic<KeyStore> keyStoreMockedStatic = createKeyStoreStaticMock();
-         MockedStatic<ClientAuthenticationUtils>
-             clientAuthenticationUtilsMockedStatic = createClientAuthenticationUtilsStaticMock()) {
+        MockedStatic<ClientAuthenticationUtils> clientAuthenticationUtilsMockedStatic =
+            createClientAuthenticationUtilsStaticMock()) {
 
       setOperatingSystemMock(clientAuthenticationUtilsMockedStatic, false, true);
-      keyStoreMockedStatic.when(() -> ClientAuthenticationUtils
-          .getKeyStoreInstance("KeychainStore"))
+      keyStoreMockedStatic
+          .when(() -> ClientAuthenticationUtils.getKeyStoreInstance("KeychainStore"))
           .thenReturn(keyStoreMock);
-      keyStoreMockedStatic.when(() -> ClientAuthenticationUtils
-          .getDefaultKeyStoreInstance("changeit"))
+      keyStoreMockedStatic
+          .when(() -> ClientAuthenticationUtils.getDefaultKeyStoreInstance("changeit"))
           .thenReturn(keyStoreMock);
       clientAuthenticationUtilsMockedStatic
           .when(ClientAuthenticationUtils::getKeystoreInputStream)
           .thenCallRealMethod();
       keyStoreMockedStatic.when(KeyStore::getDefaultType).thenCallRealMethod();
-      keyStoreMockedStatic.when(() -> ClientAuthenticationUtils
-          .getCertificatesInputStream(Mockito.any()))
+      keyStoreMockedStatic
+          .when(() -> ClientAuthenticationUtils.getCertificatesInputStream(Mockito.any()))
           .thenReturn(mock);
 
-      InputStream inputStream = ClientAuthenticationUtils.getCertificateInputStreamFromSystem("changeit");
+      InputStream inputStream =
+          ClientAuthenticationUtils.getCertificateInputStreamFromSystem("changeit");
       Assert.assertEquals(inputStream, mock);
     }
   }
 
   @Test
-  public void testGetCertificateInputStreamFromWindowsSystem() throws IOException,
-      KeyStoreException, CertificateException, NoSuchAlgorithmException {
+  public void testGetCertificateInputStreamFromWindowsSystem()
+      throws IOException, KeyStoreException, CertificateException, NoSuchAlgorithmException {
     InputStream mock = mock(InputStream.class);
 
     try (MockedStatic<KeyStore> keyStoreMockedStatic = createKeyStoreStaticMock();
-        MockedStatic<ClientAuthenticationUtils>
-            clientAuthenticationUtilsMockedStatic = createClientAuthenticationUtilsStaticMock()) {
+        MockedStatic<ClientAuthenticationUtils> clientAuthenticationUtilsMockedStatic =
+            createClientAuthenticationUtilsStaticMock()) {
 
       setOperatingSystemMock(clientAuthenticationUtilsMockedStatic, true, false);
       keyStoreMockedStatic
@@ -153,67 +148,74 @@ public class ClientAuthenticationUtilsTest {
           .when(() -> ClientAuthenticationUtils.getCertificatesInputStream(Mockito.any()))
           .thenReturn(mock);
 
-      InputStream inputStream = ClientAuthenticationUtils.getCertificateInputStreamFromSystem("test");
+      InputStream inputStream =
+          ClientAuthenticationUtils.getCertificateInputStreamFromSystem("test");
       Assert.assertEquals(inputStream, mock);
     }
   }
 
   @Test
-  public void testGetCertificateInputStreamFromLinuxSystem() throws IOException,
-      KeyStoreException, CertificateException, NoSuchAlgorithmException {
+  public void testGetCertificateInputStreamFromLinuxSystem()
+      throws IOException, KeyStoreException, CertificateException, NoSuchAlgorithmException {
     InputStream mock = mock(InputStream.class);
 
-    try (
-        MockedStatic<KeyStore> keyStoreMockedStatic = createKeyStoreStaticMock();
-        MockedStatic<ClientAuthenticationUtils>
-            clientAuthenticationUtilsMockedStatic = createClientAuthenticationUtilsStaticMock()) {
+    try (MockedStatic<KeyStore> keyStoreMockedStatic = createKeyStoreStaticMock();
+        MockedStatic<ClientAuthenticationUtils> clientAuthenticationUtilsMockedStatic =
+            createClientAuthenticationUtilsStaticMock()) {
 
       setOperatingSystemMock(clientAuthenticationUtilsMockedStatic, false, false);
-      keyStoreMockedStatic.when(() -> ClientAuthenticationUtils
-          .getCertificatesInputStream(Mockito.any()))
+      keyStoreMockedStatic
+          .when(() -> ClientAuthenticationUtils.getCertificatesInputStream(Mockito.any()))
           .thenReturn(mock);
-      keyStoreMockedStatic.when(() -> ClientAuthenticationUtils
-          .getDefaultKeyStoreInstance(Mockito.any()))
+      keyStoreMockedStatic
+          .when(() -> ClientAuthenticationUtils.getDefaultKeyStoreInstance(Mockito.any()))
           .thenReturn(keyStoreMock);
       clientAuthenticationUtilsMockedStatic
           .when(ClientAuthenticationUtils::getKeystoreInputStream)
           .thenCallRealMethod();
       keyStoreMockedStatic.when(KeyStore::getDefaultType).thenCallRealMethod();
 
-      InputStream inputStream = ClientAuthenticationUtils.getCertificateInputStreamFromSystem("changeit");
+      InputStream inputStream =
+          ClientAuthenticationUtils.getCertificateInputStreamFromSystem("changeit");
       Assert.assertEquals(inputStream, mock);
       inputStream = ClientAuthenticationUtils.getCertificateInputStreamFromSystem(null);
       Assert.assertEquals(inputStream, mock);
     }
   }
 
-
   private MockedStatic<KeyStore> createKeyStoreStaticMock() {
-    return Mockito.mockStatic(KeyStore.class, invocationOnMock -> {
+    return Mockito.mockStatic(
+        KeyStore.class,
+        invocationOnMock -> {
           Method method = invocationOnMock.getMethod();
           if (method.getName().equals("getInstance")) {
             return invocationOnMock.callRealMethod();
           }
           return method.invoke(invocationOnMock.getMock(), invocationOnMock.getArguments());
-        }
-    );
+        });
   }
 
   private MockedStatic<ClientAuthenticationUtils> createClientAuthenticationUtilsStaticMock() {
-    return Mockito.mockStatic(ClientAuthenticationUtils.class , invocationOnMock -> {
-      Method method = invocationOnMock.getMethod();
-      if (method.getName().equals("getCertificateInputStreamFromSystem")) {
-        return invocationOnMock.callRealMethod();
-      }
-      return method.invoke(invocationOnMock.getMock(), invocationOnMock.getArguments());
-    });
+    return Mockito.mockStatic(
+        ClientAuthenticationUtils.class,
+        invocationOnMock -> {
+          Method method = invocationOnMock.getMethod();
+          if (method.getName().equals("getCertificateInputStreamFromSystem")) {
+            return invocationOnMock.callRealMethod();
+          }
+          return method.invoke(invocationOnMock.getMock(), invocationOnMock.getArguments());
+        });
   }
 
-  private void setOperatingSystemMock(MockedStatic<ClientAuthenticationUtils> clientAuthenticationUtilsMockedStatic,
-                                      boolean isWindows, boolean isMac) {
+  private void setOperatingSystemMock(
+      MockedStatic<ClientAuthenticationUtils> clientAuthenticationUtilsMockedStatic,
+      boolean isWindows,
+      boolean isMac) {
     clientAuthenticationUtilsMockedStatic.when(ClientAuthenticationUtils::isMac).thenReturn(isMac);
     Assert.assertEquals(ClientAuthenticationUtils.isMac(), isMac);
-    clientAuthenticationUtilsMockedStatic.when(ClientAuthenticationUtils::isWindows).thenReturn(isWindows);
+    clientAuthenticationUtilsMockedStatic
+        .when(ClientAuthenticationUtils::isWindows)
+        .thenReturn(isWindows);
     Assert.assertEquals(ClientAuthenticationUtils.isWindows(), isWindows);
   }
 }

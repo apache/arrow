@@ -1190,6 +1190,12 @@ if(MSVC AND ARROW_USE_STATIC_CRT)
   set(Boost_USE_STATIC_RUNTIME ON)
 endif()
 set(Boost_ADDITIONAL_VERSIONS
+    "1.84.0"
+    "1.84"
+    "1.83.0"
+    "1.83"
+    "1.82.0"
+    "1.82"
     "1.81.0"
     "1.81"
     "1.80.0"
@@ -1257,7 +1263,7 @@ endif()
 # - S3FS and Flight benchmarks need Boost at runtime.
 if(ARROW_BUILD_INTEGRATION
    OR ARROW_BUILD_TESTS
-   OR (ARROW_FLIGHT AND ARROW_BUILD_BENCHMARKS)
+   OR (ARROW_FLIGHT AND (ARROW_TESTING OR ARROW_BUILD_BENCHMARKS))
    OR (ARROW_S3 AND ARROW_BUILD_BENCHMARKS))
   set(ARROW_USE_BOOST TRUE)
   set(ARROW_BOOST_REQUIRE_LIBRARY TRUE)
@@ -2813,11 +2819,13 @@ macro(build_utf8proc)
 endmacro()
 
 if(ARROW_WITH_UTF8PROC)
-  resolve_dependency(utf8proc
-                     PC_PACKAGE_NAMES
-                     libutf8proc
-                     REQUIRED_VERSION
-                     "2.2.0")
+  set(utf8proc_resolve_dependency_args utf8proc PC_PACKAGE_NAMES libutf8proc)
+  if(NOT VCPKG_TOOLCHAIN)
+    # utf8proc in vcpkg doesn't provide version information:
+    # https://github.com/microsoft/vcpkg/issues/39176
+    list(APPEND utf8proc_resolve_dependency_args REQUIRED_VERSION "2.2.0")
+  endif()
+  resolve_dependency(${utf8proc_resolve_dependency_args})
 endif()
 
 macro(build_cares)
@@ -4516,7 +4524,7 @@ macro(build_orc)
       "-DSNAPPY_HOME=${ORC_SNAPPY_ROOT}"
       "-DSNAPPY_LIBRARY=$<TARGET_FILE:${Snappy_TARGET}>"
       "-DLZ4_LIBRARY=$<TARGET_FILE:LZ4::lz4>"
-      "-DLZ4_STATIC_LIBRARY=$<TARGET_FILE:LZ4::lz4>"
+      "-DLZ4_STATIC_LIB=$<TARGET_FILE:LZ4::lz4>"
       "-DLZ4_INCLUDE_DIR=${ORC_LZ4_ROOT}/include"
       "-DSNAPPY_INCLUDE_DIR=${ORC_SNAPPY_INCLUDE_DIR}"
       "-DZSTD_HOME=${ORC_ZSTD_ROOT}"
@@ -4605,8 +4613,11 @@ macro(build_opentelemetry)
   set(_OPENTELEMETRY_LIBS
       common
       http_client_curl
+      logs
+      ostream_log_record_exporter
       ostream_span_exporter
       otlp_http_client
+      otlp_http_log_record_exporter
       otlp_http_exporter
       otlp_recordable
       proto
@@ -4638,6 +4649,14 @@ macro(build_opentelemetry)
     elseif(_OPENTELEMETRY_LIB STREQUAL "otlp_http_exporter")
       set(_OPENTELEMETRY_STATIC_LIBRARY
           "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_exporter_otlp_http${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    elseif(_OPENTELEMETRY_LIB STREQUAL "otlp_http_log_record_exporter")
+      set(_OPENTELEMETRY_STATIC_LIBRARY
+          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_exporter_otlp_http_log${CMAKE_STATIC_LIBRARY_SUFFIX}"
+      )
+    elseif(_OPENTELEMETRY_LIB STREQUAL "ostream_log_record_exporter")
+      set(_OPENTELEMETRY_STATIC_LIBRARY
+          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_exporter_ostream_logs${CMAKE_STATIC_LIBRARY_SUFFIX}"
       )
     else()
       set(_OPENTELEMETRY_STATIC_LIBRARY
@@ -4673,9 +4692,16 @@ macro(build_opentelemetry)
                       IMPORTED_LOCATION)
   list(APPEND
        OPENTELEMETRY_CMAKE_ARGS
-       -DWITH_OTLP=ON
        -DWITH_OTLP_HTTP=ON
        -DWITH_OTLP_GRPC=OFF
+       # Disabled because it seemed to cause linking errors. May be worth a closer look.
+       -DWITH_FUNC_TESTS=OFF
+       # These options are slated for removal in v1.14 and their features are deemed stable
+       # as of v1.13. However, setting their corresponding ENABLE_* macros in headers seems
+       # finicky - resulting in build failures or ABI-related runtime errors during HTTP
+       # client initialization. There may still be a solution, but we disable them for now.
+       -DWITH_OTLP_HTTP_SSL_PREVIEW=OFF
+       -DWITH_OTLP_HTTP_SSL_TLS_PREVIEW=OFF
        "-DProtobuf_INCLUDE_DIR=${OPENTELEMETRY_PROTOBUF_INCLUDE_DIR}"
        "-DProtobuf_LIBRARY=${OPENTELEMETRY_PROTOBUF_INCLUDE_DIR}"
        "-DProtobuf_PROTOC_EXECUTABLE=${OPENTELEMETRY_PROTOC_EXECUTABLE}")
@@ -4749,17 +4775,23 @@ macro(build_opentelemetry)
   target_link_libraries(opentelemetry-cpp::resources INTERFACE opentelemetry-cpp::common)
   target_link_libraries(opentelemetry-cpp::trace INTERFACE opentelemetry-cpp::common
                                                            opentelemetry-cpp::resources)
+  target_link_libraries(opentelemetry-cpp::logs INTERFACE opentelemetry-cpp::common
+                                                          opentelemetry-cpp::resources)
   target_link_libraries(opentelemetry-cpp::http_client_curl
-                        INTERFACE opentelemetry-cpp::ext CURL::libcurl)
+                        INTERFACE opentelemetry-cpp::common opentelemetry-cpp::ext
+                                  CURL::libcurl)
   target_link_libraries(opentelemetry-cpp::proto INTERFACE ${ARROW_PROTOBUF_LIBPROTOBUF})
   target_link_libraries(opentelemetry-cpp::otlp_recordable
-                        INTERFACE opentelemetry-cpp::trace opentelemetry-cpp::resources
-                                  opentelemetry-cpp::proto)
+                        INTERFACE opentelemetry-cpp::logs opentelemetry-cpp::trace
+                                  opentelemetry-cpp::resources opentelemetry-cpp::proto)
   target_link_libraries(opentelemetry-cpp::otlp_http_client
-                        INTERFACE opentelemetry-cpp::sdk opentelemetry-cpp::proto
+                        INTERFACE opentelemetry-cpp::common opentelemetry-cpp::proto
                                   opentelemetry-cpp::http_client_curl
                                   nlohmann_json::nlohmann_json)
   target_link_libraries(opentelemetry-cpp::otlp_http_exporter
+                        INTERFACE opentelemetry-cpp::otlp_recordable
+                                  opentelemetry-cpp::otlp_http_client)
+  target_link_libraries(opentelemetry-cpp::otlp_http_log_record_exporter
                         INTERFACE opentelemetry-cpp::otlp_recordable
                                   opentelemetry-cpp::otlp_http_client)
 
@@ -4783,7 +4815,11 @@ if(ARROW_WITH_OPENTELEMETRY)
   set(opentelemetry-cpp_SOURCE "AUTO")
   resolve_dependency(opentelemetry-cpp)
   set(ARROW_OPENTELEMETRY_LIBS
-      opentelemetry-cpp::trace opentelemetry-cpp::ostream_span_exporter
+      opentelemetry-cpp::trace
+      opentelemetry-cpp::logs
+      opentelemetry-cpp::otlp_http_log_record_exporter
+      opentelemetry-cpp::ostream_log_record_exporter
+      opentelemetry-cpp::ostream_span_exporter
       opentelemetry-cpp::otlp_http_exporter)
   get_target_property(OPENTELEMETRY_INCLUDE_DIR opentelemetry-cpp::api
                       INTERFACE_INCLUDE_DIRECTORIES)
@@ -5342,9 +5378,3 @@ if(ARROW_WITH_UCX)
 endif()
 
 message(STATUS "All bundled static libraries: ${ARROW_BUNDLED_STATIC_LIBS}")
-
-# Write out the package configurations.
-
-configure_file("src/arrow/util/config.h.cmake" "src/arrow/util/config.h" ESCAPE_QUOTES)
-install(FILES "${ARROW_BINARY_DIR}/src/arrow/util/config.h"
-        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/util")

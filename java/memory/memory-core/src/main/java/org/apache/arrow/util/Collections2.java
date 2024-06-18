@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.util;
 
 import java.util.ArrayList;
@@ -31,24 +30,20 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 /**
- * Utility methods for manipulating {@link java.util.Collections} and their subclasses/implementations.
+ * Utility methods for manipulating {@link java.util.Collections} and their
+ * subclasses/implementations.
  */
 public final class Collections2 {
-  private Collections2() {
-  }
+  private Collections2() {}
 
-  /**
-   * Creates a {@link List} from the elements remaining in iterator.
-   */
+  /** Creates a {@link List} from the elements remaining in iterator. */
   public static <T> List<T> toList(Iterator<T> iterator) {
     List<T> target = new ArrayList<>();
     iterator.forEachRemaining(target::add);
     return target;
   }
 
-  /**
-   * Converts the iterable into a new {@link List}.
-   */
+  /** Converts the iterable into a new {@link List}. */
   public static <T> List<T> toList(Iterable<T> iterable) {
     if (iterable instanceof Collection<?>) {
       // If iterable is a collection, take advantage of it for a more efficient copy
@@ -57,13 +52,10 @@ public final class Collections2 {
     return toList(iterable.iterator());
   }
 
-  /**
-   * Converts the iterable into a new immutable {@link List}.
-   */
+  /** Converts the iterable into a new immutable {@link List}. */
   public static <T> List<T> toImmutableList(Iterable<T> iterable) {
     return Collections.unmodifiableList(toList(iterable));
   }
-
 
   /** Copies the elements of <code>map</code> to a new unmodifiable map. */
   public static <K, V> Map<K, V> immutableMapCopy(Map<K, V> map) {
@@ -76,17 +68,18 @@ public final class Collections2 {
   }
 
   /** Copies the values to a new unmodifiable list. */
-  public static <V> List<V> asImmutableList(V...values) {
+  public static <V> List<V> asImmutableList(V... values) {
     return Collections.unmodifiableList(Arrays.asList(values));
   }
 
   /**
    * Creates a human readable string from the remaining elements in iterator.
    *
-   * The output should be similar to {@code Arrays#toString(Object[])}
+   * <p>The output should be similar to {@code Arrays#toString(Object[])}
    */
   public static String toString(Iterator<?> iterator) {
-    return StreamSupport.stream(Spliterators.spliteratorUnknownSize(iterator, Spliterator.ORDERED), false)
+    return StreamSupport.stream(
+            Spliterators.spliteratorUnknownSize(iterator, Spliterator.ORDERED), false)
         .map(String::valueOf)
         .collect(Collectors.joining(", ", "[", "]"));
   }

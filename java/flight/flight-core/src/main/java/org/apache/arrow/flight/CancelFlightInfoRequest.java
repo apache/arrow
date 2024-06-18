@@ -14,14 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.util.Objects;
-
 import org.apache.arrow.flight.impl.Flight;
 
 /** A request to cancel a FlightInfo. */
@@ -49,7 +47,8 @@ public class CancelFlightInfoRequest {
   /**
    * Get the serialized form of this protocol message.
    *
-   * <p>Intended to help interoperability by allowing non-Flight services to still return Flight types.
+   * <p>Intended to help interoperability by allowing non-Flight services to still return Flight
+   * types.
    */
   public ByteBuffer serialize() {
     return ByteBuffer.wrap(toProtocol().toByteArray());
@@ -58,13 +57,15 @@ public class CancelFlightInfoRequest {
   /**
    * Parse the serialized form of this protocol message.
    *
-   * <p>Intended to help interoperability by allowing Flight clients to obtain stream info from non-Flight services.
+   * <p>Intended to help interoperability by allowing Flight clients to obtain stream info from
+   * non-Flight services.
    *
    * @param serialized The serialized form of the message, as returned by {@link #serialize()}.
    * @return The deserialized message.
    * @throws IOException if the serialized form is invalid.
    */
-  public static CancelFlightInfoRequest deserialize(ByteBuffer serialized) throws IOException, URISyntaxException {
+  public static CancelFlightInfoRequest deserialize(ByteBuffer serialized)
+      throws IOException, URISyntaxException {
     return new CancelFlightInfoRequest(Flight.CancelFlightInfoRequest.parseFrom(serialized));
   }
 }

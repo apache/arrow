@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc;
 
 import static org.hamcrest.CoreMatchers.endsWith;
@@ -22,15 +21,13 @@ import static org.hamcrest.CoreMatchers.is;
 
 import java.time.LocalTime;
 import java.util.concurrent.TimeUnit;
-
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
 
 public class ArrowFlightJdbcTimeTest {
 
-  @ClassRule
-  public static final ErrorCollector collector = new ErrorCollector();
+  @ClassRule public static final ErrorCollector collector = new ErrorCollector();
   final int hour = 5;
   final int minute = 6;
   final int second = 7;
@@ -38,7 +35,8 @@ public class ArrowFlightJdbcTimeTest {
   @Test
   public void testPrintingMillisNoLeadingZeroes() {
     // testing the regular case where the precision of the millisecond is 3
-    LocalTime dateTime = LocalTime.of(hour, minute, second, (int) TimeUnit.MILLISECONDS.toNanos(999));
+    LocalTime dateTime =
+        LocalTime.of(hour, minute, second, (int) TimeUnit.MILLISECONDS.toNanos(999));
     ArrowFlightJdbcTime time = new ArrowFlightJdbcTime(dateTime);
     collector.checkThat(time.toString(), endsWith(".999"));
     collector.checkThat(time.getHours(), is(hour));
@@ -49,7 +47,8 @@ public class ArrowFlightJdbcTimeTest {
   @Test
   public void testPrintingMillisOneLeadingZeroes() {
     // test case where one leading zero needs to be added
-    LocalTime dateTime = LocalTime.of(hour, minute, second, (int) TimeUnit.MILLISECONDS.toNanos(99));
+    LocalTime dateTime =
+        LocalTime.of(hour, minute, second, (int) TimeUnit.MILLISECONDS.toNanos(99));
     ArrowFlightJdbcTime time = new ArrowFlightJdbcTime(dateTime);
     collector.checkThat(time.toString(), endsWith(".099"));
     collector.checkThat(time.getHours(), is(hour));

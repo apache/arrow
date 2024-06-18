@@ -908,8 +908,8 @@ namespace Apache.Arrow.IntegrationTest
             };
 
             private void GenerateArray<T, TArray>(Func<ArrowBuffer, ArrowBuffer, int, int, int, TArray> createArray)
+                where T : struct, IEquatable<T>
                 where TArray : PrimitiveArray<T>
-                where T : struct
             {
                 ArrowBuffer validityBuffer = GetValidityBuffer(out int nullCount);
 
@@ -929,8 +929,8 @@ namespace Apache.Arrow.IntegrationTest
             }
 
             private void GenerateLongArray<T, TArray>(Func<ArrowBuffer, ArrowBuffer, int, int, int, TArray> createArray, Func<string, T> parse)
+                where T : struct, IEquatable<T>
                 where TArray : PrimitiveArray<T>
-                where T : struct
             {
                 ArrowBuffer validityBuffer = GetValidityBuffer(out int nullCount);
 
@@ -950,8 +950,8 @@ namespace Apache.Arrow.IntegrationTest
             }
 
             private void GenerateArray<T, TArray>(Func<ArrowBuffer, ArrowBuffer, int, int, int, TArray> createArray, Func<JsonElement, T> construct)
+                where T : struct, IEquatable<T>
                 where TArray : PrimitiveArray<T>
-                where T : struct
             {
                 ArrowBuffer validityBuffer = GetValidityBuffer(out int nullCount);
 

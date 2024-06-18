@@ -311,7 +311,7 @@ class DockerCompose(Command):
                 self._execute_docker("buildx", "build", *args)
             elif self.config.using_docker:
                 # better for caching
-                if self.config.debug:
+                if self.config.debug and os.name != "nt":
                     args.append("--progress=plain")
                 for k, v in service['build'].get('args', {}).items():
                     args.extend(['--build-arg', '{}={}'.format(k, v)])
@@ -324,7 +324,7 @@ class DockerCompose(Command):
                 ])
                 self._execute_docker("build", *args)
             else:
-                if self.config.debug:
+                if self.config.debug and os.name != "nt":
                     args.append("--progress=plain")
                 self._execute_compose("build", *args, service['name'])
 
@@ -370,6 +370,10 @@ class DockerCompose(Command):
                     # if not the compact string volume definition
                     v = "{}:{}".format(v['source'], v['target'])
                 args.extend(['-v', v])
+
+            # append capabilities from the compose conf
+            for c in service.get('cap_add', []):
+                args.extend([f'--cap-add={c}'])
 
             # infer whether an interactive shell is desired or not
             if command in ['cmd.exe', 'bash', 'sh', 'powershell']:

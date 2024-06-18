@@ -83,7 +83,7 @@ def _random_integers(size, dtype):
     iinfo = np.iinfo(dtype)
     return np.random.randint(max(iinfo.min, platform_int_info.min),
                              min(iinfo.max, platform_int_info.max),
-                             size=size).astype(dtype)
+                             size=size, dtype=dtype)
 
 
 def _range_integers(size, dtype):

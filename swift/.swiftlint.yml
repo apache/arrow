@@ -16,10 +16,14 @@
 # under the License.
 
 included:
+  - Arrow/Package.swift
   - Arrow/Sources
   - Arrow/Tests
+  - ArrowFlight/Package.swift
   - ArrowFlight/Sources
   - ArrowFlight/Tests
+  - CDataWGo/Package.swift
+  - CDataWGo/Sources/go-swift
 excluded:
   - Arrow/Sources/Arrow/File_generated.swift
   - Arrow/Sources/Arrow/Message_generated.swift

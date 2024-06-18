@@ -36,6 +36,7 @@ from .tester_rust import RustTester
 from .tester_java import JavaTester
 from .tester_js import JSTester
 from .tester_csharp import CSharpTester
+from .tester_nanoarrow import NanoarrowTester
 from .util import guid, printer
 from .util import SKIP_C_ARRAY, SKIP_C_SCHEMA, SKIP_FLIGHT, SKIP_IPC
 from ..utils.source import ARROW_ROOT_DEFAULT
@@ -541,8 +542,8 @@ def get_static_json_files():
 
 def run_all_tests(with_cpp=True, with_java=True, with_js=True,
                   with_csharp=True, with_go=True, with_rust=False,
-                  run_ipc=False, run_flight=False, run_c_data=False,
-                  tempdir=None, **kwargs):
+                  with_nanoarrow=False, run_ipc=False, run_flight=False,
+                  run_c_data=False, tempdir=None, **kwargs):
     tempdir = tempdir or tempfile.mkdtemp(prefix='arrow-integration-')
 
     testers: List[Tester] = []
@@ -561,6 +562,9 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
 
     if with_go:
         testers.append(GoTester(**kwargs))
+
+    if with_nanoarrow:
+        testers.append(NanoarrowTester(**kwargs))
 
     if with_rust:
         testers.append(RustTester(**kwargs))
@@ -637,6 +641,11 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
             "flight_sql:extension",
             description="Ensure Flight SQL extensions work as expected.",
             skip_testers={"Rust"}
+        ),
+        Scenario(
+            "flight_sql:ingestion",
+            description="Ensure Flight SQL ingestion works as expected.",
+            skip_testers={"JS", "C#", "Rust", "Java"}
         ),
     ]
 

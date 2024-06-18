@@ -14,13 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.driver.jdbc.utils;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
@@ -32,17 +30,13 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 
-/**
- * Converts Arrow's {@link VectorSchemaRoot} format to one JDBC would expect.
- */
+/** Converts Arrow's {@link VectorSchemaRoot} format to one JDBC would expect. */
 @FunctionalInterface
 public interface VectorSchemaRootTransformer {
   VectorSchemaRoot transform(VectorSchemaRoot originalRoot, VectorSchemaRoot transformedRoot)
       throws Exception;
 
-  /**
-   * Transformer's helper class; builds a new {@link VectorSchemaRoot}.
-   */
+  /** Transformer's helper class; builds a new {@link VectorSchemaRoot}. */
   class Builder {
 
     private final Schema schema;
@@ -52,50 +46,57 @@ public interface VectorSchemaRootTransformer {
 
     public Builder(final Schema schema, final BufferAllocator bufferAllocator) {
       this.schema = schema;
-      this.bufferAllocator = bufferAllocator
-          .newChildAllocator("VectorSchemaRootTransformer", 0, bufferAllocator.getLimit());
+      this.bufferAllocator =
+          bufferAllocator.newChildAllocator(
+              "VectorSchemaRootTransformer", 0, bufferAllocator.getLimit());
     }
 
     /**
-     * Add task to transform a vector to a new vector renaming it.
-     * This also adds transformedVectorName to the transformed {@link VectorSchemaRoot} schema.
+     * Add task to transform a vector to a new vector renaming it. This also adds
+     * transformedVectorName to the transformed {@link VectorSchemaRoot} schema.
      *
-     * @param originalVectorName    Name of the original vector to be transformed.
+     * @param originalVectorName Name of the original vector to be transformed.
      * @param transformedVectorName Name of the vector that is the result of the transformation.
      * @return a VectorSchemaRoot instance with a task to rename a field vector.
      */
-    public Builder renameFieldVector(final String originalVectorName,
-                                     final String transformedVectorName) {
-      tasks.add((originalRoot, transformedRoot) -> {
-        final FieldVector originalVector = originalRoot.getVector(originalVectorName);
-        final FieldVector transformedVector = transformedRoot.getVector(transformedVectorName);
+    public Builder renameFieldVector(
+        final String originalVectorName, final String transformedVectorName) {
+      tasks.add(
+          (originalRoot, transformedRoot) -> {
+            final FieldVector originalVector = originalRoot.getVector(originalVectorName);
+            final FieldVector transformedVector = transformedRoot.getVector(transformedVectorName);
 
-        final ArrowType originalType = originalVector.getField().getType();
-        final ArrowType transformedType = transformedVector.getField().getType();
-        if (!originalType.equals(transformedType)) {
-          throw new IllegalArgumentException(String.format(
-              "Cannot transfer vector with field type %s to %s", originalType, transformedType));
-        }
+            final ArrowType originalType = originalVector.getField().getType();
+            final ArrowType transformedType = transformedVector.getField().getType();
+            if (!originalType.equals(transformedType)) {
+              throw new IllegalArgumentException(
+                  String.format(
+                      "Cannot transfer vector with field type %s to %s",
+                      originalType, transformedType));
+            }
 
-        if (originalVector instanceof BaseVariableWidthVector) {
-          ((BaseVariableWidthVector) originalVector).transferTo(
-              ((BaseVariableWidthVector) transformedVector));
-        } else if (originalVector instanceof BaseFixedWidthVector) {
-          ((BaseFixedWidthVector) originalVector).transferTo(
-              ((BaseFixedWidthVector) transformedVector));
-        } else {
-          throw new IllegalStateException(String.format(
-              "Cannot transfer vector of type %s", originalVector.getClass()));
-        }
-      });
+            if (originalVector instanceof BaseVariableWidthVector) {
+              ((BaseVariableWidthVector) originalVector)
+                  .transferTo(((BaseVariableWidthVector) transformedVector));
+            } else if (originalVector instanceof BaseFixedWidthVector) {
+              ((BaseFixedWidthVector) originalVector)
+                  .transferTo(((BaseFixedWidthVector) transformedVector));
+            } else {
+              throw new IllegalStateException(
+                  String.format("Cannot transfer vector of type %s", originalVector.getClass()));
+            }
+          });
 
       final Field originalField = schema.findField(originalVectorName);
-      newFields.add(new Field(
-          transformedVectorName,
-          new FieldType(originalField.isNullable(), originalField.getType(),
-              originalField.getDictionary(), originalField.getMetadata()),
-          originalField.getChildren())
-      );
+      newFields.add(
+          new Field(
+              transformedVectorName,
+              new FieldType(
+                  originalField.isNullable(),
+                  originalField.getType(),
+                  originalField.getDictionary(),
+                  originalField.getMetadata()),
+              originalField.getChildren()));
 
       return this;
     }
@@ -144,7 +145,8 @@ public interface VectorSchemaRootTransformer {
     }
 
     /**
-     * Functional interface used to a task to transform a VectorSchemaRoot into a new VectorSchemaRoot.
+     * Functional interface used to a task to transform a VectorSchemaRoot into a new
+     * VectorSchemaRoot.
      */
     @FunctionalInterface
     interface Task {

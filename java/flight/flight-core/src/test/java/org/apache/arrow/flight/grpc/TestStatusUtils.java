@@ -14,16 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.arrow.flight.grpc;
 
+import io.grpc.Metadata;
+import io.grpc.Status;
 import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.FlightStatusCode;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-
-import io.grpc.Metadata;
-import io.grpc.Status;
 
 public class TestStatusUtils {
 
@@ -47,5 +45,27 @@ public class TestStatusUtils {
     Assertions.assertEquals("Fri, 13 Sep 2015 11:23:58 GMT", callStatus.metadata().get("date"));
     Assertions.assertTrue(callStatus.metadata().containsKey("content-type"));
     Assertions.assertEquals("text/html", callStatus.metadata().get("content-type"));
+  }
+
+  @Test
+  public void testGrpcResourceExhaustedTranslatedToFlightStatus() {
+    Status status = Status.RESOURCE_EXHAUSTED;
+
+    CallStatus callStatus = StatusUtils.fromGrpcStatus(status);
+    Assertions.assertEquals(FlightStatusCode.RESOURCE_EXHAUSTED, callStatus.code());
+
+    FlightStatusCode flightStatusCode = StatusUtils.fromGrpcStatusCode(status.getCode());
+    Assertions.assertEquals(FlightStatusCode.RESOURCE_EXHAUSTED, flightStatusCode);
+  }
+
+  @Test
+  public void testFlightResourceExhaustedTranslatedToGrpcStatua() {
+    CallStatus callStatus = CallStatus.RESOURCE_EXHAUSTED;
+
+    Status.Code grpcStatusCode = StatusUtils.toGrpcStatusCode(callStatus.code());
+    Assertions.assertEquals(Status.RESOURCE_EXHAUSTED.getCode(), grpcStatusCode);
+
+    Status grpcStatus = StatusUtils.toGrpcStatus(callStatus);
+    Assertions.assertEquals(Status.RESOURCE_EXHAUSTED.getCode(), grpcStatus.getCode());
   }
 }

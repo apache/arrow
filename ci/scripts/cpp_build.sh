@@ -120,6 +120,7 @@ else
     -DARROW_BUILD_BENCHMARKS=${ARROW_BUILD_BENCHMARKS:-OFF} \
     -DARROW_BUILD_EXAMPLES=${ARROW_BUILD_EXAMPLES:-OFF} \
     -DARROW_BUILD_INTEGRATION=${ARROW_BUILD_INTEGRATION:-OFF} \
+    -DARROW_BUILD_OPENMP_BENCHMARKS=${ARROW_BUILD_OPENMP_BENCHMARKS:-OFF} \
     -DARROW_BUILD_SHARED=${ARROW_BUILD_SHARED:-ON} \
     -DARROW_BUILD_STATIC=${ARROW_BUILD_STATIC:-ON} \
     -DARROW_BUILD_TESTS=${ARROW_BUILD_TESTS:-OFF} \
@@ -136,6 +137,7 @@ else
     -DARROW_C_FLAGS_RELWITHDEBINFO="${ARROW_C_FLAGS_RELWITHDEBINFO:-}" \
     -DARROW_DATASET=${ARROW_DATASET:-OFF} \
     -DARROW_DEPENDENCY_SOURCE=${ARROW_DEPENDENCY_SOURCE:-AUTO} \
+    -DARROW_DEPENDENCY_USE_SHARED=${ARROW_DEPENDENCY_USE_SHARED:-ON} \
     -DARROW_ENABLE_THREADING=${ARROW_ENABLE_THREADING:-ON} \
     -DARROW_ENABLE_TIMING_TESTS=${ARROW_ENABLE_TIMING_TESTS:-ON} \
     -DARROW_EXTRA_ERROR_CONTEXT=${ARROW_EXTRA_ERROR_CONTEXT:-OFF} \
@@ -152,7 +154,6 @@ else
     -DARROW_JSON=${ARROW_JSON:-ON} \
     -DARROW_LARGE_MEMORY_TESTS=${ARROW_LARGE_MEMORY_TESTS:-OFF} \
     -DARROW_MIMALLOC=${ARROW_MIMALLOC:-OFF} \
-    -DARROW_NO_DEPRECATED_API=${ARROW_NO_DEPRECATED_API:-OFF} \
     -DARROW_ORC=${ARROW_ORC:-OFF} \
     -DARROW_PARQUET=${ARROW_PARQUET:-OFF} \
     -DARROW_RUNTIME_SIMD_LEVEL=${ARROW_RUNTIME_SIMD_LEVEL:-MAX} \
@@ -229,12 +230,17 @@ find . -name "*.o" -delete
 popd
 
 if [ -x "$(command -v ldconfig)" ]; then
-  ldconfig ${ARROW_HOME}/${CMAKE_INSTALL_LIBDIR:-lib}
+  if [ -x "$(command -v sudo)" ]; then
+    SUDO=sudo
+  else
+    SUDO=
+  fi
+  ${SUDO} ldconfig ${ARROW_HOME}/${CMAKE_INSTALL_LIBDIR:-lib}
 fi
 
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
-    echo -e "===\n=== ccache statistics after build\n==="
-    ccache -sv 2>/dev/null || ccache -s
+  echo -e "===\n=== ccache statistics after build\n==="
+  ccache -sv 2>/dev/null || ccache -s
 fi
 
 if command -v sccache &> /dev/null; then
@@ -244,6 +250,6 @@ fi
 
 if [ "${BUILD_DOCS_CPP}" == "ON" ]; then
   pushd ${source_dir}/apidoc
-  doxygen
+  OUTPUT_DIRECTORY=${build_dir}/apidoc doxygen
   popd
 fi
