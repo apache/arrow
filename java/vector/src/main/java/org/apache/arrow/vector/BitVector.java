@@ -38,7 +38,7 @@ import org.apache.arrow.vector.util.TransferPair;
  * BitVector implements a fixed width (1 bit) vector of boolean values which could be null. Each
  * value in the vector corresponds to a single bit in the underlying data stream backing the vector.
  */
-public final class BitVector extends BaseFixedWidthVector {
+public final class BitVector extends BaseFixedWidthVector implements ValueIterableVector<Boolean> {
 
   private static final int HASH_CODE_FOR_ZERO = 17;
 

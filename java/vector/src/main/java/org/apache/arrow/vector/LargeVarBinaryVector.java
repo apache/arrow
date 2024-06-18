@@ -32,7 +32,8 @@ import org.apache.arrow.vector.util.TransferPair;
  * NULL. A validity buffer (bit vector) is maintained to track which elements in the vector are
  * null. The size of the underlying buffer can be over 2GB.
  */
-public final class LargeVarBinaryVector extends BaseLargeVariableWidthVector {
+public final class LargeVarBinaryVector extends BaseLargeVariableWidthVector
+    implements ValueIterableVector<byte[]> {
 
   /**
    * Instantiate a LargeVarBinaryVector. This doesn't allocate any memory for the data in vector.

@@ -34,7 +34,8 @@ import org.apache.arrow.vector.util.ValueVectorUtility;
  * UInt1Vector implements a fixed width (1 bytes) vector of integer values which could be null. A
  * validity buffer (bit vector) is maintained to track which elements in the vector are null.
  */
-public final class UInt1Vector extends BaseFixedWidthVector implements BaseIntVector {
+public final class UInt1Vector extends BaseFixedWidthVector
+    implements BaseIntVector, ValueIterableVector<Byte> {
   /** The mask to use when promoting the unsigned byte value to an integer. */
   public static final int PROMOTION_MASK = 0xFF;
 

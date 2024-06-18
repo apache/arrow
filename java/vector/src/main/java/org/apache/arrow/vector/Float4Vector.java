@@ -33,7 +33,8 @@ import org.apache.arrow.vector.util.TransferPair;
  * Float4Vector implements a fixed width vector (4 bytes) of float values which could be null. A
  * validity buffer (bit vector) is maintained to track which elements in the vector are null.
  */
-public final class Float4Vector extends BaseFixedWidthVector implements FloatingPointVector {
+public final class Float4Vector extends BaseFixedWidthVector
+    implements FloatingPointVector, ValueIterableVector<Float> {
   public static final byte TYPE_WIDTH = 4;
 
   /**

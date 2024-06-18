@@ -37,7 +37,8 @@ import org.apache.arrow.vector.validate.ValidateUtil;
  *
  * <p>The offset width of this vector is 8, so the underlying buffer can be larger than 2GB.
  */
-public final class LargeVarCharVector extends BaseLargeVariableWidthVector {
+public final class LargeVarCharVector extends BaseLargeVariableWidthVector
+    implements ValueIterableVector<Text> {
 
   /**
    * Instantiate a LargeVarCharVector. This doesn't allocate any memory for the data in vector.

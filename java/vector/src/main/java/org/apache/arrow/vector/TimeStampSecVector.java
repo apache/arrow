@@ -35,7 +35,8 @@ import org.apache.arrow.vector.util.TransferPair;
  * values which could be null. A validity buffer (bit vector) is maintained to track which elements
  * in the vector are null.
  */
-public final class TimeStampSecVector extends TimeStampVector {
+public final class TimeStampSecVector extends TimeStampVector
+    implements ValueIterableVector<LocalDateTime> {
 
   /**
    * Instantiate a TimeStampSecVector. This doesn't allocate any memory for the data in vector.

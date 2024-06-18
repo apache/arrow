@@ -37,7 +37,8 @@ import org.apache.arrow.vector.validate.ValidateUtil;
  * null. A viewBuffer keeps track of all values in the vector, and an external data buffer is kept
  * to keep longer strings (>12).
  */
-public final class ViewVarCharVector extends BaseVariableWidthViewVector {
+public final class ViewVarCharVector extends BaseVariableWidthViewVector
+    implements ValueIterableVector<Text> {
 
   /**
    * Instantiate a ViewVarCharVector. This doesn't allocate any memory for the data in vector.

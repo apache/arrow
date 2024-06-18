@@ -35,7 +35,8 @@ import org.apache.arrow.vector.util.TransferPair;
  * values which could be null. A validity buffer (bit vector) is maintained to track which elements
  * in the vector are null.
  */
-public final class IntervalDayVector extends BaseFixedWidthVector {
+public final class IntervalDayVector extends BaseFixedWidthVector
+    implements ValueIterableVector<Duration> {
   public static final byte TYPE_WIDTH = 8;
   private static final byte MILLISECOND_OFFSET = 4;
 

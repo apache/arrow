@@ -33,7 +33,8 @@ import org.apache.arrow.vector.util.TransferPair;
  * SmallIntVector implements a fixed width (2 bytes) vector of short values which could be null. A
  * validity buffer (bit vector) is maintained to track which elements in the vector are null.
  */
-public final class SmallIntVector extends BaseFixedWidthVector implements BaseIntVector {
+public final class SmallIntVector extends BaseFixedWidthVector
+    implements BaseIntVector, ValueIterableVector<Short> {
   public static final byte TYPE_WIDTH = 2;
 
   /**

@@ -35,7 +35,8 @@ import org.apache.arrow.vector.util.ValueVectorUtility;
  * UInt8Vector implements a fixed width vector (8 bytes) of integer values which could be null. A
  * validity buffer (bit vector) is maintained to track which elements in the vector are null.
  */
-public final class UInt8Vector extends BaseFixedWidthVector implements BaseIntVector {
+public final class UInt8Vector extends BaseFixedWidthVector
+    implements BaseIntVector, ValueIterableVector<Long> {
 
   /** The maximum 64-bit unsigned long integer. */
   public static final long MAX_UINT8 = 0XFFFFFFFFFFFFFFFFL;

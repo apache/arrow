@@ -37,7 +37,8 @@ import org.apache.arrow.vector.validate.ValidateUtil;
  * FixedSizeBinaryVector implements a fixed width vector of binary values which could be null. A
  * validity buffer (bit vector) is maintained to track which elements in the vector are null.
  */
-public class FixedSizeBinaryVector extends BaseFixedWidthVector {
+public class FixedSizeBinaryVector extends BaseFixedWidthVector
+    implements ValueIterableVector<byte[]> {
   private final int byteWidth;
 
   /**

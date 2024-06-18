@@ -36,6 +36,7 @@ import org.apache.arrow.vector.AddOrGetResult;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.BufferBacked;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.ValueIterableVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.complex.impl.UnionListReader;
@@ -68,7 +69,8 @@ import org.apache.arrow.vector.util.TransferPair;
 /*
  * TODO: consider merging the functionality in `BaseRepeatedValueVector` into this class.
  */
-public class ListViewVector extends BaseRepeatedValueViewVector implements PromotableVector {
+public class ListViewVector extends BaseRepeatedValueViewVector
+    implements PromotableVector, ValueIterableVector<List<?>> {
 
   protected ArrowBuf validityBuffer;
   protected UnionListReader reader;

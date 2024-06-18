@@ -16,6 +16,7 @@
  */
 package org.apache.arrow.dataset.substrait;
 
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -39,11 +40,14 @@ import org.apache.arrow.dataset.scanner.ScanOptions;
 import org.apache.arrow.dataset.scanner.Scanner;
 import org.apache.arrow.dataset.source.Dataset;
 import org.apache.arrow.dataset.source.DatasetFactory;
+import org.apache.arrow.vector.ValueIterableVector;
 import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.Text;
+import org.hamcrest.collection.IsIterableContainingInOrder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -290,13 +294,15 @@ public class TestAceroSubstraitConsumer extends TestDataset {
       int rowcount = 0;
       while (reader.loadNextBatch()) {
         rowcount += reader.getVectorSchemaRoot().getRowCount();
-        assertTrue(reader.getVectorSchemaRoot().getVector("id").toString().equals("[19, 1, 11]"));
-        assertTrue(
-            reader
-                .getVectorSchemaRoot()
-                .getVector("name")
-                .toString()
-                .equals("[value_19, value_1, value_11]"));
+        final ValueIterableVector<Integer> idVector =
+            (ValueIterableVector<Integer>) reader.getVectorSchemaRoot().getVector("id");
+        assertThat(idVector.getValueIterable(), IsIterableContainingInOrder.contains(19, 1, 11));
+        final ValueIterableVector<Text> nameVector =
+            (ValueIterableVector<Text>) reader.getVectorSchemaRoot().getVector("name");
+        assertThat(
+            nameVector.getValueIterable(),
+            IsIterableContainingInOrder.contains(
+                new Text("value_19"), new Text("value_1"), new Text("value_11")));
       }
       assertEquals(3, rowcount);
     }
@@ -443,20 +449,22 @@ public class TestAceroSubstraitConsumer extends TestDataset {
       assertEquals(schema.getFields(), reader.getVectorSchemaRoot().getSchema().getFields());
       int rowcount = 0;
       while (reader.loadNextBatch()) {
-        assertTrue(
-            reader
-                .getVectorSchemaRoot()
-                .getVector("add_two_to_column_a")
-                .toString()
-                .equals("[21, 3, 13, 23, 47]"));
-        assertTrue(
-            reader
-                .getVectorSchemaRoot()
-                .getVector("concat_column_a_and_b")
-                .toString()
-                .equals(
-                    "[value_19 - value_19, value_1 - value_1, value_11 - value_11, "
-                        + "value_21 - value_21, value_45 - value_45]"));
+        final ValueIterableVector<Integer> sumVector =
+            (ValueIterableVector<Integer>)
+                reader.getVectorSchemaRoot().getVector("add_two_to_column_a");
+        assertThat(
+            sumVector.getValueIterable(), IsIterableContainingInOrder.contains(21, 3, 13, 23, 47));
+        final ValueIterableVector<Text> nameVector =
+            (ValueIterableVector<Text>)
+                reader.getVectorSchemaRoot().getVector("concat_column_a_and_b");
+        assertThat(
+            nameVector.getValueIterable(),
+            IsIterableContainingInOrder.contains(
+                new Text("value_19 - value_19"),
+                new Text("value_1 - value_1"),
+                new Text("value_11 - value_11"),
+                new Text("value_21 - value_21"),
+                new Text("value_45 - value_45")));
         rowcount += reader.getVectorSchemaRoot().getRowCount();
       }
       assertEquals(5, rowcount);
@@ -507,12 +515,12 @@ public class TestAceroSubstraitConsumer extends TestDataset {
       assertEquals(schema.getFields(), reader.getVectorSchemaRoot().getSchema().getFields());
       int rowcount = 0;
       while (reader.loadNextBatch()) {
-        assertTrue(
-            reader
-                .getVectorSchemaRoot()
-                .getVector("filter_id_lower_than_20")
-                .toString()
-                .equals("[true, true, true, false, false]"));
+        final ValueIterableVector<Boolean> booleanVector =
+            (ValueIterableVector<Boolean>)
+                reader.getVectorSchemaRoot().getVector("filter_id_lower_than_20");
+        assertThat(
+            booleanVector.getValueIterable(),
+            IsIterableContainingInOrder.contains(true, true, true, false, false));
         rowcount += reader.getVectorSchemaRoot().getRowCount();
       }
       assertEquals(5, rowcount);
@@ -618,18 +626,19 @@ public class TestAceroSubstraitConsumer extends TestDataset {
       assertEquals(schema.getFields(), reader.getVectorSchemaRoot().getSchema().getFields());
       int rowcount = 0;
       while (reader.loadNextBatch()) {
-        assertTrue(
-            reader
-                .getVectorSchemaRoot()
-                .getVector("add_two_to_column_a")
-                .toString()
-                .equals("[21, 3, 13]"));
-        assertTrue(
-            reader
-                .getVectorSchemaRoot()
-                .getVector("concat_column_a_and_b")
-                .toString()
-                .equals("[value_19 - value_19, value_1 - value_1, value_11 - value_11]"));
+        final ValueIterableVector<Integer> sumVector =
+            (ValueIterableVector<Integer>)
+                reader.getVectorSchemaRoot().getVector("add_two_to_column_a");
+        assertThat(sumVector.getValueIterable(), IsIterableContainingInOrder.contains(21, 3, 13));
+        final ValueIterableVector<Text> nameVector =
+            (ValueIterableVector<Text>)
+                reader.getVectorSchemaRoot().getVector("conccat_column_a_and_b");
+        assertThat(
+            nameVector.getValueIterable(),
+            IsIterableContainingInOrder.contains(
+                new Text("value_19 - value_19"),
+                new Text("value_1 - value_1"),
+                new Text("value_11 - value_11")));
         rowcount += reader.getVectorSchemaRoot().getRowCount();
       }
       assertEquals(3, rowcount);

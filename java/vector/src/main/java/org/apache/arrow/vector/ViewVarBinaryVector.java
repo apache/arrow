@@ -33,7 +33,8 @@ import org.apache.arrow.vector.util.TransferPair;
  * ViewVarBinaryVector implements a variable width view vector of binary values which could be NULL.
  * A validity buffer (bit vector) is maintained to track which elements in the vector are null.
  */
-public final class ViewVarBinaryVector extends BaseVariableWidthViewVector {
+public final class ViewVarBinaryVector extends BaseVariableWidthViewVector
+    implements ValueIterableVector<byte[]> {
 
   /**
    * Instantiate a ViewVarBinaryVector. This doesn't allocate any memory for the data in vector.

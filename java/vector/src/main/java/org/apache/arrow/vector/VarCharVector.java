@@ -35,7 +35,8 @@ import org.apache.arrow.vector.validate.ValidateUtil;
  * VarCharVector implements a variable width vector of VARCHAR values which could be NULL. A
  * validity buffer (bit vector) is maintained to track which elements in the vector are null.
  */
-public final class VarCharVector extends BaseVariableWidthVector {
+public final class VarCharVector extends BaseVariableWidthVector
+    implements ValueIterableVector<Text> {
 
   /**
    * Instantiate a VarCharVector. This doesn't allocate any memory for the data in vector.

@@ -37,6 +37,7 @@ import org.apache.arrow.vector.AddOrGetResult;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.BufferBacked;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.ValueIterableVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.compare.VectorVisitor;
@@ -66,7 +67,8 @@ import org.apache.arrow.vector.util.TransferPair;
  *
  * The latter two are managed by its superclass.
  */
-public class ListVector extends BaseRepeatedValueVector implements PromotableVector {
+public class ListVector extends BaseRepeatedValueVector
+    implements PromotableVector, ValueIterableVector<List<?>> {
 
   public static ListVector empty(String name, BufferAllocator allocator) {
     return new ListVector(name, allocator, FieldType.nullable(ArrowType.List.INSTANCE), null);

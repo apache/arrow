@@ -34,7 +34,8 @@ import org.apache.arrow.vector.util.TransferPair;
  * Float2Vector implements a fixed width (2 bytes) vector of short values which could be null. A
  * validity buffer (bit vector) is maintained to track which elements in the vector are null.
  */
-public final class Float2Vector extends BaseFixedWidthVector implements FloatingPointVector {
+public final class Float2Vector extends BaseFixedWidthVector
+    implements FloatingPointVector, ValueIterableVector<Short> {
   public static final byte TYPE_WIDTH = 2;
 
   /**

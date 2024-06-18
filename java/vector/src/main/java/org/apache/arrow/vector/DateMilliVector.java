@@ -35,7 +35,8 @@ import org.apache.arrow.vector.util.TransferPair;
  * DateMilliVector implements a fixed width vector (8 bytes) of date values which could be null. A
  * validity buffer (bit vector) is maintained to track which elements in the vector are null.
  */
-public final class DateMilliVector extends BaseFixedWidthVector {
+public final class DateMilliVector extends BaseFixedWidthVector
+    implements ValueIterableVector<LocalDateTime> {
   public static final byte TYPE_WIDTH = 8;
 
   /**
