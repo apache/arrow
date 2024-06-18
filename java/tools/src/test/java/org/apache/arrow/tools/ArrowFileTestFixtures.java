@@ -24,7 +24,9 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ViewVarBinaryVector;
 import org.apache.arrow.vector.ViewVarCharVector;
@@ -81,11 +83,17 @@ public class ArrowFileTestFixtures {
     StructWriter rootWriter = writer.rootAsStruct();
     ViewVarCharWriter viewVarCharWriter = rootWriter.viewVarChar("viewVarChar");
     ViewVarBinaryWriter viewVarBinaryWriter = rootWriter.viewVarBinary("viewVarBinary");
+    IntWriter intWriter = rootWriter.integer("int");
+    BigIntWriter bigIntWriter = rootWriter.bigInt("bigInt");
     for (int i = 0; i < count; i++) {
       viewVarCharWriter.setPosition(i);
       viewVarCharWriter.writeViewVarChar(generateString(i));
       viewVarBinaryWriter.setPosition(i);
       viewVarBinaryWriter.writeViewVarBinary(generateBytes(i));
+      intWriter.setPosition(i);
+      intWriter.writeInt(i);
+      bigIntWriter.setPosition(i);
+      bigIntWriter.writeBigInt(i);
     }
     writer.setValueCount(count);
   }
@@ -137,9 +145,13 @@ public class ArrowFileTestFixtures {
     assertEquals(count, root.getRowCount());
     ViewVarCharVector viewVarCharVector = (ViewVarCharVector) root.getVector("viewVarChar");
     ViewVarBinaryVector viewVarBinaryVector = (ViewVarBinaryVector) root.getVector("viewVarBinary");
+    IntVector intVector = (IntVector) root.getVector("int");
+    BigIntVector bigIntVector = (BigIntVector) root.getVector("bigInt");
     for (int i = 0; i < count; i++) {
       assertEquals(new Text(generateString(i)), viewVarCharVector.getObject(i));
       assertArrayEquals(generateBytes(i), viewVarBinaryVector.get(i));
+      assertEquals(i, intVector.getObject(i));
+      assertEquals(Long.valueOf(i), bigIntVector.getObject(i));
     }
   }
 
