@@ -119,6 +119,56 @@ public class Time64ArrayBuilder: ArrowArrayBuilder<FixedBufferBuilder<Time64>, T
 }
 
 public class ArrowArrayBuilders {
+    public static func loadBuilder( // swiftlint:disable:this cyclomatic_complexity
+        _ builderType: Any.Type) throws -> ArrowArrayHolderBuilder {
+        if builderType == Int8.self || builderType == Int8?.self {
+            return try ArrowArrayBuilders.loadNumberArrayBuilder() as NumberArrayBuilder<Int8>
+        } else if builderType == Int16.self || builderType == Int16?.self {
+            return try ArrowArrayBuilders.loadNumberArrayBuilder() as NumberArrayBuilder<Int16>
+        } else if builderType == Int32.self || builderType == Int32?.self {
+            return try ArrowArrayBuilders.loadNumberArrayBuilder() as NumberArrayBuilder<Int32>
+        } else if builderType == Int64.self || builderType == Int64?.self {
+            return try ArrowArrayBuilders.loadNumberArrayBuilder() as NumberArrayBuilder<Int64>
+        } else if builderType == Float.self || builderType == Float?.self {
+            return try ArrowArrayBuilders.loadNumberArrayBuilder() as NumberArrayBuilder<Float>
+        } else if builderType == UInt8.self || builderType == UInt8?.self {
+            return try ArrowArrayBuilders.loadNumberArrayBuilder() as NumberArrayBuilder<UInt8>
+        } else if builderType == UInt16.self || builderType == UInt16?.self {
+            return try ArrowArrayBuilders.loadNumberArrayBuilder() as NumberArrayBuilder<UInt16>
+        } else if builderType == UInt32.self || builderType == UInt32?.self {
+            return try ArrowArrayBuilders.loadNumberArrayBuilder() as NumberArrayBuilder<UInt32>
+        } else if builderType == UInt64.self || builderType == UInt64?.self {
+            return try ArrowArrayBuilders.loadNumberArrayBuilder() as NumberArrayBuilder<UInt64>
+        } else if builderType == Double.self || builderType == Double?.self {
+            return try ArrowArrayBuilders.loadNumberArrayBuilder() as NumberArrayBuilder<Double>
+        } else if builderType == String.self || builderType == String?.self {
+            return try ArrowArrayBuilders.loadStringArrayBuilder()
+        } else if builderType == Bool.self || builderType == Bool?.self {
+            return try ArrowArrayBuilders.loadBoolArrayBuilder()
+        } else if builderType == Date.self || builderType == Date?.self {
+            return try ArrowArrayBuilders.loadDate64ArrayBuilder()
+        } else {
+            throw ArrowError.invalid("Invalid type for builder: \(builderType)")
+        }
+    }
+
+    public static func isValidBuilderType<T>(_: T) -> Bool {
+        let type = T.self
+        return type == Int8?.self || type == Int16?.self ||
+            type == Int32?.self || type == Int64?.self ||
+            type == UInt8?.self || type == UInt16?.self ||
+            type == UInt32?.self || type == UInt64?.self ||
+            type == String?.self || type == Double?.self ||
+            type == Float?.self || type == Date?.self ||
+            type == Bool?.self || type == Bool.self ||
+            type == Int8.self || type == Int16.self ||
+            type == Int32.self || type == Int64.self ||
+            type == UInt8.self || type == UInt16.self ||
+            type == UInt32.self || type == UInt64.self ||
+            type == String.self || type == Double.self ||
+            type == Float.self || type == Date.self
+    }
+
     public static func loadNumberArrayBuilder<T>() throws -> NumberArrayBuilder<T> {
         let type = T.self
         if type == Int8.self {
