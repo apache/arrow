@@ -38,7 +38,7 @@ classdef RecordBatchFileReader < matlab.mixin.Scalar
         end
 
         function numRecordBatches = get.NumRecordBatches(obj)
-            numRecordBatches = obj.Proxy.NumRecordBatches();
+            numRecordBatches = obj.Proxy.getNumRecordBatches();
         end
 
         function schema = get.Schema(obj)
