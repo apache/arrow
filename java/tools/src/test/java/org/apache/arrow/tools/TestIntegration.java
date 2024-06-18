@@ -351,7 +351,7 @@ public class TestIntegration {
   @Test
   public void testValidateVariableWidthView() throws Exception {
     final int valueCount = 256;
-    final int multiplier = 2;
+    final int multiplier = 6;
 
     for (int i = 1; i < multiplier; i++) {
       File testInFile = new File(testFolder, "testIn.arrow");
