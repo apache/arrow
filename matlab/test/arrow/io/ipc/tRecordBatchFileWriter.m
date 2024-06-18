@@ -85,8 +85,9 @@ classdef tRecordBatchFileWriter < matlab.unittest.TestCase
             folder = testCase.setupTemporaryFolder();
             fname = fullfile(folder, "data.arrow");
             schema = arrow.schema(arrow.field("A", arrow.float64()));
-            arrowRecordBatch = arrow.recordBatch(table([1 2 3 4]', VariableNames="B"));
             writer = arrow.io.ipc.RecordBatchFileWriter(fname, schema);
+
+            arrowRecordBatch = arrow.recordBatch(table([1 2 3 4]', VariableNames="B"));
             fcn = @() writer.writeRecordBatch(arrowRecordBatch);
             testCase.verifyError(fcn, "arrow:io:ipc:FailedToWriteRecordBatch");
         end
@@ -95,10 +96,72 @@ classdef tRecordBatchFileWriter < matlab.unittest.TestCase
             folder = testCase.setupTemporaryFolder();
             fname = fullfile(folder, "data.arrow");
             schema = arrow.schema(arrow.field("A", arrow.float64()));
-            arrowTable = arrow.table(table([1 2 3 4]', VariableNames="B"));
             writer = arrow.io.ipc.RecordBatchFileWriter(fname, schema);
+
+            arrowTable = arrow.table(table([1 2 3 4]', VariableNames="B"));
             fcn = @() writer.writeTable(arrowTable);
             testCase.verifyError(fcn, "arrow:io:ipc:FailedToWriteRecordBatch");
+         end
+
+         function writeInvalidSchema(testCase)
+            folder = testCase.setupTemporaryFolder();
+            fname = fullfile(folder, "data.arrow");
+            schema = arrow.schema(arrow.field("A", arrow.float64()));
+            writer = arrow.io.ipc.RecordBatchFileWriter(fname, schema);
+
+            arrowTable = arrow.table(table([1 2 3 4]', VariableNames="B"));
+            fcn = @() writer.write(arrowTable);
+            testCase.verifyError(fcn, "arrow:io:ipc:FailedToWriteRecordBatch");
+
+            arrowRecordBatch = arrow.recordBatch(table([1 2 3 4]', VariableNames="B"));
+            fcn = @() writer.write(arrowRecordBatch);
+            testCase.verifyError(fcn, "arrow:io:ipc:FailedToWriteRecordBatch");
+         end
+
+         function writeRecordBatchSmoke(testCase)
+            folder = testCase.setupTemporaryFolder();
+            fname = fullfile(folder, "data.arrow");
+            schema = arrow.schema(arrow.field("A", arrow.float64()));
+            writer = arrow.io.ipc.RecordBatchFileWriter(fname, schema);
+            arrowRecordBatch = arrow.recordBatch(table([1 2 3 4]', VariableNames="A"));
+
+            fcn = @() writer.writeRecordBatch(arrowRecordBatch);
+            testCase.verifyWarningFree(fcn);
+         end
+
+        function writeTableBatchSmoke(testCase)
+            folder = testCase.setupTemporaryFolder();
+            fname = fullfile(folder, "data.arrow");
+            schema = arrow.schema(arrow.field("A", arrow.float64()));
+            writer = arrow.io.ipc.RecordBatchFileWriter(fname, schema);
+            arrowTable = arrow.table(table([1 2 3 4]', VariableNames="A"));
+
+            fcn = @() writer.writeTable(arrowTable);
+            testCase.verifyWarningFree(fcn);
+        end
+
+        function writeSmoke(testCase)
+            folder = testCase.setupTemporaryFolder();
+            fname = fullfile(folder, "data.arrow");
+            schema = arrow.schema(arrow.field("A", arrow.float64()));
+            writer = arrow.io.ipc.RecordBatchFileWriter(fname, schema);
+            arrowRecordBatch = arrow.recordBatch(table([1 2 3 4]', VariableNames="A"));
+
+            fcn = @() writer.write(arrowRecordBatch);
+            testCase.verifyWarningFree(fcn);
+
+            arrowTable = arrow.table(table([1 2 3 4]', VariableNames="A"));
+            fcn = @() writer.write(arrowTable);
+            testCase.verifyWarningFree(fcn);
+        end
+
+        function closeSmoke(testCase)
+            folder = testCase.setupTemporaryFolder();
+            fname = fullfile(folder, "data.arrow");
+            schema = arrow.schema(arrow.field("A", arrow.float64()));
+            writer = arrow.io.ipc.RecordBatchFileWriter(fname, schema);
+            fcn = @() writer.close();
+            testCase.verifyWarningFree(fcn);
         end
     end
 end
