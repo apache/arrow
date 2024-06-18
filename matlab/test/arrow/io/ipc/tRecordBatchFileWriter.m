@@ -160,8 +160,11 @@ classdef tRecordBatchFileWriter < matlab.unittest.TestCase
             fname = fullfile(folder, "data.arrow");
             schema = arrow.schema(arrow.field("A", arrow.float64()));
             writer = arrow.io.ipc.RecordBatchFileWriter(fname, schema);
+            arrowTable = arrow.table(table([1 2 3 4]', VariableNames="A"));
+            writer.write(arrowTable);
             fcn = @() writer.close();
             testCase.verifyWarningFree(fcn);
+            writer.close();
         end
     end
 end
