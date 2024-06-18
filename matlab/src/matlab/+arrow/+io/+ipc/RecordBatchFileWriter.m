@@ -46,7 +46,7 @@ classdef RecordBatchFileWriter < matlab.mixin.Scalar
         function writeTable(obj, arrowTable)
             arguments
                 obj(1, 1) arrow.io.ipc.RecordBatchFileWriter
-                arrowTable(1, 1) arrow.tabular.RecordBatch
+                arrowTable(1, 1) arrow.tabular.Table
             end
 
             args = struct(TableProxyID=arrowTable.Proxy.ID);
