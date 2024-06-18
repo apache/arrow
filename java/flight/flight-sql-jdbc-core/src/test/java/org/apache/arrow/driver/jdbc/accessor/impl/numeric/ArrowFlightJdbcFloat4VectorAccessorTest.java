@@ -189,11 +189,7 @@ public class ArrowFlightJdbcFloat4VectorAccessorTest {
         (accessor, currentRow) -> {
           float value = accessor.getFloat();
           if (Float.isInfinite(value) || Float.isNaN(value)) {
-            assertThrows(
-                SQLException.class,
-                () -> {
-                  throw new SQLException();
-                });
+            assertThrows(SQLException.class, accessor::getBigDecimal);
           } else {
             assertThat(accessor.getBigDecimal(), is(BigDecimal.valueOf(value)));
           }
@@ -207,11 +203,7 @@ public class ArrowFlightJdbcFloat4VectorAccessorTest {
         (accessor, currentRow) -> {
           float value = accessor.getFloat();
           if (Float.isInfinite(value) || Float.isNaN(value)) {
-            assertThrows(
-                SQLException.class,
-                () -> {
-                  throw new SQLException();
-                });
+            assertThrows(SQLException.class, () -> accessor.getBigDecimal(9));
           } else {
             assertThat(
                 accessor.getBigDecimal(9),

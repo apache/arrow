@@ -142,11 +142,7 @@ public class ArrowFlightJdbcFloat8VectorAccessorTest {
         (accessor, currentRow) -> {
           double value = accessor.getDouble();
           if (Double.isInfinite(value) || Double.isNaN(value)) {
-            assertThrows(
-                SQLException.class,
-                () -> {
-                  throw new SQLException();
-                });
+            assertThrows(SQLException.class, accessor::getBigDecimal);
           } else {
             assertThat(accessor.getBigDecimal(), is(BigDecimal.valueOf(value)));
           }
@@ -186,11 +182,7 @@ public class ArrowFlightJdbcFloat8VectorAccessorTest {
         (accessor, currentRow) -> {
           double value = accessor.getDouble();
           if (Double.isInfinite(value) || Double.isNaN(value)) {
-            assertThrows(
-                SQLException.class,
-                () -> {
-                  throw new SQLException();
-                });
+            assertThrows(SQLException.class, () -> accessor.getBigDecimal(9));
           } else {
             assertThat(
                 accessor.getBigDecimal(9),
